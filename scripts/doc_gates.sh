@@ -19,7 +19,10 @@
 #   scripts/doc_gates.sh figures    # retracted phrasing in figure GENERATORS (rendered text is ungreppable)
 #   scripts/doc_gates.sh liveness   # frozen present-tense run status; runs named after unreached budgets
 #   scripts/doc_gates.sh banner     # the TR banner is byte-identical across every report + index-aligned
-#   scripts/doc_gates.sh appendonly # documentation/CORRECTIONS.md has lost no committed line
+#   scripts/doc_gates.sh appendonly # GATE 10a + 10b: CORRECTIONS.md has lost no committed line
+#   scripts/doc_gates.sh appendonly-head    # GATE 10a ALONE — vs HEAD (self-test target)
+#   scripts/doc_gates.sh appendonly-history # GATE 10b ALONE — vs every historical/published
+#                                   # version, not just HEAD (self-test target)
 #   scripts/doc_gates.sh ledger     # every RETRACTED_PHRASES.tsv row is recorded in CORRECTIONS.md
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
 #   scripts/doc_gates.sh all        # run all ten cheap gates (1-7, 9, 10, 11); `generated` is separate by cost
@@ -879,7 +882,10 @@ open('reports/README.md','w').write(s.replace(a,'interpretation are sound.',1))"
   # The deleted line is chosen from the middle of the file rather than the end, so the
   # assertion cannot be satisfied by a "file got shorter" check that would miss a
   # reword-in-place — the defect this gate actually exists for.
-  assert_fires "GATE 10 append-only (committed line deleted)" documentation/CORRECTIONS.md appendonly \
+  # DISPATCH (2026-08-02, item A7): `appendonly-head`, not `appendonly`. Since 10b landed,
+  # `appendonly` is two gates behind one exit code and this assertion would be satisfiable
+  # by either — the same untested-test shape A3 fixed for GATE 4b.
+  assert_fires "GATE 10a append-only vs HEAD (committed line deleted)" documentation/CORRECTIONS.md appendonly-head \
 "L=open('documentation/CORRECTIONS.md').read().split(chr(10))
 assert len(L) > 60, 'ledger too short to mutate meaningfully'
 del L[len(L)//2]
@@ -899,6 +905,85 @@ open('documentation/CORRECTIONS.md','w').write(chr(10).join(L))"
          fi
          git checkout -- . 2>/dev/null; } \
     || echo "  [SKIP] GATE 10 negative control — could not append"
+
+  # =========================================================================
+  # GATE 10b — THREE assertions (added 2026-08-02, item A7), because they prove three
+  # different things and the first one alone would have passed on the BROKEN gate.
+  #
+  # (i) runs in the real tree and proves the DETECTOR works. It is dispatched to
+  #     `appendonly-history`, which is 10b alone — the A3 lesson applied here, since a
+  #     deleted line fires 10a too and a shared dispatch name would let the assertion be
+  #     satisfied by the half that was never in question.
+  #
+  # (ii) and (iii) are the DIFFERENTIATORS, and they cannot be staged in this repo: the
+  #     defect A7 reports only exists once the removal has been COMMITTED (ii) or the
+  #     history REWRITTEN (iii), and the self-test may do neither to the real tree. They
+  #     are staged in throwaway repos built by `cp "$0"` — so they exercise THIS script,
+  #     not a re-implementation of it, which is the difference between a fire-proof and a
+  #     clever proxy.
+  assert_fires "GATE 10b vs history (a line of the OLDEST committed version deleted)" \
+    documentation/CORRECTIONS.md appendonly-history \
+"import subprocess
+f='documentation/CORRECTIONS.md'
+revs=subprocess.run(['git','rev-list','HEAD','--',f],capture_output=True,text=True).stdout.split()
+assert revs, 'the ledger has no history to test against'
+old=subprocess.run(['git','show',revs[-1]+':'+f],capture_output=True,text=True).stdout.split(chr(10))
+cur=open(f,encoding='utf-8').read().split(chr(10))
+cand=[l for l in old if l.strip() and l in cur]
+assert cand, 'no line of the oldest committed version survives to delete'
+cur.remove(cand[len(cand)//2])
+open(f,'w',encoding='utf-8').write(chr(10).join(cur))"
+
+  # scratch_appendonly <label> <setup-shell-run-inside-the-scratch-repo>
+  #   Asserts BOTH verdicts at once: 10a must be GREEN (that is the blindness A7 reports)
+  #   and 10b must be RED (that is the fix). Asserting only 10b would still pass in a
+  #   world where 10a had caught it — and "10a does not catch it" is the whole claim.
+  scratch_appendonly() {
+    local label="$1" setup="$2" d rcA rcB
+    d=$(mktemp -d) || { echo "  [SKIP] $label — no tmpdir"; return; }
+    ( set -e
+      mkdir -p "$d/scripts" "$d/documentation"
+      cp "$0" "$d/scripts/doc_gates.sh"
+      cd "$d"
+      export GIT_AUTHOR_NAME=selftest GIT_AUTHOR_EMAIL=selftest@invalid
+      export GIT_COMMITTER_NAME=selftest GIT_COMMITTER_EMAIL=selftest@invalid
+      git init -q .
+      git symbolic-ref HEAD refs/heads/main
+      printf 'CX-1 first entry.\nCX-2 second entry.\nCX-3 third entry.\n' \
+        > documentation/CORRECTIONS.md
+      git add -A && git commit -qm 'ledger: three entries'
+      eval "$setup" ) >/dev/null 2>&1 \
+      || { echo "  [SKIP] $label — scratch setup failed (its own premise did not hold)"
+           rm -rf "$d"; return; }
+    ( cd "$d" && bash scripts/doc_gates.sh appendonly-head    >/dev/null 2>&1 ); rcA=$?
+    ( cd "$d" && bash scripts/doc_gates.sh appendonly-history >/dev/null 2>&1 ); rcB=$?
+    rm -rf "$d"
+    if [ "$rcA" -eq 0 ] && [ "$rcB" -ne 0 ]; then
+      echo "  [ok]   $label — 10a green on it (the blindness), 10b fires (the fix)"
+    else
+      echo "  [FAIL] $label — expected 10a rc=0 and 10b rc!=0; got 10a rc=$rcA, 10b rc=$rcB"
+      PASS=1
+    fi
+  }
+
+  # (ii) COMMIT THE REMOVAL — no unusual git required, which is why it is the likelier of
+  #      the two. After the second commit the working copy and HEAD agree perfectly.
+  scratch_appendonly "GATE 10b vs a COMMITTED removal (working copy == HEAD)" \
+"printf 'CX-1 first entry.\nCX-3 third entry.\n' > documentation/CORRECTIONS.md
+git add -A && git commit -qm 'tidy: drop CX-2'"
+
+  # (iii) HISTORY REWRITE. This is the case an ancestor-walk alone CANNOT close, and the
+  #       setup asserts that premise rather than assuming it: if the pre-rewrite commit
+  #       were still an ancestor of HEAD the walk would see it, the scenario would be
+  #       testing nothing, and the setup exits 3 so the case reports [SKIP] instead of a
+  #       false [ok]. With the premise held, refs/remotes/origin/main is the only baseline
+  #       still holding the dropped line.
+  scratch_appendonly "GATE 10b vs an AMEND that drops a PUBLISHED line" \
+"git update-ref refs/remotes/origin/main HEAD
+orig=\$(git rev-parse HEAD)
+printf 'CX-1 first entry.\nCX-3 third entry.\n' > documentation/CORRECTIONS.md
+git add -A && git commit -q --amend -m 'ledger: three entries'
+if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
 
   # GATE 11: a registry row with no ledger entry must fire it. Injected as a NEW registry
   # row rather than by deleting a ledger entry, because deletion would fire GATE 10 and
@@ -1025,8 +1110,8 @@ os.remove('example/report.pdf')"
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
   # tests for, so the list is enumerated against the assert_fires calls above:
-  #   covered: 1 (output), 3, 4, 4b, 5 (output), 6, 7 x2, 8 x4, 9 x2, 10 (+negative
-  #            control), 11
+  #   covered: 1 (output), 3, 4, 4b, 5 (output), 6, 7 x2, 8 x4, 9 x2, 10a (+negative
+  #            control), 10b x3, 11
   #   NOT covered: 2 -- would mutate solve.py, a costlier revert than the assurance is
   #                     worth; it has FIRED in anger (13 undocumented flags, 2026-07/08).
   # The old note said GATE 8 was excluded because ~90s regeneration "exceeds the
@@ -1266,8 +1351,8 @@ PY
 # NEGATIVE CONTROL: the self-test asserts BOTH halves — that a deleted line fires it and
 # that a pure append does NOT. A gate with no negative control might simply always fail,
 # and "it went red" would then be evidence of nothing.
-gate_appendonly() {
-  echo "== GATE 10: CORRECTIONS.md is append-only =="
+gate_appendonly_head() {
+  echo "== GATE 10a: CORRECTIONS.md is append-only vs HEAD =="
   local f="documentation/CORRECTIONS.md"
   if [ ! -f "$f" ]; then echo "  [skip] no $f"; return 0; fi
   if ! git cat-file -e "HEAD:$f" 2>/dev/null; then
@@ -1290,6 +1375,90 @@ gate_appendonly() {
   echo "         If an entry is wrong, APPEND an entry saying so. Both stay."
   rm -f "$tmp"
   return 1
+}
+
+# ---------------------------------------------------------------------------
+# GATE 10b — the SAME invariant against every version that ever existed, not just HEAD.
+#
+# WHY (2026-08-02, item A7). 10a's baseline is `git show HEAD:<f>`, which makes
+# "append-only" mean "append-only since the last commit". Two ordinary operations
+# reset it:
+#
+#   (1) COMMIT THE REMOVAL. Delete an entry, commit. 10a compared against the
+#       pre-commit HEAD and fired — but on the very next run HEAD *is* the truncated
+#       version, the working copy matches it, and the gate returns to [ok] forever.
+#       The ledger is permanently shorter and the gate attests that it is intact.
+#       This is the likelier of the two; it needs no unusual git at all.
+#   (2) REWRITE THE HISTORY. amend / rebase / squash moves the baseline along with
+#       the content it dropped.
+#
+# WHAT THIS HALF CHECKS: every non-blank line of every baseline version must still be
+# present in the working copy, counting multiplicity. Baselines are (i) every commit
+# reachable from HEAD that touched the file, and (ii) every remote-tracking ref's
+# version of it.
+#
+# WHY (ii) IS NOT REDUNDANT, and it is the half that answers case (2): after an amend
+# or a rebase the pre-rewrite commit is NO LONGER AN ANCESTOR OF HEAD, so walking
+# `git rev-list HEAD` cannot see it — a walk alone would close case (1) and leave
+# case (2) exactly as open as before. `refs/remotes/*` is not moved by a local
+# rewrite, so anything already PUBLISHED stays a baseline whatever happens to the
+# local history.
+#
+# WHAT THIS CANNOT SEE, stated rather than implied:
+#   - a line committed locally and then amended away BEFORE it was ever pushed. It is
+#     unreachable from HEAD and was never on a remote, so no baseline holds it. The
+#     reflog does, but the reflog is local, expires, and is empty in a fresh clone —
+#     it is not an invariant anything can be gated on.
+#   - ORDER and BLANK LINES. This half is a multiset containment check, so a
+#     re-ordering passes it. 10a is the order-sensitive half (diff is an LCS); the two
+#     are complementary and both run.
+#
+# COST (stated as a formula first, per the box-safety rule): B distinct blob versions
+# x L lines, where B = commits-touching-the-file + remote-tracking-refs. Measured
+# 2026-08-02: B = 5, L = 525.
+gate_appendonly_history() {
+  echo "== GATE 10b: CORRECTIONS.md has lost no line from ANY committed or published version =="
+  local f="documentation/CORRECTIONS.md"
+  if [ ! -f "$f" ]; then echo "  [skip] no $f"; return 0; fi
+  local cur tmp bad=0 n=0 blob src seen=""
+  cur=$(mktemp) || return 1
+  tmp=$(mktemp) || { rm -f "$cur"; return 1; }
+  grep -v '^[[:space:]]*$' "$f" | sort > "$cur"
+  # Baselines, deduplicated by BLOB id: a commit that did not change the file, and a
+  # remote ref pointing at a commit already walked, contribute nothing.
+  for src in $( { git rev-list HEAD -- "$f" 2>/dev/null
+                  git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null; } ); do
+    blob=$(git rev-parse --quiet --verify "$src:$f" 2>/dev/null) || continue
+    [ -n "$blob" ] || continue
+    case " $seen " in *" $blob "*) continue;; esac
+    seen="$seen $blob"
+    n=$((n+1))
+    git cat-file -p "$blob" 2>/dev/null | grep -v '^[[:space:]]*$' | sort > "$tmp"
+    local lost
+    lost=$(comm -23 "$tmp" "$cur" | wc -l)
+    if [ "${lost:-0}" -ne 0 ]; then
+      echo "  [FAIL] $lost line(s) present in $src ($blob) are absent from the working copy."
+      echo "         That version is committed or published; append-only means it can never lose a line."
+      comm -23 "$tmp" "$cur" | head -5 | cut -c1-140 | sed 's/^/           /'
+      echo "         If an entry is wrong, APPEND an entry saying so. Both stay."
+      bad=1
+    fi
+  done
+  if [ "$n" -eq 0 ]; then
+    echo "  [ok] $f has no committed or published version yet — no baseline to lose a line from"
+  elif [ "$bad" -eq 0 ]; then
+    echo "  [ok] every line of all $n distinct historical/published version(s) survives in the working copy"
+  fi
+  rm -f "$cur" "$tmp"
+  return $bad
+}
+
+gate_appendonly() {
+  local rc=0
+  gate_appendonly_head    || rc=1
+  echo
+  gate_appendonly_history || rc=1
+  return $rc
 }
 
 # ---------------------------------------------------------------------------
@@ -1346,6 +1515,8 @@ case "$MODE" in
   banner)  gate_banner   || RC=1 ;;
   generated) gate_generated || RC=1 ;;
   appendonly) gate_appendonly || RC=1 ;;
+  appendonly-head)    gate_appendonly_head    || RC=1 ;;
+  appendonly-history) gate_appendonly_history || RC=1 ;;
   ledger)  gate_ledger  || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -1354,7 +1525,7 @@ case "$MODE" in
            echo; gate_banner || RC=1
            echo; gate_appendonly || RC=1
            echo; gate_ledger || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|links|secrefs|status|figures|liveness|banner|appendonly|ledger|generated|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-history|ledger|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -1367,7 +1538,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7, 9, 10, 11. Gates 1 and 5 are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11. Gates 1 and 5 are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ]; then
