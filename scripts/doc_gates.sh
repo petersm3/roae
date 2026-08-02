@@ -3708,6 +3708,33 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
     echo "  [FAIL] GATE 17 LEG 5 — could not inject; the assertion did NOT run."; PASS=1
   fi
 
+  # LEG 6 — PHASE-4 ON THIS UNIT'S OWN BATCH, and it is here because the first draft failed
+  # it. Shortening BOARDS to a single path left `len(regions) != len(BOARDS)` satisfied, so
+  # the gate printed "present on 1 board(s)" and exited 0 with the report-vs-documentation
+  # comparison switched off entirely. A count nobody is required to read is not a check. The
+  # mutation removes the documentation copy from the list and the gate must REFUSE.
+  _G17_COPY=$(git rev-parse --git-dir)/doc_gates_g17_copy.sh
+  if grep -v '^    "documentation/LITERATURE_RULES_POPULATION_TESTS.md",$' \
+       scripts/doc_gates.sh > "$_G17_COPY" \
+     && ! grep -qF '"documentation/LITERATURE_RULES_POPULATION_TESTS.md",' "$_G17_COPY"; then
+    G17OUT=$(bash "$_G17_COPY" scoreboard 2>&1); G17RC=$?
+    if [ "$G17RC" -ne 0 ] \
+       && printf '%s' "$G17OUT" | grep -qF 'the board list holds 1 file(s)'; then
+      echo "  [ok]   GATE 17 LEG 6: one of the two published boards dropped from the list is a FAIL, not a smaller count"
+    else
+      echo "  [FAIL] GATE 17 LEG 6 — the gate ran against ONE board and reported success"
+      echo "         (rc=$G17RC). The report's copy of the table and the documentation's could"
+      echo "         then diverge without anything noticing."
+      printf '%s\n' "$G17OUT" | sed 's/^/           > /' | head -4
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 17 LEG 6 — could not build the mutated copy (the BOARDS entry anchor"
+    echo "         moved), so the assertion did NOT run."
+    PASS=1
+  fi
+  rm -f "$_G17_COPY"
+
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
@@ -3728,6 +3755,8 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            the moved-anchor vacuity guard, and a NEW registry rule proving the id list is
   #            derived from solve.py rather than transcribed) + 1 NEGATIVE control that puts a
   #            verdict word OUTSIDE the close anchor and requires the counts not to move
+  #            + 1 PHASE-4 leg (one of the two published boards dropped from the list must be
+  #            a FAIL, not a smaller count)
   #   plus the MISSING-INPUT class (item A1, 2026-08-02): 2 x2, 3, 3b, 6 x2, 10a, 10b,
   #            11 x2, 12, and the corpus preflight x1 -- 13 assertions, all asserting WHY.
 #            (GATE 6 now has THREE A1 legs: its registry, a deleted generator, and the
@@ -5065,6 +5094,18 @@ BOARDS = [
     "reports/TR1_EIGHT_CENTURIES_MEASURED.md",
     "documentation/LITERATURE_RULES_POPULATION_TESTS.md",
 ]
+# PHASE-4 ON THIS GATE'S OWN BATCH. Shortening BOARDS to one path was a green run with half
+# the check switched off: `len(regions) != len(BOARDS)` still held, the summary printed
+# "present on 1 board(s)", and the second published copy silently stopped being compared. The
+# count was there to read and nothing required it to be two. This is the same defect the
+# suite already recorded once — GATE 16's "one preflight going quiet is a FAIL, not a smaller
+# count" — so it gets the same answer rather than a note.
+if len(BOARDS) < 2:
+    print("  [FAIL] the board list holds %d file(s); leg A exists to compare the REPORT's copy"
+          " of the table against the DOCUMENTATION's" % len(BOARDS))
+    print("         A single board cannot disagree with anything. Restore the second path.")
+    sys.exit(1)
+
 OPEN_ANCHOR = "Full table (fraction of canonical mass"
 # The board's FIRST entry (rs1) does not begin a "·"-separated chunk — it follows the
 # table's introductory clause on the same run of prose. MEASURED, not anticipated: the
