@@ -320,10 +320,35 @@ gate_cli() {
     fi
     grep -oE -- '--[a-z0-9][a-z0-9_-]*' "$doc" | sort -u > "$df"
     miss=$(comm -23 "$cf" "$df")
+    # THE PASS LINE CARRIES A CENSUS (item B9, round 9, 2026-08-02). It did not, and the
+    # consequence was measured rather than supposed: GATE 2's two negative controls could
+    # only ever pin `solve.py fully documented`, a sentence that is printed whenever the leg
+    # RUNS. No ERE over a countless pass line can tell "the classifier read my injection and
+    # correctly ignored it" from "the classifier never looked". Three numbers fix that, and
+    # each is chosen so that one of the two controls MOVES it:
+    #   flags     — the extracted code-side set. The "flag added to BOTH" control adds one
+    #               declaration and one doc line, so this moves; that leg's ERE now pins the
+    #               POST-injection value and fails if the file was not re-read.
+    #   documented— the doc-side set, which moves with it.
+    #   commented — declarations on whole-line comments, which the item-A4 filter DROPS. The
+    #               "SAME declaration commented out" control adds exactly one of these, so it
+    #               moves this number while leaving the other two fixed. That is the A4
+    #               property made visible: the line was seen AND classified as a comment,
+    #               which a flags count alone cannot distinguish from never reading it.
+    local ncode ndoc ncmt
+    ncode=$(wc -l < "$cf"); ndoc=$(wc -l < "$df")
+    if [ "$mode" = py ]; then
+      ncmt=$(grep -E '^[[:space:]]*(#|//)' "$code" \
+             | grep -oE 'add_argument\("--[a-z0-9][a-z0-9_-]*' | sort -u | wc -l)
+    else
+      ncmt=$(grep -E '^[[:space:]]*(#|//)' "$code" \
+             | grep -oE '"--[a-z0-9][a-z0-9-]*"' | sort -u | wc -l)
+    fi
     if [ -n "$miss" ]; then
       echo "  [FAIL] in $code but NOT in $doc:"; echo "$miss" | sed 's/^/      /'; bad=1
     else
-      echo "  [ok] $code fully documented in $doc"
+      echo "  [ok] $code fully documented in $doc ($ncode flag(s) compared against $ndoc" \
+           "documented, $ncmt commented-out declaration(s) dropped)"
     fi
     rm -f "$cf" "$df"
   }
@@ -1618,6 +1643,13 @@ out = subprocess.run(['git', 'ls-files', 'reports/TR*.md'],
                      capture_output=True, text=True)
 trs = sorted(p for p in out.stdout.split('\n') if p)
 bad = 0
+# ROW CENSUS (item B9, round 9, 2026-08-02). The pass line counted FILES, and the file count
+# does not move when a row is added — so GATE 12's negative control ("a repeated DRAFT label
+# is exempt") could pin only `no repeated released version`, a phrase printed whenever the
+# leg runs at all. The control INSERTS a revision row; a row count moves with it, and its
+# ERE now pins the post-injection total. What it still cannot prove is that the inserted row
+# was checked for the DRAFT-suffix exemption specifically — only that it was parsed as a row.
+rows_seen = 0
 if not trs:
     print('  [FAIL] git tracks no reports/TR*.md — wrong working directory, or the suite is gone')
     sys.exit(1)
@@ -1650,6 +1682,7 @@ for f in trs:
         print(f'  [FAIL] {f}:{start + 1} — "{HEAD}" heading with no version rows under it')
         bad = 1
         continue
+    rows_seen += len(rows)
 
     keys, released, prev_date, prev_key = [], [], None, None
     for ln, ver, date in rows:
@@ -1704,7 +1737,8 @@ for f in trs:
         bad = 1
 
 if not bad:
-    print(f'  [ok] {len(trs)} TR revision histories: one *(current)* each and last, '
+    print(f'  [ok] {len(trs)} TR revision histories, {rows_seen} revision row(s) checked: '
+          'one *(current)* each and last, '
           'no repeated released version, dates and versions ascending')
 sys.exit(bad)
 PY
@@ -2318,13 +2352,16 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
   # consistent with "the gate compares code against doc" and with "the gate fails on any
   # flag name it has not seen before". Adding the SAME flag to both sides must leave it
   # silent; if this one ever fires, the comparison has stopped being a comparison.
-  # EVIDENCE (round 8 drain-3): `solve.py fully documented` is GATE 2's per-file pass line, so
-  # a green run that never reached the solve.py<->SOLVE_PY_CLI.md comparison cannot print it.
-  # STRENGTH, stated: this pins that the LEG RAN. It does NOT prove the injected flag was
-  # compared — GATE 2's clean output carries no count, so nothing in it moves when the
-  # injection is seen. Measured under this very mutation, not read off the clean run.
+  # EVIDENCE (round 8 drain-3, UPGRADED round 9 item B9): `solve.py fully documented` is
+  # GATE 2's per-file pass line, so a green run that never reached the
+  # solve.py<->SOLVE_PY_CLI.md comparison cannot print it. That pinned only that the LEG RAN
+  # — round 8 said so plainly, and B9 is the fix rather than a re-statement. The pass line
+  # now carries a census, and this ERE pins the POST-INJECTION values: clean, solve.py is
+  # `78 flag(s) compared against 95 documented`; under this mutation both sides gain exactly
+  # one, so a run that did not re-read either file prints 78/95 and this leg goes RED.
+  # MEASURED under this very mutation, not arithmetic off the clean run.
   assert_stays_clean_why "GATE 2 — a flag added to BOTH solve.py and its CLI doc stays silent" cli \
-    'solve\.py fully documented' \
+    'solve\.py fully documented in documentation/SOLVE_PY_CLI\.md \(79 flag\(s\) compared against 96 documented' \
 "p='solve.py'
 a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
 s=open(p,encoding='utf-8').read()
@@ -2358,8 +2395,15 @@ assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
 n='    parser.add_argument(\"--doc-gates-fireproof-cmt\", action=\"store_true\", help=\"doc_gates --selftest injection; reverted by the harness\")\n'
 open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
 
+  # EVIDENCE (item B9): this is the leg a FLAG count could never discriminate — the whole
+  # property under test is that the injected line does NOT become a flag, so `78 flag(s)
+  # compared against 95 documented` is what a run that never looked would print too. The
+  # census therefore carries a THIRD number for exactly this leg: commented-out declarations
+  # DROPPED by the item-A4 filter, which is 0 on a clean tree and 1 under this mutation. The
+  # ERE pins all three, so it now proves the line was read AND classified as a comment,
+  # rather than that the mode exited 0.
   assert_stays_clean_why "GATE 2 (A4) the SAME declaration commented out is not a flag" cli \
-    'solve\.py fully documented' \
+    'solve\.py fully documented in documentation/SOLVE_PY_CLI\.md \(78 flag\(s\) compared against 95 documented, 1 commented-out declaration\(s\) dropped\)' \
 "p='solve.py'
 a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
 s=open(p,encoding='utf-8').read()
@@ -3013,11 +3057,16 @@ os.remove(f)"
   #     `v1.0-draft` rows; a FOURTH must still be clean, and the exemption must be doing that
   #     because of the SUFFIX. Case (1) above is the other half: strip the suffix and the
   #     same duplicate is a FAIL.
-  # EVIDENCE (round 8 drain-3): the duplicate-version clause of GATE 12's own pass line. It
-  # pins that the leg which WOULD have flagged this row ran; it does not prove the injected
-  # row was parsed, since GATE 12's clean output carries no per-row count.
+  # EVIDENCE (round 8 drain-3, UPGRADED round 9 item B9): the duplicate-version clause of
+  # GATE 12's own pass line pinned that the leg which WOULD have flagged this row ran, and
+  # nothing more — GATE 12 counted FILES, and a file count does not move when a row is
+  # inserted. It now counts ROWS: 158 clean, and this mutation inserts exactly one, so the
+  # ERE below pins 159 and a run that never re-read TR-11 goes RED.
+  # WHAT IT STILL DOES NOT PROVE, since a clear is weaker than a failure: that the inserted
+  # row was tested for the DRAFT-suffix exemption specifically. It proves it was PARSED as a
+  # row and that no duplicate-release finding came out of the file it went into.
   assert_stays_clean_why "GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)" revhist \
-    'no repeated released version' \
+    '11 TR revision histories, 159 revision row\(s\) checked: .* no repeated released version' \
 "f='reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md'
 lines=open(f,encoding='utf-8').read().split(chr(10))
 i=[n for n,l in enumerate(lines) if l.startswith('| v1.0-draft | 2026-07-05 |')]
