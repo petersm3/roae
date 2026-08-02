@@ -1908,6 +1908,68 @@ open('README.md','w').write(s.replace(a, a[:-1]+'9', 1))" 2>/dev/null \
          echo "         integer of >=12 digits that appears in more than one doc."
          PASS=1; }
 
+  # GATE 2's FLAG-DRIFT CLASSIFIER (item A3, 2026-08-02). Until now the only GATE 2
+  # assertions were the A1 missing-INPUT legs — delete sat.py, delete SAT_CLI.md — which
+  # prove the gate notices its inputs are gone and nothing at all about whether it can still
+  # spot an undocumented flag. That is the leg that has fired in anger (13 undocumented
+  # flags, 2026-07/08), and it was the one thing GATE 2 exists for that no assertion touched.
+  #
+  # THE STATED BLOCKER WAS WRONG, and the correction is the point. The coverage note said
+  # injecting a flag "would mutate solve.py, a costlier revert than the assurance is worth".
+  # The revert is `_selftest_revert`'s `git checkout -- .`, which restores a modified
+  # solve.py at exactly the cost it restores a modified GUIDE.md — the A1 legs already
+  # `os.remove` a tracked source file and restore it the same way. The cost claim was
+  # inherited, never measured, and it kept the gate's only real leg unproven for a round.
+  #
+  # BOTH EXTRACTORS, because they are two different regexes and only one is exercised per
+  # pair: `add_argument\("--...` for py mode (roae.py, solve.py) and a bare quoted `"--..."`
+  # for c mode (solve.c, sat.py). A fire-proof on one says nothing about the other. c mode is
+  # injected into sat.py, not solve.c: solve.c is sha-anchored, and sat.py already carries
+  # the A1 legs, so it is the established mutation target for this pair's shape.
+  #
+  # EACH INJECTION IS SYNTACTICALLY VALID PYTHON, deliberately. A comment carrying the same
+  # text would satisfy the grep just as well — the gate never imports the file — but then a
+  # revert that failed would leave a broken module behind, and the assertion would prove the
+  # extractor sees TEXT rather than that it sees a FLAG. (That the two are the same thing to
+  # this gate is a real property of it: a commented-out `add_argument("--x"` WOULD be
+  # reported as undocumented. Recorded, not fixed; widening is not a fire-proof's business.)
+  #
+  # THE FLAG NAMES DIFFER PER ASSERTION (-py, -c, -neg) so the evidence ERE identifies which
+  # extractor answered. An ERE naming only the file pair would be satisfied by any unrelated
+  # drift in the same file, which is the class of false clear this harness exists to refuse.
+  assert_fires_why "GATE 2 flag drift — undocumented flag, py extractor (solve.py)" cli \
+    '--doc-gates-fireproof-py' \
+"p='solve.py'
+a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
+n='    parser.add_argument(\"--doc-gates-fireproof-py\", action=\"store_true\", help=\"doc_gates --selftest injection; reverted by the harness\")\n'
+open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
+
+  assert_fires_why "GATE 2 flag drift — undocumented flag, c extractor (sat.py)" cli \
+    '--doc-gates-fireproof-c' \
+"p='sat.py'
+a='    if \"--with-c3\" in args:'
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
+n='    _doc_gates_fireproof = \"--doc-gates-fireproof-c\" in args\n'
+open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
+
+  # THE NEGATIVE CONTROL, and it is not optional. The two assertions above are equally
+  # consistent with "the gate compares code against doc" and with "the gate fails on any
+  # flag name it has not seen before". Adding the SAME flag to both sides must leave it
+  # silent; if this one ever fires, the comparison has stopped being a comparison.
+  assert_stays_clean "GATE 2 — a flag added to BOTH solve.py and its CLI doc stays silent" cli \
+"p='solve.py'
+a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
+n='    parser.add_argument(\"--doc-gates-fireproof-neg\", action=\"store_true\", help=\"doc_gates --selftest injection; reverted by the harness\")\n'
+open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))
+d='documentation/SOLVE_PY_CLI.md'
+t=open(d,encoding='utf-8').read()
+open(d,'w',encoding='utf-8').write(t+'\ndoc_gates selftest injection: --doc-gates-fireproof-neg (reverted by the harness)\n')"
+
   # A5/#65: assert the MATCHED STRING, not just the exit code. GATE 3's registry holds
   # morphology-independent stems, so several rows can be live at once and an exit code alone
   # cannot say which one saw the injection.
@@ -2819,13 +2881,15 @@ os.remove('documentation/GUIDE.md')"
   #            3, 3b x2, 4b, 6 x3, 7 x2, 8 x5, 11, 12 x5, and the whole A1 class. GATES 1, 5 and
   #            5b are report-only and already assert on output. GATES 4, 9, 10a/10b are
   #            structural, not classifier-driven: there is no matched token for them to name.
-  #   NOT covered, and the distinction matters: GATE 2's FLAG-DRIFT CLASSIFIER. The A1 cases
-  #            above mutation-test GATE 2's missing-INPUT legs only, by deleting sat.py and
-  #            SAT_CLI.md -- one-line reverts. They prove nothing about whether the gate can
-  #            still spot an undocumented flag, which is what GATE 2 is for. Injecting a flag
-  #            would mutate solve.py, a costlier revert than the assurance is worth; that leg
-  #            has FIRED in anger (13 undocumented flags, 2026-07/08). Recording "GATE 2 is
-  #            now covered" would be exactly the over-attestation this note exists to prevent.
+  #   NOW COVERED (item A3, 2026-08-02), and this entry is left in place rather than deleted
+  #            because the reason it was uncovered is the useful part. It read: "Injecting a
+  #            flag would mutate solve.py, a costlier revert than the assurance is worth."
+  #            That was never measured. The revert is the same `git checkout -- .` the A1
+  #            legs already use to restore an `os.remove`d sat.py, so the cost was identical
+  #            to every other case in this file and the only real leg of a gate that has
+  #            FIRED IN ANGER (13 undocumented flags, 2026-07/08) went unproven for a round
+  #            behind an inherited cost claim. Three assertions now: py extractor, c
+  #            extractor, and a negative control proving the comparison is a comparison.
   #   NOT covered, no fire-proof possible here: the TOOL-absence legs (GATE 8's python3,
   #            GATE 11's sha256sum), both converted from [skip] to [FAIL] under A1. Hiding
   #            one tool from $PATH cannot be done without also hiding git, grep and cut, so
@@ -2835,9 +2899,10 @@ os.remove('documentation/GUIDE.md')"
   # orchestrator's budget". MEASURED 2026-08-02 on the orchestrator: 45 s and 31 MB peak
   # RSS per run. The budget claim was inherited, not measured, and it was wrong; the
   # shared cache makes the marginal case free regardless.
-  echo "  [note] not mutation-tested: GATE 2's flag-drift CLASSIFIER (would mutate solve.py);"
-  echo "         and the two tool-absence legs (python3, sha256sum), which cannot be isolated"
-  echo "         from \$PATH without breaking the gate for an unrelated reason."
+  echo "  [note] not mutation-tested: the two tool-absence legs (GATE 8's python3, GATE 11's"
+  echo "         sha256sum), which cannot be isolated from \$PATH without breaking the gate"
+  echo "         for an unrelated reason. GATE 2's flag-drift classifier LEFT this list on"
+  echo "         2026-08-02 (item A3) — three assertions, both extractors + a negative control."
 
   _selftest_revert
   echo
