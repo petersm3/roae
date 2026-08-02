@@ -349,6 +349,43 @@ The most serious retraction in this record.
 
 ---
 
+### CX-16 · 2026-08-02 · C1 · the last blanket "everything here is machine-verifiable" claim (`RP-a823340f`)
+
+- **Documents:** `documentation/SOLVE_SUMMARY.md` (§"The story continued", closing line).
+- **BEFORE:** a single closing sentence asserted that every bullet in the section was
+  machine-verifiable, with the reports supplying commands and certificates. Cited by key, not
+  quoted, per the registry convention above.
+- **NOW:** the covers' own formulation — every MEASURED result carries a reproduction command and
+  every proof cited as machine-checked names its certificate or Lean theorem — followed by the
+  exception the old sentence overrode: the bit-ledger's accounting conventions are chosen, not
+  derived, which is why TR-9 publishes a range (about 105–127 bits) rather than a number.
+- **Why it survived `14d8751`:** that batch retired the same over-claim from the eleven TR covers,
+  and GATE 9 enforces the covers' wording byte-for-byte across all eleven. This instance was in a
+  different document, in different words, covering a different list — outside GATE 9 by construction
+  and outside GATE 3 for want of a registry row. It was the **last surviving instance of the class**;
+  a repo-wide sweep for the phrase now returns only this ledger and the registry.
+- **What did not move:** no number, count, sha, certificate or theorem. The four bullets themselves
+  are unchanged; only the claim *about* them.
+- **Gate added:** registry row `RP-a823340f`, so GATE 3 now stops the wording returning anywhere.
+
+---
+
+### CX-17 · 2026-08-02 · C3 · the reports index stated a POINT where TR-9 states a RANGE
+
+- **Documents:** `reports/README.md` (TR-9 index row).
+- **BEFORE:** "~126 bits unexplained".
+- **NOW:** "about 105–127 bits unexplained (a range, not a point — the exact figure depends on the
+  stated accounting convention)", which is what TR-9's own executive summary says.
+- **How it was found:** named in the round-3 harvest and verified at both sites. The index row is the
+  claim site a reader meets **first**, and it had dropped the qualifier that the report treats as
+  load-bearing — the report is explicitly the most judgment-dependent in the suite.
+- **Why it was not fixed under CX-12's unit:** that unit was scoped by the operator to the refutation
+  lead and the 5.21×10³¹ label. Silently widening a scoped edit is its own defect, so this was
+  carried rather than folded in.
+- **What did not move:** TR-9's text, its ledger, and the ~146-bit C1 figure in the same row.
+
+---
+
 <a id="gates"></a>
 
 ## Gates

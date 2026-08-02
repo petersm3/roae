@@ -228,7 +228,13 @@ second wave of results, each with a full [technical report](../reports/README.md
   matchings; [Radisic 2026](CITATIONS.md#radisic2026)). The other half is explained by nothing anyone
   has found yet. [[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)]
 
-Each of these is machine-verifiable — the reports include the exact commands and certificates.
+Each of these is reported in full: every MEASURED result carries a reproduction command, and every proof
+cited as machine-checked names its certificate or Lean theorem. That is not the same as saying all four
+are machine-verifiable, and one of them is not. The bit-ledger above is the suite's most
+judgment-dependent result — its accounting conventions are chosen, not derived, which is why TR-9 states
+a *range* (about 105–127 bits unexplained) rather than a number and publishes its conventions so a
+skeptic can re-price everything under their own. What a machine checks there is the arithmetic under a
+stated convention, never the convention.
 
 ## An important caveat
 
@@ -433,3 +439,5 @@ The difference wave as a sparkline (each character = one transition, height = li
 *Revision 2026-07-22 (C3 scope-consistency sweep): the 3.9th-percentile figure is now labeled at its measured scope — orderings satisfying every constraint except C3 itself (C1+C2+C4+C5; earlier text said "C1-only") — and §Rule 3 gained an exact reference baseline for the ~10% ceiling-tie figure (`verify.py --check-null-g`: tie share 7.86% under the bare pair-slot null; a baseline, not a refutation — the populations are not like-for-like). No counts or shas changed.*
 
 *Revision 2026-08-01 (lens sweep — C3 percentile flag): the 3.9th-percentile complement-distance figure is **flagged and withdrawn from citation**. It is a statistic of the 13,296-ordering `solve.py` differential slice, whose stated range [11.75, 14.5] cannot be the range of C1+C2+C4+C5 — the strictly smaller C1–C5 canonical contains orderings at cd = 6.125 — and the suite's own ledger gives 1.3287×10³⁸ / 1.097051×10³⁹ ≈ **12%** at that scope. The 2026-07-22 scope correction above fixed the figure's *label*, not the figure. Authoritative statement of the flag, and the measurement that would settle it: [SOLVE.md](SOLVE.md) §Rule 3. No canonical count, sha, or theorem changed.*
+
+*Revision 2026-08-02 (the last surviving blanket-verifiability over-claim; registry key `RP-a823340f`): §"The story continued" closed on a one-line assertion that all four of its bullets were machine-verifiable. One of them is TR-9's bit-ledger — the result [reports/README.md](../reports/README.md) itself describes as "judgment-dependent by construction" — so the sentence was false in exactly the way the eleven report covers' banner was before `14d8751` retired it. It was stated in different words and so was invisible to the gate written for the covers; a repo-wide sweep confirms this was the last instance of the class. Replaced with the covers' own formulation — measured results carry a reproduction command, machine-checked proofs name their certificate — plus the explicit exception for the bit-ledger and TR-9's stated range. The retracted wording is now in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) so it cannot return; it is cited here by key rather than quoted, per that registry's convention. No number, count, sha or theorem changed.*
