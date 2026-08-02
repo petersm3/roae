@@ -1162,21 +1162,41 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
   # which between them took its live findings from 6 to 0. A gate narrowed to silence is
   # indistinguishable from a gate narrowed to precision unless something re-proves it still
   # fires, and neither narrowing may be allowed to swallow this case.
-  python3 -c "p='reports/TR9_PRICING_THE_CONSTRAINTS.md'
-s=open(p,encoding='utf-8').read()
-a='1.3287×10³⁸ (**estimate** — Knuth random-probe, 95%% CI [1.3283, 1.3292]×10³⁸, 0.02%%)'
-assert s.count(a)==1, 'anchor moved'
-open(p,'w',encoding='utf-8').write(s.replace(a,'1.3287×10³⁸',1))" 2>/dev/null \
-    && { G5BOUT=$(bash "$0" status 2>&1)
-         if printf '%s' "$G5BOUT" | grep -q 'TR9_PRICING_THE_CONSTRAINTS.md:70 .* carries NO status marker'; then
-           echo "  [ok]   GATE 5b unmarked-among-marked — fires on the pre-#23 TR-9 ledger cell"
-         else
-           echo "  [FAIL] GATE 5b did not fire on the defect it was written for"
-           printf '%s\n' "$G5BOUT" | sed 's/^/           > /' | head -6
-           PASS=1
-         fi
-         git checkout -- reports/TR9_PRICING_THE_CONSTRAINTS.md 2>/dev/null; } \
-    || echo "  [SKIP] GATE 5b — anchor moved"
+  # A DRIFTED ANCHOR IS A FAILURE HERE, NOT A SKIP. Written as a [SKIP] first, and the very
+  # first run printed "[SKIP] GATE 5b — anchor moved" because the injector's `%` had been
+  # written `%%` (a printf habit; this is a plain double-quoted bash string). The assertion
+  # never ran and the suite still reported PASS — GATE 8's failure exactly, reproduced
+  # within an hour of writing the rule down. So: no silent skip. If TR-9's cell is legitimately
+  # reworded, this must go red and be re-anchored by hand, because a fire-proof that opts
+  # itself out is not a proof.
+  #
+  # The mutation is NOT injected via `python3 -c` for the same reason: the shell layer is
+  # where the escaping went wrong. It is written to a file and run, so the string reaching
+  # python is the string in this script.
+  G5BMUT=$(mktemp)
+  cat > "$G5BMUT" <<'G5BPY'
+p = 'reports/TR9_PRICING_THE_CONSTRAINTS.md'
+a = '1.3287×10³⁸ (**estimate** — Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸, 0.02%)'
+s = open(p, encoding='utf-8').read()
+assert s.count(a) == 1, 'anchor moved: found %d occurrences' % s.count(a)
+open(p, 'w', encoding='utf-8').write(s.replace(a, '1.3287×10³⁸', 1))
+G5BPY
+  if python3 "$G5BMUT" 2>&1; then
+    G5BOUT=$(bash "$0" status 2>&1)
+    if printf '%s' "$G5BOUT" | grep -q 'TR9_PRICING_THE_CONSTRAINTS.md:70 .* carries NO status marker'; then
+      echo "  [ok]   GATE 5b unmarked-among-marked — fires on the pre-#23 TR-9 ledger cell"
+    else
+      echo "  [FAIL] GATE 5b did not fire on the defect it was written for"
+      printf '%s\n' "$G5BOUT" | sed 's/^/           > /' | head -6
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 5b — could not inject its anchor, so the assertion did NOT run."
+    echo "         Re-anchor it against TR-9's C3 ledger cell; a skipped fire-proof is not a proof."
+    PASS=1
+  fi
+  rm -f "$G5BMUT"
+  git checkout -- reports/TR9_PRICING_THE_CONSTRAINTS.md 2>/dev/null
 
   # =========================================================================
   # GATE 8 — THREE mutation cases, ONE regeneration (added 2026-08-02, item A1).
