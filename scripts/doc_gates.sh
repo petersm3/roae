@@ -6453,6 +6453,17 @@ PY
 #       rule, and an assignment it cannot read as whole string literals is a FAIL instead of a
 #       comparison against a fragment — but a refusal is still not a reading, and this is
 #       caveat (i)'s reachability limit one level in.
+#   (l) THE EXHAUSTIVE SORT IS EXHAUSTIVE OVER ONE SPELLING. It triggers on `grep -qF "$`; a
+#       fixed-string assertion written `grep -F -q` or `-Fq` would carry a fire-proof
+#       substring past the sort AND past the FAIL that exists to catch a form it cannot
+#       classify. MEASURED 2026-08-02 rather than assumed: no such spelling occurs in this
+#       file, and the only non-`-F` `grep -q… "$…"` lines are comments. Widening the detector
+#       is the safe direction — it is a trigger, not a matcher — but it would have to widen
+#       the two classifiers with it, and this is being recorded on ZERO sightings, which is
+#       under the threshold this file applied to item R5 the same day.
+#       Second, smaller: one variable asserted at two DIFFERENT sites is resolved once and
+#       only its first site is named. The substring is still checked, so this costs a name in
+#       a message, not a comparison.
 gate_preflight_collisions() {
   local rc=0
   echo "== GATE 16: no per-gate assertion is satisfiable by a preflight =="
