@@ -3999,6 +3999,36 @@ assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
 open(p,'w',encoding='utf-8').write(s.replace(a, a.replace(
     'kind=INVOCATION callers=2', 'kind=BLOCK callers=2'), 1))"
 
+  # A BLOCK ROW MAY NOT BE PROVEN BY A STRING THE HARNESS NEVER PRINTS (item N3, round 10
+  # drain-3, 2026-08-02). THIS MUTATION IS THE LIVE DEFECT, NOT A SYNTHETIC ONE. The
+  # `_selftest_revert` row's label is "A1 snapshot"; three lines below the one call that is
+  # the assertion sits `… | grep -q 'A1 snapshot probe'`, the marker text the assertion
+  # searches FOR. That line is not an echo, and until today it was what satisfied the row —
+  # the `+3` the gate printed was the distance to the grep, not to the `[ok]` at `+4`.
+  #
+  # THE LEG SETS THE LABEL TO THE FULL MARKER, which occurs in this file ONLY as the injected
+  # probe text and as that grep pattern, and is echoed nowhere. MEASURED against the pre-fix
+  # code before the fix was written: LEG 3 stayed GREEN and printed the identical
+  # `_selftest_revert +3`. So this leg fires on the fix and only on the fix.
+  #
+  # THE LITERAL IS SPLIT for the reason at the scratch_appendonly leg above: written whole,
+  # this mutation string would itself become a fourth occurrence of the marker in the source,
+  # and a reader could not tell whether the row was satisfied by the probe or by this
+  # fire-proof. Split, the source's occurrence count is untouched by the presence of this leg.
+  assert_fires_why "GATE 15 LEG 3 a BLOCK row proven by a string the harness never prints" \
+    instruments \
+    'declares kind=BLOCK for _selftest_revert\(\), but no \[ok\]/\[FAIL\] REPORT line' \
+"p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
+s=open(p,encoding='utf-8').read()
+a='_selftest_revert'+chr(9)+'A1 snapshot'+chr(9)
+assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
+marker='A1 snapshot'+' probe'
+src=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines()
+echoed=[i+1 for i,l in enumerate(src) if marker in l and l.lstrip().startswith('echo \"')]
+assert not echoed, 'the marker IS echoed at %r, so this leg would fire vacuously' % echoed
+assert any(marker in l for l in src), 'the marker is gone from the source entirely'
+open(p,'w',encoding='utf-8').write(s.replace(a, '_selftest_revert'+chr(9)+marker+chr(9), 1))"
+
   # THE CALLERS COUNT IS CHECKED, WHICH IS THE HALF OF CAVEAT (4) A MACHINE CAN HOLD TRUE.
   # The row that motivated caveat (4) said "four callers" against six and no gate noticed for
   # a round; this leg is that failure made loud.
@@ -5707,11 +5737,32 @@ for lineno, flags, pat in guards:
 # happening inside the fix for item B8.)
 #
 # WHAT LEG 3 CANNOT SEE, stated because a clear is weaker than a failure:
-#   (viii) BLOCK is PROXIMITY, not reachability. A call followed within the window by an echo
-#          of the label does not prove the echo is on a path the call reaches — it could sit
-#          in the `else`. Item B8's option (a), a `bash -x` or call-graph check, is the form
-#          that would close this; it is not built. The measured distance is printed every run
-#          so a window that starts creeping is visible.
+#   (viii) BLOCK is PROXIMITY, not reachability — STILL TRUE, and it was NOT the worst of it.
+#          A call followed within the window by a report line does not prove that line is on a
+#          path the call reaches; it could sit in the `else`. Item B8's option (a), a `bash -x`
+#          run with `PS4` carrying `$LINENO`, is the form that would close it. Round 10 drain-2
+#          MEASURED that GATE 16 LEG 2's call-graph reader is NOT the reusable half — it maps
+#          gate function to gate function and has no notion of statement position — so anyone
+#          taking that route is starting from zero. The measured distance is printed every run
+#          so a window that starts creeping is visible. NOT BUILT.
+#
+#          WHAT WAS BUILT, because it was a hole underneath that one (item N3, round 10
+#          drain-3, 2026-08-02). Until today the check asked whether the label OCCURRED on a
+#          line within the window, and an occurrence is not an echo. In the live harness the
+#          `_selftest_revert` row's satisfier was
+#          `… | grep -q 'A1 snapshot probe'` — the marker text the assertion searches FOR,
+#          which merely BEGINS with the row's label "A1 snapshot". So the strongest row on this
+#          gate was proven by a string the harness never prints, and the printed `+3` was the
+#          distance to that grep, not to the `[ok]` line at `+4`.
+#          PROVEN BEFORE THE FIX, not argued: setting the row's label to the full probe marker
+#          `A1 snapshot probe` — a string that appears in this file only as the injected text
+#          and as the grep pattern, and is never echoed — left LEG 3 GREEN at the identical
+#          `_selftest_revert +3`. The fire-proof below is that exact mutation, so the leg is
+#          proven against the real defect and not a stylised one.
+#          The check now requires a REPORT line (see REPORT_ECHO), and the FAIL prints the
+#          non-report occurrence it rejected, so the reason is in the output and not only here.
+#          THIS IS NOT REACHABILITY AND MUST NOT BE DESCRIBED AS SUCH. A report line inside a
+#          dead `else` still satisfies it.
 #   (ix)   `callers=N` is a SYNTACTIC call-site count. It does not know which sites execute,
 #          and it does not know what the note's prose means by its own number: caveat (4a)(ii)
 #          measured that `assert_stays_clean_why`'s "SIX negative controls" is a semantic
@@ -5727,6 +5778,13 @@ BLOCK_WINDOW = 8
 CALL_PRE = (r"(?:^[ \t]*|\$\([ \t]*|(?:&&|\|\||;|\||\bthen\b|\belse\b|\bdo\b)[ \t]*"
             r"|^[ \t]*trap[ \t]+['\"][ \t]*)")
 CALL_POST = r"(?=[ \t;&|\"')]|$)"
+# A REPORT LINE, which is what "the label is ECHOED below the call" was always supposed to
+# mean and did not (item N3, round 10 drain-3, 2026-08-02 — see caveat (viii)). Every verdict
+# this harness prints takes this one shape: `echo "  [marker] <label> …`, with the label
+# starting immediately after the marker. Requiring the shape is what stops a line that merely
+# CONTAINS the label — a grep pattern, a comment, a mutation string — from standing in for the
+# assertion reporting.
+REPORT_ECHO = re.compile(r"^[ \t]*echo[ \t]+\"[ \t]*\[(?:ok|FAIL|WARN|note)\][ \t]*")
 
 
 def call_sites(fn):
@@ -5812,18 +5870,36 @@ for name in sorted(defined):
             bad = 1
         else:
             hit = None
+            bare = None
             for i, ln in enumerate(lines):
                 if label not in ln:
                     continue
                 near = [s for s in sites if 0 < (i + 1) - s <= BLOCK_WINDOW]
-                if near:
+                if not near:
+                    continue
+                m = REPORT_ECHO.match(ln)
+                if m and ln[m.end():].startswith(label):
                     hit = (i + 1, max(near))
                     break
+                if bare is None:
+                    bare = (i + 1, max(near))
             if hit is None:
-                print("  [FAIL] %s:%d declares kind=BLOCK for %s(), but no occurrence of its"
-                      " label sits within %d lines below a call site"
+                print("  [FAIL] %s:%d declares kind=BLOCK for %s(), but no [ok]/[FAIL] REPORT"
+                      " line naming its label sits within %d lines below a call site"
                       % (path, lineno, name, BLOCK_WINDOW))
                 print("         Label: %s" % label)
+                if bare is None:
+                    print("         WHY: the label does not occur in %s below a call site at"
+                          " all." % src)
+                else:
+                    print("         WHY: an occurrence IS in window, at %s:%d (+%d), and it is"
+                          " not a report line:" % (src, bare[0], bare[0] - bare[1]))
+                    print("           %s" % lines[bare[0] - 1].strip()[:100])
+                    print("         Until 2026-08-02 that occurrence satisfied this check. In")
+                    print("         the live harness the satisfier was `grep -q 'A1 snapshot")
+                    print("         probe'` — the text the assertion searches FOR — so the row")
+                    print("         was proven by a string the harness never prints. A kind of")
+                    print("         BLOCK claims the assertion REPORTS under this label.")
                 bad = 1
             else:
                 blockdist.append((name, hit[0] - hit[1]))
@@ -6008,8 +6084,9 @@ if not bad:
     print("  [ok] claims column: %d kind=INVOCATION (label IS the call's first argument),"
           " %d kind=BLOCK, %d kind=EXTERNAL; every callers=N matches the header's rule"
           % (kindcount["INVOCATION"], kindcount["BLOCK"], kindcount["EXTERNAL"]))
-    print("  [ok] BLOCK proximity measured, not assumed (window %d): %s — caveat (viii): this"
-          " is proximity, not reachability"
+    print("  [ok] BLOCK: each row's [ok]/[FAIL] REPORT line measured below a call site, not"
+          " assumed (window %d): %s — caveat (viii): a report line is still proximity, not"
+          " reachability"
           % (BLOCK_WINDOW, ", ".join("%s +%d" % b for b in sorted(blockdist))))
     syn = {}
     for _b in builders:
