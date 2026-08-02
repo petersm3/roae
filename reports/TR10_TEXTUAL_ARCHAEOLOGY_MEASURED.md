@@ -263,7 +263,7 @@ notational scoring — is accepted and stated.
    the closing sentence of the same endnote; #63/64 has 12. Read charitably under his own group
    metric (maximal runs of contiguous positions, pinned down by his examples): #63/64's 3 groups are
    **tied, not unique** — #51/52's twelve derivatives fall in exactly three contiguous groups
-   ({15–18}, {21–24}, {53–56}). He evidently never scanned the other 28 pairs; the counterexample is
+   ({15–18}, {21–24}, {53–56}). The other 28 pairs appear not to have been checked in the book; the counterexample is
    the doubled Zhen/Gen pair his own mountain chapter treats at length. What survives for Davis:
    #63/64 *attains* the group-count minimum, and his description of it is exactly correct — the claim
    fails only at "no other case." (A smaller note in the same spirit: his list of wind-trigram

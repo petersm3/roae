@@ -340,9 +340,9 @@ enumerates that space, or proves a ceiling on it.
   eight-palace-style templates. He also reports finding **no rule that fixes the King Wen sequence**
   (an informal under-determination statement). His counted objects (F₂⁶ subspaces; algebraic
   templates) are disjoint from ROAE's constraint-satisfying total orders; he never completed or
-  validated a count and connected no structure to the King Wen ordering. A one-off within his
-  oeuvre (he is a *Liji* specialist), best read as the terminus of the Ouyang (1992) → Suenaga
-  (2012) lineage rather than an isolated spike. [analyzed 2026-07; obtained via Hiroshima OA]
+  validated a count and connected no structure to the King Wen ordering. We have found no other hexagram-sequence
+  work by him (his published field is *Liji* studies); on the evidence we have, the paper reads as
+  the terminus of the Ouyang (1992) → Suenaga (2012) lineage rather than an isolated spike. [analyzed 2026-07; obtained via Hiroshima OA]
 <a id="luojianjin2015"></a>
 - **Luo Jianjin 罗见今** (2015). "Zhouyi guaxu de duicheng jiegou tanze" 周易卦序的对称结构探赜——
   邵雍先天图的数学解析和应用 [Exploring the symmetric structure of the Zhouyi hexagram sequence: a
@@ -670,13 +670,13 @@ ours. His weight-conservation principle is the exact-preservation strengthening 
 lemma underlying [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md); his K₄ matching analysis and our B₃
 constraint-system symmetry group are complementary results about different objects.
 
-## The 1979 reordering proposal — measured and refuted (with credit)
+## The 1979 reordering proposal — measured, and its construction refuted (with credit)
 
 **McKenna, Stephen E. & Mair, Victor H.** "A Reordering of the Hexagrams of the I Ching," *Philosophy East
 and West* 29:4 (October 1979), 421–441. (Distinct from McKenna & McKenna 1975.) They judged the received
 order structurally indefensible beyond its local pairing and proposed a Gray-code-based replacement. Both
 halves of that position are now formally addressed: population measurement finds discriminating structure
-far beyond pairing (rules to ×11,364 rarity — see
+far beyond pairing (rules to ×11,364 rarity, measured under the ≤2-violations convention and robust to the source-stated exception form — see
 [LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md)), and no Gray-code ordering
 can satisfy the pairing constraint at all ([CRITIQUE.md](CRITIQUE.md) Claim 2). They retain clear priority
 for the idea that drives this project's methodology: evaluating the King Wen sequence against explicitly
@@ -896,7 +896,7 @@ Seabury Press.
 <a id="mckenna-mair1979"></a>
 McKenna, S. E., & Mair, V. H. (1979). A reordering of the hexagrams of the I Ching. *Philosophy East and
 West, 29*(4), 421–441. [doi:10.2307/1398813](https://doi.org/10.2307/1398813)
-  Gray-code replacement proposal; its structural-poverty premise is now measured and refuted; first to
+  Gray-code replacement proposal; its structural-poverty premise is now measured, and its Gray-code construction refuted; first to
   test the sequence against constructed alternatives. [analyzed]
 
 <a id="moore1989"></a>
