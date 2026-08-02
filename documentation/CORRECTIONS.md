@@ -523,3 +523,30 @@ written from the design intent rather than from the diff, and the diff says 2 id
 The by-source figures in the row above were also wrong on first writing (904/284 stated as 905/283).
 Recorded here rather than quietly fixed, since the file's entire subject is the difference between
 those two responses.
+### CX-19 · 2026-08-02 · C3 · TR-9's draft-stage note kept two figures its own v1.7 superseded
+
+- **Documents:** `reports/TR9_PRICING_THE_CONSTRAINTS.md` (Revision History, the dated
+  *Draft-stage corrections (2026-07-04)* paragraph).
+- **BEFORE:** the paragraph stated "C4 6.0, C2 marginal 4.6, C2 net +1.6" with no marker. TR-9's own
+  **v1.7** row (2026-07-10) had restated both C2 figures — marginal 4.6 → 4.5 and net +1.6 → ≈ 0
+  (break-even, sign-convention-dependent) — and the paragraph sits **below** that row, so a reader
+  going top-to-bottom met the correction first and the superseded pair second, in an order that reads
+  as though +1.6 were the later value.
+- **NOW:** a supersession clause names both restatements and points at §2 for the live values.
+  Nothing is deleted: a dated note is a record and must keep saying what that pass produced.
+  Recorded as **v1.20**.
+- **How it was found:** the round-4 C7 sweep — for every TR revision row that retracts a figure, grep
+  the corpus for that figure. 147 quoted spans in correction rows narrowed to 14 the rows themselves
+  mark as superseded wording; this was the only live survivor. The other three hits are meta-mentions
+  inside retraction narrations (`METHODS.md:209` "the withdrawn ≈10× margin";
+  `reports/evidence/r11/PHASE2_README.md:104` recording the "1.4σ above" fix; and 20 "Theorem 6"
+  occurrences, every one inside a strikethrough, a RETRACTED heading or a ledger row).
+- **Same class as TR-11 v1.14**, which fixed the surviving "+1.6" in *its* §4 and recorded that the
+  retraction "had not propagated across three subsequent revisions". It had not propagated to TR-9's
+  own changelog either — so this is the COLD-02 shape (the report fixed, the artifact it points at
+  not) recurring, which makes it a pattern rather than an incident.
+- **Checked and needing nothing:** `documentation/DESCRIPTION_LENGTH.md`, which mirrors this ledger.
+  Its dated-note chain already self-supersedes at `:86` → `:105` → `:113`.
+- **What did not move:** no ledger row, bit value, marginal, count, certificate or conclusion.
+
+---
