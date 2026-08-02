@@ -232,8 +232,8 @@ the multiset of 63 consecutive-hexagram Hamming distances
 **Proof.** Immediate from C5. C5 is defined as a "budget" constraint:
 `budget[k] = |{i : popcount(KW[i] ⊕ KW[i+1]) = k}|` for each `k ∈ {0,…,6}`,
 and the enumerator requires that any valid ordering's per-k transition
-counts match this exact vector. (See `solve.c` lines 701–706 where
-`init_kw_dist` populates `kw_dist[]`, and every step of `backtrack`
+counts match this exact vector. (See `init_kw_dist` in `solve.c`, which
+populates `kw_dist[]`, and every step of `backtrack`, which
 decrements `budget[]` on transition placement.) QED.
 
 **Consequences.**

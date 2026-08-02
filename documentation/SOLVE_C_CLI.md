@@ -1578,8 +1578,8 @@ solve --double-regression-test
 
 **Note on temp file hygiene:** failed `--merge` runs may leave
 `*.tmp` orphan files. solve.c's `--merge` skips them automatically
-on retry (filtered at line 9528 of solve.c). External cleanup is
-not required but is a disk-hygiene best practice.
+on retry — every shard-listing loop drops names containing `.tmp`.
+External cleanup is not required but is a disk-hygiene best practice.
 
 ## REPRODUCIBILITY
 

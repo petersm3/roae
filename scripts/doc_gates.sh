@@ -1457,8 +1457,8 @@ PY
 #
 # WHY (2026-08-01, unit d72-banner): all 11 reports opened with
 #   "Every claim is machine-verifiable; see the Verification Guide."
-# which is FALSE as written, and TR-8 said so about ITSELF at its own line 24:
-# the dof-matched baseline it leans on has no artifact, command, seed or code
+# which is FALSE as written — TR-8 says so about ITSELF in its executive summary's
+# "Reproducibility flag": the dof-matched baseline has no artifact, command, seed or code
 # path anywhere in the repo. reports/README.md had already been corrected to
 # disclose the exceptions, so the suite was publishing one standard in its index
 # and a stronger, false one on all 11 covers.
