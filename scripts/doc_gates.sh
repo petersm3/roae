@@ -15,7 +15,9 @@
 #   scripts/doc_gates.sh retract    # retracted phrasings that still survive in the corpus
 #   scripts/doc_gates.sh links      # GATE 4 + 4b: internal markdown links/#anchors, then section refs
 #   scripts/doc_gates.sh secrefs    # GATE 4b ALONE — plain-text `FILE.md §"..."` references (self-test target)
-#   scripts/doc_gates.sh status     # canonical quantities whose exact/estimate status drifted
+#   scripts/doc_gates.sh status     # GATE 5: canonical quantities whose exact/estimate status
+#                                   # drifted, + GATE 5b: a canonical quantity restated with NO
+#                                   # marker among siblings that carry one
 #   scripts/doc_gates.sh figures    # retracted phrasing in figure GENERATORS (rendered text is ungreppable)
 #   scripts/doc_gates.sh liveness   # frozen present-tense run status; runs named after unreached budgets
 #   scripts/doc_gates.sh banner     # the TR banner is byte-identical across every report + index-aligned
@@ -420,8 +422,15 @@ EX  = r'\bexact|\bproven|\bproved'
 files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
          .stdout.split()]
 seen = 0; bad = 0; hits = set()   # hits: which registry rows actually occur in the corpus
+# GATE 5b state (2026-08-02, item A4). Cost formula, evaluated before writing it: F files x
+# L lines, F ~ 250 and the whole tracked-markdown corpus ~10 MB, held once.
+TEXT = {}          # f -> lines, kept only for files that actually carry a registry value
+unmarked = {}      # f -> [(ln, val, want, line)] occurrences with NEITHER kind of token
+marked = {}        # f -> {ln} occurrences that DID carry a token (either side)
+n_unmarked = 0
 for f in files:
-    for ln, line in enumerate(open(f, encoding='utf-8', errors='replace').read().splitlines(), 1):
+    _lines = open(f, encoding='utf-8', errors='replace').read().splitlines()
+    for ln, line in enumerate(_lines, 1):
         for val, want in rows:
             if re.fullmatch(r'[\d.]+', val) and ',' not in val:
                 if not re.search(re.escape(val) + r'\s*[×x]\s*10', line): continue
@@ -429,9 +438,15 @@ for f in files:
                 continue
             seen += 1
             hits.add(val)
+            TEXT[f] = _lines
             etoks = sorted(set(t.lower() for t in re.findall(EST, line, re.I)))
             xtoks = sorted(set(t.lower() for t in re.findall(EX, line, re.I)))
             he, hx = bool(etoks), bool(xtoks)
+            if not he and not hx:
+                unmarked.setdefault(f, []).append((ln, val, want, line))
+                n_unmarked += 1
+            else:
+                marked.setdefault(f, set()).add(ln)
             conflict = (want == 'exact' and he and not hx) or (want == 'estimate' and hx and not he)
             if conflict:
                 if f"{f}:{ln}" in allowed: continue
@@ -473,6 +488,128 @@ for fpath, entries in sorted(anchored.items()):
 for key in sorted(allowed):
     print(f"  [note] allowlist: {key} has no content anchor — it is matched by line number alone "
           "and will drift silently; add a TAB-separated anchor")
+
+# ---------------------------------------------------------------------------------
+# GATE 5b — a canonical quantity restated with NO epistemic marker among siblings that
+# carry one (2026-08-02, item A4).
+#
+# WHY. GATE 5 above fires only when a line carries a status token that CONTRADICTS
+# METHODS. The two unlabelled TR-9 ledger cells fixed under #23 carried no token at all
+# and were therefore invisible to it BY CONSTRUCTION — TR-9's own v1.19 row says so in as
+# many words: "GATE 5 ... fires on a status token contradicting METHODS, and these cells
+# carried no status token at all." An omission is the commoner shape and it was ungated.
+#
+# WHY IT IS SCOPED TO MIXED TABLES, and not to every unmarked occurrence. "Report every
+# occurrence with neither token" measures at the noise floor printed below — most prose
+# mentions of a canonical number legitimately carry no marker, and a gate that prints
+# hundreds of lines every run is one whose output reviewers learn to skip (the same
+# erosion items A8 and B2 describe). The DEFECT shape is narrower and is exactly what
+# TR-9 v1.19 describes: "In a table where siblings are explicitly marked exact, an
+# unmarked cell reads as one more exact count." So the reported class is: an unmarked
+# occurrence inside a markdown table block where ANOTHER line of the SAME table carries a
+# marker. The bare count is printed alongside, so the noise floor is MEASURED rather than
+# assumed, and a future implementer can widen the class knowing what widening costs.
+#
+# REPORT-ONLY, with its own allowlist. The allowlist is a SEPARATE file from GATE 5's on
+# purpose: 5 and 5b are different classes, and one file would let a suppression written
+# for a reviewed exact-vs-estimate COMPARISON silently also exempt an unmarked cell on the
+# same line. Anchored entries only — the line-number-only form drifted twice in one day.
+alw5b = 'documentation/DOC_GATE_UNMARKED_ALLOWLIST.txt'
+anc5b = {}
+if os.path.exists(alw5b):
+    for l in open(alw5b, encoding='utf-8'):
+        l = l.rstrip('\n')
+        if not l.strip() or l.lstrip().startswith('#'): continue
+        parts = l.split('\t')
+        if len(parts) < 2 or not parts[1].strip():
+            print(f"  [note] {alw5b}: entry without a TAB-separated anchor is ignored — {parts[0][:80]}")
+            continue
+        fpath, _, lno = parts[0].strip().rpartition(':')
+        anc5b.setdefault(fpath, []).append((lno, parts[1].strip()))
+
+def table_blocks(lines):
+    """Maximal runs of consecutive markdown table lines, as (start, end) 1-based inclusive."""
+    blocks, start = [], None
+    for i, l in enumerate(lines, 1):
+        if l.lstrip().startswith('|'):
+            if start is None: start = i
+        elif start is not None:
+            blocks.append((start, i - 1)); start = None
+    if start is not None: blocks.append((start, len(lines)))
+    return blocks
+
+def header_labels(header, row, val, want):
+    """True if the table HEADER already labels the column this value sits in.
+
+    Found by running 5b for the first time, which is the point of running it: 4 of its 6
+    initial findings were cells in tables whose header column IS the label — TR-4's
+    "| Layer | Exact value | Prior Knuth estimate | ... |" and SEARCH_SPACE_SIZE's
+    "| quantity | estimate | 95% CI | rel. error |". Those cells are not unlabelled; the
+    label is one row up, where a per-line classifier cannot see it. Reporting them would
+    have been the false-positive flood that gets a report-only gate ignored.
+
+    Column-aware rather than whole-header: a table with BOTH an exact and an estimate
+    column (TR-4 has exactly that) would otherwise be self-exempting in both directions.
+    """
+    hc = [c.strip() for c in header.split('|')]
+    rc = [c.strip() for c in row.split('|')]
+    pat = EST if want == 'estimate' else EX
+    idx = [i for i, c in enumerate(rc) if val in c]
+    if idx and len(hc) == len(rc):
+        return bool(re.search(pat, hc[idx[0]], re.I))
+    return False                        # ragged table: fall through and report it
+
+found5b = 0
+print("  -- 5b: unmarked canonical quantity among marked siblings in the same table --")
+for f in sorted(unmarked):
+    mk = marked.get(f, set())
+    if not mk:
+        continue
+    for lo, hi in table_blocks(TEXT[f]):
+        if not any(lo <= m <= hi for m in mk):
+            continue                      # no marked sibling in this table — not the class
+        header = TEXT[f][lo - 1]
+        for ln, val, want, line in unmarked[f]:
+            if not (lo <= ln <= hi):
+                continue
+            # A REVISION-HISTORY row is exempt, exactly as GATE 3 exempts one: a changelog
+            # records what was said at a date and quotes figures in passing; demanding an
+            # epistemic marker there would fire on every historical entry forever. Both of
+            # 5b's remaining initial findings were changelog rows.
+            if line.lstrip().startswith('| v'):
+                continue
+            if header_labels(header, line, val, want):
+                continue
+            if any(a in line for _, a in anc5b.get(f, ())):
+                continue
+            sibs = sorted(m for m in mk if lo <= m <= hi)
+            # RECORD WHY IT FIRED (#65): the quantity, its METHODS status, the table it sits
+            # in, and the sibling line whose marker makes the omission readable as a claim.
+            print(f"  [WARN] {f}:{ln} — quantity {val[:28]} is '{want}' in METHODS and carries NO "
+                  f"status marker, inside the table at :{lo}-{hi} whose sibling line(s) "
+                  f"{sibs[:4]} DO carry one")
+            print(f"         {line.strip()[:170]}")
+            found5b += 1
+if found5b == 0:
+    print(f"  [ok] no unmarked canonical quantity sits in a table whose siblings are marked")
+else:
+    print(f"  (report-only: label the cell, or add 'file:line<TAB>anchor' to {alw5b})")
+print(f"  [measured] noise floor: {n_unmarked} of {seen} registry-value occurrences carry no "
+      f"status token at all; {found5b} of those are in a MIXED table, which is the reported class")
+for fpath, entries in sorted(anc5b.items()):
+    if not os.path.exists(fpath):
+        print(f"  [note] {alw5b}: {fpath} no longer exists — prune its {len(entries)} entry/entries")
+        continue
+    txt = open(fpath, encoding='utf-8', errors='replace').read().splitlines()
+    for lno, anc in entries:
+        hh = [i for i, l in enumerate(txt, 1) if anc in l]
+        if not hh:
+            print(f"  [note] {alw5b}: {fpath}:{lno} anchor no longer appears — prune it")
+        elif len(hh) > 1:
+            print(f"  [note] {alw5b}: {fpath}:{lno} anchor matches {len(hh)} lines {hh[:6]} — "
+                  "make it more specific")
+        elif str(hh[0]) != str(lno):
+            print(f"  [note] {alw5b}: {fpath}:{lno} anchor now sits at :{hh[0]} — update the recorded line")
 sys.exit(0)
 PY
 }
@@ -1014,6 +1151,32 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
          fi
          git checkout -- documentation/GUIDE.md 2>/dev/null; } \
     || echo "  [SKIP] GATE 5 — could not append"
+
+  # GATE 5b (item A4), asserted against ITS OWN MOTIVATING EXAMPLE rather than a synthetic
+  # table: the mutation reverts TR-9's C3 ledger cell to the bare-number form it carried
+  # before #23 fixed it. That is the defect the class exists for, and TR-9 v1.19 states
+  # that GATE 5 could not see it. Report-only, so the assertion is on the OUTPUT.
+  #
+  # WHY THE ASSERTION NAMES THE FILE AND THE WORD "NO status marker": 5b was narrowed TWICE
+  # after its first run — a column-aware header exemption and a changelog-row exemption,
+  # which between them took its live findings from 6 to 0. A gate narrowed to silence is
+  # indistinguishable from a gate narrowed to precision unless something re-proves it still
+  # fires, and neither narrowing may be allowed to swallow this case.
+  python3 -c "p='reports/TR9_PRICING_THE_CONSTRAINTS.md'
+s=open(p,encoding='utf-8').read()
+a='1.3287×10³⁸ (**estimate** — Knuth random-probe, 95%% CI [1.3283, 1.3292]×10³⁸, 0.02%%)'
+assert s.count(a)==1, 'anchor moved'
+open(p,'w',encoding='utf-8').write(s.replace(a,'1.3287×10³⁸',1))" 2>/dev/null \
+    && { G5BOUT=$(bash "$0" status 2>&1)
+         if printf '%s' "$G5BOUT" | grep -q 'TR9_PRICING_THE_CONSTRAINTS.md:70 .* carries NO status marker'; then
+           echo "  [ok]   GATE 5b unmarked-among-marked — fires on the pre-#23 TR-9 ledger cell"
+         else
+           echo "  [FAIL] GATE 5b did not fire on the defect it was written for"
+           printf '%s\n' "$G5BOUT" | sed 's/^/           > /' | head -6
+           PASS=1
+         fi
+         git checkout -- reports/TR9_PRICING_THE_CONSTRAINTS.md 2>/dev/null; } \
+    || echo "  [SKIP] GATE 5b — anchor moved"
 
   # =========================================================================
   # GATE 8 — THREE mutation cases, ONE regeneration (added 2026-08-02, item A1).
