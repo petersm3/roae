@@ -61,3 +61,6 @@ reports/evidence/r11/PHASE2_README.md	1.4σ	and at 0.57σ alike	meta-mention	Sam
 reports/evidence/r11/README.md	1.4σ	this figure read 1.4σ until	meta-mention	Evidence-bundle index carrying the same dated supersession note.
 documentation/CORRECTIONS.md	2.0σ	with no marker. **v1.19** (2026-08-01) recorded	meta-mention	CX-20 BEFORE line: the ledger must quote the superseded figure to record what changed.
 documentation/CORRECTIONS.md	2.0σ	reads as sitting *at* the gate and 1.9σ as inside it	meta-mention	CX-20: states why the 0.1 sigma distance is not cosmetic, quoting both values side by side.
+documentation/DESCRIPTION_LENGTH.md	marginal 21.2	marginal 21.2 → 21.3. No conclusion moves	meta-mention	The 2026-07-10 correction note itself, stating old -> new on one line.
+documentation/CORRECTIONS.md	palnbr 16	non-flagged values did move	meta-mention	CX-07: the ledger must quote the superseded value to record what changed.
+reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	palnbr 16	Non-flagged Mawangdui values shifted	meta-mention	TR-10 v1.2: the revision row that performed the supersession.

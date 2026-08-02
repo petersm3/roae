@@ -36,8 +36,18 @@
 # green banner is read as coverage and these are the places it is not:
 #   1. IT DISCOVERS NOTHING. The registry is hand-seeded. A figure retracted and never
 #      registered is invisible, and the gate cannot tell an empty registry from a clean corpus.
-#      The nine rows below were seeded by walking every `| vN.N |` revision row in reports/ for
+#      The first nine rows were seeded by walking every `| vN.N |` revision row in reports/ for
 #      a quoted numeral and reading each one; that pass is repeatable but it is not automatic.
+#      UNDER-SEEDING CONFIRMED 2026-08-02 (item A7). A sweep of BODY prose — supersession verbs
+#      and `old → new` numeric arrows outside revision rows, across reports/ and documentation/
+#      — found two figures the revision-row pass had missed, and they are now rows 10 and 11:
+#        `marginal 21.2` — restated to 21.3 in DESCRIPTION_LENGTH.md's own correction note. Its
+#           SENTENCE-SIBLING `marginal 4.6` was already registered and this was not, which is
+#           what a value-by-value seeding of revision rows looks like from the outside.
+#        `palnbr 16`     — restated to 13 by TR-10 v1.2's Mawangdui erratum.
+#      Both fired GATE 3b on registration and are now allowlisted narrations. The body sweep is
+#      no more automatic than the revision-row one, so this remains a bound on what has been
+#      LOOKED at, never a claim that the corpus is clean.
 #   2. FIXED STRINGS ONLY. A re-rounded or re-notated restatement does not match: "2.0σ" is
 #      registered, "2σ" and "2.00σ" are not, and "2σ" occurs legitimately in TR-2 as the name of
 #      the pre-committed gate — so tightening this one would need the meta-mention machinery
@@ -66,3 +76,5 @@
 marginal 4.6	TR-9 v1.7 (2026-07-10) restated the C2 marginal as 4.5 from unrounded operands; DESCRIPTION_LENGTH.md carries the same correction.
 net +1.6	TR-9 v1.7 (2026-07-10) restated the C2 net as ≈ 0 (break-even, sign-convention-dependent). It survived in TR-11 §4 until v1.14 and in TR-9's own draft-stage note until v1.20.
 +125	TR-9 v1.16 (2026-08-01): §5(a) quoted the comp∘rev-admitted low end as both "~+127" and "+125"; 146.3 − 19.0 = 127.3, so +127 is correct.
+marginal 21.2	DESCRIPTION_LENGTH.md (2026-07-10 unrounded-operand pass) restated the C6+C7 marginal as 21.3; TR-9 §2 and DESCRIPTION_LENGTH's live ledger both carry 21.3. Seeded 2026-08-02 by item A7's BODY sweep, not by the revision-row pass: its sentence-sibling "marginal 4.6" was registered and it was not, which is what a value-by-value seeding of revision rows looks like from the outside.
+palnbr 16	TR-10 v1.2 (2026-07-05, Mawangdui corpus-control erratum) recomputed the non-flagged Davis predicates on the corrected Shaughnessy array: palnbr 16 -> 13. TR-10 §3's live value is 13. No TR-10 verdict moved. Seeded 2026-08-02 by item A7's body sweep.
