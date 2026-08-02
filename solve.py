@@ -5963,12 +5963,27 @@ def reg_d4(seq):
 def reg_d7(seq):
     """D7 — Sovereign (xiaoxi/bigua) hexagrams occupy the group-B pair slots.
 
-    ATTRIBUTION: Drasny (i-ching.hu); sovereign identification also Schulz &
-    Cunningham 1990 / Schulz 1990 JCP 17 (see reg_rs1). The 12 xiaoxi hexagrams
-    are the monotone yang-accumulators (1<<k)-1 and their complements. Counts
-    how many occupy Drasny's group-B slots — KW pairs #19-20, #23-24, #33-34,
-    #43-44 (0-based slots 18,19,22,23,32,33,42,43); the other 4 xiaoxi live in
-    groups F (#1-2) and A (#11-12). KW expected 8. Returns count."""
+    ATTRIBUTION — SPLIT (narrowed 2026-08-02). Drasny (i-ching.hu; 'The Regular
+    Grouping of the Hexagrams before the Yi Jing') and Schulz & Cunningham 1990 /
+    Schulz 1990 JCP 17 (see reg_rs1) are credited for the *identification* of the
+    12 xiaoxi: the monotone yang-accumulators (1<<k)-1 and their complements.
+    That is a claim about hexagram bit-patterns, constant on every ordering.
+    The *positional* predicate below — a count over eight fixed slots — is this
+    suite's own formalization and is credited as such; Drasny's group B is
+    defined by hexagram structure, not by King Wen slot indices. Schulz's
+    principled xiaoxi placement rule is the separate 1/13/25 trisection
+    (reg_rs1), not this one.
+
+    CLASSIFICATION: DATA-LIKE — 8 borrowed degrees of freedom. b_slots below is
+    verifiably a subset of King Wen's own twelve xiaoxi slots
+    (0,1,10,11,18,19,22,23,32,33,42,43), omitting only pairs #1-2 and #11-12, so
+    KW's 8 is guaranteed by construction, and 8 is this functional's range
+    ceiling (a count over 8 slots), not a located population maximum. Shifting
+    the same window by 1..5 drops KW to 4,0,1,2,1. See reports/METHODS.md
+    §"Data-like vs principled" and TR-1 §3 headline 3.
+
+    Counts how many xiaoxi occupy slots 18,19,22,23,32,33,42,43 — KW pairs
+    #19-20, #23-24, #33-34, #43-44. KW expected 8. Returns count."""
     xiaoxi = {(1 << k) - 1 for k in range(1, 7)}
     xiaoxi |= {_reg_comp6(h) for h in xiaoxi}
     b_slots = (18, 19, 22, 23, 32, 33, 42, 43)

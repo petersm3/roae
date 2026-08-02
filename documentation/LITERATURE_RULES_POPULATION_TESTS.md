@@ -196,8 +196,19 @@ stands unchanged. Several more rules are near-forced (0.95–0.9998); those rema
 literature's design inventory therefore splits three ways: proven forced / typical / genuinely
 discriminating.
 
-**3. King Wen is exactly maximal on xiaoxi placement** (Drasny/Schulz d7: 8 of 8, and 8 is the observed
-population maximum) — a genuine extremal property, one of very few axes where KW attains the boundary.
+**3. The xiaoxi-placement row `d7` is DATA-LIKE, and its "maximality" is an artefact of its own
+specification** (classified 2026-08-02; this replaces the earlier reading, which called KW's 8/8 "a
+genuine extremal property"). `d7` counts how many of the 12 xiaoxi hexagrams occupy eight hard-coded slots
+— 0-based 18, 19, 22, 23, 32, 33, 42, 43 — which are verifiably eight of King Wen's own twelve xiaoxi
+slots (KW's full set: 0, 1, 10, 11, 18, 19, 22, 23, 32, 33, 42, 43). Eight borrowed degrees of freedom;
+KW's 8/8 is guaranteed by construction, and 8 is the functional's range ceiling rather than a located
+population maximum. Shift the window by 1–5 and KW scores 4, 0, 1, 2, 1. Under
+[reports/METHODS.md](../reports/METHODS.md) §"Data-like vs principled" the row is data-like and its
+1.7×10⁻⁴ mass is priced as specification. Attribution narrows accordingly: Drasny and Schulz & Cunningham
+state the *identification* of the xiaoxi (a bit-pattern classification, constant on every ordering); the
+positional predicate is this suite's own formalization. Schulz's principled xiaoxi placement rule is the
+separate 1/13/25 trisection, row `rs1`. Full detail in
+[reports/TR1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §3 headline 3.
 
 Full table (fraction of canonical mass; KW satisfies each at its measured level by construction of the
 threshold forms; the eight **1.0 (theorem)** entries are the proven C1 constants of headline 2 — exact by
@@ -205,7 +216,8 @@ theorem, not estimates): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 v
 ccn2 1.5×10⁻³ · ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** · ccn6 0.427 · ccn7 1.1×10⁻³ · **ccn8 2.6×10⁻⁷** ·
 c2011n1 <10⁻⁹ (0 hits) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min Gray-transitions seen 0
 vs KW 4) · mmt4 **1.0 (theorem)** · mmt5 0.9998 · mmt6 0.993 · p1c4 **1.0 (theorem)** · p2c3 6.7×10⁻² ·
-p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ · p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW maximal 8/8) ·
+p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ · p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW 8/8 — *data-like*: 8
+borrowed dof, 8 is the range ceiling; see headline 3) ·
 s1 **1.0 (theorem)** · s6 **1.0 (theorem)** · m2 8.0×10⁻² · r3 **1.0 (theorem)** · r4 **1.0 (theorem)** ·
 r5 **1.0 (theorem)** · c1 6.6×10⁻² (min deviation seen 4 vs KW 24) · c2 **1.0 (theorem)**.
 Wrap-distance finals: d1 = 17.5%, d3 = 65.2%, **d5 = 17.4%** of the full space — see

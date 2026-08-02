@@ -117,6 +117,27 @@ defining number or face-set is KW's own. This is the firewall that keeps a fitte
 reported as a design finding; where a result depends on the classification, the report states which side
 the constraint falls on and why.
 
+**When the author's statement cannot be used (added 2026-08-02).** "The dof count is on the rule as its
+author stated it" presumes the author's statement is both *available* and *about orderings*. Two cases
+break that presumption, and the rule above had no provision for either. The resolution, in both, is that
+**the classification attaches to the predicate this suite actually measures** — the code in `solve.py`,
+which is what produced every published figure — with the divergence disclosed:
+
+- **(a) Statement unavailable.** If the source is unobtainable, or is available only as a secondary
+  summary that does not fix the predicate's dof, classify the *implemented* predicate and label the
+  classification **implementation-scoped**: it is a verdict about what we measured, not a reading of what
+  the author claimed. Never leave the row unclassified — an unclassified load-bearing constraint defaults,
+  in practice, to being read as principled.
+- **(b) Statement available but not an ordering constraint.** An author's claim may be about hexagram
+  *bit-patterns* (a classification, an identity) rather than about *positions*. Such a claim is constant on
+  every ordering: its population mass is 1 by inspection, it cannot discriminate, and it is not the thing
+  a rarity figure describes. If the suite has turned such a claim into an ordering predicate, that
+  predicate is **the suite's own formalization**, it is classified on its own borrowed dof, and the
+  attribution must be split — the author is credited for what they stated, not for the predicate.
+
+`d7` is the worked example of (b), and the first row classified under this provision: see
+[TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §3 headline 3.
+
 ## Statistics conventions
 - **Knuth estimator CIs**: probes are i.i.d.; for each reported quantity the per-probe weight X and X²
   are accumulated exactly, and the tool prints mean ± 1.96·√(v̂ar/N) with relerr = SE/mean — a standard
