@@ -4330,6 +4330,51 @@ for i,l in enumerate(L):
 assert n>0, 'no in-function gate call lines found'
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
 
+  # GATE 16 LEG 3 FIRE-PROOFS (item R4, round 11 drain-1, 2026-08-02) — BOTH DIRECTIONS.
+  #
+  # LEG 3 refuses a fire-proof substring that resolves to anything other than exactly one
+  # message template, so it has two failure directions and both are exercised. Proving only
+  # the rewording arm would ship the ambiguity arm untested, and item R7 says in as many words
+  # that a matcher accepting too much is how the ORIGINAL defect (f5fac73) got in.
+  #
+  # THEY REUSE _g16b RATHER THAN ADDING A DRIVER, which is why `_g16b` is now the driver with
+  # the larger caller count. That is deliberate: a third driver would be a third row to keep,
+  # and LEG 3's own guard 2 requires every fixed-`$2` assertion to live inside a driver it can
+  # read — so the cheapest way to keep that guard honest is to not multiply drivers.
+  #
+  # ARM 1 REWORDS A LIVE MESSAGE. It renames one word of GATE 15 LEG 4's shell-form finding in
+  # the copy, which orphans the substring `_g15d`'s first leg asserts on. That is item N2's
+  # hazard reproduced rather than described: N2 was a maintenance note naming a string no
+  # assertion asserted on, and this is the same drift caught from the assertion's side.
+  #
+  # ARM 2 ADDS A SECOND PRINTER of the same wording — a decoy `echo` — so the substring becomes
+  # producible by two templates and can no longer say which finding satisfied it.
+  #
+  # BOTH ANCHORS ARE ASSEMBLED FROM FRAGMENTS (item A2). Written whole, either would occur in
+  # this fire-proof's own source, and arm 1's anchor would then match two lines and abort as
+  # `anchor moved` instead of running. The split is load-bearing, not style.
+  _g16b "LEG 3: a message reworded out from under a fire-proof's substring" \
+        'no message template can produce' "
+import os
+A='and no anchored '+'guard within %d line(s)'
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if A in l]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]=L[t[0]].replace(A, 'and no anchored '+'sentinel within %d line(s)')
+assert A not in L[t[0]], 'the wording survived the substitution'
+open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
+
+  _g16b "LEG 3: a second message able to produce the same substring" \
+        'message templates can produce' "
+import os
+A='echo '+chr(34)+'-- GATE 16 LEG 3: '
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.lstrip().startswith(A)]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+D='  echo '+chr(34)+'  [note] decoy: and no anchored '+'guard within lines'+chr(34)+chr(10)
+L.insert(t[0], D)
+open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
+
   rm -f "$_G16B_COPY"
 
   # ------------------------------------------------------------------------------
@@ -6213,6 +6258,54 @@ PY
 #       cross-checks rather than proofs: the invocation count must equal the `callers=N` that
 #       GATE 15 LEG 3 derives by a different rule, and at least one gate function must still
 #       be seen calling two others. Both are fire-proven in the self-test.
+#
+# LEG 3 — A FIRE-PROOF'S EXPECTED SUBSTRING MUST NAME EXACTLY ONE MESSAGE TEMPLATE (item R4,
+# round 11, 2026-08-02).
+#
+# WHY IT IS A MECHANISM AND NOT MORE CARE. LEGS 1 and 2 both refuse an assertion satisfiable
+# by something other than the gate it names — a preflight, or the other gate behind a shared
+# dispatch. LEG 3 is the third source of the same false pass and the one nearest the
+# assertion: a DIFFERENT FINDING BY THE SAME GATE. A fire-proof driver greps its gate's output
+# for a fixed string; if two of that gate's messages can print that string, the leg goes green
+# on the wrong one and the injected defect was never observed. Until this leg, that was an
+# ARGUMENT WRITTEN IN A COMMENT, stated separately in each driver's row in
+# documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt, one of them ending "which is an argument,
+# not a check". Item N2 is the same hazard from the maintenance side: a note naming a string
+# no assertion asserts on. This leg makes both mechanical.
+#
+# WHAT IT DOES. Reconstructs every message this harness can print — python `print(...)`,
+# joining the literals of one call, and shell `echo "..."` — then resolves each driver's
+# expected substring against that set and FAILS unless exactly one template can produce it.
+#
+# THE MATCH IS NORMALISED, AND THE NORMALISATION IS THE WHOLE DESIGN. A driver substring is
+# compared against the message AFTER substitution, so a substring that pins a formatted value
+# cannot match the template literally. Every %-specifier in a template, and every digit run on
+# BOTH sides, collapses to one wildcard — which is what lets `is 2 gates behind one exit code`
+# resolve against `which is %d gates behind one exit code:`. This was measured before it was
+# written: under a plain literal containment test that substring resolved to ZERO templates,
+# and a leg shipped on that test would have gone RED on a corpus with no defect in it.
+#
+# WHAT LEG 3 CANNOT SEE, stated because a clear is weaker than a failure:
+#   (g) ONE TEMPLATE IS NOT ONE INSTANTIATION. The leg proves the substring identifies one
+#       message; it cannot prove it identifies one CALL of that message. Measured, and printed
+#       on the [ok] line every run so it is not only here: two `_g16b` legs assert on the same
+#       `is %d gates behind one exit code` wording, so either could be satisfied by any
+#       assertion whose dispatch reaches that many gates. Closing this needs the value pinned,
+#       not the wording — which is a different check and is not claimed here.
+#   (h) IT COVERS THE PARAMETERISED DRIVERS ONLY — a helper that asserts on its `$2`. The
+#       harness also carries fire-proofs that grep an inline literal, and MEASURED 2026-08-02,
+#       the majority of those resolve to zero templates under this test because their
+#       substrings pin a `%s` VALUE (a function name, a file name) rather than a digit. That
+#       is not a defect in those fire-proofs — pinning the value is the STRONGER assertion —
+#       and the naive widening is worse than incomplete: treating `%s` as "anything" makes
+#       every substring producible by every `%s`-bearing template, so the exactly-one rule
+#       becomes vacuous rather than strict. The count is deliberately not quoted; it moves
+#       with the corpus and the property is what matters.
+#   (i) It sees the TEMPLATE, not whether that template is reachable in the mode the driver
+#       runs. This is caveat (viii)'s proximity-not-reachability limit again, one gate over.
+#   (j) The python reconstruction counts parentheses including those inside string literals
+#       and is bounded to TPL_SPAN lines. A template it mis-joins resolves its substring to
+#       zero and FAILS by name — loud and wrong-way-round, never a silent clear.
 gate_preflight_collisions() {
   local rc=0
   echo "== GATE 16: no per-gate assertion is satisfiable by a preflight =="
@@ -6548,6 +6641,201 @@ if not bad:
           " name(s); every one runs exactly ONE gate" % (len(found), len(disp)))
     print("       (%d combined name(s) exist and are unused by any assertion: %s; %d gate"
           " function(s) fan out)" % (len(combined), ", ".join(combined), len(fanout)))
+sys.exit(bad)
+PY
+  echo "-- GATE 16 LEG 3: a fire-proof's expected substring names exactly ONE message --"
+  python3 - <<'PY' || rc=1
+import os, re, sys
+
+# LEG 3 (item R4, round 11 drain-1, 2026-08-02). See the gate header for why this is
+# mechanical rather than the argument it replaces.
+src = os.environ.get("DOC_GATES_SRC_OVERRIDE") or "scripts/doc_gates.sh"
+TABLE = "documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt"
+if src != "scripts/doc_gates.sh":
+    print("  [note] LEG 3 scanning OVERRIDE source %s, not the live script" % src)
+if not os.path.isfile(src):
+    print("  [FAIL] LEG 3: %s is not a readable file, so zero substrings were resolved" % src)
+    sys.exit(1)
+lines = open(src, encoding="utf-8").read().splitlines()
+bad = 0
+
+# --- THE MESSAGES THIS HARNESS CAN PRINT. Both forms, because it uses both: a python
+# `print(...)` inside a gate body and a shell `echo "..."`. A comment cannot print, and both
+# patterns are anchored at line start, so a `#` prefix excludes the line without a separate
+# skip — unlike LEG 2's `uncomment`, which had to strip comments because its call pattern was
+# not anchored.
+STRLIT = re.compile(r"\"((?:[^\"\\]|\\.)*)\"|'((?:[^'\\]|\\.)*)'")
+SPEC = re.compile(r"%[-#0 +]*[0-9]*(?:\.[0-9]+)?[sdiroxefgu]")
+DIGITS = re.compile(r"[0-9]+")
+PRINT_OPEN = re.compile(r"^[ \t]*print\(")
+ECHO_LINE = re.compile(r'^[ \t]*echo[ \t]+"(.*)"[ \t]*$')
+TPL_SPAN = 12
+
+
+def norm(s, template):
+    # ONE WILDCARD FOR EVERY VARYING FIELD, on both sides. A template's %-specifier and a
+    # substring's digit run collapse to the same sentinel, so `is 2 gates behind one exit
+    # code` resolves against `which is %d gates behind one exit code:`. Collapsing a literal
+    # digit run in a template too is what keeps the two sides symmetric.
+    if template:
+        s = s.replace("%%", "\x01")
+        s = SPEC.sub("\x00", s)
+        s = s.replace("\x01", "%")
+    return DIGITS.sub("\x00", s).replace('\\"', '"').replace("\\`", "`")
+
+
+def literals(s):
+    return "".join((m.group(1) if m.group(1) is not None else m.group(2))
+                   for m in STRLIT.finditer(s))
+
+
+templates, i = [], 0
+while i < len(lines):
+    ln = lines[i]
+    if PRINT_OPEN.match(ln):
+        buf, depth, j = "", 0, i
+        while j < len(lines) and j - i < TPL_SPAN:
+            seg = lines[j]
+            buf += literals(seg[seg.index("print(") + 6:] if j == i else seg)
+            depth += seg.count("(") - seg.count(")")
+            if depth <= 0:
+                break
+            j += 1
+        templates.append((i + 1, "print", norm(buf, True)))
+        i = j + 1
+        continue
+    m = ECHO_LINE.match(ln)
+    if m:
+        templates.append((i + 1, "echo", norm(m.group(1), True)))
+    i += 1
+
+# --- VACUITY GUARD 1: neither message form may go quiet. This is LEG 1's per-preflight guard
+# applied to a set of two: a rewrite of every `print` to some other call, or of every `echo`,
+# would silently halve the comparison and every substring would still resolve against what
+# was left. A count nobody reads is not a check.
+for kind in ("print", "echo"):
+    if not any(t[1] == kind for t in templates):
+        print("  [FAIL] LEG 3: zero `%s` message templates extracted from %s, so that half of"
+              " this harness's output is outside the comparison" % (kind, src))
+        print("         A substring resolving uniquely against the remaining half would")
+        print("         still print [ok] — the false-clear shape GATE 16 exists to refuse.")
+        bad = 1
+
+# --- THE FIRE-PROOF DRIVERS, DISCOVERED RATHER THAN NAMED. A driver is a helper whose body
+# asserts on its second argument with a fixed string. Naming them here would be a population
+# statement in a comment, which this file has now falsified in its own diff more than once.
+DRIVER_DEF = re.compile(r"^[ \t]*(_g[A-Za-z0-9_]+)\(\)[ \t]*\{[ \t]*(?:#.*)?$")
+QF_ARG = re.compile(r"grep[ \t]+-qF[ \t]+\"\$2\"")
+drivers, spans = [], []
+for i, ln in enumerate(lines):
+    m = DRIVER_DEF.match(ln)
+    if not m:
+        continue
+    stop = next((j for j in range(i + 1, min(i + 41, len(lines)))
+                 if lines[j].strip() == "}"), None)
+    if stop is None:
+        continue
+    if any(QF_ARG.search(lines[j]) for j in range(i + 1, stop)):
+        drivers.append(m.group(1))
+        spans.append((i + 1, stop + 1))
+
+# --- VACUITY GUARD 2: every fixed-string-on-$2 assertion in the file must belong to a driver
+# this leg found. A driver written in a shape DRIVER_DEF cannot read would otherwise take its
+# assertions out of scope silently, which is the one failure this leg cannot survive: it would
+# report [ok] over a smaller population and nothing would say so.
+orphan = [i + 1 for i, ln in enumerate(lines)
+          if QF_ARG.search(ln) and not any(a <= i + 1 <= b for a, b in spans)]
+if orphan:
+    print("  [FAIL] LEG 3: %s asserts on a fixed `$2` outside any driver this leg could read:"
+          " %s" % (src, ", ".join(str(o) for o in orphan)))
+    print("         The driver definition must open its body on its own line (`_gX() {`) or")
+    print("         this leg stops seeing that driver's substrings while still saying [ok].")
+    bad = 1
+if not drivers:
+    print("  [FAIL] LEG 3: zero fire-proof drivers found in %s — the scan is inert, not clean"
+          % src)
+    bad = 1
+
+SUB_LINE = re.compile(r"^[ \t]*'((?:[^'\\]|\\.)*)'")
+found = []
+for d in drivers:
+    one = re.compile(r"^[ \t]*" + re.escape(d) + r"[ \t]+\"((?:[^\"\\]|\\.)*)\"[ \t]+"
+                     r"'((?:[^'\\]|\\.)*)'")
+    wrap = re.compile(r"^[ \t]*" + re.escape(d) + r"[ \t]+\"((?:[^\"\\]|\\.)*)\"[ \t]*\\[ \t]*$")
+    for i, ln in enumerate(lines):
+        if ln.lstrip().startswith("#"):
+            continue
+        m = one.match(ln)
+        if m:
+            found.append((d, m.group(1), m.group(2), i + 1))
+            continue
+        m = wrap.match(ln)
+        if m and i + 1 < len(lines):
+            m2 = SUB_LINE.match(lines[i + 1])
+            if m2:
+                found.append((d, m.group(1), m2.group(1), i + 1))
+
+# --- VACUITY GUARD 3: an INDEPENDENTLY-DERIVED count of the same call sites, exactly as
+# LEG 2's guard 1 above. GATE 15 LEG 3 machine-checks a `callers=N` for each driver by a
+# different rule (name in command position over the whole file). Two extractors written for
+# different purposes must agree, or one of them is wrong.
+declared = {}
+if os.path.isfile(TABLE):
+    for ln in open(TABLE, encoding="utf-8").read().splitlines():
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
+        f = ln.split("\t")
+        if len(f) >= 3:
+            mm = re.search(r"callers=(\d+)", f[2])
+            if mm:
+                declared[f[0]] = int(mm.group(1))
+elif drivers:
+    print("  [FAIL] LEG 3: %s is missing, so this leg's extractor has nothing to be"
+          " cross-checked against" % TABLE)
+    bad = 1
+for d in drivers:
+    mine = sum(1 for x in found if x[0] == d)
+    if d not in declared:
+        if os.path.isfile(TABLE):
+            print("  [FAIL] LEG 3: %s declares no callers=N in %s, so a substring this leg"
+                  " failed to parse would be invisible" % (d, TABLE))
+            bad = 1
+    elif declared[d] != mine:
+        print("  [FAIL] LEG 3: %s — this leg parsed %d substring(s); %s declares callers=%d."
+              " One of the two extractors is under-reading, and an unparsed invocation is an"
+              " unchecked substring." % (d, mine, TABLE, declared[d]))
+        bad = 1
+
+for d, label, sub, n in found:
+    want = norm(sub, False)
+    hits = [t for t in templates if want in t[2]]
+    if len(hits) == 1:
+        continue
+    if not hits:
+        print("  [FAIL] LEG 3: %s:%d — %s(\"%s\") asserts a substring no message template can"
+              " produce:" % (src, n, d, label))
+        print("           %s" % sub)
+        print("         The driver greps for that fixed string in the gate's output, so the")
+        print("         leg can now only ever report NOT reported. This is a message reworded")
+        print("         out from under its own fire-proof, caught at the source instead of at")
+        print("         the next run that happens to exercise it.")
+    else:
+        print("  [FAIL] LEG 3: %s:%d — %s(\"%s\") asserts a substring %d message templates can"
+              " produce:" % (src, n, d, label, len(hits)))
+        print("           %s" % sub)
+        for t in hits[:6]:
+            print("           -> %s:%d (%s)" % (src, t[0], t[1]))
+        print("         The assertion cannot then say WHICH finding satisfied it, and a leg")
+        print("         satisfied by a different finding in the same output is green for the")
+        print("         wrong reason — which is the entire content of a fire-proof.")
+    bad = 1
+
+if not bad:
+    print("  [ok] LEG 3: %d fire-proof substring(s) across %d driver(s) (%s), each produced by"
+          " exactly ONE of %d message template(s)"
+          % (len(found), len(drivers), ", ".join(sorted(drivers)), len(templates)))
+    print("       caveat (g): ONE template is not one INSTANTIATION — a substring spanning a"
+          " %-field still cannot say which call printed it")
 sys.exit(bad)
 PY
   return $rc
