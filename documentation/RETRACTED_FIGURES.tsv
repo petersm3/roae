@@ -52,12 +52,40 @@
 #      registered, "2σ" and "2.00σ" are not, and "2σ" occurs legitimately in TR-2 as the name of
 #      the pre-committed gate — so tightening this one would need the meta-mention machinery
 #      before it could be safe.
+#      MEASURED 2026-08-02 (round-5 item A6), so the decision is against data rather than
+#      against the hypothetical. Seven transformation families were generated for all eleven
+#      registered figures and matched as fixed strings across `git ls-files '*.md'`: add or
+#      strip a trailing zero; strip the group separator; strip a leading ~ or ≈; σ→sigma;
+#      ×→x and ×→times; insert a space before the unit; truncate the decimal.
+#        (a) NO ESCAPE EXISTS TODAY. Every variant that is not also a substring of the
+#            registered form scores ZERO: 1.40σ, 2.00σ, ~5500×, ~5,500x, ≈10x, ~52x,
+#            marginal 4.60, net +1.60, marginal 21.20 — 0 occurrences each.
+#        (b) NAIVE WIDENING IS UNUSABLE. The three variants that do hit are the ones that
+#            drop a qualifier: "2σ" 16 occurrences, "10×" 37, "52×" 11 — and reading them,
+#            the overwhelming majority are unrelated ("52× fewer sub-branches", "10× the
+#            price", TR-2's pre-committed 2σ gate). A widening on those three would fire
+#            ~60 times to catch nothing.
+#      WHAT THAT SWEEP CANNOT SEE, since a clear is weaker than a failure: it enumerates
+#      SEVEN hand-chosen families. A restatement that rounds to a different precision
+#      (1.4σ → 1.35σ), spells the number in words, or splits it across markup is outside
+#      every one of them. The result is "no escape in these families", not "no escape".
 #   3. THE ANCHOR IS SAME-LINE. Where a supersession clause is in the same paragraph but on the
 #      next line (TR-9's draft-stage note), the allowlist row has to say so in prose.
-#   4. NO LEDGER-COMPLETENESS CHECK. GATE 11 requires every RETRACTED_PHRASES.tsv row to be
-#      recorded in CORRECTIONS.md. There is no equivalent for this registry; a figure can be
-#      registered here and never recorded in the ledger. That is a real gap, and it is filed
-#      rather than fixed because closing it means adjudicating nine ledger entries.
+#   4. LEDGER-COMPLETENESS: HALF-CLOSED 2026-08-02 (item A5). This line used to read "there
+#      is no equivalent for this registry; a figure can be registered here and never recorded
+#      in the ledger". GATE 11 now runs a FIGURES pass over this file
+#      (`scripts/doc_gates.sh ledger-figures`), keyed on RF-<first 8 hex of sha256(figure)>
+#      exactly as the phrases pass is keyed on RP-. A figure registered from today on FAILS
+#      unless it is either recorded in CORRECTIONS.md or listed, with a reason, in
+#      documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt.
+#      WHAT IS STILL OPEN: the adjudication. Four of the eleven are recorded (CX-20, CX-19
+#      twice, CX-07; their keys are indexed in CX-21); the other SEVEN have no ledger entry
+#      and sit on the open list, printed as [OPEN] with a count on every run. An [OPEN] row
+#      is an open defect, not an exemption.
+#      WHY THE KEY IS NOT THE FIGURE TEXT, measured: six of the eleven figures OCCUR in
+#      CORRECTIONS.md and only four are RECORDED there — "1.4σ" and "≈10×" appear inside
+#      CX-19's "How it was found" paragraph as examples of meta-mentions found elsewhere. A
+#      text-presence check would have cleared two unrecorded retractions.
 #   5. MARKDOWN ONLY. `git ls-files '*.md'`. Figures rendered into images are GATE 6's problem.
 #      CORRECTED 2026-08-02 (item A8): this line used to end "…and are ungated entirely for
 #      statistics". That is no longer true — GATE 6 now runs a SECOND pass over the tracked
