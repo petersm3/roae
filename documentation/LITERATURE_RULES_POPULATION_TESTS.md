@@ -172,12 +172,15 @@ attribution: solve.py `--registry-verify` section.
 Three headline findings:
 
 **1. A new strongest discriminator — with the data-likeness caveat stated plainly.** Schulz's S25–28
-trigram configuration (2011/2016: four consecutive stations sharing the dui top trigram, bottoms = the
+trigram configuration — the scoreboard row `ccn4` (id named here since 2026-08-02, so this verdict is
+findable by the row's identifier and not only by its description)
+(2011/2016: four consecutive stations sharing the dui top trigram, bottoms = the
 four "right" trigrams in order) holds in 2×10⁻⁸ of the population (×5×10⁷) — 2.4 orders beyond the
 previous champion. Like Cook's exact level-3 positions, this is a highly *specific* configuration: its
 registry classification is data-like rather than principled, and it is reported as a measured property,
-not promoted. The exception-co-location meta-rule (both Schulz rules' violations confined to S25/26)
-measures 2.6×10⁻⁷ (×3.8M) — the anomaly locus itself is population-rare.
+not promoted. The exception-co-location meta-rule `ccn8` (both Schulz rules' violations confined to S25/26)
+measures 2.6×10⁻⁷ (×3.8M) — the anomaly locus itself is population-rare. `ccn8` carries no
+data-like/principled verdict, here or anywhere in the suite.
 
 **2. Eight literature rules are consequences of the constraint system — proven, not sampled (upgraded
 2026-07-21).** All eight rules that measure at 1.0 of canonical mass (mmt4, p1c4, s1, s6, r3, r4, r5,
@@ -214,7 +217,7 @@ count. Full detail in
 Full table (fraction of canonical mass; KW satisfies each at its measured level by construction of the
 threshold forms; the eight **1.0 (theorem)** entries are the proven C1 constants of headline 2 — exact by
 theorem, not estimates): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs KW 20) · ccn1 3.4×10⁻⁵ ·
-ccn2 1.5×10⁻³ · ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** · ccn6 0.427 · ccn7 1.1×10⁻³ · **ccn8 2.6×10⁻⁷** ·
+ccn2 1.5×10⁻³ · ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** (*data-like* — see finding 1) · ccn6 0.427 · ccn7 1.1×10⁻³ · **ccn8 2.6×10⁻⁷** ·
 c2011n1 <10⁻⁹ (0 hits) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min Gray-transitions seen 0
 vs KW 4) · mmt4 **1.0 (theorem)** · mmt5 0.9998 · mmt6 0.993 · p1c4 **1.0 (theorem)** · p2c3 6.7×10⁻² ·
 p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ · p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW 8/8 — *data-like*: 8
