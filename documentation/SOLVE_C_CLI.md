@@ -379,7 +379,7 @@ below threshold, 2 on I/O error.
 solve.py --extended-selftest <path-to-solve-binary>
 ```
 
-A `solve.py` command (`extended_selftest`, solve.py:4684) — **not** a `solve`
+A `solve.py` command (the `extended_selftest` function in solve.py) — **not** a `solve`
 C subcommand; `solve --extended-selftest` is not dispatched by the binary.
 Runs the 9-subtest harness covering single-thread / multi-thread / different
 node limits / clean and resumed runs. Stricter than `--selftest`. Used in CI
@@ -915,7 +915,7 @@ counters at this quotient).
 - `--f1-mod P` — **required**. The modulus: a decimal odd prime with
   2 < P < 2⁶², primality checked at startup (deterministic Miller–Rabin). A **missing** `--f1-mod` is a usage error
   (exit 2); a *malformed, even, out-of-range or composite* P fails the startup `F1_CHECK` assertion and
-  exits **71** (`solve.c:12478`), as does an invalid `--f1-start-orbit` value.
+  exits **71** (the `F1_CHECK` macro in `solve.c`), as does an invalid `--f1-start-orbit` value.
 - `--f1-start-orbit 0..5|all` (default `all`) — restrict the layer-1 seed to
   one of the six ⟨G48, XOR-63⟩-orbits of the 64 possible first-pair exit
   hexagrams (census asserted at startup: sizes {2,12,24,8,6,12}, representatives
@@ -1418,9 +1418,9 @@ completeness and honesty, not as knobs to set.
 | `SOLVE_REG_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_REG=2`: evaluate `score_registry` on an explicit 64-int sequence with W=1, print the 31 candidate-rule indicators (0/1, comma-separated, `REGISTRY_KW_EXPECTED` order), exit. Gates the C registry port against `solve.py` reg_* ground truth. |
 | `SOLVE_PERM_TESTVEC` | unset | With `SOLVE_KNUTH_SCORE_PERM=2`: evaluate the 13 R3 perm functionals + 2 template-match indicators on an explicit 64-int sequence (`"h0,...,h63"`), print them, exit. Two-language test vector gating the C `perm_*` port against `solve.py` `perm_*` / `--perm-verify` ground truth. |
 | `SOLVE_GZ_TEST_SHARDS` | 0 | `=1`: run a paranoid per-shard `gzip -t` CRC integrity test after each shard write (#169). Default OFF — a full decompress per shard roughly doubles compression CPU across ~65K shards, and the gzfwrite return-count + durable-close checks already cover write completeness. |
-| `SOLVE_KNUTH_H2` | `0` | `1` enables the H2 near-precursor edit-ball mass accumulator during a Knuth-estimator run (solve.c:6724+). Private semi-fitted hypothesis — magnitude only, not promoted to a published claim. Sha-neutral. |
+| `SOLVE_KNUTH_H2` | `0` | `1` enables the H2 near-precursor edit-ball mass accumulator during a Knuth-estimator run (`grep -n SOLVE_KNUTH_H2 solve.c`). Private semi-fitted hypothesis — magnitude only, not promoted to a published claim. Sha-neutral. |
 | `SOLVE_KNUTH_H2_DUMP` | unset | Path for the per-leaf H2 dump consumed by `solve.py --h2-verify` / `--h2-mass`. Sha-neutral. |
-| `SOLVE_F1U_MAX_LAYER` | unset | Stop the start-unpinned `--f1-exact-c1c2` walk after layer K completes — a memory/timing probe (solve.c:15562, :16194). Produces a PARTIAL count; never use for a published figure. Sha-neutral. |
+| `SOLVE_F1U_MAX_LAYER` | unset | Stop the start-unpinned `--f1-exact-c1c2` walk after layer K completes — a memory/timing probe (`grep -n SOLVE_F1U_MAX_LAYER solve.c`). Produces a PARTIAL count; never use for a published figure. Sha-neutral. |
 
 ## EXIT STATUS
 
