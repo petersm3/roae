@@ -3885,7 +3885,9 @@ os.remove(p)"
   # `scratch_appendonly` row back to the exact label it carried from 6d93ed5 to b4442cf —
   # "GATE 10b vs history (…)" — which is a REAL assertion in this file that never calls
   # scratch_appendonly. That row was green under LEG 1 for the whole of its life, because
-  # LEG 1 asks only whether the label exists somewhere in doc_gates.sh, and it does (`:2789`).
+  # LEG 1 asks only whether the label exists somewhere in doc_gates.sh, and it does — it is
+  # the label of the live "GATE 10b vs history" assert_fires_why (named, not cited by line:
+  # a same-file line citation rots on the next insertion above it, item B1).
   # So this leg proves the new check catches the defect the old check shipped.
   #
   # THE HISTORICAL LABEL IS ASSEMBLED FROM TWO FRAGMENTS, and the leg asserts the assembled
@@ -5425,11 +5427,13 @@ for lineno, flags, pat in guards:
 # THAT RULE WAS MEASURED AGAINST THE HAND AUDIT, and it CORRECTED it. The table's caveat (4a)
 # concluded "distinguishing the three requires a shell parse, not a grep" and published ten
 # hand-adjudicated counts. This rule reproduces NINE of the ten exactly; on the tenth it says
-# `_selftest_revert` has 24 call sites where the hand audit said 20, and the four it adds
-# (`:2104`, `:2159`, `:3282`, `:3412`, all `PASS=1; _selftest_revert; return; }`) were read
-# one by one and are real calls — as are `:2770`, `:3165`, `:3179`, `:3199`, which the first
-# two rules tried also missed. So the number that shipped as the reason a mechanical form was
-# impossible was itself wrong, and the mechanical form is what found it.
+# `_selftest_revert` has 24 call sites where the hand audit said 20. All 24 were read one by
+# one; the ones the weaker rules missed are the `PASS=1; _selftest_revert; return; }` form
+# and the `_selftest_revert; } \` form, four of each, every one a real call. So the number
+# that shipped as the reason a mechanical form was impossible was itself wrong, and the
+# mechanical form is what found it. (Cited by FORM, not by line — the first draft of this
+# comment named eight line numbers and its own commit invalidated them, which is item B1
+# happening inside the fix for item B8.)
 #
 # WHAT LEG 3 CANNOT SEE, stated because a clear is weaker than a failure:
 #   (viii) BLOCK is PROXIMITY, not reachability. A call followed within the window by an echo

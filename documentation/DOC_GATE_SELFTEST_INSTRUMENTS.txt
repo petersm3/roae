@@ -34,11 +34,11 @@
 #               +3), so a window that starts creeping is visible rather than absorbed.
 #               THE DISTANCE IS TO THE FIRST QUALIFYING OCCURRENCE, WHICH NEED NOT BE THE
 #               ASSERTION'S REPORT LINE, and that was measured rather than assumed: for
-#               _selftest_revert it binds on the `grep -q 'A1 snapshot probe'` at :2221 (+3),
-#               not on the `[ok] A1 snapshot` echo at :2222 (+4). Both are inside the same
-#               assertion, so the row is right either way — but the number LEG 3 prints is
-#               the nearer one, and reading it as "distance to the report line" would be
-#               wrong by one here.
+#               _selftest_revert it binds on the `grep -q 'A1 snapshot probe'` guard (+3),
+#               not on the `[ok]   A1 snapshot` echo one line further down (+4). Both are
+#               inside the same assertion, so the row is right either way — but the number
+#               LEG 3 prints is the nearer one, and reading it as "distance to the report
+#               line" would be wrong by one here.
 #   EXTERNAL    paired with NOT-PROVEN-IN-HARNESS. Both directions are enforced: an EXTERNAL
 #               row may not name an in-harness label, and a NOT-PROVEN-IN-HARNESS label may
 #               not be declared any other kind.
@@ -128,12 +128,16 @@
 #           reproduces NINE of the ten hand-adjudicated numbers exactly. On the tenth it
 #           disagrees with the hand audit, and THE HAND AUDIT IS THE ONE THAT IS WRONG: it
 #           recorded `_selftest_revert 20`, the rule counts 24, and all 24 were read one by
-#           one. The eight the earlier tries missed are `:2104`, `:2159`, `:3282`, `:3412`
-#           (`PASS=1; _selftest_revert; return; }`) and `:2264`, `:2770`, `:3165`, `:3179`,
-#           `:3199` less four already counted — every one a real call. A hand-adjudicated
-#           number published as the reason a mechanical form was impossible was itself the
-#           defect, and the mechanical form is what found it. That is the third time in this
-#           file's history that RUNNING beat READING.
+#           one. CITED BY FORM, NOT BY LINE (item B1's structural answer, and the first draft
+#           of this paragraph broke its own rule — nine line numbers written here went stale
+#           inside the hour, shifted by the same commit's edits further up the file). The
+#           four the earlier tries missed on the closing-brace side all read
+#           `PASS=1; _selftest_revert; return; }`; the four on the guarded-block side all
+#           read `_selftest_revert; } \`. Every one is a real call. A hand-adjudicated number
+#           published as the reason a mechanical form was impossible was itself the defect,
+#           and the mechanical form is what found it. That is the third time in this file's
+#           history that RUNNING beat READING. The count itself never goes stale: it is
+#           callers=24 in the row below, and GATE 15 LEG 3 re-derives it every run.
 #
 #       WHAT REMAINS UNBUILT after B8/B3: reachability for kind=BLOCK (caveat viii), and any
 #       machine reading of the note column at all (caveat 4's composition half).
