@@ -52,7 +52,8 @@ the C1-only (start-unpinned) fraction is now also exact — 4.29341%, `solve --f
 
 ⁴ Statement-cost bracket for the multiset. Full 63-transition multiset over all 6 distance classes: log₂ C(68,5) = 23.3 bits; conditioning on C2 (5 usable classes): log₂ C(67,4) = 19.5; marginal-consistent price given C1+C2 (only the 31 boundary transitions are unimplied): log₂ C(35,4) = 15.7. The ledger's compression column is marginal, so the marginal price 15.7 is the internally consistent choice; every choice leaves C5 net-negative.
 ⁵ C3's threshold (776) is KW's own value — circular by construction, priced as data
-([CRITIQUE.md](CRITIQUE.md) Q1); its marginal 3.0 bits are NOT claimed as explanation.
+([CRITIQUE.md](CRITIQUE.md) §"Observable-selection accounting"); its marginal 3.0 bits are NOT claimed as
+explanation.
 ⁶ C6/C7 pin four slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even.
 
 ## The residual — the honest thesis

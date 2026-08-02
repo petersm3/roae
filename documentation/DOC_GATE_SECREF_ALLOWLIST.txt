@@ -1,0 +1,43 @@
+# DOC_GATE_SECREF_ALLOWLIST.txt - GATE 4b (scripts/doc_gates.sh)
+#
+# EVERY LINE BELOW IS AN OPEN DEFECT, NOT AN EXEMPTION. GATE 4b re-prints each one as
+# [OPEN] on every run, with its reason, precisely so this file cannot become a place
+# where broken cross-references go to be forgotten. The allowlist exists only so that a
+# NEW dangling section reference fails the build immediately instead of being buried in
+# a list of pre-existing ones.
+#
+# Format, TAB-separated, 4 fields, no line numbers (line numbers drift - cf. the GATE 5
+# allowlist note):
+#   source.md <TAB> target.md <TAB> section text as written <TAB> why it is here
+#
+# Two kinds of entry live here:
+#   (1) meta-mentions - prose that QUOTES a dead pointer in the act of recording its
+#       correction (a revision-history row, a "(Corrected ...)" note). The string is
+#       supposed to be dead; flagging it would punish the correction.
+#   (2) genuinely dangling references inherited from before this gate existed. Each one
+#       needs a human decision about which section it should name. Fixing them is
+#       tracked separately; do not add to this class.
+documentation/BRANCHES_EXPLAINED.md	documentation/DEVELOPMENT.md	10T d3 canonical	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/CITATIONS.md	documentation/SPECIFICATION.md	wrap-around parity	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/CRITIQUE.md	documentation/SOLVE_SUMMARY.md	560T canonical results	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/CRITIQUE.md	reports/METHODS.md	Global observable ledger	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/CRITIQUE.md	documentation/SEARCH_SPACE_SIZE.md	Is finding King Wen early an artifact of our setup?	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/CRITIQUE.md	documentation/HISTORY.md	April 29-30	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/DESCRIPTION_LENGTH.md	reports/METHODS.md	Global observable ledger	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/DEVELOPMENT.md	documentation/HISTORY.md	Methodology lesson learned (and contamination correction)	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/HISTORY.md	reports/METHODS.md	Global observable ledger	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/PARTITION_INVARIANCE.md	documentation/HISTORY.md	April 30, 2026	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/SEARCH_SPACE_SIZE.md	documentation/CRITIQUE.md	per-branch yield labels	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/SOLVE.md	documentation/SOLVE_SUMMARY.md	560T canonical results	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+documentation/SOLVE.md	documentation/CRITIQUE.md	Update (2026-06-11)	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+enumeration/LEADERBOARD.md	documentation/SOLVE_SUMMARY.md	560T canonical results	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+reports/METHODS.md	documentation/CRITIQUE.md	Q1	meta-mention: quotes the retired pointer while recording its correction; not a live reference
+reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	reports/METHODS.md	Global observable ledger	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+reports/TR4_SIZE_OF_THE_SPACE.md	documentation/CRITIQUE.md	per-branch yield labels	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+reports/TR5_SYMMETRY.md	documentation/CITATIONS.md	(Z/2)⁶ framing — priority ceded	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+reports/TR5_SYMMETRY.md	documentation/SEARCH_SPACE_SIZE.md	Is finding King Wen early an artifact?	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+reports/TR8_REORDERING_REVISITED.md	documentation/CRITIQUE.md	Q1	meta-mention: quotes the retired pointer while recording its correction; not a live reference
+reports/TR9_PRICING_THE_CONSTRAINTS.md	documentation/CRITIQUE.md	Q1	meta-mention: quotes the retired pointer while recording its correction; not a live reference
+reports/evidence/f11/README.md	reports/TR2_THE_RULES_CONFLICT.md	Stop-flag resolution	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+reports/evidence/f11/RESULTS.md	reports/TR2_THE_RULES_CONFLICT.md	Stop-flag resolution	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN
+reports/evidence/r11/PHASE2_README.md	reports/TR2_THE_RULES_CONFLICT.md	Stop-flag resolution	PRE-EXISTING dangling section reference, surfaced by GATE 4b's first run 2026-08-01; correct target not yet decided - OPEN

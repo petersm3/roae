@@ -155,6 +155,7 @@ gate_retract() {
 
 # ----------------------------------------------------------------------------------
 gate_links() {
+  local rc=0
   echo "== GATE 4: internal markdown links + anchors resolve =="
   # Every [text](target) pointing INSIDE the repo must resolve: the file must exist,
   # and a #fragment must match a heading slug (GitHub rules, including the -1/-2
@@ -206,6 +207,123 @@ if not bad:
     print(f"  [ok] all internal links + anchors resolve across {len(mds)} markdown files")
 sys.exit(1 if bad else 0)
 PY
+  rc=$?
+
+  # -- GATE 4b (added 2026-08-01, unit r70-serialize) --------------------------------
+  # The half of a cross-reference that phase 1 CANNOT see. A pointer like
+  #     [CRITIQUE.md](../documentation/CRITIQUE.md) Q1
+  # has a LINK target that resolves perfectly — the file exists — so phase 1 passes it,
+  # while the part a reader actually follows ("go to section Q1") is dead. Six such
+  # pointers to a non-existent "CRITIQUE.md Q1" survived every gate in this file for
+  # months for exactly that reason.
+  #
+  # SCOPE, deliberately narrow: only DELIMITED section references are checked —
+  #   FILE.md §"Quoted Name"     and     FILE.md Q<n>
+  # Undelimited `FILE.md §Some words` is NOT checked: prose runs on past the section
+  # name with no terminator, so the extracted "name" is whatever the sentence happened
+  # to say next, and a first cut of this gate produced ~60 findings of which most were
+  # mis-parses. A gate that cries wolf gets switched off. If you want an undelimited
+  # reference checked, quote it.
+  #
+  # MATCH RULE: the reference text, normalised (case, smart quotes, dashes, emphasis,
+  # trailing punctuation), must appear as a substring of some heading in the target
+  # file; "…" in the reference acts as a gap, its fragments matched in order. That is
+  # the convention the repo already uses, e.g. CRITIQUE.md §"Pre-registered tests …
+  # Davis (2012)" against a much longer real heading.
+  #
+  # WHY-IT-FIRED: every finding prints the target file it resolved to and the reason,
+  # not just a verdict — and allowlisted entries are re-printed every run as [OPEN]
+  # with a count, so the known-dangling set can never quietly become invisible.
+  echo "== GATE 4b: plain-text section references resolve to a real heading =="
+  python3 - <<'PY'
+import os, re, sys, subprocess
+MDLINK = re.compile(r'\[([^\]]*)\]\(([^)\s]+)\)')
+HEAD   = re.compile(r'^#+\s+(.*?)\s*$', re.M)
+SEC_Q  = re.compile(r'([\w./+-]+\.md)\s*§\s*"([^"]+)"')
+SEC_N  = re.compile(r'([\w./+-]+\.md)\s+(Q\d+)\b')
+ALLOW  = 'documentation/DOC_GATE_SECREF_ALLOWLIST.txt'
+
+def norm(s):
+    s = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', s)
+    for a, b in (('’', "'"), ('‘', "'"), ('“', '"'), ('”', '"'),
+                 ('–', '-'), ('—', '-')):
+        s = s.replace(a, b)
+    s = re.sub(r'[`*_~"]', '', s)
+    s = re.sub(r'\s+', ' ', s)
+    return s.strip().strip('.,;:').lower()
+
+mds = subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True).stdout.split()
+heads, bybase = {}, {}
+for m in mds:
+    txt = open(m, encoding='utf-8', errors='replace').read()
+    heads[os.path.realpath(m)] = [norm(h) for h in HEAD.findall(txt)]
+    bybase.setdefault(os.path.basename(m), []).append(os.path.realpath(m))
+
+allow, allow_why = set(), {}
+if os.path.exists(ALLOW):
+    for ln in open(ALLOW, encoding='utf-8'):
+        if not ln.strip() or ln.startswith('#'):
+            continue
+        f = ln.rstrip('\n').split('\t')
+        if len(f) >= 4:
+            allow.add((f[0], f[1], norm(f[2])))
+            allow_why[(f[0], f[1], norm(f[2]))] = f[3]
+
+bad, opened = [], []
+for m in mds:
+    base = os.path.dirname(m) or '.'
+    for lineno, line in enumerate(open(m, encoding='utf-8', errors='replace'), 1):
+        flat = MDLINK.sub(lambda mo: mo.group(2), line)   # [text](path) -> path
+        hits  = [(p, s) for p, s in SEC_Q.findall(flat)]
+        hits += [(p, s) for p, s in SEC_N.findall(SEC_Q.sub(' ', flat))]
+        for path, sec in hits:
+            if path.startswith(('http://', 'https://')):
+                continue
+            dest = None
+            for cand in (os.path.realpath(os.path.join(base, path)), os.path.realpath(path)):
+                if cand in heads:
+                    dest = cand; break
+            if dest is None:                       # bare "CRITIQUE.md", no path
+                same = bybase.get(os.path.basename(path), [])
+                if len(same) == 1:
+                    dest = same[0]
+            if dest is None:
+                continue                           # file-level resolution is phase 1's job
+            want = norm(sec)
+            if not want:
+                continue
+            parts = [p.strip() for p in re.split('…|\\.\\.\\.', want) if p.strip()]
+            found = False
+            for h in heads[dest]:
+                pos, ok = 0, True
+                for p in parts:
+                    i = h.find(p, pos)
+                    if i < 0:
+                        ok = False; break
+                    pos = i + len(p)
+                if ok:
+                    found = True; break
+            if found:
+                continue
+            rel = os.path.relpath(dest)
+            key = (m, rel, want)
+            (opened if key in allow else bad).append((m, lineno, rel, sec, key))
+
+for m, ln, d, s, key in bad:
+    print(f'  [FAIL] {m}:{ln} -> {d} §"{s}"')
+    print(f'         WHY: no heading in {d} contains the normalised text "{norm(s)}"')
+for m, ln, d, s, key in opened:
+    print(f'  [OPEN] {m}:{ln} -> {d} §"{s}"  ({allow_why.get(key, "allowlisted")})')
+if opened:
+    print(f"  [note] {len(opened)} allowlisted dangling reference(s) above are OPEN DEFECTS, "
+          f"not exemptions — see {ALLOW}")
+if not bad:
+    print(f"  [ok] every delimited section reference resolves to a real heading "
+          f"({len(mds)} markdown files scanned)")
+sys.exit(1 if bad else 0)
+PY
+  [ $? -ne 0 ] && rc=1
+  return $rc
 }
 
 # ----------------------------------------------------------------------------------
@@ -517,6 +635,15 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nSee [the missing doc](NO_SUCH_FILE_XYZ.md).\n')"
 
+  # GATE 4b, in the EXACT shape of its motivating defect: the link target resolves
+  # (CRITIQUE.md exists, so phase 1 stays green) and only the section half is dead.
+  # If this assertion ever passes-through, the extension has stopped seeing the one
+  # class it was written for. The quoted form §\"...\" was verified by the same
+  # method when the gate was written.
+  assert_fires "GATE 4b dangling section ref" documentation/GUIDE.md links \
+"s=open('documentation/GUIDE.md').read()
+open('documentation/GUIDE.md','w').write(s+'\n\nPriced as data ([CRITIQUE.md](CRITIQUE.md) Q7).\n')"
+
   assert_fires "GATE 6 figure generators" viz/README.md figures \
 "import glob,sys
 c=[f for f in glob.glob('viz/*.py')]
@@ -664,7 +791,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4, 6, 7. Gates 1 and 5 are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7. Gates 1 and 5 are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ]; then

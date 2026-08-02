@@ -94,7 +94,8 @@ explicit.
    under all three (15.7 / 19.5 / 23.3) — the verdict is coding-independent**; the ledger reports 15.7
    because the compression column is marginal, a presentational choice rather than a load-bearing one.
    ⁵ C3's threshold (776) is KW's own value — circular by construction,
-   priced as data (CRITIQUE.md Q1); its marginal 3.0 bits are NOT claimed as explanation. ⁶ C6/C7 pin four
+   priced as data (CRITIQUE.md §"Observable-selection accounting"); its marginal 3.0 bits are NOT claimed
+   as explanation. ⁶ C6/C7 pin four
    slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even.
 3. **Reading the ledger, row by row.** **C1** is where nearly all the explanation lives: 146.3 bits of
    compression, and its statement cost collapsed in 2026 — Radisic (arXiv:2601.07175 — an unrefereed
@@ -155,7 +156,8 @@ explicit.
    criterion-selection question is fair, is itself a choice, and is exactly what the dual-convention
    bracket exists to bound: the family convention charges C1 as a selected rule with no appeal to
    naturalness, and the conclusion (C1 dominates) is stable under both readings. (d) **Circularity discipline**: C3/C6/C7 are deliberately zeroed rather than argued over —
-   pricing KW's own values as explanation would be self-confirmation (CRITIQUE.md Q1). (e) **Estimator
+   pricing KW's own values as explanation would be self-confirmation
+   (CRITIQUE.md §"Observable-selection accounting"). (e) **Estimator
    precision** is not a sensitivity: ±0.02% on solution counts is ±0.0003 bits. (f) **Look-elsewhere** for
    the observable-extraction battery is accounted in CRITIQUE.md and deliberately not double-counted here;
    a referee preferring it folded in should charge it against the data-like rows, which are already ≈ 0.
@@ -178,7 +180,9 @@ explicit.
   rebuilt + re-verified 2026-07-26) — and machine-checked in-repo: `lean HammingOptimalMatching.lean`
   (kernel-only; `partner_is_unique_minimum`, `kw_realizes_partner`); within-pair
   distance cross-check 2×12 + 4×12 + 6×8 = 120 per documentation/CITATIONS.md §Radisic 2026
-- Circularity pricing of C3: documentation/CRITIQUE.md Q1
+- Circularity pricing of C3: documentation/CRITIQUE.md §"Observable-selection accounting" (which grades
+  C3's marginal bits as "priced as data, not claimed" and records the threshold's circularity as a
+  separate standing limitation)
 - Schulz gender rule gross bits: ×11,364 ≈ 13.5 bits — companion registry, [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) /
   [documentation/LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md)
 - Arithmetic spot-checks: log₂ 64! = 296.0; log₂(31!·2³¹) = 143.7; log₂ C(68,5) = 23.3 (all reproducible
@@ -234,4 +238,5 @@ v1.0.*
 | v1.14 | 2026-07-26 | **Radisic dependency downgraded from "external, unbundled" to "independently re-verified + machine-checked in-repo" (hardening item 1).** Radisic's arXiv:2601.07175 Lean 4 + Mathlib artifact (arXiv ancillary source) was rebuilt from scratch on a clean VM: `lake build` exit 0, zero `sorry`/`admit`/axiom declarations, `#print axioms` audited on the 13 main theorems (standard axioms; `native_decide` compiler-trust confined to his weight-conservation/robustness layers). The comp/rev optimality theorem itself is now proved in-repo in lean/HammingOptimalMatching.lean — kernel-only `decide`, axiom base `[propext]`, including the matching-level global uniqueness statement (`partner_is_unique_minimum`), the KW realization (`kw_realizes_partner`), and the full-K₄ scope guard (`full_k4_can_do_192`). The F-17 disclosure language in the executive summary, §3, and the Verification Guide updated accordingly. Result credit remains Radisic's. No bit value changed |
 | v1.15 | 2026-07-30 | **Observable-count precision (novelty-gate editorial pass).** §1's "~30-observable extraction battery" replaced with the exact figure: the **28-observable** extraction battery, identified as the base of the frozen **91-observable** global ledger (METHODS.md §Global observable ledger: 28 exploratory + 58 + 5 = 91). A tilde replaced by the frozen exact count; no value, ledger row, or verdict changed |
 | v1.16 | 2026-08-01 | **Arithmetic-consistency fix (2026-08-01 in-house calibration review).** §5(a) quoted the comp∘rev-admitted low end as both "~+127" and "+125" two sentences apart; 146.3 − 19.0 = 127.3, so **+127** is correct and the "+125" is corrected. No ledger row, measurement, or conclusion changed |
-| v1.17 *(current)* | 2026-08-01 | **Rounding + ordering nits (2026-08-01 calibration review).** §2's exact marginal for C2 given C1∩C4 reads 4.5438 bits, not 4.5437 (log₂ 23.325025987 = 4.543807; the companion 6.0000 and 9.4306 figures already rounded correctly). Revision History rows re-sorted chronologically — v1.8 had preceded v1.7 and v1.13 had preceded v1.12; for a suite whose versioning policy is an audit trail, row order is load-bearing. No ledger value, measurement, or conclusion changed |
+| v1.17 | 2026-08-01 | **Rounding + ordering nits (2026-08-01 calibration review).** §2's exact marginal for C2 given C1∩C4 reads 4.5438 bits, not 4.5437 (log₂ 23.325025987 = 4.543807; the companion 6.0000 and 9.4306 figures already rounded correctly). Revision History rows re-sorted chronologically — v1.8 had preceded v1.7 and v1.13 had preceded v1.12; for a suite whose versioning policy is an audit trail, row order is load-bearing. No ledger value, measurement, or conclusion changed |
+| v1.18 *(current)* | 2026-08-01 | **Three dangling section pointers retargeted (serialized cross-file pass, unit r70-serialize).** §2 fn⁵, §5(d) and the Verification Guide each cited "CRITIQUE.md Q1" for the circularity pricing of C3. CRITIQUE.md has no Q-numbered sections and never had any — the pointer was unresolvable for every reader who followed it, and GATE 4 could not see it because only the *file* half was a markdown link (the file resolves; the "Q1" is plain prose). All three now name the section that actually carries the material — CRITIQUE.md §"Observable-selection accounting", which grades C3's marginal bits as "priced as data, not claimed" and records the threshold's circularity as a separate standing limitation. The identical pointer in [documentation/DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) (the ledger this TR preserves) and in [TR-2](TR2_THE_RULES_CONFLICT.md) §4 was corrected in the same pass, and `scripts/doc_gates.sh` GATE 4 now checks plain-text section references of the form `FILE.md §"Name"` / `FILE.md Q<n>` so the class cannot recur silently. No ledger row, number, or conclusion changed |

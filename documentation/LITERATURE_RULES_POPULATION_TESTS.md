@@ -3,8 +3,13 @@
 **Result (2026-07-02):** Structural rules asserted for the King Wen sequence in prior literature — none of
 them ROAE discoveries — were formalized in the C1–C5 pair representation and measured against the *entire*
 constraint-satisfying population (≈1.33×10³⁸ orderings) by unbiased weighted-Knuth estimation
-(`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes; the instrument reproduced the independently-established total space
-size to 0.03%, a consistency check within the same estimator family; the absolute validation of the estimator is TR-11's exact anchors). This converts decades of by-inspection claims into measured
+(`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes; the instrument reproduced the previously-published total space
+size *estimate* to 0.03%, a consistency check within the same estimator family; the absolute validation of
+the estimator is TR-11's exact anchors). *(Corrected 2026-08-01: "independently-established" was the
+adjective [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) v1.18/v1.21 retracted — the total space size
+is itself a Knuth estimate from the same estimator family (METHODS status **estimate**, source TR-4 §3),
+so agreement with it is not independent establishment. TR-1 v1.21 recorded this file's copy as still
+outstanding; it is corrected here.)* This converts decades of by-inspection claims into measured
 population statistics for the first time. **Attribution:** every rule below is credited to its source (with lineage where it runs deep — the pair
 structure itself is attested to [Yu Fan](CITATIONS.md#yufan), 164–233 AD; the 36-unit consolidation to [Lai Zhide](CITATIONS.md#laizhide), 1525–1604; the
 gender/position-parity rule measured at ×11,364 in the companion registry originates with **[Schulz 1990](CITATIONS.md#schulz1990-motifs)**
@@ -59,8 +64,17 @@ and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 Weighted Knuth random probes (validated in [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)): each probe walks
 a uniformly-random constraint-satisfying completion, weighting by the product of branching factors; per-leaf
 rule predicates accumulate weighted mass; fractions are ratios of canonical-leaf masses. Caveats: fractions
-are over raw orientation-resolved sequences (orientation-invariant rules are unaffected; Moore's 1989
-rising/falling rule is orientation-sensitive by design); strict-form masses near 10⁻⁶ carry ~±10-15%
+are over raw orientation-resolved sequences. A rule's *value* is orientation-invariant when it depends
+only on the pair ordering, but its reported *fraction* is not: it is Σ_{P: R(P)} fiber(P) / Σ_P fiber(P),
+a fiber-size-weighted fraction, and fiber size is a function of the pair ordering's transition geometry —
+the same geometry most literature rules score. Fiber size is far from constant (0 for every pair ordering
+admitting no valid orientation; ≥1,720,320 for King Wen's, against a mean of ≈1.3×10⁵ over all 31! pair
+orderings). Read every fraction below as a weighted-population fraction whose weighting is not known to be
+independent of the rules. *(Corrected 2026-08-01: this caveat previously said "orientation-invariant rules
+are unaffected", which is true of a predicate's value and **false of the reported fraction** — the
+correction landed in [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §1(b) on 2026-08-01 and is
+propagated here.)* Moore's 1989
+rising/falling rule is orientation-sensitive by design; strict-form masses near 10⁻⁶ carry ~±10-15%
 relative sampling error at this probe count; formalizations were verified to reproduce each source's stated
 King Wen values exactly before measurement (16/18 with violations at pair positions 22–23; rhythm breaks at
 (7,8) and (22,23)). Reproduce: `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`.
@@ -95,7 +109,13 @@ with `python3 sat.py --witness moore-strict` and
 
 5. **Schulz's gender rule is perfectly satisfiable — and its minimal repair is ALSO exactly 3 edits.**
    The strict form of the strongest measured discriminator (gender/position-parity, Schulz 1990; exception
-   first noticed by Zhu Yuansheng, 13th c.) had 0 hits in 36M samples; SAT decides it: witnesses exist
+   first noticed by Zhu Yuansheng, 13th c.) had 0 hits in 36M samples — *flagged 2026-08-01 as unsourced
+   and withdrawn pending a stated null: no null, sampler or source run was ever recorded with that figure,
+   and it is not consistent with this suite's later measurement of the strict gender rule at ≈10⁻⁶ of
+   canonical mass (`../reports/evidence/f11/RESULTS.md`, RUN C2) — if those 36M draws were canonical, that
+   mass predicts ≈36 hits, not 0. Treat the strict form as population-rare at order 10⁻⁶; the flag was
+   raised in [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §4 and is propagated here.* SAT decides
+   it: witnesses exist
    (C1–C5-valid, C3 = 776), and the minimal repair from King Wen is exactly 3 slot-edits (≤2 UNSAT, DRAT
    cert archived) — a swap of the adjacent pairs at slots 21/22 (= class positions 25/26, precisely the
    Zhu Yuansheng/Schulz exception locus) plus one orientation flip.
@@ -216,7 +236,14 @@ four rules are KW-derived — selected because King Wen exhibits them, even wher
 so King Wen sitting near their joint Pareto frontier is expected rather than an efficiency result; the
 ~1-in-25-million figure **describes** how population-atypical that joint profile is under KW-fitted
 rules, and is not a measure of design efficiency (no arbitrary-rule-bundle baseline exists to read it
-against; restated per TR-1 v1.14, adversarial-review F-45). The usual
+against; restated per TR-1 v1.14, adversarial-review F-45). *(Sourcing flag, propagated 2026-08-01 from
+[TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §5: the ~1-in-25-million figure (≈4×10⁻⁸) is carried
+from the v1.14 pass with **no derivation, probe count, CI or verification command anywhere in the repo**,
+is not reconstructible from the published masses, and sits below the ~10⁻⁷ per-probe hit rate at which
+§"The extended scoreboard" says to read figures as order-of-magnitude only — so the two significant figures are
+unearned. Treat it as an unreproduced figure until a regeneration command is published; what would settle
+it is a stated joint-profile predicate plus a run of `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth
+<probes>` reporting its mass with a CI.)* The usual
 caveat travels with this: the trigram configuration is a data-like rule (highly specific); the theorem is
 about the literature's rules exactly as its authors stated them. Reproduce:
 `python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf` (encoding two-way validated: ccn4-kwtest SAT,
