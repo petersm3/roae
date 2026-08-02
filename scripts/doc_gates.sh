@@ -1411,6 +1411,17 @@ PY
 # (commit first, then self-test) remains the operating procedure, and this note is here so
 # that procedure is not mistaken for a guarantee the code provides.
 #
+# A THIRD WAY, met 2026-08-02 while building legs 5 and 6 below, and the cheapest to warn
+# about: the revert idiom itself gets COPIED. Taking a fire-proof by hand means running the
+# mutation and then the harness's own `git checkout -- .` — which reverts the WHOLE tree,
+# including the uncommitted edit to this script that the fire-proof was testing. That is
+# what happened: two new legs and their self-test cases were written, proven to fire by
+# hand, and then destroyed by the copied revert, with no --selftest involved at all. The
+# harness is not what has to change (its `-- .` is load-bearing; see assert_fires). What
+# changes is the procedure, and it is the same one as above, for a second reason: COMMIT
+# FIRST, then mutate — by hand or by harness. `git checkout -- <path>` naming only the
+# mutated file is the safe hand form.
+#
 # THE ORDER BELOW IS LOAD-BEARING: clean-tree check FIRST, then lock, then trap. Installing
 # a restoring EXIT trap before the clean-tree check would make the dirty-tree refusal itself
 # run `git checkout -- .` and destroy exactly the uncommitted work it exists to protect.
@@ -2212,6 +2223,71 @@ assert m.group(1) != "1,046", "reference already carries the injected value"
 open(p, "w", encoding="utf-8").write(
     pat.sub("Approximately 1 in 1,046 random orderings share this property.", s, count=1))'
 
+  # CASES 6 and 7 — THE DIGIT LEGS (item A2 residual, 2026-08-02).
+  #
+  # These two assert something the other cases cannot: that the new leg is the ONLY thing
+  # that sees the defect. Every case above is satisfied by ANY leg going red, so a case that
+  # merely proved "GATE 8 fires" would still be green if legs 5/6 were deleted tomorrow and
+  # some other leg fired for its own reason. Each of these therefore asserts TWO lines: the
+  # new leg's own verdict, AND the digit-blind leg's [ok] on the same file — the second is
+  # what proves the coverage is new. That is the shape GATE 8's own history argues for: its
+  # first fire-proof was taken by hand, was satisfied by an exit code, and a one-directional
+  # comparison shipped behind it.
+  #
+  # THE MUTATION IS ONE DIGIT in a line roae.py prints unconditionally (the static preamble),
+  # so no Monte Carlo branch can flake it, and 64 -> 65 keeps the line's length and every
+  # non-digit character identical — which is exactly why the digit-stripped legs cannot see
+  # it, and is the point being proven.
+  #
+  # assert_gen_fires_only <label> <new-leg-ERE> <other-leg-stays-ok-ERE> <mutation>
+  assert_gen_fires_only() {
+    local label="$1" want="$2" alsowant="$3" mut="$4" out rc
+    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
+                           echo "         assertion did NOT run. A skipped fire-proof is not a proof."
+                           PASS=1; git checkout -- . 2>/dev/null; return; }
+    out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
+    git checkout -- . 2>/dev/null
+    if [ "$rc" -eq 0 ]; then
+      echo "  [FAIL] $label — GATE 8 did NOT fire on a hand-edited digit"; PASS=1; return
+    fi
+    if ! printf '%s\n' "$out" | grep -Eq -- "$want"; then
+      echo "  [FAIL] $label — GATE 8 fired, but not on the digit leg"
+      echo "         expected a line matching: $want"
+      printf '%s\n' "$out" | grep -E '\[FAIL\]' | head -3 | sed 's/^/           got > /'
+      PASS=1; return
+    fi
+    if ! printf '%s\n' "$out" | grep -Eq -- "$alsowant"; then
+      echo "  [FAIL] $label — the digit leg fired, but the digit-BLIND leg did not report [ok],"
+      echo "         so this case does not prove the new leg is what caught it."
+      echo "         expected a line matching: $alsowant"
+      PASS=1; return
+    fi
+    echo "  [ok]   $label — only the digit leg sees it: \"$want\" while \"$alsowant\""
+  }
+
+  # CASE 6 — a hand-edited digit in example/report.html. This is the dbba77d class: that
+  # file was hand-patched once already and was caught by the operator, not by a gate.
+  assert_gen_fires_only "GATE 8 hand-edited DIGIT in report.html (leg 5 only)" \
+'example/report\.pdf vs example/report\.html: the PROSE agrees and the NUMBERS do not' \
+'\[ok\] +example/report\.html agrees with roae\.py --html on every NON-NUMERIC line' \
+"p='example/report.html'
+a='giving 8x8 = 64 possible hexagrams'
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,'giving 8x8 = 65 possible hexagrams',1))"
+
+  # CASE 7 — a hand-edited digit in example/README.md, which legs 2 and 3 compare against
+  # the generator separately and digit-blind, so before leg 6 the two shipped copies could
+  # disagree on every number in the corpus and the gate printed [ok] twice.
+  assert_gen_fires_only "GATE 8 hand-edited DIGIT in README.md (leg 6 only)" \
+'example/README\.md is not byte-identical to example/report\.md' \
+'\[ok\] +example/README\.md agrees with roae\.py --markdown on every NON-NUMERIC line' \
+"p='example/README.md'
+a='giving 8x8 = 64 possible hexagrams'
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,'giving 8x8 = 65 possible hexagrams',1))"
+
   rm -rf "$GEN_CACHE"
 
   # ITEM A1 — THE MISSING-INPUT CLASS, for every gate that has one.
@@ -2506,9 +2582,27 @@ gate_generated() {
   # written, run against the CORRECT artifacts, seen to fire, and reverted. It is only because
   # the negative control ran that this was caught before shipping.
   #
-  # WHAT WOULD ACTUALLY CLOSE Q2 is not a normalisation change: ship example/ generated with
-  # `--seed`, after which the comparison can be byte-exact and the whole question disappears.
-  # That changes published artifacts, so it is an operator decision, not a gate edit.
+  # WHAT WOULD ACTUALLY CLOSE Q2 FOR EVERY LEG is not a normalisation change: ship example/
+  # generated with `--seed`, after which the comparison can be byte-exact and the whole
+  # question disappears. That changes published artifacts, so it is an operator decision,
+  # not a gate edit.
+  #
+  # WHAT WAS CLOSED WITHOUT IT (item A2 residual, 2026-08-02) — legs 5 and 6 below. The
+  # reason legs 1-4 must strip digits is that they compare a shipped artifact against a
+  # FRESH generator run. Two of the shipped artifacts are not in that relationship with
+  # anything: report.pdf is rendered from report.html inside ONE `--html` invocation, and
+  # README.md is a `cp` of report.md. Those two pairs agree digit-for-digit by
+  # construction, so they are now compared with digits INTACT — leg 5 by multiset, leg 6
+  # byte-exact. A hand-edited digit in report.html, report.pdf or README.md now fires;
+  # before 2026-08-02 none of them did, and example/report.html had already been
+  # hand-patched once (dbba77d, caught by the operator, not by a gate).
+  #
+  # THE HOLE THAT REMAINS, stated so the two new legs are not read as closing it:
+  # example/report.txt is the output of a SEPARATE `--all` run and has no shipped partner,
+  # so its digits are still compared by nothing — the measurement under Q2 above stands
+  # exactly as written. The same is true of a hand-edit applied identically to BOTH
+  # report.md and README.md. Digit coverage after this change is 4 artifacts of 5, and one
+  # of those 4 (report.md) is covered only against its own copy.
   _norm() { sed -E 's/([0-9]),([0-9])/\1\2/g; s/[0-9]//g; s/[[:space:]]+/ /g' "$1" | grep -v '^ *$' | sort; }
   # BOTH DIRECTIONS. The first version compared one way only (`comm -13`: lines the
   # ARTIFACT has that the generator does not), so a pure DELETION from a shipped
@@ -2568,6 +2662,29 @@ gate_generated() {
   # No regeneration: see the header. Multiset (not sorted-diff) comparison, because
   # pdftotext reflows page-by-page and the ORDER of identical lines carries no
   # information here; what a hand-edit changes is WHICH lines exist.
+  #
+  # DIGITS ARE COMPARED HERE, and legs 5 and 6 are the ONLY legs in this gate that compare
+  # them (item A2, 2026-08-02). Legs 1-4 compare a shipped artifact against a FRESH
+  # generator run, and roae.py seeds nothing by default, so their Monte Carlo figures
+  # legitimately differ and every digit must be stripped. Legs 5 and 6 compare two SHIPPED
+  # artifacts that come out of ONE generator invocation — `roae.py --html` writes
+  # report.html and then renders report.pdf from it — so their digits agree BY CONSTRUCTION
+  # and a difference is a hand-edit. That asymmetry is the whole reason these two legs can
+  # be strict where the others cannot.
+  #
+  # MEASURED BEFORE SWITCHING IT ON, on the shipped pair (2026-08-02):
+  #   digits stripped : 0 pdf-only, 0 html-only, 1424 normalised lines
+  #   digits INTACT   : 0 pdf-only, 0 html-only, 1428 normalised lines
+  # Not reasoned — run. The 4-line difference in the totals is lines made up ENTIRELY of
+  # digits, which the digit-stripped bag drops as empty: those four lines were previously
+  # not compared at all, in either direction.
+  #
+  # THE FALSE-FAIL RISK, and why it is not the round-4 `9084589` shape. pdftotext -layout
+  # decides line breaks from rendered text width, so in principle a longer number could
+  # reflow a line and produce a difference that is not a hand-edit. If that happens the
+  # PROSE moves across lines too, so the digit-STRIPPED comparison disagrees as well —
+  # which is why a failure here recomputes the stripped bags and says which of the two
+  # cases it is. A digits-only disagreement cannot be a reflow.
   _cmp_pdf() {   # <pdf> <html>
     _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
     _present "$2"; case $? in 1) return 0;; 2) return 1;; esac
@@ -2588,24 +2705,39 @@ for tag in ('style', 'script', 'title'):     # <title> duplicates the <h1>; not 
 # permissive pattern eats it — which silently made 69 lines look mismatched while the
 # artifacts were in fact identical (measured 2026-08-02 while designing this leg).
 h = html.unescape(re.sub(r'</?[A-Za-z!][^>]*>', '', h))
-def bag(t):
+def bag(t, keep_digits):
     c = collections.Counter()
     for ln in t.splitlines():
-        # Same normalisation contract as _norm above: collapse digit-group separators
-        # before stripping digits, so the two legs agree on what "the same line" means.
-        # Leg 5 has not been observed to flake (both sides are shipped artifacts, so a
-        # comma appears on both or neither) — this keeps the contract single, not double.
-        ln = re.sub(r'\s+', ' ', re.sub(r'[0-9]', '', re.sub(r'(?<=[0-9]),(?=[0-9])', '', ln))).strip()
+        # Group separators are collapsed in BOTH modes, so "1,046" and "1046" are the same
+        # number to this leg. wkhtmltopdf does not reformat numbers, but pdftotext -layout
+        # can pad with spaces, and the separator rule is the one _norm above already uses —
+        # keeping the contract single rather than double is deliberate (round 4's false FAIL
+        # came from two legs disagreeing about what "the same line" means).
+        ln = re.sub(r'(?<=[0-9]),(?=[0-9])', '', ln)
+        if not keep_digits:
+            ln = re.sub(r'[0-9]', '', ln)
+        ln = re.sub(r'\s+', ' ', ln).strip()
         if ln: c[ln] += 1
     return c
-P, H = bag(pdftext), bag(h)
+P, H = bag(pdftext, True), bag(h, True)
 only_p, only_h = P - H, H - P
 if not only_p and not only_h:
     print(f"  [ok]   {pdf} is the rendering of {htm} "
-          f"({sum(H.values())} normalised lines, both directions)")
+          f"({sum(H.values())} normalised lines, both directions, DIGITS INCLUDED)")
     sys.exit(0)
-print(f"  [FAIL] {pdf} vs {htm}: {sum(only_p.values())} line(s) only in the PDF, "
-      f"{sum(only_h.values())} only in the HTML")
+# Which kind of difference is it? Recomputed, not guessed: if the digit-stripped bags
+# agree, every differing line differs ONLY in its numbers, and a pdftotext reflow cannot
+# produce that (a reflow moves prose too). Saying which case it is costs one more pass
+# over data already in memory, and is the difference between "regenerate" and "someone
+# edited a number".
+sp, sh = bag(pdftext, False), bag(h, False)
+if not (sp - sh) and not (sh - sp):
+    print(f"  [FAIL] {pdf} vs {htm}: the PROSE agrees and the NUMBERS do not — "
+          f"{sum(only_p.values())} line(s) only in the PDF, {sum(only_h.values())} only in the HTML")
+    print("         A digits-only difference between these two cannot come from PDF reflow.")
+else:
+    print(f"  [FAIL] {pdf} vs {htm}: {sum(only_p.values())} line(s) only in the PDF, "
+          f"{sum(only_h.values())} only in the HTML")
 for x, n in list(only_p.items())[:3]: print(f"           +pdf-only  ({n}) > {x[:100]}")
 for x, n in list(only_h.items())[:3]: print(f"           -html-only ({n}) > {x[:100]}")
 print("         The PDF's ONLY production route is wkhtmltopdf(report.html) via roae.py's")
@@ -2615,6 +2747,36 @@ sys.exit(1)
 PY
   }
   _cmp_pdf example/report.pdf example/report.html || rc=1
+
+  # LEG 6 — example/README.md is a COPY of example/report.md (item A2, 2026-08-02).
+  #
+  # Legs 2 and 3 compare each of them, separately and digit-stripped, against a fresh
+  # `--markdown` run. Neither compares them TO EACH OTHER, so until now the two shipped
+  # files could disagree on every number in the corpus and this gate said [ok] twice.
+  # The production route is a copy — the gate's own remediation text says
+  # `cp example/report.md example/README.md` — so the pair can be compared BYTE-EXACT,
+  # which is stronger than anything legs 1-4 can do. MEASURED before switching it on:
+  # `cmp example/report.md example/README.md` is byte-identical on the shipped tree.
+  #
+  # WHAT THIS STILL CANNOT SEE: an identical hand-edit applied to BOTH files. That is a
+  # real hole and it is not closable from here — it would have to be caught by legs 2 and
+  # 3, which are digit-blind. So a hand-edited number surviving in both copies is caught
+  # by nothing.
+  _cmp_copy() {   # <copy> <original>
+    _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
+    _present "$2"; case $? in 1) return 0;; 2) return 1;; esac
+    if cmp -s "$1" "$2"; then
+      echo "  [ok]   $1 is BYTE-IDENTICAL to $2 (digits included)"
+      return 0
+    fi
+    echo "  [FAIL] $1 is not byte-identical to $2, but its only production route is a copy"
+    diff "$2" "$1" | head -6 | sed 's/^/           /'
+    echo "         Regenerate the original and re-copy; never edit either one by hand:"
+    echo "           ( cd example && python3 ../roae.py --markdown )"
+    echo "           cp example/report.md example/README.md"
+    return 1
+  }
+  _cmp_copy example/README.md example/report.md || rc=1
 
   [ "$owned" = 1 ] && rm -rf "$tmp"
   return "$rc"
