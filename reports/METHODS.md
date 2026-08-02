@@ -208,9 +208,31 @@ which is what produced every published figure — with the divergence disclosed:
   family carrying a measured p-value, which is what a BH ranking needs — enough for the
   conclusion, not enough for the withdrawn "≈10×" margin. Net effect on the disclosure: none — it is
   self-penalizing, and the narrower base still reaches the same verdict.)*
-  That
+  **What the preceding sentence claims — and what it does not (scope split added 2026-08-02).** That
   is the *only* verdict in the suite the family choice moves, and it moves the one result most favourable
-  to the hypothesis this suite argues against. Two facts keep the published reading defensible, and both
+  to the hypothesis this suite argues against. **That is a statement about *verdicts*, not about
+  *margins*.** The reported **margin** — the factor by which a p-value clears or misses its bar — is
+  correction-specific and *does* move with the family, by an order of magnitude, with no verdict changing.
+  The reason is structural, not incidental: Bonferroni supplies a single **rank-free** bar (0.05/91 ≈
+  5.5×10⁻⁴) that any value can be read against, whereas BH supplies a **rank-dependent** bar *i*·0.05/91,
+  so the same value's BH margin is exactly *i* times its Bonferroni margin — 2× to 91× larger depending
+  on where it ranks. Worked pair (the one place in the suite a global-bar margin is published as a
+  number, [TR-8](TR8_REORDERING_REVISITED.md) §Executive summary): a per-rule rarity of 1.054×10⁻⁴ clears
+  the global bar by **~5×** under Bonferroni and by **≥~10×** under BH at q = 0.05 — the BH figure is a
+  floor, not a point, because only *i* ≥ 2 is supported (forced by `dav_rotinv` at 6.5×10⁻⁵ being strictly
+  smaller and inside the roster). A **~52×** figure for that same rarity circulated in draft; it is BH at
+  rank *i* = 10, which requires nine strictly-smaller values, and the only nine available are the registry
+  masses the narrowing above **withdrew from ranking** — so ~52× is not publishable on this ledger and TR-8
+  does not carry it. The asymmetry runs deeper than size: that TR-8 rarity is itself a literature-rule
+  registry mass, the same class the narrowing excludes, so it may hold **no BH rank at all** — its
+  Bonferroni margin is well-defined (a rank-free bar applies to any value) while its BH margin is
+  conditional on roster membership. FWER margins are therefore the firmer quantity as well as the
+  smaller one, which is a second reason this suite publishes them. Two consequences for readers: **every margin published in this suite is a Bonferroni
+  margin unless it says otherwise**, and a margin quoted without naming its family is under-specified even
+  where the verdict is not. The two families thus disagree by an order of magnitude on *how far* King
+  Wen's rarity sits from the global bar while agreeing on *every* published verdict but one — both halves
+  are reported here because reporting only the family that flatters a given number is what makes a
+  correction record dishonest. Two facts keep the published reading defensible, and both
   are stated rather than assumed: (i) FWER is the strictly more conservative family, so **every claim
   that the suite reports as *clearing* the bar clears it under BH as well** — nothing in the positive
   direction depends on this; (ii) the exposure is entirely in the negative direction, on one Davis
