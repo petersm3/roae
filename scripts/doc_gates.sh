@@ -3226,6 +3226,20 @@ s=open(p,encoding='utf-8').read()
 assert s.count(a)==1, 'reg_r4 body anchor moved: %d' % s.count(a)
 open(p,'w',encoding='utf-8').write(s.replace(a,'    return 120'+chr(10),1))"
 
+  # PHASE-4 ON THIS BATCH, not a later thought: the first draft printed
+  # "[ok] 0 rules, 0 pairs compared" and exited 0 if REGISTRY_KW_EXPECTED were emptied or
+  # renamed. Both new gates in this batch had a way to be green having compared nothing,
+  # which is the failure mode they were written to refuse, so both guards are asserted here
+  # rather than reasoned about in a comment.
+  assert_fires_why "GATE 14 an emptied registry is a finding, not a clean run" regdupes \
+    'fewer than two cannot form a pair' \
+"p='solve.py'
+s=open(p,encoding='utf-8').read()
+a='REGISTRY_KW_EXPECTED = ['
+assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
+i=s.index(a); j=s.index(chr(10)+']'+chr(10), i)
+open(p,'w',encoding='utf-8').write(s[:i]+'REGISTRY_KW_EXPECTED = [(\"r3\", True),'+s[j:])"
+
   assert_fires_why "GATE 14 (A1) duplicate allowlist deleted" \
     regdupes 'DOC_GATE_REGISTRY_DUPLICATES\.txt is tracked in git but missing' \
 "import os
@@ -3376,6 +3390,34 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
   else
     echo "  [FAIL] GATE 16 vacuity guard — could not build the mutated copy (the"
     echo "         'spans a hard wrap' anchor moved), so the assertion did NOT run."
+    PASS=1
+  fi
+  # PHASE-4, the GATE 16 half: the "no templates at all" guard could not see ONE preflight
+  # going quiet. A rewrite from `echo` to `printf` in either function would silently drop its
+  # lines from the comparison, leave the other's, and print a plausible count nobody reads.
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+out=[]; n=0; inb=False
+for l in L:
+    if l.startswith('preflight_support_newlines() {'): inb=True
+    elif inb and l=='}'+chr(10): inb=False
+    if inb and l.lstrip().startswith('echo '+chr(34)):
+        l=l.replace('echo '+chr(34), 'printf '+chr(34)+'%s'+chr(92)+chr(92)+'n'+chr(34)+' '+chr(34), 1); n+=1
+    out.append(l)
+assert n>0, 'no echo lines found in preflight_support_newlines'
+open('$_G16_COPY','w',encoding='utf-8').writelines(out)" 2>/dev/null; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'preflight_support_newlines() contributed ZERO message templates'; then
+      echo "  [ok]   GATE 16 one preflight going quiet is a FAIL, not a smaller count"
+    else
+      echo "  [FAIL] GATE 16 — a preflight whose messages the extractor can no longer read was"
+      echo "         not reported; its output would silently stop being compared."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 per-preflight guard — could not build the mutated copy, so the"
+    echo "         assertion did NOT run."
     PASS=1
   fi
   rm -f "$_G16_COPY"
@@ -4176,6 +4218,15 @@ except Exception as exc:                       # noqa: BLE001 — any import fai
     sys.exit(1)
 
 ids = [r for r, _ in solve.REGISTRY_KW_EXPECTED]
+# PHASE-4 ON THIS GATE'S OWN FIRST DRAFT: without this, an emptied or renamed
+# REGISTRY_KW_EXPECTED made the gate print "[ok] 0 rules, 0 pairs compared" and exit 0 — a
+# green verdict from an instrument that compared nothing. Fewer than two rules cannot form a
+# pair, so there is nothing this gate could have been doing.
+if len(ids) < 2:
+    print("  [FAIL] REGISTRY_KW_EXPECTED holds %d rule(s); fewer than two cannot form a pair,"
+          " so this gate compared NOTHING" % len(ids))
+    print("         A registry that shrank to nothing is a finding, not a clean run.")
+    sys.exit(1)
 kw = list(solve.binary_hexagrams)
 # MM-T5's family order, quoted from reg_mmt5's own docstring so the witness cannot drift
 # away from the rule silently.
@@ -4584,10 +4635,21 @@ for fn in ("preflight_tracked_docs", "preflight_support_newlines"):
         print("  [FAIL] %s() body not found in %s, so zero preflight messages were compared"
               % (fn, src))
         bad = 1
+    n_before = len(templates)
     for ln in b:
         m = ECHO.match(ln)
         if m:
             templates.append(m.group(1).replace('\\`', '`').replace('\\"', '"'))
+    # PHASE-4: the global "no templates at all" guard below would not notice ONE preflight
+    # going quiet — a rewrite from `echo` to `printf` in either function would drop its lines
+    # from the comparison and leave the other's, and the count nobody reads would still look
+    # plausible. Each preflight must contribute at least one line of its own.
+    if b and len(templates) == n_before:
+        print("  [FAIL] %s() contributed ZERO message templates, so none of its output was"
+              " compared against any assertion" % fn)
+        print("         The extractor reads `echo \"...\"` lines; if this preflight now")
+        print("         emits its findings some other way, teach the extractor that way.")
+        bad = 1
 
 files = []
 for glob in ("*.md", "documentation/DOC_GATE_*.txt", "documentation/*.tsv"):
