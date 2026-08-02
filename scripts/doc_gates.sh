@@ -35,8 +35,9 @@
 #                                   # released version, dates and versions ascending
 #   scripts/doc_gates.sh regdupes   # GATE 14: two literature-registry rules that are the same predicate
 #   scripts/doc_gates.sh instruments # GATE 15: a --selftest instrument with no declared fire-proof
+#   scripts/doc_gates.sh collisions # GATE 16: a per-gate assertion a PREFLIGHT could satisfy
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
-#   scripts/doc_gates.sh all        # run all fourteen cheap gates (1-7 incl. 3b, 9, 10, 11, 12, 13, 14, 15); `generated` is separate by cost
+#   scripts/doc_gates.sh all        # run all fifteen cheap gates (1-7 incl. 3b, 9, 10, 11, 12, 13, 14, 15, 16); `generated` is separate by cost
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
@@ -3190,13 +3191,13 @@ os.remove(p)"
   # read-only and announces itself, so the leg below tests the shipped code path on a
   # mutated input — which is what every other assertion here does, the input just happens to
   # be the program. The three legs that mutate only the TABLE need no copy and use none.
-  _g15() { DOC_GATES_INSTR_SRC="${1:-}" bash "$0" instruments 2>&1; }
+  _gsrc() { DOC_GATES_SRC_OVERRIDE="$1" bash "$0" "$2" 2>&1; }
 
   _G15_COPY=$(git rev-parse --git-dir)/doc_gates_g15_copy.sh
   if sed 's|^  assert_fires() {$|  _fireproof_undeclared_instrument() { :; }\n  assert_fires() {|' \
        scripts/doc_gates.sh > "$_G15_COPY" \
      && grep -qF '_fireproof_undeclared_instrument() { :; }' "$_G15_COPY"; then
-    G15OUT=$(_g15 "$_G15_COPY")
+    G15OUT=$(_gsrc "$_G15_COPY" instruments)
     if printf '%s' "$G15OUT" | grep -qF '_fireproof_undeclared_instrument() is defined at'; then
       echo "  [ok]   GATE 15 an undeclared instrument in the --selftest region — fires, and names it"
     else
@@ -3252,6 +3253,57 @@ os.remove(p)"
   assert_stays_clean "GATE 15 a comment appended to the table changes nothing" instruments \
 "open('documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt','a',encoding='utf-8').write(
     '# GATE 15 negative control: a comment line declares nothing and breaks nothing.'+chr(10))"
+
+  # GATE 16 FIRE-PROOFS (item A2, 2026-08-02) — REPRODUCE THE A6 NEAR-MISS, do not describe it.
+  #
+  # The motivating leg rewrites GATE 3's evidence-ERE to the corpus preflight's wording. That
+  # is precisely what item A6 nearly shipped: an assertion about one gate that the preflight —
+  # which runs before EVERY mode — would satisfy on its own, leaving the named gate free to
+  # stop working unnoticed. Both legs mutate a COPY through the shared read-only source seam,
+  # because the file to mutate is the one bash is executing (task #77, same reasoning as
+  # GATE 15's).
+  #
+  # THE SECOND LEG IS THE VACUITY GUARD MADE LOAD-BEARING. A parser that silently skipped an
+  # assert_fires_why invocation would leave that assertion unchecked forever and still print
+  # [ok] with a smaller count than the file has calls — nobody reads counts. Deleting an
+  # ERE argument must therefore be a FAIL, not a quieter [ok].
+  _G16_COPY=$(git rev-parse --git-dir)/doc_gates_g16_copy.sh
+
+  if sed "s|^    'matched as the fixed string: \"hard floor k>=13\"' \\\\\$|    'tracked markdown missing from the working tree' \\\\|" \
+       scripts/doc_gates.sh > "$_G16_COPY" \
+     && grep -qF "'tracked markdown missing from the working tree' \\" "$_G16_COPY"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'is satisfied by a PREFLIGHT line'; then
+      echo "  [ok]   GATE 16 an assertion reworded onto the preflight's wording — fires (the A6 near-miss)"
+    else
+      echo "  [FAIL] GATE 16 — a per-gate assertion whose ERE the corpus preflight emits was"
+      echo "         NOT reported. That assertion would pass with its gate switched off."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 — could not build the mutated copy (GATE 3's ERE line anchor"
+    echo "         moved), so the assertion did NOT run."
+    PASS=1
+  fi
+
+  if sed "s|^    'spans a hard wrap' \\\\\$||" scripts/doc_gates.sh > "$_G16_COPY" \
+     && ! grep -qF "'spans a hard wrap'" "$_G16_COPY"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'no evidence-ERE could be extracted'; then
+      echo "  [ok]   GATE 16 an assert_fires_why whose ERE cannot be extracted — fires, not skipped"
+    else
+      echo "  [FAIL] GATE 16 — an invocation with no extractable ERE was passed over in"
+      echo "         silence. The scan would under-report and still say [ok]."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 vacuity guard — could not build the mutated copy (the"
+    echo "         'spans a hard wrap' anchor moved), so the assertion did NOT run."
+    PASS=1
+  fi
+  rm -f "$_G16_COPY"
 
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
@@ -4242,9 +4294,9 @@ import os, re, sys
 # this file does — mutate the gate's input — the input here just happens to be the program.
 # The seam is READ-ONLY (the file is scanned, never executed, never written) and an override
 # is ANNOUNCED below, so it cannot quietly weaken a real run.
-src = os.environ.get("DOC_GATES_INSTR_SRC") or "scripts/doc_gates.sh"
+src = os.environ.get("DOC_GATES_SRC_OVERRIDE") or "scripts/doc_gates.sh"
 if src != "scripts/doc_gates.sh":
-    print("  [note] scanning OVERRIDE source %s (DOC_GATES_INSTR_SRC), not the live script"
+    print("  [note] scanning OVERRIDE source %s (DOC_GATES_SRC_OVERRIDE), not the live script"
           % src)
 if not os.path.isfile(src):
     print("  [FAIL] %s is not a readable file, so zero instruments were scanned" % src)
@@ -4331,6 +4383,176 @@ sys.exit(bad)
 PY
 }
 
+# ----------------------------------------------------------------------------------
+# GATE 16 — no per-gate assertion may be satisfiable by a PREFLIGHT (ITEM A2, 2026-08-02).
+#
+# WHY THIS EXISTS. Item A6 nearly shipped one: a new preflight would have printed the exact
+# string GATE 11's fire-proof asserts on, so the preflight — which runs before EVERY mode —
+# would have satisfied an assertion written about GATE 11, and GATE 11's leg could have
+# stopped working without any assertion noticing. It was caught by hand. That is the A3/A7
+# shared-DISPATCH defect arriving through a shared MESSAGE, and require_final_newline's
+# `quiet` argument exists solely to dodge it. The dodge is real; the CHECK on the dodge was
+# a sentence in a comment ("The preflight's wording therefore shares no substring with this
+# one") that had never been mechanically verified. This gate verifies it.
+#
+# WHAT IT DOES. Extracts the evidence-ERE from every assert_fires_why invocation, extracts
+# every line the two preflights can emit, expands their `$f` over the real file lists, and
+# fails if any ERE matches any preflight-emittable line. Two preflights now run before every
+# mode and both emit [FAIL] lines, so this is not hypothetical arithmetic.
+#
+# THE EXEMPTION IS NAMED AND PRINTED, NEVER SILENT. Two assertions are ABOUT a preflight and
+# must match its output — that is their whole purpose. They are identified by their LABEL
+# containing "preflight" (case-insensitive) and are listed in the output every run, so the
+# exemption cannot quietly grow to cover an assertion that should have failed.
+#
+# THREE VACUITY GUARDS, because the failure mode of this gate is finding nothing and saying
+# [ok] — the same shape as the checker whose false clear hid a Lean defect for twelve hours
+# on 2026-08-01:
+#   (1) one ERE must be extracted per assert_fires_why invocation; a mismatch is a FAIL, so
+#       a parser that silently skips a call cannot pass;
+#   (2) the preflight message set must be non-empty;
+#   (3) the expanded candidate-line set must be non-empty.
+#
+# WHAT IT CANNOT SEE, stated rather than implied:
+#   (a) assert_fires / assert_stays_clean / assert_gen_* assert on EXIT CODE or on a
+#       hardcoded string inside the harness, not on an ERE argument. They are outside this
+#       scan. An exit-code assertion is satisfiable by ANY failure, preflight included —
+#       that is a known and separate weakness of assert_fires, not something this gate fixes.
+#   (b) It over-approximates the candidate files (both preflights' file lists are unioned),
+#       which is the conservative direction: it can report a collision that a real run would
+#       not produce, never miss one that it would.
+#   (c) It reasons about the preflights only. A collision between two PER-GATE messages is a
+#       different question and is not asked here.
+gate_preflight_collisions() {
+  echo "== GATE 16: no per-gate assertion is satisfiable by a preflight =="
+  python3 - <<'PY'
+import os, re, subprocess, sys
+
+# The same read-only source seam GATE 15 uses, and for the same reason: the mutation this
+# gate must be proven against edits an assertion inside THIS file, which bash is executing
+# (task #77). Read-only, and announced below so it cannot quietly weaken a real run.
+src = os.environ.get("DOC_GATES_SRC_OVERRIDE") or "scripts/doc_gates.sh"
+if src != "scripts/doc_gates.sh":
+    print("  [note] scanning OVERRIDE source %s (DOC_GATES_SRC_OVERRIDE), not the live script"
+          % src)
+if not os.path.isfile(src):
+    print("  [FAIL] %s is not a readable file, so zero assertions were compared" % src)
+    sys.exit(1)
+lines = open(src, encoding="utf-8").read().splitlines()
+
+# --- the assertions. The ERE is the first single-quoted token on the invocation line or on
+# one of the two lines after it (the file's only two layouts: gate-then-ERE on the call line,
+# or the call line ending in a backslash with `gate 'ERE'` or `'ERE'` beneath).
+calls = [i for i, ln in enumerate(lines) if ln.startswith("  assert_fires_why ")]
+QUOTED = re.compile(r"'((?:[^'\\]|\\.)*)'")
+LABEL = re.compile(r'^  assert_fires_why "((?:[^"\\]|\\.)*)"')
+found = []
+for i in calls:
+    m = LABEL.match(lines[i])
+    label = m.group(1) if m else "<unparsed label at %s:%d>" % (src, i + 1)
+    ere = None
+    for j in (i, i + 1, i + 2):
+        if j >= len(lines):
+            break
+        # skip the label itself: it is double-quoted, so QUOTED cannot see it
+        q = QUOTED.search(lines[j])
+        if q:
+            ere = q.group(1)
+            break
+    found.append((label, ere, i + 1))
+
+bad = 0
+missing = [(l, n) for l, e, n in found if e is None]
+for label, n in missing:
+    print("  [FAIL] no evidence-ERE could be extracted from the assert_fires_why at %s:%d"
+          " (%s)" % (src, n, label))
+    bad = 1
+if len(found) != len(calls) or missing:
+    print("         The extractor must produce exactly one ERE per invocation. A parser that")
+    print("         silently skips a call would leave that assertion unchecked and still")
+    print("         print [ok] — the false-clear shape this gate exists to refuse.")
+    bad = 1
+
+# --- what the preflights can print.
+def body(name):
+    out, on = [], False
+    for ln in lines:
+        if ln.startswith(name + "() {"):
+            on = True
+            continue
+        if on and ln == "}":
+            break
+        if on:
+            out.append(ln)
+    return out
+
+ECHO = re.compile(r'^\s*echo\s+"(.*)"\s*$')
+templates = []
+for fn in ("preflight_tracked_docs", "preflight_support_newlines"):
+    b = body(fn)
+    if not b:
+        print("  [FAIL] %s() body not found in %s, so zero preflight messages were compared"
+              % (fn, src))
+        bad = 1
+    for ln in b:
+        m = ECHO.match(ln)
+        if m:
+            templates.append(m.group(1).replace('\\`', '`').replace('\\"', '"'))
+
+files = []
+for glob in ("*.md", "documentation/DOC_GATE_*.txt", "documentation/*.tsv"):
+    files += subprocess.run(["git", "ls-files", glob], capture_output=True, text=True
+                            ).stdout.split()
+
+if not templates:
+    print("  [FAIL] zero preflight message templates extracted — the scan is inert, not clean")
+    bad = 1
+candidates = set()
+for t in templates:
+    if "$f" in t:
+        for f in files:
+            candidates.add(t.replace("$f", f))
+    else:
+        candidates.add(t)
+if not candidates:
+    print("  [FAIL] zero candidate preflight lines after expansion — the scan is inert")
+    bad = 1
+
+exempt, checked = [], 0
+for label, ere, n in found:
+    if ere is None:
+        continue
+    if "preflight" in label.lower():
+        exempt.append((label, n))
+        continue
+    checked += 1
+    try:
+        rx = re.compile(ere)
+    except re.error as exc:
+        print("  [FAIL] %s:%d — the evidence-ERE of \"%s\" does not compile: %s"
+              % (src, n, label, exc))
+        bad = 1
+        continue
+    hit = next((c for c in sorted(candidates) if rx.search(c)), None)
+    if hit is not None:
+        print("  [FAIL] %s:%d — the assertion \"%s\" is satisfied by a PREFLIGHT line:"
+              % (src, n, label))
+        print("           ERE : %s" % ere)
+        print("           line: %s" % hit.strip())
+        print("         A preflight runs before EVERY mode, so this assertion would pass")
+        print("         with the gate it names switched off entirely. Reword one of the two.")
+        bad = 1
+
+for label, n in exempt:
+    print("  [note] EXEMPT (asserts ON a preflight, by design): %s (%s:%d)" % (label, src, n))
+
+if not bad:
+    print("  [ok] %d evidence-ERE(s) checked against %d preflight-emittable line(s) from %d"
+          " template(s); %d exempt" % (checked, len(candidates), len(templates), len(exempt)))
+sys.exit(bad)
+PY
+}
+
 MODE="${1:-all}"
 
 # ITEM A1, hole (b) — runs for EVERY mode, including the single-gate invocations the
@@ -4366,6 +4588,7 @@ case "$MODE" in
   revrows) gate_revrows || RC=1 ;;
   regdupes) gate_registry_dupes || RC=1 ;;
   instruments) gate_selftest_instruments || RC=1 ;;
+  collisions) gate_preflight_collisions || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -4377,8 +4600,9 @@ case "$MODE" in
            echo; gate_revhist || RC=1
            echo; gate_revrows || RC=1
            echo; gate_registry_dupes || RC=1
-           echo; gate_selftest_instruments || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|regdupes|instruments|generated|all}"; exit 2 ;;
+           echo; gate_selftest_instruments || RC=1
+           echo; gate_preflight_collisions || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|regdupes|instruments|collisions|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -4391,7 +4615,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15. Gates 1, 5 (incl. 5b) and 13 are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16. Gates 1, 5 (incl. 5b) and 13 are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ] || [ "$MODE" = revrows ]; then
