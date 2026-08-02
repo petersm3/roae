@@ -1010,13 +1010,22 @@ s=open(p,encoding='utf-8').read()
 assert s.count(a)==1, 'anchor moved'
 open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organising'),1))"
 
+  # CASE 4 — a DELETED shipped artifact. Found by Phase-4'ing this batch and asking what
+  # every leg does when its input is not there: all five used to [skip] on `! -f`, so
+  # `rm example/report.pdf` passed in silence. Absence is the strongest mismatch there is.
+  assert_gen_fires "GATE 8 shipped artifact deleted outright" \
+'example/report\.pdf is tracked in git but missing from the working tree' \
+"import os
+assert os.path.exists('example/report.pdf'), 'anchor moved'
+os.remove('example/report.pdf')"
+
   rm -rf "$GEN_CACHE"
 
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
   # tests for, so the list is enumerated against the assert_fires calls above:
-  #   covered: 1 (output), 3, 4, 4b, 5 (output), 6, 7 x2, 8 x3, 9 x2, 10 (+negative
+  #   covered: 1 (output), 3, 4, 4b, 5 (output), 6, 7 x2, 8 x4, 9 x2, 10 (+negative
   #            control), 11
   #   NOT covered: 2 -- would mutate solve.py, a costlier revert than the assurance is
   #                     worth; it has FIRED in anger (13 undocumented flags, 2026-07/08).
@@ -1140,8 +1149,23 @@ gate_generated() {
   # same over-attestation this suite exists to catch. Demonstrated 2026-08-01 by
   # deleting the nuclear-attractor line from example/report.txt: the gate said [ok].
   # Substitutions were caught only because they leave an added line behind as well.
+  # A MISSING shipped artifact is a FAILURE, not a skip (2026-08-02). Every leg below used
+  # to `[skip]` on `! -f`, so `rm example/report.pdf` passed the gate in silence — the same
+  # false-clear shape as the one-directional comparison, and reached the same way: by asking
+  # what the gate does when its input is not there. Absence is only a skip for an artifact
+  # git does not track; for a tracked one it is the strongest possible mismatch.
+  _present() {   # <path>
+    [ -f "$1" ] && return 0
+    if git ls-files --error-unmatch -- "$1" >/dev/null 2>&1; then
+      echo "  [FAIL] $1 is tracked in git but missing from the working tree"
+      echo "         A shipped artifact that is absent is not a passing artifact — regenerate it."
+      return 2
+    fi
+    echo "  [skip] $1 absent (not tracked, so nothing is shipped to check)"
+    return 1
+  }
   _cmp() {   # <artifact> <reference> <label>
-    [ -f "$1" ] || { echo "  [skip] $1 absent"; return 0; }
+    _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
     local extra missing
     extra=$(comm -13 <(_norm "$2") <(_norm "$1") | wc -l)
     missing=$(comm -23 <(_norm "$2") <(_norm "$1") | wc -l)
@@ -1179,8 +1203,8 @@ gate_generated() {
   # pdftotext reflows page-by-page and the ORDER of identical lines carries no
   # information here; what a hand-edit changes is WHICH lines exist.
   _cmp_pdf() {   # <pdf> <html>
-    [ -f "$1" ] || { echo "  [skip] $1 absent"; return 0; }
-    [ -f "$2" ] || { echo "  [skip] $2 absent"; return 0; }
+    _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
+    _present "$2"; case $? in 1) return 0;; 2) return 1;; esac
     command -v pdftotext >/dev/null 2>&1 || { echo "  [skip] no pdftotext — $1 not checked"; return 0; }
     python3 - "$1" "$2" <<'PY'
 import collections, html, re, subprocess, sys, tempfile, os
