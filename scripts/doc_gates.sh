@@ -30,6 +30,7 @@
 #   scripts/doc_gates.sh ledger     # every RETRACTED_PHRASES.tsv row, and every
 #                                   # RETRACTED_FIGURES.tsv row, is recorded in CORRECTIONS.md
 #   scripts/doc_gates.sh ledger-figures  # GATE 11's FIGURES pass ALONE (self-test target)
+#   scripts/doc_gates.sh revrows    # GATE 13: a TR body edit carries a revision row (REPORT-ONLY)
 #   scripts/doc_gates.sh revhist    # GATE 12: TR revision tables — one *(current)* and last, no repeated
 #                                   # released version, dates and versions ascending
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
@@ -1542,6 +1543,139 @@ sys.exit(bad)
 PY
 }
 
+# ----------------------------------------------------------------------------------
+# GATE 13 — a TR body edit must carry a revision row. REPORT-ONLY, and the measurement
+# below is the reason it is report-only rather than the reason it might become blocking.
+#
+# WHY (item A4, filed round 5 in GATE 12's own header as the LARGER hole): GATE 12 checks a
+# revision table's SHAPE. Its stated blindness (ii) is "a missing row: a body edit that never
+# got a revision entry at all leaves a perfectly well-formed table". That is not theoretical —
+# reports/TR4_SIZE_OF_THE_SPACE.md v1.13 exists ONLY to record, after the fact, a §3 edit that
+# shipped with no row. This gate looks for that shape directly: a commit (or a working tree)
+# that changes a TR's body and adds no `| vN.N |` row to the same file.
+#
+# MEASURED BEFORE WRITING A SINGLE VERDICT, over all 131 commits that touch reports/TR*.md:
+# **102 of them would be flagged.** Not a long tail either — 13 are dated 2026-08-02 and 10
+# are 2026-08-01. A BLOCKING gate here would not be enforcing this suite's rule; it would be
+# announcing that the suite has never followed it. So this gate returns 0 unconditionally and
+# prints `[note]`, in the same class as GATES 1, 5 and 5b. **Escalating it to [FAIL] is an
+# operator decision and needs the 102/131 number in front of it**, together with a decision
+# about the three false-positive classes below — it is not a drain unit's call and was not
+# taken as one.
+#
+# THE THREE THINGS A `[note]` DOES NOT MEAN, all measured on real commits, not imagined:
+#   (i)  A CROSS-CUTTING EDIT RECORDED IN THE LEDGER INSTEAD. `14d8751` rewrote the
+#        not-peer-reviewed banner on all ELEVEN report covers and added no revision row to
+#        any of them — and it is properly recorded, as CORRECTIONS.md CX-16 / RP-a823340f.
+#        This gate reads diffs, never the ledger, so it notes all eleven. That single commit
+#        is 11 of the 102.
+#   (ii) A ROW THAT LANDS IN THE NEXT COMMIT. The check is per-commit: edit the body, commit,
+#        then add the row, and the first commit is noted for a rule that was ultimately kept.
+#   (iii) A ROW THAT LIES. GATE 12's blindness (i) is untouched here — TR-11 v1.15 records a
+#        row that ASSERTED a propagation which had not happened, and a row like that satisfies
+#        this gate completely. Presence is all that is checked. Nothing in this suite reads a
+#        revision row's prose against the diff it claims to describe.
+#
+# SCOPE, and why two legs rather than one:
+#   WORKTREE — `git diff HEAD -- reports/TR*.md`. This is the only leg that can PREVENT the
+#     defect rather than record it, because it is the one that runs before the commit exists.
+#     It costs nothing on a clean tree, which is most runs.
+#   BATCH — a commit range, default `origin/main..HEAD` (the stack not yet pushed, i.e. the
+#     one still under review) and overridable with $DOC_GATE_REVROW_RANGE. Merges are skipped:
+#     `git show` on a merge prints a combined diff that is empty by default, so a merge would
+#     be silently classified as "no body change" and the skip is stated rather than implied.
+#     With no `origin/main` — a fresh clone, a detached checkout — the leg says so and does
+#     not run; it does not pretend to have checked.
+#
+# COST FORMULA, evaluated before writing it (box rule): C commits in range x F touched TRs,
+# one single-file `git show` each, F <= 11. Default C is the unpushed stack (single digits
+# today); the self-test's ranges are one commit each, so <= 12 subprocess calls per assertion.
+# Nothing accumulates across iterations.
+gate_revrows() {
+  echo "== GATE 13: TR body edits carry a revision row (REPORT-ONLY) =="
+  python3 - <<'PY'
+import os, re, subprocess, sys
+
+ROW = re.compile(r'^([+-])\|\s*v\d+\.\d+')
+
+def sh(*a):
+    return subprocess.run(list(a), capture_output=True, text=True).stdout
+
+def classify(diff):
+    """(added revision rows, changed body lines) for ONE file's diff.
+
+    Classification starts only after the first @@ hunk header, so the `---`/`+++` file
+    headers can never be mistaken for content — a removed markdown rule (`---`) appears
+    as `----` and would otherwise be indistinguishable from the header by prefix alone.
+    Blank-only changes are not body changes; a revision row is counted on the + side only.
+    """
+    rows = body = 0
+    in_hunk = False
+    for l in diff.split('\n'):
+        if l.startswith('@@'):
+            in_hunk = True
+            continue
+        if not in_hunk or l.startswith('\\'):
+            continue
+        if l[:1] in '+-':
+            if ROW.match(l):
+                if l[0] == '+':
+                    rows += 1
+                continue
+            if l[1:].strip():
+                body += 1
+    return rows, body
+
+notes = []
+
+# --- LEG 1: the working tree, the only leg that can catch this before it is committed.
+wt = [f for f in sh('git', 'diff', '--name-only', 'HEAD', '--', 'reports/TR*.md').split('\n') if f]
+for f in wt:
+    rows, body = classify(sh('git', 'diff', '--unified=0', 'HEAD', '--', f))
+    if body and not rows:
+        notes.append(f'  [note] WORKTREE {f} — {body} body line(s) changed vs HEAD, no revision row added')
+if not wt:
+    print('  [ok] working tree: no uncommitted TR edit')
+
+# --- LEG 2: a commit range. Default is the stack that is not yet pushed.
+rng = os.environ.get('DOC_GATE_REVROW_RANGE', '').strip()
+if not rng:
+    if subprocess.run(['git', 'rev-parse', '--verify', '--quiet', 'origin/main'],
+                      capture_output=True).returncode == 0:
+        rng = 'origin/main..HEAD'
+    else:
+        print('  [note] no origin/main in this clone, so the BATCH leg did NOT run.')
+        print('         Set DOC_GATE_REVROW_RANGE=<rev-range> to check a range explicitly.')
+        rng = None
+
+if rng:
+    commits = [c for c in sh('git', 'rev-list', '--no-merges', rng).split('\n') if c]
+    print(f'  [ok] batch leg range {rng}: {len(commits)} non-merge commit(s) examined'
+          if commits else f'  [ok] batch leg range {rng}: no non-merge commits to examine')
+    for c in commits:
+        files = [f for f in sh('git', 'show', '--name-only', '--format=', c,
+                               '--', 'reports/TR*.md').split('\n') if f]
+        for f in files:
+            rows, body = classify(sh('git', 'show', '--unified=0', '--format=', c, '--', f))
+            if body and not rows:
+                notes.append(f'  [note] {c[:8]} {f} — {body} body line(s) changed, no revision row added')
+
+CAP = 25
+for n in notes[:CAP]:
+    print(n)
+if len(notes) > CAP:
+    print(f'  [note] ... and {len(notes) - CAP} more (capped at {CAP}; widen the range deliberately)')
+if notes:
+    print('  (report-only. A note is a QUESTION — "was this edit meant to be recorded?" — not a')
+    print('   verdict. It cannot see a change recorded in CORRECTIONS.md instead, a row added in')
+    print('   the NEXT commit, or a row whose prose misdescribes the edit it claims to record.)')
+else:
+    print('  [ok] every examined TR body edit carries a revision row in the same commit')
+sys.exit(0)   # report-only gate — never blocks
+PY
+  return 0
+}
+
 # ===========================================================================
 # SELF-TEST — mutation testing. Run: scripts/doc_gates.sh --selftest
 #
@@ -2428,6 +2562,78 @@ assert len(i)==1, 'anchor moved'
 lines.insert(i[0]+1,'| v1.0-draft | 2026-07-05 | Self-test row: a repeated DRAFT label is legitimate. |')
 open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
 
+  # GATE 13 (item A4). Four assertions, and the third is the one that matters: it is not a
+  # mutation at all but a REAL COMMIT — `b5bcff7c`, the 2026-07-25 one-line edit to TR-4 §3
+  # that shipped with no revision row and that TR-4 v1.13 exists to record after the fact.
+  # A synthetic injection proves the classifier reacts to something; pointing the gate at the
+  # defect it was written for proves it reacts to THAT. Both directions are asserted, because
+  # a one-directional fire-proof is exactly what GATE 8 shipped behind (see this file's
+  # header) — 00c0db0 touched the same two TRs and gave BOTH a row, so it must stay silent.
+  #
+  # THE RANGE IS PINNED ON EVERY ASSERTION, including the worktree ones, where it is set to
+  # the empty range HEAD..HEAD. Without that the batch leg would also run and its output could
+  # satisfy — or mask — an assertion written about the worktree leg. That is the GATE 4b
+  # lesson (an assertion aimed at a combined dispatch cannot say which half answered), applied
+  # before it can bite rather than after.
+  #
+  # ASSERT ON OUTPUT, never on rc: GATE 13 is report-only and returns 0 by design.
+  _g13() { DOC_GATE_REVROW_RANGE="$1" bash "$0" revrows 2>&1; }
+
+  if python3 -c "f='reports/TR6_PARITY_SKELETON.md'
+s=open(f,encoding='utf-8').read()
+open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence with no revision row.'+chr(10))" 2>/dev/null; then
+    G13OUT=$(_g13 'HEAD..HEAD')
+    if printf '%s' "$G13OUT" | grep -qE 'WORKTREE reports/TR6_PARITY_SKELETON\.md — 1 body line'; then
+      echo "  [ok]   GATE 13 worktree — an uncommitted TR body edit with no revision row is noted"
+    else
+      echo "  [FAIL] GATE 13 worktree — a body edit with no revision row was NOT noted."
+      printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 13 worktree — could not inject, so the assertion did NOT run."; PASS=1
+  fi
+  _selftest_revert
+
+  # The negative control for the worktree leg. Without it, "notes a body edit" is equally
+  # consistent with "notes ANY edit to a TR", which would make the gate pure noise.
+  if python3 -c "f='reports/TR6_PARITY_SKELETON.md'
+s=open(f,encoding='utf-8').read()
+open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded below.'+chr(10)+'| v9.99 | 2026-08-02 | Self-test revision row. |'+chr(10))" 2>/dev/null; then
+    G13OUT=$(_g13 'HEAD..HEAD')
+    if printf '%s' "$G13OUT" | grep -qE 'WORKTREE'; then
+      echo "  [FAIL] GATE 13 worktree negative control — a body edit that DID get a row was noted."
+      printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    else
+      echo "  [ok]   GATE 13 worktree negative control — a body edit WITH a revision row is silent"
+    fi
+  else
+    echo "  [FAIL] GATE 13 worktree negative control — could not inject; assertion did NOT run."; PASS=1
+  fi
+  _selftest_revert
+
+  G13OUT=$(_g13 'b5bcff7c^..b5bcff7c')
+  if printf '%s' "$G13OUT" | grep -qE 'b5bcff7c reports/TR4_SIZE_OF_THE_SPACE\.md'; then
+    echo "  [ok]   GATE 13 batch — fires on b5bcff7c, the real silent TR-4 edit v1.13 records"
+  else
+    echo "  [FAIL] GATE 13 batch — b5bcff7c is the commit this gate was written for (TR-4 §3"
+    echo "         edited, no revision row; recorded after the fact as v1.13) and it was NOT"
+    echo "         noted. If that commit has been rewritten, re-anchor on another real one."
+    printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -6
+    PASS=1
+  fi
+
+  G13OUT=$(_g13 '00c0db0^..00c0db0')
+  if printf '%s' "$G13OUT" | grep -qE '\[note\] 00c0db0'; then
+    echo "  [FAIL] GATE 13 batch negative control — 00c0db0 gave BOTH TRs it touched a revision"
+    echo "         row and must be silent. A gate that notes a compliant commit is noise."
+    printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -6
+    PASS=1
+  else
+    echo "  [ok]   GATE 13 batch negative control — 00c0db0 gave both its TRs a row, and is silent"
+  fi
+
   # GATE 5, added 2026-08-02 with the #65 work. The old note said this gate could not be
   # mutation-tested because doing so "would require editing a canonical quantity" — which
   # was true only of the mutation shape assumed. APPENDING a new sentence that quotes 5.21
@@ -2872,7 +3078,9 @@ os.remove('documentation/GUIDE.md')"
   #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
   #            5b (output), 6 x3 (2 phrase + 1 FIGURE, item A8), 7 x2,
 #            8 x5 (4 fire + 1 NEGATIVE control), 9 x2,
-  #            10a (+negative control), 10b x3, 11, 12 x5 (+1 NEGATIVE control)
+  #            10a (+negative control), 10b x3, 11, 12 x5 (+1 NEGATIVE control),
+  #            13 x2 (worktree + batch) each with its own NEGATIVE control, and the batch
+  #            one anchored on a REAL commit (b5bcff7c) rather than on an injection
   #   plus the MISSING-INPUT class (item A1, 2026-08-02): 2 x2, 3, 3b, 6 x2, 10a, 10b,
   #            11 x2, 12, and the corpus preflight x1 -- 13 assertions, all asserting WHY.
 #            (GATE 6 now has THREE A1 legs: its registry, a deleted generator, and the
@@ -3593,6 +3801,7 @@ case "$MODE" in
   ledger)  gate_ledger  || RC=1 ;;
   ledger-figures) gate_ledger_figures || RC=1 ;;
   revhist) gate_revhist || RC=1 ;;
+  revrows) gate_revrows || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -3601,8 +3810,9 @@ case "$MODE" in
            echo; gate_banner || RC=1
            echo; gate_appendonly || RC=1
            echo; gate_ledger || RC=1
-           echo; gate_revhist || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|generated|all}"; exit 2 ;;
+           echo; gate_revhist || RC=1
+           echo; gate_revrows || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -3615,10 +3825,10 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12. Gates 1 and 5 (incl. 5b) are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12. Gates 1, 5 (incl. 5b) and 13 are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
-elif [ "$MODE" = numbers ] || [ "$MODE" = status ]; then
+elif [ "$MODE" = numbers ] || [ "$MODE" = status ] || [ "$MODE" = revrows ]; then
   echo "DOC GATES: PASS  — NOTE: '$MODE' is a REPORT-ONLY gate and always exits 0."
   echo "                   Read its [WARN]/[note] lines above; this verdict does not."
 else
