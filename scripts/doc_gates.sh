@@ -1165,7 +1165,7 @@ open(p,'w',encoding='utf-8').write(s+'\n\nThe pooled value sits 1.4σ above the 
     retract-figures 'spans a hard wrap' \
 "p='documentation/GUIDE.md'
 s=open(p,encoding='utf-8').read()
-open(p,'w',encoding='utf-8').write(s+'\n\nThe ledger prices C2 at\nmarginal 4.6 bits under that convention.\n')"
+open(p,'w',encoding='utf-8').write(s+'\n\nThe ledger prices C2 at marginal\n4.6 bits under that convention.\n')"
 
   # GATE 3b NEGATIVE CONTROL — the exemption must be driven by the ANCHOR, not by the file.
   # Same file as an existing allowlist row, same figure, and the row's anchor text present:
@@ -1213,7 +1213,7 @@ s=open(c[0]).read()
 open(c[0],'w').write(s+'\n# hard floor k>=13\n')"
 
   assert_fires_why "GATE 6 figure generators name the LINE, not just the file" figures \
-    '\\.py:[0-9]+  — regenerate' \
+    'viz/.*\.py:[0-9]+  — regenerate' \
 "import glob,sys
 c=[f for f in glob.glob('viz/*.py')]
 sys.exit(1) if not c else None
