@@ -4419,6 +4419,51 @@ D='  echo '+chr(34)+'  [note] decoy: and no anchored '+'guard within lines'+chr(
 L.insert(t[0], D)
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
 
+  # LEG 3's VARIABLE-CARRIED HALF (round 11 drain-2, 2026-08-02). THE ARMS BELOW PROVE
+  # DIFFERENT PROPERTIES, which is the whole reason there is more than one of them.
+  #
+  # ARM 1 PROVES THE SITE IS SEEN. It renames the variable at the assertion only, so the
+  # assignments still exist under the old name and the asserted name has none. Without this
+  # arm, a sort that silently dropped the variable form would still print [ok].
+  #
+  # ARM 2 PROVES THE LITERALS ARE ACTUALLY RESOLVED. Seeing the site and comparing the string
+  # it carries are separate properties, and arm 1 alone would leave the second untested — the
+  # asymmetric-pair shape this file's history says rots on the untested side. It rewords GATE
+  # 15 LEG 2's live unanchored-guard finding, which is what the `case`'s first arm asserts on,
+  # so that literal resolves to zero templates. MEASURED BEFORE WRITING: that wording occurs
+  # exactly once in the file, and no driver substring contains it, so the mutation cannot
+  # orphan a second assertion and satisfy this arm by the other one.
+  #
+  # THE ARMS ASSERT ON THE VARIABLE HALF'S OWN MESSAGE, not on the driver half's. That is why
+  # the variable half prints its own verdict line: an arm asserting `no message template can
+  # produce` would be satisfiable by the driver-side finding the leg above already covers, and
+  # a fire-proof satisfiable by the check it is not testing proves nothing about the one it is.
+  #
+  # BOTH ANCHORS ARE SPLIT (item A2). Written whole, arm 1's would occur in its own source and
+  # match two lines; arm 2's would put a second contiguous copy of a live message in the file,
+  # which is a second template and would make LEG 3 fail itself.
+  _g16b "LEG 3: a fire-proof asserting on a variable with no resolvable literal" \
+        'a variable this leg found no literal assignment for' "
+import os
+A='grep '+'-qF '+chr(34)+'\$_g15b'+'why'+chr(34)
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if A in l]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]=L[t[0]].replace(A, 'grep '+'-qF '+chr(34)+'\$_g15b'+'whyZZ'+chr(34))
+assert A not in L[t[0]], 'the asserted name survived the substitution'
+open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
+
+  _g16b "LEG 3: a message reworded out from under a variable-carried substring" \
+        'carries a fire-proof literal' "
+import os
+A='this guard'+chr(39)+'s ERE is not anchored '+'at line start'
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if A in l]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]=L[t[0]].replace(A, 'this guard'+chr(39)+'s ERE is not anchored '+'at the head of a line')
+assert A not in L[t[0]], 'the wording survived the substitution'
+open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
+
   rm -f "$_G16B_COPY"
 
   # ------------------------------------------------------------------------------
@@ -6355,8 +6400,18 @@ PY
 # no assertion asserts on. This leg makes both mechanical.
 #
 # WHAT IT DOES. Reconstructs every message this harness can print — python `print(...)`,
-# joining the literals of one call, and shell `echo "..."` — then resolves each driver's
+# joining the literals of one call, and shell `echo "..."` — then resolves each fire-proof's
 # expected substring against that set and FAILS unless exactly one template can produce it.
+#
+# BOTH FORMS THE HARNESS USES, and the second was added because the first was not the whole
+# population (round 11 drain-2, 2026-08-02, from the round-11 could-not-see column):
+#   * the DRIVER form, a helper asserting on its positional `$2`; and
+#   * the VARIABLE-CARRIED form, where the substring is selected away from the call site — in
+#     GATE 15 LEG 2's pair, in a `case` arm — and the assertion greps for the variable.
+# The second was outside this leg in BOTH directions on the day the leg shipped: not a driver
+# positional, so never parsed, and not matched by the driver guard either, so not reported as
+# an orphan. That is the state a vacuity guard exists to make impossible, so the sort over
+# fixed-string assertions is now exhaustive: driver positional, named variable, or FAIL.
 #
 # THE MATCH IS NORMALISED, AND THE NORMALISATION IS THE WHOLE DESIGN. A driver substring is
 # compared against the message AFTER substitution, so a substring that pins a formatted value
@@ -6373,11 +6428,14 @@ PY
 #       `is %d gates behind one exit code` wording, so either could be satisfied by any
 #       assertion whose dispatch reaches that many gates. Closing this needs the value pinned,
 #       not the wording — which is a different check and is not claimed here.
-#   (h) IT COVERS THE PARAMETERISED DRIVERS ONLY — a helper that asserts on its `$2`. The
-#       harness also carries fire-proofs that grep an inline literal, and MEASURED 2026-08-02,
-#       the majority of those resolve to zero templates under this test because their
-#       substrings pin a `%s` VALUE (a function name, a file name) rather than a digit. That
-#       is not a defect in those fire-proofs — pinning the value is the STRONGER assertion —
+#   (h) IT DOES NOT COVER THE INLINE-LITERAL FIRE-PROOFS — the ones that write the expected
+#       string at the assertion itself rather than passing it to a driver or selecting it into
+#       a variable. (This caveat opened as "the parameterised drivers ONLY"; the
+#       variable-carried form was brought inside the leg the same day, and the sentence was
+#       corrected rather than left to describe a coverage the leg had outgrown.) MEASURED
+#       2026-08-02, the majority of those resolve to zero templates under this test because
+#       their substrings pin a `%s` VALUE (a function name, a file name) rather than a digit.
+#       That is not a defect in those fire-proofs — pinning the value is the STRONGER one —
 #       and the naive widening is worse than incomplete: treating `%s` as "anything" makes
 #       every substring producible by every `%s`-bearing template, so the exactly-one rule
 #       becomes vacuous rather than strict. The count is deliberately not quoted; it moves
@@ -6387,6 +6445,14 @@ PY
 #   (j) The python reconstruction counts parentheses including those inside string literals
 #       and is bounded to TPL_SPAN lines. A template it mis-joins resolves its substring to
 #       zero and FAILS by name — loud and wrong-way-round, never a silent clear.
+#   (k) THE VARIABLE-CARRIED HALF RESOLVES A NAME, NOT A SCOPE. It gathers every literal
+#       assignment to the asserted name anywhere in the file and requires each to resolve
+#       uniquely; it has no notion of function scope, and no notion of WHICH `case` arm the
+#       run that asserts actually takes. Both directions of that are refusals rather than
+#       clears — a name reused in an unrelated function would put an extra literal under the
+#       rule, and an assignment it cannot read as whole string literals is a FAIL instead of a
+#       comparison against a fragment — but a refusal is still not a reading, and this is
+#       caveat (i)'s reachability limit one level in.
 gate_preflight_collisions() {
   local rc=0
   echo "== GATE 16: no per-gate assertion is satisfiable by a preflight =="
@@ -6837,6 +6903,83 @@ if not drivers:
           % src)
     bad = 1
 
+# --- VARIABLE-CARRIED ASSERTIONS (round 11 drain-2, 2026-08-02, from drain-1's could-not-see
+# column). A fire-proof does not have to put its expected substring at the call site. GATE 15
+# LEG 2's pair selects its substring in a `case` arm and asserts on the variable, and those
+# substrings are fire-proof substrings by every property this leg cares about. They were
+# outside it in BOTH directions, which is why nothing said so: not a driver positional, so
+# never parsed; and not matched by guard 2's QF_ARG either, so not an orphan. A population
+# that is invisible to both the scan and the scan's own vacuity guard is the exact state this
+# leg exists to refuse, one level up from the drivers it already reads.
+#
+# THE SORT IS EXHAUSTIVE ON PURPOSE. Every fixed-string assertion whose pattern is an
+# expansion must land in one of two bins — a driver's positional, handled by guard 2 above,
+# or a named variable, resolved below. A third form is a FAIL, not a shrug: an assertion this
+# leg cannot classify is one it stops resolving while still printing [ok].
+QF_ANY = re.compile(r"grep[ \t]+-qF[ \t]+\"\$")
+QF_VAR = re.compile(r"grep[ \t]+-qF[ \t]+\"\$([A-Za-z_][A-Za-z0-9_]*)\"")
+varsites = {}
+for i, ln in enumerate(lines):
+    if ln.lstrip().startswith("#") or not QF_ANY.search(ln) or QF_ARG.search(ln):
+        continue
+    m = QF_VAR.search(ln)
+    if m:
+        varsites.setdefault(m.group(1), i + 1)
+        continue
+    print("  [FAIL] LEG 3: %s:%d — a fixed-string assertion reads an expansion this leg sorts"
+          " into neither a driver's positional nor a named variable:" % (src, i + 1))
+    print("           %s" % ln.strip())
+    print("         Its substring is a fire-proof substring and is now outside the")
+    print("         exactly-one-template rule, with nothing but this line to say so.")
+    bad = 1
+
+varfound = []
+for v, site in sorted(varsites.items()):
+    apat = re.compile(r"(?:^|[ \t;&|(])" + re.escape(v) + r"=(.*)$")
+    occ = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(v) + r"(?![A-Za-z0-9_])")
+    use = '"$' + v + '"'
+    seen = 0
+    for i, ln in enumerate(lines):
+        if ln.lstrip().startswith("#") or not occ.search(ln):
+            continue
+        am = apat.search(ln)
+        if am:
+            rhs = am.group(1)
+            # literals() is the SAME concatenating reader the template side uses, which is
+            # what makes `x='a'"'"'b'` resolve to the one string the shell builds rather than
+            # to its first fragment. The residue test is the guard on that: if anything
+            # OUTSIDE the quotes expands, the reconstruction is a fragment of the real
+            # substring and comparing it would be a clear taken on partial text.
+            lit = literals(rhs)
+            if "$" in STRLIT.sub("", rhs) or not lit:
+                print("  [FAIL] LEG 3: %s:%d — `$%s` is assigned from something this leg"
+                      " cannot read as a whole literal:" % (src, i + 1, v))
+                print("           %s" % ln.strip())
+                print("         Resolving a FRAGMENT of a fire-proof's substring against the")
+                print("         message set would be a verdict taken on partial text.")
+                bad = 1
+                continue
+            varfound.append((v, lit, i + 1))
+            seen += 1
+        elif use not in ln:
+            # VACUITY GUARD 4, and it is derived by a DIFFERENT rule from the assignment scan
+            # above: bare occurrence of the name, not assignment shape. An assignment written
+            # in a form `apat` cannot read would otherwise drop its substring out of the
+            # comparison in silence — the under-count shape guards 2 and 3 exist for, which
+            # this population would otherwise reintroduce.
+            print("  [FAIL] LEG 3: %s:%d — `$%s` occurs here as neither a literal assignment"
+                  " this leg resolved nor the assertion itself:" % (src, i + 1, v))
+            print("           %s" % ln.strip())
+            print("         An assignment in a shape the scan cannot read takes its substring")
+            print("         out of the comparison while this leg still prints [ok].")
+            bad = 1
+    if not seen:
+        print("  [FAIL] LEG 3: %s:%d — the fire-proof asserts on `$%s`, a variable this leg"
+              " found no literal assignment for" % (src, site, v))
+        print("         The string it greps the gate's output for is then unknown here, so")
+        print("         the exactly-one-template rule was never applied to that assertion.")
+        bad = 1
+
 SUB_LINE = re.compile(r"^[ \t]*'((?:[^'\\]|\\.)*)'")
 found = []
 for d in drivers:
@@ -6911,10 +7054,32 @@ for d, label, sub, n in found:
         print("         wrong reason — which is the entire content of a fire-proof.")
     bad = 1
 
+# THE VARIABLE-CARRIED HALF GETS ITS OWN VERDICT LINE, and that is not duplication. Both
+# directions collapse into one message here because the site is an ASSIGNMENT, not a call —
+# there is no driver and no label to name — and because a fire-proof for this half must be
+# able to assert on a string the driver half cannot also print. Sharing the driver wording
+# would have made the two halves indistinguishable in the output, which is the very confusion
+# this leg refuses one level down.
+for v, sub, n in varfound:
+    want = norm(sub, False)
+    hits = [t for t in templates if want in t[2]]
+    if len(hits) == 1:
+        continue
+    print("  [FAIL] LEG 3: %s:%d — `$%s` carries a fire-proof literal %d message template(s)"
+          " can produce; exactly one is required:" % (src, n, v, len(hits)))
+    print("           %s" % sub)
+    for t in hits[:6]:
+        print("           -> %s:%d (%s)" % (src, t[0], t[1]))
+    print("         Zero means a message was reworded out from under an assertion that can")
+    print("         now only ever report NOT reported; more than one means the assertion")
+    print("         cannot say which finding satisfied it. Both are green for a wrong reason.")
+    bad = 1
+
 if not bad:
-    print("  [ok] LEG 3: %d fire-proof substring(s) across %d driver(s) (%s), each produced by"
-          " exactly ONE of %d message template(s)"
-          % (len(found), len(drivers), ", ".join(sorted(drivers)), len(templates)))
+    print("  [ok] LEG 3: %d fire-proof substring(s) across %d driver(s) (%s), plus %d carried"
+          " by %d asserted variable(s), each produced by exactly ONE of %d message template(s)"
+          % (len(found), len(drivers), ", ".join(sorted(drivers)), len(varfound),
+             len(varsites), len(templates)))
     print("       caveat (g): ONE template is not one INSTANTIATION — a substring spanning a"
           " %-field still cannot say which call printed it")
 sys.exit(bad)
