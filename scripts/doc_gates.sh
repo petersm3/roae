@@ -51,6 +51,73 @@ RC=0
 DOCS=$(git ls-files '*.md' || true)
 
 # ----------------------------------------------------------------------------------
+# ITEM A1 (2026-08-02) — WHAT EVERY GATE DOES WITH A MISSING INPUT.
+#
+# GATE 8's five legs used to `[skip]` a deleted git-tracked artifact, so `rm example/report.pdf`
+# passed in silence. That was fixed and proven on 2026-08-02; the same question was then asked
+# of GATES 2, 3, 3b, 6, 10a, 10b and 11, and every one of them had the same shape. MEASURED,
+# not reasoned: with `documentation/CORRECTIONS.md` deleted from the working tree,
+#   scripts/doc_gates.sh retract  ->  "DOC GATES: PASS (retract)", rc 0
+#   scripts/doc_gates.sh ledger   ->  "[skip] ... absent" then "DOC GATES: PASS", rc 0
+# GATE 3's only trace was a bash redirect error on stderr (line 145), and the self-test harness
+# runs each gate with `2>&1 >/dev/null` — so that trace is invisible to the one instrument that
+# would have caught it.
+#
+# TWO SEPARATE HOLES, and the second is the one that matters:
+#   (a) PER-GATE. Each gate that opens a named registry or ledger skipped on `! -f`.
+#       `require_tracked` below turns that into a FAIL when git tracks the path.
+#   (b) CORPUS-WIDE, and INVISIBLE. `$DOCS` is `git ls-files '*.md'` — an INDEX listing. A
+#       tracked .md deleted from the working tree stays in `$DOCS`, and every consumer
+#       (GATES 3, 3b, 4, 4b, 5, 5b, 9) then reads it as EMPTY and reports [ok] on it. One
+#       deletion blinds seven gates at once, which is why this is the corpus-level preflight
+#       below rather than seven more `[ -f ]` tests.
+#
+# WHAT THIS STILL CANNOT SEE, stated rather than implied: absence of a TOOL. `pdftotext`
+# absence remains a `[skip]` (poppler is not part of the toolchain this repo requires);
+# `python3` and `sha256sum` absence are now FAILs because each voids a whole gate, but neither
+# carries a mutation fire-proof — hiding one tool from `$PATH` without also hiding `git`,
+# `grep` and `cut` cannot be done cleanly, so those two legs are asserted by reading, not by
+# running. That is a weaker warrant than every other leg here and is recorded as such.
+#
+# require_tracked <path> [remedy-line]
+#   rc 0 = present; rc 1 = absent and NOT tracked (a legitimate skip, printed); rc 2 = tracked
+#   but absent (a FAIL, printed). Callers must map rc 2 onto their own failure variable.
+require_tracked() {
+  [ -f "$1" ] && return 0
+  if git ls-files --error-unmatch -- "$1" >/dev/null 2>&1; then
+    echo "  [FAIL] $1 is tracked in git but missing from the working tree"
+    echo "         ${2:-A gate whose input is absent has checked nothing. Absence of a tracked input is the strongest possible mismatch, not a reason to skip.}"
+    return 2
+  fi
+  echo "  [skip] $1 absent (not tracked, so nothing shipped is being checked)"
+  return 1
+}
+
+# Corpus preflight — hole (b). Runs before every mode (see the dispatch at the foot of the
+# file) and DOES NOT short-circuit: it sets RC and lets the gates run anyway, so a per-gate
+# fire-proof can still tell its own leg's message from this one. The two messages are
+# deliberately worded differently for exactly that reason.
+preflight_tracked_docs() {
+  local f missing=0
+  for f in $DOCS; do
+    [ -f "$f" ] && continue
+    if [ "$missing" -eq 0 ]; then
+      echo "== PREFLIGHT: every tracked .md must exist in the working tree =="
+    fi
+    echo "  [FAIL] tracked markdown missing from the working tree: $f"
+    missing=$((missing+1))
+  done
+  if [ "$missing" -ne 0 ]; then
+    echo "         GATES 3, 3b, 4, 4b, 5, 5b and 9 all iterate this list and would read each"
+    echo "         missing file as EMPTY — reporting [ok] on a document they never opened."
+    echo "         Restore it (git checkout -- <path>) or remove it from the index."
+    echo
+    return 1
+  fi
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
 gate_numbers() {
   echo "== GATE 1: cross-file numeric consistency (long integers) =="
   # Extract integers of >=12 digits (commas stripped). Group by their first 10 digits.
@@ -91,8 +158,15 @@ gate_cli() {
   echo "== GATE 2: CLI flags live in code but undocumented =="
   local bad=0
   check_pair() { # $1=code file  $2=doc file  $3=extractor
-    local code="$1" doc="$2" mode="$3" cf df miss
-    [ -f "$code" ] && [ -f "$doc" ] || { echo "  [skip] $code / $doc"; return 0; }
+    local code="$1" doc="$2" mode="$3" cf df miss rcc=0 rcd=0
+    # ITEM A1. Both sides are probed before either verdict, so a run that lost both prints
+    # both names; a single `&&` chain would hide the second. A deleted CLI doc used to make
+    # this pair vanish from the gate entirely — the flags it documented then went unchecked
+    # while the run stayed green.
+    require_tracked "$code" "Delete a source file and every flag it declares stops being checked." || rcc=$?
+    require_tracked "$doc"  "Delete a CLI doc and its pair stops being checked, silently." || rcd=$?
+    if [ "$rcc" -eq 2 ] || [ "$rcd" -eq 2 ]; then bad=1; return 0; fi
+    if [ "$rcc" -ne 0 ] || [ "$rcd" -ne 0 ]; then return 0; fi
     cf=$(mktemp); df=$(mktemp)
     if [ "$mode" = py ]; then
       grep -oE 'add_argument\("--[a-z0-9][a-z0-9_-]*' "$code" | sed 's/.*"//' | sort -u > "$cf"
@@ -133,7 +207,10 @@ gate_retract() {
   #   (c) allow-column over-reach — matching the allow string anywhere on the line exempted
   #       too much. FIX: the allow column now matches the FILENAME only.
   local reg="documentation/RETRACTED_PHRASES.tsv"
-  [ -f "$reg" ] || { echo "  [skip] no $reg"; return 0; }
+  # ITEM A1: the registry IS this gate. Skipping on its absence reported PASS for a gate
+  # that had checked nothing at all.
+  require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero phrases are checked."
+  case $? in 1) return 0;; 2) return 1;; esac
   local bad=0
   while IFS=$'\t' read -r phrase allow note; do
     case "$phrase" in ''|'#'*) continue;; esac
@@ -202,12 +279,23 @@ gate_retract() {
 # Allowlist rows that no longer match anything are re-printed as [note] — the drift audit.
 gate_retract_figures() {
   echo "== GATE 3b: retracted FIGURES restated without a supersession marker =="
+  # ITEM A1, at the bash level so the check uses the git index (python's os.path.exists
+  # cannot tell "never existed" from "deleted"). The ALLOWLIST is deliberately NOT guarded
+  # here: losing it makes this gate STRICTER, not blinder — every exemption disappears and
+  # the gate goes red. That is the fail-safe direction, so it needs no guard.
+  require_tracked "documentation/RETRACTED_FIGURES.tsv" \
+    "The figure registry IS this gate; with it gone, zero statistics are checked."
+  case $? in 1) return 0;; 2) return 1;; esac
   python3 - <<'PY'
 import os, re, subprocess, sys
 REG   = 'documentation/RETRACTED_FIGURES.tsv'
 ALLOW = 'documentation/DOC_GATE_FIGURE_ALLOWLIST.txt'
 if not os.path.exists(REG):
-    print(f'  [skip] no {REG}'); sys.exit(0)
+    # ITEM A1: unreachable in normal use — the bash `require_tracked` above returns first —
+    # but it must not be left as a `sys.exit(0)` skip. A dead false-clear is still a false
+    # clear the moment someone edits the guard above it out, and this one would report PASS
+    # for a gate that had inspected nothing.
+    print(f'  [FAIL] {REG} is absent, so this gate checked nothing'); sys.exit(1)
 
 figs = []
 for ln in open(REG, encoding='utf-8'):
@@ -643,18 +731,25 @@ for fpath, entries in sorted(anchored.items()):
         continue
     text = open(fpath, encoding='utf-8', errors='replace').read().splitlines()
     for anc in entries:
-        hits = [i for i, l in enumerate(text, 1) if anc in l]
-        if not hits:
+        # ITEM A11 (2026-08-02): this loop variable used to be called `hits`, rebinding the
+        # registry-hit SET built above into a list of allowlist line numbers. Benign only by
+        # ordering — the "[ok] {seen} occurrences of {len(hits)}/{len(rows)}" print happens
+        # before this loop. Any future edit that adds or moves a use of `hits` after this
+        # point would silently report allowlist line numbers as canonical-quantity coverage:
+        # a wrong denominator inside a coverage claim, which is the exact class this suite
+        # exists to catch. Renamed so the two can never collide.
+        anchor_lines = [i for i, l in enumerate(text, 1) if anc in l]
+        if not anchor_lines:
             print(f"  [note] allowlist: {fpath} anchor no longer appears in the file — prune it")
             print(f"         anchor: {anc[:120]}")
-        elif len(hits) > 1:
-            print(f"  [note] allowlist: {fpath} anchor matches {len(hits)} lines {hits[:6]} — "
+        elif len(anchor_lines) > 1:
+            print(f"  [note] allowlist: {fpath} anchor matches {len(anchor_lines)} lines {anchor_lines[:6]} — "
                   "suppression is broader than one reviewed sentence; make it more specific")
         else:
             # The locator, COMPUTED not recorded (item A8). Printed as [ok] rather than
             # [note] because a live, single-match exemption is not a defect and must not
             # compete for attention with the two branches above, which are.
-            print(f"  [ok]   allowlist: {fpath}:{hits[0]} exemption live (matched by content)")
+            print(f"  [ok]   allowlist: {fpath}:{anchor_lines[0]} exemption live (matched by content)")
 for key in sorted(anchorless):
     print(f"  [note] allowlist: \"{key}\" has no TAB-separated anchor, so it SUPPRESSES NOTHING "
           "and is ignored. Add an anchor: the format is file<TAB>anchor, no line number.")
@@ -802,10 +897,23 @@ gate_figures() {
   # strings in the figure generators. Keeping generator text and figure in sync is the
   # generators' documented obligation.
   local reg="documentation/RETRACTED_PHRASES.tsv"
-  [ -f "$reg" ] || { echo "  [skip] no $reg"; return 0; }
-  local gens bad=0
+  # ITEM A1, and this gate had the shape TWICE. (i) the registry skip, same as GATE 3.
+  # (ii) the worse one: `gens` comes from `git ls-files`, an INDEX listing, so deleting
+  # viz/report_figures.py from the working tree left it in `gens`, made `tr < "$f"` emit a
+  # redirect error to stderr, produced no match, and the gate reported [ok] on a generator
+  # it never opened. The `-n "$gens"` test cannot see that: the list was never empty.
+  require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero generators are checked."
+  case $? in 1) return 0;; 2) return 1;; esac
+  local gens bad=0 g
   gens=$(git ls-files 'viz/*.py')
-  [ -n "$gens" ] || { echo "  [skip] no figure generators tracked"; return 0; }
+  [ -n "$gens" ] || { echo "  [skip] no figure generators tracked in viz/*.py (index is empty for that path)"; return 0; }
+  for g in $gens; do
+    # Every path here came out of the index, so require_tracked can only return 0 or 2.
+    local grc=0
+    require_tracked "$g" "A tracked figure generator that is absent is not a clean generator." || grc=$?
+    [ "$grc" -eq 0 ] || bad=1
+  done
+  [ "$bad" -eq 0 ] || return 1
   while IFS=$'\t' read -r phrase allow note; do
     case "$phrase" in ''|'#'*) continue;; esac
     local np hits=""
@@ -1082,6 +1190,34 @@ PY
 # SAFETY: refuses to run unless the tree is clean, so it can never destroy
 # uncommitted work; every mutation is reverted immediately after its assertion,
 # including on failure.
+#
+# ITEM A3 (2026-08-02) — TWO WAYS THE ABOVE WAS NOT TRUE, both met in the wild.
+#
+#  (1) NO MUTUAL EXCLUSION. Two --selftests could run at once. Observed: a background
+#      --selftest's `git checkout -- .` discarded uncommitted edits to this very file and
+#      left example/report.html sitting mutated. The clean-tree refusal cannot help — it is
+#      a check at START, and the second runner passes it because the first has already
+#      reverted its current mutation. Fixed below with an atomic `mkdir` lock in $GIT_DIR
+#      (not the working tree, so the lock can never dirty the tree it is protecting, and
+#      not /tmp).
+#
+#  (2) NO SIGNAL HANDLER. `assert_fires` reverts after each assertion, but a SIGTERM or
+#      Ctrl-C between the mutation and the revert left the mutated file in place. That is
+#      how example/report.html came to be mutated on disk with no run in progress. Fixed
+#      below: INT and TERM restore and release before exiting, and an EXIT trap catches
+#      every other path out.
+#
+# WHAT A3 DOES *NOT* FIX, stated rather than implied: a writer that is not a --selftest
+# arriving mid-run. The lock only excludes other --selftests. An editor saving a file while
+# assertions are in flight still loses that save to the next `git checkout -- .`, because the
+# harness cannot distinguish its own mutation from someone else's edit. The only real
+# protection there is not to edit the tree while the self-test runs; the round-4 workaround
+# (commit first, then self-test) remains the operating procedure, and this note is here so
+# that procedure is not mistaken for a guarantee the code provides.
+#
+# THE ORDER BELOW IS LOAD-BEARING: clean-tree check FIRST, then lock, then trap. Installing
+# a restoring EXIT trap before the clean-tree check would make the dirty-tree refusal itself
+# run `git checkout -- .` and destroy exactly the uncommitted work it exists to protect.
 # ===========================================================================
 if [ "${1:-}" = "--selftest" ]; then
   cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -1090,6 +1226,40 @@ if [ "${1:-}" = "--selftest" ]; then
     echo "reverts them with 'git checkout --'; that would discard your uncommitted work."
     exit 2
   fi
+
+  # --- A3 (1): mutual exclusion. `mkdir` is atomic on every POSIX filesystem; a lockFILE
+  # written with `>` is not. The holder's pid goes inside so a lock left behind by `kill -9`
+  # (which no trap can catch) can be identified as stale and broken, loudly, rather than
+  # wedging the suite until someone deletes it by hand.
+  SELFTEST_LOCK="$(git rev-parse --git-dir 2>/dev/null || echo .git)/doc_gates_selftest.lock"
+  if ! mkdir "$SELFTEST_LOCK" 2>/dev/null; then
+    _holder=$(cat "$SELFTEST_LOCK/pid" 2>/dev/null || echo '?')
+    if [ "$_holder" != '?' ] && ! kill -0 "$_holder" 2>/dev/null; then
+      echo "  [note] breaking a STALE self-test lock: pid $_holder is gone (kill -9 leaves no"
+      echo "         chance to release). If that run was interrupted mid-mutation, check"
+      echo "         'git status' before trusting this one."
+      rm -rf "$SELFTEST_LOCK"
+      mkdir "$SELFTEST_LOCK" 2>/dev/null || { echo "REFUSING: cannot acquire $SELFTEST_LOCK"; exit 2; }
+    else
+      echo "REFUSING: another --selftest is running (pid $_holder, lock $SELFTEST_LOCK)."
+      echo "Two concurrent self-tests revert each other's mutations with 'git checkout -- .',"
+      echo "so one of them reverts the OTHER's injected defect and reports [ok] on a gate that"
+      echo "never saw it — and any uncommitted edit made meanwhile is discarded."
+      exit 2
+    fi
+  fi
+  echo $$ > "$SELFTEST_LOCK/pid" 2>/dev/null
+
+  # --- A3 (2): restore on every exit path, including signals. Installed only now, with the
+  # tree already proven clean and the lock already held, so it can never discard real work.
+  _selftest_release() {
+    git checkout -- . 2>/dev/null
+    rm -rf "$SELFTEST_LOCK" 2>/dev/null
+  }
+  trap '_selftest_release; echo; echo "DOC GATES SELF-TEST: INTERRUPTED (tree restored, lock released)"; exit 130' INT
+  trap '_selftest_release; echo; echo "DOC GATES SELF-TEST: TERMINATED (tree restored, lock released)"; exit 143' TERM
+  trap '_selftest_release' EXIT
+
   PASS=0
   # assert_fires <label> <primary-file> <gate-name> <python-mutation>
   #
@@ -1683,6 +1853,103 @@ open(p, "w", encoding="utf-8").write(
 
   rm -rf "$GEN_CACHE"
 
+  # ITEM A1 — THE MISSING-INPUT CLASS, for every gate that has one.
+  #
+  # GATE 8's leg above ("shipped artifact deleted outright") was the first of these. The same
+  # question — what does this gate do when its input is not there? — was then asked of GATES
+  # 2, 3, 3b, 6, 10a, 10b and 11, and all seven answered `[skip]` + rc 0. MEASURED before the
+  # fix: with documentation/CORRECTIONS.md deleted, `doc_gates.sh retract` printed
+  # "DOC GATES: PASS (retract)" and exited 0, its only trace a bash redirect error on stderr —
+  # which this very harness discards (`>/dev/null 2>&1`).
+  #
+  # The mutation is `os.remove`, and the revert is the harness's own `git checkout -- .`,
+  # which restores a deleted tracked file exactly as it restores a modified one. So this
+  # whole class is cheap: no regeneration, no scratch clone, no history rewrite.
+  #
+  # TWO DISTINCT MESSAGES, deliberately. The corpus preflight fires on any missing tracked
+  # .md, so the CORRECTIONS.md cases below trip it as well as the gate's own leg. The
+  # evidence ERE names the GATE's wording ("<f> is tracked in git but missing"), never the
+  # preflight's ("tracked markdown missing from the working tree: <f>"), so each assertion
+  # still proves the leg it was written for and not the preflight standing behind it.
+  assert_fires_why "GATE 2 (A1) source file deleted" cli \
+    'sat\.py is tracked in git but missing' \
+"import os
+assert os.path.exists('sat.py'), 'anchor moved'
+os.remove('sat.py')"
+
+  assert_fires_why "GATE 2 (A1) CLI doc deleted" cli \
+    'SAT_CLI\.md is tracked in git but missing' \
+"import os
+assert os.path.exists('documentation/SAT_CLI.md'), 'anchor moved'
+os.remove('documentation/SAT_CLI.md')"
+
+  assert_fires_why "GATE 3 (A1) retraction registry deleted" retract \
+    'RETRACTED_PHRASES\.tsv is tracked in git but missing' \
+"import os
+assert os.path.exists('documentation/RETRACTED_PHRASES.tsv'), 'anchor moved'
+os.remove('documentation/RETRACTED_PHRASES.tsv')"
+
+  assert_fires_why "GATE 3b (A1) figure registry deleted" retract-figures \
+    'RETRACTED_FIGURES\.tsv is tracked in git but missing' \
+"import os
+assert os.path.exists('documentation/RETRACTED_FIGURES.tsv'), 'anchor moved'
+os.remove('documentation/RETRACTED_FIGURES.tsv')"
+
+  assert_fires_why "GATE 6 (A1) retraction registry deleted" figures \
+    'RETRACTED_PHRASES\.tsv is tracked in git but missing' \
+"import os
+assert os.path.exists('documentation/RETRACTED_PHRASES.tsv'), 'anchor moved'
+os.remove('documentation/RETRACTED_PHRASES.tsv')"
+
+  # The worse of GATE 6's two: `gens` is `git ls-files`, an INDEX listing, so a deleted
+  # generator stayed in the list, `tr < "$f"` failed to stderr, no phrase matched, and the
+  # gate reported [ok] on a file it never opened. The `-n "$gens"` guard cannot see this —
+  # the list was never empty. Anchored on viz/growth_curve.py, a real tracked generator.
+  assert_fires_why "GATE 6 (A1) tracked generator deleted from the worktree" figures \
+    'viz/growth_curve\.py is tracked in git but missing' \
+"import os
+assert os.path.exists('viz/growth_curve.py'), 'anchor moved'
+os.remove('viz/growth_curve.py')"
+
+  # Deleting the ledger is the LIMITING CASE of what 10a and 10b forbid: every committed
+  # line lost at once. It was the one edit that made both halves report nothing.
+  assert_fires_why "GATE 10a (A1) ledger deleted" appendonly-head \
+    'CORRECTIONS\.md is tracked in git but missing' \
+"import os
+assert os.path.exists('documentation/CORRECTIONS.md'), 'anchor moved'
+os.remove('documentation/CORRECTIONS.md')"
+
+  assert_fires_why "GATE 10b (A1) ledger deleted" appendonly-history \
+    'CORRECTIONS\.md is tracked in git but missing' \
+"import os
+assert os.path.exists('documentation/CORRECTIONS.md'), 'anchor moved'
+os.remove('documentation/CORRECTIONS.md')"
+
+  # GATE 11 named both files in ONE skip line, so it needs BOTH cases: an assertion on the
+  # registry alone would pass against a gate that still skipped silently on a missing ledger.
+  assert_fires_why "GATE 11 (A1) registry deleted" ledger \
+    'RETRACTED_PHRASES\.tsv is tracked in git but missing' \
+"import os
+assert os.path.exists('documentation/RETRACTED_PHRASES.tsv'), 'anchor moved'
+os.remove('documentation/RETRACTED_PHRASES.tsv')"
+
+  assert_fires_why "GATE 11 (A1) ledger deleted" ledger \
+    'CORRECTIONS\.md is tracked in git but missing' \
+"import os
+assert os.path.exists('documentation/CORRECTIONS.md'), 'anchor moved'
+os.remove('documentation/CORRECTIONS.md')"
+
+  # THE CORPUS PREFLIGHT — hole (b), and the one that made this item worth doing. `$DOCS` is
+  # an index listing, so a tracked .md deleted from the working tree is read as EMPTY by
+  # GATES 3, 3b, 4, 4b, 5, 5b and 9 simultaneously; each then reports [ok] on a document it
+  # never opened. Asserted through `retract`, a gate with NO input of its own missing, so the
+  # only thing that can make it fail here is the preflight.
+  assert_fires_why "PREFLIGHT (A1) a tracked .md deleted blinds every DOCS-iterating gate" \
+    retract 'tracked markdown missing from the working tree: documentation/GUIDE\.md' \
+"import os
+assert os.path.exists('documentation/GUIDE.md'), 'anchor moved'
+os.remove('documentation/GUIDE.md')"
+
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
@@ -1691,17 +1958,31 @@ open(p, "w", encoding="utf-8").write(
   #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
   #            5b (output), 6 x2, 7 x2, 8 x5 (4 fire + 1 NEGATIVE control), 9 x2,
   #            10a (+negative control), 10b x3, 11
+  #   plus the MISSING-INPUT class (item A1, 2026-08-02): 2 x2, 3, 3b, 6 x2, 10a, 10b,
+  #            11 x2, and the corpus preflight x1 -- 11 assertions, all asserting WHY.
   #   Of those, the ones asserting WHY and not merely an exit code (item A5 / #65):
-  #            3, 3b x2, 4b, 6 x2, 7 x2, 8 x5, 11. GATES 1, 5 and 5b are report-only and
-  #            already assert on output. GATES 4, 9, 10a/10b are structural, not
-  #            classifier-driven: there is no matched token for them to name.
-  #   NOT covered: 2 -- would mutate solve.py, a costlier revert than the assurance is
-  #                     worth; it has FIRED in anger (13 undocumented flags, 2026-07/08).
+  #            3, 3b x2, 4b, 6 x2, 7 x2, 8 x5, 11, and the whole A1 class. GATES 1, 5 and
+  #            5b are report-only and already assert on output. GATES 4, 9, 10a/10b are
+  #            structural, not classifier-driven: there is no matched token for them to name.
+  #   NOT covered, and the distinction matters: GATE 2's FLAG-DRIFT CLASSIFIER. The A1 cases
+  #            above mutation-test GATE 2's missing-INPUT legs only, by deleting sat.py and
+  #            SAT_CLI.md -- one-line reverts. They prove nothing about whether the gate can
+  #            still spot an undocumented flag, which is what GATE 2 is for. Injecting a flag
+  #            would mutate solve.py, a costlier revert than the assurance is worth; that leg
+  #            has FIRED in anger (13 undocumented flags, 2026-07/08). Recording "GATE 2 is
+  #            now covered" would be exactly the over-attestation this note exists to prevent.
+  #   NOT covered, no fire-proof possible here: the TOOL-absence legs (GATE 8's python3,
+  #            GATE 11's sha256sum), both converted from [skip] to [FAIL] under A1. Hiding
+  #            one tool from $PATH cannot be done without also hiding git, grep and cut, so
+  #            the gate would then fail for the wrong reason and the assertion would prove
+  #            nothing. Those two legs are warranted by reading, not by running.
   # The old note said GATE 8 was excluded because ~90s regeneration "exceeds the
   # orchestrator's budget". MEASURED 2026-08-02 on the orchestrator: 45 s and 31 MB peak
   # RSS per run. The budget claim was inherited, not measured, and it was wrong; the
   # shared cache makes the marginal case free regardless.
-  echo "  [note] not mutation-tested: GATE 2 (would mutate solve.py). It has FIRED in anger."
+  echo "  [note] not mutation-tested: GATE 2's flag-drift CLASSIFIER (would mutate solve.py);"
+  echo "         and the two tool-absence legs (python3, sha256sum), which cannot be isolated"
+  echo "         from \$PATH without breaking the gate for an unrelated reason."
 
   git checkout -- . 2>/dev/null
   echo
@@ -1775,7 +2056,15 @@ gate_generated() {
   # legitimately change every run. Stripping digits compares PROSE and structure,
   # which is where hand-edits live. Numeric drift is gate 1's business.
   local tmp rc=0 owned=0 cur_sha
-  command -v python3 >/dev/null 2>&1 || { echo "  [skip] no python3"; return 0; }
+  # ITEM A1 (tool half). This was a [skip], and roae.py IS python3 — without it the gate
+  # regenerates nothing and compares nothing, while `generated` still exits 0. GATES 3b and 5
+  # already invoke python3 with no guard at all, so a host without it cannot run this suite
+  # anyway; saying so loudly beats attesting a comparison that never happened. NO FIRE-PROOF
+  # COVERS THIS LEG — see the A1 note at the head of the file.
+  command -v python3 >/dev/null 2>&1 || {
+    echo "  [FAIL] python3 not on PATH — roae.py cannot be run, so nothing was regenerated"
+    echo "         and nothing was compared. This is not a skip."
+    return 1; }
   cur_sha=$(sha256sum roae.py 2>/dev/null | cut -d' ' -f1)
 
   if [ -n "${DOC_GATES_GEN_CACHE:-}" ]; then
@@ -1838,15 +2127,11 @@ gate_generated() {
   # false-clear shape as the one-directional comparison, and reached the same way: by asking
   # what the gate does when its input is not there. Absence is only a skip for an artifact
   # git does not track; for a tracked one it is the strongest possible mismatch.
+  # Hoisted to the top of the file as `require_tracked` (item A1, 2026-08-02) once the same
+  # shape was found in GATES 2, 3, 3b, 6, 10a, 10b and 11. One implementation, so a future
+  # correction to the rule cannot land in six places and miss the seventh.
   _present() {   # <path>
-    [ -f "$1" ] && return 0
-    if git ls-files --error-unmatch -- "$1" >/dev/null 2>&1; then
-      echo "  [FAIL] $1 is tracked in git but missing from the working tree"
-      echo "         A shipped artifact that is absent is not a passing artifact — regenerate it."
-      return 2
-    fi
-    echo "  [skip] $1 absent (not tracked, so nothing is shipped to check)"
-    return 1
+    require_tracked "$1" "A shipped artifact that is absent is not a passing artifact — regenerate it."
   }
   _cmp() {   # <artifact> <reference> <label>
     _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
@@ -1957,7 +2242,11 @@ PY
 gate_appendonly_head() {
   echo "== GATE 10a: CORRECTIONS.md is append-only vs HEAD =="
   local f="documentation/CORRECTIONS.md"
-  if [ ! -f "$f" ]; then echo "  [skip] no $f"; return 0; fi
+  # ITEM A1. Deleting the ledger is the LIMITING CASE of the thing this gate forbids —
+  # every committed line is gone at once — and it used to be the one way to make the gate
+  # report nothing.
+  require_tracked "$f" "Deleting the ledger removes every committed line at once: the maximal append-only violation."
+  case $? in 1) return 0;; 2) return 1;; esac
   if ! git cat-file -e "HEAD:$f" 2>/dev/null; then
     echo "  [ok] $f is not yet in HEAD — nothing committed to be append-only against"
     return 0
@@ -2022,7 +2311,10 @@ gate_appendonly_head() {
 gate_appendonly_history() {
   echo "== GATE 10b: CORRECTIONS.md has lost no line from ANY committed or published version =="
   local f="documentation/CORRECTIONS.md"
-  if [ ! -f "$f" ]; then echo "  [skip] no $f"; return 0; fi
+  # ITEM A1, same limiting case as 10a and worse here: this half compares against every
+  # PUBLISHED version, so a deleted working copy loses every line of all of them.
+  require_tracked "$f" "Deleting the ledger loses every line of every published version at once."
+  case $? in 1) return 0;; 2) return 1;; esac
   local cur tmp bad=0 n=0 blob src seen=""
   cur=$(mktemp) || return 1
   tmp=$(mktemp) || { rm -f "$cur"; return 1; }
@@ -2084,9 +2376,21 @@ gate_appendonly() {
 # cannot be faked by paraphrase, and a truncated quote cannot satisfy it.
 gate_ledger() {
   echo "== GATE 11: registered retractions are recorded in CORRECTIONS.md =="
-  local reg="documentation/RETRACTED_PHRASES.tsv" f="documentation/CORRECTIONS.md"
-  if [ ! -f "$reg" ] || [ ! -f "$f" ]; then echo "  [skip] $reg or $f absent"; return 0; fi
-  command -v sha256sum >/dev/null 2>&1 || { echo "  [skip] no sha256sum"; return 0; }
+  local reg="documentation/RETRACTED_PHRASES.tsv" f="documentation/CORRECTIONS.md" rcr=0 rcf=0
+  # ITEM A1. The old test named both files in ONE skip line, so a reader could not tell
+  # which was missing; both are probed now and both verdicts print.
+  require_tracked "$reg" "With the registry gone this gate has zero retractions to look for." || rcr=$?
+  require_tracked "$f"   "With the ledger gone every registered retraction is unrecorded by definition." || rcf=$?
+  if [ "$rcr" -eq 2 ] || [ "$rcf" -eq 2 ]; then return 1; fi
+  if [ "$rcr" -ne 0 ] || [ "$rcf" -ne 0 ]; then return 0; fi
+  # TOOL absence, not input absence: this was a [skip], which voided the whole gate while
+  # the banner still said PASS. sha256sum is coreutils and is required by the keying scheme,
+  # so its absence is a FAIL. NO FIRE-PROOF COVERS THIS LEG — see the A1 note at the head of
+  # the file; hiding sha256sum from $PATH also hides git, grep and cut.
+  command -v sha256sum >/dev/null 2>&1 || {
+    echo "  [FAIL] sha256sum not on PATH — the RP-<sha> keying this gate is built on cannot"
+    echo "         be computed, so the gate can check nothing. This is not a skip."
+    return 1; }
   local bad=0 n=0 key
   while IFS=$'\t' read -r phrase allow note; do
     case "$phrase" in ''|'#'*) continue;; esac
@@ -2106,6 +2410,14 @@ gate_ledger() {
 }
 
 MODE="${1:-all}"
+
+# ITEM A1, hole (b) — runs for EVERY mode, including the single-gate invocations the
+# self-test uses. Deliberately does NOT short-circuit: RC is set and the requested gate still
+# runs, so a per-gate fire-proof can distinguish its own leg's message ("<f> is tracked in git
+# but missing from the working tree") from this one ("tracked markdown missing from the
+# working tree: <f>"). Placed after the --selftest block above, which exits before reaching it.
+preflight_tracked_docs || RC=1
+
 case "$MODE" in
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
