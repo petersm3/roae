@@ -4038,6 +4038,50 @@ assert not echoed, 'the marker IS echoed at %r, so this leg would fire vacuously
 assert any(marker in l for l in src), 'the marker is gone from the source entirely'
 open(p,'w',encoding='utf-8').write(s.replace(a, '_selftest_revert'+chr(9)+marker+chr(9), 1))"
 
+  # THE OTHER ARM OF THE SAME FAIL (item R6, round 11 drain-1, 2026-08-02). The kind=BLOCK
+  # FAIL above branches on WHY it fired: an occurrence that is not a report line, or no
+  # occurrence at all. The leg shipped in f5fac73 exercises the first arm only. The second is
+  # PRE-EXISTING text — exposure is unchanged rather than new — but by this file's own rule an
+  # unexercised arm is an untested arm. What it prints for is a row whose label is still in the
+  # file but no longer anywhere below a call site, which is the drift a rename leaves behind.
+  #
+  # IT ASSERTS ON THE `WHY` LINE, NOT ON THE FAIL HEADER, because the header is identical for
+  # both arms: an ERE taken from it would be satisfied by the arm already proven, and this leg
+  # would then be proof of nothing. That is the same SHAPE GATE 16 LEG 3 refuses one commit
+  # above — and LEG 3 does NOT cover this population (its caveat (h): it reads the
+  # parameterised drivers, not assert_fires_why's evidence-EREs), so the disambiguation here
+  # had to be done by hand and by running. The mechanism has not reached this class yet.
+  #
+  # THE OBVIOUS MUTATION DOES NOT ISOLATE THIS ARM, WHICH WAS MEASURED, NOT REASONED. R6 says
+  # to "point the label at a string that occurs nowhere". Run: that ALSO trips GATE 15's
+  # label-EXISTENCE leg, which fires first with `The declared proof does not exist`, so the
+  # run proves both arms at once and neither on its own — a fire-proof that cannot say which
+  # check caught the defect is the ambiguity GATE 16 LEG 3 refuses one commit above.
+  #
+  # SO THE LABEL MUST EXIST AND BE OUT OF WINDOW. It is pointed at a marker that occurs in this
+  # script but far from every `_g13` mention, which leaves the existence leg green and reaches
+  # the `no occurrence in window` arm alone. The mutation ASSERTS BOTH HALVES of that premise
+  # before writing — the marker is present, and no occurrence of it is within 40 lines of any
+  # `_g13` line, a deliberately looser bound than BLOCK_WINDOW so a small drift aborts the
+  # mutation with a named reason instead of silently proving the other arm.
+  assert_fires_why "GATE 15 LEG 3 a BLOCK row whose label exists but never below a call site" \
+    instruments \
+    'WHY: the label does not occur in' \
+"p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
+s=open(p,encoding='utf-8').read()
+a='_g13'+chr(9)
+assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
+i=s.index(a)+len(a)
+j=s.index(chr(9), i)
+mark='preflight_support'+'_newlines'
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines()
+hits=[k for k,l in enumerate(L) if mark in l]
+near=[k for k,l in enumerate(L) if '_g13' in l]
+assert hits and near, 'marker or _g13 gone from the script: %d/%d' % (len(hits),len(near))
+assert min(abs(h-n) for h in hits for n in near) > 40, \\
+    'the marker moved next to a _g13 line, so the in-window arm would answer instead'
+open(p,'w',encoding='utf-8').write(s[:i]+mark+s[j:])"
+
   # THE CALLERS COUNT IS CHECKED, WHICH IS THE HALF OF CAVEAT (4) A MACHINE CAN HOLD TRUE.
   # The row that motivated caveat (4) said "four callers" against six and no gate noticed for
   # a round; this leg is that failure made loud.
@@ -4276,20 +4320,20 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(out)" 2>/dev/null; then
     if _G16B_COPY="$_G16B_COPY" python3 -c "$3" 2>/dev/null; then
       _G16BOUT=$(_gsrc "$_G16B_COPY" collisions)
       if printf '%s' "$_G16BOUT" | grep -qF "$2"; then
-        echo "  [ok]   GATE 16 LEG 2 $1 — fires"
+        echo "  [ok]   GATE 16 $1 — fires"
       else
-        echo "  [FAIL] GATE 16 LEG 2 $1 — NOT reported, so the leg would stay green on it"
+        echo "  [FAIL] GATE 16 $1 — NOT reported, so the leg would stay green on it"
         printf '%s\n' "$_G16BOUT" | sed 's/^/           > /' | head -6
         PASS=1
       fi
     else
-      echo "  [FAIL] GATE 16 LEG 2 $1 — could not build the mutated copy (anchor moved), so"
+      echo "  [FAIL] GATE 16 $1 — could not build the mutated copy (anchor moved), so"
       echo "         the assertion did NOT run. A skipped assertion is not a pass."
       PASS=1
     fi
   }
 
-  _g16b "the historical ledger dispatch on GATE 11's (A1) fire-proof" \
+  _g16b "LEG 2: the historical ledger dispatch on GATE 11's (A1) fire-proof" \
         'is 2 gates behind one exit code' "
 import os
 A='assert_fires_why \"GATE 11 (A1) ledger deleted\" ledger-phrases \\\\'
@@ -4299,7 +4343,7 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace(' ledger-phrases ',' ledger ')
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
 
-  _g16b "the historical links dispatch on GATE 4's fire-proof" \
+  _g16b "LEG 2: the historical links dispatch on GATE 4's fire-proof" \
         'is 2 gates behind one exit code' "
 import os
 A='assert_fires_why \"GATE 4 internal links (documentation/GUIDE.md)\" links-internal \\\\'
@@ -4309,7 +4353,7 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace(' links-internal ',' links ')
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
 
-  _g16b "an invocation the extractor can no longer see" \
+  _g16b "LEG 2: an invocation the extractor can no longer see" \
         'One of the two extractors is wrong' "
 import os
 A='assert_stays_clean_why \"GATE 15 LEG 3 a rewritten note changes no claim\" instruments \\\\'
@@ -4319,7 +4363,7 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 del L[t[0]]
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
 
-  _g16b "a call graph that can no longer see one gate calling another" \
+  _g16b "LEG 2: a call graph that can no longer see one gate calling another" \
         'the call graph is' "
 import os,re
 L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
@@ -5849,6 +5893,22 @@ CALL_POST = r"(?=[ \t;&|\"')]|$)"
 # starting immediately after the marker. Requiring the shape is what stops a line that merely
 # CONTAINS the label — a grep pattern, a comment, a mutation string — from standing in for the
 # assertion reporting.
+#
+# DECIDED 2026-08-02 (item R7, round 11 drain-1): `printf` IS NOT ACCEPTED, and the decision
+# rests on a measurement rather than on the wording above. MEASURED over this script: every
+# `printf` in it re-emits a CAPTURED VARIABLE through a pipe — `printf '%s\n' "$OUT" | sed`
+# — as evidence under a verdict already written; not one of them writes an `[ok]`/`[FAIL]`
+# marker itself. The two forms are doing different jobs here, so the rule is not merely
+# accurate today, it matches how the harness is built. The count is not quoted: it moves, and
+# the [ok] line prints the live distances every run.
+# WIDENING IT WOULD BE A REGRESSION RISK, NOT A CONVENIENCE. A verdict written with `printf`
+# is a FAIL under this rule — conservative and loud, a refusal rather than a reading, and
+# nothing is silently cleared by it. A matcher that accepts too much is how f5fac73's defect
+# got in: `printf '%s\n' "$OUT" | sed 's/^/           > /'` re-emits [FAIL] lines from a
+# CAPTURED output, so a `printf`-tolerant matcher would let a fire-proof's own evidence dump
+# stand in for the assertion reporting — the same class as the `grep -q 'A1 snapshot probe'`
+# satisfier, reintroduced. If this is ever widened, it needs fire-proofs in BOTH directions:
+# a `printf` verdict accepted, and a `printf` evidence dump still refused.
 REPORT_ECHO = re.compile(r"^[ \t]*echo[ \t]+\"[ \t]*\[(?:ok|FAIL|WARN|note)\][ \t]*")
 
 
