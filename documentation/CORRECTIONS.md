@@ -673,3 +673,45 @@ the correction. The gate is a completeness instrument, not a content one.
   that a per-unit gate run cannot catch, because each unit's run was green at the moment it ran.
 
 ---
+
+### CX-23 · 2026-08-02 · C2 · five statements about other researchers, each compressed past its evidence (`RP-ec1edc30`, `RP-3de5247a`, `RP-0ac53779`, `RP-b527b673`, `RP-09cc405a`)
+
+- **Documents:** `documentation/MCKENNA.md` (lines 56 and 135), `documentation/HISTORY.md` (3852),
+  `reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md` (266), `documentation/CITATIONS.md` (343, 673, 679,
+  899).
+- **BEFORE — one behaviour, not five slips.** In each case a hedge that the report *body* carried was
+  dropped when the claim was compressed into a heading, an index row, a bibliography line, or a
+  closing verdict. The five: (i) "McKenna's specific claims … **don't survive mathematical
+  scrutiny**", which converted hedged nulls — its own items 1–4 concede "the data is too short to be
+  conclusive" — plus Watkins's and Meyer's critiques, whose evidence lives entirely off-repo, into a
+  single unqualified judgement; (ii) "**He evidently never scanned** the other 28 pairs", attributing
+  a *process* to Davis from an *outcome*; (iii) McKenna's design claim "**lacks independent
+  corroboration in the published literature**", a literature-wide negative resting on one checked
+  source; (iv) "**measured and refuted**" (twice), conflating the two prongs of McKenna & Mair 1979;
+  (v) "**A one-off within his oeuvre**", an unsourced characterisation of Suenaga's whole body of
+  work used to bound the standing of the paper we cite as the sharpest published *counting* result.
+- **NOW:** each states the scope its evidence supports. (i) no support *in these measurements*, with
+  the third-party critiques attributed as relayed rather than re-derived; (ii) the pairs are not
+  treated in the book — whether he checked them is not observable from the text; (iii) *we have
+  located* no corroboration (checked: Cook 2006); (iv) the structural-poverty **premise** is measured,
+  the Gray-code **construction** is refuted; (v) we searched and found no other hexagram-sequence work
+  by him.
+- **Class, and where it does not fit.** C2 for four of the five: the claim survives, its scope or
+  epistemic label changed, and (iii) had already propagated to `HISTORY.md:3852`. **(ii) is nearer
+  C1** — the process attribution is withdrawn outright, not rescoped, and nothing replaces it but the
+  observable fact. Filed here rather than split so the shared generator stays visible; the exception
+  is recorded rather than flattened by the class letter.
+- **What did NOT weaken.** The Gray-code impossibility (TR-8 §3) and the four-rule conflict theorem
+  (TR-2 §4) are kernel-checked and DRAT-certified respectively, and were found **under**-claimed if
+  anything. The no-5 rule and the 3:1 ratio remain credited to McKenna and confirmed by measurement.
+  No measurement, count, certificate or sha moved.
+- **How it was found:** an audit commissioned by the operator of *every* public statement judging
+  another researcher's work wrong — the mirror of a novelty audit. The sixth site (`HISTORY.md:3852`)
+  was not in the audit's list; it turned up only by grepping the **claim** rather than the cited line,
+  which is the same propagation failure the entry is about.
+- **Registry note:** the five phrasings are in
+  [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) so GATE 3 blocks recurrence. This entry exists
+  because GATE 3 correctly refused the commit that registered them without it — the retraction
+  registry and this ledger are required to move together, and on the first attempt they did not.
+
+---
