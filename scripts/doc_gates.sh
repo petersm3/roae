@@ -4001,20 +4001,29 @@ open(p,'w',encoding='utf-8').write(s.replace(a, a.replace(
 
   # A BLOCK ROW MAY NOT BE PROVEN BY A STRING THE HARNESS NEVER PRINTS (item N3, round 10
   # drain-3, 2026-08-02). THIS MUTATION IS THE LIVE DEFECT, NOT A SYNTHETIC ONE. The
-  # `_selftest_revert` row's label is "A1 snapshot"; three lines below the one call that is
-  # the assertion sits `… | grep -q 'A1 snapshot probe'`, the marker text the assertion
-  # searches FOR. That line is not an echo, and until today it was what satisfied the row —
-  # the `+3` the gate printed was the distance to the grep, not to the `[ok]` at `+4`.
+  # `_selftest_revert` row's label is "A1 snapshot"; below the one call that is the assertion
+  # sits `… | grep -q 'A1 snapshot probe'`, the marker text the assertion searches FOR. That
+  # line is not an echo, and until today it was what satisfied the row: as measured on
+  # 2026-08-02 the `+3` the gate printed was the distance to that grep, and the `[ok]` line
+  # was at `+4`. The live distance is on the gate's own [ok] line every run; those two are a
+  # dated observation, not a standing claim about where the lines are.
   #
-  # THE LEG SETS THE LABEL TO THE FULL MARKER, which occurs in this file ONLY as the injected
-  # probe text and as that grep pattern, and is echoed nowhere. MEASURED against the pre-fix
-  # code before the fix was written: LEG 3 stayed GREEN and printed the identical
-  # `_selftest_revert +3`. So this leg fires on the fix and only on the fix.
+  # THE LEG SETS THE LABEL TO THE FULL MARKER, and what makes that fire is that the marker is
+  # ECHOED NOWHERE — not that it is rare. MEASURED against the pre-fix code before the fix was
+  # written: LEG 3 stayed GREEN and printed the identical `_selftest_revert +3`. So this leg
+  # fires on the fix and only on the fix.
   #
-  # THE LITERAL IS SPLIT for the reason at the scratch_appendonly leg above: written whole,
-  # this mutation string would itself become a fourth occurrence of the marker in the source,
-  # and a reader could not tell whether the row was satisfied by the probe or by this
-  # fire-proof. Split, the source's occurrence count is untouched by the presence of this leg.
+  # THE GUARDS ASSERT THE PROPERTY, NOT A COUNT, AND THAT IS THIS BATCH'S OWN LESSON. The
+  # first draft of this comment said the marker "occurs in this file ONLY as the injected
+  # probe text and as that grep pattern" — and the commit that wrote the sentence added three
+  # more occurrences, in comments, one of them the sentence itself. A count-based guard would
+  # have shipped RED or, worse, been "fixed" by bumping the number. `echoed == []` cannot rot
+  # that way: prose about the marker is not an echo of it, so this paragraph may grow freely.
+  #
+  # THE LITERAL IS STILL SPLIT, for the reason at the scratch_appendonly leg above: written
+  # whole, the mutation string would be an occurrence a reader could confuse with the probe's.
+  # Splitting it keeps the MUTATION out of the source; it does not, and cannot, keep the
+  # surrounding prose out.
   assert_fires_why "GATE 15 LEG 3 a BLOCK row proven by a string the harness never prints" \
     instruments \
     'declares kind=BLOCK for _selftest_revert\(\), but no \[ok\]/\[FAIL\] REPORT line' \
@@ -5752,13 +5761,15 @@ for lineno, flags, pat in guards:
 #          `_selftest_revert` row's satisfier was
 #          `… | grep -q 'A1 snapshot probe'` — the marker text the assertion searches FOR,
 #          which merely BEGINS with the row's label "A1 snapshot". So the strongest row on this
-#          gate was proven by a string the harness never prints, and the printed `+3` was the
-#          distance to that grep, not to the `[ok]` line at `+4`.
+#          gate was proven by a string the harness never prints; as measured on 2026-08-02 the
+#          printed `+3` was the distance to that grep and the `[ok]` line was at `+4`.
 #          PROVEN BEFORE THE FIX, not argued: setting the row's label to the full probe marker
-#          `A1 snapshot probe` — a string that appears in this file only as the injected text
-#          and as the grep pattern, and is never echoed — left LEG 3 GREEN at the identical
-#          `_selftest_revert +3`. The fire-proof below is that exact mutation, so the leg is
-#          proven against the real defect and not a stylised one.
+#          `A1 snapshot probe` — a string this harness ECHOES NOWHERE, which is the property
+#          the fire-proof guards and the only one it needs — left LEG 3 GREEN at the identical
+#          `_selftest_revert +3`. The fire-proof is that exact mutation, so the leg is proven
+#          against the real defect and not a stylised one. It states no occurrence count on
+#          purpose: the commit that first wrote one falsified it in the same diff, by writing
+#          this paragraph.
 #          The check now requires a REPORT line (see REPORT_ECHO), and the FAIL prints the
 #          non-report occurrence it rejected, so the reason is in the output and not only here.
 #          THIS IS NOT REACHABILITY AND MUST NOT BE DESCRIBED AS SUCH. A report line inside a
