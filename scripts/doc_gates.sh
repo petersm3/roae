@@ -6094,6 +6094,27 @@ for name in sorted(defined):
 #          class as caveat (viii)'s proximity-not-reachability, one level down, and it is why
 #          the shell half cross-checks against LEG 2's extractor and the python half does not:
 #          no second extractor exists for the python form.
+#          STILL NOT BUILT, AND THE OBVIOUS BUILD WAS MEASURED AND REJECTED (item R5, round 11
+#          drain-1, 2026-08-02). The natural second extractor is a taint rule: the assert must
+#          reference a name derived from the READ of the file being mutated. Evaluated against
+#          every live python builder, it FAILS on the counter-shaped ones — the builders that
+#          bind `n = 0`, increment it inside a loop over the file's lines, and then
+#          `assert n > 0`. Their assert IS about the file, by a route the rule cannot see:
+#          the increment rides on a `;`-joined statement or an element assignment (`L[i] = …`),
+#          neither of which is a plain binding. A refinement that tainted loop-body bindings
+#          was measured too and failed the same two for the same reason. SHIPPING IT WOULD
+#          HAVE TURNED A CLEAN CORPUS RED, which is the failure R4's measurement caught one
+#          leg over on the same day, so the epicycles stop here and the limit is recorded
+#          instead.
+#          THE WEAK FORM IS ALSO DECLINED, on this file's own threshold rather than on taste.
+#          Requiring only that the assert mention some identifier would kill `assert 1==1` and
+#          nothing else, and it passes every live builder — but LEG 2's header sets four
+#          sightings as the bar for converting care into a mechanism, and the vacuous-assert
+#          defect has ZERO sightings here. Building for it would add a leg, a fire-proof and a
+#          callers count against a hypothetical. What makes this a live risk is asymmetry, not
+#          frequency: the shell half is cross-checked and the python half is not, and it is the
+#          LARGER half. That is the argument for a real second extractor, and it is not an
+#          argument for a cheap one.
 #   (xiv)  It sees the WRITE, not the CONTENT. A builder that asserts correctly and then
 #          writes different bytes is outside it.
 BUILD_SH = re.compile(r">[ \t]*\"\$(_[A-Za-z0-9_]*COPY)\"")
