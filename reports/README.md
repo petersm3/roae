@@ -1,7 +1,13 @@
 # ROAE Technical Reports — Index and Reading Guide
 
-*Context in one line: ROAE analyzes the King Wen sequence (the received ordering of the 64 I Ching
-hexagrams) as a combinatorial object — enumerating, measuring, and proving; the repository README is the
+*The finding, first: this project began from the hypothesis that the King Wen sequence (the received
+ordering of the 64 I Ching hexagrams) is **determined** by its published constraints. We enumerated, we
+measured, and **the hypothesis is false** — about **5.21×10³¹** orderings satisfy the full C1–C7
+inventory (a Knuth random-probe **estimate**, 95% CI [5.13, 5.29]×10³¹; the verdict needs only that the
+count is not 1), and King Wen is unique only within **budgeted enumerated slices**, never in the full
+space. That is a negative result about our own starting position, which is why it leads
+([TR-4](TR4_SIZE_OF_THE_SPACE.md) §Abstract owns the measurement). The suite around it treats the
+sequence as a combinatorial object — enumerating, measuring, and proving; the repository README is the
 front door, these reports are the findings in depth.*
 *Technical reports — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
 proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
@@ -25,7 +31,7 @@ record. Reproducibility contract: [CANONICAL_HASHES](../documentation/CANONICAL_
 | [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) | Eight Centuries, Measured | The literature's rules at population scale: forced / typical / discriminating; the grand precursor; the conflict | the flagship; all modalities |
 | [TR-2](TR2_THE_RULES_CONFLICT.md) | The Rules Conflict | The four strongest rules cannot all hold at once (no C1∩C2∩C4∩C5-valid ordering can be perfect under all four); KW's anomalies are a forced trade-off, not damage to such an original; a pre-registered Bayes factor favors corruption of the three-graded-rule precursor over soft tendency — **two-model only**: it does not exclude a greedy/local builder, nor that the three rules are post-hoc regularities, and the wider four-class comparison that would have tested those rivals was pre-registered, ran, **failed its own synthetic-draw confusability gate, and is permanently withheld** (TR-2 §6.3) | SAT + DRAT certs + pre-registered BF |
 | [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) | Reproducible Enumeration at Scale | 10.5B records, twice byte-identical across two independent runs (5 + 7 = 12 Spot evictions total) at 15–20% of on-demand cost | sha registry + gates |
-| [TR-4](TR4_SIZE_OF_THE_SPACE.md) | The Size of the Space | 1.3287×10³⁸ orderings; uniqueness conjecture false; slice-unique boundaries admit ~10²⁶ | validated estimator |
+| [TR-4](TR4_SIZE_OF_THE_SPACE.md) | The Size of the Space | This project's own uniqueness hypothesis is false: ≈5.21×10³¹ orderings satisfy C1–C7 and King Wen is unique only within budgeted enumerated slices (1.3287×10³⁸ satisfy C1–C5; both figures are estimates with stated CIs); slice-unique boundaries admit ~10²⁶ | validated estimator |
 | [TR-5](TR5_SYMMETRY.md) | Symmetry | Order-48 group, complete over all 64! relabelings (v2.0; prose-proven with machine-checked finite parts — see §3 scope); free action (every solution has exactly 23 record-level twins); a published negative corrected | proof + Lean + tree isomorphism |
 | [TR-6](TR6_PARITY_SKELETON.md) | The Parity Skeleton | Exactly 15 alternations, always | prose + Lean kernel + SAT certs |
 | [TR-7](TR7_CIRCULAR_READING.md) | The Circular Reading | Wrap parity forced; 5-wraps are 17.4% of the space yet 0 in 10.5B slice records | Lean + SAT witness + estimator |

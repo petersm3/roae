@@ -29,8 +29,8 @@ compression − statement cost. Conventions, declared up front:
 | + C1 (pairing) + C4 (start) | 31!·2³¹ | 143.7 | **146.3** (C1) + 6.0 (C4)¹ | ~0 (derived²) / ~13 (family³) | **+133 to +146** |
 | + C2 (no-5) | **7.5706×10⁴¹ — EXACT** (757,058,601,340,255,440,651,419,713,405,330,315,358,208; S4-orbit dynamic program, 2026-07-04) | 139.12 | 4.5 | ~3 (family of per-distance bans) | **≈ 0 (+2.0 selection-only; −0.6 to −4 under explicit-grammar codings)** |
 | + C5 (transition multiset) | **1.097051×10³⁹ — EXACT, two-instrument** (1,097,051,278,789,181,790,036,112,071,176,579,186,688; out-of-core S4-orbit dynamic program, 2026-07-16; independently recomputed at full scale 2026-07-25 by verify.c's IE transfer-walk engine — exact match, mod-24 verified, [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi)) | 129.7 | 9.4 | 15.7–23.3⁴ | **−6.3 to −13.9 (descriptive under every convention⁴)** |
-| + C3 (complement ceiling) | 1.3287×10³⁸ | 126.6 | 3.0 | circular⁵ | ≈ 0 |
-| + C6 + C7 | 5.21×10³¹ | 105.4 | 21.3 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
+| + C3 (complement ceiling) | **1.3287×10³⁸ — ESTIMATE** (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸, 0.02%) | 126.6 | 3.0 | circular⁵ | ≈ 0 |
+| + C6 + C7 | **5.21×10³¹ — ESTIMATE** (Knuth random-probe, 95% CI [5.13, 5.29]×10³¹, 0.78%; [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4 owns the measurement) | 105.4 | 21.3 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
 | strongest *principled* literature rule ([Schulz](CITATIONS.md#schulz1990-motifs) gender — "strongest" among rules stated independently of King Wen; the data-like trigram rule scores higher but is descriptive) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
 
 ¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits, charged in full — pair AND
