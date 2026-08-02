@@ -4703,14 +4703,28 @@ open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
   rm -f "$_G16B_COPY"
 
   # ------------------------------------------------------------------------------
-  # GATE 17 FIRE-PROOFS (round-7 brief item 6, 2026-08-02) — FIVE LEGS.
+  # GATE 17 FIRE-PROOFS (round-7 brief item 6, 2026-08-02). NO COUNT IS WRITTEN HERE, on
+  # purpose (round 14 ledger, item R14 continued). The population is the assertions below
+  # whose label begins "GATE 17 LEG ", and a reader can derive it by reading them. A number
+  # written here could not be derived, and it rotted.
+  #
+  # IT READ "FIVE LEGS", AND THE SENTENCE BELOW ENUMERATED FIVE TO MATCH. LEG 6 was added by
+  # ddad7b81 ("Phase-4: GATE 17 could compare one board and call it a pass"); neither the
+  # count nor the enumerating prose was touched by it. The `covered:` list in the coverage-gap
+  # block further down counts this SAME bucket and had it right — four fire legs, one negative
+  # control, one phase-4 leg — so two censuses over one bucket disagreed with each other while
+  # both stayed green. That is the shape round 14's R14 fix and its fifth member describe, and
+  # this is a SIXTH member found; like the fifth, "sixth found" is not a claim about how many
+  # exist. It hid from both earlier sweeps because it is not in the coverage-gap block at all:
+  # it is a census in a fire-proof's OWN header, and neither sweep's population included those.
   #
   # The first two REPRODUCE the two historical defects rather than describing them: ccn4's
   # verdict written by description and not at the id, and a load-bearing row nobody was
-  # looking at. The remaining three exist because this gate's own first live run was WRONG
-  # in both directions at once — it reported rs1 missing from both published boards and
-  # invented an orphan row "Full" — and the fault was entirely in the parser. A gate whose
-  # first run mis-parsed the corpus does not get to be trusted on a green run.
+  # looking at. The rest exist because this gate's own first live run was WRONG in both
+  # directions at once — it reported rs1 missing from both published boards and invented an
+  # orphan row "Full", the fault entirely in the parser — plus the phase-4 leg that caught the
+  # gate comparing ONE board and calling it a pass. A gate whose first run mis-parsed the
+  # corpus does not get to be trusted on a green run.
   _G17_TR=reports/TR1_EIGHT_CENTURIES_MEASURED.md
 
   # LEG 1 — THE MOTIVATING EXAMPLE, and it is a LEG-B (report-only) case, so it asserts on
