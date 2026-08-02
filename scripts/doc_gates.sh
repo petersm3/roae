@@ -1882,7 +1882,7 @@ os.remove('example/report.pdf')"
   }
 
   assert_gen_clean "GATE 8 comma-grouped Monte Carlo figure is not a difference" \
-'example/report\.html matches roae\.py --html exactly' \
+'example/report\.html agrees with roae\.py --html on every NON-NUMERIC line' \
 'import os, re
 p = os.path.join(os.environ["GEN_CACHE"], "report.html")
 s = open(p, encoding="utf-8").read()
@@ -2157,6 +2157,36 @@ gate_generated() {
   # handles multi-group values: 1,234,567 -> 1234567), then digits are stripped. Commas
   # that are not between two digits — ordinary prose punctuation — are untouched, so no
   # sensitivity to hand-edited prose is given up.
+  # ITEM A2 (2026-08-02) — THE TWO QUESTIONS, ANSWERED BY RUNNING THE NORMALISER.
+  #
+  # Q1. WHAT LEGITIMATE VARIATION DOES THIS ERASE? Every numeric difference, by design.
+  #     roae.py seeds nothing by default (`_global_seed`, roae.py:22 — a `--seed` flag
+  #     exists but the shipped artifacts were not produced with it), so Monte Carlo figures
+  #     differ every run and a byte comparison would fail always.
+  #
+  # Q2. WHAT ILLEGITIMATE VARIATION DOES IT LET THROUGH? A HAND-EDITED NUMBER. MEASURED,
+  #     with a clean tree: corrupting `111111` to `911111` in example/report.txt and running
+  #     `doc_gates.sh generated` gives rc 0 and prints
+  #       "[ok] example/report.txt matches roae.py --all exactly (digit-stripped, both directions)"
+  #     GATE 1 does not cover it either — GATE 1 iterates $DOCS = `git ls-files '*.md'`, and
+  #     report.txt is not markdown. So for a corrupted digit in report.txt there is currently
+  #     NO gate at all, and this one says "exactly" while missing it. That word is doing more
+  #     work than the comparison behind it.
+  #
+  # AN ATTEMPTED FIX THAT FAILED, recorded so it is not rebuilt. Sample the generator TWICE
+  # and treat a line identical in both samples as deterministic, requiring the artifact to
+  # match those lines with digits intact. IT PRODUCES FALSE FAILS ON CORRECT ARTIFACTS, which
+  # is round 4's `9084589` defect reached by a different route. Measured: `Min pair-constrained
+  # observed:` (roae.py:1355, `min(pair_totals)` over `random.random()` draws) read 192 in two
+  # consecutive runs and 189 in the shipped artifact; three further samples gave 193, 190, 192.
+  # A min over a narrow discrete range repeats often, so two agreeing samples are not evidence
+  # of determinism, and no number of samples turns that into a sound inference. The leg was
+  # written, run against the CORRECT artifacts, seen to fire, and reverted. It is only because
+  # the negative control ran that this was caught before shipping.
+  #
+  # WHAT WOULD ACTUALLY CLOSE Q2 is not a normalisation change: ship example/ generated with
+  # `--seed`, after which the comparison can be byte-exact and the whole question disappears.
+  # That changes published artifacts, so it is an operator decision, not a gate edit.
   _norm() { sed -E 's/([0-9]),([0-9])/\1\2/g; s/[0-9]//g; s/[[:space:]]+/ /g' "$1" | grep -v '^ *$' | sort; }
   # BOTH DIRECTIONS. The first version compared one way only (`comm -13`: lines the
   # ARTIFACT has that the generator does not), so a pure DELETION from a shipped
@@ -2181,7 +2211,10 @@ gate_generated() {
     extra=$(comm -13 <(_norm "$2") <(_norm "$1") | wc -l)
     missing=$(comm -23 <(_norm "$2") <(_norm "$1") | wc -l)
     if [ "$extra" -eq 0 ] && [ "$missing" -eq 0 ]; then
-      echo "  [ok]   $1 matches $3 exactly (digit-stripped, both directions)"
+      # NOT "matches exactly" (item A2, 2026-08-02). It said that for years while ignoring
+      # every digit in both files, so a corrupted number was reported as an exact match. The
+      # verdict now states its own scope: this comparison is silent about numbers.
+      echo "  [ok]   $1 agrees with $3 on every NON-NUMERIC line (both directions; digits not compared)"
     else
       echo "  [FAIL] $1 vs $3: $extra added, $missing missing (normalised lines) -- hand-edited?"
       comm -13 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           +added   > /'
