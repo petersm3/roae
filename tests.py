@@ -766,6 +766,115 @@ class TestVerifyRecordsPath(unittest.TestCase):
     # TR-1 §7's published values, against the pre-existing _fiber_dp
     # instrument, against explicit brute force, and on its own algebra.
 
+    # ---- the anchor and the instrument, written FIRST (2026-08-02) -------
+    # The five tests below gate the GATE. They come first deliberately: the
+    # 2026-08-02 rewrite exists because a fiber routine returned 2,703,360
+    # against TR-1 §7's 1,720,320, and because the attempt before it hung an
+    # 8 GB orchestrator on a DP whose state key carried the orientation
+    # vector (2^32 keys). Both failures are pinned here as known answers.
+
+    def test_the_fiber_anchor_gate_fires_on_its_own_motivating_example(self):
+        # INSTRUMENT GATE. A gate that only asserted "== 1,720,320" would have
+        # caught the defect while saying nothing useful about it. The verdict
+        # this classifier must produce is "one unpinned bit (C4's opening)",
+        # NOT "the constraint set is too loose" — C3 is constant on a fiber, so
+        # C3 can only ever multiply a fiber count by 1 or by 0, never by 7/11.
+        V = self.V
+        verdict, why = V._fiber_diagnose(2_703_360)
+        self.assertEqual(verdict, "C4-OPENING-NOT-PINNED")
+        self.assertIn("11/7", why)                   # the REASON, not just the verdict
+        self.assertIn("pin the opening", why.lower())
+        # it must ACCEPT the right answer, or it is a rubber stamp
+        self.assertEqual(V._fiber_diagnose(1_720_320)[0], "OK")
+        # it must DISCRIMINATE, or the verdict carries no information: three
+        # other wrong answers each get their own distinct classification.
+        self.assertEqual(
+            [V._fiber_diagnose(x)[0] for x in (983_040, 3_440_640, 0, 1_234_567)],
+            ["OPENING-PINNED-TO-THE-WRONG-SIDE", "SYMMETRY-DOUBLED",
+             "EMPTY-FIBER", "UNCLASSIFIED"])
+
+    def test_fiber_count_refuses_to_answer_when_the_anchor_breaks(self):
+        # Proof that the anchor is ON the call path rather than decorative:
+        # replace the DP with the historical defect (both openings summed) and
+        # the PUBLIC entry point must raise, naming the unpinned opening,
+        # before it returns anything at all.
+        V = self.V
+        saved_raw, saved_memo = V._fiber_count_raw, V._FIBER_ANCHOR
+        try:
+            V._FIBER_ANCHOR = None
+            V._fiber_count_raw = lambda perm, opening=63, fixed=None: 2_703_360
+            with self.assertRaises(RuntimeError) as cm:
+                V.fiber_count(list(range(32)), 63)
+            self.assertIn("C4-OPENING-NOT-PINNED", str(cm.exception))
+            self.assertIn("11/7", str(cm.exception))
+        finally:
+            V._fiber_count_raw, V._FIBER_ANCHOR = saved_raw, saved_memo
+
+    def test_the_11_over_7_signature_is_exact_integer_arithmetic(self):
+        # The verdict above rests on two exact identities, checkable by hand and
+        # pinned here as integers so no later edit can soften them into
+        # approximations. In units of 2**14 the three fibers are 105, 60, 165.
+        self.assertEqual(1_720_320, 105 * 2 ** 14)
+        self.assertEqual(983_040, 60 * 2 ** 14)
+        self.assertEqual(2_703_360, 165 * 2 ** 14)
+        self.assertEqual(7 * 983_040, 4 * 1_720_320)       # flipped/oriented =  4/7
+        self.assertEqual(7 * 2_703_360, 11 * 1_720_320)    # both/oriented    = 11/7
+        # the complement-Z2 "doubling" answer is a DIFFERENT number, so the two
+        # failure modes can never be mistaken for one another
+        self.assertNotEqual(2 * 1_720_320, 2_703_360)
+
+    def test_the_state_space_arithmetic_in_the_header_is_the_real_one(self):
+        # The header's numbers are load-bearing — they are the entire reason
+        # this DP is safe to run — so they are pinned against the live tables.
+        V = self.V
+        B0, _ham, _ci, _add, _fc = V._fiber_tables()
+        self.assertEqual(B0, (2, 8, 13, 7, 1))
+        # sum(B0) == 31 is what makes 64*6048 bound the WHOLE RUN rather than a
+        # single slot: the budget's sum IS the slot index, so slot is not a free
+        # dimension of the state. If this ever changes, the header's arithmetic
+        # (and the safety argument that rests on it) must be rewritten.
+        self.assertEqual(sum(B0), 31)
+        code = 1
+        for c in B0:
+            code *= (c + 1)
+        self.assertEqual(code, 6048)                       # 3*9*14*8*2
+        self.assertEqual(64 * code, 387_072)               # whole-run state bound
+        self.assertLessEqual(code, 1 << V._FIBER_CODE_BITS)
+        # the formulation that hung the box, for contrast — never a state count
+        self.assertEqual(sum(2 ** i for i in range(32)), 2 ** 32 - 1)
+
+    def test_c3_is_evaluated_without_the_path(self):
+        # C3 couples each pair to the pair holding its complement, so it is a
+        # GRAPH over pairs, not a chain over slots. It still needs no DP state:
+        # the orientation bits cancel, leaving C3 a function of the slot map.
+        # Anchor first — King Wen's own ordering is the identity permutation and
+        # its C3 is 776 (SPECIFICATION.md §C3: 12.125 x 64).
+        V = self.V
+        self.assertEqual(V.c3_of_ordering(list(range(32))), 776)
+        cross, selfc = V._c3_couples()
+        self.assertEqual((len(cross), len(selfc)), (12, 8))
+        self.assertEqual(2 * len(cross) + len(selfc), 32)
+        # Cross-check against the INDEPENDENT path: compute_comp_dist works only
+        # on an assembled 64-hexagram sequence and knows nothing about couples,
+        # slots or the 16 + 8*G decomposition. They must agree on shuffled
+        # orderings AND under every orientation vector — the latter is what
+        # "constant on a fiber" means, and it is the claim the DP depends on.
+        import random
+        rng = random.Random(20260802)
+        for trial in range(12):
+            perm = list(range(32))
+            rng.shuffle(perm)
+            path_free = V.c3_of_ordering(perm)
+            for mode in (0, 1, 2):
+                seq = []
+                for s, p in enumerate(perm):
+                    a, b = V.PAIRS[p]
+                    flip = (mode == 1) or (mode == 2 and s % 3 == 0)
+                    seq += [b, a] if flip else [a, b]
+                self.assertEqual(path_free, V.compute_comp_dist(seq),
+                                 f"trial {trial} orientation-mode {mode}: the path-free "
+                                 f"C3 disagrees with the assembled-sequence value")
+
     def _brute_subfiber(self, perm, fixed, free_slots, with_c3):
         """Explicit enumeration over `free_slots`, checking C2/C5 (and optionally
         C3) on the assembled 64-hexagram sequence. Shares no machinery with the

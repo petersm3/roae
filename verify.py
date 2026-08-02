@@ -883,7 +883,238 @@ def _exact_subtree(prefix):
     rec(step, last, used)
     return tuple(stats)
 
+# ===========================================================================
+# THE ORIENTATION FIBER — STATE-SPACE ARITHMETIC FIRST  (2026-08-02)
+# ===========================================================================
+# This arithmetic is written and evaluated BEFORE the DP below, because the
+# attempt that skipped it hard-rebooted an 8 GB orchestrator.
+#
+# (0) THE FORMULATION THAT MUST NEVER BE WRITTEN AGAIN
+#     key = (slot i, accumulated orientation prefix o_1..o_i)
+#       |keys| = Σ_{i=0..31} 2^i = 2^32 − 1 = 4,294,967,295
+#       final layer alone = 2^31 = 2,147,483,648 dict entries
+#                        ≈ 215 GB at CPython's ~100 B per small dict entry
+#     → OOM, then reboot. The orientation vector is the ANSWER being counted;
+#       the moment it enters the key the DP stops being a DP and becomes the
+#       2^31 search it was supposed to replace.
+#
+# (1) THE FORMULATION USED HERE
+#     key = (exit hexagram of slot i, budget consumed so far)
+#       exit hexagram                    : 64
+#       budget n = (n₁,n₂,n₃,n₄,n₆), 0 ≤ n_c ≤ B0_c
+#       B0 = C5's 63-multiset − the within-pair multiset
+#          = {1:2, 2:20, 3:13, 4:19, 6:9} − {2:12, 4:12, 6:8}
+#          = {1:2, 2:8, 3:13, 4:7, 6:1}          Σ = 31   (SPECIFICATION.md §137)
+#       |budgets| = Π (B0_c + 1) = 3·9·14·8·2 = 6,048
+#       |states|  ≤ 64 × 6,048   = 387,072
+#     — and that 387,072 bounds the WHOLE RUN, not one slot: Σ_c n_c = i
+#       identically, so the slot index is a FUNCTION of the key rather than an
+#       extra dimension. Transitions ≤ 2 per state → ≤ 774,144 edge relaxations.
+#       Ratio to (0): 4,294,967,295 / 387,072 ≈ 1.11 × 10⁴ fewer states.
+#
+# (2) WHY IT IS A C2+C5 OBJECT ONLY
+#     Within-pair distances are orientation-invariant (d(a,b) = d(b,a)) and the
+#     within-pair multiset {2:12, 4:12, 6:8} is the same for every C1 ordering
+#     under every orientation vector, so C5 reduces to the fixed budget B0 on
+#     the 31 BETWEEN-pair distances, and C2 is implied by it (B0 has no 5).
+#
+# (3) C3 WITHOUT CARRYING THE PATH — the deliverable that removes the only
+#     reason anyone wanted orientation bits in the key.
+#     C3 = 16 + 8·G,  G = Σ over the 12 complement-couples of |slot(P) − slot(P′)|
+#     (lean/C3Decomposition.lean; TR-11 §10(ii)). The 8 self-complementary pairs
+#     sit at adjacent positions and contribute 1 each way whichever member leads
+#     (the 16); inside a couple at slots i<j the two members' cross-distances sum
+#     to 4(j−i) with both orientation bits cancelling. So G reads the SLOT MAP
+#     alone: C3 is CONSTANT on a fiber, evaluated ONCE before the DP starts as a
+#     single admissibility flag on the whole fiber — never as DP state. That is
+#     `c3_of_ordering` below, 12 subtractions, no path, no prefix.
+#
+#     HONEST COUNTERFACTUAL (the question was asked, so it is answered rather
+#     than dodged): C3 really is a GRAPH over pairs, not a chain over slots —
+#     pair P constrains the pair holding its complement, which may sit at any
+#     later slot. Had the orientation bits NOT cancelled, an exact DP would have
+#     to carry the orientation bit of every couple left OPEN across the slot cut.
+#     24 of the 32 pairs lie in 12 cross-couples, so the cut carries ≤ 12 bits:
+#       |states| ≤ 64 × 6,048 × 2¹² = 1,585,446,912 ≈ 1.6 × 10⁹
+#     ≈ 160 GB as a CPython dict → an exact DP would be INFEASIBLE in Python and
+#     infeasible on this orchestrator in any language. The alternatives would
+#     then be (a) a packed-array DP in C on a memory-sized VM (~13 GB at 8 B/cell)
+#     under a min-cutwidth slot order, or (b) abandon exactness and report the
+#     per-ordering bound as a range. Neither is needed: the identity makes the
+#     coupling vanish. The dissolution is the result.
+#
+# (4) THE ANCHOR, DERIVED BY HAND — checkable without executing anything.
+#     TR-1 §7 gives the C4-oriented fiber as 3·5·7·2¹⁴. In units of 2¹⁴:
+#         C4-oriented  (opening 63,0) = 105 · 2¹⁴ = 1,720,320
+#         flipped      (opening 0,63) =  60 · 2¹⁴ =   983,040   (= 15·2¹⁶)
+#         pair-only C4 (both openings)= 165 · 2¹⁴ = 2,703,360
+#     so EXACTLY   flipped / oriented =  60/105 =  4/7
+#                  both    / oriented = 165/105 = 11/7
+#     An 11/7 excess is therefore the arithmetic SIGNATURE of exactly one
+#     unpinned bit — C4's opening orientation — and of nothing else. It is NOT
+#     evidence of a loose C2/C3/C5: adding C3 multiplies a fiber count by exactly
+#     1 or exactly 0 (it is constant on the fiber, (3)), never by 7/11. So a
+#     routine returning 2,703,360 is under-CONSTRAINED in one specific place and
+#     is fixed by pinning the opening, not by tightening anything else.
+#     `_fiber_diagnose` turns that into a machine verdict.
+#
+#     The two openings are NOT equal (983,040 ≠ 1,720,320) even though
+#     complementation is an exact symmetry of C1∩C2∩C3∩C5 (SPECIFICATION.md
+#     §Complement Z₂). Complementation moves the PAIR ORDERING as well as the
+#     orientations — comp{a,b} = {63−a, 63−b} is a different pair unless the pair
+#     is self-complementary — so it does not act inside one ordering's fiber.
+#     Reasoning "the symmetry doubles it" yields 3,440,640, a third distinct
+#     wrong answer, classified separately below so the two are never conflated.
+# ===========================================================================
+
 _FIBER_CLS = (1, 2, 3, 4, 6)      # C2 forbids 5; 0 cannot occur between distinct hexagrams
+
+
+def _fiber_diagnose(measured, oriented=1_720_320, flipped=983_040):
+    """WHY a fiber count missed its anchor — not merely THAT it did.
+
+    Pure integer arithmetic over the three published fiber sizes: no DP, no
+    tables, no King Wen. That is deliberate. It lets tests.py drive this
+    classifier through the exact historical defect it exists to catch (a
+    routine that returned 2,703,360) WITHOUT running the routine it guards,
+    which is what "prove the gate fires against its own motivating example"
+    requires.
+
+    Returns (verdict, evidence). The evidence always names the observed ratio,
+    so a failure report says what the count was off BY and which constraint to
+    look at — never just "MISMATCH".
+    """
+    from math import gcd
+    both = oriented + flipped
+    if measured == oriented:
+        return ("OK", f"{measured:,} == TR-1 §7's C4-oriented fiber")
+    if measured == both:
+        return ("C4-OPENING-NOT-PINNED",
+                f"{measured:,} = {oriented:,} + {flipped:,}: BOTH opening orientations "
+                f"were summed, so this is the pair-only-C4 fiber. Ratio to the anchor is "
+                f"exactly 11/7 (165·2¹⁴ / 105·2¹⁴) — the signature of one unpinned bit, "
+                f"C4's opening. FIX: pin the opening hexagram to 63. Do NOT tighten "
+                f"C2/C3/C5: C3 is constant on a fiber, so it cannot contribute a 7/11.")
+    if measured == flipped:
+        return ("OPENING-PINNED-TO-THE-WRONG-SIDE",
+                f"{measured:,} is the opening-(0,63) fiber; ratio to the anchor is exactly "
+                f"4/7. The opening WAS pinned — to 0 instead of 63.")
+    if measured == 2 * oriented:
+        return ("SYMMETRY-DOUBLED",
+                f"{measured:,} = 2 × {oriented:,}: the complement-Z₂ trap. Complementation "
+                f"permutes the PAIR ORDERING too, so it does not act inside one ordering's "
+                f"fiber; the true both-openings total is {both:,}, not {2 * oriented:,}.")
+    if measured == 0:
+        return ("EMPTY-FIBER",
+                "no orientation vector survived. B0, the distance-class set or the opening "
+                "is wrong — a real ordering's own stored orientation is a member of its "
+                "fiber by construction, so 0 is impossible for a correct routine.")
+    g = gcd(abs(measured), oriented) or 1
+    return ("UNCLASSIFIED",
+            f"{measured:,} vs anchor {oriented:,}; ratio = {measured // g}/{oriented // g}. "
+            f"Not 11/7 (unpinned opening), not 4/7 (wrong side), not 2 (symmetry-doubled), "
+            f"not 0 — so this is NOT an opening-orientation defect. Check B0 (must be "
+            f"(2,8,13,7,1), Σ=31) and the distance-class set (1,2,3,4,6).")
+
+
+_FIBER_ANCHOR = None
+
+
+def _fiber_anchor():
+    """THE FIRST ASSERTION — King Wen's own fiber, before anything else answers.
+
+    TR-1 §7's C4-oriented fiber is 1,720,320. Every public fiber entry point
+    calls this before it returns a number, so a wrong budget table can never
+    reach a caller. Memoized: one 31-step DP per process, not one per record.
+
+    Raises RuntimeError carrying `_fiber_diagnose`'s verdict AND its reason.
+    """
+    global _FIBER_ANCHOR
+    if _FIBER_ANCHOR is not None:
+        return _FIBER_ANCHOR
+    ident = list(range(32))
+    oriented = _fiber_count_raw(ident, 63)
+    flipped = _fiber_count_raw(ident, 0)
+    checks = (
+        ("C4-oriented fiber (TR-1 §7)",     oriented,                  1_720_320),
+        ("flipped-opening fiber",           flipped,                     983_040),
+        ("pair-only-C4 fiber",              oriented + flipped,        2_703_360),
+        ("TR-1's 3·5·7·2¹⁴ factorization",  oriented,        3 * 5 * 7 * 2 ** 14),
+        ("the exact 4/7 identity",          7 * flipped,          4 * oriented),
+        ("the exact 11/7 identity",         7 * (oriented + flipped), 11 * oriented),
+    )
+    bad = [(n, got, want) for (n, got, want) in checks if got != want]
+    if bad:
+        verdict, why = _fiber_diagnose(oriented)
+        detail = "; ".join(f"{n}: got {got:,}, want {want:,}" for n, got, want in bad)
+        raise RuntimeError(f"FIBER ANCHOR FAILED [{verdict}] — {why}  ({detail})")
+    _FIBER_ANCHOR = (oriented, flipped)
+    return _FIBER_ANCHOR
+
+
+_C3_COUPLES = None
+
+
+def _c3_couples():
+    """The complement-couple GRAPH on pair indices, plus its known-answer anchor.
+
+    C3 couples each pair to the pair holding its complement, so it is a graph
+    over pairs, not a chain along slots — which is exactly why a path-carrying
+    DP looked necessary. It is not; see (3) in the header. Building the graph
+    once lets `c3_of_ordering` evaluate C3 from the slot map alone.
+
+    Returns (cross, selfc): the 12 two-element couples {p, q} with p < q, and
+    the 8 self-complementary pairs (which contribute the constant 16).
+    """
+    global _C3_COUPLES
+    if _C3_COUPLES is not None:
+        return _C3_COUPLES
+    idx = {frozenset(pr): p for p, pr in enumerate(PAIRS)}
+    cross, selfc = [], []
+    for p, (a, b) in enumerate(PAIRS):
+        key = frozenset((a ^ 63, b ^ 63))
+        if key not in idx:
+            raise RuntimeError(f"c3: the complement of pair {p} is not a C1 pair — the "
+                               f"pair set is not closed under complementation")
+        q = idx[key]
+        if q == p:
+            selfc.append(p)
+        elif p < q:
+            cross.append((p, q))
+    if len(cross) != 12 or len(selfc) != 8 or 2 * len(cross) + len(selfc) != 32:
+        raise RuntimeError(f"c3: couple graph is malformed — {len(cross)} cross-couples and "
+                           f"{len(selfc)} self-complementary pairs (want 12 and 8, 2·12+8=32)")
+    # KNOWN-ANSWER ANCHOR, written before the routine is trusted: the identity
+    # permutation IS King Wen's own slot map (PAIRS[i] is KW's pair at slot i),
+    # and KW's C3 is 776 (SPECIFICATION.md §C3: 12.125 × 64).
+    g = sum(abs(p - q) for p, q in cross)
+    if 16 + 8 * g != 776:
+        raise RuntimeError(f"c3: KNOWN-ANSWER ANCHOR FAILED — 16 + 8·G = {16 + 8 * g} on "
+                           f"King Wen's own ordering, but KW's C3 is 776. G came out "
+                           f"{g}, want {(776 - 16) // 8}.")
+    _C3_COUPLES = (tuple(cross), tuple(selfc))
+    return _C3_COUPLES
+
+
+def c3_of_ordering(perm):
+    """C3 EVALUATED WITHOUT CARRYING THE PATH.
+
+    C3 = 16 + 8·G,  G = Σ over the 12 complement-couples of |slot(P) − slot(P′)|.
+    G reads the SLOT MAP only, so:
+      * C3 is independent of the orientation vector → CONSTANT on a fiber, and
+        enters as one admissibility flag on the whole fiber, computed before the
+        DP starts rather than inside it;
+      * C3 is independent of the walk order → no prefix, no path, no DP state.
+    Cost is 12 subtractions for any ordering. `perm[s]` is the pair index at
+    slot s. Returns the integer C3 (King Wen's is 776; C3-valid means ≤ 776).
+    """
+    cross, _selfc = _c3_couples()
+    if sorted(perm) != list(range(32)):
+        raise ValueError("c3_of_ordering: perm is not a permutation of the 32 pairs")
+    slot = [0] * 32
+    for s, p in enumerate(perm):
+        slot[p] = s
+    return 16 + 8 * sum(abs(slot[p] - slot[q]) for p, q in cross)
 
 def _fiber_dp():
     """Forward/backward transfer DP over King Wen's OWN pair sequence, varying only
@@ -990,9 +1221,16 @@ def recount_fiber():
           f"{'MATCH' if forced == [30] else '*** CHECK ***'}")
     ok &= (forced == [30])
     print("=" * 74)
-    print("RESULT:", "ALL MATCH — TR-1 §7's fiber is now two-instrument"
-          if ok else "*** MISMATCH — investigate ***")
-    return 0 if ok else 1
+    if ok:
+        print("RESULT: ALL MATCH — TR-1 §7's fiber is now two-instrument")
+        return 0
+    # Say WHY, not just THAT. `_fiber_diagnose` is pure arithmetic on the three
+    # published sizes and is unit-tested against the historical 2,703,360 defect,
+    # so this verdict is itself gated rather than advisory.
+    verdict, why = _fiber_diagnose(oriented)
+    print(f"RESULT: *** MISMATCH — verdict [{verdict}]")
+    print(f"        {why}")
+    return 1
 
 def _fiber_succ(i, last, bud, B0):
     a, b = PAIRS[i]
@@ -1103,8 +1341,13 @@ def _fiber_tables():
     _FIBER_TABLES = (B0, ham, clsidx, add, full_code)
     return _FIBER_TABLES
 
-def fiber_count(perm, opening=63, fixed=None):
-    """EXACT size of the orientation fiber over the pair ordering `perm`.
+def _fiber_count_raw(perm, opening=63, fixed=None):
+    """The DP itself, UNANCHORED — call `fiber_count` instead.
+
+    Split out so `_fiber_anchor` can compute King Wen's fiber without calling
+    the anchored wrapper and recursing. Nothing else should call this.
+
+    EXACT size of the orientation fiber over the pair ordering `perm`.
 
     `perm` is a list of 32 pair indices (the record's pair identities, slot by
     slot); `opening` is the hexagram leading slot 0 — 63 for C4 as defined
@@ -1164,6 +1407,20 @@ def fiber_count(perm, opening=63, fixed=None):
     # budget; the filter is kept so the exactness is asserted rather than argued.
     return sum(c for k, c in cur.items() if (k & mask) == full_code)
 
+
+def fiber_count(perm, opening=63, fixed=None):
+    """EXACT orientation-fiber size over `perm`, King-Wen-anchored.
+
+    The public entry point. `_fiber_anchor()` runs FIRST — before this call can
+    return any number — so King Wen's 1,720,320 is asserted ahead of the answer
+    rather than checked after it. The anchor is memoized, so the guarantee costs
+    one 31-step DP per process even when sweeping millions of records.
+
+    See `_fiber_count_raw` for the DP and its arguments.
+    """
+    _fiber_anchor()
+    return _fiber_count_raw(perm, opening, fixed)
+
 def _fiber_records(path, limit=None):
     """Yield (index, perm, orient) for each record of a solutions.bin, gzipped or
     raw. Small-file path: the whole file is read into memory, so this is for the
@@ -1200,10 +1457,14 @@ def fiber_sweep(path=None):
     print("  derived as C5's 63-value multiset minus the within-pair multiset,")
     print("  cross-checked against KW's own 31 between-pair distances.")
     print()
-    print("  GATE — King Wen's own pair ordering (TR-1 §7):")
+    print("  GATE — King Wen's own pair ordering (TR-1 §7), asserted FIRST:")
     ok = True
-    oriented = fiber_count(ident, 63)
-    flipped = fiber_count(ident, 0)
+    try:
+        oriented, flipped = _fiber_anchor()
+    except RuntimeError as e:
+        print(f"    *** {e}")
+        print("\n*** GATE FAILED — the fiber routine is wrong; every number below is void.")
+        return 1
     for name, pub, mine in (("C4-oriented fiber  (opening 63,0)", 1_720_320, oriented),
                             ("pair-only C4 fiber (both openings)", 2_703_360, oriented + flipped),
                             ("  of which opening (0,63)", 983_040, flipped),
