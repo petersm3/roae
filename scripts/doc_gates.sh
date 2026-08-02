@@ -231,7 +231,8 @@ require_final_newline() {
 # remain open and remain the operator's; no instrument shipped.
 #
 # ITEM R12 — THE UNSTAMPED COMPLEMENT WAS SWEPT AND CAME BACK CLEAN (2026-08-02, round 13
-# drain-1). MEASURED REFUSAL: 0 stale of 7 sampled sites. NO INSTRUMENT SHIPPED, and no
+# drain-1; denominator corrected by round 13 drain-2, see HOW MANY SITES below). MEASURED
+# REFUSAL: every sampled site reproduced, 0 stale. NO INSTRUMENT SHIPPED, and no
 # number is copied out of any of them into this paragraph — that is the point of item R3,
 # and copying them here is the one way this block goes stale in silence. Each site is named
 # by the sentence it lives in; run the command beside it if you want the value.
@@ -244,20 +245,41 @@ require_final_newline() {
 #   GATE 9's Q2 answer, the banner-block line counts against MAXBLK/MAXIDX  — re-derive
 #       with the gate's own rule (open at "not peer-reviewed", close at the first line
 #       ending in `*`); the caps are the constants a few lines below it.
-#   the three `X -> X+1` pins listed in `assert_stays_clean_why`'s STRENGTH VARIES BY CALLER
+#   EVERY `X -> X+1` pin listed in `assert_stays_clean_why`'s STRENGTH VARIES BY CALLER
 #       block  — run modes `cli`, `retract-figures` and `revhist` and read the [ok] lines.
+#       Mode `cli` carries TWO of them: the solve.py flag pair, and item A4's commented-out-
+#       declaration pin. No total is written here on purpose — count the pins in that block.
 #   the `_selftest_revert` call-site count in GATE 15's THE CALL-SITE RULE paragraph, the one
 #       that says the rule CORRECTED the hand audit  — apply the command-position rule stated
 #       in the paragraph directly above it.
-# FIVE BULLETS, SEVEN SITES: the pins bullet covers three separate counts, the other four
-# cover one each. Stated because the arithmetic is otherwise invisible.
-# WHY THE CLASS IS CLEAN, which matters more than the count: those three pins are NOT
+# HOW MANY SITES: one per bullet, except the pins bullet, which covers every pin in that
+# block. THE ORIGINAL WRITE-UP GOT ITS OWN DENOMINATOR WRONG. It said "FIVE BULLETS, SEVEN
+# SITES: the pins bullet covers three separate counts". The STRENGTH VARIES BY CALLER block
+# listed FOUR pins at this commit, not three — count them there rather than trusting this
+# sentence, which is the whole point of the item. The fourth is item A4's `0 -> 1`
+# commented-out-declaration pin, which shares mode `cli` with the flag pair and so was run
+# but never counted at all, so the sweep's real sample was EIGHT sites, not seven.
+# Measured by round 13 drain-2, which also re-derived the fourth pin's
+# clean value (`0 commented-out declaration(s) dropped` on a clean `cli` run): it reproduces,
+# so the VERDICT did not move. The denominator of a refusal is load-bearing, though, and this
+# one was understated by its own author.
+# AND THE OFF-BY-ONE IS NOT THE FINDING. This block's opening sentence declares that no number
+# may be copied into it. The original write-up then copied its own bookkeeping numbers in
+# anyway — the pin count, the site total, and a "0 of N" headline restated twice below it.
+# The rule was written for the SWEPT values and silently exempted for the sweep's OWN
+# meta-counts, and that exemption is exactly where it rotted: inside a single commit, before
+# any other reader saw it. O6/R3 does not stop at the corpus. It reaches the paragraph that
+# announces the rule, and it reached this one. Those restatements are gone now; the one
+# surviving total is the closed historical fact of what drain-1's sweep sampled.
+# WHY THE CLASS IS CLEAN, which matters more than the count: those pins are NOT
 # unguarded prose. Each writes a clean value whose POST-injection partner is the literal an
 # assert_stays_clean_why ERE matches on, so a corpus change that moved the clean value moves
 # the asserted one too and turns `--selftest` RED. They were never in the invisible class;
-# they only look unstamped. That mechanism, not luck, is most of the 0-of-7.
-# PHASE-4 NOTE, KEPT BECAUSE IT IS THE FINDING: the first draft of THIS BLOCK attributed both
-# of those sites to the wrong leg — "GATE 15 LEG 3's caveat-4 census" (it belongs to
+# they only look unstamped. That mechanism, not luck, is most of the clean result — and it
+# covers half the sample once the fourth pin is counted, which strengthens the argument
+# against building anything here rather than weakening it.
+# PHASE-4 NOTE, KEPT BECAUSE IT IS THE FINDING: the first draft of THIS BLOCK attributed two
+# of the sites above to the wrong leg — "GATE 15 LEG 3's caveat-4 census" (it belongs to
 # `assert_stays_clean_why`, which only CITES LEG 3 as the authority) and "GATE 15 LEG 2's
 # evidence block" (it sits above LEG 3's own marker). Round 12 shipped the same class of error
 # one function boundary wide. Citing by CONTENT is what fixed it, and it is why nothing above
@@ -266,7 +288,7 @@ require_final_newline() {
 # list of corpus nouns over `#` comment lines, so it misses a load-bearing count whose noun
 # is not on the list, one spelled in words, one inside a heredoc or a printed message rather
 # than a comment, and one whose number and noun straddle a line break — GATE 6's own site was
-# caught only because the noun half landed on the second line. 7 is a sample of a population
+# caught only because the noun half landed on the second line. It is a sample of a population
 # that was never enumerated; it is not a clearance of the class.
 # TWO STRUCTURAL FINDINGS, neither of which is a defect to fix:
 #   (1) THE STAMPED/UNSTAMPED SPLIT IS PER-LINE AND THE STAMPS ARE NOT. GATE 12's census is
@@ -6027,12 +6049,22 @@ for lineno, flags, pat in guards:
 # concluded "distinguishing the three requires a shell parse, not a grep" and published ten
 # hand-adjudicated counts. This rule reproduces NINE of the ten exactly; on the tenth it says
 # `_selftest_revert` has 24 call sites where the hand audit said 20. All 24 were read one by
-# one; the ones the weaker rules missed are the `PASS=1; _selftest_revert; return; }` form
-# and the `_selftest_revert; } \` form, four of each, every one a real call. So the number
-# that shipped as the reason a mechanical form was impossible was itself wrong, and the
-# mechanical form is what found it. (Cited by FORM, not by line — the first draft of this
-# comment named eight line numbers and its own commit invalidated them, which is item B1
-# happening inside the fix for item B8.)
+# one, and two forms carry four calls each: `PASS=1; _selftest_revert; return; }` and
+# `_selftest_revert; } \`. Every one is a real call. So the number that shipped as the reason
+# a mechanical form was impossible was itself wrong, and the mechanical form is what found it.
+#
+# THE "MISSED" SET WAS OVERSTATED AND THE ARITHMETIC NEVER CLOSED (round 13 drain-2,
+# 2026-08-02). This sentence used to say the weaker rules missed BOTH forms, "four of each" —
+# that is 8 missed against a net gap of 24 - 20 = 4. Re-derived with the rule stated above:
+# the four `PASS=1; …; return; }` calls are the ONLY ones not at line start, and all four
+# `…; } \` calls ARE at line start, so any line-start rule already had the second form. Four
+# missed, not eight, and they are the first form. WHAT THIS CANNOT SETTLE: the hand audit's
+# METHOD was never written down, so "it counted the 20 at line start" is the reading that
+# reconciles 20 -> 24, not a proven account of what the auditor did. The delta is measured;
+# the explanation for it is inferred.
+#
+# (Cited by FORM, not by line — the first draft of this comment named eight line numbers and
+# its own commit invalidated them, which is item B1 happening inside the fix for item B8.)
 #
 # WHAT LEG 3 CANNOT SEE, stated because a clear is weaker than a failure:
 #   (viii) BLOCK is PROXIMITY, not reachability — STILL TRUE, and it was NOT the worst of it.

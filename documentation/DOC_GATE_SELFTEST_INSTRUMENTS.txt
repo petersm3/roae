@@ -145,9 +145,14 @@
 #           one. CITED BY FORM, NOT BY LINE (item B1's structural answer, and the first draft
 #           of this paragraph broke its own rule — nine line numbers written here went stale
 #           inside the hour, shifted by the same commit's edits further up the file). The
-#           four the earlier tries missed on the closing-brace side all read
-#           `PASS=1; _selftest_revert; return; }`; the four on the guarded-block side all
-#           read `_selftest_revert; } \`. Every one is a real call. A hand-adjudicated number
+#           four the earlier tries missed all read `PASS=1; _selftest_revert; return; }`, and
+#           they are the only four not at line start; a separate four on the guarded-block
+#           side read `_selftest_revert; } \` and ARE at line start, so a line-start rule
+#           already had them and they are NOT part of the delta. (Corrected round 13 drain-2,
+#           2026-08-02: this read as though both fours were missed, which is 8 against a net
+#           gap of 4. The hand audit's method was never recorded, so the reconciliation is
+#           inferred from where the calls sit, not from what the auditor did.)
+#           Every one is a real call. A hand-adjudicated number
 #           published as the reason a mechanical form was impossible was itself the defect,
 #           and the mechanical form is what found it. That is the third time in this file's
 #           history that RUNNING beat READING. The count itself never goes stale: it is
