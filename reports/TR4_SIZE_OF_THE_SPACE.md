@@ -1,5 +1,7 @@
 # TR-4 — The Size of the Space: Measurement, the Uniqueness Conjecture, and the Boundary-Information Curve
-*Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
+*Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
+proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
+interpretation are argued, not verified.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 

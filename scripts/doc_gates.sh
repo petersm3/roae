@@ -17,8 +17,9 @@
 #   scripts/doc_gates.sh status     # canonical quantities whose exact/estimate status drifted
 #   scripts/doc_gates.sh figures    # retracted phrasing in figure GENERATORS (rendered text is ungreppable)
 #   scripts/doc_gates.sh liveness   # frozen present-tense run status; runs named after unreached budgets
+#   scripts/doc_gates.sh banner     # the TR banner is byte-identical across every report + index-aligned
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~90s; NOT in `all`)
-#   scripts/doc_gates.sh all        # run all seven cheap gates (1-7); `generated` is separate by cost
+#   scripts/doc_gates.sh all        # run all eight cheap gates (1-7, 9); `generated` is separate by cost
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
@@ -548,6 +549,134 @@ sys.exit(bad)
 PY
 }
 
+# ---------------------------------------------------------------------------
+# GATE 9 — the technical-report banner must be byte-identical across every TR,
+# and must not re-assert the over-claim it replaced.
+#
+# WHY (2026-08-01, unit d72-banner): all 11 reports opened with
+#   "Every claim is machine-verifiable; see the Verification Guide."
+# which is FALSE as written, and TR-8 said so about ITSELF at its own line 24:
+# the dof-matched baseline it leans on has no artifact, command, seed or code
+# path anywhere in the repo. reports/README.md had already been corrected to
+# disclose the exceptions, so the suite was publishing one standard in its index
+# and a stronger, false one on all 11 covers.
+#
+# The banner is the single most-copied string in the corpus — exactly the shape
+# that drifts silently. Before this gate existed it ALREADY had: TR-2 and TR-8
+# carried "…see the Verification Guide below." while nine others did not, and
+# nothing in the repo could see it. That two-variant split is this gate's
+# known-answer anchor: it was verified to FAIL on the pre-fix tree, naming those
+# two files, before the corrected banner was applied.
+#
+# Byte-identity ALONE is not enough — eleven files reverted together are still
+# byte-identical. So the gate also pins the discriminating clause, bans the
+# retracted over-claim, and holds reports/README.md to the same clause so the
+# index cannot drift back to a blanket promise.
+#
+# SAFETY: fixed-string containment and endswith() only — no regex at all.
+gate_banner() {
+  echo "== GATE 9: report banner byte-identical across all TRs =="
+  python3 - <<'PY'
+import glob, sys
+
+MARK    = 'not peer-reviewed'
+KEEP    = 'argued, not verified'          # the discriminating scope clause
+RETRACT = 'Every claim is machine-verifiable'
+MAXBLK  = 8                               # a REPORT banner is a short italic block
+MAXIDX  = 24                              # the INDEX banner also enumerates the exceptions
+
+def block(path, cap=MAXBLK):
+    """Return (block_text, marker_line_count, 1-based line no) for the banner.
+
+    `cap` is per-role and not cosmetic. The first version of this gate used the
+    tight report cap of 8 for reports/README.md too; the index banner is 11+
+    lines because it names each disclosed exception, so the gate reported it as
+    "never closed its italic" and the index check never actually ran. It looked
+    like a finding and was a bug in the checker — caught only because the gate
+    was run against its known-answer anchor before being trusted.
+    """
+    lines = open(path, errors='replace').read().split('\n')
+    hits = [i for i, l in enumerate(lines) if MARK in l]
+    if len(hits) != 1:
+        return None, len(hits), 0
+    i = hits[0]
+    blk = []
+    for l in lines[i:i + cap]:
+        blk.append(l)
+        if l.rstrip().endswith('*'):      # closing italic marker
+            return '\n'.join(blk), 1, i + 1
+    return None, -1, i + 1                # never closed its italic within `cap`
+
+trs = sorted(glob.glob('reports/TR*.md'))
+bad = 0
+variants = {}                             # block text -> [file:line]
+if not trs:
+    print('  [FAIL] no reports/TR*.md found — wrong working directory?')
+    sys.exit(1)
+
+for f in trs:
+    blk, n, ln = block(f)
+    if blk is None:
+        bad = 1
+        if n == -1:
+            print(f'  [FAIL] {f}:{ln} — banner never closes its italic within {MAXBLK} lines')
+        else:
+            print(f'  [FAIL] {f} — expected exactly 1 line containing "{MARK}", found {n}')
+        continue
+    variants.setdefault(blk, []).append(f'{f}:{ln}')
+
+print(f'  scanned {len(trs)} reports/TR*.md; {len(variants)} distinct banner(s)')
+
+if len(variants) > 1:
+    bad = 1
+    print(f'  [FAIL] the banner is NOT byte-identical: {len(variants)} variants in use')
+    ranked = sorted(variants.items(), key=lambda kv: -len(kv[1]))
+    for n, (blk, files) in enumerate(ranked, 1):
+        print(f'    variant {n} — {len(files)} report(s): {", ".join(files)}')
+        for l in blk.split('\n'):
+            print(f'        | {l}')
+    # WHY it fired, not just THAT it fired: name the line where two variants diverge.
+    a = ranked[0][0].split('\n')
+    b = ranked[1][0].split('\n')
+    for i in range(max(len(a), len(b))):
+        x = a[i] if i < len(a) else '<no line>'
+        y = b[i] if i < len(b) else '<no line>'
+        if x != y:
+            print(f'    first divergence at block line {i + 1}:')
+            print(f'        variant 1 > {x}')
+            print(f'        variant 2 > {y}')
+            break
+
+for blk, files in variants.items():
+    if RETRACT in blk:
+        bad = 1
+        print(f'  [FAIL] the retracted over-claim "{RETRACT}" is back in: {", ".join(files)}')
+    if KEEP not in blk:
+        bad = 1
+        print(f'  [FAIL] banner lacks its scope clause "{KEEP}" in: {", ".join(files)}')
+
+# The index must not promise more than the covers do.
+idx = 'reports/README.md'
+iblk, n, ln = block(idx, MAXIDX)
+if iblk is None:
+    bad = 1
+    print(f'  [FAIL] {idx} — no single well-formed banner block (marker lines: {n})')
+elif RETRACT in iblk:
+    bad = 1
+    print(f'  [FAIL] {idx}:{ln} — index banner re-asserts "{RETRACT}"')
+elif KEEP not in iblk:
+    bad = 1
+    print(f'  [FAIL] {idx}:{ln} — index banner lacks "{KEEP}"; the index may not')
+    print(f'         promise more than the {len(trs)} report covers do')
+
+if not bad:
+    first = next(iter(variants)).split('\n')[0]
+    print(f'  [ok] all {len(trs)} TR banners byte-identical; scope clause present; index aligned')
+    print(f'       | {first}')
+sys.exit(bad)
+PY
+}
+
 # ===========================================================================
 # SELF-TEST — mutation testing. Run: scripts/doc_gates.sh --selftest
 #
@@ -658,6 +787,26 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe ladder build is in flight an
   assert_fires "GATE 7 unreached budget" documentation/GUIDE.md liveness \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe 1120T run reproduced the published ladder exactly.\n')"
+
+  # GATE 9, in the EXACT shape the operator specified: a SYNTHETIC SINGLE-FILE EDIT.
+  # The injected change is one space — whitespace only, still valid markdown, still
+  # closing its italic, and semantically identical. A gate that normalised whitespace
+  # (the obvious "robustness" tweak) would pass this and would not be a byte-identity
+  # gate at all. If this assertion ever stops firing, the gate has stopped being one.
+  assert_fires "GATE 9 banner drift (1 byte, 1 file)" reports/TR5_SYMMETRY.md banner \
+"s=open('reports/TR5_SYMMETRY.md').read()
+a='interpretation are argued, not verified.*'
+assert a in s, 'anchor moved'
+open('reports/TR5_SYMMETRY.md','w').write(s.replace(a,'interpretation are argued, not verified. *',1))"
+
+  # GATE 9's second branch: the 11 covers can be perfectly uniform while the INDEX
+  # drifts back to a blanket promise. Byte-identity across the reports cannot see
+  # that, so the branch is exercised separately — an unexercised branch is untested.
+  assert_fires "GATE 9 index drops the scope clause" reports/README.md banner \
+"s=open('reports/README.md').read()
+a='interpretation are argued, not verified.'
+assert a in s, 'anchor moved'
+open('reports/README.md','w').write(s.replace(a,'interpretation are sound.',1))"
 
   # GATE 2 (CLI drift) and GATE 5 (epistemic status) are not mutation-tested here:
   # both would require editing solve.py / a canonical quantity, and a bad revert
@@ -773,12 +922,14 @@ case "$MODE" in
   status)  gate_status  || RC=1 ;;
   figures) gate_figures || RC=1 ;;
   liveness) gate_liveness || RC=1 ;;
+  banner)  gate_banner   || RC=1 ;;
   generated) gate_generated || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_links || RC=1; echo; gate_status || RC=1
            echo; gate_figures || RC=1
-           echo; gate_liveness || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|liveness|generated|all}"; exit 2 ;;
+           echo; gate_liveness || RC=1
+           echo; gate_banner || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|links|status|figures|liveness|banner|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -791,7 +942,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7. Gates 1 and 5 are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7, 9. Gates 1 and 5 are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ]; then

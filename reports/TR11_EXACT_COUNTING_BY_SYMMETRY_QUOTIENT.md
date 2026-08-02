@@ -1,6 +1,8 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
 *Technical report — **v1.15** (2026-08-01; §10(vi) and §Reproduction Lean pointers refreshed after the vendoring; previously v1.14, 2026-08-01, Lean-pointer refresh after the vendoring — both companion counts two-instrument — see Revision history).*
-*Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
+*Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
+proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
+interpretation are argued, not verified.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 

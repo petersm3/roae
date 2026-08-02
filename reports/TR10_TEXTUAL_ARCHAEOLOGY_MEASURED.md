@@ -1,6 +1,8 @@
 # TR-10 — A Textual Archaeology, Measured: Scott Davis's Structural Reading Against the Population of Valid Orderings
 
-*Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide.*
+*Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
+proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
+interpretation are argued, not verified.*
 *Scope note (F-34): "archaeology" here is figurative. This report measures **notational and structural**
 properties of the received ordering against the population of valid orderings; it makes no historical,
 philological, or text-critical claim beyond what the combinatorics support.*

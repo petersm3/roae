@@ -1,5 +1,7 @@
 # TR-2 — The Rules Conflict: Moore's Precursor, Schulz's Exceptions, and a Joint Impossibility Theorem for the King Wen Sequence
-*Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide below.*
+*Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
+proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
+interpretation are argued, not verified.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 

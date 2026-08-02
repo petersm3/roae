@@ -3,17 +3,18 @@
 *Context in one line: ROAE analyzes the King Wen sequence (the received ordering of the 64 I Ching
 hexagrams) as a combinatorial object — enumerating, measuring, and proving; the repository README is the
 front door, these reports are the findings in depth.*
-*Technical reports — not peer-reviewed. Each report ends with a Verification Guide mapping claims to
-commands and certificates, and every enumerative, certificate-backed and Lean-checked claim is
-machine-verifiable by a reader. **Not every claim in the suite is** — and the exceptions are disclosed
-where they occur, not here: cost figures are rounded from an exact ledger withheld under the project's
-no-cloud-identifiers policy ([TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) §Verification Guide); the
-scheduled-reclamation observation is a single-campaign pattern whose second run's per-eviction timestamps
-are not public ([TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) §4 and its figure caption); the bit ledger's accounting conventions are
-judgment-dependent by construction ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md) executive summary); and one
-load-bearing baseline currently has no artifact in the repo, flagged as such at its own claim site
-([TR-8](TR8_REORDERING_REVISITED.md) executive summary). Where a claim is not machine-verifiable, the
-report carrying it says so at the claim.*
+*Technical reports — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
+proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
+interpretation are argued, not verified. Each report ends with a Verification Guide mapping claims to
+commands and certificates. The known gaps are disclosed where they occur, not here: cost figures are
+rounded from an exact ledger withheld under the project's no-cloud-identifiers policy
+([TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) §Verification Guide); the scheduled-reclamation observation is a
+single-campaign pattern whose second run's per-eviction timestamps are not public
+([TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) §4 and its figure caption); the bit ledger's accounting
+conventions are judgment-dependent by construction ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md) executive
+summary); and one load-bearing baseline currently has no artifact in the repo, flagged as such at its own
+claim site ([TR-8](TR8_REORDERING_REVISITED.md) executive summary). Where a measured claim has no
+reproduction command, the report carrying it says so at the claim.*
 
 Every report opens with a plain-language executive summary — start there. For a one-page scorecard of what the suite has settled (refuted / corrected / forced / confirmed), see [CLAIMS_DECIDED](../documentation/CLAIMS_DECIDED.md). Reports are numbered by our assessment of significance and impact (numbering is editorial, not a ranking
 law — impact is audience-relative; see the reading paths). Each stands alone; together they cover the

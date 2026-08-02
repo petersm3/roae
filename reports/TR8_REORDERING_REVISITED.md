@@ -1,6 +1,8 @@
 # TR-8 — A Reordering Revisited: Two Computational Answers to McKenna and Mair (1979)
 
-*Technical report — not peer-reviewed. Every claim is machine-verifiable; see the Verification Guide below.*
+*Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
+proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
+interpretation are argued, not verified.*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
@@ -21,7 +23,7 @@ Wen's rules fall in the **bulk** of that rarity distribution — the median dof-
 reaches a rarity near ~6×10⁻⁵, and about half are at least as rare as King Wen's ~1×10⁻⁴ — so the rarity
 is largely a matter of specification, not demonstrated design, and King Wen is **not** claimed to be
 tail-extreme among comparably-specified predicates. *(Reproducibility flag, added 2026-08-01 — this
-report opens "every claim is machine-verifiable", and this one currently is not. The dof-matched baseline
+report's banner promises a reproduction command for every measured result; this one does not. The baseline
 has **no artifact, command, code path or evidence bundle anywhere in the repo**: §Commands below gives
 runnable commands for the Gray-code theorem and the exact pair-null but none for this; nothing in the
 repo defines the ≈16-clause predicate space, how predicates were drawn, the probe count or the seed.
