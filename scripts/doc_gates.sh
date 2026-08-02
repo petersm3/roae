@@ -1701,7 +1701,18 @@ if [ "${1:-}" = "--selftest" ]; then
     local snap
     snap=$(git stash create 2>/dev/null)
     if [ -n "$snap" ]; then
-      git update-ref -m "doc_gates --selftest revert $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      # `--create-reflog` IS LOAD-BEARING AND WAS MISSING FOR ONE COMMIT (fbdbe26, fixed
+      # same day). git's `core.logAllRefUpdates=true` — the default — writes reflogs ONLY
+      # for refs/heads, refs/remotes, refs/notes and HEAD. refs/doc-gates/ is none of those,
+      # so without this flag `update-ref` silently kept just the LATEST snapshot: the ref
+      # resolved, `git show <ref>:<path>` worked, and every recovery command in the header
+      # above appeared to function — while `@{1}` and older were never written at all.
+      # MEASURED after a full 57-assertion run: `git rev-parse` resolved the ref and
+      # `git reflog refs/doc-gates/selftest-revert` printed ZERO lines. A clear taken by
+      # reading the code would have missed this; only running it and counting the entries
+      # found it.
+      git update-ref --create-reflog \
+        -m "doc_gates --selftest revert $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         refs/doc-gates/selftest-revert "$snap" 2>/dev/null
     fi
     git checkout -- "${1:-.}" 2>/dev/null
@@ -1823,6 +1834,42 @@ if [ "${1:-}" = "--selftest" ]; then
   else
     echo "  [FAIL] A3 lock — a concurrent --selftest was not refused for the LOCK reason (rc=$_a3_rc)"
     printf '%s\n' "$_a3_out" | head -3 | sed 's/^/           > /'
+    PASS=1
+  fi
+
+  # ITEM A1 FIRE-PROOF — the snapshot must be WRITTEN and READABLE BACK, asserted in-harness
+  # and re-proven every run.
+  #
+  # THIS ASSERTION EXISTS BECAUSE ITS ABSENCE ALREADY COST A SHIPPED DEFECT. `_selftest_revert`
+  # went out at fbdbe26 with a commit message claiming "the ref's reflog keeps one entry per
+  # revert, so the third-from-last is still reachable". After a full 57-assertion run the ref
+  # RESOLVED and its reflog held ZERO entries: git's default core.logAllRefUpdates writes
+  # reflogs only for refs/heads, refs/remotes, refs/notes and HEAD, so every revert but the
+  # last had been overwritten with no record. Reading the code could not show that — `git
+  # update-ref` succeeds either way and every documented recovery command still appeared to
+  # work. Only running it and COUNTING found it, which is why the count is now the assertion.
+  #
+  # It asserts TWO things, because either alone is satisfiable by a broken snapshot: the
+  # reflog GREW (so history is retained, not just the latest value) and the discarded text is
+  # actually readable out of @{0} (so the object holds the pre-revert tree, not an empty one).
+  _A1_REF=refs/doc-gates/selftest-revert
+  _a1_before=$(git reflog "$_A1_REF" 2>/dev/null | wc -l)
+  if python3 -c "open('documentation/GUIDE.md','a',encoding='utf-8').write(
+chr(10)+'<!-- A1 snapshot probe: this line is discarded and must stay recoverable -->'+chr(10))" 2>/dev/null; then
+    _selftest_revert documentation/GUIDE.md
+    _a1_after=$(git reflog "$_A1_REF" 2>/dev/null | wc -l)
+    if [ "$_a1_after" -gt "$_a1_before" ] \
+       && git show "$_A1_REF@{0}:documentation/GUIDE.md" 2>/dev/null | grep -q 'A1 snapshot probe'; then
+      echo "  [ok]   A1 snapshot — a reverted edit is read back from $_A1_REF@{0}, and the"
+      echo "         reflog grew ($_a1_before -> $_a1_after), so earlier reverts survive too"
+    else
+      echo "  [FAIL] A1 snapshot — the discarded edit is NOT recoverable (reflog $_a1_before ->"
+      echo "         $_a1_after). Every revert in this harness is silently unrecoverable; check"
+      echo "         that update-ref still passes --create-reflog."
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] A1 snapshot — could not inject the probe, so the assertion did NOT run."
     PASS=1
   fi
   # THE SIGNAL HALF CANNOT BE ASSERTED HERE — a case that TERMs the self-test kills the
