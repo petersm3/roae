@@ -5110,12 +5110,33 @@ if len(regions) != len(BOARDS):
 # separator so an annotation is attributed to the id it follows and to no other -- the whole
 # point is that ccn4's verdict must not be credited to ccn3 because they share a line.
 ID_AT_START = re.compile(r"^\**([A-Za-z][A-Za-z0-9]*)\b")
-for path, region in sorted(regions.items()):
-    entries = {}
+# AND AN ENTRY ENDS AT ITS SENTENCE, which is not a refinement but a fix for a defect this
+# gate's own NEGATIVE CONTROL caught. The LAST entry on the board has no "·" after it, so it
+# ran to the close anchor and swallowed every word in between: leg 5 inserted the sentence
+# "These are principled, data-like rows." before "Wrap-distance finals" and `c2` -- a forced
+# constant -- was reported as carrying a verdict. The live corpus has nothing in that gap, so
+# every positive leg passed and only the control saw it. No board entry contains ". " (masses
+# are "6.6×10⁻⁴", decimals are digit.digit), so truncating each chunk at its first sentence
+# break bounds the last row without touching any other.
+SENTENCE_END = re.compile(r"\.(\s|$)")
+
+
+# ONE parser, used by BOTH legs. It was written twice in the first draft, which is the
+# duplicated-predicate hazard GATE 14 exists for, arriving inside GATE 14's own suite: legs A
+# and B would have disagreed about what an entry IS the moment either was touched.
+def entries_of(region):
+    out = {}
     for chunk in region.split("·"):
-        m = ID_AT_START.match(chunk.strip())
+        body = chunk.strip()
+        m = ID_AT_START.match(body)
         if m:
-            entries.setdefault(m.group(1), []).append(chunk)
+            cut = SENTENCE_END.search(body)
+            out.setdefault(m.group(1), []).append(body[:cut.start()] if cut else body)
+    return out
+
+
+for path, region in sorted(regions.items()):
+    entries = entries_of(region)
     missing = [r for r in ids if r not in entries]
     if missing:
         print("  [FAIL] %s — %d registry rule(s) never reach the published board: %s"
@@ -5142,11 +5163,7 @@ if bad:
 VERDICT = re.compile(r"data-like|principled", re.I)
 THEOREM = re.compile(r"\(theorem\)")
 for path, region in sorted(regions.items()):
-    entries = {}
-    for chunk in region.split("·"):
-        m = ID_AT_START.match(chunk.strip())
-        if m:
-            entries.setdefault(m.group(1), []).append(chunk)
+    entries = entries_of(region)
     at_id, theorem, silent = [], [], []
     for r in ids:
         blob = " ".join(entries[r])
