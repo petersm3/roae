@@ -898,13 +898,18 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
          git checkout -- documentation/GUIDE.md 2>/dev/null; } \
     || echo "  [SKIP] GATE 5 — could not append"
 
-  # GATE 2 (CLI drift) is not mutation-tested here: it would require editing solve.py,
-  # and a bad revert there is far more costly than the assurance is worth. It is covered
-  # by having FIRED in anger during the 2026-07/08 sweeps (13 undocumented flags). Stated
-  # rather than silently omitted — a self-test that hides its own coverage gap is the
-  # defect it tests for.
-  echo "  [note] GATE 2 not mutation-tested (would mutate solve.py); it has fired in"
-  echo "         anger during earlier sweeps."
+  # THE COVERAGE GAP, STATED IN FULL. Two gates are not mutation-tested here, and until
+  # 2026-08-02 this note named only one of them at a time -- it said "GATE 2 + GATE 5" and
+  # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
+  # tests for, so the list is now enumerated against the assert_fires calls above:
+  #   covered: 1 (output), 3, 4, 4b, 5 (output), 6, 7 x2, 9 x2, 10 (+negative control), 11
+  #   NOT covered: 2 -- would mutate solve.py, a costlier revert than the assurance is
+  #                     worth; it has FIRED in anger (13 undocumented flags, 2026-07/08).
+  #                8 -- excluded by COST, not by risk: it regenerates example/ (~90s) and
+  #                     is not in `all` either. It was hand-proven to fire on a one-word
+  #                     hand-edit when written (df4ddc9); that proof is not re-run here.
+  echo "  [note] not mutation-tested: GATE 2 (would mutate solve.py) and GATE 8 (~90s"
+  echo "         regeneration, excluded by cost). Both have been observed to fire."
 
   git checkout -- . 2>/dev/null
   echo
