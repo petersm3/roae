@@ -2157,11 +2157,15 @@ if [ "${1:-}" = "--selftest" ]; then
   # exemption is correct" and "the exemption swallows the whole file".
   #
   # ITS [ok] MESSAGE NAMED THE WRONG MECHANISM until 2026-08-02 (item A3's review). It read
-  # "exempted, as the ALLOWLIST says it should be" for all callers, and only two of the six
-  # involve an allowlist: GATE 12's draft-label exemption is SUFFIX-keyed, and GATE 2's
-  # negative control is a comm(1) comparison with no allowlist anywhere in it. A message that
-  # attributes a verdict to a mechanism that was not consulted is a small false attestation of
-  # exactly the kind this file exists to refuse, so it now says only what it knows.
+  # "exempted, as the ALLOWLIST says it should be" for all callers, and most of them consult
+  # no allowlist at all: GATE 12's draft-label exemption is SUFFIX-keyed, and GATE 2's two
+  # negative controls are a comm(1) comparison and a comment filter with no allowlist
+  # anywhere in either. A message that attributes a verdict to a mechanism that was not
+  # consulted is a small false attestation of exactly the kind this file exists to refuse, so
+  # it now says only what it knows. (The original wording of this note counted "two of the
+  # six"; the count is deliberately not restated, because a hand-taken tally in a comment is
+  # the caveat-4 shape and it went stale the moment a seventh caller landed. The per-caller
+  # strength lines below are the authority.)
   #
   # THE EVIDENCE ARGUMENT (item A1's residue, round 8 drain-3, 2026-08-02). This helper
   # asserted on rc 0 ALONE until now, which is the negative-control mirror of the defect that
@@ -2173,12 +2177,19 @@ if [ "${1:-}" = "--selftest" ]; then
   # never reached the mutated file could not print.
   #
   # STRENGTH VARIES BY CALLER AND IS RECORDED AT EACH CALL, because a uniform claim here would
-  # be the over-attestation this file exists to refuse. Only ONE of the six EREs is a
-  # measured DISCRIMINATOR — GATE 3b's meta-mention count moves 44 -> 45 under its own
-  # mutation, so matching 45 proves the injected line was read AND exempted. Two more pin a
-  # COUNT that the defect the control is about would move (GATE 14's adjudicated-pair count,
-  # GATE 15's instrument count). The remaining three pin only that the relevant LEG RAN. Every
-  # one is strictly stronger than rc 0; none of the last three proves the injection was seen.
+  # be the over-attestation this file exists to refuse. RE-TAKEN 2026-08-02 (round 9, item
+  # B9), which is what moved the numbers below — round 8 shipped this helper with ONE measured
+  # discriminator out of six, and said so. There are now SEVEN callers and FOUR are measured
+  # DISCRIMINATORS, meaning the pinned number differs between the mutated run and a run that
+  # never read the injection, each verified by running the mode BOTH ways:
+  #   GATE 3b  meta-mention count 44 -> 45
+  #   GATE 2   flags/documented 78/95 -> 79/96 (a flag added to both sides)
+  #   GATE 2   commented-out declarations dropped 0 -> 1 (item A4's leg — the one a FLAG
+  #            count could not discriminate, since the injected line must NOT become a flag)
+  #   GATE 12  revision rows checked 158 -> 159
+  # The other three pin a COUNT THAT THE DEFECT THE CONTROL IS ABOUT WOULD MOVE, which is
+  # weaker: GATE 14's adjudicated-pair count, GATE 15's instrument count, and GATE 15 LEG 3's
+  # claims census. NONE now pins only "the leg ran". Every one is strictly stronger than rc 0.
   #
   # NOT SCANNED BY GATE 16, and that is a reasoned exemption rather than an oversight: a
   # preflight-emittable ERE cannot produce a false [ok] here, because both preflights set
