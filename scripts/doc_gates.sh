@@ -97,6 +97,26 @@ require_tracked() {
   return 1
 }
 
+# require_final_newline <path>
+#   Every registry in this suite is consumed by `while read`, and `read` returns non-zero on
+#   a final line with no terminator — so the shell loop DROPS it. A registered retraction or
+#   figure appended without a trailing newline would silently stop being checked, and the
+#   gate would print [ok] with a smaller count than the file has rows. Nobody reads the
+#   count. MEASURED 2026-08-02: all three registries currently end in \n, so this guard is a
+#   tripwire on a hazard that has not fired yet, not a fix for a live defect.
+#   rc 0 = terminated; rc 1 = not (printed as a FAIL by the caller's rc mapping).
+require_final_newline() {
+  [ -f "$1" ] || return 0                     # absence is require_tracked's business
+  [ -s "$1" ] || return 0
+  if [ "$(tail -c1 "$1" | od -An -c | tr -d ' \n')" = '\n' ]; then
+    return 0
+  fi
+  echo "  [FAIL] $1 does not end with a newline"
+  echo "         Its last row is dropped by every \`while read\` that consumes it, so that"
+  echo "         row is registered and unchecked. Append a newline."
+  return 1
+}
+
 # Corpus preflight — hole (b). Runs before every mode (see the dispatch at the foot of the
 # file) and DOES NOT short-circuit: it sets RC and lets the gates run anyway, so a per-gate
 # fire-proof can still tell its own leg's message from this one. The two messages are
@@ -1942,6 +1962,19 @@ assert len(h)==1, 'anchor moved: %d rows' % len(h)
 del L[h[0]]
 open(p,'w',encoding='utf-8').write(chr(10).join(L))"
 
+  # CASE 4 — the SILENT DROP. `while read` returns non-zero on an unterminated final line,
+  # so a row appended without a trailing newline is registered and never checked, and the
+  # gate prints [ok] with a count nobody compares against the file. Found by asking the
+  # missing-input question of the READER rather than of the file. No live instance: all
+  # three registries end in \n today, which is why this is a tripwire and is asserted here
+  # rather than described in a comment.
+  assert_fires_why "GATE 11 (figures) registry with no final newline drops its last row" ledger-figures \
+'RETRACTED_FIGURES\.tsv does not end with a newline' \
+"p='documentation/RETRACTED_FIGURES.tsv'
+s=open(p,encoding='utf-8').read()
+assert s.endswith(chr(10)), 'anchor moved: already unterminated'
+open(p,'w',encoding='utf-8').write(s.rstrip(chr(10)))"
+
   assert_fires_why "GATE 11 (figures, A1) figure registry deleted" ledger-figures \
 'RETRACTED_FIGURES\.tsv is tracked in git but missing' \
 "import os
@@ -3088,6 +3121,8 @@ gate_ledger_figures() {
     echo "         be computed, so the pass can check nothing. This is not a skip."
     return 1; }
   local bad=0 n=0 nopen=0 key fig note why
+  require_final_newline "$reg"  || bad=1
+  require_final_newline "$open" || bad=1
   while IFS=$'\t' read -r fig note; do
     case "$fig" in ''|'#'*) continue;; esac
     n=$((n+1))
@@ -3149,6 +3184,7 @@ gate_ledger_phrases() {
     echo "         be computed, so the gate can check nothing. This is not a skip."
     return 1; }
   local bad=0 n=0 key
+  require_final_newline "$reg" || bad=1
   while IFS=$'\t' read -r phrase allow note; do
     case "$phrase" in ''|'#'*) continue;; esac
     n=$((n+1))
