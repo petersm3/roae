@@ -581,3 +581,47 @@ those two responses.
 - **What did not move:** no measurement, gate verdict, Bayes factor, count, certificate or sha.
 
 ---
+
+### CX-21 · 2026-08-02 · registry keys for the retracted FIGURES already recorded above
+
+Not a correction. This entry assigns the four **`RF-`** keys that GATE 11's new figures pass keys
+on, for the four registered figures whose retraction is *already* recorded in this file. It records
+no new judgement and withdraws nothing.
+
+**Why keys, and why only four.** GATE 11 has always proven that every row of
+[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) reaches this file, by its content-addressed key
+`RP-xxxxxxxx`. [RETRACTED_FIGURES.tsv](RETRACTED_FIGURES.tsv) had no partner gate, so a figure could
+be registered, gated by GATE 3b on every run, and never recorded — the quieter half of the failure
+GATE 11 exists for (round-5 item A5). The new pass, `scripts/doc_gates.sh ledger-figures`, closes the
+mechanical half.
+
+It keys on `RF-<first 8 hex of sha256(figure)>` rather than on the figure's text, and the reason is
+measured, not stylistic: of the eleven registered figures, **six occur somewhere in this file and
+only four are recorded in it**. `1.4σ` and `≈10×` both appear inside CX-19's *How it was found*
+paragraph — as examples of meta-mentions found **elsewhere in the corpus** — and neither is a record
+of its own retraction. A gate that looked for the figure text would have cleared two unrecorded
+retractions and reported coverage.
+
+| key | figure | recorded in |
+|---|---|---|
+| `RF-8d74e1c4` | `2.0σ` | **CX-20** — TR-2's v1.12 row kept the superseded convergence-gate figure |
+| `RF-df361ebc` | `marginal 4.6` | **CX-19** — TR-9's draft-stage note kept two figures its own v1.7 superseded |
+| `RF-c1721127` | `net +1.6` | **CX-19** — same entry; TR-11 §4 carried the same figure until v1.14 |
+| `RF-1813e230` | `palnbr 16` | **CX-07** — the Mawangdui corpus control, whose corrected array moved this non-flagged value 16 → 13 |
+
+**The other seven are NOT keyed here, deliberately.** Writing their ledger entries is an
+adjudication — each has to be classified C1/C2/C3 and written by hand — and this entry does not do
+it. They are listed, one row each with what still has to be decided, in
+`documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt`, and the gate prints every one of them as `[OPEN]`
+with a count on every run. **An `[OPEN]` row is an open defect, not an exemption.** Adding the
+missing four-of-eleven keys to this file *without* writing the entries would satisfy the gate and
+record nothing, which is the one edit this entry exists to warn against.
+
+**What the gate cannot see**, stated in the same terms as GATE 11's phrases pass: a key written into
+this file with no entry behind it. Both passes trust that a key is only written by someone recording
+the correction. The gate is a completeness instrument, not a content one.
+
+- **What did not move:** no measurement, verdict, count, certificate, sha, or classification of any
+  existing entry.
+
+---

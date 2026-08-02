@@ -64,3 +64,9 @@ documentation/CORRECTIONS.md	2.0σ	reads as sitting *at* the gate and 1.9σ as i
 documentation/DESCRIPTION_LENGTH.md	marginal 21.2	marginal 21.2 → 21.3. No conclusion moves	meta-mention	The 2026-07-10 correction note itself, stating old -> new on one line.
 documentation/CORRECTIONS.md	palnbr 16	non-flagged values did move	meta-mention	CX-07: the ledger must quote the superseded value to record what changed.
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	palnbr 16	Non-flagged Mawangdui values shifted	meta-mention	TR-10 v1.2: the revision row that performed the supersession.
+documentation/CORRECTIONS.md	1.4σ	both appear inside CX-19's *How it was found*	meta-mention	CX-21 names this figure as a MEASURED example of a text-presence gate false clear: it occurs in this file only as a meta-mention, and is not recorded. Quoting it is the evidence for keying on RF- instead.
+documentation/CORRECTIONS.md	≈10×	both appear inside CX-19's *How it was found*	meta-mention	Same line, same argument as the 1.4σ row above: quoted by CX-21 to show that occurring in this file is not the same as being recorded in it.
+documentation/CORRECTIONS.md	2.0σ	RF-8d74e1c4	meta-mention	CX-21's key table. The cell states where the retraction IS recorded (CX-20); the figure is named because a content-addressed key has to be readable next to the figure it addresses.
+documentation/CORRECTIONS.md	marginal 4.6	RF-df361ebc	meta-mention	CX-21's key table, pointing at CX-19.
+documentation/CORRECTIONS.md	net +1.6	RF-c1721127	meta-mention	CX-21's key table, pointing at CX-19.
+documentation/CORRECTIONS.md	palnbr 16	RF-1813e230	meta-mention	CX-21's key table, pointing at CX-07.

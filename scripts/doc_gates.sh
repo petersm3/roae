@@ -27,7 +27,9 @@
 #   scripts/doc_gates.sh appendonly-head    # GATE 10a ALONE — vs HEAD (self-test target)
 #   scripts/doc_gates.sh appendonly-history # GATE 10b ALONE — vs every historical/published
 #                                   # version, not just HEAD (self-test target)
-#   scripts/doc_gates.sh ledger     # every RETRACTED_PHRASES.tsv row is recorded in CORRECTIONS.md
+#   scripts/doc_gates.sh ledger     # every RETRACTED_PHRASES.tsv row, and every
+#                                   # RETRACTED_FIGURES.tsv row, is recorded in CORRECTIONS.md
+#   scripts/doc_gates.sh ledger-figures  # GATE 11's FIGURES pass ALONE (self-test target)
 #   scripts/doc_gates.sh revhist    # GATE 12: TR revision tables — one *(current)* and last, no repeated
 #                                   # released version, dates and versions ascending
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
@@ -1860,6 +1862,37 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
 "open('documentation/RETRACTED_PHRASES.tsv','a').write(
  'a synthetic phrasing that was never published'+chr(9)+'__none__'+chr(9)+'Self-test row: no ledger entry exists for it, so GATE 11 must fail.'+chr(10))"
 
+  # GATE 11 FIGURES PASS — three fire-proofs (item A5, 2026-08-02).
+  #
+  # Each targets `ledger-figures`, not `ledger`. The combined dispatch runs BOTH passes, so
+  # an assertion on its exit code is satisfied by the phrases pass failing and would stay
+  # green if this whole pass were deleted — the GATE 4b lesson, applied at the point where
+  # it would otherwise be repeated.
+  #
+  # CASE 1 is the item's own concern: a figure registered TODAY, with nobody having written
+  # anything anywhere, must fail. CASE 2 proves what is holding the seven known-open rows
+  # green — delete one row from the open list and its figure fails immediately, so the file
+  # is load-bearing rather than decorative. CASE 3 is the missing-input class.
+  assert_fires_why "GATE 11 (figures) a newly registered figure nobody recorded" ledger-figures \
+'"a synthetic figure 9\.99sigma" has NO entry' \
+"open('documentation/RETRACTED_FIGURES.tsv','a').write(
+ 'a synthetic figure 9.99sigma'+chr(9)+'Self-test row: no ledger entry and no open-list row, so the figures pass must fail.'+chr(10))"
+
+  assert_fires_why "GATE 11 (figures) an open-list row deleted stops holding its figure" ledger-figures \
+'RF-1f093dc3 "\+125" has NO entry' \
+"p='documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt'
+L=open(p,encoding='utf-8').read().split(chr(10))
+h=[i for i,x in enumerate(L) if x.startswith('+125'+chr(9))]
+assert len(h)==1, 'anchor moved: %d rows' % len(h)
+del L[h[0]]
+open(p,'w',encoding='utf-8').write(chr(10).join(L))"
+
+  assert_fires_why "GATE 11 (figures, A1) figure registry deleted" ledger-figures \
+'RETRACTED_FIGURES\.tsv is tracked in git but missing' \
+"import os
+assert os.path.exists('documentation/RETRACTED_FIGURES.tsv'), 'anchor moved'
+os.remove('documentation/RETRACTED_FIGURES.tsv')"
+
   # -----------------------------------------------------------------------
   # GATE 12 — FIVE fire-proofs and ONE negative control (2026-08-02, item A4).
   #
@@ -2934,6 +2967,93 @@ gate_appendonly() {
 # reintroduce into the corpus the exact wording gate 3 exists to keep out. A key also
 # cannot be faked by paraphrase, and a truncated quote cannot satisfy it.
 gate_ledger() {
+  local rc=0
+  gate_ledger_phrases || rc=1
+  echo
+  gate_ledger_figures || rc=1
+  return $rc
+}
+
+# GATE 11, FIGURES PASS (item A5, 2026-08-02) — the partner GATE 3b never had.
+#
+# GATE 11's phrases pass proves every RETRACTED_PHRASES.tsv row reaches CORRECTIONS.md.
+# RETRACTED_FIGURES.tsv had no equivalent, so a figure could be registered, gated by GATE 3b
+# on every run, and never recorded — the quieter half of the failure GATE 11 exists for.
+#
+# IT KEYS ON `RF-<sha8>`, NOT ON THE FIGURE TEXT, and that is the whole design. MEASURED
+# before writing it: of the eleven registered figures, six OCCUR somewhere in CORRECTIONS.md
+# and only four are RECORDED there. `1.4σ` (line 542) and `≈10×` (line 541) both appear
+# inside CX-19's "How it was found" paragraph, as examples of meta-mentions found elsewhere
+# in the corpus — a text-presence gate would have cleared two unrecorded retractions and
+# called it coverage.
+#
+# OWN DISPATCH NAME (`ledger-figures`), for the reason GATE 4b got one: a self-test that
+# asserts on the COMBINED `ledger` exit code is satisfied by the phrases pass failing, and
+# would stay green if this pass were deleted. `ledger` still runs both.
+#
+# THE OPEN LIST IS NOT AN ALLOWLIST. documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt holds the
+# seven figures whose ledger entries have not been written; each prints as [OPEN] with a
+# count every run, in the shape GATE 4b uses for dangling section refs. A figure registered
+# from today on FAILS unless it is recorded or deliberately listed. The list is deliberately
+# NOT guarded by require_tracked: losing it makes this gate STRICTER, not blinder, which is
+# the fail-safe direction (same argument as GATE 3b's allowlist).
+gate_ledger_figures() {
+  echo "== GATE 11 (figures): registered retracted FIGURES are recorded in CORRECTIONS.md =="
+  local reg="documentation/RETRACTED_FIGURES.tsv" f="documentation/CORRECTIONS.md"
+  local open="documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt" rcr=0 rcf=0
+  require_tracked "$reg" "With the figure registry gone this pass has zero figures to look for." || rcr=$?
+  require_tracked "$f"   "With the ledger gone every registered figure is unrecorded by definition." || rcf=$?
+  if [ "$rcr" -eq 2 ] || [ "$rcf" -eq 2 ]; then return 1; fi
+  if [ "$rcr" -ne 0 ] || [ "$rcf" -ne 0 ]; then return 0; fi
+  command -v sha256sum >/dev/null 2>&1 || {
+    echo "  [FAIL] sha256sum not on PATH — the RF-<sha> keying this pass is built on cannot"
+    echo "         be computed, so the pass can check nothing. This is not a skip."
+    return 1; }
+  local bad=0 n=0 nopen=0 key fig note why
+  while IFS=$'\t' read -r fig note; do
+    case "$fig" in ''|'#'*) continue;; esac
+    n=$((n+1))
+    key="RF-$(printf '%s' "$fig" | sha256sum | cut -c1-8)"
+    why=''
+    if [ -f "$open" ]; then
+      why=$(awk -F'\t' -v want="$fig" '$1==want {print $2; exit}' "$open")
+    fi
+    if grep -qF -- "$key" "$f"; then
+      if [ -n "$why" ]; then
+        echo "  [note] $key \"$fig\" is recorded in $f, but is still listed as open in"
+        echo "         $open — delete that row."
+      else
+        echo "  [ok] $key \"$fig\" recorded"
+      fi
+    elif [ -n "$why" ]; then
+      nopen=$((nopen+1))
+      echo "  [OPEN] $key \"$fig\" — no ledger entry yet: $why"
+    else
+      echo "  [FAIL] $key \"$fig\" has NO entry in $f and is not listed in $open"
+      echo "         registry note: $note"
+      echo "         Either append an entry to $f citing $key, or add a row to $open"
+      echo "         saying what still has to be adjudicated. Silence is not an option:"
+      echo "         a figure can otherwise be registered, gated, and never recorded."
+      bad=1
+    fi
+  done < "$reg"
+  if [ -f "$open" ]; then
+    while IFS=$'\t' read -r fig note; do
+      case "$fig" in ''|'#'*) continue;; esac
+      grep -qF -- "$(printf '%s\t' "$fig")" "$reg" || {
+        echo "  [note] open-list row matches no registry row: \"$fig\""
+        echo "         Either the figure was de-registered (delete the row) or the text drifted."; }
+    done < "$open"
+  fi
+  if [ "$nopen" -ne 0 ]; then
+    echo "  [note] $nopen registered figure(s) above are OPEN DEFECTS, not exemptions —"
+    echo "         see $open. Writing those entries is an adjudication, not a gate change."
+  fi
+  [ "$bad" -eq 0 ] && echo "  [ok] all $n registered figure(s) accounted for ($((n-nopen)) recorded, $nopen open)"
+  return $bad
+}
+
+gate_ledger_phrases() {
   echo "== GATE 11: registered retractions are recorded in CORRECTIONS.md =="
   local reg="documentation/RETRACTED_PHRASES.tsv" f="documentation/CORRECTIONS.md" rcr=0 rcf=0
   # ITEM A1. The old test named both files in ONE skip line, so a reader could not tell
@@ -2993,6 +3113,7 @@ case "$MODE" in
   appendonly-head)    gate_appendonly_head    || RC=1 ;;
   appendonly-history) gate_appendonly_history || RC=1 ;;
   ledger)  gate_ledger  || RC=1 ;;
+  ledger-figures) gate_ledger_figures || RC=1 ;;
   revhist) gate_revhist || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
@@ -3003,7 +3124,7 @@ case "$MODE" in
            echo; gate_appendonly || RC=1
            echo; gate_ledger || RC=1
            echo; gate_revhist || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|revhist|generated|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|generated|all}"; exit 2 ;;
 esac
 
 echo
