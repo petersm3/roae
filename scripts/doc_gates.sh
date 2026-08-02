@@ -1293,8 +1293,8 @@ os.remove('example/report.pdf')"
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
   # tests for, so the list is enumerated against the assert_fires calls above:
-  #   covered: 1 (output), 3, 4, 4b, 5 (output), 6, 7 x2, 8 x4, 9 x2, 10a (+negative
-  #            control), 10b x3, 11
+  #   covered: 1 (output), 3, 4, 4b, 5 (output), 5b (output), 6, 7 x2, 8 x4, 9 x2,
+  #            10a (+negative control), 10b x3, 11
   #   NOT covered: 2 -- would mutate solve.py, a costlier revert than the assurance is
   #                     worth; it has FIRED in anger (13 undocumented flags, 2026-07/08).
   # The old note said GATE 8 was excluded because ~90s regeneration "exceeds the
@@ -1721,7 +1721,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11. Gates 1 and 5 are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11. Gates 1 and 5 (incl. 5b) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ]; then
