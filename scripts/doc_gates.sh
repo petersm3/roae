@@ -34,8 +34,9 @@
 #   scripts/doc_gates.sh revhist    # GATE 12: TR revision tables — one *(current)* and last, no repeated
 #                                   # released version, dates and versions ascending
 #   scripts/doc_gates.sh regdupes   # GATE 14: two literature-registry rules that are the same predicate
+#   scripts/doc_gates.sh instruments # GATE 15: a --selftest instrument with no declared fire-proof
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
-#   scripts/doc_gates.sh all        # run all thirteen cheap gates (1-7 incl. 3b, 9, 10, 11, 12, 13, 14); `generated` is separate by cost
+#   scripts/doc_gates.sh all        # run all fourteen cheap gates (1-7 incl. 3b, 9, 10, 11, 12, 13, 14, 15); `generated` is separate by cost
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
@@ -3180,6 +3181,68 @@ os.remove(p)"
 "open('documentation/DOC_GATE_REGISTRY_DUPLICATES.txt','a',encoding='utf-8').write(
     '# GATE 14 negative control: a comment line must not be parsed as a pair.'+chr(10))"
 
+  # GATE 15 FIRE-PROOFS (item A1, 2026-08-02) — the instrument that catches an undeclared
+  # instrument, which had better be able to catch one.
+  #
+  # THE MOTIVATING MUTATION MUTATES THIS FILE, so it mutates a COPY. `_selftest_revert`
+  # restores tracked files with `git checkout -- .`, and doc_gates.sh is the script bash is
+  # executing; task #77 is open on precisely that hazard. The gate's source seam is
+  # read-only and announces itself, so the leg below tests the shipped code path on a
+  # mutated input — which is what every other assertion here does, the input just happens to
+  # be the program. The three legs that mutate only the TABLE need no copy and use none.
+  _g15() { DOC_GATES_INSTR_SRC="${1:-}" bash "$0" instruments 2>&1; }
+
+  _G15_COPY=$(git rev-parse --git-dir)/doc_gates_g15_copy.sh
+  if sed 's|^  assert_fires() {$|  _fireproof_undeclared_instrument() { :; }\n  assert_fires() {|' \
+       scripts/doc_gates.sh > "$_G15_COPY" \
+     && grep -qF '_fireproof_undeclared_instrument() { :; }' "$_G15_COPY"; then
+    G15OUT=$(_g15 "$_G15_COPY")
+    if printf '%s' "$G15OUT" | grep -qF '_fireproof_undeclared_instrument() is defined at'; then
+      echo "  [ok]   GATE 15 an undeclared instrument in the --selftest region — fires, and names it"
+    else
+      echo "  [FAIL] GATE 15 — a new function in the --selftest region declared in NO row was"
+      echo "         not reported. That is the fbdbe26 defect this gate exists for."
+      printf '%s\n' "$G15OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 15 — could not build the mutated copy (the \`  assert_fires() {\`"
+    echo "         anchor moved), so the assertion did NOT run."
+    PASS=1
+  fi
+  rm -f "$_G15_COPY"
+
+  # THE LABEL CHECK IS THE HALF THAT MAKES THIS MORE THAN A CHECKLIST. Without it a row could
+  # name any string at all and the table would degrade into a list of names — which is how
+  # "documented" becomes indistinguishable from "proven".
+  assert_fires_why "GATE 15 a row naming an assertion nobody wrote" instruments \
+    'that label does not occur' \
+"p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
+s=open(p,encoding='utf-8').read()
+a='assert_fires'+chr(9)+'GATE 9 banner drift (1 byte, 1 file)'+chr(9)
+assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(
+    a, 'assert_fires'+chr(9)+'GATE 9 banner drift that nobody ever wrote'+chr(9), 1))"
+
+  assert_fires_why "GATE 15 a row for a function that no longer exists" instruments \
+    'which is no longer defined in the --selftest' \
+"p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
+s=open(p,encoding='utf-8').read()
+assert s.count(chr(10)+'_g13'+chr(9))==1, 'anchor moved'
+open(p,'w',encoding='utf-8').write(s.replace(
+    chr(10)+'_g13'+chr(9), chr(10)+'_g13_deleted_long_ago'+chr(9), 1))"
+
+  assert_fires_why "GATE 15 (A1) instrument declaration table deleted" instruments \
+    'DOC_GATE_SELFTEST_INSTRUMENTS\.txt is tracked in git but missing' \
+"import os
+p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
+assert os.path.exists(p), 'anchor moved'
+os.remove(p)"
+
+  assert_stays_clean "GATE 15 a comment appended to the table changes nothing" instruments \
+"open('documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt','a',encoding='utf-8').write(
+    '# GATE 15 negative control: a comment line declares nothing and breaks nothing.'+chr(10))"
+
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
@@ -3190,7 +3253,12 @@ os.remove(p)"
 #            8 x5 (4 fire + 1 NEGATIVE control), 9 x2,
   #            10a (+negative control), 10b x3, 11, 12 x5 (+1 NEGATIVE control),
   #            13 x2 (worktree + batch) each with its own NEGATIVE control, and the batch
-  #            one anchored on a REAL commit (b5bcff7c) rather than on an injection
+  #            one anchored on a REAL commit (b5bcff7c) rather than on an injection,
+  #            14 x4 (the motivating r3/p1c4 pair, a NEW pair the allowlist has never seen,
+  #            the uncomparable-rule refusal, and the A1 missing-input leg) + 1 negative
+  #            control, 15 x3 (undeclared instrument, a row naming an assertion nobody
+  #            wrote, a row for a function that no longer exists) + its A1 leg + 1 negative
+  #            control
   #   plus the MISSING-INPUT class (item A1, 2026-08-02): 2 x2, 3, 3b, 6 x2, 10a, 10b,
   #            11 x2, 12, and the corpus preflight x1 -- 13 assertions, all asserting WHY.
 #            (GATE 6 now has THREE A1 legs: its registry, a deleted generator, and the
@@ -4105,6 +4173,150 @@ sys.exit(bad)
 PY
 }
 
+# ----------------------------------------------------------------------------------
+# GATE 15 — a new instrument in the --selftest region cannot land silent (ITEM A1, 2026-08-02).
+#
+# WHY THIS EXISTS, and why it is a gate rather than a resolution. `_selftest_revert` shipped
+# at fbdbe26 with no fire-proof, in the one file whose header already records GATE 8 shipping
+# a one-directional comparison behind a hand-taken proof. It was caught only because someone
+# checked that commit message's claim against a run — and the claim was false (the ref
+# resolved and its reflog held ZERO entries). That is the THIRD instance of one class in this
+# file: GATE 8's hand-taken proof, GATE 4b's shared dispatch, and now this. Three instances
+# of the same shape is a structural hole, and "be more careful" has already been tried.
+#
+# WHAT IT DOES. Enumerates every function DEFINED between the `--selftest` guard and its
+# closing `fi`, and requires a row for each in documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt
+# naming the assertion that proves it — or the explicit token NOT-PROVEN-IN-HARNESS with a
+# reason. A declared label must actually occur in this file, so a row cannot point at an
+# assertion nobody wrote.
+#
+# IT RUNS IN `all`, NOT ONLY IN --selftest, AND THAT IS THE POINT. The self-test needs a
+# clean tree and takes minutes; a helper added during a normal edit would not meet it for
+# hours. This gate is a text scan of one file and costs milliseconds.
+#
+# THE PARSER MUST NOT SILENTLY FIND NOTHING. If the region markers move, a naive scan
+# returns zero functions and every row looks stale while nothing looks undeclared — a green
+# run with the instrument switched off. Finding zero functions is therefore a FAIL, stated
+# here because that is exactly the failure mode of the checker whose false clear hid a Lean
+# defect for twelve hours on 2026-08-01.
+#
+# WHAT IT CANNOT SEE, said plainly (the full version is in the table's own header):
+#   (a) It verifies that the function exists and that the named label exists. It CANNOT
+#       verify the named assertion exercises the function. A row pointing at a real but
+#       unrelated label passes. This is bookkeeping with a spell-check, not coverage proof.
+#   (b) --selftest region only. Helpers inside gate bodies are gate implementation and are
+#       covered by the gates' own fire-proofs.
+#   (c) It cannot rank proofs. `assert_fires`'s anchor-moved branch is exercised by nothing;
+#       its row says so in prose that no machine reads.
+gate_selftest_instruments() {
+  echo "== GATE 15: every --selftest instrument declares the assertion that proves it =="
+  local tbl=documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt rct=0
+  require_tracked "$tbl" \
+    "The declaration table IS this gate; absent, every instrument reads as declared." || rct=$?
+  [ "$rct" -eq 1 ] && return 0
+  [ "$rct" -eq 2 ] && return 1
+  DOC_GATES_INSTR_TBL="$tbl" python3 - <<'PY'
+import os, re, sys
+
+# READ-ONLY SOURCE SEAM, and it exists for one reason that is worth stating because a
+# testing backdoor in a gate deserves suspicion. The mutation this gate must be proven
+# against is "a new function appears in the --selftest region" — and the file that would
+# have to be mutated is THIS ONE, the script bash is currently executing. Task #77 is open
+# on exactly that hazard (bash reads scripts by byte offset), and a fire-proof that risks
+# leaving a half-restored doc_gates.sh behind is not worth the assurance. So the fire-proof
+# mutates a COPY and points the scan at it, which is the same thing every other assertion in
+# this file does — mutate the gate's input — the input here just happens to be the program.
+# The seam is READ-ONLY (the file is scanned, never executed, never written) and an override
+# is ANNOUNCED below, so it cannot quietly weaken a real run.
+src = os.environ.get("DOC_GATES_INSTR_SRC") or "scripts/doc_gates.sh"
+if src != "scripts/doc_gates.sh":
+    print("  [note] scanning OVERRIDE source %s (DOC_GATES_INSTR_SRC), not the live script"
+          % src)
+if not os.path.isfile(src):
+    print("  [FAIL] %s is not a readable file, so zero instruments were scanned" % src)
+    sys.exit(1)
+lines = open(src, encoding="utf-8").read().splitlines()
+
+start = end = None
+for i, ln in enumerate(lines):
+    if start is None and '= "--selftest" ]; then' in ln:
+        start = i
+    elif start is not None and ln == "fi":
+        end = i
+        break
+if start is None or end is None:
+    print("  [FAIL] could not locate the --selftest region in %s (start=%s end=%s)"
+          % (src, start, end))
+    print("         The scan would have returned zero functions and reported [ok] on an")
+    print("         instrument that was switched off. Re-anchor this gate, do not silence it.")
+    sys.exit(1)
+
+DEF = re.compile(r"^[ \t]*([A-Za-z_][A-Za-z0-9_]*)\(\)[ \t]*\{")
+defined = {}
+for i in range(start + 1, end):
+    m = DEF.match(lines[i])
+    if m:
+        defined[m.group(1)] = i + 1
+
+if not defined:
+    print("  [FAIL] zero functions found in the --selftest region (lines %d-%d), which is"
+          % (start + 1, end + 1))
+    print("         a broken parser, not an empty harness. A checker that finds nothing must")
+    print("         never report [ok].")
+    sys.exit(1)
+
+path = os.environ["DOC_GATES_INSTR_TBL"]
+rows = {}
+bad = 0
+for lineno, line in enumerate(open(path, encoding="utf-8"), 1):
+    if not line.strip() or line.lstrip().startswith("#"):
+        continue
+    parts = line.rstrip("\n").split("\t")
+    if len(parts) < 3 or not parts[1].strip() or not parts[2].strip():
+        print("  [FAIL] %s:%d is not `function<TAB>proof-label<TAB>note`, so it declares"
+              " nothing" % (path, lineno))
+        bad = 1
+        continue
+    rows[parts[0]] = (parts[1], parts[2], lineno)
+
+whole = "\n".join(lines)
+for name in sorted(defined):
+    if name not in rows:
+        print("  [FAIL] %s() is defined at %s:%d and is declared in NO row of %s"
+              % (name, src, defined[name], path))
+        print("         A new instrument in this harness lands with a fire-proof or lands")
+        print("         declared as unprovable. `_selftest_revert` landed as neither"
+              " (fbdbe26),")
+        print("         and its commit message asserted a property it did not have.")
+        bad = 1
+        continue
+    label, note, lineno = rows[name]
+    if label == "NOT-PROVEN-IN-HARNESS":
+        print("  [note] %s() is declared UNPROVABLE in-harness (%s:%d) — %s"
+              % (name, path, lineno, note.split(".")[0]))
+    elif label not in whole:
+        print("  [FAIL] %s:%d says %s() is proven by \"%s\", and that label does not occur"
+              % (path, lineno, name, label))
+        print("         anywhere in %s. The declared proof does not exist." % src)
+        bad = 1
+
+for name in sorted(rows):
+    if name not in defined:
+        print("  [FAIL] %s:%d declares %s(), which is no longer defined in the --selftest"
+              " region" % (path, rows[name][2], name))
+        print("         A row for a function nobody calls exempts nothing and hides that it")
+        print("         exempts nothing. Delete the row.")
+        bad = 1
+
+if not bad:
+    unprov = sum(1 for n in defined if rows[n][0] == "NOT-PROVEN-IN-HARNESS")
+    print("  [ok] %d instrument(s) in the --selftest region, all declared; %d proven by a"
+          " named assertion, %d declared unprovable in-harness"
+          % (len(defined), len(defined) - unprov, unprov))
+sys.exit(bad)
+PY
+}
+
 MODE="${1:-all}"
 
 # ITEM A1, hole (b) — runs for EVERY mode, including the single-gate invocations the
@@ -4139,6 +4351,7 @@ case "$MODE" in
   revhist) gate_revhist || RC=1 ;;
   revrows) gate_revrows || RC=1 ;;
   regdupes) gate_registry_dupes || RC=1 ;;
+  instruments) gate_selftest_instruments || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -4149,8 +4362,9 @@ case "$MODE" in
            echo; gate_ledger || RC=1
            echo; gate_revhist || RC=1
            echo; gate_revrows || RC=1
-           echo; gate_registry_dupes || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|regdupes|generated|all}"; exit 2 ;;
+           echo; gate_registry_dupes || RC=1
+           echo; gate_selftest_instruments || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|revhist|revrows|regdupes|instruments|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -4163,7 +4377,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14. Gates 1, 5 (incl. 5b) and 13 are REPORT-ONLY,"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15. Gates 1, 5 (incl. 5b) and 13 are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ] || [ "$MODE" = revrows ]; then

@@ -1,0 +1,43 @@
+# DOC_GATE_SELFTEST_INSTRUMENTS.txt — every function defined inside doc_gates.sh's
+# --selftest region, and the assertion that proves it. Consumed by doc_gates.sh GATE 15.
+#
+# WHY THIS FILE EXISTS. `_selftest_revert` shipped at fbdbe26 with no fire-proof, in the one
+# file whose own header records GATE 8 shipping a one-directional comparison behind a
+# hand-taken proof. It was caught only because someone checked a commit message's claim
+# against a run. That is the THIRD instance of one class — GATE 8's hand-taken proof, GATE
+# 4b's shared dispatch, and now this — so the answer is not more care. A new instrument in
+# the harness must now be DECLARED here, naming the assertion that proves it, or GATE 15
+# fails.
+#
+# FORMAT: `function<TAB>proof-label<TAB>note`, one per line. `#` comments and blank lines
+# ignored. Must end with a newline (the support-file preflight enforces that).
+#   proof-label = a literal string that must occur in scripts/doc_gates.sh — normally the
+#                 label of the assertion that exercises the function.
+#   proof-label = NOT-PROVEN-IN-HARNESS for a function that genuinely cannot be asserted
+#                 from inside a live self-test. The note must then say why and where the
+#                 external proof is recorded. GATE 15 prints these every run; they are
+#                 declared gaps, never silence.
+#
+# WHAT GATE 15 CANNOT SEE, stated rather than implied — this is the load-bearing caveat and
+# it should be read before trusting a green run:
+#   (1) It checks that the function EXISTS and that the named label EXISTS. It CANNOT check
+#       that the named assertion actually exercises the function. A row pointing at a real
+#       but unrelated label passes. This is bookkeeping with a spell-check, not a coverage
+#       prover, and calling it more than that would be the false clear it was written to
+#       prevent.
+#   (2) It covers the --selftest region only. Helper functions in gate bodies (check_pair
+#       inside gate_cli, the _norm/_cmp family inside assert_gen_fires) are out of scope:
+#       they are gate implementation, and the gates have their own fire-proofs.
+#   (3) It cannot tell a good proof from a weak one. `assert_fires`'s anchor-moved branch is
+#       exercised by nothing; the row says so in prose that no machine reads.
+_selftest_revert	A1 snapshot	The snapshot half: a reverted edit must be readable back out of refs/doc-gates/selftest-revert@{0} AND the reflog must have GROWN. Shipped at fbdbe26 with NO assertion at all and a commit message claiming a property (--create-reflog) it did not have; that is the defect this whole file exists to generalise.
+_selftest_release	NOT-PROVEN-IN-HARNESS	The signal half cannot be asserted from inside: a case that TERMs the self-test kills the harness that would report on it. Proven EXTERNALLY and non-vacuously on 2026-08-02 (marker appended from outside a live run, SIGTERM sent, rc 143, marker gone, lock gone, git status clean). An earlier attempt TERMed before any mutation existed and was vacuous; the recorded proof is the second one. This row is why the table permits NOT-PROVEN-IN-HARNESS rather than forcing a fake label.
+assert_fires	GATE 9 banner drift (1 byte, 1 file)	Exercised by four callers. NOT exercised: its anchor-moved branch (item A5's [SKIP]->FAIL conversion) — no assertion injects a moved anchor, so that branch is warranted by reading.
+assert_fires_why	GATE 3 retracted phrasing	The workhorse: ~40 callers, every one of which fails if the WHY line does not name the injected thing. NOT exercised: its own anchor-moved branch.
+assert_stays_clean	GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)	Four negative controls depend on it. NOT exercised: its anchor-moved branch.
+scratch_appendonly	GATE 10b vs history (a line of the OLDEST committed version deleted)	Builds the scratch worktree GATE 10b's history legs mutate.
+_g13	GATE 13 batch — fires on b5bcff7c, the real silent TR-4 edit v1.13 records	One-line wrapper that pins DOC_GATE_REVROW_RANGE for GATE 13's batch legs; both the fire leg and its negative control go through it.
+assert_gen_fires	GATE 8 deletion from a shipped artifact	GATE 8's shared-regeneration mutation harness. Four legs (deletion, substitution, PDF, outright delete) share one roae.py regeneration, which is why GATE 8 is affordable to mutation-test at all.
+assert_gen_clean	GATE 8 comma-grouped Monte Carlo figure is not a difference	GATE 8's negative control: proves the digit-stripping normaliser is not swallowing the whole comparison.
+assert_gen_fires_only	GATE 8 hand-edited DIGIT in report.html (leg 5 only)	The one-directional-comparison fix: asserts a named leg fires AND that a named sibling leg stays green, so a leg cannot be satisfied by its neighbour.
+_g15	GATE 15 an undeclared instrument in the --selftest region	One-line wrapper that points GATE 15's read-only source seam at a mutated COPY of doc_gates.sh; the live script cannot be mutated safely because bash is executing it (task #77). This row exists because GATE 15 flagged _g15 itself on its first run, which is the gate working.
