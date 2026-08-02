@@ -5630,7 +5630,10 @@ comparison — survives a wider four-class comparison that adds the two rivals a
 a greedy/local builder and a rules-are-coincidence null. Before computing any King-Wen-facing number, the
 frozen design required a synthetic-draw calibration to confirm the four classes are even distinguishable.
 **That calibration ran, and it failed:** the greedy-builder class ranks itself first in only 67 of 100
-draws against a pre-registered threshold of 70 (and 67/67/45/25 across four sensitivity variants), so the
+draws against a pre-registered threshold of 70 (and 67/67/45/25 across four sensitivity variants — see the
+correction at TR-2 v1.23, which publishes the same grid for the three *passing* classes as well and shows
+that `corrA` duplicates the primary result and that the `histZ` column measures M_D's normalizer rather
+than the other classes; the unconfounded readings are 67/67/45 and the veto is unchanged), so the
 classes are not reliably separable at this sample size. Per the design's own veto, **no four-class Bayes
 factor, posterior, or verdict is computed** — the gate was frozen before the data existed, it fired, and
 we abide by it. The two-model result stands with its scope now stated adjacent to every figure; the

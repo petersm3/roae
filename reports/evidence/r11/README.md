@@ -10,11 +10,49 @@ calibration outcome below.
 **Update 2026-07-20 — the §7.2 calibration has RUN, and it VETOED the verdict.** The frozen
 ordering-of-operations put a synthetic-draw confusability gate before any KW-facing integration; that
 gate has now been executed and **failed**, so the four-class comparison stops here by its own rule. The
-greedy-builder class M_G ranks itself first in only **67 of 100** draws against a frozen threshold of 70
-(and 67 / 45 / 25 in the other three sensitivity variants), so M_G is not reliably separable from M0 or
-M_D at this sample size. Per §6.3 no four-class Bayes factor, posterior, or verdict is computed or
-published. Full reporting, including what this does and does not license, is in
-[TR-2 §"Outcome (2026-07-20)"](../../TR2_THE_RULES_CONFLICT.md).
+greedy-builder class M_G ranks itself first in only **67 of 100** draws against a frozen threshold of 70,
+so M_G is not reliably separable from M0 or M_D at this sample size. Per §6.3 no four-class Bayes factor,
+posterior, or verdict is computed or published. Full reporting, including what this does and does not
+license, is in [TR-2 §"Outcome (2026-07-20)"](../../TR2_THE_RULES_CONFLICT.md).
+
+**The full sensitivity grid, for every class (added 2026-08-02).** Until this date the four-variant
+grid was quoted only for M_G, the class that failed; the passing classes were reported at their
+primary number alone. That was selective, so the whole grid is now given. First-rank rate out of 100,
+read from `calibration_report.txt`:
+
+| true class | primary | corrA | uncond | histZ |
+|---|---:|---:|---:|---:|
+| M0 — uniform-valid | 99 | 99 | 99 | 99 |
+| **M_G — greedy-builder** | **67** | **67** | **45** | **25** |
+| M_D — global-design | 81 | 81 | 86 | 99 |
+| M_C — corrupted-precursor | 84 | 84 | 72 | **1** |
+
+Two things a reader needs in order to weigh that table, both checkable from the committed artifacts:
+
+1. **`corrA` is not an independent reading.** It re-scores M_C under the frozen A (bamboo-adjacent)
+   corruption-location variant instead of U. The likelihoods do differ, and on some draws by a lot
+   (over the 139 draws with L_C > 0: median |ΔL_C/L_C| ≈ 0.3%, maximum ≈ 89%) — but on **0 of 393
+   draws does the difference change the arg-max**, so it reproduces
+   the primary confusion matrix cell for cell. Four pre-committed variants therefore yield **three**
+   distinct outcomes, not four.
+2. **The `histZ` column ranks M_D's normalizer, not the other classes' identifiability.** `histZ`
+   substitutes `LD_histZ` for `LD` and changes *nothing else* (`r11_calibration.py`, `rank_of`): M0's,
+   M_G's and M_C's likelihoods are identical to the primary column. Its Z table is built from the
+   unconditioned histogram alone (29,997 cells) rather than the augmented table (30,439 cells) that
+   supplies the rare low-violation corners from the strict-pruned conditional runs and the
+   grand-strict count — the frozen design records this row as *understating Z, design-favorable*
+   before it was run. The measured effect: median log₁₀(L_D^histZ ⁄ L_D) = **5.56**, and every draw
+   M_G or M_C loses under `histZ` is lost **to M_D** (42 of 42, 83 of 83). So M_C's 1/100 is a
+   statement about an inflated M_D likelihood, not evidence that the corrupted-precursor class is
+   unidentifiable — and by the same token M_G's 25 is confounded and should not be read as a fourth
+   independent failure.
+
+**What survives.** M_G is below the frozen 70 in every unconfounded reading — 67, 67 and 45 — including
+the primary configuration on which the frozen verdict is computed, so the §6.3 veto stands exactly as
+stated. What the grid removes is the rhetorical weight of the "never once clearing 70 across four
+variants" phrasing, which double-counted `corrA` and leaned on the M_D-confounded `histZ` column. This
+correction runs *against* our own emphasis and changes no verdict: no four-class Bayes factor or
+posterior exists to move.
 
 Calibration artifacts in this directory (master seed 20260720, deterministic):
 
@@ -72,8 +110,10 @@ unpropagated error to a directly measured one with stated error.
 - `r11_ngs.out` — the FIRST direct triple-strict count (the instrument F11 documented as
   missing), with its in-walk cross-check line mismatches = 0. **N_gs = 5.00×10²⁵
   (relerr 16.7%)** — the single Phase-1 run that fired the stop-flag; superseded as the
-  primary value by the four-seed pooled measurement above (with which it is 1.4σ
-  consistent), retained here as the flag's origin record.
+  primary value by the four-seed pooled measurement above (with which it is **0.57σ**
+  consistent — this figure read 1.4σ until 2026-08-02; see
+  [PHASE2_README.md](PHASE2_README.md) §"Honest residuals" for the σ convention and what
+  was wrong with the old number), retained here as the flag's origin record.
 - `r11_moore_strict.out` — Moore-joint-strict conditional plane (1,514 cells,
   all g1=g2=0), N_mj = 1.131×10²⁹ — consistent with the published F11 value.
 - unconditioned 8-axis joint violation histogram — 150,758 cells; mass sums to 1; seven

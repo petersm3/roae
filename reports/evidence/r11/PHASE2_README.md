@@ -89,10 +89,28 @@ the **15 of 56 branches** whose fixed prefix violates a strict predicate and poo
 ## Honest residuals
 
 The direct estimator's CI rests on ~300 effective samples pooled, so its far tails are not
-guaranteed — hence the conservative error convention. The pooled value 4.50×10²⁵ is 1.4σ
-above the single Phase-1 run it re-checks (5.00×10²⁵ from `r11_ngs.out`) — consistent. No
-value across the conservative CI moves any of the 24 pre-committed BF configurations below
-the "strong" band; the flip threshold is ≈ 52× the measured value.
+guaranteed — hence the conservative error convention. The pooled value 4.50×10²⁵ is **0.57σ
+below** the single Phase-1 run it re-checks (5.00×10²⁵ ± 16.7%, from `r11_ngs.out`) —
+consistent. No value across the conservative CI moves any of the 24 pre-committed BF
+configurations below the "strong" band; the flip threshold is ≈ 52× the measured value.
+
+**σ convention in this file, stated explicitly (corrected 2026-08-02).** Every σ quoted here is
+|Δ| ⁄ √(SE₁² + SE₂²), using the *adopted* conservative CLT SE of the pooled value (2.77×10²⁴)
+and the other quantity's own stated SE. That formula reproduces all three gate figures in the
+table above to the digit — gate 1 max pairwise **1.06**, gate 2 **0.12**, gate 3 **1.92** — which
+is why it is the house convention rather than an assumption. Applied to the Phase-1 comparison it
+gives |5.003 − 4.503| ⁄ √(0.277² + 0.833²) = **0.57σ**.
+
+This sentence read "**1.4σ above**" until 2026-08-02. Two defects, both now fixed: (a) the
+direction was inverted — 4.50×10²⁵ is *below* 5.00×10²⁵; (b) 1.4 is |Δ| divided by the raw
+between-seed **SD** (0.359×10²⁵ — the scatter of the individual seeds, stated two sections above
+only as the input to SE = SD/√4), with the Phase-1 run's own ±16.7% omitted entirely. The SD is
+neither of the two error conventions this file declares, and it is the *larger* divisor's
+opposite: using it overstated the disagreement. Nothing depends on the figure in either
+direction — the comparison is "consistent" at 1.4σ and at 0.57σ alike — and no Bayes factor,
+gate verdict, count, or sha changes. TR-2 v1.19 removed the σ from its own copy of this sentence
+on the ground that it was "not reconstructible from the stated errors"; it *is* reconstructible,
+as shown above, and TR-2 v1.23 restores it under this convention.
 
 ## Provenance
 

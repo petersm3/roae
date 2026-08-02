@@ -464,8 +464,13 @@ values retained as sensitivity rows.
 
 *Honest residuals.* The direct estimator's CI rests on ~300 effective samples pooled, so its far
 tails are not guaranteed — which is why the conservative error convention is adopted and both
-conventions are reported. The re-measured value (N_gs = 4.50×10²⁵) is below the Phase-1 single run it re-checks
-(5.00×10²⁵) — consistent. No value in the plausible range moves any configuration below "strong";
+conventions are reported. The re-measured value (N_gs = 4.50×10²⁵) is **0.57σ below** the Phase-1 single
+run it re-checks (5.00×10²⁵ ± 16.7%) — consistent. (v1.19 dropped the σ here as "not reconstructible
+from the stated errors". It is reconstructible: the convention is |Δ| ⁄ √(SE₁² + SE₂²) on the adopted
+conservative SE, which reproduces all three gate figures above to the digit, and the retracted 1.4
+came from dividing by the raw between-seed SD instead — see
+[evidence/r11/PHASE2_README.md](evidence/r11/PHASE2_README.md) §"Honest residuals".) No value in the
+plausible range moves any configuration below "strong";
 the resolution changes the headline by a factor of ~0.8 and the evidential footing from a derived,
 unquantified-uncertainty ingredient to a directly measured one with stated error.
 
@@ -531,12 +536,40 @@ class, each scored under all four models, the true class required to rank first 
 | M_C — corrupted-precursor | 84/100 | pass (7 draw failures counted against it) |
 
 **M_G is exactly the rival this extension existed to test.** Its failure is not marginal and not an
-artifact of one configuration: across the four pre-committed sensitivity variants M_G scores 67, 67, 45
-and 25 — never once clearing 70. Its median log₁₀ Bayes factor against the best rival is 1.12 in the
-primary configuration and turns **negative** in two others (−0.65, −1.54), meaning a sequence genuinely
-produced by a greedy builder typically scores *better* under a rival model than under the truth. The
-misclassifications scatter into M0 (19) and M_D (14): greedy-built orderings simply look like
-uniform-valid or globally-designed ones once the shared C1–C5 substrate is factored out.
+artifact of one configuration: it clears 70 in none of the pre-committed sensitivity readings, scoring
+67 (primary), 67 (`corrA`) and 45 (`uncond`). Its median log₁₀ Bayes factor against the best rival is
+1.12 in the primary configuration and turns **negative** under `uncond` (−0.65), meaning a sequence
+genuinely produced by a greedy builder typically scores *better* under a rival model than under the
+truth. The misclassifications scatter into M0 (19) and M_D (14): greedy-built orderings simply look
+like uniform-valid or globally-designed ones once the shared C1–C5 substrate is factored out.
+
+*The full grid, for every class (v1.23 correction).* Until 2026-08-02 the four-variant grid was quoted
+only for the class that failed, and the three passing classes were reported at their primary number
+alone — a selective use of a pre-committed sensitivity set. First-rank rate out of 100, all four
+classes, all four variants:
+
+| true class | primary | corrA | uncond | histZ |
+|---|---:|---:|---:|---:|
+| M0 — uniform-valid | 99 | 99 | 99 | 99 |
+| **M_G — greedy-builder** | **67** | **67** | **45** | **25** |
+| M_D — global-design | 81 | 81 | 86 | 99 |
+| M_C — corrupted-precursor | 84 | 84 | 72 | **1** |
+
+Two qualifications belong with that table, and they cut against this report's earlier phrasing rather
+than for it. **`corrA` is not an independent reading:** it re-scores M_C under the frozen A
+corruption-location variant, and although the likelihoods do differ — over the 139 draws with L_C > 0,
+by a median of 0.3% and a maximum of 89% — the difference changes the arg-max on
+**0 of 393 draws**, reproducing the primary confusion matrix cell for cell — so four variants yield
+three distinct outcomes. **The `histZ` column ranks M_D's normalizer, not the other classes:** it
+substitutes M_D's histogram-only Z table (29,997 cells) for the augmented one (30,439 cells, which
+supplies the rare low-violation corners) and changes no other likelihood, inflating L_D by a median
+factor of 10^5.56; every draw M_G or M_C loses under `histZ` is lost to M_D (42/42 and 83/83). M_C's
+1/100 is therefore a property of that inflated M_D likelihood, not evidence against the
+corrupted-precursor class — the two-model corruption result of §v1.7/v1.12 is untouched by it, since
+M_D is not a party to that comparison — and by the same token M_G's 25 is confounded and is not a
+fourth independent failure. What survives unchanged is the veto itself: M_G is below 70 in the primary
+configuration, on which the frozen verdict is computed, and in both unconfounded variants.
+Derivation and per-draw checks in [evidence/r11/README.md](evidence/r11/README.md).
 
 **Consequence, per the frozen design's own §6.3 veto: no four-class Bayes factor, posterior, or verdict
 is computed or published — here or elsewhere.** The gate was frozen before any of these numbers existed,
@@ -617,4 +650,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.19 | 2026-08-01 | **Three internal-consistency corrections (2026-08-01 cross-model calibration review).** (i) §Honest residuals stated the re-measured N_gs as "1.4σ **above**" the Phase-1 single run (5.00×10²⁵) — the pooled value is 4.50×10²⁵, i.e. **below** it; the direction was inverted and the 1.4σ magnitude was not reconstructible from the stated errors, so the sentence now reports the comparison without an unsupported σ figure. (ii) The convergence-gate summary quoted "1σ / **2.0σ** / 0.12σ" while the body reports the Moore-strict-only re-run at **1.9σ**; since the pre-committed gate is 2σ, the summary read as sitting *at* the gate rather than inside it — now 1.9σ, matching the body. (iii) §Extension said the certificate directory holds "19 total"; it holds **21** (certificates/README; TR-5 v2.1 records the intermediate 19→20 step). No measurement, model comparison, or verdict changed |
 | v1.20 | 2026-08-01 | **Three silent edits recorded, and v1.18's own propagation claim retracted (2026-08-01 cross-model sweep).** The 2026-08-01 pass made three body corrections here without a revision entry — exactly the silent-edit pattern this suite's process rules forbid. Recorded now: **(1)** the executive summary still called the four-class comparison "pending" twelve days after §Outcome recorded that its calibration RAN and was VETOED; **(2)** the §Extension STATUS block still read "STATUS (v1.12): ingredients collected; verdict not computed" and asserted the synthetic-draw calibration "has **not** run" — superseded by the veto in the same section; **(3)** §4's parenthetical asserted "TR-1's statement of the same theorem was already correctly scoped", which TR-1 v1.19 records as false in as many words ("v1.18 recorded a propagation that had not happened"). **Consequently the v1.18 row below is itself wrong** where it states "TR-1 and LITERATURE_RULES already carried the correct 'C1–C5-valid' wording": TR-1 did not (fixed 2026-08-01), and LITERATURE_RULES did not either — its §"jointly unsatisfiable" statement was still at the under-scoped C1–C5 form until 2026-08-01. Both are now at the certified C1∩C2∩C4∩C5 scope. Also this cycle: TR-1's figure alt-text and its caption six lines apart stated two DIFFERENT theorems for the same PNG — the very defect `fb565a7`/`fb356a9` were written to eliminate — now both at the certified scope. No certificate, count, or verdict changed. |
 | v1.21 | 2026-08-01 | **Baseline calibration imported, and the last unearned modal caption fixed (lens sweep unit q-tr1-tr2-tr8-tr10).** **(i)** This report — the primary report for the conflict theorem — carried *none* of the baseline calibration [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §5 and LITERATURE_RULES have carried since TR-1 v1.14 (2026-07-20): a grep for `Pareto` / `KW-derived` / `KW-descriptive` / `efficiency result` over TR-2 returned zero hits. §5 "What follows" instead closed on "which is what a good solution to an unsatisfiable problem looks like" — the efficiency reading v1.14 retracted — so a reader of TR-2 alone received the retracted inference as the report's conclusion. That clause is withdrawn and replaced by an explicit calibration block: all four rules are KW-derived, so a position near their joint Pareto frontier is expected rather than an efficiency result; and UNSAT means *every* C1∩C2∩C4∩C5-valid ordering sits at a forced choice, so the KW-specific residue is only the **measured** margin of 2 (no certificate excludes a miss of 1 — v1.17) and exact satisfaction of `ccn4`, which §4 already calls the most data-like of the four. Pointers to the calibration added to the executive summary and the §6 coda. **(ii)** v1.17 recorded "the figure caption" among the locations where "smallest margins possible" was corrected to "smallest **measured** margins (2 each)"; the caption still read "the minimal margins (2 each)", while the identical PNG's caption in TR-1 read "minimal measured margins" — the same image carried two different modal strengths across two reports. Caption corrected. No theorem, certificate, count or verdict changed |
-| v1.22 *(current)* | 2026-08-01 | **Dangling section pointer retargeted (serialized cross-file pass, unit r70-serialize).** §4's trigram-rule qualification priced the data-like reading against "[CRITIQUE.md] Q1" — a section that does not exist in CRITIQUE.md and never has; the file half was a resolving markdown link, so GATE 4 saw nothing wrong. Now points at CRITIQUE.md §"Observable-selection accounting", the section that actually prices data-like constraints. Five instances of the same dead pointer across [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) and DESCRIPTION_LENGTH.md were corrected in the same pass, and GATE 4 was extended to check plain-text section references. No theorem, certificate, count or verdict changed |
+| v1.22 | 2026-08-01 | **Dangling section pointer retargeted (serialized cross-file pass, unit r70-serialize).** §4's trigram-rule qualification priced the data-like reading against "[CRITIQUE.md] Q1" — a section that does not exist in CRITIQUE.md and never has; the file half was a resolving markdown link, so GATE 4 saw nothing wrong. Now points at CRITIQUE.md §"Observable-selection accounting", the section that actually prices data-like constraints. Five instances of the same dead pointer across [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) and DESCRIPTION_LENGTH.md were corrected in the same pass, and GATE 4 was extended to check plain-text section references. No theorem, certificate, count or verdict changed |
+| v1.23 *(current)* | 2026-08-02 | **Sensitivity grid published for every class, and the Phase-1 σ restored under a stated convention (unit d74-runs; recovered wkmoa12se items RUNS-03 / RUNS-04).** **(i)** §Outcome quoted the four pre-committed sensitivity variants only for M_G, the class that failed (67/67/45/25), and reported the three passing classes at their primary number alone. The full 4×4 grid is now published, together with two qualifications that cut against this report's earlier phrasing: `corrA` changes the arg-max on **0 of 393 draws** and so reproduces the primary confusion matrix exactly (four variants, three distinct outcomes), and the `histZ` column substitutes M_D's histogram-only Z table (29,997 cells vs the augmented 30,439) while changing no other likelihood — inflating L_D by a median factor of 10^5.56, with every draw M_G or M_C loses under it lost to M_D (42/42, 83/83). M_C's 1/100 under `histZ` is therefore a property of that inflated M_D likelihood and carries no implication for the v1.7/v1.12 two-model corruption result, to which M_D is not a party; M_G's 25 is confounded by the same factor and is not a fourth independent failure. The §6.3 veto is unchanged: M_G is below 70 in the primary configuration, on which the frozen verdict is computed, and in both unconfounded variants. **(ii)** v1.19 removed the σ from the N_gs/Phase-1 comparison as "not reconstructible from the stated errors"; it is reconstructible. The file's convention is |Δ| ⁄ √(SE₁²+SE₂²) on the adopted conservative CLT SE, which reproduces all three convergence-gate figures to the digit (1.06 / 0.12 / 1.92); applied here it gives **0.57σ below**, and the retracted 1.4 came from dividing by the raw between-seed SD (0.359×10²⁵) while omitting the Phase-1 run's own ±16.7%. The σ is restored with its convention named, and evidence/r11/PHASE2_README.md — which still carried the uncorrected "1.4σ above" — is fixed with it. No Bayes factor, gate verdict, count, certificate or sha changed |
