@@ -2730,10 +2730,31 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'See [CRITIQUE.md](CRITIQUE.md) '+c
   # OFFSET 9 inside "theorem (wrap-around parity is odd)".
   #
   # BOTH HALVES ARE LOAD-BEARING. rc alone would be satisfied by any unrelated failure the
-  # mutation happened to cause, so the ERE pins the gate's own WHY on this exact target — and
-  # that WHY is the sentence the prefix rule rewrote, so a run of this file WITHOUT the rule
-  # cannot print it. WHAT IT DOES NOT PROVE: that no OTHER weak resolution exists; the leg
-  # covers the one form the corpus is known to have produced.
+  # mutation happened to cause, so the ERE pins the gate's own WHY on this exact target.
+  #
+  # WHICH CLAUSE IS LOAD-BEARING WAS RE-VERIFIED 2026-08-02 (round 10, drain-2), AND THE
+  # STANDING MAINTENANCE NOTE CARRIED INTO ROUND 10 NAMED THE WRONG ONE. That note said this
+  # proof is meaningful only while the ERE remains the gate's FAIL wording "no line-leading
+  # bold label BEGINS with it". IT IS NOT THAT STRING. That phrase occurs exactly ONCE in
+  # this file, in the WHY message itself, and NO assertion anywhere asserts on it. The ERE
+  # below is the message's FIRST clause, `nothing in <doc> is named "<normalised section>"`,
+  # and what makes it unprintable by a build without the prefix rule is not its wording but
+  # its TARGET: without the rule the mutated reference RESOLVES, at offset 9 inside a bold
+  # label, so the gate prints nothing about it at all.
+  #
+  # THE MAINTENANCE CONDITION IS THEREFORE, EXACTLY: re-take this proof from a run if the
+  # `nothing in {d} is named "{norm(s)}"` clause is reworded, if `norm()` changes what the
+  # section title normalises to, or if this reference gains an allowlist row (which would
+  # route it to [OPEN] instead of [FAIL]). Rewording the prefix-rule clause does NOT void it.
+  # Recording the wrong trigger is worse than recording none: it invites a future unit to
+  # rewrite the clause that IS load-bearing believing the proof does not depend on it.
+  #
+  # WHAT IT DOES NOT PROVE, both directions: that no OTHER weak resolution exists — the leg
+  # covers the one form the corpus is known to have produced; and that no OTHER finding in
+  # the same `secrefs` output could print the same line. The second rests on GATE 4b being
+  # GREEN on the clean tree, so the mutated reference is the only unresolved citation of that
+  # target in the run. That is a real argument and it is a standing one, re-established by
+  # every green `all`, but it is an argument about the corpus rather than a check.
   assert_fires_why "GATE 4b LEG 7: a bold label matched mid-text is not an anchor" secrefs \
     'nothing in documentation/SPECIFICATION\.md is named "wrap-around parity"' \
 "p='documentation/CITATIONS.md'
