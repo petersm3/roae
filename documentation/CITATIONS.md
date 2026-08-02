@@ -1117,7 +1117,7 @@ Wikipedia and OEIS entries used for reader orientation and the binary encoding a
 
 *Revision 2026-07-05 (Mawangdui correction): the Mawangdui array was wrong from 2026-04-06 to 2026-07-05; novel-claim #8 is withdrawn and the §Mawangdui erratum added. Authority: Shaughnessy 2022, Table 11.2; discovery credit: the Shaughnessy-2022 literature-audit cross-check.*
 
-*Revision 2026-07-30 (novelty-gate review, manifest M1): added the §"(Z/2)⁶ hexagram algebra —
+*Revision 2026-07-30 (novelty-gate review, manifest M1): added the §"The (Z/2)⁶ hexagram algebra and hexagram-level group actions —
 priority ceded" section with entries for Ouyang Weicheng (1990, 1992 — incl. his 1987 denial and its
 1990 reversal), Zhang Qingyu (1994 tally / 1998 orbit / 2000 name), Suenaga (2012), and Luo Jianjin
 (2015 — poser of the enumeration question this suite answers); added #kongyingda (the classical C1
