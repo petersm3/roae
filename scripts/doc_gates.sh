@@ -5898,6 +5898,29 @@ for lineno, flags, pat in guards:
 #          taking that route is starting from zero. The measured distance is printed every run
 #          so a window that starts creeping is visible. NOT BUILT.
 #
+#          THE BLOCKER ON OPTION (a) IS GONE, MEASURED 2026-08-02 (round 11 drain-3). The
+#          stated blocker was that the traced cost was UNKNOWN and so could not be run on this
+#          box; it was never that the check would not work. `PS4='+${LINENO}:' bash -x` over
+#          this script's `--selftest` produced 530,162 bytes / 6,314 lines of combined trace
+#          and output in 1m57s wall — indistinguishable from the same run untraced — with
+#          1,929 traced commands (1,550 at top level, 379 at subshell depth) and a clean tree
+#          afterwards. No VM, no bound, nothing combinatorial. It was ALSO checked to PRODUCE
+#          the observation rather than merely to be affordable: in one trace, every BLOCK row's
+#          wrapper call and its `[ok]` report echo appear, in execution order, each carrying
+#          `$LINENO`, and the DYNAMIC call-to-echo distances came out equal, row for row, to
+#          the STATIC ones this leg already prints on its own `[ok]` line every run. (Those
+#          distances are deliberately not repeated here: the leg prints them, and a caveat that
+#          restates a live value is a corpus property written into the corpus, which is the one
+#          way this paragraph could go stale in silence.) Two things a builder has to handle,
+#          both observed and neither guessed: a wrapper reached only through `$(...)` traces
+#          at subshell depth
+#          (`++`, not `+`), and a wrapper is called more often than it reports (one is called
+#          four times and echoes twice), so calls do NOT pair one-to-one with echoes.
+#          STILL NOT BUILT, and this does not weaken the sentence below it. A dynamic
+#          call-then-echo adjacency proves both ran on ONE path, which static proximity cannot
+#          — but it still does not prove the echo's verdict is ABOUT that call, and a trace
+#          says nothing about the paths that run did not take.
+#
 #          WHAT WAS BUILT, because it was a hole underneath that one (item N3, round 10
 #          drain-3, 2026-08-02). Until today the check asked whether the label OCCURRED on a
 #          line within the window, and an occurrence is not an echo. In the live harness the
