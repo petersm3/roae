@@ -5375,9 +5375,36 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            the shape is "one bucket, two censuses", and only a census that knows about
   #            its sibling can close it. Removing the numbers here closes it for this bullet
   #            by making it derived; it does not close it anywhere else in the corpus.
-  #            GATES 1, 5 and
-  #            5b are report-only and already assert on output. GATES 4, 9, 10a/10b are
+  #            GATES 1, 5, 5b and 13
+  #            are report-only and already assert on output. GATES 4, 9, 10a/10b are
   #            structural, not classifier-driven: there is no matched token for them to name.
+  #            GATE 13 JOINED THAT FIRST GROUP IN ROUND 17 (drain-3); it had been absent
+  #            since the group was written. THE GROUP IS DERIVABLE, so do not remember it:
+  #            it is exactly the gates named in the `covered` list above that call NONE of
+  #            the five helpers, which is why their legs are written inline and can only
+  #            assert on output. For each gate g named in `covered`, ask whether
+  #            grep -cE 'assert_[a-z_0-9]+ +"GATE <g> ' over this file returns 0; on
+  #            2026-08-03 exactly four did — 1, 5, 5b and 13. GATE 13 meets the stated
+  #            criterion verbatim and its own body says so: "ASSERT ON OUTPUT, never on rc:
+  #            GATE 13 is report-only and returns 0 by design", and each of its four legs
+  #            greps G13OUT for content. NOTHING WENT RED, because the sentence's CLAIM
+  #            stayed true of the three it named — only its MEMBERSHIP was wrong, and no
+  #            gate reads membership.
+  #            WHY IT SURVIVED, and it is the reason this bullet states rules and not lists:
+  #            round 17's drain-1 found it by eye and could not adjudicate it; drain-2 then
+  #            deferred it on a reading of the `covered` list taken over a window that
+  #            stopped before that list ends, which made `covered` appear to omit 9, 10a/10b
+  #            and 13 when in fact it names all four. A TRUNCATED READ OF A LIST IS
+  #            INDISTINGUISHABLE FROM A SHORT LIST. Only re-deriving the population
+  #            separated them; re-reading either text would not have.
+  #            WHAT THIS DOES NOT SETTLE, stated rather than left to be discovered. The
+  #            derivation keys on a label spelled "GATE <n> " at an assert_ call, so a helper
+  #            leg labelled any other way would read as inline and be wrongly admitted here.
+  #            And the inline-leg parenthetical above is STILL A HAND-LIST: gates that mix
+  #            helper and inline legs — 4b, 10, 15 and 17 among those named in `covered` —
+  #            contribute gate-labelled inline legs that it does not name, so adding 13
+  #            corrects the membership of THIS group only and does not make that
+  #            parenthetical derived. NO GATE ENFORCES ANY OF THIS; it is documentation.
   #            AS OF 2026-08-02 (item A1's residue, round 8) THIS LIST IS EVERY ASSERTION IN
   #            THE HARNESS: the last exit-code-only helper, assert_stays_clean, became
   #            assert_stays_clean_why and its negative controls each carry an evidence-ERE
