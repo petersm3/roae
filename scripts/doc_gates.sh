@@ -4755,6 +4755,36 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     echo "         require_final_newline call-site anchor moved), so it did NOT run."
     PASS=1
   fi
+
+  # GUARD (6) FIRE-PROOF (round 15 drain-3) — ONE LEG, and it drives the only direction the
+  # guard has. body() stops at the first column-0 "}", which is exact for a shell function and
+  # wrong inside a heredoc. This mutation gives preflight_support_newlines a heredoc whose
+  # quoted text is a bare "}", so body() truncates immediately and every message and nested
+  # call after the cut disappears. The other guards would report a preflight at ZERO templates;
+  # only guard (6) says WHY, and only guard (6) fires when the truncation is partial.
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.rstrip()=='preflight_support_newlines() {']
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L.insert(t[0]+1,'  cat <<'+chr(39)+'XEOF'+chr(39)+' >/dev/null'+chr(10))
+L.insert(t[0]+2,'}'+chr(10))
+L.insert(t[0]+3,'XEOF'+chr(10))
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'body() cannot be trusted on preflight_support_newlines()'; then
+      echo "  [ok]   GATE 16 guard (6) a heredoc brace truncating the shared reader — refused"
+    else
+      echo "  [FAIL] GATE 16 guard (6) — a column-0 '}' inside a heredoc silently truncated"
+      echo "         body(), the reader guards (2) and (5) both depend on, and nothing said"
+      echo "         so. Past the cut, a nested call simply is not there to be censused."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 guard (6) — could not build the mutated copy (the"
+    echo "         'preflight_support_newlines() {' anchor moved), so it did NOT run."
+    PASS=1
+  fi
   rm -f "$_G16_COPY"
 
   # GATE 16 LEG 2 FIRE-PROOFS (item B2, round 9, 2026-08-02) — FOUR LEGS, ALL RUN.
@@ -7000,6 +7030,13 @@ PY
 #       counted, because the first draft of this paragraph said "three directions FAIL" over
 #       six branches, which is the R14/R16 shape inside the sentence describing the fix. It
 #       closes the population question ONE level; what it does not close is at its definition.
+#   (6) THE READER ITSELF. body() serves guard (2)'s template scan AND guard (5), and it stops
+#       at the first column-0 "}" — exact for a shell function, wrong inside a heredoc, where
+#       that brace is quoted text. MEASURED: gate_preflight_collisions' own span carries three
+#       such lines, two of them python dict terminators in its heredocs, so the shape exists in
+#       this file and merely does not exist in any function body() is called on. Truncation is
+#       SILENT for guard (5) and only half-loud for guard (2), which sees a preflight fall to
+#       zero templates but not to fewer. One direction, one leg.
 #
 # WHAT IT CANNOT SEE, stated rather than implied:
 #   (a) `assert_stays_clean_why` and `assert_gen_*` are outside this scan. NARROWED TWICE on
@@ -7377,7 +7414,12 @@ _NESTEDCALL = re.compile(r"(?:^|[;&|(){}]|\b(?:if|elif|then|else|do|while|until|
 #     callee that printed from a helper before its early return would not be seen, which is
 #     the quiet direction and is why the first bullet above matters.
 #   * IT SCOPES TO THE PRE-DISPATCH BODIES. require_final_newline is also called from inside
-#     GATE 11; those call sites are a different question and LEG 1 does not ask it.
+#     GATE 11 (three sites, none of them quiet); those are a different question and LEG 1
+#     does not ask it.
+#   * THE CALL-SITE CHECK READS THE WHOLE LINE, so a trailing shell comment mentioning the
+#     literal would satisfy it. Only a line whose FIRST character is `#` is dropped. Narrow,
+#     stated rather than fixed: stripping trailing comments needs a lexer, because `#` also
+#     occurs inside strings, and a wrong lexer is a worse instrument than a stated limit.
 _nested = []
 for _name, _ in emitters:
     for _bl in body(_name):
@@ -7436,6 +7478,45 @@ for _callee in NESTED:
         print("  [FAIL] %s() is declared to guard (5) but is not called from any pre-dispatch"
               " function in %s, so this declaration describes a run that no longer happens"
               % (_callee, src))
+        bad = 1
+
+# --- GUARD (6), round 15 drain-3: THE READER ITSELF. body() is the reader that guard (2)'s
+# template scan and guard (5) both depend on, and it stops at the FIRST column-0 "}". For a
+# shell function that rule is exact — a column-0 "}" closes the function — with one exception:
+# inside a heredoc it is quoted text, not syntax.
+#
+# MEASURED IN THIS FILE, which is why this is a tripwire and not a hypothesis:
+# gate_preflight_collisions' own span carries THREE column-0 "}" lines. Two are python dict
+# terminators inside its heredocs (EXEMPT_EMITTERS and NESTED — the second one added by the
+# pass that wrote this guard), and the third is its real close. So the triggering SHAPE exists
+# here already; it simply does not exist in any function body() is called on. Give a preflight
+# a heredoc tomorrow and body() truncates at the quoted brace.
+#
+# THE ASYMMETRY IS WHY THIS IS WORTH TEN LINES. A truncation is SILENT for guard (5) — every
+# nested call past the cut disappears and the census prints [ok] over what is left. For guard
+# (2) it is only half loud: that guard notices a preflight dropping to ZERO templates, not one
+# dropping to fewer. A silent undercount in the reader would defeat both guards above it.
+#
+# WHAT GUARD (6) CANNOT SEE: the span it counts over runs to the NEXT function definition, not
+# to the function's true end, so a bare column-0 "}" sitting in an intervening COMMENT block
+# would be reported too. That is the loud direction and it is deliberate — the alternative is
+# to find the true end by the same first-brace rule this guard exists to distrust.
+_DEFLINE = re.compile(r"^[a-z_][a-z0-9_]*\(\) \{")
+for _fn in sorted(set(SCANNED) | set(NESTED)):
+    _start = next((i for i, l in enumerate(lines) if l.startswith(_fn + "() {")), None)
+    if _start is None:
+        continue        # the missing-body case is reported by body()'s own callers, not here
+    _stop = next((i for i in range(_start + 1, len(lines)) if _DEFLINE.match(lines[i])),
+                 len(lines))
+    _closes = [i for i in range(_start + 1, _stop) if lines[i] == "}"]
+    if len(_closes) != 1:
+        print("  [FAIL] body() cannot be trusted on %s(): its span in %s carries %d column-0"
+              " '}' line(s), not 1, and body() stops at the first"
+              % (_fn, src, len(_closes)))
+        print("         A column-0 '}' CLOSES a shell function, so a second one is quoted")
+        print("         text — a heredoc. body() would truncate there, guard (5) would stop")
+        print("         seeing calls past the cut with nothing to say so, and guard (2)")
+        print("         only notices a preflight that goes to zero templates, not to fewer.")
         bad = 1
 
 ECHO = re.compile(r'^\s*echo\s+"(.*)"\s*$')
