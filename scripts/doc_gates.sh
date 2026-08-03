@@ -5316,6 +5316,46 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            a copy-confirmation guard written as an unanchored ERE and as the fixed
   #            string that was LIVE here until item A2) + its A1 leg + 1 negative
   #            control,
+  #            16 — NO NUMBER IS WRITTEN HERE, and that is not shorthand: the two available
+  #            counts DIFFER BY SEVEN. GATE 16 WAS ABSENT FROM THIS LIST ENTIRELY until
+  #            round 17's ledger unit added this entry, and it is the file's single largest
+  #            self-test contributor (19 of 124 legs; the next is GATE 15 at 16). It is
+  #            PRE-EXISTING and the dates say how it happened: 489b75c6 wrote the header
+  #            above that calls this inventory "STATED IN FULL"; 47fc740e then added GATE
+  #            16's legs and joined them to nothing. Both 2026-08-02, neither a round-17
+  #            commit. IT HID BY CONSTRUCTION: GATE 16 calls NONE of the five shared
+  #            assertion helpers — its legs go through the gate-LOCAL helper `_g16b` and
+  #            through literal echoes — and this list was built, in the header's own words,
+  #            "enumerated against the assertion calls above". A census keyed on `assert_*`
+  #            cannot see a gate that uses its own helper, which is the sibling of the
+  #            "one bucket, two censuses" shape recorded below.
+  #            THE TWO COUNTING UNITS, GATE 14's doctrine turned on this file's own
+  #            bookkeeping. Both measured 2026-08-03:
+  #              EMITTERS  grep -cE '^ +echo "  \[ok\]   GATE 16 ' scripts/doc_gates.sh -> 12
+  #              LEGS      scripts/doc_gates.sh --selftest \
+  #                          | grep -cF '  [ok]   GATE 16 '                             -> 19
+  #            THE EMITTER COMMAND IS ANCHORED ON `^ +echo "` FOR A REASON, and it is this
+  #            file's own recorded shape caught a fourth time. Written first as the obvious
+  #            grep -cF over the label alone, it returned FOURTEEN — the extra two being
+  #            THESE VERY COMMENT LINES, which contain the label because they quote the
+  #            command. A count written into prose becomes part of its own corpus on the
+  #            commit that records it. The anchor excludes comments by construction (a
+  #            comment line starts `  #`, never `  echo`), and it was RE-RUN after the edit
+  #            that introduced the self-reference, not before it. Cf. the note beside `_g16b`
+  #            below: "whole-line matching is what keeps a fire-proof from being satisfied by
+  #            its own source text".
+  #            They differ because ELEVEN emitters are literal and the twelfth is `_g16b`,
+  #            called eight times (LEG 2 x4, LEG 3 x4): 11 + 8 = 19. A hand count of source
+  #            lines under-reports the legs by exactly those seven, which is why the rule
+  #            and not either number is what is recorded here.
+  #            WHAT THIS ENTRY DOES NOT SETTLE. Adding 16 closes the ABSENCE only. The
+  #            per-gate MULTIPLICITIES in this list were not audited against the run, and a
+  #            spot check says at least some do not agree with it — the `--selftest` label
+  #            census gives 4b 9 legs and 15 16 legs against `4b` and `15 x5 + A1 + 1
+  #            control` written here. That is NOT reported as a defect, because this list's
+  #            counting UNIT was never stated and a printed [ok] label is not obviously the
+  #            unit it counts. Settling that requires establishing the unit first; it is
+  #            filed for round 18 rather than fixed by guess.
   #            17 x4 (LEG B's motivating ccn4 case, a registry rule deleted from the board,
   #            the moved-anchor vacuity guard, and a NEW registry rule proving the id list is
   #            derived from solve.py rather than transcribed) + 1 NEGATIVE control that puts a
@@ -5379,12 +5419,24 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            are report-only and already assert on output. GATES 4, 9, 10a/10b are
   #            structural, not classifier-driven: there is no matched token for them to name.
   #            GATE 13 JOINED THAT FIRST GROUP IN ROUND 17 (drain-3); it had been absent
-  #            since the group was written. THE GROUP IS DERIVABLE, so do not remember it:
-  #            it is exactly the gates named in the `covered` list above that call NONE of
-  #            the five helpers, which is why their legs are written inline and can only
-  #            assert on output. For each gate g named in `covered`, ask whether
+  #            since the group was written. THE GROUP IS DERIVABLE, so do not remember it —
+  #            but it takes TWO conditions, and round 17's LEDGER unit had to add the second
+  #            because the first stopped selecting four the moment the `covered` list above
+  #            was completed. Condition (i): the gate calls NONE of the five shared helpers,
+  #            so its legs are written inline or in a gate-local helper and can only assert
+  #            on output. Condition (ii): the gate is REPORT-ONLY — it is named as such in
+  #            the banner literal at the foot of this file. For each gate g named in
+  #            `covered`, ask whether
   #            grep -cE 'assert_[a-z_0-9]+ +"GATE <g> ' over this file returns 0; on
-  #            2026-08-03 exactly four did — 1, 5, 5b and 13. GATE 13 meets the stated
+  #            2026-08-03 that returns 0 for FIVE of them — 1, 5, 5b, 13 and 16 — and GATE
+  #            16 is a HARD gate, named in the PASS banner's hard-gate list. Condition (ii)
+  #            is what removes it. STATED AS ONE CONDITION, AS IT WAS WHEN drain-3 WROTE IT,
+  #            THE RULE WAS CORRECT ONLY BECAUSE `covered` OMITTED GATE 16 — the entry for
+  #            16 added above would have falsified it on the same commit that completed the
+  #            list. That is the hazard of deriving a rule over a population nobody has
+  #            checked is complete, and it is a different failure from the hand-list this
+  #            bullet was written to replace: the MEMBERSHIP it produced was right, the
+  #            REASON was not, and no gate reads either. GATE 13 meets the stated
   #            criterion verbatim and its own body says so: "ASSERT ON OUTPUT, never on rc:
   #            GATE 13 is report-only and returns 0 by design", and each of its four legs
   #            greps G13OUT for content. NOTHING WENT RED, because the sentence's CLAIM
