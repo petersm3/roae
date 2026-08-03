@@ -8690,7 +8690,29 @@ echo
 #     the two counting commands are in the usage block at the top of this file. Recorded because
 #     it bears on what a census is worth: `8 gates` sits INSIDE round 16's declared digit-census
 #     pattern (`<digit> <noun>`, with `gates` in its noun list) and survived that round anyway.
-#     I did not re-run that census and CANNOT say whether it missed this site or triaged it.
+#     ROUND 17 SETTLED WHY, by re-running each round-16 query against the tree it actually had
+#     rather than reasoning about it:
+#       - THE PATTERN IS NOT THE BLIND SPOT. The digit census's declared ERE, run over the
+#         WHOLE FILE at 06fa085d^ (drain-2's own open tree), returns 19 rows and this site IS
+#         one of them. So word order never excluded it.
+#       - THE CORPUS WAS. 17 of those 19 rows are comments, this site among them, and that
+#         census swept PRINTED counts.
+#       - The comment census had the right corpus and missed it for TWO INDEPENDENT reasons:
+#         it requires a SPELLED-OUT numeral, and `gates` is absent from its noun list
+#         (`legs|assertions|clauses|controls|proofs`). That reconstruction is fire-proven,
+#         not assumed: run verbatim it returns 37, the population drain-1 recorded at round
+#         16's close, so it is that round's query and not a new one written to agree.
+#     CONSEQUENCE: the uncovered class is not "noun-first". It is the cell COMMENT x
+#     DIGIT-FORM, which no round-15/16 query reaches at ANY word order. `N-nounfirst`'s
+#     premise was FALSIFIED, not merely narrowed — and the site it was filed from is the one
+#     that falsifies it.
+#     WHAT THIS CANNOT SEE, stated rather than left to be discovered: drain-2's exact corpus
+#     FILTER was never written down — only its noun list was — so "printed counts" is read
+#     off its own prose, not reproduced. An echo/print-restricted re-run of the ERE returns
+#     0, which does NOT match its reported "only LEG labels", so the filter reconstruction is
+#     approximate and a false clear there would be invisible to me. Only the load-bearing
+#     half is proven: the PATTERN matches this site in the whole-file corpus, so whatever the
+#     filter was, it excluded a line the pattern hits.
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
