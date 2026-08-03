@@ -4613,6 +4613,61 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(out)" 2>/dev/null; then
     echo "         assertion did NOT run."
     PASS=1
   fi
+  # GUARD (4) FIRE-PROOFS (round 15 drain-2) — TWO LEGS, BOTH RUN, one per direction.
+  #
+  # THE MOTIVATING EXAMPLE IS REAL AND IT IS NAMED. Round 14 shipped a third function that
+  # runs before every mode (doc_gates_concurrency_advisory) and nothing here noticed; guard
+  # (4) derives the emitter population from the dispatch region instead of declaring it.
+  # Leg A is that exact shape: a fourth emitter appears and must be REFUSED, not absorbed.
+  # Leg B is the other direction, and it is not decoration — a census that only complains
+  # about new names would go quiet the moment the region scan stopped finding the OLD ones,
+  # which is precisely how an inert scan prints [ok]. Indenting a call is the cheapest way to
+  # make the region scan miss it while the file still parses.
+  #
+  # BOTH ANCHORS ARE WHOLE STRIPPED LINES with an exact-count assert, for the reason recorded
+  # at the head of this region: `preflight_tracked_docs || RC=1` also occurs inside a comment
+  # and inside these two mutations' own source text, and a substring anchor would find those.
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.rstrip()=='preflight_support_newlines || RC=1']
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L.insert(t[0]+1,'preflight_fireproof_fourth_emitter || RC=1'+chr(10))
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'preflight_fireproof_fourth_emitter() before EVERY mode'; then
+      echo "  [ok]   GATE 16 a fourth pre-dispatch emitter — refused, not absorbed"
+    else
+      echo "  [FAIL] GATE 16 guard (4) — a function added before the dispatch was neither"
+      echo "         scanned nor reported. Its messages could satisfy any assertion silently."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 guard (4) leg A — could not build the mutated copy (the"
+    echo "         'preflight_support_newlines || RC=1' anchor moved), so it did NOT run."
+    PASS=1
+  fi
+
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.rstrip()=='preflight_tracked_docs || RC=1']
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]='  '+L[t[0]]
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'preflight_tracked_docs() is declared to this gate but is not called'; then
+      echo "  [ok]   GATE 16 a scanned emitter the region scan can no longer see — FAIL, not [ok]"
+    else
+      echo "  [FAIL] GATE 16 guard (4) — a declared emitter that the dispatch no longer calls"
+      echo "         was not reported, so the census can describe a run that never happens."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 guard (4) leg B — could not build the mutated copy (the"
+    echo "         'preflight_tracked_docs || RC=1' anchor moved), so it did NOT run."
+    PASS=1
+  fi
   rm -f "$_G16_COPY"
 
   # GATE 16 LEG 2 FIRE-PROOFS (item B2, round 9, 2026-08-02) — FOUR LEGS, ALL RUN.
@@ -6824,13 +6879,22 @@ PY
 # containing "preflight" (case-insensitive) and are listed in the output every run, so the
 # exemption cannot quietly grow to cover an assertion that should have failed.
 #
-# THREE VACUITY GUARDS, because the failure mode of this gate is finding nothing and saying
+# THE VACUITY GUARDS, because the failure mode of this gate is finding nothing and saying
 # [ok] — the same shape as the checker whose false clear hid a Lean defect for twelve hours
-# on 2026-08-01:
+# on 2026-08-01. NAMED RATHER THAN COUNTED (round 15 drain-2): this header said "THREE
+# VACUITY GUARDS" and a fourth was being added under it, which is the R14/R16 shape — a bare
+# multiplicity in a comment that no reader can check against the code. A named list can be
+# checked; a number cannot, and this file has now rotted four of them.
 #   (1) one ERE must be extracted per assert_fires_why invocation; a mismatch is a FAIL, so
 #       a parser that silently skips a call cannot pass;
-#   (2) the preflight message set must be non-empty;
-#   (3) the expanded candidate-line set must be non-empty.
+#   (2) the preflight message set must be non-empty, per preflight and in total;
+#   (3) the expanded candidate-line set must be non-empty;
+#   (4) THE EMITTER POPULATION ITSELF IS DERIVED FROM THE DISPATCH, not declared here. Guards
+#       (1)-(3) all presume the right set of functions is being read; until round 15 that set
+#       was a two-element tuple in the gate body, and round 14 had already shipped a third
+#       pre-dispatch emitter past it — see (c2) below. Both directions FAIL: a top-level call
+#       this gate neither scans nor exempts, and a name it declares that the dispatch no
+#       longer calls.
 #
 # WHAT IT CANNOT SEE, stated rather than implied:
 #   (a) `assert_stays_clean_why` and `assert_gen_*` are outside this scan. NARROWED TWICE on
@@ -6848,6 +6912,14 @@ PY
 #       gate exists to refuse is a FALSE PASS; on the stays-clean side the same collision can
 #       only produce a loud [FAIL]. Extending the extractor to a second call shape would also
 #       have to keep guard (1) exact, and guard (1) is what makes this gate non-vacuous.
+#       RE-VERIFIED END TO END, round 15 drain-2, because round 15's inbox carried a filed
+#       item asserting the OPPOSITE — that a collision here is a false clear. Every link was
+#       read: both preflight bodies print only inside the branch that sets their `bad`/
+#       `missing` flag and that branch `return 1`s, so PRINTING IMPLIES RETURN 1; both call
+#       sites are `|| RC=1`; the script ends `exit $RC`; and assert_stays_clean_why tests
+#       `[ "$rc" -ne 0 ]` and returns BEFORE its `grep -qE` on the ERE. The exclusion holds
+#       and the direction in that item was backwards. What this re-verification does NOT
+#       establish is anything about an emitter that prints WITHOUT setting RC — see (c2).
 #       assert_gen_* remain outside for the older and weaker reason: they do assert on an
 #       evidence-ERE, but against GATE 8's `generated` output rather than through this
 #       extractor.
@@ -6856,6 +6928,19 @@ PY
 #       not produce, never miss one that it would.
 #   (c) LEG 1 reasons about the preflights only. A collision between two PER-GATE messages is
 #       a different question — and LEG 2 below now asks half of it.
+#   (c2) THE PREFLIGHTS ARE NOT THE ONLY THING THAT RUNS BEFORE EVERY MODE, and this list did
+#       not say so until round 15. `doc_gates_concurrency_advisory` (round 14's R15 item) is
+#       called at top level between MODE= and the dispatch and prints seven lines. It is
+#       EXEMPT, and for a cause unlike (a)'s: it is not that a collision there would be loud,
+#       it is that it cannot happen at all — the function returns before its first echo
+#       whenever DOC_GATES_SELFTEST_DEPTH is set, the --selftest branch exports that marker,
+#       and every assertion in this file greps a run that descends from it. NOTE THE SHAPE OF
+#       THE DIFFERENCE: (a)'s argument is about RC, and the advisory deliberately does NOT
+#       touch RC, so (a)'s reasoning would not have covered it. It shipped outside this scan
+#       for a whole round with nothing to say so; guard (4) is why the next one cannot.
+#       The exemption's evidence is the self-test leg labelled "R15 concurrency advisory",
+#       which drives the independent direction with `env -u DOC_GATES_SELFTEST_DEPTH`. Delete
+#       that leg and this exemption has no evidence left — re-take it, do not re-argue it.
 #
 # LEG 2 — NO FIRE-PROOF MAY NAME A DISPATCH THAT RUNS MORE THAN ONE GATE (item B2, round 9,
 # 2026-08-02).
@@ -7059,9 +7144,74 @@ def body(name):
             out.append(ln)
     return out
 
+# --- GUARD (4), round 15 drain-2: WHICH EMITTERS ARE IN SCOPE IS ITSELF A CENSUS, and it
+# was a hardcoded two-element tuple on this line until now. Nothing re-derived it, so a THIRD
+# function that runs before every mode could ship — and one already had. Round 14's R15
+# advisory (doc_gates_concurrency_advisory) is called at top level between MODE= and the
+# dispatch, prints seven lines, and was never added here or named in the gate's own
+# "WHAT IT CANNOT SEE" list. It is exempt for a real reason, recorded below; the point is that
+# nothing checked, and the next one would be exempt by accident.
+#
+# NAMED, NOT COUNTED. Every emitter is printed with its disposition, because a bare
+# multiplicity is not checkable by a reader against reality and a named list is (O-census).
+SCANNED = ("preflight_tracked_docs", "preflight_support_newlines")
+EXEMPT_EMITTERS = {
+    # MEASURED, not argued: this function's first statement returns before any echo when
+    # DOC_GATES_SELFTEST_DEPTH is set; the --selftest branch exports it; every assertion in
+    # this file captures a run that descends from that branch. So no assertion's captured
+    # output can contain a line of its. Both directions of the suppression are re-proven on
+    # every self-test by the leg labelled "R15 concurrency advisory", which drives the
+    # independent direction with `env -u DOC_GATES_SELFTEST_DEPTH`. If that leg is ever
+    # deleted, this exemption loses its evidence and must be re-taken, not re-argued.
+    "doc_gates_concurrency_advisory":
+        "suppressed in every --selftest descendant (DOC_GATES_SELFTEST_DEPTH), so it cannot"
+        " print into any assertion's captured run",
+}
+_a = [i for i, ln in enumerate(lines) if ln.startswith('MODE="${1:-all}"')]
+_b = [i for i, ln in enumerate(lines) if ln.startswith('case "$MODE" in')]
+# A top-level call: a bare function name at column 0, optionally `|| RC=1`. Anchored at both
+# ends, so an indented line inside the advisory's own body cannot be read as a call.
+TOPCALL = re.compile(r"^([a-z_][a-z0-9_]*)(?:[ \t]*\|\|[ \t]*RC=1)?[ \t]*$")
+emitters = []
+if len(_a) != 1 or len(_b) != 1 or _b[0] <= _a[0]:
+    print("  [FAIL] the pre-dispatch region of %s could not be located exactly once"
+          " (MODE= x%d, dispatch x%d), so the emitter census was NOT taken"
+          % (src, len(_a), len(_b)))
+    print("         An empty census would print [ok] over zero emitters, which is the")
+    print("         false-clear shape this gate's three other vacuity guards exist for.")
+    bad = 1
+else:
+    emitters = [(TOPCALL.match(lines[i]).group(1), i + 1)
+                for i in range(_a[0], _b[0]) if TOPCALL.match(lines[i])]
+    if not emitters:
+        print("  [FAIL] zero top-level calls between MODE= and the dispatch in %s — the"
+              " emitter census is inert, not clean" % src)
+        bad = 1
+    for _name, _n in emitters:
+        if _name in SCANNED:
+            print("  [note] pre-dispatch emitter %s() (%s:%d) — SCANNED below" % (_name, src, _n))
+        elif _name in EXEMPT_EMITTERS:
+            print("  [note] pre-dispatch emitter %s() (%s:%d) — EXEMPT: %s"
+                  % (_name, src, _n, EXEMPT_EMITTERS[_name]))
+        else:
+            print("  [FAIL] %s:%d runs %s() before EVERY mode, and this gate neither scans"
+                  " its messages nor exempts it" % (src, _n, _name))
+            print("         A per-gate assertion satisfied by a line THAT function prints")
+            print("         would pass with its own gate switched off — the A6 shape, one")
+            print("         emitter over. Add it to SCANNED, or to EXEMPT_EMITTERS with the")
+            print("         reason it cannot produce a false clear.")
+            bad = 1
+    _called = {_name for _name, _ in emitters}
+    for _name in tuple(SCANNED) + tuple(EXEMPT_EMITTERS):
+        if _name not in _called:
+            print("  [FAIL] %s() is declared to this gate but is not called before the"
+                  " dispatch in %s, so this census describes a run that no longer happens"
+                  % (_name, src))
+            bad = 1
+
 ECHO = re.compile(r'^\s*echo\s+"(.*)"\s*$')
 templates = []
-for fn in ("preflight_tracked_docs", "preflight_support_newlines"):
+for fn in SCANNED:
     b = body(fn)
     if not b:
         print("  [FAIL] %s() body not found in %s, so zero preflight messages were compared"
