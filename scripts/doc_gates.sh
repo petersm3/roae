@@ -429,6 +429,11 @@ preflight_support_newlines() {
 #     `glob.glob('reports/TR*.md')`, a WORKING-TREE glob, so a deleted file leaves the
 #     population entirely rather than being read as empty; that is still a hazard ("a FAIL,
 #     not a smaller count") but a different one, and the message named the wrong mechanism.
+#     Phase-4 correction to this batch's own first draft: the replacement message said GATE 9
+#     shrinks "without saying so". MEASURED FALSE against a real `all` run — it prints
+#     "scanned 11 reports/TR*.md" and would print 10. The defect is that it then PASSES, not
+#     that it is silent, and the first draft of a fix for an inaccurate message was itself
+#     inaccurate about a sibling gate. Caught by reading the gate's real output, not by a gate.
 #
 # MEASURED, NOT READ OFF THE CODE. Each of the four dispositions was driven in a throwaway
 # git repo holding one tracked .md, deleted from the working tree only: the GATE 1 shape
@@ -459,8 +464,9 @@ preflight_tracked_docs() {
     echo "         (its grep runs 2>/dev/null); GATE 3's redirection leaves a stderr line."
     echo "         GATES 3b, 4, 4b, 5 and 5b re-derive the same index listing in python and"
     echo "         raise FileNotFoundError instead, which is loud, not a false clear."
-    echo "         GATE 9 globs the WORKING TREE, so the file simply leaves its population"
-    echo "         and the gate compares a smaller set without saying so."
+    echo "         GATE 9 globs the WORKING TREE, so the file simply leaves its population."
+    echo "         It does PRINT the reduced tally (\"scanned N reports/TR*.md\") and then"
+    echo "         passes — a smaller count rather than a FAIL, which is the weaker refusal."
     echo "         Restore it (git checkout -- <path>) or remove it from the index."
     echo
     return 1
