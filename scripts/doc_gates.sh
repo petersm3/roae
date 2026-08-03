@@ -4001,7 +4001,8 @@ os.remove('documentation/CORRECTIONS.md')"
 assert os.path.exists('documentation/GUIDE.md'), 'anchor moved'
 os.remove('documentation/GUIDE.md')"
 
-  # GATE 14 FIRE-PROOFS (item A6, 2026-08-02) — FOUR legs, and the count is deliberate.
+  # GATE 14 FIRE-PROOFS (item A6, 2026-08-02) — FIVE legs plus one negative control, NAMED
+  # below rather than tallied here, and the split is deliberate.
   #
   # The suite's own header records GATE 8 shipping a ONE-DIRECTIONAL comparison behind a
   # fire-proof that was taken by hand and never re-run. A duplicate-detector has exactly the
@@ -4023,11 +4024,24 @@ os.remove('documentation/GUIDE.md')"
   # Plus a negative control: a comment appended to the allowlist must change nothing, or the
   # parser is failing closed on its own file format and legs 1-5 prove less than they look.
   #
-  # THIS HEADER SAID "FOUR legs, and the count is deliberate" UNTIL ROUND 15 (item R16), and
-  # enumerated only (1)-(4)-as-missing-input while FIVE legs plus the control stood below it.
-  # The vacuity leg was added by this batch's OWN Phase-4 and nothing moved the count — the
-  # identical shape to ITEM B1's header above and to GATE 17's "FIVE LEGS" against six. The
-  # count is now derived from the invocations rather than asserted.
+  # THIS HEADER SAID "FOUR legs, and the count is deliberate" FROM ae2c705b UNTIL ROUND 16,
+  # while enumerating only (1)-(4)-as-missing-input and standing over FIVE legs plus the
+  # control. The vacuity leg was added by this batch's OWN Phase-4 and nothing moved the
+  # count — the identical shape to ITEM B1's header above and to GATE 17's "FIVE LEGS"
+  # against six.
+  #
+  # THE ROUND-15 FIX LANDED ON THE ENUMERATION AND NOT ON THE HEADER, AND THIS PARAGRAPH
+  # ASSERTED OTHERWISE FOR A FULL ROUND. Round 15's item R16 (d9d5d30d) rewrote (1)-(5),
+  # added the control sentence and wrote "UNTIL ROUND 15" here — twenty-two lines above the
+  # header it was describing, which still read FOUR. A retrospective is a CLAIM about a
+  # sibling line, and nothing checks that the sibling moved. Corrected round 16 drain-1 by
+  # reading the block, having arrived at it from the census query rather than from this note.
+  #
+  # WHY THE SWEEP THAT WROTE THAT SENTENCE COULD NOT SEE THE LINE IT DESCRIBED: round 15's
+  # census query was case-SENSITIVE, this header reads "FOUR legs", and the query's
+  # alternation is lowercase. MEASURED: the case-sensitive form returns 0 on this line and
+  # 12 rows over the whole 2400-7700 window; the case-insensitive form returns it. The
+  # header was inside the swept LINE RANGE the whole time and outside the swept ALPHABET.
   #
   # ITEM A2 CHECKED BEFORE THESE WERE WRITTEN, not after: neither preflight can emit any of
   # the EREs below. preflight_tracked_docs prints only "tracked markdown missing from
