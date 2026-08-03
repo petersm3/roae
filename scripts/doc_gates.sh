@@ -66,8 +66,14 @@ DOCS=$(git ls-files '*.md' || true)
 # ----------------------------------------------------------------------------------
 # ITEM A1 (2026-08-02) — WHAT EVERY GATE DOES WITH A MISSING INPUT.
 #
-# GATE 8's five legs used to `[skip]` a deleted git-tracked artifact, so `rm example/report.pdf`
-# passed in silence. That was fixed and proven on 2026-08-02; the same question was then asked
+# EVERY LEG OF GATE 8 used to `[skip]` a deleted git-tracked artifact, so `rm example/report.pdf`
+# passed in silence. (This sentence read "GATE 8's five legs" until round 15 drain-3. SIX exist,
+# and they are named rather than counted because a bare multiplicity is not checkable by a
+# reader against the code and a named list is: legs 1-4 are `_cmp` on example/report.txt,
+# report.md, README.md and report.html; LEG 5 is report.pdf by multiset; LEG 6 is README.md as
+# a byte-identical copy. LEG 6 arrived with item A2 on the SAME DAY this sentence was written
+# and the tally never moved with it. De-numbered, not bumped.)
+# That was fixed and proven on 2026-08-02; the same question was then asked
 # of GATES 2, 3, 3b, 6, 10a, 10b and 11, and every one of them had the same shape. MEASURED,
 # not reasoned: with `documentation/CORRECTIONS.md` deleted from the working tree,
 #   scripts/doc_gates.sh retract  ->  "DOC GATES: PASS (retract)", rc 0
