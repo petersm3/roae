@@ -4668,6 +4668,93 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     echo "         'preflight_tracked_docs || RC=1' anchor moved), so it did NOT run."
     PASS=1
   fi
+
+  # GUARD (5) FIRE-PROOFS (round 15 drain-3) — THREE LEGS, ALL RUN, one per direction.
+  #
+  # THE MOTIVATING EXAMPLE IS LIVE AND NAMED, and it is the reason leg B is the sharp one.
+  # preflight_support_newlines calls require_final_newline, whose non-quiet branch prints
+  # a line that — expanded over documentation/RETRACTED_FIGURES.tsv — IS the evidence-ERE of
+  # the checked assertion "GATE 11 (figures) registry with no final newline drops its last
+  # row". The literal `quiet` at that one call site is the whole of what keeps it out of this
+  # gate's candidate set, and guard (4) does not read call sites inside a function at all.
+  #   leg A — a pre-dispatch function grows a callee nobody declared: REFUSED, not absorbed.
+  #   leg B — the suppression the declaration rests on is deleted: REFUSED. This is the live
+  #           defect the guard exists for; the other two protect it from going inert.
+  #   leg C — the declared callee is no longer called: REFUSED. A census that only complains
+  #           about NEW names goes quiet the moment its scan stops finding the old ones.
+  #
+  # THE ANCHORS CARRY NO `$` AND NO `"`, deliberately: these mutations run inside a
+  # double-quoted `python3 -c`, where either character would be interpreted by the shell
+  # before python ever saw it. The call-site anchor is a stripped-prefix match PLUS the
+  # literal, because `require_final_newline ` alone matches FOUR lines (three are GATE 11's
+  # own call sites) — measured, not assumed.
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.rstrip()=='preflight_tracked_docs() {']
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L.insert(t[0]+1,'    require_tracked notes.md || missing=1'+chr(10))
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'preflight_tracked_docs() calls require_tracked() one level down'; then
+      echo "  [ok]   GATE 16 guard (5) an undeclared callee one level down — refused"
+    else
+      echo "  [FAIL] GATE 16 guard (5) leg A — a function called from INSIDE a pre-dispatch"
+      echo "         emitter was neither scanned nor declared, and nothing said so."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 guard (5) leg A — could not build the mutated copy (the"
+    echo "         'preflight_tracked_docs() {' anchor moved), so it did NOT run."
+    PASS=1
+  fi
+
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.strip().startswith('require_final_newline ') and 'quiet' in l]
+assert len(t)==1, 'call-site anchor moved: %d' % len(t)
+L[t[0]]=L[t[0]].replace(' quiet ',' ',1)
+assert 'quiet' not in L[t[0]], 'the suppressing argument survived the substitution'
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'and the ONLY thing keeping that callee out of this'; then
+      echo "  [ok]   GATE 16 guard (5) the suppression its exemption rests on, deleted — refused"
+    else
+      echo "  [FAIL] GATE 16 guard (5) leg B — the argument that keeps a nested callee's"
+      echo "         messages out of this scan was removed and the gate still passed. That"
+      echo "         is the live A6 shape, one level down: GATE 11's own fire-proof becomes"
+      echo "         satisfiable by a preflight line with nothing reporting it."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 guard (5) leg B — could not build the mutated copy (the"
+    echo "         require_final_newline call-site anchor moved), so it did NOT run."
+    PASS=1
+  fi
+
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+t=[i for i,l in enumerate(L) if l.strip().startswith('require_final_newline ') and 'quiet' in l]
+assert len(t)==1, 'call-site anchor moved: %d' % len(t)
+L[t[0]]=L[t[0]].replace('require_final_newline','true',1)
+assert 'require_final_newline' not in L[t[0]], 'the call survived the substitution'
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'require_final_newline() is declared to guard (5) but is not called'; then
+      echo "  [ok]   GATE 16 guard (5) a declared callee the scan can no longer see — FAIL, not [ok]"
+    else
+      echo "  [FAIL] GATE 16 guard (5) leg C — a declared nested callee that is no longer"
+      echo "         called was not reported, so the declaration can describe a run that"
+      echo "         never happens and the scan can go inert while printing [ok]."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 guard (5) leg C — could not build the mutated copy (the"
+    echo "         require_final_newline call-site anchor moved), so it did NOT run."
+    PASS=1
+  fi
   rm -f "$_G16_COPY"
 
   # GATE 16 LEG 2 FIRE-PROOFS (item B2, round 9, 2026-08-02) — FOUR LEGS, ALL RUN.
@@ -6895,6 +6982,24 @@ PY
 #       pre-dispatch emitter past it — see (c2) below. Both directions FAIL: a top-level call
 #       this gate neither scans nor exempts, and a name it declares that the dispatch no
 #       longer calls.
+#   (5) THE POPULATION ONE LEVEL DOWN. Guard (4) proves which functions the DISPATCH calls;
+#       it does not follow a call, and neither does body(). Round 15's drain-2 filed that
+#       limit against its own instrument and drain-3 measured it: preflight_support_newlines
+#       calls require_final_newline, whose non-quiet branch prints the EXACT evidence-ERE of
+#       the checked assertion "GATE 11 (figures) registry with no final newline drops its
+#       last row", and only the literal `quiet` at that one call site keeps it out of the
+#       candidate set. Nothing read that call site. Guard (5) declares each nested callee
+#       with the argument that suppresses it and MEASURES both halves — the call site passes
+#       the literal, and the callee returns on it before its first echo — so the exemption
+#       is re-taken on every run rather than re-argued. THREE of its directions are driven by
+#       a self-test leg, one each: an undeclared callee; a declared one whose suppressing
+#       argument has gone from the call site; a declared one the pre-dispatch bodies no
+#       longer call. It has THREE FURTHER [FAIL] branches that no leg drives — an emptied
+#       declaration, a callee whose body cannot be found, and a callee that stopped honouring
+#       the literal while the call site still passes it. Both groups are NAMED rather than
+#       counted, because the first draft of this paragraph said "three directions FAIL" over
+#       six branches, which is the R14/R16 shape inside the sentence describing the fix. It
+#       closes the population question ONE level; what it does not close is at its definition.
 #
 # WHAT IT CANNOT SEE, stated rather than implied:
 #   (a) `assert_stays_clean_why` and `assert_gen_*` are outside this scan. NARROWED TWICE on
@@ -7220,6 +7325,118 @@ else:
                   " dispatch in %s, so this census describes a run that no longer happens"
                   % (_name, src))
             bad = 1
+
+# --- GUARD (5), round 15 drain-3: guard (4) proves which functions the DISPATCH calls. It
+# does not follow a call, and neither does body() — so an emitter ONE LEVEL DOWN, invoked from
+# inside a pre-dispatch function, is outside every guard above it. Filed as N3 by the unit
+# that shipped guard (4), against its own instrument, which is the honest direction.
+#
+# THE MOTIVATING EXAMPLE IS LIVE, NAMED AND MEASURED, not synthesised.
+# preflight_support_newlines calls require_final_newline, whose non-quiet branch prints
+# "  [FAIL] $1 does not end with a newline". Expanded over documentation/RETRACTED_FIGURES.tsv
+# that is EXACTLY the evidence-ERE of the CHECKED (non-exempt) assertion labelled "GATE 11
+# (figures) registry with no final newline drops its last row". The only thing keeping that
+# line out of this gate's candidate set is the literal `quiet` passed at that one call site —
+# and until now NOTHING read that call site. Delete the word and GATE 11's fire-proof becomes
+# satisfiable by a preflight line while this gate prints [ok]: the A6 shape, one level down.
+# The comment above that fire-proof already argues the two wordings share no substring; that
+# argument is true and it is not what holds, because it does not mention `quiet` at all.
+#
+# NAMED, NOT COUNTED, and the suppression is MEASURED rather than argued. For a callee
+# declared here, this guard checks BOTH halves: that every pre-dispatch call site passes the
+# suppressing literal, AND that the callee returns on that literal before its first echo. An
+# exemption whose condition nothing re-reads is prose, and prose about a corpus property that
+# nothing re-reads is the class this campaign has caught in eleven consecutive rounds.
+NESTED = {
+    "require_final_newline": ("quiet",
+                              "its pre-dispatch caller passes the literal, and the callee"
+                              " returns on it before its first echo, so none of its three"
+                              " message lines can reach any run this gate compares against"),
+}
+_FUNCDEF = re.compile(r"^([a-z_][a-z0-9_]*)\(\) \{")
+_defined = {m.group(1) for _ln in lines for m in [_FUNCDEF.match(_ln)] if m}
+# A callee in COMMAND position. Comments are stripped first — a comment cannot call anything,
+# and reading one as a call is exactly how LEG 2's first resolver hid the fan-out it was
+# measuring (recorded at its own `uncomment`). The separator set is deliberately GENEROUS: a
+# character class covers ; & && | || ( ) { } in one, so a pipeline or a backgrounded call is
+# read, and the keyword list covers the compound forms. Over-reading costs a loud [FAIL] on a
+# name this gate does not know; under-reading costs a silent clear, and this guard exists
+# because a silent clear already happened one level up.
+_NESTEDCALL = re.compile(r"(?:^|[;&|(){}]|\b(?:if|elif|then|else|do|while|until|not)\b|!)"
+                         r"\s*([a-z_][a-z0-9_]*)\b")
+#
+# WHAT GUARD (5) CANNOT SEE, stated here and not left to the reader (Phase-4, same pass):
+#   * ONE LEVEL, NOT TRANSITIVE. It does not follow the callee's own callees. MEASURED at the
+#     time of writing: require_final_newline calls no function defined in this file, so the
+#     third level is empty today — but nothing here would notice it filling.
+#   * CALLS, NOT REACHABILITY — guard (4)'s limit inherited unchanged. A callee reached
+#     through a variable or `eval` is invisible to this scan.
+#   * THE SUPPRESSION CHECK IS TEXTUAL, NOT AN EVALUATION. It reads the call line for the
+#     literal and the callee's body for an early return on it. A caller passing the literal
+#     through a variable reads as UNSUPPRESSED (the loud direction, and the safe one); a
+#     callee that printed from a helper before its early return would not be seen, which is
+#     the quiet direction and is why the first bullet above matters.
+#   * IT SCOPES TO THE PRE-DISPATCH BODIES. require_final_newline is also called from inside
+#     GATE 11; those call sites are a different question and LEG 1 does not ask it.
+_nested = []
+for _name, _ in emitters:
+    for _bl in body(_name):
+        if _bl.lstrip().startswith("#"):
+            continue
+        for _m in _NESTEDCALL.finditer(_bl):
+            if _m.group(1) in _defined:
+                _nested.append((_name, _m.group(1), _bl.strip()))
+if not NESTED:
+    print("  [FAIL] guard (5)'s nested-callee declaration is EMPTY. It was measured NON-empty"
+          " when written (require_final_newline, from preflight_support_newlines), so an"
+          " empty declaration means this guard was emptied, not that the hazard went away")
+    bad = 1
+for _caller, _callee, _site in _nested:
+    if _callee not in NESTED:
+        print("  [FAIL] %s() calls %s() one level down, and this gate neither scans its"
+              " messages nor accounts for it" % (_caller, _callee))
+        print("           call: %s" % _site)
+        print("         A pre-dispatch function's callee prints before EVERY mode too, and")
+        print("         body() does not follow a call — so its lines are outside guards (1)")
+        print("         to (4). Suppress it on this path and declare it here with the")
+        print("         argument that does the suppressing, or teach the scan to read it.")
+        bad = 1
+        continue
+    _arg, _why = NESTED[_callee]
+    if not re.search(r"\b%s\b.*\b%s\b" % (re.escape(_callee), re.escape(_arg)), _site):
+        print("  [FAIL] %s() calls %s(), and the ONLY thing keeping that callee out of this"
+              " gate's scan is the '%s' argument — which is not at this call site"
+              % (_caller, _callee, _arg))
+        print("           call: %s" % _site)
+        print("         Its messages become preflight-emittable the moment this argument")
+        print("         goes, and no guard above this one reads a callee at all.")
+        bad = 1
+        continue
+    _cb = body(_callee)
+    if not _cb:
+        print("  [FAIL] %s() body not found in %s, so guard (5) could not check the '%s'"
+              " suppression it rests on" % (_callee, src, _arg))
+        bad = 1
+        continue
+    _echo_at = next((i for i, l in enumerate(_cb) if l.lstrip().startswith("echo ")), None)
+    _sup_at = next((i for i, l in enumerate(_cb)
+                    if ("= %s ]" % _arg) in l and "return" in l), None)
+    if _echo_at is not None and (_sup_at is None or _sup_at > _echo_at):
+        print("  [FAIL] %s() is called with '%s' from %s(), but its body no longer returns on"
+              " '%s' before its first echo" % (_callee, _arg, _caller, _arg))
+        print("         The call site still passes the argument and the callee no longer")
+        print("         honours it, so this exemption's condition has gone false silently.")
+        bad = 1
+        continue
+    print("  [note] nested pre-dispatch callee %s() <- %s() — SUPPRESSED: %s"
+          % (_callee, _caller, _why))
+_nested_seen = {c for _, c, _ in _nested}
+for _callee in NESTED:
+    if _callee not in _nested_seen:
+        print("  [FAIL] %s() is declared to guard (5) but is not called from any pre-dispatch"
+              " function in %s, so this declaration describes a run that no longer happens"
+              % (_callee, src))
+        bad = 1
 
 ECHO = re.compile(r'^\s*echo\s+"(.*)"\s*$')
 templates = []
