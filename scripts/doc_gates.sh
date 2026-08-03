@@ -409,6 +409,38 @@ preflight_support_newlines() {
 # file) and DOES NOT short-circuit: it sets RC and lets the gates run anyway, so a per-gate
 # fire-proof can still tell its own leg's message from this one. The two messages are
 # deliberately worded differently for exactly that reason.
+#
+# THE CONSUMER LIST WAS WRONG IN BOTH DIRECTIONS UNTIL ROUND 16 (item N-emitdigit).
+# It read: "GATES 3, 3b, 4, 4b, 5, 5b and 9 all iterate this list and would read each missing
+# file as EMPTY — reporting [ok] on a document they never opened." Two defects, and the
+# expensive one is the omission:
+#
+#   * GATE 1 WAS NOT NAMED, and it is the only consumer that does the described thing
+#     SILENTLY. gate_numbers iterates `$DOCS` and greps each file with `2>/dev/null`, so a
+#     missing file contributes no integers, produces no diagnostic, and the gate reports on a
+#     document it never opened. A maintainer reading the old message concluded GATE 1 was
+#     unaffected — a false clear manufactured by the message, which is the class this file
+#     keeps re-learning.
+#   * SIX OF THE SEVEN NAMED GATES DO NOT DO WHAT THE MESSAGE SAID. Of the seven it named,
+#     only GATE 3 reads a missing file as empty (its `tr ... < "$f"` redirection fails and the
+#     pipeline sees EOF); GATE 1, unnamed, does the same thing and does it silently.
+#     GATES 3b/4/4b/5/5b re-derive the listing in python and `open()` it unguarded, so they
+#     raise FileNotFoundError — loud, and the safe direction. GATE 9 uses
+#     `glob.glob('reports/TR*.md')`, a WORKING-TREE glob, so a deleted file leaves the
+#     population entirely rather than being read as empty; that is still a hazard ("a FAIL,
+#     not a smaller count") but a different one, and the message named the wrong mechanism.
+#
+# MEASURED, NOT READ OFF THE CODE. Each of the four dispositions was driven in a throwaway
+# git repo holding one tracked .md, deleted from the working tree only: the GATE 1 shape
+# returned rc=0 with zero output; the GATE 3 shape reported no-match plus one stderr line;
+# the python `open()` shape raised FileNotFoundError with rc=1; `glob.glob` returned [].
+# The population itself was re-derived by function bounds (`$DOCS` or a `git ls-files '*.md'`
+# of the consumer's own) rather than trusted from the old sentence.
+#
+# WHAT THIS NOTE CANNOT SEE. The list is hand-maintained and nothing checks it: a gate added
+# later that iterates the corpus would not appear here, and no gate reads this message against
+# the code it describes. That is the same standing question as O6/O-census and no instrument
+# is proposed for it here.
 preflight_tracked_docs() {
   local f missing=0
   for f in $DOCS; do
@@ -420,8 +452,15 @@ preflight_tracked_docs() {
     missing=$((missing+1))
   done
   if [ "$missing" -ne 0 ]; then
-    echo "         GATES 3, 3b, 4, 4b, 5, 5b and 9 all iterate this list and would read each"
-    echo "         missing file as EMPTY — reporting [ok] on a document they never opened."
+    echo "         WHAT EACH CONSUMER DOES WITH IT — named, not counted, and each disposition"
+    echo "         measured rather than read off the code (see this function's header):"
+    echo "         GATES 1 and 3 iterate this list and read a missing file as EMPTY —"
+    echo "         reporting [ok] on a document they never opened. GATE 1 is the SILENT one"
+    echo "         (its grep runs 2>/dev/null); GATE 3's redirection leaves a stderr line."
+    echo "         GATES 3b, 4, 4b, 5 and 5b re-derive the same index listing in python and"
+    echo "         raise FileNotFoundError instead, which is loud, not a false clear."
+    echo "         GATE 9 globs the WORKING TREE, so the file simply leaves its population"
+    echo "         and the gate compares a smaller set without saying so."
     echo "         Restore it (git checkout -- <path>) or remove it from the index."
     echo
     return 1
