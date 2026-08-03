@@ -7171,6 +7171,18 @@ _a = [i for i, ln in enumerate(lines) if ln.startswith('MODE="${1:-all}"')]
 _b = [i for i, ln in enumerate(lines) if ln.startswith('case "$MODE" in')]
 # A top-level call: a bare function name at column 0, optionally `|| RC=1`. Anchored at both
 # ends, so an indented line inside the advisory's own body cannot be read as a call.
+#
+# WHAT GUARD (4) CANNOT SEE, stated here and not left to the reader (Phase-4, same pass):
+#   * IT READS CALLS, NOT REACHABILITY. An emitter invoked from INSIDE one of these three
+#     functions, or through a variable or `eval`, is invisible to this scan and would be
+#     invisible to a green run. This guard closes the population question one level; it does
+#     not close it.
+#   * A TOP-LEVEL SHELL KEYWORD IN THIS REGION IS REPORTED AS AN UNKNOWN EMITTER. Write an
+#     unindented `if ... fi` between MODE= and the dispatch and the bare `fi` matches this
+#     pattern. That is deliberate and it is the LOUD direction: the region grew structure the
+#     scan cannot read, and a [FAIL] saying so is better than a census quietly taken over a
+#     shape it was not written for. No keyword blocklist, because a blocklist is a second
+#     hand-maintained population and this guard exists because the first one rotted.
 TOPCALL = re.compile(r"^([a-z_][a-z0-9_]*)(?:[ \t]*\|\|[ \t]*RC=1)?[ \t]*$")
 emitters = []
 if len(_a) != 1 or len(_b) != 1 or _b[0] <= _a[0]:
