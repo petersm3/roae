@@ -1571,6 +1571,29 @@ gate_liveness() {
 import re, glob, sys
 LIVE = ['in flight', 'currently running', 'results pending', 'and growing',
         'is underway', 'awaiting results', 'run is ongoing']
+# WORD-BOUNDARY KEYS (round 15, item R18). A bare substring test matched "concurrently
+# running", which contains "currently running", and GATE 7 went FINDINGS rc=1 on a sentence
+# that was making no liveness claim at all. The gate was right on its pattern and wrong on
+# the meaning, and the corpus was reworded to satisfy it — which is the worst way to pay for
+# a false positive, because it edits the record to please the instrument.
+#
+# A BLANKET \b ON EVERY KEY IS WRONG, and this was MEASURED rather than assumed before the
+# narrow form was chosen. Two keys legitimately match mid-word: 'is underway' inside
+# "analysis underway", and 'run is ongoing' inside "overrun is ongoing". Both are real
+# liveness claims that a blanket boundary would stop catching — a recall loss, in the
+# direction this gate exists to prevent. Only keys whose FIRST TOKEN is a proper suffix of
+# an ordinary English word need the boundary, and 'currently' ({con,re}currently) is the
+# one such key. The rest keep the substring test deliberately.
+#
+# WHY THIS IS NOT "LOOSENING": \b removes ONLY matches where the key is preceded by a word
+# character, i.e. where it is part of a longer token. A genuine "currently running" always
+# begins at a boundary, including after a hyphen or an em dash. There is no case this
+# suppresses that the gate should have caught.
+#
+# MEASURED POPULATION at the time of the fix: the gated corpus carries 18 `concurrent*`
+# tokens and 3 `concurrently`, none currently adjacent to "running" — so this is a live
+# near-miss, not a hypothetical one, in a corpus whose own subject matter is concurrency.
+WORDSTART = {'currently running'}
 # Words that mean the status IS qualified rather than frozen, or that the text is
 # quoting/correcting an old claim rather than making one.
 # Each entry must describe an OUTCOME or mark the text as quoted/hypothetical.
@@ -1613,6 +1636,10 @@ for f in files:
         low = l.lower()
         for k in LIVE:
             if k not in low:
+                continue
+            # item R18: for the boundary-sensitive keys the bare substring is not enough —
+            # "concurrently running" contains "currently running" and claims nothing.
+            if k in WORDSTART and not re.search(r'\b' + re.escape(k), low):
                 continue
             ctx = ' '.join(lines[max(0, i-4):i+3]).lower()
             if any(d in ctx for d in DISPO):
@@ -2862,10 +2889,23 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+chr(10)+'## McKenna Rule 25 (self-t
          _selftest_revert documentation/MCKENNA.md; } \
     || { echo "  [FAIL] GATE 4b ambiguity case — could not inject; assertion did NOT run."; PASS=1; }
 
-  # ITEM B1 (2026-08-02, drain-2) — FOUR LEGS, EACH PROVEN LOAD-BEARING BY DELETING WHAT IT
-  # DEPENDS ON. Three of them widen the gate, and a widened gate is how a false clear gets
-  # built, so none of them is asserted by "the corpus is green now" — each is asserted by a
-  # mutation that must turn it red.
+  # ITEM B1 (2026-08-02, drain-2) — SIX LEGS, EACH PROVEN LOAD-BEARING BY A MUTATION THAT
+  # MUST CHANGE THE VERDICT. Three of them WIDEN the gate (legs 1, 3, 4), and a widened gate
+  # is how a false clear gets built, so none of them is asserted by "the corpus is green
+  # now" — each is asserted by a mutation that must turn it red.
+  #
+  # NAMED, NOT TALLIED (round 15, item R16). This header read "FOUR LEGS" while the block
+  # below owned six, and the count was not re-derived when the block grew: legs 1-5 shipped
+  # with B1's own commit (leg 5's comment says "this commit retired 19 of 22 rows"), and
+  # LEG 6 was added by B1's PHASE-4 on its own batch. Nothing moved the number — the same
+  # shape as GATE 17's "FIVE LEGS" against six (fixed at fa6ea90d) and as the five instances
+  # recorded in the covered-list block below. A bare multiplicity cannot be checked by a
+  # reader against reality; a named list can, which is the one property that distinguished
+  # the censuses that survived from the ones that rotted. So:
+  #   LEG 1 bold anchors are load-bearing      LEG 4 a hard wrap no longer hides a reference
+  #   LEG 2 mid-line bold is NOT an anchor     LEG 5 an allowlist row exempting nothing
+  #   LEG 3 a backticked path                  LEG 6 a bold-anchor resolution is REPORTED
+  # LEG 7 is NOT B1's — it is item B4 (drain-1) and carries its own header below.
 
   # LEG 1, the bold-anchor form, proven on its own motivating example and in the DIRECTION
   # that matters. Asserting that METHODS.md §"Global observable ledger" resolves would be
@@ -3070,6 +3110,32 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe ladder build is in flight an
     'with no sha256 within' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe 1120T run reproduced the published ladder exactly.\n')"
+
+  # GATE 7's FIRST NEGATIVE CONTROL (item R18, round 15 drain-1). Until this leg, BOTH of
+  # GATE 7's fire-proofs were assert_fires_why — a gate proven only to fire cannot tell
+  # "correctly silent" from "silently broken", which is the argument the GATE 2 (A4) pair
+  # above makes for its own two legs.
+  #
+  # IT ASSERTS THE R18 FIX ON ITS OWN MOTIVATING TEXT. GATE 7 fired on the phrase
+  # "concurrently running", which contains the LIVE key "currently running" across a word
+  # boundary; `all` went FINDINGS rc=1 and the corpus was reworded to satisfy it. The
+  # injection is that exact phrase. Before the WORDSTART boundary this mutation turned
+  # `liveness` red — that is what the item is — so this leg fails on a revert of the fix
+  # rather than merely accompanying it.
+  #
+  # BOTH HALVES ARE LOAD-BEARING. rc alone would be satisfied by a gate that had stopped
+  # reading the corpus at all, so the ERE pins GATE 7's own clean verdict, which it prints
+  # only after walking every file. That string is not emittable by either preflight.
+  #
+  # WHAT IT DOES NOT PROVE: that the OTHER six LIVE keys are boundary-safe. They are
+  # deliberately not — 'is underway' must keep matching inside "analysis underway" — so
+  # there is nothing here to assert for them. It also does not prove the phrase is absent
+  # from the corpus; the corpus carries 18 `concurrent*` tokens and this leg is why one of
+  # them may sit next to "running" again without re-costing a reword.
+  assert_stays_clean_why "GATE 7 negative control — \"concurrently running\" is not a liveness claim" \
+    liveness 'no frozen run status; every budget-named run carries a disposition' \
+"s=open('documentation/GUIDE.md',encoding='utf-8').read()
+open('documentation/GUIDE.md','w',encoding='utf-8').write(s+'\n\nThe two shards were concurrently running on one host, which is why the ladder above is not a timing baseline.\n')"
 
   # GATE 9, in the EXACT shape the operator specified: a SYNTHETIC SINGLE-FILE EDIT.
   # The injected change is one space — whitespace only, still valid markdown, still
@@ -3944,16 +4010,37 @@ os.remove('documentation/GUIDE.md')"
   #       state MM-T5 was in before the witnesses were added. A gate that reported [ok] on an
   #       uncomparable rule would be a false clear of the exact kind that hid a Lean defect
   #       for twelve hours on 2026-08-01; this leg makes the refusal load-bearing;
-  #   (4) the MISSING-INPUT leg (item A1's class) — allowlist deleted.
+  #   (4) the VACUITY leg — an EMPTIED registry must be a finding, not a clean run. Added by
+  #       PHASE-4 on this batch (see its own comment below), because the first draft printed
+  #       "[ok] 0 rules, 0 pairs compared" and exited 0;
+  #   (5) the MISSING-INPUT leg (item A1's class) — allowlist deleted.
   # Plus a negative control: a comment appended to the allowlist must change nothing, or the
-  # parser is failing closed on its own file format and legs 1-4 prove less than they look.
+  # parser is failing closed on its own file format and legs 1-5 prove less than they look.
+  #
+  # THIS HEADER SAID "FOUR legs, and the count is deliberate" UNTIL ROUND 15 (item R16), and
+  # enumerated only (1)-(4)-as-missing-input while FIVE legs plus the control stood below it.
+  # The vacuity leg was added by this batch's OWN Phase-4 and nothing moved the count — the
+  # identical shape to ITEM B1's header above and to GATE 17's "FIVE LEGS" against six. The
+  # count is now derived from the invocations rather than asserted.
   #
   # ITEM A2 CHECKED BEFORE THESE WERE WRITTEN, not after: neither preflight can emit any of
-  # the four EREs below. preflight_tracked_docs prints only "tracked markdown missing from
+  # the EREs below. preflight_tracked_docs prints only "tracked markdown missing from
   # the working tree", preflight_support_newlines only "gate-support file has no final
   # newline" — and DOC_GATE_REGISTRY_DUPLICATES.txt matches preflight_support_newlines'
   # `documentation/DOC_GATE_*.txt` glob, so that check was necessary rather than pro forma.
-  # Every ERE here contains a `reg_` rule id, which no preflight ever prints.
+  #
+  # THE `reg_` ARGUMENT COVERS LEGS 1-3 ONLY, and saying otherwise was the second half of
+  # this census's rot. It read "Every ERE here contains a `reg_` rule id, which no preflight
+  # ever prints" — MEASURED FALSE for three of the six EREs: leg 4's is
+  # 'fewer than two cannot form a pair', leg 5's is 'DOC_GATE_REGISTRY_DUPLICATES\.txt is
+  # tracked in git but missing', and the control's is '1 adjudicated pair\(s\), 0 new'.
+  # What actually holds legs 4 and 5 is not this comment but GATE 16 (`collisions`), which
+  # extracts the ERE from every assert_fires_why invocation and fails if any of them matches
+  # a preflight-emittable line. So the property is checked mechanically, not argued.
+  # WHAT NEITHER COVERS: the negative control is an assert_stays_clean_why, and GATE 16's
+  # extractor reads only `assert_fires_why` — measured. Its ERE is safe by inspection, not
+  # by any check, and that gap is a property of all seven stays_clean assertions in this
+  # file, not of this one.
   assert_fires_why "GATE 14 duplicate predicates — the r3/p1c4 pair the gate was built for" \
     regdupes 'reg_p1c4 and reg_r3 return the SAME value' \
 "p='documentation/DOC_GATE_REGISTRY_DUPLICATES.txt'
