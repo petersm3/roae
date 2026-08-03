@@ -4591,6 +4591,74 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     echo "         'spans a hard wrap' anchor moved), so the assertion did NOT run."
     PASS=1
   fi
+
+  # GUARD (7) FIRE-PROOFS (round 16 drain-1) — BOTH DIRECTIONS OF THE POPULATION DEFECT.
+  #
+  # Guard (7) widened LEG 1's population from `startswith("  assert_fires_why ")` to LEG 2's
+  # call-position rule over BOTH helpers. Two things were outside the old rule, so there are
+  # two legs, and each mutates the copy at a site the OLD scan could not have reached.
+  #
+  # LEG A — a NEGATIVE CONTROL reworded onto the corpus preflight's wording. This is the A6
+  # near-miss on the half of the population that was never scanned. Under the old rule the
+  # gate printed [ok] on this mutation, because assert_stays_clean_why was not in `calls` at
+  # all; the ERE it would have collided with was never compared against anything.
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+A='retract-figures '+chr(39)+'45 meta-mention'+chr(39)+' '+chr(92)
+t=[i for i,l in enumerate(L) if l.strip()==A]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]='    retract-figures '+chr(39)+'tracked markdown missing from the working tree'+chr(39)+' '+chr(92)+chr(10)
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'an anchored narration is exempt" is satisfied by a PREFLIGHT line'; then
+      echo "  [ok]   GATE 16 guard (7) a NEGATIVE CONTROL reworded onto a preflight line — fires"
+    else
+      echo "  [FAIL] GATE 16 guard (7) — a negative control whose evidence-ERE the corpus"
+      echo "         preflight emits was NOT reported, so the half of the population where the"
+      echo "         ERE is the ONLY proof the exemption ran is still unscanned."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 guard (7) leg A — could not build the mutated copy (the GATE 3b"
+    echo "         negative control's '45 meta-mention' anchor moved), so it did NOT run."
+    PASS=1
+  fi
+
+  # LEG B — an invocation the scan can no longer REACH. `eval` in front of a call is guard
+  # (4)'s stated blind spot borrowed as a mutation: it is a real shape, and it removes the
+  # call from the population without touching its ERE, its label or its dispatch name. The
+  # old vacuity check could not have caught this — `len(found) != len(calls)` compared a list
+  # against the list it was built from and was False on every possible input. What catches it
+  # is callers=N, derived by a different rule over the whole file.
+  #
+  # LEG 2 ALSO FIRES ON THIS COPY, and that is stated rather than hidden: both legs now read
+  # the same population, so both notice it shrink. The substring asserted below is printed
+  # ONLY by guard (7) — LEG 2's wording is "this leg resolved N invocation(s);" with no helper
+  # name after the count — so a green LEG 2 could not satisfy this assertion on its own.
+  if python3 -c "
+L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
+A='assert_fires_why \"GATE 3b retracted figure split across a hard wrap\" '+chr(92)
+t=[i for i,l in enumerate(L) if l.strip()==A]
+assert len(t)==1, 'anchor moved: %d' % len(t)
+L[t[0]]=L[t[0]].replace('assert_fires_why','eval assert_fires_why',1)
+open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions)
+    if printf '%s' "$G16OUT" | grep -qF 'invocation(s) of assert_fires_why; documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt declares callers='; then
+      echo "  [ok]   GATE 16 guard (7) an invocation the scan cannot reach — FAIL, not a smaller count"
+    else
+      echo "  [FAIL] GATE 16 guard (7) — the collision scan lost an invocation and still"
+      echo "         reported a count instead of a failure. An assertion nobody compared is"
+      echo "         not an assertion that passed."
+      printf '%s\n' "$G16OUT" | sed 's/^/           > /' | head -5
+      PASS=1
+    fi
+  else
+    echo "  [FAIL] GATE 16 guard (7) leg B — could not build the mutated copy (the 'GATE 3b"
+    echo "         retracted figure split across a hard wrap' anchor moved), so it did NOT run."
+    PASS=1
+  fi
+
   # PHASE-4, the GATE 16 half: the "no templates at all" guard could not see ONE preflight
   # going quiet. A rewrite from `echo` to `printf` in either function would silently drop its
   # lines from the comparison, leave the other's, and print a plausible count nobody reads.
@@ -7245,39 +7313,115 @@ lines = open(src, encoding="utf-8").read().splitlines()
 #
 # The label is skipped by starting the search after its closing quote, so a label containing
 # an apostrophe cannot be mistaken for the ERE.
-calls = [i for i, ln in enumerate(lines) if ln.startswith("  assert_fires_why ")]
+#
+# --- GUARD (7), round 16 drain-1: THE POPULATION ITSELF was one helper and one CALL SHAPE
+# short, and both omissions ran in the FALSE-CLEAR direction. This line used to read:
+#
+#     calls = [i for i, ln in enumerate(lines) if ln.startswith("  assert_fires_why ")]
+#
+#   (i)  assert_stays_clean_why was outside it entirely. For a fire-proof a preflight
+#        collision still leaves the leg having RUN; for a negative control the evidence-ERE
+#        is the ONLY thing separating an exemption that ran from a leg that never looked, so
+#        an unscanned collision there is the stronger of the two hazards, not the weaker.
+#   (ii) any invocation not at EXACTLY two leading spaces. That is not hypothetical in this
+#        file: `_asc_probe=$(assert_stays_clean_why ...)` is live above, which is why the
+#        declared totals are 62 and 9 while a two-space prefix grep returns 62 and 8.
+#
+# LEG 2 OF THIS SAME GATE ALREADY READ BOTH, by a call-position rule, and already
+# cross-checked its per-helper totals against callers=N. So one gate's two legs disagreed
+# about which invocations exist and the WEAKER rule was the one doing the collision scan.
+# This guard adopts LEG 2's rule rather than inventing a third.
+#
+# THE CHECK THIS REPLACES WAS STRUCTURALLY DEAD. `len(found) != len(calls)` compared a list
+# built by appending exactly once per element of `calls` against `calls` — False on every
+# possible input. The sentence printed beneath it ("a parser that silently skips a call")
+# described a guard that was not there, and neither omission above could have tripped it.
+# The population is now cross-checked against callers=N, derived by a DIFFERENT rule over
+# the whole file (GATE 15 LEG 3's), which is what makes disagreement possible at all.
+#
+# WHAT GUARD (7) CANNOT SEE — stated here, not left to the reader:
+#   * A stays_clean COLLISION IS REPORTED, BUT IT IS NOT THE SAME HAZARD TODAY, and saying
+#     otherwise would overstate what this scan buys. MEASURED 2026-08-03: both SCANNED
+#     preflights echo only inside their failure branch and `return 1` from it, and both call
+#     sites are `... || RC=1` — so a preflight that printed has already made the run's rc
+#     non-zero, and assert_stays_clean_why fails on rc BEFORE it consults the ERE. The third
+#     pre-dispatch emitter is suppressed in every --selftest descendant (EXEMPT_EMITTERS).
+#     The stays_clean half is therefore a tripwire over a hazard currently blocked by two
+#     independent structural facts — both of which are properties of the PREFLIGHTS, and
+#     neither of which is re-read from this side. That is why it is scanned, and it is not a
+#     claim that a collision is live.
+#   * IT READS CALL SITES, NOT REACHABILITY — guard (4)'s limit, inherited unchanged.
+HELPERS = ("assert_fires_why", "assert_stays_clean_why")
+TABLE = "documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt"
+# Deliberately character-identical to LEG 2's CALLPOS: two rules that are required to agree
+# must not be two different regexes, or their disagreement becomes a third defect.
+CALLPOS = re.compile(r"(?:^|\$\()\s*(?:[A-Za-z_][A-Za-z0-9_]*=\$\(\s*)?(%s)\s+(?!\()"
+                     % "|".join(HELPERS))
 QUOTED = re.compile(r"'((?:[^'\\]|\\.)*)'")
-LABEL = re.compile(r'^  assert_fires_why "((?:[^"\\]|\\.)*)"')
-found = []
-for i in calls:
-    m = LABEL.match(lines[i])
-    label = m.group(1) if m else "<unparsed label at %s:%d>" % (src, i + 1)
-    ere = None
-    j, start = i, (m.end() if m else 0)
-    while j < len(lines) and j <= i + 4:
-        ln = lines[j]
-        if j > i and ln.startswith('"'):
-            break                       # the mutation body begins; the argument list is over
-        q = QUOTED.search(ln, start if j == i else 0)
-        if q:
-            ere = q.group(1)
-            break
-        if not ln.rstrip().endswith("\\"):
-            break                       # the invocation ended with no quoted ERE at all
+LABEL_ARG = re.compile(r'^"((?:[^"\\]|\\.)*)"\s*(.*)$')
+calls, found = [], []
+for i, ln in enumerate(lines):
+    if ln.lstrip().startswith("#"):
+        continue                    # a comment cannot call anything (LEG 2's `uncomment`)
+    m = CALLPOS.search(ln)
+    if not m:
+        continue
+    helper = m.group(1)
+    calls.append(helper)
+    toks, j = [], i
+    while j < len(lines):
+        l = lines[j]
+        if j > i and l.startswith('"'):
+            break                   # the mutation body begins; the argument list is over
+        toks.append(l)
+        if not l.rstrip().endswith("\\"):
+            break                   # the invocation ended here
         j += 1
-    found.append((label, ere, i + 1))
+    blob = " ".join(t.rstrip("\\").strip() for t in toks)
+    tail = blob[blob.index(helper) + len(helper):].strip()
+    la = LABEL_ARG.match(tail)
+    label = la.group(1) if la else "<unparsed label at %s:%d>" % (src, i + 1)
+    q = QUOTED.search(la.group(2)) if la else None
+    found.append((label, q.group(1) if q else None, i + 1))
 
 bad = 0
 missing = [(l, n) for l, e, n in found if e is None]
 for label, n in missing:
-    print("  [FAIL] no evidence-ERE could be extracted from the assert_fires_why at %s:%d"
+    print("  [FAIL] no evidence-ERE could be extracted from the assertion at %s:%d"
           " (%s)" % (src, n, label))
+    print("         The extractor must produce exactly one ERE per invocation. An assertion")
+    print("         scored as having evidence it does not have is the false-clear shape")
+    print("         this gate exists to refuse.")
     bad = 1
-if len(found) != len(calls) or missing:
-    print("         The extractor must produce exactly one ERE per invocation. A parser that")
-    print("         silently skips a call would leave that assertion unchecked and still")
-    print("         print [ok] — the false-clear shape this gate exists to refuse.")
+
+# GUARD (7)'s vacuity half. A call this scan never REACHED is not reported as clean — it is
+# not reported at all, and the [ok] line below would still print a plausible smaller number.
+declared = {}
+if os.path.isfile(TABLE):
+    for ln in open(TABLE, encoding="utf-8").read().splitlines():
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
+        f = ln.split("\t")
+        if len(f) >= 3:
+            mm = re.search(r"callers=(\d+)", f[2])
+            if mm:
+                declared[f[0]] = int(mm.group(1))
+else:
+    print("  [FAIL] the collision scan's population has no second opinion: %s is missing, so"
+          " an invocation it never reached would be invisible here" % TABLE)
     bad = 1
+for h in HELPERS:
+    mine = calls.count(h)
+    if declared and h not in declared:
+        print("  [FAIL] the collision scan found no callers=N for %s in %s, so a skipped"
+              " invocation of it would leave that assertion uncompared forever" % (h, TABLE))
+        bad = 1
+    elif h in declared and declared[h] != mine:
+        print("  [FAIL] the collision scan reached %d invocation(s) of %s; %s declares"
+              " callers=%d" % (mine, h, TABLE, declared[h]))
+        print("         The difference is not a rounding of the census — it is that many")
+        print("         assertions whose evidence-ERE was never compared against anything.")
+        bad = 1
 
 # --- what the preflights can print.
 def body(name):
@@ -7597,8 +7741,13 @@ for label, n in exempt:
     print("  [note] EXEMPT (asserts ON a preflight, by design): %s (%s:%d)" % (label, src, n))
 
 if not bad:
+    # NAMED, NOT COUNTED (O-census): the per-helper population is printed because a bare
+    # total cannot be checked by a reader against callers=N, and the whole reason this leg
+    # was one helper short is that nobody could see which helpers it had reached.
     print("  [ok] %d evidence-ERE(s) checked against %d preflight-emittable line(s) from %d"
-          " template(s); %d exempt" % (checked, len(candidates), len(templates), len(exempt)))
+          " template(s); %d exempt; population %s"
+          % (checked, len(candidates), len(templates), len(exempt),
+             ", ".join("%s=%d" % (h, calls.count(h)) for h in HELPERS)))
 sys.exit(bad)
 PY
   echo "-- GATE 16 LEG 2: no fire-proof names a dispatch that runs more than one gate --"
