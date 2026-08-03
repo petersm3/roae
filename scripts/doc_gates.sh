@@ -58,8 +58,13 @@
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
-# GATES 1 and 5 are REPORT-ONLY by construction — they always `return 0` / `sys.exit(0)`, so their
-# findings never reach RC and are NOT covered by the "DOC GATES: PASS" banner. The banner says so.
+# SOME GATES ARE REPORT-ONLY by construction — they always `return 0` / `sys.exit(0)`, so their
+# findings never reach RC and are NOT covered by the "DOC GATES: PASS" banner. WHICH ones is
+# deliberately NOT listed here: the banner literal at the foot of this file is the maintained
+# copy, and unlike a comment it is EXECUTED on every green `all` run, so it cannot drift unseen.
+# (This read "GATES 1 and 5" until round 17 and had not moved when 5b, 13 and GATE 17's LEG B
+# joined the set — the same drift as "GATE 8's five legs" below, and it pointed at a banner that
+# already said something wider.)
 #
 # SAFETY: index-based (`git ls-files`/`git grep`) and fixed-string matching only.
 #   No `find` over trees, no bounded-repetition regex (`.{0,N}`) — a pathological
@@ -8668,12 +8673,24 @@ case "$MODE" in
 esac
 
 echo
-# State what the banner does NOT attest. GATES 1 and 5 are report-only (`return 0` /
-# `sys.exit(0)`), so their [WARN]/[note] output never reaches RC; and GATE 8 is excluded
-# from `all` by cost. A green banner that silently covers only 5 of 8 gates reads as more
-# coverage than it has — the same over-attestation this suite exists to catch. (The
-# self-test's own comment asserted this was "stated in the banner itself" before it was;
-# written into the banner 2026-08-01 on same-day re-review.)
+# State what the banner does NOT attest. The report-only set and the excluded-by-cost set are
+# NOT restated here — the banner literal below is the maintained copy, and unlike a comment it
+# is EXECUTED, so it cannot drift out of sight. A green banner that covers less than it appears
+# to reads as more coverage than it has, which is the over-attestation this suite exists to
+# catch. (The self-test's own comment asserted this was "stated in the banner itself" before it
+# was; written into the banner 2026-08-01 on same-day re-review.)
+#
+# TWO STALE HARDCODED CLAIMS WERE REMOVED FROM THIS BLOCK, round 17. Both PRE-EXISTING
+# (91129a4e), both of the N-nounfirst class, and the first is a false clear in the DANGEROUS
+# direction:
+#   * "GATES 1 and 5 are report-only" — the banner below also names 5b, 13 and GATE 17's LEG B.
+#     `gate_revrows` ends `sys.exit(0)  # report-only gate — never blocks`, so a reader who
+#     trusted this comment would believe a missing revision row fails the build. It does not.
+#   * "a green banner that silently covers only 5 of 8 gates" — stale on every counting unit;
+#     the two counting commands are in the usage block at the top of this file. Recorded because
+#     it bears on what a census is worth: `8 gates` sits INSIDE round 16's declared digit-census
+#     pattern (`<digit> <noun>`, with `gates` in its noun list) and survived that round anyway.
+#     I did not re-run that census and CANNOT say whether it missed this site or triaged it.
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
