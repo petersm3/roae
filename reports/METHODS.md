@@ -272,3 +272,46 @@ which is what produced every published figure — with the divergence disclosed:
 3. **The instrument stack** (cross-validated two-language + self-check): population fractions, estimator
    counts.
 Every report's Verification Guide tags its claims with the rung they sit on.
+
+### Authorship independence — who checked, as distinct from what was checked
+
+The ladder above ranks what a reader must trust about project **code**. A separate axis ranks who
+wrote the check, and on that axis the suite's position needs stating plainly: **algorithmic
+independence is not authorship independence.** The same author wrote the claims, the software that
+tests them, and the reports that grade the outcome. From weakest to strongest:
+
+1. **Same author, same implementation** — a program checking itself (`--selftest`, the regression
+   harness). Establishes internal consistency and catches regressions; establishes nothing against a
+   defect present at design time, which the check inherits.
+2. **Same author, second implementation** (different language or different algorithm) — the
+   solve.py-vs-solve.c two-language gates, verify.py/verify.c, TR-11's two-instrument exact count.
+   Strong against implementation bugs: two code paths rarely fail identically. Weak against the
+   failure mode that matters most for this suite's claims — a shared misreading of a cited source, a
+   mis-modelled constraint, a wrong formalization — because both implementations came from one
+   author's understanding and agree wherever that understanding is wrong. (TR-11 §10(vi) says this
+   about the exact count: the independence is algorithmic, not specificational.)
+3. **Same author's statement, externally authored checker** — the Lean-kernel-checked theorems and
+   the drat-trim-verified DRAT certificates. The *derivation* is checked by a tool this project did
+   not write, so the mathematics is as strong as machine-checking makes it. What stays same-author
+   is the statement: whether the Lean proposition or the CNF means what the prose says it means
+   (rung 2 of the code-trust ladder above — the encoder caveat — is exactly this gap).
+4. **Different author** — a party outside the project re-deriving results from the written
+   specifications, or auditing the modelling and the reports, without relying on this project's code
+   or on its author's understanding. **Nothing in this suite is on this rung.** The review passes
+   recorded in the revision histories — "hostile review", "adversarial review", "independent
+   review" — were commissioned by the project and carried out by AI models working under its
+   direction; they sharpen the checks on the lower rungs and are not third-party scrutiny. Wherever
+   this suite says "independent", read it as a claim on rungs 2–3, never on rung 4.
+
+**What to discount, and what not to.** The rung-3 mathematics — the kernel-checked theorems, the
+certified impossibilities — does not weaken under this disclosure: those derivations hold or fail
+regardless of who submitted them to the checker. The claims a reader should hold to a same-author
+discount are the ones the report banners already mark "argued, not verified": that a formalized rule
+is faithful to the literature it cites, that a constraint was extracted fairly rather than read off
+the answer, that a null was graded honestly, and that each report's framing of its own results is
+fair. None of those has yet had an examiner who did not also write them. Everything a rung-4 examiner
+needs is public — [REBUILD_FROM_SPEC](../documentation/REBUILD_FROM_SPEC.md),
+[SPECIFICATION](../documentation/SPECIFICATION.md),
+[CANONICAL_HASHES](../documentation/CANONICAL_HASHES.md), and the certificates under
+`reports/certificates/` — and such an examination would move the suite up this ladder; until one
+happens, this section is the ceiling on what "verified" can mean here.

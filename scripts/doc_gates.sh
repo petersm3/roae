@@ -1787,8 +1787,9 @@ PY
 #     line containing "not peer-reviewed" and ends at the first line whose text ends in `*`.
 #
 # Q2. WHAT ILLEGITIMATE VARIATION DOES IT LET THROUGH? Any divergent sentence placed AFTER
-#     that closing italic. MEASURED across the suite: every one of the 11 TR banner blocks
-#     is exactly 3 lines (cap 8) and the index's is 12 (cap 24) — so no block is being
+#     that closing italic. MEASURED across the suite (re-derived 2026-08-03, authorship-disclosure
+#     banner): every one of the 11 TR banner blocks is exactly 6 lines (cap 8) and the index's is
+#     15 (cap 24) — so no block is being
 #     truncated by an early `*` today. But TR-10 carries its own italic *Scope note (F-34)*
 #     paragraph on the very next line, and that paragraph is invisible to this gate. That is
 #     correct behaviour (a per-report scope note is not banner drift) and it is also the

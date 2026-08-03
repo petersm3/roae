@@ -11,8 +11,11 @@ sequence as a combinatorial object — enumerating, measuring, and proving; the 
 front door, these reports are the findings in depth.*
 *Technical reports — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
 proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
-interpretation are argued, not verified. Each report ends with a Verification Guide mapping claims to
-commands and certificates. The known gaps are disclosed where they occur, not here: cost figures are
+interpretation are argued, not verified. The covers' authorship disclosure holds suite-wide: the same
+author wrote the claims, the software that checks them, and the reports that grade the check —
+independent in mechanism, never in authorship, and no independent party has yet audited or reproduced
+any of it (METHODS.md §"Authorship independence"). Each report ends with a Verification Guide mapping
+claims to commands and certificates. The known gaps are disclosed where they occur, not here: cost figures are
 rounded from an exact ledger withheld under the project's no-cloud-identifiers policy
 ([TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) §Verification Guide); the scheduled-reclamation observation is a
 single-campaign pattern whose second run's per-eviction timestamps are not public

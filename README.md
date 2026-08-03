@@ -22,6 +22,19 @@ strong reading of the derivation-flavoured literature, and — squarely — **th
 working assumption**. We are reporting a negative result about our own starting position, which is why
 it leads.
 
+**Who checked this — an authorship disclosure.** The verification in this repository is independent
+in *mechanism*, not in *authorship*. Two languages implement every constraint and cross-check each
+other, an external proof kernel checks the Lean theorems, and the DRAT certificates are verified by a
+checker this project did not write — but the same author wrote the claims, the tools that check them,
+and the reports that grade the outcome, and **no independent party has yet audited or reproduced any
+of it**. "Verified" in this repository never means a third party looked. The machine-checked
+mathematics does not weaken under this disclosure — those proofs hold or fail regardless of who
+submitted them — but everything upstream and downstream of the proofs does carry it: whether the
+formalized rules and extracted constraints mean what the cited literature meant, and whether the
+results are graded fairly, have had no examiner who did not also write them. The full ladder, from
+weakest check to the third-party rung this project has not reached, is in
+[METHODS](reports/METHODS.md) §"Authorship independence".
+
 **The question.** The King Wen sequence is the received ordering of the 64 I Ching hexagrams — in
 continuous use for some two millennia, traditionally attributed to King Wen of Zhou (~1000 BCE; the
 dating of the ordering's fixation is debated in modern scholarship). For centuries it has attracted

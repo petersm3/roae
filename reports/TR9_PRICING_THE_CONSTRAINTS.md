@@ -1,7 +1,10 @@
 # TR-9 — Pricing the Constraints: Description-Length Accounting
 *Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
 proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
-interpretation are argued, not verified.*
+interpretation are argued, not verified. One caveat is structural, and it frames all the rest: the same
+author wrote the claims, the software that checks them, and this report that grades the check.
+Verification here is independent in mechanism, never in authorship; no independent party has yet
+audited or reproduced any of it (METHODS.md §"Authorship independence").*
 
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
