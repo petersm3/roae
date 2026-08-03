@@ -4038,10 +4038,17 @@ os.remove('documentation/GUIDE.md')"
   # reading the block, having arrived at it from the census query rather than from this note.
   #
   # WHY THE SWEEP THAT WROTE THAT SENTENCE COULD NOT SEE THE LINE IT DESCRIBED: round 15's
-  # census query was case-SENSITIVE, this header reads "FOUR legs", and the query's
-  # alternation is lowercase. MEASURED: the case-sensitive form returns 0 on this line and
-  # 12 rows over the whole 2400-7700 window; the case-insensitive form returns it. The
-  # header was inside the swept LINE RANGE the whole time and outside the swept ALPHABET.
+  # census query was case-SENSITIVE, the header READ "FOUR legs" in uppercase, and the
+  # query's alternation is lowercase. MEASURED on the pre-fix file: the case-sensitive form
+  # returned 0 on that line while returning 12 rows across the whole 2400-7700 window; the
+  # case-insensitive form returns it. The header sat inside the swept LINE RANGE the entire
+  # time and outside the swept ALPHABET.
+  #
+  # PAST TENSE ON PURPOSE, and the first draft of this paragraph got it wrong. It said "this
+  # header reads FOUR legs" — present tense — in the same commit that changed the header to
+  # read FIVE, i.e. it shipped a stale claim about a sibling line inside the fix for a stale
+  # claim about a sibling line. Caught by this batch's own Phase-4, not by a gate; no gate
+  # here reads a comment's tense against the line it describes, and none is proposed.
   #
   # ITEM A2 CHECKED BEFORE THESE WERE WRITTEN, not after: neither preflight can emit any of
   # the EREs below. preflight_tracked_docs prints only "tracked markdown missing from
