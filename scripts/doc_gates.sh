@@ -42,7 +42,19 @@
 #                                   # and (LEG 2) a fire-proof naming a dispatch that runs
 #                                   # more than one gate
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
-#   scripts/doc_gates.sh all        # run all fifteen cheap gates (1-7 incl. 3b, 9, 10, 11, 12, 13, 14, 15, 16); `generated` is separate by cost
+#   scripts/doc_gates.sh all        # run every cheap gate; `generated` is separate by cost.
+#                                   # DE-NUMBERED, round 17. This read "all fifteen cheap gates
+#                                   # (1-7 incl. 3b, 9, 10, 11, 12, 13, 14, 15, 16)" and was wrong
+#                                   # on BOTH available counting units, omitting 4b, 5b and 17.
+#                                   # There is no single right number to substitute, and that is
+#                                   # the point: a `gate_` FUNCTION and a `== GATE` BANNER are
+#                                   # different counting units and their totals differ. Count
+#                                   # whichever one you actually mean:
+#                                   #   awk '/^  all\)/,/;;$/' scripts/doc_gates.sh \
+#                                   #     | grep -oE 'gate_[a-z_]+' | sort -u | wc -l
+#                                   #   scripts/doc_gates.sh all \
+#                                   #     | grep -oE '^== GATE [0-9a-b]+' | sort -u | wc -l
+#                                   # The dispatch arm at the foot of this file is the only list.
 #   scripts/doc_gates.sh --selftest # mutation-test the gates themselves (requires a clean tree)
 #
 # EXIT: 0 = clean, 1 = findings. Report-only classes print [WARN]; hard failures print [FAIL].
@@ -86,10 +98,19 @@ DOCS=$(git ls-files '*.md' || true)
 #   (a) PER-GATE. Each gate that opens a named registry or ledger skipped on `! -f`.
 #       `require_tracked` below turns that into a FAIL when git tracks the path.
 #   (b) CORPUS-WIDE, and INVISIBLE. `$DOCS` is `git ls-files '*.md'` — an INDEX listing. A
-#       tracked .md deleted from the working tree stays in `$DOCS`, and every consumer
-#       (GATES 3, 3b, 4, 4b, 5, 5b, 9) then reads it as EMPTY and reports [ok] on it. One
-#       deletion blinds seven gates at once, which is why this is the corpus-level preflight
-#       below rather than seven more `[ -f ]` tests.
+#       tracked .md deleted from the working tree stays in `$DOCS`, and its consumers do NOT
+#       all fail the same way — so this paragraph deliberately names NO list and gives NO
+#       tally. The dispositions are maintained in exactly ONE place, `preflight_tracked_docs`'s
+#       header below, and each of them was measured rather than read off the code.
+#       (Until round 17 this read "every consumer (GATES 3, 3b, 4, 4b, 5, 5b, 9) then reads it
+#       as EMPTY ... one deletion blinds seven gates at once". That is the PRE-round-16 list.
+#       Round 16 measured it wrong in both directions and corrected the message the preflight
+#       PRINTS — but not this copy, nor the one at the `collisions` fire-proof, because no
+#       census query could see a hardcoded list written NOUN-FIRST. A third copy is exactly how
+#       it drifted; there is now one.)
+#       The reason this is a corpus-level preflight rather than per-gate `[ -f ]` tests is
+#       GATE 1: it reads a missing file as empty SILENTLY, so it is the consumer for which
+#       nobody would have thought to write a per-gate test.
 #
 # WHAT THIS STILL CANNOT SEE, stated rather than implied: absence of a TOOL. `pdftotext`
 # absence remains a `[skip]` (poppler is not part of the toolchain this repo requires);
@@ -4036,9 +4057,13 @@ assert os.path.exists('documentation/CORRECTIONS.md'), 'anchor moved'
 os.remove('documentation/CORRECTIONS.md')"
 
   # THE CORPUS PREFLIGHT — hole (b), and the one that made this item worth doing. `$DOCS` is
-  # an index listing, so a tracked .md deleted from the working tree is read as EMPTY by
-  # GATES 3, 3b, 4, 4b, 5, 5b and 9 simultaneously; each then reports [ok] on a document it
-  # never opened. Asserted through `retract`, a gate with NO input of its own missing, so the
+  # an index listing, so a tracked .md deleted from the working tree stays in it. WHICH gates
+  # are blinded by that, and HOW each one fails, is maintained ONLY at
+  # `preflight_tracked_docs`'s header and is deliberately not restated here. (This comment
+  # carried the pre-round-16 list — "read as EMPTY by GATES 3, 3b, 4, 4b, 5, 5b and 9
+  # simultaneously; each then reports [ok] on a document it never opened" — until round 17.
+  # Round 16 corrected the printed message and left this copy and the file header behind it.)
+  # Asserted through `retract`, a gate with NO input of its own missing, so the
   # only thing that can make it fail here is the preflight.
   assert_fires_why "PREFLIGHT (A1) a tracked .md deleted blinds every DOCS-iterating gate" \
     retract 'tracked markdown missing from the working tree: documentation/GUIDE\.md' \
