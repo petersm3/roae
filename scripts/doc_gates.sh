@@ -7132,6 +7132,15 @@ PY
 #       this file and merely does not exist in any function body() is called on. Truncation is
 #       SILENT for guard (5) and only half-loud for guard (2), which sees a preflight fall to
 #       zero templates but not to fewer. One direction, one leg.
+#   (7) THE INVOCATION POPULATION ITSELF. Added round 16 drain-1 (d50671f8): LEG 1's
+#       collision scan read one helper (`assert_fires_why`) at one indentation, while LEG 2
+#       of the same gate read both helpers by call position — so the two legs disagreed
+#       about which invocations exist and the WEAKER rule was doing the collision scan.
+#       Both halves are here: an invocation the scan cannot reach is a FAIL naming the
+#       shortfall against `callers=`, not a smaller number. THIS ENTRY WAS MISSING (round
+#       16 drain-2): d50671f8 added the guard, its fire-proofs and its own "WHAT GUARD (7)
+#       CANNOT SEE" block, and did not extend the list above — so the list that exists
+#       BECAUSE a named list can be checked was itself incomplete for one round.
 #
 # WHAT IT CANNOT SEE, stated rather than implied:
 #   (a) `assert_stays_clean_why` and `assert_gen_*` are outside this scan. NARROWED TWICE on
@@ -7503,7 +7512,14 @@ if len(_a) != 1 or len(_b) != 1 or _b[0] <= _a[0]:
           " (MODE= x%d, dispatch x%d), so the emitter census was NOT taken"
           % (src, len(_a), len(_b)))
     print("         An empty census would print [ok] over zero emitters, which is the")
-    print("         false-clear shape this gate's three other vacuity guards exist for.")
+    print("         false-clear shape the OTHER vacuity guards of this gate exist for:")
+    print("         (1),(2),(3),(5),(6),(7) — NAMED, not counted. This line said \"three")
+    print("         other\" from the commit that added guard (4) (84b2a5ac), when three")
+    print("         WAS the right number; guards (5),(6),(7) each falsified it without")
+    print("         touching it. The `THE VACUITY GUARDS` header above this function was")
+    print("         converted to a named list for that reason in that same commit, and")
+    print("         no distance is quoted here because this PRINTED copy of a number is")
+    print("         what the fix missed; a comment gate would never have seen it.")
     bad = 1
 else:
     emitters = [(TOPCALL.match(lines[i]).group(1), i + 1)
