@@ -742,3 +742,48 @@ the correction. The gate is a completeness instrument, not a content one.
   what that instrument can do.
 
 ---
+### CX-25 · 2026-08-04 · C2 · The two-model pair has now failed its own confusability gate, and "untouched" no longer holds
+
+- **Documents:** [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) §"The result" and its v1.14 revision row;
+  [evidence/f11/RESULTS.md](../reports/evidence/f11/RESULTS.md).
+- **What is wrong.** TR-2's v1.14 row records the *four-class* extension failing its synthetic-draw
+  confusability gate (M_G at 67/100 against a frozen 70) and states that "the v1.7/v1.12 two-model
+  corruption result is untouched." That sentence was accurate when written: the four-class veto
+  concerned a different model set. It is no longer accurate. The **two-class** pair behind the
+  published BF — M_corr (corrupted precursor) versus M_tend (soft-preference arranger) — has since
+  been put through the same style of gate, and **its tendency half failed**.
+- **What was measured.** Pre-registered, bar frozen at 70/100 before the run, master seed `20260802`
+  published before launch. **Half A** (M_corr self-recovery) **PASSED at 93/100** on 2026-08-02.
+  **Half B** (M_tend self-recovery) **FAILED at 68/100** on 2026-08-03. All three conditioning
+  variants land below the bar (68 / 68 / 69), there were zero draw failures and zero ties, and every
+  wiring gate passed — including the bridge gate that reproduces the published v1.12 BF from the
+  driver's own machinery. The failure is not an instrument artifact.
+- **What the failure is, precisely — because the pooled number alone misleads in both directions.**
+  An extension to n=1000 (same seed, so the original 100 draws are bit-identical inside it and no
+  re-seeding was possible by construction) estimates the rate at **714/1000 = 0.714, Wilson 95% CI
+  [0.685, 0.741]** — an interval that still *straddles* the 0.70 bar. The failure is a step
+  function, not a gradient, and it is confined to one stratum:
+  **at V=0 the models are provably confusable (0/277, upper bound 1.4%)**, because a V=0 tendency
+  draw lands inside the grand-strict set, which is exactly M_corr's support; **at V≥5 they are
+  provably distinguishable (599/599)**. The received sequence has **V=6**, where self-recovery is
+  51/51 (95% CI [0.930, 1.000]). The λ-grid prior places 27.7% of its mass at V=0, so the pooled
+  statistic is dominated by a regime the observed data does not occupy.
+- **What this changes.** The published Bayes factor (**≈5.2×10³** variant U, **≈6.3×10³** variant A — the live v1.12
+  figures, not the superseded v1.7 pair) and the ≈0.9998 posterior **must no longer be described as calibrated in the pooled sense**, and TR-2's
+  "untouched" must be read as superseded. The numbers themselves are unchanged and are not
+  withdrawn; what is withdrawn is the *calibration support* for them.
+- **What this does NOT license.** It does not license calling the pair calibrated on the strength of
+  the V≥5 stratum. The pre-registration that authorised the n=1000 extension defines **no bar at
+  n=1000 and cannot produce a PASS**; quoting the V-restricted rate as though it were the gate
+  outcome is explicitly forbidden by that document. The gate vetoed. A V-matched gate — "at V≈6, are
+  M_corr and M_tend distinguishable?" — is the question the published claim actually turns on; it
+  would be a **new instrument** whose bar must be frozen before it runs, and nothing here may be used
+  to argue for a threshold chosen after seeing these numbers.
+- **On the temptation this entry exists to refuse.** The seed was published before launch precisely
+  so that a disappointing result could not be quietly re-rolled. It was not re-run, and it will not
+  be. A pre-registered test that is repeated until it passes is a search, not a test.
+- **What did not move:** no theorem, certificate, count, sha or classification. The conflict theorem,
+  the DRAT certificates, the enumeration results and the four-class veto are all unaffected. Half A's
+  93/100 stands as measured.
+
+---

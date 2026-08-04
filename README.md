@@ -28,8 +28,10 @@ other, an external proof kernel checks the Lean theorems, and the DRAT certifica
 checker this project did not write — but the same author wrote the claims, the tools that check them,
 and the reports that grade the outcome, and **no independent party has yet audited or reproduced any
 of it**. "Verified" in this repository never means a third party looked. The machine-checked
-mathematics does not weaken under this disclosure — those proofs hold or fail regardless of who
-submitted them — but everything upstream and downstream of the proofs does carry it: whether the
+mathematics does not weaken under this disclosure *as mathematics* — those derivations hold or fail
+regardless of who submitted them to the checker — but the checker verifies a **statement this project
+wrote**, and whether the Lean proposition or the CNF says what the surrounding prose says it says is
+itself same-author. Everything upstream and downstream of the proofs carries the discount too: whether the
 formalized rules and extracted constraints mean what the cited literature meant, and whether the
 results are graded fairly, have had no examiner who did not also write them. The full ladder, from
 weakest check to the third-party rung this project has not reached, is in
