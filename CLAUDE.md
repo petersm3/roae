@@ -305,8 +305,14 @@ established after `verify_layers.c` was created and pushed without approval
 (2026-07-21) — the same failure as `analyze_yields.c` in 2026-04-21. If you need
 more C verification, extend `verify.c`; do not add a third file. The two directory-scoped
 exceptions, each a separate-toolchain component: `viz/` (visualize.py — heavy
-plotting deps) and `lean/` (KingWen.lean — the Lean 4 machine-checked theorem
-file + README; all formal-verification work goes in that one file).
+plotting deps) and `lean/` (**a per-module directory, not one file** — the Lean 4 machine-checked theorem
+modules + README; every file is inventoried in `lean/README.md` and checked independently by
+`reports/certificates/verify_all.sh`. The one-file wording here was written 2026-07-03 when `lean/`
+held exactly one file; the second and third landed 2026-07-04 and it is now twelve. Per-module is
+the RIGHT structure for Lean and is not to be consolidated: compile cost is PER FILE, and
+`PruneGInvariance.lean` alone peaks near 10.6 GB once its `native_decide` moves to kernel `decide`
+— merged into one file the verification memory would be far worse, and the cheap files stay cheap
+only because they are separate. Do not split a file further without a measured reason either).
 
 Past violations:
 - 2026-04-21: `analyze_yields.c` created as a separate file; user directive
