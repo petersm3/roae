@@ -22,6 +22,34 @@ live in:
 
 ---
 
+## Build prerequisites
+
+Measured on a clean Ubuntu 24.04 host, 2026-08-04, while executing the published reproduction
+recipe end to end for the first time. The build line links `-lz` and `-fopenmp`, but no document
+in this repository named the packages those need — a fresh machine failed at step one with
+nothing here to explain why. That gap is what this section closes.
+
+```
+sudo apt-get install -y build-essential zlib1g-dev
+```
+
+- **`build-essential`** — `gcc` and the C toolchain (verified with gcc 13.3.0).
+- **`zlib1g-dev`** — `zlib.h`. `solve.c` uses zlib natively for the per-block-gzip layer format;
+  without the headers the compile fails at the first `#include <zlib.h>`.
+- **OpenMP** — ships with gcc as `libgomp` on Debian/Ubuntu; no separate package.
+- **`python3`** — for `tests.py`, `solve.py`, `roae.py`, `verify.py`. Stdlib only; no third-party
+  modules are required.
+- **Lean 4** (only for `lean/`) — via [elan](https://github.com/leanprover/elan), pinned to the
+  version the reports name as tested: `elan default leanprover/lean4:v4.31.0`.
+
+Verified from a fresh clone on 2026-08-04: `--selftest` printed
+`403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, `python3 tests.py` ran 64 tests
+OK (1 skipped), and `lean lean/KingWen.lean` exited 0 with no output.
+
+Note that `documentation/REBUILD_FROM_SPEC.md` §Prerequisites is deliberately silent on all of the
+above and should stay that way — it describes writing an independent verifier in *any* language,
+and naming a C toolchain there would narrow it.
+
 ## Project conventions
 
 ### "Proven" language must be universal or explicitly scoped

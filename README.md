@@ -37,6 +37,22 @@ results are graded fairly, have had no examiner who did not also write them. The
 weakest check to the third-party rung this project has not reached, is in
 [METHODS](reports/METHODS.md) §"Authorship independence".
 
+**Check it yourself — one command, one expected number.** The fastest way to stop taking this on
+trust. On a clean Debian/Ubuntu machine (measured 2026-08-04 on Ubuntu 24.04; see
+[DEVELOPMENT](documentation/DEVELOPMENT.md) §Build prerequisites for the package list):
+
+```
+git clone https://github.com/petersm3/roae.git && cd roae
+gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
+./solve --selftest
+```
+
+It must print `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`. A different digest
+is a finding — please report it. This recipe was executed end to end from a fresh clone on
+2026-08-04 and passed, together with `python3 tests.py` (64 tests) and `lean lean/KingWen.lean`
+(silent, i.e. all theorems check); before that date it had never actually been run, which is itself
+the kind of gap this disclosure exists to surface.
+
 **The question.** The King Wen sequence is the received ordering of the 64 I Ching hexagrams — in
 continuous use for some two millennia, traditionally attributed to King Wen of Zhou (~1000 BCE; the
 dating of the ordering's fixation is debated in modern scholarship). For centuries it has attracted

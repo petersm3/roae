@@ -315,3 +315,31 @@ needs is public — [REBUILD_FROM_SPEC](../documentation/REBUILD_FROM_SPEC.md),
 [CANONICAL_HASHES](../documentation/CANONICAL_HASHES.md), and the certificates under
 `reports/certificates/` — and such an examination would move the suite up this ladder; until one
 happens, this section is the ceiling on what "verified" can mean here.
+
+**The review record, including what was rejected.** Naming a mechanism is not the same as showing
+its output, so the record is public and auditable rather than summarised: every accepted correction
+is an entry in [CORRECTIONS](../documentation/CORRECTIONS.md), every withdrawn phrasing is a row in
+[RETRACTED_PHRASES](../documentation/RETRACTED_PHRASES.tsv) that a gate then blocks from recurring,
+and each report's revision table dates its own changes. **Findings were also rejected**, and those
+are recorded too — a proposed ~52× look-elsewhere factor for TR-8 was examined and *declined*
+because the evidence supports only a floor of ≥~10×, and that decision is written down rather than
+quietly dropped. Rejections are the part of a review record that is easy to omit and hardest to
+reconstruct later; a reader who wants to audit the grading should start there.
+
+**The file drawer — an open gap, stated as such.** For an argument of this shape ("the received
+ordering is atypical"), the denominator matters: how many constraint families were tested and set
+aside before the published set was fixed? **This suite does not currently publish that denominator.**
+Some constraints are inherited from the literature and so are not ours to have selected; others were
+formalized here, and the full ledger of what was tried and dropped has not been assembled. Until it
+is, the multiple-comparisons correction a sceptical reader would want cannot be computed from
+published material, and no p-value here should be read as if it had been.
+
+**Pre-registration, honestly scoped.** Where a test could have been graded after the fact, the
+design was frozen first and published: see [evidence/f11/PREREGISTRATION](evidence/f11/PREREGISTRATION.md)
+for the model forms, the 50:50 prior and the Jeffreys bands, all fixed before the numbers existed.
+The practice has teeth — a pre-registered confusability gate on the four-class comparison **failed**,
+and §6.3 of that design permanently withholds the result rather than reporting it; a second gate on
+the two-model pair also failed and is recorded in [CORRECTIONS](../documentation/CORRECTIONS.md)
+CX-25. **The scope limit is real and should be stated plainly: pre-registration governs the recent
+model-comparison work, not the suite retrospectively.** Earlier results were not pre-registered, and
+nothing here converts them.
