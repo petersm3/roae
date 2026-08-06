@@ -11,7 +11,7 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 ## Executive summary
 
 This is the engineering report: how a computation that visited 560 trillion search states and produced
-10.5 billion results became a **reproducible scientific object** — re-derivable byte-for-byte on hardware
+10.5 billion records became a **reproducible scientific object** — re-derivable byte-for-byte on hardware
 the project doesn't control, given a matching toolchain class (see the qualifier below). The proof is
 demonstrated, not promised: the entire computation
 was run twice from scratch, weeks apart, on rented cloud machines that were forcibly interrupted twelve

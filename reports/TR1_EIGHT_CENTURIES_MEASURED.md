@@ -116,7 +116,7 @@ result — see §5.)
    What this wave establishes: (a) Moore's pair-positioning rule was the strongest first-wave
    discriminator — KW's 16-of-18 compliance is shared by ~1 in 1,362 valid orderings, its joint Moore
    profile by ~1 in 54,000; (b) the two Moore rules are **negatively correlated** (joint mass = 0.66× the
-   independence prediction) — parity and rhythm compete, a structure not previously observed. *(Interval
+   independence prediction) — parity and rhythm compete, a structure not, to our knowledge, previously observed. *(Interval
    caveat, added 2026-08-01: 0.66 is a ratio of three separately-estimated weighted masses and no
    uncertainty is published for it. Per the §1 caveat, masses near 10⁻⁶ carry ~±10-15% relative sampling
    error at this probe count, so read the direction — joint mass below the independence product — rather

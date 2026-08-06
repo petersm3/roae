@@ -36,7 +36,7 @@ and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
    strongest discriminator" below). King Wen's 16-of-18
    compliance is shared by ~1 in 1,362 constraint-satisfying orderings; its *joint* profile under Moore's
    two rules by ~1 in 54,000. The rules are **negatively correlated** (joint mass = 0.66× the independence
-   prediction) — the parity and rhythm constraints compete, a structural fact not previously observed.
+   prediction) — the parity and rhythm constraints compete, a structural fact not, to our knowledge, previously observed.
 2. **King Wen is near-optimal but strictly suboptimal on both Moore rules — and fully-compliant orderings
    exist on each.** Perfect 18/18 parity compliance is achieved by ~5×10⁻⁶ of the population (observed
    directly; Moore himself conjectured such "uncorrupted" orderings might exist — the conjecture is
