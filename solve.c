@@ -13354,6 +13354,140 @@ static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budge
     f1c5_write_manifest_as(dir, "f1c5", c, B, last_complete_k);
 }
 
+/* ============ Stage-G finalize-durability marker (2026-08-06) ============
+ * PHASE B of a g/t-ladder layer build (finalize concat + sidecar emission,
+ * multi-hour at full-31) previously had NO durable state: g_build.ckpt is
+ * unlinked right after the .bin rename, but the manifest — the only thing
+ * the resume loader reads — is not advanced until AFTER the (multi-hour)
+ * catalog-sidecar pass. An eviction in that window discarded a fully-built
+ * layer and forced a complete re-sweep (~44 h lost on full-31 layer 17,
+ * 2026-08-05). The marker closes the window: written atomically right after
+ * the layer file is durable (rename+dir-fsync inside finalize — write-order
+ * invariant #167: artifact BEFORE attestation), and consumed by the driver
+ * loop, which validates it (k/pl_hash/b0 + exact byte size, and the layer
+ * header + index through f1c5_v2_index_load) and ADOPTS the finished layer
+ * instead of re-sweeping. Unlinked once the manifest advances past the
+ * layer; keyed by k in BOTH filename and contents. The marker also records
+ * the layer's decompressed-stream sha256 (same digest as --f1c5-layer-sha),
+ * computed INLINE during the finalize concat (same bytes read once, no extra
+ * I/O — see f1c5_v2out_finalize), plus an append-only per-layer sha ledger
+ * (<gdir>/<pfx>_layer_sha.ledger) that no sidecar retrofit can overwrite
+ * (#119: --f1c5-sidecar-retrofit regenerates sidecars and drops build-only
+ * fields; the ledger is the retrofit-proof record). All of this is module
+ * (--kc-*) code — sha-neutral, zero interaction with the enumeration path.
+ * Design: operator-reviewed element (A), implemented by Claude (Fable 5),
+ * operator-directed; developed with AI assistance (Claude, Anthropic). */
+
+static void f1c5_finalized_marker_path(char *buf, size_t cap, const char *dir,
+                                       const char *pfx, int k) {
+    snprintf(buf, cap, "%s/%s_layer_%02d.finalized", dir, pfx, k);
+}
+
+/* Atomic (tmp+fsync+rename+dir-fsync, the f1c5_write_manifest_as idiom)
+ * post-finalize marker write. sha_hex: 64-hex digest or ""/NULL when the
+ * inline digest was unavailable (recorded as "unavailable"). */
+static void f1c5_finalized_marker_write(const char *dir, const char *pfx,
+                                        const F1Ctx *c, const F1C5Budget *B,
+                                        int k, uint64_t nm, uint64_t ne,
+                                        uint64_t bin_bytes, const char *sha_hex) {
+    char fin[4200], tmp[4208];
+    f1c5_finalized_marker_path(fin, sizeof(fin), dir, pfx, k);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
+    FILE *f = fopen(tmp, "w");
+    if (!f) f1_ckpt_io_abort("fopen", tmp);
+    fprintf(f, "%s_finalized_v1\nk=%d\nn=%d\nstart_exit=%d\npl_hash=%016llx\n"
+            "b0=%d,%d,%d,%d,%d\nn_masks=%llu\nn_entries=%llu\nbin_bytes=%llu\n"
+            "sha256_decompressed=%s\n",
+            pfx, k, c->n, c->start_exit, (unsigned long long)f1_pl_hash(c),
+            B->b0[0], B->b0[1], B->b0[2], B->b0[3], B->b0[4],
+            (unsigned long long)nm, (unsigned long long)ne,
+            (unsigned long long)bin_bytes,
+            (sha_hex && sha_hex[0]) ? sha_hex : "unavailable");
+    if (fflush(f) != 0 || fsync(fileno(f)) != 0) f1_ckpt_io_abort("fsync", tmp);
+    fclose(f);
+    if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename", fin);
+    f1_fsync_dir(dir);
+}
+
+/* Read + validate the finalized marker for layer k. Returns 1 and fills the
+ * outputs only when EVERY context field matches this run (k, n, start_exit,
+ * pl_hash, b0); 0 otherwise (missing or mismatched — the caller decides
+ * whether to unlink). sha_hex[65] receives the recorded digest or "" when
+ * the marker recorded "unavailable". */
+static int f1c5_finalized_marker_read(const char *dir, const char *pfx, int k,
+                                      const F1Ctx *c, const F1C5Budget *B,
+                                      uint64_t *nm_out, uint64_t *ne_out,
+                                      uint64_t *bytes_out, char sha_hex[65]) {
+    char path[4200];
+    f1c5_finalized_marker_path(path, sizeof(path), dir, pfx, k);
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+    char line[512];
+    int mk = -1, mn = -1, mse = -1, mb0[5] = {-1, -1, -1, -1, -1};
+    unsigned long long ph = 0, nm = 0, ne = 0, bb = 0;
+    char sha[80] = "";
+    while (fgets(line, sizeof(line), f)) {
+        sscanf(line, "k=%d", &mk);
+        sscanf(line, "n=%d", &mn);
+        sscanf(line, "start_exit=%d", &mse);
+        sscanf(line, "pl_hash=%llx", &ph);
+        sscanf(line, "b0=%d,%d,%d,%d,%d", &mb0[0], &mb0[1], &mb0[2], &mb0[3], &mb0[4]);
+        sscanf(line, "n_masks=%llu", &nm);
+        sscanf(line, "n_entries=%llu", &ne);
+        sscanf(line, "bin_bytes=%llu", &bb);
+        sscanf(line, "sha256_decompressed=%79s", sha);
+    }
+    fclose(f);
+    int b0_ok = 1;
+    for (int d = 0; d < 5; d++) if (mb0[d] != B->b0[d]) b0_ok = 0;
+    if (!(mk == k && mn == c->n && mse == c->start_exit &&
+          ph == (unsigned long long)f1_pl_hash(c) && b0_ok))
+        return 0;
+    *nm_out = nm;
+    *ne_out = ne;
+    *bytes_out = bb;
+    sha_hex[0] = '\0';
+    if (strlen(sha) == 64) { memcpy(sha_hex, sha, 64); sha_hex[64] = '\0'; }
+    return 1;
+}
+
+/* APPEND-ONLY per-layer sha ledger: one line per completed layer at finalize
+ * time (never rewritten; adoption of an already-finalized layer does NOT
+ * re-append). Best-effort — a ledger failure WARNs, never aborts a build. */
+static void f1c5_sha_ledger_append(const char *dir, const char *pfx, int k,
+                                   uint64_t bin_bytes, const char *sha_hex) {
+    char path[4200];
+    snprintf(path, sizeof(path), "%s/%s_layer_sha.ledger", dir, pfx);
+    int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0666);
+    if (fd < 0) {
+        fprintf(stderr, "WARN: [%s] sha ledger open failed (%s) — line not recorded\n",
+                pfx, path);
+        return;
+    }
+    char host[256] = "unknown", tbuf[40] = "", line[512];
+    if (gethostname(host, sizeof(host) - 1) != 0) snprintf(host, sizeof(host), "unknown");
+    host[sizeof(host) - 1] = '\0';
+    time_t now = time(NULL);
+    struct tm tmb;
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tmb));
+    int len = snprintf(line, sizeof(line), "k=%02d bytes=%llu sha256=%s utc=%s host=%s\n",
+                       k, (unsigned long long)bin_bytes,
+                       (sha_hex && sha_hex[0]) ? sha_hex : "unavailable", tbuf, host);
+    int wok = (len > 0 && len < (int)sizeof(line) &&
+               write(fd, line, (size_t)len) == (ssize_t)len && fsync(fd) == 0);
+    close(fd);
+    if (!wok)
+        fprintf(stderr, "WARN: [%s] sha ledger append failed (%s)\n", pfx, path);
+}
+
+/* Env gate for the inline finalize-time decompressed-stream sha (default ON
+ * for the g/t OOC builder; SOLVE_F1_FINALIZE_SHA=0 degrades the marker to
+ * size+identity only — the adopt path never depends on the digest). */
+static int f1c5_finalize_sha_enabled(void) {
+    const char *e = getenv("SOLVE_F1_FINALIZE_SHA");
+    return !(e && *e && atoi(e) == 0);
+}
+
 /* Returns last_complete_k and fills *L on successful resume; -1 if no
  * manifest. Mismatch or corrupt layer file is a hard error (wrong dir).
  * index_only (#221 out-of-core): load only masks+off (the index); entries
@@ -13361,6 +13495,55 @@ static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budge
  * always loaded in full — the total needs its entries, and it is tiny (one
  * canonical mask). */
 static uint64_t f1c5_v2_kblk_base(uint64_t nm, uint64_t ne);   /* fwd decl (defined w/ the v2 codec) */
+
+/* Load a v2 layer's in-RAM index (masks, off, kidx, vidx; entries stay
+ * compressed on disk) from an open layer file positioned just past the header,
+ * with the full corrupt-index validation suite (pad/BLK match, monotonicity +
+ * compressBound bound, exact file-size check). Factored out of
+ * f1c5_try_resume_as (2026-08-06, Stage-G finalize-durability) so the
+ * finalized-marker adopt path in kc_g_build_ooc loads through the IDENTICAL
+ * validated code path. Hard-fails on any structural problem. */
+static void f1c5_v2_index_load(FILE *f, const char *path, const F1C5LayerHdr *h,
+                               F1C5Layer *L) {
+    L->nm = h->n_masks;
+    L->ne = h->n_entries;
+    L->masks = (uint32_t *)malloc(sizeof(uint32_t) * (L->nm ? L->nm : 1));
+    L->off = (uint64_t *)malloc(sizeof(uint64_t) * (L->nm + 1));
+    F1_CHECK(L->masks && L->off, "resume alloc failed");
+    L->keys = NULL; L->vals = NULL;
+    uint64_t nblk = (L->ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;
+    L->kidx = (uint64_t *)malloc(sizeof(uint64_t) * (nblk + 1));
+    L->vidx = (uint64_t *)malloc(sizeof(uint64_t) * (nblk + 1));
+    F1_CHECK(L->kidx && L->vidx, "resume v2 index alloc failed");
+    if ((L->nm && fread(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
+        fread(L->off, sizeof(uint64_t), L->nm + 1, f) != L->nm + 1 ||
+        fread(L->kidx, sizeof(uint64_t), nblk + 1, f) != nblk + 1 ||
+        fread(L->vidx, sizeof(uint64_t), nblk + 1, f) != nblk + 1)
+        f1_ckpt_io_abort("fread body (v2)", path);
+    /* validate the loaded index BEFORE any read uses it — a corrupt/cross-BLK
+     * index would otherwise drive an unbounded pread into a fixed cbuf
+     * (heap smash). Turn every such case into a clean abort. (Fable Findings 4,5) */
+    F1_CHECK(h->pad == F1C5_OOC_BLK,
+             "v2 layer %s block size mismatch (file=%u, build=%u) — rebuild with matching F1C5_OOC_BLK",
+             path, h->pad, (unsigned)F1C5_OOC_BLK);
+    F1_CHECK(L->kidx[0] == 0 && L->vidx[0] == 0, "v2 index base nonzero (%s corrupt)", path);
+    const uint64_t maxblk = (uint64_t)compressBound(24ull * F1C5_OOC_BLK);
+    for (uint64_t b = 0; b < nblk; b++)
+        F1_CHECK(L->kidx[b + 1] >= L->kidx[b] && L->vidx[b + 1] >= L->vidx[b] &&
+                 L->kidx[b + 1] - L->kidx[b] <= maxblk && L->vidx[b + 1] - L->vidx[b] <= maxblk,
+                 "v2 index block %llu out of range (%s corrupt)", (unsigned long long)b, path);
+    uint64_t kblk_base = f1c5_v2_kblk_base(L->nm, L->ne);
+    long cur_pos = ftell(f);
+    fseek(f, 0, SEEK_END);
+    uint64_t fsz = (uint64_t)ftell(f);
+    fseek(f, cur_pos, SEEK_SET);
+    F1_CHECK(fsz == kblk_base + L->kidx[nblk] + L->vidx[nblk],
+             "v2 layer %s size %llu != expected %llu (corrupt/truncated)", path,
+             (unsigned long long)fsz,
+             (unsigned long long)(kblk_base + L->kidx[nblk] + L->vidx[nblk]));
+    F1_CHECK(L->off[0] == 0 && L->off[L->nm] == L->ne, "resume offset table corrupt");
+}
+
 /* Prefix/direction-parameterized resume loader (Stage G, 2026-07-16): the g
  * (backward suffix-DP) ladder resumes through this same code with pfx="g",
  * is_g=1 — g layer files carry "F1C5GLY1"/"F1C5GLY2" magic, and the manifest's
@@ -13407,12 +13590,7 @@ static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
              "layer file %s header mismatch (magic/version)", path);
     if (out_is_v2) *out_is_v2 = is_v2;   /* the driver ADOPTS the on-disk format (Fable Finding 1) */
     L->k = lk;
-    L->nm = h.n_masks;
-    L->ne = h.n_entries;
     int idx_only = index_only && (is_g ? lk > 0 : lk < c->n);
-    L->masks = (uint32_t *)malloc(sizeof(uint32_t) * (L->nm ? L->nm : 1));
-    L->off = (uint64_t *)malloc(sizeof(uint64_t) * (L->nm + 1));
-    F1_CHECK(L->masks && L->off, "resume alloc failed");
     if (is_v2) {
         /* v2: masks+off then the compressed-block seek index (kidx/vidx); entries
          * stay compressed on disk (OOC index-only), read on demand by the builder.
@@ -13421,38 +13599,13 @@ static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
          * is false, but we still want the index-only load so the driver's final-
          * readback path decompresses and prints the total. (Fable review Finding 2.) */
         F1_CHECK(index_only, "v2 layer resume requires OOC (in-RAM path uses v1)");
-        L->keys = NULL; L->vals = NULL;
-        uint64_t nblk = (L->ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;
-        L->kidx = (uint64_t *)malloc(sizeof(uint64_t) * (nblk + 1));
-        L->vidx = (uint64_t *)malloc(sizeof(uint64_t) * (nblk + 1));
-        F1_CHECK(L->kidx && L->vidx, "resume v2 index alloc failed");
-        if ((L->nm && fread(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
-            fread(L->off, sizeof(uint64_t), L->nm + 1, f) != L->nm + 1 ||
-            fread(L->kidx, sizeof(uint64_t), nblk + 1, f) != nblk + 1 ||
-            fread(L->vidx, sizeof(uint64_t), nblk + 1, f) != nblk + 1)
-            f1_ckpt_io_abort("fread body (v2)", path);
-        /* validate the loaded index BEFORE any read uses it — a corrupt/cross-BLK
-         * index would otherwise drive an unbounded pread into a fixed cbuf
-         * (heap smash). Turn every such case into a clean abort. (Fable Findings 4,5) */
-        F1_CHECK(h.pad == F1C5_OOC_BLK,
-                 "v2 layer %s block size mismatch (file=%u, build=%u) — rebuild with matching F1C5_OOC_BLK",
-                 path, h.pad, (unsigned)F1C5_OOC_BLK);
-        F1_CHECK(L->kidx[0] == 0 && L->vidx[0] == 0, "v2 index base nonzero (%s corrupt)", path);
-        const uint64_t maxblk = (uint64_t)compressBound(24ull * F1C5_OOC_BLK);
-        for (uint64_t b = 0; b < nblk; b++)
-            F1_CHECK(L->kidx[b + 1] >= L->kidx[b] && L->vidx[b + 1] >= L->vidx[b] &&
-                     L->kidx[b + 1] - L->kidx[b] <= maxblk && L->vidx[b + 1] - L->vidx[b] <= maxblk,
-                     "v2 index block %llu out of range (%s corrupt)", (unsigned long long)b, path);
-        uint64_t kblk_base = f1c5_v2_kblk_base(L->nm, L->ne);
-        long cur_pos = ftell(f);
-        fseek(f, 0, SEEK_END);
-        uint64_t fsz = (uint64_t)ftell(f);
-        fseek(f, cur_pos, SEEK_SET);
-        F1_CHECK(fsz == kblk_base + L->kidx[nblk] + L->vidx[nblk],
-                 "v2 layer %s size %llu != expected %llu (corrupt/truncated)", path,
-                 (unsigned long long)fsz,
-                 (unsigned long long)(kblk_base + L->kidx[nblk] + L->vidx[nblk]));
+        f1c5_v2_index_load(f, path, &h, L);
     } else {
+        L->nm = h.n_masks;
+        L->ne = h.n_entries;
+        L->masks = (uint32_t *)malloc(sizeof(uint32_t) * (L->nm ? L->nm : 1));
+        L->off = (uint64_t *)malloc(sizeof(uint64_t) * (L->nm + 1));
+        F1_CHECK(L->masks && L->off, "resume alloc failed");
         L->keys = idx_only ? NULL : (uint32_t *)malloc(sizeof(uint32_t) * (L->ne ? L->ne : 1));
         L->vals = idx_only ? NULL : (F1U192 *)malloc(sizeof(F1U192) * (L->ne ? L->ne : 1));
         F1_CHECK(idx_only || (L->keys && L->vals), "resume alloc failed");
@@ -15034,12 +15187,28 @@ static void f1c5_v2out_push(F1C5V2Out *o, const uint32_t *keys, const F1U192 *va
 
 /* Finalize the v2 layer file: flush partial block, write hdr|masks|off|kidx|vidx
  * to otmp, append the two compressed-block sidecars, fsync+rename. Steals the
- * kidx/vidx arrays into *out_kidx/*out_vidx (caller frees). */
+ * kidx/vidx arrays into *out_kidx/*out_vidx (caller frees).
+ *
+ * Stage-G finalize-durability (2026-08-06): when sha_hex != NULL, the sidecar
+ * copy walks the compressed blocks via kidx/vidx and inflates each one in
+ * stream order, feeding masks || off || keys || vals — EXACTLY the logical
+ * stream f1c5_layer_sha_hex digests (--f1c5-layer-sha, and the catalog
+ * sidecar's own_sha256_decompressed) — to the external sha256 tool through a
+ * pipe. The same bytes are read once (no extra I/O); the inflate is CPU laid
+ * over the copy. Any digest failure WARNs and degrades to sha_hex[0]=='\0'
+ * (the copy itself never depends on the pipe; a sidecar-less host still
+ * finalizes). sha_hex == NULL keeps the historical raw chunked copy
+ * byte-for-byte (the Stage-F caller path, unchanged). out_bytes (may be NULL)
+ * receives the final file size — the exact value the resume loader's size
+ * gate recomputes. Test hooks (drills; module code, sha-neutral):
+ * SOLVE_F1_KILL_PRE_CONCAT=<k> exits 137 before the concat starts,
+ * SOLVE_F1_KILL_IN_FINALIZE=<k> exits 137 mid-concat AFTER the kblk sidecar
+ * was consumed and unlinked (the worst-case in-window kill). */
 static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin,
                                 const F1C5LayerHdr *h, const uint32_t *masks,
                                 const uint64_t *off, uint64_t nm, uint64_t ne,
                                 const char *dir, uint64_t **out_kidx, uint64_t **out_vidx,
-                                F1C5OocIo *io) {
+                                F1C5OocIo *io, char *sha_hex, uint64_t *out_bytes) {
     f1c5_v2out_flush_block(o);
     if (fsync(o->kfd) != 0) f1_ckpt_io_abort("fsync (v2 kblk)", o->kpath);
     if (fsync(o->vfd) != 0) f1_ckpt_io_abort("fsync (v2 vblk)", o->vpath);
@@ -15048,6 +15217,12 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
              "v2out nblk drift: got %llu want %llu (ne=%llu)",
              (unsigned long long)o->nblk,
              (unsigned long long)((ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK), (unsigned long long)ne);
+    { const char *e = getenv("SOLVE_F1_KILL_PRE_CONCAT");
+      if (e && *e && atoi(e) == (int)h->k) {
+          fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_PRE_CONCAT=%d reached (layer k=%u, "
+                  "sidecars flushed, concat not started) — _exit(137)\n", atoi(e), h->k);
+          _exit(137);
+      } }
     int ofd = open(otmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (ofd < 0) f1_ckpt_io_abort("open (v2 otmp)", otmp);
     double tw = omp_get_wtime();
@@ -15057,26 +15232,126 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
     f1c5_ooc_pwrite(ofd, off, 8ull * (nm + 1), off_pos, otmp, io); off_pos += 8ull * (nm + 1);
     f1c5_ooc_pwrite(ofd, o->kidx, 8ull * (o->nblk + 1), off_pos, otmp, io); off_pos += 8ull * (o->nblk + 1);
     f1c5_ooc_pwrite(ofd, o->vidx, 8ull * (o->nblk + 1), off_pos, otmp, io); off_pos += 8ull * (o->nblk + 1);
-    /* append compressed-block sidecars (streamed copy; compressed data is small) */
-    uint8_t *cpy = (uint8_t *)malloc(1u << 22); F1_CHECK(cpy, "v2 finalize copy buf");
-    const char *paths[2] = {o->kpath, o->vpath};
-    for (int s = 0; s < 2; s++) {
-        int rf = open(paths[s], O_RDONLY);
-        if (rf < 0) f1_ckpt_io_abort("open (v2 sidecar read)", paths[s]);
-        for (;;) {
-            ssize_t r = read(rf, cpy, 1u << 22);
-            if (r < 0) f1_ckpt_io_abort("read (v2 sidecar)", paths[s]);
-            if (r == 0) break;
-            f1c5_ooc_pwrite(ofd, cpy, (uint64_t)r, off_pos, otmp, io); off_pos += (uint64_t)r;
+    /* inline decompressed-stream sha: open the tool pipe and feed masks+off
+     * (the head of the logical stream) before the block walk. */
+    FILE *shp = NULL;
+    char shtmp[128];
+    int sha_ok = 0;
+    void (*oldpipe)(int) = SIG_ERR;
+    if (sha_hex) {
+        /* a dying sha tool must degrade the digest, never SIGPIPE-kill a
+         * multi-hour build's commit path */
+        oldpipe = signal(SIGPIPE, SIG_IGN);
+        sha_hex[0] = '\0';
+        const char *tool = sha256_tool();
+        if (tool) {
+            snprintf(shtmp, sizeof(shtmp), "/tmp/solve_fsha_%d", (int)getpid());
+            char cmd[192];
+            snprintf(cmd, sizeof(cmd), "%s > %s", tool, shtmp);
+            shp = popen(cmd, "w");
+            if (shp) {
+                sha_ok = 1;
+                if ((nm && fwrite(masks, 4, nm, shp) != nm) ||
+                    fwrite(off, 8, nm + 1, shp) != nm + 1)
+                    sha_ok = 0;
+            }
         }
-        close(rf); unlink(paths[s]);
+        if (!shp)
+            fprintf(stderr, "WARN: finalize sha pipe unavailable — marker will record "
+                    "sha256_decompressed=unavailable\n");
     }
-    free(cpy);
+    /* append compressed-block sidecars (streamed copy; compressed data is small) */
+    const char *paths[2] = {o->kpath, o->vpath};
+    if (sha_hex) {
+        /* per-block copy: same bytes, same order, one read each — plus an
+         * in-memory inflate feeding the digest pipe (keys blocks then vals
+         * blocks == f1c5_lstream order). */
+        uint8_t *cbuf = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
+        uint8_t *dbuf = (uint8_t *)malloc(24ull * F1C5_OOC_BLK);
+        F1_CHECK(cbuf && dbuf, "v2 finalize sha buf");
+        for (int s = 0; s < 2; s++) {
+            const uint64_t *idx = s == 0 ? o->kidx : o->vidx;
+            const uint64_t unit = s == 0 ? 4ull : 24ull;
+            FILE *rf = fopen(paths[s], "rb");
+            if (!rf) f1_ckpt_io_abort("open (v2 sidecar read)", paths[s]);
+            for (uint64_t b = 0; b < o->nblk; b++) {
+                uint64_t e0 = b * F1C5_OOC_BLK, e1 = e0 + F1C5_OOC_BLK;
+                if (e1 > ne) e1 = ne;
+                const uint64_t bn = e1 - e0;
+                const uint64_t clen = idx[b + 1] - idx[b];
+                if (fread(cbuf, 1, clen, rf) != clen)
+                    f1_ckpt_io_abort("read (v2 sidecar)", paths[s]);
+                f1c5_ooc_pwrite(ofd, cbuf, clen, off_pos, otmp, io); off_pos += clen;
+                if (sha_ok) {
+                    f1c5_inflate_block(cbuf, clen, (Bytef *)dbuf, unit * bn);
+                    if (fwrite(dbuf, 1, unit * bn, shp) != unit * bn) sha_ok = 0;
+                }
+            }
+            fclose(rf); unlink(paths[s]);
+            if (s == 0) {
+                const char *e = getenv("SOLVE_F1_KILL_IN_FINALIZE");
+                if (e && *e && atoi(e) == (int)h->k) {
+                    fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_IN_FINALIZE=%d reached "
+                            "(layer k=%u, kblk consumed+unlinked mid-concat) — _exit(137)\n",
+                            atoi(e), h->k);
+                    _exit(137);
+                }
+            }
+        }
+        free(cbuf); free(dbuf);
+    } else {
+        uint8_t *cpy = (uint8_t *)malloc(1u << 22); F1_CHECK(cpy, "v2 finalize copy buf");
+        for (int s = 0; s < 2; s++) {
+            int rf = open(paths[s], O_RDONLY);
+            if (rf < 0) f1_ckpt_io_abort("open (v2 sidecar read)", paths[s]);
+            for (;;) {
+                ssize_t r = read(rf, cpy, 1u << 22);
+                if (r < 0) f1_ckpt_io_abort("read (v2 sidecar)", paths[s]);
+                if (r == 0) break;
+                f1c5_ooc_pwrite(ofd, cpy, (uint64_t)r, off_pos, otmp, io); off_pos += (uint64_t)r;
+            }
+            close(rf); unlink(paths[s]);
+            if (s == 0) {
+                const char *e = getenv("SOLVE_F1_KILL_IN_FINALIZE");
+                if (e && *e && atoi(e) == (int)h->k) {
+                    fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_IN_FINALIZE=%d reached "
+                            "(layer k=%u, kblk consumed+unlinked mid-concat) — _exit(137)\n",
+                            atoi(e), h->k);
+                    _exit(137);
+                }
+            }
+        }
+        free(cpy);
+    }
+    if (shp) {
+        int prc = pclose(shp);
+        if (sha_ok && prc == 0) {
+            FILE *tf = fopen(shtmp, "r");
+            if (tf) {
+                char buf[256] = {0};
+                if (fgets(buf, sizeof(buf), tf)) {
+                    int i = 0;
+                    while (i < 64 && buf[i] && buf[i] != ' ' && buf[i] != '\t' && buf[i] != '\n') {
+                        sha_hex[i] = buf[i]; i++;
+                    }
+                    sha_hex[i] = '\0';
+                    if (i != 64) sha_hex[0] = '\0';
+                }
+                fclose(tf);
+            }
+        }
+        unlink(shtmp);
+        if (sha_hex[0] == '\0')
+            fprintf(stderr, "WARN: finalize inline sha failed — marker will record "
+                    "sha256_decompressed=unavailable\n");
+    }
+    if (sha_hex && oldpipe != SIG_ERR) signal(SIGPIPE, oldpipe);
     if (fsync(ofd) != 0) f1_ckpt_io_abort("fsync (v2 otmp)", otmp);
     close(ofd);
     if (rename(otmp, ofin) != 0) f1_ckpt_io_abort("rename (v2)", ofin);
     f1_fsync_dir(dir);
     io->sec_write += omp_get_wtime() - tw;
+    if (out_bytes) *out_bytes = off_pos;
     *out_kidx = o->kidx; *out_vidx = o->vidx; o->kidx = o->vidx = NULL;
     free(o->bk); free(o->bv); free(o->kc); free(o->vc);
 }
@@ -15801,7 +16076,7 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     h.pad = use_v2 ? F1C5_OOC_BLK : 0u;   /* v2: block size for cross-BLK safety (Fable Finding 4) */
     if (use_v2) {
         f1c5_v2out_finalize(&v2o, otmp, ofin, &h, nxt->masks, nxt->off, nxt->nm, nxt->ne,
-                            dir, &nxt->kidx, &nxt->vidx, io);
+                            dir, &nxt->kidx, &nxt->vidx, io, NULL, NULL);
         free(v2cbuf); free(v2ktmp); free(v2vtmp);
         /* layer file is committed (rename+dir-fsync inside finalize); the
          * intra-layer marker is now obsolete — remove it so a later resume of the
@@ -17235,8 +17510,16 @@ static void kc_ooc_free(KcOoc *o) {
  * cache_mb <= 0 => SOLVE_KC_CACHE_MB env (default 2048).
  * pfx/is_g (Stage G, 2026-07-16): pfx="g", is_g=1 opens a g (suffix-DP)
  * ladder — g_layer files, F1C5GLY1/2 magic, g_manifest_v1 first line,
- * last_complete_k counting DOWN (complete <=> 0), total from layer 0. */
-static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, int cache_mb) {
+ * last_complete_k counting DOWN (complete <=> 0), total from layer 0.
+ * only_k (single-layer gate, 2026-08-06): only_k >= 0 opens JUST layer only_k
+ * (read-only, same per-layer integrity suite) WITHOUT requiring a complete
+ * ladder — the manifest supplies context (n/pl/b0/start_exit) but its
+ * last_complete_k watermark is deliberately not consulted, so a layer that
+ * exists on disk but has not yet been covered by the manifest (finalized
+ * before an eviction killed the sidecar pass) is still checkable. kc->total
+ * is NOT computed in that mode (layers n/0 may be absent). */
+static int kc_ooc_open_ext(KC *kc, const char *dir, const char *pfx, int is_g,
+                           int cache_mb, int only_k) {
     f1_binom_init();
     f1_build_group();
     char path[4300], expect1[64];
@@ -17264,13 +17547,17 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
                 path, f1c5_kind_name(is_g), expect1);
         return -1;
     }
-    if (n < 1 || n > KC_MAX_PAIRS || npl != n || start_exit < 0 ||
-        last_k != (is_g ? 0 : n) || b0v[0] < 0) {
+    if (n < 1 || n > KC_MAX_PAIRS || npl != n || start_exit < 0 || b0v[0] < 0 ||
+        (only_k < 0 && last_k != (is_g ? 0 : n))) {
         fprintf(stderr, "ERROR: [kc-ooc] manifest in %s unusable (n=%d npl=%d "
                 "last_complete_k=%d; kc needs ALL layers 0..n retained — "
                 "build with %s)\n", dir, n, npl, last_k,
                 is_g == 2 ? "--kc-t-build"
                           : (is_g ? "--kc-g-build" : "--kc-build or SOLVE_F1_KEEP_LAYERS=1"));
+        return -1;
+    }
+    if (only_k > n) {
+        fprintf(stderr, "ERROR: [kc-ooc] layer %d out of range (manifest n=%d)\n", only_k, n);
         return -1;
     }
     kc->n = n;
@@ -17282,7 +17569,7 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
     for (int k = 0; k <= KC_MAX_PAIRS; k++) o->L[k].fd = -1;
     double idx_bytes = 0;
     int n_v2 = 0;
-    for (int k = 0; k <= n; k++) {
+    for (int k = (only_k < 0 ? 0 : only_k); k <= (only_k < 0 ? n : only_k); k++) {
         KcOocLayer *L = &o->L[k];
         snprintf(L->path, sizeof(L->path), "%s/%s_layer_%02d.bin", dir, pfx, k);
         L->fd = open(L->path, O_RDONLY);
@@ -17382,7 +17669,16 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
     kc->ooc = o;
     /* exact total: f from the (tiny, single-mask) final layer; g from the
      * layer-0 anchor singleton (whole-space count, suffix side) — the g seed
-     * layer n is integrity-checked (full mask, all residuals == B0). */
+     * layer n is integrity-checked (full mask, all residuals == B0).
+     * single-layer mode: layers n/0 may be absent; total stays 0 (unused). */
+    if (only_k >= 0) {
+        F1U192 z = {0, 0, 0};
+        kc->total = z;
+        fprintf(stderr, "[kc-ooc] opened %s: n=%d SINGLE LAYER k=%d kind=%s "
+                "(read-only partial open; no total)\n",
+                dir, n, only_k, f1c5_kind_name(is_g));
+        return 0;
+    }
     {
         KcOocLayer *F = &o->L[n];
         uint32_t full = (n == 32) ? 0xffffffffu : ((1u << n) - 1u);
@@ -17409,6 +17705,10 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
             dir, n, n, f1c5_kind_name(is_g), n_v2 == 0 ? "v1" : (n_v2 == n + 1 ? "v2" : "mixed"),
             idx_bytes / 1e6, cache_mb, nslot, (unsigned)F1C5_OOC_BLK);
     return 0;
+}
+
+static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, int cache_mb) {
+    return kc_ooc_open_ext(kc, dir, pfx, is_g, cache_mb, -1);
 }
 
 static int kc_ooc_open(KC *kc, const char *dir, int cache_mb) {
@@ -18925,10 +19225,29 @@ static int kc_oocverify(int npairs, int R, const char *scratch) {
  *                                   SOLVE_F1_OOC_GZIP_LEVEL, SOLVE_F1_CKPT_SEC,
  *                                   SOLVE_F1_KILL_AFTER_CHUNK (drill hook),
  *                                   SOLVE_KC_G_STOP_AT_K (probe stop >= K).
+ *                                   Finalize-durability (2026-08-06): each v2
+ *                                   layer commit writes an atomic post-finalize
+ *                                   marker (<pfx>_layer_NN.finalized: identity,
+ *                                   exact byte size, inline decompressed-stream
+ *                                   sha256) + appends to the append-only
+ *                                   <pfx>_layer_sha.ledger; the driver ADOPTS a
+ *                                   marker-matching finished layer on restart
+ *                                   instead of re-sweeping (an eviction during
+ *                                   the multi-hour sidecar pass no longer
+ *                                   discards the layer). SOLVE_F1_FINALIZE_SHA=0
+ *                                   degrades the marker to size+identity; drill
+ *                                   hooks SOLVE_F1_KILL_PRE_CONCAT=<k>,
+ *                                   SOLVE_F1_KILL_IN_FINALIZE=<k>,
+ *                                   SOLVE_KC_G_KILL_BEFORE_MANIFEST=<k>.
  *   --kc-g-check FDIR GDIR [--kc-ooc] [--kc-cache-mb MB]
  *                                   the f*g identity at EVERY layer against
  *                                   the f ladder in FDIR (in-memory or OOC,
  *                                   any n up to 31) — the plan's V3 gate.
+ *   --kc-g-check-layer K GDIR FDIR [--kc-ooc] [--kc-cache-mb MB]
+ *                                   the identity at ONE layer, READ-ONLY,
+ *                                   tolerant of an incomplete g ladder (the
+ *                                   manifest watermark is not consulted) —
+ *                                   the recovered-layer acceptance gate.
  *
  * --kc-g-selftest gates: GA1 g/f mask-list mirror per layer; GA2 g(0)==N
  *   (26,112) incl. through kc_glookup; GA3 the identity at EVERY layer;
@@ -19084,57 +19403,68 @@ static inline F1U192 kc_any_val(KC *kc, int k, uint64_t e) {
  * key-sorted spans; sequential => OOC-cache-friendly). Returns the number of
  * FAILING layers; prints one line per layer (always on mismatch, all layers
  * when verbose). */
-static int kc_g_identity(KC *fkc, KC *gkc, const F1U192 *expect, int verbose) {
+static void kc_g_ctx_check(const KC *fkc, const KC *gkc) {
     F1_CHECK(fkc->n == gkc->n && fkc->start_exit == gkc->start_exit &&
              f1_pl_hash(&fkc->c) == f1_pl_hash(&gkc->c),
              "[kc-g] f/g ladder context mismatch");
     for (int d = 0; d < 5; d++)
         F1_CHECK(fkc->b0v[d] == gkc->b0v[d], "[kc-g] f/g budget mismatch");
-    int fails = 0;
-    for (int k = 0; k <= fkc->n; k++) {
-        const uint32_t *fm, *gm;
-        const uint64_t *fo, *go;
-        uint64_t fnm, gnm;
-        kc_any_geom(fkc, k, &fm, &fo, &fnm);
-        kc_any_geom(gkc, k, &gm, &go, &gnm);
-        if (fnm != gnm || memcmp(fm, gm, sizeof(uint32_t) * fnm) != 0) {
-            printf("[kc-g] layer k=%2d: MASK LIST MISMATCH (f=%llu g=%llu masks)\n",
-                   k, (unsigned long long)fnm, (unsigned long long)gnm);
-            fails++;
-            continue;
-        }
-        F1U192 acc = {0, 0, 0};
-        for (uint64_t mi = 0; mi < fnm; mi++) {
-            F1U192 msum = {0, 0, 0};
-            uint64_t ef = fo[mi], eg = go[mi];
-            const uint64_t ef1 = fo[mi + 1], eg1 = go[mi + 1];
-            while (ef < ef1 && eg < eg1) {
-                uint32_t kf = kc_any_key(fkc, k, ef), kg = kc_any_key(gkc, k, eg);
-                if (kf < kg) ef++;
-                else if (kg < kf) eg++;
-                else {
-                    F1U192 fv = kc_any_val(fkc, k, ef), gv = kc_any_val(gkc, k, eg);
-                    F1U192 p = kc_u192_mul(&fv, &gv);
-                    f1_add(&msum, &p);
-                    ef++;
-                    eg++;
-                }
-            }
-            if (!f1_is_zero(&msum)) {
-                F1U192 w = f1_mul_small(msum, (uint32_t)f1_orbit_size(&fkc->c, fm[mi]));
-                f1_add(&acc, &w);
-            }
-        }
-        int ok = f1_eq(&acc, expect);
-        if (!ok || verbose) {
-            char adec[64], edec[64];
-            f1_dec(acc, adec);
-            f1_dec(*expect, edec);
-            printf("[kc-g] layer k=%2d: sum orbit*f*g = %s (expect %s) %s\n",
-                   k, adec, edec, ok ? "OK" : "MISMATCH");
-        }
-        if (!ok) fails++;
+}
+
+/* The f*g cut identity at ONE layer: sum over canonical masks of
+ * orbit(cm) * sum_states f*g == *expect. Returns 0 OK / 1 fail (printing the
+ * layer verdict). Factored out of kc_g_identity (2026-08-06) so the read-only
+ * single-layer gate --kc-g-check-layer evaluates the IDENTICAL arithmetic;
+ * the all-layer loop below is behavior-unchanged. */
+static int kc_g_identity_layer(KC *fkc, KC *gkc, int k, const F1U192 *expect, int verbose) {
+    const uint32_t *fm, *gm;
+    const uint64_t *fo, *go;
+    uint64_t fnm, gnm;
+    kc_any_geom(fkc, k, &fm, &fo, &fnm);
+    kc_any_geom(gkc, k, &gm, &go, &gnm);
+    if (fnm != gnm || memcmp(fm, gm, sizeof(uint32_t) * fnm) != 0) {
+        printf("[kc-g] layer k=%2d: MASK LIST MISMATCH (f=%llu g=%llu masks)\n",
+               k, (unsigned long long)fnm, (unsigned long long)gnm);
+        return 1;
     }
+    F1U192 acc = {0, 0, 0};
+    for (uint64_t mi = 0; mi < fnm; mi++) {
+        F1U192 msum = {0, 0, 0};
+        uint64_t ef = fo[mi], eg = go[mi];
+        const uint64_t ef1 = fo[mi + 1], eg1 = go[mi + 1];
+        while (ef < ef1 && eg < eg1) {
+            uint32_t kf = kc_any_key(fkc, k, ef), kg = kc_any_key(gkc, k, eg);
+            if (kf < kg) ef++;
+            else if (kg < kf) eg++;
+            else {
+                F1U192 fv = kc_any_val(fkc, k, ef), gv = kc_any_val(gkc, k, eg);
+                F1U192 p = kc_u192_mul(&fv, &gv);
+                f1_add(&msum, &p);
+                ef++;
+                eg++;
+            }
+        }
+        if (!f1_is_zero(&msum)) {
+            F1U192 w = f1_mul_small(msum, (uint32_t)f1_orbit_size(&fkc->c, fm[mi]));
+            f1_add(&acc, &w);
+        }
+    }
+    int ok = f1_eq(&acc, expect);
+    if (!ok || verbose) {
+        char adec[64], edec[64];
+        f1_dec(acc, adec);
+        f1_dec(*expect, edec);
+        printf("[kc-g] layer k=%2d: sum orbit*f*g = %s (expect %s) %s\n",
+               k, adec, edec, ok ? "OK" : "MISMATCH");
+    }
+    return ok ? 0 : 1;
+}
+
+static int kc_g_identity(KC *fkc, KC *gkc, const F1U192 *expect, int verbose) {
+    kc_g_ctx_check(fkc, gkc);
+    int fails = 0;
+    for (int k = 0; k <= fkc->n; k++)
+        fails += kc_g_identity_layer(fkc, gkc, k, expect, verbose);
     return fails;
 }
 
@@ -19518,9 +19848,21 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     for (int d = 0; d < 5; d++) h.b0[d] = (uint32_t)B->b0[d];
     h.pad = use_v2 ? F1C5_OOC_BLK : 0u;
     if (use_v2) {
+        char lsha[65];
+        uint64_t lbytes = 0;
+        const int want_sha = f1c5_finalize_sha_enabled();
         f1c5_v2out_finalize(&v2o, otmp, ofin, &h, nxt->masks, nxt->off, nxt->nm, nxt->ne,
-                            dir, &nxt->kidx, &nxt->vidx, io);
+                            dir, &nxt->kidx, &nxt->vidx, io, want_sha ? lsha : NULL, &lbytes);
+        if (!want_sha) lsha[0] = '\0';
         free(v2cbuf); free(v2ktmp); free(v2vtmp);
+        /* Stage-G finalize-durability marker (write-order invariant #167): the
+         * layer file is durable (fsync+rename+dir-fsync inside finalize) BEFORE
+         * this attestation; the marker is durable BEFORE the intra-layer ckpt
+         * is unlinked, so there is no instant with neither protection. The
+         * ledger line is appended once per completed layer, here, at finalize
+         * time (adoption never re-appends). */
+        f1c5_finalized_marker_write(dir, pfx, c, B, nxt->k, nxt->nm, nxt->ne, lbytes, lsha);
+        f1c5_sha_ledger_append(dir, pfx, nxt->k, lbytes, lsha);
         { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/%s_build.ckpt", dir, pfx); unlink(ckp); }
     } else {
         f1c5_ooc_pwrite(ofd, &h, sizeof(h), 0, otmp, io);
@@ -19610,11 +19952,76 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
                      "[kc-t] f/t canonical mask lists disagree at layer %d", k);
         F1C5OocIo io;
         memset(&io, 0, sizeof(io));
-        F1U192 mass;
+        F1U192 mass = {0, 0, 0};
         uint64_t states = 0;
-        kc_g_ooc_build_layer(&kc->c, &kc->B, gdir, pfx, kind, fdom, &cur, &nxt,
-                             kc->vloc[k], kc->vcnt[k], kc->vlist[k],
-                             cfg, &io, &mass, &states, use_v2, gzip_level);
+        /* Stage-G finalize-durability adopt check: a matching post-finalize
+         * marker + exact byte size means layer k was fully built and committed
+         * by a previous run that died before the manifest advanced (i.e.
+         * during the sidecar pass). Adopt the finished layer — load its index
+         * through the same validated path the resume loader uses — instead of
+         * re-sweeping the whole layer. */
+        int adopted = 0;
+        {
+            uint64_t mk_nm = 0, mk_ne = 0, mk_bytes = 0;
+            char mk_sha[65];
+            if (f1c5_finalized_marker_read(gdir, pfx, k, &kc->c, &kc->B,
+                                           &mk_nm, &mk_ne, &mk_bytes, mk_sha)) {
+                char lpath[4096], mpath[4200];
+                snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", gdir, pfx, k);
+                f1c5_finalized_marker_path(mpath, sizeof(mpath), gdir, pfx, k);
+                struct stat st;
+                int st_ok = (stat(lpath, &st) == 0 && (uint64_t)st.st_size == mk_bytes);
+                FILE *lf = st_ok ? fopen(lpath, "rb") : NULL;
+                F1C5LayerHdr lh;
+                int hdr_ok = 0;
+                if (lf && fread(&lh, sizeof(lh), 1, lf) == 1) {
+                    int hb0_ok = 1;
+                    for (int d = 0; d < 5; d++)
+                        if (lh.b0[d] != (uint32_t)kc->B.b0[d]) hb0_ok = 0;
+                    hdr_ok = memcmp(lh.magic, f1c5_kind_magic(kind, 1), 8) == 0 &&
+                             lh.version == 2 && lh.n == (uint32_t)kc->c.n &&
+                             lh.k == (uint32_t)k &&
+                             lh.start_exit == (uint32_t)kc->c.start_exit &&
+                             lh.pl_hash == f1_pl_hash(&kc->c) && hb0_ok &&
+                             lh.n_masks == mk_nm && lh.n_entries == mk_ne;
+                }
+                if (hdr_ok) {
+                    F1C5Layer fin;
+                    memset(&fin, 0, sizeof(fin));
+                    fin.k = k;
+                    f1c5_v2_index_load(lf, lpath, &lh, &fin);   /* hard-fails on corruption */
+                    fclose(lf);
+                    F1_CHECK(fin.nm == nxt.nm &&
+                             memcmp(fin.masks, nxt.masks, sizeof(uint32_t) * nxt.nm) == 0,
+                             "[kc-%s] finalized layer %d mask list disagrees with "
+                             "f1_enum_canonical — %s is not this run's layer", pfx, k, lpath);
+                    free(nxt.masks);
+                    free(nxt.off);
+                    nxt = fin;
+                    if (!use_v2) {
+                        fprintf(stderr, "[kc-%s] adopt switches to on-disk layer format v2 "
+                                "(requested v1)\n", pfx);
+                        use_v2 = 1;
+                    }
+                    fprintf(stderr, "[kc-%s] adopted finalized layer k=%02d "
+                            "(%llu masks, %llu entries, %llu bytes, sha %s) — sweep skipped\n",
+                            pfx, k, (unsigned long long)nxt.nm, (unsigned long long)nxt.ne,
+                            (unsigned long long)mk_bytes,
+                            mk_sha[0] ? mk_sha : "unavailable");
+                    adopted = 1;
+                } else {
+                    if (lf) fclose(lf);
+                    fprintf(stderr, "WARN: [kc-%s] finalized marker for layer %02d does not "
+                            "match the on-disk .bin (%s) — discarding the marker, "
+                            "rebuilding the layer\n", pfx, k, lpath);
+                    unlink(mpath);
+                }
+            }
+        }
+        if (!adopted)
+            kc_g_ooc_build_layer(&kc->c, &kc->B, gdir, pfx, kind, fdom, &cur, &nxt,
+                                 kc->vloc[k], kc->vcnt[k], kc->vlist[k],
+                                 cfg, &io, &mass, &states, use_v2, gzip_level);
         /* (v2 sidecar extras) per-layer build wall + x-input: the f-layer whose
          * mask domain this t layer rode (from the f catalog's own sidecar) */
         f1c5_sidecar_x.build_wall_s = omp_get_wtime() - t0;
@@ -19633,8 +20040,21 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
             }
         }
         f1c5_sidecar_emit(gdir, pfx, &kc->c, &kc->B, k);   /* catalog sidecar (non-fatal) */
+        { const char *e = getenv("SOLVE_KC_G_KILL_BEFORE_MANIFEST");   /* drill hook */
+          if (e && *e && atoi(e) == k) {
+              fprintf(stderr, "[TEST-KILL] SOLVE_KC_G_KILL_BEFORE_MANIFEST=%d reached "
+                      "(%s layer k=%d sidecar emitted, manifest NOT advanced) — _exit(137)\n",
+                      k, pfx, k);
+              _exit(137);
+          } }
         f1c5_write_manifest_as(gdir, pfx, &kc->c, &kc->B, k);
-        if (verbose) {
+        /* the manifest now covers layer k — the finalize marker has served its
+         * purpose (a crash between the manifest write and this unlink is
+         * harmless: the resume loop never revisits k >= last_complete_k). */
+        { char mpath[4200];
+          f1c5_finalized_marker_path(mpath, sizeof(mpath), gdir, pfx, k);
+          unlink(mpath); }
+        if (verbose && !adopted) {
             char mdec[64];
             f1_dec(mass, mdec);
             double rss_cur, rss_peak;
@@ -19755,6 +20175,46 @@ static int kc_g_check_main(const char *fdir, const char *gdir, int force_ooc, in
     printf("KC-G CHECK n=%d %s (%d failing layer%s)\n", fkc->n,
            fails ? "FAIL" : "PASS (sum orbit*f*g == N at every layer 0..n)",
            fails, fails == 1 ? "" : "s");
+    kc_free(fkc);
+    kc_free(gkc);
+    free(fkc);
+    free(gkc);
+    return fails ? 1 : 0;
+}
+
+/* --kc-g-check-layer driver (2026-08-06, operator-directed): the f*g cut
+ * identity at ONE layer, READ-ONLY, against a g ladder that may be
+ * INCOMPLETE (mid-campaign). The identity at layer K needs only f(K) and
+ * g(K) — no other g layer is an input — so a finalized-but-not-yet-
+ * manifest-covered g_layer_KK.bin is directly checkable: the g side is
+ * opened through the single-layer partial OOC open (per-layer header +
+ * index integrity suite, last_complete_k deliberately not consulted), the
+ * f side through the normal full open (the complete f ladder also supplies
+ * N). This is the DISPOSITIVE semantic gate for accepting a rebuilt/
+ * recovered g layer: --f1c5-layer-sha proves structural integrity only;
+ * this proves the layer's contents satisfy an exact global identity. */
+static int kc_g_check_layer_main(int k, const char *gdir, const char *fdir,
+                                 int force_ooc, int cache_mb) {
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-g] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+    if (k < 0 || k > fkc->n) {
+        fprintf(stderr, "ERROR: [kc-g] layer %d out of range (f ladder n=%d)\n", k, fkc->n);
+        kc_free(fkc); free(fkc); free(gkc);
+        return 2;
+    }
+    if (kc_ooc_open_ext(gkc, gdir, "g", 1, cache_mb, k) != 0) {
+        kc_free(fkc); free(fkc); free(gkc);
+        return 2;
+    }
+    kc_g_ctx_check(fkc, gkc);
+    char edec[64];
+    f1_dec(fkc->total, edec);
+    printf("[kc-g] single-layer check: k=%d gdir=%s fdir=%s N=%s\n", k, gdir, fdir, edec);
+    int fails = kc_g_identity_layer(fkc, gkc, k, &fkc->total, 1);
+    printf("KC-G CHECK-LAYER k=%d n=%d %s\n", k, fkc->n,
+           fails ? "FAIL" : "PASS (sum orbit*f*g == N at this layer)");
     kc_free(fkc);
     kc_free(gkc);
     free(fkc);
@@ -25539,6 +25999,27 @@ static int kc_cli(int argc, char *argv[]) {
                 gcache = atoi(argv[++ai]);
         }
         return kc_g_check_main(argv[2], argv[3], gfooc, gcache);
+    }
+    if (strcmp(cmd, "--kc-g-check-layer") == 0) {
+        /* Stage G: the f*g cut identity at ONE layer, read-only, tolerant of
+         * an incomplete g ladder (kc_g_check_layer_main header above). */
+        if (argc < 5) {
+            fprintf(stderr, "Usage: solve --kc-g-check-layer K GDIR FDIR [--kc-ooc] [--kc-cache-mb MB]\n"
+                    "  K: the single layer to check; GDIR: the g ladder (may be INCOMPLETE —\n"
+                    "  only g_layer_KK.bin is opened, read-only, and the manifest watermark is\n"
+                    "  not consulted); FDIR: the complete f ladder (also supplies N).\n"
+                    "  Verifies sum over canonical masks of orbit * sum f*g == N at layer K —\n"
+                    "  the dispositive semantic acceptance gate for a recovered/rebuilt g layer\n"
+                    "  (--f1c5-layer-sha proves structural integrity only).\n");
+            return 2;
+        }
+        int glooc = 0, glcache = 0;
+        for (int ai = 5; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--kc-ooc") == 0) glooc = 1;
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
+                glcache = atoi(argv[++ai]);
+        }
+        return kc_g_check_layer_main(atoi(argv[2]), argv[3], argv[4], glooc, glcache);
     }
     if (strcmp(cmd, "--kc-t-selftest") == 0) return kc_t_selftest();
     if (strcmp(cmd, "--kc-t-cert") == 0) {
