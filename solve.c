@@ -13378,6 +13378,9 @@ static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budge
  * Design: operator-reviewed element (A), implemented by Claude (Fable 5),
  * operator-directed; developed with AI assistance (Claude, Anthropic). */
 
+static void f1c5_v2_index_load(FILE *f, const char *path, const F1C5LayerHdr *h,
+                               F1C5Layer *L);   /* fwd decl (defined with the resume loader) */
+
 static void f1c5_finalized_marker_path(char *buf, size_t cap, const char *dir,
                                        const char *pfx, int k) {
     snprintf(buf, cap, "%s/%s_layer_%02d.finalized", dir, pfx, k);
@@ -13486,6 +13489,74 @@ static void f1c5_sha_ledger_append(const char *dir, const char *pfx, int k,
 static int f1c5_finalize_sha_enabled(void) {
     const char *e = getenv("SOLVE_F1_FINALIZE_SHA");
     return !(e && *e && atoi(e) == 0);
+}
+
+/* Shared adopt-check (both OOC ladder drivers — the Stage-F f1c5 loop and the
+ * Stage-G/T kc_g loop): a finalized marker matching this run (k, n,
+ * start_exit, pl_hash, b0) whose recorded byte size equals the on-disk .bin,
+ * whose header matches, and whose index loads clean through
+ * f1c5_v2_index_load means layer k was fully built and committed by a run
+ * that died before the manifest advanced (i.e. during the sidecar pass).
+ * Adopt it instead of re-sweeping. nxt must arrive with the enum'd canonical
+ * mask list (cross-checked against the file, then replaced by the loaded
+ * index). *use_v2 is flipped to the on-disk format on adopt (same
+ * format-adoption semantics as f1c5_try_resume_as). Returns 1 on adoption.
+ * tag is the log prefix ("f1c5", "kc-g", "kc-t"). */
+static int f1c5_finalized_try_adopt(const char *dir, const char *pfx, int kind,
+                                    const F1Ctx *c, const F1C5Budget *B, int k,
+                                    F1C5Layer *nxt, int *use_v2, const char *tag) {
+    uint64_t mk_nm = 0, mk_ne = 0, mk_bytes = 0;
+    char mk_sha[65];
+    if (!f1c5_finalized_marker_read(dir, pfx, k, c, B, &mk_nm, &mk_ne, &mk_bytes, mk_sha))
+        return 0;
+    char lpath[4096], mpath[4200];
+    snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
+    f1c5_finalized_marker_path(mpath, sizeof(mpath), dir, pfx, k);
+    struct stat st;
+    int st_ok = (stat(lpath, &st) == 0 && (uint64_t)st.st_size == mk_bytes);
+    FILE *lf = st_ok ? fopen(lpath, "rb") : NULL;
+    F1C5LayerHdr lh;
+    int hdr_ok = 0;
+    if (lf && fread(&lh, sizeof(lh), 1, lf) == 1) {
+        int hb0_ok = 1;
+        for (int d = 0; d < 5; d++)
+            if (lh.b0[d] != (uint32_t)B->b0[d]) hb0_ok = 0;
+        hdr_ok = memcmp(lh.magic, f1c5_kind_magic(kind, 1), 8) == 0 &&
+                 lh.version == 2 && lh.n == (uint32_t)c->n &&
+                 lh.k == (uint32_t)k &&
+                 lh.start_exit == (uint32_t)c->start_exit &&
+                 lh.pl_hash == f1_pl_hash(c) && hb0_ok &&
+                 lh.n_masks == mk_nm && lh.n_entries == mk_ne;
+    }
+    if (!hdr_ok) {
+        if (lf) fclose(lf);
+        fprintf(stderr, "WARN: [%s] finalized marker for layer %02d does not match the "
+                "on-disk .bin (%s) — discarding the marker, rebuilding the layer\n",
+                tag, k, lpath);
+        unlink(mpath);
+        return 0;
+    }
+    F1C5Layer fin;
+    memset(&fin, 0, sizeof(fin));
+    fin.k = k;
+    f1c5_v2_index_load(lf, lpath, &lh, &fin);   /* hard-fails on corruption */
+    fclose(lf);
+    F1_CHECK(fin.nm == nxt->nm &&
+             memcmp(fin.masks, nxt->masks, sizeof(uint32_t) * nxt->nm) == 0,
+             "[%s] finalized layer %d mask list disagrees with f1_enum_canonical — "
+             "%s is not this run's layer", tag, k, lpath);
+    free(nxt->masks);
+    free(nxt->off);
+    *nxt = fin;
+    if (!*use_v2) {
+        fprintf(stderr, "[%s] adopt switches to on-disk layer format v2 (requested v1)\n", tag);
+        *use_v2 = 1;
+    }
+    fprintf(stderr, "[%s] adopted finalized layer k=%02d "
+            "(%llu masks, %llu entries, %llu bytes, sha %s) — sweep skipped\n",
+            tag, k, (unsigned long long)nxt->nm, (unsigned long long)nxt->ne,
+            (unsigned long long)mk_bytes, mk_sha[0] ? mk_sha : "unavailable");
+    return 1;
 }
 
 /* Returns last_complete_k and fills *L on successful resume; -1 if no
@@ -14947,8 +15018,16 @@ static void f1c5_sidecar_emit(const char *dir, const char *pfx,
 
 /* --f1c5-sidecar-retrofit worker: regenerate sidecars for every retained
  * layer in DIR, in chain order (f ascending, g descending), from the
- * manifest's context. Returns 0 ok, 2 on error. */
-static int f1c5_sidecar_retrofit_dir(const char *dir) {
+ * manifest's context. Returns 0 ok, 2 on error.
+ * only_k (#119 B2, 2026-08-06 operator-directed): >= 0 restricts the walk to
+ * that ONE layer — the salvage path for backfilling a single missing sidecar
+ * (e.g. a layer finalized right before an eviction) without the ~3-passes-
+ * per-layer full-ladder cost, and without touching any other sidecar (an
+ * unscoped run regenerates ALL sidecars and drops build-only fields).
+ * Structurally read-only on layer data either way: layer .bins are opened
+ * "rb" through f1c5_lstream_open only; the sole writes are the .json
+ * tmp+rename. */
+static int f1c5_sidecar_retrofit_dir(const char *dir, int only_k) {
     static const struct { const char *pfx; int is_g; } kinds[3] =
         {{"f1c5", 0}, {"g", 1}, {"t", 1}};   /* is_g = backward chain order (g AND t) */
     int any = 0, rc = 0;
@@ -14989,14 +15068,16 @@ static int f1c5_sidecar_retrofit_dir(const char *dir) {
         int done = 0;
         for (int i = 0; i <= n; i++) {
             const int k = is_g ? n - i : i;   /* chain order */
+            if (only_k >= 0 && k != only_k) continue;
             char lpath[4300];
             snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
             if (access(lpath, R_OK) != 0) continue;
             f1c5_sidecar_emit_impl(dir, pfx, c, &B, k, 1);
             done++;
         }
-        printf("[sidecar-retrofit] %s: %s ladder, %d layer sidecar(s) regenerated\n",
-               dir, pfx, done);
+        printf("[sidecar-retrofit] %s: %s ladder, %d layer sidecar(s) regenerated%s\n",
+               dir, pfx, done,
+               only_k >= 0 ? " (single-layer scope)" : "");
         f1c5_budget_free(&B);
         free(c);
         any = 1;
@@ -16075,9 +16156,19 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     for (int d = 0; d < 5; d++) h.b0[d] = (uint32_t)B->b0[d];
     h.pad = use_v2 ? F1C5_OOC_BLK : 0u;   /* v2: block size for cross-BLK safety (Fable Finding 4) */
     if (use_v2) {
+        char lsha[65];
+        uint64_t lbytes = 0;
+        const int want_sha = f1c5_finalize_sha_enabled();
         f1c5_v2out_finalize(&v2o, otmp, ofin, &h, nxt->masks, nxt->off, nxt->nm, nxt->ne,
-                            dir, &nxt->kidx, &nxt->vidx, io, NULL, NULL);
+                            dir, &nxt->kidx, &nxt->vidx, io, want_sha ? lsha : NULL, &lbytes);
+        if (!want_sha) lsha[0] = '\0';
         free(v2cbuf); free(v2ktmp); free(v2vtmp);
+        /* finalize-durability marker (write-order invariant #167): the layer
+         * file is durable BEFORE this attestation; the marker is durable
+         * BEFORE the intra-layer ckpt is unlinked (no instant with neither
+         * protection). Shared mechanism with the g/t OOC builder. */
+        f1c5_finalized_marker_write(dir, "f1c5", c, B, nxt->k, nxt->nm, nxt->ne, lbytes, lsha);
+        f1c5_sha_ledger_append(dir, "f1c5", nxt->k, lbytes, lsha);
         /* layer file is committed (rename+dir-fsync inside finalize); the
          * intra-layer marker is now obsolete — remove it so a later resume of the
          * NEXT layer can never misread a complete layer's stale checkpoint. */
@@ -16382,6 +16473,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         memset(&io, 0, sizeof(io));
         F1U192 ooc_mass = {0, 0, 0};
         uint64_t ooc_states = 0;
+        int adopted = 0;
         if (ooc) {
             if (k >= 1 && !keep_layers) {   /* resume needs only layer k; drop k-1
                              * BEFORE k+1 grows on disk (halves the transient disk
@@ -16391,16 +16483,27 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                 snprintf(old, sizeof(old), "%s/f1c5_layer_%02d.bin", dir, k - 1);
                 unlink(old);
             }
+            /* finalize-durability adopt check (shared with the g/t builder): a
+             * marker-attested finished layer k+1 skips the whole sweep. */
+            adopted = f1c5_finalized_try_adopt(dir, "f1c5", 0, c, &B, k + 1,
+                                               &nxt, &use_v2, "f1c5");
             /* #221: single streaming pass over layer k's file; counts, emission,
              * stats AND the (atomic) layer-file write happen chunk-by-chunk
              * inside the builder — entries never reside in RAM (2026-07-05 fix) */
-            {
+            if (!adopted) {
                 const double _sw0 = omp_get_wtime();
                 f1c5_ooc_build_layer(c, &B, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
                                      &ooc_mass, &ooc_states, use_v2, gzip_level);
                 f1c5_sidecar_x.build_wall_s = omp_get_wtime() - _sw0;
             }
             f1c5_sidecar_emit(dir, "f1c5", c, &B, nxt.k);   /* catalog sidecar (non-fatal) */
+            { const char *e = getenv("SOLVE_F1_KILL_BEFORE_MANIFEST");   /* drill hook */
+              if (e && *e && atoi(e) == nxt.k) {
+                  fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_BEFORE_MANIFEST=%d reached "
+                          "(f1c5 layer k=%d sidecar emitted, manifest NOT advanced) — "
+                          "_exit(137)\n", nxt.k, nxt.k);
+                  _exit(137);
+              } }
             t2 = omp_get_wtime();
         } else {
         /* pass 1: per-target entry counts into off[ti+1] (no entry buffers —
@@ -16453,6 +16556,11 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             if (!ooc)   /* ooc: the builder already wrote + renamed the layer file */
                 f1c5_write_layer(dir, c, &B, &nxt);
             f1c5_write_manifest(dir, c, &B, k + 1);
+            if (ooc) {   /* manifest covers k+1 — the finalize marker is spent */
+                char mpath[4200];
+                f1c5_finalized_marker_path(mpath, sizeof(mpath), dir, "f1c5", k + 1);
+                unlink(mpath);
+            }
             if (!ooc && k >= 1 && !keep_layers) {   /* keep k and k+1; drop k-1 (ooc
                                                      * drops it pre-build). KEEP_LAYERS
                                                      * suppresses the drop. */
@@ -16471,6 +16579,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         if (bprev + bcur > peak2) { peak2 = bprev + bcur; peak2_k = k + 1; }
         char mdec[64];
         f1_dec(mass, mdec);
+        if (!adopted)
         fprintf(stderr, "[f1c5] layer k=%2d/%d: canonical_masks=%llu (of C(%d,%d)=%llu) "
                 "states=%llu entries=%llu V_k=%d bytes=%.6fGB two_layer=%.6fGB peak2=%.6fGB "
                 "mass=%s elapsed=%.2fs (enum=%.2fs count=%.2fs fill=%.2fs stats=%.2fs ckpt=%.2fs) "
@@ -16481,7 +16590,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                 bcur / 1e9, (bprev + bcur) / 1e9, peak2 / 1e9, mdec,
                 omp_get_wtime() - t0, t1 - t0, t2 - t1, t3 - t2, t4 - t3, t_ck,
                 omp_get_wtime() - T0);
-        if (ooc) {   /* #221 telemetry: the memory claim is verifiable from the log */
+        if (ooc && !adopted) {   /* #221 telemetry: the memory claim is verifiable from the log */
             double rss_cur, rss_peak;
             f1_rss_mb(&rss_cur, &rss_peak);
             fprintf(stderr, "[f1c5-ooc] layer k=%2d: read=%.6f GB (%.1f MB/s) "
@@ -19960,63 +20069,12 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
          * during the sidecar pass). Adopt the finished layer — load its index
          * through the same validated path the resume loader uses — instead of
          * re-sweeping the whole layer. */
-        int adopted = 0;
+        int adopted;
         {
-            uint64_t mk_nm = 0, mk_ne = 0, mk_bytes = 0;
-            char mk_sha[65];
-            if (f1c5_finalized_marker_read(gdir, pfx, k, &kc->c, &kc->B,
-                                           &mk_nm, &mk_ne, &mk_bytes, mk_sha)) {
-                char lpath[4096], mpath[4200];
-                snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", gdir, pfx, k);
-                f1c5_finalized_marker_path(mpath, sizeof(mpath), gdir, pfx, k);
-                struct stat st;
-                int st_ok = (stat(lpath, &st) == 0 && (uint64_t)st.st_size == mk_bytes);
-                FILE *lf = st_ok ? fopen(lpath, "rb") : NULL;
-                F1C5LayerHdr lh;
-                int hdr_ok = 0;
-                if (lf && fread(&lh, sizeof(lh), 1, lf) == 1) {
-                    int hb0_ok = 1;
-                    for (int d = 0; d < 5; d++)
-                        if (lh.b0[d] != (uint32_t)kc->B.b0[d]) hb0_ok = 0;
-                    hdr_ok = memcmp(lh.magic, f1c5_kind_magic(kind, 1), 8) == 0 &&
-                             lh.version == 2 && lh.n == (uint32_t)kc->c.n &&
-                             lh.k == (uint32_t)k &&
-                             lh.start_exit == (uint32_t)kc->c.start_exit &&
-                             lh.pl_hash == f1_pl_hash(&kc->c) && hb0_ok &&
-                             lh.n_masks == mk_nm && lh.n_entries == mk_ne;
-                }
-                if (hdr_ok) {
-                    F1C5Layer fin;
-                    memset(&fin, 0, sizeof(fin));
-                    fin.k = k;
-                    f1c5_v2_index_load(lf, lpath, &lh, &fin);   /* hard-fails on corruption */
-                    fclose(lf);
-                    F1_CHECK(fin.nm == nxt.nm &&
-                             memcmp(fin.masks, nxt.masks, sizeof(uint32_t) * nxt.nm) == 0,
-                             "[kc-%s] finalized layer %d mask list disagrees with "
-                             "f1_enum_canonical — %s is not this run's layer", pfx, k, lpath);
-                    free(nxt.masks);
-                    free(nxt.off);
-                    nxt = fin;
-                    if (!use_v2) {
-                        fprintf(stderr, "[kc-%s] adopt switches to on-disk layer format v2 "
-                                "(requested v1)\n", pfx);
-                        use_v2 = 1;
-                    }
-                    fprintf(stderr, "[kc-%s] adopted finalized layer k=%02d "
-                            "(%llu masks, %llu entries, %llu bytes, sha %s) — sweep skipped\n",
-                            pfx, k, (unsigned long long)nxt.nm, (unsigned long long)nxt.ne,
-                            (unsigned long long)mk_bytes,
-                            mk_sha[0] ? mk_sha : "unavailable");
-                    adopted = 1;
-                } else {
-                    if (lf) fclose(lf);
-                    fprintf(stderr, "WARN: [kc-%s] finalized marker for layer %02d does not "
-                            "match the on-disk .bin (%s) — discarding the marker, "
-                            "rebuilding the layer\n", pfx, k, lpath);
-                    unlink(mpath);
-                }
-            }
+            char tag[16];
+            snprintf(tag, sizeof(tag), "kc-%s", pfx);
+            adopted = f1c5_finalized_try_adopt(gdir, pfx, kind, &kc->c, &kc->B, k,
+                                               &nxt, &use_v2, tag);
         }
         if (!adopted)
             kc_g_ooc_build_layer(&kc->c, &kc->B, gdir, pfx, kind, fdom, &cur, &nxt,
@@ -23283,7 +23341,7 @@ static int kc_ladder_selftest(void) {
         KC_LAD_GATE("corrupted sidecar DETECTED (verify FAIL)",
                     kc_h_ladder_verify(fdir, NULL, 0, 0, 1) > 0);
         KC_LAD_GATE("sidecar retrofit regenerates the chain",
-                    f1c5_sidecar_retrofit_dir(fdir) == 0);
+                    f1c5_sidecar_retrofit_dir(fdir, -1) == 0);
         KC_LAD_GATE("retrofitted ladder verifies PASS again",
                     kc_h_ladder_verify(fdir, NULL, 0, 0, 1) == 0);
     }
@@ -28297,20 +28355,34 @@ int main(int argc, char *argv[]) {
          * on layer bytes; writes only the .json sidecars). */
         if (argc < 3) {
             fprintf(stderr,
-                "Usage: solve --f1c5-sidecar-retrofit DIR [DIR ...]\n"
+                "Usage: solve --f1c5-sidecar-retrofit DIR [DIR ...] [K]\n"
                 "  Regenerates the catalog layer-stats sidecars (value/branching/entries\n"
                 "  histograms, canonical-frame mass marginals by last and rid, top-16\n"
                 "  extreme states, decompressed-stream sha hash-chain, u192 headroom) for\n"
                 "  every retained f1c5/g/t layer in DIR, using DIR's manifest context.\n"
                 "  Builds emit these automatically (SOLVE_F1_LAYER_SIDECARS=0 disables);\n"
                 "  this subcommand retrofits ladders built before the feature or with the\n"
-                "  gate off. Non-destructive: layer bytes are never touched.\n");
+                "  gate off. Non-destructive: layer bytes are never touched.\n"
+                "  K (optional, #119 B2): a bare non-negative integer restricts the walk\n"
+                "  to that ONE layer (single-sidecar backfill; ~2 decompressed passes over\n"
+                "  that layer instead of ~3 per layer over the whole ladder, and no other\n"
+                "  sidecar is rewritten).\n");
             return 2;
         }
         if (require_sha256_tool()) return 30;
-        int sr_rc = 0;
+        int sr_rc = 0, sr_only_k = -1;
+        for (int ai = 2; ai < argc; ai++) {   /* bare integer token = layer scope */
+            char *end = NULL;
+            long v = strtol(argv[ai], &end, 10);
+            if (end && *end == '\0' && argv[ai][0] != '\0' && v >= 0 && v <= 31)
+                sr_only_k = (int)v;
+        }
         for (int ai = 2; ai < argc; ai++) {
-            int r = f1c5_sidecar_retrofit_dir(argv[ai]);
+            char *end = NULL;
+            long v = strtol(argv[ai], &end, 10);
+            if (end && *end == '\0' && argv[ai][0] != '\0' && v >= 0 && v <= 31)
+                continue;   /* the layer-scope token, not a dir */
+            int r = f1c5_sidecar_retrofit_dir(argv[ai], sr_only_k);
             if (r > sr_rc) sr_rc = r;
         }
         return sr_rc;
