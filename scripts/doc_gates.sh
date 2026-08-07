@@ -3619,14 +3619,24 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
 "open('documentation/RETRACTED_FIGURES.tsv','a').write(
  'a synthetic figure 9.99sigma'+chr(9)+'Self-test row: no ledger entry and no open-list row, so the figures pass must fail.'+chr(10))"
 
-  assert_fires_why "GATE 11 (figures) an open-list row deleted stops holding its figure" ledger-figures \
-'RF-1f093dc3 "\+125" has NO entry' \
-"p='documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt'
-L=open(p,encoding='utf-8').read().split(chr(10))
-h=[i for i,x in enumerate(L) if x.startswith('+125'+chr(9))]
-assert len(h)==1, 'anchor moved: %d rows' % len(h)
-del L[h[0]]
-open(p,'w',encoding='utf-8').write(chr(10).join(L))"
+  # CASE 2 — REWRITTEN 2026-08-07, and the reason matters. It used to delete the live `+125`
+  # row from the open list and assert its figure then failed, proving the file load-bearing.
+  # That premise is RETIRED, not broken: all seven open rows were adjudicated into CX-32 on
+  # 2026-08-07 and the backlog is now empty, so there is no live row left to delete and the
+  # injection asserted `anchor moved: 0 rows`.
+  # It now proves the SAME property from the other direction, and self-seeds so it can never
+  # again depend on the backlog being non-empty: register a synthetic figure AND give it an
+  # open row, and the pass must stay green *while naming it as open*. Coupled with CASE 1
+  # directly above — the same synthetic figure with NO open row must FAIL — the pair brackets
+  # the claim: the open row is exactly what holds a registered-but-unrecorded figure green.
+  # Matching the count witness (not merely rc 0) is what makes this a discriminator: rc 0
+  # alone is equally consistent with the figure never having been read at all.
+  assert_stays_clean_why "GATE 11 (figures) an open-list row holds its figure green" \
+    ledger-figures '11 recorded, 1 open' \
+"open('documentation/RETRACTED_FIGURES.tsv','a').write(
+ 'a synthetic open figure 8.88sigma'+chr(9)+'Self-test row: paired with an open-list row below, so the figures pass must stay green and count it open.'+chr(10))
+open('documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt','a').write(
+ 'a synthetic open figure 8.88sigma'+chr(9)+'Self-test open row: adjudication deliberately not written, so this figure is OPEN not recorded.'+chr(10))"
 
   # CASE 4 — the SILENT DROP. `while read` returns non-zero on an unterminated final line,
   # so a row appended without a trailing newline is registered and never checked, and the
