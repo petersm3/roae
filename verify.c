@@ -1786,14 +1786,42 @@ static char *lcs_strip_pfx(const char *s, const char *pfx, size_t *n) {
     o[w] = 0; if (n) *n = w;
     return o;
 }
+/* Build a shell command into cmd[], REFUSING to run a truncated one.
+ *
+ * WHY THIS IS NOT COSMETIC. The strings below are `system()` arguments. A silently
+ * truncated command still runs — it just runs something else — and the most likely
+ * "something else" is a redirect that lost its target, so the comparison downstream
+ * reads a stale or empty file. That is a PASS reported for a test that never ran,
+ * which is the one failure mode --scan-selftest exists to rule out. A verifier that
+ * can lie about its own execution is worse than no verifier.
+ *
+ * cmd[] is sized above the provable worst case (exe up to 1023 + two 1199-byte paths
+ * + a 1299-byte redirect target + literals is under 4.8 KB), so truncation should be
+ * unreachable. The check is what makes a future edit that widens those bounds fail
+ * LOUDLY instead of quietly — the buffer size is the fix, the check is the ratchet.
+ *
+ * FOUND BY THE PRE-PUSH COMPILE GATE, 2026-08-07: six -Wformat-truncation warnings
+ * against verify.c's zero-warning baseline, on the merge that landed --scan-layers.
+ * Neither doc_gates nor tests.py sees compiler output, so nothing earlier could have
+ * caught it. */
+#define LCS_CMD(...) do { \
+        int lcs_n_ = snprintf(cmd, sizeof cmd, __VA_ARGS__); \
+        if (lcs_n_ < 0 || (size_t)lcs_n_ >= sizeof cmd) { \
+            fprintf(stderr, "verify.c --scan-selftest: refusing a truncated command " \
+                            "(%d bytes needed, %zu available) — aborting rather than " \
+                            "running something else\n", lcs_n_, sizeof cmd); \
+            return 1; \
+        } \
+    } while (0)
+
 static int lcs_selftest(const char *argv0) {
     printf("verify.c --scan-selftest : parallel scan vs sequential reader byte-identity\n");
     char exe[1024]; ssize_t el = readlink("/proc/self/exe", exe, sizeof exe - 1);
     if (el > 0) exe[el] = 0; else snprintf(exe, sizeof exe, "%s", argv0);
     unsetenv("LC_RESUME");
     const char *dir = "/tmp/lcs_scan_selftest";
-    char cmd[2048], path[1200];
-    snprintf(cmd, sizeof cmd, "rm -rf %s && mkdir -p %s/a1 %s/a2 %s/b %s/c", dir, dir, dir, dir, dir);
+    char cmd[8192], path[1200];
+    LCS_CMD("rm -rf %s && mkdir -p %s/a1 %s/a2 %s/b %s/c", dir, dir, dir, dir, dir);
     if (system(cmd)) {}
 
     /* ---- fixture A: n=2, pl={1,2} (both single-bit masks canonical =>
@@ -1922,9 +1950,9 @@ static int lcs_selftest(const char *argv0) {
         snprintf(ref, sizeof ref, "%s/%s", dir, cases[c][0]);
         snprintf(refout, sizeof refout, "%s/ref_%s.out", dir, cases[c][0]);
         if (cases[c][1])
-            snprintf(cmd, sizeof cmd, "%s --check-layers %s 31 %s/%s > %s", exe, ref, ref, cases[c][1], refout);
+            LCS_CMD("%s --check-layers %s 31 %s/%s > %s", exe, ref, ref, cases[c][1], refout);
         else
-            snprintf(cmd, sizeof cmd, "%s --check-layers %s 31 > %s", exe, ref, refout);
+            LCS_CMD("%s --check-layers %s 31 > %s", exe, ref, refout);
         int rc_ref = system(cmd);
         char *refbuf = lcs_slurp(refout, NULL);
         char *scan1 = NULL;
@@ -1933,9 +1961,9 @@ static int lcs_selftest(const char *argv0) {
             snprintf(lb, sizeof lb, "%d", lanes); setenv("LC_SCAN_LANES", lb, 1);
             snprintf(so, sizeof so, "%s/scan_%s_%d.out", dir, cases[c][0], lanes);
             if (cases[c][1])
-                snprintf(cmd, sizeof cmd, "%s --scan-layers %s 31 %s/%s > %s", exe, ref, ref, cases[c][1], so);
+                LCS_CMD("%s --scan-layers %s 31 %s/%s > %s", exe, ref, ref, cases[c][1], so);
             else
-                snprintf(cmd, sizeof cmd, "%s --scan-layers %s 31 > %s", exe, ref, so);
+                LCS_CMD("%s --scan-layers %s 31 > %s", exe, ref, so);
             int rc_scan = system(cmd);
             char *sbuf = lcs_slurp(so, NULL);
             if (!refbuf || !sbuf || rc_ref != rc_scan) { ok = 0; free(sbuf); continue; }
@@ -1956,10 +1984,10 @@ static int lcs_selftest(const char *argv0) {
     /* corrupt fixture: both must FAIL (rc!=0); text may differ by design */
     {
         char cdir[1200]; snprintf(cdir, sizeof cdir, "%s/c", dir);
-        snprintf(cmd, sizeof cmd, "%s --check-layers %s 31 > %s/ref_c.out", exe, cdir, dir);
+        LCS_CMD("%s --check-layers %s 31 > %s/ref_c.out", exe, cdir, dir);
         int r1 = system(cmd);
         setenv("LC_SCAN_LANES", "3", 1);
-        snprintf(cmd, sizeof cmd, "%s --scan-layers %s 31 > %s/scan_c.out", exe, cdir, dir);
+        LCS_CMD("%s --scan-layers %s 31 > %s/scan_c.out", exe, cdir, dir);
         int r2 = system(cmd);
         printf("  [c corrupt] sequential rc!=0: %s  scan rc!=0: %s\n",
                r1 ? "YES" : "*** NO ***", r2 ? "YES" : "*** NO ***");
@@ -1968,6 +1996,7 @@ static int lcs_selftest(const char *argv0) {
     printf("SCAN-SELFTEST: %s\n", ok ? "PASS" : "*** FAIL ***");
     return ok ? 0 : 1;
 }
+#undef LCS_CMD   /* scoped to lcs_selftest: it hardcodes the name `cmd` and returns 1 */
 
 /* ==========================================================================
  * G-LADDER / T-LADDER CHECKERS
