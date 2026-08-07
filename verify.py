@@ -39,6 +39,7 @@ Usage:
     python3 verify.py --recount                     # independent count reproduction
     python3 verify.py --recount-rung N              # C5 ladder rung n=18/19 (worker-sized)
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
+                                                    # + 3 away-from-KW C3 cross-anchors (solve.c-exact expectations)
     python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
     python3 verify.py --recount-fiber               # TR-1 §7 orientation fiber (1,720,320 / 983,040)
     python3 verify.py --recount-gender-null         # TR-8 exact pair-null gender figure (47/445740)
@@ -883,6 +884,54 @@ def _exact_subtree(prefix):
     rec(step, last, used)
     return tuple(stats)
 
+# Cross-instrument subtree anchors AWAY from King Wen's neighbourhood
+# (2026-08-06).  The KW-following anchors in recount_subtree() all sit in
+# KW's own corner of the tree, and their leaf C3 values cluster at the 776
+# threshold (measured with this file's own walk: 5-free 776..808, 7-free
+# 752..816, 9-free 752..928) — so a C3 defect that manifests only far from
+# that neighbourhood, in either direction (falsely REJECTING sequences that
+# comfortably pass, or falsely ACCEPTING sequences that clearly fail), would
+# escape every one of them.  The three prefixes below were drawn at random
+# from the C1-C5 tree by `solve --knuth-dump-prefix 24 <seed>` (seeds 43, 9,
+# 112; depth 24 = 7 free positions, chosen to keep each anchor sub-second in
+# CPython) and land far from KW's prefix.  Each expectation 4-tuple
+# (tree_nodes, leaves_C1C2C4C5, canonical_leaves, canonical_and_C6C7) was
+# computed by the OTHER instrument, solve.c's exact deterministic mode:
+#     ulimit -s 9216      # --estimate-knuth segfaults at the default 8 MB
+#                         # stack (main-frame + 1.05 MB KnuthArg arg[256])
+#     ./solve --estimate-knuth 0 <p1> <o1> ... <p24> <o24>
+# (run 2026-08-06 against the sha-anchored solve.c; <0.5 s each), so these
+# gates are a two-instrument cross-check of the C3 predicate in BOTH
+# directions, not verify.py grading its own homework.  The instruments'
+# prefix conventions were confirmed identical on all three published KW
+# anchors AND on the mixed-orientation sigma-related prefix first.  One
+# caveat: solve.c's exact mode does not print the C6/C7 tally, so the 0 in
+# the fourth slot is definition-forced rather than cross-computed (C7
+# requires pair 24 AT slot 24; these prefixes place pairs 10, 31, 20 there)
+# — the substantive C6/C7 anchor remains the KW 9-free "exactly 8" (TR-4
+# §4).  Measured leaf-C3 ranges (this file's walk, 2026-08-06):
+#   PASS-LOW  (seed 43):  C3 528..624  — every leaf canonical, margin >= 152
+#   FAIL-HIGH (seed 9):   C3 1024..1104 — zero canonical, margin >= 248
+#   STRADDLE  (seed 112): C3 736..840 — 11,984 of 26,672 leaves canonical
+# With the KW anchors, the C3 range exercised by this gate is 528..1104.
+_CROSS_PREFIXES = (
+    ("away-KW PASS-LOW (seed 43)",
+     [(26, 0), (11, 0), (27, 0), (2, 1), (3, 0), (5, 0), (21, 1), (14, 1),
+      (29, 0), (22, 1), (7, 0), (6, 1), (8, 0), (30, 1), (17, 0), (20, 0),
+      (4, 1), (24, 1), (13, 0), (12, 1), (28, 1), (15, 0), (25, 1), (10, 1)],
+     (35293, 1600, 1600, 0)),
+    ("away-KW FAIL-HIGH (seed 9)",
+     [(24, 0), (29, 0), (15, 1), (13, 1), (8, 0), (30, 1), (23, 1), (4, 0),
+      (9, 1), (21, 0), (28, 1), (25, 0), (19, 1), (10, 1), (26, 0), (16, 1),
+      (1, 0), (20, 1), (3, 1), (5, 0), (27, 1), (2, 0), (6, 0), (31, 1)],
+     (22228, 1296, 0, 0)),
+    ("away-KW STRADDLE (seed 112)",
+     [(18, 0), (16, 1), (25, 1), (22, 0), (11, 1), (12, 1), (29, 0), (8, 1),
+      (21, 0), (27, 1), (17, 0), (19, 1), (24, 1), (1, 0), (7, 1), (23, 0),
+      (14, 0), (5, 0), (30, 1), (4, 0), (2, 0), (9, 0), (15, 0), (20, 1)],
+     (95031, 26672, 11984, 0)),
+)
+
 # ===========================================================================
 # THE ORIENTATION FIBER — STATE-SPACE ARITHMETIC FIRST  (2026-08-02)
 # ===========================================================================
@@ -1725,20 +1774,27 @@ def recount_subtree():
     subtree anchors of TR-5 §3 / TR-4 §"validated" / SEARCH_SPACE_SIZE.md
     (KW-following prefixes at 5/7/9 free positions) and the sigma-related
     prefix tree-isomorphism check, plus TR-4 §4's uniqueness-refutation
-    anchor (exactly 8 of the 16,504 canonical completions satisfy C6/C7).
-    ~1-2 min in CPython (the two 9-free runs visit ~9.4M nodes each).
-    Returns 0 iff every published anchor matched."""
+    anchor (exactly 8 of the 16,504 canonical completions satisfy C6/C7),
+    plus the three away-from-KW cross-instrument anchors of _CROSS_PREFIXES
+    (expectations from solve.c --estimate-knuth exact mode; leaf C3 ranges
+    528..624 / 1024..1104 / 736..840, so C3 is exercised well clear of the
+    776 threshold in both directions, not only at KW's own neighbourhood).
+    ~1-2 min in CPython (the two 9-free runs visit ~9.4M nodes each; the
+    cross anchors add < 1 s).  Returns 0 iff every anchor matched.
+    The FAST subset of these anchors (everything but the two 9-free trees)
+    also runs on every `python3 tests.py` (TestSubtreeCrossAnchors); the full
+    driver is wired into reports/certificates/verify_all.sh §2."""
     import time
     t0 = time.time()
     rc = [0]
 
-    def gate(name, got, want):
+    def gate(name, got, want, src="published"):
         ok = (want is None) or (got == want)
         if not ok:
             rc[0] = 1
         tag = "  --  " if want is None else (" MATCH" if ok else "*FAIL*")
         pub = "(no public target)" if want is None else f"{want:,}"
-        print(f"[{tag}] {name}: recomputed {got:,}  published {pub}")
+        print(f"[{tag}] {name}: recomputed {got:,}  {src} {pub}")
 
     for free, want_nodes, want_canon in ((5, 443, 4), (7, 62256, 2232),
                                          (9, 9422793, 16504)):
@@ -1754,6 +1810,13 @@ def recount_subtree():
     nodes, leaves, canon, _c67 = _exact_subtree(_SIGMA_PREFIX)
     gate("sigma-related prefix tree_nodes (isomorphism)", nodes, 9422793)
     gate("sigma-related prefix canonical leaves (isomorphism)", canon, 16504)
+    for name, pfx, (wn, wl, wc, wx) in _CROSS_PREFIXES:
+        nodes, leaves, canon, c67 = _exact_subtree(pfx)
+        gate(f"{name} tree_nodes", nodes, wn, src="solve.c-exact")
+        gate(f"{name} leaves_C1C2C4C5", leaves, wl, src="solve.c-exact")
+        gate(f"{name} canonical leaves (C3)", canon, wc, src="solve.c-exact")
+        gate(f"{name} C6/C7 (slot-24 pair != 24 forces 0)", c67, wx,
+             src="definition-forced")
     print(f"recount-subtree: {'ALL MATCH' if rc[0] == 0 else '*** MISMATCH ***'}"
           f"  ({time.time() - t0:.0f}s)")
     return rc[0]
@@ -2646,7 +2709,10 @@ def main():
                              'TR-5 §3 / SEARCH_SPACE_SIZE.md (KW-following prefixes at 5/7/9 free '
                              'positions: tree_nodes 443 / 62,256 / 9,422,793 and canonical leaves '
                              '4 / 2,232 / 16,504) plus the sigma-related-prefix tree-isomorphism '
-                             'check. ~1-2 min. Does NOT read solutions.bin.')
+                             'check, plus three away-from-KW anchors whose expectations come from '
+                             'solve.c --estimate-knuth exact mode (leaf C3 528..1104 — the C3 '
+                             'predicate exercised in both directions away from the 776 threshold; '
+                             'see _CROSS_PREFIXES). ~1-2 min. Does NOT read solutions.bin.')
     parser.add_argument('--recount-finite', action='store_true',
                         help='Independently recompute the finite record-mode + wrap/parity tallies: '
                              'TR-5\'s 48-of-720 validity classification / 24 records / 23 twins '

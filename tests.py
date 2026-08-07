@@ -1112,5 +1112,65 @@ class TestVerifyRecordsPath(unittest.TestCase):
         V._verify_tables_against_rules()   # the real tables still pass
 
 
+class TestSubtreeCrossAnchors(unittest.TestCase):
+    """Fast tier of verify.py's --recount-subtree gate (wired 2026-08-06).
+
+    verify._exact_subtree is the only independent instrument in the project
+    that exercises the C3 predicate in BOTH directions (false-positive and
+    false-negative) — every full-scale two-instrument check is C3-free by
+    scope — yet until now its driver was manual-only, absent from this
+    harness and from verify_all.sh.  This class runs the sub-second anchors
+    on every `python3 tests.py`: the KW 5-free/7-free anchors (TR-5 §3
+    published values) plus the three away-from-KW cross-anchors whose
+    expectation tuples were computed by the OTHER instrument, solve.c
+    --estimate-knuth 0 (exact deterministic mode; provenance, prefix-
+    convention validation, and the `ulimit -s 9216` requirement for
+    reproducing them are documented at verify._CROSS_PREFIXES).  The ~55 s
+    anchors — the two 9.4M-node 9-free trees, including TR-4 §4's
+    "exactly 8" C6/C7 count — are deliberately NOT run here (they would
+    quintuple this 11 s suite); the full set runs as
+    `python3 verify.py --recount-subtree`, wired into
+    reports/certificates/verify_all.sh §2.  Measured cost here: ~0.8 s."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.V = _load("verify")
+
+    def test_kw_anchors_5_and_7_free(self):
+        # TR-5 §3 / SEARCH_SPACE_SIZE.md published values (also corroborated
+        # by README.md's 16,504-completions paragraph at the 9-free rung,
+        # which stays in the verify_all.sh tier).
+        V = self.V
+        nodes, _l, canon, _x = V._exact_subtree([(i, 0) for i in range(1, 27)])
+        self.assertEqual((nodes, canon), (443, 4))
+        nodes, _l, canon, _x = V._exact_subtree([(i, 0) for i in range(1, 25)])
+        self.assertEqual((nodes, canon), (62256, 2232))
+
+    def test_cross_anchors_match_solve_c_exact(self):
+        # The genuine cross-check: verify.py's clean-room walk must land on
+        # the 4-tuples solve.c's exact mode produced for the same prefixes.
+        # A perturbed expectation (or a drifted walk) fails this directly.
+        V = self.V
+        self.assertEqual(len(V._CROSS_PREFIXES), 3)
+        for name, pfx, want in V._CROSS_PREFIXES:
+            self.assertEqual(len(pfx), 24, name)   # depth 24 = 7 free slots
+            self.assertEqual(V._exact_subtree(pfx), want, name)
+
+    def test_cross_anchors_cover_c3_both_directions(self):
+        # The coverage claim is asserted, not narrated: the anchor set must
+        # contain an all-canonical subtree (C3 comfortably below 776 — the
+        # false-negative direction), a zero-canonical subtree with nonzero
+        # leaves (C3 clearly above — the false-positive direction), and a
+        # discriminating subtree (0 < canon < leaves at the threshold).
+        # If an anchor is ever swapped out, the replacement must preserve
+        # this partition or this test fails.
+        kinds = set()
+        for name, _pfx, (_n, leaves, canon, _x) in self.V._CROSS_PREFIXES:
+            self.assertGreater(leaves, 0, name)
+            kinds.add("all-pass" if canon == leaves else
+                      "all-fail" if canon == 0 else "straddle")
+        self.assertEqual(kinds, {"all-pass", "all-fail", "straddle"})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

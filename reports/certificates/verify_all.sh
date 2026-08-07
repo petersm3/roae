@@ -68,6 +68,21 @@ if [ "$HAVE_PY" = "0" ] || [ "$HAVE_GCC" = "0" ]; then
 else
   check "f4p two-language match" "diff <(/tmp/roae_verify_solve --f4p-verify) <(python3 solve.py --f4p-verify)"
 fi
+# The exact-subtree recount is the ONLY independent instrument that exercises the C3
+# predicate in both directions (false-positive AND false-negative) — the full-scale
+# two-instrument checks above are C3-free by scope. It replays TR-5 §3's published
+# anchors (incl. TR-4 §4's "exactly 8" C6/C7 count among the 16,504 canonical
+# completions, the README.md corroboration) plus three away-from-KW anchors whose
+# expectations came from solve.c --estimate-knuth exact mode (leaf C3 528..1104; see
+# verify.py _CROSS_PREFIXES). ~1 min in CPython — the sub-second subset of these
+# anchors also runs on every `python3 tests.py` (TestSubtreeCrossAnchors); this is
+# the full set. Wired 2026-08-06; previously the gate existed but ran only by hand.
+if [ "$HAVE_PY" = "0" ]; then
+  skip "verify.py --recount-subtree (C3 both-direction subtree anchors)" "needs python3"
+else
+  check "verify.py --recount-subtree (C3 both-direction subtree anchors)" \
+    "python3 verify.py --recount-subtree | grep -q 'recount-subtree: ALL MATCH'"
+fi
 
 echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 21 archived certs) =="
 # No SAT solver is invoked here — see the header note. $DRAT is probed in section 0.
