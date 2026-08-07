@@ -46,6 +46,11 @@
  *         ./verify --check-layers DIR [max_k] [run.out]   spec-driven layer-file reader
  *         (all layers, entry-streaming; with run.out also compares the independently
  *          re-derived orbit-weighted mass per layer); --check-layers-selftest.
+ *         ./verify --scan-layers DIR [max_k] [run.out]   the SAME checks + masses via
+ *          the multi-observable parallel scan driver (N O_DIRECT read lanes, riders:
+ *          T7/BL-7 orbit census + T6-slot stub; env LC_SCAN_LANES/CHUNK_KB/ODIRECT/
+ *          T6STUB). Identity contract: minus "[scan] " lines, stdout and rc are
+ *          byte-identical to --check-layers; --scan-selftest proves it on fixtures.
  *         ./verify --check-g-ladder FDIR GDIR [max_k]   g-ladder verifier (structural +
  *          the f·g cut identity at every layer), against GT_LADDER_FORMAT.md.
  *         ./verify --check-t-ladder FDIR TDIR [max_k]   t-ladder verifier (f-geometry
@@ -62,14 +67,17 @@
  *          See the ROUTE D section header below.
  */
 
+#define _GNU_SOURCE    /* O_DIRECT for the --scan-layers parallel read lanes */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <zlib.h>
-#include <pthread.h>   /* --ie-count / --ie-probe worker threads (Route B) */
+#include <pthread.h>   /* --ie-count / --ie-probe worker threads (Route B); --scan-layers lanes */
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>     /* --scan-layers: open(O_DIRECT), pread */
+#include <errno.h>
 
 /* ---------- published constraint definitions, rebuilt from scratch ---------- */
 
@@ -497,6 +505,72 @@ static int lc_orbit_of(uint32_t m, uint8_t rp[24][32], int geff, int *canon) {
     return geff / stab;
 }
 
+/* =========================================================================
+ * --scan-layers: multi-observable parallel scan driver (config + rider state)
+ *
+ * One pass over the ladder, N registered integer accumulators, L parallel
+ * O_DIRECT read lanes. The FULL implementation (stream reader, lane workers,
+ * merge, self-test) lives after lc_selftest below; these declarations sit
+ * here because the shared driver lc_check_layers_impl dispatches on them.
+ *
+ * INDEPENDENCE: everything in the scan path is derived from
+ * documentation/F1C5_LAYER_FORMAT.md and this file's own spec-derived
+ * helpers (lc_radix / lc_rid_digits / lc_orbit_of / u192). No solve.c
+ * header, table, or constant — the same derivation discipline as
+ * --check-layers, of which this is the parallel counterpart.
+ *
+ * IDENTITY CONTRACT (the gate, not a goal): on a valid ladder, the stdout of
+ * --scan-layers minus lines prefixed "[scan] " is byte-identical to
+ * --check-layers, for every lane count and chunk size, and the exit code is
+ * always identical. All accumulation is exact integer (u192 / uint64_t):
+ * per-lane partial sums are of non-negative integers bounded by the
+ * sequential totals, merged in a fixed lane-ascending order, so lane count
+ * cannot change any output (the LENS-1 integer-reduction discipline).
+ * Span sums are stitched across lane boundaries and multiplied by the orbit
+ * weight ONCE per span — the exact sum-then-multiply arithmetic of the
+ * sequential path. On a file that FAILS validation both paths return the
+ * same nonzero rc, but the diagnostic text may differ (the sequential path
+ * stops at its first bad block; lanes each stop at their own).
+ *
+ * Riders (all exact-integer, all output on "[scan] "-prefixed lines,
+ * none affect the exit code):
+ *   census  (T7 / BL-7)  per-layer canonical-mask orbit-size census, from
+ *           the mask table + orbits[] — masks and offsets only, no values.
+ *   t6stub  (T6 / QL-6 slot) INTERFACE STUB ONLY: a per-layer entry-count +
+ *           value-mass marginal by `last`, proving the driver carries
+ *           per-entry accumulators with cross-layer persistence. It is NOT
+ *           the QL-6 branching-factor statistic (that needs layer-(k+1)
+ *           adjacency and its own review); enable via LC_SCAN_T6STUB=1.
+ *
+ * Config (env):  LC_SCAN_LANES   read/worker lanes        (default 8, 1..64)
+ *                LC_SCAN_CHUNK_KB per-pread request size  (default 4096 KiB)
+ *                LC_SCAN_ODIRECT 1=O_DIRECT reads         (default 1; falls
+ *                                back per-fd to buffered reads on EINVAL —
+ *                                e.g. tmpfs — with a note on stderr)
+ *                LC_SCAN_T6STUB  1=enable the T6 slot stub (default 0)
+ * ========================================================================= */
+typedef struct {
+    int lanes;            /* parallel lanes (threads, each its own fds) */
+    size_t chunk;         /* bytes per pread request (4 KiB multiple) */
+    int odirect;          /* 1 = open data streams O_DIRECT */
+    int t6stub;           /* 1 = run the T6-slot stub accumulator */
+} LcScanCfg;
+
+typedef struct {          /* rider outputs across the whole run (integer only) */
+    uint64_t census[32][25];   /* [k][s] = canonical masks of orbit size s */
+    uint64_t census_raw[32];   /* [k] Σ_masks orbit size = orbit-expanded masks */
+    int      census_got[32];   /* layer scanned (0 = absent or LC_RESUME replay) */
+    uint64_t t6_n[32][64];     /* STUB: [k][last] entry count */
+    u192     t6_v[32][64];     /* STUB: [k][last] Σ values */
+    int      t6_got[32];
+} LcsRiders;
+
+static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_se,
+                          uint64_t exp_plhash, const int exp_b0[5], int is_final,
+                          uint8_t rp[24][32], int geff, u192 *grand_out, u192 *mass_out,
+                          uint64_t *nm_out, uint64_t *ne_out, int *v2_out,
+                          const LcScanCfg *cfg, LcsRiders *rd);
+
 /* read exactly n bytes at absolute offset off; 1 ok, 0 short/err. */
 static int lc_pread(FILE *f, long off, void *buf, size_t n) {
     if (fseek(f, off, SEEK_SET) != 0) return 0;
@@ -734,12 +808,22 @@ static int lc_parse_masses(const char *path, uint32_t n, char masses[32][48]) {
     return found;
 }
 
-static int lc_check_layers(const char *dir, int maxk, const char *run_out) {
+/* Shared driver for --check-layers (cfg==NULL: the unchanged sequential
+ * stdio path) and --scan-layers (cfg!=NULL: parallel lanes + riders). All
+ * scan-only output is on "[scan] "-prefixed lines; everything else prints
+ * byte-identically in both modes (see the IDENTITY CONTRACT above). */
+static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
+                                const LcScanCfg *cfg) {
     uint32_t mn, mse, pl[64]; uint64_t m_plhash; int last_k, npl; int b0v[5];
+    static LcsRiders riders;                  /* static: 68 KB, zeroed per call */
+    memset(&riders, 0, sizeof riders);
     printf("======================================================================\n");
     printf("verify.c --check-layers : spec-driven independent layer-file reader\n");
     printf("written against documentation/F1C5_LAYER_FORMAT.md; shares no code with solve.c\n");
     printf("======================================================================\n");
+    if (cfg)
+        printf("[scan] multi-observable parallel scan: lanes=%d chunk=%zuKiB odirect=%d riders=census%s\n",
+               cfg->lanes, cfg->chunk / 1024, cfg->odirect, cfg->t6stub ? ",t6stub" : "");
     if (lc_manifest(dir, &mn, &mse, &m_plhash, pl, &npl, b0v, &last_k)) {
         printf("*** FAIL: cannot read %s/f1c5_manifest.txt\n", dir); return 1; }
     if (mn < 1 || mn > 31 || npl != (int)mn) {
@@ -847,12 +931,17 @@ static int lc_check_layers(const char *dir, int maxk, const char *run_out) {
                    (unsigned long long)rk_nm[k], (unsigned long long)rk_ne[k],
                    rk_codec[k], rk_grand[k], rk_mass[k]);
             fflush(stdout);
+            if (cfg)
+                printf("[scan] k=%2d riders skipped (layer replayed from LC_RESUME record, not re-read)\n", k);
             lmass[k] = u192_dec(rk_mass[k]); lgot[k] = 1; checked++;
             if (is_final) { finalgrand = u192_dec(rk_grand[k]); saw_final = 1; }
             continue;
         }
         u192 g, ms; uint64_t onm = 0, one = 0; int ov2 = 0;
-        int r = lc_check_layer(dir, k, mn, mse, m_plhash, b0v, is_final,
+        int r = cfg
+              ? lcs_scan_layer(dir, k, mn, mse, m_plhash, b0v, is_final,
+                               rp, geff, &g, &ms, &onm, &one, &ov2, cfg, &riders)
+              : lc_check_layer(dir, k, mn, mse, m_plhash, b0v, is_final,
                                rp, geff, &g, &ms, &onm, &one, &ov2);
         fails += r; checked++;
         if (!r) {
@@ -860,6 +949,30 @@ static int lc_check_layers(const char *dir, int maxk, const char *run_out) {
             printf("  k=%2d  nm=%-9llu ne=%-13llu %s  Σval=%s  mass=%s\n", k,
                    (unsigned long long)onm, (unsigned long long)one, ov2?"v2":"v1", gd, md);
             fflush(stdout);
+            if (cfg && riders.census_got[k]) {
+                printf("[scan] k=%2d census nm=%llu raw=%llu |", k,
+                       (unsigned long long)onm, (unsigned long long)riders.census_raw[k]);
+                for (int s = 1; s <= 24; s++)
+                    if (riders.census[k][s])
+                        printf(" %d:%llu", s, (unsigned long long)riders.census[k][s]);
+                printf("\n");
+            }
+            if (cfg && riders.t6_got[k]) {
+                uint64_t tn = 0; u192 tv = {{0,0,0}}; int tovf = 0;
+                for (int l = 0; l < 64; l++) {
+                    tn += riders.t6_n[k][l];
+                    if (u192_add(&tv, riders.t6_v[k][l])) tovf = 1;
+                }
+                char tvs[64]; u192_print(tv, tvs);
+                printf("[scan] k=%2d t6stub(last-marginal; STUB, not QL-6) Σn=%llu Σv=%s"
+                       " self-check(Σn==ne,Σv==Σval)=%s n[0..63]=", k,
+                       (unsigned long long)tn, tvs,
+                       (!tovf && tn == one && u192_eq(tv, g)) ? "ok" : "*MISMATCH*");
+                for (int l = 0; l < 64; l++)
+                    printf("%s%llu", l ? "," : "", (unsigned long long)riders.t6_n[k][l]);
+                printf("\n");
+            }
+            if (cfg) fflush(stdout);
             lmass[k] = ms; lgot[k] = 1;
             if (rf) {
                 fprintf(rf, "k=%d nm=%llu ne=%llu codec=%s grand=%s mass=%s\n",
@@ -917,7 +1030,20 @@ static int lc_check_layers(const char *dir, int maxk, const char *run_out) {
     else
         printf("RESULT: *** %d FAILURE(S) *** — a finding. Report it; do not patch around it.\n", fails);
     printf("======================================================================\n");
+    if (cfg) {   /* rider summary — informational; never changes the exit code */
+        int cgot = 0;
+        for (int k = 0; k < 32; k++) cgot += riders.census_got[k];
+        printf("[scan] census (T7/BL-7): %d layer(s) scanned, per-layer lines above; orbit-size\n", cgot);
+        printf("[scan]   divisibility and layer-0/final shapes are enforced by the main checks.\n");
+        printf("[scan] NOTE: rider outputs are measurements-in-passing, not attestations; the\n");
+        printf("[scan]       attestation surface is exactly the unprefixed output, which is\n");
+        printf("[scan]       byte-identical to --check-layers by the scan identity contract.\n");
+    }
     return fails ? 1 : 0;
+}
+
+static int lc_check_layers(const char *dir, int maxk, const char *run_out) {
+    return lc_check_layers_impl(dir, maxk, run_out, NULL);
 }
 
 /* ---- self-test: synthesize spec-valid v1 + v2 fixtures, then check them ---- */
@@ -1097,6 +1223,749 @@ static int lc_selftest(void) {
            r1==0?"Y":"N", r2==0?"Y":"N", r3!=0?"Y":"N", grp_ok?"Y":"N",
            r5==0?"Y":"N", r6!=0?"Y":"N", r7!=0?"Y":"N", ok?"PASS":"*** FAIL ***");
     printf("======================================================================\n");
+    return ok ? 0 : 1;
+}
+
+/* ==========================================================================
+ * --scan-layers IMPLEMENTATION  (multi-observable parallel scan driver)
+ *
+ * See the design/identity-contract comment above the LcScanCfg typedef.
+ * Layout facts used here are the published spec's (F1C5_LAYER_FORMAT.md):
+ * header 72 B; masks nm*4; off (nm+1)*8; then
+ *   v1: keys ne*4, vals ne*24 (raw);
+ *   v2: kidx (nblk+1)*8, vidx (nblk+1)*8, key blocks, value blocks, with
+ *       kblk_base = 96 + 12*nm + 16*nblk and vblk_base = kblk_base + kidx[nblk].
+ * The same facts, from the same document, drive lc_check_layer above; the
+ * only thing PHASE 3 changes is WHO reads WHICH bytes, never the arithmetic.
+ *
+ * Equivalence argument (why lane count cannot change any output):
+ *  - every per-entry statistic (grand, the bad_* counters, the t6 stub) is a
+ *    sum of per-entry integer terms -> lane partials merge by integer adds
+ *    in fixed lane-ascending order;
+ *  - the orbit-weighted mass is Sigma_span orbit(span) * (Sigma vals in span).
+ *    Spans fully inside one lane are summed-then-multiplied there; spans cut
+ *    by lane boundaries are stitched: their nonzero partial sums are merged
+ *    ascending-by-span at join, multiplied ONCE by the orbit weight — the
+ *    exact sequential sum-then-multiply arithmetic. Zero-sum span closes
+ *    contribute 0 in both paths and are elided here;
+ *  - the within-span key-ordering check pairs adjacent entries; pairs inside
+ *    a lane are checked there, the one pair that straddles each lane
+ *    boundary is checked at join (same span => compare), so every pair is
+ *    checked exactly once;
+ *  - partial sums of non-negative integers are bounded by the sequential
+ *    totals, so an overflow counter that is zero sequentially is zero for
+ *    every lane split (and any nonzero counter fails BOTH paths).
+ * ========================================================================== */
+
+static LcScanCfg lcs_cfg_from_env(void) {
+    LcScanCfg c;
+    const char *s;
+    c.lanes = 8;
+    if ((s = getenv("LC_SCAN_LANES"))) { c.lanes = atoi(s); }
+    if (c.lanes < 1) c.lanes = 1;
+    if (c.lanes > 64) c.lanes = 64;
+    long ckb = 4096;
+    if ((s = getenv("LC_SCAN_CHUNK_KB"))) { ckb = atol(s); }
+    if (ckb < 64) ckb = 64;
+    if (ckb > 65536) ckb = 65536;
+    c.chunk = ((size_t)ckb * 1024) & ~4095UL;      /* 4 KiB multiple */
+    c.odirect = 1;
+    if ((s = getenv("LC_SCAN_ODIRECT"))) c.odirect = atoi(s) != 0;
+    c.t6stub = 0;
+    if ((s = getenv("LC_SCAN_T6STUB"))) c.t6stub = atoi(s) != 0;
+    return c;
+}
+
+/* -------- per-lane sequential byte stream over [next,end) of one file ------
+ * Chunk-sized aligned preads (O_DIRECT-capable) into an aligned bounce
+ * buffer, consumed through a plain data buffer. Falls back to buffered
+ * reads per-fd if O_DIRECT is refused (e.g. tmpfs); notes go to stderr so
+ * stdout identity is never disturbed. */
+typedef struct {
+    int fd;
+    size_t chunk;
+    uint64_t next, end;         /* absolute file bytes not yet buffered */
+    unsigned char *bounce;      /* aligned, chunk bytes */
+    unsigned char *data;        /* plain, cap bytes */
+    size_t cap, have, pos;
+    int *od_fallback;           /* shared note flag (stderr once) */
+} LcsStream;
+
+static int lcs_open(const char *path, int odirect) {
+    int fd = -1;
+    if (odirect) fd = open(path, O_RDONLY | O_DIRECT);
+    if (fd < 0) fd = open(path, O_RDONLY);
+    return fd;
+}
+
+/* make >= need bytes available at data+pos; 1 ok, 0 short/error */
+static int lcs_fill(LcsStream *S, size_t need) {
+    if (S->have - S->pos >= need) return 1;
+    memmove(S->data, S->data + S->pos, S->have - S->pos);
+    S->have -= S->pos; S->pos = 0;
+    while (S->have - S->pos < need) {
+        if (S->next >= S->end) return 0;
+        uint64_t a0   = S->next & ~4095ULL;
+        size_t   want = S->chunk;
+        ssize_t  got  = pread(S->fd, S->bounce, want, (off_t)a0);
+        if (got < 0 && errno == EINVAL) {           /* O_DIRECT refused: fall back */
+            int fl = fcntl(S->fd, F_GETFL);
+            if (fl >= 0 && (fl & O_DIRECT) && fcntl(S->fd, F_SETFL, fl & ~O_DIRECT) == 0) {
+                if (S->od_fallback && !*S->od_fallback) {
+                    *S->od_fallback = 1;
+                    fprintf(stderr, "[scan] note: O_DIRECT unsupported here; buffered reads\n");
+                }
+                got = pread(S->fd, S->bounce, want, (off_t)a0);
+            }
+        }
+        if (got <= 0) return 0;
+        uint64_t lead = S->next - a0;
+        if ((uint64_t)got <= lead) return 0;
+        uint64_t usable = (uint64_t)got - lead;
+        uint64_t remain = S->end - S->next;
+        if (usable > remain) usable = remain;
+        if (S->have + usable > S->cap) usable = S->cap - S->have;   /* never true when cap >= need+chunk */
+        memcpy(S->data + S->have, S->bounce + lead, usable);
+        S->have += usable; S->next += usable;
+        if (usable == 0) return 0;
+    }
+    return 1;
+}
+
+/* ------------------------------ mask phase ------------------------------ */
+typedef struct {
+    uint64_t lo, hi;            /* mask index range [lo,hi) */
+    const uint32_t *masks; const uint64_t *off; uint8_t *orbits;
+    uint8_t (*rp)[32]; int geff; int k; uint32_t exp_n;
+    uint64_t bad_pc, bad_hibit, bad_canon, bad_orb;
+    uint64_t mono_off_at, mono_mask_at;   /* UINT64_MAX = none */
+    uint64_t census[25], census_raw;      /* T7/BL-7 partials */
+    pthread_t tid;
+} LcsMaskJob;
+
+static void *lcs_mask_worker(void *arg) {
+    LcsMaskJob *J = arg;
+    J->mono_off_at = UINT64_MAX; J->mono_mask_at = UINT64_MAX;
+    for (uint64_t i = J->lo; i < J->hi; i++) {
+        if (J->off[i] > J->off[i+1] && i < J->mono_off_at) J->mono_off_at = i;
+        if (i && !(J->masks[i] > J->masks[i-1]) && i < J->mono_mask_at) J->mono_mask_at = i;
+        if (__builtin_popcount(J->masks[i]) != J->k) J->bad_pc++;
+        if (J->exp_n < 32 && (J->masks[i] >> J->exp_n) != 0) J->bad_hibit++;
+        int canon; int ob = lc_orbit_of(J->masks[i], J->rp, J->geff, &canon);
+        if (ob == 0) J->bad_orb++;
+        if (!canon) J->bad_canon++;
+        J->orbits[i] = (uint8_t)ob;
+        if (ob >= 1 && ob <= 24 && canon) { J->census[ob]++; J->census_raw += (uint64_t)ob; }
+    }
+    return NULL;
+}
+
+/* ------------------------------ entry phase ----------------------------- */
+typedef struct {
+    /* geometry (shared, read-only) */
+    const char *path; int k, is_final, is_v2; uint32_t exp_n, BLK, R;
+    const uint32_t *rad; const int *b0;
+    uint64_t nm, ne, nblk;
+    const uint64_t *off; const uint8_t *orbits;
+    const uint64_t *kidx, *vidx;
+    long keys_base, vals_base, kblk_base, vblk_base;
+    const LcScanCfg *cfg;
+    volatile int *abort_flag;
+    int *od_fallback;
+    /* lane assignment: block range [blo,bhi) */
+    uint64_t blo, bhi;
+    /* results */
+    u192 grand, mass_closed;
+    uint64_t part_mi[2]; u192 part_sum[2]; int nparts;
+    uint64_t e_cnt;
+    uint64_t bad_last, bad_rid, bad_sum, bad_zero, bad_order, bad_finalrid, ovf, movf;
+    uint64_t first_mi, last_mi; uint32_t first_key, last_key; int nonempty;
+    uint64_t t6_n[64]; u192 t6_v[64]; uint64_t t6_ovf;
+    int fail; char msg[192];
+    pthread_t tid;
+} LcsLane;
+
+static void lcs_flush_span(LcsLane *L, uint64_t mi, u192 s, uint64_t e0, uint64_t e1) {
+    if (u192_zero(s)) return;                       /* zero closes contribute 0 in both paths */
+    if (L->off[mi] >= e0 && L->off[mi+1] <= e1) {   /* span fully inside this lane */
+        u192 t = s;
+        if (u192_mul_small(&t, L->orbits[mi])) L->movf++;
+        if (u192_add(&L->mass_closed, t)) L->movf++;
+    } else if (L->nparts < 2) {                     /* straddles a lane boundary;
+                                                     * only the first and last span
+                                                     * of a lane can (proof above) */
+        L->part_mi[L->nparts] = mi; L->part_sum[L->nparts] = s;
+        L->nparts++;
+    }
+}
+
+static void *lcs_lane_worker(void *arg) {
+    LcsLane *L = arg;
+    uint64_t BLKe = L->is_v2 ? L->BLK : 65536;
+    uint64_t e0 = L->blo * BLKe, e1 = L->bhi * BLKe;
+    if (e1 > L->ne) e1 = L->ne;
+    if (e0 >= e1) { L->nonempty = 0; return NULL; }
+    L->nonempty = 1;
+
+    /* streams */
+    LcsStream KS, VS; memset(&KS, 0, sizeof KS); memset(&VS, 0, sizeof VS);
+    size_t kneed, vneed;                            /* max bytes pulled per block */
+    if (L->is_v2) {
+        uint64_t mk = 0, mv = 0;
+        for (uint64_t b = L->blo; b < L->bhi; b++) {
+            uint64_t kc = L->kidx[b+1] - L->kidx[b], vc = L->vidx[b+1] - L->vidx[b];
+            if (kc > mk) mk = kc;
+            if (vc > mv) mv = vc;
+        }
+        kneed = mk; vneed = mv;
+        KS.next = (uint64_t)L->kblk_base + L->kidx[L->blo];
+        KS.end  = (uint64_t)L->kblk_base + L->kidx[L->bhi];
+        VS.next = (uint64_t)L->vblk_base + L->vidx[L->blo];
+        VS.end  = (uint64_t)L->vblk_base + L->vidx[L->bhi];
+    } else {
+        kneed = (size_t)BLKe * 4; vneed = (size_t)BLKe * 24;
+        KS.next = (uint64_t)L->keys_base + 4  * e0;
+        KS.end  = (uint64_t)L->keys_base + 4  * e1;
+        VS.next = (uint64_t)L->vals_base + 24 * e0;
+        VS.end  = (uint64_t)L->vals_base + 24 * e1;
+    }
+    KS.chunk = VS.chunk = L->cfg->chunk;
+    KS.od_fallback = VS.od_fallback = L->od_fallback;
+    KS.cap = kneed + KS.chunk + 8192; VS.cap = vneed + VS.chunk + 8192;
+    KS.fd = lcs_open(L->path, L->cfg->odirect); VS.fd = lcs_open(L->path, L->cfg->odirect);
+    KS.bounce = aligned_alloc(4096, KS.chunk); VS.bounce = aligned_alloc(4096, VS.chunk);
+    KS.data = malloc(KS.cap); VS.data = malloc(VS.cap);
+    uint32_t *kbuf = malloc((size_t)BLKe * 4 + 8);
+    unsigned char *vbuf = malloc((size_t)BLKe * 24 + 8);
+    if (KS.fd < 0 || VS.fd < 0 || !KS.bounce || !VS.bounce || !KS.data || !VS.data || !kbuf || !vbuf) {
+        snprintf(L->msg, sizeof L->msg, "  k=%2d  *** FAIL: OOM/open in scan lane\n", L->k);
+        L->fail = 1; *L->abort_flag = 1; goto out;
+    }
+
+    /* initial span: smallest mi with off[mi+1] > e0 (sequential walk state at e0) */
+    {
+        uint64_t lo = 0, hi = L->nm;                /* find in off[1..nm] */
+        while (lo < hi) {
+            uint64_t mid = lo + (hi - lo) / 2;
+            if (L->off[mid+1] > e0) hi = mid; else lo = mid + 1;
+        }
+        L->first_mi = lo;
+    }
+    uint64_t mi = L->first_mi;
+    u192 span_sum = {{0,0,0}};
+    uint32_t prev_key = 0; int have_prev = 0;
+    int first_entry_seen = 0;
+
+    for (uint64_t b = L->blo; b < L->bhi && !L->fail; b++) {
+        if (*L->abort_flag) break;                   /* another lane failed */
+        uint64_t bstart = b * BLKe;
+        uint64_t bn = BLKe; if (bstart + bn > L->ne) bn = L->ne - bstart;
+        if (L->is_v2) {
+            uLongf kd = (uLongf)(bn * 4), vd = (uLongf)(bn * 24);
+            uint64_t kc = L->kidx[b+1] - L->kidx[b], vc = L->vidx[b+1] - L->vidx[b];
+            if (!lcs_fill(&KS, kc) ||
+                uncompress((Bytef *)kbuf, &kd, KS.data + KS.pos, (uLong)kc) != Z_OK || kd != bn * 4) {
+                snprintf(L->msg, sizeof L->msg, "  k=%2d  *** FAIL: key block %llu inflate/size\n",
+                         L->k, (unsigned long long)b);
+                L->fail = 1; *L->abort_flag = 1; break;
+            }
+            KS.pos += kc;
+            if (!lcs_fill(&VS, vc) ||
+                uncompress((Bytef *)vbuf, &vd, VS.data + VS.pos, (uLong)vc) != Z_OK || vd != bn * 24) {
+                snprintf(L->msg, sizeof L->msg, "  k=%2d  *** FAIL: val block %llu inflate/size\n",
+                         L->k, (unsigned long long)b);
+                L->fail = 1; *L->abort_flag = 1; break;
+            }
+            VS.pos += vc;
+        } else {
+            if (!lcs_fill(&KS, (size_t)bn * 4) || !lcs_fill(&VS, (size_t)bn * 24)) {
+                snprintf(L->msg, sizeof L->msg, "  k=%2d  *** FAIL: short v1 entry read\n", L->k);
+                L->fail = 1; *L->abort_flag = 1; break;
+            }
+            memcpy(kbuf, KS.data + KS.pos, (size_t)bn * 4); KS.pos += (size_t)bn * 4;
+            memcpy(vbuf, VS.data + VS.pos, (size_t)bn * 24); VS.pos += (size_t)bn * 24;
+        }
+        for (uint64_t j = 0; j < bn; j++) {
+            uint64_t e = bstart + j;
+            while (mi < L->nm && e >= L->off[mi+1]) {   /* close span (nonzero only) */
+                lcs_flush_span(L, mi, span_sum, e0, e1);
+                span_sum = (u192){{0,0,0}};
+                mi++; have_prev = 0;
+            }
+            uint32_t key = kbuf[j];
+            u192 val; memcpy(&val, vbuf + j * 24, 24);
+            uint32_t rid = key & 0xffff;
+            if (key >> 22) L->bad_last++;
+            if (rid >= L->R) { L->bad_rid++; }
+            else if (lc_rid_digits(rid, L->b0, L->rad) != L->k) L->bad_sum++;
+            if (have_prev && key <= prev_key) L->bad_order++;
+            prev_key = key; have_prev = 1;
+            if (u192_zero(val)) L->bad_zero++;
+            if (L->is_final && rid != L->R - 1) L->bad_finalrid++;
+            if (u192_add(&L->grand, val)) L->ovf++;
+            if (u192_add(&span_sum, val)) L->ovf++;
+            if (!first_entry_seen) { first_entry_seen = 1; L->first_key = key; }
+            L->last_key = key; L->last_mi = mi;
+            L->e_cnt++;
+            if (L->cfg->t6stub) {                    /* T6-slot STUB accumulator */
+                int last = (int)((key >> 16) & 63);
+                L->t6_n[last]++;
+                if (u192_add(&L->t6_v[last], val)) L->t6_ovf++;
+            }
+        }
+    }
+    if (!L->fail && first_entry_seen)
+        lcs_flush_span(L, mi, span_sum, e0, e1);     /* span containing e1-1 */
+out:
+    if (KS.fd >= 0) close(KS.fd);
+    if (VS.fd >= 0) close(VS.fd);
+    free(KS.bounce); free(VS.bounce); free(KS.data); free(VS.data);
+    free(kbuf); free(vbuf);
+    return NULL;
+}
+
+/* --------------------------- per-layer driver --------------------------- */
+static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_se,
+                          uint64_t exp_plhash, const int exp_b0[5], int is_final,
+                          uint8_t rp[24][32], int geff, u192 *grand_out, u192 *mass_out,
+                          uint64_t *nm_out, uint64_t *ne_out, int *v2_out,
+                          const LcScanCfg *cfg, LcsRiders *rd) {
+    char path[1024]; snprintf(path, sizeof path, "%s/f1c5_layer_%02d.bin", dir, k);
+    FILE *f = fopen(path, "rb");
+    if (!f) { printf("  k=%2d  *** FAIL: cannot open %s\n", k, path); return 1; }
+
+    unsigned char hd[72];
+    if (!lc_pread(f, 0, hd, 72)) { printf("  k=%2d  *** FAIL: short header\n", k); fclose(f); return 1; }
+    uint32_t version, hn, hk, hse, pad; uint64_t plhash, nm64, ne64; int hb0[5];
+    memcpy(&version,hd+8,4); memcpy(&hn,hd+12,4); memcpy(&hk,hd+16,4); memcpy(&hse,hd+20,4);
+    memcpy(&plhash,hd+24,8); memcpy(&nm64,hd+32,8); memcpy(&ne64,hd+40,8);
+    for (int c=0;c<5;c++){ uint32_t t; memcpy(&t,hd+48+4*c,4); hb0[c]=(int)t; }
+    memcpy(&pad,hd+68,4);
+    int is_v2 = memcmp(hd,"F1C5LAY2",8)==0, is_v1 = memcmp(hd,"F1C5LAY1",8)==0;
+
+    int fail = 0;
+    #define LCF(cond,msg,...) do{ if(!(cond)){ printf("  k=%2d  *** FAIL: " msg "\n",k,##__VA_ARGS__); fail=1; } }while(0)
+    LCF(is_v1||is_v2, "bad magic (not F1C5LAY1/2)");
+    LCF((is_v1&&version==1)||(is_v2&&version==2), "version %u disagrees with magic", version);
+    LCF(hn==exp_n, "header n=%u != manifest %u", hn, exp_n);
+    LCF(hk==(uint32_t)k, "header k=%u != filename %d", hk, k);
+    LCF(hse==exp_se, "header start_exit=%u != manifest %u", hse, exp_se);
+    LCF(plhash==exp_plhash, "header pl_hash=%016llx != recomputed %016llx",
+        (unsigned long long)plhash, (unsigned long long)exp_plhash);
+    for (int c=0;c<5;c++) LCF(hb0[c]==exp_b0[c], "header b0[%d]=%d != KW %d", c, hb0[c], exp_b0[c]);
+    if (fail) { fclose(f); return 1; }
+
+    uint32_t rad[5], R; lc_radix(exp_b0, rad, &R);
+    uint64_t nm = nm64, ne = ne64;
+    uint32_t BLK = is_v2 ? pad : 0;
+    if (is_v2) LCF(BLK>0, "v2 block size (pad field) is zero");
+
+    /* masks[] + off[] — the small tables; stdio like the sequential path */
+    uint8_t *orbits = NULL;
+    uint64_t *kidx = NULL, *vidx = NULL;
+    uint32_t *masks = malloc(nm*4 + 4);
+    uint64_t *off   = malloc((nm+1)*8 + 8);
+    if (!masks || !off) { printf("  k=%2d  *** FAIL: OOM (nm=%llu)\n", k,(unsigned long long)nm);
+                          free(masks); free(off); fclose(f); return 1; }
+    long masks_off = 72, off_off = 72 + 4*(long)nm;
+    if (!lc_pread(f, masks_off, masks, nm*4) || !lc_pread(f, off_off, off, (nm+1)*8)) {
+        printf("  k=%2d  *** FAIL: short masks/off table\n", k); fail=1; goto cleanup; }
+    LCF(off[0]==0, "off[0]=%llu != 0", (unsigned long long)off[0]);
+    LCF(off[nm]==ne, "off[nm]=%llu != ne=%llu", (unsigned long long)off[nm], (unsigned long long)ne);
+    orbits = malloc(nm ? nm : 1);
+    if (!orbits) { printf("  k=%2d  *** FAIL: OOM orbit table\n", k); fail=1; goto cleanup; }
+
+    /* mask phase: parallel validation + orbit table + census rider */
+    {
+        int T = cfg->lanes; if ((uint64_t)T > nm) T = nm ? (int)nm : 1;
+        static LcsMaskJob mj[64];
+        memset(mj, 0, sizeof mj);
+        for (int t = 0; t < T; t++) {
+            mj[t].lo = nm * (uint64_t)t / T; mj[t].hi = nm * (uint64_t)(t+1) / T;
+            mj[t].masks = masks; mj[t].off = off; mj[t].orbits = orbits;
+            mj[t].rp = rp; mj[t].geff = geff; mj[t].k = k; mj[t].exp_n = exp_n;
+            if (T > 1) pthread_create(&mj[t].tid, NULL, lcs_mask_worker, &mj[t]);
+            else lcs_mask_worker(&mj[t]);
+        }
+        if (T > 1) for (int t = 0; t < T; t++) pthread_join(mj[t].tid, NULL);
+        uint64_t bad_pc=0, bad_hibit=0, bad_canon=0, bad_orb=0;
+        uint64_t moff = UINT64_MAX, mmask = UINT64_MAX;
+        for (int t = 0; t < T; t++) {
+            bad_pc += mj[t].bad_pc; bad_hibit += mj[t].bad_hibit;
+            bad_canon += mj[t].bad_canon; bad_orb += mj[t].bad_orb;
+            if (mj[t].mono_off_at  < moff)  moff  = mj[t].mono_off_at;
+            if (mj[t].mono_mask_at < mmask) mmask = mj[t].mono_mask_at;
+        }
+        LCF(moff==UINT64_MAX, "off not monotone at %llu", (unsigned long long)moff);
+        LCF(mmask==UINT64_MAX, "masks not strictly ascending at %llu", (unsigned long long)mmask);
+        LCF(bad_pc==0,    "%llu masks with popcount != k", (unsigned long long)bad_pc);
+        LCF(bad_hibit==0, "%llu masks with bits >= n", (unsigned long long)bad_hibit);
+        LCF(bad_canon==0, "%llu NON-CANONICAL masks (not the min of their orbit)", (unsigned long long)bad_canon);
+        LCF(bad_orb==0,   "%llu masks where orbit-stabilizer failed (|stab| does not divide geff)", (unsigned long long)bad_orb);
+        if (is_final && nm==1 && !fail)
+            LCF(orbits[0]==1, "final full mask has orbit %d != 1", orbits[0]);
+        if (fail) goto cleanup;
+        if (rd) {                                    /* T7/BL-7 census rider */
+            for (int t = 0; t < T; t++) {
+                for (int s = 1; s <= 24; s++) rd->census[k][s] += mj[t].census[s];
+                rd->census_raw[k] += mj[t].census_raw;
+            }
+            rd->census_got[k] = 1;
+        }
+    }
+
+    /* layer-0 and final-layer shape */
+    if (k==0) { LCF(nm==1 && masks[0]==0 && ne==1, "layer 0 must be {mask 0, 1 entry}"); }
+    if (is_final) {
+        LCF(nm==1, "final layer nm=%llu != 1", (unsigned long long)nm);
+        LCF(masks[0]==((exp_n>=32)?0xffffffffu:((1u<<exp_n)-1)), "final mask != 2^n-1");
+    }
+    if (fail) goto cleanup;
+
+    /* v2 block index */
+    long keys_base=0, vals_base=0, kidx_off=0, vidx_off=0, kblk_base=0, vblk_base=0;
+    uint64_t nblk=0;
+    if (is_v1) { keys_base = off_off + (long)(nm+1)*8; vals_base = keys_base + (long)ne*4; }
+    else {
+        nblk = ne ? (ne + BLK - 1)/BLK : 0;
+        kidx = malloc((nblk+1)*8 + 8); vidx = malloc((nblk+1)*8 + 8);
+        kidx_off = off_off + (long)(nm+1)*8; vidx_off = kidx_off + (long)(nblk+1)*8;
+        if ((nblk && (!kidx||!vidx)) ||
+            !lc_pread(f, kidx_off, kidx, (nblk+1)*8) || !lc_pread(f, vidx_off, vidx, (nblk+1)*8)) {
+            printf("  k=%2d  *** FAIL: short kidx/vidx\n", k); fail=1; goto cleanup; }
+        LCF(kidx[0]==0 && vidx[0]==0, "kidx/vidx[0] != 0");
+        kblk_base = 96 + 12*(long)nm + 16*(long)nblk;
+        vblk_base = kblk_base + (long)kidx[nblk];
+    }
+    if (fail) goto cleanup;
+
+    /* entry phase: partition blocks across lanes, balanced by bytes (v2)
+     * or entries (v1), each lane a contiguous block range */
+    uint64_t nblocks = is_v1 ? (ne ? (ne+65535)/65536 : 0) : nblk;
+    uint64_t e_total = 0;
+    u192 grand = {{0,0,0}}, mass = {{0,0,0}};
+    uint64_t bad_last=0, bad_rid=0, bad_sum=0, bad_zero=0, bad_order=0, bad_finalrid=0, ovf=0, movf=0;
+    {
+        int Lc = cfg->lanes; if ((uint64_t)Lc > nblocks) Lc = nblocks ? (int)nblocks : 1;
+        static LcsLane ln[64];
+        memset(ln, 0, sizeof ln);
+        volatile int abort_flag = 0; int od_fb = 0;
+        /* cut points */
+        uint64_t cuts[65]; cuts[0] = 0; cuts[Lc] = nblocks;
+        if (is_v2 && nblocks) {
+            uint64_t total = (kidx[nblk] - kidx[0]) + (vidx[nblk] - vidx[0]);
+            uint64_t b = 0;
+            for (int t = 1; t < Lc; t++) {
+                uint64_t want = total / (uint64_t)Lc * (uint64_t)t;
+                while (b < nblocks && (kidx[b] - kidx[0]) + (vidx[b] - vidx[0]) < want) b++;
+                cuts[t] = b;
+            }
+        } else {
+            for (int t = 1; t < Lc; t++) cuts[t] = nblocks * (uint64_t)t / (uint64_t)Lc;
+        }
+        for (int t = 0; t < Lc; t++) {
+            LcsLane *L = &ln[t];
+            L->path = path; L->k = k; L->is_final = is_final; L->is_v2 = is_v2;
+            L->exp_n = exp_n; L->BLK = BLK; L->R = R; L->rad = rad; L->b0 = exp_b0;
+            L->nm = nm; L->ne = ne; L->nblk = nblk;
+            L->off = off; L->orbits = orbits; L->kidx = kidx; L->vidx = vidx;
+            L->keys_base = keys_base; L->vals_base = vals_base;
+            L->kblk_base = kblk_base; L->vblk_base = vblk_base;
+            L->cfg = cfg; L->abort_flag = &abort_flag; L->od_fallback = &od_fb;
+            L->blo = cuts[t]; L->bhi = cuts[t+1];
+            if (Lc > 1) pthread_create(&L->tid, NULL, lcs_lane_worker, L);
+            else lcs_lane_worker(L);
+        }
+        if (Lc > 1) for (int t = 0; t < Lc; t++) pthread_join(ln[t].tid, NULL);
+
+        int lane_fail = 0;
+        for (int t = 0; t < Lc; t++)
+            if (ln[t].fail) { fputs(ln[t].msg, stdout); lane_fail = 1; }
+        if (lane_fail) { fail = 1; goto cleanup; }
+
+        /* merge — fixed lane-ascending order, integer only */
+        for (int t = 0; t < Lc; t++) {
+            LcsLane *L = &ln[t];
+            e_total += L->e_cnt;
+            bad_last += L->bad_last; bad_rid += L->bad_rid; bad_sum += L->bad_sum;
+            bad_zero += L->bad_zero; bad_order += L->bad_order;
+            bad_finalrid += L->bad_finalrid; ovf += L->ovf; movf += L->movf;
+            if (u192_add(&grand, L->grand)) ovf++;
+            if (u192_add(&mass, L->mass_closed)) movf++;
+        }
+        /* stitch boundary-straddling spans: partials arrive ascending by span */
+        {
+            uint64_t cur_mi = UINT64_MAX; u192 cur = {{0,0,0}};
+            for (int t = 0; t < Lc; t++)
+                for (int p = 0; p < ln[t].nparts; p++) {
+                    uint64_t mi = ln[t].part_mi[p];
+                    if (mi == cur_mi) { if (u192_add(&cur, ln[t].part_sum[p])) ovf++; }
+                    else {
+                        if (cur_mi != UINT64_MAX) {
+                            u192 x = cur;
+                            if (u192_mul_small(&x, orbits[cur_mi])) movf++;
+                            if (u192_add(&mass, x)) movf++;
+                        }
+                        cur_mi = mi; cur = ln[t].part_sum[p];
+                    }
+                }
+            if (cur_mi != UINT64_MAX) {
+                u192 x = cur;
+                if (u192_mul_small(&x, orbits[cur_mi])) movf++;
+                if (u192_add(&mass, x)) movf++;
+            }
+        }
+        /* the one key-order pair that straddles each lane boundary */
+        {
+            int prev = -1;
+            for (int t = 0; t < Lc; t++) {
+                if (!ln[t].nonempty || ln[t].e_cnt == 0) continue;
+                if (prev >= 0 && ln[t].first_mi == ln[prev].last_mi &&
+                    ln[t].first_key <= ln[prev].last_key) bad_order++;
+                prev = t;
+            }
+        }
+        /* t6 stub rider — lane-ascending merge; an overflow (impossible for
+         * real layers, partials are bounded by grand) would surface as a
+         * *MISMATCH* in the printed Σv==Σval self-check */
+        if (rd && cfg->t6stub) {
+            for (int t = 0; t < Lc; t++)
+                for (int l = 0; l < 64; l++) {
+                    rd->t6_n[k][l] += ln[t].t6_n[l];
+                    u192_add(&rd->t6_v[k][l], ln[t].t6_v[l]);
+                }
+            rd->t6_got[k] = 1;
+        }
+    }
+    LCF(e_total==ne, "streamed %llu entries != ne=%llu", (unsigned long long)e_total,(unsigned long long)ne);
+    LCF(bad_last==0,  "%llu entries with nonzero key bits 22-31", (unsigned long long)bad_last);
+    LCF(bad_rid==0,   "%llu entries with rid >= R", (unsigned long long)bad_rid);
+    LCF(bad_sum==0,   "%llu entries where rid digit-sum != k (SUM INVARIANT)", (unsigned long long)bad_sum);
+    LCF(bad_order==0, "%llu non-ascending keys within a mask span", (unsigned long long)bad_order);
+    LCF(bad_zero==0,  "%llu zero values", (unsigned long long)bad_zero);
+    LCF(ovf==0,       "192-bit overflow summing values");
+    LCF(movf==0,      "192-bit overflow in orbit-weighted mass");
+    if (is_final) LCF(bad_finalrid==0, "%llu final-layer entries with rid != R-1", (unsigned long long)bad_finalrid);
+    if (grand_out) *grand_out = grand;
+    if (mass_out)  *mass_out  = mass;
+    if (nm_out) *nm_out = nm;
+    if (ne_out) *ne_out = ne;
+    if (v2_out) *v2_out = is_v2;
+cleanup:
+    free(orbits); free(masks); free(off); free(kidx); free(vidx); fclose(f);
+    #undef LCF
+    return fail;
+}
+
+/* ---- --scan-selftest: fixtures + old-vs-new byte-identity, in-process ----
+ * Builds spec-valid fixtures (multi-span multi-block v1+v2 with a trivial
+ * group; the nontrivial-stabilizer geff=6 mass fixture; a corrupted file),
+ * then re-executes THIS binary in both modes and compares: for every lane
+ * count, --scan-layers stdout minus "[scan] " lines must be byte-identical
+ * to --check-layers stdout, scan output must be lane-count-invariant, and
+ * exit codes must agree (including on the corrupt fixture). */
+static char *lcs_slurp(const char *p, size_t *n) {
+    FILE *f = fopen(p, "rb"); if (!f) return NULL;
+    fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
+    char *b = malloc(sz + 1); if (b && fread(b, 1, sz, f) != (size_t)sz) { free(b); b = NULL; }
+    fclose(f); if (b) { b[sz] = 0; if (n) *n = (size_t)sz; }
+    return b;
+}
+/* drop lines by prefix: pfx="[scan] " -> the attestation surface;
+ * pfx="[scan] multi-observable" -> drop only the config banner, the one
+ * line that legitimately depends on the lane count */
+static char *lcs_strip_pfx(const char *s, const char *pfx, size_t *n) {
+    size_t len = strlen(s), pl = strlen(pfx);
+    char *o = malloc(len + 1); size_t w = 0;
+    const char *p = s;
+    while (*p) {
+        const char *e = strchr(p, '\n'); e = e ? e + 1 : p + strlen(p);
+        if (strncmp(p, pfx, pl) != 0) { memcpy(o + w, p, e - p); w += e - p; }
+        p = e;
+    }
+    o[w] = 0; if (n) *n = w;
+    return o;
+}
+static int lcs_selftest(const char *argv0) {
+    printf("verify.c --scan-selftest : parallel scan vs sequential reader byte-identity\n");
+    char exe[1024]; ssize_t el = readlink("/proc/self/exe", exe, sizeof exe - 1);
+    if (el > 0) exe[el] = 0; else snprintf(exe, sizeof exe, "%s", argv0);
+    unsetenv("LC_RESUME");
+    const char *dir = "/tmp/lcs_scan_selftest";
+    char cmd[2048], path[1200];
+    snprintf(cmd, sizeof cmd, "rm -rf %s && mkdir -p %s/a1 %s/a2 %s/b %s/c", dir, dir, dir, dir, dir);
+    if (system(cmd)) {}
+
+    /* ---- fixture A: n=2, pl={1,2} (both single-bit masks canonical =>
+     * multi-span layers), 22 entries over 2 spans; v1 in a1/, v2 (BLK=4,
+     * 6 blocks) in a2/ — lane cuts land both mid-span and mid-block. ---- */
+    uint32_t n = 2, se = 0, pl[2] = {1, 2}; int b0v[5] = {1, 1, 0, 0, 0};
+    uint64_t plhash = lc_pl_hash(n, se, pl);
+    enum { NE = 22 };
+    uint32_t masks[2] = {0x1, 0x2}; uint64_t off[3] = {0, 12, NE}, nm = 2, ne = NE;
+    uint32_t keys[NE]; u192 vals[NE];
+    for (int i = 0; i < 12; i++) { keys[i]    = ((uint32_t)(i/2 + 1) << 16) | (uint32_t)(i%2 + 1); }
+    for (int i = 0; i < 10; i++) { keys[12+i] = ((uint32_t)(i/2 + 1) << 16) | (uint32_t)(i%2 + 1); }
+    for (int i = 0; i < NE; i++) vals[i] = (u192){{(uint64_t)(3*i + 7), 0, 0}};
+    unsigned char hd[72];
+    #define SPUT(mag,ver,kk,padv,nmv,nev) do{ memset(hd,0,72); memcpy(hd,mag,8); \
+        uint32_t v_=ver; memcpy(hd+8,&v_,4); memcpy(hd+12,&n,4); uint32_t k_=kk; memcpy(hd+16,&k_,4); \
+        memcpy(hd+20,&se,4); memcpy(hd+24,&plhash,8); uint64_t a_=nmv,b_=nev; \
+        memcpy(hd+32,&a_,8); memcpy(hd+40,&b_,8); \
+        for(int c=0;c<5;c++){uint32_t t_=(uint32_t)b0v[c]; memcpy(hd+48+4*c,&t_,4);} \
+        uint32_t p_=padv; memcpy(hd+68,&p_,4);}while(0)
+    for (int which = 0; which < 2; which++) {
+        const char *sub = which ? "a2" : "a1";
+        /* layer 0 (v1 in both dirs — mixed-format dirs don't occur in real
+         * runs, but the reader treats each file by its own magic) */
+        SPUT("F1C5LAY1", 1, 0, 0, 1, 1);
+        snprintf(path, sizeof path, "%s/%s/f1c5_layer_00.bin", dir, sub);
+        FILE *g = fopen(path, "wb");
+        { uint32_t m0=0; uint64_t o0[2]={0,1}; uint32_t k0=(se<<16); u192 v1={{1,0,0}};
+          lc_wr(g,hd,72); lc_wr(g,&m0,4); lc_wr(g,o0,16); lc_wr(g,&k0,4); lc_wr(g,&v1,24); }
+        fclose(g);
+        snprintf(path, sizeof path, "%s/%s/f1c5_layer_01.bin", dir, sub);
+        g = fopen(path, "wb");
+        if (!which) {                                 /* v1 raw */
+            SPUT("F1C5LAY1", 1, 1, 0, nm, ne);
+            lc_wr(g,hd,72); lc_wr(g,masks,nm*4); lc_wr(g,off,(nm+1)*8);
+            lc_wr(g,keys,ne*4); for (uint64_t i=0;i<ne;i++) lc_wr(g,&vals[i],24);
+        } else {                                      /* v2, BLK=4 => 6 blocks */
+            uint32_t BLK = 4; uint64_t nblk = (ne + BLK - 1) / BLK;
+            SPUT("F1C5LAY2", 2, 1, BLK, nm, ne);
+            unsigned char zk[8][256], zv[8][512]; uLongf zkl[8], zvl[8];
+            uint64_t kidx[9] = {0}, vidx[9] = {0};
+            for (uint64_t b = 0; b < nblk; b++) {
+                uint64_t bs = b*BLK, bn = (bs+BLK<=ne)?BLK:ne-bs;
+                uint32_t kk[4]; unsigned char vv[4*24];
+                for (uint64_t j = 0; j < bn; j++) { kk[j]=keys[bs+j]; memcpy(vv+j*24,&vals[bs+j],24); }
+                zkl[b]=sizeof zk[b]; compress2(zk[b],&zkl[b],(Bytef*)kk,bn*4,6);
+                zvl[b]=sizeof zv[b]; compress2(zv[b],&zvl[b],(Bytef*)vv,bn*24,6);
+                kidx[b+1]=kidx[b]+zkl[b]; vidx[b+1]=vidx[b]+zvl[b];
+            }
+            lc_wr(g,hd,72); lc_wr(g,masks,nm*4); lc_wr(g,off,(nm+1)*8);
+            lc_wr(g,kidx,(nblk+1)*8); lc_wr(g,vidx,(nblk+1)*8);
+            for (uint64_t b=0;b<nblk;b++) lc_wr(g,zk[b],zkl[b]);
+            for (uint64_t b=0;b<nblk;b++) lc_wr(g,zv[b],zvl[b]);
+        }
+        fclose(g);
+        snprintf(path, sizeof path, "%s/%s/f1c5_manifest.txt", dir, sub);
+        g = fopen(path, "w");
+        fprintf(g, "f1c5_manifest_v1\nn=%u\nstart_exit=%u\npl=1,2\npl_hash=%016llx\nb0=1,1,0,0,0\nlast_complete_k=1\n",
+                n, se, (unsigned long long)plhash);
+        fclose(g);
+    }
+
+    /* ---- fixture B: the nontrivial-stabilizer mass fixture (n=3,
+     * pl={3,7,11}, geff=6, masses 30/15/11) with its run.out ---- */
+    {
+        uint32_t n3=3, se3=0; int b3[5]={1,1,1,0,0};
+        uint32_t pl3[3]={3,7,11}; uint64_t ph3 = lc_pl_hash(n3,se3,pl3);
+        unsigned char h3[72];
+        #define SPUT3(kk_,nm_,ne_) do{ memset(h3,0,72); memcpy(h3,"F1C5LAY1",8); \
+            uint32_t v_=1; memcpy(h3+8,&v_,4); memcpy(h3+12,&n3,4); uint32_t k_=kk_; memcpy(h3+16,&k_,4); \
+            memcpy(h3+20,&se3,4); memcpy(h3+24,&ph3,8); uint64_t a_=nm_,b_=ne_; \
+            memcpy(h3+32,&a_,8); memcpy(h3+40,&b_,8); \
+            for(int c=0;c<5;c++){uint32_t t_=(uint32_t)b3[c]; memcpy(h3+48+4*c,&t_,4);} }while(0)
+        FILE *g3;
+        { SPUT3(0,1,1); uint32_t m_=0; uint64_t o_[2]={0,1}; uint32_t k_=(se3<<16); u192 v_={{1,0,0}};
+          snprintf(path,sizeof path,"%s/b/f1c5_layer_00.bin",dir); g3=fopen(path,"wb");
+          lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,&k_,4); lc_wr(g3,&v_,24); fclose(g3); }
+        { SPUT3(1,1,2); uint32_t m_=0x1; uint64_t o_[2]={0,2};
+          uint32_t ks_[2]={(5u<<16)|1u,(6u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
+          snprintf(path,sizeof path,"%s/b/f1c5_layer_01.bin",dir); g3=fopen(path,"wb");
+          lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,ks_,8);
+          for(int i=0;i<2;i++) lc_wr(g3,&vs_[i],24);
+          fclose(g3); }
+        { SPUT3(2,1,1); uint32_t m_=0x3; uint64_t o_[2]={0,1};
+          uint32_t k_=(1u<<16)|3u; u192 v_={{5,0,0}};
+          snprintf(path,sizeof path,"%s/b/f1c5_layer_02.bin",dir); g3=fopen(path,"wb");
+          lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,&k_,4); lc_wr(g3,&v_,24); fclose(g3); }
+        { SPUT3(3,1,2); uint32_t m_=0x7; uint64_t o_[2]={0,2};
+          uint32_t ks_[2]={(2u<<16)|7u,(9u<<16)|7u}; u192 vs_[2]={{{2,0,0}},{{9,0,0}}};
+          snprintf(path,sizeof path,"%s/b/f1c5_layer_03.bin",dir); g3=fopen(path,"wb");
+          lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,ks_,8);
+          for(int i=0;i<2;i++) lc_wr(g3,&vs_[i],24);
+          fclose(g3); }
+        snprintf(path,sizeof path,"%s/b/f1c5_manifest.txt",dir); g3=fopen(path,"w");
+        fprintf(g3,"f1c5_manifest_v1\nn=%u\nstart_exit=%u\npl=3,7,11\npl_hash=%016llx\nb0=1,1,1,0,0\nlast_complete_k=3\n",
+                n3,se3,(unsigned long long)ph3); fclose(g3);
+        snprintf(path,sizeof path,"%s/b/run.out",dir); g3=fopen(path,"w");
+        fprintf(g3,"[f1c5] layer k= 1/3: canonical_masks=1 (of C(3,1)=3) states=2 entries=2 mass=30 elapsed=0.0s\n"
+                   "[f1c5] layer k= 2/3: canonical_masks=1 (of C(3,2)=3) states=1 entries=1 mass=15 elapsed=0.0s\n"
+                   "[f1c5] layer k= 3/3: canonical_masks=1 (of C(3,3)=1) states=2 entries=2 mass=11 elapsed=0.0s\n");
+        fclose(g3);
+        #undef SPUT3
+    }
+
+    /* ---- fixture C: fixture A v1 with one value zeroed — must FAIL both ---- */
+    {
+        snprintf(cmd, sizeof cmd, "cp %s/a1/f1c5_layer_00.bin %s/a1/f1c5_manifest.txt %s/c/", dir, dir, dir);
+        if (system(cmd)) {}
+        SPUT("F1C5LAY1", 1, 1, 0, nm, ne);
+        u192 bad[NE]; memcpy(bad, vals, sizeof vals); bad[17] = (u192){{0,0,0}};
+        snprintf(path, sizeof path, "%s/c/f1c5_layer_01.bin", dir);
+        FILE *g = fopen(path, "wb");
+        lc_wr(g,hd,72); lc_wr(g,masks,nm*4); lc_wr(g,off,(nm+1)*8);
+        lc_wr(g,keys,ne*4); for (uint64_t i=0;i<ne;i++) lc_wr(g,&bad[i],24);
+        fclose(g);
+    }
+    #undef SPUT
+
+    /* ---- run both modes, compare ---- */
+    int ok = 1;
+    setenv("LC_SCAN_CHUNK_KB", "64", 1);              /* small chunks: force many refills */
+    setenv("LC_SCAN_T6STUB", "1", 1);
+    const char *cases[3][2] = { {"a1", NULL}, {"a2", NULL}, {"b", "run.out"} };
+    for (int c = 0; c < 3; c++) {
+        char ref[1200], refout[1300];
+        snprintf(ref, sizeof ref, "%s/%s", dir, cases[c][0]);
+        snprintf(refout, sizeof refout, "%s/ref_%s.out", dir, cases[c][0]);
+        if (cases[c][1])
+            snprintf(cmd, sizeof cmd, "%s --check-layers %s 31 %s/%s > %s", exe, ref, ref, cases[c][1], refout);
+        else
+            snprintf(cmd, sizeof cmd, "%s --check-layers %s 31 > %s", exe, ref, refout);
+        int rc_ref = system(cmd);
+        char *refbuf = lcs_slurp(refout, NULL);
+        char *scan1 = NULL;
+        for (int lanes = 1; lanes <= 3; lanes++) {
+            char lb[16], so[1300];
+            snprintf(lb, sizeof lb, "%d", lanes); setenv("LC_SCAN_LANES", lb, 1);
+            snprintf(so, sizeof so, "%s/scan_%s_%d.out", dir, cases[c][0], lanes);
+            if (cases[c][1])
+                snprintf(cmd, sizeof cmd, "%s --scan-layers %s 31 %s/%s > %s", exe, ref, ref, cases[c][1], so);
+            else
+                snprintf(cmd, sizeof cmd, "%s --scan-layers %s 31 > %s", exe, ref, so);
+            int rc_scan = system(cmd);
+            char *sbuf = lcs_slurp(so, NULL);
+            if (!refbuf || !sbuf || rc_ref != rc_scan) { ok = 0; free(sbuf); continue; }
+            char *filt = lcs_strip_pfx(sbuf, "[scan] ", NULL);
+            char *nobanner = lcs_strip_pfx(sbuf, "[scan] multi-observable", NULL);
+            int identical = (strcmp(filt, refbuf) == 0);
+            int laneinv = 1;
+            if (lanes == 1) { scan1 = nobanner; nobanner = NULL; }
+            else laneinv = scan1 && nobanner && (strcmp(scan1, nobanner) == 0);
+            printf("  [%s lanes=%d] rc=%d==%d  filtered==sequential: %s  lane-invariant: %s\n",
+                   cases[c][0], lanes, rc_scan, rc_ref,
+                   identical ? "YES" : "*** NO ***", laneinv ? "YES" : "*** NO ***");
+            if (!identical || !laneinv) ok = 0;
+            free(filt); free(nobanner); free(sbuf);
+        }
+        free(scan1); free(refbuf);
+    }
+    /* corrupt fixture: both must FAIL (rc!=0); text may differ by design */
+    {
+        char cdir[1200]; snprintf(cdir, sizeof cdir, "%s/c", dir);
+        snprintf(cmd, sizeof cmd, "%s --check-layers %s 31 > %s/ref_c.out", exe, cdir, dir);
+        int r1 = system(cmd);
+        setenv("LC_SCAN_LANES", "3", 1);
+        snprintf(cmd, sizeof cmd, "%s --scan-layers %s 31 > %s/scan_c.out", exe, cdir, dir);
+        int r2 = system(cmd);
+        printf("  [c corrupt] sequential rc!=0: %s  scan rc!=0: %s\n",
+               r1 ? "YES" : "*** NO ***", r2 ? "YES" : "*** NO ***");
+        if (!r1 || !r2) ok = 0;
+    }
+    printf("SCAN-SELFTEST: %s\n", ok ? "PASS" : "*** FAIL ***");
     return ok ? 0 : 1;
 }
 
@@ -4111,6 +4980,14 @@ int main(int argc, char **argv) {
         return lc_check_layers(argv[2], argc > 3 ? atoi(argv[3]) : 31,
                                argc > 4 ? argv[4] : NULL);
     }
+    if (argc >= 2 && strcmp(argv[1], "--scan-layers") == 0) {
+        if (argc < 3) { fprintf(stderr, "usage: %s --scan-layers DIR [max_k] [run.out]   "
+                                        "(env: LC_SCAN_LANES/CHUNK_KB/ODIRECT/T6STUB, LC_RESUME)\n", argv[0]); return 2; }
+        LcScanCfg cfg = lcs_cfg_from_env();
+        return lc_check_layers_impl(argv[2], argc > 3 ? atoi(argv[3]) : 31,
+                                    argc > 4 ? argv[4] : NULL, &cfg);
+    }
+    if (argc >= 2 && strcmp(argv[1], "--scan-selftest") == 0) return lcs_selftest(argv[0]);
     if (argc >= 2 && strcmp(argv[1], "--check-g-ladder") == 0) {
         if (argc < 4) { fprintf(stderr, "usage: %s --check-g-ladder FDIR GDIR [max_k]\n", argv[0]); return 2; }
         if (!build_pairs()) return 1;
@@ -4124,6 +5001,9 @@ int main(int argc, char **argv) {
     if (argc < 2) { fprintf(stderr, "usage: %s <run.out> [max_layer]\n"
                                     "       %s --check-layers DIR [max_k] [run.out]\n"
                                     "       %s --check-layers-selftest\n"
+                                    "       %s --scan-layers DIR [max_k] [run.out]   (parallel multi-observable\n"
+                                    "                                  scan; env LC_SCAN_LANES/CHUNK_KB/ODIRECT/T6STUB)\n"
+                                    "       %s --scan-selftest\n"
                                     "       %s --check-g-ladder FDIR GDIR [max_k]\n"
                                     "       %s --check-t-ladder FDIR TDIR [max_k]\n"
                                     "       %s --check-gt-selftest\n"
@@ -4132,7 +5012,7 @@ int main(int argc, char **argv) {
                                     "       %s --ie-probe NSAMP [--ie-threads N]\n"
                                     "       %s --dp-count [opts]      (Route D direct mask-DP recount — the\n"
                                     "                                  non-IE second instrument; see source header)\n",
-                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
+                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
                                     argv[0], argv[0], argv[0]); return 2; }
     int maxk = argc > 2 ? atoi(argv[2]) : 6;
     if (maxk < 1) maxk = 1;
