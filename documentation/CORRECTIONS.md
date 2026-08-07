@@ -791,3 +791,109 @@ the correction. The gate is a completeness instrument, not a content one.
   93/100 stands as measured.
 
 ---
+
+### CX-26 · 2026-08-07 · C1 · The Bayes factor and posterior are withdrawn as claimed results — CX-25's "not withdrawn" split is not defended
+
+- **Documents:** [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) (executive summary, §"The result", v1.27
+  row); [reports/README.md](../reports/README.md)'s TR-2 index row;
+  [evidence/f11/](../reports/evidence/f11/), [evidence/f11halfb/](../reports/evidence/f11halfb/),
+  [evidence/r11/](../reports/evidence/r11/) (dated notes); [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md);
+  [CRITIQUE.md](CRITIQUE.md).
+- **What is wrong.** CX-25 recorded the two-model pair's confusability veto (M_tend self-recovery
+  68/100 against a bar frozen at 70) and drew a line: "The numbers themselves are unchanged and are
+  not withdrawn; what is withdrawn is the *calibration support* for them." A hostile external review
+  pressed on that split, and under this project's own standard — airtight-or-shelve; it would rather
+  withdraw a claim than defend a weak one — it does not hold. The confusability gate is the
+  instrument that was to establish that the two models are distinguishable enough for the number to
+  mean what it is quoted as meaning. That gate vetoed. A Bayes factor kept on display as a standing
+  result while only its "calibration support" is withdrawn is a weak claim defended in two registers
+  at once, by a project that says it does not defend weak claims.
+- **What changes.** The published BF (≈5.2×10³ variant U / ≈6.3×10³ variant A, the live v1.12
+  figures) and the ≈0.9998 posterior are **withdrawn as claimed results**. The corruption-vs-tendency
+  comparison now asserts no verdict on their strength — not "strong evidence", and not the residual
+  "narrows the field by one rival". The figures remain published as the **as-computed record** — the
+  computation is not in dispute, the derivation and evidence bundle are unchanged and reproducible
+  ([evidence/f11/](../reports/evidence/f11/) `compute_f11_bf.py`) — in the register this suite uses
+  elsewhere for recorded-but-not-claimed quantities (compare [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)
+  §2: C3's marginal 3.0 bits are priced as data and NOT claimed as explanation). Recorded, not claimed.
+- **The path back, so this entry cannot be read as burying the number.** TR-2 already names the
+  instrument the published claim actually turns on: a V-matched confusability gate ("at V≈6, are
+  M_corr and M_tend distinguishable?"), a new instrument whose bar must be frozen before it runs.
+  If such a gate is registered, run, and passes, the figures can be re-claimed by a dated TR-2
+  revision — never by rewording this entry.
+- **Class.** C1: the evidential claim is withdrawn outright and nothing replaces it. The figures
+  staying visible as history is this ledger's convention (GATE 10b), not a hedge on the withdrawal.
+- **What did not move:** the computation and its reproducibility; the pre-registration record and
+  the honored publish-whatever-it-says clause; Half A's 93/100; the direct N_gs measurement
+  (4.50×10²⁵ ±6%) and its closed stop-flag; the conflict theorem, the DRAT certificates, every
+  count and sha. The four-class veto (v1.14) and the two-class veto (CX-25) both stand as measured.
+- **How it was found:** the operator-commissioned 18-lens adversarial review campaign, whose
+  red-team pass applied the project's own airtight-or-shelve rule to CX-25's split; withdrawal
+  authorized by the operator 2026-08-07.
+
+---
+
+### CX-27 · 2026-08-07 · C1 · TR-8's dof-matched median is withdrawn pending artifact — the v1.10 flag was not enough
+
+- **Documents:** [TR-8](../reports/TR8_REORDERING_REVISITED.md) (executive summary, v1.14 row);
+  [METHODS.md](../reports/METHODS.md) §"Data-like vs principled constraints".
+- **What is wrong.** TR-8 v1.10 (2026-08-01) flagged the dof-matched baseline — "the median
+  ≈16-clause KW-fitting predicate reaches a rarity near ~6×10⁻⁵, and about half are at least as rare
+  as King Wen's ~1×10⁻⁴" — as having **no artifact, command, code path or evidence bundle anywhere
+  in the repo**, and directed readers to treat it as unreproduced. But the flagged figure stayed in
+  the executive summary doing load-bearing work: it is the one number that answers the
+  predicate-specification ("Bible-code") objection in its own currency, and the surrounding text
+  continued to lean on it ("the dof-matched comparison above shows…"). A figure this suite cannot
+  reproduce is a figure this suite may not lean on; a flag that leaves the leaning in place is
+  disclosure without consequence.
+- **What changes.** The ~6×10⁻⁵ median and the "about half are at least as rare" comparison are
+  **withdrawn pending artifact**: not to be cited or relied on — by readers or by this suite's own
+  text — until the sampler exists. TR-8 itself specifies the fix, and it is the condition for
+  reinstatement: a `solve.py` sampler over the ≈16-clause KW-fitting predicate space, published with
+  its seed and probe count, reporting the median rarity with a CI. The disclosure stays; the
+  qualitative direction stays as an **acknowledged open question** — it argues *against* this
+  project's rarity claims (conservative, against interest), and is independently supported by the
+  data-like/principled firewall (METHODS) and TR-9's pricing. What is withdrawn is the number and
+  the "bulk of the distribution" placement that rests on it.
+- **What did not move:** every TR-8 figure that has an artifact — the exact pair-null 47/445740, the
+  ×1,362 / ×11,364 registry masses, the Gray-code impossibility theorem and its kernel check; the
+  91-observable ledger and its bars; all certificates, counts and shas.
+- **How it was found:** the same 18-lens red-team pass as CX-26 — its point was precisely that an
+  uncited-able number was answering the strongest objection; operator authorized 2026-08-07.
+
+---
+
+### CX-28 · 2026-08-07 · C2 · The 5.21×10³¹ headline demoted: a measured confirmation with prior art in its direction, single-instrument in its magnitude
+
+- **Documents:** [README.md](../README.md) (lead + attribution paragraph);
+  [reports/README.md](../reports/README.md) (lead + TR-4 index row). [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md)
+  itself already carried both halves (v1.19, 2026-08-06) — the front pages had not caught up.
+- **What is wrong.** Two facts, both already in the corpus, were absent at the headline sites.
+  **(i) The refutation's direction is prior art.** [CITATIONS.md](CITATIONS.md#uniqueness-conjecture)
+  §"Prior negatives" (appended 2026-07-30) records that Ouyang Weicheng (1990) stated the sharpest
+  under-determination position, Zhang Qingyu (1998) conceded his orbit framework could not fix the
+  48 散卦, and Suenaga (2012) reported finding no rule that fixes the sequence. README's attribution
+  paragraph disclosed only that "no author asserted" the positive conjecture — the half that makes
+  the refutation honest — while omitting the prior negatives — the half that makes its direction
+  unoriginal. **(ii) The magnitude is single-instrument.** The ≈5.21×10³¹ C1–C7 figure is solve.c's
+  Knuth estimator alone; every two-instrument exact quantity in the suite (|C1∩C2∩C4|,
+  |C1∩C2∩C4∩C5|, recomputed by verify.c's independent engine) is C3-free, so no second instrument
+  has ever measured a C3-inclusive layer.
+- **What changes.** The headline is reframed from a standalone refutation to **a measured
+  confirmation of prior under-determination claims**, with the magnitude labeled **a
+  single-instrument estimate**, and the prior negatives named at the headline sites in one sentence.
+- **What this is NOT — stated so the demotion cannot be over-read.** It is a novelty and
+  instrument-coverage demotion, **not a correctness doubt**. The estimator is externally validated
+  at both full-scale layers where exact ground truth exists — both exact values land inside the
+  stated ±0.01% envelope with roughly half the error budget to spare (the C5 layer's deviation of
+  +4.44×10⁻⁵ is ≈0.87σ if that envelope is read as a 95% interval) — and the C6–C7 verdict is
+  corroborated exactly at small scope (8 of 16,504 in KW's own 22-pair prefix). The count, its CI,
+  and the refutation's verdict are unchanged; ROAE's contribution remains the measurement, which no
+  prior author performed.
+- **What did not move:** the ≈5.21×10³¹ estimate and CI; the ≈1.33×10³⁸ C1–C5 estimate; the exact
+  counts; TR-4's text (already correct); the attribution note's positive half (no author asserted
+  the conjecture — that stands).
+- **How it was found:** the 18-lens red-team pass, reading the front page against CITATIONS'
+  own prior-negatives note; operator authorized 2026-08-07.
+
+---

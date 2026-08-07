@@ -62,7 +62,10 @@ and the four-class precedent: **VETO if any class ranks itself first in fewer th
 Half A **PASSED** at 93/100 (2026-08-02). Half B **FAILS** at 68/100. Therefore:
 
 **The published F11 pair is NOT calibrated. The BF ~5.2e3-6.3e3 and the 0.9998 posterior lose their
-calibration support.** The confusability veto engages for the pair.
+calibration support.** The confusability veto engages for the pair. *(Update 2026-08-07 —
+[CORRECTIONS CX-26](../../../documentation/CORRECTIONS.md): the consequence now goes further — the
+BF and posterior are **withdrawn as claimed results**, not merely stripped of calibration support;
+they stand as the as-computed record only.)*
 
 ## What must NOT happen
 
@@ -76,7 +79,9 @@ TR-2 currently describes its calibration as **PARTIAL** on the grounds that the 
 never run. That wording is now too generous in one direction and too vague in the other: the half
 ran, and it failed. Every site that leans on the F11 BF or the 0.9998 posterior as *calibrated* needs
 review. This is an operator-gated edit — it changes a published epistemic status, and it should go
-through CORRECTIONS.md as an append-only entry rather than a quiet reword.
+through CORRECTIONS.md as an append-only entry rather than a quiet reword. *(Done, in two stages:
+CX-25 / TR-2 v1.25 propagated the veto on 2026-08-04; CX-26 / TR-2 v1.27 recorded the full
+withdrawal of the BF and posterior as claimed results on 2026-08-07, operator-authorized.)*
 
 ## Judgement calls Fable flagged (prereg silent, all recorded before the run)
 

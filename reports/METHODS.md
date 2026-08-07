@@ -111,7 +111,11 @@ threshold baked into the rule's definition is one borrowed dof, and a constraint
 [TR-8](TR8_REORDERING_REVISITED.md) §Executive summary). *(Corrected 2026-08-01: this pointer also named
 "CRITIQUE.md Q1". CRITIQUE.md has no Q1 and no dof-matched material; the baseline is stated only in TR-8,
 which quantifies it but does not publish a regeneration command for it — treat the ~6×10⁻⁵ median as an
-unreproduced figure until one is published.)* Borderline cases
+unreproduced figure until one is published.)* *(Escalated 2026-08-07 —
+[CORRECTIONS](../documentation/CORRECTIONS.md) CX-27: the median is now **withdrawn pending
+artifact**, not merely flagged — TR-8 v1.14 marks it not to be cited or relied on until the sampler
+exists; the qualitative specification-not-discovery direction stands on this firewall itself, not on
+that number.)* Borderline cases
 (C3's 776 threshold, the S25–28 trigram configuration) are classified data-like precisely because their
 defining number or face-set is KW's own. This is the firewall that keeps a fitted description from being
 reported as a design finding; where a result depends on the classification, the report states which side
@@ -333,7 +337,14 @@ aside before the published set was fixed? **This suite does not currently publis
 Some constraints are inherited from the literature and so are not ours to have selected; others were
 formalized here, and the full ledger of what was tried and dropped has not been assembled. Until it
 is, the multiple-comparisons correction a sceptical reader would want cannot be computed from
-published material, and no p-value here should be read as if it had been.
+published material, and no p-value here should be read as if it had been. *(Scope pointer, added
+2026-08-07 — two quantities, stated as two.)* This admission concerns the **discovery-phase**
+denominator: what was tried and set aside before the published constraint set was fixed. It is a
+different quantity from the **testing-phase** ledger of §"Global observable ledger" above (the
+frozen 91, with its 89/82 candidate variants), which *was* independently itemised from the frozen
+pre-registrations and validated — no published verdict differs across its three candidate bars.
+Reconstructing that testing ledger does not close this gap, and nothing in this paragraph is
+weakened by it: the discovery-phase denominator remains unassembled and open.
 
 **Pre-registration, honestly scoped.** Where a test could have been graded after the fact, the
 design was frozen first and published: see [evidence/f11/PREREGISTRATION](evidence/f11/PREREGISTRATION.md)

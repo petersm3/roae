@@ -233,7 +233,9 @@ second wave of results, each with a full [technical report](../reports/README.md
   TR-2's pre-registered two-model comparison initially favored that corruption reading over a
   soft-preference arranger — but as of 2026-08-04 those figures are **not calibrated in the pooled
   sense**: the M_tend self-recovery arm FAILED at 68/100 against a frozen bar of 70, so the
-  calibration gate vetoed. The question is weighed, not settled. See CORRECTIONS CX-25.)
+  calibration gate vetoed, and as of 2026-08-07 the Bayes factor and posterior are **withdrawn as
+  claimed results** — retained as the as-computed record only. The question is weighed, not settled,
+  and no verdict is asserted. See CORRECTIONS CX-25 and CX-26.)
   [[TR-2](../reports/TR2_THE_RULES_CONFLICT.md)]
 - **In information terms, half the sequence is explained** — nearly all of it by the pairing rule, which
   turns out to be mathematically *optimal* among pairing rules of its kind (complement/reversal

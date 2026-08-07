@@ -667,7 +667,11 @@ ingredient run fired the pre-registered stop-and-investigate gate (its measured 
 the F11 derived bracket) and the flag was resolved 2026-07-13: the bracket was never a valid
 confidence interval, a four-seed direct re-measurement gives N_gs = 4.50×10²⁵ (±6%, all three
 convergence gates passing), and the [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) v1.7 corruption
-verdict is re-affirmed (see TR-2 v1.12 §"Stop-flag resolution"). Of the remaining ingredients, the
+verdict is re-affirmed (see TR-2 v1.12 §"Stop-flag resolution") — *a re-affirmation itself since
+superseded: the two-model pair later failed its own confusability gate and the Bayes factor and
+posterior are withdrawn as claimed results
+([CORRECTIONS](CORRECTIONS.md) CX-25, CX-26; TR-2 v1.27), leaving them as the as-computed record
+only*. Of the remaining ingredients, the
 **synthetic-draw calibration RAN on 2026-07-20 and FAILED its confusability gate** — its per-class
 confusion matrices and evidence bundle (draws.json, scores.json, calibration_report.txt, master seed
 20260720) are published at [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) §Outcome — and the frozen

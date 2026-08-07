@@ -112,7 +112,10 @@ failed its own pre-registered confusability gate — Half B (M_tend self-recover
 68/100** against a bar frozen at 70 (Half A passed 93/100). The BF ≈ 5.2×10³ / 6.3×10³ and the
 ≈0.9998 posterior are **no longer calibrated in the pooled sense**; the numbers are unchanged and
 not withdrawn — what is withdrawn is their *calibration support*. See [../f11halfb/](../f11halfb/)
-and [TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result".
+and [TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result". *(Superseded 2026-08-07 —
+[CORRECTIONS CX-26](../../../documentation/CORRECTIONS.md): the BF and posterior are now
+**withdrawn as claimed results**, retained only as the as-computed record. The N_gs measurement in
+this bundle is unaffected as a measurement.)*
 
 ## Ingredient outputs in this directory
 

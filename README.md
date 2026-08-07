@@ -12,7 +12,16 @@ estimate, not a proven cardinality — but the verdict needs only that the count
 corroborated **exactly, with no estimator involved**: inside King Wen's own 22-pair prefix, exact
 counting finds **16,504** C1–C5 completions of which exactly **8** satisfy C6–C7 — King Wen and seven
 others in its immediate neighbourhood ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4). King Wen is
-unique only within **budgeted enumerated slices**, never in the full space.
+unique only within **budgeted enumerated slices**, never in the full space. Read against the
+literature, this is **a measured confirmation of prior under-determination claims, and the magnitude
+is a single-instrument estimate**: the direction was asserted qualitatively before this project
+measured it (see the prior negatives below), and the C1–C7 figure comes from `solve.c`'s estimator
+alone — every two-instrument exact quantity in the suite is C3-free
+([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)). Neither label doubts the number:
+the estimator is externally validated at both full-scale layers where exact ground truth exists,
+inside its stated envelope both times ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §"Estimator
+calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 of 16,504
+above). What no prior author did is the measurement.
 
 **Whose hypothesis this was.** The name "Uniqueness Conjecture" is **this project's own coinage**. To
 our knowledge no author asserted in so many words that the C1–C7 inventory pins down the sequence, and
@@ -21,7 +30,12 @@ tested inventory — so **the refutation touches none of those works as stated**
 ([full attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). What it refutes is the
 strong reading of the derivation-flavoured literature, and — squarely — **this project's own early
 working assumption**. We are reporting a negative result about our own starting position, which is why
-it leads.
+it leads. The other half of the attribution cuts against us and belongs beside it: the refutation's
+**direction was prior art** — Ouyang Weicheng (1990) held that the hexagrams have no intrinsic order,
+Zhang Qingyu (1998) conceded his orbit framework could not fix the 48 散卦,
+and Suenaga (2012) reported finding no rule that fixes the sequence
+([prior negatives](documentation/CITATIONS.md#uniqueness-conjecture)) — so what is new here is the
+measurement, not the direction.
 
 **Who checked this — an authorship disclosure.** The verification in this repository is independent
 in *mechanism*, not in *authorship*. Two languages implement every constraint and cross-check each

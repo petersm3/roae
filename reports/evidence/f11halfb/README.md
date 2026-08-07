@@ -22,7 +22,10 @@ received sequence has **V=6**, where self-recovery is 51/51.
 **What this changes**: the published BF and the ≈0.9998 posterior are **not calibrated in the pooled
 sense**. They are unchanged and not withdrawn; their *calibration support* is. See
 [CORRECTIONS](../../../documentation/CORRECTIONS.md) CX-25 and
-[TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result".
+[TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result". *(Superseded 2026-08-07 — CX-26: the
+"not withdrawn" half of that sentence no longer holds. The BF and posterior are now **withdrawn as
+claimed results** — retained as the as-computed record, recorded, not claimed — pending the
+V-matched gate below.)*
 
 **What it does NOT license**: calling the pair calibrated on the strength of the V≥5 stratum. The
 extension's registration defines **no bar at n=1000 and cannot produce a PASS**. The question the
