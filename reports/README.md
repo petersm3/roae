@@ -59,10 +59,19 @@ Skeptic: [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md)'s gates, then any Verification 
 These reports **evolve**. New sources, new measurements, and corrections are incorporated over time —
 never silently: every content change is a version bump with a Revision History entry in the affected
 report, and claim corrections are stated as corrections (the project's standing practice; see the
-corrected result documented in [TR-5](TR5_SYMMETRY.md)). Citations should name a version ("[TR-2](TR2_THE_RULES_CONFLICT.md) v1.0"). Snapshots are
-archived with versioned DOIs (Zenodo: a concept DOI resolves to the latest state; version DOIs pin what
-you read). Where a journal article is one frozen argument, these reports are the maintained state of what
-is known — with its full history attached.
+corrected result documented in [TR-5](TR5_SYMMETRY.md)). Citations should name a version **and a commit** — "[TR-2](TR2_THE_RULES_CONFLICT.md) v1.24, commit
+`abc1234`". Where a journal article is one frozen argument, these reports are the maintained state of
+what is known — with its full history attached.
+
+*Corrected 2026-08-07 (CX-31).* This paragraph previously read "Snapshots are **archived with
+versioned DOIs** (Zenodo: a concept DOI resolves to the latest state; version DOIs pin what you
+read)." **No such archival exists.** There is no Zenodo deposit for this project, `CITATION.cff`
+carries no DOI or identifier key, and [DEVELOPMENT.md](../documentation/DEVELOPMENT.md) records the
+deposits as **declined by operator direction on 2026-04-18**. The sentence described infrastructure
+that was considered and rejected, and it sat in the paragraph that tells readers how to trust the
+record's permanence — the worst possible place for a claim that is not true. **The pinning mechanism
+is git-native**: a commit sha is content-addressed and immutable, which is the property a DOI would
+have been bought for. Cite the sha.
 
 **Version lifecycle:** versioning discipline begins at publication. Pre-release drafts carry
 `v1.0-draft` and may churn freely (git history is the audit trail); the first public release is stamped

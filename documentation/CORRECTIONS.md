@@ -897,3 +897,154 @@ the correction. The gate is a completeness instrument, not a content one.
   own prior-negatives note; operator authorized 2026-08-07.
 
 ---
+
+### CX-29 · 2026-08-07 · C3 · This ledger's own history was rewritten to restore its append-only guarantee, and until now nothing said so
+
+- **Documents:** this file ([CORRECTIONS.md](CORRECTIONS.md)) — its published git history, not its
+  current content. No claim in any report is affected.
+- **What happened.** On 2026-08-02, commit `728778e7` modified **ten already-committed lines** of
+  this ledger (+16/−10). The *intent was sound*: the then-current CX-23 reproduced five retracted
+  phrasings **verbatim**, and GATE 3 fired on the ledger itself — correctly. The edit replaced those
+  quotations with descriptions, following the convention CX-08 established, that a retracted wording
+  belongs in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and nowhere else, because that is what
+  lets the gate police every other file without tripping on the record of the fix. Two follow-on
+  commits (`77042b39`, `ec307098`) failed to reach a clean state in either direction.
+- **Why it is a correction.** This file's guarantee is **append-only**: entries are added, never
+  altered. That guarantee is the reason the ledger is worth anything — it is what stops an admission
+  from being quietly revised later. Editing ten committed lines broke it, however good the reason.
+- **How it was cured, and the second problem that created.** The violation was resolved by
+  **removing the three commits from the published line** — that is, by rewriting history. At least
+  `728778e7` had already been pushed. Restoring an append-only invariant by rewriting history is
+  defensible and may be the only way to restore it; leaving the rewrite unrecorded is not. A reader
+  reconstructing this file's history would otherwise find a rewrite these documents never mention,
+  which is a worse outcome than a disclosed one.
+- **What changes.** Nothing in the corpus's claims. This entry exists so the event is on the record
+  in the ledger whose own history was repaired. The five excised commits (`728778e7`, `77042b39`,
+  `ec307098`, and two clean ones, `3bf04596` and `661b6cb7`) remain reachable git objects, so this
+  account is auditable rather than merely asserted.
+- **Stated limitation.** That `728778e7` had been pushed is taken from the gate header's own
+  contemporaneous claim; it has not been independently confirmed against a remote's reflog.
+- **How it was found:** a replay of commits excised from main's published line, during the 18-lens
+  red-team campaign — found while doing something else. Operator-authorized 2026-08-07. The
+  successor lens it implies (sweep for every non-fast-forward move of the published line and
+  classify each as benign amend vs record alteration) is queued and has not been run.
+
+---
+
+### CX-30 · 2026-08-07 · C1 · A novelty claim understated the constrained space by ~29 orders of magnitude, in the direction that flattered the project
+
+- **Documents:** [CITATIONS.md](CITATIONS.md) §"Pair structure + no-5-line + complement proximity as a
+  *joint* constraint system".
+- **What was wrong.** The section read: "The framing of C1–C5 as a specific system that **narrows
+  10^89 orderings to ~700 million** is ROAE-specific." The 10^89 is right — that is ≈64!, the
+  unconstrained space. The "~700 million" is not the size of anything C1–C5 defines.
+- **The magnitude.** The C1–C5 space is **estimated at 1.33×10³⁸** orientation-explicit (≈3.3×10³⁷
+  after orientation-dedup), per [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) — a Knuth random-probe
+  estimate, not a proven cardinality. Against that, "~700 million" understates by roughly **29
+  orders of magnitude**.
+- **The category error underneath it.** Counts in the hundreds of millions to low billions are
+  **enumerated record counts from budgeted slices** — what the solver wrote to disk under a per-cell
+  budget — not the size of a constrained space. The two are not comparable quantities. Conflating
+  them inverts this project's central finding, which is precisely that C1–C5 leaves a space far too
+  large to enumerate. A reader quoting that sentence would have cited the reverse of what we found.
+- **Additional defect.** The figure "~700 million" appeared **nowhere else in the corpus** and had
+  no supporting source. It was not a stale number superseded by a better one; it was unsourced.
+- **What changes.** The sentence now claims only what is defensible — that the framing of C1–C5 as a
+  *joint* system is ROAE-specific — and a dated note states the prior wording, the correct magnitude
+  with its epistemic label, and the slice-vs-space distinction. The novelty claim itself stands: it
+  was the number, not the originality, that was wrong.
+- **How it was found:** the 18-lens red-team pass flagged the site; the ~29-order figure and the
+  no-other-source finding were confirmed by direct search 2026-08-07. Operator-authorized.
+
+---
+
+### CX-31 · 2026-08-07 · C1 · The citation-pinning contract described two mechanisms, and neither existed
+
+- **Documents:** [reports/README.md](../reports/README.md) §"Living documents: the versioning policy";
+  [reports/METHODS.md](../reports/METHODS.md) §environment table, Repository row.
+- **What was wrong — two halves of one broken promise.**
+  **(i) DOIs that do not exist.** reports/README read "Snapshots are **archived with versioned DOIs**
+  (Zenodo: a concept DOI resolves to the latest state; version DOIs pin what you read)." Verified
+  absent: there is no Zenodo deposit for this project, [CITATION.cff](../CITATION.cff) carries no
+  `doi` or `identifiers` key, every DOI in the repo is an external citation, and
+  [DEVELOPMENT.md](DEVELOPMENT.md) records the deposits as **declined by operator direction,
+  2026-04-18**. The sentence described infrastructure that was considered and rejected.
+  **(ii) Tags that were never cut.** METHODS' environment table said to "pin to the release tag
+  stamped at publication (git tag per suite version)". Fourteen tags exist, but only `reports-v1.0`
+  (2026-07-03) is a suite version; the reports have since advanced to TR-2 v1.24, TR-3 v1.9 and
+  beyond, none tagged.
+- **Why they had to be fixed together.** Each alone looks like a small overstatement. Together they
+  meant the citation-pinning policy had **no executable mechanism whatsoever** — a reader told to
+  "cite a version" had no way to pin what they read. Fixing one and leaving the other would have left
+  the contract just as broken while looking repaired.
+- **What changes.** Both now name the mechanism that actually works and always has: **the commit
+  sha**, which is content-addressed and immutable — the property a DOI would have been purchased for.
+  Citations should give version *and* commit.
+- **Where this sat.** In the paragraph that tells readers how to trust the record's permanence, and
+  in the table a replicator reads first. Both are the worst available placement for a false claim.
+- **How it was found:** the aspirational-infrastructure sweep. Two sibling claims from the same sweep
+  (TR-3's and METHODS' "selftest on every commit") were found **already corrected** at HEAD — they now
+  correctly say the gate runs at push, per-clone and opt-in, and is "not a commit-time gate".
+
+---
+
+### CX-32 · 2026-08-07 · C1/C2/C3 · The seven retracted figures that were registered and gated but never recorded
+
+- **Documents:** the seven figures below, each in its own report. This entry closes the backlog in
+  [DOC_GATE_FIGURE_LEDGER_OPEN.txt](DOC_GATE_FIGURE_LEDGER_OPEN.txt), whose rows were open defects,
+  not exemptions.
+- **Why they were open.** GATE 11 has always proven that every row of `RETRACTED_PHRASES.tsv` reaches
+  this ledger. `RETRACTED_FIGURES.tsv` had no such partner, so a figure could be registered, policed
+  by GATE 3b, and never written up — the quieter half of the failure GATE 11 exists for.
+- **Why each item below names a key and not a number.** Retracted figures are **not reproduced
+  here**, per the convention CX-08 set and CX-29 records: the exact string lives in
+  `RETRACTED_FIGURES.tsv` and nowhere else, because that is what lets GATE 3b police every other file
+  without tripping on the record of the fix. The gate keys on the content-addressed `RF-<sha8>`
+  precisely so a retraction can be recorded without being restated. *(This entry's first draft
+  ignored that and quoted all seven; GATE 3b failed it — the same way it failed CX-23 on 2026-08-02,
+  the event CX-29 documents. The gate caught the identical mistake twice, four hours apart.)*
+
+**1. `RF-b8490caf` · C1 — TR-8 v1.9's look-elsewhere factor.** Overstated by an order of magnitude;
+the supported value is one tenth of what was published. The most consequential of the seven: it
+appeared in a report body and it inflates a multiple-comparisons correction, so the surrounding
+argument was presented as more conservative than it was. Corrected, TR-8's conclusion stands but the
+margin it claimed to survive is narrower.
+
+**2. `RF-4a208654` · C1 — TR-2's withdrawn σ-distance for the same comparison.** v1.19 withdrew it as
+unreconstructible; v1.23 restored the comparison under the file's stated convention and **the sign
+flipped** — the quantity did not merely shrink, it reversed direction, landing below rather than
+above. That reversal is the part a reader would most want, and the reason this is C1 rather than C3.
+
+**3. `RF-de0e3b47` · C2 — TR-10 v1.8's withdrawn trigarray BH margin.** This file's only prior
+mention of it sits inside CX-19's "How it was found" — a meta-mention of a defect found elsewhere,
+not a record of this retraction.
+
+**4. `RF-fde8b696` · C2 — the certificate-directory count in TR-2 v1.19's ¶Extension note.** The note
+stated a total two lower than the directory holds; TR-5 v2.1 records the intermediate value.
+Adjudicated **C2 rather than C3** because the count reached a published extension note where a reader
+could rely on it — a decision, per the row's own instruction not to assume.
+
+**5. `RF-1f093dc3` · C3 — TR-9 v1.16 §5(a)'s comp∘rev-admitted low end.** The section quoted two
+different values for the same quantity in the same passage; the arithmetic (146.3 − 19.0) settles it.
+A self-inconsistent published pair. C3 because the wrong value never propagated beyond that sentence.
+
+**6. `RF-f3f89046` · C3 — DESCRIPTION_LENGTH.md's C6+C7 marginal.** Superseded by that file's own
+2026-07-10 unrounded-operand pass, which restated it one tenth of a bit higher. Its sentence-sibling
+*was* recorded in CX-19; this one never was — the same asymmetry the registry audit found in the
+registry itself.
+
+**7. `RF-a79d9a6e` · EXCLUDED under the C4 rule, and the exclusion is the record.** TR-8 v1.11 and
+METHODS §"Statistics conventions" **recorded and DECLINED** this change: the supported statement is a
+floor, not the larger figure. A declined change is not a correction, and entering it as one would
+misrepresent the corpus as having retracted something it deliberately kept. The C4 exclusion rule is
+the precedent; applying it was a judgment, operator-ratified. Closed by exclusion, **not** by
+silence — which is why it is named here at all.
+
+- **What changes.** No published number moves as a result of this entry; each figure was already
+  corrected in its own report. What changes is that the corrections are now *recorded*, so registry
+  and ledger agree.
+- **How it was found:** round-5 item A5 built GATE 11's figures partner and shipped it with the
+  backlog listed rather than hidden — a gate that fires on its own open rows. Operator-approved
+  2026-08-07.
+
+---

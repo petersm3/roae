@@ -1,6 +1,10 @@
 # Shared Methods Appendix — environment, statistics, and artifact access
-*Referenced by every technical report's Verification Guide. Addresses the systemic gaps identified by
-the adversarial replication reviews (archived alongside this suite).*
+*Referenced by every technical report's Verification Guide. Addresses systemic gaps identified by
+adversarial replication reviews conducted during development. Those review documents are **not
+public** — they live in a private operational repository and are not publishable from it, so this
+sentence points at their effect on this appendix, not at a document you can open. What they produced
+is here, and in [CORRECTIONS.md](../documentation/CORRECTIONS.md). (Corrected 2026-08-07, CX-31: the
+prior wording, "archived alongside this suite", implied a public artifact that does not exist.)*
 
 ## Constraint set (C1–C5, and the identifying C6/C7)
 
@@ -81,7 +85,7 @@ current defaults the two modes' files are content-identical but byte-different �
 ## Environment (version pinning)
 | Component | Version | Source |
 |---|---|---|
-| Repository | pin to the release tag stamped at publication (git tag per suite version) | [github.com/petersm3/roae](https://github.com/petersm3/roae) |
+| Repository | **pin to a commit sha** — content-addressed and immutable. *(Corrected 2026-08-07, CX-31: this row previously said "pin to the release tag stamped at publication (git tag per suite version)". No such per-suite-version tagging exists: 14 tags are present but only `reports-v1.0` (2026-07-03) is a suite version, while reports have since advanced to TR-2 v1.24, TR-3 v1.9 and beyond with no subsequent tag. Combined with the withdrawn DOI claim in [reports/README](README.md), the stated pinning policy had no executable mechanism at all — the sha is the one that always works.)* | [github.com/petersm3/roae](https://github.com/petersm3/roae) |
 | C toolchain | gcc (Ubuntu 22.04 class), flags: `-O2 -pthread -fopenmp` (portable default). **The output sha is flag- and architecture-invariant on every recipe tested**, so the differing build lines a replicator meets across this repo are interchangeable: `-O2`, `-O3 -march=native`, `-O3 -march=x86-64-v3` and `-O3 -flto` all produce the same selftest sha `403f7202…`, and the 11.2T canonical is byte-identical between an x86 `-march=native` build and an ARM Neoverse-N2 `-mcpu=native` build. The published canonical recipe ([CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §"Solver version") is therefore `-O3 … -march=native`; the reason to prefer a fixed `-march` baseline for a redistributed binary is SIGILL on older CPUs, **not** sha movement ([DEVELOPMENT.md](../documentation/DEVELOPMENT.md) §"Use `-march=x86-64-v3` for canonical builds"). Two witnesses, not an exhaustive guarantee over every compiler version and host. | — |
 | solve.c selftest anchor | sha256 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | pre-push compile gate (git hooks, installed per clone — opt-in) + manual operator runs; not a commit-time gate |
 | Python | 3.10+ stdlib-only (solve.py, sat.py, roae.py, verify.py) | — |

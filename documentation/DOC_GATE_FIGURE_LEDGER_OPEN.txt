@@ -38,10 +38,15 @@
 # FORMAT (tab-separated, 2 columns):
 #   <figure, byte-identical to its RETRACTED_FIGURES.tsv row>\t<what still has to be adjudicated>
 #
-19 total	Certificate-directory count, ¶Extension said "19 total" and it holds 21 (TR-2 v1.19; TR-5 v2.1 records the intermediate 19→20). Class is probably C3, but the count reached a published extension note, so whether it is C3 or C2 (circulated) needs deciding, not assuming.
-~5,500×	TR-8 v1.9's look-elsewhere factor, overstated by 10× (correct ~500×). Published in a report body, so this is the most likely C1/C2 of the seven and the one whose entry has to state what the corrected factor does to the surrounding argument.
-~52×	TR-8 v1.11 / METHODS §"Statistics conventions" RECORDED AND DECLINED it: the supported statement is a floor, ≥~10×. A declined change may not belong in a corrections ledger at all — the ledger's C4 exclusion rule is the precedent, and applying it here is a judgment.
-≈10×	TR-10 v1.8 WITHDREW the trigarray BH margin. CORRECTIONS.md mentions "the withdrawn ≈10× margin" once (CX-19's "How it was found"), which is a meta-mention of a defect found elsewhere, NOT a record of this retraction.
-+125	TR-9 v1.16: §5(a) quoted the comp∘rev-admitted low end as both "~+127" and "+125"; 146.3 − 19.0 = 127.3. Self-inconsistent published pair; class C3 unless the wrong value propagated.
-marginal 21.2	DESCRIPTION_LENGTH.md's own 2026-07-10 unrounded-operand pass restated the C6+C7 marginal as 21.3. Seeded 2026-08-02 by item A7's body sweep. Its sentence-sibling `marginal 4.6` IS recorded (CX-19); this one was never written up, which is the same asymmetry A7 found in the registry itself.
-1.4σ	TR-2 v1.19 withdrew it as unreconstructible; v1.23 restored the comparison as 0.57σ BELOW under the file's stated convention. CORRECTIONS.md mentions "1.4σ above" once (CX-19's "How it was found") as a meta-mention of the PHASE2_README fix — that is not a record of this retraction. The entry has to state that the sign flipped, which is the part a reader would most want.
+#
+# BACKLOG CLOSED 2026-08-07. All seven rows were adjudicated and recorded in
+# CORRECTIONS.md as CX-32 — six as corrections (C1 x2, C2 x2, C3 x2) and one,
+# `~52×` / RF-a79d9a6e, EXCLUDED under the C4 declined-change rule, with the
+# exclusion itself stated in the entry rather than left as silence. The rows are
+# deleted here because this file's own contract is that the backlog count shrinks
+# honestly; leaving recorded rows in place would inflate it.
+#
+# The file is retained, empty, because it is the mechanism: a figure registered
+# from today on FAILS the ledger-figures gate unless it is either recorded in
+# CORRECTIONS.md or deliberately listed below. An empty backlog is the goal state,
+# not a reason to delete the guard.

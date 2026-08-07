@@ -82,7 +82,9 @@ as such throughout the suite; C2 ⊂ C5 (the multiset contains no 5s) is disclos
 
 ### Pair structure + no-5-line + complement proximity as a *joint* constraint system
 
-The framing of C1–C5 as a specific system that narrows 10^89 orderings to ~700 million is ROAE-specific. Individual constraints appear in prior work; the conjunction, the budgeted enumeration under the conjunction, and the 4-boundary / pair-stability analysis are ROAE-original.
+The framing of C1–C5 as a specific *joint* constraint system is ROAE-specific. Individual constraints appear in prior work; the conjunction, the budgeted enumeration under the conjunction, and the 4-boundary / pair-stability analysis are ROAE-original.
+
+*Corrected 2026-08-07 (CX-30).* This sentence previously read "…a specific system that **narrows 10^89 orderings to ~700 million**". That is wrong by roughly **29 orders of magnitude**, and in the direction that most flatters the project. 10^89 ≈ 64! is right for the unconstrained space, but C1–C5 does **not** narrow it to ~700 million: the C1–C5 space is **estimated at 1.33×10³⁸** orientation-explicit, ≈3.3×10³⁷ after orientation-dedup ([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md); a Knuth random-probe estimate, not a proven cardinality). Figures in the hundreds of millions to low billions are **enumerated record counts from budgeted slices** — what the solver actually wrote to disk under a per-cell budget — not the size of the constrained space. The two are not comparable quantities, and conflating them inverts this project's central finding, which is that C1–C5 leaves a space far too large to enumerate. The "~700 million" figure itself appeared nowhere else in the corpus and had no supporting source.
 
 ### Fu Xi ordering, binary representation
 
