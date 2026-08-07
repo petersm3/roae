@@ -4,7 +4,8 @@
 
 **The finding.** This project began from the hypothesis that the King Wen sequence is *determined* by
 its published constraints — that the received order could be **derived** from them. We enumerated, we
-measured, and **the hypothesis is false.** About **5.21×10³¹** orderings satisfy the full C1–C7
+measured, and **the hypothesis is false.** About **5.21×10³¹** orderings — a raw, orientation-explicit
+count ([METHODS](reports/METHODS.md) §"Canonical quantities") — satisfy the full C1–C7
 inventory. That figure is a Knuth random-probe **estimate**, 95% CI [5.13, 5.29]×10³¹ — a statistical
 estimate, not a proven cardinality — but the verdict needs only that the count is not 1, and the CI's
 *lower* bound is 5.13×10³¹, so no plausible estimator error touches it. The conclusion is also
@@ -49,13 +50,17 @@ gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
 
 It must print `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`. A different digest
 is a finding — please report it. This recipe was executed end to end from a fresh clone on
-2026-08-04 and passed, together with `python3 tests.py` (64 tests) and `lean lean/KingWen.lean`
+2026-08-04 and passed, together with `python3 tests.py` (64 tests at that date; the harness has since grown to 67) and `lean lean/KingWen.lean`
 (silent, i.e. all theorems check); before that date it had never actually been run, which is itself
 the kind of gap this disclosure exists to surface.
 
 **The question.** The King Wen sequence is the received ordering of the 64 I Ching hexagrams — in
 continuous use for some two millennia, traditionally attributed to King Wen of Zhou (~1000 BCE; the
-dating of the ordering's fixation is debated in modern scholarship). For centuries it has attracted
+dating of the ordering's fixation is debated in modern scholarship). Concretely
+([Shaughnessy 2022, ch. 11](documentation/CITATIONS.md#shaughnessy2022)): the earliest artifactual
+witness of the received sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary
+Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. The Mawangdui silk manuscript
+(copied before 168 BCE) attests a *different* ordering in circulation. For centuries it has attracted
 structural claims, almost all asserted by inspection. Can those claims be tested? Can the sequence be
 reconstructed from its mathematical constraints? This project treats the sequence as a combinatorial
 object: it **enumerates** the space of orderings satisfying the sequence's constraints, **measures**
@@ -75,7 +80,7 @@ The sequence's structural properties, extracted from the received order and its 
 are treated as axioms defining a space of orderings ([formal definitions](documentation/SPECIFICATION.md) · [plain-language summary](documentation/SOLVE_SUMMARY.md)):
 
 - **C1** — the 64 hexagrams form 32 consecutive pairs, each a hexagram with its reverse (or complement
-  when reversal is trivial): the classical pairing, described by [Yu Fan](documentation/CITATIONS.md#yufan) in the 3rd century.
+  when reversal is trivial): the classical pairing, described explicitly by [Kong Yingda](documentation/CITATIONS.md#kongyingda) in the 7th century, with roots in [Yu Fan](documentation/CITATIONS.md#yufan)'s 3rd-century pair relations.
 - **C2** — no two adjacent hexagrams differ in exactly five lines ([McKenna & McKenna 1975](documentation/CITATIONS.md#mckenna-mckenna1975); independently in [Cook 2006](documentation/CITATIONS.md#cook2006)).
 - **C3** — complementary hexagrams sit near each other (a positional-distance ceiling at KW's own value).
 - **C4** — the sequence starts with the pair ䷀ Qian (The Creative) #1 and ䷁ Kun (The Receptive) #2, i.e., Heaven followed by Earth.
@@ -100,7 +105,7 @@ is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further ex
 
 Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
-- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding
+- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings — a raw, orientation-explicit count; ≈3.3×10³⁷ after orientation-dedup ([METHODS](reports/METHODS.md) §"Canonical quantities") — (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding
   C6–C7 still leaves ~5×10³¹. So the hypothesis that the constraints pin down King Wen is false — that
   was the strong reading of the literature's derivation claims, and this project's own early working
   assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
@@ -149,15 +154,18 @@ Headlines only — each links to its full treatment (technical reports in [repor
   percentage points — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
 - **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
   nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
-  description, not explanation; **between about 105 and 127 bits** remain open — the exact figure
-  depends on the accounting convention (105.4 bits = log₂|C1–C7|, the primary ledger; ~126.6 bits on
-  the defensible subset that drops the data-like C6/C7 and retains C3, and which is a logarithm of the
-  *estimated* C1–C5 space, not a measured quantity). [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
+  description, not explanation; **between about 105 and 139 bits** remain open — the exact figure
+  depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most
+  conservative reading, resting on the ±0.78% C1–C7 estimate ≈ ±0.01 bits; 139.1 bits =
+  log₂|C1∩C2∩C4|, the residual against the claimed-explanatory layers alone — a logarithm of an
+  exact count; the intermediate C1–C5 reading ~126.6 rests on the tighter ±0.02%
+  estimate). [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
 - **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
-  population-typical; one uniqueness claim is corrected; the ~126-bit (defensible-subset) residual survives its second
+  population-typical; one uniqueness claim is corrected; the ~126-bit (C1–C5-layer) residual survives its second
   literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
 - **Exact counts at full scale.** |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
-  (≈1.097×10³⁹) — computed to the last digit via the symmetry theorem's 24-fold quotient, and divisible
+  (≈1.097×10³⁹; counting orientation-explicit sequences with C4's pair pinned —
+  [METHODS](reports/METHODS.md) §"Canonical quantities") — computed to the last digit via the symmetry theorem's 24-fold quotient, and divisible
   by 24 exactly as that theorem predicts. (It is the suite's second exact full-scale count; the first,
   |C1∩C2∩C4| ≈ 7.5706×10⁴¹, landed 2026-07-04.) The count was **recomputed at full scale** (2026-07-25)
   by a second instrument — `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`), a
@@ -192,7 +200,7 @@ gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest  # must
 python3 roae.py                          # the analysis battery (29 sections; 28 statistical + the theorem-backed --parity)
 python3 solve.py --registry-verify       # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                           # SAT layer usage + targets
-python3 tests.py                         # regression harness (64 tests)
+python3 tests.py                         # regression harness (67 tests)
 bash reports/certificates/verify_all.sh  # everything above + all DRAT certs + Lean, one command
 ```
 `verify_all.sh` needs four external tools — **gcc**, **python3**, **drat-trim** and **lean** (elan).

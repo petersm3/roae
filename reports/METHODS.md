@@ -57,12 +57,12 @@ orbit-quotient), not by disagreement.
 
 | Quantity | Value | Status | Convention | Source |
 |---|---|---|---|---|
-| C1–C5 space size | 1.3287×10³⁸ (95% CI [1.3283, 1.3292]×10³⁸, 0.02%) | **estimate** (Knuth) | raw (orientation-resolved) | [TR-4] §3 |
+| C1–C5 space size | 1.3287×10³⁸ (95% CI [1.3283, 1.3292]×10³⁸, 0.02%) | **estimate** (Knuth) | raw (orientation-explicit; label unified 2026-08-06 — "orientation-resolved" elsewhere in the suite is the same convention) | [TR-4] §3 |
 | C1–C5 space size | ≈3.3×10³⁷ | **estimate** | orientation-dedup | [TR-4] §Abstract |
 | \|C1∩C2∩C4\| | 757,058,601,340,255,440,651,419,713,405,330,315,358,208 ≈ 7.5706×10⁴¹ | **exact** (two-instrument — independently recomputed at full scale 2026-07-25 by `verify.c --ie-count --ie-no-budget`, exact MATCH; mod-24 gated) | raw (orientation-explicit, C4 pinned) | [TR-11] §1–4 |
 | \|C1∩C2∩C4∩C5\| | 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹ | **exact** (two-instrument: independently recomputed at full scale 2026-07-25 by the verify.c IE transfer-walk engine — exact MATCH; mod-24 + ladder-corroborated) | raw (orientation-explicit, C4 pinned) | [TR-11] §9 |
-| \|C1–C7\| | 5.21×10³¹ (95% CI [5.13, 5.29]×10³¹, 0.78%) | **estimate** | raw | [TR-4] §4 |
-| \|C1–C7\|, C3 dropped | 516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³² | **exact** (two-instrument — (i) IE pinned-step recount 2026-07-25, `verify.c --ie-pin-c6c7 --ie-no-quotient`, small-n-validated 52/52, 3-prime-CRT self-consistent; (ii) independent direct mask-DP recount 2026-07-26, `verify.c --dp-count --dp-pin-c6c7` — a different algorithm class (explicit exact-cover subset DP with polynomial budget-coefficient extraction, no inclusion–exclusion, sharing only the problem spec), small-n-validated 44/44 incl. three-way vs brute force, matched the same integer exactly; mod-24 N/A under pins; lands inside the prior 5.18×10³² estimate's 0.25% CI, ~0.22% below the point estimate — a 3rd independent estimator-calibration anchor) | raw | [TR-4] §4 |
+| \|C1–C7\| | 5.21×10³¹ (95% CI [5.13, 5.29]×10³¹, 0.78%) | **estimate** | raw (orientation-explicit) | [TR-4] §4 |
+| \|C1–C7\|, C3 dropped | 516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³² | **exact** (two-instrument — (i) IE pinned-step recount 2026-07-25, `verify.c --ie-pin-c6c7 --ie-no-quotient`, small-n-validated 52/52, 3-prime-CRT self-consistent; (ii) independent direct mask-DP recount 2026-07-26, `verify.c --dp-count --dp-pin-c6c7` — a different algorithm class (explicit exact-cover subset DP with polynomial budget-coefficient extraction, no inclusion–exclusion, sharing only the problem spec), small-n-validated 44/44 incl. three-way vs brute force, matched the same integer exactly; mod-24 N/A under pins; lands inside the prior 5.18×10³² estimate's 0.25% CI, ~0.22% below the point estimate — a 3rd independent estimator-calibration anchor) | raw (orientation-explicit) | [TR-4] §4 |
 | Symmetry group (sequence level) | 48 (B₃ ≅ Z₂≀S₃) | **proven** (finite gates + classical closure) | — | [TR-5] |
 | Symmetry group (record level) | 24 (S₄); free action | **proven** | orbit | [TR-5] |
 | Twins per solution | 23 (orbit size 24) | **proven** | orbit | [TR-5] §4 |
@@ -83,11 +83,11 @@ current defaults the two modes' files are content-identical but byte-different �
 |---|---|---|
 | Repository | pin to the release tag stamped at publication (git tag per suite version) | [github.com/petersm3/roae](https://github.com/petersm3/roae) |
 | C toolchain | gcc (Ubuntu 22.04 class), flags: `-O2 -pthread -fopenmp` (portable default). **The output sha is flag- and architecture-invariant on every recipe tested**, so the differing build lines a replicator meets across this repo are interchangeable: `-O2`, `-O3 -march=native`, `-O3 -march=x86-64-v3` and `-O3 -flto` all produce the same selftest sha `403f7202…`, and the 11.2T canonical is byte-identical between an x86 `-march=native` build and an ARM Neoverse-N2 `-mcpu=native` build. The published canonical recipe ([CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §"Solver version") is therefore `-O3 … -march=native`; the reason to prefer a fixed `-march` baseline for a redistributed binary is SIGILL on older CPUs, **not** sha movement ([DEVELOPMENT.md](../documentation/DEVELOPMENT.md) §"Use `-march=x86-64-v3` for canonical builds"). Two witnesses, not an exhaustive guarantee over every compiler version and host. | — |
-| solve.c selftest anchor | sha256 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | every commit gate |
+| solve.c selftest anchor | sha256 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | pre-push compile gate (git hooks, installed per clone — opt-in) + manual operator runs; not a commit-time gate |
 | Python | 3.10+ stdlib-only (solve.py, sat.py, roae.py, verify.py) | — |
 | SAT solver | kissat 4.0.4 (build from source) | [github.com/arminbiere/kissat](https://github.com/arminbiere/kissat) |
-| Proof checker | drat-trim (2024+ master) | [github.com/marijnheule/drat-trim](https://github.com/marijnheule/drat-trim) |
-| Lean | 4.31.0 via elan; core only (no mathlib) | `lean lean/KingWen.lean` exits 0 |
+| Proof checker | drat-trim ([Wetzler, Heule & Hunt 2014](../documentation/CITATIONS.md#drattrim2014)). **Unpinned** — built from the upstream master branch circa 2024; no commit hash was recorded at build time, so this row names a moving target, not a version (disclosure replacing the earlier "2024+ master" phrasing, which read as a pin; recording a hash for the next verification run is an open task) | [github.com/marijnheule/drat-trim](https://github.com/marijnheule/drat-trim) |
+| Lean | 4.31.0 via elan; core only (no mathlib) ([de Moura & Ullrich 2021](../documentation/CITATIONS.md#demoura-ullrich2021)) | `lean lean/KingWen.lean` exits 0 |
 
 ## Data-like vs principled constraints (the circularity firewall) — F-23
 
@@ -188,7 +188,8 @@ which is what produced every published figure — with the divergence disclosed:
   the three *denominators*; it says nothing about the choice of *correction family*, and that choice is
   not neutral. The suite applies **Bonferroni (family-wise error rate)** throughout, and the global-ledger
   layer was added on 2026-07-11 — **after** the measurements it adjudicates. Under **Benjamini–Hochberg
-  FDR** at q = 0.05 the same 91-observable ledger would reach a different verdict on exactly one value:
+  FDR** ([Benjamini & Hochberg 1995](../documentation/CITATIONS.md#benjamini-hochberg1995)) at q = 0.05
+  the same 91-observable ledger would reach a different verdict on exactly one value:
   `dav_trigarray` (6.8×10⁻⁴) would be **declared significant**. BH rejects at **every** rank *i* ≥ 2,
   since even *i* = 2 gives 2·0.05/91 = 1.1×10⁻³ > 6.8×10⁻⁴; only *i* = 1 would fail. And *i* = 1 is
   excluded by `dav_rotinv` (6.5×10⁻⁵) — a smaller p-value inside the same registered Davis family — so
@@ -336,7 +337,10 @@ published material, and no p-value here should be read as if it had been.
 
 **Pre-registration, honestly scoped.** Where a test could have been graded after the fact, the
 design was frozen first and published: see [evidence/f11/PREREGISTRATION](evidence/f11/PREREGISTRATION.md)
-for the model forms, the 50:50 prior and the Jeffreys bands, all fixed before the numbers existed.
+for the model forms, the 50:50 prior and the Jeffreys bands ([Jeffreys 1961](../documentation/CITATIONS.md#jeffreys1961);
+[Kass & Raftery 1995](../documentation/CITATIONS.md#kass-raftery1995) — the frozen bands are a project
+convention matching neither published table; see the band-provenance note in
+[TR-2](TR2_THE_RULES_CONFLICT.md) §"Pre-registration discipline"), all fixed before the numbers existed.
 The practice has teeth — a pre-registered confusability gate on the four-class comparison **failed**,
 and §6.3 of that design permanently withholds the result rather than reporting it; a second gate on
 the two-model pair also failed and is recorded in [CORRECTIONS](../documentation/CORRECTIONS.md)

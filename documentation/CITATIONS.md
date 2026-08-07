@@ -18,7 +18,7 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
 - **Cook, Richard S.** (2006). *Classical Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence* (周易卦序詮解 Zhouyi Guaxu Quanjie). STEDT Monograph Series Vol. 5, University of California, Berkeley, 656 pages. ISBN 978-0944613443. [Open Library](https://openlibrary.org/isbn/9780944613443) Cook's monograph is the most rigorous academic treatment; it derives the full hexagram sequence from combinatorial principles and situates the pair structure within broader classification of binary sequences. **Preview pages (front cover, abstract, TOC, introduction, acknowledgments — 19 pages total)** available online at the author's UC Berkeley page: [linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html](https://linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html). The full 656-page monograph is print-only as of 2026-05; library copies via OCLC 77009740 or purchase formerly via the STEDT Web Store at lulu.com/stedt (dead link as of 2026-07-04; [archived copy](https://web.archive.org/web/20230329134852/https://www.lulu.com/stedt), snapshot 2023-03-29, verified resolving 2026-08-01) (ISBN 0-944613-44-6).
 
 <a id="kongyingda"></a>
-- **Kong Yingda 孔颖达** (574–648). *Zhouyi zhengyi* 周易正义 (in the *Shisanjing zhushu* 十三经注疏, Zhonghua Shuju edition, 1980). **The classical formulation of C1**: his subcommentary on the [Xugua](#xugua) states the received order's pairing principle — the hexagrams run two-by-two, each pair related to its partner by reversal or, where the reversal is symmetric, by complement — the Tang-dynasty source every modern statement of the pairing rule descends from or independently rediscovers. The concept has still earlier attestation lineage (Yu Fan 虞翻, 164–233, whose pangtong/fandui pair relations transmit via Li Dingzuo's *Zhouyi jijie*; and, hedged, Western-Zhou-era material per Li Xueqin 2003), but Kong Yingda's is the explicit formulation. Added 2026-07-30 (constraint-provenance audit; the repo previously carried no Kong Yingda citation anywhere). *Cited here at attribution level — the paraphrase above states the rule; the verbatim classical wording is held for a future classical-Chinese verification pass.*
+- **Kong Yingda 孔穎達** (574–648). *Zhouyi zhengyi* 周易正義 (in the *Shisanjing zhushu* 十三經注疏, Zhonghua Shuju edition, 1980). **The classical formulation of C1**: his subcommentary on the [Xugua](#xugua) states the received order's pairing principle — the hexagrams run two-by-two, each pair related to its partner by reversal or, where the reversal is symmetric, by complement — the Tang-dynasty source every modern statement of the pairing rule descends from or independently rediscovers. The concept has still earlier attestation lineage (Yu Fan 虞翻, 164–233, whose pangtong/fandui pair relations transmit via Li Dingzuo's *Zhouyi jijie*; and, hedged, Western-Zhou-era material per Li Xueqin 2003), but Kong Yingda's is the explicit formulation. Added 2026-07-30 (constraint-provenance audit; the repo previously carried no Kong Yingda citation anywhere). *Cited here at attribution level — the paraphrase above states the rule; the verbatim classical wording is held for a future classical-Chinese verification pass.*
 
 **Status in ROAE:** ROAE independently encodes this rule as constraint C1 and uses it as the starting point of the enumeration. Not novel to ROAE.
 
@@ -43,7 +43,7 @@ The observation that King Wen positions complementary hexagrams (bitwise-opposit
 
 **Status in ROAE:** We believe C3 as a specifically-quantified constraint (776 as the KW value) is an original observation. *(**Amended 2026-08-01, lens sweep:** this claim previously read "776 as the KW value; 3.9th percentile — sampled — within orderings satisfying the other constraints, C1+C2+C4+C5". The 3.9th-percentile figure is flagged — it is not supported by the population it is labelled with, and the suite's own ledger gives ≈12% at that scope; see [SOLVE.md](SOLVE.md) §Rule 3. **The novelty claim does not depend on the figure** — it is about 776 being identified and quantified as a constraint at all — but the specific percentile must not travel with it.)* If prior work exists, please notify — we will credit appropriately.
 
-**Scope qualifier (added 2026-04-20 after d3 100T enumeration; scope label corrected 2026-07-22):** KW's C3 is low (3.9th percentile, sampled — **flagged 2026-08-01, see [SOLVE.md](SOLVE.md) §Rule 3: not supported by that population; ledger ≈12%**) *within orderings satisfying the other constraints (C1+C2+C4+C5)* — not within C1-only orderings, where the measured tail is ~6-8% (C3|C1 = exact 6.4211367496% via `verify.py --check-null-g --unpinned` — the 10⁹-sample MC via `solve.c --null-pair-constrained` measured 6.42%, consistent; exact 8.106% at C1&C4 via `verify.py --check-null-g`) — but once the full C1+C2+C3 canonical is enumerated, **KW sits at the C3 ceiling (776), not the floor**. Minimum C3 is 424 (221 records) at 100T and 392 at the deeper 560T canonical; about **1 in 10 (~10%)** of canonical orderings tie with KW at 776 — a fraction measured over the enumerated set, not a universal constant (9.91% over the 100T sample, 10.11% over the deeper 560T sample; both correct, converging near 10% — the full ~10³⁸ space was never fully enumerated). So within the conjoint C1+C2+C3 frame, KW's C3 value is a *jointly satisfied upper bound* that many other orderings match, not a distinguishing minimum. The low-percentile framing of C3 applies specifically to the C1+C2+C4+C5 comparison population (every constraint except C3 itself) and should not be generalized — and it is a lowest-4% placement, not a minimization. See [SOLVE.md](SOLVE.md) §Rule 3 revision and [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+**Scope qualifier (added 2026-04-20 after d3 100T enumeration; scope label corrected 2026-07-22):** KW's C3 is low (3.9th percentile, sampled — **flagged 2026-08-01, see [SOLVE.md](SOLVE.md) §Rule 3: not supported by that population; ledger ≈12%**) *within orderings satisfying the other constraints (C1+C2+C4+C5)* — not within C1-only orderings, where the measured tail is ~6-8% (C3|C1 = exact 6.4211367496% via `verify.py --check-null-g --unpinned` — the 10⁹-sample MC via `solve.c --null-pair-constrained` measured 6.42%, consistent; exact 8.106% at C1&C4 via `verify.py --check-null-g`) — but once the full C1–C5 canonical is enumerated, **KW sits at the C3 ceiling (776), not the floor**. Minimum C3 is 424 (221 records) at 100T and 392 at the deeper 560T canonical; about **1 in 10 (~10%)** of canonical orderings tie with KW at 776 — a fraction measured over the enumerated set, not a universal constant (9.91% over the 100T sample, 10.11% over the deeper 560T sample; both correct, converging near 10% — the full ~10³⁸ space was never fully enumerated). So within the conjoint C1–C5 frame, KW's C3 value is a *jointly satisfied upper bound* that many other orderings match, not a distinguishing minimum. The low-percentile framing of C3 applies specifically to the C1+C2+C4+C5 comparison population (every constraint except C3 itself) and should not be generalized — and it is a lowest-4% placement, not a minimization. See [SOLVE.md](SOLVE.md) §Rule 3 revision and [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
 
 ### C4 — fixed start (Qian, Kun)
 
@@ -51,7 +51,7 @@ The placement of the two constant hexagrams (Qian 乾, Kun 坤) first is classic
 independently of any modern analysis:
 
 <a id="xugua"></a>
-- **Xugua zhuan** 序卦传 ("Sequence of the Hexagrams"), one of the Ten Wings of the *Yi Zhuan*
+- **Xugua zhuan** 序卦傳 ("Sequence of the Hexagrams"), one of the Ten Wings of the *Yi Zhuan*
   commentary layer. Opens by transmitting Heaven/Earth (Qian/Kun) first — the classical warrant for
   C4's pair choice. Known through the standard commentary tradition (the [Kong Yingda](#kongyingda)
   subcommentary is the C1-relevant stratum of the same text).
@@ -82,7 +82,7 @@ as such throughout the suite; C2 ⊂ C5 (the multiset contains no 5s) is disclos
 
 ### Pair structure + no-5-line + complement proximity as a *joint* constraint system
 
-The framing of C1+C2+C3 as a specific system that narrows 10^89 orderings to ~700 million is ROAE-specific. Individual constraints appear in prior work; the conjunction, the exhaustive enumeration under the conjunction, and the 4-boundary / pair-stability analysis are ROAE-original.
+The framing of C1–C5 as a specific system that narrows 10^89 orderings to ~700 million is ROAE-specific. Individual constraints appear in prior work; the conjunction, the budgeted enumeration under the conjunction, and the 4-boundary / pair-stability analysis are ROAE-original.
 
 ### Fu Xi ordering, binary representation
 
@@ -96,10 +96,12 @@ The framing of C1+C2+C3 as a specific system that narrows 10^89 orderings to ~70
 - **Shaughnessy, Edward L.** (1996). *I Ching: The Classic of Changes* (Mawangdui Texts). Ballantine Books. ISBN 978-0345362438. [Open Library](https://openlibrary.org/isbn/9780345362438) Translation and analysis of the 168 BCE Mawangdui silk manuscripts' alternative hexagram ordering.
 - **Shaughnessy, Edward L.** (2022). *The Origin and Early Development of the Zhou Changes*. Leiden: Brill (Prognostication in History 9). Open access. **The authority for the Mawangdui ordering array used by ROAE** (p. 50 + Table 11.2: eight octets by upper trigram Qian, Gen, Kan, Zhen, Kun, Dui, Li, Xun; lower trigrams cycling Qian, Kun, Gen, Dui, Kan, Li, Zhen, Xun with the octet's own trigram promoted to first).
 
+**Earliest attestation of the received sequence** (Shaughnessy 2022, ch. 11 — the same chapter Table 11.2 sits in). This is the concrete philology behind the repo-wide hedge that "the dating of the ordering's fixation is debated in modern scholarship": the earliest artifactual witness of the *received* hexagram sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. Mawangdui (copied before 168 BCE) attests a *different* ordering in circulation, so the received order's antiquity beyond the early Han rests on inference, not artifact.
+
 **ERRATUM (2026-07-05).** From 2026-04-06 to 2026-07-05 the Mawangdui array in `roae.py`/`solve.c` was **wrong** — right octet membership, wrong octet order, wrong within-octet order (a synthesized double loop that matched neither the manuscript nor its own code comment; the cited Wikipedia article contains no sequence at all). The error was caught by cross-checking Shaughnessy 2022 Table 11.2 during a literature audit, and the corrected array was verified against multiple independent sources (Shaughnessy 2022; Cook 2006's full 64-position table; Shaughnessy 1996's generation rule via Rutt's review; S. J. Marshall's biroco.com conversion chart; independent web statements of the rule). Consequence: the former claim that Mawangdui satisfies C2 is **withdrawn** — the authentic Mawangdui order has **exactly one 5-line transition**, at the octet seam #48 Jing → #51 Zhen (positions 24→25), where its trigram-block construction resets. C2 is satisfied by King Wen and Jing Fang only (2 of 4 tested orderings), and the former "three of four / classical Chinese design principle" reframing of McKenna's observation is likewise **withdrawn**. All published Mawangdui-derived numbers were recomputed on the corrected array 2026-07-05; no other verdict flipped ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md)'s F5 corpus gate and [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)'s specificity gate both still pass — in both cases more cleanly). See also:
 
 <a id="jingfang"></a>
-- **Jing Fang** (京房, 77–37 BCE). The *Ba Gong Gua* (八宫卦) arrangement is preserved in traditional Yi Jing commentary and divinatory practice. The specific "origin → five worlds → wandering soul (游魂) → returning soul (归魂)" convention ROAE uses follows standard sinological sources. Alternative orderings within the same palaces exist; PR welcome for corrections. Traditional attribution of the arrangement to Jing Fang; historical certainty of the full ordering is debated in scholarly literature.
+- **Jing Fang** (京房, 77–37 BCE). The *Ba Gong Gua* (八宮卦) arrangement is preserved in traditional Yi Jing commentary and divinatory practice. The specific "origin → five worlds → wandering soul (遊魂) → returning soul (歸魂)" convention ROAE uses follows standard sinological sources. Alternative orderings within the same palaces exist; PR welcome for corrections. Traditional attribution of the arrangement to Jing Fang; historical certainty of the full ordering is debated in scholarly literature.
 
 ---
 
@@ -200,7 +202,7 @@ applicable.
   change at the 98.2nd percentile" is true in augchan42's frame
   (vs random) and tautological in ROAE's frame (C5 enforces the
   exact distribution); a claim like "KW sits at the C3 ceiling
-  among C1+C2+C3-satisfying orderings" is true in ROAE's frame
+  among C1–C5-satisfying orderings" is true in ROAE's frame
   and not directly addressed in augchan42's.
 
   **What ROAE should cite vs not.** When ROAE makes claims that
@@ -217,7 +219,7 @@ applicable.
 The natural correspondence between B(2, 6) de Bruijn sequences (cyclic 64-bit sequences containing every 6-bit window exactly once) and permutations of the 64 hexagrams has been noted in the I Ching literature and online discussion, though usually in passing rather than as a systematic study:
 
 <a id="yangxiong"></a>
-- **Online discussions** (e.g., the [I Ching Community](https://www.onlineclarity.co.uk/friends/archive/index.php/t-10608.html) forum) have pointed out the correspondence, sometimes citing classical Chinese figures like **Yang Xiong** (楊雄, 53 BCE – 18 CE) as having anticipated de Bruijn-like structures in the *Taixuanjing* (*Canon of Supreme Mystery*), which uses ternary rather than binary.
+- **Online discussions** (e.g., the [I Ching Community](https://www.onlineclarity.co.uk/friends/archive/index.php/t-10608.html) forum) have pointed out the correspondence, sometimes citing classical Chinese figures like **Yang Xiong** (揚雄, 53 BCE – 18 CE) as having anticipated de Bruijn-like structures in the *Taixuanjing* (*Canon of Supreme Mystery*), which uses ternary rather than binary.
 <a id="vanaardenne-debruijn1951"></a>
 - **van Aardenne-Ehrenfest, T. and de Bruijn, N. G.** (1951). "Circuits and trees in oriented linear graphs." *Simon Stevin* 28: 203–217. The BEST theorem; used by ROAE to count B(2, 5) Eulerian circuits (= 2^27 = 134,217,728 with fixed starting vertex).
 
@@ -424,6 +426,21 @@ Recorded here to document the survey's breadth.*
 <a id="knuth1975"></a>
 - **Knuth, Donald E.** (1975). "Estimating the efficiency of backtrack programs." *Mathematics of Computation* 29(129): 121–136. The tree-size / backtrack-cost estimator — ROAE's load-bearing statistical instrument for the search-space size ([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md)) and the exact-count cross-witness (TR-9, TR-11).
 
+*(Added 2026-08-06 — citation audit: the Bayes-factor machinery (TR-2 / F11), the FDR
+correction-family disclosure, the runs test, and the effect-size reporting were all in use
+without named sources.)*
+
+<a id="jeffreys1961"></a>
+- **Jeffreys, Harold** (1961). *Theory of Probability* (3rd ed.). Oxford University Press. Appendix B's Bayes-factor evidence grades are the ancestor of the decision bands used in [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) §"Pre-registration discipline" and the F11 framework ([reports/evidence/f11/](../reports/evidence/f11/RESULTS.md)). **Provenance caveat:** ROAE's frozen bands (BF > 10 "substantial", BF > 100 "strong") are a project convention loosely following Jeffreys, **not a quotation of his table** — Jeffreys' own "substantial" grade is ≈3.2–10, and the Kass–Raftery scale (below) places "strong" at 20–150. See the band-provenance note in TR-2 §"Pre-registration discipline".
+<a id="kass-raftery1995"></a>
+- **Kass, Robert E. and Raftery, Adrian E.** (1995). "Bayes Factors." *Journal of the American Statistical Association* 90(430): 773–795. [doi:10.1080/01621459.1995.10476572](https://doi.org/10.1080/01621459.1995.10476572) The standard modern reference for Bayes-factor interpretation scales, cited alongside Jeffreys in the band-provenance note; its "strong" band (20–150) also differs from ROAE's frozen convention.
+<a id="benjamini-hochberg1995"></a>
+- **Benjamini, Yoav and Hochberg, Yosef** (1995). "Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing." *Journal of the Royal Statistical Society, Series B* 57(1): 289–300. [doi:10.1111/j.2517-6161.1995.tb02031.x](https://doi.org/10.1111/j.2517-6161.1995.tb02031.x) The FDR correction in the suite's correction-family disclosure ([METHODS.md](../reports/METHODS.md) §"Correction-family disclosure"; [TR-8](../reports/TR8_REORDERING_REVISITED.md), [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)) — the counterpart to the Bonferroni FWER family the suite applies throughout.
+<a id="wald-wolfowitz1940"></a>
+- **Wald, Abraham and Wolfowitz, Jacob** (1940). "On a Test Whether Two Samples are from the Same Population." *Annals of Mathematical Statistics* 11(2): 147–162. [doi:10.1214/aoms/1177731909](https://doi.org/10.1214/aoms/1177731909) The runs test applied to the difference wave in `roae.py` and reported in [CRITIQUE.md](CRITIQUE.md) §Summary.
+<a id="cohen1988"></a>
+- **Cohen, Jacob** (1988). *Statistical Power Analysis for the Behavioral Sciences* (2nd ed.). Lawrence Erlbaum Associates. Cohen's d effect sizes, reported alongside percentiles in `roae.py`'s entropy and complement-distance analyses ([CRITIQUE.md](CRITIQUE.md) §Summary).
+
 ### Equivariance / symmetry arguments
 
 *(Added 2026-07-30 — resolves a dangling pointer: `lean/README.md` and `lean/KingWen.lean`'s
@@ -478,6 +495,14 @@ certified-counting checks rest on this stack.)*
   [doi:10.4230/LIPIcs.SAT.2023.6](https://doi.org/10.4230/LIPIcs.SAT.2023.6). The CPOG
   certified-proof framework (built on D4, with a Lean 4 verified checker) behind the
   model-counting certificates.
+<a id="demoura-ullrich2021"></a>
+- **de Moura, Leonardo and Ullrich, Sebastian** (2021). "The Lean 4 Theorem Prover and Programming
+  Language." In *Automated Deduction — CADE 28*, LNCS 12699: 625–635.
+  [doi:10.1007/978-3-030-79876-5_37](https://doi.org/10.1007/978-3-030-79876-5_37) The Lean 4 proof
+  assistant checking every machine-verified theorem in `lean/`
+  ([lean/README.md](../lean/README.md); [METHODS.md](../reports/METHODS.md) §Environment). *(Added
+  2026-08-06, citation audit — the proof assistant itself had gone uncited while the tools it
+  checks were cited.)*
 
 ### Information theory (description length / MDL)
 
@@ -509,6 +534,7 @@ certified-counting checks rest on this stack.)*
 ## Software and tool citations
 
 - **OpenMP**, **POSIX threads** — parallelism in `solve.c`.
+- <a id="zlib"></a>**zlib** (Jean-loup Gailly and Mark Adler) — [zlib.net](https://zlib.net/). DEFLATE compression library, load-bearing in `verify.c` (the v2 layer codec is per-block zlib; the build line links `-lz`) and in `solve.c`'s native-gzip live compression (`-lz` required since #169; sha-neutral storage layer, see [DEVELOPMENT.md](DEVELOPMENT.md)). *(Added 2026-08-06, citation audit.)*
 - **GCC** (GNU Compiler Collection) with `-O3`. Specific version and build flags documented in [DEVELOPMENT.md](DEVELOPMENT.md).
 - **Python 3.x standard library** (no third-party dependencies used in `solve.py`, `roae.py`, `verify.py`, `null_compare.py`).
 
@@ -1021,8 +1047,8 @@ University Press.
 
 Yu Fan (164–233, via Li Dingzuo's *Zhouyi jijie*), Zhang Xingcheng 张行成 and Zhu Xi 朱熹 (Song, the
 18:18 split, via Li Shangxin 2008 — *corrected 2026-07-30 from a previously listed "Zheng Qiao (~1150)",
-which the Li 2008 primary pass does not support*), Hu Yigui (b. 1247, *Zhouyi Qimeng
-Yizhuan*), Lai Zhide (1525–1604, via Schulz, 1982), Kong Yingda (574–648, *Zhouyi zhengyi* — see the
+which the Li 2008 primary pass does not support*), Hu Yigui (b. 1247, *Yixue qimeng yizhuan*
+易學啟蒙翼傳 — his "winged" supplement to Zhu Xi's *Yixue qimeng*), Lai Zhide (1525–1604, via Schulz, 1982), Kong Yingda (574–648, *Zhouyi zhengyi* — see the
 [§C1 entry](#kongyingda)), and Zhu Yuansheng (13th c., via Schulz, 2018) are all
 [secondary], known through the modern literature above.
 

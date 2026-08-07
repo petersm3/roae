@@ -7,6 +7,17 @@
 this status line is not one of them, and the original "(NOT RUN)" title was a live reader hazard once
 the run landed. The pre-registration text below is unaltered and remains the frozen design.
 
+**Band-provenance annotation (added 2026-08-06, header only — the frozen text below, including
+checklist item 3's "(Jeffreys)", is untouched).** The decision bands frozen below (BF > 10
+substantial, > 100 strong) are a project convention loosely following
+[Jeffreys (1961)](../../../documentation/CITATIONS.md#jeffreys1961), **not a quotation of his
+table**: Jeffreys' own "substantial" grade is ≈3.2–10, and
+[Kass & Raftery (1995)](../../../documentation/CITATIONS.md#kass-raftery1995) place "strong" at
+20–150. The bands were fixed in advance, are applied consistently, and are deliberately not
+re-fitted to either source after the fact — see the band-provenance note in
+[TR-2](../../TR2_THE_RULES_CONFLICT.md) §"Pre-registration discipline" and
+[RESULTS.md](RESULTS.md) §5.
+
 **Status at freeze time (2026-07-04, preserved verbatim):** framework only, deliberately not executed. Running it post hoc, after seeing every measured
 number, would manufacture confirmation — the priors and model forms below must be frozen (operator
 sign-off) BEFORE computation, and the sensitivity grid reported in full.

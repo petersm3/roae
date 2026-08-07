@@ -359,6 +359,8 @@ The most serious retraction in this record.
   every proof cited as machine-checked names its certificate or Lean theorem — followed by the
   exception the old sentence overrode: the bit-ledger's accounting conventions are chosen, not
   derived, which is why TR-9 publishes a range (about 105–127 bits) rather than a number.
+  *(Supersession note, 2026-08-06: TR-9 v1.22 widened the range itself to 105–139; the live
+  SOLVE_SUMMARY.md sentence says 105–139. This entry records the 2026-08-02 state.)*
 - **Why it survived `14d8751`:** that batch retired the same over-claim from the eleven TR covers,
   and GATE 9 enforces the covers' wording byte-for-byte across all eleven. This instance was in a
   different document, in different words, covering a different list — outside GATE 9 by construction
@@ -376,6 +378,8 @@ The most serious retraction in this record.
 - **BEFORE:** "~126 bits unexplained".
 - **NOW:** "about 105–127 bits unexplained (a range, not a point — the exact figure depends on the
   stated accounting convention)", which is what TR-9's own executive summary says.
+  *(Supersession note, 2026-08-06: TR-9 v1.22 widened the range itself to 105–139, and the index row
+  now says 105–139 with the endpoints named. This entry records the 2026-08-02 state.)*
 - **How it was found:** named in the round-3 harvest and verified at both sites. The index row is the
   claim site a reader meets **first**, and it had dropped the qualifier that the report treats as
   load-bearing — the report is explicitly the most judgment-dependent in the suite.

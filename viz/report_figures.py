@@ -104,6 +104,16 @@ def fig_tr4_boundary_information():
     # necessity bound follows from the argument at all (TR-4 v1.15). The old wording was still
     # RENDERED in the committed SVG, where matplotlib had turned it into glyph paths — invisible
     # to the markdown retraction gate. Regenerate the figure after changing this text.
+    # NOTE 2026-08-06: the title's parenthetical formerly asserted that 4 boundaries uniquely
+    # identify KW in the 560T slice — the claim CORRECTIONS.md CX-06 (2026-07-04) retracted:
+    # the 4-count was a survivor-counting error (the count stopped at 1 remaining non-KW
+    # survivor, rec#330177707, KW with positions 2-3 pair-swapped); the 560T slice-identifying
+    # set has FIVE boundaries, {4, 27, 25, 21, 1}, identical at 100T and 560T. The corrected
+    # title matches TR-4 v1.7.1: the first 4 of the 5 (the ones S(k) measures here) still
+    # admit ~8.4e25 full-space orderings. The stale wording survived 33 days in the rendered
+    # PNG/SVG because it is not a registered string in RETRACTED_PHRASES.tsv, so GATE 6's
+    # generator scan had nothing to match. (This comment narrates; it does not restate the
+    # retracted claim as fact.)
     k = np.array([1, 2, 3, 4])
     S = np.array([7.49e-4, 9.39e-7, 4.27e-10, 6.34e-13])
     survivors = ["9.95×10³⁴", "1.25×10³²", "5.68×10²⁸", "8.42×10²⁵"]
@@ -147,8 +157,8 @@ def fig_tr4_boundary_information():
     ax.set_xlabel("k = number of King Wen boundary constraints imposed", fontsize=12)
     ax.set_ylabel("S(k) = fraction of the full C1–C5 population agreeing with KW (log scale)", fontsize=11)
     ax.set_title("The boundary-information curve S(k) — slice-uniqueness vs space-uniqueness\n"
-                 "(the 4 boundaries that uniquely identify KW in the 560T slice still admit ≈8.4×10²⁵ "
-                 "full-space orderings)", fontsize=12)
+                 "(the first 4 of the 5 boundaries that identify KW in the 560T slice still admit "
+                 "≈8.4×10²⁵ full-space orderings)", fontsize=12)
     ax.grid(True, which="both", ls=":", alpha=0.4)
     ax.legend(fontsize=9, loc="lower left")
     ax.set_facecolor("#f8f8f8")

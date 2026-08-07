@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.15** (2026-08-01; §10(vi) and §Reproduction Lean pointers refreshed after the vendoring; previously v1.14, 2026-08-01, Lean-pointer refresh after the vendoring — both companion counts two-instrument — see Revision history).*
+*Technical report — **v1.16** (2026-08-06; Suenaga (2012) prior-art credit added to the novelty note, one exec-summary "nothing exact existed before" claim scoped to this suite's ladder, and the ÷24 orbit-count sites labelled record-level with the ÷48 sequence-level pointer; previously v1.15, 2026-08-01, Lean-pointer refresh after the vendoring — see Revision history).*
 *Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
 proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
 interpretation are argued, not verified. One caveat is structural, and it frames all the rest: the same
@@ -21,7 +21,7 @@ digit in about four minutes. The computation is only feasible because of the sym
 [TR-5](TR5_SYMMETRY.md): the space's 24-fold symmetry shrinks the computation ~23× — small enough to fit
 in memory — and the theorem then predicts, and the result confirms, that the integer is divisible by 24
 exactly. The same run gave the project's statistical estimator its first full-scale check against ground truth
-at a scale (10⁴¹) where nothing exact existed before: the exact value falls **inside** the estimate's
+at a scale (10⁴¹) where nothing exact previously existed on this suite's validation ladder: the exact value falls **inside** the estimate's
 stated ±0.01% envelope. (The estimate was published to four significant figures, so its exact deviation
 is unmeasured at that precision — bounded well within the envelope, not resolved to it; see §9's note.)
 The report closes with the extension of exactness to the next constraint — its mathematics now closed at the model level (both halves machine-checked in Lean; the no-further-collapse half additionally independently reviewed, 2026-07-21, and found **not load-bearing** for the landed integer — §10(iv)), and
@@ -69,7 +69,14 @@ structural one; §10(ii)).
 canonical-representative and isomorph-free generation techniques in the tradition of McKay); no novelty
 is claimed for the technique. The contribution documented here is its instantiation for the King Wen
 constraint system and the exactness tier it adds to this suite. We are not aware of a prior exact count
-of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md). The counting
+of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md). Nor is the
+*idea* of counting hexagram-arrangement spaces claimed: [Suenaga Takayasu
+(2012)](../documentation/CITATIONS.md#suenaga2012) — the sharpest prior counting framework this project
+has located — independently developed the (Z/2)⁶ machinery and began counting arrangement templates,
+computing the number of order-8 subgroups of F₂⁶ exactly (1395) and posing, though not completing, a
+≈1.47×10¹³ product count for eight-palace-style templates; his counted objects (F₂⁶ subspaces,
+algebraic templates) are disjoint from the constraint-satisfying total orders counted here
+(CITATIONS.md §"The (Z/2)⁶ hexagram algebra … — priority ceded"). The counting
 **question** itself has prior art: [Luo Jianjin
 (2015)](../documentation/CITATIONS.md#luojianjin2015) posed, in a mathematics journal, the question of
 how many orderings the 64 hexagrams admit under the Zhouyi's structural conditions — noting the answer
@@ -296,7 +303,9 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
    **|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**
    (log₂ ≈ 129.7 bits; orientation-explicit sequences, C4's pair pinned). Free-action gate:
    **N mod 24 = 0** exactly (the run hard-aborts otherwise; a reader can re-derive it in one line), with
-   orbit count **N/24 = 45,710,469,949,549,241,251,504,669,632,357,466,112**. Ratio to the pre-existing
+   **record-level** orbit count **N/24 = 45,710,469,949,549,241,251,504,669,632,357,466,112** (24 is the
+   record-level divisor; at the orientation-explicit sequence level orbits have size 48 and N/24 is 2×
+   the sequence-orbit count — §2's precision note). Ratio to the pre-existing
    Knuth estimate (1.0971×10³⁹): **0.999956** — the exact value again falls inside the estimate's stated
    ±0.01% envelope, a second full-scale validation (after §4's C2 anchor) at the 10³⁹ scale where nothing
    exact previously (the 0.0044% figure is the estimate's five-sig-fig rounding gap, not a resolved error)
@@ -454,7 +463,8 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
   precision note); §8's ladder integers (24/25/27/28 pairs) are the recorded reference values.
 - Divisibility gate on the full-31 count, reader-side: reduce
   1,097,051,278,789,181,790,036,112,071,176,579,186,688 mod 24 (one line in any big-integer language;
-  = 0; orbit count = that ÷ 24 = 45,710,469,949,549,241,251,504,669,632,357,466,112).
+  = 0; record-level orbit count = that ÷ 24 = 45,710,469,949,549,241,251,504,669,632,357,466,112 — the
+  ÷24 is the record-level divisor; sequence-level orbits have size 48, per §2's precision note).
 - Free-action theorem and group: [TR-5](TR5_SYMMETRY.md) (proof, Lean kernel checks, tree isomorphism);
   documentation/SYMMETRY_SEARCH.md.
 - Estimator calibration and exactness notes: documentation/SEARCH_SPACE_SIZE.md §"Absolute validation
@@ -648,4 +658,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.12 | 2026-07-26 | **Stale verification-status label aligned (round-2 audit, completeness loop 4e G9).** §10(vi)'s closing parenthetical still said \|C1∩C2∩C4\| "remains single-instrument pending its own IE pass" — that pass landed 2026-07-25 (`verify.c --ie-count --ie-no-budget`, exact MATCH at full scale, mod-24 gated) and METHODS.md already recorded the count as two-instrument. The parenthetical now matches. Header version line updated. No number changed |
 | v1.13 | 2026-07-30 | **Orbit-vs-sequence precision + prior-art cite (novelty-gate audits #11/#19).** (1) §2's free-action paragraph conflated the record-level free S₄ action with the sequence-level count: N counts orientation-explicit sequences, on which the acting group is the order-48 lift (rev flips orientation and fixes no sequence), so sequence-level orbits have size 48, 48 \| N (verified for both landed exact counts; N/24 is even), and N/24 = 2× the sequence-orbit count. A clarifying note is added; every published figure and the mod-24 gate are unaffected (the gate is simply weaker than the space affords). (2) The novelty-status note now cites Luo Jianjin (2015), who posed the enumeration question in a mathematics journal (unformalized, unanswered) — this report's integers are, we believe, its first quantitative answers. (3) §5's reduced-rung note gains a pre-emptive footnote that 26,112 coincides with a term of the unrelated OEIS A014483. No count, theorem, or canonical value changed |
 | v1.14 | 2026-08-01 | **Retraction propagation + provenance refresh (2026-08-01 in-house calibration review).** (i) §4 still asserted TR-9's C2 "net +1.6"; TR-9 v1.7 (2026-07-10) restated that net as **≈ 0 (break-even, sign-convention-dependent)** and the live TR-9/DESCRIPTION_LENGTH ledgers carry ≈ 0 — the retraction had not propagated here across three subsequent TR-11 revisions. Text now cites the ≈ 0 restatement. (ii) The seven pointers locating `PruneExactness.lean` "on the public `v4-canonical` branch" are refreshed: those files were **vendored into `lean/` on 2026-08-01**, so the tag now ships the proofs it cites. No count, theorem, or exactness claim changed |
-| v1.15 *(current)* | 2026-08-01 | **Correction to v1.14's own record — an asserted propagation that had not happened.** v1.14 stated that "the **seven** pointers locating `PruneExactness.lean` 'on the public `v4-canonical` branch' are refreshed". Only **five** were: §10(vi)'s live body text still located the file on that branch, which the 2026-08-01 vendoring made factually wrong on the very tag the entry was written to fix. Now refreshed. **This is the same defect class v1.14 was correcting** (a ledger entry recording an intention as an accomplishment) — logged rather than quietly amended, because a correction ledger that cannot be trusted is worse than none. Caught by the 2026-08-01 fix-diff re-verification pass. No count, theorem, or exactness claim changed |
+| v1.15 | 2026-08-01 | **Correction to v1.14's own record — an asserted propagation that had not happened.** v1.14 stated that "the **seven** pointers locating `PruneExactness.lean` 'on the public `v4-canonical` branch' are refreshed". Only **five** were: §10(vi)'s live body text still located the file on that branch, which the 2026-08-01 vendoring made factually wrong on the very tag the entry was written to fix. Now refreshed. **This is the same defect class v1.14 was correcting** (a ledger entry recording an intention as an accomplishment) — logged rather than quietly amended, because a correction ledger that cannot be trusted is worse than none. Caught by the 2026-08-01 fix-diff re-verification pass. No count, theorem, or exactness claim changed |
+| v1.16 *(current)* | 2026-08-06 | **Under-citation + counting-unit label fixes (UNASKED-1/UNASKED-2 batch; no number changed).** (1) *Suenaga (2012) credited in the novelty note.* The note ceded the technique (Burnside/McKay) and cited Luo (2015) for the counting question, but omitted [Suenaga Takayasu (2012)](../documentation/CITATIONS.md#suenaga2012) — per CITATIONS.md §"The (Z/2)⁶ hexagram algebra … — priority ceded" the first author this project has located to start counting the arrangement space (1395 order-8 subgroups computed exactly; a ≈1.47×10¹³ template product posed but not completed). The note now cedes the idea of counting hexagram-arrangement spaces to him explicitly, with the counted-objects disjointness stated (F₂⁶ subspaces/templates vs constraint-satisfying total orders). (2) *One unhedged claim scoped.* The executive summary's "at a scale (10⁴¹) where nothing exact existed before" read as a universal about the literature — which CITATIONS qualifies (Suenaga's prior exact subgroup count) — when §4's own wording scopes the claim to this suite's validation ladder; the exec-summary sentence now carries the same scope. (3) *Orbit-count units made explicit.* §9's "orbit count N/24" and the Verification Guide's "orbit count = that ÷ 24" now say **record-level** with the ÷24 vs ÷48 (sequence-level) pointer to §2's precision note, matching METHODS' canonical-quantities row. No count, theorem, or canonical value changed — citations and unit labels only |

@@ -10,9 +10,24 @@
 > §"Stop-flag resolution" and [../r11/](../r11/). Everything below is the as-computed 2026-07-04
 > record, unchanged.
 
+> **Calibration veto (2026-08-03; note added 2026-08-06 —
+> [CORRECTIONS CX-25](../../../documentation/CORRECTIONS.md)).** The two-model pair behind this
+> verdict — M_corr versus M_tend — has since failed its own pre-registered synthetic-draw
+> confusability gate: Half B (M_tend self-recovery) **FAILED at 68/100** against a bar frozen at 70
+> before the run (Half A passed 93/100; master seed published before launch, not re-run). The
+> published BF ≈ 5.2×10³ (U) / 6.3×10³ (A) and the ≈0.9998 posterior are therefore **no longer
+> calibrated in the pooled sense**; the numbers are unchanged and not withdrawn — what is withdrawn
+> is their *calibration support*. The failure is stratum-confined (V=0 provably confusable, 0/277;
+> V≥5 provably distinguishable, 599/599; the received sequence has V=6), but the gate's registration
+> defines no bar at n=1000 and cannot produce a PASS, so the V-restricted rate may not be quoted as
+> the gate outcome; a V-matched gate is a new instrument, registered but not yet run. See
+> [../f11halfb/](../f11halfb/) and [TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result".
+
 **Executed 2026-07-04** under the frozen pre-registration [PREREGISTRATION.md](PREREGISTRATION.md)
 (FROZEN 2026-07-04, operator approval "approve F11 defaults" — PROOF_PROGRAM UPDATE 32). Model forms,
-model prior (50:50), and Jeffreys decision bands (BF > 10 substantial, > 100 strong) are as frozen;
+model prior (50:50), and Jeffreys decision bands (BF > 10 substantial, > 100 strong —
+[Jeffreys 1961](../../../documentation/CITATIONS.md#jeffreys1961); a frozen project convention, not
+Jeffreys' published table, see §5) are as frozen;
 nothing in this document was altered after seeing the numbers except the numbers themselves. Per the
 pre-registered commitment, the FULL sensitivity table is published regardless of direction.
 
@@ -225,6 +240,15 @@ that one corner under the conservative N_gs.
 
 Frozen decision bands: BF > 10 substantial, BF > 100 strong.
 
+**Band provenance (note added 2026-08-06; the bands themselves are as frozen 2026-07-04 and are
+unchanged).** These values are a project convention loosely following
+[Jeffreys (1961)](../../../documentation/CITATIONS.md#jeffreys1961), **not a quotation of his
+table**, and they match neither published scale: Jeffreys' own "substantial" grade is ≈3.2–10, and
+[Kass & Raftery (1995)](../../../documentation/CITATIONS.md#kass-raftery1995) place "strong" at
+20–150. Each frozen threshold sits at or above its published counterpart, so every verdict below
+that clears the frozen bands also clears both published tables. See the full band-provenance note in
+[TR-2](../../TR2_THE_RULES_CONFLICT.md) §"Pre-registration discipline".
+
 - **Variant U (uniform edit location): BF ≈ 6.6×10³ → STRONG evidence for M_corr** (corruption),
   ~66× beyond the strong threshold.
 - **Variant A (bamboo-adjacent-biased): BF ≈ 7.9×10³ → STRONG evidence for M_corr**, ~79× beyond.
@@ -240,6 +264,10 @@ confidence interval, and a four-seed direct re-measurement gives N_gs = 4.50×10
 convergence gates passing) — **re-affirming** this Jeffreys-band verdict at BF ≈ 5.2×10³ (U) /
 6.3×10³ (A). See [TR-2 v1.12](../../TR2_THE_RULES_CONFLICT.md) §"Stop-flag resolution". The
 as-computed record here is unchanged; the flip threshold at the directly measured value is ≈ 52×.**)**
+*(Superseded in one respect, 2026-08-03 — see the calibration-veto note in the document header:
+the pair later failed its confusability gate, so this Jeffreys-band verdict is no longer calibrated
+in the pooled sense; the numbers stand, their calibration support does not.
+[CORRECTIONS CX-25](../../../documentation/CORRECTIONS.md).)*
 
 ## 6. Sensitivity — which ingredient dominates
 

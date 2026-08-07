@@ -27,7 +27,7 @@ and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 | Rising/falling alternation ≤2 breaks (Moore 1989) | 3.85% | ×26 | satisfies |
 | Final-pair anchor: alternating pair last (Cook 2006) | 7.84% | ×12.8 | satisfies |
 | First 7 pairs cover all 7 levels (Cook 2006) | 12.03% | ×8.3 | satisfies |
-| 18:18 two-part class split (Zheng Qiao ~1150; Hu Yigui 1247; [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003); Cook 2006) | 36.4% | ×2.7 | satisfies |
+| 18:18 two-part class split (Zhang Xingcheng + Zhu Xi, 12th c.; Hu Yigui 1247; [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003); Cook 2006) | 36.4% | ×2.7 | satisfies |
 
 ## What the measurements establish
 

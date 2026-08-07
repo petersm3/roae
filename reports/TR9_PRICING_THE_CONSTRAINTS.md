@@ -25,15 +25,17 @@ uniqueness theorem; **the dominance conclusion does not need even that**: **"C1 
 regardless**, since even the maximal family charge (~13–19 bits) is small against 146.3. The
 no-distance-5 rule roughly breaks even
 once its own statement cost is charged; and the celebrated transition-count recipe turns out to cost more to state than it saves — it
-is **description, not explanation**. After all known rules are applied, **between about 105 and 127 bits of the
-sequence remain unexplained (exact figure depends on the stated accounting convention)** — the honest measure of how much structure is still unaccounted for.
+is **description, not explanation**. After all known rules are applied, **between about 105 and 139 bits of the
+sequence remain unexplained (exact figure depends on which layers are granted explanatory standing: 105.4 = log₂|C1–C7| keeps every cut, even the data-like pins; 139.1 = log₂|C1∩C2∩C4| is the residual against the claimed-explanatory layers alone)** — the honest measure of how much structure is still unaccounted for.
 This is the most judgment-dependent report in the suite; its accounting conventions are stated
 explicitly so a skeptic can re-price everything under their own.
 
 ## Abstract
 Rarity numbers (×11,364, 10⁻⁴⁴, …) invite over-reading. The disciplined currency is bits: how much of the
 King Wen sequence's information does each constraint *explain*, net of what the constraint itself costs to
-state? We fix a two-part MDL framework — an arbitrary ordering of 64 hexagrams costs log₂ 64! = 296.0 bits;
+state? We fix a two-part MDL framework (two-part minimum description length —
+[Rissanen 1978](../documentation/CITATIONS.md#rissanen1978);
+[Grünwald 2007](../documentation/CITATIONS.md#grunwald2007)) — an arbitrary ordering of 64 hexagrams costs log₂ 64! = 296.0 bits;
 a constraint system K explains 296.0 − log₂|solutions(K)| bits at statement cost L(K) — and compute the
 ledger under two declared statement-cost conventions (family selection vs derivation from principle). The
 measured result: the classical pairing C1 explains 146.3 bits and, post-[Radisic (2026)](../documentation/CITATIONS.md#radisic2026) (preprint,
@@ -43,8 +45,11 @@ to state under the derivation convention — the unique Hamming-optimal comp/rev
 1.7–2.5× what it explains; the transition histogram is
 confirmed *description*, not explanation; C3's threshold is circular by construction and its 3.0 marginal
 bits are not claimed; C6/C7 are data-like and definitionally break-even. The honest thesis: roughly half
-the sequence's information is explained — nearly all of it by the pairing — leaving a residual of 105.4
-bits (defensible-subset reading: ~126.6 bits) explained by nothing known today. This is the most
+the sequence's information is explained — nearly all of it by the pairing — leaving a residual of **105.4
+to 139.1 bits** explained by nothing known today (105.4 = log₂|C1–C7|, the most conservative reading; 139.1
+= log₂|C1∩C2∩C4|, the residual against the claimed-explanatory layers C1+C2+C4 alone, an exact quantity;
+the intermediate C1–C5 reading is ~126.6, which retains the cuts of C3 and C5 — layers this report itself
+prices as non-explanatory). This is the most
 judgment-laden report in the suite; a dedicated section makes the convention choices and their sensitivity
 explicit.
 
@@ -71,7 +76,7 @@ explicit.
    | + C2 (no-5) | 7.5706×10⁴¹ (**exact**, orbit-quotient DP `solve --f1-exact-c1c2c4`, 2026-07-04; supersedes the 2026-07-03 estimator value 7.571×10⁴¹ ±0.01%, which it confirms) | 139.1 | 4.5 | ~3 (family of per-distance bans) | **≈ 0 (+2.0 selection-only; −0.6 to −4 under explicit-grammar codings)** |
    | + C5 (transition multiset) | 1.097051×10³⁹ (**exact, two-instrument** — out-of-core orbit-quotient DP `solve --f1-exact-c1c2c4c5`, 2026-07-16 — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); independently recomputed at full scale 2026-07-25 by `verify.c --ie-count` (inclusion–exclusion transfer-walk — a different algorithm class sharing no code with solve.c): exact MATCH, mod-24 verified ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi)); the mod-24 gate + 4/4 out-of-core ladder further corroborate it; supersedes the estimator value 1.0971×10³⁹ ±0.01%, which it confirms — the exact value lands inside the stated envelope; the 0.0044% figure is the estimate's rounding gap, not a resolved error) | 129.7 | 9.4 | 15.7–23.3⁴ | **−6.3 to −13.9 (descriptive under every convention⁴)** |
    | + C3 (complement ceiling) | 1.3287×10³⁸ (**estimate** — Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸, 0.02%) | 126.6 | 3.0 | circular⁵ | ≈ 0 |
-   | + C6 + C7 | 5.21×10³¹ (**estimate** — Knuth random-probe, 95% CI [5.13, 5.29]×10³¹, 0.78%; [TR-4](TR4_SIZE_OF_THE_SPACE.md) §4 owns the measurement) | 105.4 | 21.3 | data-like (slot pins: ~20.6)⁶ | ≈ 0 |
+   | + C6 + C7 | 5.21×10³¹ (**estimate** — Knuth random-probe, 95% CI [5.13, 5.29]×10³¹, 0.78%; [TR-4](TR4_SIZE_OF_THE_SPACE.md) §4 owns the measurement) | 105.4 | 21.3 | data-like (slot pins: ~20.6 — underived⁶) | ≈ 0 |
    | strongest *principled* literature rule ([Schulz](../documentation/CITATIONS.md#schulz1990-motifs) gender — "strongest" among the rules stated independently of King Wen; the data-like trigram rule scores higher but is descriptive) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
 
    **Exact marginals (v1.10, 2026-07-18).** With the analytic cells 64!, 32!·2³², 31!·2³¹ and the
@@ -101,7 +106,12 @@ explicit.
    ⁵ C3's threshold (776) is KW's own value — circular by construction,
    priced as data (CRITIQUE.md §"Observable-selection accounting"); its marginal 3.0 bits are NOT claimed
    as explanation. ⁶ C6/C7 pin four
-   slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even.
+   slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even. The cell's
+   parenthetical "~20.6" is **underived**: it is the only cost figure in this ledger with no recorded
+   derivation (it is near, but not equal to, the row's 21.3-bit marginal compression, and no
+   computation producing 20.6 is on record in the corpus). It is retained, explicitly so labelled,
+   because nothing rests on it — the row's verdict is definitional (cost ≈ compression ⇒ net ≈ 0)
+   whatever the precise figure.
 3. **Reading the ledger, row by row.** **C1** is where nearly all the explanation lives: 146.3 bits of
    compression, and its statement cost collapsed in 2026 — Radisic (arXiv:2601.07175 — an unrefereed
    preprint; the ledger leans on the machine verification, not on refereeing — his Lean 4 + Mathlib
@@ -129,14 +139,25 @@ explicit.
    Schulz gender rule, ×11,364 — see [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)) prices at ~13.5 bits gross against ~10–15 bits of rule text:
    ≈ 0 to small positive.
 4. **The residual — the honest thesis.** Knowing everything structural in this table, the sequence retains
-   **log₂|C1–C7| = 105.4 bits** of unexplained information; on the defensible subset (dropping
-   data-like C6/C7, C3 retained), the residual is **~126.6 bits**. Roughly
-   half the sequence's information is explained (gross compression; net of explicit statement costs the
-   savings are ~100–134 bits, ≈ 35–45%) — nearly all of it by the classical pairing (now known
+   **log₂|C1–C7| = 105.4 bits** of unexplained information — the most conservative reading: unexplained
+   by anything known, even the data-like pins. At the other end, the residual against the layers this
+   report actually claims as *explanatory* — C1, C2 and C4 only, since the ledger itself prices C3 as
+   circular and C5 as confirmed description — is **log₂|C1∩C2∩C4| = 139.1 bits**, an exact quantity
+   (the logarithm of the exact 7.5706×10⁴¹ count, ledger §2). The published residual is therefore the
+   range **105–139 bits**. The intermediate readings — ~126.6 (C1–C5, retaining the non-explanatory
+   cuts of C3 and C5) and 129.7 (dropping C3's cut too) — remain in the table for a reader who grants
+   those layers standing; note the direction of the v1.22 correction that produced this range: each
+   step toward consistency *enlarges* the residual (126.6 → 129.7 → 139.1), so the claim "explained by
+   nothing known today" only strengthens. Roughly half the sequence's information is explained (gross
+   compression; net of explicit statement costs, the full envelope over the stated bracket corners is
+   **102.7–148.3 bits ≈ 35–50%** — low corner: C1 at the extended-family charge, 146.3 − 19.0 = 127.3,
+   plus C2 at the explicit-grammar −4 and C5 at the literal-coding −20.6; high corner: C1 derived at
+   ~0 cost (+146.3) plus C2 at +2.0, with net-negative C5 simply not transmitted; retaining C5 at its
+   best bracket point, −6.3, gives 142.0) — nearly all of it by the classical pairing (now known
    optimal), a marginal 4.5 bits (≈ break-even net) by the no-five rule, and essentially nothing by C5,
    whose statement costs 1.7–2.5× what it explains (net −6 to −14 bits depending on the coding convention):
    the transition histogram is confirmed description, not explanation. The
-   other half of the sequence is explained by nothing known today. Design hypotheses and emergence
+   rest of the sequence is explained by nothing known today. Design hypotheses and emergence
    hypotheses alike must ultimately be judged in this currency: bits predicted per bit of statement.
 5. **Conventions and their sensitivity.** This is the most judgment-laden report in the suite; the numbers
    in column 2 are measurements, but several numbers in columns 5–6 are *choices*, and a skeptical reader
@@ -166,6 +187,31 @@ explicit.
    precision** is not a sensitivity: ±0.02% on solution counts is ±0.0003 bits. (f) **Look-elsewhere** for
    the observable-extraction battery is accounted in CRITIQUE.md and deliberately not double-counted here;
    a referee preferring it folded in should charge it against the data-like rows, which are already ≈ 0.
+   That accounting is denominated in Bonferroni-corrected p-values; for a reader who wants the
+   meta-selection charge — the cost of selecting the constraint *families themselves* — closed in this
+   ledger's own currency, an upper bound follows from the corpus's frozen counts: selecting all seven
+   constraints from the frozen 91-observable global ledger costs at most log₂ C(91,7) ≈ 32.9 bits
+   (log₂ C(28,5) ≈ 16.6 for selecting C1–C5 from the 28-observable discovery battery alone), and
+   against C1's 146.3 bits, dominance survives even the maximal joint charge (19.0-bit extended family
+   + 32.9-bit selection) with ~94 bits to spare. The charge also largely does not apply row by row:
+   C1 and C4 are classical (attested centuries before any battery existed), C2 is
+   [McKenna & McKenna 1975](../documentation/CITATIONS.md#mckenna-mckenna1975) — prior literature, not
+   selected from this project's battery — while the reverse-engineered rows (C3, C5, C6/C7) are
+   precisely the ones the ledger already zeroes or prices net-negative.
+   (g) **Universality (the additive-constant objection).** A referee versed in Kolmogorov complexity
+   will note that any description-length claim is relative to a description language, defined only up
+   to an additive machine-dependent constant (Li–Vitányi). The ledger makes **no Kolmogorov claims**:
+   every load-bearing quantity in it is a log-cardinality (296.0, 143.7, 139.1, 129.7, 126.6, 105.4)
+   or a difference of log-cardinalities (every marginal-compression cell) under **one fixed uniform
+   code** over explicitly counted solution sets — machine-independent combinatorial quantities with no
+   hidden constant. A cleverer description language could beat this code only by embodying structure
+   the uniform code does not know, and whether such structure exists is precisely the report's open
+   question, not an accounting artifact: a language that compressed the residual below the stated bits
+   would *constitute* the discovery this report says has not happened. Language-dependence is confined
+   to the *statement-cost* column, where it is real, acknowledged, and handled by the dual-convention
+   bracket (family vs derivation) rather than by any claimed-canonical machine; the single genuinely
+   language-dependent cell — the Schulz rule-text estimate at ≈ 10–15 bits — carries a verdict
+   ("≈ 0 to small +") that tolerates ±5 bits either way.
    Framework attribution: conventions and framework are ROAE (to our knowledge first applied to this
    object here; corrections welcome via CITATIONS.md); constraint provenance per row: [SPECIFICATION.md](../documentation/SPECIFICATION.md) and
    CITATIONS.md.
@@ -211,7 +257,8 @@ and C5's cost exceeds its compression under any defensible statement convention.
 
 Thirteen ordering-layer functionals, each drawn from a literature axis and registered with thresholds
 BEFORE measurement (documentation/CRITIQUE.md), were scored against the full population (2×10⁹ probes,
-2026-07-04). All thirteen: null. The ~126 unexplained bits therefore survive their first systematic
+2026-07-04). All thirteen: null. The ~126 unexplained bits (the C1–C5-layer reading of the residual —
+the population this battery was scored against; the published range is 105–139, v1.22) therefore survive their first systematic
 literature-guided assault — strengthening this report's central claim that no currently known rule
 explains the second half of the sequence's information content. Evidence: the archived tier-1 run
 output [evidence/f4p_tier1.out](evidence/f4p_tier1.out) (all 13 scoreboard rows + full per-functional
@@ -250,4 +297,6 @@ v1.0.*
 | v1.17 | 2026-08-01 | **Rounding + ordering nits (2026-08-01 calibration review).** §2's exact marginal for C2 given C1∩C4 reads 4.5438 bits, not 4.5437 (log₂ 23.325025987 = 4.543807; the companion 6.0000 and 9.4306 figures already rounded correctly). Revision History rows re-sorted chronologically — v1.8 had preceded v1.7 and v1.13 had preceded v1.12; for a suite whose versioning policy is an audit trail, row order is load-bearing. No ledger value, measurement, or conclusion changed |
 | v1.18 | 2026-08-01 | **Three dangling section pointers retargeted (serialized cross-file pass, unit r70-serialize).** §2 fn⁵, §5(d) and the Verification Guide each cited "CRITIQUE.md Q1" for the circularity pricing of C3. CRITIQUE.md has no Q-numbered sections and never had any — the pointer was unresolvable for every reader who followed it, and GATE 4 could not see it because only the *file* half was a markdown link (the file resolves; the "Q1" is plain prose). All three now name the section that actually carries the material — CRITIQUE.md §"Observable-selection accounting", which grades C3's marginal bits as "priced as data, not claimed" and records the threshold's circularity as a separate standing limitation. The identical pointer in [documentation/DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) (the ledger this TR preserves) and in [TR-2](TR2_THE_RULES_CONFLICT.md) §4 was corrected in the same pass, and `scripts/doc_gates.sh` GATE 4 now checks plain-text section references of the form `FILE.md §"Name"` / `FILE.md Q<n>` so the class cannot recur silently. No ledger row, number, or conclusion changed |
 | v1.19 | 2026-08-02 | **The two estimated ledger cells now say so (decision #23 propagation, unit rec-65-23-56).** §2's ledger labels its exact cells emphatically — "(**exact**...)" on C2, "(**exact, two-instrument**...)" on C5 — while the two ESTIMATED cells, 1.3287×10³⁸ (C3) and 5.21×10³¹ (C6+C7), carried a bare number. In a table where siblings are explicitly marked exact, an unmarked cell reads as one more exact count, and 5.21×10³¹ is the headline figure of the suite's central negative result — the one restatement that must never shed its label. Both cells now carry **estimate** with the 95% CI from [METHODS.md](METHODS.md), and the C6+C7 cell points at [TR-4](TR4_SIZE_OF_THE_SPACE.md) §4, which owns the measurement. The identical rows in [documentation/DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) (the ledger this TR preserves) were fixed in the same pass, per the v1.18 precedent. Note GATE 5 of `scripts/doc_gates.sh` could not have caught this: it fires on a status token contradicting METHODS, and these cells carried no status token at all. No bit value, marginal, or conclusion changed |
-| v1.20 *(current)* | 2026-08-02 | **Two superseded C2 figures marked as superseded in the draft-stage note (retracted-figure sweep, unit drain-2).** The dated *Draft-stage corrections (2026-07-04)* paragraph in this Revision History quotes "C2 marginal 4.6" and "C2 net +1.6". Both were restated by **v1.7** (2026-07-10) — 4.5 and ≈ 0 — and the paragraph carried no marker, while sitting BELOW the v1.7 row that supersedes it, so a reader going top-to-bottom met the correction first and the superseded pair second, in an order that reads as though +1.6 were the later value. Nothing is deleted: a dated note is a record and must keep saying what that pass produced. A supersession clause is added instead. This is the same class TR-11 v1.14 fixed when its §4 still asserted TR-9's "+1.6"; the sweep that found it walked every TR revision row that retracts a figure and grepped the corpus for that figure, and this was the only live survivor (the `≈10×`, `1.4σ above` and `Theorem 6` hits are all meta-mentions in retraction narrations). No ledger row, bit value, marginal, or conclusion changed |
+| v1.20 | 2026-08-02 | **Two superseded C2 figures marked as superseded in the draft-stage note (retracted-figure sweep, unit drain-2).** The dated *Draft-stage corrections (2026-07-04)* paragraph in this Revision History quotes "C2 marginal 4.6" and "C2 net +1.6". Both were restated by **v1.7** (2026-07-10) — 4.5 and ≈ 0 — and the paragraph carried no marker, while sitting BELOW the v1.7 row that supersedes it, so a reader going top-to-bottom met the correction first and the superseded pair second, in an order that reads as though +1.6 were the later value. Nothing is deleted: a dated note is a record and must keep saying what that pass produced. A supersession clause is added instead. This is the same class TR-11 v1.14 fixed when its §4 still asserted TR-9's "+1.6"; the sweep that found it walked every TR revision row that retracts a figure and grepped the corpus for that figure, and this was the only live survivor (the `≈10×`, `1.4σ above` and `Theorem 6` hits are all meta-mentions in retraction narrations). No ledger row, bit value, marginal, or conclusion changed |
+| v1.21 | 2026-08-06 | **The MDL framework cited where it is introduced (citation audit, UNASKED-7).** The Abstract introduced "a two-part MDL framework" without naming anyone — [CITATIONS.md](../documentation/CITATIONS.md#rissanen1978) has long called Rissanen 1978 "the methodological foundation of TR-9's bit-ledger", but the pointer ran only in the direction a reader will not travel; this report itself never named him. The Abstract now cites [Rissanen 1978](../documentation/CITATIONS.md#rissanen1978) and [Grünwald 2007](../documentation/CITATIONS.md#grunwald2007) at the framework's introduction, mirrored in [DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) §Framework. No bit value, ledger row, or conclusion changed |
+| v1.22 *(current)* | 2026-08-06 | **The residual's upper endpoint made consistent with the ledger's own verdicts — the range WIDENS to 105–139 (MDL/Kolmogorov-literacy audit).** Four repairs. (1) The published range 105–127 stopped at 126.6, a figure that *retains the bit-cuts of C5 and C3* — the two layers this report itself classifies as non-explanatory (C5 "confirmed description, not explanation"; C3 circular by construction). The strictly consistent endpoint is the residual against the claimed-explanatory layers alone: **log₂\|C1∩C2∩C4\| = 139.1 bits** — a figure that already sat in the ledger (§2, the 139.1 row) and had never been named as a residual endpoint. The range is now **105–139**; 105.4 remains the most-conservative endpoint, and the intermediate readings 126.6 / 129.7 stay in §4 explicitly labelled as retaining non-explanatory cuts. Every step of the correction ENLARGES the residual (126.6 → 129.7 → 139.1) — this strengthens, not weakens, the central claim. Mirrored in DESCRIPTION_LENGTH.md (whose "residual against honestly-explanatory structure" label on the C5-and-C3-retaining 126.6 was wrong and is fixed), reports/README.md, README.md, TR-10, SOLVE_SUMMARY.md. (2) §5(f)'s deferral of the meta-selection cost to CRITIQUE's p-value accounting is closed *in bits*: selecting all 7 constraints from the frozen 91-observable ledger costs at most log₂ C(91,7) ≈ 32.9 bits (discovery battery alone: log₂ C(28,5) ≈ 16.6); dominance survives with ~94 bits to spare. (3) New §5(g): the Li–Vitányi additive-constant objection answered — the ledger makes no Kolmogorov claims; every load-bearing quantity is a log-cardinality under one fixed uniform code. (4) §4's "~100–134 bits, ≈ 35–45%" net-savings endpoints were undocumented corner picks; restated as the full envelope over the stated bracket corners, **102.7–148.3 ≈ 35–50%**, with the corner arithmetic shown. Also: the C6/C7 "~20.6" cost cell — the only cost cell with no derivation on record — is now explicitly labelled underived (fn⁶); nothing rests on it |

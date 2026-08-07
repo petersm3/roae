@@ -105,6 +105,15 @@ the measured value. The correction moves *against* the published winner (the BF 
 smaller); what improved is the evidential footing, from a derived ingredient with
 unpropagated error to a directly measured one with stated error.
 
+**Calibration veto (2026-08-03; note added 2026-08-06 —
+[CORRECTIONS CX-25](../../../documentation/CORRECTIONS.md)).** The re-affirmation above is itself
+now superseded in one respect: the two-model pair behind the verdict (M_corr vs M_tend) later
+failed its own pre-registered confusability gate — Half B (M_tend self-recovery) **FAILED at
+68/100** against a bar frozen at 70 (Half A passed 93/100). The BF ≈ 5.2×10³ / 6.3×10³ and the
+≈0.9998 posterior are **no longer calibrated in the pooled sense**; the numbers are unchanged and
+not withdrawn — what is withdrawn is their *calibration support*. See [../f11halfb/](../f11halfb/)
+and [TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result".
+
 ## Ingredient outputs in this directory
 
 - `r11_ngs.out` — the FIRST direct triple-strict count (the instrument F11 documented as

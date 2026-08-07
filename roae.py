@@ -361,7 +361,8 @@ def print_wave(order=1, wrap=False):
     spark_line = "".join(SPARK[d] for d in diffs)
     print(f"\nSpark line: {spark_line}")
 
-    # Wald-Wolfowitz runs test for randomness of the wave
+    # Wald-Wolfowitz runs test for randomness of the wave (Wald & Wolfowitz 1940,
+    # Ann. Math. Statist. 11(2): 147-162 — see documentation/CITATIONS.md#wald-wolfowitz1940)
     median_d = sorted(diffs)[len(diffs) // 2]
     binary_seq = [1 if d > median_d else 0 for d in diffs if d != median_d]
     n1 = sum(binary_seq)
@@ -1189,6 +1190,7 @@ def print_entropy():
     print(f"Max random entropy observed: {random_entropies[-1]:.4f} bits")
     print(f"King Wen percentile: {percentile:.1f}% (lower = more structured)")
     # Effect size: Cohen's d — how many standard deviations from the random mean?
+    # (Cohen 1988, Statistical Power Analysis, 2nd ed. — see documentation/CITATIONS.md#cohen1988)
     std_random = (sum((e - mean_random)**2 for e in random_entropies) / len(random_entropies))**0.5
     if std_random > 0:
         cohens_d = (kw_entropy - mean_random) / std_random

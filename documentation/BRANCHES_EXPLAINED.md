@@ -31,8 +31,12 @@ is different:
   pairs. Within each pair, the two members are either complements of
   each other (every line flipped) or upside-down versions of each
   other. *This is a classical observation* — it appears in the *Yi
-  Zhuan* commentary tradition (~5th-3rd c. BCE) and is presented
-  rigorously in modern form by [Wilhelm & Baynes (1967)](CITATIONS.md#wilhelm-baynes1967) and [Cook (2006)](CITATIONS.md#cook2006).
+  Zhuan* commentary tradition (traditionally dated ~5th-3rd c. BCE,
+  though modern dating is later) and is presented rigorously in modern
+  form first by [Goldenberg (1975)](CITATIONS.md#goldenberg1975), with
+  the fullest treatment in [Cook (2006)](CITATIONS.md#cook2006); the
+  pairing convention is used throughout
+  [Wilhelm & Baynes (1967)](CITATIONS.md#wilhelm-baynes1967).
   Not novel to ROAE.
 - **C2 — No 5-line transitions.** No two consecutive hexagrams differ
   by exactly 5 lines. Within a pair this is automatic, so in practice

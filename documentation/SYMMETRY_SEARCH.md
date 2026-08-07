@@ -25,8 +25,16 @@ relabelings of KW, all with complement distance 776 exactly.
 
 ## Theorem and proof
 
-*Novelty status: we are not aware of a prior statement of this symmetry group for the King Wen constraint
-system; prior-art corrections are welcomed via [CITATIONS.md](CITATIONS.md).*
+*Novelty status (hedge aligned with CITATIONS 2026-08-06): we are not aware of a prior statement of this
+symmetry group for the King Wen constraint system **on orderings**. The ambient hexagram-level algebra it
+acts through is prior art and is not claimed: the (Z/2)⁶/XOR framing and hexagram-level group actions
+have at least five independent arrivals — [Goldenberg (1975)](CITATIONS.md#goldenberg1975),
+[Ouyang (1992)](CITATIONS.md#ouyang1992) (the earliest and fullest, with proofs and subgroup×coset
+partitions of historical sequences), [Schöter (1998)](CITATIONS.md#schoter1998),
+[Suenaga (2012)](CITATIONS.md#suenaga2012), and [Radisic (2026)](CITATIONS.md#radisic2026) — all acting
+on the **hexagram set**; none states a group acting on the space of admissible orderings, which is this
+document's object ([CITATIONS.md](CITATIONS.md) §"The (Z/2)⁶ hexagram algebra … — priority ceded").
+Prior-art corrections are welcomed via [CITATIONS.md](CITATIONS.md).*
 
 **Theorem.** Let G = C_{S₆}(rev) act on hexagrams by permuting bit positions (linearly on GF(2)⁶). For every
 σ ∈ G: S satisfies C1–C5 ⟺ σ(S) satisfies C1–C5. Moreover G is maximal with this property inside the full
@@ -287,3 +295,10 @@ project assumes throughout), the inversion mapping as an automorphism, and a "me
 here concerns the automorphism group of the C1–C5 *constraint system on orderings*, which has no
 counterpart in Goldenberg. Credit to [Hacker, Moore & Patsco (2002)](CITATIONS.md#hacker-moore2002), entry B:154, whose annotation
 surfaced this work to us; full-text verification pending acquisition.
+
+*(Alignment note, 2026-08-06.)* Goldenberg is the earliest of at least five independent arrivals at the
+hexagram-set-level algebra — the others being [Ouyang (1992)](CITATIONS.md#ouyang1992),
+[Schöter (1998)](CITATIONS.md#schoter1998), [Suenaga (2012)](CITATIONS.md#suenaga2012), and
+[Radisic (2026)](CITATIONS.md#radisic2026) — catalogued, with the priority cession, in
+[CITATIONS.md](CITATIONS.md) §"The (Z/2)⁶ hexagram algebra … — priority ceded". The same scoping applies
+to each: set-level, not ordering-level, prior art.

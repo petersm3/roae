@@ -7,6 +7,15 @@ the three pre-registered convergence cross-checks. See
 [../../TR2_THE_RULES_CONFLICT.md](../../TR2_THE_RULES_CONFLICT.md) §"Stop-flag resolution"
 for the narrative and [README.md](README.md) for the bundle index.
 
+**Calibration veto (2026-08-03; note added 2026-08-06 —
+[CORRECTIONS CX-25](../../../documentation/CORRECTIONS.md)).** The verdict this bundle re-affirms
+has since lost its calibration support: the two-model pair (M_corr vs M_tend) failed its own
+pre-registered confusability gate — Half B (M_tend self-recovery) **FAILED at 68/100** against a
+bar frozen at 70 (Half A passed 93/100). The published BF and ≈0.9998 posterior are **no longer
+calibrated in the pooled sense**; the numbers are unchanged and not withdrawn — what is withdrawn
+is their *calibration support*. The N_gs measurement in this bundle is unaffected as a measurement.
+See [../f11halfb/](../f11halfb/) and [TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result".
+
 ## Primary measurement — four independent direct seeds
 
 Each run: 5.5×10¹⁰ probes, 64 threads, composed in-walk triple-strict prune
