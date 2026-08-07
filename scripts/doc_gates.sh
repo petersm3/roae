@@ -3443,12 +3443,24 @@ open('documentation/GUIDE.md','w',encoding='utf-8').write(s+'\n\nThe two shards 
   # The ERE names the byte-identity verdict AND its variant COUNT: one mutated cover means
   # exactly 2 variants, so a gate that had stopped comparing and failed for some other
   # reason (a missing marker, an unclosed italic) cannot satisfy this.
+  # ANCHOR RE-DERIVED 2026-08-07. The original anchored on `…argued, not verified.*` —
+  # the banner USED to end at that sentence, so the closing italic sat right after it and
+  # the mutation was "insert one space before the `*`". The banner has since grown three
+  # more sentences (the authorship disclosure), the `*` moved to the end of line 7, and the
+  # anchor stopped matching: the assertion went RED with "could not inject (anchor moved)",
+  # which is the correct fail-closed behaviour and is how this was found.
+  # The replacement is a STRICTLY BETTER mutation for what this leg tests. Doubling an
+  # interior space is whitespace-only, unambiguously valid markdown, semantically identical,
+  # and — unlike the old one — does not sit adjacent to the emphasis delimiter, where a space
+  # before a closing `*` would not close the italic at all under CommonMark's right-flanking
+  # rule. So the old fixture was also mildly wrong about "still closing its italic".
+  # A gate that normalised whitespace would pass this and would not be a byte-identity gate.
   assert_fires_why "GATE 9 banner drift (1 byte, 1 file)" banner \
     'the banner is NOT byte-identical: 2 variants in use' \
 "s=open('reports/TR5_SYMMETRY.md').read()
-a='interpretation are argued, not verified.*'
-assert a in s, 'anchor moved'
-open('reports/TR5_SYMMETRY.md','w').write(s.replace(a,'interpretation are argued, not verified. *',1))"
+a='not peer-reviewed. Every MEASURED'
+assert s.count(a)==1, 'anchor moved'
+open('reports/TR5_SYMMETRY.md','w').write(s.replace(a,'not peer-reviewed.  Every MEASURED',1))"
 
   # GATE 9's second branch: the 11 covers can be perfectly uniform while the INDEX
   # drifts back to a blanket promise. Byte-identity across the reports cannot see
@@ -3692,13 +3704,28 @@ open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
 
   # (2) DATES BACKWARDS — TR-8's shape. Back-date the last row only; its version stays the
   #     highest and the marker stays last, so no other leg can account for the firing.
+  # ANCHOR RE-DERIVED 2026-08-07, and made DRIFT-PROOF. The original hardcoded
+  # `| v1.9 *(current)* | 2026-08-01 |`; TR-3 then shipped v1.10 (2026-08-06), the literal
+  # stopped matching, and the assertion went RED with "could not inject (anchor moved)".
+  # It now derives the last row the way case (1) does — every future revision row moves the
+  # anchor with it, so this fixture cannot go stale again for that reason.
+  # THE ERE WAS DELIBERATELY LOOSENED on the row-above date, which used to be hardcoded to
+  # 2026-07-31 and was the OTHER half of the same staleness. `2026-[0-9-]+` still pins that
+  # the gate read a real neighbouring row, and `2020-01-01` — a sentinel no real row could
+  # carry — still pins that it read THIS injection. What is given up is the ability to catch
+  # a gate that names the wrong neighbour but gets the direction right; that is a smaller
+  # loss than a fixture that fails for calendar reasons every few days.
   assert_fires_why "GATE 12 a row dated before the row above it" revhist \
-    'dates run BACKWARDS: 2026-07-31 \(row above\) then 2020-01-01' \
+    'dates run BACKWARDS: 2026-[0-9-]+ \(row above\) then 2020-01-01' \
 "f='reports/TR3_REPRODUCIBLE_ENUMERATION.md'
-s=open(f,encoding='utf-8').read()
-a='| v1.9 *(current)* | 2026-08-01 |'
-assert a in s, 'anchor moved'
-open(f,'w',encoding='utf-8').write(s.replace(a,'| v1.9 *(current)* | 2020-01-01 |',1))"
+lines=open(f,encoding='utf-8').read().split(chr(10))
+rows=[n for n,l in enumerate(lines) if l.startswith('| v')]
+assert len(rows)>=2, 'anchor moved: need two revision rows'
+cells=lines[rows[-1]].split('|')
+assert '(current)' in cells[1], 'anchor moved: the last row is not the current one'
+cells[2]=' 2020-01-01 '
+lines[rows[-1]]='|'.join(cells)
+open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
 
   # (3) VERSIONS BACKWARDS — TR-4's shape, the one the date leg is blind to. Raising an
   #     EARLY row above its successor (v1.2 -> v1.9 in a file that stops at v1.7) keeps every
@@ -3741,13 +3768,18 @@ os.remove(f)"
   # EVIDENCE (round 8 drain-3, UPGRADED round 9 item B9): the duplicate-version clause of
   # GATE 12's own pass line pinned that the leg which WOULD have flagged this row ran, and
   # nothing more — GATE 12 counted FILES, and a file count does not move when a row is
-  # inserted. It now counts ROWS: 158 clean, and this mutation inserts exactly one, so the
-  # ERE below pins 159 and a run that never re-read TR-11 goes RED.
+  # inserted. It now counts ROWS: 172 clean, and this mutation inserts exactly one, so the
+  # ERE below pins 173 and a run that never re-read TR-11 goes RED.
+  # THE PIN DRIFTS, and that is the cost of counting rows rather than files. It was 158/159
+  # when written; re-MEASURED 2026-08-07 at 172 clean (`bash scripts/doc_gates.sh revhist`),
+  # so the pin moved to 173. The stale pin failed CLOSED — the assertion went RED and named
+  # the mismatch — which is the behaviour to keep. Re-measure, never estimate: the count is
+  # rows across ELEVEN files, and no one can eyeball it.
   # WHAT IT STILL DOES NOT PROVE, since a clear is weaker than a failure: that the inserted
   # row was tested for the DRAFT-suffix exemption specifically. It proves it was PARSED as a
   # row and that no duplicate-release finding came out of the file it went into.
   assert_stays_clean_why "GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)" revhist \
-    '11 TR revision histories, 159 revision row\(s\) checked: .* no repeated released version' \
+    '11 TR revision histories, 173 revision row\(s\) checked: .* no repeated released version' \
 "f='reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md'
 lines=open(f,encoding='utf-8').read().split(chr(10))
 i=[n for n,l in enumerate(lines) if l.startswith('| v1.0-draft | 2026-07-05 |')]
@@ -3878,15 +3910,24 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
   # (1) DRIFT IMMUNITY — the whole point of A8. Insert a line ABOVE the anchored TR-4
   #     sentence. The exemption must still resolve (to a line one greater) and the run must
   #     produce NO [note] at all: under the old scheme this exact edit produced one.
+  #     THE EXPECTED LINE IS MEASURED FIRST, NOT PINNED (2026-08-07). It was hardcoded
+  #     ":123 -> :124"; TR-4 grew, the row moved to :136, and this printed "GATE 5 allowlist
+  #     did not survive an insertion above its anchor" — an accusation against a gate that
+  #     was working. The clean position is now read from GATE 5's own output and the
+  #     assertion is that it lands at exactly clean+1. That is a STRICTER claim than the old
+  #     literal: it pins the DISPLACEMENT, which is the property A8 is about, instead of a
+  #     coordinate that any edit above the table invalidates.
+  A8BASE=$(bash "$0" status 2>&1 | sed -n 's/.*TR4_SIZE_OF_THE_SPACE\.md:\([0-9][0-9]*\) exemption live.*/\1/p' | head -1)
   python3 -c "s=open('reports/TR4_SIZE_OF_THE_SPACE.md').read()
 a='*none — no exact value exists*'
 assert a in s, 'anchor moved'
 i=s.index(a); j=s.rindex(chr(10), 0, i)
 open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest: a line inserted above the anchored row -->'+s[j:])" 2>/dev/null \
     && { A8OUT=$(bash "$0" status 2>&1)
-         if printf '%s' "$A8OUT" | grep -q 'TR4_SIZE_OF_THE_SPACE.md:124 exemption live' \
+         if [ -n "$A8BASE" ] \
+            && printf '%s' "$A8OUT" | grep -q "TR4_SIZE_OF_THE_SPACE.md:$((A8BASE+1)) exemption live" \
             && ! printf '%s' "$A8OUT" | grep -q '\[note\] allowlist'; then
-           echo "  [ok]   GATE 5 allowlist drift immunity — anchor moved :123 -> :124, still live, no [note]"
+           echo "  [ok]   GATE 5 allowlist drift immunity — anchor moved :$A8BASE -> :$((A8BASE+1)), still live, no [note]"
          else
            echo "  [FAIL] GATE 5 allowlist did not survive an insertion above its anchor"
            printf '%s\n' "$A8OUT" | grep -E 'allowlist' | sed 's/^/           > /' | head -4
@@ -3950,17 +3991,31 @@ open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUI
   # The mutation is NOT injected via `python3 -c` for the same reason: the shell layer is
   # where the escaping went wrong. It is written to a file and run, so the string reaching
   # python is the string in this script.
-  G5BMUT=$(mktemp)
+  # THE LINE NUMBER IS DERIVED, NOT PINNED (2026-08-07). It was hardcoded `:70`; TR-9 grew
+  # and the cell moved to :78, so the grep missed and this printed "GATE 5b did not fire on
+  # the defect it was written for" — which was FALSE. The gate fired correctly; the fixture's
+  # expectation was stale. That is a worse failure mode than a missed anchor: it accuses a
+  # working gate. The mutator now reports the line it actually edited and the assertion is
+  # built from that, so the check is "5b names the cell I just broke", which is the real
+  # claim, and it cannot drift. The anchor STRING is still pinned and still asserted unique —
+  # the drift-proofing is on the coordinate, not on the identity of the defect.
+  G5BMUT=$(mktemp); G5BLINEF=$(mktemp)
   cat > "$G5BMUT" <<'G5BPY'
+import os, sys
 p = 'reports/TR9_PRICING_THE_CONSTRAINTS.md'
 a = '1.3287×10³⁸ (**estimate** — Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸, 0.02%)'
 s = open(p, encoding='utf-8').read()
 assert s.count(a) == 1, 'anchor moved: found %d occurrences' % s.count(a)
+lines = s.split(chr(10))
+hits = [n for n, l in enumerate(lines) if a in l]
+assert len(hits) == 1, 'anchor spans lines or repeats'
+open(os.environ['G5BLINEF'], 'w').write(str(hits[0] + 1))
 open(p, 'w', encoding='utf-8').write(s.replace(a, '1.3287×10³⁸', 1))
 G5BPY
-  if python3 "$G5BMUT" 2>&1; then
+  if G5BLINEF="$G5BLINEF" python3 "$G5BMUT" 2>&1; then
+    G5BLINE=$(cat "$G5BLINEF")
     G5BOUT=$(bash "$0" status 2>&1)
-    if printf '%s' "$G5BOUT" | grep -q 'TR9_PRICING_THE_CONSTRAINTS.md:70 .* carries NO status marker'; then
+    if [ -n "$G5BLINE" ] && printf '%s' "$G5BOUT" | grep -q "TR9_PRICING_THE_CONSTRAINTS.md:$G5BLINE .* carries NO status marker"; then
       echo "  [ok]   GATE 5b unmarked-among-marked — fires on the pre-#23 TR-9 ledger cell"
     else
       echo "  [FAIL] GATE 5b did not fire on the defect it was written for"
@@ -3972,7 +4027,7 @@ G5BPY
     echo "         Re-anchor it against TR-9's C3 ledger cell; a skipped fire-proof is not a proof."
     PASS=1
   fi
-  rm -f "$G5BMUT"
+  rm -f "$G5BMUT" "$G5BLINEF"
   _selftest_revert reports/TR9_PRICING_THE_CONSTRAINTS.md
 
   # =========================================================================
