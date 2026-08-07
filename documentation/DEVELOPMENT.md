@@ -44,7 +44,9 @@ sudo apt-get install -y build-essential zlib1g-dev
 
 Verified from a fresh clone on 2026-08-04: `--selftest` printed
 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, `python3 tests.py` ran 64 tests
-OK (1 skipped), and `lean lean/KingWen.lean` exited 0 with no output.
+OK (1 skipped), and `lean lean/KingWen.lean` exited 0 with no output. (The harness has since grown:
+as of 2026-08-06 it holds 67 tests — count re-verified by a local `python3 tests.py` run reporting
+`Ran 67 tests … OK`; the fresh-clone figures above are preserved as recorded on their date.)
 
 Note that `documentation/REBUILD_FROM_SPEC.md` §Prerequisites is deliberately silent on all of the
 above and should stay that way — it describes writing an independent verifier in *any* language,
@@ -133,19 +135,54 @@ records, not omissions.
 ### Git hooks — opt-in, and they must be installed by hand
 
 Hooks live in `.git/hooks`, which git does not track, so **cloning this repo
-does not install them.** Each one ships as a script under `scripts/` and is
-linked into place:
+does not install them — and no commit can change that.** Git refuses by
+design to auto-run code shipped in a clone, so one manual activation step
+per clone is irreducible; the honest framing is a single documented command,
+not a pretense of self-activation. This is that command (no `chmod` needed —
+the symlink targets are tracked with their exec bit):
 
 ```sh
-ln -s ../../scripts/pre_push_compile_gate.sh      .git/hooks/pre-push
-ln -s ../../scripts/pre_commit_generated_gate.sh  .git/hooks/pre-commit
-chmod +x .git/hooks/pre-push .git/hooks/pre-commit
+ln -sf ../../scripts/pre_push_gate.sh .git/hooks/pre-push && ln -sf ../../scripts/pre_commit_gate.sh .git/hooks/pre-commit
 ```
 
-| hook | script | blocks on |
+Each hook is a **dispatcher** script under `scripts/` that runs every gate
+belonging to that hook point — install the dispatcher, never a single gate
+directly, because a bare symlink to one gate silently disables the others
+(this section documented exactly that bare-symlink install for `pre-commit`
+until 2026-08-06, while the working checkout ran a dispatcher that existed
+only as an untracked file; both defects are fixed by the tracked
+dispatchers).
+
+Why symlinks rather than `git config core.hooksPath hooks`: `.git/hooks` is
+in the repo's *common* git dir, so the symlinked hooks also fire for commits
+made from every linked worktree (`git worktree add` checkouts, which this
+project uses for pinned campaign trees). A relative `core.hooksPath`
+resolves against each worktree's own root and would silently run **no hooks
+at all** in any worktree whose checkout predates a tracked `hooks/`
+directory. Do not "upgrade" to `core.hooksPath` without re-deriving that
+trade-off.
+
+| hook | dispatcher runs | blocks on |
 |---|---|---|
-| `pre-push` | `pre_push_compile_gate.sh` | `solve.c` missing/empty, gcc non-zero, or `--selftest` not producing sha `403f7202…` |
-| `pre-commit` | `pre_commit_generated_gate.sh` | a commit touching `roae.py` or any `example/` artifact whose `doc_gates.sh generated` check fails |
+| `pre-push` | for **each pushed sha**, in a temporary detached worktree of that sha: the pushed tree's own `doc_gates.sh all` (~12–20 s), then its `pre_push_compile_gate.sh` (~56 s); both always run, findings aggregate; worktree add+remove ≈0.5 s; deletion pushes gate nothing | any hard doc gate red (the blocking set is the PASS banner in `doc_gates.sh`; its report-only gates print `[WARN]`/`[note]` without blocking), or `solve.c` missing/empty, gcc non-zero, `--selftest` not producing sha `403f7202…`, or a pushed tree with **no gate scripts at all** (deliberate pushes of pre-gate history use `--no-verify`, visibly) |
+| `pre-commit` | `pre_commit_registry_gate.sh` (WARN-only; full 6-gate scan when a registry/ledger file is staged, the two cheap retraction scans when any `reports/*.md`, `documentation/*.md` or `README.md` is staged), then `pre_commit_generated_gate.sh` (blocking) | a commit touching `roae.py` or any `example/` artifact whose `doc_gates.sh generated` check fails |
+
+**The pre-push hook gates the committed trees being published, not the
+working tree** (task #150). The 218-commit replay (task #149) found 12
+commits whose committed trees failed their own gates — four pushed, red in
+public for ~2.5 days — every one invisible to a working-tree hook because
+the defect was fixed (or not yet present) in uncommitted edits. The hook
+therefore replays each pushed sha in a throwaway detached worktree, removed
+on every exit path including failure and interrupt. A fix that exists only
+as an uncommitted edit does **not** clear the push gate: commit it first.
+
+`doc_gates.sh generated` (~107 s: three unseeded `roae.py` runs) is
+deliberately **not** in the pre-push dispatcher: pre-commit already forces it
+on exactly the commits that can break it, and tripling the push hook's
+runtime to re-check artifacts most pushes do not touch is how a hook earns a
+reflexive `--no-verify`. The residual hole — an artifact committed with
+`git commit --no-verify` reaches a push unchecked — is accepted for the same
+shell-history-visibility reason as the bypass itself.
 
 Both fail **closed**: a false stop costs one retry, a false pass ships a
 compile error or a hand-edited artifact into the published record. Neither has
@@ -1453,11 +1490,21 @@ possibly M-series VM for analysis step. Queued, not scoped.
 
 Beyond the current committed state, the following work is known to be useful
 but not yet done. A fresh session wanting to continue the project should
-consider these in rough priority order. This section was last refreshed
-2026-04-19; see [HISTORY.md](HISTORY.md) "Current state" for the canonical
-up-to-date status.
+consider these in rough priority order. Much of this section is a dated
+snapshot (largely written 2026-04-19; the stalest items carry in-place
+status notes below). For up-to-date status see [HISTORY.md](HISTORY.md)
+(the dated narrative — it has no single "current state" section; read the
+most recent dated entries), [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md),
+and the private operational log named in CLAUDE.md §"In-flight state".
 
-### Operational (in-flight or near-term)
+### Operational (historical snapshot, 2026-04-19 — no longer in flight)
+
+*(Status note, 2026-08-06: the two items below are kept as a dated record
+of what was pending when this list was written. The 100T d3 run completed
+2026-04-20, and d3 560T has been the deepest canonical since 2026-06-08 —
+see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) and
+[enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md). The present
+tense in these two items is the 2026-04-19 framing, not current state.)*
 
 1. **100T d3 enumeration on D128als_v7 westus3.** Launched 2026-04-19
    ~08:00 UTC; at the time of this doc refresh, enumeration is in flight.
@@ -1492,10 +1539,14 @@ Tracked in detail in `LONG_TERM_PLAN.md` (project-local staging in
    SOLVE.md §Rule 3 — shift pattern percentages on the current
    canonical datasets, per-position entropies). Report `X% [Y%, Z%]`
    instead of point estimates.
-5. **Null-model comparison against structured permutations** (de Bruijn
-   sequences, Costas arrays). Currently CRITIQUE.md compares only to
-   random permutations and to pair-constrained random permutations —
-   structured-permutation nulls are absent.
+5. **~~Null-model comparison against structured permutations~~ — DONE
+   (2026-04-19; this entry corrected 2026-08-06).** Seven null-model
+   families are now tested (de Bruijn exact, Gray-code, Latin-square,
+   lexicographic, historical, random, pair-constrained) — see
+   [CRITIQUE.md](CRITIQUE.md) §"Missing analyses". The claim formerly
+   here — that CRITIQUE.md compared only to random and pair-constrained
+   permutations — was stale. Costas arrays specifically were not among
+   the seven families and remain unexplored.
 6. **Partition-stability re-check on 100T data.** The 4-boundary
    structure `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}` is established on
    the d3 10T canonical; the mandatory-{25, 27} sub-claim is partition-
@@ -1519,8 +1570,10 @@ noting so a future session understands the scope they were declined from:
 
 All three are discussed in `SCIENTIFIC_REVIEW.md` (project-local).
 
-See [HISTORY.md](HISTORY.md) "Current state" for the latest status, and the
-missteps table for worked examples of how the project self-corrects. Items
+See [HISTORY.md](HISTORY.md) for the latest dated status (its most recent
+entries; there is no single "current state" section), and its §"Missteps
+and corrections" table for worked examples of how the project
+self-corrects. Items
 that were previously in this list and are now complete:
 
 - Hash-table silent-drop fix → commit `585880f` (auto-resizing hash table, zero silent drops).

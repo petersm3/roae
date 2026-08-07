@@ -1,7 +1,11 @@
 #!/bin/bash
 # Pre-commit gate for the RETRACTION REGISTRY and the CORRECTIONS LEDGER (item R17).
 #
-# STATUS: WRITTEN, NOT INSTALLED. Read the INSTALL section before symlinking it.
+# STATUS: INSTALLED since 2026-08-03 via the pre-commit DISPATCHER
+# (scripts/pre_commit_gate.sh — see DEVELOPMENT.md §"Git hooks"), which runs
+# this gate WARN-only per operator ruling O-redfloor, then the blocking #85
+# generated gate. Do not symlink this file into .git/hooks directly: that
+# would drop the #85 gate (see INSTALL below).
 #
 # WHY THIS EXISTS — measured, not supposed.
 #   The only pre-commit hook this repo had (scripts/pre_commit_generated_gate.sh,
@@ -72,18 +76,15 @@
 # ---------------------------------------------------------------------------
 # INSTALL — READ THIS, a naive symlink SILENTLY DISABLES THE #85 GATE.
 #
-#   .git/hooks/pre-commit is ALREADY a symlink to pre_commit_generated_gate.sh.
-#   Git runs exactly one pre-commit hook. Pointing that symlink here would remove
-#   the generated-artifact gate without any message saying so. To run both, replace
-#   the symlink with a two-line dispatcher:
+#   Git runs exactly one pre-commit hook. Pointing .git/hooks/pre-commit at
+#   this file would remove the generated-artifact gate (#85) without any
+#   message saying so. The hook is the tracked DISPATCHER, which runs both:
 #
-#     rm .git/hooks/pre-commit
-#     cat > .git/hooks/pre-commit <<'EOF'
-#     #!/bin/bash
-#     bash scripts/pre_commit_generated_gate.sh || exit 1
-#     bash scripts/pre_commit_registry_gate.sh  || exit 1
-#     EOF
-#     chmod +x .git/hooks/pre-commit
+#     ln -sf ../../scripts/pre_commit_gate.sh .git/hooks/pre-commit
+#
+#   (The 2026-08-03 install predated the tracked dispatcher and wrote an
+#   untracked two-line dispatcher directly into .git/hooks; scripts/
+#   pre_commit_gate.sh is that dispatcher, tracked, since task #145.)
 #
 #   Or invoke directly, without installing:
 #     bash scripts/pre_commit_registry_gate.sh && git commit ...
@@ -105,7 +106,54 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACMRD)
 [ -n "$STAGED" ] || exit 0
 
 HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/null || true)
-[ -n "$HITS" ] || exit 0
+
+# ---------------------------------------------------------------------------
+# DOC-CORPUS TRIGGER (task #150) — WARN-ONLY, the two cheap scans.
+#
+#   The 3-file WATCHED set above misses the commits that INTRODUCE a retracted
+#   phrasing into the corpus without touching a registry file. Measured against
+#   the 120 doc-touching commits since this gate's birth: only 26 staged one of
+#   the 3 watched files, and the commit that shipped the 2.5-day-open GATE-3
+#   defect (task #149 replay) touched NONE of them — so the author first heard
+#   about it from a push-point gate days later. This path runs GATE 3's two
+#   corpus scans (retract ~4.0 s, retract-figures ~0.16 s, measured 2026-08-03)
+#   whenever any reports/*.md, documentation/*.md or README.md is staged, so
+#   the warning prints at AUTHORSHIP time.
+#
+#   WARN-ONLY per operator ruling O-redfloor, even when invoked standalone:
+#   findings are printed loudly and the exit code stays 0. Blocking here would
+#   also stop a unit committing to protect its work (see dispatcher note #1).
+#   The scans read the WORKING TREE (limitation #1 above applies); the
+#   pre-push hook gates the committed tree and WILL block the same finding.
+#   The expensive ledger/append-only gates are NOT run on this path — they
+#   relate registry rows to ledger entries and cannot newly fail on a commit
+#   that touches neither.
+if [ -z "$HITS" ]; then
+  DOC_HITS=$(printf '%s\n' "$STAGED" | grep -E '^(reports/[^/]+\.md|documentation/[^/]+\.md|README\.md)$' || true)
+  [ -n "$DOC_HITS" ] || exit 0
+  echo "pre-commit: doc-corpus file(s) staged — running the two cheap retraction scans (WARN-only):"
+  printf '  %s\n' $DOC_HITS
+  if [ ! -f scripts/doc_gates.sh ]; then
+    echo "[WARN] pre-commit: scripts/doc_gates.sh missing — retraction scans skipped"
+    exit 0
+  fi
+  WFAILED=""
+  for g in retract retract-figures; do
+    bash scripts/doc_gates.sh "$g" || WFAILED="$WFAILED $g"
+  done
+  if [ -n "$WFAILED" ]; then
+    echo
+    echo "[WARN] pre-commit: retraction scan(s) found findings:$WFAILED"
+    echo "  WARN-ONLY (operator ruling O-redfloor): the commit proceeds. But the"
+    echo "  pre-push hook runs these same gates against the PUSHED sha and WILL"
+    echo "  block — fix the finding now, while it is one commit old, not at push"
+    echo "  time. Note the scans read the working tree; if the finding is in an"
+    echo "  unstaged edit it is not in this commit, but it is still in your tree."
+  else
+    echo "pre-commit: retraction scans clean (retract, retract-figures)"
+  fi
+  exit 0
+fi
 
 echo "pre-commit: registry/ledger files touched by this commit:"
 printf '  %s\n' $HITS

@@ -2,24 +2,58 @@
 # Pre-push compile gate for solve.c
 #
 # Catches the failure mode that landed commit 85fff78 in main with a
-# duplicate-declaration compile error, undetected for hours. Install via:
+# duplicate-declaration compile error, undetected for hours.
 #
-#   ln -s ../../scripts/pre_push_compile_gate.sh .git/hooks/pre-push
-#   chmod +x .git/hooks/pre-push
+# DO NOT install this file as .git/hooks/pre-push directly — that was the
+# install from 2026-05-12 to 2026-08-06, and it silently left the doc gates
+# with no publish-point coverage. The hook is the DISPATCHER, which runs this
+# gate AND scripts/doc_gates.sh:
 #
-# Or invoke directly as part of any commit-and-push workflow:
+#   ln -sf ../../scripts/pre_push_gate.sh .git/hooks/pre-push
+#
+# WHAT THIS GATE CHECKS IS THE TREE IT RUNS IN. It compiles solve.c under
+# `git rev-parse --show-toplevel` of its working directory, so invoked
+# standalone it gates the WORKING TREE — which is NOT what `git push`
+# publishes. The dispatcher closes that mismatch (task #150) by running this
+# script's own committed copy inside a temporary detached worktree of each
+# pushed sha, where toplevel IS the pushed tree; at the push point the bytes
+# compiled and selftested are exactly the bytes being published. Standalone
+# invocation remains useful as a fast working-tree check while iterating:
 #
 #   bash scripts/pre_push_compile_gate.sh && git push
 #
 # Hard-fails (exit 1) on:
 #  - solve.c missing or empty
 #  - gcc returns non-zero (compile error)
+#  - a WARNING outside the inventoried baseline below (new class, or a known
+#    class exceeding its baselined count)
+#  - verify.c missing, failing to compile, or emitting ANY warning
 #  - --selftest does not produce sha 403f7202…
+#
+# WARNING SEMANTICS (2026-08-06). Until today this gate printed "compiles
+# cleanly under -Wall -Wextra" while inspecting ONLY gcc's exit code — gcc
+# exits 0 with warnings, so warnings passed in silence (observed live: a
+# -Wstringop-truncation warning sailed through a green run). The claim now
+# matches the check: stderr is captured and censused per warning class.
+#   - solve.c currently emits 12 warnings in 7 classes (measured 2026-08-06,
+#     gcc 13.3.0, the orchestrator's stock toolchain — the same toolchain
+#     this hook runs on). solve.c is sha-anchored; silencing those 12 goes
+#     through its own build/verify pipeline, not through this gate. Until
+#     then they are BASELINED BY NAME below — a RATCHET, not an exemption:
+#     any new class, or a known class growing, fails the push. When solve.c
+#     drops below the baseline this gate says so on every run; ratchet the
+#     table down in the same commit.
+#   - verify.c is warning-free today and is held at ZERO.
+#   - The baseline is toolchain-relative: a different gcc emits a different
+#     warning set. If the orchestrator's toolchain moves, re-measure and
+#     update the table DELIBERATELY (with the gcc version) — never widen it
+#     to make a red run green.
 
 set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 SOLVE_C="$REPO_ROOT/solve.c"
+VERIFY_C="$REPO_ROOT/verify.c"
 
 if [ ! -s "$SOLVE_C" ]; then
     echo "FAIL: solve.c missing or empty"
@@ -27,10 +61,79 @@ if [ ! -s "$SOLVE_C" ]; then
 fi
 
 TMP_BIN=$(mktemp /tmp/precommit_solve.XXXXXX)
-trap 'rm -f "$TMP_BIN"' EXIT
+WARN_LOG=$(mktemp /tmp/precommit_warnings.XXXXXX)
+trap 'rm -f "$TMP_BIN" "$WARN_LOG"' EXIT
 
-if ! gcc -O3 -Wall -Wextra -pthread -fopenmp -march=native "$SOLVE_C" -lm -lz -o "$TMP_BIN" 2>&1; then
-    echo "FAIL: solve.c does not compile cleanly under -Wall -Wextra"
+if ! gcc -O3 -Wall -Wextra -pthread -fopenmp -march=native "$SOLVE_C" -lm -lz -o "$TMP_BIN" 2> "$WARN_LOG"; then
+    echo "FAIL: solve.c does not compile under -Wall -Wextra"
+    cat "$WARN_LOG"
+    exit 1
+fi
+
+# ---- warning ratchet: census this compile's warnings against the baseline ----
+# Baseline: 12 warnings / 7 classes, solve.c @ 2026-08-06, gcc 13.3.0 (see header).
+# Format: "<max-count> <class-tag>". The (untagged) row is for warning lines gcc
+# emits without a [-W...] tag; none exist today, so any is a new warning.
+WARN_BASELINE='3 [-Wmisleading-indentation]
+1 [-Wcomment]
+1 [-Wunused-variable]
+2 [-Wunused-function]
+3 [-Wformat-truncation=]
+1 [-Wnonnull]
+1 [-Wstringop-truncation]'
+
+# Census: one "count class" line per class seen. awk ERE has no bounded
+# repetition ('+' only). Lines matching ' warning:' but carrying no tag are
+# counted as (untagged) so they cannot slide through the census.
+WARN_SEEN=$(awk '/warning:/ {
+    if (match($0, /\[-W[a-zA-Z0-9=-]+\]/)) c[substr($0, RSTART, RLENGTH)]++;
+    else c["(untagged)"]++
+} END { for (k in c) print c[k], k }' "$WARN_LOG")
+
+WARN_BAD=0
+WARN_TOTAL=0
+while read -r n cls; do
+    [ -n "$cls" ] || continue
+    WARN_TOTAL=$((WARN_TOTAL + n))
+    base=$(printf '%s\n' "$WARN_BASELINE" | grep -F -- " $cls" | awk '{print $1}')
+    if [ -z "$base" ]; then
+        echo "FAIL: solve.c emits a warning class OUTSIDE the baseline: $n x $cls"
+        WARN_BAD=1
+    elif [ "$n" -gt "$base" ]; then
+        echo "FAIL: solve.c warning class $cls grew: $n emitted, baseline $base"
+        WARN_BAD=1
+    elif [ "$n" -lt "$base" ]; then
+        echo "note: solve.c warning class $cls shrank ($n < baseline $base) — ratchet the baseline down"
+    fi
+done <<EOF
+$WARN_SEEN
+EOF
+if [ "$WARN_BAD" -ne 0 ]; then
+    echo "----- full -Wall -Wextra output -----"
+    cat "$WARN_LOG"
+    echo "-------------------------------------"
+    echo "A new warning is a defect until adjudicated. If it is genuinely benign and"
+    echo "cannot be fixed (solve.c is sha-anchored), extend WARN_BASELINE in this"
+    echo "script IN THE SAME COMMIT, with the reason — never silence it by ignoring."
+    exit 1
+fi
+
+# ---- verify.c: compile + hold at ZERO warnings (clean today, stays clean) ----
+if [ ! -s "$VERIFY_C" ]; then
+    echo "FAIL: verify.c missing or empty (every tree carrying this gate version has it)"
+    exit 1
+fi
+TMP_VBIN=$(mktemp /tmp/precommit_verify.XXXXXX)
+trap 'rm -f "$TMP_BIN" "$WARN_LOG" "$TMP_VBIN"' EXIT
+if ! gcc -O2 -Wall -Wextra "$VERIFY_C" -lm -lz -o "$TMP_VBIN" 2> "$WARN_LOG"; then
+    echo "FAIL: verify.c does not compile under -Wall -Wextra"
+    cat "$WARN_LOG"
+    exit 1
+fi
+VWARN=$(grep -c 'warning:' "$WARN_LOG" || true)
+if [ "$VWARN" -ne 0 ]; then
+    echo "FAIL: verify.c emits $VWARN warning(s) under -Wall -Wextra (baseline: zero)"
+    cat "$WARN_LOG"
     exit 1
 fi
 
@@ -52,5 +155,7 @@ if ! "$TMP_BIN" --selftest > "$SELFTEST_OUT" 2>&1; then
     exit 1
 fi
 ACTUAL=$(awk '/Actual sha256:/ {print $4}' "$SELFTEST_OUT" | head -1)
-echo "PASS: solve.c compiles + selftest produces (binary-internal) canonical sha $ACTUAL"
+echo "PASS: solve.c compiles under -Wall -Wextra with $WARN_TOTAL warning(s), all inside"
+echo "      the inventoried baseline (12 across 7 classes, 2026-08-06 — no new warnings);"
+echo "      verify.c compiles warning-free; selftest produces (binary-internal) canonical sha $ACTUAL"
 exit 0

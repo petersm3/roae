@@ -41,6 +41,11 @@
 #   scripts/doc_gates.sh collisions # GATE 16: a per-gate assertion a PREFLIGHT could satisfy,
 #                                   # and (LEG 2) a fire-proof naming a dispatch that runs
 #                                   # more than one gate
+#   scripts/doc_gates.sh alias-reach # GATE 18: a ruled "read X as Y" / legacy-naming alias
+#                                   # used with no same-line path to the ruling that resolves
+#                                   # it — or (kind `attrib`, 2026-08-06) a SUPERSEDED
+#                                   # ATTRIBUTION restated with no path to its correction;
+#                                   # registry-driven, open-backlog adjudicated
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
 #   scripts/doc_gates.sh all        # run every cheap gate; `generated` is separate by cost.
 #                                   # DE-NUMBERED, round 17. This read "all fifteen cheap gates
@@ -624,6 +629,33 @@ gate_cli() {
 }
 
 # ----------------------------------------------------------------------------------
+# CHARACTER-VARIANT FOLD (2026-08-06) — GATE 3's bash port of the canon() fold GATEs 3b
+# and 18 apply in python (same table; keep the three in step). PROVEN LIVE for THIS gate
+# before it shipped: the registry row "the exact C1–C7 enumeration" (en-dash, U+2013)
+# did NOT match the restatement "the exact C1-C7 enumeration" (ASCII hyphen) — a
+# retracted phrase could survive, and the gate stay green, purely by typing a different
+# dash. The registry itself already carries the scar tissue of doing this by hand: four
+# separate rows for the ONE withdrawn hard-floor claim ("k ≥ 13" / "k>=13" / "≥13" /
+# "k >= 13"); this fold makes such hand-multiplication unnecessary for the character
+# families it covers. Needle and haystack are both folded, so every current match is
+# preserved and only variant forms are added. ONE deliberate divergence from the python
+# canon(): '*' is DELETED rather than also tried as 'x' — GATE 3's needles are word
+# phrases, where '*' is only ever markdown emphasis splitting a span ("hard floor
+# **k ≥ 13**"), never a multiplication sign. sed with literal substitutions only (the
+# digit-comma rule uses the class [0-9]; no repetition operators of any kind).
+fold_variants() {
+  # The four space variants are spelled as $'\u..' escapes, not embedded literally —
+  # an invisible character pasted into a sed script is unreviewable and un-diffable.
+  local NB=$'\u00a0' FS=$'\u2007' TS=$'\u2009' NN=$'\u202f'
+  sed -e 's/×/x/g; s/✕/x/g; s/⨯/x/g' \
+      -e 's/–/-/g; s/—/-/g; s/−/-/g' \
+      -e 's/≥/>=/g; s/≤/<=/g; s/＋/+/g' \
+      -e "s/$NB/ /g; s/$FS/ /g; s/$TS/ /g; s/$NN/ /g" \
+      -e 's/\*//g' \
+      -e 's/\([0-9]\),\([0-9]\)/\1\2/g' \
+      -e 's/ +/+/g; s/+ /+/g'
+}
+
 gate_retract() {
   echo "== GATE 3: retracted phrasings still surviving =="
   # Registry-driven and deliberately so: auto-parsing retraction prose is unreliable,
@@ -644,14 +676,27 @@ gate_retract() {
   require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero phrases are checked."
   case $? in 1) return 0;; 2) return 1;; esac
   local bad=0
+  # Pre-fold every doc ONCE (fold_variants above), then run the same normalise+match
+  # pipeline against the folded copies. Folding per (phrase, file) pair would spawn
+  # |phrases| x |DOCS| ~ 2,700 extra sed processes; folding per file is |DOCS| ~ 130.
+  # COST: one sed pass per tracked .md (~130 processes, each over a ~500-line file)
+  # plus the same grep counts as before, over the folded copies.
+  local folddir f
+  folddir=$(mktemp -d "${TMPDIR:-/tmp}/docgates_fold.XXXXXX") || { echo "  [FAIL] mktemp failed"; return 1; }
+  for f in $DOCS; do
+    [ -f "$f" ] || continue        # a tracked-but-deleted doc is preflight_tracked_docs' finding
+    mkdir -p "$folddir/$(dirname "$f")"
+    fold_variants < "$f" > "$folddir/$f"
+  done
   while IFS=$'\t' read -r phrase allow note; do
     case "$phrase" in ''|'#'*) continue;; esac
     local np hits=""
-    np=$(printf '%s' "$phrase" | tr '\n' ' ' | tr -s ' ')
+    np=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
     for f in $DOCS; do
       case "$f" in *"$allow"*) continue;; esac          # the doc allowed to narrate it
-      # normalise the whole file to one whitespace-collapsed line, then fixed-string match
-      if tr '\n' ' ' < "$f" | tr -s ' ' | grep -qF -- "$np"; then
+      [ -f "$folddir/$f" ] || continue
+      # normalise the FOLDED file to one whitespace-collapsed line, then fixed-string match
+      if tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -qF -- "$np"; then
         # changelog rows legitimately quote superseded wording; only exempt if EVERY
         # line-level hit is a revision row.
         # RECORD WHERE, not just WHICH FILE (2026-08-02, #65). A bare filename makes the
@@ -660,11 +705,11 @@ gate_retract() {
         # like the registry row, so "which phrase matched" is a real question. Cite the first
         # line that is NOT a changelog row — the same line the condition below turns on.
         local hitln
-        hitln=$(git grep -F -n -- "$np" -- "$f" 2>/dev/null | grep -vE ':[0-9]+:\| v[0-9]' \
-                | head -1 | cut -d: -f2)
+        hitln=$(grep -nF -- "$np" "$folddir/$f" 2>/dev/null | grep -vE '^[0-9]+:\| v[0-9]' \
+                | head -1 | cut -d: -f1)
         if [ -n "$hitln" ]; then
           hits="$hits $f:$hitln"
-        elif ! git grep -qF -- "$np" -- "$f" 2>/dev/null; then
+        elif ! grep -qF -- "$np" "$folddir/$f" 2>/dev/null; then
           hits="$hits $f(spans-lines)"                  # only visible after normalisation
         fi
       fi
@@ -678,6 +723,7 @@ gate_retract() {
       echo "  [ok] retracted: \"$phrase\""
     fi
   done < "$reg"
+  rm -rf "$folddir"
   return $bad
 }
 
@@ -765,10 +811,56 @@ if os.path.exists(ALLOW):
         if len(f) >= 5:
             allow[(f[0], f[1], f[2])] = (f[3], f[4])
 
+# CHARACTER-VARIANT FOLD (2026-08-06). PROVEN LIVE before this shipped: a doc line
+# carrying "~52x" (ASCII letter x) passed this gate green while the registry holds
+# "~52×" (U+00D7) — a retracted figure could be restated, and the gate stayed green,
+# purely by typing a different character. The registry header's item 2(a) measured
+# these variant families at zero live escapes; this fold turns that one-off
+# measurement into enforcement. Both needle and haystack are folded to a canonical
+# ASCII form before the fixed-substring test; the ALLOWLIST anchor still matches the
+# RAW line, so the content-anchored exemption machinery is untouched — only the
+# needle side widened. Folds: multiplication signs ×/✕/⨯ and '*' -> x; en/em dash
+# and U+2212 minus -> '-'; ≥/≤ -> '>='/'<='; NBSP/thin/narrow/figure spaces -> ' ';
+# fullwidth ＋ -> '+'; digit-group commas stripped ("5,500" == "5500"); spaces
+# around '+' collapsed ("net + 1.6" == "net +1.6").
+# NOT folded, deliberately:
+#   * APPROXIMATION GLYPHS (≈/∼ vs ~) — and this is MEASURED, not aesthetic. The
+#     registry chooses each string "as narrow as the corpus allows", and "≈10×"
+#     exploits exactly the ≈-vs-~ distinction: folding ≈ -> ~ made this gate fire
+#     on 14 innocent sites on the 2026-08-06 pre-ship measurement ("~10× faster
+#     than sklearn", and the SUPPORTED floor "≥~10×" itself) — the naive-widening
+#     failure the registry header item 2(b) documents. A restatement that swaps
+#     ≈ for ~ is the strip-the-qualifier family, unsafe to widen; residual, stated.
+#   * σ -> "sigma", × -> "times", re-rounding ("2.0σ" vs "2σ" vs "2.00σ"),
+#     spelled-out numbers: measured-zero families (item 2(b)) whose widening has
+#     word-level false-positive surface.
+#   * superscript digits: no registered figure carries an exponent; revisit if one
+#     ever does.
+# str.translate + str.replace + one linear scan — no regex of any kind.
+FOLD1 = {0x00D7: 'x', 0x2715: 'x', 0x2A2F: 'x',
+         0x2013: '-', 0x2014: '-', 0x2212: '-',
+         0x2265: '>=', 0x2264: '<=', 0xFF0B: '+',
+         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' '}
+def canon(s, star):
+    # star is what ASCII '*' folds to, and it is genuinely two-valued: as a variant
+    # of × it must become 'x' ("~52*"), as markdown emphasis it must vanish so the
+    # figure's own characters rejoin ("net **+1.6**"). Haystacks are checked under
+    # BOTH readings (max of the two counts — over-report is this gate's safe
+    # direction); no registered figure contains '*', so needles canon identically.
+    s = s.translate(FOLD1).replace('*', star)
+    out = []
+    for i, ch in enumerate(s):              # strip digit-group commas, no regex
+        if ch == ',' and 0 < i < len(s) - 1 and s[i-1].isdigit() and s[i+1].isdigit():
+            continue
+        out.append(ch)
+    return ''.join(out).replace(' +', '+').replace('+ ', '+')
+
 mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True).stdout.split()
-# COST, evaluated before writing it (box-safety rule): |mds| ~ 130 files x ~500 lines x
-# |figs| = 9 fixed-string `in` tests ~ 6e5 substring checks over data already in memory.
-# No regex, no bounded repetition, no accumulation across the loop.
+# COST, evaluated before writing it (box-safety rule): canonicalisation is |mds| ~ 130
+# files x ~500 lines x 2 star-readings of canon() (a translate + one linear scan each),
+# then |figs| = 11 fixed-string `in`/`count` tests per line per reading ~ 1.5e6 linear
+# steps over data already in memory. No regex, no bounded repetition, no accumulation
+# across the loop.
 bad, exempt, spans = [], [], []
 # The registry (.tsv) and the allowlist (.txt) are not in `git ls-files '*.md'`, so the
 # gate cannot match its own rows. Verified rather than assumed: both extensions are
@@ -776,13 +868,21 @@ bad, exempt, spans = [], [], []
 for m in mds:
     text = open(m, encoding='utf-8', errors='replace').read()
     lines = text.split('\n')
+    # Canonicalise once per file, in both '*' readings; needle tests below run against
+    # these, while allowlist ANCHORS keep matching the RAW `line` — same rows, same
+    # anchors, no parallel exemption mechanism.
+    clx = [canon(l, 'x') for l in lines]
+    cld = [canon(l, '') for l in lines]
     flat = ' '.join(text.split())          # line-break evasion check, GATE 3's lesson (a)
+    cfx, cfd = canon(flat, 'x'), canon(flat, '')
     for fig, note in figs:
+        cfig = canon(fig, '')              # needles carry no '*': one canon suffices
         n_online = 0
         for i, line in enumerate(lines, 1):
-            if fig not in line:
+            c = max(clx[i-1].count(cfig), cld[i-1].count(cfig))
+            if not c:
                 continue
-            n_online += line.count(fig)     # OCCURRENCES, not lines: TR-2:650 carries
+            n_online += c                   # OCCURRENCES, not lines: TR-2:650 carries
                                             # "1.4σ" twice and would otherwise look short
             # MARK EVERY MATCHING ROW USED, not just the first (fixed on this gate's
             # first run, before it shipped). Two anchors can legitimately land on one
@@ -820,8 +920,9 @@ for m in mds:
         # Residual, stated: a figure containing a space ("marginal 4.6") that is written with
         # a DOUBLE space on some line is collapsed by flat and not by line.count, so it would
         # be reported as wrapped. That direction over-reports rather than misses, which is the
-        # direction a retraction gate should err in.
-        if flat.count(fig) > n_online:
+        # direction a retraction gate should err in. Both sides of the comparison use the
+        # same canon() fold, so a variant-form occurrence cannot produce a phantom wrap.
+        if max(cfx.count(cfig), cfd.count(cfig)) > n_online:
             spans.append((m, fig, note))
 
 for m, i, fig, note, line in bad:
@@ -904,7 +1005,11 @@ for m in mds:
 for m, t, why in bad:
     print(f"  [FAIL] {m} -> {t}  ({why})")
 if not bad:
-    print(f"  [ok] all internal links + anchors resolve across {len(mds)} markdown files")
+    # CLAIM MATCHES CHECK (2026-08-06): #fragments are validated only when the target is
+    # a tracked markdown file (`dest in anchors`); a fragment pointing into any other
+    # target kind passes unchecked, so the [ok] line says which half is attested.
+    print(f"  [ok] all internal links resolve across {len(mds)} markdown files "
+          f"(#anchors verified on tracked-markdown targets only)")
 sys.exit(1 if bad else 0)
 PY
   rc=$?
@@ -1561,19 +1666,25 @@ gate_figures() {
     [ "$grc" -eq 0 ] || bad=1
   done
   [ "$bad" -eq 0 ] || return 1
+  # CHARACTER-VARIANT FOLD (2026-08-06): both passes below fold needle and generator
+  # through fold_variants (GATE 3's helper — one implementation, kept in step with the
+  # python canon() in GATEs 3b/18). Without it a generator annotating "~52x" (ASCII x)
+  # was invisible against the registered "~52×" — the same proven evasion the doc-corpus
+  # gates closed the same day. Inline per (row, generator): the generator set is ~3
+  # files, so the extra sed processes are ~2 per row, noise.
   while IFS=$'\t' read -r phrase allow note; do
     case "$phrase" in ''|'#'*) continue;; esac
     local np hits=""
-    np=$(printf '%s' "$phrase" | tr '\n' ' ' | tr -s ' ')
+    np=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
     for f in $gens; do
-      if tr '\n' ' ' < "$f" | tr -s ' ' | grep -qF -- "$np"; then
+      if fold_variants < "$f" | tr '\n' ' ' | tr -s ' ' | grep -qF -- "$np"; then
         # RECORD WHERE (2026-08-02, item A5 / #65). This printed a bare filename, so a
         # maintainer given a 900-line generator had to re-run the search by hand to find
         # the annotation string — the same debugging cost #65 removed from GATE 3 and
         # GATE 5. Cite the line; fall back to the filename when the hit is only visible
         # after normalisation, which is the case a hard-wrapped Python string produces.
         local gln
-        gln=$(grep -nF -- "$np" "$f" 2>/dev/null | head -1 | cut -d: -f1)
+        gln=$(fold_variants < "$f" 2>/dev/null | grep -nF -- "$np" | head -1 | cut -d: -f1)
         if [ -n "$gln" ]; then hits="$hits $f:$gln"; else hits="$hits $f(spans-lines)"; fi
       fi
     done
@@ -1602,11 +1713,11 @@ gate_figures() {
         case "$figure" in ''|'#'*) continue;; esac
         nfig=$((nfig+1))
         local nf fighits=""
-        nf=$(printf '%s' "$figure" | tr '\n' ' ' | tr -s ' ')
+        nf=$(printf '%s' "$figure" | fold_variants | tr '\n' ' ' | tr -s ' ')
         for f in $gens; do
-          if tr '\n' ' ' < "$f" | tr -s ' ' | grep -qF -- "$nf"; then
+          if fold_variants < "$f" | tr '\n' ' ' | tr -s ' ' | grep -qF -- "$nf"; then
             local fgln
-            fgln=$(grep -nF -- "$nf" "$f" 2>/dev/null | head -1 | cut -d: -f1)
+            fgln=$(fold_variants < "$f" 2>/dev/null | grep -nF -- "$nf" | head -1 | cut -d: -f1)
             if [ -n "$fgln" ]; then fighits="$fighits $f:$fgln"; else fighits="$fighits $f(spans-lines)"; fi
           fi
         done
@@ -5286,7 +5397,9 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   fi
   rm -f "$_G17_COPY"
 
-  # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here, and until
+  # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here (TWO since
+  # 2026-08-06: GATE 18 joined uncovered, with hand-run fire-proofs — see its own
+  # NOT-covered-YET entry at the foot of this list), and until
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
   # tests for, so the list is enumerated against the assertion calls above:
@@ -5504,6 +5617,30 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            one tool from $PATH cannot be done without also hiding git, grep and cut, so
   #            the gate would then fail for the wrong reason and the assertion would prove
   #            nothing. Those two legs are warranted by reading, not by running.
+  #   NOT covered YET: GATE 18 (alias-reach), added 2026-08-06 on a tree this harness
+  #            refuses (uncommitted work; a --selftest run would `git checkout -- .` it
+  #            away), so no in-harness leg could be written AND RUN, and an assertion that
+  #            has never been run is this file's own definition of rot (GATE 8's defect).
+  #            Its two fire-proofs were taken BY HAND at seeding and their transcripts are
+  #            in the seeding report: (i) deleting one `open` row from
+  #            DOC_GATE_ALIAS_REACH.tsv turns that site into a [FAIL] and rc 1 — the
+  #            adjudication mechanism is load-bearing, not decorative; (ii) a row with a
+  #            misspelled kind (`alow`) is a [FAIL] and rc 1, not a silent skip. A hand
+  #            fire-proof decays (that is GATE 8's lesson), so the debt recorded here is:
+  #            first clean-tree --selftest maintenance pass should add legs for (i) and
+  #            (ii) plus a NEGATIVE control that a `+`-followed occurrence (C1+C2+C3+C4+C5)
+  #            and an `allow literal` row stay silent — the two-sense trap is the leg most
+  #            worth pinning, because it is the false-positive mode that kills gates.
+  #            THE `attrib` KIND (2026-08-06, same day) took the same three BY HAND, on the
+  #            still-uncommitted tree, transcripts in ITS seeding report: (a) the seeded
+  #            Zheng Qiao rule with NO adjudication rows fired [FAIL]+rc 1 on all 13 name
+  #            sites and passed the one token-carrying line (CITATIONS.md "corrected
+  #            2026-07-30") — the attrib [FAIL] wording branch is live; (b) deleting the
+  #            SOLVE_C_CLI `open` row re-fired that site; (c) kind `atrib` and allow class
+  #            `other-contrib` are each malformed-row [FAIL]s. Registry restored
+  #            byte-identical (sha-checked) after each mutation. Same clean-tree debt:
+  #            in-harness legs for (a)-(c) plus a negative control that the five
+  #            resolution-note/historical allow rows stay silent.
   # The old note said GATE 8 was excluded because ~90s regeneration "exceeds the
   # orchestrator's budget". MEASURED 2026-08-02 on the orchestrator: 45 s and 31 MB peak
   # RSS per run. The budget claim was inherited, not measured, and it was wrong; the
@@ -8627,6 +8764,296 @@ sys.exit(0)
 PY
 }
 
+# ----------------------------------------------------------------------------------
+# GATE 18 — alias-reach (2026-08-06). The class the ~30-pass review campaign kept
+# refinding, mechanised: a correct ruling applied to ONE line while every sibling use
+# survives, with nothing to detect the gap.
+#
+# WHY. Every gate above catches forbidden text PRESENT. The campaign's deepest
+# recurring defect is the opposite: required resolution ABSENT. CITATIONS.md item 3
+# ruled "C1+C2+C3" legacy naming for the C1–C5 canonical (METHODS §"Legacy shorthand")
+# and ruled "exhaustive" → "budgeted" — and at this gate's seeding, line 85 of the SAME
+# FILE still carried both uncorrected forms, SOLVE.md stated "the intersection C1+C2+C3
+# that solve.c enumerates" (flatly false under the ruling), and none of the documents
+# using the aliases linked the note that resolves them. A ruling a reader cannot reach
+# from the line that needs it might as well not exist.
+#
+# THE DETECTION RULE — "within one link", line-granular. For every `rule` row in the
+# registry, every occurrence of the alias in every tracked .md must satisfy one of:
+#   (1) its own line carries the rule's RESOLUTION TOKEN (a fixed substring only a line
+#       narrating or citing the ruling carries — e.g. `Legacy shorthand`), or
+#   (2) an explicit content-anchored `allow` row (GATE 3b's (file, alias, anchor) shape;
+#       closed class vocabulary: resolution-note / literal / historical / meta-mention), or
+#   (3) an `open` row — an ADJUDICATED-OPEN DEFECT, re-printed as [OPEN] every run with
+#       a count (DOC_GATE_FIGURE_LEDGER_OPEN.txt's contract: a backlog that cannot go
+#       invisible, owned by task #146, not an exemption).
+# Anything else is a [FAIL]. File-granular reach ("the ruling is linked somewhere in
+# this file") was considered and REJECTED: CITATIONS.md holds the ruling at one line
+# and the defect 438 lines above it — the exact gap this gate exists to see.
+#
+# THE TWO-SENSE TRAP, and why the exemptions are curated rather than automatic.
+# "C1+C2+C3" is BOTH the legacy alias for the C1–C5 canonical AND the literal
+# three-predicate conjunction ("no null family simultaneously satisfies C1+C2+C3" —
+# a true statement about C1, C2, C3 individually that must NOT be "corrected" to
+# C1–C5). A gate that demanded corpus-wide replacement would introduce errors; the
+# literal occurrences are explicit `allow literal` rows. Structural narrowing is used
+# only where it is exact: an occurrence followed by `+` (registry stopchars) is the
+# explicit conjunction C1+C2+C3+C4+C5 and is void, and the "exhaustive" rule registers
+# the definite-article NAMING form ("the exhaustive enumeration", case-folded) because
+# at seeding time that string separated the naming defect from the legitimate
+# hypothetical/finite-complete senses ("under true exhaustive enumeration…",
+# "exhaustive enumeration of all 2^27") with zero curated rows. Residuals of that
+# narrowing (article-less naming uses: TR-11:45, CITATIONS.md:995) are stated in the
+# registry header rather than left to be rediscovered.
+#
+# ORDER OF CHECKS IS LOAD-BEARING: token → open → allow → FAIL. `open` is checked
+# BEFORE `allow` so a line carrying both senses (CRITIQUE.md's "Simultaneous C1+C2+C3
+# satisfaction…" line: literal first use, alias second use) stays visibly [OPEN] until
+# the alias half is fixed — its `allow literal` row takes over only after the open row
+# dies. Exemption and adjudication are line-granular (GATE 3b's model); a per-
+# occurrence classifier was considered and rejected as over-engineering with no live
+# case it would decide differently once the open backlog drains.
+#
+# WHY-IT-FIRED (#65): every [FAIL] prints the alias, the ruling, where the ruling
+# lives, and the line text. Every [OPEN] prints its adjudication. Dead allow/open rows
+# are re-printed as [note] every run — the drift audit — so a fixed defect demands its
+# row's deletion and a drifted anchor cannot rot silently. Malformed registry rows are
+# a [FAIL], not a skip: a row the gate cannot parse is a row it silently stopped
+# enforcing.
+#
+# THE ATTRIBUTION KIND (`attrib`, 2026-08-06) — same machinery, different semantics,
+# and the placement was argued, not assumed. A superseded attribution (the 18:18
+# hexagram-split credit moved from Zheng Qiao to Zhang Xingcheng + Zhu Xi on
+# 2026-07-30, after the Li Shangxin 2008 first-hand pass found Zheng Qiao "does not
+# appear" in the treatment) is WRONG AT EVERY LIVE CLAIM SITE — which sounds like
+# GATE 3's class (forbidden text present). It is not, for two measured reasons:
+#   (1) THE DETECTABLE STRING IS THE NAME, AND THE NAME HAS LIVE LEGITIMATE SENSES —
+#       the correction's own narration (4 CITATIONS.md sites), dated revision-history
+#       rows (TR-1 v1.17, append-only under GATE 10's model), and potentially the
+#       person cited for a distinct still-credited contribution. That is this
+#       registry's own distinguishing test verbatim: "if every occurrence of X is
+#       wrong, register it there [GATE 3]; if X has a live legitimate sense that must
+#       NOT be 'corrected', register it here." GATE 3's exemption is one file-substring
+#       column per row — it cannot express per-site classes, and it has no [OPEN]
+#       ledger, so 8 known-open defect sites would hold the suite at rc 1 with no
+#       honest way back to 0 short of fixing prose this gate does not own (#157).
+#   (2) CLAIM-PHRASE ROWS IN GATE 3 WOULD BE EVASION-SHAPED: the live defects spell
+#       the credit five different ways ("begins with Zheng Qiao (~1150)", "from Zheng
+#       Qiao", "(Zheng Qiao ~1150; Hu Yigui 1247", "Zheng Qiao ~1150 / Hu Yigui
+#       1247", "Zheng Qiao/Hu Yigui trigram clustering") — the hard-floor saga in
+#       RETRACTED_PHRASES.tsv needed FOUR rows for one claim and still missed forms.
+#       Keying on the name catches every restatement; the price is the curated
+#       classification of legitimate mentions, which is exactly the mechanism this
+#       gate already carries and GATE 3 does not.
+# The defect shape is also THIS gate's shape, not GATE 3's: a correction recorded in
+# one place (CITATIONS.md, twice, with a revision note claiming both occurrences
+# fixed) that never reached the sites depending on it — required resolution ABSENT.
+# What an unexempted hit MEANS differs (a dead credit restated, not an unresolved
+# alias), so `attrib` rows get their own [FAIL] wording and one added allow class,
+# `other-contribution` (person cited for a distinct, still-supported claim); the
+# detection loop, resolution token, stopchars, case fold, character-variant fold,
+# open-before-allow ordering and drift audit are shared unchanged.
+# WHAT `attrib` CANNOT CATCH, stated: a NAMELESS restatement of the dead claim ("the
+# 12th-century identification of the 18:18 split") carries no registered string. The
+# one live near-case (TR-1:43's "(~1150)" dating) is a hard-wrap continuation of a
+# line that DOES carry the name, so it is reached; a future nameless site is not.
+gate_alias_reach() {
+  echo "== GATE 18: alias-reach — a ruled alias or superseded attribution used out of reach of its ruling =="
+  # ITEM A1 at the bash level, GATE 3b's contract: the registry IS this gate. It holds
+  # the rules AND the exemptions AND the open backlog in one file (kind column), so
+  # losing it makes the gate BLIND, not stricter — it must be guarded, unlike 3b's
+  # pure-exemption allowlist. (Until the file is first committed, require_tracked's
+  # untracked-and-absent arm is the reachable one; after that, tracked-but-missing is
+  # a FAIL like every other registry.)
+  require_tracked "documentation/DOC_GATE_ALIAS_REACH.tsv" \
+    "The alias-ruling registry IS this gate; with it gone, zero rulings are checked."
+  case $? in 1) return 0;; 2) return 1;; esac
+  python3 - <<'PY'
+import os, subprocess, sys
+REG = 'documentation/DOC_GATE_ALIAS_REACH.tsv'
+if not os.path.exists(REG):
+    # Unreachable in normal use (require_tracked returns first) but not left as a
+    # skip — GATE 3b's lesson: a dead false-clear is still a false clear the moment
+    # the guard above is edited out.
+    print(f'  [FAIL] {REG} is absent, so this gate checked nothing'); sys.exit(1)
+
+rules, allows, opens, cfgbad = [], {}, {}, []
+for lno, ln in enumerate(open(REG, encoding='utf-8'), 1):
+    if not ln.strip() or ln.startswith('#'):
+        continue
+    f = ln.rstrip('\n').split('\t')
+    kind = f[0]
+    if kind in ('rule', 'attrib') and len(f) >= 7:
+        # `attrib` (2026-08-06): same field layout as `rule`; the kind changes what an
+        # unexempted hit MEANS (dead credit restated vs unresolved alias) — see the
+        # header comment above and the registry's jurisdiction note.
+        if f[2] not in ('exact', 'nocase'):
+            cfgbad.append((lno, f'unknown mode "{f[2]}"')); continue
+        rules.append({'kind': kind, 'alias': f[1], 'mode': f[2],
+                      'stop': ('' if f[3] == '-' else f[3]),
+                      'token': f[4], 'home': f[5], 'why': f[6]})
+    elif kind == 'allow' and len(f) >= 6:
+        if f[4] not in ('resolution-note', 'literal', 'historical', 'meta-mention',
+                        'other-contribution'):
+            # Closed vocabulary: an invented class is how an exemption mechanism
+            # silently widens (GATE 3b's design note). FAIL, don't coerce.
+            cfgbad.append((lno, f'unknown allow class "{f[4]}"')); continue
+        allows[(f[1], f[2], f[3])] = (f[4], f[5])
+    elif kind == 'open' and len(f) >= 5:
+        opens[(f[1], f[2], f[3])] = f[4]
+    else:
+        cfgbad.append((lno, f'unrecognized kind or field count ({f[0]!r}, {len(f)} fields)'))
+for lno, msg in cfgbad:
+    print(f'  [FAIL] {REG}:{lno} — malformed registry row: {msg}')
+    print(f'         A row this gate cannot parse is a row it silently stopped enforcing.')
+
+def occ(hay, needle, stop):
+    # Fixed-substring occurrence count with a void-if-followed-by-stopchar guard.
+    # str.find only — no regex of any kind (box-safety rule at the top of this file).
+    n, i = 0, hay.find(needle)
+    while i >= 0:
+        j = i + len(needle)
+        if not (stop and j < len(hay) and hay[j] in stop):
+            n += 1
+        i = hay.find(needle, j)
+    return n
+
+# CHARACTER-VARIANT FOLD (2026-08-06) — GATE 3b's canon(), same table, same two-star
+# contract; see the fold comment there for the full rationale and the deliberately
+# unfolded families. PROVEN LIVE for THIS gate before it shipped: "C1 + C2 + C3"
+# (spaced) and "c1+c2+c3" (lowercase, before rule 1 went nocase) both passed green
+# while "C1+C2+C3" fired — a ruled alias could be restated out of reach of its ruling
+# by a spacing or case variant. The '+'-spacing collapse is the load-bearing fold
+# here, and it PRESERVES the stopchar contract: "C1 + C2 + C3 + C4" folds to
+# "C1+C2+C3+C4", whose alias occurrence is voided by the '+' stopchar exactly as the
+# unspaced conjunction is. Dash folding (en/em/minus -> '-') guards future dashed
+# rules; it is inert for both current rules. Resolution TOKENS and allow/open ANCHORS
+# keep matching the RAW line — adjudication machinery untouched, needle side widened.
+FOLD1 = {0x00D7: 'x', 0x2715: 'x', 0x2A2F: 'x',
+         0x2013: '-', 0x2014: '-', 0x2212: '-',
+         0x2265: '>=', 0x2264: '<=', 0xFF0B: '+',
+         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' '}
+def canon(s, star):
+    s = s.translate(FOLD1).replace('*', star)
+    out = []
+    for i, ch in enumerate(s):              # strip digit-group commas, no regex
+        if ch == ',' and 0 < i < len(s) - 1 and s[i-1].isdigit() and s[i+1].isdigit():
+            continue
+        out.append(ch)
+    return ''.join(out).replace(' +', '+').replace('+ ', '+')
+
+mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True).stdout.split()
+# COST, evaluated before writing it (box-safety rule): canonicalisation is |mds| ~130
+# files x ~500 lines x 2 star-readings of canon() (a translate + one linear scan each),
+# then |rules| = 2 fixed-substring occ() searches per line per reading ~ 5e5 str.find
+# calls over data already in memory, plus the flattened whole-text searches per
+# (file, rule) for the hard-wrap check. No regex, no bounded repetition; `nocase` is
+# str.lower(), not a pattern.
+# The registry itself is .tsv, outside the '*.md' glob, so the gate cannot match its
+# own rows (verified: same property GATE 3b states for its registries).
+bad, spans, openhits, exempt, ninline = [], [], [], [], 0
+used_allow, used_open = set(), set()
+for m in mds:
+    text = open(m, encoding='utf-8', errors='replace').read()
+    lines = text.split('\n')
+    # Canonicalise once per file, in both '*' readings; needle tests run against these,
+    # while token/open/allow checks below keep matching the RAW `line`.
+    clx = [canon(l, 'x') for l in lines]
+    cld = [canon(l, '') for l in lines]
+    for r in rules:
+        calias = canon(r['alias'], '')     # no rule alias carries '*': one canon suffices
+        needle = calias.lower() if r['mode'] == 'nocase' else calias
+        n_online = 0
+        for i, line in enumerate(lines, 1):
+            hx = clx[i-1].lower() if r['mode'] == 'nocase' else clx[i-1]
+            hd = cld[i-1].lower() if r['mode'] == 'nocase' else cld[i-1]
+            c = max(occ(hx, needle, r['stop']), occ(hd, needle, r['stop']))
+            if not c:
+                continue
+            n_online += c    # OCCURRENCES, not lines — GATE 3b's TR-2:650 lesson,
+                             # so the wrap check below cannot report a phantom.
+            if r['token'] and r['token'] in line:
+                ninline += 1                      # within one link, by its own line
+                continue
+            oh = [a for (af, aa, a) in opens
+                  if af == m and aa == r['alias'] and a in line]
+            if oh:
+                for a in oh:
+                    used_open.add((m, r['alias'], a))
+                openhits.append((m, i, r['alias'], opens[(m, r['alias'], oh[0])]))
+                continue
+            ah = [(a, allows[(af, aa, a)]) for (af, aa, a) in allows
+                  if af == m and aa == r['alias'] and a in line]
+            if ah:
+                for a, _ in ah:
+                    used_allow.add((m, r['alias'], a))
+                exempt.append((m, i, r['alias'], ah[0][1][0], ah[0][1][1]))
+                continue
+            bad.append((m, i, r['alias'], r, line.strip()))
+        # Hard-wrap evasion, GATE 3b's flat check: "the exhaustive enumeration" split
+        # across a wrap is invisible line-by-line but visible after whitespace
+        # normalisation. (For the space-free alias this leg is inert — markdown wraps
+        # at spaces — but it costs one search and guards future space-carrying rules.)
+        # Both sides use the same canon() fold, so a variant-form occurrence cannot
+        # produce a phantom wrap.
+        flat = ' '.join(text.split())
+        fx = canon(flat, 'x'); fd = canon(flat, '')
+        if r['mode'] == 'nocase':
+            fx = fx.lower(); fd = fd.lower()
+        if max(occ(fx, needle, r['stop']), occ(fd, needle, r['stop'])) > n_online:
+            spans.append((m, r['alias'], r))
+
+for m, i, alias, r, line in bad:
+    if r['kind'] == 'attrib':
+        print(f'  [FAIL] {m}:{i} — superseded attribution "{alias}" restated with no path to its correction')
+        print(f'         CORRECTION: {r["why"]}')
+        print(f'         LIVES AT: {r["home"]}')
+        print(f'         LINE: {line[:150]}')
+        print(f'         FIX: apply the corrected credit (or narrate the correction on this line),')
+        print(f'         add an `allow` row — class other-contribution ONLY if the person is cited')
+        print(f'         for a distinct, still-supported claim — or adjudicate it `open`; registry header.')
+    else:
+        print(f'  [FAIL] {m}:{i} — ruled alias "{alias}" used out of reach of its ruling')
+        print(f'         RULING: {r["why"]}')
+        print(f'         LIVES AT: {r["home"]}')
+        print(f'         LINE: {line[:150]}')
+        print(f'         FIX: apply the ruling to this line (or put a same-line pointer to the')
+        print(f'         ruling), add an `allow` row with the right class if this is a legitimate')
+        print(f'         sense, or adjudicate it `open` — see the registry header.')
+for m, alias, r in spans:
+    noun = 'superseded attribution' if r['kind'] == 'attrib' else 'ruled alias'
+    print(f'  [FAIL] {m} — {noun} "{alias}" present only after whitespace')
+    print(f'         normalisation, so it spans a hard wrap and cannot be line-classified.')
+    print(f'         RULING: {r["why"]}')
+for m, i, alias, why in openhits:
+    print(f'  [OPEN] {m}:{i} "{alias}" — {why}')
+if openhits:
+    print(f'  [note] {len(openhits)} adjudicated-open site(s) above are DEFECTS, not exemptions')
+    print(f'         (DOC_GATE_FIGURE_LEDGER_OPEN.txt contract). Each is closed by fixing the')
+    print(f'         line and deleting its `open` row; a NEW unadjudicated use is a [FAIL].')
+for k in [k for k in allows if k not in used_allow]:
+    print(f'  [note] allow row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
+    print(f'         Either the text was fixed (delete the row) or the anchor drifted.')
+for k in [k for k in opens if k not in used_open]:
+    print(f'  [note] open row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
+    print(f'         Either the defect was fixed (delete the row — the backlog count must')
+    print(f'         shrink honestly) or the anchor drifted and the defect is now unwatched.')
+
+nbad = len(bad) + len(spans) + len(cfgbad)
+if not nbad:
+    byclass = {}
+    for _, _, _, cls, _ in exempt:
+        byclass[cls] = byclass.get(cls, 0) + 1
+    tally = ', '.join(f'{v} {k}' for k, v in sorted(byclass.items())) or 'none'
+    nal = sum(1 for r in rules if r['kind'] == 'rule')
+    print(f'  [ok] {nal} ruled alias(es) + {len(rules) - nal} superseded attribution(s); '
+          f'every use in {len(mds)} markdown files is '
+          f'within one link of its ruling ({ninline} inline), a curated legitimate sense '
+          f'({tally}), or adjudicated open ({len(openhits)} [OPEN] above)')
+sys.exit(1 if nbad else 0)
+PY
+}
+
 MODE="${1:-all}"
 
 # ITEM R15 (round 14) — A CONCURRENT --selftest MAKES THIS RUN'S VERDICT MEANINGLESS, AND
@@ -8735,6 +9162,7 @@ case "$MODE" in
   instruments) gate_selftest_instruments || RC=1 ;;
   collisions) gate_preflight_collisions || RC=1 ;;
   scoreboard) gate_scoreboard_verdicts || RC=1 ;;
+  alias-reach) gate_alias_reach || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -8748,8 +9176,9 @@ case "$MODE" in
            echo; gate_registry_dupes || RC=1
            echo; gate_selftest_instruments || RC=1
            echo; gate_preflight_collisions || RC=1
-           echo; gate_scoreboard_verdicts || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|generated|all}"; exit 2 ;;
+           echo; gate_scoreboard_verdicts || RC=1
+           echo; gate_alias_reach || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -8796,7 +9225,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only). Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is not in 'all' — run it separately."

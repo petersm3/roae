@@ -70,3 +70,4 @@ documentation/CORRECTIONS.md	2.0σ	RF-8d74e1c4	meta-mention	CX-21's key table. T
 documentation/CORRECTIONS.md	marginal 4.6	RF-df361ebc	meta-mention	CX-21's key table, pointing at CX-19.
 documentation/CORRECTIONS.md	net +1.6	RF-c1721127	meta-mention	CX-21's key table, pointing at CX-19.
 documentation/CORRECTIONS.md	palnbr 16	RF-1813e230	meta-mention	CX-21's key table, pointing at CX-07.
+reports/METHODS.md	~52×	look-elsewhere factor for TR-8 was examined and	meta-mention	METHODS review-record paragraph: names the figure in order to record that it was DECLINED (d73-margin), stating the supported floor of >=~10x.
