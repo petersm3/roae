@@ -1067,8 +1067,11 @@ theorem cross_depth_invariance (S : List (List Nat)) (hS : S.Nodup)
 /-! ### §12 Sanity witnesses (design §4 L12).
 
     `decide` suffices for the structural comparator facts; the merge
-    examples need `native_decide` because `dedupKeyFirst` is defined by
-    well-founded recursion (kernel reduction does not unfold WF fixpoints). -/
+    examples use `decide +kernel` (migrated from `native_decide`
+    2026-08-04 — the earlier note here claimed kernel reduction cannot
+    unfold the WF-defined `dedupKeyFirst`; MEASURED on 4.31.0 the kernel
+    does evaluate these toy-size instances, in well under a second, so
+    the compiler-trust axiom is gone from this file entirely). -/
 
 /-- The design's mandated two-tier guard pair: under the REAL comparator
     [6,0] precedes [4,8] (masked primary [4,0] <lex [4,8]) even though
@@ -1081,8 +1084,7 @@ example : lexLe [4, 8] [6, 0] = true := by decide
 /-- class-min selection: [6,0], [4,1], [4,3] are ONE canonical class
     (all mask to [4,0]); the retained representative is the byte-least. -/
 example : merge recLe mask [[6, 0], [4, 1], [4, 3]] = [[4, 1]] := by
-  native_decide
-
+  decide +kernel
 /-- toy solution listing; the first two records echo King Wen's opening
     bytes (63, 0, 17, 34 — hexagrams 1, 2 and the pair at positions 3-4).
     The class {[6,0,2], [4,0,2]} (both mask to [4,0,0]) STRADDLES the
@@ -1092,35 +1094,30 @@ def toyS : List (List Nat) :=
   [[63, 0, 17], [63, 0, 34], [6, 0, 2], [4, 0, 2], [4, 8, 1]]
 
 example : merge recLe mask toyS =
-    [[4, 0, 2], [4, 8, 1], [63, 0, 17], [63, 0, 34]] := by native_decide
-
+    [[4, 0, 2], [4, 8, 1], [63, 0, 17], [63, 0, 34]] := by decide +kernel
 /-- §1 headline shape: one full invocation (depth-0 = a single cell) vs
     per-head sharding (depth-1) — identical canonical output. -/
 example :
     merge recLe mask ((cellsOf toyS 0).flatMap fun c => toyS.filter c) =
       merge recLe mask ((cellsOf toyS 1).flatMap fun c => toyS.filter c) := by
-  native_decide
-
+  decide +kernel
 /-- §4 cross-depth shape: depth-1 vs depth-2 sharding — identical output. -/
 example :
     merge recLe mask ((cellsOf toyS 1).flatMap fun c => toyS.filter c) =
       merge recLe mask ((cellsOf toyS 2).flatMap fun c => toyS.filter c) := by
-  native_decide
-
+  decide +kernel
 /-- ...and the same fact as an instance of the THEOREM (not computation).
-    CHECK: relies on core Decidable instance for `List.Nodup` (Pairwise over
-    a DecidableRel); if absent, replace the `by native_decide` with a short
-    `by simp`/`by decide`-free Nodup derivation. -/
+    The Nodup side condition is a plain kernel `decide` (5-element literal;
+    core's Decidable instance for `List.Nodup` is present on 4.31.0). -/
 example :
     merge recLe mask ((cellsOf toyS 1).flatMap fun c => toyS.filter c) =
       merge recLe mask ((cellsOf toyS 2).flatMap fun c => toyS.filter c) :=
-  cross_depth_invariance toyS (by native_decide) 1 2
+  cross_depth_invariance toyS (by decide) 1 2
 
 /-- dedup placement irrelevance on concrete shards (T4 witness). -/
 example :
     merge recLe mask (merge recLe mask [[6, 0], [4, 3]] ++ [[4, 1], [63, 0]]) =
-      merge recLe mask [[6, 0], [4, 3], [4, 1], [63, 0]] := by native_decide
-
+      merge recLe mask [[6, 0], [4, 3], [4, 1], [63, 0]] := by decide +kernel
 end PartitionInvariance
 
 /-! ### Axiom audit (added 2026-08-01)

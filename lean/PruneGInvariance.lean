@@ -99,19 +99,21 @@
   standalone; no lake project), as are the finite facts and the list
   utilities reused.
 
-  Trust base (updated 2026-07-22, per the standing native_decide → decide
-  migration policy in lean/README.md): the §1 group facts applyPerm_lt64 /
+  Trust base (updated 2026-08-04, per the standing native_decide → decide
+  migration policy in lean/README.md): kernel-only end to end — ZERO
+  native_decide anywhere in this file. The §1 group facts applyPerm_lt64 /
   applyPerm_comp63 / applyPerm_partner / applyPerm_range_perm are kernel
-  `decide`, and applyPerm_inj is derived structurally from
-  applyPerm_range_perm — so the #67/#70 invariance chain (partialCd,
-  inevitableBound, prune67/70) and the §9 prefix-G chain rest on the
-  kernel alone. The single remaining native_decide §1 fact is
-  applyPerm_isometry (48 × 64 × 64 Hamming checks; kernel `decide`
-  exceeds elaborator recursion/heartbeat limits on this toolchain —
-  measured, not assumed), so the #68 leg (wdTerm/transitions/budget) and
-  anything through pruneV4_mapP still carries the larger native_decide
-  trust base, as do the §8 sanity instantiations (witnesses only, not
-  load-bearing).
+  `decide`; applyPerm_inj is derived structurally from applyPerm_range_perm;
+  and applyPerm_isometry — this file's last native_decide until 2026-08-04
+  (the 2026-07-22 note here recorded kernel-`decide` exhaustion on the
+  48 × 64 × 64 ENUMERATION; true of that route, moot for this one) — is now
+  an instantiation of §0b's structural general isometry
+  (applyPerm_isometry_perm: ANY bit-position permutation preserves ham on
+  ALL naturals — classical coding theory, credited as such, no novelty
+  claimed). So the #67/#70 chain, the #68 leg (wdTerm/transitions/budget),
+  pruneV4_mapP, and the §9 prefix-G chain all rest on the kernel alone.
+  The §8 sanity instantiations are `decide +kernel` (kernel-evaluated, no
+  compiler trust) since 2026-08-04.
 
   §9 attribution: identified as the one promised-but-unlanded piece by the
   C3 adversarial review (roae-private REVIEW_C3_FABLE_2026_07_22.md §1.4/§3);
@@ -165,20 +167,296 @@ def G48 : List (List Nat) :=
   (perms idp).filter fun p =>
     (List.range 64).all fun h => applyPerm p (rev6 h) == rev6 (applyPerm p h)
 
-/- ------------- §1 finite group facts (kernel decide where affordable; see the
-   trust-base note in the header — only applyPerm_isometry remains native_decide) ------------- -/
+
+/- ------------- §0b the structural Hamming-isometry layer (added 2026-08-04) -------------
+   Proves the CLASSICAL coding-theory fact that permuting coordinates is an
+   isometry of the Hamming metric (the reason permutation-equivalent codes
+   share a weight distribution) — structurally, with no case enumeration:
+   ham a b is the size of the disagreement set {i < 6 : bit i a ≠ bit i b};
+   applyPerm p relocates bit i to position p[i] (`bitsum_bit_getD`), so p
+   carries the disagreement set of (a,b) bijectively onto that of (p·a, p·b),
+   and the disagreement sum merely reindexes along p (`sum_perm`). Nothing
+   here is novel; it replaces the former native_decide enumeration of §1's
+   applyPerm_isometry. Tiny-domain kernel `decide`s used (disclosed): the
+   6-element literal idp.Nodup and 0 < 2 — nothing over perms/G48/hexagrams. -/
+
+/-- sum preserved under list permutation (moved here from §2, 2026-08-04 —
+    the isometry layer needs it before §1). -/
+theorem sum_perm {l₁ l₂ : List Nat} (h : l₁.Perm l₂) : l₁.sum = l₂.sum := by
+  induction h with
+  | nil => rfl
+  | cons x _ ih => simp [ih]
+  | swap x y l => simp [List.sum_cons]; omega
+  | trans _ _ ih₁ ih₂ => omega
+
+/-- membership in `inserts x l` means: a permutation of x :: l (structural). -/
+theorem mem_inserts_perm {x : Nat} : ∀ {l q : List Nat}, q ∈ inserts x l → q.Perm (x :: l)
+  | [], q, hq => by
+      simp only [inserts, List.mem_cons, List.not_mem_nil, or_false] at hq
+      subst hq; exact List.Perm.refl _
+  | y :: ys, q, hq => by
+      simp only [inserts, List.mem_cons, List.mem_map] at hq
+      rcases hq with rfl | ⟨q', hq', rfl⟩
+      · exact List.Perm.refl _
+      · exact (List.Perm.cons y (mem_inserts_perm hq')).trans (List.Perm.swap x y ys)
+
+/-- every member of `perms l` is a permutation of l (structural induction on
+    the generators; the converse is not needed). -/
+theorem mem_perms_perm : ∀ {l q : List Nat}, q ∈ perms l → q.Perm l
+  | [], q, hq => by
+      simp only [perms, List.mem_cons, List.not_mem_nil, or_false] at hq
+      subst hq; exact List.Perm.refl _
+  | x :: xs, q, hq => by
+      simp only [perms, List.mem_flatMap] at hq
+      obtain ⟨r, hr, hq2⟩ := hq
+      exact (mem_inserts_perm hq2).trans (List.Perm.cons x (mem_perms_perm hr))
+
+theorem foldl_add_eq_sum : ∀ (l : List Nat) (a : Nat), l.foldl (·+·) a = a + l.sum
+  | [], a => by simp
+  | x :: xs, a => by
+      rw [List.foldl_cons, foldl_add_eq_sum xs (a + x), List.sum_cons]
+      omega
+
+theorem getD_mem : ∀ (l : List Nat) (k : Nat), k < l.length → l.getD k 0 ∈ l
+  | [], _, h => by simp at h
+  | x :: xs, 0, _ => by simp
+  | x :: xs, k+1, h => by
+      rw [List.getD_cons_succ]
+      exact List.mem_cons_of_mem x (getD_mem xs k (by simpa using h))
+
+/-- reindexing a map through positional lookup. -/
+theorem map_getD_comp (l : List Nat) (f : Nat → Nat) :
+    l.map f = (List.range l.length).map (fun i => f (l.getD i 0)) := by
+  induction l with
+  | nil => rfl
+  | cons x xs _ =>
+      rw [List.length_cons, List.range_succ_eq_map, List.map_cons, List.map_cons,
+        List.map_map]
+      congr 1
+
+/-- the bit-scatter normal form: bitsum q n = Σ_i bit_i(n) · 2^(q_i). -/
+def bitsum : List Nat → Nat → Nat
+  | [], _ => 0
+  | x :: xs, n => n % 2 * 2^x + bitsum xs (n / 2)
+
+theorem range_map_bits (q : List Nat) : ∀ n : Nat,
+    ((List.range q.length).map fun i => n / 2^i % 2 * 2^(q.getD i 0)).sum = bitsum q n := by
+  induction q with
+  | nil => intro n; rfl
+  | cons x xs ih =>
+      intro n
+      rw [List.length_cons, List.range_succ_eq_map, List.map_cons, List.map_map, List.sum_cons]
+      have hhead : n / 2^0 % 2 * 2^((x :: xs).getD 0 0) = n % 2 * 2^x := by
+        simp
+      have htail : ((List.range xs.length).map
+          ((fun i => n / 2^i % 2 * 2^((x :: xs).getD i 0)) ∘ Nat.succ)).sum
+          = bitsum xs (n / 2) := by
+        rw [← ih (n / 2)]
+        apply congrArg
+        apply List.map_congr_left
+        intro i _
+        simp only [Function.comp, Nat.succ_eq_add_one, List.getD_cons_succ]
+        have hdiv : n / 2 ^ (i + 1) = n / 2 / 2 ^ i := by
+          rw [Nat.div_div_eq_div_mul, ← Nat.pow_succ']
+        rw [hdiv]
+      rw [hhead, htail]
+      rfl
+
+theorem applyPerm_eq_bitsum (p : List Nat) (hlen : p.length = 6) (n : Nat) :
+    applyPerm p n = bitsum p n := by
+  unfold applyPerm
+  rw [foldl_add_eq_sum, Nat.zero_add, ← hlen, range_map_bits]
+
+/-- the arithmetic workhorse: adding c·2^x (c < 2) to a number whose bit x is
+    clear changes bit x to c and no other bit — no carries. Purely arithmetic
+    (division/modulus); here for the j > x side. -/
+theorem bit_add_high {c T x j : Nat} (hc : c < 2) (hT : T / 2^x % 2 = 0) (hj : x < j) :
+    (c * 2^x + T) / 2^j % 2 = T / 2^j % 2 := by
+  have hqe : T / 2^x = 2 * (T / 2^(x+1)) := by
+    have h1 := Nat.div_add_mod (T / 2^x) 2
+    have h2 : T / 2^x / 2 = T / 2^(x+1) := by
+      rw [Nat.div_div_eq_div_mul, ← Nat.pow_succ]
+    rw [h2] at h1
+    omega
+  have hmul : 2^x * (2 * (T / 2^(x+1))) = 2^(x+1) * (T / 2^(x+1)) := by
+    rw [Nat.pow_succ, Nat.mul_assoc]
+  have hTdecomp : T = 2^(x+1) * (T / 2^(x+1)) + T % 2^x := by
+    have h3 := Nat.div_add_mod T (2^x)
+    rw [hqe, hmul] at h3
+    exact h3.symm
+  have hr : T % 2^x < 2^x := Nat.mod_lt _ (Nat.two_pow_pos x)
+  have hcr : c * 2^x + T % 2^x < 2^(x+1) := by
+    have h4 : c * 2^x ≤ 1 * 2^x := Nat.mul_le_mul_right _ (by omega)
+    rw [Nat.one_mul] at h4
+    rw [Nat.pow_succ]
+    omega
+  have hN : (c * 2^x + T) / 2^(x+1) = T / 2^(x+1) := by
+    generalize hhi : T / 2^(x+1) = hi at hTdecomp ⊢
+    generalize hrr : T % 2^x = r at hTdecomp hcr
+    rw [hTdecomp]
+    rw [← Nat.add_assoc, Nat.add_comm (c * 2^x) (2^(x+1) * hi), Nat.add_assoc,
+        Nat.mul_add_div (Nat.two_pow_pos (x+1)), Nat.div_eq_of_lt hcr, Nat.add_zero]
+  have hdd : ∀ N : Nat, N / 2^j = N / 2^(x+1) / 2^(j-x-1) := by
+    intro N
+    rw [Nat.div_div_eq_div_mul, ← Nat.pow_add]
+    congr 2
+    omega
+  rw [hdd (c * 2^x + T), hdd T, hN]
+
+/-- ... and all three position cases packaged: bit j of c·2^x + T. -/
+theorem bit_add_disjoint {c T x : Nat} (j : Nat) (hc : c < 2) (hT : T / 2^x % 2 = 0) :
+    (c * 2^x + T) / 2^j % 2 = if j = x then c else T / 2^j % 2 := by
+  rcases Nat.lt_trichotomy j x with hlt | heq | hgt
+  · rw [if_neg (Nat.ne_of_lt hlt)]
+    have hx : (2:Nat)^x = 2^(x-j) * 2^j := by
+      rw [← Nat.pow_add]; congr 1; omega
+    rw [hx, ← Nat.mul_assoc, Nat.add_comm, Nat.mul_comm (c * 2^(x-j)) (2^j)]
+    rw [Nat.add_mul_div_left _ _ (Nat.two_pow_pos j)]
+    have heven : c * 2^(x-j) = 2 * (c * 2^(x-j-1)) := by
+      have h2p : (2:Nat)^(x-j) = 2 * 2^(x-j-1) := by
+        rw [← Nat.pow_succ']
+        congr 1
+        omega
+      rw [h2p, ← Nat.mul_assoc, Nat.mul_comm c 2, Nat.mul_assoc]
+    rw [heven]
+    generalize T / 2^j = u
+    omega
+  · subst heq
+    rw [if_pos rfl, Nat.add_comm, Nat.mul_comm c (2^j)]
+    rw [Nat.add_mul_div_left _ _ (Nat.two_pow_pos j)]
+    generalize hu : T / 2^j = u
+    rw [hu] at hT
+    omega
+  · rw [if_neg (Nat.ne_of_gt hgt)]
+    exact bit_add_high hc hT hgt
+
+/-- distinct scatter positions ⇒ absent positions read 0. -/
+theorem bitsum_bit_notmem : ∀ (q : List Nat), q.Nodup → ∀ (n j : Nat), j ∉ q →
+    bitsum q n / 2^j % 2 = 0
+  | [], _, n, j, _ => by simp [bitsum]
+  | x :: xs, hnd, n, j, hj => by
+      have hx : x ∉ xs := (List.nodup_cons.mp hnd).1
+      have hxs : xs.Nodup := (List.nodup_cons.mp hnd).2
+      have hjx : j ≠ x := fun h => hj (h ▸ List.mem_cons_self ..)
+      have hjxs : j ∉ xs := fun h => hj (List.mem_cons_of_mem x h)
+      have hm2 : n % 2 < 2 := Nat.mod_lt n (by decide)
+      have hT : bitsum xs (n/2) / 2^x % 2 = 0 := bitsum_bit_notmem xs hxs (n/2) x hx
+      rw [show bitsum (x :: xs) n = n % 2 * 2^x + bitsum xs (n/2) from rfl]
+      rw [bit_add_disjoint j hm2 hT, if_neg hjx]
+      exact bitsum_bit_notmem xs hxs (n/2) j hjxs
+
+/-- THE RELOCATION LEMMA: bit k of n reappears as bit q[k] of bitsum q n. -/
+theorem bitsum_bit_getD : ∀ (q : List Nat), q.Nodup → ∀ (n k : Nat), k < q.length →
+    bitsum q n / 2^(q.getD k 0) % 2 = n / 2^k % 2
+  | [], _, _, k, h => by simp at h
+  | x :: xs, hnd, n, 0, _ => by
+      have hx : x ∉ xs := (List.nodup_cons.mp hnd).1
+      have hm2 : n % 2 < 2 := Nat.mod_lt n (by decide)
+      have hT : bitsum xs (n/2) / 2^x % 2 = 0 :=
+        bitsum_bit_notmem xs (List.nodup_cons.mp hnd).2 (n/2) x hx
+      rw [List.getD_cons_zero,
+          show bitsum (x :: xs) n = n % 2 * 2^x + bitsum xs (n/2) from rfl,
+          bit_add_disjoint x hm2 hT, if_pos rfl]
+      simp
+  | x :: xs, hnd, n, k+1, hk => by
+      have hx : x ∉ xs := (List.nodup_cons.mp hnd).1
+      have hxs : xs.Nodup := (List.nodup_cons.mp hnd).2
+      have hklen : k < xs.length := by simpa using hk
+      have hne : xs.getD k 0 ≠ x := fun h => hx (h ▸ getD_mem xs k hklen)
+      have hm2 : n % 2 < 2 := Nat.mod_lt n (by decide)
+      have hT : bitsum xs (n/2) / 2^x % 2 = 0 := bitsum_bit_notmem xs hxs (n/2) x hx
+      rw [List.getD_cons_succ,
+          show bitsum (x :: xs) n = n % 2 * 2^x + bitsum xs (n/2) from rfl,
+          bit_add_disjoint (xs.getD k 0) hm2 hT, if_neg hne,
+          bitsum_bit_getD xs hxs (n/2) k hklen]
+      rw [Nat.div_div_eq_div_mul, ← Nat.pow_succ']
+
+/-- per-bit xor: the xor'd bit is the disagreement indicator. Uses core's
+    `Nat.testBit_xor` bridge; the bit-value analysis is a tiny 2×2 case
+    split, disclosed. -/
+theorem xor_bit (a b i : Nat) :
+    (a ^^^ b) / 2^i % 2 = if a / 2^i % 2 = b / 2^i % 2 then 0 else 1 := by
+  have hxor := Nat.testBit_xor a b i
+  rw [Nat.testBit_eq_decide_div_mod_eq, Nat.testBit_eq_decide_div_mod_eq,
+      Nat.testBit_eq_decide_div_mod_eq] at hxor
+  have ha := Nat.mod_two_eq_zero_or_one (a / 2^i)
+  have hb := Nat.mod_two_eq_zero_or_one (b / 2^i)
+  have hab := Nat.mod_two_eq_zero_or_one ((a ^^^ b) / 2^i)
+  rcases ha with ha | ha <;> rcases hb with hb | hb <;>
+    rw [ha, hb] at hxor ⊢ <;> simp at hxor ⊢ <;> omega
+
+theorem pc6_eq_bits (m : Nat) :
+    pc6 m = ((List.range 6).map fun i => m / 2^i % 2).sum := by
+  rw [show List.range 6 = [0,1,2,3,4,5] from rfl]
+  simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
+  unfold pc6
+  simp only [show (2:Nat)^0 = 1 from rfl, show (2:Nat)^1 = 2 from rfl,
+    show (2:Nat)^2 = 4 from rfl, show (2:Nat)^3 = 8 from rfl,
+    show (2:Nat)^4 = 16 from rfl, show (2:Nat)^5 = 32 from rfl, Nat.div_one]
+  omega
+
+/-- ham as the size of the disagreement set over the six bit positions. -/
+theorem ham_eq_disagreements (a b : Nat) :
+    ham a b = ((List.range 6).map fun i => if a / 2^i % 2 = b / 2^i % 2 then 0 else 1).sum := by
+  show pc6 (a ^^^ b) = _
+  rw [pc6_eq_bits]
+  exact congrArg List.sum (List.map_congr_left fun i _ => xor_bit a b i)
+
+/-- THE GENERAL ISOMETRY (classical coding theory — permuting coordinates is
+    an isometry of the Hamming metric; standard, no novelty claimed): for ANY
+    permutation p of the six bit positions and ALL naturals a, b,
+    ham (applyPerm p a) (applyPerm p b) = ham a b. Structural proof — p
+    carries the disagreement set of (a, b) bijectively onto that of
+    (p·a, p·b); a bijection preserves cardinality. No case enumeration. -/
+theorem applyPerm_isometry_perm (p : List Nat) (hp : p.Perm idp) (a b : Nat) :
+    ham (applyPerm p a) (applyPerm p b) = ham a b := by
+  have hlen : p.length = 6 := hp.length_eq
+  have hnd : p.Nodup := hp.nodup_iff.mpr (by decide)
+  have hp6 : p.Perm (List.range 6) := by
+    rw [show List.range 6 = idp from rfl]; exact hp
+  rw [ham_eq_disagreements, ham_eq_disagreements a b]
+  have h1 : ((List.range 6).map fun j =>
+        if applyPerm p a / 2^j % 2 = applyPerm p b / 2^j % 2 then 0 else 1).sum
+      = (p.map fun j =>
+        if applyPerm p a / 2^j % 2 = applyPerm p b / 2^j % 2 then 0 else 1).sum :=
+    (sum_perm (hp6.map _)).symm
+  have h2 : (p.map fun j =>
+        if applyPerm p a / 2^j % 2 = applyPerm p b / 2^j % 2 then 0 else 1)
+      = (List.range 6).map (fun i =>
+        if applyPerm p a / 2^(p.getD i 0) % 2 = applyPerm p b / 2^(p.getD i 0) % 2
+        then 0 else 1) := by
+    rw [map_getD_comp p, hlen]
+  have h3 : ((List.range 6).map (fun i =>
+        if applyPerm p a / 2^(p.getD i 0) % 2 = applyPerm p b / 2^(p.getD i 0) % 2
+        then 0 else 1))
+      = (List.range 6).map (fun i => if a / 2^i % 2 = b / 2^i % 2 then 0 else 1) := by
+    apply List.map_congr_left
+    intro i hi
+    have hip : i < p.length := by
+      have := List.mem_range.mp hi; omega
+    rw [applyPerm_eq_bitsum p hlen a, applyPerm_eq_bitsum p hlen b,
+        bitsum_bit_getD p hnd a i hip, bitsum_bit_getD p hnd b i hip]
+  rw [h1, h2, h3]
+
+/- ------------- §1 finite group facts (kernel decide; applyPerm_isometry is
+   derived from §0b's structural general isometry — zero native_decide) ------------- -/
 
 theorem applyPerm_lt64 : ∀ p ∈ G48, ∀ h < 64, applyPerm p h < 64 := by decide
 
-/-- the one remaining native_decide group fact: 48 × 64 × 64 Hamming checks —
-    kernel `decide` exceeds the elaborator's recursion/heartbeat limits on
-    this toolchain (measured 2026-07-22: `maxRecDepth` exhaustion after ~42 s
-    at 8× heartbeats), so the compiled evaluator stays. Everything downstream
-    of THIS fact (#68's wdTerm/transitions/budget, pruneV4_mapP) inherits the
-    native_decide trust base; the #67/#70 and §9 chains do not use it. -/
+/-- Hamming isometry of the G48 action — derived by instantiating §0b's
+    STRUCTURAL general lemma (`applyPerm_isometry_perm`; G48 ⊆ perms idp by
+    construction, and members of `perms l` are permutations of l —
+    `mem_perms_perm`). The `< 64` bounds are retained verbatim for downstream
+    compatibility; the proof does not need them. Until 2026-08-04 this was the
+    file's one remaining `native_decide` (48 × 64 × 64 compiled-evaluator
+    checks; the 2026-07-22 header note recorded kernel-`decide` exhaustion on
+    that ENUMERATION route — accurate then, but moot now: the structural proof
+    enumerates nothing), so #68's wdTerm/transitions/budget leg and
+    pruneV4_mapP no longer inherit any compiler trust. -/
 theorem applyPerm_isometry :
     ∀ p ∈ G48, ∀ a < 64, ∀ b < 64, ham (applyPerm p a) (applyPerm p b) = ham a b := by
-  native_decide
+  intro p hp a _ b _
+  exact applyPerm_isometry_perm p (mem_perms_perm (List.mem_filter.mp hp).1) a b
 
 theorem applyPerm_comp63 :
     ∀ p ∈ G48, ∀ h < 64, applyPerm p h ^^^ 63 = applyPerm p (h ^^^ 63) := by
@@ -219,12 +497,7 @@ theorem xor63_lt64 : ∀ h < 64, h ^^^ 63 < 64 := by decide
 
 /- ------------- §2 list utilities (core-Lean, no mathlib) ------------- -/
 
-theorem sum_perm {l₁ l₂ : List Nat} (h : l₁.Perm l₂) : l₁.sum = l₂.sum := by
-  induction h with
-  | nil => rfl
-  | cons x _ ih => simp [ih]
-  | swap x y l => simp [List.sum_cons]; omega
-  | trans _ _ ih₁ ih₂ => omega
+-- (sum_perm moved to §0b, 2026-08-04 — the isometry layer needs it earlier.)
 
 theorem findIdx_congr {l : List Nat} {p q : Nat → Bool}
     (h : ∀ x ∈ l, p x = q x) : l.findIdx p = l.findIdx q := by
@@ -550,7 +823,7 @@ theorem pruneV4_work_invariant (target : Nat → Nat) (thresh : Nat)
   intro t
   exact pruneV4_mapP target thresh p hp t.property
 
-/- ------------- §8 sanity instantiations (native_decide spot checks) ------------- -/
+/- ------------- §8 sanity instantiations (decide +kernel spot checks; migrated from native_decide 2026-08-04) ------------- -/
 
 /-- the exact C5 distribution {1:2, 2:20, 3:13, 4:19, 6:9} (SPECIFICATION.md). -/
 def c5target : Nat → Nat := fun d =>
@@ -559,34 +832,27 @@ def c5target : Nat → Nat := fun d =>
 
 /-- the action moves states (invariance is not vacuous). -/
 example : ∃ p ∈ G48, [63, 0, 17, 34, 23, 58].map (applyPerm p) ≠
-    [63, 0, 17, 34, 23, 58] := by native_decide
-
+    [63, 0, 17, 34, 23, 58] := by decide +kernel
 /-- #67/#70 quantities across the WHOLE group on a King Wen prefix:
     only the complement pair {63, 0} is fully placed (at gap 1, counted at
     both members ⇒ partialCd = 2); the other 31 pairs are unfinished, so
     inevitableBound counts their 62 member hexagrams. -/
 example : ∀ p ∈ G48,
-    partialCd ([63, 0, 17, 34, 23, 58].map (applyPerm p)) = 2 := by native_decide
-
+    partialCd ([63, 0, 17, 34, 23, 58].map (applyPerm p)) = 2 := by decide +kernel
 example : ∀ p ∈ G48,
     inevitableBound ([63, 0, 17, 34, 23, 58].map (applyPerm p)) = 62 := by
-  native_decide
-
+  decide +kernel
 /-- full predicate agreement across the whole group (a computed instance of
     pruneV4_mapP). -/
 example : ∀ p ∈ G48,
     pruneV4 c5target 776 ([63, 0, 17, 34, 23, 58].map (applyPerm p)) =
-      pruneV4 c5target 776 [63, 0, 17, 34, 23, 58] := by native_decide
-
+      pruneV4 c5target 776 [63, 0, 17, 34, 23, 58] := by decide +kernel
 /-- the predicates are not vacuously false: zero budget with 32 unplaced
     pairs fires #68 ... -/
-example : prune68 (fun _ => 0) [] = true := by native_decide
-
+example : prune68 (fun _ => 0) [] = true := by decide +kernel
 /-- ... while the real C5 budget does not fire at the root (KW exists). -/
-example : prune68 c5target [] = false := by native_decide
-
-example : pruneV4 c5target 776 [] = false := by native_decide
-
+example : prune68 c5target [] = false := by decide +kernel
+example : pruneV4 c5target 776 [] = false := by decide +kernel
 /- ------------- §9 prefix-G (running-G) invariance — the C3 G-channel DP
    quotient-compatibility (design §1.2/§2.5; review §1.4/§3 item 1) -------------
 
@@ -739,8 +1005,8 @@ theorem runningG_orbit_invariant (p : List Nat) (hp : p ∈ G48) (s0 : Nat)
     runningG s0 (mapState p hp s).val = runningG s0 s.val :=
   runningG_mapP p hp s0 s.property
 
-/- §9 sanity witnesses (kernel decide — unlike §8's native_decide, these are
-   cheap enough for the kernel). -/
+/- §9 sanity witnesses (kernel decide — cheap enough for the elaborator's
+   evaluator; §8's heavier instances use decide +kernel). -/
 
 /-- KW's 32 pair representatives in slot order (even positions of KW; slot 0
     = the self-complement anchor pair {63, 0}, contributing 0 to G). -/
@@ -768,6 +1034,7 @@ public documentation, so the suite's `#print axioms` claims are OBSERVED rather 
 statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
 `[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
 `native_decide` (compiler trust) is load-bearing and the docs must say so. -/
+#print axioms PruneGInvariance.applyPerm_isometry_perm
 #print axioms PruneGInvariance.applyPerm_isometry
 #print axioms PruneGInvariance.partner_involution
 #print axioms PruneGInvariance.sum_perm

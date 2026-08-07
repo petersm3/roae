@@ -3,7 +3,8 @@
 ## Executive summary (plain English)
 
 This directory contains **machine-checked mathematical proofs**. Instead of trusting a human
-argument (or this project's own C and Python code), the Lean 4 proof assistant re-derives each
+argument (or this project's own C and Python code), the Lean 4 proof assistant
+([de Moura & Ullrich 2021](../documentation/CITATIONS.md#demoura-ullrich2021), CADE-28) re-derives each
 statement from first principles and certifies the logic (see the trust-base note below for
 exactly which proofs are checked by Lean's small kernel alone and which additionally trust
 Lean's compiler). What that buys:
@@ -58,14 +59,18 @@ Lean's compiler). What that buys:
   brute-force enumeration over all orderings at small sizes. This upgrades the exact-null leg
   previously carried by `verify.py --check-null-g` from exact-by-computation to machine-checked.
 - **No proof gaps**: the files contain zero `sorry` placeholders; everything stated is proved, and
-  each standalone file re-verifies from scratch in seconds on any machine (`lean <File>.lean`;
-  the toolchain is pinned in this directory's `lean-toolchain`; the three exceptions to "seconds"
-  are `C3Decomposition.lean`, ~2 minutes, which kernel-evaluates the null-law DP;
-  `KingWen.lean`, ~50 s, which kernel-evaluates the equivariance-ceiling witness and the
-  complement-symmetry section's kernel-decide facts; and `Automorphism.lean`, several minutes,
-  whose five heavy `decide +kernel` obligations were measured at 41–72 s **each** on D16 plus
-  ~24 s for §3a's `applyPerm_bit` (see that file's header — list corrected 2026-08-01, which
-  previously named only two exceptions)).
+  each standalone file re-verifies from scratch with `lean <File>.lean` (the toolchain is pinned in
+  this directory's `lean-toolchain`). Verification cost is real and is stated here honestly,
+  because until 2026-08-07 this bullet claimed each file checks "in seconds **on any machine**"
+  with three time exceptions and **no memory exceptions** — and that was false at every revision
+  since the kernel migrations landed: kernel evaluation of the heavy finite obligations is
+  memory-hungry, peaking at **~9.6 GB resident for `Automorphism.lean` and ~7.9 GB for
+  `KingWen.lean`**, so an 8 GB machine cannot verify those two files at all (this is the price of
+  their kernel-only trust base, independent of anything else in the tree). Half the files check in
+  about a second at under 0.7 GB; the expensive ones are `Automorphism.lean` (~4 min, ~9.6 GB),
+  `KingWen.lean` (~2 min, ~7.9 GB), `C3Decomposition.lean` (~1¼ min, ~4.5 GB, the null-law DP),
+  and `PruneGInvariance.lean` (~1½ min, ~3.9 GB). Full measured per-file table and host guidance
+  in §"Verify yourself" below — read it before running the suite on a small machine.
 
 In short: the deepest structural claims this project relies on do not depend on trusting us.
 
@@ -89,9 +94,25 @@ constants are kernel-only end to end (`#print axioms` ⊆ `[propext, Classical.c
 — Lean's standard axioms; the compiler-trust axiom `Lean.ofReduceBool` no longer appears in any of
 these chains, and the finite facts report `[propext]` alone). `native_decide`
 remains only in: `TrigramTheorems.lean` §4a–§6 (the TG-3/TG-4/TG-5 finite subgroup facts and the
-§6 sanity instances at King Wen — the TG-2 lead theorems themselves are kernel-only),
-`PartitionInvariance.lean` §12 (sanity witnesses, disclosed there), `PruneGInvariance.lean` §1 (`applyPerm_isometry`) and its §8 sanity examples, and `SymmetryCompleteness.lean`
-(SC1–SC4/SC7 — the T7 completeness kernels). The structural sequence-level theorems
+§6 sanity instances at King Wen — the TG-2 lead theorems themselves are kernel-only) and
+`SymmetryCompleteness.lean` (SC1–SC4/SC7 — the T7 completeness kernels).
+**2026-08-07 (second migration tranche):** `PruneGInvariance.lean` is now kernel-only end to
+end — `applyPerm_isometry`, formerly the suite's one remaining *load-bearing* `native_decide`
+(its direct 48×64×64 kernel enumeration was measured out of reach), is now an instantiation of
+a structural general lemma (§0b `applyPerm_isometry_perm`: ANY permutation of bit positions is
+an isometry of the Hamming metric — classical coding-theory content, no novelty claimed), and
+its §8 sanity examples are `decide +kernel`. `PartitionInvariance.lean` likewise carries zero
+`native_decide` (§12's sanity witnesses migrated to `decide +kernel`); moreover, a stronger
+fact that held at every earlier revision too: all of §12's former `native_decide` uses were
+anonymous `example`s, which never enter the environment — so that file's EXPORTED theorem
+surface (everything `#print axioms` can be asked about) was kernel-only even before the
+migration. The two files still carrying `native_decide` were deliberately NOT migrated:
+kernel-decide versions were built and measured (D16, Lean 4.31.0) at **11.5 GB peak RSS for
+`TrigramTheorems.lean` and 13.7 GB for `SymmetryCompleteness.lean`** — dominated by one
+obligation each (`blockPreserving_iff_blockwise`, `psi_comm_perms`, both 720-permutation
+enumerations) — and publishing a corpus that needs a ~16 GB host to verify was judged worse
+than the disclosed compiler trust; they stay on `native_decide` pending structural reproofs of
+those two obligations. The structural sequence-level theorems
 (`wrap_parity_general`, `alternations_15_general`, the T1–T5 merge theorems in
 `PartitionInvariance.lean`, …) are ordinary structural proofs checked by the kernel.
 
@@ -109,7 +130,19 @@ So: nothing in this section rests on the broken directives — a sweep of the ma
 on 2026-08-02 found no published sentence that cites them as its warrant — but nothing in it
 is re-confirmed by the directives either. The exposed claim, named rather than left for a
 reader to locate, is the exhaustive negative one two paragraphs up: "`native_decide` remains
-**only** in" those same six files. An executed audit is what would establish an *only*.
+**only** in" those files. An executed audit is what would establish an *only*.
+**EXECUTED 2026-08-07.** That audit has now been run, on the exact shipped tree (D-series
+Azure host, Lean 4.31.0): a module-wide scan (`Lean.collectAxioms` over EVERY non-internal
+constant of each compiled module, not just the doc-cited names) reports **zero**
+compiler-trust axioms in `PartitionInvariance` (99 constants) and `PruneGInvariance`
+(111 constants), and exactly **7** and **35** `Lean.ofReduceBool`-bearing constants in
+`SymmetryCompleteness` (24 constants) and `TrigramTheorems` (134 constants) respectively —
+precisely their documented `native_decide` sites, and nothing else. The same scan on
+`C3Decomposition`, `PruneExactness`, `C1RuleConstants`, `KingWen`, `PruneSafety`, and
+`RecordConvention` reports zero native hits, and the (fixed, qualified) in-file directives
+of `Automorphism` and `HammingOptimalMatching` executed in the same builds report only
+standard axioms. So the *only* above is now observed, module-wide, suite-wide — no longer
+statically inferred.
 
 Verified statements:
 
@@ -143,6 +176,29 @@ lean C1RuleConstants.lean    # the eight "forced-1.0" literature rules (mmt4,p1c
 lean HammingOptimalMatching.lean  # C1 is THE unique Hamming-cost-minimizing comp/rev matching (Radisic 2026, re-derived in-repo; kernel-only decide) (2026-07-26)
 ```
 
+**Hardware requirements (measured, 2026-08-07).** Kernel evaluation trades compiler trust for
+time and memory, and the memory is the binding constraint: **a host with ~10 GB of free RAM
+verifies every file; 16 GB is comfortable; an 8 GB host cannot verify `Automorphism.lean` or
+`KingWen.lean` at all** (the two heaviest single `decide +kernel` obligations exceed its
+capacity — no flag changes this; the kernel allocates what the term it is checking needs).
+Measured per-file cost — wall clock and peak resident set of a single `lean <File>.lean`, on a
+16-core / 31 GB Azure Standard_D16als_v7, Lean 4.31.0 pinned via `./lean-toolchain`:
+
+| file | wall | peak RSS |
+|---|---|---|
+| `Automorphism.lean` | ~4 min | 9.6 GB |
+| `KingWen.lean` | ~1 min 54 s | 7.9 GB |
+| `C3Decomposition.lean` | ~1 min 13 s | 4.5 GB |
+| `PruneGInvariance.lean` | ~1 min 24 s | 3.9 GB |
+| `TrigramTheorems.lean` | ~9 s | 1.4 GB |
+| `C1RuleConstants.lean` | ~1 s | 0.7 GB |
+| the other six (`PartitionInvariance`, `SymmetryCompleteness`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |
+
+Files verify independently (no imports between them), so partial verification on a small host is
+sound: skip the files your RAM cannot hold and every other file's result stands on its own. Wall
+time scales with single-core speed; peak RSS is machine-independent to first order. Nothing here
+is tunable — the figures are what kernel evaluation of these terms costs.
+
 **The prune-exactness proof layer (vendored into this tree 2026-08-01).** Three Lean files
 originating on the `v4-canonical` branch (they concern the v4 compiler / f1c5 layer) are now
 **included here** so the artifact is self-auditable — each is standalone core Lean 4 (zero imports,
@@ -154,7 +210,10 @@ zero `sorry`/`axiom`/`admit`) and checks with `lean <file>` like the others:
   `stabilizer_weighted_mass` — the orbit-DP transfer and prefix-stabilizer bookkeeping behind
   TR-11 §2/§10(vi)), and the C3 G-channel capping-soundness theorems (`g_prune_sound`,
   `g_prune_exact`).
-- `PruneGInvariance.lean` — G-invariance of the prune predicate.
+- `PruneGInvariance.lean` — G-invariance of the prune predicate. Kernel-only since 2026-08-07:
+  the Hamming-isometry leg (`applyPerm_isometry`) is an instantiation of §0b's structural proof
+  that any coordinate permutation is a Hamming isometry (classical content, credited as such),
+  not an enumeration; see the trust-base note above.
 - `RecordConvention.lean` — record/orientation convention lemmas.
 
 **Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing
@@ -213,7 +272,11 @@ Formalizes the mathematical core of
 [PARTITION_INVARIANCE.md](../documentation/PARTITION_INVARIANCE.md): the canonical merge modeled as
 `dedupKeyFirst ∘ sortLe` (sort by the two-tier comparator, keep the first record of each canonical
 class) under the four `MergeOrder` hypotheses. Core Lean 4 only, standalone file, zero `sorry`;
-`native_decide` carries only the §12 sanity witnesses — the theorems are structural. Verified
+kernel-only end to end since 2026-08-07 — the §12 sanity witnesses are `decide +kernel` (migrated
+from `native_decide`) and the theorems are structural. (The migration changed less than it
+appears to: §12's former `native_decide` uses were all anonymous `example`s, which never enter
+the environment, so the file's exported theorem surface was kernel-only at every earlier
+revision as well.) Verified
 statements:
 
 | Theorem | Statement |

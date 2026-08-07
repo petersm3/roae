@@ -309,10 +309,17 @@ plotting deps) and `lean/` (**a per-module directory, not one file** — the Lea
 modules + README; every file is inventoried in `lean/README.md` and checked independently by
 `reports/certificates/verify_all.sh`. The one-file wording here was written 2026-07-03 when `lean/`
 held exactly one file; the second and third landed 2026-07-04 and it is now twelve. Per-module is
-the RIGHT structure for Lean and is not to be consolidated: compile cost is PER FILE, and
-`PruneGInvariance.lean` alone peaks near 10.6 GB once its `native_decide` moves to kernel `decide`
-— merged into one file the verification memory would be far worse, and the cheap files stay cheap
-only because they are separate. Do not split a file further without a measured reason either).
+the RIGHT structure for Lean and is not to be consolidated: compile cost is PER FILE. The landed
+kernel-`decide` `PruneGInvariance.lean` peaks at ~3.9 GB (an earlier revision of this sentence
+said "near 10.6 GB" — that WAS a real measurement, kept here for provenance, but of the REJECTED
+one-liner migration route, the direct 48×64×64 kernel enumeration of `applyPerm_isometry`; the
+shipped route proves the isometry structurally, and the 10.6 GB figure applies to nothing in the
+tree). The merge rationale as previously stated was also wrong in mechanism: merging files would
+NOT multiply peak memory — peak is set by the single most expensive `decide` obligation wherever
+it lives — but it WOULD force every verification run to pay the worst module's wall-time and
+memory cost and would destroy cheap partial verification (half the files check in ~1 s at
+<0.7 GB precisely because they are separate; measured table in lean/README.md §"Verify
+yourself"). Do not split a file further without a measured reason either).
 
 Past violations:
 - 2026-04-21: `analyze_yields.c` created as a separate file; user directive

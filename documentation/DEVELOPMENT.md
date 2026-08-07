@@ -40,7 +40,10 @@ sudo apt-get install -y build-essential zlib1g-dev
 - **`python3`** — for `tests.py`, `solve.py`, `roae.py`, `verify.py`. Stdlib only; no third-party
   modules are required.
 - **Lean 4** (only for `lean/`) — via [elan](https://github.com/leanprover/elan), pinned to the
-  version the reports name as tested: `elan default leanprover/lean4:v4.31.0`.
+  version the reports name as tested: `elan default leanprover/lean4:v4.31.0`. Memory matters:
+  the heaviest files need ~10 GB free RAM to verify (an 8 GB host cannot check
+  `lean/Automorphism.lean` or `lean/KingWen.lean`) — see the measured per-file wall/RSS table in
+  [lean/README.md](../lean/README.md) §"Verify yourself" before running the Lean suite.
 
 Verified from a fresh clone on 2026-08-04: `--selftest` printed
 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, `python3 tests.py` ran 64 tests
