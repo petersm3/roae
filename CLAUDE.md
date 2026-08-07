@@ -346,7 +346,7 @@ itself contains the decision tree).
 ## Bi-region architecture
 
 - Orchestrator: `claude` VM (D2as_v6) in **westus2**.
-- Compute: D128als_v7 in **westus3** (as of 2026-04-19 pivot). **Spot** for enumeration workloads (eviction-resilient); on-demand for merge phases (eviction-fragile). See §Cost control above for the mandatory pre-launch verification gate. Note: the specific 100T d3 run on 2026-04-19/20 was inadvertently provisioned as on-demand by an earlier autonomous session; this is corrected-forward by the verification gate now documented here.
+- Compute: D128als_v7 in **westus3** (as of 2026-04-19 pivot). **Spot** for ALL workloads, enumeration AND merge, per the 2026-04-29 standing policy in §"Cost control — VM purchase type" above (which explicitly supersedes the earlier enumeration=Spot / merge=on-demand split this line stated until 2026-08-06). See §Cost control above for the mandatory pre-launch verification gate. Note: the specific 100T d3 run on 2026-04-19/20 was inadvertently provisioned as on-demand by an earlier autonomous session; this is corrected-forward by the verification gate now documented here.
 - F64als_v6 westus2 is **retired**. New large-scale enumeration uses
   Dalsv7 westus3 exclusively.
 - Managed disks are region-locked — cross-region needs snapshot+copy.
