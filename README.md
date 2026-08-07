@@ -2,9 +2,48 @@
 
 <mark>**[䷀䷁](documentation/SOLVE_SUMMARY.md)**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
-**The finding.** This project began from the hypothesis that the King Wen sequence is *determined* by
-its published constraints — that the received order could be **derived** from them. We enumerated, we
-measured, and **the hypothesis is false.** About **5.21×10³¹** orderings — a raw, orientation-explicit
+**The question.** The I Ching is an ancient Chinese divination text — its roots go back roughly
+three thousand years — organized into 64 chapters, each marked by a hexagram: a stack of six broken
+or unbroken lines. In every received copy the 64 chapters appear in one particular order, the **King
+Wen sequence**, and no one knows why that order. For centuries, commentators have proposed
+structural rules that are supposed to explain it — patterns in how each hexagram relates to its
+neighbours — almost always asserted by inspection and almost never tested. This project treats the
+sequence as a combinatorial object and puts the rules to the test: it **enumerates** orderings
+satisfying the sequence's constraints, **measures** claimed regularities against that space —
+including how rare each one is — and **proves**, with machine-checked proofs and SAT certificates,
+what is forced and what is impossible. (Rarity figures are estimates from weighted-Knuth sampling
+with stated probe counts, not proofs; the distinction is kept throughout.) The question underneath
+it all: do the rules, taken together, actually determine the order?
+
+(How old, precisely: the ordering is traditionally attributed to King Wen of Zhou, ~1000 BCE,
+though the dating of its fixation is debated in modern scholarship. Concretely
+([Shaughnessy 2022, ch. 11](documentation/CITATIONS.md#shaughnessy2022)): the earliest artifactual
+witness of the received sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary
+Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. The Mawangdui silk manuscript
+(copied before 168 BCE) attests a *different* ordering in circulation.)
+
+**The finding.** They do not. This project began from the hypothesis that the King Wen sequence is
+*determined* by its published constraints — that the received order could be **derived** from them.
+We enumerated, we measured, and **the hypothesis is false**: an estimated 5×10³¹ — fifty nonillion —
+other orderings satisfy the same rules. Whatever fixed the received order, the tested rules alone
+did not.
+
+**What this does — and does not — mean.** Three scope notes worth carrying from the start:
+
+- **It does not say the sequence is random, or that nobody designed it.** The test is of the
+  literature's rules *as stated*. An arranger may have followed considerations nobody wrote down;
+  this project measures only what the stated rules force.
+- **The enumeration is budgeted, not exhaustive.** The space of valid orderings is far too large to
+  list in full; the explicit listings cover defined, reproducible slices of it, and every
+  uniqueness statement in this repository is scoped to those slices, never to the full space.
+- **The direction is not new — the measurement is.** Earlier scholars had already argued that no
+  known rule fixes the sequence; this project's contribution is measuring it (attribution below).
+
+Scope: this is a combinatorial study of the *ordering* alone; it makes no claims — supportive or
+dismissive — about the I Ching's text, its divination practice, or its philosophical tradition.
+
+**The finding, precisely.** The plain sentence above compresses a hedged one; here is the full
+statement, with every label attached. About **5.21×10³¹** orderings — a raw, orientation-explicit
 count ([METHODS](reports/METHODS.md) §"Canonical quantities") — satisfy the full C1–C7
 inventory. That figure is a Knuth random-probe **estimate**, 95% CI [5.13, 5.29]×10³¹ — a statistical
 estimate, not a proven cardinality — but the verdict needs only that the count is not 1, and the CI's
@@ -30,7 +69,8 @@ tested inventory — so **the refutation touches none of those works as stated**
 ([full attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). What it refutes is the
 strong reading of the derivation-flavoured literature, and — squarely — **this project's own early
 working assumption**. We are reporting a negative result about our own starting position, which is why
-it leads. The other half of the attribution cuts against us and belongs beside it: the refutation's
+it is stated before anything else this page claims. The other half of the attribution cuts against us
+and belongs beside it: the refutation's
 **direction was prior art** — Ouyang Weicheng (1990) held that the hexagrams have no intrinsic order,
 Zhang Qingyu (1998) conceded his orbit framework could not fix the 48 散卦,
 and Suenaga (2012) reported finding no rule that fixes the sequence
@@ -68,25 +108,18 @@ is a finding — please report it. This recipe was executed end to end from a fr
 (silent, i.e. all theorems check); before that date it had never actually been run, which is itself
 the kind of gap this disclosure exists to surface.
 
-**The question.** The King Wen sequence is the received ordering of the 64 I Ching hexagrams — in
-continuous use for some two millennia, traditionally attributed to King Wen of Zhou (~1000 BCE; the
-dating of the ordering's fixation is debated in modern scholarship). Concretely
-([Shaughnessy 2022, ch. 11](documentation/CITATIONS.md#shaughnessy2022)): the earliest artifactual
-witness of the received sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary
-Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. The Mawangdui silk manuscript
-(copied before 168 BCE) attests a *different* ordering in circulation. For centuries it has attracted
-structural claims, almost all asserted by inspection. Can those claims be tested? Can the sequence be
-reconstructed from its mathematical constraints? This project treats the sequence as a combinatorial
-object: it **enumerates** the space of orderings satisfying the sequence's constraints, **measures**
-claimed regularities against that space — including how rare each one is — and **proves**, with
-machine-checked proofs and SAT certificates, what is forced and what is impossible. (Rarity figures
-are estimates from weighted-Knuth sampling with stated probe counts, not proofs; the distinction is
-kept throughout.)
+**Where to start.** Four doors, by reader:
 
-Scope: this is a combinatorial study of the *ordering* alone; it makes no claims — supportive or
-dismissive — about the I Ching's text, its divination practice, or its philosophical tradition.
-
-New to the I Ching or combinatorics? Start with [GUIDE.md](documentation/GUIDE.md).
+- **Curious, no background** — [GUIDE.md](documentation/GUIDE.md), the from-zero orientation, then
+  [SOLVE_SUMMARY.md](documentation/SOLVE_SUMMARY.md), the results in plain language.
+- **Mathematician or statistician** — the technical report suite in [reports/](reports/) (map and
+  reading paths at its [index](reports/README.md)); definitions, canonical quantities and estimator
+  conventions in [METHODS](reports/METHODS.md).
+- **Skeptic** — [CRITIQUE.md](documentation/CRITIQUE.md), the project's standing case against its
+  own results, plus the authorship disclosure above and the append-only corrections record in
+  [CORRECTIONS.md](documentation/CORRECTIONS.md).
+- **Replicator** — the one-command check above, then the full replication recipe in
+  [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md).
 
 ## The constraints
 
