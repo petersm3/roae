@@ -3055,7 +3055,7 @@ open(p,'w',encoding='utf-8').write(s+'\n\nThe ledger prices C2 at marginal\n4.6 
   # having quietly exempted reports/evidence/ wholesale.
   # EVIDENCE (round 8 drain-3) — THE ONE MEASURED DISCRIMINATOR IN THE SIX. GATE 3b prints its
   # allowlisted-narration census, and that census MOVES when this injection is read: clean it
-  # says `(1 historical, 44 meta-mention)`, under this mutation `45`. Both numbers were taken
+  # says `(1 historical, 1 literal, 45 meta-mention)`, under this mutation `46`. Both numbers were taken
   # from real runs in a scratch clone. So matching 45 proves the injected line was SEEN and
   # then EXEMPTED, which is the whole content of the claim; rc 0 alone is equally consistent
   # with the file having dropped out of the 79-file scan entirely.
@@ -3063,7 +3063,7 @@ open(p,'w',encoding='utf-8').write(s+'\n\nThe ledger prices C2 at marginal\n4.6 
   # and the number must be re-measured under the mutation. A range ERE would restore exactly
   # the blindness this argument is about.
   assert_stays_clean_why "GATE 3b negative control — an anchored narration is exempt" \
-    retract-figures '45 meta-mention' \
+    retract-figures '46 meta-mention' \
 "p='reports/evidence/r11/README.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')"
@@ -3090,13 +3090,13 @@ open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure re
   # `PASS=1` dies with the subshell, while its `_selftest_revert` acts on the real tree and
   # persists. The expected [FAIL] text is captured, never printed.
   #
-  # 44 AND 45 MOVE TOGETHER. Both come from the same pair of runs; if the corpus gains an
+  # 45 AND 46 MOVE TOGETHER. Both come from the same pair of runs; if the corpus gains an
   # allowlisted narration, the live assertion above FAILS loudly and BOTH numbers must be
   # re-taken from real runs — the probe's number is the clean census, the assertion's is the
   # census under the mutation.
   _asc_probe=$(assert_stays_clean_why \
     "PROBE (expected to FAIL) — a green run scored against the census of a run that never read the injection" \
-    retract-figures '44 meta-mention' \
+    retract-figures '45 meta-mention' \
 "p='reports/evidence/r11/README.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')")
@@ -4921,7 +4921,7 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
   # all; the ERE it would have collided with was never compared against anything.
   if python3 -c "
 L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
-A='retract-figures '+chr(39)+'45 meta-mention'+chr(39)+' '+chr(92)
+A='retract-figures '+chr(39)+'46 meta-mention'+chr(39)+' '+chr(92)
 t=[i for i,l in enumerate(L) if l.strip()==A]
 assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]='    retract-figures '+chr(39)+'tracked markdown missing from the working tree'+chr(39)+' '+chr(92)+chr(10)
@@ -4938,7 +4938,7 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     fi
   else
     echo "  [FAIL] GATE 16 guard (7) leg A — could not build the mutated copy (the GATE 3b"
-    echo "         negative control's '45 meta-mention' anchor moved), so it did NOT run."
+    echo "         negative control's '46 meta-mention' anchor moved), so it did NOT run."
     PASS=1
   fi
 
