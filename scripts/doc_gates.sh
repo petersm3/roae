@@ -46,7 +46,11 @@
 #                                   # it — or (kind `attrib`, 2026-08-06) a SUPERSEDED
 #                                   # ATTRIBUTION restated with no path to its correction;
 #                                   # registry-driven, open-backlog adjudicated
-#   scripts/doc_gates.sh generated  # generated artifacts still match their generator (~135s, 3 runs; NOT in `all`)
+#   scripts/doc_gates.sh generated  # generated artifacts still match their generator (3 roae.py runs,
+#                                   # ~67 s measured 2026-08-07, ~107-135 s on earlier recorded runs;
+#                                   # NOT in `all` — by cost; the PASS banner states what that excludes,
+#                                   # and pre_push_gate.sh runs this leg when the pushed range touches
+#                                   # roae.py or example/)
 #   scripts/doc_gates.sh all        # run every cheap gate; `generated` is separate by cost.
 #                                   # DE-NUMBERED, round 17. This read "all fifteen cheap gates
 #                                   # (1-7 incl. 3b, 9, 10, 11, 12, 13, 14, 15, 16)" and was wrong
@@ -676,17 +680,55 @@ gate_retract() {
   require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero phrases are checked."
   case $? in 1) return 0;; 2) return 1;; esac
   local bad=0
+  # EVIDENCE EXTENSION (2026-08-07). The TRs quote reports/evidence/** measurement outputs
+  # (.out, .json, .log, ...), and until today only the *.md half of that directory was in
+  # this gate's corpus — the retracted "1.4σ" was caught ONLY because it happened to sit in
+  # an evidence .md (r11/PHASE2_README.md). The non-markdown evidence files now run the
+  # same fold+normalise+fixed-string pipeline. MEASURED at extension time: 54 files, 5.7 MB
+  # (five ~940 KB r5 subtree logs dominate), 0 hits across all 21 registered phrases.
+  # Filtered with a bash case, not a pattern — zero regex, per the SAFETY rule above.
+  local evid="" ef
+  for ef in $(git ls-files 'reports/evidence/*' || true); do
+    case "$ef" in *.md) ;; *) evid="$evid $ef";; esac
+  done
   # Pre-fold every doc ONCE (fold_variants above), then run the same normalise+match
   # pipeline against the folded copies. Folding per (phrase, file) pair would spawn
   # |phrases| x |DOCS| ~ 2,700 extra sed processes; folding per file is |DOCS| ~ 130.
   # COST: one sed pass per tracked .md (~130 processes, each over a ~500-line file)
   # plus the same grep counts as before, over the folded copies.
-  local folddir f
+  #
+  # The EVIDENCE corpus gets a different shape, and the reason is measured: running the
+  # per-(phrase, file) tr|tr|grep pipeline over 54 more files — five of them ~940 KB —
+  # adds |phrases| x |evid| = 1,134 three-process pipelines re-streaming 5.7 MB per
+  # phrase (first cut measured 13.2 s for the whole gate, vs 4.8 s markdown-only,
+  # 2026-08-07 — partly concurrent-load-polluted, but the shape is wrong regardless).
+  # So each evidence file is folded AND flattened (newline->space, runs collapsed) ONCE,
+  # into $flatevdir, and each phrase then makes a SINGLE `grep -rlF` pass over that
+  # directory: 21 fixed-string scans of 5.7 MB at C speed.
+  # COST: 2 extra processes per evidence file at fold time (~108), then |phrases| = 21
+  # recursive greps. Measured on the idle 2-core orchestrator, 2026-08-07: 4.8 s
+  # markdown-only -> 5.2 s with the extension. The match rule is IDENTICAL to the DOCS
+  # half — same folded bytes, same whitespace normalisation, same fixed-string needle —
+  # only the process orchestration differs.
+  local folddir flatevdir f
   folddir=$(mktemp -d "${TMPDIR:-/tmp}/docgates_fold.XXXXXX") || { echo "  [FAIL] mktemp failed"; return 1; }
+  flatevdir=$(mktemp -d "${TMPDIR:-/tmp}/docgates_flatev.XXXXXX") || { echo "  [FAIL] mktemp failed"; rm -rf "$folddir"; return 1; }
   for f in $DOCS; do
     [ -f "$f" ] || continue        # a tracked-but-deleted doc is preflight_tracked_docs' finding
     mkdir -p "$folddir/$(dirname "$f")"
     fold_variants < "$f" > "$folddir/$f"
+  done
+  for f in $evid; do
+    if [ ! -f "$f" ]; then
+      # Outside preflight_tracked_docs' corpus, so say it here: a tracked evidence file
+      # missing from the working tree means this gate scanned nothing in it.
+      echo "  [FAIL] $f is tracked in git but missing from the working tree — not scanned"
+      bad=1
+      continue
+    fi
+    mkdir -p "$folddir/$(dirname "$f")" "$flatevdir/$(dirname "$f")"
+    fold_variants < "$f" > "$folddir/$f"
+    tr '\n' ' ' < "$folddir/$f" | tr -s ' ' > "$flatevdir/$f"
   done
   while IFS=$'\t' read -r phrase allow note; do
     case "$phrase" in ''|'#'*) continue;; esac
@@ -714,6 +756,23 @@ gate_retract() {
         fi
       fi
     done
+    # EVIDENCE half: one recursive fixed-string scan over the pre-flattened copies (see
+    # the COST comment above), then the SAME per-hit reporting as the DOCS half, off the
+    # line-preserving folded copy. The changelog-row exemption is deliberately NOT
+    # applied here — machine outputs have no `| vN.N |` revision rows, and an evidence
+    # file that somehow grew one should not be exempted by it.
+    local eh ef2
+    for eh in $(grep -rlF -- "$np" "$flatevdir" 2>/dev/null || true); do
+      ef2=${eh#"$flatevdir/"}
+      case "$ef2" in *"$allow"*) continue;; esac        # same allow rule: FILENAME only
+      local ehitln
+      ehitln=$(grep -nF -- "$np" "$folddir/$ef2" 2>/dev/null | head -1 | cut -d: -f1)
+      if [ -n "$ehitln" ]; then
+        hits="$hits $ef2:$ehitln"
+      else
+        hits="$hits $ef2(spans-lines)"                  # only visible after normalisation
+      fi
+    done
     if [ -n "$hits" ]; then
       echo "  [FAIL] retracted phrasing still present: \"$phrase\""
       echo "         matched as the fixed string: \"$np\"   ($note)"
@@ -723,7 +782,7 @@ gate_retract() {
       echo "  [ok] retracted: \"$phrase\""
     fi
   done < "$reg"
-  rm -rf "$folddir"
+  rm -rf "$folddir" "$flatevdir"
   return $bad
 }
 
@@ -848,24 +907,65 @@ def canon(s, star):
     # BOTH readings (max of the two counts — over-report is this gate's safe
     # direction); no registered figure contains '*', so needles canon identically.
     s = s.translate(FOLD1).replace('*', star)
-    out = []
-    for i, ch in enumerate(s):              # strip digit-group commas, no regex
-        if ch == ',' and 0 < i < len(s) - 1 and s[i-1].isdigit() and s[i+1].isdigit():
-            continue
-        out.append(ch)
-    return ''.join(out).replace(' +', '+').replace('+ ', '+')
+    if ',' in s:
+        # Digit-group-comma strip, REWRITTEN 2026-08-07 with the evidence-corpus
+        # extension, behaviour-identical and proven so by a differential test at ship
+        # time: 207,470 corpus units (every line + every flattened whole-file text of
+        # all 83 md + 54 evidence files, both star-readings, plus adversarial comma
+        # edges), 0 differences against the original. The original was a per-character
+        # PYTHON loop; fine on ~83 markdown files, but the evidence corpus adds five
+        # ~940 KB machine logs whose ONE comma each forced the loop over the entire
+        # flattened file (x2 star-readings) — millions of python steps to strip
+        # nothing. This form is split/join on ',' — O(number of commas) python steps,
+        # everything else at C speed; with it the whole gate measures 1.8 s against
+        # 1.6 s markdown-only. Same decision rule on the ORIGINAL string: a comma is
+        # dropped iff its immediate neighbours are digits (split parts preserve the
+        # original neighbourhoods; empty parts = string-edge or consecutive commas,
+        # kept, exactly as `0 < i < len(s)-1` kept them). Still no regex of any kind.
+        parts = s.split(',')
+        out = [parts[0]]
+        for k in range(1, len(parts)):
+            if parts[k-1] and parts[k] and parts[k-1][-1].isdigit() and parts[k][0].isdigit():
+                out.append(parts[k])        # digit,digit — drop the comma
+            else:
+                out.append(',')
+                out.append(parts[k])
+        s = ''.join(out)
+    return s.replace(' +', '+').replace('+ ', '+')
 
 mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True).stdout.split()
+# EVIDENCE EXTENSION (2026-08-07) — the corpus is no longer markdown-only. The TRs quote
+# reports/evidence/** measurement outputs (.out, .json, .log ...), and this registry's own
+# motivating example ("1.4σ") was caught only because it happened to sit in an evidence
+# .md; a figure surviving in the .out file one directory over was invisible. The non-md
+# evidence files now run the same canon+count pipeline, same allowlist machinery.
+# MEASURED at extension time: exactly ONE hit in 54 files / 5.7 MB — dav_tier1.out's
+# "dav_hist palnbr 16 4.169e-04", a population HISTOGRAM BIN ROW (P(palnbr=16)), not the
+# retracted Mawangdui corpus-control value. That is a fixed-string COLLISION, not a
+# restatement, hence the `literal` allow class (GATE 18's vocabulary) introduced with
+# this extension; see the allowlist header.
+evid = [f for f in subprocess.run(['git', 'ls-files', 'reports/evidence/*'],
+                                  capture_output=True, text=True).stdout.split()
+        if not f.endswith('.md')]
 # COST, evaluated before writing it (box-safety rule): canonicalisation is |mds| ~ 130
 # files x ~500 lines x 2 star-readings of canon() (a translate + one linear scan each),
 # then |figs| = 11 fixed-string `in`/`count` tests per line per reading ~ 1.5e6 linear
 # steps over data already in memory. No regex, no bounded repetition, no accumulation
-# across the loop.
-bad, exempt, spans = [], [], []
+# across the loop. The evidence extension adds 54 files / 5.7 MB; with the split/join
+# comma strip in canon() the whole gate measured 1.8 s on the idle 2-core orchestrator
+# (was 1.6 s markdown-only, 2026-08-07).
+bad, exempt, spans, missing = [], [], [], []
 # The registry (.tsv) and the allowlist (.txt) are not in `git ls-files '*.md'`, so the
 # gate cannot match its own rows. Verified rather than assumed: both extensions are
-# outside the glob.
-for m in mds:
+# outside the glob. (The evidence list DOES include one .tsv and one .txt — they are
+# corpus there, quoted by the TRs like any other measurement output.)
+for m in mds + evid:
+    if not os.path.exists(m):
+        # Tracked-but-deleted. The .md half is also preflight_tracked_docs' finding, but
+        # evidence non-md files are OUTSIDE that preflight, and an open() here would die
+        # as a traceback — red either way, but a stated FAIL beats a stack trace.
+        missing.append(m)
+        continue
     text = open(m, encoding='utf-8', errors='replace').read()
     lines = text.split('\n')
     # Canonicalise once per file, in both '*' readings; needle tests below run against
@@ -933,8 +1033,16 @@ for m, fig, note in spans:
     print(f'  [FAIL] {m} — retracted figure "{fig}" present only after whitespace')
     print(f'         normalisation, so it spans a hard wrap and cannot be anchored.')
     print(f'         WHY: {note}')
+for m in missing:
+    print(f'  [FAIL] {m} is tracked in git but missing from the working tree — this gate')
+    print(f'         scanned nothing in it, and a corpus file that silently drops out is')
+    print(f'         exactly the false clear this suite exists to stop.')
 
-opens = [e for e in exempt if e[3] != 'meta-mention' and e[3] != 'historical']
+# `literal` joined the exempt-from-[OPEN] set 2026-08-07 with the evidence-corpus
+# extension: a fixed-string collision (same characters, different quantity) is a
+# LEGITIMATE occurrence, not an adjudicated-open defect — printing it [OPEN] forever
+# would train readers to ignore [OPEN], which is the ledger-contract failure mode.
+opens = [e for e in exempt if e[3] not in ('meta-mention', 'historical', 'literal')]
 for m, i, fig, cls, why in opens:
     print(f'  [OPEN] {m}:{i} "{fig}" — {why}')
 dead = [k for k in allow if (k[0], k[1], k[2]) not in used]
@@ -942,14 +1050,15 @@ for k in dead:
     print(f'  [note] allowlist row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
     print(f'         Either the text was fixed (delete the row) or the anchor drifted.')
 
-nbad = len(bad) + len(spans)
+nbad = len(bad) + len(spans) + len(missing)
 if not nbad:
     byclass = {}
     for _, _, _, cls, _ in exempt:
         byclass[cls] = byclass.get(cls, 0) + 1
     tally = ', '.join(f'{v} {k}' for k, v in sorted(byclass.items())) or 'none'
     print(f'  [ok] {len(figs)} registered retracted figure(s); every occurrence in '
-          f'{len(mds)} markdown files is an allowlisted narration ({tally})')
+          f'{len(mds)} markdown + {len(evid)} evidence files is an allowlisted '
+          f'narration or literal collision ({tally})')
 sys.exit(1 if nbad else 0)
 PY
 }
@@ -9228,7 +9337,24 @@ elif [ "$MODE" = all ]; then
   echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
-  echo "                   GATE 8 ('generated') is not in 'all' — run it separately."
+  # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
+  # The one-liner this replaces ("run it separately") named neither what was uncovered nor
+  # the command, so an all-green run read as attesting example/report.pdf when it attested
+  # nothing about it. DECIDED AGAINST folding GATE 8 into `all`, on measured numbers taken
+  # that day: `all` = 17 s, `generated` = 67 s fresh regeneration (107-135 s on prior
+  # recorded runs) — a 4-6x multiplier on the suite every blocking pre-push hook run and
+  # every ad-hoc invocation pays, for artifacts most changes cannot touch. A hook that
+  # slow invites --no-verify, which uncovers EVERYTHING. Instead the publish point is
+  # covered conditionally: pre_push_gate.sh runs `generated` on the pushed tree exactly
+  # when the pushed range touches roae.py or example/ (fail-closed when it has no base to
+  # diff against), which is also the only way a hand-edited artifact committed with
+  # `git commit --no-verify` can be on its way out.
+  echo "                   GATE 8 ('generated') is NOT in 'all' — by cost, not oversight."
+  echo "                   This verdict attests NOTHING about the example/ artifacts"
+  echo "                   (report.txt, report.md, README.md, report.html, report.pdf):"
+  echo "                       bash scripts/doc_gates.sh generated   # checks them; ~67-135 s, 3 roae.py runs"
+  echo "                   (Enforced at pre-commit when roae.py/example/ is staged, and at"
+  echo "                   pre-push when the pushed range touches roae.py or example/.)"
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ] || [ "$MODE" = revrows ]; then
   echo "DOC GATES: PASS  — NOTE: '$MODE' is a REPORT-ONLY gate and always exits 0."
   echo "                   Read its [WARN]/[note] lines above; this verdict does not."

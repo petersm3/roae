@@ -1,6 +1,9 @@
 #!/bin/bash
-# Pre-push dispatcher — runs BOTH push gates against the PUSHED SHA.
-# (dispatcher: 2026-08-06, task #145; pushed-sha semantics: 2026-08-06, task #150)
+# Pre-push dispatcher — runs BOTH push gates against the PUSHED SHA, plus a
+# CONDITIONAL third leg (`doc_gates.sh generated`) when the pushed range
+# touches the generated-artifact surface.
+# (dispatcher: 2026-08-06, task #145; pushed-sha semantics: 2026-08-06,
+# task #150; conditional generated leg: 2026-08-07)
 #
 # WHY A DISPATCHER
 #   Until 2026-08-06 the pre-push hook was a bare symlink to
@@ -62,6 +65,8 @@
 #      Blocking set = doc_gates.sh's own hard-gate set (its PASS banner is the
 #      maintained list); its report-only gates print [WARN]/[note] without
 #      setting the exit code, and this hook takes that exit code as-is.
+#   1b. scripts/doc_gates.sh generated    — CONDITIONAL, blocking when it runs;
+#      see "THE `generated` LEG IS CONDITIONAL" below for when and why.
 #   2. scripts/pre_push_compile_gate.sh   — solve.c compile + --selftest sha.
 #
 #   Both are executed FROM THE PUSHED TREE, so what is enforced is the
@@ -73,17 +78,31 @@
 #   `git push --no-verify` is the visible, deliberate bypass. Same if the
 #   tree's doc_gates.sh predates the `all` mode (exits 2 on usage).
 #
-# WHAT IS DELIBERATELY NOT HERE: `doc_gates.sh generated` (~107 s measured
-# 2026-08-06 — three unseeded roae.py runs). It is enforced at pre-commit by
-# pre_commit_registry+generated_gate.sh (tracked as scripts/pre_commit_gate.sh)
-# exactly when roae.py or an example/ artifact is staged; running it on EVERY
-# push would take the hook from ~76 s to ~183 s to re-check artifacts most
-# pushes do not touch — and a hook that slow is a hook that gets bypassed
-# with --no-verify, which is worse than no gate. Residual hole, stated rather
-# than hidden: a hand-edited artifact committed with `git commit --no-verify`
-# reaches a push unchecked by this hook. That bypass is visible in shell
-# history, which is the project's accepted trade for hooks (DEVELOPMENT.md
-# §"Git hooks").
+# THE `generated` LEG IS CONDITIONAL (2026-08-07, gate-blind-spot closure #1;
+# it was previously absent entirely). `doc_gates.sh generated` costs ~67 s
+# measured 2026-08-07 (~107 s on the 2026-08-06 measurement — three unseeded
+# roae.py runs either way, ≥4x the ~17 s the rest of the doc gates take), so
+# running it on EVERY push would roughly double this hook for artifacts most
+# pushes cannot have touched — and a hook that slow is a hook that gets
+# bypassed with --no-verify, which uncovers everything. It also cannot be
+# left out: until today a hand-edited artifact committed with
+# `git commit --no-verify` (the pre-commit gate is staged-path-conditional)
+# reached a push with NOTHING between it and the public repo — the `all`
+# banner itself says GATE 8 is not in `all`.
+#   So this hook mirrors the pre-commit gate's conditioning at push
+# granularity: for each pushed sha it runs the pushed tree's own
+# `doc_gates.sh generated` exactly when the PUSHED RANGE (remote sha →
+# pushed sha) touches roae.py or example/ — the only way the generated-
+# artifact surface can be changing hands — and FAIL-CLOSED runs it when
+# there is no base to diff against (new remote branch, unknown remote sha,
+# direct invocation with no upstream): with no base the artifacts cannot be
+# proven untouched, and a wrongly-run leg costs ~67 s once while a
+# wrongly-skipped one ships an unchecked artifact. Common markdown-only
+# pushes pay one `git diff --name-only` (~ms).
+#   Residual, restated at gate level not hook level: for report.txt/.md and
+# README.md the generated gate compares NON-NUMERIC lines only (roae.py is
+# unseeded), so a hand-edited digit in those three is caught by nothing —
+# see pre_commit_generated_gate.sh's header.
 #
 # NO PRIVATE BYPASS (same contract as both underlying gates): there is
 # deliberately no SKIP env var. `git push --no-verify` already exists and
@@ -96,11 +115,34 @@ set -u
 ROOT=$(git rev-parse --show-toplevel) || exit 1
 Z40=0000000000000000000000000000000000000000
 
+# ---- does this pushed sha need the `generated` leg? -----------------------
+# $1 = pushed sha, $2 = remote sha ('' or all-zeros when there is no base).
+# Returns 0 (leg required) when roae.py or example/ differs between base and
+# pushed sha, AND on every path where that cannot be established — no base,
+# base not present locally, diff error — because fail-closed is the cheap
+# direction here (~67 s once vs an unchecked artifact published). Fixed
+# pathspecs only, no patterns.
+needs_generated() {
+  local base="$2" changed
+  [ -n "$base" ] && [ "$base" != "$Z40" ] || return 0
+  git cat-file -e "$base^{commit}" 2>/dev/null || return 0
+  changed=$(git diff --name-only "$base" "$1" -- roae.py example/ 2>/dev/null) || return 0
+  [ -n "$changed" ]
+}
+
 # ---- collect the shas being published -------------------------------------
+# GENSHAS ⊆ SHAS: the pushed shas whose range touches the generated-artifact
+# surface (or has no provable base). A sha pushed via two refs needs the leg
+# if EITHER ref's range does.
 SHAS=""
+GENSHAS=""
 if [ -t 0 ]; then
   SHAS=$(git rev-parse HEAD) || exit 1
   echo "pre-push: direct invocation (no ref list on stdin) — gating HEAD ${SHAS:0:12}"
+  # A plain `git push` publishes HEAD onto its upstream; diff against that
+  # when it exists, otherwise fail-closed into the leg.
+  UPSTREAM=$(git rev-parse '@{u}' 2>/dev/null || true)
+  if needs_generated "$SHAS" "$UPSTREAM"; then GENSHAS=$SHAS; fi
 else
   while read -r lref lsha rref rsha; do
     [ -n "${lsha:-}" ] || continue
@@ -112,6 +154,12 @@ else
       *" $lsha "*) ;;                       # same sha via another ref: gate once
       *) SHAS="$SHAS $lsha" ;;
     esac
+    if needs_generated "$lsha" "${rsha:-}"; then
+      case " $GENSHAS " in
+        *" $lsha "*) ;;
+        *) GENSHAS="$GENSHAS $lsha" ;;
+      esac
+    fi
   done
 fi
 SHAS=${SHAS# }
@@ -162,6 +210,22 @@ for sha in $SHAS; do
     echo "  pre-gate history, 'git push --no-verify' is the visible bypass."
     SHARC=1
   fi
+  # Conditional `generated` leg (see header): only for shas whose pushed range
+  # touches roae.py/example/ or has no provable base. Runs the PUSHED TREE's
+  # own gate, like the two unconditional legs; a tree whose doc_gates.sh
+  # predates the mode exits 2 there and is blocked, same rule as above. The
+  # missing-doc_gates.sh case is already a FAIL in the leg above — no second
+  # report here.
+  case " $GENSHAS " in
+    *" $sha "*)
+      if [ -f "$WT/scripts/doc_gates.sh" ]; then
+        echo
+        echo "pre-push: pushed range touches roae.py/example/ (or has no base to diff) —"
+        echo "          running its generated-artifact gate (GATE 8, ~67-107 s: 3 roae.py runs)"
+        ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+            bash scripts/doc_gates.sh generated ) || SHARC=1
+      fi ;;
+  esac
   echo
   if [ -f "$WT/scripts/pre_push_compile_gate.sh" ]; then
     ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \

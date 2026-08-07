@@ -95,7 +95,15 @@
 #      CORRECTIONS.md and only four are RECORDED there — "1.4σ" and "≈10×" appear inside
 #      CX-19's "How it was found" paragraph as examples of meta-mentions found elsewhere. A
 #      text-presence check would have cleared two unrecorded retractions.
-#   5. MARKDOWN ONLY. `git ls-files '*.md'`. Figures rendered into images are GATE 6's problem.
+#   5. MARKDOWN ONLY — NO LONGER, and the heading is kept so the correction is visible
+#      (2026-08-07, gate-blind-spot closure #2): the corpus is `git ls-files '*.md'` PLUS
+#      every non-markdown file under reports/evidence/ (54 files, 5.7 MB at extension time).
+#      The TRs quote those measurement outputs, and this registry's own motivating "1.4σ"
+#      was caught only because it happened to sit in an evidence .md — the same figure one
+#      directory over in a .out file was invisible. Measured at extension: exactly one hit,
+#      dav_tier1.out's "dav_hist palnbr 16" histogram bin row — a fixed-string collision
+#      with the retracted Mawangdui value, not a restatement — allowlisted under the new
+#      `literal` class. Figures rendered into images are GATE 6's problem.
 #      CORRECTED 2026-08-02 (item A8): this line used to end "…and are ungated entirely for
 #      statistics". That is no longer true — GATE 6 now runs a SECOND pass over the tracked
 #      figure generators using THIS registry, so a retracted statistic annotated onto a plot
