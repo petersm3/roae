@@ -516,7 +516,8 @@ static int lc_pread(FILE *f, long off, void *buf, size_t n) {
  * (numeric minimum of its orbit — a spec invariant the group makes checkable). */
 static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_se,
                           uint64_t exp_plhash, const int exp_b0[5], int is_final,
-                          uint8_t rp[24][32], int geff, u192 *grand_out, u192 *mass_out) {
+                          uint8_t rp[24][32], int geff, u192 *grand_out, u192 *mass_out,
+                          uint64_t *nm_out, uint64_t *ne_out, int *v2_out) {
     char path[1024]; snprintf(path, sizeof path, "%s/f1c5_layer_%02d.bin", dir, k);
     FILE *f = fopen(path, "rb");
     if (!f) { printf("  k=%2d  *** FAIL: cannot open %s\n", k, path); return 1; }
@@ -671,10 +672,11 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     if (is_final) LCF(bad_finalrid==0, "%llu final-layer entries with rid != R-1", (unsigned long long)bad_finalrid);
     if (grand_out) *grand_out = grand;
     if (mass_out)  *mass_out  = mass;
-
-    if (!fail) { char g[64], md[64]; u192_print(grand, g); u192_print(mass, md);
-        printf("  k=%2d  nm=%-9llu ne=%-13llu %s  Σval=%s  mass=%s\n", k,
-               (unsigned long long)nm, (unsigned long long)ne, is_v2?"v2":"v1", g, md); }
+    if (nm_out) *nm_out = nm;
+    if (ne_out) *ne_out = ne;
+    if (v2_out) *v2_out = is_v2;
+    /* per-layer summary line printed by the caller (identical for a freshly
+     * streamed layer and an LC_RESUME-replayed one — see the driver). */
 cleanup:
     free(orbits); free(masks); free(off); fclose(f);
     #undef LCF
@@ -786,6 +788,51 @@ static int lc_check_layers(const char *dir, int maxk, const char *run_out) {
     }
     printf("----------------------------------------------------------------------\n");
 
+    /* Per-layer eviction resume (env LC_RESUME=FILE, opt-in; Spot-host runs).
+     * Each layer that streams CLEAN is appended to FILE (k, nm, ne, codec,
+     * Σval, mass — exact decimal strings); on restart those layers are
+     * replayed from the record instead of re-read, so the worst-case loss
+     * from an eviction is one layer. A straight-through run and a resumed
+     * run print byte-identical output (the g-build GA9 invariant). The
+     * header pins n + pl_hash: a resume file from another run is REFUSED
+     * (a finding, not silently ignored). Failing layers are never recorded. */
+    const char *rf_path = getenv("LC_RESUME");
+    FILE *rf = NULL;
+    int rk_got[32]; uint64_t rk_nm[32], rk_ne[32];
+    static char rk_codec[32][4], rk_grand[32][64], rk_mass[32][64];
+    for (int k = 0; k < 32; k++) rk_got[k] = 0;
+    if (rf_path) {
+        FILE *in = fopen(rf_path, "r");
+        if (in) {
+            char line[512]; uint32_t hn = 0; unsigned long long hh = 0; int hdr_ok = 0;
+            if (fgets(line, sizeof line, in) &&
+                sscanf(line, "LC_RESUME_V1 n=%u pl_hash=%llx", &hn, &hh) == 2 &&
+                hn == mn && hh == (unsigned long long)m_plhash) hdr_ok = 1;
+            if (!hdr_ok) {
+                printf("*** FAIL: LC_RESUME file %s does not match this run (n/pl_hash header)\n",
+                       rf_path);
+                fclose(in); return 1;
+            }
+            while (fgets(line, sizeof line, in)) {
+                int k; unsigned long long lnm, lne; char cod[4], gd[64], md[64];
+                if (sscanf(line, "k=%d nm=%llu ne=%llu codec=%3s grand=%63s mass=%63s",
+                           &k, &lnm, &lne, cod, gd, md) == 6 && k >= 0 && k < 32) {
+                    rk_got[k] = 1; rk_nm[k] = lnm; rk_ne[k] = lne;
+                    snprintf(rk_codec[k], 4, "%s", cod);
+                    snprintf(rk_grand[k], 64, "%s", gd);
+                    snprintf(rk_mass[k], 64, "%s", md);
+                }
+            }
+            fclose(in);
+        }
+        rf = fopen(rf_path, "a");
+        if (!rf) { printf("*** FAIL: cannot open LC_RESUME file %s for append\n", rf_path); return 1; }
+        if (ftell(rf) == 0) {
+            fprintf(rf, "LC_RESUME_V1 n=%u pl_hash=%016llx\n", mn, (unsigned long long)m_plhash);
+            fflush(rf); fsync(fileno(rf));
+        }
+    }
+
     int hi = last_k; if (maxk < hi) hi = maxk;
     int fails = !plhash_ok + !kw_ok + !geff_ok, checked = 0;
     u192 finalgrand = {{0,0,0}}; int saw_final = 0;
@@ -795,12 +842,35 @@ static int lc_check_layers(const char *dir, int maxk, const char *run_out) {
         char p[1024]; snprintf(p,sizeof p,"%s/f1c5_layer_%02d.bin",dir,k);
         FILE *t = fopen(p,"rb"); if (!t) continue; fclose(t);   /* rolling window may have pruned it */
         int is_final = (k == (int)mn);
-        u192 g, ms; int r = lc_check_layer(dir, k, mn, mse, m_plhash, b0v, is_final,
-                                           rp, geff, &g, &ms);
+        if (rk_got[k]) {                                  /* replay a recorded clean layer */
+            printf("  k=%2d  nm=%-9llu ne=%-13llu %s  Σval=%s  mass=%s\n", k,
+                   (unsigned long long)rk_nm[k], (unsigned long long)rk_ne[k],
+                   rk_codec[k], rk_grand[k], rk_mass[k]);
+            fflush(stdout);
+            lmass[k] = u192_dec(rk_mass[k]); lgot[k] = 1; checked++;
+            if (is_final) { finalgrand = u192_dec(rk_grand[k]); saw_final = 1; }
+            continue;
+        }
+        u192 g, ms; uint64_t onm = 0, one = 0; int ov2 = 0;
+        int r = lc_check_layer(dir, k, mn, mse, m_plhash, b0v, is_final,
+                               rp, geff, &g, &ms, &onm, &one, &ov2);
         fails += r; checked++;
-        if (!r) { lmass[k] = ms; lgot[k] = 1; }
+        if (!r) {
+            char gd[64], md[64]; u192_print(g, gd); u192_print(ms, md);
+            printf("  k=%2d  nm=%-9llu ne=%-13llu %s  Σval=%s  mass=%s\n", k,
+                   (unsigned long long)onm, (unsigned long long)one, ov2?"v2":"v1", gd, md);
+            fflush(stdout);
+            lmass[k] = ms; lgot[k] = 1;
+            if (rf) {
+                fprintf(rf, "k=%d nm=%llu ne=%llu codec=%s grand=%s mass=%s\n",
+                        k, (unsigned long long)onm, (unsigned long long)one,
+                        ov2?"v2":"v1", gd, md);
+                fflush(rf); fsync(fileno(rf));
+            }
+        }
         if (is_final && !r) { finalgrand = g; saw_final = 1; }
     }
+    if (rf) fclose(rf);
 
     /* orbit-weighted mass vs the run log (§Reading recipe steps 5-6) — the
      * independent full-scale re-derivation of every layer's reported mass. */
