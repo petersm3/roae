@@ -22,17 +22,29 @@ witness of the received sequence is the Xiping Stone Classics (175–183 CE), wi
 Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. The Mawangdui silk manuscript
 (copied before 168 BCE) attests a *different* ordering in circulation.)
 
-**The finding.** They do not. This project began from the hypothesis that the King Wen sequence is
-*determined* by its published constraints — that the received order could be **derived** from them.
-We enumerated, we measured, and **the hypothesis is false**: an estimated 5×10³¹ — fifty nonillion —
-other orderings satisfy the same rules. Whatever fixed the received order, the tested rules alone
-did not.
+**The finding.** The seven rules we tested do not. This project began from the hypothesis that the
+King Wen sequence is *determined* by its published constraints — that the received order could be
+**derived** from them. We formalised seven such rules (**C1–C7**), enumerated, and measured, and
+**the hypothesis is false**: an estimated 5×10³¹ — fifty nonillion — other orderings satisfy those
+same seven. Whatever fixed the received order, these seven rules alone did not. That is a claim
+about the rules we tested, not about every rule that could exist — rules nobody has written down
+remain entirely possible.
 
 **What this does — and does not — mean.** Three scope notes worth carrying from the start:
 
 - **It does not say the sequence is random, or that nobody designed it.** The test is of the
   literature's rules *as stated*. An arranger may have followed considerations nobody wrote down;
   this project measures only what the stated rules force.
+- **Who defined the seven rules is mixed — and that matters.** Two are classical: the pair
+  structure (implicit in the early commentaries, stated explicitly by Kong Yingda in the 7th
+  century) and the Qian–Kun opening (in the received text itself). One comes from the modern
+  literature: the ban on 5-line transitions, first claimed by McKenna & McKenna (1975) and found
+  independently by Cook (2006). **The remaining four this project formalised itself — and several
+  encode King Wen's own values rather than an independent principle.** The complement-distance
+  ceiling is King Wen's own figure, read off the sequence and used as the threshold; the two
+  adjacency constraints are its own adjacencies. Rules of that kind describe the target rather than
+  predict it, and they are priced as description — not as explanation — everywhere in this
+  repository ([METHODS](reports/METHODS.md) §"Data-like vs principled constraints").
 - **The enumeration is budgeted, not exhaustive.** The space of valid orderings is far too large to
   list in full; the explicit listings cover defined, reproducible slices of it, and every
   uniqueness statement in this repository is scoped to those slices, never to the full space.
@@ -132,10 +144,18 @@ are treated as axioms defining a space of orderings ([formal definitions](docume
 - **C3** — complementary hexagrams sit near each other (a positional-distance ceiling at KW's own value).
 - **C4** — the sequence starts with the pair ䷀ Qian (The Creative) #1 and ䷁ Kun (The Receptive) #2, i.e., Heaven followed by Earth.
 - **C5** — the multiset of adjacent-transition sizes matches King Wen's exactly.
+- **C6** — a specific pair-adjacency in the second half: the pair at positions 53–54 is immediately
+  followed by the pair at 55–56.
+- **C7** — the same kind of pin one boundary earlier: the pair at positions 49–50 is immediately
+  followed by the pair at 51–52.
 
-C1–C2 are robust properties; C3–C5 are extracted from the sequence itself — the distinction matters and
-is policed throughout ([CRITIQUE.md](documentation/CRITIQUE.md)). Two further extracted constraints
-(C6–C7) appear only where marked.
+C1–C2 are robust properties, stated in the literature independently of any one ordering. C3–C5 are
+extracted from the sequence itself — C3's ceiling is King Wen's own value, C5's multiset is King Wen's
+own multiset. C6–C7 go furthest still: they name the specific hexagrams King Wen puts at those slots
+([exact values](documentation/SPECIFICATION.md)), so they describe the received order rather than
+explain it. That distinction is the difference between a result and a restatement, and it is policed
+throughout ([CRITIQUE.md](documentation/CRITIQUE.md)) — which is why headline counts are reported over
+C1–C5, with C6–C7 added only where the text says so.
 
 ## The instruments
 
