@@ -14480,6 +14480,33 @@ static int f1c5_sidecars_enabled(void) {
     return !(e && *e && atoi(e) == 0);
 }
 
+/* ---- Stage-G build telemetry (#119, 2026-08-07) ----
+ * The long phases of a g/t layer build (the gather sweep, the finalize
+ * readback, and the sidecar stats walk — 7-10 h per layer at full-31)
+ * previously printed NOTHING between layer boundaries, so a supervisor could
+ * not tell working from hung ("log-staleness: output silent 24h",
+ * 2026-08-06). Time-based heartbeat to stderr, env-tunable:
+ * SOLVE_KC_G_HEARTBEAT_SEC=N seconds (default 300; <= 0 disables both the
+ * heartbeat and the pass-boundary announcements). stderr-only and
+ * argv/env-independent of the enumeration path — sha-neutral (no artifact
+ * bytes originate here). Implemented by Claude (Fable 5), operator-directed
+ * (#119); developed with AI assistance (Claude, Anthropic). */
+static double kc_g_heartbeat_sec(void) {
+    const char *e = getenv("SOLVE_KC_G_HEARTBEAT_SEC");
+    if (e && *e) return atof(e);   /* <= 0 (or unparsable) = disabled */
+    return 300.0;
+}
+
+/* Per-layer pass count for the g/t OOC builder's telemetry (#119): every
+ * layer runs (1) the gather sweep and (2) the finalize readback (block
+ * concat + inline sha for v2; vals copy-back for v1); (3) the sidecar stats
+ * walk runs unless SOLVE_F1_LAYER_SIDECARS=0. DERIVED, not hardcoded — the
+ * 2026-08-06 ETA misses came from extrapolating a per-layer rate without
+ * this structure, which until now lived only in comments. */
+static int kc_g_layer_npass(void) {
+    return 2 + (f1c5_sidecars_enabled() ? 1 : 0);
+}
+
 static inline int f1c5_u192_bits(const F1U192 *v) {
     if (v->l2) return 192 - __builtin_clzll(v->l2);
     if (v->l1) return 128 - __builtin_clzll(v->l1);
@@ -14603,7 +14630,8 @@ static void f1c5_sha_of_string(const char *s, char out_hex[65]) {
 static struct {
     double build_wall_s;      /* < 0 = unset */
     char xinput_sha[80];      /* "" = unset */
-} f1c5_sidecar_x = { -1.0, "" };
+    int build_passes;         /* < 0 = unset (#119: kc_g_layer_npass at build time) */
+} f1c5_sidecar_x = { -1.0, "", -1 };
 
 /* Env passthroughs recorded verbatim into the sidecar when set + sanitized
  * (charset guard doubles as JSON-injection protection):
@@ -14638,12 +14666,47 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     const double x_wall = f1c5_sidecar_x.build_wall_s;
     char x_input[80];
     snprintf(x_input, sizeof(x_input), "%s", f1c5_sidecar_x.xinput_sha);
+    const int x_passes = f1c5_sidecar_x.build_passes;
     f1c5_sidecar_x.build_wall_s = -1.0;
     f1c5_sidecar_x.xinput_sha[0] = '\0';
+    f1c5_sidecar_x.build_passes = -1;
     char lpath[4300], jfin[4300], jtmp[4310];
     snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
     snprintf(jfin, sizeof(jfin), "%s/%s_layer_stats_%02d.json", dir, pfx, k);
     snprintf(jtmp, sizeof(jtmp), "%s.tmp", jfin);
+    /* #119 non-destructive build path (2026-08-07): the builders NEVER
+     * overwrite an existing sidecar. The layer content is deterministic for a
+     * given (n, pl, start_exit, b0), so an existing sidecar is a prior run's
+     * completed record of this same layer (typically a run that died between
+     * the sidecar pass and the manifest advance); leaving it also spares the
+     * multi-hour stats re-walk on the eviction/adopt path. Only the explicit
+     * operator subcommand --f1c5-sidecar-retrofit (force=1) regenerates.
+     * (Compressed-representation fields such as bin_bytes may go stale if a
+     * layer was re-finalized at a different gzip level; the append-only sha
+     * ledger carries the fresh record.) */
+    if (!force && access(jfin, F_OK) == 0) {
+        fprintf(stderr, "[sidecar] EXISTS %s — left untouched (non-destructive "
+                "build path, #119; --f1c5-sidecar-retrofit regenerates "
+                "deliberately)\n", jfin);
+        return;
+    }
+    /* #119 telemetry: bin size (recorded below) + announce the silent phases
+     * for big layers (>= 64 MB compressed) so a supervisor can tell this
+     * multi-hour read-only stretch from a hang. */
+    uint64_t bin_bytes = 0;
+    {
+        struct stat stb;
+        if (stat(lpath, &stb) == 0) bin_bytes = (uint64_t)stb.st_size;
+    }
+    const double hb_sec = kc_g_heartbeat_sec();
+    const int hb_announce = hb_sec > 0.0 && bin_bytes >= (64ull << 20);
+    const double sw0 = omp_get_wtime();
+    if (hb_announce) {
+        fprintf(stderr, "[sidecar] %s_layer_%02d: digest pass (own decompressed-"
+                "stream sha256 over %llu compressed bytes; quiet until done)\n",
+                pfx, k, (unsigned long long)bin_bytes);
+        fflush(stderr);
+    }
     if (!sha256_tool()) {
         F1C5_SIDECAR_WARN("no sha256 tool on PATH — sidecar for %s skipped", lpath);
         return;
@@ -14743,6 +14806,13 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     /* SV: skip masks+off+keys */
     for (have = 0; have < 4ull * nm + 8ull * (nm + 1) + 4ull * ne; have += len)
         len = f1c5_lstream_next(&SV, &chunk);
+    if (hb_announce) {
+        fprintf(stderr, "[sidecar] %s_layer_%02d: stats walk (%llu entries, two "
+                "lockstep decompressed streams; heartbeat every %.0fs)\n",
+                pfx, k, (unsigned long long)ne, hb_sec);
+        fflush(stderr);
+    }
+    double last_hb = omp_get_wtime();
     /* joined entry walk */
     F1U192 mass = {0, 0, 0};
     F1c5TopState heavy[16], light[16];
@@ -14820,6 +14890,17 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         vbuf += take;
         kleft -= take;
         vleft -= take;
+        if (hb_sec > 0.0) {   /* #119 heartbeat: stats-walk liveness */
+            const double now = omp_get_wtime();
+            if (now - last_hb >= hb_sec) {
+                fprintf(stderr, "[sidecar-hb] %s_layer_%02d: entries=%llu/%llu "
+                        "(%.1f%%) elapsed=%.0fs\n",
+                        pfx, k, (unsigned long long)e, (unsigned long long)ne,
+                        ne ? 100.0 * (double)e / (double)ne : 100.0, now - sw0);
+                fflush(stderr);
+                last_hb = now;
+            }
+        }
     }
     f1c5_lstream_close(&SK);
     f1c5_lstream_close(&SV);
@@ -14863,6 +14944,8 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
                 B->b0[0], B->b0[1], B->b0[2], B->b0[3], B->b0[4]);
         fprintf(jf, "  \"n_masks\": %llu,\n  \"n_empty_masks\": %llu,\n  \"n_entries\": %llu,\n",
                 (unsigned long long)nm, (unsigned long long)n_empty, (unsigned long long)ne);
+        if (bin_bytes)   /* #119: compressed on-disk size at emit time */
+            fprintf(jf, "  \"bin_bytes\": %llu,\n", (unsigned long long)bin_bytes);
         fprintf(jf, "  \"own_sha256_decompressed\": \"%s\",\n", own_sha);
         fprintf(jf, "  \"input_layer_k\": %d,\n", genesis ? -1 : input_k);
         fprintf(jf, "  \"input_sha256_decompressed\": \"%s\",\n", input_sha);
@@ -14880,6 +14963,8 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
             fprintf(jf, "  \"x_input_sha256\": \"%s\",\n", x_input);
         if (x_wall >= 0.0)
             fprintf(jf, "  \"build_wall_s\": %.3f,\n", x_wall);
+        if (x_passes >= 0)   /* #119: per-layer pass structure at build time */
+            fprintf(jf, "  \"build_passes\": %d,\n", x_passes);
         {
             double rss_cur = 0.0, rss_peak = 0.0;
             f1_rss_mb(&rss_cur, &rss_peak);
@@ -16766,6 +16851,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *   for semantics, the f*g identity, and gates):
  *   --kc-g-selftest                     n=9 exhaustive + n=13 spot g gates
  *   --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc]   build + retain the g ladder
+ *   --kc-g-status GDIR                  READ-ONLY ladder status (filesystem truth)
  *   --kc-g-check FDIR GDIR              f*g cut identity at every layer (V3)
  *
  *   Stage O3 (the CITABLE-order ranker; KC-O3 module header below for the
@@ -19348,6 +19434,21 @@ static int kc_oocverify(int npairs, int R, const char *scratch) {
  *                                   hooks SOLVE_F1_KILL_PRE_CONCAT=<k>,
  *                                   SOLVE_F1_KILL_IN_FINALIZE=<k>,
  *                                   SOLVE_KC_G_KILL_BEFORE_MANIFEST=<k>.
+ *                                   Telemetry (#119, 2026-08-07): per-layer
+ *                                   pass announcements (1 gather / 2 finalize
+ *                                   / 3 sidecar; count DERIVED, not
+ *                                   hardcoded) + time-based heartbeats to
+ *                                   stderr, SOLVE_KC_G_HEARTBEAT_SEC
+ *                                   (default 300; <= 0 off); builders never
+ *                                   overwrite an existing layer sidecar
+ *                                   (non-destructive; only
+ *                                   --f1c5-sidecar-retrofit regenerates).
+ *   --kc-g-status GDIR              READ-ONLY full-ladder status from
+ *                                   filesystem truth (manifest, per-layer
+ *                                   bins/sidecars/markers, in-flight ckpt,
+ *                                   sha ledger; g/t/f1c5 prefixes) — the
+ *                                   monitor-facing alternative to log
+ *                                   parsing. Touches nothing on disk.
  *   --kc-g-check FDIR GDIR [--kc-ooc] [--kc-cache-mb MB]
  *                                   the f*g identity at EVERY layer against
  *                                   the f ladder in FDIR (in-memory or OOC,
@@ -19623,6 +19724,34 @@ static void kc_t_seed_from_f(KC *fdom, F1C5Layer *T) {
     }
 }
 
+/* #119 gather-sweep heartbeat (time-gated; see kc_g_heartbeat_sec). One line
+ * with a UTC stamp so an unstamped supervisor log still carries absolute
+ * time. masks_done is the committed-chunk base (the in-flight chunk is not
+ * counted — an honest lower bound); entries_out likewise. */
+static void kc_g_hb_maybe(const char *pfx, int k, int n, int npass,
+                          uint64_t masks_done, uint64_t masks_total,
+                          uint64_t entries_out, const F1C5OocIo *io,
+                          double lt0, double hb_sec, double *last_hb) {
+    if (hb_sec <= 0.0) return;
+    const double now = omp_get_wtime();
+    if (now - *last_hb < hb_sec) return;
+    char ts[40];
+    time_t tt = time(NULL);
+    struct tm tmb;
+    strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&tt, &tmb));
+    fprintf(stderr, "[kc-%s-hb] %s layer k=%d/%d pass=1/%d masks=%llu/%llu "
+            "(%.2f%%) entries_out=%llu read=%.1fGB write=%.1fGB windows=%llu "
+            "elapsed=%.0fs\n",
+            pfx, ts, k, n, npass,
+            (unsigned long long)masks_done, (unsigned long long)masks_total,
+            masks_total ? 100.0 * (double)masks_done / (double)masks_total : 100.0,
+            (unsigned long long)entries_out,
+            (double)io->bytes_read / 1e9, (double)io->bytes_written / 1e9,
+            (unsigned long long)io->windows, now - lt0);
+    fflush(stderr);
+    *last_hb = now;
+}
+
 /* ---------- Stage-G out-of-core backward layer builder ----------
  * Structural clone of f1c5_ooc_build_layer (#221) with the transition
  * reversed: targets are layer k (= src->k - 1), requests point at canonical
@@ -19738,6 +19867,23 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
              "[kc-g] ooc buffer alloc failed (chunk=%llu window=%llu entries)",
              (unsigned long long)chunk_cap, (unsigned long long)buf_entries);
 
+    /* #119 telemetry: pass-1 announce + heartbeat state. The per-layer pass
+     * structure (gather / finalize / sidecar) is printed so ETAs can be
+     * computed from the log alone instead of rediscovered from source. */
+    const double hb_sec = kc_g_heartbeat_sec();
+    const int npass = kc_g_layer_npass();
+    const double lt0 = omp_get_wtime();
+    double last_hb = lt0;
+    if (hb_sec > 0.0) {
+        fprintf(stderr, "[kc-%s] layer k=%d/%d pass=1/%d (gather sweep): "
+                "%llu canonical masks in %llu chunk(s) of <=%llu, src entries=%llu; "
+                "heartbeat every %.0fs\n",
+                pfx, nxt->k, c->n, npass, (unsigned long long)nxt->nm,
+                (unsigned long long)((nxt->nm + chunk_cap - 1) / chunk_cap),
+                (unsigned long long)chunk_cap, (unsigned long long)src->ne, hb_sec);
+        fflush(stderr);
+    }
+
     F1U192 mass = {0, 0, 0};
     uint64_t states = 0;
     nxt->keys = NULL;
@@ -19816,6 +19962,8 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                 }
             }
             io->windows++;
+            kc_g_hb_maybe(pfx, nxt->k, c->n, npass, t0, nxt->nm, nxt->off[t0],
+                          io, lt0, hb_sec, &last_hb);   /* #119 heartbeat */
             #pragma omp parallel for schedule(dynamic, 8)
             for (int64_t t = 0; t < (int64_t)tc; t++) {
                 const F1C5Req *tr = reqs + (uint64_t)t * (uint64_t)c->n;
@@ -19942,8 +20090,22 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                 }
             }
         }
+        kc_g_hb_maybe(pfx, nxt->k, c->n, npass, t0 + tc, nxt->nm, nxt->off[t0 + tc],
+                      io, lt0, hb_sec, &last_hb);   /* #119 heartbeat (chunk end) */
     }
     nxt->ne = nxt->off[nxt->nm];
+    /* #119 telemetry: pass-2 announce — the finalize readback previously
+     * looked idle from outside (no output, read-mostly I/O) and was mistaken
+     * for a hang. Announce it with its volume, and stamp its completion. */
+    if (hb_sec > 0.0) {
+        fprintf(stderr, "[kc-%s] layer k=%d/%d pass=2/%d (finalize: %s): "
+                "%llu entries, %llu masks — single readback pass, quiet until done\n",
+                pfx, nxt->k, c->n, npass,
+                use_v2 ? "block concat + inline sha" : "vals copy-back",
+                (unsigned long long)nxt->ne, (unsigned long long)nxt->nm);
+        fflush(stderr);
+    }
+    const double fin0 = omp_get_wtime();
     F1C5LayerHdr h;
     memset(&h, 0, sizeof(h));
     memcpy(h.magic, f1c5_kind_magic(kind, use_v2), 8);
@@ -19997,6 +20159,11 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         f1_fsync_dir(dir);
         unlink(ovtmp);
         io->sec_write += omp_get_wtime() - tw;
+    }
+    if (hb_sec > 0.0) {
+        fprintf(stderr, "[kc-%s] layer k=%d/%d pass=2/%d (finalize) done in %.1fs\n",
+                pfx, nxt->k, c->n, npass, omp_get_wtime() - fin0);
+        fflush(stderr);
     }
     *mass_out = mass;
     *states_out = states;
@@ -20083,6 +20250,7 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
         /* (v2 sidecar extras) per-layer build wall + x-input: the f-layer whose
          * mask domain this t layer rode (from the f catalog's own sidecar) */
         f1c5_sidecar_x.build_wall_s = omp_get_wtime() - t0;
+        f1c5_sidecar_x.build_passes = kc_g_layer_npass();   /* #119 */
         if (fdom && fdom->ooc) {
             const char *fp = fdom->ooc->L[k].path;
             const char *slash = strrchr(fp, '/');
@@ -20096,6 +20264,15 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
                     snprintf(f1c5_sidecar_x.xinput_sha,
                              sizeof(f1c5_sidecar_x.xinput_sha), "f:%s", fsha);
             }
+        }
+        /* #119 telemetry: pass-3 announce (the sidecar itself heartbeats its
+         * digest + stats-walk phases; it skips non-destructively when the
+         * sidecar already exists, e.g. after an adopt). */
+        if (f1c5_sidecars_enabled() && kc_g_heartbeat_sec() > 0.0) {
+            fprintf(stderr, "[kc-%s] layer k=%d/%d pass=%d/%d (sidecar stats: "
+                    "~3 decompressed stream passes over the new layer)\n",
+                    pfx, k, n, kc_g_layer_npass(), kc_g_layer_npass());
+            fflush(stderr);
         }
         f1c5_sidecar_emit(gdir, pfx, &kc->c, &kc->B, k);   /* catalog sidecar (non-fatal) */
         { const char *e = getenv("SOLVE_KC_G_KILL_BEFORE_MANIFEST");   /* drill hook */
@@ -20301,6 +20478,169 @@ static int kc_g_files_equal(const char *pa, const char *pb) {
     fclose(fa);
     fclose(fb);
     return eq;
+}
+
+/* ---------- --kc-g-status (#119, 2026-08-07): read-only ladder status ----------
+ * "Filesystem truth over log parse" as a first-class engine feature: print
+ * the full ladder state of a directory from on-disk artifacts alone.
+ * STRICTLY read-only: every open is read-mode, no tmp files, no unlink, no
+ * manifest write — safe to point at a LIVE build directory (contrast
+ * f1c5_build_ckpt_read, which prunes unusable markers and is deliberately
+ * NOT called here). Per ladder prefix present (g, t, f1c5): the manifest
+ * watermark, per-layer .bin/header/sidecar/finalized-marker/in-flight state,
+ * the intra-layer build checkpoint (raw header peek only — no CRC walk, no
+ * validation side effects), and the append-only sha ledger. Status REPORTS;
+ * the build/check paths ENFORCE. Implemented by Claude (Fable 5),
+ * operator-directed (#119); developed with AI assistance (Claude,
+ * Anthropic). */
+static int kc_g_status_ladder(const char *dir, const char *pfx) {
+    char path[4600], line[2048];
+    snprintf(path, sizeof(path), "%s/%s_manifest.txt", dir, pfx);
+    FILE *f = fopen(path, "r");
+    int n = -1, last_k = -1000, se = -1, have_manifest = 0;
+    char plh[48] = "?", b0s[100] = "?";
+    if (f) {
+        have_manifest = 1;
+        while (fgets(line, sizeof(line), f)) {
+            if (sscanf(line, "n=%d", &n) == 1) continue;
+            if (sscanf(line, "start_exit=%d", &se) == 1) continue;
+            if (sscanf(line, "last_complete_k=%d", &last_k) == 1) continue;
+            if (sscanf(line, "pl_hash=%47s", plh) == 1) continue;
+            if (sscanf(line, "b0=%99s", b0s) == 1) continue;
+        }
+        fclose(f);
+    }
+    /* layer census 0..scan_max (layer headers stand in for n when the
+     * manifest is absent) */
+    enum { KMAX = 32 };
+    long long bytes[KMAX + 1];
+    uint64_t hnm[KMAX + 1], hne[KMAX + 1];
+    unsigned char have_bin[KMAX + 1], hdr_ok[KMAX + 1], have_sc[KMAX + 1],
+                  have_mk[KMAX + 1], have_tmp[KMAX + 1];
+    memset(have_bin, 0, sizeof(have_bin)); memset(hdr_ok, 0, sizeof(hdr_ok));
+    memset(have_sc, 0, sizeof(have_sc));   memset(have_mk, 0, sizeof(have_mk));
+    memset(have_tmp, 0, sizeof(have_tmp));
+    int scan_max = (n >= 1 && n <= KMAX) ? n : KMAX, hdr_n = -1, present = 0;
+    for (int k = 0; k <= scan_max; k++) {
+        struct stat stb;
+        snprintf(path, sizeof(path), "%s/%s_layer_%02d.bin", dir, pfx, k);
+        bytes[k] = -1; hnm[k] = 0; hne[k] = 0;
+        if (stat(path, &stb) == 0) {
+            have_bin[k] = 1; present++;
+            bytes[k] = (long long)stb.st_size;
+            FILE *lf = fopen(path, "rb");
+            F1C5LayerHdr h;
+            if (lf) {
+                if (fread(&h, sizeof(h), 1, lf) == 1 &&
+                    memcmp(h.magic, "F1C5", 4) == 0 && (int)h.k == k) {
+                    hdr_ok[k] = 1; hnm[k] = h.n_masks; hne[k] = h.n_entries;
+                    if ((int)h.n > hdr_n) hdr_n = (int)h.n;
+                }
+                fclose(lf);
+            }
+        }
+        snprintf(path, sizeof(path), "%s/%s_layer_stats_%02d.json", dir, pfx, k);
+        have_sc[k] = access(path, F_OK) == 0;
+        f1c5_finalized_marker_path(path, sizeof(path), dir, pfx, k);
+        have_mk[k] = access(path, F_OK) == 0;
+        snprintf(path, sizeof(path), "%s/%s_layer_%02d.bin.kblk.tmp", dir, pfx, k);
+        have_tmp[k] = access(path, F_OK) == 0;
+        if (!have_tmp[k]) {
+            snprintf(path, sizeof(path), "%s/%s_layer_%02d.bin.tmp", dir, pfx, k);
+            have_tmp[k] = access(path, F_OK) == 0;
+        }
+    }
+    /* in-flight intra-layer checkpoint: raw fixed-header peek */
+    long long ck_k = -1, ck_done = -1, ck_cap = -1, ck_lvl = -1;
+    snprintf(path, sizeof(path), "%s/%s_build.ckpt", dir, pfx);
+    FILE *cf = fopen(path, "rb");
+    if (cf) {
+        char mg[8];
+        uint64_t v[6];   /* nxt_k, pl_hash, chunk_cap, blk, gzip_level, t0_next */
+        if (fread(mg, 1, 8, cf) == 8 && fread(v, 8, 6, cf) == 6 &&
+            memcmp(mg, F1C5_BUILD_CKPT_MAGIC, 8) == 0) {
+            ck_k = (long long)v[0]; ck_cap = (long long)v[2];
+            ck_lvl = (long long)v[4]; ck_done = (long long)v[5];
+        } else {
+            ck_k = -2;   /* present but unreadable/foreign */
+        }
+        fclose(cf);
+    }
+    if (!have_manifest && !present && ck_k == -1) return 0;   /* no such ladder */
+    const int is_g = (pfx[0] == 'g' || pfx[0] == 't') && pfx[1] == '\0';
+    const int nn = (n >= 1) ? n : hdr_n;
+    printf("[kc-g-status] %s: %s ladder (%s)\n", dir, pfx,
+           is_g ? "backward; builds n..0, complete at last_complete_k=0"
+                : "forward; builds 0..n, complete at last_complete_k=n");
+    if (have_manifest)
+        printf("  manifest: n=%d start_exit=%d pl_hash=%s b0=%s last_complete_k=%d\n",
+               n, se, plh, b0s, last_k);
+    else
+        printf("  manifest: MISSING (%d layer artifact(s) present%s)\n", present,
+               hdr_n >= 0 ? "; n taken from layer headers" : "");
+    for (int i = 0; nn >= 1 && i <= nn && nn <= KMAX; i++) {
+        const int k = is_g ? nn - i : i;
+        if (!have_bin[k] && !have_sc[k] && !have_mk[k] && !have_tmp[k]) continue;
+        printf("  k=%02d: bin=%s", k, have_bin[k] ? "yes" : "NO");
+        if (have_bin[k]) {
+            printf(" (%lld B", bytes[k]);
+            if (hdr_ok[k])
+                printf(", masks=%llu, entries=%llu",
+                       (unsigned long long)hnm[k], (unsigned long long)hne[k]);
+            else
+                printf(", HEADER UNREADABLE/FOREIGN");
+            printf(")");
+        }
+        printf("  sidecar=%s  finalized-marker=%s%s\n",
+               have_sc[k] ? "yes" : "no", have_mk[k] ? "yes" : "no",
+               have_tmp[k] ? "  IN-FLIGHT-TMP" : "");
+    }
+    if (ck_k == -2)
+        printf("  build ckpt: PRESENT but unreadable/foreign (%s_build.ckpt)\n", pfx);
+    else if (ck_k >= 0)
+        printf("  build ckpt: IN-FLIGHT layer k=%lld, masks_done=%lld "
+               "(chunk_cap=%lld, gzip_level=%lld)\n", ck_k, ck_done, ck_cap, ck_lvl);
+    /* sha ledger (append-only; survives retrofits) */
+    snprintf(path, sizeof(path), "%s/%s_layer_sha.ledger", dir, pfx);
+    FILE *lg = fopen(path, "r");
+    if (lg) {
+        int nl = 0;
+        char last[512] = "";
+        while (fgets(line, sizeof(line), lg)) {
+            nl++;
+            snprintf(last, sizeof(last), "%s", line);
+        }
+        fclose(lg);
+        size_t sl = strlen(last);
+        if (sl && last[sl - 1] == '\n') last[sl - 1] = '\0';
+        printf("  sha ledger: %d line(s); last: %s\n", nl, nl ? last : "(empty)");
+    } else {
+        printf("  sha ledger: none\n");
+    }
+    /* verdict */
+    if (have_manifest && nn >= 1 && last_k == (is_g ? 0 : nn) && present == nn + 1)
+        printf("  STATUS: COMPLETE (all %d layers present, watermark terminal)\n", nn + 1);
+    else if (ck_k >= 0)
+        printf("  STATUS: IN PROGRESS mid-layer (k=%lld checkpointed; %d/%d layers on disk)\n",
+               ck_k, present, nn >= 1 ? nn + 1 : -1);
+    else if (have_manifest && nn >= 1)
+        printf("  STATUS: INCOMPLETE, no in-flight checkpoint (next layer to build: k=%d; "
+               "%d/%d layers on disk)\n", is_g ? last_k - 1 : last_k + 1, present, nn + 1);
+    else
+        printf("  STATUS: PARTIAL ARTIFACTS, no manifest (build not yet seeded, or wrong dir)\n");
+    return 1;
+}
+
+static int kc_g_status_main(const char *dir) {
+    static const char *pfxs[3] = {"g", "t", "f1c5"};
+    int any = 0;
+    for (int i = 0; i < 3; i++) any += kc_g_status_ladder(dir, pfxs[i]);
+    if (!any) {
+        fprintf(stderr, "ERROR: [kc-g-status] no ladder artifacts (g/t/f1c5 manifest, "
+                "layers, or checkpoint) in %s\n", dir);
+        return 2;
+    }
+    return 0;
 }
 
 /* ---------- --kc-g-selftest ---------- */
@@ -26010,6 +26350,20 @@ static int kc_cli(int argc, char *argv[]) {
             else if (strcmp(argv[ai], "--kc-g-ooc") == 0) gooc = 1;
         }
         return kc_g_build_main(argv[2], npairs, gooc);
+    }
+    if (strcmp(cmd, "--kc-g-status") == 0) {
+        /* Stage G (#119): READ-ONLY ladder status from filesystem truth. */
+        if (argc < 3) {
+            fprintf(stderr, "Usage: solve --kc-g-status GDIR\n"
+                    "  READ-ONLY ladder status from filesystem truth (no writes, no\n"
+                    "  unlinks, no log parsing — safe against a LIVE build directory):\n"
+                    "  manifest watermark, per-layer bin/header/sidecar/finalized-marker\n"
+                    "  state, the in-flight intra-layer checkpoint, and the sha ledger,\n"
+                    "  for every ladder prefix present in GDIR (g, t, f1c5).\n"
+                    "  Exit 0 = at least one ladder found; 2 = none.\n");
+            return 2;
+        }
+        return kc_g_status_main(argv[2]);
     }
     if (strcmp(cmd, "--kc-o3-selftest") == 0) return kc_o3_selftest();
     if (strcmp(cmd, "--kc-o3-rank") == 0 || strcmp(cmd, "--kc-o3-unrank") == 0) {
