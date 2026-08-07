@@ -39,10 +39,14 @@ The five theorem families make **different kinds** of claims. Precisely:
   literature. Corrections are invited (see the standing invitation in
   [CITATIONS.md](CITATIONS.md)).
 
-**Trust base.** Finite facts (over the 64 hexagrams, 64×64 value pairs, or
-720 line permutations) are proved by `decide`/`native_decide`;
-`native_decide` trusts Lean's compiler in addition to its kernel — see the
-trust-base note in [`lean/README.md`](../lean/README.md). The TG-2
+**Trust base (updated 2026-08-07).** Kernel-only end to end: finite facts
+(over the 64 hexagrams, 64×64 value pairs, or 720 line permutations) are
+proved by kernel `decide`/`decide +kernel`, and since 2026-08-07 the file
+carries **zero** `native_decide` — the tactic that would additionally trust
+Lean's compiler — anywhere; see the trust-base note in
+[`lean/README.md`](../lean/README.md) for the migration history. (Until
+2026-08-07 this paragraph disclosed a `decide`/`native_decide` mix; the
+`native_decide` half is gone.) The TG-2
 sequence-level theorems are ordinary structural proofs over every valid
 ordering, checked by the kernel. Every statement was additionally verified
 numerically in Python before being drafted in Lean; that two-language check
@@ -214,11 +218,13 @@ under the shipped nuclear batteries (`solve.py` V-8 `vdb_nuc`,
 
 ### TG-5 — vacuity guards (guards, not results)
 
-Machine-checked precisely because each defuses a numerology claim — **with mixed trust bases, stated here
-rather than only in the ledger below**: `pure_pairslot_couple` is kernel-only (via `pure_partner_bool`,
-`decide`), while `trigram_balance_invariant` and `pure_pairslot_count` go through `native_decide`
-(compiler trust) via `trigram_balance_range` / `pure_count_range`. *(Corrected 2026-08-01: this sentence
-read "Kernel-checked" for all three, contradicting this document's own §Trust base ledger.)*
+Machine-checked precisely because each defuses a numerology claim — all three kernel-only:
+`pure_pairslot_couple` via `pure_partner_bool` (`decide`), and `trigram_balance_invariant` /
+`pure_pairslot_count` via `trigram_balance_range` / `pure_count_range` (`decide +kernel` since
+2026-08-07 — kernel-evaluated, no compiler trust). *(Corrected 2026-08-01: this sentence
+read "Kernel-checked" for all three, contradicting this document's own §Trust base ledger — at
+that date two of the three went through `native_decide`. Updated 2026-08-07: the 2026-08-01
+disclosure is now moot; the kernel migration made "kernel-checked for all three" true.)*
 
 - **Trigram balance is ordering-invariant** (`trigram_balance_invariant`):
   in *any* permutation of the 64 hexagrams, each of the 8 trigrams appears
@@ -304,9 +310,10 @@ corrections invited on every "we have not located..." hedge):
   Whole-sequence trigram balance is a property of the SET of 64 hexagrams
   (invariant under EVERY permutation), so any "the King Wen sequence
   balances the eight trigrams" claim is vacuous; and pure-hexagram
-  adjacency is forced by C1, not a design choice. These are machine-checked
-  (per the §Trust base note — some, e.g. `pure_pairslot_count` via `pure_count_range`, go through
-  `native_decide`, not kernel-`decide`) precisely because they remove numerology attack surface.
+  adjacency is forced by C1, not a design choice. These are kernel-checked
+  (true as written since the 2026-08-07 migration — until then two of the three went through
+  `native_decide`, as disclosed in the §Trust base note of that era)
+  precisely because they remove numerology attack surface.
 ```
 
 ## 5. Verify yourself

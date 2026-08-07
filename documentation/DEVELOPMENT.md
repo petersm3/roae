@@ -43,7 +43,10 @@ sudo apt-get install -y build-essential zlib1g-dev
   version the reports name as tested: `elan default leanprover/lean4:v4.31.0`. Memory matters:
   the heaviest files need ~10 GB free RAM to verify (an 8 GB host cannot check
   `lean/Automorphism.lean` or `lean/KingWen.lean`) — see the measured per-file wall/RSS table in
-  [lean/README.md](../lean/README.md) §"Verify yourself" before running the Lean suite.
+  [lean/README.md](../lean/README.md) §"Verify yourself" before running the Lean suite. *(These
+  figures were re-confirmed against measurement 2026-08-07 after the final `native_decide` →
+  kernel migration tranche: the two newly-migrated files peak below the pre-existing ceiling, so
+  the requirement did not move.)*
 
 Verified from a fresh clone on 2026-08-04: `--selftest` printed
 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, `python3 tests.py` ran 64 tests

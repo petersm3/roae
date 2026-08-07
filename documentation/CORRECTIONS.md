@@ -1048,3 +1048,49 @@ silence — which is why it is named here at all.
   2026-08-07.
 
 ---
+
+### CX-33 · 2026-08-07 · C2 · The Lean trust-base disclosure — "native_decide remains only in two files" — is obsolete in the strong direction: the corpus is now kernel-only
+
+- **Documents:** [lean/README.md](../lean/README.md) §Trust-base note (the primary disclosure and
+  its executed-audit companion), and the circulated repetitions:
+  [SPECIFICATION.md](SPECIFICATION.md) §Theorem (Trigram-level structure),
+  [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) §Machine verification (layer ii),
+  [TRIGRAM_STRUCTURE.md](TRIGRAM_STRUCTURE.md) §Trust base + §TG-5, and
+  [reports/METHODS.md](../reports/METHODS.md) §Independence ladder, rung 1.
+- **What this is, stated precisely — no prior claim was wrong.** Unlike most entries in this file,
+  nothing here retracts or reverses a published statement. The disclosure — that a subset of
+  finite lemmas rested on `native_decide`, which trusts Lean's compiler in addition to its kernel,
+  latterly confined to `TrigramTheorems.lean` §4a–§6 and `SymmetryCompleteness.lean` — was
+  accurate at every revision that carried it, and the module-wide axiom audit executed earlier on
+  2026-08-07 observed exactly the documented sites and nothing else. What changed is the artifact:
+  the limitation itself was removed, so every circulated statement of it went stale
+  simultaneously. This entry is the propagation record — the C2 mechanics of a label that changed
+  after being repeated across documents — not a repair of an error.
+- **What changed in the artifact.** The two obligations that had kept those files on
+  `native_decide` — their direct kernel enumerations were measured at ~13.7 GB peak RSS
+  (`psi_comm_perms`) and ~11.5 GB (`blockPreserving_iff_blockwise`) and rejected as a hardware
+  bar — were reproved structurally on 2026-08-07 with both theorem statements kept verbatim, and
+  every remaining `native_decide` site in the two files migrated to `decide +kernel`
+  (kernel-evaluated, no compiler trust). Measured on the exact shipped tree: ~2.8 GB and ~4.4 GB
+  peaks, both under `Automorphism.lean`'s pre-existing ~9.6 GB suite ceiling — so the published
+  hardware statement (~10 GB free RAM verifies everything; an 8 GB host cannot check
+  `Automorphism.lean` or `KingWen.lean`) was re-confirmed unchanged against measurement rather
+  than assumed.
+- **The new claim, scoped so it cannot be over-read.** All twelve modules now report
+  `#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]` — Lean's standard axioms, zero
+  `Lean.ofReduceBool` — observed by a module-wide `collectAxioms` scan over every non-internal
+  constant of every compiled module on the exact shipped tree, alongside a clean
+  `verify_all.sh` run on the same host (rc 0, 60 passed / 0 failed / 0 skipped). This is a
+  statement about the **axiom base** — what a reader must trust for the proofs to be sound — not
+  a claim that the formalized statements exhaust what the prose asserts: file headers and scope
+  notes still govern meaning, and the model-to-code bridges (PartitionInvariance B1–B4, the
+  PruneExactness reachability hypotheses) remain stated prose assumptions, exactly as before.
+- **What changes (document-side).** The five documents above now state the kernel-only base, each
+  with a dated supersession note preserving what its disclosure said and when it stopped being
+  the case; lean/README's hardware table carries the two files' new measured costs and the
+  old-cost provenance.
+- **How it was found:** not found — executed. Operator-approved adoption of the second structural-
+  reproof tranche (2026-08-07), closing out the pending work the tranche-1 disclosure itself had
+  named ("they stayed on `native_decide` pending structural reproofs of those two obligations").
+
+---

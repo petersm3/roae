@@ -271,6 +271,12 @@ which is what produced every published figure — with the divergence disclosed:
    Those belong one rung lower in spirit: they require trusting no project code, but they are not kernel-checked.
    The per-file inventory is in [lean/README.md](../lean/README.md) §Trust base; this was the one place in the
    suite where a distinction maintained everywhere else was flattened.)*
+   *(Resolved 2026-08-07: the 2026-08-01 qualification above is now empty of members. The `native_decide` →
+   kernel migration completed in three tranches — 2026-07-27/31, then PartitionInvariance §12 +
+   PruneGInvariance on 2026-08-07, then TrigramTheorems + SymmetryCompleteness later the same day — and the
+   Lean corpus carries **zero** `native_decide`; a module-wide axiom scan over every non-internal constant of
+   all twelve compiled modules observed zero compiler-trust axioms ([lean/README.md](../lean/README.md)
+   §Trust base, "RE-EXECUTED" note). "Kernel-checked Lean theorems" on this rung now means all of them.)*
 2. **Only the encoder** (validated by KW-value gates + two-way SAT tests): the conflict theorem's rule
    faithfulness.
    *(Added 2026-08-01: the conflict theorem is the **same object** as one of rung 1's DRAT certificates, and

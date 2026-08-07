@@ -5,16 +5,17 @@
 This directory contains **machine-checked mathematical proofs**. Instead of trusting a human
 argument (or this project's own C and Python code), the Lean 4 proof assistant
 ([de Moura & Ullrich 2021](../documentation/CITATIONS.md#demoura-ullrich2021), CADE-28) re-derives each
-statement from first principles and certifies the logic (see the trust-base note below for
-exactly which proofs are checked by Lean's small kernel alone and which additionally trust
-Lean's compiler). What that buys:
+statement from first principles and certifies the logic. Since 2026-08-07 **every proof in this
+directory is checked by Lean's small kernel alone** — no proof trusts Lean's compiler (see the
+trust-base note below for what that means and how it came to hold). What that buys:
 
 - **The constraint system's basic facts are beyond dispute.** Every hexagram pair's distance
   properties, the exact set of XOR products, the parity structure, and King Wen's satisfaction of
   the constraints are proved by exhaustive computation checked by Lean — not by our software, which
   could have bugs. (See the trust-base note below: `decide` proofs are checked by Lean's small
-  kernel alone; the finite lemmas proved by `native_decide` additionally trust Lean's compiler and
-  native code generator.)
+  kernel alone. Until 2026-08-07 a disclosed subset of finite lemmas was instead proved by
+  `native_decide`, which additionally trusts Lean's compiler and native code generator; that
+  subset is now empty.)
 - **The symmetry theorem's bit-permutation layer is fully machine-checked** (finite component + the
   sequence-level layer in
   `Automorphism.lean`): the constraint system has exactly 48 **bit-permutation** symmetries, they act
@@ -69,8 +70,10 @@ Lean's compiler). What that buys:
   their kernel-only trust base, independent of anything else in the tree). Half the files check in
   about a second at under 0.7 GB; the expensive ones are `Automorphism.lean` (~4 min, ~9.6 GB),
   `KingWen.lean` (~2 min, ~7.9 GB), `C3Decomposition.lean` (~1¼ min, ~4.5 GB, the null-law DP),
-  and `PruneGInvariance.lean` (~1½ min, ~3.9 GB). Full measured per-file table and host guidance
-  in §"Verify yourself" below — read it before running the suite on a small machine.
+  `PruneGInvariance.lean` (~1½ min, ~3.9 GB), and — since their 2026-08-07 kernel migration —
+  `TrigramTheorems.lean` (~2 min, ~4.4 GB) and `SymmetryCompleteness.lean` (~22 s, ~2.8 GB).
+  Full measured per-file table and host guidance in §"Verify yourself" below — read it before
+  running the suite on a small machine.
 
 In short: the deepest structural claims this project relies on do not depend on trusting us.
 
@@ -92,10 +95,10 @@ file header). So the DIV-24 gate, the equivariance
 ceiling, the Theorem A trio, the TG-2 boundary-budget family, and the eight literature-rule
 constants are kernel-only end to end (`#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]`
 — Lean's standard axioms; the compiler-trust axiom `Lean.ofReduceBool` no longer appears in any of
-these chains, and the finite facts report `[propext]` alone). `native_decide`
-remains only in: `TrigramTheorems.lean` §4a–§6 (the TG-3/TG-4/TG-5 finite subgroup facts and the
-§6 sanity instances at King Wen — the TG-2 lead theorems themselves are kernel-only) and
-`SymmetryCompleteness.lean` (SC1–SC4/SC7 — the T7 completeness kernels).
+these chains, and the finite facts report `[propext]` alone). After that migration,
+`native_decide` remained only in: `TrigramTheorems.lean` §4a–§6 (the TG-3/TG-4/TG-5 finite
+subgroup facts and the §6 sanity instances at King Wen — the TG-2 lead theorems themselves are
+kernel-only) and `SymmetryCompleteness.lean` (SC1–SC4/SC7 — the T7 completeness kernels).
 **2026-08-07 (second migration tranche):** `PruneGInvariance.lean` is now kernel-only end to
 end — `applyPerm_isometry`, formerly the suite's one remaining *load-bearing* `native_decide`
 (its direct 48×64×64 kernel enumeration was measured out of reach), is now an instantiation of
@@ -111,8 +114,31 @@ kernel-decide versions were built and measured (D16, Lean 4.31.0) at **11.5 GB p
 `TrigramTheorems.lean` and 13.7 GB for `SymmetryCompleteness.lean`** — dominated by one
 obligation each (`blockPreserving_iff_blockwise`, `psi_comm_perms`, both 720-permutation
 enumerations) — and publishing a corpus that needs a ~16 GB host to verify was judged worse
-than the disclosed compiler trust; they stay on `native_decide` pending structural reproofs of
-those two obligations. The structural sequence-level theorems
+than the disclosed compiler trust; they stayed on `native_decide` pending structural reproofs of
+those two obligations, which landed the same week (next paragraph).
+**2026-08-07 (third and final tranche — the corpus is now kernel-only).** The two pending
+structural reproofs landed, with both theorem statements kept verbatim:
+`SymmetryCompleteness.psi_comm_perms` is now proved pointwise — popcount preservation under bit
+relocation (applyPerm p moves bit i to position p[i], so the popcount sum reindexes along p)
+plus commutation of the 6-bit complement with applyPerm via `Nat.eq_of_testBit_eq` — reporting
+axioms `[propext, Quot.sound]`; and `TrigramTheorems.blockPreserving_iff_blockwise` is proved by
+destructuring the permutation to a closed bit-scatter form (carry bounds + `omega` on the
+concretized branches forward; explicit single-bit counterexamples reverse), reporting
+`[propext, Classical.choice, Quot.sound]`. Every other former `native_decide` site in those two
+files migrated to `decide +kernel` (kernel-evaluated, no compiler trust). **Zero `native_decide`
+now remains anywhere in the twelve files: every theorem in this directory is checked by Lean's
+kernel alone, with `#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]` — Lean's standard
+axioms — suite-wide.** The scope of that claim, stated precisely so it cannot be over-read: it
+is about the *axiom base* — what a reader must trust for these proofs to be sound (Lean's
+kernel plus its standard axioms, and no longer Lean's compiler) — not a claim that the
+formalized statements exhaust what the prose documents assert; each file's header and scope
+notes still govern what its theorems do and do not say. Measured cost of the two reproofs
+(Standard_D8als_v7, Lean 4.31.0, 2026-08-07): ~2.8 GB / ~4.4 GB peak RSS — versus the
+~13.7 / ~11.5 GB the rejected enumeration route had cost, and below
+`Automorphism.lean`'s pre-existing ~9.6 GB suite ceiling, so the migration adds **zero**
+hardware cost (see the hardware table below, re-measured on the shipped tree). Structural
+reproofs by Claude (Fable 5, AI assistance per the repo's attribution convention), 2026-08-07,
+under the standing migration policy. The structural sequence-level theorems
 (`wrap_parity_general`, `alternations_15_general`, the T1–T5 merge theorems in
 `PartitionInvariance.lean`, …) are ordinary structural proofs checked by the kernel.
 
@@ -129,8 +155,9 @@ would make those directives a live witness has not been performed yet.
 So: nothing in this section rests on the broken directives — a sweep of the markdown corpus
 on 2026-08-02 found no published sentence that cites them as its warrant — but nothing in it
 is re-confirmed by the directives either. The exposed claim, named rather than left for a
-reader to locate, is the exhaustive negative one two paragraphs up: "`native_decide` remains
-**only** in" those files. An executed audit is what would establish an *only*.
+reader to locate, was the exhaustive negative one above — that `native_decide` remained
+**only** in those files (a sentence this section carried in the present tense until the
+2026-08-07 third tranche retired it). An executed audit is what would establish an *only*.
 **EXECUTED 2026-08-07.** That audit has now been run, on the exact shipped tree (D-series
 Azure host, Lean 4.31.0): a module-wide scan (`Lean.collectAxioms` over EVERY non-internal
 constant of each compiled module, not just the doc-cited names) reports **zero**
@@ -143,6 +170,15 @@ precisely their documented `native_decide` sites, and nothing else. The same sca
 of `Automorphism` and `HammingOptimalMatching` executed in the same builds report only
 standard axioms. So the *only* above is now observed, module-wide, suite-wide — no longer
 statically inferred.
+**RE-EXECUTED 2026-08-07, same day, on the tranche-2 tree** (the revision where the last two
+files migrated): the identical module-wide scan, run on all twelve compiled modules of the
+exact shipped tree, reports **zero** `Lean.ofReduceBool`-bearing constants in every module —
+906 non-internal constants scanned suite-wide (SymmetryCompleteness 70, up from 24 at its
+`native_decide` revision, and TrigramTheorems 158, up from 134 — the growth is the named
+structural lemmas; PartitionInvariance and PruneGInvariance unchanged at 99 and 111), **0
+native hits anywhere**. A source-level sweep agrees: every `native_decide` token remaining in
+the tree sits inside a comment (the historical trust-base notes), none in proof position. The
+exhaustive negative is no longer "only in those files" — it is "nowhere".
 
 Verified statements:
 
@@ -170,8 +206,8 @@ lean C3Decomposition.lean    # C3 slot-decomposition theorem + the exact C1∩C4
 lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
 lean Automorphism.lean       # the sequence-level symmetry layer (see below)
 lean PartitionInvariance.lean  # tier-3 model-level merge/partition-invariance theorems (see below)
-lean TrigramTheorems.lean    # trigram-level structure: forced boundary budget, S3xC2 subgroup (see below)
-lean SymmetryCompleteness.lean  # TR-5 v2.0 completeness kernel: psi iso, Q6 rigidity, partner-commuters = G48 (2026-07-18)
+lean TrigramTheorems.lean    # trigram-level structure: forced boundary budget, S3xC2 subgroup (see below; ~2 min since the 2026-08-07 kernel migration)
+lean SymmetryCompleteness.lean  # TR-5 v2.0 completeness kernel: psi iso, Q6 rigidity, partner-commuters = G48 (2026-07-18; ~22 s since the 2026-08-07 kernel migration)
 lean C1RuleConstants.lean    # the eight "forced-1.0" literature rules (mmt4,p1c4,s1,s6,r3,r4,r5,c2) are constants of the C1 space (2026-07-21)
 lean HammingOptimalMatching.lean  # C1 is THE unique Hamming-cost-minimizing comp/rev matching (Radisic 2026, re-derived in-repo; kernel-only decide) (2026-07-26)
 ```
@@ -182,17 +218,30 @@ verifies every file; 16 GB is comfortable; an 8 GB host cannot verify `Automorph
 `KingWen.lean` at all** (the two heaviest single `decide +kernel` obligations exceed its
 capacity — no flag changes this; the kernel allocates what the term it is checking needs).
 Measured per-file cost — wall clock and peak resident set of a single `lean <File>.lean`, on a
-16-core / 31 GB Azure Standard_D16als_v7, Lean 4.31.0 pinned via `./lean-toolchain`:
+16-core / 31 GB Azure Standard_D16als_v7, Lean 4.31.0 pinned via `./lean-toolchain` (the
+`TrigramTheorems` and `SymmetryCompleteness` rows re-measured 2026-08-07 on their kernel-only
+revisions, on an 8-core / 16 GB Standard_D8als_v7 — same toolchain; RSS is machine-independent
+to first order, and two identical single-obligation workloads re-measured on the D8 host
+reproduced their D16 figures to within 0.03 GB):
 
 | file | wall | peak RSS |
 |---|---|---|
 | `Automorphism.lean` | ~4 min | 9.6 GB |
 | `KingWen.lean` | ~1 min 54 s | 7.9 GB |
 | `C3Decomposition.lean` | ~1 min 13 s | 4.5 GB |
+| `TrigramTheorems.lean` | ~1 min 55 s | 4.4 GB |
 | `PruneGInvariance.lean` | ~1 min 24 s | 3.9 GB |
-| `TrigramTheorems.lean` | ~9 s | 1.4 GB |
+| `SymmetryCompleteness.lean` | ~22 s | 2.8 GB |
 | `C1RuleConstants.lean` | ~1 s | 0.7 GB |
-| the other six (`PartitionInvariance`, `SymmetryCompleteness`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |
+| the other five (`PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |
+
+**The headline guidance is unchanged by the 2026-08-07 tranche-2 migration** — this was
+confirmed against measurement, not assumed: the two files that migrated peak at ~4.4 GB and
+~2.8 GB, both well under `Automorphism.lean`'s ~9.6 GB, so the suite's ceiling, the ~10 GB
+free-RAM requirement, and the 8 GB exclusions are exactly what they were before the migration.
+(Before 2026-08-07 those two files cost ~9 s / 1.4 GB and <1 s / <0.6 GB respectively on their
+`native_decide` trust base — the table rows above are the price of removing their compiler
+trust, deliberately paid where it stays under the pre-existing ceiling.)
 
 Files verify independently (no imports between them), so partial verification on a small host is
 sound: skip the files your RAM cannot hold and every other file's result stands on its own. Wall
@@ -306,10 +355,10 @@ attribution discussion in [TRIGRAM_STRUCTURE.md](../documentation/TRIGRAM_STRUCT
 scope notes before citing anything below**, in particular the distinction from
 [Hershock 1991](../documentation/CITATIONS.md#hershock1991)'s hexagram-set group). Core Lean 4 only,
 standalone file, zero `sorry`; every statement was verified numerically in Python before drafting
-(`python3 solve.py --trigram-verify` re-runs the two-language check). Finite facts use
-`decide`/`native_decide` (the trust-base note above applies — the §4a–§6 finite facts, i.e. the
-TG-3/TG-4/TG-5 subgroup facts and the §6 sanity instances, lean on
-`native_decide`); the TG-2 sequence-level theorems are structural proofs over EVERY valid ordering.
+(`python3 solve.py --trigram-verify` re-runs the two-language check). **Kernel-only end to end
+since 2026-08-07** — finite facts use kernel `decide`/`decide +kernel`, zero `native_decide`
+anywhere in the file (see the trust-base note above and the file header for the migration
+history); the TG-2 sequence-level theorems are structural proofs over EVERY valid ordering.
 **TG-2 trust-base note (updated 2026-07-27; original disclosure 2026-07-26):** the finite
 `pairdist_count_0..6` lemmas, the three TG-1 counts, and `selfcomp_pair_count` are now kernel
 `decide` (migrated from `native_decide`), so the TG-2 leads `boundary_budget_general` /
@@ -318,7 +367,9 @@ TG-3/TG-4/TG-5 subgroup facts and the §6 sanity instances, lean on
 `native_decide` compiler-trust axiom is gone): all four of the suite's sequence-level theorem
 families now share the kernel-only trust base. The TG-3/TG-4/TG-5 finite subgroup facts and the
 §6 sanity instances (§4a–§6)
-remain `native_decide`.
+remained `native_decide` until 2026-08-07, when they migrated to `decide +kernel` and the one
+obligation too heavy for enumeration (`blockPreserving_iff_blockwise`) was reproved structurally
+— the whole file is now kernel-only (third-tranche note above).
 Verified statements, by family:
 
 | Family | Theorems | One-line honest scope |

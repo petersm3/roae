@@ -132,8 +132,10 @@ runs gates SC-1…SC-8 — every finite claim above verified exhaustively, no sa
 automorphisms edge-checked; the fix-0 and partner filters; the 1,824-sequence W2 family).
 (ii) **Lean**: [lean/SymmetryCompleteness.lean](../lean/SymmetryCompleteness.lean) machine-checks
 the finite kernel (`psi_involution`, `psi_g5_iso`, `psi_comm_perms`, `q6_two_common_neighbors`,
-`rigidity_forced_identity`, `partnerCommuters_eq_G48` + card 48) — `native_decide`, the repo's
-extended-trust-base convention for finite facts; the 46,080-element enumeration, fix-0 collapse and
+`rigidity_forced_identity`, `partnerCommuters_eq_G48` + card 48) — **kernel-only since
+2026-08-07** (`decide +kernel` finite facts plus a structural proof of `psi_comm_perms`; until
+that date this sentence disclosed `native_decide`, the repo's then-current extended-trust-base
+convention for finite facts); the 46,080-element enumeration, fix-0 collapse and
 sequence-level witness lifting are deliberately NOT formalized there (covered by (i) and the prose).
 (iii) `sat.py --rigidity-cnf` emits the Step-3(ii) kernel as a self-validated CNF (4,096 vars,
 282,760 clauses, UNSAT; deliberately relaxed encoding, so UNSAT is a fortiori sufficient);
