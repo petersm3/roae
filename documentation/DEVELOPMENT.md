@@ -170,7 +170,7 @@ trade-off.
 
 | hook | dispatcher runs | blocks on |
 |---|---|---|
-| `pre-push` | for **each pushed sha**, in a temporary detached worktree of that sha: the pushed tree's own `doc_gates.sh all` (~12–20 s), then its `pre_push_compile_gate.sh` (~56 s); both always run, findings aggregate; worktree add+remove ≈0.5 s; deletion pushes gate nothing | any hard doc gate red (the blocking set is the PASS banner in `doc_gates.sh`; its report-only gates print `[WARN]`/`[note]` without blocking), or `solve.c` missing/empty, gcc non-zero, `--selftest` not producing sha `403f7202…`, or a pushed tree with **no gate scripts at all** (deliberate pushes of pre-gate history use `--no-verify`, visibly) |
+| `pre-push` | for **each pushed sha**, in a temporary detached worktree of that sha: the pushed tree's own `doc_gates.sh all` (~12–20 s), then its `pre_push_compile_gate.sh` (~56 s), and — when `needs_generated()` says the pushed range touches `roae.py`/`example/`, or the base cannot be determined — `doc_gates.sh generated` (~67 s). All three always run, findings aggregate; worktree add+remove ≈0.5 s; deletion pushes gate nothing | any hard doc gate red (the blocking set is the PASS banner in `doc_gates.sh`; its report-only gates print `[WARN]`/`[note]` without blocking), or `solve.c` missing/empty, gcc non-zero, `--selftest` not producing sha `403f7202…`, or a pushed tree with **no gate scripts at all** (deliberate pushes of pre-gate history use `--no-verify`, visibly) |
 | `pre-commit` | `pre_commit_registry_gate.sh` (WARN-only; full 6-gate scan when a registry/ledger file is staged, the two cheap retraction scans when any `reports/*.md`, `documentation/*.md` or `README.md` is staged), then `pre_commit_generated_gate.sh` (blocking) | a commit touching `roae.py` or any `example/` artifact whose `doc_gates.sh generated` check fails |
 
 **The pre-push hook gates the committed trees being published, not the
@@ -182,13 +182,25 @@ therefore replays each pushed sha in a throwaway detached worktree, removed
 on every exit path including failure and interrupt. A fix that exists only
 as an uncommitted edit does **not** clear the push gate: commit it first.
 
-`doc_gates.sh generated` (~107 s: three unseeded `roae.py` runs) is
-deliberately **not** in the pre-push dispatcher: pre-commit already forces it
-on exactly the commits that can break it, and tripling the push hook's
-runtime to re-check artifacts most pushes do not touch is how a hook earns a
-reflexive `--no-verify`. The residual hole — an artifact committed with
-`git commit --no-verify` reaches a push unchecked — is accepted for the same
-shell-history-visibility reason as the bypass itself.
+*Corrected 2026-08-08 (adversarial sweep).* This paragraph described `doc_gates.sh
+generated` as *"deliberately **not** in the pre-push dispatcher"* with the residual
+`--no-verify` hole *"accepted"*. **Both statements were superseded the day after they
+were written and are no longer true.** Since `3f480689` (2026-08-07) the pre-push
+dispatcher carries a **third, blocking, fail-closed leg**: `needs_generated()`
+(`scripts/pre_push_gate.sh:125-132`) decides per-sha whether the pushed range touches
+`roae.py` or `example/`, and if so runs `doc_gates.sh generated` in the pushed sha's
+own worktree (`:219-228`). It is **required on four paths, not merely "when there is a
+base"** — base empty, base all-zeros, base commit absent locally, or the diff erroring
+— so the fail-closed direction is preserved when the range cannot be determined.
+Cost is **~67 s measured 2026-08-07** (the ~107 s figure above is the 2026-08-06
+measurement and is superseded).
+
+**Why this went stale, since it is the instructive part:** the commit that ADDED the
+two-leg dispatcher also authored this paragraph, and the commit that added the third
+leg touched four files — none of them this one. A doc that describes a mechanism is
+not updated by the commit that changes the mechanism unless something forces it. A
+case-insensitive search of this file for `needs_generated`, `third leg`, `GATE 8` or
+`67 s` returned **zero** before this correction.
 
 Both fail **closed**: a false stop costs one retry, a false pass ships a
 compile error or a hand-edited artifact into the published record. Neither has
@@ -901,7 +913,7 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
     structure, or merge code. Use as a build smoke-test.
   - `python3 solve.py --extended-selftest <path-to-solve-binary>`
     (~10 min on 4 threads, added 2026-04-30): a CI-grade regression
-    suite that drives the supplied binary through three subtests +
+    suite that drives the supplied binary through nine subtests +
     a cross-check:
       1. Single-shot 3-way @ 100M nodes (recursive vs iterative vs
          iterative+v2). Catches regressions in the iterative DFS,
