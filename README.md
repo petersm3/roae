@@ -282,6 +282,23 @@ Full CLI references: [SOLVE_C_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI
 [reports/](reports/) — the full technical report suite (start at its [index](reports/README.md) for the map and reading paths) · [PROJECT_OVERVIEW](documentation/PROJECT_OVERVIEW.md) — the detailed findings narrative formerly on this page ·
 [CLAIMS_DECIDED](documentation/CLAIMS_DECIDED.md) — the empirical scorecard (what's refuted, corrected, forced, confirmed) · [SOLVE_SUMMARY](documentation/SOLVE_SUMMARY.md) — plain-language results · [CITATIONS](documentation/CITATIONS.md) — every source, every attribution, annotated bibliography · [HISTORY](documentation/HISTORY.md) — the project narrative including its mistakes. · [CORRECTIONS](documentation/CORRECTIONS.md) — the append-only record of every claim we published and later changed.
 
+### Which branch to read — `main`, and only `main`
+
+**`main` is the published corpus.** Corrections land here and nowhere else: when a claim is
+withdrawn or restated, [CORRECTIONS.md](documentation/CORRECTIONS.md) records it and the affected
+text on `main` is updated.
+
+**The other published branches are frozen working snapshots, and they are not publications.** Each
+stops at the commit where that line of work paused, so a branch **can still contain claims this
+project has since corrected** — including figures later found to be wrong. They predate
+`CORRECTIONS.md` itself, so a branch offers no way to discover what changed. They are kept public
+for provenance, not for reading: cite `main`.
+
+Every published branch, with its status and freeze date, is declared in
+[BRANCH_REGISTRY.tsv](documentation/BRANCH_REGISTRY.tsv). `doc_gates.sh branch-registry` (GATE 19)
+fails if a branch is published without being declared there — a hole this suite could not previously
+see, because every other gate reads the working tree and none reads another branch's content.
+
 ## References
 
 > **All scholarly attribution lives in [CITATIONS.md](documentation/CITATIONS.md)** and is deliberately

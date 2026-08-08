@@ -9288,7 +9288,74 @@ preflight_tracked_docs || RC=1
 # via require_final_newline; GATE 11's names the registry AND the figure it dropped.
 preflight_support_newlines || RC=1
 
+# ---------------------------------------------------------------------------
+# GATE 19 — published branches must be DECLARED.
+#
+# THE HOLE THIS CLOSES. Every other gate in this file reads the WORKING TREE. The only
+# place `origin/main` appears is as a COMMIT RANGE (origin/main..HEAD, the unpushed stack) —
+# no gate has ever read another branch's CONTENT. So on 2026-08-08 all five non-main public
+# branches carried a sentence retracted on main by CX-30 (a figure wrong by ~29 orders of
+# magnitude, in the flattering direction) and the entire suite was green throughout. That is
+# not a missed run; it is an uncovered surface.
+#
+# WHAT IT ENFORCES, and what it deliberately does NOT. It does not diff branch prose against
+# main's corrections — that check is unbounded and, tried crudely, is actively misleading:
+# counting retracted phrases per branch scored MAIN HIGHEST, because main carries the
+# correction text. Measuring narration is not measuring defects. Instead this enforces the
+# DECLARATION: every published branch must appear in documentation/BRANCH_REGISTRY.tsv with a
+# status, so a reader is told which refs are authoritative and which are frozen snapshots that
+# may contain since-corrected claims. A new undeclared branch fails the gate.
+#
+# No network: reads refs/remotes/origin/* already in the local clone. A fresh clone with no
+# remote refs SAYS SO and does not silently pass (a silent skip would read as coverage).
+gate_branch_registry() {
+  echo "== GATE 19: every published branch is declared in the branch registry =="
+  local REG=documentation/BRANCH_REGISTRY.tsv rc=0
+  if [ ! -r "$REG" ]; then
+    echo "  [FAIL] $REG is missing — the registry IS the fix; without it nothing tells a"
+    echo "         reader which refs are authoritative."
+    return 1
+  fi
+  local declared remotes b st n
+  declared=$(grep -v '^#' "$REG" | awk -F'\t' 'NF && $1 != "" {print $1}')
+  # Filter refs/remotes/origin/HEAD by its FULL refname, not its short form. Its short form is
+  # bare "origin" (not "HEAD"), so a `grep -v '^HEAD$'` on the shortened name never matches it
+  # and the symbolic default-branch pointer gets reported as an undeclared branch. This gate's
+  # first live run did exactly that — caught here rather than shipped.
+  remotes=$(git for-each-ref --format='%(refname)' refs/remotes/origin/ 2>/dev/null \
+            | grep -v '^refs/remotes/origin/HEAD$' | sed 's|^refs/remotes/origin/||')
+  if [ -z "$remotes" ]; then
+    echo "  [note] no refs/remotes/origin/* in this clone, so the published-branch leg did NOT"
+    echo "         run. This is a fresh or detached checkout, not a clean bill of health."
+    return 0
+  fi
+  n=0
+  for b in $remotes; do
+    if ! echo "$declared" | grep -qxF "$b"; then
+      echo "  [FAIL] published branch '$b' is NOT declared in $REG."
+      echo "         Add it as 'authoritative' or 'snapshot'. An undeclared public branch is"
+      echo "         exactly how CX-30 stayed visible on five refs after main had retracted it."
+      rc=1
+    else
+      n=$((n+1))
+    fi
+  done
+  # A registry row for a branch that no longer exists is stale, not dangerous — report, do not fail.
+  for b in $declared; do
+    echo "$remotes" | grep -qxF "$b" || echo "  [note] registry row '$b' matches no published branch (deleted?) — prune it."
+  done
+  # The snapshot declaration is worthless if the reader is never pointed at it.
+  if ! grep -qF 'BRANCH_REGISTRY.tsv' README.md 2>/dev/null; then
+    echo "  [FAIL] README.md does not point at $REG, so the declaration is unreachable from the"
+    echo "         entry point. A notice nobody is routed to is not a disclosure."
+    rc=1
+  fi
+  [ "$rc" -eq 0 ] && echo "  [ok] $n published branch(es) declared; README routes readers to the registry"
+  return $rc
+}
+
 case "$MODE" in
+  branch-registry) gate_branch_registry || RC=1 ;;
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
   retract) gate_retract || RC=1 ;;
@@ -9341,8 +9408,9 @@ case "$MODE" in
            echo; gate_selftest_instruments || RC=1
            echo; gate_preflight_collisions || RC=1
            echo; gate_scoreboard_verdicts || RC=1
-           echo; gate_alias_reach || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|generated|all}"; exit 2 ;;
+           echo; gate_alias_reach || RC=1
+           echo; gate_branch_registry || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -9389,7 +9457,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
