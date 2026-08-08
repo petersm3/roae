@@ -74,13 +74,30 @@ fi
 # Baseline: 12 warnings / 7 classes, solve.c @ 2026-08-06, gcc 13.3.0 (see header).
 # Format: "<max-count> <class-tag>". The (untagged) row is for warning lines gcc
 # emits without a [-W...] tag; none exist today, so any is a new warning.
+# v4 orbit-engine port (#188 candidate, 2026-08-08): the ported orbit module
+# (v4-canonical 8e53454c, forked 2026-07-13 — BEFORE this census existed)
+# carries 4 additional warnings, measured identical when compiling the branch's
+# own solve.c standalone under this same gcc 13.3.0, i.e. pre-existing in the
+# audited branch code, NOT introduced by the merge:
+#   - 3x [-Wmaybe-uninitialized]: orb_normalize_rec_op / orb_expand_record /
+#     orb_recanon(inlined). All the same shape: `int key[32]` written for
+#     indices 0..np-1 then read only within the same bound; gcc cannot prove
+#     np>=1 across constprop. Every OrbitProblem construction sets npairs>=2
+#     (measured: 32/32/n+1/7/32), so the uninitialized path is unreachable.
+#     False positives — baselined rather than patched so the ported solve.c
+#     stays byte-identical to the branch code the v4 anchors were minted from.
+#   - [-Wunused-variable] 1->2: dead local `np` in orb_repr_global (branch
+#     pre-existing).
+# [-Wunused-function] ratcheted 2->1 in the same commit: the orbit emit path
+# now calls sol_write_header (sol_read_header remains the one unused helper).
 WARN_BASELINE='3 [-Wmisleading-indentation]
 1 [-Wcomment]
-1 [-Wunused-variable]
-2 [-Wunused-function]
+2 [-Wunused-variable]
+1 [-Wunused-function]
 3 [-Wformat-truncation=]
 1 [-Wnonnull]
-1 [-Wstringop-truncation]'
+1 [-Wstringop-truncation]
+3 [-Wmaybe-uninitialized]'
 
 # Census: one "count class" line per class seen. awk ERE has no bounded
 # repetition ('+' only). Lines matching ' warning:' but carrying no tag are
@@ -156,6 +173,6 @@ if ! "$TMP_BIN" --selftest > "$SELFTEST_OUT" 2>&1; then
 fi
 ACTUAL=$(awk '/Actual sha256:/ {print $4}' "$SELFTEST_OUT" | head -1)
 echo "PASS: solve.c compiles under -Wall -Wextra with $WARN_TOTAL warning(s), all inside"
-echo "      the inventoried baseline (12 across 7 classes, 2026-08-06 — no new warnings);"
+echo "      the inventoried baseline (15 across 8 classes, 2026-08-08 — no new warnings);"
 echo "      verify.c compiles warning-free; selftest produces (binary-internal) canonical sha $ACTUAL"
 exit 0
