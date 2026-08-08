@@ -6,8 +6,17 @@ authors:
   - family-names: Peterson
     given-names: Matthew
     orcid: "https://orcid.org/0000-0003-4422-4463"
-date-released: "2026-04-08"
+# version/date track the project's ONE release tag, `reports-v1.0` ("PUBLISH: technical report
+# suite v1.0 … first public release", 2026-07-03). The corpus is otherwise continuously published
+# and living-versioned per report, so there is no separate software version scheme to cite; the
+# `commit` field is what makes a citation exact. Until 2026-08-08 this file carried NO version at
+# all and `date-released: 2026-04-08` — three months BEFORE the suite was first published — so
+# anyone citing as instructed cited an unversioned, stale artifact.
+version: "reports-v1.0"
+date-released: "2026-07-03"
+commit: "9169b0e532393fb82edca99cd0b5c419a8a56f7e"
 url: "https://github.com/petersm3/roae"
+repository-code: "https://github.com/petersm3/roae"
 license: Unlicense
 keywords:
   - King Wen sequence
