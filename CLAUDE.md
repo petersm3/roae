@@ -127,8 +127,8 @@ az vm create ... --priority Spot --eviction-policy Deallocate --max-price -1
 ```
 
 Failure modes this rule prevents:
-- 2026-04-19: d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. Overspend on enumeration: ~$48-73.
-- 2026-04-26 → 2026-04-29: deep-calib-westus3 was recreated as Regular D64als_v7 (intentionally, to avoid eviction during a calibration run) and then forgotten across multiple sessions. Idle Regular billing for ~3 days, kept alive by orphan monitor scripts. Estimated cost: ~$70-100.
+- 2026-04-19: d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. The run billed at on-demand rather than Spot rates for its full duration.
+- 2026-04-26 → 2026-04-29: deep-calib-westus3 was recreated as Regular D64als_v7 (intentionally, to avoid eviction during a calibration run) and then forgotten across multiple sessions. Idle Regular billing for ~3 days, kept alive by orphan monitor scripts.
 
 The new rule also implicitly supersedes the merge-VM-on-demand guidance previously in this section: even merge VMs are now Spot. If a merge gets evicted mid-run, restart it; the marginal cost of a re-run is much smaller than the systemic cost of forgotten Regular VMs.
 
@@ -136,7 +136,7 @@ The new rule also implicitly supersedes the merge-VM-on-demand guidance previous
 
 **Standing rule (repeated by user 2026-04-19 and 2026-04-20):**
 
-- **NEVER provision F-series (Falsv6, Fadsv6, etc.) VMs for any purpose.** F-series was retired from this project on 2026-04-19 when the D-als-v7 Turin family landed. Despite the retirement, F64als_v6 was accidentally spun up AT LEAST THREE TIMES (2026-04-19 06:09, 2026-04-20 ~00:32 — from solver-d3 recreations after deletions). Each cost ~$3-25 in avoidable spend before being caught.
+- **NEVER provision F-series (Falsv6, Fadsv6, etc.) VMs for any purpose.** F-series was retired from this project on 2026-04-19 when the D-als-v7 Turin family landed. Despite the retirement, F64als_v6 was accidentally spun up AT LEAST THREE TIMES (2026-04-19 06:09, 2026-04-20 ~00:32 — from solver-d3 recreations after deletions). Each incurred avoidable spend before being caught.
 - **Use D-als-v7 family exclusively**: D2als_v7 (analysis), D4als_v7 (data inspection), D16als_v7 (merge), D32als_v7 (merge / single-branch), D64als_v7 (parallel single-branch future), D128als_v7 (full enumeration).
 - **Right-size by workload**. Don't use F64 or D128 for a 10-minute data-mount task. Use D2 or D4.
 
@@ -145,8 +145,8 @@ The new rule also implicitly supersedes the merge-VM-on-demand guidance previous
 ## Session-lifecycle VM discipline (STRICT, applies to any `az vm create`)
 
 **Problem addressed:** "mount a disk briefly for inspection" has repeatedly
-left VMs running long after the inspection ended. Each cleanup gap costs
-$3-25 and accumulates across sessions.
+left VMs running long after the inspection ended. Each cleanup gap has a
+real billing cost and accumulates across sessions.
 
 **Rules, applied to every Claude-initiated VM:**
 
@@ -186,10 +186,10 @@ $3-25 and accumulates across sessions.
 
 **Past incidents this rule exists to prevent (see HISTORY.md §Missteps):**
 
-- 2026-04-19 06:09 → 2026-04-20 14:11: solver-d3 F64als_v6 spot ran for ~32 hrs unnoticed, ~$25 spend
-- 2026-04-20 18:59 → 2026-04-21 04:35: solver-d3 F64als_v6 spot ran for ~9.5 hrs before operator caught it, ~$7.50 spend
+- 2026-04-19 06:09 → 2026-04-20 14:11: solver-d3 F64als_v6 spot ran for ~32 hrs unnoticed
+- 2026-04-20 18:59 → 2026-04-21 04:35: solver-d3 F64als_v6 spot ran for ~9.5 hrs before operator caught it
 - campaign-westus2 OS disk orphaned for several hours after VM delete until user noticed
-- 2026-04-26 → 2026-04-29: deep-calib-westus3 (recreated as Regular D64als_v7) was kept alive by 3 orphan bash scripts left running on the `claude` orchestrator from sessions ending Apr 25-26 (`deep_calib_monitor.sh`, `deep_calib_milestone_watcher.sh`, `alpha_log_updater_loop.sh` — plus 2 stale `monitor_canonical.sh` from Apr 17). The monitor's auto-restart-on-eviction logic kept undoing manual `az vm deallocate` commands. The 2026-04-28 ~$70 idle-VM incident was fixed by deallocating, but the monitor kept resurrecting the VM until 2026-04-29 14:30 when the orphan scripts were SIGKILL'd and the VM (along with `campaign-westus3` and `stats-westus3`) was deleted entirely. Estimated total cost of the resurrection cycle: ~$70-100 over 3 days.
+- 2026-04-26 → 2026-04-29: deep-calib-westus3 (recreated as Regular D64als_v7) was kept alive by 3 orphan bash scripts left running on the `claude` orchestrator from sessions ending Apr 25-26 (`deep_calib_monitor.sh`, `deep_calib_milestone_watcher.sh`, `alpha_log_updater_loop.sh` — plus 2 stale `monitor_canonical.sh` from Apr 17). The monitor's auto-restart-on-eviction logic kept undoing manual `az vm deallocate` commands. The 2026-04-28 idle-VM incident was fixed by deallocating, but the monitor kept resurrecting the VM until 2026-04-29 14:30 when the orphan scripts were SIGKILL'd and the VM (along with `campaign-westus3` and `stats-westus3`) was deleted entirely. The resurrection cycle ran ~3 days.
 
 ## Never do without explicit user approval
 
