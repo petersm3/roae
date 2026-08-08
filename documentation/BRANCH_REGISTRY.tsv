@@ -27,3 +27,4 @@ v4-canonical	snapshot	2026-07-22	v4 canonical lineage; its lean/ is superseded b
 f1c3-gchannel	snapshot	2026-07-22	One unique commit (--f1-c3-hist); rest is staleness (task #184).
 f1c5-g-finalize-marker	snapshot	2026-08-06	Part of the v4 chain; merges as one unit at task #183.
 stageg-telemetry	snapshot	2026-08-07	Stage G telemetry (task #119), awaiting review + the 100B VM gate.
+orbit-port-188-candidate	snapshot	2026-08-08	CANDIDATE, EXPLICITLY NOT LANDED (task #188). The x36 orbit-reduction engine port; it carries a checkpoint-format bump and a DFS default change, so landing it IS the task-#31 decision. Published 2026-08-08 for DURABILITY ONLY — it existed on one machine with no remote copy. Publishing is not landing.
