@@ -1099,6 +1099,13 @@ silence — which is why it is named here at all.
 
 - **Documents:** [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated canonicals (the `d3 100B` row),
   and [HISTORY.md](HISTORY.md) §2026-05-25, finding 1.
+  **Scope widened 2026-08-08:** also [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §100B and
+  sub-canonical reference shas — code-specific, NOT canonical-grade, **item 3**, which still asserted the retracted claim
+  22 lines from the reinstatement — and which this entry's own "see §100B…" pointer routed readers
+  into. Found by an adversarial sweep the same day, not by the gate: GATE 3 was green because item 3
+  used a morphological variant of the registered needle. **Scoping a correction's `Documents:` list
+  too narrowly is how a retraction leaves live residue** — the same mechanism as CX-13, whose
+  four-file scope let the 3.9th-percentile figure survive at eight non-markdown sites.
 
 - **What was published, and is now retracted.** The `d3 100B` row asserted that
   `f1709ab09486ba912ec5683a4c96211ff31d52b671e898b1b6e3421cc00aa9db` was "Irreproducible from
