@@ -4278,7 +4278,7 @@ D32als_v7 Spot in westus3 (`bisect-100b` VM). Six builds tested at `SOLVE_NODE_L
 
 Three findings, in order of impact:
 
-**1. `f1709ab09486ba…` is an imperfect-resume artifact.** Re-running its own baseline commit `3258f4c` today on a fresh enum produced `30b52336…`, not `f1709ab0…`. Same pattern as deprecated `c34390c0` (5.6T) and `f7b8c4fb` (10T): the canonical was bound to a specific interrupted wall-clock state, not to the source-commit alone. Deprecated in this doc.
+**1. `f1709ab09486ba…` does not reproduce at this bisect's configuration.** *(Heading corrected 2026-08-08 — it read "is an imperfect-resume" + "artifact"; that reading is RETRACTED, see [CORRECTIONS.md](CORRECTIONS.md) CX-34.)* Re-running its own baseline commit `3258f4c` today on a fresh enum produced `30b52336…`, not `f1709ab0…`. Same pattern as deprecated `c34390c0` (5.6T) and `f7b8c4fb` (10T): the canonical was bound to a specific interrupted wall-clock state, not to the source-commit alone. Deprecated in this doc. **[SUPERSEDED 2026-08-08: the deprecation is retracted. `f1709ab0…` reproduces exactly from four code states across two lineages, all at 12,386,121 records. This bisect ran `SOLVE_DEPTH=3` with a hand-set `SOLVE_PER_SUB_BRANCH_LIMIT=631545` (~158K shallow sub-branches, 27,664,734 records) rather than the engine auto-divide (3,030 sub-branches × 33,003,300, 12,386,121 records) — a configuration difference, not corruption. See [CORRECTIONS.md](CORRECTIONS.md) CX-34.]**
 
 **2. The 100B sha flips at one commit: `d683794` (Phase E.2 + defense-in-depth).** This was unexpected and important. d683794's full diff is 100% resume-gated assertions plus new subcommand handlers (`--selftest-resume`, `--emit-shard-manifest`, `--verify-shard-manifest`) — no DFS code change. Yet 100B sha empirically flips. The most likely mechanism is LTO compiler-layout effects: added (unreachable-at-runtime) code subtly changes binary layout, which propagates to OpenMP thread scheduling or branch-prediction timing inside the parallel DFS. **The takeaway: at sub-canonical scale, source-reading is insufficient to predict whether a commit will flip the sha — only empirical testing settles it.** See CANONICAL_HASHES.md "100B and sub-canonical reference shas" section for the operational consequence (don't use sub-1T as cross-build gates).
 
@@ -5753,3 +5753,47 @@ control the review protocol asks for and the reason it is now written down.
 Attribution: reviews, fixes, and independent verification by Claude (Opus 4.8, Opus 5, and Fable 5) under
 operator direction. Every change in this window preserves the canonical selftest sha `403f7202…` —
 nothing here touched the enumeration.
+
+## 2026-08-08: A deprecation retracted — the archive was right, the comparison was not
+
+A gate run for an unrelated change produced a sha this repository had published as corrupt.
+
+The 100B canonical `f1709ab09486ba…` had been listed since 2026-05-25 among the **Deprecated
+canonicals**, on the reading that it was an incomplete file left behind by an interrupted run.
+On 2026-08-07 a byte-identity check for the telemetry patch — a test about something else
+entirely — produced exactly those bytes from a clean build. Extending the check on 2026-08-08
+to the v1 lineage reproduced them again, from `3258f4c` and `a2ead96`: **four independent code
+states across two lineages, every run clean and uninterrupted, all at 12,386,121 records, all
+`f1709ab0…`.** A truncated file does not do that.
+
+**What actually happened in May.** The bisect that deprecated it pinned its six enums to
+`SOLVE_DEPTH=3` with a hand-set `SOLVE_PER_SUB_BRANCH_LIMIT=631545` — roughly 100e9 divided by
+158,364 *cells* — decomposing the search into ~158K shallow sub-branches. The archived reference
+had been produced by the engine's own auto-divide: 3,030 sub-branches of 33,003,300 nodes. Both
+spend exactly 100B nodes. Broader-and-shallower reaches 27,664,734 distinct records; deeper
+reaches 12,386,121. Two correct answers to two different questions, compared as though they were
+answers to one. The bisect had even written down the governing principle — that in a BUDGETED
+enumeration the record *set* depends on which sub-branches reach BUDGETED status — and applied
+it to the code differences it was hunting while not applying it to its own configuration.
+
+**Two chances to catch it, both unused, and that is the part worth keeping.** First: this very
+file already contained a re-derivation recording `f1709ab0…` reproducing *byte-identically* from
+`3258f4c` at 12,386,121 records, `solve --verify` PASS. It sat roughly 1,500 lines from the
+paragraph calling the same sha an artifact, and nothing forced the two to be read together.
+Second: the deprecated row listed the record count as "(not recorded)" — but `solutions.bin`
+opens with a 32-byte header whose bytes 8–15 are the record count, *inside the hashed stream*.
+The number was in the disputed file the whole time, one command away. Either check would have
+turned a two-and-a-half-month-old published error into a five-minute one.
+
+The correction is [CORRECTIONS.md](CORRECTIONS.md) CX-34. The sibling deprecations `c34390c0`
+(5.6T) and `f7b8c4fb` (10T) were re-examined and **stand** — each records an explicit
+record-count delta against a *named, reproducible replacement*, which is genuinely resume-shaped
+evidence, and neither rests on the comparison that failed here. `f1709ab0…` is reinstated as a
+valid but **configuration-specific** reference; 100B remains unsuitable as a cross-build gate,
+exactly as it already was.
+
+Attribution: measurement, diagnosis, and correction by Claude (Opus 5) under operator direction.
+The verification harness used for the v1 half printed a false "matches NONE" verdict of its own —
+it hashed an empty stream to `e3b0c442…` = sha256("") by running `gzip -dc` against an
+un-gzipped file — which is recorded with the private evidence. The engine's own
+`solutions.sha256` corroborates the hashes independently of that harness.

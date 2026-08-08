@@ -1094,3 +1094,61 @@ silence — which is why it is named here at all.
   named ("they stayed on `native_decide` pending structural reproofs of those two obligations").
 
 ---
+
+### CX-34 · 2026-08-08 · C1 · the 100B canonical `f1709ab0…` was deprecated as a resume artifact; it reproduces exactly, and the deprecation is retracted (`RP-adb0fbfa`, `RP-d487703e`)
+
+- **Documents:** [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated canonicals (the `d3 100B` row),
+  and [HISTORY.md](HISTORY.md) §2026-05-25, finding 1.
+
+- **What was published, and is now retracted.** The `d3 100B` row asserted that
+  `f1709ab09486ba912ec5683a4c96211ff31d52b671e898b1b6e3421cc00aa9db` was "Irreproducible from
+  `3258f4c` re-run 2026-05-25" and showed the "Same imperfect-resume artifact pattern as
+  `c34390c0`/`f7b8c4fb`" — that is, that our own archived bytes were an incomplete file left by an
+  interrupted run. **That characterization is withdrawn.** The bytes are a reproducible,
+  deterministic output of a well-defined configuration.
+
+- **What is now measured.** Those exact bytes reproduce from **four independent code states across
+  two lineages**, every run clean, uninterrupted, `rc=0`, no resume — v1 `3258f4c` and v1 `a2ead96`
+  (2026-08-08), v4 `b0221a31` and v4 `a0542067` (2026-08-07), all at **12,386,121 records** and all
+  `f1709ab0…` over the 396,355,904-byte file (32-byte header + 12,386,121 x 32-byte records).
+  A file truncated by an interrupted run does not reproduce deterministically four times from four
+  different builds. Note the first of those in particular: `3258f4c` is the very commit the
+  published sentence named as the one it was irreproducible from.
+
+- **Why the 2026-05-25 bisect concluded otherwise — a configuration difference, not corruption.**
+  That bisect pinned every one of its six enums to `SOLVE_DEPTH=3` with a hand-set
+  `SOLVE_PER_SUB_BRANCH_LIMIT=631545` (approximately 100e9 divided by 158,364 **cells**), decomposing the
+  search into roughly 158K shallow sub-branches. The runs above instead let the engine auto-divide:
+  **3,030 sub-branches x 33,003,300 nodes**. Both budget exactly 100B nodes and spend them
+  differently; broader-and-shallower reaches more distinct records (27,664,734, giving
+  `30b52336…`), fewer-and-deeper reaches fewer (12,386,121, giving `f1709ab0…`). Both are correct
+  outputs of the same engine at their own configuration. The bisect document states the governing
+  principle itself — that in BUDGETED enumeration the record SET depends on which sub-branches
+  reach BUDGETED status — and applied it to code differences without applying it to its own
+  configuration difference.
+
+- **The information needed to avoid this was inside the artifact.** The deprecated row recorded this
+  canonical's record count as "(not recorded)". It was never unrecoverable: `solutions.bin` carries a
+  fixed 32-byte header whose bytes 8-15 are the uint64 record count, **inside the hashed stream**, so
+  two files with different counts cannot share a sha. Reading `12,386,121` from the disputed file and
+  setting it beside the bisect's `27,664,734` would have indicated a configuration difference rather
+  than corruption, without re-running anything.
+
+- **How it was found.** A 2026-08-07 gate run for an unrelated change (the telemetry patch's
+  byte-identity check) produced `f1709ab0…` from a clean build, which contradicted this file's
+  deprecation. Re-examination on 2026-08-08 extended it to the v1 lineage and recovered the bisect's
+  recorded environment. Evidence is retained privately; the engine's own `solutions.sha256` and its
+  reported record count corroborate the hashes independently of the verification harness.
+
+- **Scope — the sibling deprecations stand.** This entry does **not** disturb `c34390c0` (5.6T) or
+  `f7b8c4fb` (10T). Those rest on materially different evidence: each records an explicit
+  record-count delta against a **named, reproducible replacement** (+1,030 and +4,607), and a small
+  positive delta against an otherwise-matching run is genuinely resume-shaped. Both were re-examined
+  for this entry and are better-founded than the row corrected here.
+
+- **What is NOT claimed.** `f1709ab0…` is restored as a valid, **configuration-specific** 100B
+  reference. It is *not* restored as a cross-build verification gate: 100B remains intrinsically
+  code-specific, as §"100B and sub-canonical reference shas (code-specific)" already warns. The
+  correction is to the characterization, not to that recommendation.
+
+---

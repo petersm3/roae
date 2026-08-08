@@ -296,7 +296,17 @@ Both shas are **build-recipe + commit specific**. solutions.bin size = 885,271,5
 |---|---|---:|---|---|
 | d3 5.6T | `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` | 467,483,137 | Irreproducible from any extant git commit per the 2026-05-12 bisect investigation. All v1 code from cdd8575 (Apr 30) through 2cf8771 (May 10) on either DFS path produces `f66920c1…` with 467,484,167 records (+1,030 vs this canonical). The +1,030 delta most likely reflects records lost via imperfect resume after the documented Spot eviction at 90% during the Apr 29-30 run. Pre-resume-fix code (pre `1d4dc6e`/`c3ad271`/`d11bc0d`/`c3d3ad6`) is more interruption-vulnerable. See [HISTORY.md](HISTORY.md). | `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` |
 | d3 10T | `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` | 706,422,987 | Generated 2026-04-18 by pre-everything code (predates all the resume bug fixes 1d4dc6e/c3ad271/d11bc0d/c3d3ad6, and predates iterative DFS + checkpoint correctness work). Cascade Phase B re-derivation 2026-05-13 on modern code produces `b85c8871…` with 706,427,594 records — +4,607 records vs this canonical. Like the c34390c0 delta, the records in f7b8c4fb are all valid C1-C5 canonical orderings; this canonical is incomplete by 4,607 records likely lost via imperfect resume during interruptions on pre-resume-fix code. | `b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc` |
-| d3 100B | `f1709ab09486ba912ec5683a4c96211ff31d52b671e898b1b6e3421cc00aa9db` | (not recorded) | Generated 2026-05-15 on v1 commit `3258f4c` as a cold-archive reference. Irreproducible from `3258f4c` re-run 2026-05-25 (six-enum bisect on D32 Spot bisect-100b; clean fresh build produces `30b52336…`, not `f1709ab0…`). Same imperfect-resume artifact pattern as `c34390c0`/`f7b8c4fb`. Deprecated 2026-05-25. NB: 100B is no longer recommended as a cross-build verification gate — see §"100B and sub-canonical reference shas (code-specific)" above for why. | (none — 100B is intrinsically code-specific) |
+
+**Reinstated 2026-08-08 — the `d3 100B` sha `f1709ab0…` was previously listed above as deprecated.**
+That deprecation is **retracted**; see [CORRECTIONS.md](CORRECTIONS.md) CX-34. The bytes reproduce
+exactly from four code states across two lineages (v1 `3258f4c`, v1 `a2ead96`, v4 `b0221a31`,
+v4 `a0542067`), all at **12,386,121 records**, all `f1709ab09486ba912ec5683a4c96211ff31d52b671e898b1b6e3421cc00aa9db`
+over the 396,355,904-byte file (32-byte header + 12,386,121 × 32-byte records). It is a valid but
+**configuration-specific** reference, produced by the engine auto-divide (**3,030 sub-branches ×
+33,003,300 nodes**, `SOLVE_NODE_LIMIT=100000000000`, default depth). A different decomposition
+(`SOLVE_DEPTH=3`, `SOLVE_PER_SUB_BRANCH_LIMIT=631545`, ~158K sub-branches) yields `30b52336…` with
+27,664,734 records; both are correct at their own configuration. **100B remains unsuitable as a
+cross-build verification gate** — see §"100B and sub-canonical reference shas (code-specific)" for why.
 
 ## Reproducibility parameters
 
