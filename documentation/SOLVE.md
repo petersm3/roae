@@ -55,8 +55,14 @@ The constraint applies a ceiling on the mean positional distance between each he
 
 > ### ⚠ FLAGGED 2026-08-01 — the "3.9th percentile" figure is withdrawn from citation
 >
-> **This is the authoritative statement of the flag. Every other occurrence of the 3.9th-percentile
-> figure in this repository points here.** The number is not retracted-as-known-wrong-and-replaced;
+> **This is the authoritative statement of the flag.** *Scope corrected 2026-08-08: this previously
+> read "Every other occurrence of the 3.9th-percentile figure in this repository points here." That
+> was a **repository-scope** claim and it was false — true of the `*.md` corpus, but the figure also
+> occurs in **code and data** (`solve.c`, `solve.py`, `enumeration/`), where several sites do not
+> point here and at least one asserts the withdrawn framing affirmatively. Those sites are tracked in
+> task #140 and are being corrected through the sha-anchored `solve.c` pipeline (#67) rather than by
+> hand-editing an anchored file. The mechanism is the one CX-13 hit: a correction whose `Documents:`
+> scope names four markdown files does not reach a `printf`.* The number is not retracted-as-known-wrong-and-replaced;
 > it is flagged as **not supported by the population it is labelled with**, on two independent grounds,
 > and it should not be cited pending the measurement named at the end.
 >
