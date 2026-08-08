@@ -65,6 +65,15 @@
  *          pinned (C6/C7) exact count — a direct layered exact-cover mask DP
  *          (NO inclusion–exclusion; different algorithm class from --ie-count).
  *          See the ROUTE D section header below.
+ *         ./verify --knuth-anchors   clean-room Knuth prober validation gate:
+ *          exact KW-prefix subtree anchors (443/4, 62,256/2,232,
+ *          9,422,793/16,504, 8 with C6/C7) + a fixed-seed probe-vs-exact
+ *          machinery check. Run before any probe run.
+ *         ./verify --knuth-probe N [--knuth-seed S] [--knuth-threads T]
+ *          [--knuth-no-c67] [--knuth-free F]   the #194 CLEAN-ROOM Knuth
+ *          random-probe estimator of |C1..C7| (default; own C3 predicate and
+ *          own C6/C7 pin logic) or |C1..C5| (--knuth-no-c67). See the
+ *          CLEAN-ROOM KNUTH PROBER section header below.
  */
 
 #define _GNU_SOURCE    /* O_DIRECT for the --scan-layers parallel read lanes */
@@ -78,6 +87,8 @@
 #include <unistd.h>
 #include <fcntl.h>     /* --scan-layers: open(O_DIRECT), pread */
 #include <errno.h>
+#include <math.h>      /* --knuth-probe: sqrtl/fabsl for the Wald CI */
+#include <stdatomic.h> /* --knuth-probe: racy-free progress counters */
 
 /* ---------- published constraint definitions, rebuilt from scratch ---------- */
 
@@ -4998,12 +5009,581 @@ static int dp_count_main(int argc, char **argv) {
     return fails ? 1 : 0;
 }
 
+/* ==========================================================================
+ * CLEAN-ROOM KNUTH PROBER  (--knuth-anchors / --knuth-probe)   [task #194]
+ *
+ * WHAT THIS IS. A second, clean-room instrument on the published Knuth
+ * random-probe estimate of |C1 n C2 n C3 n C4 n C5 n C6 n C7| ~= 5.21e31
+ * (SEARCH_SPACE_SIZE.md "The C1-C7 space"; produced by solve.c's
+ * --estimate-knuth under SOLVE_KNUTH_C67=1). Per the #163 audit that
+ * estimate's ONE uncorroborated factor at full scale is the C3 conditional
+ * ratio (~0.101): every existing full-scale cross-check is C3-free by scope
+ * (the no-C3 denominator 5.16880...e32 is exact and two-instrument — Routes
+ * B and D above — and the canonical shas prove consistency with the
+ * HISTORICAL C3 predicate, not its correctness). This prober therefore
+ * carries its OWN C3 predicate and its OWN C6/C7 pin logic, derived from
+ * the published definitions, so a coherent day-one C3 defect in solve.c
+ * would show here as a stable shift in the estimate, not be inherited.
+ * Pre-registration (agreement gate frozen before any run):
+ * roae-private/PREREG_KNUTH_CLEANROOM_2026_08_08.md.
+ *
+ * INDEPENDENCE (same discipline as the rest of this file). No solve.c
+ * header, table, constant, or transliterated function. Sources:
+ *   - SPECIFICATION.md: C1-C5 definitions, the C5 multiset literal
+ *     {1:2,2:20,3:13,4:19,6:9}, C3's threshold cd(S) <= 12.125 (x64 form:
+ *     Sum_h |pos(h)-pos(h^63)| <= 776), and C6/C7's concrete pinned pair
+ *     sets {29,46},{9,36} (C7, slots 24-25) / {11,52},{13,44} (C6, slots
+ *     26-27), orientation free.
+ *   - lean/C3Decomposition.lean: the machine-checked slot decomposition
+ *     C3 = 16 + 8*G (8 self-complement pairs contribute the constant 16;
+ *     G = Sum over the 12 cross complement-couples of |slot(u)-slot(v)|).
+ *     Both forms are computed here INDEPENDENTLY at every complete leaf and
+ *     cross-asserted — a spec-vs-Lean identity check on every evaluation.
+ *   - verify.py --recount-subtree (the sibling clean-room instrument, NOT
+ *     solve.c) pins the published tree-node convention: the walk tracks the
+ *     COMBINED 63-transition C5 multiset (within-pair distances consumed as
+ *     pairs are placed, budget[within] checked AFTER consuming the
+ *     boundary), and tree_nodes counts every reached state including the
+ *     (prefix) root. Leaf counts are convention-independent; the node
+ *     convention only matters for reproducing the published 443 / 62,256 /
+ *     9,422,793 anchors exactly.
+ *
+ * THE ALGORITHM (Knuth 1975, "Estimating the efficiency of backtrack
+ * programs"). One probe: W = 1 at the root (the C4-forced (63,0) state, or
+ * a deeper KW-following prefix state); at a node build the FULL list of
+ * live children — (pair, orientation) placements passing C2 (boundary
+ * d != 5) and the combined C5 budget — pick uniformly among the d children,
+ * W *= d, descend; stop at a dead end or a complete 32-slot leaf. The leaf
+ * weight (captured at completion, before any further multiplication) is an
+ * unbiased estimator of the leaf count; Sum of W over visited states
+ * estimates tree nodes; testing C3 at the leaf gives the canonical count.
+ * X and X^2 are accumulated per probe for a Wald CI. RNG: splitmix64
+ * (Steele-Lea-Flood, public domain constants), fixed seed recorded in the
+ * result line; child selection by modulo — bias < d/2^64 (d <= 62), i.e.
+ * < 4e-18, negligible against the ~1e-2 statistical error.
+ *
+ * C6/C7 PIN LOGIC (--knuth-probe default; --knuth-no-c67 disables). At
+ * slots 24-27 the only candidate is that slot's spec-pinned pair (both
+ * orientations); at all other slots the four pinned pairs are excluded.
+ * The exclusion removes only subtrees with zero pin-satisfying leaves (a
+ * pinned pair placed elsewhere makes its slot's pin unsatisfiable), so the
+ * leaf estimators remain unbiased for the pinned targets while probes die
+ * earlier. NOTE this walks a DIFFERENT tree from solve.c's pinned walk —
+ * identical leaf set, so the leaf estimands agree in expectation, but the
+ * node estimate is not comparable to solve.c's published pinned-tree-nodes
+ * figure, and per-probe variance differs. That divergence is deliberate:
+ * independence extends to the pin mechanism itself.
+ *
+ * VALIDATION (--knuth-anchors; run it BEFORE trusting any probe):
+ *   1. structural: KW pairing partner-exact; within-pair multiset
+ *      {2:12,4:12,6:8} + KW boundary multiset == the C5 literal; 8
+ *      self-complement pairs / 12 cross-couples (Lean's counts); the four
+ *      spec pin sets match KW pairs 24-27; c3x64(KW) == 776 == 16 + 8*95.
+ *   2. exact subtree anchors: exhaustive DFS below KW-following prefixes,
+ *      gated on the published exact counts (SEARCH_SPACE_SIZE §Validation,
+ *      TR-5 §3): 5-free 443 nodes / 4 canonical, 7-free 62,256 / 2,232,
+ *      9-free 9,422,793 / 16,504, and exactly 8 of the 16,504 satisfying
+ *      C6/C7 (SEARCH_SPACE_SIZE §C1-C7). The spec-vs-Lean C3 identity is
+ *      asserted at every complete leaf reached (696K+ evaluations).
+ *   3. machinery: a fixed-seed probe run on the 9-free prefix must agree
+ *      with the exact counts within 4 sigma of its own Wald CI — this
+ *      exercises the weighting/RNG path the exact DFS does not.
+ *
+ * USAGE:
+ *   ./verify --knuth-anchors
+ *   ./verify --knuth-probe N [--knuth-seed S] [--knuth-threads T]
+ *            [--knuth-no-c67] [--knuth-free F]
+ * N probes; S = RNG seed (0x... or decimal; default 20260808); T worker
+ * threads (default 1); F = probe the KW (32-F)-slot prefix subtree instead
+ * of the full tree (validation aid; default 31 = full). Threads use
+ * disjoint 2^40-draw splitmix64 segments (a probe consumes <= 31 draws, so
+ * segments cannot overlap below ~3.5e10 probes/thread).
+ * ========================================================================== */
+
+/* Spec constants, restated from the PUBLISHED documents (not from solve.c). */
+static const int KN_C5FULL[7] = {0, 2, 20, 13, 19, 0, 9};  /* SPECIFICATION.md C5:
+                                  * index d -> count; {1:2,2:20,3:13,4:19,6:9} */
+#define KN_C3MAX 776              /* SPECIFICATION.md C3: 64 * 12.125 */
+#define KN_PIN_LO 24              /* C6/C7 pin slots 24..27 (positions 48..55) */
+static const int KN_PIN_SETS[4][2] = {  /* SPECIFICATION.md C7 then C6, in slot order:
+                                         * {s48,s49}={011101b,101110b} {s50,s51}={001001b,100100b}
+                                         * {s52,s53}={001011b,110100b} {s54,s55}={001101b,101100b} */
+    {29, 46}, {9, 36}, {11, 52}, {13, 44}
+};
+#define KN_SEED_DEFAULT 20260808ULL
+
+/* Derived-at-init tables (from the KW table + partner(), both spec-derived). */
+static int KN_WD[32];             /* within-pair Hamming distance per pair    */
+static int KN_CU[12], KN_CV[12];  /* the 12 cross complement-couples (i < j)  */
+static int KN_NCOUPLE, KN_NSELF;
+
+/* Derive the complement-couple structure and check every finite fact this
+ * prober rests on. Returns 0 (with a printed reason) on any failure — a
+ * failure here is a FINDING about the published definitions, not a state to
+ * patch around. */
+static int kn_init(void) {
+    if (!build_pairs()) return 0;
+    int wcnt[7] = {0}, bcnt[7] = {0};
+    for (int i = 0; i < 32; i++) {
+        KN_WD[i] = hamming(PA[i], PB[i]);
+        wcnt[KN_WD[i]]++;
+    }
+    for (int i = 0; i < 31; i++) bcnt[hamming(KW[2 * i + 1], KW[2 * i + 2])]++;
+    for (int d = 0; d < 7; d++)
+        if (wcnt[d] + bcnt[d] != KN_C5FULL[d]) {
+            printf("*** KN INIT FAIL: within+boundary multiset != C5 literal at d=%d "
+                   "(%d+%d != %d)\n", d, wcnt[d], bcnt[d], KN_C5FULL[d]);
+            return 0;
+        }
+    KN_NCOUPLE = KN_NSELF = 0;
+    for (int i = 0; i < 32; i++) {
+        int ca = comp6(PA[i]), j = -1;
+        for (int k = 0; k < 32; k++)
+            if (PA[k] == ca || PB[k] == ca) { j = k; break; }
+        if (j < 0 || !((comp6(PA[i]) == PA[j] && comp6(PB[i]) == PB[j]) ||
+                       (comp6(PA[i]) == PB[j] && comp6(PB[i]) == PA[j]))) {
+            printf("*** KN INIT FAIL: pairing not closed under complement at pair %d\n", i);
+            return 0;
+        }
+        if (j == i) KN_NSELF++;
+        else if (j > i) { KN_CU[KN_NCOUPLE] = i; KN_CV[KN_NCOUPLE] = j; KN_NCOUPLE++; }
+    }
+    if (KN_NSELF != 8 || KN_NCOUPLE != 12) {   /* lean/C3Decomposition.lean counts */
+        printf("*** KN INIT FAIL: %d self-complement pairs / %d couples (want 8 / 12)\n",
+               KN_NSELF, KN_NCOUPLE);
+        return 0;
+    }
+    for (int k = 0; k < 4; k++) {              /* spec C6/C7 sets == KW pairs 24..27 */
+        int a = PA[KN_PIN_LO + k], b = PB[KN_PIN_LO + k];
+        int u = KN_PIN_SETS[k][0], v = KN_PIN_SETS[k][1];
+        if (!((a == u && b == v) || (a == v && b == u))) {
+            printf("*** KN INIT FAIL: spec C6/C7 pin set %d {%d,%d} != KW pair %d "
+                   "{%d,%d}\n", k, u, v, KN_PIN_LO + k, a, b);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* C3, form 1 — the SPECIFICATION.md definition, computed directly:
+ * Sum over all 64 hexagrams of |pos(h) - pos(h ^ 63)|. */
+static int kn_c3_direct(const int *pos) {
+    int s = 0;
+    for (int h = 0; h < 64; h++) {
+        int d = pos[h] - pos[h ^ 63];
+        s += d < 0 ? -d : d;
+    }
+    return s;
+}
+
+/* C3, form 2 — the lean/C3Decomposition.lean slot decomposition 16 + 8*G. */
+static int kn_c3_slots(const int *slot_of) {
+    int g = 0;
+    for (int c = 0; c < 12; c++) {
+        int d = slot_of[KN_CU[c]] - slot_of[KN_CV[c]];
+        g += d < 0 ? -d : d;
+    }
+    return 16 + 8 * g;
+}
+
+/* Shared walk/DFS state (small; per-thread instances are heap-allocated). */
+typedef struct {
+    int budget[7];                /* remaining combined C5 multiset            */
+    int pos[64];                  /* position of each hexagram (valid entries:
+                                   * the pairs placed on the current path)     */
+    int slot_of[32];              /* slot index of each placed pair            */
+    int step0, last0;             /* prefix: first free slot, prefix exit hex  */
+    uint32_t used0;               /* prefix: pair usage mask                   */
+} KnState;
+
+/* Build the KW-following prefix occupying slots 0..(32-nfree-1) in KW's own
+ * orientations, consuming the combined budget. Returns 0 if infeasible (it
+ * never is for the published KW — a failure is a finding). */
+static int kn_prefix(KnState *S, int nfree) {
+    int nplaced = 32 - nfree;
+    for (int d = 0; d < 7; d++) S->budget[d] = KN_C5FULL[d];
+    S->budget[KN_WD[0]]--;                     /* pair 0's within transition */
+    S->pos[PA[0]] = 0; S->pos[PB[0]] = 1;      /* C4: (63, 0) at slot 0      */
+    S->slot_of[0] = 0;
+    int last = PB[0];
+    for (int t = 1; t < nplaced; t++) {
+        int f = PA[t], s = PB[t];              /* KW orientation as published */
+        int bd = hamming(last, f);
+        if (bd == 5 || S->budget[bd] == 0) return 0;
+        S->budget[bd]--;
+        if (S->budget[KN_WD[t]] == 0) return 0;
+        S->budget[KN_WD[t]]--;
+        S->pos[f] = 2 * t; S->pos[s] = 2 * t + 1;
+        S->slot_of[t] = t;
+        last = s;
+    }
+    S->step0 = nplaced;
+    S->last0 = last;
+    S->used0 = (nplaced >= 32) ? 0xFFFFFFFFu : ((1u << nplaced) - 1u);
+    return 1;
+}
+
+/* ---- exact exhaustive DFS below a prefix (the anchor instrument) ---- */
+typedef struct {
+    KnState st;
+    uint64_t nodes, leaves, canon, canon67, identfail;
+} KnExact;
+
+static void kn_exact_rec(KnExact *E, int step, int last, uint32_t used) {
+    E->nodes++;
+    if (step == 32) {
+        E->leaves++;
+        int c3 = kn_c3_direct(E->st.pos);
+        if (c3 != kn_c3_slots(E->st.slot_of)) E->identfail++;
+        if (c3 <= KN_C3MAX) {
+            E->canon++;
+            int p67 = 1;
+            for (int k = 0; k < 4; k++)
+                if (E->st.slot_of[KN_PIN_LO + k] != KN_PIN_LO + k) p67 = 0;
+            if (p67) E->canon67++;
+        }
+        return;
+    }
+    for (int p = 1; p < 32; p++) {
+        if (used & (1u << p)) continue;
+        int wd = KN_WD[p];
+        for (int o = 0; o < 2; o++) {
+            int f = o ? PB[p] : PA[p], s = o ? PA[p] : PB[p];
+            int bd = hamming(last, f);
+            if (bd == 5 || bd == 0 || E->st.budget[bd] == 0) continue;
+            if (wd == bd ? E->st.budget[bd] < 2 : E->st.budget[wd] == 0) continue;
+            E->st.budget[bd]--; E->st.budget[wd]--;
+            E->st.pos[f] = 2 * step; E->st.pos[s] = 2 * step + 1;
+            E->st.slot_of[p] = step;
+            kn_exact_rec(E, step + 1, s, used | (1u << p));
+            E->st.budget[bd]++; E->st.budget[wd]++;
+        }
+    }
+}
+
+/* ---- the random prober ---- */
+static uint64_t kn_rng_next(uint64_t *s) {     /* splitmix64 */
+    uint64_t z = (*s += 0x9E3779B97F4A7C15ULL);
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+    return z ^ (z >> 31);
+}
+
+typedef struct {
+    /* in */
+    const KnState *init;
+    uint64_t seed, nprobes;
+    int c67;
+    /* out */
+    long double sx, sx2;          /* canonical leaf weight (0 for non-hits)   */
+    long double sy, sy2;          /* all-leaves weight                        */
+    long double sn, sn2;          /* Sum W over visited states (tree nodes)   */
+    uint64_t leaves, hits, identfail;
+    _Atomic uint64_t done;        /* progress, updated per chunk (racy reads
+                                   * by the poller are display-only)          */
+    pthread_t tid;
+} KnWorker;
+
+static void *kn_worker(void *arg) {
+    KnWorker *w = (KnWorker *)arg;
+    KnState *S = malloc(sizeof *S);            /* keep large state off-stack */
+    struct { uint8_t p, o; } *ch = malloc(62 * sizeof *ch);
+    if (!S || !w->init || !ch) { free(S); free(ch); return NULL; }
+    uint64_t rng = w->seed;
+    uint64_t since = 0;
+    for (uint64_t n = 0; n < w->nprobes; n++) {
+        *S = *w->init;
+        int last = S->last0;
+        uint32_t used = S->used0;
+        long double W = 1.0L, nodesum = 1.0L;
+        int step = S->step0;
+        for (; step < 32; step++) {
+            int nch = 0;
+            int plo = 1, phi = 32;
+            int pinned = w->c67 && step >= KN_PIN_LO && step < KN_PIN_LO + 4;
+            if (pinned) { plo = step; phi = step + 1; }
+            for (int p = plo; p < phi; p++) {
+                if (used & (1u << p)) continue;
+                if (w->c67 && !pinned && p >= KN_PIN_LO && p < KN_PIN_LO + 4)
+                    continue;                  /* reserved for its pinned slot */
+                int wd = KN_WD[p];
+                for (int o = 0; o < 2; o++) {
+                    int f = o ? PB[p] : PA[p];
+                    int bd = hamming(last, f);
+                    if (bd == 5 || bd == 0 || S->budget[bd] == 0) continue;
+                    if (wd == bd ? S->budget[bd] < 2 : S->budget[wd] == 0) continue;
+                    ch[nch].p = (uint8_t)p; ch[nch].o = (uint8_t)o; nch++;
+                }
+            }
+            if (nch == 0) break;               /* dead end */
+            int pick = (int)(kn_rng_next(&rng) % (uint64_t)nch);
+            int p = ch[pick].p, o = ch[pick].o;
+            int f = o ? PB[p] : PA[p], s = o ? PA[p] : PB[p];
+            int bd = hamming(last, f);
+            S->budget[bd]--; S->budget[KN_WD[p]]--;
+            S->pos[f] = 2 * step; S->pos[s] = 2 * step + 1;
+            S->slot_of[p] = step;
+            used |= 1u << p;
+            last = s;
+            W *= (long double)nch;
+            nodesum += W;
+        }
+        w->sn += nodesum; w->sn2 += nodesum * nodesum;
+        if (step == 32) {                      /* complete leaf; weight is W,
+                                                * captured before any further
+                                                * multiplication              */
+            w->leaves++;
+            w->sy += W; w->sy2 += W * W;
+            int c3 = kn_c3_direct(S->pos);
+            if (c3 != kn_c3_slots(S->slot_of)) w->identfail++;
+            if (c3 <= KN_C3MAX) { w->hits++; w->sx += W; w->sx2 += W * W; }
+        }
+        if (++since == (1u << 20)) {
+            atomic_fetch_add_explicit(&w->done, since, memory_order_relaxed);
+            since = 0;
+        }
+    }
+    atomic_fetch_add_explicit(&w->done, since, memory_order_relaxed);
+    free(ch);
+    free(S);
+    return NULL;
+}
+
+/* mean / 95% CI / z-vs-target helper */
+typedef struct { long double mean, se, lo, hi; } KnCI;
+static KnCI kn_ci(long double s, long double s2, long double n) {
+    KnCI c;
+    c.mean = s / n;
+    long double var = s2 / n - c.mean * c.mean;
+    if (var < 0) var = 0;
+    c.se = sqrtl(var / n);
+    c.lo = c.mean - 1.96L * c.se;
+    c.hi = c.mean + 1.96L * c.se;
+    return c;
+}
+static long double kn_dec_ld(const char *s) {  /* decimal string -> long double */
+    long double v = 0;
+    for (; *s; s++) if (*s >= '0' && *s <= '9') v = v * 10 + (*s - '0');
+    return v;
+}
+
+/* ---- --knuth-anchors ---- */
+static int kn_anchors_main(void) {
+    if (!kn_init()) return 1;
+    printf("======================================================================\n");
+    printf("verify.c --knuth-anchors — clean-room Knuth prober validation (#194)\n");
+    printf("predicates + tree convention from SPECIFICATION.md / C3Decomposition\n");
+    printf(".lean / the published subtree-anchor convention; nothing from solve.c\n");
+    printf("======================================================================\n");
+    int fails = 0;
+    KnState kws;
+    if (!kn_prefix(&kws, 0)) { printf("*** FAIL: KW itself infeasible\n"); return 1; }
+    int c3kw = kn_c3_direct(kws.pos), c3kw2 = kn_c3_slots(kws.slot_of);
+    printf("KW: c3x64 direct=%d, 16+8*G=%d (spec: 776; Lean: G=95)  %s\n",
+           c3kw, c3kw2, (c3kw == 776 && c3kw2 == 776) ? "ok" : "*** FAIL ***");
+    if (c3kw != 776 || c3kw2 != 776) fails++;
+
+    /* published exact anchors: SEARCH_SPACE_SIZE §Validation + §C1-C7, TR-5 §3 */
+    static const struct { int nfree; uint64_t nodes, canon; } A[3] = {
+        {5, 443ULL, 4ULL}, {7, 62256ULL, 2232ULL}, {9, 9422793ULL, 16504ULL}
+    };
+    KnExact *E = malloc(sizeof *E);
+    if (!E) { printf("*** FAIL: out of memory\n"); return 1; }
+    for (int i = 0; i < 3; i++) {
+        memset(E, 0, sizeof *E);
+        if (!kn_prefix(&E->st, A[i].nfree)) {
+            printf("*** FAIL: %d-free prefix infeasible\n", A[i].nfree);
+            fails++; continue;
+        }
+        kn_exact_rec(E, E->st.step0, E->st.last0, E->st.used0);
+        int ok = E->nodes == A[i].nodes && E->canon == A[i].canon
+                 && E->identfail == 0 && (A[i].nfree != 9 || E->canon67 == 8);
+        printf("%d-free: nodes=%llu (want %llu)  leaves=%llu  canonical=%llu "
+               "(want %llu)  canon+C6/C7=%llu%s  C3 spec-vs-Lean mismatches=%llu"
+               "  %s\n",
+               A[i].nfree,
+               (unsigned long long)E->nodes, (unsigned long long)A[i].nodes,
+               (unsigned long long)E->leaves,
+               (unsigned long long)E->canon, (unsigned long long)A[i].canon,
+               (unsigned long long)E->canon67, A[i].nfree == 9 ? " (want 8)" : "",
+               (unsigned long long)E->identfail, ok ? "ok" : "*** FAIL ***");
+        if (!ok) fails++;
+    }
+
+    /* machinery: fixed-seed probe on the 9-free prefix vs the exact counts
+     * (exercises the W-weighting + RNG path the exhaustive DFS never runs).
+     * 4-sigma gate on the probe's own Wald CI; deterministic at this seed. */
+    KnState ps;
+    uint64_t exact_nodes = E->nodes, exact_leaves = E->leaves, exact_canon = E->canon;
+    free(E);
+    if (!kn_prefix(&ps, 9)) { printf("*** FAIL: probe prefix\n"); return 1; }
+    KnWorker *w = calloc(1, sizeof *w);
+    if (!w) { printf("*** FAIL: out of memory\n"); return 1; }
+    w->init = &ps; w->seed = KN_SEED_DEFAULT; w->nprobes = 2000000; w->c67 = 0;
+    kn_worker(w);
+    long double n = (long double)w->nprobes;
+    KnCI cn = kn_ci(w->sn, w->sn2, n), cl = kn_ci(w->sy, w->sy2, n),
+         cc = kn_ci(w->sx, w->sx2, n);
+    struct { const char *nm; KnCI *c; uint64_t want; } P[3] = {
+        {"nodes", &cn, exact_nodes}, {"leaves", &cl, exact_leaves},
+        {"canonical", &cc, exact_canon}
+    };
+    printf("probe machinery (9-free, %llu probes, seed %llu):\n",
+           (unsigned long long)w->nprobes, (unsigned long long)w->seed);
+    for (int i = 0; i < 3; i++) {
+        long double z = P[i].c->se > 0
+            ? fabsl(P[i].c->mean - (long double)P[i].want) / P[i].c->se : 999.0L;
+        int ok = z <= 4.0L;
+        printf("  %-9s est=%.1Lf  exact=%llu  z=%.2Lf  %s\n", P[i].nm,
+               P[i].c->mean, (unsigned long long)P[i].want, z,
+               ok ? "ok" : "*** FAIL (>4 sigma) ***");
+        if (!ok) fails++;
+    }
+    if (w->identfail) { printf("  *** FAIL: %llu C3 identity mismatches in probe\n",
+                               (unsigned long long)w->identfail); fails++; }
+    free(w);
+    printf("======================================================================\n");
+    printf("RESULT: %s\n", fails ? "*** ANCHOR VALIDATION FAILED — do not run the "
+                                   "prober; report, do not tune ***"
+                                 : "all anchors + machinery checks PASS");
+    printf("======================================================================\n");
+    return fails ? 1 : 0;
+}
+
+/* ---- --knuth-probe ---- */
+static int kn_probe_main(int argc, char **argv) {
+    uint64_t nprobes = 0, seed = KN_SEED_DEFAULT;
+    int nthreads = 1, c67 = 1, nfree = 31;
+    if (argc < 3) {
+        fprintf(stderr, "usage: %s --knuth-probe N [--knuth-seed S] [--knuth-threads T]"
+                        " [--knuth-no-c67] [--knuth-free F]\n", argv[0]);
+        return 2;
+    }
+    nprobes = strtoull(argv[2], NULL, 0);
+    for (int i = 3; i < argc; i++) {
+        if (strcmp(argv[i], "--knuth-seed") == 0 && i + 1 < argc)
+            seed = strtoull(argv[++i], NULL, 0);
+        else if (strcmp(argv[i], "--knuth-threads") == 0 && i + 1 < argc)
+            nthreads = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--knuth-no-c67") == 0) c67 = 0;
+        else if (strcmp(argv[i], "--knuth-free") == 0 && i + 1 < argc)
+            nfree = atoi(argv[++i]);
+        else { fprintf(stderr, "unknown option %s\n", argv[i]); return 2; }
+    }
+    if (nprobes == 0 || nthreads < 1 || nthreads > 256 || nfree < 1 || nfree > 31) {
+        fprintf(stderr, "bad arguments (N>=1, 1<=T<=256, 1<=F<=31)\n");
+        return 2;
+    }
+    if (!kn_init()) return 1;
+    KnState init;
+    if (!kn_prefix(&init, nfree)) { printf("*** FAIL: prefix infeasible\n"); return 1; }
+
+    printf("[knuth] clean-room prober: probes=%llu seed=%llu (0x%llx) threads=%d "
+           "c67=%d free=%d\n",
+           (unsigned long long)nprobes, (unsigned long long)seed,
+           (unsigned long long)seed, nthreads, c67, nfree);
+    printf("[knuth] target: %s\n",
+           c67 ? (nfree == 31 ? "|C1nC2nC3nC4nC5nC6nC7| (published estimate 5.21e31)"
+                              : "pinned KW-prefix subtree (validation)")
+               : (nfree == 31 ? "|C1..C5| (published estimate 1.3287e38)"
+                              : "KW-prefix subtree (validation)"));
+
+    KnWorker *w = calloc((size_t)nthreads, sizeof *w);
+    if (!w) { printf("*** FAIL: out of memory\n"); return 1; }
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    uint64_t per = nprobes / (uint64_t)nthreads;
+    for (int t = 0; t < nthreads; t++) {
+        w[t].init = &init;
+        /* disjoint splitmix64 segments: thread t starts 2^40 draws into the
+         * stream past thread t-1 (each probe draws <= 31 values)            */
+        w[t].seed = seed + ((uint64_t)t << 40) * 0x9E3779B97F4A7C15ULL;
+        w[t].nprobes = t == nthreads - 1 ? nprobes - per * (uint64_t)(nthreads - 1) : per;
+        w[t].c67 = c67;
+        if (pthread_create(&w[t].tid, NULL, kn_worker, &w[t]) != 0) {
+            printf("*** FAIL: pthread_create\n"); free(w); return 1;
+        }
+    }
+    /* progress poll (display-only; counters are relaxed atomics) */
+    double last_print = 0;
+    for (;;) {
+        uint64_t done = 0;
+        for (int t = 0; t < nthreads; t++)
+            done += atomic_load_explicit(&w[t].done, memory_order_relaxed);
+        if (done >= nprobes) break;
+        struct timespec ts = {5, 0};
+        nanosleep(&ts, NULL);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+        double el = (double)(t1.tv_sec - t0.tv_sec) + 1e-9 * (double)(t1.tv_nsec - t0.tv_nsec);
+        if (el - last_print >= 30 && done > 0) {
+            last_print = el;
+            printf("[knuth] progress %llu/%llu probes (%.1f%%), %.0f/s, ETA %.0f s\n",
+                   (unsigned long long)done, (unsigned long long)nprobes,
+                   100.0 * (double)done / (double)nprobes, (double)done / el,
+                   ((double)nprobes - (double)done) * el / (double)done);
+            fflush(stdout);
+        }
+    }
+    for (int t = 0; t < nthreads; t++) pthread_join(w[t].tid, NULL);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    double wall = (double)(t1.tv_sec - t0.tv_sec) + 1e-9 * (double)(t1.tv_nsec - t0.tv_nsec);
+
+    long double sx = 0, sx2 = 0, sy = 0, sy2 = 0, sn = 0, sn2 = 0;
+    uint64_t leaves = 0, hits = 0, identfail = 0;
+    for (int t = 0; t < nthreads; t++) {
+        sx += w[t].sx; sx2 += w[t].sx2; sy += w[t].sy; sy2 += w[t].sy2;
+        sn += w[t].sn; sn2 += w[t].sn2;
+        leaves += w[t].leaves; hits += w[t].hits; identfail += w[t].identfail;
+    }
+    free(w);
+    long double n = (long double)nprobes;
+    KnCI cx = kn_ci(sx, sx2, n), cy = kn_ci(sy, sy2, n), cn = kn_ci(sn, sn2, n);
+
+    printf("[knuth] probes=%llu wall=%.1fs rate=%.0f/s (%.0f/s/thread)\n",
+           (unsigned long long)nprobes, wall, (double)nprobes / wall,
+           (double)nprobes / wall / nthreads);
+    printf("[knuth] complete leaves reached: %llu; canonical (C3-passing): %llu; "
+           "C3 spec-vs-Lean mismatches: %llu%s\n",
+           (unsigned long long)leaves, (unsigned long long)hits,
+           (unsigned long long)identfail,
+           identfail ? "  *** IDENTITY FAILURE — INVESTIGATE ***" : "");
+    printf("[knuth] RESULT canonical%s: est=%.6Le  CI95=[%.6Le, %.6Le]  "
+           "relerr=%.2Lf%%  (seed %llu)\n",
+           c67 ? " (C1..C7)" : " (C1..C5)", cx.mean, cx.lo, cx.hi,
+           cx.mean > 0 ? 100.0L * cx.se / cx.mean : -1.0L,
+           (unsigned long long)seed);
+    printf("[knuth] RESULT no-C3 leaves%s: est=%.6Le  CI95=[%.6Le, %.6Le]  "
+           "relerr=%.2Lf%%\n",
+           c67 ? " (C1,C2,C4,C5 + pins)" : " (C1,C2,C4,C5)", cy.mean, cy.lo, cy.hi,
+           cy.mean > 0 ? 100.0L * cy.se / cy.mean : -1.0L);
+    printf("[knuth] RESULT tree nodes: est=%.6Le  relerr=%.2Lf%%  (NOTE: %s)\n",
+           cn.mean, cn.mean > 0 ? 100.0L * cn.se / cn.mean : -1.0L,
+           c67 ? "pin-exclusion tree — NOT comparable to solve.c's pinned node count"
+               : "comparable to the published 2.0875e40");
+    if (nfree == 31) {
+        /* free calibration: the no-C3 leaf estimand has an EXACT published
+         * value (this file's own Routes B/D constants) in both modes        */
+        const char *exact_s = c67 ? LC_PUBLISHED_COUNT_C1C7NOC3 : LC_PUBLISHED_COUNT;
+        long double exact = kn_dec_ld(exact_s);
+        long double zden = cy.se > 0 ? (cy.mean - exact) / cy.se : 999.0L;
+        printf("[knuth] no-C3 vs exact %s:\n        ratio=%.6Lf  z=%.2Lf  "
+               "(C3-free walk calibration)\n", exact_s, cy.mean / exact, zden);
+        if (cy.mean > 0)
+            printf("[knuth] C3 conditional ratio (canonical / no-C3): %.6Lf  "
+                   "(published-derived reference 5.21e31 / 5.16880e32 = 0.1008)\n",
+                   cx.mean / cy.mean);
+    }
+    return identfail ? 1 : 0;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--check-layers-selftest") == 0) return lc_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-gt-selftest") == 0) return lc_gt_selftest();
     if (argc >= 2 && strcmp(argv[1], "--ie-count") == 0) return ie_count_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--ie-probe") == 0) return ie_probe_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--dp-count") == 0) return dp_count_main(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "--knuth-anchors") == 0) return kn_anchors_main();
+    if (argc >= 2 && strcmp(argv[1], "--knuth-probe") == 0) return kn_probe_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--check-layers") == 0) {
         if (argc < 3) { fprintf(stderr, "usage: %s --check-layers DIR [max_k] [run.out]\n", argv[0]); return 2; }
         return lc_check_layers(argv[2], argc > 3 ? atoi(argv[3]) : 31,
@@ -5040,9 +5620,14 @@ int main(int argc, char **argv) {
                                     "                                  --ie-no-budget = the C1^C2^C4 F4 variant)\n"
                                     "       %s --ie-probe NSAMP [--ie-threads N]\n"
                                     "       %s --dp-count [opts]      (Route D direct mask-DP recount — the\n"
-                                    "                                  non-IE second instrument; see source header)\n",
+                                    "                                  non-IE second instrument; see source header)\n"
+                                    "       %s --knuth-anchors        (clean-room Knuth prober: exact-anchor +\n"
+                                    "                                  machinery validation gate; see source header)\n"
+                                    "       %s --knuth-probe N [--knuth-seed S] [--knuth-threads T]\n"
+                                    "                     [--knuth-no-c67] [--knuth-free F]\n"
+                                    "                                  (#194 clean-room Knuth random-probe estimator)\n",
                                     argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
-                                    argv[0], argv[0], argv[0]); return 2; }
+                                    argv[0], argv[0], argv[0], argv[0], argv[0]); return 2; }
     int maxk = argc > 2 ? atoi(argv[2]) : 6;
     if (maxk < 1) maxk = 1;
     if (maxk > 31) maxk = 31;
