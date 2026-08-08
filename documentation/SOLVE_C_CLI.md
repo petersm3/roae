@@ -69,6 +69,12 @@ solve --f1-c3-hist [--f1-pairs N] [--with-c5] [--no-c2] # exact C3 G-histogram (
                                                         # G≤95 cumulative = exact |C1∩C2∩C3∩C4|
 solve --f1c5-gzip-selftest | --f1c5-verify-layer <v1> <v2>
                                                         # f1c5 layer-codec self-test / cross-check
+solve --orbit-table [dump]                              # v4 G48 orbit table census (+ full cell→rep TSV)
+solve --orbit-expand <rep_dir> <out_dir>                # v4: regenerate member shards from rep shards
+solve --orbit-manifest <rep_dir> [out]                  # v4 per-orbit productivity/node-count sidecar
+solve --orbit-selftest                                  # v4 orbit machinery selftest (exhaustive toy)
+solve --walker-subset N [--walker-c3-max T] [--walker-out F] [--walker-stream M] [--walker-count-only]
+                                                        # exhaustive DFS walker at group-closed subset scopes
 solve --cpu-features | --cpu-freq [MHZ]                 # ISA / throttle diagnostics
 ```
 
@@ -135,14 +141,25 @@ solve --selftest
 
 Regression test — forks a child running a fixed-budget tiny
 enumeration scenario (`SOLVE_THREADS=4`, `SOLVE_NODE_LIMIT=100000000`,
-default depth-2). Computes the resulting `solutions.bin` sha256 and
-compares it to the canonical baseline `403f7202…`. Prints PASS or
-FAIL.
+default depth-2), computes the resulting `solutions.bin` sha256, and
+compares it against a hardcoded anchor. Since the v4 orbit-engine port
+(#188) the selftest is **two passes** (dual-anchor):
 
-Runs in ~5 seconds. Every commit to solve.c MUST preserve this sha;
-divergence is a regression.
+- **Pass 1 — `SOLVE_V4_PRUNES=0`** (prune decisions off): must reproduce
+  the v1/v3 anchor `403f7202…` byte-identically, proving the v4 prune
+  re-adoption did not disturb the walk itself.
+- **Pass 2 — prunes ON** (the v4 default): must reproduce the v4 anchor
+  `e26c6850…` (sha-CHANGING vs v1/v3 BY DESIGN — the exact prune stack
+  lets the same node budget reach more leaves; also exercises the
+  ratified merge-stage global slot-0-only repr(k) record normalization,
+  which is inactive in pass 1 under the v1/v3 bridge).
 
-Exits 0 on PASS, 1 on FAIL.
+Prints per-pass Expected/Actual sha and PASS or FAIL.
+
+Every commit to solve.c MUST preserve both shas; divergence in either
+pass is a regression.
+
+Exits 0 only if BOTH passes PASS, non-zero otherwise.
 
 ### --selftest-resume
 
@@ -1016,6 +1033,100 @@ content (#223). Both path arguments are required (exit 2 on usage error or read
 error); exit 1 on a content mismatch, 0 on match. This is the format-invariance
 check that backs the "count is format-invariant" claim for the OOC DP.
 Sha-neutral.
+
+### --orbit-table
+
+```
+solve --orbit-table [dump]
+```
+
+v4 orbit-reduction instrument (#188, ported from v4-canonical): builds and
+summarizes the **G48 orbit table** over the 158,364 valid depth-3 cells.
+G = C_{S6}(ρ), the centralizer of bit-reversal among the bit permutations of
+GF(2)^6 (|G| = 48, octahedral B3; `THEOREM_C15_SYMMETRY_GROUP_2026_07` +
+`lean/Automorphism.lean`), partitions the cells into **4,382 orbits**
+(histogram {48:2362, 24:1736, 12:270, 6:14}) — the printed census figures are
+hard in-binary asserts against that independently re-executed census. With
+`dump`, additionally emits the full cell→representative TSV (one row per valid
+cell: cell tuple, representative tuple, σ index) on stdout. Representative =
+lexicographically least cell tuple in its orbit; σ order matches the census
+reference implementation. Read-only; sha-neutral (argv-dispatched, never on
+the enumeration path).
+
+The enumeration-phase counterpart is the env flag `SOLVE_ORBIT_REDUCE=1`
+(default **OFF**): enumerate only representative cells (~×36 enum-phase work
+cut, work-weighted mean orbit size), with `--orbit-expand` regenerating the
+member shards afterwards.
+
+### --orbit-expand
+
+```
+solve --orbit-expand <rep_shard_dir> <out_dir>
+```
+
+v4 orbit expansion: for every representative cell whose shard exists in
+`rep_shard_dir`, copies the representative's shard **verbatim** to `out_dir`
+(walk evidence, byte-untouched) and writes each member cell's shard as the
+σ-mapped, orientation-re-canonicalized, sorted record set. Per-member record
+count must equal the representative's (key bijection) — a violation is a hard
+FATAL. Also writes an `orbit_expand_manifest.tsv` audit sidecar in `out_dir`
+(one row per (rep, member): σ applied + both record counts; best-effort — a
+sidecar write failure WARNs but does not abort, the shard bytes being the
+authoritative artifact). At per-cell exhaustion the expanded set is a theorem-
+level byte-match of direct enumeration (see `--orbit-selftest`); at budgeted
+scope it is the deterministic v4 convention, NOT byte-comparable to a direct
+budgeted walk (ORBIT_REDUCTION_DESIGN §3–4).
+
+### --orbit-manifest
+
+```
+solve --orbit-manifest <rep_shard_dir> [out_path]
+```
+
+v4 metadata sidecar (read-only over a representative shard directory): emits
+per-orbit productivity plus per-representative node-count rows, so per-orbit
+productivity, the ×36 node-work witness, and the `.dfs_state` node-count
+strengthening of the acceptance gate are first-class reproducible artifacts
+rather than a post-hoc join of stdout with the shard manifest. Default
+`out_path` is `orbit_manifest.tsv` in the current directory. Sha-neutral.
+
+### --orbit-selftest
+
+```
+solve --orbit-selftest
+```
+
+v4 orbit machinery selftest (local, sub-minute). Phase 1: real-problem orbit
+census asserts (158,364 cells → 4,382 orbits, histogram check). Phase 2:
+exhaustive 7-pair G48-closed toy problem — for every valid cell, direct
+exhaustive enumeration with prunes off AND on (must be identical: prune
+exactness at exhaustion), then orbit-reduced+expanded vs direct **byte-
+equality** across all valid cells; per-cell exhaustion is the only regime
+where that equality is a theorem, and a pass certifies the group action,
+representative selection, record relabeling, and orientation
+re-canonicalization together. Phase 3: `repr(kw_key)` must equal KW's exact
+all-orient-0 record bytes. Exits 0 on PASS, non-zero on any failure.
+
+### --walker-subset
+
+```
+solve --walker-subset N [--walker-c3-max T] [--walker-out FILE] [--walker-stream walks|records|both|none] [--walker-count-only]
+```
+
+Exhaustive DFS **walker** at group-closed pair-subset scopes (R-1 tooling-gap
+closure, v4 lineage): enumerates a group-closed n-pair subset instance through
+the production record path, for engine-to-engine record-stream compares
+against the v4-compiler at scopes small enough to exhaust. `N` selects the
+subset size from the same group-closed pair-orbit union table as `--f1-pairs`
+(N ∈ {9,13,16,18,19,24,25,27,28}; full-31 is the production walker itself, not
+this mode). Sub-flags: `--walker-c3-max T` — walk-functional complement-
+distance cap in the compiler's `--kc-c3-max` units (default: no cap — the
+C1&C2&C4&C5 superspace, C3-unfiltered); `--walker-out FILE` — write the
+record set to FILE; `--walker-stream walks|records|both|none` — stream
+kc-format lines on stdout, byte-matching the v4-compiler `kc_print_walk` /
+`--kc-repr` formats; `--walker-count-only` — count without retaining records.
+Usage errors exit 2. Sha-neutral (argv-dispatched, never on the enumeration
+path).
 
 ### --merge
 
