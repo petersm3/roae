@@ -5754,6 +5754,96 @@ Attribution: reviews, fixes, and independent verification by Claude (Opus 4.8, O
 operator direction. Every change in this window preserves the canonical selftest sha `403f7202…` —
 nothing here touched the enumeration.
 
+## 2026-08-02/07: The gates turn on themselves — a hardening campaign that kept catching its own fixes
+
+*(Written on 2026-08-08, after the operator asked whether this file was current and it was not — six
+days had gone unnarrated, which is itself an instance of the failure this window is about.)*
+
+Six days, fifty-nine commits, and no new mathematics. This window was spent almost entirely on the
+machinery that checks the corpus — and the recurring finding was that the machinery's own repair
+notes were unreliable.
+
+**The pattern, stated plainly.** A gate would be fixed. A note beside the fix would say it had been
+applied. A later pass would measure the note and find it false. This happened five times in six
+days, which is where it stopped being individually interesting and became the finding:
+
+- The round-16 consumer-list fix "had been applied" — it was applied at **one of three sites**.
+- GATE 14's header still said four legs, and round 15's own note claimed that had been fixed.
+- A drain pass asserted GATE 9 reduced a tally "without saying so." GATE 9 does say so; the claim
+  was simply false, and a later pass on the same batch caught it.
+- One fix shipped a present-tense claim about the very line it had just changed.
+- A rewrite of a retired self-test case was landed and **reverted by the very next commit**.
+
+Four of those five were caught by re-measuring rather than by reading; the fifth, the revert, leaves
+no recorded rationale either way. The lesson the campaign kept re-learning — the same one the
+correction ledger was built on — is that **a note saying "this was propagated" is a claim, not
+evidence.**
+
+**What was built.** [CORRECTIONS.md](CORRECTIONS.md) — the append-only record of every published
+claim later changed — dates from the start of this window, together with the figures registry, the
+completeness check that every registered row is actually recorded, and the append-only guarantee
+that no committed ledger line can be quietly removed. (The registry of retracted *phrasings* that
+those gates police had landed the day before, and is narrated in the previous entry.) By the end of
+the window `doc_gates.sh` was wired into **pre-push as blocking** — prompted by a measurement, not a
+tidiness impulse: a 218-commit replay found **twelve commits that had shipped failing trees, four of
+them pushed.** The gates had existed and ran at no publish point. GATE 18 was added, mechanising the
+campaign's central lesson: a ruled alias or superseded attribution restated with no path back to its
+ruling.
+
+**Authorship, stated more precisely than before.** A disclosure pass concluded that **algorithmic
+independence is not authorship independence** — two engines agreeing does not make the agreement
+independent of the person who directed both. The review record, the file drawer, the
+pre-registration, and a checkable invitation to falsify were completed and published. The Half A/B
+confusability evidence was published **together with its own reproducibility defect**, rather than
+after it was fixed.
+
+**The Lean corpus reached zero `native_decide`.** Two tranches of structural reproofs landed on
+2026-08-07 — first `PartitionInvariance` and `PruneGInvariance`, then `SymmetryCompleteness` and
+`TrigramTheorems`. Every finite lemma that had rested on Lean's compiler now rests on its kernel
+alone. The disclosure describing that limitation was, on re-reading the revisions that carried it,
+accurate throughout; what changed is that the limitation no longer exists.
+
+**An eighteen-lens red team, and a verdict that was not flattering.** On 2026-08-06 an adversarial
+pass ran across the whole corpus — thirteen pre-written lenses plus five generated in response to
+what the first thirteen found. Its verdict was **reject**: the mathematics is over-defended and the
+*meaning* is undefended. It named specific claims to withdraw rather than qualify. On 2026-08-07
+those withdrawals and rescopes landed under operator authorization, along with four ledger entries
+opened on findings the project had not previously admitted — all four recorded the same day as
+CX-29 through CX-32:
+
+- this ledger's own published git history had been rewritten to restore its append-only guarantee,
+  with nothing on the record saying so (CX-29) — an entry that flagged its own weakest sentence as
+  unconfirmed, and was corrected the next day by CX-35 when that sentence was measured and found
+  wrong in the project's favour: the rewrite never reached the public remote at all;
+- a novelty claim **understated the constrained space by roughly 29 orders of magnitude — in the
+  direction that flattered the project** (CX-30);
+- a citation-pinning contract described two mechanisms and neither existed (CX-31);
+- **seven** retracted figures were registered and gated but never recorded in the ledger (CX-32).
+
+What remains open is narrower than the list: the successor sweep CX-29 implies — a classifier for
+every non-fast-forward move of the published line — is queued and has not been run.
+
+CX-32 is worth one more sentence, because it is this window's best exhibit. Its own first draft
+quoted all seven retracted figures verbatim, and GATE 3b failed it — **the identical mistake CX-23
+had made, caught by the same gate, four hours after that history was written down.** Two different
+authors, the same error, the same automatic catch.
+
+**And one defect that was nearly published.** A merge landed cleanly through the documentation gates
+and the test suite, and still carried six new compiler warnings against a zero-warning baseline —
+because neither of those checks reads compiler output. The pre-push compile gate caught it. The bug:
+a command string built into a fixed buffer could be silently truncated, so a self-test could report
+PASS for a test that never ran. The fix routes every such construction through a truncation check
+that aborts rather than running something else.
+
+Nothing in this window touched the enumeration; the canonical selftest sha `403f7202…` was
+re-verified unchanged after that fix.
+
+Attribution: review, measurement, and fixes by Claude (Opus 5 and Fable 5) under operator direction.
+This entry was itself adversarially reviewed before publication, which found four false statements in
+its first draft — the commit count, the status of the four ledger entries, the direction of the
+29-order claim, and a figure count overstated by six orders of magnitude. All four are corrected
+above.
+
 ## 2026-08-08: A deprecation retracted — the archive was right, the comparison was not
 
 A gate run for an unrelated change produced a sha this repository had published as corrupt.

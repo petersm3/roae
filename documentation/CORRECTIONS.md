@@ -1152,3 +1152,51 @@ silence — which is why it is named here at all.
   correction is to the characterization, not to that recommendation.
 
 ---
+
+### CX-35 · 2026-08-08 · C2 · CX-29's one unconfirmed assumption, measured: the excised commits never reached the remote at all
+
+- **Documents:** [CORRECTIONS.md](CORRECTIONS.md) — CX-29, its "Stated limitation" bullet and the
+  sentence it qualifies. No claim in any report is affected.
+
+- **What CX-29 said, and why this entry exists.** CX-29 (2026-08-07) recorded that this ledger's
+  published git history had been rewritten to restore its append-only guarantee, and stated: *"At
+  least `728778e7` had already been pushed."* It then flagged that sentence itself:
+
+  > *"**Stated limitation.** That `728778e7` had been pushed is taken from the gate header's own
+  > contemporaneous claim; it has not been independently confirmed against a remote's reflog."*
+
+  **That confirmation has now been done, and it goes the other way.**
+
+- **The measurement.** GitHub retains unreachable objects after a force-push and serves them by
+  sha, so the remote's own view is decisive and does not depend on any local clone. Queried
+  2026-08-08:
+
+  | commit | on the remote? |
+  |---|---|
+  | `728778e7`, `77042b39`, `ec307098` (the violating chain) | **404 — no** |
+  | `3bf04596`, `661b6cb7` (the two clean excised commits) | **404 — no** |
+  | `af12a678` (positive control, pushed the same day) | **present** |
+
+  The control is load-bearing: without it, a uniform 404 would be consistent with the endpoint
+  simply not resolving shas. A local check agreed independently — `git reflog show origin/main`,
+  514 entries spanning the window, contains no push of any of the five.
+
+- **What follows.** The append-only violation was **caught and cured before it reached the public
+  remote.** From `origin`, this ledger's published line has been append-only throughout and always
+  was. No reader outside this machine could ever have observed the broken invariant. CX-29's
+  account of the event stands unchanged in every other respect; only its assumption about
+  publication was wrong, in the direction that made the project look worse than the record supports.
+
+- **Residual limitation, stated rather than buried.** GitHub's retention period for unreachable
+  objects is not contractually specified. A 404 six days after the fact is very strong evidence,
+  not a proof. If a stronger form is ever wanted, it would need the remote's own audit log.
+
+- **How it was found.** Not by an audit of CX-29 — by preparing an unrelated history entry, hitting
+  the same underlying question, and going to check what the source actually said. The generalisable
+  lesson is the one this window kept producing: **a citation is not a verification.** CX-29's claim
+  was traceable to "the gate header's own contemporaneous claim," which reads as evidence and
+  functions as one, and the header supported something adjacent and weaker. What made this
+  recoverable is that CX-29 *labelled its own weakest sentence* instead of asserting it flat. The
+  hedge is why the correction was findable at all.
+
+---
