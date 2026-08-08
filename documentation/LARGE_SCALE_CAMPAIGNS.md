@@ -9,12 +9,25 @@
 > trigger event named in CAMPAIGN_METHODOLOGY.md's intro). New readers
 > should go to CAMPAIGN_METHODOLOGY.md.
 >
-> A small amount of operational content from this document has not yet
-> been ported to CAMPAIGN_METHODOLOGY.md; the port-progress checklist
-> lives in CAMPAIGN_METHODOLOGY.md's "DRAFT TODO before porting to public"
-> section. This file is retained until the port is complete, then will be
-> removed in a single redirect commit. **Do not extend this file** — make
-> additions to CAMPAIGN_METHODOLOGY.md instead.
+> **Scope correction (2026-08-08).** This banner previously said "a small amount of
+> operational content" was unported and pointed readers at a port-progress checklist. Both were
+> wrong. A section-by-section comparison found the two documents are **complementary, not
+> duplicative**: CAMPAIGN_METHODOLOGY.md owns *correctness* (what "canonical" means, per-cell
+> budget, extension, preservation, sha stability), while the following remain **available only
+> here** and have no counterpart there —
+>
+> * **§2 sizing** — thread caps, VM-count trade-offs, per-thread rates by workload
+>   (the phrase "per-thread rate" occurs 8× here, 0× there)
+> * **§6 campaign architecture** — per-VM runner and cross-VM orchestrator pseudocode
+> * **§9b/9c** — disk-based external merge and tiered-merge recipes for extreme scale
+> * **§13.0 scale honesty** — the disclosure that solve.c is **not empirically validated**
+>   at PT scales, only to the 100T pilot
+> * **§13a** — common gotchas observed across real campaigns
+>
+> So this file is **not** awaiting deletion. It is the operational guide; CAMPAIGN_METHODOLOGY.md
+> is the methodology reference. Read that one first for correctness questions, this one for
+> planning and running a campaign. **Do not extend this file** — put new material in
+> CAMPAIGN_METHODOLOGY.md unless it belongs to one of the topics listed above.
 
 This document is for anyone who wants to run their own large-scale
 enumeration of orderings satisfying the King Wen constraints

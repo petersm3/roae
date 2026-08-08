@@ -140,10 +140,22 @@ those runs are not canonical and are not entered into `CANONICAL_HASHES.md`.
 >   sha for the new canonical; and the invariant that the new canonical contains **every** parent record
 >   as a per-cell prefix (verified by an ordered-subset diff).
 >
-> **Pre-publish TODO (operator review):** the concrete recipe below still names specific cloud SKUs,
-> regions, and storage paths — genericize those to host-agnostic terms before publishing (this is a
-> public doc). The operational, cloud-specific runbook is maintained privately and is not part of the
-> public record.
+> **Decision (2026-08-08): the SKU, region and microcode identifiers below are RETAINED
+> deliberately.** This paragraph previously carried a live "Pre-publish TODO (operator review) —
+> genericize those to host-agnostic terms before publishing" inside an already-published document.
+> That instruction was reviewed and **rejected as wrong**, not left undone.
+>
+> Two findings. (1) *Nothing here is sensitive.* An audit found 11 such references, all public
+> product and region names (`D128als_v7`, `westus2`/`westus3`, AMD EPYC 9V74 / Bergamo Zen 4c);
+> a repo-wide scan found **zero** IP-shaped strings, and there are no subscription or tenant IDs,
+> keys, endpoints, or credentials anywhere in the public corpus. (2) *They are load-bearing.* §6
+> and §7 argue that a canonical sha reproduces byte-identically **on a specific host class** —
+> that is the whole content of the sha-stability-vs-host-fragility result. "A large cloud VM"
+> would make those claims uncheckable. Genericizing would damage the reproducibility argument it
+> was meant to protect.
+>
+> The operational, cloud-specific runbook (credentials, resource names, launch scripts) is
+> maintained privately and remains out of the public record. That boundary is unchanged.
 
 A canonical produced at budget *B* per cell **enables a canonical at any
 budget *B′* > B without redoing the original work**. This is the most
@@ -962,48 +974,45 @@ that the *enumeration is correct*, not that the bytes are identical.
 
 ---
 
-## DRAFT TODO before porting to public
+## 10. Relationship to `LARGE_SCALE_CAMPAIGNS.md`
 
-### Port-as-replacement of `LARGE_SCALE_CAMPAIGNS.md` (operator 2026-05-31)
+*Rewritten 2026-08-08. This section previously read "## DRAFT TODO before porting to public" and
+carried ~16 unchecked checklist items, inside an already-published document. Two things were wrong
+with that. First, a live pre-publish checklist in a public doc tells a reader the document is not
+finished being published — and the reader is right. Second, its central premise was false.*
 
-This document REPLACES `documentation/LARGE_SCALE_CAMPAIGNS.md`; that file's
-1100 lines are subsumed here during the port. Concrete merge plan:
+**The premise that was false.** The old plan asserted this document "REPLACES
+`documentation/LARGE_SCALE_CAMPAIGNS.md`" and that that file's 1,100 lines were "subsumed here
+during the port," ending with "delete `LARGE_SCALE_CAMPAIGNS.md`." A section-by-section comparison
+on 2026-08-08 found no such subsumption. The two documents are **complementary**:
 
-- [ ] Port section 5 of `LARGE_SCALE_CAMPAIGNS.md` (pre-flight validation
-      checklist) → fold into a new appendix or extend section 8 of this doc
-      (third-party reproduction). Includes the 8-check pre-flight gate now
-      in `LAUNCH_560T_CAMPAIGN.sh` as the operational version.
-- [ ] Port section 6 (campaign architecture) → fold into section 5 of this
-      doc (operations choices) + section 7 (worked example).
-- [ ] Port section 7 (branch distribution) → fold into section 5 of this doc.
-- [ ] Port section 8 (eviction recovery) → standalone subsection within
-      section 5 of this doc; key content: 75-min/M-F-defer policy,
-      DFS-checkpoint resume, IOPS-skip mitigation.
-- [ ] Port section 9 (merge VM sizing + disk-based alternative for extreme
-      scale) → fold into section 5 of this doc.
-- [ ] Port section 11 (side-metadata: what to capture beyond solutions.bin)
-      → strengthen section 4 of this doc (extension preservation requirements).
-- [ ] Port section 12 (reproducibility checklist) → strengthen section 8 of
-      this doc (third-party reproduction).
-- [ ] Port section 13 (honest uncertainties) → fold into section 6 of this
-      doc (sha stability vs host fragility) AND a new "uncertainties /
-      what we don't know" section.
-- [ ] Port section 14 (worked example: 56 × 10 T at 2 × D64 spot) → keep
-      as a second worked example in section 7, alongside the 560 T entry.
-- [ ] After all ports: delete `documentation/LARGE_SCALE_CAMPAIGNS.md`
-      with a single redirect commit pointing readers to this doc.
+| | owns |
+|---|---|
+| **CAMPAIGN_METHODOLOGY.md** (this doc) | *Correctness* — what "canonical" means, per-cell uniform budget, extension, what must be preserved, sha stability vs host fragility, third-party reproduction |
+| **[LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md)** | *Operations* — sizing and per-thread rates, campaign architecture pseudocode, branch distribution, disk-based external merge, common gotchas |
 
-### 560 T-specific TBDs
+Material that exists **only** in `LARGE_SCALE_CAMPAIGNS.md`, with no counterpart here: §2 sizing
+(the phrase "per-thread rate" occurs 8× there and 0× here), §6 runner/orchestrator pseudocode,
+§9b/9c external and tiered merge, §13a gotchas, and — the one that mattered most in deciding not to
+delete — **§13.0 "Scale honesty," the disclosure that `solve.c` is not empirically validated above
+the 100T pilot.** Deleting the file per the old plan would have removed a candid limitation
+statement from the public record. It is retained.
 
-- [ ] Fill in TBD numbers from completed 560 T campaign (section 7)
-- [ ] Final sha + record count + cost match what `CANONICAL_HASHES.md` ends up showing
-- [ ] Verify the EXTENSION_RECIPE.txt text described in section 3 matches what the
-      archive supervisor actually generates (added in commit 800a8df)
+**Status of that file:** deprecated as the *entry point* (new readers start here), retained as the
+operations reference. It is not awaiting deletion.
 
-### Pre-publish review
+## 11. Open items
 
-- [ ] Confirm all cross-references to other public docs resolve
-- [ ] Operator review of tone/framing for the "third party reproducer" sections
-- [ ] Final pre-publish: have a third-party-style reviewer read it cold; check
-      whether sections 3 + 4 + 8 are actually sufficient to extend OR reproduce
-      without operator handholding
+Tracked honestly rather than as a checklist, because a checkbox in a published document reads as an
+obligation the document itself has not met:
+
+- **560 T campaign numbers.** §7's worked example carries figures from the completed campaign. The
+  authoritative sha and record count are in
+  [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 560T" (`9a968fa2…`, 10,525,271,997 records,
+  CANONICAL-verified 2026-06-30); where this document and that registry ever disagree, **the
+  registry wins**.
+- **`EXTENSION_RECIPE.txt`.** §3 describes the recipe the archive supervisor emits. The described
+  text has not been diffed against actual supervisor output since commit `800a8df`.
+- **Cold-read check.** Whether §§3, 4 and 8 suffice for a third party to extend or reproduce
+  *without* author assistance has not been tested on an actual outside reader. §9 states the
+  document's own scope limits.
