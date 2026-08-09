@@ -9381,8 +9381,22 @@ gate_branch_registry() {
 gate_publication_state() {
   echo "== GATE 20: no live pre-publish / draft markers in the published corpus =="
   local rc=0 f hits n
-  # (a) heading-form draft markers — never legitimate in a published doc
-  hits=$(git ls-files '*.md' 2>/dev/null | xargs grep -nE '^#{1,6}[[:space:]].*(DRAFT TODO|[Bb]efore porting to public|Pre-publish TODO|^#+[[:space:]]*WIP)' 2>/dev/null || true)
+  # (a) heading-form draft markers — never legitimate in a published doc.
+  # Matched as a CLASS, not as a list of the specific strings that happened to be
+  # found once. The first cut of this leg enumerated three literal phrases
+  # ("DRAFT TODO", "Before porting to public", "Pre-publish TODO") plus a fourth
+  # alternative, '^#+[[:space:]]*WIP', whose '^' sat mid-pattern after '.*' and so
+  # could never match — a dead branch. It therefore passed a document carrying a
+  # bare '## DRAFT', the most obvious form of the defect it names (measured
+  # 2026-08-09 by appending exactly that to a published report). An enumeration of
+  # variants already seen cannot refuse a class; that is the retrospective-gate
+  # failure the registry's own history keeps producing.
+  # The all-caps forms are required to BE all-caps: DRAFT/WIP/TODO/FIXME/UNPUBLISHED
+  # are marker conventions, while lowercase "draft" is ordinary narration — e.g.
+  # CORRECTIONS.md's "TR-9's draft-stage note", which must not fire. The multi-word
+  # phrases are matched case-insensitively because they are never conventions.
+  # Measured at adoption: zero hits across the tracked markdown corpus.
+  hits=$(git ls-files '*.md' 2>/dev/null | xargs grep -nE '^#{1,6}[[:space:]].*(\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public)' 2>/dev/null || true)
   if [ -n "$hits" ]; then
     echo "$hits" | sed 's/^/  [FAIL] heading-form draft marker: /'
     echo "         A published document must not carry a section announcing it is unpublished."
