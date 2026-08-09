@@ -18764,9 +18764,12 @@ int main(int argc, char *argv[]) {
          *
          * Why: Spot D128als_v7 hosts in westus3 can hand back thermally-
          * throttled physical hosts at ~600 MHz vs the expected 2596 MHz
-         * base / 3700 MHz boost. Pairs with
-         * scripts/d128_preflight_throttle_probe.sh per
-         * `feedback_preflight_throttle_probe`. */
+         * base / 3700 MHz boost. This subcommand IS the published check;
+         * run it before any paired A/B bench. (Earlier revisions of this
+         * comment, and four documentation sites, pointed at an
+         * orchestrator-side pre-flight probe script that does not exist in
+         * this repository — nor anywhere else — so the pointer was removed
+         * 2026-08-09 rather than left dangling.) */
         long threshold_mhz = 2000;
         if (argc > 2) threshold_mhz = atol(argv[2]);
         FILE *cpuinfo = fopen("/proc/cpuinfo", "r");

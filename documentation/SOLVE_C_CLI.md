@@ -369,8 +369,10 @@ against `THRESHOLD_MHZ` (default 2000). Useful mid-bench to detect
 thermal throttling that would invalidate the run — Standard on-demand
 D128als_v7 hosts in westus3 have been observed to hand back hosts
 running at ~600 MHz instead of the expected 2596 MHz base / 3700 MHz
-boost. Companion to the orchestrator-side
-`scripts/d128_preflight_throttle_probe.sh` (pre-flight probe).
+boost. This subcommand IS the pre-flight probe; the project's campaign launcher
+calls it directly and logs `[--cpu-freq] cores=... below=N`. (This line
+previously named a companion script that does not exist in this repository.
+Corrected 2026-08-09.)
 
 No enumeration; instantaneous. Exits 0 if HEALTHY, 1 if any core is
 below threshold, 2 on I/O error.

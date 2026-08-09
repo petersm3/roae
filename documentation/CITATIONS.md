@@ -538,7 +538,7 @@ certified-counting checks rest on this stack.)*
 - **OpenMP**, **POSIX threads** — parallelism in `solve.c`.
 - <a id="zlib"></a>**zlib** (Jean-loup Gailly and Mark Adler) — [zlib.net](https://zlib.net/). DEFLATE compression library, load-bearing in `verify.c` (the v2 layer codec is per-block zlib; the build line links `-lz`) and in `solve.c`'s native-gzip live compression (`-lz` required since #169; sha-neutral storage layer, see [DEVELOPMENT.md](DEVELOPMENT.md)). *(Added 2026-08-06, citation audit.)*
 - **GCC** (GNU Compiler Collection) with `-O3`. Specific version and build flags documented in [DEVELOPMENT.md](DEVELOPMENT.md).
-- **Python 3.x standard library** (no third-party dependencies used in `solve.py`, `roae.py`, `verify.py`, `null_compare.py`).
+- **Python 3.x standard library** (no third-party dependencies used in `solve.py`, `roae.py`, `verify.py`, `sat.py`). *(Corrected 2026-08-09: this list named a fourth file, `null_compare.py`, that has never existed in the repository — an original-authorship slip present since the 2026-04-19 creation commit and untouched by every later correction to this file. The null-model surface is solve.c's `--null-*` subcommands, documented in [SOLVE_C_CLI.md](SOLVE_C_CLI.md), not a Python file. The sentence's substantive claim — stdlib-only, no third-party dependencies — was and remains true of the files that do exist.)*
 
 ---
 
