@@ -15332,13 +15332,41 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const F1C3
 
 /* Group-closed orbit unions by pair count. 13 and 16 are the instrument's
  * validation unions ("13" = U13 3+4+6, "16" = U16 4+6+6); the rest cover the
- * staged memory-validation ladder (26/29 are not realizable as orbit sums). */
+ * staged memory-validation ladder.
+ *
+ * REALIZABLE SIZES. A rung must be a union of WHOLE pair-orbits, and the orbit
+ * sizes are {3,3,3,4,6,6,6} (sum 31). So the realizable pair counts are exactly
+ *     3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31
+ * and the twelve counts 1,2,5,8,11,14,17,20,23,26,29,30 are NOT realizable at
+ * all. (An earlier revision of this comment named only 26 and 29; that was an
+ * incomplete list, not a different claim.) Note in particular that nothing
+ * lies strictly between 28 and 31: the smallest orbit is 3, so the largest
+ * proper union is 31-3 = 28. That is why the published rung ladder stops at 28.
+ *
+ * WHICH union, when several share a size. Sizes are not unique to a union --
+ * e.g. 12 = 6+6 = 3+3+6, and there are 127 distinct unions in all (2^7-1).
+ * The rows below pick ONE per size. Rows 9..28 are the historical validation
+ * unions and are load-bearing: their counts are published in TR-11 4b and must
+ * not be re-pointed at a different union of the same size. The rows added
+ * 2026-08-09 (3,4,6,7,10,12,15,21,22 -- the small sizes that had no entry)
+ * follow a stated convention: take rows in the order 3.0,3.1,3.2,4.0,6.0,6.1,6.2
+ * and greedily prefer earlier rows. They have no published counterpart, so they
+ * produce NEW exact values rather than checks against a known answer. */
 static const struct { int n; const char *spec; } f1c5_unions[] = {
+    {  3, "3.0@0" },
+    {  4, "4.0@0" },
+    {  6, "3.0,3.1@0" },
+    {  7, "3.0,4.0@0" },
     {  9, "3.0,3.1,3.2@0" },
+    { 10, "3.0,3.1,4.0@0" },
+    { 12, "3.0,3.1,6.0@0" },
     { 13, "3.0,4.0,6.2@0" },
+    { 15, "3.0,3.1,3.2,6.0@0" },
     { 16, "4.0,6.0,6.1@0" },
     { 18, "6.0,6.1,6.2@0" },
     { 19, "3.0,4.0,6.0,6.1@0" },
+    { 21, "3.0,3.1,3.2,6.0,6.1@0" },
+    { 22, "3.0,3.1,4.0,6.0,6.1@0" },
     { 24, "3.0,3.1,6.0,6.1,6.2@0" },
     { 25, "3.0,4.0,6.0,6.1,6.2@0" },
     { 27, "3.0,3.1,3.2,6.0,6.1,6.2@0" },
@@ -15435,7 +15463,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
         if (!spec) {
             fprintf(stderr, "ERROR: [f1c5] --f1-pairs %d has no group-closed orbit union; "
-                    "supported: 9,13,16,18,19,24,25,27,28,31\n", npairs);
+                    "supported: 3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31\n", npairs);
             free(c);
             return 2;
         }

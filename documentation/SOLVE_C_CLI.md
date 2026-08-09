@@ -854,8 +854,18 @@ solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--layers-dir DIR | --f1-out-of-core DI
 
 Extension of the orbit DP with the capped C5-residual dimension (#217): exact
 |C1 ∩ C2 ∩ C4 ∩ C5| over group-closed pair-orbit unions. `--f1-pairs N` with
-N ∈ {9,13,16,18,19,24,25,27,28,31} (default 31 = full run at KW's budget).
-Sha-neutral.
+N ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31} (default 31 = full
+run at KW's budget). Sha-neutral.
+
+A rung must be a union of WHOLE pair-orbits, and the orbit sizes are
+{3,3,3,4,6,6,6}, so that set is exactly the realizable pair counts — the other
+twelve values (1,2,5,8,11,14,17,20,23,26,29,30) are not expressible at all and
+are rejected. Note nothing lies strictly between 28 and 31: the smallest orbit
+is 3, so the largest proper union is 31−3 = 28. Sizes 3,4,6,7,10,12,15,21,22
+were added 2026-08-09; sizes 9…28 are the historical validation unions whose
+counts are published in [TR-11 §4b](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md).
+Several distinct unions can share a size (127 unions in all); `--f1-pairs`
+selects one per size, so it does not reach the alternatives.
 
 `--f1-out-of-core DIR` (#221) runs the same DP with a different memory
 strategy: NO layer's entries are ever held in RAM in full — only fixed
