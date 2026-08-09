@@ -9409,7 +9409,68 @@ gate_publication_state() {
   return $rc
 }
 
+# ---------------------------------------------------------------------------
+# GATE 21 — backticked `scripts/…` paths must resolve, or be declared narration.
+#
+# WHAT IT CAUGHT. Markdown LINKS are gated (GATE 4). Code-font PATHS were not.
+# On 2026-08-09 that gap was holding four references to
+# `scripts/d128_preflight_throttle_probe.sh` — a file that exists in NEITHER
+# repository NOR anywhere on disk, never written — one of which told the reader
+# imperatively to RUN it before a paired bench. The real check was always
+# `./solve --cpu-freq`, which is what the project's own launcher calls.
+#
+# TWO OUTCOMES, NOT ONE. A token that resolves in roae-private but not here is
+# NOT the same defect as one that resolves nowhere:
+#   * DANGLE    — points at nothing. Fix the text.
+#   * COLLISION — `scripts/` IS a real published directory, so the reader
+#     follows the path into a directory that exists and lacks the file. The fix
+#     is the `roae-private/` prefix, which HISTORY.md already uses correctly 69
+#     times. Two such collisions were live on 2026-08-09.
+# The collision leg needs the private repo, so it is SKIPPED-WITH-NOTICE when
+# absent: a fresh clone or third-party replicator still gets the dangle leg,
+# and is told plainly which leg did not run rather than shown a bare green.
+#
+# ALLOWLIST = NARRATION, and every row must say why. Four of the five current
+# non-resolving tokens are CORRECT prose describing files deliberately removed
+# (the 2026-04-21 consolidation into solve.py); the fifth is a retraction naming
+# the phantom in order to withdraw it. Banning those would forbid the corpus
+# from describing its own history — the same mistake as banning inline mention
+# of a retracted phrase.
+gate_script_paths() {
+  echo "== GATE 21: backticked \`scripts/…\` paths resolve, or are declared narration =="
+  local rc=0 t priv=/home/claude/github/roae-private
+  # (token, why-it-is-narration) — extend ONLY with a reason.
+  allow() { case "$1" in
+    scripts/compute_stats.py|scripts/p2_marginals.py|scripts/p2_bivariate.py|scripts/p2_joint_density.py)
+      echo "narrating the 2026-04-21 consolidation into solve.py (file deliberately removed)";;
+    scripts/d128_preflight_throttle_probe.sh)
+      echo "retraction text naming the phantom in order to withdraw it (2026-08-09)";;
+    *) echo "";; esac; }
+  local seen=0 dang=0 coll=0
+  while read -r t; do
+    [ -n "$t" ] || continue
+    seen=$((seen+1))
+    git ls-files --error-unmatch "$t" >/dev/null 2>&1 && continue
+    local why; why=$(allow "$t")
+    if [ -n "$why" ]; then continue; fi
+    if [ -d "$priv" ] && [ -e "$priv/$t" ]; then
+      echo "  [FAIL] COLLISION: \`$t\` resolves in roae-private but NOT here."
+      echo "         'scripts/' is a real published directory, so a reader follows this into"
+      echo "         a directory that exists and lacks the file. Prefix it: \`roae-private/$t\`."
+      coll=$((coll+1)); rc=1
+    else
+      echo "  [FAIL] DANGLE: \`$t\` resolves nowhere — not tracked here, not in roae-private."
+      echo "         Fix the text, or add an allowlist row SAYING WHY it is narration."
+      dang=$((dang+1)); rc=1
+    fi
+  done < <(git grep -ohE '`scripts/[A-Za-z0-9_./-]+`' -- '*.md' 2>/dev/null | tr -d '`' | sort -u)
+  [ -d "$priv" ] || echo "  [note] roae-private not present: the COLLISION leg did NOT run. Dangle leg did."
+  [ "$rc" -eq 0 ] && echo "  [ok] $seen distinct \`scripts/…\` token(s); all resolve or are declared narration"
+  return $rc
+}
+
 case "$MODE" in
+  script-paths) gate_script_paths || RC=1 ;;
   publication-state) gate_publication_state || RC=1 ;;
   branch-registry) gate_branch_registry || RC=1 ;;
   numbers) gate_numbers || RC=1 ;;
@@ -9466,8 +9527,9 @@ case "$MODE" in
            echo; gate_scoreboard_verdicts || RC=1
            echo; gate_alias_reach || RC=1
            echo; gate_branch_registry || RC=1
-           echo; gate_publication_state || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|generated|all}"; exit 2 ;;
+           echo; gate_publication_state || RC=1
+           echo; gate_script_paths || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -9514,7 +9576,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
