@@ -120,7 +120,7 @@ because no single SKU is cost-effective at both.
   - **d3 10T merge** (~89 GB pre-dedup, in-memory feasible): **D16als_v7** (16 cores, 32 GB RAM) or D32als_v7 (32 GB RAM fits 89 GB external, 64 GB fits in-memory). On-demand ~$0.50-$1/hr → <$1 for 1h merge.
   - **d3 100T merge** (~880 GB pre-dedup, external required): **D32als_v7** (32 cores, 64 GB RAM) is plenty — external merge streams in chunks, doesn't need to fit everything in RAM. On-demand ~$1.30/hr → ~$7 for a 5h merge.
   - **d3 1000T+** (if ever): external merge on **D64als_v7** (128 GB RAM) handles chunk sort comfortably, ~$2.50/hr.
-  - **NEVER use D128als_v7 for merge.** Paying for 128 cores to run a 1-core workload is ~4× over-spend. The 2026-04-19/20 100T run's merge paid $28 on D128 when D32 would have been $7.
+  - **NEVER use D128als_v7 for merge.** Paying for 128 cores to run a 1-core workload is ~4× over-spend. The 2026-04-19/20 100T run's merge did exactly this: a D128 billed for a workload a D32 would have served.
 
 **An earlier revision (2026-04-19) briefly moved merges to spot by default on the reasoning that shards persist. That rule is SUPERSEDED** — at 100T+ scale, re-running a 5-hour merge on spot eviction is worse than the on-demand premium. Revert to on-demand for merge; size it correctly instead.
 
@@ -133,7 +133,7 @@ az vm show -g "$RG" -n "$VM" --query priority -o tsv
 - `Spot` → OK for enumeration. Proceed.
 - `<empty>` / `null` / `Regular` → OK for merge or explicit on-demand run. NOT OK for enumeration — stop, recreate the VM with `--priority Spot --eviction-policy Deallocate --max-price -1`, or escalate to the user.
 
-**Failure case this prevents:** on 2026-04-19/20, d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session; the 100T d3 enumeration + merge pipeline (16h 48m) was launched on it without verification. Actual VM cost: ~$112. Cost under the corrected policy: ~$38.84 ($10.85 enum on spot + $27.99 merge on-demand). Avoidable overspend: ~$73. See [HISTORY.md](HISTORY.md) §Missteps for the full retrospective.
+**Failure case this prevents:** on 2026-04-19/20, d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session; the 100T d3 enumeration + merge pipeline (16h 48m) was launched on it without verification. The run billed at on-demand rates throughout; under the corrected policy the enumeration would have been Spot and only the merge on-demand. See [HISTORY.md](HISTORY.md) §Missteps for the full retrospective.
 
 ### Memory-budget validation for chunk-based parallel verifiers (added 2026-05-08)
 
@@ -175,7 +175,7 @@ The memory-budget rule above tells you when verify.py won't OOM. It doesn't tell
 - Use Premium SSD scratch (high random IOPS — Premium SSD does 5,000+ IOPS, two orders of magnitude better)
 - Or restructure verify.py to use single-stream sequential reads with worker-pool processing (reader thread feeds N CPU-bound worker threads from a queue) — would let the reader saturate sequential HDD throughput at ~150 MB/s and CPU workers process from memory
 
-**Cost impact this campaign:** D128 was provisioned for the 8× speedup that didn't materialize. ~$5-7 overspend vs D32 sweet spot.
+**Cost impact this campaign:** D128 was provisioned for the 8× speedup that didn't materialize. Overspend versus the D32 sweet spot.
 
 **Sizing rule for verify.py (revised):**
 
@@ -225,7 +225,7 @@ The `feedback_keep_managed_disk.md` rule still holds — never delete data disks
 
 ### Spot host CPU-frequency throttling — silently 5× slower (added 2026-05-12)
 
-**Failure mode:** on 2026-05-12, a freshly-provisioned `Standard_D128als_v7` Spot VM in westus3 (host: AMD EPYC 9V45) ran a `solve 0 128` enum at **230 M nodes/s** — 5.6× slower than the established baseline of **1293 M/s** for the same SKU on a healthy host. The slowdown was scale-emergent (rate looked normal at smaller scales, was glaring at full-throttle 128-thread enum) and would have caused a ~$42 cascade overspend if undetected.
+**Failure mode:** on 2026-05-12, a freshly-provisioned `Standard_D128als_v7` Spot VM in westus3 (host: AMD EPYC 9V45) ran a `solve 0 128` enum at **230 M nodes/s** — 5.6× slower than the established baseline of **1293 M/s** for the same SKU on a healthy host. The slowdown was scale-emergent (rate looked normal at smaller scales, was glaring at full-throttle 128-thread enum) and would have caused a cascade overspend if undetected.
 
 **Root cause:** the host's CPUs were parked at **~600 MHz** (visible via `cat /proc/cpuinfo | grep MHz`), versus the expected **2.5-3.5 GHz** boost frequency. Inside the guest:
 
@@ -621,7 +621,7 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
 - [ ] Sub_*.bin integrity check enabled on eviction resume (size % 32 == 0)
 - [ ] Watchdog merge-phase exemption verified (don't kill solver during merge)
 - [ ] Merge VM is on-demand (not spot) — merge has no checkpoint
-- [ ] **Pre-launch verification: `az vm show --query priority` matches the workload type** (Spot for enum; null/Regular for merge). See §Standing policy. Skipping this gate caused the 2026-04-19/20 ~$73 overspend.
+- [ ] **Pre-launch verification: `az vm show --query priority` matches the workload type** (Spot for enum; null/Regular for merge). See §Standing policy. Skipping this gate caused the 2026-04-19/20 overspend incident.
 - [ ] `--merge` code path uses canonical dedup (same as normal-mode merge)
 - [ ] Cost estimate presented to user
 - [ ] Output-shape sanity checks planned (record count, sub-branch file count)

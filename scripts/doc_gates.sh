@@ -9354,7 +9354,63 @@ gate_branch_registry() {
   return $rc
 }
 
+# ---------------------------------------------------------------------------
+# GATE 20 — the published corpus must not say it is unfinished.
+#
+# THE DEFECT. On 2026-08-08, documentation/CAMPAIGN_METHODOLOGY.md — a PUBLISHED
+# document — carried a live "Pre-publish TODO (operator review): … genericize
+# before publishing (this is a public doc)" and a "## DRAFT TODO before porting
+# to public" section with ~16 unchecked boxes, one of which read "delete
+# LARGE_SCALE_CAMPAIGNS.md". A reader is told, correctly, that the document is
+# not finished being published. Worse, that draft section's central premise was
+# FALSE, and following it would have deleted a candid limitation disclosure.
+#
+# THE HARD PART IS THE FALSE POSITIVE, and it is why this gate is narrow.
+# `- [ ]` has a legitimate use: a checklist FOR THE READER to tick.
+# documentation/DEPLOYMENT.md §"Pre-launch checklist" has 15 such boxes and is
+# correct markdown — a replicator ticks them off before launching. A gate that
+# banned unchecked boxes outright would fire on the single best-designed
+# checklist in the corpus, be silenced with an exemption, and thereafter catch
+# nothing. So:
+#   * unchecked boxes UNDER A "checklist" HEADING  -> allowed (reader-facing)
+#   * unchecked boxes ANYWHERE ELSE               -> FAIL (internal TODO)
+#   * HEADING-form draft markers                  -> FAIL always
+#   * the same words INLINE in a sentence         -> allowed (narration of a
+#     past defect is how CORRECTIONS.md works; banning it would forbid the
+#     corpus from describing its own history)
+gate_publication_state() {
+  echo "== GATE 20: no live pre-publish / draft markers in the published corpus =="
+  local rc=0 f hits n
+  # (a) heading-form draft markers — never legitimate in a published doc
+  hits=$(git ls-files '*.md' 2>/dev/null | xargs grep -nE '^#{1,6}[[:space:]].*(DRAFT TODO|[Bb]efore porting to public|Pre-publish TODO|^#+[[:space:]]*WIP)' 2>/dev/null || true)
+  if [ -n "$hits" ]; then
+    echo "$hits" | sed 's/^/  [FAIL] heading-form draft marker: /'
+    echo "         A published document must not carry a section announcing it is unpublished."
+    echo "         Resolve it (state the decision) or delete it — do not leave it addressed to a future self."
+    rc=1
+  fi
+  # (b) unchecked boxes outside a reader checklist
+  n=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    awk -v FN="$f" '
+      /^#{1,6}[[:space:]]/ { inck = (tolower($0) ~ /checklist/) ? 1 : 0 }
+      /^[[:space:]]*- \[ \]/ { if (!inck) printf "  [FAIL] %s:%d unchecked box outside a reader checklist: %s\n", FN, NR, substr($0,1,72) }
+    ' "$f"
+  done < <(git ls-files '*.md' 2>/dev/null) > /tmp/g20_$$ 2>/dev/null
+  if [ -s /tmp/g20_$$ ]; then
+    cat /tmp/g20_$$
+    echo "         An unchecked box in published prose is an obligation the document has not met."
+    echo "         Reader-facing checklists are exempt — put them under a heading containing 'checklist'."
+    rc=1
+  fi
+  rm -f /tmp/g20_$$
+  [ "$rc" -eq 0 ] && echo "  [ok] no heading-form draft markers; every unchecked box sits under a reader checklist"
+  return $rc
+}
+
 case "$MODE" in
+  publication-state) gate_publication_state || RC=1 ;;
   branch-registry) gate_branch_registry || RC=1 ;;
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
@@ -9409,8 +9465,9 @@ case "$MODE" in
            echo; gate_preflight_collisions || RC=1
            echo; gate_scoreboard_verdicts || RC=1
            echo; gate_alias_reach || RC=1
-           echo; gate_branch_registry || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|generated|all}"; exit 2 ;;
+           echo; gate_branch_registry || RC=1
+           echo; gate_publication_state || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -9457,7 +9514,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
