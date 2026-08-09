@@ -73,10 +73,10 @@ The seed `20260802` was fixed, published and recorded **before** launch. **This 
 re-seeded or re-run.** Re-running until a pass appears would convert a pre-registered test into a
 search, which is precisely the failure mode the pre-registration exists to prevent.
 
-## Propagation required (not yet done)
+## Propagation required — DONE (CX-25 2026-08-04, CX-26 2026-08-07)
 
-TR-2 currently describes its calibration as **PARTIAL** on the grounds that the tendency half had
-never run. That wording is now too generous in one direction and too vague in the other: the half
+TR-2 described its calibration as **PARTIAL** on the grounds that the tendency half had
+never run. That wording was too generous in one direction and too vague in the other: the half
 ran, and it failed. Every site that leans on the F11 BF or the 0.9998 posterior as *calibrated* needs
 review. This is an operator-gated edit — it changes a published epistemic status, and it should go
 through CORRECTIONS.md as an append-only entry rather than a quiet reword. *(Done, in two stages:

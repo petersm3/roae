@@ -9469,7 +9469,183 @@ gate_script_paths() {
   return $rc
 }
 
+# ---------------------------------------------------------------------------
+# GATE 22 — an ellipsis-truncated hex token must be a PREFIX of some 64-nibble
+# hex string in the tree. The universe is every 64-nibble hex string the corpus
+# contains, not "every real sha": a truncated citation of a documented NON-sha
+# that is itself published at full length resolves clean.
+#
+# THE LIVE DEFECT. Two paper-citable documents cited the d2 10T canonical as
+# `a09280fbf…` against a registry value of
+# a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2 — the NINTH
+# nibble is wrong (f, not 8). A reviewer who greps the published prefix gets
+# nothing back and cannot tell a typo from a withdrawn anchor. That instance is
+# already fixed (BOUNDARY_MINIMUM.md:29 now reads `a09280fb8…`); this gate is
+# what stops the class returning.
+#
+# TWO LEGS, and the second exists BECAUSE the first has an allowlist.
+#   LEG A — NEAR MISS, ALLOWLIST-PROOF. A non-resolving token that agrees with
+#     some 64-nibble string in the tree on its first NEAR_MIN nibbles is a
+#     mistyped anchor, not a narrative identifier, and no allowlist row waives it. This
+#     is exactly the `a09280fbf…` shape (agreement 8).
+#   LEG B — RESOLVABILITY. Every remaining token must be a prefix of some
+#     64-nibble string in the tree, or carry a row saying why it cannot expand.
+#
+# THE THRESHOLD IS MEASURED, NOT PICKED. Over the whole tracked corpus on
+# 2026-08-09: of the 33 tokens that do not resolve, the LARGEST agreement with
+# any 64-nibble string in the tree is 2 nibbles. The defect's was 8. NEAR_MIN=7
+# sits in that gap with clearance on both sides — it is not tuned to today's tree, and
+# LEG A therefore fires today on nothing and would have fired on the defect.
+#
+# THE ALLOWLIST IS 33 ROWS, NOT 3 — stated rather than left to read as
+# oversight. The brief for this gate expected three (the run identifiers
+# HISTORY.md itself declares at 2269-2272). Measured, the corpus carries 33
+# truncated hex tokens with no expansion anywhere: 24 are the sha256 of a build
+# artifact, an intermediate run or a --selftest output that was never published
+# in full, 6 are not sha256 at all, and 3 are the declared run identifiers.
+# Each class carries its own reason below; none is exempted silently.
+#
+# WHAT LEG B COSTS, said plainly because it is a standing tax and not a one-off:
+# it fails EVERY future truncated hex citation whose full value is not in the
+# tree, so a new run narrative must either publish the 64 nibbles or add a row.
+# That friction is LEG B's whole purpose, and it is also how a gate gets
+# silenced by reflex — which is why the instance that occurred, and any mistyped
+# nibble at position 8 or later, is carried by LEG A, where adding a row does
+# nothing. A typo EARLIER than nibble 8 leaves agreement below NEAR_MIN and falls
+# to LEG B, where a row does waive it (measured: `a09280fbf` NEAR at 8,
+# `a09280fc` NEAR at 7, `a0928cfb8` DANGLE at 5, `b09280fb8` DANGLE at 1).
+#
+# SCOPE — three limits.
+#   * TOKEN LENGTH 7-63, not the 7-16 originally specified. HISTORY.md:4758 and
+#     :4760 cite `0c0fe37cf449cbc6e275...` at 20 nibbles, and a 16-cap would
+#     have skipped both without saying so. 64 is excluded: that is a full-length
+#     string, not a prefix of one.
+#   * THE UNIVERSE IS HEAD, plus tracked files that DIFFER from HEAD. HEAD alone
+#     is the reader-facing question ("can someone who clones expand this?"), but
+#     HEAD alone would false-fail an uncommitted edit that introduces a sha and
+#     its own truncated citation together. At pre-push the tree is a clean temp
+#     worktree, so the union collapses back to HEAD and the strict reading is
+#     what actually blocks the publish.
+#   * BINARY CONTENT IS NOT SCANNED for the universe (`git grep -I`). Four .gz
+#     DRAT certificates are tracked; a sha reachable only inside compressed
+#     bytes is not one a reader could grep for either.
+gate_hex_prefix() {
+  echo "== GATE 22: ellipsis-truncated hex tokens are prefixes of a 64-nibble string in the tree =="
+  local rc=0 NEAR_MIN=7
+  # (token, why-it-cannot-expand) — extend ONLY with a reason. LEG A ignores this list.
+  # NAMED hex_allow, not allow: bash function definitions are GLOBAL, and GATE 21
+  # already defines an allow() inside gate_script_paths.
+  hex_allow() { case "$1" in
+    e31ef86a|c247b9f9|467025fe)
+      echo "declared narrative run identifier — HISTORY.md:2269-2272 states no 64-hex expansion exists";;
+    0004080c|00040a0c)
+      echo "not a sha: the head of an elided 32-byte solution RECORD (HISTORY.md:2242-2243)";;
+    325025987)
+      echo "not hex: the tail of the decimal x23.325025987... (DESCRIPTION_LENGTH.md:54)";;
+    d63bb25c)
+      echo "not a sha256: an ext4 filesystem UUID (HISTORY.md:1881)";;
+    5450b53e)
+      echo "not a sha256: the mathlib git revision pinned by lake-manifest.json (lean/README.md:434)";;
+    df3d92ba)
+      echo "not a real sha: the head of the elided trailing 56 characters of the HALLUCINATED phantom 11.2T value, which HISTORY.md:4758 states correspond to no artifact anywhere";;
+    0d10944dda|10aa1f84|163a7660|188ce945|1ce20ff3|2954b271|2db60543|4ad70a0f|4ad70a0fb9|4f1cd8b3|76ada31e|86a74da5|8c35a854|95c2f8f0|98b8c0ef|9ab1cd08|b415c8ec|b82a2f48|daab1c48|e353086e|e5cfc6cd|f6b554ea|fc1e921e|fe98e58a)
+      echo "sha256 of a build artifact / intermediate run / --selftest output, published only in truncated form";;
+    *) echo "";; esac; }
+  local d; d=$(mktemp -d) || { echo "  [FAIL] GATE 22: mktemp failed, so nothing was checked."; return 1; }
+  # UNIVERSE. `[0-9a-f]+` is unbounded on a CHARACTER CLASS, then length-filtered in awk —
+  # deliberately not `[0-9a-f]{64}`, so this file's own no-bounded-repetition rule holds.
+  { git grep -ohIE '[0-9a-f]+' HEAD 2>/dev/null
+    git diff -z --name-only HEAD 2>/dev/null | xargs -0 -r grep -ohIE '[0-9a-f]+' 2>/dev/null
+  } | awk 'length($0)==64' | sort -u > "$d/univ"
+  if [ ! -s "$d/univ" ]; then
+    echo "  [FAIL] zero 64-nibble strings found in the tree. That is a broken scan, not a"
+    echo "         clean corpus — every token would 'fail to resolve' and the report would be"
+    echo "         noise. Re-anchor this gate, do not silence it."
+    rm -rf "$d"; return 1
+  fi
+  git grep -ohE '[0-9a-f]+(…|\.\.\.)' -- '*.md' 2>/dev/null \
+    | sed 's/…$//; s/\.\.\.$//' | awk 'length($0)>=7 && length($0)<=63' | sort -u > "$d/tok"
+  awk -v near="$NEAR_MIN" '
+    NR==FNR { U[++n]=$0; next }
+    { t=$0; best=0; bu=""
+      for (i=1;i<=n;i++) {
+        u=U[i]
+        if (substr(u,1,length(t))==t) { print "OK\t" t; next }
+        L=0
+        while (L<length(t) && substr(t,L+1,1)==substr(u,L+1,1)) L++
+        if (L>best) { best=L; bu=u }
+      }
+      if (best>=near) printf "NEAR\t%s\t%s\t%d\n", t, bu, best
+      else print "DANGLE\t" t
+    }' "$d/univ" "$d/tok" > "$d/class"
+  local seen=0 declared=0 kind t u n why
+  while IFS=$'\t' read -r kind t u n; do
+    [ -n "$kind" ] || continue
+    seen=$((seen+1))
+    case "$kind" in
+      OK) ;;
+      NEAR)
+        echo "  [FAIL] NEAR MISS: \`$t…\` is a prefix of NO 64-nibble string in the tree, but agrees with"
+        echo "         $u for $n nibbles. That is a mistyped anchor, not a"
+        echo "         narrative identifier: a reviewer's prefix grep returns nothing. Fix the"
+        echo "         digits against the registry. NO allowlist row waives this leg."
+        rc=1;;
+      DANGLE)
+        why=$(hex_allow "$t")
+        if [ -n "$why" ]; then declared=$((declared+1)); continue; fi
+        echo "  [FAIL] UNRESOLVABLE: \`$t…\` is a prefix of no 64-nibble string in the tree."
+        echo "         Publish the full sha somewhere a reader can reach, or add an allowlist"
+        echo "         row SAYING WHY it cannot expand."
+        rc=1;;
+    esac
+  done < "$d/class"
+  rm -rf "$d"
+  [ "$rc" -eq 0 ] && echo "  [ok] $seen truncated hex token(s); all resolve or are declared ($declared declared)"
+  return $rc
+}
+
+# ---------------------------------------------------------------------------
+# GATE 23 — no tracked file may also be ignored.
+#
+# A path that is BOTH tracked and matched by an ignore rule is a silent
+# partial-publication hazard. The file already in the index keeps shipping, so
+# nothing looks wrong; but the NEXT sibling added to that directory is skipped
+# by `git add` without warning, and the omission surfaces only when a reader
+# follows a link into a half-published directory. There is no legitimate use of
+# this state in this repo, so the gate has NO allowlist: the fix is always to
+# narrow the ignore rule or to untrack the file deliberately.
+#
+# THE COMMAND IS THE CHECK, so a command that does not run must not read as
+# clean. `git ls-files -i` REQUIRES `-c` or `-o`; older git errors out instead
+# of defaulting. Empty output plus a non-zero exit is indistinguishable from
+# "nothing found" unless the exit status is inspected, so it is — a checker
+# that finds nothing must never report [ok].
+gate_tracked_ignored() {
+  echo "== GATE 23: no tracked file is also ignored =="
+  local out rc n
+  # stdout ONLY: a stderr warning on a SUCCESSFUL run must not be printed as a path.
+  out=$(git ls-files -i -c --exclude-standard 2>/dev/null); rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "  [FAIL] 'git ls-files -i -c --exclude-standard' exited $rc — the check did NOT run,"
+    echo "         so this is not a clean bill of health."
+    git ls-files -i -c --exclude-standard 2>&1 >/dev/null | sed 's/^/           > /' | head -3
+    return 1
+  fi
+  if [ -n "$out" ]; then
+    n=$(printf '%s\n' "$out" | wc -l)
+    printf '%s\n' "$out" | sed 's/^/  [FAIL] tracked AND ignored: /'
+    echo "         $n path(s). Each keeps shipping while the next file added beside it is"
+    echo "         skipped by 'git add' in silence — partial publication with no error."
+    echo "         Narrow the ignore rule, or untrack the path on purpose."
+    return 1
+  fi
+  echo "  [ok] no tracked path matches an ignore rule"
+  return 0
+}
+
 case "$MODE" in
+  hex-prefix) gate_hex_prefix || RC=1 ;;
+  tracked-ignored) gate_tracked_ignored || RC=1 ;;
   script-paths) gate_script_paths || RC=1 ;;
   publication-state) gate_publication_state || RC=1 ;;
   branch-registry) gate_branch_registry || RC=1 ;;
@@ -9528,8 +9704,10 @@ case "$MODE" in
            echo; gate_alias_reach || RC=1
            echo; gate_branch_registry || RC=1
            echo; gate_publication_state || RC=1
-           echo; gate_script_paths || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|generated|all}"; exit 2 ;;
+           echo; gate_script_paths || RC=1
+           echo; gate_hex_prefix || RC=1
+           echo; gate_tracked_ignored || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|all}"; exit 2 ;;
 esac
 
 echo
@@ -9576,7 +9754,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).

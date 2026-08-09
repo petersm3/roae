@@ -266,11 +266,18 @@ output for `--stats`, `--bootstrap`, `--constraints`, and `--cast`.
 --html             Export an HTML report to report.html (and report.pdf if wkhtmltopdf installed)
 --markdown         Export a Markdown report to report.md
 --midi             Export the difference wave as a MIDI file (wave.mid)
---dot              Export Graphviz DOT graph to wave.dot (+ .png/.svg if Graphviz installed)
+--dot              Export Graphviz DOT graph to wave.dot (+ wave.dot.png / wave.dot.svg if Graphviz installed)
 ```
 
-Output formats are independent of analysis selection — they render the
-data that gets computed by whatever analyses ran.
+Output formats are mutually exclusive, and they are not composed with
+analysis selection. Each export renders from the hard-coded hexagram
+data, not from "whatever analyses ran": requesting an export makes
+`roae.py` write that one file and exit before any analysis section is
+dispatched. If two or more export flags are given, only the first in
+the order `--json`, `--csv`, `--dot`, `--svg`, `--html`, `--markdown`,
+`--midi` takes effect. `--lookup`, `--compare`, `--cast` and `--explain`
+are tested *before* the export flags and return first, so pairing one
+of them with an export flag writes no file. See EXAMPLES.
 
 ## DEPENDENCIES
 
@@ -281,7 +288,9 @@ data that gets computed by whatever analyses ran.
 
 Optional packages enable richer output:
 
-- **`weasyprint`** or **`wkhtmltopdf`** — for `--html` → PDF rendering.
+- **`wkhtmltopdf`** — for `--html` → PDF rendering. It is the only PDF
+  backend `roae.py` invokes; if it is absent the PDF step is skipped
+  silently and the run still succeeds.
 - **`graphviz` (system package)** — for `--dot` → PNG/SVG rendering.
 - **MIDI playback** — `--midi` produces `wave.mid` which can be played
   by any MIDI-capable audio system.
@@ -293,7 +302,7 @@ Optional packages enable richer output:
 | 0 | Success |
 | 1 | Invalid argument or section selection |
 | 2 | Self-test failure (data-integrity invariant violated) |
-| 3 | Output-format dependency missing (e.g., `--html` requires weasyprint); also the `--prereg-h1h3` cross-check-gate failure (hard stop, no verdicts issued) |
+| 3 | `--prereg-h1h3` cross-check-gate failure (hard stop, no verdicts issued) — the only `sys.exit(3)` in `roae.py` |
 
 ## EXAMPLES
 
@@ -321,19 +330,35 @@ python3 roae.py --wave --barchart
 python3 roae.py --constraints --trials 1000000 --seed 42
 ```
 
-**Generate exportable artifacts:**
+**Generate exportable artifacts — one export per invocation:**
 
 ```
-python3 roae.py --table --json --csv --svg
-# writes: hexagrams.json, hexagrams.csv, hexagrams.svg
+python3 roae.py --json     # writes: hexagrams.json
+python3 roae.py --csv      # writes: hexagrams.csv
+python3 roae.py --svg      # writes: hexagrams.svg
 ```
+
+Export flags do **not** combine, and they do not compose with analysis
+selection. `main()` tests them in a fixed order — `--json`, `--csv`,
+`--dot`, `--svg`, `--html`, `--markdown`, `--midi` — and returns after
+the first one it finds. So `python3 roae.py --table --json --csv --svg`
+writes `hexagrams.json` and nothing else: the `--csv` and `--svg`
+exports never run, and the `--table` analysis is never printed. (This
+example previously appeared here claiming all three files; it does not
+produce them.)
 
 **Generate full HTML/PDF report:**
 
 ```
-python3 roae.py --all --html
+python3 roae.py --html
 # writes: report.html (and report.pdf if wkhtmltopdf available)
 ```
+
+`--html` renders 28 of the 29 analysis sections — the `--hamming`
+section is not in the list `export_html()` iterates — and adding
+`--all` (or any section flag) has no effect, because the export branch
+returns before section dispatch. `--markdown` carries the identical
+28-section list.
 
 **Quick lookup:**
 
@@ -365,7 +390,9 @@ python3 roae.py --self-test
 - `report.html` and `report.pdf` (`--html`)
 - `report.md` (`--markdown`)
 - `wave.mid` (`--midi`)
-- `wave.dot`, `wave.png`, `wave.svg` (`--dot`)
+- `wave.dot`, `wave.dot.png`, `wave.dot.svg` (`--dot`) — the image
+  files append the format suffix to the *whole* DOT filename, so they
+  are `wave.dot.png` / `wave.dot.svg`, not `wave.png` / `wave.svg`
 - `u2_report.json`, `u2_checkpoint.jsonl` (`--grammar-search`; paths
   overridable via `--gs-json` / `--gs-checkpoint`)
 - `prereg_h1h3_report.json`, `prereg_h1h3_ckpt.jsonl` (`--prereg-h1h3`

@@ -1,0 +1,66 @@
+# .gitattributes — line-ending policy for this repository.
+#
+# WHY THIS FILE EXISTS
+#
+# Several of this repo's integrity gates compare the BYTES of a committed blob
+# against the BYTES of the working-tree file. The sharpest example is GATE 10a
+# (`scripts/doc_gates.sh appendonly-head`), which asserts that
+# documentation/CORRECTIONS.md is append-only:
+#
+#     git show "HEAD:$f" > "$tmp"                  # the stored blob — always LF
+#     gone=$(diff "$tmp" "$f" | grep -c '^< ')     # the working-tree file
+#
+# `git show HEAD:<path>` emits the blob as stored and does NOT apply working-tree
+# end-of-line conversion. So on a clone made with `core.autocrlf=true` (the Windows
+# default), git rewrites CORRECTIONS.md to CRLF on checkout, `$tmp` stays LF, and
+# `diff` reports EVERY line of the ledger as removed. GATE 10a then fails on a
+# pristine, untouched clone and accuses the ledger of having been truncated —
+# a false positive produced entirely by bytes git itself rewrote.
+#
+# Pinning the working-tree form to LF removes the discrepancy at its source.
+#
+# SCOPE — what this file does and does not fix.
+#
+#   - It governs how git converts content on checkout and on `git add`. It does
+#     NOT alter any blob already committed; no history is rewritten by adding it.
+#   - It does NOT repair a working tree that was ALREADY checked out with CRLF
+#     before this file existed. That tree keeps its CRLF until it is refreshed —
+#     e.g. `git add --renormalize .`, or delete the files and check them out again.
+#   - It fixes the byte-comparison discrepancy only. Gates can still fail for real
+#     reasons, and this file makes no claim about any gate other than removing the
+#     line-ending cause of a spurious failure.
+#
+# As of this file's addition the index held 349 blobs: 72 binary (NUL-bearing),
+# 274 text blobs containing at least one LF, and 3 text blobs containing no LF at
+# all (reports/evidence/r11/draws.json, hits.json, scores.json — single-line JSON).
+# ZERO blobs contain a CR byte outside the 72 binaries — so `text=auto eol=lf` is
+# a no-op for all existing content and cannot renormalize anything committed.
+
+# Default: let git detect text vs binary by content, and check text out as LF on
+# every platform, Windows included.
+* text=auto eol=lf
+
+# Shell scripts are called out explicitly rather than left to content detection.
+# A CRLF shebang makes the kernel look for the interpreter "/bin/bash\r", which
+# fails with a bare "bad interpreter" — and the gate suite itself is shell, so
+# this is the failure that would hide all the others.
+*.sh text eol=lf
+
+# Binaries: never examined for text, never eol-converted. These four extensions
+# are exactly the 72 binary blobs currently tracked
+# (48 .gz, 22 .png, 1 .pdf, 1 .mid).
+*.gz  -text
+*.png -text
+*.pdf -text
+*.mid -text
+
+# Forward guard only. `*.bin` is matched by an ignore rule in .gitignore
+# (solutions.bin is never committed; its sha256 is the anchor), so this row
+# protects no tracked file today — it is here so that a .bin force-added later
+# cannot be corrupted by eol conversion.
+*.bin -text
+
+# NOT marked binary, deliberately: *.svg. All 17 tracked SVGs are text, not binary
+# (`file --mime` reports charset us-ascii or utf-8 for every one), they diff
+# usefully as text, and nothing in them is byte-sensitive. Marking them `-text`
+# would forfeit readable diffs for no gain.

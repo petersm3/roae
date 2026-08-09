@@ -351,7 +351,7 @@ The c34390c0 / f7b8c4fb undercount investigation (Phase B re-derivation + Phase 
 
 #### Item 2: Build provenance + resume history in `.sha256` metadata
 
-**What changed 2026-05-14:** `write_sha256_with_metadata` (solve.c:~3537) now records `SOLVE_DFS_ITERATIVE`, `SOLVE_DFS_CHECKPOINT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, and a `SOLVE_RESUME_HISTORY` line populated from the env var of the same name. Existing fields (date, build, git hash, record count, node count, branches done, `SOLVE_NODE_LIMIT`, time limit, threads) are preserved.
+**What changed 2026-05-14:** `write_sha256_with_metadata` (in solve.c — locate by name, `grep -n write_sha256_with_metadata solve.c`; defined at ~line 9718 as of 2026-08-09, cited here as ~3537 before the function moved) now records `SOLVE_DFS_ITERATIVE`, `SOLVE_DFS_CHECKPOINT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, and a `SOLVE_RESUME_HISTORY` line populated from the env var of the same name. Existing fields (date, build, git hash, record count, node count, branches done, `SOLVE_NODE_LIMIT`, time limit, threads) are preserved.
 
 **Operator responsibility:** when restarting a canonical run after Spot eviction or any other interruption, set `SOLVE_RESUME_HISTORY` before the restart. The value is free-form text — recommended format: a comma-separated list of resume events with UTC timestamps and trigger. Examples:
 
@@ -531,7 +531,7 @@ For pure-pruning v2 (skips only doomed subtrees, preserves DFS order), set-match
 
 #### Recommended approach: opt-in leaf-rate logger in both binaries
 
-Add an opt-in env var `SOLVE_LEAF_RATE_LOG_INTERVAL_NODES` (default `0` = disabled, sha-preserving) to both v1 and v2 solve.c. When set to a positive integer N, the existing `update_progress()` callsite at solve.c:~2560 also appends one line to `leaf_rate.log`:
+Add an opt-in env var `SOLVE_LEAF_RATE_LOG_INTERVAL_NODES` (default `0` = disabled, sha-preserving) to both v1 and v2 solve.c. When set to a positive integer N, the existing `update_progress()` callsite (solve.c — the single callsite, in the rate-limited thread-0 branch of the sub-branch completion path; ~line 8926 as of 2026-08-09, `grep -n update_progress solve.c`; cited here as ~2560, which in the 2026-05-15 tree was the *definition* — the single callsite there was solve.c:2813, unconditional on every sub-branch completion, and that is the cadence still assumed below) also appends one line to `leaf_rate.log`:
 
 ```
 <elapsed_seconds>\t<total_nodes_walked>\t<sub_branches_done>\t<solutions_c3_so_far>\t<UTC_timestamp>

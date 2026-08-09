@@ -2271,6 +2271,22 @@ D128als_v7 Spot in westus3, 14:22–20:14 UTC, four enumerations:
 | v2 1T | post-#72 + #67 `133e296` | same as v1 1T | `c247b9f9…` | 138,520,400 |
 | v2 5.6T | post-#72 + #67 `133e296` | same as v1 5.6T | `467025fe…` | 486,001,027 |
 
+**The three truncated shas in this table are narrative run identifiers, not verifiable anchors
+(noted 2026-08-09).** `e31ef86a…`, `c247b9f9…` and `467025fe…` appear here — and in §"Files
+preserved" below — **only in truncated form, and no 64-hex expansion of any of the three exists
+anywhere in this repository or its git history.** A cloner therefore receives 32 bits of each and
+**cannot expand or check them**; they are deliberately not expanded here, because guessing or
+reconstructing an expansion would be worse than the gap. Only the v1 5.6T sha
+`f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` is published in full. None of the
+three is a canonical value, and none is registered in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) —
+the canonical-sha invariant does not run on them. The underlying `solutions.bin` files are recorded
+in §"Files preserved" below as held on the `v1v2-compare-scratch` 256 GB StandardSSD managed disk
+(unattached, not yet archived to cold storage as of that date); that is this document's 2026-05-12 record of where
+they were put, not a re-verified statement of present-day disk state. **Scope:** what this note
+fixes is the citation, not the gap — the record-count and superset findings below are unaffected,
+but they remain independently uncheckable from the published tree until (and unless) a full sha or
+the artifact itself is republished.
+
 v2 vs v1 canonical-level diffs (mask `byte & 0xFC`, sort, `comm`) confirmed `L_v1 ⊆ L_v2` at both scales: 1T (v1-only=0, v2-extras=4,478,834, +3.34%), 5.6T (v1-only=0, v2-extras=18,516,859, +3.96%). This validates the #67 superset property in production.
 
 But the v1 5.6T sha `f66920c1…` does NOT match the CANONICAL_HASHES.md anchor `c34390c0…`. The v1 5.6T record count is 467,484,167 vs canonical 467,483,137 — exactly **+1,030 records** (+0.00022%). At selftest scale (100M nodes) the same binary produces canonical baseline `403f7202…`. The divergence is scale-emergent: visible at 5.6T, invisible at 100M.
@@ -2570,7 +2586,9 @@ Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, is
 |---|---|---|---|---|---|
 | Baseline | 101.16 / 101.24 / 109.38 / 100.94 | 103.18 ± 3.58 | 3.47% | — | (101.11s clean) |
 | LTO | 100.98 / 100.99 / 101.21 / 101.19 | **101.09 ± 0.11** | **0.11%** | +2.06% | +0.06% |
-| PGO | 100.08 / 117.10 / 101.06 / 109.09 | 106.83 ± 6.88 | 6.44% | **−3.42% (slower)** | −2.28% |
+| PGO | 100.08 / 117.10 / 101.06 / 109.09 | 106.83 ± 6.88 | 6.44% | **−3.42% (slower)** | −2.22% |
+
+*(PGO trimmed-mean figure **recomputed 2026-08-09** from this table's own cells — it was printed as −2.28%. Trimmed means are 303.34/3 = 101.113 s baseline and 310.23/3 = 103.410 s PGO; 101.113/103.410 − 1 = **−2.22%**, using the same baseline/optimized − 1 convention that reproduces the full-means column exactly. **Scope of this recomputation:** the other thirteen derived cells were re-checked and all reproduce as printed — baseline 103.18 s and 101.11 s trimmed, LTO 101.09 s / +2.06% / +0.06%, PGO 106.83 s / −3.42%, and the three ± σ and three σ% cells (population σ). No trial time was changed, and the qualitative reading — PGO slower than baseline at D64 — is unaffected.)*
 
 **Key findings at canonical-correlation scale:**
 
@@ -5509,6 +5527,19 @@ sinological corrections are invited and reopen the frozen design via dated amend
 
 ## 2026-07-13: The N_gs stop-flag — fired by the book, closed by the book
 
+> **[VETOED — the Bayes-factor verdict below is not live. Added 2026-08-09.]** The "re-affirmed"
+> verdict recorded in this entry rests on a calibration that has since failed and on figures that
+> have since been withdrawn. On **2026-08-04** the two-model pair's confusability gate **vetoed** —
+> M_tend self-recovery 68/100 against a bar frozen at 70 ([CORRECTIONS.md](CORRECTIONS.md) CX-25) —
+> and on **2026-08-07** the Bayes factor (≈5.2×10³ variant U / ≈6.3×10³ variant A) and the ≈0.9998
+> posterior were **withdrawn as claimed results** ([CORRECTIONS.md](CORRECTIONS.md) CX-26); they are
+> retained as the as-computed record only, and no verdict on their strength is asserted.
+> **Scope of the veto:** it reaches the *verdict*, not the *measurement*. The direct N_gs =
+> 4.50×10²⁵ (±6.1% as measured below; CX-26 rounds it to ±6%) and the closure of the stop-flag as
+> mis-derived stand as measured (CX-26 §"What did not move"); nothing in CX-25 or CX-26 reaches the
+> three convergence gates below. Read this entry as the dated record of how the
+> flag was closed, not as a live evidential claim.
+
 On 2026-07-11 the four-class extension's first ingredient run measured N_gs — the size of the
 triple-strict (rule-perfect) population, the single weakest ingredient of the TR-2 v1.7
 corruption-vs-tendency Bayes factor — **directly** for the first time, at 5.00×10²⁵. That value fell
@@ -5544,7 +5575,9 @@ the direct count exceeds the derived value the v1.7 computation used), still an 
 above the "strong" band in every one of the 24 pre-committed configurations, with the flip threshold
 ≈ 52× away. Notably the direct measurement excludes the smaller derived endpoint (1.03×10²⁵) — the
 value that most flattered corruption — vindicating in direction the v1.7 strictest-reading choice of
-the larger endpoint. The verdict is **re-affirmed**, not strengthened: the headline number went down
+the larger endpoint. The verdict is **re-affirmed** *(as of this 2026-07-13 record only — that
+re-affirmation is VETOED and the figures withdrawn; see the note at the head of this entry,
+[CORRECTIONS.md](CORRECTIONS.md) CX-25 / CX-26)*, not strengthened: the headline number went down
 by ×0.79; what improved is the evidential footing, from a derived ingredient with unpropagated error
 to a directly measured one with stated error. The flag was closed as *mis-derived*, not as "we were
 wrong." Landed as TR-2 v1.12 (docs-only, sha-neutral); evidence in

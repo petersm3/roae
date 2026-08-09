@@ -12,6 +12,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 PASS=0; FAIL=0
 SKIP=0
+RESOURCE=0
 LOG=${ROAE_VERIFY_LOG:-/tmp/roae_verify_all.log}
 : > "$LOG"
 
@@ -23,9 +24,55 @@ LOG=${ROAE_VERIFY_LOG:-/tmp/roae_verify_all.log}
 # are probed up front and their dependent checks are reported SKIP (not FAIL), which cannot be
 # mistaken for a certificate that failed to verify. SKIPs do not pass the run: the exit status
 # below is 0 only when every check ran AND every check passed.
+#
+# A HOST THAT RAN OUT OF MEMORY IS A THIRD OUTCOME (added 2026-08-09), the same principle applied
+# once more. The Lean checks are memory-hungry — lean/README.md §"Verify yourself" measures the
+# suite ceiling at ~9.6 GB peak RSS and states outright that an 8 GB host CANNOT check
+# Automorphism.lean or KingWen.lean — so the OOM killer reaching a `lean` process is a routine
+# replicator experience, not an exotic one. Until 2026-08-09 that arrived as "FAIL lean/…",
+# indistinguishable in the summary from a proof the kernel rejected: the same wrong conclusion the
+# tool probing above was written to prevent. Such a check is now reported ERROR and tallied
+# separately. SCOPE LIMIT, stated plainly: this is a heuristic on the exit status and the captured
+# output (see is_resource_status), and it is one-directional. It catches three signal statuses
+# (137 = SIGKILL, what the kernel OOM killer sends; 139 = SIGSEGV; 134 = SIGABRT, how an uncaught
+# C++ bad_alloc terminates) and allocator messages. Any other nonzero exit is still counted FAIL,
+# so a FAIL is NOT proof that the environment was fine. If a FAIL appears on a host near its
+# memory ceiling, read $LOG before believing it. An ERROR does not pass the run either; the exit
+# status is 0 only when every check ran AND every check passed.
+
+# True when a nonzero status $1 looks like the host, not the claim, gave out. Fixed-string
+# matching only, and scoped to the bytes THIS check appended ($2 = the log's SIZE IN BYTES before
+# it ran). The window matters: a first cut grepped a fixed tail of the log and promoted a later
+# genuine FAIL to ERROR on an allocator message left behind by an earlier check — which would
+# have hidden exactly the failed proof this file exists to surface. Bytes, not `wc -l` lines:
+# output with no trailing newline (what a process killed mid-write leaves) shifts a line-based
+# window by one and re-admits the previous check's last line — measured 2026-08-09.
+# The status test is enumerated, NOT a bare `-ge 128`: measured 2026-08-09, this script's own
+# `set -o pipefail` reports 141 for a `| grep -q` check whose grep MATCHED, and `exit 255` is not
+# a signal at all — both read as ERROR under `-ge 128`.
+# NB: plain `grep -F … >/dev/null`, deliberately NOT `grep -Fq`. Under this script's `set -o
+# pipefail`, -q makes grep exit at the first match, SIGPIPEs `tail`, and the pipeline reports 141
+# — so a real match reads as "no match" and the ERROR silently downgrades to FAIL. The race is
+# size-dependent, which is what makes it nasty: measured here at 200/200 occurrences on a
+# 200k-line log and 0/200 without -q, while on a short log it can go the other way and look fine.
+# Without -q grep drains its input, so the status is grep's own. Do not "tidy" the -q back in.
+is_resource_status() {
+  case "$1" in 134|137|139) return 0 ;; esac
+  tail -c +"$(( $2 + 1 ))" "$LOG" | grep -F -e 'std::bad_alloc' -e 'out of memory' \
+    -e 'Out of memory' -e 'Cannot allocate memory' -e 'cannot allocate memory' \
+    -e 'MemoryError' >/dev/null && return 0
+  return 1
+}
+
 check() {
+  local rc before
+  before=$(wc -c < "$LOG")
   { echo "### $1"; eval "$2"; } >>"$LOG" 2>&1
-  if [ $? -eq 0 ]; then echo "PASS  $1"; PASS=$((PASS+1))
+  rc=$?
+  if [ "$rc" -eq 0 ]; then echo "PASS  $1"; PASS=$((PASS+1))
+  elif is_resource_status "$rc" "$before"; then
+    echo "ERROR $1   (host resources: exit $rc, killed or out of memory — NOT a failed proof; output: $LOG)"
+    RESOURCE=$((RESOURCE+1))
   else echo "FAIL  $1   (output: $LOG)"; FAIL=$((FAIL+1)); fi
 }
 skip() { echo "SKIP  $1   ($2)"; SKIP=$((SKIP+1)); }
@@ -164,9 +211,18 @@ for f in lean/*.lean; do
   check "$f" "\"$LEAN\" \"$f\""
 done
 
-echo; echo "RESULT: $PASS passed, $FAIL failed, $SKIP skipped"
+echo; echo "RESULT: $PASS passed, $FAIL failed, $RESOURCE host-resource errors, $SKIP skipped"
 if [ "$SKIP" -gt 0 ]; then
   echo "NOTE: $SKIP check(s) did not run because a required tool is absent — a SKIP is NOT a"
   echo "      verification failure and NOT a pass. Exit status is nonzero until every check runs."
 fi
-[ "$FAIL" -eq 0 ] && [ "$SKIP" -eq 0 ]
+if [ "$RESOURCE" -gt 0 ]; then
+  echo "NOTE: $RESOURCE check(s) exited 134/137/139 or reported an allocation failure. That is a"
+  echo "      crash or a kill, not a rejected proof: nothing was disproved. The Lean files are the usual"
+  echo "      cause — lean/README.md §\"Verify yourself\" gives measured per-file peak RSS (~9.6 GB"
+  echo "      worst case; an 8 GB host cannot check Automorphism.lean or KingWen.lean). Re-run on a"
+  echo "      larger host. Like a SKIP, an ERROR is not a pass: exit status stays nonzero."
+  echo "      Detection is heuristic and one-sided — a resource kill that neither exits 134/137/139"
+  echo "      nor leaves an allocator message still shows up as FAIL: read $LOG before trusting a FAIL."
+fi
+[ "$FAIL" -eq 0 ] && [ "$RESOURCE" -eq 0 ] && [ "$SKIP" -eq 0 ]

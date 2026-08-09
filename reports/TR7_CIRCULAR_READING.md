@@ -242,9 +242,18 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
 
 ### Verification Guide additions (v1.9)
 - Anchor rigidity (T1) + seam eligibility (T2i) + 10:3:3 classification (T2ii): exhaustive finite
-  re-check in one Python session from `solve.py`'s `binary_hexagrams`; a Lean formalization
-  (`anchor_cross_distance_three`, `no_even_pair_closes`, `closer_classes_10_3_3`) is planned for
-  `lean/KingWen.lean` (PENDING, not yet merged).
+  re-check in one Python session from `solve.py`'s `binary_hexagrams`. **None of the three exists as
+  a named theorem in `lean/`.** `anchor_cross_distance_three`, `no_even_pair_closes` and
+  `closer_classes_10_3_3` are *intended names* for a planned formalization in `lean/KingWen.lean`;
+  no theorem or lemma by any of those names exists in `lean/` on any branch. T2i's conclusion is
+  nonetheless kernel-checked, though not as a standalone named theorem: it appears as an
+  intermediate step inside the proof of `circular_alternations_16` in `lean/KingWen.lean`
+  (`pc6 (l.getD 62 0) % 2 = 1` — the closing pair's class is odd — established for every C1+C4+C5
+  sequence from `wrap_parity_general` (§2) and `partner_parity`; that theorem's own *conclusion* is
+  the 16-alternation count, not the seam parity). To cite T2i from Lean you must either cite the
+  enclosing theorem or lift the step out into a named lemma. The pair-parity
+  ingredients `partner_preserves_parity` and `parity_split_32_32` are kernel-`decide` theorems in
+  the same file ([TR-6](TR6_PARITY_SKELETON.md)).
 - Circular anchor adjacency R-C1c + A₂ slot histogram:
   `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (KW gate: slot2 = 0, slot32 = 1,
   adjacent = 1; d5-witness negative control = 0; the run's slot-32 mass must reproduce
