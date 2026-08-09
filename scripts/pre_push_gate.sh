@@ -253,4 +253,30 @@ if [ "$RC" -ne 0 ]; then
   echo "  clear this — commit it. 'git push --no-verify' bypasses this and"
   echo "  leaves that visible in shell history."
 fi
+
+# ---- ADVISORY: pre-codex review-loop state (NEVER blocking) ---------------
+# WHY. The review loop kept stopping — not because it was finished, but because
+# nothing surfaced that it wasn't. Its state lived in a model's context and then
+# in a file nobody read. This prints the open-item count on every push so the
+# loop's true state is visible at the moment work is published.
+#
+# ADVISORY BY DESIGN, and that is a deliberate choice, not laziness: blocking on
+# an open review queue would penalise the OPERATOR for the reviewer's backlog and
+# create pressure to close items in order to push — precisely the incentive the
+# queue's close-rule (a gate, or a named accepted risk — never prose) exists to
+# prevent. It never touches $RC.
+#
+# The queue is operator-side (roae-private) and NOT part of this repo, so this
+# leg stays silent when absent: a fresh clone, a third-party replicator, and CI
+# all see nothing. Host-agnostic; no network; costs one file read.
+RLQ="${ROAE_REVIEW_QUEUE:-$ROOT/../../roae-private/scripts/review_loop.sh}"
+if [ -x "$RLQ" ]; then
+  RL_OUT=$(bash "$RLQ" 2>/dev/null | grep -E '^  items:|^  NEXT:' || true)
+  if [ -n "$RL_OUT" ]; then
+    echo
+    echo "pre-push: [advisory] pre-codex review loop — NOT blocking this push:"
+    echo "$RL_OUT" | sed 's/^/    /'
+  fi
+fi
+
 exit $RC
