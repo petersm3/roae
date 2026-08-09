@@ -225,8 +225,11 @@ per-boundary information gains are now, for k = 1..8: 10.38, 9.64, 11.10, 9.40, 
 6.14 bits. The "flat ~10.1 bits/boundary" pattern reported in v1.7 holds through k = 5 and then
 enters a clear declining tail. Consequences: (1) the heuristic PROJECTION for the number of
 boundary-adjacency facts needed to isolate King Wen moves UP from ~13 to roughly 15-20; (2) the
-heuristic floor k >= 12 (an observed-rate extrapolation, NOT information-theoretic — see v1.15) is
-unaffected; (3) the synergy caveat of
+observed-rate extrapolation of ~12 boundaries is unaffected *(wording corrected 2026-08-09: this
+read "the heuristic floor k >= 12", a survivor of the pre-v1.16 label. The v1.16 note 19 lines
+above states the result was stated as a floor "first 'hard', then 'heuristic'" and that **it is
+neither**, and that the word was removed rather than qualified — so this line contradicted its own
+document)*; (3) the synergy caveat of
 v1.7 resolves in the anti-synergy direction — later boundaries overlap more with what earlier ones
 already say. Honesty caveats: at k >= 7 the 2x10^9-probe SELECTION sweeps are starvation-limited
 (several candidates sample zero mass), so greedy CHOICE optimality is soft — each S(k) is an honest
