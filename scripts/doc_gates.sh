@@ -9657,7 +9657,127 @@ gate_tracked_ignored() {
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# GATE 24 — documented VALUE DOMAINS match the literal domain in code.
+#
+# WHY THIS EXISTS (measured, 2026-08-09). GATE 2 compares the SET OF FLAG NAMES in
+# code against the set documented. It never inspects what VALUES a flag accepts.
+# So when solve.c's f1c5_unions[] was extended from 9 to 18 rung sizes, three
+# documented "N in {...}" sets went stale and `doc_gates.sh cli` returned PASS,
+# rc=0, with all four files reported "fully documented". The defect was injected
+# deliberately and the gate was watched not to fire; the stale sites were then
+# found and fixed by hand. This gate closes that class.
+#
+# WHY IT IS A DECLARED REGISTRY, NOT A SCANNER. Auto-discovering every "X in {...}"
+# in prose and hunting a matching literal in code is where false positives live:
+# illustrative sets, ranges, ellipses, and sets that legitimately differ from code.
+# doc_gates is wired into pre-push as BLOCKING, so a false positive does not annoy,
+# it stops a push. Every pair checked here is therefore declared explicitly. A new
+# domain is opted IN by adding a row; nothing is inferred.
+#
+# NOT IN 'all' YET — by caution, not oversight, and the same way GATE 8 sits out by
+# cost. Run it by name (`doc_gates.sh value-domains`). Promote it into the hard set
+# only after it has been observed silent across a full corpus for a while; that
+# promotion is a deliberate decision, not a default.
+gate_value_domains() {
+  echo "== GATE 24: documented value-domain sets match the literal domain in code =="
+  python3 - <<'PY'
+import re, sys
+
+FAIL = 0
+
+# --- the one declared domain ------------------------------------------------
+# solve.c carries the accepted --f1-pairs domain in TWO places that must agree:
+#   (a) the f1c5_unions[] table (all sizes except the full 31), and
+#   (b) the "supported: ..." error string printed when an unsupported N is given.
+# The full-31 case is handled by a separate branch and is not a table row, so the
+# authoritative code-side domain is  table ∪ {31}.
+try:
+    src = open("solve.c", encoding="utf-8", errors="replace").read()
+except OSError as exc:
+    print("  [FAIL] cannot read solve.c, so ZERO domains were checked: %s" % exc)
+    sys.exit(1)
+
+m = re.search(r"f1c5_unions\[\]\s*=\s*\{(.*?)\n\};", src, re.S)
+if not m:
+    print("  [FAIL] f1c5_unions[] table not found in solve.c — this gate checked NOTHING.")
+    print("         If the table was renamed, update this gate; do not delete the check.")
+    sys.exit(1)
+table = sorted(int(x) for x in re.findall(r"\{\s*(\d+)\s*,\s*\"", m.group(1)))
+if not table:
+    print("  [FAIL] f1c5_unions[] parsed to ZERO rows — vacuous, treated as failure.")
+    sys.exit(1)
+
+m2 = re.search(r'"supported:\s*([0-9,]+)\\n"', src)
+if not m2:
+    print("  [FAIL] the 'supported: ...' error string was not found in solve.c.")
+    sys.exit(1)
+err = sorted(int(x) for x in m2.group(1).split(",") if x.strip())
+
+code_domain = sorted(set(table) | {31})
+if err != code_domain:
+    print("  [FAIL] solve.c disagrees with ITSELF: the error string lists")
+    print("         %s" % ",".join(map(str, err)))
+    print("         but f1c5_unions[] + the full-31 branch give")
+    print("         %s" % ",".join(map(str, code_domain)))
+    FAIL = 1
+else:
+    print("  [ok] solve.c self-consistent: table(%d) + {31} == error string (%d values)"
+          % (len(table), len(err)))
+
+# --- the doc sites that publish that domain ---------------------------------
+# Declared explicitly. Each must contain the domain as a comma-separated set.
+DOC_SITES = [
+    "documentation/SOLVE_C_CLI.md",
+    "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md",
+]
+want = ",".join(map(str, code_domain))
+checked = 0
+for path in DOC_SITES:
+    try:
+        text = open(path, encoding="utf-8", errors="replace").read()
+    except OSError as exc:
+        print("  [FAIL] declared doc site unreadable: %s (%s)" % (path, exc))
+        FAIL = 1
+        continue
+    # Any "N ∈ {...}" / "N in {...}" set of bare integers in this file is a
+    # publication of the domain and must match it exactly.
+    sets = re.findall(r"N\s*(?:∈|in)\s*\{([0-9,\s]+)\}", text)
+    if not sets:
+        print("  [FAIL] %s declares no 'N ∈ {...}' set — either the site moved (update this"
+              % path)
+        print("         registry) or the publication was dropped. Not silently tolerated:")
+        print("         a declared site that matches nothing is how a gate checks nothing.")
+        FAIL = 1
+        continue
+    for s in sets:
+        got = ",".join(x.strip() for x in s.split(",") if x.strip())
+        checked += 1
+        if got != want:
+            print("  [FAIL] %s publishes N ∈ {%s}" % (path, got))
+            print("         but solve.c accepts   %s" % want)
+            FAIL = 1
+
+if not checked and not FAIL:
+    print("  [FAIL] zero doc sets were compared — vacuous, treated as failure.")
+    FAIL = 1
+
+if not FAIL:
+    print("  [ok] %d documented set(s) across %d declared site(s) match the code domain"
+          % (checked, len(DOC_SITES)))
+sys.exit(1 if FAIL else 0)
+PY
+  local rc=$?
+  if [ "$rc" != "0" ]; then
+    echo "  A documented value domain drifted from the code that enforces it."
+    echo "  GATE 2 cannot see this: it compares flag NAMES, never accepted VALUES."
+    return 1
+  fi
+  return 0
+}
+
 case "$MODE" in
+  value-domains) gate_value_domains || RC=1 ;;
   hex-prefix) gate_hex_prefix || RC=1 ;;
   tracked-ignored) gate_tracked_ignored || RC=1 ;;
   script-paths) gate_script_paths || RC=1 ;;
@@ -9721,7 +9841,7 @@ case "$MODE" in
            echo; gate_script_paths || RC=1
            echo; gate_hex_prefix || RC=1
            echo; gate_tracked_ignored || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|all}"; exit 2 ;;
 esac
 
 echo
