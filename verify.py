@@ -696,9 +696,15 @@ _C5_RUNGS = [
 # the published definitions, stdlib only, no solve.c/solve.py import.
 # ---------------------------------------------------------------------------
 
-# TR-11 §4b worker-sized rungs.  n=18's integer is deliberately unpublished
-# (TR-11 prints "(in-RAM reference)"), so its count is report-only here; its
-# published B0 column IS gated.  n=24/25/27/28 are NOT reachable by this plain
+# TR-11 §4b worker-sized rungs.  n=18's integer was unpublished through TR-11
+# v1.17 (the table printed "(in-RAM reference)"); v1.18 (2026-08-10) publishes it
+# as 3,211,799,156,883,456.  It is STILL report-only here, deliberately: gating
+# this recount means asserting that THIS independent DP reproduces that integer,
+# and that has not been run to completion on adequate hardware yet.  Publishing a
+# number and gating it are separate acts; conflating them would let the gate
+# inherit its expected value from the same engine it is supposed to check.
+# To wire it, set the third tuple element below to 3211799156883456 — but only
+# after a clean recount here matches.  Its published B0 column IS gated already.  n=24/25/27/28 are NOT reachable by this plain
 # DP on any single-node RAM budget (peak live states ~4e9 at n=24, ~100 GB per
 # layer) — they remain covered by the engine's in-RAM/out-of-core concordance
 # and verify.c's IE engine.
@@ -793,8 +799,8 @@ def recount_rung(n):
     cnt = _count_c1c2c4c5_packed(pl, 0, tuple(b0))
     dt = time.time() - t0
     if pub is None:
-        print(f"count = {cnt:,}   (TR-11 lists this rung as '(in-RAM reference)';")
-        print(f"        no published integer — reference value, report-only)  [{dt:.0f}s]")
+        print(f"count = {cnt:,}   (report-only: this recount is not gated against a")
+        print(f"        published integer, so compare it by hand to TR-11 §4b)  [{dt:.0f}s]")
         return 0 if ok_b0 else 1
     ok = (cnt == pub)
     print(f"count = {cnt:,}  published = {pub:,}  "
@@ -2685,8 +2691,9 @@ def main():
                         help='Independently recompute a worker-sized TR-11 §4b C5 rung (N in {18, 19}) '
                              'by the plain budgeted packed-state DP, with B0 re-derived by §5 Step 1 '
                              'and the packed DP self-gated against the plain DP at n=16 first. n=19 '
-                             'gates against the published integer; n=18 is report-only (TR-11 lists '
-                             'its integer as "(in-RAM reference)"). Worker-sized: n=19 needs ~8 GB '
+                             'gates against the published integer; n=18 is report-only (TR-11 v1.18 '
+                             'publishes its integer, but this recount is not yet gated on it — '
+                             'compare by hand). Worker-sized: n=19 needs ~8 GB '
                              'and tens of minutes in CPython. Does NOT read solutions.bin.')
     parser.add_argument('--recount-fiber', action='store_true',
                         help='Independently recount TR-1 §7\'s orientation fiber — the frozen '
