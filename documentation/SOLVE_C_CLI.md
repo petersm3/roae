@@ -993,9 +993,13 @@ directories (hard abort in both directions). All `SOLVE_F1_*` env knobs apply.
 Built-in gates (hard aborts): KW witness at init (static couple slot-gap sum
 = 95 AND the incremental open/close accumulator over KW's walk = 95); every
 gathered g inside the per-layer worst-case band (printed at startup); at
-full-31, support within the proven [12, 228], per-bin **mod-24 divisibility**
-(the free 24-action preserves G, so it acts on every G-fiber; skipped under
-`--no-c2`), and the G=95 bin populated. Output: one `G_HIST g=<g>
+full-31, support within the proven [12, 228], per-bin **mod-48 divisibility**
+(the free 48-action — the order-48 lift, since `rev` flips orientation and fixes
+no sequence — preserves G, so it acts on every G-fiber and each fibre is a
+disjoint union of 48-orbits; applied under **either** base, i.e. no longer
+skipped under `--no-c2`. Was mod-24 and C2-on-only until 2026-08-10; both limits
+were weaker than the space affords, and were lifted on measurement of 987 bins
+across six runs and two bases with zero exceptions), and the G=95 bin populated. Output: one `G_HIST g=<g>
 count=<exact>` line per nonzero bin plus `G_HIST_TOTAL`, `G_HIST_WSUM`
 (Σ g·count) and `G_HIST_CUM_LE_95`. Sha-neutral (argv-dispatched, never on
 the enumeration path; the #215/#217 kernels are untouched).
