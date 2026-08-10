@@ -13488,8 +13488,8 @@ static void f1c5_budget_free(F1C5Budget *B) {
  *
  * Gates (see documentation/SOLVE_C_CLI.md and the roae-private impl note):
  * G-total identity (sum over bins = base total) vs --f1-exact-c1c2c4c5 rung
- * counts and --f1-exact-c1c2c4 subset totals; per-bin mod-24 (full-31,
- * C2 on — the free 24-action preserves G, so it acts on every G-fiber);
+ * counts and --f1-exact-c1c2c4 subset totals; per-bin mod-48 (full-31, EITHER
+ * base — the free 48-action preserves G, so it acts on every G-fiber);
  * KW witness (static + incremental accumulator = 95 asserted at init; G=95
  * bin nonzero at full-31); E[G] = 128 identity asserted in --no-c2 full-31.
  *
@@ -15903,12 +15903,33 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                     F1_CHECK(!full31, "[f1c3] negative final G at full-31 — impossible");
                 }
                 if (gg <= 95) f1_add(&cum95, &hist[gofs]);
-                if (full31 && !gm->no_c2) {   /* gate G3: the free 24-action preserves G,
-                                               * so it acts on every G-fiber -> each bin % 24 == 0 */
+                if (full31) {   /* gate G3: the free 48-action preserves G, so it acts on
+                                 * every G-fiber -> each bin % 48 == 0.
+                                 *
+                                 * Was 24, and was skipped entirely when --no-c2.  Both
+                                 * limits were weaker than the space affords, and both were
+                                 * lifted 2026-08-10 on measurement: 48 | count(g) for EVERY
+                                 * bin of every instance on file — 987 bins over six runs
+                                 * spanning bases C1&C2&C4 and C1&C4 and sizes 24/25/27/28/31,
+                                 * zero exceptions.  Structurally the acting group on
+                                 * orientation-explicit sequences is the order-48 lift (rev
+                                 * flips orientation and fixes no sequence), so each G-fibre
+                                 * is a disjoint union of 48-orbits; lean/README.md had
+                                 * already noted the mod-24 gate was "simply weaker than the
+                                 * space affords".  This doubles the strength of one of the
+                                 * few checks that touches the G DISTRIBUTION rather than a
+                                 * G-independent total.
+                                 *
+                                 * DELIBERATELY still full31-only: the reduced rungs also
+                                 * measure 48 | count(g) (364/364 bins over 14 C5 rungs, plus
+                                 * the four default-base rungs above), but the free-action
+                                 * argument is least examined there and a false widening
+                                 * would ABORT a valid run.  Extending it is a separate,
+                                 * evidence-first change. */
                     F1U192 q = hist[gofs];
-                    uint32_t r24 = f1_divmod_small(&q, 24);
-                    F1_CHECK(r24 == 0, "[f1c3] G-bin g=%d %% 24 = %u != 0 — per-fiber "
-                             "free-action divisibility violated", gg, r24);
+                    uint32_t r48 = f1_divmod_small(&q, 48);
+                    F1_CHECK(r48 == 0, "[f1c3] G-bin g=%d %% 48 = %u != 0 — per-fiber "
+                             "free-action divisibility violated", gg, r48);
                 }
             }
             char wdec[64], cdec[64];
@@ -15926,8 +15947,8 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                  * so the G=95 bin must be populated (>= its 24-orbit when C2 is on) */
                 F1_CHECK(!f1_is_zero(&hist[95 + F1C3_GBIAS]),
                          "[f1c3] KW-witness bin G=95 empty at full-31");
-                printf("  KW witness: G=95 bin populated%s\n",
-                       gm->no_c2 ? "" : "; every bin divisible by 24 (asserted)");
+                printf("  KW witness: G=95 bin populated"
+                       "; every bin divisible by 48 (asserted)\n");
             }
             if (full31 && gm->no_c2) {
                 /* C1&C4 null: E[G] = 128 exactly (linearity; independently re-derived
