@@ -597,9 +597,11 @@ reader to keep final states whose boundary multiset was a *sub-multiset* of King
 ladder's 13-pair rung uses `@0` — they are different reduced instances, listed with their own counts. The
 n=18 cell read "(in-RAM reference)" through v1.17 — validated against the in-RAM DP but with no
 separately-printed target. Its integer is now published (v1.18); the omission was editorial, not a
-reservation about the value. Note its provenance is the same two-mode in-RAM/out-of-core concordance
-that produced every other integer in this table, not an independent external source, and
-`verify.py --recount-c5-rung 18` still reports it rather than gating on it (see that flag's help).
+reservation about the value. Its provenance is the same two-mode in-RAM/out-of-core concordance
+that produced every other integer in this table, not an independent external source — but it is now
+additionally **gated by `verify.py --recount-rung 18`**, whose plain budgeted packed-state DP shares
+no code with `solve.c` and reproduced 3,211,799,156,883,456 exactly on 2026-08-10 (n=16 self-gate ok,
+B0 re-derived MATCH, 157 s, 953 MB).
 n=9's 26,112 is the in-RAM DP's printed total, published here so the smallest rung is checkable by
 hand. A pre-emptive footnote for OEIS-checkers: 26,112 also occurs as a term of
 [OEIS A014483](https://oeis.org/A014483), an unrelated sequence — the coincidence carries no meaning and

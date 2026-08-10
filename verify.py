@@ -698,18 +698,21 @@ _C5_RUNGS = [
 
 # TR-11 §4b worker-sized rungs.  n=18's integer was unpublished through TR-11
 # v1.17 (the table printed "(in-RAM reference)"); v1.18 (2026-08-10) publishes it
-# as 3,211,799,156,883,456.  It is STILL report-only here, deliberately: gating
-# this recount means asserting that THIS independent DP reproduces that integer,
-# and that has not been run to completion on adequate hardware yet.  Publishing a
-# number and gating it are separate acts; conflating them would let the gate
-# inherit its expected value from the same engine it is supposed to check.
-# To wire it, set the third tuple element below to 3211799156883456 — but only
-# after a clean recount here matches.  Its published B0 column IS gated already.  n=24/25/27/28 are NOT reachable by this plain
+# as 3,211,799,156,883,456, and it is GATED here as of the same day.
+#
+# The gate was deliberately NOT wired at publication time: gating asserts that THIS
+# independent DP reproduces the integer, and doing that on faith would let the gate
+# inherit its expected value from the engine it exists to check.  So the recount was
+# run first, on a throwaway westus2 Spot VM (the orchestrator hosts the live Stage G
+# supervisor and an OOM there would kill a 9-day campaign): 2026-08-10, n=16 packed-DP
+# self-gate ok, B0 re-derived (0,7,1,10,0) MATCH, count 3,211,799,156,883,456 EXACT,
+# 157 s wall / 953 MB peak RSS.  Only then was the value wired in.
+# n=18's published B0 column was already gated before this.  n=24/25/27/28 are NOT reachable by this plain
 # DP on any single-node RAM budget (peak live states ~4e9 at n=24, ~100 GB per
 # layer) — they remain covered by the engine's in-RAM/out-of-core concordance
 # and verify.c's IE engine.
 _C5_RUNGS_LARGE = {
-    18: ("6.0,6.1,6.2",     (0, 7, 1, 10, 0), None),
+    18: ("6.0,6.1,6.2",     (0, 7, 1, 10, 0), 3211799156883456),
     19: ("3.0,4.0,6.0,6.1", (2, 11, 0, 6, 0), 63244766587981824),
 }
 
@@ -2691,9 +2694,9 @@ def main():
                         help='Independently recompute a worker-sized TR-11 §4b C5 rung (N in {18, 19}) '
                              'by the plain budgeted packed-state DP, with B0 re-derived by §5 Step 1 '
                              'and the packed DP self-gated against the plain DP at n=16 first. n=19 '
-                             'gates against the published integer; n=18 is report-only (TR-11 v1.18 '
-                             'publishes its integer, but this recount is not yet gated on it — '
-                             'compare by hand). Worker-sized: n=19 needs ~8 GB '
+                             'gates against the published integer; n=18 likewise since 2026-08-10 '
+                             '(TR-11 v1.18 publishes its integer and this recount reproduced it '
+                             'exactly — 157 s, 953 MB). Worker-sized: n=19 needs ~8 GB '
                              'and tens of minutes in CPython. Does NOT read solutions.bin.')
     parser.add_argument('--recount-fiber', action='store_true',
                         help='Independently recount TR-1 §7\'s orientation fiber — the frozen '
