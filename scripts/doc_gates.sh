@@ -9776,7 +9776,131 @@ PY
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# GATE 25 — a documented reproduction command must be RUNNABLE (#213 D).
+#
+# WHY THIS EXISTS (measured, 2026-08-11). GATE 2 is ONE-DIRECTIONAL: "CLI flags live
+# in code but undocumented" (code -> doc). The reverse was uncovered — a DOC naming a
+# flag that does not exist in the code. That is exactly an unreachable reproduction
+# command, and no existing gate could see it: GATE 1 checks anchors are still present,
+# GATE 3b that retracted numbers do not reappear, GATE 5b that canonical quantities
+# carry an epistemic marker, GATE 6 that figure GENERATORS (plots) carry no retracted
+# phrasing. None asks "can a reader actually run the command this figure cites?"
+#
+# FIRST RUN found TR-11 v1.18's revision row citing `verify.py --recount-c5-rung 18`,
+# a flag that has never existed on any ref. The body carried the same error and
+# 5d04b8d6 fixed it the same day but missed the identical string 70 lines below —
+# i.e. a human correction pass had already looked at this and half-fixed it. Repaired
+# in 93878a18 (TR-11 v1.19).
+#
+# WHY A NARRATION REGISTRY, NOT A PURE SCANNER. Two legitimate cases name a flag that
+# does not exist, and both are CORRECT documentation:
+#   (a) a correction must name the command it corrects;
+#   (b) a doc may document NON-existence to warn readers away — SOLVE_C_CLI.md:387
+#       reads "`solve --extended-selftest` is not dispatched by the binary".
+# This is the same legitimate-restatement problem GATE 3b solved for retracted figures,
+# and it is handled the same way GATE 21 handles unresolvable script paths: resolve, OR
+# be declared narration with a stated reason. Every waiver below names WHY, so a stale
+# one is visible. Case (a) additionally has a CONVENTION: a correction cites the BARE
+# flag, never the invocation form, so the extractor never sees it. That convention is
+# load-bearing — if a correction writes the invocation form this gate FAILS, and the fix
+# is to reword the correction, not to widen the extractor.
+#
+# NOT IN 'all' YET — by caution, the same way GATE 24 and GATE 8 sit out. Run it by name
+# (`doc_gates.sh repro-reach`). Promote only after it has been observed silent across a
+# full corpus for a while; that promotion is a deliberate decision, not a default.
+gate_repro_reach() {
+  echo "== GATE 25: every documented reproduction command resolves to a real flag =="
+  python3 - <<'PY'
+import glob, re, sys
+
+TOOLS = {"verify.py": "verify.py", "solve.py": "solve.py", "sat.py": "sat.py",
+         "roae.py": "roae.py", "solve": "solve.c", "verify": "verify.c"}
+BUILTIN = {"--help"}          # argparse builtins are never source literals
+
+# Declared narration: flag does not exist AND the doc is right to name it.
+NARRATION = {
+    ("solve", "--verify-superset"):       "removed subcommand, cited in HISTORY/PERFORMANCE_HISTORY",
+    ("solve", "--depth-profile"):         "removed subcommand, cited in HISTORY",
+    ("solve", "--branch-yield-report"):   "removed subcommand, cited in LARGE_SCALE_CAMPAIGNS",
+    ("solve", "--constraint-spec"):       "removed subcommand, cited in LARGE_SCALE_CAMPAIGNS",
+    ("solve.py", "--compare-leaf-rates"): "removed subcommand, cited in DEVELOPMENT/HISTORY",
+    ("solve", "--extended-selftest"):     "documented NON-existence; SOLVE_C_CLI.md:387 warns readers away",
+}
+
+INV = re.compile(r'(?:python3?\s+)?(?:\./)?'
+                 r'(verify\.py|solve\.py|sat\.py|roae\.py|solve|verify)\s+'
+                 r'((?:--[a-z0-9][a-z0-9-]*\s*)+)')
+FLAG = re.compile(r'--[a-z0-9][a-z0-9-]*')
+
+have = {}
+for tool, src in sorted(TOOLS.items()):
+    try:
+        t = open(src, encoding="utf-8", errors="replace").read()
+    except OSError as exc:
+        print("  [FAIL] cannot read %s, so ZERO commands were checked for %s: %s"
+              % (src, tool, exc))
+        sys.exit(1)
+    have[tool] = (set(re.findall(r'"(--[a-z0-9][a-z0-9-]*)"', t))
+                  | set(re.findall(r"'(--[a-z0-9][a-z0-9-]*)'", t)))
+    if not have[tool]:
+        print("  [FAIL] zero flags parsed from %s — vacuous, treated as failure." % src)
+        print("         If the declaration style changed, update this gate; do not delete it.")
+        sys.exit(1)
+
+docs = sorted(set(glob.glob("documentation/*.md") + glob.glob("reports/*.md")
+                  + glob.glob("*.md") + glob.glob("reports/**/*.md", recursive=True)))
+if not docs:
+    print("  [FAIL] zero docs scanned — vacuous, treated as failure.")
+    sys.exit(1)
+
+total = waived = 0
+bad = {}
+for d in docs:
+    text = open(d, encoding="utf-8", errors="replace").read()
+    for m in INV.finditer(text):
+        tool = m.group(1)
+        for fl in FLAG.findall(m.group(2)):
+            # A trailing hyphen is never a real flag: it is the stub of a family template
+            # the extractor truncated — `solve --null-<family>`, `--null-*`.
+            if fl.endswith("-") or fl in BUILTIN:
+                continue
+            total += 1
+            if fl in have[tool]:
+                continue
+            if (tool, fl) in NARRATION:
+                waived += 1
+                continue
+            bad.setdefault((tool, fl), set()).add(d)
+
+if not total:
+    print("  [FAIL] zero command-flag uses compared — vacuous, treated as failure.")
+    sys.exit(1)
+
+print("  scanned %d docs, %d documented command-flag use(s), %d declared-narration waiver(s)"
+      % (len(docs), total, waived))
+if bad:
+    for (tool, fl), ds in sorted(bad.items()):
+        print("  [FAIL] %s %s — not a flag of %s" % (tool, fl, TOOLS[tool]))
+        for d in sorted(ds):
+            print("         cited in %s" % d)
+    sys.exit(1)
+print("  [ok] every documented reproduction command resolves to a real flag")
+sys.exit(0)
+PY
+  local rc=$?
+  if [ "$rc" != "0" ]; then
+    echo "  A published figure whose reproduction command errors is not reproducible."
+    echo "  GATE 2 cannot see this: it reports flags in CODE that are undocumented,"
+    echo "  never a DOC naming a flag that does not exist."
+    echo "  Fix the doc, or declare the flag as narration with a stated reason."
+    return 1
+  fi
+  return 0
+}
+
 case "$MODE" in
+  repro-reach) gate_repro_reach || RC=1 ;;
   value-domains) gate_value_domains || RC=1 ;;
   hex-prefix) gate_hex_prefix || RC=1 ;;
   tracked-ignored) gate_tracked_ignored || RC=1 ;;
@@ -9841,7 +9965,7 @@ case "$MODE" in
            echo; gate_script_paths || RC=1
            echo; gate_hex_prefix || RC=1
            echo; gate_tracked_ignored || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|all}"; exit 2 ;;
 esac
 
 echo
