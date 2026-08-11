@@ -41,6 +41,12 @@ python3 solve.py --joint-density-v2 CHUNKS_DIR OUT_MD [--joint-density-bandwidth
 # P3 SAT encoding
 python3 solve.py --sat-encode OUT.cnf [--sat-c3 pb|adder] [--sat-c4] [--sat-c5]
 
+# TR-8 dof-matched KW-fitting-predicate sampler
+python3 solve.py --tr8-dof-selftest
+python3 solve.py --tr8-dof-emit-bank [--tr8-dof-seed ROOT] [--tr8-dof-calib-draws N]
+python3 solve.py --tr8-dof-sampler OUT_DIR [--tr8-dof-pool A|B|calib] [--tr8-dof-pool-draws N]
+python3 solve.py --tr8-dof-merge OUT_DIR
+
 # Branch-yield + keystone reporting
 python3 solve.py --branch-yield-report SOLUTIONS_BIN [--branch-yield-depth 1|2|3] ...
 python3 solve.py --keystone-analysis SOLUTIONS_BIN OUT_MD
@@ -180,6 +186,100 @@ fixed pairing). Effort on record if that day comes: C5 is heavy (31
 per-boundary distance-class indicator families, each boundary touching
 64×64 (p,q) tuples, plus `exactly_k` cardinality); C3 needs a DIMACS
 adder summing network (large, and likely not faster than the PB route).
+
+## TR-8 — DOF-MATCHED KW-FITTING-PREDICATE SAMPLER
+
+`--tr8-dof-sampler` is the instrument
+[TR-8](../reports/TR8_REORDERING_REVISITED.md) names as the fix for its own
+withdrawn dof-matched median
+([CORRECTIONS.md](CORRECTIONS.md) CX-27): *"a `solve.py` sampler over the
+≈16-clause KW-fitting predicate space, published with its seed and probe
+count, reporting the median rarity with a CI."*
+
+**Read this before running it.** These flags are an **instrument**, not a
+result. A *recorded* run — one whose output may be cited anywhere — is gated
+on a **frozen pre-registration** (`roae-private`
+`PREREG_TR8_DOF_MATCHED_SAMPLER_*`), which fixes the clause bank, the
+admission band, the K ladder, the sample sizes, the seed strings and the
+decision rule **before** any data exists. Nothing this sampler produces
+reinstates the withdrawn figure: that registration pre-commits that the
+withdrawn number is either **replaced** by a new, artifact-backed measurement
+or **stays withdrawn**. Runs made before the freeze (including the smoke run
+in EXAMPLES below) are instrument tests and are not results.
+
+**What it measures.** A *KW-fitting predicate of order K* is a conjunction of
+K distinct clauses drawn without replacement from a bank of cheap structural
+templates, each **instantiated at the value King Wen exhibits** — so King Wen
+satisfies every drawn predicate by construction (sanity gate **H-a**). The
+rarity of a predicate is its probability under the **pair-only (C1) null**
+(TR-8 §2 null (b): a uniform permutation of the 32 traditional pairs into the
+32 pair-slots with an independent fair orientation coin per pair), estimated
+by direct sampling. The comparator is King Wen's own exact Schulz-gender
+rarity over that same null, `pair_null_gender_le2_exact()` = 47/445740. The
+sampler reports, per K, the **fraction of predicates at least as rare as King
+Wen** (Clopper–Pearson 95% CI — the primary statistic, because it is immune to
+censoring) and the **median rarity** (distribution-free order-statistic 95%
+CI — the statistic CX-27 names).
+
+**The clause bank.** Nine families, `B_raw` = 36 + 64 + 32 + 63 + 32 + 15 + 8
++ 64 + 5 = **319** instances: **A** gender label per inversion-class position,
+**B** popcount parity per position, **C** within-pair Hamming distance per
+slot, **D** seam-distance parity per seam, **E** within-slot orientation
+relation, **F** sign of the running yang balance, **G** per-block yang mass,
+**H** lower-trigram yang-majority class per position, **I** five global
+statistics (shared-trigram adjacencies, `par_switch`, lag-1 distance
+autocorrelation, five-line transitions, distinct within-pair XOR products). No
+template names a hexagram's *identity* at a position. Each instance is
+**admitted** only if its measured marginal under the null lies in the band
+**[0.25, 0.75]**; the band is stated without reference to King Wen's rarity,
+deliberately. Templates outside the band are dropped, and the drop is data —
+family **E** is admitted in **zero** instances because both readings of "the
+ordered popcount relation, ties exempt" are degenerate under this null (the 28
+reversal pairs have equal popcounts by construction), and the
+distinct-within-pair-XOR clause is constant for the same reason. `B_admitted`
+is therefore a **measured** quantity of each calibration draw, not a constant.
+
+| Flag | Description |
+|---|---|
+| `--tr8-dof-sampler OUT_DIR` | Run the sampler; write `header.json`, `env.json`, `bank.json`, `results.json` and `RESULTS.md` to `OUT_DIR` (terminal command). |
+| `--tr8-dof-emit-bank` | Measure and print the admitted clause bank with its marginals, then exit — the pre-registration's bank-freeze step. Combine with `--tr8-dof-sampler OUT_DIR` to also write `bank.json` there (the bank is emitted and the pool is **not** run). |
+| `--tr8-dof-merge OUT_DIR` | Merge the per-shard hit files in `OUT_DIR` and compute the statistics (terminal command). Refuses to merge a partial pool or shards whose run headers disagree. |
+| `--tr8-dof-selftest` | Run the instrument self-tests — bank integrity, H-a, the H-b null calibration, determinism, and shard/merge equivalence — then exit. Exit 0 = all passed. These are also standing regressions in `tests.py`. |
+| `--tr8-dof-seed ROOT` | Seed **root** string. Every seed is `uint64(sha256("ROOT/<purpose>")[:8], big-endian)` over the purposes `bank-calibration`, `pool-<A\|B>/shard-<i>`, `predicates/K-<K>`, `timing-probe`. Echoed verbatim in `header.json` together with every derived seed as a decimal integer. Default: the pre-registration namespace. |
+| `--tr8-dof-pool A\|B\|calib` | Which seed family the pool draws from (default `A`). The registration's pool-B replication gate re-runs the identical measurement on `B`. |
+| `--tr8-dof-pool-draws N` | `N_pool` — total pair-only-null draws, the **probe count** (default 10000000). Split equally across the shards. |
+| `--tr8-dof-predicates N` | `N_pred` — predicates drawn per K (default 1000). |
+| `--tr8-dof-k LIST` | Comma-separated K ladder (default `8,12,16,20,24`). The headline verdict is read at K = 16; the ladder ships because K = 16 is inherited from TR-8's own "≈16 clauses" and has no derivation anywhere. |
+| `--tr8-dof-shards N` | Number of equal-size pool shards (default 8). `N_pool` must be divisible by it. |
+| `--tr8-dof-shard I` | Run **only** shard `I` and write its per-predicate hit file for a later `--tr8-dof-merge`. Hits are additive across shards because every shard scores the identical predicate ensemble, so a merged run equals the single-process run exactly (asserted by `--tr8-dof-selftest`). Default: run every shard in this process. |
+| `--tr8-dof-calib-draws N` | Draws in the dedicated bank-calibration pool, which has its own seed and is never merged into a measurement pool (default 100000). |
+
+**Output.** `header.json` is **deterministic** — the seed root, every derived
+seed, `N_pool`, `N_pred`, the K ladder, the admission band, `B_raw`,
+`B_admitted`, the admitted-bank sha256 and the `solve.py` sha256 — so
+"same seed root ⇒ byte-identical header" is a testable property. Wall time,
+host and interpreter version live in `env.json` for exactly that reason.
+`RESULTS.md` restates the seed and probe count at the top, because that is
+what TR-8 requires published alongside the number.
+
+**Sanity gates, both blocking.** **H-a**: King Wen must satisfy every raw
+template; a single failure is an implementation finding, not a result, and the
+run aborts. **H-b**: the pool's own rate of `rc4_violations(seq)[0] <= 2`,
+scored by the **unmodified** `rc4_violations`, must reproduce
+`pair_null_gender_le2_exact()` within a 5σ Poisson band — this is the evidence
+that the pool is the same null the comparator was computed over. H-b failure
+forces the verdict to `INCONCLUSIVE`.
+
+**Cost.** Measured on the 2-core orchestrator, 2026-08-11: ~10,000 draws/s per
+core for the full per-draw scoring path (draw + 319 templates + the H-b
+`rc4_violations` pass). `--tr8-dof-selftest` runs in ~6 s. Memory scales as
+`B_admitted` × `N_pool` / 8 bytes for the bit-column layout, so the default
+`N_pool` = 10⁷ needs a few hundred MB and **must not** be run on the 2-core /
+8 GB orchestrator. A timing probe is a short run into a throwaway `OUT_DIR`
+with a small `--tr8-dof-pool-draws`; its output is **timing evidence only** and
+is never merged into a measurement pool. The `timing-probe` seed is derived and
+recorded in `header.json` so that the probe is pinned even though it produces
+no statistic.
 
 ## BRANCH-YIELD REPORTING
 
@@ -331,6 +431,30 @@ python3 solve.py --branch-yield-report solutions.bin \
 
 ```
 python3 solve.py --f6-verify && python3 solve.py --registry-verify
+```
+
+**TR-8 sampler — instrument check, then a smoke run that is NOT a result:**
+
+```
+python3 solve.py --tr8-dof-selftest
+python3 solve.py --tr8-dof-sampler /tmp/tr8smoke \
+    --tr8-dof-seed SMOKE-THROWAWAY-DO-NOT-CITE \
+    --tr8-dof-pool-draws 200000 --tr8-dof-predicates 200 \
+    --tr8-dof-k 8,12,16 --tr8-dof-shards 4 --tr8-dof-calib-draws 20000
+```
+
+The explicit throwaway seed root is the point: it marks the output as an
+instrument test rather than a measurement. A recorded run uses the frozen
+pre-registration's seed root and its frozen `N_pool` / `N_pred`, and does not
+happen before that registration is frozen.
+
+**TR-8 sampler — sharded across cores, then merged:**
+
+```
+for i in 0 1 2 3 4 5 6 7; do
+  python3 solve.py --tr8-dof-sampler out/ --tr8-dof-shard $i &
+done; wait
+python3 solve.py --tr8-dof-merge out/
 ```
 
 ## FILES

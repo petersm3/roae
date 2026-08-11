@@ -63,6 +63,152 @@ class TestSequenceGround(unittest.TestCase):
         self.assertEqual(sum(dist.values()), 1)
         self.assertEqual(solve.rc4_violations(KW)[0], 2)  # KW sits at the <=2 boundary
 
+
+class TestTr8DofSampler(unittest.TestCase):
+    """The TR-8 dof-matched KW-fitting-predicate sampler (solve.py --tr8-dof-sampler).
+
+    These are the pre-registration's §4.4 self-test obligations as standing regressions. They
+    test the INSTRUMENT; none of them is a measurement of anything, and none of the numbers
+    here is citable. The full instrument gate — including determinism and shard/merge
+    equivalence at a slightly larger scale — is `python3 solve.py --tr8-dof-selftest`."""
+
+    SEED = "TR8-TESTS-THROWAWAY"
+
+    def test_bank_integrity(self):
+        # B_raw is fully determined by the frozen family table; a drift in either direction is
+        # a bug, not a new bank. 36+64+32+63+32+15+8+64+5 = 319.
+        bank = solve.tr8_clause_bank()
+        self.assertEqual(len(bank), 319)
+        self.assertEqual(solve.TR8_B_RAW, 319)
+        for fam, n in solve._TR8_FAMILY_SIZES:
+            self.assertEqual(sum(1 for e in bank if e[0] == fam), n, fam)
+        # Bank order is the evaluation order — if these ever diverge every marginal is
+        # attributed to the wrong template and nothing downstream would notice.
+        self.assertEqual(len(solve.tr8_clause_values(KW)), len(bank))
+
+    def test_h_a_king_wen_satisfies_every_template(self):
+        # H-a: every clause is instantiated at King Wen's own value, so King Wen satisfies
+        # every predicate drawn from any subset of the bank BY CONSTRUCTION. A single failure
+        # is a first-order implementation finding, not a result.
+        v = solve.tr8_clause_values(KW)
+        self.assertTrue(all(v), [i for i, x in enumerate(v) if not x][:8])
+
+    def test_pair_null_draw_is_c1_preserving(self):
+        import random
+        pairs = solve.king_wen_pairs()
+        rng = random.Random(20260811)
+        for _ in range(300):
+            s = solve.pair_null_draw(rng, pairs)
+            self.assertEqual(sorted(s), list(range(64)))
+            for i in range(32):
+                a, b = s[2 * i], s[2 * i + 1]
+                self.assertTrue((a, b) in pairs or (b, a) in pairs)
+
+    def test_h_b_null_calibration_tail(self):
+        # H-b, the pre-registration's named tests.py regression: the sampler's own pair-only
+        # null draw generator must reproduce pair_null_gender_le2_exact() = 47/445740 within
+        # Poisson error, scored by the UNMODIFIED rc4_violations. At 1e5 draws the expectation
+        # is ~10.5 hits, so this tail check is weak on its own — which is exactly why the
+        # distribution check below exists beside it.
+        import random
+        rng = random.Random(20260811)
+        pairs = solve.king_wen_pairs()
+        n = 100000
+        hits = sum(1 for _ in range(n)
+                   if solve.rc4_violations(solve.pair_null_draw(rng, pairs))[0] <= 2)
+        exp = float(solve.pair_null_gender_le2_exact()) * n
+        self.assertLess(abs(hits - exp), 5.0 * exp ** 0.5 + 3.0,
+                        "observed %d, expected %.2f" % (hits, exp))
+
+    def test_h_b_violation_distribution_matches_closed_form(self):
+        # The strong form of H-b: the whole violation-count distribution, not just its tail.
+        # This is what actually proves the pool is the same null the exact DP models.
+        import random
+        rng = random.Random(7)
+        pairs = solve.king_wen_pairs()
+        n = 20000
+        obs = {}
+        for _ in range(n):
+            v = solve.rc4_violations(solve.pair_null_draw(rng, pairs))[0]
+            obs[v] = obs.get(v, 0) + 1
+        worst = 0.0
+        checked = 0
+        for v, p in solve.pair_null_gender_distribution_exact().items():
+            e = float(p) * n
+            if e < 25:            # normal approximation is not trustworthy below this
+                continue
+            checked += 1
+            worst = max(worst, abs(obs.get(v, 0) - e) / e ** 0.5)
+        self.assertGreater(checked, 5)     # vacuous if the closed form ever returns nothing
+        self.assertLess(worst, 5.0, "worst |z| = %.2f" % worst)
+
+    def test_clopper_pearson_matches_closed_form(self):
+        # x = 0 and x = n have closed forms: 1 - (alpha/2)^(1/n) and (alpha/2)^(1/n). The
+        # interior values are the standard published Clopper-Pearson intervals.
+        lo, hi = solve.tr8_clopper_pearson(0, 10)
+        self.assertEqual(lo, 0.0)
+        self.assertAlmostEqual(hi, 1 - 0.025 ** 0.1, places=9)
+        lo, hi = solve.tr8_clopper_pearson(10, 10)
+        self.assertAlmostEqual(lo, 0.025 ** 0.1, places=9)
+        self.assertEqual(hi, 1.0)
+        self.assertEqual([round(x, 4) for x in solve.tr8_clopper_pearson(5, 10)],
+                         [0.1871, 0.8129])
+        self.assertEqual([round(x, 4) for x in solve.tr8_clopper_pearson(2, 20)],
+                         [0.0123, 0.3170])
+
+    def test_median_ci_ranks_are_computed_not_hardcoded(self):
+        # n = 10: P(Bin<=1) = 11/1024 = 0.0107 <= 0.025 and P(Bin<=2) = 56/1024 > 0.025, so
+        # L = 2; P(Bin<=8) = 1013/1024 = 0.9893 >= 0.975 so U = 9 — the textbook sign-test
+        # interval [x(2), x(9)]. n = 1000 is the pre-registered N_pred.
+        self.assertEqual(solve.tr8_median_ci_ranks(10), (2, 9))
+        self.assertEqual(solve.tr8_median_ci_ranks(1000), (469, 532))
+
+    def test_determinism_and_shard_merge_equivalence(self):
+        # Identical seed root => byte-identical header and identical statistics; and running
+        # the pool as separate shards then merging must equal the single-process run exactly
+        # (hits are additive across shards because every shard scores the same ensemble).
+        import json, os, tempfile
+        kl = (4, 8)
+        with tempfile.TemporaryDirectory() as td:
+            a, b, c = (os.path.join(td, x) for x in "abc")
+            for d in (a, b):
+                solve.tr8_dof_sampler(d, seed_root=self.SEED, n_pool=1024, n_pred=25,
+                                      klist=kl, n_shards=2, calib_draws=1500, quiet=True)
+            self.assertEqual(open(os.path.join(a, "header.json"), "rb").read(),
+                             open(os.path.join(b, "header.json"), "rb").read())
+            ra = json.load(open(os.path.join(a, "results.json"), encoding="utf-8"))
+            rb = json.load(open(os.path.join(b, "results.json"), encoding="utf-8"))
+            self.assertEqual(ra["statistics"], rb["statistics"])
+            for i in range(2):
+                solve.tr8_dof_sampler(c, seed_root=self.SEED, n_pool=1024, n_pred=25,
+                                      klist=kl, n_shards=2, shard=i, calib_draws=1500,
+                                      quiet=True)
+            solve.tr8_dof_merge(c, quiet=True)
+            rc = json.load(open(os.path.join(c, "results.json"), encoding="utf-8"))
+            self.assertEqual(rc["statistics"], ra["statistics"])
+            # Every admitted marginal lies inside the frozen band, and the admitted set is a
+            # subset of the raw bank.
+            bank = json.load(open(os.path.join(a, "bank.json"), encoding="utf-8"))
+            self.assertEqual(bank["b_raw"], 319)
+            adm = [e for e in bank["bank"] if e["admitted"]]
+            self.assertEqual(len(adm), bank["b_admitted"])
+            self.assertLessEqual(bank["b_admitted"], bank["b_raw"])
+            for e in adm:
+                self.assertTrue(0.25 <= e["marginal"] <= 0.75, e)
+
+    def test_merge_refuses_a_partial_pool(self):
+        # A partial pool is a different pool. Silently reporting one would be the exact
+        # failure mode the canonical-sha gates exist to prevent, so the merge must refuse.
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as td:
+            d = os.path.join(td, "p")
+            solve.tr8_dof_sampler(d, seed_root=self.SEED, n_pool=1024, n_pred=10,
+                                  klist=(4,), n_shards=2, shard=0, calib_draws=1500,
+                                  quiet=True)
+            with self.assertRaises(SystemExit):
+                solve.tr8_dof_merge(d, quiet=True)
+
+
 class TestMawangdui(unittest.TestCase):
     """Primary-source anchors for the Mawangdui corpus-control array.
 

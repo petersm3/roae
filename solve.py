@@ -252,6 +252,986 @@ def pair_null_gender_le2_exact():
     return sum((p for v, p in dist.items() if v <= 2), Fraction(0))
 
 
+# --- TR-8 dof-matched KW-fitting-predicate sampler (task #170 / J1) ---------------------
+#
+# WHAT THIS IS. TR-8's executive summary once carried a "dof-matched" median rarity that had no
+# artifact, no command, no code path, no seed and no probe count anywhere in the repo. It is
+# WITHDRAWN (documentation/CORRECTIONS.md CX-27, 2026-08-07) pending exactly the instrument
+# below — TR-8's own words: "a solve.py sampler over the ~16-clause KW-fitting predicate space,
+# published with its seed and probe count, reporting the median rarity with a CI."
+#
+# WHAT THIS IS NOT. It is the INSTRUMENT, not a result. It measures nothing until it is run, and
+# a recorded run is gated on a FROZEN pre-registration (roae-private
+# PREREG_TR8_DOF_MATCHED_SAMPLER_*; §5(a)-(b) of that document). Nothing here reinstates the
+# withdrawn figure: that registration pre-commits that the withdrawn number is never reinstated
+# by this instrument — it is either replaced by a new, artifact-backed measurement, or it stays
+# withdrawn. Output written by this code is a measurement only when its seed root, probe count
+# and admitted bank are published alongside it, which is what the header this sampler writes is
+# for.
+#
+# ATTRIBUTION. The two literature rules the clause bank is built around are not ours: the
+# gender/position-parity motif is Schulz 1990 (exception first noticed by Zhu Yuansheng, 13th c.)
+# and the line-parity skeleton is Moore 2005 / Zhu Yuansheng; see documentation/CITATIONS.md and
+# the attribution notes at rc4_violations() and f4p_par_switch(). The predicate FAMILIES here are
+# a modeling choice made in the pre-registration, not a literature finding.
+
+# Lookup tables for the sampler hot path. Values only — every one is derived from
+# binary_hexagrams / reverse_6bit above, none is a new constant.
+_TR8_PC = [bin(h).count("1") for h in range(64)]
+_TR8_REV = [reverse_6bit(h) for h in range(64)]
+_TR8_CKEY = [min(h, _TR8_REV[h]) for h in range(64)]
+# Schulz gender label of a hexagram's inversion class: 0 = exempt (popcount 0, 3 or 6),
+# 1 = male (popcount < 3), 2 = female (popcount > 3). Matches rc4_violations()'s rule; the
+# label is well defined per class because reversal preserves popcount.
+_TR8_GENDER = [0 if _TR8_PC[h] in (0, 3, 6) else (1 if _TR8_PC[h] < 3 else 2)
+               for h in range(64)]
+_TR8_UPTRI = [(h >> 3) & 0b111 for h in range(64)]
+_TR8_LOTRI = [h & 0b111 for h in range(64)]
+# Yin/yang-majority class of the LOWER trigram: 1 if >= 2 of its 3 lines are yang.
+_TR8_LOMAJ = [1 if _TR8_PC[h & 0b111] >= 2 else 0 for h in range(64)]
+
+# Family instance counts, in bank order. The total is B_raw and is asserted, not assumed.
+_TR8_FAMILY_SIZES = (("A", 36), ("B", 64), ("C", 32), ("D", 63), ("E", 32),
+                     ("F", 15), ("G", 8), ("H", 64), ("I", 5))
+TR8_B_RAW = sum(n for _f, n in _TR8_FAMILY_SIZES)          # 319
+
+# Family I's five global statistics, in bank order.
+_TR8_GLOBAL_NAMES = ("shared_trigram_adjacencies", "par_switch",
+                     "dist_autocorr_lag1", "five_line_transitions",
+                     "distinct_within_pair_xor")
+
+_TR8_KW_FEATURES_CACHE = None
+_TR8_R_KW_CACHE = None
+
+
+def tr8_r_kw():
+    """King Wen's comparator rarity as a float: pair_null_gender_le2_exact() = 47/445740.
+
+    Cached because the exact Fraction DP behind it costs several seconds per call and the
+    sampler needs the same constant in two places; the closed form itself is unchanged and is
+    still what is quoted in the run header (as the exact rational, not this float)."""
+    global _TR8_R_KW_CACHE
+    if _TR8_R_KW_CACHE is None:
+        _TR8_R_KW_CACHE = float(pair_null_gender_le2_exact())
+    return _TR8_R_KW_CACHE
+
+
+def pair_null_draw(rng, pairs=None):
+    """One uniform draw from the pair-only (C1) null: the TR-8 §2 null (b) ordering.
+
+    A uniformly random permutation of the 32 traditional pairs into the 32 pair-slots, with an
+    independent fair orientation coin per pair; |space| = 32!*2^32 ~ 1.1e45. This is the same
+    null `pair_null_gender_distribution_exact()` models in closed form and the same one TR-8
+    §Commands samples inline — the orientation coin is written in TR-8's own idiom
+    (`(b, a) if rng.random() < 0.5 else (a, b)`) so the two agree draw for draw. That identity is
+    the sampler's null-model calibration gate (H-b): over this null, the rate of
+    `rc4_violations(seq)[0] <= 2` must reproduce `pair_null_gender_le2_exact()` = 47/445740."""
+    pl = list(king_wen_pairs() if pairs is None else pairs)
+    rng.shuffle(pl)
+    seq = []
+    for a, b in pl:
+        if rng.random() < 0.5:
+            seq.append(b)
+            seq.append(a)
+        else:
+            seq.append(a)
+            seq.append(b)
+    return seq
+
+
+def _tr8_features(seq):
+    """Raw feature vectors of one 64-hexagram ordering, in clause-bank family order.
+
+    Returns (gender, parity, pairdist, seamparity, orient, yangsign, blockmass, lomaj, glob).
+    Pure function of `seq`; no King Wen reference enters here — the comparison to King Wen is
+    tr8_clause_values()'s job, so this stays reusable and testable on its own."""
+    PC = _TR8_PC
+    d = [PC[seq[i] ^ seq[i + 1]] for i in range(63)]
+
+    # A — gender label of the inversion class at each of the 36 class positions, in
+    # first-appearance order (the rc4_violations station walk).
+    seen = set()
+    gender = []
+    for h in seq:
+        k = _TR8_CKEY[h]
+        if k in seen:
+            continue
+        seen.add(k)
+        gender.append(_TR8_GENDER[h])
+
+    parity = [PC[h] & 1 for h in seq]                              # B
+    pairdist = [d[2 * s] for s in range(32)]                       # C
+    seampar = [x & 1 for x in d]                                   # D
+    orient = [1 if PC[seq[2 * s]] <= PC[seq[2 * s + 1]] else 0     # E
+              for s in range(32)]
+
+    yangsign = []                                                  # F
+    run = 0
+    for i in range(60):
+        run += PC[seq[i]]
+        if (i + 1) % 4 == 0:
+            v = run - 3 * (i + 1)
+            yangsign.append((v > 0) - (v < 0))
+
+    blockmass = [sum(PC[seq[8 * b + t]] for t in range(8)) for b in range(8)]   # G
+    lomaj = [_TR8_LOMAJ[h] for h in seq]                                        # H
+
+    glob = [                                                                    # I
+        sum(1 for i in range(63)
+            if _TR8_UPTRI[seq[i]] == _TR8_UPTRI[seq[i + 1]]
+            or _TR8_LOTRI[seq[i]] == _TR8_LOTRI[seq[i + 1]]),
+        sum(1 for i in range(62) if seampar[i] != seampar[i + 1]),
+        sum(d[i] * d[i + 1] for i in range(62)),
+        sum(1 for x in d if x == 5),
+        len({seq[2 * s] ^ seq[2 * s + 1] for s in range(32)}),
+    ]
+    return (gender, parity, pairdist, seampar, orient, yangsign, blockmass, lomaj, glob)
+
+
+def tr8_kw_features():
+    """The King Wen feature vectors every clause is instantiated at (computed, never hardcoded)."""
+    global _TR8_KW_FEATURES_CACHE
+    if _TR8_KW_FEATURES_CACHE is None:
+        _TR8_KW_FEATURES_CACHE = _tr8_features(list(binary_hexagrams))
+    return _TR8_KW_FEATURES_CACHE
+
+
+def tr8_clause_bank():
+    """The raw clause-template bank: B_raw descriptors, in the canonical bank order.
+
+    Each entry is (family, instance_index, comparator, description). `instance_index` is 1-based
+    within its family, matching the pre-registration's index letters (i, j, s, t, p, b).
+    Comparators: "eq" = the feature equals King Wen's value at this instance; "ge" = the feature
+    is on the same side of King Wen's value as King Wen is (>=), which King Wen satisfies with
+    equality. No template references a hexagram's IDENTITY at a position — such a clause would
+    have marginal 1/64 and would drive the answer by construction."""
+    kw = tr8_kw_features()
+    gender, parity, pairdist, seampar, orient, yangsign, blockmass, lomaj, glob = kw
+    lab = {0: "exempt", 1: "male", 2: "female"}
+    bank = []
+    for i in range(36):
+        bank.append(("A", i + 1, "eq",
+                     "gender label at inversion-class position %d == %s"
+                     % (i + 1, lab[gender[i]])))
+    for j in range(64):
+        bank.append(("B", j + 1, "eq",
+                     "popcount parity at position %d == %d" % (j + 1, parity[j])))
+    for s in range(32):
+        bank.append(("C", s + 1, "eq",
+                     "within-pair Hamming distance at slot %d == %d" % (s + 1, pairdist[s])))
+    for t in range(63):
+        bank.append(("D", t + 1, "eq",
+                     "parity of seam distance %d == %d" % (t + 1, seampar[t])))
+    for s in range(32):
+        bank.append(("E", s + 1, "eq",
+                     "orientation relation (earlier popcount <= later) at slot %d == %d"
+                     % (s + 1, orient[s])))
+    for p in range(15):
+        bank.append(("F", 4 * (p + 1), "eq",
+                     "sign of running yang balance at position %d == %d"
+                     % (4 * (p + 1), yangsign[p])))
+    for b in range(8):
+        bank.append(("G", b + 1, "ge",
+                     "yang mass of block %d >= %d" % (b + 1, blockmass[b])))
+    for j in range(64):
+        bank.append(("H", j + 1, "eq",
+                     "lower-trigram yang-majority class at position %d == %d"
+                     % (j + 1, lomaj[j])))
+    for g in range(5):
+        bank.append(("I", g + 1, "ge",
+                     "%s >= %d" % (_TR8_GLOBAL_NAMES[g], glob[g])))
+    if len(bank) != TR8_B_RAW:
+        raise AssertionError("clause bank is %d instances, expected B_raw = %d"
+                             % (len(bank), TR8_B_RAW))
+    return bank
+
+
+def tr8_clause_values(seq, kw=None):
+    """Evaluate every raw clause template on one ordering -> list of B_raw 0/1 ints.
+
+    Bank order is the order of tr8_clause_bank(). King Wen evaluates to all ones by construction
+    (sanity gate H-a) — each clause was instantiated at King Wen's own value."""
+    if kw is None:
+        kw = tr8_kw_features()
+    f = _tr8_features(seq)
+    v = []
+    for idx in (0, 1, 2, 3, 4, 5):           # families A, B, C, D, E, F — equality
+        a, b = f[idx], kw[idx]
+        v.extend([1 if a[i] == b[i] else 0 for i in range(len(b))])
+    a, b = f[6], kw[6]                       # family G — same side as KW (>=)
+    v.extend([1 if a[i] >= b[i] else 0 for i in range(len(b))])
+    a, b = f[7], kw[7]                       # family H — equality
+    v.extend([1 if a[i] == b[i] else 0 for i in range(len(b))])
+    a, b = f[8], kw[8]                       # family I — same side as KW (>=)
+    v.extend([1 if a[i] >= b[i] else 0 for i in range(len(b))])
+    return v
+
+
+def tr8_seed(root, purpose):
+    """Seed derivation, frozen convention: uint64 = first 8 bytes, big-endian, of
+    sha256("<root>/<purpose>"). Every seed the sampler uses is a pure function of the seed ROOT
+    and a fixed purpose string, so the whole run is reconstructible from one published token."""
+    import hashlib
+    return int.from_bytes(
+        hashlib.sha256(("%s/%s" % (root, purpose)).encode("utf-8")).digest()[:8], "big")
+
+
+# The DEFAULT seed root tracks the pre-registration DRAFT's namespace token
+# (PREREG_TR8_DOF_MATCHED_SAMPLER_DRAFT_20260811 §3.7). It is a default, not a freeze: if the
+# registration is frozen with a different namespace, pass --tr8-dof-seed explicitly. Whatever is
+# used is echoed verbatim in the run header, which is the artifact TR-8 asks for.
+TR8_DEFAULT_SEED_ROOT = "ROAE-TR8-DOFMATCH-2026-08-11"
+TR8_DEFAULT_K_LADDER = (8, 12, 16, 20, 24)
+TR8_ADMISSION_BAND = (0.25, 0.75)
+
+
+def tr8_bank_admit(n_draws, seed, band=TR8_ADMISSION_BAND):
+    """Measure every raw template's marginal on a dedicated calibration pool and apply the band.
+
+    Returns (bank, marginals, admitted_indices, hits). The band is stated WITHOUT reference to
+    King Wen's own rarity, deliberately: a band tuned so that K clauses multiply out to KW's
+    rarity would make "King Wen is typical" true by construction. Templates that are vacuous
+    (marginal 1.0) or near-impossible under this null are dropped here, and the drop is data —
+    e.g. the distinct-within-pair-XOR clause is CONSTANT over the pair-only null, because the
+    null permutes the same 32 pairs, so it is admitted by no run."""
+    bank = tr8_clause_bank()
+    kw = tr8_kw_features()
+    pairs = king_wen_pairs()
+    rng = random.Random(seed)
+    hits = [0] * len(bank)
+    for _ in range(n_draws):
+        v = tr8_clause_values(pair_null_draw(rng, pairs), kw)
+        for i in range(len(v)):
+            if v[i]:
+                hits[i] += 1
+    marg = [h / n_draws for h in hits]
+    lo, hi = band
+    admitted = [i for i in range(len(bank)) if lo <= marg[i] <= hi]
+    return bank, marg, admitted, hits
+
+
+def tr8_predicate_ensemble(seed, n_pred, k, n_admitted):
+    """The K-clause predicate ensemble at one complexity order: n_pred conjunctions of K distinct
+    admitted clauses, drawn uniformly without replacement, each returned in sorted-index order.
+    A pure function of its seed and the admitted-bank size."""
+    if k > n_admitted:
+        raise ValueError("K = %d exceeds the admitted bank size %d" % (k, n_admitted))
+    rng = random.Random(seed)
+    return [tuple(sorted(rng.sample(range(n_admitted), k))) for _ in range(n_pred)]
+
+
+def _tr8_popcount(x):
+    return x.bit_count() if hasattr(x, "bit_count") else bin(x).count("1")
+
+
+def tr8_pool_shard(seed, n_draws, admitted, ensembles, block=4096):
+    """Run one pool shard: draw `n_draws` pair-only-null orderings, build one bit-column per
+    admitted clause, and return (hits_per_predicate_per_K, hb_hits).
+
+    `hits` counts, per predicate, the draws satisfying ALL K of its clauses — computed as a
+    bitwise AND of the K columns followed by one popcount, so the per-predicate cost is a handful
+    of C-speed big-integer operations rather than a Python loop over the pool.
+
+    `hb_hits` is the sanity-gate-H-b counter: draws with `rc4_violations(seq)[0] <= 2`, scored by
+    the UNMODIFIED rc4_violations() — the exact quantity pair_null_gender_le2_exact() computes in
+    closed form. It costs a second pass over the draw and is deliberately not optimised away: it
+    is the only evidence that the pool is the same null TR-8's comparator was computed over."""
+    kw = tr8_kw_features()
+    pairs = king_wen_pairs()
+    rng = random.Random(seed)
+    nb = len(admitted)
+    acc = [0] * nb
+    parts = [[] for _ in range(nb)]
+    nbytes = block // 8
+    filled = 0
+    hb_hits = 0
+    for _ in range(n_draws):
+        seq = pair_null_draw(rng, pairs)
+        if rc4_violations(seq)[0] <= 2:
+            hb_hits += 1
+        v = tr8_clause_values(seq, kw)
+        for c, ai in enumerate(admitted):
+            acc[c] = (acc[c] << 1) | v[ai]
+        filled += 1
+        if filled == block:
+            for c in range(nb):
+                parts[c].append(acc[c].to_bytes(nbytes, "big"))
+                acc[c] = 0
+            filled = 0
+    if filled:
+        pad = block - filled
+        for c in range(nb):
+            parts[c].append((acc[c] << pad).to_bytes(nbytes, "big"))
+    # Bits past n_draws are zero, so they can never be counted as a hit.
+    cols = [int.from_bytes(b"".join(parts[c]), "big") for c in range(nb)]
+    del parts, acc
+    hits = {}
+    for k in sorted(ensembles):
+        row = []
+        for pred in ensembles[k]:
+            m = cols[pred[0]]
+            for c in pred[1:]:
+                m &= cols[c]
+                if not m:
+                    break
+            row.append(_tr8_popcount(m))
+        hits[k] = row
+    return hits, hb_hits
+
+
+# --- statistics -------------------------------------------------------------------------
+
+def _tr8_log_binom_coeffs(n):
+    from math import lgamma
+    ln = lgamma(n + 1)
+    return [ln - lgamma(k + 1) - lgamma(n - k + 1) for k in range(n + 1)]
+
+
+def _tr8_binom_tail(lc, n, p, lo, hi):
+    """sum_{k=lo..hi} C(n,k) p^k (1-p)^(n-k), with lc = _tr8_log_binom_coeffs(n)."""
+    from math import exp, log, log1p, fsum
+    if lo > hi:
+        return 0.0
+    if p <= 0.0:
+        return 1.0 if lo == 0 else 0.0
+    if p >= 1.0:
+        return 1.0 if hi == n else 0.0
+    la, lb = log(p), log1p(-p)
+    return fsum(exp(lc[k] + k * la + (n - k) * lb) for k in range(lo, hi + 1))
+
+
+def tr8_clopper_pearson(x, n, alpha=0.05, iters=200):
+    """Exact (Clopper-Pearson) two-sided CI for a binomial proportion, stdlib only.
+
+    Solved by bisection on the exact binomial tail rather than by a beta quantile, so it needs no
+    third-party special functions. Returns (lo, hi)."""
+    if n <= 0:
+        return (0.0, 1.0)
+    lc = _tr8_log_binom_coeffs(n)
+    a = alpha / 2.0
+    if x == 0:
+        lo = 0.0
+    else:
+        p0, p1 = 0.0, 1.0
+        for _ in range(iters):
+            mid = (p0 + p1) / 2.0
+            if _tr8_binom_tail(lc, n, mid, x, n) > a:
+                p1 = mid
+            else:
+                p0 = mid
+        lo = (p0 + p1) / 2.0
+    if x == n:
+        hi = 1.0
+    else:
+        p0, p1 = 0.0, 1.0
+        for _ in range(iters):
+            mid = (p0 + p1) / 2.0
+            if _tr8_binom_tail(lc, n, mid, 0, x) < a:
+                p1 = mid
+            else:
+                p0 = mid
+        hi = (p0 + p1) / 2.0
+    return (lo, hi)
+
+
+def tr8_median_ci_ranks(n, alpha=0.05):
+    """Distribution-free order-statistic CI ranks for the median (1-based, inclusive).
+
+    L = the largest rank r with P(Binom(n, 1/2) <= r - 1) <= alpha/2;
+    U = the smallest rank r with P(Binom(n, 1/2) <= r - 1) >= 1 - alpha/2.
+    Computed exactly in integers from n — never hardcoded. Returns (L, U), or (None, None) when
+    n is too small for a two-sided interval to exist."""
+    from math import comb
+    if n < 1:
+        return (None, None)
+    total = 1 << n
+    lo_thr = alpha / 2.0
+    hi_thr = 1.0 - alpha / 2.0
+    cum = 0
+    L = U = None
+    for r in range(1, n + 1):
+        cum += comb(n, r - 1)          # cum == P(Binom <= r-1) * 2^n
+        if cum / total <= lo_thr:
+            L = r
+        if U is None and cum / total >= hi_thr:
+            U = r
+    if L is None or U is None or L > U:
+        return (None, None)
+    return (L, U)
+
+
+def _tr8_quantile(sorted_vals, q):
+    """Nearest-rank quantile of an already-sorted list (no interpolation, so a censored value
+    stays exactly 0.0 and is reported as censored rather than smeared by an average)."""
+    n = len(sorted_vals)
+    if n == 0:
+        return None
+    import math
+    idx = max(0, min(n - 1, int(math.ceil(q * n)) - 1))
+    return sorted_vals[idx]
+
+
+def tr8_statistics(hits_by_k, n_pool, n_pred_by_k, alpha=0.05):
+    """Turn per-predicate hit counts into the pre-registered statistics.
+
+    PRIMARY  F_hat(K) = fraction of predicates with r_hat <= r_KW, Clopper-Pearson CI. It is
+             primary because it is immune to censoring: a predicate with zero hits is CERTAINLY
+             rarer than r_KW, so it counts correctly even though its rarity is only known as
+             "< 1/N_pool".
+    SECONDARY m_hat(K) = median rarity with a distribution-free order-statistic CI. CX-27 names
+             the median specifically, so it ships regardless — but it is reportable only while
+             fewer than half the predicates are censored, and this function says so rather than
+             printing a number that is really a bound."""
+    r_kw = tr8_r_kw()
+    out = {"r_kw": r_kw, "n_pool": n_pool, "alpha": alpha, "by_k": {}}
+    for k in sorted(hits_by_k):
+        h = hits_by_k[k]
+        n_pred = n_pred_by_k[k]
+        if len(h) != n_pred:
+            raise AssertionError("K=%d: %d hit rows for %d predicates" % (k, len(h), n_pred))
+        r = sorted(x / n_pool for x in h)
+        n_cens = sum(1 for x in h if x == 0)
+        x = sum(1 for v in r if v <= r_kw)
+        f_hat = x / n_pred
+        f_lo, f_hi = tr8_clopper_pearson(x, n_pred, alpha)
+        L, U = tr8_median_ci_ranks(n_pred, alpha)
+        if n_pred % 2:
+            med = r[n_pred // 2]
+        else:
+            med = (r[n_pred // 2 - 1] + r[n_pred // 2]) / 2.0
+        med_cens = (n_cens * 2 >= n_pred)
+        m_lo = r[L - 1] if L else None
+        m_hi = r[U - 1] if U else None
+        out["by_k"][k] = {
+            "n_pred": n_pred,
+            "f_hat": f_hat, "f_hat_x": x, "f_ci": [f_lo, f_hi],
+            "median": med, "median_censored": med_cens,
+            "median_ci": [m_lo, m_hi], "median_ci_ranks": [L, U],
+            "censored_fraction": n_cens / n_pred,
+            "deciles": [_tr8_quantile(r, q / 10.0) for q in range(1, 10)],
+            "min": r[0], "max": r[-1],
+        }
+    return out
+
+
+def tr8_verdict(stats, k_head=16):
+    """The frozen decision rule (pre-registration §3.5), applied at the headline K.
+
+    BULK / TAIL-EXTREME / COMMON / INCONCLUSIVE. A verdict is only meaningful under a FROZEN
+    registration; this function computes it, it does not authorize publishing it."""
+    d = stats["by_k"].get(k_head)
+    if d is None:
+        return ("INCONCLUSIVE", "K=%d not in the ladder" % k_head)
+    lo, hi = d["f_ci"]
+    if d["median_censored"]:
+        return ("INCONCLUSIVE", "the median is censored at 1/N_pool")
+    if lo >= 0.05 and hi <= 0.95:
+        return ("BULK", "CI(F_hat) is inside [0.05, 0.95]")
+    if hi < 0.05:
+        return ("TAIL-EXTREME", "CI(F_hat) lies entirely below 0.05")
+    if lo > 0.95:
+        return ("COMMON", "CI(F_hat) lies entirely above 0.95")
+    return ("INCONCLUSIVE", "CI(F_hat) straddles a bar")
+
+
+# --- driver -----------------------------------------------------------------------------
+
+def _tr8_sha256_file(path):
+    import hashlib
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return None
+
+
+def _tr8_header(seed_root, pool, n_pool, n_shards, n_pred, klist, calib_draws, band,
+                bank, marg, admitted):
+    """The DETERMINISTIC run header: identical inputs give a byte-identical file.
+
+    Wall time, host and interpreter version are deliberately NOT here — they go to env.json — so
+    that "same seed => same header" is a testable property rather than a slogan. TR-8's
+    requirement is "published with its seed and probe count"; this file is what satisfies it."""
+    import hashlib
+    seeds = {"bank-calibration": tr8_seed(seed_root, "bank-calibration"),
+             "timing-probe": tr8_seed(seed_root, "timing-probe")}
+    for i in range(n_shards):
+        seeds["pool-%s/shard-%d" % (pool, i)] = tr8_seed(seed_root, "pool-%s/shard-%d" % (pool, i))
+    for k in klist:
+        seeds["predicates/K-%d" % k] = tr8_seed(seed_root, "predicates/K-%d" % k)
+    bank_digest = hashlib.sha256(
+        "\n".join("%s%d|%s|%s|%.6f" % (bank[i][0], bank[i][1], bank[i][2], bank[i][3], marg[i])
+                  for i in admitted).encode("utf-8")).hexdigest()
+    fam = {}
+    for i in admitted:
+        fam[bank[i][0]] = fam.get(bank[i][0], 0) + 1
+    return {
+        "instrument": "solve.py --tr8-dof-sampler",
+        "prereg": "roae-private PREREG_TR8_DOF_MATCHED_SAMPLER (must be FROZEN before a "
+                  "recorded run; this header does not assert that it is)",
+        "seed_root": seed_root,
+        "seeds": seeds,
+        "pool": pool,
+        "n_pool": n_pool,
+        "n_shards": n_shards,
+        "n_pred": n_pred,
+        "k_ladder": list(klist),
+        "calibration_draws": calib_draws,
+        "admission_band": list(band),
+        "b_raw": len(bank),
+        "b_admitted": len(admitted),
+        "admitted_family_counts": fam,
+        "admitted_bank_sha256": bank_digest,
+        "solve_py_sha256": _tr8_sha256_file(__file__),
+        "r_kw": "47/445740",
+    }
+
+
+def _tr8_geomean(vals):
+    import math
+    vals = [v for v in vals if v > 0]
+    if not vals:
+        return 0.0
+    return math.exp(sum(math.log(v) for v in vals) / len(vals))
+
+
+def tr8_emit_bank(seed_root=TR8_DEFAULT_SEED_ROOT, calib_draws=100000,
+                  band=TR8_ADMISSION_BAND, out_dir=None):
+    """Measure and print the admitted clause bank. Terminal command.
+
+    This is the pre-registration's bank-freeze step: its output is what gets pasted into the
+    registration as a dated annotation BEFORE any rarity is computed. After that, instances may
+    be DROPPED (dated, with a reason) but none may be added."""
+    seed = tr8_seed(seed_root, "bank-calibration")
+    t0 = time.time()
+    bank, marg, admitted, hits = tr8_bank_admit(calib_draws, seed, band)
+    kwv = tr8_clause_values(list(binary_hexagrams))
+    ha = all(kwv)
+    print("TR-8 dof-matched sampler — admitted clause bank")
+    print("  seed root       : %s" % seed_root)
+    print("  calibration seed: %d  (sha256('%s/bank-calibration')[:8], big-endian)"
+          % (seed, seed_root))
+    print("  probe count     : %d calibration draws" % calib_draws)
+    print("  admission band  : [%.2f, %.2f]" % band)
+    print("  B_raw           : %d" % len(bank))
+    print("  B_admitted      : %d" % len(admitted))
+    print("  H-a (KW satisfies every raw template): %s" % ("PASS" if ha else "FAIL"))
+    fam = {}
+    for i in admitted:
+        fam[bank[i][0]] = fam.get(bank[i][0], 0) + 1
+    print("  admitted by family: %s"
+          % ", ".join("%s=%d/%d" % (f, fam.get(f, 0), n) for f, n in _TR8_FAMILY_SIZES))
+    print("  geometric-mean admitted marginal: %.6f" % _tr8_geomean([marg[i] for i in admitted]))
+    print()
+    print("  %-6s %-9s %s" % ("clause", "marginal", "template (instantiated at King Wen)"))
+    for i in admitted:
+        f, idx, cmp_, desc = bank[i]
+        print("  %-6s %-9.5f %s" % ("%s%d" % (f, idx), marg[i], desc))
+    dropped = [i for i in range(len(bank)) if i not in set(admitted)]
+    print()
+    print("  %d template(s) dropped by the band (marginal outside [%.2f, %.2f]):"
+          % (len(dropped), band[0], band[1]))
+    for f, _n in _TR8_FAMILY_SIZES:
+        ds = [i for i in dropped if bank[i][0] == f]
+        if ds:
+            print("    family %s: %d dropped, marginals %.5f .. %.5f"
+                  % (f, len(ds), min(marg[i] for i in ds), max(marg[i] for i in ds)))
+    print()
+    print("  wall %.1f s" % (time.time() - t0))
+    if out_dir:
+        import json
+        os.makedirs(out_dir, exist_ok=True)
+        with open(os.path.join(out_dir, "bank.json"), "w", encoding="utf-8") as f:
+            json.dump({"seed_root": seed_root, "calibration_seed": seed,
+                       "calibration_draws": calib_draws, "band": list(band),
+                       "b_raw": len(bank), "b_admitted": len(admitted),
+                       "h_a_kw_satisfies_all": ha,
+                       "bank": [{"family": bank[i][0], "index": bank[i][1],
+                                 "comparator": bank[i][2], "template": bank[i][3],
+                                 "marginal": marg[i], "hits": hits[i],
+                                 "admitted": i in set(admitted)}
+                                for i in range(len(bank))]}, f, indent=1, sort_keys=True)
+        print("  wrote %s" % os.path.join(out_dir, "bank.json"))
+    return 0 if ha else 1
+
+
+def tr8_dof_sampler(out_dir, seed_root=TR8_DEFAULT_SEED_ROOT, pool="A",
+                    n_pool=10000000, n_pred=1000, klist=TR8_DEFAULT_K_LADDER,
+                    shard=None, n_shards=8, calib_draws=100000,
+                    band=TR8_ADMISSION_BAND, quiet=False):
+    """Run the dof-matched sampler. Terminal command.
+
+    With no --tr8-dof-shard the whole pool is run in this process, shard by shard in index order,
+    and the statistics are computed. With --tr8-dof-shard I only shard I runs and its per-
+    predicate hit counts are written for a later --tr8-dof-merge; hits are ADDITIVE across shards
+    because every shard evaluates the same predicate ensemble, so the merge is exact and not an
+    approximation of the single-process run (asserted by --tr8-dof-selftest)."""
+    import json
+    if n_shards < 1 or n_pool < n_shards or n_pool % n_shards:
+        raise ValueError("n_pool (%d) must be a positive multiple of n_shards (%d) — the "
+                         "pre-registration fixes equal-size shards" % (n_pool, n_shards))
+    if shard is not None and not (0 <= shard < n_shards):
+        raise ValueError("shard %d is outside 0..%d" % (shard, n_shards - 1))
+    if pool not in ("A", "B", "calib"):
+        raise ValueError("pool must be A, B or calib")
+    os.makedirs(out_dir, exist_ok=True)
+    t0 = time.time()
+
+    bank, marg, admitted, _bh = tr8_bank_admit(calib_draws,
+                                               tr8_seed(seed_root, "bank-calibration"), band)
+    kwv = tr8_clause_values(list(binary_hexagrams))
+    if not all(kwv):
+        bad = [i for i, x in enumerate(kwv) if not x]
+        raise AssertionError("H-a FAILED: King Wen does not satisfy clause(s) %s — this is a "
+                             "first-order implementation finding, not a result" % bad[:8])
+    header = _tr8_header(seed_root, pool, n_pool, n_shards, n_pred, klist, calib_draws,
+                         band, bank, marg, admitted)
+    ensembles = {k: tr8_predicate_ensemble(header["seeds"]["predicates/K-%d" % k],
+                                           n_pred, k, len(admitted)) for k in klist}
+
+    shards = range(n_shards) if shard is None else [shard]
+    per_shard = n_pool // n_shards
+    hits = {k: [0] * n_pred for k in klist}
+    hb = 0
+    drawn = 0
+    for i in shards:
+        if not quiet:
+            print("  shard %d/%d: %d draws ..." % (i, n_shards, per_shard), flush=True)
+        s_hits, s_hb = tr8_pool_shard(header["seeds"]["pool-%s/shard-%d" % (pool, i)],
+                                      per_shard, admitted, ensembles)
+        for k in klist:
+            row = s_hits[k]
+            tgt = hits[k]
+            for j in range(n_pred):
+                tgt[j] += row[j]
+        hb += s_hb
+        drawn += per_shard
+
+    # SHARD-SAFE WRITES. The shards are meant to run CONCURRENTLY into one directory, so only
+    # shard 0 writes the two files they would all write identically (header.json, bank.json) —
+    # eight processes writing the same path at once is a torn file waiting to happen, and the
+    # merge would then be reading whatever survived. env.json is per-shard for the same reason.
+    # Nothing is lost: --tr8-dof-merge refuses a pool that is missing shard 0 anyway.
+    env_name = "env.json" if shard is None else "env_shard_%d.json" % shard
+    with open(os.path.join(out_dir, env_name), "w", encoding="utf-8") as f:
+        json.dump({"wall_seconds": round(time.time() - t0, 3),
+                   "python": sys.version.split()[0],
+                   "host": os.uname().nodename if hasattr(os, "uname") else "?",
+                   "shards_run": list(shards)}, f, indent=1, sort_keys=True)
+    if shard is None or shard == 0:
+        with open(os.path.join(out_dir, "header.json"), "w", encoding="utf-8") as f:
+            json.dump(header, f, indent=1, sort_keys=True)
+        tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted)
+
+    if shard is not None:
+        path = os.path.join(out_dir, "shard_%s_%d.json" % (pool, shard))
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"header": header, "shard": shard, "draws": per_shard,
+                       "hb_hits": hb,
+                       "hits": {str(k): hits[k] for k in klist}}, f, sort_keys=True)
+        if not quiet:
+            print("  wrote %s (statistics need --tr8-dof-merge %s)" % (path, out_dir))
+        return 0
+
+    return _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted,
+                       bank, quiet)
+
+
+def tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted):
+    import json
+    adm = set(admitted)
+    with open(os.path.join(out_dir, "bank.json"), "w", encoding="utf-8") as f:
+        json.dump({"seed_root": seed_root, "calibration_draws": calib_draws,
+                   "band": list(band), "b_raw": len(bank), "b_admitted": len(admitted),
+                   "bank": [{"family": bank[i][0], "index": bank[i][1],
+                             "comparator": bank[i][2], "template": bank[i][3],
+                             "marginal": marg[i], "admitted": i in adm}
+                            for i in range(len(bank))]}, f, indent=1, sort_keys=True)
+
+
+def tr8_dof_merge(out_dir, quiet=False):
+    """Sum the per-shard hit files in OUT_DIR and compute the statistics. Terminal command.
+
+    Refuses to merge shards whose headers disagree (different seed root, pool, bank or ladder) and
+    refuses a merge that is missing a shard — a partial pool is a different pool, and silently
+    reporting one would be the exact failure this project's canonical gates exist to prevent."""
+    import json
+    files = sorted(n for n in os.listdir(out_dir)
+                   if n.startswith("shard_") and n.endswith(".json"))
+    if not files:
+        raise SystemExit("no shard_*.json in %s" % out_dir)
+    header = None
+    hits = None
+    hb = 0
+    drawn = 0
+    seen = set()
+    for name in files:
+        with open(os.path.join(out_dir, name), encoding="utf-8") as f:
+            d = json.load(f)
+        if header is None:
+            header = d["header"]
+            hits = {int(k): [0] * len(v) for k, v in d["hits"].items()}
+        elif d["header"] != header:
+            raise SystemExit("%s carries a different run header — refusing to merge" % name)
+        if d["shard"] in seen:
+            raise SystemExit("shard %d appears twice — refusing to merge" % d["shard"])
+        seen.add(d["shard"])
+        for k, row in d["hits"].items():
+            tgt = hits[int(k)]
+            for j in range(len(row)):
+                tgt[j] += row[j]
+        hb += d["hb_hits"]
+        drawn += d["draws"]
+    missing = sorted(set(range(header["n_shards"])) - seen)
+    if missing:
+        raise SystemExit("shard(s) %s missing from %s — refusing to merge a partial pool"
+                         % (missing, out_dir))
+    with open(os.path.join(out_dir, "bank.json"), encoding="utf-8") as f:
+        bj = json.load(f)
+    bank = [(e["family"], e["index"], e["comparator"], e["template"]) for e in bj["bank"]]
+    marg = [e["marginal"] for e in bj["bank"]]
+    admitted = [i for i, e in enumerate(bj["bank"]) if e["admitted"]]
+    return _tr8_finish(out_dir, header, hits, hb, drawn, header["k_ladder"],
+                       header["n_pred"], marg, admitted, bank, quiet)
+
+
+def _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted, bank, quiet):
+    """Compute, write and print the statistics + the sanity gates."""
+    import json
+    from fractions import Fraction
+    stats = tr8_statistics(hits, drawn, {k: n_pred for k in klist})
+    p_exact = tr8_r_kw()
+    exp_hb = p_exact * drawn
+    # H-b: the pool's own rate of rc4_violations <= 2 against the exact closed form. Poisson
+    # error at the pool size; 5 sigma is the frozen tolerance and is stated, not tuned after
+    # the fact. At small pool sizes this gate is weak by construction and says so.
+    import math
+    sigma = math.sqrt(exp_hb) if exp_hb > 0 else 0.0
+    hb_ok = abs(hb - exp_hb) <= 5.0 * sigma + 3.0
+    verdict, why = tr8_verdict(stats)
+    # H-a is EVALUATED here, not asserted from elsewhere: --tr8-dof-merge reaches this function
+    # without going through the sampler's own pre-run check, and a gate reported as PASS on a
+    # path that never ran it is a false attestation.
+    kwv = tr8_clause_values(list(binary_hexagrams))
+    ha_ok = all(kwv)
+    if not ha_ok:
+        verdict, why = "INCONCLUSIVE", "sanity gate H-a (KW satisfies every clause) FAILED"
+    gates = {"h_a_kw_satisfies_every_predicate": ha_ok,
+             "h_b_null_calibration": hb_ok,
+             "h_b_observed": hb, "h_b_expected": exp_hb,
+             "h_b_sigma": sigma,
+             "h_b_note": "5-sigma Poisson band on P(rc4_violations<=2) = %s"
+                         % Fraction(47, 445740)}
+    if not hb_ok:
+        verdict, why = "INCONCLUSIVE", "sanity gate H-b (null calibration) FAILED"
+    res = {"header": header, "gates": gates, "statistics": stats,
+           "verdict": verdict, "verdict_reason": why,
+           "geometric_mean_admitted_marginal": _tr8_geomean([marg[i] for i in admitted]),
+           "draws_used": drawn}
+    with open(os.path.join(out_dir, "results.json"), "w", encoding="utf-8") as f:
+        json.dump(res, f, indent=1, sort_keys=True)
+    lines = _tr8_results_md(res, bank, admitted, marg)
+    with open(os.path.join(out_dir, "RESULTS.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    if not quiet:
+        print("\n".join(lines))
+        print()
+        print("  wrote %s" % os.path.join(out_dir, "results.json"))
+    return 0 if (hb_ok and ha_ok) else 1
+
+
+def _tr8_results_md(res, bank, admitted, marg):
+    import math
+    h = res["header"]
+    s = res["statistics"]
+    L = []
+    L.append("# TR-8 dof-matched KW-fitting-predicate sampler — run output")
+    L.append("")
+    L.append("Instrument: `solve.py --tr8-dof-sampler`. This file is a RUN RECORD, not a")
+    L.append("publication: a number here is citable only under a FROZEN pre-registration, and")
+    L.append("the withdrawn TR-8 median is never reinstated by it (CORRECTIONS.md CX-27).")
+    L.append("")
+    L.append("## Seed and probe count (what TR-8 requires published alongside the number)")
+    L.append("")
+    L.append("| parameter | value |")
+    L.append("|---|---|")
+    L.append("| seed root | `%s` |" % h["seed_root"])
+    L.append("| pool | %s |" % h["pool"])
+    L.append("| probe count (N_pool) | %d draws (%d shards x %d) |"
+             % (res["draws_used"], h["n_shards"], h["n_pool"] // h["n_shards"]))
+    L.append("| predicates per K (N_pred) | %d |" % h["n_pred"])
+    L.append("| K ladder | %s |" % ", ".join(str(k) for k in h["k_ladder"]))
+    L.append("| calibration draws | %d |" % h["calibration_draws"])
+    L.append("| admission band | [%.2f, %.2f] |" % tuple(h["admission_band"]))
+    L.append("| B_raw / B_admitted | %d / %d |" % (h["b_raw"], h["b_admitted"]))
+    L.append("| admitted-bank sha256 | `%s` |" % h["admitted_bank_sha256"])
+    L.append("| geometric-mean admitted marginal | %.6f |"
+             % res["geometric_mean_admitted_marginal"])
+    L.append("| r_KW (exact) | %s = %.6e |" % (h["r_kw"], s["r_kw"]))
+    L.append("")
+    L.append("Every seed is `uint64(sha256(\"<seed root>/<purpose>\")[:8], big-endian)`:")
+    L.append("")
+    L.append("| purpose | seed |")
+    L.append("|---|---|")
+    for k in sorted(h["seeds"]):
+        L.append("| `%s` | %d |" % (k, h["seeds"][k]))
+    L.append("")
+    L.append("## Sanity gates")
+    L.append("")
+    g = res["gates"]
+    L.append("- **H-a** (King Wen satisfies every drawn predicate by construction): **%s**"
+             % ("PASS" if g["h_a_kw_satisfies_every_predicate"] else "FAIL"))
+    L.append("- **H-b** (the pool reproduces the exact pair-null gender rate): **%s** — "
+             "observed %d, expected %.2f, sigma %.2f"
+             % ("PASS" if g["h_b_null_calibration"] else "FAIL",
+                g["h_b_observed"], g["h_b_expected"], g["h_b_sigma"]))
+    L.append("")
+    L.append("## Statistics")
+    L.append("")
+    L.append("`F_hat` = fraction of drawn predicates at least as rare as King Wen "
+             "(PRIMARY; censoring-immune). `m_hat` = median rarity (SECONDARY).")
+    L.append("")
+    L.append("| K | F_hat | 95% CP CI | m_hat | 95% order-stat CI | censored |")
+    L.append("|---|---|---|---|---|---|")
+    for k in sorted(s["by_k"]):
+        d = s["by_k"][k]
+        floor = 1.0 / s["n_pool"]
+        cell = lambda v: ("< %.3e" % floor) if not v else "%.4e" % v
+        med = ("< %.3e (CENSORED)" % floor) if d["median_censored"] else cell(d["median"])
+        ci = "n/a" if d["median_ci"][0] is None else \
+            ("[%s, %s]" % (cell(d["median_ci"][0]), cell(d["median_ci"][1])))
+        L.append("| %d | %.4f | [%.4f, %.4f] | %s | %s | %.1f%% |"
+                 % (k, d["f_hat"], d["f_ci"][0], d["f_ci"][1], med, ci,
+                    100.0 * d["censored_fraction"]))
+    L.append("")
+    L.append("Deciles of the rarity distribution (log10; `cens` = below the 1/N_pool floor):")
+    L.append("")
+    L.append("| K | " + " | ".join("d%d" % q for q in range(1, 10)) + " |")
+    L.append("|---|" + "---|" * 9)
+    for k in sorted(s["by_k"]):
+        cells = []
+        for v in s["by_k"][k]["deciles"]:
+            cells.append("cens" if not v else "%.2f" % math.log10(v))
+        L.append("| %d | " % k + " | ".join(cells) + " |")
+    L.append("")
+    L.append("**Verdict (pre-registered rule, headline K = 16): %s** — %s"
+             % (res["verdict"], res["verdict_reason"]))
+    L.append("")
+    L.append("## Admitted clause bank")
+    L.append("")
+    L.append("| clause | marginal | template (instantiated at King Wen's own value) |")
+    L.append("|---|---|---|")
+    for i in admitted:
+        L.append("| %s%d | %.5f | %s | " % (bank[i][0], bank[i][1], marg[i], bank[i][3]))
+    return L
+
+
+def tr8_dof_selftest(seed_root="TR8-SELFTEST-THROWAWAY", quiet=False):
+    """The four self-test obligations of the pre-registration's §4.4, at local scale.
+
+    This is a SELF-TEST of the instrument. Its numbers are not a measurement of anything and its
+    seed root is a throwaway that is deliberately not the frozen one."""
+    import json
+    fails = []
+
+    def gate(name, ok, detail=""):
+        print("  [%s] %s%s" % ("ok" if ok else "FAIL", name, (" — " + detail) if detail else ""))
+        if not ok:
+            fails.append(name)
+
+    print("TR-8 dof-matched sampler — self-test (seed root %r; NOT a measurement)" % seed_root)
+
+    # (4) bank integrity, first because everything else is built on it.
+    bank = tr8_clause_bank()
+    gate("bank: B_raw == %d and family counts match the frozen table" % TR8_B_RAW,
+         len(bank) == TR8_B_RAW
+         and all(sum(1 for e in bank if e[0] == f) == n for f, n in _TR8_FAMILY_SIZES))
+
+    # (2) H-a: King Wen satisfies every raw template, hence every predicate drawn from any subset.
+    kwv = tr8_clause_values(list(binary_hexagrams))
+    gate("H-a: King Wen satisfies all %d raw templates" % TR8_B_RAW, all(kwv),
+         "" if all(kwv) else "failing indices %s" % [i for i, x in enumerate(kwv) if not x][:8])
+
+    # (1) H-b: pair_null_draw reproduces the exact pair-null gender rate, scored by the
+    #     UNMODIFIED rc4_violations, and its full violation distribution matches the closed form.
+    n = 20000
+    rng = random.Random(tr8_seed(seed_root, "hb"))
+    pairs = king_wen_pairs()
+    obs = {}
+    for _ in range(n):
+        v = rc4_violations(pair_null_draw(rng, pairs))[0]
+        obs[v] = obs.get(v, 0) + 1
+    exact = pair_null_gender_distribution_exact()
+    worst = 0.0
+    for v, p in exact.items():
+        e = float(p) * n
+        if e < 25:
+            continue                      # normal approximation is not trustworthy below this
+        z = abs(obs.get(v, 0) - e) / (e ** 0.5)
+        worst = max(worst, z)
+    gate("H-b: violation distribution matches pair_null_gender_distribution_exact "
+         "(%d draws, worst |z| = %.2f < 5)" % (n, worst), worst < 5.0)
+    seqs_ok = True
+    rng2 = random.Random(7)
+    for _ in range(200):
+        s = pair_null_draw(rng2, pairs)
+        if sorted(s) != list(range(64)):
+            seqs_ok = False
+            break
+        for i in range(32):
+            a, b = s[2 * i], s[2 * i + 1]
+            if (a, b) not in pairs and (b, a) not in pairs:
+                seqs_ok = False
+    gate("H-b: every draw is a permutation of 0..63 that preserves the 32 traditional pairs",
+         seqs_ok)
+
+    # (3) determinism + shard/merge equivalence, on a tiny pool.
+    import tempfile
+    kl = (4, 8)
+    with tempfile.TemporaryDirectory() as td:
+        a = os.path.join(td, "a")
+        b = os.path.join(td, "b")
+        tr8_dof_sampler(a, seed_root=seed_root, pool="A", n_pool=2048, n_pred=40,
+                        klist=kl, n_shards=2, calib_draws=3000, quiet=True)
+        tr8_dof_sampler(b, seed_root=seed_root, pool="A", n_pool=2048, n_pred=40,
+                        klist=kl, n_shards=2, calib_draws=3000, quiet=True)
+        ha = open(os.path.join(a, "header.json"), "rb").read()
+        hb_ = open(os.path.join(b, "header.json"), "rb").read()
+        gate("determinism: identical seed root gives a byte-identical header.json", ha == hb_)
+        ra = json.load(open(os.path.join(a, "results.json"), encoding="utf-8"))
+        rb = json.load(open(os.path.join(b, "results.json"), encoding="utf-8"))
+        gate("determinism: identical seed root gives identical statistics",
+             ra["statistics"] == rb["statistics"])
+        c = os.path.join(td, "c")
+        for i in range(2):
+            tr8_dof_sampler(c, seed_root=seed_root, pool="A", n_pool=2048, n_pred=40,
+                            klist=kl, n_shards=2, shard=i, calib_draws=3000, quiet=True)
+        tr8_dof_merge(c, quiet=True)
+        rc = json.load(open(os.path.join(c, "results.json"), encoding="utf-8"))
+        gate("shard/merge: per-shard runs merged equal the single-process run",
+             rc["statistics"] == ra["statistics"])
+        gate("bank: every admitted marginal is inside the band",
+             all(TR8_ADMISSION_BAND[0] <= e["marginal"] <= TR8_ADMISSION_BAND[1]
+                 for e in json.load(open(os.path.join(a, "bank.json"),
+                                         encoding="utf-8"))["bank"] if e["admitted"]))
+
+    # Estimator smoke: the CP interval must bracket its point estimate and the median ranks
+    # must straddle the middle.
+    lo, hi = tr8_clopper_pearson(500, 1000)
+    gate("Clopper-Pearson brackets the point estimate at 500/1000 (%.4f, %.4f)" % (lo, hi),
+         lo < 0.5 < hi and hi - lo < 0.08)
+    L, U = tr8_median_ci_ranks(1000)
+    gate("median CI ranks straddle the middle at N_pred=1000 (L=%s, U=%s)" % (L, U),
+         L is not None and L < 500 < U)
+
+    print()
+    if fails:
+        print("TR8 DOF SELFTEST: %d CHECK(S) FAILED — %s" % (len(fails), "; ".join(fails)))
+        return 1
+    print("TR8 DOF SELFTEST: all checks passed. This is an instrument test, NOT a measurement.")
+    return 0
+
+
 def has_no_five(seq):
     """Check if a sequence has no 5-line transitions.
 
@@ -10591,6 +11571,43 @@ def main():
                         help="P3 sat-encode: C5 cardinality constraints — deferred/superseded "
                              "by sat.py's pair-slot model (emits a status sidecar entry only; "
                              "see SOLVE_PY_CLI.md)")
+    # TR-8 dof-matched KW-fitting-predicate sampler (task #170 / J1). Seed root and probe
+    # count are parameters and are echoed verbatim into the run header, because TR-8's fix
+    # spec requires the number to be published WITH its seed and probe count.
+    parser.add_argument("--tr8-dof-sampler", metavar="OUT_DIR",
+                        help="TR-8: run the dof-matched KW-fitting-predicate sampler; write "
+                             "header.json/bank.json/results.json/RESULTS.md to OUT_DIR "
+                             "(terminal command). A recorded run is gated on a FROZEN "
+                             "pre-registration; see SOLVE_PY_CLI.md")
+    parser.add_argument("--tr8-dof-emit-bank", action="store_true",
+                        help="TR-8 sampler: measure and print the admitted clause bank + "
+                             "marginals, then exit (the pre-registration's bank-freeze step)")
+    parser.add_argument("--tr8-dof-merge", metavar="OUT_DIR",
+                        help="TR-8 sampler: merge the per-shard hit files in OUT_DIR and "
+                             "compute the statistics (terminal command)")
+    parser.add_argument("--tr8-dof-selftest", action="store_true",
+                        help="TR-8 sampler: run the four instrument self-tests (bank integrity, "
+                             "H-a, H-b null calibration, determinism + shard/merge equivalence)")
+    parser.add_argument("--tr8-dof-seed", metavar="ROOT", default=TR8_DEFAULT_SEED_ROOT,
+                        help="TR-8 sampler: seed ROOT string; every seed is "
+                             "uint64(sha256('ROOT/<purpose>')[:8], big-endian). Echoed verbatim "
+                             "in the run header (default: the pre-registration namespace)")
+    parser.add_argument("--tr8-dof-pool", choices=("A", "B", "calib"), default="A",
+                        help="TR-8 sampler: which seed family the pool draws from (default: A)")
+    parser.add_argument("--tr8-dof-pool-draws", type=int, default=10000000,
+                        help="TR-8 sampler: N_pool, total pair-only-null draws (default: 10000000)")
+    parser.add_argument("--tr8-dof-predicates", type=int, default=1000,
+                        help="TR-8 sampler: N_pred, predicates drawn per K (default: 1000)")
+    parser.add_argument("--tr8-dof-k", metavar="LIST", default="8,12,16,20,24",
+                        help="TR-8 sampler: comma-separated K ladder (default: 8,12,16,20,24)")
+    parser.add_argument("--tr8-dof-shards", type=int, default=8,
+                        help="TR-8 sampler: number of equal-size pool shards (default: 8)")
+    parser.add_argument("--tr8-dof-shard", type=int, default=None,
+                        help="TR-8 sampler: run ONLY this shard index and write its hit file "
+                             "for a later --tr8-dof-merge (default: run every shard in-process)")
+    parser.add_argument("--tr8-dof-calib-draws", type=int, default=100000,
+                        help="TR-8 sampler: draws in the dedicated bank-calibration pool "
+                             "(default: 100000)")
     parser.add_argument("--compare-depth-profile", nargs=2, metavar=("RUN_A_LOG", "RUN_B_LOG"),
                         help="Tree-walk validator (#48): compare DEPTH_PROFILE node counts from two run "
                              "logs (produced with SOLVE_DEPTH_PROFILE=1; .gz accepted). PASS if total "
@@ -10893,6 +11910,29 @@ def main():
                                   args.joint_permutation_test[1],
                                   samples_per_chunk=args.joint_density_samples_per_chunk)
         return
+
+    if args.tr8_dof_selftest:
+        sys.exit(tr8_dof_selftest())
+
+    if args.tr8_dof_emit_bank:
+        sys.exit(tr8_emit_bank(seed_root=args.tr8_dof_seed,
+                               calib_draws=args.tr8_dof_calib_draws,
+                               out_dir=args.tr8_dof_sampler))
+
+    if args.tr8_dof_merge:
+        sys.exit(tr8_dof_merge(args.tr8_dof_merge))
+
+    if args.tr8_dof_sampler:
+        klist = tuple(int(x) for x in args.tr8_dof_k.split(",") if x.strip())
+        sys.exit(tr8_dof_sampler(args.tr8_dof_sampler,
+                                 seed_root=args.tr8_dof_seed,
+                                 pool=args.tr8_dof_pool,
+                                 n_pool=args.tr8_dof_pool_draws,
+                                 n_pred=args.tr8_dof_predicates,
+                                 klist=klist,
+                                 shard=args.tr8_dof_shard,
+                                 n_shards=args.tr8_dof_shards,
+                                 calib_draws=args.tr8_dof_calib_draws))
 
     if args.sat_encode:
         p3_sat_encode(args.sat_encode,

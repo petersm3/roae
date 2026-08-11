@@ -16,8 +16,11 @@ mathematical definitions** (SPECIFICATION.md constraints C1–C5, `rev`/`comp`/
 counting method is deliberately **different** from `solve.c`'s symmetry-quotient
 DP, so a conceptual bug in the quotient method would not be shared.
 
-It verifies published results on **three** surfaces — records, exact counts,
-and (artifact-consistency only) completed-run certificates:
+It verifies published results on **four** surfaces — records, exact counts,
+(artifact-consistency only) completed-run certificates, and — since 2026-08-11 —
+**analyses over large artifacts the caller supplies** (see
+§"Analyses over large artifacts" below for what that fourth surface can and
+cannot promise):
 
 | mode | what it checks |
 |---|---|
@@ -39,6 +42,9 @@ and (artifact-consistency only) completed-run certificates:
 | `./verify --knuth-anchors` | (C side, NEW 2026-08-08, task #194) the **clean-room Knuth prober's validation gate** — run it before trusting any `--knuth-probe` run. Structural checks (partner-exact KW pairing; within-pair {2:12,4:12,6:8} + KW boundary multiset == the C5 literal; 8 self-complement pairs / 12 cross complement-couples, [lean/C3Decomposition.lean](../lean/C3Decomposition.lean)'s counts; the SPECIFICATION.md C6/C7 pin sets {29,46}/{9,36}/{11,52}/{13,44} == KW pairs 24–27; `c3x64(KW) = 776 = 16 + 8·95`), then exhaustive DFS below KW-following prefixes gated on the **published exact subtree anchors** (SEARCH_SPACE_SIZE §Validation / TR-5 §3: 5-free 443 nodes / 4 canonical, 7-free 62,256 / 2,232, 9-free 9,422,793 / 16,504, and exactly **8** of the 16,504 satisfying C6/C7) with the spec-vs-Lean C3 identity asserted at every one of the ~696K complete leaves, and finally a fixed-seed probe run on the 9-free prefix that must match the exact counts within 4σ of its own Wald CI (exercises the weighting/RNG path the exact DFS never runs). ~2 s. Reads no files |
 | `./verify --knuth-probe N [--knuth-seed S] [--knuth-threads T] [--knuth-no-c67] [--knuth-free F]` | (C side, NEW 2026-08-08, task #194; pre-registered gate in the private repo before first run) the **clean-room Knuth (1975) random-probe estimator** — a second, independent instrument on the published `solve.c --estimate-knuth` estimate \|C1∩C2∩C3∩C4∩C5∩C6∩C7\| ≈ 5.21×10³¹, whose one uncorroborated full-scale factor is the **C3 conditional ratio (~0.101)** (every existing full-scale cross-check is C3-free by scope). Own C3 predicate — computed BOTH ways at every complete leaf, the SPECIFICATION.md positional sum and the Lean slot decomposition `16 + 8·G`, cross-asserted — and own C6/C7 pin logic (pinned pairs excluded from non-pinned slots, which removes only zero-leaf subtrees, so the walk tree differs from `solve.c`'s but the leaf estimands are unbiased for the same targets). Default estimates the C6/C7-pinned targets; `--knuth-no-c67` the C1–C5 space; `--knuth-free F` probes the KW (32−F)-slot prefix subtree (validation aid). Reports canonical + no-C3 + tree-node estimates with Wald CIs, the seed, and a free calibration: the no-C3 leaf estimand is compared against this file's own **exact** Route B/D constants (5.16880…×10³² pinned / 1.097051…×10³⁹ unpinned). splitmix64 RNG, per-thread disjoint 2⁴⁰-draw segments; modulo child-selection bias < d/2⁶⁴ ≈ 4×10⁻¹⁸, negligible. Reads no files |
 | `python3 verify.py --check-null-g` | the **reference distribution for C3**: the exact G-distribution under the C1&C4 null (12 cross-couples + 7 self-pairs into 31 slots), gated against `total == 31!`, support `[12,228]`, `E[G] == 128` (also true DP-free by linearity, since `E\|i−j\| = (n+1)/3` for a uniform 2-subset of `{1..n}`), and `P(G ≤ 95) == 641983711307479/7919632354008375`. Since `C3 = 16 + 8·G`, this is the baseline any "KW's C3 is unusual" claim must beat. Accumulates **open-couple counts, not ± slot indices** — deliberately different arithmetic from `solve.c`'s G channel, so agreement is evidence rather than tautology. **Scope: C1&C4 only** — no C2, no C5, no budget truncation; not like-for-like against ceiling-tie shares measured over conditioned enumerated populations. Reads no files |
+| `python3 verify.py --t3-stats DIR` | (added 2026-08-11) two of the three pre-registered validity statistics of the **T3 exact-uniform draw sample** — (a) uniformity of the rank stream (χ² over 16 equal buckets, bucket = ⌊16·r/N⌋, 15 dof, **PASS below 37.70**) and (c) the C3 fraction at `cd ≤ 387` against `p₀ = 1/8.26 = 0.12107`, **flagged beyond 4σ** either direction. Both bars are frozen in the pre-registration (private repo, `PREREG_F_CATALOG_T1_T4_2026_08_06.md` §3, committed **before** the first recorded draw) and neither may be adjusted to make a result land — a breach quarantines the sample. `N = \|C1∩C2∩C4∩C5\| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688` (TR-11 §9). Statistic (b) is deliberately **not** restated here; run `--t3-membership`. DIR is a directory of `t3_stream_*.out[.gz]`, or one such file. **Input is not in this repo** — see §"Analyses over large artifacts" for the generating command and its measured cost. Analysis itself: **≈22.9 MB peak RSS** for 10⁶ draws (reproducible across 7 runs); wall is a few seconds but is load-dependent and is **not** a reproducible figure — see §"Analyses over large artifacts" |
+| `python3 verify.py --t3-membership PATH [--t3-membership-limit N]` | (added 2026-08-11) the third pre-registered statistic, (b) **membership**: every emitted walk must satisfy C1∩C2∩C4∩C5. Bar **100%** — a single failure is a first-order finding. This is the *second language* for that check, so its value is that it shares no code with the sampler: the predicates are transcribed from [SPECIFICATION.md](SPECIFICATION.md) §C1/C2/C4/C5 and it uses only `verify.py`'s own rule-derived helpers (`_partner`, `hamming`, `compute_comp_dist`), all gated at import against the spec literals. Before reporting anything it (i) self-tests the transcription (partner is an involution; exactly 8 self-reverse hexagrams; `partner(63) = 0`; the C5 target sums to 63; `compute_comp_dist(KW) = 776`; King Wen itself is accepted) and (ii) runs a **positive control per constraint** — each control breaks exactly one of C1/C2/C4/C5 and the run aborts unless that constraint's own predicate fires, which is what separates a working checker from one that says MEMBER to everything. Two checks beyond the prereg: the engine-recorded `cd=` is independently recomputed (`cd = compute_comp_dist(S)/2 − 1`, the −1 being the C4-pinned `(63,0)` pair), and duplicates are detected. `--t3-membership-limit 1000` on one stream reproduces exactly the pre-registered spot-check leg in a fraction of a second. Full census: **≈149 MB peak RSS** for 10⁶ draws, the one figure that reproduced across every measurement condition; wall ranged **60–98 s** depending on what else the box was doing and is **not** a reproducible figure — see §"Analyses over large artifacts", which records two successive wrong answers about it |
+| `python3 verify.py --g-structure C2ON_LOG C2OFF_LOG` | (added 2026-08-11) structure of the **full-31 G distribution** from two enumerator logs carrying `G_HIST` lines — C2-ON (C1&C2&C4) and C2-OFF (C1&C4). Re-derives the moments as exact rationals, checks every bin is divisible by 48, and on the C2-OFF side runs the sharp identities: `G_HIST_WSUM == 128 · G_HIST_TOTAL` exactly, and `P(G ≤ 95)` equal **as a rational** to the closed-form null `641983711307479/7919632354008375` — the same constant `--check-null-g` derives from scratch, so this is a cross-instrument agreement rather than a restatement. Then a convolution test (`q^(1/m)` coefficient tails for 14 values of m) showing no `m` truncates, i.e. G is **not** an independent-sum statistic — consistent with a permutation statistic (sampling without replacement). **Scope:** this says nothing about prefix-G g48-invariance; a quotiented run cannot test the assumption its own quotient makes. Analysis is instant and reads only the logs; producing them is not — see §"Analyses over large artifacts" |
 | `python3 verify.py --check-layer-sidecars DIR` | the per-layer SIDECARS (`f1c5_layer_stats_KK.json`): two *independent* marginal decompositions (`marginal_last_mass` by terminal pair, `marginal_rid_mass` by boundary-residue id) each summing to `mass_total`; histogram totals against `n_entries` / `n_masks − n_empty_masks`; `mass_total` inside its own value-histogram bounds; `n`/`b0`/`pl_hash` agreement with the manifest; and the layer-to-layer **sha256 lineage chain** (`input_sha256_decompressed[k] == own_sha256_decompressed[k−1]`). Reads **only** the small JSON sidecars — no layer-file I/O, so it costs nothing and works long after the campaign VM is gone. Recomputes no masses |
 
 The C-side sibling, **`verify.c`** (same independence discipline: no `solve.c`
@@ -48,6 +54,100 @@ instance** and compares against the run.out rows — agreeing at every layer
 within its memory reach (the plain state space grows ~16× per layer, so it
 exhausts long before k = 31; it is corroboration, **not** the independent
 full-scale recomputation §10(vi) asks for).
+
+## Analyses over large artifacts — reproducible *at a stated price*
+
+*Added 2026-08-11 (task #213 C). Read this before citing `--t3-stats`,
+`--t3-membership` or `--g-structure` as "reproducible".*
+
+Three analyses used to exist only as scripts in the private staging repo. The
+numbers they produce were published; the method was not runnable by anyone
+outside the project. **A script in a private repo does not make a public number
+reproducible** — that was the whole of the #213 debt, and moving the *analysis*
+into `verify.py` is what pays it down.
+
+What moved is the analysis, not the data. The inputs are large and remain
+privately held, so each mode takes an **artifact path from the caller**. That
+is an honest promise only if the reader is also told how to *generate* the
+artifact and what that costs, so both are stated here and in each flag's
+`--help`:
+
+| mode | input artifact | how it is generated | measured cost to generate |
+|---|---|---|---|
+| `--t3-stats`, `--t3-membership` | the T3 exact-uniform draw sample: 16 streams × 62,500 draws = 10⁶ draws (~107 MB gzipped) | one KC-sampler invocation per stream — arguments `--kc-sample <f-dir> 62500 <seed> --kc-record --kc-ooc --kc-cache-mb 384`, with `SOLVE_F1_OOC_READ_MB=1`, against the Stage F **f-ladder**. **Not on `main`:** see the branch note below the table | **≈12.6 h wall** on one D16als_v7 (16 lanes, Premium P50 f-disk) against a **3.1 TB** f-ladder — plus building the branch that carries the sampler. Seed-deterministic: the same seeds, f-ladder and binary regenerate the same draws |
+| `--g-structure` | two full-31 enumerator logs carrying `G_HIST` bin lines — one C2-ON (base C1∩C2∩C4), one C2-OFF (base C1∩C4) | two full-31 `solve --f1-c3-hist --f1-pairs 31 --f1-out-of-core DIR` runs, the C2-OFF one adding `--no-c2` (all on `main`; see [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §`--f1-c3-hist`) | **23,054 s** (C2-ON) and **39,003 s** (C2-OFF) on 128 threads — see the cost caveat below the table |
+
+**Branch note (T3 sampler).** The `--kc-*` subcommands are **not on `main`**.
+They live in `solve.c` on the published branch `v4-compiler`, which
+[BRANCH_REGISTRY.tsv](BRANCH_REGISTRY.tsv) classes as a *snapshot* — a frozen
+working branch, not the authoritative corpus, and not something to cite for
+claims. Regenerating the T3 sample therefore costs a checkout and build of that
+branch on top of the ~12.6 h of compute. The arguments above are deliberately
+written **without** a `solve` prefix: an invocation form would assert that the
+command runs against this ref's binary, and it does not.
+
+**Cost caveat (`--g-structure` inputs).** Those two figures are each the
+**final attempt's** reported wall. Both runs were checkpoint/resumed across Spot
+evictions — the C2-OFF log on hand begins with `RESUME from last complete layer
+k=16`, so its 39,003 s covers layers 17–31 only. They are therefore **lower
+bounds** on from-scratch cost, not the total. For scale, the C2-ON run's
+first-attempt-start to final-exit span was ≈33.6 h.
+
+Analysing an artifact you already have is cheap by comparison. Measured
+2026-08-11 with `/usr/bin/time -v` on the project's 2-vCPU orchestrator VM
+(Azure D2as_v6, AMD EPYC 9V74, the two vCPUs being SMT siblings; Python 3.12.3),
+over the same 10⁶-draw sample:
+
+| analysis | peak RSS — reproducible | wall — band, not a figure |
+|---|---|---|
+| `--t3-stats` | 22,740–23,084 kbytes (≈22.9 MB), 7 runs | ~3–5 s — load-dependent |
+| `--t3-membership`, full census | 148,844–149,092 kbytes (≈149 MB), 7 runs | ~60–100 s — load-dependent |
+| `--g-structure` | not measured | not measured |
+
+**Peak RSS is the reproducible figure. Wall is not — quote it only as an order
+of magnitude.** This section has now been wrong twice about wall, in opposite
+directions, and both errors are recorded here rather than replaced quietly:
+
+1. It first published a bare **"82 s"**. Five identical full-census runs spanned
+   **76.9–97.9 s**, so a single number was never right.
+2. It was then rewritten to publish that band and to assert the spread was
+   intrinsic — *"the spread is in user CPU time … a quieter machine will not
+   remove it."* **That was also wrong.** Independent re-measurement on a genuinely
+   idle box returned **60.6–61.2 s at 99 % CPU**, below the whole published band.
+   A quieter machine did remove it. The "carrying no workload but the runs
+   themselves" claim was simply false: several agents were writing to this
+   two-vCPU box concurrently while those numbers were taken, and the two clusters
+   near 78 s and 96 s are that contention, not a property of the workload.
+
+The lesson generalises past this file: **a wall-clock figure measured on a
+2-vCPU shared-tenancy box while anything else runs is not a measurement of the
+program.** Peak RSS reproduced across every condition — 0.17 % over the noisy
+runs, and the independent idle runs landed inside the same band — so RSS is what
+this section stands behind. Re-measure either mode yourself with `/usr/bin/time -v` in front of the
+documented command — the input directory is the one described in the table
+above.
+
+So the cost of reproduction is dominated entirely by regenerating the input, and
+that is the number a reader needs.
+
+**Independence is unchanged.** These modes import nothing from `solve.c` /
+`solve.py` / `roae.py` / `sat.py`, exactly like the rest of this file. The
+membership evaluator is the sharpest case: its *only* value is that it shares no
+code with the sampler whose output it judges, so its predicates are transcribed
+from [SPECIFICATION.md](SPECIFICATION.md) and `partner` is re-derived from the
+stated rule (reverse; complement for the self-reverse hexagrams) rather than
+copied from any table. It reuses `verify.py`'s own rule-derived helpers, which
+are gated at import by `_verify_tables_against_rules()` against the
+SPECIFICATION.md literals — the same clean-room derivation, not a shortcut
+through the engine. Importing an engine helper here would destroy the property
+that makes the check worth running; the source carries that warning too.
+
+**What these modes do not establish.** `--t3-stats` (a) tests uniformity of the
+**rank stream**, i.e. the unrank path — not uniformity over the solution space
+in any richer sense; a PASS licenses the sample as a uniform null and says
+nothing about whether a particular downstream observable is well-behaved.
+`--g-structure` says nothing about prefix-G g48-invariance, because a quotiented
+run cannot test the assumption its own quotient makes.
 
 ## The independent method (`--recount`)
 

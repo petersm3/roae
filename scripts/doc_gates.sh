@@ -46,6 +46,11 @@
 #                                   # it — or (kind `attrib`, 2026-08-06) a SUPERSEDED
 #                                   # ATTRIBUTION restated with no path to its correction;
 #                                   # registry-driven, open-backlog adjudicated
+#   scripts/doc_gates.sh repro-reach # GATE 25: LEG 1 (hard) a documented reproduction command
+#                                   # naming a flag that does not exist — the doc->code direction
+#                                   # GATE 2 misses; and LEG 2 (REPORT-ONLY, never affects rc) a
+#                                   # doc that publishes a measured figure and names no way to
+#                                   # re-derive it. NOT in `all` — by caution, per its header.
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (3 roae.py runs,
 #                                   # ~67 s measured 2026-08-07, ~107-135 s on earlier recorded runs;
 #                                   # NOT in `all` — by cost; the PASS banner states what that excludes,
@@ -582,9 +587,22 @@ gate_cli() {
     # lines, a flag in a docstring or other string literal, and a declaration sharing a line
     # with a trailing comment that itself names a second flag. Whole-line `#` and `//`
     # comments are all it removes.
+    # BOTH QUOTE STYLES (2026-08-11, defect 6's fix). The py extractor read
+    # `add_argument("--...` and NOTHING ELSE for its whole life, so it was blind to a file
+    # that quotes with apostrophes. That is not hypothetical: verify.py declares all 19 of its
+    # flags as `add_argument('--...` and the double-quote-only extractor returned ZERO of
+    # them — measured, which is why verify.py could not simply be added as a fifth pair.
+    # WIDENING THE CODE SIDE IS THE DANGEROUS DIRECTION (the comparison is `comm -23`, code
+    # minus doc, so a flag added here can MANUFACTURE a finding), so it was measured before it
+    # was written rather than argued: roae.py 59 double-quoted / 0 single-quoted, solve.py
+    # 78 / 0, verify.py 0 / 19. The two live py pairs contain no apostrophe-quoted declaration
+    # at all, so this widening adds exactly zero flags to either and cannot move their census.
+    # The flag is re-extracted by a second grep instead of `sed 's/.*"//'`, which could only
+    # ever strip one of the two quote characters.
     if [ "$mode" = py ]; then
       grep -vE '^[[:space:]]*(#|//)' "$code" \
-        | grep -oE 'add_argument\("--[a-z0-9][a-z0-9_-]*' | sed 's/.*"//' | sort -u > "$cf"
+        | grep -oE 'add_argument\(("|'"'"')--[a-z0-9][a-z0-9_-]*' \
+        | grep -oE -- '--[a-z0-9][a-z0-9_-]*' | sort -u > "$cf"
     else
       grep -vE '^[[:space:]]*(#|//)' "$code" \
         | grep -oE '"--[a-z0-9][a-z0-9-]*"' | tr -d '"' | sort -u > "$cf"
@@ -610,7 +628,8 @@ gate_cli() {
     ncode=$(wc -l < "$cf"); ndoc=$(wc -l < "$df")
     if [ "$mode" = py ]; then
       ncmt=$(grep -E '^[[:space:]]*(#|//)' "$code" \
-             | grep -oE 'add_argument\("--[a-z0-9][a-z0-9_-]*' | sort -u | wc -l)
+             | grep -oE 'add_argument\(("|'"'"')--[a-z0-9][a-z0-9_-]*' \
+             | grep -oE -- '--[a-z0-9][a-z0-9_-]*' | sort -u | wc -l)
     else
       ncmt=$(grep -E '^[[:space:]]*(#|//)' "$code" \
              | grep -oE '"--[a-z0-9][a-z0-9-]*"' | sort -u | wc -l)
@@ -629,6 +648,24 @@ gate_cli() {
   # sat.py hand-rolls sys.argv parsing with literal quoted flag strings, so the
   # C-mode extractor applies verbatim (verified 2026-08-01: passes).
   check_pair sat.py   documentation/SAT_CLI.md      c
+  # verify.py — WIRED 2026-08-11 (defect 6). It was outside this gate entirely from the day
+  # the independence exception created it (CLAUDE.md §"The INDEPENDENCE exception"), so the
+  # one file whose whole purpose is to be an INDEPENDENT check of published results had no
+  # check that its own CLI was documented. It gained three flags (--t3-stats,
+  # --t3-membership, --g-structure, plus --t3-membership-limit) the same week this was
+  # noticed, which is the drift GATE 2 exists for.
+  #
+  # MEASURED BEFORE WIRING, on BOTH the committed tree at a23d82a9 and the tree carrying the
+  # uncommitted verify.py/VERIFY.md work: `comm -23` of the extracted code side against the
+  # doc side is EMPTY in both cases (15 flags then, 19 now, all documented). A gate wired on
+  # top of pre-existing undocumented flags would be a red pre-push hook for everybody until
+  # someone else's backlog was written, which is why the measurement came first and why the
+  # result is recorded rather than the intention.
+  #
+  # THE PAIR IS py MODE, which required widening the py extractor to apostrophe-quoted
+  # declarations — see the extractor above for the measurement that widening is safe for the
+  # two pairs that already existed.
+  check_pair verify.py documentation/VERIFY.md      py
   return $bad
 }
 
@@ -2735,7 +2772,15 @@ if [ "${1:-}" = "--selftest" ]; then
   #   GATE 2   flags/documented 78/95 -> 79/96 (a flag added to both sides)
   #   GATE 2   commented-out declarations dropped 0 -> 1 (item A4's leg — the one a FLAG
   #            count could not discriminate, since the injected line must NOT become a flag)
-  #   GATE 12  revision rows checked 158 -> 159
+  #   GATE 12  revision rows checked base -> base+1
+  #   GATE 25  documented command-flag uses base -> base+1, waivers unchanged
+  # THE LAST TWO ARE RELATIVE AS OF 2026-08-11 and the others are still ABSOLUTE, which is a
+  # standing hazard rather than a design. Three numbers above (44, 78/95, 0 -> 1) are
+  # corpus-derived pins of the same class that put GATE 12's and GATE 25's legs RED, and they
+  # are green today only because nobody has added a flag to solve.py or a meta-mention to the
+  # scanned corpus lately. The conversion recipe is at GATE 12's control; it is not applied
+  # here because a leg that is currently green is a worse place to learn a new technique than
+  # one that is currently red, not because the pins are sound.
   # The other three pin a COUNT THAT THE DEFECT THE CONTROL IS ABOUT WOULD MOVE, which is
   # weaker: GATE 14's adjudicated-pair count, GATE 15's instrument count, and GATE 15 LEG 3's
   # claims census. NONE now pins only "the leg ran". Every one is strictly stronger than rc 0.
@@ -2969,8 +3014,26 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
   # `78 flag(s) compared against 95 documented`; under this mutation both sides gain exactly
   # one, so a run that did not re-read either file prints 78/95 and this leg goes RED.
   # MEASURED under this very mutation, not arithmetic off the clean run.
+  # RELATIVIZED 2026-08-11 (same class as GATE 12 / GATE 25's converted controls). These two
+  # legs pinned ABSOLUTE censuses — `79 … 96` and `78 … 95` — and both went RED the moment a
+  # sibling change added 12 flags to solve.py, moving the live census to 90/107. That is the
+  # third and fourth instance of this rot found in one night; the base is now read at runtime
+  # so the corpus can move without falsifying a leg that is still testing the right thing.
+  # GATE 16 SEES ONLY THE FRAGMENT ` flag\(s\) compared against ` here, for the piecewise-
+  # quoting reason recorded at GATE 25's converted control: the real ERE contains it, so a
+  # fragment no preflight can emit guarantees an ERE no preflight can emit.
+  _G2_BASE=$(bash "$0" cli 2>&1)
+  _G2_LINE=$(printf '%s' "$_G2_BASE" | grep -F 'solve.py fully documented in documentation/SOLVE_PY_CLI.md' | head -1)
+  _G2_F=$(printf '%s' "$_G2_LINE" | grep -oE '\([0-9]+ flag' | grep -oE '[0-9]+')
+  _G2_D=$(printf '%s' "$_G2_LINE" | grep -oE 'against [0-9]+ documented' | grep -oE '[0-9]+')
+  if [ -z "$_G2_F" ] || [ -z "$_G2_D" ]; then
+    echo "  [FAIL] GATE 2 negative controls — the base 'cli' run printed no solve.py census"
+    echo "         line, so the two controls below have no base to compare against. A leg that"
+    echo "         cannot read its own base is silent, not clean."
+    PASS=1; _G2_F=-1; _G2_D=-1
+  fi
   assert_stays_clean_why "GATE 2 — a flag added to BOTH solve.py and its CLI doc stays silent" cli \
-    'solve\.py fully documented in documentation/SOLVE_PY_CLI\.md \(79 flag\(s\) compared against 96 documented' \
+    'solve\.py fully documented in documentation/SOLVE_PY_CLI\.md \('"$((_G2_F + 1))"' flag\(s\) compared against '"$((_G2_D + 1))"' documented' \
 "p='solve.py'
 a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
 s=open(p,encoding='utf-8').read()
@@ -3012,7 +3075,7 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
   # ERE pins all three, so it now proves the line was read AND classified as a comment,
   # rather than that the mode exited 0.
   assert_stays_clean_why "GATE 2 (A4) the SAME declaration commented out is not a flag" cli \
-    'solve\.py fully documented in documentation/SOLVE_PY_CLI\.md \(78 flag\(s\) compared against 95 documented, 1 commented-out declaration\(s\) dropped\)' \
+    'solve\.py fully documented in documentation/SOLVE_PY_CLI\.md \('"$_G2_F"' flag\(s\) compared against '"$_G2_D"' documented, 1 commented-out declaration\(s\) dropped\)' \
 "p='solve.py'
 a='    parser.add_argument(\"--pairs\", action=\"store_true\",'
 s=open(p,encoding='utf-8').read()
@@ -3768,18 +3831,47 @@ os.remove(f)"
   # EVIDENCE (round 8 drain-3, UPGRADED round 9 item B9): the duplicate-version clause of
   # GATE 12's own pass line pinned that the leg which WOULD have flagged this row ran, and
   # nothing more — GATE 12 counted FILES, and a file count does not move when a row is
-  # inserted. It now counts ROWS: 172 clean, and this mutation inserts exactly one, so the
-  # ERE below pins 173 and a run that never re-read TR-11 goes RED.
-  # THE PIN DRIFTS, and that is the cost of counting rows rather than files. It was 158/159
-  # when written; re-MEASURED 2026-08-07 at 172 clean (`bash scripts/doc_gates.sh revhist`),
-  # so the pin moved to 173. The stale pin failed CLOSED — the assertion went RED and named
-  # the mismatch — which is the behaviour to keep. Re-measure, never estimate: the count is
-  # rows across ELEVEN files, and no one can eyeball it.
+  # inserted. It now counts ROWS, and this mutation inserts exactly one, so a run that never
+  # re-read TR-11 goes RED.
+  #
+  # THE PIN WAS ABSOLUTE AND IT ROTTED — CONVERTED TO A COMPARISON 2026-08-11. Its history is
+  # the argument: 158/159 when written, re-measured to 172/173 on 2026-08-07 (8bddd2cd), and
+  # RED again four days later. The drift was RECONSTRUCTED commit by commit rather than
+  # guessed, by running `bash scripts/doc_gates.sh revhist` at each commit that touched
+  # reports/TR*.md since the pin was last taken:
+  #     8bddd2cd 172 (pin correct)   0d02ccf4 172   8849f250 172
+  #     1229cfb5 173 (pin now STALE) 30b0c7aa 174   5d04b8d6 174   afd76fc6 174
+  #     93878a18 175 (TR-11 v1.19)   a23d82a9 175
+  # So the pin first went stale at 1229cfb5, TWO commits and two rows before 93878a18 — the
+  # commit that landed TR-11 v1.19 contributed exactly ONE row of a three-row gap and did not
+  # break this leg. Recorded because "which commit broke it" is the question a red assertion
+  # provokes, and here the honest answer is that nothing did: an absolute count in an
+  # assertion over a corpus whose whole purpose is to GROW breaks on a schedule.
+  #
+  # THE TECHNIQUE IS GATE 25 LEG 2's, and the same conversion was applied to GATE 25's own
+  # negative control in the same pass: take the census on the CLEAN tree, then require the
+  # mutated run to read base + 1 rows. The TR-file count is pinned to base EXACTLY — it must
+  # NOT move, since this mutation adds a row to an existing file — so a run that read fewer
+  # revision histories is still RED. Nothing here needs re-measuring when a TR ships a row.
+  # If the base census cannot be read the leg FAILS and says so; the sentinel then fails the
+  # assertion too, so a base that could not be taken never reads as a base that agreed.
   # WHAT IT STILL DOES NOT PROVE, since a clear is weaker than a failure: that the inserted
   # row was tested for the DRAFT-suffix exemption specifically. It proves it was PARSED as a
   # row and that no duplicate-release finding came out of the file it went into.
+  # GATE 16 SEES ONLY THE FRAGMENT ` TR revision histories, ` here, for the piecewise-quoting
+  # reason recorded in full at GATE 25's converted control: the real ERE contains it, so a
+  # fragment that no preflight can emit guarantees an ERE that no preflight can emit.
+  _G12_BASE=$(bash "$0" revhist 2>&1)
+  _G12_T=$(printf '%s' "$_G12_BASE" | grep -oE '[0-9]+ TR revision histories' | grep -oE '^[0-9]+')
+  _G12_R=$(printf '%s' "$_G12_BASE" | grep -oE '[0-9]+ revision row\(s\) checked' | grep -oE '^[0-9]+')
+  if [ -z "$_G12_T" ] || [ -z "$_G12_R" ]; then
+    echo "  [FAIL] GATE 12 negative control — the base revhist run printed no census line, so"
+    echo "         the control below has no base to compare against. A leg that cannot read"
+    echo "         its own base is silent, not clean."
+    PASS=1; _G12_T=-1; _G12_R=-1
+  fi
   assert_stays_clean_why "GATE 12 a repeated DRAFT label is exempt (suffix-keyed, not file-keyed)" revhist \
-    '11 TR revision histories, 173 revision row\(s\) checked: .* no repeated released version' \
+    "$_G12_T"' TR revision histories, '"$((_G12_R + 1))"' revision row\(s\) checked: .* no repeated released version' \
 "f='reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md'
 lines=open(f,encoding='utf-8').read().split(chr(10))
 i=[n for n,l in enumerate(lines) if l.startswith('| v1.0-draft | 2026-07-05 |')]
@@ -5561,6 +5653,205 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   fi
   rm -f "$_G17_COPY"
 
+  # GATE 25 FIRE-PROOF (2026-08-11, the day after the gate landed). GATE 25 shipped at
+  # a23d82a9 with NO assertion of any kind, so nothing in this harness could separate a gate
+  # that reads the corpus from one that reads nothing: a green `repro-reach` attested that
+  # every documented reproduction command resolves to a real flag, and the whole evidence for
+  # that attestation was its own exit code. That is precisely the shape GATE 15 refuses for an
+  # INSTRUMENT, and it was live for a GATE — over-attestation of the kind this suite exists to
+  # catch, not a missing nicety.
+  #
+  # THE DISPATCH IS THE LEAF NAME `repro-reach`, which runs gate_repro_reach and nothing else.
+  # GATE 16 LEG 2 refuses a fire-proof written against a combined dispatch name outright, so
+  # this is satisfied structurally rather than by an argument about wording — the correction
+  # that retired the `links` and `ledger` fire-proofs (item B2, round 9).
+  #
+  # THE TWO LEGS ARE A MATCHED PAIR, and neither is worth much alone. Same file, same
+  # appended sentence, same mutation shape; the ONLY difference is whether the cited flag
+  # exists in verify.py. "It fires" on its own is equally consistent with a gate that rejects
+  # any flag name it has not seen before — which would make the next reproduction command
+  # anyone documents a false [FAIL] on a BLOCKING pre-push hook. "It stays silent" on its own
+  # is equally consistent with a gate that never opened the file. Run together, the verdict is
+  # attributable to the flag's existence and to nothing else, which is the same argument item
+  # A4's live/commented GATE 2 pair is built on.
+  assert_fires_why "GATE 25 a reproduction command citing a flag that does not exist" \
+    repro-reach 'verify\.py --doc-gates-fireproof-reach — not a flag of verify\.py' \
+"p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --doc-gates-fireproof-reach\n')"
+
+  # THE CENSUS IS COMPARED, NOT PINNED — CONVERTED 2026-08-11, the day after this leg
+  # shipped, and the conversion is the point rather than the number.
+  #
+  # IT SHIPPED PINNING `807 documented command-flag use(s)` AND WENT STALE WITHIN THE HOUR.
+  # (An earlier revision of this comment claimed it was "already wrong when it shipped, the
+  # clean census is 811" — THAT WAS FALSE and is retracted here. Measured on the COMMITTED
+  # tree at a23d82a9: the census is 806, so 807 = 806 + 1 was CORRECT as written. The 811
+  # reading came from the WORKING tree, i.e. a23d82a9 plus an uncommitted VERIFY.md that had
+  # added 5 more uses. Diagnosing a stale pin from a dirty tree and reporting it as "wrong at
+  # the commit" is the same single-source error the pin itself illustrates.)
+  # What actually happened is worse for the absolute-pin case, not better: the number was
+  # right at the commit and was falsified by a CONCURRENT EDIT while the leg was being
+  # written. Its own comment recorded the census moving 806 -> 809 -> 810 -> 811 across
+  # twenty minutes while a concurrent
+  # verify.py/VERIFY.md edit was being written, and then pinned a number anyway with an
+  # instruction to RE-TAKE it by hand. That instruction is the defect, not the cure: an
+  # ABSOLUTE corpus-derived count in an assertion is guaranteed to rot, it rots in the
+  # direction that matters — a corpus that GREW and a leg that stopped reading the corpus are
+  # indistinguishable at a fixed number — and the only remedy on offer is a fresh number with
+  # the same expiry. Replacing 807 with 812 would have been exactly that, one round later.
+  #
+  # THE TECHNIQUE IS THE ONE LEG 2's INLINE LEGS BELOW ALREADY USE, applied here rather than
+  # invented: take the census on the CLEAN tree, then require the mutated run to read
+  # base + 1. This mutation appends exactly ONE reproduction command to documentation/GUIDE.md,
+  # so base + 1 is the entire claim and nothing here needs re-measuring when the corpus moves.
+  # The waiver count is pinned to base EXACTLY (it must not move), for the reason the pinned
+  # version already gave: a NARRATION row silently swallowing this flag is the one other way
+  # the leg could go green without the comparison working. The `scanned N docs` half stays out
+  # of the ERE — it moves on any new .md and discriminates nothing here.
+  #
+  # IT IS STILL A DISCRIMINATOR, which is the whole property a relative form must not trade
+  # away. Three ways this leg could go green with the gate broken, each refused by a different
+  # half of the assertion, and the second was PROVEN BY SABOTAGE on 2026-08-11 rather than
+  # argued:
+  #   * a run that never re-read documentation/GUIDE.md prints base, not base + 1 -> RED;
+  #   * a gate that stops telling a REAL flag from a fake one in the direction this control
+  #     owns — i.e. reports `--recount` as missing — exits non-zero, and assert_stays_clean_why
+  #     fails at the rc test before the ERE is consulted. SABOTAGE RUN: delete the
+  #     `if fl in have[tool]: continue` line from gate_repro_reach and this leg goes [FAIL]
+  #     while its paired assert_fires_why above stays [ok]. The opposite sabotage (every flag
+  #     treated as present) is what that paired fire-proof owns; neither leg covers both
+  #     directions alone, which is why they are a matched pair;
+  #   * a NARRATION waiver absorbing the injection moves the waiver count -> RED.
+  #
+  # THE BASE RUN IS THIS LEG'S OWN, not LEG 2's, deliberately. LEG 2 takes its base after
+  # several mutations have been injected and reverted; a base a failed revert could have moved
+  # is not a base. If the census cannot be read at all the leg says so and FAILS — a leg that
+  # cannot read its own base is silent, not clean — and the sentinel makes the assertion below
+  # fail too, so that failure cannot be one line nobody greps.
+  #
+  # WHAT THIS COSTS GATE 16, stated rather than left to be found. GATE 16 extracts an
+  # assertion's evidence-ERE as the FIRST SINGLE-QUOTED token after the label, so an ERE
+  # carrying a shell variable can only be quoted piecewise, and what GATE 16 scans here is the
+  # literal fragment ` documented command-flag use\(s\), ` rather than the whole ERE. That is
+  # SOUND but weaker, and the soundness is the reason it is acceptable: the real ERE contains
+  # the fragment as a substring, so any line matching the real ERE also matches the fragment —
+  # if the fragment is not preflight-emittable, neither is the ERE. What is given up is
+  # precision in GATE 16's report, not safety in its verdict.
+  _G25_CBASE=$(bash "$0" repro-reach 2>&1)
+  _G25_CU=$(printf '%s' "$_G25_CBASE" | grep -oE '[0-9]+ documented command-flag use' | grep -oE '^[0-9]+')
+  _G25_CW=$(printf '%s' "$_G25_CBASE" | grep -oE '[0-9]+ declared-narration waiver' | grep -oE '^[0-9]+')
+  if [ -z "$_G25_CU" ] || [ -z "$_G25_CW" ]; then
+    echo "  [FAIL] GATE 25 negative control — the base repro-reach run printed no census line,"
+    echo "         so the control below has no base to compare against. A leg that cannot read"
+    echo "         its own base is silent, not clean."
+    PASS=1; _G25_CU=-1; _G25_CW=-1
+  fi
+  assert_stays_clean_why "GATE 25 the same sentence citing a flag that DOES exist stays silent" \
+    repro-reach "$((_G25_CU + 1))"' documented command-flag use\(s\), '"$_G25_CW"' declared-narration waiver\(s\)' \
+"p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount\n')"
+
+  # GATE 25 LEG 2 (REPORT-ONLY) — PROVEN ON OUTPUT AND ON rc NOT MOVING, never on rc alone.
+  #
+  # It cannot use assert_fires_why: that helper FAILS the assertion unless the gate exits
+  # non-zero, and a non-zero exit is the one thing this leg must never cause. Same reason GATE
+  # 1's and GATE 13's legs are written inline — "ASSERT ON OUTPUT, never on rc: GATE 13 is
+  # report-only and returns 0 by design". A report-only leg with no proof at all is the
+  # unfalsifiable-instrument shape this suite exists to refuse, so it gets one anyway.
+  #
+  # THE COUNT IS COMPARED, NOT PINNED, and that is a deliberate departure from the pinned
+  # censuses above. LEG 2's population is a function of the whole corpus, so an absolute
+  # number here would go stale on any new doc — and it would go stale SILENTLY in the
+  # direction that matters, since a corpus drift and a broken leg look identical at a fixed
+  # number. The base run is taken first and the mutated run must be base+1 (fire) and base
+  # exactly (control). Nothing here needs re-measuring when the corpus moves.
+  #
+  # rc IS COMPARED TO ITS OWN PRE-MUTATION VALUE, not asserted to be 0. Asserting 0 would
+  # bind this leg to LEG 1 being clean on whatever tree it runs against; a real LEG 1 finding
+  # committed by someone else would then fail THIS assertion for a reason that has nothing to
+  # do with LEG 2. Equality with the base rc is the property actually claimed: LEG 2 changed
+  # the exit code by nothing, whatever it was.
+  #
+  # THE TARGET IS THE FILE THAT MOTIVATED THE GROUPING RULE. documentation/GT_LADDER_FORMAT.md
+  # carries `1,2,3,4,6` — list syntax, not a figure — and it is one of the three files the
+  # loose "comma between digits" reading falsely flagged (measured, recorded at LEG 2's
+  # definition). Injecting a REAL grouped figure into that same file proves the narrowed rule
+  # still ADMITS a figure in the very file whose punctuation it learned to ignore, which a
+  # synthetic target could not show.
+  # NO HELPER FUNCTION IS DEFINED FOR THE CENSUS EXTRACTION, deliberately. Every function
+  # declared in this region is an INSTRUMENT and must carry a row in
+  # documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt or GATE 15 fails — and the only kind a
+  # `$( ... "$var")` wrapper could claim is kind=BLOCK, the weakest one, whose own row already
+  # says a report line is proximity and not reachability. Three inline pipelines are worth
+  # more than a fourth BLOCK row.
+  _G25_BASE=$(bash "$0" repro-reach 2>&1); _G25_BASERC=$?
+  _G25_N=$(printf '%s' "$_G25_BASE" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
+  if [ -z "$_G25_N" ]; then
+    echo "  [FAIL] GATE 25 LEG 2 — the base run printed no '; N publish' census, so neither"
+    echo "         leg below could be scored. LEG 2 is report-only: a leg that cannot read"
+    echo "         its own census is silent, not clean."
+    PASS=1
+  else
+    if python3 -c "
+p='documentation/GT_LADDER_FORMAT.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 rows.'+chr(10))" 2>/dev/null; then
+      _G25_F=$(bash "$0" repro-reach 2>&1); _G25_FRC=$?
+      _selftest_revert documentation/GT_LADDER_FORMAT.md
+      _G25_FN=$(printf '%s' "$_G25_F" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
+      if [ "$_G25_FN" = "$((_G25_N + 1))" ] \
+         && printf '%s' "$_G25_F" | grep -qF 'documentation/GT_LADDER_FORMAT.md — 1 figure(s), largest 1,234,567' \
+         && [ "$_G25_FRC" -eq "$_G25_BASERC" ]; then
+        echo "  [ok]   GATE 25 LEG 2 fires: a grouped figure in a file with no reproduction"
+        echo "         command joins the note list ($_G25_N -> $((_G25_N + 1))), is named with its"
+        echo "         figure, and the exit code does NOT move (rc $_G25_BASERC both runs)"
+      else
+        echo "  [FAIL] GATE 25 LEG 2 — an injected figure in a command-less file was not"
+        echo "         reported ($_G25_N -> $_G25_FN), or was not named, or MOVED THE"
+        echo "         EXIT CODE (rc $_G25_BASERC -> $_G25_FRC). The last of those is the"
+        echo "         serious one: LEG 2 is report-only and a blocking pre-push hook runs it."
+        printf '%s\n' "$_G25_F" | grep -F 'LEG 2' | sed 's/^/           > /' | head -3
+        PASS=1
+      fi
+    else
+      echo "  [FAIL] GATE 25 LEG 2 — could not inject the fire case; assertion did NOT run."
+      PASS=1
+    fi
+
+    # THE CONTROL, and without it the leg above is equally consistent with "any file carrying
+    # a grouped figure is reported" — which would make LEG 2 a note on most of the corpus and
+    # therefore a note nobody reads. Same file, same figure, one line apart: the only
+    # difference is that the file now names a way to re-derive it.
+    if python3 -c "
+p='documentation/GT_LADDER_FORMAT.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 rows.'+chr(10)
+                                    +'Reproduce: python3 verify.py --recount'+chr(10))" 2>/dev/null; then
+      _G25_C=$(bash "$0" repro-reach 2>&1); _G25_CRC=$?
+      _selftest_revert documentation/GT_LADDER_FORMAT.md
+      _G25_CN=$(printf '%s' "$_G25_C" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
+      if [ "$_G25_CN" = "$_G25_N" ] \
+         && ! printf '%s' "$_G25_C" | grep -qF 'documentation/GT_LADDER_FORMAT.md — 1 figure(s)' \
+         && [ "$_G25_CRC" -eq "$_G25_BASERC" ]; then
+        echo "  [ok]   GATE 25 LEG 2 negative control: the SAME figure in the SAME file, beside a"
+        echo "         reproduction command, is not reported (count stays $_G25_N) — the note is"
+        echo "         driven by the ABSENCE of a command, not by the figure"
+      else
+        echo "  [FAIL] GATE 25 LEG 2 negative control — a file that DOES name a reproduction"
+        echo "         command was still reported (count $_G25_N -> $_G25_CN, rc"
+        echo "         $_G25_BASERC -> $_G25_CRC). LEG 2 is then a note on the corpus at large,"
+        echo "         which is how a report-only leg stops being read."
+        printf '%s\n' "$_G25_C" | grep -F 'LEG 2' | sed 's/^/           > /' | head -3
+        PASS=1
+      fi
+    else
+      echo "  [FAIL] GATE 25 LEG 2 control — could not inject; assertion did NOT run."
+      PASS=1
+    fi
+  fi
+
   # THE COVERAGE GAP, STATED IN FULL. One gate is not mutation-tested here (TWO since
   # 2026-08-06: GATE 18 joined uncovered, with hand-run fire-proofs — see its own
   # NOT-covered-YET entry at the foot of this list), and until
@@ -5640,6 +5931,13 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            verdict word OUTSIDE the close anchor and requires the counts not to move
   #            + 1 PHASE-4 leg (one of the two published boards dropped from the list must be
   #            a FAIL, not a smaller count)
+  #            25 — LEG 1 x1 (a doc citing a flag that does not exist) + 1 NEGATIVE control
+  #            (the same sentence citing a flag that DOES exist stays silent, pinned on the
+  #            census the injection moves), and LEG 2 x1 + 1 NEGATIVE control, both written
+  #            INLINE because LEG 2 is report-only and assert_fires_why requires a non-zero
+  #            exit — the same reason GATES 1 and 13 are inline. Added 2026-08-11, the day
+  #            after the gate landed with no assertion at all; every leg dispatches the LEAF
+  #            name `repro-reach`.
   #   plus the MISSING-INPUT class (item A1, 2026-08-02): every assertion whose LABEL
   #            carries the `A1)` marker, each asserting WHY. NO PER-GATE TALLY AND NO
   #            TOTAL ARE WRITTEN HERE, on purpose. The population is derivable from the
@@ -5805,6 +6103,17 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   #            byte-identical (sha-checked) after each mutation. Same clean-tree debt:
   #            in-harness legs for (a)-(c) plus a negative control that the five
   #            resolution-note/historical allow rows stay silent.
+  #   NOT covered YET, THE REST OF THE TAIL — GATES 19, 20, 21, 22, 23 and 24. This bullet
+  #            named GATE 18 ALONE until 2026-08-11, which read as "18 is the gap" when it was
+  #            only the gap that had been WRITTEN DOWN; six more gates had landed behind it and
+  #            joined nothing. MEASURED that day, two ways, because one of them keys on a
+  #            spelling: `grep -cE 'assert_[a-z_0-9]+ +"GATE <g> '` over this file returns 0
+  #            for each of 18-24, AND `grep -nE '\[ok\] +GATE (1[89]|2[0-4])'` returns no line
+  #            at all, so they have no helper leg and no inline-echo leg either. GATE 25 was
+  #            the seventh member of that set for one day and is now in `covered` above.
+  #            THIS IS A DEBT, NOT A DISPOSITION: no claim is made here that a fire-proof for
+  #            any of the six is impossible or unwarranted, only that none exists and that a
+  #            green --selftest attests nothing whatever about them.
   # The old note said GATE 8 was excluded because ~90s regeneration "exceeds the
   # orchestrator's budget". MEASURED 2026-08-02 on the orchestrator: 45 s and 31 MB peak
   # RSS per run. The budget claim was inherited, not measured, and it was wrong; the
@@ -5815,6 +6124,12 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   echo "         2026-08-02 (item A3) — both extractors, a negative control, and item A4's"
   echo "         live/commented declaration pair. Named, not counted: this line carried a"
   echo "         count that item A4 falsified without moving it (round 14, item R14)."
+  # PRINTED, not only commented, for the reason the PASS banner's own exclusions are printed:
+  # a gap recorded in a comment is invisible to the person reading a green run. GATE 25 LEFT
+  # this line on 2026-08-11 when its two legs landed; the rest of the tail is still on it.
+  echo "  [note] no mutation-test leg AT ALL: GATES 18, 19, 20, 21, 22, 23, 24. A green"
+  echo "         SELF-TEST attests nothing about them — they are dispatched and run, but"
+  echo "         nothing here has ever proven any of them CAN fail."
 
   _selftest_revert
   echo
@@ -7811,7 +8126,14 @@ lines = open(src, encoding="utf-8").read().splitlines()
 #        an unscanned collision there is the stronger of the two hazards, not the weaker.
 #   (ii) any invocation not at EXACTLY two leading spaces. That is not hypothetical in this
 #        file: `_asc_probe=$(assert_stays_clean_why ...)` is live above, which is why the
-#        declared totals are 62 and 9 while a two-space prefix grep returns 62 and 8.
+#        declared totals exceed a two-space prefix grep by one on the stays_clean helper.
+#        NO PAIR OF NUMBERS IS WRITTEN HERE ANY MORE (2026-08-11). This sentence read "the
+#        declared totals are 62 and 9 while a two-space prefix grep returns 62 and 8", and
+#        GATE 25's fire-proof pair moved every one of the four in a single commit — the
+#        caveat-4 shape, in the guard whose whole subject is a population count that rotted.
+#        The live totals are the `population assert_fires_why=N, assert_stays_clean_why=N`
+#        printed by this leg's own [ok] line, cross-checked against callers=N; the DELTA is
+#        the property, and it is exactly one, contributed by the `_asc_probe` call above.
 #
 # LEG 2 OF THIS SAME GATE ALREADY READ BOTH, by a call-position rule, and already
 # cross-checked its per-helper totals against callers=N. So one gate's two legs disagreed
@@ -9884,9 +10206,127 @@ if bad:
         print("  [FAIL] %s %s — not a flag of %s" % (tool, fl, TOOLS[tool]))
         for d in sorted(ds):
             print("         cited in %s" % d)
-    sys.exit(1)
-print("  [ok] every documented reproduction command resolves to a real flag")
-sys.exit(0)
+else:
+    print("  [ok] every documented reproduction command resolves to a real flag")
+
+# --- LEG 2 (REPORT-ONLY, 2026-08-11): a doc that PUBLISHES a measured figure and names no
+# way to re-derive it. LEG 1 asks whether a documented command RESOLVES; it can only ask that
+# of a doc which documents a command at all. The other half of #213 D is the doc that carries
+# the number and no command — the standing rule "never publish a figure ahead of its
+# reproduction command" has no instrument at all, and a green LEG 1 is exactly what a corpus
+# of pure prose figures produces.
+#
+# IT IS REPORT-ONLY AND IT MUST STAY THAT WAY. GATE 24's header states the reason for its
+# own class and it applies here with more force, not less: auto-discovering FIGURES in prose
+# is where false positives live.
+#
+# THE BLOCKING PREMISE IS ABOUT A FUTURE STATE AND THIS PARAGRAPH ASSERTED IT IN THE PRESENT
+# TENSE — corrected 2026-08-11. It read "doc_gates is wired into pre-push as BLOCKING, so a
+# false positive does not annoy — it stops a push". VERIFIED false for GATE 25 by reading
+# every hook and gate script in the tree that day, not by inference:
+#   * `repro-reach` appears in NO hook and in no other script. `grep -rn repro-reach` over
+#     scripts/*.sh and .git/hooks/{pre-commit,pre-push} returns hits in doc_gates.sh alone.
+#   * scripts/pre_push_gate.sh runs `bash scripts/doc_gates.sh all` (plus a CONDITIONAL
+#     `generated` when the pushed range touches roae.py or example/). `all` does not call
+#     gate_repro_reach — GATE 25 sits out of it by the caution its own header states, which
+#     the `all` banner also prints.
+#   * scripts/pre_commit_registry_gate.sh runs only `retract retract-figures ledger-phrases
+#     ledger-figures appendonly-head appendonly-history`, and a WARN-only `retract`/
+#     `retract-figures` pair on the doc-corpus path.
+# So TODAY a LEG 2 false positive stops nothing: it prints a [note] to whoever ran the mode by
+# name, and this gate reaches no hook at all.
+#
+# THE REASONING IS KEPT BECAUSE IT IS CORRECT ABOUT THE CASE IT WAS WRITTEN FOR. `all` IS
+# wired into pre-push as blocking, and GATE 25's header says promotion into `all` is the plan
+# once it has been observed silent across a full corpus. On the day that happens, a LEG 2 that
+# touched the exit code would stop pushes. Report-only is therefore a property to establish
+# NOW, while the gate is cheap to change, rather than a question to reopen at promotion time —
+# which is the same argument, stated against the state that actually holds.
+# The precedent is gate_revrows, which ends
+# `sys.exit(0)  # report-only gate — never blocks`. Nothing below touches `bad`, and the exit
+# is taken from LEG 1's verdict alone.
+#
+# WHAT A "FIGURE" IS HERE, narrowly and by construction. A COMMA-GROUPED INTEGER: a run of
+# digits whose comma groups are all exactly three long. That is the shape this project's
+# measured counts take (10,525,271,997 records; 1,720,320 orientations) and it is deliberately
+# the narrowest defensible reading — percentages, decimals, σ values and ×10ⁿ forms are NOT
+# scanned, because each of them appears in ordinary prose orders of magnitude more often. The
+# grouping test is done in PYTHON, not in the pattern, so no bounded-repetition quantifier
+# enters this file (the `.{0,N}` hang of 2026-08-01, recorded in this file's SAFETY header).
+# RE-MEASURED 2026-08-11, AND THE SENTENCE THIS REPLACES WAS FALSE. It read: the loose
+# reading "flags 8 docs and THREE of them are list syntax ... the grouped reading drops
+# exactly those three". Arithmetic on its own numbers already refused it — 8 - 3 = 5, and the
+# gate prints SIX [note] lines — and it named as dropped a file the gate lists by name.
+# Both readings were re-run over the same corpus, using LEG 2's own doc list, clearing rules
+# and FIG pattern with `_grouped(t)` swapped for `"," in t`:
+#   LOOSE ("any comma between digits"):  8 doc(s)
+#   GROUPED (this test):                 6 doc(s)
+#   DROPPED by the narrowing:            TWO — documentation/GT_LADDER_FORMAT.md (`1,2,3,4,6`
+#     and `9,13,16,18,19,21,22,24,25,27,28`) and
+#     reports/evidence/f11halfb/PREREGISTRATION_EXTENDED.md (`5,10`). Neither carries a single
+#     grouped token, which is why the whole FILE leaves the list.
+#   ADDED by the narrowing:              none.
+# reports/evidence/f11/RESULTS.md was the third file the old sentence named and it is NOT
+# dropped. It carries `0,0`, `0,0,0`, `1,1,0`, `2,0`, `2,2,2` and `63,0` — list syntax, every
+# one correctly ignored — AND six real grouped figures, largest 6,076,161. It stays in the
+# list and the gate prints it below.
+# THE DISTINCTION THE OLD SENTENCE LOST is that the narrowing works TOKEN by token while the
+# [note] is per FILE: a file leaves the list only when EVERY comma token in it is list syntax.
+# documentation/PARITY_ALTERNATION.md is the same shape one token smaller — `32,16` ignored,
+# 601,080,390 and 82,818,450 kept — and it is likewise still reported. So the narrowing is
+# doing more work than "drops three files": it discards list syntax in eight files and
+# changes the FILE verdict in two of them.
+#
+# WHAT COUNTS AS A REPRODUCTION COMMAND is DELIBERATELY GENEROUS, for the same reason: a
+# [note] should mean "this file offers the reader nothing", not "this file offers something
+# my extractor does not recognise". Any ONE of a tool invocation LEG 1 can parse, a fenced
+# code block, a backticked scripts/*.sh path, or a mention of tests.py clears the file.
+#
+# WHAT THIS CANNOT SEE, stated rather than left to be discovered:
+#   * IT IS PER-FILE, NOT PER-FIGURE. A doc with fifty figures and one unrelated command is
+#     silent here. Per-figure attribution is the part that would need a design pass, and it
+#     is precisely the part where false positives would arrive.
+#   * A CLEARING COMMAND NEED NOT REPRODUCE THE FIGURE. `tests.py` in a sentence clears a
+#     file whose figure came from a 560T enumeration. The claim made is narrow: the file
+#     names SOME way in.
+#   * IT SAYS NOTHING ABOUT DOCS WITH NO GROUPED INTEGER. A figure written 5×10³¹, 88% or
+#     p = 0.849 is outside the scan entirely, so a silent file is not a covered file.
+FIG = re.compile(r"[0-9][0-9,]*[0-9]")
+REPRO_PATH = re.compile(r"`(?:bash\s+)?scripts/[a-z0-9_./-]+\.sh")
+
+def _grouped(tok):
+    """True for a comma-grouped integer: leading group 1-3 digits, every later group 3."""
+    g = tok.split(",")
+    if len(g) < 2 or not (1 <= len(g[0]) <= 3):
+        return False
+    for part in g[1:]:
+        if len(part) != 3:
+            return False
+    return True
+
+naked = []
+for d in docs:
+    text = open(d, encoding="utf-8", errors="replace").read()
+    figs = sorted({t for t in FIG.findall(text) if _grouped(t)}, key=lambda s: (-len(s), s))
+    if not figs:
+        continue
+    if (INV.search(text) or "```" in text or REPRO_PATH.search(text)
+            or "tests.py" in text):
+        continue
+    naked.append((d, figs))
+
+print("  -- LEG 2 (REPORT-ONLY): a published figure whose file names no way to re-derive it --")
+print("  [note] LEG 2 read %d doc(s); %d publish a comma-grouped figure and carry no tool"
+      " invocation, no fenced block, no scripts/*.sh path and no tests.py mention"
+      % (len(docs), len(naked)))
+for d, figs in naked:
+    print("  [note] %s — %d figure(s), largest %s" % (d, len(figs), figs[0]))
+print("         (report-only: LEG 2 NEVER affects the exit code and is NOT covered by any")
+print("          PASS verdict. A [note] is a QUESTION — 'can a reader re-derive this?' — not")
+print("          a finding; an index or a narrative may legitimately carry a figure whose")
+print("          reproduction lives in the report it links to.)")
+
+sys.exit(1 if bad else 0)
 PY
   local rc=$?
   if [ "$rc" != "0" ]; then
@@ -10027,12 +10467,38 @@ elif [ "$MODE" = all ]; then
   # when the pushed range touches roae.py or example/ (fail-closed when it has no base to
   # diff against), which is also the only way a hand-edited artifact committed with
   # `git commit --no-verify` can be on its way out.
+  # GATES 24 AND 25 ARE EXCLUDED TOO, and until 2026-08-11 this banner named only GATE 8's
+  # exclusion — so a green `all` read as covering two gates it has never run. Both sit out by
+  # the CAUTION each header states (observe it silent across a full corpus first), not by
+  # cost, which is why they are named separately from GATE 8 rather than folded into its line.
+  # Derived from the dispatch arm above, which is the only list: `all` calls neither
+  # gate_value_domains nor gate_repro_reach.
+  echo "                   GATES 24 ('value-domains') and 25 ('repro-reach') are NOT in 'all'"
+  echo "                   either — by caution, per their own headers. This verdict attests"
+  echo "                   nothing about them; run them by name. GATE 25's LEG 2 is"
+  echo "                   REPORT-ONLY even then, and says so in its own banner."
   echo "                   GATE 8 ('generated') is NOT in 'all' — by cost, not oversight."
   echo "                   This verdict attests NOTHING about the example/ artifacts"
   echo "                   (report.txt, report.md, README.md, report.html, report.pdf):"
   echo "                       bash scripts/doc_gates.sh generated   # checks them; ~67-135 s, 3 roae.py runs"
   echo "                   (Enforced at pre-commit when roae.py/example/ is staged, and at"
   echo "                   pre-push when the pushed range touches roae.py or example/.)"
+elif [ "$MODE" = repro-reach ]; then
+  # GATE 25 IS TWO LEGS OF DIFFERENT STRENGTH BEHIND ONE VERDICT, so the verdict has to say
+  # which one it is. LEG 1 (a documented flag must exist) is hard and sets RC. LEG 2 (a
+  # published figure whose file names no way to re-derive it) is REPORT-ONLY by the same
+  # argument GATE 24's header makes about scanning prose. That argument used to be stated here
+  # as "doc_gates is wired into pre-push as BLOCKING, so a false positive stops a push", which
+  # is true of `all` and NOT of this mode — corrected 2026-08-11, with the hook-by-hook
+  # verification recorded at LEG 2's definition. TODAY nothing runs `repro-reach` but a person
+  # typing it; the blocking argument is about the state after GATE 25 is promoted into `all`,
+  # which its own header plans for. It is enumerated HERE rather than in
+  # the `all` banner because GATE 25 is not in `all` and never runs there. An unlisted
+  # report-only leg reads as covered by the PASS above it, which is the over-attestation
+  # this suite exists to catch.
+  echo "DOC GATES: PASS  (repro-reach) — LEG 1 ONLY: every documented reproduction command"
+  echo "                   resolves to a real flag. GATE 25's LEG 2 is REPORT-ONLY and never"
+  echo "                   affects this verdict — its [note] lines above are NOT attested."
 elif [ "$MODE" = numbers ] || [ "$MODE" = status ] || [ "$MODE" = revrows ]; then
   echo "DOC GATES: PASS  — NOTE: '$MODE' is a REPORT-ONLY gate and always exits 0."
   echo "                   Read its [WARN]/[note] lines above; this verdict does not."

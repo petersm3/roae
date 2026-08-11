@@ -44,6 +44,14 @@ Usage:
     python3 verify.py --recount-fiber               # TR-1 §7 orientation fiber (1,720,320 / 983,040)
     python3 verify.py --recount-gender-null         # TR-8 exact pair-null gender figure (47/445740)
     python3 verify.py [solutions.bin] --fiber-sweep # orientation-fiber factor: records -> sequences
+    python3 verify.py --t3-stats DIR                # T3 pre-registered stats (a) uniformity, (c) C3
+    python3 verify.py --t3-membership PATH          # T3 pre-registered stat (b) membership census
+    python3 verify.py --g-structure C2ON C2OFF      # full-31 G-distribution structure from two logs
+
+The last three read LARGE artifacts the caller supplies (a draw sample, two
+enumerator logs). The artifacts are held privately; the ANALYSIS is public, and
+each flag's --help names the command that GENERATES its input and the measured
+cost of doing so — so the reproducibility promise is priced, not nominal.
 
 --jobs N parallelizes via multiprocessing for large files. With N = 1
 (default) behavior is identical to the single-threaded original.
@@ -2077,7 +2085,7 @@ def recount():
               "plain budgeted (mask,last,p) counting recurrence")
 
     rows.append(("C5 ladder n=18 {6.0,6.1,6.2}@0", 3211799156883456,
-                 "re-countable via --recount-rung 18 (157 s, 953 MB peak RSS)",
+                 "re-countable via --recount-rung 18 (~953 MB peak RSS; wall unmeasured here)",
                  None, "plain budgeted packed-state DP — recount_rung()"))
     rows.append(("C5 ladder n=19 {3.0,4.0,6.0,6.1}@0", 63244766587981824,
                  "re-countable via --recount-rung 19 (worker-sized: ~8 GB)",
@@ -2670,6 +2678,607 @@ def check_c2_shift(n_samples=200_000, seed=20260724, verbose=True):
     return 0 if gate_ok else 2
 
 
+# ============================================================================
+# ANALYSES OVER LARGE, PRIVATELY-HELD ARTIFACTS  (task #213 C, 2026-08-11)
+#
+# WHY THESE LIVE HERE. Three analyses previously existed only as scripts in the
+# private staging repo, so the numbers they produce were not publicly
+# reproducible: a reader could see the figure and had no way to regenerate it.
+# A script that only the operator can run does not make a public number
+# reproducible — that is the whole of the #213 debt. The INPUT ARTIFACTS are
+# large and stay private (a ~107 MB draw sample; two campaign logs); the
+# ANALYSIS is public, takes the artifact PATH from the caller, and states in
+# its help text the command that GENERATES that artifact and what that cost.
+# The promise is therefore "reproducible at a stated price", not a nominal
+# claim of reproducibility. Anyone with the stated budget can rebuild the
+# input and re-derive every number these modes print.
+#
+# INDEPENDENCE IS PRESERVED — do not "fix" this by importing engine helpers.
+# These modes import nothing from solve.c / solve.py / roae.py / sat.py, in
+# keeping with this file's standing discipline. The MEMBERSHIP evaluator in
+# particular exists ONLY because it shares no code with the sampler whose
+# output it judges: every predicate below is transcribed from
+# documentation/SPECIFICATION.md §C1/C2/C4/C5, and `partner` is re-derived from
+# the stated rule (reverse; complement for the self-reverse hexagrams) rather
+# than copied from any table. It reuses this file's own rule-derived helpers
+# (`_partner`, `hamming`, `compute_comp_dist`), all of which are gated at
+# import by `_verify_tables_against_rules()` against the SPECIFICATION.md
+# literals — that is the same clean-room derivation, not a shortcut through the
+# engine. Importing a solve.c/solve.py helper here would destroy the only
+# property that makes the check worth running.
+# ============================================================================
+
+# --- FROZEN BARS ------------------------------------------------------------
+# Quoted from the pre-registration `PREREG_F_CATALOG_T1_T4_2026_08_06.md` §3
+# (private staging repo), committed 2026-08-06 — BEFORE the first recorded T3
+# draw. No bar here was chosen after seeing data and none may be adjusted to
+# make a result land: on a breach the prereg's own instruction is that the
+# sample is QUARANTINED, never silently redrawn.
+T3_N = 1097051278789181790036112071176579186688  # |C1∩C2∩C4∩C5| (TR-11 §9)
+T3_BUCKETS = 16          # equal rank buckets, bucket = floor(16*r/N)
+T3_CHI2_BAR = 37.70      # 15 dof; the engine's own kc-midn critical value
+T3_CD_MAX = 387          # the C3 threshold, in the sampler's `cd=` units
+T3_P0 = 0.12107          # 1/8.26, the doc figure named in the prereg
+T3_SIGMA_K = 4.0         # flag beyond 4 sigma, either direction
+
+
+def _t3_c5_target():
+    """The C5 transition multiset, taken from this file's import-time-gated
+    tables rather than re-typed: `_verify_tables_against_rules()` already
+    raises unless KW_DIST equals the SPECIFICATION.md §C5 literal
+    {1:2, 2:20, 3:13, 4:19, 6:9}, so deriving it from KW_DIST cannot silently
+    drift from the spec."""
+    return {d: KW_DIST[d] for d in range(7) if KW_DIST[d]}
+
+
+def _t3_cd(seq):
+    """The sampler's recorded `cd=` value for a full 64-hexagram sequence.
+
+    DERIVED, not copied from the engine. `compute_comp_dist()` above is the
+    SPECIFICATION.md C3 functional: it sums |pos[v] − pos[v^63]| over ALL 64
+    v, so every complement pair is counted TWICE. The engine's `cd` counts each
+    pair once and excludes the C4-pinned (63, 0) pair, which sits at positions
+    0 and 1 and contributes |0−1| = 1. Hence
+
+        cd(seq) = compute_comp_dist(seq) // 2 − 1
+
+    which is gated on King Wen in `_t3_sanity()`: compute_comp_dist(KW) == 776
+    (already asserted at import) and cd(KW) == 387 == the prereg's threshold.
+    """
+    return compute_comp_dist(seq) // 2 - 1
+
+
+def _t3_c1(S):
+    """C1: for every even i, s_{i+1} = partner(s_i)."""
+    return all(S[i + 1] == _partner(S[i]) for i in range(0, len(S), 2))
+
+
+def _t3_c2(S):
+    """C2: no transition has Hamming distance 5."""
+    return all(hamming(S[i], S[i + 1]) != 5 for i in range(len(S) - 1))
+
+
+def _t3_c4(S):
+    """C4 (oriented): s0 = 63, s1 = 0."""
+    return S[0] == 63 and S[1] == 0
+
+
+def _t3_c5(S):
+    """C5: the multiset of the 63 transition distances is exactly the target."""
+    got = {}
+    for i in range(len(S) - 1):
+        d = hamming(S[i], S[i + 1])
+        got[d] = got.get(d, 0) + 1
+    return got == _t3_c5_target()
+
+
+_T3_PREDS = [("C1", _t3_c1), ("C2", _t3_c2), ("C4", _t3_c4), ("C5", _t3_c5)]
+
+
+def _t3_member(S):
+    return all(f(S) for _, f in _T3_PREDS)
+
+
+def _t3_which_fail(S):
+    return [n for n, f in _T3_PREDS if not f(S)]
+
+
+def _t3_reconstruct(walk):
+    """A stream line carries 62 entries — the C4 opening pair is pinned and not
+    repeated in the walk. Prepend it to get the 64-element sequence, i.e. the
+    63 transitions C5's multiset (2+20+13+19+9 = 63) requires."""
+    return [63, 0] + list(walk)
+
+
+def _t3_sanity():
+    """The evaluator checking ITSELF: properties of the transcription that must
+    hold before any verdict it produces means anything. Returns [(desc, ok)]."""
+    out = []
+    out.append(("partner is an involution on all 64 hexagrams",
+                all(_partner(_partner(x)) == x for x in range(64))))
+    out.append(("exactly 8 self-reverse hexagrams",
+                len([x for x in range(64) if _rev6(x) == x]) == 8))
+    out.append(("partner(x) != x for all x",
+                all(_partner(x) != x for x in range(64))))
+    out.append(("partner(63) == 0 (the C4 pair)", _partner(63) == 0))
+    out.append(("within-pair distances are even",
+                all(hamming(x, _partner(x)) % 2 == 0 for x in range(64))))
+    out.append(("C5 target sums to 63 transitions",
+                sum(_t3_c5_target().values()) == 63))
+    out.append(("compute_comp_dist(KW) == 776 (C3 anchor)",
+                compute_comp_dist(KW) == 776))
+    out.append(("cd(KW) == 387 == the prereg C3 threshold",
+                _t3_cd(KW) == T3_CD_MAX))
+    out.append(("King Wen itself is accepted (checker is not always-reject)",
+                _t3_member(KW)))
+    return out
+
+
+def _t3_open(path):
+    """Streams are stored gzipped; accept either form."""
+    return (gzip.open(path, "rt", errors="replace") if path.endswith(".gz")
+            else open(path, "rt", errors="replace"))
+
+
+def _t3_stream_paths(path):
+    """Resolve a --t3-* argument to a sorted list of stream files. Accepts a
+    DIRECTORY holding t3_stream_*.out[.gz], or a single stream file."""
+    import glob as _glob
+    if os.path.isdir(path):
+        return sorted(_glob.glob(os.path.join(path, "t3_stream_*.out.gz"))
+                      + _glob.glob(os.path.join(path, "t3_stream_*.out")))
+    return [path] if os.path.exists(path) else []
+
+
+def _t3_iter_draws(paths, want_walk=False):
+    """Yield (path, rank, cd[, walk]) for every DRAW line.
+
+    INPUT FORMAT, measured from the artifact rather than assumed. Two lines per
+    draw:
+        <rank>\\tcd=<n>\\t<62-element walk>    <- the draw
+        record\\tm=<mass>\\t<62-element walk>  <- its orientation-lex-min rep
+    Only the draw line carries a rank and a cd. Streams also carry provenance
+    headers that happen to have three tab fields, so requiring field 1 to start
+    with 'cd=' is what separates a draw from a record line or a header.
+
+    The WALK line is the one checked, deliberately. Both lines carry the same
+    62 pair elements in the same order and differ only in within-pair
+    orientation; the `record` line is the orientation-lex-min representative,
+    so checking it would answer "does this class admit a valid orientation" —
+    strictly weaker than, and easy to confuse with, "is the emitted walk a
+    member", which is the pre-registered question.
+    """
+    for path in paths:
+        with _t3_open(path) as fh:
+            for line in fh:
+                f = line.rstrip("\n").split("\t")
+                if len(f) < 3 or f[0] == "record" or not f[1].startswith("cd="):
+                    continue
+                if want_walk:
+                    yield path, int(f[0]), int(f[1][3:]), [int(x) for x in f[2].split(",")]
+                else:
+                    yield path, int(f[0]), int(f[1][3:])
+
+
+_T3_GEN = (
+    "  GENERATING THE INPUT (the artifact is private; the recipe is not):\n"
+    "    16 independent streams x 62,500 draws, one invocation per stream, with the\n"
+    "    enumerator's KC sampler subcommand and these arguments:\n"
+    "      --kc-sample <f-dir> 62500 <seed> --kc-record --kc-ooc --kc-cache-mb 384\n"
+    "      (with SOLVE_F1_OOC_READ_MB=1)\n"
+    "    WHICH BUILD: the --kc-* subcommands are NOT on main. They live in solve.c on\n"
+    "    the published branch `v4-compiler`, which BRANCH_REGISTRY.tsv classes as a\n"
+    "    snapshot (a frozen working branch, not the authoritative corpus). So the\n"
+    "    honest price of regenerating this sample includes checking out that branch\n"
+    "    and building its solve.c; the command is written here WITHOUT a `solve`\n"
+    "    prefix precisely because it is not runnable against this ref's binary, and\n"
+    "    a doc must not imply otherwise.\n"
+    "    MEASURED COST: ~12.6 h wall on one D16als_v7 against a 3.1 TB f-ladder\n"
+    "    (16 lanes, Premium P50 f-disk). Seed-deterministic: the same seeds against\n"
+    "    the same f-ladder and binary regenerate the same draws.\n")
+
+
+def t3_stats(path):
+    """#177 statistics (a) and (c) over a T3 draw sample. See _T3_GEN for how
+    the sample is produced and at what cost."""
+    import math
+    paths = _t3_stream_paths(path)
+    if not paths:
+        print(f"no T3 stream files found at {path} "
+              f"(expected a directory of t3_stream_*.out[.gz], or one such file)")
+        return 1
+
+    print("=" * 74)
+    print("verify.py --t3-stats : pre-registered T3 validity statistics (a) and (c)")
+    print("  Bars are FROZEN in PREREG_F_CATALOG_T1_T4_2026_08_06.md §3, committed")
+    print("  BEFORE the first recorded draw. A breach is a FINDING: quarantine the")
+    print("  sample, do not redraw, do not adjust a bar.")
+    print("=" * 74)
+    print(_T3_GEN, end="")
+
+    counts = [0] * T3_BUCKETS
+    per_stream = {}
+    n_le = M = out_of_range = 0
+    r_min = r_max = None
+    for p, r, cd in _t3_iter_draws(paths):
+        M += 1
+        per_stream[p] = per_stream.get(p, 0) + 1
+        if 0 <= r < T3_N:
+            counts[(T3_BUCKETS * r) // T3_N] += 1
+        else:
+            out_of_range += 1
+        r_min = r if r_min is None or r < r_min else r_min
+        r_max = r if r_max is None or r > r_max else r_max
+        if cd <= T3_CD_MAX:
+            n_le += 1
+
+    if M == 0:
+        print("\nno draw lines parsed — nothing was measured. Treated as a failure.")
+        return 1
+
+    print("\n=== INPUT ===")
+    print(f"  streams        : {len(per_stream)}")
+    print(f"  draws total M  : {M:,}")
+    sizes = sorted(set(per_stream.values()))
+    print(f"  draws/stream   : {sizes[0] if len(sizes) == 1 else 'UNEVEN %s' % sizes}")
+    print(f"  rank range     : [{r_min}, {r_max}]")
+    print(f"  N              : {T3_N}")
+    print(f"  ranks outside [0,N) : {out_of_range}"
+          + ("" if out_of_range == 0 else "   *** INVALID ***"))
+    if out_of_range:
+        print("  A rank outside [0,N) is a first-order defect in the unrank path.")
+        return 1
+
+    exp = M / T3_BUCKETS
+    chi2 = sum((c - exp) ** 2 / exp for c in counts)
+    print(f"\n=== (a) UNIFORMITY — chi^2, {T3_BUCKETS} buckets, {T3_BUCKETS - 1} dof ===")
+    print(f"  expected/bucket: {exp:.1f}")
+    for i, c in enumerate(counts):
+        print(f"    bucket {i:2d}: {c:9,}   ({100.0 * (c - exp) / exp:+.2f}%)")
+    print(f"  chi^2 = {chi2:.4f}   bar = {T3_CHI2_BAR:.2f}")
+    uni_pass = chi2 < T3_CHI2_BAR
+    print("  VERDICT: " + ("PASS — rank stream is uniform on [0, N)" if uni_pass else
+                           "*** FINDING — chi^2 >= bar. QUARANTINE the sample. "
+                           "Investigate the RNG/unrank path. DO NOT REDRAW. ***"))
+
+    obs = n_le / M
+    sigma = math.sqrt(T3_P0 * (1 - T3_P0) / M)
+    dev = obs - T3_P0
+    print(f"\n=== (c) C3 FRACTION — cd <= {T3_CD_MAX} ===")
+    print(f"  observed  : {n_le:,} / {M:,} = {obs:.6f}")
+    print(f"  p0        : {T3_P0:.6f}  (1/8.26, the doc figure named in the prereg)")
+    print(f"  sigma     : {sigma:.6f}   (sqrt(p0(1-p0)/M))")
+    print(f"  deviation : {dev:+.6f}  = {dev / sigma:+.2f} sigma   bar = {T3_SIGMA_K:.1f} sigma")
+    c3_ok = abs(dev) <= T3_SIGMA_K * sigma
+    print("  VERDICT: " + ("within bar — unremarkable" if c3_ok else
+                           f"*** FINDING — beyond {T3_SIGMA_K:.0f} sigma. Flag per prereg. ***"))
+    print("  NOTE: p0 is the DOC figure 1/8.26, not an exact rational. The prereg allows")
+    print("        an exact p0 from the A2 coverage line to be substituted later as a")
+    print("        dated annotation; the 4-sigma rule is unchanged by that substitution.")
+
+    print("\n=== (b) MEMBERSHIP — NOT COMPUTED HERE ===")
+    print("  Statistic (b) is a separate full-population pass with its own cost, and")
+    print("  this mode does not restate a number it did not measure. Run:")
+    print("      python3 verify.py --t3-membership <same path>")
+
+    print("\n=== SCOPE — what this does NOT establish ===")
+    print("  Uniformity of the RANK STREAM is not uniformity over the solution space in")
+    print("  any richer sense: it tests the unrank path, which is exactly the embedded")
+    print("  validity hypothesis the prereg framed. A PASS licenses the sample as a")
+    print("  uniform null; it says nothing about whether any particular downstream")
+    print("  observable is well-behaved.")
+    print("\n=== SUMMARY ===")
+    print("  (a) uniformity  : %s" % ("PASS" if uni_pass else "FINDING"))
+    print("  (b) membership  : not run here (--t3-membership)")
+    print("  (c) C3 fraction : %s" % ("within bar" if c3_ok else "FINDING"))
+    print("=" * 74)
+    return 0 if (uni_pass and c3_ok) else 1
+
+
+def t3_membership(path, limit=0):
+    """#177 statistic (b): independent membership re-validation of a T3 sample.
+
+    The pre-registered bar is 100% — a single failure is a first-order finding.
+    Adds two checks the prereg did not require: an independent recompute of the
+    engine's `cd=` value, and duplicate detection."""
+    import time
+    paths = _t3_stream_paths(path)
+    if not paths:
+        print(f"no T3 stream files found at {path} "
+              f"(expected a directory of t3_stream_*.out[.gz], or one such file)")
+        return 1
+
+    print("=" * 74)
+    print("verify.py --t3-membership : independent membership census of a T3 sample")
+    print("  SECOND-LANGUAGE CHECK. Every predicate is transcribed from")
+    print("  SPECIFICATION.md §C1/C2/C4/C5 and shares no code with the sampler that")
+    print("  produced these draws. Bar: 100% members. A single failure is a")
+    print("  first-order finding — quarantine, do not redraw, do not adjust the bar.")
+    print("=" * 74)
+    print(_T3_GEN, end="")
+
+    print("\n=== transcription sanity (the evaluator checking ITSELF) ===")
+    ok_all = True
+    for desc, ok in _t3_sanity():
+        print("  [%s] %s" % ("ok" if ok else "FAIL", desc))
+        ok_all = ok_all and ok
+    if not ok_all:
+        print("*** transcription is broken — stopping; results would be meaningless ***")
+        return 2
+
+    # POSITIVE CONTROLS. A checker that always says MEMBER passes everything, so
+    # each predicate must be shown to FIRE on a deliberate violation of itself.
+    # Controls are built from a real draw, so they also prove the file parsed.
+    first = None
+    for _, _, _, w in _t3_iter_draws(paths[:1], want_walk=True):
+        first = w
+        break
+    if first is None:
+        print("\nno draw lines parsed — nothing was measured. Treated as a failure.")
+        return 1
+    base = _t3_reconstruct(first)
+    print("\n=== structural check on the first draw ===")
+    print(f"  length 62                      : {len(first) == 62}")
+    print(f"  a permutation of {{1..62}}       : {sorted(first) == list(range(1, 63))}")
+    if not _t3_member(base):
+        print("  *** the first draw is not a member; cannot build controls from it ***")
+        print(f"      failing: {_t3_which_fail(base)}")
+        return 3
+
+    print("\n=== POSITIVE CONTROL — each predicate must REJECT its own violation ===")
+    print("  Each control breaks the NAMED constraint; the run fails unless that")
+    print("  constraint's predicate is among the ones that fire. (Collateral failures")
+    print("  are expected and reported: one edit can break more than one constraint.)")
+    controls = []
+    # C1: swap two hexagrams across pair blocks — destroys the pairing.
+    b = list(base); b[4], b[6] = b[6], b[4]; controls.append(("C1", b))
+    # C4: flip the pinned opening orientation.
+    b = list(base); b[0], b[1] = b[1], b[0]; controls.append(("C4", b))
+    # C2 and C5: transposing two WHOLE pair blocks preserves C1 and C4 exactly, so
+    # it isolates the transition-distance constraints. Search that family for one
+    # swap that creates a distance-5 edge (C2), and one that perturbs the distance
+    # multiset WITHOUT creating a distance-5 edge (C5 on its own).
+    c2_ctrl = c5_ctrl = None
+    for i in range(2, 62, 2):
+        for j in range(i + 2, 62, 2):
+            b = list(base)
+            b[i], b[i + 1], b[j], b[j + 1] = b[j], b[j + 1], b[i], b[i + 1]
+            ok_c2 = _t3_c2(b)
+            if c2_ctrl is None and not ok_c2:
+                c2_ctrl = b
+            if c5_ctrl is None and ok_c2 and not _t3_c5(b):
+                c5_ctrl = b
+            if c2_ctrl is not None and c5_ctrl is not None:
+                break
+        if c2_ctrl is not None and c5_ctrl is not None:
+            break
+    for nm, ct in (("C2", c2_ctrl), ("C5", c5_ctrl)):
+        if ct is None:
+            print(f"  *** no pair-block swap of this draw violates {nm}; control NOT built,")
+            print(f"      so {nm} is UNPROVEN on this run ***")
+            return 2
+        controls.append((nm, ct))
+    blind = 0
+    for name, cb in controls:
+        fails = _t3_which_fail(cb)
+        hit = name in fails
+        if not hit:
+            blind += 1
+        print("  break %-3s -> %s  failing predicates=%s"
+              % (name, "rejected by its own predicate" if hit
+                 else "*** NOT REJECTED BY %s — CHECKER IS BLIND ***" % name,
+                 fails or "NONE"))
+    if blind:
+        print("  *** a control was not caught by the constraint it violates; the checker")
+        print("      cannot see that violation and its verdicts are worthless ***")
+        return 2
+
+    # THE MEASUREMENT — every draw in `paths`, or the first `limit` if capped.
+    t0 = time.time()
+    tot = bad_struct = cd_mismatch = dups = n_nonmember = 0
+    bad = []
+    per_pred = {}
+    seen = set()
+    for p, _r, cd_rec, w in _t3_iter_draws(paths, want_walk=True):
+        S = _t3_reconstruct(w)
+        if len(w) != 62 or sorted(w) != list(range(1, 63)):
+            bad_struct += 1
+        f = _t3_which_fail(S)
+        if f:
+            n_nonmember += 1
+            if len(bad) < 10:
+                bad.append((os.path.basename(p), tot, f))
+            for n_ in f:
+                per_pred[n_] = per_pred.get(n_, 0) + 1
+        if _t3_cd(S) != cd_rec:
+            cd_mismatch += 1
+        k = bytes(w)
+        if k in seen:
+            dups += 1
+        else:
+            seen.add(k)
+        tot += 1
+        if limit and tot >= limit:
+            break
+    elapsed = time.time() - t0
+
+    # per_pred counts PREDICATE failures, which can exceed the number of failing
+    # walks (one walk may break two constraints); the walk count is reported
+    # separately rather than conflated.
+    print(f"\n=== MEMBERSHIP CENSUS over {tot:,} draw(s) "
+          f"({len(paths)} stream file(s){', capped by --t3-membership-limit' if limit else ''}) ===")
+    print(f"  members                                    : {tot - n_nonmember:,} / {tot:,}")
+    print(f"  NON-MEMBER walks                           : {n_nonmember}")
+    print(f"  structural failures (length / permutation) : {bad_struct}")
+    print(f"  predicate failures by constraint           : "
+          f"{per_pred if per_pred else '{} (none)'}")
+    print(f"  cd mismatches (independent recompute vs engine `cd=`) : {cd_mismatch}")
+    print(f"  duplicate walks                            : {dups}")
+    print(f"  elapsed                                    : {elapsed:.1f}s")
+    if bad:
+        print("  FIRST NON-MEMBERS (file, index, failing predicates):")
+        for row in bad:
+            print(f"    {row}")
+    failed = bool(per_pred) or bad_struct or cd_mismatch
+    if failed:
+        print("\n  *** FINDING — the bar is 100%. Quarantine the sample. Do NOT redraw.")
+        print("      Do NOT adjust the bar. ***")
+    else:
+        print("\n  VERDICT: 100% MEMBER — statistic (b) meets its pre-registered bar.")
+        print("           cd cross-check and duplicate check are EXTRA, beyond the prereg.")
+    print("=" * 74)
+    return 1 if failed else 0
+
+
+def _g_load_hist(path):
+    """Parse G_HIST bins (+ optional G_HIST_TOTAL / G_HIST_WSUM) from a full-31
+    run log. Emitted by the enumerator; the format is read here, never imported."""
+    import re as _re
+    pat = _re.compile(r'^G_HIST\s+g=(-?\d+)\s+count=(\d+)')
+    bins, total, wsum = {}, None, None
+    with open(path, errors="replace") as fh:
+        for line in fh:
+            m = pat.match(line)
+            if m:
+                bins[int(m.group(1))] = int(m.group(2))
+                continue
+            if line.startswith("G_HIST_TOTAL"):
+                total = int(line.split("=")[1].split()[0])
+            elif line.startswith("G_HIST_WSUM"):
+                wsum = int(line.split("=")[1].split()[0])
+    return bins, total, wsum
+
+
+def _g_factor(n, lim=100000):
+    """Trial division to `lim`. Any residue left above lim^2 may be COMPOSITE —
+    the caller says so rather than implying a complete factorization."""
+    f, d = {}, 2
+    while d * d <= n and d < lim:
+        while n % d == 0:
+            f[d] = f.get(d, 0) + 1
+            n //= d
+        d += 1
+    if n > 1:
+        f[n] = f.get(n, 0) + 1
+    return f
+
+
+def _g_moments(bins):
+    from fractions import Fraction as F
+    n = sum(bins.values())
+    mu = F(sum(g * c for g, c in bins.items()), n)
+    cm = lambda r: F(sum(c * (F(g) - mu) ** r for g, c in bins.items()), n)
+    return n, mu, cm(2), cm(3), cm(4)
+
+
+def _g_series_pow(q, alpha, terms):
+    """Coefficients of q(z)^alpha as a power series (requires q[0] != 0).
+    J.C.P. Miller's recurrence — a standard identity, implemented here."""
+    p = [0.0] * terms
+    p[0] = q[0] ** alpha
+    for k in range(1, terms):
+        acc = 0.0
+        for j in range(1, k + 1):
+            if j < len(q):
+                acc += ((alpha + 1) * j - k) * q[j] * p[k - j]
+        p[k] = acc / (k * q[0])
+    return p
+
+
+def g_structure(c2on_path, c2off_path):
+    """#205: structure of the full-31 G distribution, C2-on and C2-off.
+
+    Regenerates every number in the private G_DISTRIBUTION_STRUCTURE note, which
+    was first produced as inline one-off heredocs — numbers in prose with no
+    runnable provenance. A derivation checked against a number nobody can
+    regenerate is not a check."""
+    from fractions import Fraction as F
+    for p in (c2on_path, c2off_path):
+        if not os.path.exists(p):
+            print(f"missing G_HIST log: {p}")
+            return 1
+
+    print("=" * 74)
+    print("verify.py --g-structure : full-31 G-distribution structure (C2-on vs C2-off)")
+    print("=" * 74)
+    print("  GENERATING THE INPUTS (the logs are private; the recipe is not):")
+    print("    both are full-31 enumerator runs that emit G_HIST bin lines —")
+    print("      solve --f1-c3-hist --f1-pairs 31 --f1-out-of-core DIR          (C2-ON)")
+    print("      solve --f1-c3-hist --f1-pairs 31 --f1-out-of-core DIR --no-c2  (C2-OFF)")
+    print("    These are on main; see SOLVE_C_CLI.md.")
+    print("    MEASURED: 23,054 s (C2-on) and 39,003 s (C2-off) on 128 threads. Each is")
+    print("    the FINAL ATTEMPT's wall — both runs checkpoint/resumed across Spot")
+    print("    evictions (the C2-off log begins at 'RESUME from last complete layer")
+    print("    k=16'), so these are LOWER BOUNDS on from-scratch cost, not the total.")
+    print("    The logs were already captured and sha-verified; this analysis reads")
+    print("    them only — no compute, no VM.")
+    print("\n=== INPUTS ===")
+    print(f"  C2-ON  {c2on_path}")
+    print(f"  C2-OFF {c2off_path}")
+
+    rc = 0
+    for tag, path in (("C2-ON (C1&C2&C4)", c2on_path), ("C2-OFF (C1&C4)", c2off_path)):
+        bins, total, wsum = _g_load_hist(path)
+        if not bins:
+            print(f"\n{path}: no G_HIST bin lines — nothing measured. Treated as a failure.")
+            return 1
+        n, mu, m2, m3, m4 = _g_moments(bins)
+        print(f"\n=== {tag} ===")
+        print(f"  bins={len(bins)} gmin={min(bins)} gmax={max(bins)}")
+        if total is not None:
+            print(f"  sum(bins) == G_HIST_TOTAL : {n == total}")
+            rc |= 0 if n == total else 1
+        if wsum is not None:
+            agree = sum(g * c for g, c in bins.items()) == wsum
+            print(f"  sum(g*c)  == G_HIST_WSUM  : {agree}")
+            rc |= 0 if agree else 1
+        print(f"  E[G]  = {mu}  = {float(mu):.9f}")
+        print(f"  Var   = {m2}  = {float(m2):.6f}")
+        print(f"  mu3   = {m3}  = {float(m3):.6f}")
+        print(f"  skew  = {float(m3) / float(m2) ** 1.5:.8f}")
+        print(f"  exkurt= {float(m4) / float(m2) ** 2 - 3:.8f}")
+        print(f"  all bins divisible by 48 : {all(c % 48 == 0 for c in bins.values())}")
+        print(f"  N factors (trial division to 100000; a residue above 10^10 may be"
+              f" composite): {_g_factor(n)}")
+
+        if "C2-OFF" in tag:
+            print("\n  --- the SHARP pre-registered test ---")
+            if total is not None and wsum is not None:
+                exact = (wsum == 128 * total)
+                print(f"  WSUM == 128 * TOTAL exactly : {exact}  (remainder {wsum - 128 * total})")
+                rc |= 0 if exact else 1
+            cum = sum(c for g, c in bins.items() if g <= 95)
+            p = F(cum, n)
+            null = F(641983711307479, 7919632354008375)
+            print(f"  P(G<=95)          = {p}")
+            print(f"  closed-form null  = {null}")
+            print(f"  EQUAL as rationals: {p == null}")
+            rc |= 0 if p == null else 1
+            print(f"  null denominator factors: {_g_factor(7919632354008375)}")
+
+            print("\n  --- CONVOLUTION TEST: is G a sum of independent parts? ---")
+            print(f"  (support span {max(bins) - min(bins)}; the 216 = 12x18 '12 couples'")
+            print("   hypothesis predicts q^(1/12) truncates at degree 18. It does not.)")
+            gmin = min(bins)
+            q = [bins.get(gmin + j, 0) / n for j in range(max(bins) - gmin + 1)]
+            print("  %-6s %s" % ("m", "max|coef[30..34]| of q^(1/m)  (~0 would mean m-fold iid)"))
+            for m in (2, 3, 4, 6, 7, 8, 12, 16, 18, 19, 24, 31, 36, 48):
+                pw = _g_series_pow(q, 1.0 / m, 35)
+                tail = max(abs(pw[j] / pw[0]) for j in range(30, 35))
+                print("  m=%-4d %.3e" % (m, tail))
+            print("  VERDICT: no m truncates -> G is NOT an independent-sum statistic.")
+            print("  The moment denominators (5, then 105 = 3*5*7) and the smooth-to-31")
+            print("  factorisations above identify it as a PERMUTATION statistic")
+            print("  (sampling WITHOUT replacement), which is why no convolution fits.")
+
+    print("\n=== SCOPE ===")
+    print("  None of the above touches prefix-G g48-invariance. A quotiented run cannot")
+    print("  test the assumption its own quotient makes; do not cite a green run here as")
+    print("  narrowing that gap.")
+    print("=" * 74)
+    return rc
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -2769,7 +3378,69 @@ def main():
                              '|C1&C2&C4|/|C1&C4|. Reports the small upward C2 shift off the exact '
                              'C1&C4 null with a delta-method CI. Reads no files; imports nothing '
                              'from solve.c. This MEASURES the shift; it is not an exact count.')
+    parser.add_argument('--t3-stats', metavar='DIR', default=None,
+                        help='Pre-registered T3 validity statistics (a) uniformity and (c) C3 '
+                             'fraction over a T3 draw sample at DIR (a directory of '
+                             't3_stream_*.out[.gz], or one such file). Bars are FROZEN in the '
+                             'pre-registration: chi^2 over 16 rank buckets, 15 dof, PASS below '
+                             '37.70; C3 fraction at cd<=387 vs p0=1/8.26=0.12107, flagged beyond '
+                             '4 sigma. GENERATING THE INPUT: 16 streams x 62,500 draws, one '
+                             'KC-sampler invocation per stream — `--kc-sample <f-dir> 62500 '
+                             '<seed> --kc-record --kc-ooc --kc-cache-mb 384`. Those subcommands '
+                             'are NOT on main: they live in solve.c on the published snapshot '
+                             'branch `v4-compiler`, so regenerating the sample means building '
+                             'that branch. MEASURED ~12.6 h on one D16als_v7 against a 3.1 TB '
+                             'f-ladder. The analysis itself is cheap: MEASURED 4.3-4.6 s wall '
+                             'and ~22.9 MB peak RSS for the full 10^6 draws (3 runs, '
+                             '/usr/bin/time -v, 2-vCPU D2as_v6). Wall is a band, not a figure '
+                             '— see VERIFY.md "Analyses over large artifacts".')
+    parser.add_argument('--t3-membership', metavar='PATH', default=None,
+                        help='Pre-registered T3 statistic (b): independent membership census of a '
+                             'T3 draw sample at PATH (a directory of streams, or one stream file). '
+                             'Second-language check — predicates transcribed from SPECIFICATION.md '
+                             'C1/C2/C4/C5, sharing no code with the sampler; self-tested and '
+                             'positive-controlled before it reports. Adds two checks beyond the '
+                             'prereg: an independent recompute of the engine-recorded cd= value, and '
+                             'duplicate detection. Bar: 100%% members. Same input and generating '
+                             'cost as --t3-stats (~12.6 h on a D16als_v7, plus a build of the '
+                             '`v4-compiler` branch, which is where the --kc-* sampler lives). '
+                             'The analysis itself is cheap: MEASURED ~149 MB peak RSS for the '
+                             'full 10^6 draws — the one figure that reproduced across every '
+                             'measurement condition. Wall ranged 60-98 s depending on what else '
+                             'the box was doing and is NOT a reproducible figure; see VERIFY.md '
+                             '"Analyses over large artifacts", which records two successive '
+                             'wrong answers about it.')
+    parser.add_argument('--t3-membership-limit', type=int, metavar='N', default=0,
+                        help='With --t3-membership: stop after N draws (0 = all). The '
+                             'pre-registered spot-check was the first 1,000 walks of one stream, '
+                             'so `--t3-membership <stream> --t3-membership-limit 1000` reproduces '
+                             'exactly the pre-registered leg for a few seconds of CPU.')
+    parser.add_argument('--g-structure', nargs=2, metavar=('C2ON_LOG', 'C2OFF_LOG'), default=None,
+                        help='Structure of the full-31 G distribution from two enumerator logs '
+                             'carrying G_HIST lines: C2-ON (C1&C2&C4) and C2-OFF (C1&C4). '
+                             'Reports moments as exact rationals, the 48-divisibility of every '
+                             'bin, the sharp WSUM == 128*TOTAL identity, P(G<=95) against the '
+                             'closed-form null 641983711307479/7919632354008375, and a '
+                             'convolution test showing G is not an independent-sum statistic. '
+                             'GENERATING THE INPUTS: two full-31 `solve --f1-c3-hist --f1-pairs 31 '
+                             '--f1-out-of-core DIR` runs, the C2-OFF one adding --no-c2 (both on '
+                             'main). MEASURED 23,054 s and 39,003 s on 128 threads, each the FINAL '
+                             'attempt wall after checkpoint/resume across Spot evictions — lower '
+                             'bounds on from-scratch cost. Analysis itself is instant and reads '
+                             'only the logs.')
     args = parser.parse_args()
+
+    if args.t3_stats is not None:
+        sys.exit(t3_stats(args.t3_stats))
+
+    if args.t3_membership is not None:
+        sys.exit(t3_membership(args.t3_membership, args.t3_membership_limit))
+
+    if args.t3_membership_limit and args.t3_membership is None:
+        parser.error("--t3-membership-limit only makes sense with --t3-membership")
+
+    if args.g_structure is not None:
+        sys.exit(g_structure(args.g_structure[0], args.g_structure[1]))
 
     if args.check_null_g:
         sys.exit(check_null_g(unpinned=args.unpinned))
