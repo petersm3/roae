@@ -43,7 +43,7 @@ King Wen's uniqueness vs. combinatorial structure.
 | **`sat.py` SAT/certificate-layer CLI** (CNF emit, witness, C3 encoding) | [SAT_CLI.md](documentation/SAT_CLI.md) |
 | Azure deployment / SKU sizing | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) |
 | Visualization tooling + how-to-read | [viz/README.md](viz/README.md) |
-| **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_PLAN.md` (**private repo, `petersm3/roae-private`** — not in this repo) |
+| **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_STATE.md` — short, current, read this one (**private repo, `petersm3/roae-private`** — not in this repo). `CURRENT_PLAN.md` beside it is ~416 KB of append-only history: provenance only, never orientation |
 | Operator memory (user preferences, feedback rules, infra notes) | `~/.claude/projects/*/memory/MEMORY.md` |
 
 ## Canonical shas — INVARIANT
@@ -343,8 +343,16 @@ Past violations:
 ## In-flight state
 
 For "what am I currently doing / what's running / what's next," read
-**`~/github/roae-private/CURRENT_PLAN.md`** first. That doc is refreshed as
-operational state changes; this CLAUDE.md is stable.
+**`~/github/roae-private/CURRENT_STATE.md`** first — a short (~150-line)
+current-state file: live campaign, supervisor pids, open operator decisions,
+active hazards. It is rewritten in place as state changes; this CLAUDE.md is
+stable.
+
+**Do NOT read `CURRENT_PLAN.md` to orient.** It is the append-only history
+behind that file and is now ~416 KB — reading it whole costs ~100k tokens and
+its lead block only duplicates `CURRENT_STATE.md`. Consult it for provenance
+(why a past decision was made), never for current state, and read it by
+targeted `grep`/offset rather than whole.
 
 Also check scheduled wake-ups (the runtime fires these automatically
 when 100T/analysis/validation jobs hit milestones — the wake prompt
