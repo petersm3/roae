@@ -2768,22 +2768,36 @@ if [ "${1:-}" = "--selftest" ]; then
   # that wrote it added an eighth call site — the caveat-4 shape, in the comment that names
   # caveat 4. The authority is the machine-read `callers=N` on this helper's row in
   # documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt, which GATE 15 LEG 3 re-derives every run:
-  #   GATE 3b  meta-mention count 44 -> 45
-  #   GATE 2   flags/documented 78/95 -> 79/96 (a flag added to both sides)
-  #   GATE 2   commented-out declarations dropped 0 -> 1 (item A4's leg — the one a FLAG
-  #            count could not discriminate, since the injected line must NOT become a flag)
-  #   GATE 12  revision rows checked base -> base+1
-  #   GATE 25  documented command-flag uses base -> base+1, waivers unchanged
-  # THE LAST TWO ARE RELATIVE AS OF 2026-08-11 and the others are still ABSOLUTE, which is a
-  # standing hazard rather than a design. Three numbers above (44, 78/95, 0 -> 1) are
-  # corpus-derived pins of the same class that put GATE 12's and GATE 25's legs RED, and they
-  # are green today only because nobody has added a flag to solve.py or a meta-mention to the
-  # scanned corpus lately. The conversion recipe is at GATE 12's control; it is not applied
-  # here because a leg that is currently green is a worse place to learn a new technique than
-  # one that is currently red, not because the pins are sound.
-  # The other three pin a COUNT THAT THE DEFECT THE CONTROL IS ABOUT WOULD MOVE, which is
-  # weaker: GATE 14's adjudicated-pair count, GATE 15's instrument count, and GATE 15 LEG 3's
-  # claims census. NONE now pins only "the leg ran". Every one is strictly stronger than rc 0.
+  #   GATE 3b  meta-mention count 45 -> 46                              ** ABSOLUTE **
+  #   GATE 2   flags/documented base -> base+1 (a flag added to both sides)     RELATIVE
+  #   GATE 2   commented-out declarations dropped 0 -> 1, census base   RELATIVE
+  #   GATE 12  revision rows checked base -> base+1                     RELATIVE
+  #   GATE 25  documented command-flag uses base -> base+1              RELATIVE
+  #   GATE 14  adjudicated pairs `1 ... 0 new`                          ** ABSOLUTE **
+  #   GATE 15  `12 instrument(s) in the --selftest region`              ** ABSOLUTE **
+  #   GATE 15 LEG 3  `claims column: 8 kind=INVOCATION`                 ** ABSOLUTE **
+  #
+  # SCOREBOARD, 2026-08-11: FOUR of these are now RELATIVE (GATE 12 and GATE 25 converted
+  # first; GATE 2's two converted the same night after they went RED). FOUR REMAIN ABSOLUTE
+  # and each is a live rot hazard, not a design:
+  #   GATE 3b      breaks when the corpus gains an allowlisted narration
+  #   GATE 14      breaks on a 2nd adjudicated allowlist pair
+  #   GATE 15      breaks on instrument #13
+  #   GATE 15 L3   breaks on a 9th kind=INVOCATION row
+  # WHY THIS LIST WAS WRONG BEFORE, which is the argument for keeping it exact: it said
+  # "44 -> 45" (live ERE is 45 -> 46), listed GATE 2's two pins as absolute after they had
+  # been converted, said "THE LAST TWO ARE RELATIVE" when four were, and named only three
+  # hazards when there are four. A disclosure block that under-reports its own debt is the
+  # same defect the suite exists to catch — and this one drifted twice in one night, once by
+  # the corpus moving and once by a fix landing without updating it.
+  # The conversion recipe is at GATE 12's control. The four survivors are green TODAY and are
+  # left converted-not-yet on a deliberate risk judgement — a currently-green leg is a worse
+  # place to apply a technique unsupervised than a currently-red one — NOT because the pins
+  # are sound. They are not.
+  # The last three pin a COUNT THAT THE DEFECT THE CONTROL IS ABOUT WOULD MOVE, which is
+  # weaker than a discriminator but still strictly stronger than rc 0: GATE 14's
+  # adjudicated-pair count, GATE 15's instrument count, and GATE 15 LEG 3's claims census.
+  # NONE now pins only "the leg ran".
   #
   # NOT SCANNED BY GATE 16, and that is a reasoned exemption rather than an oversight: a
   # preflight-emittable ERE cannot produce a false [ok] here, because both preflights set
