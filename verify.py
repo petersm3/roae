@@ -2076,8 +2076,8 @@ def recount():
               pub, _count_c1c2c4c5(pl, 0, b0_pub),
               "plain budgeted (mask,last,p) counting recurrence")
 
-    rows.append(("C5 ladder n=18 {6.0,6.1,6.2}@0", None,
-                 "re-countable via --recount-rung 18 (report-only: integer unpublished)",
+    rows.append(("C5 ladder n=18 {6.0,6.1,6.2}@0", 3211799156883456,
+                 "re-countable via --recount-rung 18 (157 s, 953 MB peak RSS)",
                  None, "plain budgeted packed-state DP — recount_rung()"))
     rows.append(("C5 ladder n=19 {3.0,4.0,6.0,6.1}@0", 63244766587981824,
                  "re-countable via --recount-rung 19 (worker-sized: ~8 GB)",
