@@ -23,6 +23,21 @@
 #      reports/*.md, documentation/*.md or README.md is staged (see its header).
 #   2. generated gate (#85) -- BLOCKING. Its exit status is the hook's.
 ROOT=$(git rev-parse --show-toplevel) || exit 1
-bash "$ROOT/scripts/pre_commit_registry_gate.sh"; RRC=$?
+# WORKTREE FIX (2026-08-13): resolve the gate scripts from THIS script's own
+# location, not from $ROOT. .git/hooks is shared across git worktrees, so a
+# commit made in a worktree (e.g. v4canon-b1464fa) sets $ROOT to that worktree,
+# which has no scripts/ dir -- the gates then failed with rc=127 "No such file
+# or directory" and the BLOCKING generated gate aborted every commit there.
+# Silently skipping would be worse than aborting, so the old behaviour was
+# fail-safe, but it forced --no-verify, which skips the gates for real.
+# $0 is the hook path (a symlink into scripts/); readlink -f resolves it.
+SDIR=$(cd "$(dirname "$(readlink -f "$0")")" 2>/dev/null && pwd)
+[ -n "$SDIR" ] && [ -f "$SDIR/pre_commit_generated_gate.sh" ] || SDIR="$ROOT/scripts"
+if [ ! -f "$SDIR/pre_commit_generated_gate.sh" ]; then
+  echo "[pre-commit] FATAL: cannot locate pre_commit_generated_gate.sh (tried '$SDIR')." >&2
+  echo "[pre-commit] Refusing to commit -- a BLOCKING gate that cannot run must not pass." >&2
+  exit 1
+fi
+bash "$SDIR/pre_commit_registry_gate.sh"; RRC=$?
 [ "$RRC" -ne 0 ] && echo "[pre-commit] registry gate reported findings (rc=$RRC) - WARN ONLY, commit proceeds"
-exec bash "$ROOT/scripts/pre_commit_generated_gate.sh"
+exec bash "$SDIR/pre_commit_generated_gate.sh"
