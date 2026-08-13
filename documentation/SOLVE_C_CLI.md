@@ -1577,3 +1577,21 @@ verification and incident response. See PERFORMANCE_HISTORY.md (2026-08-13).
 Downgrades `--kc-repr-normalize`'s completeness gate (header record-count must equal records
 processed) to a loud warning, so a deliberately truncated slice can be timed. **Never set this in
 production** — its output is a truncated artifact and must never be treated as canonical.
+
+### `--ckpt-compare A.dfs_state B.dfs_state` — cross-format checkpoint comparator (Gate-A leg c)
+
+Compares two `.dfs_state` checkpoints **semantically** across format versions: the 560T archive was
+written by the v3 lineage (`format_version=2`, 440-byte struct, no `mw_delta`); v4 writes
+`format_version=3` (576-byte, with `mw_delta`). Raw byte comparison is meaningless across the two;
+this compares terminal-walk state field by field.
+
+Exit codes are three-state and must be treated as distinct: **0 = EQUAL, 1 = MISMATCH, 2 = ERROR**
+(unreadable, truncated, or ambiguous format). Never collapse 2 into 1 — "I could not read it" is not
+"they disagree". Read-only; it never writes a checkpoint.
+
+### `--ckpt-compare-selftest` — negative-control battery (MANDATORY before use)
+
+34 checks proving the comparator can actually FAIL: perturbing semantic fields (`seq`, `used`,
+`budget`) must yield MISMATCH; perturbing v4-only layout fields (`mw_delta`, `reserved`) must yield
+EQUAL; truncated and ambiguously-stamped files must yield ERROR. A comparator never observed to fail
+is not evidence. See `roae-private/FABLE_GATEA_LEG_C_DESIGN_20260813.md`.

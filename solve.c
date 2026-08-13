@@ -1615,6 +1615,62 @@ typedef struct {
 
 _Static_assert(sizeof(DFSCheckpointState_v2) <= 2048, "DFSCheckpointState_v2 too large");
 
+/* ---------- Gate-A leg (c): legacy v3-lineage checkpoint layout ----------
+ * (task #21, 2026-08-13 — cross-format .dfs_state semantic comparator.)
+ *
+ * The 560T archive's .dfs_state files were written by the v3 lineage
+ * (format_version = 2), whose DFSStackFrame_v2 had NO mw_delta: 8 bytes per
+ * frame, total on-disk struct 440 bytes. The v4 lineage (format_version = 3)
+ * frame carries mw_delta + pad: 12 bytes per frame, total 576 bytes. The two
+ * layouts are byte-incompatible from offset 18 (frames[]) onward, so the
+ * archived files are re-declared here verbatim from the v3-lineage source
+ * (roae main solve.c, DFS_STATE_VERSION_V2 == 2u) purely for READ access.
+ * These structs must NEVER be written by any enumeration path — the v4
+ * writer stays dfs_state_write_v2 (format 3) only.
+ *
+ * The _Static_asserts pin the exact on-disk sizes; the (size, version) pair
+ * is the format-dispatch key in ckpt_read_semantic(). If a compiler/ABI ever
+ * broke these sizes the build fails rather than misparse an archive. */
+typedef struct {
+    int8_t  step;
+    int8_t  p;
+    int8_t  orient;
+    int8_t  bd;
+    int8_t  wd;
+    int8_t  prev_tail;
+    int8_t  phase;
+    int8_t  reserved;
+} DFSStackFrame_v2_legacy;
+
+typedef struct {
+    uint32_t magic;            /* DFS_STATE_MAGIC */
+    uint16_t format_version;   /* == 2 in v3-lineage archive files */
+    uint16_t partition_depth;
+    int8_t   prefix_p1, prefix_o1;
+    int8_t   prefix_p2, prefix_o2;
+    int8_t   prefix_p3, prefix_o3;
+    int16_t  sp;
+    int16_t  reserved_align;
+    DFSStackFrame_v2_legacy frames[34];
+    int8_t   seq[64];
+    int8_t   used[32];
+    int8_t   budget[7];
+    int8_t   pad[5];
+    int64_t  prior_budget;
+    int64_t  prior_nodes_walked;
+    int64_t  prior_solutions_found;
+    uint8_t  reserved2[16];
+} DFSCheckpointState_v2_legacy;
+
+_Static_assert(sizeof(DFSStackFrame_v2_legacy) == 8,
+               "legacy v2 frame must be 8 bytes (v3-lineage on-disk layout)");
+_Static_assert(sizeof(DFSCheckpointState_v2_legacy) == 440,
+               "legacy v2 checkpoint must be 440 bytes (v3-lineage on-disk layout)");
+_Static_assert(sizeof(DFSStackFrame_v2) == 12,
+               "v4 frame must be 12 bytes (format-3 on-disk layout)");
+_Static_assert(sizeof(DFSCheckpointState_v2) == 576,
+               "v4 checkpoint must be 576 bytes (format-3 on-disk layout)");
+
 /* ---------- Init functions ---------- */
 
 /* Pairing = the canonical reverse-priority rule (rev, else comp for palindromes), i.e. constraint C1.
@@ -9098,6 +9154,586 @@ static int orb_read_dfs_meta(const char *path, long long *nodes_walked,
     if (solutions_ckpt) *solutions_ckpt = (long long)st.prior_solutions_found;
     if (budget)         *budget = (long long)st.prior_budget;
     return 1;
+}
+
+/* ---------- Gate-A leg (c): cross-format .dfs_state semantic comparator ----
+ * (task #21, 2026-08-13.)
+ *
+ * Purpose: for the 560T-non-productive orbit representatives, compare the
+ * TERMINAL WALK POSITION of the fresh v4 prunes-OFF walk (format-3
+ * .dfs_state) against the archived v3-lineage walk (format-2 .dfs_state),
+ * field-by-field on SEMANTIC checkpoint state — never raw bytes, which
+ * differ by construction (8- vs 12-byte frames).
+ *
+ * Semantic state compared (identical meaning in both formats):
+ *   sp; frames[0..33].{step,p,orient,bd,wd,prev_tail,phase};
+ *   seq[64]; used[32]; budget[7]; prior_nodes_walked; prior_solutions_found.
+ * Identity-checked, not diffed (any violation = hard error, exit 2):
+ *   magic, (size,format_version) dispatch pair, partition_depth,
+ *   prefix == filename-encoded cell, prefix(A) == prefix(B),
+ *   prior_budget(A) == prior_budget(B) == the expected PSB argument.
+ * Deliberately EXCLUDED from comparison:
+ *   mw_delta (format-3 only — no format-2 counterpart), reserved/pad bytes,
+ *   format_version itself (2 vs 3 is the point of the tool).
+ *
+ * Exit-code contract (also the return values of the do_* helpers):
+ *   0 = semantically EQUAL   1 = MISMATCH   2 = read/format/identity error.
+ * A comparator that "compares nothing" cannot return 0 here: every input
+ * must first survive magic + exact-size dispatch + domain validation +
+ * filename<->prefix + expected-budget identity, all of which depend on real
+ * parsed content. --ckpt-compare-selftest additionally proves the MISMATCH
+ * path fires for every compared field (negative controls). */
+
+typedef struct {
+    int fmt;                  /* 2 = legacy v3-lineage, 3 = v4 */
+    int depth;
+    int prefix[6];            /* p1 o1 p2 o2 p3 o3 (-1 -1 for depth 2) */
+    int sp;
+    int8_t fr_step[34], fr_p[34], fr_orient[34], fr_bd[34], fr_wd[34],
+           fr_prev_tail[34], fr_phase[34];
+    int8_t seq[64], used[32], budget[7];
+    long long prior_budget, prior_nodes_walked, prior_solutions_found;
+} CkptSem;
+
+/* Read a whole (possibly gzipped) .dfs_state into buf; returns byte count or
+ * -1. cap must be >= 577 so over-length files are detectable. */
+static long long ckpt_read_raw(const char *path, unsigned char *buf, size_t cap) {
+    gzFile gf = gzr_open(path);
+    if (!gf) return -1;
+    long long n = 0;
+    while ((size_t)n < cap) {
+        int got = gzread(gf, buf + n, (unsigned)(cap - (size_t)n));
+        if (got < 0) { gzclose(gf); return -1; }
+        if (got == 0) break;
+        n += got;
+    }
+    gzclose(gf);
+    return n;
+}
+
+/* Parse the sub-branch prefix encoded in a .dfs_state filename.
+ * Accepts ...sub_a_b_c_d.dfs_state[.gz] (depth 2) and
+ * ...sub_a_b_c_d_e_f.dfs_state[.gz] (depth 3). Returns depth (2/3) on
+ * success and fills pf[6] (pf[4]=pf[5]=-1 for depth 2); 0 on failure. */
+static int ckpt_prefix_from_filename(const char *path, int pf[6]) {
+    const char *base = strrchr(path, '/');
+    base = base ? base + 1 : path;
+    char name[128];
+    if (snprintf(name, sizeof(name), "%s", base) >= (int)sizeof(name)) return 0;
+    size_t len = strlen(name);
+    if (len > 3 && strcmp(name + len - 3, ".gz") == 0) { name[len - 3] = 0; len -= 3; }
+    if (len < 10 || strcmp(name + len - 10, ".dfs_state") != 0) return 0;
+    name[len - 10] = 0;
+    int a, b, c, d, e, f;
+    if (sscanf(name, "sub_%d_%d_%d_%d_%d_%d", &a, &b, &c, &d, &e, &f) == 6) {
+        pf[0] = a; pf[1] = b; pf[2] = c; pf[3] = d; pf[4] = e; pf[5] = f;
+        return 3;
+    }
+    if (sscanf(name, "sub_%d_%d_%d_%d", &a, &b, &c, &d) == 4) {
+        pf[0] = a; pf[1] = b; pf[2] = c; pf[3] = d; pf[4] = -1; pf[5] = -1;
+        return 2;
+    }
+    return 0;
+}
+
+/* Domain-validate a parsed CkptSem. Returns NULL if OK, else a static
+ * description of the first violation. A misaligned or wrong-layout parse is
+ * overwhelmingly likely to fail here (or at the identity checks) rather than
+ * yield in-domain garbage. */
+static const char *ckpt_validate_domains(const CkptSem *s) {
+    if (s->depth != 2 && s->depth != 3) return "partition_depth not in {2,3}";
+    for (int k = 0; k < (s->depth == 3 ? 3 : 2); k++) {
+        if (s->prefix[2 * k] < 0 || s->prefix[2 * k] >= 32) return "prefix pair out of [0,32)";
+        if (s->prefix[2 * k + 1] < 0 || s->prefix[2 * k + 1] > 1) return "prefix orient not 0/1";
+    }
+    if (s->depth == 2 && (s->prefix[4] != -1 || s->prefix[5] != -1))
+        return "depth-2 prefix has non - -1 p3/o3";
+    if (s->sp < -1 || s->sp > 33) return "sp out of [-1,33]";
+    for (int i = 0; i <= s->sp; i++) {
+        if (s->fr_step[i] < 0 || s->fr_step[i] > 33) return "frame step out of [0,33]";
+        if (s->fr_p[i] < 0 || s->fr_p[i] >= 32) return "frame p out of [0,32)";
+        if (s->fr_orient[i] < 0 || s->fr_orient[i] > 1) return "frame orient not 0/1";
+        if (s->fr_phase[i] < 0 || s->fr_phase[i] > 1) return "frame phase not 0/1";
+    }
+    for (int i = 0; i < 64; i++)
+        if (s->seq[i] < 0) return "seq value negative";  /* int8: >63 impossible only if <0 check plus <=63 */
+    for (int i = 0; i < 64; i++)
+        if (s->seq[i] > 63) return "seq value > 63";
+    for (int i = 0; i < 32; i++)
+        if (s->used[i] != 0 && s->used[i] != 1) return "used flag not 0/1";
+    for (int i = 0; i < 7; i++)
+        if (s->budget[i] < 0 || s->budget[i] > 32) return "budget slot out of [0,32]";
+    if (s->prior_budget <= 0) return "prior_budget not positive";
+    if (s->prior_nodes_walked < 0) return "prior_nodes_walked negative";
+    if (s->prior_solutions_found < 0) return "prior_solutions_found negative";
+    return NULL;
+}
+
+/* Read + dispatch + normalize one .dfs_state of EITHER format into CkptSem.
+ * Returns 0 on success; on failure writes a reason into err and returns -1. */
+static int ckpt_read_semantic(const char *path, CkptSem *out, char *err, size_t errsz) {
+    unsigned char buf[sizeof(DFSCheckpointState_v2) + 1];
+    long long n = ckpt_read_raw(path, buf, sizeof(buf));
+    if (n < 0) { snprintf(err, errsz, "cannot open/read %s", path); return -1; }
+    if (n < 8) { snprintf(err, errsz, "short file (%lld bytes) %s", n, path); return -1; }
+    uint32_t magic; uint16_t ver;
+    memcpy(&magic, buf, 4);
+    memcpy(&ver, buf + 4, 2);
+    if (magic != DFS_STATE_MAGIC) {
+        snprintf(err, errsz, "bad magic 0x%08x in %s", magic, path); return -1;
+    }
+    memset(out, 0, sizeof(*out));
+    if (ver == 2 && n == (long long)sizeof(DFSCheckpointState_v2_legacy)) {
+        DFSCheckpointState_v2_legacy st;
+        memcpy(&st, buf, sizeof(st));
+        out->fmt = 2;
+        out->depth = st.partition_depth;
+        out->prefix[0] = st.prefix_p1; out->prefix[1] = st.prefix_o1;
+        out->prefix[2] = st.prefix_p2; out->prefix[3] = st.prefix_o2;
+        out->prefix[4] = st.prefix_p3; out->prefix[5] = st.prefix_o3;
+        out->sp = st.sp;
+        for (int i = 0; i < 34; i++) {
+            out->fr_step[i] = st.frames[i].step;
+            out->fr_p[i] = st.frames[i].p;
+            out->fr_orient[i] = st.frames[i].orient;
+            out->fr_bd[i] = st.frames[i].bd;
+            out->fr_wd[i] = st.frames[i].wd;
+            out->fr_prev_tail[i] = st.frames[i].prev_tail;
+            out->fr_phase[i] = st.frames[i].phase;
+        }
+        memcpy(out->seq, st.seq, 64);
+        memcpy(out->used, st.used, 32);
+        memcpy(out->budget, st.budget, 7);
+        out->prior_budget = st.prior_budget;
+        out->prior_nodes_walked = st.prior_nodes_walked;
+        out->prior_solutions_found = st.prior_solutions_found;
+    } else if (ver == 3 && n == (long long)sizeof(DFSCheckpointState_v2)) {
+        DFSCheckpointState_v2 st;
+        memcpy(&st, buf, sizeof(st));
+        out->fmt = 3;
+        out->depth = st.partition_depth;
+        out->prefix[0] = st.prefix_p1; out->prefix[1] = st.prefix_o1;
+        out->prefix[2] = st.prefix_p2; out->prefix[3] = st.prefix_o2;
+        out->prefix[4] = st.prefix_p3; out->prefix[5] = st.prefix_o3;
+        out->sp = st.sp;
+        for (int i = 0; i < 34; i++) {
+            out->fr_step[i] = st.frames[i].step;
+            out->fr_p[i] = st.frames[i].p;
+            out->fr_orient[i] = st.frames[i].orient;
+            out->fr_bd[i] = st.frames[i].bd;
+            out->fr_wd[i] = st.frames[i].wd;
+            out->fr_prev_tail[i] = st.frames[i].prev_tail;
+            out->fr_phase[i] = st.frames[i].phase;
+        }
+        memcpy(out->seq, st.seq, 64);
+        memcpy(out->used, st.used, 32);
+        memcpy(out->budget, st.budget, 7);
+        out->prior_budget = st.prior_budget;
+        out->prior_nodes_walked = st.prior_nodes_walked;
+        out->prior_solutions_found = st.prior_solutions_found;
+    } else if (ver == 1) {
+        snprintf(err, errsz, "format v1 (iter-only) unsupported for leg (c): %s", path);
+        return -1;
+    } else if (ver == 2 && n == (long long)sizeof(DFSCheckpointState_v2)) {
+        /* A 576-byte file stamped v2 would be the task-#92-era 12-byte-frame
+         * variant briefly used inside the closed v2 SOLVER lineage. The 560T
+         * archive must not contain these; refuse rather than guess. */
+        snprintf(err, errsz, "ambiguous 576-byte format_version=2 variant — refusing: %s", path);
+        return -1;
+    } else {
+        snprintf(err, errsz, "unrecognized (size=%lld, version=%u) in %s", n, ver, path);
+        return -1;
+    }
+    const char *dv = ckpt_validate_domains(out);
+    if (dv) { snprintf(err, errsz, "domain violation (%s) in %s", dv, path); return -1; }
+    int pf[6];
+    int fdepth = ckpt_prefix_from_filename(path, pf);
+    if (fdepth == 0) {
+        /* MANDATORY: the filename is an identity witness EXTERNAL to the
+         * parsed bytes — a correct parse of a wrong layout cannot fake it.
+         * Refusing unparseable names also blocks harness wiring mistakes. */
+        snprintf(err, errsz, "filename not sub_<prefix>.dfs_state[.gz]: %s", path);
+        return -1;
+    }
+    {
+        int mism = (fdepth != out->depth);
+        for (int i = 0; i < 6; i++) if (pf[i] != out->prefix[i]) mism = 1;
+        if (mism) {
+            snprintf(err, errsz,
+                     "filename/prefix identity mismatch: file says depth=%d (%d,%d,%d,%d,%d,%d), "
+                     "header says depth=%d (%d,%d,%d,%d,%d,%d): %s",
+                     fdepth, pf[0], pf[1], pf[2], pf[3], pf[4], pf[5],
+                     out->depth, out->prefix[0], out->prefix[1], out->prefix[2],
+                     out->prefix[3], out->prefix[4], out->prefix[5], path);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+/* Canonical text rendering of the semantic state. Used by --ckpt-dump; two
+ * files agree under --ckpt-compare iff their dumps are textually identical
+ * (minus the header line), which gives the operator an independent
+ * `diff <(solve --ckpt-dump A) <(solve --ckpt-dump B)` cross-check path. */
+static void ckpt_dump_semantic(const CkptSem *s, const char *label) {
+    printf("ckpt-format: v%d (%s)\n", s->fmt, label);
+    printf("depth: %d\nprefix: %d %d %d %d %d %d\n", s->depth,
+           s->prefix[0], s->prefix[1], s->prefix[2], s->prefix[3], s->prefix[4], s->prefix[5]);
+    printf("sp: %d\n", s->sp);
+    for (int i = 0; i <= s->sp; i++)
+        printf("frame[%02d]: step=%d p=%d orient=%d bd=%d wd=%d prev_tail=%d phase=%d\n",
+               i, s->fr_step[i], s->fr_p[i], s->fr_orient[i], s->fr_bd[i],
+               s->fr_wd[i], s->fr_prev_tail[i], s->fr_phase[i]);
+    printf("seq:");   for (int i = 0; i < 64; i++) printf(" %d", s->seq[i]);   printf("\n");
+    printf("used:");  for (int i = 0; i < 32; i++) printf(" %d", s->used[i]);  printf("\n");
+    printf("budget:");for (int i = 0; i < 7;  i++) printf(" %d", s->budget[i]);printf("\n");
+    printf("prior_budget: %lld\nprior_nodes_walked: %lld\nprior_solutions_found: %lld\n",
+           s->prior_budget, s->prior_nodes_walked, s->prior_solutions_found);
+}
+
+static int do_ckpt_dump(const char *path) {
+    CkptSem s; char err[512];
+    if (ckpt_read_semantic(path, &s, err, sizeof(err)) != 0) {
+        fprintf(stderr, "CKPT-DUMP ERROR: %s\n", err);
+        return 2;
+    }
+    ckpt_dump_semantic(&s, path);
+    return 0;
+}
+
+/* Field-by-field semantic comparison. Prints EVERY differing field (full
+ * diff, no stop-at-first) as "CKPT-DIFF field=<name> A=<val> B=<val>" and a
+ * one-line machine-parseable verdict. Returns 0/1/2 per the contract. */
+static int do_ckpt_compare(const char *a_path, const char *b_path, long long expect_budget) {
+    CkptSem a, b; char err[512];
+    if (expect_budget <= 0) {
+        fprintf(stderr, "CKPT-COMPARE ERROR: expected PSB must be positive (got %lld)\n", expect_budget);
+        return 2;
+    }
+    if (ckpt_read_semantic(a_path, &a, err, sizeof(err)) != 0) {
+        fprintf(stderr, "CKPT-COMPARE ERROR (A): %s\n", err); return 2;
+    }
+    if (ckpt_read_semantic(b_path, &b, err, sizeof(err)) != 0) {
+        fprintf(stderr, "CKPT-COMPARE ERROR (B): %s\n", err); return 2;
+    }
+    /* Identity layer (exit 2 on violation — these are precondition failures,
+     * not walk divergence, and must never be conflated with MISMATCH). */
+    if (a.depth != b.depth) {
+        fprintf(stderr, "CKPT-COMPARE ERROR: depth identity %d vs %d\n", a.depth, b.depth); return 2;
+    }
+    for (int i = 0; i < 6; i++) if (a.prefix[i] != b.prefix[i]) {
+        fprintf(stderr, "CKPT-COMPARE ERROR: cell identity mismatch (prefix[%d] %d vs %d) — "
+                "refusing to compare different cells\n", i, a.prefix[i], b.prefix[i]);
+        return 2;
+    }
+    if (a.prior_budget != expect_budget || b.prior_budget != expect_budget) {
+        fprintf(stderr, "CKPT-COMPARE ERROR: budget identity: expected %lld, A=%lld B=%lld\n",
+                expect_budget, a.prior_budget, b.prior_budget);
+        return 2;
+    }
+    /* Semantic diff layer. */
+    long long ndiff = 0;
+#define CKPT_DIFF_LL(name, av, bv) do { \
+        if ((long long)(av) != (long long)(bv)) { \
+            printf("CKPT-DIFF field=%s A=%lld B=%lld\n", (name), (long long)(av), (long long)(bv)); \
+            ndiff++; \
+        } \
+    } while (0)
+    CKPT_DIFF_LL("sp", a.sp, b.sp);
+    for (int i = 0; i < 34; i++) {
+        char fn[32];
+#define CKPT_DIFF_FR(fld) do { \
+            if (a.fr_##fld[i] != b.fr_##fld[i]) { \
+                snprintf(fn, sizeof(fn), "frame[%d].%s", i, #fld); \
+                printf("CKPT-DIFF field=%s A=%d B=%d\n", fn, a.fr_##fld[i], b.fr_##fld[i]); \
+                ndiff++; \
+            } \
+        } while (0)
+        CKPT_DIFF_FR(step); CKPT_DIFF_FR(p); CKPT_DIFF_FR(orient);
+        CKPT_DIFF_FR(bd); CKPT_DIFF_FR(wd); CKPT_DIFF_FR(prev_tail); CKPT_DIFF_FR(phase);
+#undef CKPT_DIFF_FR
+    }
+    for (int i = 0; i < 64; i++) {
+        if (a.seq[i] != b.seq[i]) {
+            printf("CKPT-DIFF field=seq[%d] A=%d B=%d\n", i, a.seq[i], b.seq[i]); ndiff++;
+        }
+    }
+    for (int i = 0; i < 32; i++) {
+        if (a.used[i] != b.used[i]) {
+            printf("CKPT-DIFF field=used[%d] A=%d B=%d\n", i, a.used[i], b.used[i]); ndiff++;
+        }
+    }
+    for (int i = 0; i < 7; i++) {
+        if (a.budget[i] != b.budget[i]) {
+            printf("CKPT-DIFF field=budget[%d] A=%d B=%d\n", i, a.budget[i], b.budget[i]); ndiff++;
+        }
+    }
+    CKPT_DIFF_LL("prior_nodes_walked", a.prior_nodes_walked, b.prior_nodes_walked);
+    CKPT_DIFF_LL("prior_solutions_found", a.prior_solutions_found, b.prior_solutions_found);
+#undef CKPT_DIFF_LL
+    printf("CKPT-COMPARE: %s n_diffs=%lld A=%s(fmt=v%d) B=%s(fmt=v%d) psb=%lld\n",
+           ndiff == 0 ? "EQUAL" : "MISMATCH", ndiff,
+           a_path, a.fmt, b_path, b.fmt, expect_budget);
+    return ndiff == 0 ? 0 : 1;
+}
+
+/* Semantic perturbation of a checkpoint, preserving its native format —
+ * the negative-control generator. Reads raw, overlays the correct struct,
+ * applies ONE named in-domain perturbation, writes raw (uncompressed) to
+ * out_path. Perturbations are chosen to stay inside ckpt_validate_domains
+ * so they exercise the COMPARATOR, not the validator (except prior_budget /
+ * prefix, which target the identity layer by design). */
+static int do_ckpt_perturb(const char *in_path, const char *out_path, const char *field) {
+    unsigned char buf[sizeof(DFSCheckpointState_v2) + 1];
+    long long n = ckpt_read_raw(in_path, buf, sizeof(buf));
+    if (n != (long long)sizeof(DFSCheckpointState_v2_legacy) &&
+        n != (long long)sizeof(DFSCheckpointState_v2)) {
+        fprintf(stderr, "CKPT-PERTURB ERROR: unrecognized size %lld for %s\n", n, in_path);
+        return 2;
+    }
+    uint16_t ver; memcpy(&ver, buf + 4, 2);
+    int is_legacy = (ver == 2 && n == (long long)sizeof(DFSCheckpointState_v2_legacy));
+    int is_v4     = (ver == 3 && n == (long long)sizeof(DFSCheckpointState_v2));
+    if (!is_legacy && !is_v4) {
+        fprintf(stderr, "CKPT-PERTURB ERROR: (size=%lld, version=%u) not a known format\n", n, ver);
+        return 2;
+    }
+    /* Overlay both ways; only the matching one is used. */
+    DFSCheckpointState_v2_legacy lg; DFSCheckpointState_v2 v4;
+    if (is_legacy) memcpy(&lg, buf, sizeof(lg)); else memcpy(&v4, buf, sizeof(v4));
+#define FLD(x) (is_legacy ? (void)(lg.x) : (void)(v4.x))
+    /* Helper macros: apply the same expression to whichever overlay is live. */
+#define APPLY(stmt_lg, stmt_v4) do { if (is_legacy) { stmt_lg; } else { stmt_v4; } } while (0)
+    int sp = is_legacy ? lg.sp : v4.sp;
+    int li = (sp >= 0 && sp < 34) ? sp : 0;   /* deepest live frame index */
+    if (strcmp(field, "nodes") == 0) {
+        APPLY(lg.prior_nodes_walked += 1, v4.prior_nodes_walked += 1);
+    } else if (strcmp(field, "solutions") == 0) {
+        APPLY(lg.prior_solutions_found += 1, v4.prior_solutions_found += 1);
+    } else if (strcmp(field, "sp") == 0) {
+        APPLY(lg.sp = (int16_t)(lg.sp > 0 ? lg.sp - 1 : lg.sp + 1),
+              v4.sp = (int16_t)(v4.sp > 0 ? v4.sp - 1 : v4.sp + 1));
+    } else if (strcmp(field, "frame_step") == 0) {
+        APPLY(lg.frames[li].step = (int8_t)((lg.frames[li].step + 1) % 34),
+              v4.frames[li].step = (int8_t)((v4.frames[li].step + 1) % 34));
+    } else if (strcmp(field, "frame_p") == 0) {
+        APPLY(lg.frames[li].p = (int8_t)((lg.frames[li].p + 1) % 32),
+              v4.frames[li].p = (int8_t)((v4.frames[li].p + 1) % 32));
+    } else if (strcmp(field, "frame_orient") == 0) {
+        APPLY(lg.frames[li].orient ^= 1, v4.frames[li].orient ^= 1);
+    } else if (strcmp(field, "frame_bd") == 0) {
+        APPLY(lg.frames[li].bd += 1, v4.frames[li].bd += 1);
+    } else if (strcmp(field, "frame_wd") == 0) {
+        APPLY(lg.frames[li].wd += 1, v4.frames[li].wd += 1);
+    } else if (strcmp(field, "frame_prev_tail") == 0) {
+        APPLY(lg.frames[li].prev_tail ^= 1, v4.frames[li].prev_tail ^= 1);
+    } else if (strcmp(field, "frame_phase") == 0) {
+        APPLY(lg.frames[li].phase ^= 1, v4.frames[li].phase ^= 1);
+    } else if (strcmp(field, "seq") == 0) {
+        APPLY(lg.seq[0] ^= 1, v4.seq[0] ^= 1);
+    } else if (strcmp(field, "used") == 0) {
+        APPLY(lg.used[0] ^= 1, v4.used[0] ^= 1);
+    } else if (strcmp(field, "budget_arr") == 0) {
+        APPLY(lg.budget[0] = (int8_t)(lg.budget[0] < 32 ? lg.budget[0] + 1 : lg.budget[0] - 1),
+              v4.budget[0] = (int8_t)(v4.budget[0] < 32 ? v4.budget[0] + 1 : v4.budget[0] - 1));
+    } else if (strcmp(field, "prior_budget") == 0) {
+        APPLY(lg.prior_budget += 1, v4.prior_budget += 1);
+    } else if (strcmp(field, "prefix") == 0) {
+        APPLY(lg.prefix_p1 = (int8_t)((lg.prefix_p1 + 1) % 32),
+              v4.prefix_p1 = (int8_t)((v4.prefix_p1 + 1) % 32));
+    } else if (strcmp(field, "mw_delta") == 0) {
+        if (is_legacy) {
+            fprintf(stderr, "CKPT-PERTURB ERROR: mw_delta does not exist in the legacy format\n");
+            return 2;
+        }
+        v4.frames[li].mw_delta += 1;
+    } else if (strcmp(field, "reserved") == 0) {
+        APPLY(lg.reserved2[0] ^= 0xFF, v4.reserved2[0] ^= 0xFF);
+    } else {
+        fprintf(stderr, "CKPT-PERTURB ERROR: unknown field '%s'\n", field);
+        return 2;
+    }
+#undef APPLY
+#undef FLD
+    FILE *f = fopen(out_path, "wb");
+    if (!f) { fprintf(stderr, "CKPT-PERTURB ERROR: cannot write %s\n", out_path); return 2; }
+    size_t wn = is_legacy ? fwrite(&lg, sizeof(lg), 1, f) : fwrite(&v4, sizeof(v4), 1, f);
+    if (wn != 1 || fclose(f) != 0) {
+        fprintf(stderr, "CKPT-PERTURB ERROR: short write to %s\n", out_path);
+        return 2;
+    }
+    return 0;
+}
+
+/* --ckpt-compare-selftest: the negative-control battery.
+ *
+ * Builds ONE synthetic walk state, serializes it independently in BOTH
+ * on-disk formats (legacy 440-byte v2 and v4 576-byte v3), then asserts:
+ *   P0  cross-format compare of the SAME state          -> EQUAL   (exit 0)
+ *   N1  each compared semantic field, perturbed         -> MISMATCH(exit 1)
+ *   N2  prior_budget / prefix perturbations             -> ERROR   (exit 2)
+ *   N3  mw_delta + reserved-byte perturbations          -> EQUAL   (exit 0)
+ *       (proves the tool is NOT a raw-byte comparator)
+ *   N4  truncated file / 576-byte-stamped-v2 ambiguity  -> ERROR   (exit 2)
+ * A comparator that has never been SEEN to fail is not evidence; this
+ * selftest is the standing witness that every compared field can fire.
+ *
+ * Scope honesty: the selftest proves comparator SENSITIVITY, not that the
+ * legacy struct matches real v3-lineage bytes — that anchor is provided at
+ * gate time by the identity checks (filename<->prefix, expected PSB, domain
+ * ranges, exact 440-byte size) on the real archived files plus the
+ * real-data controls in the leg (c) runbook. */
+static int do_ckpt_selftest(void) {
+    char dir_a[128], dir_b[128], dir_p[128];
+    snprintf(dir_a, sizeof(dir_a), "/tmp/ckpt_selftest_%d_a", (int)getpid());
+    snprintf(dir_b, sizeof(dir_b), "/tmp/ckpt_selftest_%d_b", (int)getpid());
+    snprintf(dir_p, sizeof(dir_p), "/tmp/ckpt_selftest_%d_p", (int)getpid());
+    if (mkdir(dir_a, 0755) != 0 || mkdir(dir_b, 0755) != 0 || mkdir(dir_p, 0755) != 0) {
+        fprintf(stderr, "[--ckpt-compare-selftest] mkdir failed under /tmp\n");
+        return 2;
+    }
+    /* Synthetic in-domain state: depth-3 cell (1,0,2,0,3,0), 5 live frames. */
+    DFSCheckpointState_v2_legacy lg; memset(&lg, 0, sizeof(lg));
+    DFSCheckpointState_v2       v4; memset(&v4, 0, sizeof(v4));
+    const long long PSB = 3536157207LL;
+    lg.magic = DFS_STATE_MAGIC; lg.format_version = 2; lg.partition_depth = 3;
+    v4.magic = DFS_STATE_MAGIC; v4.format_version = 3; v4.partition_depth = 3;
+    lg.prefix_p1 = v4.prefix_p1 = 1;  lg.prefix_o1 = v4.prefix_o1 = 0;
+    lg.prefix_p2 = v4.prefix_p2 = 2;  lg.prefix_o2 = v4.prefix_o2 = 0;
+    lg.prefix_p3 = v4.prefix_p3 = 3;  lg.prefix_o3 = v4.prefix_o3 = 0;
+    lg.sp = v4.sp = 4;
+    for (int i = 0; i <= 4; i++) {
+        int8_t st = (int8_t)(3 + i), p = (int8_t)(5 + 2 * i), o = (int8_t)(i & 1);
+        lg.frames[i].step = v4.frames[i].step = st;
+        lg.frames[i].p = v4.frames[i].p = p;
+        lg.frames[i].orient = v4.frames[i].orient = o;
+        lg.frames[i].bd = v4.frames[i].bd = (int8_t)(i % 3);
+        lg.frames[i].wd = v4.frames[i].wd = (int8_t)((i + 1) % 3);
+        lg.frames[i].prev_tail = v4.frames[i].prev_tail = (int8_t)(10 + i);
+        lg.frames[i].phase = v4.frames[i].phase = (int8_t)(i & 1);
+        v4.frames[i].mw_delta = (int16_t)(100 + i);   /* v4-only; must NOT affect compare */
+    }
+    for (int i = 0; i < 64; i++) { int8_t v = (int8_t)((i * 7) % 64); lg.seq[i] = v4.seq[i] = v; }
+    for (int i = 0; i < 32; i++) { int8_t u = (int8_t)((i % 3) == 0); lg.used[i] = v4.used[i] = u; }
+    for (int i = 0; i < 7;  i++) { int8_t bg = (int8_t)(4 * i % 33); lg.budget[i] = v4.budget[i] = bg; }
+    lg.prior_budget = v4.prior_budget = PSB;
+    lg.prior_nodes_walked = v4.prior_nodes_walked = PSB - 1;
+    lg.prior_solutions_found = v4.prior_solutions_found = 0;
+    lg.reserved2[0] = 0x00; v4.reserved2[0] = 0x5A;   /* differ on purpose: excluded bytes */
+
+    char fa[192], fb[192], fp[192];
+    snprintf(fa, sizeof(fa), "%s/sub_1_0_2_0_3_0.dfs_state", dir_a);
+    snprintf(fb, sizeof(fb), "%s/sub_1_0_2_0_3_0.dfs_state", dir_b);
+    FILE *f = fopen(fa, "wb");
+    if (!f || fwrite(&lg, sizeof(lg), 1, f) != 1 || fclose(f) != 0) {
+        fprintf(stderr, "[--ckpt-compare-selftest] write %s failed\n", fa); return 2;
+    }
+    f = fopen(fb, "wb");
+    if (!f || fwrite(&v4, sizeof(v4), 1, f) != 1 || fclose(f) != 0) {
+        fprintf(stderr, "[--ckpt-compare-selftest] write %s failed\n", fb); return 2;
+    }
+
+    int fails = 0, checks = 0;
+#define EXPECT(desc, got, want) do { \
+        int expect_rc_ = (got);   /* evaluate the comparator exactly ONCE */ \
+        checks++; \
+        if (expect_rc_ != (want)) { \
+            fails++; \
+            fprintf(stderr, "[--ckpt-compare-selftest] FAIL %-38s rc=%d want=%d\n", (desc), expect_rc_, (want)); \
+        } else { \
+            printf("[--ckpt-compare-selftest] ok   %-38s rc=%d\n", (desc), expect_rc_); \
+        } \
+    } while (0)
+
+    /* P0: identical state across formats -> EQUAL. */
+    EXPECT("P0 cross-format same-state", do_ckpt_compare(fa, fb, PSB), 0);
+
+    /* P1: gz round-trip — archive tar members are per-file gzip -9 (#169),
+     * so the gz read path must behave identically to raw. */
+    {
+        char gz[224], cmd[640];
+        snprintf(gz, sizeof(gz), "%s/sub_1_0_2_0_3_0.dfs_state.gz", dir_p);
+        snprintf(cmd, sizeof(cmd), "gzip -9 -c %s > %s", fa, gz);
+        if (system(cmd) == 0)
+            EXPECT("P1 gz legacy vs raw v4", do_ckpt_compare(gz, fb, PSB), 0);
+        else { checks++; fails++;
+            fprintf(stderr, "[--ckpt-compare-selftest] FAIL P1 gzip invocation\n");
+        }
+    }
+
+    /* N1: every compared field must be able to FIRE. Perturb the v4 copy. */
+    static const char *mismatch_fields[] = {
+        "nodes", "solutions", "sp", "frame_step", "frame_p", "frame_orient",
+        "frame_bd", "frame_wd", "frame_prev_tail", "frame_phase",
+        "seq", "used", "budget_arr"
+    };
+    for (size_t i = 0; i < sizeof(mismatch_fields) / sizeof(mismatch_fields[0]); i++) {
+        snprintf(fp, sizeof(fp), "%s/sub_1_0_2_0_3_0.dfs_state", dir_p);
+        char desc[64];
+        snprintf(desc, sizeof(desc), "N1 perturb %s -> MISMATCH", mismatch_fields[i]);
+        int rc = do_ckpt_perturb(fb, fp, mismatch_fields[i]);
+        if (rc != 0) { checks++; fails++;
+            fprintf(stderr, "[--ckpt-compare-selftest] FAIL perturb(%s) rc=%d\n", mismatch_fields[i], rc);
+            continue;
+        }
+        EXPECT(desc, do_ckpt_compare(fa, fp, PSB), 1);
+    }
+    /* N1b: same battery against the LEGACY overlay writer (perturb the
+     * legacy copy) so both format paths of the comparator are proven
+     * fireable, not just the v4 side. */
+    for (size_t i = 0; i < sizeof(mismatch_fields) / sizeof(mismatch_fields[0]); i++) {
+        snprintf(fp, sizeof(fp), "%s/sub_1_0_2_0_3_0.dfs_state", dir_p);
+        char desc[64];
+        snprintf(desc, sizeof(desc), "N1b legacy-perturb %s -> MISMATCH", mismatch_fields[i]);
+        int rc = do_ckpt_perturb(fa, fp, mismatch_fields[i]);
+        if (rc != 0) { checks++; fails++;
+            fprintf(stderr, "[--ckpt-compare-selftest] FAIL legacy perturb(%s) rc=%d\n", mismatch_fields[i], rc);
+            continue;
+        }
+        EXPECT(desc, do_ckpt_compare(fp, fb, PSB), 1);
+    }
+
+    /* N2: identity-layer perturbations -> ERROR (exit 2), never EQUAL. */
+    snprintf(fp, sizeof(fp), "%s/sub_1_0_2_0_3_0.dfs_state", dir_p);
+    if (do_ckpt_perturb(fb, fp, "prior_budget") == 0)
+        EXPECT("N2 perturb prior_budget -> ERROR", do_ckpt_compare(fa, fp, PSB), 2);
+    if (do_ckpt_perturb(fb, fp, "prefix") == 0)
+        EXPECT("N2 perturb prefix -> ERROR", do_ckpt_compare(fa, fp, PSB), 2);
+
+    /* N3: excluded-field perturbations -> still EQUAL (semantic, not raw). */
+    if (do_ckpt_perturb(fb, fp, "mw_delta") == 0)
+        EXPECT("N3 perturb mw_delta -> EQUAL", do_ckpt_compare(fa, fp, PSB), 0);
+    if (do_ckpt_perturb(fb, fp, "reserved") == 0)
+        EXPECT("N3 perturb reserved -> EQUAL", do_ckpt_compare(fa, fp, PSB), 0);
+
+    /* N4: malformed inputs -> ERROR. */
+    {   /* truncated legacy file */
+        unsigned char raw[sizeof(DFSCheckpointState_v2_legacy)];
+        memcpy(raw, &lg, sizeof(lg));
+        snprintf(fp, sizeof(fp), "%s/sub_1_0_2_0_3_0.dfs_state", dir_p);
+        FILE *tf = fopen(fp, "wb");
+        if (tf && fwrite(raw, sizeof(raw) - 1, 1, tf) == 1 && fclose(tf) == 0)
+            EXPECT("N4 truncated file -> ERROR", do_ckpt_compare(fa, fp, PSB), 2);
+    }
+    {   /* 576-byte file stamped format_version=2: ambiguous variant */
+        DFSCheckpointState_v2 amb = v4; amb.format_version = 2;
+        snprintf(fp, sizeof(fp), "%s/sub_1_0_2_0_3_0.dfs_state", dir_p);
+        FILE *tf = fopen(fp, "wb");
+        if (tf && fwrite(&amb, sizeof(amb), 1, tf) == 1 && fclose(tf) == 0)
+            EXPECT("N4 576B-stamped-v2 -> ERROR", do_ckpt_compare(fa, fp, PSB), 2);
+    }
+#undef EXPECT
+
+    printf("[--ckpt-compare-selftest] %s (%d checks, %d failures)\n",
+           fails == 0 ? "PASS" : "FAIL", checks, fails);
+    /* Leave dirs in place on FAIL for inspection; clean on PASS. */
+    if (fails == 0) {
+        char cmd[512];
+        snprintf(cmd, sizeof(cmd), "rm -rf %s %s %s", dir_a, dir_b, dir_p);
+        if (system(cmd) != 0)
+            fprintf(stderr, "[--ckpt-compare-selftest] WARN: cleanup failed\n");
+    }
+    return fails == 0 ? 0 : 1;
 }
 
 /* --- Toy problem for --orbit-selftest ---
@@ -18812,6 +19448,46 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         return do_compare_provenance(argv[2], argv[3]);
+    } else if (argc > 1 && strcmp(argv[1], "--ckpt-dump") == 0) {
+        /* Gate-A leg (c) (task #21, 2026-08-13): canonical text dump of one
+         * .dfs_state (either format v2/legacy or v3/v4), semantic fields
+         * only. Read-only, sha-neutral. */
+        if (argc != 3) {
+            fprintf(stderr, "Usage: solve --ckpt-dump sub_<prefix>.dfs_state[.gz]\n");
+            return 2;
+        }
+        return do_ckpt_dump(argv[2]);
+    } else if (argc > 1 && strcmp(argv[1], "--ckpt-compare") == 0) {
+        /* Gate-A leg (c): cross-format semantic comparison of two .dfs_state
+         * files for the SAME cell at the SAME expected per-sub-branch budget.
+         * exit 0 = EQUAL, 1 = MISMATCH, 2 = read/format/identity error.
+         * The expected PSB is a REQUIRED argument — source it from the
+         * campaign recipe (CANONICAL_HASHES.md) / .budget sidecars, never
+         * hardcode it in a harness from a doc example. */
+        if (argc != 5) {
+            fprintf(stderr, "Usage: solve --ckpt-compare A.dfs_state[.gz] B.dfs_state[.gz] <expected_psb>\n");
+            return 2;
+        }
+        return do_ckpt_compare(argv[2], argv[3], atoll(argv[4]));
+    } else if (argc > 1 && strcmp(argv[1], "--ckpt-perturb") == 0) {
+        /* Gate-A leg (c): negative-control generator. Applies one named
+         * in-domain semantic perturbation to a checkpoint, preserving its
+         * native format. NEVER part of any enumeration path. */
+        if (argc != 5) {
+            fprintf(stderr,
+                "Usage: solve --ckpt-perturb in.dfs_state[.gz] out.dfs_state <field>\n"
+                "fields: nodes solutions sp frame_step frame_p frame_orient frame_bd\n"
+                "        frame_wd frame_prev_tail frame_phase seq used budget_arr\n"
+                "        prior_budget prefix mw_delta reserved\n");
+            return 2;
+        }
+        return do_ckpt_perturb(argv[2], argv[3], argv[4]);
+    } else if (argc > 1 && strcmp(argv[1], "--ckpt-compare-selftest") == 0) {
+        /* Gate-A leg (c): the negative-control battery — proves the
+         * comparator can FAIL on every compared field and that excluded
+         * fields (mw_delta, reserved) do not fire. Must PASS before any
+         * leg (c) batch run is credited. */
+        return do_ckpt_selftest();
     } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) {
         /* --regression-test (2026-04-29): partition-invariance check.
          *
