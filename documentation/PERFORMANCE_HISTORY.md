@@ -1261,3 +1261,51 @@ New env/CLI surface (see SOLVE_C_CLI.md): `SOLVE_F1_OOC_FORMAT=v2`, `SOLVE_F1_OO
 `SOLVE_F1_OOC_SCRATCH_MB`, `SOLVE_F1_OOC_READ_MB`, `SOLVE_F1_CKPT_SEC` (default 300 s), `--resume-from-layers`.
 Full validation + measurement detail: `roae-private/RETOOL_DESIGN_2026_07_07.md`,
 `OVERNIGHT_SUMMARY_2026_07_08.md`.
+
+---
+
+## 2026-08-13 — repr(k) forward-checked recanon DFS (`SOLVE_REPR_FC`) + `--kc-repr-normalize`
+
+### What changed
+Two leaf-free-sound prunes inside the record-convention recanon DFS (`orb_recanon_dfs_fc`):
+**A** an exact-consumption forward check on the per-class Hamming budget, and **C** memoization of
+proven-leaf-free `(slot, tail, budget)` states (epoch-tagged, per-thread, collisions drop entries).
+Both remove ONLY subtrees containing no leaves at all, so the first leaf found — and therefore
+`repr(k)` — is unchanged bit-for-bit. `orb_repr_global` dispatches to it; `SOLVE_REPR_FC=0` reverts
+to the verbatim unpruned DFS. Also adds the `--kc-repr-normalize` post-pass subcommand.
+
+**A C3 lower-bound prune was evaluated and REJECTED** — sound alone, but UNSOUND composed with the
+memo (a cd-pruned subtree can hold budget-feasible leaves, so "no leaf reached" would stop implying
+"leaf-free" and would poison other prefixes). Any future cd-based prune here must suppress memo
+inserts in subtrees where it fired.
+
+### Why (the measurement that motivated it)
+`repr(k)` cost is **heavy-tailed**, not uniform. Dense sweep over the real merged artifact
+(20,000-record windows): **10 of 12 at 0.5–1.5 µs/record, but the windows at record 10 M and 20 M at
+~1200–1350 µs/record** (~2,700×). Direct bulk measurement over records 0→16,777,217 consumed
+**48,776 cpu-sec ≈ 2.9 ms/record ⇒ ~1,430 core-hours** for the full 1,776,347,935-record post-pass.
+**This also retro-explains the 2026-08-12 incident** where the R-3 merge ran 7 h and completed <3 %
+of its emit phase with `perf` showing 100 % of CPU in `orb_recanon_dfs` — that was never an anomaly,
+it is this tail.
+
+### Sha gate — PRESERVING (equivalence, measured)
+- `--orbit-selftest` **PASS under both `SOLVE_REPR_FC=0` and `=1`**, including its
+  `DFS == brute lex-min` check against `orb_brute_repr` — an **independent** brute-force reference
+  over all 2^(np−1) completions. Exhaustive toy scope (384 cells, 12 orbits).
+- `repr(kw_key) == KW`'s exact bytes: PASS.
+- **Real-key A/B**: 19,940 real shard keys normalized under FC=0 and FC=1 → **byte-identical**,
+  sha `fefded7e…`, unchanged from the pre-change baseline.
+
+### Speed — NOT YET ESTABLISHED. Do not quote a speedup from this entry.
+The only real-data A/B run so far is on an all-easy-key shard, where FC is marginally **slower**
+(0.02 s → 0.05 s) because it pays ~1.3 µs/key of table build with no tail to cut. The source
+analysis' headline figures (`22.15M → 142` nodes) **did not reproduce** under adversarial re-run
+(its own deterministic commands give `31,416,379 → 32`), and every hard key it measured was
+**synthetic**. **The binding check is a real-artifact A/B at a known-hard region (offset ~10 M),
+which is outstanding.** Direction is established; magnitude is not.
+
+### Notes
+New env surface (see SOLVE_C_CLI.md): `SOLVE_REPR_FC` (default 1), `SOLVE_REPR_BENCH` (benchmark-only
+escape hatch for the truncated-slice completeness gate — never for production).
+Analysis: `roae-private/FABLE_REPR_HEAVY_TAIL_20260813.md`,
+`REPR_POSTPASS_FINDINGS_20260813.md`, `FABLE_REPR_PATCH_REVIEW_20260813.md`.

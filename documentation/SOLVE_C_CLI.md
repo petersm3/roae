@@ -1564,3 +1564,16 @@ Recent material changes (full record in [HISTORY.md](HISTORY.md)):
   resume path (commit d11bc0d); depth-3 was unaffected
 - 2026-04 11.2T canonical established (sha `0c0fe37c…`); 100T
   canonical established (sha `915abf30…`)
+
+### `SOLVE_REPR_FC` (default `1`) — repr(k) forward-checked recanon DFS
+
+`SOLVE_REPR_FC=0` reverts `orb_repr_global` to the verbatim unpruned DFS. The pruned path is
+equivalence-proven (leaf-free-sound prunes only) and certified by `--orbit-selftest` against the
+independent `orb_brute_repr` reference under both settings. Keep `=0` available for A/B
+verification and incident response. See PERFORMANCE_HISTORY.md (2026-08-13).
+
+### `SOLVE_REPR_BENCH` (default off) — BENCHMARK ONLY
+
+Downgrades `--kc-repr-normalize`'s completeness gate (header record-count must equal records
+processed) to a loud warning, so a deliberately truncated slice can be timed. **Never set this in
+production** — its output is a truncated artifact and must never be treated as canonical.

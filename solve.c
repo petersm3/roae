@@ -8663,6 +8663,193 @@ static int orb_recanon(const OrbitProblem *op, const int *key, const int *fixed_
     return orb_recanon_dfs(op, key, out_or, seq, budget, 4);
 }
 
+/* --- repr(k) forward-checked DFS (task #20 option C, 2026-08-13) ---
+ *
+ * WHY: repr(k)'s cost is bimodal with a catastrophic tail (MEASURED
+ * 2026-08-13 on the real merged artifact: ~0.5-1.5 us/record typical,
+ * ~1.2-2.9 ms/record in the heavy-tail region; single keys up to ~2.2e7
+ * DFS nodes). Diagnosis: on hard keys the DFS reaches EXACTLY ONE leaf
+ * (the answer) and never fails C3 -- the entire tail is interior
+ * dead-ends where the exact-consumption C5 budget has silently become
+ * unsatisfiable. Full analysis, measurements and proofs:
+ * roae-private/FABLE_REPR_HEAVY_TAIL_20260813.md.
+ * NOTE: that doc's headline speedup figures did NOT reproduce under
+ * adversarial re-run, and its hard keys were SYNTHETIC. The direction is
+ * established; the magnitude is gated on the real-artifact A/B (task #26
+ * gate G-e). Do not quote its numbers without that gate.
+ *
+ * WHAT: two prunes that remove ONLY subtrees containing NO LEAVES AT ALL,
+ * hence provably cannot change which valid leaf is found first, hence
+ * preserve repr(k) BIT-IDENTICALLY (child order untouched; 0-before-1
+ * first-found remains the lex-min per the ratified convention, bridge
+ * fact B6):
+ *   A. exact-consumption forward check on the per-class budget.
+ *   C. memoization of proven-leaf-free (slot, tail, budget) states.
+ *      Epoch-tagged per-thread; collisions drop entries (costs time,
+ *      never correctness); epoch wrap clears the table.
+ *
+ * CAUTION (composition hazard -- do NOT "improve" casually): a
+ * C3-lower-bound prune (evaluated and REJECTED) is sound ALONE but
+ * UNSOUND inside this memoized DFS: a cd-pruned subtree can contain
+ * budget-feasible leaves, so "no leaf reached" would no longer imply
+ * "leaf-free" and the memo would poison other prefixes whose cd differs.
+ * Any future cd-based prune here must also suppress memo inserts in
+ * subtrees where it fired.
+ *
+ * SOLVE_REPR_FC=0 falls back to the unpruned DFS (byte-identical by the
+ * theorem; kept for A/B verification and incident response). */
+#define ORB_FC_MEMO_LOG2 14
+#define ORB_FC_MEMO_SIZE (1u << ORB_FC_MEMO_LOG2)
+#define ORB_FC_MEMO_MASK (ORB_FC_MEMO_SIZE - 1u)
+static __thread uint64_t orb_fc_memo_key[ORB_FC_MEMO_SIZE];
+static __thread uint32_t orb_fc_memo_ep[ORB_FC_MEMO_SIZE];
+static __thread uint32_t orb_fc_epoch;
+
+typedef struct {
+    const OrbitProblem *op;
+    const int *key;
+    int wd_suffix[33][7];
+    int maxbnd_suffix[33][7];
+    int minbnd_suffix[33][7];
+    int impossible;
+} OrbFC;
+
+static void orb_fc_build(OrbFC *fc, const OrbitProblem *op, const int *key) {
+    int np = op->npairs;
+    fc->op = op; fc->key = key; fc->impossible = 0;
+    for (int d = 0; d < 7; d++) {
+        fc->wd_suffix[np][d] = 0;
+        fc->maxbnd_suffix[np][d] = 0;
+        fc->minbnd_suffix[np][d] = 0;
+    }
+    for (int t = np - 1; t >= 0; t--) {
+        for (int d = 0; d < 7; d++) {
+            fc->wd_suffix[t][d]     = fc->wd_suffix[t+1][d];
+            fc->maxbnd_suffix[t][d] = fc->maxbnd_suffix[t+1][d];
+            fc->minbnd_suffix[t][d] = fc->minbnd_suffix[t+1][d];
+        }
+        int P = key[t];
+        fc->wd_suffix[t][hamming(op->pt[P].a, op->pt[P].b)]++;
+        if (t >= 1) {
+            int Pp = key[t-1];
+            int sup[7] = {0,0,0,0,0,0,0};
+            int nsup = 0, only = -1;
+            for (int Op = 0; Op < 2; Op++) {
+                int sec = Op ? op->pt[Pp].a : op->pt[Pp].b;
+                for (int Oc = 0; Oc < 2; Oc++) {
+                    int fst = Oc ? op->pt[P].b : op->pt[P].a;
+                    int d = hamming(sec, fst);
+                    if (d != 5 && !sup[d]) { sup[d] = 1; nsup++; only = d; }
+                }
+            }
+            if (nsup == 0) fc->impossible = 1;
+            for (int d = 0; d < 7; d++) if (sup[d]) fc->maxbnd_suffix[t][d]++;
+            if (nsup == 1) fc->minbnd_suffix[t][only]++;
+        }
+    }
+}
+
+static inline uint64_t orb_fc_pack(int slot, int tail, const int budget[7]) {
+    uint64_t k = ((uint64_t)slot << 6) | (uint64_t)tail;
+    for (int d = 0; d < 7; d++) k = (k << 6) | (uint64_t)budget[d];
+    return k;
+}
+static inline uint64_t orb_fc_hash(uint64_t k) {
+    k *= 0x9E3779B97F4A7C15ull; k ^= k >> 29;
+    k *= 0xBF58476D1CE4E5B9ull; k ^= k >> 32;
+    return k;
+}
+static inline int orb_fc_probe(uint64_t k) {
+    uint64_t h = orb_fc_hash(k);
+    for (int p = 0; p < 8; p++) {
+        uint32_t idx = (uint32_t)((h + (uint64_t)p) & ORB_FC_MEMO_MASK);
+        if (orb_fc_memo_ep[idx] != orb_fc_epoch) return 0;
+        if (orb_fc_memo_key[idx] == k) return 1;
+    }
+    return 0;
+}
+static inline void orb_fc_insert(uint64_t k) {
+    uint64_t h = orb_fc_hash(k);
+    for (int p = 0; p < 8; p++) {
+        uint32_t idx = (uint32_t)((h + (uint64_t)p) & ORB_FC_MEMO_MASK);
+        if (orb_fc_memo_ep[idx] != orb_fc_epoch || orb_fc_memo_key[idx] == k) {
+            orb_fc_memo_key[idx] = k;
+            orb_fc_memo_ep[idx]  = orb_fc_epoch;
+            return;
+        }
+    }
+}
+
+/* Identical tree, child order, and leaf test as orb_recanon_dfs; the only
+ * additions are the two leaf-free-sound prunes. `leaves` counts leaves
+ * reached in the CURRENT subtree search (memo-insert precondition). */
+static int orb_recanon_dfs_fc(const OrbFC *fc, int *out_or, int *seq,
+                              int budget[7], int slot, long long *leaves) {
+    const OrbitProblem *op = fc->op;
+    int np = op->npairs;
+    if (slot == np) {
+        (*leaves)++;
+        int pos[64];
+        for (int i = 0; i < 64; i++) pos[i] = -1;
+        for (int i = 0; i < 2 * np; i++) pos[seq[i]] = i;
+        int cd = 0;
+        for (int v = 0; v < 32; v++) {
+            int c = v ^ 63;
+            if (pos[v] >= 0 && pos[c] >= 0) {
+                int d = pos[v] - pos[c];
+                cd += ((d < 0 ? -d : d) << 1);
+            }
+        }
+        return cd <= op->cd_thresh_x64;
+    }
+    int P = fc->key[slot];
+    int tail = seq[slot * 2 - 1];
+    for (int O = 0; O < 2; O++) {
+        int f = O ? op->pt[P].b : op->pt[P].a;
+        int s = O ? op->pt[P].a : op->pt[P].b;
+        int bd = hamming(tail, f);
+        if (bd == 5 || budget[bd] <= 0) continue;
+        budget[bd]--;
+        int wd = hamming(f, s);
+        if (budget[wd] <= 0) { budget[bd]++; continue; }
+        budget[wd]--;
+        int bad = 0;
+        for (int d = 0; d < 7; d++) {
+            int r = budget[d];
+            if (r < fc->wd_suffix[slot+1][d] + fc->minbnd_suffix[slot+1][d] ||
+                r > fc->wd_suffix[slot+1][d] + fc->maxbnd_suffix[slot+1][d]) {
+                bad = 1; break;
+            }
+        }
+        if (bad) { budget[wd]++; budget[bd]++; continue; }
+        uint64_t mk = orb_fc_pack(slot + 1, s, budget);
+        if (orb_fc_probe(mk)) {
+            budget[wd]++; budget[bd]++; continue;
+        }
+        seq[slot * 2] = f;
+        seq[slot * 2 + 1] = s;
+        long long lv0 = *leaves;
+        if (orb_recanon_dfs_fc(fc, out_or, seq, budget, slot + 1, leaves)) {
+            out_or[slot] = O;
+            budget[wd]++; budget[bd]++;
+            return 1;
+        }
+        if (*leaves == lv0) orb_fc_insert(mk);
+        budget[wd]++;
+        budget[bd]++;
+    }
+    return 0;
+}
+
+static int orb_repr_fc_enabled(void) {
+    static int st = -1;
+    if (st < 0) {
+        const char *e = getenv("SOLVE_REPR_FC");
+        st = (e && *e == '0') ? 0 : 1;
+    }
+    return st;
+}
+
 /* --- v4 RATIFIED RECORD CONVENTION: global slot-0-only repr(k) ---
  *
  * repr(k) = the lexicographically least orientation completion of the
@@ -8694,7 +8881,17 @@ static int orb_repr_global(const OrbitProblem *op, const int *key, int *out_or) 
     budget[wd0]--;
     seq[0] = f0; seq[1] = s0;
     out_or[0] = 0;
-    return orb_recanon_dfs(op, key, out_or, seq, budget, 1);
+    if (!orb_repr_fc_enabled())
+        return orb_recanon_dfs(op, key, out_or, seq, budget, 1);
+    OrbFC fc;
+    orb_fc_build(&fc, op, key);
+    if (fc.impossible) return 0;      /* no completion; baseline agrees (0) */
+    if (++orb_fc_epoch == 0) {        /* uint32 wrap: hard-reset epoch tags */
+        memset(orb_fc_memo_ep, 0, sizeof(orb_fc_memo_ep));
+        orb_fc_epoch = 1;
+    }
+    long long fc_leaves = 0;
+    return orb_recanon_dfs_fc(&fc, out_or, seq, budget, 1, &fc_leaves);
 }
 
 /* Rewrite a record's orientation bits to repr(k) (global, slot-0-only),
@@ -18398,6 +18595,211 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "[--verify-shard-manifest] FAIL - resume path corrupted shards.\n");
         fprintf(stderr, "             See documentation/DEVELOPMENT.md \"Resume-path defense in depth\" item 5.\n");
         return rc;
+    } else if (argc > 1 && strcmp(argv[1], "--kc-repr-normalize") == 0) {
+        /* --kc-repr-normalize IN.bin OUT.bin  (task #20, 2026-08-13)
+         *
+         * Bulk PARALLEL repr(k) normalization post-pass. Rewrites each
+         * record's orientation bits to the global slot-0-only repr(k),
+         * making an artifact merged under SOLVE_V4_RECORD_NORM=0 conform to
+         * V4_CONVENTION_FREEZE_RECONCILED_2026_07_14 §3.2/§3.3.
+         *
+         * WHY UNBUNDLING FROM THE MERGE LOOP IS NOT A DEVIATION: §3.3 itself
+         * specifies normalization as a post-dedup stream rewrite of each
+         * survivor. repr(k) is a pure function of k (budget-, cell-, slice-
+         * and engine-independent, §3.2), and compare_canonical masks every
+         * byte with & 0xFC — so orientation bits cannot affect sort order or
+         * dedup class. Normalizing a survivor here is therefore
+         * BYTE-IDENTICAL to normalizing it at emit, and the stream stays
+         * sorted with no re-sort.
+         *
+         * WHY IT IS SAFELY PARALLEL: orb_normalize_rec_op -> orb_repr_global
+         * -> orb_recanon_dfs use only stack locals (seq[64], budget[7],
+         * key/out_or) and read a const OrbitProblem. The single shared
+         * mutable is v4_norm_op, initialized ONCE below before any parallel
+         * region. Records are processed in fixed-size blocks and written in
+         * input order, so the output byte stream is deterministic and
+         * thread-count-independent.
+         *
+         * Measured cost ~1.26 ms/record => ~624 core-hours for 1.78e9
+         * records => ~4.9 h on a 128-core host. */
+        if (argc < 4) {
+            fprintf(stderr, "Usage: solve --kc-repr-normalize IN.bin OUT.bin\n");
+            return 1;
+        }
+        init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);
+        v4_norm_op_init();          /* MUST precede the parallel region */
+        const char *inp = argv[2], *outp = argv[3];
+        gzFile rin = gzr_open(inp);
+        if (!rin) { fprintf(stderr, "FATAL: cannot open %s\n", inp); return 1; }
+        /* F1 (adversarial review 2026-08-13, CONFIRMED by execution): `IN IN`
+         * DESTROYS the input — gzw_open truncates before the header is read, and
+         * the intended input is the expensive R-3 merged artifact. Guard BEFORE
+         * gzw_open. stat(outp) failing with ENOENT is the normal case; only
+         * refuse when both exist and are the same inode. */
+        {
+            struct stat si, so;
+            if (stat(inp, &si) == 0 && stat(outp, &so) == 0 &&
+                si.st_dev == so.st_dev && si.st_ino == so.st_ino) {
+                fprintf(stderr, "FATAL: IN and OUT are the same file — refusing to destroy the input.\n");
+                gzclose(rin); return 26;
+            }
+        }
+        gzFile rout = gzw_open(outp);
+        if (!rout) { fprintf(stderr, "FATAL: cannot open %s\n", outp); gzclose(rin); return 1; }
+        /* A merged solutions.bin begins with a 32-byte header ('ROAE', version,
+         * record count). Shards (sub_*.bin) do NOT. Treating the header as a
+         * record decodes garbage as a pair-order key and trips the B7 assertion
+         * in orb_normalize_rec_op — which is exactly what happened on the first
+         * real run (2026-08-13 06:01Z). Pass the header through VERBATIM.
+         * Headerless input is accepted so shards can be normalized too. */
+        unsigned char hdr[SOL_HEADER_SIZE];
+        long long hdr_recs = -1;
+        int have_hdr = 0;
+        {
+            size_t hgot = 0;
+            while (hgot < sizeof(hdr)) {
+                int g = gzread(rin, hdr + hgot, (unsigned)(sizeof(hdr) - hgot));
+                if (g <= 0) break;
+                hgot += (size_t)g;
+            }
+            if (hgot != sizeof(hdr)) { fprintf(stderr, "FATAL: %s shorter than one 32-byte block\n", inp); gzclose(rout); unlink(outp); return 24; }
+            /* F3+F4: use the EXISTING validated parser rather than a hand-rolled
+             * magic test — the reimplementation silently dropped the version gate
+             * (a v99 file was accepted, rc=0) and accepted any record count, which
+             * let a corrupt count disable the completeness gate below. */
+            uint64_t hdr_count_u64 = 0;
+            if (sol_read_header_mem(hdr, &hdr_count_u64) == 0) {
+                if (hdr_count_u64 > ((uint64_t)1 << 62)) {
+                    fprintf(stderr, "FATAL: header record count %llu is not credible — corrupt header.\n",
+                            (unsigned long long)hdr_count_u64);
+                    gzclose(rout); unlink(outp); return 24;
+                }
+                have_hdr = 1;
+                hdr_recs = (long long)hdr_count_u64;
+                if (gzwrite(rout, hdr, (unsigned)sizeof(hdr)) != (int)sizeof(hdr)) {
+                    fprintf(stderr, "FATAL: gzwrite header %s\n", outp); gzclose(rout); unlink(outp); return 22;
+                }
+                fprintf(stderr, "[--kc-repr-normalize] header: ROAE v%u, %lld records (passed through verbatim)\n",
+                        sol_unpack_u32_le(hdr + 4), hdr_recs);
+            } else if (hdr[0] == 'R' && hdr[1] == 'O' && hdr[2] == 'A' && hdr[3] == 'E') {
+                /* F4: ROAE magic but the parser rejected it — do NOT silently fall
+                 * through to the headerless path, which would normalize the header
+                 * as a record. */
+                fprintf(stderr, "FATAL: ROAE magic with unsupported format version %u.\n",
+                        sol_unpack_u32_le(hdr + 4));
+                gzclose(rout); unlink(outp); return 24;
+            } else {
+                /* headerless (shard): that first block IS a record — normalize
+                 * and emit it, then continue with the main loop. */
+                fprintf(stderr, "[--kc-repr-normalize] no ROAE header — treating input as a raw record stream (shard)\n");
+                /* F5: the headerless path accepts ANY non-ROAE input, so validate
+                 * before decoding. key[i] must be < 32 (pairs[32]); bit7 set means
+                 * pair index >= 32 and reads past the array, and bit0 is not a
+                 * record bit. Garbage there also lets hamming() exceed 6 and index
+                 * budget[7] out of bounds — including a WRITE. */
+                for (int b = 0; b < SOL_RECORD_SIZE; b++)
+                    if (hdr[b] & 0x81) {
+                        fprintf(stderr, "FATAL: byte %d = 0x%02X is not a valid (pair<<2|orient<<1) code — "
+                                "%s is not a record stream.\n", b, hdr[b], inp);
+                        gzclose(rout); unlink(outp); return 27;
+                    }
+                v4_normalize_record(hdr);
+                if (gzwrite(rout, hdr, (unsigned)sizeof(hdr)) != (int)sizeof(hdr)) {
+                    fprintf(stderr, "FATAL: gzwrite %s\n", outp); gzclose(rout); unlink(outp); return 22;
+                }
+            }
+        }
+        int T = manifest_thread_count();
+        const long long BLK = 1LL << 20;                  /* 1,048,576 recs = 32 MiB */
+        size_t bufsz = (size_t)BLK * SOL_RECORD_SIZE;
+        unsigned char *buf = (unsigned char *)malloc(bufsz);
+        if (!buf) { fprintf(stderr, "FATAL: out of memory (%zu B)\n", bufsz); return 1; }
+        fprintf(stderr, "[--kc-repr-normalize] %s -> %s, %d threads, block=%lld recs\n",
+                inp, outp, T, BLK);
+        long long total = 0, next_report = 100000000LL;
+        time_t t0 = time(NULL);
+        for (;;) {
+            /* Fill to a whole-record boundary: gzread may short-return
+             * mid-stream, and a partial record would silently corrupt the
+             * block's alignment for every subsequent record. */
+            size_t have = 0;
+            while (have < bufsz) {
+                int got = gzread(rin, buf + have, (unsigned)(bufsz - have));
+                if (got < 0) { fprintf(stderr, "FATAL: gzread %s\n", inp); gzclose(rout); unlink(outp); return 20; }
+                if (got == 0) break;                       /* EOF */
+                have += (size_t)got;
+            }
+            if (have == 0) break;
+            if (have % SOL_RECORD_SIZE) {
+                fprintf(stderr, "FATAL: %s is truncated — %zu trailing bytes are not a "
+                        "whole %d-byte record\n", inp, have % SOL_RECORD_SIZE, SOL_RECORD_SIZE);
+                gzclose(rout); unlink(outp); return 21;
+            }
+            long long n = (long long)(have / SOL_RECORD_SIZE);
+            /* schedule(DYNAMIC), not static: repr(k) cost varies by orders of
+             * magnitude between keys (an easy key resolves on the first DFS
+             * descent; a hard one backtracks deeply). Static scheduling hands
+             * each thread an equal RECORD COUNT, not equal WORK — measured
+             * 2026-08-13 at only 217% CPU of a possible 1600% on a 16-core host
+             * (~2.2 of 16 cores busy) because most threads finished their slice
+             * and idled. Dynamic chunks keep every thread fed. */
+            #pragma omp parallel for num_threads(T) schedule(dynamic, 256)
+            for (long long i = 0; i < n; i++) {
+                /* F5: validate before decoding. A byte with bit7 set gives a pair
+                 * index >= 32 and reads past pairs[32]; bit0 is not a record bit.
+                 * Undefined behavior in a canonical tool is not acceptable even
+                 * when a probe happens to fail safe. Cheap and branch-predictable. */
+                unsigned char *r = buf + (size_t)i * SOL_RECORD_SIZE;
+                for (int b = 0; b < SOL_RECORD_SIZE; b++)
+                    if (r[b] & 0x81) {
+                        fprintf(stderr, "FATAL: record %lld byte %d = 0x%02X is not a valid "
+                                "(pair<<2|orient<<1) code.\n", total + i, b, r[b]);
+                        exit(27);
+                    }
+                orb_normalize_rec_op(&v4_norm_op, r);
+            }
+            if (gzwrite(rout, buf, (unsigned)have) != (int)have) {
+                fprintf(stderr, "FATAL: gzwrite %s\n", outp);
+                gzclose(rout); unlink(outp); return 22;
+            }
+            total += n;
+            if (total >= next_report) {
+                double el = difftime(time(NULL), t0);
+                fprintf(stderr, "[--kc-repr-normalize] %lld records, %.0fs, %.2f M rec/s\n",
+                        total, el, el > 0 ? total / el / 1e6 : 0.0);
+                next_report += 100000000LL;
+            }
+        }
+        if (!have_hdr) total += 1;      /* the first block was a record, not a header */
+        free(buf);
+        gzclose(rin);
+        /* Completeness check: the header's own record count must match what we
+         * actually processed. A short read that silently truncated the stream
+         * would otherwise produce a smaller, perfectly valid-looking artifact. */
+        {
+            const char *bench = getenv("SOLVE_REPR_BENCH");
+            if (bench && atoi(bench) != 0 && have_hdr && total != hdr_recs) {
+                fprintf(stderr, "[--kc-repr-normalize] WARNING: SOLVE_REPR_BENCH=1 — processed %lld of "
+                        "%lld declared records. BENCHMARK ONLY; this output is a TRUNCATED artifact and "
+                        "must never be treated as a canonical.\n", total, hdr_recs);
+                hdr_recs = total;   /* suppress the gate below, deliberately and visibly */
+            }
+        }
+        if (have_hdr && hdr_recs >= 0 && total != hdr_recs) {
+            fprintf(stderr, "FATAL: header declares %lld records but %lld were processed — "
+                    "refusing to emit a truncated canonical.\n", hdr_recs, total);
+            unlink(outp); return 25;
+        }
+        if (gzw_close_durable(rout, outp) != 0) {
+            fprintf(stderr, "FATAL: close/fsync %s failed\n", outp);
+            return 23;
+        }
+        fprintf(stderr, "[--kc-repr-normalize] DONE — %lld records normalized in %.0fs\n",
+                total, difftime(time(NULL), t0));
+        fprintf(stderr, "[--kc-repr-normalize] NEXT: re-run this subcommand on the OUTPUT and require "
+                "byte-identical output (conforming <=> normalization is a no-op; there is NO separate "
+                "repr oracle in this tree), then --verify, then record the conforming sha.\n");
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--compare-provenance") == 0) {
         /* Metadata-equivalence retool 2026-05-26 (task #102, Phase 6).
          * Compares two solutions.provenance.json files for must-match
