@@ -80,6 +80,8 @@ under both) **iff both are dead** (`F(r1) = F(r2) = 0` path-wise, i.e. r1, r2 �
 is admissible under either — equivalent (and both count 0). ∎
 **Consequence: there is no residual "lumping" to be had among live states.** The minimal exact
 per-state storage of ANY forward scheme is the live set
+<!-- AS-OF NOTE (added 2026-08-14 on publication): this "ANY forward scheme" quantifier was
+     later NARROWED. See TR-11 for the authoritative scope. Text left unedited as a snapshot. -->
 `live(mask,last) = {B0 − p : p ∈ P} ∩ M`, and the only lever is how cheaply dead residuals are
 detected (box test = cheap partial detector; full M-intersection = gold, but computing M is a
 backward DP as expensive as the forward one).

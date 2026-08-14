@@ -43,6 +43,8 @@ ORBITS = {
 # spec's orbit rows IN SPEC ORDER — e.g. 3.0,3.1,3.2 -> [3,7,11, 4,6,21, 13,14,30], NOT the
 # ascending set [3,4,6,7,11,13,14,21,30]. Because the B0-defining DFS tries pairs in ascending
 # SUBSET-INDEX order, a different pair ordering yields a different first-completion witness and
+# AS-OF NOTE (added 2026-08-14 on publication): the "currently" below describes TR-11
+# BEFORE its v1.8 correction, which addressed the sorted-order issue. TR-11 is authoritative.
 # hence a different B0. TR-11 §4b currently publishes the SORTED index sets, which are therefore
 # insufficient to reproduce B0 — this is exactly the F-3 defect (verified empirically: sorted
 # order gives n=9 B0=(2,2,2,3,0), engine/spec order gives (2,5,0,2,0)).

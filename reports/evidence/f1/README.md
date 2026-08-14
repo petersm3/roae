@@ -7,6 +7,29 @@ Published 2026-08-14. TR-11's working-notes pointer previously said publication 
 this directory discharges that. Layout follows the [`f11/`](../f11/) convention: notes, scripts, and
 run logs together.
 
+## These are point-in-time snapshots — two claims inside them are superseded
+
+The working notes and prototypes here are published **as they were written**, not edited to match
+TR-11's current text. That preserves their value as evidence of how the result was reached, but it
+means a reader must not take every sentence in them as the project's current position. Two specific
+cases, identified by adversarial review on 2026-08-14:
+
+- **`FH1_RESIDUAL_DOMINANCE.md` line 82** — "the minimal exact per-state storage of **ANY** forward
+  scheme is the live set". That universal quantifier was **later narrowed**; the note predates the
+  narrowing and the scope in TR-11 is the authoritative one.
+- **`f3_rung_b0_cleanroom.py` line 46** — "TR-11 §4b **currently** publishes the SORTED index sets".
+  This describes TR-11 as it stood **before the v1.8 correction**, which addressed exactly the
+  sorted-order issue. The script's `PUBLISHED` dict also carries `None` for n=9 and n=18 — absence of
+  a recorded reference value at the time, not a claim that none exists.
+
+Where a snapshot and TR-11 disagree, **TR-11 is authoritative.** Nothing in this directory supersedes
+the report.
+
+## Known limitation
+
+`fh1_residual_instrument.py`'s budget sampling iterates in hash order and is therefore **not
+deterministic across runs**. Its aggregate conclusions are stable; an exact per-sample replay is not.
+
 ## Contents
 
 **Result**
