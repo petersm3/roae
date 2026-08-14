@@ -2078,12 +2078,12 @@ The campaign exposed these because it stress-tested execution paths the original
 
 ### Outcomes
 
-**T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to Azure Blob Archive tier (`roaecanonical2026/canonical-archive/t9c1/`). Warm copy of solutions.bin (110 GB) preserved on solver-data-westus3. D16 deallocated.
+**T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to Azure Blob Archive tier (`canonical-archive/t9c1/`). Warm copy of solutions.bin (110 GB) preserved on solver-data-westus3. D16 deallocated.
 
 **T9+d — COMPLETED 2026-05-10 06:07:50 UTC.** Phase 5 (62-branch enum) on D64als_v7 Spot, 2 Spot evictions recovered cleanly. Phase 5→6 migration to D16als_v7 Regular at 17:27 UTC May 9, deploying the #84-patched solve binary and streaming verify.py. Phase 6 (`solve --merge`) wall time 8h 20min; **the patched solve --merge exited cleanly at 01:57 UTC May 10 — no hang**, validating the #84 fix at full 100T scale. Phase 6 produced byte-identical solutions.bin: sha256 = `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`. Phase 7 sha check PASS — **partition invariance theorem empirically confirmed at 100T scale** (T9+d's per-branch-loop execution path produces byte-identical bytes to T9+c.1's full-enum path). Phase 8 `solve --verify` PASS. Phase 9 `verify.py --jobs 128` migrated to D128als_v7 Regular for parallelism — completed 06:07 UTC; verify result: all 3,432,399,297 records satisfy C1-C5 + sorted + no duplicates + KW present. D128 deleted post-archive. t9d-data-westus3 disk preserved Unattached pending operator deletion decision.
 
 **The canonical 100T solutions.bin is now FULLY RECOVERED** with two independent witnesses:
-- **T9+c.1 (full-enum path)** — produces 915abf30 byte-identically. Warm copy on solver-data-westus3, cold backup in `roaecanonical2026/canonical-archive/t9c1/`.
+- **T9+c.1 (full-enum path)** — produces 915abf30 byte-identically. Warm copy on solver-data-westus3, cold backup in `canonical-archive/t9c1/`.
 - **T9+d (per-branch path, partition-invariance witness)** — also produces 915abf30 byte-identically. Operational logs + metadata in `petersm3/roae-private:canonical_runs/20260509_100T_t9d_partition_invariance/`. solutions.bin not separately archived (byte-identical to T9+c.1's; redundant).
 
 The v1 closure work (#51 + #44) is now unblocked. CANONICAL_HASHES.md updated with the partition-invariance attestation; the registry confirms this canonical's bytes are reproducible across both execution strategies.
@@ -2375,7 +2375,7 @@ It does change:
 
 Three independent 5.6T runs archived (gzip -9, sha256, metadata.txt, run.log, merge.log) to two locations:
 
-- **Cold storage (Azure Blob `roaecanonical2026/canonical-archive/`, Archive tier, westus3):**
+- **Cold storage (Azure Blob `canonical-archive/`, Archive tier, westus3):**
   - `20260512_recursive_5.6T/` — post-#72 recursive path; sha `f66920c1…`
   - `20260512_1267a8e_5.6T/` — pre-f42f2ae bisect; sha `f66920c1…`
   - `20260512_cdd8575_5.6T/` — pre-1d4dc6e bisect endpoint; sha `f66920c1…` (proves irreproducibility)
@@ -2465,7 +2465,7 @@ This pattern means **modern code's "fixed" output is what was always intended; t
 
 ### Thursday 2026-05-14 morning — post-Build B teardown and mechanism-validation plan
 
-After the overnight Build B 11.2T completion (item 1 above) and archive, all remaining Build B compute resources were torn down: the `d3-11-2T-buildb-westus3` and `merge-d64-westus3` VMs were deleted along with their two OS disks, the two scratch SSDs (`d3-11.2T-buildb-scratch`, `d3-11.2T-scratch`), the two NICs, and the two public IPs. Three additional stale NIC + Public IP pairs from earlier sessions (`legacy-upload-westus2`, `merge-d32-westus3`, `shrink-tmp-westus3`) were also deleted. The Azure resource group now contains only the long-lived items: the `claude` orchestrator VM (D2as_v6, westus2), its OS disk (Premium SSD P4, 32 GB), `solver-data-westus3` (Standard HDD, 256 GB), and the `roaecanonical2026` storage account (canonical-archive container, 70 blobs, 34.4 GB across Cool + Archive tiers). Total monthly run-rate: ~$76 (~$55 claude VM + ~$19 disks + ~$0.20 cold storage).
+After the overnight Build B 11.2T completion (item 1 above) and archive, all remaining Build B compute resources were torn down: the `d3-11-2T-buildb-westus3` and `merge-d64-westus3` VMs were deleted along with their two OS disks, the two scratch SSDs (`d3-11.2T-buildb-scratch`, `d3-11.2T-scratch`), the two NICs, and the two public IPs. Three additional stale NIC + Public IP pairs from earlier sessions (`legacy-upload-westus2`, `merge-d32-westus3`, `shrink-tmp-westus3`) were also deleted. The Azure resource group now contains only the long-lived items: the `claude` orchestrator VM (D2as_v6, westus2), its OS disk (Premium SSD P4, 32 GB), `solver-data-westus3` (Standard HDD, 256 GB), and the cold-archive storage account (canonical-archive container, 70 blobs, 34.4 GB across Cool + Archive tiers). Total monthly run-rate: ~$76 (~$55 claude VM + ~$19 disks + ~$0.20 cold storage).
 
 The resume-bug hypothesis (this section's "Hypothesis update" above) is currently the best circumstantial fit for the c34390c0 and f7b8c4fb deltas, but it has not yet been demonstrated as a mechanism. The next planned work (operator-approved 2026-05-14 Thu) is a two-part validation:
 
@@ -3986,7 +3986,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 **Phase 4 archive** (2026-05-23 20:33 → ~23:45 UTC):
 - Managed-disk copy verified byte-identical (sha256 recompute on `solver-data-westus3:/20260521_v2_100T_buildA/final/solutions.bin` matched `cc4a5377…`).
 - gzip -9 of solutions.bin: 117 GB → 12.54 GB (`f6b554ea…`, 9.35× compression — slightly better than the 8× v2 11.2T precedent; ~1.5h wall single-threaded gzip on the D32 merge VM).
-- Cold-archive upload to `roaecanonical2026/canonical-archive/20260521_v2_100T_buildA/`: solutions.bin.gz + solutions.sha256 + solutions.bin.gz.sha256 + RUN_METADATA.txt + SHARDS_MANIFEST.txt + merge.log + solve binary + CAMPAIGN_SUMMARY.md.
+- Cold-archive upload to `canonical-archive/20260521_v2_100T_buildA/`: solutions.bin.gz + solutions.sha256 + solutions.bin.gz.sha256 + RUN_METADATA.txt + SHARDS_MANIFEST.txt + merge.log + solve binary + CAMPAIGN_SUMMARY.md.
 - **No Build B cross-build** — v2 100T is a comparison baseline against v1 (and a reference point for the v3 100T Phase 12 bench), not a load-bearing canonical for 560T extension.
 - **v2 shards deleted from managed disk** per operator directive 2026-05-23 (~481 GB freed). The v3 100T campaign (Phase 12) WILL preserve shards.
 - Merge VM (`v2-100t-merge`) + 1.5 TB Premium SSD scratch deleted post-archive. Solver-data managed disk preserved (NEVER deleted).
@@ -4046,7 +4046,7 @@ actual (v3+v3.1 Build A):    0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8
 
 **Merge ran in 200 GB tmpfs** as a workaround for `solve.c:10709`'s disk-check heuristic, which demanded 178 GB of free disk for the 11.2T merge but couldn't be satisfied on the 30 GB OS disk of the enum VM. Pattern: mount 200 GB tmpfs, symlink all 56,874 sub-shards into it via `find ... -print0 | xargs -0 ln -st`, copy the solve binary in, run `--merge` from the tmpfs cwd. Single-threaded sort/dedup of 2.99 B pre-dedup records (→ 759.6 M unique) finished in ~50 min using 89 GB heap.
 
-**Witness-only archive** (no solutions.bin re-upload per operator directive — same sha as v1 11.2T means the bytes are already in the cold archive): `roaecanonical2026/canonical-archive/20260524_v3_buildA_11.2T_8b1658b/` contains solve binary, sha sidecar, merge.log, enum.log.gz (full + tail), metadata.json, campaign_scripts.tar.gz, and WITNESS.md cross-referencing the v1 11.2T archive. ~485 KB total. Local mirror in `/home/claude/staging/`.
+**Witness-only archive** (no solutions.bin re-upload per operator directive — same sha as v1 11.2T means the bytes are already in the cold archive): `canonical-archive/20260524_v3_buildA_11.2T_8b1658b/` contains solve binary, sha sidecar, merge.log, enum.log.gz (full + tail), metadata.json, campaign_scripts.tar.gz, and WITNESS.md cross-referencing the v1 11.2T archive. ~485 KB total. Local mirror in `/home/claude/staging/`.
 
 **Build B (same-SKU x86 cross-build) SKIPPED** per operator directive 2026-05-24: two D128als_v7 westus3 Spot instances differ only in physical-host selection — that witness isn't strong enough to justify ~$5-10 + ~5h wall.
 
@@ -4080,7 +4080,7 @@ Under `-flto`, GCC keys the `.gcda` profile data lookup on the **output binary's
 Before this bench, the cold archive's smallest scale was 100B; it jumped to 5.6T+ for the d3 lineage. The bench's rep-1 merge (on the v1 side) and the post-bench tmpfs re-merge (on the v3 side) both produced the same 4,289,250,624-byte solutions.bin with sha `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`. 134,039,081 unique canonical orderings.
 
 Archived to:
-- Cold: `roaecanonical2026/canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9, 475 MB, 8.62× compression)
+- Cold: `canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9, 475 MB, 8.62× compression)
 - Managed disk: `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`
 - Local mirror: `/home/claude/staging/`
 
@@ -4773,7 +4773,7 @@ The 560 T canonical campaign launched 2026-06-01 00:03 UTC on a D128als_v7 Spot 
 
 1. Explicit data copy from Premium → solver-data launched while verify.py was still running (read-only on source, no interference).
 2. solver-data disk resized 2 TB → 4 TB online (the uncompressed 560 T artifacts at ~1.6 TB plus a gzipped warm-tier mirror at ~800 GB don't fit in the prior 2 TB envelope). Per the standing rule, resize is allowed; delete is not.
-3. Cold-blob upload to roaecanonical2026 (the durable offsite tier) + warm canonical-archive mirror at `/mnt/solver-data/canonical-archive/20260608_560T_9a968fa2/` follow the established 100T pattern.
+3. Cold-blob upload to the cold-archive storage account (the durable offsite tier) + warm canonical-archive mirror at `/mnt/solver-data/canonical-archive/20260608_560T_9a968fa2/` follow the established 100T pattern.
 
 The structural fix for future campaigns is to bake the explicit copy step into `phase_b_merge_supervise.sh` so it runs before `teardown_vm` unconditionally — see [CAMPAIGN_METHODOLOGY.md §4.1](CAMPAIGN_METHODOLOGY.md) for the post-merge artifact-preservation rule. This is the third canonical campaign (11.2 T, 100 T, 560 T) where the gap existed but was caught manually each time; the supervisor-level fix is the durable answer.
 
@@ -4803,7 +4803,7 @@ Six solve.c commits, all selftest-sha-preserving: `8ac5e8f` (§[10] + progress m
 
 ### 560T `--analyze` scientific findings (D128 run, 2026-06-11)
 
-The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`):
+The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + `canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`):
 
 - **§[1] file metadata**: 10,525,271,997 records, 336.81 GB
 - **§[2] per-position Shannon entropy**: pos 1 H = 0.000 (1 distinct pair — forced); pos 2 H = 4.272 (28 distinct pairs)
@@ -4866,7 +4866,7 @@ Two doc-shape changes landed today:
 
 1. **`findings/` → `documentation/` consolidation.** The three previously-staging findings docs (PARTITION_STABILITY_BOUNDARIES, SYMMETRY_SEARCH, PASS1_TRAJECTORY_DETERMINISM) were moved to `documentation/`, alongside a fourth new finding (`BOUNDARY_MINIMUM_NON_MONOTONE.md`; renamed `BOUNDARY_MINIMUM.md` on 2026-07-04 when the "4 → 5 → 4 non-monotone" headline was found to be a survivor-counting error — the corrected trajectory is monotone 4 → 5 → 5) documenting the greedy-ordered minimum trajectory across d3 10T → 100T → 560T. The motivation: a pre-Fable-review repo-wide MD sweep caught that the original `findings/` directory was being skipped by the partial `documentation/`-only review pass (#147). Consolidating into one tree eliminates the second-tier hierarchy that was easy to miss. A redirect stub remains at `findings/README.md` for incoming external links (then physically deleted 2026-06-11 PT evening after the redirect transition was confirmed). Commit: `bbf5348` consolidation; later commit deleting the stub.
 
-2. **CANONICAL_HASHES.md 100T disposition correction.** The doc's `d3 100T` row claimed the #114 re-validation bytes were archived at `canonical-archive/20260530_100T_revalidation_4e15885/`. Verification via blob list against `roaecanonical2026/canonical-archive/` returned 0 entries for that prefix. The text was corrected to "sha-PASS verdict stands as the authoritative record; the bytes themselves are not currently available." Commit: `7a3c0d5`.
+2. **CANONICAL_HASHES.md 100T disposition correction.** The doc's `d3 100T` row claimed the #114 re-validation bytes were archived at `canonical-archive/20260530_100T_revalidation_4e15885/`. Verification via blob list against `canonical-archive/` returned 0 entries for that prefix. The text was corrected to "sha-PASS verdict stands as the authoritative record; the bytes themselves are not currently available." Commit: `7a3c0d5`.
 
 ### Other 560T-derived hardening
 

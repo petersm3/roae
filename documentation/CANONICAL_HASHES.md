@@ -84,9 +84,9 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 **Archive triple-storage:**
 - `solver-data-westus3:/canonical-archive/20260608_560T_9a968fa2/` — gzip warm mirror (original campaign)
-- `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/` — cold blob (original campaign, Cool tier)
+- `canonical-archive/20260608_560T_9a968fa2/` — cold blob (original campaign, Cool tier)
 - `solver-data-westus3:/canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — gzip warm mirror (2026-06-30 re-run; solutions.bin.gz + shards.tar.gz + checkpoints, byte-identical canonical)
-- `roaecanonical2026/canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — cold blob (2026-06-30 re-run; round-trip-verified `9a968fa2`, extendable shards+checkpoints retained per the 11.2T+ cold-shards rule)
+- `canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — cold blob (2026-06-30 re-run; round-trip-verified `9a968fa2`, extendable shards+checkpoints retained per the 11.2T+ cold-shards rule)
 
 ---
 
@@ -114,7 +114,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 **Archive disposition (current state, 2026-07-17):**
 - **Bytes preserved on warm tier:** `solver-data-westus3:/canonical_100T/solutions.bin` (109,836,777,536 bytes; sha-verified 2026-06-12). Originate from T9+c.1 recovery May 8-9.
-- **Cold blob:** `roaecanonical2026/canonical-archive/20260619_100T_915abf30/` — uploaded 2026-06-19 from the fresh v3 100T re-derive (completed 2026-06-13; consumed by the 3-point trajectory analysis, HISTORY.md 2026-06-14), spec-v1 complete (solutions.bin.gz + sha sidecars + shards.tar + manifest + DONE marker; ~94 GiB). Presence re-verified live 2026-07-17 (blob present at Cool tier, 12,586,020,198 bytes) and by the cold-archive audit index of the same date. A second cold copy, `20260614_100T_v3_rederive_915abf30/` (same decompressed sha), is a known byte-redundant duplicate. *(Historical note: earlier revisions of this section said "NOT uploaded" and referenced `canonical-archive/20260530_100T_revalidation_4e15885/`, which was never populated — accurate as of 2026-06-12, superseded by the 2026-06-19 upload.)*
+- **Cold blob:** `canonical-archive/20260619_100T_915abf30/` — uploaded 2026-06-19 from the fresh v3 100T re-derive (completed 2026-06-13; consumed by the 3-point trajectory analysis, HISTORY.md 2026-06-14), spec-v1 complete (solutions.bin.gz + sha sidecars + shards.tar + manifest + DONE marker; ~94 GiB). Presence re-verified live 2026-07-17 (blob present at Cool tier, 12,586,020,198 bytes) and by the cold-archive audit index of the same date. A second cold copy, `20260614_100T_v3_rederive_915abf30/` (same decompressed sha), is a known byte-redundant duplicate. *(Historical note: earlier revisions of this section said "NOT uploaded" and referenced `canonical-archive/20260530_100T_revalidation_4e15885/`, which was never populated — accurate as of 2026-06-12, superseded by the 2026-06-19 upload.)*
 
 **Record-count correction 2026-07-04 (reverses the erroneous 2026-05-30 note that previously stood here):** the canonical 100T record count is **3,432,399,297**. The 2026-05-30 revision "corrected" the original 3,432,399,297 to 3,432,399,298 by dividing the file size (109,836,777,536 bytes) by 32 — but that quotient **includes the 32-byte file header**. Correct arithmetic: (109,836,777,536 − 32) / 32 = 3,432,399,297, which matches every primary source: `--analyze` §[1] (`records: 3432399297` / `32 header + 109836777504 records`) and §[28], the solver-written `solutions.meta.json` (`"record_count": 3432399297`), and the independent verifier (`VERIFY PASS: all 3432399297 records satisfy C1-C5`). The original 2026-05-12 provenance count was right all along. **The sha256 anchors are UNAFFECTED — only this derived count field was wrong.** The v2/v1 100T delta is consequently +231,181,**617** records (+6.74%). Convention rule going forward: record counts come only from `solutions.meta.json` / analyze §[1] / verify output — never from raw file-size division; if size arithmetic is used as a cross-check, it is (size − 32) / 32.
 
