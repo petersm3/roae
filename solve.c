@@ -13448,9 +13448,10 @@ static void f1c5_budget_free(F1C5Budget *B) {
  * (`g48_couples_to_couples`), so running-G is orbit-invariant and rides the
  * canonical-mask quotient exactly like rid; only `last` maps under
  * canonicalization, and the partner table is the same static table in
- * canonical coordinates. (The prefix-G g48-invariance lemma is promised in
- * the design's Sec 2.5 and is bridge/runtime-gate-carried until it lands in
- * PruneExactness.lean — same discipline as the F-53 bridge facts.)
+ * canonical coordinates. (The prefix-G g48-invariance lemma LANDED 2026-07-22
+ * as `runningG_mapP` / `runningG_orbit_invariant` in lean/PruneGInvariance.lean
+ * §9, so this is machine-checked, not bridge-carried. It is no longer promised
+ * in the design's Sec 2.5 nor pending in PruneExactness.lean.)
  *
  * THIS MODE IS UNCAPPED: no G-prune (`g_prune_sound`/`g_prune_exact` cover a
  * capped variant that is NOT implemented here). The deliverable is the full
