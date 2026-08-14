@@ -29,7 +29,7 @@ now engineered: the computation's terabyte-scale layers (measured: one layer alo
 streamed through disk by an out-of-core mode, so the full exact count runs on ~64 GB-RAM commodity
 hardware plus ~4 TB of disk. That run has now **completed** (2026-07-16): the exact integer is
 **1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097×10³⁹** (§9) — divisible by 24 exactly,
-and within 0.0044% of the prior statistical estimate. The final constraint (C3) is, as of this
+and within 0.0045% of the prior statistical estimate (actual deviation 0.004441%). The final constraint (C3) is, as of this
 version, no longer described as a structural obstruction: its global sum collapses to a bounded
 scalar (**C3 = 16 + 8·G**, a machine-checked identity — see §10(ii)), so a bounded-state exact
 design exists; what keeps the flagship |C1–C5| an estimate is the estimated ~15–30× (central ~19×;
@@ -50,7 +50,7 @@ constant on orbits, and storing only canonical masks collapses 2³¹ masks to 93
 memory drops into the tens of GB. The theorem simultaneously supplies an arithmetic gate: the action on
 complete sequences is free, so the count must be ≡ 0 (mod 24); it is, exactly, on a 42-digit integer.
 The exact value validates the Knuth estimator absolutely at full scale (stated 7.571×10⁴¹ ±0.01%;
-deviation 5.5×10⁻⁵) and converts [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)'s C2 ledger row from estimate to
+apparent deviation 5.5×10⁻⁵, which is the estimate's rounding gap rather than a resolved error — see §4) and converts [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)'s C2 ledger row from estimate to
 exact arithmetic. We state the validation stack, the exactness frontier (the C5-tracked extension's mathematics is
 **closed at the model level** — an exact dead-state-pruning theorem (machine-checked in Lean as `capping_exact`, 2026-07-20) plus the no-further-state-collapse Proposition, independently reviewed 2026-07-21 and machine-checked in Lean (`no_live_lumping`, `cap_never_merges_live`), the review also finding it **not load-bearing** for the landed integer (§10(iv))
 — and now engineered: measured per-layer footprints reach >2.45 TB for a single layer — beyond the in-RAM reach of the
@@ -275,7 +275,7 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
      28 pairs = **2,155,118,806,480,613,893,163,229,118,464**.
      (Reference values from the 2026-07-04 in-RAM runs; the 28-pair in-RAM reference itself peaked at
      87.1 GB RSS — the out-of-core rung reproduced its integer within a bounded-RSS budget on a small
-     VM.) Records: this repo's program ledger (UPDATE 41) and the retained run outputs.
+     VM.) Records: the retained run outputs (published at [`evidence/f1/`](evidence/f1/)); the corresponding program-ledger entry is a private working note and is deliberately not cited as a public record.
    - *Limitation found and fixed — the full-scale OOM:* the first out-of-core build (01bf3ef) streamed
      the *gather* but accumulated the layer being *built* in realloc-grown RAM arrays. At full scale,
      layer 10 is 4,522,319,129 entries × 28 B = 126.6 GB against 64 GiB of RAM: the run was OOM-killed
@@ -473,10 +473,13 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
   documentation/SYMMETRY_SEARCH.md.
 - Estimator calibration and exactness notes: documentation/SEARCH_SPACE_SIZE.md §"Absolute validation
   against an exact count"; documentation/DESCRIPTION_LENGTH.md (ledger row + exactness note).
-- Working notes (roae-private, publication relocation TBD per METHODS artifact-access policy):
-  F1_PHASE3_RECONSTRUCTION.md (recursion + state math), F1_ORBIT_QUOTIENT_2026_07.md (quotient design +
-  prototype validation), FH1_RESIDUAL_DOMINANCE.md (capping exactness + irreducibility + projections),
-  scripts/f1_evidence/ (Python prototypes).
+- Working notes and prototypes — **published 2026-08-14** at
+  [`reports/evidence/f1/`](evidence/f1/), discharging the relocation this line previously marked "TBD":
+  `F1_PHASE3_RECONSTRUCTION.md` (recursion + state math), `F1_ORBIT_QUOTIENT_2026_07.md` (quotient design +
+  prototype validation), `FH1_RESIDUAL_DOMINANCE.md` (capping exactness + irreducibility + projections),
+  and the Python prototypes (`f1_phase1/2/3.py`, `f1_orbit_dp.py`, `fh1_residual_instrument.py`,
+  `f3_rung_b0_cleanroom.py`) with the exact-count result `f1_exact.out` and its run log
+  `f1_exact.progress.log`.
 - Independence-ladder rung ([METHODS.md](METHODS.md)): rung 3 (instrument stack, two-language
   cross-validated), with the mod-24 gate itself sitting at rung 1 (reader arithmetic, no project code).
 

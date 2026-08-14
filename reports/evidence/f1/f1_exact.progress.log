@@ -1,0 +1,34 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1] run: FULL-31, n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=64 layers_dir=(none)
+[f1] layer k= 1/31: canonical_masks=7 (of C(31,1)=31) entries=12 bytes=0.000GB mass=56 elapsed=0.00s (enum=0.00s gather=0.00s mass=0.00s ckpt=0.00s) total=0.0s
+[f1] layer k= 2/31: canonical_masks=56 (of C(31,2)=465) entries=193 bytes=0.000GB mass=3030 elapsed=0.00s (enum=0.00s gather=0.00s mass=0.00s ckpt=0.00s) total=0.0s
+[f1] layer k= 3/31: canonical_masks=378 (of C(31,3)=4495) entries=2224 bytes=0.001GB mass=158520 elapsed=0.00s (enum=0.00s gather=0.00s mass=0.00s ckpt=0.00s) total=0.0s
+[f1] layer k= 4/31: canonical_masks=2087 (of C(31,4)=31465) entries=16682 bytes=0.003GB mass=8008392 elapsed=0.01s (enum=0.00s gather=0.01s mass=0.00s ckpt=0.00s) total=0.0s
+[f1] layer k= 5/31: canonical_masks=9707 (of C(31,5)=169911) entries=97070 bytes=0.015GB mass=390180000 elapsed=0.03s (enum=0.00s gather=0.03s mass=0.00s ckpt=0.00s) total=0.0s
+[f1] layer k= 6/31: canonical_masks=38262 (of C(31,6)=736281) entries=459144 bytes=0.059GB mass=18308194752 elapsed=0.11s (enum=0.00s gather=0.11s mass=0.00s ckpt=0.00s) total=0.2s
+[f1] layer k= 7/31: canonical_masks=128414 (of C(31,7)=2629575) entries=1797796 bytes=0.198GB mass=826120696800 elapsed=0.35s (enum=0.00s gather=0.34s mass=0.00s ckpt=0.00s) total=0.5s
+[f1] layer k= 8/31: canonical_masks=369823 (of C(31,8)=7888725) entries=5917168 bytes=0.570GB mass=35790117934560 elapsed=0.99s (enum=0.01s gather=0.98s mass=0.00s ckpt=0.00s) total=1.5s
+[f1] layer k= 9/31: canonical_masks=919819 (of C(31,9)=20160075) entries=16556742 bytes=1.417GB mass=1486104674971488 elapsed=2.44s (enum=0.01s gather=2.42s mass=0.01s ckpt=0.00s) total=3.9s
+[f1] layer k=10/31: canonical_masks=1986807 (of C(31,10)=44352165) entries=39736140 bytes=3.060GB mass=59031009747150048 elapsed=5.30s (enum=0.03s gather=5.25s mass=0.01s ckpt=0.00s) total=9.2s
+[f1] layer k=11/31: canonical_masks=3746013 (of C(31,11)=84672315) entries=82412286 bytes=5.769GB mass=2238499435344751776 elapsed=10.22s (enum=0.05s gather=10.14s mass=0.03s ckpt=0.00s) total=19.5s
+[f1] layer k=12/31: canonical_masks=6191140 (of C(31,12)=141120525) entries=148587360 bytes=9.534GB mass=80852505606467206512 elapsed=16.86s (enum=0.09s gather=16.72s mass=0.04s ckpt=0.00s) total=36.4s
+[f1] layer k=13/31: canonical_masks=8998676 (of C(31,13)=206253075) entries=233965576 bytes=13.858GB mass=2774612069786678862720 elapsed=24.60s (enum=0.12s gather=24.41s mass=0.06s ckpt=0.00s) total=61.1s
+[f1] layer k=14/31: canonical_masks=11530906 (of C(31,14)=265182525) entries=322865368 bytes=17.758GB mass=90214912586449979340384 elapsed=31.84s (enum=0.16s gather=31.60s mass=0.08s ckpt=0.00s) total=93.1s
+[f1] layer k=15/31: canonical_masks=13047760 (of C(31,15)=300540195) entries=391432800 bytes=20.094GB mass=2770632140297095359142272 elapsed=35.93s (enum=0.18s gather=35.66s mass=0.09s ckpt=0.00s) total=129.3s
+[f1] layer k=16/31: canonical_masks=13047760 (of C(31,16)=300540195) entries=417528320 bytes=20.094GB mass=80093674240206641353853472 elapsed=35.50s (enum=0.17s gather=35.24s mass=0.09s ckpt=0.00s) total=165.2s
+[f1] layer k=17/31: canonical_masks=11530906 (of C(31,17)=265182525) entries=392050804 bytes=17.758GB mass=2170882397924360814045934080 elapsed=30.61s (enum=0.15s gather=30.38s mass=0.08s ckpt=0.00s) total=196.3s
+[f1] layer k=18/31: canonical_masks=8998676 (of C(31,18)=206253075) entries=323952336 bytes=13.858GB mass=54923514193378330006541966016 elapsed=24.39s (enum=0.11s gather=24.21s mass=0.06s ckpt=0.00s) total=221.1s
+[f1] layer k=19/31: canonical_masks=6191140 (of C(31,19)=141120525) entries=235263320 bytes=9.534GB mass=1290454008328488258436737865344 elapsed=16.98s (enum=0.08s gather=16.85s mass=0.04s ckpt=0.00s) total=238.5s
+[f1] layer k=20/31: canonical_masks=3746013 (of C(31,20)=84672315) entries=149840520 bytes=5.769GB mass=27990537364240640857197953226816 elapsed=10.54s (enum=0.04s gather=10.48s mass=0.03s ckpt=0.00s) total=249.3s
+[f1] layer k=21/31: canonical_masks=1986807 (of C(31,21)=44352165) entries=83445894 bytes=3.060GB mass=556592953567421229168296049379968 elapsed=5.53s (enum=0.02s gather=5.50s mass=0.01s ckpt=0.00s) total=255.1s
+[f1] layer k=22/31: canonical_masks=919819 (of C(31,22)=20160075) entries=40472036 bytes=1.417GB mass=10062769873625049309905704253665728 elapsed=2.54s (enum=0.01s gather=2.52s mass=0.01s ckpt=0.00s) total=257.8s
+[f1] layer k=23/31: canonical_masks=369823 (of C(31,23)=7888725) entries=17011858 bytes=0.570GB mass=163751647381012794871729399383297408 elapsed=1.04s (enum=0.01s gather=1.03s mass=0.00s ckpt=0.00s) total=258.9s
+[f1] layer k=24/31: canonical_masks=128414 (of C(31,24)=2629575) entries=6163872 bytes=0.198GB mass=2368900521733943340315780206315690112 elapsed=0.36s (enum=0.00s gather=0.36s mass=0.00s ckpt=0.00s) total=259.3s
+[f1] layer k=25/31: canonical_masks=38262 (of C(31,25)=736281) entries=1913100 bytes=0.059GB mass=29988952698403994158852253257687507200 elapsed=0.11s (enum=0.00s gather=0.11s mass=0.00s ckpt=0.00s) total=259.4s
+[f1] layer k=26/31: canonical_masks=9707 (of C(31,26)=169911) entries=504764 bytes=0.015GB mass=325442308438512008434082154510952195200 elapsed=0.01s (enum=0.00s gather=0.00s mass=0.00s ckpt=0.00s) total=259.4s
+[f1] layer k=27/31: canonical_masks=2087 (of C(31,27)=31465) entries=112698 bytes=0.003GB mass=2943406597942040682211258215261280036608 elapsed=0.00s (enum=0.00s gather=0.00s mass=0.00s ckpt=0.00s) total=259.4s
+[f1] layer k=28/31: canonical_masks=378 (of C(31,28)=4495) entries=21168 bytes=0.001GB mass=21299089185697679559820837239703167155712 elapsed=0.00s (enum=0.00s gather=0.00s mass=0.00s ckpt=0.00s) total=259.4s
+[f1] layer k=29/31: canonical_masks=56 (of C(31,29)=465) entries=3248 bytes=0.000GB mass=115605199952688261623340094807081057171968 elapsed=0.00s (enum=0.00s gather=0.00s mass=0.00s ckpt=0.00s) total=259.4s
+[f1] layer k=30/31: canonical_masks=7 (of C(31,30)=31) entries=420 bytes=0.000GB mass=418356492931938578429104929660677536398336 elapsed=0.00s (enum=0.00s gather=0.00s mass=0.00s ckpt=0.00s) total=259.4s
+[f1] layer k=31/31: canonical_masks=1 (of C(31,31)=1) entries=62 bytes=0.000GB mass=757058601340255440651419713405330315358208 elapsed=0.00s (enum=0.00s gather=0.00s mass=0.00s ckpt=0.00s) total=259.4s
