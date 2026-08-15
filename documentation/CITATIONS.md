@@ -350,9 +350,14 @@ enumerates that space, or proves a ceiling on it.
   [1998](#zhang1994) is first-hand rather than citation-chain — and his 1998 title
   《六十四卦方图和**周易卦序分析**》 incorporates the title of Shen 1936b verbatim. (ii) Shen
   himself credits a predecessor: 予初创此说，以为前人所未发，近读崔东璧遗书易卦次图说，乃与予说不谋而合 —
-  having thought the account 前人所未发, he found that **崔述 (Cui Dongbi 崔东壁, 1740–1816)**, in
-  《易卦次图说》 (in 《崔东壁遗书》; the title as printed has no 序, and this edition prints the
-  variant 崔东**璧**), had reached it independently. Shen scopes the convergence himself:
+  having thought the account 前人所未发, he found that **崔述 (Cui Dongbi 崔东壁, 1740–1816)** had reached it
+  independently. **Reference corrected 2026-08-15** against Xing Wen 2021, who works directly from
+  Cui: the work is 《**易卦图说**》, of which 《易卦次图说》 is one of three constituent essays
+  (alongside 《易卦画图说》 and 《易十二卦应十二月图说》); Xing cites it in 《崔东壁集》 (Shanghai:
+  群学社, 1928), pp. 2–21, and reproduces its diagrams from the **1817 (嘉庆二十二年) woodblock
+  edition cut by Cui's disciple 陈履和** — not from 《崔东壁遗书》, which this project had assumed.
+  Xing judges the convergence with Shen genuine (「这确实与沈先生的卦序论"不谋而合"」), and Cui
+  claims the novelty himself: 纯卦人皆知之，而交卦则罕有言者。反对人多言之，而平对则罕有及者. Shen scopes the convergence himself:
   至散卦之排列，崔氏未详其故 — Cui does **not** account for the arrangement of the 48 subordinate
   hexagrams, which is where all of Shen's 三序/三势 material sits. We have **not** examined Cui's
   text; recorded as *per Shen's 1936 report*, not as a verified earlier root.
@@ -377,6 +382,31 @@ enumerates that space, or proves a ceiling on it.
 
   *Edition orthography, if quoting the 1992 reprint verbatim:* it prints 即 for 既 throughout
   既济/未济, and 首干 for 首乾 on p. 99.
+<a id="xingwen2021"></a>
+- **Xing Wen 邢文** (2021). "Fenxing yixue chutan: zai tan Shen Youding xiansheng guaxu lun"
+  分形易学初探——再谈沈有鼎先生卦序论 [A first exploration of the fractal studies of the Changes: a
+  further discussion of Shen Youding's theory of the hexagram sequences]. *Zhouyi yanjiu* 周易研究
+  2021(4): 31–36. Read in full 2026-08-15. Xing is Shen's principal expositor — he studied the two
+  1936 papers in 1993 at Li Xueqin's request — so this is the closest thing to an authoritative
+  modern reading of [Shen 1936](#shen1936).
+
+  **It proposes "fractal Yi studies" as a way of *reading* Shen, and says so explicitly**: 因并无材料
+  反映沈先生对分形的意见或了解 — "no material reflects Shen's opinion of or acquaintance with
+  fractals." The three criteria offered (similarity/self-similarity of form; repetition/iteration in
+  construction; unity of simplicity and complexity) are qualitative, and are loosened in the same
+  breath — 不一定所有的分形都是典型的分形. A Hutchinson operator is written down but never
+  instantiated: no maps, no contraction ratios, no attractor, no dimension, and the phrase is 视作
+  ("if we view … as"). **All the claimed iteration is at the level of hexagram CONSTRUCTION
+  (lines → trigrams → hexagrams), never at the level of the sequence.**
+
+  **Load-bearing for scope:** Xing does **not** define 回互, 交错 or 顺布 — they appear once, as an
+  undifferentiated list — and 抱, 插, 嵌 do not appear at all. He cites **no Shen material later than
+  1936** (all quotations are footnoted to pp. 97–99 of the 1992 collected works). He counts and bounds
+  nothing about orderings. So this paper neither collides with ROAE nor supplies the external
+  formalisation that would make Shen's six named-but-undefined patterns testable — and, coming from
+  the best-placed scholar writing 85 years later, it is meaningful evidence that no such definition
+  exists.
+
 <a id="zhang1994"></a>
 - **Zhang Qingyu 张清宇** (1994). "Yitu de neihan-ge jieshi" 易图的内涵格解释 [An intension-lattice
   interpretation of the Yi diagrams]. *Zhexue yanjiu* 哲学研究 1994(3): 36–44. Origin of his
