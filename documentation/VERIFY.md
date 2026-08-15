@@ -431,10 +431,14 @@ controls below and agree counter-for-counter.
 
 ### The sweep result, and the correct reading of it
 
-A whole-artifact `--check-repr` sweep was run against the 1,776,347,935-record
-merge output on 2026-08-15 and reported disagreement — **regionally**, at rates
+A `--check-repr` sweep was **started** against the 1,776,347,935-record merge output on
+2026-08-15, **stopped early**, and reported disagreement — **regionally**, at rates
 from **1.06 % to 42.2 %**, with **9 chunks of 5,242,880 records each agreeing
-perfectly** and `INCOMPUTABLE=0` throughout. A uniformly broken oracle cannot
+perfectly** (47,185,920 records) and `INCOMPUTABLE=0` throughout.
+**Coverage, stated exactly: this did NOT cover the whole artifact.** Nine chunks passed, 212
+reported disagreement, and the run was halted. The per-chunk manifest is not published, so the
+percentages below are attributable to a named instrument and a named artifact, but are **not
+reproducible from this repository alone**. A uniformly broken oracle cannot
 produce that pattern, so the sweep was stopped before any conclusion was drawn
 about the data.
 
@@ -445,6 +449,13 @@ been run on it. The disagreeing records **are** the post-pass's work-list. So
 `--check-repr` is the right acceptance test for the post-pass *output* and is
 expected to fail on its *input*; running it on a raw merge is a category error,
 not a finding.
+
+> **⚠ NOT AVAILABLE IN THIS TREE.** `--kc-repr-normalize`, `orb_normalize_rec_op`, `orb_repr_global`
+> and `orb_recanon` do **not** exist in `main`'s `solve.c` — zero occurrences. They live on an
+> **unlanded** v4 branch that `BRANCH_REGISTRY.tsv` marks *snapshot — do not cite*. A reader of
+> `main` cannot run this pass. Relatedly, the `--check-repr` row's quotation *"there is NO separate
+> repr oracle in this tree"* is that branch's **runtime output**, not text in `main`'s `solve.c`, and
+> must not be read as quoting this repository.
 
 **One misreading, made and retracted the same day, is worth recording** so it is
 not repeated. `orb_recanon` pins slots 0..3 from a member *cell's* prefix, and it
@@ -469,15 +480,21 @@ whole file in minutes instead of the ~47 h a repr sweep costs.
 
 ### Direct evidence that a key has many valid orientations
 
-Of the 31 single-orientation-bit flips of King Wen's own record, **16 still
-validate** under `--check-artifact` and 15 trip `BAD_BUDGET`. So a pair-order key
+Of the 31 single-orientation-bit flips of King Wen's own record, **9 still validate** under
+`--check-artifact`; **15 trip `BAD_BUDGET`** and **7 trip `BAD_HD5`**. *(Corrected 2026-08-15: this
+first read "16", computed as 31−15 on the assumption that `BAD_BUDGET` was the only failure mode.
+The measuring harness grepped `^BAD_[A-Z_]+=[1-9]`, whose character class excludes DIGITS, so
+`BAD_HD5=1` — the one counter whose name contains a digit — never matched, and 7 failures were
+silently counted as passes. The conclusion below survives; the number did not.)* So a pair-order key
 routinely admits many valid orientation completions, and *which* one an
-un-normalized record carries is walk-dependent: per `solve.c`'s record-comparator
-proof, each thread's hash table keeps only the **first-arriving** variant per
-canonical class. Normalization is what replaces that with a function of the key
+un-normalized record carries is walk-dependent — though not in the way an earlier revision of this
+section said. Each thread keeps the **byte-wise least** variant it has seen for a canonical class
+(`solve.c`: *"Lex-smallest record wins"*), chosen precisely so the result does **not** depend on
+thread arrival order. The real dependence is on the **visited set**: the least-among-VISITED variant
+moves as the budget slice changes. Normalization is what replaces that with a function of the key
 alone — which is precisely why it is required for partition-invariance.
 
-### Controls (all seven pass; C and Python agree on every counter)
+### Controls (a positive plus seven negatives; all pass)
 
 | control | differs from positive by | expected |
 |---|---|---|
@@ -485,7 +502,7 @@ alone — which is precisely why it is required for partition-invariance.
 | `ctl_key` | one slot's pair index duplicated | `BAD_KEY=1` |
 | `ctl_open` | slot 0 pair swapped away from (63,0) | `BAD_OPENING=1` |
 | `ctl_hd5` | a pair placed at slot 1 with HD(0,first)=5 | `BAD_HD5=1` |
-| `ctl_orient` | one orientation bit | `BAD_BUDGET=1` |
+| `ctl_orient` | orientation bit at one specific slot | `BAD_BUDGET=1` — **the slot matters**: across all 31 flips, 9 pass, 15 give `BAD_BUDGET`, 7 give `BAD_HD5` |
 | `ctl_spare` | one reserved bit0 set | `BAD_SPARE_BIT=1` |
 | `ctl_dup` | one record repeated | `BAD_ORDER=1` (duplicate class) |
 | `ctl_order` | two adjacent records swapped | `BAD_ORDER=1` (out of order) |

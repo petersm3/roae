@@ -367,18 +367,22 @@ enumerates that space, or proves a ceiling on it.
   attest the 16/48 skeleton decomposition and no more. But his six groups are not merely K₄-closed:
   computing over all 64 hexagrams, **they are exactly the six K₄ orbits of his sixteen** (sizes
   2,2,2,2,4,4), and this is forced — 错 is the identity on generational rank while flipping gender,
-  综 is the identity on gender while permuting rank by the transposition (长 少) fixing 老 and 中, and
-  both act diagonally on (lower, upper), so Shen's criterion rank(lower) = rank(upper) is
-  K₄-invariant. **This is our observation, not his claim**, and both halves belong in any account:
+  综 is the identity on gender while permuting rank by the transposition (长 少) fixing 老 and 中, . 错 acts componentwise on (lower, upper); **综 SWAPS them** —
+  (lower, upper) ↦ (rev(upper), rev(lower)) — so it is not a diagonal action, and an earlier revision
+  of this entry describing it as one was wrong. The invariance holds regardless: both generators
+  apply the *same* rank map to each component, and Shen's criterion asserts the two components' ranks
+  are EQUAL — a condition preserved by a componentwise map and by a swap alike. **This is our observation, not his claim**, and both halves belong in any account:
   the concept is absent from 1936, the extension is not. If Zhang's credit to Shen concerns the 错综不变组 idea, it must rest on later Shen
   material or on Zhang's first-hand knowledge as a commissioned editor — not on anything in 1936a/b.
   The two claims should be kept apart in any account of the lineage.
 
   **Do not conflate Shen's sixteen with Zhang's sixteen.** They are different objects that share a
   number: Shen's are sixteen individual hexagrams; Zhang's canonical 交综 count is a count of orbit
-  classes. Shen's eight doubled-trigram hexagrams overlap the eight self-inverse hexagrams
-  (乾坤颐大过坎离中孚小过) in only four members (乾坤坎离), and the eight self-错综 hexagrams
-  (泰否既济未济随蛊渐归妹) in only four (泰否既济未济). Shen nowhere states or uses the K₄ coincidence noted above.
+  classes. **Shen's sixteen** overlap the eight self-inverse hexagrams
+  (乾坤颐大过坎离中孚小过) in only four (乾坤坎离), and the eight self-错综 hexagrams
+  (泰否既济未济随蛊渐归妹) in only four (泰否既济未济). *(Corrected 2026-08-15: this previously made
+  "Shen's eight doubled-trigram hexagrams" the subject of both clauses, which is false — their
+  intersection with the self-错综 eight is EMPTY.)* Shen nowhere states or uses the K₄ coincidence noted above.
 
   *Edition orthography, if quoting the 1992 reprint verbatim:* it prints 即 for 既 throughout
   既济/未济, and 首干 for 首乾 on p. 99.
