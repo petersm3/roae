@@ -256,6 +256,16 @@ def check_artifact(path, count=-1, offset=0):
             hdr = fh.read(SOL_HEADER_SIZE)
             if len(hdr) < SOL_HEADER_SIZE:
                 print("ARTIFACT=FAIL_short_header"); return 2
+            # Validate the magic. Without it a HEADERLESS file (a raw sub_*.bin
+            # shard) has its first record silently eaten as "header" and this can
+            # then report ARTIFACT=PASS on a file it never fully read -- the same
+            # failure mode as applying solutions.bin's header convention to
+            # headerless shards. Fail closed rather than auto-detect.
+            if hdr[:4] != b'ROAE':
+                print("ARTIFACT=FAIL_no_ROAE_header")
+                print("  refusing: first 4 bytes are not 'ROAE'. A headerless shard would")
+                print("  otherwise have its first record consumed as a header.")
+                return 2
             fh.seek(SOL_HEADER_SIZE + offset * 32)
             while count < 0 or n < count:
                 rec = fh.read(32)

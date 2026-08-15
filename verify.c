@@ -281,6 +281,19 @@ static int vc_check_artifact_main(int argc, char **argv) {
     if (!fh) { printf("ARTIFACT=FAIL_open\n"); return 2; }
     unsigned char hdr[32];
     if (gzread(fh, hdr, 32) != 32) { printf("ARTIFACT=FAIL_short_header\n"); gzclose(fh); return 2; }
+    /* VALIDATE THE MAGIC. Without this a HEADERLESS file (a raw sub_*.bin shard)
+     * has its FIRST RECORD silently eaten as "header", and the checker can then
+     * report ARTIFACT=PASS on a file it never fully read. That is the same
+     * failure mode as the recon off-by-one this repo already carries a fix for:
+     * applying solutions.bin's header convention to headerless shards. Fail
+     * closed rather than auto-detect -- this tool validates the merged artifact,
+     * and a shard should be an explicit refusal, not a silent reinterpretation. */
+    if (memcmp(hdr, "ROAE", 4) != 0) {
+        printf("ARTIFACT=FAIL_no_ROAE_header\n");
+        printf("  refusing: first 4 bytes are not 'ROAE'. A headerless shard would\n");
+        printf("  otherwise have its first record consumed as a header.\n");
+        gzclose(fh); return 2;
+    }
     unsigned char rec[32], prev[32];
     for (long long i = 0; i < off; i++)
         if (gzread(fh, rec, 32) != 32) { printf("ARTIFACT=FAIL_offset_past_eof\n"); gzclose(fh); return 2; }
@@ -296,10 +309,15 @@ static int vc_check_artifact_main(int argc, char **argv) {
         long long idx = off + n;
         n++;
         int key[32], orient[32]; uint32_t seen = 0; int bad = 0;
+        /* Count spare bits over ALL 32 bytes BEFORE the key check. Previously this
+         * sat inside the decode loop and stopped at the bad-key break, so on a
+         * record with both a bad key and later spare bits the C and Python
+         * implementations disagreed (Python counts all 32 first). Two independent
+         * instruments that diverge on compound defects are not two instruments. */
+        for (int i = 0; i < 32; i++) if (rec[i] & 1) bad_spare++;
         for (int i = 0; i < 32; i++) {
             key[i]    = (rec[i] >> 2) & 0x3F;
             orient[i] = (rec[i] >> 1) & 1;
-            if (rec[i] & 1) bad_spare++;              /* bit0 is reserved and must be 0 */
             if (key[i] >= 32 || ((seen >> key[i]) & 1u)) { bad = 1; break; }
             seen |= 1u << key[i];
         }
