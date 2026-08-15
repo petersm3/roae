@@ -308,7 +308,8 @@ exceptions, each a separate-toolchain component: `viz/` (visualize.py — heavy
 plotting deps) and `lean/` (**a per-module directory, not one file** — the Lean 4 machine-checked theorem
 modules + README; every file is inventoried in `lean/README.md` and checked independently by
 `reports/certificates/verify_all.sh`. The one-file wording here was written 2026-07-03 when `lean/`
-held exactly one file; the second and third landed 2026-07-04 and it is now twelve. Per-module is
+held exactly one file; the second and third landed 2026-07-04 and it is now thirteen
+(`PruneReprFC.lean`, the repr(k) prune-safety theorem, landed 2026-08-15). Per-module is
 the RIGHT structure for Lean and is not to be consolidated: compile cost is PER FILE. The landed
 kernel-`decide` `PruneGInvariance.lean` peaks at ~3.9 GB (an earlier revision of this sentence
 said "near 10.6 GB" — that WAS a real measurement, kept here for provenance, but of the REJECTED
