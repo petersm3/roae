@@ -341,7 +341,18 @@ enumerates that space, or proves a ceiling on it.
   **Scope, as far as these two papers go:** every quantity Shen states counts members of a defined
   **class of hexagrams**; we find no count or bound on **orderings**, no ceiling, no uniqueness
   claim, and no proof. Where the symmetry that later becomes Zhang's 错综 orbit does appear —
-  逆顺错综，处处对称 — Shen writes 不详述 ("not elaborated"), 限于篇幅. This reading is offered as a
+  逆顺错综，处处对称 — Shen writes 不详述 ("not elaborated"), 限于篇幅.
+
+  **Do not read that brevity as undeveloped thinking.** In the *same year*, in
+  评《东西乐制之研究》 (《清华学报》11(1), **1936年1月**, in the same collected volume at pp. 87–96),
+  Shen defines his terms precisely (自然段落 / 优越段落 / 殊胜音差), tabulates them, corrects the
+  reviewed author's arithmetic, and verifies to five decimal places — his 优越段落 2, 5, 12, 41, 53,
+  306, 665 are exactly the continued-fraction convergent denominators of log₂(3/2), derived by hand.
+  Four months later he named six patterns and defined none, in a **newspaper column**; 1936b runs to
+  不足二百字. **The brevity tracks the medium.** This removes one explanation for the missing
+  definitions — it does not supply them, and it licenses no reconstruction: a definition fitted to
+  the King Wen sequence would be unfalsifiable however confident one is that Shen had something
+  definite in mind. This reading is offered as a
   reading and **corrections are welcome**; it concerns only 1936a/1936b, and 《周易》释词 (same
   volume, pp. 176–186) is not covered by it.
 
