@@ -357,8 +357,15 @@ enumerates that space, or proves a ceiling on it.
   hexagrams, which is where all of Shen's 三序/三势 material sits. We have **not** examined Cui's
   text; recorded as *per Shen's 1936 report*, not as a verified earlier root.
 
-  **The 1936 pieces contain nothing orbit-theoretic.** They attest the 16/48 skeleton decomposition
-  and no more. If Zhang's credit to Shen concerns the 错综不变组 idea, it must rest on later Shen
+  **The 1936 pieces state nothing orbit-theoretic — though one of them turns out to be
+  orbit-theoretic in extension.** Shen claims no group, no action, and no orbit; in that sense they
+  attest the 16/48 skeleton decomposition and no more. But his six groups are not merely K₄-closed:
+  computing over all 64 hexagrams, **they are exactly the six K₄ orbits of his sixteen** (sizes
+  2,2,2,2,4,4), and this is forced — 错 is the identity on generational rank while flipping gender,
+  综 is the identity on gender while permuting rank by the transposition (长 少) fixing 老 and 中, and
+  both act diagonally on (lower, upper), so Shen's criterion rank(lower) = rank(upper) is
+  K₄-invariant. **This is our observation, not his claim**, and both halves belong in any account:
+  the concept is absent from 1936, the extension is not. If Zhang's credit to Shen concerns the 错综不变组 idea, it must rest on later Shen
   material or on Zhang's first-hand knowledge as a commissioned editor — not on anything in 1936a/b.
   The two claims should be kept apart in any account of the lineage.
 
@@ -366,9 +373,7 @@ enumerates that space, or proves a ceiling on it.
   number: Shen's are sixteen individual hexagrams; Zhang's canonical 交综 count is a count of orbit
   classes. Shen's eight doubled-trigram hexagrams overlap the eight self-inverse hexagrams
   (乾坤颐大过坎离中孚小过) in only four members (乾坤坎离), and the eight self-错综 hexagrams
-  (泰否既济未济随蛊渐归妹) in only four (泰否既济未济). Separately, and offered as **our** observation
-  rather than Shen's claim: each of Shen's six groups happens to be closed under 错 and 综, i.e. a
-  union of K₄ orbits. Shen nowhere states or uses this.
+  (泰否既济未济随蛊渐归妹) in only four (泰否既济未济). Shen nowhere states or uses the K₄ coincidence noted above.
 
   *Edition orthography, if quoting the 1992 reprint verbatim:* it prints 即 for 既 throughout
   既济/未济, and 首干 for 首乾 on p. 99.
