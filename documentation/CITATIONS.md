@@ -317,6 +317,61 @@ enumerates that space, or proves a ceiling on it.
   by 1990 he had **reversed** this denial and was seeking the ordering's constraint principles. We
   cite the 1987 denial only as evidence that even a sophisticated algebraist initially judged the
   ordering problem empty — not as a standing assessment (he retracted it himself). [analyzed 2026-07]
+<a id="shen1936"></a>
+- **Shen Youding 沈有鼎** (1936a). "Zhouyi xugua gugou dayi" 周易序卦骨构大意 [Outline of the
+  skeletal frame of the Zhouyi hexagram sequence]. *Beijing chenbao* 北京晨报, "Sibian" 思辨
+  supplement no. 36, **6 May 1936**, p. 11. — (1936b). "Zhouyi guaxu fenxi" 周易卦序分析 [Analysis
+  of the Zhouyi hexagram sequence]. *Zhexue pinglun* 哲学评论 **7(1), September 1936**. Both
+  reprinted in 《沈有鼎文集》 (*Shen Youding wenji*), 人民出版社 1992, pp. 97–98 and p. 99
+  respectively; ISBN 7-01-001170-2. Source notes and quotations below are read from that edition.
+  **Dates and venues verified against the 1992 reprint 2026-08-15**, correcting an earlier working
+  assumption in this project that Shen's sequence work was 1984; the 1984 item cited in the
+  secondary literature must be a reprint or notice. Note for anyone repeating the search: 1936a is a
+  **newspaper supplement**, which CNKI does not index, so a CNKI null on it is evidence about CNKI's
+  coverage and not about the work.
+
+  Shen partitions the 64 hexagrams into **16 主卦 (principal) and 48 散卦/从卦 (subordinate)** by
+  whether inner and outer trigrams share generational rank 序 (老/长/中/少), the sixteen falling into
+  **six groups** (乾坤; 泰否; 坎离; 既/未济; 震艮巽兑; 咸恒损益) and comprising the eight doubled
+  trigrams 八卦自重 plus the eight whose six lines all correspond. In 1936b he frames the sequence as
+  built on a **"Principle of Architectonic" (建构原则)** rather than a **"Principle of Continuity"
+  (平等原则)** — his own English terms — with the sixteen 立其骨构 ("establishing the skeletal
+  frame") and **three 序**: 回互 for the upper canon, **顺布 for the lower, and 交错 spanning both** (「回互之序用于上篇，顺布之序用于下篇。而交错之序通上下篇」, p. 98; p. 99 agrees). The three are **named and never defined** in either piece.
+
+  **Scope, as far as these two papers go:** every quantity Shen states counts members of a defined
+  **class of hexagrams**; we find no count or bound on **orderings**, no ceiling, no uniqueness
+  claim, and no proof. Where the symmetry that later becomes Zhang's 错综 orbit does appear —
+  逆顺错综，处处对称 — Shen writes 不详述 ("not elaborated"), 限于篇幅. This reading is offered as a
+  reading and **corrections are welcome**; it concerns only 1936a/1936b, and 《周易》释词 (same
+  volume, pp. 176–186) is not covered by it.
+
+  **Two attribution notes.** (i) **张清宇 (Zhang Qingyu) is a co-editor of the 1992 collected
+  works** (with 刘培育 and 诸葛殷同; editors' preface signed 1991-05-16), so his crediting of Shen in
+  [1998](#zhang1994) is first-hand rather than citation-chain — and his 1998 title
+  《六十四卦方图和**周易卦序分析**》 incorporates the title of Shen 1936b verbatim. (ii) Shen
+  himself credits a predecessor: 予初创此说，以为前人所未发，近读崔东璧遗书易卦次图说，乃与予说不谋而合 —
+  having thought the account 前人所未发, he found that **崔述 (Cui Dongbi 崔东壁, 1740–1816)**, in
+  《易卦次图说》 (in 《崔东壁遗书》; the title as printed has no 序, and this edition prints the
+  variant 崔东**璧**), had reached it independently. Shen scopes the convergence himself:
+  至散卦之排列，崔氏未详其故 — Cui does **not** account for the arrangement of the 48 subordinate
+  hexagrams, which is where all of Shen's 三序/三势 material sits. We have **not** examined Cui's
+  text; recorded as *per Shen's 1936 report*, not as a verified earlier root.
+
+  **The 1936 pieces contain nothing orbit-theoretic.** They attest the 16/48 skeleton decomposition
+  and no more. If Zhang's credit to Shen concerns the 错综不变组 idea, it must rest on later Shen
+  material or on Zhang's first-hand knowledge as a commissioned editor — not on anything in 1936a/b.
+  The two claims should be kept apart in any account of the lineage.
+
+  **Do not conflate Shen's sixteen with Zhang's sixteen.** They are different objects that share a
+  number: Shen's are sixteen individual hexagrams; Zhang's canonical 交综 count is a count of orbit
+  classes. Shen's eight doubled-trigram hexagrams overlap the eight self-inverse hexagrams
+  (乾坤颐大过坎离中孚小过) in only four members (乾坤坎离), and the eight self-错综 hexagrams
+  (泰否既济未济随蛊渐归妹) in only four (泰否既济未济). Separately, and offered as **our** observation
+  rather than Shen's claim: each of Shen's six groups happens to be closed under 错 and 综, i.e. a
+  union of K₄ orbits. Shen nowhere states or uses this.
+
+  *Edition orthography, if quoting the 1992 reprint verbatim:* it prints 即 for 既 throughout
+  既济/未济, and 首干 for 首乾 on p. 99.
 <a id="zhang1994"></a>
 - **Zhang Qingyu 张清宇** (1994). "Yitu de neihan-ge jieshi" 易图的内涵格解释 [An intension-lattice
   interpretation of the Yi diagrams]. *Zhexue yanjiu* 哲学研究 1994(3): 36–44. Origin of his
