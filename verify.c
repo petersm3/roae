@@ -228,7 +228,135 @@ static int vc_repr_of_key(const int *pair_order, unsigned char *out) {
     return 1;
 }
 
-/* --check-repr FILE [N] [OFFSET] -- verdicts are KEY=value for `grep -qx`. */
+/* ---------- --check-artifact: what solutions.bin ACTUALLY claims ----------
+ *
+ * WHY THIS EXISTS, AND WHY --check-repr IS THE WRONG INSTRUMENT FOR THIS FILE.
+ *
+ * --check-repr asks "is the stored orientation the LEX-LEAST valid completion
+ * of this key?". solutions.bin has never claimed that. Per solve.c's record
+ * comparator proof (compare_solutions / compare_canonical), the file holds one
+ * record per canonical class -- unique PAIR-SEQUENCE -- and the surviving
+ * ORIENTATION is "a single deterministic survivor" of a dedup over the variants
+ * the search actually emitted. Step (1) of that proof is the crux: each thread's
+ * hash table keeps at most one representative per class WITHIN that thread,
+ * whichever arrived first. So the stored orientation is the byte-min over a
+ * THREAD-DEPENDENT SUBSET of the valid variants, not the min over all of them.
+ * The two coincide often but not always, which is exactly the regionally varying
+ * 1-42% disagreement measured on 2026-08-15. That was an instrument/spec
+ * mismatch, not a defect in the data.
+ *
+ * Note also that a --check-repr DISAGREE can ONLY ever be an orientation-bit
+ * difference: vc_repr_of_key builds its output from the same key array it just
+ * decoded out of the stored record, so the pair-order bits are identical by
+ * construction. It is structurally incapable of detecting a wrong pair sequence.
+ *
+ * WHAT THIS CHECKS INSTEAD -- the three properties the file does claim:
+ *   (1) VALIDITY   every stored record's OWN orientations satisfy the constraint
+ *                  set: forced (63,0) opening, no HD-5 transition, and the C5
+ *                  budget consumed EXACTLY (not merely "fits").
+ *   (2) SORTEDNESS pair-order keys strictly increase, matching compare_solutions.
+ *   (3) DEDUP      strictness in (2) is exactly the one-record-per-class claim.
+ *
+ * This is a linear walk per record, not a backtracking search, so the whole
+ * artifact streams in minutes rather than the ~47 h a repr sweep costs -- and
+ * unlike the repr sweep it can actually fail on real corruption.
+ *
+ * SCOPE: this does NOT check that the artifact is COMPLETE (that no valid
+ * solution is missing). Completeness is the enumeration's claim, attested by
+ * the canonical sha, not something a single-pass reader can establish. */
+static int vc_check_artifact_main(int argc, char **argv) {
+    if (argc < 3) { fprintf(stderr, "usage: %s --check-artifact FILE [N] [OFFSET]\n", argv[0]); return 2; }
+    const char *path = argv[2];
+    long long want = (argc >= 4) ? atoll(argv[3]) : -1;      /* -1 == to EOF */
+    long long off  = (argc >= 5) ? atoll(argv[4]) : 0;
+    if (!build_pairs() || !vc_build_budget()) { printf("ARTIFACT=FAIL_tables\n"); return 2; }
+
+    gzFile fh = gzopen(path, "rb");
+    if (!fh) { printf("ARTIFACT=FAIL_open\n"); return 2; }
+    unsigned char hdr[32];
+    if (gzread(fh, hdr, 32) != 32) { printf("ARTIFACT=FAIL_short_header\n"); gzclose(fh); return 2; }
+    unsigned char rec[32], prev[32];
+    for (long long i = 0; i < off; i++)
+        if (gzread(fh, rec, 32) != 32) { printf("ARTIFACT=FAIL_offset_past_eof\n"); gzclose(fh); return 2; }
+
+    long long n = 0, bad_key = 0, bad_spare = 0, bad_open = 0,
+              bad_hd5 = 0, bad_budget = 0, bad_residue = 0, bad_order = 0, shown = 0;
+    int have_prev = 0;
+
+    while (want < 0 || n < want) {
+        int got = gzread(fh, rec, 32);
+        if (got == 0) break;
+        if (got != 32) { printf("ARTIFACT=FAIL_partial_record\n"); gzclose(fh); return 2; }
+        long long idx = off + n;
+        n++;
+        int key[32], orient[32]; uint32_t seen = 0; int bad = 0;
+        for (int i = 0; i < 32; i++) {
+            key[i]    = (rec[i] >> 2) & 0x3F;
+            orient[i] = (rec[i] >> 1) & 1;
+            if (rec[i] & 1) bad_spare++;              /* bit0 is reserved and must be 0 */
+            if (key[i] >= 32 || ((seen >> key[i]) & 1u)) { bad = 1; break; }
+            seen |= 1u << key[i];
+        }
+        if (bad) { bad_key++; if (shown < 5) { printf("  record %lld: key is not a permutation of 0..31\n", idx); shown++; } continue; }
+
+        /* (2)+(3): strictly increasing on the pair-identity bytes. */
+        if (have_prev) {
+            int c = 0;
+            for (int i = 0; i < 32 && c == 0; i++) c = (prev[i] & 0xFC) - (rec[i] & 0xFC);
+            if (c >= 0) { bad_order++; if (shown < 5) { printf("  record %lld: pair-order not strictly greater than predecessor (%s)\n", idx, c == 0 ? "duplicate class" : "out of order"); shown++; } }
+        }
+        memcpy(prev, rec, 32); have_prev = 1;
+
+        /* (1): validate the STORED orientations, not some recomputed ideal. */
+        int budget[7]; memcpy(budget, vc_budget0, sizeof(budget));
+        int P0 = key[0], a0 = PA[P0], b0 = PB[P0];
+        int f0 = orient[0] ? b0 : a0, s0 = orient[0] ? a0 : b0;
+        if (!(f0 == 63 && s0 == 0)) { bad_open++; if (shown < 5) { printf("  record %lld: opening is not the forced 63->0\n", idx); shown++; } continue; }
+        int wd0 = hamming(63, 0);
+        if (budget[wd0] <= 0) { bad_budget++; continue; }
+        budget[wd0]--;
+        int last = 0, fail = 0;
+        for (int slot = 1; slot < 32 && !fail; slot++) {
+            int P = key[slot], a = PA[P], b = PB[P];
+            int f = orient[slot] ? b : a, s = orient[slot] ? a : b;
+            int bd = hamming(last, f);
+            if (bd == 5) { bad_hd5++; fail = 1; if (shown < 5) { printf("  record %lld: HD-5 transition into slot %d\n", idx, slot); shown++; } break; }
+            if (budget[bd] <= 0) { bad_budget++; fail = 1; break; }
+            budget[bd]--;
+            int wd = hamming(f, s);
+            if (budget[wd] <= 0) { bad_budget++; fail = 1; break; }
+            budget[wd]--;
+            last = s;
+        }
+        if (fail) continue;
+        /* BAD_BUDGET_RESIDUE is a defensive guard that is STRUCTURALLY UNREACHABLE,
+         * and is recorded as such rather than claimed as tested: the budget totals
+         * 63 (asserted by vc_build_budget) and a complete record consumes exactly
+         * 1 + 31*2 = 63 units, so if every decrement above succeeded the residue is
+         * necessarily zero. It stays only to fail closed if that identity is ever
+         * broken by a table change. No negative control exercises it because none
+         * can. */
+        for (int d = 0; d < 7; d++) if (budget[d] != 0) { bad_residue++; break; }
+    }
+    gzclose(fh);
+
+    long long bad_total = bad_key + bad_spare + bad_open + bad_hd5 + bad_budget + bad_residue + bad_order;
+    printf("RECORDS=%lld\nBAD_KEY=%lld\nBAD_SPARE_BIT=%lld\nBAD_OPENING=%lld\n"
+           "BAD_HD5=%lld\nBAD_BUDGET=%lld\nBAD_BUDGET_RESIDUE=%lld\nBAD_ORDER=%lld\n",
+           n, bad_key, bad_spare, bad_open, bad_hd5, bad_budget, bad_residue, bad_order);
+    if (n > 0 && bad_total == 0) {
+        printf("ARTIFACT=PASS\nSCOPE=validity_sortedness_dedup_only_NOT_completeness\n");
+        return 0;
+    }
+    printf("ARTIFACT=FAIL\n");
+    return 1;
+}
+
+/* --check-repr FILE [N] [OFFSET] -- verdicts are KEY=value for `grep -qx`.
+ *
+ * NOTE: for solutions.bin as produced today this is EXPECTED to disagree; see
+ * the --check-artifact header above. It becomes the right instrument only after
+ * the repr(k) post-pass, applied to that post-pass's OUTPUT. */
 static int vc_check_repr_main(int argc, char **argv) {
     if (argc < 3) { fprintf(stderr, "usage: %s --check-repr FILE [N] [OFFSET]\n", argv[0]); return 2; }
     const char *path = argv[2];
@@ -5726,6 +5854,7 @@ int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--check-layers-selftest") == 0) return lc_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-gt-selftest") == 0) return lc_gt_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-repr") == 0) return vc_check_repr_main(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "--check-artifact") == 0) return vc_check_artifact_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--ie-count") == 0) return ie_count_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--ie-probe") == 0) return ie_probe_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--dp-count") == 0) return dp_count_main(argc, argv);

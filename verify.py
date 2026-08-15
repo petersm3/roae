@@ -208,6 +208,127 @@ def check_repr(path, count, offset=0):
     return 1
 
 
+def check_artifact(path, count=-1, offset=0):
+    """Validate what solutions.bin actually CLAIMS, record by record.
+
+    WHY THIS AND NOT check_repr(). check_repr() asks whether the stored
+    orientation is the LEX-LEAST valid completion of the key. solutions.bin has
+    never claimed that. Per solve.c's record-comparator proof, the file keeps one
+    record per canonical class -- unique PAIR-SEQUENCE -- and the surviving
+    ORIENTATION is a deterministic survivor of a dedup over the variants the
+    search emitted; each thread's hash table already kept only the FIRST-ARRIVING
+    variant per class within that thread. So the stored orientation is a min over
+    a thread-dependent SUBSET of valid variants, not over all of them. Measured
+    2026-08-15: regionally varying 1-42% divergence from lex-least, with
+    INCOMPUTABLE=0 throughout. Instrument/spec mismatch, not a data defect.
+
+    Note too that a check_repr() disagreement can only ever be an orientation-bit
+    difference -- repr_of_key() is handed the key decoded from the very record it
+    is compared against -- so it is structurally blind to a wrong pair sequence.
+    This function is not: it checks the pair sequence directly.
+
+    CHECKED HERE: (1) each record's OWN orientations satisfy the constraint set
+    (forced 63->0 opening, no HD-5 transition, C5 budget consumed EXACTLY);
+    (2) pair-order keys strictly increase, matching compare_solutions;
+    (3) strictness in (2) IS the one-record-per-class dedup claim.
+
+    NOT CHECKED: completeness. That no valid solution is MISSING is the
+    enumeration's claim, attested by the canonical sha -- a single forward pass
+    over the file cannot establish it, and this must not be read as if it could.
+
+    count < 0 means "to EOF". Verdicts are KEY=value for `grep -qx`."""
+    import gzip
+    opener = gzip.open if path.endswith('.gz') or (path.endswith('.bin') and _is_gzip(path)) else open
+    budget0 = _c5_budget_from_kw()
+    n = 0
+    bad = dict(KEY=0, SPARE_BIT=0, OPENING=0, HD5=0, BUDGET=0, BUDGET_RESIDUE=0, ORDER=0)
+    shown = 0
+    prev = None
+    try:
+        with opener(path, 'rb') as fh:
+            hdr = fh.read(SOL_HEADER_SIZE)
+            if len(hdr) < SOL_HEADER_SIZE:
+                print("ARTIFACT=FAIL_short_header"); return 2
+            fh.seek(SOL_HEADER_SIZE + offset * 32)
+            while count < 0 or n < count:
+                rec = fh.read(32)
+                if len(rec) < 32:
+                    break
+                idx = offset + n
+                n += 1
+                pair_order = [(rec[i] >> 2) & 0x3F for i in range(32)]
+                orient = [(rec[i] >> 1) & 1 for i in range(32)]
+                bad['SPARE_BIT'] += sum(1 for i in range(32) if rec[i] & 1)
+                if any(p >= 32 for p in pair_order) or len(set(pair_order)) != 32:
+                    bad['KEY'] += 1
+                    if shown < 5:
+                        print(f"  record {idx}: key is not a permutation of 0..31"); shown += 1
+                    continue
+
+                ident = bytes(b & 0xFC for b in rec)
+                if prev is not None and ident <= prev:
+                    bad['ORDER'] += 1
+                    if shown < 5:
+                        why = "duplicate class" if ident == prev else "out of order"
+                        print(f"  record {idx}: pair-order not strictly greater than predecessor ({why})")
+                        shown += 1
+                prev = ident
+
+                budget = list(budget0)
+                a0, b0 = PAIRS[pair_order[0]]
+                f0, s0 = (b0, a0) if orient[0] else (a0, b0)
+                if (f0, s0) != (63, 0):
+                    bad['OPENING'] += 1
+                    if shown < 5:
+                        print(f"  record {idx}: opening is not the forced 63->0"); shown += 1
+                    continue
+                wd0 = hamming(63, 0)
+                if budget[wd0] <= 0:
+                    bad['BUDGET'] += 1
+                    continue
+                budget[wd0] -= 1
+                last, fail = 0, False
+                for slot in range(1, 32):
+                    a, b = PAIRS[pair_order[slot]]
+                    f, s = (b, a) if orient[slot] else (a, b)
+                    bd = hamming(last, f)
+                    if bd == 5:
+                        bad['HD5'] += 1; fail = True
+                        if shown < 5:
+                            print(f"  record {idx}: HD-5 transition into slot {slot}"); shown += 1
+                        break
+                    if budget[bd] <= 0:
+                        bad['BUDGET'] += 1; fail = True; break
+                    budget[bd] -= 1
+                    wd = hamming(f, s)
+                    if budget[wd] <= 0:
+                        bad['BUDGET'] += 1; fail = True; break
+                    budget[wd] -= 1
+                    last = s
+                if fail:
+                    continue
+                # BUDGET_RESIDUE is a defensive guard that is STRUCTURALLY
+                # UNREACHABLE, recorded as such rather than claimed as tested: the
+                # budget totals 63 and a complete record consumes exactly
+                # 1 + 31*2 = 63 units, so if every decrement above succeeded the
+                # residue is necessarily zero. Kept to fail closed if a table change
+                # ever breaks that identity. No negative control can exercise it.
+                if any(v != 0 for v in budget):
+                    bad['BUDGET_RESIDUE'] += 1
+    except OSError as e:
+        print(f"ARTIFACT=FAIL_io {e}"); return 2
+
+    print(f"RECORDS={n}")
+    for k in ("KEY", "SPARE_BIT", "OPENING", "HD5", "BUDGET", "BUDGET_RESIDUE", "ORDER"):
+        print(f"BAD_{k}={bad[k]}")
+    if n and not any(bad.values()):
+        print("ARTIFACT=PASS")
+        print("SCOPE=validity_sortedness_dedup_only_NOT_completeness")
+        return 0
+    print("ARTIFACT=FAIL")
+    return 1
+
+
 def _is_gzip(path):
     try:
         with open(path, 'rb') as fh:
@@ -3538,6 +3659,22 @@ def main():
     parser.add_argument('--check-repr-offset', type=int, default=0, metavar='R',
                         help='start --check-repr at record R (default 0). Use several '
                              'offsets to spread coverage instead of resampling one window.')
+    parser.add_argument('--check-artifact', type=int, nargs='?', const=-1, metavar='N',
+                        default=None,
+                        help='validate what solutions.bin actually claims: each record\'s OWN '
+                             'orientations satisfy the constraint set (forced 63->0 opening, no '
+                             'HD-5 transition, C5 budget consumed exactly), and pair-order keys '
+                             'strictly increase (sortedness AND the one-per-class dedup claim). '
+                             'N records, default -1 = to EOF. Linear per record, so the whole '
+                             'artifact streams in minutes. Prefer this over --check-repr on the '
+                             'merge output: --check-repr tests lex-leastness, which this file has '
+                             'never claimed, and is structurally blind to a wrong pair sequence. '
+                             'Does NOT check completeness.')
+    parser.add_argument('--check-artifact-offset', type=int, default=0, metavar='R',
+                        help='start --check-artifact at record R (default 0). NOTE: the '
+                             'sortedness check compares against the predecessor WITHIN the range '
+                             'read, so a sharded run cannot see a violation across a shard seam; '
+                             'overlap shards by one record, or run offset 0 to EOF.')
     parser.add_argument('--check-null-g', action='store_true',
                         help='Compute the exact G-distribution under the C1&C4 null (12 couples + 7 '
                              'self-pairs into 31 slots) and gate it against total == 31!, support '
@@ -3663,6 +3800,8 @@ def main():
 
     if args.check_repr is not None:
         sys.exit(check_repr(args.path, args.check_repr, args.check_repr_offset))
+    if args.check_artifact is not None:
+        sys.exit(check_artifact(args.path, args.check_artifact, args.check_artifact_offset))
 
     path = args.path
     n_jobs = max(1, args.jobs)
