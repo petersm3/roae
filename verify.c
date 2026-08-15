@@ -136,6 +136,152 @@ static int build_pairs(void) {
 static const int CLS[5] = {1, 2, 3, 4, 6};
 static int cls_ix(int d) { for (int i = 0; i < 5; i++) if (CLS[i] == d) return i; return -1; }
 
+/* ---------- independent repr(k) oracle (--check-repr) ----------------------
+ *
+ * WHY IT EXISTS. solve.c's --kc-repr-normalize says outright that "there is NO
+ * separate repr oracle in this tree": its only built-in check is IDEMPOTENCE
+ * (re-run on the output, expect byte-identical), which is self-consistent and
+ * so cannot catch a normalization that is stable but WRONG. The SOLVE_REPR_FC
+ * A/B is weaker than it looks for the same reason at one remove -- both arms
+ * share solve.c's DFS, child order and code, so a defect in the shared
+ * traversal is invisible to it at any sample size. This is the second
+ * instrument, of a different algorithm class, per the TR-11 v1.11 pattern.
+ *
+ * INDEPENDENCE IS THE DELIVERABLE. Written from the DEFINITION in
+ * lean/RecordConvention.lean --
+ *
+ *     repr(k) = the lexicographically least orientation completion of the
+ *               pair-order key k satisfying the constraint set (slot 0 forced)
+ *
+ * -- on THIS file's own KW table, its own partner()-derived pairs and its own
+ * hamming(). Not a transcription of orb_recanon_dfs. A faster reimplementation
+ * that borrowed solve.c's helpers or search shape would not be a second opinion.
+ * verify.py carries the same oracle; C exists because Python cannot cover 1.78e9
+ * records.
+ *
+ * WHY GREEDY 0-BEFORE-1 IS EXACTLY LEX-LEAST. Record byte i is
+ * (pair_index << 2) | (orientation << 1). The key fixes pair_index at every
+ * slot, so at each slot the orient=0 byte is strictly below the orient=1 byte,
+ * and records compare left to right. The first complete valid assignment found
+ * by a DFS trying 0 before 1, in slot order, IS the minimum. No search-order
+ * cleverness is involved, and none is permitted -- that equivalence is the
+ * entire point. */
+
+static int vc_budget0[7];
+
+/* Re-derive the C5 budget HERE from this file's KW table. Asserted against the
+ * published multiset so a corrupted table fails loudly instead of silently
+ * redefining the constraint. */
+static int vc_build_budget(void) {
+    static const int WANT[7] = {0, 2, 20, 13, 19, 0, 9};
+    for (int d = 0; d < 7; d++) vc_budget0[d] = 0;
+    for (int i = 0; i < 63; i++) vc_budget0[hamming(KW[i], KW[i + 1])]++;
+    for (int d = 0; d < 7; d++)
+        if (vc_budget0[d] != WANT[d]) {
+            fprintf(stderr, "*** KW budget mismatch at d=%d: %d != %d\n",
+                    d, vc_budget0[d], WANT[d]);
+            return 0;
+        }
+    return 1;
+}
+
+typedef struct { const int *key; int budget[7]; int orient[32]; } VcRepr;
+
+static int vc_rec(VcRepr *st, int slot, int last) {
+    if (slot == 32) {                    /* exact consumption, not merely "fits" */
+        for (int d = 0; d < 7; d++) if (st->budget[d] != 0) return 0;
+        return 1;
+    }
+    int P = st->key[slot], a = PA[P], b = PB[P];
+    for (int o = 0; o < 2; o++) {        /* 0 BEFORE 1 == lex-least */
+        int f = o ? b : a, s = o ? a : b;
+        int bd = hamming(last, f);
+        if (bd == 5 || st->budget[bd] <= 0) continue;
+        int wd = hamming(f, s);
+        st->budget[bd]--;
+        if (st->budget[wd] <= 0) { st->budget[bd]++; continue; }
+        st->budget[wd]--;
+        st->orient[slot] = o;
+        if (vc_rec(st, slot + 1, s)) return 1;
+        st->budget[wd]++; st->budget[bd]++;
+    }
+    return 0;
+}
+
+/* out must hold 32 bytes. Returns 1 and fills out, or 0 if the key admits no
+ * valid completion (which is itself a finding if the artifact stores one). */
+static int vc_repr_of_key(const int *pair_order, unsigned char *out) {
+    VcRepr st;
+    st.key = pair_order;
+    memcpy(st.budget, vc_budget0, sizeof(st.budget));
+    int P0 = pair_order[0], a0 = PA[P0], b0 = PB[P0], o0;
+    if (a0 == 63 && b0 == 0)      o0 = 0;   /* C4 forces the (63,0) opening */
+    else if (b0 == 63 && a0 == 0) o0 = 1;
+    else return 0;
+    int wd0 = hamming(63, 0);
+    if (st.budget[wd0] <= 0) return 0;
+    st.budget[wd0]--;
+    st.orient[0] = o0;
+    if (!vc_rec(&st, 1, 0)) return 0;
+    for (int i = 0; i < 32; i++)
+        out[i] = (unsigned char)(((pair_order[i] & 0x3F) << 2) | ((st.orient[i] & 1) << 1));
+    return 1;
+}
+
+/* --check-repr FILE [N] [OFFSET] -- verdicts are KEY=value for `grep -qx`. */
+static int vc_check_repr_main(int argc, char **argv) {
+    if (argc < 3) { fprintf(stderr, "usage: %s --check-repr FILE [N] [OFFSET]\n", argv[0]); return 2; }
+    const char *path = argv[2];
+    long long want = (argc >= 4) ? atoll(argv[3]) : 1000;
+    long long off  = (argc >= 5) ? atoll(argv[4]) : 0;
+    if (!build_pairs() || !vc_build_budget()) { printf("CHECK_REPR=FAIL_tables\n"); return 2; }
+
+    gzFile fh = gzopen(path, "rb");
+    if (!fh) { printf("CHECK_REPR=FAIL_open\n"); return 2; }
+    unsigned char hdr[32];
+    if (gzread(fh, hdr, 32) != 32) { printf("CHECK_REPR=FAIL_short_header\n"); gzclose(fh); return 2; }
+    /* Skip by READING, not by seeking: gzseek on a large member re-inflates
+     * anyway, and a short read here must be distinguishable from EOF at the
+     * target offset rather than silently landing somewhere else. */
+    unsigned char rec[32];
+    for (long long i = 0; i < off; i++)
+        if (gzread(fh, rec, 32) != 32) { printf("CHECK_REPR=FAIL_offset_past_eof\n"); gzclose(fh); return 2; }
+
+    long long checked = 0, agree = 0, disagree = 0, incomputable = 0;
+    unsigned char mine[32];
+    while (checked < want) {
+        int got = gzread(fh, rec, 32);
+        if (got == 0) break;
+        if (got != 32) { printf("CHECK_REPR=FAIL_partial_record\n"); gzclose(fh); return 2; }
+        int key[32]; uint32_t seen = 0; int bad = 0;
+        for (int i = 0; i < 32; i++) {
+            key[i] = (rec[i] >> 2) & 0x3F;
+            if (key[i] >= 32 || (seen >> key[i]) & 1u) { bad = 1; break; }
+            seen |= 1u << key[i];
+        }
+        if (bad) { printf("CHECK_REPR=FAIL_malformed_key at %lld\n", off + checked); gzclose(fh); return 2; }
+        checked++;
+        if (!vc_repr_of_key(key, mine)) incomputable++;
+        else if (memcmp(mine, rec, 32) == 0) agree++;
+        else {
+            disagree++;
+            if (disagree <= 3) printf("  record %lld: stored != independent repr\n", off + checked - 1);
+        }
+    }
+    gzclose(fh);
+
+    printf("CHECKED=%lld\nAGREE=%lld\nDISAGREE=%lld\nINCOMPUTABLE=%lld\n",
+           checked, agree, disagree, incomputable);
+    /* Fail closed: an incomputable key is a finding too -- the artifact claims a
+     * canonical record for a key this instrument says cannot be completed. */
+    if (checked > 0 && disagree == 0 && incomputable == 0) {
+        printf("CHECK_REPR=PASS\nSCOPE=records_read_only_NOT_whole_artifact\n");
+        return 0;
+    }
+    printf("CHECK_REPR=FAIL\n");
+    return 1;
+}
+
 /* ---------- big enough integers: 128-bit with overflow detection ---------- */
 typedef unsigned __int128 u128;
 static int OVERFLOWED = 0;
@@ -5579,6 +5725,7 @@ static int kn_probe_main(int argc, char **argv) {
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--check-layers-selftest") == 0) return lc_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-gt-selftest") == 0) return lc_gt_selftest();
+    if (argc >= 2 && strcmp(argv[1], "--check-repr") == 0) return vc_check_repr_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--ie-count") == 0) return ie_count_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--ie-probe") == 0) return ie_probe_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--dp-count") == 0) return dp_count_main(argc, argv);

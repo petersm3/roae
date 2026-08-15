@@ -30,6 +30,7 @@ cannot promise):
 | `python3 verify.py --recount` | the exact COUNTS: independently reproduces the small-n structural facts, the reduced-rung C1∩C2∩C4 union counts, **and (since 2026-07-21) the C5 ladder rungs n = 9/13/16** (TR-11 §4b) — each rung's budget `B0` re-derived independently by TR-11 §5's first-completion DFS, then counted by a plain budgeted (mask, last, p) DP — and prints a match table |
 | `python3 verify.py --recount-fiber` | (added 2026-08-01) the **orientation fiber** of [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §7 — the frozen dispositive null against which the eleven-functional battery's exact p-values are computed, so it is the denominator every verdict in that table rests on. A transfer DP over King Wen's *own* pair sequence, varying only the 32 within-pair orientations, with the boundary budget `B0` recomputed from KW rather than copied from the report. Reproduces **1,720,320** (C4-oriented), **983,040** (pair-only C4, flipped opening), **2,703,360** (their sum), the stated `3·5·7·2¹⁴` factorization, and the forced/free bit structure (slot 30 is the only additionally forced bit — 30 of 31 vary). Two facts make this exact rather than a 2³¹ search, and the mode re-derives both instead of assuming them: within-pair distances are orientation-invariant, so C5 reduces to the 31 between-pair values; and `C3 = 16 + 8·G` with the orientation bits cancelling in `G`, so C3 is **constant** across the fiber and constrains nothing. Instant. Reads no files |
 | `python3 verify.py --fiber-sweep [solutions.bin]` | (added 2026-08-01) the **orientation-fiber factor** — the exact conversion between the two counting levels this suite publishes side by side: deduped **records** (pair orderings, what `solutions.bin` stores) and orientation-explicit **sequences** (what the C1–C5 space estimate counts). `--recount-fiber` above answers TR-1 §7's question for King Wen's *own* ordering; this mode generalises the same object to an **arbitrary** C1 ordering, which is what makes the two levels inter-convertible: `N = Σ_P |fiber(P)|`, `R = #{P : |fiber(P)| ≥ 1}`, and the dedup factor is exactly the mean fiber `N/R`. Gated on King Wen's three published fiber sizes **and** on agreement with `--recount-fiber`'s independent DP before it reports anything; then, if a `solutions.bin` is present, prints the exact fiber-size distribution over its records. ~0.2 ms per ordering. Scope: the sample mean is over the records of the file given, which is a budget-truncated slice, **not** the C1–C5 space |
+| `python3 verify.py --check-repr [N]` / `--check-repr-offset R` | (added 2026-08-15) the **repr(k) oracle** — independently recomputes the canonical representative for `N` records starting at record `R` (defaults: 1000 from 0) and compares it against what the artifact stores. **Why it is needed:** `solve.c`'s `--kc-repr-normalize` states outright that "there is NO separate repr oracle in this tree" — its only built-in check is IDEMPOTENCE (re-run on the output, expect byte-identical), which is self-consistent and therefore cannot catch a normalization that is stable but *wrong*. The `SOLVE_REPR_FC` A/B is weaker than it looks for the same reason at one remove: both arms share `solve.c`'s DFS, child order and code, so a defect in the shared traversal is invisible to it at any sample size. **Independence is the deliverable:** this is written from the DEFINITION in [`lean/RecordConvention.lean`](../lean/RecordConvention.lean) — repr(k) is the lexicographically least orientation completion of the pair-order key satisfying the constraint set, slot 0 forced by C4 — not transcribed from `orb_recanon_dfs`, and it builds on this file's own KW table, `_partner()`-derived pairs and `hamming()`, re-deriving and asserting the C5 budget. Reproduces **King Wen from King Wen's own key**. Verdicts are `KEY=value` (`CHECKED`/`AGREE`/`DISAGREE`/`INCOMPUTABLE`/`CHECK_REPR=PASS\|FAIL`) plus an explicit `SCOPE=` line. **Scope, stated plainly: it checks the records it reads and no others** — use several offsets rather than resampling one window, and never report a sampled pass as whole-artifact agreement. Fails closed: an *incomputable* key is a finding too, since the artifact claims a canonical record for a key this instrument says cannot be completed. Python cost is a DFS per record and the underlying search is heavy-tailed, so prefer `verify.c --check-repr` (below) for large `N` |
 | `python3 verify.py --recount-gender-null` | (added 2026-08-01) TR-8 §Commands' **exact pair-null Schulz-gender figure** `P(rc4_violations ≤ 2) = 47/445740`. Both prior implementations of this rational lived inside `solve.py`, so the figure was single-FILE even though it was described as verified two ways; this is the genuinely independent second instrument. The functional is rebuilt from the **published** definition (SOLVE_C_CLI.md §`--rc4b-verify`; Schulz 1990 motif 2 via Cook 2006) rather than from `solve.py`'s code, and the reading is gated on King Wen's published anchors (2 violations, class positions 25/26). The 32!·2³² null is then solved **exactly two ways** — a multivariate-hypergeometric closed form, and a slot-by-slot DP over pair-type states that never uses the closed form's decomposition — cross-asserted term-by-term, in `fractions.Fraction`. No sampling. Instant. Reads no files |
 | `python3 verify.py --recount-rung N` | (N = 18 or 19) the **worker-sized C5 ladder rungs** — a packed-state budgeted DP, self-gated against the in-file plain DP at n=16. Larger rungs (n = 20–28) need a worker and are not run here |
 | `python3 verify.py --recount-subtree` | the exact **deterministic subtree anchors** of TR-5 §3 / SEARCH_SPACE_SIZE (KW-following prefixes at 5/7/9 free positions: `tree_nodes` 443 / 62,256 / 9,422,793 and canonical leaves 4 / 2,232 / 16,504), plus the sigma-related-prefix tree-isomorphism check. ~1–2 min. Reads no files |
@@ -314,6 +315,33 @@ no d=5 transition (a C2-style check is blind).
 2026-08-01 that was given no knowledge of the first. Two independent
 rediscoveries of the same defect set, with the second adding the header
 reserved-field item, is the cross-model control the review protocol asks for.*
+
+## The repr(k) oracle in C: `verify.c --check-repr`
+
+`./verify --check-repr FILE [N] [OFFSET]` is the same instrument as
+`verify.py --check-repr` above, in C, because Python cannot cover 1.78×10⁹
+records: the underlying search is a DFS per record and its cost is heavy-tailed.
+It is written independently of the Python version as well as of `solve.c` — same
+definition from [`lean/RecordConvention.lean`](../lean/RecordConvention.lean),
+built on `verify.c`'s own `KW[]`, `build_pairs()` and `hamming()`, with the C5
+budget re-derived and asserted against `[0,2,20,13,19,0,9]`. Reads gzip or plain
+via zlib; skips to `OFFSET` by reading rather than seeking, so a short read is
+distinguishable from EOF at the target rather than silently landing elsewhere.
+
+The two implementations agree with each other on King Wen's key, and both
+reproduce King Wen from it. Negative controls fire in both: a flipped orientation
+bit is caught, and reversing the DFS child order to 1-before-0 yields a strictly
+*greater* record — which is what makes the lexicographic-minimum claim
+non-vacuous rather than merely "some valid completion was found".
+
+Same verdict vocabulary and the same scope caveat as the Python mode: it checks
+the records it reads. Spread coverage with several `OFFSET` values instead of
+enlarging `N` at one position.
+
+The model-level theorem these oracles complement is
+[`lean/PruneReprFC.lean`](../lean/PruneReprFC.lean); as everywhere in this tree,
+that proof is about the model and the bridge to the shipped binary is carried by
+prose plus runtime gates, not by the proof.
 
 ## The Route B engine: `verify.c --ie-count`
 

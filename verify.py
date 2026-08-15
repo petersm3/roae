@@ -118,6 +118,178 @@ def decode(record):
 def canonical(record):
     return bytes(b & 0xFC for b in record)
 
+# ---------------------------------------------------------------------------
+# INDEPENDENT repr(k) ORACLE  (--check-repr)
+#
+# WHY THIS EXISTS. solve.c's --kc-repr-normalize states outright that "there is
+# NO separate repr oracle in this tree": its only built-in check is IDEMPOTENCE
+# (re-run on the output, expect byte-identical), which is self-consistent and
+# therefore cannot catch a normalization that is stable but WRONG. The
+# SOLVE_REPR_FC A/B (forward-check on vs off) is also weaker than it looks --
+# both arms share the same DFS, the same child ordering and the same code, so a
+# defect in the shared traversal is invisible to it at any number of samples.
+#
+# This is the missing independent instrument, in the sanctioned home for one
+# (CLAUDE.md INDEPENDENCE exception: verify.py / verify.c only, never a new file).
+#
+# INDEPENDENCE IS THE DELIVERABLE, NOT SPEED. This is written from the DEFINITION
+# in lean/RecordConvention.lean --
+#
+#     repr(k) = the lexicographically least orientation completion of the
+#               pair-order key k that satisfies the full constraint set
+#               (slot 0 forced)
+#
+# -- not by transcribing solve.c's orb_recanon DFS. A fast reimplementation that
+# borrowed solve.c's helpers, tables or search shape would not be a second
+# opinion. Everything below is built on this file's own KW table, its own
+# _partner()-derived PAIRS, and its own hamming().
+#
+# WHY GREEDY-0-FIRST IS EXACTLY LEX-LEAST. Record byte i is
+# (pair_index << 2) | (orientation << 1). Given the key, pair_index is fixed at
+# every slot, so at each slot the orient=0 byte is strictly less than the
+# orient=1 byte, and record comparison is left-to-right. Hence the first
+# complete valid assignment found by a DFS that tries 0 before 1 at every slot,
+# in slot order, IS the lexicographic minimum. No search-order cleverness is
+# involved and none is permitted -- that equivalence is the whole point.
+# ---------------------------------------------------------------------------
+
+def check_repr(path, count, offset=0):
+    """Compare the artifact's stored orientations against this file's independent
+    repr(k), record by record. Returns a process exit code.
+
+    Verdicts are KEY=value so a harness can `grep -qx` them; a caller must never
+    have to infer the result from output shape or from the exit code alone.
+
+    SCOPE, STATED PLAINLY: this checks the records it reads and no others. It is
+    a genuine second instrument -- it shares no code, table or search shape with
+    solve.c -- but N records is N records. Do not report a sampled pass as
+    whole-artifact agreement."""
+    import gzip
+    opener = gzip.open if path.endswith('.gz') or path.endswith('.bin') and _is_gzip(path) else open
+    checked = agree = disagree = incomputable = 0
+    try:
+        with opener(path, 'rb') as fh:
+            hdr = fh.read(SOL_HEADER_SIZE)
+            if len(hdr) < SOL_HEADER_SIZE:
+                print("CHECK_REPR=FAIL_short_header"); return 2
+            fh.seek(SOL_HEADER_SIZE + offset * 32)
+            while checked < count:
+                rec = fh.read(32)
+                if len(rec) < 32:
+                    break
+                pair_order = [(rec[i] >> 2) & 0x3F for i in range(32)]
+                if any(p >= 32 for p in pair_order) or len(set(pair_order)) != 32:
+                    print(f"CHECK_REPR=FAIL_malformed_key at record {offset + checked}")
+                    return 2
+                mine = repr_of_key(pair_order)
+                checked += 1
+                if mine is None:
+                    incomputable += 1
+                elif mine == rec:
+                    agree += 1
+                else:
+                    disagree += 1
+                    if disagree <= 3:      # show the first few, do not spam
+                        print(f"  record {offset + checked - 1}: stored != independent repr")
+    except OSError as e:
+        print(f"CHECK_REPR=FAIL_io {e}"); return 2
+
+    print(f"CHECKED={checked}")
+    print(f"AGREE={agree}")
+    print(f"DISAGREE={disagree}")
+    print(f"INCOMPUTABLE={incomputable}")
+    # Fail closed: an incomputable key is a finding too -- the artifact claims a
+    # canonical record for a key this instrument says has no valid completion.
+    if checked and disagree == 0 and incomputable == 0:
+        print("CHECK_REPR=PASS")
+        print("SCOPE=sampled_records_only_NOT_whole_artifact")
+        return 0
+    print("CHECK_REPR=FAIL")
+    return 1
+
+
+def _is_gzip(path):
+    try:
+        with open(path, 'rb') as fh:
+            return fh.read(2) == b'\x1f\x8b'
+    except OSError:
+        return False
+
+
+def _c5_budget_from_kw():
+    """The C5 transition budget, re-derived HERE from this file's KW table.
+
+    63 transitions over 64 hexagrams; the multiset of their Hamming distances is
+    the budget. Asserted against the published value so a corrupted KW table
+    fails loudly rather than silently redefining the constraint."""
+    budget = [0] * 7
+    for i in range(63):
+        budget[hamming(KW[i], KW[i + 1])] += 1
+    assert budget == [0, 2, 20, 13, 19, 0, 9], f"KW budget mismatch: {budget}"
+    return budget
+
+
+def repr_of_key(pair_order):
+    """Independent repr(k). `pair_order` is 32 pair indices, slot order.
+
+    Returns the 32-byte lexicographically least valid record, or None if the key
+    admits no valid completion.
+
+    Constraints applied, from SPECIFICATION.md rather than from solve.c:
+      * C4  -- slot 0 is the forced (63, 0) start, so its orientation is fixed.
+      * C2  -- no adjacent transition may have Hamming distance 5.
+      * C5  -- the combined 63-transition multiset (every within-pair and every
+               between-pair transition) must match the KW-derived budget.
+    Budget totals 63 and there are exactly 63 transitions, so the running cap
+    check IS exact consumption; that identity is asserted, not assumed."""
+    if len(pair_order) != 32:
+        return None
+    budget = _c5_budget_from_kw()
+    assert sum(budget) == 63, "budget/transition-count identity broken"
+
+    a0, b0 = PAIRS[pair_order[0]]
+    # C4 forces the sequence to open (63, 0); only an orientation that produces
+    # it can be slot 0, and if neither does, the key is not completable.
+    if (a0, b0) == (63, 0):
+        o0 = 0
+    elif (b0, a0) == (63, 0):
+        o0 = 1
+    else:
+        return None
+    wd0 = hamming(63, 0)
+    if budget[wd0] <= 0:
+        return None
+    budget[wd0] -= 1
+
+    orient = [0] * 32
+    orient[0] = o0
+
+    def rec(slot, last):
+        if slot == 32:
+            return all(v == 0 for v in budget)      # exact consumption
+        a, b = PAIRS[pair_order[slot]]
+        for o in (0, 1):                            # 0 BEFORE 1 == lex-least
+            f, s = (b, a) if o else (a, b)
+            bd = hamming(last, f)
+            if bd == 5 or budget[bd] <= 0:
+                continue
+            wd = hamming(f, s)
+            budget[bd] -= 1
+            if budget[wd] <= 0:
+                budget[bd] += 1
+                continue
+            budget[wd] -= 1
+            orient[slot] = o
+            if rec(slot + 1, s):
+                return True
+            budget[wd] += 1
+            budget[bd] += 1
+        return False
+
+    if not rec(1, 0):
+        return None
+    return bytes(((pair_order[i] << 2) | (orient[i] << 1)) for i in range(32))
+
 SOL_HEADER_SIZE = 32
 SOL_FORMAT_VERSION = 1
 
@@ -3358,6 +3530,14 @@ def main():
                              'manifest agreement, and the layer-to-layer sha256 lineage chain). '
                              'Reads ONLY the small JSON sidecars — no layer-file I/O, so it is free '
                              'and works long after the campaign VM is gone. Recomputes no masses.')
+    parser.add_argument('--check-repr', type=int, nargs='?', const=1000, metavar='N',
+                        default=None,
+                        help='independently recompute repr(k) for N records and compare '
+                             'against what the artifact stores (default 1000). This is the '
+                             'only repr oracle outside solve.c; solve.c itself has none.')
+    parser.add_argument('--check-repr-offset', type=int, default=0, metavar='R',
+                        help='start --check-repr at record R (default 0). Use several '
+                             'offsets to spread coverage instead of resampling one window.')
     parser.add_argument('--check-null-g', action='store_true',
                         help='Compute the exact G-distribution under the C1&C4 null (12 couples + 7 '
                              'self-pairs into 31 slots) and gate it against total == 31!, support '
@@ -3480,6 +3660,9 @@ def main():
 
     if args.enumerate_reference is not None:
         sys.exit(enumerate_reference(args.enumerate_reference))
+
+    if args.check_repr is not None:
+        sys.exit(check_repr(args.path, args.check_repr, args.check_repr_offset))
 
     path = args.path
     n_jobs = max(1, args.jobs)

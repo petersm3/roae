@@ -128,7 +128,10 @@ concretized branches forward; explicit single-bit counterexamples reverse), repo
 files migrated to `decide +kernel` (kernel-evaluated, no compiler trust). **Zero `native_decide`
 now remains anywhere in the twelve files: every theorem in this directory is checked by Lean's
 kernel alone, with `#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]` — Lean's standard
-axioms — suite-wide.** The scope of that claim, stated precisely so it cannot be over-read: it
+axioms — suite-wide.** (Thirteen files since 2026-08-15: `PruneReprFC.lean` landed kernel-only —
+zero `native_decide`, its in-file `#print axioms` directives execute on every build and report
+⊆ the same standard set — so the suite-wide claim is unchanged by the addition.)
+The scope of that claim, stated precisely so it cannot be over-read: it
 is about the *axiom base* — what a reader must trust for these proofs to be sound (Lean's
 kernel plus its standard axioms, and no longer Lean's compiler) — not a claim that the
 formalized statements exhaust what the prose documents assert; each file's header and scope
@@ -204,6 +207,7 @@ finite computation those arguments rest on.
 lean KingWen.lean            # silence = all theorems check (Lean 4, tested with 4.31.0; ~50 s — kernel-evaluates the equivariance-ceiling witness + the complement-symmetry facts)
 lean C3Decomposition.lean    # C3 slot-decomposition theorem + the exact C1∩C4 null G-law (see below; ~2 min — kernel-evaluates a 31-layer DP)
 lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
+lean PruneReprFC.lean        # SOLVE_REPR_FC prune safety: repr(k) forward-check + leaf-free memo preserve the first-found leaf (2026-08-15; see below)
 lean Automorphism.lean       # the sequence-level symmetry layer (see below)
 lean PartitionInvariance.lean  # tier-3 model-level merge/partition-invariance theorems (see below)
 lean TrigramTheorems.lean    # trigram-level structure: forced boundary budget, S3xC2 subgroup (see below; ~2 min since the 2026-08-07 kernel migration)
@@ -234,6 +238,15 @@ reproduced their D16 figures to within 0.03 GB):
 | `SymmetryCompleteness.lean` | ~22 s | 2.8 GB |
 | `C1RuleConstants.lean` | ~1 s | 0.7 GB |
 | the other five (`PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |
+| `PruneReprFC.lean` | ~1.5 s | 0.49 GB |
+
+(The `PruneReprFC.lean` row was measured 2026-08-15 on the 2-core `claude`
+orchestrator (D2as_v6), Lean 4.31.0, not the D16 host of the other rows —
+wall clock is therefore an upper bound relative to the table's baseline; peak
+RSS is machine-independent to first order, same as the rest of the table.
+That host caps virtual memory at 4 GB, below Lean's default thread-stack
+reservation, so the measurement used `lean -j 1 --tstack=65536`; on an
+unrestricted host plain `lean PruneReprFC.lean` is the normal invocation.)
 
 **The headline guidance is unchanged by the 2026-08-07 tranche-2 migration** — this was
 confirmed against measurement, not assumed: the two files that migrated peak at ~4.4 GB and
@@ -264,6 +277,45 @@ zero `sorry`/`axiom`/`admit`) and checks with `lean <file>` like the others:
   that any coordinate permutation is a Hamming isometry (classical content, credited as such),
   not an enumeration; see the trust-base note above.
 - `RecordConvention.lean` — record/orientation convention lemmas.
+
+## PruneReprFC.lean (2026-08-15): SOLVE_REPR_FC prune safety — the repr(k) forward-checked DFS
+
+Machine-checks, at the model level, the correctness comment of the `SOLVE_REPR_FC`
+forward-checked repr(k) DFS (task #20 option C, branch `v4-repr-fc-legc-20260813` —
+the feature is NOT on main at the time of writing; solve.c `orb_recanon_dfs_fc` /
+`orb_fc_build` / the epoch-tagged memo table): the exact-consumption forward check
+(prune A) and the leaf-free-state memoization (prune C) remove only subtrees
+containing NO leaves at all — leaf = slot-np node reached through the budget edges,
+valid or not — hence cannot change which valid leaf the first-found DFS returns,
+hence preserve repr(k) bit-identically (SOLVE_REPR_FC=0/1 agree). Core Lean 4 only,
+standalone file, zero `sorry`, kernel-only (`#print axioms` on all headline theorems
+⊆ `[propext, Classical.choice, Quot.sound]`, printed on every build by the in-file
+directives). Verified statements:
+
+| Theorem | Statement |
+|---|---|
+| `leavesPr_eq` (strong form) + `prune_first_leaf_exact` (headline) | The general reusable lemma: for a DFS over a finitely-branching depth-indexed tree in fixed child order, a prune firing only on provably leaf-free subtrees leaves the ENTIRE ordered leaf stream unchanged — a fortiori the first leaf satisfying any predicate |
+| `dfs_eq_find?` | Operational = denotational: the first-found early-exit DFS returns exactly `find?` over the ordered leaf stream |
+| `fcCheck_leaf_free` | Prune A is leaf-free-SOUND: in the budgeted model, budget outside [suffix-min, suffix-max] of per-edge class-consumption bounds + the exact-consumption sum guard ⇒ the subtree has no leaf at all (feasibility would force cost = budget pointwise, the F-53-style le+eqsum⇒eq collapse); the suffix tables are DERIVED from per-edge bounds by orb_fc_build's own recurrence (`acc`, via `costs_bounded`/`costs_sum`), not assumed wholesale |
+| `dfsM_spec` / `dfsM_eq_unpruned` | Prune C is sound given the above: the memo-threaded first-found DFS (probe before descend; insert only on zero-leaf subtree completion; any leaf-free-sound prune A inside) returns exactly the unpruned first valid leaf from any all-claims-true memo, preserves that invariant, and counts unpruned leaves exactly when nothing is found |
+| `leaves_nil_congr` | The projection leg: leaf-freeness transfers between states with equal memo keys when the tree structure factors through the key projection — why a (slot, tail, budget) key is sound for states differing only in the placed sequence |
+| `epochMemo` + `etBump_claims_empty` (and `listMemo`) | The memo contract is inhabited by an epoch-tagged bucket table under EVERY collision/placement policy (overwrite or drop — "costs time, never correctness"), and a bumped epoch claims nothing when stored tags are bounded by the old epoch — stale positives cannot resurrect (solve.c's uint32 wrap-clear restores the bound; bridge B9) |
+| `fc_memo_first_leaf_exact` | THE CONCLUSION: FC-check + memo composed over the budgeted tree return exactly the unpruned search's leaf, for every key, budget, and leaf test — with RecordConvention.lean §3 (B6) this is "repr(k) preserved bit-identically" |
+| `liftSpend_proj` | Witness: the path-blind spend shape (transition arithmetic reads only slot + tail, the placed sequence is payload — the solve.c shape) discharges the projection hypothesis with nothing assumed about paths |
+| §5 counterexample suite | THE COMPOSITION HAZARD IS REAL (the C comment's CAUTION, machine-checked): a concrete cd-style prune is answer-sound alone (`find?`-equal, streams differ) yet NOT leaf-free-sound, and composed with the memo it poisons an entry and the search returns `none` where the unpruned answer exists — hypothesis hA is load-bearing, and "no leaf reached" must mean "leaf-free" |
+
+**Scope — read this before citing (model-level result).** What is machine-proven is
+the abstract statement about the model DFS. The connection to the shipped binary
+runs through stated bridge facts B8–B11 (DFS-shape faithfulness, memo-table
+contract incl. `orb_fc_pack` injectivity and the wrap clear, FC-table faithfulness
+and the reachable-state budget-sum invariant, top-level call correspondence) —
+explicit modeling assumptions, NOT machine-checked, carried by prose + code review
++ the runtime gates (`--orbit-selftest` against the brute-force `orb_brute_repr`;
+the SOLVE_REPR_FC=0/1 byte-identity A/B). The per-edge bound/sum facts about
+orb_fc_build's tables and the initial budget sum are explicit HYPOTHESES of the
+theorems (named in the file header), in the PruneExactness demands/remaining
+discipline. Nothing here proves solve.c correct; the lex-min reading of the
+returned leaf is RecordConvention.lean's `dfsFirst_min` (B6), composed in prose.
 
 **Related formal work:** [Radisic 2026](../documentation/CITATIONS.md#radisic2026) (arXiv:2601.07175) independently formalized King Wen pairing
 optimality in Lean 4 + Mathlib (K₄-equivariant matching; different object from the constraint-system
