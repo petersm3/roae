@@ -212,20 +212,27 @@ def check_artifact(path, count=-1, offset=0):
     """Validate what solutions.bin actually CLAIMS, record by record.
 
     WHY THIS AND NOT check_repr(). check_repr() asks whether the stored
-    orientation is the LEX-LEAST valid completion of the key. solutions.bin has
-    never claimed that. Per solve.c's record-comparator proof, the file keeps one
-    record per canonical class -- unique PAIR-SEQUENCE -- and the surviving
-    ORIENTATION is a deterministic survivor of a dedup over the variants the
-    search emitted; each thread's hash table already kept only the FIRST-ARRIVING
-    variant per class within that thread. So the stored orientation is a min over
-    a thread-dependent SUBSET of valid variants, not over all of them. Measured
-    2026-08-15: regionally varying 1-42% divergence from lex-least, with
-    INCOMPUTABLE=0 throughout. Instrument/spec mismatch, not a data defect.
+    orientation is the global lex-least valid completion of the key. That IS the
+    record convention -- forced by partition-invariance, and settled against the
+    cell-scoped alternative -- but it is established by a POST-PASS, not by the
+    merge: orb_normalize_rec_op -> orb_repr_global, exposed as
+    `solve --kc-repr-normalize IN.bin OUT.bin`. Against a raw merge output that
+    pass has not run, so check_repr() disagrees on exactly the records the
+    post-pass would rewrite. Measured 2026-08-15 over 1,776,347,935 records: a
+    regionally varying 1.06%-42.2%, INCOMPUTABLE=0 throughout. Expected, not a
+    defect. check_repr() is the right acceptance test for the post-pass OUTPUT
+    and the wrong instrument for its input.
 
-    Note too that a check_repr() disagreement can only ever be an orientation-bit
-    difference -- repr_of_key() is handed the key decoded from the very record it
-    is compared against -- so it is structurally blind to a wrong pair sequence.
-    This function is not: it checks the pair sequence directly.
+    Do not mistake orb_recanon for the convention (a misreading made and
+    retracted on 2026-08-15): it pins slots 0..3 from a member CELL's prefix and
+    its only caller is orb_expand_record, for cell-faithful expansion shards.
+    Cell-scoped visited-min was PROVEN INSUFFICIENT as a record representative --
+    the merged cross-cell min moves with budget, breaking partition-invariance
+    and record-level nesting.
+
+    A second limitation survives normalization: check_repr() is structurally
+    blind to a wrong pair sequence, since repr_of_key() is handed the key decoded
+    from the very record it is compared against. This function is not.
 
     CHECKED HERE: (1) each record's OWN orientations satisfy the constraint set
     (forced 63->0 opening, no HD-5 transition, C5 budget consumed EXACTLY);

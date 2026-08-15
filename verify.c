@@ -230,25 +230,31 @@ static int vc_repr_of_key(const int *pair_order, unsigned char *out) {
 
 /* ---------- --check-artifact: what solutions.bin ACTUALLY claims ----------
  *
- * WHY THIS EXISTS, AND WHY --check-repr IS THE WRONG INSTRUMENT FOR THIS FILE.
+ * WHY THIS EXISTS, AND WHEN --check-repr DOES NOT APPLY.
  *
- * --check-repr asks "is the stored orientation the LEX-LEAST valid completion
- * of this key?". solutions.bin has never claimed that. Per solve.c's record
- * comparator proof (compare_solutions / compare_canonical), the file holds one
- * record per canonical class -- unique PAIR-SEQUENCE -- and the surviving
- * ORIENTATION is "a single deterministic survivor" of a dedup over the variants
- * the search actually emitted. Step (1) of that proof is the crux: each thread's
- * hash table keeps at most one representative per class WITHIN that thread,
- * whichever arrived first. So the stored orientation is the byte-min over a
- * THREAD-DEPENDENT SUBSET of the valid variants, not the min over all of them.
- * The two coincide often but not always, which is exactly the regionally varying
- * 1-42% disagreement measured on 2026-08-15. That was an instrument/spec
- * mismatch, not a defect in the data.
+ * --check-repr asks "is the stored orientation the global lex-least valid
+ * completion of this key?". That IS the record convention -- forced by
+ * partition-invariance, and settled against the cell-scoped alternative -- but it
+ * is established by a POST-PASS, not by the merge. orb_normalize_rec_op ->
+ * orb_repr_global, exposed as `solve --kc-repr-normalize IN.bin OUT.bin`, is what
+ * applies it. Against a raw merge output that pass has not run, so --check-repr
+ * disagrees on exactly the records the post-pass would rewrite: measured
+ * 2026-08-15 over 1,776,347,935 records, a regionally varying 1.06%-42.2% with
+ * INCOMPUTABLE=0 throughout. Expected, not a defect. --check-repr is the right
+ * ACCEPTANCE TEST for the post-pass output and the wrong instrument for its input.
  *
- * Note also that a --check-repr DISAGREE can ONLY ever be an orientation-bit
- * difference: vc_repr_of_key builds its output from the same key array it just
- * decoded out of the stored record, so the pair-order bits are identical by
- * construction. It is structurally incapable of detecting a wrong pair sequence.
+ * Do not mistake orb_recanon for the convention (a misreading made and retracted
+ * on 2026-08-15): it pins slots 0..3 from a member CELL's prefix and its only
+ * caller is orb_expand_record, for cell-faithful expansion shards. Cell-scoped
+ * visited-min was PROVEN INSUFFICIENT as a record representative -- the merged
+ * cross-cell min moves with budget, breaking partition-invariance and
+ * record-level nesting.
+ *
+ * A second limitation survives normalization: --check-repr is STRUCTURALLY BLIND
+ * TO A WRONG PAIR SEQUENCE. vc_repr_of_key builds its output from the same key
+ * array it just decoded out of the stored record, so the pair-order bits are
+ * identical by construction and a disagreement can only ever be an orientation
+ * bit. This check is not blind to it.
  *
  * WHAT THIS CHECKS INSTEAD -- the three properties the file does claim:
  *   (1) VALIDITY   every stored record's OWN orientations satisfy the constraint

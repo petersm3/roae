@@ -29,21 +29,25 @@
                 pair-order key k that satisfies the full constraint set
                 (slot 0 forced; computed by the orb_recanon DFS shape).
 
-      CORRECTION (2026-08-15, found by verify.py/verify.c --check-repr against
-      the 1.78e9-record merge artifact): the prose above and the implementation
-      it names DIVERGE. orb_recanon takes fixed_or[4] and forces slots 0..3 --
-      its caller orb_expand_record supplies slots 1..3 from the member CELL's
-      codes -- re-canonicalizing only slots 4..31. So the stored records are
-      CELL-SCOPED canonical (lex-least over the free slots GIVEN the cell
-      prefix), not globally lex-least. Both are coherent; the cell-scoped form is
-      the right primitive for orbit expansion. What is wrong is this sentence,
-      which states a global definition and names a cell-scoped implementation.
-      Whether the intended canonical form is global or cell-scoped is a
-      SPECIFICATION DECISION and is still open; it must be settled before any
-      repr-normalized artifact is published under this wording. The repr(k)
-      post-pass does NOT resolve it -- it applies this same orb_recanon. The
-      theorems below are unaffected: they are stated about the DFS shape as
-      implemented, not about the prose gloss.
+      NOTE (2026-08-15): a --check-repr sweep of the 1.78e9-record merge
+      artifact disagreed with this definition on 1.06%-42.2% of records,
+      regionally, with INCOMPUTABLE=0. That is NOT a defect and NOT a
+      divergence: solutions.bin is a PRE-NORMALIZATION artifact. The
+      global repr is applied by orb_normalize_rec_op -> orb_repr_global,
+      exposed as `solve --kc-repr-normalize IN.bin OUT.bin` (task #20),
+      which has not been run on it. The disagreeing records ARE the
+      post-pass's work-list, so --check-repr is the correct acceptance
+      test for the post-pass OUTPUT and is expected to fail on its input.
+
+      Guard against one misreading, made and retracted on 2026-08-15:
+      orb_recanon (which pins slots 0..3 from a member CELL's prefix) is
+      NOT the record convention. Its only caller is orb_expand_record, for
+      cell-faithful expansion shards. The "orb_recanon DFS shape" named
+      above is orb_recanon_dfs, the shared DFS that orb_repr_global enters
+      at slot 1 having forced slot 0 alone. Cell-scoped visited-min was
+      considered and PROVEN INSUFFICIENT as a record representative
+      (visitedMin_not_nested below): the merged cross-cell min moves with
+      budget, breaking partition-invariance and record-level nesting.
 
   This file machine-checks the four model-level facts that decision rests
   on, plus the correctness of the DFS that computes repr:

@@ -30,8 +30,8 @@ cannot promise):
 | `python3 verify.py --recount` | the exact COUNTS: independently reproduces the small-n structural facts, the reduced-rung C1∩C2∩C4 union counts, **and (since 2026-07-21) the C5 ladder rungs n = 9/13/16** (TR-11 §4b) — each rung's budget `B0` re-derived independently by TR-11 §5's first-completion DFS, then counted by a plain budgeted (mask, last, p) DP — and prints a match table |
 | `python3 verify.py --recount-fiber` | (added 2026-08-01) the **orientation fiber** of [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §7 — the frozen dispositive null against which the eleven-functional battery's exact p-values are computed, so it is the denominator every verdict in that table rests on. A transfer DP over King Wen's *own* pair sequence, varying only the 32 within-pair orientations, with the boundary budget `B0` recomputed from KW rather than copied from the report. Reproduces **1,720,320** (C4-oriented), **983,040** (pair-only C4, flipped opening), **2,703,360** (their sum), the stated `3·5·7·2¹⁴` factorization, and the forced/free bit structure (slot 30 is the only additionally forced bit — 30 of 31 vary). Two facts make this exact rather than a 2³¹ search, and the mode re-derives both instead of assuming them: within-pair distances are orientation-invariant, so C5 reduces to the 31 between-pair values; and `C3 = 16 + 8·G` with the orientation bits cancelling in `G`, so C3 is **constant** across the fiber and constrains nothing. Instant. Reads no files |
 | `python3 verify.py --fiber-sweep [solutions.bin]` | (added 2026-08-01) the **orientation-fiber factor** — the exact conversion between the two counting levels this suite publishes side by side: deduped **records** (pair orderings, what `solutions.bin` stores) and orientation-explicit **sequences** (what the C1–C5 space estimate counts). `--recount-fiber` above answers TR-1 §7's question for King Wen's *own* ordering; this mode generalises the same object to an **arbitrary** C1 ordering, which is what makes the two levels inter-convertible: `N = Σ_P |fiber(P)|`, `R = #{P : |fiber(P)| ≥ 1}`, and the dedup factor is exactly the mean fiber `N/R`. Gated on King Wen's three published fiber sizes **and** on agreement with `--recount-fiber`'s independent DP before it reports anything; then, if a `solutions.bin` is present, prints the exact fiber-size distribution over its records. ~0.2 ms per ordering. Scope: the sample mean is over the records of the file given, which is a budget-truncated slice, **not** the C1–C5 space |
-| `python3 verify.py --check-repr [N]` / `--check-repr-offset R` | (added 2026-08-15) the **repr(k) oracle** — independently recomputes the canonical representative for `N` records starting at record `R` (defaults: 1000 from 0) and compares it against what the artifact stores. **Why it is needed:** `solve.c`'s `--kc-repr-normalize` states outright that "there is NO separate repr oracle in this tree" — its only built-in check is IDEMPOTENCE (re-run on the output, expect byte-identical), which is self-consistent and therefore cannot catch a normalization that is stable but *wrong*. The `SOLVE_REPR_FC` A/B is weaker than it looks for the same reason at one remove: both arms share `solve.c`'s DFS, child order and code, so a defect in the shared traversal is invisible to it at any sample size. **Independence is the deliverable:** this is written from the DEFINITION in [`lean/RecordConvention.lean`](../lean/RecordConvention.lean) — repr(k) is the lexicographically least orientation completion of the pair-order key satisfying the constraint set, slot 0 forced by C4 — not transcribed from `orb_recanon_dfs`, and it builds on this file's own KW table, `_partner()`-derived pairs and `hamming()`, re-deriving and asserting the C5 budget. Reproduces **King Wen from King Wen's own key**. Verdicts are `KEY=value` (`CHECKED`/`AGREE`/`DISAGREE`/`INCOMPUTABLE`/`CHECK_REPR=PASS\|FAIL`) plus an explicit `SCOPE=` line. **Scope, stated plainly: it checks the records it reads and no others** — use several offsets rather than resampling one window, and never report a sampled pass as whole-artifact agreement. Fails closed: an *incomputable* key is a finding too, since the artifact claims a canonical record for a key this instrument says cannot be completed. Python cost is a DFS per record and the underlying search is heavy-tailed, so prefer `verify.c --check-repr` (below) for large `N` **CONVENTION CAVEAT (2026-08-15): this instrument implements the definition as WRITTEN (slot 0 forced). `orb_recanon` forces slots 0..3, so the merge artifact is cell-scoped canonical and legitimately disagrees — see §'the repr(k) convention divergence' below. Do not run this against `solutions.bin` and read a DISAGREE as a data defect.** |
-| `python3 verify.py --check-artifact [N]` / `--check-artifact-offset R` / `./verify --check-artifact FILE [N] [OFFSET]` | (added 2026-08-15) the **artifact validator** — checks what `solutions.bin` actually CLAIMS, in one linear pass per record: (1) **validity**, each record's OWN orientations satisfy the constraint set (forced `63->0` opening, no HD-5 transition, C5 budget consumed EXACTLY); (2) **sortedness**, pair-order keys strictly increase, matching `compare_solutions`; (3) **dedup**, strictness in (2) IS the one-record-per-canonical-class claim. `N` defaults to **-1 = to EOF** — this is a whole-artifact instrument, not a sampler, because it is linear rather than a search. **Prefer this over `--check-repr` on the merge output.** `--check-repr` tests lex-leastness, which this file has never claimed (see the convention note below), and is *structurally blind to a wrong pair sequence* — `repr_of_key` is handed the key decoded from the very record it is compared against, so a disagreement can only ever be an orientation bit. This one checks the pair sequence directly. Verdicts are `KEY=value` (`RECORDS`, `BAD_KEY`, `BAD_SPARE_BIT`, `BAD_OPENING`, `BAD_HD5`, `BAD_BUDGET`, `BAD_BUDGET_RESIDUE`, `BAD_ORDER`, `ARTIFACT=PASS\|FAIL`) plus `SCOPE=`. **Does NOT check completeness** — that no valid solution is *missing* is the enumeration's claim, attested by the canonical sha; a forward pass cannot establish it. Sharding caveat: the sortedness check compares against the predecessor WITHIN the range read, so a sharded run cannot see a violation across a shard seam — overlap by one record, or run offset 0 to EOF |
+| `python3 verify.py --check-repr [N]` / `--check-repr-offset R` | (added 2026-08-15) the **repr(k) oracle** — independently recomputes the canonical representative for `N` records starting at record `R` (defaults: 1000 from 0) and compares it against what the artifact stores. **Why it is needed:** `solve.c`'s `--kc-repr-normalize` states outright that "there is NO separate repr oracle in this tree" — its only built-in check is IDEMPOTENCE (re-run on the output, expect byte-identical), which is self-consistent and therefore cannot catch a normalization that is stable but *wrong*. The `SOLVE_REPR_FC` A/B is weaker than it looks for the same reason at one remove: both arms share `solve.c`'s DFS, child order and code, so a defect in the shared traversal is invisible to it at any sample size. **Independence is the deliverable:** this is written from the DEFINITION in [`lean/RecordConvention.lean`](../lean/RecordConvention.lean) — repr(k) is the lexicographically least orientation completion of the pair-order key satisfying the constraint set, slot 0 forced by C4 — not transcribed from `orb_recanon_dfs`, and it builds on this file's own KW table, `_partner()`-derived pairs and `hamming()`, re-deriving and asserting the C5 budget. Reproduces **King Wen from King Wen's own key**. Verdicts are `KEY=value` (`CHECKED`/`AGREE`/`DISAGREE`/`INCOMPUTABLE`/`CHECK_REPR=PASS\|FAIL`) plus an explicit `SCOPE=` line. **Scope, stated plainly: it checks the records it reads and no others** — use several offsets rather than resampling one window, and never report a sampled pass as whole-artifact agreement. Fails closed: an *incomputable* key is a finding too, since the artifact claims a canonical record for a key this instrument says cannot be completed. Python cost is a DFS per record and the underlying search is heavy-tailed, so prefer `verify.c --check-repr` (below) for large `N` **APPLICABILITY (2026-08-15): run this against a repr-NORMALIZED artifact, not against a raw merge output. `solutions.bin` is pre-normalization — `solve --kc-repr-normalize` (task #20) has not been run on it — so a DISAGREE there is EXPECTED and identifies exactly the records the post-pass would rewrite. It is the correct acceptance test for the post-pass OUTPUT. See §'What the 2026-08-15 sweep actually found' below.** |
+| `python3 verify.py --check-artifact [N]` / `--check-artifact-offset R` / `./verify --check-artifact FILE [N] [OFFSET]` | (added 2026-08-15) the **artifact validator** — checks what `solutions.bin` actually CLAIMS, in one linear pass per record: (1) **validity**, each record's OWN orientations satisfy the constraint set (forced `63->0` opening, no HD-5 transition, C5 budget consumed EXACTLY); (2) **sortedness**, pair-order keys strictly increase, matching `compare_solutions`; (3) **dedup**, strictness in (2) IS the one-record-per-canonical-class claim. `N` defaults to **-1 = to EOF** — this is a whole-artifact instrument, not a sampler, because it is linear rather than a search. **Prefer this over `--check-repr` on the merge output.** `--check-repr` cannot validate the artifact as it exists today — `solutions.bin` is pre-normalization, so its disagreements are the post-pass's work-list, not defects — and even after normalization it is *structurally blind to a wrong pair sequence* — `repr_of_key` is handed the key decoded from the very record it is compared against, so a disagreement can only ever be an orientation bit. This one checks the pair sequence directly. Verdicts are `KEY=value` (`RECORDS`, `BAD_KEY`, `BAD_SPARE_BIT`, `BAD_OPENING`, `BAD_HD5`, `BAD_BUDGET`, `BAD_BUDGET_RESIDUE`, `BAD_ORDER`, `ARTIFACT=PASS\|FAIL`) plus `SCOPE=`. **Does NOT check completeness** — that no valid solution is *missing* is the enumeration's claim, attested by the canonical sha; a forward pass cannot establish it. Sharding caveat: the sortedness check compares against the predecessor WITHIN the range read, so a sharded run cannot see a violation across a shard seam — overlap by one record, or run offset 0 to EOF |
 | `python3 verify.py --recount-gender-null` | (added 2026-08-01) TR-8 §Commands' **exact pair-null Schulz-gender figure** `P(rc4_violations ≤ 2) = 47/445740`. Both prior implementations of this rational lived inside `solve.py`, so the figure was single-FILE even though it was described as verified two ways; this is the genuinely independent second instrument. The functional is rebuilt from the **published** definition (SOLVE_C_CLI.md §`--rc4b-verify`; Schulz 1990 motif 2 via Cook 2006) rather than from `solve.py`'s code, and the reading is gated on King Wen's published anchors (2 violations, class positions 25/26). The 32!·2³² null is then solved **exactly two ways** — a multivariate-hypergeometric closed form, and a slot-by-slot DP over pair-type states that never uses the closed form's decomposition — cross-asserted term-by-term, in `fractions.Fraction`. No sampling. Instant. Reads no files |
 | `python3 verify.py --recount-rung N` | (N = 18 or 19) the **worker-sized C5 ladder rungs** — a packed-state budgeted DP, self-gated against the in-file plain DP at n=16. Larger rungs (n = 20–28) need a worker and are not run here |
 | `python3 verify.py --recount-subtree` | the exact **deterministic subtree anchors** of TR-5 §3 / SEARCH_SPACE_SIZE (KW-following prefixes at 5/7/9 free positions: `tree_nodes` 443 / 62,256 / 9,422,793 and canonical leaves 4 / 2,232 / 16,504), plus the sigma-related-prefix tree-isomorphism check. ~1–2 min. Reads no files |
@@ -423,67 +423,59 @@ what that run produced, so it is annotated here rather than edited — post-hoc 
 landed artifact would damage its provenance value. The hedged reading (that figure is the
 estimate's rounding gap, not a resolved error) is carried in the surrounding prose.
 
-## `--check-artifact`, and the repr(k) convention divergence it exposed (2026-08-15)
+## `--check-artifact`, and what the 2026-08-15 sweep actually found
 
 `./verify --check-artifact FILE [N] [OFFSET]` / `python3 verify.py --check-artifact [N]`.
 Two implementations, no shared code; both were gated against the same seven
 controls below and agree counter-for-counter.
 
-### Why a second instrument was needed at all
+### The sweep result, and the correct reading of it
 
 A whole-artifact `--check-repr` sweep was run against the 1,776,347,935-record
-merge output on 2026-08-15 and reported disagreement — but **regionally**, at
-rates from **1.06 % to 42.2 %**, with **9 chunks of 5,242,880 records each
-agreeing perfectly** and `INCOMPUTABLE=0` throughout. A uniformly broken oracle
-cannot produce that pattern. The cause turned out to be a convention divergence,
-and the sweep was stopped before drawing any conclusion about the data.
+merge output on 2026-08-15 and reported disagreement — **regionally**, at rates
+from **1.06 % to 42.2 %**, with **9 chunks of 5,242,880 records each agreeing
+perfectly** and `INCOMPUTABLE=0` throughout. A uniformly broken oracle cannot
+produce that pattern, so the sweep was stopped before any conclusion was drawn
+about the data.
 
-### The divergence, stated precisely
+**`solutions.bin` is a PRE-NORMALIZATION artifact.** The global repr(k) is
+applied by `orb_normalize_rec_op` → `orb_repr_global`, exposed as
+`solve --kc-repr-normalize IN.bin OUT.bin` (task #20), and that pass has not
+been run on it. The disagreeing records **are** the post-pass's work-list. So
+`--check-repr` is the right acceptance test for the post-pass *output* and is
+expected to fail on its *input*; running it on a raw merge is a category error,
+not a finding.
 
-[`lean/RecordConvention.lean`](../lean/RecordConvention.lean) defines
+**One misreading, made and retracted the same day, is worth recording** so it is
+not repeated. `orb_recanon` pins slots 0..3 from a member *cell's* prefix, and it
+is tempting to read that as the record convention. It is not: its only caller is
+`orb_expand_record`, for cell-faithful expansion shards. The "orb_recanon DFS
+shape" named in `RecordConvention.lean` is `orb_recanon_dfs`, the shared DFS that
+`orb_repr_global` enters at slot 1 having forced slot 0 alone. Cell-scoped
+visited-min was considered and **proven insufficient** as a record representative
+(`visitedMin_not_nested`): the merged cross-cell min moves with budget, breaking
+partition-invariance and record-level nesting. The convention is settled, and it
+is global.
 
-> repr(k) = the lexicographically least orientation completion of the pair-order
-> key … (**slot 0 forced**; computed by the `orb_recanon` DFS shape).
+### Why a linear instrument was still worth building
 
-`orb_recanon` does not do that. It takes a `fixed_or[4]` and **forces slots 0..3**,
-re-canonicalizing only slots 4..31 (`solve.c` `orb_recanon`, and its caller
-`orb_expand_record`: *"force slots 0..3 to the member cell's prefix orientations,
-re-canonicalize the free orientations"*, with `fixed_or[1..3]` taken from the
-member **cell's** codes). The stored records are therefore **cell-scoped
-canonical** — lex-least over the free slots *given the cell prefix* — not
-globally lex-least.
-
-Both are coherent definitions and the cell-scoped one is the right primitive for
-orbit expansion. **The defect is that the prose defines a global function and
-names a cell-scoped one as its implementation.** The oracle was written from the
-prose, which is exactly why it disagreed; finding this is the oracle earning its
-keep.
-
-Two consequences worth stating plainly:
-
-- **The disagreement is not evidence of a defect in `solutions.bin`.** It is an
-  instrument/specification mismatch.
-- **The repr(k) post-pass will not resolve it either.** The post-pass applies the
-  same cell-scoped `orb_recanon`, so its output will still not satisfy the
-  globally-lex-least definition as written. Whether the intended canonical form is
-  global or cell-scoped is a **specification decision**, not something a checker
-  can settle, and it must be made before any repr-normalized artifact is published
-  under the current wording.
-
-This also explains why the post-pass's **idempotence** measurement passed: cell-scoped
-canonicalization is idempotent too. That is precisely the blind spot this document
-already warned about — an idempotence check "cannot catch a normalization that is
-stable but *wrong*".
+`--check-repr` cannot validate an un-normalized artifact, and it has a second
+limitation that survives normalization: it is **structurally blind to a wrong
+pair sequence**, because `repr_of_key` is handed the key decoded from the very
+record it is compared against, so a disagreement can only ever be an orientation
+bit. `--check-artifact` checks the pair sequence directly, applies to the
+artifact as it exists today, and being linear rather than a search it streams the
+whole file in minutes instead of the ~47 h a repr sweep costs.
 
 ### Direct evidence that a key has many valid orientations
 
 Of the 31 single-orientation-bit flips of King Wen's own record, **16 still
 validate** under `--check-artifact` and 15 trip `BAD_BUDGET`. So a pair-order key
-routinely admits many valid orientation completions, and *which* one a record
-carries is a convention choice, not a correctness property. The merge's own
-choice is additionally thread-dependent: per `solve.c`'s record-comparator proof,
-each thread's hash table keeps only the **first-arriving** variant per canonical
-class, so the survivor is a min over a thread-dependent subset.
+routinely admits many valid orientation completions, and *which* one an
+un-normalized record carries is walk-dependent: per `solve.c`'s record-comparator
+proof, each thread's hash table keeps only the **first-arriving** variant per
+canonical class. Normalization is what replaces that with a function of the key
+alone — which is precisely why it is required for partition-invariance.
 
 ### Controls (all seven pass; C and Python agree on every counter)
 
