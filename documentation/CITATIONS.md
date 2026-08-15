@@ -336,7 +336,9 @@ enumerates that space, or proves a ceiling on it.
   trigrams 八卦自重 plus the eight whose six lines all correspond. In 1936b he frames the sequence as
   built on a **"Principle of Architectonic" (建构原则)** rather than a **"Principle of Continuity"
   (平等原则)** — his own English terms — with the sixteen 立其骨构 ("establishing the skeletal
-  frame") and **three 序**: 回互 for the upper canon, **顺布 for the lower, and 交错 spanning both** (「回互之序用于上篇，顺布之序用于下篇。而交错之序通上下篇」, p. 98; p. 99 agrees). The three are **named and never defined** in either piece.
+  frame") and **three 序**: 回互 for the upper canon, **顺布 for the lower, and 交错 spanning both** (「回互之序用于上篇，顺布之序用于下篇。而交错之序通上下篇」, p. 98; p. 99 agrees). **Six patterns are named and none is defined** — the three 序 above, and the **三势** 抱, 插, 嵌
+  (mentioned at p. 98 as 上下篇各有抱插嵌三势). Neither 1936a nor 1936b defines any of the six, and
+  [Xing Wen 2021](#xingwen2021) does not either.
 
   **Scope, as far as these two papers go:** every quantity Shen states counts members of a defined
   **class of hexagrams**; we find no count or bound on **orderings**, no ceiling, no uniqueness
@@ -366,7 +368,12 @@ enumerates that space, or proves a ceiling on it.
   Cui: the work is 《**易卦图说**》, of which 《易卦次图说》 is one of three constituent essays
   (alongside 《易卦画图说》 and 《易十二卦应十二月图说》); Xing cites it in 《崔东壁集》 (Shanghai:
   群学社, 1928), pp. 2–21, and reproduces its diagrams from the **1817 (嘉庆二十二年) woodblock
-  edition cut by Cui's disciple 陈履和** — not from 《崔东壁遗书》, which this project had assumed.
+  edition cut by Cui's disciple 陈履和** **The correction concerns which EDITION Xing works from, and which work the essay sits inside —
+  not where it lives.** Shen's own sentence, quoted above, says he read it 在崔东璧遗书, and that is
+  not in dispute: Cui's writings were compiled by 陈履和 as 《崔东壁遗书》 (道光四年/1824). What this
+  project had wrong was treating 《易卦次图说》 as a standalone work, when it is one of three essays
+  *inside* 《易卦图说》 — and searching for the wrong title is why earlier digital searches returned
+  nothing.
   Xing judges the convergence with Shen genuine (「这确实与沈先生的卦序论"不谋而合"」), and Cui
   claims the novelty himself: 纯卦人皆知之，而交卦则罕有言者。反对人多言之，而平对则罕有及者. Shen scopes the convergence himself:
   至散卦之排列，崔氏未详其故 — Cui does **not** account for the arrangement of the 48 subordinate
@@ -382,7 +389,8 @@ enumerates that space, or proves a ceiling on it.
   (lower, upper) ↦ (rev(upper), rev(lower)) — so it is not a diagonal action, and an earlier revision
   of this entry describing it as one was wrong. The invariance holds regardless: both generators
   apply the *same* rank map to each component, and Shen's criterion asserts the two components' ranks
-  are EQUAL — a condition preserved by a componentwise map and by a swap alike. **This is our observation, not his claim**, and both halves belong in any account:
+  are EQUAL — a condition preserved by a componentwise map and by a swap alike. **This is our observation, not his claim** — reproduce with
+  `python3 verify.py --check-shen-orbits` (reads no files). Both halves belong in any account:
   the concept is absent from 1936, the extension is not. If Zhang's credit to Shen concerns the 错综不变组 idea, it must rest on later Shen
   material or on Zhang's first-hand knowledge as a commissioned editor — not on anything in 1936a/b.
   The two claims should be kept apart in any account of the lineage.

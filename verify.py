@@ -346,6 +346,146 @@ def check_artifact(path, count=-1, offset=0):
     return 1
 
 
+# ---------------------------------------------------------------------------
+# SHEN 1936 ORBIT CHECK  (--check-shen-orbits)  and  FLIP CENSUS (--check-flips)
+#
+# WHY THESE LIVE HERE. CITATIONS.md publishes two measured claims about Shen
+# Youding's 1936 classification, and a published figure must not ship ahead of
+# the means to reproduce it -- a private script does not make a public number
+# reproducible. Both checks belong in verify.py rather than solve.py for the
+# reason verify.py exists: the orbit claim is ABOUT orbit structure, and solve.c
+# has orbit code, so a check that used it would not be independent. Nothing here
+# imports from solve.c/solve.py/roae.py/sat.py; the trigram table below is the
+# classical family doctrine, written out, and hexagram values are decomposed
+# with this file's own bit conventions.
+# ---------------------------------------------------------------------------
+
+# Classical trigram doctrine. bit0 = bottom line (ROAE-native), so a trigram is
+# three bits read bottom-up. rank = generational rank; gender = yang/yin.
+_TRIGRAM = {
+    0b111: ('乾', '老', 'yang'), 0b000: ('坤', '老', 'yin'),
+    0b001: ('震', '长', 'yang'), 0b110: ('巽', '长', 'yin'),
+    0b010: ('坎', '中', 'yang'), 0b101: ('离', '中', 'yin'),
+    0b100: ('艮', '少', 'yang'), 0b011: ('兑', '少', 'yin'),
+}
+def _lower(h): return h & 0b111
+def _upper(h): return (h >> 3) & 0b111
+def _cuo(h):  return h ^ 0b111111                      # 错 complement
+def _zong(h): return int(format(h, '06b')[::-1], 2)    # 综 reversal
+def _hname(h): return _TRIGRAM[_upper(h)][0] + '/' + _TRIGRAM[_lower(h)][0]
+
+def check_shen_orbits():
+    """Verify the published claim that Shen Youding's (1936) six groups of
+    principal hexagrams are EXACTLY the six K4 orbits of his sixteen.
+
+    Shen's criterion (周易序卦骨构大意, 北京晨报 1936-05-06): a hexagram is 主卦
+    (principal) iff its inner and outer trigrams share generational rank
+    (老/长/中/少); the rest are 散卦. He states 主卦十有六 and 其余四十八卦皆散卦,
+    grouped 总为六组.
+
+    Verdicts are KEY=value for `grep -qx`."""
+    zhu = [h for h in range(64)
+           if _TRIGRAM[_lower(h)][1] == _TRIGRAM[_upper(h)][1]]
+    leihe  = [h for h in zhu if _TRIGRAM[_lower(h)][2] == _TRIGRAM[_upper(h)][2]]
+    yinghe = [h for h in zhu if _TRIGRAM[_lower(h)][2] != _TRIGRAM[_upper(h)][2]]
+    print("ZHU=%d" % len(zhu))
+    print("LEIHE=%d" % len(leihe))     # 类合 — the eight doubled trigrams
+    print("YINGHE=%d" % len(yinghe))   # 应合 — the eight rank-partner pairs
+    print("SAN=%d" % (64 - len(zhu)))  # 散卦
+
+    Z = set(zhu)
+    closed_cuo  = all(_cuo(h)  in Z for h in zhu)
+    closed_zong = all(_zong(h) in Z for h in zhu)
+    print("CLOSED_UNDER_CUO=%s"  % ("yes" if closed_cuo  else "no"))
+    print("CLOSED_UNDER_ZONG=%s" % ("yes" if closed_zong else "no"))
+
+    orbits = sorted({frozenset({h, _cuo(h), _zong(h), _cuo(_zong(h))}) for h in zhu},
+                    key=lambda o: (len(o), min(o)))
+    print("ORBITS=%d" % len(orbits))
+    print("ORBIT_SIZES=%s" % ','.join(str(len(o)) for o in orbits))
+    for o in orbits:
+        print("  orbit(%d): %s" % (len(o), ' '.join(sorted(_hname(x) for x in o))))
+
+    # Shen's six groups, as he names them.
+    T = {n: b for b, (n, _, _) in _TRIGRAM.items()}
+    def hx(lo, up): return T[lo] | (T[up] << 3)
+    groups = {
+        '乾坤':     {hx('乾','乾'), hx('坤','坤')},
+        '泰否':     {hx('乾','坤'), hx('坤','乾')},
+        '坎离':     {hx('坎','坎'), hx('离','离')},
+        '既未济':   {hx('离','坎'), hx('坎','离')},
+        '震艮巽兑': {hx('震','震'), hx('艮','艮'), hx('巽','巽'), hx('兑','兑')},
+        '咸恒损益': {hx('艮','兑'), hx('巽','震'), hx('兑','艮'), hx('震','巽')},
+    }
+    oset = {frozenset(o) for o in orbits}
+    every = all(frozenset(g) in oset for g in groups.values())
+    union_ok = set().union(*groups.values()) == Z
+    print("GROUPS=%d" % len(groups))
+    print("EVERY_GROUP_IS_AN_ORBIT=%s" % ("yes" if every else "no"))
+    print("GROUPS_UNION_EQUALS_ZHU=%s" % ("yes" if union_ok else "no"))
+
+    ok = (len(zhu) == 16 and len(leihe) == 8 and len(yinghe) == 8
+          and closed_cuo and closed_zong and len(orbits) == 6
+          and sorted(len(o) for o in orbits) == [2, 2, 2, 2, 4, 4]
+          and every and union_ok and len(groups) == len(orbits))
+    print("SHEN_ORBITS=PASS" if ok else "SHEN_ORBITS=FAIL")
+    print("SCOPE=Shen's_criterion_is_KW_INDEPENDENT;_this_verifies_a_classification,_not_an_ordering_claim")
+    return 0 if ok else 1
+
+
+def check_flips():
+    """Census of the 31 single-orientation-bit flips of King Wen's own record,
+    classified by how each fails --check-artifact.
+
+    Reproduces the figure published in VERIFY.md. That figure first read "16
+    validate", computed as 31-15 on the assumption that BAD_BUDGET was the only
+    failure mode; the measuring harness grepped `^BAD_[A-Z_]+=[1-9]`, whose
+    character class excludes DIGITS, so BAD_HD5 never matched. Shipping the
+    census removes the need to trust any such grep."""
+    budget0 = _c5_budget_from_kw()
+    base = repr_of_key(list(range(32)))
+    if base is None:
+        print("FLIPS=FAIL_no_kw_record"); return 2
+
+    def classify(rec):
+        key    = [(rec[i] >> 2) & 0x3F for i in range(32)]
+        orient = [(rec[i] >> 1) & 1 for i in range(32)]
+        if any(b & 1 for b in rec):                   return 'BAD_SPARE_BIT'
+        if len(set(key)) != 32 or any(p >= 32 for p in key): return 'BAD_KEY'
+        budget = list(budget0)
+        a0, b0 = PAIRS[key[0]]
+        f0, s0 = (b0, a0) if orient[0] else (a0, b0)
+        if (f0, s0) != (63, 0):                       return 'BAD_OPENING'
+        budget[hamming(63, 0)] -= 1
+        last = 0
+        for slot in range(1, 32):
+            a, b = PAIRS[key[slot]]
+            f, s = (b, a) if orient[slot] else (a, b)
+            bd = hamming(last, f)
+            if bd == 5:                               return 'BAD_HD5'
+            if budget[bd] <= 0:                       return 'BAD_BUDGET'
+            budget[bd] -= 1
+            wd = hamming(f, s)
+            if budget[wd] <= 0:                       return 'BAD_BUDGET'
+            budget[wd] -= 1
+            last = s
+        return 'PASS' if all(v == 0 for v in budget) else 'BAD_BUDGET_RESIDUE'
+
+    from collections import Counter
+    tally = Counter()
+    for i in range(1, 32):          # slot 0's orientation is forced by C4
+        t = bytearray(base); t[i] ^= 0x02
+        tally[classify(bytes(t))] += 1
+    print("FLIPS_TESTED=%d" % sum(tally.values()))
+    for k in ('PASS', 'BAD_BUDGET', 'BAD_HD5', 'BAD_KEY', 'BAD_OPENING',
+              'BAD_SPARE_BIT', 'BAD_BUDGET_RESIDUE'):
+        print("%s=%d" % (k, tally.get(k, 0)))
+    print("FLIPS=DONE")
+    print("SCOPE=a_pair_order_key_admits_MANY_valid_orientation_completions;"
+          "_which_one_a_record_carries_is_a_convention_choice")
+    return 0
+
+
 def _is_gzip(path):
     try:
         with open(path, 'rb') as fh:
@@ -3687,6 +3827,22 @@ def main():
                              'merge output: --check-repr tests lex-leastness, which this file has '
                              'never claimed, and is structurally blind to a wrong pair sequence. '
                              'Does NOT check completeness.')
+    parser.add_argument('--check-shen-orbits', action='store_true',
+                        help='(added 2026-08-15) verify the published claim that Shen Youding\'s '
+                             '1936 six groups of principal hexagrams are EXACTLY the six K4 orbits '
+                             'of his sixteen (sizes 2,2,2,2,4,4). Shen\'s criterion — inner and '
+                             'outer trigrams of equal generational rank — is KW-INDEPENDENT, and '
+                             'this checks a CLASSIFICATION, not an ordering claim. Independent of '
+                             'solve.c\'s orbit code by construction: the orbit claim is about orbit '
+                             'structure, so a check using that code would not be independent. '
+                             'Reads no files.')
+    parser.add_argument('--check-flips', action='store_true',
+                        help='(added 2026-08-15) census of the 31 single-orientation-bit flips of '
+                             'King Wen\'s own record, classified by failure mode. Reproduces the '
+                             'VERIFY.md figure (9 PASS / 15 BAD_BUDGET / 7 BAD_HD5) and removes the '
+                             'need to trust a grep — the figure first read "16" because the '
+                             'measuring harness used a character class that excluded digits, so '
+                             'BAD_HD5 never matched. Reads no files.')
     parser.add_argument('--check-artifact-offset', type=int, default=0, metavar='R',
                         help='start --check-artifact at record R (default 0). NOTE: the '
                              'sortedness check compares against the predecessor WITHIN the range '
@@ -3819,6 +3975,10 @@ def main():
         sys.exit(check_repr(args.path, args.check_repr, args.check_repr_offset))
     if args.check_artifact is not None:
         sys.exit(check_artifact(args.path, args.check_artifact, args.check_artifact_offset))
+    if args.check_shen_orbits:
+        sys.exit(check_shen_orbits())
+    if args.check_flips:
+        sys.exit(check_flips())
 
     path = args.path
     n_jobs = max(1, args.jobs)
