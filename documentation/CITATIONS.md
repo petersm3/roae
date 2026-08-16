@@ -505,8 +505,14 @@ enumerates that space, or proves a ceiling on it.
   [Hexagram pairing, chapter 2]. In the *Siku quanshu*; the work was lost after the Ming and
   reconstructed from the 《永樂大典》 in 1781. Free: `https://ctext.org/wiki.pl?if=gb&chapter=974228`
   and `https://zh.wikisource.org/wiki/易纂言外翼_(四庫全書本)/卷1`, which agree character-for-character.
-  **⭐⭐ THE EARLIEST SOURCE WE HAVE FOUND WITH THE COMPLETE ⟨錯, 綜⟩ ORBIT DECOMPOSITION OF ALL 64,
-  and the deepest cession this project makes.** Verbatim: 「**卦畫奇偶正對，二篇共二十對**…
+  **⚠ SUPERSEDED AS "EARLIEST" ON 2026-08-16, THE SAME DAY IT WAS WRITTEN — SEE
+  [朱元昇](#zhuyuansheng) BELOW.** This entry previously read "the earliest source we have found with
+  the complete ⟨錯, 綜⟩ orbit decomposition of all 64." **朱元昇《三易備遺》卷八, complete by 1270
+  (Southern Song), has the same decomposition roughly forty years earlier.** The hedge "we have
+  found" was doing real work and it is why this correction is a narrowing rather than a retraction —
+  but the sentence is now replaced.
+  **What Wu Cheng retains is the COUNT and the operational phrasing**, which 朱元昇 does not give:
+  Verbatim: 「**卦畫奇偶正對，二篇共二十對**…
   **正對不反易者四**…**正對兼反易者四**…**反易取正對者十二**…共四十八卦。」 That is **12 classes of
   four plus 8 classes of two = 20 classes covering all 64** — exactly the orbit structure of the
   four-group, with his three classes corresponding precisely to the three stabiliser types:
@@ -545,6 +551,36 @@ enumerates that space, or proves a ceiling on it.
   Nielsen — and never opened 〈卦對第二〉, the next chapter of the same book. The miss originated at
   Nielsen's* Companion *pp. 57–58 and 199, where 反易卦 was filed under "other transforms".
   Corrections welcome.)* [read from two independent transcriptions 2026-08-16]
+
+<a id="zhuyuansheng"></a>
+- **Zhu Yuansheng 朱元昇** (d. c. 1273). 《三易備遺》卷八. Southern Song; 四庫提要 dates the work
+  「**咸淳庚午〔1270〕備遺成帙**」, submitted to the throne by 家鉉翁 with a 進書狀 of 咸淳八年 (1272).
+  Free on ctext and 維基文庫 (四庫本), which agree on the passage below.
+  **⭐⭐⭐ THE EARLIEST SOURCE WE HAVE FOUND WITH THE COMPLETE ⟨錯, 綜⟩ ORBIT DECOMPOSITION OF ALL 64,
+  and the deepest cession this project makes.** He first isolates the sixteen hexagrams where the
+  先天 (complement) and 後天 (King Wen textual) pairings coincide, then asks
+  「**餘四十八卦之對不同，何也？**」 — and answers with **twelve quadruples, each written under BOTH
+  operations at once**: 「**先天屯對鼎、蒙對革；後天屯對蒙、鼎對革**…」 (×12, covering all 48), followed by
+  the degeneracy split 「至於**乾坤頤大過中孚小過坎離八卦，不可得而反對**；**泰否隨蠱漸歸妹既濟未濟八卦，
+  可得而反對，亦可得而變對**；總十六卦。」 **He names both operations distinctly — 反對 = reversal,
+  變對 = complement.**
+  **Independently validated, not taken on trust:** all twelve quadruples were checked
+  programmatically — every 先天對 is a true complement pair, every 後天對 a true reversal pair, the 48
+  quadruple members are disjoint from the 16, and 12×4 + 8×2 = 64 exactly. Two separate
+  transcriptions carry the passage, which together with the arithmetic makes transcription error
+  effectively impossible.
+  **Why this is a composition and not a table.** The test applied throughout this repository: *two
+  attributes per hexagram is not a composition; one structure of four is.* Each line takes a
+  complement pair and gives its reversal partners **on the same four elements**, so {屯 蒙 鼎 革} is a
+  4-set closed under both operations, written as such. That is what separates this from
+  [Lai Zhide](#laizhide), who tabulates both operations across all 64 and never composes them.
+  **What is left to [Wu Cheng](#wucheng), c. 1310s:** the **count** (二十對; 反易取正對者十二) and the
+  operational phrasing. 朱元昇 displays the twelve; he does not count them, give the 上下篇
+  distribution, or state the composition as an operation. **Wu Cheng nowhere cites 朱元昇** — he was 21
+  in 1270 — so his statement may be independent, but independence is not priority.
+  *(Found 2026-08-16 by a prior-art sweep designed for this question — unlike the other cessions
+  recorded here, which arrived incidentally. A disclosed gap remains: 張行成《易通變》卷三–四十 appears
+  undigitised everywhere and is formally unchecked.)*
 
 <a id="cuishu"></a>
 - **Cui Shu 崔述** (1740–1816). "Yi gua ci tu shuo" 〈易卦次圖說〉, in *Yi gua tu shuo* 《易卦圖說》

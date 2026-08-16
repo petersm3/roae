@@ -117,7 +117,12 @@ recovered in 1781; 焦循 (c. 1813) composes the operations (「反對旁通四�
 quadruples; 來知德 (c. 1600) tabulates both operations across all 64 but never composes them;
 李尚信 (2002) names the relation 「互為錯綜卦」. **We claim no priority for any of this.**
 
-**Nor for the orbit structure on hexagrams.** Wu Cheng has it in full, c. 1300. In modern work,
+**Nor for the orbit structure on hexagrams.** **朱元昇 (d. c. 1273) has it in full by 1270**, in
+《三易備遺》卷八 — twelve quadruples written under both operations at once, plus the two degenerate
+classes of eight, covering all 64. [吳澄](CITATIONS.md#wucheng) has it again c. 1310s and adds the
+**count** (「二十對」) and the operational phrasing, which 朱元昇 does not give.
+*(The 朱元昇 attribution was found on 2026-08-16, hours after the 吳澄 one, by a search designed for
+the question. It is the second time in a single day that this cession moved earlier.)* In modern work,
 張清宇 (1994/1998) published the complement/reversal orbit tally, and Radisic (2026) names
 ⟨complement, reversal⟩ as the Klein four-group and verifies results about it in Lean 4. Both are
 cited throughout this repository.
