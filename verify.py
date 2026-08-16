@@ -383,6 +383,28 @@ def check_shen_orbits():
     (老/长/中/少); the rest are 散卦. He states 主卦十有六 and 其余四十八卦皆散卦,
     grouped 总为六组.
 
+    ATTRIBUTION -- THE SAME SIXTEEN AND THE SAME SIX GROUPS ARE CUI SHU'S, c.1800,
+    AND HE REACHED THEM BY A DIFFERENT ROUTE. Verified 2026-08-16 from the print
+    (Kansai Univ. 内藤文庫 IIIF scan of 崔東壁先生遺書; ctext transcription agrees):
+    崔述 (1740-1816), 〈易卦次圖說〉 in 《易卦圖說》, defines the two operations by
+    LINE RULES -- 「何謂平對？陰陽之爻互易者也。何謂反對？上下之爻互易者也」, i.e.
+    平對 = 錯 (invert all six lines) and 反對 = 綜 (turn the hexagram over) -- then
+    forms the four-element sets and states their SIZES: 「兩體而四卦具焉」 against
+    「兩卦仍為兩卦」. His diagram prints each hexagram's 反對 physically upside down.
+    Shen knew: 「近讀崔東壁遺書易卦次圖說，乃與予說不謀而合」.
+
+    WHY BOTH ARE NAMED, AND WHY THEIR STATUS DIFFERS. Shen's criterion is
+    trigram-based (內外卦同序 / 類合 / 應合) and his text contains NO 錯/綜-type
+    operation, so "these six groups are the six K4 orbits" is OUR observation about
+    his classification. Cui states the operations himself, so for Cui the same
+    sentence is much closer to his own claim. This function checks one arithmetic
+    fact; the two attributions carry different weight, and conflating them would
+    overstate Shen and understate Cui.
+
+    NEITHER covers all 64: both stop at the sixteen, giving 6 of the 20 orbits.
+    Cui never notices that 頤/大過, 中孚/小過, 隨/蠱 and 漸/歸妹 are size-2 orbits
+    sitting inside his 散卦. See CITATIONS.md#cuishu and #shen1936.
+
     Verdicts are KEY=value for `grep -qx`."""
     zhu = [h for h in range(64)
            if _TRIGRAM[_lower(h)][1] == _TRIGRAM[_upper(h)][1]]

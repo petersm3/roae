@@ -20,7 +20,10 @@ though the dating of its fixation is debated in modern scholarship. Concretely
 ([Shaughnessy 2022, ch. 11](documentation/CITATIONS.md#shaughnessy2022)): the earliest artifactual
 witness of the received sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary
 Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. The Mawangdui silk manuscript
-(copied before 168 BCE) attests a *different* ordering in circulation.)
+(copied before 168 BCE) attests a *different* ordering in circulation. Earlier manuscripts exist —
+the Shanghai Museum Chu bamboo *Zhouyi* is c. 300 BCE — but their hexagram *order* is not
+recoverable. **The full dated record, and which other orderings this project does not study and why,
+are in [KING_WEN_PROVENANCE.md](documentation/KING_WEN_PROVENANCE.md).**)
 
 **The finding.** The seven rules we tested do not. This project began from the hypothesis that the
 King Wen sequence is *determined* by its published constraints — that the received order could be
