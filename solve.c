@@ -5349,9 +5349,19 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
     }
     /* 24: s6 — K4-orbit structure: within-orbit pairs; size-4 orbits entered via rev.
      * ATTRIBUTION: the Klein four-group orbit decomposition of the 64 hexagrams under
-     * {id, rev, comp, rev∘comp} is PRIOR ART — Zhang 1994 in the Chinese group-theoretic
-     * literature, within the (Z/2)^6 framing of Ouyang 1992. See documentation/CITATIONS.md.
-     * This rule MEASURES that structure against King Wen; it does not originate it. */
+     * {id, rev, comp, rev∘comp} is PRIOR ART, and far older than the modern citations
+     * this comment carried until 2026-08-16. WU CHENG 吳澄 (1249-1333), 《易纂言外翼》
+     * 卷一〈卦對第二〉, gives the COMPLETE decomposition of all 64 — 「卦畫奇偶正對，二篇
+     * 共二十對」, i.e. 12 orbits of size 4 plus 8 of size 2 — with his three classes
+     * matching the three stabiliser types exactly, and 「反易取正對」 IS the composition
+     * of the two operations. Parts were reached independently by Lai Zhide c.1600
+     * (both operations tabulated across all 64, never composed), Jiao Xun c.1813 and
+     * Cui Shu c.1800. In the modern literature: Zhang 1994 in the Chinese
+     * group-theoretic work, within the (Z/2)^6 framing of Ouyang 1992; Radisic 2026
+     * names it as the Klein four-group and verifies results in Lean 4.
+     * See documentation/CITATIONS.md#wucheng and #kongyingda.
+     * This rule MEASURES that structure against King Wen; it does not originate it.
+     * (Comment-only edit — no change to compiled output or to any canonical sha.) */
     {
         int within = 1, s4rev = 1;
         for (int k = 0; k < 32; k++){
