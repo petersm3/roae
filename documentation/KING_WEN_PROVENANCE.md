@@ -88,7 +88,18 @@ structure was intentional, or that our constraints are the ones its makers had i
 
 **On the pairing rule specifically** — that hexagrams run two-by-two, each paired with its own
 reversal or, where a hexagram is reversal-symmetric, its complement — **this is classical and ancient,
-not ours.** It is stated explicitly by 孔穎達 (574–648) and has an earlier lineage. It is also
+not ours.** It is stated explicitly by 孔穎達 (574–648) and has an earlier lineage.
+
+*What we can add is a measurement, not a claim of authorship.* That rule reproduces King Wen's
+adjacent-pair structure **64/64**; every alternative tested scores 12–16/64 — **including one built
+from a rival group the tradition itself supplies.** 焦循's 八卦相錯 (c. 1813) generates 20 orbits with
+the *same* size profile as ⟨complement, reversal⟩ — 8 of size 2 and 12 of size 4, structurally
+indistinguishable — and King Wen respects it only 24/64. Exactly, not sampled: of the 3.845×10⁴⁶
+involutions on the 64 with eight fixed points, **exactly 70** reproduce King Wen's pairing, and all 70
+are 孔穎達's rule up to a **vacuous relabelling** on the hexagrams where the two operations coincide.
+**So the classical rule is not *a* symmetry that happens to fit; it is *the* rule** — and the rival it
+beats was supplied by the same tradition, not constructed by us. Reproduce with
+`python3 verify.py --check-classical-groups`. It is also
 applied to the Chu manuscript's symbols by 濮茅左 (2003), and to a 36-unit quotient by 近藤浩之
 (2005). **We claim no priority for the pairing insight.**
 

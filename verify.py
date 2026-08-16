@@ -616,32 +616,49 @@ def check_classical_groups():
     for key, _label, prim, fb in RULES:
         print("RULE_%s=%d/64" % (key.upper(), _rule(prim, fb)))
 
-    # NULL TEST. Is the classical rule one of many that would work? Sample random
-    # involutions with the SAME structure as rev (8 fixed points, comp fallback) and
-    # see how close any of them gets. Fixed seed, so the figure is reproducible.
-    import random
-    rng = random.Random(20260816)
-    N = 20000
-    best = 0
-    base_from_fallback = sum(1 for h in KW
-                             if _cuo(h) != h and pos[_cuo(h)] // 2 == pos[h] // 2)
-    for _ in range(N):
-        pts = list(KW)
-        rng.shuffle(pts)
-        fixed, rest = set(pts[:8]), pts[8:]
-        inv = {}
-        for i in range(0, len(rest), 2):
-            a, b = rest[i], rest[i + 1]
-            inv[a] = b
-            inv[b] = a
-        adj = sum(1 for h in rest if pos[inv[h]] // 2 == pos[h] // 2)
-        adj += sum(1 for h in fixed
-                   if _cuo(h) != h and pos[_cuo(h)] // 2 == pos[h] // 2)
-        best = max(best, adj)
-    print("NULL_SAMPLES=%d" % N)
-    print("NULL_BEST_ADJACENCY=%d/64" % best)
-    print("NULL_REACHING_64=%d" % (1 if best >= 64 else 0))
-    print("COMP_FALLBACK_FLOOR=%d/64" % base_from_fallback)
+    # HOW SPECIAL IS THAT? Not a sample -- the EXACT count, in closed form.
+    #
+    # An earlier version of this check sampled 20,000 random involutions and
+    # reported the best score. That was a correct but very weak shadow of the real
+    # answer, and it invited the reader to wonder about the unsampled remainder.
+    # There is no remainder to wonder about: the count is exact.
+    #
+    # THE ARGUMENT. To score 64/64 an involution must send every NON-fixed hexagram
+    # to its King Wen neighbour -- so off its fixed set it is FORCED to equal the
+    # King Wen pairing. A fixed point contributes only if its COMPLEMENT is its King
+    # Wen neighbour, and the fixed set must be a union of whole King Wen pairs (an
+    # odd leftover cannot be matched). So the only freedom is WHICH eligible pairs
+    # are called fixed.
+    #
+    # AND THE ELIGIBLE SET IS EXACTLY WU CHENG'S TWO DEGENERATE CLASSES (c. 1300):
+    # the 8 self-reverse hexagrams (his 正對不反易者四) plus the 8 where complement
+    # coincides with reversal (his 正對兼反易者四). His classification is not
+    # decorative -- it precisely characterises where the ambiguity lives.
+    from math import comb, factorial
+    partner = {h: KW[pos[h] ^ 1] for h in KW}
+    elig = [h for h in KW if partner[h] == _cuo(h)]
+    elig_pairs = {frozenset((h, partner[h])) for h in elig}
+    selfrev = {h for h in KW if _zong(h) == h}
+    cuo_is_zong = {h for h in KW if _cuo(h) == _zong(h)}
+    # size of the space we are choosing from: involutions on 64 with 8 fixed points
+    dbl = 1
+    for k in range(55, 0, -2):
+        dbl *= k                                   # 55!! matchings on the other 56
+    space = comb(64, 8) * dbl
+    exact = comb(len(elig_pairs), 4)               # choose 4 of the eligible pairs
+    print("SPACE_INVOLUTIONS_8_FIXED=%.4e" % space)
+    print("ELIGIBLE_FIXED_HEXAGRAMS=%d" % len(elig))
+    print("ELIGIBLE_IS_WUCHENG_DEGENERATE_CLASSES=%s"
+          % ("yes" if set(elig) == selfrev | cuo_is_zong else "NO"))
+    print("EXACT_INVOLUTIONS_SCORING_64=%d" % exact)
+    print("EXACT_FRACTION=%.3e" % (exact / space))
+    # every one of them is reversal off the degenerate part -- verify, do not assert
+    core = [h for h in KW if h not in elig]
+    print("ALL_AGREE_WITH_REV_ON_NONDEGENERATE=%s"
+          % ("yes" if all(partner[h] == _zong(h) for h in core) else "NO"))
+    print("SCOPE_UNIQUENESS=the_%d_are_ONE_rule_under_%d_labellings;"
+          "_fixed_vs_swapped_is_VACUOUS_exactly_where_the_two_operations_coincide"
+          % (exact, exact))
 
     # 吳澄's own second count, as a check that we are reading his chapter correctly.
     orbs = _orbits([_zong, _swap])

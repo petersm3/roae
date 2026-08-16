@@ -18,7 +18,17 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
 - **Cook, Richard S.** (2006). *Classical Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence* (周易卦序詮解 Zhouyi Guaxu Quanjie). STEDT Monograph Series Vol. 5, University of California, Berkeley, 656 pages. ISBN 978-0944613443. [Open Library](https://openlibrary.org/isbn/9780944613443) Cook's monograph is the most rigorous academic treatment; it derives the full hexagram sequence from combinatorial principles and situates the pair structure within broader classification of binary sequences. **Preview pages (front cover, abstract, TOC, introduction, acknowledgments — 19 pages total)** available online at the author's UC Berkeley page: [linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html](https://linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html). The full 656-page monograph is print-only as of 2026-05; library copies via OCLC 77009740 or purchase formerly via the STEDT Web Store at lulu.com/stedt (dead link as of 2026-07-04; [archived copy](https://web.archive.org/web/20230329134852/https://www.lulu.com/stedt), snapshot 2023-03-29, verified resolving 2026-08-01) (ISBN 0-944613-44-6).
 
 <a id="kongyingda"></a>
-- **Kong Yingda 孔穎達** (574–648). *Zhouyi zhengyi* 周易正義 (in the *Shisanjing zhushu* 十三經注疏, Zhonghua Shuju edition, 1980). **The classical formulation of C1**: his subcommentary on the [Xugua](#xugua) states the received order's pairing principle — the hexagrams run two-by-two, each pair related to its partner by reversal or, where the reversal is symmetric, by complement — the Tang-dynasty source every modern statement of the pairing rule descends from or independently rediscovers. The concept has still earlier attestation lineage (Yu Fan 虞翻, 164–233, whose pangtong/fandui pair relations transmit via Li Dingzuo's *Zhouyi jijie*; and, hedged, Western-Zhou-era material per Li Xueqin 2003), but Kong Yingda's is the explicit formulation. Added 2026-07-30 (constraint-provenance audit; the repo previously carried no Kong Yingda citation anywhere). *Cited here at attribution level — the paraphrase above states the rule; the verbatim classical wording is held for a future classical-Chinese verification pass.*
+- **Kong Yingda 孔穎達** (574–648). *Zhouyi zhengyi* 周易正義 (in the *Shisanjing zhushu* 十三經注疏, Zhonghua Shuju edition, 1980). **The classical formulation of C1**: his subcommentary on the [Xugua](#xugua) states the received order's pairing principle — the hexagrams run two-by-two, each pair related to its partner by reversal or, where the reversal is symmetric, by complement — the Tang-dynasty source every modern statement of the pairing rule descends from or independently rediscovers. The concept has still earlier attestation lineage (Yu Fan 虞翻, 164–233, whose pangtong/fandui pair relations transmit via Li Dingzuo's *Zhouyi jijie*; and, hedged, Western-Zhou-era material per Li Xueqin 2003), but Kong Yingda's is the explicit formulation.
+  **Measured 2026-08-16, and it sharpens what the rule is worth.** His 非覆即變 — reversal, falling
+  back to complement where a hexagram is reversal-symmetric — reproduces King Wen's adjacent-pair
+  structure **64/64**. Every alternative pairing rule tested scores 12–16/64, including one built from
+  a **structurally indistinguishable rival group that the tradition itself supplies**:
+  [Jiao Xun](#jiaoxun)'s 八卦相錯 generates 20 orbits with the *same* size profile as ⟨complement,
+  reversal⟩ (8 of size 2, 12 of size 4), and King Wen respects it only 24/64. Exactly, not by sampling:
+  **70 of 3.845×10⁴⁶ involutions score 64/64, and all 70 are Kong Yingda's rule up to a vacuous
+  relabelling** on the degenerate hexagrams. So the pairing rule is not *a* symmetry that happens to
+  fit — it is **the** rule, against a rival the tradition supplied rather than one we constructed.
+  Reproduce with `python3 verify.py --check-classical-groups`. Added 2026-07-30 (constraint-provenance audit; the repo previously carried no Kong Yingda citation anywhere). *Cited here at attribution level — the paraphrase above states the rule; the verbatim classical wording is held for a future classical-Chinese verification pass.*
 
 **Status in ROAE:** ROAE independently encodes this rule as constraint C1 and uses it as the starting point of the enumeration. Not novel to ROAE.
 
@@ -514,6 +524,14 @@ enumerates that space, or proves a ceiling on it.
   merely coincides. He also gives a **second, different** group in the same chapter — under
   ⟨reversal, trigram-swap⟩ he counts 「共**十八對**…純卦八…不與」, which is exact.
   Authenticated by his own 小序 via the 四庫 提要: 「二曰卦對，**以奇偶反易成二卦**」.
+  **⭐ His degeneracy classes are not decorative — they exactly characterise a modern result.** Of the
+  **3.845×10⁴⁶** involutions on the 64 hexagrams with eight fixed points, **exactly 70** reproduce
+  King Wen's adjacent-pair structure, and **the hexagrams where that 70-fold freedom lives are
+  precisely Wu Cheng's two degenerate classes** — his 正對不反易者四 (the 8 self-reverse) plus his
+  正對兼反易者四 (the 8 where complement coincides with reversal). All 70 agree with reversal
+  elsewhere, so they are **one rule under 70 labellings**: "fixed point" versus "swapped pair" is a
+  vacuous distinction exactly where the two operations coincide — i.e. exactly on his sixteen.
+  Reproduce with `python3 verify.py --check-classical-groups`.
   **What this leaves us.** The orbit decomposition itself is ceded to Wu Cheng. **Nothing in Wu Cheng
   — or in [Cui Shu](#cuishu), 焦循, 來知德 or [Kong Yingda](#kongyingda) — counts ORDERINGS.** They
   classify the 64; this project counts arrangements of them subject to constraints, which is a
