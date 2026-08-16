@@ -528,3 +528,68 @@ alone — which is precisely why it is required for partition-invariance.
 decrement succeeded has zero residue by arithmetic. It is retained as a fail-closed
 guard against a future table change, and is documented as unreachable rather than
 claimed as tested.
+
+## `verify.c` full option synopsis — Routes B and D, and the scan driver
+
+**Added 2026-08-16.** `./verify --ie-count` was documented in this file; **its options were not,
+and neither was the entire Route D DP engine nor the parallel scan driver** — 25 flags that a
+reader of `documentation/` could not discover at all. A reviewer could start the Route B walk and
+had no way to learn how to pin it, thread it, resume it, or cross-check it.
+
+**Transcribed from `verify.c`'s own header block, which stays authoritative** — if these disagree,
+the source is right and this section is stale. Routes B and D each have a fuller section header in
+the source beside their implementation.
+
+### Route B — independent inclusion–exclusion transfer walk (`--ie-count`)
+
+The independent recount of `|C1∩C2∩C4∩C5|` (TR-11 §10(vi)); the second instrument behind the exact
+full-scale figure.
+
+```
+./verify --ie-count [--ie-spec "3.0,3.1,3.2@0" | --ie-spec full31@0]
+         [--ie-mod all|wrap|p0|p1|p2] [--ie-no-quotient] [--ie-no-budget]
+         [--ie-threads N] [--ie-chunk-bits B] [--ie-checkpoint FILE]
+         [--ie-range LO HI] [--ie-b0 a,b,c,d,e] [--ie-negctl]
+         [--ie-expect DECIMAL] [--ie-pin SLOT:PAIR ...] [--ie-pin-c6c7]
+         [--ie-brute]
+./verify --ie-probe NSAMP [--ie-threads N]        # full-31 throughput probe
+```
+
+- `--ie-no-budget` — the `C1∩C2∩C4` (F4) variant.
+- `--ie-pin` / `--ie-pin-c6c7` — the pinned-step (T3) variant for `|C1∩C2∩C4∩C5∩C6∩C7|`.
+- `--ie-brute` — an independent small-n reference by explicit permutation DFS. **`n ≤ 12` only**,
+  per the source; it is a cross-check on the walk, not a route to the full count.
+- `--ie-negctl` — a negative control. A control that does not change the answer is not a control.
+
+### Route D — layered exact-cover mask DP (`--dp-count`)
+
+The **second instrument for the pinned (C6/C7) exact count, and a different algorithm class** — a
+direct layered exact-cover mask DP with **no inclusion–exclusion**, so it shares no method with
+Route B. That independence is the point of it.
+
+```
+./verify --dp-count [--dp-spec "3.0,3.1,3.2@0" | --dp-spec full31@0]
+         [--dp-pin SLOT:PAIR ...] [--dp-pin-c6c7] [--dp-b0 a,b,c,d,e]
+         [--dp-mod all|p0|p1|p2] [--dp-threads N] [--dp-checkpoint FILE]
+         [--dp-expect DECIMAL] [--dp-negctl] [--dp-no-budget]
+         [--dp-size-only]
+```
+
+Defaults: `spec full31@0`, `mod all`, `threads` = online CPUs. `--dp-negctl` swaps B0's d2/d4
+budgets, and **the count MUST differ** — that is the control's whole content. `--dp-no-budget`
+drops C5 entirely, giving a plain `(M,last)` DP and the F4-variant cross-check.
+
+### The parallel scan driver (`--scan-layers`)
+
+```
+./verify --scan-layers DIR [max_k] [run.out]
+./verify --scan-selftest
+```
+
+Runs **the same checks and masses as `--check-layers`** through a multi-observable parallel driver
+(N `O_DIRECT` read lanes, plus riders: T7/BL-7 orbit census and a T6-slot stub). Environment:
+`LC_SCAN_LANES`, `LC_SCAN_CHUNK_KB`, `LC_SCAN_ODIRECT`, `LC_SCAN_T6STUB`.
+
+**Identity contract:** with `[scan] `-prefixed lines removed, its stdout and its return code are
+**byte-identical** to `--check-layers`. `--scan-selftest` proves that on fixtures — so the fast path
+is held to the slow path's output, not merely believed to agree with it.
