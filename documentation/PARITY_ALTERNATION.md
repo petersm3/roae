@@ -8,6 +8,17 @@ alternation count is 15). The theorem generalizes the wrap-around-parity theorem
 recovered as its total-parity corollary, and it supplies the "novel structural theorem" that the earlier
 C5-tightening investigation concluded would be required for any further provable pruning.
 
+**Reproduce every figure below:** `python3 verify.py --check-parity-alternation`
+(added 2026-08-16). It re-derives the 63 transition distances and their multiset
+`{1:2, 2:20, 3:13, 4:19, 6:9}` from the King Wen table, confirms the 15 odd transitions,
+confirms that a pair's parity class is **well defined** (rather than assuming Lemma 3)
+and that the 32 pairs split **16/16**, measures King Wen's own alternation count, and
+counts the 15-change arrangements **twice by routes that share no code** — a dynamic
+program over (position, evens used, last class, changes), checked against the closed
+form `2·C(15,7)² = 82,818,450` that follows from 15 changes meaning 16 alternating runs.
+Verdict `PARITY_ALTERNATION=PASS`, reads no files, runs in about a second.
+*It attests the FIGURES. The theorem is a proof and is not re-proven by it.*
+
 ## Statement and proof
 
 **Lemma 1 (pairs are parity-homogeneous).** For every h ∈ H, popcount(partner(h)) ≡ popcount(h) (mod 2).

@@ -1,5 +1,13 @@
 # RESULTS — Half B of the two-class confusability gate: **VETO**
 
+> **⚠ Before citing any figure below: this bundle is NOT independently re-runnable.** The Half A/B
+> driver was held in orchestrator scratch storage that was cleared by an out-of-memory reboot on
+> 2026-08-04; the registrations, the frozen bar, the published seed and the results survive, the code
+> that produced them does not. The honest status is **attested, not reproducible** — one rung below
+> the rest of `reports/evidence/`. Full disclosure: [README.md §"A reproducibility defect in this
+> bundle"](README.md). Pointer added 2026-08-16: the defect was disclosed in the README but a reader
+> landing on this file went straight to the numbers without meeting it.
+
 **Run 2026-08-03T13:47-13:51Z on a 16-core Standard cloud VM. Seed `20260802`, n=100,
 procs=8, wall 245.5 s.** Driver: `scratchpad/halfb_driver.py` (authored by Fable against the frozen
 pre-registration `PREREG_TWO_CLASS_F11_CALIBRATION.md`). Artifacts retrieved before teardown:

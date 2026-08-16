@@ -1,5 +1,9 @@
 # R11 Phase-2 — N_gs re-measurement battery (stop-flag resolution evidence)
 
+> **Reproduce:** `bash r11_phase2_battery.sh` from this directory (calibration leg:
+> `python3 r11_calibration.py`). Raw outputs preserved beside them — `battery.log`,
+> `calibration_report.txt`, `derived_ci.out`, `exact_audit.tsv`, `gates.json`, `hits.json`.
+
 This bundle is the measurement that closes the N_gs stop-flag (TR-2 v1.10 → v1.12) and
 re-affirms the corruption-vs-tendency verdict. It re-measures the triple-strict
 (rule-perfect) population size N_gs directly, four times with independent seeds, and runs

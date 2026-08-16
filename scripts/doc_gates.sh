@@ -10162,6 +10162,7 @@ NARRATION = {
     ("solve", "--constraint-spec"):       "removed subcommand, cited in LARGE_SCALE_CAMPAIGNS",
     ("solve.py", "--compare-leaf-rates"): "removed subcommand, cited in DEVELOPMENT/HISTORY",
     ("solve", "--extended-selftest"):     "documented NON-existence; SOLVE_C_CLI.md:387 warns readers away",
+    ("solve", "--kc-repr-normalize"):     "documented NON-existence (case b); lives on an UNLANDED v4 branch that BRANCH_REGISTRY marks snapshot-do-not-cite. VERIFY.md carries a NOT-AVAILABLE box, and both invocation-form cite sites were given an inline warning 2026-08-16 so a reader entering the file at either one cannot be misled. Retire this row if the branch lands.",
 }
 
 INV = re.compile(r'(?:python3?\s+)?(?:\./)?'
@@ -10308,6 +10309,33 @@ else:
 FIG = re.compile(r"[0-9][0-9,]*[0-9]")
 REPRO_PATH = re.compile(r"`(?:bash\s+)?scripts/[a-z0-9_./-]+\.sh")
 
+# BUNDLE-LOCAL INSTRUMENTS (added 2026-08-16). reports/evidence/*/ bundles ship the script
+# that produced their figures NEXT TO the document -- f11/compute_f11_bf.py,
+# r11/r11_phase2_battery.sh, f1/f1_orbit_dp.py. Those files ARE a reproduction path, and
+# before this recognizer existed LEG 2 flagged six of them: precisely the failure this
+# gate's own header names as the one to avoid, "a [note] should mean 'this file offers the
+# reader nothing', not 'this file offers something my extractor does not recognise'".
+#
+# THE ANTI-GAMING PROPERTY IS EXISTENCE, NOT WORDING. A `**Reproduce:**` directive clears a
+# file only when the script it names is REALLY THERE, in the same directory, on disk. Writing
+# the sentence is not enough; a renamed or deleted instrument re-flags the file automatically.
+# That is deliberately stricter than the four clearing rules above, three of which (a fenced
+# block, a tests.py mention, a scripts/*.sh backtick) clear on text alone.
+#
+# STILL REPORT-ONLY. This widens what counts as cleared; it does not touch the exit code,
+# which is taken from LEG 1 alone, per this gate's header.
+REPRO_LOCAL = re.compile(r"\*\*Reproduce:?\*\*[^\n]*?`(?:python3?\s+|bash\s+)?"
+                         r"([a-z0-9_][a-z0-9_.-]*\.(?:py|sh))`")
+
+def _local_instrument(doc_path, text):
+    """A **Reproduce:** directive naming a script that EXISTS beside the document."""
+    import os
+    d = os.path.dirname(doc_path)
+    for m in REPRO_LOCAL.finditer(text):
+        if os.path.exists(os.path.join(d, m.group(1))):
+            return True
+    return False
+
 def _grouped(tok):
     """True for a comma-grouped integer: leading group 1-3 digits, every later group 3."""
     g = tok.split(",")
@@ -10325,13 +10353,14 @@ for d in docs:
     if not figs:
         continue
     if (INV.search(text) or "```" in text or REPRO_PATH.search(text)
-            or "tests.py" in text):
+            or "tests.py" in text or _local_instrument(d, text)):
         continue
     naked.append((d, figs))
 
 print("  -- LEG 2 (REPORT-ONLY): a published figure whose file names no way to re-derive it --")
 print("  [note] LEG 2 read %d doc(s); %d publish a comma-grouped figure and carry no tool"
-      " invocation, no fenced block, no scripts/*.sh path and no tests.py mention"
+      " invocation, no fenced block, no scripts/*.sh path, no tests.py mention and no"
+      " **Reproduce:** directive naming a script that exists beside them"
       % (len(docs), len(naked)))
 for d, figs in naked:
     print("  [note] %s — %d figure(s), largest %s" % (d, len(figs), figs[0]))

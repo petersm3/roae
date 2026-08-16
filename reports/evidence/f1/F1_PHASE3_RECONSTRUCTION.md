@@ -1,5 +1,8 @@
 # F1 phase-3 counting formulation — exact reconstruction (2026-07-04)
 
+> **Reproduce:** `python3 f1_phase1.py`, then `f1_phase2.py`, then `f1_phase3.py`, from this
+> directory and in that order. The scripts were already named above; the invocation was not.
+
 Source scripts (read verbatim): [`f1_phase1.py`](f1_phase1.py), `f1_phase2.py`, `f1_phase3.py`.
 Reconstruction + validation by Claude (Fable 5) for the operator's F1 symmetry re-attack
 (`F1_ORBIT_QUOTIENT_2026_07.md`). Numbers below are computed, not recalled; validation run logged in §5.

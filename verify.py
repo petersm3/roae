@@ -521,6 +521,97 @@ def check_flips():
     return 0
 
 
+def check_parity_alternation():
+    """Re-derive every published figure in PARITY_ALTERNATION.md from KW itself.
+
+    WHY THIS EXISTS. That document is listed in CLAUDE.md as a stable, paper-citable
+    finding, and it published its central figures -- the forced 15 alternations and the
+    82,818,450 / 601,080,390 arrangement reduction -- with NO reproduction command.
+    A reviewer had no way to re-derive them. GATE 25 LEG 2 flagged the file on
+    2026-08-16 and this is the answer to that flag.
+
+    Lemma 3 of that document: a pair's parity class is the popcount parity of either
+    member, because reversal preserves popcount and complement maps p -> 6-p (same
+    parity). So the class is well defined per pair, which this check confirms rather
+    than assumes.
+
+    The arrangement count is computed TWICE by different routes that share no code
+    path: a dynamic program over (position, evens used, last class, changes so far),
+    and the closed form 2*C(15,7)^2 that follows from 15 changes meaning 16 alternating
+    runs, 8 per class, each class composed into 8 positive parts. They must agree.
+    The DP is the instrument; the closed form is the check on the instrument.
+
+    SCOPE: this attests the FIGURES in PARITY_ALTERNATION.md. The theorem itself
+    ("every C1-C5-valid ordering has exactly 15 alternations") is a proof, not a
+    measurement, and is not re-proven here -- what is checked is that King Wen
+    exhibits it and that the arrangement arithmetic is right.
+
+    Reads no files."""
+    from math import comb
+    from collections import Counter
+
+    # -- the 63 transition distances of King Wen, and their parity ------------
+    dists = [hamming(KW[i], KW[i + 1]) for i in range(63)]
+    multiset = dict(sorted(Counter(dists).items()))
+    PUBLISHED = {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}
+    n_odd = sum(1 for d in dists if d % 2)
+    print("KW_TRANSITIONS=%d" % len(dists))
+    print("KW_DISTANCE_MULTISET=%s" % (multiset,))
+    print("KW_DISTANCE_MULTISET_MATCHES_PUBLISHED=%s"
+          % ("yes" if multiset == PUBLISHED else "NO"))
+    print("KW_ODD_TRANSITIONS=%d" % n_odd)
+
+    # -- pair classes: well defined, and 16/16 as C(32,16) presupposes --------
+    pairs = [(KW[2 * i], KW[2 * i + 1]) for i in range(32)]
+    well_defined = all(bin(a).count("1") % 2 == bin(b).count("1") % 2 for a, b in pairs)
+    cls = [bin(a).count("1") % 2 for a, _ in pairs]
+    print("PAIR_CLASS_WELL_DEFINED=%s" % ("yes" if well_defined else "NO"))
+    print("PAIR_CLASS_SPLIT=even=%d,odd=%d" % (cls.count(0), cls.count(1)))
+    print("PAIR_CLASS_SPLIT_IS_16_16=%s"
+          % ("yes" if cls.count(0) == 16 and cls.count(1) == 16 else "NO"))
+
+    kw_alts = sum(1 for i in range(31) if cls[i] != cls[i + 1])
+    print("KW_CLASS_ALTERNATIONS=%d" % kw_alts)
+    print("KW_HAS_THE_FORCED_15=%s" % ("yes" if kw_alts == 15 else "NO"))
+    print("KW_ODD_TRANSITIONS_EQUALS_ALTERNATIONS=%s"
+          % ("yes" if n_odd == kw_alts else "NO"))
+    print("C4_PINS_FIRST_PAIR_TO_EVEN_CLASS=%s"
+          % ("yes" if cls[0] == 0 and set(pairs[0]) == {63, 0} else "NO"))
+
+    # -- arrangements with exactly 15 changes: DP, then the closed form -------
+    # state: (evens placed, odds placed, last class, changes) -> count
+    dp = {(1, 0, 0, 0): 1, (0, 1, 1, 0): 1}
+    for _ in range(31):
+        nxt = {}
+        for (e, o, last, ch), v in dp.items():
+            for c in (0, 1):
+                ne, no = e + (c == 0), o + (c == 1)
+                if ne > 16 or no > 16:
+                    continue
+                nch = ch + (c != last)
+                if nch > 15:
+                    continue
+                k = (ne, no, c, nch)
+                nxt[k] = nxt.get(k, 0) + v
+        dp = nxt
+    dp_count = sum(v for (e, o, _, ch), v in dp.items() if e == 16 and o == 16 and ch == 15)
+    closed = 2 * comb(15, 7) ** 2
+    total = comb(32, 16)
+    print("ARRANGEMENTS_15_CHANGES_DP=%d" % dp_count)
+    print("ARRANGEMENTS_15_CHANGES_CLOSED_FORM=%d" % closed)
+    print("DP_AGREES_WITH_CLOSED_FORM=%s" % ("yes" if dp_count == closed else "NO"))
+    print("TOTAL_ARRANGEMENTS_C32_16=%d" % total)
+    print("REDUCTION_FACTOR=%.4f" % (total / dp_count))
+
+    ok = (multiset == PUBLISHED and well_defined and cls.count(0) == 16
+          and kw_alts == 15 and n_odd == 15 and cls[0] == 0
+          and dp_count == closed == 82818450 and total == 601080390)
+    print("PARITY_ALTERNATION=%s" % ("PASS" if ok else "FAIL"))
+    print("SCOPE=re-derives_the_FIGURES_in_PARITY_ALTERNATION.md_from_KW;"
+          "_the_theorem_is_a_proof_and_is_not_re-proven_here")
+    return 0 if ok else 1
+
+
 def check_zhu_yuansheng():
     """Verify 朱元昇's twelve quadruples against this file's own bit operations.
 
@@ -4268,6 +4359,9 @@ def main():
                              'need to trust a grep — the figure first read "16" because the '
                              'measuring harness used a character class that excluded digits, so '
                              'BAD_HD5 never matched. Reads no files.')
+    parser.add_argument('--check-parity-alternation', action='store_true',
+                        help='re-derive every published figure in PARITY_ALTERNATION.md '
+                             'from KW itself (GATE 25 LEG 2, 2026-08-16)')
     parser.add_argument('--check-zhu-yuansheng', action='store_true',
                         help="verify 朱元昇's (d.c.1273) twelve quadruples against this "
                              "file's own bit operations; see CITATIONS.md#zhuyuansheng")
@@ -4433,6 +4527,8 @@ def main():
         sys.exit(check_flips())
     if args.check_kw_pair_adjacency:
         sys.exit(check_kw_pair_adjacency())
+    if args.check_parity_alternation:
+        sys.exit(check_parity_alternation())
     if args.check_zhu_yuansheng:
         sys.exit(check_zhu_yuansheng())
     if args.check_classical_groups:
