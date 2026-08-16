@@ -521,6 +521,124 @@ def check_flips():
     return 0
 
 
+def check_zhu_yuansheng():
+    """Verify 朱元昇's twelve quadruples against this file's own bit operations.
+
+    WHY THIS EXISTS. On 2026-08-16 the complete <complement, reversal> orbit
+    decomposition of all 64 was ceded to 朱元昇 (d. c.1273), 《三易備遺》卷八,
+    complete by 1270 -- roughly forty years before 吳澄, to whom it had been ceded
+    the same morning. A cession that deep must be checkable by a reader, not taken
+    on the word of whoever read the text. CITATIONS.md#zhuyuansheng
+
+    WHAT HE WROTE. He isolates the sixteen hexagrams whose 先天 (complement) and
+    後天 (King Wen textual) pairings coincide, asks 「餘四十八卦之對不同，何也？」,
+    and answers with twelve groups, each stated under BOTH operations at once:
+
+        「先天屯對鼎、蒙對革；後天屯對蒙、鼎對革」  ... and so on, twelve times.
+
+    then the degeneracy split:
+
+        「至於乾坤頤大過中孚小過坎離八卦，不可得而反對；
+          泰否隨蠱漸歸妹既濟未濟八卦，可得而反對，亦可得而變對；總十六卦。」
+
+    WHAT THIS CHECKS. His text is transcribed below as KING WEN NUMBERS, exactly as
+    he pairs them -- the 先天 pairs and the 後天 pairs kept SEPARATE, so each half of
+    each line is tested on its own:
+      * every 先天 pair he states is a true COMPLEMENT pair under _cuo
+      * every 後天 pair he states is a true REVERSAL pair under _zong
+      * his 48 quadruple members are disjoint from his 16 coincident hexagrams
+      * 12x4 + 8x2 = 64, covering every hexagram exactly once
+      * his eight 不可得而反對 are exactly the self-reverse hexagrams
+      * his eight 可得而反對亦可得而變對 are exactly those where complement == reversal
+      * his twelve quadruples ARE the size-4 orbits of <complement, reversal>
+
+    A failure here means either the transcription is wrong or the cession is wrong.
+    Both are worth knowing, which is the point of shipping it as a command.
+
+    SCOPE: this attests a 13th-century READING. It changes no enumeration and no
+    published count of this project's own.
+
+    Reads no files. Uses only this file's KW array and bit conventions."""
+    # 朱元昇《三易備遺》卷八 -- (label, 先天/complement pairs, 後天/reversal pairs)
+    QUADS = [
+        ("屯蒙鼎革",     [(3, 50), (4, 49)],  [(3, 4),   (50, 49)]),
+        ("需訟晉明夷",   [(5, 35), (6, 36)],  [(5, 6),   (35, 36)]),
+        ("師比同人大有", [(7, 13), (8, 14)],  [(7, 8),   (13, 14)]),
+        ("小畜履豫謙",   [(9, 16), (10, 15)], [(9, 10),  (16, 15)]),
+        ("臨觀遯大壯",   [(19, 33), (20, 34)],[(19, 20), (33, 34)]),
+        ("噬嗑賁井困",   [(21, 48), (22, 47)],[(21, 22), (48, 47)]),
+        ("剝復夬姤",     [(23, 43), (24, 44)],[(23, 24), (43, 44)]),
+        ("无妄大畜升萃", [(25, 46), (26, 45)],[(25, 26), (46, 45)]),
+        ("咸恒損益",     [(31, 41), (32, 42)],[(31, 32), (41, 42)]),
+        ("家人睽解蹇",   [(37, 40), (38, 39)],[(37, 38), (40, 39)]),
+        ("震艮巽兌",     [(51, 57), (52, 58)],[(51, 52), (57, 58)]),
+        ("豐旅渙節",     [(55, 59), (56, 60)],[(55, 56), (59, 60)]),
+    ]
+    NO_REV   = [1, 2, 27, 28, 61, 62, 29, 30]      # 不可得而反對
+    BOTH     = [11, 12, 17, 18, 53, 54, 63, 64]    # 可得而反對，亦可得而變對
+
+    def hx(n):                      # King Wen number (1-based) -> binary value
+        return KW[n - 1]
+
+    bad_comp = [(lab, a, b) for lab, cp, _ in QUADS for (a, b) in cp
+                if _cuo(hx(a)) != hx(b)]
+    bad_rev  = [(lab, a, b) for lab, _, rp in QUADS for (a, b) in rp
+                if _zong(hx(a)) != hx(b)]
+    print("ZHU_XIANTIAN_PAIRS_ARE_COMPLEMENT=%d/24%s"
+          % (24 - len(bad_comp), "" if not bad_comp else "  MISMATCH:%s" % (bad_comp,)))
+    print("ZHU_HOUTIAN_PAIRS_ARE_REVERSAL=%d/24%s"
+          % (24 - len(bad_rev), "" if not bad_rev else "  MISMATCH:%s" % (bad_rev,)))
+
+    quad_members = set()
+    for _, cp, rp in QUADS:
+        for a, b in cp + rp:
+            quad_members.add(a); quad_members.add(b)
+    coincident = set(NO_REV) | set(BOTH)
+    print("ZHU_QUAD_MEMBERS=%d" % len(quad_members))
+    print("ZHU_COINCIDENT=%d" % len(coincident))
+    print("ZHU_DISJOINT=%s" % ("yes" if not (quad_members & coincident) else "NO"))
+    print("ZHU_COVERS_ALL_64=%s"
+          % ("yes" if len(quad_members | coincident) == 64 else "NO"))
+    print("ZHU_ARITHMETIC=12x4+8x2=%d" % (len(quad_members) + len(coincident)))
+
+    nr_ok = all(_zong(hx(n)) == hx(n) for n in NO_REV)
+    bo_ok = all(_cuo(hx(n)) == _zong(hx(n)) and _zong(hx(n)) != hx(n) for n in BOTH)
+    print("ZHU_NO_REVERSAL_CLASS_IS_SELF_REVERSE=%s" % ("yes" if nr_ok else "NO"))
+    print("ZHU_BOTH_CLASS_HAS_COMP_EQUALS_REV=%s"   % ("yes" if bo_ok else "NO"))
+
+    # his twelve == the true size-4 orbits of <complement, reversal>
+    seen, true4 = set(), []
+    for h in KW:
+        if h in seen:
+            continue
+        cl = {h}
+        while True:
+            nxt = cl | {f(x) for x in cl for f in (_cuo, _zong)}
+            if nxt == cl:
+                break
+            cl = nxt
+        seen |= cl
+        if len(cl) == 4:
+            true4.append(frozenset(cl))
+    zhu4 = []
+    for _, cp, rp in QUADS:
+        s = set()
+        for a, b in cp + rp:
+            s.add(hx(a)); s.add(hx(b))
+        zhu4.append(frozenset(s))
+    print("ZHU_QUADS_ARE_THE_SIZE4_ORBITS=%s"
+          % ("yes" if set(zhu4) == set(true4) else "NO"))
+
+    ok = (not bad_comp and not bad_rev and nr_ok and bo_ok
+          and set(zhu4) == set(true4)
+          and not (quad_members & coincident)
+          and len(quad_members | coincident) == 64)
+    print("ZHU_YUANSHENG=%s" % ("PASS" if ok else "FAIL"))
+    print("SCOPE=this_attests_a_13th_century_READING;"
+          "_it_changes_no_enumeration_and_no_published_count_of_ours")
+    return 0 if ok else 1
+
+
 def check_classical_groups():
     """Report the group actions on the 64 hexagrams that the CLASSICAL Chinese
     literature actually attests, and how King Wen scores against each.
@@ -668,6 +786,31 @@ def check_classical_groups():
     print("WUCHENG_SECOND_COUNT=%d" % (len(orbs) - meeting))
     print("WUCHENG_SECOND_COUNT_MATCHES_TEXT=%s"
           % ("yes" if len(orbs) - meeting == 18 else "NO"))
+    # 焦循 Jiao Xun (1763-1820) 《易圖略》卷六〈原序第三〉:
+    #   「反對旁通四卦交互，如九數之維乘」 -- reversal and complementation, four hexagrams
+    # interlocking -- followed by five WORKED quadruples. CITATIONS.md#jiaoxun asserts all five
+    # are exact <comp,rev> orbits; that assertion is checked here rather than asserted.
+    # NOTE this does NOT make him a classifier: he gives instances, no line-rule, no census.
+    JIAO_QUADS = [(3, 4, 50, 49), (55, 56, 60, 59), (22, 21, 47, 48),
+                  (39, 40, 38, 37), (9, 10, 15, 16)]
+    orb4 = {frozenset(c) for c in _orbits([_cuo, _zong])}
+    jq = [frozenset(KW[n - 1] for n in q) for q in JIAO_QUADS]
+    jq_ok = sum(1 for s in jq if s in orb4)
+    print("JIAOXUN_WORKED_QUADRUPLES_ARE_EXACT_ORBITS=%d/5" % jq_ok)
+
+    # The three-generator group <complement, reverse, trigram-swap>. Whalen (1998)'s
+    # "families of derivation" appendix is a correct orbit decomposition under exactly this
+    # group; CITATIONS.md records "14 orbits, machine-verified, zero errors" and this is the
+    # command behind that number. Reception history for TR-8 -- NOT prior art for any result.
+    orb3 = _orbits([_cuo, _zong, _swap])
+    prof3 = sorted(len(c) for c in orb3)
+    print("THREE_GENERATOR_ORBITS=%d" % len(orb3))
+    print("THREE_GENERATOR_ORBITS_MATCHES_PUBLISHED_14=%s"
+          % ("yes" if len(orb3) == 14 else "NO"))
+    print("THREE_GENERATOR_SIZE_PROFILE=%s" % (prof3,))
+    print("THREE_GENERATOR_COVERS_ALL_64=%s"
+          % ("yes" if sum(prof3) == 64 else "NO"))
+
     print("CLASSICAL_GROUPS=DONE")
     print("SCOPE=a_rival_group_with_an_IDENTICAL_orbit_profile_does_NOT_fit_king_wen;"
           "_this_is_about_PAIRING,_not_about_any_published_count")
@@ -4125,6 +4268,9 @@ def main():
                              'need to trust a grep — the figure first read "16" because the '
                              'measuring harness used a character class that excluded digits, so '
                              'BAD_HD5 never matched. Reads no files.')
+    parser.add_argument('--check-zhu-yuansheng', action='store_true',
+                        help="verify 朱元昇's (d.c.1273) twelve quadruples against this "
+                             "file's own bit operations; see CITATIONS.md#zhuyuansheng")
     parser.add_argument('--check-classical-groups', action='store_true',
                         help='(added 2026-08-16) report the group actions on the 64 hexagrams that '
                              'the CLASSICAL literature attests, and how King Wen scores against '
@@ -4287,6 +4433,8 @@ def main():
         sys.exit(check_flips())
     if args.check_kw_pair_adjacency:
         sys.exit(check_kw_pair_adjacency())
+    if args.check_zhu_yuansheng:
+        sys.exit(check_zhu_yuansheng())
     if args.check_classical_groups:
         sys.exit(check_classical_groups())
 
