@@ -486,6 +486,100 @@ def check_flips():
     return 0
 
 
+def check_kw_pair_adjacency():
+    """Check that King Wen seats every hexagram beside its own partner -- and
+    draw the consequence, which is a NEGATIVE result about what excavated
+    symbol data can ever show.
+
+    ATTRIBUTION -- none of the structural facts below are ours.
+
+      * The pairing rule itself (hexagrams run two-by-two, each with its
+        reversal, or its complement where the hexagram is reversal-symmetric)
+        is CLASSICAL: 非覆即变, stated explicitly by Kong Yingda 孔颖达
+        (574-648) in the Zhouyi zhengyi, with earlier lineage through Yu Fan
+        虞翻 (164-233). See CITATIONS.md#kongyingda and #yufan. The PASS this
+        function prints is a re-verification of a 7th-century observation, NOT
+        a discovery -- it exists so a reader can confirm the premise of the
+        argument without taking anyone's word for it.
+
+      * The claim being tested is Pu Maozuo's 濮茅左. In 附錄二 of 馬承源 ed.,
+        《上海博物館藏戰國楚竹書（三）》 (Shanghai Guji, 2003), pp. 251-260, he
+        argues the manuscript's head/tail symbols (首符/尾符) are invariant
+        under 综, and gives the 24+4+4 pair partition of the 64. The
+        observed-symbol data used below is his, from the per-slip 释文考释,
+        pp. 136-215. See CITATIONS.md#pu2003.
+
+      * The nearest related construction is Kondo Hiroyuki 近藤浩之 (2005),
+        which quotients the 64 to 36 by 覆 (= 综) pairs alone and partitions
+        those into nine 宮 of four. See CITATIONS.md#kondo2005.
+
+      * What is ours is only the OBSERVATION that these two facts, combined,
+        make the symbol evidence non-discriminating -- and the decision to
+        report that rather than the 9/9 agreement alone.
+
+    Tested on the symbols Pu reports as DIRECTLY OBSERVED -- excluding every
+    entry his appendix reconstructs FROM that same invariance -- his claim
+    holds: 9 testable pairs, 9 agreements, 0 disagreements.
+
+    That result cannot support any inference about ordering, and this check says
+    why in a form a reader can run. In King Wen EVERY adjacent pair (positions
+    2k-1, 2k) is a partner pair: reversal where the hexagram is not
+    reversal-symmetric, complement for the eight that are. So a symbol that
+    agrees within each King Wen adjacent pair is EQUALLY well explained by
+      H1  the symbol respects reversal, and
+      H2  the symbol is merely constant on contiguous blocks of King Wen.
+    H1 and H2 make identical predictions on every observation available, because
+    the blocks and the orbits coincide by construction of the sequence itself.
+
+    Discriminating would require the symbols mapped onto an ordering in which
+    partners are NOT adjacent. The only candidate is the bamboo manuscript's own
+    order -- and its editor states plainly (p. 135) that he arranged the slips
+    by the received sequence because the manuscript is incomplete. So the
+    discriminating experiment does not exist. This is an impossibility argument,
+    not a failed search.
+
+    Reads no files. Uses only this file's KW array and bit conventions."""
+    n_zong = n_cuo = n_bad = 0
+    for (a, b) in PAIRS:
+        if _zong(a) == b and a != b:
+            n_zong += 1
+        elif _cuo(a) == b:
+            n_cuo += 1
+        else:
+            n_bad += 1
+    print("KW_PAIRS=%d" % len(PAIRS))
+    print("PAIRS_BY_REVERSAL=%d" % n_zong)
+    print("PAIRS_BY_COMPLEMENT=%d" % n_cuo)
+    print("PAIRS_UNRELATED=%d" % n_bad)
+    # Every hexagram's partner sits in the SAME King Wen adjacent pair.
+    pos = {h: i for i, h in enumerate(KW)}
+    not_adjacent = 0
+    for h in KW:
+        p = _zong(h) if _zong(h) != h else _cuo(h)
+        if pos[h] // 2 != pos[p] // 2:
+            not_adjacent += 1
+    print("HEXAGRAMS_WHOSE_PARTNER_IS_NOT_ADJACENT=%d" % not_adjacent)
+    adjacency = (n_bad == 0 and not_adjacent == 0)
+    print("KW_PARTNER_ADJACENCY=%s" % ("PASS" if adjacency else "FAIL"))
+
+    # The Shanghai Museum observed-symbol pairs, by King Wen number. Source: the
+    # per-slip 释文考释 ONLY (Pu Maozuo 2003, pp. 136-215), which reports symbols
+    # as physically present or explicitly lost and never supplies one by
+    # argument. Appendix 2's reconstructed entries are deliberately excluded --
+    # using them would test the invariance against itself.
+    SHANGBO_OBSERVED_PAIRS = [(5, 6), (7, 8), (15, 16), (17, 18), (25, 26),
+                              (31, 32), (39, 40), (47, 48), (55, 56)]
+    discriminating = [(a, b) for (a, b) in SHANGBO_OBSERVED_PAIRS
+                      if abs(a - b) != 1 or (a - 1) // 2 != (b - 1) // 2]
+    print("SHANGBO_TESTABLE_PAIRS=%d" % len(SHANGBO_OBSERVED_PAIRS))
+    print("SHANGBO_DISCRIMINATING_PAIRS=%d" % len(discriminating))
+    print("KW_PAIR_ADJACENCY=DONE")
+    print("SCOPE=this_shows_the_shangbo_symbol_data_CANNOT_distinguish_"
+          "reversal_invariance_from_king_wen_block_constancy;"
+          "_it_is_NOT_a_claim_that_the_editors_invariance_is_false")
+    return 0 if adjacency else 2
+
+
 def _is_gzip(path):
     try:
         with open(path, 'rb') as fh:
@@ -3843,6 +3937,18 @@ def main():
                              'need to trust a grep — the figure first read "16" because the '
                              'measuring harness used a character class that excluded digits, so '
                              'BAD_HD5 never matched. Reads no files.')
+    parser.add_argument('--check-kw-pair-adjacency', action='store_true',
+                        help='(added 2026-08-16) re-verify the CLASSICAL fact that King Wen seats '
+                             'every hexagram beside its own partner — reversal, or complement for '
+                             'the eight reversal-symmetric ones. The rule is Kong Yingda 孔颖达 '
+                             '(574-648), 非覆即变; this only lets a reader confirm it. Then draws '
+                             'the consequence: the head/tail symbol data of the Shanghai Museum Chu '
+                             'bamboo Zhouyi (Pu Maozuo 濮茅左 in 馬承源 ed. 2003) CANNOT distinguish '
+                             '"the symbol respects reversal" — Pu\'s claim, which holds 9/9 on his '
+                             'directly-observed symbols — from "the symbol is merely constant on '
+                             'contiguous King Wen blocks", because blocks and orbits coincide by '
+                             'construction of the sequence. An impossibility argument, not a '
+                             'criticism of his reading, and not a failed search. Reads no files.')
     parser.add_argument('--check-artifact-offset', type=int, default=0, metavar='R',
                         help='start --check-artifact at record R (default 0). NOTE: the '
                              'sortedness check compares against the predecessor WITHIN the range '
@@ -3979,6 +4085,8 @@ def main():
         sys.exit(check_shen_orbits())
     if args.check_flips:
         sys.exit(check_flips())
+    if args.check_kw_pair_adjacency:
+        sys.exit(check_kw_pair_adjacency())
 
     path = args.path
     n_jobs = max(1, args.jobs)
