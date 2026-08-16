@@ -535,7 +535,11 @@ enumerates that space, or proves a ceiling on it.
   **What this leaves us.** The orbit decomposition itself is ceded to Wu Cheng. **Nothing in Wu Cheng
   — or in [Cui Shu](#cuishu), 焦循, 來知德 or [Kong Yingda](#kongyingda) — counts ORDERINGS.** They
   classify the 64; this project counts arrangements of them subject to constraints, which is a
-  different object. See [TR5](../reports/TR5_SYMMETRY.md) and
+  different object. **⚠ Scoped 2026-08-16: that is a statement about those five authors, NOT a survey
+  result. The ordering-count question has never been the target of a prior-art search designed for it,
+  and at least two papers whose titles sit on it (王俊龍 on the mathematical regularity of the received
+  hexagram order; 關曉思 on a structural mathematical model of the hexagram sequence) are unread. The
+  claim is stated narrowly for that reason.** See [TR5](../reports/TR5_SYMMETRY.md) and
   [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md).
   *(Added 2026-08-16. Recorded plainly: this repository already cited Wu Cheng — for 〈卦統第一〉, via
   Nielsen — and never opened 〈卦對第二〉, the next chapter of the same book. The miss originated at

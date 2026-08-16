@@ -72,9 +72,25 @@ is different:
 
 What ROAE adds is the **conjunction**: treating C1+C2+C3+C4+C5 as a
 single constraint system and asking how many distinct orderings satisfy
-all five at once. Individual rules in prior work; the joint enumeration
-is the novel contribution. See [CITATIONS.md](CITATIONS.md) for the
-detailed prior-work record.
+all five at once. Individual rules are in prior work; **what this
+project supplies is the measurement** — an exact, reproducible count
+over defined slices. See [CITATIONS.md](CITATIONS.md) for the detailed
+prior-work record.
+
+**Scoped 2026-08-16.** This previously read "the joint enumeration is
+the novel contribution." That was an unhedged priority claim and it is
+withdrawn as stated. **A prior-art sweep aimed specifically at the
+mathematics of the hexagram *ordering* — as opposed to its symmetry or
+its symbols — was not run until 2026-08-16, and it returned a
+substantial Chinese literature this repository had not counted**,
+including work on the 「錯綜」-invariant sets (2000), the topological
+group structure of the hexagram symbols (1995), and the mathematical
+regularity of the received sequence's arrangement (2002, 2003). None of
+those is yet known to produce a *count* of satisfying orderings, which
+is the specific thing measured here — **but "not yet known" is not
+"does not exist", and the claim is stated narrowly for that reason.**
+The measurement, its artifacts and its reproduction commands stand on
+their own regardless of how that resolves.
 
 The job of the solver is: **find every ordering of the 64 hexagrams
 that satisfies C1-C5.** How many are there? Is King Wen one of

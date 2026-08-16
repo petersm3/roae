@@ -124,9 +124,25 @@ cited throughout this repository.
 
 What this project contributes is narrower still, and should be read narrowly: **counting the
 ORDERINGS of the 64 that respect the orbits**, subject to a stated constraint system. Wu Cheng, Cui
-Shu, 焦循, 來知德 and Kong Yingda all **classify** the 64. **None of them counts arrangements of it** —
-that is a different object, and it is where this project's contribution lies. See
-[TR5](../reports/TR5_SYMMETRY.md) for the scoped statement.
+Shu, 焦循, 來知德 and Kong Yingda all **classify** the 64; **none of those five counts arrangements of
+it.** See [TR5](../reports/TR5_SYMMETRY.md) for the scoped statement.
+
+**Two qualifications, added 2026-08-16, both of which narrow that claim.**
+
+**First, "classify versus count" flatters us.** It is accurate for the five classical authors named
+above and for no one else. **李尚信 (1999, 2002) does not classify** — he argues that the received
+sequence is *arranged* on 錯綜 principles, with the orbits falling at regular intervals, and that the
+spacing cannot be coincidence. He never counts orderings, so the counting claim survives him; but the
+honest contrast is **"they argue the order is principled; we measure how constraining the principles
+are,"** not "they classify and we count."
+
+**Second, and more important: we have not finished looking.** Every prior-art sweep this project has
+run was aimed at the *symmetry* question or the *symbol* question. **The ordering-count question has
+not yet been the target of a search designed for it**, and two papers whose titles sit directly on it
+— 王俊龍 on 「the mathematical regularity of the order of the hexagrams in the received version」 and
+關曉思 on 「the structural mathematical model of the hexagrams' sequence」 — **are unread as of this
+writing.** Until they are read, **treat the sentence above as a claim about the five named authors,
+not as a survey result.** We would rather record that limit here than have it found for us.
 
 *A note on how this section was built, because it bears on how much to trust it.* Each cession above
 was checked against the primary source, not against a summary. One paper (李尚信 2002) was
