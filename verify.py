@@ -383,8 +383,21 @@ def check_shen_orbits():
     (老/长/中/少); the rest are 散卦. He states 主卦十有六 and 其余四十八卦皆散卦,
     grouped 总为六组.
 
-    ATTRIBUTION -- THE SAME SIXTEEN AND THE SAME SIX GROUPS ARE CUI SHU'S, c.1800,
-    AND HE REACHED THEM BY A DIFFERENT ROUTE. Verified 2026-08-16 from the print
+    ATTRIBUTION -- THE ORBIT DECOMPOSITION IS WU CHENG'S, c.1300, AND IT IS
+    COMPLETE. 吳澄 (1249-1333), 《易纂言外翼》卷一〈卦對第二〉, gives all 20 orbits of
+    all 64 -- 「卦畫奇偶正對，二篇共二十對…正對不反易者四…正對兼反易者四…反易取正對者
+    十二」 = 12 classes of four + 8 of two -- with his three classes matching the
+    three stabiliser types exactly. 「反易取正對」 IS the composition of the two
+    operations, and he defines 正對 at the LINE level (卦畫奇偶) while explicitly
+    contrasting it with the TRIGRAM level (上下二體). Verified against this file's own
+    bit operations: zero mismatches, all 64 covered once, class set identical to the
+    true orbit set. See CITATIONS.md#wucheng and `--check-classical-groups`.
+
+    The sixteen checked below are a SUBSET of that -- 6 of Wu Cheng's 20 orbits.
+
+    THE SAME SIXTEEN AND THE SAME SIX GROUPS ARE ALSO CUI SHU'S, c.1800, reached
+    independently -- creditably so, since 《易纂言外翼》 was lost after the Ming and
+    only reconstructed from the 永樂大典 in 1781. Verified 2026-08-16 from the print
     (Kansai Univ. 内藤文庫 IIIF scan of 崔東壁先生遺書; ctext transcription agrees):
     崔述 (1740-1816), 〈易卦次圖說〉 in 《易卦圖說》, defines the two operations by
     LINE RULES -- 「何謂平對？陰陽之爻互易者也。何謂反對？上下之爻互易者也」, i.e.
@@ -505,6 +518,142 @@ def check_flips():
     print("FLIPS=DONE")
     print("SCOPE=a_pair_order_key_admits_MANY_valid_orientation_completions;"
           "_which_one_a_record_carries_is_a_convention_choice")
+    return 0
+
+
+def check_classical_groups():
+    """Report the group actions on the 64 hexagrams that the CLASSICAL Chinese
+    literature actually attests, and how King Wen scores against each.
+
+    WHY THIS EXISTS. The obvious deflation of a pairing constraint is "of course a
+    symmetric arrangement satisfies some symmetry -- you went looking for a group
+    and found one that fits." This answers that with a measurement, using rival
+    groups WE DID NOT INVENT: every one below is taken from a classical source.
+
+    THE SOURCES, none of them ours:
+      * <comp, rev>  -- 吳澄 Wu Cheng (1249-1333), 《易纂言外翼》卷一〈卦對第二〉.
+        The complete decomposition: 「卦畫奇偶正對，二篇共二十對」. CITATIONS.md#wucheng
+      * <rev, swap>  -- 吳澄, THE SAME CHAPTER: 「卦體上下互易，二篇共十八對…純卦八…
+        不與」, where swap exchanges the upper and lower trigrams.
+      * <comp, swap> -- 焦循 Jiao Xun (1763-1820), 《易圖略》卷四 八卦相錯圖, an
+        exhaustive partition of the 64 built from 說卦傳's 八卦相錯. CITATIONS.md#jiaoxun
+      * the pairing rule itself is 孔穎達 (574-648), 非覆即變. CITATIONS.md#kongyingda
+
+    THE RESULT THIS PRINTS. <comp,swap> has the SAME orbit profile as <comp,rev> --
+    20 orbits, 8 of size 2 and 12 of size 4 -- yet King Wen seats partners adjacently
+    64/64 under <comp,rev> and only 24/64 under <comp,swap>. Two structurally
+    indistinguishable group actions, both classically attested, and the received
+    sequence selects one decisively. That is a property of the sequence, not an
+    artifact of looking for symmetry.
+
+    It also re-derives 吳澄's OWN second count as a reading check: he says the
+    <rev,swap> structure gives 「共十八對」 once the 八純卦 are set aside, and the
+    computation returns 24 orbits minus the 6 meeting those eight = 18.
+
+    SCOPE: this is a fact about King Wen's PAIRING. It changes no enumeration and no
+    published count. It strengthens the constraint's motivation, not the result.
+
+    Reads no files. Uses only this file's KW array and bit conventions."""
+    def _swap(h):                      # 上下互易 -- exchange upper and lower trigrams
+        return ((h >> 3) & 0b111) | ((h & 0b111) << 3)
+    pos = {h: i for i, h in enumerate(KW)}
+
+    def _orbits(gens):
+        seen, out = set(), []
+        for h in KW:
+            if h in seen:
+                continue
+            cl = {h}
+            while True:
+                nxt = cl | {g(x) for x in cl for g in gens}
+                if nxt == cl:
+                    break
+                cl = nxt
+            seen |= cl
+            out.append(frozenset(cl))
+        return out
+
+    GROUPS = [
+        ("comp_rev",  "<comp,rev>  Wu Cheng c.1300",   [_cuo, _zong]),
+        ("rev_swap",  "<rev,swap>  Wu Cheng, same ch", [_zong, _swap]),
+        ("comp_swap", "<comp,swap> Jiao Xun c.1813",   [_cuo, _swap]),
+    ]
+    for key, label, gens in GROUPS:
+        orbs = _orbits(gens)
+        sizes = {}
+        for c in orbs:
+            sizes[len(c)] = sizes.get(len(c), 0) + 1
+        # Does King Wen seat each hexagram beside a partner from its own orbit?
+        adj = sum(1 for h in KW
+                  if any(pos[g(h)] // 2 == pos[h] // 2 and g(h) != h for g in gens))
+        print("%s_ORBITS=%d" % (key.upper(), len(orbs)))
+        print("%s_SIZES=%s" % (key.upper(),
+              ",".join("%dx%d" % (n, s) for s, n in sorted(sizes.items()))))
+        print("%s_KW_ADJACENT=%d/64" % (key.upper(), adj))
+
+    # ---- the sharper test: at the PAIRING-RULE level, not the group level -------
+    # A group tells you which hexagrams are related; a PAIRING RULE tells you which
+    # single partner each hexagram gets. C1 is the second kind, so this is the
+    # comparison a referee actually wants.
+    def _rule(primary, fallback=None):
+        n = 0
+        for h in KW:
+            p = primary(h)
+            if p == h and fallback is not None:
+                p = fallback(h)
+            if p != h and pos[p] // 2 == pos[h] // 2:
+                n += 1
+        return n
+    RULES = [
+        ("rev_then_comp", "rev, falling back to comp  [= C1, 非覆即變]", _zong, _cuo),
+        ("comp_alone",    "comp alone",                                 _cuo,  None),
+        ("rev_alone",     "rev alone",                                  _zong, None),
+        ("swap_then_comp","swap, falling back to comp",                 _swap, _cuo),
+        ("swap_alone",    "swap alone",                                 _swap, None),
+        ("comp_of_rev",   "comp of rev, falling back to comp",
+                          (lambda h: _cuo(_zong(h))), _cuo),
+    ]
+    for key, _label, prim, fb in RULES:
+        print("RULE_%s=%d/64" % (key.upper(), _rule(prim, fb)))
+
+    # NULL TEST. Is the classical rule one of many that would work? Sample random
+    # involutions with the SAME structure as rev (8 fixed points, comp fallback) and
+    # see how close any of them gets. Fixed seed, so the figure is reproducible.
+    import random
+    rng = random.Random(20260816)
+    N = 20000
+    best = 0
+    base_from_fallback = sum(1 for h in KW
+                             if _cuo(h) != h and pos[_cuo(h)] // 2 == pos[h] // 2)
+    for _ in range(N):
+        pts = list(KW)
+        rng.shuffle(pts)
+        fixed, rest = set(pts[:8]), pts[8:]
+        inv = {}
+        for i in range(0, len(rest), 2):
+            a, b = rest[i], rest[i + 1]
+            inv[a] = b
+            inv[b] = a
+        adj = sum(1 for h in rest if pos[inv[h]] // 2 == pos[h] // 2)
+        adj += sum(1 for h in fixed
+                   if _cuo(h) != h and pos[_cuo(h)] // 2 == pos[h] // 2)
+        best = max(best, adj)
+    print("NULL_SAMPLES=%d" % N)
+    print("NULL_BEST_ADJACENCY=%d/64" % best)
+    print("NULL_REACHING_64=%d" % (1 if best >= 64 else 0))
+    print("COMP_FALLBACK_FLOOR=%d/64" % base_from_fallback)
+
+    # 吳澄's own second count, as a check that we are reading his chapter correctly.
+    orbs = _orbits([_zong, _swap])
+    pure = {0b111111, 0b000000, 0b010010, 0b101101,
+            0b001001, 0b110110, 0b100100, 0b011011}   # the 八純卦 (doubled trigrams)
+    meeting = sum(1 for c in orbs if c & pure)
+    print("WUCHENG_SECOND_COUNT=%d" % (len(orbs) - meeting))
+    print("WUCHENG_SECOND_COUNT_MATCHES_TEXT=%s"
+          % ("yes" if len(orbs) - meeting == 18 else "NO"))
+    print("CLASSICAL_GROUPS=DONE")
+    print("SCOPE=a_rival_group_with_an_IDENTICAL_orbit_profile_does_NOT_fit_king_wen;"
+          "_this_is_about_PAIRING,_not_about_any_published_count")
     return 0
 
 
@@ -3959,6 +4108,18 @@ def main():
                              'need to trust a grep — the figure first read "16" because the '
                              'measuring harness used a character class that excluded digits, so '
                              'BAD_HD5 never matched. Reads no files.')
+    parser.add_argument('--check-classical-groups', action='store_true',
+                        help='(added 2026-08-16) report the group actions on the 64 hexagrams that '
+                             'the CLASSICAL literature attests, and how King Wen scores against '
+                             'each. Sources, none of them ours: <comp,rev> and <rev,swap> from '
+                             '吳澄 Wu Cheng (1249-1333) 《易纂言外翼》卷一〈卦對第二〉; <comp,swap> '
+                             'from 焦循 Jiao Xun (1763-1820) 《易圖略》八卦相錯圖. The point: '
+                             '<comp,swap> has the SAME orbit profile as <comp,rev> (20 orbits, '
+                             '8x2 + 12x4) yet King Wen seats partners adjacently 64/64 under '
+                             '<comp,rev> and only 24/64 under <comp,swap> — a structurally '
+                             'indistinguishable rival group, classically attested, that does NOT '
+                             'fit. Also re-derives 吳澄\'s own 「共十八對」 as a reading check. '
+                             'Changes no enumeration. Reads no files.')
     parser.add_argument('--check-kw-pair-adjacency', action='store_true',
                         help='(added 2026-08-16) re-verify the CLASSICAL fact that King Wen seats '
                              'every hexagram beside its own partner — reversal, or complement for '
@@ -4109,6 +4270,8 @@ def main():
         sys.exit(check_flips())
     if args.check_kw_pair_adjacency:
         sys.exit(check_kw_pair_adjacency())
+    if args.check_classical_groups:
+        sys.exit(check_classical_groups())
 
     path = args.path
     n_jobs = max(1, args.jobs)

@@ -448,6 +448,48 @@ enumerates that space, or proves a ceiling on it.
   ordering-level S₄/B₃ action (orbit size 24/48). Canonical fact from his tables: the lower canon
   has **16** 交综 pairs (a circulating "17" is an OCR error; 28 total 综 − 12 upper = 16).
   [analyzed 2026-07]
+<a id="jiaoxun"></a>
+- **Jiao Xun 焦循** (1763–1820). *Yi tulüe* 《易圖略》 [Outline of Yi diagrams], 8 juan; in 《焦氏叢書》.
+  Free: `https://ctext.org/wiki.pl?if=gb&chapter=953240`.
+  A Qing mathematician's systematic *Yi* apparatus, and the source of one of the two **rival group
+  actions** this project measures King Wen against. Three items bear on us:
+  *(i)* **旁通 = complementation.** 《易圖略》卷一 旁通圖 tabulates all 32 complement pairs, credited by
+  him to 虞翻.
+  *(ii)* **He composes the two operations.** 卷六〈原序第三〉: 「**反對旁通四卦交互，如九數之維乘**」 —
+  reversal and complementation, four hexagrams interlocking, "like the cross-multiplication of the
+  nine numbers" — with worked quadruples 屯蒙鼎革, 豐旅節渙, 賁噬嗑困井, 蹇解睽家人, 小畜履謙豫,
+  **all five verified as exact ⟨錯,綜⟩ orbits.** But he gives no general line-rule for 反對 (instances
+  only), no enumeration and no orbit census: the quadruple is a hermeneutic bridge (比例), not a
+  classification. **[Wu Cheng](#wucheng) does all of that, 500 years earlier.**
+  *(iii)* **八卦相錯 is a DIFFERENT operation**, not complementation — 卷四 八卦相錯圖, a binary
+  operation exchanging the lower trigrams of two hexagrams, from 說卦傳. He separates it from 虞翻's
+  兩象易 explicitly: 「此與相錯似近，而非」. **The group ⟨complement, trigram-swap⟩ it generates is an
+  exhaustive partition of the 64 into 20 orbits with the SAME size profile as ⟨錯,綜⟩ (8 of size 2,
+  12 of size 4) — yet King Wen respects it only 24/64, against 64/64 for ⟨錯,綜⟩.** That measurement,
+  reproducible with `python3 verify.py --check-classical-groups`, is why this entry matters: **the
+  rival group is not ours, it is his**, and a structurally indistinguishable alternative from the same
+  tradition does not fit the sequence.
+  ⚠ **Not obtained:** 《易通釋》20卷, the fuller work 《易圖略》 abridges, where he may work the
+  quadruples harder. Scans only, OCR unusable. *(Added 2026-08-16.)* [analyzed 2026-08-16]
+
+<a id="laizhide"></a>
+- **Lai Zhide 來知德** (1526–1604). *Zhouyi jizhu* 《周易集註》, 卷首上/下. Free:
+  `https://ctext.org/wiki.pl?if=gb&chapter=339923` (definitions) and `chapter=670057` (the tables).
+  **The Ming source that fixed the modern vocabulary**: 「**錯者，隂陽橫相對也；綜者，隂陽上下相顛倒
+  也**」 — 錯 is complementation, 綜 is reversal, both by explicit line rule. 卷首下 carries a
+  **complete 64-row table** giving 錯 for every hexagram and 綜 for each of the 56 that has one. He is
+  **more complete than [Cui Shu](#cuishu) on the degenerate cases**, naming all four orbits where
+  complement coincides with reversal: 「否泰既濟未濟…歸妹漸隨蠱…此八卦**可錯可綜**」.
+  **But he never composes the two.** His table contains no 錯綜 compound, and he presents the
+  operations as **two side-by-side diagrams** (「伏羲圓圖相錯圖　文王序卦相綜圖…因此將二圖並列之」) —
+  two attributes per hexagram, never a four-element set, never a size. **That is exactly the line
+  between Lai Zhide and [Wu Cheng](#wucheng)**, and it is why the composition is ceded to the latter.
+  Corroborated by a hostile contemporary: 黃宗羲《易學象數論》 objects that 來知德 「於頤、過八卦相反之
+  外取反對者，而**亦復錯之**」 — an objection that is itself evidence the practice was conspicuous.
+  Cited by [Li Shangxin 2002](#lishangxin2002) as his source for both definitions.
+  *(Added 2026-08-16 — surfaced while testing whether [Cui Shu](#cuishu)'s claim that the joint use
+  was rare could be sustained. It cannot.)* [analyzed 2026-08-16]
+
 <a id="wucheng"></a>
 - **Wu Cheng 吳澄** (1249–1333). *Yi zuanyan waiyi* 《易纂言外翼》, juan 1, 〈卦對第二〉
   [Hexagram pairing, chapter 2]. In the *Siku quanshu*; the work was lost after the Ming and

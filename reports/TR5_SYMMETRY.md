@@ -41,7 +41,13 @@ system; prior-art corrections are welcomed via CITATIONS.md. This scoping is inf
 the hexagram-level algebraic prior art, which is **distinct**: [Ouyang Weicheng
 1992](../documentation/CITATIONS.md#ouyang1992) proved the (Z/2)⁶ group structure on the 64 hexagrams
 (with subgroup/coset machinery), and [Zhang Qingyu 1998](../documentation/CITATIONS.md#zhang1994)
-published the complement/reversal (Klein-4) orbit on the hexagram set — both are groups acting on
+published the complement/reversal (Klein-4) orbit on the hexagram set. That hexagram-level lineage runs
+much deeper than the modern literature: [Wu Cheng 吳澄 (c. 1300)](../documentation/CITATIONS.md#wucheng)
+already gives the **complete ⟨complement, reversal⟩ orbit decomposition of all 64** — 「二十對」, 12 of
+size 4 and 8 of size 2 — with [Lai Zhide (c. 1600)](../documentation/CITATIONS.md#laizhide),
+[Jiao Xun (c. 1813)](../documentation/CITATIONS.md#jiaoxun) and
+[Cui Shu (c. 1800)](../documentation/CITATIONS.md#cuishu) reaching parts of it independently.
+**None of that is claimed here.** All are groups acting on
 **hexagrams**; this report's group is the automorphism group of the C1–C5 **constraint-predicate
 family** acting on bit positions, inducing an action on whole orderings — a different group on a
 different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ceded"). (Related but distinct formal work: [Radisic
