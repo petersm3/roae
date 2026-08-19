@@ -714,9 +714,12 @@ enumerates that space, or proves a ceiling on it.
   half (the 卦氣說 material and a reference list ending 責任編輯:劉玉建) belongs to a **different
   article**; Li's text resumes under 「(上接第49頁)」. And the typeset 綜 definition ends 「即為錯」
   where 「即為綜」 is plainly intended (屯→蒙 is a reversal) — an apparent printing error.
-  Related items in the same programme, existence confirmed, texts not yet obtained:
-  〈今本《周易》六十四卦卦序的基本骨架〉 *Zhouyi yanjiu* 1999(4); 〈《序卦》卦序中的陰陽平衡互補與
-  變通配四時思想〉 1999–2000(3); PhD 《今、帛、竹書〈周易〉卦序研究》 (Shandong Univ., 2007).
+  Related items in the same programme. 〈今本《周易》六十四卦卦序的基本骨架〉 *Zhouyi yanjiu*
+  1999(4) and 〈《序卦》卦序中的陰陽平衡互補與變通配四時思想〉 1999–2000(3) were **obtained and read
+  2026-08-16** (both free from CNKI); *(status corrected 2026-08-19 — this line previously read
+  "texts not yet obtained", which was true when written and is no longer)*. ⚠ **Those reads are
+  single, unaudited passes and nothing is cited from them here.** PhD 《今、帛、竹書〈周易〉卦序研究》
+  (Shandong Univ., 2007): existence confirmed, **not obtained**.
   *(Added 2026-08-16 — found by a targeted sweep of the excavated-manuscript symbol literature,
   which the 2026-07-30 prior-art review did not cover. That review was scoped to 卦序 mathematics;
   this paper sits in neither field cleanly and was missed by both.)* [analyzed 2026-08-16; free PDF
