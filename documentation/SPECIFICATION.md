@@ -32,7 +32,31 @@ where |H| = 64. Under `comp(h) = h ⊕ 63`, no hexagram is self-complementary (t
 
 ## Constraints
 
-**S** satisfies the following constraints (unique within every enumerated dataset to date; see the [Conjecture (Uniqueness)](#theorems) for full-space status). Note: C1 and C2 are structural properties observable in the sequence. C3 and C5 were extracted from King Wen and used to constrain the search — they are confirmatory (consistent with King Wen) rather than predictive (derived independently). C4 stands apart: its pair choice (Heaven/Earth first) is independently attested in the classical tradition (the *Xugua* commentary) centuries before any enumeration, and its orientation (Creative before Receptive) is likewise **definitional and classically attested** — the *Xugua* opens Heaven-then-Earth. The orientation is NOT forced by the other constraints *(retraction 2026-07-26: a former "Theorem 6" claimed it was — that claim is false; global complementation x ↦ x ⊕ 63 is an exact symmetry of C1∩C2∩C3∩C5, machine-checked in [lean/KingWen.lean](../lean/KingWen.lean), so both orientations of the opening pair are valid there — see the Complement Z₂ symmetry theorem below)*. C6 and C7 are specific adjacency choices that no aggregate mathematical property can replace.
+**S** satisfies the following constraints (unique within every enumerated dataset to date; see the [Conjecture (Uniqueness)](#theorems) for full-space status). Note: C1 and C2 are structural properties observable in the sequence. C3 and C5 were extracted from King Wen and used to constrain the search — they are confirmatory (consistent with King Wen) rather than predictive (derived independently). C4 stands apart: its pair choice (Heaven/Earth first) is independently attested in the classical tradition (the *Xugua* commentary) centuries before any enumeration, and its orientation (Creative before Receptive) is likewise **definitional and classically attested** — the *Xugua* opens Heaven-then-Earth. The orientation is NOT forced by the other constraints *(retraction 2026-07-26: a former "Theorem 6" claimed it was — that claim is false; global complementation x ↦ x ⊕ 63 is an exact symmetry of C1∩C2∩C3∩C5, machine-checked in [lean/KingWen.lean](../lean/KingWen.lean), so both orientations of the opening pair are valid there — see the Complement Z₂ symmetry theorem below)*. C6 and C7 go furthest: they are specific adjacency choices read off King Wen itself. No aggregate mathematical property can replace them — but that is a statement about how irreducibly *particular* they are, not about explanatory strength. See the standing table immediately below.
+
+### Standing of each constraint — the shared `C` prefix does NOT mean equal strength
+
+The prefix marks membership in the formal constraint system: every one below is logically
+independent of the others and machine-checkable. It does **not** mark equal evidential or
+explanatory standing, and the series is deliberately non-uniform.
+
+| | Constraint | Where it came from | Explanatory standing |
+|---|---|---|---|
+| **C1** | pair structure | classical (*Yi Zhuan*, Kong Yingda 7th c.); Hamming-cost-optimality is a theorem ([Radisic 2026](CITATIONS.md#radisic2026)) | **strong** — does most of the structural work |
+| **C2** | no 5-line transitions | literature ([McKenna & McKenna 1975](CITATIONS.md#mckenna-mckenna1975); [Cook 2006](CITATIONS.md#cook2006)) | **strong** — rare against random nulls |
+| **C3** | complement-distance ceiling | **extracted from KW** — 776 is King Wen's own value | descriptive; KW sits AT the ceiling, ~10% tie |
+| **C4** | starting pair | classically attested (*Xugua*, Heaven-then-Earth); orientation definitional | definitional |
+| **C5** | difference-wave multiset | **extracted from KW** — King Wen's own multiset | descriptive |
+| **C6** | pair-adjacency at boundary 27 | **selected by search** over the 31 boundaries | **none — net ≈ 0 bits** |
+| **C7** | pair-adjacency at boundary 25 | **selected by search** over the 31 boundaries | **none — net ≈ 0 bits** |
+
+C6 and C7 are the two weakest entries and are marked as such at their definitions below.
+[DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) prices them together at **21.3 bits eliminated
+against ~20.6 bits to state — net ≈ 0**: they restate part of the answer rather than explain it.
+Accordingly, **headline counts in this project are reported over C1–C5**, with C6–C7 added only
+where the text says so; aggregate `C1–C7` figures appear almost exclusively in the *refutation*
+(≈5.21×10³¹ orderings survive all seven), where including the weakest pins makes the claim
+stronger, not weaker.
 
 **Numbering note.** The narrative document [SOLVE.md](SOLVE.md) uses discovery-order labels (Rule 1–6) which include a "Rule 4 (XOR algebraic)" not listed here — that rule is provably redundant (see Theorem (XOR universality) below) and is therefore not part of the formal constraint set. Mapping: Rule 1↔C1, Rule 2↔C2, Rule 3↔C3, Rule 4↔(Theorem 2, redundant), Rule 5↔C4, Rule 6↔C5. The formal minimum independent rule set is **{C1, C3, C4, C5}** (C2 is mathematically implied by C5's histogram but kept in the solver as an O(1) boundary pre-filter); C6 and C7 are additional adjacency constraints needed to single out KW within the C1–C5 family.
 
@@ -64,11 +88,15 @@ The multiset of values in D(S) is exactly {1:2, 2:20, 3:13, 4:19, 6:9}.
 *The difference wave contains exactly 2 transitions of distance 1, 20 of distance 2, 13 of distance 3, 19 of distance 4, and 9 of distance 6. No transitions of distance 0 or 5.*
 
 ### C6: Adjacency constraint at boundary 27
+
+**Status: descriptive, not explanatory** — a KW-derived slot pin, priced at net ≈ 0 bits (see the standing table above). `solve.c` calls C6/C7 the "legacy adjacency constraints"; the knowledge compiler does **not** use them — it compiles C1∩C2∩C4∩C5 only.
 pair(s₅₂) and pair(s₅₄) are adjacent (s₅₂ and s₅₃ form one pair, s₅₄ and s₅₅ form the next).
 
 *Specifically: {s₅₂, s₅₃} = {001011₂, 110100₂} and {s₅₄, s₅₅} = {001101₂, 101100₂}.*
 
 ### C7: Adjacency constraint at boundary 25
+
+**Status: descriptive, not explanatory** — a KW-derived slot pin, priced at net ≈ 0 bits (see the standing table above). `solve.c` calls C6/C7 the "legacy adjacency constraints"; the knowledge compiler does **not** use them — it compiles C1∩C2∩C4∩C5 only.
 pair(s₄₈) and pair(s₅₀) are adjacent.
 
 *Specifically: {s₄₈, s₄₉} = {011101₂, 101110₂} and {s₅₀, s₅₁} = {001001₂, 100100₂}.*
