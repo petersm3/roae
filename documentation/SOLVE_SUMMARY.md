@@ -142,6 +142,36 @@ The "jumps" between consecutive hexagrams follow a specific recipe — called th
 
 **What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 10 trillion nodes partitioned across parallel threads) finds hundreds of millions of valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling. Canonical counts (d3 re-established 2026-05-13 on post-resume-fix code; see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)): **706,427,594** at the depth-3 partition, **286,357,503** at depth-2. The count depends on which partition strategy samples the search space; under true exhaustive enumeration both would converge.
 
+### Why there is no Rule 6 or Rule 7
+
+Two further constraints run through [SPECIFICATION.md](SPECIFICATION.md) and the technical reports —
+**C6** and **C7** — and they are deliberately not numbered as rules on this page.
+
+They are **boundary constraints**. C6 pins the pairs at sequence positions 27 and 28 to King Wen's
+pairs; C7 does the same at positions 25 and 26. Each locks a four-hexagram window. Crucially, they
+were not *discovered* as properties of the sequence the way Rules 1 and 2 were — they were **selected
+by search**, as the two boundaries whose pins removed the most non-King-Wen orderings from the
+enumerated set. `solve.c` still calls them "legacy adjacency constraints" for that reason.
+
+The sharpest way to see the difference is to ask what each constraint costs to state versus what it
+buys. [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) prices the whole set in bits: C6 and C7 together
+eliminate 21.3 bits' worth of orderings, and cost about 20.6 bits merely to write down, since four
+pair slots have to be named. **Net: approximately zero.** They are *data-like* — a compressed way of
+restating part of the answer, not a rule that explains it. Rule 1 buys far more than it costs, which
+is exactly why this page calls it the real finding and does not say the same of these two.
+
+They are nonetheless **logically independent** of Rules 1–5, not implied by them: adding C6 and C7
+cuts the Rule 1–5 space by a factor of 2.55×10⁶. (Contrast Rule 2, which genuinely *is* implied — by
+Rule 5's histogram — and survives in the solver only as a fast pre-filter.) Independent, then, but
+reverse-engineered from King Wen rather than derived from first principles.
+
+The same standard has already been applied to reject a candidate rule. McKenna's "minimize size-1
+jumps" observation is a real regularity — 80.03% of enumerated orderings violate it, so King Wen sits
+in a genuine minority — and it was still **not** promoted, because promoting it would have added a
+fourth constraint read off King Wen's own placements. See [MCKENNA.md](MCKENNA.md). C6 and C7 predate
+that standard and are kept because the enumeration tooling and the reports depend on them; naming
+them here without numbering them is the honest treatment.
+
 ### What the rules determine — and what remains open
 
 Canonical enumerations using `solve.c` at the 10T node budget find hundreds of millions of unique orderings satisfying Rules 1-5. At the depth-3 partition (158,364 sub-branches): **706,427,594**. At depth-2 (3,030 sub-branches): **286,357,503**. Both enumerations are partial in the sense that each sub-branch hits its per-sub-branch node budget rather than completing naturally — so the true count under exhaustive enumeration is unknown and likely larger; an unbiased Monte-Carlo estimate (Knuth random-probe) now puts the total at ≈10³⁸ (≈3×10³⁷ distinct-canonical) — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
@@ -457,3 +487,5 @@ The difference wave as a sparkline (each character = one transition, height = li
 *Revision 2026-08-02 (the last surviving blanket-verifiability over-claim; registry key `RP-a823340f`): §"The story continued" closed on a one-line assertion that all four of its bullets were machine-verifiable. One of them is TR-9's bit-ledger — the result [reports/README.md](../reports/README.md) itself describes as "judgment-dependent by construction" — so the sentence was false in exactly the way the eleven report covers' banner was before `14d8751` retired it. It was stated in different words and so was invisible to the gate written for the covers; a repo-wide sweep confirms this was the last instance of the class. Replaced with the covers' own formulation — measured results carry a reproduction command, machine-checked proofs name their certificate — plus the explicit exception for the bit-ledger and TR-9's stated range. The retracted wording is now in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) so it cannot return; it is cited here by key rather than quoted, per that registry's convention. No number, count, sha or theorem changed.*
 
 *Revision 2026-08-06 (counting-unit label pass, UNASKED-2 batch): §"The numbers at a glance" gained an explicit units note — the funnel table mixes raw orientation-explicit arrangement counts (steps 0–1), fractions (steps 2–4), and orientation-deduplicated canonical-record counts (step 5's budgeted figures) against a raw layer estimate in the same cell. The note flags the legacy presentation and points at [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Deduplication, [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md), and the exact record↔sequence converter ([VERIFY.md](VERIFY.md) `--fiber-sweep`). No number changed — the defect was unstated units, not wrong values.*
+
+*Revision 2026-08-20 (C6/C7 defined, prompted by an operator question): this page cited "both legacy adjacency constraints (C6+C7)" and their 0.0018% satisfaction rate while never defining, numbering, or locating C6 and C7 anywhere on the page — a gap its own 2026-08-01 revision note had already recorded. A new §"Why there is no Rule 6 or Rule 7" defines them as boundary constraints (C6 pins pairs 27–28, C7 pairs 25–26), states that they were selected by search rather than discovered, and gives the reason they are not promoted into the Rule 1–5 ladder: [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) prices them at 21.3 bits bought against ~20.6 bits to state — data-like and net ≈ 0 — while noting they are still logically independent of Rules 1–5 (×2.55×10⁶ cut). No count, sha, or theorem changed.*

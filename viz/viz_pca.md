@@ -179,10 +179,10 @@ at position 2.
 
 ### 4. `viz_adjacency.png/.svg` — colored by C6/C7 adjacency satisfaction
 
-![2-D PCA scatter of the 560T d3 canonical solution space, dots colored 0/1/2 by how many of the two mandatory King Wen adjacency constraints (C6 at positions 25–26, C7 at positions 27–28) the solution satisfies; 2-colored points mark the structural King Wen neighborhood.](../runs/20260608_560T_9a968fa2/viz/viz_adjacency.png)
+![2-D PCA scatter of the 560T d3 canonical solution space, dots colored 0/1/2 by how many of the two mandatory King Wen adjacency constraints (C6 at positions 27–28, C7 at positions 25–26) the solution satisfies; 2-colored points mark the structural King Wen neighborhood.](../runs/20260608_560T_9a968fa2/viz/viz_adjacency.png)
 
 **What's colored:** how many of the two "mandatory" KW-adjacency
-constraints (C6 at positions 25-26, C7 at positions 27-28) this
+constraints (C6 at positions 27-28, C7 at positions 25-26) this
 solution satisfies. Values: 0 (neither), 1 (one), or 2 (both).
 
 **How to read it:**
@@ -261,3 +261,5 @@ PNGs are raster (good for quick viewing). SVGs are vector (better
 for zooming, publication, embedding in LaTeX). Choose per use case.
 
 See [README.md](README.md) for data provenance and the regeneration recipe.
+
+*Correction 2026-08-20: plot 4's caption and image alt text had **C6 and C7 swapped** — they read "C6 at positions 25–26, C7 at positions 27–28". `solve.c` is the authority here (it prints `Legacy C6 (boundary 27)` and `Legacy C7 (boundary 25)`), and [SPECIFICATION.md](../documentation/SPECIFICATION.md) and [DISTRIBUTIONAL_ANALYSIS.md](../documentation/DISTRIBUTIONAL_ANALYSIS.md) agree with it. **The figure itself is unaffected and was not regenerated**: the plot colors each point by `c6_c7_count`, how many of the two constraints hold (0/1/2), which is symmetric in C6 and C7 — only the naming was wrong. Found while answering a question about where C6 and C7 come from.*
