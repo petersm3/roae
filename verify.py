@@ -2148,6 +2148,79 @@ def c3_of_ordering(perm):
         slot[p] = s
     return 16 + 8 * sum(abs(slot[p] - slot[q]) for p, q in cross)
 
+
+def check_t5_c3(sol_bin, chunks_dir):
+    """--check-t5-c3: independent recomputation of c3_total for the T5 mega-sample.
+
+    WHY THIS GATE EXISTS. The T5 battery's load-bearing number is
+    P(C3 <= 776) = 12.1288% over the exact-uniform C1&C2&C4&C5 sample, and it is what
+    refutes the withdrawn "3.9th percentile" figure. That number came out of ONE pipeline:
+    solve.py --encode-solutions -> solve.py --compute-stats -> parquet. A single pipeline
+    agreeing with itself is not a check.
+
+    So recompute c3_total from the ENCODED RECORDS using this file's own c3_of_ordering,
+    which reaches C3 by a completely different route: the machine-checked identity
+    C3 = 16 + 8*G over the 12 complement-couples' slot gaps (lean/C3Decomposition.lean),
+    reading the SLOT MAP only -- no transition walk, no path, no orientation. solve.py's
+    compute-stats walks the ordering. Same quantity, disjoint derivations.
+
+    EVERY record is checked, not a subsample -- this project does not subsample, and at 12
+    subtractions per ordering the full 1e6 is seconds.
+
+    SCOPE, stated so this is not over-claimed: verify.py is an INDEPENDENT IMPLEMENTATION
+    (it imports nothing from solve.py) but it is still PYTHON. This discharges the
+    implementation-independence half of T5's cross-check gate, NOT the two-LANGUAGE half.
+    A C-side per-record observable export does not exist and would be new solve.c surface.
+
+    Emits T5_C3_AGREE=PASS/FAIL.
+    """
+    import glob, struct
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    with open(sol_bin, 'rb') as f:
+        hdr = f.read(32)
+        if hdr[:4] != b'ROAE':
+            print('T5_C3_AGREE=FAIL bad magic in %s' % sol_bin); return 1
+        ver, = struct.unpack('<I', hdr[4:8])
+        count, = struct.unpack('<Q', hdr[8:16])
+        print('[t5-c3] %s: version=%d records=%d' % (sol_bin, ver, count))
+
+        files = sorted(glob.glob('%s/chunk_*.parquet' % chunks_dir))
+        if not files:
+            print('T5_C3_AGREE=FAIL no chunk_*.parquet in %s' % chunks_dir); return 1
+        seen = mism = 0
+        first = []
+        for fp in files:
+            want = pq.read_table(fp).column('c3_total').to_numpy()
+            blob = f.read(32 * len(want))
+            if len(blob) != 32 * len(want):
+                print('T5_C3_AGREE=FAIL short read: records exhausted before parquet rows'); return 1
+            for j in range(len(want)):
+                rec = blob[32 * j:32 * j + 32]
+                got = c3_of_ordering([b >> 2 for b in rec])
+                if got != int(want[j]):
+                    mism += 1
+                    if len(first) < 5:
+                        first.append((seen, int(want[j]), got))
+                seen += 1
+        # the record stream and the parquet rows must be the SAME length, or the comparison
+        # silently checked a prefix and called it agreement
+        leftover = f.read(32)
+    if seen != count or leftover:
+        print('T5_C3_AGREE=FAIL length mismatch: parquet rows=%d header count=%d trailing=%d'
+              % (seen, count, len(leftover)))
+        return 1
+    for idx, w, g in first:
+        print('  MISMATCH rec %d: parquet=%d verify.py=%d' % (idx, w, g))
+    print('[t5-c3] compared %d records, mismatches %d' % (seen, mism))
+    if mism == 0:
+        print('T5_C3_AGREE=PASS')
+        return 0
+    print('T5_C3_AGREE=FAIL')
+    return 1
+
+
 def _fiber_dp():
     """Forward/backward transfer DP over King Wen's OWN pair sequence, varying only
     the 32 within-pair orientations.
@@ -4394,6 +4467,11 @@ def main():
                              'sortedness check compares against the predecessor WITHIN the range '
                              'read, so a sharded run cannot see a violation across a shard seam; '
                              'overlap shards by one record, or run offset 0 to EOF.')
+    parser.add_argument('--check-t5-c3', nargs=2, metavar=('SOLUTIONS_BIN', 'CHUNKS_DIR'),
+                        help='Independently recompute c3_total for every record of the T5 '
+                             'mega-sample via C3 = 16 + 8*G (slot map only) and compare against '
+                             'the parquet the solve.py pipeline produced. Implementation-'
+                             'independent, NOT language-independent. Emits T5_C3_AGREE=PASS/FAIL.')
     parser.add_argument('--check-null-g', action='store_true',
                         help='Compute the exact G-distribution under the C1&C4 null (12 couples + 7 '
                              'self-pairs into 31 slots) and gate it against total == 31!, support '
@@ -4478,6 +4556,8 @@ def main():
     if args.g_structure is not None:
         sys.exit(g_structure(args.g_structure[0], args.g_structure[1]))
 
+    if args.check_t5_c3:
+        sys.exit(check_t5_c3(args.check_t5_c3[0], args.check_t5_c3[1]))
     if args.check_null_g:
         sys.exit(check_null_g(unpinned=args.unpinned))
     if args.unpinned:
