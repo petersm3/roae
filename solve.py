@@ -11487,6 +11487,138 @@ def symmetry_completeness():
     return 0 if fails == 0 else 1
 
 
+def t3_encode_solutions(out_bin, input_paths):
+    """Handler for --encode-solutions: text `record` lines -> solutions.bin v1.
+
+    Input: T3 mega-sample stream files (plain text or .gz). Only lines whose
+    first tab-separated field is exactly `record` are consumed; their third
+    field is a comma-separated full 64-hexagram ordering. Draw/rank lines and
+    `#provenance` trailers are skipped.
+
+    Output: an UNCOMPRESSED v1 solutions.bin (32-byte ROAE header + N x 32-byte
+    records) per documentation/SOLUTIONS_FORMAT.md, readable by
+    p2_compute_stats. Record byte i = (pair_index << 2) | (orient << 1) with
+    bit 0 always 0; pair_index indexes the KW-consecutive pair table
+    (KW[2i], KW[2i+1]) -- the SAME table as verify.py's PAIRS and this file's
+    _p2_kw_arrays(), and deliberately NOT build_pairs()'s value-ascending
+    table, which is a different indexing.
+
+    ROUND-TRIP GATE (mandatory): after writing, the file's header is parsed
+    with verify.py's parse_header and EVERY record is decoded with verify.py's
+    own decode(); the recovered 64-hexagram ordering must equal the input line
+    exactly. Emits `ENCODE_ROUNDTRIP=PASS` or `ENCODE_ROUNDTRIP=FAIL` on its
+    own line (grep -qx matchable) and returns non-zero on any failure.
+    """
+    import gzip
+    import os
+    import struct
+    import sys
+
+    _, pairs_a, pairs_b = _p2_kw_arrays()
+    pair_code = {}
+    for idx in range(32):
+        a, b = int(pairs_a[idx]), int(pairs_b[idx])
+        pair_code[(a, b)] = (idx << 2)        # orient 0: (a, b) as in KW
+        pair_code[(b, a)] = (idx << 2) | 2    # orient 1: swapped
+
+    def record_lines(path):
+        opener = gzip.open if path.endswith(".gz") else open
+        with opener(path, "rt") as fh:
+            for lineno, line in enumerate(fh, 1):
+                fields = line.rstrip("\n").split("\t")
+                if fields[0] != "record":
+                    continue
+                if len(fields) != 3:
+                    raise ValueError("%s:%d: record line has %d tab fields, expected 3"
+                                     % (path, lineno, len(fields)))
+                try:
+                    seq = [int(t) for t in fields[2].split(",")]
+                except ValueError:
+                    raise ValueError("%s:%d: non-integer token in ordering" % (path, lineno))
+                # T3 stream `record` lines omit the C4-forced slot-0 start:
+                # pair 0 = (63, 0), orientation fixed (verify.py check_c1_c5
+                # requires seq[0]==63, seq[1]==0; "slot 0 forced" in
+                # lean/RecordConvention.lean). A 62-value line is the 62
+                # remaining positions; prepend the forced start. A 64-value
+                # line must carry it explicitly.
+                if len(seq) == 62:
+                    seq = [63, 0] + seq
+                elif len(seq) == 64:
+                    if seq[0] != 63 or seq[1] != 0:
+                        raise ValueError("%s:%d: 64-value ordering does not start 63,0"
+                                         % (path, lineno))
+                else:
+                    raise ValueError("%s:%d: ordering has %d values, expected 62 or 64"
+                                     % (path, lineno, len(seq)))
+                if sorted(seq) != list(range(64)):
+                    raise ValueError("%s:%d: ordering is not a permutation of 0..63"
+                                     % (path, lineno))
+                yield path, lineno, seq
+
+    try:
+        # ---- pass 1: encode ----
+        n_records = 0
+        with open(out_bin, "wb") as out:
+            out.write(b"ROAE" + struct.pack("<I", 1)
+                      + struct.pack("<Q", 0) + b"\x00" * 16)
+            for path in input_paths:
+                for src, lineno, seq in record_lines(path):
+                    rec = bytearray(32)
+                    slots_used = set()
+                    for i in range(32):
+                        code = pair_code.get((seq[2 * i], seq[2 * i + 1]))
+                        if code is None:
+                            raise ValueError("%s:%d: slot %d: (%d,%d) is not a canonical pair"
+                                             % (src, lineno, i, seq[2 * i], seq[2 * i + 1]))
+                        pidx = code >> 2
+                        if pidx in slots_used:
+                            raise ValueError("%s:%d: pair index %d appears twice"
+                                             % (src, lineno, pidx))
+                        slots_used.add(pidx)
+                        rec[i] = code
+                    out.write(rec)
+                    n_records += 1
+            out.seek(8)
+            out.write(struct.pack("<Q", n_records))
+
+        # ---- pass 2: round-trip gate via verify.py's OWN reader ----
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) or ".")
+        import verify as _verify
+        mismatches = 0
+        checked = 0
+        with open(out_bin, "rb") as f:
+            declared = _verify.parse_header(f.read(_verify.SOL_HEADER_SIZE))
+            if declared != n_records:
+                raise ValueError("header record_count %d != records written %d"
+                                 % (declared, n_records))
+            for path in input_paths:
+                for src, lineno, seq in record_lines(path):
+                    rec = f.read(32)
+                    if len(rec) < 32:
+                        raise ValueError("binary ended early at input %s:%d" % (src, lineno))
+                    dec_seq, _pairs_used, _key0 = _verify.decode(rec)
+                    if dec_seq != seq:
+                        mismatches += 1
+                        if mismatches <= 5:
+                            print("[encode-solutions] MISMATCH %s:%d\n  input:   %r\n  decoded: %r"
+                                  % (src, lineno, seq, dec_seq))
+                    checked += 1
+            if f.read(1):
+                raise ValueError("binary has trailing bytes beyond %d records" % n_records)
+    except (ValueError, OSError) as e:
+        print("[encode-solutions] ERROR: %s" % e)
+        print("ENCODE_ROUNDTRIP=FAIL")
+        return 2
+
+    print("[encode-solutions] out=%s records=%d header_count=%d roundtrip_checked=%d mismatches=%d"
+          % (out_bin, n_records, declared, checked, mismatches))
+    if mismatches or checked != n_records or n_records == 0:
+        print("ENCODE_ROUNDTRIP=FAIL")
+        return 2
+    print("ENCODE_ROUNDTRIP=PASS")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -11537,6 +11669,12 @@ def main():
                         help="Reconstruct King Wen step by step, verifying uniqueness at each step")
     parser.add_argument("--null-debruijn", action="store_true",
                         help="Null-model comparison: test C1-C3 against sampled de Bruijn B(2,6) permutations (addresses CRITIQUE.md structured-permutation gap)")
+    parser.add_argument("--encode-solutions", nargs="+", metavar="PATH",
+                        help="Encode text `record` lines into a v1 solutions.bin: "
+                             "first PATH is the OUTPUT .bin, remaining PATHs are input "
+                             "T3 stream files (.out or .out.gz). Round-trips every "
+                             "record through verify.py's decoder and emits "
+                             "ENCODE_ROUNDTRIP=PASS/FAIL. See t3_encode_solutions().")
     parser.add_argument("--compute-stats", nargs=2, metavar=("SOLUTIONS_BIN", "OUT_DIR"),
                         help="P2: Stream solutions.bin and emit per-chunk parquet files of observable stats")
     parser.add_argument("--marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
@@ -11869,6 +12007,12 @@ def main():
                           dump_dir=args.keystone_dump_dir,
                           dump_limit=args.keystone_dump_limit)
         return
+
+    if args.encode_solutions:
+        if len(args.encode_solutions) < 2:
+            parser.error("--encode-solutions needs OUT_BIN plus at least one input file")
+        sys.exit(t3_encode_solutions(args.encode_solutions[0],
+                                     args.encode_solutions[1:]))
 
     if args.compute_stats:
         p2_compute_stats(args.compute_stats[0], args.compute_stats[1],
