@@ -138,6 +138,17 @@ points (`--compute-stats`, `--marginals`, `--bivariate`,
 [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md). The refined
 **v2** analyses and the pipeline modifiers below have no other CLI home:
 
+**Stage 0 — `--encode-solutions OUT_BIN IN [IN ...]`.** The P2 entry points read a
+`solutions.bin`; an exact-uniform *sample* arrives as text. This encodes the sample's
+`record` lines into that binary (32-byte `ROAE` header; 32-byte records,
+`byte[i] = (pair_index << 2) | (orient << 1)`, KW-consecutive pair table). A
+**mandatory round-trip gate** re-reads the output with `verify.py`'s own decoder and
+requires exact equality on every record, printing `ENCODE_ROUNDTRIP=PASS` or `=FAIL`
+(match with `grep -qx`); any mismatch exits non-zero. ⚠ Sample `record` lines carry
+**62** hexagrams — the C4-forced slot-0 pair `(63, 0)` is implicit and is prepended.
+⚠ Downstream `--marginals` bins are scoped to the **enumerated** population; a sample
+drawn without C3 will legitimately fall outside them.
+
 ### Refined (v2) analyses
 
 | Flag | Description |
@@ -155,6 +166,7 @@ points (`--compute-stats`, `--marginals`, `--bivariate`,
 | Flag | Default | Applies to | Effect |
 |---|---|---|---|
 | `--compute-stats-workers N` | `cpu_count()` | `--compute-stats` | Worker-process count for the parquet stat pass. |
+| `--encode-solutions OUT IN...` | — | (stage 0) | Encode `record`-tagged sample lines (plain or `.gz`) into a `solutions.bin` the P2 pipeline can read. Feeds `--compute-stats` from a sampled population rather than an enumerated one. Emits `ENCODE_ROUNDTRIP=PASS`/`FAIL`. |
 | `--compute-stats-chunk-size N` | 1,000,000 | `--compute-stats` | Records per parquet chunk. |
 | `--compute-stats-max-records N` | (all) | `--compute-stats` | Cap total records processed (testing). |
 | `--joint-density-samples-per-chunk N` | 30 | `--joint-density*`, `--stratified-*`, `--joint-permutation-test` | Samples drawn per chunk. |
