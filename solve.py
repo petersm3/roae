@@ -4256,6 +4256,148 @@ def p2_marginals(chunks_dir, out_md):
     print(f"[marginals] wrote {out_md}", flush=True)
 
 
+# ---- T5 uniform-scoped marginals -------------------------------------------
+# WHY THIS IS A SEPARATE FUNCTION AND NOT A FLAG ON p2_marginals.
+# `_P2_INT_COLS` carries FIXED bin ranges taken from the C1-C5 ENUMERATED canonical
+# (C3 satisfied). The T5 mega-sample is drawn exact-uniform from C1 & C2 & C4 & C5
+# WITHOUT C3 -- the knowledge compiler's native population -- so it legitimately holds
+# values outside those ranges (measured: c3_total spans 352..1648 against declared
+# 424..776). Running p2_marginals over it throws, because `np.bincount(arr - lo)` sees
+# a negative index.
+#
+# The fix is NOT to widen `_P2_INT_COLS`. Those constants define what every already
+# published marginal MEANS; widening them would silently re-scope tables nobody
+# re-ran. So the uniform population gets its own summariser with bins derived from
+# the data, and the enumerated ranges are carried alongside as a DECLARED column so
+# the scope gap is visible in the output instead of hidden by it.
+#
+# Exactness: two passes over every chunk, no sampling, no subsetting (the project
+# does not subsample). Memory: one chunk at a time, never concatenated -- peak is
+# ~50k rows x 10 cols, which is why this is safe on the 2-core orchestrator where an
+# all-rows-at-once pass previously OOM'd.
+
+_T5_INT_COLS = ["edit_dist_kw", "c3_total", "c6_c7_count", "position_2_pair",
+                "max_transition_hamming", "fft_dominant_freq",
+                "shift_conformant_count", "first_position_deviation"]
+_T5_FLOAT_COLS = ["mean_transition_hamming", "fft_peak_amplitude"]
+
+
+def _t5_kw_and_declared():
+    """KW reference values + declared enumerated ranges, sourced from the existing
+    tables rather than re-typed, so the two scopes cannot drift apart."""
+    kw, declared = {}, {}
+    for name, lo, hi, kwv in _P2_INT_COLS:
+        kw[name] = kwv
+        declared[name] = (lo, hi)
+    for name, lo, hi, kwv in _P2_FLOAT_COLS:
+        kw[name] = kwv
+        declared[name] = (lo, hi)
+    kw["position_2_pair"] = 1          # matches p2_marginals' own KW marker
+    return kw, declared
+
+
+def t5_uniform_marginals(chunks_dir, out_md):
+    """Handler for --uniform-marginals."""
+    import glob
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    if not files:
+        print(f"UNIFORM_MARGINALS=FAIL no chunk_*.parquet in {chunks_dir}", flush=True)
+        return 1
+    kw, declared = _t5_kw_and_declared()
+    print(f"[uniform-marginals] {len(files)} chunks in {chunks_dir}", flush=True)
+
+    # ---- pass 1: observed support + moments (no bins assumed) ----
+    lo = {n: None for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    hi = {n: None for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    ssum = {n: 0.0 for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    ssq = {n: 0.0 for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    total = 0
+    for f in files:
+        t = pq.read_table(f)
+        total += t.num_rows
+        for n in _T5_INT_COLS + _T5_FLOAT_COLS:
+            a = t.column(n).to_numpy().astype(np.float64)
+            amin, amax = float(a.min()), float(a.max())
+            lo[n] = amin if lo[n] is None else min(lo[n], amin)
+            hi[n] = amax if hi[n] is None else max(hi[n], amax)
+            ssum[n] += float(a.sum())
+            ssq[n] += float((a ** 2).sum())
+    print(f"[uniform-marginals] pass 1: {total:,} rows, support measured", flush=True)
+
+    # ---- pass 2: histograms on the OBSERVED support ----
+    NF = 10000
+    ihist = {n: np.zeros(int(hi[n] - lo[n]) + 1, dtype=np.int64) for n in _T5_INT_COLS}
+    fhist = {n: np.zeros(NF, dtype=np.int64) for n in _T5_FLOAT_COLS}
+    for f in files:
+        t = pq.read_table(f)
+        for n in _T5_INT_COLS:
+            a = t.column(n).to_numpy().astype(np.int64) - int(lo[n])
+            ihist[n] += np.bincount(a, minlength=ihist[n].size)[:ihist[n].size]
+        for n in _T5_FLOAT_COLS:
+            a = t.column(n).to_numpy().astype(np.float64)
+            span = (hi[n] - lo[n]) or 1.0
+            b = np.clip(((a - lo[n]) / span * (NF - 1)).astype(np.int32), 0, NF - 1)
+            fhist[n] += np.bincount(b, minlength=NF)[:NF]
+
+    # ---- coverage gate: every row must land in exactly one bin, per column ----
+    bad = [n for n in _T5_INT_COLS if int(ihist[n].sum()) != total]
+    bad += [n for n in _T5_FLOAT_COLS if int(fhist[n].sum()) != total]
+
+    L = []
+    L.append("# T5 uniform-scoped marginals\n\n")
+    L.append(f"**Population:** exact-uniform draws from **C1 & C2 & C4 & C5 (NO C3)** — the "
+             f"knowledge compiler's native population.\n\n")
+    L.append(f"**Rows:** {total:,} (exact; no sampling)\n\n")
+    L.append("Bins are derived from the observed data. The **Declared** column is the "
+             "`_P2_INT_COLS` / `_P2_FLOAT_COLS` range used by `--marginals`, which is scoped to "
+             "the **C1–C5 enumerated** set (C3 satisfied). Where Observed exceeds Declared, the "
+             "enumerated bins cannot represent this population — that gap is the finding, and "
+             "the declared ranges were deliberately NOT widened to close it.\n\n")
+    L.append("| Dim | Observed | Declared (enumerated) | Outside declared | Mean | Std | KW | KW %-ile |\n")
+    L.append("|---|---|---|---|---|---|---|---|\n")
+    for n in _T5_INT_COLS:
+        h = ihist[n]
+        vals = np.arange(int(lo[n]), int(hi[n]) + 1, dtype=np.int64)
+        pct, n_less, n_eq = _p2_percentile_from_hist(h, vals, kw[n], total)
+        dlo, dhi = declared.get(n, (None, None))
+        if dlo is None:
+            dcell, outside = "n/a", "n/a"
+        else:
+            m = (vals < dlo) | (vals > dhi)
+            noc = int(h[m].sum())
+            dcell = f"{dlo:g} … {dhi:g}"
+            outside = f"**{noc:,}** ({100.0*noc/total:.3f}%)" if noc else "0"
+        mean = ssum[n] / total
+        var = ssq[n] / total - mean ** 2
+        L.append(f"| `{n}` | {int(lo[n])} … {int(hi[n])} | {dcell} | {outside} | "
+                 f"{mean:.3f} | {(var ** 0.5) if var > 0 else 0.0:.3f} | "
+                 f"**{kw[n]:g}** | **{pct:.4f}%** |\n")
+    for n in _T5_FLOAT_COLS:
+        h = fhist[n]
+        span = (hi[n] - lo[n]) or 1.0
+        kb = int(np.clip((kw[n] - lo[n]) / span * (NF - 1), 0, NF - 1))
+        n_less, n_at = int(h[:kb].sum()), int(h[kb])
+        pct = (n_less + n_at / 2.0) / total * 100
+        dlo, dhi = declared[n]
+        L.append(f"| `{n}` | {lo[n]:.4f} … {hi[n]:.4f} | {dlo:g} … {dhi:g} | "
+                 f"{'0' if lo[n] >= dlo and hi[n] <= dhi else '**support exceeds declared**'} | "
+                 f"{ssum[n]/total:.4f} | "
+                 f"{max(ssq[n]/total - (ssum[n]/total) ** 2, 0.0) ** 0.5:.4f} | "
+                 f"**~{kw[n]:g}** | **~{pct:.4f}%** |\n")
+    verdict = "UNIFORM_MARGINALS=PASS" if not bad else "UNIFORM_MARGINALS=FAIL"
+    L.append(f"\n**Coverage gate** (per column, histogram counts == row count): `{verdict}`")
+    L.append("" if not bad else f" — mismatched: {', '.join(bad)}")
+    L.append("\n")
+    with open(out_md, "w") as fh:
+        fh.writelines(L)
+    print(f"[uniform-marginals] wrote {out_md}", flush=True)
+    print(verdict, flush=True)
+    return 0 if not bad else 1
+
+
 _P2_BIVARIATE_PAIRS = [
     ("edit_dist_kw", "c3_total"),
     ("c3_total", "shift_conformant_count"),
@@ -11679,6 +11821,11 @@ def main():
                         help="P2: Stream solutions.bin and emit per-chunk parquet files of observable stats")
     parser.add_argument("--marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
                         help="P2: Per-dimension marginal percentiles with KW's position marked")
+    parser.add_argument("--uniform-marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
+                        help="T5: marginals for an exact-uniform C1&C2&C4&C5 (NO C3) sample. "
+                             "Bins are derived from the data, not from --marginals' "
+                             "enumerated-scope _P2_INT_COLS ranges, which cannot represent this "
+                             "population. Emits UNIFORM_MARGINALS=PASS/FAIL.")
     parser.add_argument("--bivariate", nargs=2, metavar=("CHUNKS_DIR", "OUT_DIR"),
                         help="P2: Hexbin heatmaps for 5 observable pairs with KW marked")
     parser.add_argument("--joint-density", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
@@ -12022,6 +12169,9 @@ def main():
         return
     if args.marginals:
         p2_marginals(args.marginals[0], args.marginals[1])
+        return
+    if args.uniform_marginals:
+        t5_uniform_marginals(args.uniform_marginals[0], args.uniform_marginals[1])
         return
     if args.bivariate:
         p2_bivariate(args.bivariate[0], args.bivariate[1])

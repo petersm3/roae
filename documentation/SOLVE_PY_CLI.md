@@ -147,7 +147,9 @@ requires exact equality on every record, printing `ENCODE_ROUNDTRIP=PASS` or `=F
 (match with `grep -qx`); any mismatch exits non-zero. ⚠ Sample `record` lines carry
 **62** hexagrams — the C4-forced slot-0 pair `(63, 0)` is implicit and is prepended.
 ⚠ Downstream `--marginals` bins are scoped to the **enumerated** population; a sample
-drawn without C3 will legitimately fall outside them.
+drawn without C3 will legitimately fall outside them. Use `--uniform-marginals` for such a
+sample — measured on the 10⁶-draw T5 mega-sample, **87.9%** of rows fall outside the
+declared `c3_total` bins, so this is the normal case at that scope, not an edge.
 
 ### Refined (v2) analyses
 
@@ -370,6 +372,7 @@ discovery — follow the link for the authoritative description:
 | `--compare-depth-profile RUN_A_LOG RUN_B_LOG` | Tree-walk validator (#48): compare `DEPTH_PROFILE` node counts from two run logs; PASS if divergence < `--compare-depth-profile-threshold` (default 0.005). | [SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only](SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only) |
 | `--compute-stats SOLUTIONS_BIN OUT_DIR` | P2 stage 1: stream `solutions.bin`, emit per-chunk parquet stats. | [SOLVE_C_CLI.md#--compute-stats-solvepy-only](SOLVE_C_CLI.md#--compute-stats-solvepy-only) |
 | `--marginals CHUNKS_DIR OUT_MD` | P2 stage 2: per-dimension marginal percentiles with KW marked. | [SOLVE_C_CLI.md#--marginals-solvepy-only](SOLVE_C_CLI.md#--marginals-solvepy-only) |
+| `--uniform-marginals CHUNKS_DIR OUT_MD` | Marginals for an exact-uniform **C1∩C2∩C4∩C5 (no C3)** sample — the knowledge compiler's native population. Bins are derived from the observed data instead of `--marginals`' enumerated-scope `_P2_INT_COLS` ranges, which cannot represent it; the declared ranges are carried alongside as a column so the scope gap is visible. Two exact passes, chunk-wise, no sampling. Emits `UNIFORM_MARGINALS=PASS`/`=FAIL` (per-column coverage gate: histogram counts == row count); match with `grep -qx`. | — |
 | `--bivariate CHUNKS_DIR OUT_DIR` | P2 stage 2: hexbin heatmaps for 5 observable pairs with KW marked. | [SOLVE_C_CLI.md#--bivariate-solvepy-only](SOLVE_C_CLI.md#--bivariate-solvepy-only) |
 | `--joint-density CHUNKS_DIR OUT_MD` | P2 stage 3: KDE joint density over the 7 informative dims + bootstrap CI on KW's percentile. | [SOLVE_C_CLI.md#--joint-density-solvepy-only](SOLVE_C_CLI.md#--joint-density-solvepy-only) |
 
