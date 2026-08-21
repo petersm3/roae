@@ -150,6 +150,38 @@ else
       echo "pre-push: ${rref:-?} — deletion, nothing is published, no gates to run"
       continue
     fi
+    # ---- (1) PEEL ANNOTATED TAGS -------------------------------------------
+    # For an annotated tag git hands us the TAG OBJECT sha, and a tag object has
+    # no tree. Every file-based gate below then reports "has no scripts/..." and
+    # BLOCKS the push. That made the standing tag-before-branch-delete rule
+    # impossible to execute — found 2026-08-21 pushing v4-2a-engine-ed8125c,
+    # where the compile gate PASSED (anchor 403f7202 reproduced) yet the push
+    # was refused. Peel to the underlying commit and gate that instead.
+    _peeled=$(git rev-parse -q --verify "${lsha}^{commit}" 2>/dev/null || true)
+    if [ -z "$_peeled" ]; then
+      echo "pre-push: ${rref:-?} — $lsha is not commit-ish (no tree to gate); skipping"
+      continue
+    fi
+    if [ "$_peeled" != "$lsha" ]; then
+      echo "pre-push: ${rref:-?} — annotated tag peeled to commit ${_peeled:0:12}"
+      lsha=$_peeled
+    fi
+    # ---- (2) SKIP WHAT IS ALREADY PUBLISHED --------------------------------
+    # A ref pointing at a commit already reachable on origin publishes NO new
+    # tree, so there is nothing to gate. This is not a loophole: to be reachable
+    # on origin a commit had to clear this gate when it was first pushed — or it
+    # predates the gate entirely, in which case the requirement is unsatisfiable
+    # by construction (ed8125c5 has no scripts/doc_gates.sh because that script
+    # did not yet exist). Without this clause the hook retroactively re-gates
+    # published history and can never pass.
+    _pub=""
+    for _r in $(git for-each-ref --format='%(refname)' refs/remotes/origin/ 2>/dev/null); do
+      if git merge-base --is-ancestor "$lsha" "$_r" 2>/dev/null; then _pub=$_r; break; fi
+    done
+    if [ -n "$_pub" ]; then
+      echo "pre-push: ${rref:-?} — ${lsha:0:12} already published (reachable from ${_pub#refs/remotes/}); no new tree, no gates to run"
+      continue
+    fi
     case " $SHAS " in
       *" $lsha "*) ;;                       # same sha via another ref: gate once
       *) SHAS="$SHAS $lsha" ;;
