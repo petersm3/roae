@@ -418,7 +418,11 @@ is resolved — see the defects section above.)
 ---
 *`verify.py` is stdlib-only and imports no project code — run `python3 verify.py
 --recount` to regenerate the match table. `verify.c` builds with `cc -O2 -o
-verify verify.c -lz -lpthread` and reads a run's `run.out`. Developed with AI assistance
+verify verify.c -lz -lpthread -lm` and reads a run's `run.out`. (⚠ `-lm` corrected
+2026-08-21: the line previously omitted it and **failed to link** — `kn_ci` calls `sqrtl`, so
+`cc` reports `undefined reference to 'sqrtl'`. Found by a cold external-reviewer pass and
+reproduced here; the asymmetry with solve.c's own documented `-lm` build line had been sitting
+in the text.) Developed with AI assistance
 (Claude, Anthropic).*
 
 **Provenance of the C5-ladder rows (2026-07-21):** the C5 ladder entries below are backed by an actual

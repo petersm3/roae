@@ -75,7 +75,8 @@ orbit-quotient), not by disagreement.
 *All three exact full-scale quantities — \|C1∩C2∩C4\| (via `--ie-no-budget`), the C5-layer count
 \|C1∩C2∩C4∩C5\|, and its orbit count — are **two-instrument** as of 2026-07-25: independently
 recomputed at full scale by `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`;
-build: `cc -O2 -o verify verify.c -lz -lpthread` — see [VERIFY.md](../documentation/VERIFY.md)
+build: `cc -O2 -o verify verify.c -lz -lpthread -lm` — see [VERIFY.md](../documentation/VERIFY.md)
+(⚠ `-lm` corrected 2026-08-21; without it the link fails on `sqrtl`)
 — a different algorithm class sharing no code or machinery with `solve.c`; exact MATCH, mod-24
 verified), additionally corroborated by the mod-24 gate and the 4/4 out-of-core ladder +
 identical cross-mode layer content (byte-identical in the v1-format validation runs; under
