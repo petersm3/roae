@@ -18054,7 +18054,7 @@ int main(int argc, char *argv[]) {
          * SOLVE_THREADS overrides parallelism (default nproc). Sha-neutral; exits 0. */
         if (argc < 3) {
             fprintf(stderr, "usage: solve --estimate-knuth <N_probes> "
-                            "[<p1> <o1> [<p2> <o2> [<p3> <o3>]]]\n");
+                            "[<p1> <o1> [<p2> <o2> ... up to <p28> <o28>]]\n");
             return 1;
         }
         init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);

@@ -279,7 +279,7 @@ caught against the recipe table.
 ### --estimate-knuth
 
 ```
-solve --estimate-knuth <N_probes> [<p1> <o1> [<p2> <o2> [<p3> <o3>]]]
+solve --estimate-knuth <N_probes> [<p1> <o1> [<p2> <o2> ... up to <p28> <o28>]]
 ```
 
 Knuth (1975) random-probe estimator (#195, exploration) for the **un-budgeted**
@@ -294,7 +294,7 @@ relative error, and hit-rate for each. `SOLVE_THREADS` sets parallelism (default
 `nproc`); each thread uses an independent xorshift seed.
 
 - No prefix → the whole C1–C5 tree (all 56 first-level branches).
-- A `<p> <o>` prefix (up to 3 levels, e.g. `22 0 30 1 20 0`) scopes the estimate
+- A `<p> <o>` prefix (up to **28** levels, e.g. `22 0 30 1 20 0`) scopes the estimate
   to one branch / sub-branch.
 - `N_probes = 0` → **exact deterministic** subtree count instead of estimation
   (only tractable for a deep prefix; used to validate the estimator against
