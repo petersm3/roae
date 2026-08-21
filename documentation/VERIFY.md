@@ -464,10 +464,25 @@ tree; see the box immediately below** — and that pass has not been run on it. 
 expected to fail on its *input*; running it on a raw merge is a category error,
 not a finding.
 
-> **⚠ NOT AVAILABLE IN THIS TREE.** `--kc-repr-normalize`, `orb_normalize_rec_op`, `orb_repr_global`
-> and `orb_recanon` do **not** exist in `main`'s `solve.c` — zero occurrences. They live on an
-> **unlanded** v4 branch that `BRANCH_REGISTRY.tsv` marks *snapshot — do not cite*. A reader of
-> `main` cannot run this pass. Relatedly, the `--check-repr` row's quotation *"there is NO separate
+> **⚠ NOT AVAILABLE IN THIS TREE — and the two cases are NOT the same.** None of
+> `--kc-repr-normalize`, `orb_normalize_rec_op`, `orb_repr_global` or `orb_recanon` exists in
+> `main`'s `solve.c` (zero occurrences), but where they *do* live differs, and an earlier version of
+> this box wrongly implied all four were fetchable from one registry-listed branch:
+>
+> * `orb_normalize_rec_op`, `orb_repr_global`, `orb_recanon` — on **`orbit-port-188-candidate`**,
+>   which IS pushed to origin and which [BRANCH_REGISTRY.tsv](BRANCH_REGISTRY.tsv) classes
+>   *snapshot — do not cite*. A reader can fetch and inspect these, but must not cite them.
+> * **`--kc-repr-normalize` and the forward-checked prunes (`SOLVE_REPR_FC`) — on NO PUBLISHED REF
+>   AT ALL** (verified 2026-08-21: zero occurrences on `main`, `v4-compiler`, `v4-canonical`,
+>   `stageg-telemetry` and `orbit-port-188-candidate`). They exist only on an unpushed local branch.
+>   A reader **cannot obtain them by any means**, so nothing in this repository should be read as
+>   offering them.
+>
+> ⚠ Consequently [`lean/PruneReprFC.lean`](../lean/PruneReprFC.lean) is a **freestanding model-level
+> result**: its §1/§3 statements and the §5 counterexample stand on their own, but the declared
+> bridge to the shipped binary (prose comment + code review + runtime gates) rests on material that
+> is **not published**, so a reader cannot perform any leg of it. Read the theorem as about the
+> model, never as evidence about a binary you can run. A reader of `main` cannot run this pass. Relatedly, the `--check-repr` row's quotation *"there is NO separate
 > repr oracle in this tree"* is that branch's **runtime output**, not text in `main`'s `solve.c`, and
 > must not be read as quoting this repository.
 
