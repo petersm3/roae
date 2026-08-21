@@ -164,6 +164,7 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
 - σ(KW) validity over all 720 bit permutations + orbit counts: runnable ~15-line python snippet
   published in documentation/SYMMETRY_SEARCH.md §Reproducibility (<1 s; prints
   `48 of 720 valid -> 24 distinct canonical records (KW + 23 twins)`)
+⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command below.** Under the default 8 MB stack these commands abort with SIGSEGV before producing output: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB, so the 8 MB limit is exceeded the moment the estimator is entered. This is environmental, not a logic fault — with the limit raised the published figures reproduce. *(Added 2026-08-21: found by a cold external-reviewer pass and independently reproduced; the requirement had been documented only in CANONICAL_HASHES.md's large-scale-enumeration recipe, while these guides state the estimator needs no data disk and costs pennies.)*
 - Exact tree-isomorphism check (identical 9,422,793 / 16,504 for σ-related prefixes):
   `./solve --estimate-knuth 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0 13 0 14 0 15 0 16 0 17 0 18 0 19 0 20 0 21 0 22 0` vs
   `./solve --estimate-knuth 0 22 1 28 0 3 1 21 1 26 0 6 1 11 0 5 0 19 0 27 0 7 1 16 1 30 1 14 0 20 0 18 1 25 0 24 1 1 1 15 0 4 0 9 0`

@@ -205,6 +205,7 @@ its own right — hexagram-level orbit structure is prior art and is ceded above
 
 ## Reproducibility
 
+⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command below.** Under the default 8 MB stack these commands abort with SIGSEGV before producing output: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB, so the 8 MB limit is exceeded the moment the estimator is entered. This is environmental, not a logic fault — with the limit raised the published figures reproduce. *(Added 2026-08-21: found by a cold external-reviewer pass and independently reproduced; the requirement had been documented only in CANONICAL_HASHES.md's large-scale-enumeration recipe, while these guides state the estimator needs no data disk and costs pennies.)*
 ```bash
 # exact tree-isomorphism check (any sigma in G; prefix = 22 (pair,orient) args after the forced first pair):
 ./solve --estimate-knuth 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0 13 0 14 0 15 0 16 0 17 0 18 0 19 0 20 0 21 0 22 0
