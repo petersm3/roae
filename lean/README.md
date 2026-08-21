@@ -69,9 +69,14 @@ trust-base note below for what that means and how it came to hold). What that bu
   `KingWen.lean`**, so an 8 GB machine cannot verify those two files at all (this is the price of
   their kernel-only trust base, independent of anything else in the tree). Half the files check in
   about a second at under 0.7 GB; the expensive ones are `Automorphism.lean` (~4 min, ~9.6 GB),
-  `KingWen.lean` (~2 min, ~7.9 GB), `C3Decomposition.lean` (~1¼ min, ~4.5 GB, the null-law DP),
-  `PruneGInvariance.lean` (~1½ min, ~3.9 GB), and — since their 2026-08-07 kernel migration —
-  `TrigramTheorems.lean` (~2 min, ~4.4 GB) and `SymmetryCompleteness.lean` (~22 s, ~2.8 GB).
+  `KingWen.lean` (~2 min, ~8.0 GB), `C3Decomposition.lean` (~1¼ min, ~4.7 GB, the null-law DP),
+  `PruneGInvariance.lean` (~1½ min, ~4.1 GB), and — since their 2026-08-07 kernel migration —
+  `TrigramTheorems.lean` (~2 min, ~4.8 GB) and `SymmetryCompleteness.lean` (~23 s, ~2.8 GB).
+  ⚠ **These figures were REVISED UPWARD on 2026-08-21** after a full 13-module re-measurement on a
+  Standard_D128als_v7 (`/usr/bin/time -v`, one module at a time on an otherwise-idle box, same
+  pinned toolchain). The previous table under-stated four rows — `TrigramTheorems` by **8.9%**
+  (4.4 → 4.79), `C3Decomposition` by 4.4%, `PruneGInvariance` by 5.6%, `KingWen` by 1.8%. Sizing a
+  host from the old numbers could OOM. Provision headroom above these, not to them.
   Full measured per-file table and host guidance in §"Verify yourself" below — read it before
   running the suite on a small machine.
 

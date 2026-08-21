@@ -681,6 +681,7 @@ enumerates that space, or proves a ceiling on it.
   obtained]
 
 <a id="lishangxin2002"></a>
+- **Li Shangxin 李尚信** (2000). "Yinyang pingheng hubu yu biantong pei sishi" (陰陽平衡互補與變通配四時). *Zhouyi yanjiu* 周易研究 2000(3) 总45期: 51–60 **+ p.73**. Read in full 2026-08-21 (`FABLE_LI_SHANGXIN_2000_AUDIT_20260820.md`, roae-private). Completes his 1999→2002 arc. ⚠ The 文章编号 suffix `-0051-10` counts only ten pages, so **p.73 — which carries the tail of the appended Q&A and the entire five-item reference list — is easily missed**. His arithmetic (the 当位 parity rule with exactly two exceptions, the A/B 28–20 yang mirror, the 13/25 tripartition) was independently recomputed and holds.
 - **Li Shangxin 李尚信** (2002). "«Xugua» guaxu zhong de «canwu» «cuozong» sixiang"
   〈《序卦》卦序中的「參伍」「錯綜」思想〉 [The "canwu" and "cuozong" conceptions in the *Xugua*
   hexagram order]. *Zhouyi yanjiu* 周易研究 2002(6) [no. 56]: 46–49, 61.
@@ -1025,7 +1026,8 @@ promotion of these rules into the formal constraint system carries these credits
   Yijing," *JCP* 17 (1990), 289–313. Schulz's first motif (balance-value pairing) and third (xiaoxi trisection,
   with Schulz & Cunningham 1988 seasonal hypothesis) are under population test as R-S2/R-S1. The pair
   structure's classical lineage runs to <a id="yufan"></a>**Yu Fan (164–233 AD)** (pangtong/fandui, via Li Dingzuo) and the
-  36-unit consolidation + 18:18 reasoning to <a id="laizhide"></a>**Lai Zhide (1525–1604)**; **Davis, Scott,**
+  36-unit consolidation + 18:18 reasoning to <a id="laizhide"></a>**Lai Zhide (1525–1604)**;
+  ⚠ **CANDIDATE EARLIER CESSION, recorded 2026-08-21, NOT yet applied.** [Shao Yong](#shaoyong) (邵雍, 1011–1077) appears to state the 8+28=36 reversal-figure **count** in 皇極經世 (pp. 335–337 as cited by 謝向榮 2005 pp. 18/20) — some five centuries before Lai Zhide. Evidence is currently **second-hand**: we have 謝's citation, not a first-hand reading of the 觀物外篇 locus. He states a count; he does **not** compose the sequence from it. **Do not move the attribution until the locus is read directly** — but do not let this lapse either: it is the earliest candidate we have found for the 36-unit count. Source: `FABLE_SONG_SWEEP_46_20260820.md` (roae-private). **Davis, Scott,**
   *The Classic of Changes in Cultural Context* (Cambria, 2012) and "Operating the Yijing Apparatus,"
   *The Oracle* 2:7 (1998).
 
