@@ -8,6 +8,20 @@ caveat's instrument half is now closed: on 2026-07-25 `verify.c --ie-count`
 performed the independent full-scale recomputation — exact match. See the
 closing section.)*
 
+## Hardware you need (added 2026-08-21)
+
+| resource | requirement | why |
+|---|---|---|
+| **RAM** | **≥ 12 GB free** for the full `verify_all.sh` suite | the Lean phase peaks at **~9.6 GB** on `Automorphism.lean` and ~7.9 GB on `PruneGInvariance.lean`; **an 8 GB host cannot check those two files.** Per-file measured table in [lean/README.md](../lean/README.md) §"Verify yourself" — half the files check in ~1 s under 0.7 GB |
+| **Stack** | `ulimit -s unlimited` for any `--estimate-knuth` command | `main`'s frame is ~7.23 MB and the estimator adds ~1.02 MB, so an 8 MB default stack is exceeded on entry. The binary now **refuses with an actionable message** instead of segfaulting |
+| **Disk** | ~2 GB scratch | regenerated CNF + decompressed proofs |
+| **CPU** | any | the verification path is not core-hungry and needs no large VM. Large-scale *enumeration* is a different matter — see [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) for the D128 + Premium-SSD envelope and why random-IO isolation matters there |
+
+*These figures existed before, in `lean/README.md` and a mid-file comment in `verify_all.sh`. They
+are restated here because a cold external-reviewer pass on a 4 GB host hit `ERROR 134` on all 13
+Lean files and reported them as unverifiable — the requirement was documented, just not where a
+replicator reads it.*
+
 `verify.py` is a genuinely **independent** second opinion on the ROAE results.
 It is standard-library-only Python, imports **none** of `solve.c` / `solve.py` /
 `roae.py` / `sat.py`, and rebuilds every quantity **clean-room from the published

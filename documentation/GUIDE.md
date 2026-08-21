@@ -40,6 +40,12 @@ python3 roae.py --cast           # Simulate a traditional I Ching reading
 
 For the full command-line reference (all 28 analysis sections, interactive modes, modifiers, and export formats), see [ROAE_PY_CLI.md](ROAE_PY_CLI.md).
 
+**Hardware:** everything above is laptop-scale — stdlib Python, seconds to a couple of minutes, no
+special memory. Two things in this repo are *not*: the full verification suite needs **≥ 12 GB RAM**
+(the Lean kernel checks peak near 9.6 GB — see [VERIFY.md](VERIFY.md) §"Hardware you need"), and
+`solve --estimate-knuth` needs `ulimit -s unlimited`. Large-scale enumeration is a different world
+again — a 128-core VM and a Premium SSD, per [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md).
+
 ### What --cast looks like
 
 The `--cast` flag simulates a traditional [three-coin method](https://en.wikipedia.org/wiki/I_Ching_divination) reading. Three coins are tossed six times to build a hexagram line by line:

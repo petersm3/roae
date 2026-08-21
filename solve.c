@@ -18065,6 +18065,23 @@ int main(int argc, char *argv[]) {
         }
         int nlev = rest / 2, lp[28] = {0}, lo[28] = {0};
         for (int i = 0; i < nlev; i++) { lp[i] = atoi(argv[3+2*i]); lo[i] = atoi(argv[4+2*i]); }
+        /* Stack preflight (2026-08-21). main's frame is ~7.23 MB and estimate_tree_knuth adds
+         * ~1.02 MB, so the common 8 MB default stack is exceeded the moment the estimator is
+         * entered -- previously a bare SIGSEGV after the banner, with no indication of cause.
+         * A cold external-reviewer pass concluded from this that the instrument was broken.
+         * Fail with an actionable message instead. Estimator path only; sha-neutral. */
+        {
+            struct rlimit _rl;
+            if (getrlimit(RLIMIT_STACK, &_rl) == 0 && _rl.rlim_cur != RLIM_INFINITY
+                && _rl.rlim_cur < 16UL * 1024 * 1024) {
+                fprintf(stderr,
+                    "solve: stack limit is %lu MB, but --estimate-knuth needs >= 16 MB\n"
+                    "       (main ~7.2 MB frame + estimator ~1.0 MB frame).\n"
+                    "       Re-run with:  ulimit -s unlimited\n",
+                    (unsigned long)(_rl.rlim_cur / (1024UL * 1024UL)));
+                return 1;
+            }
+        }
         int nthreads = 0; const char *te = getenv("SOLVE_THREADS"); if (te) nthreads = atoi(te);
         if (nthreads <= 0) nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
         if (nthreads < 1) nthreads = 1;

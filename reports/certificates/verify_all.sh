@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 # One-command verification of the ROAE technical-report suite's machine-checkable claims.
-# Requirements: gcc, python3, drat-trim, lean (elan). See reports/METHODS.md for versions.
+# Requirements (SOFTWARE): gcc, python3, drat-trim, lean (elan). See reports/METHODS.md for versions.
+# Requirements (HARDWARE) -- added 2026-08-21, and they are NOT optional:
+#   RAM   : >= 12 GB free. The Lean phase peaks at ~9.6 GB resident on Automorphism.lean and
+#           ~7.9 GB on PruneGInvariance.lean; an 8 GB host CANNOT check those two files
+#           (lean/README.md SS"Verify yourself" carries the measured per-file table).
+#   STACK : ulimit -s unlimited, if you also run --estimate-knuth by hand. main's frame is
+#           ~7.23 MB and the estimator adds ~1.02 MB, so an 8 MB default stack SIGSEGVs.
+#           This script does not invoke the estimator; the binary now refuses with a clear
+#           message rather than segfaulting.
+#   DISK  : ~2 GB scratch. CPU: any; the checks are not core-hungry and do not need a big VM.
+#   These were previously stated only in lean/README.md and in a comment further down this
+#   file. A cold external-reviewer pass on a 4 GB host hit ERROR 134 on all 13 Lean files and
+#   reported them as unverifiable -- the requirement was documented, just not where a
+#   replicator reads it.
 #   NOT required: a SAT solver. This script REPLAYS the archived DRAT proofs against freshly
 #   regenerated CNF, which is the sufficient check and needs only drat-trim. kissat was listed
 #   here until 2026-08-01 and never invoked by any code path — building it from source was
