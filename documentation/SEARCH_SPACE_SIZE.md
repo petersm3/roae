@@ -129,7 +129,8 @@ the remaining ≈105 bits would require roughly 15–20 boundary constraints. A 
 small scope: within the KW-following 22-pair prefix subtree, exact counting finds 16,504 C1–C5 completions
 of which exactly **8** satisfy C6/C7 — KW plus seven others even in its own immediate neighborhood.
 Provenance: estimator extension in solve.c (`SOLVE_KNUTH_C67`), sha-neutral (selftest-gated); run log in
-the private repo (probe on `c207`, 2026-07-02).
+the private repo (probe on `c207`, 2026-07-02 — not publicly accessible; the public verification path is
+re-running the published `SOLVE_KNUTH_C67` command in this repository, which reproduces the count directly).
 
 ## The boundary-information curve S(k) (2026-07-03)
 

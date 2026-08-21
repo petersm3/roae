@@ -11,7 +11,7 @@ is itself a Knuth estimate from the same estimator family (METHODS status **esti
 so agreement with it is not independent establishment. TR-1 v1.21 recorded this file's copy as still
 outstanding; it is corrected here.)* This converts decades of by-inspection claims into measured
 population statistics for the first time. **Attribution:** every rule below is credited to its source (with lineage where it runs deep — the pair
-structure itself is attested to [Yu Fan](CITATIONS.md#yufan), 164–233 AD; the 36-unit consolidation to [Lai Zhide](CITATIONS.md#laizhide), 1525–1604; the
+structure itself is attested to [Yu Fan](CITATIONS.md#yufan), 164–233 AD; the 36-unit consolidation to [Lai Zhide](CITATIONS.md#laizhide), 1525–1604 (a candidate earlier statement of the 36 *count* by Shao Yong, 11th c., is recorded — second-hand, unconfirmed, 2026-08-21 — in CITATIONS.md); the
 gender/position-parity rule measured at ×11,364 in the companion registry originates with **[Schulz 1990](CITATIONS.md#schulz1990-motifs)**
 and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 [CITATIONS.md](CITATIONS.md) §Attributed candidate rules. ROAE's contribution is formalization + measurement.

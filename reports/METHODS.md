@@ -37,7 +37,7 @@ Every report measures the same object. The formal predicates (full statements + 
   theorem vacuous, and broke the very next bullet: C2 is implied by the 63-transition histogram directly, but
   from a boundary-only multiset only via C1's within-pair-evenness theorem. The two are equivalent **given
   C1**; as free-standing predicates they are different constraints.)*
-- **C6, C7 — identifying adjacency pins.** Specific slot-24–27 adjacency choices used only to single out
+- **C6, C7 — identifying adjacency pins.** Specific slot-24–27 (0-based pair slots — pairs 25–28, boundaries 25 and 27, in the 1-based numbering used elsewhere) adjacency choices used only to single out
   King Wen within the C1–C5 family (they cut the space by ×2.55×10⁶ but leave ≈5.21×10³¹ orderings —
   [TR-4](TR4_SIZE_OF_THE_SPACE.md) §4). Not part of the enumerated canonical constraint set; data-like,
   priced ≈0 in [TR-9](TR9_PRICING_THE_CONSTRAINTS.md).

@@ -1,6 +1,12 @@
 # solve.py(1) — King Wen constraint analysis and ground-truth tool
 
 > **CLI references:** this documents **`solve.py`** (analysis + ground truth). See also the [`solve` C binary](SOLVE_C_CLI.md) (enumerator/verifier) · [`roae.py`](ROAE_PY_CLI.md) (descriptive analyses) · [`sat.py`](SAT_CLI.md) (SAT / certificate layer).
+>
+> **Access boundary.** Some entries cite design or pre-registration files in `roae-private`, the
+> project's private staging repository, which is not publicly accessible. Those citations are
+> provenance (what was frozen, and when), not evidence a reader can fetch — a fact whose only cited
+> support is a `roae-private` file is operator-attested. Every subcommand documented here is
+> runnable from this repository as published.
 
 A man-page-style command-line reference for `solve.py`, the Python
 analysis + ground-truth CLI for the King Wen constraint system. Where

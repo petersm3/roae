@@ -6,6 +6,14 @@ For the mathematical rules, see [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md). For formal
 
 This file is the *narrative*: what happened, in order, and why. Its companion [CORRECTIONS.md](CORRECTIONS.md) is the *record*: every claim this project published and later changed, one entry each, with what was claimed before, what is claimed now, how it was found, and the commit. Corrections appear in both — here in the flow of the day they happened, there in a single append-only list that is machine-checked for completeness against [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv).
 
+> **Access boundary.** This narrative cites many files in `roae-private`, the project's private
+> staging repository, which is not publicly accessible. Those citations are provenance pointers —
+> they record where a piece of working evidence was written down and when — not evidence a reader
+> can fetch. A statement whose only cited support is a `roae-private` file is operator-attested: it
+> can be disclosed to an auditor, but it cannot be checked from this repository alone. The claims
+> this project asks a reader to *accept* (canonical shas, record counts, theorems, published
+> findings) carry their public support in the technical documents, not in this narrative.
+
 ## Prelude — Before April 10, 2026
 
 The project began as a mathematical analysis of the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence), built iteratively with [Claude Code](https://claude.ai/code) (Anthropic). What started as exploring a known structural property grew into a comprehensive computational investigation.
@@ -796,7 +804,7 @@ attached. Future re-runs should pull dumps via blob storage or chunked-with-
 verification to avoid the cap.
 
 **Working writeup:** `roae-private/KEYSTONE_FINDING_2026_04_25.md` + raw data at
-`roae-private/keystone_results_20260425T1300Z/` (report + 5 verified dumps).
+`roae-private/results/keystone_results_20260425T1300Z/` (report + 5 verified dumps).
 Implementation: `solve.py:keystone_analysis()` (labeling bug in the dict that
 mapped mask 27/29 → drop label was caught and fixed post-run; counts in the
 report are unaffected because they're computed from `_KEYSTONE_BDRYS_1IDX`
@@ -947,7 +955,7 @@ run was preserved in two places:
   87 × `sub_flush_chunk_*.bin` (14 GB partial deduplicated solutions),
   64 × `sub_ckpt_wrk*.bin` (8.5 GB resumable worker state). Restartable
   via `az vm start -g rg-claude -n deep-calib-westus3`.
-- **In `roae-private/1000T_partial_results_2026_04_28/`:** forensic summary
+- **In `roae-private/results/1000T_partial_results_2026_04_28/`:** forensic summary
   + sha256 manifests for the 87+64 binary artifacts (for integrity
   tracking even if the VM disk is later lost).
 
@@ -1153,7 +1161,7 @@ followed.
    diverges between full-enum (uniform 158,364) and `--branch` (varies
    per first-level grouping). The override forces both to walk each
    depth-3 sub-branch with identical per-sub-branch budgets, fixing the
-   2026-04-29 regression-test design flaw documented in `roae-private/regression_test_results_2026_04_29/RESULTS.md`.
+   2026-04-29 regression-test design flaw documented in `roae-private/validation/regression_test_results_2026_04_29/RESULTS.md`.
 
 2. **`--merge-layers <root>` mode.** Layered enumeration: each run lives
    in its own subdirectory ("layer") under a root. Layers compose: a
@@ -1475,7 +1483,7 @@ gating step per operator direction so the AVX-512 retool lands
 on a truly-fixed heap rather than the dead-free workaround;
 estimated cost ~$15-40 on D64 spot, eng ~1-2 weeks). The
 recovery cascade (private repo:
-`560t_scripts/t7c_p3_recovery.sh`) is armed to validate the
+`roae-private/campaigns/560t_scripts/t7c_p3_recovery.sh`) is armed to validate the
 patch by running a fresh 11.2T full enum on the patched binary
 and verifying sha == `0c0fe37c…`. Crucially, every Tier 9 test
 that emitted a sha PASSED with byte-identical match to its
@@ -4803,7 +4811,7 @@ Six solve.c commits, all selftest-sha-preserving: `8ac5e8f` (§[10] + progress m
 
 ### 560T `--analyze` scientific findings (D128 run, 2026-06-11)
 
-The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + `canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`):
+The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaigns/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + `canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`):
 
 - **§[1] file metadata**: 10,525,271,997 records, 336.81 GB
 - **§[2] per-position Shannon entropy**: pos 1 H = 0.000 (1 distinct pair — forced); pos 2 H = 4.272 (28 distinct pairs)

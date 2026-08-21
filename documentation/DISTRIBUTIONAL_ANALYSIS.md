@@ -31,8 +31,8 @@ estimates. Both are next-step questions, not invalidations of the analysis below
 
 Each canonical ordering is characterized by the following statistics,
 computed over 3.43 billion records using streaming parquet output
-([`solve.py --compute-stats`](SOLVE_C_CLI.md#--compute-stats-solvepy-only)). See `roae-private/P2_OBSERVABLES_SCHEMA.md` for the *(private staging repo — not publicly accessible)*
-frozen schema.
+([`solve.py --compute-stats`](SOLVE_C_CLI.md#--compute-stats-solvepy-only)). See `roae-private/P2_OBSERVABLES_SCHEMA.md` *(private staging repo — not publicly accessible)*
+for the frozen schema.
 
 | # | Dim | Meaning | Family |
 |---|---|---|---|

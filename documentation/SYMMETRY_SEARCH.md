@@ -238,7 +238,7 @@ shard manifest, reproducible per [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); th
 private working data (~65K estimator calls, hours-scale); this rerun spec is the public path.
 
 Original 2026-04-25 phases 1–3 ([`./solve --symmetry-search [--validate-counts]`](SOLVE_C_CLI.md#--symmetry-search)) remain reproducible; their
-output is correct as *budgeted-yield* data. Proof + full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md`.
+output is correct as *budgeted-yield* data. Full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md` *(private staging repo — not publicly accessible; a provenance pointer. The theorem, its proof, the correction notice, and every table needed to verify are public in this document, and the reruns above are the public verification path)*.
 
 ## Corollary (2026-07-03): the action is free — every solution has exactly 23 twins
 

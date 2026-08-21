@@ -7,6 +7,11 @@ doc apply on any provider.
 
 For the full `solve.c` command-line reference (every subcommand, env var, and exit code referenced below), see [SOLVE_C_CLI.md](SOLVE_C_CLI.md).
 
+> **Access boundary.** This document cites operational scripts and runbooks in `roae-private`, the
+> project's private staging repository, which is not publicly accessible. Those citations are
+> provenance pointers, not material a reader can fetch. The deployment lessons stated here stand on
+> their own text; the private files carry the operator-side implementations.
+
 ## Architecture: separate orchestrator, solver, and monitor
 
 Three concerns, three processes:

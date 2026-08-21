@@ -4,6 +4,18 @@ The reproducibility anchor for ROAE is the sha256 of `solutions.bin`, not the fi
 
 A mismatch means a bug was introduced (in the solver, the build toolchain, or the runtime environment), not that a new result was found.
 
+> **Access boundary.** This registry cites two kinds of non-public material, and neither is required
+> to verify a canonical. (1) Files in `petersm3/roae-private` (incident writeups, audits, launcher
+> scripts) — a private staging repository; those citations are provenance for *how* a value was
+> established or a defect resolved, and are operator-attested: disclosable to an auditor, not
+> fetchable by a reader. (2) Archive locations of the form `solver-data-westus3:/…` (operator-held
+> warm disk mirror) and `canonical-archive/…` (operator-held cold blob storage) — these name where
+> the artifact *bytes* are retained, not public URLs. The public verification path for every
+> canonical is the one this document already states: the published sha256 plus the reproduction
+> recipe (solver commit, `SOLVE_NODE_LIMIT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, partition depth). A
+> reader who re-derives and matches the sha needs nothing private; the archived bytes exist so the
+> operator can re-attest without re-deriving.
+
 ## Quick reference (deepest first)
 
 | Scale | sha256 (prefix) | Records | Status | Solver lineage |

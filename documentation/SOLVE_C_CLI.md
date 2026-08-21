@@ -1,6 +1,14 @@
 # solve(1) — King Wen sequence enumerator and verifier
 
 > **CLI references:** this documents the **`solve` C binary** (compiled from `solve.c`). See also [`solve.py`](SOLVE_PY_CLI.md) (analysis + ground truth) · [`roae.py`](ROAE_PY_CLI.md) (descriptive analyses) · [`sat.py`](SAT_CLI.md) (SAT / certificate layer).
+>
+> **Access boundary.** Some subcommand entries cite design, pre-registration, or incident files in
+> `roae-private`, the project's private staging repository, which is not publicly accessible. Those
+> citations are provenance (what was frozen, when, and why a gate exists), not evidence a reader can
+> fetch — a fact whose only cited support is a `roae-private` file is operator-attested. Every
+> subcommand documented here is runnable from this repository as published; where an entry names a
+> frozen private pre-registration, the checkable public leg is the subcommand's own embedded
+> expected values and its two-language gate.
 
 A man-page-style command-line reference for the `solve` binary compiled
 from `solve.c`. Covers the subcommands, environment variables,

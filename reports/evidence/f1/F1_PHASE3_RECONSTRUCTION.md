@@ -6,7 +6,7 @@
 Source scripts (read verbatim): [`f1_phase1.py`](f1_phase1.py), `f1_phase2.py`, `f1_phase3.py`.
 Reconstruction + validation by Claude (Fable 5) for the operator's F1 symmetry re-attack
 (`F1_ORBIT_QUOTIENT_2026_07.md`). Numbers below are computed, not recalled; validation run logged in §5.
-Constraint names C1–C5 as defined in `roae/README.md` / `documentation/SPECIFICATION.md`.
+Constraint names C1–C5 as defined in the repository-root `README.md` / `documentation/SPECIFICATION.md`.
 
 ---
 

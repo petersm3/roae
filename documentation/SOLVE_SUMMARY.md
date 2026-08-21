@@ -147,8 +147,9 @@ The "jumps" between consecutive hexagrams follow a specific recipe — called th
 Two further constraints run through [SPECIFICATION.md](SPECIFICATION.md) and the technical reports —
 **C6** and **C7** — and they are deliberately not numbered as rules on this page.
 
-They are **boundary constraints**. C6 pins the pairs at sequence positions 27 and 28 to King Wen's
-pairs; C7 does the same at positions 25 and 26. Each locks a four-hexagram window. Crucially, they
+They are **boundary constraints**. C6 pins the pairs at pair slots 27 and 28 (hexagram positions
+53–56) to King Wen's pairs; C7 does the same at pair slots 25 and 26 (hexagram positions 49–52).
+Each locks a four-hexagram window. Crucially, they
 were not *discovered* as properties of the sequence the way Rules 1 and 2 were — they were **selected
 by search**, as the two boundaries whose pins removed the most non-King-Wen orderings from the
 enumerated set. `solve.c` still calls them "legacy adjacency constraints" for that reason.
@@ -489,3 +490,5 @@ The difference wave as a sparkline (each character = one transition, height = li
 *Revision 2026-08-06 (counting-unit label pass, UNASKED-2 batch): §"The numbers at a glance" gained an explicit units note — the funnel table mixes raw orientation-explicit arrangement counts (steps 0–1), fractions (steps 2–4), and orientation-deduplicated canonical-record counts (step 5's budgeted figures) against a raw layer estimate in the same cell. The note flags the legacy presentation and points at [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Deduplication, [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md), and the exact record↔sequence converter ([VERIFY.md](VERIFY.md) `--fiber-sweep`). No number changed — the defect was unstated units, not wrong values.*
 
 *Revision 2026-08-20 (C6/C7 defined, prompted by an operator question): this page cited "both legacy adjacency constraints (C6+C7)" and their 0.0018% satisfaction rate while never defining, numbering, or locating C6 and C7 anywhere on the page — a gap its own 2026-08-01 revision note had already recorded. A new §"Why there is no Rule 6 or Rule 7" defines them as boundary constraints (C6 pins pairs 27–28, C7 pairs 25–26), states that they were selected by search rather than discovered, and gives the reason they are not promoted into the Rule 1–5 ladder: [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) prices them at 21.3 bits bought against ~20.6 bits to state — data-like and net ≈ 0 — while noting they are still logically independent of Rules 1–5 (×2.55×10⁶ cut). No count, sha, or theorem changed.*
+
+*Revision 2026-08-21 (pre-review self-hardening pass): the new C6/C7 section said "sequence positions 27 and 28 / 25 and 26" — ambiguous between pair slots and hexagram positions (README states the same constraints as hexagram positions 53–56 / 49–52). It now says "pair slots" and gives both unit systems. No count, sha, or theorem changed.*

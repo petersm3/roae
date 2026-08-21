@@ -3,6 +3,13 @@
 Notes for anyone picking up this project — human or AI — who wants to reproduce
 the results, extend the analysis, or continue the engineering work.
 
+> **Access boundary.** This document cites operational files in `roae-private`, the project's
+> private staging repository (runbooks, audits, bench protocols, design specs). It is not publicly
+> accessible: those citations are provenance pointers, not material a reader can fetch, and a
+> procedure or finding whose only cited support is a `roae-private` file is operator-attested.
+> Everything needed to *build, test, and reproduce* the published results is in this repository;
+> the private files carry operational detail (cloud runbooks, incident forensics) beyond that.
+
 This is a *conventions* document, not a *reference*. Concrete technical details
 live in:
 
@@ -859,7 +866,7 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
 
 ### Solver
 
-- **Independent verifier**: `roae/verify.py` is a pure-Python (stdlib-only)
+- **Independent verifier**: `verify.py` (repo root) is a pure-Python (stdlib-only)
   implementation of the verifier recipe in
   [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) (originally ~160 lines; it has
   since grown the independent re-counting and artifact-check surfaces —
