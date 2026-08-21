@@ -29,6 +29,14 @@ and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 | First 7 pairs cover all 7 levels (Cook 2006) | 12.03% | ×8.3 | satisfies |
 | 18:18 two-part class split (Zhang Xingcheng + Zhu Xi, 12th c.; Hu Yigui 1247; [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003); Cook 2006) | 36.4% | ×2.7 | satisfies |
 
+**Reproduce the scoreboard:** `ulimit -s unlimited; SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`
+(2×10¹⁰ weighted Knuth probes — the instrument and probe count named in the opening paragraph, and the
+method in §"Method and caveats" below). ⚠ `ulimit -s unlimited` is required: without it the estimator
+aborts with SIGSEGV under the default 8 MB stack (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)).
+*(Added 2026-08-21: GATE 25 LEG 2 — a report-only gate leg that no review pass had ever invoked — flagged
+this table's figures as published without an adjacent re-derivation path. The command was already in this
+document, 70+ lines away; it is now beside the numbers it produces.)*
+
 ## What the measurements establish
 
 1. **Moore's pair-positioning rule is the strongest literature discriminator among the population-measured
