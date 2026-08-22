@@ -10247,6 +10247,54 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
             "outdir": outdir, "scandir": scandir, "N": N, "n": n}
 
 
+def atlas_orbit_columns(atlas):
+    """A-5 (2026-08-22): the RAW positional-marginal field has ONE COLUMN PER
+    PAIR-ORBIT, not one per pair.
+
+    SUPER is G-closed, so two pairs in the same orbit are exchanged by a group
+    element that maps solutions to solutions -- their positional marginals are
+    therefore EQUAL at every layer, exactly, not approximately.  The published
+    orbit sizes are {3,3,3,4,6,6,6} (SOLVE_C_CLI.md, "A rung must be a union of
+    WHOLE pair-orbits"), so a full-31 field carries at most SEVEN distinct
+    columns, and any rung carries one per whole orbit in its union.
+
+    Re-derived before being wired as a gate, because the sweep that proposed it
+    flagged it as derived-not-verified and a wrong gate is worse than none:
+        n=9   9 pairs -> 3 distinct columns, group sizes [3, 3, 3]
+        n=13  13 pairs -> 3 distinct columns, group sizes [3, 4, 6]
+    Both are unions of whole published orbits.  This is a cheap EXACT check on
+    the G-expansion, which is the step that can silently mis-assign pair
+    identities while every internal sum-to-N gate still passes.
+
+    Returns (n_columns, sorted_group_sizes, ok, detail).
+    """
+    ORBIT_SIZES = (3, 3, 3, 4, 6, 6, 6)          # published; sums to 31
+    layers = atlas.get("layers") or []
+    raw = [{k: int(v) for k, v in (L.get("marginal_raw") or {}).items()}
+           for L in layers]
+    pairs = sorted({p for r in raw for p in r}, key=lambda t: int(t[4:]))
+    if not pairs:
+        return (0, [], None, "marginal_raw not emitted (--kc-raw absent?)")
+    col = {p: tuple(r.get(p, 0) for r in raw) for p in pairs}
+    groups = {}
+    for p in pairs:
+        groups.setdefault(col[p], []).append(p)
+    sizes = sorted(len(v) for v in groups.values())
+    # every group size must be a published orbit size, and they must tile the rung
+    pool = list(ORBIT_SIZES)
+    ok = True
+    for sz in sizes:
+        if sz in pool:
+            pool.remove(sz)
+        else:
+            ok = False
+    if sum(sizes) != len(pairs):
+        ok = False
+    detail = "%d pair(s) -> %d column(s), group sizes %s" % (
+        len(pairs), len(groups), sizes)
+    return (len(groups), sizes, ok, detail)
+
+
 def _atlas_write_verdicts(path, verdicts):
     """One KEY=value line per row; an existing key is replaced, not duplicated."""
     keep = []
@@ -10439,6 +10487,12 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                  R["verdicts"].get("TR12_Q3") == "PASS")
         else:
             print("[atlas-consumer] %-62s %s" % ("Q3 leg (--atlas-q3-trace)", "SKIP"))
+
+        ncol, sizes, ok_orb, detail = atlas_orbit_columns(A)
+        if ok_orb is None:
+            print("[atlas-consumer] %-62s %s" % ("A-5 orbit-columns", "SKIP: " + detail))
+        else:
+            gate("A-5: one raw marginal column per WHOLE pair-orbit (%s)" % detail, ok_orb)
 
         fails = [nm for nm, ok, _ in results if not ok]
         print("[atlas-consumer] %d gate(s) run, %d failure(s)" % (len(results), len(fails)))
