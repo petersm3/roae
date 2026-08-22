@@ -624,6 +624,16 @@ Runs **the same checks and masses as `--check-layers`** through a multi-observab
 (N `O_DIRECT` read lanes, plus riders: T7/BL-7 orbit census and a T6-slot stub). Environment:
 `LC_SCAN_LANES`, `LC_SCAN_CHUNK_KB`, `LC_SCAN_ODIRECT`, `LC_SCAN_T6STUB`.
 
+**`LC_RESUME=<path>`** *(documented 2026-08-22 — it was read by `verify.c` and documented nowhere,
+flagged by the 2026-08-20 hardening sweep §F1a)*: path to a prior run's per-layer summary output.
+When set, `--check-layers` **replays** the summary lines for layers already recorded there instead of
+re-streaming those layers from disk, so an interrupted multi-layer check resumes rather than
+restarting. The per-layer summary line is **identical for a freshly streamed layer and an
+`LC_RESUME`-replayed one** (`verify.c:1062`), which is what makes the resumed output comparable to an
+unresumed one. ⚠ A replayed layer is **asserted from the prior run, not re-read** — `census_got[k]`
+is 0 for replayed layers (`verify.c:871`). **A resumed run therefore attests less than a full one;
+do not report it as a from-scratch verification.**
+
 **Identity contract:** with `[scan] `-prefixed lines removed, its stdout and its return code are
 **byte-identical** to `--check-layers`. `--scan-selftest` proves that on fixtures — so the fast path
 is held to the slow path's output, not merely believed to agree with it.
