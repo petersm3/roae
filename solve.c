@@ -24364,6 +24364,19 @@ static void kc_h_scan_write_atlas(FILE *f, const KcScanTab *T, const KC *fkc,
             fprintf(f, "}%s\n", bi + 1 < T->nbranch ? "," : "");
         }
         fprintf(f, "  ],\n");
+        /* B-4 (2026-08-22): fmass[k] -- the orbit-weighted f layer masses, i.e. the
+         * EXACT number of valid depth-k prefixes -- was computed here, consumed by the
+         * gates, and then freed without ever reaching the atlas.  It is the M_j sequence
+         * TR-12 XA is stated in, it costs one fprintf, and it lets a reader re-derive
+         * t(root) = sum_k fmass[k] from the atlas alone rather than taking it on trust.
+         * Emitted as an ARRAY (not fmass_00.. keys, which is the CHUNK format's private
+         * merge-support shape) so the atlas schema stays a list-of-values. */
+        fprintf(f, "  \"fmass\": [");
+        for (int k = 0; k <= n; k++) {
+            f1_dec(T->fmass[k], t);
+            fprintf(f, "%s\"%s\"", k ? ", " : "", t);
+        }
+        fprintf(f, "],\n");
         if (T->t_ladder) {
             f1_dec(T->t_root192, t);
             fprintf(f, "  \"t_root_t_units\": \"%s\",\n", t);

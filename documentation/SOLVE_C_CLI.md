@@ -1308,6 +1308,25 @@ measured `t_root_t_units == 229861`, L11 every chunk's own tokens and
 `flow == 26112 == N`, and L12 the degraded no-`--kc-tdir` attestation. It ends
 with `KC_LAYERS_SELFTEST=PASS|FAIL`; exit **0** / **1**.
 
+#### Atlas field: `fmass` (added 2026-08-22)
+
+The atlas carries `"fmass": ["1", …]`, an `n+1` element array of decimal strings: **`fmass[k]` is
+the orbit-weighted f layer mass, i.e. the EXACT number of valid depth-`k` prefixes** — the `M_j`
+sequence the XA section is stated in. `fmass[0] == 1` is the anchor.
+
+It was previously computed by the scan, consumed by the internal gates, and freed without ever
+being written out. Emitting it costs one `fprintf` and lets a reader re-derive
+
+```
+t(root) == Σ_{k=0..n} fmass[k]
+```
+
+**from the atlas alone**, rather than taking the engine's own `t_root_t_units` on trust. Verified at
+n=13: both sides are `5,163,044,120,623`.
+
+⚠ Not to be confused with the **chunk** format's `fmass_00`, `fmass_01`, … keys, which are private
+merge-support fields on `roae-kc-scan-chunk`, not part of the atlas schema.
+
 ### --kc-extremal
 
 ```
