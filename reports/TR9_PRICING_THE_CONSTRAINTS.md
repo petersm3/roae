@@ -255,6 +255,8 @@ and C5's cost exceeds its compression under any defensible statement convention.
 
 ## Update (v1.3): the residual survives a pre-registered attack
 
+⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command in this document.** Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)*
+
 Thirteen ordering-layer functionals, each drawn from a literature axis and registered with thresholds
 BEFORE measurement (documentation/CRITIQUE.md), were scored against the full population (2×10⁹ probes,
 2026-07-04). All thirteen: null. The ~126 unexplained bits (the C1–C5-layer reading of the residual —

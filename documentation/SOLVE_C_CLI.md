@@ -1561,7 +1561,11 @@ solve --show 5 --format glyph
 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=2000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=631456644 \
 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128 \
 ulimit -s unlimited
-solve --branch 4 0 0 128
+solve --branch 22 0 0 128   # (22,0) is a valid first-level branch (see --list-branches);
+                            # ⚠ corrected 2026-08-21: this example named branch (4 0), which is
+                            # not in the valid set — the solver prunes it at depth 1 and exits 1.
+                            # Found by the execution lane (scripts/exec_lane.sh) running the
+                            # documented example verbatim.
 ```
 
 **Merge shards into a final solutions.bin:**

@@ -4166,6 +4166,11 @@ _P2_FLOAT_COLS = [
 
 def p2_marginals(chunks_dir, out_md):
     """Handler for --marginals."""
+    import glob as _lane_glob
+    if not _lane_glob.glob(f"{chunks_dir}/chunk_*.parquet"):
+        print(f"ERROR: no chunk_*.parquet files found in {chunks_dir} -- this input is produced "
+              f"by --compute-stats, not shipped in the repository", flush=True)
+        sys.exit(2)
     import glob
     import numpy as np
     import pyarrow.parquet as pq
@@ -4743,6 +4748,11 @@ def p2_joint_density_v2(chunks_dir, out_md, samples_per_chunk=30,
     Adds (a) runtime variance-check that auto-drops constant dims,
     (b) configurable bandwidth selection (silverman / cv).
     """
+    import glob as _lane_glob
+    if not _lane_glob.glob(f"{chunks_dir}/chunk_*.parquet"):
+        print(f"ERROR: no chunk_*.parquet files found in {chunks_dir} -- this input is produced "
+              f"by --compute-stats, not shipped in the repository", flush=True)
+        sys.exit(2)
     import glob
     import numpy as np
     import pyarrow.parquet as pq

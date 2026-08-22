@@ -517,6 +517,8 @@ same functional). All 13 results will be reported regardless of outcome; a null 
 (the ~126-bit residual surviving its first systematic literature-guided attack). Nothing promotes to a
 solver constraint regardless of outcome, per the standing extraction-circularity policy above.
 
+⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command in this document.** Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)*
+
 **Results (2026-07-04, tier-1, 2×10⁹ probes — reported in full as pre-committed):** all 13 functionals
 NULL at the frozen thresholds. Closest calls: dist_autocorr (KW at the ~96.6th percentile) and palspan
 (top bin, shared with 12.1% of the space) — neither approaches the Bonferroni gate. One functional

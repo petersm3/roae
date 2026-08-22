@@ -1,7 +1,15 @@
 # R11 Phase-2 — N_gs re-measurement battery (stop-flag resolution evidence)
 
-> **Reproduce:** `bash r11_phase2_battery.sh` from this directory (calibration leg:
-> `python3 r11_calibration.py`). Raw outputs preserved beside them — `battery.log`,
+> **Reproduce:** `ulimit -s unlimited; bash r11_phase2_battery.sh`
+> (calibration leg: `python3 r11_calibration.py --phase <gates|draws|pcomplete|hits|score|report>`).
+> ⚠ **Scope, stated plainly (2026-08-21, execution-lane findings):** (1) `--phase` is required —
+> the bare calibration command errors with a usage message; (2) the battery's estimator legs need
+> `ulimit -s unlimited` — under the default 8 MB stack `--estimate-knuth` refuses to start;
+> (3) **the battery script is the archived CAMPAIGN DRIVER, not a repo-relative reproduction**:
+> it hardcodes the campaign VM's layout (`/home/solver/r11p2/…`, `nohup` self-supervision, `sudo
+> shutdown` self-halt) and exits immediately on a host without that layout. Reproducing the
+> battery means re-creating that VM environment; the from-the-repo record is the archived outputs
+> beside it — `battery.log`,
 > `calibration_report.txt`, `derived_ci.out`, `exact_audit.tsv`, `gates.json`, `hits.json`.
 
 This bundle is the measurement that closes the N_gs stop-flag (TR-2 v1.10 → v1.12) and
