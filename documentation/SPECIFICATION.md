@@ -34,6 +34,26 @@ where |H| = 64. Under `comp(h) = h ⊕ 63`, no hexagram is self-complementary (t
 
 **S** satisfies the following constraints. ⚠ **C1–C7 alone do NOT single out King Wen — not even within the enumerated datasets.** At d3 560T the greedy identifying set is **five** boundary constraints, `{4, 27, 25, 21, 1}`, with cumulative non-KW survivors 51,404 → 481 → **14** → 1 → 0; only boundaries 27 and 25 are C6 and C7, so three of the five lie outside C1–C7 entirely. After C6+C7 (plus boundary 4) **14 non-KW records still survive at 560T**. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md); for full-space status see the [Conjecture (Uniqueness)](#theorems) *(refuted 2026-07-02: ≈5.21×10³¹ orderings satisfy C1–C7 — a Knuth random-probe estimate, 95% CI [5.13, 5.29]×10³¹; the refutation does not depend on its precision)*. Note: C1 and C2 are structural properties observable in the sequence. C3 and C5 were extracted from King Wen and used to constrain the search — they are confirmatory (consistent with King Wen) rather than predictive (derived independently). C4 stands apart: its pair choice (Heaven/Earth first) is independently attested in the classical tradition (the *Xugua* commentary) centuries before any enumeration, and its orientation (Creative before Receptive) is likewise **definitional and classically attested** — the *Xugua* opens Heaven-then-Earth. The orientation is NOT forced by the other constraints *(retraction 2026-07-26: a former "Theorem 6" claimed it was — that claim is false; global complementation x ↦ x ⊕ 63 is an exact symmetry of C1∩C2∩C3∩C5, machine-checked in [lean/KingWen.lean](../lean/KingWen.lean), so both orientations of the opening pair are valid there — see the Complement Z₂ symmetry theorem below)*. C6 and C7 go furthest: they are specific adjacency choices read off King Wen itself. No aggregate mathematical property can replace them — but that is a statement about how irreducibly *particular* they are, not about explanatory strength. See the standing table immediately below.
 
+### 🔒 The constraint set is FROZEN (2026-08-22) — and what "frozen" means here
+
+The v4 constraint definition is **final: `C1 ∩ C2 ∩ C4 ∩ C5`**. C3 is an in-path filter, not a member
+of the enumerated definition; C6 and C7 are boundary constraints and are not part of it either.
+
+⚠ **"Final" has a precise and deliberately limited meaning: frozen by operator decision after
+auditing every source available at freeze time.** It is **NOT** a claim that no unexamined source
+contains a further constraint — no finite audit could establish that, and this document does not
+assert it.
+
+The audits the freeze rests on: the biroco.com sweep (0 promotions); a literature/functional audit in
+which **0 of ~70** candidate constraints survived the circularity firewall; the 卦序 prior-art cluster
+sweep (closed 2026-07-30, no missed prior art); and the Li Shangxin review, which was the freeze
+gate's named precondition and completed 2026-08-19/20.
+
+**If a constraint is later found**, it forks a v5-class definition (or a labelled in-path filter, the
+existing C3 pattern) — **it does not invalidate v4**, whose artifacts remain exact for their stated
+C1–C5 scope, of which any later space is a subset. The downside is bounded by construction; that is
+why the freeze is declarable rather than a gamble.
+
 ### Standing of each constraint — the shared `C` prefix does NOT mean equal strength
 
 The prefix marks membership in the formal constraint system: every one below is
