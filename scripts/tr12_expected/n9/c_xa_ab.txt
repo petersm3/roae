@@ -1,0 +1,21 @@
+# XA-a/XA-b branch atlas
+global_pair	entry	exit	solutions	prefixes_t_units	t_source
+3	16	2	2368	16282	t-ladder
+3	2	16	2368	16282	t-ladder
+7	8	4	2368	16282	t-ladder
+7	4	8	2368	16282	t-ladder
+11	1	32	2368	16282	t-ladder
+11	32	1	2368	16282	t-ladder
+13	30	33	896	11067	t-ladder
+13	33	30	3072	32989	t-ladder
+14	45	18	896	11067	t-ladder
+14	18	45	3072	32989	t-ladder
+30	12	51	3072	32989	t-ladder
+30	51	12	896	11067	t-ladder
+sum_solutions	26112
+N_total	26112
+XA_A_GATE	Sum_b solutions(b) == N  OK
+sum_prefixes_t_units	229860
+t_root_t_units	229861
+shared_trunk_t_units	1   # = t(root) - Sum_b prefixes(b); the root node above the branch fan
+XA_B_GATE	Sum_b prefixes(b) + trunk == t(root), trunk == 1 (the root)  OK

@@ -1,0 +1,6 @@
+reader_steps	9
+reader_p_den_1_eq_N	OK (26112)
+reader_telescoping	OK (8 links)
+reader_p_num_n_eq_1	OK
+reader_product_p_i	1/26112 EXACT (telescoping, re-derived by the reader from the columns)
+READER_FAILS	0

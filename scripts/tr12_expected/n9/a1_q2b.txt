@@ -1,0 +1,18 @@
+### REL unrank r=0
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+33,30,62,31,55,59,8,4,16,2,32,1,61,47,45,18,51,12
+record	m=32	33,30,31,62,55,59,8,4,2,16,32,1,61,47,45,18,51,12
+#provenance	engine=solve.c/kc	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	convention=V4_CONVENTION_FREEZE_RECONCILED_2026_07_14(repr=orient-lex-min,slot-0-only)	validity=C1C2C4C5-SUPERSPACE(C3-UNFILTERED;NOT-the-ratified-C1-C5-repr(k))
+### REL unrank r=26111
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+4,8,2,16,1,32,55,59,47,61,31,62,30,33,18,45,12,51
+record	m=128	4,8,2,16,32,1,55,59,61,47,31,62,30,33,18,45,12,51
+#provenance	engine=solve.c/kc	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	convention=V4_CONVENTION_FREEZE_RECONCILED_2026_07_14(repr=orient-lex-min,slot-0-only)	validity=C1C2C4C5-SUPERSPACE(C3-UNFILTERED;NOT-the-ratified-C1-C5-repr(k))
+### REL unrank r=13056
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+18,45,61,47,62,31,8,4,16,2,32,1,55,59,51,12,30,33
+record	m=64	18,45,61,47,31,62,4,8,2,16,32,1,55,59,51,12,30,33
+#provenance	engine=solve.c/kc	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	convention=V4_CONVENTION_FREEZE_RECONCILED_2026_07_14(repr=orient-lex-min,slot-0-only)	validity=C1C2C4C5-SUPERSPACE(C3-UNFILTERED;NOT-the-ratified-C1-C5-repr(k))

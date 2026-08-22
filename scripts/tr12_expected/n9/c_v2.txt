@@ -1,0 +1,13 @@
+# V2 mass river — REDUCED FORM (§3.1): split by distance class of the k-th transition,
+# which is the spec's own parenthetical alternative. branch_atlas[] carries per-branch
+# TOTALS only, so a per-layer-per-branch split is NOT available from this schema.
+k	d1	d2	d3	d4	d6
+0	14208	9216	0	2688	0
+1	5952	15552	0	4608	0
+2	5952	15264	0	4896	0
+3	0	15168	0	10944	0
+4	0	18528	0	7584	0
+5	0	18528	0	7584	0
+6	14208	8640	0	3264	0
+7	5952	14688	0	5472	0
+8	5952	14976	0	5184	0

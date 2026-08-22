@@ -1,0 +1,13 @@
+# Q10(a) orbit census — EXACT. distinct 24-orbits = layer walk-mass / 24.
+global_anchor_N_div_24	1088
+k	flow	orbits	flow_mod_24
+0	26112	1088	0
+1	26112	1088	0
+2	26112	1088	0
+3	26112	1088	0
+4	26112	1088	0
+5	26112	1088	0
+6	26112	1088	0
+7	26112	1088	0
+8	26112	1088	0
+Q10A_LAYER_MOD24_FAILS	0

@@ -1,0 +1,12 @@
+universe_n=9
+N_total=26112
+N_minus_1=26111
+N_half=13056
+N_mod_24=0
+N_div_24=1088
+anchor_label=O3-MIDPOINT(unrank_O3(floor(N/2)))
+anchor_source=--kc-o3-unrank FDIR GDIR 13056
+anchor_values=18
+anchor_walk=1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51
+c3_max_used=31
+anchor_is_member=MEMBER

@@ -1,0 +1,5 @@
+Saved fig_tr12_kc_field.png and fig_tr12_kc_field.svg
+Saved fig_tr12_kc_river.png and fig_tr12_kc_river.svg
+Saved fig_tr12_kc_grammar.png and fig_tr12_kc_grammar.svg
+Saved fig_tr12_kc_shells.png and fig_tr12_kc_shells.svg
+SKIP V3 spectrum: <ART>/consumer/spectrum/v3_spectrum.tsv not found (produce it with `a rank grid joined to python3 solve.py --compute-stats; see viz/viz_kc_spectrum.md`)

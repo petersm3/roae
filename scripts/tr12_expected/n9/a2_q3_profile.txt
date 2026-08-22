@@ -1,0 +1,62 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+order=NATIVE-WALK-PATH	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	N=26112	cd=39
+step	pair	entry	exit	orient	dclass	alts	f	g	g_parent	p_num	p_den	bits	g_alt_min	g_alt_max	choice_rank
+1	11	1	32	1	1	12	1	2368	26112	2368	26112	3.462972	896	3072	9
+2	7	8	4	1	2	9	2	456	2368	456	2368	2.376563	96	456	4
+3	3	2	16	0	2	7	8	160	456	160	456	1.510962	24	160	1
+4	21	31	62	0	4	5	40	32	160	32	160	2.321928	32	32	4
+5	4	55	59	0	2	4	80	8	32	8	32	2.000000	8	8	1
+6	6	61	47	0	2	2	320	4	8	4	8	1.000000	4	4	1
+7	14	45	18	1	1	1	640	4	4	4	4	0.000000	4	4	1
+8	13	33	30	0	4	4	1728	1	4	1	4	2.000000	1	1	1
+9	30	12	51	1	2	1	4736	1	1	1	1	0.000000	1	1	1
+#alt	step=1	pair=13	entry=33	exit=30	orient=0	dclass=2	g=3072	rank=1
+#alt	step=1	pair=14	entry=18	exit=45	orient=0	dclass=2	g=3072	rank=2
+#alt	step=1	pair=30	entry=12	exit=51	orient=1	dclass=2	g=3072	rank=3
+#alt	step=1	pair=3	entry=2	exit=16	orient=0	dclass=1	g=2368	rank=4
+#alt	step=1	pair=3	entry=16	exit=2	orient=1	dclass=1	g=2368	rank=5
+#alt	step=1	pair=7	entry=4	exit=8	orient=0	dclass=1	g=2368	rank=6
+#alt	step=1	pair=7	entry=8	exit=4	orient=1	dclass=1	g=2368	rank=7
+#alt	step=1	pair=11	entry=32	exit=1	orient=0	dclass=1	g=2368	rank=8
+#alt	step=1	pair=11	entry=1	exit=32	orient=1	dclass=1	g=2368	rank=9
+#alt	step=1	pair=13	entry=30	exit=33	orient=1	dclass=4	g=896	rank=10
+#alt	step=1	pair=14	entry=45	exit=18	orient=1	dclass=4	g=896	rank=11
+#alt	step=1	pair=30	entry=51	exit=12	orient=0	dclass=4	g=896	rank=12
+#alt	step=2	pair=3	entry=2	exit=16	orient=0	dclass=2	g=456	rank=1
+#alt	step=2	pair=3	entry=16	exit=2	orient=1	dclass=2	g=456	rank=2
+#alt	step=2	pair=7	entry=4	exit=8	orient=0	dclass=2	g=456	rank=3
+#alt	step=2	pair=7	entry=8	exit=4	orient=1	dclass=2	g=456	rank=4
+#alt	step=2	pair=4	entry=55	exit=59	orient=0	dclass=4	g=112	rank=5
+#alt	step=2	pair=4	entry=59	exit=55	orient=1	dclass=4	g=112	rank=6
+#alt	step=2	pair=6	entry=61	exit=47	orient=0	dclass=4	g=112	rank=7
+#alt	step=2	pair=6	entry=47	exit=61	orient=1	dclass=4	g=112	rank=8
+#alt	step=2	pair=21	entry=62	exit=31	orient=1	dclass=4	g=96	rank=9
+#alt	step=3	pair=3	entry=2	exit=16	orient=0	dclass=2	g=160	rank=1
+#alt	step=3	pair=3	entry=16	exit=2	orient=1	dclass=2	g=160	rank=2
+#alt	step=3	pair=6	entry=61	exit=47	orient=0	dclass=4	g=32	rank=3
+#alt	step=3	pair=6	entry=47	exit=61	orient=1	dclass=4	g=32	rank=4
+#alt	step=3	pair=4	entry=55	exit=59	orient=0	dclass=4	g=24	rank=5
+#alt	step=3	pair=21	entry=31	exit=62	orient=0	dclass=4	g=24	rank=6
+#alt	step=3	pair=21	entry=62	exit=31	orient=1	dclass=4	g=24	rank=7
+#alt	step=4	pair=4	entry=55	exit=59	orient=0	dclass=4	g=32	rank=1
+#alt	step=4	pair=4	entry=59	exit=55	orient=1	dclass=4	g=32	rank=2
+#alt	step=4	pair=6	entry=61	exit=47	orient=0	dclass=4	g=32	rank=3
+#alt	step=4	pair=21	entry=31	exit=62	orient=0	dclass=4	g=32	rank=4
+#alt	step=4	pair=21	entry=62	exit=31	orient=1	dclass=4	g=32	rank=5
+#alt	step=5	pair=4	entry=55	exit=59	orient=0	dclass=2	g=8	rank=1
+#alt	step=5	pair=4	entry=59	exit=55	orient=1	dclass=2	g=8	rank=2
+#alt	step=5	pair=6	entry=61	exit=47	orient=0	dclass=2	g=8	rank=3
+#alt	step=5	pair=6	entry=47	exit=61	orient=1	dclass=2	g=8	rank=4
+#alt	step=6	pair=6	entry=61	exit=47	orient=0	dclass=2	g=4	rank=1
+#alt	step=6	pair=6	entry=47	exit=61	orient=1	dclass=2	g=4	rank=2
+#alt	step=7	pair=14	entry=45	exit=18	orient=1	dclass=1	g=4	rank=1
+#alt	step=8	pair=13	entry=33	exit=30	orient=0	dclass=4	g=1	rank=1
+#alt	step=8	pair=13	entry=30	exit=33	orient=1	dclass=2	g=1	rank=2
+#alt	step=8	pair=30	entry=51	exit=12	orient=0	dclass=2	g=1	rank=3
+#alt	step=8	pair=30	entry=12	exit=51	orient=1	dclass=4	g=1	rank=4
+#alt	step=9	pair=30	entry=12	exit=51	orient=1	dclass=2	g=1	rank=1
+#profile-summary	n=9	N=26112	g(s_0)=N VERIFIED	g(s_n)=1 VERIFIED	flow_identities=9/9	sum_bits=14.672425	log2N=14.672425
+#provenance	engine=solve.c/kc-profile	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE-WALK-PATH	object=WALK	space=C1C2C4C5-SUPERSPACE	p_i=exact-rational(p_num/p_den);bits=display-only	semantics=certificate-not-proof
+KC_PROFILE_PRODUCT=EXACT
+KC_PROFILE=OK

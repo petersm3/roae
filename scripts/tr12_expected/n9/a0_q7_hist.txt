@@ -1,0 +1,39 @@
+### _r7_mawangdui
+[check-arrangement] permutation of 0..63:            OK
+[check-arrangement] C1 pair-partner adjacency:        FAIL (first bad slot pair at position 0)
+[check-arrangement] C2 no distance-5 boundary:        FAIL (d=5 count 1, first at 23)
+[check-arrangement] C3 complement distance:           FAIL (value 2048, ceiling 776)
+[check-arrangement] C4 anchor first (63 then 0):      FAIL
+[check-arrangement] C5 distance multiset == KW's:     FAIL (hist d1..d6 = 21,10,29,2,1,0)
+[check-arrangement] first violation (pinned order):  C1
+[check-arrangement] verdict SUPER (C1&C2&C4&C5):     OUT
+[check-arrangement] verdict C15  (C1-C5, C3<=776):   OUT
+#provenance	engine=solve.c/check-arrangement	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+[check-arrangement] certificate written: <ART>/q7_mawangdui.json
+### _r7_mawangdui checker_rc=1
+### _r7_fuxi
+[check-arrangement] permutation of 0..63:            OK
+[check-arrangement] C1 pair-partner adjacency:        FAIL (first bad slot pair at position 0)
+[check-arrangement] C2 no distance-5 boundary:        FAIL (d=5 count 2, first at 15)
+[check-arrangement] C3 complement distance:           FAIL (value 2048, ceiling 776)
+[check-arrangement] C4 anchor first (63 then 0):      FAIL
+[check-arrangement] C5 distance multiset == KW's:     FAIL (hist d1..d6 = 32,16,8,4,2,1)
+[check-arrangement] first violation (pinned order):  C1
+[check-arrangement] verdict SUPER (C1&C2&C4&C5):     OUT
+[check-arrangement] verdict C15  (C1-C5, C3<=776):   OUT
+#provenance	engine=solve.c/check-arrangement	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+[check-arrangement] certificate written: <ART>/q7_fuxi.json
+### _r7_fuxi checker_rc=1
+### _r7_jingfang
+[check-arrangement] permutation of 0..63:            OK
+[check-arrangement] C1 pair-partner adjacency:        FAIL (first bad slot pair at position 0)
+[check-arrangement] C2 no distance-5 boundary:        HOLD (d=5 count 0, first n/a -1)
+[check-arrangement] C3 complement distance:           FAIL (value 2048, ceiling 776)
+[check-arrangement] C4 anchor first (63 then 0):      FAIL
+[check-arrangement] C5 distance multiset == KW's:     FAIL (hist d1..d6 = 48,0,15,0,0,0)
+[check-arrangement] first violation (pinned order):  C1
+[check-arrangement] verdict SUPER (C1&C2&C4&C5):     OUT
+[check-arrangement] verdict C15  (C1-C5, C3<=776):   OUT
+#provenance	engine=solve.c/check-arrangement	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+[check-arrangement] certificate written: <ART>/q7_jingfang.json
+### _r7_jingfang checker_rc=1

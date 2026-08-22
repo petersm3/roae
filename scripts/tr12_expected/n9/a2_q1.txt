@@ -1,0 +1,57 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+{
+  "type": "roae-h3b-rank-certificate",
+  "version": 1,
+  "space": "C1C2C4C5-SUPERSPACE",
+  "order": "O3(=compare_solutions:pair-vector-lex,then-orient-lex)",
+  "object": "WALK-rank",
+  "n": 9,
+  "walk": "1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51",
+  "rank3": "13056",
+  "m": 128,
+  "orient_idx": 96,
+  "class_first_rank3": "12960",
+  "N_total": "26112",
+  "neighbor_prev_rank": "13055",
+  "neighbor_prev_walk": "1,32,4,8,16,2,62,31,59,55,47,61,45,18,30,33,12,51",
+  "neighbor_next_rank": "13057",
+  "neighbor_next_walk": "1,32,8,4,2,16,31,62,55,59,61,47,45,18,30,33,12,51",
+  "fdir": "<FDIR>",
+  "gdir": "<GDIR>",
+  "pl_hash": "b5270954d483baaf",
+  "class_rank_note": "WALK rank (class-rank = distinct records preceding, NOT computed); class block = [class_first_rank3, +m)",
+  "c15_note": "C15 rank is NOT exactly computable (C3 obstruction, TR-11 s10(ii)); any C15 figure is a labeled estimate elsewhere",
+  "engine_git": "<GIT>",
+  "engine_source_sha": "<SRC>",
+  "semantics": "certificate, not proof"
+}
+[kc-o3-cert] certificate written: <ART>/q1_rank.json (self-verified)
+#provenance	engine=solve.c/kc-o3	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)
+### certificate JSON
+{
+  "type": "roae-h3b-rank-certificate",
+  "version": 1,
+  "space": "C1C2C4C5-SUPERSPACE",
+  "order": "O3(=compare_solutions:pair-vector-lex,then-orient-lex)",
+  "object": "WALK-rank",
+  "n": 9,
+  "walk": "1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51",
+  "rank3": "13056",
+  "m": 128,
+  "orient_idx": 96,
+  "class_first_rank3": "12960",
+  "N_total": "26112",
+  "neighbor_prev_rank": "13055",
+  "neighbor_prev_walk": "1,32,4,8,16,2,62,31,59,55,47,61,45,18,30,33,12,51",
+  "neighbor_next_rank": "13057",
+  "neighbor_next_walk": "1,32,8,4,2,16,31,62,55,59,61,47,45,18,30,33,12,51",
+  "fdir": "<FDIR>",
+  "gdir": "<GDIR>",
+  "pl_hash": "b5270954d483baaf",
+  "class_rank_note": "WALK rank (class-rank = distinct records preceding, NOT computed); class block = [class_first_rank3, +m)",
+  "c15_note": "C15 rank is NOT exactly computable (C3 obstruction, TR-11 s10(ii)); any C15 figure is a labeled estimate elsewhere",
+  "engine_git": "<GIT>",
+  "engine_source_sha": "<SRC>",
+  "semantics": "certificate, not proof"
+}

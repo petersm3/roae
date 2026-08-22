@@ -1,0 +1,15 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-g] f total (layer n) = 26112
+[kc-g] g(0)  (layer 0) = 26112  EQUAL
+[kc-g] layer k= 0: sum orbit*f*g = 26112 (expect 26112) OK
+[kc-g] layer k= 1: sum orbit*f*g = 26112 (expect 26112) OK
+[kc-g] layer k= 2: sum orbit*f*g = 26112 (expect 26112) OK
+[kc-g] layer k= 3: sum orbit*f*g = 26112 (expect 26112) OK
+[kc-g] layer k= 4: sum orbit*f*g = 26112 (expect 26112) OK
+[kc-g] layer k= 5: sum orbit*f*g = 26112 (expect 26112) OK
+[kc-g] layer k= 6: sum orbit*f*g = 26112 (expect 26112) OK
+[kc-g] layer k= 7: sum orbit*f*g = 26112 (expect 26112) OK
+[kc-g] layer k= 8: sum orbit*f*g = 26112 (expect 26112) OK
+[kc-g] layer k= 9: sum orbit*f*g = 26112 (expect 26112) OK
+KC-G CHECK n=9 PASS (sum orbit*f*g == N at every layer 0..n) (0 failing layers)

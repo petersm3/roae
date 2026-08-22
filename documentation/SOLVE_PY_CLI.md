@@ -41,6 +41,12 @@ python3 solve.py --joint-density-v2 CHUNKS_DIR OUT_MD [--joint-density-bandwidth
 # P3 SAT encoding
 python3 solve.py --sat-encode OUT.cnf [--sat-c3 pb|adder] [--sat-c4] [--sat-c5]
 
+# TR-12 atlas consumer (over a `solve --kc-scan` atlas JSON)
+python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR [--atlas-select LIST]
+                 [--atlas-q3-trace TRACE.txt] [--atlas-verdicts FILE]
+                 [--xa-nodes-per-sec F --xa-usd-per-hour F --xa-budget-usd F]
+python3 solve.py --atlas-selftest ATLAS.json --atlas-walks WALKS.txt [--atlas-q3-trace TRACE.txt]
+
 # Branch-yield + keystone reporting
 python3 solve.py --branch-yield-report SOLUTIONS_BIN [--branch-yield-depth 1|2|3] ...
 python3 solve.py --keystone-analysis SOLUTIONS_BIN OUT_MD
@@ -206,6 +212,129 @@ specific record families each keystone boundary uniquely eliminates.
 | `--keystone-dump-dir DIR` | Optional output directory for record dumps from the interesting masks (drop-25, drop-27, all-5). |
 | `--keystone-dump-limit N` | Cap on records dumped per interesting mask (default 10,000). |
 
+## TR-12 ATLAS CONSUMER
+
+`solve --kc-scan` writes an atlas JSON (`"type": "roae-kc-scan-atlas"`) —
+one streaming join of the f- and g-ladders, emitted once at the end of the
+pass. These two commands are its **only** consumer: they re-shape it into
+the tab-separated evidence tables the TR-12 queries and the V-family
+figures read, and they gate every table they write.
+
+```
+--atlas-queries ATLAS_JSON   Read the atlas; write the query/figure TSVs.
+--atlas-out DIR              Output root (default: the atlas's own directory).
+--atlas-select LIST          Comma list of q3,q6,v1,v2,v5,xa,q10a (default: all).
+--atlas-q3-trace FILE        The Q3 source. EITHER `solve --kc-o3-rank F G WALK
+                             --kc-trace` text OR a `solve --kc-profile F G WALK
+                             --kc-tsv FILE` table (auto-detected). Supplies Q3/V4
+                             and Q6's per-layer percentile column.
+--atlas-verdicts FILE        KEY=value verdict file (default <out>/VERDICTS.txt).
+--atlas-selftest ATLAS_JSON  Reduced-n (n <= 13) brute-force gate over the whole
+                             consumer; prints ATLAS_CONSUMER=PASS|FAIL|SKIP:<reason>.
+--atlas-walks FILE           --atlas-selftest: the explicit enumeration
+                             (`solve --kc-enum FDIR`, one walk per line) the gate
+                             recounts against. Without it the verdict is
+                             SKIP:no-brute-force-walks — never PASS.
+--atlas-keep DIR             --atlas-selftest: keep the emitted tables in DIR.
+--atlas-fault NAME           TEST ONLY. Deliberately corrupt one emitted column so
+                             the gate can be shown able to fail. One of
+                             v1-drop-pair, v2-class-swap, xa-drop-branch,
+                             q3-perturb, q10-mod24. Never on a real run.
+--xa-nodes-per-sec F         XA-c/d: measured DFS throughput anchor.
+--xa-usd-per-hour F          XA-c/d: worker price anchor.
+--xa-budget-usd F            XA-c/d: the ceiling the EXHAUSTIBLE/INFEASIBLE call
+                             is made against.
+--xa-hedge F                 XA-c/d: throughput hedge for scale (default 2.0).
+--xa-work-factor F           XA-c/d: engine work factor to divide the rate by
+                             (default 1.0 = none).
+--xa-anchor-note TEXT        XA-c/d: provenance string echoed into xa_verdict.md.
+```
+
+### What it writes
+
+| File | Feeds | Content |
+|---|---|---|
+| `<out>/scan/v1_field.tsv` | **V1**, Q6 | `k slot pair mass p kw` — the positional-marginal field, RAW frame (requires an atlas built with `--kc-raw`; a quotient-only atlas is refused, not plotted). |
+| `<out>/scan/v2_river.tsv` | **V2** | `k d mass p kw_d` — per-layer boundary-distance class mass. |
+| `<out>/scan/v2_branches.tsv` | **V2** panel (b) | `branch pair entry exit d solutions share prefixes_t_units t_source kw`. |
+| `<out>/scan/v5_grammar.tsv` | **V5** | `k d w mass p_cond kw_d kw_w` — `w = -1` where the (distance × within-pair) cross-tab is not emitted by the scan. |
+| `<out>/scan/q6_layer_mass.tsv` | **Q6** | `k slot d mass p is_argmax is_argmin_nonzero`. |
+| `<out>/scan/q6_layer_extremes.tsv` | **Q6** | per-layer argmax / argmin-nonzero, their ratio, and King Wen's own class + percentile (the last two only with `--atlas-q3-trace`). |
+| `<out>/q3_profile_kw.tsv` (`q3_profile.tsv` at n ≠ 31) | **Q3**, **V4**, EW-1 | `step pair entry exit orient alts mass_below f g g_parent p_num p_den p bits`, plus `dclass g_alt_min g_alt_max choice_rank` when the source was `--kc-profile --kc-tsv` (those four are V4's optional alternatives band). `mass_below` is an O3-rank quantity: it reads `-1`, not a guess, when the source was `--kc-profile`. |
+| `<out>/q10_orbit_census.tsv` | **Q10(a)**, XA-24 | `scope k flow orbits mod24_ok`. |
+| `<out>/xa_branches.tsv` | **XA-a/b** | the branch table plus the `walks` column. |
+| `<out>/xa_verdict.md` | **XA-c/d**, XA-24 | the gate table, the branch extremes, and the exhaustibility call. |
+| `<out>/VERDICTS.txt` | the harness | one `KEY=value` line per row; an existing key is replaced, not duplicated. |
+
+Verdict tokens emitted: `TR12_Q3`, `TR12_Q3_READER`, `TR12_Q6`, `TR12_V1`,
+`TR12_V2`, `TR12_V5`, `TR12_XA_A`, `TR12_XA_B`, `TR12_XA_CD`,
+`TR12_XA_MOD24`, `TR12_Q10A` — matched with `grep -qx`, never by output
+shape. `TR12_Q3_READER` is deliberately separate from `TR12_Q3`: the
+engine's trace asserts `Π p_i = 1/N` itself, and this consumer recomputes
+that product independently in exact big-integer rationals from the written
+TSV. The engine does not grade its own homework.
+
+### Precision contract
+
+Every count in the atlas is a **decimal string** carrying up to a 192-bit
+value. They are parsed with `int()` and only with `int()`; a JSON float
+literal anywhere in the atlas is refused with a diagnostic rather than
+rounded, and the `mass` columns are written from the exact integer. The
+`p` / `p_cond` / `share` columns are correctly-rounded renderings of an
+exact `Fraction` and are **display only** — never the quoted value.
+
+### What it will not do
+
+- **It will not invent the XA cost anchors.** Without
+  `--xa-nodes-per-sec`, `--xa-usd-per-hour` and `--xa-budget-usd` the
+  exhaustibility section of `xa_verdict.md` reads PENDING and the token is
+  `TR12_XA_CD=PENDING:xa-throughput-anchors`. The exact t-unit column
+  stands on its own.
+- **It will not re-derive the t-unit accounting convention.** A t-unit is
+  one valid oriented prefix (the empty prefix counts; dead ends count);
+  that convention is certified exhaustively at n=9 by `solve --kc-t-cert`
+  (TR-12 XA(iii)) and is cited, not re-claimed, here.
+- **It will not publish the mod-24 gate outside its scope.** The order-24
+  action is free on solutions, so `N_total` and every per-layer flow are
+  divisible by 24; per-branch and per-pair counts are **not** expected to
+  be and are not gated.
+- **It will not pass its own gate without a brute-force recount.**
+
+### The n=9 gate
+
+```bash
+B=$(mktemp -d); gcc -O2 -pthread -fopenmp -o $B/solve solve.c -lm -lz
+mkdir -p $B/f $B/g $B/t
+$B/solve --kc-build   $B/f --f1-pairs 9
+$B/solve --kc-g-build $B/g --f1-pairs 9
+$B/solve --kc-t-build $B/f $B/t
+$B/solve --kc-scan    $B/f $B/g $B/atlas.json --kc-tdir $B/t
+$B/solve --kc-enum    $B/f | grep -v '^\[' > $B/walks.txt        # 26,112 walks
+python3 solve.py --atlas-selftest $B/atlas.json --atlas-walks $B/walks.txt
+# ... 21 gates (23 with --atlas-q3-trace); expect: ATLAS_CONSUMER=PASS
+```
+
+Every emitted table is re-derived from that **explicit enumeration** and
+diffed cell by cell against the TSV read back off disk — not against the
+in-memory atlas. Adding `--atlas-fault v2-class-swap` (or any of the other
+four faults) makes the gate print `ATLAS_CONSUMER=FAIL` and exit 1; the
+class-swap fault is caught **only** by the brute-force leg, which is the
+point of having one.
+
+### Rendering the figures
+
+`viz/report_figures.py` turns these TSVs into V1–V5
+(`fig_tr12_kc_field`, `_river`, `_spectrum`, `_shells`, `_grammar`):
+
+```bash
+cd reports/figures/ && python3 ../../viz/report_figures.py /path/to/tr12
+```
+
+TSV in, figure out — no analysis logic lives in `viz/`. Each figure is
+skipped with a message if its TSV is absent. V3 does not ride the atlas
+(it comes from a rank grid joined to the `--compute-stats` battery; see
+[../viz/viz_kc_spectrum.md](../viz/viz_kc_spectrum.md)).
+
 ## ANALYSIS MODIFIERS
 
 ```
@@ -261,7 +390,9 @@ terminal and take precedence.
 | Code | Meaning |
 |---|---|
 | 0 | Success (or, for a verifier, all checks PASS). |
-| 1 | A verifier reported at least one mismatch (`--f4p-verify`, `--f6-verify`, `--dav-verify`, `--vdb-verify`, `--perm-verify`, `--rc4b-verify`, `--r7-verify`, `--books-verify`, `--trigram-verify`, `--registry-verify`, `--extended-selftest`), or an invalid argument. |
+| 2 | `--atlas-queries` refused the input (not an atlas, a float where a count belongs, no RAW marginals, an unknown `--atlas-select` value). |
+| 1 | A verifier reported at least one mismatch (`--f4p-verify`, `--f6-verify`, `--dav-verify`, `--vdb-verify`, `--perm-verify`, `--rc4b-verify`, `--r7-verify`, `--books-verify`, `--trigram-verify`, `--registry-verify`, `--extended-selftest`), or an invalid argument; or
+`--atlas-selftest` did not reach `ATLAS_CONSUMER=PASS`. |
 
 The descriptive analyses print to stdout and exit 0; they do not encode
 findings in the exit status.

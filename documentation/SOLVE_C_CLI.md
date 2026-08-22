@@ -58,6 +58,16 @@ solve --verify-wrap-parity [solutions.bin]              # wrap-around parity tab
 solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify | --dav2-verify | --db1-verify
                                                         # two-language functional-battery gates
 solve --rc4b-verify [SEQ]                               # R13 HEC two-convention parity gate (KW anchors)
+solve --kc-enum-desc DIR [--kc-c3-max T] [--kc-limit M] # REL-DESCENDING in-order enumeration (TR12 Q2 LAST^C15)
+solve --kc-enum-desc-selftest                           # its n=9 exhaustive brute-force gate
+solve --kc-profile FDIR GDIR "e,x,..."|KW               # per-step rarity/surprise profile of a walk (TR12 Q3/EW-1/V4)
+solve --kc-profile-selftest                             # its n=9 exhaustive brute-force gate
+solve --kc-scan F G OUT.chunk.json --kc-layers A B      # chunked partial atlas over HALF-OPEN layers [A,B)
+solve --kc-scan-merge F G OUT.json CHUNK.json ...       # reassemble chunks; PROVES coverage; byte-identical atlas
+solve --kc-layers-selftest                              # its n=9 chunk/merge gate (byte-identity + rejections)
+solve --kc-extremal FUNC DIR max|min [--kc-witness]     # TR12 Q5 DP extremal sweep + witness (G-invariance gated)
+solve --kc-extremal list                                # print the functional registry
+solve --kc-extremal-selftest                            # its n=9 exhaustive brute-force gate
 solve --check-arrangement "h0,...,h63"|KW               # first-principles C1..C5 verdict (H3a/CAP-2)
 solve --check-arrangement-selftest                      # its KW/historical/mutation battery
 solve --verify-certificate CERT.json [--kc-mutate]      # H6 certificate re-verifier + non-vacuity battery
@@ -1041,8 +1051,385 @@ certificates, not proofs. Exit **0** verified (and, with `--kc-mutate`, all
 mutations caught) / **1** any mismatch or uncaught mutation / **2**
 usage/parse/open errors. Sha-neutral. The `--kc-*` H-tier family
 (`--kc-oracle`, `--kc-ladder-verify`, `--kc-o3-cert`, `--kc-scan`,
-`--kc-ar2` + their selftests) is documented in-source in the KC/KC-H module
-headers in `solve.c`, per the `--kc-*` convention.
+`--kc-scan-merge`, `--kc-ar2`, `--kc-enum-desc`, `--kc-profile`,
+`--kc-extremal` + their selftests, including `--kc-enum-desc-selftest`,
+`--kc-profile-selftest`, `--kc-layers-selftest` and
+`--kc-extremal-selftest`, and the modifiers `--kc-tsv` / `--kc-alts` /
+`--kc-layers` / `--kc-witness` / `--kc-json` / `--kc-gdir`) is documented
+in-source in the KC/KC-H/KC-P/KC-X module headers in `solve.c`, per the
+`--kc-*` convention.
+
+### --kc-enum-desc
+
+```
+solve --kc-enum-desc DIR [--kc-c3-max T] [--kc-limit M]
+                         [--kc-ooc] [--kc-cache-mb MB]
+solve --kc-enum-desc-selftest
+```
+
+Descending in-order enumeration over the compiled f ladder in `DIR` (TR-12
+§8 item 6, query Q2). It is the **same** enumerator as `--kc-enum` with every
+choice loop reversed — one implementation, one direction flag — so it has the
+identical argv surface, needs only the f ladder (no g ladder), and honours
+`--kc-c3-max` / `--kc-limit` / `--kc-ooc` / `--kc-cache-mb` identically.
+
+Element *r* of the descending stream is element *N−1−r* of the ascending one.
+Consequently `--kc-limit 1` emits the **last** walk in the order, and
+`--kc-enum-desc DIR --kc-c3-max T --kc-limit 1` emits `LAST^C15` — the
+counterpart of the `FIRST^C15` that `--kc-enum … --kc-limit 1` already gives.
+The C3 in-path prune is direction-independent (`partial_cd` is a monotone
+lower bound on the prefix), so the admissible set is identical either way.
+
+**Order label — this matters and must not be dropped when quoting a result.**
+The order is **REL** (reverse-exit lexicographic: walks ordered by
+`(exit_n, exit_{n-1}, …, exit_1)`), the compiler's native descent order. It is
+**not** O3, the citable order. Every emitted `#provenance` line says
+`order=REL-DESCENDING`. O3-order endpoints come from
+`--kc-o3-unrank FDIR GDIR 0|N-1`, which needs both ladders. Publishing a REL
+endpoint as "the last solution" without the order label conflates two
+different orders.
+
+Output is the usual one-walk-per-line `entry,exit,entry,exit,…` stream,
+followed by a `#provenance` line (engine, git, source sha, `n`, order label,
+`object=WALK`, and the `space=` label — `C1C2C4C5-SUPERSPACE`, or
+`C1C2C4C5+walk-cd<=T` when `--kc-c3-max` was passed) and the verdict token
+`KC_ENUM_DESC=OK` (`KC_ENUM_DESC=FAIL` on an open/parse failure). Exit **0**
+ok / **2** usage or ladder-open error.
+
+`--kc-enum-desc-selftest` is the reduced-n gate: it builds an n=9 ladder in a
+scratch directory and cross-checks the descending stream against the
+independent forward brute enumerator and an independent reverse-exit-lex
+comparator — count, exact element-wise reversal of the ascending stream,
+strict REL-monotonicity, the `--kc-limit 1` extremes at both ends, the
+C3-filtered mirror, and an end-to-end leg that re-invokes the real binary so
+the argv wiring itself is gated. It prints one `PASS`/`FAIL` line per gate and
+ends with `KC_ENUM_DESC_SELFTEST=PASS` or `=FAIL`; exit **0** / **1**. It runs
+in well under a second, is argv-dispatched only, and is **never** reached from
+`--selftest` (whose output is sha-pinned).
+
+### --kc-profile
+
+```
+solve --kc-profile FDIR GDIR "e,x,..."|KW [--kc-tsv OUT.tsv] [--kc-alts]
+                                          [--kc-ooc] [--kc-cache-mb MB]
+solve --kc-profile-selftest
+```
+
+The TR-12 §1 **Q3** rarity/surprise profile of an **arbitrary** walk — the data
+behind **EW-1** (the surprise-localization ledger) and figure **V4**
+(`viz_kc_shells.md`). One row per prefix step *k*: the pair placed, `f` and `g`
+at the node reached, the completions still remaining, and the surprise measure
+Q3 defines. `FDIR` is an f (forward) retained-layers dir, `GDIR` the matching g
+(suffix-DP) ladder; **both are required** — `f` comes from the first, everything
+else from the second. The walk argument is `"e,x,e,x,…"` (2·n values) or the
+literal `KW` (full-31 ladders only).
+
+Q3's definitions, in the terms the columns use: with `s_i` the walk's prefix
+state after *i* placements, `g(s_i)` is the exact number of completions
+remaining, `f(s_i)` the number of prefixes reaching that state, and
+`p_i = g(s_i) / Σ_{c admissible at s_{i−1}} g(s_{i−1}∘c) = g(s_i)/g(s_{i−1})`
+(the denominator equals `g(s_{i−1})` by the DP recurrence). The self-check
+`Π p_i = 1/N` follows by telescoping from `g(s_0)=N` and `g(s_n)=1`.
+
+**Columns** (tab-separated; a label line, then a real header row, then *n* data
+rows):
+
+| column | meaning |
+|---|---|
+| `step` | 1-based prefix step *k* |
+| `pair` | global pair label of the pair placed |
+| `entry`, `exit` | the two hexagrams placed, in order |
+| `orient` | 1 if the exit is the pair's `pa` element, else 0 |
+| `dclass` | boundary distance class of the transition, in {1,2,3,4,6} |
+| `alts` | number of admissible successors at `s_{k−1}` with ≥1 completion |
+| `f` | `f(s_k)` — prefixes reaching that state (quotient count) |
+| `g` | `g(s_k)` — completions remaining (V4's "neighborhood shell") |
+| `g_parent` | `g(s_{k−1})` |
+| `p_num`, `p_den` | `p_k` as an **exact** rational: `g(s_k) / g(s_{k−1})` |
+| `bits` | `−log₂ p_k`, EW-1's surprise bar — **display-only double** |
+| `g_alt_min`, `g_alt_max` | V4's optional band: min/max `g` over the step's alternatives |
+| `choice_rank` | 1-based rank of the chosen alternative's `g` among the alternatives, **descending g** (1 = the walk took the fattest branch) |
+
+**Tie rule for `choice_rank`, pinned because EW-1 quotes this column:** ties in
+`g` are broken by `(global pair label, orient)` **ascending**.
+
+`--kc-alts` additionally emits one `#alt` row per admissible successor per step
+— Q3's "g of each alternative" in full. It is off by default because at n=31
+step 1 alone has up to 62 alternatives. `--kc-tsv OUT.tsv` writes the label
+line + header + data rows to a file through the **same writer** used for
+stdout, so the file is the stdout block verbatim (this is the artifact TR-12
+files as `tr12/q3_profile_kw.tsv`).
+
+**Order / object / space labels.** There is no ranking here: rows follow the
+walk's own path, labelled `order=NATIVE-WALK-PATH`, `object=WALK`,
+`space=C1C2C4C5-SUPERSPACE`. `p_k` is a conditional probability under the
+**uniform measure on SUPER**, and `g` counts SUPER completions.
+
+**`--kc-c3-max` is refused, not ignored** (exit **2**). A C3-conditioned
+profile is not computable (the C3 counting obstruction); Q3's C15 companion is
+a *sampled* rejection correction and rides `--kc-sample`.
+
+**Exactness.** `p_k` ships as the exact rational `p_num/p_den`; nothing is
+verified through the floating-point `bits` column. The product self-check is
+not floating point either — `KC_PROFILE_PRODUCT=EXACT` attests the conjunction
+`g(s_0) == N` **and** `g(s_n) == 1` **and** `Σ over alternatives of g ==
+g_parent at every step`, which telescopes to `Π p_i = 1/N` exactly. Reader-side
+arithmetic over `p_num`/`p_den` is a separate obligation (TR-12 §R step 7): the
+columns are emitted so the reader can multiply the rationals out independently
+rather than take the engine's word for it.
+
+Output ends with `#profile-summary` (the two endpoint checks, the flow-identity
+count, `sum_bits` vs `log₂N`), a `#provenance` line, then
+`KC_PROFILE_PRODUCT=EXACT|MISMATCH` and `KC_PROFILE=OK|FAIL`. Exit **0** ok /
+**1** invalid walk or a failed exactness check (no rows are emitted for an
+invalid walk) / **2** usage, ladder-open, or a rejected `--kc-c3-max`.
+
+**Relationship to `--kc-o3-rank --kc-trace`.** The O3 ranker's trace covers the
+`p_i` / `bits` columns and the product self-check, but it discards the
+alternatives' individual `g` values, has no `choice_rank`, emits `#`-prefixed
+diagnostic rows rather than the TSV deliverable, and only runs as a side effect
+of a full O3 rank. `--kc-profile` recomputes the profile **independently** from
+f/g point lookups alone — no frontier, no `kc_o3_mass`. Its gate then requires
+**row-for-row agreement** between the two, so the two implementations
+cross-check each other inside one binary.
+
+`--kc-profile-selftest` is the reduced-n gate: it builds n=9 f and g ladders in
+a scratch directory and cross-checks six fixed witness walks (REL rank 0,
+`N−1`, `⌊N/2⌋`, plus three seeded ranks) against the exhaustive brute
+enumeration of all 26,112 walks — P1 the flow identity and every alternative's
+`g` against brute prefix-completion counts, P2 the `g` column, P3
+`orbit(cm)·f` against a brute count of all distinct oriented prefixes landing
+on that stored state, P4 `alts`, P5 the band and `choice_rank`, P6 row-for-row
+agreement with `--kc-o3-rank --kc-trace`, P7 the product token, P8 rejection of
+a non-member walk, P9 an end-to-end argv leg through the real dispatcher
+including `--kc-tsv`, and P10 the `--kc-c3-max` refusal. It prints one
+`PASS`/`FAIL` line per gate and ends with `KC_PROFILE_SELFTEST=PASS` or
+`=FAIL`; exit **0** / **1**. It runs in well under a second, is
+argv-dispatched only, and is **never** reached from `--selftest` (whose output
+is sha-pinned).
+
+### --kc-layers / --kc-scan-merge
+
+```
+solve --kc-scan FDIR GDIR OUT.chunk.json --kc-layers A B
+                [--kc-tdir TDIR] [--kc-raw] [--kc-ooc] [--kc-cache-mb MB]
+solve --kc-scan-merge FDIR GDIR OUT.json CHUNK.json [CHUNK.json ...]
+                [--kc-tdir TDIR] [--kc-raw] [--kc-ooc] [--kc-cache-mb MB]
+solve --kc-layers-selftest
+```
+
+Chunked, eviction-survivable `--kc-scan`. The full-31 atlas scan is a single
+**48–85 h unresumable pass** against a Spot MTBE of roughly **15 h**;
+`--kc-layers A B` splits it into independent per-layer-range processes, so an
+evicted chunk is simply re-run and completed chunks are durable. The
+granularity floor is one layer — this is not mid-layer resume.
+
+**`A B` is a HALF-OPEN range `[A, B)`** over the transition layers
+`k ∈ [0, n)`. Off-by-one here is the primary bug risk, which is why the merge's
+coverage proof exists and why the range is restated in the chunk file itself.
+
+**Why the split is sound.** Chunking is a *loop-bound* restriction, not a data
+restriction. The scan streams the f layers directly by path and serves the g
+side by random lookups against the whole, untrimmed g ladder, so both ladders
+stay complete and open exactly as in a whole run and only the outer `k` loop's
+range changes — no directory, manifest, or total is touched. (Chunking by
+*trimming* a ladder directory does not work: the reader requires layers `0..n`,
+and f/g total equality is a hard abort.) Every accumulator the layer pass
+touches is indexed by `k` alone; everything else — `fmass[n]`, the branch
+atlas, the t recursion, the t ladder — is tail-side and is recomputed whole by
+the merge.
+
+A chunk writes a `roae-kc-scan-chunk` object (**not** an atlas): the per-layer
+rows for its range, `fmass` for its range, the identity bindings, and the
+decompressed-stream digest of each f layer it read. It ends with
+`KC_SCAN_CHUNK_RANGE=A-B` and `KC_SCAN_CHUNK=OK|FAIL`; exit **0** / **1** if a
+per-layer gate failed / **2** on usage or IO.
+
+**The merged atlas is byte-identical to a whole-run atlas** over the same
+ladders and the same argv paths — by construction, not by hope: the merge
+writes through the *unmodified* atlas emitter, layer rows come from the single
+row writer shared by both files, and the branch atlas / `fmass[n]` / t work are
+recomputed by the merge rather than serialised. Chunk submission order is
+irrelevant; rows are placed by `k`.
+
+**The merge PROVES coverage; it never assumes it.** Five independent legs:
+
+1. **Coverage, exactly once.** Every `k ∈ [0, n)` must be covered by exactly
+   one chunk's `[k_lo, k_hi)`. A gap or a double-count (which would silently
+   *double* a flow value) is reported per `k` and the merge writes **no output
+   file at all**.
+2. **Identity binding.** `n`, `N_total`, `pl_hash`, `start_exit`, `b0`,
+   `want_raw`, `fdir`, `gdir`, `engine_git`, `engine_source_sha` must agree
+   across every chunk *and* with the ladders the merge just opened. Chunks from
+   two builds or two ladders never merge.
+3. **Ladder-bytes binding, re-checked at merge time.** The merge recomputes
+   each f layer's decompressed-stream sha256 (the `--f1c5-layer-sha` digest)
+   and requires it to equal what the chunk recorded — so "all chunks read the
+   same ladder" is a *checked* statement, and a ladder mutated between chunk
+   runs is caught.
+4. **Every gate re-run on the assembled table.** The chunks' own `gate_fails`
+   is not trusted. Leg 1 × the per-layer `flow[k] == N` gate is a complete-
+   coverage argument at layer granularity: a truncated layer stream or an early
+   loop exit yields `flow[k] < N`.
+5. **The cross-chunk arithmetic identity.** With `--kc-tdir`,
+   `t(root) == Σ_{k=0..n} fmass[k]`. Every `fmass[k]` for `k < n` came from a
+   *different* chunk, while `fmass[n]` and `t(root)` come from the merge's own
+   reads — one 192-bit equation ties all chunks to one independently computed
+   total. **`--kc-tdir` is therefore effectively required for a production
+   merged atlas.** A merge without it still runs, but prints
+   `KC_SCAN_MERGE_TIDENTITY=SKIPPED` and a loud degraded-attestation warning.
+
+Verdict block: `KC_SCAN_MERGE_COVERAGE=COMPLETE|INCOMPLETE|ABORTED`,
+`KC_SCAN_MERGE_TIDENTITY=VERIFIED|SKIPPED|FAILED|NOT-REACHED`,
+`KC_SCAN_MERGE=OK|FAIL`. Exit **0** ok / **1** coverage incomplete or a gate
+failed / **2** hard abort (identity or ladder-digest mismatch, unreadable
+chunk). Preserve every chunk JSON alongside the merged atlas — together with
+the merge's verdict block they are the completeness evidence.
+
+**Operational note.** Layer cost is strongly peaked mid-ladder (at n=9 the f
+layer entry counts run 1, 4, 19, 58, 139, 244, 271, 160, 48, 6 — a ~270×
+spread), so choose chunk boundaries by *measured* per-layer cost, not by layer
+index. Time a probe with
+`solve --kc-scan F G /dev/null --kc-layers $k $((k+1))` per k. Chunks are a
+Spot workload; the merge is short, uncheckpointable and reads both ladders, so
+it belongs on a right-sized Standard VM.
+
+`--kc-layers-selftest` is the reduced-n gate (n=9, well under a minute,
+argv-dispatched only, **never** reached from `--selftest`, whose output is
+sha-pinned). It re-invokes the binary as real processes and checks L1 the
+whole-run reference atlas, L2 chunks `[0,3) [3,6) [6,9)` merging to bytes
+identical to the whole run, L3 nine single-layer chunks doing the same, L4 a
+shuffled submission order doing the same, L5 a gap and L5b a missing middle
+chunk both rejected with the offending layers named and **no atlas written**,
+L6 an overlap rejected as a double-count, L7 a mixed-identity chunk aborting,
+L8 a chunk bound to different ladder bytes aborting, L9 a tampered accumulator
+failing the merge's re-run per-layer gate, L10 the t-identity leg and the
+measured `t_root_t_units == 229861`, L11 every chunk's own tokens and
+`flow == 26112 == N`, and L12 the degraded no-`--kc-tdir` attestation. It ends
+with `KC_LAYERS_SELFTEST=PASS|FAIL`; exit **0** / **1**.
+
+### --kc-extremal
+
+```
+solve --kc-extremal FUNC DIR max|min [--kc-witness] [--kc-json OUT.json]
+                    [--kc-gdir GDIR] [--kc-ooc] [--kc-cache-mb MB]
+solve --kc-extremal list
+solve --kc-extremal-selftest
+```
+
+The TR-12 **Q5** per-functional **DP extremal sweep with an explicit witness
+walk**, over the C1&C2&C4&C5 SUPERSPACE. For a functional that is
+*edge-additive* on the compiled DP graph,
+
+```
+Phi(w) = SUM over j = 1..n of weight(j, last_{j-1}, entry_j, exit_j)
+```
+
+it builds a backward max-plus / min-plus ladder `X(s)` on the **f ladder's
+exact state space** — geometry (masks, offsets, keys) mirrored byte-identically
+from the f layer, only the value channel differs, exactly as the Stage-T
+ladder does — and then extracts the witness by a **forward greedy descent**
+from the root. No backpointers are stored: `X` is kept for every state, so the
+descent costs `n · 2n` lookups. That is the whole reason the DP runs backward.
+
+Values are stored biased: `l0 = Phi_suffix + 2^31`, with **`l0 == 0` as the
+NULL sentinel** for a dead-end prefix. This is a real semantic difference from
+the t ladder (which counts dead-end nodes and so never stores 0) and it is
+asserted on every read; a value outside the biased range is a defect, not a
+data condition.
+
+`DIR` is an f (forward) retained-layers dir. **No g ladder is required** —
+reachability is f's state space and the NULL sentinel handles dead ends. Pass
+one with `--kc-gdir` only to enable the free structural cross-gate
+`X(s) == NULL <=> g(s) == 0` over every stored state, reported as
+`KC_EXTREMAL_NULL_VS_G=CONSISTENT|INCONSISTENT`.
+
+**The G-invariance gate, and why the tool refuses rather than approximates.**
+The ladders are an **orbit quotient**: a stored state's `(last, entry, exit)`
+live in the canonical representative's frame, which differs from a given raw
+walk's frame by a group element. A DP over the quotient computes the extremum
+over *orbits*, which equals the extremum over raw walks **iff the edge weight
+is invariant under every frame map the DP applies**. Those maps are exactly the
+24 `el[g].hmap[]`, so the question is finite and is settled by brute force
+before the DP runs: `<= 24 * 64 * 64 * n` comparisons. The verdict is
+`KC_EXTREMAL_INVARIANT=yes|no`; on `no` the tool prints the concrete
+counterexample `(g, step, last, entry, exit, w, w_mapped)`, emits **no value**,
+and exits **1**. A non-invariant functional needs the plain unquotiented DP,
+which is memory-infeasible at full-31 and is deferred (TR-12 §Q5 caveat 1).
+Because G48 acts by permuting the six *line positions*, `popcount(h)` and
+`popcount(a ^ b)` are invariant while any specific line, trigram or hexagram is
+not — but the gate decides per functional rather than the reader reasoning
+about it.
+
+`--kc-c3-max` is **rejected** with an explicit error: C3 is not
+DP-optimisable, only a monotone in-path prune.
+
+**The v1 registry** (`--kc-extremal list`, which prints name / class /
+invariance expectation / `py_ref` / note and exits 0):
+
+| FUNC | weight | status |
+|---|---|---|
+| `dclass:1` `dclass:2` `dclass:3` `dclass:4` `dclass:6` | `[ boundary distance class of (last, entry) == D ]` | invariant; **C5-forced CONSTANT** — `max == min == b0[D]` |
+| `linechanges` | `popcount(last ^ entry)` (Q5's per-line change count) | invariant; **also constant** — `SUM_c b0[c]*dval[c]` |
+| `graycode` | `[ popcount(last ^ entry) == 1 ]` | invariant; alias of `dclass:1` (exercises the alias path) |
+| `yangcount` | `popcount(exit)` | invariant and **genuinely non-constant** — the row that exercises the DP |
+| `entryyang` | `popcount(entry)` | invariant; exact complement of `yangcount`, a free cross-check |
+| `posyang0` | bit 0 of `exit` | **NON-INVARIANT negative control.** Must trip `KC_EXTREMAL_INVARIANT=no`. Never publishable. |
+
+Reporting the C5-forced rows as *constants* rather than as extrema is
+deliberate — TR-12 §Q5 asks for exactly that, and `constant_on_space=yes|no`
+plus `opposite_extreme=` are emitted on every run so the reader never has to
+infer it. Class (b) functionals ("small extra state": `--markov`
+self-transition counts, `--yinyang` running-balance *excursion*, prefix
+level-cover masks) are **not** in v1 — each multiplies the state space by a
+factor K and breaks the byte-identical f-geometry mirroring, and is a separate,
+sized item.
+
+**Scope: v1 is in-memory only (n ≤ 22).** An out-of-core f ladder is refused
+with an explanatory error rather than silently mishandled. The streaming,
+eviction-resumable OOC extremal builder is the full-31 enabler and is a
+separate, unbuilt item, so **full-31 is not reachable from this subcommand**;
+TR-12 §7 independently rules Q5 wave 3, deferred and not budgeted.
+
+`--kc-witness` runs the greedy descent and emits the witness in the standard
+`entry,exit,…` form. `KC_EXTREMAL_WITNESS=VERIFIED` requires **all three** of:
+the descent produced a walk; `kc_member` accepts it; and a **straight-line
+evaluator that never touches the DP** re-evaluates `Phi` on it to exactly
+`extreme_value`. Anything less is `=FAILED`, `KC_EXTREMAL=FAIL`, exit 1.
+TR-12 §Q5 additionally requires the witness to be re-checked in `solve.py` —
+that is a **run-harness obligation**, not something a second evaluator inside
+the same binary can discharge, and no Q5 number should ship without it.
+
+`--kc-json OUT.json` writes a `roae-kc-extremal-certificate` object carrying
+the same fields plus the ladder identity (`n`, `N_total`, `pl_hash`, `fdir`,
+`gdir`, `engine_git`, `engine_source_sha`). Output is a certificate, not a
+proof.
+
+Verdict tokens: `KC_EXTREMAL_INVARIANT=yes|no`, `KC_EXTREMAL_WITNESS=VERIFIED|
+FAILED`, `KC_EXTREMAL_NULL_VS_G=CONSISTENT|INCONSISTENT` (with `--kc-gdir`),
+`KC_EXTREMAL_LIST=OK` (list mode) and `KC_EXTREMAL=OK|FAIL`. Exit **0** / **1**
+(gate failure or refused functional) / **2** (usage, unknown functional, bad
+direction, `--kc-c3-max`, or an out-of-core ladder).
+
+`--kc-extremal-selftest` is the reduced-n gate: it builds n=9 f and g ladders
+in a scratch dir and cross-checks the DP against exhaustive brute force over
+all 26,112 walks. **K1** pins `X(s) == NULL <=> g(s) == 0` over every stored
+state of every layer in both directions, plus the byte-identical f-geometry
+mirror and the biased-range assert; **K2** checks the C5-forced known answers
+against the budget table with no brute force at all; **K3** requires the DP's
+`extreme_value` to equal the brute extremum for every invariant functional in
+both directions; **K4** requires the witness to be a member re-evaluating to
+that value; **K5** requires at least one brute walk to attain it (which is what
+catches a witness that is extremal by luck on a wrong DP); **K6** requires the
+non-invariant control to be refused with no value emitted; **K7** records, as
+evidence rather than as a pass/fail row, what the forced quotient DP returns
+for that control versus brute; **K8** requires max and min to bracket all
+26,112 values; **K9** checks the `yangcount`/`entryyang` complementarity and
+that `yangcount` is genuinely non-constant; **K10**–**K12** exercise the argv
+surface, the certificate JSON, `list`, and the refusals. It prints one
+`PASS`/`FAIL` line per gate and ends with `KC_EXTREMAL_SELFTEST=PASS|FAIL`;
+exit **0** / **1**. It runs in about a second, is argv-dispatched only, and is
+**never** reached from `--selftest` (whose output is sha-pinned).
 
 ### --merge
 

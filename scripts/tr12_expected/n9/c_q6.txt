@@ -1,0 +1,13 @@
+# Q6 — REDUCED FORM (QUERY_INVENTORY §3.1): per-layer per-DISTANCE-CLASS mass.
+# The spec's per-(state,choice) argmax/argmin is NOT served by this atlas schema.
+# §9 already rules the per-layer argmin 'loneliest corridor' figure fodder, not a headline.
+k	flow	d1	d2	d3	d4	d6	anchor_mass_below	anchor_percentile
+0	26112	14208	9216	0	2688	0	9472	0.362745098
+1	26112	5952	15552	0	4608	0	2720	0.104166666
+2	26112	5952	15264	0	4896	0	0	0
+3	26112	0	15168	0	10944	0	768	0.029411764
+4	26112	0	18528	0	7584	0	0	0
+5	26112	0	18528	0	7584	0	0	0
+6	26112	14208	8640	0	3264	0	0	0
+7	26112	5952	14688	0	5472	0	0	0
+8	26112	5952	14976	0	5184	0	0	0

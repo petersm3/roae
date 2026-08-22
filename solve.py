@@ -9694,6 +9694,767 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     return 0
 
 
+# ===========================================================================
+# ATLAS CONSUMER — the reader of `solve --kc-scan` atlas JSON (TR-12 query
+# program: Q3, Q6, XA, and the V1/V2/V5 figure inputs).
+#
+# Developed with AI assistance (Claude, Anthropic).
+#
+# The atlas (`"type": "roae-kc-scan-atlas"`) is written ONCE by `--kc-scan`
+# at the end of a single streaming join of the f- and g-ladders.  This block
+# is the only consumer of that file: it re-shapes it into the tab-separated
+# evidence tables the TR-12 queries and the V-family figures read, and it
+# gates every table it writes.
+#
+# PRECISION CONTRACT (load-bearing — read before editing).  Every count in
+# the atlas is a DECIMAL STRING carrying up to a 192-bit value.  They are
+# parsed with `int()` and only ever with `int()`; `_atlas_int` refuses a
+# JSON float outright, and `json.load` is given `parse_float=Decimal` so a
+# float literal anywhere in the file can never reach an arithmetic path.
+# Masses are re-emitted from the exact integer, never from a float; the
+# `p`/`p_cond`/`share` columns are correctly-rounded renderings of an exact
+# `Fraction` and are DISPLAY ONLY — never the quoted value.
+#
+# Authorities: TR12_QUERY_PROGRAM_2026_07_17.md (roae-private) sections 1-3,
+# QUERY_INVENTORY.md, and the five viz/viz_kc_*.md figure docs, which pin
+# the column names and order of every table written here.  n=9 gate:
+# `--atlas-selftest` (see `atlas_selftest`), verdict `ATLAS_CONSUMER=PASS`.
+# ===========================================================================
+
+_ATLAS_TYPE = "roae-kc-scan-atlas"
+_ATLAS_CLASSES = (1, 2, 3, 4, 6)          # boundary distance classes; d=0 impossible, d=5 killed by C2
+_ATLAS_PAIRS = 32                         # global pair index space (pair 0 is C4-pinned)
+_ATLAS_ORBIT = 24                         # |G/kernel| — the free order-24 action (TR-5)
+
+# test-only fault injector; set by --atlas-fault.  Named faults deliberately
+# corrupt exactly one emitted column so the n=9 gate can be SHOWN to fail
+# (QUERY_BUILD_BRIEF invariant 3).  Never set on a production run.
+_ATLAS_FAULT = None
+
+
+def _atlas_fault(name):
+    return _ATLAS_FAULT == name
+
+
+class AtlasError(Exception):
+    """Refuse to emit rather than publish a number we cannot vouch for."""
+
+
+def _atlas_int(v, where):
+    """Parse an atlas count.  Decimal strings only (192-bit); floats refused."""
+    if isinstance(v, bool):
+        raise AtlasError("%s: boolean where a count was expected" % where)
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str):
+        s = v.strip()
+        if s and (s.lstrip("-")).isdigit():
+            return int(s)
+        raise AtlasError("%s: %r is not a decimal integer string" % (where, v))
+    raise AtlasError(
+        "%s: %r is a non-integer JSON literal (type %s). Counts must be decimal "
+        "strings or JSON integers -- refusing to publish a rounded count."
+        % (where, v, type(v).__name__))
+
+
+def _atlas_ratio(num, den):
+    """Exact rational -> correctly-rounded float.  Display precision ONLY."""
+    from fractions import Fraction
+    if den == 0:
+        return float("nan")
+    return float(Fraction(int(num), int(den)))
+
+
+def _atlas_f(x):
+    return "%.17g" % x
+
+
+def atlas_load(path):
+    """Load an atlas JSON, refusing float literals anywhere in the file."""
+    import decimal
+    import json as _json
+    with open(path) as fh:
+        A = _json.load(fh, parse_float=decimal.Decimal)
+    if A.get("type") != _ATLAS_TYPE:
+        raise AtlasError("%s: not a %s document (type=%r)" % (path, _ATLAS_TYPE, A.get("type")))
+    for req in ("n", "N_total", "layers", "branch_atlas"):
+        if req not in A:
+            raise AtlasError("%s: atlas is missing required field %r" % (path, req))
+    n = A["n"]
+    if not isinstance(n, int) or n < 1:
+        raise AtlasError("%s: bad n %r" % (path, n))
+    if len(A["layers"]) != n:
+        raise AtlasError("%s: %d layers for n=%d" % (path, len(A["layers"]), n))
+    return A
+
+
+def _atlas_kw_overlay(n):
+    """King Wen's own path, or the honest 'absent' placeholders at reduced n.
+
+    KW exists only in the full-31 world; at n<31 the overlay columns are -1
+    rather than a guess.  `binary_hexagrams` (this module) is the single
+    source of truth for the sequence.
+    """
+    kw_d = [-1] * n
+    kw_w = [-1] * n
+    kw_pair = [-1] * n
+    if n == 31:
+        K = binary_hexagrams
+        pc = lambda x: bin(x).count("1")
+        kw_d = [pc(K[2 * k + 1] ^ K[2 * k + 2]) for k in range(31)]
+        kw_w = [pc(K[2 * k + 2] ^ K[2 * k + 3]) for k in range(31)]
+        kw_pair = [k + 1 for k in range(31)]
+    return kw_d, kw_w, kw_pair
+
+
+def _atlas_layer_class(L, d, k):
+    return _atlas_int(L["by_class"]["d%d" % d], "layers[%d].by_class.d%d" % (k, d))
+
+
+def _atlas_write(path, header, rows):
+    with open(path, "w") as fh:
+        fh.write("\t".join(header) + "\n")
+        for r in rows:
+            fh.write("\t".join(str(c) for c in r) + "\n")
+    return path
+
+
+# --------------------------------------------------------------------------
+# V1 -- the positional-marginal field (viz/viz_kc_field.md)
+# --------------------------------------------------------------------------
+def atlas_emit_v1(A, outdir):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    if "marginal_raw" not in A["layers"][0]:
+        raise AtlasError(
+            "atlas carries no RAW marginals -- re-run --kc-scan with --kc-raw "
+            "(marginal_quotient must NOT be plotted as the positional field)")
+    _, _, kw_pair = _atlas_kw_overlay(n)
+    rows = []
+    for L in A["layers"]:
+        k = L["k"]
+        for p in range(_ATLAS_PAIRS):
+            m = _atlas_int(L["marginal_raw"].get("pair%d" % p, "0"),
+                           "layers[%d].marginal_raw.pair%d" % (k, p))
+            if _atlas_fault("v1-drop-pair") and k == 0 and m > 0:
+                m = 0          # test-only: breaks the column-sum == N gate
+            rows.append((k, k + 2, p, m, _atlas_f(_atlas_ratio(m, N)),
+                         1 if kw_pair[k] == p else 0))
+    return _atlas_write(os.path.join(outdir, "v1_field.tsv"),
+                        ["k", "slot", "pair", "mass", "p", "kw"], rows)
+
+
+# --------------------------------------------------------------------------
+# V2 -- the mass river + the branch panel (viz/viz_kc_river.md)
+# --------------------------------------------------------------------------
+def atlas_emit_v2(A, outdir):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    kw_d, _, _ = _atlas_kw_overlay(n)
+    rows = []
+    for L in A["layers"]:
+        k = L["k"]
+        for d in _ATLAS_CLASSES:
+            m = _atlas_layer_class(L, d, k)
+            if _atlas_fault("v2-class-swap") and k == 0 and d in (1, 2):
+                m = _atlas_layer_class(L, 3 - d, k)   # test-only: swaps d1 <-> d2
+            rows.append((k, d, m, _atlas_f(_atlas_ratio(m, N)), kw_d[k]))
+    river = _atlas_write(os.path.join(outdir, "v2_river.tsv"),
+                         ["k", "d", "mass", "p", "kw_d"], rows)
+    branches = _atlas_write(os.path.join(outdir, "v2_branches.tsv"),
+                            ["branch", "pair", "entry", "exit", "d", "solutions",
+                             "share", "prefixes_t_units", "t_source", "kw"],
+                            _atlas_branch_rows(A, N, n, wide=False))
+    return river, branches
+
+
+def _atlas_branch_rows(A, N, n, wide):
+    """Shared branch table.  `wide` adds the XA columns (walks, t-units gate)."""
+    K = binary_hexagrams
+    rows = []
+    for i, b in enumerate(A["branch_atlas"]):
+        sol = _atlas_int(b["solutions"], "branch_atlas[%d].solutions" % i)
+        if wide and _atlas_fault("xa-drop-branch") and i == len(A["branch_atlas"]) - 1:
+            continue                                   # test-only: breaks sum == N
+        entry = b["entry"]
+        d = bin(entry).count("1")                      # C4 pins the start exit to hexagram 0
+        t = b.get("prefixes_t_units", "PENDING_T_LADDER")
+        if not isinstance(t, str):
+            t = str(_atlas_int(t, "branch_atlas[%d].prefixes_t_units" % i))
+        kw = 1 if (n == 31 and b["global_pair"] == 1 and entry == K[2]) else 0
+        row = [i, b["global_pair"], entry, b["exit"], d, sol,
+               _atlas_f(_atlas_ratio(sol, N)), t, b.get("t_source", "direct-recursion")]
+        if wide:
+            w = b.get("walks", None)
+            row.append("" if w is None else _atlas_int(w, "branch_atlas[%d].walks" % i))
+        row.append(kw)
+        rows.append(tuple(row))
+    return rows
+
+
+# --------------------------------------------------------------------------
+# V5 -- the transition grammar (viz/viz_kc_grammar.md)
+# --------------------------------------------------------------------------
+def atlas_emit_v5(A, outdir):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    kw_d, kw_w, _ = _atlas_kw_overlay(n)
+    rows = []
+    for L in A["layers"]:
+        k = L["k"]
+        flow = _atlas_int(L["flow"], "layers[%d].flow" % k)
+        if flow != N:
+            raise AtlasError("layers[%d].flow != N_total -- gate failure, do not plot" % k)
+        for d in _ATLAS_CLASSES:
+            m = _atlas_layer_class(L, d, k)
+            # w = -1: the (distance x within-pair) cross-tab is NOT emitted by
+            # the scan (QUERY_INVENTORY 3.1).  The placeholder is honest; the
+            # second dimension is absent, not guessed.
+            rows.append((k, d, -1, m, _atlas_f(_atlas_ratio(m, flow)), kw_d[k], kw_w[k]))
+    return _atlas_write(os.path.join(outdir, "v5_grammar.tsv"),
+                        ["k", "d", "w", "mass", "p_cond", "kw_d", "kw_w"], rows)
+
+
+# --------------------------------------------------------------------------
+# Q6 -- density extremes (TR-12 section 1 Q6; REDUCED form per QUERY_INVENTORY 3.1:
+# the atlas carries per-layer per-distance-class mass, not per-(state,choice)
+# mass.  This table must never be published as the spec's per-choice table.)
+# --------------------------------------------------------------------------
+def atlas_emit_q6(A, outdir, trace=None):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    kw_d, _, _ = _atlas_kw_overlay(n)
+    mass_rows, ext_rows = [], []
+    for L in A["layers"]:
+        k = L["k"]
+        by = {d: _atlas_layer_class(L, d, k) for d in _ATLAS_CLASSES}
+        hi = max(by, key=lambda d: (by[d], -d))
+        nz = [d for d in _ATLAS_CLASSES if by[d] > 0]
+        lo = min(nz, key=lambda d: (by[d], d)) if nz else -1
+        for d in _ATLAS_CLASSES:
+            mass_rows.append((k, k + 2, d, by[d], _atlas_f(_atlas_ratio(by[d], N)),
+                              1 if d == hi else 0, 1 if d == lo else 0))
+        kw_mb, kw_pct = -1, -1.0
+        if trace is not None and k < len(trace):
+            kw_mb = trace[k]["mass_below"]
+            kw_pct = _atlas_ratio(kw_mb, N)
+        ext_rows.append((k, k + 2, hi, by[hi], lo, by[lo] if lo >= 0 else 0,
+                         _atlas_f(_atlas_ratio(by[hi], by[lo]) if lo >= 0 else float("nan")),
+                         kw_d[k], kw_mb, _atlas_f(kw_pct)))
+    a = _atlas_write(os.path.join(outdir, "q6_layer_mass.tsv"),
+                     ["k", "slot", "d", "mass", "p", "is_argmax", "is_argmin_nonzero"],
+                     mass_rows)
+    b = _atlas_write(os.path.join(outdir, "q6_layer_extremes.tsv"),
+                     ["k", "slot", "argmax_d", "argmax_mass", "argmin_nonzero_d",
+                      "argmin_mass", "ratio", "kw_d", "kw_mass_below", "kw_pct"],
+                     ext_rows)
+    return a, b
+
+
+# --------------------------------------------------------------------------
+# Q10(a) -- the orbit census + the mod-24 integrity gate (XA-24)
+#
+# SCOPE, stated because it is easy to over-claim: the order-24 action is free
+# on SOLUTIONS (TR-5), so N and every per-layer FLOW are divisible by 24.  It
+# does NOT permute a fixed first placement, so per-branch and per-pair counts
+# are NOT expected to be divisible by 24 and are not gated here.
+# --------------------------------------------------------------------------
+def atlas_emit_q10a(A, outdir):
+    N = _atlas_int(A["N_total"], "N_total")
+    rows = [("global", -1, N, N // _ATLAS_ORBIT, 1 if N % _ATLAS_ORBIT == 0 else 0)]
+    for L in A["layers"]:
+        k = L["k"]
+        flow = _atlas_int(L["flow"], "layers[%d].flow" % k)
+        if _atlas_fault("q10-mod24") and k == 0:
+            flow += 1                                  # test-only: breaks the mod-24 gate
+        rows.append(("layer", k, flow, flow // _ATLAS_ORBIT,
+                     1 if flow % _ATLAS_ORBIT == 0 else 0))
+    return _atlas_write(os.path.join(outdir, "q10_orbit_census.tsv"),
+                        ["scope", "k", "flow", "orbits", "mod24_ok"], rows)
+
+
+# --------------------------------------------------------------------------
+# XA -- the exhaustion atlas (TR-12 section 3): branch table + verdict
+# --------------------------------------------------------------------------
+def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    rows = _atlas_branch_rows(A, N, n, wide=True)
+    tsv = _atlas_write(os.path.join(outdir, "xa_branches.tsv"),
+                       ["branch", "pair", "entry", "exit", "d", "solutions", "share",
+                        "prefixes_t_units", "t_source", "walks", "kw"], rows)
+    md = os.path.join(outdir, "xa_verdict.md")
+    sol_sum = sum(r[5] for r in rows)
+    t_have = all(str(r[7]).lstrip("-").isdigit() for r in rows)
+    t_sum = sum(int(r[7]) for r in rows) if t_have else None
+    t_root = _atlas_int(A["t_root_t_units"], "t_root_t_units") if "t_root_t_units" in A else None
+    if t_root is not None and not isinstance(A["t_root_t_units"], (str, int)):
+        t_root = None
+    with open(md, "w") as fh:
+        fh.write("# XA -- the exhaustion atlas (n=%d)\n\n" % n)
+        fh.write("Source: `%s` (`%s`), space `%s`.\n" % (
+            os.path.basename(atlas_path or "atlas.json"), A.get("type"), A.get("space")))
+        fh.write("Semantics: %s. Every count below is exact.\n\n" % A.get("semantics", "certificate, not proof"))
+        fh.write("## Gates\n\n")
+        fh.write("| gate | expected | got | verdict |\n|---|---|---|---|\n")
+        fh.write("| `sum_b solutions(b) == N` | %d | %d | %s |\n" %
+                 (N, sol_sum, "PASS" if sol_sum == N else "FAIL"))
+        if t_have and t_root is not None:
+            fh.write("| `1 + sum_b prefixes_t_units(b) == t(root)` | %d | %d | %s |\n" %
+                     (t_root, 1 + t_sum, "PASS" if 1 + t_sum == t_root else "FAIL"))
+        else:
+            fh.write("| `1 + sum_b prefixes_t_units(b) == t(root)` | - | - | "
+                     "PENDING:--kc-t-build (re-run --kc-scan with --kc-tdir) |\n")
+        fh.write("| `N mod 24 == 0` (XA-24, free order-24 action, TR-5) | 0 | %d | %s |\n" %
+                 (N % _ATLAS_ORBIT, "PASS" if N % _ATLAS_ORBIT == 0 else "FAIL"))
+        bad = [L["k"] for L in A["layers"]
+               if _atlas_int(L["flow"], "flow") % _ATLAS_ORBIT != 0]
+        fh.write("| every layer flow mod 24 == 0 (XA-24) | none | %s | %s |\n\n" %
+                 (bad if bad else "none", "PASS" if not bad else "FAIL"))
+        fh.write("The t-unit accounting convention (a t-unit is one valid oriented prefix; the\n"
+                 "empty prefix counts; dead ends count) is certified separately and exhaustively\n"
+                 "at n=9 by `solve --kc-t-cert` (TR-12 XA(iii) / `tr12/xa_node_convention.json`).\n"
+                 "This consumer does NOT re-derive it and does not claim it.\n\n")
+        if t_have:
+            lo = min(rows, key=lambda r: int(r[7]))
+            hi = max(rows, key=lambda r: int(r[7]))
+            fh.write("## Branch extremes (t-units = pruned-DFS nodes)\n\n")
+            fh.write("- cheapest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
+                     "%s solutions\n" % (lo[0], lo[1], lo[2], lo[3], lo[7], lo[5]))
+            fh.write("- costliest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
+                     "%s solutions\n\n" % (hi[0], hi[1], hi[2], hi[3], hi[7], hi[5]))
+        fh.write("## Exhaustibility (XA-c/d)\n\n")
+        if not t_have:
+            fh.write("**PENDING** -- no t-ladder in this atlas, so there is no node cost to price.\n")
+            verdict = "PENDING:--kc-t-build"
+        elif cost is None or cost.get("nodes_per_sec") is None or cost.get("usd_per_hour") is None \
+                or cost.get("budget_usd") is None:
+            fh.write("**PENDING** -- the exhaustion wall/$ call needs three operator-supplied\n"
+                     "anchors that this consumer will not invent: `--xa-nodes-per-sec`\n"
+                     "(from the R-1 pilot artifacts), `--xa-usd-per-hour`, and `--xa-budget-usd`.\n"
+                     "The t-unit column above is exact and stands on its own.\n")
+            verdict = "PENDING:xa-throughput-anchors"
+        else:
+            rate = cost["nodes_per_sec"] / (cost["hedge"] * cost["work_factor"])
+            fh.write("Anchors (operator-supplied, echoed for the certificate): "
+                     "nodes/sec = %g, hedge = x%g, work factor = x%g, $/hour = %g, "
+                     "budget = $%g. Effective rate = %g nodes/sec. Note: %s\n\n"
+                     % (cost["nodes_per_sec"], cost["hedge"], cost["work_factor"],
+                        cost["usd_per_hour"], cost["budget_usd"], rate,
+                        cost.get("note", "(no anchor note supplied)")))
+            fh.write("Branches ascending by node cost; `cost/budget` is the exact shortfall\n"
+                     "factor when the row reads INFEASIBLE.\n\n")
+            fh.write("| branch | pair | t-units | wall (h) | $ | verdict | cost/budget |\n")
+            fh.write("|---|---|---|---|---|---|---|\n")
+            cheapest_ok = None
+            for r in sorted(rows, key=lambda r: int(r[7])):
+                nodes = int(r[7])
+                hours = nodes / rate / 3600.0
+                usd = hours * cost["usd_per_hour"]
+                ok = usd <= cost["budget_usd"]
+                short = usd / cost["budget_usd"] if cost["budget_usd"] else float("inf")
+                if cheapest_ok is None:
+                    cheapest_ok = ok
+                fh.write("| %d | %d | %s | %.4g | %.4g | %s | %.4g |\n" %
+                         (r[0], r[1], r[7], hours, usd,
+                          "EXHAUSTIBLE" if ok else "INFEASIBLE", short))
+            fh.write("\nCall: the argmin branch is **%s** at the stated ceiling.\n"
+                     % ("EXHAUSTIBLE" if cheapest_ok else "INFEASIBLE"))
+            verdict = "PASS"
+    return tsv, md, verdict
+
+
+# --------------------------------------------------------------------------
+# Q3 -- KW's rarity profile, from `--kc-o3-rank ... --kc-trace` (viz_kc_shells.md)
+#
+# The trace is the ENGINE's own attestation.  Section 3.2 of QUERY_INVENTORY
+# requires the reader to redo the product check independently: that is
+# `atlas_q3_reader_check`, whose verdict ships as TR12_Q3_READER, separate
+# from TR12_Q3.  The engine does not grade its own homework.
+# --------------------------------------------------------------------------
+_Q3_KEEP = ["step", "pair", "entry", "exit", "orient", "alts", "mass_below",
+            "f", "g", "g_parent"]
+# columns the richer `--kc-profile --kc-tsv` emitter adds; carried through when
+# present (they are what V4's optional min/max alternatives band needs).
+_Q3_EXTRA = ["dclass", "g_alt_min", "g_alt_max", "choice_rank"]
+
+
+def atlas_parse_q3_trace(path):
+    """Accept EITHER Q3 source and normalise to one row dict per step.
+
+      (a) `--kc-o3-rank ... --kc-trace` text  -- '#o3-trace' key=value lines;
+      (b) `--kc-profile ... --kc-tsv FILE`    -- a provenance line, then a
+          header row, then one row per step (exact p_num/p_den columns).
+
+    Source (b) has no `mass_below` column (that is an O3-rank quantity); it is
+    filled with -1 rather than invented, and the extra profile columns ride
+    along.  Every integer goes through `int()`; no column is ever floated.
+    """
+    steps = []
+    with open(path) as fh:
+        lines = fh.read().splitlines()
+    if any(l.startswith("#o3-trace\t") for l in lines):
+        for line in lines:
+            if not line.startswith("#o3-trace\t"):
+                continue                       # skips #o3-trace-summary and provenance
+            d = dict(x.split("=", 1) for x in line.split("\t")[1:])
+            num, den = d["p"].split("/")
+            rec = {c: _atlas_int(d[c], "trace.%s" % c) for c in _Q3_KEEP}
+            rec["p_num"] = _atlas_int(num, "trace.p_num")
+            rec["p_den"] = _atlas_int(den, "trace.p_den")
+            rec["bits"] = d["bits"]
+            steps.append(rec)
+    else:
+        head = None
+        for line in lines:
+            cols = line.split("\t")
+            if head is None:
+                if "p_num" in cols and "p_den" in cols and "step" in cols:
+                    head = cols
+                continue                       # provenance / banner lines
+            if len(cols) != len(head):
+                continue
+            d = dict(zip(head, cols))
+            rec = {c: (_atlas_int(d[c], "profile.%s" % c) if c in d else -1)
+                   for c in _Q3_KEEP}
+            rec["p_num"] = _atlas_int(d["p_num"], "profile.p_num")
+            rec["p_den"] = _atlas_int(d["p_den"], "profile.p_den")
+            rec["bits"] = d.get("bits", "")
+            for c in _Q3_EXTRA:
+                if c in d:
+                    rec[c] = _atlas_int(d[c], "profile.%s" % c)
+            steps.append(rec)
+    if not steps:
+        raise AtlasError("%s: no Q3 rows -- expected `--kc-o3-rank ... --kc-trace` text "
+                         "or a `--kc-profile ... --kc-tsv` table" % path)
+    return steps
+
+
+def atlas_emit_q3(steps, outdir, n):
+    extra = [c for c in _Q3_EXTRA if c in steps[0]]
+    rows = []
+    for s in steps:
+        den = s["p_den"] * (2 if _atlas_fault("q3-perturb") and s["step"] == 1 else 1)
+        rows.append(tuple([s[c] for c in _Q3_KEEP] +
+                          [s["p_num"], den,
+                           _atlas_f(_atlas_ratio(s["p_num"], den)), s["bits"]] +
+                          [s[c] for c in extra]))
+    name = "q3_profile_kw.tsv" if n == 31 else "q3_profile.tsv"
+    return _atlas_write(os.path.join(outdir, name),
+                        _Q3_KEEP + ["p_num", "p_den", "p", "bits"] + extra, rows)
+
+
+def atlas_q3_reader_check(tsv_path, N):
+    """Reader-side, big-integer: prod(p_num/p_den) == 1/N, exactly.
+
+    Recomputed from the WRITTEN TSV (not from the in-memory trace) so the
+    check covers the emitter as well as the engine.
+    """
+    from fractions import Fraction
+    rows = _atlas_read_tsv(tsv_path)
+    prod = Fraction(1, 1)
+    fails = []
+    prev_g = None
+    for r in rows:
+        prod *= Fraction(int(r["p_num"]), int(r["p_den"]))
+        if prev_g is not None and int(r["g_parent"]) != prev_g:
+            fails.append("step %s: g_parent != previous g" % r["step"])
+        prev_g = int(r["g"])
+    if prod != Fraction(1, N):
+        fails.append("prod(p_i) = %s, expected 1/%d" % (prod, N))
+    if rows and int(rows[0]["g_parent"]) != N:
+        fails.append("g(s_0) != N")
+    if rows and int(rows[-1]["g"]) != 1:
+        fails.append("g(s_n) != 1")
+    return fails
+
+
+def _atlas_read_tsv(path):
+    with open(path) as fh:
+        head = fh.readline().rstrip("\n").split("\t")
+        return [dict(zip(head, line.rstrip("\n").split("\t"))) for line in fh if line.strip()]
+
+
+# --------------------------------------------------------------------------
+# The driver
+# --------------------------------------------------------------------------
+_ATLAS_SELECTORS = ("q3", "q6", "v1", "v2", "v5", "xa", "q10a")
+
+
+def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=None,
+                  cost=None, quiet=False):
+    """Read a --kc-scan atlas; write the TR-12 evidence TSVs; emit verdicts."""
+    A = atlas_load(atlas_path)
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    sel = set(select) if select else set(_ATLAS_SELECTORS)
+    bad = sel - set(_ATLAS_SELECTORS)
+    if bad:
+        raise AtlasError("unknown --atlas-select value(s): %s (known: %s)"
+                         % (",".join(sorted(bad)), ",".join(_ATLAS_SELECTORS)))
+    scandir = os.path.join(outdir, "scan")
+    os.makedirs(scandir, exist_ok=True)
+    written, verdicts = [], {}
+
+    trace = None
+    if q3_trace:
+        trace = atlas_parse_q3_trace(q3_trace)
+        if len(trace) != n:
+            raise AtlasError(
+                "%s: Q3 source has %d steps but the atlas has n=%d. If this file is a whole "
+                "run log it may hold more than one trace -- pass a file with exactly one."
+                % (q3_trace, len(trace), n))
+    if "q3" in sel:
+        if trace is None:
+            verdicts["TR12_Q3"] = "SKIP:no-trace(--atlas-q3-trace)"
+            verdicts["TR12_Q3_READER"] = "SKIP:no-trace(--atlas-q3-trace)"
+        else:
+            p = atlas_emit_q3(trace, outdir, n)
+            written.append(p)
+            fails = atlas_q3_reader_check(p, N)
+            verdicts["TR12_Q3"] = "PASS"
+            verdicts["TR12_Q3_READER"] = "PASS" if not fails else "FAIL"
+            if fails and not quiet:
+                for f in fails:
+                    print("[atlas] Q3 reader check: %s" % f)
+    if "v1" in sel:
+        written.append(atlas_emit_v1(A, scandir)); verdicts["TR12_V1"] = "PASS"
+    if "v2" in sel:
+        written.extend(atlas_emit_v2(A, scandir)); verdicts["TR12_V2"] = "PASS"
+    if "v5" in sel:
+        written.append(atlas_emit_v5(A, scandir)); verdicts["TR12_V5"] = "PASS"
+    if "q6" in sel:
+        written.extend(atlas_emit_q6(A, scandir, trace=trace)); verdicts["TR12_Q6"] = "PASS"
+    if "q10a" in sel:
+        written.append(atlas_emit_q10a(A, outdir)); verdicts["TR12_Q10A"] = "PASS"
+    if "xa" in sel:
+        tsv, md, xv = atlas_emit_xa(A, outdir, cost=cost, atlas_path=atlas_path)
+        written.extend([tsv, md])
+        verdicts["TR12_XA_A"] = "PASS"
+        verdicts["TR12_XA_B"] = "PASS" if "t_root_t_units" in A else "PENDING:--kc-t-build"
+        verdicts["TR12_XA_CD"] = xv
+        verdicts["TR12_XA_MOD24"] = "PASS" if N % _ATLAS_ORBIT == 0 else "FAIL"
+
+    if verdicts_path is None:
+        verdicts_path = os.path.join(outdir, "VERDICTS.txt")
+    _atlas_write_verdicts(verdicts_path, verdicts)
+    if not quiet:
+        for p in written:
+            print("[atlas] wrote %s" % p)
+        for k in sorted(verdicts):
+            print("%s=%s" % (k, verdicts[k]))
+    return {"atlas": A, "written": written, "verdicts": verdicts,
+            "outdir": outdir, "scandir": scandir, "N": N, "n": n}
+
+
+def _atlas_write_verdicts(path, verdicts):
+    """One KEY=value line per row; an existing key is replaced, not duplicated."""
+    keep = []
+    if os.path.exists(path):
+        with open(path) as fh:
+            keep = [l.rstrip("\n") for l in fh
+                    if l.split("=", 1)[0].strip() not in verdicts and l.strip()]
+    with open(path, "w") as fh:
+        for l in keep:
+            fh.write(l + "\n")
+        for k in sorted(verdicts):
+            fh.write("%s=%s\n" % (k, verdicts[k]))
+
+
+# --------------------------------------------------------------------------
+# The n=9 gate (QUERY_BUILD_BRIEF invariant 3)
+#
+# Brute force means brute force: every emitted table is re-derived from the
+# EXPLICIT ENUMERATION of the reduced world (`solve --kc-enum FDIR`, one walk
+# per line) and diffed against the TSV read back off disk -- not against the
+# in-memory atlas.  The atlas is thereby checked too, but the subject under
+# test is this consumer.  Shown able to fail: see --atlas-fault.
+# --------------------------------------------------------------------------
+def _atlas_brute_recount(walks_path, n):
+    import collections
+    K = binary_hexagrams
+    pair_of = {}
+    for j in range(_ATLAS_PAIRS):
+        pair_of[K[2 * j]] = j
+        pair_of[K[2 * j + 1]] = j
+    flow = collections.Counter()
+    byclass = collections.defaultdict(collections.Counter)
+    marg = collections.defaultdict(collections.Counter)
+    branch = collections.Counter()
+    total = 0
+    with open(walks_path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("["):
+                continue
+            w = [int(x) for x in line.split(",")]
+            if len(w) != 2 * n:
+                raise AtlasError("%s: walk of %d hexagrams, expected %d"
+                                 % (walks_path, len(w), 2 * n))
+            total += 1
+            prev = 0                        # C4 pins the anchor pair's exit to hexagram 0
+            for k in range(n):
+                e, x = w[2 * k], w[2 * k + 1]
+                flow[k] += 1
+                byclass[k][bin(prev ^ e).count("1")] += 1
+                marg[k][pair_of[e]] += 1
+                prev = x
+            branch[(pair_of[w[0]], w[0], w[1])] += 1
+    return {"N": total, "flow": flow, "byclass": byclass, "marg": marg, "branch": branch}
+
+
+def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
+    """n=9 brute-force gate over the whole consumer.  Emits ATLAS_CONSUMER=."""
+    import shutil
+    import tempfile
+    from fractions import Fraction
+    results = []
+
+    def gate(name, ok, detail=""):
+        results.append((name, bool(ok), detail))
+        print("[atlas-consumer] %-62s %s%s" % (name, "PASS" if ok else "FAIL",
+                                               ("  " + detail) if detail and not ok else ""))
+
+    A = atlas_load(atlas_path)
+    n, N = A["n"], _atlas_int(A["N_total"], "N_total")
+    if n > 13:
+        print("[atlas-consumer] refusing: brute force is a reduced-n gate (n=%d > 13)" % n)
+        print("ATLAS_CONSUMER=SKIP:n-too-large")
+        return 1
+    out = keep or tempfile.mkdtemp(prefix="atlas_selftest_")
+    try:
+        R = atlas_queries(atlas_path, out, q3_trace=q3_trace, quiet=True)
+        scan = R["scandir"]
+        v1 = _atlas_read_tsv(os.path.join(scan, "v1_field.tsv"))
+        v2 = _atlas_read_tsv(os.path.join(scan, "v2_river.tsv"))
+        v2b = _atlas_read_tsv(os.path.join(scan, "v2_branches.tsv"))
+        v5 = _atlas_read_tsv(os.path.join(scan, "v5_grammar.tsv"))
+        q6 = _atlas_read_tsv(os.path.join(scan, "q6_layer_mass.tsv"))
+        xa = _atlas_read_tsv(os.path.join(out, "xa_branches.tsv"))
+        q10 = _atlas_read_tsv(os.path.join(out, "q10_orbit_census.tsv"))
+
+        # ---- structural: no float ever reached a mass column -------------
+        ok = all(("." not in r["mass"] and "e" not in r["mass"].lower())
+                 for r in v1 + v2 + v5 + q6)
+        gate("no mass column carries a float literal (192-bit integrity)", ok)
+
+        # ---- totals: every table sums to N_total exactly ------------------
+        col = {}
+        for r in v1:
+            col[r["k"]] = col.get(r["k"], 0) + int(r["mass"])
+        gate("V1: every layer's pair marginals sum to N_total",
+             all(v == N for v in col.values()) and len(col) == n,
+             str(sorted(set(col.values()))))
+        row = {}
+        for r in v1:
+            row[r["pair"]] = row.get(r["pair"], 0) + int(r["mass"])
+        used = {p: m for p, m in row.items() if m}
+        gate("V1: every placed pair's row sums to N_total (each walk places it once)",
+             all(v == N for v in used.values()) and len(used) == n)
+        gate("V1: the C4-pinned pair 0 row is identically zero", row.get("0", 0) == 0)
+        rk = {}
+        for r in v2:
+            rk[r["k"]] = rk.get(r["k"], 0) + int(r["mass"])
+        gate("V2: every layer's distance-class masses sum to N_total",
+             all(v == N for v in rk.values()) and len(rk) == n)
+        gk = {}
+        for r in v5:
+            gk[r["k"]] = gk.get(r["k"], 0) + int(r["mass"])
+        gate("V5: p_cond is a distribution -- class masses sum to the layer flow",
+             all(v == N for v in gk.values()) and len(gk) == n)
+        qk = {}
+        for r in q6:
+            qk[r["k"]] = qk.get(r["k"], 0) + int(r["mass"])
+        gate("Q6: every layer's class masses sum to N_total",
+             all(v == N for v in qk.values()) and len(qk) == n)
+        gate("XA: sum_b solutions(b) == N_total",
+             sum(int(r["solutions"]) for r in xa) == N,
+             "%d vs %d" % (sum(int(r["solutions"]) for r in xa), N))
+        gate("V2 branch panel and XA branch table agree on solutions",
+             [r["solutions"] for r in v2b] == [r["solutions"] for r in xa])
+
+        # ---- per-layer flows match the atlas ------------------------------
+        af = {L["k"]: _atlas_int(L["flow"], "flow") for L in A["layers"]}
+        gate("per-layer flow in every table == atlas layers[k].flow",
+             all(rk[str(k)] == f for k, f in af.items()) and
+             all(gk[str(k)] == f for k, f in af.items()) and
+             all(qk[str(k)] == f for k, f in af.items()) and
+             all(col[str(k)] == f for k, f in af.items()))
+
+        # ---- t-units ------------------------------------------------------
+        if all(r["prefixes_t_units"].isdigit() for r in xa) and "t_root_t_units" in A:
+            troot = _atlas_int(A["t_root_t_units"], "t_root_t_units")
+            tsum = sum(int(r["prefixes_t_units"]) for r in xa)
+            gate("XA: 1 + sum_b prefixes_t_units(b) == t(root)", 1 + tsum == troot,
+                 "%d vs %d" % (1 + tsum, troot))
+        else:
+            gate("XA: t-units present (--kc-tdir)", False, "no t-ladder in this atlas")
+
+        # ---- mod 24 -------------------------------------------------------
+        gate("Q10a/XA-24: N_total and every layer flow divisible by 24",
+             all(r["mod24_ok"] == "1" for r in q10) and
+             all(int(r["flow"]) == int(r["orbits"]) * _ATLAS_ORBIT for r in q10))
+
+        # ---- layer 0 vs the branch table (independent of the DP path) -----
+        l0 = {}
+        for r in xa:
+            d = bin(int(r["entry"])).count("1")
+            l0[d] = l0.get(d, 0) + int(r["solutions"])
+        a0 = {d: _atlas_layer_class(A["layers"][0], d, 0) for d in _ATLAS_CLASSES}
+        gate("layer-0 class masses == branch table aggregated by popcount(entry)",
+             all(l0.get(d, 0) == a0[d] for d in _ATLAS_CLASSES), str(l0))
+
+        # ---- the brute-force recount --------------------------------------
+        if walks_path is None:
+            print("[atlas-consumer] %-62s %s" %
+                  ("BRUTE FORCE: explicit n=%d enumeration (--atlas-walks)" % n,
+                   "MISSING -- run `solve --kc-enum FDIR > walks.txt`"))
+        else:
+            B = _atlas_brute_recount(walks_path, n)
+            gate("brute force: enumerated walk count == N_total", B["N"] == N,
+                 "%d vs %d" % (B["N"], N))
+            ok = all(B["flow"][k] == int(rk[str(k)]) for k in range(n))
+            gate("brute force: per-layer flow == emitted flow", ok)
+            ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in v2)
+            gate("brute force: V2 river cell-by-cell", ok)
+            ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in v5)
+            gate("brute force: V5 grammar cell-by-cell", ok)
+            ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in q6)
+            gate("brute force: Q6 layer-mass cell-by-cell", ok)
+            ok = all(B["marg"][int(r["k"])][int(r["pair"])] == int(r["mass"]) for r in v1)
+            gate("brute force: V1 field cell-by-cell (32 pairs x %d layers)" % n, ok)
+            ok = all(B["branch"][(int(r["pair"]), int(r["entry"]), int(r["exit"]))]
+                     == int(r["solutions"]) for r in xa)
+            gate("brute force: XA branch solutions cell-by-cell", ok)
+            gate("brute force: branch table covers every enumerated branch",
+                 len(xa) == len(B["branch"]),
+                 "%d rows vs %d enumerated branches" % (len(xa), len(B["branch"])))
+
+        # ---- Q3 ------------------------------------------------------------
+        if q3_trace:
+            p = os.path.join(out, "q3_profile_kw.tsv" if n == 31 else "q3_profile.tsv")
+            gate("Q3: reader-side prod(p_i) == 1/N in exact big-int rationals",
+                 not atlas_q3_reader_check(p, N))
+            gate("Q3: verdict tokens emitted",
+                 R["verdicts"].get("TR12_Q3") == "PASS")
+        else:
+            print("[atlas-consumer] %-62s %s" % ("Q3 leg (--atlas-q3-trace)", "SKIP"))
+
+        fails = [nm for nm, ok, _ in results if not ok]
+        print("[atlas-consumer] %d gate(s) run, %d failure(s)" % (len(results), len(fails)))
+        if fails:
+            verdict = "FAIL"                     # a failure outranks a missing leg
+        elif walks_path is None:
+            verdict = "SKIP:no-brute-force-walks"   # never PASS without the recount
+        else:
+            verdict = "PASS"
+        print("ATLAS_CONSUMER=%s" % verdict)
+        return 0 if verdict == "PASS" else 1
+    finally:
+        if keep is None:
+            shutil.rmtree(out, ignore_errors=True)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -9934,10 +10695,79 @@ def main():
                         help="Number of random samples (default: 100000)")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducible results")
+    # --- atlas consumer (TR-12 query program: Q3/Q6/XA + V1/V2/V5 inputs) ---
+    parser.add_argument("--atlas-queries", metavar="ATLAS_JSON",
+                        help="TR-12: read a `solve --kc-scan` atlas JSON and emit the query "
+                             "and figure TSVs (Q3, Q6, XA, V1/V2/V5 inputs) into --atlas-out")
+    parser.add_argument("--atlas-out", metavar="DIR", default=None,
+                        help="output root for --atlas-queries (default: the atlas's own directory)")
+    parser.add_argument("--atlas-select", metavar="LIST", default=None,
+                        help="comma list of q3,q6,v1,v2,v5,xa,q10a (default: all)")
+    parser.add_argument("--atlas-q3-trace", metavar="FILE", default=None,
+                        help="`solve --kc-o3-rank F G WALK --kc-trace` output; supplies Q3/V4 "
+                             "and KW's per-layer percentile column in Q6")
+    parser.add_argument("--atlas-verdicts", metavar="FILE", default=None,
+                        help="KEY=value verdict file to write (default: <out>/VERDICTS.txt)")
+    parser.add_argument("--atlas-selftest", metavar="ATLAS_JSON",
+                        help="reduced-n (n<=13) brute-force gate over the whole consumer; "
+                             "emits ATLAS_CONSUMER=PASS|FAIL")
+    parser.add_argument("--atlas-walks", metavar="FILE", default=None,
+                        help="--atlas-selftest: explicit enumeration `solve --kc-enum FDIR` "
+                             "(one walk per line) for the brute-force recount")
+    parser.add_argument("--atlas-keep", metavar="DIR", default=None,
+                        help="--atlas-selftest: keep the emitted tables in DIR instead of a tempdir")
+    parser.add_argument("--atlas-fault", metavar="NAME", default=None,
+                        choices=("v1-drop-pair", "v2-class-swap", "xa-drop-branch",
+                                 "q3-perturb", "q10-mod24"),
+                        help="TEST ONLY: deliberately corrupt one emitted column so the n=9 gate "
+                             "can be shown able to fail (build-brief invariant 3). Never on a run.")
+    parser.add_argument("--xa-nodes-per-sec", type=float, default=None,
+                        help="XA-c/d: measured DFS throughput anchor (R-1 pilot artifacts)")
+    parser.add_argument("--xa-usd-per-hour", type=float, default=None,
+                        help="XA-c/d: worker price anchor")
+    parser.add_argument("--xa-budget-usd", type=float, default=None,
+                        help="XA-c/d: the $ ceiling the EXHAUSTIBLE/INFEASIBLE call is made against")
+    parser.add_argument("--xa-hedge", type=float, default=2.0,
+                        help="XA-c/d: throughput hedge factor for scale (TR-12 section 3: x2)")
+    parser.add_argument("--xa-work-factor", type=float, default=1.0,
+                        help="XA-c/d: engine work factor to divide the rate by (default 1.0 = none; "
+                             "the R-1 36.14x is an inter-engine factor, supply it deliberately)")
+    parser.add_argument("--xa-anchor-note", metavar="TEXT", default=None,
+                        help="XA-c/d: provenance string for the anchors, echoed into xa_verdict.md")
     parser.add_argument("--verbose", action="store_true",
                         help="Print progress during search")
 
     args = parser.parse_args()
+
+    if args.atlas_fault:
+        global _ATLAS_FAULT
+        _ATLAS_FAULT = args.atlas_fault
+        print("[atlas] FAULT INJECTION ACTIVE: %s (test-only)" % args.atlas_fault)
+
+    if args.atlas_selftest:
+        sys.exit(atlas_selftest(args.atlas_selftest,
+                                walks_path=args.atlas_walks,
+                                q3_trace=args.atlas_q3_trace,
+                                keep=args.atlas_keep))
+
+    if args.atlas_queries:
+        out = args.atlas_out or (os.path.dirname(os.path.abspath(args.atlas_queries)) or ".")
+        os.makedirs(out, exist_ok=True)
+        sel = [s.strip() for s in args.atlas_select.split(",")] if args.atlas_select else None
+        cost = {"nodes_per_sec": args.xa_nodes_per_sec,
+                "usd_per_hour": args.xa_usd_per_hour,
+                "budget_usd": args.xa_budget_usd,
+                "hedge": args.xa_hedge,
+                "work_factor": args.xa_work_factor,
+                "note": args.xa_anchor_note or "(no anchor note supplied)"}
+        try:
+            atlas_queries(args.atlas_queries, out, select=sel,
+                          q3_trace=args.atlas_q3_trace,
+                          verdicts_path=args.atlas_verdicts, cost=cost)
+        except AtlasError as e:
+            print("ERROR: [atlas] %s" % e, file=sys.stderr)
+            sys.exit(2)
+        sys.exit(0)
 
     if args.books_verify:
         sys.exit(books_verify())

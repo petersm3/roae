@@ -1,0 +1,31 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-scan] layer 00 -> 01: transition mass 26112
+[kc-scan] layer 01 -> 02: transition mass 26112
+[kc-scan] layer 02 -> 03: transition mass 26112
+[kc-scan] layer 03 -> 04: transition mass 26112
+[kc-scan] chunk written: <WORK>/chunk0.json (layers [0,4))
+[kc-scan] VERDICT: PASS (0 gate failures)
+KC_SCAN_CHUNK_RANGE=0-4
+KC_SCAN_CHUNK=OK
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-scan] layer 04 -> 05: transition mass 26112
+[kc-scan] layer 05 -> 06: transition mass 26112
+[kc-scan] layer 06 -> 07: transition mass 26112
+[kc-scan] layer 07 -> 08: transition mass 26112
+[kc-scan] layer 08 -> 09: transition mass 26112
+[kc-scan] chunk written: <WORK>/chunk1.json (layers [4,9))
+[kc-scan] VERDICT: PASS (0 gate failures)
+KC_SCAN_CHUNK_RANGE=4-9
+KC_SCAN_CHUNK=OK
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-scan-merge] <WORK>/chunk0.json: layers [0,4)
+[kc-scan-merge] <WORK>/chunk1.json: layers [4,9)
+KC_SCAN_MERGE_COVERAGE=COMPLETE
+KC_SCAN_MERGE_TIDENTITY=VERIFIED
+[kc-scan-merge] atlas written: <WORK>/merged.json (2 chunks, 9 layers)
+[kc-scan-merge] VERDICT: PASS (0 gate failures)
+KC_SCAN_MERGE=OK
+CHUNKED_ATLAS_EQ_WHOLE=BYTE-IDENTICAL

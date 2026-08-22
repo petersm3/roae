@@ -1,0 +1,19 @@
+# EW-1 surprise ledger — bits_i = -log2 p_i, decomposing log2 N
+step	pair	dclass	alts	bits
+1	11	1	12	3.462972
+2	7	2	9	2.376563
+3	3	2	7	1.510962
+4	21	4	5	2.321928
+5	4	2	4	2.000000
+6	6	2	2	1.000000
+7	14	1	1	0.000000
+8	13	4	4	2.000000
+9	30	2	1	0.000000
+sum_bits	14.672425
+log2N	14.672425
+abs_diff	0.000000342
+max_surprise_step	1
+max_surprise_bits	3.462972
+concentration_top1_share	0.236019
+interpretation_contract	PRE-FIXED: concentration => where an undiscovered constraint must live; near-uniform typicality => boundable evidence that no further simple positional constraint exists. BOTH outcomes are findings.
+EW1_SUM_EQ_LOG2N	OK
