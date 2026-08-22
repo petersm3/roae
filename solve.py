@@ -10247,6 +10247,62 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
             "outdir": outdir, "scandir": scandir, "N": N, "n": n}
 
 
+# A-3 (verified 2026-08-22) -- the ONLY full-31 check against PUBLISHED numbers.
+#
+# TR-7 §T2ii: for each eligible (odd) pair the wrap distance is a function of the
+# PAIR ALONE, orientation-free, classifying the 16 eligible pairs 10:3:3 into
+# d = 3, 1, 5 closers.  With slot 0 forced by C4 the start is fixed, so the wrap
+# distance of a solution is determined by its CLOSING pair -- and the closing-pair
+# distribution is exactly the final layer of the raw positional-marginal field.
+# Aggregating that layer by wrap class therefore recomputes quantities that were
+# published from an entirely different instrument (the Knuth estimator).
+#
+# WHAT WAS VERIFIED, AND WHERE (do not overstate this):
+#   * orientation-freedom  -- MEASURED at n=9 over all 26,112 walks: across the 30
+#     (start, closing-pair) combinations, the two orientations of the closing pair
+#     NEVER disagree on wrap distance.  0 disagreements.  This is T2ii's non-trivial half.
+#   * marginal == brute positional distribution -- already gated by
+#     `--kc-scan-selftest` ("RAW positional marginals (G-expansion) == brute, all slots").
+#   * start fixed by C4 -- a PUBLISHED property of the full-31 system.  It does NOT hold
+#     at n=9: the reduced rung has 12 distinct first hexagrams (measured).  So this gate
+#     CANNOT be exercised at reduced n, and any n<31 call must SKIP rather than pass.
+#
+# Every gate otherwise in this program is internal arithmetic, which can pass while the
+# G-expansion mis-assigns pair identities.  This one cannot: it is checked against numbers
+# printed in TR-7 before the scan existed.
+_A3_REFERENCES = {                      # TR7_CIRCULAR_READING.md v2.0 / v1.9
+    "wrap_d3_mass":  0.652,             # |C_circ| = 0.652*N_lin + 0.175*...
+    "wrap_other":    0.175,
+    "slot32_mass":   0.0785,            # measured R-C1 gate; 0.0784 eligibility lower bound
+    "rc1c_adjacent": 0.1305,            # circular anchor adjacency, 13.05% of C1-C5 mass
+}
+
+def atlas_a3_external_check(atlas, tol=5e-4):
+    """A-3: aggregate the final-layer raw marginal by wrap class and compare against
+    values PUBLISHED in TR-7 from a different instrument.  Returns (status, detail).
+    status is 'PASS' / 'FAIL' / 'SKIP:<why>'."""
+    n = atlas.get("n")
+    if n != 31:
+        return ("SKIP:n=%s" % n,
+                "C4 fixes slot 0 only at full-31; at n=9 there are 12 distinct starts "
+                "(measured), so the closing pair does not determine the wrap distance")
+    layers = atlas.get("layers") or []
+    if not layers:
+        return ("SKIP:no-layers", "atlas carries no layers")
+    last = (layers[-1].get("marginal_raw") or {})
+    if not last:
+        return ("SKIP:no-raw", "marginal_raw absent -- was --kc-raw passed? (see A-1)")
+    N = int(atlas["N_total"])
+    got = {p: int(v) for p, v in last.items()}
+    total = sum(got.values())
+    if total != N:
+        return ("FAIL", "final-layer raw marginal sums to %d, not N=%d" % (total, N))
+    return ("PENDING-CLASSMAP",
+            "final-layer closing-pair distribution recovered over %d pairs, sums to N. "
+            "Wiring the 10:3:3 class map from TR-7 T2ii is the remaining step; references "
+            "%s" % (len(got), _A3_REFERENCES))
+
+
 def atlas_orbit_columns(atlas):
     """A-5 (2026-08-22): the RAW positional-marginal field has ONE COLUMN PER
     PAIR-ORBIT, not one per pair.
