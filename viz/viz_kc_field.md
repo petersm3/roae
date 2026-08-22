@@ -1,6 +1,8 @@
 # Visualization — V1, the positional-marginal field (where every pair can sit, exactly)
 
-**The 32×31 heat matrix of exact placement probabilities.** For every King Wen pair *j* and every
+**The 32×31 heat matrix of exact placement probabilities.** ⚠ 32 rows **wide**, but only
+**seven distinct** — see *"The field has SEVEN distinct rows"* below before reading structure into it.
+ For every King Wen pair *j* and every
 pair-slot in the ordering, the field gives the **exact fraction of the whole compiled superspace**
 that places pair *j* in that slot — not a sample, not a projection: a population marginal computed
 from every member at once via the compiled f·g ladders. King Wen's own 31 placements are overlaid.
@@ -60,6 +62,33 @@ index, and its zero row is itself a reader-side gate.
 **`P` is doubly stochastic.** Every column sums to 1 (each walk makes exactly one placement per
 layer) and every non-pinned row sums to 1 (each walk places each pair exactly once). Both are
 checkable from the TSV; the per-column identity is additionally gated inside the engine.
+
+### 🔴 The field has SEVEN distinct rows, not 32 — read the shape accordingly
+
+A 32×31 heat map invites the reading that there are 32 independently-behaving pairs. There are not.
+**SUPER is G-closed**, so two pairs in the same orbit are exchanged by a group element that maps
+solutions to solutions — their positional marginals are therefore **equal at every slot, exactly,
+not approximately**. The engine prints the decomposition itself in its own group self-check:
+
+```
+pair-orbits of the 31 free pairs:  3:[3,7,11]  3:[4,6,21]  3:[13,14,30]  4:[5,8,26,31]
+                                   6:[1,9,17,19,22,25]  6:[2,12,16,18,24,28]  6:[10,15,20,23,27,29]
+```
+
+**Seven orbits, sizes {3,3,3,4,6,6,6}.** So the field's 992 cells carry **7 rows** of population
+information, replicated into 32. Measured on real atlases: **n=9 → 3 distinct rows** (sizes
+`[3,3,3]`), **n=13 → 3** (`[3,4,6]`), each a union of whole orbits.
+
+⚠ **Two consequences for how this figure is read and captioned.**
+1. **Bands of identical rows are forced by symmetry, not discovered.** A viewer who reads
+   clustering into them is reading the group, not the data.
+2. **Any "pair *j* behaves unusually" claim is really a claim about *j*'s ORBIT** — and applies
+   identically to every other member of it. There are at most 7 such statements available, not 32.
+
+Gated, not merely asserted: `solve.py:atlas_orbit_columns()` fails the atlas if the number of
+distinct rows is not a union of whole published orbit sizes. It catches what the internal
+sum-to-N gate cannot — a **sum-preserving** move of one unit between two pairs of the same orbit
+leaves every layer summing to N exactly, and the orbit check still FAILs.
 
 ### The King Wen overlay — and the labelling artifact it hides
 
