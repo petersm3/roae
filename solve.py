@@ -10277,10 +10277,73 @@ _A3_REFERENCES = {                      # TR7_CIRCULAR_READING.md v2.0 / v1.9
     "rc1c_adjacent": 0.1305,            # circular anchor adjacency, 13.05% of C1-C5 mass
 }
 
-def atlas_a3_external_check(atlas, tol=5e-4):
-    """A-3: aggregate the final-layer raw marginal by wrap class and compare against
-    values PUBLISHED in TR-7 from a different instrument.  Returns (status, detail).
-    status is 'PASS' / 'FAIL' / 'SKIP:<why>'."""
+def atlas_a3_wrap_class_map():
+    """The 10:3:3 wrap-class map of TR-7 §T2ii, DERIVED rather than transcribed.
+
+    C4 fixes slot 0, so every solution's wrap edge runs from its closing exit back to
+    the anchor entry KW#1 = 0b111111 = 63.  Hence
+
+        wrap distance d(h) = popcount(h ^ 63) = 6 - popcount(h)
+
+    A pair {a, b} is ORIENTATION-FREE exactly when popcount(a) == popcount(b), and
+    ELIGIBLE when the resulting d is odd.  Verified against solve.py's own
+    binary_hexagrams, 2026-08-22:
+
+        32 pairs -> 28 orientation-free -> 16 eligible
+        d=3: 10   d=1: 3   d=5: 3          == TR-7's published 10 : 3 : 3
+
+    and the 10 at d=3 split 4 both-reverse-and-antipalindromic + 6 reverse-only,
+    which is exactly TR-7's "the 4 antipalindromic pairs ... plus the 6 popcount-3
+    reverse-pairs".  Returns {pair_index: d} over the eligible pairs only.
+    """
+    bh = binary_hexagrams
+    anchor = bh[0]
+    out = {}
+    for j in range(len(bh) // 2):
+        a, b = bh[2 * j], bh[2 * j + 1]
+        da, db = bin(a ^ anchor).count("1"), bin(b ^ anchor).count("1")
+        if da == db and da % 2 == 1:
+            out[j] = da
+    return out
+
+
+# A-3 (verified 2026-08-22) -- the ONLY full-31 check against PUBLISHED numbers.
+# Every other gate in this program is internal arithmetic, which can pass while the
+# G-expansion mis-assigns pair identities.  This one is checked against figures printed
+# in TR-7 before the scan existed.
+#
+# WHAT WAS VERIFIED, AND WHERE (do not overstate this):
+#   * orientation-freedom -- MEASURED at n=9 over all 26,112 walks: across the 30
+#     (start, closing-pair) combinations the two orientations NEVER disagree on wrap
+#     distance.  That is T2ii's non-trivial half.
+#   * the 10:3:3 class map -- DERIVED above from binary_hexagrams, matching TR-7.
+#   * final-layer marginal == closing-pair distribution -- MEASURED at n=9 against the
+#     raw enumeration (three closers, 8,704 each), and gated by --kc-scan-selftest.
+#   * start fixed by C4 -- a PUBLISHED property of the full-31 system.  It does NOT hold
+#     at n=9, which has 12 distinct first hexagrams (measured), so any n<31 call SKIPS.
+_A3_REFERENCES = {                      # TR7_CIRCULAR_READING.md v2.0 / v1.9
+    3: 0.652,                           # |C_circ| = 0.652*N_lin + 0.175*...
+    1: 0.175,
+    5: 0.174,
+}
+_A3_SLOT32 = 0.0785                     # measured R-C1 gate; 0.0784 eligibility lower bound
+#
+# 🔴 KNOWN BLIND SPOT, stated because an undocumented one is worse than none.
+# TR-7 publishes d1 = 0.175 and d5 = 0.174 -- they differ by 0.001, while the references
+# themselves are 3-decimal figures and so carry +/-0.0005 of their own. Any tolerance wide
+# enough to accept legitimate rounding is therefore ALSO wide enough to accept d1 and d5
+# being SWAPPED. Demonstrated 2026-08-22 on a synthetic n=31 atlas: swapping the d1 and d5
+# masses PASSES.
+#   What this check DOES catch, hard: any error touching d3, which carries 65.2% of the
+#   mass, and any mass on a pair that is not an eligible closer at all.
+#   What it does NOT catch: a d1<->d5 relabel. Separating those needs a second published
+#   anchor at finer precision -- the R-C1c slot-32 mass (7.85%) and the A2 slot histogram
+#   are the candidates, and neither is wired here.
+
+
+def atlas_a3_external_check(atlas, tol=2e-3):
+    """A-3: aggregate the final-layer raw marginal by TR-7 wrap class and compare against
+    numbers PUBLISHED from a different instrument.  Returns (status, detail)."""
     n = atlas.get("n")
     if n != 31:
         return ("SKIP:n=%s" % n,
@@ -10293,15 +10356,29 @@ def atlas_a3_external_check(atlas, tol=5e-4):
     if not last:
         return ("SKIP:no-raw", "marginal_raw absent -- was --kc-raw passed? (see A-1)")
     N = int(atlas["N_total"])
-    got = {p: int(v) for p, v in last.items()}
+    got = {int(k[4:]): int(v) for k, v in last.items()}
     total = sum(got.values())
     if total != N:
         return ("FAIL", "final-layer raw marginal sums to %d, not N=%d" % (total, N))
-    return ("PENDING-CLASSMAP",
-            "final-layer closing-pair distribution recovered over %d pairs, sums to N. "
-            "Wiring the 10:3:3 class map from TR-7 T2ii is the remaining step; references "
-            "%s" % (len(got), _A3_REFERENCES))
-
+    cmap = atlas_a3_wrap_class_map()
+    unmapped = sorted(p for p, v in got.items() if v and p not in cmap)
+    if unmapped:
+        return ("FAIL", "pairs with nonzero closing mass that are NOT eligible closers "
+                        "under TR-7 T2ii: %s" % unmapped)
+    mass = {}
+    for p, v in got.items():
+        mass[cmap[p]] = mass.get(cmap[p], 0) + v
+    frac = {d: mass.get(d, 0) / float(N) for d in (3, 1, 5)}
+    devs = {d: abs(frac[d] - _A3_REFERENCES[d]) for d in (3, 1, 5)}
+    realized = sorted(p for p in cmap if got.get(p, 0) > 0)
+    detail = ("wrap masses d3=%.4f d1=%.4f d5=%.4f vs published %.3f/%.3f/%.3f; "
+              "max deviation %.4f (tol %.4f); %d of %d eligible pairs realized as closers"
+              % (frac[3], frac[1], frac[5], _A3_REFERENCES[3], _A3_REFERENCES[1],
+                 _A3_REFERENCES[5], max(devs.values()), tol, len(realized), len(cmap)))
+    detail += " | BLIND SPOT: d1/d5 are 0.001 apart at 3-decimal published precision, so this " \
+              "check cannot detect a d1<->d5 relabel (demonstrated). It catches d3 errors and " \
+              "ineligible closers."
+    return (("PASS" if max(devs.values()) <= tol else "FAIL"), detail)
 
 def atlas_orbit_columns(atlas):
     """A-5 (2026-08-22): the RAW positional-marginal field has ONE COLUMN PER
