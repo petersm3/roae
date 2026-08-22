@@ -27,6 +27,7 @@
 #
 #	branch	status	frozen-at	note
 main	authoritative	-	The published corpus. All corrections (CORRECTIONS.md, CX-01..) land here.
+v4-query-program	snapshot	2026-08-22	TR-12 query program build-out: --kc-enum-desc, --kc-profile, --kc-extremal, --kc-layers/--kc-scan-merge, scripts/tr12_repro.sh, the atlas consumer and viz/viz_kc_*.md. Branched off v4-compiler, so it inherits that snapshot's staleness AND lacks CORRECTIONS.md — read main for any claim. UNREVIEWED: pushed for durability before its code review.
 v4-compiler	snapshot	2026-07-21	v4 engine lineage. PINNED BY A LIVE CAMPAIGN — do not rewrite. Merges at task #31.
 v4-canonical	snapshot	2026-07-22	v4 canonical lineage; its lean/ is superseded by main (task #189).
 f1c3-gchannel	snapshot	2026-07-22	One unique commit (--f1-c3-hist); rest is staleness (task #184).
