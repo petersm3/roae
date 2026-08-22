@@ -10341,6 +10341,57 @@ _A3_SLOT32 = 0.0785                     # measured R-C1 gate; 0.0784 eligibility
 #   are the candidates, and neither is wired here.
 
 
+_A2_PAIR = 31                # {Jiji, Weiji} = KW#63/64 = codes {21, 42}, the UNIQUE
+                             # strictly-alternating pair (max run length 1) -- verified
+                             # structurally against binary_hexagrams, not assumed.
+                             # A1 = pair 0 = {Qian, Kun} = {63, 0}, the unique run-6 pair,
+                             # which C4 forces into slot 0.
+_A2_SLOT_REFS = {            # TR7_CIRCULAR_READING.md v2.0, measured; also Cook 2006's
+    "slot32": 0.0785,        # final-pair anchor at 7.84% -- a DOUBLE anchor on this cell
+    "slot2":  0.0520,
+    "rc1c":   0.1305,        # their sum: circular anchor adjacency
+}
+
+
+def atlas_a2_slot_check(atlas, tol=2e-3):
+    """R-C1c: A2's slot histogram, read straight off the raw positional-marginal field.
+
+    Stronger than the class-level A-3 check in the way that matters: it is a PER-PAIR
+    comparison against published numbers, so it catches a mislabel of one pair, which a
+    class aggregate averages away.  A2 sits in the d=3 class carrying 7.84% against a
+    6.52% class average, so a swap of A2 with any other d=3 pair moves this cell by
+    ~1.3 percentage points while leaving the d3 class total untouched.
+
+    ⚠ It does NOT close A-3's d1/d5 blind spot -- A2 is in d=3, so a d1<->d5 relabel
+    never touches it.  Stated because I queued it believing it would.
+    """
+    n = atlas.get("n")
+    if n != 31:
+        return ("SKIP:n=%s" % n, "A2's published slot histogram is a full-31 measurement")
+    layers = atlas.get("layers") or []
+    if len(layers) < 2:
+        return ("SKIP:no-layers", "atlas carries too few layers")
+    key = "pair%d" % _A2_PAIR
+    N = int(atlas["N_total"])
+    def frac(layer):
+        mr = layer.get("marginal_raw") or {}
+        if key not in mr:
+            return None
+        return int(mr[key]) / float(N)
+    f32, f2 = frac(layers[-1]), frac(layers[1])
+    if f32 is None or f2 is None:
+        return ("SKIP:no-raw", "marginal_raw absent -- was --kc-raw passed? (see A-1)")
+    devs = {"slot32": abs(f32 - _A2_SLOT_REFS["slot32"]),
+            "slot2":  abs(f2  - _A2_SLOT_REFS["slot2"]),
+            "rc1c":   abs(f32 + f2 - _A2_SLOT_REFS["rc1c"])}
+    worst = max(devs.values())
+    detail = ("A2 slot32=%.4f (pub %.4f, also Cook's final-pair anchor 0.0784) "
+              "slot2=%.4f (pub %.4f) R-C1c=%.4f (pub %.4f); max deviation %.4f (tol %.4f)"
+              % (f32, _A2_SLOT_REFS["slot32"], f2, _A2_SLOT_REFS["slot2"],
+                 f32 + f2, _A2_SLOT_REFS["rc1c"], worst, tol))
+    return (("PASS" if worst <= tol else "FAIL"), detail)
+
+
 def atlas_a3_external_check(atlas, tol=2e-3):
     """A-3: aggregate the final-layer raw marginal by TR-7 wrap class and compare against
     numbers PUBLISHED from a different instrument.  Returns (status, detail)."""
