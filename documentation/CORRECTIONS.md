@@ -13,6 +13,13 @@ entry is itself wrong, a later entry says so and both stay. That property is mac
 [HISTORY.md](HISTORY.md); the exact retracted wordings, and the gate that stops them reappearing,
 live in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv). This file is the join across all three.
 
+> **Access boundary.** Some entries here — and rows of
+> [CORRECTIONS_INVENTORY.tsv](CORRECTIONS_INVENTORY.tsv), which quotes commit messages verbatim —
+> cite verification sweeps and review reports in `roae-private`, the project's private staging
+> repository, which is not publicly accessible. Those citations record *how a correction was found*;
+> they are operator-attested provenance, not evidence a reader can fetch. What each correction
+> *changed* is fully public: the before/after wording in the entry itself and the named commit.
+
 **Nothing here supersedes a report.** Where an entry and a technical report disagree, the report is
 authoritative and the disagreement is a bug in this page.
 
