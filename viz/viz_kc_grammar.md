@@ -18,6 +18,12 @@ as a heat map over `class × k`, with King Wen's own 31 choices marked on it.
 | Full-31 f and g ladders | — | Stage F / Stage G | **NOT YET BUILT** |
 | Atlas JSON → figure TSV | — | `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` | **EXISTS** (n=9 brute-force gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
 
+> ⚠ **Also orbit-replicated.** Any per-pair refinement of this grammar (the PENDING
+> `× new-pair category` axis) inherits the seven-orbit structure of
+> [V1](viz_kc_field.md): pairs in one orbit are exchanged by a symmetry of the space, so their rows
+> are **equal exactly**. At most **7** distinct pair-rows exist, not 32, and a per-pair claim is
+> really a claim about that pair's whole orbit.
+
 ### Read this before treating V5 as a separate figure from V2
 
 With only the distance-class axis available, **V5 and [V2](viz_kc_river.md) plot the same numbers.**

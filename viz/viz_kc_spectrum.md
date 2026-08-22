@@ -10,6 +10,34 @@ is the informative answer, and it is the one this figure most likely gives.
 [V2 river](viz_kc_river.md) · **V3** · [V4 shells](viz_kc_shells.md) ·
 [V5 grammar](viz_kc_grammar.md) · See also [viz_pca.md](viz_pca.md)
 
+
+### 🔴 A flat spectrum may mean the OBSERVABLE is constant, not that the index is arbitrary
+
+V3's stated question is *"is the rank index a structural coordinate, or is it arbitrary?"*, answered
+by whether the spectrum is flat. **That inference is only valid for observables that actually vary
+on the space.** Several of the battery's do not:
+
+Measured over the complete n=9 superspace, all **26,112** walks:
+
+| observable | distinct values over the WHOLE space |
+|---|---|
+| `linechanges` | **1** — constant, forced by the C5 budget |
+| `yangcount` | **4** (multiplicities 8448 / 8448 / 6528 / 2688) |
+
+So a flat `linechanges` spectrum says **nothing whatever about the rank index** — the observable is
+the same number for every member of the space, and would be flat under *any* ordering, including a
+perfectly structural one. Reporting that as *"the index is arbitrary"* is a **false negative dressed
+as a finding**. The `dclass:*` observables are C5-forced in the same way.
+
+⚠ **Two rules for reading this figure.**
+1. **Establish each observable's range on the space FIRST** (`--kc-extremal FUNC DIR max` and `min`;
+   `constant_on_space=yes` is printed for exactly the forced ones). An observable with one value
+   carries no spectrum; drop it or label it CONSTANT rather than plotting a flat line.
+2. **Values are orbit-replicated.** G-invariant observables are constant on a whole orbit, so a
+   K-point rank grid samples far fewer independent values than K. The step structure that results
+   is symmetry, not signal — the same caveat V1 carries.
+
+
 ## Status (2026-08-22)
 
 | Piece | Instrument | State |
