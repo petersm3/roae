@@ -335,6 +335,111 @@ def enumerate_reference(npairs):
     return 1
 
 
+def _pair_orbits():
+    """The orbit partition of the 32 pairs under the constraint system's symmetry group.
+
+    Derived HERE from first principles -- bit-position permutations of a hexagram that commute
+    with line reversal (the centralizer of reversal in S6, order 48), pushed down to an action on
+    PAIRS, then union-found -- so this file shares no orbit code, and no orbit constant, with the
+    engine that produced the atlas.  That is the whole point: an oracle that imported the
+    engine's orbit table could not detect a wrong orbit table.
+    """
+    import itertools
+    rev = (5, 4, 3, 2, 1, 0)
+
+    def compose(a, b):
+        return tuple(a[b[i]] for i in range(6))
+
+    def act(perm, h):
+        r = 0
+        for i in range(6):
+            r |= ((h >> i) & 1) << perm[i]
+        return r
+
+    g48 = [p for p in itertools.permutations(range(6))
+           if compose(p, rev) == compose(rev, p)]
+    if len(g48) != 48:
+        raise SystemExit("verify: centralizer of reversal in S6 has order %d, expected 48" % len(g48))
+    psets = [frozenset(pr) for pr in PAIRS]
+    idx = {s: i for i, s in enumerate(psets)}
+    parent = list(range(32))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for g in g48:
+        for i in range(32):
+            j = idx[frozenset(act(g, h) for h in psets[i])]
+            ra, rb = find(i), find(j)
+            if ra != rb:
+                parent[ra] = rb
+    orb = {}
+    for i in range(1, 32):                      # pair 0 is pinned by C4
+        orb.setdefault(find(i), []).append(i)
+    return sorted((sorted(v) for v in orb.values()), key=lambda o: (len(o), o))
+
+
+def check_atlas_orbit_frames(path):
+    """Cross-frame gate: per ORBIT, the quotient marginals must equal the raw marginals.
+
+    The atlas publishes each layer's marginals in two frames -- CANONICAL-QUOTIENT and RAW.  The
+    engine's own gate checks only that each frame's layer TOTAL equals N.  That total is blind to
+    mass moved BETWEEN pairs, so a quotient distribution can be wrong in every cell and still pass.
+    The two frames describe the same walks, so aggregating either one over a whole orbit must give
+    the same number; the raw side is already gated against brute force at n=9, which makes it a
+    usable reference for the quotient side.
+
+    LIMIT, stated because a gate whose limits are unstated gets over-trusted: this catches mass
+    moved ACROSS orbits, not mass moved WITHIN one.  It is a necessary condition, not a sufficient
+    one.  Verified 2026-08-23 to reject a single-unit cross-orbit shift that leaves the layer total
+    exactly equal to N.
+    """
+    import json
+    with open(path) as fh:
+        A = json.load(fh)
+    n = A["n"]
+    orbits = [o for o in _pair_orbits()]
+    # 🔴 Recover the subset from the union of raw keys over ALL layers: an individual layer
+    # omits pairs whose mass is zero there, so a per-layer read under-recovers and the check
+    # silently degrades to SKIP.
+    present = set()
+    for L in A["layers"]:
+        present |= {int(k[4:]) for k in L.get("marginal_raw", {}) if k.startswith("pair")}
+    pl = []
+    for o in orbits:
+        if set(o) <= present:
+            pl += o
+    if len(pl) != n:
+        print("ATLAS_ORBIT_FRAMES=SKIP (recovered %d of %d subset pairs from raw keys)"
+              % (len(pl), n))
+        return 2
+    g2s = {g: i for i, g in enumerate(pl)}
+    bad = checked = 0
+    for L in A["layers"]:
+        q = L.get("marginal_quotient")
+        r = L.get("marginal_raw")
+        if not q or not r:
+            print("ATLAS_ORBIT_FRAMES=SKIP (layer %s lacks both frames; --kc-raw not passed?)" % L.get("k"))
+            return 2
+        for o in orbits:
+            idxs = [g2s[g] for g in o if g in g2s]
+            if not idxs:
+                continue
+            qs = sum(int(q.get("q%d" % i, 0)) for i in idxs)
+            rs = sum(int(r.get("pair%d" % pl[i], 0)) for i in idxs)
+            checked += 1
+            if qs != rs:
+                bad += 1
+                print("  MISMATCH layer k=%s orbit=%s quotient=%d raw=%d"
+                      % (L.get("k"), o, qs, rs))
+    print("cells checked = %d" % checked)
+    print("ATLAS_ORBIT_FRAMES=%s" % ("PASS" if bad == 0 else "FAIL"))
+    return 0 if bad == 0 else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -345,7 +450,17 @@ def main():
                         help='Independent completeness reference: brute-force the reduced NPAIRS-pair '
                              'problem (C1+C2+C4) two ways (exhaustive vs prune-as-you-go) and assert '
                              'identical sets. Does NOT read solutions.bin. 2<=NPAIRS<=9.')
+    parser.add_argument('--check-atlas-orbit-frames', metavar='ATLAS.json', default=None,
+                        help='Cross-frame gate on a --kc-scan atlas: per symmetry ORBIT, the '
+                             'quotient marginals must equal the raw marginals. The engine gates '
+                             'only that each frame sums to N per layer, which cannot see mass '
+                             'moved between pairs. Orbits are derived here from first principles, '
+                             'sharing no code or constant with the engine. Emits '
+                             'ATLAS_ORBIT_FRAMES=PASS|FAIL.')
     args = parser.parse_args()
+
+    if args.check_atlas_orbit_frames is not None:
+        sys.exit(check_atlas_orbit_frames(args.check_atlas_orbit_frames))
 
     if args.enumerate_reference is not None:
         sys.exit(enumerate_reference(args.enumerate_reference))

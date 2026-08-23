@@ -68,7 +68,31 @@ A=$(mktemp -d); mkdir -p "$A"/f "$A"/g "$A"/t
 ./solve --kc-g-check "$A"/f "$A"/g            # Sum orbit*f*g == N at every layer
 ./solve --kc-t-check "$A"/f "$A"/t            # the f*t node identity at every layer
 ./solve --kc-scan    "$A"/f "$A"/g "$A"/atlas.json --kc-tdir "$A"/t --kc-raw   # --kc-raw is auto at n<=9 but pass it always: see step 3
+python3 verify.py --check-atlas-orbit-frames "$A"/atlas.json   # cross-frame gate; see below
 ```
+
+**`verify.py --check-atlas-orbit-frames ATLAS.json`** (added 2026-08-23). Emits
+`ATLAS_ORBIT_FRAMES=PASS|FAIL`; exit 0 / 1, or 2 with `=SKIP` if the atlas carries only one frame
+(pass `--kc-raw`).
+
+The atlas publishes each layer's marginals in two frames — **canonical-quotient** and **raw** — and
+the engine's own gate checks only that each frame's layer *total* equals `N`. **A total is blind to
+mass moved between pairs**, so a quotient distribution can be wrong in every cell and still pass.
+Both frames describe the same walks, so aggregating either over a whole symmetry **orbit** must give
+the same number; the raw frame is already gated against brute force at n=9, which makes it a usable
+reference for the quotient frame.
+
+**Why it is an independent check and not a second opinion:** `verify.py` derives the orbit partition
+itself — bit-position permutations commuting with line reversal (the centralizer of reversal in
+S₆, order 48), pushed down to an action on the 32 pairs, then union-found — and it recovers which
+orbits the subset contains from the atlas's own raw keys. It imports no orbit table and no union
+spec from the engine. An oracle that read the engine's orbit table could not detect a wrong orbit
+table.
+
+⚠ **Stated limit.** This catches mass moved **across** orbits, not **within** one. It is a necessary
+condition, not a sufficient one. It was verified able to fail: a single-unit cross-orbit shift that
+leaves the layer total exactly equal to `N` is rejected, while the same shift **within** an orbit is
+not detected — and that is a real gap, not a rounding tolerance.
 
 Then the gates. Each is self-contained and synthesises its own fixtures:
 
