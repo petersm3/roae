@@ -54,7 +54,7 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    (rel. err 0.18%), ≈2σ below the definitive value — an unremarkable deviation for one early draw from a
    right-skewed weight distribution, in the direction (low) such skew predicts; the 100× run supersedes it):
    canonical C1–C5 raw **1.3287×10³⁸** (0.02%); C1/C2/C4/C5 complete
-   orderings 1.0971×10³⁹ (0.01%); total tree nodes 2.0875×10⁴⁰ (0.00%). This supplies the terminal count of
+   orderings 1.0971×10³⁹ **(now EXACT: 1,097,051,278,789,181,790,036,112,071,176,579,186,688; see documentation/SEARCH_SPACE_SIZE.md)**; total tree nodes 2.0875×10⁴⁰ (0.00%). This supplies the terminal count of
    the reduction funnel (64! ≈ 1.3×10⁸⁹ → C1 skeleton 32!·2³² ≈ 1.1×10⁴⁵ → ~10⁴⁰ → ≈1.3×10³⁸). Structure:
    the 56 first-level branches are roughly uniform (min 1.26×10³⁶, median 2.26×10³⁶, max 3.46×10³⁶, spread
    ≈2.7× — no small or near-exhaustible branch exists); the 65,281 productive depth-3 cells span only 94.6×

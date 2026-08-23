@@ -134,7 +134,7 @@ explicit.
 - The ledger, conventions, and footnotes: [documentation/DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) (this TR preserves its
   numbers exactly)
 - Solution counts: exact layers vs [documentation/CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) + enumeration record; estimator
-  layers (1.0971×10³⁹ C5 count, 1.3287×10³⁸ full space) via the validated
+  layers (1.0971×10³⁹ C5 count **(now EXACT: 1,097,051,278,789,181,790,036,112,071,176,579,186,688; see documentation/SEARCH_SPACE_SIZE.md)**, 1.3287×10³⁸ full space, still an estimate) via the validated
   weighted-Knuth instrument — [documentation/SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) (method + 0.03% self-validation);
   C2 layer count **exact**: `solve --f1-exact-c1c2c4` (7.5706×10⁴¹, divisible by 24 per [TR-5](TR5_SYMMETRY.md);
   the estimator path `SOLVE_KNUTH_RELAX_C5=1` reproduces it to ±0.01% — both documented in

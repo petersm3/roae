@@ -1,6 +1,6 @@
 # Search-Space Size: How Many C1–C5 Orderings Exist
 
-**Result:** The total number of hexagram orderings satisfying constraints C1–C5 is **estimated at ≈1.3×10³⁸** (raw), or **≈3×10³⁷ distinct canonical orderings** after orientation-deduplication — the quantity the published enumerations count. This is a **statistical estimate** from an unbiased Monte-Carlo tree-size estimator (Knuth 1975), validated to **<1%** against exact subtree counts; it is **not a proven cardinality** and is **not a canonical result**. Its purpose is to put a hard number on a question the exhaustive enumerations could only bound from below: *the deepest published canonical (d3 560T, 1.05×10¹⁰ distinct orderings) has enumerated ≈1 part in 10²⁷ of the space, and exhaustion is infeasible at any conceivable budget.*
+**Result:** The total number of hexagram orderings satisfying constraints C1–C5 is **estimated at ≈1.3×10³⁸** (raw). ⚠ **A previously published figure of ≈3×10³⁷ “distinct canonical orderings” has been WITHDRAWN (2026-08-23): it exceeded its own combinatorial ceiling of 31! ≈ 8.2228×10³³ by a factor of ~4,013, because it assumed a uniform ~4× orientation-dedup factor that does not exist. See CORRECTIONS.md.** This is a **statistical estimate** from an unbiased Monte-Carlo tree-size estimator (Knuth 1975), validated to **<1%** against exact subtree counts; it is **not a proven cardinality** and is **not a canonical result**. Its purpose is to put a hard number on a question the exhaustive enumerations could only bound from below: *the deepest published canonical (d3 560T, 1.05×10¹⁰ distinct orderings) has enumerated ≈1 part in 10²⁷ of the space, and exhaustion is infeasible at any conceivable budget.*
 
 This closes the long-standing "the total count of C1–C5 orderings is not yet known" caveat carried in [`enumeration/LEADERBOARD.md`](../enumeration/LEADERBOARD.md), [`CANONICAL_HASHES.md`](CANONICAL_HASHES.md), and [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) — replacing "not yet known" with "known to ≈1% as an estimate, still astronomically unexhaustible."
 
@@ -41,8 +41,8 @@ Agreement is **<1% at every depth**. Independent cross-check: the 56 per-branch 
 | quantity | estimate | 95% CI | rel. error |
 |---|---|---|---:|
 | **canonical (C1–C5) orderings (raw)** | **1.3287×10³⁸** | [1.3283, 1.3292]×10³⁸ | 0.02% |
-| — distinct canonical (after ~4× orientation-dedup) | **≈3.3×10³⁷** | — | — |
-| complete orderings satisfying C1/C2/C4/C5 | 1.0971×10³⁹ | — | 0.01% |
+| — distinct canonical | **WITHDRAWN** — bounded ∈ [1.0525×10¹⁰ enumerated, 8.2228×10³³ = 31!] | — | see CORRECTIONS.md |
+| complete orderings satisfying C1/C2/C4/C5 | **1,097,051,278,789,181,790,036,112,071,176,579,186,688** | — | **EXACT** |
 | total backtracking-tree nodes | 2.0875×10⁴⁰ | — | 0.00% |
 
 For scale, this sits inside the standard reduction funnel (see [`SOLVE-SUMMARY.md`](SOLVE-SUMMARY.md) "numbers at a glance"): the unconstrained permutation space is 64! ≈ 1.3×10⁸⁹; the **C1 pair-structure skeleton is 32! × 2³² ≈ 1.1×10⁴⁵**; C2/C3/C4 successively cut that to ~10⁴⁰; and **C5 brings the true (un-budgeted) C1–C5 total to ≈1.3×10³⁸** (this estimate). Consistent with the funnel's earlier steps; it supplies the terminal count the funnel could previously give only as a budgeted lower bound (the 706 M found at the 10T budget). Still an enormous reduction, yet astronomically beyond enumeration.
@@ -94,7 +94,7 @@ The headline holds: the ≈10³⁸ estimate shows King Wen is **not special by b
 
 ## Implications
 
-1. **The space is ≈10³⁸ orderings and cannot be exhausted.** The deepest published canonical (d3 560T) found 1.05×10¹⁰ distinct orderings — ≈1 part in 10²⁷ of the ≈3×10³⁷ distinct-canonical total. Exhausting the space, or even any *single* first-level branch (~2×10³⁶), is off by 24+ orders of magnitude — infeasible at any budget that could ever be funded. The scientific value of the enumerations is therefore in the **structural invariants** they expose (mandatory boundaries, KW's position-1 forcing, complement-distance percentile), not in "how many" or in approaching completeness.
+1. **The space is ≈10³⁸ orderings and cannot be exhausted.** The deepest published canonical (d3 560T) found 1.05×10¹⁰ distinct orderings — ≈1 part in 3.03×10²⁷ of the ≈1.3287×10³⁸ RAW total (raw records measured against the raw space). Exhausting the space, or even any *single* first-level branch (~2×10³⁶), is off by 24+ orders of magnitude — infeasible at any budget that could ever be funded. The scientific value of the enumerations is therefore in the **structural invariants** they expose (mandatory boundaries, KW's position-1 forcing, complement-distance percentile), not in "how many" or in approaching completeness.
 
 2. **The canonicals are reproducible slices, and deeper canonicals stay slices.** Each canonical scale is an exactly-reproducible slice at a fixed budget (see [`CANONICAL_HASHES.md`](CANONICAL_HASHES.md), [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md)). Because the space is ≈10³⁸, a deeper canonical (e.g. a 1120T extension) is "more of the same slice," never "closer to complete" — its value is as a **discriminating test of the growth asymptote** (α ≈ 0.67), not as progress toward a total.
 

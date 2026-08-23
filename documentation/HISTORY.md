@@ -5264,8 +5264,13 @@ knobs), a mid-flight stripe migration at a layer boundary when measured layer si
 the layer-14 checkpoint), and a final move to Standard hardware. Peak memory: **128 GB** — a ~35×
 reduction against the in-RAM requirement, which is the reproducibility point: the exact count needs
 a big disk and patience, not exotic hardware. The DP's measured peak is layer 13 (40.8 B entries);
-C5 pruning overtakes binomial growth past the middle. Exact result: [COUNT — PENDING, do not cite; lands with this
-section's next revision; gates: ÷24 exactness + Knuth-estimator cross-check].
+C5 pruning overtakes binomial growth past the middle. Exact result: **|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688**
+(40 digits, ≈1.0971×10³⁹ — a duodecillion). Both pre-registered gates pass: **÷24 exactness**
+(`N mod 24 = 0`, forced by the TR-5 automorphism theorem — a constraint the number had no obligation
+to satisfy) and the **Knuth-estimator cross-check** (deviation 0.0044 per cent against the
+independently derived 1.0971×10³⁹, inside its quoted 0.01 per cent). Read independently from **both**
+ladders: the forward f ladder (`--kc-count`) and the backward g ladder (`g0=`, built in a separate
+run) return the identical value.
 
 The ÷24 gate itself was upgraded mid-campaign: the symmetry theorem's sequence-level layer
 (invariance, record-level freeness, orbit counting) was formalized in `lean/Automorphism.lean`
