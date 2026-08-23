@@ -9757,16 +9757,41 @@ def _atlas_int(v, where):
         % (where, v, type(v).__name__))
 
 
+_ATLAS_SIG = 17          # significant decimal digits published for a derived ratio
+
+
 def _atlas_ratio(num, den):
-    """Exact rational -> correctly-rounded float.  Display precision ONLY."""
+    """Exact rational.  Returns a Fraction -- deliberately NOT a float.
+
+    This used to return float(Fraction(num, den)).  binary64 carries only ~15.95
+    significant decimal digits, so a ratio of n=31-scale counts lost everything
+    below 2**-53 BEFORE it reached the formatter, and "%.17g" then printed two
+    digits that reconstruct the rounded double rather than the rational.  The
+    VALUE was never wrong by more than a double's rounding; the PRECISION CLAIM
+    was.  Keeping the exact Fraction lets _atlas_f render digits that are
+    actually supported.  (External review, 2026-08-23.)
+    """
     from fractions import Fraction
     if den == 0:
         return float("nan")
-    return float(Fraction(int(num), int(den)))
+    return Fraction(int(num), int(den))
 
 
 def _atlas_f(x):
-    return "%.17g" % x
+    """Render a ratio with _ATLAS_SIG CORRECT significant digits.
+
+    A Fraction is divided in decimal at exactly that precision and never passes
+    through a float.  Anything else (a nan from a zero denominator) keeps the
+    old float path, which is all it was ever good for.
+    """
+    from fractions import Fraction
+    if isinstance(x, Fraction):
+        import decimal
+        with decimal.localcontext() as ctx:
+            ctx.prec = _ATLAS_SIG
+            d = decimal.Decimal(x.numerator) / decimal.Decimal(x.denominator)
+        return format(d, ".%dg" % _ATLAS_SIG)
+    return "%.*g" % (_ATLAS_SIG, x)
 
 
 def atlas_load(path):

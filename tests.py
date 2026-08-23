@@ -435,5 +435,88 @@ class TestSatC5Subset(unittest.TestCase):
             self.assertEqual(ctx["b0"], exp["b0"])
 
 
+class TestAtlasRatioPrecision(unittest.TestCase):
+    """Every digit solve.py prints for a derived ratio must be a digit of the RATIONAL.
+
+    The oracle here does pure integer long division: no float, no Fraction, no Decimal.  It
+    therefore shares no rounding code with the implementation, which is the only reason it is
+    an oracle rather than a second opinion.  Before 2026-08-23 _atlas_ratio returned
+    float(Fraction(...)) and _atlas_f printed "%.17g" of it; binary64 carries ~15.95 significant
+    decimal digits, so the last one or two digits reconstructed the rounded double rather than
+    the rational.  test_old_float_path_would_fail keeps that failure demonstrable -- a check that
+    has never been shown able to fail proves nothing.
+    """
+
+    SIG = 17
+
+    @staticmethod
+    def _oracle(num, den, sig):
+        """(mantissa_digits, exponent) of num/den, correctly rounded, integers only."""
+        if num == 0:
+            return (0, 0)
+        e = 0
+        while num >= den * 10:
+            den *= 10
+            e += 1
+        while num < den:
+            num *= 10
+            e -= 1
+        q, r = divmod(num * 10 ** (sig - 1), den)
+        if 2 * r > den or (2 * r == den and q & 1):
+            q += 1
+            if q >= 10 ** sig:
+                q //= 10
+                e += 1
+        return (q, e)
+
+    @classmethod
+    def _digits(cls, s, sig):
+        s = s.strip().lstrip("+-")
+        if "e" in s or "E" in s:
+            mant, _, ex = s.replace("E", "e").partition("e")
+            ex = int(ex)
+        else:
+            mant, ex = s, 0
+        ip, _, fp = mant.partition(".")
+        if ip.strip("0"):
+            e = len(ip.lstrip("0")) - 1 + ex
+        else:
+            e = ex - (len(fp) - len(fp.lstrip("0"))) - 1
+        digs = (ip + fp).lstrip("0")
+        return (int((digs + "0" * sig)[:sig]), e)
+
+    # (numerator, denominator) pairs.  The n=31-scale entry is the project's own
+    # 1.3287e38 / 1.097051e39 conditional, at the magnitude it is actually published at.
+    CASES = [
+        (26112, 2 ** 20),
+        (1234567, 26112),
+        (1328700000000000000000000000000000000000,
+         1097051000000000000000000000000000000000),
+        (2 ** 130 + 1, 3 * (2 ** 130)),
+        (1, 3),
+        (7, 11),
+        (10 ** 38 + 7, 3 * 10 ** 38 + 11),
+        (1, 10 ** 25 + 3),
+    ]
+
+    def test_published_digits_are_exact(self):
+        for a, b in self.CASES:
+            got = solve._atlas_f(solve._atlas_ratio(a, b))
+            self.assertEqual(self._digits(got, self.SIG),
+                             self._oracle(a, b, self.SIG),
+                             "%d/%d printed as %s" % (a, b, got))
+
+    def test_old_float_path_would_fail(self):
+        """The regression this guards must be reachable, or the test above is decorative."""
+        from fractions import Fraction
+        bad = sum(1 for a, b in self.CASES
+                  if self._digits("%.17g" % float(Fraction(a, b)), self.SIG)
+                  != self._oracle(a, b, self.SIG))
+        self.assertGreater(bad, 0, "the float path no longer fails; this gate is now vacuous")
+
+    def test_zero_denominator_still_nan(self):
+        self.assertEqual(solve._atlas_f(solve._atlas_ratio(1, 0)), "nan")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
