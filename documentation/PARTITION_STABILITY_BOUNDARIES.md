@@ -80,7 +80,7 @@ Pre-computed analyze logs:
 
 ## Working / process documentation
 
-For the original 2026-04-19 cross-partition analysis (d2 10T + d3 10T + d3 100T), see the `petersm3/roae-private` staging repo's `D2_D3_ANALYZE_FINDINGS.md` (now `petersm3/roae-private` per the 2026-05-29 rename). For the 560T `--analyze` algorithmic rewrites that made canonical-scale analyze tractable, see `documentation/HISTORY.md` "June 10-11, 2026" entry; for the full §[1]-§[28] 560T findings, see `documentation/PROJECT_OVERVIEW.md` §"560T canonical results" and (private) `roae-private/560T_FINAL_ANALYSIS.md`.
+For the original 2026-04-19 cross-partition analysis (d2 10T + d3 10T + d3 100T), see the `petersm3/roae-private` staging repo's `D2_D3_ANALYZE_FINDINGS.md` (now `petersm3/roae-private` per the 2026-05-29 rename). For the 560T `--analyze` algorithmic rewrites that made canonical-scale analyze tractable, see `documentation/HISTORY.md` "June 10-11, 2026" entry; for the full §[1]-§[28] 560T findings, see `documentation/PROJECT_OVERVIEW.md` §"560T canonical results" and (private) `roae-private/560T_FINAL_ANALYSIS.md`. *(The `roae-private` files named here are in a private staging repo — not publicly accessible; they are working-log provenance. The findings this document asks a reader to accept are stated and sourced publicly above.)*
 
 ---
 

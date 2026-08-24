@@ -18,7 +18,17 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
 - **Cook, Richard S.** (2006). *Classical Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence* (周易卦序詮解 Zhouyi Guaxu Quanjie). STEDT Monograph Series Vol. 5, University of California, Berkeley, 656 pages. ISBN 978-0944613443. [Open Library](https://openlibrary.org/isbn/9780944613443) Cook's monograph is the most rigorous academic treatment; it derives the full hexagram sequence from combinatorial principles and situates the pair structure within broader classification of binary sequences. **Preview pages (front cover, abstract, TOC, introduction, acknowledgments — 19 pages total)** available online at the author's UC Berkeley page: [linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html](https://linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html). The full 656-page monograph is print-only as of 2026-05; library copies via OCLC 77009740 or purchase formerly via the STEDT Web Store at lulu.com/stedt (dead link as of 2026-07-04; [archived copy](https://web.archive.org/web/20230329134852/https://www.lulu.com/stedt), snapshot 2023-03-29, verified resolving 2026-08-01) (ISBN 0-944613-44-6).
 
 <a id="kongyingda"></a>
-- **Kong Yingda 孔穎達** (574–648). *Zhouyi zhengyi* 周易正義 (in the *Shisanjing zhushu* 十三經注疏, Zhonghua Shuju edition, 1980). **The classical formulation of C1**: his subcommentary on the [Xugua](#xugua) states the received order's pairing principle — the hexagrams run two-by-two, each pair related to its partner by reversal or, where the reversal is symmetric, by complement — the Tang-dynasty source every modern statement of the pairing rule descends from or independently rediscovers. The concept has still earlier attestation lineage (Yu Fan 虞翻, 164–233, whose pangtong/fandui pair relations transmit via Li Dingzuo's *Zhouyi jijie*; and, hedged, Western-Zhou-era material per Li Xueqin 2003), but Kong Yingda's is the explicit formulation. Added 2026-07-30 (constraint-provenance audit; the repo previously carried no Kong Yingda citation anywhere). *Cited here at attribution level — the paraphrase above states the rule; the verbatim classical wording is held for a future classical-Chinese verification pass.*
+- **Kong Yingda 孔穎達** (574–648). *Zhouyi zhengyi* 周易正義 (in the *Shisanjing zhushu* 十三經注疏, Zhonghua Shuju edition, 1980). **The classical formulation of C1**: his subcommentary on the [Xugua](#xugua) states the received order's pairing principle — the hexagrams run two-by-two, each pair related to its partner by reversal or, where the reversal is symmetric, by complement — the Tang-dynasty source every modern statement of the pairing rule descends from or independently rediscovers. The concept has still earlier attestation lineage (Yu Fan 虞翻, 164–233, whose pangtong/fandui pair relations transmit via Li Dingzuo's *Zhouyi jijie*; and, hedged, Western-Zhou-era material per Li Xueqin 2003), but Kong Yingda's is the explicit formulation.
+  **Measured 2026-08-16, and it sharpens what the rule is worth.** His 非覆即變 — reversal, falling
+  back to complement where a hexagram is reversal-symmetric — reproduces King Wen's adjacent-pair
+  structure **64/64**. Every alternative pairing rule tested scores 12–16/64, including one built from
+  a **structurally indistinguishable rival group that the tradition itself supplies**:
+  [Jiao Xun](#jiaoxun)'s 八卦相錯 generates 20 orbits with the *same* size profile as ⟨complement,
+  reversal⟩ (8 of size 2, 12 of size 4), and King Wen respects it only 24/64. Exactly, not by sampling:
+  **70 of 3.845×10⁴⁶ involutions score 64/64, and all 70 are Kong Yingda's rule up to a vacuous
+  relabelling** on the degenerate hexagrams. So the pairing rule is not *a* symmetry that happens to
+  fit — it is **the** rule, against a rival the tradition supplied rather than one we constructed.
+  Reproduce with `python3 verify.py --check-classical-groups`. Added 2026-07-30 (constraint-provenance audit; the repo previously carried no Kong Yingda citation anywhere). *Cited here at attribution level — the paraphrase above states the rule; the verbatim classical wording is held for a future classical-Chinese verification pass.*
 
 **Status in ROAE:** ROAE independently encodes this rule as constraint C1 and uses it as the starting point of the enumeration. Not novel to ROAE.
 
@@ -91,7 +101,7 @@ The framing of C1–C5 as a specific *joint* constraint system is ROAE-specific.
 <a id="leibniz1703"></a>
 - **Leibniz, Gottfried Wilhelm** (1703). "Explication de l'arithmétique binaire, qui se sert des seuls caractères 0 et 1, avec des remarques sur son utilité, et sur ce qu'elle donne le sens des anciennes figures chinoises de Fohy." *Mémoires de l'Académie royale des Sciences*. Shows correspondence between Fu Xi's binary ordering and the natural binary count 0–63.
 <a id="shaoyong"></a>
-- **Shao Yong** (邵雍, 1011–1077 CE). *Huangji jingshi shu* (皇極經世書). Developed the circular/square binary arrangement (xiantian diagram) that Leibniz later rediscovered.
+- **Shao Yong** (邵雍, 1011–1077 CE). *Huangji jingshi shu* (皇極經世書). Developed the circular/square binary arrangement (xiantian diagram) that Leibniz later rediscovered. A candidate (second-hand, unconfirmed) earlier statement of the 8+28=36 reversal-figure count in this work is recorded in §"Attributed candidate rules under population test (2026-07-02)" below — see the ⚠ CANDIDATE EARLIER CESSION entry; the attribution has not been moved.
 
 ### Mawangdui silk-text ordering
 
@@ -99,6 +109,8 @@ The framing of C1–C5 as a specific *joint* constraint system is ROAE-specific.
 - **Shaughnessy, Edward L.** (2022). *The Origin and Early Development of the Zhou Changes*. Leiden: Brill (Prognostication in History 9). Open access. **The authority for the Mawangdui ordering array used by ROAE** (p. 50 + Table 11.2: eight octets by upper trigram Qian, Gen, Kan, Zhen, Kun, Dui, Li, Xun; lower trigrams cycling Qian, Kun, Gen, Dui, Kan, Li, Zhen, Xun with the octet's own trigram promoted to first).
 
 **Earliest attestation of the received sequence** (Shaughnessy 2022, ch. 11 — the same chapter Table 11.2 sits in). This is the concrete philology behind the repo-wide hedge that "the dating of the ordering's fixation is debated in modern scholarship": the earliest artifactual witness of the *received* hexagram sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. Mawangdui (copied before 168 BCE) attests a *different* ordering in circulation, so the received order's antiquity beyond the early Han rests on inference, not artifact.
+
+**Expanded 2026-08-16 — two earlier witnesses were missing from this summary.** The paragraph above cited ch. 11 while omitting two of the witnesses that chapter discusses: the **Shanghai Museum Chu bamboo *Zhouyi*** (c. 300 BCE — the earliest known *Zhouyi* manuscript, ~135 years before Fuyang) and the **Haihun Hou 海昏侯 *Yijing*** (mid-1st c. BCE, a received-*like* order including the 30/34 split). Neither omission was a claim, but a reader checking the cited chapter would have found an unexplained gap. **Why the earliest one does not move the attestation date:** the Chu strips preserve only 34 of 64 hexagrams and came out of the ground **unbound and disordered**, and the published arrangement is the modern editor's own, taken from the received sequence *because* the manuscript is incomplete — [Pu Maozuo 2003](#pu2003), p. 135: 「又楚竹書《周易》尚不完整，本篇卦序排列也暫按今本」. It attests the *existence* of the *Zhouyi* at that date, not its *ordering*. **The full dated record now lives in [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md)**, which also states which other orderings this project does not study and why; this entry, [the README](../README.md) and [CRITIQUE](CRITIQUE.md) all link there so the record cannot drift apart again.
 
 **ERRATUM (2026-07-05).** From 2026-04-06 to 2026-07-05 the Mawangdui array in `roae.py`/`solve.c` was **wrong** — right octet membership, wrong octet order, wrong within-octet order (a synthesized double loop that matched neither the manuscript nor its own code comment; the cited Wikipedia article contains no sequence at all). The error was caught by cross-checking Shaughnessy 2022 Table 11.2 during a literature audit, and the corrected array was verified against multiple independent sources (Shaughnessy 2022; Cook 2006's full 64-position table; Shaughnessy 1996's generation rule via Rutt's review; S. J. Marshall's biroco.com conversion chart; independent web statements of the rule). Consequence: the former claim that Mawangdui satisfies C2 is **withdrawn** — the authentic Mawangdui order has **exactly one 5-line transition**, at the octet seam #48 Jing → #51 Zhen (positions 24→25), where its trigram-block construction resets. C2 is satisfied by King Wen and Jing Fang only (2 of 4 tested orderings), and the former "three of four / classical Chinese design principle" reframing of McKenna's observation is likewise **withdrawn**. All published Mawangdui-derived numbers were recomputed on the corrected array 2026-07-05; no other verdict flipped ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md)'s F5 corpus gate and [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)'s specificity gate both still pass — in both cases more cleanly). See also:
 
@@ -446,6 +458,275 @@ enumerates that space, or proves a ceiling on it.
   ordering-level S₄/B₃ action (orbit size 24/48). Canonical fact from his tables: the lower canon
   has **16** 交综 pairs (a circulating "17" is an OCR error; 28 total 综 − 12 upper = 16).
   [analyzed 2026-07]
+<a id="jiaoxun"></a>
+- **Jiao Xun 焦循** (1763–1820). *Yi tulüe* 《易圖略》 [Outline of Yi diagrams], 8 juan; in 《焦氏叢書》.
+  Free: `https://ctext.org/wiki.pl?if=gb&chapter=953240`.
+  A Qing mathematician's systematic *Yi* apparatus, and the source of one of the two **rival group
+  actions** this project measures King Wen against. Three items bear on us:
+  *(i)* **旁通 = complementation.** 《易圖略》卷一 旁通圖 tabulates all 32 complement pairs, credited by
+  him to 虞翻.
+  *(ii)* **He composes the two operations.** 卷六〈原序第三〉: 「**反對旁通四卦交互，如九數之維乘**」 —
+  reversal and complementation, four hexagrams interlocking, "like the cross-multiplication of the
+  nine numbers" — with worked quadruples 屯蒙鼎革, 豐旅節渙, 賁噬嗑困井, 蹇解睽家人, 小畜履謙豫,
+  **all five verified as exact ⟨錯,綜⟩ orbits** — reproduce with
+  `python3 verify.py --check-classical-groups` (`JIAOXUN_WORKED_QUADRUPLES_ARE_EXACT_ORBITS=5/5`). But he gives no general line-rule for 反對 (instances
+  only), no enumeration and no orbit census: the quadruple is a hermeneutic bridge (比例), not a
+  classification. **[Wu Cheng](#wucheng) does all of that, 500 years earlier.**
+  *(iii)* **八卦相錯 is a DIFFERENT operation**, not complementation — 卷四 八卦相錯圖, a binary
+  operation exchanging the lower trigrams of two hexagrams, from 說卦傳. He separates it from 虞翻's
+  兩象易 explicitly: 「此與相錯似近，而非」. **The group ⟨complement, trigram-swap⟩ it generates is an
+  exhaustive partition of the 64 into 20 orbits with the SAME size profile as ⟨錯,綜⟩ (8 of size 2,
+  12 of size 4) — yet King Wen respects it only 24/64, against 64/64 for ⟨錯,綜⟩.** That measurement,
+  reproducible with `python3 verify.py --check-classical-groups`, is why this entry matters: **the
+  rival group is not ours, it is his**, and a structurally indistinguishable alternative from the same
+  tradition does not fit the sequence.
+  ⚠ **Not obtained:** 《易通釋》20卷, the fuller work 《易圖略》 abridges, where he may work the
+  quadruples harder. Scans only, OCR unusable. *(Added 2026-08-16.)* [analyzed 2026-08-16]
+
+<a id="laizhide"></a>
+- **Lai Zhide 來知德** (1525–1604; the birth year is also given as 1526 in some sources — this repository uses 1525 throughout, following Schulz 1982). *Zhouyi jizhu* 《周易集註》, 卷首上/下. Free:
+  `https://ctext.org/wiki.pl?if=gb&chapter=339923` (definitions) and `chapter=670057` (the tables).
+  **The Ming source that fixed the modern vocabulary**: 「**錯者，隂陽橫相對也；綜者，隂陽上下相顛倒
+  也**」 — 錯 is complementation, 綜 is reversal, both by explicit line rule. 卷首下 carries a
+  **complete 64-row table** giving 錯 for every hexagram and 綜 for each of the 56 that has one. He is
+  **more complete than [Cui Shu](#cuishu) on the degenerate cases**, naming all four orbits where
+  complement coincides with reversal: 「否泰既濟未濟…歸妹漸隨蠱…此八卦**可錯可綜**」.
+  **But he never composes the two.** His table contains no 錯綜 compound, and he presents the
+  operations as **two side-by-side diagrams** (「伏羲圓圖相錯圖　文王序卦相綜圖…因此將二圖並列之」) —
+  two attributes per hexagram, never a four-element set, never a size. **That is exactly the line
+  between Lai Zhide and [Wu Cheng](#wucheng)**, and it is why the composition is ceded to the latter.
+  Corroborated by a hostile contemporary: 黃宗羲《易學象數論》 objects that 來知德 「於頤、過八卦相反之
+  外取反對者，而**亦復錯之**」 — an objection that is itself evidence the practice was conspicuous.
+  Cited by [Li Shangxin 2002](#lishangxin2002) as his source for both definitions.
+  *(Added 2026-08-16 — surfaced while testing whether [Cui Shu](#cuishu)'s claim that the joint use
+  was rare could be sustained. It cannot.)* [analyzed 2026-08-16]
+
+<a id="wucheng"></a>
+- **Wu Cheng 吳澄** (1249–1333). *Yi zuanyan waiyi* 《易纂言外翼》, juan 1, 〈卦對第二〉
+  [Hexagram pairing, chapter 2]. In the *Siku quanshu*; the work was lost after the Ming and
+  reconstructed from the 《永樂大典》 in 1781. Free: `https://ctext.org/wiki.pl?if=gb&chapter=974228`
+  and `https://zh.wikisource.org/wiki/易纂言外翼_(四庫全書本)/卷1`, which agree character-for-character.
+  **⚠ SUPERSEDED AS "EARLIEST" ON 2026-08-16, THE SAME DAY IT WAS WRITTEN — SEE
+  [朱元昇](#zhuyuansheng) BELOW.** This entry previously read "the earliest source we have found with
+  the complete ⟨錯, 綜⟩ orbit decomposition of all 64." **朱元昇《三易備遺》卷八, complete by 1270
+  (Southern Song), has the same decomposition roughly forty years earlier.** The hedge "we have
+  found" was doing real work and it is why this correction is a narrowing rather than a retraction —
+  but the sentence is now replaced.
+  **What Wu Cheng retains is the COUNT and the operational phrasing**, which 朱元昇 does not give:
+  Verbatim: 「**卦畫奇偶正對，二篇共二十對**…
+  **正對不反易者四**…**正對兼反易者四**…**反易取正對者十二**…共四十八卦。」 That is **12 classes of
+  four plus 8 classes of two = 20 classes covering all 64** — exactly the orbit structure of the
+  four-group, with his three classes corresponding precisely to the three stabiliser types:
+  正對不反易 = reversal acts trivially (乾坤·坎離·頤大過·中孚小過), 正對兼反易 = complement equals
+  reversal (泰否·隨蠱·既濟未濟·漸歸妹), 反易取正對 = trivial stabiliser (the twelve quadruples).
+  **Independently re-derived**, not taken from a summary: his 20 classes decoded to King Wen numbers
+  and checked against orbits computed from this repository's own bit operations — zero mismatches,
+  all 64 covered exactly once, and the class set is identical to the true orbit set. Reproduce the
+  orbit arithmetic with `python3 verify.py --check-shen-orbits` for the sixteen-hexagram subset;
+  the full-64 check is the same computation over all orbits.
+  **It is the concept, not a coincidence of extension.** 「反易取正對」 is literally the composition of
+  the two operations. He defines 正對 at the **line** level — 「卦畫**奇偶**正對」, 「此各卦**竒偶二畫**
+  之對」 — and then explicitly contrasts it with the **trigram**-level operation, 「此各卦**上下二體**
+  之對」, drawing the very distinction that separates a genuine line-operation grouping from a set that
+  merely coincides. He also gives a **second, different** group in the same chapter — under
+  ⟨reversal, trigram-swap⟩ he counts 「共**十八對**…純卦八…不與」, which is exact.
+  Authenticated by his own 小序 via the 四庫 提要: 「二曰卦對，**以奇偶反易成二卦**」.
+  **⭐ His degeneracy classes are not decorative — they exactly characterise a modern result.** Of the
+  **3.845×10⁴⁶** involutions on the 64 hexagrams with eight fixed points, **exactly 70** reproduce
+  King Wen's adjacent-pair structure, and **the hexagrams where that 70-fold freedom lives are
+  precisely Wu Cheng's two degenerate classes** — his 正對不反易者四 (the 8 self-reverse) plus his
+  正對兼反易者四 (the 8 where complement coincides with reversal). All 70 agree with reversal
+  elsewhere, so they are **one rule under 70 labellings**: "fixed point" versus "swapped pair" is a
+  vacuous distinction exactly where the two operations coincide — i.e. exactly on his sixteen.
+  Reproduce with `python3 verify.py --check-classical-groups`.
+  **What this leaves us.** The orbit decomposition itself is ceded to Wu Cheng. **Nothing in Wu Cheng
+  — or in [Cui Shu](#cuishu), 焦循, 來知德 or [Kong Yingda](#kongyingda) — counts ORDERINGS.** They
+  classify the 64; this project counts arrangements of them subject to constraints, which is a
+  different object. **⚠ Scoped 2026-08-16: that is a statement about those five authors, NOT a survey
+  result. The ordering-count question has never been the target of a prior-art search designed for it,
+  and at least two papers whose titles sit on it (王俊龍 on the mathematical regularity of the received
+  hexagram order; 關曉思 on a structural mathematical model of the hexagram sequence) are unread. The
+  claim is stated narrowly for that reason.** See [TR5](../reports/TR5_SYMMETRY.md) and
+  [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md).
+  *(Added 2026-08-16. Recorded plainly: this repository already cited Wu Cheng — for 〈卦統第一〉, via
+  Nielsen — and never opened 〈卦對第二〉, the next chapter of the same book. The miss originated at
+  Nielsen's* Companion *pp. 57–58 and 199, where 反易卦 was filed under "other transforms".
+  Corrections welcome.)* [read from two independent transcriptions 2026-08-16]
+
+<a id="zhuyuansheng"></a>
+- **Zhu Yuansheng 朱元昇** (d. c. 1273). 《三易備遺》卷八. Southern Song; 四庫提要 dates the work
+  「**咸淳庚午〔1270〕備遺成帙**」, submitted to the throne by 家鉉翁 with a 進書狀 of 咸淳八年 (1272).
+  Free on ctext and 維基文庫 (四庫本), which agree on the passage below.
+  **⭐⭐⭐ THE EARLIEST SOURCE WE HAVE FOUND WITH THE COMPLETE ⟨錯, 綜⟩ ORBIT DECOMPOSITION OF ALL 64,
+  and the deepest cession this project makes.** He first isolates the sixteen hexagrams where the
+  先天 (complement) and 後天 (King Wen textual) pairings coincide, then asks
+  「**餘四十八卦之對不同，何也？**」 — and answers with **twelve quadruples, each written under BOTH
+  operations at once**: 「**先天屯對鼎、蒙對革；後天屯對蒙、鼎對革**…」 (×12, covering all 48), followed by
+  the degeneracy split 「至於**乾坤頤大過中孚小過坎離八卦，不可得而反對**；**泰否隨蠱漸歸妹既濟未濟八卦，
+  可得而反對，亦可得而變對**；總十六卦。」 **He names both operations distinctly — 反對 = reversal,
+  變對 = complement.**
+  **Independently validated, and reproducible: `python3 verify.py --check-zhu-yuansheng`.** His
+  twelve groups are transcribed there as King Wen numbers with the 先天 and 後天 pairs kept
+  SEPARATE, so each half of each line is tested on its own against this repository's own bit
+  operations. All twelve quadruples were checked — every 先天對 is a true complement pair, every 後天對 a true reversal pair, the 48
+  quadruple members are disjoint from the 16, and 12×4 + 8×2 = 64 exactly. Two separate
+  transcriptions carry the passage, which together with the arithmetic makes transcription error
+  effectively impossible.
+  **Why this is a composition and not a table.** The test applied throughout this repository: *two
+  attributes per hexagram is not a composition; one structure of four is.* Each line takes a
+  complement pair and gives its reversal partners **on the same four elements**, so {屯 蒙 鼎 革} is a
+  4-set closed under both operations, written as such. That is what separates this from
+  [Lai Zhide](#laizhide), who tabulates both operations across all 64 and never composes them.
+  **What is left to [Wu Cheng](#wucheng), c. 1310s:** the **count** (二十對; 反易取正對者十二) and the
+  operational phrasing. 朱元昇 displays the twelve; he does not count them, give the 上下篇
+  distribution, or state the composition as an operation. **Wu Cheng nowhere cites 朱元昇** — he was 21
+  in 1270 — so his statement may be independent, but independence is not priority.
+  *(Found 2026-08-16 by a prior-art sweep designed for this question — unlike the other cessions
+  recorded here, which arrived incidentally. A disclosed gap remains: 張行成《易通變》卷三–四十 appears
+  undigitised everywhere and is formally unchecked.)*
+
+<a id="cuishu"></a>
+- **Cui Shu 崔述** (1740–1816). "Yi gua ci tu shuo" 〈易卦次圖說〉, in *Yi gua tu shuo* 《易卦圖說》
+  (one of three essays therein); in 《崔東壁先生遺書》 / 《崔東壁遺書》. Editions: 陳履和 東陽 printing,
+  colophon 道光四年 = **1824** (composition ≤1816); 群學社《崔東壁集》 1928; 上海古籍 1983 (顧頡剛 編訂).
+  **Read from the print 2026-08-16** — Kansai University 内藤文庫 IIIF scan, public domain, open, no
+  login: `https://www.iiif.ku-orcas.kansai-u.ac.jp/books/202252574` (leaves at images
+  `L21--1-589-14-0093`…`-0096`); ctext transcription `https://ctext.org/wiki.pl?if=gb&chapter=917813`
+  agrees character-for-character on every load-bearing sentence.
+  **⚠ SUPERSEDED as "earliest" the same day — see [Wu Cheng](#wucheng), c. 1300, who has the
+  COMPLETE 20-orbit decomposition of all 64. Cui is an INDEPENDENT REDISCOVERER of a subset**, and
+  creditably so: 《易纂言外翼》 was lost after the Ming and only reconstructed from the 永樂大典 in
+  1781, so he almost certainly could not have read it.
+  **He groups hexagrams by BOTH operations, defining each by an explicit line rule.** 「何謂平對？陰陽之爻互易者也。何謂反對？上下之爻互易者也。」 — 平對 = invert
+  all six lines (= 錯 / 旁通), 反對 = turn the hexagram over (= 綜 / 覆). He then forms the
+  four-element sets and **states their sizes**: 「震與巽平對而反對則艮也；兌與艮平對而反對則巽也。
+  **兩體而四卦具焉，故四卦乃當乾坤之兩卦。**」 His diagram 「純卦交卦綱領之圖」 prints each hexagram's
+  反對 **physically upside down** beneath it, annotating each row 「兩卦仍為兩卦」 or 「兩卦化為四卦」.
+  He recovers all three stabiliser types correctly: 有平對無反對 (乾坤, 坎離), 平對即反對 (泰否,
+  既濟未濟), and 有平對有反對 (震艮巽兌, 咸恆損益).
+  **Scope, and it is the limit that matters:** he applies this only to his sixteen 主卦 — **6 of the
+  20 orbits, 16 of 64.** He never carries 平對/反對 through the remaining 48 (「至散卦之排列，崔氏未詳
+  其故」, Shen's words), and never notices that 頤/大過, 中孚/小過, 隨/蠱 and 漸/歸妹 are size-2 orbits
+  inside his 散卦 — he files 漸歸妹 under 震艮. **The full 12 + 8 decomposition of all 64 is not in
+  Cui.**
+  **This project claims no priority for grouping by both operations** — that belongs to
+  [Wu Cheng](#wucheng), c. 1300, with Cui an independent rediscoverer c. 1800. Reproduce the arithmetic — the six groups on the sixteen ARE the six K₄ orbits — with
+  `python3 verify.py --check-shen-orbits` (reads no files); the same check covers both Cui and
+  [Shen 1936](#shen1936), because **their sixteen and their six groups are identical**, which is why
+  Shen wrote 「近讀崔東壁遺書易卦次圖說，乃與予說不謀而合」. Their *epistemic status* differs — see
+  that entry.
+  ⚠ Cui's remark that the joint use was uncommon in his day — 「反對人多言之，而**平對則罕有及者**」
+  — **must NOT be quoted as evidence of novelty. It is false as a survey claim**: 虞翻 (c. 220),
+  [Kong Yingda](#kongyingda) (648, 非覆即變, in the 十三經注疏), [Wu Cheng](#wucheng) (c. 1300) and
+  Lai Zhide 來知德 (c. 1600, a complete 64-row table of 錯 and 綜) all precede him. It survives only
+  as a remark about his own coinages 平對 / 交卦. His text names no predecessor at all — only
+  「先儒」 — so it is best read as evidence he had not surveyed. He uses **neither** 錯/綜 nor 變/覆. *(Added 2026-08-16. A prior secondhand report that this text is "a generation/classification
+  chart, not the King Wen ordering" was answering about ORDERING; the essay opens
+  「上經何以三十卦也？下經何以三十四卦也？」 and the grouping by line operations is its core. Our earlier
+  note giving an "1817 woodblock" is corrected to the 1824 colophon.)* [read from the print 2026-08-16]
+
+<a id="pu2003"></a>
+- **Ma Chengyuan 馬承源** (ed.), **Pu Maozuo 濮茅左** (transcription and commentary) (2003).
+  *Shanghai bowuguan cang Zhanguo Chu zhushu (san)* 《上海博物館藏戰國楚竹書（三）》
+  [Warring States Chu bamboo manuscripts in the Shanghai Museum, vol. 3]. Shanghai: Shanghai Guji
+  Chubanshe. ISBN 7-5325-3637-8.
+  Publishes the **earliest known *Zhouyi* manuscript** (c. 300 BCE): 58 bamboo slips covering 34 of
+  the 64 hexagrams. Its distinctive feature is a set of red and black symbols at the head and tail
+  of each hexagram unit — Pu's terms 首符 / 尾符, six forms, three simple and three nested. In
+  附錄二 (pp. 251–260) he argues the symbol class is **invariant under 綜 (reversal)** and gives a
+  24 + 4 + 4 partition of the 64 into reversal pairs, complement pairs, and pairs that are both.
+  **Two cessions and one limit, all of which bear on ROAE.** *(i)* The pair partition is not new to
+  him and is not ours: it is the classical 非覆即變 / 二二相偶 doctrine (see [Kong Yingda](#kongyingda)),
+  which he cites. **We claim no priority for the pairing insight.** *(ii)* He treats reversal and
+  complement as two separate classification *labels* on pairs — his "both" category records the
+  coincidence R(x) = C(x) for four pairs, **not** the composition R∘C. There is no four-element
+  group, no action on a single hexagram, and no orbit language in pp. 251–260; his framing is
+  philosophical (對立統一), not algebraic. *(iii)* **The published slip order is editorial, not
+  evidence** — p. 135: 「又楚竹書《周易》尚不完整，**本篇卦序排列也暫按今本**」 ("since the Chu bamboo
+  *Zhouyi* is incomplete, this volume's hexagram arrangement also provisionally follows the received
+  text"). The manuscript therefore supplies **no independent second ordering**.
+  His invariance claim survives its first non-circular test — checked against only the symbols his
+  per-slip 釋文考釋 reports as physically observed, excluding every entry 附錄二 reconstructs *from*
+  the invariance: **9 testable pairs, 9 agreements, 0 disagreements**. That agreement is nonetheless
+  **non-discriminating**, because King Wen seats every hexagram beside its own partner, so
+  "respects reversal" and "constant on contiguous King Wen blocks" predict identically on every
+  available observation. Reproduce with `python3 verify.py --check-kw-pair-adjacency` (reads no
+  files). **This is a limit on what the evidence can show, not a criticism of his reading.**
+  See [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md). *(Added 2026-08-16 — volume obtained and
+  read; the repo previously carried no citation to any excavated *Zhouyi* manuscript other than
+  Mawangdui.)* [analyzed 2026-08-16]
+
+<a id="kondo2005"></a>
+- **Kondō Hiroyuki 近藤浩之** (2005). "Shanhai hakubutsukan zō Sengoku So chikusho *Shūeki* no
+  «shufu» «bifu»" 上海博物館藏戰國楚竹書『周易』の「首符」「尾符」 [The "head symbols" and "tail
+  symbols" of the Shanghai Museum Warring States Chu bamboo *Zhouyi*]. *Chūgoku tetsugaku* 中国哲学
+  33 (Hokkaido University Chinese Philosophy Society): 1–20. ISSN 0287-1742. Chinese translation by
+  Cao Feng 曹峰 in *Zhouyi yanjiu* 周易研究 2006(6); an open copy at jianbo.sdu.edu.cn carries two
+  figures the journal printing omits.
+  **The nearest published construction to ROAE's orbit framing, and the reason our negative is
+  sourced rather than inferred from silence.** He collapses the 64 to **36 卦畫 by identifying 覆
+  (= 綜, reversal) pairs**, then partitions those 36 into **nine 宮 of four**, deriving a 宮
+  succession from the hexagrams whose head and tail symbols disagree. That is one step from an
+  orbit quotient — but he **explicitly declines to take it**, leaving complement partners free to
+  fall in different 宮: 「乾、坤等並不成對，分別屬於他宮之可能性也是存在的」. So the closest published
+  work *of this kind* quotients by **綜 alone**, not by ⟨錯, 綜⟩.
+  ⚠ **Do not read that as a general novelty claim.** A later sweep the same day found that the
+  ⟨錯, 綜⟩ composite **is** constructed elsewhere in the Chinese literature — see
+  [Li Shangxin 2002](#lishangxin2002), who names the joint object 「六十四卦錯綜圖」 and the
+  four-element relation 「互為錯綜卦」. Kondō's significance is narrower and specific: he is the
+  scholar who came closest to an orbit quotient **of the manuscript symbols** and consciously
+  declined it.
+  *(Added 2026-08-16. Corrections welcome: this is a statement about our literature search, not a
+  novelty guarantee.)* [analyzed via the Chinese translation 2026-08-16; Japanese original not
+  obtained]
+
+<a id="lishangxin2000"></a>
+- **Li Shangxin 李尚信** (2000). "Yinyang pingheng hubu yu biantong pei sishi" (陰陽平衡互補與變通配四時). *Zhouyi yanjiu* 周易研究 2000(3) 总45期: 51–60 **+ p.73**. Read in full 2026-08-20 (`FABLE_LI_SHANGXIN_2000_AUDIT_20260820.md`, roae-private — a private reading-audit note, not publicly accessible; the bibliographic facts stated here are checkable against the published article itself). Completes his 1999→2002 arc. ⚠ The 文章编号 suffix `-0051-10` counts only ten pages, so **p.73 — which carries the tail of the appended Q&A and the entire five-item reference list — is easily missed**. His arithmetic (the 当位 parity rule with exactly two exceptions, the A/B 28–20 yang mirror, the 13/25 tripartition) was independently recomputed and holds.
+<a id="lishangxin2002"></a>
+- **Li Shangxin 李尚信** (2002). "«Xugua» guaxu zhong de «canwu» «cuozong» sixiang"
+  〈《序卦》卦序中的「參伍」「錯綜」思想〉 [The "canwu" and "cuozong" conceptions in the *Xugua*
+  hexagram order]. *Zhouyi yanjiu* 周易研究 2002(6) [no. 56]: 46–49, 61.
+  **Read in full from the original PDF, 2026-08-16.** An intermediate summary of this paper
+  overstated it in one direction and a first correction overstated it in the other; what follows is
+  from the source.
+  He composes 錯 and 綜 **informally** and names the resulting relation 「**互為錯綜卦**」 — but the
+  passage doing so is about the **eight trigrams**, explaining the 《易緯·乾坤鑿度》 「古文八卦」
+  ordering: 「乾之錯為坤，坤之綜仍為坤，故乾坤互為錯綜卦；巽之錯為震，震之綜為艮，故巽艮互為錯綜卦。
+  他卦倣此，坎離、震兌亦分別互為錯綜卦。」 At the hexagram level the composite appears once:
+  「屯蒙變鼎革為錯，變革鼎則為錯而綜」. His operations are attributed by him to 來知德 and 孔穎達
+  (「明來知德即把『錯』理解為孔氏所說的『變』…他還把『綜』理解為孔氏所說的『覆』」), and the
+  「六十四卦錯綜圖」 he invokes is the **classical 36-figure woodcut he reproduces**, not a
+  construction of his.
+  He **is** conscious of the degenerate cases: 「泰否與隨蠱（泰否與隨蠱的錯卦皆為其本身，它們有相同的
+  性質，故它們算一對）」, with 頤大過、坎離 excluded as 「皆為特殊卦，不算在內」 — but as ad-hoc
+  exclusions inside a numerological scheme, not as an orbit-size classification.
+  **What it does NOT do, verified by full read:** it forms **no orbit partition of the 64** (his
+  錯綜卦 are a *selected subset* — five per canon, chosen because their spacings realise 3 and 5),
+  uses **no group language** (no 群, no closure, identity or inverse), and **expressly declines to
+  constrain the arrangement space**: 「關於錯綜卦的具體選取問題，即各個卦位究竟應排何卦的問題…此處
+  暫不予討論。」 The paper's purpose is 象數 exegesis — reading 參伍 in the 《繫辭傳》 as 三才/五行,
+  and the sequence as built to realise 3-spacings and 5-counts.
+  **Consequence for scoping, stated carefully in both directions.** This project claims no priority
+  for composing the two operations or for noticing 錯 = 綜 on the degenerate pairs — that is here,
+  and in 來知德 before it. **But citing this paper as prior *orbit* work would overstate it**, and
+  our ordering-level claim ([TR5](../reports/TR5_SYMMETRY.md)) is **not** narrowed by it, since he
+  defers even which hexagram occupies which position. Hexagram-level orbit structure remains ceded
+  to [Zhang Qingyu 1998](#zhang1994) and [Radisic 2026](#radisic2026).
+  ⚠ *Two textual cautions for anyone quoting this article.* Journal page 61 is **shared**: its upper
+  half (the 卦氣說 material and a reference list ending 責任編輯:劉玉建) belongs to a **different
+  article**; Li's text resumes under 「(上接第49頁)」. And the typeset 綜 definition ends 「即為錯」
+  where 「即為綜」 is plainly intended (屯→蒙 is a reversal) — an apparent printing error.
+  Related items in the same programme. 〈今本《周易》六十四卦卦序的基本骨架〉 *Zhouyi yanjiu*
+  1999(4) and 〈《序卦》卦序中的陰陽平衡互補與變通配四時思想〉 1999–2000(3) were **obtained and read
+  2026-08-16** (both free from CNKI); *(status corrected 2026-08-19 — this line previously read
+  "texts not yet obtained", which was true when written and is no longer)*. ⚠ **Those reads are
+  single, unaudited passes and nothing is cited from them here.** PhD 《今、帛、竹書〈周易〉卦序研究》
+  (Shandong Univ., 2007): existence confirmed, **not obtained**.
+  *(Added 2026-08-16 — found by a targeted sweep of the excavated-manuscript symbol literature,
+  which the 2026-07-30 prior-art review did not cover. That review was scoped to 卦序 mathematics;
+  this paper sits in neither field cleanly and was missed by both.)* [analyzed 2026-08-16; free PDF
+  from the Shandong University 易學 centre]
+
 <a id="suenaga2012"></a>
 - **Suenaga Takayasu 末永高康** (2012). "Kinbon *Shūeki* no kajo o megutte" 今本『周易』の卦序をめぐって
   [On the hexagram order of the received *Zhouyi*]. *Tōyō koten-gaku kenkyū* 東洋古典學研究 34: 1–18.
@@ -746,7 +1027,8 @@ promotion of these rules into the formal constraint system carries these credits
   Yijing," *JCP* 17 (1990), 289–313. Schulz's first motif (balance-value pairing) and third (xiaoxi trisection,
   with Schulz & Cunningham 1988 seasonal hypothesis) are under population test as R-S2/R-S1. The pair
   structure's classical lineage runs to <a id="yufan"></a>**Yu Fan (164–233 AD)** (pangtong/fandui, via Li Dingzuo) and the
-  36-unit consolidation + 18:18 reasoning to <a id="laizhide"></a>**Lai Zhide (1525–1604)**; **Davis, Scott,**
+  36-unit consolidation + 18:18 reasoning to [**Lai Zhide (1525–1604)**](#laizhide);
+  ⚠ **CANDIDATE EARLIER CESSION, recorded 2026-08-21, NOT yet applied.** [Shao Yong](#shaoyong) (邵雍, 1011–1077) appears to state the 8+28=36 reversal-figure **count** in 皇極經世 (pp. 335–337 as cited by 謝向榮 2005 pp. 18/20) — some five centuries before Lai Zhide. Evidence is currently **second-hand**: we have 謝's citation, not a first-hand reading of the 觀物外篇 locus. He states a count; he does **not** compose the sequence from it. **Do not move the attribution until the locus is read directly** — but do not let this lapse either: it is the earliest candidate we have found for the 36-unit count. Source: `FABLE_SONG_SWEEP_46_20260820.md` (roae-private — a private survey note, not publicly accessible; the second-hand chain it records, 謝向榮 2005 citing 皇極經世, is stated in full here and checkable against those published works). **Davis, Scott,**
   *The Classic of Changes in Cultural Context* (Cambria, 2012) and "Operating the Yijing Apparatus,"
   *The Oracle* 2:7 (1998).
 
@@ -998,8 +1280,9 @@ Hershock, P. D. (1991). The structure of change in the I Ching. *Journal of Chin
   sequence is globally random — the premise TR-8 measures — and answers with a third reordering, a
   circular mandala built from the complement, reverse, trigram-swap, and nuclear operations. Its
   "families of derivation" appendix is a correct orbit decomposition of the 64 hexagrams under the group
-  generated by complement, reverse, and trigram swap (14 orbits; machine-verified against ROAE's tables
-  2026-07-10, zero errors). Contains no transition statistics or constraint analysis of the King Wen
+  generated by complement, reverse, and trigram swap (14 orbits; machine-verified against ROAE's tables 2026-07-10, zero
+  errors — reproduce with `python3 verify.py --check-classical-groups`,
+  `THREE_GENERATOR_ORBITS=14`). Contains no transition statistics or constraint analysis of the King Wen
   order itself; reception history for TR-8, not prior art for any ROAE constraint or result (corrections
   invited). [analyzed 2026-07-10]
 

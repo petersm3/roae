@@ -31,9 +31,13 @@ acts through is prior art and is not claimed: the (Z/2)⁶/XOR framing and hexag
 have at least five independent arrivals — [Goldenberg (1975)](CITATIONS.md#goldenberg1975),
 [Ouyang (1992)](CITATIONS.md#ouyang1992) (the earliest and fullest, with proofs and subgroup×coset
 partitions of historical sequences), [Schöter (1998)](CITATIONS.md#schoter1998),
-[Suenaga (2012)](CITATIONS.md#suenaga2012), and [Radisic (2026)](CITATIONS.md#radisic2026) — all acting
-on the **hexagram set**; none states a group acting on the space of admissible orderings, which is this
-document's object ([CITATIONS.md](CITATIONS.md) §"The (Z/2)⁶ hexagram algebra … — priority ceded").
+[Suenaga (2012)](CITATIONS.md#suenaga2012), and [Radisic (2026)](CITATIONS.md#radisic2026) — and the
+classical lineage is older still: [Wu Cheng 吳澄 (c. 1300)](CITATIONS.md#wucheng) gives the **complete
+⟨complement, reversal⟩ orbit decomposition of all 64** (「二十對」 = 12×4 + 8×2), with
+[Lai Zhide (c. 1600)](CITATIONS.md#laizhide) tabulating both operations across all 64 without composing
+them, and [Jiao Xun (c. 1813)](CITATIONS.md#jiaoxun) and [Cui Shu (c. 1800)](CITATIONS.md#cuishu)
+reaching parts independently. All of these act on the **hexagram set**; none states a group acting on the
+space of admissible orderings, which is this document's object ([CITATIONS.md](CITATIONS.md) §"The (Z/2)⁶ hexagram algebra … — priority ceded").
 Prior-art corrections are welcomed via [CITATIONS.md](CITATIONS.md).*
 
 **Theorem.** Let G = C_{S₆}(rev) act on hexagrams by permuting bit positions (linearly on GF(2)⁶). For every
@@ -195,10 +199,13 @@ The corrected takeaways replace the old implications: (1) an **orbit-reduction o
 48 raw / 24 effective)** is available in principle — adopting it for canonical runs would change the canonical
 convention and is a separate, gated decision; (2) KW-structural claims should be checked for relabeling
 invariance — any statistic not invariant under S₄ record-relabeling is measuring the labeling; (3) the
-solution space's orbit structure (and KW's 23 twins) is a new object of study in its own right.
+solution space's orbit structure **at the ordering level** (and KW's 23 twins) is a new object of study in
+its own right — hexagram-level orbit structure is prior art and is ceded above, back to
+[Wu Cheng c. 1300](CITATIONS.md#wucheng).
 
 ## Reproducibility
 
+⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command below.** Under the default 8 MB stack these commands abort with SIGSEGV before producing output: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB, so the 8 MB limit is exceeded the moment the estimator is entered. This is environmental, not a logic fault — with the limit raised the published figures reproduce. *(Added 2026-08-21: found by a cold external-reviewer pass and independently reproduced; the requirement had been documented only in CANONICAL_HASHES.md's large-scale-enumeration recipe, while these guides state the estimator needs no data disk and costs pennies.)*
 ```bash
 # exact tree-isomorphism check (any sigma in G; prefix = 22 (pair,orient) args after the forced first pair):
 ./solve --estimate-knuth 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0 13 0 14 0 15 0 16 0 17 0 18 0 19 0 20 0 21 0 22 0
@@ -232,7 +239,7 @@ shard manifest, reproducible per [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); th
 private working data (~65K estimator calls, hours-scale); this rerun spec is the public path.
 
 Original 2026-04-25 phases 1–3 ([`./solve --symmetry-search [--validate-counts]`](SOLVE_C_CLI.md#--symmetry-search)) remain reproducible; their
-output is correct as *budgeted-yield* data. Proof + full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md`.
+output is correct as *budgeted-yield* data. Full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md` *(private staging repo — not publicly accessible; a provenance pointer. The theorem, its proof, the correction notice, and every table needed to verify are public in this document, and the reruns above are the public verification path)*.
 
 ## Corollary (2026-07-03): the action is free — every solution has exactly 23 twins
 

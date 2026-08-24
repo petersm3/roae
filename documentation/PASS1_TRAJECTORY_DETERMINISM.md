@@ -82,7 +82,7 @@ To verify the trajectory match yourself (against any future run on this branch):
 
 ```bash
 # Pull progress samples from both run logs, compare at matched node budgets.
-# An equivalent check is implemented in x/roae/alpha_log_updater.py --pass1-compare.
+# An equivalent check is implemented in roae-private/alpha_log_updater.py --pass1-compare (private staging repo).
 ```
 
 ## Working / process documentation

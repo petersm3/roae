@@ -383,6 +383,41 @@ def check_shen_orbits():
     (老/长/中/少); the rest are 散卦. He states 主卦十有六 and 其余四十八卦皆散卦,
     grouped 总为六组.
 
+    ATTRIBUTION -- THE ORBIT DECOMPOSITION IS WU CHENG'S, c.1300, AND IT IS
+    COMPLETE. 吳澄 (1249-1333), 《易纂言外翼》卷一〈卦對第二〉, gives all 20 orbits of
+    all 64 -- 「卦畫奇偶正對，二篇共二十對…正對不反易者四…正對兼反易者四…反易取正對者
+    十二」 = 12 classes of four + 8 of two -- with his three classes matching the
+    three stabiliser types exactly. 「反易取正對」 IS the composition of the two
+    operations, and he defines 正對 at the LINE level (卦畫奇偶) while explicitly
+    contrasting it with the TRIGRAM level (上下二體). Verified against this file's own
+    bit operations: zero mismatches, all 64 covered once, class set identical to the
+    true orbit set. See CITATIONS.md#wucheng and `--check-classical-groups`.
+
+    The sixteen checked below are a SUBSET of that -- 6 of Wu Cheng's 20 orbits.
+
+    THE SAME SIXTEEN AND THE SAME SIX GROUPS ARE ALSO CUI SHU'S, c.1800, reached
+    independently -- creditably so, since 《易纂言外翼》 was lost after the Ming and
+    only reconstructed from the 永樂大典 in 1781. Verified 2026-08-16 from the print
+    (Kansai Univ. 内藤文庫 IIIF scan of 崔東壁先生遺書; ctext transcription agrees):
+    崔述 (1740-1816), 〈易卦次圖說〉 in 《易卦圖說》, defines the two operations by
+    LINE RULES -- 「何謂平對？陰陽之爻互易者也。何謂反對？上下之爻互易者也」, i.e.
+    平對 = 錯 (invert all six lines) and 反對 = 綜 (turn the hexagram over) -- then
+    forms the four-element sets and states their SIZES: 「兩體而四卦具焉」 against
+    「兩卦仍為兩卦」. His diagram prints each hexagram's 反對 physically upside down.
+    Shen knew: 「近讀崔東壁遺書易卦次圖說，乃與予說不謀而合」.
+
+    WHY BOTH ARE NAMED, AND WHY THEIR STATUS DIFFERS. Shen's criterion is
+    trigram-based (內外卦同序 / 類合 / 應合) and his text contains NO 錯/綜-type
+    operation, so "these six groups are the six K4 orbits" is OUR observation about
+    his classification. Cui states the operations himself, so for Cui the same
+    sentence is much closer to his own claim. This function checks one arithmetic
+    fact; the two attributions carry different weight, and conflating them would
+    overstate Shen and understate Cui.
+
+    NEITHER covers all 64: both stop at the sixteen, giving 6 of the 20 orbits.
+    Cui never notices that 頤/大過, 中孚/小過, 隨/蠱 and 漸/歸妹 are size-2 orbits
+    sitting inside his 散卦. See CITATIONS.md#cuishu and #shen1936.
+
     Verdicts are KEY=value for `grep -qx`."""
     zhu = [h for h in range(64)
            if _TRIGRAM[_lower(h)][1] == _TRIGRAM[_upper(h)][1]]
@@ -484,6 +519,487 @@ def check_flips():
     print("SCOPE=a_pair_order_key_admits_MANY_valid_orientation_completions;"
           "_which_one_a_record_carries_is_a_convention_choice")
     return 0
+
+
+def check_parity_alternation():
+    """Re-derive every published figure in PARITY_ALTERNATION.md from KW itself.
+
+    WHY THIS EXISTS. That document is listed in CLAUDE.md as a stable, paper-citable
+    finding, and it published its central figures -- the forced 15 alternations and the
+    82,818,450 / 601,080,390 arrangement reduction -- with NO reproduction command.
+    A reviewer had no way to re-derive them. GATE 25 LEG 2 flagged the file on
+    2026-08-16 and this is the answer to that flag.
+
+    Lemma 3 of that document: a pair's parity class is the popcount parity of either
+    member, because reversal preserves popcount and complement maps p -> 6-p (same
+    parity). So the class is well defined per pair, which this check confirms rather
+    than assumes.
+
+    The arrangement count is computed TWICE by different routes that share no code
+    path: a dynamic program over (position, evens used, last class, changes so far),
+    and the closed form 2*C(15,7)^2 that follows from 15 changes meaning 16 alternating
+    runs, 8 per class, each class composed into 8 positive parts. They must agree.
+    The DP is the instrument; the closed form is the check on the instrument.
+
+    SCOPE: this attests the FIGURES in PARITY_ALTERNATION.md. The theorem itself
+    ("every C1-C5-valid ordering has exactly 15 alternations") is a proof, not a
+    measurement, and is not re-proven here -- what is checked is that King Wen
+    exhibits it and that the arrangement arithmetic is right.
+
+    Reads no files."""
+    from math import comb
+    from collections import Counter
+
+    # -- the 63 transition distances of King Wen, and their parity ------------
+    dists = [hamming(KW[i], KW[i + 1]) for i in range(63)]
+    multiset = dict(sorted(Counter(dists).items()))
+    PUBLISHED = {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}
+    n_odd = sum(1 for d in dists if d % 2)
+    print("KW_TRANSITIONS=%d" % len(dists))
+    print("KW_DISTANCE_MULTISET=%s" % (multiset,))
+    print("KW_DISTANCE_MULTISET_MATCHES_PUBLISHED=%s"
+          % ("yes" if multiset == PUBLISHED else "NO"))
+    print("KW_ODD_TRANSITIONS=%d" % n_odd)
+
+    # -- pair classes: well defined, and 16/16 as C(32,16) presupposes --------
+    pairs = [(KW[2 * i], KW[2 * i + 1]) for i in range(32)]
+    well_defined = all(bin(a).count("1") % 2 == bin(b).count("1") % 2 for a, b in pairs)
+    cls = [bin(a).count("1") % 2 for a, _ in pairs]
+    print("PAIR_CLASS_WELL_DEFINED=%s" % ("yes" if well_defined else "NO"))
+    print("PAIR_CLASS_SPLIT=even=%d,odd=%d" % (cls.count(0), cls.count(1)))
+    print("PAIR_CLASS_SPLIT_IS_16_16=%s"
+          % ("yes" if cls.count(0) == 16 and cls.count(1) == 16 else "NO"))
+
+    kw_alts = sum(1 for i in range(31) if cls[i] != cls[i + 1])
+    print("KW_CLASS_ALTERNATIONS=%d" % kw_alts)
+    print("KW_HAS_THE_FORCED_15=%s" % ("yes" if kw_alts == 15 else "NO"))
+    print("KW_ODD_TRANSITIONS_EQUALS_ALTERNATIONS=%s"
+          % ("yes" if n_odd == kw_alts else "NO"))
+    print("C4_PINS_FIRST_PAIR_TO_EVEN_CLASS=%s"
+          % ("yes" if cls[0] == 0 and set(pairs[0]) == {63, 0} else "NO"))
+
+    # -- arrangements with exactly 15 changes: DP, then the closed form -------
+    # state: (evens placed, odds placed, last class, changes) -> count
+    dp = {(1, 0, 0, 0): 1, (0, 1, 1, 0): 1}
+    for _ in range(31):
+        nxt = {}
+        for (e, o, last, ch), v in dp.items():
+            for c in (0, 1):
+                ne, no = e + (c == 0), o + (c == 1)
+                if ne > 16 or no > 16:
+                    continue
+                nch = ch + (c != last)
+                if nch > 15:
+                    continue
+                k = (ne, no, c, nch)
+                nxt[k] = nxt.get(k, 0) + v
+        dp = nxt
+    dp_count = sum(v for (e, o, _, ch), v in dp.items() if e == 16 and o == 16 and ch == 15)
+    closed = 2 * comb(15, 7) ** 2
+    total = comb(32, 16)
+    print("ARRANGEMENTS_15_CHANGES_DP=%d" % dp_count)
+    print("ARRANGEMENTS_15_CHANGES_CLOSED_FORM=%d" % closed)
+    print("DP_AGREES_WITH_CLOSED_FORM=%s" % ("yes" if dp_count == closed else "NO"))
+    print("TOTAL_ARRANGEMENTS_C32_16=%d" % total)
+    print("REDUCTION_FACTOR=%.4f" % (total / dp_count))
+
+    ok = (multiset == PUBLISHED and well_defined and cls.count(0) == 16
+          and kw_alts == 15 and n_odd == 15 and cls[0] == 0
+          and dp_count == closed == 82818450 and total == 601080390)
+    print("PARITY_ALTERNATION=%s" % ("PASS" if ok else "FAIL"))
+    print("SCOPE=re-derives_the_FIGURES_in_PARITY_ALTERNATION.md_from_KW;"
+          "_the_theorem_is_a_proof_and_is_not_re-proven_here")
+    return 0 if ok else 1
+
+
+def check_zhu_yuansheng():
+    """Verify 朱元昇's twelve quadruples against this file's own bit operations.
+
+    WHY THIS EXISTS. On 2026-08-16 the complete <complement, reversal> orbit
+    decomposition of all 64 was ceded to 朱元昇 (d. c.1273), 《三易備遺》卷八,
+    complete by 1270 -- roughly forty years before 吳澄, to whom it had been ceded
+    the same morning. A cession that deep must be checkable by a reader, not taken
+    on the word of whoever read the text. CITATIONS.md#zhuyuansheng
+
+    WHAT HE WROTE. He isolates the sixteen hexagrams whose 先天 (complement) and
+    後天 (King Wen textual) pairings coincide, asks 「餘四十八卦之對不同，何也？」,
+    and answers with twelve groups, each stated under BOTH operations at once:
+
+        「先天屯對鼎、蒙對革；後天屯對蒙、鼎對革」  ... and so on, twelve times.
+
+    then the degeneracy split:
+
+        「至於乾坤頤大過中孚小過坎離八卦，不可得而反對；
+          泰否隨蠱漸歸妹既濟未濟八卦，可得而反對，亦可得而變對；總十六卦。」
+
+    WHAT THIS CHECKS. His text is transcribed below as KING WEN NUMBERS, exactly as
+    he pairs them -- the 先天 pairs and the 後天 pairs kept SEPARATE, so each half of
+    each line is tested on its own:
+      * every 先天 pair he states is a true COMPLEMENT pair under _cuo
+      * every 後天 pair he states is a true REVERSAL pair under _zong
+      * his 48 quadruple members are disjoint from his 16 coincident hexagrams
+      * 12x4 + 8x2 = 64, covering every hexagram exactly once
+      * his eight 不可得而反對 are exactly the self-reverse hexagrams
+      * his eight 可得而反對亦可得而變對 are exactly those where complement == reversal
+      * his twelve quadruples ARE the size-4 orbits of <complement, reversal>
+
+    A failure here means either the transcription is wrong or the cession is wrong.
+    Both are worth knowing, which is the point of shipping it as a command.
+
+    SCOPE: this attests a 13th-century READING. It changes no enumeration and no
+    published count of this project's own.
+
+    Reads no files. Uses only this file's KW array and bit conventions."""
+    # 朱元昇《三易備遺》卷八 -- (label, 先天/complement pairs, 後天/reversal pairs)
+    QUADS = [
+        ("屯蒙鼎革",     [(3, 50), (4, 49)],  [(3, 4),   (50, 49)]),
+        ("需訟晉明夷",   [(5, 35), (6, 36)],  [(5, 6),   (35, 36)]),
+        ("師比同人大有", [(7, 13), (8, 14)],  [(7, 8),   (13, 14)]),
+        ("小畜履豫謙",   [(9, 16), (10, 15)], [(9, 10),  (16, 15)]),
+        ("臨觀遯大壯",   [(19, 33), (20, 34)],[(19, 20), (33, 34)]),
+        ("噬嗑賁井困",   [(21, 48), (22, 47)],[(21, 22), (48, 47)]),
+        ("剝復夬姤",     [(23, 43), (24, 44)],[(23, 24), (43, 44)]),
+        ("无妄大畜升萃", [(25, 46), (26, 45)],[(25, 26), (46, 45)]),
+        ("咸恒損益",     [(31, 41), (32, 42)],[(31, 32), (41, 42)]),
+        ("家人睽解蹇",   [(37, 40), (38, 39)],[(37, 38), (40, 39)]),
+        ("震艮巽兌",     [(51, 57), (52, 58)],[(51, 52), (57, 58)]),
+        ("豐旅渙節",     [(55, 59), (56, 60)],[(55, 56), (59, 60)]),
+    ]
+    NO_REV   = [1, 2, 27, 28, 61, 62, 29, 30]      # 不可得而反對
+    BOTH     = [11, 12, 17, 18, 53, 54, 63, 64]    # 可得而反對，亦可得而變對
+
+    def hx(n):                      # King Wen number (1-based) -> binary value
+        return KW[n - 1]
+
+    bad_comp = [(lab, a, b) for lab, cp, _ in QUADS for (a, b) in cp
+                if _cuo(hx(a)) != hx(b)]
+    bad_rev  = [(lab, a, b) for lab, _, rp in QUADS for (a, b) in rp
+                if _zong(hx(a)) != hx(b)]
+    print("ZHU_XIANTIAN_PAIRS_ARE_COMPLEMENT=%d/24%s"
+          % (24 - len(bad_comp), "" if not bad_comp else "  MISMATCH:%s" % (bad_comp,)))
+    print("ZHU_HOUTIAN_PAIRS_ARE_REVERSAL=%d/24%s"
+          % (24 - len(bad_rev), "" if not bad_rev else "  MISMATCH:%s" % (bad_rev,)))
+
+    quad_members = set()
+    for _, cp, rp in QUADS:
+        for a, b in cp + rp:
+            quad_members.add(a); quad_members.add(b)
+    coincident = set(NO_REV) | set(BOTH)
+    print("ZHU_QUAD_MEMBERS=%d" % len(quad_members))
+    print("ZHU_COINCIDENT=%d" % len(coincident))
+    print("ZHU_DISJOINT=%s" % ("yes" if not (quad_members & coincident) else "NO"))
+    print("ZHU_COVERS_ALL_64=%s"
+          % ("yes" if len(quad_members | coincident) == 64 else "NO"))
+    print("ZHU_ARITHMETIC=12x4+8x2=%d" % (len(quad_members) + len(coincident)))
+
+    nr_ok = all(_zong(hx(n)) == hx(n) for n in NO_REV)
+    bo_ok = all(_cuo(hx(n)) == _zong(hx(n)) and _zong(hx(n)) != hx(n) for n in BOTH)
+    print("ZHU_NO_REVERSAL_CLASS_IS_SELF_REVERSE=%s" % ("yes" if nr_ok else "NO"))
+    print("ZHU_BOTH_CLASS_HAS_COMP_EQUALS_REV=%s"   % ("yes" if bo_ok else "NO"))
+
+    # his twelve == the true size-4 orbits of <complement, reversal>
+    seen, true4 = set(), []
+    for h in KW:
+        if h in seen:
+            continue
+        cl = {h}
+        while True:
+            nxt = cl | {f(x) for x in cl for f in (_cuo, _zong)}
+            if nxt == cl:
+                break
+            cl = nxt
+        seen |= cl
+        if len(cl) == 4:
+            true4.append(frozenset(cl))
+    zhu4 = []
+    for _, cp, rp in QUADS:
+        s = set()
+        for a, b in cp + rp:
+            s.add(hx(a)); s.add(hx(b))
+        zhu4.append(frozenset(s))
+    print("ZHU_QUADS_ARE_THE_SIZE4_ORBITS=%s"
+          % ("yes" if set(zhu4) == set(true4) else "NO"))
+
+    ok = (not bad_comp and not bad_rev and nr_ok and bo_ok
+          and set(zhu4) == set(true4)
+          and not (quad_members & coincident)
+          and len(quad_members | coincident) == 64)
+    print("ZHU_YUANSHENG=%s" % ("PASS" if ok else "FAIL"))
+    print("SCOPE=this_attests_a_13th_century_READING;"
+          "_it_changes_no_enumeration_and_no_published_count_of_ours")
+    return 0 if ok else 1
+
+
+def check_classical_groups():
+    """Report the group actions on the 64 hexagrams that the CLASSICAL Chinese
+    literature actually attests, and how King Wen scores against each.
+
+    WHY THIS EXISTS. The obvious deflation of a pairing constraint is "of course a
+    symmetric arrangement satisfies some symmetry -- you went looking for a group
+    and found one that fits." This answers that with a measurement, using rival
+    groups WE DID NOT INVENT: every one below is taken from a classical source.
+
+    THE SOURCES, none of them ours:
+      * <comp, rev>  -- 吳澄 Wu Cheng (1249-1333), 《易纂言外翼》卷一〈卦對第二〉.
+        The complete decomposition: 「卦畫奇偶正對，二篇共二十對」. CITATIONS.md#wucheng
+      * <rev, swap>  -- 吳澄, THE SAME CHAPTER: 「卦體上下互易，二篇共十八對…純卦八…
+        不與」, where swap exchanges the upper and lower trigrams.
+      * <comp, swap> -- 焦循 Jiao Xun (1763-1820), 《易圖略》卷四 八卦相錯圖, an
+        exhaustive partition of the 64 built from 說卦傳's 八卦相錯. CITATIONS.md#jiaoxun
+      * the pairing rule itself is 孔穎達 (574-648), 非覆即變. CITATIONS.md#kongyingda
+
+    THE RESULT THIS PRINTS. <comp,swap> has the SAME orbit profile as <comp,rev> --
+    20 orbits, 8 of size 2 and 12 of size 4 -- yet King Wen seats partners adjacently
+    64/64 under <comp,rev> and only 24/64 under <comp,swap>. Two structurally
+    indistinguishable group actions, both classically attested, and the received
+    sequence selects one decisively. That is a property of the sequence, not an
+    artifact of looking for symmetry.
+
+    It also re-derives 吳澄's OWN second count as a reading check: he says the
+    <rev,swap> structure gives 「共十八對」 once the 八純卦 are set aside, and the
+    computation returns 24 orbits minus the 6 meeting those eight = 18.
+
+    SCOPE: this is a fact about King Wen's PAIRING. It changes no enumeration and no
+    published count. It strengthens the constraint's motivation, not the result.
+
+    Reads no files. Uses only this file's KW array and bit conventions."""
+    def _swap(h):                      # 上下互易 -- exchange upper and lower trigrams
+        return ((h >> 3) & 0b111) | ((h & 0b111) << 3)
+    pos = {h: i for i, h in enumerate(KW)}
+
+    def _orbits(gens):
+        seen, out = set(), []
+        for h in KW:
+            if h in seen:
+                continue
+            cl = {h}
+            while True:
+                nxt = cl | {g(x) for x in cl for g in gens}
+                if nxt == cl:
+                    break
+                cl = nxt
+            seen |= cl
+            out.append(frozenset(cl))
+        return out
+
+    GROUPS = [
+        ("comp_rev",  "<comp,rev>  Wu Cheng c.1300",   [_cuo, _zong]),
+        ("rev_swap",  "<rev,swap>  Wu Cheng, same ch", [_zong, _swap]),
+        ("comp_swap", "<comp,swap> Jiao Xun c.1813",   [_cuo, _swap]),
+    ]
+    for key, label, gens in GROUPS:
+        orbs = _orbits(gens)
+        sizes = {}
+        for c in orbs:
+            sizes[len(c)] = sizes.get(len(c), 0) + 1
+        # Does King Wen seat each hexagram beside a partner from its own orbit?
+        adj = sum(1 for h in KW
+                  if any(pos[g(h)] // 2 == pos[h] // 2 and g(h) != h for g in gens))
+        print("%s_ORBITS=%d" % (key.upper(), len(orbs)))
+        print("%s_SIZES=%s" % (key.upper(),
+              ",".join("%dx%d" % (n, s) for s, n in sorted(sizes.items()))))
+        print("%s_KW_ADJACENT=%d/64" % (key.upper(), adj))
+
+    # ---- the sharper test: at the PAIRING-RULE level, not the group level -------
+    # A group tells you which hexagrams are related; a PAIRING RULE tells you which
+    # single partner each hexagram gets. C1 is the second kind, so this is the
+    # comparison a referee actually wants.
+    def _rule(primary, fallback=None):
+        n = 0
+        for h in KW:
+            p = primary(h)
+            if p == h and fallback is not None:
+                p = fallback(h)
+            if p != h and pos[p] // 2 == pos[h] // 2:
+                n += 1
+        return n
+    RULES = [
+        ("rev_then_comp", "rev, falling back to comp  [= C1, 非覆即變]", _zong, _cuo),
+        ("comp_alone",    "comp alone",                                 _cuo,  None),
+        ("rev_alone",     "rev alone",                                  _zong, None),
+        ("swap_then_comp","swap, falling back to comp",                 _swap, _cuo),
+        ("swap_alone",    "swap alone",                                 _swap, None),
+        ("comp_of_rev",   "comp of rev, falling back to comp",
+                          (lambda h: _cuo(_zong(h))), _cuo),
+    ]
+    for key, _label, prim, fb in RULES:
+        print("RULE_%s=%d/64" % (key.upper(), _rule(prim, fb)))
+
+    # HOW SPECIAL IS THAT? Not a sample -- the EXACT count, in closed form.
+    #
+    # An earlier version of this check sampled 20,000 random involutions and
+    # reported the best score. That was a correct but very weak shadow of the real
+    # answer, and it invited the reader to wonder about the unsampled remainder.
+    # There is no remainder to wonder about: the count is exact.
+    #
+    # THE ARGUMENT. To score 64/64 an involution must send every NON-fixed hexagram
+    # to its King Wen neighbour -- so off its fixed set it is FORCED to equal the
+    # King Wen pairing. A fixed point contributes only if its COMPLEMENT is its King
+    # Wen neighbour, and the fixed set must be a union of whole King Wen pairs (an
+    # odd leftover cannot be matched). So the only freedom is WHICH eligible pairs
+    # are called fixed.
+    #
+    # AND THE ELIGIBLE SET IS EXACTLY WU CHENG'S TWO DEGENERATE CLASSES (c. 1300):
+    # the 8 self-reverse hexagrams (his 正對不反易者四) plus the 8 where complement
+    # coincides with reversal (his 正對兼反易者四). His classification is not
+    # decorative -- it precisely characterises where the ambiguity lives.
+    from math import comb, factorial
+    partner = {h: KW[pos[h] ^ 1] for h in KW}
+    elig = [h for h in KW if partner[h] == _cuo(h)]
+    elig_pairs = {frozenset((h, partner[h])) for h in elig}
+    selfrev = {h for h in KW if _zong(h) == h}
+    cuo_is_zong = {h for h in KW if _cuo(h) == _zong(h)}
+    # size of the space we are choosing from: involutions on 64 with 8 fixed points
+    dbl = 1
+    for k in range(55, 0, -2):
+        dbl *= k                                   # 55!! matchings on the other 56
+    space = comb(64, 8) * dbl
+    exact = comb(len(elig_pairs), 4)               # choose 4 of the eligible pairs
+    print("SPACE_INVOLUTIONS_8_FIXED=%.4e" % space)
+    print("ELIGIBLE_FIXED_HEXAGRAMS=%d" % len(elig))
+    print("ELIGIBLE_IS_WUCHENG_DEGENERATE_CLASSES=%s"
+          % ("yes" if set(elig) == selfrev | cuo_is_zong else "NO"))
+    print("EXACT_INVOLUTIONS_SCORING_64=%d" % exact)
+    print("EXACT_FRACTION=%.3e" % (exact / space))
+    # every one of them is reversal off the degenerate part -- verify, do not assert
+    core = [h for h in KW if h not in elig]
+    print("ALL_AGREE_WITH_REV_ON_NONDEGENERATE=%s"
+          % ("yes" if all(partner[h] == _zong(h) for h in core) else "NO"))
+    print("SCOPE_UNIQUENESS=the_%d_are_ONE_rule_under_%d_labellings;"
+          "_fixed_vs_swapped_is_VACUOUS_exactly_where_the_two_operations_coincide"
+          % (exact, exact))
+
+    # 吳澄's own second count, as a check that we are reading his chapter correctly.
+    orbs = _orbits([_zong, _swap])
+    pure = {0b111111, 0b000000, 0b010010, 0b101101,
+            0b001001, 0b110110, 0b100100, 0b011011}   # the 八純卦 (doubled trigrams)
+    meeting = sum(1 for c in orbs if c & pure)
+    print("WUCHENG_SECOND_COUNT=%d" % (len(orbs) - meeting))
+    print("WUCHENG_SECOND_COUNT_MATCHES_TEXT=%s"
+          % ("yes" if len(orbs) - meeting == 18 else "NO"))
+    # 焦循 Jiao Xun (1763-1820) 《易圖略》卷六〈原序第三〉:
+    #   「反對旁通四卦交互，如九數之維乘」 -- reversal and complementation, four hexagrams
+    # interlocking -- followed by five WORKED quadruples. CITATIONS.md#jiaoxun asserts all five
+    # are exact <comp,rev> orbits; that assertion is checked here rather than asserted.
+    # NOTE this does NOT make him a classifier: he gives instances, no line-rule, no census.
+    JIAO_QUADS = [(3, 4, 50, 49), (55, 56, 60, 59), (22, 21, 47, 48),
+                  (39, 40, 38, 37), (9, 10, 15, 16)]
+    orb4 = {frozenset(c) for c in _orbits([_cuo, _zong])}
+    jq = [frozenset(KW[n - 1] for n in q) for q in JIAO_QUADS]
+    jq_ok = sum(1 for s in jq if s in orb4)
+    print("JIAOXUN_WORKED_QUADRUPLES_ARE_EXACT_ORBITS=%d/5" % jq_ok)
+
+    # The three-generator group <complement, reverse, trigram-swap>. Whalen (1998)'s
+    # "families of derivation" appendix is a correct orbit decomposition under exactly this
+    # group; CITATIONS.md records "14 orbits, machine-verified, zero errors" and this is the
+    # command behind that number. Reception history for TR-8 -- NOT prior art for any result.
+    orb3 = _orbits([_cuo, _zong, _swap])
+    prof3 = sorted(len(c) for c in orb3)
+    print("THREE_GENERATOR_ORBITS=%d" % len(orb3))
+    print("THREE_GENERATOR_ORBITS_MATCHES_PUBLISHED_14=%s"
+          % ("yes" if len(orb3) == 14 else "NO"))
+    print("THREE_GENERATOR_SIZE_PROFILE=%s" % (prof3,))
+    print("THREE_GENERATOR_COVERS_ALL_64=%s"
+          % ("yes" if sum(prof3) == 64 else "NO"))
+
+    print("CLASSICAL_GROUPS=DONE")
+    print("SCOPE=a_rival_group_with_an_IDENTICAL_orbit_profile_does_NOT_fit_king_wen;"
+          "_this_is_about_PAIRING,_not_about_any_published_count")
+    return 0
+
+
+def check_kw_pair_adjacency():
+    """Check that King Wen seats every hexagram beside its own partner -- and
+    draw the consequence, which is a NEGATIVE result about what excavated
+    symbol data can ever show.
+
+    ATTRIBUTION -- none of the structural facts below are ours.
+
+      * The pairing rule itself (hexagrams run two-by-two, each with its
+        reversal, or its complement where the hexagram is reversal-symmetric)
+        is CLASSICAL: 非覆即变, stated explicitly by Kong Yingda 孔颖达
+        (574-648) in the Zhouyi zhengyi, with earlier lineage through Yu Fan
+        虞翻 (164-233). See CITATIONS.md#kongyingda and #yufan. The PASS this
+        function prints is a re-verification of a 7th-century observation, NOT
+        a discovery -- it exists so a reader can confirm the premise of the
+        argument without taking anyone's word for it.
+
+      * The claim being tested is Pu Maozuo's 濮茅左. In 附錄二 of 馬承源 ed.,
+        《上海博物館藏戰國楚竹書（三）》 (Shanghai Guji, 2003), pp. 251-260, he
+        argues the manuscript's head/tail symbols (首符/尾符) are invariant
+        under 综, and gives the 24+4+4 pair partition of the 64. The
+        observed-symbol data used below is his, from the per-slip 释文考释,
+        pp. 136-215. See CITATIONS.md#pu2003.
+
+      * The nearest related construction is Kondo Hiroyuki 近藤浩之 (2005),
+        which quotients the 64 to 36 by 覆 (= 综) pairs alone and partitions
+        those into nine 宮 of four. See CITATIONS.md#kondo2005.
+
+      * What is ours is only the OBSERVATION that these two facts, combined,
+        make the symbol evidence non-discriminating -- and the decision to
+        report that rather than the 9/9 agreement alone.
+
+    Tested on the symbols Pu reports as DIRECTLY OBSERVED -- excluding every
+    entry his appendix reconstructs FROM that same invariance -- his claim
+    holds: 9 testable pairs, 9 agreements, 0 disagreements.
+
+    That result cannot support any inference about ordering, and this check says
+    why in a form a reader can run. In King Wen EVERY adjacent pair (positions
+    2k-1, 2k) is a partner pair: reversal where the hexagram is not
+    reversal-symmetric, complement for the eight that are. So a symbol that
+    agrees within each King Wen adjacent pair is EQUALLY well explained by
+      H1  the symbol respects reversal, and
+      H2  the symbol is merely constant on contiguous blocks of King Wen.
+    H1 and H2 make identical predictions on every observation available, because
+    the blocks and the orbits coincide by construction of the sequence itself.
+
+    Discriminating would require the symbols mapped onto an ordering in which
+    partners are NOT adjacent. The only candidate is the bamboo manuscript's own
+    order -- and its editor states plainly (p. 135) that he arranged the slips
+    by the received sequence because the manuscript is incomplete. So the
+    discriminating experiment does not exist. This is an impossibility argument,
+    not a failed search.
+
+    Reads no files. Uses only this file's KW array and bit conventions."""
+    n_zong = n_cuo = n_bad = 0
+    for (a, b) in PAIRS:
+        if _zong(a) == b and a != b:
+            n_zong += 1
+        elif _cuo(a) == b:
+            n_cuo += 1
+        else:
+            n_bad += 1
+    print("KW_PAIRS=%d" % len(PAIRS))
+    print("PAIRS_BY_REVERSAL=%d" % n_zong)
+    print("PAIRS_BY_COMPLEMENT=%d" % n_cuo)
+    print("PAIRS_UNRELATED=%d" % n_bad)
+    # Every hexagram's partner sits in the SAME King Wen adjacent pair.
+    pos = {h: i for i, h in enumerate(KW)}
+    not_adjacent = 0
+    for h in KW:
+        p = _zong(h) if _zong(h) != h else _cuo(h)
+        if pos[h] // 2 != pos[p] // 2:
+            not_adjacent += 1
+    print("HEXAGRAMS_WHOSE_PARTNER_IS_NOT_ADJACENT=%d" % not_adjacent)
+    adjacency = (n_bad == 0 and not_adjacent == 0)
+    print("KW_PARTNER_ADJACENCY=%s" % ("PASS" if adjacency else "FAIL"))
+
+    # The Shanghai Museum observed-symbol pairs, by King Wen number. Source: the
+    # per-slip 释文考释 ONLY (Pu Maozuo 2003, pp. 136-215), which reports symbols
+    # as physically present or explicitly lost and never supplies one by
+    # argument. Appendix 2's reconstructed entries are deliberately excluded --
+    # using them would test the invariance against itself.
+    SHANGBO_OBSERVED_PAIRS = [(5, 6), (7, 8), (15, 16), (17, 18), (25, 26),
+                              (31, 32), (39, 40), (47, 48), (55, 56)]
+    discriminating = [(a, b) for (a, b) in SHANGBO_OBSERVED_PAIRS
+                      if abs(a - b) != 1 or (a - 1) // 2 != (b - 1) // 2]
+    print("SHANGBO_TESTABLE_PAIRS=%d" % len(SHANGBO_OBSERVED_PAIRS))
+    print("SHANGBO_DISCRIMINATING_PAIRS=%d" % len(discriminating))
+    print("KW_PAIR_ADJACENCY=DONE")
+    print("SCOPE=this_shows_the_shangbo_symbol_data_CANNOT_distinguish_"
+          "reversal_invariance_from_king_wen_block_constancy;"
+          "_it_is_NOT_a_claim_that_the_editors_invariance_is_false")
+    return 0 if adjacency else 2
 
 
 def _is_gzip(path):
@@ -1631,6 +2147,79 @@ def c3_of_ordering(perm):
     for s, p in enumerate(perm):
         slot[p] = s
     return 16 + 8 * sum(abs(slot[p] - slot[q]) for p, q in cross)
+
+
+def check_t5_c3(sol_bin, chunks_dir):
+    """--check-t5-c3: independent recomputation of c3_total for the T5 mega-sample.
+
+    WHY THIS GATE EXISTS. The T5 battery's load-bearing number is
+    P(C3 <= 776) = 12.1288% over the exact-uniform C1&C2&C4&C5 sample, and it is what
+    refutes the withdrawn "3.9th percentile" figure. That number came out of ONE pipeline:
+    solve.py --encode-solutions -> solve.py --compute-stats -> parquet. A single pipeline
+    agreeing with itself is not a check.
+
+    So recompute c3_total from the ENCODED RECORDS using this file's own c3_of_ordering,
+    which reaches C3 by a completely different route: the machine-checked identity
+    C3 = 16 + 8*G over the 12 complement-couples' slot gaps (lean/C3Decomposition.lean),
+    reading the SLOT MAP only -- no transition walk, no path, no orientation. solve.py's
+    compute-stats walks the ordering. Same quantity, disjoint derivations.
+
+    EVERY record is checked, not a subsample -- this project does not subsample, and at 12
+    subtractions per ordering the full 1e6 is seconds.
+
+    SCOPE, stated so this is not over-claimed: verify.py is an INDEPENDENT IMPLEMENTATION
+    (it imports nothing from solve.py) but it is still PYTHON. This discharges the
+    implementation-independence half of T5's cross-check gate, NOT the two-LANGUAGE half.
+    A C-side per-record observable export does not exist and would be new solve.c surface.
+
+    Emits T5_C3_AGREE=PASS/FAIL.
+    """
+    import glob, struct
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    with open(sol_bin, 'rb') as f:
+        hdr = f.read(32)
+        if hdr[:4] != b'ROAE':
+            print('T5_C3_AGREE=FAIL bad magic in %s' % sol_bin); return 1
+        ver, = struct.unpack('<I', hdr[4:8])
+        count, = struct.unpack('<Q', hdr[8:16])
+        print('[t5-c3] %s: version=%d records=%d' % (sol_bin, ver, count))
+
+        files = sorted(glob.glob('%s/chunk_*.parquet' % chunks_dir))
+        if not files:
+            print('T5_C3_AGREE=FAIL no chunk_*.parquet in %s' % chunks_dir); return 1
+        seen = mism = 0
+        first = []
+        for fp in files:
+            want = pq.read_table(fp).column('c3_total').to_numpy()
+            blob = f.read(32 * len(want))
+            if len(blob) != 32 * len(want):
+                print('T5_C3_AGREE=FAIL short read: records exhausted before parquet rows'); return 1
+            for j in range(len(want)):
+                rec = blob[32 * j:32 * j + 32]
+                got = c3_of_ordering([b >> 2 for b in rec])
+                if got != int(want[j]):
+                    mism += 1
+                    if len(first) < 5:
+                        first.append((seen, int(want[j]), got))
+                seen += 1
+        # the record stream and the parquet rows must be the SAME length, or the comparison
+        # silently checked a prefix and called it agreement
+        leftover = f.read(32)
+    if seen != count or leftover:
+        print('T5_C3_AGREE=FAIL length mismatch: parquet rows=%d header count=%d trailing=%d'
+              % (seen, count, len(leftover)))
+        return 1
+    for idx, w, g in first:
+        print('  MISMATCH rec %d: parquet=%d verify.py=%d' % (idx, w, g))
+    print('[t5-c3] compared %d records, mismatches %d' % (seen, mism))
+    if mism == 0:
+        print('T5_C3_AGREE=PASS')
+        return 0
+    print('T5_C3_AGREE=FAIL')
+    return 1
+
 
 def _fiber_dp():
     """Forward/backward transfer DP over King Wen's OWN pair sequence, varying only
@@ -3843,11 +4432,46 @@ def main():
                              'need to trust a grep — the figure first read "16" because the '
                              'measuring harness used a character class that excluded digits, so '
                              'BAD_HD5 never matched. Reads no files.')
+    parser.add_argument('--check-parity-alternation', action='store_true',
+                        help='re-derive every published figure in PARITY_ALTERNATION.md '
+                             'from KW itself (GATE 25 LEG 2, 2026-08-16)')
+    parser.add_argument('--check-zhu-yuansheng', action='store_true',
+                        help="verify 朱元昇's (d.c.1273) twelve quadruples against this "
+                             "file's own bit operations; see CITATIONS.md#zhuyuansheng")
+    parser.add_argument('--check-classical-groups', action='store_true',
+                        help='(added 2026-08-16) report the group actions on the 64 hexagrams that '
+                             'the CLASSICAL literature attests, and how King Wen scores against '
+                             'each. Sources, none of them ours: <comp,rev> and <rev,swap> from '
+                             '吳澄 Wu Cheng (1249-1333) 《易纂言外翼》卷一〈卦對第二〉; <comp,swap> '
+                             'from 焦循 Jiao Xun (1763-1820) 《易圖略》八卦相錯圖. The point: '
+                             '<comp,swap> has the SAME orbit profile as <comp,rev> (20 orbits, '
+                             '8x2 + 12x4) yet King Wen seats partners adjacently 64/64 under '
+                             '<comp,rev> and only 24/64 under <comp,swap> — a structurally '
+                             'indistinguishable rival group, classically attested, that does NOT '
+                             'fit. Also re-derives 吳澄\'s own 「共十八對」 as a reading check. '
+                             'Changes no enumeration. Reads no files.')
+    parser.add_argument('--check-kw-pair-adjacency', action='store_true',
+                        help='(added 2026-08-16) re-verify the CLASSICAL fact that King Wen seats '
+                             'every hexagram beside its own partner — reversal, or complement for '
+                             'the eight reversal-symmetric ones. The rule is Kong Yingda 孔颖达 '
+                             '(574-648), 非覆即变; this only lets a reader confirm it. Then draws '
+                             'the consequence: the head/tail symbol data of the Shanghai Museum Chu '
+                             'bamboo Zhouyi (Pu Maozuo 濮茅左 in 馬承源 ed. 2003) CANNOT distinguish '
+                             '"the symbol respects reversal" — Pu\'s claim, which holds 9/9 on his '
+                             'directly-observed symbols — from "the symbol is merely constant on '
+                             'contiguous King Wen blocks", because blocks and orbits coincide by '
+                             'construction of the sequence. An impossibility argument, not a '
+                             'criticism of his reading, and not a failed search. Reads no files.')
     parser.add_argument('--check-artifact-offset', type=int, default=0, metavar='R',
                         help='start --check-artifact at record R (default 0). NOTE: the '
                              'sortedness check compares against the predecessor WITHIN the range '
                              'read, so a sharded run cannot see a violation across a shard seam; '
                              'overlap shards by one record, or run offset 0 to EOF.')
+    parser.add_argument('--check-t5-c3', nargs=2, metavar=('SOLUTIONS_BIN', 'CHUNKS_DIR'),
+                        help='Independently recompute c3_total for every record of the T5 '
+                             'mega-sample via C3 = 16 + 8*G (slot map only) and compare against '
+                             'the parquet the solve.py pipeline produced. Implementation-'
+                             'independent, NOT language-independent. Emits T5_C3_AGREE=PASS/FAIL.')
     parser.add_argument('--check-null-g', action='store_true',
                         help='Compute the exact G-distribution under the C1&C4 null (12 couples + 7 '
                              'self-pairs into 31 slots) and gate it against total == 31!, support '
@@ -3932,6 +4556,8 @@ def main():
     if args.g_structure is not None:
         sys.exit(g_structure(args.g_structure[0], args.g_structure[1]))
 
+    if args.check_t5_c3:
+        sys.exit(check_t5_c3(args.check_t5_c3[0], args.check_t5_c3[1]))
     if args.check_null_g:
         sys.exit(check_null_g(unpinned=args.unpinned))
     if args.unpinned:
@@ -3979,6 +4605,14 @@ def main():
         sys.exit(check_shen_orbits())
     if args.check_flips:
         sys.exit(check_flips())
+    if args.check_kw_pair_adjacency:
+        sys.exit(check_kw_pair_adjacency())
+    if args.check_parity_alternation:
+        sys.exit(check_parity_alternation())
+    if args.check_zhu_yuansheng:
+        sys.exit(check_zhu_yuansheng())
+    if args.check_classical_groups:
+        sys.exit(check_classical_groups())
 
     path = args.path
     n_jobs = max(1, args.jobs)

@@ -5349,9 +5349,19 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
     }
     /* 24: s6 — K4-orbit structure: within-orbit pairs; size-4 orbits entered via rev.
      * ATTRIBUTION: the Klein four-group orbit decomposition of the 64 hexagrams under
-     * {id, rev, comp, rev∘comp} is PRIOR ART — Zhang 1994 in the Chinese group-theoretic
-     * literature, within the (Z/2)^6 framing of Ouyang 1992. See documentation/CITATIONS.md.
-     * This rule MEASURES that structure against King Wen; it does not originate it. */
+     * {id, rev, comp, rev∘comp} is PRIOR ART, and far older than the modern citations
+     * this comment carried until 2026-08-16. WU CHENG 吳澄 (1249-1333), 《易纂言外翼》
+     * 卷一〈卦對第二〉, gives the COMPLETE decomposition of all 64 — 「卦畫奇偶正對，二篇
+     * 共二十對」, i.e. 12 orbits of size 4 plus 8 of size 2 — with his three classes
+     * matching the three stabiliser types exactly, and 「反易取正對」 IS the composition
+     * of the two operations. Parts were reached independently by Lai Zhide c.1600
+     * (both operations tabulated across all 64, never composed), Jiao Xun c.1813 and
+     * Cui Shu c.1800. In the modern literature: Zhang 1994 in the Chinese
+     * group-theoretic work, within the (Z/2)^6 framing of Ouyang 1992; Radisic 2026
+     * names it as the Klein four-group and verifies results in Lean 4.
+     * See documentation/CITATIONS.md#wucheng and #kongyingda.
+     * This rule MEASURES that structure against King Wen; it does not originate it.
+     * (Comment-only edit — no change to compiled output or to any canonical sha.) */
     {
         int within = 1, s4rev = 1;
         for (int k = 0; k < 32; k++){
@@ -18044,7 +18054,7 @@ int main(int argc, char *argv[]) {
          * SOLVE_THREADS overrides parallelism (default nproc). Sha-neutral; exits 0. */
         if (argc < 3) {
             fprintf(stderr, "usage: solve --estimate-knuth <N_probes> "
-                            "[<p1> <o1> [<p2> <o2> [<p3> <o3>]]]\n");
+                            "[<p1> <o1> [<p2> <o2> ... up to <p28> <o28>]]\n");
             return 1;
         }
         init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);
@@ -18055,6 +18065,23 @@ int main(int argc, char *argv[]) {
         }
         int nlev = rest / 2, lp[28] = {0}, lo[28] = {0};
         for (int i = 0; i < nlev; i++) { lp[i] = atoi(argv[3+2*i]); lo[i] = atoi(argv[4+2*i]); }
+        /* Stack preflight (2026-08-21). main's frame is ~7.23 MB and estimate_tree_knuth adds
+         * ~1.02 MB, so the common 8 MB default stack is exceeded the moment the estimator is
+         * entered -- previously a bare SIGSEGV after the banner, with no indication of cause.
+         * A cold external-reviewer pass concluded from this that the instrument was broken.
+         * Fail with an actionable message instead. Estimator path only; sha-neutral. */
+        {
+            struct rlimit _rl;
+            if (getrlimit(RLIMIT_STACK, &_rl) == 0 && _rl.rlim_cur != RLIM_INFINITY
+                && _rl.rlim_cur < 16UL * 1024 * 1024) {
+                fprintf(stderr,
+                    "solve: stack limit is %lu MB, but --estimate-knuth needs >= 16 MB\n"
+                    "       (main ~7.2 MB frame + estimator ~1.0 MB frame).\n"
+                    "       Re-run with:  ulimit -s unlimited\n",
+                    (unsigned long)(_rl.rlim_cur / (1024UL * 1024UL)));
+                return 1;
+            }
+        }
         int nthreads = 0; const char *te = getenv("SOLVE_THREADS"); if (te) nthreads = atoi(te);
         if (nthreads <= 0) nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
         if (nthreads < 1) nthreads = 1;

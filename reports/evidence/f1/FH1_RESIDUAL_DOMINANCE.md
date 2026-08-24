@@ -1,5 +1,9 @@
 # FH-1 step 1: C5-residual dominance — theory, measurement, projection (2026-07-04)
 
+> **Reproduce:** `python3 fh1_residual_instrument.py` from this directory. Note the file's own
+> scope: it reports a measurement AND a projection, and only the measurement is reproduced by
+> that command.
+
 Executes the first step of FOOTHOLDS FH-1 line (a): does a C5-residual equivalence collapse make
 exact |C1..C5| feasible? Reference implementation extended (as a copy):
 [`fh1_residual_instrument.py`](fh1_residual_instrument.py) (original `f1_orbit_dp.py` untouched).

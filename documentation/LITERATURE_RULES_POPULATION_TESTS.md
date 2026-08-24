@@ -11,7 +11,7 @@ is itself a Knuth estimate from the same estimator family (METHODS status **esti
 so agreement with it is not independent establishment. TR-1 v1.21 recorded this file's copy as still
 outstanding; it is corrected here.)* This converts decades of by-inspection claims into measured
 population statistics for the first time. **Attribution:** every rule below is credited to its source (with lineage where it runs deep — the pair
-structure itself is attested to [Yu Fan](CITATIONS.md#yufan), 164–233 AD; the 36-unit consolidation to [Lai Zhide](CITATIONS.md#laizhide), 1525–1604; the
+structure itself is attested to [Yu Fan](CITATIONS.md#yufan), 164–233 AD; the 36-unit consolidation to [Lai Zhide](CITATIONS.md#laizhide), 1525–1604 (a candidate earlier statement of the 36 *count* by Shao Yong, 11th c., is recorded — second-hand, unconfirmed, 2026-08-21 — in CITATIONS.md); the
 gender/position-parity rule measured at ×11,364 in the companion registry originates with **[Schulz 1990](CITATIONS.md#schulz1990-motifs)**
 and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 [CITATIONS.md](CITATIONS.md) §Attributed candidate rules. ROAE's contribution is formalization + measurement.
@@ -28,6 +28,14 @@ and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 | Final-pair anchor: alternating pair last (Cook 2006) | 7.84% | ×12.8 | satisfies |
 | First 7 pairs cover all 7 levels (Cook 2006) | 12.03% | ×8.3 | satisfies |
 | 18:18 two-part class split (Zhang Xingcheng + Zhu Xi, 12th c.; Hu Yigui 1247; [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003); Cook 2006) | 36.4% | ×2.7 | satisfies |
+
+**Reproduce the scoreboard:** `ulimit -s unlimited; SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`
+(2×10¹⁰ weighted Knuth probes — the instrument and probe count named in the opening paragraph, and the
+method in §"Method and caveats" below). ⚠ `ulimit -s unlimited` is required: without it the estimator
+aborts with SIGSEGV under the default 8 MB stack (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)).
+*(Added 2026-08-21: GATE 25 LEG 2 — a report-only gate leg that no review pass had ever invoked — flagged
+this table's figures as published without an adjacent re-derivation path. The command was already in this
+document, 70+ lines away; it is now beside the numbers it produces.)*
 
 ## What the measurements establish
 

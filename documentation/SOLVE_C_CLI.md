@@ -1,6 +1,14 @@
 # solve(1) — King Wen sequence enumerator and verifier
 
 > **CLI references:** this documents the **`solve` C binary** (compiled from `solve.c`). See also [`solve.py`](SOLVE_PY_CLI.md) (analysis + ground truth) · [`roae.py`](ROAE_PY_CLI.md) (descriptive analyses) · [`sat.py`](SAT_CLI.md) (SAT / certificate layer).
+>
+> **Access boundary.** Some subcommand entries cite design, pre-registration, or incident files in
+> `roae-private`, the project's private staging repository, which is not publicly accessible. Those
+> citations are provenance (what was frozen, when, and why a gate exists), not evidence a reader can
+> fetch — a fact whose only cited support is a `roae-private` file is operator-attested. Every
+> subcommand documented here is runnable from this repository as published; where an entry names a
+> frozen private pre-registration, the checkable public leg is the subcommand's own embedded
+> expected values and its two-language gate.
 
 A man-page-style command-line reference for the `solve` binary compiled
 from `solve.c`. Covers the subcommands, environment variables,
@@ -271,7 +279,7 @@ caught against the recipe table.
 ### --estimate-knuth
 
 ```
-solve --estimate-knuth <N_probes> [<p1> <o1> [<p2> <o2> [<p3> <o3>]]]
+solve --estimate-knuth <N_probes> [<p1> <o1> [<p2> <o2> ... up to <p28> <o28>]]
 ```
 
 Knuth (1975) random-probe estimator (#195, exploration) for the **un-budgeted**
@@ -286,7 +294,7 @@ relative error, and hit-rate for each. `SOLVE_THREADS` sets parallelism (default
 `nproc`); each thread uses an independent xorshift seed.
 
 - No prefix → the whole C1–C5 tree (all 56 first-level branches).
-- A `<p> <o>` prefix (up to 3 levels, e.g. `22 0 30 1 20 0`) scopes the estimate
+- A `<p> <o>` prefix (up to **28** levels, e.g. `22 0 30 1 20 0`) scopes the estimate
   to one branch / sub-branch.
 - `N_probes = 0` → **exact deterministic** subtree count instead of estimation
   (only tractable for a deep prefix; used to validate the estimator against
@@ -1553,7 +1561,11 @@ solve --show 5 --format glyph
 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=2000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=631456644 \
 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128 \
 ulimit -s unlimited
-solve --branch 4 0 0 128
+solve --branch 22 0 0 128   # (22,0) is a valid first-level branch (see --list-branches);
+                            # ⚠ corrected 2026-08-21: this example named branch (4 0), which is
+                            # not in the valid set — the solver prunes it at depth 1 and exits 1.
+                            # Found by the execution lane (scripts/exec_lane.sh) running the
+                            # documented example verbatim.
 ```
 
 **Merge shards into a final solutions.bin:**

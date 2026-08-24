@@ -103,6 +103,7 @@ The headline holds: the ≈10³⁸ estimate shows King Wen is **not special by b
 ## Provenance and status
 
 - **Estimate, not canonical.** These numbers are Monte-Carlo estimates on the exploration track. They do not change, and are not gated by, any canonical sha256. No "proven" claim is made about the exact cardinality — only that it is ≈10³⁸ to within the stated ≈1% sampling error.
+⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command below.** Under the default 8 MB stack these commands abort with SIGSEGV before producing output: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB, so the 8 MB limit is exceeded the moment the estimator is entered. This is environmental, not a logic fault — with the limit raised the published figures reproduce. *(Added 2026-08-21: found by a cold external-reviewer pass and independently reproduced; the requirement had been documented only in CANONICAL_HASHES.md's large-scale-enumeration recipe, while these guides state the estimator needs no data disk and costs pennies.)*
 - **Reproducible:** `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`, then `solve --estimate-knuth 500000000` (whole tree) or `solve --estimate-knuth 100000000 <p1> <o1>` (one branch). Pure compute; no data disk required. The exact-count validation is `solve --estimate-knuth 0 <prefix>`.
 - **Cost:** 5×10⁸ probes ≈ 79 s single-machine; the estimates above cost pennies of compute.
 - See also: [`CRITIQUE.md`](CRITIQUE.md) (why budgeted counts are lower bounds), [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md) §3-point scaling trajectory, [`BRANCHES_EXPLAINED.md`](BRANCHES_EXPLAINED.md) (what a branch/cell is).
@@ -129,7 +130,8 @@ the remaining ≈105 bits would require roughly 15–20 boundary constraints. A 
 small scope: within the KW-following 22-pair prefix subtree, exact counting finds 16,504 C1–C5 completions
 of which exactly **8** satisfy C6/C7 — KW plus seven others even in its own immediate neighborhood.
 Provenance: estimator extension in solve.c (`SOLVE_KNUTH_C67`), sha-neutral (selftest-gated); run log in
-the private repo (probe on `c207`, 2026-07-02).
+the private repo (probe on `c207`, 2026-07-02 — not publicly accessible; the public verification path is
+re-running the published `SOLVE_KNUTH_C67` command in this repository, which reproduces the count directly).
 
 ## The boundary-information curve S(k) (2026-07-03)
 

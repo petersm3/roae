@@ -1,5 +1,17 @@
 # Claims Decided — the empirical scorecard
 
+> **How to reproduce anything on this page.** This file **adjudicates; it does not measure.**
+> Every row carries a link in its last column, and the reproduction command for that row lives in
+> the linked report — not here. Stated explicitly because a reviewer landing on a scorecard is
+> owed the path to the evidence, and because GATE 25 LEG 2 (2026-08-16) correctly observed that
+> this page publishes figures and names no command of its own. Three rows can be re-run directly:
+> the parity-alternation row with `python3 verify.py --check-parity-alternation`, the Drasny
+> "Rule of Ten" row with `./solve --db1-verify` (the two-language gate named in the row itself),
+> and the exact `|C1∩C2∩C4∩C5|` row with `./verify --ie-count` (the independent transfer-walk
+> engine, TR-11 §10(vi)). The remaining rows are statistical measurements or proofs whose
+> commands and artifacts are in their reports.
+
+
 One page for the question "what has ROAE actually settled?" Every entry: the claim, who made it, what
 we found, and where the proof lives. "Decided" spans a spectrum — **refuted** (shown false as stated),
 **corrected** (true with a different scope/value), **forced** (asserted as design, shown to be a

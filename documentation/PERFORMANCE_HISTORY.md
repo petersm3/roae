@@ -4,6 +4,13 @@ Empirical log of every perf-relevant change to `solve.c`: improvements AND regre
 
 This log is **append-only**. Entries are chronological. Older entries are not edited even when later understanding contradicts the original interpretation — re-evaluations append a new entry referencing the older one.
 
+> **Access boundary.** Entries cite per-change writeups, bench scripts, and raw bench data in
+> `roae-private`, the project's private staging repository, which is not publicly accessible. Those
+> citations are provenance pointers, not evidence a reader can fetch: a perf figure whose only cited
+> support is a `roae-private` file is operator-attested (disclosable to an auditor, not checkable
+> from this repository alone). The sha gates named in entries are the public leg — they are
+> reproducible from this repository per [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
+
 ## Why this exists
 
 Through 2026, we accumulated perf data scattered across HISTORY.md sections, per-change markdowns in the private `roae-private` staging repo, monitor logs, ad-hoc benchmarks, and informal session memory. Reconstructing "what was the cumulative speedup from v1 to v2+PGO?" required reading ten places at once.

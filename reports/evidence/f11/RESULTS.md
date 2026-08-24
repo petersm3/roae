@@ -1,5 +1,10 @@
 # F11 — Corruption vs. tendency: Bayes-factor RESULTS (executed under the frozen pre-registration)
 
+> **Reproduce:** `python3 f11_events.py` then `python3 compute_f11_bf.py` from this directory;
+> the raw run outputs are preserved beside them (`f11_runA.out`, `f11_runB.out`, `f11_runC.out`,
+> `f11_runC2.out`, `f11_events.json`). This bundle carries its instruments deliberately — see
+> [../f11halfb/README.md](../f11halfb/README.md), which contrasts itself against this one.
+
 > **Bayes verdict RESOLVED and RE-AFFIRMED (2026-07-13).** After this document was computed, the
 > direct N_gs measurement in [../r11/](../r11/) fell **outside** the derived bracket used here,
 > firing a pre-registered stop-and-investigate gate (2026-07-11). That gate is now closed: the

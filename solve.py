@@ -4166,6 +4166,11 @@ _P2_FLOAT_COLS = [
 
 def p2_marginals(chunks_dir, out_md):
     """Handler for --marginals."""
+    import glob as _lane_glob
+    if not _lane_glob.glob(f"{chunks_dir}/chunk_*.parquet"):
+        print(f"ERROR: no chunk_*.parquet files found in {chunks_dir} -- this input is produced "
+              f"by --compute-stats, not shipped in the repository", flush=True)
+        sys.exit(2)
     import glob
     import numpy as np
     import pyarrow.parquet as pq
@@ -4254,6 +4259,148 @@ def p2_marginals(chunks_dir, out_md):
     with open(out_md, "w") as f:
         f.writelines(L)
     print(f"[marginals] wrote {out_md}", flush=True)
+
+
+# ---- T5 uniform-scoped marginals -------------------------------------------
+# WHY THIS IS A SEPARATE FUNCTION AND NOT A FLAG ON p2_marginals.
+# `_P2_INT_COLS` carries FIXED bin ranges taken from the C1-C5 ENUMERATED canonical
+# (C3 satisfied). The T5 mega-sample is drawn exact-uniform from C1 & C2 & C4 & C5
+# WITHOUT C3 -- the knowledge compiler's native population -- so it legitimately holds
+# values outside those ranges (measured: c3_total spans 352..1648 against declared
+# 424..776). Running p2_marginals over it throws, because `np.bincount(arr - lo)` sees
+# a negative index.
+#
+# The fix is NOT to widen `_P2_INT_COLS`. Those constants define what every already
+# published marginal MEANS; widening them would silently re-scope tables nobody
+# re-ran. So the uniform population gets its own summariser with bins derived from
+# the data, and the enumerated ranges are carried alongside as a DECLARED column so
+# the scope gap is visible in the output instead of hidden by it.
+#
+# Exactness: two passes over every chunk, no sampling, no subsetting (the project
+# does not subsample). Memory: one chunk at a time, never concatenated -- peak is
+# ~50k rows x 10 cols, which is why this is safe on the 2-core orchestrator where an
+# all-rows-at-once pass previously OOM'd.
+
+_T5_INT_COLS = ["edit_dist_kw", "c3_total", "c6_c7_count", "position_2_pair",
+                "max_transition_hamming", "fft_dominant_freq",
+                "shift_conformant_count", "first_position_deviation"]
+_T5_FLOAT_COLS = ["mean_transition_hamming", "fft_peak_amplitude"]
+
+
+def _t5_kw_and_declared():
+    """KW reference values + declared enumerated ranges, sourced from the existing
+    tables rather than re-typed, so the two scopes cannot drift apart."""
+    kw, declared = {}, {}
+    for name, lo, hi, kwv in _P2_INT_COLS:
+        kw[name] = kwv
+        declared[name] = (lo, hi)
+    for name, lo, hi, kwv in _P2_FLOAT_COLS:
+        kw[name] = kwv
+        declared[name] = (lo, hi)
+    kw["position_2_pair"] = 1          # matches p2_marginals' own KW marker
+    return kw, declared
+
+
+def t5_uniform_marginals(chunks_dir, out_md):
+    """Handler for --uniform-marginals."""
+    import glob
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    if not files:
+        print(f"UNIFORM_MARGINALS=FAIL no chunk_*.parquet in {chunks_dir}", flush=True)
+        return 1
+    kw, declared = _t5_kw_and_declared()
+    print(f"[uniform-marginals] {len(files)} chunks in {chunks_dir}", flush=True)
+
+    # ---- pass 1: observed support + moments (no bins assumed) ----
+    lo = {n: None for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    hi = {n: None for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    ssum = {n: 0.0 for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    ssq = {n: 0.0 for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    total = 0
+    for f in files:
+        t = pq.read_table(f)
+        total += t.num_rows
+        for n in _T5_INT_COLS + _T5_FLOAT_COLS:
+            a = t.column(n).to_numpy().astype(np.float64)
+            amin, amax = float(a.min()), float(a.max())
+            lo[n] = amin if lo[n] is None else min(lo[n], amin)
+            hi[n] = amax if hi[n] is None else max(hi[n], amax)
+            ssum[n] += float(a.sum())
+            ssq[n] += float((a ** 2).sum())
+    print(f"[uniform-marginals] pass 1: {total:,} rows, support measured", flush=True)
+
+    # ---- pass 2: histograms on the OBSERVED support ----
+    NF = 10000
+    ihist = {n: np.zeros(int(hi[n] - lo[n]) + 1, dtype=np.int64) for n in _T5_INT_COLS}
+    fhist = {n: np.zeros(NF, dtype=np.int64) for n in _T5_FLOAT_COLS}
+    for f in files:
+        t = pq.read_table(f)
+        for n in _T5_INT_COLS:
+            a = t.column(n).to_numpy().astype(np.int64) - int(lo[n])
+            ihist[n] += np.bincount(a, minlength=ihist[n].size)[:ihist[n].size]
+        for n in _T5_FLOAT_COLS:
+            a = t.column(n).to_numpy().astype(np.float64)
+            span = (hi[n] - lo[n]) or 1.0
+            b = np.clip(((a - lo[n]) / span * (NF - 1)).astype(np.int32), 0, NF - 1)
+            fhist[n] += np.bincount(b, minlength=NF)[:NF]
+
+    # ---- coverage gate: every row must land in exactly one bin, per column ----
+    bad = [n for n in _T5_INT_COLS if int(ihist[n].sum()) != total]
+    bad += [n for n in _T5_FLOAT_COLS if int(fhist[n].sum()) != total]
+
+    L = []
+    L.append("# T5 uniform-scoped marginals\n\n")
+    L.append(f"**Population:** exact-uniform draws from **C1 & C2 & C4 & C5 (NO C3)** — the "
+             f"knowledge compiler's native population.\n\n")
+    L.append(f"**Rows:** {total:,} (exact; no sampling)\n\n")
+    L.append("Bins are derived from the observed data. The **Declared** column is the "
+             "`_P2_INT_COLS` / `_P2_FLOAT_COLS` range used by `--marginals`, which is scoped to "
+             "the **C1–C5 enumerated** set (C3 satisfied). Where Observed exceeds Declared, the "
+             "enumerated bins cannot represent this population — that gap is the finding, and "
+             "the declared ranges were deliberately NOT widened to close it.\n\n")
+    L.append("| Dim | Observed | Declared (enumerated) | Outside declared | Mean | Std | KW | KW %-ile |\n")
+    L.append("|---|---|---|---|---|---|---|---|\n")
+    for n in _T5_INT_COLS:
+        h = ihist[n]
+        vals = np.arange(int(lo[n]), int(hi[n]) + 1, dtype=np.int64)
+        pct, n_less, n_eq = _p2_percentile_from_hist(h, vals, kw[n], total)
+        dlo, dhi = declared.get(n, (None, None))
+        if dlo is None:
+            dcell, outside = "n/a", "n/a"
+        else:
+            m = (vals < dlo) | (vals > dhi)
+            noc = int(h[m].sum())
+            dcell = f"{dlo:g} … {dhi:g}"
+            outside = f"**{noc:,}** ({100.0*noc/total:.3f}%)" if noc else "0"
+        mean = ssum[n] / total
+        var = ssq[n] / total - mean ** 2
+        L.append(f"| `{n}` | {int(lo[n])} … {int(hi[n])} | {dcell} | {outside} | "
+                 f"{mean:.3f} | {(var ** 0.5) if var > 0 else 0.0:.3f} | "
+                 f"**{kw[n]:g}** | **{pct:.4f}%** |\n")
+    for n in _T5_FLOAT_COLS:
+        h = fhist[n]
+        span = (hi[n] - lo[n]) or 1.0
+        kb = int(np.clip((kw[n] - lo[n]) / span * (NF - 1), 0, NF - 1))
+        n_less, n_at = int(h[:kb].sum()), int(h[kb])
+        pct = (n_less + n_at / 2.0) / total * 100
+        dlo, dhi = declared[n]
+        L.append(f"| `{n}` | {lo[n]:.4f} … {hi[n]:.4f} | {dlo:g} … {dhi:g} | "
+                 f"{'0' if lo[n] >= dlo and hi[n] <= dhi else '**support exceeds declared**'} | "
+                 f"{ssum[n]/total:.4f} | "
+                 f"{max(ssq[n]/total - (ssum[n]/total) ** 2, 0.0) ** 0.5:.4f} | "
+                 f"**~{kw[n]:g}** | **~{pct:.4f}%** |\n")
+    verdict = "UNIFORM_MARGINALS=PASS" if not bad else "UNIFORM_MARGINALS=FAIL"
+    L.append(f"\n**Coverage gate** (per column, histogram counts == row count): `{verdict}`")
+    L.append("" if not bad else f" — mismatched: {', '.join(bad)}")
+    L.append("\n")
+    with open(out_md, "w") as fh:
+        fh.writelines(L)
+    print(f"[uniform-marginals] wrote {out_md}", flush=True)
+    print(verdict, flush=True)
+    return 0 if not bad else 1
 
 
 _P2_BIVARIATE_PAIRS = [
@@ -4601,6 +4748,11 @@ def p2_joint_density_v2(chunks_dir, out_md, samples_per_chunk=30,
     Adds (a) runtime variance-check that auto-drops constant dims,
     (b) configurable bandwidth selection (silverman / cv).
     """
+    import glob as _lane_glob
+    if not _lane_glob.glob(f"{chunks_dir}/chunk_*.parquet"):
+        print(f"ERROR: no chunk_*.parquet files found in {chunks_dir} -- this input is produced "
+              f"by --compute-stats, not shipped in the repository", flush=True)
+        sys.exit(2)
     import glob
     import numpy as np
     import pyarrow.parquet as pq
@@ -11487,6 +11639,138 @@ def symmetry_completeness():
     return 0 if fails == 0 else 1
 
 
+def t3_encode_solutions(out_bin, input_paths):
+    """Handler for --encode-solutions: text `record` lines -> solutions.bin v1.
+
+    Input: T3 mega-sample stream files (plain text or .gz). Only lines whose
+    first tab-separated field is exactly `record` are consumed; their third
+    field is a comma-separated full 64-hexagram ordering. Draw/rank lines and
+    `#provenance` trailers are skipped.
+
+    Output: an UNCOMPRESSED v1 solutions.bin (32-byte ROAE header + N x 32-byte
+    records) per documentation/SOLUTIONS_FORMAT.md, readable by
+    p2_compute_stats. Record byte i = (pair_index << 2) | (orient << 1) with
+    bit 0 always 0; pair_index indexes the KW-consecutive pair table
+    (KW[2i], KW[2i+1]) -- the SAME table as verify.py's PAIRS and this file's
+    _p2_kw_arrays(), and deliberately NOT build_pairs()'s value-ascending
+    table, which is a different indexing.
+
+    ROUND-TRIP GATE (mandatory): after writing, the file's header is parsed
+    with verify.py's parse_header and EVERY record is decoded with verify.py's
+    own decode(); the recovered 64-hexagram ordering must equal the input line
+    exactly. Emits `ENCODE_ROUNDTRIP=PASS` or `ENCODE_ROUNDTRIP=FAIL` on its
+    own line (grep -qx matchable) and returns non-zero on any failure.
+    """
+    import gzip
+    import os
+    import struct
+    import sys
+
+    _, pairs_a, pairs_b = _p2_kw_arrays()
+    pair_code = {}
+    for idx in range(32):
+        a, b = int(pairs_a[idx]), int(pairs_b[idx])
+        pair_code[(a, b)] = (idx << 2)        # orient 0: (a, b) as in KW
+        pair_code[(b, a)] = (idx << 2) | 2    # orient 1: swapped
+
+    def record_lines(path):
+        opener = gzip.open if path.endswith(".gz") else open
+        with opener(path, "rt") as fh:
+            for lineno, line in enumerate(fh, 1):
+                fields = line.rstrip("\n").split("\t")
+                if fields[0] != "record":
+                    continue
+                if len(fields) != 3:
+                    raise ValueError("%s:%d: record line has %d tab fields, expected 3"
+                                     % (path, lineno, len(fields)))
+                try:
+                    seq = [int(t) for t in fields[2].split(",")]
+                except ValueError:
+                    raise ValueError("%s:%d: non-integer token in ordering" % (path, lineno))
+                # T3 stream `record` lines omit the C4-forced slot-0 start:
+                # pair 0 = (63, 0), orientation fixed (verify.py check_c1_c5
+                # requires seq[0]==63, seq[1]==0; "slot 0 forced" in
+                # lean/RecordConvention.lean). A 62-value line is the 62
+                # remaining positions; prepend the forced start. A 64-value
+                # line must carry it explicitly.
+                if len(seq) == 62:
+                    seq = [63, 0] + seq
+                elif len(seq) == 64:
+                    if seq[0] != 63 or seq[1] != 0:
+                        raise ValueError("%s:%d: 64-value ordering does not start 63,0"
+                                         % (path, lineno))
+                else:
+                    raise ValueError("%s:%d: ordering has %d values, expected 62 or 64"
+                                     % (path, lineno, len(seq)))
+                if sorted(seq) != list(range(64)):
+                    raise ValueError("%s:%d: ordering is not a permutation of 0..63"
+                                     % (path, lineno))
+                yield path, lineno, seq
+
+    try:
+        # ---- pass 1: encode ----
+        n_records = 0
+        with open(out_bin, "wb") as out:
+            out.write(b"ROAE" + struct.pack("<I", 1)
+                      + struct.pack("<Q", 0) + b"\x00" * 16)
+            for path in input_paths:
+                for src, lineno, seq in record_lines(path):
+                    rec = bytearray(32)
+                    slots_used = set()
+                    for i in range(32):
+                        code = pair_code.get((seq[2 * i], seq[2 * i + 1]))
+                        if code is None:
+                            raise ValueError("%s:%d: slot %d: (%d,%d) is not a canonical pair"
+                                             % (src, lineno, i, seq[2 * i], seq[2 * i + 1]))
+                        pidx = code >> 2
+                        if pidx in slots_used:
+                            raise ValueError("%s:%d: pair index %d appears twice"
+                                             % (src, lineno, pidx))
+                        slots_used.add(pidx)
+                        rec[i] = code
+                    out.write(rec)
+                    n_records += 1
+            out.seek(8)
+            out.write(struct.pack("<Q", n_records))
+
+        # ---- pass 2: round-trip gate via verify.py's OWN reader ----
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) or ".")
+        import verify as _verify
+        mismatches = 0
+        checked = 0
+        with open(out_bin, "rb") as f:
+            declared = _verify.parse_header(f.read(_verify.SOL_HEADER_SIZE))
+            if declared != n_records:
+                raise ValueError("header record_count %d != records written %d"
+                                 % (declared, n_records))
+            for path in input_paths:
+                for src, lineno, seq in record_lines(path):
+                    rec = f.read(32)
+                    if len(rec) < 32:
+                        raise ValueError("binary ended early at input %s:%d" % (src, lineno))
+                    dec_seq, _pairs_used, _key0 = _verify.decode(rec)
+                    if dec_seq != seq:
+                        mismatches += 1
+                        if mismatches <= 5:
+                            print("[encode-solutions] MISMATCH %s:%d\n  input:   %r\n  decoded: %r"
+                                  % (src, lineno, seq, dec_seq))
+                    checked += 1
+            if f.read(1):
+                raise ValueError("binary has trailing bytes beyond %d records" % n_records)
+    except (ValueError, OSError) as e:
+        print("[encode-solutions] ERROR: %s" % e)
+        print("ENCODE_ROUNDTRIP=FAIL")
+        return 2
+
+    print("[encode-solutions] out=%s records=%d header_count=%d roundtrip_checked=%d mismatches=%d"
+          % (out_bin, n_records, declared, checked, mismatches))
+    if mismatches or checked != n_records or n_records == 0:
+        print("ENCODE_ROUNDTRIP=FAIL")
+        return 2
+    print("ENCODE_ROUNDTRIP=PASS")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -11537,10 +11821,21 @@ def main():
                         help="Reconstruct King Wen step by step, verifying uniqueness at each step")
     parser.add_argument("--null-debruijn", action="store_true",
                         help="Null-model comparison: test C1-C3 against sampled de Bruijn B(2,6) permutations (addresses CRITIQUE.md structured-permutation gap)")
+    parser.add_argument("--encode-solutions", nargs="+", metavar="PATH",
+                        help="Encode text `record` lines into a v1 solutions.bin: "
+                             "first PATH is the OUTPUT .bin, remaining PATHs are input "
+                             "T3 stream files (.out or .out.gz). Round-trips every "
+                             "record through verify.py's decoder and emits "
+                             "ENCODE_ROUNDTRIP=PASS/FAIL. See t3_encode_solutions().")
     parser.add_argument("--compute-stats", nargs=2, metavar=("SOLUTIONS_BIN", "OUT_DIR"),
                         help="P2: Stream solutions.bin and emit per-chunk parquet files of observable stats")
     parser.add_argument("--marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
                         help="P2: Per-dimension marginal percentiles with KW's position marked")
+    parser.add_argument("--uniform-marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
+                        help="T5: marginals for an exact-uniform C1&C2&C4&C5 (NO C3) sample. "
+                             "Bins are derived from the data, not from --marginals' "
+                             "enumerated-scope _P2_INT_COLS ranges, which cannot represent this "
+                             "population. Emits UNIFORM_MARGINALS=PASS/FAIL.")
     parser.add_argument("--bivariate", nargs=2, metavar=("CHUNKS_DIR", "OUT_DIR"),
                         help="P2: Hexbin heatmaps for 5 observable pairs with KW marked")
     parser.add_argument("--joint-density", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
@@ -11870,6 +12165,12 @@ def main():
                           dump_limit=args.keystone_dump_limit)
         return
 
+    if args.encode_solutions:
+        if len(args.encode_solutions) < 2:
+            parser.error("--encode-solutions needs OUT_BIN plus at least one input file")
+        sys.exit(t3_encode_solutions(args.encode_solutions[0],
+                                     args.encode_solutions[1:]))
+
     if args.compute_stats:
         p2_compute_stats(args.compute_stats[0], args.compute_stats[1],
                          workers=args.compute_stats_workers,
@@ -11878,6 +12179,9 @@ def main():
         return
     if args.marginals:
         p2_marginals(args.marginals[0], args.marginals[1])
+        return
+    if args.uniform_marginals:
+        t5_uniform_marginals(args.uniform_marginals[0], args.uniform_marginals[1])
         return
     if args.bivariate:
         p2_bivariate(args.bivariate[0], args.bivariate[1])

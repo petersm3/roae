@@ -3,6 +3,13 @@
 Notes for anyone picking up this project — human or AI — who wants to reproduce
 the results, extend the analysis, or continue the engineering work.
 
+> **Access boundary.** This document cites operational files in `roae-private`, the project's
+> private staging repository (runbooks, audits, bench protocols, design specs). It is not publicly
+> accessible: those citations are provenance pointers, not material a reader can fetch, and a
+> procedure or finding whose only cited support is a `roae-private` file is operator-attested.
+> Everything needed to *build, test, and reproduce* the published results is in this repository;
+> the private files carry operational detail (cloud runbooks, incident forensics) beyond that.
+
 This is a *conventions* document, not a *reference*. Concrete technical details
 live in:
 
@@ -51,8 +58,9 @@ sudo apt-get install -y build-essential zlib1g-dev
 Verified from a fresh clone on 2026-08-04: `--selftest` printed
 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, `python3 tests.py` ran 64 tests
 OK (1 skipped), and `lean lean/KingWen.lean` exited 0 with no output. (The harness has since grown:
-as of 2026-08-06 it holds 67 tests — count re-verified by a local `python3 tests.py` run reporting
-`Ran 67 tests … OK`; the fresh-clone figures above are preserved as recorded on their date.)
+as of 2026-08-21 it holds 76 tests — count re-verified by a local `python3 tests.py` run reporting
+`Ran 76 tests in 24.329s … OK`; (the previous figure, 67, was correct when recorded on 2026-08-06 and
+drifted as tests were added — corrected 2026-08-21 after a cold reviewer pass flagged it); the fresh-clone figures above are preserved as recorded on their date.)
 
 Note that `documentation/REBUILD_FROM_SPEC.md` §Prerequisites is deliberately silent on all of the
 above and should stay that way — it describes writing an independent verifier in *any* language,
@@ -859,7 +867,7 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
 
 ### Solver
 
-- **Independent verifier**: `roae/verify.py` is a pure-Python (stdlib-only)
+- **Independent verifier**: `verify.py` (repo root) is a pure-Python (stdlib-only)
   implementation of the verifier recipe in
   [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) (originally ~160 lines; it has
   since grown the independent re-counting and artifact-check surfaces —

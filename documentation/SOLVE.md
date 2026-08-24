@@ -12,7 +12,7 @@
 >
 > **Legacy shorthand:** `solve.c`'s console strings and older project text call the enumerated population "the C1+C2+C3 canonical" — historical naming for the **C1–C5** canonical; see [METHODS.md](../reports/METHODS.md) §"Legacy shorthand".
 >
-> Older figures (31.6M, 742M) were invalidated by the sub-branch filename collision bug and the hash-table probe-cap bug respectively (both fixed 2026-04). This document has been revised; legacy paragraphs referring to 742M should be read as historical context only, and any "X at dataset-size Y" claim should be verified against the current canonical data via `roae/runs/20260418_10T_d3_fresh/analyze_output.log.gz` (d3) and `20260418_10T_d2_fresh/analyze_output.log.gz` (d2).
+> Older figures (31.6M, 742M) were invalidated by the sub-branch filename collision bug and the hash-table probe-cap bug respectively (both fixed 2026-04). This document has been revised; legacy paragraphs referring to 742M should be read as historical context only, and any "X at dataset-size Y" claim should be verified against the current canonical data via `runs/20260418_10T_d3_fresh/analyze_output.log.gz` (d3) and `runs/20260418_10T_d2_fresh/analyze_output.log.gz` (d2).
 
 Can the King Wen sequence be reconstructed from a small set of rules?
 
@@ -414,8 +414,8 @@ The mandatory-{25,27} finding says: **no matter how cleverly you choose the othe
 
 Applying only the mandatory boundaries {25, 27} to the current canonical datasets:
 
-- **d3 10T**: 43,236 total survivors (43,235 non-KW). Positions 1, 25, 26, 27, 28 are locked (5 of 32 positions forced by C4 + {25, 27}). Positions 5-22 show a strong "shift cascade" local structure (pos p is almost always pair p−1, p−2, p−3, or p−4). See `roae/runs/20260418_10T_d3_fresh/analyze_output.log.gz` section [23].
-- **d2 10T**: 13,595 total survivors (13,594 non-KW). Same 5 positions locked. See `roae/runs/20260418_10T_d2_fresh/analyze_output.log.gz` section [23].
+- **d3 10T**: 43,236 total survivors (43,235 non-KW). Positions 1, 25, 26, 27, 28 are locked (5 of 32 positions forced by C4 + {25, 27}). Positions 5-22 show a strong "shift cascade" local structure (pos p is almost always pair p−1, p−2, p−3, or p−4). See `runs/20260418_10T_d3_fresh/analyze_output.log.gz` section [23].
+- **d2 10T**: 13,595 total survivors (13,594 non-KW). Same 5 positions locked. See `runs/20260418_10T_d2_fresh/analyze_output.log.gz` section [23].
 
 The ~3.2× ratio between d3 and d2 survivors reflects the dataset size ratio (706M/286M ≈ 2.47×) plus some additional near-miss solutions that d3's deeper partitioning exposes.
 
@@ -689,7 +689,7 @@ Applying the same methodology to 10 random pair-constrained sequences (extract d
 
 The critical difference is at C1+C2: King Wen's no-5-line-transition property eliminates ~96% of pair-constrained orderings, while most random sequences have no comparably rare transition constraint (0-line transitions are the only absent value, and they're absent from ALL pair-constrained orderings by construction). Only 1 of 10 random sequences had a genuinely rare absent transition (both 0 and 1 absent).
 
-**What is genuinely special about King Wen:** the pair structure (C1) and the no-5 property (C2). These are not artifacts of the methodology — they are real structural properties that distinguish King Wen from random orderings. The subsequent constraints (C3-C7) are necessary to pinpoint King Wen uniquely but are not individually remarkable — any sequence's specific complement distance, starting pair, and diff distribution would also narrow to near-uniqueness.
+**What is genuinely special about King Wen:** the pair structure (C1) and the no-5 property (C2). These are not artifacts of the methodology — they are real structural properties that distinguish King Wen from random orderings. The subsequent constraints (C3-C7) sharply narrow the space but do **not** pinpoint King Wen uniquely — ≈5.21×10³¹ orderings satisfy C1–C7 (§refutation above and [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4), and even in-dataset the identifying set needs five boundary constraints of which only two are C6/C7. They are also not individually remarkable — any sequence's specific complement distance, starting pair, and diff distribution would also narrow to near-uniqueness.
 
 **Structured-permutation nulls (seven families tested; exhaustive where feasible, 10^9-sample otherwise). See [CITATIONS.md](CITATIONS.md) for scope and prior literature.**
 

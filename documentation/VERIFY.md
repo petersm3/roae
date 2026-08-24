@@ -8,6 +8,20 @@ caveat's instrument half is now closed: on 2026-07-25 `verify.c --ie-count`
 performed the independent full-scale recomputation — exact match. See the
 closing section.)*
 
+## Hardware you need (added 2026-08-21)
+
+| resource | requirement | why |
+|---|---|---|
+| **RAM** | **≥ 12 GB free** for the full `verify_all.sh` suite | the Lean phase peaks at **~9.6 GB** on `Automorphism.lean` and ~7.9 GB on `PruneGInvariance.lean`; **an 8 GB host cannot check those two files.** Per-file measured table in [lean/README.md](../lean/README.md) §"Verify yourself" — half the files check in ~1 s under 0.7 GB |
+| **Stack** | `ulimit -s unlimited` for any `--estimate-knuth` command | `main`'s frame is ~7.23 MB and the estimator adds ~1.02 MB, so an 8 MB default stack is exceeded on entry. The binary now **refuses with an actionable message** instead of segfaulting |
+| **Disk** | ~2 GB scratch | regenerated CNF + decompressed proofs |
+| **CPU** | any | the verification path is not core-hungry and needs no large VM. Large-scale *enumeration* is a different matter — see [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) for the D128 + Premium-SSD envelope and why random-IO isolation matters there |
+
+*These figures existed before, in `lean/README.md` and a mid-file comment in `verify_all.sh`. They
+are restated here because a cold external-reviewer pass on a 4 GB host hit `ERROR 134` on all 13
+Lean files and reported them as unverifiable — the requirement was documented, just not where a
+replicator reads it.*
+
 `verify.py` is a genuinely **independent** second opinion on the ROAE results.
 It is standard-library-only Python, imports **none** of `solve.c` / `solve.py` /
 `roae.py` / `sat.py`, and rebuilds every quantity **clean-room from the published
@@ -30,9 +44,13 @@ cannot promise):
 | `python3 verify.py --recount` | the exact COUNTS: independently reproduces the small-n structural facts, the reduced-rung C1∩C2∩C4 union counts, **and (since 2026-07-21) the C5 ladder rungs n = 9/13/16** (TR-11 §4b) — each rung's budget `B0` re-derived independently by TR-11 §5's first-completion DFS, then counted by a plain budgeted (mask, last, p) DP — and prints a match table |
 | `python3 verify.py --recount-fiber` | (added 2026-08-01) the **orientation fiber** of [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §7 — the frozen dispositive null against which the eleven-functional battery's exact p-values are computed, so it is the denominator every verdict in that table rests on. A transfer DP over King Wen's *own* pair sequence, varying only the 32 within-pair orientations, with the boundary budget `B0` recomputed from KW rather than copied from the report. Reproduces **1,720,320** (C4-oriented), **983,040** (pair-only C4, flipped opening), **2,703,360** (their sum), the stated `3·5·7·2¹⁴` factorization, and the forced/free bit structure (slot 30 is the only additionally forced bit — 30 of 31 vary). Two facts make this exact rather than a 2³¹ search, and the mode re-derives both instead of assuming them: within-pair distances are orientation-invariant, so C5 reduces to the 31 between-pair values; and `C3 = 16 + 8·G` with the orientation bits cancelling in `G`, so C3 is **constant** across the fiber and constrains nothing. Instant. Reads no files |
 | `python3 verify.py --fiber-sweep [solutions.bin]` | (added 2026-08-01) the **orientation-fiber factor** — the exact conversion between the two counting levels this suite publishes side by side: deduped **records** (pair orderings, what `solutions.bin` stores) and orientation-explicit **sequences** (what the C1–C5 space estimate counts). `--recount-fiber` above answers TR-1 §7's question for King Wen's *own* ordering; this mode generalises the same object to an **arbitrary** C1 ordering, which is what makes the two levels inter-convertible: `N = Σ_P |fiber(P)|`, `R = #{P : |fiber(P)| ≥ 1}`, and the dedup factor is exactly the mean fiber `N/R`. Gated on King Wen's three published fiber sizes **and** on agreement with `--recount-fiber`'s independent DP before it reports anything; then, if a `solutions.bin` is present, prints the exact fiber-size distribution over its records. ~0.2 ms per ordering. Scope: the sample mean is over the records of the file given, which is a budget-truncated slice, **not** the C1–C5 space |
-| `python3 verify.py --check-repr [N]` / `--check-repr-offset R` | (added 2026-08-15) the **repr(k) oracle** — independently recomputes the canonical representative for `N` records starting at record `R` (defaults: 1000 from 0) and compares it against what the artifact stores. **Why it is needed:** `solve.c`'s `--kc-repr-normalize` states outright that "there is NO separate repr oracle in this tree" — its only built-in check is IDEMPOTENCE (re-run on the output, expect byte-identical), which is self-consistent and therefore cannot catch a normalization that is stable but *wrong*. The `SOLVE_REPR_FC` A/B is weaker than it looks for the same reason at one remove: both arms share `solve.c`'s DFS, child order and code, so a defect in the shared traversal is invisible to it at any sample size. **Independence is the deliverable:** this is written from the DEFINITION in [`lean/RecordConvention.lean`](../lean/RecordConvention.lean) — repr(k) is the lexicographically least orientation completion of the pair-order key satisfying the constraint set, slot 0 forced by C4 — not transcribed from `orb_recanon_dfs`, and it builds on this file's own KW table, `_partner()`-derived pairs and `hamming()`, re-deriving and asserting the C5 budget. Reproduces **King Wen from King Wen's own key**. Verdicts are `KEY=value` (`CHECKED`/`AGREE`/`DISAGREE`/`INCOMPUTABLE`/`CHECK_REPR=PASS\|FAIL`) plus an explicit `SCOPE=` line. **Scope, stated plainly: it checks the records it reads and no others** — use several offsets rather than resampling one window, and never report a sampled pass as whole-artifact agreement. Fails closed: an *incomputable* key is a finding too, since the artifact claims a canonical record for a key this instrument says cannot be completed. Python cost is a DFS per record and the underlying search is heavy-tailed, so prefer `verify.c --check-repr` (below) for large `N` **APPLICABILITY (2026-08-15): run this against a repr-NORMALIZED artifact, not against a raw merge output. `solutions.bin` is pre-normalization — `solve --kc-repr-normalize` (task #20) has not been run on it — so a DISAGREE there is EXPECTED and identifies exactly the records the post-pass would rewrite. It is the correct acceptance test for the post-pass OUTPUT. See §'What the 2026-08-15 sweep actually found' below.** |
+| `python3 verify.py --check-repr [N]` / `--check-repr-offset R` | (added 2026-08-15) the **repr(k) oracle** — independently recomputes the canonical representative for `N` records starting at record `R` (defaults: 1000 from 0) and compares it against what the artifact stores. **Why it is needed:** `solve.c`'s `--kc-repr-normalize` states outright that "there is NO separate repr oracle in this tree" — its only built-in check is IDEMPOTENCE (re-run on the output, expect byte-identical), which is self-consistent and therefore cannot catch a normalization that is stable but *wrong*. The `SOLVE_REPR_FC` A/B is weaker than it looks for the same reason at one remove: both arms share `solve.c`'s DFS, child order and code, so a defect in the shared traversal is invisible to it at any sample size. **Independence is the deliverable:** this is written from the DEFINITION in [`lean/RecordConvention.lean`](../lean/RecordConvention.lean) — repr(k) is the lexicographically least orientation completion of the pair-order key satisfying the constraint set, slot 0 forced by C4 — not transcribed from `orb_recanon_dfs`, and it builds on this file's own KW table, `_partner()`-derived pairs and `hamming()`, re-deriving and asserting the C5 budget. Reproduces **King Wen from King Wen's own key**. Verdicts are `KEY=value` (`CHECKED`/`AGREE`/`DISAGREE`/`INCOMPUTABLE`/`CHECK_REPR=PASS\|FAIL`) plus an explicit `SCOPE=` line. **Scope, stated plainly: it checks the records it reads and no others** — use several offsets rather than resampling one window, and never report a sampled pass as whole-artifact agreement. Fails closed: an *incomputable* key is a finding too, since the artifact claims a canonical record for a key this instrument says cannot be completed. Python cost is a DFS per record and the underlying search is heavy-tailed, so prefer `verify.c --check-repr` (below) for large `N` **APPLICABILITY (2026-08-15): run this against a repr-NORMALIZED artifact, not against a raw merge output. `solutions.bin` is pre-normalization — `solve --kc-repr-normalize` (task #20 — ⚠ **that flag does not exist in this tree**; see the NOT-AVAILABLE box further down this file) has not been run on it — so a DISAGREE there is EXPECTED and identifies exactly the records the post-pass would rewrite. It is the correct acceptance test for the post-pass OUTPUT. See §'What the 2026-08-15 sweep actually found' below.** |
 | `python3 verify.py --check-artifact [N]` / `--check-artifact-offset R` / `./verify --check-artifact FILE [N] [OFFSET]` | (added 2026-08-15) the **artifact validator** — checks what `solutions.bin` actually CLAIMS, in one linear pass per record: (1) **validity**, each record's OWN orientations satisfy the constraint set (forced `63->0` opening, no HD-5 transition, C5 budget consumed EXACTLY); (2) **sortedness**, pair-order keys strictly increase, matching `compare_solutions`; (3) **dedup**, strictness in (2) IS the one-record-per-canonical-class claim. `N` defaults to **-1 = to EOF** — this is a whole-artifact instrument, not a sampler, because it is linear rather than a search. **Prefer this over `--check-repr` on the merge output.** `--check-repr` cannot validate the artifact as it exists today — `solutions.bin` is pre-normalization, so its disagreements are the post-pass's work-list, not defects — and even after normalization it is *structurally blind to a wrong pair sequence* — `repr_of_key` is handed the key decoded from the very record it is compared against, so a disagreement can only ever be an orientation bit. This one checks the pair sequence directly. Verdicts are `KEY=value` (`RECORDS`, `BAD_KEY`, `BAD_SPARE_BIT`, `BAD_OPENING`, `BAD_HD5`, `BAD_BUDGET`, `BAD_BUDGET_RESIDUE`, `BAD_ORDER`, `ARTIFACT=PASS\|FAIL`) plus `SCOPE=`. **Requires a `ROAE` header and refuses without one** (`ARTIFACT=FAIL_no_ROAE_header`): a headerless raw `sub_*.bin` shard would otherwise have its FIRST RECORD silently consumed as a header, and the checker could then report `PASS` on a file it never fully read — the same failure mode as the recon off-by-one this repo already carries a fix for. It fails closed rather than auto-detecting, because this tool validates the *merged* artifact and a shard should be an explicit refusal, not a silent reinterpretation. **Does NOT check completeness** — that no valid solution is *missing* is the enumeration's claim, attested by the canonical sha; a forward pass cannot establish it. Sharding caveat: the sortedness check compares against the predecessor WITHIN the range read, so a sharded run cannot see a violation across a shard seam — overlap by one record, or run offset 0 to EOF |
 | `python3 verify.py --check-shen-orbits` / `--check-flips` | (added 2026-08-15) two **reproduction commands for figures published in [CITATIONS.md](CITATIONS.md) and in this file**, because a private script does not make a public number reproducible. `--check-shen-orbits` verifies that Shen Youding's 1936 six groups of principal hexagrams are **exactly the six K₄ orbits** of his sixteen (sizes 2,2,2,2,4,4) — his criterion, equal generational rank of inner and outer trigram, is **KW-independent**, and this checks a CLASSIFICATION, not an ordering claim. It is independent of `solve.c`'s orbit code by construction: the claim is *about* orbit structure, so a check that used that code would not be independent. `--check-flips` prints the census of the 31 single-orientation-bit flips of King Wen's own record by failure mode (**9 PASS / 15 `BAD_BUDGET` / 7 `BAD_HD5`**), which exists because the figure first shipped as "16" — the measuring harness grepped `^BAD_[A-Z_]+=[1-9]`, a character class that excludes DIGITS, so `BAD_HD5` never matched. Both read **no files** |
+| `python3 verify.py --check-kw-pair-adjacency` | (added 2026-08-16) **reproduction command for a classical fact and for a NEGATIVE result.** Re-verifies that King Wen seats every hexagram beside its own partner — 32 pairs, **28 by reversal, 4 by complement**, zero unrelated, zero hexagrams whose partner is not adjacent. **That rule is not ours and not new**: it is 非覆即變, stated by Kong Yingda 孔穎達 (574–648) with earlier lineage via Yu Fan 虞翻 — see [CITATIONS.md#kongyingda](CITATIONS.md#kongyingda). The command exists so a reader can confirm the premise without taking anyone's word for it. It then draws the consequence for excavated evidence: the head/tail symbols of the Shanghai Museum Chu bamboo *Zhouyi* ([Pu Maozuo 2003](CITATIONS.md#pu2003)) **cannot distinguish** "the symbol respects reversal" — Pu's claim, which holds **9 testable pairs / 9 agreements / 0 disagreements** on his directly-observed symbols — from "the symbol is merely constant on contiguous King Wen blocks", because blocks and orbits coincide by construction of the sequence. It reports `SHANGBO_DISCRIMINATING_PAIRS=0`. **An impossibility argument, not a criticism of his reading, and not a failed search.** Reads **no files** |
+| `python3 verify.py --check-classical-groups` | (added 2026-08-16) **the group actions the CLASSICAL literature attests, and how King Wen scores against each — none of the rivals are ours.** Sources: **⟨comp,rev⟩** and **⟨rev,swap⟩** both from 吳澄 Wu Cheng (1249–1333) 《易纂言外翼》卷一〈卦對第二〉 ([#wucheng](CITATIONS.md#wucheng)); **⟨comp,swap⟩** from 焦循 Jiao Xun (1763–1820) 《易圖略》八卦相錯圖 ([#jiaoxun](CITATIONS.md#jiaoxun)). **The result:** ⟨comp,swap⟩ has the *identical* orbit profile to ⟨comp,rev⟩ — 20 orbits, 8×2 + 12×4 — yet King Wen seats partners adjacently **64/64** under ⟨comp,rev⟩ and only **24/64** under ⟨comp,swap⟩. At the sharper pairing-rule level: reversal-with-complement-fallback (= C1, 非覆即變) scores **64/64**, every alternative tested scores 12–16/64. And this is **exact, not sampled**: of the **3.845×10⁴⁶** involutions on the 64 with eight fixed points, **exactly 70** score 64/64 — a fraction of **1.8×10⁻⁴⁵** — and all 70 agree with reversal off the degenerate hexagrams. **Those 70 are one rule under 70 labellings**, since 'fixed point' versus 'swapped pair' is a vacuous distinction exactly where the two operations coincide. **And the hexagrams where that freedom lives are exactly [吳澄's two degenerate classes](CITATIONS.md#wucheng)** — 正對不反易者四 + 正對兼反易者四. So a structurally indistinguishable rival, drawn from the same tradition, does not fit — the choice is a property of the sequence, not an artifact of looking for symmetry. Also re-derives 吳澄's own 「共十八對」 as a reading check (24 orbits − 6 meeting the 八純卦 = 18 ✓). **Scope: this is about PAIRING. It changes no enumeration and no published count.** Reads **no files** |
+| `python3 verify.py --check-zhu-yuansheng` | (added 2026-08-16) **the earliest known complete ⟨錯,綜⟩ orbit decomposition, checked rather than trusted.** 朱元昇 Zhu Yuansheng (d. c.1273) 《三易備遺》卷八, complete by 1270 ([#zhuyuansheng](CITATIONS.md#zhuyuansheng)) — Southern Song, ~30 years before [吳澄](CITATIONS.md#wucheng), to whom this had been ceded earlier the same day. His twelve quadruples are transcribed as King Wen numbers with the **先天 (complement) and 後天 (reversal) pairs kept SEPARATE**, so each half of each line is tested on its own against this repository's bit operations: all 24 先天 pairs are true complements, all 24 後天 pairs true reversals, the 48 are disjoint from his 16 coincident hexagrams, 12×4+8×2 = **64**, his eight 不可得而反對 are exactly the self-reverse hexagrams, his eight 可得而反對亦可得而變對 are exactly those where complement = reversal, and **his twelve quadruples ARE the size-4 orbits**. A failure means the transcription is wrong or the cession is wrong — both worth knowing, which is why it ships as a command. **Scope: this attests a 13th-century READING. It changes no enumeration and no published count of ours.** Reads **no files** |
+| `python3 verify.py --check-parity-alternation` | (added 2026-08-16) **re-derives every published figure in [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md)** — a paper-citable finding that until today published its central numbers with no way for a reviewer to re-derive them (**GATE 25 LEG 2 flagged the file; this is the answer to that flag**). Recomputes the 63 transition distances and the multiset `{1:2, 2:20, 3:13, 4:19, 6:9}` from the KW table, confirms the **15** odd transitions, confirms the pair parity class is **well defined** rather than assuming Lemma 3, confirms the **16/16** class split that `C(32,16)` presupposes, measures KW's own alternation count (**15**), checks C4 pins pair `{63,0}` to the even class, and counts the 15-change arrangements **twice by routes sharing no code** — a DP over (position, evens used, last class, changes) against the closed form `2·C(15,7)² = 82,818,450` — recovering the published `601,080,390` total and `×7.2578` reduction. **Scope: it attests the FIGURES; the theorem is a proof and is not re-proven here.** Reads **no files**, ~1 s |
 | `python3 verify.py --recount-gender-null` | (added 2026-08-01) TR-8 §Commands' **exact pair-null Schulz-gender figure** `P(rc4_violations ≤ 2) = 47/445740`. Both prior implementations of this rational lived inside `solve.py`, so the figure was single-FILE even though it was described as verified two ways; this is the genuinely independent second instrument. The functional is rebuilt from the **published** definition (SOLVE_C_CLI.md §`--rc4b-verify`; Schulz 1990 motif 2 via Cook 2006) rather than from `solve.py`'s code, and the reading is gated on King Wen's published anchors (2 violations, class positions 25/26). The 32!·2³² null is then solved **exactly two ways** — a multivariate-hypergeometric closed form, and a slot-by-slot DP over pair-type states that never uses the closed form's decomposition — cross-asserted term-by-term, in `fractions.Fraction`. No sampling. Instant. Reads no files |
 | `python3 verify.py --recount-rung N` | (N = 18 or 19) the **worker-sized C5 ladder rungs** — a packed-state budgeted DP, self-gated against the in-file plain DP at n=16. Larger rungs (n = 20–28) need a worker and are not run here |
 | `python3 verify.py --recount-subtree` | the exact **deterministic subtree anchors** of TR-5 §3 / SEARCH_SPACE_SIZE (KW-following prefixes at 5/7/9 free positions: `tree_nodes` 443 / 62,256 / 9,422,793 and canonical leaves 4 / 2,232 / 16,504), plus the sigma-related-prefix tree-isomorphism check. ~1–2 min. Reads no files |
@@ -48,6 +66,7 @@ cannot promise):
 | `python3 verify.py --t3-stats DIR` | (added 2026-08-11) two of the three pre-registered validity statistics of the **T3 exact-uniform draw sample** — (a) uniformity of the rank stream (χ² over 16 equal buckets, bucket = ⌊16·r/N⌋, 15 dof, **PASS below 37.70**) and (c) the C3 fraction at `cd ≤ 387` against `p₀ = 1/8.26 = 0.12107`, **flagged beyond 4σ** either direction. Both bars are frozen in the pre-registration (private repo, `PREREG_F_CATALOG_T1_T4_2026_08_06.md` §3, committed **before** the first recorded draw) and neither may be adjusted to make a result land — a breach quarantines the sample. `N = \|C1∩C2∩C4∩C5\| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688` (TR-11 §9). Statistic (b) is deliberately **not** restated here; run `--t3-membership`. DIR is a directory of `t3_stream_*.out[.gz]`, or one such file. **Input is not in this repo** — see §"Analyses over large artifacts" for the generating command and its measured cost. Analysis itself: **≈22.9 MB peak RSS** for 10⁶ draws (reproducible across 7 runs); wall is a few seconds but is load-dependent and is **not** a reproducible figure — see §"Analyses over large artifacts" |
 | `python3 verify.py --t3-membership PATH [--t3-membership-limit N]` | (added 2026-08-11) the third pre-registered statistic, (b) **membership**: every emitted walk must satisfy C1∩C2∩C4∩C5. Bar **100%** — a single failure is a first-order finding. This is the *second language* for that check, so its value is that it shares no code with the sampler: the predicates are transcribed from [SPECIFICATION.md](SPECIFICATION.md) §C1/C2/C4/C5 and it uses only `verify.py`'s own rule-derived helpers (`_partner`, `hamming`, `compute_comp_dist`), all gated at import against the spec literals. Before reporting anything it (i) self-tests the transcription (partner is an involution; exactly 8 self-reverse hexagrams; `partner(63) = 0`; the C5 target sums to 63; `compute_comp_dist(KW) = 776`; King Wen itself is accepted) and (ii) runs a **positive control per constraint** — each control breaks exactly one of C1/C2/C4/C5 and the run aborts unless that constraint's own predicate fires, which is what separates a working checker from one that says MEMBER to everything. Two checks beyond the prereg: the engine-recorded `cd=` is independently recomputed (`cd = compute_comp_dist(S)/2 − 1`, the −1 being the C4-pinned `(63,0)` pair), and duplicates are detected. `--t3-membership-limit 1000` on one stream reproduces exactly the pre-registered spot-check leg in a fraction of a second. Full census: **≈149 MB peak RSS** for 10⁶ draws, the one figure that reproduced across every measurement condition; wall ranged **60–98 s** depending on what else the box was doing and is **not** a reproducible figure — see §"Analyses over large artifacts", which records two successive wrong answers about it |
 | `python3 verify.py --g-structure C2ON_LOG C2OFF_LOG` | (added 2026-08-11) structure of the **full-31 G distribution** from two enumerator logs carrying `G_HIST` lines — C2-ON (C1&C2&C4) and C2-OFF (C1&C4). Re-derives the moments as exact rationals, checks every bin is divisible by 48, and on the C2-OFF side runs the sharp identities: `G_HIST_WSUM == 128 · G_HIST_TOTAL` exactly, and `P(G ≤ 95)` equal **as a rational** to the closed-form null `641983711307479/7919632354008375` — the same constant `--check-null-g` derives from scratch, so this is a cross-instrument agreement rather than a restatement. Then a convolution test (`q^(1/m)` coefficient tails for 14 values of m) showing no `m` truncates, i.e. G is **not** an independent-sum statistic — consistent with a permutation statistic (sampling without replacement). **Scope:** this says nothing about prefix-G g48-invariance; a quotiented run cannot test the assumption its own quotient makes. Analysis is instant and reads only the logs; producing them is not — see §"Analyses over large artifacts" |
+| `python3 verify.py --check-t5-c3 SOLUTIONS_BIN CHUNKS_DIR` | (added 2026-08-20) independently recomputes `c3_total` for **every** record of the T5 mega-sample and compares it against the parquet that the `solve.py` pipeline produced. The two routes are disjoint: this one uses `C3 = 16 + 8·G` over the 12 complement-couples' **slot gaps** (machine-checked in [lean/C3Decomposition.lean](../lean/C3Decomposition.lean)) — slot map only, no transition walk, no path, orientation-independent — while `solve.py --compute-stats` walks the ordering. It exists because T5's load-bearing figure, `P(C3 ≤ 776) = 12.1288%`, came out of a single pipeline, and a pipeline agreeing with itself is not a check. All 1,000,000 records, never a subsample; ~5 s. Verdict `T5_C3_AGREE=PASS`/`=FAIL`, matched with `grep -qx`; a single swapped pair-index in one record is caught and its index printed. **Scope: `verify.py` imports nothing from `solve.py`, so this is IMPLEMENTATION-independent — but both are Python, so it does NOT discharge the two-LANGUAGE half of the cross-check gate** |
 | `python3 verify.py --check-layer-sidecars DIR` | the per-layer SIDECARS (`f1c5_layer_stats_KK.json`): two *independent* marginal decompositions (`marginal_last_mass` by terminal pair, `marginal_rid_mass` by boundary-residue id) each summing to `mass_total`; histogram totals against `n_entries` / `n_masks − n_empty_masks`; `mass_total` inside its own value-histogram bounds; `n`/`b0`/`pl_hash` agreement with the manifest; and the layer-to-layer **sha256 lineage chain** (`input_sha256_decompressed[k] == own_sha256_decompressed[k−1]`). Reads **only** the small JSON sidecars — no layer-file I/O, so it costs nothing and works long after the campaign VM is gone. Recomputes no masses |
 
 The C-side sibling, **`verify.c`** (same independence discipline: no `solve.c`
@@ -413,7 +432,11 @@ is resolved — see the defects section above.)
 ---
 *`verify.py` is stdlib-only and imports no project code — run `python3 verify.py
 --recount` to regenerate the match table. `verify.c` builds with `cc -O2 -o
-verify verify.c -lz -lpthread` and reads a run's `run.out`. Developed with AI assistance
+verify verify.c -lz -lpthread -lm` and reads a run's `run.out`. (⚠ `-lm` corrected
+2026-08-21: the line previously omitted it and **failed to link** — `kn_ci` calls `sqrtl`, so
+`cc` reports `undefined reference to 'sqrtl'`. Found by a cold external-reviewer pass and
+reproduced here; the asymmetry with solve.c's own documented `-lm` build line had been sitting
+in the text.) Developed with AI assistance
 (Claude, Anthropic).*
 
 **Provenance of the C5-ladder rows (2026-07-21):** the C5 ladder entries below are backed by an actual
@@ -453,16 +476,31 @@ decision that has not been taken.*
 
 **`solutions.bin` is a PRE-NORMALIZATION artifact.** The global repr(k) is
 applied by `orb_normalize_rec_op` → `orb_repr_global`, exposed as
-`solve --kc-repr-normalize IN.bin OUT.bin` (task #20), and that pass has not
-been run on it. The disagreeing records **are** the post-pass's work-list. So
+`solve --kc-repr-normalize IN.bin OUT.bin` (task #20) — ⚠ **on an unlanded branch, NOT in this
+tree; see the box immediately below** — and that pass has not been run on it. The disagreeing records **are** the post-pass's work-list. So
 `--check-repr` is the right acceptance test for the post-pass *output* and is
 expected to fail on its *input*; running it on a raw merge is a category error,
 not a finding.
 
-> **⚠ NOT AVAILABLE IN THIS TREE.** `--kc-repr-normalize`, `orb_normalize_rec_op`, `orb_repr_global`
-> and `orb_recanon` do **not** exist in `main`'s `solve.c` — zero occurrences. They live on an
-> **unlanded** v4 branch that `BRANCH_REGISTRY.tsv` marks *snapshot — do not cite*. A reader of
-> `main` cannot run this pass. Relatedly, the `--check-repr` row's quotation *"there is NO separate
+> **⚠ NOT AVAILABLE IN THIS TREE — and the two cases are NOT the same.** None of
+> `--kc-repr-normalize`, `orb_normalize_rec_op`, `orb_repr_global` or `orb_recanon` exists in
+> `main`'s `solve.c` (zero occurrences), but where they *do* live differs, and an earlier version of
+> this box wrongly implied all four were fetchable from one registry-listed branch:
+>
+> * `orb_normalize_rec_op`, `orb_repr_global`, `orb_recanon` — on **`orbit-port-188-candidate`**,
+>   which IS pushed to origin and which [BRANCH_REGISTRY.tsv](BRANCH_REGISTRY.tsv) classes
+>   *snapshot — do not cite*. A reader can fetch and inspect these, but must not cite them.
+> * **`--kc-repr-normalize` and the forward-checked prunes (`SOLVE_REPR_FC`) — on NO PUBLISHED REF
+>   AT ALL** (verified 2026-08-21: zero occurrences on `main`, `v4-compiler`, `v4-canonical`,
+>   `stageg-telemetry` and `orbit-port-188-candidate`). They exist only on an unpushed local branch.
+>   A reader **cannot obtain them by any means**, so nothing in this repository should be read as
+>   offering them.
+>
+> ⚠ Consequently [`lean/PruneReprFC.lean`](../lean/PruneReprFC.lean) is a **freestanding model-level
+> result**: its §1/§3 statements and the §5 counterexample stand on their own, but the declared
+> bridge to the shipped binary (prose comment + code review + runtime gates) rests on material that
+> is **not published**, so a reader cannot perform any leg of it. Read the theorem as about the
+> model, never as evidence about a binary you can run. A reader of `main` cannot run this pass. Relatedly, the `--check-repr` row's quotation *"there is NO separate
 > repr oracle in this tree"* is that branch's **runtime output**, not text in `main`'s `solve.c`, and
 > must not be read as quoting this repository.
 
@@ -524,3 +562,78 @@ alone — which is precisely why it is required for partition-invariance.
 decrement succeeded has zero residue by arithmetic. It is retained as a fail-closed
 guard against a future table change, and is documented as unreachable rather than
 claimed as tested.
+
+## `verify.c` full option synopsis — Routes B and D, and the scan driver
+
+**Added 2026-08-16.** `./verify --ie-count` was documented in this file; **its options were not,
+and neither was the entire Route D DP engine nor the parallel scan driver** — 25 flags that a
+reader of `documentation/` could not discover at all. A reviewer could start the Route B walk and
+had no way to learn how to pin it, thread it, resume it, or cross-check it.
+
+**Transcribed from `verify.c`'s own header block, which stays authoritative** — if these disagree,
+the source is right and this section is stale. Routes B and D each have a fuller section header in
+the source beside their implementation.
+
+### Route B — independent inclusion–exclusion transfer walk (`--ie-count`)
+
+The independent recount of `|C1∩C2∩C4∩C5|` (TR-11 §10(vi)); the second instrument behind the exact
+full-scale figure.
+
+```
+./verify --ie-count [--ie-spec "3.0,3.1,3.2@0" | --ie-spec full31@0]
+         [--ie-mod all|wrap|p0|p1|p2] [--ie-no-quotient] [--ie-no-budget]
+         [--ie-threads N] [--ie-chunk-bits B] [--ie-checkpoint FILE]
+         [--ie-range LO HI] [--ie-b0 a,b,c,d,e] [--ie-negctl]
+         [--ie-expect DECIMAL] [--ie-pin SLOT:PAIR ...] [--ie-pin-c6c7]
+         [--ie-brute]
+./verify --ie-probe NSAMP [--ie-threads N]        # full-31 throughput probe
+```
+
+- `--ie-no-budget` — the `C1∩C2∩C4` (F4) variant.
+- `--ie-pin` / `--ie-pin-c6c7` — the pinned-step (T3) variant for `|C1∩C2∩C4∩C5∩C6∩C7|`.
+- `--ie-brute` — an independent small-n reference by explicit permutation DFS. **`n ≤ 12` only**,
+  per the source; it is a cross-check on the walk, not a route to the full count.
+- `--ie-negctl` — a negative control. A control that does not change the answer is not a control.
+
+### Route D — layered exact-cover mask DP (`--dp-count`)
+
+The **second instrument for the pinned (C6/C7) exact count, and a different algorithm class** — a
+direct layered exact-cover mask DP with **no inclusion–exclusion**, so it shares no method with
+Route B. That independence is the point of it.
+
+```
+./verify --dp-count [--dp-spec "3.0,3.1,3.2@0" | --dp-spec full31@0]
+         [--dp-pin SLOT:PAIR ...] [--dp-pin-c6c7] [--dp-b0 a,b,c,d,e]
+         [--dp-mod all|p0|p1|p2] [--dp-threads N] [--dp-checkpoint FILE]
+         [--dp-expect DECIMAL] [--dp-negctl] [--dp-no-budget]
+         [--dp-size-only]
+```
+
+Defaults: `spec full31@0`, `mod all`, `threads` = online CPUs. `--dp-negctl` swaps B0's d2/d4
+budgets, and **the count MUST differ** — that is the control's whole content. `--dp-no-budget`
+drops C5 entirely, giving a plain `(M,last)` DP and the F4-variant cross-check.
+
+### The parallel scan driver (`--scan-layers`)
+
+```
+./verify --scan-layers DIR [max_k] [run.out]
+./verify --scan-selftest
+```
+
+Runs **the same checks and masses as `--check-layers`** through a multi-observable parallel driver
+(N `O_DIRECT` read lanes, plus riders: T7/BL-7 orbit census and a T6-slot stub). Environment:
+`LC_SCAN_LANES`, `LC_SCAN_CHUNK_KB`, `LC_SCAN_ODIRECT`, `LC_SCAN_T6STUB`.
+
+**`LC_RESUME=<path>`** *(documented 2026-08-22 — it was read by `verify.c` and documented nowhere,
+flagged by the 2026-08-20 hardening sweep §F1a)*: path to a prior run's per-layer summary output.
+When set, `--check-layers` **replays** the summary lines for layers already recorded there instead of
+re-streaming those layers from disk, so an interrupted multi-layer check resumes rather than
+restarting. The per-layer summary line is **identical for a freshly streamed layer and an
+`LC_RESUME`-replayed one** (`verify.c:1062`), which is what makes the resumed output comparable to an
+unresumed one. ⚠ A replayed layer is **asserted from the prior run, not re-read** — `census_got[k]`
+is 0 for replayed layers (`verify.c:871`). **A resumed run therefore attests less than a full one;
+do not report it as a from-scratch verification.**
+
+**Identity contract:** with `[scan] `-prefixed lines removed, its stdout and its return code are
+**byte-identical** to `--check-layers`. `--scan-selftest` proves that on fixtures — so the fast path
+is held to the slow path's output, not merely believed to agree with it.

@@ -37,7 +37,7 @@ Every report measures the same object. The formal predicates (full statements + 
   theorem vacuous, and broke the very next bullet: C2 is implied by the 63-transition histogram directly, but
   from a boundary-only multiset only via C1's within-pair-evenness theorem. The two are equivalent **given
   C1**; as free-standing predicates they are different constraints.)*
-- **C6, C7 — identifying adjacency pins.** Specific slot-24–27 adjacency choices used only to single out
+- **C6, C7 — identifying adjacency pins.** Specific slot-24–27 (0-based pair slots — pairs 25–28, boundaries 25 and 27, in the 1-based numbering used elsewhere) adjacency choices used only to single out
   King Wen within the C1–C5 family (they cut the space by ×2.55×10⁶ but leave ≈5.21×10³¹ orderings —
   [TR-4](TR4_SIZE_OF_THE_SPACE.md) §4). Not part of the enumerated canonical constraint set; data-like,
   priced ≈0 in [TR-9](TR9_PRICING_THE_CONSTRAINTS.md).
@@ -75,7 +75,8 @@ orbit-quotient), not by disagreement.
 *All three exact full-scale quantities — \|C1∩C2∩C4\| (via `--ie-no-budget`), the C5-layer count
 \|C1∩C2∩C4∩C5\|, and its orbit count — are **two-instrument** as of 2026-07-25: independently
 recomputed at full scale by `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`;
-build: `cc -O2 -o verify verify.c -lz -lpthread` — see [VERIFY.md](../documentation/VERIFY.md)
+build: `cc -O2 -o verify verify.c -lz -lpthread -lm` — see [VERIFY.md](../documentation/VERIFY.md)
+(⚠ `-lm` corrected 2026-08-21; without it the link fails on `sqrtl`)
 — a different algorithm class sharing no code or machinery with `solve.c`; exact MATCH, mod-24
 verified), additionally corroborated by the mod-24 gate and the 4/4 out-of-core ladder +
 identical cross-mode layer content (byte-identical in the v1-format validation runs; under

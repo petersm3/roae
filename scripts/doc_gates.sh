@@ -9760,7 +9760,8 @@ gate_publication_state() {
 }
 
 # ---------------------------------------------------------------------------
-# GATE 21 — backticked `scripts/…` paths must resolve, or be declared narration.
+# GATE 21 — backticked repo paths (top-level dirs, `roae-private/`, `roae/`) must
+# resolve, or be declared narration.
 #
 # WHAT IT CAUGHT. Markdown LINKS are gated (GATE 4). Code-font PATHS were not.
 # On 2026-08-09 that gap was holding four references to
@@ -9769,25 +9770,55 @@ gate_publication_state() {
 # imperatively to RUN it before a paired bench. The real check was always
 # `./solve --cpu-freq`, which is what the project's own launcher calls.
 #
-# TWO OUTCOMES, NOT ONE. A token that resolves in roae-private but not here is
-# NOT the same defect as one that resolves nowhere:
-#   * DANGLE    — points at nothing. Fix the text.
-#   * COLLISION — `scripts/` IS a real published directory, so the reader
-#     follows the path into a directory that exists and lacks the file. The fix
-#     is the `roae-private/` prefix, which HISTORY.md already uses correctly 69
-#     times. Two such collisions were live on 2026-08-09.
-# The collision leg needs the private repo, so it is SKIPPED-WITH-NOTICE when
-# absent: a fresh clone or third-party replicator still gets the dangle leg,
-# and is told plainly which leg did not run rather than shown a bare green.
+# WIDENED 2026-08-21 (Unit B, Q29-G) from the original `scripts/…`-only leg to the
+# path conventions the corpus actually uses, prefix-scoped and GENERATIVE:
+#   (a) any token under a CURRENT top-level tracked directory — computed from
+#       `git ls-tree` at runtime, never hardcoded, so new directories are covered
+#       automatically (this subsumes the original `scripts/` leg);
+#   (b) `roae-private/…`-qualified pointers, checked against the private checkout;
+#   (c) `roae/…` repo-name-prefixed tokens, checked after stripping the prefix.
+# Measured on the 2026-08-21 tree: 175 tokens matched; the widening would have
+# caught 8 of that day's 14 fix-sites plus the FLAG-1 dangle mechanically, with
+# zero false positives beyond one narration allowlist row (`roae/findings/`).
 #
-# ALLOWLIST = NARRATION, and every row must say why. Four of the five current
-# non-resolving tokens are CORRECT prose describing files deliberately removed
-# (the 2026-04-21 consolidation into solve.py); the fifth is a retraction naming
-# the phantom in order to withdraw it. Banning those would forbid the corpus
-# from describing its own history — the same mistake as banning inline mention
-# of a retracted phrase.
+# SCOPE LIMITS — stated here so a PASS is never read as more coverage than it has:
+#   * NOT all slash tokens. Of the 186 backticked slash-containing tokens measured
+#     2026-08-21, at least 40 are legitimate non-paths (fractions, exact rationals,
+#     macro families like PAIR_MASK_SET/CLR, git refs, GitHub slugs, figure
+#     shorthand). A whole-class gate would be a standing false-positive generator —
+#     worse than the retrospective enumeration it replaces. Do NOT widen it there.
+#   * CANNOT see unprefixed strays: `x/roae/…` local-workspace prefixes, bare
+#     `560t_scripts/…`, and `owner/repo:path` notation match no prefix rule —
+#     5 of the 2026-08-21 fix-sites were of these shapes. That residue is bounded
+#     by Unit B's one-time full 186-token classification
+#     (roae-private/PRECODEX_UNITB_Q29G_PATHS.md §6) and by fresh-eyes review,
+#     not by this gate.
+#
+# THREE FAILURE SHAPES, NOT ONE. A token that resolves in roae-private but not
+# here is NOT the same defect as one that resolves nowhere:
+#   * DANGLE        — points at nothing. Fix the text.
+#   * COLLISION     — the prefix IS a real published directory (e.g. `scripts/`),
+#     so the reader follows the path into a directory that exists and lacks the
+#     file. The fix is the `roae-private/` prefix, which HISTORY.md already used
+#     correctly 69 times when the gate was born. Two such collisions were live on
+#     2026-08-09.
+#   * STALE-PRIVATE — a correctly `roae-private/`-qualified pointer whose target
+#     moved INSIDE roae-private (the 2026 reorganizations into campaigns/,
+#     results/, validation/). The fix recipe differs from DANGLE: find the moved
+#     file and update the pointer — do not rewrite the prose.
+# The private-checkout legs (COLLISION, STALE-PRIVATE) need the private repo, so
+# they are SKIPPED-WITH-NOTICE when absent: a fresh clone or third-party
+# replicator still gets the dangle leg, and is told plainly which legs did not
+# run rather than shown a bare green.
+#
+# ALLOWLIST = NARRATION, and every row must say why. Most rows are CORRECT prose
+# describing files deliberately removed (the 2026-04-21 consolidation into
+# solve.py) or a retraction naming a phantom in order to withdraw it. Banning
+# those would forbid the corpus from describing its own history — the same
+# mistake as banning inline mention of a retracted phrase. One row (Q28-A2) is
+# TEMPORARY and loudly says so: a green does not bless that pointer.
 gate_script_paths() {
-  echo "== GATE 21: backticked \`scripts/…\` paths resolve, or are declared narration =="
+  echo "== GATE 21: backticked repo paths (top-level dirs, roae-private/, roae/) resolve, or are declared narration =="
   local rc=0 t priv=/home/claude/github/roae-private
   # (token, why-it-is-narration) — extend ONLY with a reason.
   allow() { case "$1" in
@@ -9795,27 +9826,53 @@ gate_script_paths() {
       echo "narrating the 2026-04-21 consolidation into solve.py (file deliberately removed)";;
     scripts/d128_preflight_throttle_probe.sh)
       echo "retraction text naming the phantom in order to withdraw it (2026-08-09)";;
+    roae/findings/)
+      echo "dated HISTORY narration of the pre-2026-06 findings/ layout (consolidation recorded at HISTORY.md ~:4875)";;
+    runs/20260420_singlebranch1T_d32westus3/)
+      echo "TEMPORARY: known defect Q28-A2, operator-gated publish/boundary decision — REMOVE THIS ROW when Q28 lands; a green here does NOT bless the pointer";;
     *) echo "";; esac; }
-  local seen=0 dang=0 coll=0
+  local seen=0 dang=0 coll=0 stale=0
+  local topdirs; topdirs=$(git ls-tree -d --name-only HEAD | paste -sd'|')
   while read -r t; do
     [ -n "$t" ] || continue
     seen=$((seen+1))
-    git ls-files --error-unmatch "$t" >/dev/null 2>&1 && continue
+    case "$t" in
+      roae-private/*)  # private-qualified pointer: must exist in the private checkout
+        if [ -d "$priv" ]; then [ -e "$priv/${t#roae-private/}" ] && continue
+        else continue; fi ;;  # covered by the skip-with-notice line below
+      roae/*)          # repo-name-prefixed: resolve after stripping the prefix
+        git ls-files --error-unmatch "${t#roae/}" >/dev/null 2>&1 && continue ;;
+      *)               # top-level-dir tokens (includes the original scripts/ leg)
+        git ls-files --error-unmatch "$t" >/dev/null 2>&1 && continue ;;
+    esac
     local why; why=$(allow "$t")
     if [ -n "$why" ]; then continue; fi
-    if [ -d "$priv" ] && [ -e "$priv/$t" ]; then
-      echo "  [FAIL] COLLISION: \`$t\` resolves in roae-private but NOT here."
-      echo "         'scripts/' is a real published directory, so a reader follows this into"
-      echo "         a directory that exists and lacks the file. Prefix it: \`roae-private/$t\`."
-      coll=$((coll+1)); rc=1
-    else
-      echo "  [FAIL] DANGLE: \`$t\` resolves nowhere — not tracked here, not in roae-private."
-      echo "         Fix the text, or add an allowlist row SAYING WHY it is narration."
-      dang=$((dang+1)); rc=1
-    fi
-  done < <(git grep -ohE '`scripts/[A-Za-z0-9_./-]+`' -- '*.md' 2>/dev/null | tr -d '`' | sort -u)
-  [ -d "$priv" ] || echo "  [note] roae-private not present: the COLLISION leg did NOT run. Dangle leg did."
-  [ "$rc" -eq 0 ] && echo "  [ok] $seen distinct \`scripts/…\` token(s); all resolve or are declared narration"
+    case "$t" in
+      roae-private/*)
+        echo "  [FAIL] STALE-PRIVATE: \`$t\` is correctly qualified but its target is absent from"
+        echo "         the roae-private checkout — past instances were reorganizations into"
+        echo "         campaigns/, results/, validation/. Find the moved file and update the"
+        echo "         pointer; do not rewrite the prose."
+        stale=$((stale+1)); rc=1 ;;
+      *)
+        if [ -d "$priv" ] && [ -e "$priv/$t" ]; then
+          echo "  [FAIL] COLLISION: \`$t\` resolves in roae-private but NOT here."
+          echo "         Its prefix is a real published directory, so a reader follows this into"
+          echo "         a directory that exists and lacks the file. Prefix it: \`roae-private/$t\`."
+          coll=$((coll+1)); rc=1
+        else
+          echo "  [FAIL] DANGLE: \`$t\` resolves nowhere — not tracked here, not in roae-private."
+          echo "         Fix the text, or add an allowlist row SAYING WHY it is narration."
+          dang=$((dang+1)); rc=1
+        fi ;;
+    esac
+  done < <(git grep -ohE "\`(roae-private|roae|$topdirs)/[A-Za-z0-9_./-]+\`" -- '*.md' 2>/dev/null | tr -d '`' | sort -u)
+  [ -d "$priv" ] || echo "  [note] roae-private not present: the COLLISION leg and the roae-private/ pointer leg did NOT run. Dangle leg did."
+  if [ "$rc" -eq 0 ]; then
+    echo "  [ok] $seen distinct prefixed path token(s); all resolve or are declared narration"
+    echo "       (scope: prefix-matched tokens only — NOT all slash tokens, and unprefixed strays"
+    echo "        like \`x/roae/…\`, bare \`560t_scripts/…\` or repo:path notation are invisible here)"
+  fi
   return $rc
 }
 
@@ -10162,6 +10219,7 @@ NARRATION = {
     ("solve", "--constraint-spec"):       "removed subcommand, cited in LARGE_SCALE_CAMPAIGNS",
     ("solve.py", "--compare-leaf-rates"): "removed subcommand, cited in DEVELOPMENT/HISTORY",
     ("solve", "--extended-selftest"):     "documented NON-existence; SOLVE_C_CLI.md:387 warns readers away",
+    ("solve", "--kc-repr-normalize"):     "documented NON-existence (case b); lives on an UNLANDED v4 branch that BRANCH_REGISTRY marks snapshot-do-not-cite. VERIFY.md carries a NOT-AVAILABLE box, and both invocation-form cite sites were given an inline warning 2026-08-16 so a reader entering the file at either one cannot be misled. Retire this row if the branch lands.",
 }
 
 INV = re.compile(r'(?:python3?\s+)?(?:\./)?'
@@ -10308,6 +10366,33 @@ else:
 FIG = re.compile(r"[0-9][0-9,]*[0-9]")
 REPRO_PATH = re.compile(r"`(?:bash\s+)?scripts/[a-z0-9_./-]+\.sh")
 
+# BUNDLE-LOCAL INSTRUMENTS (added 2026-08-16). reports/evidence/*/ bundles ship the script
+# that produced their figures NEXT TO the document -- f11/compute_f11_bf.py,
+# r11/r11_phase2_battery.sh, f1/f1_orbit_dp.py. Those files ARE a reproduction path, and
+# before this recognizer existed LEG 2 flagged six of them: precisely the failure this
+# gate's own header names as the one to avoid, "a [note] should mean 'this file offers the
+# reader nothing', not 'this file offers something my extractor does not recognise'".
+#
+# THE ANTI-GAMING PROPERTY IS EXISTENCE, NOT WORDING. A `**Reproduce:**` directive clears a
+# file only when the script it names is REALLY THERE, in the same directory, on disk. Writing
+# the sentence is not enough; a renamed or deleted instrument re-flags the file automatically.
+# That is deliberately stricter than the four clearing rules above, three of which (a fenced
+# block, a tests.py mention, a scripts/*.sh backtick) clear on text alone.
+#
+# STILL REPORT-ONLY. This widens what counts as cleared; it does not touch the exit code,
+# which is taken from LEG 1 alone, per this gate's header.
+REPRO_LOCAL = re.compile(r"\*\*Reproduce:?\*\*[^\n]*?`(?:python3?\s+|bash\s+)?"
+                         r"([a-z0-9_][a-z0-9_.-]*\.(?:py|sh))`")
+
+def _local_instrument(doc_path, text):
+    """A **Reproduce:** directive naming a script that EXISTS beside the document."""
+    import os
+    d = os.path.dirname(doc_path)
+    for m in REPRO_LOCAL.finditer(text):
+        if os.path.exists(os.path.join(d, m.group(1))):
+            return True
+    return False
+
 def _grouped(tok):
     """True for a comma-grouped integer: leading group 1-3 digits, every later group 3."""
     g = tok.split(",")
@@ -10325,13 +10410,14 @@ for d in docs:
     if not figs:
         continue
     if (INV.search(text) or "```" in text or REPRO_PATH.search(text)
-            or "tests.py" in text):
+            or "tests.py" in text or _local_instrument(d, text)):
         continue
     naked.append((d, figs))
 
 print("  -- LEG 2 (REPORT-ONLY): a published figure whose file names no way to re-derive it --")
 print("  [note] LEG 2 read %d doc(s); %d publish a comma-grouped figure and carry no tool"
-      " invocation, no fenced block, no scripts/*.sh path and no tests.py mention"
+      " invocation, no fenced block, no scripts/*.sh path, no tests.py mention and no"
+      " **Reproduce:** directive naming a script that exists beside them"
       % (len(docs), len(naked)))
 for d, figs in naked:
     print("  [note] %s — %d figure(s), largest %s" % (d, len(figs), figs[0]))
