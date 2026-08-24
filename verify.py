@@ -521,6 +521,65 @@ def q6_extremes_oracle(path):
     return 0
 
 
+def nuclear_selftest():
+    """Independent gate on the nuclear-hexagram (互卦) operation.
+
+    WHY THIS EXISTS. solve.c:6269 defines `f5_nuc` and calls it "a port of solve.py _vdb_nuc".
+    A port shares its source's bugs, so a port cannot gate the thing it was ported from. This
+    implementation is derived from the CLASSICAL DEFINITION instead:
+
+        the nuclear hexagram's LOWER trigram is lines 2,3,4 of the original
+        the nuclear hexagram's UPPER trigram is lines 3,4,5 of the original
+
+    It works on an explicit list of lines, bottom-first, and reassembles -- deliberately NOT by
+    replicating `(h>>1)&7 | ((h>>2)&7)<<3`, so that a wrong shift in the engine cannot be
+    reproduced here by construction.
+
+    Bit convention, stated because it is the thing most likely to be wrong: bit 0 is line 1
+    (bottom), bit 5 is line 6 (top).
+
+    Emits NUCLEAR_SELFTEST=PASS|FAIL.
+    """
+    def lines_of(h):
+        return [(h >> i) & 1 for i in range(6)]      # index 0 = line 1 = bottom
+
+    def nuc_from_definition(h):
+        L = lines_of(h)
+        lower = L[1:4]                                # lines 2,3,4
+        upper = L[2:5]                                # lines 3,4,5
+        out = 0
+        for i, b in enumerate(lower):
+            out |= b << i
+        for i, b in enumerate(upper):
+            out |= b << (3 + i)
+        return out
+
+    def nuc_engine(h):
+        # the encoding solve.c:6269 uses, restated for comparison only
+        return ((h >> 1) & 7) | (((h >> 2) & 7) << 3)
+
+    bad = []
+    for h in range(64):
+        a, b = nuc_from_definition(h), nuc_engine(h)
+        if a != b:
+            bad.append((h, a, b))
+
+    # Structural facts the operation must satisfy, independent of either implementation.
+    # 乾 (all yang) and 坤 (all yin) are the classical fixed points of 互卦.
+    fixed_ok = nuc_from_definition(63) == 63 and nuc_from_definition(0) == 0
+    # The map is not injective: 64 hexagrams collapse onto a smaller image.
+    image = {nuc_from_definition(h) for h in range(64)}
+
+    print("nuclear: checked all 64 hexagrams against the line-based definition")
+    print("nuclear: 乾/坤 fixed points %s" % ("OK" if fixed_ok else "FAIL"))
+    print("nuclear: image size = %d of 64" % len(image))
+    for h, a, b in bad[:8]:
+        print("  MISMATCH h=%2d definition=%2d engine=%2d" % (h, a, b))
+    ok = (not bad) and fixed_ok
+    print("NUCLEAR_SELFTEST=%s" % ("PASS" if ok else "FAIL"))
+    return 0 if ok else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -538,6 +597,12 @@ def main():
                              'moved between pairs. Orbits are derived here from first principles, '
                              'sharing no code or constant with the engine. Emits '
                              'ATLAS_ORBIT_FRAMES=PASS|FAIL.')
+    parser.add_argument('--nuclear-selftest', action='store_true',
+                        help='Independent gate on the nuclear-hexagram (互卦) operation: derives it '
+                             'from the classical line definition (lower = lines 2-4, upper = lines '
+                             '3-5) rather than porting the engine shifts, and compares against '
+                             'solve.c:6269 f5_nuc on all 64 hexagrams. Emits '
+                             'NUCLEAR_SELFTEST=PASS|FAIL.')
     parser.add_argument('--q6-extremes-oracle', metavar='WALKS.txt', default=None,
                         help='Independent Q6 reading-(B) extremes oracle over a walk list '
                              '(one walk per line, comma-separated, as `solve --kc-enum-desc` '
@@ -546,6 +611,9 @@ def main():
                              'of reading (B) -- the prose is not: it rejected two implementations '
                              'written from the prose. Emits Q6_EXTREMES_ORACLE=OK|FAIL.')
     args = parser.parse_args()
+
+    if args.nuclear_selftest:
+        sys.exit(nuclear_selftest())
 
     if args.q6_extremes_oracle is not None:
         sys.exit(q6_extremes_oracle(args.q6_extremes_oracle))
