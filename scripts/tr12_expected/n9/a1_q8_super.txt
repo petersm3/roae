@@ -400,4 +400,4 @@ record	m=128	32,1,4,8,2,16,31,62,61,47,55,59,51,12,33,30,18,45
 record	m=64	12,51,18,45,61,47,55,59,32,1,2,16,4,8,31,62,30,33
 25111	cd=39	2,16,31,62,59,55,47,61,4,8,1,32,33,30,18,45,12,51
 record	m=64	2,16,31,62,55,59,61,47,4,8,32,1,33,30,18,45,12,51
-#provenance	engine=solve.c/kc	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	convention=V4_CONVENTION_FREEZE_RECONCILED_2026_07_14(repr=orient-lex-min,slot-0-only)	validity=C1C2C4C5-SUPERSPACE(C3-UNFILTERED;NOT-the-ratified-C1-C5-repr(k))
+#provenance	engine=solve.c/kc	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	convention=V4_CONVENTION_FREEZE_RECONCILED_2026_07_14(repr=orient-lex-min,slot-0-only)	validity=C1C2C4C5-SUPERSPACE(C3-UNFILTERED;NOT-the-ratified-C1-C5-repr(k))

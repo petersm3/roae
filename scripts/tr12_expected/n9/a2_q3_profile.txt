@@ -57,6 +57,6 @@ step	pair	entry	exit	orient	dclass	alts	f	g	g_parent	p_num	p_den	bits	g_alt_min	
 #alt	step=8	pair=30	entry=12	exit=51	orient=1	dclass=4	g=1	rank=4
 #alt	step=9	pair=30	entry=12	exit=51	orient=1	dclass=2	g=1	rank=1
 #profile-summary	n=9	N=26112	g(s_0)=N VERIFIED	g(s_n)=1 VERIFIED	flow_identities=9/9	sum_bits=14.672425	log2N=14.672425
-#provenance	engine=solve.c/kc-profile	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE-WALK-PATH	object=WALK	space=C1C2C4C5-SUPERSPACE	p_i=exact-rational(p_num/p_den);bits=display-only	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-profile	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE-WALK-PATH	object=WALK	space=C1C2C4C5-SUPERSPACE	p_i=exact-rational(p_num/p_den);bits=display-only	semantics=certificate-not-proof
 KC_PROFILE_PRODUCT=EXACT
 KC_PROFILE=OK

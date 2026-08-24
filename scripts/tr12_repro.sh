@@ -195,6 +195,15 @@ V3K="${TR12_V3_K:-$V3K_DEF}"
 #   git=<GIT> source_sha=<SRC>   build identity from -DGIT_HASH / -DSOURCE_SHA. Recorded
 #                         separately in the run header (BUILD block) and diffed there; a
 #                         reproducer builds from their own checkout and will differ.
+#   branch=<BRANCH>       the #provenance trailer's branch field. Normalised since 2026-08-24.
+#                         It USED to be a hard-coded string literal, so diffing it verbatim was
+#                         harmless; commit 5f2b1e71 correctly made it report the branch actually
+#                         built, which makes it BUILD-ENVIRONMENT-DEPENDENT. The published build
+#                         line in documentation/VERIFY.md defines no branch, so a stranger's
+#                         binary emits `branch=unknown` and every block carrying the trailer
+#                         mismatched -- 11 of the 13 failures on a clean checkout. Which branch a
+#                         reproducer built is not a result; git=/source_sha= already carry the
+#                         build identity, and they are normalised here for exactly this reason.
 #   <T>s / <T> us / <T> MB       wall-clock timings and derived rates.
 #   peak_rss_mb=<RSS>            resident-set high-water mark (machine-dependent).
 # ================================================================================================
@@ -216,6 +225,7 @@ norm(){
         -e 's#"git_hash": "[^"]*"#"git_hash": "<GIT>"#g' \
         -e 's#source_sha=[0-9A-Za-z._-]*#source_sha=<SRC>#g' \
         -e 's#git=[0-9A-Za-z._-]*#git=<GIT>#g' \
+        -e 's#branch=[0-9A-Za-z._/-]*#branch=<BRANCH>#g' \
         -e 's#elapsed=[0-9.]*s#elapsed=<T>s#g' \
         -e 's#build_s=[0-9.]*#build_s=<T>#g' \
         -e 's#peak_rss_mb=[0-9.]*#peak_rss_mb=<RSS>#g' \
@@ -866,10 +876,20 @@ row_begin b_scan_selftest
 row_end TR12_SCAN_SELFTEST $rc
 
 if [ "$HAVE_T" -eq 1 ]; then
+    # ---- B.0  the t-layer decompressed-stream shas, before trusting any t-derived number ------
+    # The f ladder is pinned by a1_fsha and the g ladder by a2_gsha; without this row the THIRD
+    # ladder -- the one Stage T exists to produce -- was the only one whose bytes nothing pinned.
+    # sha256 is taken over the DECOMPRESSED stream, so a different zlib level or version changes
+    # the file without changing this value: the gate tracks the mathematics, not the container.
+    row_begin b_tsha
+    ( "$SOLVE" --f1c5-layer-sha "$TDIR" ) >>"$RAW" 2>&1; rc=$?
+    row_end TR12_TSHA $rc
+
     row_begin b_tcheck
     ( "$SOLVE" --kc-t-check "$FDIR" "$TDIR" ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_TCHECK $rc
 else
+    row_skip b_tsha TR12_TSHA "SKIP:no-tdir" "no TDIR given — the t-ladder's per-layer shas cannot be taken"
     row_skip b_tcheck TR12_TCHECK "SKIP:no-tdir" "no TDIR given — the t-ladder is REQUIRED for the Exhaustion Atlas and every per-branch number (TR-12 §R.0)"
 fi
 

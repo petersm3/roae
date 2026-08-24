@@ -27,7 +27,7 @@
   "semantics": "certificate, not proof"
 }
 [kc-o3-cert] certificate written: <ART>/q1_rank.json (self-verified)
-#provenance	engine=solve.c/kc-o3	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)
+#provenance	engine=solve.c/kc-o3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)
 ### certificate JSON
 {
   "type": "roae-h3b-rank-certificate",

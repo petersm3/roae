@@ -7,7 +7,7 @@
 [check-arrangement] first violation (pinned order):  NONE
 [check-arrangement] verdict SUPER (C1&C2&C4&C5):     IN
 [check-arrangement] verdict C15  (C1-C5, C3<=776):   IN
-#provenance	engine=solve.c/check-arrangement	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+#provenance	engine=solve.c/check-arrangement	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
 [check-arrangement] certificate written: <ART>/q7_kw.json
 {
   "type": "roae-arrangement-certificate",

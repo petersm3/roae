@@ -2,5 +2,5 @@
 [f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
 [kc] enumerated 1 walk(s) (C3 in-path) (descending)
 4,8,2,16,55,59,31,62,47,61,1,32,33,30,18,45,12,51
-#provenance	engine=solve.c/kc-enum-desc	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=REL-DESCENDING(reverse-exit-lex,descending;NOT-O3)	object=WALK	space=C1C2C4C5+walk-cd<=T
+#provenance	engine=solve.c/kc-enum-desc	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=REL-DESCENDING(reverse-exit-lex,descending;NOT-O3)	object=WALK	space=C1C2C4C5+walk-cd<=T
 KC_ENUM_DESC=OK

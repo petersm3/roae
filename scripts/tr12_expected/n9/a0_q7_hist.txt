@@ -8,7 +8,7 @@
 [check-arrangement] first violation (pinned order):  C1
 [check-arrangement] verdict SUPER (C1&C2&C4&C5):     OUT
 [check-arrangement] verdict C15  (C1-C5, C3<=776):   OUT
-#provenance	engine=solve.c/check-arrangement	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+#provenance	engine=solve.c/check-arrangement	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
 [check-arrangement] certificate written: <ART>/q7_mawangdui.json
 ### _r7_mawangdui checker_rc=1
 ### _r7_fuxi
@@ -21,7 +21,7 @@
 [check-arrangement] first violation (pinned order):  C1
 [check-arrangement] verdict SUPER (C1&C2&C4&C5):     OUT
 [check-arrangement] verdict C15  (C1-C5, C3<=776):   OUT
-#provenance	engine=solve.c/check-arrangement	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+#provenance	engine=solve.c/check-arrangement	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
 [check-arrangement] certificate written: <ART>/q7_fuxi.json
 ### _r7_fuxi checker_rc=1
 ### _r7_jingfang
@@ -34,6 +34,6 @@
 [check-arrangement] first violation (pinned order):  C1
 [check-arrangement] verdict SUPER (C1&C2&C4&C5):     OUT
 [check-arrangement] verdict C15  (C1-C5, C3<=776):   OUT
-#provenance	engine=solve.c/check-arrangement	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+#provenance	engine=solve.c/check-arrangement	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
 [check-arrangement] certificate written: <ART>/q7_jingfang.json
 ### _r7_jingfang checker_rc=1

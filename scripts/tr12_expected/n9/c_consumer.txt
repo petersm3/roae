@@ -21,7 +21,8 @@
 [atlas-consumer] brute force: branch table covers every enumerated branch       PASS
 [atlas-consumer] Q3: reader-side prod(p_i) == 1/N in exact big-int rationals    PASS
 [atlas-consumer] Q3: verdict tokens emitted                                     PASS
-[atlas-consumer] 23 gate(s) run, 0 failure(s)
+[atlas-consumer] A-5: one raw marginal column per WHOLE pair-orbit (9 pair(s) -> 3 column(s), group sizes [3, 3, 3]) PASS
+[atlas-consumer] 24 gate(s) run, 0 failure(s)
 ATLAS_CONSUMER=PASS
 [atlas] wrote <ART>/consumer/q3_profile.tsv
 [atlas] wrote <ART>/consumer/scan/v1_field.tsv

@@ -21,7 +21,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=2	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:1	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:1	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:1 max rc=0
 ### dclass:1 min
@@ -34,7 +34,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=2	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:1	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:1	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:1 min rc=0
 ### dclass:2 max
@@ -47,7 +47,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=5	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:2	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:2	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:2 max rc=0
 ### dclass:2 min
@@ -60,7 +60,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=5	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:2	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:2	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:2 min rc=0
 ### dclass:3 max
@@ -73,7 +73,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=0	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:3	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:3 max rc=0
 ### dclass:3 min
@@ -86,7 +86,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=0	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:3	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:3 min rc=0
 ### dclass:4 max
@@ -99,7 +99,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=2	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:4	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:4	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:4 max rc=0
 ### dclass:4 min
@@ -112,7 +112,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=2	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:4	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:4	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:4 min rc=0
 ### dclass:6 max
@@ -125,7 +125,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=0	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:6	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:6	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:6 max rc=0
 ### dclass:6 min
@@ -138,7 +138,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=0	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=dclass:6	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=dclass:6	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### dclass:6 min rc=0
 ### linechanges max
@@ -151,7 +151,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=20	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=linechanges	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=linechanges	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### linechanges max rc=0
 ### linechanges min
@@ -164,7 +164,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=20	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=linechanges	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=linechanges	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### linechanges min rc=0
 ### graycode max
@@ -177,7 +177,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=2	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=graycode	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=graycode	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### graycode max rc=0
 ### graycode min
@@ -190,7 +190,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
 witness_value=2	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=graycode	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=graycode	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### graycode min rc=0
 ### yangcount max
@@ -203,7 +203,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,55,59,47,61,62,31,1,32,33,30,18,45,12,51
 witness_value=30	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=yangcount	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=yangcount	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### yangcount max rc=0
 ### yangcount min
@@ -216,7 +216,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=30,33,1,32,16,2,8,4,55,59,62,31,47,61,45,18,51,12
 witness_value=24	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=yangcount	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=yangcount	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### yangcount min rc=0
 ### entryyang max
@@ -229,7 +229,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=30,33,1,32,16,2,8,4,55,59,62,31,47,61,45,18,51,12
 witness_value=30	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=entryyang	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=entryyang	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### entryyang max rc=0
 ### entryyang min
@@ -242,7 +242,7 @@ KC_EXTREMAL_NULL_VS_G=CONSISTENT
 witness=16,2,8,4,55,59,47,61,62,31,1,32,33,30,18,45,12,51
 witness_value=24	witness_member=MEMBER
 KC_EXTREMAL_WITNESS=VERIFIED
-#provenance	engine=solve.c/kc-extremal	func=entryyang	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=entryyang	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
 KC_EXTREMAL=OK
 ### entryyang min rc=0
 ### posyang0 max
@@ -258,7 +258,7 @@ ERROR: [kc-extremal] 'posyang0' is NOT invariant under the orbit-quotient frame
 functional=posyang0	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
 KC_EXTREMAL_INVARIANT=no
 #invariance-counterexample	g=1	step=1	last=0	entry=16	exit=2	w=0	w_mapped=1
-#provenance	engine=solve.c/kc-extremal	func=posyang0	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	space=C1C2C4C5-SUPERSPACE	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=posyang0	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	space=C1C2C4C5-SUPERSPACE	semantics=certificate-not-proof
 KC_EXTREMAL=FAIL
 ### posyang0 max rc=1
 ### posyang0 min
@@ -274,6 +274,6 @@ ERROR: [kc-extremal] 'posyang0' is NOT invariant under the orbit-quotient frame
 functional=posyang0	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
 KC_EXTREMAL_INVARIANT=no
 #invariance-counterexample	g=1	step=1	last=0	entry=16	exit=2	w=0	w_mapped=1
-#provenance	engine=solve.c/kc-extremal	func=posyang0	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	space=C1C2C4C5-SUPERSPACE	semantics=certificate-not-proof
+#provenance	engine=solve.c/kc-extremal	func=posyang0	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	space=C1C2C4C5-SUPERSPACE	semantics=certificate-not-proof
 KC_EXTREMAL=FAIL
 ### posyang0 min rc=1

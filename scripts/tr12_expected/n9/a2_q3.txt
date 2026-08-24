@@ -19,4 +19,4 @@ class	m=128	orient_idx=96	class_first_rank3=12960	(records are orientation-maske
 [kc-o3-bracket] O3(w[r-1]) < O3(w[r]): STRICT OK (first divergence: slot 2 (orient tiebreak 0 vs 1; SAME class))
 [kc-o3-bracket] O3(w[r]) < O3(w[r+1]): STRICT OK (first divergence: slot 8 (orient tiebreak 0 vs 1; SAME class))
 [kc-o3-bracket] rank3 roundtrips + strict order: CERTIFICATE PASS
-#provenance	engine=solve.c/kc-o3	branch=v4-compiler	git=<GIT>	source_sha=<SRC>	n=9	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)
+#provenance	engine=solve.c/kc-o3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)

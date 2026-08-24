@@ -48,6 +48,7 @@
     {"global_pair": 30, "entry": 12, "exit": 51, "solutions": "3072", "prefixes_t_units": "32989", "t_source": "t-ladder", "walks": 3072},
     {"global_pair": 30, "entry": 51, "exit": 12, "solutions": "896", "prefixes_t_units": "11067", "t_source": "t-ladder", "walks": 896}
   ],
+  "fmass": ["1", "12", "96", "660", "3624", "13956", "36888", "68352", "80160", "26112"],
   "t_root_t_units": "229861",
   "t_units_note": "t(s) = 1 + sum_c t(s.c): pruned-DFS search-tree size in VALID-PREFIX units; the mapping to SOLVE_NODE_LIMIT node-counter semantics is the separate XA(iii) convention certificate (--kc-t-cert / W0-D) — NOT claimed here",
   "gates": {"per_layer_flow_eq_N": true, "raw_marginal_sums_eq_N": true, "branch_masses_sum_eq_N": true, "fails": 0},
