@@ -203,7 +203,7 @@ numbers themselves are unchanged and correct). Steps 0–1 count raw orientation
 (steps 2–4 are fractions of step 1). Step 5's budgeted counts are **orientation-deduplicated canonical
 records** — one record per canonical pair-sequence, orientation variants collapsed
 ([SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Deduplication) — while its ≈1.3×10³⁸ layer estimate is
-**raw** (orientation-explicit; ≈3.3×10³⁷ after ~4× orientation-dedup —
+**raw** (orientation-explicit; ≈3.3×10³⁷ after ~4× orientation-dedup — ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)), so the two conventions sit in one cell and should not be
 divided into each other without converting ([VERIFY.md](VERIFY.md) `--fiber-sweep` is the exact
 converter).*

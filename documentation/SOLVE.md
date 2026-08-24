@@ -620,7 +620,7 @@ Current canonical reference counts under the v1 format with the corrected solver
 
 The difference is a partition-dependent sampling effect at the same 10T total budget, not a constraint difference. Under exhaustive enumeration both partitions would converge to the same count.
 
-- **Upper bound on true exhaustive count**: an unbiased Monte-Carlo (Knuth random-probe) estimate now puts the total C1–C5 space at ≈10³⁸ (≈3×10³⁷ distinct-canonical) — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). The earlier ≥ 1B lower bound is now far exceeded by this estimate. (Estimate, not a proven count.)
+- **Upper bound on true exhaustive count**: an unbiased Monte-Carlo (Knuth random-probe) estimate now puts the total C1–C5 space at ≈10³⁸ (≈3×10³⁷ distinct-canonical) — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). The earlier ≥ 1B lower bound is now far exceeded by this estimate. (Estimate, not a proven count.) ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 - **Reproducibility**: **partition-invariant** under the formal theorem (see [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)): same partition + same solver + same node budget → byte-identical solutions.bin regardless of hardware, region, or number of shard-merge passes. Confirmed empirically across Phase B external merge, Phase C fresh re-enumeration, and today's in-memory heap-sort merge.
 - **Invalidated earlier figures**: the 31.6M (filename collision bug) and 742M (hash-probe-cap bug) counts do NOT appear in any current canonical artifact. They are historical only.
 

@@ -1214,3 +1214,61 @@ silence — which is why it is named here at all.
   hedge is why the correction was findable at all.
 
 ---
+
+## 2026-08-24 — the "≈3×10³⁷ distinct canonical orderings" figure is WITHDRAWN
+
+**What was published.** `SEARCH_SPACE_SIZE.md` reported `— distinct canonical (after ~4×
+orientation-dedup) | ≈3.3×10³⁷`, and the figure propagated into `README.md`, `METHODS.md`,
+`CRITIQUE.md`, `PROJECT_OVERVIEW.md`, `CANONICAL_HASHES.md`, `SOLVE_SUMMARY.md`,
+`BRANCHES_EXPLAINED.md`, `SOLVE.md`, `HISTORY.md` and `TR-4` — nineteen sites in all, several of
+them as the denominator of a "≈1 part in 10²⁷ of the space" coverage claim.
+
+**Why it is wrong, in one line.** The deduplicated object is a **pair ordering**. C4 pins one pair,
+leaving 31 to order, so there are **at most 31! ≈ 8.2228×10³³** of them. **The published figure
+exceeds its own combinatorial ceiling by a factor of ~4,013.** A count of a subset of a set of size
+31! cannot exceed 31!. No estimator, sampling argument or distributional assumption is involved.
+
+**The mechanism.** The figure divided the raw estimate by a **uniform ~4× orientation-dedup factor**
+that does not exist. A within-pair flip changes the cycle structure and the sign, so most
+orientations of a valid ordering are invalid (`solve.c:6564`). Two of this project's own
+measurements of that ratio disagree by an order of magnitude — **42.2** mean variants per ordering
+at a 10⁹-node search (`SOLVE.md`), versus **4.17×** at 560T (`CAMPAIGN_METHODOLOGY.md`). **Both are
+artefacts of truncation**: a budgeted search visits only part of each class's orientation fibre, so
+the observed ratio is a property of the *budget*, not of the space, and must never be extrapolated.
+The correct quantity is `Σ 1/m([x])` over raw valid walks, and **E[1/m] ≠ 1/E[m]** — dividing by any
+mean multiplicity is a Jensen error on top of the extrapolation.
+
+**What replaces it.** Bounds, both ends exact:
+
+> distinct canonical ∈ **[1.0525×10¹⁰ enumerated at 560T, 8.2228×10³³ = 31!]**
+> implied true dedup factor **≥ 1.62×10⁴** — consistent with King Wen's own measured orientation
+> fibre of **1,720,320**, and irreconcilable with `~4×`
+
+**No point estimate is offered**, because `E[1/m]` has never been measured and the deduplication path
+discards per-class multiplicities. **A stated absence is preferable to a repaired guess.**
+
+**What survives, and it is most of it.** The coverage claim is **correct raw-against-raw** and has
+been relabelled as such: 560T's **4.3876×10¹⁰ raw** records against the **1.3287×10³⁸ raw**
+Monte-Carlo estimate is **≈1 part in 3.03×10²⁷**. Only the distinct-against-distinct pairing was
+wrong; corrected it is ≈1 part in **7.81×10²³** — about **3,500× more coverage than was claimed**, so
+the error understated the enumeration rather than overstating it. **The qualitative verdict —
+exhaustion is infeasible at any conceivable budget — survives with 23 orders of magnitude to
+spare.** The exact **|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688** (published 2026-07-16) is
+unaffected, as is the raw `1.3287×10³⁸` estimate.
+
+**How it was found — external attribution.** An **OpenAI Codex** review (target `A02` of a
+cross-model review programme, 2026-08-23/24) was asked to derive the space arithmetic independently
+and compare. It attacked the uniform dedup factor **without being told this project already
+suspected the figure**, arriving at the same conclusion by a different route. A subsequent audit
+found **no derivation of the ≈3×10³⁷ figure anywhere in the project's private records either** — a
+third, independent reason to withdraw rather than repair it. Codex is **acknowledged**, not credited
+as an author.
+
+**The lesson worth more than the arithmetic.** The figure was suspected internally on **2026-07-30**
+and the internal note recorded *"we have **not** applied any fix."* It stayed published for
+**twenty-five days**. The delay between knowing and acting is the more useful finding here.
+
+**Correction-record lines deliberately left unmarked**, because marking them would corrupt the
+record of earlier corrections: `CORRECTIONS_INVENTORY.tsv:584`, `CITATIONS.md:87`,
+`SOLVE_SUMMARY.md:147` and `:180`.
+
