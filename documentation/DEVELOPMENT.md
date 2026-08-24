@@ -713,6 +713,7 @@ gcc -O3 -g -march=native -flto -pthread -fopenmp \
     -Wl,--build-id=sha256 \
     -ffile-prefix-map="$(pwd)=." \
     -fdebug-prefix-map="$(pwd)=." \
+    -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" \
     -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" \
     solve.c -lm -lz -o solve
 ```

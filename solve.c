@@ -336,6 +336,15 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 
+/* GIT_BRANCH — the branch the binary was BUILT from. This was hardcoded "v4-compiler" at all
+ * 11 provenance sites. That literal outlived the branch: --kc-scan runs from v4-query-program,
+ * so every artifact the query program emitted misattributed its own origin — precisely the
+ * failure the provenance trailer exists to prevent. Pass
+ * -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" at build; falls back like GIT_HASH. */
+#ifndef GIT_BRANCH
+#define GIT_BRANCH "unknown"
+#endif
+
 #ifndef GIT_HASH
 #define GIT_HASH "unknown"
 #endif
@@ -20241,11 +20250,11 @@ static void kc_print_walk(const KC *kc, const uint8_t *E, FILE *f) {
  * selftest/enum/count or any enumeration-path code, so --selftest
  * sha-neutrality is untouched. */
 static void kc_provenance_trailer(const KC *kc, long long c3max) {
-    printf("#provenance\tengine=solve.c/kc\tbranch=v4-compiler\tgit=%s\t"
+    printf("#provenance\tengine=solve.c/kc\tbranch=%s\tgit=%s\t"
            "source_sha=%s\tn=%d\t"
            "convention=V4_CONVENTION_FREEZE_RECONCILED_2026_07_14"
            "(repr=orient-lex-min,slot-0-only)\t",
-           GIT_HASH, SOURCE_SHA, kc->n);
+           GIT_BRANCH, GIT_HASH, SOURCE_SHA, kc->n);
     if (c3max >= 0)
         printf("validity=C1C2C4C5+walk-cd<=%lld%s\n", c3max,
                (kc->n == 31 && c3max == 387)
@@ -20870,13 +20879,13 @@ static int kc_o3_bracket(KcO3 *o3, const F1U192 *rank, int verbose) {
 
 /* provenance trailer for O3 output (order/object/space labels, H3b ruling) */
 static void kc_o3_trailer(const KC *kc) {
-    printf("#provenance\tengine=solve.c/kc-o3\tbranch=v4-compiler\tgit=%s\t"
+    printf("#provenance\tengine=solve.c/kc-o3\tbranch=%s\tgit=%s\t"
            "source_sha=%s\tn=%d\t"
            "order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)\t"
            "object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;"
            "class-block=[class_first_rank3,+m))\t"
            "space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)\n",
-           GIT_HASH, SOURCE_SHA, kc->n);
+           GIT_BRANCH, GIT_HASH, SOURCE_SHA, kc->n);
 }
 
 /* --kc-o3-rank / --kc-o3-unrank driver */
@@ -21680,10 +21689,10 @@ static int kc_check_arrangement_main(int argc, char *argv[]) {
            r.in_super ? "IN" : "OUT");
     printf("[check-arrangement] verdict C15  (C1-C5, C3<=776):   %s\n",
            r.in_c15 ? "IN" : "OUT");
-    printf("#provenance\tengine=solve.c/check-arrangement\tbranch=v4-compiler\tgit=%s\t"
+    printf("#provenance\tengine=solve.c/check-arrangement\tbranch=%s\tgit=%s\t"
            "source_sha=%s\tsemantics=independent-first-principles(C1..C5;"
            "SPECIFICATION.md,verify.py-diffable)\tcertificate-not-proof\n",
-           GIT_HASH, SOURCE_SHA);
+           GIT_BRANCH, GIT_HASH, SOURCE_SHA);
     if (cert_out) {
         FILE *f = fopen(cert_out, "w");
         if (!f) { fprintf(stderr, "ERROR: [check-arrangement] cannot write %s\n", cert_out); return 2; }
@@ -22301,9 +22310,9 @@ static int kc_oracle_main(int argc, char *argv[]) {
         }
     }
     printf("[kc-oracle] VERDICT: %s\n", pass ? "PASS" : "FAIL");
-    printf("#provenance\tengine=solve.c/kc-oracle\tbranch=v4-compiler\tgit=%s\tsource_sha=%s\t"
+    printf("#provenance\tengine=solve.c/kc-oracle\tbranch=%s\tgit=%s\tsource_sha=%s\t"
            "n=%d\tmembership=H1(f-ladder)\tspace=%s\tcertificate-not-proof\n",
-           GIT_HASH, SOURCE_SHA, kc->n,
+           GIT_BRANCH, GIT_HASH, SOURCE_SHA, kc->n,
            o.c3max >= 0 ? "SUPER+C15-conformance-tally" : "C1C2C4C5-SUPERSPACE");
     if (cert_out) {
         FILE *f = fopen(cert_out, "w");
@@ -22946,9 +22955,9 @@ static int kc_ladder_verify_main(int argc, char *argv[]) {
     }
     const int r = kc_h_ladder_verify(fdir, gdir, force_ooc, cache_mb, 0);
     if (r < 0) return 2;
-    printf("#provenance\tengine=solve.c/kc-ladder-verify\tbranch=v4-compiler\tgit=%s\t"
+    printf("#provenance\tengine=solve.c/kc-ladder-verify\tbranch=%s\tgit=%s\t"
            "source_sha=%s\tdigest=f1c5_layer_sha_hex(decompressed-stream)\t"
-           "certificate-not-proof\n", GIT_HASH, SOURCE_SHA);
+           "certificate-not-proof\n", GIT_BRANCH, GIT_HASH, SOURCE_SHA);
     return r ? 1 : 0;
 }
 
@@ -23629,9 +23638,9 @@ static int kc_verify_certificate_main(int argc, char *argv[]) {
             printf("[verify-certificate] mutation battery: %s (%d uncaught)\n",
                    uncaught ? "FAIL — VERIFIER VACUOUS" : "ALL CAUGHT", uncaught);
     }
-    printf("#provenance\tengine=solve.c/verify-certificate\tbranch=v4-compiler\tgit=%s\t"
+    printf("#provenance\tengine=solve.c/verify-certificate\tbranch=%s\tgit=%s\t"
            "source_sha=%s\tsemantics=fail-closed-per-check;certificate-not-proof\n",
-           GIT_HASH, SOURCE_SHA);
+           GIT_BRANCH, GIT_HASH, SOURCE_SHA);
     return (fails == 0 && uncaught == 0) ? 0 : 1;
 }
 
@@ -25342,11 +25351,11 @@ static int kc_profile_main(int argc, char *argv[]) {
                    P->gn_ok ? "VERIFIED" : "FAILED", P->flow_n, P->n,
                    P->sum_bits, log2(kc_u192_to_d(&P->N)));
         }
-        printf("#provenance\tengine=solve.c/kc-profile\tbranch=v4-compiler\tgit=%s\t"
+        printf("#provenance\tengine=solve.c/kc-profile\tbranch=%s\tgit=%s\t"
                "source_sha=%s\tn=%d\torder=NATIVE-WALK-PATH\tobject=WALK\t"
                "space=C1C2C4C5-SUPERSPACE\tp_i=exact-rational(p_num/p_den);"
                "bits=display-only\tsemantics=certificate-not-proof\n",
-               GIT_HASH, SOURCE_SHA, P->n);
+               GIT_BRANCH, GIT_HASH, SOURCE_SHA, P->n);
         printf("KC_PROFILE_PRODUCT=%s\n", P->product_exact ? "EXACT" : "MISMATCH");
         if (!P->product_exact) rc = 1;
         printf("KC_PROFILE=%s\n", rc == 0 ? "OK" : "FAIL");
@@ -25855,9 +25864,9 @@ static int kc_ar2_main(const char *fdir, const char *gdir, const char *arg,
     const int fails = kc_h_ar2_run(fkc, gkc, W, have_walk, 0);
     printf("[kc-ar2] VERDICT: %s (%d failure%s)\n", fails ? "FAIL" : "PASS",
            fails, fails == 1 ? "" : "s");
-    printf("#provenance\tengine=solve.c/kc-ar2\tbranch=v4-compiler\tgit=%s\tsource_sha=%s\t"
+    printf("#provenance\tengine=solve.c/kc-ar2\tbranch=%s\tgit=%s\tsource_sha=%s\t"
            "n=%d\torder=O3\tobject=WALK\tspace=C1C2C4C5-SUPERSPACE\t"
-           "certificate-not-proof\n", GIT_HASH, SOURCE_SHA, fkc->n);
+           "certificate-not-proof\n", GIT_BRANCH, GIT_HASH, SOURCE_SHA, fkc->n);
     kc_free(fkc);
     kc_free(gkc);
     free(fkc);
@@ -28281,9 +28290,9 @@ static int kc_extremal_main(int argc, char *argv[]) {
             "       non-invariant functional needs the plain unquotiented DP, which is\n"
             "       memory-infeasible at full-31 and is DEFERRED.\n",
             F->name, cx.g, cx.step, cx.last, cx.entry, cx.exitx, cx.wa, cx.wb);
-        printf("#provenance\tengine=solve.c/kc-extremal\tfunc=%s\tbranch=v4-compiler\t"
+        printf("#provenance\tengine=solve.c/kc-extremal\tfunc=%s\tbranch=%s\t"
                "git=%s\tsource_sha=%s\tspace=C1C2C4C5-SUPERSPACE\t"
-               "semantics=certificate-not-proof\n", F->name, GIT_HASH, SOURCE_SHA);
+               "semantics=certificate-not-proof\n", F->name, GIT_BRANCH, GIT_HASH, SOURCE_SHA);
         if (jout)
             kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 0, 0, 0, NULL, 0, 0, 0, 0);
         printf("KC_EXTREMAL=FAIL\n");
@@ -28354,11 +28363,11 @@ static int kc_extremal_main(int argc, char *argv[]) {
         printf("KC_EXTREMAL_WITNESS=%s\n", wverified ? "VERIFIED" : "FAILED");
         if (!wverified) rc = 1;
     }
-    printf("#provenance\tengine=solve.c/kc-extremal\tfunc=%s\tbranch=v4-compiler\t"
+    printf("#provenance\tengine=solve.c/kc-extremal\tfunc=%s\tbranch=%s\t"
            "git=%s\tsource_sha=%s\tn=%d\torder=NATIVE\tobject=WALK\t"
            "space=C1C2C4C5-SUPERSPACE\tscope=in-memory-v1(n<=%d)\t"
            "semantics=certificate-not-proof\n",
-           F->name, GIT_HASH, SOURCE_SHA, fkc->n, KC_MEM_MAX_PAIRS);
+           F->name, GIT_BRANCH, GIT_HASH, SOURCE_SHA, fkc->n, KC_MEM_MAX_PAIRS);
     if (jout)
         kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 1, value, is_const,
                         E, have_w, wval, wmember, wverified);
@@ -29045,10 +29054,10 @@ static int kc_cli(int argc, char *argv[]) {
                 (unsigned long long)emitted, c3max >= 0 ? " (C3 in-path)" : "",
                 desc ? " (descending)" : "");
         if (desc) {
-            printf("#provenance\tengine=solve.c/kc-enum-desc\tbranch=v4-compiler\t"
+            printf("#provenance\tengine=solve.c/kc-enum-desc\tbranch=%s\t"
                    "git=%s\tsource_sha=%s\tn=%d\torder=REL-DESCENDING"
                    "(reverse-exit-lex,descending;NOT-O3)\tobject=WALK\tspace=%s\n",
-                   GIT_HASH, SOURCE_SHA, kc->n,
+                   GIT_BRANCH, GIT_HASH, SOURCE_SHA, kc->n,
                    c3max >= 0 ? "C1C2C4C5+walk-cd<=T" : "C1C2C4C5-SUPERSPACE");
             printf("KC_ENUM_DESC=OK\n");
         }
