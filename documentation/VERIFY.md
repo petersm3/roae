@@ -122,6 +122,44 @@ would then pass a broken build. Each gate's `return fails ? 1 : 0` is the contra
 break one deliberately (corrupt a byte in a built ladder, or pass a mismatched `FDIR`/`GDIR`
 pair), confirm the non-zero exit, restore, and confirm zero. The n=9 universe makes this free.
 
+### Every published EXACT count — the command that produces it
+
+**No exact count is published in this project without the command that reproduces it.** Three of the
+four are reproducible on any laptop in under a second; the fourth is not, and that is stated rather
+than hidden.
+
+| n | exact count | reproduce | build | count |
+|--:|---|---|--:|--:|
+| 9 | `26112` | `solve --kc-build D --f1-pairs 9 && solve --kc-count D` | 170 ms | 9 ms |
+| 13 | `2063395607040` | `solve --kc-build D --f1-pairs 13 && solve --kc-count D` | 352 ms | 9 ms |
+| 16 | `267765117419520` | `solve --kc-build D --f1-pairs 16 && solve --kc-count D` | 753 ms | 15 ms |
+| **31** | **`1097051278789181790036112071176579186688`** | `solve --kc-count FDIR` against a **completed Stage F ladder** | ⚠ see below | 10.3 s |
+
+*(measured on a 2-vCPU D2as_v6; ladder sizes 156 KB / 1.6 MB / 12 MB)*
+
+**Independent checks anyone can run on all four, with no ladder at all:**
+```bash
+python3 -c "N=1097051278789181790036112071176579186688; print('N mod 24 =', N % 24)"   # must be 0
+```
+`24 | N` is forced by the TR-5 automorphism theorem. It is an **external** constraint — the count had
+no obligation to satisfy it, so it is evidence rather than a restatement. All four counts pass.
+
+⚠ **The n=31 count is NOT laptop-reproducible, and the honest statement is that reproducing it means
+rebuilding the ladder.** `--kc-count` itself is a 10-second manifest-and-total read, but its input is
+a ~2.6 TB retained-layer ladder produced by the Stage F campaign over weeks of cloud compute. What a
+reader CAN do without that:
+- **Run the identical code path at n=9/13/16** (above) — same builder, same reader, same arithmetic;
+- **check `N mod 24 == 0`** (one line, no data);
+- **compare against the independent Monte-Carlo estimate** `1.0971×10³⁹` published in
+  `SEARCH_SPACE_SIZE.md` — agreement is **0.0044 per cent**;
+- **check the two ladders against each other**: the forward f ladder (`--kc-count`) and the
+  **backward g ladder** (`--kc-g-build`, which prints `g0=`) are built by different recursions from
+  opposite ends and return the identical 40-digit value.
+
+**Ladder provenance for the published n=31 count** — quote these when citing it:
+`f1c5_manifest_v1`, `n=31`, `start_exit=0`, `pl_hash=da2d4756d0535d0e`, `b0=2,8,13,7,1`,
+`last_complete_k=31`.
+
 ### Stage 2 — full-31 queries against mounted ladders
 
 **Not reproducible on a laptop.** This stage needs the three on-disk ladders (f from Stage F, g,

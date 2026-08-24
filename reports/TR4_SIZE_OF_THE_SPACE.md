@@ -94,7 +94,7 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    (reverse-engineered *from* KW, guaranteeing membership, not early arrival), the per-cell decomposition
    (guaranteeing breadth), and the variable/value ordering (placing KW's one leaf inside its cell's ~3.5
    B-node budgeted frontier, out of ~10³³ leaves) — and an adversarial choice on any of them could delay or
-   miss it at a fixed budget. This changes no finding: KW is a known input verified in microseconds; all
+   miss it at a fixed budget. This changes no finding: KW is a known input verified in microseconds (**measured 2026-08-24: median 19.6 µs**, min 18.9, p95 21.4, over 2,000 runs of the full C1 + C2/C5-multiset + C3 check in `verify.py` on a 2-vCPU D2as_v6); all
    claims are relative comparisons over the enumerated set with KW held known; membership is
    order-invariant. The ≈10³⁸ estimate shows KW is **not special by being rare or hard to find** — its
    distinction is purely structural, which is exactly why the project's claims are about where KW sits in
