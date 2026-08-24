@@ -33,12 +33,18 @@ cd "$(dirname "$0")/.." || exit 2
 STAMP=scripts/tr12_expected/_GATE_STAMP.txt
 MODE=${1:-run}
 
-# The fingerprint covers exactly the four things that can invalidate a PASS: the engine, the
-# driver, the expected blocks, and THIS GATE ITSELF. Including the gate is deliberate -- a
-# weakened gate that still reports its old PASS is the silent failure this whole exercise is
-# about. The stamp is excluded or it could never be stable.
+# The fingerprint covers everything that can invalidate a PASS: the engine (solve.c), the two
+# Python files the battery CALLS as second implementations (verify.py, solve.py), the driver, the
+# expected blocks, and THIS GATE ITSELF. Including the gate is deliberate -- a weakened gate still
+# reporting its old PASS is the silent failure this whole exercise is about.
+#
+# verify.py and solve.py were MISSING from this list until 2026-08-24, found the same day by
+# landing the Q6 reading-(B) oracle INTO verify.py: the battery began depending on a file whose
+# change the gate could not see. A fingerprint is only as good as its enumeration of inputs, and
+# the way that goes wrong is a new input, not a changed one. The stamp is excluded or it could
+# never be stable.
 fingerprint(){
-  { sha256sum solve.c scripts/tr12_repro.sh scripts/tr12_repro_gate.sh 2>/dev/null
+  { sha256sum solve.c verify.py solve.py scripts/tr12_repro.sh scripts/tr12_repro_gate.sh 2>/dev/null
     find scripts/tr12_expected -type f ! -name '_GATE_STAMP.txt' -print0 2>/dev/null \
       | sort -z | xargs -0 sha256sum 2>/dev/null
   } | sha256sum | cut -d' ' -f1
@@ -54,7 +60,7 @@ if [ "$MODE" = "--check" ]; then
   if [ "$FP" = "$WANT" ]; then
     echo "TR12_REPRO_GATE_CURRENT=YES"; exit 0
   fi
-  echo "TR12_REPRO_GATE_CURRENT=NO (solve.c, tr12_repro.sh or an expected block changed since the last recorded PASS)"
+  echo "TR12_REPRO_GATE_CURRENT=NO (solve.c, verify.py, solve.py, tr12_repro.sh, this gate, or an expected block changed since the last recorded PASS)"
   exit 1
 fi
 

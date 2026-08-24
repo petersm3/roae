@@ -20,7 +20,7 @@ N should typically be set to the number of physical cores. The output
 must match --jobs 1 byte-for-byte (modulo the header line that prints
 the chosen worker count).
 """
-import sys, struct, argparse, multiprocessing, gzip, tempfile, atexit, os, shutil
+import sys, struct, argparse, multiprocessing, gzip, tempfile, atexit, os, shutil, collections
 
 KW = [
     63,  0, 17, 34, 23, 58,  2, 16, 55, 59,  7, 56, 61, 47,  4,  8,
@@ -440,6 +440,87 @@ def check_atlas_orbit_frames(path):
     return 0 if bad == 0 else 1
 
 
+def q6_extremes_oracle(path):
+    """Q6 extremes, reading (B) -- the INDEPENDENT n=9 oracle.
+
+    This function is the operational DEFINITION of reading (B). The English
+    spec sentence demonstrably is not: TWO competent implementations written
+    from the prose produced TWO DIFFERENT WRONG ANSWERS before this oracle was
+    recovered (2026-08-24), and it rejected both.
+
+    DEFINITION, as this code fixes it:
+        state  = (set of pair-ids already placed, LAST ENDPOINT of the walk)
+        choice = the UNORDERED pair placed next
+        mass   = count of raw walks through that cell (unweighted; sums to N)
+
+    Both axes matter and the spec sentence names NEITHER:
+      * drop the trailing endpoint -> k=8 collapses to 8704/8704, which is the
+        raw marginal the engine already emits. That is why the mask-only
+        readings looked plausible.
+      * key on the ORIENTED pair   -> 3072/896 ... 1728/224, which is exactly
+        what the 2026-08-24 attempt produced.
+      * k=0 agreement proves nothing: at k=0 the state is unique, so every
+        variant coincides there.
+
+    Independence: this shares no code, constant or data structure with the
+    engine's extremes path. It consumes only a list of walks -- which the
+    harness REGENERATES with `solve --kc-enum-desc` rather than committing, so
+    no multi-megabyte fixture enters the repo.
+
+    Input: one walk per line, comma-separated endpoint pairs in placement
+    order (a1,b1,a2,b2,...) -- the format `solve --kc-enum-desc` prints.
+    """
+    walks = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or not line[0].isdigit():
+                continue
+            walks.append([int(x) for x in line.split(',')])
+    if not walks:
+        print("Q6_EXTREMES_ORACLE=FAIL (no walks parsed from %s)" % path)
+        return 1
+    width = len(walks[0])
+    if any(len(w) != width for w in walks) or width % 2:
+        print("Q6_EXTREMES_ORACLE=FAIL (ragged or odd-length walk records)")
+        return 1
+    n = width // 2
+
+    pair_id = {}
+
+    def pid(a, b):
+        key = frozenset((a, b))
+        if key not in pair_id:
+            pair_id[key] = len(pair_id)
+        return pair_id[key]
+
+    mass = [collections.Counter() for _ in range(n)]
+    for w in walks:
+        placed, last = set(), None
+        for k in range(n):
+            a, b = w[2 * k], w[2 * k + 1]
+            cell = ((frozenset(placed), last), pid(a, b))
+            mass[k][cell] += 1
+            placed.add(pid(a, b))
+            last = b
+
+    total = len(walks)
+    bad = 0
+    for k, counter in enumerate(mass):
+        vals = [v for v in counter.values() if v > 0]
+        s = sum(counter.values())
+        if s != total:
+            bad += 1
+        print("k=%d\tmax=%d\tmin=%d\tcells=%d\tsum=%d"
+              % (k, max(vals), min(vals), len(vals), s))
+    if bad:
+        print("Q6_EXTREMES_ORACLE=FAIL (%d layer(s) whose cell mass does not sum to %d)"
+              % (bad, total))
+        return 1
+    print("Q6_EXTREMES_ORACLE=OK")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -457,7 +538,17 @@ def main():
                              'moved between pairs. Orbits are derived here from first principles, '
                              'sharing no code or constant with the engine. Emits '
                              'ATLAS_ORBIT_FRAMES=PASS|FAIL.')
+    parser.add_argument('--q6-extremes-oracle', metavar='WALKS.txt', default=None,
+                        help='Independent Q6 reading-(B) extremes oracle over a walk list '
+                             '(one walk per line, comma-separated, as `solve --kc-enum-desc` '
+                             'prints). state=(placed-set, LAST ENDPOINT), choice=UNORDERED pair, '
+                             'mass=unweighted raw walk count. This is the operational DEFINITION '
+                             'of reading (B) -- the prose is not: it rejected two implementations '
+                             'written from the prose. Emits Q6_EXTREMES_ORACLE=OK|FAIL.')
     args = parser.parse_args()
+
+    if args.q6_extremes_oracle is not None:
+        sys.exit(q6_extremes_oracle(args.q6_extremes_oracle))
 
     if args.check_atlas_orbit_frames is not None:
         sys.exit(check_atlas_orbit_frames(args.check_atlas_orbit_frames))
