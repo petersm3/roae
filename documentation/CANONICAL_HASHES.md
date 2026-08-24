@@ -397,7 +397,7 @@ The smallest validation reproduces in seconds (selftest). The d3 10T canonical r
 
 **Size convention (applies to every entry above):** the **File size** field is always the on-disk size *including* the 32-byte header; the record count is `(size − 32) / 32`. A merge/`--analyze` log line that reports "records × 32" (record-bytes only) is 32 bytes short of the on-disk size — that fence-post is the source of the 2026-06-14 false-corruption alarm and the 2026-07-04 100T count re-correction.
 
-Records are deduplicated at merge time by canonical form (orient-bit-masked); the reported record count equals the number of distinct canonical orderings the enumeration discovered within its budget. The full mathematical search space is much larger than any partial enumeration here (estimated at ≈3×10³⁷ distinct-canonical orderings — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)); canonicals at higher node budgets reveal more of it but cannot approach exhaustion.
+Records are deduplicated at merge time by canonical form (orient-bit-masked); the reported record count equals the number of distinct canonical orderings the enumeration discovered within its budget. The full mathematical search space is much larger than any partial enumeration here (estimated at ≈3×10³⁷ distinct-canonical orderings — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)); canonicals at higher node budgets reveal more of it but cannot approach exhaustion. ⚠ **[WITHDRAWN 2026-08-23 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 
 ## Validation status
 

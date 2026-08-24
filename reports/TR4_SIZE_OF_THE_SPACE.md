@@ -20,10 +20,10 @@ every scale where exact counts exist.
 We measure the total number of hexagram orderings satisfying constraints C1–C5 — the number every budgeted
 enumeration has only ever bounded from below — using Knuth's (1975) unbiased random-probe estimator run
 over the *exact* production search tree: **1.3287×10³⁸ raw canonical orderings (95% CI [1.3283,
-1.3292]×10³⁸, rel. error 0.02%; ≈3.3×10³⁷ after orientation-dedup)**. This is a statistical estimate, not
+1.3292]×10³⁸, rel. error 0.02%; ≈3.3×10³⁷ after orientation-dedup)**. This is a statistical estimate, not ⚠ **[WITHDRAWN 2026-08-23 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 a proven cardinality, validated to <1% against exact subtree counts on a three-rung ladder plus an
 independent 56-branch cross-sum. Three consequences follow. First, the deepest published canonical (560T;
-1.05×10¹⁰ distinct orderings) has enumerated ≈1 part in 10²⁷ of the space — exhaustion is infeasible at any
+1.05×10¹⁰ distinct orderings) has enumerated ≈1 part in 10²⁷ of the space — exhaustion is infeasible at any ⚠ **[the distinct-vs-distinct pairing is WITHDRAWN; stated raw-against-raw it is ≈1 part in 3.03×10²⁷ — see documentation/CORRECTIONS.md]**
 budget. Second, extending the walk with the spec's C6/C7 adjacency constraints **refutes the
 Uniqueness Conjecture** — our name for the strong determinism reading of the literature's
 derivation-flavored claims, and this project's own early working hypothesis; to our knowledge no author
