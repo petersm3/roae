@@ -1272,3 +1272,64 @@ and the internal note recorded *"we have **not** applied any fix."* It stayed pu
 record of earlier corrections: `CORRECTIONS_INVENTORY.tsv:584`, `CITATIONS.md:87`,
 `SOLVE_SUMMARY.md:147` and `:180`.
 
+---
+> ⚠ **Provenance note (2026-08-24).** The entry below was authored on branch
+> `v4-query-program` on 2026-08-23 and is preserved verbatim, because this ledger is
+> append-only over *every committed version* — including versions committed on a branch.
+> It describes the **same withdrawal** as the 2026-08-24 entry above, which supersedes it
+> with the full 19-site sweep and the private-records audit. **Both stay.** That two
+> divergent copies of an append-only ledger could exist at all is itself the defect
+> recorded as the branch-documentation drift.
+
+## 2026-08-23 — the "≈3×10³⁷ distinct canonical orderings" figure is WITHDRAWN
+
+**What was published.** `SEARCH_SPACE_SIZE.md` reported `— distinct canonical (after ~4×
+orientation-dedup) | ≈3.3×10³⁷`, and that figure propagated into `CRITIQUE.md`,
+`PROJECT_OVERVIEW.md` and `CANONICAL_HASHES.md` as the denominator of a "≈1 part in 10²⁷ of the
+space" coverage claim.
+
+**Why it is wrong, in one line.** The deduplicated object is a **pair ordering**. C4 pins one pair,
+leaving 31 to order, so there are **at most 31! ≈ 8.2228×10³³** of them. **The published figure
+exceeds its own combinatorial ceiling by a factor of ~4,013.** A count of a subset of a set of size
+31! cannot exceed 31!. No estimator, sampling argument or distributional assumption is involved.
+
+**The mechanism.** The figure divided the raw estimate by a **uniform ~4× orientation-dedup factor**.
+That factor is not a constant and is not an orbit size: a within-pair flip changes the cycle
+structure and the sign, so most orientations of a valid ordering are invalid. Two of this project's
+own measurements disagree by an order of magnitude — 42.2 mean variants per ordering at a 10⁹-node
+search, versus a 4.17× ratio at 560T. **Both are artefacts of truncation**: a budgeted search visits
+only part of each class's orientation fibre, so the observed ratio is a property of the budget, not
+of the space, and must never be extrapolated. The correct quantity is `Σ 1/m([x])` over raw valid
+walks, and **E[1/m] ≠ 1/E[m]** — dividing by any mean multiplicity is a Jensen error on top of the
+extrapolation.
+
+**What replaces it.** Bounds, both ends exact:
+
+> distinct canonical ∈ **[1.0525×10¹⁰ enumerated at 560T, 8.2228×10³³ = 31!]**
+> implied true dedup factor **≥ 1.62×10⁴** — consistent with King Wen's own measured orientation
+> fibre of **1,720,320**, and irreconcilable with `~4×`
+
+No point estimate is offered, because `E[1/m]` has never been measured and the deduplication path
+discards per-class multiplicities. **A stated absence is preferable to a repaired guess.**
+
+**What survives, and it is most of it.** The coverage claim is **correct raw-against-raw** and has
+been relabelled as such: 560T's **4.3876×10¹⁰ raw** records against the **1.3287×10³⁸ raw**
+Monte-Carlo estimate is **≈1 part in 3.03×10²⁷**. Only the distinct-against-distinct pairing was
+wrong; corrected, it is ≈1 part in **7.81×10²³** — about **3,500× more coverage than was claimed**,
+so the error understated the enumeration rather than overstating it. **The qualitative verdict —
+exhaustion is infeasible at any conceivable budget — survives with 23 orders of magnitude to
+spare.**
+
+**Landed in the same revision:** the exact **|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688**, which
+replaces a Monte-Carlo estimate and retires a `[COUNT — PENDING, do not cite]` placeholder that had
+stood in `HISTORY.md` while the value sat computed but unpublished. It agrees with that same Knuth
+estimator to **0.0044 per cent**, which is the reason to publish the two together: the instrument
+behind the surviving raw figure has now been checked against ground truth.
+
+**How it was found — external attribution.** An **OpenAI Codex** review (target `A02` of a
+cross-model review programme run 2026-08-23/24) was asked to derive the space arithmetic
+independently and compare. It attacked the uniform dedup factor **without being told this
+project already suspected the figure**, arriving at the same conclusion by a different route.
+Codex is **acknowledged**, not credited as an author. The ceiling argument came from re-deriving what the deduplicated
+object actually is. **The figure had been suspected internally since 2026-07-30 and no fix had been
+applied** — the delay between knowing and acting is the more useful lesson here than the arithmetic.
