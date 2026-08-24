@@ -71,6 +71,18 @@ A=$(mktemp -d); mkdir -p "$A"/f "$A"/g "$A"/t
 python3 verify.py --check-atlas-orbit-frames "$A"/atlas.json   # cross-frame gate; see below
 ```
 
+### The rest of `verify.py`'s surface
+
+Documented 2026-08-24 after GATE 2 (doc-vs-code) flagged three flags present in `verify.py` and
+absent here. One of the three, `--q6-extremes-oracle`, had been added the same day — the gate caught
+it before the push, which is the case it exists for.
+
+| flag | what it does | verdict |
+|---|---|---|
+| `--q6-extremes-oracle WALKS.txt` | The **independent Q6 reading-(B) extremes oracle**. `state = (placed-set, LAST ENDPOINT)`, `choice = the UNORDERED pair`, `mass = unweighted raw walk count`. This function **is** the operational definition of reading (B) — the English specification demonstrably is not, having produced two different wrong implementations before this oracle rejected both. Consumes a walk list (one walk per line, comma-separated, as `solve --kc-enum-desc` prints); the harness **regenerates** that list rather than committing it. Shares no code, constant or data structure with the engine's extremes path. | `Q6_EXTREMES_ORACLE=OK\|FAIL` |
+| `--enumerate-reference NPAIRS` | Independent completeness reference: brute-forces the reduced `NPAIRS`-pair problem (C1+C2+C4) **two ways** — exhaustive versus prune-as-you-go — and asserts the sets are identical. Does **not** read `solutions.bin`. `2 <= NPAIRS <= 9`. | exit status |
+| `--jobs N` | Parallel workers for the `solutions.bin` pass. Default `1`, which is single-threaded and identical to the legacy behaviour; recommended value is the physical core count. Affects speed only, never the verdict. | — |
+
 **`verify.py --check-atlas-orbit-frames ATLAS.json`** (added 2026-08-23; the gap it closes was
 identified by an **OpenAI Codex** review, target `R/T` series turn 3, which classified the n=9
 gate surface and found the quotient marginals had no independent oracle — acknowledged, not
