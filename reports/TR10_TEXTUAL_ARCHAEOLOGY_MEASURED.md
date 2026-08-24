@@ -27,7 +27,7 @@ His exact configurations are rare, but only in the way *every* exact configurati
 specific sequence is rare — rarity by construction, not evidence of design. One specific uniqueness
 claim is refuted with a concrete counterexample he did not scan for; a second candidate refutation was
 **withdrawn under our own hostile review** — his claim survives its fairest reading. Nothing promotes
-to a constraint; the ~126-bit unexplained residual ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md)) survives its second literature-guided attack.
+to a constraint; the unexplained residual of **~105–139 bits** ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md); the figure depends on which layers are granted explanatory standing — ~126.6 bits is the intermediate C1–C5 reading, not the whole range) survives its second literature-guided attack.
 
 ## Abstract
 Scott Davis, *The Classic of Changes in Cultural Context: A Textual Archaeology of the Yi jing*

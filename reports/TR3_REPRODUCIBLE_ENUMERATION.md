@@ -136,9 +136,17 @@ is an invariant, not an implementation detail: a cell's solution shard must beco
 state record that says the cell is finished, or an eviction landing between the two loses solutions
 while claiming completeness. Getting that backwards is precisely the defect described below.
 
-Durability is expensive, and the naive implementation spent most of its time waiting on it. **Batching
-the fsyncs took CPU utilisation from ~35% to ~95%** — nearly a threefold improvement in effective
-throughput, obtained by changing when data is forced to disk rather than how much work is done.
+Durability is expensive, and the naive implementation spent most of its time waiting on it —
+serialised behind a single checkpoint mutex. **Giving each thread its own checkpoint file (#108)
+took CPU utilisation from ~35% to ~95%** — nearly a threefold improvement in effective throughput,
+obtained by removing contention rather than by doing less work.
+
+⚠ **Corrected 2026-08-24.** This paragraph previously attributed the gain to *fsync batching*. That
+is wrong: fsync batching (#108b, `SOLVE_FSYNC_BATCH_SIZE`) is **opt-in and defaults to 1 — legacy
+per-write fsync, byte-identical to pre-#108b** — so it cannot produce a default-mode gain. The
+mutex elimination is the cause; see `PERFORMANCE_HISTORY.md:1174-1175`, which names #108 "the
+headline mutex elimination", and `solve.c`'s `checkpoint_mutex`. **The measured number was always
+right; only the causal story was wrong.**
 
 The defect worth dwelling on is the **eviction-resume bug**. It was found by targeted testing rather
 than observed in production, reproduced deterministically with a kill-mid-walk regression test, and
