@@ -1,0 +1,34 @@
+# DOC_GATE_REGISTRY_DUPLICATES.txt — adjudicated same-predicate pairs in solve.py's
+# literature-rule registry (REGISTRY_KW_EXPECTED). Consumed by doc_gates.sh GATE 14.
+#
+# WHY THIS FILE EXISTS. reg_r3 and reg_p1c4 are byte-distinct, separately attributed
+# (Radisic 2026 arXiv:2601.07175 Thm 3.3; Schulz 1982 pp. 139-140 citing Lai Zhide 1599),
+# separately counted in a published total, and separately proven in Lean 4 — and were
+# measured on 2026-08-02 to be the SAME FUNCTION over orderings. Nothing in the gate suite
+# looked for that. GATE 14 does; this file records the pairs a human has already looked at,
+# so the gate FAILS on a NEW one instead of on a known one.
+#
+# FORMAT: one pair per line, `a<TAB>b<TAB>note`, rule ids as they appear in
+# REGISTRY_KW_EXPECTED (without the `reg_` prefix), the two ids in ASCII order.
+# `#` comments and blank lines are ignored. Must end with a newline (preflight enforces).
+#
+# AN ENTRY HERE IS NOT AN ABSOLUTION. It says "measured, and a human decided what to do",
+# not "harmless". The r3/p1c4 entry below is open at the operator level: the published
+# count of EIGHT proven C1 constants (documentation/CLAIMS_DECIDED.md, TR-1 section 3)
+# rests on eight rows, two of which are one ordering fact under two citations.
+#
+# WHAT GATE 14 CANNOT SEE, stated rather than implied:
+#   (1) It compares VALUE VECTORS over a finite sample of orderings, so it proves
+#       DIFFERENCE, never IDENTITY. Two rules that agree on all 4,000 sampled orderings
+#       may still differ on an unsampled one. A hit is a claim to be checked by hand, which
+#       is what the r3/p1c4 NOTEs in solve.py did.
+#   (2) It cannot compare a rule that takes fewer than two distinct values on the sample:
+#       such a rule is vacuously equal to any other constant rule and vacuously unequal to
+#       every non-constant one. The gate FAILS rather than skipping when that happens, and
+#       names the rule, because a silent skip here is exactly the "false clear" class the
+#       suite exists to refuse. (MM-T5 was constant until targeted family-order witnesses
+#       were added to the sample; that is why the witnesses are there.)
+#   (3) It says nothing about the ATTRIBUTIONS. Two authors can independently state the
+#       same fact; that is a citation question, not a code question.
+#
+r3	p1c4	Measured identical on 4,000 sampled orderings 2026-08-02 (see the NOTE on reg_p1c4 in solve.py for the conjunct-by-conjunct result). Both reduce to `the 8 anti-symmetric hexagrams occupy 4 KW pair slots with partner == bitrev6`; r3's HD-6 conjunct and p1c4's no-palindromic-member conjunct are each implied by that filter. OPEN at operator level: bears on the published count of EIGHT proven C1 constants.

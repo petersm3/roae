@@ -1,0 +1,28 @@
+# Reviewed exemptions for doc_gates.sh GATE 5b — "a canonical quantity restated with NO
+# epistemic marker among siblings that carry one".
+#
+# GATE 5 fires when a line carries a status token CONTRADICTING reports/METHODS.md. GATE 5b
+# is the other half: an OMITTED marker. The two unlabelled TR-9 ledger cells fixed under #23
+# were invisible to GATE 5 by construction, and TR-9 v1.19 says so in as many words.
+#
+# FORMAT (one entry per line, changed 2026-08-02 with item A8):
+#     path/to/FILE.md<TAB>a literal substring of the reviewed line
+#
+# THERE IS NO LINE NUMBER. The anchor is the whole key. An entry without one is IGNORED and
+# reported, deliberately: GATE 5's line-number-only entries drifted twice within a single
+# day, and the dangerous direction is an unreviewed line inheriting somebody else's
+# suppression. The gate RESOLVES each anchor and prints the line it found, so the locator a
+# reader wants is still there and cannot go stale. Same convention as
+# DOC_GATE_STATUS_ALLOWLIST.txt, aligned deliberately: two allowlists disagreeing about
+# their own format is how the next entry gets written in the wrong one.
+#
+# THIS FILE IS INTENTIONALLY EMPTY OF ENTRIES. At the time 5b landed (2026-08-02) it
+# reported ZERO findings against the live corpus, with the noise floor MEASURED and printed
+# every run: 64 of 127 registry-value occurrences carry no status token at all, and 0 of
+# those sit in a mixed table. Two structural exemptions are in the gate rather than here,
+# because they are properties of the corpus and not judgments about particular sentences:
+#   - a column whose TABLE HEADER carries the status word (TR-4's "Exact value" / "Prior
+#     Knuth estimate" columns, SEARCH_SPACE_SIZE's "estimate" / "95% CI" columns);
+#   - a REVISION-HISTORY row, exempt for the same reason GATE 3 exempts one.
+#
+# Add an entry only for a sentence a human has read and judged correct as it stands.

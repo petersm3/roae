@@ -1,0 +1,198 @@
+# DOC_GATE_ALIAS_REACH.tsv - GATE 18 (scripts/doc_gates.sh alias-reach)
+#
+# WHY THIS FILE EXISTS. The most-repeated finding of the adversarial review campaign
+# (~30 passes) has one shape: a correct ruling gets applied to ONE line and nothing
+# detects the gap. CITATIONS.md's item-3 parenthetical rules that "C1+C2+C3" in older
+# text is legacy naming for the C1-C5 canonical (see METHODS §"Legacy shorthand") and
+# that "exhaustive" is corrected to "budgeted" - and at the time this gate was written,
+# CITATIONS.md line 85 of the SAME FILE still carried both uncorrected forms, and no
+# document that uses the aliases linked the ruling. The existing gates catch forbidden
+# text PRESENT; this registry drives the gate for the opposite class: required
+# resolution ABSENT, i.e. a live use of a ruled alias that is not within one link of
+# the ruling that resolves it.
+#
+# WHAT COUNTS AS "WITHIN ONE LINK", mechanically: the use's OWN LINE either carries the
+# rule's resolution token (a fixed substring that only a line narrating or citing the
+# ruling would carry - e.g. the METHODS section name), or is covered by an explicit
+# content-anchored `allow` row below. File-granular reach ("the note is linked SOMEWHERE
+# in this file") was considered and rejected: CITATIONS.md carries the ruling at one
+# line and the defect 438 lines above it, which is exactly the gap this gate exists to
+# see. Line-granular is the strict-but-honest reading, and the cost is this curated file.
+#
+# SCOPE OF JURISDICTION. This registry is for "read X as Y" / legacy-naming /
+# supersession rulings where X may legitimately remain in the corpus in another sense.
+# Retracted PHRASES (text that should not appear at all) belong in
+# RETRACTED_PHRASES.tsv (GATE 3); retracted FIGURES in RETRACTED_FIGURES.tsv (GATE 3b).
+# The distinguishing test: if every occurrence of X is wrong, register it there; if X
+# has a live legitimate sense that must NOT be "corrected" (both aliases below do),
+# register it here, because only a content-anchored classification can avoid punishing
+# the legitimate sense.
+#
+# ATTRIBUTION CORRECTIONS (`attrib` rows, 2026-08-06) are the second class under this
+# registry's jurisdiction, and the distinguishing test above decides their placement:
+# a superseded attribution is wrong at EVERY live claim site (which smells like
+# GATE 3), but the only detectable string is the PERSON'S NAME, and the name has live
+# legitimate senses — the correction's own narration, dated revision-history records
+# (append-only; rewriting them would falsify the record), and the person cited for a
+# distinct, still-supported contribution. GATE 3's one-file-substring exemption cannot
+# express those classes, has no [OPEN] backlog, and its own history (four rows for one
+# hard-floor claim, variants still escaping) shows claim-phrase rows are evasion-shaped
+# where name-keyed rows are not. So: the name is registered HERE, and the exemption
+# classes carry the semantics. What an unexempted hit means differs from an alias hit —
+# a dead credit restated, not an unresolved shorthand — so `attrib` rows print their
+# own [FAIL] wording.
+# WHAT `attrib` ROWS CANNOT CATCH, stated: a nameless restatement of the dead claim
+# ("the 12th-century identification of the split") carries no registered string.
+# SIBLINGS SWEPT AT SEEDING (2026-08-06), recorded so the absence of rows for them is
+# a finding and not an omission — each was checked corpus-wide and its superseded form
+# no longer appears, so there is nothing for a rule to adjudicate and a name-keyed rule
+# would cost hundreds of curated rows for zero live defects:
+#   * Cook-as-primary for the gender/position-parity rule (corrected 2026-07-03 to
+#     Schulz 1990; CITATIONS.md §Attributed, TR-6:94, TR-1:269): every surviving site
+#     says Schulz-primary / Cook-elaborated or co-lists them for the class convention.
+#   * biroco.com attributed to "Steve Moore" (corrected 2026-07-19 to S. J. Marshall;
+#     CITATIONS.md #marshall-biroco): no surviving misattribution; legacy anchor
+#     `moore-biroco` is deliberate and documented in the entry.
+#   * Meyer's priority for the two first-order-difference properties (withdrawn
+#     2026-08-01, credited to McKenna & McKenna 1975; CITATIONS.md #meyer1998): all
+#     surviving Meyer credits are the retained scopes (the cyclic sequence AS DATA,
+#     the 1993 timewave appendix, the Timewave-software critique relay).
+#   * CX-23's five researcher-statement corrections are enforced by GATE 3 (their
+#     superseded forms are fixed PHRASES with a single narrating file — GATE 3's exact
+#     shape), and were left there deliberately.
+# If a future correction's superseded form is LIVE anywhere, seed an `attrib` row then.
+#
+# THE TWO-SENSE TRAP, stated because it is the false-positive mode that kills gates:
+# "C1+C2+C3" has TWO live senses - (a) the legacy alias for the C1-C5 canonical
+# population ("the C1+C2+C3 canonical", "706M orderings under C1+C2+C3"), and (b) the
+# literal three-predicate conjunction ("no null family simultaneously satisfies
+# C1+C2+C3" - a statement about C1, C2 and C3 individually, where the C1-C5 canonical
+# is not the object). Sense (b) must never fire and must never be "fixed": rewriting it
+# to C1-C5 would introduce an error. Sense (b) occurrences are `allow` rows with class
+# `literal`. Likewise "exhaustive enumeration" has a legitimate hypothetical/contrast
+# sense ("under true exhaustive enumeration both partitions would converge") and a
+# legitimate finite-complete sense ("exhaustive enumeration of all 2^27 circuits");
+# the DEFECT sense is the definite-article NAMING of the actual budgeted runs ("the
+# exhaustive enumeration cannot state an exact total"). The registered fixed string for
+# that rule is therefore "the exhaustive enumeration" (case-folded), which at seeding
+# time separated the two senses with zero curated exemptions: every legitimate use in
+# the corpus is article-less or "under"-governed.
+#
+# WHAT THIS GATE CANNOT CATCH, stated rather than left to be rediscovered:
+#   * article-less naming uses of "exhaustive enumeration" for the actual runs -
+#     TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md:45 "alongside exhaustive enumeration
+#     (exact lower bounds; TR-3)" and CITATIONS.md:995 "or exhaustive enumeration.
+#     [analyzed]" are live borderline sites the fixed string cannot reach without
+#     swallowing the hypothetical-contrast sense corpus-wide. They are recorded here
+#     as prose (this comment) and belong to task #146's fix pass, not to a wider
+#     pattern.
+#   * a line carrying BOTH senses of an alias is classified as ONE line: exemption and
+#     adjudication are line-granular (GATE 3b's model). CRITIQUE.md's "Simultaneous
+#     C1+C2+C3 satisfaction..." line carries a literal use AND an alias use; it is
+#     adjudicated `open` for the alias half, and its `allow literal` row below takes
+#     over only once the alias half is fixed and the open row deleted.
+#   * aliases nobody registered. The registry is the gate's eyes; a new ruling that is
+#     recorded in CORRECTIONS.md/CITATIONS.md but never seeded here is invisible.
+#
+# OPEN ROWS ARE OPEN DEFECTS, NOT EXEMPTIONS - same contract as
+# DOC_GATE_FIGURE_LEDGER_OPEN.txt: every `open` row is re-printed as [OPEN] on every
+# run, with a count, so the backlog can never quietly become invisible. Fixing the
+# underlying text is an adjudication owned by task #146 (corpus-wide propagation of
+# the two alias rulings) or task #157 (the Zheng Qiao attribution sites - each `open`
+# row names its owner), not a gate change. TO CLOSE an open row: fix the line (say C1-C5 /
+# budgeted, or add a same-line pointer to the ruling), then DELETE the row here; a row
+# whose anchor no longer matches anything is re-printed as [note] every run - the
+# drift audit - so a stale row cannot sit here unnoticed. A NEW unadjudicated use
+# fails the build from the day this gate shipped.
+#
+# FORMAT (tab-separated; first field selects the row kind; unknown kinds are a [FAIL],
+# not a skip - a malformed row must not silently stop being enforced):
+#   rule  <alias> <mode:exact|nocase> <stopchars or -> <resolution token> <where the ruling lives> <the ruling, one line>
+#         mode nocase = both line and alias are case-folded before the fixed-string
+#         search (no regex). stopchars: an occurrence immediately followed by one of
+#         these characters is VOID - "C1+C2+C3" followed by "+" is the explicit
+#         conjunction C1+C2+C3+C4(+C5), which is not the alias and must not fire.
+#   attrib <name> <mode:exact|nocase> <stopchars or -> <resolution token> <where the correction lives> <the correction, one line>
+#         same field layout and same detection as `rule`; the kind records that this is
+#         a SUPERSEDED ATTRIBUTION (see the jurisdiction note above), so an unexempted
+#         hit is reported as a dead credit restated, not an unresolved alias.
+#   allow <file> <alias> <same-line anchor> <class> <why>
+#         content-anchored, GATE 3b's shape - no line numbers, they drift. class is one
+#         of: resolution-note (the ruling's own body text), literal (sense (b) above),
+#         historical (a dated record, true when written; rewriting would falsify it),
+#         meta-mention (quotes the alias in the act of discussing/recording it),
+#         other-contribution (`attrib` rows only in intent: the person is cited for a
+#         DISTINCT, still-supported claim - the superseded credit is not on the line;
+#         requires the distinct claim to have its own bibliographic support, which is
+#         why CRITIQUE.md's trigram-clustering mention is `open` and not here: the
+#         bibliography's only remaining Zheng Qiao content is the correction itself).
+#         Anything else is a [FAIL]: the class vocabulary is closed so the exemption
+#         mechanism cannot silently widen.
+#   open  <file> <alias> <same-line anchor> <what is open / who owns the fix>
+rule	C1+C2+C3	nocase	+	Legacy shorthand	reports/METHODS.md §"Legacy shorthand" (+ CITATIONS.md §"Novel contributions" item 3)	Legacy naming for the C1-C5 canonical population (ruled 2026-08-01): the enumerator applies all of C1-C5; read "the C1+C2+C3 canonical" as the C1-C5 canonical. New text says C1-C5, or carries a same-line pointer to the METHODS note. (mode nocase 2026-08-06: "c1+c2+c3" is the same alias — case is a character variant, not a different name.)
+rule	the exhaustive enumeration	nocase	-	corrected to "budgeted"	documentation/CITATIONS.md §"Novel contributions" item 3 ("exhaustive" corrected to "budgeted" 2026-08-01)	The canonical enumerations are BUDGETED, not exhaustive - every sub-branch budget-limited, none exhausted (SEARCH_SPACE_SIZE.md). Naming the actual runs "the exhaustive enumeration(s)" restates the corrected claim; say "the budgeted enumeration(s)" or narrate the correction on the same line.
+attrib	Zheng Qiao	nocase	-	corrected 2026-07-30	documentation/CITATIONS.md §"Attributed candidate rules" 18:18 entry + §"Classical sources" (both narrate the 2026-07-30 correction; revision note at the foot of the file)	SUPERSEDED ATTRIBUTION (corrected 2026-07-30): the 18:18 hexagram-split credit moved to Zhang Xingcheng 张行成 + Zhu Xi 朱熹 after the first-hand pass of Li Shangxin (2008) found Zheng Qiao "does not appear" in the treatment. Any live use of the name either restates the dead credit, or is the correction's own narration (resolution-note), a dated record (historical), or a distinct still-supported citation (other-contribution).
+#
+# ---- allow rows: curated legitimate senses (see class vocabulary above) ----
+allow	reports/METHODS.md	C1+C2+C3	describe the canonical enumerated population as	resolution-note	The §"Legacy shorthand" note's own body: names the alias in the act of resolving it. The heading line above it carries the token; these body lines do not.
+allow	reports/METHODS.md	C1+C2+C3	Read "the C1+C2+C3 canonical" as	resolution-note	The note's operative sentence - the ruling itself.
+allow	documentation/SOLVE_SUMMARY.md	C1+C2+C3	no family other than KW simultaneously satisfies	literal	Three-predicate sense: the seven null families are tested against C1, C2, C3 individually (each fails C1 outright). The C1-C5 canonical is not the object; "correcting" this to C1-C5 would introduce an error.
+allow	documentation/SOLVE_SUMMARY.md	C1+C2+C3	Costas arrays accidentally satisfy	literal	Three-predicate sense: whether a specific published array satisfies the three predicates. Not a population naming.
+allow	documentation/HISTORY.md	C1+C2+C3	The honest framing:	historical	Dated narrative record (the C1/C2/C3-as-individual-findings framing of its day). Rewriting the log would falsify the record; HISTORY.md is the project's append-style narrative.
+allow	documentation/HISTORY.md	C1+C2+C3	Axiom "minimize C3" picks 221 records	historical	Dated 2026-04-20 entry using the naming convention in force when written; the ruling (2026-08-01) post-dates it and HISTORY is a record, not live guidance.
+allow	documentation/HISTORY.md	C1+C2+C3	C3 ceiling of 776 within the	historical	Same contract as the row above: dated narrative entry, true-when-written naming.
+allow	documentation/HISTORY.md	C1+C2+C3	**Scientific framing.**	historical	Same contract: a dated summary block in the narrative log.
+allow	documentation/GUIDE.md	C1+C2+C3	(C1 + C2 + C3 together)	literal	Three-predicate sense, surfaced by the 2026-08-06 character-variant fold (spaced form): "the combination (C1 + C2 + C3 together)" is about the three properties co-occurring, vs each alone; the C1-C5 canonical population is not the object.
+allow	documentation/PROJECT_OVERVIEW.md	C1+C2+C3	(C1 + C2 + C3 together)	literal	Same sense and same fold-surfaced spaced form as the GUIDE.md row: the combination of the three properties within the tested historical orderings, not the population alias.
+allow	documentation/SOLVE_SUMMARY.md	C1+C2+C3	legacy shorthand for C1–C5	meta-mention	Fold-surfaced (spaced form inside quotation marks): the corrected bullet quotes the OLD label in the act of recording the 2026-08-01 correction, and links METHODS.md on the same line. It misses the resolution token only by case ("legacy", not "Legacy shorthand").
+allow	documentation/CITATIONS.md	Zheng Qiao	a claim the primary pass could not support	resolution-note	The 18:18 entry's correction parenthetical, second line (the token line above it says 'attribution corrected 2026-07-30'; this continuation carries the name without the token).
+allow	documentation/CITATIONS.md	Zheng Qiao	and Zheng Qiao does not appear	resolution-note	The correction's evidentiary sentence - the finding itself (Li 2008 first-hand pass).
+allow	documentation/CITATIONS.md	Zheng Qiao	superseding the unsupported Zheng Qiao credit	resolution-note	The li2008 entry narrating what its first-hand pass grounds; links the corrected 18:18 entry on the same line.
+allow	documentation/CITATIONS.md	Zheng Qiao	replacing an unsupported Zheng Qiao	resolution-note	The 2026-07-30 revision-history entry recording the correction (its token sits on the preceding wrapped line).
+allow	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	scoped in the opening to the *testable design-rule* literature	historical	Dated v1.17 revision row (2026-07-26, PRE-correction): records what that edit did, in the naming in force when written. Revision histories are append-style records; rewriting the row would falsify it. The LIVE text the row describes is adjudicated open below.
+#
+# ---- open rows: ADJUDICATED-OPEN DEFECTS - alias rows owned by task #146 ----
+# ---- (corpus-wide propagation of the two rulings), Zheng Qiao attribution ----
+# ---- rows owned by task #157. Fixing a line = delete its row here. ----
+open	documentation/CITATIONS.md	C1+C2+C3	once the full C1+C2+C3 canonical is enumerated	Legacy alias for the C1-C5 canonical with no path to the ruling; fix (say C1-C5 or link METHODS §"Legacy shorthand") owned by #146.
+open	documentation/CITATIONS.md	C1+C2+C3	narrows 10^89 orderings to ~700 million	The campaign's headline instance: the SAME FILE records the ruling at item 3 and this line, 438 lines earlier, still carries the uncorrected form. #146.
+open	documentation/CITATIONS.md	C1+C2+C3	is true in ROAE's frame	"C1+C2+C3-satisfying orderings" naming the canonical population inside a frame-comparison example claim; the literal three-predicate population would be a SUPERSET of the canonical, so the naming matters here. #146.
+open	documentation/CRITIQUE.md	C1+C2+C3	NOT against the C1+C2+C3 canonical	Legacy population naming; no path to the ruling. #146.
+open	documentation/CRITIQUE.md	C1+C2+C3	Simultaneous C1+C2+C3 satisfaction	DUAL-SENSE LINE: first use is literal (families vs the three predicates - must survive the fix), second use ("706M orderings under C1+C2+C3") is the legacy alias. Fix ONLY the second, then replace this row with an `allow literal` row anchored on the first. #146.
+open	documentation/CRITIQUE.md	C1+C2+C3	706M distinct orderings at d3 10T under	Legacy alias: the 706M count is the C1-C5 canonical count. #146.
+open	documentation/CRITIQUE.md	C1+C2+C3	C3-optimal among	Legacy alias ("among C1+C2+C3 solutions" = the canonical records). #146.
+open	documentation/CRITIQUE.md	C1+C2+C3	Within C1+C2+C3, KW is at the C3-maximum	Legacy population naming. #146.
+open	documentation/CRITIQUE.md	C1+C2+C3	per the C3-ceiling correction	Legacy population naming inside the lens-sweep scope paragraph. #146.
+open	documentation/GUIDE.md	C1+C2+C3	at the complement-distance *maximum*	Legacy population naming; GUIDE.md nowhere links the METHODS note (one of the four files the 2026-08 review named as having no path to it). #146.
+open	documentation/MCKENNA.md	C1+C2+C3	the picture inverts	Legacy population naming. #146.
+open	documentation/MCKENNA.md	C1+C2+C3	no random 6-bit Gray code achieves	Legacy population naming. #146.
+open	documentation/PROJECT_OVERVIEW.md	C1+C2+C3	the picture inverts	Legacy population naming. #146.
+open	documentation/PROJECT_OVERVIEW.md	C1+C2+C3	enumeration at 560 trillion node budget	"established by full C1+C2+C3 enumeration" - the 560T canonical is the C1-C5 population; also "full" sits next to a budgeted run. #146.
+open	documentation/SOLVE.md	C1+C2+C3	the intersection C1+C2+C3 that solve.c enumerates	The flatly false form: solve.c does NOT enumerate that intersection (it applies C1-C5; the three-predicate intersection is a strict superset). The strongest single instance. #146.
+open	documentation/SOLVE.md	C1+C2+C3	~340M orderings tie	Legacy population naming ("the C1+C2+C3 canonical"). #146.
+open	documentation/SOLVE.md	C1+C2+C3	the correct C1+C2+C3 framing	Legacy population naming. #146.
+open	documentation/SOLVE.md	C1+C2+C3	false relative to the C1+C2+C3 canonical	Legacy population naming. #146.
+open	documentation/SOLVE.md	C1+C2+C3	at exactly 776	Legacy population naming ("full C1+C2+C3 canonical", "C1+C2+C3-scoped framing"). #146.
+open	documentation/SOLVE.md	C1+C2+C3	not appropriate against the C1+C2+C3 canonical	Legacy population naming. #146.
+open	documentation/SOLVE.md	C1+C2+C3	(776; ~10% of enumerated orderings tie there)	Legacy population naming. #146.
+open	documentation/SOLVE.md	C1+C2+C3	706,427,594 orderings satisfying	Legacy alias: the count is the C1-C5 canonical count, described as satisfying only three constraints. #146.
+open	documentation/SOLVE_SUMMARY.md	C1+C2+C3	within the full C1+C2+C3 canonical set	Legacy population naming. #146.
+open	documentation/SPECIFICATION.md	C1+C2+C3	C3 ceiling = 12.125 exactly	Legacy population naming ("At the C1+C2+C3 canonical scope") in the formal spec. #146.
+open	documentation/SPECIFICATION.md	C1+C2+C3	about 1 in 10 tie at 12.125	Legacy population naming in the spec's circularity note. #146.
+open	enumeration/LEADERBOARD.md	C1+C2+C3	the C3-minimum under	Legacy population naming ("under C1+C2+C3" = the canonical). #146.
+open	documentation/CANONICAL_HASHES.md	the exhaustive enumeration	cannot state the total count	Names the budgeted runs "the exhaustive enumeration" in the same sentence that says every sub-branch is BUDGETED. #146.
+open	documentation/CITATIONS.md	the exhaustive enumeration	the exhaustive enumeration under the conjunction	Same line as the C1+C2+C3 instance above - both rulings unapplied on one line, in the file that records both rulings. #146.
+open	documentation/CRITIQUE.md	the exhaustive enumeration	observes empirically	"what the exhaustive enumeration observes empirically" - names the actual budgeted runs. #146.
+open	documentation/PROJECT_OVERVIEW.md	the exhaustive enumeration	cannot report the total number	Names the budgeted runs exhaustive while explaining they are budgeted. #146.
+open	documentation/SEARCH_SPACE_SIZE.md	the exhaustive enumeration	could only bound from below	Names the budgeted runs exhaustive - in the document whose whole point is that exhaustion is infeasible. #146.
+open	documentation/SEARCH_SPACE_SIZE.md	the exhaustive enumeration	are **budgeted**: each of the 158,364	Says both in one sentence: "The exhaustive enumerations (solve.c) are budgeted ... no cell is ever exhausted". The self-contradiction the review campaign flagged verbatim. #146.
+open	enumeration/LEADERBOARD.md	the exhaustive enumeration	cannot state an exact total	Names the budgeted runs exhaustive inside the BUDGETED-none-EXHAUSTED sentence. #146.
+open	reports/TR4_SIZE_OF_THE_SPACE.md	the exhaustive enumeration	are *budgeted*: each of 158,364	"The exhaustive enumerations are budgeted" - same self-contradiction as SEARCH_SPACE_SIZE.md:9, in the TR that measures the un-budgeted size. #146.
+open	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	begins with Zheng Qiao (~1150)	Executive summary dates the 'eight centuries' from the disavowed credit - the referee's headline instance. #157.
+open	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	across eight centuries of literature	Abstract: the lineage 'from Zheng Qiao (~1150) ... ' opens with the disavowed credit (name wraps to the (~1150) on the next line). #157.
+open	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	18:18 two-part class split (Zheng Qiao ~1150	Rule-table row credits the split to the disavowed name; the corrected credit is Zhang Xingcheng + Zhu Xi. #157.
+open	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	**Zheng Qiao (~1150)** and **Hu Yigui (1247)**	Section 4's bolded credit line for the 18:18 split - the fullest restatement of the dead credit. #157.
+open	documentation/LITERATURE_RULES_POPULATION_TESTS.md	Zheng Qiao	18:18 two-part class split (Zheng Qiao ~1150	Same rule-table row as TR-1:114, in the population-tests doc. #157.
+open	documentation/PROJECT_OVERVIEW.md	Zheng Qiao	classically attested — Zheng Qiao ~1150	'classically attested - Zheng Qiao ~1150' states the dead credit as the attestation. #157.
+open	documentation/SOLVE_C_CLI.md	Zheng Qiao	R-C5 18:18 split (Zheng Qiao ~1150	SOLVE_KNUTH_SCORE env-var row carries the dead credit in the R-C5 parenthetical. #157.
+open	documentation/CRITIQUE.md	Zheng Qiao	Zheng Qiao/Hu Yigui trigram clustering	A DIFFERENT claim (trigram clustering, not the 18:18 split) - but the bibliography's only remaining Zheng Qiao content is the correction itself, so this credit has no bibliographic anchor. #157: either source it independently (then re-adjudicate as `allow other-contribution`) or amend - the F4' registration is FROZEN, so the fix path is its own dated-amendment clause.

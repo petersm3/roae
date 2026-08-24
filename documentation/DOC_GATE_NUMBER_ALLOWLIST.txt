@@ -1,0 +1,16 @@
+# Allowlist for scripts/doc_gates.sh gate 1 (cross-file long-integer near-twins).
+# One key per line, format  <length>:<first-10-digits>.
+# Add a key ONLY after confirming the near-twin values are intentionally different.
+# Reviewed 2026-08-01:
+#   12:1098367775 — solutions.bin byte counts WITH and WITHOUT the 32-byte header
+#                   (…536 vs …504 = exactly 32). Documented distinction, not a defect.
+#   12:1785714292 } per-cell Knuth node-count estimates in enumeration/LEADERBOARD.md —
+#   12:1785714293 } dozens of genuinely distinct measurements that share a prefix by
+#   12:1785714294 } coincidence of magnitude, not by referring to the same quantity.
+#   12:3368087039 — solutions.bin size WITH the 32-byte header (…936 = 32 + 10,525,271,997×32)
+#                   vs the header-less figure (…904). Documented distinction, not a defect.
+12:1098367775
+12:1785714292
+12:1785714293
+12:1785714294
+12:3368087039

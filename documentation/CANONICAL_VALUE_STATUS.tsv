@@ -1,0 +1,29 @@
+# Canonical quantity -> epistemic status. Drives doc_gates.sh GATE 5.
+#
+# The single source of truth for these statuses is the "Canonical quantities" table in
+# reports/METHODS.md. This file is the machine-readable projection of that table, so the
+# gate can check that every OTHER mention of a load-bearing number carries a status
+# consistent with it. Add a row here when METHODS gains a quantity.
+#
+# Columns:  match<TAB>status<TAB>note
+#   match  = literal substring to search for. For scientific-notation forms the gate
+#            additionally requires the "x 10" that follows, so a bare "5.21" in prose
+#            (a version number, a percentage) does not trigger.
+#   status = exact | estimate   (the "proven" theorem rows are not numeric-comparable,
+#            so they are deliberately not listed here)
+#
+# WHY THIS EXISTS: the 2026-08-01 seeded-defect calibration planted a Bonferroni
+# denominator change (91 -> 81) and a corrupted digit in a 39-digit count. Both were
+# caught, but by reviewers rather than by machine. GATE 1 catches corrupted digits via
+# near-twin detection; this gate catches the other half — a number keeping its digits
+# while silently changing epistemic status, e.g. an estimate promoted to "exact".
+#
+757,058,601,340,255,440,651,419,713,405,330,315,358,208	exact	|C1nC2nC4|, two-instrument
+1,097,051,278,789,181,790,036,112,071,176,579,186,688	exact	|C1nC2nC4nC5|, two-instrument
+516,880,238,445,773,965,371,923,491,676,160	exact	|C1-C7| with C3 dropped, two-instrument
+45,710,469,949,549,241,251,504,669,632,357,466,112	exact	orbit count = N/24
+7.5706	exact	sci-notation form of |C1nC2nC4|
+1.097051	exact	sci-notation form of |C1nC2nC4nC5|
+5.16880	exact	sci-notation form of |C1-C7|, C3 dropped
+5.21	estimate	|C1-C7|, Knuth estimator, 95% CI [5.13, 5.29]x10^31
+1.3287	estimate	C1-C5 space size, Knuth estimator, 95% CI 0.02%
