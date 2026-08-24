@@ -71,7 +71,10 @@ A=$(mktemp -d); mkdir -p "$A"/f "$A"/g "$A"/t
 python3 verify.py --check-atlas-orbit-frames "$A"/atlas.json   # cross-frame gate; see below
 ```
 
-**`verify.py --check-atlas-orbit-frames ATLAS.json`** (added 2026-08-23). Emits
+**`verify.py --check-atlas-orbit-frames ATLAS.json`** (added 2026-08-23; the gap it closes was
+identified by an **OpenAI Codex** review, target `R/T` series turn 3, which classified the n=9
+gate surface and found the quotient marginals had no independent oracle — acknowledged, not
+credited as an author). Emits
 `ATLAS_ORBIT_FRAMES=PASS|FAIL`; exit 0 / 1, or 2 with `=SKIP` if the atlas carries only one frame
 (pass `--kc-raw`).
 

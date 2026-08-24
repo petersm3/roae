@@ -1260,9 +1260,11 @@ stood in `HISTORY.md` while the value sat computed but unpublished. It agrees wi
 estimator to **0.0044 per cent**, which is the reason to publish the two together: the instrument
 behind the surviving raw figure has now been checked against ground truth.
 
-**How it was found.** An external cross-model review was asked to derive the space arithmetic
-independently and compare, and it attacked the uniform dedup factor without being told this project
-already suspected the figure. The ceiling argument came from re-deriving what the deduplicated
+**How it was found — external attribution.** An **OpenAI Codex** review (target `A02` of a
+cross-model review programme run 2026-08-23/24) was asked to derive the space arithmetic
+independently and compare. It attacked the uniform dedup factor **without being told this
+project already suspected the figure**, arriving at the same conclusion by a different route.
+Codex is **acknowledged**, not credited as an author. The ceiling argument came from re-deriving what the deduplicated
 object actually is. **The figure had been suspected internally since 2026-07-30 and no fix had been
 applied** — the delay between knowing and acting is the more useful lesson here than the arithmetic.
 
