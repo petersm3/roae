@@ -222,7 +222,10 @@ Headlines only — each links to its full treatment (technical reports in [repor
   billion enumerated records — a stark demonstration that bounded search sees a biased sample. (The
   17.4% is a 2×10¹⁰-probe sampled estimate, independently reproduced by a second archived run to within 0.05
   percentage points — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
-- **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
+- **In bits, half the sequence's description length is accounted for by known structure; half is
+  not.** *("Accounted for", not "explained": which layers are **granted** explanatory standing is a
+  choice made below, and per [METHODS](reports/METHODS.md) §firewall a fitted description must not
+  be reported as a design finding.)* The classical pairing carries
   nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
   description, not explanation; **between about 105 and 139 bits** remain open — the exact figure
   depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most

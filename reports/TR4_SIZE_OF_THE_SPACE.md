@@ -18,8 +18,9 @@ trillion trillion trillion — settles a determinism hypothesis this suite calls
 early working hypothesis**, so what follows is a negative result about our own starting position, not a
 refutation aimed at someone else's stated claim: the known rules do **not** pin down King Wen;
 they leave an astronomical family of valid alternatives, and King Wen is one member. The report also
-measures how much *additional* information is needed to single King Wen out (roughly 13–20 carefully
-chosen adjacency facts) and explains why earlier, smaller searches wrongly suggested near-uniqueness:
+*extrapolates*, from the observed information rate, how much *additional* information would single
+King Wen out (roughly 13–20 carefully chosen adjacency facts — **an extrapolation, not a bound**:
+five samples along one greedy path bound no supremum, §v1.7) and explains why earlier, smaller searches wrongly suggested near-uniqueness:
 bounded search sees a biased sample. The measurement technique is validated against exact counts at
 every scale where exact counts exist.
 
