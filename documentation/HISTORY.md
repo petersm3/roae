@@ -5310,8 +5310,12 @@ knobs), a mid-flight stripe migration at a layer boundary when measured layer si
 the layer-14 checkpoint), and a final move to Standard hardware. Peak memory: **128 GB** — a ~35×
 reduction against the in-RAM requirement, which is the reproducibility point: the exact count needs
 a big disk and patience, not exotic hardware. The DP's measured peak is layer 13 (40.8 B entries);
-C5 pruning overtakes binomial growth past the middle. Exact result: [COUNT — PENDING, do not cite; lands with this
-section's next revision; gates: ÷24 exactness + Knuth-estimator cross-check].
+C5 pruning overtakes binomial growth past the middle. Exact result (**resolved 2026-07-25**; this entry recorded it as pending until then):
+**|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688** ≈ 1.097051×10³⁹,
+raw orientation-explicit with C4 pinned. Both stated gates passed — ÷24 exactness, and the
+Knuth-estimator cross-check — and it is **two-instrument**: independently recomputed at full scale
+by `verify.c`'s inclusion–exclusion transfer-walk engine, a different algorithm class, exact MATCH.
+See [reports/METHODS.md](../reports/METHODS.md) §"Canonical quantities".
 
 The ÷24 gate itself was upgraded mid-campaign: the symmetry theorem's sequence-level layer
 (invariance, record-level freeness, orbit counting) was formalized in `lean/Automorphism.lean`
@@ -5413,10 +5417,13 @@ Opus-verified; the marker-CRC and pinned-level hardening came out of that review
 self-test canonical sha (`403f7202…`) is unchanged, so the retool is behavior-preserving for the enumerator.
 
 With the engine in place, the production count launched and is **in flight** — a symmetry-quotient
-out-of-core DP over the 31 free pairs, streaming layers from a large disk. The exact integer
-|C1∩C2∩C4∩C5| lands in this record when the run completes (PENDING — do not cite until then; gates: divisibility-by-24, which is machine-checked
-mathematics per #222 (`native_decide`, extended trust base; label corrected 2026-07-26 from
-"kernel-checked"), plus a Knuth-estimator cross-check).
+out-of-core DP over the 31 free pairs, streaming layers from a large disk. The exact integer landed **2026-07-25**:
+**|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688**. Both gates passed —
+divisibility-by-24, machine-checked mathematics per #222 (`native_decide`, extended trust base;
+label corrected 2026-07-26 from "kernel-checked"), plus the Knuth-estimator cross-check — and the
+value was subsequently made **two-instrument** by an independent `verify.c` IE transfer-walk recount
+at full scale (exact MATCH). *(This paragraph read "PENDING — do not cite" until 2026-08-25, while
+METHODS.md already published the value as exact.)*
 
 ## 2026-07-09: Documentation consolidation and a prior-art round-out
 
