@@ -11,12 +11,15 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 ## Executive summary
 
 How special is the King Wen sequence, really? That question needs a denominator: **how many other
-arrangements satisfy the same rules?** This report measures it. The answer — about 10³⁸, a hundred
-trillion trillion trillion — settles a determinism hypothesis this suite calls the Uniqueness Conjecture
+arrangements satisfy the same rules?** This report measures it. The answer — about 10³⁸ under **C1–C5**, and about
+5.21×10³¹ once the identifying **C6–C7** are added; a hundred trillion trillion trillion either way —
+settles a determinism hypothesis this suite calls the Uniqueness Conjecture
 (the name is ours; who held it, and in what form, is scoped honestly in
 [CITATIONS.md](../documentation/CITATIONS.md#uniqueness-conjecture)) — and which was **this project's own
 early working hypothesis**, so what follows is a negative result about our own starting position, not a
-refutation aimed at someone else's stated claim: the known rules do **not** pin down King Wen;
+refutation aimed at someone else's stated claim: **the seven rules this suite formalised** do **not**
+pin down King Wen — a narrower statement than "the known rules", since no author asserted this exact
+inventory (§attribution);
 they leave an astronomical family of valid alternatives, and King Wen is one member. The report also
 measures how much *additional* information is needed to single King Wen out (roughly 13–20 carefully
 chosen adjacency facts) and explains why earlier, smaller searches wrongly suggested near-uniqueness:

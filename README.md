@@ -175,14 +175,18 @@ C1–C5, with C6–C7 added only where the text says so.
 
 Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
-- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings — a raw, orientation-explicit count; ≈3.3×10³⁷ after orientation-dedup ([METHODS](reports/METHODS.md) §"Canonical quantities") — (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
-  C6–C7 still leaves ~5×10³¹. So the hypothesis that the constraints pin down King Wen is false — that
+- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings — a raw, orientation-explicit count; ≈3.3×10³⁷ after orientation-dedup ([METHODS](reports/METHODS.md) §"Canonical quantities") — (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding
+  C6–C7 still leaves ~5×10³¹.
+  🔴 **The ≈3.3×10³⁷ orientation-dedup figure above is WITHDRAWN (2026-08-24)** — it exceeds its own
+  31! ≈ 8.2228×10³³ ceiling by ~4,013×; see [CORRECTIONS.md](documentation/CORRECTIONS.md).
+  **The raw 1.33×10³⁸ is unaffected and stands.** So the hypothesis that the constraints pin down King Wen is false — that
   was the strong reading of the literature's derivation claims, and this project's own early working
   assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
   jointly unsatisfiable — no C1∩C2∩C4∩C5-valid ordering can be perfect under all four. King Wen keeps one exactly and misses the others minimally, so its famous anomalies
-  are a **forced trade-off, not damage to an original that was perfect under all four** — no such
-  original could exist. (A *three*-rule-perfect precursor does exist; whether the anomalies are an
+  are consistent with a **forced trade-off**. What the incompatibility establishes is narrower than
+  it may read: it **rules out one explanation** — damage to an original that was perfect under all
+  four — because **no such original could exist.** (A *three*-rule-perfect precursor does exist; whether the anomalies are an
   arranger's trade-off or damage to that precursor is weighed, not settled, in TR-2's model
   comparison.) A 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
 - **Eight rules asserted as design are proven forced.** Each is a theorem, machine-checked in Lean 4
