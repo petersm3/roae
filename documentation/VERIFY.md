@@ -205,6 +205,15 @@ interrupted:
    every other gate `true`. Since 2026-08-25 the atlas discloses this as
    `gates.t_root_eq_f_layer_sum: "not-run (requires --kc-tdir)"` — **treat any atlas carrying that
    string as UNVERIFIED ACROSS CHUNKS**, however clean the rest of it looks.
+   **Gate on the tokens, not on the prose.** Both paths emit `KEY=value` lines; match them with
+   `grep -qx`, never by scraping the `VERDICT:` sentence, which reads `PASS` whenever nothing
+   *failed* — including when the t-identity never *ran*:
+   ```
+   KC_SCAN_TIDENTITY=VERIFIED|SKIPPED|FAILED          KC_SCAN=OK|FAIL          # --kc-scan
+   KC_SCAN_MERGE_TIDENTITY=VERIFIED|SKIPPED|FAILED    KC_SCAN_MERGE=OK|FAIL    # --kc-scan-merge
+   ```
+   **`SKIPPED` with `OK` is the dangerous combination**: the run is sound but *strictly weaker*, and a
+   wrapper testing only `KC_SCAN=OK` will not notice. A production atlas requires `VERIFIED`.
 4. **The chunked merge path — this is what a real n=31 run uses.** The scan in step 3 is a single
    48-85 h pass with no resume flag, against a Spot MTBE of roughly 15 h, so production splits it.
    Both flags carry over, and **the merge is exactly where omitting `--kc-tdir` does the most damage**,

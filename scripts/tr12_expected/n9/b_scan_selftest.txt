@@ -50,7 +50,10 @@ KC-G BUILD n=9 dir=<SELFTEST_TMP>/g g0=26112 layers=0.068804 MB elapsed=<T>s
 [kc-scan] layer 07 -> 08: transition mass 26112
 [kc-scan] layer 08 -> 09: transition mass 26112
 [kc-scan] atlas written: <SELFTEST_TMP>/atlas.json
+KC_SCAN_TIDENTITY=SKIPPED
+[kc-scan] WARNING: no --kc-tdir - the arithmetic identity (t(root) == sum of f layer masses) was NOT run. It is the only value-level check on fmass[k] for k < n. This is a STRICTLY WEAKER attestation; pass --kc-tdir for a production atlas.
 [kc-scan] VERDICT: PASS (0 gate failures)
+KC_SCAN=OK
 [kc-scan-selftest] --kc-scan end-to-end (JSON written, gates PASS)              PASS
 [kc-scan-selftest] atlas JSON spot-check (N_total field)                        PASS
 [kc-scan-selftest] PASS (0 failures)

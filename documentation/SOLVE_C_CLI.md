@@ -1226,6 +1226,12 @@ identity `t(root) == sum_k fmass[k]` is skipped, `gate_fails` stays 0, and the a
 `gates.t_root_eq_f_layer_sum: "not-run (requires --kc-tdir)"` (2026-08-25); see the mandatory merge
 recipe in `VERIFY.md`.
 
+Both paths report the outcome as `KEY=value` tokens intended for `grep -qx`:
+`KC_SCAN_TIDENTITY=` / `KC_SCAN=` on `--kc-scan`, and `KC_SCAN_MERGE_TIDENTITY=` / `KC_SCAN_MERGE=`
+on `--kc-scan-merge`, each taking `VERIFIED`, `SKIPPED` or `FAILED` (`OK`/`FAIL` for the run tokens).
+**`SKIPPED` is reported alongside `OK`**, because a run with no t ladder has not failed anything — it
+has merely checked less. Do not gate on the `VERDICT:` sentence, which cannot distinguish the two.
+
 Chunked, eviction-survivable `--kc-scan`. The full-31 atlas scan is a single
 **48–85 h unresumable pass** against a Spot MTBE of roughly **15 h**;
 `--kc-layers A B` splits it into independent per-layer-range processes, so an

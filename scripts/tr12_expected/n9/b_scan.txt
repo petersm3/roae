@@ -10,7 +10,9 @@
 [kc-scan] layer 07 -> 08: transition mass 26112
 [kc-scan] layer 08 -> 09: transition mass 26112
 [kc-scan] atlas written: <ART>/atlas.json
+KC_SCAN_TIDENTITY=VERIFIED
 [kc-scan] VERDICT: PASS (0 gate failures)
+KC_SCAN=OK
 ### atlas
 {
   "type": "roae-kc-scan-atlas",

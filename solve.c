@@ -24543,9 +24543,22 @@ static int kc_scan_main(int argc, char *argv[]) {
             kc_h_scan_write_atlas(f, &T, fkc, fdir, gdir, tdir, want_raw);
             fclose(f);
             printf("[kc-scan] atlas written: %s\n", outp);
+            /* Q-172: the whole-atlas path was the only one of the three with no
+             * KEY=value verdict and no --kc-tdir warning, so a wrapper grepping
+             * console output read a run with the t-identity SKIPPED as a clean
+             * PASS. --kc-scan-merge has carried both since it was written; this
+             * gives the scan path parity with it. */
+            printf("KC_SCAN_TIDENTITY=%s\n",
+                   !tkc ? "SKIPPED" : (T.t_sum_ok ? "VERIFIED" : "FAILED"));
+            if (!tkc)
+                printf("[kc-scan] WARNING: no --kc-tdir - the arithmetic identity "
+                       "(t(root) == sum of f layer masses) was NOT run. It is the only "
+                       "value-level check on fmass[k] for k < n. This is a STRICTLY "
+                       "WEAKER attestation; pass --kc-tdir for a production atlas.\n");
             printf("[kc-scan] VERDICT: %s (%d gate failure%s)\n",
                    T.gate_fails ? "FAIL" : "PASS", T.gate_fails,
                    T.gate_fails == 1 ? "" : "s");
+            printf("KC_SCAN=%s\n", T.gate_fails ? "FAIL" : "OK");
             rc = T.gate_fails ? 1 : 0;
         }
     } else {
