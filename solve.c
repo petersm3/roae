@@ -24395,11 +24395,21 @@ static void kc_h_scan_write_atlas(FILE *f, const KcScanTab *T, const KC *fkc,
                 "size in VALID-PREFIX units; the mapping to SOLVE_NODE_LIMIT node-counter "
                 "semantics is the separate XA(iii) convention certificate (--kc-t-cert / "
                 "W0-D) — NOT claimed here\",\n");
+        /* t_root_eq_f_layer_sum is the ONLY value-level check on fmass[k] for
+         * k < n, which on a merged table is CARRIED from one chunk each and is
+         * never recomputed. It runs only under --kc-tdir, so it must report
+         * "not-run" rather than inherit the gate_fails==0 "true" of the gates
+         * that did run -- otherwise an atlas built without a t ladder asserts
+         * a cross-chunk identity nothing checked (Q-39). */
         fprintf(f, "  \"gates\": {\"per_layer_flow_eq_N\": %s, \"raw_marginal_sums_eq_N\": "
-                "%s, \"branch_masses_sum_eq_N\": %s, \"fails\": %d},\n",
+                "%s, \"branch_masses_sum_eq_N\": %s, \"t_root_eq_f_layer_sum\": %s, "
+                "\"fails\": %d},\n",
                 T->gate_fails ? "\"see fails\"" : "true",
                 want_raw ? (T->gate_fails ? "\"see fails\"" : "true") : "\"not-emitted\"",
-                T->gate_fails ? "\"see fails\"" : "true", T->gate_fails);
+                T->gate_fails ? "\"see fails\"" : "true",
+                !T->t_ladder ? "\"not-run (requires --kc-tdir)\""
+                             : (T->t_sum_ok ? "true" : "\"see fails\""),
+                T->gate_fails);
         fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
                 GIT_HASH, SOURCE_SHA);
         fprintf(f, "  \"semantics\": \"certificate, not proof\"\n}\n");

@@ -1218,6 +1218,14 @@ solve --kc-scan-merge FDIR GDIR OUT.json CHUNK.json [CHUNK.json ...]
 solve --kc-layers-selftest
 ```
 
+🔴 **`--kc-tdir` is bracketed above because it is syntactically optional — it is not scientifically
+optional.** It supplies the only value-level check on `fmass[k]` for `k < n`, and on a merged table
+those masses are carried from one chunk each and never recomputed. Without it the cross-chunk
+identity `t(root) == sum_k fmass[k]` is skipped, `gate_fails` stays 0, and the atlas reports
+`"fails": 0` with every other gate `true`. The atlas discloses the skip as
+`gates.t_root_eq_f_layer_sum: "not-run (requires --kc-tdir)"` (2026-08-25); see the mandatory merge
+recipe in `VERIFY.md`.
+
 Chunked, eviction-survivable `--kc-scan`. The full-31 atlas scan is a single
 **48–85 h unresumable pass** against a Spot MTBE of roughly **15 h**;
 `--kc-layers A B` splits it into independent per-layer-range processes, so an

@@ -197,7 +197,35 @@ interrupted:
    is silently absent, and the atlas still reports `gates.fails = 0`**, because the raw gate
    degrades to the string `"not-emitted"` rather than failing. A 48-85 h unresumable pass would
    complete, look clean, and be missing a named figure.
-4. **Atlas-derived tables (milliseconds):** everything downstream reads the emitted JSON.
+   🔴 **`--kc-tdir` is REQUIRED for the same reason, and for a sharper one.** The t ladder supplies
+   the *only* value-level check on `fmass[k]` for `k < n`. On a merged table each of those masses is
+   **carried from one chunk and never recomputed**, so the identity `t(root) == sum_k fmass[k]` is the
+   single 192-bit equation tying every chunk to an independently derived total. Omit `--kc-tdir` and
+   that gate never runs, `gate_fails` is never incremented, and the atlas reports `"fails": 0` with
+   every other gate `true`. Since 2026-08-25 the atlas discloses this as
+   `gates.t_root_eq_f_layer_sum: "not-run (requires --kc-tdir)"` — **treat any atlas carrying that
+   string as UNVERIFIED ACROSS CHUNKS**, however clean the rest of it looks.
+4. **The chunked merge path — this is what a real n=31 run uses.** The scan in step 3 is a single
+   48-85 h pass with no resume flag, against a Spot MTBE of roughly 15 h, so production splits it.
+   Both flags carry over, and **the merge is exactly where omitting `--kc-tdir` does the most damage**,
+   because that is the path on which `fmass[k<n]` is carried rather than recomputed:
+
+   ```
+   ./solve --kc-scan       FDIR GDIR out.chunk0.json --kc-layers 0 A  --kc-tdir TDIR --kc-raw
+   ./solve --kc-scan       FDIR GDIR out.chunk1.json --kc-layers A B  --kc-tdir TDIR --kc-raw
+   #   ... one chunk per layer range; the ranges must tile [0, n) with no gap and no overlap ...
+   ./solve --kc-scan-merge FDIR GDIR atlas.json out.chunk*.json      --kc-tdir TDIR --kc-raw
+   ```
+
+   **Check the merged atlas before trusting it:**
+   ```
+   grep -o '"t_root_eq_f_layer_sum": [^,]*' atlas.json    # must be: true
+   grep -o '"fails": [0-9]*' atlas.json                   # must be: "fails": 0
+   ```
+   A merged atlas that reports `"not-run (requires --kc-tdir)"` **is not a failed run — it is an
+   unchecked one**, which is worse, because nothing in its verdict line says so: the merge still
+   prints `VERDICT: PASS (0 gate failures)`.
+5. **Atlas-derived tables (milliseconds):** everything downstream reads the emitted JSON.
 
 **Hardware and cost, honestly labelled.** Sizing guidance from the project's own instrumented
 runs, **not reproducible figures** — they depend on the disk class, the machine and what else it
