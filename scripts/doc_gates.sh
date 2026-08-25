@@ -9830,7 +9830,10 @@ gate_script_paths() {
 # a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2 — the NINTH
 # nibble is wrong (f, not 8). A reviewer who greps the published prefix gets
 # nothing back and cannot tell a typo from a withdrawn anchor. That instance is
-# already fixed (BOUNDARY_MINIMUM.md:29 now reads `a09280fb8…`); this gate is
+# was NOT in fact fixed when this comment first claimed it: BOUNDARY_MINIMUM.md:29 and
+  # PARTITION_STABILITY_BOUNDARIES.md:19 both still read `a09280fbf…` until 2026-08-25, and this gate
+  # had been correctly reporting the NEAR MISS the entire time while the comment said otherwise.
+  # Both are corrected now. A comment asserting a fix is not a fix; this gate is
 # what stops the class returning.
 #
 # TWO LEGS, and the second exists BECAUSE the first has an allowlist.
@@ -9904,8 +9907,20 @@ gate_hex_prefix() {
   local d; d=$(mktemp -d) || { echo "  [FAIL] GATE 22: mktemp failed, so nothing was checked."; return 1; }
   # UNIVERSE. `[0-9a-f]+` is unbounded on a CHARACTER CLASS, then length-filtered in awk —
   # deliberately not `[0-9a-f]{64}`, so this file's own no-bounded-repetition rule holds.
-  { git grep -ohIE '[0-9a-f]+' HEAD 2>/dev/null
-    git diff -z --name-only HEAD 2>/dev/null | xargs -0 -r grep -ohIE '[0-9a-f]+' 2>/dev/null
+  # 🔴 THE CHECKER IS EXCLUDED FROM ITS OWN UNIVERSE. Found by an OpenAI Codex review (unit N07,
+  # 2026-08-25). This file is in HEAD and embeds a full 64-nibble hash in a comment explaining a past
+  # fix, so without the exclusion the gate's OWN SOURCE is a valid witness for the truncated tokens
+  # citing that hash. Today seven independent files also carry it, so the gate is not false-green —
+  # but it CANNOT DISTINGUISH that world from one where every independent expansion was deleted and
+  # only the explanatory comment survived. It would still report the token resolved.
+  #
+  # The general invariant, from the same review: a verifier must be FALSE in the
+  # "verifier present, target absent" state — no witness may come from the verifier's own closure.
+  # Negative control for this gate: delete every independent expansion of a hash while leaving this
+  # file untouched; the token MUST then classify as DANGLE, not OK.
+  { git grep -ohIE '[0-9a-f]+' HEAD -- ':!scripts/doc_gates.sh' 2>/dev/null
+    git diff -z --name-only HEAD 2>/dev/null | grep -zv '^scripts/doc_gates\.sh$' \
+      | xargs -0 -r grep -ohIE '[0-9a-f]+' 2>/dev/null
   } | awk 'length($0)==64' | sort -u > "$d/univ"
   if [ ! -s "$d/univ" ]; then
     echo "  [FAIL] zero 64-nibble strings found in the tree. That is a broken scan, not a"
