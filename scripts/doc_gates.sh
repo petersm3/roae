@@ -1323,7 +1323,18 @@ for m in mds:
                 if len(same) == 1:
                     dest = same[0]
             if dest is None:
-                continue                           # file-level resolution is phase 1's job
+                # 🔴 Codex N10 finding 5, 2026-08-26. This said `continue -- file-level resolution is
+                # phase 1's job`. But phase 1 (GATE 4) extracts only MARKDOWN LINK syntax, so a BARE
+                # `FILE.md §"..."` reference reached NEITHER gate. A gap between two checks, each
+                # deferring to the other. Live instance: documentation/HISTORY.md cited a file that
+                # exists only in roae-PRIVATE and secrefs printed 'every delimited section reference
+                # resolves'. An explicit cross-repo form (repo:FILE.md) is legible and excluded.
+                if ':' not in path:
+                    print(f'  [FINDING] {f}:{ln} - bare section reference to "{path}", which '
+                          f'resolves to no file in this repo. Qualify it as repo:FILE.md if the '
+                          f'target is private, or fix the name.')
+                    rc = 1
+                continue
             want = norm(sec)
             if not want:
                 continue
