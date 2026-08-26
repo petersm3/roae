@@ -492,3 +492,24 @@ constraint (see [SAT_CLI.md](SAT_CLI.md)).
 - [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) — the minimum boundary set behind `--keystone-analysis`
 - [SPECIFICATION.md](SPECIFICATION.md) — formal C1–C5 definitions
 - [CRITIQUE.md](CRITIQUE.md) — methodological caveats (incl. the null-model gap `--null-debruijn` addresses)
+
+## Two-language verifier flags — restored from `origin/main`, 2026-08-26
+
+GATE 2 reported these five present in `solve.py` and absent from this document. **All five are
+documented on `origin/main`**, so this is branch staleness, not a missing description — the rows
+below are lifted **verbatim from main** rather than re-derived. Re-deriving an upstream description
+would produce a second wording that has to be reconciled at merge, which is the mistake already made
+once with `.gitignore` and deliberately not repeated.
+
+```
+python3 solve.py --f4p-verify | --f6-verify | --dav-verify | --dav2-verify | --db1-verify | --vdb-verify | --perm-verify [SEQ]
+python3 solve.py --rc4b-verify [SEQ] | --rc1c-verify [SEQ] | --r11-verify [SEQ] | --r11-builder-verify
+```
+
+| flag | description |
+|---|---|
+| `--dav2-verify` | Verify the 2 pre-registered [Davis (2012)](CITATIONS.md#davis2012) wave-2 candidates (`tquartet` C-D9, `xunslots` C-D10) on KW. | [SOLVE_C_CLI.md#--dav2-verify](SOLVE_C_CLI.md#--dav2-verify) |
+| `--db1-verify` | Verify Drasny's "Rule of Ten" D-B1 classifier (== Table 4.1, all 64 hexagrams) and the KW conformity count (X=22) — the two-language SPEC gate for `solve.c --db1-verify`. | [SOLVE_C_CLI.md#--db1-verify](SOLVE_C_CLI.md#--db1-verify) |
+| `--r11-builder-verify` | R11 structural smoke-test of the M_G greedy-builder machinery (KW-path softmax numerator, P_complete simulation, synthetic draw) — **not** the four-class Bayes verdict. `solve.py`-only (no `solve` C equivalent). Sha-neutral. | (this doc) |
+| `--r11-verify [SEQ]` | Two-language ground truth for the R11 frozen 8-axis violation bundle (g1..g6 T1 + g7, g8 T2); KW expected vector `2,2,2,0,0,0,0,0`. No-arg mode additionally prints a `violation positions` line (parity pair-slots, rhythm adjacent-pairs, gender inversion-class positions) for the three graded rules — an analysis extra beyond the C twin, which emits counts only. With a 64-int SEQ prints just the 8 values (ordering matches `solve.c --r11-verify SEQ`; this machine-output mode is the two-language gate and is unchanged). Sha-neutral. | [SOLVE_C_CLI.md#--r11-verify](SOLVE_C_CLI.md#--r11-verify) |
+| `--rc1c-verify [SEQ]` | Two-language ground truth for the R6 circular anchor-adjacency predicate (R-C1c): on KW the A2 anchor pair {21, 42} gives `slot2 = 0, slot32 = 1, adjacent = 1`. With a 64-int SEQ prints `slot2,slot32,adjacent` (ordering matches `solve.c --rc1c-verify SEQ`). Sha-neutral. | [SOLVE_C_CLI.md#--rc1c-verify](SOLVE_C_CLI.md#--rc1c-verify) |
