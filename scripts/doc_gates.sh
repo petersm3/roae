@@ -544,7 +544,15 @@ gate_numbers() {
   # Round numbers (>=4 trailing zeros) are budgets/powers of ten — skipped.
   # Report-only ([WARN]) with an allowlist, because legitimately-close pairs exist
   # (e.g. a byte count with and without the 32-byte header).
-  local tmp allow; tmp=$(mktemp)
+  # 🔴 Codex N10 finding 3 — EXECUTABLE FALSE CLEAR. This was `tmp=$(mktemp)` UNCHECKED.
+  # When mktemp fails (read-only or restricted tmp) $tmp is EMPTY, `sort -u > ""` fails, the
+  # reads that follow find nothing, and the gate reports its clean message having examined
+  # nothing at all. Codex demonstrated exactly this: under one temp-write restriction GATES 3,
+  # 10 and 22 -- which CHECK their mktemp -- correctly went red, while GATES 1, 2 and 20 passed.
+  # Report-only refers to this gate's FINDINGS being advisory. It does not make its ability to
+  # RUN optional: a check that cannot run must ERROR, never emit [ok].
+  local tmp allow
+  tmp=$(mktemp) || { echo "  [FAIL] GATE 1: mktemp failed, so NOTHING was checked."; return 1; }
   allow="documentation/DOC_GATE_NUMBER_ALLOWLIST.txt"
   for f in $DOCS; do
     grep -oE '[0-9][0-9,]{11,}' "$f" 2>/dev/null | tr -d ',' \
@@ -583,7 +591,17 @@ gate_cli() {
     require_tracked "$doc"  "Delete a CLI doc and its pair stops being checked, silently." || rcd=$?
     if [ "$rcc" -eq 2 ] || [ "$rcd" -eq 2 ]; then bad=1; return 0; fi
     if [ "$rcc" -ne 0 ] || [ "$rcd" -ne 0 ]; then return 0; fi
-    cf=$(mktemp); df=$(mktemp)
+    # 🔴 Codex N10 finding 3 — same false-clear shape as GATE 1: both were UNCHECKED, so a
+    # failed mktemp left empty paths, every write failed, and the comparison ran over two
+    # nonexistent files and found no discrepancy. GATE 2 is BLOCKING, so this one could clear
+    # a push. Fail loudly instead, and do not leak cf if df is the one that fails.
+    # ⚠ `bad=1`, NOT a bare `return 1`. check_pair is an INNER function whose return value is
+    # DISCARDED by its five call sites; gate_cli ends with `return $bad`. The first cut of this
+    # fix returned 1 here and MEASURED rc=0 on the whole gate -- it printed a loud [FAIL] and
+    # still cleared the push. That is the same false clear one layer up, produced by the fix for
+    # it. The established shape is two lines above: set bad, then return.
+    cf=$(mktemp) || { echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; bad=1; return 0; }
+    df=$(mktemp) || { rm -f "$cf"; echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; bad=1; return 0; }
     # ITEM A4 (2026-08-02) — DECIDED: NARROW, and here is the decision rather than a
     # rediscovery of the question. The extractor is a line-based grep, so a COMMENTED-OUT
     # declaration was emitted as an undocumented flag. MEASURED while writing item A3's
@@ -4146,7 +4164,10 @@ open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUI
   # built from that, so the check is "5b names the cell I just broke", which is the real
   # claim, and it cannot drift. The anchor STRING is still pinned and still asserted unique —
   # the drift-proofing is on the coordinate, not on the identity of the defect.
-  G5BMUT=$(mktemp); G5BLINEF=$(mktemp)
+  # 🔴 Codex N10 finding 3, same class -- unchecked mktemp. Codex named gates 1, 2 and 20; these
+  # two were found by fixing the CLASS rather than the three instances it happened to execute.
+  G5BMUT=$(mktemp)   || { echo "  [FAIL] GATE 5b: mktemp failed, so NOTHING was checked."; return 1; }
+  G5BLINEF=$(mktemp) || { rm -f "$G5BMUT"; echo "  [FAIL] GATE 5b: mktemp failed, so NOTHING was checked."; return 1; }
   cat > "$G5BMUT" <<'G5BPY'
 import os, sys
 p = 'reports/TR9_PRICING_THE_CONSTRAINTS.md'
@@ -4197,7 +4218,9 @@ G5BPY
   # roae.py — three runs, ~45 s each, so three naive cases would cost ~7 minutes. They
   # share ONE regeneration through DOC_GATES_GEN_CACHE, keyed on roae.py's sha256:
   # measured 135 s for the first case and 0.08 s for each of the others.
-  GEN_CACHE=$(mktemp -d)
+  # 🔴 Codex N10 finding 3, same class -- unchecked mktemp -d. An empty GEN_CACHE would send
+  # every cached regeneration to a path under "", so each assert_gen_fires would compare nothing.
+  GEN_CACHE=$(mktemp -d) || { echo "  [FAIL] mktemp -d failed, so NO generator assertion ran."; return 1; }
 
   # assert_gen_fires <label> <evidence-ERE> <python-mutation>
   #   <evidence-ERE> must match a line of GATE 8's output.
@@ -9782,21 +9805,30 @@ gate_publication_state() {
     rc=1
   fi
   # (b) unchecked boxes outside a reader checklist
-  n=0
-  while IFS= read -r f; do
+  # 🔴 Codex N10 finding 3 — EXECUTABLE FALSE CLEAR, and the most direct instance in the suite.
+  # This leg used to redirect into a HARDCODED /tmp/g20_$$ with `2>/dev/null`, then decide by
+  # `[ -s /tmp/g20_$$ ]`. If that write failed for ANY reason -- read-only /tmp, a restricted
+  # sandbox, a full filesystem, a name collision -- the redirect error was swallowed, the file
+  # did not exist, `-s` was false, rc stayed 0 and the gate printed its clean message. Every
+  # violation this leg exists to catch became invisible, silently. The tree had 16 real
+  # unchecked-box FAILs at the time this was fixed; all 16 would have vanished with no error.
+  # THE FIX IS TO REMOVE THE FAILURE MODE, NOT TO DETECT IT: capture into a variable, so there
+  # is no temp file to fail to write and no /tmp dependency to be denied. `local` is declared on
+  # its own line because `local x=$(cmd)` masks the command's exit status behind local's own.
+  local boxes
+  boxes=$(while IFS= read -r f; do
     [ -n "$f" ] || continue
     awk -v FN="$f" '
       /^#{1,6}[[:space:]]/ { inck = (tolower($0) ~ /checklist/) ? 1 : 0 }
       /^[[:space:]]*- \[ \]/ { if (!inck) printf "  [FAIL] %s:%d unchecked box outside a reader checklist: %s\n", FN, NR, substr($0,1,72) }
     ' "$f"
-  done < <(git ls-files '*.md' 2>/dev/null) > /tmp/g20_$$ 2>/dev/null
-  if [ -s /tmp/g20_$$ ]; then
-    cat /tmp/g20_$$
+  done < <(git ls-files '*.md' 2>/dev/null))
+  if [ -n "$boxes" ]; then
+    printf '%s\n' "$boxes"
     echo "         An unchecked box in published prose is an obligation the document has not met."
     echo "         Reader-facing checklists are exempt — put them under a heading containing 'checklist'."
     rc=1
   fi
-  rm -f /tmp/g20_$$
   [ "$rc" -eq 0 ] && echo "  [ok] no heading-form draft markers; every unchecked box sits under a reader checklist"
   return $rc
 }
