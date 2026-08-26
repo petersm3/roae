@@ -1856,8 +1856,18 @@ gate_figures() {
   require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero generators are checked."
   case $? in 1) return 0;; 2) return 1;; esac
   local gens bad=0 g
-  gens=$(git ls-files 'viz/*.py')
-  [ -n "$gens" ] || { echo "  [skip] no figure generators tracked in viz/*.py (index is empty for that path)"; return 0; }
+  # 🔴 Codex N10 finding 9. This was `git ls-files 'viz/*.py'` alone -- a population keyed on a
+  # DIRECTORY CONVENTION -- while the [ok] line below made the UNQUALIFIED claim "N figure
+  # generator(s) carry no registered retracted phrasing". MEASURED 2026-08-26: four tracked .py
+  # files call savefig, and solve.py is the fourth. It holds a documented matplotlib generator
+  # (matplotlib.use("Agg") and fig.savefig at solve.py:3197), so a registered retracted annotation
+  # added to `solve.py --bivariate` was invisible to this gate while the gate said "3 generators".
+  # Same shape as GATE 12's exemption: the comment promised a population the code did not have.
+  # THE POPULATION IS NOW DERIVED FROM CONTENT, and the directory convention is kept as a FLOOR so
+  # this can only ever widen: a viz/ file that stops calling savefig is still checked.
+  gens=$( { git ls-files 'viz/*.py'
+            git ls-files '*.py' | xargs grep -ln 'savefig' 2>/dev/null; } | sort -u)
+  [ -n "$gens" ] || { echo "  [skip] no figure generators tracked (no viz/*.py in the index and no tracked .py calls savefig)"; return 0; }
   for g in $gens; do
     # Every path here came out of the index, so require_tracked can only return 0 or 2.
     local grc=0
@@ -1932,7 +1942,11 @@ gate_figures() {
   [ "$figbad" -eq 0 ] || bad=1
 
   if [ "$bad" -eq 0 ]; then
-    echo "  [ok] $(echo $gens | wc -w) figure generator(s) carry no registered retracted phrasing"
+    # The count is qualified by HOW the population was derived, so a reader can tell what was
+    # actually scanned. An unqualified "N figure generators" is what let solve.py's omission read
+    # as coverage rather than as a gap.
+    echo "  [ok] $(echo $gens | wc -w) figure generator(s) — every tracked viz/*.py plus every"
+    echo "       tracked .py that calls savefig — carry no registered retracted phrasing"
     echo "  [ok] ...and none of the $nfig registered retracted FIGURE(s) either (item A8)"
   fi
   return $bad
@@ -3559,6 +3573,20 @@ c=[f for f in glob.glob('viz/*.py')]
 sys.exit(1) if not c else None
 s=open(c[0]).read()
 open(c[0],'w').write(s+'\n# hard floor k>=13\n')"
+
+  # 🔴 Codex N10 finding 9: the generator population was keyed on viz/ and solve.py holds a
+  # real matplotlib generator, so a retracted phrase annotated there was invisible while the gate
+  # reported "3 figure generators". This fixture pins the WIDENED population specifically -- it
+  # injects into solve.py, NOT into viz/, so it goes red the moment the population narrows back to
+  # a directory glob. Measured before shipping: pre-fix the same injection returned rc=0 and
+  # "[ok] 3 figure generator(s) carry no registered retracted phrasing".
+  assert_fires_why "GATE 6 (N10-9) a retracted phrase in solve.py's figure generator" figures \
+    'retracted phrasing in a figure generator: "preserving the classical pairing"' \
+"f='solve.py'
+s=open(f).read()
+a='    import matplotlib'
+assert s.count(a)==1, 'anchor moved: solve.py matplotlib import not found exactly once'
+open(f,'w').write(s.replace(a, '    # figure caption: preserving the classical pairing'+chr(10)+a, 1))"
 
   # ITEM A8: the FIGURE half of GATE 6. The phrase assertions above cannot cover it — they
   # inject a registered PHRASE, which the phrase loop would catch whether or not the figure
