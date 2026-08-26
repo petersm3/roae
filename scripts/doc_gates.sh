@@ -152,6 +152,25 @@ require_tracked() {
   return 1
 }
 
+# 🔴 Codex N10 finding 4, 2026-08-26. require_tracked proves a registry EXISTS. It does not prove
+# the registry has any ROWS, and the shared newline guard explicitly accepts an empty file. So
+# truncating a registry to zero bytes makes its gate iterate nothing and pass. VERIFIED: with a
+# zero-byte RETRACTED_PHRASES.tsv, GATE 3 printed its header and nothing else -- the 15 retracted
+# phrasings it normally reports all went silent. A registry is never legitimately empty in this
+# repo (24 / 12 / 61 rows today), so zero rows is a defect, not a clean bill of health.
+require_rows() { # $1=registry  $2=why it matters
+  local f="$1" n
+  # grep -c PRINTS 0 and EXITS 1 when it matches nothing, so `|| echo 0` appended a SECOND zero
+  # and the test became [ "0\n0" -eq 0 ] -- an integer-expression error, not a verdict.
+  n=$(grep -cvE '^[[:space:]]*(#|$)' "$f" 2>/dev/null); n=${n:-0}
+  if [ "${n:-0}" -eq 0 ]; then
+    echo "  [FAIL] $f has ZERO rows. A registry with no rows silences its gate rather than"
+    echo "         passing it: the loop iterates nothing and returns clean. $2"
+    return 1
+  fi
+  return 0
+}
+
 # require_final_newline <path>
 #   Every registry in this suite is consumed by `while read`, and `read` returns non-zero on
 #   a final line with no terminator — so the shell loop DROPS it. A registered retraction or
@@ -699,6 +718,7 @@ fold_variants() {
 
 gate_retract() {
   echo "== GATE 3: retracted phrasings still surviving =="
+  require_rows "documentation/RETRACTED_PHRASES.tsv" "Zero rows silences every retraction check." || return 1
   # Registry-driven and deliberately so: auto-parsing retraction prose is unreliable,
   # and a wrong gate is worse than none. Each entry is a FIXED string that was retracted;
   # the gate fails if it appears anywhere outside the file allowed to narrate the retraction.
@@ -1479,6 +1499,7 @@ PY
 gate_links_and_secrefs() {
   local rc=0
   gate_links   || rc=1
+  require_rows "documentation/RETRACTED_FIGURES.tsv" "A retracted FIGURE that nothing registers is a figure nobody re-checks." || bad=1
   gate_secrefs || rc=1
   return $rc
 }
@@ -9618,6 +9639,7 @@ doc_gates_concurrency_advisory() {
   if [ -n "${DOC_GATES_SELFTEST_DEPTH:-}" ]; then return 0; fi
   local lock holder
   lock="$(git rev-parse --git-dir 2>/dev/null || echo .git)/doc_gates_selftest.lock"
+  require_rows "documentation/DOC_GATE_ALIAS_REACH.tsv" "Zero rules makes GATE 18 claim every alias use is resolved." || bad=1
   if [ ! -d "$lock" ]; then return 0; fi
   holder="$(cat "$lock/pid" 2>/dev/null || true)"
   case "$holder" in ''|*[!0-9]*) return 0 ;; esac
