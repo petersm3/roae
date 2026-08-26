@@ -2794,11 +2794,49 @@ if [ "${1:-}" = "--selftest" ]; then
   # call line starts with exactly two spaces, the label is the first double-quoted token on
   # it, the ERE is the first single-quoted token in the argument list, and the mutation body
   # opens at column 0. Keep the shape or GATE 16's per-invocation vacuity guard fails.
+  # 🔴 Q-235, found 2026-08-26 while landing Codex N10 finding 7. "could not inject (anchor
+  # moved)" was printed IDENTICALLY whether the anchor moved because this branch is stale or
+  # because the injection code itself is broken. A new GATE 12 fixture shipped with a regex that
+  # reached python as `\d` -- matching a literal backslash -- and its harness line was
+  # indistinguishable from the three GATE 12 fixtures that fail for real staleness, so it was
+  # misattributed to staleness. That shape appears at least NINE times in one selftest run on this
+  # branch, which is a crowd a broken fixture can hide in indefinitely.
+  # The injection's AssertionError message was already being raised and thrown away. Keep it.
+  INJECT_WHY=""
+  _inject() {   # $1 = python mutation source. Sets INJECT_WHY when it fails.
+    local mut="$1" err rc f paths
+    # `2>&1 >/dev/null` in THIS order: stderr to the capture, then stdout to the bin. Reversed,
+    # the capture would take stdout and the traceback would go on being discarded.
+    err=$(python3 -c "$mut" 2>&1 >/dev/null); rc=$?
+    [ "$rc" -eq 0 ] && { INJECT_WHY=""; return 0; }
+    INJECT_WHY="         why: $(printf '%s' "$err" | tail -1)"
+    # HEURISTIC, and labelled as one in the output it produces: pull quoted repo paths out of the
+    # mutation SOURCE and ask whether each still matches main. A differing file makes staleness the
+    # likely cause; an identical one points at the fixture. It cannot be exact -- the mutation is
+    # arbitrary python -- so it names a likelihood and never a verdict.
+    paths=$(printf '%s' "$mut" | grep -oE "'[A-Za-z0-9_./-]+\.(md|py|c|tsv|txt)'" | tr -d "'" | sort -u)
+    for f in $paths; do
+      git ls-files --error-unmatch "$f" >/dev/null 2>&1 || continue
+      if ! git rev-parse --verify -q main >/dev/null 2>&1; then
+        INJECT_WHY="$INJECT_WHY
+         anchor $f: no local main to compare against, so neither cause can be ruled out"
+      elif git diff --quiet main -- "$f" 2>/dev/null; then
+        INJECT_WHY="$INJECT_WHY
+         anchor $f is IDENTICAL to main -- so this is likely the FIXTURE, not branch staleness"
+      else
+        INJECT_WHY="$INJECT_WHY
+         anchor $f DIFFERS from main -- branch staleness is the likely cause"
+      fi
+    done
+    return 1
+  }
+
   assert_fires_why() {
     local label="$1" gate="$2" want="$3" mut="$4" out rc
-    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
-                           echo "         assertion did NOT run. A skipped assertion is not a pass."
-                           PASS=1; _selftest_revert; return; }
+    _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
+                        echo "         assertion did NOT run. A skipped assertion is not a pass."
+                        printf '%s\n' "$INJECT_WHY"
+                        PASS=1; _selftest_revert; return; }
     out=$(bash "$0" "$gate" 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -eq 0 ]; then
@@ -2889,8 +2927,9 @@ if [ "${1:-}" = "--selftest" ]; then
   # the hour they were written — caught by this batch's own Phase-4 pass.)
   assert_stays_clean_why() {
     local label="$1" gate="$2" want="$3" mut="$4" out rc
-    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
-                           PASS=1; _selftest_revert; return; }
+    _inject "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
+                        printf '%s\n' "$INJECT_WHY"
+                        PASS=1; _selftest_revert; return; }
     out=$(bash "$0" "$gate" 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -ne 0 ]; then
@@ -4285,9 +4324,10 @@ G5BPY
   # fire-proof. GATE 8 is also the gate whose hand-taken proof already went stale once.
   assert_gen_fires() {
     local label="$1" want="$2" mut="$3" out rc
-    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
-                           echo "         assertion did NOT run. A skipped fire-proof is not a proof."
-                           PASS=1; _selftest_revert; return; }
+    _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
+                        echo "         assertion did NOT run. A skipped fire-proof is not a proof."
+                        printf '%s\n' "$INJECT_WHY"
+                        PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -eq 0 ]; then
@@ -4415,9 +4455,10 @@ open(p, "w", encoding="utf-8").write(
   # assert_gen_fires_only <label> <new-leg-ERE> <other-leg-stays-ok-ERE> <mutation>
   assert_gen_fires_only() {
     local label="$1" want="$2" alsowant="$3" mut="$4" out rc
-    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
-                           echo "         assertion did NOT run. A skipped fire-proof is not a proof."
-                           PASS=1; _selftest_revert; return; }
+    _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
+                        echo "         assertion did NOT run. A skipped fire-proof is not a proof."
+                        printf '%s\n' "$INJECT_WHY"
+                        PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -eq 0 ]; then
