@@ -2190,3 +2190,161 @@ Recent material changes (full record in [HISTORY.md](HISTORY.md)):
   resume path (commit d11bc0d); depth-3 was unaffected
 - 2026-04 11.2T canonical established (sha `0c0fe37c…`); 100T
   canonical established (sha `915abf30…`)
+
+## Knowledge-compiler and verifier flags — derived from `solve.c`, 2026-08-26
+
+Every entry below is derived from the flag's actual `strcmp` site in `solve.c`, with the
+line number given so a reader can check it. Where `solve.c` carries its own `Usage:` string
+that string is reproduced verbatim and is authoritative; where it does not, the entry states
+only what the parse site establishes — kind, arity and value type — and says nothing about
+semantics it cannot support. **A confident wrong sentence in a CLI doc is worse than a
+missing one**, so unknowns are left explicitly unknown.
+
+### Subcommands
+
+#### `--kc-ar2-selftest`
+
+Dispatched as a subcommand at `solve.c:28886`; takes **none**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-build`
+
+Dispatched as a subcommand at `solve.c:28941`; takes **see code**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-cert-selftest`
+
+Dispatched as a subcommand at `solve.c:28871`; takes **none**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-count`
+
+Dispatched as a subcommand at `solve.c:28952`; takes **see code**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-g-build`
+
+```
+Usage: solve --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc] GDIR: the g-ladder directory (g_layer_NN.bin + g_manifest.txt). Full-31 needs its own ~2.5-2.7 TB (hedged) — a second 4 TB disk or a shared 8 TB with the f ladder both work (plan §8.3; decision open). n <= 22 builds in-memory (v1); n >= 24 or --kc-g-ooc streams out-of-core (v2 default; SOLVE_F1_OOC_FORMAT=v1 override) with eviction resume 
+```
+*Grammar reproduced from `solve.c:28753`.*
+
+#### `--kc-g-check`
+
+```
+Usage: solve --kc-g-check FDIR GDIR [--kc-ooc] [--kc-cache-mb MB] FDIR: an f (forward) retained-layers dir (--kc-build or Stage F); GDIR: the matching g ladder (--kc-g-build). Verifies, for EVERY layer k, sum over canonical masks of orbit * sum f*g == N, plus g(0,root) == N — 31 independent exact identities at full-31 (V3).
+```
+*Grammar reproduced from `solve.c:28801`.*
+
+#### `--kc-g-selftest`
+
+Dispatched as a subcommand at `solve.c:28748`; takes **none**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-ladder-selftest`
+
+Dispatched as a subcommand at `solve.c:28869`; takes **none**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-member`
+
+```
+Usage: solve --kc-member DIR \
+```
+*Grammar reproduced from `solve.c:28989`.*
+
+#### `--kc-midn`
+
+```
+Usage: solve --kc-midn N [--kc-roundtrips R] [--kc-chi2-samples M]
+```
+*Grammar reproduced from `solve.c:28720`.*
+
+#### `--kc-o3-selftest`
+
+Dispatched as a subcommand at `solve.c:28769`; takes **none**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-oocverify`
+
+```
+Usage: solve --kc-oocverify N [--kc-roundtrips R] [--kc-scratch DIR]
+```
+*Grammar reproduced from `solve.c:28735`.*
+
+#### `--kc-oracle-selftest`
+
+Dispatched as a subcommand at `solve.c:28867`; takes **none**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-rank`
+
+```
+Usage: solve --kc-rank DIR \
+```
+*Grammar reproduced from `solve.c:28976`.*
+
+#### `--kc-repr`
+
+```
+Usage: solve --kc-repr DIR \ [--kc-c3-max T]
+```
+*Grammar reproduced from `solve.c:29001`.*
+
+#### `--kc-scan-selftest`
+
+Dispatched as a subcommand at `solve.c:28872`; takes **none**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-selftest`
+
+Dispatched as a subcommand at `solve.c:28716`; takes **none**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-t-build`
+
+Dispatched as a subcommand at `solve.c:28832`; takes **see code**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-t-cert`
+
+```
+Usage: solve --kc-t-cert OUT.json Emits the t-unit node-accounting convention certificate: pins what the t-ladder counts (valid oriented prefixes; root counted; joint pair+orientation branching; dead ends counted) and verifies it byte-exactly against the independent brute DFS at n=9 (EXHAUSTIVE, every stored state) with n=13 spot totals. The SOLVE_NODE_LIMIT mapping is NOT claimed here (W0-D worke
+```
+*Grammar reproduced from `solve.c:28821`.*
+
+#### `--kc-t-check`
+
+Dispatched as a subcommand at `solve.c:28832`; takes **see code**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-t-selftest`
+
+Dispatched as a subcommand at `solve.c:28816`; takes **none**.
+`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+
+#### `--kc-unrank`
+
+```
+Usage: solve --kc-unrank DIR RANK [--kc-record [--kc-c3-max T]]
+```
+*Grammar reproduced from `solve.c:28958`.*
+
+### Modifiers
+
+| flag | arity | parsed at | sets |
+|---|---|---|---|
+| `--kc-bracket` | none (boolean) | `solve.c:28791` | `o3cache` |
+| `--kc-cert-out` | 1 string | `solve.c:22265` | `cert_out` |
+| `--kc-chi2-samples` | 1 integer | `solve.c:28727` | `M` |
+| `--kc-class-uniform` | none (boolean) | `solve.c:28927` | — |
+| `--kc-dump` | 1 integer | `solve.c:22264` | `dump_max` |
+| `--kc-expect-count` | 1 string | `solve.c:22266` | `expect` |
+| `--kc-g-ooc` | none (boolean) | `solve.c:28765` | — |
+| `--kc-oracle-repr` | 1 integer | `solve.c:22261` | `cache_mb` |
+| `--kc-record` | none (boolean) | `solve.c:28928` | — |
+| `--kc-roundtrips` | 1 integer | `solve.c:28726` | `R` |
+| `--kc-scratch` | 1 string | `solve.c:28743` | `scratch` |
+| `--knuth-dump-prefix` | see code | `solve.c:30578` | — |
+| `--r11-verify` | see code | `solve.c:30947` | — |
+| `--rc1c-verify` | see code | `solve.c:30920` | — |
