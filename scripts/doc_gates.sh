@@ -1329,7 +1329,10 @@ for m in mds:
                 # deferring to the other. Live instance: documentation/HISTORY.md cited a file that
                 # exists only in roae-PRIVATE and secrefs printed 'every delimited section reference
                 # resolves'. An explicit cross-repo form (repo:FILE.md) is legible and excluded.
-                if ':' not in path:
+                # `roae-private/FILE.md` is the same explicit cross-repo intent as `repo:FILE.md`,
+                # just written with a slash. Both are legible to a reader; neither is a dangling
+                # same-repo link. A first cut excluded only the colon form and flagged 3 of these.
+                if ':' not in path and not path.startswith('roae-private/'):
                     print(f'  [FINDING] {f}:{ln} - bare section reference to "{path}", which '
                           f'resolves to no file in this repo. Qualify it as repo:FILE.md if the '
                           f'target is private, or fix the name.')
