@@ -2261,6 +2261,9 @@ HEAD = '## Revision history'
 ROW  = re.compile(r'^\|\s*(v[0-9][^|]*?)\s*\|\s*([^|]*?)\s*\|')
 VER  = re.compile(r'^v(\d+)\.(\d+)(.*)$')
 DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+# Anchored and exact: `-draft` only. Not a prefix test -- `-draft-2` is not a draft
+# label, and a widening here is precisely the defect Codex N10 finding 7 names.
+DRAFT = re.compile(r'^-draft$', re.I)
 
 out = subprocess.run(['git', 'ls-files', 'reports/TR*.md'],
                      capture_output=True, text=True)
@@ -2318,9 +2321,23 @@ for f in trs:
             continue
         key, suffix = (int(m.group(1)), int(m.group(2))), m.group(3).strip()
         keys.append(key)
-        # SUFFIX-KEYED exemption: `v1.0-draft` is a draft label, not a released number, so
-        # repeats of it are legitimate (TR-11 x3). `v1.0` repeated is not.
-        if not suffix:
+        # DRAFT-KEYED exemption: `v1.0-draft` is a draft label, not a released number, so
+        # repeats of it are legitimate (TR-11 x3, TR-10 x1). `v1.0` repeated is not.
+        #
+        # 🔴 Codex N10 finding 7. This read `if not suffix:`, which exempts EVERY suffix,
+        # not the draft label the header three screens up says is the one tolerated duplicate.
+        # Codex's concrete bypass: two rows named `v1.2-final`, the latter current and last,
+        # pass every relevant leg -- neither enters `released`, so the duplicate check never
+        # sees them. "The exemption is keyed on the SUFFIX ... so it cannot silently widen"
+        # was true of the COMMENT and false of the CODE: the code had already widened to the
+        # whole class of suffixes, and only the corpus happening to contain no other suffixed
+        # duplicate kept it from mattering.
+        # MEASURED across the tracked corpus before narrowing, because a gate that fires on
+        # legitimate content gets switched off: 87 version cells carry no suffix, 4 carry
+        # `-draft` (TR-11 x3 + TR-10 x1), and exactly one carries `.1` (TR-4's v1.7.1). That
+        # last one becomes "released" under this narrowing and is unique, so nothing legitimate
+        # starts failing.
+        if not DRAFT.match(suffix):
             released.append((plain, ln))
         if not DATE.match(date):
             print(f'  [FAIL] {f}:{ln} — date cell "{date}" is not YYYY-MM-DD, so this row\'s')
@@ -2342,7 +2359,12 @@ for f in trs:
     for plain, ln in released:
         if plain in seen:
             print(f'  [FAIL] {f}:{ln} — released version {plain} is already used at line {seen[plain]}')
-            print('         (draft-suffixed labels like v1.0-draft may legitimately repeat; this one has no suffix)')
+            # The old wording ended "this one has no suffix", which became FALSE the moment
+            # the exemption was narrowed to `-draft` (Codex N10 finding 7): a repeated
+            # `v1.2-final` HAS a suffix and is now correctly refused. Caught by reading the
+            # fixture's own output rather than only its exit code.
+            print('         (only the draft label -draft may legitimately repeat; every other')
+            print('          version, suffixed or not, is a released number and must be unique)')
             bad = 1
         else:
             seen[plain] = ln
@@ -3835,6 +3857,37 @@ prev=lines[rows[-2]].split('|')[1].strip()
 last=lines[rows[-1]].split('|')
 assert '(current)' in last[1], 'the last row is not the current one'
 last[1]=' '+prev+' *(current)* '
+lines[rows[-1]]='|'.join(last)
+open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
+
+  # (1b) A SUFFIXED duplicate — Codex N10 finding 7's exact bypass, 2026-08-26.
+  #      Two rows named `vN.M-final`, the latter current and last, used to pass every relevant
+  #      leg: the old `if not suffix:` classified ANY suffixed version as non-released, so the
+  #      duplicate check never saw them, and the ordering test only refuses `<`, so equal keys
+  #      pass it too. THE VERSION IS DERIVED, NOT HARDCODED -- it bumps the minor of the last
+  #      real row, so the pair ascends from the row above and the versions-backwards leg CANNOT
+  #      account for the firing. That matters: an assertion satisfied by a different leg proves
+  #      nothing about this one. Verified before shipping by re-running with the fix reverted:
+  #      rc=0 and no duplicate message, i.e. this fixture is able to fail.
+  assert_fires_why "GATE 12 a SUFFIXED duplicate (Codex N10 finding 7: two vN.M-final rows)" revhist \
+    'released version v[0-9]+\.[0-9]+-final is already used at line' \
+"f='reports/TR1_EIGHT_CENTURIES_MEASURED.md'
+lines=open(f,encoding='utf-8').read().split(chr(10))
+h=[n for n,l in enumerate(lines) if l.strip()=='## Revision history']
+assert len(h)==1, 'no single revision-history heading'
+rows=[n for n in range(h[0],len(lines)) if lines[n].startswith('| v')]
+assert len(rows)>=2, 'need two rows to duplicate one onto the other'
+import re
+m=re.match(r'v(\\d+)\\.(\\d+)', lines[rows[-1]].split('|')[1].strip())
+assert m, 'last row version cell is not vN.M'
+v='v%d.%d-final' % (int(m.group(1)), int(m.group(2))+1)
+last=lines[rows[-1]].split('|')
+assert '(current)' in last[1], 'the last row is not the current one'
+prev=lines[rows[-2]].split('|')
+assert '(current)' not in prev[1], 'the row above is already current'
+prev[1]=' '+v+' '
+last[1]=' '+v+' *(current)* '
+lines[rows[-2]]='|'.join(prev)
 lines[rows[-1]]='|'.join(last)
 open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
 
