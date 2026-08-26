@@ -6290,6 +6290,18 @@ gate_generated() {
     echo "  [FAIL] python3 not on PATH — roae.py cannot be run, so nothing was regenerated"
     echo "         and nothing was compared. This is not a skip."
     return 1; }
+  # 🔴 Codex N10 finding 2, second half: "its cheap refusals run AFTER the expensive work."
+  # Confirmed. pdftotext's availability decides whether LEG 5 can run at all, costs nothing to
+  # test, and was tested inside _cmp_pdf -- i.e. AFTER `roae.py --all` had already regenerated
+  # everything (measured 135 s). A host without pdftotext paid the full regeneration and then
+  # skipped the leg, and the skip line arrived buried at the bottom of the output. Decide it
+  # here, and SAY SO FIRST, so a skipped leg is visible before anything expensive runs.
+  local have_pdftotext=1
+  if ! command -v pdftotext >/dev/null 2>&1; then
+    have_pdftotext=0
+    echo "  [skip] no pdftotext on PATH — LEG 5 (report.pdf vs report.html) will NOT be checked."
+    echo "         This is an ENVIRONMENT gap, not repository state: install poppler-utils to close it."
+  fi
   cur_sha=$(sha256sum roae.py 2>/dev/null | cut -d' ' -f1)
 
   if [ -n "${DOC_GATES_GEN_CACHE:-}" ]; then
@@ -6473,15 +6485,27 @@ gate_generated() {
   _cmp_pdf() {   # <pdf> <html>
     _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
     _present "$2"; case $? in 1) return 0;; 2) return 1;; esac
-    command -v pdftotext >/dev/null 2>&1 || { echo "  [skip] no pdftotext — $1 not checked"; return 0; }
+    # Decided at the top of the gate, before the expensive regeneration, and reported there.
+    [ "$have_pdftotext" -eq 1 ] || return 0
     python3 - "$1" "$2" <<'PY'
 import collections, html, re, subprocess, sys, tempfile, os
 pdf, htm = sys.argv[1], sys.argv[2]
 with tempfile.TemporaryDirectory() as d:
     txt = os.path.join(d, 'p.txt')
-    if subprocess.run(['pdftotext', '-layout', pdf, txt],
-                      capture_output=True).returncode != 0:
-        print(f"  [skip] pdftotext could not read {pdf}"); sys.exit(0)
+    # 🔴 Codex N10 finding 2 — THE DIRECT BYPASS. This was `[skip] … sys.exit(0)`, so an
+    # UNREADABLE PDF passed the leg. Replacing the shipped example/report.pdf with 40 KB of
+    # /dev/urandom was measured to exit 0 and clear the gate. That is repository state, not the
+    # environment: the artifact is git-tracked, it is in the tree, and it cannot be read. The
+    # TOOL being absent is the only legitimate skip here, and it is checked separately above.
+    _r = subprocess.run(['pdftotext', '-layout', pdf, txt], capture_output=True)
+    if _r.returncode != 0:
+        print(f"  [FAIL] pdftotext could not read {pdf} (rc={_r.returncode}).")
+        for _ln in _r.stderr.decode('utf-8', 'replace').strip().splitlines()[:3]:
+            print(f"           {_ln}")
+        print("         A tracked artifact that cannot be parsed is a broken artifact. Its only")
+        print("         production route is wkhtmltopdf(report.html) via roae.py's export_html:")
+        print("           ( cd example && python3 ../roae.py --html )")
+        sys.exit(1)
     pdftext = open(txt, encoding='utf-8', errors='replace').read()
 h = open(htm, encoding='utf-8', errors='replace').read()
 for tag in ('style', 'script', 'title'):     # <title> duplicates the <h1>; not body text
