@@ -1962,7 +1962,13 @@ for m in re.finditer(r'\b([0-9.]+T)\b', reg):
     if re.search(r'\b[0-9a-f]{16,64}\b', window):     # a sha256 (or its prefix) attests completion
         REACHED.add(m.group(1))
 files = [f for f in glob.glob('documentation/*.md') + glob.glob('reports/*.md') + ['README.md']
-         if 'HISTORY.md' not in f]      # dated narrative is exempt by design
+         if not (f == 'HISTORY.md' or f.endswith('/HISTORY.md'))]  # dated narrative exempt
+  # 🔴 Codex N10 finding 1, 2026-08-26. This was `if 'HISTORY.md' not in f` -- a SUBSTRING
+  # test, so it silently also exempted documentation/PERFORMANCE_HISTORY.md, which is NOT
+  # dated narrative and was never meant to be exempt. A live stale-status defect hid behind
+  # it: line 345 called the 1T enumeration "in flight" while line 355 of the SAME FILE gave
+  # its "final accounting" with shas and timings. An exemption written as a substring
+  # exempts every path that happens to contain it.
 for f in files:
     text = open(f, errors='replace').read()
     lines = text.split('\n')
