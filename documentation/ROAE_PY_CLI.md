@@ -143,9 +143,9 @@ claims in the analyses and for individual reference lookups.
 Examples:
 
 ```
-python3 roae.py --lookup 1                # hexagram 1
-python3 roae.py --lookup "hexagram 1"   # same; name-based lookup
-python3 roae.py --compare 1 2             # Heaven vs Earth
+python3 roae.py --lookup 1                        # by King Wen number
+python3 roae.py --lookup "Heaven over Heaven"      # same hexagram, by derived label
+python3 roae.py --compare 1 2                     # hexagram 1 vs hexagram 2
 python3 roae.py --explain 6               # show how hexagram 6 → 7 transition works
 ```
 
@@ -364,7 +364,7 @@ returns before section dispatch. `--markdown` carries the identical
 
 ```
 python3 roae.py --lookup 1                        # hexagram 1
-python3 roae.py --compare "Heaven" "Earth"        # 1 vs 2
+python3 roae.py --compare "Heaven over Heaven" "Earth over Earth"   # 1 vs 2
 python3 roae.py --explain 32                      # transition #32 step by step
 ```
 
