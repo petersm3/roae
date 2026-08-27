@@ -2070,11 +2070,14 @@ def _parse_f1c5_layer(path):
         raise RuntimeError(f"{path}: {len(raw)} bytes, shorter than the header")
     f = struct.unpack(_F1C5_HDR, raw[:hs])
     magic = f[0].rstrip(b"\x00").decode("ascii", "replace")
-    if magic not in ("F1C5LAY1", "F1C3LAY1"):
+    if magic not in ("F1C5LAY1", "F1C3LAY1", "F1C5LAY2", "F1C3LAY2"):
         raise RuntimeError(f"{path}: magic {magic!r} is not a layer file")
     h = {"magic": magic, "version": f[1], "n": f[2], "k": f[3],
          "start_exit": f[4], "pl_hash": f[5], "n_masks": f[6], "n_entries": f[7]}
     nm, ne = h["n_masks"], h["n_entries"]
+    h["blk"] = f[13]          # v1 leaves this zero; v2 records F1C5_OOC_BLK here
+    if magic.endswith("2"):
+        return h, _parse_v2_vals(path, raw, hs, nm, ne, h["blk"])
     want = hs + 4 * nm + 8 * (nm + 1) + 4 * ne + 24 * ne
     if len(raw) != want:
         raise RuntimeError(f"{path}: {len(raw)} bytes but header implies {want} "
@@ -2085,6 +2088,39 @@ def _parse_f1c5_layer(path):
         l0, l1, l2 = struct.unpack_from("<QQQ", raw, off + 24 * i)
         vals.append(l0 | (l1 << 64) | (l2 << 128))
     return h, vals
+
+def _parse_v2_vals(path, raw, hs, nm, ne, blk):
+    """v2 (Q-268): hdr | masks | off | kidx[nblk+1] | vidx[nblk+1] | kblocks | vblocks,
+    each block an RFC-1950 zlib stream of at most `blk` entries.
+
+    This is the format the REAL runs write -- Stage F ran --f1-out-of-core, and its
+    log says 'layer format: v2 (per-block gzip)'. The v1 reader gated in Q-267 was
+    therefore reading bytes that no production artifact is made of."""
+    import struct, zlib
+    if blk <= 0:
+        raise RuntimeError(f"{path}: v2 header records block size {blk}")
+    nblk = (ne + blk - 1) // blk
+    idx0 = hs + 4 * nm + 8 * (nm + 1)
+    kidx = list(struct.unpack_from("<%dQ" % (nblk + 1), raw, idx0))
+    vidx = list(struct.unpack_from("<%dQ" % (nblk + 1), raw, idx0 + 8 * (nblk + 1)))
+    kbase = idx0 + 2 * 8 * (nblk + 1)
+    vbase = kbase + (kidx[nblk] if nblk else 0)
+    want = vbase + (vidx[nblk] if nblk else 0)
+    if len(raw) != want:
+        raise RuntimeError(f"{path}: {len(raw)} bytes but v2 index implies {want} "
+                           f"(nm={nm}, ne={ne}, nblk={nblk}) -- layout disagreement")
+    vals = []
+    for b in range(nblk):
+        e0, e1 = b * blk, min((b + 1) * blk, ne)
+        blob = raw[vbase + vidx[b]: vbase + vidx[b + 1]]
+        out = zlib.decompress(blob)
+        if len(out) != 24 * (e1 - e0):
+            raise RuntimeError(f"{path}: block {b} inflates to {len(out)} bytes, "
+                               f"expected {24 * (e1 - e0)}")
+        for i in range(e1 - e0):
+            l0, l1, l2 = struct.unpack_from("<QQQ", out, 24 * i)
+            vals.append(l0 | (l1 << 64) | (l2 << 128))
+    return vals
 
 def f1u192_binary_roundtrip():
     """--f1u192-binary-roundtrip: build the n=9 rung's layer files with solve, then
@@ -2101,39 +2137,114 @@ def f1u192_binary_roundtrip():
     pl = _spec_to_pairs_ordered("3.0,3.1,3.2")
     b0 = _b0_first_completion(pl, 0)
     want = _count_c1c2c4c5(pl, 0, tuple(b0))
-    d = tempfile.mkdtemp(prefix="f1u192_rt_")
-    try:
-        r = subprocess.run([binp, "--f1-exact-c1c2c4c5", "--f1-pairs", "9",
-                            "--layers-dir", d], capture_output=True, text=True)
-        if r.returncode != 0:
-            print(f"*FAIL* solve exited {r.returncode} building the n=9 layers")
-            return 1
-        finals = [x for x in os.listdir(d) if x == "f1c5_layer_09.bin"]
-        if not finals:
-            print(f"*FAIL* no f1c5_layer_09.bin in {d}; got {sorted(os.listdir(d))}")
-            return 1
+    # BOTH on-disk formats. v1 is what --layers-dir writes; v2 (per-block zlib) is
+    # what --f1-out-of-core writes and therefore what every real Stage F / 560T
+    # artifact is actually made of. Gating only v1 would gate bytes nothing ships.
+    arms = [("v1", ["--layers-dir"], {}),
+            ("v2", ["--f1-out-of-core"], {"SOLVE_F1_OOC_FORMAT": "v2"})]
+    rc, v2_ok = 0, False
+    for name, flag, extra_env in arms:
+        d = tempfile.mkdtemp(prefix=f"f1u192_{name}_")
         try:
-            h, vals = _parse_f1c5_layer(os.path.join(d, "f1c5_layer_09.bin"))
-        except RuntimeError as e:
-            print(f"*FAIL* {e}")
+            env = dict(os.environ); env.update(extra_env)
+            r = subprocess.run([binp, "--f1-exact-c1c2c4c5", "--f1-pairs", "9"]
+                               + flag + [d], capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                print(f"*FAIL* [{name}] solve exited {r.returncode} building the n=9 layers")
+                rc = 1; continue
+            fp = os.path.join(d, "f1c5_layer_09.bin")
+            if not os.path.exists(fp):
+                print(f"*FAIL* [{name}] no f1c5_layer_09.bin; got {sorted(os.listdir(d))}")
+                rc = 1; continue
+            try:
+                h, vals = _parse_f1c5_layer(fp)
+            except Exception as e:
+                print(f"*FAIL* [{name}] {e}")
+                rc = 1; continue
+            # The full-mask layer is a single orbit of size 1, so its mass is the plain
+            # sum of the stored values -- no group arithmetic needed, and therefore no
+            # chance of importing the engine's symmetry assumptions into the check.
+            got = sum(vals)
+            print(f"[{name}] layer 9: magic={h['magic']} version={h['version']} "
+                  f"n={h['n']} k={h['k']} n_masks={h['n_masks']} "
+                  f"n_entries={h['n_entries']} ({len(vals)} read)")
+            exp_magic = "F1C5LAY2" if name == "v2" else "F1C5LAY1"
+            if h["magic"] != exp_magic or h["version"] != (2 if name == "v2" else 1):
+                print(f"*FAIL* [{name}] expected {exp_magic}/v{2 if name=='v2' else 1}; "
+                      f"this arm did not exercise the format it claims to")
+                rc = 1; continue
+            if not (h["n"] == 9 and h["k"] == 9 and h["n_masks"] == 1):
+                print(f"*FAIL* [{name}] final layer header is not the full-mask layer of n=9")
+                rc = 1; continue
+            if got != want:
+                print(f"  *** MISMATCH *** [{name}] bytes decode to {got:,}")
+                print(f"                   independent count is {want:,}")
+                print("  Writer and reader inside solve would agree with each other on")
+                print("  these bytes; only an outside reader can see this.")
+                rc = 1; continue
+            print(f"[{name}] binary read-back {got:,} == independent count {want:,}  [ok]")
+            if name == "v2":
+                v2_ok = True
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+    # MULTI-BLOCK. The two arms above prove nothing about v2's block seam: n=9's
+    # final layer is 6 entries and NO rung at n<=13 reaches the 65536-entry block
+    # size at all (measured: the widest n=13 layer is 11,102 entries). A gate that
+    # never crosses a block boundary cannot see a block-boundary defect -- the same
+    # coverage-is-about-VALUES lesson Q-43 taught one tick earlier. n=16 reaches
+    # 89,388 entries, so it does cross, and it builds in about four seconds.
+    if rc == 0:
+        rc = _v2_multiblock_structural(binp)
+    # Explicit verdict token: a harness must not have to infer pass from output shape.
+    if v2_ok and rc == 0:
+        print("F1U192_V2_LAYOUT=GATED")
+    return rc
+
+def _v2_multiblock_structural(binp):
+    """Sweep every kept n=16 v2 layer and check the block seam structurally.
+
+    Mass is NOT checked here: layers below the top have many canonical masks and
+    weighting them needs the symmetry group, which would import the engine's own
+    assumptions into the expectation. What IS checked is everything the group is not
+    needed for -- index arithmetic, exact inflate sizes per block, and the entry
+    total -- which is precisely where a block-boundary defect lives."""
+    import os, subprocess, tempfile, shutil
+    d = tempfile.mkdtemp(prefix="f1u192_mb_")
+    try:
+        env = dict(os.environ)
+        env.update({"SOLVE_F1_OOC_FORMAT": "v2", "SOLVE_F1_KEEP_LAYERS": "1"})
+        r = subprocess.run([binp, "--f1-exact-c1c2c4c5", "--f1-pairs", "16",
+                            "--f1-out-of-core", d],
+                           capture_output=True, text=True, env=env)
+        if r.returncode != 0:
+            print(f"*FAIL* [v2/multiblock] solve exited {r.returncode} at n=16")
             return 1
-        # The full-mask layer is a single orbit of size 1, so its mass is the plain
-        # sum of the stored values -- no group arithmetic needed, and therefore no
-        # chance of importing the engine's symmetry assumptions into the check.
-        got = sum(vals)
-        ok_shape = (h["n"] == 9 and h["k"] == 9 and h["n_masks"] == 1)
-        print(f"layer 9: magic={h['magic']} n={h['n']} k={h['k']} "
-              f"n_masks={h['n_masks']} n_entries={h['n_entries']} ({len(vals)} read)")
-        if not ok_shape:
-            print(f"*FAIL* final layer header is not the full-mask layer of n=9")
+        files = sorted(x for x in os.listdir(d) if x.startswith("f1c5_layer_"))
+        seen_multi, checked = 0, 0
+        for fn in files:
+            try:
+                h, vals = _parse_f1c5_layer(os.path.join(d, fn))
+            except Exception as e:
+                print(f"*FAIL* [v2/multiblock] {e}")
+                return 1
+            ne, blk = h["n_entries"], h["blk"]
+            if len(vals) != ne:
+                print(f"*FAIL* [v2/multiblock] {fn}: decoded {len(vals)} entries, "
+                      f"header says {ne}")
+                return 1
+            nblk = (ne + blk - 1) // blk if blk else 0
+            if nblk > 1:
+                seen_multi += 1
+            checked += 1
+        # ASSERT THE COVERAGE THIS ARM CLAIMS. Without this the arm would report a
+        # clean sweep having crossed no block boundary at all, which is the silent
+        # non-coverage failure, not a pass.
+        if seen_multi == 0:
+            print(f"*FAIL* [v2/multiblock] swept {checked} layer(s) but NONE had more "
+                  f"than one block -- the block seam was never exercised")
             return 1
-        if got != want:
-            print(f"  *** MISMATCH *** bytes decode to {got:,}")
-            print(f"                   independent count is {want:,}")
-            print("  Writer and reader inside solve would agree with each other on")
-            print("  these bytes; only an outside reader can see this.")
-            return 1
-        print(f"binary read-back {got:,} == independent count {want:,}  [ok]")
+        print(f"[v2/multiblock] {checked} n=16 layer(s) structurally consistent; "
+              f"{seen_multi} crossed the {65536}-entry block seam  [ok]")
         return 0
     finally:
         shutil.rmtree(d, ignore_errors=True)
