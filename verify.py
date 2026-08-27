@@ -38,6 +38,7 @@ Usage:
     python3 verify.py --enumerate-reference N       # small-n brute-force (2<=N<=9)
     python3 verify.py --recount                     # independent count reproduction
     python3 verify.py --recount-rung N              # C5 ladder rung n=18/19 (worker-sized)
+    python3 verify.py --recount-rung-layers N       # gate published per-layer masses (n=9/13)
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
                                                     # + 3 away-from-KW C3 cross-anchors (solve.c-exact expectations)
     python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
@@ -1783,6 +1784,137 @@ def recount_rung(n):
     print(f"count = {cnt:,}  published = {pub:,}  "
           f"[{'MATCH' if ok else '*** MISMATCH ***'}]  [{dt:.0f}s]")
     return 0 if (ok and ok_b0) else 1
+
+# ---------------------------------------------------------------------------
+# PER-LAYER RECOUNT (2026-08-27) — the gate behind reports/FULL31_EXACT_AGGREGATES.md
+#
+# WHY THIS EXISTS. The rung TOTALS have been independently recounted since
+# 2026-07-21, but the INTERMEDIATE layers never had been by anything at all.
+# Publishing a 31-row per-layer table therefore meant publishing 30 integers no
+# instrument had ever checked, on the strength of the 31st matching. That is the
+# silent-wrong-emitter shape: an emitter whose last row is right and whose middle
+# is wrong looks exactly like a correct one.
+#
+# WHAT IT CHECKS, AND IN WHICH DIRECTION. It recomputes the layer masses with the
+# SAME plain (mask, last, budget) recurrence _count_c1c2c4c5 uses for the total --
+# no symmetry quotient, no shared code with solve.c -- and gates the PUBLISHED
+# TABLE against them. The artifact is the thing under test; this file is the
+# instrument. If the artifact is missing or its rows cannot be parsed, that is a
+# FAILURE and not a pass: a verifier that goes quiet when its target is absent has
+# no power to reject anything (the closure invariant).
+#
+# SHOWN ABLE TO FAIL. Weakening the cap from `p >= B0` to `p > B0` leaves k=1
+# identical at 12 and diverges from k=2 (174 vs 96), total 3,731,760 vs 26,112.
+# A first-layer-only check passes that engine; a total-only check catches it but
+# cannot say the divergence starts at k=2.
+_AGG_DOC = "reports/FULL31_EXACT_AGGREGATES.md"
+
+def _layer_masses_c1c2c4c5(pairs, start, b0):
+    """Per-layer prefix mass by the same recurrence as _count_c1c2c4c5.
+
+    Deliberately a separate function rather than a flag on that one: the total is
+    a gated published quantity and its code path should not grow a branch to serve
+    a second caller."""
+    from collections import defaultdict
+    orients = [((a, b), (b, a)) for (a, b) in pairs]
+    n = len(pairs)
+    cur = {(0, start, (0,) * 5): 1}
+    out = []
+    for _ in range(n):
+        nxt = defaultdict(int)
+        for (mask, last, p), cnt in cur.items():
+            for i in range(n):
+                bit = 1 << i
+                if mask & bit:
+                    continue
+                for (f, s) in orients[i]:
+                    d = hamming(last, f)
+                    if d == 5 or d == 0:
+                        continue
+                    ci = _CLS_IX[d]
+                    if p[ci] >= b0[ci]:
+                        continue
+                    np_ = list(p); np_[ci] += 1
+                    nxt[(mask | bit, s, tuple(np_))] += cnt
+        cur = nxt
+        out.append(sum(cur.values()))
+    return out
+
+def _published_rung_layers(n):
+    """Parse the n=9 / n=13 layer-mass columns out of the published artifact.
+
+    Returns a list of n integers, or raises. The two rungs share one markdown
+    table (n=9 in cols 1-2, n=13 in cols 4-5), so a row is read by POSITION and a
+    short row simply has no n=13 cell."""
+    import os, re
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), _AGG_DOC)
+    if not os.path.exists(path):
+        raise RuntimeError(f"{_AGG_DOC} is absent -- nothing to gate. This is a "
+                           f"failure, not a pass.")
+    col = 0 if n == 9 else 3
+    got = {}
+    # SCOPE THE PARSE. The first cut matched any pipe row in the file and so read
+    # the 31-row table of section 1, whose columns mean something else entirely --
+    # it reported all nine n=9 layers as mismatched against numbers that were never
+    # n=9 masses. A gate that fails for the wrong reason is only luckier than one
+    # that passes for the wrong reason. The rung table is the one under "## 2" and
+    # it is exactly five cells wide; section 1's is eight.
+    in_s2 = False
+    for line in open(path, encoding="utf-8"):
+        if line.startswith("## "):
+            in_s2 = line.startswith("## 2.")
+            continue
+        if not in_s2 or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) != 5:
+            continue
+        k, m = cells[col], cells[col + 1]
+        if not re.fullmatch(r"\d+", k) or not re.fullmatch(r"[\d,]+", m):
+            continue
+        ki = int(k)
+        if 1 <= ki <= n and ki not in got:
+            got[ki] = int(m.replace(",", ""))
+    missing = [k for k in range(1, n + 1) if k not in got]
+    if missing:
+        raise RuntimeError(f"{_AGG_DOC} has no n={n} mass for layer(s) {missing}")
+    return [got[k] for k in range(1, n + 1)]
+
+def recount_rung_layers(n):
+    """--recount-rung-layers N: gate the published per-layer masses for the N=9
+    or N=13 C5 rung against an independent recount. Returns 0 iff every layer
+    matches AND the published table was found and fully parsed."""
+    import time
+    if n not in (9, 13):
+        print(f"--recount-rung-layers: n={n} not supported. Supported: 9, 13.")
+        print("Larger rungs exceed the plain DP's single-node budget; see")
+        print("--recount-rung for the worker-sized totals.")
+        return 2
+    spec = {9: "3.0,3.1,3.2", 13: "3.0,4.0,6.2"}[n]
+    try:
+        pub = _published_rung_layers(n)
+    except RuntimeError as e:
+        print(f"*FAIL* {e}")
+        return 1
+    t0 = time.time()
+    pl = _spec_to_pairs_ordered(spec)
+    assert len(pl) == n
+    b0 = _b0_first_completion(pl, 0)
+    got = _layer_masses_c1c2c4c5(pl, 0, tuple(b0))
+    bad = 0
+    print(f"n={n} {{{spec}}}@0  B0 re-derived = {tuple(b0)}")
+    for k, (g, p) in enumerate(zip(got, pub), 1):
+        ok = (g == p)
+        if not ok:
+            bad += 1
+        print(f"  layer {k:2d}: recount {g:,}  published {p:,}  "
+              f"[{'ok' if ok else '*** MISMATCH ***'}]")
+    dt = time.time() - t0
+    if bad:
+        print(f"*FAIL* {bad} of {n} layer(s) disagree with {_AGG_DOC}  [{dt:.1f}s]")
+        return 1
+    print(f"all {n} layer masses MATCH {_AGG_DOC}  [{dt:.1f}s]")
+    return 0
 
 # TR-5 Verification Guide's sigma-related 23-pair prefix (pair, orient).
 _SIGMA_PREFIX = [(22, 1), (28, 0), (3, 1), (21, 1), (26, 0), (6, 1), (11, 0),
@@ -4338,6 +4470,13 @@ def main():
                              'facts + reduced-rung C1∩C2∩C4 union counts) by a counting recurrence — '
                              'a different method than solve.c\'s symmetry-quotient DP. Prints a match '
                              'table. Does NOT read solutions.bin. Answers TR-11 §10vi.')
+    parser.add_argument('--recount-rung-layers', type=int, metavar='N', default=None,
+                        help='Gate the PER-LAYER masses published in '
+                             'reports/FULL31_EXACT_AGGREGATES.md for the N=9 or N=13 C5 rung '
+                             'against an independent recount by the plain budgeted DP (no '
+                             'symmetry quotient, B0 re-derived). The rung TOTALS were already '
+                             'gated; the intermediate layers were not gated by anything until '
+                             'this mode. A missing or unparsable table FAILS. Under a second.')
     parser.add_argument('--recount-rung', type=int, metavar='N', default=None,
                         help='Independently recompute a worker-sized TR-11 §4b C5 rung (N in {18, 19}) '
                              'by the plain budgeted packed-state DP, with B0 re-derived by §5 Step 1 '
@@ -4575,6 +4714,8 @@ def main():
     if args.recount:
         sys.exit(recount())
 
+    if args.recount_rung_layers is not None:
+        sys.exit(recount_rung_layers(args.recount_rung_layers))
     if args.recount_rung is not None:
         sys.exit(recount_rung(args.recount_rung))
 
