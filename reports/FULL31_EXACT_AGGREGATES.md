@@ -122,9 +122,19 @@ k=2. Per-layer checking is strictly stronger than either.
 
 **What the gate does not cover.** n=9 and n=13 are 29% and 42% of the ladder's depth and a
 vanishing fraction of its width. Agreement at two rungs is evidence that the *method* is right,
-not proof that layer 24 of the full-31 build is. No instrument in this repository can recount
-full-31 independently — the plain DP's peak live-state count exceeds any single-node RAM budget
-past n≈19 — and this artifact does not claim otherwise.
+not proof that layer 24 of the full-31 build is.
+
+⚠ **A correction to an earlier version of this sentence.** It read *"no instrument in this
+repository can recount full-31 independently"*, justified by the plain DP's peak live-state count
+exceeding any single-node RAM budget past n≈19. **That ceiling is real but does not support the
+universal claim.** `verify.c` carries a second instrument of a *different algorithm class* — Route B,
+a signed inclusion–exclusion over subsets of the free pairs (Karp/Ryser/Björklund–Husfeldt style,
+used rather than invented here) — whose DP state is `(last hexagram, budget vector)`, **64 × ≤413
+slots, under 1 MB per thread and no disk at full 31**. It accepts `--ie-spec full31@0` and ships
+`--ie-probe` explicitly for cost sizing. **Full-31 independent recounting is therefore a question of
+compute cost, not of method**, and no figure here should be read as saying otherwise. What remains
+true is the narrower statement: *the layered DP used for the n=9/n=13 gate above* does not reach
+full 31.
 
 ## 3. Source
 
