@@ -83,26 +83,14 @@ binary_hexagrams = [
     0b110011, 0b001100, 0b010101, 0b101010,  # ䷼ ䷽ ䷾ ䷿
 ]
 
-# English names in King Wen order (Wilhelm/Baynes translation)
-# https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes
-hexagram_names = [
-    "The Creative", "The Receptive", "Difficulty at the Beginning", "Youthful Folly",
-    "Waiting", "Conflict", "The Army", "Holding Together",
-    "Small Taming", "Treading", "Peace", "Standstill",
-    "Fellowship", "Great Possession", "Modesty", "Enthusiasm",
-    "Following", "Work on the Decayed", "Approach", "Contemplation",
-    "Biting Through", "Grace", "Splitting Apart", "Return",
-    "Innocence", "Great Taming", "Nourishment", "Great Preponderance",
-    "The Abysmal", "The Clinging", "Influence", "Duration",
-    "Retreat", "Great Power", "Progress", "Darkening of the Light",
-    "The Family", "Opposition", "Obstruction", "Deliverance",
-    "Decrease", "Increase", "Breakthrough", "Coming to Meet",
-    "Gathering Together", "Pushing Upward", "Oppression", "The Well",
-    "Revolution", "The Cauldron", "The Arousing", "Keeping Still",
-    "Development", "The Marrying Maiden", "Abundance", "The Wanderer",
-    "The Gentle", "The Joyous", "Dispersion", "Limitation",
-    "Inner Truth", "Small Preponderance", "After Completion", "Before Completion",
-]
+# Hexagram labels are DERIVED from the two trigrams, not translated.
+# 2026-08-27: this held the 64 Wilhelm/Baynes English titles, which are a Princeton
+# University Press translation under copyright. They were decorative here -- no result in
+# this project depends on a hexagram's English name -- so they are gone rather than
+# replaced with someone else's translation. The label below is our own description of the
+# structure, composed from the eight standard trigram glosses already in `trigram_names`,
+# and upper x lower = 64 distinct pairs so it identifies each hexagram uniquely.
+# Defined after upper_trigram/lower_trigram; see hexagram_names below.
 
 # The 8 trigrams (3-bit components), keyed by their binary value.
 # Each hexagram is composed of an upper trigram (bits 3–5) and a lower trigram (bits 0–2).
@@ -170,6 +158,14 @@ def upper_trigram(val):
 
 def lower_trigram(val):
     return val & 0b111
+
+
+# See the note above the trigram table: derived, not translated. Composed once at import so every
+# consumer (--table, --json, --csv, --html, --markdown) reads the same list the old array fed.
+hexagram_names = [
+    "%s over %s" % (trigram_names[upper_trigram(b)][2], trigram_names[lower_trigram(b)][2])
+    for b in binary_hexagrams
+]
 
 # Extract the nuclear (inner) hexagram: formed by lines 2-3-4 (lower nuclear
 # trigram) and lines 3-4-5 (upper nuclear trigram), where lines are numbered
@@ -717,8 +713,8 @@ def print_complements():
     print("---")
     print("Complement distance analysis")
     print("Every hexagram has an 'opposite' (complement) formed by toggling all 6 lines")
-    print("(solid becomes broken, broken becomes solid). For example, The Creative (all")
-    print("solid) and The Receptive (all broken) are complements. This section finds where")
+    print("(solid becomes broken, broken becomes solid). For example, hexagram 1 (all")
+    print("solid) and hexagram 2 (all broken) are complements. This section finds where")
     print("each hexagram's complement sits in the King Wen sequence and how far apart they")
     print("are. If complements sit nearer each other than a null model predicts, opposition")
     print("is an organizing feature of the sequence's structure; if farther, complements")
@@ -1616,10 +1612,10 @@ def print_symmetry():
     print("---")
 
     # Check which XOR subgroups exist among the 64 hexagrams
-    # The identity element under XOR is 0b000000 (The Receptive, hexagram 2)
+    # The identity element under XOR is 0b000000 (hexagram 2, all broken)
 
 
-    print("XOR identity element: 0b000000 (hexagram 2, The Receptive)")
+    print("XOR identity element: 0b000000 (hexagram 2, all broken)")
     print()
 
     # Self-inverse elements: hexagrams where XOR with themselves = identity (all of them!)

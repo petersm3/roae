@@ -39,25 +39,10 @@ binary_hexagrams = [
     0b110110, 0b011011, 0b110010, 0b010011, 0b110011, 0b001100, 0b010101, 0b101010,
 ]
 
-# English names (Wilhelm/Baynes translation)
-hexagram_names = [
-    "The Creative", "The Receptive", "Difficulty at the Beginning", "Youthful Folly",
-    "Waiting", "Conflict", "The Army", "Holding Together",
-    "Small Taming", "Treading", "Peace", "Standstill",
-    "Fellowship", "Great Possession", "Modesty", "Enthusiasm",
-    "Following", "Work on the Decayed", "Approach", "Contemplation",
-    "Biting Through", "Grace", "Splitting Apart", "Return",
-    "Innocence", "Great Taming", "Nourishment", "Great Preponderance",
-    "The Abysmal", "The Clinging", "Influence", "Duration",
-    "Retreat", "Great Power", "Progress", "Darkening of the Light",
-    "The Family", "Opposition", "Obstruction", "Deliverance",
-    "Decrease", "Increase", "Breakthrough", "Coming to Meet",
-    "Gathering Together", "Pushing Upward", "Oppression", "The Well",
-    "Revolution", "The Cauldron", "The Arousing", "Keeping Still",
-    "Development", "The Marrying Maiden", "Abundance", "The Wanderer",
-    "The Gentle", "The Joyous", "Dispersion", "Limitation",
-    "Inner Truth", "Small Preponderance", "After Completion", "Before Completion",
-]
+# Hexagram labels are DERIVED from the two trigrams, not translated. 2026-08-27: this held
+# the 64 Wilhelm/Baynes English titles, a Princeton University Press translation under
+# copyright. Nothing in this project depends on a hexagram's English name, so they are gone
+# rather than swapped for another translation. Defined below, after upper/lower_trigram.
 
 # --- Utility functions ---
 
@@ -378,7 +363,7 @@ def print_constraint_narrowing(pairs, seed=None, trials=100000, verbose=True):
     print()
 
     # Level 4: + starts with Creative/Receptive pair
-    print("--- Level 4: + Starts with The Creative / The Receptive ---")
+    print("--- Level 4: + Starts with hexagram 1 / hexagram 2 ---")
     c4 = {
         "no_five": lambda seq: has_no_five(seq),
         "comp_dist": lambda seq: mean_complement_distance(seq) <= kw_comp_dist,
@@ -519,7 +504,7 @@ def print_rules():
         print(f"    {bin(x)[2:].zfill(6)} ({x})")
     print()
     print("Rule 5: STARTING PAIR")
-    print("  The sequence begins with The Creative (111111) / The Receptive (000000).")
+    print("  The sequence begins with hexagram 1 (111111) / hexagram 2 (000000).")
     print()
     print("Rule 6: DIFFERENCE WAVE DISTRIBUTION")
     kw_diffs = [bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63)]
@@ -539,6 +524,18 @@ def upper_trigram(val):
 
 def lower_trigram(val):
     return val & 0b111
+
+# The eight standard trigram glosses -- ordinary English words for the natural images, not a
+# translator's rendering of the hexagram titles. upper x lower = 64 distinct pairs, so the label
+# below identifies each hexagram uniquely. solve.py stays self-contained: no import from roae.py.
+trigram_gloss = {
+    0b111: "Heaven", 0b000: "Earth",   0b001: "Thunder", 0b010: "Water",
+    0b100: "Mountain", 0b110: "Wind",  0b101: "Fire",    0b011: "Lake",
+}
+hexagram_names = [
+    "%s over %s" % (trigram_gloss[upper_trigram(b)], trigram_gloss[lower_trigram(b)])
+    for b in binary_hexagrams
+]
 
 TRIGRAM_NAMES = {
     0b000: "Kun",  0b001: "Zhen", 0b010: "Kan",  0b011: "Dui",
@@ -2434,7 +2431,7 @@ def print_reconstruct():
     print(f"{'Step':>4} {'Pair':>5} {'Choices':>8} {'Forced?':>8} Hexagrams")
     print(f"{'----':>4} {'-----':>5} {'-------':>8} {'-------':>8} ---------")
     print(f"{'1':>4} {'1':>5} {'—':>8} {'start':>8} "
-          f"䷀ The Creative / ䷁ The Receptive")
+          f"䷀ hexagram 1 / ䷁ hexagram 2")
 
     all_forced = True
     reconstructed = list(seq)
