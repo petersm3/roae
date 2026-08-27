@@ -401,12 +401,12 @@ Concretely, KW's pair content at the mandatory boundaries (1-indexed positions; 
 Enforcing boundary 25 means: any candidate ordering must place hexagram 49→50 in positions 49-50 AND hexagram 51→52 in positions 51-52 — exactly as King Wen does. This locks a 4-hexagram window in the sequence's second half.
 
 **Boundary 27 (between pair 27 and pair 28):**
-- Pair 27 = ䷴ Jian (Gradual hexagram 53, 漸) / ䷵ Gui Mei (hexagram 54, 歸妹) — a reverse pair
+- Pair 27 = ䷴ Jian (hexagram 53, 漸) / ䷵ Gui Mei (hexagram 54, 歸妹) — a reverse pair
 - Pair 28 = ䷶ Feng (hexagram 55, 豐) / ䷷ Lu (hexagram 56, 旅) — a reverse pair
 
 Enforcing boundary 27 means: Gradual Development→Marrying Maiden in positions 53-54 AND Abundance→Wanderer in positions 55-56 — exactly as King Wen does. Locks a second 4-hexagram window two positions later.
 
-**Together**, enforcing boundaries {25, 27} locks positions 25, 26, 27, 28 (= pairs 25-28 = the 8-hexagram sub-sequence hexagram 49 / Cauldron / Thunder / Mountain / Gradual / Marrying Maiden / Abundance / Wanderer). Combined with C4 (which forces pair 1 = Creative/Receptive), this fixes 5 of 32 pair positions. The other 27 pairs retain some freedom, producing 43,236 total survivors at d3 10T (13,595 at d2 10T). Adding just 2 more boundary constraints (chosen from the partition-dependent set — at d3, two of {1..6}) narrows from ~40k survivors to exactly 1: King Wen.
+**Together**, enforcing boundaries {25, 27} locks positions 25, 26, 27, 28 (= pairs 25-28 = the 8-hexagram sub-sequence hexagrams 49-56
 
 The mandatory-{25,27} finding says: **no matter how cleverly you choose the other 2 of your 4 boundary constraints, you cannot uniquely identify King Wen without locking the Revolution→Cauldron→Thunder→Mountain window (boundary 25) and the Gradual→Marrying-Maiden→Abundance→Wanderer window (boundary 27)** — across both d2 and d3 partition depths. Why those two windows specifically? Currently unknown. Open Question: is there a combinatorial or symmetry reason these two second-half adjacencies are irreplaceable?
 
@@ -571,7 +571,7 @@ No single feature or combination of features uniquely identifies King Wen among 
 
 The hundreds of millions of alternative orderings satisfying Rules 1-5 (d3 canonical: 706M, d2 canonical: 286M) share strong structural similarities with King Wen, especially in the early positions. Position 1 is identical in all. The closest alternatives differ by only 2 pair positions.
 
-- **Position 1 is fixed by C4's definition.** hexagram 1/Receptive pair always comes first (a definitional constraint, classically attested; the within-pair orientation is likewise definitional — see §Theorem 6 — RETRACTED).
+- **Position 1 is fixed by C4's definition.** The hexagram 1 / hexagram 2 pair always comes first (a definitional constraint, classically attested; the within-pair orientation is likewise definitional — see §Theorem 6 — RETRACTED).
 - **Positions 3-18 are highly constrained** — at least 2 pairs each, with King Wen's pair dominant (87-99% observed). Commentary explaining the ordering of these early hexagrams is largely describing mathematical structure.
 - **Positions 19-32 are progressively free** — at least 7-16 pairs each. Commentary explaining these later hexagrams is describing selections among genuinely available alternatives, not mathematical necessity.
 - **King Wen keeps complements unusually close relative to the other rules** — at the 3.9th percentile (sampled) of orderings satisfying C1+C2+C4+C5, i.e., every constraint except C3 itself *(**Flagged 2026-08-01, lens sweep** — see the flag block in §Rule 3: this figure is not supported by the population it is labelled with, the ledger gives ≈12%, and it should not be cited.)*. It does **not** minimize complement distance: within the C1–C5 canonical, KW sits at the C3 **ceiling** (776; ~10% of enumerated orderings tie there), and the population minimum is far lower (424 at 100T, 392 at 560T). See §Rule 3's defensibility note. *(Reworded 2026-07-22: this line previously said "minimizes … as close as possible", an unscoped-minimization framing that §Rule 3 itself rules not defensible.)*

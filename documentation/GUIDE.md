@@ -58,9 +58,9 @@ The `--cast` flag simulates a traditional [three-coin method](https://en.wikiped
   Line 5: coins=2+3+3=8  ---   --- young yin
   Line 6: coins=3+3+3=9  ----o---- old yang (changing)
 
-  Primary hexagram: 30 ䷝
+  Primary hexagram: 30 ䷝ Fire over Fire
   Changing lines: 1, 4, 6
-  Relating hexagram: 15 ䷎
+  Relating hexagram: 15 ䷎ Earth over Mountain
 ```
 
 "Changing" lines (marked with `o` or `x`) transform to produce a second hexagram. In traditional practice, the primary hexagram describes the current situation and the relating hexagram shows its trajectory. Each run produces a different result (unless you use `--seed`).
