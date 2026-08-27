@@ -3620,7 +3620,13 @@ def export_json(filename="hexagrams.json"):
     """Export all hexagram data as JSON for use in other tools."""
     data = {
         "description": "King Wen sequence hexagram data",
-        "source": "https://en.wikipedia.org/wiki/King_Wen_sequence",
+        # The SEQUENCE (positions and line patterns) follows the Wikipedia King Wen article.
+        # The `name` field is NOT from there: it is derived here from the two trigrams. Saying
+        # "source: Wikipedia" for the whole object claimed provenance the name field never had --
+        # and until 2026-08-27 that field carried a copyrighted translation while this line
+        # attributed it to Wikipedia. Name what came from where.
+        "sequence_source": "https://en.wikipedia.org/wiki/King_Wen_sequence",
+        "label_source": "derived from the two trigrams; not a translation",
         "hexagrams": []
     }
     for i in range(64):

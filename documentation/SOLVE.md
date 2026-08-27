@@ -392,13 +392,13 @@ Per-boundary conditional entropy at d3 (`analyze_d3.log` section [18], baseline 
 
 A boundary constraint is a **pair-adjacency constraint**: boundary $N$ specifies that the pair at position $N$ matches KW's pair at position $N$ AND the pair at position $N+1$ matches KW's pair at position $N+1$. It locks a 4-hexagram window (two consecutive pairs).
 
-Concretely, KW's pair content at the mandatory boundaries (1-indexed positions; hexagram names in [Wilhelm/Baynes](CITATIONS.md#wilhelm-baynes1967) translation):
+Concretely, KW's pair content at the mandatory boundaries (1-indexed positions; hexagrams given by number, pinyin and Chinese):
 
 **Boundary 25 (between pair 25 and pair 26):**
 - Pair 25 = ䷰ Ge (hexagram 49, 革) / ䷱ Ding (hexagram 50, 鼎) — a reverse pair
 - Pair 26 = ䷲ Zhen (hexagram 51, Thunder, 震) / ䷳ Gen (hexagram 52, Mountain, 艮) — a reverse pair
 
-Enforcing boundary 25 means: any candidate ordering must place Revolution→Cauldron in positions 49-50 AND Thunder→Mountain in positions 51-52 — exactly as King Wen does. This locks a 4-hexagram window in the sequence's second half.
+Enforcing boundary 25 means: any candidate ordering must place hexagram 49→50 in positions 49-50 AND hexagram 51→52 in positions 51-52 — exactly as King Wen does. This locks a 4-hexagram window in the sequence's second half.
 
 **Boundary 27 (between pair 27 and pair 28):**
 - Pair 27 = ䷴ Jian (Gradual hexagram 53, 漸) / ䷵ Gui Mei (hexagram 54, 歸妹) — a reverse pair
