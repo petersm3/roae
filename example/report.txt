@@ -13,70 +13,70 @@ Fire, Lake), giving 8x8 = 64 possible hexagrams.
 ---
 Pos | Hex | Binary | Upper          | Lower          | Name
 ----|-----|--------|----------------|----------------|----
-01  | ䷀   | 111111 | Qian Heaven    | Qian Heaven    | The Creative
-02  | ䷁   | 000000 | Kun  Earth     | Kun  Earth     | The Receptive
-03  | ䷂   | 010001 | Kan  Water     | Zhen Thunder   | Difficulty at the Beginning
-04  | ䷃   | 100010 | Gen  Mountain  | Kan  Water     | Youthful Folly
-05  | ䷄   | 010111 | Kan  Water     | Qian Heaven    | Waiting
-06  | ䷅   | 111010 | Qian Heaven    | Kan  Water     | Conflict
-07  | ䷆   | 000010 | Kun  Earth     | Kan  Water     | The Army
-08  | ䷇   | 010000 | Kan  Water     | Kun  Earth     | Holding Together
-09  | ䷈   | 110111 | Xun  Wind      | Qian Heaven    | Small Taming
-10  | ䷉   | 111011 | Qian Heaven    | Dui  Lake      | Treading
-11  | ䷊   | 000111 | Kun  Earth     | Qian Heaven    | Peace
-12  | ䷋   | 111000 | Qian Heaven    | Kun  Earth     | Standstill
-13  | ䷌   | 111101 | Qian Heaven    | Li   Fire      | Fellowship
-14  | ䷍   | 101111 | Li   Fire      | Qian Heaven    | Great Possession
-15  | ䷎   | 000100 | Kun  Earth     | Gen  Mountain  | Modesty
-16  | ䷏   | 001000 | Zhen Thunder   | Kun  Earth     | Enthusiasm
-17  | ䷐   | 011001 | Dui  Lake      | Zhen Thunder   | Following
-18  | ䷑   | 100110 | Gen  Mountain  | Xun  Wind      | Work on the Decayed
-19  | ䷒   | 000011 | Kun  Earth     | Dui  Lake      | Approach
-20  | ䷓   | 110000 | Xun  Wind      | Kun  Earth     | Contemplation
-21  | ䷔   | 101001 | Li   Fire      | Zhen Thunder   | Biting Through
-22  | ䷕   | 100101 | Gen  Mountain  | Li   Fire      | Grace
-23  | ䷖   | 100000 | Gen  Mountain  | Kun  Earth     | Splitting Apart
-24  | ䷗   | 000001 | Kun  Earth     | Zhen Thunder   | Return
-25  | ䷘   | 111001 | Qian Heaven    | Zhen Thunder   | Innocence
-26  | ䷙   | 100111 | Gen  Mountain  | Qian Heaven    | Great Taming
-27  | ䷚   | 100001 | Gen  Mountain  | Zhen Thunder   | Nourishment
-28  | ䷛   | 011110 | Dui  Lake      | Xun  Wind      | Great Preponderance
-29  | ䷜   | 010010 | Kan  Water     | Kan  Water     | The Abysmal
-30  | ䷝   | 101101 | Li   Fire      | Li   Fire      | The Clinging
-31  | ䷞   | 011100 | Dui  Lake      | Gen  Mountain  | Influence
-32  | ䷟   | 001110 | Zhen Thunder   | Xun  Wind      | Duration
-33  | ䷠   | 111100 | Qian Heaven    | Gen  Mountain  | Retreat
-34  | ䷡   | 001111 | Zhen Thunder   | Qian Heaven    | Great Power
-35  | ䷢   | 101000 | Li   Fire      | Kun  Earth     | Progress
-36  | ䷣   | 000101 | Kun  Earth     | Li   Fire      | Darkening of the Light
-37  | ䷤   | 110101 | Xun  Wind      | Li   Fire      | The Family
-38  | ䷥   | 101011 | Li   Fire      | Dui  Lake      | Opposition
-39  | ䷦   | 010100 | Kan  Water     | Gen  Mountain  | Obstruction
-40  | ䷧   | 001010 | Zhen Thunder   | Kan  Water     | Deliverance
-41  | ䷨   | 100011 | Gen  Mountain  | Dui  Lake      | Decrease
-42  | ䷩   | 110001 | Xun  Wind      | Zhen Thunder   | Increase
-43  | ䷪   | 011111 | Dui  Lake      | Qian Heaven    | Breakthrough
-44  | ䷫   | 111110 | Qian Heaven    | Xun  Wind      | Coming to Meet
-45  | ䷬   | 011000 | Dui  Lake      | Kun  Earth     | Gathering Together
-46  | ䷭   | 000110 | Kun  Earth     | Xun  Wind      | Pushing Upward
-47  | ䷮   | 011010 | Dui  Lake      | Kan  Water     | Oppression
-48  | ䷯   | 010110 | Kan  Water     | Xun  Wind      | The Well
-49  | ䷰   | 011101 | Dui  Lake      | Li   Fire      | Revolution
-50  | ䷱   | 101110 | Li   Fire      | Xun  Wind      | The Cauldron
-51  | ䷲   | 001001 | Zhen Thunder   | Zhen Thunder   | The Arousing
-52  | ䷳   | 100100 | Gen  Mountain  | Gen  Mountain  | Keeping Still
-53  | ䷴   | 110100 | Xun  Wind      | Gen  Mountain  | Development
-54  | ䷵   | 001011 | Zhen Thunder   | Dui  Lake      | The Marrying Maiden
-55  | ䷶   | 001101 | Zhen Thunder   | Li   Fire      | Abundance
-56  | ䷷   | 101100 | Li   Fire      | Gen  Mountain  | The Wanderer
-57  | ䷸   | 110110 | Xun  Wind      | Xun  Wind      | The Gentle
-58  | ䷹   | 011011 | Dui  Lake      | Dui  Lake      | The Joyous
-59  | ䷺   | 110010 | Xun  Wind      | Kan  Water     | Dispersion
-60  | ䷻   | 010011 | Kan  Water     | Dui  Lake      | Limitation
-61  | ䷼   | 110011 | Xun  Wind      | Dui  Lake      | Inner Truth
-62  | ䷽   | 001100 | Zhen Thunder   | Gen  Mountain  | Small Preponderance
-63  | ䷾   | 010101 | Kan  Water     | Li   Fire      | After Completion
-64  | ䷿   | 101010 | Li   Fire      | Kan  Water     | Before Completion
+01  | ䷀   | 111111 | Qian Heaven    | Qian Heaven    | Heaven over Heaven
+02  | ䷁   | 000000 | Kun  Earth     | Kun  Earth     | Earth over Earth
+03  | ䷂   | 010001 | Kan  Water     | Zhen Thunder   | Water over Thunder
+04  | ䷃   | 100010 | Gen  Mountain  | Kan  Water     | Mountain over Water
+05  | ䷄   | 010111 | Kan  Water     | Qian Heaven    | Water over Heaven
+06  | ䷅   | 111010 | Qian Heaven    | Kan  Water     | Heaven over Water
+07  | ䷆   | 000010 | Kun  Earth     | Kan  Water     | Earth over Water
+08  | ䷇   | 010000 | Kan  Water     | Kun  Earth     | Water over Earth
+09  | ䷈   | 110111 | Xun  Wind      | Qian Heaven    | Wind over Heaven
+10  | ䷉   | 111011 | Qian Heaven    | Dui  Lake      | Heaven over Lake
+11  | ䷊   | 000111 | Kun  Earth     | Qian Heaven    | Earth over Heaven
+12  | ䷋   | 111000 | Qian Heaven    | Kun  Earth     | Heaven over Earth
+13  | ䷌   | 111101 | Qian Heaven    | Li   Fire      | Heaven over Fire
+14  | ䷍   | 101111 | Li   Fire      | Qian Heaven    | Fire over Heaven
+15  | ䷎   | 000100 | Kun  Earth     | Gen  Mountain  | Earth over Mountain
+16  | ䷏   | 001000 | Zhen Thunder   | Kun  Earth     | Thunder over Earth
+17  | ䷐   | 011001 | Dui  Lake      | Zhen Thunder   | Lake over Thunder
+18  | ䷑   | 100110 | Gen  Mountain  | Xun  Wind      | Mountain over Wind
+19  | ䷒   | 000011 | Kun  Earth     | Dui  Lake      | Earth over Lake
+20  | ䷓   | 110000 | Xun  Wind      | Kun  Earth     | Wind over Earth
+21  | ䷔   | 101001 | Li   Fire      | Zhen Thunder   | Fire over Thunder
+22  | ䷕   | 100101 | Gen  Mountain  | Li   Fire      | Mountain over Fire
+23  | ䷖   | 100000 | Gen  Mountain  | Kun  Earth     | Mountain over Earth
+24  | ䷗   | 000001 | Kun  Earth     | Zhen Thunder   | Earth over Thunder
+25  | ䷘   | 111001 | Qian Heaven    | Zhen Thunder   | Heaven over Thunder
+26  | ䷙   | 100111 | Gen  Mountain  | Qian Heaven    | Mountain over Heaven
+27  | ䷚   | 100001 | Gen  Mountain  | Zhen Thunder   | Mountain over Thunder
+28  | ䷛   | 011110 | Dui  Lake      | Xun  Wind      | Lake over Wind
+29  | ䷜   | 010010 | Kan  Water     | Kan  Water     | Water over Water
+30  | ䷝   | 101101 | Li   Fire      | Li   Fire      | Fire over Fire
+31  | ䷞   | 011100 | Dui  Lake      | Gen  Mountain  | Lake over Mountain
+32  | ䷟   | 001110 | Zhen Thunder   | Xun  Wind      | Thunder over Wind
+33  | ䷠   | 111100 | Qian Heaven    | Gen  Mountain  | Heaven over Mountain
+34  | ䷡   | 001111 | Zhen Thunder   | Qian Heaven    | Thunder over Heaven
+35  | ䷢   | 101000 | Li   Fire      | Kun  Earth     | Fire over Earth
+36  | ䷣   | 000101 | Kun  Earth     | Li   Fire      | Earth over Fire
+37  | ䷤   | 110101 | Xun  Wind      | Li   Fire      | Wind over Fire
+38  | ䷥   | 101011 | Li   Fire      | Dui  Lake      | Fire over Lake
+39  | ䷦   | 010100 | Kan  Water     | Gen  Mountain  | Water over Mountain
+40  | ䷧   | 001010 | Zhen Thunder   | Kan  Water     | Thunder over Water
+41  | ䷨   | 100011 | Gen  Mountain  | Dui  Lake      | Mountain over Lake
+42  | ䷩   | 110001 | Xun  Wind      | Zhen Thunder   | Wind over Thunder
+43  | ䷪   | 011111 | Dui  Lake      | Qian Heaven    | Lake over Heaven
+44  | ䷫   | 111110 | Qian Heaven    | Xun  Wind      | Heaven over Wind
+45  | ䷬   | 011000 | Dui  Lake      | Kun  Earth     | Lake over Earth
+46  | ䷭   | 000110 | Kun  Earth     | Xun  Wind      | Earth over Wind
+47  | ䷮   | 011010 | Dui  Lake      | Kan  Water     | Lake over Water
+48  | ䷯   | 010110 | Kan  Water     | Xun  Wind      | Water over Wind
+49  | ䷰   | 011101 | Dui  Lake      | Li   Fire      | Lake over Fire
+50  | ䷱   | 101110 | Li   Fire      | Xun  Wind      | Fire over Wind
+51  | ䷲   | 001001 | Zhen Thunder   | Zhen Thunder   | Thunder over Thunder
+52  | ䷳   | 100100 | Gen  Mountain  | Gen  Mountain  | Mountain over Mountain
+53  | ䷴   | 110100 | Xun  Wind      | Gen  Mountain  | Wind over Mountain
+54  | ䷵   | 001011 | Zhen Thunder   | Dui  Lake      | Thunder over Lake
+55  | ䷶   | 001101 | Zhen Thunder   | Li   Fire      | Thunder over Fire
+56  | ䷷   | 101100 | Li   Fire      | Gen  Mountain  | Fire over Mountain
+57  | ䷸   | 110110 | Xun  Wind      | Xun  Wind      | Wind over Wind
+58  | ䷹   | 011011 | Dui  Lake      | Dui  Lake      | Lake over Lake
+59  | ䷺   | 110010 | Xun  Wind      | Kan  Water     | Wind over Water
+60  | ䷻   | 010011 | Kan  Water     | Dui  Lake      | Water over Lake
+61  | ䷼   | 110011 | Xun  Wind      | Dui  Lake      | Wind over Lake
+62  | ䷽   | 001100 | Zhen Thunder   | Gen  Mountain  | Thunder over Mountain
+63  | ䷾   | 010101 | Kan  Water     | Li   Fire      | Water over Fire
+64  | ䷿   | 101010 | Li   Fire      | Kan  Water     | Fire over Water
 ---
 Reverse vs. Inverse pair analysis
 The 64 hexagrams are traditionally grouped into 32 pairs (1-2, 3-4, ..., 63-64).
@@ -394,22 +394,22 @@ not obvious from the surface arrangement.
 
 --- Nuclear hexagram frequency ---
 How often each hexagram appears as another's nuclear hexagram
-01 ䷀ The Creative                   appears 4 times
-02 ䷁ The Receptive                  appears 4 times
-23 ䷖ Splitting Apart                appears 4 times
-24 ䷗ Return                         appears 4 times
-27 ䷚ Nourishment                    appears 4 times
-28 ䷛ Great Preponderance            appears 4 times
-37 ䷤ The Family                     appears 4 times
-38 ䷥ Opposition                     appears 4 times
-39 ䷦ Obstruction                    appears 4 times
-40 ䷧ Deliverance                    appears 4 times
-43 ䷪ Breakthrough                   appears 4 times
-44 ䷫ Coming to Meet                 appears 4 times
-53 ䷴ Development                    appears 4 times
-54 ䷵ The Marrying Maiden            appears 4 times
-63 ䷾ After Completion               appears 4 times
-64 ䷿ Before Completion              appears 4 times
+01 ䷀ Heaven over Heaven             appears 4 times
+02 ䷁ Earth over Earth               appears 4 times
+23 ䷖ Mountain over Earth            appears 4 times
+24 ䷗ Earth over Thunder             appears 4 times
+27 ䷚ Mountain over Thunder          appears 4 times
+28 ䷛ Lake over Wind                 appears 4 times
+37 ䷤ Wind over Fire                 appears 4 times
+38 ䷥ Fire over Lake                 appears 4 times
+39 ䷦ Water over Mountain            appears 4 times
+40 ䷧ Thunder over Water             appears 4 times
+43 ䷪ Lake over Heaven               appears 4 times
+44 ䷫ Heaven over Wind               appears 4 times
+53 ䷴ Wind over Mountain             appears 4 times
+54 ䷵ Thunder over Lake              appears 4 times
+63 ䷾ Water over Fire                appears 4 times
+64 ䷿ Fire over Water                appears 4 times
 
 --- Null model note ---
 Nuclear hexagram derivation is a fixed function of binary value (lines 2-5),
@@ -445,77 +445,77 @@ L6    .    .    .    .    .    .
 ---
 Complement distance analysis
 Every hexagram has an 'opposite' (complement) formed by toggling all 6 lines
-(solid becomes broken, broken becomes solid). For example, The Creative (all
-solid) and The Receptive (all broken) are complements. This section finds where
+(solid becomes broken, broken becomes solid). For example, hexagram 1 (all
+solid) and hexagram 2 (all broken) are complements. This section finds where
 each hexagram's complement sits in the King Wen sequence and how far apart they
 are. If complements sit nearer each other than a null model predicts, opposition
 is an organizing feature of the sequence's structure; if farther, complements
 may serve as bookends for larger structural sections.
 ---
-01 ䷀ <-> 02 ䷁  distance:  1  The Creative <-> The Receptive
-02 ䷁ <-> 01 ䷀  distance:  1  The Receptive <-> The Creative
-03 ䷂ <-> 50 ䷱  distance: 47  Difficulty at the Beginning <-> The Cauldron
-04 ䷃ <-> 49 ䷰  distance: 45  Youthful Folly <-> Revolution
-05 ䷄ <-> 35 ䷢  distance: 30  Waiting <-> Progress
-06 ䷅ <-> 36 ䷣  distance: 30  Conflict <-> Darkening of the Light
-07 ䷆ <-> 13 ䷌  distance:  6  The Army <-> Fellowship
-08 ䷇ <-> 14 ䷍  distance:  6  Holding Together <-> Great Possession
-09 ䷈ <-> 16 ䷏  distance:  7  Small Taming <-> Enthusiasm
-10 ䷉ <-> 15 ䷎  distance:  5  Treading <-> Modesty
-11 ䷊ <-> 12 ䷋  distance:  1  Peace <-> Standstill
-12 ䷋ <-> 11 ䷊  distance:  1  Standstill <-> Peace
-13 ䷌ <-> 07 ䷆  distance:  6  Fellowship <-> The Army
-14 ䷍ <-> 08 ䷇  distance:  6  Great Possession <-> Holding Together
-15 ䷎ <-> 10 ䷉  distance:  5  Modesty <-> Treading
-16 ䷏ <-> 09 ䷈  distance:  7  Enthusiasm <-> Small Taming
-17 ䷐ <-> 18 ䷑  distance:  1  Following <-> Work on the Decayed
-18 ䷑ <-> 17 ䷐  distance:  1  Work on the Decayed <-> Following
-19 ䷒ <-> 33 ䷠  distance: 14  Approach <-> Retreat
-20 ䷓ <-> 34 ䷡  distance: 14  Contemplation <-> Great Power
-21 ䷔ <-> 48 ䷯  distance: 27  Biting Through <-> The Well
-22 ䷕ <-> 47 ䷮  distance: 25  Grace <-> Oppression
-23 ䷖ <-> 43 ䷪  distance: 20  Splitting Apart <-> Breakthrough
-24 ䷗ <-> 44 ䷫  distance: 20  Return <-> Coming to Meet
-25 ䷘ <-> 46 ䷭  distance: 21  Innocence <-> Pushing Upward
-26 ䷙ <-> 45 ䷬  distance: 19  Great Taming <-> Gathering Together
-27 ䷚ <-> 28 ䷛  distance:  1  Nourishment <-> Great Preponderance
-28 ䷛ <-> 27 ䷚  distance:  1  Great Preponderance <-> Nourishment
-29 ䷜ <-> 30 ䷝  distance:  1  The Abysmal <-> The Clinging
-30 ䷝ <-> 29 ䷜  distance:  1  The Clinging <-> The Abysmal
-31 ䷞ <-> 41 ䷨  distance: 10  Influence <-> Decrease
-32 ䷟ <-> 42 ䷩  distance: 10  Duration <-> Increase
-33 ䷠ <-> 19 ䷒  distance: 14  Retreat <-> Approach
-34 ䷡ <-> 20 ䷓  distance: 14  Great Power <-> Contemplation
-35 ䷢ <-> 05 ䷄  distance: 30  Progress <-> Waiting
-36 ䷣ <-> 06 ䷅  distance: 30  Darkening of the Light <-> Conflict
-37 ䷤ <-> 40 ䷧  distance:  3  The Family <-> Deliverance
-38 ䷥ <-> 39 ䷦  distance:  1  Opposition <-> Obstruction
-39 ䷦ <-> 38 ䷥  distance:  1  Obstruction <-> Opposition
-40 ䷧ <-> 37 ䷤  distance:  3  Deliverance <-> The Family
-41 ䷨ <-> 31 ䷞  distance: 10  Decrease <-> Influence
-42 ䷩ <-> 32 ䷟  distance: 10  Increase <-> Duration
-43 ䷪ <-> 23 ䷖  distance: 20  Breakthrough <-> Splitting Apart
-44 ䷫ <-> 24 ䷗  distance: 20  Coming to Meet <-> Return
-45 ䷬ <-> 26 ䷙  distance: 19  Gathering Together <-> Great Taming
-46 ䷭ <-> 25 ䷘  distance: 21  Pushing Upward <-> Innocence
-47 ䷮ <-> 22 ䷕  distance: 25  Oppression <-> Grace
-48 ䷯ <-> 21 ䷔  distance: 27  The Well <-> Biting Through
-49 ䷰ <-> 04 ䷃  distance: 45  Revolution <-> Youthful Folly
-50 ䷱ <-> 03 ䷂  distance: 47  The Cauldron <-> Difficulty at the Beginning
-51 ䷲ <-> 57 ䷸  distance:  6  The Arousing <-> The Gentle
-52 ䷳ <-> 58 ䷹  distance:  6  Keeping Still <-> The Joyous
-53 ䷴ <-> 54 ䷵  distance:  1  Development <-> The Marrying Maiden
-54 ䷵ <-> 53 ䷴  distance:  1  The Marrying Maiden <-> Development
-55 ䷶ <-> 59 ䷺  distance:  4  Abundance <-> Dispersion
-56 ䷷ <-> 60 ䷻  distance:  4  The Wanderer <-> Limitation
-57 ䷸ <-> 51 ䷲  distance:  6  The Gentle <-> The Arousing
-58 ䷹ <-> 52 ䷳  distance:  6  The Joyous <-> Keeping Still
-59 ䷺ <-> 55 ䷶  distance:  4  Dispersion <-> Abundance
-60 ䷻ <-> 56 ䷷  distance:  4  Limitation <-> The Wanderer
-61 ䷼ <-> 62 ䷽  distance:  1  Inner Truth <-> Small Preponderance
-62 ䷽ <-> 61 ䷼  distance:  1  Small Preponderance <-> Inner Truth
-63 ䷾ <-> 64 ䷿  distance:  1  After Completion <-> Before Completion
-64 ䷿ <-> 63 ䷾  distance:  1  Before Completion <-> After Completion
+01 ䷀ <-> 02 ䷁  distance:  1  Heaven over Heaven <-> Earth over Earth
+02 ䷁ <-> 01 ䷀  distance:  1  Earth over Earth <-> Heaven over Heaven
+03 ䷂ <-> 50 ䷱  distance: 47  Water over Thunder <-> Fire over Wind
+04 ䷃ <-> 49 ䷰  distance: 45  Mountain over Water <-> Lake over Fire
+05 ䷄ <-> 35 ䷢  distance: 30  Water over Heaven <-> Fire over Earth
+06 ䷅ <-> 36 ䷣  distance: 30  Heaven over Water <-> Earth over Fire
+07 ䷆ <-> 13 ䷌  distance:  6  Earth over Water <-> Heaven over Fire
+08 ䷇ <-> 14 ䷍  distance:  6  Water over Earth <-> Fire over Heaven
+09 ䷈ <-> 16 ䷏  distance:  7  Wind over Heaven <-> Thunder over Earth
+10 ䷉ <-> 15 ䷎  distance:  5  Heaven over Lake <-> Earth over Mountain
+11 ䷊ <-> 12 ䷋  distance:  1  Earth over Heaven <-> Heaven over Earth
+12 ䷋ <-> 11 ䷊  distance:  1  Heaven over Earth <-> Earth over Heaven
+13 ䷌ <-> 07 ䷆  distance:  6  Heaven over Fire <-> Earth over Water
+14 ䷍ <-> 08 ䷇  distance:  6  Fire over Heaven <-> Water over Earth
+15 ䷎ <-> 10 ䷉  distance:  5  Earth over Mountain <-> Heaven over Lake
+16 ䷏ <-> 09 ䷈  distance:  7  Thunder over Earth <-> Wind over Heaven
+17 ䷐ <-> 18 ䷑  distance:  1  Lake over Thunder <-> Mountain over Wind
+18 ䷑ <-> 17 ䷐  distance:  1  Mountain over Wind <-> Lake over Thunder
+19 ䷒ <-> 33 ䷠  distance: 14  Earth over Lake <-> Heaven over Mountain
+20 ䷓ <-> 34 ䷡  distance: 14  Wind over Earth <-> Thunder over Heaven
+21 ䷔ <-> 48 ䷯  distance: 27  Fire over Thunder <-> Water over Wind
+22 ䷕ <-> 47 ䷮  distance: 25  Mountain over Fire <-> Lake over Water
+23 ䷖ <-> 43 ䷪  distance: 20  Mountain over Earth <-> Lake over Heaven
+24 ䷗ <-> 44 ䷫  distance: 20  Earth over Thunder <-> Heaven over Wind
+25 ䷘ <-> 46 ䷭  distance: 21  Heaven over Thunder <-> Earth over Wind
+26 ䷙ <-> 45 ䷬  distance: 19  Mountain over Heaven <-> Lake over Earth
+27 ䷚ <-> 28 ䷛  distance:  1  Mountain over Thunder <-> Lake over Wind
+28 ䷛ <-> 27 ䷚  distance:  1  Lake over Wind <-> Mountain over Thunder
+29 ䷜ <-> 30 ䷝  distance:  1  Water over Water <-> Fire over Fire
+30 ䷝ <-> 29 ䷜  distance:  1  Fire over Fire <-> Water over Water
+31 ䷞ <-> 41 ䷨  distance: 10  Lake over Mountain <-> Mountain over Lake
+32 ䷟ <-> 42 ䷩  distance: 10  Thunder over Wind <-> Wind over Thunder
+33 ䷠ <-> 19 ䷒  distance: 14  Heaven over Mountain <-> Earth over Lake
+34 ䷡ <-> 20 ䷓  distance: 14  Thunder over Heaven <-> Wind over Earth
+35 ䷢ <-> 05 ䷄  distance: 30  Fire over Earth <-> Water over Heaven
+36 ䷣ <-> 06 ䷅  distance: 30  Earth over Fire <-> Heaven over Water
+37 ䷤ <-> 40 ䷧  distance:  3  Wind over Fire <-> Thunder over Water
+38 ䷥ <-> 39 ䷦  distance:  1  Fire over Lake <-> Water over Mountain
+39 ䷦ <-> 38 ䷥  distance:  1  Water over Mountain <-> Fire over Lake
+40 ䷧ <-> 37 ䷤  distance:  3  Thunder over Water <-> Wind over Fire
+41 ䷨ <-> 31 ䷞  distance: 10  Mountain over Lake <-> Lake over Mountain
+42 ䷩ <-> 32 ䷟  distance: 10  Wind over Thunder <-> Thunder over Wind
+43 ䷪ <-> 23 ䷖  distance: 20  Lake over Heaven <-> Mountain over Earth
+44 ䷫ <-> 24 ䷗  distance: 20  Heaven over Wind <-> Earth over Thunder
+45 ䷬ <-> 26 ䷙  distance: 19  Lake over Earth <-> Mountain over Heaven
+46 ䷭ <-> 25 ䷘  distance: 21  Earth over Wind <-> Heaven over Thunder
+47 ䷮ <-> 22 ䷕  distance: 25  Lake over Water <-> Mountain over Fire
+48 ䷯ <-> 21 ䷔  distance: 27  Water over Wind <-> Fire over Thunder
+49 ䷰ <-> 04 ䷃  distance: 45  Lake over Fire <-> Mountain over Water
+50 ䷱ <-> 03 ䷂  distance: 47  Fire over Wind <-> Water over Thunder
+51 ䷲ <-> 57 ䷸  distance:  6  Thunder over Thunder <-> Wind over Wind
+52 ䷳ <-> 58 ䷹  distance:  6  Mountain over Mountain <-> Lake over Lake
+53 ䷴ <-> 54 ䷵  distance:  1  Wind over Mountain <-> Thunder over Lake
+54 ䷵ <-> 53 ䷴  distance:  1  Thunder over Lake <-> Wind over Mountain
+55 ䷶ <-> 59 ䷺  distance:  4  Thunder over Fire <-> Wind over Water
+56 ䷷ <-> 60 ䷻  distance:  4  Fire over Mountain <-> Water over Lake
+57 ䷸ <-> 51 ䷲  distance:  6  Wind over Wind <-> Thunder over Thunder
+58 ䷹ <-> 52 ䷳  distance:  6  Lake over Lake <-> Mountain over Mountain
+59 ䷺ <-> 55 ䷶  distance:  4  Wind over Water <-> Thunder over Fire
+60 ䷻ <-> 56 ䷷  distance:  4  Water over Lake <-> Fire over Mountain
+61 ䷼ <-> 62 ䷽  distance:  1  Wind over Lake <-> Thunder over Mountain
+62 ䷽ <-> 61 ䷼  distance:  1  Thunder over Mountain <-> Wind over Lake
+63 ䷾ <-> 64 ䷿  distance:  1  Water over Fire <-> Fire over Water
+64 ䷿ <-> 63 ䷾  distance:  1  Fire over Water <-> Water over Fire
 
 --- Complement distance statistics ---
 Mean distance:   12.1
@@ -524,7 +524,7 @@ Min distance:    1 (adjacent = pair is an inverse pair)
 Max distance:    47
 
 --- Complement distance null model ---
-Random mean complement distance (over 10000 shuffles): 21.6
+Random mean complement distance (over 10000 shuffles): 21.7
 King Wen mean complement distance: 12.1
 King Wen percentile vs random: 0.0%
 Complements are significantly closer together than chance would predict:
@@ -567,18 +567,18 @@ Length  3: 18 found
 --- Palindrome null model ---
 How many palindromes of length >= 3 do random permutations produce?
 King Wen palindromes: 27, longest: 7
-Random mean palindromes: 22.0, mean longest: 6.9
-King Wen palindrome count percentile: 79.4%
-King Wen longest palindrome percentile: 41.9%
+Random mean palindromes: 22.3, mean longest: 7.0
+King Wen palindrome count percentile: 78.6%
+King Wen longest palindrome percentile: 40.4%
 
 --- Pair-constrained palindrome null model ---
 The unconstrained comparison shuffles all 64 hexagrams freely. A fairer
 comparison preserves the pair structure: each pair of hexagrams stays
 adjacent, only the pair order and within-pair orientation are randomized.
 King Wen palindromes: 27, longest: 7
-Pair-constrained mean palindromes: 27.7, mean longest: 8.4
-King Wen palindrome count percentile (pair-constrained): 48.3%
-King Wen longest palindrome percentile (pair-constrained): 13.2%
+Pair-constrained mean palindromes: 28.3, mean longest: 8.6
+King Wen palindrome count percentile (pair-constrained): 47.0%
+King Wen longest palindrome percentile (pair-constrained): 12.8%
 ---
 Upper Canon (1-30) vs. Lower Canon (31-64) comparison
 The I Ching is traditionally divided into two books: the Upper Canon (hexagrams
@@ -616,8 +616,8 @@ Permutation test: is the King Wen split at position 30 special, or would
 any random split of the 64-hexagram sequence show a similar gap in mean
 line-change differences between the two halves?
 King Wen |upper_mean - lower_mean|: 0.0460
-Random permutations with gap >= King Wen: 8769/10000
-King Wen gap percentile: 12.3%
+Random permutations with gap >= King Wen: 8739/10000
+King Wen gap percentile: 12.6%
 The King Wen canon split does not produce a statistically significant
 mean-difference gap. The observed difference between upper and lower
 halves is consistent with what random shuffles produce.
@@ -841,7 +841,7 @@ are anecdotes, not statistically meaningful.)
 --- Permutation test ---
 Is the transition matrix more concentrated than random orderings produce?
 King Wen matrix concentration: 2.3303
-Random orderings equally or more concentrated: 2135/5000 (42.7%)
+Random orderings equally or more concentrated: 2136/5000 (42.7%)
 ---
 Gray code comparison
 A Gray code is an ordering of binary values where each consecutive pair differs
@@ -882,7 +882,7 @@ certain sets of hexagrams form 'subgroups' (closed sets where combining any two
 members stays in the set). This section checks whether the King Wen pairs, inverse
 pairs, and the canonical divisions correspond to meaningful algebraic subgroups.
 ---
-XOR identity element: 0b000000 (hexagram 2, The Receptive)
+XOR identity element: 0b000000 (hexagram 2, all broken)
 
 --- Fixed points under complement (XOR 0b111111) ---
 Hexagrams that are their own complement do not exist (since XOR with
@@ -945,7 +945,7 @@ random permutations against each constraint individually and combined.
 ---
 Results from 10,000 random permutations:
   All pairs reverse/inverse:       0 (0.000%)
-  No 5-line transitions:          13 (0.13%)
+  No 5-line transitions:          21 (0.21%)
   Both constraints together:       0 (0.0000%)
   No random permutation satisfied both constraints.
   Statistical note: 0/10,000 gives a 95% upper bound of <0.0300%
@@ -957,8 +957,8 @@ The pair structure constrains transitions within pairs (always even or 6),
 so 5-line transitions can only occur at the 31 between-pair boundaries.
 How often do pair-constrained orderings also avoid 5-line transitions?
   Pair-constrained trials: 100,000
-  Also satisfy no-5:       4,384 (4.38%)
-  Approximately 1 in 22 pair-constrained orderings avoid 5-line transitions.
+  Also satisfy no-5:       4,305 (4.30%)
+  Approximately 1 in 23 pair-constrained orderings avoid 5-line transitions.
   The no-5 property is uncommon but not extraordinary among pair-constrained orderings.
 
 --- Sensitivity analysis: reversed bit convention ---
@@ -1057,8 +1057,8 @@ Joint distribution of trigram changes:
 Mutual information: 0.0078 bits
 Normalized MI: 0.0230 (0=independent, 1=perfectly correlated)
 
-Mean MI of random permutations: 0.0199 bits
-King Wen percentile: 8.1%
+Mean MI of random permutations: 0.0198 bits
+King Wen percentile: 7.2%
 
 --- Full 8-state trigram mutual information ---
 Using actual trigram identities (8 possible values each) rather than
@@ -1219,70 +1219,70 @@ Dense neighborhoods mean a hexagram has many close relatives; sparse ones are
 more isolated. This also shows whether King Wen places neighbors near each
 other in the sequence or scatters them.
 ---
-01 ䷀ The Creative                 d=1: [09, 10, 13, 14, 43, 44] (6 neighbors, mean seq dist: 21.2)
-02 ䷁ The Receptive                d=1: [07, 08, 15, 16, 23, 24] (6 neighbors, mean seq dist: 13.5)
-03 ䷂ Difficulty at the Beginning  d=1: [08, 17, 24, 42, 60, 63] (6 neighbors, mean seq dist: 32.7)
-04 ䷃ Youthful Folly               d=1: [07, 18, 23, 41, 59, 64] (6 neighbors, mean seq dist: 31.3)
-05 ䷄ Waiting                      d=1: [09, 11, 43, 48, 60, 63] (6 neighbors, mean seq dist: 34.0)
-06 ䷅ Conflict                     d=1: [10, 12, 44, 47, 59, 64] (6 neighbors, mean seq dist: 33.3)
-07 ䷆ The Army                     d=1: [02, 04, 19, 29, 40, 46] (6 neighbors, mean seq dist: 19.0)
-08 ䷇ Holding Together             d=1: [02, 03, 20, 29, 39, 45] (6 neighbors, mean seq dist: 18.7)
-09 ䷈ Small Taming                 d=1: [01, 05, 26, 37, 57, 61] (6 neighbors, mean seq dist: 26.2)
-10 ䷉ Treading                     d=1: [01, 06, 25, 38, 58, 61] (6 neighbors, mean seq dist: 25.8)
-11 ䷊ Peace                        d=1: [05, 19, 26, 34, 36, 46] (6 neighbors, mean seq dist: 18.7)
-12 ䷋ Standstill                   d=1: [06, 20, 25, 33, 35, 45] (6 neighbors, mean seq dist: 17.3)
-13 ䷌ Fellowship                   d=1: [01, 25, 30, 33, 37, 49] (6 neighbors, mean seq dist: 20.2)
-14 ䷍ Great Possession             d=1: [01, 26, 30, 34, 38, 50] (6 neighbors, mean seq dist: 20.2)
-15 ䷎ Modesty                      d=1: [02, 36, 39, 46, 52, 62] (6 neighbors, mean seq dist: 28.8)
-16 ䷏ Enthusiasm                   d=1: [02, 35, 40, 45, 51, 62] (6 neighbors, mean seq dist: 27.8)
-17 ䷐ Following                    d=1: [03, 25, 45, 49, 51, 58] (6 neighbors, mean seq dist: 26.2)
-18 ䷑ Work on the Decayed          d=1: [04, 26, 46, 50, 52, 57] (6 neighbors, mean seq dist: 25.8)
-19 ䷒ Approach                     d=1: [07, 11, 24, 41, 54, 60] (6 neighbors, mean seq dist: 20.5)
-20 ䷓ Contemplation                d=1: [08, 12, 23, 42, 53, 59] (6 neighbors, mean seq dist: 19.5)
-21 ䷔ Biting Through               d=1: [25, 27, 30, 35, 38, 51] (6 neighbors, mean seq dist: 13.3)
-22 ䷕ Grace                        d=1: [26, 27, 30, 36, 37, 52] (6 neighbors, mean seq dist: 12.7)
-23 ䷖ Splitting Apart              d=1: [02, 04, 20, 27, 35, 52] (6 neighbors, mean seq dist: 14.7)
-24 ䷗ Return                       d=1: [02, 03, 19, 27, 36, 51] (6 neighbors, mean seq dist: 15.0)
-25 ䷘ Innocence                    d=1: [10, 12, 13, 17, 21, 42] (6 neighbors, mean seq dist: 11.5)
-26 ䷙ Great Taming                 d=1: [09, 11, 14, 18, 22, 41] (6 neighbors, mean seq dist: 11.8)
-27 ䷚ Nourishment                  d=1: [21, 22, 23, 24, 41, 42] (6 neighbors, mean seq dist: 7.8)
-28 ䷛ Great Preponderance          d=1: [31, 32, 43, 44, 47, 48] (6 neighbors, mean seq dist: 12.8)
-29 ䷜ The Abysmal                  d=1: [07, 08, 47, 48, 59, 60] (6 neighbors, mean seq dist: 23.5)
-30 ䷝ The Clinging                 d=1: [13, 14, 21, 22, 55, 56] (6 neighbors, mean seq dist: 16.8)
-31 ䷞ Influence                    d=1: [28, 33, 39, 45, 49, 62] (6 neighbors, mean seq dist: 12.7)
-32 ䷟ Duration                     d=1: [28, 34, 40, 46, 50, 62] (6 neighbors, mean seq dist: 12.7)
-33 ䷠ Retreat                      d=1: [12, 13, 31, 44, 53, 56] (6 neighbors, mean seq dist: 16.2)
-34 ䷡ Great Power                  d=1: [11, 14, 32, 43, 54, 55] (6 neighbors, mean seq dist: 15.8)
-35 ䷢ Progress                     d=1: [12, 16, 21, 23, 56, 64] (6 neighbors, mean seq dist: 19.7)
-36 ䷣ Darkening of the Light       d=1: [11, 15, 22, 24, 55, 63] (6 neighbors, mean seq dist: 19.7)
-37 ䷤ The Family                   d=1: [09, 13, 22, 42, 53, 63] (6 neighbors, mean seq dist: 19.0)
-38 ䷥ Opposition                   d=1: [10, 14, 21, 41, 54, 64] (6 neighbors, mean seq dist: 19.0)
-39 ䷦ Obstruction                  d=1: [08, 15, 31, 48, 53, 63] (6 neighbors, mean seq dist: 18.3)
-40 ䷧ Deliverance                  d=1: [07, 16, 32, 47, 54, 64] (6 neighbors, mean seq dist: 18.3)
-41 ䷨ Decrease                     d=1: [04, 19, 26, 27, 38, 61] (6 neighbors, mean seq dist: 18.5)
-42 ䷩ Increase                     d=1: [03, 20, 25, 27, 37, 61] (6 neighbors, mean seq dist: 19.5)
-43 ䷪ Breakthrough                 d=1: [01, 05, 28, 34, 49, 58] (6 neighbors, mean seq dist: 20.8)
-44 ䷫ Coming to Meet               d=1: [01, 06, 28, 33, 50, 57] (6 neighbors, mean seq dist: 21.2)
-45 ䷬ Gathering Together           d=1: [08, 12, 16, 17, 31, 47] (6 neighbors, mean seq dist: 23.8)
-46 ䷭ Pushing Upward               d=1: [07, 11, 15, 18, 32, 48] (6 neighbors, mean seq dist: 24.8)
-47 ䷮ Oppression                   d=1: [06, 28, 29, 40, 45, 58] (6 neighbors, mean seq dist: 16.3)
-48 ䷯ The Well                     d=1: [05, 28, 29, 39, 46, 57] (6 neighbors, mean seq dist: 17.0)
-49 ䷰ Revolution                   d=1: [13, 17, 31, 43, 55, 63] (6 neighbors, mean seq dist: 18.7)
-50 ䷱ The Cauldron                 d=1: [14, 18, 32, 44, 56, 64] (6 neighbors, mean seq dist: 18.7)
-51 ䷲ The Arousing                 d=1: [16, 17, 21, 24, 54, 55] (6 neighbors, mean seq dist: 22.2)
-52 ䷳ Keeping Still                d=1: [15, 18, 22, 23, 53, 56] (6 neighbors, mean seq dist: 22.5)
-53 ䷴ Development                  d=1: [20, 33, 37, 39, 52, 57] (6 neighbors, mean seq dist: 14.7)
-54 ䷵ The Marrying Maiden          d=1: [19, 34, 38, 40, 51, 58] (6 neighbors, mean seq dist: 15.3)
-55 ䷶ Abundance                    d=1: [30, 34, 36, 49, 51, 62] (6 neighbors, mean seq dist: 13.7)
-56 ䷷ The Wanderer                 d=1: [30, 33, 35, 50, 52, 62] (6 neighbors, mean seq dist: 14.3)
-57 ䷸ The Gentle                   d=1: [09, 18, 44, 48, 53, 59] (6 neighbors, mean seq dist: 19.2)
-58 ䷹ The Joyous                   d=1: [10, 17, 43, 47, 54, 60] (6 neighbors, mean seq dist: 20.2)
-59 ䷺ Dispersion                   d=1: [04, 06, 20, 29, 57, 61] (6 neighbors, mean seq dist: 30.2)
-60 ䷻ Limitation                   d=1: [03, 05, 19, 29, 58, 61] (6 neighbors, mean seq dist: 31.2)
-61 ䷼ Inner Truth                  d=1: [09, 10, 41, 42, 59, 60] (6 neighbors, mean seq dist: 24.2)
-62 ䷽ Small Preponderance          d=1: [15, 16, 31, 32, 55, 56] (6 neighbors, mean seq dist: 27.8)
-63 ䷾ After Completion             d=1: [03, 05, 36, 37, 39, 49] (6 neighbors, mean seq dist: 34.8)
-64 ䷿ Before Completion            d=1: [04, 06, 35, 38, 40, 50] (6 neighbors, mean seq dist: 35.2)
+01 ䷀ Heaven over Heaven           d=1: [09, 10, 13, 14, 43, 44] (6 neighbors, mean seq dist: 21.2)
+02 ䷁ Earth over Earth             d=1: [07, 08, 15, 16, 23, 24] (6 neighbors, mean seq dist: 13.5)
+03 ䷂ Water over Thunder           d=1: [08, 17, 24, 42, 60, 63] (6 neighbors, mean seq dist: 32.7)
+04 ䷃ Mountain over Water          d=1: [07, 18, 23, 41, 59, 64] (6 neighbors, mean seq dist: 31.3)
+05 ䷄ Water over Heaven            d=1: [09, 11, 43, 48, 60, 63] (6 neighbors, mean seq dist: 34.0)
+06 ䷅ Heaven over Water            d=1: [10, 12, 44, 47, 59, 64] (6 neighbors, mean seq dist: 33.3)
+07 ䷆ Earth over Water             d=1: [02, 04, 19, 29, 40, 46] (6 neighbors, mean seq dist: 19.0)
+08 ䷇ Water over Earth             d=1: [02, 03, 20, 29, 39, 45] (6 neighbors, mean seq dist: 18.7)
+09 ䷈ Wind over Heaven             d=1: [01, 05, 26, 37, 57, 61] (6 neighbors, mean seq dist: 26.2)
+10 ䷉ Heaven over Lake             d=1: [01, 06, 25, 38, 58, 61] (6 neighbors, mean seq dist: 25.8)
+11 ䷊ Earth over Heaven            d=1: [05, 19, 26, 34, 36, 46] (6 neighbors, mean seq dist: 18.7)
+12 ䷋ Heaven over Earth            d=1: [06, 20, 25, 33, 35, 45] (6 neighbors, mean seq dist: 17.3)
+13 ䷌ Heaven over Fire             d=1: [01, 25, 30, 33, 37, 49] (6 neighbors, mean seq dist: 20.2)
+14 ䷍ Fire over Heaven             d=1: [01, 26, 30, 34, 38, 50] (6 neighbors, mean seq dist: 20.2)
+15 ䷎ Earth over Mountain          d=1: [02, 36, 39, 46, 52, 62] (6 neighbors, mean seq dist: 28.8)
+16 ䷏ Thunder over Earth           d=1: [02, 35, 40, 45, 51, 62] (6 neighbors, mean seq dist: 27.8)
+17 ䷐ Lake over Thunder            d=1: [03, 25, 45, 49, 51, 58] (6 neighbors, mean seq dist: 26.2)
+18 ䷑ Mountain over Wind           d=1: [04, 26, 46, 50, 52, 57] (6 neighbors, mean seq dist: 25.8)
+19 ䷒ Earth over Lake              d=1: [07, 11, 24, 41, 54, 60] (6 neighbors, mean seq dist: 20.5)
+20 ䷓ Wind over Earth              d=1: [08, 12, 23, 42, 53, 59] (6 neighbors, mean seq dist: 19.5)
+21 ䷔ Fire over Thunder            d=1: [25, 27, 30, 35, 38, 51] (6 neighbors, mean seq dist: 13.3)
+22 ䷕ Mountain over Fire           d=1: [26, 27, 30, 36, 37, 52] (6 neighbors, mean seq dist: 12.7)
+23 ䷖ Mountain over Earth          d=1: [02, 04, 20, 27, 35, 52] (6 neighbors, mean seq dist: 14.7)
+24 ䷗ Earth over Thunder           d=1: [02, 03, 19, 27, 36, 51] (6 neighbors, mean seq dist: 15.0)
+25 ䷘ Heaven over Thunder          d=1: [10, 12, 13, 17, 21, 42] (6 neighbors, mean seq dist: 11.5)
+26 ䷙ Mountain over Heaven         d=1: [09, 11, 14, 18, 22, 41] (6 neighbors, mean seq dist: 11.8)
+27 ䷚ Mountain over Thunder        d=1: [21, 22, 23, 24, 41, 42] (6 neighbors, mean seq dist: 7.8)
+28 ䷛ Lake over Wind               d=1: [31, 32, 43, 44, 47, 48] (6 neighbors, mean seq dist: 12.8)
+29 ䷜ Water over Water             d=1: [07, 08, 47, 48, 59, 60] (6 neighbors, mean seq dist: 23.5)
+30 ䷝ Fire over Fire               d=1: [13, 14, 21, 22, 55, 56] (6 neighbors, mean seq dist: 16.8)
+31 ䷞ Lake over Mountain           d=1: [28, 33, 39, 45, 49, 62] (6 neighbors, mean seq dist: 12.7)
+32 ䷟ Thunder over Wind            d=1: [28, 34, 40, 46, 50, 62] (6 neighbors, mean seq dist: 12.7)
+33 ䷠ Heaven over Mountain         d=1: [12, 13, 31, 44, 53, 56] (6 neighbors, mean seq dist: 16.2)
+34 ䷡ Thunder over Heaven          d=1: [11, 14, 32, 43, 54, 55] (6 neighbors, mean seq dist: 15.8)
+35 ䷢ Fire over Earth              d=1: [12, 16, 21, 23, 56, 64] (6 neighbors, mean seq dist: 19.7)
+36 ䷣ Earth over Fire              d=1: [11, 15, 22, 24, 55, 63] (6 neighbors, mean seq dist: 19.7)
+37 ䷤ Wind over Fire               d=1: [09, 13, 22, 42, 53, 63] (6 neighbors, mean seq dist: 19.0)
+38 ䷥ Fire over Lake               d=1: [10, 14, 21, 41, 54, 64] (6 neighbors, mean seq dist: 19.0)
+39 ䷦ Water over Mountain          d=1: [08, 15, 31, 48, 53, 63] (6 neighbors, mean seq dist: 18.3)
+40 ䷧ Thunder over Water           d=1: [07, 16, 32, 47, 54, 64] (6 neighbors, mean seq dist: 18.3)
+41 ䷨ Mountain over Lake           d=1: [04, 19, 26, 27, 38, 61] (6 neighbors, mean seq dist: 18.5)
+42 ䷩ Wind over Thunder            d=1: [03, 20, 25, 27, 37, 61] (6 neighbors, mean seq dist: 19.5)
+43 ䷪ Lake over Heaven             d=1: [01, 05, 28, 34, 49, 58] (6 neighbors, mean seq dist: 20.8)
+44 ䷫ Heaven over Wind             d=1: [01, 06, 28, 33, 50, 57] (6 neighbors, mean seq dist: 21.2)
+45 ䷬ Lake over Earth              d=1: [08, 12, 16, 17, 31, 47] (6 neighbors, mean seq dist: 23.8)
+46 ䷭ Earth over Wind              d=1: [07, 11, 15, 18, 32, 48] (6 neighbors, mean seq dist: 24.8)
+47 ䷮ Lake over Water              d=1: [06, 28, 29, 40, 45, 58] (6 neighbors, mean seq dist: 16.3)
+48 ䷯ Water over Wind              d=1: [05, 28, 29, 39, 46, 57] (6 neighbors, mean seq dist: 17.0)
+49 ䷰ Lake over Fire               d=1: [13, 17, 31, 43, 55, 63] (6 neighbors, mean seq dist: 18.7)
+50 ䷱ Fire over Wind               d=1: [14, 18, 32, 44, 56, 64] (6 neighbors, mean seq dist: 18.7)
+51 ䷲ Thunder over Thunder         d=1: [16, 17, 21, 24, 54, 55] (6 neighbors, mean seq dist: 22.2)
+52 ䷳ Mountain over Mountain       d=1: [15, 18, 22, 23, 53, 56] (6 neighbors, mean seq dist: 22.5)
+53 ䷴ Wind over Mountain           d=1: [20, 33, 37, 39, 52, 57] (6 neighbors, mean seq dist: 14.7)
+54 ䷵ Thunder over Lake            d=1: [19, 34, 38, 40, 51, 58] (6 neighbors, mean seq dist: 15.3)
+55 ䷶ Thunder over Fire            d=1: [30, 34, 36, 49, 51, 62] (6 neighbors, mean seq dist: 13.7)
+56 ䷷ Fire over Mountain           d=1: [30, 33, 35, 50, 52, 62] (6 neighbors, mean seq dist: 14.3)
+57 ䷸ Wind over Wind               d=1: [09, 18, 44, 48, 53, 59] (6 neighbors, mean seq dist: 19.2)
+58 ䷹ Lake over Lake               d=1: [10, 17, 43, 47, 54, 60] (6 neighbors, mean seq dist: 20.2)
+59 ䷺ Wind over Water              d=1: [04, 06, 20, 29, 57, 61] (6 neighbors, mean seq dist: 30.2)
+60 ䷻ Water over Lake              d=1: [03, 05, 19, 29, 58, 61] (6 neighbors, mean seq dist: 31.2)
+61 ䷼ Wind over Lake               d=1: [09, 10, 41, 42, 59, 60] (6 neighbors, mean seq dist: 24.2)
+62 ䷽ Thunder over Mountain        d=1: [15, 16, 31, 32, 55, 56] (6 neighbors, mean seq dist: 27.8)
+63 ䷾ Water over Fire              d=1: [03, 05, 36, 37, 39, 49] (6 neighbors, mean seq dist: 34.8)
+64 ䷿ Fire over Water              d=1: [04, 06, 35, 38, 40, 50] (6 neighbors, mean seq dist: 35.2)
 
 --- Neighborhood clustering in King Wen sequence ---
 Mean sequence distance between Hamming-1 neighbors: 20.6
@@ -1292,9 +1292,9 @@ Hamming-1 neighbors are closer than average in the sequence (clustered).
 --- Neighborhood clustering null model ---
 Shuffling binary hexagrams 10,000 times to build a null distribution
 of mean sequence distance between Hamming-1 neighbors.
-Null distribution: min=18.2, mean=21.7, max=25.6
+Null distribution: min=18.1, mean=21.7, max=25.5
 King Wen observed mean: 20.6
-Percentile: 12.2% (proportion of shuffles with mean <= King Wen's)
+Percentile: 11.3% (proportion of shuffles with mean <= King Wen's)
 King Wen's neighborhood clustering is within the range expected by chance.
 ---
 Recurrence plot
@@ -1376,7 +1376,7 @@ Theoretical expected recurrence rate (sum of p_i^2): 25.6%
 
 King Wen recurrence rate:       24.4%
 Mean random recurrence rate:    23.3%
-King Wen percentile vs random:  72.0%
+King Wen percentile vs random:  72.2%
 ---
 DNA codon mapping
 Both the I Ching (64 hexagrams) and the genetic code (64 codons) are systems
@@ -1392,70 +1392,70 @@ This analysis is illustrative, not evidence of a biological connection.
 ---
 Pos | Hex | Binary | Codon | Amino Acid | Name
 ----|-----|--------|-------|------------|----
-01  | ䷀   | 111111 | GGG   | Gly        | The Creative
-02  | ䷁   | 000000 | UUU   | Phe        | The Receptive
-03  | ䷂   | 010001 | CUC   | Leu        | Difficulty at the Beginning
-04  | ䷃   | 100010 | AUA   | Ile        | Youthful Folly
-05  | ䷄   | 010111 | CCG   | Pro        | Waiting
-06  | ䷅   | 111010 | GAA   | Glu        | Conflict
-07  | ䷆   | 000010 | UUA   | Leu        | The Army
-08  | ䷇   | 010000 | CUU   | Leu        | Holding Together
-09  | ䷈   | 110111 | GCG   | Ala        | Small Taming
-10  | ䷉   | 111011 | GAG   | Glu        | Treading
-11  | ䷊   | 000111 | UCG   | Ser        | Peace
-12  | ䷋   | 111000 | GAU   | Asp        | Standstill
-13  | ䷌   | 111101 | GGC   | Gly        | Fellowship
-14  | ䷍   | 101111 | AGG   | Arg        | Great Possession
-15  | ䷎   | 000100 | UCU   | Ser        | Modesty
-16  | ䷏   | 001000 | UAU   | Tyr        | Enthusiasm
-17  | ䷐   | 011001 | CAC   | His        | Following
-18  | ䷑   | 100110 | ACA   | Thr        | Work on the Decayed
-19  | ䷒   | 000011 | UUG   | Leu        | Approach
-20  | ䷓   | 110000 | GUU   | Val        | Contemplation
-21  | ䷔   | 101001 | AAC   | Asn        | Biting Through
-22  | ䷕   | 100101 | ACC   | Thr        | Grace
-23  | ䷖   | 100000 | AUU   | Ile        | Splitting Apart
-24  | ䷗   | 000001 | UUC   | Phe        | Return
-25  | ䷘   | 111001 | GAC   | Asp        | Innocence
-26  | ䷙   | 100111 | ACG   | Thr        | Great Taming
-27  | ䷚   | 100001 | AUC   | Ile        | Nourishment
-28  | ䷛   | 011110 | CGA   | Arg        | Great Preponderance
-29  | ䷜   | 010010 | CUA   | Leu        | The Abysmal
-30  | ䷝   | 101101 | AGC   | Ser        | The Clinging
-31  | ䷞   | 011100 | CGU   | Arg        | Influence
-32  | ䷟   | 001110 | UGA   | Stop       | Duration
-33  | ䷠   | 111100 | GGU   | Gly        | Retreat
-34  | ䷡   | 001111 | UGG   | Trp        | Great Power
-35  | ䷢   | 101000 | AAU   | Asn        | Progress
-36  | ䷣   | 000101 | UCC   | Ser        | Darkening of the Light
-37  | ䷤   | 110101 | GCC   | Ala        | The Family
-38  | ䷥   | 101011 | AAG   | Lys        | Opposition
-39  | ䷦   | 010100 | CCU   | Pro        | Obstruction
-40  | ䷧   | 001010 | UAA   | Stop       | Deliverance
-41  | ䷨   | 100011 | AUG   | Met        | Decrease
-42  | ䷩   | 110001 | GUC   | Val        | Increase
-43  | ䷪   | 011111 | CGG   | Arg        | Breakthrough
-44  | ䷫   | 111110 | GGA   | Gly        | Coming to Meet
-45  | ䷬   | 011000 | CAU   | His        | Gathering Together
-46  | ䷭   | 000110 | UCA   | Ser        | Pushing Upward
-47  | ䷮   | 011010 | CAA   | Gln        | Oppression
-48  | ䷯   | 010110 | CCA   | Pro        | The Well
-49  | ䷰   | 011101 | CGC   | Arg        | Revolution
-50  | ䷱   | 101110 | AGA   | Arg        | The Cauldron
-51  | ䷲   | 001001 | UAC   | Tyr        | The Arousing
-52  | ䷳   | 100100 | ACU   | Thr        | Keeping Still
-53  | ䷴   | 110100 | GCU   | Ala        | Development
-54  | ䷵   | 001011 | UAG   | Stop       | The Marrying Maiden
-55  | ䷶   | 001101 | UGC   | Cys        | Abundance
-56  | ䷷   | 101100 | AGU   | Ser        | The Wanderer
-57  | ䷸   | 110110 | GCA   | Ala        | The Gentle
-58  | ䷹   | 011011 | CAG   | Gln        | The Joyous
-59  | ䷺   | 110010 | GUA   | Val        | Dispersion
-60  | ䷻   | 010011 | CUG   | Leu        | Limitation
-61  | ䷼   | 110011 | GUG   | Val        | Inner Truth
-62  | ䷽   | 001100 | UGU   | Cys        | Small Preponderance
-63  | ䷾   | 010101 | CCC   | Pro        | After Completion
-64  | ䷿   | 101010 | AAA   | Lys        | Before Completion
+01  | ䷀   | 111111 | GGG   | Gly        | Heaven over Heaven
+02  | ䷁   | 000000 | UUU   | Phe        | Earth over Earth
+03  | ䷂   | 010001 | CUC   | Leu        | Water over Thunder
+04  | ䷃   | 100010 | AUA   | Ile        | Mountain over Water
+05  | ䷄   | 010111 | CCG   | Pro        | Water over Heaven
+06  | ䷅   | 111010 | GAA   | Glu        | Heaven over Water
+07  | ䷆   | 000010 | UUA   | Leu        | Earth over Water
+08  | ䷇   | 010000 | CUU   | Leu        | Water over Earth
+09  | ䷈   | 110111 | GCG   | Ala        | Wind over Heaven
+10  | ䷉   | 111011 | GAG   | Glu        | Heaven over Lake
+11  | ䷊   | 000111 | UCG   | Ser        | Earth over Heaven
+12  | ䷋   | 111000 | GAU   | Asp        | Heaven over Earth
+13  | ䷌   | 111101 | GGC   | Gly        | Heaven over Fire
+14  | ䷍   | 101111 | AGG   | Arg        | Fire over Heaven
+15  | ䷎   | 000100 | UCU   | Ser        | Earth over Mountain
+16  | ䷏   | 001000 | UAU   | Tyr        | Thunder over Earth
+17  | ䷐   | 011001 | CAC   | His        | Lake over Thunder
+18  | ䷑   | 100110 | ACA   | Thr        | Mountain over Wind
+19  | ䷒   | 000011 | UUG   | Leu        | Earth over Lake
+20  | ䷓   | 110000 | GUU   | Val        | Wind over Earth
+21  | ䷔   | 101001 | AAC   | Asn        | Fire over Thunder
+22  | ䷕   | 100101 | ACC   | Thr        | Mountain over Fire
+23  | ䷖   | 100000 | AUU   | Ile        | Mountain over Earth
+24  | ䷗   | 000001 | UUC   | Phe        | Earth over Thunder
+25  | ䷘   | 111001 | GAC   | Asp        | Heaven over Thunder
+26  | ䷙   | 100111 | ACG   | Thr        | Mountain over Heaven
+27  | ䷚   | 100001 | AUC   | Ile        | Mountain over Thunder
+28  | ䷛   | 011110 | CGA   | Arg        | Lake over Wind
+29  | ䷜   | 010010 | CUA   | Leu        | Water over Water
+30  | ䷝   | 101101 | AGC   | Ser        | Fire over Fire
+31  | ䷞   | 011100 | CGU   | Arg        | Lake over Mountain
+32  | ䷟   | 001110 | UGA   | Stop       | Thunder over Wind
+33  | ䷠   | 111100 | GGU   | Gly        | Heaven over Mountain
+34  | ䷡   | 001111 | UGG   | Trp        | Thunder over Heaven
+35  | ䷢   | 101000 | AAU   | Asn        | Fire over Earth
+36  | ䷣   | 000101 | UCC   | Ser        | Earth over Fire
+37  | ䷤   | 110101 | GCC   | Ala        | Wind over Fire
+38  | ䷥   | 101011 | AAG   | Lys        | Fire over Lake
+39  | ䷦   | 010100 | CCU   | Pro        | Water over Mountain
+40  | ䷧   | 001010 | UAA   | Stop       | Thunder over Water
+41  | ䷨   | 100011 | AUG   | Met        | Mountain over Lake
+42  | ䷩   | 110001 | GUC   | Val        | Wind over Thunder
+43  | ䷪   | 011111 | CGG   | Arg        | Lake over Heaven
+44  | ䷫   | 111110 | GGA   | Gly        | Heaven over Wind
+45  | ䷬   | 011000 | CAU   | His        | Lake over Earth
+46  | ䷭   | 000110 | UCA   | Ser        | Earth over Wind
+47  | ䷮   | 011010 | CAA   | Gln        | Lake over Water
+48  | ䷯   | 010110 | CCA   | Pro        | Water over Wind
+49  | ䷰   | 011101 | CGC   | Arg        | Lake over Fire
+50  | ䷱   | 101110 | AGA   | Arg        | Fire over Wind
+51  | ䷲   | 001001 | UAC   | Tyr        | Thunder over Thunder
+52  | ䷳   | 100100 | ACU   | Thr        | Mountain over Mountain
+53  | ䷴   | 110100 | GCU   | Ala        | Wind over Mountain
+54  | ䷵   | 001011 | UAG   | Stop       | Thunder over Lake
+55  | ䷶   | 001101 | UGC   | Cys        | Thunder over Fire
+56  | ䷷   | 101100 | AGU   | Ser        | Fire over Mountain
+57  | ䷸   | 110110 | GCA   | Ala        | Wind over Wind
+58  | ䷹   | 011011 | CAG   | Gln        | Lake over Lake
+59  | ䷺   | 110010 | GUA   | Val        | Wind over Water
+60  | ䷻   | 010011 | CUG   | Leu        | Water over Lake
+61  | ䷼   | 110011 | GUG   | Val        | Wind over Lake
+62  | ䷽   | 001100 | UGU   | Cys        | Thunder over Mountain
+63  | ䷾   | 010101 | CCC   | Pro        | Water over Fire
+64  | ䷿   | 101010 | AAA   | Lys        | Fire over Water
 
 Unique amino acids in King Wen order: 21
 Total possible amino acids + stop: 21
@@ -1475,28 +1475,28 @@ unusually low, the sequence is more structured than random chance would produce.
 King Wen difference wave entropy: 2.0759 bits
 Maximum entropy (all 7 values): 2.8074 bits
 Maximum entropy (5 observed values): 2.3219 bits
-Mean entropy of random permutations: 2.1924 bits
-Min random entropy observed: 1.6729 bits
-Max random entropy observed: 2.5032 bits
-King Wen percentile: 13.0% (lower = more structured)
+Mean entropy of random permutations: 2.1927 bits
+Min random entropy observed: 1.6804 bits
+Max random entropy observed: 2.5053 bits
+King Wen percentile: 13.4% (lower = more structured)
 Effect size (Cohen's d): -1.12 (negative = more structured than random)
 
 --- Entropy conditioned on pair constraint ---
 The unconstrained comparison above may be misleading: the pair structure
 itself constrains the entropy. How does King Wen compare against random
 orderings that also satisfy the pair constraint?
-Mean pair-constrained entropy: 2.2340 bits
-King Wen percentile (pair-constrained): 5.9%
-(Similar to unconstrained percentile of 13.0%.)
+Mean pair-constrained entropy: 2.2355 bits
+King Wen percentile (pair-constrained): 5.5%
+(Similar to unconstrained percentile of 13.4%.)
 
 --- Distribution comparison ---
 Value    King Wen Expected (random avg)
   0             0                  0.0
   1             2                  6.0
-  2            20                 15.0
-  3            13                 20.0
+  2            20                 14.9
+  3            13                 20.1
   4            19                 15.1
-  5             0                  6.0
+  5             0                  5.9
   6             9                  1.0
 ---
 Path analysis (graph theory)
@@ -1510,9 +1510,9 @@ transitions or had other priorities.
 ---
 King Wen total path length:  211 (sum of all line changes)
 Greedy nearest-neighbor:     75
-Mean random path length:     191.9
-Min random observed:         158
-Max random observed:         228
+Mean random path length:     192.1
+Min random observed:         154
+Max random observed:         229
 King Wen percentile:         97.6% (lower = shorter path)
 Effect size (Cohen's d):     +2.04
 
@@ -1526,10 +1526,10 @@ The above compares against fully random orderings. A fairer comparison is
 against random orderings that also preserve the pair structure (each pair
 of hexagrams stays adjacent). This is the right null model for asking
 whether King Wen's path length is unusual GIVEN its pair constraint.
-Mean pair-constrained path length: 214.0
-Min pair-constrained observed:     189
-Max pair-constrained observed:     237
-King Wen percentile (pair-constrained): 30.0%
+Mean pair-constrained path length: 214.1
+Min pair-constrained observed:     187
+Max pair-constrained observed:     235
+King Wen percentile (pair-constrained): 29.0%
 Effect size (Cohen's d, pair-constrained): -0.47
 ---
 Bootstrap confidence intervals
@@ -1541,12 +1541,12 @@ computing confidence intervals. Narrower intervals = more reliable estimates.
 Base trials: 100,000
 Bootstrap resamples: 1000
 
-No-5-line-transition rate: 0.166%
-95% confidence interval: [0.141%, 0.194%]
-Interval width: 0.053 percentage points
+No-5-line-transition rate: 0.202%
+95% confidence interval: [0.177%, 0.229%]
+Interval width: 0.052 percentage points
 
-Approximately 1 in 602 random orderings
-95% CI: 1 in 515 to 1 in 709
+Approximately 1 in 495 random orderings
+95% CI: 1 in 437 to 1 in 565
 
 Note: These CIs measure the precision of the Monte Carlo estimate, not
 fundamental uncertainty about the true proportion. They reflect how much
@@ -1561,9 +1561,9 @@ randomly shuffle the 64 hexagrams thousands of times and check how often a
 random ordering also avoids 5-line transitions. The rarer it is, the less
 plausible chance becomes as an explanation for the avoidance.
 ---
-Permutations with no 5-line transitions: 197/100,000 (0.20%)
-Approximately 1 in 507 random orderings share this property.
-Odds ratio against random: 507:1
+Permutations with no 5-line transitions: 181/100,000 (0.18%)
+Approximately 1 in 552 random orderings share this property.
+Odds ratio against random: 551:1
 
 ---
 Note on multiple comparisons

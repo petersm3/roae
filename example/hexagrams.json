@@ -7,7 +7,7 @@
       "unicode": "䷀",
       "binary": "111111",
       "decimal": 63,
-      "name": "The Creative",
+      "name": "Heaven over Heaven",
       "upper_trigram": {
         "pinyin": "Qian",
         "meaning": "Heaven"
@@ -23,7 +23,7 @@
       "unicode": "䷁",
       "binary": "000000",
       "decimal": 0,
-      "name": "The Receptive",
+      "name": "Earth over Earth",
       "upper_trigram": {
         "pinyin": "Kun",
         "meaning": "Earth"
@@ -39,7 +39,7 @@
       "unicode": "䷂",
       "binary": "010001",
       "decimal": 17,
-      "name": "Difficulty at the Beginning",
+      "name": "Water over Thunder",
       "upper_trigram": {
         "pinyin": "Kan",
         "meaning": "Water"
@@ -55,7 +55,7 @@
       "unicode": "䷃",
       "binary": "100010",
       "decimal": 34,
-      "name": "Youthful Folly",
+      "name": "Mountain over Water",
       "upper_trigram": {
         "pinyin": "Gen",
         "meaning": "Mountain"
@@ -71,7 +71,7 @@
       "unicode": "䷄",
       "binary": "010111",
       "decimal": 23,
-      "name": "Waiting",
+      "name": "Water over Heaven",
       "upper_trigram": {
         "pinyin": "Kan",
         "meaning": "Water"
@@ -87,7 +87,7 @@
       "unicode": "䷅",
       "binary": "111010",
       "decimal": 58,
-      "name": "Conflict",
+      "name": "Heaven over Water",
       "upper_trigram": {
         "pinyin": "Qian",
         "meaning": "Heaven"
@@ -103,7 +103,7 @@
       "unicode": "䷆",
       "binary": "000010",
       "decimal": 2,
-      "name": "The Army",
+      "name": "Earth over Water",
       "upper_trigram": {
         "pinyin": "Kun",
         "meaning": "Earth"
@@ -119,7 +119,7 @@
       "unicode": "䷇",
       "binary": "010000",
       "decimal": 16,
-      "name": "Holding Together",
+      "name": "Water over Earth",
       "upper_trigram": {
         "pinyin": "Kan",
         "meaning": "Water"
@@ -135,7 +135,7 @@
       "unicode": "䷈",
       "binary": "110111",
       "decimal": 55,
-      "name": "Small Taming",
+      "name": "Wind over Heaven",
       "upper_trigram": {
         "pinyin": "Xun",
         "meaning": "Wind"
@@ -151,7 +151,7 @@
       "unicode": "䷉",
       "binary": "111011",
       "decimal": 59,
-      "name": "Treading",
+      "name": "Heaven over Lake",
       "upper_trigram": {
         "pinyin": "Qian",
         "meaning": "Heaven"
@@ -167,7 +167,7 @@
       "unicode": "䷊",
       "binary": "000111",
       "decimal": 7,
-      "name": "Peace",
+      "name": "Earth over Heaven",
       "upper_trigram": {
         "pinyin": "Kun",
         "meaning": "Earth"
@@ -183,7 +183,7 @@
       "unicode": "䷋",
       "binary": "111000",
       "decimal": 56,
-      "name": "Standstill",
+      "name": "Heaven over Earth",
       "upper_trigram": {
         "pinyin": "Qian",
         "meaning": "Heaven"
@@ -199,7 +199,7 @@
       "unicode": "䷌",
       "binary": "111101",
       "decimal": 61,
-      "name": "Fellowship",
+      "name": "Heaven over Fire",
       "upper_trigram": {
         "pinyin": "Qian",
         "meaning": "Heaven"
@@ -215,7 +215,7 @@
       "unicode": "䷍",
       "binary": "101111",
       "decimal": 47,
-      "name": "Great Possession",
+      "name": "Fire over Heaven",
       "upper_trigram": {
         "pinyin": "Li",
         "meaning": "Fire"
@@ -231,7 +231,7 @@
       "unicode": "䷎",
       "binary": "000100",
       "decimal": 4,
-      "name": "Modesty",
+      "name": "Earth over Mountain",
       "upper_trigram": {
         "pinyin": "Kun",
         "meaning": "Earth"
@@ -247,7 +247,7 @@
       "unicode": "䷏",
       "binary": "001000",
       "decimal": 8,
-      "name": "Enthusiasm",
+      "name": "Thunder over Earth",
       "upper_trigram": {
         "pinyin": "Zhen",
         "meaning": "Thunder"
@@ -263,7 +263,7 @@
       "unicode": "䷐",
       "binary": "011001",
       "decimal": 25,
-      "name": "Following",
+      "name": "Lake over Thunder",
       "upper_trigram": {
         "pinyin": "Dui",
         "meaning": "Lake"
@@ -279,7 +279,7 @@
       "unicode": "䷑",
       "binary": "100110",
       "decimal": 38,
-      "name": "Work on the Decayed",
+      "name": "Mountain over Wind",
       "upper_trigram": {
         "pinyin": "Gen",
         "meaning": "Mountain"
@@ -295,7 +295,7 @@
       "unicode": "䷒",
       "binary": "000011",
       "decimal": 3,
-      "name": "Approach",
+      "name": "Earth over Lake",
       "upper_trigram": {
         "pinyin": "Kun",
         "meaning": "Earth"
@@ -311,7 +311,7 @@
       "unicode": "䷓",
       "binary": "110000",
       "decimal": 48,
-      "name": "Contemplation",
+      "name": "Wind over Earth",
       "upper_trigram": {
         "pinyin": "Xun",
         "meaning": "Wind"
@@ -327,7 +327,7 @@
       "unicode": "䷔",
       "binary": "101001",
       "decimal": 41,
-      "name": "Biting Through",
+      "name": "Fire over Thunder",
       "upper_trigram": {
         "pinyin": "Li",
         "meaning": "Fire"
@@ -343,7 +343,7 @@
       "unicode": "䷕",
       "binary": "100101",
       "decimal": 37,
-      "name": "Grace",
+      "name": "Mountain over Fire",
       "upper_trigram": {
         "pinyin": "Gen",
         "meaning": "Mountain"
@@ -359,7 +359,7 @@
       "unicode": "䷖",
       "binary": "100000",
       "decimal": 32,
-      "name": "Splitting Apart",
+      "name": "Mountain over Earth",
       "upper_trigram": {
         "pinyin": "Gen",
         "meaning": "Mountain"
@@ -375,7 +375,7 @@
       "unicode": "䷗",
       "binary": "000001",
       "decimal": 1,
-      "name": "Return",
+      "name": "Earth over Thunder",
       "upper_trigram": {
         "pinyin": "Kun",
         "meaning": "Earth"
@@ -391,7 +391,7 @@
       "unicode": "䷘",
       "binary": "111001",
       "decimal": 57,
-      "name": "Innocence",
+      "name": "Heaven over Thunder",
       "upper_trigram": {
         "pinyin": "Qian",
         "meaning": "Heaven"
@@ -407,7 +407,7 @@
       "unicode": "䷙",
       "binary": "100111",
       "decimal": 39,
-      "name": "Great Taming",
+      "name": "Mountain over Heaven",
       "upper_trigram": {
         "pinyin": "Gen",
         "meaning": "Mountain"
@@ -423,7 +423,7 @@
       "unicode": "䷚",
       "binary": "100001",
       "decimal": 33,
-      "name": "Nourishment",
+      "name": "Mountain over Thunder",
       "upper_trigram": {
         "pinyin": "Gen",
         "meaning": "Mountain"
@@ -439,7 +439,7 @@
       "unicode": "䷛",
       "binary": "011110",
       "decimal": 30,
-      "name": "Great Preponderance",
+      "name": "Lake over Wind",
       "upper_trigram": {
         "pinyin": "Dui",
         "meaning": "Lake"
@@ -455,7 +455,7 @@
       "unicode": "䷜",
       "binary": "010010",
       "decimal": 18,
-      "name": "The Abysmal",
+      "name": "Water over Water",
       "upper_trigram": {
         "pinyin": "Kan",
         "meaning": "Water"
@@ -471,7 +471,7 @@
       "unicode": "䷝",
       "binary": "101101",
       "decimal": 45,
-      "name": "The Clinging",
+      "name": "Fire over Fire",
       "upper_trigram": {
         "pinyin": "Li",
         "meaning": "Fire"
@@ -487,7 +487,7 @@
       "unicode": "䷞",
       "binary": "011100",
       "decimal": 28,
-      "name": "Influence",
+      "name": "Lake over Mountain",
       "upper_trigram": {
         "pinyin": "Dui",
         "meaning": "Lake"
@@ -503,7 +503,7 @@
       "unicode": "䷟",
       "binary": "001110",
       "decimal": 14,
-      "name": "Duration",
+      "name": "Thunder over Wind",
       "upper_trigram": {
         "pinyin": "Zhen",
         "meaning": "Thunder"
@@ -519,7 +519,7 @@
       "unicode": "䷠",
       "binary": "111100",
       "decimal": 60,
-      "name": "Retreat",
+      "name": "Heaven over Mountain",
       "upper_trigram": {
         "pinyin": "Qian",
         "meaning": "Heaven"
@@ -535,7 +535,7 @@
       "unicode": "䷡",
       "binary": "001111",
       "decimal": 15,
-      "name": "Great Power",
+      "name": "Thunder over Heaven",
       "upper_trigram": {
         "pinyin": "Zhen",
         "meaning": "Thunder"
@@ -551,7 +551,7 @@
       "unicode": "䷢",
       "binary": "101000",
       "decimal": 40,
-      "name": "Progress",
+      "name": "Fire over Earth",
       "upper_trigram": {
         "pinyin": "Li",
         "meaning": "Fire"
@@ -567,7 +567,7 @@
       "unicode": "䷣",
       "binary": "000101",
       "decimal": 5,
-      "name": "Darkening of the Light",
+      "name": "Earth over Fire",
       "upper_trigram": {
         "pinyin": "Kun",
         "meaning": "Earth"
@@ -583,7 +583,7 @@
       "unicode": "䷤",
       "binary": "110101",
       "decimal": 53,
-      "name": "The Family",
+      "name": "Wind over Fire",
       "upper_trigram": {
         "pinyin": "Xun",
         "meaning": "Wind"
@@ -599,7 +599,7 @@
       "unicode": "䷥",
       "binary": "101011",
       "decimal": 43,
-      "name": "Opposition",
+      "name": "Fire over Lake",
       "upper_trigram": {
         "pinyin": "Li",
         "meaning": "Fire"
@@ -615,7 +615,7 @@
       "unicode": "䷦",
       "binary": "010100",
       "decimal": 20,
-      "name": "Obstruction",
+      "name": "Water over Mountain",
       "upper_trigram": {
         "pinyin": "Kan",
         "meaning": "Water"
@@ -631,7 +631,7 @@
       "unicode": "䷧",
       "binary": "001010",
       "decimal": 10,
-      "name": "Deliverance",
+      "name": "Thunder over Water",
       "upper_trigram": {
         "pinyin": "Zhen",
         "meaning": "Thunder"
@@ -647,7 +647,7 @@
       "unicode": "䷨",
       "binary": "100011",
       "decimal": 35,
-      "name": "Decrease",
+      "name": "Mountain over Lake",
       "upper_trigram": {
         "pinyin": "Gen",
         "meaning": "Mountain"
@@ -663,7 +663,7 @@
       "unicode": "䷩",
       "binary": "110001",
       "decimal": 49,
-      "name": "Increase",
+      "name": "Wind over Thunder",
       "upper_trigram": {
         "pinyin": "Xun",
         "meaning": "Wind"
@@ -679,7 +679,7 @@
       "unicode": "䷪",
       "binary": "011111",
       "decimal": 31,
-      "name": "Breakthrough",
+      "name": "Lake over Heaven",
       "upper_trigram": {
         "pinyin": "Dui",
         "meaning": "Lake"
@@ -695,7 +695,7 @@
       "unicode": "䷫",
       "binary": "111110",
       "decimal": 62,
-      "name": "Coming to Meet",
+      "name": "Heaven over Wind",
       "upper_trigram": {
         "pinyin": "Qian",
         "meaning": "Heaven"
@@ -711,7 +711,7 @@
       "unicode": "䷬",
       "binary": "011000",
       "decimal": 24,
-      "name": "Gathering Together",
+      "name": "Lake over Earth",
       "upper_trigram": {
         "pinyin": "Dui",
         "meaning": "Lake"
@@ -727,7 +727,7 @@
       "unicode": "䷭",
       "binary": "000110",
       "decimal": 6,
-      "name": "Pushing Upward",
+      "name": "Earth over Wind",
       "upper_trigram": {
         "pinyin": "Kun",
         "meaning": "Earth"
@@ -743,7 +743,7 @@
       "unicode": "䷮",
       "binary": "011010",
       "decimal": 26,
-      "name": "Oppression",
+      "name": "Lake over Water",
       "upper_trigram": {
         "pinyin": "Dui",
         "meaning": "Lake"
@@ -759,7 +759,7 @@
       "unicode": "䷯",
       "binary": "010110",
       "decimal": 22,
-      "name": "The Well",
+      "name": "Water over Wind",
       "upper_trigram": {
         "pinyin": "Kan",
         "meaning": "Water"
@@ -775,7 +775,7 @@
       "unicode": "䷰",
       "binary": "011101",
       "decimal": 29,
-      "name": "Revolution",
+      "name": "Lake over Fire",
       "upper_trigram": {
         "pinyin": "Dui",
         "meaning": "Lake"
@@ -791,7 +791,7 @@
       "unicode": "䷱",
       "binary": "101110",
       "decimal": 46,
-      "name": "The Cauldron",
+      "name": "Fire over Wind",
       "upper_trigram": {
         "pinyin": "Li",
         "meaning": "Fire"
@@ -807,7 +807,7 @@
       "unicode": "䷲",
       "binary": "001001",
       "decimal": 9,
-      "name": "The Arousing",
+      "name": "Thunder over Thunder",
       "upper_trigram": {
         "pinyin": "Zhen",
         "meaning": "Thunder"
@@ -823,7 +823,7 @@
       "unicode": "䷳",
       "binary": "100100",
       "decimal": 36,
-      "name": "Keeping Still",
+      "name": "Mountain over Mountain",
       "upper_trigram": {
         "pinyin": "Gen",
         "meaning": "Mountain"
@@ -839,7 +839,7 @@
       "unicode": "䷴",
       "binary": "110100",
       "decimal": 52,
-      "name": "Development",
+      "name": "Wind over Mountain",
       "upper_trigram": {
         "pinyin": "Xun",
         "meaning": "Wind"
@@ -855,7 +855,7 @@
       "unicode": "䷵",
       "binary": "001011",
       "decimal": 11,
-      "name": "The Marrying Maiden",
+      "name": "Thunder over Lake",
       "upper_trigram": {
         "pinyin": "Zhen",
         "meaning": "Thunder"
@@ -871,7 +871,7 @@
       "unicode": "䷶",
       "binary": "001101",
       "decimal": 13,
-      "name": "Abundance",
+      "name": "Thunder over Fire",
       "upper_trigram": {
         "pinyin": "Zhen",
         "meaning": "Thunder"
@@ -887,7 +887,7 @@
       "unicode": "䷷",
       "binary": "101100",
       "decimal": 44,
-      "name": "The Wanderer",
+      "name": "Fire over Mountain",
       "upper_trigram": {
         "pinyin": "Li",
         "meaning": "Fire"
@@ -903,7 +903,7 @@
       "unicode": "䷸",
       "binary": "110110",
       "decimal": 54,
-      "name": "The Gentle",
+      "name": "Wind over Wind",
       "upper_trigram": {
         "pinyin": "Xun",
         "meaning": "Wind"
@@ -919,7 +919,7 @@
       "unicode": "䷹",
       "binary": "011011",
       "decimal": 27,
-      "name": "The Joyous",
+      "name": "Lake over Lake",
       "upper_trigram": {
         "pinyin": "Dui",
         "meaning": "Lake"
@@ -935,7 +935,7 @@
       "unicode": "䷺",
       "binary": "110010",
       "decimal": 50,
-      "name": "Dispersion",
+      "name": "Wind over Water",
       "upper_trigram": {
         "pinyin": "Xun",
         "meaning": "Wind"
@@ -951,7 +951,7 @@
       "unicode": "䷻",
       "binary": "010011",
       "decimal": 19,
-      "name": "Limitation",
+      "name": "Water over Lake",
       "upper_trigram": {
         "pinyin": "Kan",
         "meaning": "Water"
@@ -967,7 +967,7 @@
       "unicode": "䷼",
       "binary": "110011",
       "decimal": 51,
-      "name": "Inner Truth",
+      "name": "Wind over Lake",
       "upper_trigram": {
         "pinyin": "Xun",
         "meaning": "Wind"
@@ -983,7 +983,7 @@
       "unicode": "䷽",
       "binary": "001100",
       "decimal": 12,
-      "name": "Small Preponderance",
+      "name": "Thunder over Mountain",
       "upper_trigram": {
         "pinyin": "Zhen",
         "meaning": "Thunder"
@@ -999,7 +999,7 @@
       "unicode": "䷾",
       "binary": "010101",
       "decimal": 21,
-      "name": "After Completion",
+      "name": "Water over Fire",
       "upper_trigram": {
         "pinyin": "Kan",
         "meaning": "Water"
@@ -1015,7 +1015,7 @@
       "unicode": "䷿",
       "binary": "101010",
       "decimal": 42,
-      "name": "Before Completion",
+      "name": "Fire over Water",
       "upper_trigram": {
         "pinyin": "Li",
         "meaning": "Fire"

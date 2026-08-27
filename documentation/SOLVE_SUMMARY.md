@@ -31,7 +31,7 @@ We wanted to know: **what rules did they follow?** And can we figure out those r
 
 Each hexagram is a stack of 6 lines. Each line is either solid (⚊ [yang](https://en.wikipedia.org/wiki/Yin_and_yang)) or broken (⚋ [yin](https://en.wikipedia.org/wiki/Yin_and_yang)) — like a 6-digit binary number with only 1s and 0s. With 6 positions and 2 choices each, there are exactly 2^6 = 64 possible hexagrams. The King Wen sequence puts all 64 in a specific order.
 
-| | ䷀ The Creative #1 | ䷄ Waiting #5 | ䷁ The Receptive #2 |
+| | ䷀ #1 | ䷄ #5 | ䷁ #2 |
 |---|:---:|:---:|:---:|
 | Line 6 (top) | ⚊ **1** | ⚋ **0** | ⚋ **0** |
 | Line 5 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
@@ -41,7 +41,7 @@ Each hexagram is a stack of 6 lines. Each line is either solid (⚊ [yang](https
 | Line 1 (bottom) | ⚊ **1** | ⚊ **1** | ⚋ **0** |
 | Binary | **111111** | **010111** | **000000** |
 
-To get the binary code, read the 1s and 0s from the top of the table downward. For example, ䷀ The Creative #1 is all solid lines: 111111. ䷁ The Receptive #2 is all broken lines: 000000. ䷄ Waiting #5 reads 0, 1, 0, 1, 1, 1 from top to bottom, giving 010111 — a mix of solid and broken.
+To get the binary code, read the 1s and 0s from the top of the table downward. For example, ䷀ #1 is all solid lines: 111111. ䷁ #2 is all broken lines: 000000. ䷄ #5 reads 0, 1, 0, 1, 1, 1 from top to bottom, giving 010111 — a mix of solid and broken.
 
 ## The rules we found
 
@@ -71,12 +71,12 @@ Examples from the King Wen sequence:
 
 | Lines changed | Transition | Example |
 |:---:|---|---|
-| 1 | ䷳ Keeping Still #52 → ䷴ Development #53 | `100100` → `110100` |
-| 2 | ䷁ The Receptive #2 → ䷂ Difficulty at the Beginning #3 | `000000` → `010001` |
-| 3 | ䷅ Conflict #6 → ䷆ The Army #7 | `111010` → `000010` |
-| 4 | ䷂ Difficulty at the Beginning #3 → ䷃ Youthful Folly #4 | `010001` → `100010` |
+| 1 | ䷳ #52 → ䷴ #53 | `100100` → `110100` |
+| 2 | ䷁ #2 → ䷂ #3 | `000000` → `010001` |
+| 3 | ䷅ #6 → ䷆ #7 | `111010` → `000010` |
+| 4 | ䷂ #3 → ䷃ #4 | `010001` → `100010` |
 | **5** | **(never occurs in King Wen)** | |
-| 6 | ䷀ The Creative #1 → ䷁ The Receptive #2 | `111111` → `000000` |
+| 6 | ䷀ #1 → ䷁ #2 | `111111` → `000000` |
 
 The difference wave — each character represents one transition, height proportional to lines changed (1-6):
 
@@ -128,7 +128,7 @@ Pair: 3↔50
 
 ### Rule 4: It starts with Heaven and Earth
 
-The sequence begins with the two most extreme hexagrams: all solid lines ䷀ Qian (The Creative) #1, representing Heaven, followed by all broken lines ䷁ Kun (The Receptive) #2, representing Earth.
+The sequence begins with the two most extreme hexagrams: all solid lines ䷀ Qian (hexagram 1) #1, representing Heaven, followed by all broken lines ䷁ Kun (hexagram 2) #2, representing Earth.
 
 **What this does:** Eliminates another 98%.
 
@@ -197,11 +197,11 @@ Among 6 billion C3-valid solutions (including orientation variants), only 0.0018
 
 The millions of alternative arrangements satisfying Rules 1-5 are not random — they share strong structural similarities with King Wen. The closest non-King-Wen solutions differ by only 2 pair positions — and those distance-2 twins occur at the front (positions 2/3 and 4/5) and middle (positions 22-25) of the sequence as well as the back, at every canonical scale checked (d3 10T, 100T, 560T §[24]). One front twin — KW with the position-2/3 pair blocks interchanged, rec#330177707 — is exactly the 560T record that survives four of the five greedy minimum boundaries (see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). *(Corrected 2026-07-04: an earlier version claimed the twins were "always in the last third (positions 26-32)" — a pre-canonical-era claim that no canonical dataset supports.)* This means:
 
-- **Position 1 is fixed by C4's definition.** The Creative/Receptive pair always comes first (the pair choice is classically attested centuries before any enumeration; see the orientation bullet below for what is and is not forced).
+- **Position 1 is fixed by C4's definition.** hexagram 1/Receptive pair always comes first (the pair choice is classically attested centuries before any enumeration; see the orientation bullet below for what is and is not forced).
 - **Position 2 partially constrains positions 3-19, but not deterministically.** Earlier docs claimed "for 16 of 31 branches, positions 3-19 are fully locked" (based on `--prove-cascade`). That result is correct *only within the shift-pattern subspace* (where every position is restricted to KW's pair or the previous pair) — and the canonical analyses show this subspace is a shrinking minority of valid orderings: **2.69% at d2, 0.062% at d3**. In the full canonical datasets, every reachable first-level branch admits multiple distinct pair sequences at positions 3-19; none are uniquely determined. The cascade region is heavily constrained (per-position entropy 0.3-1.9 bits at d3, well below the 5-bit maximum) but not deterministic.
 - **Freedom is concentrated in the back half but spread across the cascade too.** The canonical analyses show position 3 has the highest freedom (d3: 4.52 bits, d2: 4.05 bits, 28-31 distinct pairs observed), positions 24-31 carry 3.41-3.54 bits each at d3 (14 distinct pairs; positions 22-23 sit lower, at 1.74 and 3.15 bits — range corrected 2026-07-04 from "22-31 / 3.40-3.54"), and the "cascade region" (5-20) carries 0.48-1.85 bits each at d3 — heavily constrained but not zero. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why specific hexagrams follow each other in the back half retrospectively rationalizes steps that the enumeration shows were genuine selections among available alternatives, not mathematical necessity.
 - **King Wen's complement distance is 776 (mean 12.1)** — small vs random permutations (~22), and low among orderings satisfying every other constraint (C1+C2+C4+C5) — the ledger puts that at ≈12%, and under the bare C1&C4 null the exact tail is 8.1% (`verify.py --check-null-g`). *(**Amended 2026-08-01, lens sweep:** this sentence previously read "at the 3.9th percentile (sampled) of orderings satisfying every other constraint". That figure is flagged — not supported by the population it is labelled with; see [SOLVE.md](SOLVE.md) §Rule 3.)* But within the full C1–C5 canonical set, **KW is at the ceiling, not the minimum** — at the 560T canonical (10.5B orderings, re-measured 2026-07-08) **1,063,580,364 (10.11%)** tie with KW at 776 and all are ≤776 (the ceiling); was 340M/9.91% at 100T. Rule 3 is a ceiling constraint, not a minimization. See §Rule 3 for the updated framing.
-- **The starting orientation is definitional, not forced** *(corrected 2026-07-26; an earlier version claimed it was forced — that claim is retracted)*. ䷀ The Creative comes before ䷁ The Receptive **by C4's definition**, classically attested (the Xugua opens Heaven-then-Earth). The other constraints do not force it: complementing every hexagram maps any valid arrangement to one opening (0, 63) that still satisfies C1, C2, C3 (= 776), and C5 — machine-checked in [lean/KingWen.lean](../lean/KingWen.lean).
+- **The starting orientation is definitional, not forced** *(corrected 2026-07-26; an earlier version claimed it was forced — that claim is retracted)*. ䷀ #1 comes before ䷁ #2 **by C4's definition**, classically attested (the Xugua opens Heaven-then-Earth). The other constraints do not force it: complementing every hexagram maps any valid arrangement to one opening (0, 63) that still satisfies C1, C2, C3 (= 776), and C5 — machine-checked in [lean/KingWen.lean](../lean/KingWen.lean).
 - **Within-pair orientation follows no simple rule, but it is not free** *(corrected — an earlier version of this line called it "a free choice at each pair"; that gloss is retracted)*. Which hexagram comes first within each pair follows no consistent single pattern — not yang count, not binary value, not trigram weight. But TR-1 §7 measured the freedom and found it **coupled, not independent**: ≈20.7 bits, not 31, with only 9 of the 31 pairs flippable individually.
 
 ## What this means
@@ -413,69 +413,69 @@ The difference wave as a sparkline (each character = one transition, height = li
 
 | # | From | To | Distance |
 |--:|------|-----|:--------:|
-| 1 | ䷀ #1 The Creative | ䷁ #2 The Receptive | 6 |
-| 2 | ䷁ #2 The Receptive | ䷂ #3 Difficulty | 2 |
-| 3 | ䷂ #3 Difficulty | ䷃ #4 Youthful Folly | 4 |
-| 4 | ䷃ #4 Youthful Folly | ䷄ #5 Waiting | 4 |
-| 5 | ䷄ #5 Waiting | ䷅ #6 Conflict | 4 |
-| 6 | ䷅ #6 Conflict | ䷆ #7 The Army | 3 |
-| 7 | ䷆ #7 The Army | ䷇ #8 Holding Together | 2 |
-| 8 | ䷇ #8 Holding Together | ䷈ #9 Small Taming | 4 |
-| 9 | ䷈ #9 Small Taming | ䷉ #10 Treading | 2 |
-| 10 | ䷉ #10 Treading | ䷊ #11 Peace | 4 |
-| 11 | ䷊ #11 Peace | ䷋ #12 Standstill | 6 |
-| 12 | ䷋ #12 Standstill | ䷌ #13 Fellowship | 2 |
-| 13 | ䷌ #13 Fellowship | ䷍ #14 Great Possession | 2 |
-| 14 | ䷍ #14 Great Possession | ䷎ #15 Modesty | 4 |
-| 15 | ䷎ #15 Modesty | ䷏ #16 Enthusiasm | 2 |
-| 16 | ䷏ #16 Enthusiasm | ䷐ #17 Following | 2 |
-| 17 | ䷐ #17 Following | ䷑ #18 Decay | 6 |
-| 18 | ䷑ #18 Decay | ䷒ #19 Approach | 3 |
-| 19 | ䷒ #19 Approach | ䷓ #20 Contemplation | 4 |
-| 20 | ䷓ #20 Contemplation | ䷔ #21 Biting Through | 3 |
-| 21 | ䷔ #21 Biting Through | ䷕ #22 Grace | 2 |
-| 22 | ䷕ #22 Grace | ䷖ #23 Splitting Apart | 2 |
-| 23 | ䷖ #23 Splitting Apart | ䷗ #24 Return | 2 |
-| 24 | ䷗ #24 Return | ䷘ #25 Innocence | 3 |
-| 25 | ䷘ #25 Innocence | ䷙ #26 Great Taming | 4 |
-| 26 | ䷙ #26 Great Taming | ䷚ #27 Nourishment | 2 |
-| 27 | ䷚ #27 Nourishment | ䷛ #28 Preponderance of Great | 6 |
-| 28 | ䷛ #28 Preponderance of Great | ䷜ #29 The Abysmal | 2 |
-| 29 | ䷜ #29 The Abysmal | ䷝ #30 The Clinging | 6 |
-| 30 | ䷝ #30 The Clinging | ䷞ #31 Influence | 3 |
-| 31 | ䷞ #31 Influence | ䷟ #32 Duration | 2 |
-| 32 | ䷟ #32 Duration | ䷠ #33 Retreat | 3 |
-| 33 | ䷠ #33 Retreat | ䷡ #34 Great Power | 4 |
-| 34 | ䷡ #34 Great Power | ䷢ #35 Progress | 4 |
-| 35 | ䷢ #35 Progress | ䷣ #36 Darkening | 4 |
-| 36 | ䷣ #36 Darkening | ䷤ #37 The Family | 2 |
-| 37 | ䷤ #37 The Family | ䷥ #38 Opposition | 4 |
-| 38 | ䷥ #38 Opposition | ䷦ #39 Obstruction | 6 |
-| 39 | ䷦ #39 Obstruction | ䷧ #40 Deliverance | 4 |
-| 40 | ䷧ #40 Deliverance | ䷨ #41 Decrease | 3 |
-| 41 | ䷨ #41 Decrease | ䷩ #42 Increase | 2 |
-| 42 | ䷩ #42 Increase | ䷪ #43 Breakthrough | 4 |
-| 43 | ䷪ #43 Breakthrough | ䷫ #44 Coming to Meet | 2 |
-| 44 | ䷫ #44 Coming to Meet | ䷬ #45 Gathering | 3 |
-| 45 | ䷬ #45 Gathering | ䷭ #46 Pushing Upward | 4 |
-| 46 | ䷭ #46 Pushing Upward | ䷮ #47 Oppression | 3 |
-| 47 | ䷮ #47 Oppression | ䷯ #48 The Well | 2 |
-| 48 | ䷯ #48 The Well | ䷰ #49 Revolution | 3 |
-| 49 | ䷰ #49 Revolution | ䷱ #50 The Cauldron | 4 |
-| 50 | ䷱ #50 The Cauldron | ䷲ #51 The Arousing | 4 |
-| 51 | ䷲ #51 The Arousing | ䷳ #52 Keeping Still | 4 |
-| 52 | ䷳ #52 Keeping Still | ䷴ #53 Development | 1 |
-| 53 | ䷴ #53 Development | ䷵ #54 Marrying Maiden | 6 |
-| 54 | ䷵ #54 Marrying Maiden | ䷶ #55 Abundance | 2 |
-| 55 | ䷶ #55 Abundance | ䷷ #56 The Wanderer | 2 |
-| 56 | ䷷ #56 The Wanderer | ䷸ #57 The Gentle | 3 |
-| 57 | ䷸ #57 The Gentle | ䷹ #58 The Joyous | 4 |
-| 58 | ䷹ #58 The Joyous | ䷺ #59 Dispersion | 3 |
-| 59 | ䷺ #59 Dispersion | ䷻ #60 Limitation | 2 |
-| 60 | ䷻ #60 Limitation | ䷼ #61 Inner Truth | 1 |
-| 61 | ䷼ #61 Inner Truth | ䷽ #62 Small Preponderance | 6 |
-| 62 | ䷽ #62 Small Preponderance | ䷾ #63 After Completion | 3 |
-| 63 | ䷾ #63 After Completion | ䷿ #64 Before Completion | 6 |
+| 1 | ䷀ #1 | ䷁ #2 | 6 |
+| 2 | ䷁ #2 | ䷂ #3 Difficulty | 2 |
+| 3 | ䷂ #3 Difficulty | ䷃ #4 | 4 |
+| 4 | ䷃ #4 | ䷄ #5 | 4 |
+| 5 | ䷄ #5 | ䷅ #6 | 4 |
+| 6 | ䷅ #6 | ䷆ #7 | 3 |
+| 7 | ䷆ #7 | ䷇ #8 | 2 |
+| 8 | ䷇ #8 | ䷈ #9 | 4 |
+| 9 | ䷈ #9 | ䷉ #10 | 2 |
+| 10 | ䷉ #10 | ䷊ #11 | 4 |
+| 11 | ䷊ #11 | ䷋ #12 | 6 |
+| 12 | ䷋ #12 | ䷌ #13 | 2 |
+| 13 | ䷌ #13 | ䷍ #14 | 2 |
+| 14 | ䷍ #14 | ䷎ #15 | 4 |
+| 15 | ䷎ #15 | ䷏ #16 | 2 |
+| 16 | ䷏ #16 | ䷐ #17 | 2 |
+| 17 | ䷐ #17 | ䷑ #18 Decay | 6 |
+| 18 | ䷑ #18 Decay | ䷒ #19 | 3 |
+| 19 | ䷒ #19 | ䷓ #20 | 4 |
+| 20 | ䷓ #20 | ䷔ #21 | 3 |
+| 21 | ䷔ #21 | ䷕ #22 | 2 |
+| 22 | ䷕ #22 | ䷖ #23 | 2 |
+| 23 | ䷖ #23 | ䷗ #24 | 2 |
+| 24 | ䷗ #24 | ䷘ #25 | 3 |
+| 25 | ䷘ #25 | ䷙ #26 | 4 |
+| 26 | ䷙ #26 | ䷚ #27 | 2 |
+| 27 | ䷚ #27 | ䷛ #28 Preponderance of Great | 6 |
+| 28 | ䷛ #28 Preponderance of Great | ䷜ #29 | 2 |
+| 29 | ䷜ #29 | ䷝ #30 | 6 |
+| 30 | ䷝ #30 | ䷞ #31 | 3 |
+| 31 | ䷞ #31 | ䷟ #32 | 2 |
+| 32 | ䷟ #32 | ䷠ #33 | 3 |
+| 33 | ䷠ #33 | ䷡ #34 | 4 |
+| 34 | ䷡ #34 | ䷢ #35 | 4 |
+| 35 | ䷢ #35 | ䷣ #36 Darkening | 4 |
+| 36 | ䷣ #36 Darkening | ䷤ #37 | 2 |
+| 37 | ䷤ #37 | ䷥ #38 | 4 |
+| 38 | ䷥ #38 | ䷦ #39 | 6 |
+| 39 | ䷦ #39 | ䷧ #40 | 4 |
+| 40 | ䷧ #40 | ䷨ #41 | 3 |
+| 41 | ䷨ #41 | ䷩ #42 | 2 |
+| 42 | ䷩ #42 | ䷪ #43 | 4 |
+| 43 | ䷪ #43 | ䷫ #44 | 2 |
+| 44 | ䷫ #44 | ䷬ #45 Gathering | 3 |
+| 45 | ䷬ #45 Gathering | ䷭ #46 | 4 |
+| 46 | ䷭ #46 | ䷮ #47 | 3 |
+| 47 | ䷮ #47 | ䷯ #48 | 2 |
+| 48 | ䷯ #48 | ䷰ #49 | 3 |
+| 49 | ䷰ #49 | ䷱ #50 | 4 |
+| 50 | ䷱ #50 | ䷲ #51 | 4 |
+| 51 | ䷲ #51 | ䷳ #52 | 4 |
+| 52 | ䷳ #52 | ䷴ #53 | 1 |
+| 53 | ䷴ #53 | ䷵ #54 Marrying Maiden | 6 |
+| 54 | ䷵ #54 Marrying Maiden | ䷶ #55 | 2 |
+| 55 | ䷶ #55 | ䷷ #56 | 2 |
+| 56 | ䷷ #56 | ䷸ #57 | 3 |
+| 57 | ䷸ #57 | ䷹ #58 | 4 |
+| 58 | ䷹ #58 | ䷺ #59 | 3 |
+| 59 | ䷺ #59 | ䷻ #60 | 2 |
+| 60 | ䷻ #60 | ䷼ #61 | 1 |
+| 61 | ䷼ #61 | ䷽ #62 | 6 |
+| 62 | ䷽ #62 | ䷾ #63 | 3 |
+| 63 | ䷾ #63 | ䷿ #64 | 6 |
 
 ---
 

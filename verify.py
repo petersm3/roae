@@ -1179,7 +1179,7 @@ def verify_chunk(args):
         if any(c != 1 for c in pairs_used):
             fail_c1 += 1
 
-        # C4: s0 = 63 (The Creative) AND s1 = 0 (The Receptive) — both conjuncts.
+        # C4: s0 = 63 (hexagram 1, all yang) AND s1 = 0 (hexagram 2, all yin) — both conjuncts.
         # This is the spec form (SPECIFICATION.md C4), not the pair-index proxy.
         # C4 is ORIENTED, and the 2026-07-26 retraction established that the
         # orientation is NOT forced by the other constraints: complementation

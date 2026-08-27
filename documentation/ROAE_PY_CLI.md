@@ -143,8 +143,8 @@ claims in the analyses and for individual reference lookups.
 Examples:
 
 ```
-python3 roae.py --lookup 1                # The Creative
-python3 roae.py --lookup "The Creative"   # same; name-based lookup
+python3 roae.py --lookup 1                # hexagram 1
+python3 roae.py --lookup "hexagram 1"   # same; name-based lookup
 python3 roae.py --compare 1 2             # Heaven vs Earth
 python3 roae.py --explain 6               # show how hexagram 6 → 7 transition works
 ```
@@ -363,7 +363,7 @@ returns before section dispatch. `--markdown` carries the identical
 **Quick lookup:**
 
 ```
-python3 roae.py --lookup 1                        # The Creative
+python3 roae.py --lookup 1                        # hexagram 1
 python3 roae.py --compare "Heaven" "Earth"        # 1 vs 2
 python3 roae.py --explain 32                      # transition #32 step by step
 ```

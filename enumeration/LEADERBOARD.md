@@ -34,7 +34,7 @@ For formal definitions, see [SPECIFICATION.md](../documentation/SPECIFICATION.md
 ## How constrained is each position?
 
 The King Wen sequence arranges 32 hexagram pairs in order. Position 1 (the opening
-pair) is mathematically forced — it must be ䷀ The Creative / ䷁ The Receptive.
+pair) is mathematically forced — it must be ䷀ #1 / ䷁ #2.
 But how free are the remaining 31 positions? The table below shows what the
 enumeration has found so far.
 
@@ -310,7 +310,7 @@ Older figures (742M hash-table-bug, 31.6M filename-collision-bug) superseded. Se
 ## Branch details
 
 <a id="branch-1-0"></a>
-### ䷂䷃ #3 Difficulty at the Beginning / #4 Youthful Folly — King Wen's branch
+### ䷂䷃ #3 / #4 — King Wen's branch
 
 **Pair 1, orient 0** — Partial — at least 189,134 unique orderings found (lower bound).
 
@@ -329,7 +329,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-1-1"></a>
-### ䷃䷂ #4 Youthful Folly / #3 Difficulty at the Beginning
+### ䷃䷂ #4 / #3
 
 **Pair 1, orient 1** — Partial — at least 195,654 unique orderings found (lower bound).
 
@@ -346,7 +346,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-2-0"></a>
-### ䷄䷅ #5 Waiting / #6 Conflict
+### ䷄䷅ #5 / #6
 
 **Pair 2, orient 0** — Partial — at least 194,687 unique orderings found (lower bound).
 
@@ -363,7 +363,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-2-1"></a>
-### ䷅䷄ #6 Conflict / #5 Waiting
+### ䷅䷄ #6 / #5
 
 **Pair 2, orient 1** — Partial — at least 197,738 unique orderings found (lower bound).
 
@@ -380,7 +380,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-3-0"></a>
-### ䷆䷇ #7 The Army / #8 Holding Together
+### ䷆䷇ #7 / #8
 
 **Pair 3, orient 0** — Partial — at least 197,814 unique orderings found (lower bound).
 
@@ -397,7 +397,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-3-1"></a>
-### ䷇䷆ #8 Holding Together / #7 The Army
+### ䷇䷆ #8 / #7
 
 **Pair 3, orient 1** — Partial — at least 233,660 unique orderings found (lower bound).
 
@@ -414,7 +414,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-5-0"></a>
-### ䷊䷋ #11 Peace / #12 Standstill
+### ䷊䷋ #11 / #12
 
 **Pair 5, orient 0** — Partial — at least 1,659,462 unique orderings found (lower bound).
 
@@ -431,7 +431,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-5-1"></a>
-### ䷋䷊ #12 Standstill / #11 Peace
+### ䷋䷊ #12 / #11
 
 **Pair 5, orient 1** — Partial — at least 1,659,462 unique orderings found (lower bound).
 
@@ -448,7 +448,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-7-0"></a>
-### ䷎䷏ #15 Modesty / #16 Enthusiasm
+### ䷎䷏ #15 / #16
 
 **Pair 7, orient 0** — Partial — at least 443,216 unique orderings found (lower bound).
 
@@ -465,7 +465,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-7-1"></a>
-### ䷏䷎ #16 Enthusiasm / #15 Modesty
+### ䷏䷎ #16 / #15
 
 **Pair 7, orient 1** — Partial — at least 443,216 unique orderings found (lower bound).
 
@@ -482,7 +482,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-8-0"></a>
-### ䷐䷑ #17 Following / #18 Work on What Has Been Spoiled
+### ䷐䷑ #17 / #18 Work on What Has Been Spoiled
 
 **Pair 8, orient 0** — Partial — at least 670,407 unique orderings found (lower bound).
 
@@ -499,7 +499,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-8-1"></a>
-### ䷑䷐ #18 Work on What Has Been Spoiled / #17 Following
+### ䷑䷐ #18 Work on What Has Been Spoiled / #17
 
 **Pair 8, orient 1** — Partial — at least 681,675 unique orderings found (lower bound).
 
@@ -516,7 +516,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-9-0"></a>
-### ䷒䷓ #19 Approach / #20 Contemplation
+### ䷒䷓ #19 / #20
 
 **Pair 9, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -535,7 +535,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-9-1"></a>
-### ䷓䷒ #20 Contemplation / #19 Approach
+### ䷓䷒ #20 / #19
 
 **Pair 9, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -554,7 +554,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-10-0"></a>
-### ䷔䷕ #21 Biting Through / #22 Grace
+### ䷔䷕ #21 / #22
 
 **Pair 10, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -573,7 +573,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-10-1"></a>
-### ䷕䷔ #22 Grace / #21 Biting Through
+### ䷕䷔ #22 / #21
 
 **Pair 10, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -592,7 +592,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-11-0"></a>
-### ䷖䷗ #23 Splitting Apart / #24 Return
+### ䷖䷗ #23 / #24
 
 **Pair 11, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -611,7 +611,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-11-1"></a>
-### ䷗䷖ #24 Return / #23 Splitting Apart
+### ䷗䷖ #24 / #23
 
 **Pair 11, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -630,7 +630,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-12-0"></a>
-### ䷘䷙ #25 Innocence / #26 The Taming Power of the Great
+### ䷘䷙ #25 / #26 The Taming Power of the Great
 
 **Pair 12, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -649,7 +649,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-12-1"></a>
-### ䷙䷘ #26 The Taming Power of the Great / #25 Innocence
+### ䷙䷘ #26 The Taming Power of the Great / #25
 
 **Pair 12, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -702,7 +702,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-14-0"></a>
-### ䷜䷝ #29 The Abysmal / #30 The Clinging
+### ䷜䷝ #29 / #30
 
 **Pair 14, orient 0** — Partial — at least 2,225,037 unique orderings found (lower bound).
 
@@ -719,7 +719,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-14-1"></a>
-### ䷝䷜ #30 The Clinging / #29 The Abysmal
+### ䷝䷜ #30 / #29
 
 **Pair 14, orient 1** — Partial — at least 2,225,037 unique orderings found (lower bound).
 
@@ -736,7 +736,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-15-0"></a>
-### ䷞䷟ #31 Influence / #32 Duration
+### ䷞䷟ #31 / #32
 
 **Pair 15, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -755,7 +755,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-15-1"></a>
-### ䷟䷞ #32 Duration / #31 Influence
+### ䷟䷞ #32 / #31
 
 **Pair 15, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -774,7 +774,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-16-0"></a>
-### ䷠䷡ #33 Retreat / #34 The Power of the Great
+### ䷠䷡ #33 / #34 The Power of the Great
 
 **Pair 16, orient 0** — Partial — at least 1,194,709 unique orderings found (lower bound).
 
@@ -791,7 +791,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-16-1"></a>
-### ䷡䷠ #34 The Power of the Great / #33 Retreat
+### ䷡䷠ #34 The Power of the Great / #33
 
 **Pair 16, orient 1** — Partial — at least 1,194,709 unique orderings found (lower bound).
 
@@ -808,7 +808,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-17-0"></a>
-### ䷢䷣ #35 Progress / #36 Darkening of the Light
+### ䷢䷣ #35 / #36
 
 **Pair 17, orient 0** — Overflow — hash table full. At least 4,194,304 unique orderings; true count higher.
 
@@ -828,7 +828,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 </details>
 
 <a id="branch-17-1"></a>
-### ䷣䷢ #36 Darkening of the Light / #35 Progress
+### ䷣䷢ #36 / #35
 
 **Pair 17, orient 1** — Overflow — hash table full. At least 4,194,304 unique orderings; true count higher.
 
@@ -848,7 +848,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 </details>
 
 <a id="branch-18-0"></a>
-### ䷤䷥ #37 The Family / #38 Opposition
+### ䷤䷥ #37 / #38
 
 **Pair 18, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -867,7 +867,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-18-1"></a>
-### ䷥䷤ #38 Opposition / #37 The Family
+### ䷥䷤ #38 / #37
 
 **Pair 18, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -886,7 +886,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-19-0"></a>
-### ䷦䷧ #39 Obstruction / #40 Deliverance
+### ䷦䷧ #39 / #40
 
 **Pair 19, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -905,7 +905,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-19-1"></a>
-### ䷧䷦ #40 Deliverance / #39 Obstruction
+### ䷧䷦ #40 / #39
 
 **Pair 19, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -924,7 +924,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-20-0"></a>
-### ䷨䷩ #41 Decrease / #42 Increase
+### ䷨䷩ #41 / #42
 
 **Pair 20, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -943,7 +943,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-20-1"></a>
-### ䷩䷨ #42 Increase / #41 Decrease
+### ䷩䷨ #42 / #41
 
 **Pair 20, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -962,7 +962,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-22-0"></a>
-### ䷬䷭ #45 Gathering Together / #46 Pushing Upward
+### ䷬䷭ #45 / #46
 
 **Pair 22, orient 0** — Partial — at least 3,733,761 unique orderings found (lower bound).
 
@@ -979,7 +979,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-22-1"></a>
-### ䷭䷬ #46 Pushing Upward / #45 Gathering Together
+### ䷭䷬ #46 / #45
 
 **Pair 22, orient 1** — Partial — at least 3,663,111 unique orderings found (lower bound).
 
@@ -996,7 +996,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-23-0"></a>
-### ䷮䷯ #47 Oppression / #48 The Well
+### ䷮䷯ #47 / #48
 
 **Pair 23, orient 0** — Partial — at least 1,248,692 unique orderings found (lower bound).
 
@@ -1013,7 +1013,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-23-1"></a>
-### ䷯䷮ #48 The Well / #47 Oppression
+### ䷯䷮ #48 / #47
 
 **Pair 23, orient 1** — Partial — at least 1,248,692 unique orderings found (lower bound).
 
@@ -1030,7 +1030,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-24-0"></a>
-### ䷰䷱ #49 Revolution / #50 The Cauldron
+### ䷰䷱ #49 / #50
 
 **Pair 24, orient 0** — Overflow — hash table full. At least 4,194,304 unique orderings; true count higher.
 
@@ -1050,7 +1050,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 </details>
 
 <a id="branch-24-1"></a>
-### ䷱䷰ #50 The Cauldron / #49 Revolution
+### ䷱䷰ #50 / #49
 
 **Pair 24, orient 1** — Overflow — hash table full. At least 4,194,304 unique orderings; true count higher.
 
@@ -1070,7 +1070,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 </details>
 
 <a id="branch-25-0"></a>
-### ䷲䷳ #51 The Arousing / #52 Keeping Still
+### ䷲䷳ #51 / #52
 
 **Pair 25, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1089,7 +1089,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-25-1"></a>
-### ䷳䷲ #52 Keeping Still / #51 The Arousing
+### ䷳䷲ #52 / #51
 
 **Pair 25, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1108,7 +1108,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-26-0"></a>
-### ䷴䷵ #53 Development / #54 The Marrying Maiden
+### ䷴䷵ #53 / #54
 
 **Pair 26, orient 0** — Partial — at least 217,562 unique orderings found (lower bound).
 
@@ -1125,7 +1125,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-26-1"></a>
-### ䷵䷴ #54 The Marrying Maiden / #53 Development
+### ䷵䷴ #54 / #53
 
 **Pair 26, orient 1** — Partial — at least 217,562 unique orderings found (lower bound).
 
@@ -1142,7 +1142,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-27-0"></a>
-### ䷶䷷ #55 Abundance / #56 The Wanderer
+### ䷶䷷ #55 / #56
 
 **Pair 27, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1161,7 +1161,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-27-1"></a>
-### ䷷䷶ #56 The Wanderer / #55 Abundance
+### ䷷䷶ #56 / #55
 
 **Pair 27, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1180,7 +1180,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-28-0"></a>
-### ䷸䷹ #57 The Gentle / #58 The Joyous
+### ䷸䷹ #57 / #58
 
 **Pair 28, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1199,7 +1199,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-28-1"></a>
-### ䷹䷸ #58 The Joyous / #57 The Gentle
+### ䷹䷸ #58 / #57
 
 **Pair 28, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1218,7 +1218,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-29-0"></a>
-### ䷺䷻ #59 Dispersion / #60 Limitation
+### ䷺䷻ #59 / #60
 
 **Pair 29, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1237,7 +1237,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-29-1"></a>
-### ䷻䷺ #60 Limitation / #59 Dispersion
+### ䷻䷺ #60 / #59
 
 **Pair 29, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1256,7 +1256,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-30-0"></a>
-### ䷼䷽ #61 Inner Truth / #62 Preponderance of the Small
+### ䷼䷽ #61 / #62 Preponderance of the Small
 
 **Pair 30, orient 0** — Partial — at least 4,149,791 unique orderings found (lower bound).
 
@@ -1273,7 +1273,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-30-1"></a>
-### ䷽䷼ #62 Preponderance of the Small / #61 Inner Truth
+### ䷽䷼ #62 Preponderance of the Small / #61
 
 **Pair 30, orient 1** — Partial — at least 3,408,244 unique orderings found (lower bound).
 
@@ -1290,7 +1290,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-31-0"></a>
-### ䷾䷿ #63 After Completion / #64 Before Completion
+### ䷾䷿ #63 / #64
 
 **Pair 31, orient 0** — Partial — at least 155,326 unique orderings found (lower bound).
 
@@ -1307,7 +1307,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-31-1"></a>
-### ䷿䷾ #64 Before Completion / #63 After Completion
+### ䷿䷾ #64 / #63
 
 **Pair 31, orient 1** — Partial — at least 155,315 unique orderings found (lower bound).
 

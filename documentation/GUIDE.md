@@ -58,9 +58,9 @@ The `--cast` flag simulates a traditional [three-coin method](https://en.wikiped
   Line 5: coins=2+3+3=8  ---   --- young yin
   Line 6: coins=3+3+3=9  ----o---- old yang (changing)
 
-  Primary hexagram: 30 ䷝ The Clinging
+  Primary hexagram: 30 ䷝
   Changing lines: 1, 4, 6
-  Relating hexagram: 15 ䷎ Modesty
+  Relating hexagram: 15 ䷎
 ```
 
 "Changing" lines (marked with `o` or `x`) transform to produce a second hexagram. In traditional practice, the primary hexagram describes the current situation and the relating hexagram shows its trajectory. Each run produces a different result (unless you use `--seed`).
@@ -69,7 +69,7 @@ The `--cast` flag simulates a traditional [three-coin method](https://en.wikiped
 
 Each line is either solid (⚊ yang, 1) or broken (⚋ yin, 0):
 
-| | ䷀ The Creative #1 | ䷄ Waiting #5 | ䷁ The Receptive #2 |
+| | ䷀ #1 | ䷄ #5 | ䷁ #2 |
 |---|:---:|:---:|:---:|
 | Line 6 (top) | ⚊ **1** | ⚋ **0** | ⚋ **0** |
 | Line 5 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
@@ -79,7 +79,7 @@ Each line is either solid (⚊ yang, 1) or broken (⚋ yin, 0):
 | Line 1 (bottom) | ⚊ **1** | ⚊ **1** | ⚋ **0** |
 | Binary | **111111** | **010111** | **000000** |
 
-To get the binary code, read the 1s and 0s from the top of the table downward. For example, ䷀ The Creative #1 is all solid lines: 111111. ䷁ The Receptive #2 is all broken lines: 000000. ䷄ Waiting #5 reads 0, 1, 0, 1, 1, 1 from top to bottom, giving 010111 — a mix of solid and broken.
+To get the binary code, read the 1s and 0s from the top of the table downward. For example, ䷀ #1 is all solid lines: 111111. ䷁ #2 is all broken lines: 000000. ䷄ #5 reads 0, 1, 0, 1, 1, 1 from top to bottom, giving 010111 — a mix of solid and broken.
 
 Each hexagram is also split into two halves called **trigrams** — the bottom three lines (lower trigram) and the top three lines (upper trigram). There are 8 possible trigrams:
 
@@ -103,9 +103,9 @@ With 8 possible trigrams in each position, there are 8 x 8 = 64 possible hexagra
 The "distance" between two hexagrams is the number of lines that differ. For example:
 
 ```
-Hexagram 1 (The Creative):  ䷀  111111  (all solid)
-Hexagram 5 (Waiting):       ䷄  010111  (mixed)
-Hexagram 2 (The Receptive): ䷁  000000  (all broken)
+Hexagram 1:  ䷀  111111  (all solid)
+Hexagram 5:       ䷄  010111  (mixed)
+Hexagram 2: ䷁  000000  (all broken)
 
 Distance between #1 and #2: 6 (every line is different)
 Distance between #1 and #5: 3 (three lines differ)

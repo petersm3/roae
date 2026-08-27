@@ -10,34 +10,34 @@ Per-boundary selectivity (boundary = positions b and b+1 both match KW)
         1     1-2         274,134  0.8667%  Creative/Receptive + Difficulty/Folly
         2     2-3         274,134  0.8667%  Difficulty/Folly + Waiting/Conflict
         3     3-4         274,134  0.8667%  Waiting/Conflict + Army/Holding Toge
-        4     4-5         481,045  1.5208%  Army/Holding Toge + Small Taming/Treading
-        5     5-6         824,870  2.6078%  Small Taming/Treading + Peace/Standstill
+        4     4-5         481,045  1.5208%  Army/Holding Toge + hexagram 9/hexagram 10
+        5     5-6         824,870  2.6078%  hexagram 9/hexagram 10 + hexagram 11/hexagram 12
         6     6-7         824,870  2.6078%  Peace/Standstill + Fellowship/Great Posses
         7     7-8       2,484,332  7.8542%  Fellowship/Great Posses + Modesty/Enthusiasm
         8     8-9       2,484,332  7.8542%  Modesty/Enthusiasm + Following/Work on Deca
         9     9-10      2,927,548  9.2554%  Following/Work on Deca + Approach/Contemplatio
        10    10-11      3,614,211 11.4263%  Approach/Contemplatio + Biting Throu/Grace
        11    11-12      3,614,211 11.4263%  Biting Throu/Grace + Splitting Ap/Return
-       12    12-13      3,614,211 11.4263%  Splitting Ap/Return + Innocence/Great Taming
-       13    13-14      3,614,211 11.4263%  Innocence/Great Taming + Mouth/Preponderanc
+       12    12-13      3,614,211 11.4263%  Splitting Ap/hexagram 24 + hexagram 25/hexagram 26
+       13    13-14      3,614,211 11.4263%  hexagram 25/hexagram 26 + Mouth/Preponderanc
        14    14-15      3,614,211 11.4263%  Mouth/Preponderanc + Abysmal/Clinging
        15    15-16      5,853,918 18.5071%  Abysmal/Clinging + Influence/Duration
-       16    16-17      8,078,955 25.5416%  Influence/Duration + Retreat/Great Power
-       17    17-18      8,078,955 25.5416%  Retreat/Great Power + Progress/Darkening
+       16    16-17      8,078,955 25.5416%  hexagram 31/hexagram 32 + hexagram 33/hexagram 34
+       17    17-18      8,078,955 25.5416%  hexagram 33/hexagram 34 + hexagram 35/Darkening
        18    18-19      9,273,664 29.3186%  Progress/Darkening + Family/Opposition
        19    19-20      7,667,648 24.2412%  Family/Opposition + Obstruction/Deliverance
        20    20-21      3,230,838 10.2143%  Obstruction/Deliverance + Decrease/Increase
        21    21-22        594,181  1.8785%  Decrease/Increase + Breakthrough/Coming to Me
        22    22-23        622,073  1.9667%  Breakthrough/Coming to Me + Gathering/Pushing Upwa
-       23    23-24        598,443  1.8920%  Gathering/Pushing Upwa + Oppression/The Well
-       24    24-25        338,079  1.0688%  Oppression/The Well + Revolution/Cauldron
+       23    23-24        598,443  1.8920%  Gathering/Pushing Upwa + hexagram 47/hexagram 48
+       24    24-25        338,079  1.0688%  hexagram 47/hexagram 48 + hexagram 49/Cauldron
        25    25-26        139,821  0.4420%  Revolution/Cauldron + Arousing/Keeping Stil
        26    26-27        251,221  0.7942%  Arousing/Keeping Stil + Development/Marrying Mai
        27    27-28        186,539  0.5897%  Development/Marrying Mai + Abundance/Wanderer
        28    28-29        466,736  1.4756%  Abundance/Wanderer + Gentle/Joyous
        29    29-30        585,127  1.8499%  Gentle/Joyous + Dispersion/Limitation
-       30    30-31        672,767  2.1269%  Dispersion/Limitation + Inner Truth/Small Prepon
-       31    31-32      1,502,683  4.7507%  Inner Truth/Small Prepon + After Comple/Before Compl
+       30    30-31        672,767  2.1269%  hexagram 59/hexagram 60 + hexagram 61/Small Prepon
+       31    31-32      1,502,683  4.7507%  hexagram 61/Small Prepon + After Comple/Before Compl
 
 ============================================================
 Greedy minimum constraint search
@@ -56,7 +56,7 @@ UNIQUE: 4 boundary constraints narrow
 Minimum boundary constraint set (greedy):
   1. Boundary 25 (positions 25-26):
      Pair 24: Revolution / Cauldron
-     Pair 25: Arousing / Keeping Still
+     Pair 25: Arousing / hexagram 52
      Eliminates 31,490,800 solutions (139,820 remaining after)
   2. Boundary 27 (positions 27-28):
      Pair 26: Development / Marrying Maiden
@@ -67,8 +67,8 @@ Minimum boundary constraint set (greedy):
      Pair 1: Difficulty / Folly
      Eliminates 1,032 solutions (23 remaining after)
   4. Boundary 21 (positions 21-22):
-     Pair 20: Decrease / Increase
-     Pair 21: Breakthrough / Coming to Meet
+     Pair 20: hexagram 41 / hexagram 42
+     Pair 21: hexagram 43 / hexagram 44
      Eliminates 23 solutions (0 remaining after)
 
 Total time: 20.3s

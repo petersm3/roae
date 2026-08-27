@@ -145,7 +145,7 @@ are treated as axioms defining a space of orderings ([formal definitions](docume
   when reversal is trivial): the classical pairing, described explicitly by [Kong Yingda](documentation/CITATIONS.md#kongyingda) in the 7th century, with roots in [Yu Fan](documentation/CITATIONS.md#yufan)'s 3rd-century pair relations.
 - **C2** — no two adjacent hexagrams differ in exactly five lines ([McKenna & McKenna 1975](documentation/CITATIONS.md#mckenna-mckenna1975); independently in [Cook 2006](documentation/CITATIONS.md#cook2006)).
 - **C3** — complementary hexagrams sit near each other (a positional-distance ceiling at KW's own value).
-- **C4** — the sequence starts with the pair ䷀ Qian (The Creative) #1 and ䷁ Kun (The Receptive) #2, i.e., Heaven followed by Earth.
+- **C4** — the sequence starts with the pair ䷀ Qian #1 and ䷁ Kun #2, i.e., Heaven followed by Earth.
 - **C5** — the multiset of adjacent-transition sizes matches King Wen's exactly.
 - **C6** — a specific pair-adjacency in the second half: the pair at positions 53–54 is immediately
   followed by the pair at 55–56.

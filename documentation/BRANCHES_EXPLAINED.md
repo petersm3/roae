@@ -51,9 +51,9 @@ is different:
   integer form the solver uses. *Formulated by ROAE* as a
   specifically-quantified constraint; no prior published source
   identified.
-- **C4 — Starts with (63, 0).** The first hexagram is ䷀ The Creative #1
+- **C4 — Starts with (63, 0).** The first hexagram is ䷀ #1
   (binary 111111, the all-solid pattern), and the second is its
-  complement ䷁ The Receptive #2 (binary 000000, all-broken). The
+  complement ䷁ #2 (binary 000000, all-broken). The
   *choice* of this pair first is classically attested (the *Xugua*
   commentary's ordering rationale); the *orientation* (Creative before
   Receptive) is C4's own definitional choice, classically attested (the *Xugua* opens
@@ -127,8 +127,8 @@ already broken, we *cut off everything below it* and back up.
 
 ## Part 3: The first move is forced
 
-Constraint C4 says the first hexagram must be ䷀ The Creative #1 (binary
-value 63), and the second must be its complement ䷁ The Receptive #2
+Constraint C4 says the first hexagram must be ䷀ #1 (binary
+value 63), and the second must be its complement ䷁ #2
 (binary value 0). So position 0 = ䷀ #1, position 1 = ䷁ #2. No choice
 there.
 
@@ -615,7 +615,7 @@ alone explain.
 
 | Term | One-line definition |
 |---|---|
-| **Hexagram** | One of 64 patterns of 6 stacked solid/broken lines. Has two numberings: **binary value 0-63** (used by the solver) and **King Wen number #1-#64** (the traditional ordering position). Example: ䷀ The Creative #1 has binary value 63 (= 111111). |
+| **Hexagram** | One of 64 patterns of 6 stacked solid/broken lines. Has two numberings: **binary value 0-63** (used by the solver) and **King Wen number #1-#64** (the traditional ordering position). Example: ䷀ #1 has binary value 63 (= 111111). |
 | **King Wen sequence (KW)** | The specific 64-hexagram received ordering from ancient China — traditionally attributed to King Wen of Zhou (~1000 BCE); the dating of its fixation is debated. |
 | **Pair** | Two consecutive hexagrams at positions 2k and 2k+1 in the sequence. The 64-hexagram order has 32 pairs. |
 | **C1 through C5** | The five constraints the King Wen sequence satisfies. C1 = pair structure, C2 = no 5-line transitions, C3 = complement distance ≤ 776 (×64 form), C4 = starts with (63, 0), C5 = transition-distance count. |
