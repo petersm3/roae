@@ -40,6 +40,7 @@ Usage:
     python3 verify.py --recount-rung N              # C5 ladder rung n=18/19 (worker-sized)
     python3 verify.py --recount-rung-layers N       # gate published per-layer masses (n=9/13)
     python3 verify.py --f1-dec-roundtrip            # gate the 192-bit decimal renderer, full range
+    python3 verify.py --f1u192-binary-roundtrip     # gate the 24-byte on-disk limb layout
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
                                                     # + 3 away-from-KW C3 cross-anchors (solve.c-exact expectations)
     python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
@@ -2034,6 +2035,108 @@ def f1_dec_roundtrip():
     print(f"all {len(trips)} renderings exact, widest {widest} digits "
           f"(battery + {len(masses)} published layer masses)")
     return 0
+
+# ---------------------------------------------------------------------------
+# F1U192 BINARY LAYOUT — independent read-back gate (2026-08-27, Q-267)
+#
+# THE OTHER HALF OF Q-43. Q-43 asked for a serialise/PARSE round-trip. solve.c has
+# no decimal parser, so the parse side is the 24-byte binary limb layout written
+# into f1c5_layer_NN.bin and read back by --resume-from-layers. That path had no
+# independent check at all.
+#
+# WHY THE C ROUND-TRIP CANNOT SUPPLY ONE. Writer and reader are the same code, so a
+# limb-order or endianness defect is written wrong, read wrong, and cancels exactly.
+# The engine would resume and produce the right total from a file whose bytes are
+# garbage to anyone else -- and the layer files are the published query substrate
+# (SOLVE_F1_KEEP_LAYERS), so "anyone else" is the point of keeping them.
+#
+# THIS GATE reads the bytes from the documented layout in Python -- 72-byte header,
+# then masks u32[nm], off u64[nm+1], keys u32[ne], vals 3x u64 little-endian [ne] --
+# and checks the recovered final-layer mass against the rung total THIS FILE derives
+# by its own DP. Nothing about the expectation comes from the engine.
+_F1C5_HDR = "<8sIIIIQQQ5II"        # magic, version, n, k, start_exit, pl_hash,
+                                    # n_masks, n_entries, b0[5], pad  -> 72 bytes
+
+def _parse_f1c5_layer(path):
+    """Read one f1c5_layer_NN.bin from the documented byte layout. Returns
+    (hdr_dict, [values]). Raises on any structural inconsistency -- a short file, a
+    bad magic, or a size that does not equal what the header says it should."""
+    import struct
+    raw = open(path, "rb").read()
+    hs = struct.calcsize(_F1C5_HDR)
+    if hs != 72:
+        raise RuntimeError(f"header format computes to {hs} bytes, expected 72")
+    if len(raw) < hs:
+        raise RuntimeError(f"{path}: {len(raw)} bytes, shorter than the header")
+    f = struct.unpack(_F1C5_HDR, raw[:hs])
+    magic = f[0].rstrip(b"\x00").decode("ascii", "replace")
+    if magic not in ("F1C5LAY1", "F1C3LAY1"):
+        raise RuntimeError(f"{path}: magic {magic!r} is not a layer file")
+    h = {"magic": magic, "version": f[1], "n": f[2], "k": f[3],
+         "start_exit": f[4], "pl_hash": f[5], "n_masks": f[6], "n_entries": f[7]}
+    nm, ne = h["n_masks"], h["n_entries"]
+    want = hs + 4 * nm + 8 * (nm + 1) + 4 * ne + 24 * ne
+    if len(raw) != want:
+        raise RuntimeError(f"{path}: {len(raw)} bytes but header implies {want} "
+                           f"(nm={nm}, ne={ne}) -- layout disagreement")
+    off = hs + 4 * nm + 8 * (nm + 1) + 4 * ne
+    vals = []
+    for i in range(ne):
+        l0, l1, l2 = struct.unpack_from("<QQQ", raw, off + 24 * i)
+        vals.append(l0 | (l1 << 64) | (l2 << 128))
+    return h, vals
+
+def f1u192_binary_roundtrip():
+    """--f1u192-binary-roundtrip: build the n=9 rung's layer files with solve, then
+    read the FINAL layer back from raw bytes in Python and check its mass against
+    this file's own independent count. Returns 0 iff they agree."""
+    import os, subprocess, tempfile, shutil
+    here = os.path.dirname(os.path.abspath(__file__))
+    binp = os.environ.get("SOLVE_BIN") or os.path.join(here, "solve")
+    if not os.path.exists(binp):
+        print(f"*FAIL* no solve binary at {binp} -- nothing to gate. A gate with no")
+        print("       target must reject, not go quiet.")
+        return 1
+    # The expectation is derived HERE, not read from the engine's output.
+    pl = _spec_to_pairs_ordered("3.0,3.1,3.2")
+    b0 = _b0_first_completion(pl, 0)
+    want = _count_c1c2c4c5(pl, 0, tuple(b0))
+    d = tempfile.mkdtemp(prefix="f1u192_rt_")
+    try:
+        r = subprocess.run([binp, "--f1-exact-c1c2c4c5", "--f1-pairs", "9",
+                            "--layers-dir", d], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"*FAIL* solve exited {r.returncode} building the n=9 layers")
+            return 1
+        finals = [x for x in os.listdir(d) if x == "f1c5_layer_09.bin"]
+        if not finals:
+            print(f"*FAIL* no f1c5_layer_09.bin in {d}; got {sorted(os.listdir(d))}")
+            return 1
+        try:
+            h, vals = _parse_f1c5_layer(os.path.join(d, "f1c5_layer_09.bin"))
+        except RuntimeError as e:
+            print(f"*FAIL* {e}")
+            return 1
+        # The full-mask layer is a single orbit of size 1, so its mass is the plain
+        # sum of the stored values -- no group arithmetic needed, and therefore no
+        # chance of importing the engine's symmetry assumptions into the check.
+        got = sum(vals)
+        ok_shape = (h["n"] == 9 and h["k"] == 9 and h["n_masks"] == 1)
+        print(f"layer 9: magic={h['magic']} n={h['n']} k={h['k']} "
+              f"n_masks={h['n_masks']} n_entries={h['n_entries']} ({len(vals)} read)")
+        if not ok_shape:
+            print(f"*FAIL* final layer header is not the full-mask layer of n=9")
+            return 1
+        if got != want:
+            print(f"  *** MISMATCH *** bytes decode to {got:,}")
+            print(f"                   independent count is {want:,}")
+            print("  Writer and reader inside solve would agree with each other on")
+            print("  these bytes; only an outside reader can see this.")
+            return 1
+        print(f"binary read-back {got:,} == independent count {want:,}  [ok]")
+        return 0
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 # TR-5 Verification Guide's sigma-related 23-pair prefix (pair, orient).
 _SIGMA_PREFIX = [(22, 1), (28, 0), (3, 1), (21, 1), (26, 0), (6, 1), (11, 0),
@@ -4589,6 +4692,13 @@ def main():
                              'facts + reduced-rung C1∩C2∩C4 union counts) by a counting recurrence — '
                              'a different method than solve.c\'s symmetry-quotient DP. Prints a match '
                              'table. Does NOT read solutions.bin. Answers TR-11 §10vi.')
+    parser.add_argument('--f1u192-binary-roundtrip', action='store_true',
+                        help='Build the n=9 layer files with solve, then read the final layer '
+                             'back from RAW BYTES in Python (72-byte header, masks, off, keys, '
+                             '24-byte little-endian limb triples) and check its mass against '
+                             'this file\'s own independent count. solve\'s own write/resume '
+                             'round-trip cannot do this: writer and reader share any limb-order '
+                             'defect and cancel it exactly. Absence of a binary FAILS.')
     parser.add_argument('--f1-dec-roundtrip', action='store_true',
                         help='Gate solve.c\'s 192-bit decimal renderer f1_dec() against exact '
                              'Python integer arithmetic across the full range -- both limb '
@@ -4840,6 +4950,8 @@ def main():
     if args.recount:
         sys.exit(recount())
 
+    if args.f1u192_binary_roundtrip:
+        sys.exit(f1u192_binary_roundtrip())
     if args.f1_dec_roundtrip:
         sys.exit(f1_dec_roundtrip())
     if args.recount_rung_layers is not None:
