@@ -8005,8 +8005,8 @@ def books_g_t7():
     over all 64x64 ordered pairs. Worked example (per the Hacker 2002
     annotation): H5 <-> H63 mediated by H7. CONVENTION DERIVED: his H-numbers
     are King Wen numbers and lines encode yang(solid)=1 / yin(broken)=0;
-    under those conventions KW5 (Waiting, Qian-under-Kan) XOR KW63 (After
-    Completion, Li-under-Kan) = 6-bit 000010 = KW7 (The Army) exactly. The
+    under those conventions KW5 (Qian-under-Kan) XOR KW63
+    (Li-under-Kan) = 6-bit 000010 = KW7 exactly. The
     example is invariant to line-ORDER convention (rev6 of all three
     preserves it) but pins the POLARITY: under yin=1 the mediating pattern
     decodes to KW13, so Goldenberg's example requires yang=1."""
