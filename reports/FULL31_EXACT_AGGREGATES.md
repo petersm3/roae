@@ -75,7 +75,8 @@ Not every column here carries the same weight, and saying so is the point of thi
 | column | status |
 |---|---|
 | `mass` | **independently gated** at n=9 and n=13 — see §2. Terminal row matches the published full-31 integer. Its *rendering* is separately gated across the full 192-bit range by `verify.py --f1-dec-roundtrip`, which matters because n=9 and n=13 masses fit in one 64-bit limb while the k=31 value does not. |
-| `canonical_masks`, `C(31,k)` | structural; `C(31,k)` is arithmetic, `canonical_masks` is the orbit count the engine enumerated. |
+| `canonical_masks` | **independently gated** — `verify.py --recount-orbit-widths 31` recomputes all 31 by Burnside over the 24-element pair-permutation quotient, derived from the 48 commuting bit-permutations rather than read from the engine. Two different derivations, not a restatement. |
+| `C(31,k)` | arithmetic. |
 | `states`, `entries`, `V_k`, `layer GB` | **engine-internal telemetry, not independently reproduced.** They describe how *this* implementation laid the layer out. A different correct implementation may legitimately differ. Do not cite them as properties of the mathematical object. |
 
 ## 2. The gate: independent per-layer recount at n=9 and n=13
@@ -89,6 +90,7 @@ read from a table.
 ```
 ./solve --f1-exact-c1c2c4c5 --f1-pairs 9      # engine
 python3 verify.py --recount-rung-layers 9     # independent recount + gate
+python3 verify.py --recount-orbit-widths 31   # Burnside gate on canonical_masks (all 31 layers)
 ```
 
 | k | n=9 mass | | k | n=13 mass |

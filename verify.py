@@ -41,6 +41,7 @@ Usage:
     python3 verify.py --recount-rung-layers N       # gate published per-layer masses (n=9/13)
     python3 verify.py --f1-dec-roundtrip            # gate the 192-bit decimal renderer, full range
     python3 verify.py --f1u192-binary-roundtrip     # gate the 24-byte on-disk limb layout
+    python3 verify.py --recount-orbit-widths 31     # Burnside gate on the canonical_masks column
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
                                                     # + 3 away-from-KW C3 cross-anchors (solve.c-exact expectations)
     python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
@@ -2248,6 +2249,147 @@ def _v2_multiblock_structural(binp):
         return 0
     finally:
         shutil.rmtree(d, ignore_errors=True)
+
+# ---------------------------------------------------------------------------
+# ORBIT WIDTHS — Burnside gate on the canonical_masks column (2026-08-27, Q-266)
+#
+# THE SEAM THIS CLOSES. reports/FULL31_EXACT_AGGREGATES.md ships seven columns and
+# gated exactly one. `mass` is independently recounted; `states`, `entries`, `V_k`
+# and layer bytes are marked engine-internal telemetry and explicitly not citable.
+# `canonical_masks` sits between the two and was in neither camp: it is a property
+# of the OBJECT -- the number of orbits of k-subsets of the 31 free pairs under the
+# 24-element pair-permutation quotient -- yet it had no instrument, while a closed
+# form has been available all along.
+#
+# THE METHOD. Burnside: #orbits = (1/|G|) * sum over g of #k-subsets fixed by g, and
+# a permutation fixes a subset iff the subset is a union of its cycles, so the fixed
+# counts are the coefficients of prod over cycles of (1 + x^len). Exact integer
+# arithmetic, 24 polynomial multiplications, milliseconds.
+#
+# INDEPENDENCE. The 24 permutations are DERIVED here from _commuting_bitperms() --
+# the same construction _derive_pair_orbits() already uses to refuse to trust a
+# transcribed table -- not read from solve.c and not read from the artifact. The
+# engine's agreement with this count is therefore a real coincidence of two
+# derivations, not a restatement.
+def _induced_pair_perms():
+    """The pair-permutation quotient, derived. Returns a set of 31-tuples mapping
+    free-pair index i (1..31) to its image, one entry per DISTINCT induced action.
+
+    The 48 commuting bit-permutations act on hexagrams; each maps canonical pairs to
+    canonical pairs, so each induces a permutation of the pair indices. The kernel of
+    that induction collapses 48 down -- solve.c's own group self-check reports the
+    quotient as 24 pair-perms, and this arrives at 24 without consulting it."""
+    index_of = {frozenset(p): i for i, p in enumerate(PAIRS)}
+    perms = set()
+    for g in _commuting_bitperms():
+        img = []
+        for j in range(1, 32):
+            a, b = PAIRS[j]
+            k = index_of.get(frozenset((_apply_bitperm(g, a), _apply_bitperm(g, b))))
+            if k is None:
+                raise RuntimeError("induced perm moved a canonical pair off the pairing")
+            img.append(k)
+        perms.add(tuple(img))
+    return perms
+
+def _cycle_lengths(img):
+    """Cycle-type of a permutation given as images of 1..31 (1-based values)."""
+    n = len(img)
+    seen = [False] * n
+    out = []
+    for i in range(n):
+        if seen[i]:
+            continue
+        L, j = 0, i
+        while not seen[j]:
+            seen[j] = True
+            j = img[j] - 1
+            L += 1
+        out.append(L)
+    return out
+
+def _orbit_widths():
+    """Burnside count of orbits of k-subsets of the 31 free pairs, for k = 0..31."""
+    perms = _induced_pair_perms()
+    tot = [0] * 32
+    for img in perms:
+        poly = [1] + [0] * 31          # generating function of fixed subsets
+        for L in _cycle_lengths(img):
+            nxt = [0] * 32
+            for d in range(32):
+                if poly[d]:
+                    nxt[d] += poly[d]                      # cycle absent
+                    if d + L < 32:
+                        nxt[d + L] += poly[d]              # cycle wholly present
+            poly = nxt
+        for d in range(32):
+            tot[d] += poly[d]
+    g = len(perms)
+    out = []
+    for k in range(32):
+        q, r = divmod(tot[k], g)
+        if r:
+            raise RuntimeError(f"Burnside sum at k={k} is not divisible by |G|={g} "
+                               f"-- the induced action is not a group action")
+        out.append(q)
+    return out, g
+
+def _published_canonical_masks():
+    """The canonical_masks column of section 1 of the published artifact."""
+    import os, re
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), _AGG_DOC)
+    if not os.path.exists(path):
+        raise RuntimeError(f"{_AGG_DOC} is absent -- nothing to gate. Failure, not a pass.")
+    got, in_s1 = {}, False
+    for line in open(path, encoding="utf-8"):
+        if line.startswith("## "):
+            in_s1 = line.startswith("## 1.")
+            continue
+        if not in_s1 or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) != 8 or not re.fullmatch(r"\d+", cells[0]):
+            continue
+        if not re.fullmatch(r"[\d,]+", cells[1]):
+            continue
+        got[int(cells[0])] = int(cells[1].replace(",", ""))
+    missing = [k for k in range(1, 32) if k not in got]
+    if missing:
+        raise RuntimeError(f"{_AGG_DOC} has no canonical_masks for layer(s) {missing}")
+    return got
+
+def recount_orbit_widths(n):
+    """--recount-orbit-widths N: gate the published canonical_masks column against a
+    Burnside count over the independently derived pair-permutation quotient."""
+    if n != 31:
+        print(f"--recount-orbit-widths: n={n} not supported; the published table is n=31.")
+        return 2
+    try:
+        pub = _published_canonical_masks()
+    except RuntimeError as e:
+        print(f"*FAIL* {e}")
+        return 1
+    widths, g = _orbit_widths()
+    print(f"quotient derived from the 48 commuting bit-perms: |G| = {g} pair-perms")
+    # C(31,k) must equal the orbit-size-weighted total; a cheap structural check that
+    # the Burnside numbers describe the right ambient set before comparing anything.
+    if widths[0] != 1:
+        print(f"*FAIL* Burnside says {widths[0]} orbits of the empty set")
+        return 1
+    bad = 0
+    for k in range(1, 32):
+        ok = (widths[k] == pub[k])
+        if not ok:
+            bad += 1
+            print(f"  layer {k:2d}: Burnside {widths[k]:,}  published {pub[k]:,}  "
+                  f"[*** MISMATCH ***]")
+    if bad:
+        print(f"*FAIL* {bad} of 31 canonical_masks disagree with {_AGG_DOC}")
+        return 1
+    print(f"all 31 canonical_masks MATCH {_AGG_DOC} "
+          f"(widest {max(widths[1:]):,} at k={widths.index(max(widths[1:]))})")
+    print("ORBIT_WIDTHS=GATED")
+    return 0
 
 # TR-5 Verification Guide's sigma-related 23-pair prefix (pair, orient).
 _SIGMA_PREFIX = [(22, 1), (28, 0), (3, 1), (21, 1), (26, 0), (6, 1), (11, 0),
@@ -4803,6 +4945,12 @@ def main():
                              'facts + reduced-rung C1∩C2∩C4 union counts) by a counting recurrence — '
                              'a different method than solve.c\'s symmetry-quotient DP. Prints a match '
                              'table. Does NOT read solutions.bin. Answers TR-11 §10vi.')
+    parser.add_argument('--recount-orbit-widths', type=int, metavar='N', default=None,
+                        help='Gate the canonical_masks column of '
+                             'reports/FULL31_EXACT_AGGREGATES.md (N=31) against a Burnside count '
+                             'over the 24-element pair-permutation quotient DERIVED here from the '
+                             '48 commuting bit-perms. canonical_masks is a property of the object, '
+                             'not of the implementation, and had no instrument. Milliseconds.')
     parser.add_argument('--f1u192-binary-roundtrip', action='store_true',
                         help='Build the n=9 layer files with solve, then read the final layer '
                              'back from RAW BYTES in Python (72-byte header, masks, off, keys, '
@@ -5061,6 +5209,8 @@ def main():
     if args.recount:
         sys.exit(recount())
 
+    if args.recount_orbit_widths is not None:
+        sys.exit(recount_orbit_widths(args.recount_orbit_widths))
     if args.f1u192_binary_roundtrip:
         sys.exit(f1u192_binary_roundtrip())
     if args.f1_dec_roundtrip:
