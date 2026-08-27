@@ -813,7 +813,21 @@ gate_retract() {
       case "$f" in *"$allow"*) continue;; esac          # the doc allowed to narrate it
       [ -f "$folddir/$f" ] || continue
       # normalise the FOLDED file to one whitespace-collapsed line, then fixed-string match
-      if tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -qF -- "$np"; then
+      # 🔴 Codex N10 finding 6. This asked "does the FLATTENED text contain the phrase",
+      # and the exemption below then asked "is there any non-revision LINE hit". Those two
+      # questions cannot distinguish a wrapped prose occurrence from a revision row: put the phrase
+      # on a `| v9.9 |` row AND split a second occurrence across two prose lines, and the line test
+      # finds only the exempt row, `hitln` comes back empty, the `elif` sees the phrase IS present
+      # on a line, and the gate reports nothing. GATE 3b already solved this with OCCURRENCE COUNTS
+      # and its comments describe this exact masking shape -- so the fix is to use the answer that
+      # was already in the file.
+      # nflat > nrev means at least one occurrence is NOT accounted for by revision rows.
+      # Codex's own scan found ZERO instances in the current tree: a constructible bypass, not a
+      # live survivor, and it is not recorded as one.
+      local nflat nrev
+      nflat=$(tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -oF -- "$np" 2>/dev/null | wc -l)
+      nrev=$(grep -E '^\| v[0-9]' "$folddir/$f" 2>/dev/null | grep -oF -- "$np" 2>/dev/null | wc -l)
+      if [ "${nflat:-0}" -gt "${nrev:-0}" ]; then
         # changelog rows legitimately quote superseded wording; only exempt if EVERY
         # line-level hit is a revision row.
         # RECORD WHERE, not just WHICH FILE (2026-08-02, #65). A bare filename makes the
@@ -826,8 +840,11 @@ gate_retract() {
                 | head -1 | cut -d: -f1)
         if [ -n "$hitln" ]; then
           hits="$hits $f:$hitln"
-        elif ! grep -qF -- "$np" "$folddir/$f" 2>/dev/null; then
-          hits="$hits $f(spans-lines)"                  # only visible after normalisation
+        else
+          # No non-revision LINE hit, yet the count says an occurrence exists beyond the revision
+          # rows -- so it spans lines. The old `elif ! grep -qF` was the bug: it asked whether the
+          # phrase was absent from every line, which a legitimate revision row made false.
+          hits="$hits $f(spans-lines)"
         fi
       fi
     done
@@ -3238,6 +3255,19 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
     'matched as the fixed string: "hard floor k>=13"' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>=13 by construction.\n')"
+
+  # 🔴 Codex N10 finding 6: a legitimate `| vN.N |` revision row MASKED a wrapped prose
+  # occurrence. The old logic asked "is there a non-revision LINE hit" and, finding none, then asked
+  # "is the phrase absent from every line" — which the revision row made false, so the gate reported
+  # nothing. This fixture builds Codex's exact case: ONE occurrence on a revision row, ONE split
+  # across two prose lines. Measured before shipping: the pre-fix gate named CRITIQUE.md ZERO times
+  # on this injection; the fixed gate names it as (spans-lines).
+  assert_fires_why "GATE 3 (N10-6) a revision row must not mask a wrapped prose hit" retract \
+    'documentation/CRITIQUE\.md\(spans-lines\)' \
+"f='documentation/CRITIQUE.md'
+s=open(f).read()
+open(f,'w').write(s+'\n| v9.9 | 2026-01-01 | probe row quoting the hard floor k>=13 wording |\n'
+                  '\nProbe prose whose wording is split by a hard floor\nk>=13 across two lines.\n')"
 
   # GATE 3b — THREE cases, and the positive one is its OWN MOTIVATING EXAMPLE rather than a
   # synthetic string. reports/evidence/r11/PHASE2_README.md is the artifact that actually
