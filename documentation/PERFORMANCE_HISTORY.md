@@ -349,7 +349,7 @@ gcc's `-fprofile-generate` / `-fprofile-use` enables hot-path-specific code-layo
 ### Methodology
 - Paired bench (Build N control vs Build U PGO-use) at three commit reference points:
   - 1B-node smoke test (D8als_v7 Spot westus3, --branch 25 1, depth-3, iterative, 8 threads) — captured in `/tmp/pgo_pilot_results/`
-  - 1T enum-only (D128als_v7 Spot westus3, --branch 24 0, depth-3, iterative, 128 threads, page-cache flush between paired runs, SOLVE_SKIP_AUTOMERGE=1) — in flight
+  - 1T enum-only (D128als_v7 Spot westus3, --branch 24 0, depth-3, iterative, 128 threads, page-cache flush between paired runs, SOLVE_SKIP_AUTOMERGE=1) — completed; final accounting under "Result — 1T enum-only (D128als_v7), final accounting" below
 - Build N: `-O3 -flto -pthread -fopenmp -march=native`
 - Build U: `... -fprofile-use=$PROFDIR -fprofile-correction` (profile data from selftest + 200M-node `--branch 25 1`)
 - Page-cache flushed between paired 1T runs via `sync && echo 3 | sudo tee /proc/sys/vm/drop_caches`

@@ -1902,7 +1902,7 @@ gate_figures() {
 gate_liveness() {
   echo "== GATE 7: no frozen present-tense run status; no run named after an unreached budget =="
   python3 - <<'PY'
-import re, glob, sys
+import re, glob, sys, os
 LIVE = ['in flight', 'currently running', 'results pending', 'and growing',
         'is underway', 'awaiting results', 'run is ongoing']
 # WORD-BOUNDARY KEYS (round 15, item R18). A bare substring test matched "concurrently
@@ -1962,7 +1962,12 @@ for m in re.finditer(r'\b([0-9.]+T)\b', reg):
     if re.search(r'\b[0-9a-f]{16,64}\b', window):     # a sha256 (or its prefix) attests completion
         REACHED.add(m.group(1))
 files = [f for f in glob.glob('documentation/*.md') + glob.glob('reports/*.md') + ['README.md']
-         if 'HISTORY.md' not in f]      # dated narrative is exempt by design
+         if os.path.basename(f) != 'HISTORY.md']   # dated narrative is exempt by design
+# Codex N10 finding 1: the exemption was `'HISTORY.md' not in f`, a SUBSTRING test, so it
+# also exempted documentation/PERFORMANCE_HISTORY.md -- and anything else ending in the same
+# eleven characters. That file said a 1T enumeration was "in flight" at line 352 while the
+# same entry gave its FINAL ACCOUNTING at line 362, and this gate printed ok. The exemption
+# is for ONE named file and is now written that way.
 for f in files:
     text = open(f, errors='replace').read()
     lines = text.split('\n')
@@ -6415,9 +6420,20 @@ import collections, html, re, subprocess, sys, tempfile, os
 pdf, htm = sys.argv[1], sys.argv[2]
 with tempfile.TemporaryDirectory() as d:
     txt = os.path.join(d, 'p.txt')
-    if subprocess.run(['pdftotext', '-layout', pdf, txt],
-                      capture_output=True).returncode != 0:
-        print(f"  [skip] pdftotext could not read {pdf}"); sys.exit(0)
+    _pt = subprocess.run(['pdftotext', '-layout', pdf, txt], capture_output=True)
+    if _pt.returncode != 0:
+        # Codex N10: this was `sys.exit(0)` -- a SKIP -- so replacing the shipped PDF with
+        # unreadable garbage PASSED the gate that decides whether we may publish.
+        # The distinction the old code missed: tool ABSENCE is environmental and is still a
+        # skip (checked above with `command -v pdftotext`); a tool that RUNS and cannot read
+        # the file is REPOSITORY STATE and is a failure. Codex made exactly that separation
+        # elsewhere in N10 and it is the right one.
+        # Demonstrated 2026-08-27: 4 KB of /dev/urandom in place of example/report.pdf gives
+        # returncode=1 here, and the gate passed.
+        print(f"  [FAIL] pdftotext could not read {pdf} -- the shipped PDF is unreadable")
+        _err = _pt.stderr.decode('utf-8', 'replace').strip().replace(chr(10), ' ')
+        print(f"         pdftotext: {_err[:200]}")
+        sys.exit(1)
     pdftext = open(txt, encoding='utf-8', errors='replace').read()
 h = open(htm, encoding='utf-8', errors='replace').read()
 for tag in ('style', 'script', 'title'):     # <title> duplicates the <h1>; not body text
