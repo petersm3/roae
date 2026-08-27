@@ -17403,6 +17403,20 @@ int main(int argc, char *argv[]) {
         for (int b = 0; b < 32; b++)
             if (wasteful_by_boundary[b])
                 printf("  boundary %2d (pair %d <-> pair %d): %llu\n", b, b-1, b, wasteful_by_boundary[b]);
+        /* Q-275 (Codex R09) called all three --verify-* flags here "tabulators, not gates".
+         * Two of them assert a universal and are now gated. THIS ONE DOES NOT: a "wasteful"
+         * value-1 is an expected empirical finding, not a defect, so there is no pass
+         * condition to check -- and INVENTING one would be worse than the missing gate,
+         * because a wrong gate is silent where a missing one is merely absent. What was
+         * genuinely wrong is that a flag named --verify emitted no machine-readable verdict
+         * at all. It now emits one that states exactly what it is. */
+        if (records_total == 0) {
+            printf("RULE2=ERROR\n");
+            fprintf(stderr, "ERROR: %s contains no records; nothing was tabulated\n", vpath);
+            return 30;
+        }
+        printf("RULE2=TABULATED scanned=%llu records_with_violation=%llu ones=%llu forced=%llu wasteful=%llu\n",
+               records_total, records_with_violation, total_ones, ones_c2_forced, ones_wasteful);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--verify-9th-six") == 0) {
         /* McKenna "9th six" audit (The Invisible Landscape, Ch 9): every C1-C5
@@ -17486,6 +17500,28 @@ int main(int argc, char *argv[]) {
                 printf("  boundary %2d (between pair %d and pair %d): %llu records (%.4f%%)\n",
                        b, b-1, b, between_six_by_boundary[b],
                        100.0 * between_six_by_boundary[b] / (records_total ? records_total : 1));
+        /* Q-275 (Codex R09). This block's own header asserts that EVERY C1-C5 record carries
+         * exactly one between-pair value-6 (9 sixes: 8 within-pair plus the "synthetic" one).
+         * The open question it was written to answer is WHERE that six falls, not how many
+         * there are -- so the count is gateable and the position stays descriptive. Gating a
+         * claim the code already makes is not inventing a pass condition; if this ever fires,
+         * the firing IS the discovery. Held on 13,320 records of the committed slice. */
+        {
+            unsigned long long off_spec = 0;
+            for (int c = 0; c < 16; c++) if (c != 1) off_spec += between_six_count_dist[c];
+            if (records_total == 0) {
+                printf("NINTH_SIX=ERROR\n");
+                fprintf(stderr, "ERROR: %s contains no records; the invariant was never tested\n", vpath);
+                return 30;
+            }
+            if (off_spec) {
+                printf("NINTH_SIX=FAIL\n");
+                fprintf(stderr, "ERROR: %llu of %llu record(s) lack exactly one between-pair value-6\n",
+                        off_spec, records_total);
+                return 1;
+            }
+            printf("NINTH_SIX=PASS\n");
+        }
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--verify-wrap-parity") == 0) {
         /* McKenna wrap-around parity audit (SPECIFICATION.md Theorem "Wrap-around parity is
@@ -17562,6 +17598,24 @@ int main(int argc, char *argv[]) {
             if (wrap_dist[d])
                 printf("  d=%d : %llu records (%.6f%%)\n", d, wrap_dist[d],
                        100.0 * wrap_dist[d] / (records_total ? records_total : 1));
+        /* Q-275 (Codex R09). This printed the theorem's own expectation and then returned 0
+         * whatever the observed value was, so A VIOLATION OF THE THEOREM IT NAMES EXITED
+         * SUCCESS and no caller, script or CI could learn of it. The verdict is now an
+         * explicit KEY=value token matched with `grep -qx`, never an output shape.
+         * Zero records is an ERROR, not a vacuous pass: a check that CANNOT RUN must never
+         * report success -- that is the same defect one level up. */
+        if (records_total == 0) {
+            printf("WRAP_PARITY=ERROR\n");
+            fprintf(stderr, "ERROR: %s contains no records; the theorem was never tested\n", vpath);
+            return 30;
+        }
+        if (odd != records_total) {
+            printf("WRAP_PARITY=FAIL\n");
+            fprintf(stderr, "ERROR: theorem violated: %llu of %llu record(s) have EVEN wrap distance\n",
+                    records_total - odd, records_total);
+            return 1;
+        }
+        printf("WRAP_PARITY=PASS\n");
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--selftest-resume") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
