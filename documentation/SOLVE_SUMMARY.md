@@ -414,8 +414,8 @@ The difference wave as a sparkline (each character = one transition, height = li
 | # | From | To | Distance |
 |--:|------|-----|:--------:|
 | 1 | ䷀ #1 | ䷁ #2 | 6 |
-| 2 | ䷁ #2 | ䷂ #3 Difficulty | 2 |
-| 3 | ䷂ #3 Difficulty | ䷃ #4 | 4 |
+| 2 | ䷁ #2 | ䷂ #3 | 2 |
+| 3 | ䷂ #3 | ䷃ #4 | 4 |
 | 4 | ䷃ #4 | ䷄ #5 | 4 |
 | 5 | ䷄ #5 | ䷅ #6 | 4 |
 | 6 | ䷅ #6 | ䷆ #7 | 3 |
@@ -429,8 +429,8 @@ The difference wave as a sparkline (each character = one transition, height = li
 | 14 | ䷍ #14 | ䷎ #15 | 4 |
 | 15 | ䷎ #15 | ䷏ #16 | 2 |
 | 16 | ䷏ #16 | ䷐ #17 | 2 |
-| 17 | ䷐ #17 | ䷑ #18 Decay | 6 |
-| 18 | ䷑ #18 Decay | ䷒ #19 | 3 |
+| 17 | ䷐ #17 | ䷑ #18 | 6 |
+| 18 | ䷑ #18 | ䷒ #19 | 3 |
 | 19 | ䷒ #19 | ䷓ #20 | 4 |
 | 20 | ䷓ #20 | ䷔ #21 | 3 |
 | 21 | ䷔ #21 | ䷕ #22 | 2 |
@@ -439,16 +439,16 @@ The difference wave as a sparkline (each character = one transition, height = li
 | 24 | ䷗ #24 | ䷘ #25 | 3 |
 | 25 | ䷘ #25 | ䷙ #26 | 4 |
 | 26 | ䷙ #26 | ䷚ #27 | 2 |
-| 27 | ䷚ #27 | ䷛ #28 Preponderance of Great | 6 |
-| 28 | ䷛ #28 Preponderance of Great | ䷜ #29 | 2 |
+| 27 | ䷚ #27 | ䷛ #28 | 6 |
+| 28 | ䷛ #28 | ䷜ #29 | 2 |
 | 29 | ䷜ #29 | ䷝ #30 | 6 |
 | 30 | ䷝ #30 | ䷞ #31 | 3 |
 | 31 | ䷞ #31 | ䷟ #32 | 2 |
 | 32 | ䷟ #32 | ䷠ #33 | 3 |
 | 33 | ䷠ #33 | ䷡ #34 | 4 |
 | 34 | ䷡ #34 | ䷢ #35 | 4 |
-| 35 | ䷢ #35 | ䷣ #36 Darkening | 4 |
-| 36 | ䷣ #36 Darkening | ䷤ #37 | 2 |
+| 35 | ䷢ #35 | ䷣ #36 | 4 |
+| 36 | ䷣ #36 | ䷤ #37 | 2 |
 | 37 | ䷤ #37 | ䷥ #38 | 4 |
 | 38 | ䷥ #38 | ䷦ #39 | 6 |
 | 39 | ䷦ #39 | ䷧ #40 | 4 |
@@ -456,8 +456,8 @@ The difference wave as a sparkline (each character = one transition, height = li
 | 41 | ䷨ #41 | ䷩ #42 | 2 |
 | 42 | ䷩ #42 | ䷪ #43 | 4 |
 | 43 | ䷪ #43 | ䷫ #44 | 2 |
-| 44 | ䷫ #44 | ䷬ #45 Gathering | 3 |
-| 45 | ䷬ #45 Gathering | ䷭ #46 | 4 |
+| 44 | ䷫ #44 | ䷬ #45 | 3 |
+| 45 | ䷬ #45 | ䷭ #46 | 4 |
 | 46 | ䷭ #46 | ䷮ #47 | 3 |
 | 47 | ䷮ #47 | ䷯ #48 | 2 |
 | 48 | ䷯ #48 | ䷰ #49 | 3 |
@@ -465,8 +465,8 @@ The difference wave as a sparkline (each character = one transition, height = li
 | 50 | ䷱ #50 | ䷲ #51 | 4 |
 | 51 | ䷲ #51 | ䷳ #52 | 4 |
 | 52 | ䷳ #52 | ䷴ #53 | 1 |
-| 53 | ䷴ #53 | ䷵ #54 Marrying Maiden | 6 |
-| 54 | ䷵ #54 Marrying Maiden | ䷶ #55 | 2 |
+| 53 | ䷴ #53 | ䷵ #54 | 6 |
+| 54 | ䷵ #54 | ䷶ #55 | 2 |
 | 55 | ䷶ #55 | ䷷ #56 | 2 |
 | 56 | ䷷ #56 | ䷸ #57 | 3 |
 | 57 | ䷸ #57 | ䷹ #58 | 4 |
