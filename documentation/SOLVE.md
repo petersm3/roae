@@ -67,7 +67,7 @@ The XOR of each pair must produce one of exactly 7 values: `001100`, `010010`, `
 
 ### Rule 5: Starting pair (C4)
 
-The sequence begins with ䷀ The Creative (#1, 111111) and ䷁ The Receptive (#2, 000000).
+The sequence begins with ䷀ #1 (#1, 111111) and ䷁ #2 (#2, 000000).
 
 ### Rule 6: Difference wave distribution (C5)
 
@@ -91,7 +91,7 @@ With `--seed 42 --trials 100000`:
 | 1 | + No 5-line transitions | 4,271 | 4.27% |
 | 2 | + Complement distance <= 12.1 | 314 | 0.31% |
 | 3 | + XOR products within 7 values | 314 | 0.31% |
-| 4 | + Starts with ䷀ The Creative / ䷁ The Receptive | 5 | 0.005% |
+| 4 | + Starts with ䷀ #1 / ䷁ #2 | 5 | 0.005% |
 | 5 | + Exact difference distribution | 0 | 0% |
 
 ### What each level tells us
@@ -102,7 +102,7 @@ With `--seed 42 --trials 100000`:
 
 **Level 3 (0.31%):** The XOR constraint adds nothing — every sequence that satisfies Levels 1-2 also satisfies Level 3. The XOR algebraic regularity is a *consequence* of the pair structure and complement proximity, not an independent rule.
 
-**Level 4 (0.005%):** Fixing the starting pair eliminates almost everything. Only 5 out of 100,000 pair-constrained sequences satisfy all four non-trivial constraints AND start with ䷀ The Creative / ䷁ The Receptive.
+**Level 4 (0.005%):** Fixing the starting pair eliminates almost everything. Only 5 out of 100,000 pair-constrained sequences satisfy all four non-trivial constraints AND start with ䷀ #1 / ䷁ #2.
 
 **Level 5 (0%):** Zero samples survive all six rules. The combination is extraordinarily selective — but we cannot determine from sampling alone whether it produces exactly one sequence (King Wen) or a small number of alternatives. The total C1–C5 space is now estimated at ≈10³⁸ (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)), so "a small number of alternatives" is superseded — the space is astronomically large, and King Wen is one of many valid orderings.
 
@@ -262,7 +262,7 @@ See `enumeration/solve_output.txt` and `enumeration/solve_results.json` for full
 2. No 5-line transitions — C2
 3. Complement distance ≤ 12.125 (3.9th percentile) — C3
 4. ~~XOR products within 7 values~~ (redundant — Theorem 2)
-5. Starts with ䷀ The Creative / ䷁ The Receptive — C4
+5. Starts with ䷀ #1 / ䷁ #2 — C4
 6. Exact difference wave distribution {1:2, 2:20, 3:13, 4:19, 6:9} — C5
 7. ~~Mean line autocorrelation = -0.115~~ (redundant with C3)
 
@@ -344,18 +344,18 @@ A boundary constraint is a **pair-adjacency constraint**: boundary $N$ specifies
 Concretely, KW's pair content at the mandatory boundaries (1-indexed positions; hexagram names in [Wilhelm/Baynes](CITATIONS.md#wilhelm-baynes1967) translation):
 
 **Boundary 25 (between pair 25 and pair 26):**
-- Pair 25 = ䷰ Ge (Revolution, 革) / ䷱ Ding (The Cauldron, 鼎) — a reverse pair
-- Pair 26 = ䷲ Zhen (The Arousing, Thunder, 震) / ䷳ Gen (Keeping Still, Mountain, 艮) — a reverse pair
+- Pair 25 = ䷰ Ge (hexagram 49, 革) / ䷱ Ding (hexagram 50, 鼎) — a reverse pair
+- Pair 26 = ䷲ Zhen (hexagram 51, Thunder, 震) / ䷳ Gen (hexagram 52, Mountain, 艮) — a reverse pair
 
 Enforcing boundary 25 means: any candidate ordering must place Revolution→Cauldron in positions 49-50 AND Thunder→Mountain in positions 51-52 — exactly as King Wen does. This locks a 4-hexagram window in the sequence's second half.
 
 **Boundary 27 (between pair 27 and pair 28):**
-- Pair 27 = ䷴ Jian (Gradual Development, 漸) / ䷵ Gui Mei (The Marrying Maiden, 歸妹) — a reverse pair
-- Pair 28 = ䷶ Feng (Abundance, 豐) / ䷷ Lu (The Wanderer, 旅) — a reverse pair
+- Pair 27 = ䷴ Jian (Gradual hexagram 53, 漸) / ䷵ Gui Mei (hexagram 54, 歸妹) — a reverse pair
+- Pair 28 = ䷶ Feng (hexagram 55, 豐) / ䷷ Lu (hexagram 56, 旅) — a reverse pair
 
 Enforcing boundary 27 means: Gradual Development→Marrying Maiden in positions 53-54 AND Abundance→Wanderer in positions 55-56 — exactly as King Wen does. Locks a second 4-hexagram window two positions later.
 
-**Together**, enforcing boundaries {25, 27} locks positions 25, 26, 27, 28 (= pairs 25-28 = the 8-hexagram sub-sequence Revolution / Cauldron / Thunder / Mountain / Gradual / Marrying Maiden / Abundance / Wanderer). Combined with C4 (which forces pair 1 = Creative/Receptive), this fixes 5 of 32 pair positions. The other 27 pairs retain some freedom, producing 43,236 total survivors at d3 10T (13,595 at d2 10T). Adding just 2 more boundary constraints (chosen from the partition-dependent set — at d3, two of {1..6}) narrows from ~40k survivors to exactly 1: King Wen.
+**Together**, enforcing boundaries {25, 27} locks positions 25, 26, 27, 28 (= pairs 25-28 = the 8-hexagram sub-sequence hexagram 49 / Cauldron / Thunder / Mountain / Gradual / Marrying Maiden / Abundance / Wanderer). Combined with C4 (which forces pair 1 = Creative/Receptive), this fixes 5 of 32 pair positions. The other 27 pairs retain some freedom, producing 43,236 total survivors at d3 10T (13,595 at d2 10T). Adding just 2 more boundary constraints (chosen from the partition-dependent set — at d3, two of {1..6}) narrows from ~40k survivors to exactly 1: King Wen.
 
 The mandatory-{25,27} finding says: **no matter how cleverly you choose the other 2 of your 4 boundary constraints, you cannot uniquely identify King Wen without locking the Revolution→Cauldron→Thunder→Mountain window (boundary 25) and the Gradual→Marrying-Maiden→Abundance→Wanderer window (boundary 27)** — across both d2 and d3 partition depths. Why those two windows specifically? Currently unknown. Open Question: is there a combinatorial or symmetry reason these two second-half adjacencies are irreplaceable?
 
@@ -425,8 +425,8 @@ These are empirical observations from a partial enumeration, not proven results.
 
 Analysis of the two critical boundaries reveals no underlying pattern:
 
-- **Boundary 25** (䷰Revolution #49 / ䷱The Cauldron #50 → ䷲The Arousing #51 / ䷳Keeping Still #52): Hamming distance 4, no shared trigrams. ☲Li/☴Xun → ☳Zhen/☳Zhen.
-- **Boundary 27** (䷴Development #53 / ䷵The Marrying Maiden #54 → ䷶Abundance #55 / ䷷The Wanderer #56): Hamming distance 2, shared upper trigram (☳Zhen). ☳Zhen/☱Dui → ☳Zhen/☲Li.
+- **Boundary 25** (䷰ #49 / ䷱ #50 → ䷲ #51 / ䷳ #52): Hamming distance 4, no shared trigrams. ☲Li/☴Xun → ☳Zhen/☳Zhen.
+- **Boundary 27** (䷴ #53 / ䷵ #54 → ䷶ #55 / ䷷ #56): Hamming distance 2, shared upper trigram (☳Zhen). ☳Zhen/☱Dui → ☳Zhen/☲Li.
 
 The two boundaries don't share a common trigram property. No sorting principle (by XOR, sum, within-pair distance, or trigram type) governs the free region (positions 24-32). The free pairs are not arranged by any measured scalar property.
 
@@ -446,7 +446,7 @@ The 2 adjacency constraints appear to be **irreducible** — features of the arr
 
 3 of 5 nearest alternatives swap pairs that are **structurally equivalent** — same within-pair distance and same XOR product. These pairs are interchangeable parts; King Wen's specific placement among them is a choice between equals. The other 2 swaps cross different pair types, violating structural equivalence.
 
-Position 31 (䷼ Inner Truth #61 / ䷽Small Preponderance #62) never participates in any distance-2 swap, making it the most constrained position in the free region.
+Position 31 (䷼ #61 / ䷽ #62) never participates in any distance-2 swap, making it the most constrained position in the free region.
 
 ### Locked vs free region comparison
 
@@ -512,7 +512,7 @@ No single feature or combination of features uniquely identifies King Wen among 
 
 ### Additional findings
 
-- **Ending pair is a choice.** Four different pairs can validly end the sequence. King Wen's choice (䷾After Completion #63 / ䷿Before Completion #64) is the most common (35% of solutions) but not forced. The starting orientation, however, is forced: ䷀The Creative must come before ䷁The Receptive in all valid arrangements.
+- **Ending pair is a choice.** Four different pairs can validly end the sequence. King Wen's choice (䷾ #63 / ䷿ #64) is the most common (35% of solutions) but not forced. The starting orientation, however, is forced: ䷀ #1 must come before ䷁ #2 in all valid arrangements.
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. It is a free choice at each pair.
 - **Complement proximity detail.** 9 of 32 complement pairs sit directly adjacent in the sequence (distance 1). The farthest apart are ䷂ #3 and ䷱ #50 (distance 47). The average is 12.1, vs ~21.7 for random orderings.
 
@@ -575,7 +575,7 @@ The difference is a partition-dependent sampling effect at the same 10T total bu
 
 ### Theorem 6 (empirical): Starting orientation is forced
 
-**Claim.** In every ordering satisfying C1-C5, the sequence begins with ䷀ The Creative (s₀=63) followed by ䷁ The Receptive (s₁=0) — the reversed orientation (s₀=0, s₁=63) yields zero valid orderings.
+**Claim.** In every ordering satisfying C1-C5, the sequence begins with ䷀ #1 (s₀=63) followed by ䷁ #2 (s₁=0) — the reversed orientation (s₀=0, s₁=63) yields zero valid orderings.
 
 **Status.** Empirically supported, not yet analytically proven. See LONG_TERM_PLAN.md #13 for the proof agenda (Level 1: tighten prose; Level 2: machine-check in Lean 4 or Rocq).
 

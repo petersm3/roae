@@ -52,7 +52,7 @@ cd(S) ≤ 12.125.
 *The mean distance between complementary hexagrams in King Wen is 12.125. **Scope-dependent finding:** at the C1+C2 reference scope, this is the **3.9th percentile** of complement distances — KW is in the lowest 4%. At the C1+C2+C3 canonical scope, KW is at the **C3 ceiling = 12.125 exactly**, with about **1 in 10 (~10%)** of orderings tying at this value — a fraction measured over the enumerated set, not a universal constant (~9.91% over the 3.43B-ordering 100T canonical, ~10.11% over the 10.5B-ordering 560T canonical; both correct at their depth; minimum cd in that population is 6.625, i.e., x64 = 424). The threshold 12.125 is King Wen's exact value — extracted from the sequence, not derived independently. The "low-percentile" and "ceiling cohort" framings are both true at their respective scopes; the threshold itself is reverse-engineered, not a structurally significant value.*
 
 ### C4: Starting pair
-s₀ = 63 (= 111111₂, The Creative) and s₁ = 0 (= 000000₂, The Receptive).
+s₀ = 63 (= 111111₂, hexagram 1) and s₁ = 0 (= 000000₂, hexagram 2).
 
 *The sequence begins with the all-yang hexagram followed by the all-yin hexagram. The orientation is forced by C5 (Theorem 6).*
 
