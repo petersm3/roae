@@ -6905,8 +6905,15 @@ gate_appendonly_history() {
   grep -v '^[[:space:]]*$' "$f" | sort > "$cur"
   # Baselines, deduplicated by BLOB id: a commit that did not change the file, and a
   # remote ref pointing at a commit already walked, contribute nothing.
-  for src in $( { git rev-list HEAD -- "$f" 2>/dev/null
-                  git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null; } ); do
+  # 🔴 Codex N10 finding 8. This walked every commit reachable from HEAD, but of the remotes only
+  # each ref's CURRENT TIP — so a line that existed in a remote-only commit A and was deleted in B
+  # was never examined, while the success sentence claimed "ANY committed or published version".
+  # NOT merely constructible on this tree: HEAD reaches 2 commits touching this file, and the
+  # remote histories contain 24. The gate was checking 2 of 24 and reporting on all of them.
+  # Passing the remote refs to rev-list walks their HISTORY, not their tip, and rev-list
+  # deduplicates the overlap for free. Measured cost: 24 blobs instead of 10 — negligible.
+  for src in $(git rev-list HEAD $(git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null) \
+                 -- "$f" 2>/dev/null); do
     blob=$(git rev-parse --quiet --verify "$src:$f" 2>/dev/null) || continue
     [ -n "$blob" ] || continue
     case " $seen " in *" $blob "*) continue;; esac
