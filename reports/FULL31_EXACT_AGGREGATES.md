@@ -74,7 +74,7 @@ Not every column here carries the same weight, and saying so is the point of thi
 
 | column | status |
 |---|---|
-| `mass` | **independently gated** at n=9 and n=13 — see §2. Terminal row matches the published full-31 integer. |
+| `mass` | **independently gated** at n=9 and n=13 — see §2. Terminal row matches the published full-31 integer. Its *rendering* is separately gated across the full 192-bit range by `verify.py --f1-dec-roundtrip`, which matters because n=9 and n=13 masses fit in one 64-bit limb while the k=31 value does not. |
 | `canonical_masks`, `C(31,k)` | structural; `C(31,k)` is arithmetic, `canonical_masks` is the orbit count the engine enumerated. |
 | `states`, `entries`, `V_k`, `layer GB` | **engine-internal telemetry, not independently reproduced.** They describe how *this* implementation laid the layer out. A different correct implementation may legitimately differ. Do not cite them as properties of the mathematical object. |
 

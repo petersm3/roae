@@ -1012,6 +1012,23 @@ count=<exact>` line per nonzero bin plus `G_HIST_TOTAL`, `G_HIST_WSUM`
 (Σ g·count) and `G_HIST_CUM_LE_95`. Sha-neutral (argv-dispatched, never on
 the enumeration path; the #215/#217 kernels are untouched).
 
+### --f1-dec-selftest
+
+```
+solve --f1-dec-selftest        # reads "l2 l1 l0" triples on stdin
+```
+
+Renders 192-bit limb triples through the real `f1_dec()` and prints
+`l2 l1 l0 <decimal>` for each. It carries **no expected values of its own** — the
+battery and the arithmetic live in `verify.py --f1-dec-roundtrip`, so this mode
+cannot pass by containing the answer.
+
+Why it exists: `f1_dec()` renders every exact count this project publishes, up to
+the 40-digit `|C1∩C2∩C4∩C5|`, but its only end-to-end exercise was the n=9 rung
+total **26112** — five digits, entirely inside limb 0. The multi-limb carry in
+`f1_divmod_small()` had no proof at any width. Argv-dispatched and never on the
+enumeration path, so the canonical `--selftest` sha is unchanged.
+
 ### --f1c5-gzip-selftest
 
 ```

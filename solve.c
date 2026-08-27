@@ -18511,6 +18511,28 @@ int main(int argc, char *argv[]) {
         if (failures == 0) printf("RC4B VERIFY: PASS\n");
         else printf("RC4B VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--f1-dec-selftest") == 0) {
+        /* Q-43 (Codex turn 4): f1_dec() renders every published exact count, up to
+         * ~10^39 at n=31, but the only end-to-end exercise of that path was the n=9
+         * rung total 26112 -- five digits, one limb. The multi-limb carry in
+         * f1_divmod_small() had no proof at all. That is a MISSING PROOF, which this
+         * project does not treat as passing.
+         *
+         * This mode deliberately knows NOTHING about expected output: it reads limb
+         * triples "l2 l1 l0" from stdin and prints "l2 l1 l0 <decimal>" through the
+         * REAL f1_dec(). The battery and the expectations live in the checker, so
+         * this code cannot pass by containing the answer. Sha-neutral (argv-
+         * dispatched, never on the enum path). */
+        char line[256];
+        while (fgets(line, sizeof line, stdin)) {
+            unsigned long long a, b, c;
+            if (sscanf(line, "%llu %llu %llu", &a, &b, &c) != 3) continue;
+            F1U192 v; v.l2 = (uint64_t)a; v.l1 = (uint64_t)b; v.l0 = (uint64_t)c;
+            char d[64];
+            f1_dec(v, d);
+            printf("%llu %llu %llu %s\n", a, b, c, d);
+        }
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-gzip-selftest") == 0) {
         /* retool 2026-07-07: round-trip test of the v2 per-block zlib codec. */
         return f1c5_gzip_selftest();

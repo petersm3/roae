@@ -39,6 +39,7 @@ Usage:
     python3 verify.py --recount                     # independent count reproduction
     python3 verify.py --recount-rung N              # C5 ladder rung n=18/19 (worker-sized)
     python3 verify.py --recount-rung-layers N       # gate published per-layer masses (n=9/13)
+    python3 verify.py --f1-dec-roundtrip            # gate the 192-bit decimal renderer, full range
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
                                                     # + 3 away-from-KW C3 cross-anchors (solve.c-exact expectations)
     python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
@@ -1914,6 +1915,124 @@ def recount_rung_layers(n):
         print(f"*FAIL* {bad} of {n} layer(s) disagree with {_AGG_DOC}  [{dt:.1f}s]")
         return 1
     print(f"all {n} layer masses MATCH {_AGG_DOC}  [{dt:.1f}s]")
+    return 0
+
+# ---------------------------------------------------------------------------
+# F1U192 DECIMAL RENDERING — full-range gate (2026-08-27, Q-43 / Codex turn 4)
+#
+# THE GAP. f1_dec() renders every exact count this project publishes, including the
+# 40-digit |C1&C2&C4&C5| = 1.097051e39 and all 31 layer masses in
+# reports/FULL31_EXACT_AGGREGATES.md. Its only end-to-end exercise was the n=9 rung
+# total, 26112 -- five digits, entirely inside limb 0. The multi-limb carry in
+# f1_divmod_small() therefore had NO proof, at any width, ever. Codex found no bad
+# formatter on the n=31 path, so this is a missing proof rather than a known defect,
+# which is precisely the class this project refuses to score as passing.
+#
+# WHY THE Q-157 GATE DOES NOT COVER IT. --recount-rung-layers tops out at n=13,
+# whose largest mass is 2,116,284,083,712 -- about 2.1e12, comfortably inside a
+# single 64-bit limb. Every value it checks leaves the carry path untouched. A gate
+# can be correct, independent, and still blind.
+#
+# THE INSTRUMENT. solve --f1-dec-selftest reads limb triples on stdin and prints
+# what the REAL f1_dec() makes of them. It knows no expected values; the battery and
+# the arithmetic live here, where the oracle is Python's arbitrary-precision int
+# evaluating (l2<<128)|(l1<<64)|l0 -- a different derivation from C's repeated
+# divide-by-ten, not a re-run of it.
+def _f1_dec_battery():
+    """Limb triples to render. Boundaries first, then the published integers."""
+    U = (1 << 64) - 1
+    def t(x):
+        return ((x >> 128) & U, (x >> 64) & U, x & U)
+    vals = [0, 1, 9, 10, 99, 100, 12345]
+    for e in (64, 128, 192):
+        base = 1 << e
+        vals += [base - 2, base - 1, base, base + 1] if e < 192 else [base - 2, base - 1]
+    # A limb that is zero BETWEEN two non-zero limbs is the classic carry trap: a
+    # renderer that loses the remainder into limb 1 still gets these right at the top
+    # and bottom and wrong in the middle.
+    vals += [(1 << 128) | 1, (1 << 128) | (1 << 64), ((1 << 128) - 1) << 1 | 1]
+    vals += [10 ** k for k in range(0, 58)]
+    vals += [26112, 2063395607040, 267765117419520,
+             1097051278789181790036112071176579186688]
+    return [t(v) for v in vals if v < (1 << 192)]
+
+def _f1_dec_published_masses():
+    """Every layer mass in section 1 of the published aggregates artifact.
+
+    Ties this gate to the artifact it protects: if f1_dec mis-renders a width, the
+    number that would be WRONG in the repository is in the battery by construction
+    rather than by my having thought to include it."""
+    import os, re
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), _AGG_DOC)
+    if not os.path.exists(path):
+        raise RuntimeError(f"{_AGG_DOC} is absent -- the published masses this gate "
+                           f"exists to protect cannot be read. Failure, not a pass.")
+    out, in_s1 = [], False
+    for line in open(path, encoding="utf-8"):
+        if line.startswith("## "):
+            in_s1 = line.startswith("## 1.")
+            continue
+        if not in_s1 or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) != 8 or not re.fullmatch(r"\d+", cells[0]):
+            continue
+        if not re.fullmatch(r"[\d,]+", cells[7]):
+            continue
+        out.append(int(cells[7].replace(",", "")))
+    if len(out) != 31:
+        raise RuntimeError(f"{_AGG_DOC} section 1 yielded {len(out)} masses, expected 31")
+    return out
+
+def f1_dec_roundtrip():
+    """--f1-dec-roundtrip: gate solve's 192-bit decimal renderer across the whole
+    range, including both limb boundaries and every published layer mass."""
+    import os, subprocess
+    here = os.path.dirname(os.path.abspath(__file__))
+    binp = os.environ.get("SOLVE_BIN") or os.path.join(here, "solve")
+    if not os.path.exists(binp):
+        print(f"*FAIL* no solve binary at {binp} -- nothing to gate. Build it, or set")
+        print("       SOLVE_BIN. A gate with no target must reject, not go quiet.")
+        return 1
+    U = (1 << 64) - 1
+    try:
+        masses = _f1_dec_published_masses()
+    except RuntimeError as e:
+        print(f"*FAIL* {e}")
+        return 1
+    trips = _f1_dec_battery() + [((m >> 128) & U, (m >> 64) & U, m & U) for m in masses]
+    stdin = "".join(f"{a} {b} {c}\n" for (a, b, c) in trips)
+    r = subprocess.run([binp, "--f1-dec-selftest"], input=stdin,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"*FAIL* {binp} --f1-dec-selftest exited {r.returncode}")
+        return 1
+    lines = [l for l in r.stdout.splitlines() if l.strip()]
+    if len(lines) != len(trips):
+        print(f"*FAIL* asked for {len(trips)} renderings, got {len(lines)}")
+        return 1
+    bad = 0
+    widest = 0
+    for line, (a, b, c) in zip(lines, trips):
+        f = line.split()
+        got = f[3]
+        want = str((a << 128) | (b << 64) | c)
+        if f[0] != str(a) or f[1] != str(b) or f[2] != str(c):
+            print(f"*FAIL* echoed limbs {f[:3]} != submitted {(a, b, c)}")
+            return 1
+        if got != want:
+            bad += 1
+            if bad <= 8:
+                print(f"  *** MISMATCH *** limbs=({a},{b},{c})")
+                print(f"      solve says {got}")
+                print(f"      exact is   {want}")
+        else:
+            widest = max(widest, len(want))
+    if bad:
+        print(f"*FAIL* {bad} of {len(trips)} renderings disagree with exact arithmetic")
+        return 1
+    print(f"all {len(trips)} renderings exact, widest {widest} digits "
+          f"(battery + {len(masses)} published layer masses)")
     return 0
 
 # TR-5 Verification Guide's sigma-related 23-pair prefix (pair, orient).
@@ -4470,6 +4589,13 @@ def main():
                              'facts + reduced-rung C1∩C2∩C4 union counts) by a counting recurrence — '
                              'a different method than solve.c\'s symmetry-quotient DP. Prints a match '
                              'table. Does NOT read solutions.bin. Answers TR-11 §10vi.')
+    parser.add_argument('--f1-dec-roundtrip', action='store_true',
+                        help='Gate solve.c\'s 192-bit decimal renderer f1_dec() against exact '
+                             'Python integer arithmetic across the full range -- both limb '
+                             'boundaries, 10^0..10^57, and every layer mass published in '
+                             'reports/FULL31_EXACT_AGGREGATES.md. Until this mode the renderer '
+                             'was exercised only at 26112, which is one limb wide. Needs a solve '
+                             'binary (SOLVE_BIN or ./solve); absence FAILS.')
     parser.add_argument('--recount-rung-layers', type=int, metavar='N', default=None,
                         help='Gate the PER-LAYER masses published in '
                              'reports/FULL31_EXACT_AGGREGATES.md for the N=9 or N=13 C5 rung '
@@ -4714,6 +4840,8 @@ def main():
     if args.recount:
         sys.exit(recount())
 
+    if args.f1_dec_roundtrip:
+        sys.exit(f1_dec_roundtrip())
     if args.recount_rung_layers is not None:
         sys.exit(recount_rung_layers(args.recount_rung_layers))
     if args.recount_rung is not None:
