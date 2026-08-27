@@ -115,7 +115,7 @@ Most valid orderings look **nothing like** King Wen. King Wen is not
 ## Which pairs can appear at position 2?
 
 Position 2 is the first "free" position — 16 different pairs can validly follow
-Creative/Receptive. King Wen's choice (䷂䷃ #3 Difficulty / #4 Folly) appears in only
+hexagram 1 / hexagram 2. King Wen's choice (䷂䷃ #3 / #4) appears in only
 0.2% of valid orderings. Some choices at position 2 produce millions of downstream
 valid orderings; others produce zero.
 
@@ -482,7 +482,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-8-0"></a>
-### ䷐䷑ #17 / #18 Work on What Has Been Spoiled
+### ䷐䷑ #17 / #18
 
 **Pair 8, orient 0** — Partial — at least 670,407 unique orderings found (lower bound).
 
@@ -499,7 +499,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-8-1"></a>
-### ䷑䷐ #18 Work on What Has Been Spoiled / #17
+### ䷑䷐ #18 / #17
 
 **Pair 8, orient 1** — Partial — at least 681,675 unique orderings found (lower bound).
 
@@ -630,7 +630,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-12-0"></a>
-### ䷘䷙ #25 / #26 The Taming Power of the Great
+### ䷘䷙ #25 / #26
 
 **Pair 12, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -649,7 +649,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-12-1"></a>
-### ䷙䷘ #26 The Taming Power of the Great / #25
+### ䷙䷘ #26 / #25
 
 **Pair 12, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -668,7 +668,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-13-0"></a>
-### ䷚䷛ #27 Corners of the Mouth / #28 Preponderance of the Great
+### ䷚䷛ #27 / #28
 
 **Pair 13, orient 0** — Partial — at least 2,239,707 unique orderings found (lower bound).
 
@@ -685,7 +685,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-13-1"></a>
-### ䷛䷚ #28 Preponderance of the Great / #27 Corners of the Mouth
+### ䷛䷚ #28 / #27
 
 **Pair 13, orient 1** — Partial — at least 2,239,707 unique orderings found (lower bound).
 
@@ -774,7 +774,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-16-0"></a>
-### ䷠䷡ #33 / #34 The Power of the Great
+### ䷠䷡ #33 / #34
 
 **Pair 16, orient 0** — Partial — at least 1,194,709 unique orderings found (lower bound).
 
@@ -791,7 +791,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-16-1"></a>
-### ䷡䷠ #34 The Power of the Great / #33
+### ䷡䷠ #34 / #33
 
 **Pair 16, orient 1** — Partial — at least 1,194,709 unique orderings found (lower bound).
 
@@ -1256,7 +1256,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-30-0"></a>
-### ䷼䷽ #61 / #62 Preponderance of the Small
+### ䷼䷽ #61 / #62
 
 **Pair 30, orient 0** — Partial — at least 4,149,791 unique orderings found (lower bound).
 
@@ -1273,7 +1273,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-30-1"></a>
-### ䷽䷼ #62 Preponderance of the Small / #61
+### ䷽䷼ #62 / #61
 
 **Pair 30, orient 1** — Partial — at least 3,408,244 unique orderings found (lower bound).
 
