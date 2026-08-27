@@ -1452,7 +1452,7 @@ def print_constraint_narrowing(pairs, seed=None, trials=100000, verbose=True):
     print(f"Sequences satisfying: {n3:,}/{trials:,} ({pct3:.2f}%)")
     print()
 
-    # Level 4: + starts with Creative/Receptive pair
+    # Level 4: + starts with hexagram 1 / hexagram 2 pair
     print("--- Level 4: + Starts with hexagram 1 / hexagram 2 ---")
     c4 = {
         "no_five": lambda seq: has_no_five(seq),
@@ -1506,7 +1506,7 @@ def print_constraint_narrowing(pairs, seed=None, trials=100000, verbose=True):
     print(f"{'1':<8} {'+ No 5-line transitions':<45} {n1:>12,} {f'{pct1:.2f}%':>8}")
     print(f"{'2':<8} {'+ Complement distance <= King Wen':<45} {n2:>12,} {f'{pct2:.2f}%':>8}")
     print(f"{'3':<8} {'+ XOR products within 7 values':<45} {n3:>12,} {f'{pct3:.2f}%':>8}")
-    print(f"{'4':<8} {'+ Starts with Creative/Receptive':<45} {n4:>12,} {f'{pct4:.2f}%':>8}")
+    print(f"{'4':<8} {'+ Starts with hexagram 1 / hexagram 2':<45} {n4:>12,} {f'{pct4:.2f}%':>8}")
     print(f"{'5':<8} {'+ Exact difference distribution':<45} {n5:>12,} {f'{pct5:.2f}%':>8}")
     print()
 
@@ -1991,7 +1991,7 @@ def print_enumerate(max_nodes=10_000_000, time_limit=60):
     # King Wen complement distance (Rule 3)
     kw_comp_dist = mean_complement_distance(binary_hexagrams)
 
-    # Rule 5: first pair must be Creative/Receptive
+    # Rule 5: first pair must be hexagram 1 / hexagram 2
     first_pair_idx = None
     for i, (a, b) in enumerate(kw_pairs):
         if (a == 0b111111 and b == 0b000000) or (b == 0b111111 and a == 0b000000):
@@ -2054,7 +2054,7 @@ def print_enumerate(max_nodes=10_000_000, time_limit=60):
                     exhausted[0] = False
                     return
 
-    # Start with Rule 5: Creative/Receptive first
+    # Start with Rule 5: hexagram 1 / hexagram 2 first
     if first_pair_idx is not None:
         init_budget = dict(kw_dist)
         # Account for the within-pair diff of first pair
@@ -2399,7 +2399,7 @@ def print_constraint_residuals():
         # Rule 3: complement distance
         if mean_complement_distance(seq) > kw_comp_dist:
             continue
-        # Rule 5: starts with Creative/Receptive
+        # Rule 5: starts with hexagram 1 / hexagram 2
         if seq[0] != 0b111111 or seq[1] != 0b000000:
             continue
 
@@ -3108,7 +3108,7 @@ def print_rule7_test(max_nodes=100_000_000, time_limit=3600):
             print("  2. No 5-line transitions")
             print("  3. Complement distance <= 12.125")
             print("  4. XOR products within 7 values (redundant)")
-            print("  5. Starts with Creative/Receptive")
+            print("  5. Starts with hexagram 1 / hexagram 2")
             print("  6. Exact difference wave distribution")
             print("  7a. Complement distance = 12.125 (maximum)")
             print("  7b. Mean line autocorrelation = -0.115 (maximum)")
@@ -3166,7 +3166,7 @@ def generate_rule7a_solutions(max_nodes=30_000_000, time_limit=120):
         kw_dist[d] = kw_dist.get(d, 0) + 1
     kw_comp_dist = mean_complement_distance(binary_hexagrams)
 
-    first_pair_idx = 0  # Creative/Receptive
+    first_pair_idx = 0  # hexagram 1 / hexagram 2
     pair_options = [[(a, b), (b, a)] for a, b in kw_pairs]
 
     solutions = []
@@ -3538,8 +3538,8 @@ def print_reconstruct():
         return count
 
     # Step-by-step reconstruction
-    seq = [0b111111, 0b000000]  # C4: start with Creative/Receptive
-    used = {0}  # pair 0 (Creative/Receptive)
+    seq = [0b111111, 0b000000]  # C4: start with hexagram 1 / hexagram 2
+    used = {0}  # pair 0 (hexagram 1 / hexagram 2)
     budget = dict(kw_dist)
     budget[bit_diff(0b111111, 0b000000)] -= 1  # within-pair transition consumed
 

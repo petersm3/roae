@@ -9,7 +9,7 @@ This file now independently verifies BOTH kinds of published result:
   (1) the RECORDS in solutions.bin — reads every record, reconstructs the
       64-hexagram sequence, and checks C1 (pair structure), C2 (no hamming-5
       transitions), C3 (complement distance <= 776), C4 (starts with
-      Creative/Receptive), C5 (exact distance distribution), plus sorted
+      hexagram 1 / hexagram 2), C5 (exact distance distribution), plus sorted
       order and duplicates.  [default mode / --enumerate-reference]
 
   (2) the exact COUNTS — `--recount` independently reproduces the small-n
@@ -75,7 +75,7 @@ PAIRS = [(KW[2*i], KW[2*i+1]) for i in range(32)]
 KW_DIST = [0] * 7
 for i in range(63):
     KW_DIST[bin(KW[i] ^ KW[i+1]).count('1')] += 1
-START_PAIR = 0  # Creative/Receptive
+START_PAIR = 0  # hexagram 1 / hexagram 2
 
 def hamming(a, b):
     return bin(a ^ b).count('1')
@@ -1266,7 +1266,7 @@ def enumerate_reference(npairs):
     Enumerates the complete set of valid arrangements of the first `npairs`
     KW-derived pairs under the structural constraints that reduce cleanly to a
     truncated sequence — C1 (each pair once), C2 (no hamming-5 transition
-    between consecutive hexagrams), C4 (pair 0 = Creative/Receptive placed
+    between consecutive hexagrams), C4 (pair 0 = hexagram 1 / hexagram 2 placed
     first; either orientation). C3/C5 are GLOBAL (defined over the full
     64-hexagram sequence vs KW's distribution) and do NOT reduce, so they are
     intentionally excluded here.

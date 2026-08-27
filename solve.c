@@ -16,7 +16,7 @@
  * the remaining unused pairs (in either orientation) at the next position. Pruning:
  *   C1: Pair structure — only the 32 pairs from KW are used (not arbitrary pairings)
  *   C2: No 5-line Hamming transitions between consecutive hexagrams
- *   C4: Position 1 is always Creative/Receptive (hexagrams 63, 0) — provably forced
+ *   C4: Position 1 is always hexagram 1 / hexagram 2 (all-yang 63, all-yin 0) — provably forced
  *   C5: Difference distribution — the multiset of Hamming distances between all 63
  *       consecutive hexagrams must exactly match King Wen's {1:2, 2:20, 3:13, 4:19, 6:9}
  *       This is tracked via a "budget" array decremented at each placement.
@@ -27,7 +27,7 @@
  * THREADING MODEL
  * ===============
  * Normal mode: enumerates ~3,030 depth-2 sub-branches (each fixing positions 0-3:
- * the forced Creative/Receptive at position 1, then a chosen pair+orient at
+ * the forced hexagram 1 / hexagram 2 at position 1, then a chosen pair+orient at
  * position 2 and another at position 3). Sub-branches are distributed round-robin
  * across N threads. Replaces an older "56-branch mode" that suffered from the
  * tail problem (a few large branches monopolizing single cores while the rest of
@@ -377,8 +377,8 @@ static void __attribute__((constructor)) check_stack_ulimit(void) {
 
 /* ---------- King Wen sequence: 64 hexagrams as 6-bit integers ---------- */
 /* Each value 0-63 encodes a hexagram's six lines as bits (0=yin, 1=yang).
- * Index 0 = hexagram #1 (Creative, 111111 = 63), index 1 = hexagram #2
- * (Receptive, 000000 = 0), etc. in the traditional King Wen ordering. */
+ * Index 0 = hexagram #1 (111111 = 63), index 1 = hexagram #2
+ * (000000 = 0), etc. in the traditional King Wen ordering. */
 static const int KW[64] = {
     63,  0, 17, 34, 23, 58,  2, 16,
     55, 59,  7, 56, 61, 47,  4,  8,
@@ -4262,7 +4262,7 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
  *               a transition of that distance is used. Enforces C5 (exact match of
  *               KW's difference distribution). This is the key pruning mechanism —
  *               most branches are killed by budget exhaustion, not by C2 or C3.
- *   step      — current pair position (0-31). Step 0 is pre-filled (Creative/Receptive).
+ *   step      — current pair position (0-31). Step 0 is pre-filled (hexagram 1 / hexagram 2).
  *
  * The budget array makes this much faster than checking the distribution at the end:
  * invalid branches are pruned at depth 2-5 instead of depth 32. */
@@ -8641,7 +8641,7 @@ static void *thread_func_single(void *arg) {
         pair_mask_t used_mask;                       /* task #72 Phase B+D: was int[32] */
         int budget[7];
 
-        /* Position 0: Creative/Receptive */
+        /* Position 0: hexagram 1 / hexagram 2 */
         seq[0] = 63; seq[1] = 0;
         used_mask = 0;                               /* task #72 Phase B+D */
         PAIR_MASK_SET(used_mask, start_pair_idx);
@@ -19830,7 +19830,7 @@ int main(int argc, char *argv[]) {
      * the canonical King Wen sequence. If this fails, every downstream claim
      * is suspect — exit 50.
      *
-     * The constants (expected multiset, 776, Creative/Receptive) are
+     * The constants (expected multiset, 776, hexagram 1 / hexagram 2) are
      * duplicated from SPECIFICATION.md on purpose: self-check should fail
      * if either side drifts. */
     {
@@ -19870,9 +19870,9 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        /* (d) C4: position 0 is hexagram 63 (Creative), position 1 is 0 (Receptive) */
+        /* (d) C4: position 0 is hexagram 63 (all yang), position 1 is 0 (all yin) */
         if (KW[0] != 63 || KW[1] != 0) {
-            fprintf(stderr, "ERROR: KW self-check failed: expected Creative/Receptive at positions 0-1, got %d/%d\n", KW[0], KW[1]);
+            fprintf(stderr, "ERROR: KW self-check failed: expected hexagram 1 / hexagram 2 at positions 0-1, got %d/%d\n", KW[0], KW[1]);
             return 50;
         }
 
@@ -20013,7 +20013,7 @@ int main(int argc, char *argv[]) {
             }
             if (!c1_ok) fail_c1++;
 
-            /* C4: first pair is Creative/Receptive (63, 0) */
+            /* C4: first pair is hexagram 1 / hexagram 2 (63, 0) */
             int pidx0 = (rec[0] >> 2) & 0x3F;
             if (pidx0 != pair_index_of(63, 0)) fail_c4++;
 
@@ -20378,7 +20378,7 @@ int main(int argc, char *argv[]) {
             if (c1_ok) {
                 if (sol_pidx[0] != kw_pair_index) {
                     #pragma omp critical
-                    printf("  ERROR: solution %lld position 1 is pair %d, expected Creative/Receptive\n",
+                    printf("  ERROR: solution %lld position 1 is pair %d, expected hexagram 1 / hexagram 2\n",
                            s, sol_pidx[0]);
                     local_errors++;
                 }
@@ -23398,7 +23398,7 @@ int main(int argc, char *argv[]) {
                 int f1 = orient1 ? pairs[bp].b : pairs[bp].a;
                 int s1 = orient1 ? pairs[bp].a : pairs[bp].b;
 
-                int bd1 = hamming(0, f1);  /* from Receptive */
+                int bd1 = hamming(0, f1);  /* from hexagram 2 (all yin) */
                 if (bd1 == 5) continue;
                 int budget_init[7];
                 memcpy(budget_init, kw_dist, sizeof(budget_init));
@@ -23642,7 +23642,7 @@ int main(int argc, char *argv[]) {
 
                 long long total_nodes = 0;
                 /* Build the fixed prefix: positions 0-19 */
-                /* Position 0: Creative/Receptive, Position 1: branch pair */
+                /* Position 0: hexagram 1 / hexagram 2, Position 1: branch pair */
                 /* Positions 2-18: from multi_seqs[ci] */
                 /* Position 19: determined by what's left (the shift pattern places
                  * a specific pair here — but we need to figure out which) */
@@ -25173,7 +25173,7 @@ sub_enum_done:
         for (int o1 = 0; o1 < 2; o1++) {
             int f1 = o1 ? pairs[p1].b : pairs[p1].a;
             int s1 = o1 ? pairs[p1].a : pairs[p1].b;
-            int bd1 = hamming(0, f1);  /* distance from Receptive to first hex */
+            int bd1 = hamming(0, f1);  /* distance from hexagram 2 (all yin) to first hex */
             if (bd1 == 5) continue;
             int budget1[7];
             memcpy(budget1, kw_dist, sizeof(budget1));
