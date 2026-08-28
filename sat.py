@@ -1288,27 +1288,46 @@ def certify_count(cnf_obj, label, keep_dir=None):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+
+    def _int_arg(flag, argv, i):
+        """Parse the value after `flag` as an integer, or exit with a readable message.
+
+        Q-305 class: B6 fixed the `*-near-<non-int>` parse and left the four CLI integer flags
+        raising bare tracebacks. Measured 2026-08-28 before this helper: `--c3-max abc`,
+        `--c3-min abc`, `--f1-pairs abc`, `--expect abc` and a flag given as the LAST argument all
+        exited 1 with a Python traceback. The exit code was already right; the output was not.
+        A traceback tells an operator that the tool broke. A message tells them what they typed
+        wrong -- and this project's own rule is that a tool must say what it wants.
+        """
+        if i + 1 >= len(argv):
+            raise SystemExit(f"{flag} needs an integer value (none was given)")
+        raw = argv[i + 1]
+        try:
+            return int(raw)
+        except ValueError:
+            raise SystemExit(f"{flag} needs an integer value, got {raw!r}")
+
     with_c3, c3_max, c3_min, not_kw, npairs = False, None, None, False, None
     if "--with-c3" in args:
         with_c3 = True; args.remove("--with-c3")
     if "--c3-max" in args:
         i = args.index("--c3-max")
-        with_c3, c3_max = True, int(args[i + 1]); del args[i:i + 2]
+        with_c3, c3_max = True, _int_arg('--c3-max', args, i); del args[i:i + 2]
     if "--c3-min" in args:                           # C3 >= N (does NOT imply the <= ceiling)
         i = args.index("--c3-min")
-        c3_min = int(args[i + 1]); del args[i:i + 2]
+        c3_min = _int_arg('--c3-min', args, i); del args[i:i + 2]
     if "--not-kw" in args:
         not_kw = True; args.remove("--not-kw")
     if "--f1-pairs" in args:                         # reduced subset instance (TASK #225 probe)
         i = args.index("--f1-pairs")
-        npairs = int(args[i + 1]); del args[i:i + 2]
+        npairs = _int_arg('--f1-pairs', args, i); del args[i:i + 2]
     if npairs is not None and (with_c3 or c3_min is not None or not_kw):
         raise SystemExit("--f1-pairs subset instances encode C1&C2&C4&C5 only: "
                          "--with-c3/--c3-max/--c3-min/--not-kw do not apply")
     expect, keep_dir = None, None                    # --certify-count modifiers
     if "--expect" in args:
         i = args.index("--expect")
-        expect = int(args[i + 1]); del args[i:i + 2]
+        expect = _int_arg('--expect', args, i); del args[i:i + 2]
     if "--keep" in args:
         i = args.index("--keep")
         keep_dir = args[i + 1]; del args[i:i + 2]
