@@ -209,6 +209,12 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 3. **Build the C enumerator from the source campaign's git ref** (recorded in
    the archive's `build.sha` / provenance sidecars) — or a sha-equivalent
    descendant verifiable via `./solve --validate-canonical <source-sha> <source-scale>`.
+   ⚠ **[SCOPED 2026-08-28 — `--validate-canonical` accepts `<scale>` only in `{1T, 11.2T, 100T}`;
+   its own usage line says so, and it refuses anything else. This recipe is titled for extending
+   **560T** to higher scales, so following it literally at the source scale it is written for
+   **fails**. Verified by running the shipped binary. Until the scale list is extended, verify a
+   560T-lineage build by the deeper canonical's recorded sha in
+   [CANONICAL_HASHES.md](CANONICAL_HASHES.md) rather than through this flag. Tracked as Q-324.]**
 4. **Launch the extension enum** with:
    - `SOLVE_NODE_LIMIT=<new_scale_total_nodes>`
    - `SOLVE_PER_SUB_BRANCH_LIMIT=<new_per_cell_budget>` (strictly greater

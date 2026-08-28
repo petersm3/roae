@@ -332,7 +332,7 @@ Each canonical is fully reproduced by the env-var set below. `SOLVE_DEPTH` is th
 > solve --canonical-config 100T --full     # also emit canonical DFS_ITERATIVE + DFS_CHECKPOINT
 > solve --validate-launcher-config 100T <PSB>   # exit 0 if PSB matches recipe, 1 if not
 > ```
-> Known scales: `1T 5.6T 10T 11.2T 100T 560T d2-10T`. Launchers should call `--validate-launcher-config` as a pre-flight gate before any compute is spent — see how `petersm3/roae-private:scripts/campaign_*_rederive/LAUNCH_*.sh` use it. Output deliberately omits `SOLVE_THREADS` because thread count is not sha-determining and depends on caller hardware.
+> Known scales: `1T 5.6T 10T 11.2T 100T 560T`. ⚠ **[CORRECTED 2026-08-28 — this list also named `d2-10T`, which the command does NOT know: `solve --validate-launcher-config d2-10T <PSB>` returns **rc=25 'unknown scale'** for any PSB, while all six scales above return 0/1 (i.e. recognised, then judged). Verified by running the shipped binary across all seven. The command's own usage text lists it too and is equally wrong. A pre-flight gate that reports 'unknown scale' where a doc promises support fails OPEN for the caller who does not check the exit code — which is the whole point of a pre-flight. Tracked as Q-324.]** Launchers should call `--validate-launcher-config` as a pre-flight gate before any compute is spent — see how `petersm3/roae-private:scripts/campaign_*_rederive/LAUNCH_*.sh` use it. Output deliberately omits `SOLVE_THREADS` because thread count is not sha-determining and depends on caller hardware.
 
 | Canonical | Env vars |
 |---|---|
