@@ -1471,3 +1471,58 @@ site.
 **Attribution.** Codex target **R03**, whose charge was that the withdrawal left labels standing.
 The code reading that settles it is `solve.c:39-61`, checked directly rather than taken from the
 review. Codex is **acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-28 — two sidecar writers disagreed, and the standalone `--merge` one recorded the gzip container sha
+
+**What was published.** `SOLUTIONS_FORMAT.md` §"File integrity" states that `solutions.sha256`
+holds "the SHA-256 hash of the entire **logical** `solutions.bin` byte stream … that is
+`gzip -dc solutions.bin | sha256sum`, **not** `sha256sum solutions.bin`", and `CANONICAL_HASHES.md`
+stated "Either way the `solutions.sha256` sidecar already holds the logical sha." **Both were false
+for any artifact produced by the standalone `--merge` path.**
+
+**The defect.** `solve.c` had **two** sidecar writers. The enumeration path used
+`write_sha256_with_metadata()` → `sha256_of_logical()`, which decompresses by magic and hashes the
+canonical byte stream. The standalone `--merge` finalizer instead shelled out
+`sha256sum <outname> > solutions.sha256`, hashing the file **as it sits on disk**. Since #169 the
+default framing is gz, so every gz-framed merge recorded the sha of the **compressed container**.
+`solutions.meta.json` inherited the same wrong value, because its hash is parsed back out of the
+sidecar.
+
+**Measured, by running the binary.** Two shard fixtures merged to 13,320 records. The pre-fix binary
+wrote sidecar `2d6411e65e7b41d654eac5e6d997c1270307b14fd9d61e6b0c6d1c8541327c51`, which is exactly `sha256sum solutions.bin`; the same bytes hash to
+`6ce4eea17318edd3f2e5f9488ec0c2a4fed26d940228d08fcf562d32ab7a4f9f` under `gzip -dc | sha256sum` — the value the artifact's own metadata carries. After
+the fix the same merge writes `6ce4eea17318edd3f2e5f9488ec0c2a4fed26d940228d08fcf562d32ab7a4f9f`, matching a **coreutils** computation done outside
+`solve.c` entirely.
+
+**Why this direction is the expensive one.** gzip framing is not canonical content: it varies with
+zlib version and compression level. A container sha therefore **false-mismatches an artifact that is
+byte-identical where it counts** — it manufactures phantom drift, and this project has already spent
+real time bisecting drift that proved to be host-level rather than content-level.
+
+**Fixed at the root, not in the documentation.** The `--merge` finalizer now calls the same
+`sha256_of_logical()` helper the enumeration path uses — one artifact, one definition — so the two
+published statements are now true rather than being edited to match a defect. Canonical `--selftest`
+sha `403f7202…` and the 12-warning baseline are both unchanged; this path is not on the enumeration
+line.
+
+**Gated.** `scripts/sidecar_sha_gate.sh`. LEG 1 (source-level, runs on any clone) forbids writing a
+sidecar by shelling out to a sha tool, which is the regression that actually occurred; LEG 2
+(artifact-level) checks a present `solutions.bin`/`.sha256` pair against an **independently**
+computed logical sha — coreutils, never `solve.c`'s own helper, or the gate would check the
+implementation against itself. Both legs were shown red and then green: LEG 1 on the original code
+re-planted, LEG 2 on the pre-fix merge output. LEG 1 excludes comment lines, because its first run
+went red on the comment *documenting* the defect — a gate that cannot tell code from prose about
+code punishes writing the explanation down.
+
+**Scope caveat, stated rather than assumed.** Any sidecar written by a standalone `--merge` before
+today, under gz framing, holds a container sha. **No audit of existing archives has been performed
+here**, and a mismatch against such a sidecar should be re-checked with `gzip -dc | sha256sum`
+before being read as corruption. A related claim — that this is the un-fixed root of the 560T
+`daab1c48` episode — was raised in the D1 batch-3 review and is **recorded as unverified by this
+entry**; it is tracked as Q-324.
+
+**Attribution.** Raised by Codex target **R04** and surfaced in the D1 batch-3 transcript
+adjudication; the code path, the reproduction and the fix were verified here by running the binary.
+Codex is **acknowledged**, not credited as an author.

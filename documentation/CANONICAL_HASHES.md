@@ -400,7 +400,14 @@ gzip -dc solutions.bin | sha256sum
 # Since #169 solutions.bin is gzip-framed by default and every canonical sha is computed on the
 # DECOMPRESSED stream, so plain `sha256sum solutions.bin` hashes the container and false-mismatches.
 # Under SOLVE_COMPRESS=0 the file is raw and plain `sha256sum solutions.bin` is the right command.
-# Either way the solutions.sha256 sidecar already holds the logical sha.
+# Either way the solutions.sha256 sidecar already holds the logical sha — TRUE SINCE 2026-08-28,
+# AND NOT BEFORE ON ONE PATH. solve.c had two sidecar writers: the enumeration path used
+# sha256_of_logical(), but standalone `--merge` shelled out `sha256sum <file>`, so under the
+# default gz framing it recorded the CONTAINER sha (and solutions.meta.json inherited it, being
+# parsed back out of the sidecar). If a sidecar was written by a standalone `--merge` before
+# 2026-08-28, verify it with `gzip -dc solutions.bin | sha256sum` before trusting a mismatch:
+# a container sha false-mismatches an artifact that is byte-identical where it counts.
+# Fixed + gated by scripts/sidecar_sha_gate.sh; see CORRECTIONS.md 2026-08-28.
 ```
 
 For independent constraint-spec verification (slower than sha but cross-checks the binary's enumeration logic):

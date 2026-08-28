@@ -23218,13 +23218,46 @@ int main(int argc, char *argv[]) {
                             "preflight should have caught this.\n");
             return 30;
         }
-        char sha_cmd[256];
-        snprintf(sha_cmd, sizeof(sha_cmd), "%s %s > %s 2>/dev/null",
-                 tool, outname, sha_name);
-        int rc = system(sha_cmd);
-        if (rc != 0) {
-            fprintf(stderr, "ERROR: sha256 computation failed (rc=%d)\n", rc);
+        /* 🔴 Q-324 (2026-08-28). THIS WROTE THE GZIP CONTAINER SHA, NOT THE CANONICAL ONE.
+         * It ran `sha256sum <outname> > solutions.sha256`, hashing the file as it sits on disk.
+         * Since #169 the default framing is gz, so on every gz-framed merge the sidecar held the
+         * sha of the COMPRESSED CONTAINER while the enumeration path's writer
+         * (write_sha256_with_metadata) used sha256_of_logical() and held the DECOMPRESSED sha.
+         * Two writers for one artifact, disagreeing whenever compression was on.
+         *
+         * Two public documents promised the logical value outright — SOLUTIONS_FORMAT.md
+         * §"File integrity" ("the SHA-256 hash of the entire LOGICAL solutions.bin byte stream …
+         * `gzip -dc solutions.bin | sha256sum`, NOT `sha256sum solutions.bin`") and
+         * CANONICAL_HASHES.md ("Either way the solutions.sha256 sidecar already holds the logical
+         * sha"). Both were false for anything this path produced.
+         *
+         * MEASURED 2026-08-28 by running the binary on two shard fixtures: the merge emitted
+         * 13,320 records and wrote sidecar `2d6411e6…`, which is exactly
+         * `sha256sum solutions.bin`, while the same bytes hash to `6ce4eea1…` under
+         * `gzip -dc | sha256sum` — the value the artifact's own solutions.meta.json carries.
+         * The damage was not confined to the sidecar: `hash_only` is parsed back out of this file
+         * and handed to sol_write_meta_json(), so solutions.meta.json inherited the wrong sha too.
+         *
+         * gzip framing is not canonical content — it varies with zlib version and level, so a
+         * container sha false-mismatches an artifact that is byte-identical where it counts. That
+         * is the direction that manufactures phantom drift, which is the expensive kind.
+         *
+         * Fixed by using the SAME helper the enumeration path uses. One artifact, one definition. */
+        (void)tool;
+        char merge_sha64[65] = {0};
+        if (sha256_of_logical(outname, merge_sha64, sizeof(merge_sha64)) != 0 || !merge_sha64[0]) {
+            fprintf(stderr, "ERROR: sha256 (logical) computation failed for %s\n", outname);
             return 30;
+        }
+        {
+            FILE *sf = fopen(sha_name, "w");
+            if (!sf) {
+                fprintf(stderr, "ERROR: cannot write %s: %s\n", sha_name, strerror(errno));
+                return 30;
+            }
+            /* First line stays `sha256sum -c`-compatible; the metadata block below appends. */
+            fprintf(sf, "%s  %s\n", merge_sha64, outname);
+            fclose(sf);
         }
 
         /* Phase E.2 follow-up (re-landed 2026-05-25): append provenance
