@@ -837,9 +837,20 @@ gate_retract() {
         local hitln
         hitln=$(grep -nF -- "$np" "$folddir/$f" 2>/dev/null | grep -vE '^[0-9]+:\| v[0-9]' \
                 | head -1 | cut -d: -f1)
+        # 🔴 Q-283 / Codex N10 finding 6 — reproduced on the PUBLISHED suite 2026-08-28.
+        # The `elif` below asked "does the phrase appear on NO single line?", so a WRAPPED prose
+        # use was reported only when nothing else in the file matched line-wise. A revision row
+        # legitimately quoting the retracted wording matches on one line — and therefore SUPPRESSED
+        # the wrapped hit. Measured: a TR with one revision row plus the same phrase broken across
+        # two prose lines left GATE 3 printing `[ok] retracted: "preserving the classical pairing"`
+        # at rc=0. Count instead of test: if the FLATTENED file holds more occurrences than the
+        # revision rows do, at least one lives outside them.
+        local nflat nrev
+        nflat=$(tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -oF -- "$np" 2>/dev/null | wc -l)
+        nrev=$(grep -E '^\| v[0-9]' "$folddir/$f" 2>/dev/null | grep -oF -- "$np" 2>/dev/null | wc -l)
         if [ -n "$hitln" ]; then
           hits="$hits $f:$hitln"
-        elif ! grep -qF -- "$np" "$folddir/$f" 2>/dev/null; then
+        elif [ "${nflat:-0}" -gt "${nrev:-0}" ]; then
           hits="$hits $f(spans-lines)"                  # only visible after normalisation
         fi
       fi
