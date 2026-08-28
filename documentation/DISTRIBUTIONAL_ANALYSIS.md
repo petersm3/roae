@@ -355,8 +355,16 @@ prior art is acknowledged — see [CITATIONS.md](CITATIONS.md) and
 
 The inferential trigram extension ([`roae.py --trigrams`](ROAE_PY_CLI.md)) places KW's trigram-level statistics in the same
 pair-preserving null framework used throughout this document: upper/lower trigram change rates are
-population-typical (47th/27th percentile); the pure-hexagram Classic-ends concentration is mildly notable
-(4/6, null P = 0.034, with the C4-fixes-two-positions caveat); KW is statistically independent of Jing
+population-typical (47th/27th percentile); the pure-hexagram Classic-ends concentration is **unremarkable
+once its own caveat is computed** (4/6; constrained null **P = 87/465 = 0.187**, exact) ⚠ **[CORRECTED
+2026-08-28 — this read "mildly notable (4/6, null P = 0.034, with the C4-fixes-two-positions caveat)".
+The caveat named the right baseline and **nothing ever computed it**: the sampler shuffles all 32 pair
+blocks, so 0.034 = 43/1240 is the UNCONSTRAINED null. C4 pins the pure block {63,0} into pair slot 1,
+which is already an end slot, so the constrained question is whether ≥1 of the remaining 3 pure blocks
+falls in slots {15,32} among 31: P = 1 − C(28,2)/C(31,2) = **87/465 = 0.1871**, exact, no simulation
+needed. That is **5.40×** the published value and the verdict reverses — "mildly notable" does not
+survive its own stated caveat. Verified two algebraic ways and by Monte Carlo (0.1869, 2×10⁶ draws).
+The 0.034 is retained above only as the unconstrained comparison.]**; KW is statistically independent of Jing
 Fang's palace ordering (Spearman rho = 0.14, null P = 0.12) — the two great classical orderings share
 constraint principles (both avoid 5-line transitions; see the no-5 shared-property analysis) while being
 organizationally unrelated. The nuclear-map terminal set {0, 21, 42, 63} coincides exactly with C4's fixed

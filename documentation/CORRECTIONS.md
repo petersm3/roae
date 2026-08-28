@@ -1526,3 +1526,58 @@ entry**; it is tracked as Q-324.
 **Attribution.** Raised by Codex target **R04** and surfaced in the D1 batch-3 transcript
 adjudication; the code path, the reproduction and the fix were verified here by running the binary.
 Codex is **acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-28 — a published P-value that never computed its own caveat, and "seven others" that are all King Wen
+
+Two corrections from the D1 batch-4 Codex adjudication, both **recomputed here** rather than accepted
+from the review.
+
+### 1. `DISTRIBUTIONAL_ANALYSIS.md:358` — "mildly notable (4/6, null P = 0.034)" reverses to unremarkable
+
+The sentence carried its own caveat — *"with the C4-fixes-two-positions caveat"* — and **nothing ever
+computed that baseline.** `roae.py`'s sampler shuffles all 32 pair blocks, so the published 0.034 is
+the **unconstrained** null: P = [C(4,2)·28 + C(4,3)] / C(32,3) = 43/1240 = 0.0347.
+
+But C4 pins the pure block {63,0} into pair slot 1, which is **already an end slot**. The constrained
+question is therefore whether at least one of the *remaining three* pure blocks falls in slots
+{15,32} among the 31 remaining: **P = 1 − C(28,2)/C(31,2) = 87/465 = 29/155 = 0.1871**, exact, no
+simulation required. Verified by a second algebraic route (1 − C(29,3)/C(31,3), identical) and by
+Monte Carlo (0.1869 over 2×10⁶ draws).
+
+**That is 5.40× the published value, and the verdict reverses**: a 0.187 result is unremarkable. A
+caveat that names the right baseline and never evaluates it is worse than no caveat, because it reads
+as though the correction has been considered. The 0.034 is retained only as the unconstrained
+comparison.
+
+### 2. `TR-4:95–97` and `SEARCH_SPACE_SIZE.md:126–128` — "KW plus seven others" is the opposite of what the enumeration shows
+
+Published: *"exact counting finds 16,504 C1–C5 completions of which exactly 8 satisfy C6/C7 — KW plus
+seven others even in its own immediate neighborhood"*, inside a passage arguing **non-uniqueness**.
+
+**All eight survivors carry King Wen's own pair ordering.** The seven "others" are orientation
+variants of KW's pair sequence. The 16,504 are **oriented** leaves — 899 distinct pair orderings — and
+C6/C7 eliminate **898 of the 899**, leaving King Wen's alone.
+
+Established with the shipped binary by a route independent of the review's own programs:
+
+| run | pins | `leaves_canonical_C1C5` | `tree_nodes` |
+|---|---|---:|---:|
+| baseline | 22-pair KW prefix | 16,504 | 9,422,793 |
+| C6/C7 | slots 24–27 to KW pairs, **pair ordering free** | **8** | 1,169 |
+| C6/C7 + all free slots | slots 24–32 to KW pairs, **orientation free** | **8** | 233 |
+
+The third run's feasible set is a strict subset of the second's (tree_nodes 1169 → 233) and has the
+**same cardinality**, so no survivor departs from King Wen's pair sequence.
+
+At this scope the check corroborates **uniqueness in the canonical frame**. The surrounding argument
+is about non-uniqueness at the **oriented** level, which is a different object — both can be true, and
+the sentence must not be read as evidence for the first. This is the same canonical-vs-oriented
+ambiguity corrected twice already today; here it inverted the meaning of a corroboration rather than
+inflating a magnitude. Note the binary's own field name, `leaves_canonical_C1C5`, reports an
+**oriented** count — tracked with the terminology items as Q-321/Q-330.
+
+**Attribution.** Raised by Codex targets **R08** and **T04** via the D1 batch-4 adjudication; both
+numbers recomputed here, the second with an instrument (`SOLVE_KNUTH_PIN_SLOTS`) the review did not
+use. Codex is **acknowledged**, not credited as an author.

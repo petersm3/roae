@@ -93,8 +93,8 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    estimate and [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)'s exact integers, is, we believe,
    the first quantitative answer to Luo's question. Closing the remaining ≈105 bits would
    need roughly 15–20 boundary constraints. Exact small-scope corroboration: in the KW-following 22-pair
-   prefix subtree, exact counting finds 16,504 C1–C5 completions of which exactly **8** satisfy C6/C7 — KW
-   plus seven others even in its own immediate neighborhood.
+   prefix subtree, exact counting finds 16,504 oriented C1–C5 completions of which exactly **8** satisfy
+   C6/C7 — **all eight sharing King Wen's pair ordering**. ⚠ **[CORRECTED 2026-08-28 — "plus seven others" invites a pair-ordering reading that is the OPPOSITE of what the enumeration shows. All **eight** survivors carry **King Wen's own pair ordering**; the seven "others" are orientation variants of it. The 16,504 figure is ORIENTED — it is 899 distinct pair orderings — and C6/C7 eliminate 898 of those 899, leaving King Wen's alone. Verified with the shipped binary: with the pair ordering free, C6/C7 leave 8 survivors; with every free slot additionally pinned to KW's pairs and only orientation free, the count is **also 8** (tree_nodes 1169 → 233, a strict subtree), so no survivor departs from KW's pair sequence. At small scope this corroborates UNIQUENESS in the canonical frame, not the non-uniqueness the surrounding paragraph argues at the oriented level.]**
 5. **The boundary-information curve S(k) (2026-07-03).** S(k) = fraction of the full C1–C5 population
    agreeing with KW on the first k boundaries of the 560T greedy identifying order {4, 27, 25, 21, 1}
    (first four measured here; flanking-slots predicate of [PARTITION_STABILITY_BOUNDARIES.md](../documentation/PARTITION_STABILITY_BOUNDARIES.md)), measured by

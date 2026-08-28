@@ -127,8 +127,17 @@ King Wen is not uniquely determined by the published constraint system over the 
 only within enumerated budgeted datasets (where 5 greedy-ordered boundary constraints isolate it at
 canonical depth; corrected 2026-07-04 from "4" — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). Closing
 the remaining ≈105 bits would require roughly 15–20 boundary constraints. A first exact corroboration at
-small scope: within the KW-following 22-pair prefix subtree, exact counting finds 16,504 C1–C5 completions
-of which exactly **8** satisfy C6/C7 — KW plus seven others even in its own immediate neighborhood.
+small scope: within the KW-following 22-pair prefix subtree, exact counting finds 16,504 **oriented**
+C1–C5 completions of which exactly **8** satisfy C6/C7 — **all eight sharing King Wen's pair ordering**.
+⚠ **[CORRECTED 2026-08-28 — this read "KW plus seven others even in its own immediate neighborhood", which
+invites a pair-ordering reading that is the OPPOSITE of what the enumeration shows. The seven "others" are
+orientation variants of King Wen's own pair sequence. The 16,504 are ORIENTED leaves — 899 distinct pair
+orderings — and C6/C7 eliminate 898 of the 899, leaving King Wen's alone. Verified with the shipped binary:
+pair ordering free, C6/C7 leave 8; every free slot additionally pinned to KW's pairs with only orientation
+free gives **also 8** (tree_nodes 1169 → 233, a strict subtree), so no survivor departs from KW's pair
+sequence. At this scope the check corroborates UNIQUENESS in the canonical frame — the paragraph above
+argues non-uniqueness at the ORIENTED level, which is a different object; both can hold, and the sentence
+must not be read as evidence for the first. See CORRECTIONS.md 2026-08-28.]**
 Provenance: estimator extension in solve.c (`SOLVE_KNUTH_C67`), sha-neutral (selftest-gated); run log in
 the private repo (probe on `c207`, 2026-07-02 — not publicly accessible; the public verification path is
 re-running the published `SOLVE_KNUTH_C67` command in this repository, which reproduces the count directly).
