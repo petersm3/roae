@@ -10611,8 +10611,114 @@ PY
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# GATE 26 — a count labelled CANONICAL may not exceed its own factorial ceiling.
+#
+# WHY THIS GATE AND NOT ANOTHER SWEEP. The "≈3×10³⁷ distinct canonical orderings" figure was
+# withdrawn on 2026-08-24 by enumerating nineteen sites that matched the STRING. Four days later,
+# building this gate found the same figure still live at five more (`enumeration/LEADERBOARD.md:3`
+# and `:170`, `documentation/SOLVE_SUMMARY.md:178` and `:211`, `documentation/CITATIONS.md:97`) and
+# the same DEFECT live at five per-branch sites written as `10³⁶`. None of the ten matched a search
+# for `3.3×10³⁷`, because a decomposition (`10³⁶` per branch), a restatement ("valid arrangements")
+# and a hyphenation (`distinct-canonical`) are not the string. A sweep keyed on a figure cannot find
+# that figure's rewordings; only a check keyed on the PROPERTY can.
+#
+# THE PROPERTY, and it needs no estimate to state. The deduplicated object is a PAIR ORDERING. C4
+# pins pair 1, leaving 31 to order, so there are at most 31! ≈ 8.2228×10³³ canonical orderings in
+# the whole space — and every canonical count published here is a count of a subset of that set.
+# So: a figure labelled canonical whose magnitude exceeds 31! is wrong on arithmetic alone, with no
+# estimator, sampling argument or distributional assumption involved.
+#
+# 🔴 THE CEILING IS DERIVED HERE, NOT READ FROM A DOCUMENT. log10(31!) is summed in the gate. If it
+# were grepped out of CORRECTIONS.md the gate would be checking the corpus against itself, and a
+# wrong ceiling in the doc would license the very figures it is supposed to refuse — the
+# verifier-closure defect this suite keeps finding. An INDEPENDENT derivation is the whole point.
+#
+# 🔴 WHY THE BINDING IS TIGHT AND MEASURED. The first cut required only that "canonical" appear
+# somewhere on the LINE. Measured against the corpus: 68 hits, essentially all false — raw figures
+# (1.3287×10³⁸ raw C1–C5, 1.097051×10³⁹ complete C1/C2/C4/C5) sitting on lines that mention the word
+# elsewhere. Both are correctly above 31!, because the RAW ceiling is 31!·2³¹ ≈ 1.77×10⁴³. A gate
+# firing on 68 sites reports nothing — the always-fires failure that has killed audits here before.
+# Requiring "canonical" within 40 characters of the figure, and no "raw" in that same window, takes
+# it to the real defects and their quotations.
+#
+# EXCLUSIONS, each with its reason, because an unexplained exclusion is a hole:
+#   * a window naming `30!`/`31!` or "ceiling" — that is the ceiling STATEMENT, not a claim.
+#   * a line already carrying WITHDRAWN or LABEL CORRECTED — marked is the cured state.
+#   * "canonical-leaf" / "canonical tree" — TR-10 uses these for leaves OF the canonical search
+#     tree, i.e. RAW C1–C5 leaves, not deduplicated orderings. Its 1.3275×10³⁸ is the raw estimate
+#     and is correct. That the same word carries both senses in this corpus is a real terminology
+#     hazard; it is recorded rather than enforced here, because this gate must not adjudicate it.
+#   * `documentation/CORRECTIONS.md` figures inside a `code span` — the ledger's job is to quote the
+#     figure it withdraws, and GATE 10a makes it append-only, so it could not be edited even if the
+#     quotation were wrong.
+gate_canonical_ceiling() {
+  echo "== GATE 26: no count labelled CANONICAL may exceed its own factorial ceiling =="
+  local out rc=0
+  out=$(printf '%s\n' "$DOCS" | python3 -c '
+import sys, io, re, math
+SUP={"⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9"}
+NEG="⁻"
+CEIL=sum(math.log10(k) for k in range(1,32))          # log10(31!), derived HERE
+pat=re.compile(r"(\d(?:[.,]\d+)?)\s*[×x]\s*10([" + "".join(SUP) + NEG + r"]+)")
+span=re.compile(r"`[^`]*`")
+files=[l.strip() for l in sys.stdin if l.strip()]
+if not files:
+    print("EMPTY"); sys.exit(0)
+n=0
+for f in files:
+    try: lines=io.open(f,encoding="utf-8").read().splitlines()
+    except OSError as e:
+        print("READFAIL\t%s\t%s" % (f,e)); n+=1; continue
+    for ln,line in enumerate(lines,1):
+        if "WITHDRAWN" in line or "LABEL CORRECTED" in line: continue
+        low=line.lower()
+        spans=[(m.start(),m.end()) for m in span.finditer(line)]
+        for m in pat.finditer(line):
+            if NEG in m.group(2): continue
+            try:
+                v=math.log10(float(m.group(1).replace(",","")))+int("".join(SUP[c] for c in m.group(2)))
+            except (ValueError,KeyError): continue
+            if v<=CEIL+0.01: continue
+            w=low[max(0,m.start()-40):m.end()+40]
+            if "canonical" not in w: continue
+            if "raw" in w: continue
+            if re.search(r"3[01]!|ceiling", w): continue
+            if "canonical-leaf" in w or "canonical tree" in w: continue
+            if f=="documentation/CORRECTIONS.md" and any(a<=m.start() and m.end()<=b for a,b in spans): continue
+            n+=1
+            print("HIT\t%s\t%d\t%s\t%.2f\t%s" % (f,ln,m.group(0),v,line[max(0,m.start()-60):m.end()+60].strip()[:150]))
+print("CEIL\t%.6f" % CEIL)
+') || { echo "  [FAIL] GATE 26 could not run its scanner — NOTHING was checked."; return 1; }
+  if printf '%s\n' "$out" | grep -qx 'EMPTY'; then
+    echo "  [FAIL] the markdown corpus reached this gate EMPTY — nothing was checked."
+    return 1
+  fi
+  local ceil; ceil=$(printf '%s\n' "$out" | awk -F'\t' '$1=="CEIL"{print $2}')
+  while IFS=$'\t' read -r tag f ln fig v ctx; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f:$ln  '$fig' is labelled CANONICAL but log10=$v exceeds log10(31!)=$ceil"
+    echo "         … $ctx"
+    rc=1
+  done < <(printf '%s\n' "$out")
+  while IFS=$'\t' read -r tag f err; do
+    [ "$tag" = READFAIL ] || continue
+    echo "  [FAIL] $f could not be read ($err) — a file this gate cannot read is not a file it cleared."
+    rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         A canonical count is a count of pair orderings. C4 pins pair 1, leaving 31 to order,"
+    echo "         so at most 31! ≈ 8.2228×10³³ exist. Either the figure is RAW and mislabelled (say raw,"
+    echo "         and check it against 31!·2³¹ ≈ 1.77×10⁴³), or it is withdrawn. See CORRECTIONS.md 2026-08-28."
+    return 1
+  fi
+  echo "  [ok] every canonical-labelled magnitude sits under log10(31!)=$ceil (ceiling derived in-gate)"
+  return 0
+}
+
 case "$MODE" in
   repro-reach) gate_repro_reach || RC=1 ;;
+  canonical-ceiling) gate_canonical_ceiling || RC=1 ;;
   value-domains) gate_value_domains || RC=1 ;;
   hex-prefix) gate_hex_prefix || RC=1 ;;
   tracked-ignored) gate_tracked_ignored || RC=1 ;;
@@ -10676,8 +10782,9 @@ case "$MODE" in
            echo; gate_publication_state || RC=1
            echo; gate_script_paths || RC=1
            echo; gate_hex_prefix || RC=1
-           echo; gate_tracked_ignored || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|all}"; exit 2 ;;
+           echo; gate_tracked_ignored || RC=1
+           echo; gate_canonical_ceiling || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|all}"; exit 2 ;;
 esac
 
 echo
@@ -10724,7 +10831,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).

@@ -5136,7 +5136,7 @@ size. It touches no solution data and needs no mounted disk — pure compute.
 Validated first against exact subtree counts (`--estimate-knuth 0`, deterministic): agreement to **<1%** at every
 prefix depth, and an independent cross-check where the 56 per-branch estimates summed to within <1% of the
 whole-tree estimate. The result: **≈1.3×10³⁸ raw C1–C5 orderings (≈3×10³⁷ distinct-canonical after ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
-orientation-dedup)**, with the 56 first-level branches all comparably enormous (~2×10³⁶, spread only ~2.7× — no
+orientation-dedup)**, with the 56 first-level branches all comparably enormous (~2×10³⁶ raw ⚠ **[LABEL CORRECTED 2026-08-28 — raw, not canonical; see documentation/CORRECTIONS.md]**, spread only ~2.7× — no
 small or near-exhaustible branch). This reframes everything: the deepest published canonical (560T, 1.05×10¹⁰
 records) has enumerated **≈1 part in 10²⁷** of the space; exhaustion, of the space or of any single branch, is off ⚠ **[the distinct-vs-distinct pairing is WITHDRAWN; stated raw-against-raw it is ≈1 part in 3.03×10²⁷ — see documentation/CORRECTIONS.md]**
 by 24+ orders of magnitude and infeasible at any budget that could ever be funded.

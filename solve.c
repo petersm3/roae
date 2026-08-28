@@ -22191,9 +22191,36 @@ int main(int argc, char *argv[]) {
          * complement is an automorphism of the C1-C5 solution set:
          * every record's complement should also be in solutions.bin.
          *
-         * This section doubles as a VALIDATION CHECK: if matches < n_sols,
-         * either the solver missed valid orderings (bug) or complement
-         * doesn't preserve C3 (which would be interesting in itself).
+         * 🔴 Q-312 (2026-08-28). THIS COMMENT USED TO SAY the section "doubles as a
+         * VALIDATION CHECK: if matches < n_sols, either the solver missed valid
+         * orderings (bug) or complement doesn't preserve C3". IT CANNOT DO THAT, and
+         * had not been able to since C4 was introduced. C4 pins position 1 to the pair
+         * (63,0) in EVERY record, so every record shares byte 0. That pair is
+         * self-complementary — 63^0x3F = 0 and 0^0x3F = 63 — so complementing maps it to
+         * itself WITH orient_flip=1, and comp_rec[0] therefore differs from the universal
+         * byte 0 in exactly the orientation bit, on every record without exception. The
+         * exact-match count was thus identically 0 whatever the data held: a perfect
+         * solver and a catastrophically broken one produce the same output, which is the
+         * definition of a check that cannot fail. Its forced 0 was published as a
+         * measurement in CRITIQUE.md ("0 of the records have their complement partner in
+         * the set … a structural property"). The zero is TRUE, but it is entailed by C4
+         * alone and says nothing whatever about C3 or about closure.
+         *
+         * 🔴 AND THE SEARCH WAS UNSOUND INDEPENDENTLY OF THAT. It binary-searched `all`
+         * with memcmp, but `all` is sorted by compare_solutions, whose PRIMARY key masks
+         * the orientation bits (& 0xFC) and only tiebreaks on the full byte. Those two
+         * orders disagree — records differing in orientation at byte i and in pair
+         * identity at byte i+1 sort oppositely under them — so the search was invalid on
+         * its own array even where a match was arithmetically possible.
+         *
+         * WHAT IT DOES NOW. It determines the forcing up front and SAYS SO
+         * (COMPLEMENT_ORBIT=ANCHOR_FORCED), rather than reporting a bare 0 that reads as
+         * a finding. When the answer is forced it spends its one binary search per record
+         * on the question that is NOT forced and IS informative: does the complement's
+         * PAIR SEQUENCE occur in the set under some orientation? That search uses
+         * compare_canonical, which is exactly compare_solutions' primary key, so it is
+         * sound on this array — and unlike the count it replaces, it can come back
+         * non-zero. Cost is unchanged: one binary search per record either way.
          *
          * Memory: allocates n_sols × 32 bytes (~24 GB on the 742M dataset).
          * Together with bmask (~2.9 GB) and the mmap, total resident
@@ -22231,12 +22258,35 @@ int main(int argc, char *argv[]) {
                  * Sha-neutrality: matches count is deterministic; same KW
                  * binary search as before. Output format preserved.
                  */
+                /* Q-312: is the exact-match answer forced by the C4 anchor? Derived from
+                 * the data and the complement table, not assumed. n_sols>0 is guaranteed
+                 * here (analyze mode refuses an empty file upstream), but read defensively:
+                 * an empty set would make `all[0]` a false anchor rather than an error. */
+                int anchor_forced = 0, anchor_byte = -1, anchor_comp = -1;
+                if (n_sols > 0) {
+                    anchor_byte = all[0];
+                    int a_pi = anchor_byte >> 2, a_o = (anchor_byte >> 1) & 1;
+                    anchor_comp = (comp_pair_idx[a_pi] << 2)
+                                | ((a_o ^ comp_orient_flip[a_pi]) << 1);
+                    anchor_forced = (anchor_comp != anchor_byte);
+                }
+                printf("    COMPLEMENT_ORBIT=%s\n", n_sols <= 0 ? "NO_RECORDS"
+                                                   : anchor_forced ? "ANCHOR_FORCED" : "MEASURED");
+                if (anchor_forced) {
+                    printf("    Position-1 is pinned by C4 to byte 0x%02X in every record; its complement\n",
+                           (unsigned)anchor_byte);
+                    printf("    image is 0x%02X. No complement can satisfy C4, so the exact-match count is 0\n",
+                           (unsigned)anchor_comp);
+                    printf("    BY CONSTRUCTION and is not evidence about C3 or about closure. Reporting the\n");
+                    printf("    orientation-free question instead: is the complement's PAIR SEQUENCE present?\n");
+                }
                 printf("    Computing complements + verifying inclusion via binary search...\n");
                 time_t tc0 = time(NULL);
                 long long matches = 0;
+                long long pairseq_matches = 0;
                 long long s20_progress_step = (n_sols + 99) / 100;
                 if (s20_progress_step < 1) s20_progress_step = 1;
-                #pragma omp parallel for reduction(+:matches) schedule(static)
+                #pragma omp parallel for reduction(+:matches,pairseq_matches) schedule(static)
                 for (long long i = 0; i < n_sols; i++) {
                     const unsigned char *src = all + i * SOL_RECORD_SIZE;
                     unsigned char comp_rec[SOL_RECORD_SIZE] = {0};
@@ -22247,12 +22297,17 @@ int main(int argc, char *argv[]) {
                         int new_o  = old_o ^ comp_orient_flip[old_pi];
                         comp_rec[p] = (unsigned char)((new_pi << 2) | (new_o << 1));
                     }
-                    /* Binary search comp_rec in the already-sorted `all`. */
+                    /* Q-312: compare with the array's OWN comparator, never memcmp.
+                     * When the exact answer is forced, spend the search on the
+                     * orientation-free question, which is sound under compare_canonical
+                     * (compare_solutions' primary key) and is not forced. */
                     long long lo = 0, hi = n_sols;
                     while (lo < hi) {
                         long long mid = lo + (hi - lo) / 2;
-                        int cmp = memcmp(comp_rec, all + mid * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
-                        if (cmp == 0) { matches++; break; }
+                        const unsigned char *cand = all + mid * SOL_RECORD_SIZE;
+                        int cmp = anchor_forced ? compare_canonical(comp_rec, cand)
+                                                : compare_solutions(comp_rec, cand);
+                        if (cmp == 0) { if (anchor_forced) pairseq_matches++; else matches++; break; }
                         else if (cmp < 0) hi = mid;
                         else lo = mid + 1;
                     }
@@ -22275,13 +22330,21 @@ int main(int argc, char *argv[]) {
                 }
                 printf("    Done in %lds.\n", (long)(time(NULL) - tc0));
 
-                printf("    Records with complement in set: %lld / %lld (%.4f%%)\n",
-                       matches, n_sols, 100.0 * matches / n_sols);
-                if (matches == n_sols)
-                    printf("    *** Complement is an AUTOMORPHISM of the C1-C5 solution set ***\n");
-                else
-                    printf("    *** Complement is NOT closed: %lld records lack their complement partner ***\n",
-                           n_sols - matches);
+                if (anchor_forced) {
+                    printf("    Records whose complement PAIR SEQUENCE is in the set: %lld / %lld (%.4f%%)\n",
+                           pairseq_matches, n_sols, n_sols ? 100.0 * pairseq_matches / n_sols : 0.0);
+                    printf("    Exact-record complement matches: 0 / %lld — FORCED by C4, not measured.\n", n_sols);
+                    printf("    *** Complement is not closed, because C4 pins position-1 orientation and\n");
+                    printf("        complementing flips it. This restates C4; it is NOT a test of C3. ***\n");
+                } else {
+                    printf("    Records with complement in set: %lld / %lld (%.4f%%)\n",
+                           matches, n_sols, n_sols ? 100.0 * matches / n_sols : 0.0);
+                    if (matches == n_sols)
+                        printf("    *** Complement is an AUTOMORPHISM of the C1-C5 solution set ***\n");
+                    else
+                        printf("    *** Complement is NOT closed: %lld records lack their complement partner ***\n",
+                               n_sols - matches);
+                }
 
                 /* Check KW specifically (rec#0) */
                 unsigned char kw_comp[SOL_RECORD_SIZE] = {0};
@@ -22298,7 +22361,8 @@ int main(int argc, char *argv[]) {
                 long long kw_comp_idx = -1;
                 while (lo < hi) {
                     long long mid = lo + (hi - lo) / 2;
-                    int cmp = memcmp(kw_comp, all + mid * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
+                    /* Q-312: same defect, same fix — memcmp is not this array's order. */
+                    int cmp = compare_solutions(kw_comp, all + mid * SOL_RECORD_SIZE);
                     if (cmp == 0) { found_kw_comp = 1; kw_comp_idx = mid; break; }
                     else if (cmp < 0) hi = mid;
                     else lo = mid + 1;

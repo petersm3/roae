@@ -5,8 +5,16 @@ Prior versions: v0 (unstructured record stream, no header) — superseded.
 
 ## Overview
 
-`solutions.bin` contains every unique pair ordering of 64 I Ching hexagrams
-that satisfies constraints C1-C5. The file layout is:
+`solutions.bin` contains the unique pair orderings of 64 I Ching hexagrams
+satisfying constraints C1-C5 **that the producing run found within its node
+budget** — not every such ordering. Every enumeration this project publishes is
+budgeted: each cell stops at its node allowance rather than completing, so a
+`solutions.bin` is an exactly-reproducible *slice* and its record count is a
+**lower bound**, never the cardinality of the C1-C5 space. (Corrected
+2026-08-28: this sentence read "contains every unique pair ordering … that
+satisfies constraints C1-C5", with no budget qualifier anywhere in the file —
+an unscoped completeness claim that the rest of the corpus, and
+[`SEARCH_SPACE_SIZE.md`](SEARCH_SPACE_SIZE.md), contradict.) The file layout is:
 
     [ 32-byte header ] [ N × 32-byte records ]
 

@@ -1333,3 +1333,93 @@ project already suspected the figure**, arriving at the same conclusion by a dif
 Codex is **acknowledged**, not credited as an author. The ceiling argument came from re-deriving what the deduplicated
 object actually is. **The figure had been suspected internally since 2026-07-30 and no fix had been
 applied** — the delay between knowing and acting is the more useful lesson here than the arithmetic.
+
+---
+
+## 2026-08-28 — the PER-BRANCH figures carried the same raw/canonical label defect, and the 19-site sweep missed them
+
+**What was published.** `SEARCH_SPACE_SIZE.md` §"Result — per first-level branch" reported
+`canonical orderings per branch: min 1.26×10³⁶, median 2.26×10³⁶, max 3.46×10³⁶`, and the same
+per-branch figures propagated to `TR-4` §3, `HISTORY.md`, and twice more inside
+`SEARCH_SPACE_SIZE.md` itself (the "roughly uniform" bullet and Implication 1's
+"any *single* first-level branch (~2×10³⁶)").
+
+**Why it is wrong, in one line.** Word-for-word the defect withdrawn on 2026-08-24, one level down:
+the deduplicated object is a **pair ordering**, C4 pins pair 1 and a first-level branch pins pair 2,
+leaving 30 to order — so there are **at most 30! ≈ 2.65×10³²** canonical orderings per branch.
+Labelled "canonical", the published figures exceed their own combinatorial ceiling by
+**4,750× (min), 8,520× (median) and 13,044× (max)**.
+
+**But the numbers are sound; the label is not.** These are **raw** per-branch counts:
+
+- They sum to **1.33×10³⁸** — the raw whole-tree estimate — which `TR-4` §3 states in the very
+  sentence preceding them, as an "independent cross-check" against the raw whole-tree figure.
+- Against the **raw** per-branch ceiling `30!·2³⁰ ≈ 2.85×10⁴¹` they sit at ≈4.4–12×10⁻⁶, and the
+  median sits at **7.94×10⁻⁶** — indistinguishable from the **7.52×10⁻⁶** at which the raw
+  whole-space estimate sits against `31!·2³¹`. A relabelling error reproduces that ratio; a
+  measurement error would not.
+
+So this is **corrected, not withdrawn**: the figures are relabelled raw, and the per-branch
+*canonical* count is recorded as **not established**, because the ≈4× orientation-dedup factor
+needed to derive it is precisely the ingredient the 2026-08-24 entry withdrew.
+
+**What survives, on a stronger footing than before.** "No single-branch walk can exhaust anything"
+no longer rests on the withdrawn estimate at all. Orientation-deduplication *within* a branch can
+divide by at most **2³⁰ ≈ 1.07×10⁹** (pairs 1 and 2 are already orientation-pinned), so the
+canonical count of even the **smallest** branch is at least `1.26×10³⁶ / 2³⁰ ≈ 1.2×10²⁷` — still
+**≈10¹⁷×** beyond the 1.05×10¹⁰ orderings of the deepest published canonical. That is a worst-case
+bound on the dedup factor, not an estimate of it, so it holds however `E[1/m]` eventually measures.
+Implication 1's "off by 24+ orders of magnitude" is corrected to **17+**, which is what the
+dedup-independent floor supports.
+
+**What does NOT survive.** The *uniformity* claim ("spread of only ≈2.7×", "extrapolation from one
+branch to the whole is well-founded") is raw-against-raw and is now stated only for **raw** size.
+Per-branch dedup factors were never measured, so uniformity of the **canonical** per-branch counts
+is not established and is no longer asserted.
+
+**Why the 2026-08-24 sweep missed it.** That sweep enumerated sites by searching for the
+whole-space figure `≈3.3×10³⁷` and its `10²⁷` coverage denominator. The per-branch decomposition of
+the same estimate is written as `10³⁶` and matched neither pattern — including at `HISTORY.md:5139`
+and `TR-4:72`, where the unmarked per-branch clause sits in the **same sentence** as a marked
+whole-space one. A sweep keyed on a figure cannot find that figure's decompositions; it needs to be
+keyed on the *property* — a count labelled canonical that exceeds its own factorial ceiling. That
+gate is now `doc_gates.sh` GATE 26 (`canonical-ceiling`), which fails on either instance.
+
+**Attribution.** Raised as one of two label residues by **Codex** review target `R03`
+("Published search-space arithmetic vs its own definitions"), whose charge was that the
+2026-08-24 nineteen-site withdrawal left labels standing; surfaced in the D1 batch-1 transcript
+adjudication and verified here against `origin/main` `db4ac3dc` by re-deriving the ceilings and the
+raw-fraction comparison. Codex is **acknowledged**, not credited as an author.
+
+**And the sweep missed more than the per-branch family.** Building GATE 26 required enumerating every
+site of the withdrawn figure by *property* rather than by string, and that enumeration found **five
+live publication sites of the whole-space figure itself**, still unmarked four days after the
+nineteen-site sweep:
+
+| site | what it said |
+|---|---|
+| `enumeration/LEADERBOARD.md:3` | `(≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B is ≈1 part in 10²⁷ of the space` — the withdrawn figure **and** the withdrawn coverage denominator, in the enumeration headline |
+| `enumeration/LEADERBOARD.md:170` | `orderings at ≈10³⁸ (≈3×10³⁷ distinct-canonical)` |
+| `documentation/SOLVE_SUMMARY.md:178` | `now puts the total at ≈10³⁸ (≈3×10³⁷ distinct-canonical)` |
+| `documentation/SOLVE_SUMMARY.md:211` | `an estimated ≈3×10³⁷ valid arrangements` — the *deduplicated* figure wearing a **raw** label; the orientation-explicit estimate is 1.33×10³⁸ |
+| `documentation/CITATIONS.md:97` | `estimated at 1.33×10³⁸ orientation-explicit, ≈3.3×10³⁷ after orientation-dedup`, inside CX-30's own correction text |
+
+`enumeration/LEADERBOARD.md` carried **no withdrawal marker at all**, while
+`documentation/SOLVE_SUMMARY.md:237` carried one correctly — so the sweep reached that file and
+still left two of its lines standing. All five are now marked.
+
+**One site is deliberately left unmarked: `CORRECTIONS.md:948`,** inside **CX-30** (2026-08-07),
+which cites `≈3.3×10³⁷` three weeks before the withdrawal. This ledger is append-only and GATE 10a
+fails on any reworded committed line, so CX-30 stays verbatim — *verified by reading the gate, not
+assumed*. This paragraph is the forward pointer CX-30 cannot carry: **the `≈3.3×10³⁷` in CX-30 is
+withdrawn.** The remaining unmarked occurrences are this ledger's own withdrawal entries quoting
+what they withdraw, and `TR-4`'s v1.21 revision row explaining the marker — all of which must state
+the figure to do their job.
+
+**The lesson, which is the reusable part.** Both misses share one cause: **a sweep keyed on a string
+cannot find that string's decompositions or its restatements.** The per-branch figures are the same
+estimate written as `10³⁶`; `SOLVE_SUMMARY.md:211` is the same figure relabelled "valid
+arrangements"; `LEADERBOARD.md` used the hyphenated `distinct-canonical`. None matched a search for
+`3.3×10³⁷` next to `distinct canonical`. GATE 26 is keyed on the property instead — *a count labelled
+canonical whose magnitude exceeds `31!`* — which is invariant to all three rewordings, and it is
+tested by planting each of the two historical defects and confirming the gate goes red on both.
