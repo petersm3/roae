@@ -1581,3 +1581,44 @@ inflating a magnitude. Note the binary's own field name, `leaves_canonical_C1C5`
 **Attribution.** Raised by Codex targets **R08** and **T04** via the D1 batch-4 adjudication; both
 numbers recomputed here, the second with an instrument (`SOLVE_KNUTH_PIN_SLOTS`) the review did not
 use. Codex is **acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-28 — the C2∩C3 joint, reproduced independently: the product is exceeded by ~11%
+
+The 2026-08-28 entry above corrected `CRITIQUE.md:137`'s "rough **ceiling**" on reasoning alone — a
+product of marginals is an independence *estimate*, and bounds the joint from above only if the two
+constraints are non-positively correlated. It also recorded, honestly, that the review's supporting
+**measurement** had not been reproduced here. **It now has been.**
+
+A separately-written sampler over the same null (C1 given, start-free: a uniform random permutation
+of the 32 King Wen pair blocks with uniform random orientations) gives, at 10⁷ trials:
+
+| quantity | measured | published exact | agreement |
+|---|---:|---:|---|
+| P(C2 \| C1) | 4.29159% | **4.29341%** | 0.3σ |
+| P(C3 \| C1) | 6.41625% | **6.4211367496%** | 0.6σ |
+| product | 0.27536% | 0.27568% | — |
+| **P(C2 ∧ C3 \| C1)** | **0.30478%** | — | **+16.7σ over the product** |
+
+**The marginals are the point of the design.** They are published as *exact* values
+(`solve --f1-exact-c1c2`; `verify.py --check-null-g --unpinned`), so reproducing them from an
+independent implementation is what licenses trusting its joint — the check validates the instrument
+before the instrument is used. The predicates are additionally anchored on King Wen itself: KW
+satisfies C2, and cd(KW) = **776** exactly, which is the C3 ceiling by construction.
+
+Two independent runs now agree: **0.305832%** at 10⁹ (D1 batch-4) and **0.30478%** at 10⁷ here —
+0.6σ apart. C2 and C3 are **positively correlated** given C1; the independence product is **not** an
+upper bound, and the published sentence's "ceiling" framing is wrong in the direction that
+understated the joint by ~11%.
+
+`CRITIQUE.md:137` now publishes the measured joint rather than citing an unreproduced figure, and the
+sampler ships as `scripts/c2c3_joint_null.py` — a published figure whose only reproduction path was a
+private script would not be reproducible at all. The
+remaining `Q-329` items — the reversed `DISTRIBUTIONAL_ANALYSIS.md` P-value (corrected 2026-08-28)
+and the Gray-code-family bound drawn from a self-described non-uniform sampler (**not yet
+addressed**) — are unaffected by this entry.
+
+**Attribution.** Codex target **R08** raised the ceiling claim; the measurement was made twice, once
+in the D1 batch-4 adjudication and once here from an independently written sampler. Codex is
+**acknowledged**, not credited as an author.
