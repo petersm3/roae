@@ -1332,6 +1332,17 @@ if __name__ == "__main__":
         i = args.index("--keep")
         keep_dir = args[i + 1]; del args[i:i + 2]
 
+    # 🔴 An UNRECOGNISED flag was silently ignored. Measured 2026-08-28: `--c3max 776` -- one
+    # missing hyphen, the most likely typo there is -- left sat.py printing its help banner and
+    # exiting 0 with NO CNF written. A scripted caller sees success and no file. That is worse
+    # than emitting the wrong formula, because rc=0 is an assertion that the command ran.
+    # Same silent-ignore class as Q-309 (`--f1-pairs` with C3 flags), one layer out: there the
+    # flag was accepted and dropped, here the whole invocation is.
+    _stray = [a for a in args[1:] if a.startswith("--")]
+    if _stray:
+        raise SystemExit("unrecognised flag(s): " + " ".join(_stray) +
+                         "\n(a mistyped flag was silently ignored before 2026-08-28; it is an error now)")
+
     def _emit_label(target):
         if npairs is not None:
             return "f1c5 --f1-pairs %d (C1&C2&C4&C5)" % npairs
