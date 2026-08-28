@@ -354,7 +354,7 @@ Step 3 is the critical one: every 4-subset is scored on **equal footing** agains
 
 ### Why 4 boundaries — not fewer?
 
-Exhaustive testing confirms that no combination of 3 or fewer uniquely determines King Wen in either dataset. Four is the empirical minimum at d2 and d3.
+Exhaustive testing confirms that no combination of 3 or fewer uniquely determines King Wen in either dataset. Four is the empirical minimum **at the 10T budget** — at d2 10T and at d3 10T (8 working unordered 4-subsets). ⚠ **[SCOPE CORRECTED 2026-08-28 — this read "the empirical minimum at d2 and d3", which scopes to a dataset FAMILY when the result is budget-dependent *within* d3: at d3 100T no 4-subset suffices, and at d3 560T the working-4-subset count is 0 with a greedy minimum of five, `{4, 27, 25, 21, 1}`. Unscoped, this section's heading question "Why 4 boundaries" is answered only for the shallowest budget published. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) and [CRITIQUE.md](CRITIQUE.md) §"Boundary constraint claims must be scoped".]** **At the deeper published budgets the minimum is five, not four.**
 
 Several simpler alternatives were tested and ruled out:
 
@@ -760,7 +760,7 @@ python3 solve.py --null-debruijn --trials 20000   # Null-model comparison agains
 
 ### C solver (solve.c) — fast enumeration
 
-For complete enumeration of the solution space, the C implementation is ~60x faster than the Python version. It counts all solutions satisfying Rules 1-5 + C3, de-duplicates by canonical pair ordering, and reports unique ordering counts.
+For enumeration at scale, the C implementation is ~60x faster than the Python version. It counts the solutions satisfying Rules 1-5 + C3 **that it reaches within its node budget**, de-duplicates by canonical pair ordering, and reports unique ordering counts. (Corrected 2026-08-28: this read "For complete enumeration of the solution space". No published enumeration is complete — every one is budgeted; see [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) and [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md).)
 
 ```
 gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz    # Compile

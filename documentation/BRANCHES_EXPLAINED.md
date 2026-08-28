@@ -94,7 +94,11 @@ the measurement is.* The measurement, its artifacts and its reproduction
 commands stand regardless of how the priority question resolves.
 
 The job of the solver is: **find every ordering of the 64 hexagrams
-that satisfies C1-C5.** How many are there? Is King Wen one of
+that satisfies C1-C5.** That is the *goal*; it is not what any run has
+achieved. Every published enumeration is budgeted and returns a
+reproducible *slice*, so its count is a lower bound — see
+[`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md) and
+[`SEARCH_SPACE_SIZE.md`](SEARCH_SPACE_SIZE.md). How many are there? Is King Wen one of
 millions, or one of three? Or the only one?
 
 ---

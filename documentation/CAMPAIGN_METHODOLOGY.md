@@ -484,7 +484,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | **Final sha256** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** |
 | Records | **10,525,271,997** unique canonical solutions |
 | Bytes | **336,808,703,936** on disk (32-byte header + records × 32; record-bytes = 336,808,703,904) |
-| Pre-dedup raw records | **43,876,464,466** (4.17× dedup ratio) |
+| Pre-merge shard records (per-sub-branch canonical) | **43,876,464,466** (4.17× cross-sub-branch rediscovery ratio — NOT an orientation-dedup ratio) ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c:39-61` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch, so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** |
 | Final shard count | **65,281** cells with non-empty shards (41.2 % yield) |
 | Cells with zero solutions | 93,083 (58.8 %) — fully scanned, budget exhausted, no records emitted |
 | `.dfs_state` checkpoint count | 158,364 (100 % of cells scanned) |

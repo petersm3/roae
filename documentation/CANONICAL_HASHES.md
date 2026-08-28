@@ -64,7 +64,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 > final merge is a projection onto that set, provably invariant to thread count, machine, branch-partition order,
 > **and eviction/resume provided the resume is correct.** Only two things can change the sha: a genuinely *lost*
 > unique solution or a *fabricated* one. The byte-match rules out both. A pre-merge shard comparison quantifies it:
-> both runs found solutions in the **same 65,281 cells**, and the old run's raw pre-dedup total (43,880,306,393)
+> both runs found solutions in the **same 65,281 cells**, and the old run's pre-merge shard total ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c:39-61` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch, so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** (43,880,306,393)
 > exceeded the new run's (43,876,464,466) by exactly **+3,841,927 records (0.009%)** — all duplicates the dedup
 > erased. So the old run's 5 evictions caused **over-emission, not loss or fabrication**. This also demonstrates
 > the #188 fix's eviction-resume determinism **at the deepest (560T) scale**, complementing the 11.2T proof.

@@ -1423,3 +1423,51 @@ arrangements"; `LEADERBOARD.md` used the hyphenated `distinct-canonical`. None m
 `3.3×10³⁷` next to `distinct canonical`. GATE 26 is keyed on the property instead — *a count labelled
 canonical whose magnitude exceeds `31!`* — which is invariant to all three rewordings, and it is
 tested by planting each of the two historical defects and confirming the gate goes red on both.
+
+---
+
+## 2026-08-28 — the 43,876,464,466 figure is not "raw records", and the 4.17× is not a dedup ratio
+
+**What was published.** Three sites labelled the 560T pre-merge shard total as **raw**:
+`CAMPAIGN_METHODOLOGY.md:487` ("Pre-dedup raw records | 43,876,464,466 (4.17× dedup ratio)"),
+`CANONICAL_HASHES.md:67` and `HISTORY.md:5106` ("the old run's raw pre-dedup total"). The
+2026-08-24 entry above then paired that total against the raw 1.3287×10³⁸ as the "correct
+raw-against-raw" coverage, ≈1 part in 3.03×10²⁷.
+
+**Why the label is wrong, from the code.** `solve.c:39-61` states that each thread's hash table
+stores **canonical pair orderings** — "hash and dedup compare pair identity only (orient bit masked
+out)" — and that **"after each sub-branch, the thread's hash table is flushed … and the table is
+cleared."** So a shard record is a per-sub-branch **canonical** key, not a raw oriented leaf, and
+the sum over shards counts the same canonical ordering once per sub-branch that rediscovers it.
+43,876,464,466 is therefore **cross-sub-branch rediscovery of canonical keys**, and as a count of
+raw oriented leaves it is a **lower bound** (each key implies at least one leaf visited), never the
+quantity itself. Every argument built on it survives: the old-vs-new run comparison
+(+3,841,927 = 0.009% over-emission, all duplicates) compares two totals of the *same* kind, so it is
+unaffected. Only the label moves, and the coverage figure keeps its value as a bound.
+
+**A sharper consequence for this ledger's own reasoning.** The 2026-08-24 entry cites **4.17× at
+560T** as one of two disagreeing measurements of the orientation-dedup ratio — "42.2 mean variants
+per ordering at a 10⁹-node search versus 4.17× at 560T … both are artefacts of truncation." That
+framing is too generous to itself. The 4.17× is `43,876,464,466 / 10,525,271,997`: shard records
+over merged records. Since shard records are *already* orientation-deduplicated, **4.17× is not a
+measurement of orientation multiplicity at all** — it is the cross-sub-branch rediscovery factor,
+a property of the depth-3 partition. The two numbers did not disagree about one quantity; they were
+never measuring the same quantity. The 2026-08-24 conclusion (do not extrapolate either) stands, and
+its stated reason was weaker than the truth. That entry is preserved unedited — this ledger is
+append-only, GATE 10a enforces it — and this paragraph is its correction.
+
+**Also corrected, same root.** `SEARCH_SPACE_SIZE.md`'s estimate-table header read
+**"canonical (C1–C5) orderings (raw)"** — a single cell asserting both object conventions at once.
+That cell is the origin of the conflation withdrawn on 2026-08-24 and of the per-branch label defect
+corrected earlier today; it now names the orientation-explicit object and states both ceilings.
+
+**Scope note.** `SEARCH_SPACE_SIZE.md:193`'s "identifying King Wen requires log₂(1.3287×10³⁸) =
+126.6 bits" prices the **raw** object — correct as used, since a boundary constraint identifies an
+*oriented* ordering. Over the canonical object the figure would be log₂(31!) = **112.66 bits**, a
+ceiling. The ~14-bit gap is about one and a half boundary-steps, so comparing the 126.6 against any
+canonical-object count is a units error large enough to change a conclusion. Said explicitly at the
+site.
+
+**Attribution.** Codex target **R03**, whose charge was that the withdrawal left labels standing.
+The code reading that settles it is `solve.c:39-61`, checked directly rather than taken from the
+review. Codex is **acknowledged**, not credited as an author.

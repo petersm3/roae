@@ -40,7 +40,7 @@ Agreement is **<1% at every depth**. Independent cross-check: the 56 per-branch 
 
 | quantity | estimate | 95% CI | rel. error |
 |---|---|---|---:|
-| **canonical (C1–C5) orderings (raw)** | **1.3287×10³⁸** | [1.3283, 1.3292]×10³⁸ | 0.02% |
+| **C1–C5 orderings, RAW (orientation-explicit)** ⚠ **[HEADER CORRECTED 2026-08-28 — read "canonical (C1–C5) orderings (raw)", one cell asserting both object conventions at once. That cell is the root of the raw/canonical conflation withdrawn on 2026-08-24 and of the per-branch label defect corrected on 2026-08-28: in this corpus "canonical" means orientation-DEDUPLICATED, ceiling 31!, while this row is orientation-EXPLICIT, ceiling 31!·2³¹.]** | **1.3287×10³⁸** | [1.3283, 1.3292]×10³⁸ | 0.02% |
 | — distinct canonical (after ~4× orientation-dedup) | **≈3.3×10³⁷** | — | — | ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 | complete orderings satisfying C1/C2/C4/C5 | 1.0971×10³⁹ — now known **exactly**: 1.097051×10³⁹ ([TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16; independently recomputed at full scale 2026-07-25 by verify.c's IE transfer-walk engine — exact match, TR-11 §10(vi); the exact value lands inside the estimate's stated envelope — see §"Absolute validation against an exact count") | — | 0.01% |
 | total backtracking-tree nodes | 2.0875×10⁴⁰ | — | 0.00% |
@@ -190,7 +190,7 @@ see TR-11 §10(ii).)
 > **Label corrected 2026-08-01:** previously headed "An information floor". No floor is established — see
 > the extrapolation bullet below and TR-4 v1.15/v1.16 for why the argument bounds nothing.
 
-Identifying King Wen within the C1–C5 space requires log₂(1.3287×10³⁸) = **126.6 bits**. The measured
+Identifying King Wen within the C1–C5 space requires log₂(1.3287×10³⁸) = **126.6 bits**. ⚠ **[SCOPE NOTE added 2026-08-28 — this prices the RAW, orientation-explicit object, which is the right one here because a boundary constraint identifies an oriented ordering. Stated over the orientation-deduplicated object the figure would be log₂(31!) = **112.66 bits** — a ceiling, since the canonical count is at most 31!. The two differ by ~14 bits, so any comparison of this number against a canonical-object count is a units error of about one and a half boundary-steps.]** The measured
 greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 11.10, 9.40, 10.13 bits
 — strikingly flat (mean 10.13; corrected 2026-08-01 from "10.07", which is not the mean of the five listed gains), and the first step is the maximum **unconditional** single-boundary gain by construction (greedy picks it first) — **but NOT the maximum over all conditioning contexts: step 3 gains 11.10 bits, exceeding it. Corrected 2026-08-01; the earlier text used 10.38 as a universal per-boundary cap, which its own data falsifies**
 (greedy picks the minimum-survivor boundary). Two consequences, honestly labeled:

@@ -5103,7 +5103,7 @@ evicted cell re-walking and re-emitting) is deduped away; re-ordering is re-sort
 **fabricated** unique solution can change the sha — the byte-match rules out both, for both runs.
 
 A **pre-merge shard comparison** makes this concrete rather than merely argued: the two runs produced solutions in
-the **identical set of 65,281 cells**, and the old run's raw pre-dedup total was **43,880,306,393 records vs the
+the **identical set of 65,281 cells**, and the old run's pre-merge shard total ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c:39-61` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch, so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** was **43,880,306,393 records vs the
 new run's 43,876,464,466 — the old run over-emitted exactly +3,841,927 records (0.009%)**, every one a *duplicate*
 that the canonical dedup erased (had any been an invalid ordering, it would have survived dedup and moved the sha).
 So the original run's 5 evictions produced **localized over-emission, not loss and not fabrication** — the exact
