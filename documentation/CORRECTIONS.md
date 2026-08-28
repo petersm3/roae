@@ -1622,3 +1622,49 @@ addressed**) — are unaffected by this entry.
 **Attribution.** Codex target **R08** raised the ceiling claim; the measurement was made twice, once
 in the D1 batch-4 adjudication and once here from an independently written sampler. Codex is
 **acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-28 — a rate bound published as a minimum bound, among only three survivors of the battery bar
+
+**What was published.** `CRITIQUE.md:60`, in the list of claims that *"survive both the 0.0018 battery
+bar and the 5.5×10⁻⁴ global bar"* — three items in all — named the third as *"the Gray-code
+**minimum**-C3 bound (minimum across 10⁵ samples = 832 > 776, CI ≤ 3×10⁻⁵)"*.
+
+**Why it is wrong, in one line.** **A sample minimum is an upper bound on the true minimum, never a
+lower bound.** Observing 832 as the smallest C3 across 10⁵ sampled Gray codes establishes that the
+family minimum is **≤ 832**. It is entirely consistent with the family minimum being below 776 —
+which is the direction the sentence was being read in, since 776 is King Wen's value and the point
+being made was that no Gray code reaches it. Sample coverage is 10⁵ of ~10²², about **10⁻¹⁷** of the
+family.
+
+**The instrument was more careful than the document.** `solve.c:11465` prints *"Non-uniform sampler;
+bounds conditional C3 **rate** over the ~10²² Gray code family"*, and `HISTORY.md:409` describes a
+*"biased sampler … bounds the C3 **rate**"*. **Only `CRITIQUE.md:60` said *minimum*.** A rate bound
+was converted into a minimum bound at the single site closest to the headline summary of what
+survives.
+
+**A second, independent over-reach in the same item.** The `CI ≤ 3×10⁻⁵` is the rule of three
+(0 successes in 10⁵ ⇒ 3/10⁵), which is valid — **for the distribution actually sampled**. The
+sampler declares itself non-uniform in its own output. So the figure bounds the rate under the
+sampler's induced distribution, not under the uniform Gray-code family, and that qualifier was
+dropped.
+
+**What survives.** The scoped rate statement: *0 of 10⁵ Gray codes drawn by a non-uniform
+Hamiltonian-walk sampler satisfy C3 ≤ 776, giving a rule-of-three upper bound of 3×10⁻⁵ on that
+sampler's rate.* **The minimum claim does not survive at all.** This item's standing among the three
+battery-bar survivors now rests on the rate half alone, and the line says so.
+
+**The same error was projected into future work.** `CRITIQUE.md:324` proposed that 10⁹ biased samples
+"would give a firm upper bound on the Gray-code C3 rate". They would not: more draws shrink the
+interval on *that sampler's* rate, and **an estimator's bias does not decay with N**. A firm bound on
+the family needs a uniform sampler over Hamiltonian cycles in Q₆, or importance weights with known
+likelihood ratios — neither of which this instrument has. Corrected at the site, before "a few hours"
+of compute was spent on a result it could not buy.
+
+**No published number changes.** 832, 10⁵ and 3×10⁻⁵ are all as measured; what changes is what they
+are claimed to bound.
+
+**Attribution.** Raised by Codex target **R08** via the D1 batch-4 adjudication; the minimum-versus-
+rate reading, the coverage figure and the bias-does-not-decay point were derived here. Codex is
+**acknowledged**, not credited as an author.
