@@ -1004,7 +1004,17 @@ def subset_pairlist(npairs):
     if spec is None:
         raise SystemExit("--f1-pairs %r: no group-closed orbit union; have %s"
                          % (npairs, ",".join(map(str, sorted(F1C5_UNIONS)))))
-    at = spec.index("@"); start = int(spec[at + 1:]); body = spec[:at]
+    # Q-311: `spec.index("@")` raises ValueError and `int(...)` raises on a non-numeric
+    # suffix -- both bare tracebacks, the same shape as the four CLI integer flags fixed
+    # earlier today. A spec is operator-typed, so it gets the same courtesy.
+    if "@" not in spec:
+        raise SystemExit("spec %r needs an @START suffix, e.g. '3.0,3.1,3.2@0'" % spec)
+    at = spec.index("@")
+    try:
+        start = int(spec[at + 1:])
+    except ValueError:
+        raise SystemExit("spec %r: @START must be an integer, got %r" % (spec, spec[at + 1:]))
+    body = spec[:at]
     pl = []
     for tok in body.split(","):
         L, I = tok.split("."); pl += _orbit_by(int(L), int(I))
@@ -1238,9 +1248,19 @@ def certify_count(cnf_obj, label, keep_dir=None):
     any is absent (see _CERTIFY_TOOLS_MSG; the rest of sat.py never needs
     them). Artifacts land in keep_dir (preserved) or a temp dir (removed)."""
     import tempfile, shutil, re
+    # Q-311: validate --keep BEFORE the work, not at the end. certify_count runs d4 and
+    # cpog-gen for minutes and writes gigabytes; discovering an unwritable directory after
+    # that discards the run. Fail in the first millisecond instead.
     wd = keep_dir or tempfile.mkdtemp(prefix="sat_certify_")
     if keep_dir:
-        os.makedirs(wd, exist_ok=True)
+        try:
+            os.makedirs(wd, exist_ok=True)
+        except OSError as e:
+            raise SystemExit("--keep %r cannot be created: %s" % (keep_dir, e))
+        if not os.path.isdir(wd):
+            raise SystemExit("--keep %r exists but is not a directory" % keep_dir)
+        if not os.access(wd, os.W_OK):
+            raise SystemExit("--keep %r is not writable" % keep_dir)
     try:
         cnf_path = os.path.join(wd, "instance.cnf")
         nnf_path = os.path.join(wd, "instance.nnf")
@@ -1362,6 +1382,12 @@ if __name__ == "__main__":
             cnf.write(args[2], "target=" + _emit_label(args[1]))
             print("vars=%d clauses=%d -> %s" % (cnf.n, len(cnf.cl), args[2]))
     elif args[:1] == ["--decode"] and len(args) in (2, 3):
+        # Q-311: rebuilding the CNF to recover the Y map costs real time; a missing or
+        # unreadable model file should be reported before that, not as a traceback after.
+        if not os.path.isfile(args[1]):
+            raise SystemExit("--decode %r: no such file" % args[1])
+        if not os.access(args[1], os.R_OK):
+            raise SystemExit("--decode %r: not readable" % args[1])
         # --decode MODEL.txt [TARGET]  (rebuilds the CNF to recover the Y map,
         # decodes the model's v-lines to a sequence, re-verifies vs solve.py).
         # Use --f1-pairs N to decode a reduced-subset model; else TARGET (default
