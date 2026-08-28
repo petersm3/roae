@@ -20021,9 +20021,15 @@ int main(int argc, char *argv[]) {
         long long n_records;
         if (shard_mode) {
             if (vsize == 0) {
-                printf("Empty shard file (0 records). Trivially passes.\n");
+                /* Q-277: this said "Trivially passes" and returned 0. It is the same defect
+                 * fixed under Q-285 on the header path — a verdict computed from zero
+                 * observations — and it survived that fix because it lives in the shard branch.
+                 * Fixing one path and not its sibling is how this class keeps recurring. */
+                fprintf(stderr, "ERROR: %s is an EMPTY shard (0 records) — nothing was verified.\n",
+                        verify_file);
+                printf("VERIFY=ERROR\n");
                 gzclose(vf);
-                return 0;
+                return 30;
             }
             if (vsize % SOL_RECORD_SIZE != 0) {
                 fprintf(stderr, "ERROR: shard file size %lld not a multiple of %d\n",
@@ -20044,6 +20050,24 @@ int main(int argc, char *argv[]) {
                 return 20;
             }
             n_records = (long long)hdr_records;
+            /* Q-277: the declared count was never compared with the physical size. This line
+             * PRINTS both numbers and nothing checked they agree, so a header declaring FEWER
+             * records than the file carries passed with the surplus never examined. Measured
+             * 2026-08-27: a 352-byte artifact carrying 10 records with a header saying 9
+             * returned VERIFY=PASS rc=0, identical to the honest file. Over-declaring was
+             * already caught by the short read at record r; UNDER-declaring was silent, which
+             * is the direction an interrupted write or a truncated copy actually produces.
+             * The invariant is exact and total: logical size == header + 32 bytes per record. */
+            long long want = (long long)SOL_HEADER_SIZE + (long long)SOL_RECORD_SIZE * n_records;
+            if (vsize != want) {
+                fprintf(stderr, "ERROR: %s framing mismatch — header declares %lld record(s), so the\n"
+                                "       file should be %lld logical bytes, but it is %lld (%+lld).\n"
+                                "       The declared count and the file disagree; nothing was verified.\n",
+                        verify_file, n_records, want, vsize, vsize - want);
+                printf("VERIFY=ERROR\n");
+                gzclose(vf);
+                return 30;
+            }
             printf("Header: magic ROAE, version %d, %lld records (%lld logical bytes)\n\n",
                    SOL_FORMAT_VERSION, n_records, vsize);
         }
@@ -20090,8 +20114,18 @@ int main(int argc, char *argv[]) {
             if (!c1_ok) fail_c1++;
 
             /* C4: first pair is hexagram 1 / hexagram 2 (63, 0) */
+            /* 🔴 Q-293 (Codex R06 run1, adjudicated by B5/Q-59). This tested the PAIR INDEX only.
+             * The orientation bit of rec[0] is decoded three lines above and was never consulted,
+             * so a record opening (0, 63) — the complement of the anchor — returned VERIFY=PASS
+             * while SPECIFICATION.md:102 ("s0 = 63 ... and s1 = 0"), lean/KingWen.lean's c4ok and
+             * verify.py all reject it. The comment above states the ORDERED rule the code did not
+             * enforce. verify.py carried the identical defect and was fixed 2026-08-01 (19c23270)
+             * — three weeks before Codex found it here — but that fix swept only verify.py.
+             * Check the DECODED head, not the orientation bit: seq[0] is exactly what the
+             * specification constrains, and it cannot be wrong about the pair table's ordering
+             * convention the way an orientation test can. */
             int pidx0 = (rec[0] >> 2) & 0x3F;
-            if (pidx0 != pair_index_of(63, 0)) fail_c4++;
+            if (pidx0 != pair_index_of(63, 0) || seq[0] != 63 || seq[1] != 0) fail_c4++;
 
             /* C2: no hamming-5 transitions */
             int c2_ok = 1;
@@ -20154,11 +20188,27 @@ int main(int argc, char *argv[]) {
         printf("King Wen found:         %s\n", kw_found_v ? "YES" : "No");
 
         int total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup;
+        /* Q-285 (Codex R12b, ranked false accept #1). The verdict below is the SUM OF OBSERVED
+         * FAILURES, and a file with no records produces no observations — so a 32-byte
+         * header-only artifact, exactly what an interrupted --encode-solutions leaves behind
+         * after it writes its placeholder header and before it seeks back to fill in the count,
+         * printed "*** VERIFY PASS: all 0 records satisfy C1-C5 ***" and returned 0.
+         * Reproduced 2026-08-27 on the shipped binary. The message carried its own disproof:
+         * "all 0 records". An empty artifact is not a verified artifact; it is an unverifiable
+         * one, and a check that cannot run must ERROR rather than pass. Same defect class as
+         * the wrap-parity and 9th-six tabulators fixed under Q-275. */
+        if (n_records == 0) {
+            printf("\n*** VERIFY ERROR: %s contains ZERO records — nothing was verified ***\n", verify_file);
+            printf("VERIFY=ERROR\n");
+            return 30;
+        }
         if (total_fail == 0) {
             printf("\n*** VERIFY PASS: all %lld records satisfy C1-C5 (incl. C3), sorted, no duplicates ***\n", n_records);
+            printf("VERIFY=PASS\n");
             return 0;
         } else {
             printf("\n*** VERIFY FAIL: %d issues found ***\n", total_fail);
+            printf("VERIFY=FAIL\n");
             return 1;
         }
     }
@@ -20452,10 +20502,13 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (c1_ok) {
-                if (sol_pidx[0] != kw_pair_index) {
+                /* 🔴 Q-293: same defect as --verify's C4, in the sibling checker. Fixing one
+                 * path and not its twin is how this class recurs — exactly what happened when
+                 * verify.py was repaired in isolation on 2026-08-01. seq[] is decoded above. */
+                if (sol_pidx[0] != kw_pair_index || seq[0] != 63 || seq[1] != 0) {
                     #pragma omp critical
-                    printf("  ERROR: solution %lld position 1 is pair %d, expected hexagram 1 / hexagram 2\n",
-                           s, sol_pidx[0]);
+                    printf("  ERROR: solution %lld position 1 is pair %d (decoded %d,%d), expected hexagram 1 / hexagram 2 in that ORDER\n",
+                           s, sol_pidx[0], seq[0], seq[1]);
                     local_errors++;
                 }
                 int budget_check[7] = {0};

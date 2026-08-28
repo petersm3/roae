@@ -92,7 +92,21 @@ RC=0
 # example/ was excluded here until 2026-08-01. That is a CONTAINER-level exemption — the same
 # construction that let the retracted "hard floor k >= 13" survive in TR-4's body while its
 # changelog narrated the retraction. Exempt a construction, never a directory.
-DOCS=$(git ls-files '*.md' || true)
+# 🔴 Q-284. This was `DOCS=$(git ls-files '*.md' || true)`. A failed enumeration left DOCS
+# EMPTY and every consumer then saw a corpus of zero documents and reported it clean -- and
+# DOCS feeds ten sites across GATES 1, 3, 8 and 13, so ONE failure silently disarms four
+# gates at once. Measured with a stand-in `git` that exits 128 on ls-files: the gates examine
+# zero files and report clean. `|| true` cannot distinguish "the corpus contains no markdown"
+# from "the corpus could not be read", and only one of those is a passing condition.
+DOCS=$(git ls-files '*.md')
+if [ $? -ne 0 ]; then
+  echo "  [FAIL] cannot enumerate the markdown corpus (git ls-files failed) — NOTHING was checked." >&2
+  exit 2
+fi
+if [ -z "$DOCS" ]; then
+  echo "  [FAIL] the markdown corpus is EMPTY — that is not a clean tree, it is an unreadable one." >&2
+  exit 2
+fi
 
 # ----------------------------------------------------------------------------------
 # ITEM A1 (2026-08-02) — WHAT EVERY GATE DOES WITH A MISSING INPUT.
@@ -150,6 +164,26 @@ require_tracked() {
   fi
   echo "  [skip] $1 absent (not tracked, so nothing shipped is being checked)"
   return 1
+}
+
+# 🔴 Q-283 / Codex N10 finding 4 — reproduced on the PUBLISHED suite 2026-08-27. require_tracked
+# proves a registry EXISTS; it does not prove the registry has any ROWS, and the shared newline
+# guard explicitly accepts an empty file. So emptying a registry makes its gate iterate nothing and
+# return clean. Measured: with a zero-row RETRACTED_PHRASES.tsv, GATE 3 printed its header and
+# NOTHING ELSE — not "[ok]", not "[FAIL]" — and the suite exited 0. That is worse than a false
+# "[ok]": in a long log a silent gate reads as one that ran and had nothing to say.
+# A registry is never legitimately empty here (23 / 11 / 61 rows today), so zero rows is a defect.
+require_rows() { # $1=registry  $2=why it matters
+  local f="$1" n
+  # NOTE: `grep -c` PRINTS 0 and EXITS 1 when nothing matches, so an appended `|| echo 0` would
+  # emit a SECOND zero and make the test an integer-expression error rather than a verdict.
+  n=$(grep -cvE '^[[:space:]]*(#|$)' "$f" 2>/dev/null); n=${n:-0}
+  if [ "${n:-0}" -eq 0 ]; then
+    echo "  [FAIL] $f has ZERO rows. A registry with no rows SILENCES its gate rather than"
+    echo "         passing it: the loop iterates nothing and returns clean. $2"
+    return 1
+  fi
+  return 0
 }
 
 # require_final_newline <path>
@@ -525,7 +559,16 @@ gate_numbers() {
   # Round numbers (>=4 trailing zeros) are budgets/powers of ten — skipped.
   # Report-only ([WARN]) with an allowlist, because legitimately-close pairs exist
   # (e.g. a byte count with and without the 32-byte header).
-  local tmp allow; tmp=$(mktemp)
+  # 🔴 Q-283 / Codex N10 finding 3 — EXECUTABLE FALSE CLEAR, reproduced on origin/main
+  # 2026-08-27. This was `tmp=$(mktemp)` UNCHECKED: when mktemp fails (read-only or
+  # restricted TMPDIR) $tmp is EMPTY, every write to it fails, the reads that follow find
+  # nothing, and the gate emits its clean message having examined nothing at all. Measured
+  # under TMPDIR pointed at a mode-500 directory: GATES 3 and 22, which DO check their
+  # mktemp, correctly went [FAIL] while GATES 1 and 20 emitted [ok] on the same condition.
+  # Report-only refers to a gate's FINDINGS being advisory; it does not make its ability to
+  # RUN optional. A check that cannot run must ERROR, never emit [ok].
+  local tmp allow
+  tmp=$(mktemp) || { echo "  [FAIL] GATE 1: mktemp failed, so NOTHING was checked."; return 1; }
   allow="documentation/DOC_GATE_NUMBER_ALLOWLIST.txt"
   for f in $DOCS; do
     grep -oE '[0-9][0-9,]{11,}' "$f" 2>/dev/null | tr -d ',' \
@@ -564,7 +607,14 @@ gate_cli() {
     require_tracked "$doc"  "Delete a CLI doc and its pair stops being checked, silently." || rcd=$?
     if [ "$rcc" -eq 2 ] || [ "$rcd" -eq 2 ]; then bad=1; return 0; fi
     if [ "$rcc" -ne 0 ] || [ "$rcd" -ne 0 ]; then return 0; fi
-    cf=$(mktemp); df=$(mktemp)
+    # 🔴 Q-283 / Codex N10 finding 3 — the same false-clear shape, and this one is WORSE
+    # because GATE 2 is BLOCKING, so it can clear a push. Reproduced: it printed
+    #   [ok] roae.py fully documented in ... ( flag(s) compared against  documented, ...)
+    # with the counts BLANK, because it compared zero flags against zero documentation. The
+    # gate's own message carried the proof it had examined nothing, and nothing read it.
+    # Do not leak cf if df is the one that fails.
+    cf=$(mktemp) || { echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; return 1; }
+    df=$(mktemp) || { rm -f "$cf"; echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; return 1; }
     # ITEM A4 (2026-08-02) — DECIDED: NARROW, and here is the decision rather than a
     # rediscovery of the question. The extractor is a line-based grep, so a COMMENTED-OUT
     # declaration was emitted as an undocumented flag. MEASURED while writing item A3's
@@ -712,6 +762,7 @@ gate_retract() {
   #   (c) allow-column over-reach — matching the allow string anywhere on the line exempted
   #       too much. FIX: the allow column now matches the FILENAME only.
   local reg="documentation/RETRACTED_PHRASES.tsv"
+  require_rows "documentation/RETRACTED_PHRASES.tsv" "Zero rows silences every retraction check." || return 1
   # ITEM A1: the registry IS this gate. Skipping on its absence reported PASS for a gate
   # that had checked nothing at all.
   require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero phrases are checked."
@@ -874,6 +925,7 @@ gate_retract_figures() {
   # cannot tell "never existed" from "deleted"). The ALLOWLIST is deliberately NOT guarded
   # here: losing it makes this gate STRICTER, not blinder — every exemption disappears and
   # the gate goes red. That is the fail-safe direction, so it needs no guard.
+  require_rows "documentation/RETRACTED_FIGURES.tsv" "A retracted FIGURE that nothing registers is a figure nobody re-checks." || return 1
   require_tracked "documentation/RETRACTED_FIGURES.tsv" \
     "The figure registry IS this gate; with it gone, zero statistics are checked."
   case $? in 1) return 0;; 2) return 1;; esac
@@ -1252,7 +1304,11 @@ BOLD   = re.compile(r'^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*([^*][^
 # The trailing `` ` `` is ITEM B1's backtick leg: a path written as `` `documentation/X.md` §"…" ``
 # was invisible to this gate because \s* cannot match the closing backtick. Two references in the
 # corpus are written that way and one of them — PARTITION_STABILITY_BOUNDARIES.md:83 — is dead.
-SEC_Q  = re.compile(r'([\w./+-]+\.md)`?\s*§\s*"([^"]+)"')
+# ⚠ ':' added 2026-08-27 (Q-283 finding 5). Without it the class could not capture a
+# `repo:FILE.md` qualifier, so the `':' not in path` exclusion below was UNREACHABLE for the colon
+# form — and the colon form is exactly what the FINDING message tells the reader to write. The fix
+# advised a remedy its own regex could not see. Verified: clean tree still reports zero findings.
+SEC_Q  = re.compile(r'([\w.:/+-]+\.md)`?\s*§\s*"([^"]+)"')
 SEC_N  = re.compile(r'([\w./+-]+\.md)`?\s+(Q\d+)\b')
 ALLOW  = 'documentation/DOC_GATE_SECREF_ALLOWLIST.txt'
 
@@ -1323,6 +1379,37 @@ for m in mds:
                 if len(same) == 1:
                     dest = same[0]
             if dest is None:
+                # 🔴 Q-283 / Codex N10 finding 5 — reproduced on the PUBLISHED suite 2026-08-27.
+                # "file-level resolution is phase 1's job" is true for a path phase 1 can SEE.
+                # A path with no repo qualifier that resolves to nothing in this repo reaches
+                # NEITHER gate: phase 1 skips it as out-of-repo, and this skipped it as phase 1's.
+                # Measured: `NO_SUCH_FILE_ZZ.md §"A Heading That Does Not Exist"` planted in a
+                # tracked file left GATE 4b printing "[ok] every delimited section reference
+                # resolves ... (90 markdown files scanned)" at rc=0 — not silence, an explicit
+                # positive claim about a reference that resolves nowhere.
+                # A qualified `repo:FILE.md` is deliberate cross-repo intent and still skips here.
+                # `roae-private/FILE.md` is the same explicit cross-repo intent as `repo:FILE.md`,
+                # just written with a slash. Both are legible to a reader; neither is a dangling
+                # same-repo link. ⚠ I ported commit 8f291120 and MISSED its sibling 86f58ce9, which
+                # exists precisely because a first cut excluded only the colon form — so my version
+                # flagged 3 of these on a clean tree. Two commits, one defect class; porting one is
+                # the "fix the instance, not the class" error this repo queued as Q-305 today.
+                # `FILE.md` is the documented PLACEHOLDER for this very syntax — TR9 §changelog
+                # narrates "the form `FILE.md §\"Name\"` / `FILE.md Q<n>`". No file is named that,
+                # so treating it as a dangling reference makes the gate fire on the document that
+                # explains the gate. Narration is not a claim; this repo's own GATE 20 draws the
+                # same line between a marker and a sentence about markers.
+                if ':' not in path and not path.startswith('roae-private/') and path != 'FILE.md':
+                    # ⚠ The enclosing loop is `for m in mds:` with `lineno`; `ln` is a COMPREHENSION
+                    # variable bound to file lines, and `rc` does not exist here — this block signals
+                    # failure through `bad`, consumed by `sys.exit(1 if (bad or stale) else 0)`.
+                    # My first port copied the branch's `{f}:{ln}` and `rc = 1` verbatim: the message
+                    # printed a LIST and the finding did not move the exit code. Copying the shape of
+                    # a fix without checking its scope is the same error twice in one evening.
+                    print(f'  [FINDING] {m}:{lineno} - bare section reference to "{path}", which '
+                          f'resolves to no file in this repo. Qualify it as repo:FILE.md if the '
+                          f'target is private, or fix the name.')
+                    bad = True
                 continue                           # file-level resolution is phase 1's job
             want = norm(sec)
             if not want:
@@ -1803,8 +1890,16 @@ gate_figures() {
   require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero generators are checked."
   case $? in 1) return 0;; 2) return 1;; esac
   local gens bad=0 g
-  gens=$(git ls-files 'viz/*.py')
-  [ -n "$gens" ] || { echo "  [skip] no figure generators tracked in viz/*.py (index is empty for that path)"; return 0; }
+  # 🔴 Q-283 / Codex N10 finding 9 — reproduced on origin/main 2026-08-27. This population was
+  # keyed on a DIRECTORY, so it covered 3 tracked viz/*.py and reported "[ok] 3 figure
+  # generator(s)" while a FOURTH tracked file — solve.py — also calls savefig and was never
+  # examined. A gate that checks 3 of 4 and reports on all of them is a coverage hole that
+  # states its own count and is still read as complete. Key on the BEHAVIOUR (calls savefig),
+  # not on where the file happens to live: "exempt a construction, never a directory" is
+  # already this file's own rule, three hundred lines above.
+  gens=$( { git ls-files 'viz/*.py'
+            git ls-files '*.py' | xargs grep -ln 'savefig' 2>/dev/null; } | sort -u)
+  [ -n "$gens" ] || { echo "  [skip] no figure generators tracked (no viz/*.py in the index and no tracked .py calls savefig)"; return 0; }
   for g in $gens; do
     # Every path here came out of the index, so require_tracked can only return 0 or 2.
     local grc=0
@@ -1879,7 +1974,8 @@ gate_figures() {
   [ "$figbad" -eq 0 ] || bad=1
 
   if [ "$bad" -eq 0 ]; then
-    echo "  [ok] $(echo $gens | wc -w) figure generator(s) carry no registered retracted phrasing"
+    echo "  [ok] $(echo $gens | wc -w) figure generator(s) — every tracked viz/*.py plus every"
+    echo "       tracked .py that calls savefig — carry no registered retracted phrasing"
     echo "  [ok] ...and none of the $nfig registered retracted FIGURE(s) either (item A8)"
   fi
   return $bad
@@ -2206,6 +2302,7 @@ import re, subprocess, sys
 HEAD = '## Revision history'
 ROW  = re.compile(r'^\|\s*(v[0-9][^|]*?)\s*\|\s*([^|]*?)\s*\|')
 VER  = re.compile(r'^v(\d+)\.(\d+)(.*)$')
+DRAFT = re.compile(r'^-draft$', re.I)
 DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
 out = subprocess.run(['git', 'ls-files', 'reports/TR*.md'],
@@ -2266,7 +2363,13 @@ for f in trs:
         keys.append(key)
         # SUFFIX-KEYED exemption: `v1.0-draft` is a draft label, not a released number, so
         # repeats of it are legitimate (TR-11 x3). `v1.0` repeated is not.
-        if not suffix:
+        # 🔴 Q-283 / Codex N10 finding 7 — reproduced on the PUBLISHED suite 2026-08-27. This read
+        # `if not suffix:`, so a version was checked for duplication ONLY when it had no suffix at
+        # all — meaning EVERY suffix (`-rc1`, `-final`, anything) silently exempted it. Measured:
+        # two identical `v1.21-rc1` rows planted in TR9 left GATE 12 reporting
+        #   [ok] ... no repeated released version
+        # at rc=0, asserting exactly what was false. Only the DRAFT label may repeat.
+        if not DRAFT.match(suffix):
             released.append((plain, ln))
         if not DATE.match(date):
             print(f'  [FAIL] {f}:{ln} — date cell "{date}" is not YYYY-MM-DD, so this row\'s')
@@ -2288,7 +2391,8 @@ for f in trs:
     for plain, ln in released:
         if plain in seen:
             print(f'  [FAIL] {f}:{ln} — released version {plain} is already used at line {seen[plain]}')
-            print('         (draft-suffixed labels like v1.0-draft may legitimately repeat; this one has no suffix)')
+            print('         (only the draft label -draft may legitimately repeat; every other')
+            print('          version, suffixed or not, is a released number and must be unique)')
             bad = 1
         else:
             seen[plain] = ln
@@ -4110,7 +4214,10 @@ open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUI
   # built from that, so the check is "5b names the cell I just broke", which is the real
   # claim, and it cannot drift. The anchor STRING is still pinned and still asserted unique —
   # the drift-proofing is on the coordinate, not on the identity of the defect.
-  G5BMUT=$(mktemp); G5BLINEF=$(mktemp)
+  # 🔴 Q-283 / Codex N10 finding 3, same class (GATE 13 is report-only, which changes the
+  # severity of its FINDINGS and not its obligation to be able to run).
+  G5BMUT=$(mktemp) || { echo "  [FAIL] GATE 13: mktemp failed, so NOTHING was checked."; return 1; }
+  G5BLINEF=$(mktemp) || { rm -f "$G5BMUT"; echo "  [FAIL] GATE 13: mktemp failed, so NOTHING was checked."; return 1; }
   cat > "$G5BMUT" <<'G5BPY'
 import os, sys
 p = 'reports/TR9_PRICING_THE_CONSTRAINTS.md'
@@ -4161,7 +4268,7 @@ G5BPY
   # roae.py — three runs, ~45 s each, so three naive cases would cost ~7 minutes. They
   # share ONE regeneration through DOC_GATES_GEN_CACHE, keyed on roae.py's sha256:
   # measured 135 s for the first case and 0.08 s for each of the others.
-  GEN_CACHE=$(mktemp -d)
+  GEN_CACHE=$(mktemp -d) || { echo "  [FAIL] GATE 13: mktemp -d failed, so NOTHING was checked."; return 1; }
 
   # assert_gen_fires <label> <evidence-ERE> <python-mutation>
   #   <evidence-ERE> must match a line of GATE 8's output.
@@ -6603,6 +6710,9 @@ gate_appendonly_head() {
   local tmp gone
   tmp=$(mktemp) || return 1
   git show "HEAD:$f" > "$tmp" 2>/dev/null
+  # ⚠ Q-284: the `|| true` here is CORRECT and must stay. `grep -c` exits 1 when the count
+  # is ZERO, which is a normal result, not a failure. A sweep that strips every `|| true`
+  # would break this gate. Two of the four sites found were real defects; these two are not.
   gone=$(diff "$tmp" "$f" | grep -c '^< ' || true)
   if [ "${gone:-0}" -eq 0 ]; then
     local added
@@ -6681,8 +6791,28 @@ gate_appendonly_history() {
   grep -v '^[[:space:]]*$' "$f" | sort > "$cur"
   # Baselines, deduplicated by BLOB id: a commit that did not change the file, and a
   # remote ref pointing at a commit already walked, contribute nothing.
-  for src in $( { git rev-list HEAD -- "$f" 2>/dev/null
-                  git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null; } ); do
+  # 🔴 Q-283 / Codex N10 finding 8 — reproduced on the PUBLISHED suite 2026-08-28. This walked
+  # every commit reachable from HEAD, but of the remotes only each ref's CURRENT TIP — so a line
+  # that existed in a remote-only commit and was later deleted was never examined, while the
+  # success sentence claimed "ANY committed or published version".
+  # Measured on THIS tree (the branch's own "2 of 24" is tree-specific and does not hold here):
+  # HEAD reaches 22 commits touching the file and 23 distinct blobs; walking the remote HISTORIES
+  # reaches 24 commits and 24 blobs. The one blob visible only with this fix, 2f14cc5f, contains
+  # THREE lines absent from the current file — a live miss, not a constructible one.
+  # Passing the remote refs to rev-list walks their history, and rev-list dedupes the overlap free.
+  for src in $(git rev-list HEAD $(git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null) \
+               -- "$f" 2>/dev/null); do
+    # 🔴 Q-283 finding 8, second half — a distinction the branch's fix does not draw and this tree
+    # needs. Walking remote HISTORIES surfaces two different defects that must not share a verdict:
+    #   * the blob's commit IS an ancestor of HEAD  -> a line vanished from OUR OWN lineage. That is
+    #     the append-only violation this gate exists for, and it is a hard FAIL.
+    #   * the blob's commit is NOT an ancestor      -> the content lives on an unmerged branch and
+    #     was never in this lineage to lose. That is a MERGE GAP (Q-77 / A8), not a deletion.
+    # Measured 2026-08-28: the only blob this fix newly reaches, 2f14cc5f from b2b8d0da, is on
+    # v4-query-program ONLY — 441 commits divergent. Its 3 lines were never removed from main; they
+    # never arrived. Reporting that as "a line was lost" would blame the wrong act and leave a hard
+    # gate permanently red for a merge decision the gate cannot make.
+    if git merge-base --is-ancestor "$src" HEAD 2>/dev/null; then _g10b_kind=ancestor; else _g10b_kind=unmerged; fi
     blob=$(git rev-parse --quiet --verify "$src:$f" 2>/dev/null) || continue
     [ -n "$blob" ] || continue
     case " $seen " in *" $blob "*) continue;; esac
@@ -6692,11 +6822,21 @@ gate_appendonly_history() {
     local lost
     lost=$(comm -23 "$tmp" "$cur" | wc -l)
     if [ "${lost:-0}" -ne 0 ]; then
-      echo "  [FAIL] $lost line(s) present in $src ($blob) are absent from the working copy."
-      echo "         That version is committed or published; append-only means it can never lose a line."
-      comm -23 "$tmp" "$cur" | head -5 | cut -c1-140 | sed 's/^/           /'
-      echo "         If an entry is wrong, APPEND an entry saying so. Both stay."
-      bad=1
+      if [ "${_g10b_kind:-ancestor}" = ancestor ]; then
+        echo "  [FAIL] $lost line(s) present in $src ($blob) are absent from the working copy."
+        echo "         That version is committed or published; append-only means it can never lose a line."
+        comm -23 "$tmp" "$cur" | head -5 | cut -c1-140 | sed 's/^/           /'
+        echo "         If an entry is wrong, APPEND an entry saying so. Both stay."
+        bad=1
+      else
+        # Q-283 finding 8: an UNMERGED branch commit. The content was never in this lineage, so it
+        # was not lost — it never arrived. Reported, never a FAIL: the remedy is the merge (Q-77 /
+        # A8), which this gate cannot perform and must not block on.
+        echo "  [note] $lost line(s) exist in $src ($blob) but not here — that commit is NOT an"
+        echo "         ancestor of HEAD, so this is a MERGE GAP, not a lost line. Remedy: the"
+        echo "         Q-77 / A8 merge. Reported, not failed."
+        comm -23 "$tmp" "$cur" | head -3 | cut -c1-140 | sed 's/^/           /'
+      fi
     fi
   done
   if [ "$n" -eq 0 ]; then
@@ -9381,6 +9521,7 @@ gate_alias_reach() {
   # pure-exemption allowlist. (Until the file is first committed, require_tracked's
   # untracked-and-absent arm is the reachable one; after that, tracked-but-missing is
   # a FAIL like every other registry.)
+  require_rows "documentation/DOC_GATE_ALIAS_REACH.tsv" "Zero rules makes the alias-reach gate claim every alias use is resolved." || return 1
   require_tracked "documentation/DOC_GATE_ALIAS_REACH.tsv" \
     "The alias-ruling registry IS this gate; with it gone, zero rulings are checked."
   case $? in 1) return 0;; 2) return 1;; esac
@@ -9748,7 +9889,11 @@ gate_publication_state() {
   # CORRECTIONS.md's "TR-9's draft-stage note", which must not fire. The multi-word
   # phrases are matched case-insensitively because they are never conventions.
   # Measured at adoption: zero hits across the tracked markdown corpus.
-  hits=$(git ls-files '*.md' 2>/dev/null | xargs grep -nE '^#{1,6}[[:space:]].*(\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public)' 2>/dev/null || true)
+  # 🔴 Q-284: this re-enumerated the corpus with its own unguarded `git ls-files ... || true`,
+  # so a failed enumeration produced an empty $hits and the gate announced the published
+  # corpus free of draft markers having read nothing. Consume the guarded $DOCS instead:
+  # one enumeration, one guard, and no second place for this to go wrong.
+  hits=$(printf '%s\n' "$DOCS" | xargs grep -nE '^#{1,6}[[:space:]].*(\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public)' 2>/dev/null)
   if [ -n "$hits" ]; then
     echo "$hits" | sed 's/^/  [FAIL] heading-form draft marker: /'
     echo "         A published document must not carry a section announcing it is unpublished."
@@ -9763,7 +9908,7 @@ gate_publication_state() {
       /^#{1,6}[[:space:]]/ { inck = (tolower($0) ~ /checklist/) ? 1 : 0 }
       /^[[:space:]]*- \[ \]/ { if (!inck) printf "  [FAIL] %s:%d unchecked box outside a reader checklist: %s\n", FN, NR, substr($0,1,72) }
     ' "$f"
-  done < <(git ls-files '*.md' 2>/dev/null) > /tmp/g20_$$ 2>/dev/null
+  done < <(printf '%s\n' "$DOCS") > /tmp/g20_$$ 2>/dev/null   # Q-284: guarded $DOCS, not a second unguarded enumeration
   if [ -s /tmp/g20_$$ ]; then
     cat /tmp/g20_$$
     echo "         An unchecked box in published prose is an obligation the document has not met."

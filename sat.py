@@ -107,6 +107,7 @@ Flags (append after the target):
                  couples of |slot(u) - slot(v)|, independent of orientations. The CNF bounds the
                  couple slot-distance sum with a Sinz sequential counter.
   --c3-max N     override the C3 ceiling (default 776); e.g. 775 for the KW-exactness UNSAT gate
+                 (values below the structural minimum C3 = 112 are refused: no C1 layout attains them)
   --c3-min N     encode C3 >= N (the >= side of the unary couple-distance ladder; does NOT
                  imply the <= 776 ceiling — combine with --c3-max to window C3 exactly).
                  Unlike the relaxed one-directional <= encoding, the >= side is made EXACT
@@ -466,6 +467,10 @@ def exactly_one(cnf, lits):
 def at_most_k(cnf, lits, k):
     """Sinz 2005 sequential counter: at most k of lits are true."""
     n = len(lits)
+    if k < 0:
+        raise ValueError("at_most_k: negative bound k=%d over %d literals; "
+                         "an impossible cardinality must be refused by the "
+                         "caller, not encoded" % (k, n))
     if k >= n: return
     if k == 0:
         for x in lits: cnf.add(-x)
@@ -633,7 +638,11 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
             at_least_k(cnf, odd, 16)
     if "-near-" in target:
         # differs from KW in at most k slots (KW slot s = pair s, orient 0 by construction)
-        k = int(target.rsplit("-", 1)[1])
+        try:
+            k = int(target.rsplit("-", 1)[1])
+        except ValueError:
+            raise SystemExit("bad -near- suffix in target %r: "
+                             "expected an integer slot count" % target)
         agree = []
         for s in SLOTS:
             jkw = next(j for j in range(NJ) if ORIENTS[j][0] == s and ORIENTS[j][1] == 0)
@@ -850,6 +859,13 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
         # (the 2026-07-22-verified floor-safe map) — every new clause below is c3_min-gated.
         bound = KW_C3 if c3_max is None else c3_max
         sbudget = (bound - 2 * len(C3_SELFC)) // 8
+        if with_c3 and sbudget < len(C3_COUPLES):
+            raise SystemExit(
+                "--c3-max %d is below the structural minimum C3 = %d "
+                "(2*%d self-complementary pairs + 8*%d complement couples at "
+                "slot distance >= 1): unsatisfiable for every C1 layout"
+                % (bound, 2 * len(C3_SELFC) + 8 * len(C3_COUPLES),
+                   len(C3_SELFC), len(C3_COUPLES)))
         # X[p][s] = "pair p occupies slot s" (one-directional Y -> X suffices: spurious-true X
         # only over-approximates S, so the <= bound stays sound; solver sets non-forced X false)
         cmembers = sorted(set(u for u, v in C3_COUPLES) | set(v for u, v in C3_COUPLES))
@@ -1286,6 +1302,9 @@ if __name__ == "__main__":
     if "--f1-pairs" in args:                         # reduced subset instance (TASK #225 probe)
         i = args.index("--f1-pairs")
         npairs = int(args[i + 1]); del args[i:i + 2]
+    if npairs is not None and (with_c3 or c3_min is not None or not_kw):
+        raise SystemExit("--f1-pairs subset instances encode C1&C2&C4&C5 only: "
+                         "--with-c3/--c3-max/--c3-min/--not-kw do not apply")
     expect, keep_dir = None, None                    # --certify-count modifiers
     if "--expect" in args:
         i = args.index("--expect")
@@ -1380,6 +1399,9 @@ if __name__ == "__main__":
             if not ok:
                 sys.exit(1)
     elif args[:1] == ["--witness"] and len(args) == 2:
+        if npairs is not None:
+            raise SystemExit("--witness does not support --f1-pairs "
+                             "(full-31 targets only)")
         target = args[1]
         cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max, c3_min=c3_min, not_kw=not_kw)
         import tempfile

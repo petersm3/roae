@@ -128,7 +128,17 @@ A valid record expands to a 64-element sequence of hexagram numbers, each in 0-6
 
 ### Worked sanity check (the first byte)
 
-The first byte of every record is at position `i=0`, which by **C4** must be pair 0 = (63, 0) = Creative/Receptive. So `pair_index == 0`. Then `byte[0]` is either `0x00` (orient 0) or `0x02` (orient 1). No other values for `byte[0]` should appear in a valid file; any record with `byte[0]` not in `{0, 2}` fails C4.
+The first byte of every record is at position `i=0`, which by **C4** must be pair 0 = (63, 0) = Creative/Receptive. So `pair_index == 0`. Then `byte[0]` must be exactly `0x00` — pair 0 in its **natural orientation**, giving s₀ = 63 and
+s₁ = 0 in that order. `0x02` (orient 1) decodes to s₀ = 0, s₁ = 63, which **fails C4**:
+[`SPECIFICATION.md`](SPECIFICATION.md) §C4 fixes the anchor's *order*, not merely its pair.
+Any record with `byte[0]` != `0x00` fails C4.
+
+> ⚠ **Corrected 2026-08-27 (Q-293).** This paragraph previously said `byte[0]` could be
+> `0x00` **or** `0x02`, contradicting this document's own Step 7, which states the rule correctly
+> as `(record[0] >> 2) & 0x3F == 0` **AND** `(record[0] >> 1) & 1 == 0`. The permissive reading
+> matched a real defect in the shipped checkers: `solve --verify` and `--validate` tested the pair
+> index alone, so comp(King Wen) — which opens (0, 63) — verified clean. Both were fixed
+> under Q-293; a rebuilder following the old paragraph would have reproduced the defect.
 
 ## Step 4. Check C1 — pair structure
 

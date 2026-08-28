@@ -2426,7 +2426,7 @@ Following the c34390c0 finding above and the audit pass that closed on 2026-05-1
 The original `f42f2ae` stack-OOB hypothesis from the 2026-05-12 investigation is now considered an **incidental coincident bug, not the cause** of the c34390c0/f7b8c4fb undercounts. Three findings updated the model:
 
 1. **Phase B (Phase B-2 from yesterday)** empirically showed that pre-f42f2ae binary `1267a8e` at d3 5.6T canonical params produces `f66920c10…` byte-identically to post-fix code — the OOB doesn't change canonical output at canonical params.
-2. **Code review** of the f42f2ae fix site (CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md §"Code review — every candidate commit ruled out") established that the OOB happens AFTER threads finish writing shards and BEFORE the merge step. The merge reads shards from disk; OOB in stats-collection memory shouldn't affect merged solutions.bin.
+2. **Code review** of the f42f2ae fix site (roae-private/CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md §"Code review — every candidate commit ruled out") established that the OOB happens AFTER threads finish writing shards and BEFORE the merge step. The merge reads shards from disk; OOB in stats-collection memory shouldn't affect merged solutions.bin.
 3. **Cascade outcome pattern** is inconsistent with OOB causing undercount:
    - d3 11.2T was generated May 1 (with the OOB present per code analysis) and modern matches. If OOB caused undercount, 11.2T would also differ.
    - d2 10T was generated 2026-04-18 (with the OOB present) and modern matches. Same logic.

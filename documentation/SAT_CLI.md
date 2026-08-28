@@ -18,8 +18,8 @@ ground truth.
 ## SYNOPSIS
 
 ```
-python3 sat.py --emit-cnf TARGET OUT.cnf [--with-c3] [--c3-max N] [--c3-min N] [--not-kw] [--f1-pairs N]
-python3 sat.py --decode   MODEL.txt [TARGET]        [--with-c3] [--c3-max N] [--c3-min N] [--not-kw] [--f1-pairs N]
+python3 sat.py --emit-cnf TARGET OUT.cnf [--with-c3] [--c3-max N] [--c3-min N] [--not-kw] | [--f1-pairs N]
+python3 sat.py --decode   MODEL.txt [TARGET]        [--with-c3] [--c3-max N] [--c3-min N] [--not-kw] | [--f1-pairs N]
 python3 sat.py --witness  TARGET                    [--with-c3] [--c3-max N] [--c3-min N] [--not-kw]
 python3 sat.py --certify-count TARGET               [--f1-pairs N]
                                                     [--expect N] [--keep DIR]
@@ -207,10 +207,10 @@ temp directory.
 | Token | Effect |
 |---|---|
 | `--with-c3` | Include the C3 complement-distance constraint in the encoding (bounded at KW's C3, 776, unless `--c3-max` overrides). |
-| `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Consumes the following token as the integer bound. |
+| `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Values below the structural minimum C3 = 112 (2·8 self-complementary pairs + 8·12 complement couples at slot distance ≥ 1) are refused with a non-zero exit: no C1 layout attains them, and the unary ladder cannot represent such a bound. Consumes the following token as the integer bound. |
 | `--c3-min N` | Encode C3 ≥ `N` (the ≥ side of the unary couple-distance ladder). Does **not** imply the ≤ 776 ceiling — combine with `--c3-max` to window C3 exactly. Unlike the relaxed one-directional ≤ encoding, the ≥ side is exact (two-sided X↔Y binding plus spurious-true-distance-lit kill clauses), so a model's ladder value equals the decoded ordering's true couple-distance sum. Used by the C3 positional certificates (above-ceiling witness `--c3-min 784`, i.e. G ≥ 96; the G = 95 tie witness via `--c3-min 776 --c3-max 776`; and the `kw-pin --c3-min 777` KW-exactness UNSAT gate). Consumes the following token as the integer bound. |
 | `--not-kw` | Exclude every ordering whose pair-slot **layout** matches King Wen's (slot s = pair s for all s) — KW itself and all its within-pair orientation variants. Since the excluded set contains KW, any witness is ≠ KW, and stronger: it places at least one pair in a non-KW slot (G is orientation-blind, so an orientation-only variant would tie G trivially). |
-| `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count`. The C5 budget `B0` is derived per subset. Consumes the following token as the integer `N`. |
+| `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count` (not `--witness`). The C5 budget `B0` is derived per subset. Refuses combination with `--with-c3`/`--c3-max`/`--c3-min`/`--not-kw`: the subset instances encode C1&C2&C4&C5 only (before 2026-08-27 those flags were silently ignored here). Consumes the following token as the integer `N`. |
 | `--expect N` | (`--certify-count` only) Assert the certified count equals `N` (the caller-supplied native reference count); prints `PASS`/`FAIL` and exits non-zero on `FAIL`. Consumes the following token as the integer `N`. |
 | `--keep DIR` | (`--certify-count` only) Preserve the `instance.cnf`/`.nnf`/`.cpog` artifacts in `DIR` (created if needed) instead of a removed temporary directory. Consumes the following token as the directory path. |
 
@@ -299,8 +299,15 @@ on `PATH` — the latter with a clear install message.
   proof-emitting `#SAT` side of the model-count cross-check at these N
   (the C-binary side is `solve --f1-exact-c1c2c4c5 --f1-pairs N`, run
   separately). The D4/CPOG invocation format is pending run-validation on a
-  host with the tools built (the absent-tools graceful path is gated in
-  `tests.py`); no certified count from it has been recorded yet.
+  host with the tools built. That has since happened: the D4/CPOG invocation
+  was **run-validated 2026-08-20 and independently reproduced 2026-08-26** on a
+  separate host with the toolchain rebuilt from source, giving a **certified
+  n=9 count of 26,112**, agreeing with the native reference; the `--expect`
+  control has been shown able to fail. **No certified count exists at n=13** —
+  `d4` v1 segfaults at that scale on a 32-bit index overflow in its DAG storage
+  — so 2,063,395,607,040 remains an engine/DP result and must not acquire
+  "certified" by proximity. (The absent-tools graceful path is gated in
+  `tests.py`.)
 - `sat.py` imports `solve.py` as `solve`; if you change constraint
   semantics, change them in `solve.py` — never re-encode them here.
 

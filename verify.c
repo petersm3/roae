@@ -3851,6 +3851,31 @@ static void ie_brute_dfs(const IeCtx *C, int k, int last, uint32_t used,
     }
 }
 
+/* Q-286 / Codex R12b false accept #13: "IE and DP checkpoint rows are trusted without
+ * integrity protection ... corruption inside a complete row is the false accept." A torn
+ * FINAL row is safe because fscanf will not parse it; a row that is complete but wrong is
+ * summed in silently, and the pass reports a clean residue for a total it never computed.
+ *
+ * That matters more here than anywhere else in this file: the whole purpose of the full-31
+ * Route B recount is to be a SECOND, INDEPENDENT derivation of a published integer. An
+ * eviction-resumed run that silently absorbs one corrupted row produces a wrong number wearing
+ * the word "independent". The resume gate landed 2026-08-27 showed a corrupted row CHANGES the
+ * residue; it did not show anything DETECTS it, because nothing did.
+ *
+ * FNV-1a over the five values plus the chunk index. This is an integrity check against silent
+ * corruption -- a torn write, a bad sector, a half-flushed page -- and is not, and does not
+ * claim to be, protection against deliberate tampering. */
+static uint64_t ie_ck_hash(uint64_t ci, uint64_t a, uint64_t w, uint64_t s, uint64_t t) {
+    uint64_t h = 1469598103934665603ULL;   /* FNV-1a offset basis */
+    uint64_t v[5]; v[0]=ci; v[1]=a; v[2]=w; v[3]=s; v[4]=t;
+    for (int i = 0; i < 5; i++)
+        for (int b = 0; b < 8; b++) {
+            h ^= (v[i] >> (b * 8)) & 0xff;
+            h *= 1099511628211ULL;         /* FNV prime */
+        }
+    return h;
+}
+
 /* ---- threaded pass over a subset-mask range, chunked + checkpointed ---- */
 typedef struct {
     IeCtx *C;
@@ -3930,10 +3955,11 @@ static void *ie_worker(void *arg) {
             R->wsum += wsum; R->subs += subs; R->trans += tcnt;
             R->cpu_ns += (t1.tv_sec - t0.tv_sec) * 1e9 + (t1.tv_nsec - t0.tv_nsec);
             if (R->ckpt) {
-                fprintf(R->ckpt, "C %llu %llu %llu %llu %llu\n",
+                fprintf(R->ckpt, "C %llu %llu %llu %llu %llu %llu\n",
                         (unsigned long long)ci, (unsigned long long)acc,
                         (unsigned long long)wsum, (unsigned long long)subs,
-                        (unsigned long long)tcnt);
+                        (unsigned long long)tcnt,
+                        (unsigned long long)ie_ck_hash(ci, acc, wsum, subs, tcnt));
                 fflush(R->ckpt);
             }
             R->done[ci] = 1;
@@ -3990,7 +4016,10 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
             }
             unsigned long long ci, a, w, s, t;
             int resumed = 0;
-            while (fscanf(f, "C %llu %llu %llu %llu %llu\n", &ci, &a, &w, &s, &t) == 5) {
+            unsigned long long ckh;
+            int rows_bad = 0;
+            while (fscanf(f, "C %llu %llu %llu %llu %llu %llu\n", &ci, &a, &w, &s, &t, &ckh) == 6) {
+                if (ckh != ie_ck_hash(ci, a, w, s, t)) { rows_bad++; continue; }
                 if (ci >= R.nchunks || R.done[ci]) continue;
                 R.done[ci] = 1;
                 if (mod) { R.acc += a; if (R.acc >= mod) R.acc -= mod; }
@@ -3999,6 +4028,13 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
                 resumed++;
             }
             fclose(f);
+            if (rows_bad) {
+                printf("*** FAIL: %d corrupted checkpoint row(s) in %s — refusing to resume.\n",
+                       rows_bad, ckpt_path);
+                printf("         A row that fails its own hash was silently summed in before Q-286.\n");
+                printf("IE_CHECKPOINT=CORRUPT\n");
+                free(R.done); return 1;
+            }
             printf("[ie] resumed %d completed chunk(s) from %s\n", resumed, ckpt_path);
             R.ckpt = fopen(ckpt_path, "a");
         } else {
@@ -4222,6 +4258,23 @@ static int ie_count_main(int argc, char **argv) {
                C.b0v[0], C.b0v[1], C.b0v[2], C.b0v[3], C.b0v[4]);
     }
     if (negctl && !no_budget) {
+        /* 🔴 Q-291: this swap is the IDENTITY whenever d2 == d4, so on those rungs the "negative
+         * control" perturbs nothing and returns the published value it exists to differ from.
+         * Measured 2026-08-27 on the PUBLISHED n=13 rung 3.0,4.0,6.2@0, B0 = (1,6,0,6,0):
+         * baseline and --ie-negctl both return 2,063,395,607,040, and with no --ie-expect the
+         * program prints "RESULT: pass complete; all in-run gates hold" and exits 0. The
+         * comparison at the bottom of this function only runs when a target is supplied, so the
+         * default path was silent. A control that CANNOT perturb has not passed; it has not run,
+         * and a check that cannot run must ERROR. (Where d2 != d4 the control works: the same
+         * rung family at (2,7,1,3,0) gives 13,662,676,224 vs 16,671,428,352.) */
+        if (C.b0v[1] == C.b0v[3]) {
+            printf("*** FAIL: --ie-negctl cannot perturb this rung — d2 == d4 == %d, so swapping\n"
+                   "          them is the IDENTITY and the count CANNOT differ. This control has\n"
+                   "          not passed; it has not run. Use --ie-b0 to supply a budget that\n"
+                   "          actually differs, or perturb a different coordinate.\n", C.b0v[1]);
+            printf("IE_NEGCTL=INAPPLICABLE\n");
+            return 1;
+        }
         int t = C.b0v[1]; C.b0v[1] = C.b0v[3]; C.b0v[3] = t;
         printf("budget  : *** NEGATIVE CONTROL: d2/d4 budgets swapped -> (%d,%d,%d,%d,%d);\n"
                "          the count MUST differ from the published value ***\n",
