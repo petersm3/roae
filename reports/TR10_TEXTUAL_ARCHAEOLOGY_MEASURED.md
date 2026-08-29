@@ -113,7 +113,7 @@ notational scoring — is accepted and stated.
    compositional claims — the terminal contiguity his final chapter builds toward, the 7–16 mirror he
    describes as laid out in "strictest symmetry", the palindrome-neighborhood device of his central
    chapter 6, the asymmetric-trigram half-split — are *not* population-notable: they are
-   typical-to-mildly-uncommon among orderings satisfying the classical constraints. The three
+   typical-to-mildly-uncommon among orderings satisfying the **C1–C5 constraints** ⚠ **[CORRECTED 2026-08-29 — this read "the classical constraints". The conditioning set is C1–C5, and only **C1** is classical (Kong Yingda's formulation, per CITATIONS.md). C2 is McKenna 1975, C3 is this project's KW-fitted threshold, and C5 is an extracted transition histogram — calling the whole set classical borrows an authority three of its five members do not have. See CORRECTIONS.md]**. The three
    exact-placement templates (rows 4, 6, 8) are KW-extracted configurations — the data-like class:
    any exact template read off any specific sequence is rare by construction (the circularity caveat
    pre-registered in CRITIQUE), so their rarity is expected, not evidence. Per the pre-commitment,
@@ -183,7 +183,7 @@ notational scoring — is accepted and stated.
    compactness of Davis's own instance is a *common* configuration among valid orderings: about
    88% of them contain at least one, the population mean is 1.86 such quartets, and King Wen's
    single instance sits *below* that mean (observed range 0–10). What §4 shows to be unique
-   *within* King Wen is unremarkable *across* the population — the classical constraints already
+   *within* King Wen is unremarkable *across* the population — the **C1–C5 constraints** already
    make Davis-compact quartets ordinary, so his surviving uniqueness claim, true as stated,
    carries no population force and licenses no design inference. Row 11 was registered at low
    prior (the audit had flagged the underlying list as selective, and the pattern's stated form

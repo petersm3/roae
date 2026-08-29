@@ -2120,3 +2120,27 @@ marks it. The verdict does not change.
 **Attribution.** The standard-error implementation and the straddle-rule wording came from the C2
 review lens; the knife-edge measurement is its finding about work done here the same day.
 Acknowledged, not credited as an author.
+
+---
+
+## 2026-08-29 — "the classical constraints" borrowed an authority three of the five do not have
+
+TR-10 twice described the conditioning set as *"orderings satisfying **the classical constraints**"*.
+The conditioning set is **C1–C5**, and only **C1** is classical — Kong Yingda's formulation, which
+`CITATIONS.md` is careful to scope that way and nowhere else. **C2** is McKenna 1975. **C3** is this
+project's own KW-fitted threshold. **C5** is an extracted transition histogram.
+
+So the phrase lent eighth-century authority to a modern rule, a fitted threshold and a histogram we
+extracted ourselves. Both sites now read **"the C1–C5 constraints"**.
+
+**Nothing measured changes** — the conditioning set was always C1–C5 in the code, and every number in
+those two paragraphs stands. What changes is the provenance the prose claimed for it, which matters
+precisely because this report's argument is about *what the population makes ordinary*: a reader who
+believes the population is defined by classical rules draws a different conclusion about design intent
+than one who knows three of the five are ours.
+
+These were the **only two occurrences repo-wide**, verified by grep before and after.
+
+**Attribution.** Raised by Codex **L03** and echoed by **L09** in the effort-none cohort; the
+provenance check against CITATIONS.md's scoping was derived here. Codex is **acknowledged**, not
+credited as an author.
