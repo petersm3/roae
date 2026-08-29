@@ -2094,3 +2094,29 @@ this leg genuinely independent. That is recorded as follow-up work, not claimed 
 **Attribution.** Raised by Codex **T06** in the max-run cohort (and reached first by the effort-none
 run); the clause-subset extraction, the Lean-leg check and the replacement wording were derived here.
 Codex is **acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-29 — TR-10 now carries standard errors, and one clause in yesterday's own correction was knife-edge
+
+**Addition.** TR-10 §3 now states that the masses are weighted-sample estimates carrying a
+delta-method standard error (`se=`, printed by the estimator since 2026-08-28), and adopts an explicit
+rule: **a verdict whose 95% CI straddles its bar is labelled "unresolved at N probes", not
+classified.** Carrying the errors through changes **no** published classification. Only `rotinv`
+approaches the straddle condition — its two-sided p exceeds the 10⁻⁴ candidate bar by **≈2.3 SE**, so
+its CI clears the bar only marginally, and that is now said out loud rather than left for a reader to
+discover.
+
+**Correction to a correction.** The 2026-08-28 entry above (the two mis-tailed TR-10 verdicts)
+supported `pureplace`'s NULL with the observation that its **one-sided** value already exceeds 0.05/9
+before doubling. That observation is true of the printed estimate but the margin is **≈0.1 SE** — a
+coin flip once the uncertainty is carried. It is retained as an observation and explicitly **not
+relied on**; the NULL rests on the two-sided reading, which is **≈45 SE** clear of the bar.
+
+Recording this matters more than the arithmetic: a supporting clause that looks decisive and is
+statistically empty is exactly the kind of thing that hardens into a load-bearing claim if nobody
+marks it. The verdict does not change.
+
+**Attribution.** The standard-error implementation and the straddle-rule wording came from the C2
+review lens; the knife-edge measurement is its finding about work done here the same day.
+Acknowledged, not credited as an author.

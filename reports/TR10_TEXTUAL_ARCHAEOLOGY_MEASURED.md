@@ -81,7 +81,12 @@ notational scoring — is accepted and stated.
    rule" = < 10⁻⁴ AND passing the corpus-control specificity gate (the same functional must not flag on
    [Jing Fang](../documentation/CITATIONS.md#jingfang)'s Eight Palaces or the Mawangdui ordering); all nine reported regardless of outcome; and —
    per the standing extraction-circularity policy — **nothing promotes to a solver constraint
-   regardless of outcome**. Operationalizations are embedded, two-language verified, and public:
+   regardless of outcome**. **Masses are weighted-sample estimates**, and each now carries a
+   delta-method standard error (printed as `se=` by the estimator since 2026-08-28). **A verdict whose
+   95% CI straddles its bar is labelled "unresolved at N probes", not classified.** Among the nine rows
+   only `rotinv` approaches that condition — its two-sided p exceeds the 10⁻⁴ candidate bar by
+   **≈2.3 SE**, so its 95% CI clears the bar only marginally — and **no published classification
+   changes** once the errors are carried. Operationalizations are embedded, two-language verified, and public:
    `solve.py` is the spec (`dav_*` functions), `solve.c` the measurement engine, and the cross-gate
    ([`--dav-verify`](../documentation/SOLVE_C_CLI.md#--dav-verify) in both) confirms each candidate reproduces its expected King Wen value exactly.
    Formalization choices are ours, not Davis's; errors of operationalization are ours.
@@ -97,7 +102,7 @@ notational scoring — is accepted and stated.
    | 4 | `parallel3040` — 30s/40s parallel with chiasmus (pp. 78, 253–254) | 1 | zero sampled mass in 2×10⁹ | extreme / data-like class |
    | 5 | `palnbr` — palindrome-neighborhood adjacency mass (pp. 121–128) | 10 | P(≥10) = 7.9×10⁻² (mean 4.9) | **NULL** |
    | 6 | `rotinv` — rotation≡inversion pairs at 11/12, 17/18, 53/54, 63/64 (p. 68, 118 n14) | 1 | one-sided P = 6.5×10⁻⁵; **two-sided P = 1.31×10⁻⁴** | **data-like; does not promote — and does NOT meet the candidate bar.** ⚠ [CORRECTED 2026-08-28: this read "meets candidate-rule numerically". The bar declared at §3 is **two-sided** p < 10⁻⁴; the published 6.5×10⁻⁵ is the one-sided upper tail (`at`+`above` from `dav_tier1.out`), and 2 × 6.531×10⁻⁵ = 1.306×10⁻⁴ **exceeds** 10⁻⁴. Row 1 of this same table already applies the doubling convention. The one-sided value is retained above because downstream BH ranking in METHODS/TR-8 cites it.] |
-   | 7 | `pureplace` — pure-hexagram placement (pp. 80, 82, 183) | 1 | one-sided P = 5.56×10⁻³; **two-sided P = 1.11×10⁻²** | **NULL** ⚠ [CORRECTED 2026-08-28: this read "borderline (at the 0.05/9 threshold to reported precision)". It is not borderline under either reading — the declared bar is **two-sided** p < 0.05/9 = 5.5556×10⁻³, and the **one-sided** value 5.56152×10⁻³ already exceeds it before doubling.] |
+   | 7 | `pureplace` — pure-hexagram placement (pp. 80, 82, 183) | 1 | one-sided P = 5.56×10⁻³; **two-sided P = 1.11×10⁻²** | **NULL** ⚠ [CORRECTED 2026-08-28: this read "borderline (at the 0.05/9 threshold to reported precision)". It is not borderline under either reading — the declared bar is **two-sided** p < 0.05/9 = 5.5556×10⁻³, and the **one-sided** value 5.56152×10⁻³ already exceeds it before doubling — but that is a **≈0.1-SE gap**, true of the printed estimate and far too close to carry weight, so it is recorded and NOT relied on. The NULL rests on the two-sided reading, which is **≈45 SE** clear.] |
    | 8 | `eccplace` — eccentric-class placements incl. 23/24–43/44 at distance 20 (pp. 124–125, 117 n10, 172, 211) | 1 | zero sampled mass | extreme / data-like class |
    | 9 | `asymhalf` — both-asymmetric-trigram half-split (pp. 111–112) | 4 of 16 | P(≤4) = 1.9×10⁻¹ (mean 7.3) | **NULL** |
 
