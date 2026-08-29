@@ -102,9 +102,17 @@ positives on whitespace / comment-only edits.
 
 **Current standing policy (2026-04-29, supersedes the prior split rule):**
 
-> **All VMs other than the 2-core 8GB `claude` orchestrator MUST be Spot priority.** No exceptions for merge VMs, no exceptions for "brief inspection" VMs, no exceptions for analysis VMs. If a workload genuinely cannot tolerate eviction, design for checkpoint/resume, or escalate to the operator before launching.
+> **Every VM other than the 2-core 8GB `claude` orchestrator must be provisioned deliberately: **enumeration on Spot**, and **merge or any workload that cannot checkpoint on Regular/Standard, right-sized**. No VM of any priority may be created or started without a teardown plan stated in the same breath. If a workload genuinely cannot tolerate eviction, do not put it on Spot — design for checkpoint/resume or provision Regular, and say which.** ⚠ **[CORRECTED 2026-08-29 — this read "All VMs … MUST be Spot priority. No exceptions for merge VMs, no exceptions for 'brief inspection' VMs, no exceptions for analysis VMs." Measured on the live subscription: five of seven non-orchestrator VMs are `Regular`, so the rule was never followed, and it contradicted `documentation/DEPLOYMENT.md`'s STANDING split policy. See documentation/CORRECTIONS.md]**
 
-This supersedes the 2026-04-20 split policy (enumeration=Spot, merge=on-demand). The split policy was correct in theory (eviction-fragile workloads should be Regular) but in practice the on-demand merge VMs accumulated forgotten-VM cost at the same rate as the prior overspend events — so the rule is now blanket Spot-only.
+⚠ **[CORRECTED 2026-08-29 — this said the blanket-Spot rule "supersedes the 2026-04-20 split policy (enumeration=Spot, merge=on-demand)". It does not, and PRACTICE HAS NEVER FOLLOWED IT: measured on the live subscription, five of the seven non-orchestrator VMs are `Regular` and only the enumeration VM is Spot. `documentation/DEPLOYMENT.md` still presents the split policy as STANDING with no supersession note, so the two documents contradicted each other and the one claiming priority was the one practice ignored. See documentation/CORRECTIONS.md]**
+
+**The operative rule, as actually practised:**
+
+- **Enumeration → Spot.** Eviction-resilient via sub-branch checkpoints, and roughly an 85% discount.
+- **Merge, and any workload that cannot checkpoint → Regular/Standard, RIGHT-SIZED.** A mid-merge eviction costs a full re-run, and paying for 128 cores to run a single-threaded heap-sort is ~4× over-spend.
+- **The `claude` orchestrator stays Regular.**
+
+**The cost concern behind the blanket rule was real but aimed at the wrong target.** What accumulated cost was *forgotten* VMs, not Regular *pricing*. So the requirement is: **pair every VM create or start with a teardown plan in the same breath**, and stand it down when the job ends. That is what prevents the overspend; blanket-Spot only made the rule unfollowable, which is why it was not followed.
 
 Spot pricing references (D-als-v7 family, westus3):
 - D128als_v7: ~$5.146/hr on-demand → ~$0.95/hr Spot (~85% discount)

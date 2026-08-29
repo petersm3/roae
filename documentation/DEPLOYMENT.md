@@ -118,7 +118,11 @@ the same VM forces you to pay for the *union* — many cores *and* lots of RAM
 and at larger budgets (≥100T) the split becomes architecturally necessary
 because no single SKU is cost-effective at both.
 
-**STANDING POLICY (2026-04-20, corrected after a costly misprovisioning):**
+**STANDING POLICY (2026-04-20, corrected after a costly misprovisioning; reaffirmed 2026-08-29):**
+
+⚠ **[NOTE 2026-08-29 — `CLAUDE.md` asserted a blanket "all VMs must be Spot" rule claiming to supersede this
+section. Corrected: practice never followed it (five of seven non-orchestrator VMs are Regular), and this
+split policy is the operative one. See CORRECTIONS.md]**
 
 - **Enumeration → spot, 128 cores** (D128als_v7 westus3). Eviction-resilient (sub-branch checkpoints). Spot gives ~70-85% discount ($5.146/hr on-demand → $0.95/hr spot).
 - **Merge → on-demand, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest sit idle. **Size the merge VM by RAM and I/O, NOT core count.** On-demand (not spot) because merge is fragile under eviction — a mid-merge eviction costs a full re-run at 100T+ scale (5+ hours).

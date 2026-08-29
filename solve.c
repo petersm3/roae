@@ -23990,7 +23990,15 @@ int main(int argc, char *argv[]) {
                     unique++;
                 }
             }
-            printf("  Unique: %lld (removed %lld orient duplicates)\n",
+            /* 🔴 Q-344: this said "orient duplicates", which this file's own proof sketch
+               (see the compare_canonical block above) contradicts: per-thread inserts already use
+               the canonical key, so "a thread's flushed sub_*.bin file contains at most one
+               representative per canonical class WITHIN that thread". Nothing removed here is an
+               orientation variant of a record in the same shard -- every removal is the SAME
+               canonical class independently rediscovered by a different shard. Calling that
+               "orient duplicates" re-manufactured, in every merge log, the exact conflation the
+               docs corrected in c18ea759. */
+            printf("  Unique: %lld (removed %lld cross-shard duplicate canonical classes)\n",
                    unique, total_records - unique);
 
             printf("  Writing %s...\n", outname);

@@ -2189,3 +2189,32 @@ entries instead, with an explicit caution that the sentence must **not** be wide
 counts orderings": the published entries themselves record closed-form counts of
 simply-constrained ordering spaces (黄石声 1997, transmitting 沈宜甲/董光璧; 陳壯維 2007), and
 TR-11's prior-art chain at the counting-question credit was extended accordingly (v1.21).
+
+---
+
+## 2026-08-29 — two public documents gave contradictory VM policies, and the one claiming priority was the one practice ignored
+
+`CLAUDE.md` stated: *"All VMs other than the … orchestrator MUST be Spot priority. No exceptions for
+merge VMs …"*, adding that this **supersedes** the 2026-04-20 split policy. `DEPLOYMENT.md` still
+presented that same split policy — *"Enumeration → spot … Merge → on-demand … (not spot) because merge
+is fragile under eviction"* — as **STANDING**, with no supersession note anywhere.
+
+So a reader following one document provisioned differently from a reader following the other, and
+neither said which to obey.
+
+**Measured on the live subscription before deciding:** of the seven non-orchestrator VMs, **five are
+`Regular`**. Only the enumeration VM is Spot. **Practice has never followed the blanket rule** — it
+follows the split policy the blanket rule claimed to replace.
+
+Both documents now state the operative rule: **enumeration → Spot; merge and any workload that cannot
+checkpoint → Regular/Standard, right-sized; the orchestrator stays Regular.**
+
+**The cost concern behind the blanket rule was real but aimed at the wrong target**, and that is worth
+keeping. What accumulated cost was *forgotten* VMs, not Regular *pricing*. The requirement is therefore
+to **pair every VM create or start with a teardown plan in the same breath** and stand it down when the
+job ends. Blanket-Spot only made the rule unfollowable, which is why it was not followed — and an
+unfollowable rule is worse than none, because its existence suppresses the workable one.
+
+**Attribution.** Raised by Codex **L21** in the effort-none cohort, which called it a textbook
+document-control failure. The subscription measurement and the reconciliation were derived here. Codex
+is **acknowledged**, not credited as an author.
