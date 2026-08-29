@@ -2341,3 +2341,54 @@ instead of reading one. The root-cause analysis, the eval-safety measurement and
 derived here.
 
 Canonical selftest sha unchanged: `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`.
+
+---
+
+## 2026-08-29 — the 1169 / 233 figures had no reproduction command, and the provenance note said they did
+
+`SEARCH_SPACE_SIZE.md` and `TR4` publish `tree_nodes 1169 → 233` for the C6/C7 pinned check.
+Neither document gave the command that produces them, and neither repository held it anywhere. What
+made this worse than an omission is that `SEARCH_SPACE_SIZE.md`'s provenance note told the reader
+the public verification path was *"re-running the **published** `SOLVE_KNUTH_C67` command in this
+repository"*. **There was no published command.** The document asserted the check it did not supply.
+
+**The cost is not hypothetical.** `--estimate-knuth 0` means *zero random probes* — exact
+enumeration. It is bounded here only because a 22-pair prefix makes the subtree small. Issued
+without that prefix, which a reader has no way to know, the same command is an unbounded full walk.
+A reproduction attempt on 2026-08-29 was killed twice and concluded, wrongly, that no command
+produced the figures at all.
+
+**Published now, and all three reproduce in under 10 ms:**
+
+| invocation (prefix `1 0 2 0 … 22 0`, `ulimit -s unlimited`) | tree_nodes | oriented leaves | canonical |
+|---|--:|--:|--:|
+| `SOLVE_KNUTH_C67=1` | **1169** | 88 | 8 |
+| `+ SOLVE_KNUTH_PIN_SLOTS="24,…,31"` | **233** | 8 | 8 |
+| `+ SOLVE_KNUTH_PIN_SLOTS="23,…,31"` | **75** | 8 | 8 |
+
+**The slot labels were wrong in both directions, and the 2026-08-28 correction above did not fix
+them.** `SOLVE_KNUTH_PIN_SLOTS` takes **step** numbers and accepts **1–31**
+(`(knuth_pin_mask >> step) & 1u`), so a "slot 32" is not a value the flag can express — which is why
+that correction's own author found slot 32 to be "a no-op". Steps are 0-based and
+**position = step + 1**. After the 22-pair prefix the free steps are **23–31**, i.e. **positions
+24–32**. The 233 run pins steps 24–31 = **positions 25–32**, so the slot left order-free is
+**position 24**, not position 23.
+
+**Nothing substantive moves.** Eight survivors in every variant, all carrying King Wen's pair
+ordering. Only the run description and the labels were wrong — twice now, which is why this is
+gated rather than merely corrected.
+
+**Gated** by `scripts/knuth_c67_repro_gate.sh`, in two legs that answer different questions. Leg 1
+asks whether a reader can check the figure: every document publishing 1169/233 must carry all four
+elements of the invocation **inside one fenced code block**. That block scoping was itself measured
+— a file-scoped first cut found only one of four tokens missing from the pre-fix documents, because
+the rest occurred in scattered prose including the provenance sentence that named the variable while
+promising a command it never gave. Leg 2 asks whether the figure is still true: it **runs** the
+three commands and compares the binary's own output, so no doc edit can satisfy it. Shown able to
+fail both ways — against the real pre-fix documents (neither contained a single fenced code block),
+and against a deliberately perturbed binary, which printed 11990 instead of 1169 while leg 1 stayed
+green.
+
+**Attribution.** The wrong run description was found by the Fable D2 outsider-read lens (§A1), which
+re-ran the check instead of reading it. The missing command, the step/position resolution and the
+gate were derived here.
