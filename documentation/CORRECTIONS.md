@@ -2144,3 +2144,48 @@ These were the **only two occurrences repo-wide**, verified by grep before and a
 **Attribution.** Raised by Codex **L03** and echoed by **L09** in the effort-none cohort; the
 provenance check against CITATIONS.md's scoping was derived here. Codex is **acknowledged**, not
 credited as an author.
+
+---
+
+## 2026-08-29 — the prior-art adjudication is published, and three published statements move with it
+
+The annotated bibliography for the 2026-08 prior-art acquisition round landed in
+`CITATIONS.md` (§"The 2026-08 prior-art acquisition round", plus new entries in the algebra,
+Shen Youding, and Li Shangxin sections). Every edit in the batch is a **cession or a credit** —
+recording what others did, or did first — and no published number changes. Three previously
+published statements change meaning:
+
+1. **"Fifth independent arrival" → "seventh."** The (Z/2)⁶-algebra lineage in `CITATIONS.md`
+   counted ROAE the fifth independent arrival. Two further arrivals, read first-hand in August,
+   join the chain: 袁作兴 (1991) and 曹红军·厉树忠·刘亚楠 (1995). Neither displaces 欧阳维诚 as
+   earliest (his 1990 卦序探原, in our collection, already states the group with a nested
+   subgroup chain — a passage an earlier pass missed); neither cites him, so their independence
+   is plausible but unprovable. The count grew because the reading got more complete, not
+   because anything was previously wrong about the four arrivals then known.
+
+2. **The Shao Yong candidate cession is confirmed and applied.** Since 2026-08-21 the 8+28=36
+   reversal-figure *count* carried a "second-hand, unconfirmed" candidate attribution to 邵雍
+   (11th c.), with instructions not to move the attribution until the locus was read directly.
+   The 觀物外篇 locus has now been read first-hand from the 四庫 woodblock scan (twice,
+   2026-08-26/27): the count is his, stated at both levels (4+2=6→8 trigrams; 8+28=36→64
+   hexagrams), and the entry, the candidate paragraph, TR-1 §6, and
+   LITERATURE_RULES_POPULATION_TESTS.md now say so. The 36-figure *condensation of the received
+   text* remains with 胡一桂 → 來知德, and the joint two-operation decomposition remains with
+   朱元昇/吳澄 — the widened cession displaces neither.
+
+3. **"No direct assertor known" → "closest direct assertor: Li Shangxin 2007."**
+   `CLAIMS_DECIDED.md`'s uniqueness-conjecture row and the CITATIONS attribution note previously
+   said no author asserted constraint-determinism of the sequence directly. That sentence
+   survives literally for the C1–C7 inventory, but the first-hand read of Li Shangxin's 2007
+   thesis found the sharpest instance: he makes unique determination of position the criterion a
+   construction-rule system must meet and asserts his own system met it (jointly with his
+   meaning-system, hedged to "most" hexagrams, and qualified by himself in 2019). The note was
+   upgraded under its own standing invitation.
+
+Alongside these, the two public scoping paragraphs (the Wu Cheng entry and
+KING_WEN_PROVENANCE.md) that deliberately narrowed "nothing here counts ORDERINGS" to five named
+classical authors — because the adjudication was unpublished — now point to the published
+entries instead, with an explicit caution that the sentence must **not** be widened into "no one
+counts orderings": the published entries themselves record closed-form counts of
+simply-constrained ordering spaces (黄石声 1997, transmitting 沈宜甲/董光璧; 陳壯維 2007), and
+TR-11's prior-art chain at the counting-question credit was extended accordingly (v1.21).

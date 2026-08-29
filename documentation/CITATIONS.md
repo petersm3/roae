@@ -101,7 +101,7 @@ The framing of C1–C5 as a specific *joint* constraint system is ROAE-specific.
 <a id="leibniz1703"></a>
 - **Leibniz, Gottfried Wilhelm** (1703). "Explication de l'arithmétique binaire, qui se sert des seuls caractères 0 et 1, avec des remarques sur son utilité, et sur ce qu'elle donne le sens des anciennes figures chinoises de Fohy." *Mémoires de l'Académie royale des Sciences*. Shows correspondence between Fu Xi's binary ordering and the natural binary count 0–63.
 <a id="shaoyong"></a>
-- **Shao Yong** (邵雍, 1011–1077 CE). *Huangji jingshi shu* (皇極經世書). Developed the circular/square binary arrangement (xiantian diagram) that Leibniz later rediscovered. A candidate (second-hand, unconfirmed) earlier statement of the 8+28=36 reversal-figure count in this work is recorded in §"Attributed candidate rules under population test (2026-07-02)" below — see the ⚠ CANDIDATE EARLIER CESSION entry; the attribution has not been moved.
+- **Shao Yong** (邵雍, 1011–1077 CE). *Huangji jingshi shu* (皇極經世書). Developed the circular/square binary arrangement (xiantian diagram) that Leibniz later rediscovered. States, in the 觀物外篇 (transmitted in this work), the reversal-classification count of the hexagrams at two levels — 「八卦之象，不易者四，反易者二，以六卦變而成八也。重卦之象，不易者八，反易者二十八，以三十六變而成六十四也」 (四庫全書本, 卷十三; read first-hand from the 浙江大學 scan, archive.org 06071595.cn, p. 5; same wording in the 道藏本 per Li Shangxin 2007, and in the edition quoted by 謝向榮 2005 with 共…卦也 for 以…也) — i.e. 8 reversal-invariant figures plus 28 reversal pairs = 36 forms yielding the 64, with the matched trigram case 4+2=6→8. The earliest counted statement of the reversal classification we have found — see the attribution note in §"Attributed candidate rules under population test" below *(upgraded from a second-hand candidate 2026-08-29; see [CORRECTIONS.md](CORRECTIONS.md))*. He counts the classes of the set; he does not compose reversal with complementation (see [朱元昇](#zhuyuansheng)) and does not order or count orderings.
 
 ### Mawangdui silk-text ordering
 
@@ -298,12 +298,22 @@ full-scale counts at the C1∩C2∩C4 and C1∩C2∩C4∩C5 layers (with validat
 C1–C7, which remain estimates — TR-11 §10) — a different counting object — the equivariance-ceiling theorem, and the
 machine-checked formalization.
 
-By our current accounting ROAE is the **fifth independent arrival** at this algebra:
-[Goldenberg (1975)](#goldenberg1975) (first Western) → Ouyang (≤1986, framework; [1992](#ouyang1992),
-fullest, with proofs and cosets) → [Suenaga (2012)](#suenaga2012) (independent, adds counting) →
+By our current accounting ROAE is the **seventh independent arrival** at this algebra
+*(corrected 2026-08-29 from "fifth" — two further arrivals, read first-hand in the 2026-08
+acquisition round, joined the chain; see [CORRECTIONS.md](CORRECTIONS.md))*:
+[Goldenberg (1975)](#goldenberg1975) (first Western) → Ouyang (≤1986, framework; his 1990
+卦序探原 already states the group with a nested subgroup chain — see [#ouyang1990](#ouyang1990);
+[1992](#ouyang1992), fullest, with proofs and cosets) → **[Yuan Zuoxing 袁作兴
+(1991)](#yuanzuoxing1991)** (states the (Z/2)ⁿ tower and the finite-abelian-group conclusion for
+the hexagram set, with the power-set identification; no sequence content) → **[Cao Hongjun, Li
+Shuzhong, and Liu Yanan (1995)](#caohongjun1995)** (re-proves the order-64 abelian group by
+componentwise XOR and adds a topological-group structure; no sequence content) →
+[Suenaga (2012)](#suenaga2012) (independent, adds counting) →
 [Radisic (2026)](#radisic2026) (Lean-verified matching layer) → ROAE, with
 [Schöter (1998)](#schoter1998) a further independent-then-crediting arrival (he reports the bulk of
-his work predated his awareness of Goldenberg). All of these act on the
+his work predated his awareness of Goldenberg). Neither Yuan nor Cao cites Ouyang (verified against
+the papers themselves), so their independence from him is plausible but not provable from the
+texts; neither displaces Ouyang as earliest. All of these act on the
 **hexagram set**; none states a group acting on the space of admissible **orderings** (TR-5's object),
 enumerates that space, or proves a ceiling on it.
 
@@ -329,6 +339,23 @@ enumerates that space, or proves a ceiling on it.
   by 1990 he had **reversed** this denial and was seeking the ordering's constraint principles. We
   cite the 1987 denial only as evidence that even a sophisticated algebraist initially judged the
   ordering problem empty — not as a standing assessment (he retracted it himself). [analyzed 2026-07]
+<a id="yuanzuoxing1991"></a>
+- **Yuan Zuoxing 袁作兴** (1991). "Yigua jiegou de shuxue tedian" 易卦结构的数学特点 [Mathematical
+  characteristics of the structure of the hexagrams]. *Changsha shuidian shiyuan xuebao*
+  长沙水电师院学报 1991(3). Proves group/matrix structure on the **hexagram set**: states the
+  (Z/2)ⁿ tower and the finite-abelian-group conclusion, with the power-set identification. Term
+  profile measured from the full text: 群 17 · 矩阵 17 · 卦序 **0** — no sequence content, and no
+  count, bound, or estimate of orderings. Predates [Cao Hongjun et al. (1995)](#caohongjun1995) on
+  the abelian-group result by four years (an internal record briefly took him for the earliest
+  arrival in our collection; the 1990 Ouyang passage above is earlier — see
+  [#ouyang1990](#ouyang1990)); does not cite Ouyang. [read in full 2026-08; adjudicated 2026-08-27]
+<a id="caohongjun1995"></a>
+- **Cao Hongjun 曹红军, Li Shuzhong 厉树忠, and Liu Yanan 刘亚楠** (1995). "«Yijing» guaxiang fuhao
+  de tuopu qun jiegou" 《易经》卦象符号的拓扑群结构 [The topological-group structure of the Yijing
+  hexagram symbols]. *Zhouyi yanjiu* 周易研究 1995(2): 75–79 *(issue number corrected from an
+  earlier internal record giving 1995(5))*. Re-proves the order-64 abelian group by componentwise
+  XOR and adds a topological-group structure, on the **hexagram set**; no sequence content, no
+  counting of orderings; does not cite Ouyang. [read in full 2026-08; adjudicated 2026-08-27]
 <a id="shen1936"></a>
 - **Shen Youding 沈有鼎** (1936a). "Zhouyi xugua gugou dayi" 周易序卦骨构大意 [Outline of the
   skeletal frame of the Zhouyi hexagram sequence]. *Beijing chenbao* 北京晨报, "Sibian" 思辨
@@ -356,6 +383,18 @@ enumerates that space, or proves a ceiling on it.
   **class of hexagrams**; we find no count or bound on **orderings**, no ceiling, no uniqueness
   claim, and no proof. Where the symmetry that later becomes Zhang's 错综 orbit does appear —
   逆顺错综，处处对称 — Shen writes 不详述 ("not elaborated"), 限于篇幅.
+
+  **One further primary detail (added 2026-08-29), verified against [Huang Pei-jung's 2011
+  report](#huangpeirong) quoting [Xing Wen 1996](#xingwen1996)'s appendix printing** (our ILL read
+  of the 1992 reprint recorded the block *counts*; the text also names the members): 1936a
+  enumerates every subordinate block, splitting the lower-canon blocks at the half-block level —
+  上篇散卦之次乾坤者八卦，屯蒙需訟師比小畜履是也 … 中次震艮者半，漸歸妹豐旅是也；次巽兌者半，
+  渙節中孚小過是也 … 次損益者半，夬姤萃升困井革鼎是也. These are hexagram-level placements of the
+  received order, stated by enumeration; the constraints this project labels C6/C7 pin adjacencies
+  inside exactly this articulated region (pairs 25–28). As with the rest of 1936a this is
+  description of the received sequence, not a derivation — see the C6/C7 provenance notes in
+  [SPECIFICATION.md](SPECIFICATION.md). (Verbatim re-verification of the 1992 reprint's p. 98
+  against this fuller quotation is queued for the next physical-volume session.)
 
   **Do not read that brevity as undeveloped thinking.** In the *same year*, in
   评《东西乐制之研究》 (《清华学报》11(1), **1936年1月**, in the same collected volume at pp. 87–96),
@@ -417,6 +456,13 @@ enumerates that space, or proves a ceiling on it.
 
   *Edition orthography, if quoting the 1992 reprint verbatim:* it prints 即 for 既 throughout
   既济/未济, and 首干 for 首乾 on p. 99.
+<a id="xingwen1996"></a>
+- **Xing Wen 邢文** (1996). "Shen Youding xiansheng guaxu lun" 沈有鼎先生卦序論 [Mr. Shen
+  Youding's theory of the hexagram sequence]. *Zhongguo zhexue* 中國哲學 17 (March 1996), with
+  Shen's two 1936 pieces printed as appendices — the printing [Huang Pei-jung
+  (2011)](#huangpeirong) quotes from; predates and underlies [Xing 2021](#xingwen2021). Known to
+  us through Huang 2011's extended quotations, not yet examined first-hand; cited here for the
+  appendix printing and the lineage documentation. [located 2026-08-29]
 <a id="xingwen2021"></a>
 - **Xing Wen 邢文** (2021). "Fenxing yixue chutan: zai tan Shen Youding xiansheng guaxu lun"
   分形易学初探——再谈沈有鼎先生卦序论 [A first exploration of the fractal studies of the Changes: a
@@ -442,6 +488,25 @@ enumerates that space, or proves a ceiling on it.
   the best-placed scholar writing 85 years later, it is meaningful evidence that no such definition
   exists.
 
+<a id="huangpeirong"></a>
+- **Huang Pei-jung 黃沛榮** (1985). "Zhouyi guaxu tanwei" 周易卦序探微 [A study of the Zhouyi
+  hexagram sequence]. *Taida Zhongwen xuebao* 臺大中文學報 1 (Nov. 1985): 321–366. Free PDF from
+  the NTU Chinese Literature department. A comprehensive philological survey of the received
+  sequence's ordering principles and of the alternative sequences (Mawangdui, Jing Fang, *Yuanbao*,
+  Jia Gongyan, Zhu Xi); endorses [Cui Shu](#cuishu)'s 純卦/交卦 skeleton with full block
+  memberships (震艮 followed by 漸歸妹豐旅, p. 331); reviews the Leibniz/binary reading and
+  explicitly denies it as the Yi's essence (僅屬數學原理之相通，而非義理之同源, p. 358); argues on
+  philological grounds that the received sequence is the most primitive form. **No count or bound
+  on orderings appears anywhere in the work.**
+  — (2011). 《周易「骨幹卦」研究》 [Research on the "skeleton hexagrams" of the Zhouyi], National
+  Science Council report NSC 98-2410-H-034-031 (Chinese Culture University; public PDF in the PCCU
+  institutional repository). States the sixteen skeleton hexagrams' spacing regularity in the
+  received order (mutual distances 4, 8, 16 — 皆為四之倍數) and argues deliberateness
+  qualitatively (非偶然現象 — no model or count behind it); documents the skeleton lineage
+  吳澄 → 崔述 → 沈有鼎 and reproduces [Shen 1936a](#shen1936)'s block-enumeration text via
+  [Xing Wen 1996](#xingwen1996). Both works were read in full; the scope of this annotation is
+  those two works (his 1998 book 《易學乾坤》 and a 2001 *Hanxue yanjiu* article remain unread).
+  [analyzed 2026-08]
 <a id="zhang1994"></a>
 - **Zhang Qingyu 张清宇** (1994). "Yitu de neihan-ge jieshi" 易图的内涵格解释 [An intension-lattice
   interpretation of the Yi diagrams]. *Zhexue yanjiu* 哲学研究 1994(3): 36–44. Origin of his
@@ -530,7 +595,9 @@ enumerates that space, or proves a ceiling on it.
   之對」, drawing the very distinction that separates a genuine line-operation grouping from a set that
   merely coincides. He also gives a **second, different** group in the same chapter — under
   ⟨reversal, trigram-swap⟩ he counts 「共**十八對**…純卦八…不與」, which is exact.
-  Authenticated by his own 小序 via the 四庫 提要: 「二曰卦對，**以奇偶反易成二卦**」.
+  Authenticated by his own 小序 via the 四庫 提要: 「二曰卦對，**以奇偶反易成二卦**」. His
+  不反易/兼反易/反易取正對 vocabulary extends 邵雍's 不易/反易 pair (see [#shaoyong](#shaoyong));
+  the terminological continuity is noted without inferring structural descent.
   **⭐ His degeneracy classes are not decorative — they exactly characterise a modern result.** Of the
   **3.845×10⁴⁶** involutions on the 64 hexagrams with eight fixed points, **exactly 70** reproduce
   King Wen's adjacent-pair structure, and **the hexagrams where that 70-fold freedom lives are
@@ -543,16 +610,20 @@ enumerates that space, or proves a ceiling on it.
   — or in [Cui Shu](#cuishu), 焦循, 來知德 or [Kong Yingda](#kongyingda) — counts ORDERINGS.** They
   classify the 64; this project counts arrangements of them subject to constraints, which is a
   different object. **⚠ Scoped 2026-08-16: that is a statement about those five authors, NOT a survey
-  result. ⚠ Updated 2026-08-28 — the two limits recorded here have since been addressed, and this
-  paragraph is a state description, not a survey result. A prior-art search designed for the
-  ordering-count question was run on 2026-08-16. The two papers named here as unread — 王俊龍 on the
-  mathematical regularity of the received hexagram order, and 管小思 on a structural mathematical
-  model of the hexagram sequence — have both been read, as has every other obtainable paper by
-  either author; one item remains unobtainable (王俊龍 2007, in 劉大鈞 ed. 大易集釋, pp. 812–836).
-  The adjudication of those reads is not yet published, so the claim above continues to be stated
-  narrowly: it is a statement about those five authors, not a survey result. (This file carried a
-  misspelling of 管小思's name until 2026-08-28; see
-  [CORRECTIONS.md](CORRECTIONS.md).)** See [TR5](../reports/TR5_SYMMETRY.md) and
+  result. ⚠ Updated 2026-08-28 and 2026-08-29 — the limits recorded here have since been
+  discharged.** A prior-art search designed for the ordering-count question was run on 2026-08-16;
+  the two papers named here as unread — 王俊龍 on the mathematical regularity of the received
+  hexagram order, and 管小思 on a structural mathematical model of the hexagram sequence — have
+  both been read, as has every other obtainable paper by either author, and **the adjudication of
+  the full 2026-08 acquisition round is now published in this file** (2026-08-29): see
+  §"[The 2026-08 prior-art acquisition round](#acquisition-2026-08)". The sentence above still
+  means exactly what it says — a statement about those five classical authors — and must not be
+  widened into "no one counts orderings": the published entries record closed-form counts of
+  simply-constrained ordering spaces in the modern literature ([Huang Shisheng
+  1997](#huangshisheng1997), after 沈宜甲/董光璧; [Chen Zhuangwei 2007](#chenzhuangwei2007)).
+  Residual unread items are flagged in that section's preamble; one remains unobtainable
+  (王俊龍 2007, in 劉大鈞 ed. 大易集釋, pp. 812–836). (This file carried a misspelling of 管小思's
+  name until 2026-08-28; see [CORRECTIONS.md](CORRECTIONS.md).) See [TR5](../reports/TR5_SYMMETRY.md) and
   [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md).
   *(Added 2026-08-16. Recorded plainly: this repository already cited Wu Cheng — for 〈卦統第一〉, via
   Nielsen — and never opened 〈卦對第二〉, the next chapter of the same book. The miss originated at
@@ -587,6 +658,13 @@ enumerates that space, or proves a ceiling on it.
   operational phrasing. 朱元昇 displays the twelve; he does not count them, give the 上下篇
   distribution, or state the composition as an operation. **Wu Cheng nowhere cites 朱元昇** — he was 21
   in 1270 — so his statement may be independent, but independence is not priority.
+  **The completeness of Zhu Yuansheng's twelve four-hexagram groups is also recorded in modern
+  scholarship** *(added 2026-08-29)*: [Liu Yongkun 刘永昆 (2024)](#liuyongkun2024) enumerates all
+  twelve and counts the resulting partition of the 64 as twenty groups (二十组), on the basis of
+  Zhu's 《六十四卦先后天变反对图》 — stated philologically, with no group-theoretic apparatus —
+  and [Wang Lindong 王林栋 (2024)](#wanglindong2024) quotes Wu Cheng's counted form (二十對) and
+  explicates the two-or-four dichotomy. (The twelve quadruples and the 12×4 + 8×2 = 64 partition
+  they corroborate are the same objects `python3 verify.py --check-zhu-yuansheng` validates.)
   *(Found 2026-08-16 by a prior-art sweep designed for this question — unlike the other cessions
   recorded here, which arrived incidentally. A disclosed gap remains: 張行成《易通變》卷三–四十 appears
   undigitised everywhere and is formally unchecked.)*
@@ -733,6 +811,29 @@ enumerates that space, or proves a ceiling on it.
   this paper sits in neither field cleanly and was missed by both.)* [analyzed 2026-08-16; free PDF
   from the Shandong University 易學 centre]
 
+<a id="li2007"></a>
+- **Li Shangxin 李尚信** (2007). *Jin, bo, zhushu «Zhouyi» guaxu yanjiu* 今、帛、竹书《周易》卦序研究
+  [Doctoral dissertation, Shandong University]. **Read first-hand 2026-08-24, with all six
+  construction principles extracted verbatim 2026-08-27.** The direct ancestor of the 2008 book
+  ([#li2008](#li2008)): his 后记 says the thesis collects his prior 卦序 publications with
+  revisions. Six construction principles (建构原则, after [Shen Youding](#shen1936)) for the
+  received order, as enumerated in his chapter structure — 非覆即变 (= the classical C1 pairing),
+  a host-hexagram skeleton (主卦统领从卦), a yin-yang balance/complementation rule
+  (阴阳平衡与变通互补), 变通配四时, "参伍""错综" numeric spacing, and nuclear-hexagram clustering
+  (互卦用中 — renamed within the 2007 revision itself from 方以类聚, per his 后记) — his own lists
+  being explicitly open-ended (主要有…等). Asserts that the sequence's meaning-system together
+  with its arranging principles fixed each hexagram's position
+  (正是这套意义系统与排卦原则确定了今本卦序各卦的排列位置), hedged elsewhere to "most" hexagrams;
+  the determination claim is thus **joint** (象数义理合一) — not a claim that a formal constraint
+  set alone determines the sequence. Performs local elimination derivations but presents no
+  end-to-end derivation (declared too cumbersome); the thesis itself exhibits a tie its principles
+  cannot break, resolved by an appeal outside them, and leaves within-pair orientation expressly
+  unsolved for at least four pairs (这个问题我们还没有找到满意的答案). In his 2019 reply to
+  [Sun Li](#suli2019) he attaches a question mark to his own earlier determination claim
+  (「似乎就有必要打上一个问号了」). **Counts nothing — no cardinality, bound, or estimate of any
+  solution space appears.** See the attribution note at
+  [#uniqueness-conjecture](#uniqueness-conjecture). [analyzed first-hand 2026-08-24; principles
+  extracted verbatim and adjudicated 2026-08-27]
 <a id="suenaga2012"></a>
 - **Suenaga Takayasu 末永高康** (2012). "Kinbon *Shūeki* no kajo o megutte" 今本『周易』の卦序をめぐって
   [On the hexagram order of the received *Zhouyi*]. *Tōyō koten-gaku kenkyū* 東洋古典學研究 34: 1–18.
@@ -744,7 +845,11 @@ enumerates that space, or proves a ceiling on it.
   eight-palace-style templates. He also reports finding **no rule that fixes the King Wen sequence**
   (an informal under-determination statement). His counted objects (F₂⁶ subspaces; algebraic
   templates) are disjoint from ROAE's constraint-satisfying total orders; he never completed or
-  validated a count and connected no structure to the King Wen ordering. We have found no other hexagram-sequence
+  validated a count and connected no structure to the King Wen ordering. Simple closed-form counts
+  of constrained hexagram-arrangement spaces appear earlier in the Chinese literature —
+  [Huang Shisheng (1997)](#huangshisheng1997), transmitting a count he attributes to
+  沈宜甲/董光璧, and [Chen Zhuangwei (2007)](#chenzhuangwei2007) — see those entries; Suenaga's
+  algebraic counting (subgroup enumeration, template products) is of a different kind. We have found no other hexagram-sequence
   work by him (his published field is *Liji* studies); on the evidence we have, the paper reads as
   the terminus of the Ouyang (1992) → Suenaga (2012) lineage rather than an isolated spike. [analyzed 2026-07; obtained via Hiroshima OA]
 <a id="luojianjin2015"></a>
@@ -787,7 +892,10 @@ Recorded here to document the survey's breadth.*
 - **Ke Zineng 柯资能** (2001). *Zhouyi yanjiu* 周易研究 2001(3): 79–91. The Fuxi (先天) order as a binary
   ordinal (Peano-style) system; concerns 先天, not King Wen.
 - **Wang Junlong 王俊龙** (2002–2005 trilogy; 2010; 2014). Numerological constructions that presuppose
-  the received King Wen order (back-fitting rather than deriving it).
+  the received King Wen order (back-fitting rather than deriving it). *(All five obtainable papers
+  read in full 2026-08; the 2002–2005 trilogy adjudicated against full texts 2026-08-27 — none
+  counts orderings. One item remains unobtainable: the 2007 chapter in 劉大鈞 ed. 大易集釋,
+  pp. 812–836.)*
 - **Wu Guokai 吴国凯** (2012). *Yangming xuekan* 阳明学刊 6: 193–226. A formula fitting the Jing Fang
   eight-palace (京房八宫) order, within Ouyang (1992)'s coset framing.
 - **Zhang Kebin 张克宾** (2020). "Guaxu er ti" 卦序二题. *Zhongguo zhexue shi* 中国哲学史 2020(2): 49–55.
@@ -796,6 +904,126 @@ Recorded here to document the survey's breadth.*
   the 先天-diagram / binary-encoding debate.
 - **Su Zhi 苏智** (2017). *Weinan shifan xueyuan xuebao* 渭南师范学院学报 32(15): 45–50. A
   Saussurean-semiotics reading (non-mathematical).
+
+<a id="acquisition-2026-08"></a>
+### The 2026-08 prior-art acquisition round — annotated (added 2026-08-29)
+
+*In August 2026 this project obtained and read, in full, every obtainable hexagram-sequence paper
+by the authors below (most from CNKI), specifically to close the gap between what had been read
+and what was cited: of the authors read that month, ten were previously cited nowhere in this
+file. Factual annotations were drafted from the full texts; every prior-art verdict was rendered
+in a separate adjudication pass (2026-08-27) against the full extracted texts, with all orbit and
+class arithmetic re-derived against `verify.py`'s own bit operations. Each entry states what the
+work contains, how it intersects this project, and what — if anything — is ceded to it. Residual
+unobtained items: 王俊龍 2007 (in 劉大鈞 ed. 大易集釋, pp. 812–836; unobtainable to date);
+欧阳维诚 1993 《周易的数学原理》 (on inter-library loan — bounded meanwhile via its table of
+contents, a citing thesis in this corpus, and the author's four 1986–1992 papers, all read); and
+the primary texts of 沈宜甲/董光璧 behind [Huang Shisheng](#huangshisheng1997)'s transmitted
+count. Entries for this round that live elsewhere in this file: [袁作兴 1991](#yuanzuoxing1991)
+and [曹红军 et al. 1995](#caohongjun1995) (§the (Z/2)⁶ algebra), [李尚信 2007](#li2007),
+[黃沛榮](#huangpeirong).*
+
+<a id="suli2019"></a>
+- **Sun Li 孙利 and Zhang Pei 张沛** (2019). "Lun «Zhouyi» gujing guaxu gouzao de shuxue yuanli —
+  xiantian liushisi gua dao jinben guaxu de huanfang tuiyan"
+  论《周易》古经卦序构造的数学原理——先天六十四卦到今本卦序的幻方推演. *Zhouyi yanjiu* 周易研究
+  2019(2): 5–13. ⭐ The most consequential paper of the round. Builds an **order-8 magic square**
+  from the 先天 ordinals of the 64, requiring 非覆即变 pairs vertically adjacent and complements
+  adjacent where possible; iterative renumbering produces nine magic squares and nine diagrams
+  before cycling, and the **fifth**, expanded horizontally, is the received 上經 30 / 下經 34. He
+  calls this 「目前所知的今本卦序最简单的构造原则」. **He states non-uniqueness himself, twice**
+  (推演路径…有很多种; 推演所得的卦序**并不唯一**) — in context the multiplicity is his own nine
+  candidate squares plus path multiplicity, resolved by a non-mathematical criterion (幻方五
+  恰居于正中, read as 尚中). Intersections: 非覆即变 is exactly C1; 「互补数尽可能上下相邻」 is
+  C3's content stated as an *extremal* principle rather than a threshold; the magic-square model
+  has no counterpart in this project. **He never counts orderings** (verified against the full
+  text; the sole 穷尽 hit concerns exhausting derivation starting points). His stated
+  non-uniqueness is credited as a prior negative in the
+  [#uniqueness-conjecture](#uniqueness-conjecture) note — a qualitative statement, in his own
+  words. [Li Shangxin's](#li2007) reply in the same issue (2019(2): 14–15, read first-hand)
+  attaches a question mark to his own earlier determination claim and widens the non-uniqueness.
+  [read in full 2026-08; adjudicated 2026-08-27]
+
+<a id="chenzhuangwei2007"></a>
+- **Chen Zhuangwei 陳壯維** (2007). 《"方陣"卦序的構擬及《周易》初始形態研究》 [Doctoral
+  dissertation, Jilin University, 292 pp.]. Computes 64! and 62! with correct 30-digit mantissas;
+  carries **8!×8! = 1,625,702,400** for the 方陣 (matrix) form — quoted from
+  [Huang Shisheng 1997](#huangshisheng1997), who attributes it to 沈宜甲/董光璧 — and adds
+  **7!×7! = 25,401,600** for the matrix form with 乾 first in both trigram orders; poses
+  「這麼一個極大數目的排列可能性，為什麼《周易》是目前這個排序？」 verbatim. His §3.4 is a
+  **completed exhaustive constrained search over a curated family** (10 trigram orderings → 55
+  principal sequences → 880 → 4 → 1 survivors against his stated 通例), and his §3.5 asserts
+  hedged (基本上) near-total position-determination for his square form under those 通例. His
+  counts are closed-form independent-choice cardinalities plus a 55-member hand exhaustion —
+  disjoint in kind from the exact and estimated counts of constraint systems admitting no closed
+  form reported in [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) and
+  [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md), and cited in TR-11's prior-art chain. [read in
+  full 2026-08; adjudicated 2026-08-24, re-checked 2026-08-27]
+
+<a id="huangshisheng1997"></a>
+- **Huang Shisheng 黄石聲** (1997). "Wen Wang zuo «Zhouyi» guaxu zhi tansuo"
+  文王作《周易》卦序之探索. *Yindu xuekan* 殷都學刊 1997(2): 20–23
+  (doi:10.16140/j.cnki.ydxk.1997.02.005). Carries the matrix-form count **1,625,702,400 = 8!×8!**,
+  attributed to 沈宜甲/董光璧, with the remark 「只有當上下卦都定好次序，才是唯一的64種排法」.
+  ⚠ **Labels the figure the count of *arbitrary* arrangements** — 「六十四卦如果任意排列」 — which
+  is false: arbitrary arrangement of 64 objects is 64!, and 8!×8! is the independent-choice count
+  of the matrix form. Carries the size-of-the-space framing in 1997 (「姬昌從六十四卦十六億多種
+  排法中，唯獨選出…」) as rhetorical motivation for a claim about 文王's intent, not as a posed
+  research problem. States C1 as 「二二相耦，非覆即變」, crediting 韓康伯/孔穎達. **He quotes; he
+  does not derive** — prior art for a transmitted count with a mislabelled universe (see TR-11's
+  prior-art chain); the 沈宜甲/董光璧 primaries remain to be located and read, so wording beyond
+  "as quoted by Huang 1997" is not asserted. [obtained and read first-hand 2026-08-24;
+  adjudicated 2026-08-27]
+
+<a id="guanxiaosi1995"></a>
+- **Guan Xiaosi 管小思** (1995). "Guanyu guaxiang de shuxue he xitong moxing…"
+  關於卦象的數學和系統模型. *Shanghai tiedao xueyuan xuebao* 上海鐵道學院學報 16(1): 113–123.
+  — (2004). "«Yigua» de xu jiegou shuxue moxing zai duice lilun zhong de yingyong"
+  「易卦」的序結構數學模型在對策理論中的應用. *Zhouyi yanjiu* 周易研究 2004(1): 61–74. *(This
+  project's records long carried a misspelling of his name, which is why the author was
+  unfindable until August 2026 — see [CORRECTIONS.md](CORRECTIONS.md).)* The 1995 paper is the mathematical
+  foundation of his programme; its only counting-vocabulary hit is a state classification. The
+  2004 paper is **not mathematics of the sequence**: a systems/TCM correspondence framework
+  mapping behavioural state-triples onto 八卦, deriving eight tactical postures, and labelling the
+  三十六計 with hexagram names — zero counting-vocabulary hits, the cleanest negative in the
+  corpus (responsible editor: 李尚信). **Neither paper counts orderings or treats the received
+  order as a combinatorial object** — reviewed-and-negative, confirmed at content level from
+  fresh text extractions. [read in full 2026-08; adjudicated 2026-08-27]
+
+<a id="shiningzhong2011"></a>
+- **Shi Ningzhong 史寧中** (2011). "Cong bagua dao liushisi gua" 從八卦到六十四卦. *Zhexue
+  yanjiu* 哲學研究 2011 — with 163 citations, the most-engaged paper held in this round. Classical
+  numerology; **does not count orderings**. ⚠ Its clause 「似乎还是随意的」 is, in context, a
+  **foil** for his conclusion that the order *was* thought out (on 象); it must not be quoted as
+  an under-determination prior negative without the full sentence and his conclusion, and it is
+  not banked as one here. [read in full 2026-08; adjudicated 2026-08-27]
+
+<a id="caifeizhou2020"></a>
+- **Cai Feizhou 蔡飛舟** (2020). "Lun Li Tingzhi «Biangua fandui tu» yu «Liushisi gua xiangsheng
+  tu»" 論李挺之《變卦反對圖》與《六十四卦相生圖》. *Haidai xuekan* 海岱學刊 2020(1). Confirms
+  this project's reading that 李挺之's diagrams **do not compose** the two operations (term
+  profile: 反對 176 · 變對 2 · 錯綜 0). Quotes [邵雍](#shaoyong)'s explicit counted
+  classification of the 64 under reversal — in the wording 「不易者八，反復者二十八，三十六變而成
+  六十四」, where the 四庫 primary (read first-hand) has 之象/反易者; the edition variance is
+  recorded and nothing numeric rests on 蔡's wording. Counts **classes**, not orderings. [read in
+  full 2026-08; adjudicated 2026-08-27]
+
+<a id="liuyongkun2024"></a>
+- **Liu Yongkun 刘永昆** (2024). 朱元昇「三《易》」學說研究 [Doctoral dissertation, Shandong
+  University, 206 pp.]. Enumerates **all twelve** of [朱元昇](#zhuyuansheng)'s four-hexagram
+  quadruples — the same twelve exact K₄ orbits `python3 verify.py --check-zhu-yuansheng`
+  validates — and states the counted partition of the 64 as **二十组** (twenty groups), on the
+  basis of Zhu's 《六十四卦先后天变反对图》; stated philologically, with no group-theoretic
+  language (verified). Modern corroboration of the completeness of the Zhu Yuansheng cession; the
+  completeness observation is his record of Zhu, not anything of this project's. *(A first read
+  note searched only the vocabulary 二十對 and missed his 二十组 — corrected in the 2026-08-27
+  adjudication.)* [read in full 2026-08; adjudicated 2026-08-27]
+
+<a id="wanglindong2024"></a>
+- **Wang Lindong 王林棟** (2024). 吳澄易學研究 [Doctoral dissertation, Shandong University,
+  185 pp.]. Quotes [吳澄](#wucheng)'s counted form (二十對) verbatim and explicates the
+  two-or-four dichotomy; **class counts only, never a count over orderings**. Corroborates the
+  Wu Cheng cession. [read in full 2026-08; adjudicated 2026-08-27]
 
 ---
 
@@ -974,6 +1202,18 @@ C1–C7 constraint inventory pins down the sequence**. What the refutation decid
   tested in TR-4, so the refutation does **not** contradict any of those works as stated; it decides the
   narrower, natural question their framing raises — whether the published constraint system alone
   determines the sequence. It does not: ≈5.2×10³¹ orderings survive C1–C7.
+  **The closest direct assertion located to date** *(upgrade applied 2026-08-29 under this note's
+  own standing invitation, after the first-hand read)* **is [Li Shangxin (2007)](#li2007)**, who
+  makes unique determination of position the criterion a construction-rule system must meet —
+  disqualifying rival accounts that "cannot uniquely fix the positions of all or most hexagrams" —
+  and asserts his own principle system determined each hexagram's position. His inventory is his
+  own, not C1–C7; his claim is hedged ("all or most"), presented without an end-to-end derivation,
+  and accompanied by no count of any solution space; and his 2019 qualification retreats from what
+  the 2007 thesis asserted to what its own derivations had demonstrated (see [#li2007](#li2007)).
+  The refutation in TR-4 therefore does not contradict his thesis as stated; it decides the
+  question his criterion raises for the published constraint system. [Chen Zhuangwei
+  (2007)](#chenzhuangwei2007) joins the same hedged-assertor genus for his square form (基本上,
+  under his own 通例).
 - **This project's own early working hypothesis.** ROAE's discovery phase operated on the assumption
   that the extracted constraints might isolate King Wen at scale; the measurement refuted our own
   expectation along with the strong reading.
@@ -985,7 +1225,14 @@ ordering must be imposed by added conditions), having himself in 1987 denied the
 mathematical structure at all (a denial he reversed by 1990 — see the [#ouyang1992](#ouyang1992)
 entry); [Zhang Qingyu's (1998)](#zhang1994) orbit analysis conceded it could not fix the 48 散卦
 within his framework (his 2000 sequel proposes a completion); and [Suenaga (2012)](#suenaga2012)
-reported finding no rule that fixes the King Wen sequence. All of these are qualitative/speculative
+reported finding no rule that fixes the King Wen sequence. [Sun Li 孙利 (2019)](#suli2019)
+(《周易研究》 2019(2): 5–13, with Zhang Pei 张沛) states the same under-determination from the
+constructive direction *(appended 2026-08-29)*: his magic-square derivation of the received
+sequence "is not unique" (推演所得的卦序并不唯一) — the iteration yields nine candidate squares,
+each expanding to a sequence — and his selection of the received one rests on an explicitly
+non-mathematical criterion (its central position, read as 尚中); Li Shangxin 李尚信 (2019, same
+issue, 14–15), replying, attached a question mark to his own earlier claim that his principles
+derive the sequence (「似乎就有必要打上一个问号了」). All of these are qualitative/speculative
 statements; ROAE's contribution is the measurement (≈5.2×10³¹ C1–C7 survivors). None of them
 asserted the *positive* conjecture (that the published constraint inventory pins down the sequence),
 so the attribution note above stands.
@@ -1010,7 +1257,8 @@ promotion of these rules into the formal constraint system carries these credits
   **Zhang Xingcheng 张行成** and **Zhu Xi 朱熹** (Song dynasty, per the first-hand pass of
   [Li Shangxin (2008)](#li2008); *attribution corrected 2026-07-30 — this entry previously credited
   Zheng Qiao (c. 1104–1162), a claim the primary pass could not support: Li's treatment attributes the
-  observation to Zhang Xingcheng and Zhu Xi, and Zheng Qiao does not appear*) and **Hu Yigui** (b. 1247, the 36-figure condensation); modern treatment
+  observation to Zhang Xingcheng and Zhu Xi, and Zheng Qiao does not appear*) and **Hu Yigui** (b. 1247, the 36-figure condensation — the 36-*count* itself being earlier:
+  [Shao Yong](#shaoyong)); modern treatment
   **Hacker, E. & Moore, S.,** "A brief note on the two-part division of the received order of the hexagrams
   in the Zhouyi," *Journal of Chinese Philosophy* 30:2 (2003), 219–221 ([doi:10.1163/15406253-03002005](https://doi.org/10.1163/15406253-03002005)); also Cook 2006.
 - **Pair-positioning parity rule** (yang-preponderant pairs at odd pair-positions, yin-preponderant at even;
@@ -1034,7 +1282,20 @@ promotion of these rules into the formal constraint system carries these credits
   with Schulz & Cunningham 1988 seasonal hypothesis) are under population test as R-S2/R-S1. The pair
   structure's classical lineage runs to <a id="yufan"></a>**Yu Fan (164–233 AD)** (pangtong/fandui, via Li Dingzuo) and the
   36-unit consolidation + 18:18 reasoning to [**Lai Zhide (1525–1604)**](#laizhide);
-  ⚠ **CANDIDATE EARLIER CESSION, recorded 2026-08-21, NOT yet applied.** [Shao Yong](#shaoyong) (邵雍, 1011–1077) appears to state the 8+28=36 reversal-figure **count** in 皇極經世 (pp. 335–337 as cited by 謝向榮 2005 pp. 18/20) — some five centuries before Lai Zhide. Evidence is currently **second-hand**: we have 謝's citation, not a first-hand reading of the 觀物外篇 locus. He states a count; he does **not** compose the sequence from it. **Do not move the attribution until the locus is read directly** — but do not let this lapse either: it is the earliest candidate we have found for the 36-unit count. Source: `FABLE_SONG_SWEEP_46_20260820.md` (roae-private — a private survey note, not publicly accessible; the second-hand chain it records, 謝向榮 2005 citing 皇極經世, is stated in full here and checkable against those published works). **Davis, Scott,**
+  ⚠ recorded 2026-08-21 as a second-hand candidate; **confirmed first-hand and applied
+  2026-08-29** (locus read directly from the 四庫 woodblock scan, twice, 2026-08-26/27; the count
+  is arithmetic-forced — 8 + 2×28 = 64, 4 + 2×2 = 8 — and agrees with this repository's own orbit
+  computation: the K₄ census 8×2 + 12×4 that `python3 verify.py --check-classical-groups` prints
+  refines under reversal alone to 24 + 8 + 4 = 36). [Shao Yong](#shaoyong) (邵雍, 1011–1077; the
+  觀物外篇 as transmitted) states the 8+28=36 reversal-figure **count** explicitly, with the
+  matched trigram census 4+2=6→8 — some five centuries before Lai Zhide and two before Hu Yigui's
+  condensation. The internal arithmetic admits only the class-count reading. The **count of the 36
+  units** is therefore his; the *condensation of the received text* into 36 figures and the 18:18
+  reasoning remain with the 张行成/朱熹/胡一桂 → 來知德 lineage, and the joint two-operation
+  decomposition remains with [朱元昇](#zhuyuansheng)/[吳澄](#wucheng). He does not compose the
+  sequence from the count, and counts no orderings. (Originally surfaced second-hand via 謝向榮
+  2005 citing 皇極經世 pp. 335–337; the first-hand read confirms the count with 之象/反易者 wording
+  — see [#shaoyong](#shaoyong) for the verbatim locus.) **Davis, Scott,**
   *The Classic of Changes in Cultural Context* (Cambria, 2012) and "Operating the Yijing Apparatus,"
   *The Oracle* 2:7 (1998).
 

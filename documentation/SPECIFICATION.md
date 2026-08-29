@@ -112,6 +112,8 @@ The multiset of values in D(S) is exactly {1:2, 2:20, 3:13, 4:19, 6:9}.
 
 **Status: descriptive, not explanatory** — a KW-derived slot pin, priced at net ≈ 0 bits (see the standing table above). `solve.c` calls C6/C7 the "legacy adjacency constraints"; the knowledge compiler does **not** use them — it compiles C1∩C2∩C4∩C5 only.
 
+*Provenance note (2026-08-29): the content of this pin is descriptively attested in the skeleton literature — 吳澄 (13th c.), 崔述 (c. 1817), and hexagram-by-hexagram in 沈有鼎 1936a, whose skeleton places 漸歸妹豐旅 between 震艮 and 巽兌 — a prior description of the same feature of King Wen, not a derivation of it (Shen's candidate principles are named and nowhere defined; see [CITATIONS.md#shen1936](CITATIONS.md#shen1936)). The pricing above is unchanged.*
+
 pair(s₅₂) and pair(s₅₄) are adjacent (s₅₂ and s₅₃ form one pair, s₅₄ and s₅₅ form the next).
 
 *Specifically: {s₅₂, s₅₃} = {001011₂, 110100₂} and {s₅₄, s₅₅} = {001101₂, 101100₂}.*
@@ -119,6 +121,8 @@ pair(s₅₂) and pair(s₅₄) are adjacent (s₅₂ and s₅₃ form one pair,
 ### C7: Adjacency constraint at boundary 25
 
 **Status: descriptive, not explanatory** — a KW-derived slot pin, priced at net ≈ 0 bits (see the standing table above). `solve.c` calls C6/C7 the "legacy adjacency constraints"; the knowledge compiler does **not** use them — it compiles C1∩C2∩C4∩C5 only.
+
+*Provenance note (2026-08-29): the content of this pin is descriptively attested in the skeleton literature — 吳澄 (13th c.), 崔述 (c. 1817), and hexagram-by-hexagram in 沈有鼎 1936a, whose skeleton places 革鼎 at the tail of the 損益 half-block immediately before 震艮 — a prior description of the same feature of King Wen, not a derivation of it (Shen's candidate principles are named and nowhere defined; see [CITATIONS.md#shen1936](CITATIONS.md#shen1936)). The pricing above is unchanged.*
 
 pair(s₄₈) and pair(s₅₀) are adjacent.
 

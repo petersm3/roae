@@ -147,13 +147,18 @@ titles sit directly on the ordering-count question — 王俊龍 on 「the mathe
 order of the hexagrams in the received version」 and 管小思 on 「the structural mathematical model of
 the hexagrams' sequence」 — were unread when this paragraph was first written.
 
-**⚠ Updated 2026-08-28.** A search designed for the ordering-count question was run on 2026-08-16,
-and both named papers have since been read, along with every other obtainable paper by either author.
-One item remains unobtainable: 王俊龍 2007, in 劉大鈞 ed. 大易集釋, pp. 812–836. **The adjudication of
-those reads is not yet published, so the instruction below is unchanged: treat the sentence above as
-a claim about the five named authors, not as a survey result.** We would rather record that limit
-here than have it found for us. (One of the two author names was misspelled here until 2026-08-28;
-see [CORRECTIONS.md](CORRECTIONS.md).)
+**⚠ Updated 2026-08-28 and 2026-08-29.** A search designed for the ordering-count question was run
+on 2026-08-16, and both named papers have since been read, along with every other obtainable paper
+by either author; **the adjudication of those reads is now published** —
+[CITATIONS.md](CITATIONS.md#acquisition-2026-08) carries annotated entries for the full 2026-08
+acquisition round (2026-08-29). The sentence above still means exactly what it says — a claim about
+the five named classical authors — and must not be widened into "no one counts orderings": the
+published entries record closed-form counts of simply-constrained ordering spaces in the modern
+literature ([Huang Shisheng 1997](CITATIONS.md#huangshisheng1997), after 沈宜甲/董光璧;
+[Chen Zhuangwei 2007](CITATIONS.md#chenzhuangwei2007)). One item remains unobtainable: 王俊龍 2007,
+in 劉大鈞 ed. 大易集釋, pp. 812–836; the remaining residues are flagged in that section's preamble.
+(One of the two author names was misspelled here until 2026-08-28; see
+[CORRECTIONS.md](CORRECTIONS.md).)
 
 *A note on how this section was built, because it bears on how much to trust it.* Each cession above
 was checked against the primary source, not against a summary. One paper (李尚信 2002) was
