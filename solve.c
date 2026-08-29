@@ -1475,6 +1475,19 @@ static long long canonical_psb_for_label(const char *label) {
     return -1;
 }
 
+/* Q-345. Print the recipe table's labels, optionally only those that carry a published PSB.
+ * BUILT FROM THE TABLE, because the hardcoded "known scales: …" literal was maintained by hand
+ * in three places and drifted: it advertised d2-10T to --validate-launcher-config, which cannot
+ * validate it (psb==0, d2 mechanics do not use a published PSB). Q-324 corrected the docs and
+ * Q-345 found the code underneath still wrong. A usage line derived from the table cannot say
+ * the table holds something it does not. */
+static void print_known_scales(FILE *f, int psb_only) {
+    fprintf(f, "known scales%s:", psb_only ? " with a published PSB" : "");
+    for (const struct canonical_recipe *r = CANONICAL_RECIPES; r->label; r++)
+        if (!psb_only || r->psb > 0) fprintf(f, " %s", r->label);
+    fprintf(f, "\n");
+}
+
 /* SOLVE_PER_SUB_BRANCH_LIMIT (2026-04-29). When set, overrides the
  * auto-divide computation of per_branch_node_limit. Both full-enum and
  * --branch modes will use the same per-sub-branch budget directly,
@@ -19584,7 +19597,7 @@ int main(int argc, char *argv[]) {
          */
         if (argc < 3) {
             fprintf(stderr, "usage: solve --canonical-config <SCALE> [--full]\n");
-            fprintf(stderr, "known scales: 1T 5.6T 10T 11.2T 100T 560T d2-10T\n");
+            print_known_scales(stderr, 0);
             return 25;
         }
         const char *scale = argv[2];
@@ -19600,6 +19613,21 @@ int main(int argc, char *argv[]) {
                 printf("SOLVE_NODE_LIMIT=%lld\n", r->node_limit);
                 if (r->psb > 0) {
                     printf("SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", r->psb);
+                } else {
+                    /* Q-345. Say WHY the line is absent. Silence here reads as an omission or a
+                     * bug to a launcher author diffing d2-10T against 10T, and it is neither.
+                     *
+                     * 🔴 ON STDERR, NOT STDOUT, and that is not a style choice. The documented
+                     * consumer is `eval $(./solve --canonical-config 100T)` (SOLVE_C_CLI.md:284).
+                     * Unquoted command substitution word-splits, so eval sees ONE line — a '#'
+                     * comment emitted on stdout would swallow every var printed after it, which
+                     * under --full is SOLVE_DFS_ITERATIVE and SOLVE_DFS_CHECKPOINT. A note meant
+                     * to prevent confusion would have silently dropped two sha-determining vars. */
+                    fprintf(stderr, "# note: %s has no SOLVE_PER_SUB_BRANCH_LIMIT — depth-2 mechanics\n"
+                                    "#       do not use a published per-sub-branch budget. This is the\n"
+                                    "#       recipe, not a truncated one. `--validate-launcher-config`\n"
+                                    "#       therefore has nothing to validate for this scale (rc=34).\n",
+                            r->label);
                 }
                 if (full) {
                     printf("SOLVE_DFS_ITERATIVE=1\n");
@@ -19609,7 +19637,7 @@ int main(int argc, char *argv[]) {
             }
         }
         fprintf(stderr, "ERROR: unknown canonical scale '%s'\n", scale);
-        fprintf(stderr, "known scales: 1T 5.6T 10T 11.2T 100T 560T d2-10T\n");
+        print_known_scales(stderr, 0);
         fprintf(stderr, "(if you need a scale not in this list, add it to CANONICAL_HASHES.md\n");
         fprintf(stderr," recipe table + this solve.c table; do not invent PSBs.)\n");
         return 25;
@@ -19624,7 +19652,8 @@ int main(int argc, char *argv[]) {
          * Exit codes:
          *   0 = PSB matches the recipe for that scale
          *   1 = PSB does not match (sha-reproduction will fail; launcher should abort)
-         *   25 = unknown scale or bad arg count
+         *   25 = unknown scale (a typo) or bad arg count
+         *   34 = KNOWN scale, but it publishes no PSB — nothing to validate (Q-345)
          *
          * Sha-neutral by construction. */
         if (argc < 4) {
@@ -19637,6 +19666,20 @@ int main(int argc, char *argv[]) {
          * local table — consolidated 2026-06-17 so launcher-config / canonical-config /
          * validate-canonical can never drift). */
         for (const struct canonical_recipe *r = CANONICAL_RECIPES; r->label; r++) {
+            /* Q-345. A KNOWN scale that simply has no PSB to validate used to fall through this
+             * loop and land on the unknown-scale error — same message, same rc=25, as a typo.
+             * `--canonical-config d2-10T` resolves cleanly at the same moment, so the two
+             * subcommands disagreed about whether the scale exists, and the shared usage text
+             * sided with the one that said yes. A pre-flight gate that reports "unknown scale"
+             * for a real configuration fails OPEN for any caller that does not check the code. */
+            if (strcmp(r->label, scale) == 0 && r->psb <= 0) {
+                fprintf(stderr, "[--validate-launcher-config] '%s' is a KNOWN scale with no published PSB.\n", scale);
+                fprintf(stderr, "  Depth-%d mechanics do not use a per-sub-branch budget, so there is\n", r->depth);
+                fprintf(stderr, "  nothing here to validate — this is NOT a typo and NOT an unknown scale.\n");
+                fprintf(stderr, "  A launcher targeting %s must not set SOLVE_PER_SUB_BRANCH_LIMIT at all;\n", scale);
+                fprintf(stderr, "  `solve --canonical-config %s` emits its complete recipe.\n", scale);
+                return 34;
+            }
             if (strcmp(r->label, scale) == 0 && r->psb > 0) {
                 if (psb == r->psb) {
                     fprintf(stderr, "[--validate-launcher-config] PSB=%lld matches recipe for %s.\n",
@@ -19654,6 +19697,10 @@ int main(int argc, char *argv[]) {
             }
         }
         fprintf(stderr, "[--validate-launcher-config] ERROR: unknown scale '%s'\n", scale);
+        /* Only the PSB-bearing scales: this subcommand cannot act on the others, and listing
+         * them here is what sent a caller to Q-324 in the first place. */
+        fprintf(stderr, "  ");
+        print_known_scales(stderr, 1);
         return 25;
     } else if (argc > 1 && strcmp(argv[1], "--cpu-features") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally

@@ -2283,3 +2283,61 @@ nothing else), and on a single-site deletion.
 instead of reading it. The sibling sweep, the era arithmetic and the gate were derived here.
 
 Canonical selftest sha unchanged: `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`.
+
+---
+
+## 2026-08-29 — a real scale and a typo got the same answer from the pre-flight gate
+
+`solve --validate-launcher-config d2-10T <any PSB>` printed
+`ERROR: unknown scale 'd2-10T'` and returned 25 — **byte-identical message and exit code to
+`d2-10Q`, which is nothing at all.** `d2-10T` is a genuine entry in `CANONICAL_RECIPES`, and
+`solve --canonical-config d2-10T` resolved it cleanly (rc=0) at the same moment. Two subcommands
+reading the same table disagreed about whether the scale existed, and the shared `known scales:`
+usage line — a hand-maintained literal in three places — sided with the one that said yes.
+
+**Why it mattered more than a wording bug.** This is a *pre-flight* gate: launchers call it before
+provisioning to catch a PSB typo before compute is spent. A caller that runs it and does not inspect
+the exit code sees an error about a scale that is real, and a caller that does inspect it aborts a
+valid launch. Either way the gate **fails open** on the one input it was least able to judge.
+
+**Root cause.** The lookup loop required `r->psb > 0`, so a known label with `psb == 0` — meaning
+"this scale publishes no per-sub-branch budget", which is exactly right for depth-2 mechanics — fell
+through the loop and landed on the unknown-scale error at the bottom. Absence of a budget was
+indistinguishable from absence of a scale.
+
+**Fixed.** Three outcomes are now distinct:
+
+| input | result |
+|---|---|
+| known scale, PSB matches | `0` |
+| known scale, PSB differs | `1`, with the diff |
+| **known scale, no published PSB** | **`34`**, saying so and pointing at `--canonical-config` |
+| genuine typo | `25`, listing the PSB-bearing scales |
+
+The `known scales:` lines are now **generated from the recipe table** rather than hand-maintained,
+so a usage line can no longer advertise something the table does not hold — which is the drift that
+produced this. `--canonical-config` additionally explains why `d2-10T` emits no PSB line.
+
+**That explanation goes to stderr, and the reason is measured rather than stylistic.** The documented
+consumer is `eval $(./solve --canonical-config 100T)`. Unquoted command substitution word-splits, so
+`eval` sees a single line, and a `#` comment printed on *stdout* would comment out every variable
+after it. Confirmed: with the note on stdout under `--full`, `SOLVE_DFS_ITERATIVE` and
+`SOLVE_DFS_CHECKPOINT` both come back unset. A note meant to prevent confusion would have silently
+dropped two sha-determining variables.
+
+**Relation to the earlier correction.** The 2026-08-28 entry above removed `d2-10T` from a documented
+scale list. That treated the symptom, and its first wording additionally implied the scale was not
+real. It is real. The code beneath the documentation is what was wrong, and is now corrected.
+
+**Gated** by `roae-private:scripts/canonical_scale_distinguishable_gate.sh`: every label in
+`CANONICAL_RECIPES` must be distinguishable, by running the binary, from a nonexistent control
+scale. It derives its population from the table text and its verdict from execution — it greps for
+none of this fix's wording — errors rather than passes if the table parses to fewer than two labels
+or if the control stops behaving like a control, and was red-tested against the real pre-fix binary,
+where it named `d2-10T` and nothing else.
+
+**Attribution.** Raised by the Fable D2 outsider-read lens (section A3), which ran both subcommands
+instead of reading one. The root-cause analysis, the eval-safety measurement and the gate were
+derived here.
+
+Canonical selftest sha unchanged: `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`.

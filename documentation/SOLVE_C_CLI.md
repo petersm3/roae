@@ -356,11 +356,27 @@ Exit codes:
 - `0` — PSB matches recipe; safe to launch.
 - `1` — PSB mismatch; sha-reproduction will fail. Stderr includes the
   diff and the fix (`solve --canonical-config <SCALE>`).
-- `25` — unknown scale or bad arg count. (Note: exit 25 is also used elsewhere
-  by the sub-canonical hard-gate — `SOLVE_NODE_LIMIT < 1T` without
-  `SOLVE_PER_SUB_BRANCH_LIMIT` set and without `SOLVE_ALLOW_SUB_CANONICAL=1`;
-  see the Hardening overrides table. The two uses are distinguished by the
-  stderr message and by which subcommand was invoked.)
+- `25` — **unknown scale (a typo)** or bad arg count. Stderr lists the scales
+  that carry a published PSB, generated from the recipe table itself. (Note:
+  exit 25 is also used elsewhere by the sub-canonical hard-gate —
+  `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set and without
+  `SOLVE_ALLOW_SUB_CANONICAL=1`; see the Hardening overrides table. The two uses
+  are distinguished by the stderr message and by which subcommand was invoked.)
+- `34` — **known scale, nothing to validate.** The scale is real and
+  `--canonical-config` resolves it, but it publishes no per-sub-branch budget, so
+  there is no PSB to check. Currently only `d2-10T`: depth-2 mechanics do not use
+  one, and a launcher targeting it must not set `SOLVE_PER_SUB_BRANCH_LIMIT` at
+  all. **This is not an error condition** — a launcher pre-flight should treat 34
+  as "proceed without a PSB", not as an abort.
+
+  *Added 2026-08-29 (Q-345). Before that, a known-but-PSB-less scale fell through
+  to the `25 unknown scale` path and was reported with the byte-identical message
+  and exit code as a typo, while `--canonical-config` resolved the same scale
+  cleanly — so the two subcommands disagreed about whether it existed. A
+  pre-flight that reports "unknown scale" for a real configuration fails **open**
+  for any caller that does not inspect the exit code, which is the whole point of
+  a pre-flight. Q-324 corrected the documentation; this corrects the code beneath
+  it.*
 
 Sha-neutral. No enumeration; exits immediately. Bake into every
 canonical-targeting launcher; catches PSB typos before any VM is
@@ -1561,6 +1577,8 @@ completeness and honesty, not as knobs to set.
 - `--canonical-config` / `--validate-launcher-config`: **25** = unknown scale or bad arg count
   (distinct from the enum-path sub-canonical gate that also uses 25; disambiguated by which
   subcommand was invoked and by the stderr message — see those subcommands' sections).
+- `--validate-launcher-config`: **34** = known scale that publishes no PSB, so there is nothing
+  to validate (not an error; see that subcommand's section).
 
 ## EXAMPLES
 
