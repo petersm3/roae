@@ -907,8 +907,22 @@ for scientific reproducibility. Established pattern (from 2026-04-22 Pass 1):
 Verification recipe: attach `solver-data-westus3` to any D2als_v7+, then:
 ```bash
 cd /data/archive/<run-label>/<branch>
-sha256sum -c sub_<branch>.sha256   # copy the .sha256 from the repo first
-./solve --verify sub_<branch>.bin  # per-record C1-C5 check, shard mode auto-detected
+# The .sha256 sidecar holds the LOGICAL (decompressed) sha, not the sha of the
+# bytes on disk — see SOLUTIONS_FORMAT.md §"On-disk framing". Since #169
+# (d8671550, 2026-06-17) shards are gz-framed by DEFAULT, so `sha256sum -c`
+# hashes the gzip CONTAINER and reports FAILED on a byte-correct artifact.
+# Compare against the logical stream instead:
+gzip -dc sub_<branch>.bin | sha256sum   # gz-framed (the default since #169)
+head -1 sub_<branch>.sha256             # the hash above must match this line
+
+# ERA EXCEPTION. Archives written BEFORE #169 hold RAW bytes, as does anything
+# produced under SOLVE_COMPRESS=0. For those — including the 2026-04-22 and
+# 2026-04-23 pass-A/pass-B archives — logical and on-disk bytes are the same and
+#     sha256sum -c sub_<branch>.sha256
+# is the correct command. Sniff the first two bytes to tell them apart: `1f 8b`
+# is gz-framed, `ROAE` is raw.
+
+./solve --verify sub_<branch>.bin  # per-record C1-C5 check, framing auto-detected
 ```
 
 ### Zone caveat for analysis VMs

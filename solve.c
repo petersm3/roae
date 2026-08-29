@@ -10371,8 +10371,14 @@ static int sha256_of_logical(const char *path, char *out, size_t outsz) {
 /* Compare for qsort — compare pair identity only (orient bit masked out).
  * Each byte: (pair_index << 2) | (orient << 1). Mask with 0xFC. */
 /* Write sha256 file with metadata for reproducibility.
- * First line is bare sha256 (compatible with sha256sum -c).
- * Remaining lines are metadata comments. */
+ * First line is bare sha256 in `sha256sum -c` FORMAT. That is a statement about
+ * the line's SHAPE, not a promise that `sha256sum -c` will pass: the value is the
+ * LOGICAL (decompressed) sha, and since #169 the file it names is gz-framed by
+ * default, so `sha256sum -c` hashes the container and reports FAILED on a
+ * byte-correct artifact. Q-346: DEPLOYMENT.md published `sha256sum -c` as the
+ * archive verification recipe for two months on the strength of this comment.
+ * The verifying command is `gzip -dc <file> | sha256sum`, or plain sha256sum only
+ * under SOLVE_COMPRESS=0. Remaining lines are metadata comments. */
 static void write_sha256_with_metadata(const char *bin_name, const char *sha_name,
                                         long long unique_count, long long total_nodes,
                                         int n_branches_total, int branches_done) {
@@ -10398,7 +10404,8 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
     /* Rewrite with metadata */
     FILE *sf = fopen(sha_name, "w");
     if (!sf) return;
-    fprintf(sf, "%s", hash_line);  /* first line: bare hash (sha256sum -c compatible) */
+    fprintf(sf, "%s", hash_line);  /* first line: bare hash, sha256sum -c FORMAT (see above:
+                                      format-compatible, not verify-compatible under gz framing) */
 
     /* Metadata */
     char tbuf[64];
@@ -24093,15 +24100,18 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "ERROR: cannot write %s: %s\n", sha_name, strerror(errno));
                 return 30;
             }
-            /* First line stays `sha256sum -c`-compatible; the metadata block below appends. */
+            /* First line stays in `sha256sum -c` FORMAT; the metadata block below appends.
+             * Format only — merge_sha64 is the logical sha, so `sha256sum -c` false-FAILS
+             * on the gz-framed default. See write_sha256_with_metadata (Q-346). */
             fprintf(sf, "%s  %s\n", merge_sha64, outname);
             fclose(sf);
         }
 
         /* Phase E.2 follow-up (re-landed 2026-05-25): append provenance
-         * metadata to solutions.sha256. The bare-hash first line stays
-         * compatible with `sha256sum -c`; subsequent lines are `#`-prefixed
-         * metadata. The c34390c0 forensic investigation would have been
+         * metadata to solutions.sha256. The bare-hash first line stays in
+         * `sha256sum -c` FORMAT (format only — it holds the logical sha, so that
+         * command false-FAILS on a gz-framed file, Q-346); subsequent lines are
+         * `#`-prefixed metadata. The c34390c0 forensic investigation would have been
          * instantly diagnosable with this metadata. */
         {
             FILE *sm = fopen(sha_name, "a");

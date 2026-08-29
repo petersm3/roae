@@ -2218,3 +2218,68 @@ unfollowable rule is worse than none, because its existence suppresses the worka
 **Attribution.** Raised by Codex **L21** in the effort-none cohort, which called it a textbook
 document-control failure. The subscription measurement and the reconciliation were derived here. Codex
 is **acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-29 — the published archive verification recipe FAILED on byte-correct artifacts
+
+`DEPLOYMENT.md` published this as the verification recipe for every archived shard:
+
+    sha256sum -c sub_<branch>.sha256
+
+That command is wrong for anything produced since **#169** (`d8671550`, 2026-06-17), and had been
+wrong for two months. Two facts have to be held together to see it:
+
+1. The `.sha256` sidecar holds the **logical (decompressed)** sha. `write_sha256_with_metadata()`
+   calls `sha256_of_logical()`, which sniffs the gzip magic and hashes the *decompressed* stream —
+   deliberately, so the canonical sha is the same whether the file is stored gz or raw.
+2. Since #169 shards are written **gz-framed by default**.
+
+So `sha256sum -c` hashes the gzip **container** and compares it to the **logical** sha. It cannot
+match. A reader following the published recipe on a perfectly good archive is told `FAILED`.
+
+**Measured, not inferred.** A fresh `--sub-branch` run with the shipped binary, no environment
+overrides, on 2026-08-29:
+
+| | |
+|---|---|
+| on-disk magic | `1f 8b` (gz-framed, the default) |
+| sidecar line 1 | `4cd43b2b389dde48a64b153b3cf611274e13fab013ac05f1ba64b11b532ef287` |
+| `sha256sum solutions_1_0.bin` | `6e4d49b8a14813321f5f39220b0f3f32bfae80ad0709dedbac1664fd2fb3a2f2` |
+| `gzip -dc solutions_1_0.bin \| sha256sum` | `4cd43b2b…` — **exact match** |
+| `sha256sum -c solutions_1_0.sha256` | `FAILED`, rc=1 |
+
+**This is the expensive direction.** A false mismatch on a good artifact is phantom drift, and this
+project has already spent about six hours on one of those (the 2026-05-31 11.2T incident). The recipe
+manufactured that alarm on demand.
+
+**The class had already been fixed almost everywhere else, and this is the third instance of that
+pattern in this wave.** `SOLUTIONS_FORMAT.md`, `CANONICAL_HASHES.md`, `CAMPAIGN_METHODOLOGY.md`,
+`DEVELOPMENT.md`, `REBUILD_FROM_SPEC.md`, TR-3 and the 100T run README all already carry the logical-vs-container
+note — the 100T README even spells out the era exception in a comment. `DEPLOYMENT.md` and the
+2026-04-22 pass-A run README were the two that were missed, and they are precisely the two that ship
+the command as an **executable recipe** rather than as a remark.
+
+**Fixed.** `DEPLOYMENT.md` now gives `gzip -dc sub_<branch>.bin | sha256sum` compared against line 1
+of the sidecar, and states the era exception explicitly. The pass-A README keeps `sha256sum -c`,
+because that run **predates #169** and its shards really are raw — confirmed from the sidecars' own
+arithmetic, `525,815,456 = 16,431,733 × 32` and `525,864,544 = 16,433,267 × 32`, exact, with no
+framing overhead (all 16 archived shards across the 2026-04-22 and 2026-04-23 runs check out this
+way) — and it now says so, and says not to carry the recipe forward.
+
+**Four comments in `solve.c` also overstated what they promised.** They said the sidecar's first line
+is *"compatible with `sha256sum -c`"*. That is true of the line's **format** and false of its
+**verification**, and DEPLOYMENT.md's recipe was written on the strength of it. They now say format
+only, and name the command that does verify.
+
+**Gated.** `doc_gates.sh framing-era` (GATE 28) requires every published `sha256sum -c` recipe to
+state which framing era it assumes. It derives its population from the corpus rather than from the
+fix's wording, and it **errors rather than passes** if the population collapses — a verifier must be
+false when its target is absent. Shown able to fail three ways: on a planted unqualified recipe in a
+third file, on the real pre-fix corpus (where it independently rediscovered both defect sites and
+nothing else), and on a single-site deletion.
+
+**Attribution.** Raised by the Fable D2 outsider-read lens (section A4), which executed the recipe
+instead of reading it. The sibling sweep, the era arithmetic and the gate were derived here.
+
+Canonical selftest sha unchanged: `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`.

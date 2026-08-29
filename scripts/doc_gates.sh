@@ -10804,7 +10804,95 @@ print("COUNT\t%d"%n)
   return 0
 }
 
+gate_framing_era() {
+  echo "== GATE 28: a published sha256sum recipe that ignores the gz-framing era =="
+  # Q-346. DEPLOYMENT.md:910 published `sha256sum -c sub_<branch>.sha256` as THE archive
+  # verification recipe. Since #169 (d8671550, 2026-06-17) shards are gz-framed by default and
+  # the .sha256 sidecar holds the LOGICAL (decompressed) sha, so that command hashes the gzip
+  # CONTAINER and prints FAILED on a byte-correct artifact. Measured 2026-08-29 with the shipped
+  # binary on a fresh --sub-branch run: sidecar 4cd43b2b…, container 6e4d49b8…, `sha256sum -c`
+  # rc=1 "FAILED", `gzip -dc | sha256sum` exact. A reader following the published recipe
+  # concludes the archive is corrupt. That is the phantom-drift direction the Q-324 commit
+  # itself calls the expensive kind.
+  #
+  # 🔴 WHY IT DOES NOT GREP FOR THE FIX'S OWN WORDING, which was the obvious design and is the
+  # implementation-shaped one. This gate derives its population from the corpus: every place a
+  # sha256sum recipe is actually PUBLISHED. The fix text is not privileged — a differently
+  # worded but genuinely era-qualified recipe passes, and my exact sentences with the era note
+  # deleted FAIL. What it requires is that the era is DISAMBIGUATED near the command, by any of
+  # the vocabulary the corpus already uses for it (#169 / SOLVE_COMPRESS=0 / gzip -dc / 1f 8b).
+  #
+  # 🔴 AND IT IS NOT SATISFIED BY ITS OWN EMPTINESS. If every `sha256sum -c` disappeared from
+  # the corpus this would pass vacuously while measuring nothing, which is the closure defect
+  # Codex N07 named: a verifier must be FALSE when its target is absent. So a population floor
+  # is asserted first, and a collapse is an ERROR, not a pass.
+  #
+  # 🔴 THE FLOOR COUNTS FILES, NOT MATCHING LINES, and that distinction was measured rather
+  # than guessed. The pre-fix corpus held exactly 2 recipe LINES in 2 files; the fix's own
+  # explanatory prose names `sha256sum -c` twice more, taking the line count to 4. A line
+  # floor of 2 would therefore have become satisfiable BY THE FIX'S OWN COMMENTARY — both
+  # real recipes could be deleted and the gate would still report a healthy population, which
+  # is the closure defect one level up. The file count is 2 before the fix and 2 after, so it
+  # tracks the subject instead of the fix.
+  local FLOOR=2
+  local out
+  out=$(python3 - "$FLOOR" <<'PY'
+import re, subprocess, sys, os
+floor = int(sys.argv[1])
+# Population: tracked markdown only. Untracked scratch files are not published.
+files = subprocess.run(["git","ls-files","*.md"], capture_output=True, text=True).stdout.split()
+if not files:
+    print("ERROR\tgit ls-files returned no markdown at all"); raise SystemExit(0)
+# A RECIPE, not a mention: `sha256sum -c` is only ever an executable instruction.
+RECIPE = re.compile(r'sha256sum\s+-c\b')
+# The era vocabulary already in use across the corpus for exactly this distinction. Any ONE of
+# these within the window disambiguates which framing the recipe assumes.
+ERA = re.compile(r'#169|SOLVE_COMPRESS=0|gzip\s+-dc|1f\s*8b|\bRAW\b|raw bytes|pre-#169', re.I)
+WINDOW = 14        # lines either side; a code fence plus its explanatory comment block
+pop = 0            # matching lines — reported, not floored
+sites = set()      # distinct files — this is what the floor guards
+bad = []
+for f in files:
+    try:
+        lines = open(f, encoding="utf-8", errors="replace").read().split("\n")
+    except OSError:
+        continue
+    for i, l in enumerate(lines):
+        if not RECIPE.search(l):
+            continue
+        pop += 1
+        sites.add(f)
+        lo, hi = max(0, i - WINDOW), min(len(lines), i + WINDOW + 1)
+        if not ERA.search("\n".join(lines[lo:hi])):
+            bad.append((f, i + 1, l.strip()[:110]))
+print("POP\t%d line(s) in %d file(s)" % (pop, len(sites)))
+if len(sites) < floor:
+    print("ERROR\tpopulation collapsed to %d file(s) (floor %d) — this gate is measuring nothing"
+          % (len(sites), floor))
+for f, ln, l in bad:
+    print("HIT\t%s\t%d\t%s" % (f, ln, l))
+PY
+) || { echo "  [FAIL] GATE 28 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"
+             echo "         A gate that passes because its subject vanished is not a green gate."
+             rc=1 ;;
+      HIT)   echo "  [FAIL] $a:$b publishes a sha256sum -c recipe with no framing-era qualifier"
+             echo "         $c"
+             echo "         Under the post-#169 default this command FAILS on a byte-correct artifact."
+             rc=1 ;;
+      POP)   echo "  [info] $a of published sha256sum -c recipe(s) in tracked markdown" ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every published sha256sum -c recipe states which framing era it assumes"
+  return 0
+}
+
 case "$MODE" in
+  framing-era) gate_framing_era || RC=1 ;;
   repro-reach) gate_repro_reach || RC=1 ;;
   canonical-ceiling) gate_canonical_ceiling || RC=1 ;;
   withdrawn-markers) gate_withdrawn_markers || RC=1 ;;
@@ -10873,8 +10961,9 @@ case "$MODE" in
            echo; gate_hex_prefix || RC=1
            echo; gate_tracked_ignored || RC=1
            echo; gate_canonical_ceiling || RC=1
-           echo; gate_withdrawn_markers || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|all}"; exit 2 ;;
+           echo; gate_withdrawn_markers || RC=1
+           echo; gate_framing_era || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|all}"; exit 2 ;;
 esac
 
 echo
@@ -10921,7 +11010,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27, 28. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
