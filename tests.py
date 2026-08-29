@@ -541,7 +541,8 @@ class TestSatC5Subset(unittest.TestCase):
                     if dfs(mask | (1 << i), s, dep + 1):
                         return True
             return False
-        assert dfs(0, start, 0)
+        if not (dfs(0, start, 0)):
+            raise AssertionError('guard failed: dfs(0, start, 0)')
         b = {d: 0 for d in cls.DVAL}
         for c in out:
             b[cls.DVAL[c]] += 1
@@ -1256,6 +1257,32 @@ class TestVerifyRecordsPath(unittest.TestCase):
         finally:
             V.KW, V.PAIRS, V.KW_DIST = saved_kw, saved_pairs, saved_dist
         V._verify_tables_against_rules()   # the real tables still pass
+
+
+class TestNoBareAsserts(unittest.TestCase):
+    """Q-373 (2026-08-28): the trust-base guard layer must survive `python3 -O`.
+
+    VERIFY.md records the convention — import-time gates are explicit raises, not
+    `assert`, so they survive -O — and solve.py's table gates were converted for
+    exactly that reason, but sat.py never was: its entire import-time ground-truth
+    layer was ~30 bare asserts, and a corrupted BETWEEN_MULTISET under -O silently
+    emitted a syntactically valid WRONG CNF (measured 2026-08-28). This test pins
+    the convention by INTENT rather than by phrase: an AST scan of the trust-base
+    files for Assert nodes. Zero is the only passing value, so a future bare
+    assert anywhere in these files goes red regardless of wording. (unittest
+    assertions are method calls, not statements, so this test itself survives -O.)"""
+
+    FILES = ("solve.py", "roae.py", "sat.py", "verify.py", "tests.py",
+             "scripts/c2c3_joint_null.py")
+
+    def test_trust_base_has_no_assert_statements(self):
+        import ast
+        for f in self.FILES:
+            with open(f) as fh:
+                tree = ast.parse(fh.read(), filename=f)
+            hits = [n.lineno for n in ast.walk(tree) if isinstance(n, ast.Assert)]
+            self.assertEqual(hits, [], f"{f}: bare assert statement(s) at line(s) "
+                             f"{hits} — guards must be explicit raises (Q-373)")
 
 
 class TestSubtreeCrossAnchors(unittest.TestCase):

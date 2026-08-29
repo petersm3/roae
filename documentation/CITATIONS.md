@@ -543,10 +543,16 @@ enumerates that space, or proves a ceiling on it.
   — or in [Cui Shu](#cuishu), 焦循, 來知德 or [Kong Yingda](#kongyingda) — counts ORDERINGS.** They
   classify the 64; this project counts arrangements of them subject to constraints, which is a
   different object. **⚠ Scoped 2026-08-16: that is a statement about those five authors, NOT a survey
-  result. The ordering-count question has never been the target of a prior-art search designed for it,
-  and at least two papers whose titles sit on it (王俊龍 on the mathematical regularity of the received
-  hexagram order; 關曉思 on a structural mathematical model of the hexagram sequence) are unread. The
-  claim is stated narrowly for that reason.** See [TR5](../reports/TR5_SYMMETRY.md) and
+  result. ⚠ Updated 2026-08-28 — the two limits recorded here have since been addressed, and this
+  paragraph is a state description, not a survey result. A prior-art search designed for the
+  ordering-count question was run on 2026-08-16. The two papers named here as unread — 王俊龍 on the
+  mathematical regularity of the received hexagram order, and 管小思 on a structural mathematical
+  model of the hexagram sequence — have both been read, as has every other obtainable paper by
+  either author; one item remains unobtainable (王俊龍 2007, in 劉大鈞 ed. 大易集釋, pp. 812–836).
+  The adjudication of those reads is not yet published, so the claim above continues to be stated
+  narrowly: it is a statement about those five authors, not a survey result. (This file carried a
+  misspelling of 管小思's name until 2026-08-28; see
+  [CORRECTIONS.md](CORRECTIONS.md).)** See [TR5](../reports/TR5_SYMMETRY.md) and
   [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md).
   *(Added 2026-08-16. Recorded plainly: this repository already cited Wu Cheng — for 〈卦統第一〉, via
   Nielsen — and never opened 〈卦對第二〉, the next chapter of the same book. The miss originated at
@@ -732,7 +738,7 @@ enumerates that space, or proves a ceiling on it.
   [On the hexagram order of the received *Zhouyi*]. *Tōyō koten-gaku kenkyū* 東洋古典學研究 34: 1–18.
   Independent rediscovery of the (Z/2)⁶/XOR framing (yin=0/yang=1, six-bit vectors), the order-8
   subgroup of the 8 self-complementary hexagrams, and the coset organization of reversal-pairs — and
-  **the first author we have located to start counting the arrangement space**: computes exactly
+  **an independent arrival at counting the arrangement space** ⚠ **[FIRSTNESS CLAIM WITHDRAWN 2026-08-28 — this read "the first author we have located to start counting the arrangement space". This project's own Chen Zhuangwei adjudication ruled that FALSE AS WRITTEN on 2026-08-24; the sentence entered main on 2026-07-31 (`6a3feaaa`) and was never removed. Q-127 (DONE) and Q-263 (OPEN) both recorded it as no longer live because the checks read this section's preamble (:293) and never this entry body — so Q-263's question to the operator rests on a false premise. No firstness is asserted here; the cession chain is public. Found by the D2 novelty lens; see Q-358.]**: computes exactly
   1395 = [6 choose 3]₂ order-8 subgroups, and poses (but does not complete — halted, he reports, by
   his calculator's display) the product 1395 × 56 × 48 × 40 × 32 × 24 × 16 × 8 ≈ 1.47×10¹³ for
   eight-palace-style templates. He also reports finding **no rule that fixes the King Wen sequence**
@@ -1183,8 +1189,8 @@ Cambria Press.
   Window-symmetry claims; the flagship compositional-unit rule measures population-typical (×7;
   figure predates the purchase). Audited first-hand 2026-07-04 (26-claim structural audit of the
   purchased e-book) and measured at population scale the same day in
-  [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md): nine pre-registered composites — four
-  null, one Bonferroni-notable (the #43–50 trigram array), one borderline, three data-like; nothing
+  [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md): nine pre-registered composites — five
+  null, one Bonferroni-notable (the #43–50 trigram array), three data-like; nothing
   promotes. One uniqueness claim (p. 257 n.2, fewest-derivatives status of #63/64) is refuted with
   a concrete counterexample (#51/52), his worked examples confirmed; a second candidate refutation
   (p. 114) was withdrawn under our own hostile review — that claim survives its fairest reading

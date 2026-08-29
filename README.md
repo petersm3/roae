@@ -75,7 +75,9 @@ alone — every two-instrument exact quantity in the suite is C3-free
 the estimator is externally validated at both full-scale layers where exact ground truth exists,
 inside its stated envelope both times ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §"Estimator
 calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 of 16,504
-above). What no prior author did is the measurement.
+above). What no prior author did is the measurement **at combinatorial scale, over
+constraint-defined spaces** — exhaustive searches over small curated families of candidate
+orders do exist in the literature, and are not what this sentence excludes.
 
 **Whose hypothesis this was.** The name "Uniqueness Conjecture" is **this project's own coinage**. To
 our knowledge no author asserted in so many words that the C1–C7 inventory pins down the sequence, and
@@ -119,7 +121,7 @@ gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
 
 It must print `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`. A different digest
 is a finding — please report it. This recipe was executed end to end from a fresh clone on
-2026-08-04 and passed, together with `python3 tests.py` (64 tests at that date; the harness has since grown to 67) and `lean lean/KingWen.lean`
+2026-08-04 and passed, together with `python3 tests.py` (64 tests at that date; 76 as of 2026-08-28) and `lean lean/KingWen.lean`
 (silent, i.e. all theorems check); before that date it had never actually been run, which is itself
 the kind of gap this disclosure exists to surface.
 
@@ -175,12 +177,12 @@ C1–C5, with C6–C7 added only where the text says so.
 
 Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
-- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings — a raw, orientation-explicit count; ≈3.3×10³⁷ after orientation-dedup ([METHODS](reports/METHODS.md) §"Canonical quantities") — (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
+- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings — a raw, orientation-explicit count; ≈3.3×10³⁷ ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** after orientation-dedup ([METHODS](reports/METHODS.md) §"Canonical quantities") — (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding
   C6–C7 still leaves ~5×10³¹. So the hypothesis that the constraints pin down King Wen is false — that
   was the strong reading of the literature's derivation claims, and this project's own early working
   assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
-  jointly unsatisfiable — no C1∩C2∩C4∩C5-valid ordering can be perfect under all four. King Wen keeps one exactly and misses the others minimally, so its famous anomalies
+  jointly unsatisfiable — no C1∩C2∩C4∩C5-valid ordering can be perfect under all four. King Wen keeps one exactly and misses the others by two each ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]**, so its famous anomalies
   are a **forced trade-off, not damage to an original that was perfect under all four** — no such
   original could exist. (A *three*-rule-perfect precursor does exist; whether the anomalies are an
   arranger's trade-off or damage to that precursor is weighed, not settled, in TR-2's model
@@ -324,7 +326,7 @@ The links below are reader orientation only:
 * [Shao Yong](https://en.wikipedia.org/wiki/Shao_Yong) — Wikipedia (Fu Xi binary ordering)
 * [Mawangdui Silk Texts](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) — Wikipedia (background on the silk manuscripts; the ordering itself is per Shaughnessy 2022 below, tested by `solve.c --null-historical`)
 * [Jing Fang](https://en.wikipedia.org/wiki/Jing_Fang) — Wikipedia (Eight Palaces ordering, also tested by `solve.c --null-historical`)
-* [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — Richard Wilhelm, trans. Cary F. Baynes, Princeton University Press (hexagram names)
+* [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — Richard Wilhelm, trans. Cary F. Baynes, Princeton University Press (the standard English translation; its hexagram names were shipped here until 2026-08-27, then removed rather than replaced — labels are now trigram-derived; see [CRITIQUE](documentation/CRITIQUE.md))
 * Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996 (translation of the Mawangdui manuscript); the project's Mawangdui ordering array follows Shaughnessy, *The Origin and Early Development of the Zhou Changes*, Brill, 2022, Table 11.2 (corrected 2026-07-05 — see CITATIONS.md errata)
 * [Yijing Dao (biroco.com)](https://www.biroco.com/yijing/) — S. J. Marshall's (Joel Biroco) archive of Yijing structural-analysis literature, host of the Moore and Schulz papers (a different person from Steve Moore — see CITATIONS.md; source of several documents examined there)
 * [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](documentation/MCKENNA.md); full citation in CITATIONS.md)

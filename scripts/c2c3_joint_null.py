@@ -70,8 +70,10 @@ def main():
     seed = int(sys.argv[2]) if len(sys.argv) > 2 else 20260828
 
     kw = np.array(KW, dtype=np.int64)[None, :]
-    assert bool(c2_ok(kw)[0]), "ANCHOR FAILED: King Wen must satisfy C2"
-    assert int(cd_x64(kw)[0]) == CD_CEILING, "ANCHOR FAILED: cd(KW) must be exactly 776"
+    if not (bool(c2_ok(kw)[0])):
+        raise AssertionError("ANCHOR FAILED: King Wen must satisfy C2")
+    if not (int(cd_x64(kw)[0]) == CD_CEILING):
+        raise AssertionError("ANCHOR FAILED: cd(KW) must be exactly 776")
     print(f"anchors ok: KW satisfies C2; cd(KW) = {CD_CEILING}")
 
     rng = np.random.default_rng(seed)

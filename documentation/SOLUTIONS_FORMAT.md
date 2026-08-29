@@ -60,7 +60,11 @@ fields. No timestamps, git hashes, hostnames, or build identifiers live
 here — they live in the sidecar `solutions.meta.json`. As a result,
 `sha256(solutions.bin)` is a pure function of the enumeration inputs
 (node limit, depth, constraints) and is reproducible across runs,
-machines, and years.
+machines, and years **within the tested toolchain class documented in
+[DEVELOPMENT.md](DEVELOPMENT.md)** — that scope is not decoration: a
+host-level drift event is on the record ([TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md)),
+and the 100B anchors are build-recipe specific
+([CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
 
 ## Sidecar metadata (`solutions.meta.json`)
 
@@ -87,8 +91,12 @@ just a human-readable breadcrumb. Example:
     }
 
 The sidecar contains timestamp and git hash, so **it is NOT byte-
-reproducible across runs** — deliberately. The canonical artifacts
-(`solutions.bin` and `solutions.sha256`) are.
+reproducible across runs** — deliberately. `solutions.bin` is.
+⚠ **[CORRECTED 2026-08-28 — this read "The canonical artifacts (`solutions.bin` and
+`solutions.sha256`) are." `solutions.sha256` is NOT byte-reproducible either: `solve.c` writes a
+`# Date:` line into it on every run. Only its FIRST LINE, the bare digest, is an identity. The
+sentence drew a contrast with the sidecar on precisely the property both files share. See
+CORRECTIONS.md]**
 
 ## Record format
 

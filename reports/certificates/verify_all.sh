@@ -3,7 +3,12 @@
 # Requirements (SOFTWARE): gcc, python3, drat-trim, lean (elan). See reports/METHODS.md for versions.
 # Requirements (HARDWARE) -- added 2026-08-21, and they are NOT optional:
 #   RAM   : >= 12 GB free. The Lean phase peaks at ~9.6 GB resident on Automorphism.lean and
-#           ~7.9 GB on PruneGInvariance.lean; an 8 GB host CANNOT check those two files
+#           ~8.0 GB on KingWen.lean; an 8 GB host CANNOT check those two files
+#           [CORRECTED 2026-08-28: this named PruneGInvariance.lean as the second-heaviest file.
+#            It is not, and lean/README.md's own table said so all along (~4.1 GB). Full 13-module
+#            re-measurement on an 8 vCPU / 31 GB host: Automorphism 9.33 GB, KingWen 7.98 GB,
+#            PruneGInvariance 4.05 GB. The >= 12 GB requirement is UNCHANGED and was never wrong --
+#            only the file named as the reason for it.]
 #           (lean/README.md SS"Verify yourself" carries the measured per-file table).
 #   STACK : ulimit -s unlimited, if you also run --estimate-knuth by hand. main's frame is
 #           ~7.23 MB and the estimator adds ~1.02 MB, so an 8 MB default stack SIGSEGVs.
@@ -71,9 +76,13 @@ LOG=${ROAE_VERIFY_LOG:-/tmp/roae_verify_all.log}
 # Without -q grep drains its input, so the status is grep's own. Do not "tidy" the -q back in.
 is_resource_status() {
   case "$1" in 134|137|139) return 0 ;; esac
+  # Q-347: 'failed to create thread' added 2026-08-28. An ADDRESS-SPACE cap (ulimit -v) starves
+  # thread-stack reservation long before RSS is anywhere near a memory limit — measured on this
+  # harness, Lean died at ~480 MB RSS under a 4 GB -v cap. That message is not an allocator string,
+  # so without it the classification rested on exit code alone.
   tail -c +"$(( $2 + 1 ))" "$LOG" | grep -F -e 'std::bad_alloc' -e 'out of memory' \
     -e 'Out of memory' -e 'Cannot allocate memory' -e 'cannot allocate memory' \
-    -e 'MemoryError' >/dev/null && return 0
+    -e 'MemoryError' -e 'failed to create thread' >/dev/null && return 0
   return 1
 }
 
@@ -232,9 +241,17 @@ fi
 if [ "$RESOURCE" -gt 0 ]; then
   echo "NOTE: $RESOURCE check(s) exited 134/137/139 or reported an allocation failure. That is a"
   echo "      crash or a kill, not a rejected proof: nothing was disproved. The Lean files are the usual"
-  echo "      cause — lean/README.md §\"Verify yourself\" gives measured per-file peak RSS (~9.6 GB"
-  echo "      worst case; an 8 GB host cannot check Automorphism.lean or KingWen.lean). Re-run on a"
-  echo "      larger host. Like a SKIP, an ERROR is not a pass: exit status stays nonzero."
+  echo "      cause, and there are TWO distinct limits — check which one you hit before buying a host:"
+  echo "        (a) RSS: lean/README.md §\"Verify yourself\" gives measured per-file peak RSS (~9.6 GB"
+  echo "            worst case; an 8 GB host cannot check Automorphism.lean or KingWen.lean)."
+  echo "        (b) ADDRESS SPACE / thread creation: 'failed to create thread' at low RSS means a"
+  echo "            ulimit -v cap (containers and CI commonly set one), NOT a shortage of RAM."
+  echo "            Measured 2026-08-28: all 13 Lean checks ERROR'd at ~480 MB RSS under a 4 GB -v"
+  echo "            cap. A larger host does NOT fix this. TRY FIRST, it costs nothing:"
+  echo "                LEAN_NUM_THREADS=1   (or lean --threads=1)"
+  echo "            which verified C1RuleConstants.lean and PruneSafety.lean on that same capped host."
+  echo "      Re-run on a larger host only for case (a). Like a SKIP, an ERROR is not a pass:"
+  echo "      exit status stays nonzero."
   echo "      Detection is heuristic and one-sided — a resource kill that neither exits 134/137/139"
   echo "      nor leaves an allocator message still shows up as FAIL: read $LOG before trusting a FAIL."
 fi

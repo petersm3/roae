@@ -219,9 +219,11 @@ def pair_null_gender_distribution_exact():
                 for v, pr in vd.items():
                     nxt[ns][v + dv] += pr * w
         cur = {k: dict(v) for k, v in nxt.items()}
-    assert len(cur) == 1
+    if not (len(cur) == 1):
+        raise AssertionError('guard failed: len(cur) == 1')
     final = list(cur.values())[0]
-    assert sum(final.values()) == 1
+    if not (sum(final.values()) == 1):
+        raise AssertionError('guard failed: sum(final.values()) == 1')
     return dict(sorted(final.items()))
 
 
@@ -3767,7 +3769,8 @@ def print_null_debruijn(trials=5000, seed=None):
 
     kw_seq = [v for pair in king_wen_pairs() for v in pair]
     kw_c3 = total_complement_distance_c3(kw_seq)
-    assert kw_c3 == 776, f"KW C3 total is {kw_c3}, expected 776"
+    if not (kw_c3 == 776):
+        raise AssertionError(f"KW C3 total is {kw_c3}, expected 776")
 
     print("# Null-model comparison: de Bruijn B(2, 6) permutations")
     print()
@@ -8502,7 +8505,8 @@ def h2_eval_leaf(seq):
         for ts in combinations(range(1, 32), n):
             for asg in h2_ball_assignments(pr, orr, ts):
                 consider(h2_build(pr, orr, ts, asg))
-    assert ncand == H2_BALL, f"ball size {ncand} != {H2_BALL}"
+    if not (ncand == H2_BALL):
+        raise AssertionError(f"ball size {ncand} != {H2_BALL}")
     return {"nvp": nvp, "nvc": nvc, "fp": fp, "fc": fc, "ncand": ncand}
 
 
@@ -9155,7 +9159,8 @@ def db1_null_a_distribution(condition_c4=False):
                 for x, ways in poly.items():
                     np_[x + match] = np_.get(x + match, 0) + ways * w
         states = new
-    assert len(states) == 1           # all groups consumed -> single empty state
+    if not (len(states) == 1):   # all groups consumed -> single empty state
+        raise AssertionError('guard failed: len(states) == 1')
     return next(iter(states.values()))
 
 

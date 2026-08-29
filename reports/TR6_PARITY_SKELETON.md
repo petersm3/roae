@@ -14,16 +14,18 @@ The 32 hexagram pairs come in two kinds — "even" and "odd" line-balance — an
 the kind alternates: sometimes it switches, sometimes it stays. This report proves that the number of
 switches is **always exactly 15** — not just in King Wen, but in every ordering that satisfies the core
 constraints. A pattern that could have been the arranger's aesthetic choice is in fact a mathematical
-law. The proof is given three fully independent ways: a human-readable argument, a machine-checked
-formal proof (verified by the Lean proof assistant's kernel), and an exhaustive logic-solver search
-with certificates that 14-or-fewer and 16-or-more are impossible. Any one of the three would suffice;
-together they exemplify the verification standard this project holds itself to.
+law. The proof is given three ways: a human-readable argument; a machine-checked formal proof
+(Lean 4 kernel), which independently establishes both the counting step and the alternation–distance
+bridge; and a logic-solver check with DRAT certificates that mechanizes the counting step (the C5
+odd-distance count) under that bridge as an encoding assumption. **The prose and Lean proofs are each
+sufficient alone; the SAT check re-verifies the counting core by an independent mechanism but is
+corroborating rather than independently sufficient.** ⚠ **[CORRECTED 2026-08-29 — this claimed "three fully independent ways" and "any one of the three would suffice". The SAT leg is NOT independent: `BETWEEN_MULTISET` forces 2(d=1)+13(d=3)=15 odd-distance slots, so `alt-le-14` and `alt-ge-16` are refuted by the C5 cardinality clauses ALONE — verified by extracting the ordering-variable-free clause subset and showing it UNSAT on its own (kissat rc=20, DRAT `s VERIFIED`). The encoding also ASSUMES the alternation-to-odd-distance bridge that carries the mathematical content. The THEOREM IS UNAFFECTED. See CORRECTIONS.md]**
 
 ## Abstract
 In every sequence satisfying C1–C5, the 32 pairs are parity-homogeneous, split exactly 16 even / 16 odd,
 and the pair ordering exhibits **exactly 15 parity-class alternations** across its 31 pair boundaries —
 forced by the constraint system, not a King Wen choice (KW's count is 15, necessarily). The theorem has
-been verified in **three independent modalities**: a short prose proof (three lemmas + the C5
+been verified in **three modalities (two independently sufficient)**: a short prose proof (three lemmas + the C5
 odd-distance count); a **Lean 4 kernel-checked general theorem** (`alternations_15_general` — every C1+C5
 sequence of 64 six-bit values has exactly 15 alternations, proven by structural argument, not finite
 enumeration; core Lean 4, no mathlib); and a **SAT decision** (both "≤14 alternations" and "≥16
@@ -68,7 +70,7 @@ inherits.
    facts checked."
 4. **Modality 3 — SAT, certificate-verified.** The SAT layer (`sat.py`, encoding derived from solve.py's
    constraint definitions, external kissat solver) decides both directions exactly: "≤14 alternations" and
-   "≥16 alternations" are **UNSAT under C1+C2+C4+C5** — the theorem's third independent verification.
+   "≥16 alternations" are **UNSAT under C1+C2+C4+C5** — a mechanized corroboration of the counting step.
    Certificates are archived and independently verified: drat-trim (2026-07-03) checks `s VERIFIED` for
    both alt-le-14 and alt-ge-16 (and the two other project UNSAT proofs) against regenerated CNFs. The
    encoder's round-trip validation's first solver model, pleasingly, is King Wen itself. Three modalities,

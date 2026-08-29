@@ -111,6 +111,24 @@ the action that produces the canonical artifacts (e.g.,
 
 ## SUBCOMMANDS
 
+### --help / -h
+
+```
+solve --help
+```
+
+Print a short orientation: the build line, the `--selftest` check, and the
+handful of common modes (`--verify`, `--validate`, `--estimate-knuth`,
+`--list-branches`, `--branch`, `--merge`). The listing is deliberately not
+exhaustive; this document is the full reference. Exits 0.
+
+Added 2026-08-28. Until then there was **no** `--help` handler and no
+unknown-argument rejection at the top level: any unrecognised first argument
+fell through to the default enumeration, so `./solve --help` acquired
+`solve.lock` and started an unbounded full run. An unrecognised leading
+`--option` is now rejected with an error (pointing here) instead of silently
+enumerating.
+
 ### (default — no subcommand)
 
 ```
@@ -1460,7 +1478,7 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_KNUTH_SCORE_PERM` | 0 | `=1`: score the 13 FROZEN R3 permutation-cycle functionals per canonical leaf (`perm_ncyc_bot`, `perm_lcyc_bot`, `perm_ord_bot`, … `perm_desc_top`; KW = 7,33,1,1,1320,31,1,3,52,0,1,260,30). Observable axis anchor: [Ge 2026](CITATIONS.md#ge2026) (KW cycle type of the top permutation (52,10,2)). Ground truth / two-language gate: `solve.py --perm-verify`. `=2` + `SOLVE_PERM_TESTVEC`: explicit-sequence cross-verification hook. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_PERM_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE_PERM=1`): additionally emit `perm_hist <name> <value> <mass>` per-functional weighted value histograms (the two `ord` functionals are wide-binned into 512 bins, Landau bound g(64)=2,042,040). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE` | 0 | `=1`: `--estimate-knuth` additionally reports weighted canonical-mass fractions for externally-attributed candidate rules — R-C1 final-pair anchor + R-C2 first-7 level coverage ([Cook 2006](CITATIONS.md#cook2006)), R-C5 18:18 split (Zhang Xingcheng + Zhu Xi, 12th c. / Hu Yigui 1247 / [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003) / Cook 2006), R-M1 pair-positioning parity ([Moore 2005](CITATIONS.md#moore2005)). Since 2026-07-12 also reports, paired on the same probes as the R-C4 gender/parity line, the R13 two-convention masses **R-C4-B** (exception form: 0 violations OR exactly 2 at adjacent class positions; subset of the published ≤2 relaxation) and **R-C4-C** (2 violations exactly at {25,26}; data-like, report-only) — KW gate `--rc4b-verify`. See CITATIONS.md §Attributed candidate rules. Estimator-only; sha-neutral (2026-07-02). |
-| `SOLVE_KNUTH_MOORE_STRICT` | 0 | `=1`: prune the Knuth walk to orderings satisfying BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND [1989](CITATIONS.md#moore1989) rising/falling 0-breaks) — `leaves_canonical` then estimates the joint-strict space ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §4: ≈1.13×10²⁹ ±4.7%; F11 runs B/C, archived reports/evidence/f11/). Estimator-only, sha-neutral. |
+| `SOLVE_KNUTH_MOORE_STRICT` | 0 | `=1`: prune the Knuth walk to orderings satisfying BOTH Moore rules strictly (2005 pair-positioning parity 18/18 AND [1989](CITATIONS.md#moore1989) rising/falling 0-breaks) — `leaves_canonical` then estimates the joint-strict space ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §4: ≈1.13×10²⁹, 95% CI [1.09, 1.17]×10²⁹; archived reports/evidence/r11/r11_moore_strict.out — NOT the F11 B/C runs, which report 1.16583e29 and 1.091306e29) ⚠ **[CORRECTED 2026-08-28 — the ±4.7% was a PREREGISTERED ANCHOR TOLERANCE BAND, not an error bar: `reports/evidence/f11/compute_f11_bf.py:85` names its check "Moore-joint size outside the +/-4.7% anchor band". The published 1.13×10²⁹ comes from `reports/evidence/r11/r11_moore_strict.out` (`est=1.131036e+29`, 95%CI [1.0942e+29, 1.1679e+29], relerr 1.66%), NOT from `f11_runB.out`, which reports 1.16583e29. See CORRECTIONS.md]**. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_GENDER_STRICT` | 0 | `=1`: prune the walk to orderings satisfying the Schulz 1990 gender/position-parity rule strictly (0 violations; semantics identical to the rc4 leaf scorer / `solve.py rc4_violations`; exception first noted by Zhu Yuansheng, 13th c.). Composes with `SOLVE_KNUTH_MOORE_STRICT` to estimate the triple-strict ("grand-strict") space (F11 M_corr precursor set). Prints a leaf-scorer cross-check line (mismatches must be 0). Estimator-only, sha-neutral. |
 | `SOLVE_RC4B_ASSERT_T1` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE=1`): per-leaf T1 assertion for the R13 R-C4-B instrument — on every canonical leaf where the adjacent-defect clause fires, assert that the level-3 (neuter, gender-exempt) class-position set is disjoint from the two violating positions, so the repairing adjacent transposition moves no level-3 class (the analytic convention-invariance argument for the level-3 rows). Prints `checked=<n> fail=<n>` (expected fail=0). An assertion, not a measurement. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_F11_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE=1`): emit the F11 joint violation histogram — `f11_hist v1 v2 v3 <mass>` lines over (v1 = 18 − Moore-2005 parity compliance, v2 = Moore-1989 rhythm breaks, v3 = Schulz-1990 gender violations; KW = (2,2,2)) — the M_tend normalizer ingredient of the [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) v1.7 Bayes comparison (archived instance: reports/evidence/f11/f11_runA.out). Under strict walks the fractions are conditional on the pruned space. Estimator-only, sha-neutral. |

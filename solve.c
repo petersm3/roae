@@ -3,8 +3,15 @@
  * Developed with AI assistance (Claude, Anthropic)
  *
  * Constraint solver for the King Wen sequence — multi-threaded C implementation.
- * Enumerates all orderings of 32 hexagram pairs satisfying 5 constraints + complement
- * distance, then compares each valid ordering to the historical King Wen sequence.
+ * Enumerates orderings of 32 hexagram pairs satisfying 5 constraints + complement distance
+ * WITHIN A NODE BUDGET, then compares each valid ordering to the historical King Wen sequence.
+ *
+ * 🔴 CORRECTED 2026-08-28 (Q-353). This read "Enumerates ALL orderings". No run has ever done
+ * that: every published enumeration is budgeted per cell, so its record count is a LOWER BOUND
+ * over a reproducible slice — SOLUTIONS_FORMAT.md and SEARCH_SPACE_SIZE.md both say so, and the
+ * space is ~10^38. The unqualified "all" was corrected the same day in SOLUTIONS_FORMAT.md,
+ * BRANCHES_EXPLAINED.md and SOLVE.md, and this file — the one the sentence describes — was
+ * missed. Found by the effort-none Codex run (L06, corroborated by L23).
  *
  * ARCHITECTURE OVERVIEW
  * =====================
@@ -39,8 +46,18 @@
  * SOLUTION STORAGE
  * ================
  * Each thread has a full-key hash table (open addressing, linear probing) storing
- * canonical pair orderings. "Canonical" means within each pair, the smaller hexagram
- * value comes first — this collapses orientation variants into one entry.
+ * canonical pair orderings. "Canonical" means ONE ENTRY PER PAIR-ORDERING REGARDLESS OF
+ * ORIENTATION: the hash/dedup key masks the orientation bit (see "orient bit masked out"
+ * below), so the two orientations of a pair collapse to one entry.
+ *
+ * 🔴 CORRECTED 2026-08-28 (Q-349). This read: *"Canonical means within each pair, the smaller
+ * hexagram value comes first."* That is false in both halves. The pair table is built from King
+ * Wen's own sequence — pairs[p] = (KW[2p], KW[2p+1]) at :1543 — so pairs[0] is (63, 0), storing
+ * the LARGER value first; and every one of the 10.5 B canonical records carries byte 0 = 0x00,
+ * i.e. orient 0, whose sequence begins 63 then 0. Nothing anywhere orders a pair by magnitude.
+ * The collapse is done by MASKING the orientation bit, not by choosing an order within the pair.
+ * Found by the effort-none Codex run (A02 + R03) during the Q-332 triage — the one live finding
+ * in ten transcripts — and verified here against the shipped pair table and a real solutions.bin.
  * Each record is 32 bytes (packed): one byte per position, encoding pair index
  * (5 bits) and orientation (1 bit). Hash and dedup compare pair identity only
  * (orient bit masked out). Full sequence recoverable from any record.
@@ -755,6 +772,19 @@ static int sol_read_header_mem(const unsigned char *hdr, uint64_t *out_records) 
         return -1;
     uint32_t version = sol_unpack_u32_le(&hdr[4]);
     if (version != SOL_FORMAT_VERSION) return -1;
+    /* 🔴 Q-350 (2026-08-28): bytes 16-31 are "MUST be zero" in SOLUTIONS_FORMAT.md and
+     * NOTHING checked them. Measured: header[20]=0x5A on an otherwise byte-correct artifact
+     * still printed "VERIFY PASS: all 13320 records satisfy C1-C5". A reserved field nothing
+     * validates is not reserved -- it is 16 bytes of undetected drift that a future format
+     * extension would silently inherit. Checked in ALL THREE readers, because guarding one
+     * entry point and leaving its two siblings open is the defect this project keeps finding.
+     */
+    for (int rz = 16; rz < SOL_HEADER_SIZE; rz++)
+        if (hdr[rz] != 0) {
+            fprintf(stderr, "ERROR: header reserved byte %d is 0x%02X, must be zero "
+                            "(SOLUTIONS_FORMAT.md)\n", rz, hdr[rz]);
+            return -1;
+        }
     *out_records = sol_unpack_u64_le(&hdr[8]);
     return 0;
 }
@@ -769,6 +799,19 @@ static int sol_read_header(FILE *f, uint64_t *out_records) {
         return -1;
     uint32_t version = sol_unpack_u32_le(&hdr[4]);
     if (version != SOL_FORMAT_VERSION) return -1;
+    /* 🔴 Q-350 (2026-08-28): bytes 16-31 are "MUST be zero" in SOLUTIONS_FORMAT.md and
+     * NOTHING checked them. Measured: header[20]=0x5A on an otherwise byte-correct artifact
+     * still printed "VERIFY PASS: all 13320 records satisfy C1-C5". A reserved field nothing
+     * validates is not reserved -- it is 16 bytes of undetected drift that a future format
+     * extension would silently inherit. Checked in ALL THREE readers, because guarding one
+     * entry point and leaving its two siblings open is the defect this project keeps finding.
+     */
+    for (int rz = 16; rz < SOL_HEADER_SIZE; rz++)
+        if (hdr[rz] != 0) {
+            fprintf(stderr, "ERROR: header reserved byte %d is 0x%02X, must be zero "
+                            "(SOLUTIONS_FORMAT.md)\n", rz, hdr[rz]);
+            return -1;
+        }
     *out_records = sol_unpack_u64_le(&hdr[8]);
     return 0;
 }
@@ -783,6 +826,19 @@ static int sol_read_header_gz(gzFile f, uint64_t *out_records) {
         return -1;
     uint32_t version = sol_unpack_u32_le(&hdr[4]);
     if (version != SOL_FORMAT_VERSION) return -1;
+    /* 🔴 Q-350 (2026-08-28): bytes 16-31 are "MUST be zero" in SOLUTIONS_FORMAT.md and
+     * NOTHING checked them. Measured: header[20]=0x5A on an otherwise byte-correct artifact
+     * still printed "VERIFY PASS: all 13320 records satisfy C1-C5". A reserved field nothing
+     * validates is not reserved -- it is 16 bytes of undetected drift that a future format
+     * extension would silently inherit. Checked in ALL THREE readers, because guarding one
+     * entry point and leaving its two siblings open is the defect this project keeps finding.
+     */
+    for (int rz = 16; rz < SOL_HEADER_SIZE; rz++)
+        if (hdr[rz] != 0) {
+            fprintf(stderr, "ERROR: header reserved byte %d is 0x%02X, must be zero "
+                            "(SOLUTIONS_FORMAT.md)\n", rz, hdr[rz]);
+            return -1;
+        }
     *out_records = sol_unpack_u64_le(&hdr[8]);
     return 0;
 }
@@ -1282,8 +1338,24 @@ static int gz_mmap_open(const char *path, unsigned char **out_base,
             }
         }
         if (n < 0) { fprintf(stderr, "ERROR: gz decompress of %s failed\n", path); fclose(tf); gzclose(gf); remove(tmp); return -1; }
-        if (fflush(tf) != 0 || fclose(tf) != 0) { fprintf(stderr, "ERROR: closing decompress temp %s failed\n", tmp); gzclose(gf); remove(tmp); return -1; }
-        gzclose(gf);
+        /* 🔴 Q-367 (Codex R12b): `n < 0` alone is not a completeness test. zlib reports a TRUNCATED
+           stream through gzeof()/gzerror() and through gzclose()'s return -- not by making gzread()
+           return a negative. So a truncated shard decompressed to a SHORT temp file and this
+           returned success. The correct pattern already exists a few dozen lines above in this same
+           file (clean EOF + CRC/length check); this is the sibling site that was left behind. */
+        {
+            int zerr = 0;
+            (void)gzerror(gf, &zerr);
+            int clean_eof = gzeof(gf) && zerr == Z_OK;
+            int zrc = gzclose(gf);
+            if (!clean_eof || zrc != Z_OK) {
+                fprintf(stderr,
+                    "ERROR: gz stream %s did not end cleanly (eof=%d zerr=%d gzclose=%d).\n"
+                    "       Refusing to map a possibly TRUNCATED decompression (Q-367).\n",
+                    path, gzeof(gf), zerr, zrc);
+                remove(tmp); return -1;
+            }
+        }
         map_path = tmp;
         if (out_tmp_sz) snprintf(out_tmp, out_tmp_sz, "%s", tmp);
     }
@@ -1730,6 +1802,8 @@ static long long current_per_branch_budget = 0;
  * thread file split is only for write-side mutex elimination (task #106). */
 static void load_sub_checkpoint_file(FILE *f) {
     char line[512];
+    /* Q-368: count checkpoint lines rejected for out-of-range indices. See the validation below. */
+    int ckpt_rejected = 0;
     while (fgets(line, sizeof(line), f)) {
         if (!strstr(line, "Sub-branch")) continue;
         /* Skip-on-resume logic (3-way status taxonomy):
@@ -1773,6 +1847,26 @@ static void load_sub_checkpoint_file(FILE *f) {
                              &p1v, &o1v, &p2v, &o2v);
         }
         if (matched == 4 || matched == 6) {
+            /* 🔴 Q-368: VALIDATE BEFORE MASKING. completed_sub_key() folds these integers with
+               ((p1 & 31) << 7) | ((o1 & 1) << 6) | ((p2 & 31) << 1) | (o2 & 1). Without a range
+               check, an out-of-range value does not fail -- it MASKS into a DIFFERENT, VALID key:
+               p1=35 becomes 3, and p1=-1 becomes 31. The resume then marks a sub-branch complete
+               that was never walked, PHASE_B skips it, and the run reports success with solutions
+               missing. That is the same class as the T3a SIGTERM-then-resume defect the comment
+               above completed_sub_key() already documents -- the failure mode was known here and
+               the inputs were still trusted.
+
+               FAIL-SAFE, NOT FAIL-STOP, and deliberately so: a rejected line sets NO bitmap bit and
+               is NOT recorded, so its sub-branch is simply RE-WALKED. Re-walking costs time and is
+               always correct; wrongly skipping loses solutions silently. Aborting instead would be
+               a regression -- a checkpoint's final line is routinely half-written when a run is
+               SIGTERMed, which is precisely when resume matters most. It is still LOUD: the count
+               is reported below. */
+            int bad = (p1v < 0 || p1v > 31) || (o1v < 0 || o1v > 1) ||
+                      (p2v < 0 || p2v > 31) || (o2v < 0 || o2v > 1);
+            if (matched == 6)
+                bad = bad || (p3v < 0 || p3v > 31) || (o3v < 0 || o3v > 1);
+            if (bad) { ckpt_rejected++; continue; }
             if (n_completed_subs >= MAX_COMPLETED_SUBS) break;
             completed_sub_branches[n_completed_subs][0] = p1v;
             completed_sub_branches[n_completed_subs][1] = o1v;
@@ -1789,6 +1883,13 @@ static void load_sub_checkpoint_file(FILE *f) {
                 completed_sub_bitmap[key >> 3] |= (unsigned char)(1 << (key & 7));
             }
         }
+    }
+    if (ckpt_rejected > 0) {
+        fprintf(stderr,
+            "WARNING: %d checkpoint line(s) had out-of-range pair/orient indices and were IGNORED.\n"
+            "         Those sub-branches are NOT marked complete and WILL BE RE-WALKED (fail-safe).\n"
+            "         A truncated final line is normal after SIGTERM; many such lines suggest a\n"
+            "         corrupted checkpoint.txt (see Q-368).\n", ckpt_rejected);
     }
 }
 
@@ -3172,8 +3273,17 @@ static int do_verify_shard_manifest(const char *manifest_path,
     { char buf[4096]; while (fgets(buf, sizeof(buf), mf)) total++; }
     fclose(mf);
     if (total == 0) {
+        /* 🔴 Q-367 (Codex R12b): a zero-entry manifest used to return 0 == PASS. That is exactly
+           what an INTERRUPTED SIDECAR WRITE leaves behind, so the one state most likely to mean
+           "the manifest is broken" was the state that verified clean. A verifier must be able to be
+           FALSE when its target is absent; with nothing to check, "all checks passed" is a claim
+           about nothing. Reported loudly and returned as an error. */
+        fprintf(stderr,
+            "ERROR: shard manifest '%s' has ZERO entries.\n"
+            "       This is what an interrupted sidecar write leaves. Refusing to report PASS on an\n"
+            "       empty manifest -- there is nothing here to verify (Q-367).\n", manifest_path);
         if (out_total) *out_total = 0;
-        return 0;
+        return 22;
     }
     /* Parallel verify (#116, 2026-05-29). Each xargs worker receives one
      * manifest line (TSV: fname \t size \t sha) and emits ONE typed
@@ -3203,6 +3313,17 @@ static int do_verify_shard_manifest(const char *manifest_path,
              "fi; "
              "magic=$(dd if=\"$fname\" bs=1 count=2 2>/dev/null | od -An -tx1 | tr -d \" \\n\"); "
              "if [ \"$magic\" = \"1f8b\" ]; then "
+             /* 🔴 Q-367: verify the CONTAINER before trusting the decompressed bytes. `gzip -dc |
+                sha` swallows gzip's status, so a shard whose CRC32 trailer is corrupt hashes its
+                (still-correct) logical bytes and PASSES, and the damage is only discovered when
+                something later fails to read it. `gzip -t` checks the CRC directly.
+                NOTE: `set -o pipefail` is NOT usable here -- the xargs worker is `sh -c`, and in
+                dash pipefail is unsupported, so the command substitution fails and a GOOD shard
+                reports MISSING. (Measured: that is exactly what happened on the first cut of this
+                fix.) #197 could use pipefail only because it spawns `bash -c` explicitly. */
+             "  if ! gzip -t \"$fname\" 2>/dev/null; then "
+             "    printf \"DIVERGED\\t%%s\\tgz-container-corrupt\\t%%s\\n\" \"$fname\" \"$sha\"; exit 0; "
+             "  fi; "
              "  actual_sz=$(gzip -dc \"$fname\" 2>/dev/null | wc -c); "
              "  got=$(gzip -dc \"$fname\" 2>/dev/null | %s | cut -d\" \" -f1); "
              "else "
@@ -3214,6 +3335,13 @@ static int do_verify_shard_manifest(const char *manifest_path,
              "fi; "
              "if [ \"$actual_sz\" -lt \"$sz\" ]; then "
              "  printf \"SHRUNK\\t%%s\\t%%s\\t%%s\\n\" \"$fname\" \"$actual_sz\" \"$sz\"; exit 0; "
+             "fi; "
+             /* 🔴 Q-367: the size test fired only on SHRINKAGE, so a shard with COMPLETE RECORDS
+                APPENDED passed -- and the merger globs and reads the enlarged file, so the extra
+                records enter the merged result. Reported as DIVERGED rather than SHRUNK because
+                that is what it is: the shard no longer matches the manifest entry. */
+             "if [ \"$actual_sz\" -gt \"$sz\" ]; then "
+             "  printf \"DIVERGED\\t%%s\\tgrew-to-%%s-bytes-manifest-says-%%s\\t%%s\\n\" \"$fname\" \"$actual_sz\" \"$sz\" \"$sha\"; exit 0; "
              "fi; "
              "if [ \"$got\" != \"$sha\" ]; then "
              "  printf \"DIVERGED\\t%%s\\t%%s\\t%%s\\n\" \"$fname\" \"$got\" \"$sha\"; "
@@ -3247,7 +3375,18 @@ static int do_verify_shard_manifest(const char *manifest_path,
             diverged++;
         }
     }
-    pclose(p);
+    /* 🔴 Q-367: the pipeline status was DISCARDED. If xargs/sh never ran, the parent read zero
+       diagnostic lines and reported missing=shrunk=diverged=0 -- i.e. a verifier that could not run
+       reported PASS. Same shape as #197, which captured pclose for exactly this reason. */
+    int vrc = pclose(p);
+    if (vrc != 0) {
+        fprintf(stderr,
+            "ERROR: the parallel manifest verify pipeline exited %d. Its diagnostics are NOT\n"
+            "       trustworthy, so this is reported as a FAILURE rather than as a clean verify\n"
+            "       (Q-367): zero findings from a verifier that did not run is not a pass.\n", vrc);
+        if (out_total) *out_total = total;
+        return 22;
+    }
     if (out_total) *out_total = total;
     if (out_missing) *out_missing = missing;
     if (out_shrunk) *out_shrunk = shrunk;
@@ -4793,7 +4932,19 @@ typedef struct {
      * accumulator gives the DERIVED N_gs path a propagated 95% CI (§5.2); max_w_c3
      * is the top single-probe canonical-leaf weight for the skew/ESS audit. */
     double sumsq_rc4s; uint64_t hits_rc4s; double max_w_c3;
+    /* Q-388 W/m(k) canonical-class estimator (SOLVE_KNUTH_FIBER=1): per-probe sums of
+     * W/m at all depth-32 leaves (-> records at the C1nC2nC4nC5 layer) and at C3-valid
+     * leaves (-> records at the C1-C5 layer), squared twins for the probe-level SE, and
+     * cross-products with the corresponding W sums for the delta-method SE of the mean
+     * fiber ratio N/R. fib_bad counts leaves whose computed fiber is < 1 — impossible
+     * (the leaf's own orientation vector is a fiber member), so nonzero = the DP is
+     * broken and the run's fiber output is void (reported loudly, never silently). */
+    double sum_fib, sq_fib, sum_fib_c3, sq_fib_c3, x_leaf_fib, x_c3_fib;
+    double fib_min, fib_max; uint64_t fib_bad;
     double sum_rc1, sum_rc2, sum_rc5;   /* weighted canonical-leaf mass satisfying each rule */
+    double sq_rc1, sq_rc2, sq_rc5, sq_rc1c_s2, sq_rc1c_s32, sq_rc1c_adj, sq_rm1s, sq_rm1k,
+           sq_rm2k, sq_rm2s, sq_mj, sq_rc3, sq_rc3w, sq_rc4k, sq_rc4b, sq_rc4c, sq_dv1,
+           sq_dv2, sq_par, sq_wrap[7], sq_reg[31]; /* squared-weight twins: delta-method SE (Q-374) */
     /* R-C1c (R6, Cook 2006 anchor + McKenna & McKenna 1975 circular frame): circular
      * anchor-adjacency indicator — the alternating pair A2={21,42} occupies pair slot 2 or
      * slot 32 (slot 1 is the C4-pinned pure pair). sum_rc1c_s32 == sum_rc1 by construction
@@ -4851,17 +5002,20 @@ typedef struct {
     double *f4p_hist;                     /* SOLVE_KNUTH_SCORE_F4P=1: [13*512] weighted value histogram per
                                            * F4' functional (heap-allocated only when active; NULL otherwise) */
     double f4p_sum[13];                   /* weighted sum of each functional's value over canonical leaves */
+    double f4p_sq_below[13], f4p_sq_at[13], f4p_sq_above[13]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double f4p_below[13], f4p_at[13], f4p_above[13];  /* weighted mass <KW / ==KW / >KW per functional */
     int f4p_min[13], f4p_max[13];         /* min/max functional value seen across canonical leaves */
     double *dav_hist;                     /* SOLVE_KNUTH_SCORE_DAV=1: [9*64] weighted value histogram per
                                            * Davis-2012 candidate (heap-allocated only when active) */
     double dav_sum[9];                    /* weighted sum of each candidate's value over canonical leaves */
+    double dav_sq_below[9], dav_sq_at[9], dav_sq_above[9]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double dav_below[9], dav_at[9], dav_above[9];  /* weighted mass <KW / ==KW / >KW per candidate
                                            * (booleans: at-mass with kw=1 == mass-of-TRUE) */
     int dav_min[9], dav_max[9];           /* min/max candidate value seen across canonical leaves */
     double *dav2_hist;                    /* SOLVE_KNUTH_SCORE_DAV2=1: [2*64] weighted value histogram per
                                            * Davis-2012 wave-2 candidate (heap-allocated only when active) */
     double dav2_sum[2];                   /* weighted sum of each wave-2 candidate's value over canonical leaves */
+    double dav2_sq_below[2], dav2_sq_at[2], dav2_sq_above[2]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double dav2_below[2], dav2_at[2], dav2_above[2];  /* weighted mass <KW / ==KW / >KW per wave-2 candidate */
     int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */
     /* SOLVE_KNUTH_SCORE_DB1=1 (Drasny "Rule of Ten" D-B1, Null B): weighted
@@ -4870,12 +5024,14 @@ typedef struct {
      * Estimator-only, sha-neutral (never on the enum/selftest path). */
     double db1_hist[33];
     double db1_sum, db1_below, db1_at, db1_above;
+    double db1_sq_below, db1_sq_at, db1_sq_above; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int db1_min, db1_max;
     double *f5_hist;                      /* SOLVE_KNUTH_SCORE_F5=1: [11*64] weighted value histogram per
                                            * F5 orientation-layer functional (heap-allocated only when active).
                                            * Leaves are orientation-BEARING (walk enumerates orientation
                                            * branches pre-dedup) — required by F5 preregistration §4. */
     double f5_sum[11];                    /* weighted sum of each functional's value over canonical leaves */
+    double f5_sq_below[11], f5_sq_at[11], f5_sq_above[11]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double f5_below[11], f5_at[11], f5_above[11];  /* weighted mass <KW / ==KW / >KW per functional */
     int f5_min[11], f5_max[11];           /* min/max functional value seen across canonical leaves */
     double *f6_hist;                      /* SOLVE_KNUTH_SCORE_F6=1: [7*64] weighted value histogram per
@@ -4884,6 +5040,7 @@ typedef struct {
                                            * orientation-bearing pre-dedup (needed by #6-7; #1-5 are
                                            * orientation-blind — frozen spec FT5). */
     double f6_sum[7];                     /* weighted sum of each functional's value over canonical leaves */
+    double f6_sq_below[7], f6_sq_at[7], f6_sq_above[7]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double f6_below[7], f6_at[7], f6_above[7];  /* weighted mass <KW / ==KW / >KW per functional */
     int f6_min[7], f6_max[7];             /* min/max functional value seen across canonical leaves */
     double *perm_hist;                    /* SOLVE_KNUTH_SCORE_PERM=1: [13*512] weighted value histogram per
@@ -4892,8 +5049,10 @@ typedef struct {
                                            * required by R3 prereg §2 (a single within-pair flip changes the
                                            * cycle structure / flips the sign). */
     double perm_sum[13];                  /* weighted sum of each functional's value over canonical leaves */
+    double perm_sq_below[13], perm_sq_at[13], perm_sq_above[13]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double perm_below[13], perm_at[13], perm_above[13];  /* weighted mass <KW / ==KW / >KW per functional */
     int perm_min[13], perm_max[13];       /* min/max functional value seen across canonical leaves */
+    double perm_tmatch_sq[2]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double perm_tmatch[2];                /* report-only template-match mass (full cycle type == KW's;
                                            * [bot,top]; data-like descriptive, no verdict — R3 prereg §4) */
     double *f11_hist;                     /* SOLVE_KNUTH_F11_HIST=1 (requires SOLVE_KNUTH_SCORE=1): joint
@@ -4935,6 +5094,46 @@ typedef struct {
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
 
+/* ===== Q-389 Purdom (1978) partial-backtracking estimator + Q-388 W/m(k) canonical-
+ * class (orientation-fiber) estimator — estimator-only, sha-neutral (knuth path; never
+ * exercised by --selftest). Design provenance: Codex L17 asked for the Purdom estimator
+ * (D7 ruling I-1(b), 2026-08-28); Codex A02 stated the W/m(k) canonical-class estimator
+ * (D7 ruling I-5); A1_ORIENTATION_FIBER_MEASUREMENT.md (2026-08-01) §6.1 specifies the
+ * fiber port and its KW gate. Attribution: Purdom, "Tree size by partial backtracking",
+ * SIAM J. Comput. 7(2), 1978; Knuth 1975 is its single-path special case.
+ *
+ * SOLVE_KNUTH_PURDOM_W=<w> (w>=2): at each node with d live children within the first
+ * SOLVE_KNUTH_PURDOM_DEPTH free levels (default 7), descend into s=min(d,w) DISTINCT
+ * uniform-random children, each with weight W*(d/s); below the cutoff, single-path
+ * Knuth (s=1). Unbiasedness (induction on subtree height): E[est(v)] = 1 + (d/s)*
+ * E[sum over the s sampled children] = 1 + (d/s)*(s/d)*sum_i E[est(c_i)] = |subtree(v)|,
+ * for ANY (w, cutoff) — the sample-path space changes (multi-child partial backtracking),
+ * not merely the importance weights, which is what makes it a second estimator
+ * DERIVATION, not a reweighting of Knuth's. Scope (per D7 I-1(a)): this buys
+ * ESTIMATOR-derivation independence only — it shares the walk code, prune predicates
+ * and pair tables, so it does NOT discharge the operator-accepted shared-oracle floor.
+ * Refused in combination with the scoring/strict-walk instruments (loud error at parse).
+ *
+ * SOLVE_KNUTH_FIBER=1: at each depth-32 leaf compute m = |orientation fiber of the
+ * leaf's pair ordering| (EXACT transfer DP, not a sample) and contribute W/m. Since
+ * sum over the fiber members of 1/m = 1 per pair-order class, E[sum W/m over leaves]
+ * = #records (canonical pair-order classes with a nonempty fiber) — the orientation-
+ * DEDUPLICATED count whose "~4x"-derived 3.3e37 figure was withdrawn 2026-08-24.
+ * C3 is constant on a fiber (C3 = 16 + 8*G, lean/C3Decomposition.lean; A1 §1.4), so
+ * the C3-filtered accumulator estimates R(C1-C5) with no C3 term in the DP.
+ * Gate: the KW pair ordering's fiber must equal 1,720,320 = 3*5*7*2^14 (TR-1 §7) at
+ * init, else fatal. SOLVE_KNUTH_FIBER_PERM="p0,p1,...,p31" computes one fiber and
+ * exits (cross-check hook vs verify.py fiber_count, incl. fiber-0 controls).
+ * SOLVE_KNUTH_FIBER_XCHECK=<n> prints the first n leaves' (perm, m) for the same
+ * cross-check on real walk leaves. */
+static int knuth_purdom_w = 0;       /* SOLVE_KNUTH_PURDOM_W: 0 = off; >=2 = branching width */
+static int knuth_purdom_depth = 7;   /* SOLVE_KNUTH_PURDOM_DEPTH: free levels with multi-child descent */
+static int knuth_fiber = 0;          /* SOLVE_KNUTH_FIBER=1: W/m(k) canonical-class estimator */
+static int knuth_fiber_xcheck = 0;   /* SOLVE_KNUTH_FIBER_XCHECK=<n>: print first n (perm, m) leaves */
+static int fib_B[7];                 /* residual between-pair budget per distance class */
+static int fib_stride[7];            /* mixed-radix stride per class (active tables) */
+static int fib_ncode = 0;            /* product of (fib_B[d]+1); 1 in unbounded (RELAX_C5) mode */
+static int fib_unbounded = 0;        /* RELAX_C5: only d==5 forbidden, no budget tracking */
 static int knuth_pin_c67 = 0;
 static unsigned knuth_pin_mask = 0;  /* SOLVE_KNUTH_PIN_SLOTS="3,4,20,21": pin listed slots to KW's pairs
                                       * (orientation free). Generalizes SOLVE_KNUTH_C67 (== slots 24-27).
@@ -5432,7 +5631,7 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
     }
 
     for (int i = 0; i < 31; i++)
-        if (ind[i]) a->sum_reg[i] += W;
+        if (ind[i]) { a->sum_reg[i] += W; a->sq_reg[i] += W*W; }
 }
 
 /* ===================== F4' ordering-layer functionals (SOLVE_KNUTH_SCORE_F4P) =====================
@@ -5635,6 +5834,9 @@ static void score_f4p(const int seq[64], double W, KnuthArg *a){
         if      (x < f4p_kw[k]) a->f4p_below[k] += W;
         else if (x == f4p_kw[k]) a->f4p_at[k]   += W;
         else                     a->f4p_above[k] += W;
+        if      (x < f4p_kw[k]) a->f4p_sq_below[k] += W*W;
+        else if (x == f4p_kw[k]) a->f4p_sq_at[k]    += W*W;
+        else              a->f4p_sq_above[k] += W*W;
         if (a->f4p_hist) a->f4p_hist[k * 512 + f4p_bin(k, x)] += W;
     }
 }
@@ -5852,6 +6054,9 @@ static void score_dav(const int seq[64], double W, KnuthArg *a){
         if      (x < dav_kw[k]) a->dav_below[k] += W;
         else if (x == dav_kw[k]) a->dav_at[k]   += W;
         else                     a->dav_above[k] += W;
+        if      (x < dav_kw[k]) a->dav_sq_below[k] += W*W;
+        else if (x == dav_kw[k]) a->dav_sq_at[k]    += W*W;
+        else              a->dav_sq_above[k] += W*W;
         if (a->dav_hist){
             int b = x - dav_lo[k];
             if (b < 0) b = 0;
@@ -5950,6 +6155,9 @@ static void score_dav2(const int seq[64], double W, KnuthArg *a){
         if      (x < dav2_kw[k]) a->dav2_below[k] += W;
         else if (x == dav2_kw[k]) a->dav2_at[k]   += W;
         else                      a->dav2_above[k] += W;
+        if      (x < dav2_kw[k]) a->dav2_sq_below[k] += W*W;
+        else if (x == dav2_kw[k]) a->dav2_sq_at[k]    += W*W;
+        else              a->dav2_sq_above[k] += W*W;
         if (a->dav2_hist){
             int b = x - dav2_lo[k];
             if (b < 0) b = 0;
@@ -6104,6 +6312,9 @@ static void score_db1(const int seq[64], double W, KnuthArg *a){
     if      (x < db1_kw_x) a->db1_below += W;
     else if (x == db1_kw_x) a->db1_at   += W;
     else                    a->db1_above += W;
+    if      (x < db1_kw_x) a->db1_sq_below += W*W;
+    else if (x == db1_kw_x) a->db1_sq_at    += W*W;
+    else                    a->db1_sq_above += W*W;
     if (x >= 0 && x <= 32) a->db1_hist[x] += W;
 }
 
@@ -6303,6 +6514,9 @@ static void score_f5(const int seq[64], double W, KnuthArg *a){
         if      (x < f5_kw[k]) a->f5_below[k] += W;
         else if (x == f5_kw[k]) a->f5_at[k]   += W;
         else                    a->f5_above[k] += W;
+        if      (x < f5_kw[k]) a->f5_sq_below[k] += W*W;
+        else if (x == f5_kw[k]) a->f5_sq_at[k]    += W*W;
+        else              a->f5_sq_above[k] += W*W;
         if (a->f5_hist){
             int b = x - f5_lo[k];
             if (b < 0) b = 0;
@@ -6424,6 +6638,9 @@ static void score_f6(const int seq[64], double W, KnuthArg *a){
         if      (x < f6_kw[k]) a->f6_below[k] += W;
         else if (x == f6_kw[k]) a->f6_at[k]   += W;
         else                    a->f6_above[k] += W;
+        if      (x < f6_kw[k]) a->f6_sq_below[k] += W*W;
+        else if (x == f6_kw[k]) a->f6_sq_at[k]    += W*W;
+        else              a->f6_sq_above[k] += W*W;
         if (a->f6_hist){
             int b = x - f6_lo[k];
             if (b < 0) b = 0;
@@ -6596,10 +6813,13 @@ static void score_perm(const int seq[64], double W, KnuthArg *a){
         if      (x < perm_kw[k]) a->perm_below[k] += W;
         else if (x == perm_kw[k]) a->perm_at[k]   += W;
         else                      a->perm_above[k] += W;
+        if      (x < perm_kw[k]) a->perm_sq_below[k] += W*W;
+        else if (x == perm_kw[k]) a->perm_sq_at[k]    += W*W;
+        else              a->perm_sq_above[k] += W*W;
         if (a->perm_hist) a->perm_hist[k * 512 + perm_bin(k, x)] += W;
     }
-    if (tm[0]) a->perm_tmatch[0] += W;
-    if (tm[1]) a->perm_tmatch[1] += W;
+    if (tm[0]) { a->perm_tmatch[0] += W; a->perm_tmatch_sq[0] += W*W; }
+    if (tm[1]) { a->perm_tmatch[1] += W; a->perm_tmatch_sq[1] += W*W; }
 }
 
 /* ===================== R11 four-class Bayes: 8-axis violation vector =====================
@@ -6933,19 +7153,19 @@ static void h2_ball_enum(const int base[64], const int pr[32], const int orr[32]
         int extra = n - nreq;
         if (extra < 0) continue;
         if (extra == 0){
-            memcpy(ts, req, (size_t)n * sizeof(int));
+            if (nreq) memcpy(ts, req, (size_t)n * sizeof(int));   /* req may be NULL when nreq==0; memcpy(_,NULL,0) is UB */
             h2_sort_slots(ts, n);
             h2_emit_patterns(base, pr, orr, ts, n, fn, ud);
         } else if (extra == 1){
             for (int i = 0; i < nf; i++){
-                memcpy(ts, req, (size_t)nreq * sizeof(int));
+                if (nreq) memcpy(ts, req, (size_t)nreq * sizeof(int));   /* see above: NULL src is UB even at length 0 */
                 ts[nreq] = fr[i];
                 h2_sort_slots(ts, n);
                 h2_emit_patterns(base, pr, orr, ts, n, fn, ud);
             }
         } else if (extra == 2){
             for (int i = 0; i < nf; i++) for (int j = i+1; j < nf; j++){
-                memcpy(ts, req, (size_t)nreq * sizeof(int));
+                if (nreq) memcpy(ts, req, (size_t)nreq * sizeof(int));   /* see above: NULL src is UB even at length 0 */
                 ts[nreq] = fr[i]; ts[nreq+1] = fr[j];
                 h2_sort_slots(ts, n);
                 h2_emit_patterns(base, pr, orr, ts, n, fn, ud);
@@ -7080,6 +7300,223 @@ static void h2_selftest(void){
             cw, f.nv_p, f.nv_c, f.f_p, f.f_c);
 }
 
+/* ============== Q-388 orientation-fiber (W/m) machinery — see the design block
+ * ============== at the knuth_purdom_w declaration above. Estimator-only, sha-neutral. */
+
+/* Build the fiber DP tables from the ACTIVE budget vector (budget0 as configured by
+ * estimate_tree_knuth: standard kw_dist or RELAX_C5; the C5_BUDGET override is refused
+ * with fiber at parse). budget0 arrives AFTER the pure-pair {63,0} within-transition
+ * decrement and BEFORE any prefix decrement (fiber+prefix is refused: a record count
+ * under an ORIENTED prefix is ambiguous between orientation conventions).
+ * Residual between-pair budget: B[d] = budget0[d] - #{within-pair distances == d over
+ * the 31 non-opening pairs}; the 31 boundary distances then draw from B. If every
+ * B[d] (d != 5) covers all 31 boundaries the budget cannot bind (RELAX_C5) and the DP
+ * drops the budget state entirely. Returns 0 on success, -1 (with stderr) if malformed. */
+static int fiber_build_tables(const int budget0[7]){
+    int within[7] = {0}, B[7];
+    int p63 = pair_index_of(63, 0);
+    for (int p = 0; p < 32; p++) if (p != p63) within[hamming(pairs[p].a, pairs[p].b)]++;
+    for (int d = 0; d < 7; d++) {
+        B[d] = (d == 5) ? 0 : budget0[d] - within[d];      /* C2: no 5-boundary ever */
+        if (B[d] < 0) { fprintf(stderr, "[fiber] residual budget for d=%d is %d < 0 — malformed\n", d, B[d]); return -1; }
+        if (B[d] > 31) B[d] = 31;                          /* only 31 boundaries exist */
+    }
+    fib_unbounded = 1;
+    for (int d = 0; d < 7; d++) if (d != 5 && B[d] < 31) fib_unbounded = 0;
+    if (fib_unbounded) {
+        fib_ncode = 1;
+        for (int d = 0; d < 7; d++) { fib_B[d] = (d == 5) ? 0 : 31; fib_stride[d] = 0; }
+        return 0;
+    }
+    int ncode = 1;
+    for (int d = 0; d < 7; d++) {
+        fib_B[d] = B[d]; fib_stride[d] = ncode; ncode *= (B[d] + 1);
+        if (ncode > 65536) { fprintf(stderr, "[fiber] budget code space %d exceeds 65536 — unsupported budget vector\n", ncode); return -1; }
+    }
+    fib_ncode = ncode;   /* standard budget: 3*9*14*8*2 = 6048 (A1 §1.5's "64 x 6,048" collapses
+                          * to 2 x 6048 here because only the slot's two faces can be the exit) */
+    return 0;
+}
+
+/* EXACT orientation-fiber size of the pair ordering carried by a completed leaf `seq`
+ * (only the FACES seq[2i], seq[2i+1] of each slot are read — the leaf's own orientation
+ * choice cannot change the answer). Forward transfer DP over the 31 boundaries: state =
+ * (exit-face choice o of the current slot, budget-consumption code). Counts are integers
+ * <= 2^31, exactly representable in double. Within-budget semantics — the identical
+ * predicate the walk enforces; with the standard budget (sum B = 31 over 31 boundaries)
+ * this coincides with verify.py fiber_count's exact-landing semantics (A1 §3.3: the
+ * landing filter is a proven redundancy there). Cross-instrument hooks:
+ * SOLVE_KNUTH_FIBER_PERM / SOLVE_KNUTH_FIBER_XCHECK, checked against verify.py. */
+static __thread double *fib_cur = NULL, *fib_nxt = NULL;
+static __thread int fib_alloc = 0;
+static double fiber_count_c(const int seq[64]){
+    const int NC = fib_ncode;
+    if (fib_alloc < 2 * NC) {
+        free(fib_cur); free(fib_nxt);
+        fib_cur = (double*)malloc((size_t)2 * NC * sizeof(double));
+        fib_nxt = (double*)malloc((size_t)2 * NC * sizeof(double));
+        if (!fib_cur || !fib_nxt) { fprintf(stderr, "[fiber] DP buffer allocation failed\n"); exit(1); }
+        fib_alloc = 2 * NC;
+    }
+    memset(fib_cur, 0, (size_t)2 * NC * sizeof(double));
+    fib_cur[0] = 1.0;   /* slot 0: o=0 (exit face seq[1] == 0, the C4-fixed opening), no budget used */
+    for (int i = 1; i < 32; i++) {
+        int f0 = seq[2*i], f1 = seq[2*i+1];              /* slot i faces: o=0 enters f0/exits f1 */
+        int e0 = seq[2*(i-1)+1], e1 = seq[2*(i-1)];      /* slot i-1 exit face per its state o */
+        memset(fib_nxt, 0, (size_t)2 * NC * sizeof(double));
+        int alive = 0;
+        for (int o = 0; o < 2; o++) {
+            int ex = o ? e1 : e0;
+            const double *src = fib_cur + (size_t)o * NC;
+            for (int on = 0; on < 2; on++) {
+                int entry = on ? f1 : f0;
+                int d = hamming(ex, entry);
+                if (d == 5 || fib_B[d] == 0) continue;
+                double *dst = fib_nxt + (size_t)on * NC;
+                if (fib_unbounded) {
+                    if (src[0] > 0) { dst[0] += src[0]; alive = 1; }
+                } else {
+                    int st = fib_stride[d], rad = fib_B[d] + 1, cap = fib_B[d];
+                    for (int code = 0; code < NC; code++) {
+                        double v = src[code];
+                        if (v > 0 && (code / st) % rad < cap) { dst[code + st] += v; alive = 1; }
+                    }
+                }
+            }
+        }
+        if (!alive) return 0.0;
+        double *t = fib_cur; fib_cur = fib_nxt; fib_nxt = t;
+    }
+    double m = 0.0;
+    for (int z = 0; z < 2 * NC; z++) m += fib_cur[z];
+    return m;
+}
+
+/* Init for a fiber run: FIRST gate the DP on King Wen's own pair ordering under the
+ * STANDARD budget — its C4-oriented fiber must equal 1,720,320 = 3*5*7*2^14 (TR-1 §7;
+ * the A1-mandated gate) — then rebuild the tables from the ACTIVE budget. A gate
+ * failure is fatal to the run: a fiber routine that cannot reproduce the known value
+ * measures nothing. */
+static int fiber_init(const int budget0[7]){
+    int std0[7]; memcpy(std0, kw_dist, sizeof(std0)); std0[hamming(63,0)]--;
+    if (fiber_build_tables(std0)) return -1;
+    double mkw = fiber_count_c(KW);
+    if (mkw != 1720320.0) {
+        fprintf(stderr, "[fiber] GATE FAILED: fiber(KW) = %.0f != 1720320 — the DP is wrong; refusing to run\n", mkw);
+        return -1;
+    }
+    fprintf(stderr, "[fiber] KW gate PASS: fiber(KW) = 1720320 = 3*5*7*2^14 (TR-1 §7)\n");
+    return fiber_build_tables(budget0);
+}
+
+/* Per-leaf bookkeeping shared by the Knuth and Purdom leaf handlers: min/max fiber
+ * observed, plus the FIBER-XCHECK trace (first n leaves' pair ordering and fiber, for
+ * the two-implementation cross-check against verify.py fiber_count). */
+static void fiber_leaf_note(KnuthArg *a, const int seq[64], double m){
+    if (a->fib_min == 0 || m < a->fib_min) a->fib_min = m;
+    if (m > a->fib_max) a->fib_max = m;
+    if (knuth_fiber_xcheck > 0 && __atomic_fetch_sub(&knuth_fiber_xcheck, 1, __ATOMIC_SEQ_CST) > 0) {
+        char buf[320]; int off = 0;
+        for (int i = 0; i < 32 && off < 300; i++)
+            off += snprintf(buf + off, (size_t)(320 - off), "%s%d", i ? "," : "", pair_of_hex(seq[2*i]));
+        fprintf(stderr, "FIBER-XCHECK perm=%s m=%.0f\n", buf, m);
+    }
+}
+
+/* ============== Q-389 Purdom (1978) partial-backtracking probe — see the design block
+ * ============== at the knuth_purdom_w declaration above. Estimator-only, sha-neutral.
+ * One probe = one recursive traversal: at a node with d live children within the first
+ * knuth_purdom_depth free levels, descend into s = min(d, w) DISTINCT uniform-random
+ * children with weight W*(d/s) each; below the cutoff s = 1 (single-path Knuth).
+ * Unbiased for any (w, cutoff) by induction on subtree height. The candidate loop is
+ * the plain C1/C2/C4/C5 prune (pins honored); the strict-walk and scoring instruments
+ * are refused with Purdom at parse, so their absence here cannot silently bias them. */
+static void purdom_recurse(KnuthArg *a, uint64_t *rng, int seq[64], pair_mask_t *used,
+                           int budget[7], int step, double W,
+                           double *node_acc, double *leaf_acc, double *c3_acc,
+                           double *fib_acc, double *fibc3_acc){
+    *node_acc += W;
+    if (step == 32) {
+        *leaf_acc += W;
+        int c3ok = (compute_comp_dist_x64(seq) <= kw_comp_dist_x64);
+        if (c3ok) *c3_acc += W;
+        if (knuth_fiber) {
+            double m = fiber_count_c(seq);
+            if (!(m >= 1.0)) a->fib_bad++;   /* impossible: the leaf's own orientation is a member */
+            else {
+                fiber_leaf_note(a, seq, m);
+                *fib_acc += W / m;
+                if (c3ok) *fibc3_acc += W / m;
+            }
+        }
+        return;
+    }
+    int prev_tail = seq[step*2 - 1];
+    int cp[64], co[64], d = 0;
+    for (int p = 0; p < 32; p++){
+        if (PAIR_MASK_TEST(*used, p)) continue;
+        if (knuth_pin_c67 && step >= 24 && step <= 27 && p != step) continue;   /* C6/C7 pins */
+        if (((knuth_pin_mask >> step) & 1u) && p != step) continue;             /* S(k) pins */
+        for (int orient = 0; orient < 2; orient++){
+            int first  = orient ? pairs[p].b : pairs[p].a;
+            int second = orient ? pairs[p].a : pairs[p].b;
+            int bd = hamming(prev_tail, first);
+            if (bd == 5) continue;                 /* C2 */
+            if (budget[bd] <= 0) continue;         /* C5 between-pair */
+            budget[bd]--;
+            int wd = hamming(first, second);
+            int live = budget[wd] > 0;             /* C5 within-pair (bd==wd safe) */
+            budget[bd]++;
+            if (!live) continue;
+            cp[d] = p; co[d] = orient; d++;
+        }
+    }
+    if (d == 0) return;
+    int s = (step - a->start_step < knuth_purdom_depth)
+            ? (d < knuth_purdom_w ? d : knuth_purdom_w) : 1;
+    /* partial Fisher-Yates: move s distinct uniform-random candidates to the front */
+    for (int j = 0; j < s; j++) {
+        int r = j + (int)(ks_next(rng) % (uint64_t)(d - j));
+        int tp = cp[j]; cp[j] = cp[r]; cp[r] = tp;
+        int to = co[j]; co[j] = co[r]; co[r] = to;
+    }
+    double Wc = W * (double)d / (double)s;
+    for (int j = 0; j < s; j++) {
+        int p = cp[j], orient = co[j];
+        int first  = orient ? pairs[p].b : pairs[p].a;
+        int second = orient ? pairs[p].a : pairs[p].b;
+        int bd = hamming(prev_tail, first), wd = hamming(first, second);
+        budget[bd]--; budget[wd]--;
+        seq[step*2] = first; seq[step*2+1] = second; PAIR_MASK_SET(*used, p);
+        purdom_recurse(a, rng, seq, used, budget, step + 1, Wc,
+                       node_acc, leaf_acc, c3_acc, fib_acc, fibc3_acc);
+        PAIR_MASK_CLR(*used, p); budget[wd]++; budget[bd]++;
+    }
+}
+
+static void *purdom_worker(void *vp){
+    KnuthArg *a = (KnuthArg*)vp;
+    uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
+    int seq[64]; pair_mask_t used; int budget[7];
+    if (a->prefix_dead) return NULL;   /* unreachable (strict modes refused with Purdom); kept for shape */
+    for (uint64_t t = 0; t < a->n_probes; t++){
+        memcpy(seq, a->seq0, sizeof(seq)); used = a->used0; memcpy(budget, a->budget0, sizeof(budget));
+        double node_acc = 0, leaf = 0, c3 = 0, fibv = 0, fibc3v = 0;
+        purdom_recurse(a, &rng, seq, &used, budget, a->start_step, 1.0,
+                       &node_acc, &leaf, &c3, &fibv, &fibc3v);
+        a->sum_leaf += leaf; a->sumsq_leaf += leaf*leaf; if (leaf > 0) a->hits_leaf++;
+        a->sum_c3   += c3;   a->sumsq_c3   += c3*c3;     if (c3 > 0)  a->hits_c3++;
+        if (c3 > a->max_w_c3) a->max_w_c3 = c3;
+        a->sum_node += node_acc; a->sumsq_node += node_acc*node_acc;
+        if (knuth_fiber) {
+            a->sum_fib += fibv;      a->sq_fib += fibv*fibv;
+            a->sum_fib_c3 += fibc3v; a->sq_fib_c3 += fibc3v*fibc3v;
+            a->x_leaf_fib += leaf*fibv; a->x_c3_fib += c3*fibc3v;
+        }
+    }
+    return NULL;
+}
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -7090,6 +7527,7 @@ static void *knuth_worker(void *vp){
         memcpy(seq, a->seq0, sizeof(seq)); used = a->used0; memcpy(budget, a->budget0, sizeof(budget));
         int step = a->start_step;
         double W = 1.0, node_acc = 0.0, leaf = 0.0, c3 = 0.0;
+        double fibv = 0.0, fibc3v = 0.0;   /* Q-388: per-probe W/m at the leaf / at a C3-valid leaf */
         int ms_prev_adj = a->ms0_adj, ms_prev_rf = a->ms0_rf;   /* strict-Moore walk state, REPLAYED
                                                                  * from the fixed prefix (R11 gate-2
                                                                  * repair; was zero-initialized, which
@@ -7122,16 +7560,16 @@ static void *knuth_worker(void *vp){
                         long c3val = compute_comp_dist_x64(seq);
                         /* R-C1 (Cook 2006, "sB last"): final pair is the alternating pair {21,42} */
                         int la = seq[62], lb = seq[63];
-                        if ((la==21&&lb==42)||(la==42&&lb==21)) { a->sum_rc1 += W; f1 = 1; }
+                        if ((la==21&&lb==42)||(la==42&&lb==21)) { a->sum_rc1 += W; a->sq_rc1 += W*W; f1 = 1; }
                         /* R-C1c (R6 — Cook 2006 anchor under McKenna & McKenna 1975 circular frame):
                          * the alternating pair A2={21,42} sits in pair slot 2 or slot 32 (slot 1 =
                          * pinned pure pair; slot 32 == final pair == R-C1). Plus the descriptive
                          * A2 pair-slot histogram. Estimator-only, sha-neutral. */
                         {
                             int s2 = ((seq[2]==21&&seq[3]==42)||(seq[2]==42&&seq[3]==21));
-                            if (s2)  a->sum_rc1c_s2  += W;
-                            if (f1)  a->sum_rc1c_s32 += W;
-                            if (s2 || f1) a->sum_rc1c_adj += W;
+                            if (s2)  { a->sum_rc1c_s2  += W; a->sq_rc1c_s2  += W*W; }
+                            if (f1)  { a->sum_rc1c_s32 += W; a->sq_rc1c_s32 += W*W; }
+                            if (s2 || f1) { a->sum_rc1c_adj += W; a->sq_rc1c_adj += W*W; }
                             for (int q=0;q<32;q++){
                                 int qa=seq[2*q], qb=seq[2*q+1];
                                 if ((qa==21&&qb==42)||(qa==42&&qb==21)){ a->a2_slot[q+1] += W; break; }
@@ -7140,7 +7578,7 @@ static void *knuth_worker(void *vp){
                         /* R-C2 (Cook 2006, "seven-levels opening"): first 7 pairs cover all 7 levels */
                         unsigned lv = 0;
                         for (int q=0;q<14;q++) lv |= 1u << __builtin_popcount((unsigned)seq[q]);
-                        if ((lv & 0x7Fu) == 0x7Fu) { a->sum_rc2 += W; f2 = 1; }
+                        if ((lv & 0x7Fu) == 0x7Fu) { a->sum_rc2 += W; a->sq_rc2 += W*W; f2 = 1; }
                         /* R-C5 (Zheng Qiao ~1150 / Hu Yigui 1247 / Hacker & Moore 2003 / Cook 2006):
                          * 18 HEC in the first 30 hexagrams == exactly 3 of the 4
                          * complement-pairs (pair idx 0,13,14,30) among slots 0-14 */
@@ -7150,7 +7588,7 @@ static void *knuth_worker(void *vp){
                             for (int p=0;p<32;p++) if ((pairs[p].a==h)||(pairs[p].b==h)){ j=p; break; }
                             if (j==0||j==13||j==14||j==30) cc++;
                         }
-                        if (cc == 3) { a->sum_rc5 += W; f5 = 1; }
+                        if (cc == 3) { a->sum_rc5 += W; a->sq_rc5 += W*W; f5 = 1; }
                         /* R-M1 (Moore 2005, Oracle Papers No.1, pair-positioning rule; Dazhuan
                          * odd=yang/even=yin cosmology): for rev-pairs with popcount != 3,
                          * yang-preponderant (pc>3) must sit at ODD 1-indexed pair position,
@@ -7165,8 +7603,8 @@ static void *knuth_worker(void *vp){
                                 int odd = (q + 1) & 1;                     /* 1-indexed position parity */
                                 if ((pcq > 3) == odd) ok++;
                             }
-                            if (ok == 18) a->sum_rm1s += W;
-                            if (ok >= 16) a->sum_rm1k += W;
+                            if (ok == 18) { a->sum_rm1s += W; a->sq_rm1s += W*W; }
+                            if (ok >= 16) { a->sum_rm1k += W; a->sq_rm1k += W*W; }
                             if (ok > a->max_rm1) a->max_rm1 = ok;
                             m1pass = (ok >= 16); m1ok = ok;
                         }
@@ -7188,10 +7626,10 @@ static void *knuth_worker(void *vp){
                                 if (have && prev_adj && rf == prev) breaks++;
                                 prev = rf; have = 1; prev_adj = 1;
                             }
-                            if (breaks <= 2) a->sum_rm2k += W;
-                            if (breaks == 0) a->sum_rm2s += W;
+                            if (breaks <= 2) { a->sum_rm2k += W; a->sq_rm2k += W*W; }
+                            if (breaks == 0) { a->sum_rm2s += W; a->sq_rm2s += W*W; }
                             if (a->min_rm2 < 0 || breaks < a->min_rm2) a->min_rm2 = breaks;
-                            if (m1pass && breaks <= 2) a->sum_mj += W;
+                            if (m1pass && breaks <= 2) { a->sum_mj += W; a->sq_mj += W*W; }
                             m2breaks = breaks;
                         }
                         /* --- HEC-translation scorers (Cook 2006; conventions KW-verified 2026-07-02) --- */
@@ -7220,15 +7658,15 @@ static void *knuth_worker(void *vp){
                             static const int kwl3[10] = {7,10,12,19,24,27,30,31,33,36};
                             int exact = (nl3 == 10);
                             if (exact) for (int z=0;z<10;z++) if (l3pos[z] != kwl3[z]) { exact = 0; break; }
-                            if (exact) a->sum_rc3 += W;
+                            if (exact) { a->sum_rc3 += W; a->sq_rc3 += W*W; }
                             int spat = 0;
                             if (nl3 == 10) for (int z=0; z+5 < 10; z++) {
                                 if (l3pos[z+1]-l3pos[z]-1 == 6 && l3pos[z+2]-l3pos[z+1]-1 == 4 &&
                                     l3pos[z+3]-l3pos[z+2]-1 == 2 && l3pos[z+4]-l3pos[z+3]-1 == 2 &&
                                     l3pos[z+5]-l3pos[z+4]-1 == 0) { spat = 1; break; }
                             }
-                            if (spat) a->sum_rc3w += W;
-                            if (viol <= 2) a->sum_rc4k += W;
+                            if (spat) { a->sum_rc3w += W; a->sq_rc3w += W*W; }
+                            if (viol <= 2) { a->sum_rc4k += W; a->sq_rc4k += W*W; }
                             if (viol == 0) { a->sum_rc4s += W; a->sumsq_rc4s += W*W; a->hits_rc4s++; }
                             /* R13 R-C4-B / R-C4-C (HEC two-convention; frozen 2026-07-11 §4). No
                              * separate class-position numbering is scored: the design's
@@ -7239,8 +7677,8 @@ static void *knuth_worker(void *vp){
                              * probes are the entire two-convention instrument. */
                             {
                                 int rc4b = (viol == 0) || (viol == 2 && vp1 == vp0 + 1);
-                                if (rc4b) a->sum_rc4b += W;
-                                if (viol == 2 && vp0 == 25 && vp1 == 26) a->sum_rc4c += W;
+                                if (rc4b) { a->sum_rc4b += W; a->sq_rc4b += W*W; }
+                                if (viol == 2 && vp0 == 25 && vp1 == 26) { a->sum_rc4c += W; a->sq_rc4c += W*W; }
                                 if (knuth_rc4b_t1 && viol == 2 && vp1 == vp0 + 1) {
                                     /* T1 assert: the B1 repair swaps two GENDERED classes, so no
                                      * level-3 (neuter, exempt) position may coincide with either
@@ -7271,18 +7709,18 @@ static void *knuth_worker(void *vp){
                                         __builtin_popcount((unsigned)seq[2*q+9-z])) { pal = 0; break; }
                                 if (pal) { wins++; if (wins >= 2) break; }
                             }
-                            if (wins >= 1) a->sum_dv1 += W;
-                            if (wins >= 2) a->sum_dv2 += W;
+                            if (wins >= 1) { a->sum_dv1 += W; a->sq_dv1 += W*W; }
+                            if (wins >= 2) { a->sum_dv2 += W; a->sq_dv2 += W*W; }
                             /* --- F4-A Pareto dominance vs KW (m1 16 up, breaks 2 down, c3 776 down,
                              *     rc1/rc2/rc5 all 1) --- */
                             if (m1ok >= 16 && m2breaks >= 0 && m2breaks <= 2 && c3val <= 776 &&
                                 f1 && f2 && f5 &&
-                                (m1ok > 16 || m2breaks < 2 || c3val < 776)) a->sum_par += W;
+                                (m1ok > 16 || m2breaks < 2 || c3val < 776)) { a->sum_par += W; a->sq_par += W*W; }
                         }
                     }
                     if (knuth_score) {
                         int wd5 = hamming(seq[63], seq[0]);
-                        if (wd5 >= 0 && wd5 <= 6) a->sum_wrap[wd5] += W;
+                        if (wd5 >= 0 && wd5 <= 6) { a->sum_wrap[wd5] += W; a->sq_wrap[wd5] += W*W; }
                     }
                     if (knuth_score_reg) score_registry(seq, W, a);
                     if (knuth_score_f4p) score_f4p(seq, W, a);
@@ -7302,6 +7740,17 @@ static void *knuth_worker(void *vp){
                         for (int b2 = 0; b2 < 31; b2++)
                             if (pair_of_hex(seq[2*b2]) == b2 && pair_of_hex(seq[2*b2+2]) == b2+1)
                                 a->sum_bcond[b2] += W;
+                    }
+                }
+                if (knuth_fiber) {   /* Q-388: W/m at every leaf; the c3 accumulator reuses the
+                                      * C3 verdict just computed (c3 > 0 iff the leaf is C3-valid;
+                                      * C3 is constant on the fiber, so no C3 term in the DP). */
+                    double m = fiber_count_c(seq);
+                    if (!(m >= 1.0)) a->fib_bad++;   /* impossible: the leaf's own orientation is a member */
+                    else {
+                        fiber_leaf_note(a, seq, m);
+                        fibv = W / m;
+                        if (c3 > 0) fibc3v = fibv;
                     }
                 }
                 break;
@@ -7384,6 +7833,11 @@ static void *knuth_worker(void *vp){
         a->sum_c3   += c3;   a->sumsq_c3   += c3*c3;      if (c3>0)   a->hits_c3++;
         if (c3 > a->max_w_c3) a->max_w_c3 = c3;   /* R11 P2: top single-probe weight (skew audit) */
         a->sum_node += node_acc; a->sumsq_node += node_acc*node_acc;
+        if (knuth_fiber) {   /* Q-388 record-count accumulators + ratio cross-products */
+            a->sum_fib += fibv;      a->sq_fib += fibv*fibv;
+            a->sum_fib_c3 += fibc3v; a->sq_fib_c3 += fibc3v*fibc3v;
+            a->x_leaf_fib += leaf*fibv; a->x_c3_fib += c3*fibc3v;
+        }
     }
     return NULL;
 }
@@ -7456,6 +7910,15 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         fprintf(stderr, "[knuth] C5 BUDGET OVERRIDE ACTIVE (R6): d0=%d d1=%d d2=%d d3=%d d4=%d d6=%d "
                         "(post pure-pair decrement; estimator-only, sha-neutral)\n",
                 budget0[0], budget0[1], budget0[2], budget0[3], budget0[4], budget0[6]);
+    }
+    if (knuth_fiber) {   /* Q-388: tables from the ACTIVE budget, BEFORE any prefix decrement */
+        if (n_levels > 0) {
+            fprintf(stderr, "[fiber] SOLVE_KNUTH_FIBER=1 with a fixed oriented prefix is REFUSED: "
+                            "a record count under an oriented prefix is ambiguous between "
+                            "orientation conventions\n");
+            exit(1);   /* refusal must be loud: no estimate lines AND a nonzero exit */
+        }
+        if (fiber_init(budget0)) exit(1);   /* KW-gate failure: results would be void */
     }
     int start_step = 1;
     for (int i=0;i<n_levels;i++){
@@ -7582,23 +8045,39 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
         arg[i].seed = (knuth_seed_base ? knuth_seed_base : 0x243F6A8885A308D3ULL)
                       ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
-        pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
+        pthread_create(&tid[i], NULL, (knuth_purdom_w >= 2) ? purdom_worker : knuth_worker, &arg[i]);
     }
     double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; double sWR[7]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
     double qC4s=0, maxWc3=0; uint64_t hC4s=0;   /* R11 P2: derived-N_gs CI twin + skew audit */
+    double sF=0, qF=0, sFC=0, qFC=0, xLF=0, xCF=0, fbMin=0, fbMax=0; uint64_t fbBad=0;   /* Q-388 */
     double sC4b=0, sC4c=0; uint64_t t1chk=0, t1fail=0;   /* R13: R-C4-B/C masses + T1 assert tallies */
     double sRC1cS2=0, sRC1cS32=0, sRC1cAdj=0, sA2[33]={0};  /* R-C1c (R6) */
+    double zR1=0, zR2=0, zR5=0, zRC1cS2=0, zRC1cS32=0, zRC1cAdj=0, zM1s=0, zM1k=0, zM2k=0,
+           zM2s=0, zMJ=0, zC3=0, zC3w=0, zC4k=0, zC4b=0, zC4c=0, zD1=0, zD2=0, zPA=0,
+           zWR[7]={0}, zREG[31]={0}; /* squared-weight twins: delta-method SE (Q-374) */
     double sREG[31]={0}; int mxRS2=0, mnMT3=-1, mxD7=0, mnC1=-1;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
         sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5;
+        zR1+=arg[i].sq_rc1; zR2+=arg[i].sq_rc2; zR5+=arg[i].sq_rc5;
+        zRC1cS2+=arg[i].sq_rc1c_s2; zRC1cS32+=arg[i].sq_rc1c_s32; zRC1cAdj+=arg[i].sq_rc1c_adj;
+        zM1s+=arg[i].sq_rm1s; zM1k+=arg[i].sq_rm1k; zM2k+=arg[i].sq_rm2k; zM2s+=arg[i].sq_rm2s;
+        zMJ+=arg[i].sq_mj; zC3+=arg[i].sq_rc3; zC3w+=arg[i].sq_rc3w; zC4k+=arg[i].sq_rc4k;
+        zC4b+=arg[i].sq_rc4b; zC4c+=arg[i].sq_rc4c; zD1+=arg[i].sq_dv1; zD2+=arg[i].sq_dv2;
+        zPA+=arg[i].sq_par;
+        for (int w2=0;w2<7;w2++) zWR[w2]+=arg[i].sq_wrap[w2];
+        for (int r2=0;r2<31;r2++) zREG[r2]+=arg[i].sq_reg[r2];
         sRC1cS2+=arg[i].sum_rc1c_s2; sRC1cS32+=arg[i].sum_rc1c_s32; sRC1cAdj+=arg[i].sum_rc1c_adj;
         for (int q2=1;q2<=32;q2++) sA2[q2]+=arg[i].a2_slot[q2];
         sM1s+=arg[i].sum_rm1s; sM1k+=arg[i].sum_rm1k;
         sM2k+=arg[i].sum_rm2k; sM2s+=arg[i].sum_rm2s; sMJ+=arg[i].sum_mj;
         sC3+=arg[i].sum_rc3; sC3w+=arg[i].sum_rc3w; sC4k+=arg[i].sum_rc4k; sC4s+=arg[i].sum_rc4s;
         qC4s+=arg[i].sumsq_rc4s; hC4s+=arg[i].hits_rc4s; if (arg[i].max_w_c3 > maxWc3) maxWc3 = arg[i].max_w_c3;
+        sF+=arg[i].sum_fib; qF+=arg[i].sq_fib; sFC+=arg[i].sum_fib_c3; qFC+=arg[i].sq_fib_c3;
+        xLF+=arg[i].x_leaf_fib; xCF+=arg[i].x_c3_fib; fbBad+=arg[i].fib_bad;
+        if (arg[i].fib_min > 0 && (fbMin == 0 || arg[i].fib_min < fbMin)) fbMin = arg[i].fib_min;
+        if (arg[i].fib_max > fbMax) fbMax = arg[i].fib_max;
         sC4b+=arg[i].sum_rc4b; sC4c+=arg[i].sum_rc4c;
         t1chk+=arg[i].rc4b_t1_checked; t1fail+=arg[i].rc4b_t1_fail;
         sD1+=arg[i].sum_dv1; sD2+=arg[i].sum_dv2; sPA+=arg[i].sum_par;
@@ -7612,6 +8091,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         if (arg[i].min_rm2 >= 0 && (mnM2 < 0 || arg[i].min_rm2 < mnM2)) mnM2 = arg[i].min_rm2;
         if (arg[i].max_rm1 > mxM1) mxM1 = arg[i].max_rm1; }
     double f4pS[13]={0}, f4pBel[13]={0}, f4pAt[13]={0}, f4pAbv[13]={0}, *f4pH = NULL;
+    double f4pSqB[13]={0}, f4pSqA[13]={0}, f4pSqV[13]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int f4pMin[13], f4pMax[13];
     if (knuth_score_f4p) {
         f4pH = (double*)calloc(13 * 512, sizeof(double));
@@ -7622,6 +8102,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 f4pBel[k2] += arg[i].f4p_below[k2];
                 f4pAt[k2]  += arg[i].f4p_at[k2];
                 f4pAbv[k2] += arg[i].f4p_above[k2];
+                f4pSqB[k2] += arg[i].f4p_sq_below[k2]; f4pSqA[k2] += arg[i].f4p_sq_at[k2]; f4pSqV[k2] += arg[i].f4p_sq_above[k2];
                 if (arg[i].f4p_min[k2] < f4pMin[k2]) f4pMin[k2] = arg[i].f4p_min[k2];
                 if (arg[i].f4p_max[k2] > f4pMax[k2]) f4pMax[k2] = arg[i].f4p_max[k2];
             }
@@ -7631,6 +8112,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double davS[9]={0}, davBel[9]={0}, davAt[9]={0}, davAbv[9]={0}, *davH = NULL;
+    double davSqB[9]={0}, davSqA[9]={0}, davSqV[9]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int davMin[9], davMax[9];
     if (knuth_score_dav) {
         davH = (double*)calloc(9 * 64, sizeof(double));
@@ -7641,6 +8123,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 davBel[k2] += arg[i].dav_below[k2];
                 davAt[k2]  += arg[i].dav_at[k2];
                 davAbv[k2] += arg[i].dav_above[k2];
+                davSqB[k2] += arg[i].dav_sq_below[k2]; davSqA[k2] += arg[i].dav_sq_at[k2]; davSqV[k2] += arg[i].dav_sq_above[k2];
                 if (arg[i].dav_min[k2] < davMin[k2]) davMin[k2] = arg[i].dav_min[k2];
                 if (arg[i].dav_max[k2] > davMax[k2]) davMax[k2] = arg[i].dav_max[k2];
             }
@@ -7650,6 +8133,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double dav2S[2]={0}, dav2Bel[2]={0}, dav2At[2]={0}, dav2Abv[2]={0}, *dav2H = NULL;
+    double dav2SqB[2]={0}, dav2SqA[2]={0}, dav2SqV[2]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int dav2Min[2], dav2Max[2];
     if (knuth_score_dav2) {
         dav2H = (double*)calloc(2 * 64, sizeof(double));
@@ -7660,6 +8144,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 dav2Bel[k2] += arg[i].dav2_below[k2];
                 dav2At[k2]  += arg[i].dav2_at[k2];
                 dav2Abv[k2] += arg[i].dav2_above[k2];
+                dav2SqB[k2] += arg[i].dav2_sq_below[k2]; dav2SqA[k2] += arg[i].dav2_sq_at[k2]; dav2SqV[k2] += arg[i].dav2_sq_above[k2];
                 if (arg[i].dav2_min[k2] < dav2Min[k2]) dav2Min[k2] = arg[i].dav2_min[k2];
                 if (arg[i].dav2_max[k2] > dav2Max[k2]) dav2Max[k2] = arg[i].dav2_max[k2];
             }
@@ -7669,17 +8154,20 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double db1S=0, db1Bel=0, db1At=0, db1Abv=0, db1H[33]={0};
+    double db1SqB=0, db1SqA=0, db1SqV=0; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int db1Min=INT_MAX, db1Max=INT_MIN;
     if (knuth_score_db1) {
         for (int i = 0; i < nthreads; i++){
             db1S += arg[i].db1_sum; db1Bel += arg[i].db1_below;
             db1At += arg[i].db1_at; db1Abv += arg[i].db1_above;
+            db1SqB += arg[i].db1_sq_below; db1SqA += arg[i].db1_sq_at; db1SqV += arg[i].db1_sq_above;
             if (arg[i].db1_min < db1Min) db1Min = arg[i].db1_min;
             if (arg[i].db1_max > db1Max) db1Max = arg[i].db1_max;
             for (int b2 = 0; b2 < 33; b2++) db1H[b2] += arg[i].db1_hist[b2];
         }
     }
     double f5S[11]={0}, f5Bel[11]={0}, f5At[11]={0}, f5Abv[11]={0}, *f5H = NULL;
+    double f5SqB[11]={0}, f5SqA[11]={0}, f5SqV[11]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int f5Min[11], f5Max[11];
     if (knuth_score_f5) {
         f5H = (double*)calloc(11 * 64, sizeof(double));
@@ -7690,6 +8178,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 f5Bel[k2] += arg[i].f5_below[k2];
                 f5At[k2]  += arg[i].f5_at[k2];
                 f5Abv[k2] += arg[i].f5_above[k2];
+                f5SqB[k2] += arg[i].f5_sq_below[k2]; f5SqA[k2] += arg[i].f5_sq_at[k2]; f5SqV[k2] += arg[i].f5_sq_above[k2];
                 if (arg[i].f5_min[k2] < f5Min[k2]) f5Min[k2] = arg[i].f5_min[k2];
                 if (arg[i].f5_max[k2] > f5Max[k2]) f5Max[k2] = arg[i].f5_max[k2];
             }
@@ -7699,6 +8188,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double f6S[7]={0}, f6Bel[7]={0}, f6At[7]={0}, f6Abv[7]={0}, *f6H = NULL;
+    double f6SqB[7]={0}, f6SqA[7]={0}, f6SqV[7]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int f6Min[7], f6Max[7];
     if (knuth_score_f6) {
         f6H = (double*)calloc(7 * 64, sizeof(double));
@@ -7709,6 +8199,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 f6Bel[k2] += arg[i].f6_below[k2];
                 f6At[k2]  += arg[i].f6_at[k2];
                 f6Abv[k2] += arg[i].f6_above[k2];
+                f6SqB[k2] += arg[i].f6_sq_below[k2]; f6SqA[k2] += arg[i].f6_sq_at[k2]; f6SqV[k2] += arg[i].f6_sq_above[k2];
                 if (arg[i].f6_min[k2] < f6Min[k2]) f6Min[k2] = arg[i].f6_min[k2];
                 if (arg[i].f6_max[k2] > f6Max[k2]) f6Max[k2] = arg[i].f6_max[k2];
             }
@@ -7718,7 +8209,8 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double permS[13]={0}, permBel[13]={0}, permAt[13]={0}, permAbv[13]={0};
-    double permTM[2]={0}, *permH = NULL;
+    double permSqB[13]={0}, permSqA[13]={0}, permSqV[13]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
+    double permTM[2]={0}, permTMsq[2]={0}, *permH = NULL;
     int permMin[13], permMax[13];
     if (knuth_score_perm) {
         permH = (double*)calloc(13 * 512, sizeof(double));
@@ -7729,17 +8221,24 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 permBel[k2] += arg[i].perm_below[k2];
                 permAt[k2]  += arg[i].perm_at[k2];
                 permAbv[k2] += arg[i].perm_above[k2];
+                permSqB[k2] += arg[i].perm_sq_below[k2]; permSqA[k2] += arg[i].perm_sq_at[k2]; permSqV[k2] += arg[i].perm_sq_above[k2];
                 if (arg[i].perm_min[k2] < permMin[k2]) permMin[k2] = arg[i].perm_min[k2];
                 if (arg[i].perm_max[k2] > permMax[k2]) permMax[k2] = arg[i].perm_max[k2];
             }
-            permTM[0] += arg[i].perm_tmatch[0];
-            permTM[1] += arg[i].perm_tmatch[1];
+            permTM[0] += arg[i].perm_tmatch[0]; permTMsq[0] += arg[i].perm_tmatch_sq[0];
+            permTM[1] += arg[i].perm_tmatch[1]; permTMsq[1] += arg[i].perm_tmatch_sq[1];
             if (permH && arg[i].perm_hist)
                 for (int b2 = 0; b2 < 13 * 512; b2++) permH[b2] += arg[i].perm_hist[b2];
             free(arg[i].perm_hist); arg[i].perm_hist = NULL;
         }
     }
     double dN=(double)N;
+    /* Q-374: delta-method SE for a mass ratio m = A/B over iid probes, where per
+     * probe a = W*indicator and b = W (canonical-leaf weight, else 0). Because the
+     * indicator is 0/1, sum(a^2) = sum(a*b) = SqI, and Var(m) ~=
+     * [ SqI*(1-2m) + m^2*Qb ] / B^2 with Qb = sum(b^2) (the existing sumsq_c3). */
+#define KNUTH_MASS_SE(SqI, m, B, Qb) \
+    (((B) > 0) ? sqrt(fmax(0.0, (SqI)*(1.0-2.0*(m)) + (m)*(m)*(Qb)))/(B) : 0.0)
     printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
            (unsigned long long)N, nthreads, start_step, n_levels);
     /* R11 Phase-2 provenance line (§5.2): seed base, prune flags, wall time. Build sha is
@@ -7762,8 +8261,42 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     if (sC > 0)
         printf("  [diag] canonical top single-probe share : max_w=%.6e = %.4f%% of estimate mass (skew/ESS audit; lower=better)\n",
                maxWc3, 100.0 * maxWc3 / sC);
+    if (knuth_purdom_w >= 2)
+        printf("  [purdom] partial-backtracking mode: w=%d depth_cutoff=%d (Purdom 1978; Knuth = w=1 special case; Q-389)\n",
+               knuth_purdom_w, knuth_purdom_depth);
+    if (knuth_fiber) {   /* Q-388: record (canonical pair-order class) estimates + mean-fiber ratios */
+        if (fbBad > 0) {
+            printf("  [fiber] *** %llu leaves returned fiber < 1 — IMPOSSIBLE (each leaf's own "
+                   "orientation is a fiber member). The DP is broken; ALL fiber results of this "
+                   "run are VOID. ***\n", (unsigned long long)fbBad);
+        } else {
+            for (int m = 0; m < 2; m++) {
+                const char *nm = m==0 ? "records_C1C2C4C5     " : "records_canonical_C1C5";
+                double s = m==0 ? sF : sFC, q = m==0 ? qF : qFC;
+                double mean = s/dN, var = q/dN - mean*mean; if (var < 0) var = 0;
+                double se = sqrt(var/dN), rel = mean > 0 ? 100.0*se/mean : 0.0;
+                printf("  %s: est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%   (W/m estimator; records ceiling 31! = 8.2228e33)\n",
+                       nm, mean, mean-1.96*se, mean+1.96*se, rel);
+            }
+            /* mean fiber = N/R per layer, ratio-estimator SE with the covariance term:
+             * Var(A/B) ~= (Va - 2r*Cab + r^2*Vb) / (N * bbar^2), r = abar/bbar. */
+            for (int m = 0; m < 2; m++) {
+                double sA = m==0 ? sL : sC,  qA = m==0 ? qL : qC;
+                double sB = m==0 ? sF : sFC, qB = m==0 ? qF : qFC, x = m==0 ? xLF : xCF;
+                if (sB <= 0) continue;
+                double abar = sA/dN, bbar = sB/dN, r = abar/bbar;
+                double Va = qA/dN - abar*abar, Vb = qB/dN - bbar*bbar, Cab = x/dN - abar*bbar;
+                double vr = (Va - 2.0*r*Cab + r*r*Vb) / (dN * bbar * bbar); if (vr < 0) vr = 0;
+                printf("  [fiber] mean fiber N/R (%s layer) : %.6e  se=%.3e   (PROVEN floor at the exact layer: 1.334152e5 = N_exact/31!)\n",
+                       m==0 ? "C1C2C4C5" : "C1-C5", r, sqrt(vr));
+            }
+            printf("  [fiber] per-leaf fiber observed: min=%.0f max=%.0f  bad(<1)=%llu (must be 0)\n",
+                   fbMin, fbMax, (unsigned long long)fbBad);
+        }
+    }
     if (knuth_score && sC > 0) {
-        printf("  [score] R-C1 final-pair-anchor  : %.6f of canonical mass\n", sR1/sC);
+        printf("  [score] R-C1 final-pair-anchor  : %.6f of canonical mass se=%.3e\n", sR1/sC,
+               KNUTH_MASS_SE(zR1, sR1/sC, sC, qC));
         printf("  [score] R-C1c circular anchor-adjacency (R6; A2={21,42} slot2||slot32): adjacent=%.6f slot2=%.6f slot32=%.6f (McKenna 1975 frame; slot32 must reproduce R-C1=%.6f)\n",
                sRC1cAdj/sC, sRC1cS2/sC, sRC1cS32/sC, sR1/sC);
         {
@@ -7771,22 +8304,32 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             for (int q2=1;q2<=32;q2++) if (sA2[q2] > 0)
                 printf("  a2slot %d %.10e\n", q2, sA2[q2]/sC);
         }
-        printf("  [score] R-C2 first7-level-cover : %.6f of canonical mass\n", sR2/sC);
-        printf("  [score] R-C5 18:18-HEC-split    : %.6f of canonical mass\n", sR5/sC);
-        printf("  [score] R-M1 Moore-parity strict : %.6f of canonical mass (18/18; KW itself FAILS this)\n", sM1s/sC);
-        printf("  [score] R-M1 Moore-parity >=16/18: %.6f of canonical mass (KW level)\n", sM1k/sC);
+        printf("  [score] R-C2 first7-level-cover : %.6f of canonical mass se=%.3e\n", sR2/sC,
+               KNUTH_MASS_SE(zR2, sR2/sC, sC, qC));
+        printf("  [score] R-C5 18:18-HEC-split    : %.6f of canonical mass se=%.3e\n", sR5/sC,
+               KNUTH_MASS_SE(zR5, sR5/sC, sC, qC));
+        printf("  [score] R-M1 Moore-parity strict : %.6f of canonical mass (18/18; KW itself FAILS this) se=%.3e\n", sM1s/sC,
+               KNUTH_MASS_SE(zM1s, sM1s/sC, sC, qC));
+        printf("  [score] R-M1 Moore-parity >=16/18: %.6f of canonical mass (KW level) se=%.3e\n", sM1k/sC,
+               KNUTH_MASS_SE(zM1k, sM1k/sC, sC, qC));
         printf("  [score] R-M1 max compliance seen : %d of 18 (Moore-2005 precursor existence bound)\n", mxM1);
-        printf("  [score] R-M2 Moore-1989 R/F <=2 breaks: %.6f of canonical mass (KW level)\n", sM2k/sC);
-        printf("  [score] R-M2 strict 0 breaks     : %.6f of canonical mass; min breaks seen = %d (KW = 2)\n", sM2s/sC, mnM2);
-        printf("  [score] Moore joint (M1>=16 & M2<=2): %.8f of canonical mass (independence: %.8f)\n", sMJ/sC, (sM1k/sC)*(sM2k/sC));
-        printf("  [score] R-C3 level-3 positions == KW : %.8f | S-gap pattern anywhere: %.8f (Cook 2006)\n", sC3/sC, sC3w/sC);
-        printf("  [score] R-C4 gender/valence <=2 viol : %.6f | 0 viol: %.6f (Cook 2006)\n", sC4k/sC, sC4s/sC);
+        printf("  [score] R-M2 Moore-1989 R/F <=2 breaks: %.6f of canonical mass (KW level) se=%.3e\n", sM2k/sC,
+               KNUTH_MASS_SE(zM2k, sM2k/sC, sC, qC));
+        printf("  [score] R-M2 strict 0 breaks     : %.6f of canonical mass se=%.3e; min breaks seen = %d (KW = 2)\n", sM2s/sC,
+               KNUTH_MASS_SE(zM2s, sM2s/sC, sC, qC), mnM2);
+        printf("  [score] Moore joint (M1>=16 & M2<=2): %.8f of canonical mass se=%.3e (independence: %.8f)\n", sMJ/sC,
+               KNUTH_MASS_SE(zMJ, sMJ/sC, sC, qC), (sM1k/sC)*(sM2k/sC));
+        printf("  [score] R-C3 level-3 positions == KW : %.8f se=%.3e | S-gap pattern anywhere: %.8f se=%.3e (Cook 2006)\n",
+               sC3/sC, KNUTH_MASS_SE(zC3, sC3/sC, sC, qC), sC3w/sC, KNUTH_MASS_SE(zC3w, sC3w/sC, sC, qC));
+        printf("  [score] R-C4 gender/valence <=2 viol : %.6f se=%.3e | 0 viol: %.6f se=%.3e (Cook 2006)\n",
+               sC4k/sC, KNUTH_MASS_SE(zC4k, sC4k/sC, sC, qC), sC4s/sC, KNUTH_MASS_SE(qC4s, sC4s/sC, sC, qC));
         /* R13 HEC two-convention paired re-run (frozen 2026-07-11): B = Cook-faithful
          * exception form (0 viol OR exactly 2 at adjacent positions; subset of the <=2 line
          * above, one-sided); C = KW's exception locus exactly (viol==2 at {25,26}; data-like,
          * report-only). Measured on the SAME probes as the A line, so r = f_A/f_B is free of
          * cross-run estimator noise. */
-        printf("  [score] R-C4-B exception-form (0 viol OR 2 adjacent) : %.10e | R-C4-C KW locus [25,26]: %.10e (R13 two-convention; Schulz 1990/Cook 2006)\n", sC4b/sC, sC4c/sC);
+        printf("  [score] R-C4-B exception-form (0 viol OR 2 adjacent) : %.10e se=%.3e | R-C4-C KW locus [25,26]: %.10e se=%.3e (R13 two-convention; Schulz 1990/Cook 2006)\n",
+               sC4b/sC, KNUTH_MASS_SE(zC4b, sC4b/sC, sC, qC), sC4c/sC, KNUTH_MASS_SE(zC4c, sC4c/sC, sC, qC));
         if (knuth_rc4b_t1)
             printf("  [score] R-C4-B T1 assert (level-3 positions disjoint from the B1 repair pair): checked=%llu fail=%llu (expected fail=0)\n",
                    (unsigned long long)t1chk, (unsigned long long)t1fail);
@@ -7802,16 +8345,22 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             printf("  [score] R-C4 0-viol DERIVED-N_gs abs : est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%  hits=%llu\n",
                    m4, m4-1.96*se4, m4+1.96*se4, rel4, (unsigned long long)hC4s);
         }
-        printf("  [score] Davis palindrome windows >=1 : %.6f | >=2 (KW level): %.6f (Davis 2012)\n", sD1/sC, sD2/sC);
-        printf("  [score] Pareto-dominates KW          : %.8f of canonical mass (F4-A)\n", sPA/sC);
-        printf("  [score] wrap-distance mass d(s63,s0)  : d1=%.6f d3=%.6f d5=%.6f (odd-only per theorem; circular-C2 price = d5 mass)\n",
-               sWR[1]/sC, sWR[3]/sC, sWR[5]/sC);
+        printf("  [score] Davis palindrome windows >=1 : %.6f se=%.3e | >=2 (KW level): %.6f se=%.3e (Davis 2012)\n",
+               sD1/sC, KNUTH_MASS_SE(zD1, sD1/sC, sC, qC), sD2/sC, KNUTH_MASS_SE(zD2, sD2/sC, sC, qC));
+        printf("  [score] Pareto-dominates KW          : %.8f of canonical mass se=%.3e (F4-A)\n", sPA/sC,
+               KNUTH_MASS_SE(zPA, sPA/sC, sC, qC));
+        printf("  [score] wrap-distance mass d(s63,s0)  : d1=%.6f d3=%.6f d5=%.6f se=%.3e/%.3e/%.3e (odd-only per theorem; circular-C2 price = d5 mass)\n",
+               sWR[1]/sC, sWR[3]/sC, sWR[5]/sC,
+               KNUTH_MASS_SE(zWR[1], sWR[1]/sC, sC, qC),
+               KNUTH_MASS_SE(zWR[3], sWR[3]/sC, sC, qC),
+               KNUTH_MASS_SE(zWR[5], sWR[5]/sC, sC, qC));
     }
     if (knuth_score_reg && sC > 0) {
         /* CANDIDATE_REGISTRY_2026_07 rules at KW-threshold form (ground truth: solve.py reg_*;
          * attribution per rule in the score_registry comment block + CITATIONS.md). */
         for (int r2 = 0; r2 < 31; r2++)
-            printf("  [reg %02d %-7s] : %.8f of canonical mass\n", r2 + 1, reg_rule_ids[r2], sREG[r2]/sC);
+            printf("  [reg %02d %-7s] : %.8f of canonical mass se=%.3e\n", r2 + 1, reg_rule_ids[r2], sREG[r2]/sC,
+                   KNUTH_MASS_SE(zREG[r2], sREG[r2]/sC, sC, qC));
         printf("  [reg extremes] rs2 max compliant seen = %d (KW 20) | mmt3 min Gray transitions seen = %d (KW 4) | d7 max xiaoxi-in-B seen = %d (KW 8) | c1 min deviation seen = %d (KW 24)\n",
                mxRS2, mnMT3, mxD7, mnC1);
     }
@@ -7820,11 +8369,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * in the f4p comment block + CITATIONS.md; masses = fraction of canonical
          * mass, so below+at+above ~= 1 per functional). */
         for (int k2 = 0; k2 < 13; k2++)
-            printf("  [f4p %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [f4p %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, f4p_names[k2], f4pS[k2]/sC,
                    f4pMin[k2] == INT_MAX ? 0 : f4pMin[k2],
                    f4pMax[k2] == INT_MIN ? 0 : f4pMax[k2],
-                   f4p_kw[k2], f4pBel[k2]/sC, f4pAt[k2]/sC, f4pAbv[k2]/sC);
+                   f4p_kw[k2], f4pBel[k2]/sC, f4pAt[k2]/sC, f4pAbv[k2]/sC,
+                   KNUTH_MASS_SE(f4pSqB[k2], f4pBel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f4pSqA[k2], f4pAt[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f4pSqV[k2], f4pAbv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_F4P_HIST") && atoi(getenv("SOLVE_KNUTH_F4P_HIST")) == 1 && f4pH)
             for (int k2 = 0; k2 < 13; k2++)
                 for (int b2 = 0; b2 < F4P_NBINS(k2); b2++)
@@ -7839,11 +8391,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * fraction of canonical mass; boolean candidates (kw=1): at-mass
          * = mass-of-TRUE). */
         for (int k2 = 0; k2 < 9; k2++)
-            printf("  [dav %d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [dav %d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, dav_names[k2], davS[k2]/sC,
                    davMin[k2] == INT_MAX ? 0 : davMin[k2],
                    davMax[k2] == INT_MIN ? 0 : davMax[k2],
-                   dav_kw[k2], davBel[k2]/sC, davAt[k2]/sC, davAbv[k2]/sC);
+                   dav_kw[k2], davBel[k2]/sC, davAt[k2]/sC, davAbv[k2]/sC,
+                   KNUTH_MASS_SE(davSqB[k2], davBel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(davSqA[k2], davAt[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(davSqV[k2], davAbv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_DAV_HIST") && atoi(getenv("SOLVE_KNUTH_DAV_HIST")) == 1 && davH)
             for (int k2 = 0; k2 < 9; k2++)
                 for (int b2 = 0; b2 <= dav_hi[k2] - dav_lo[k2]; b2++)
@@ -7857,11 +8412,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * attribution in the dav2 comment block + CITATIONS.md; masses =
          * fraction of canonical mass). C-D5 (namedsize) operator-declined. */
         for (int k2 = 0; k2 < 2; k2++)
-            printf("  [dav2 %d %-9s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [dav2 %d %-9s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, dav2_names[k2], dav2S[k2]/sC,
                    dav2Min[k2] == INT_MAX ? 0 : dav2Min[k2],
                    dav2Max[k2] == INT_MIN ? 0 : dav2Max[k2],
-                   dav2_kw[k2], dav2Bel[k2]/sC, dav2At[k2]/sC, dav2Abv[k2]/sC);
+                   dav2_kw[k2], dav2Bel[k2]/sC, dav2At[k2]/sC, dav2Abv[k2]/sC,
+                   KNUTH_MASS_SE(dav2SqB[k2], dav2Bel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(dav2SqA[k2], dav2At[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(dav2SqV[k2], dav2Abv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_DAV2_HIST") && atoi(getenv("SOLVE_KNUTH_DAV2_HIST")) == 1 && dav2H)
             for (int k2 = 0; k2 < 2; k2++)
                 for (int b2 = 0; b2 <= dav2_hi[k2] - dav2_lo[k2]; b2++)
@@ -7877,9 +8435,13 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * --db1-verify; attribution in the DB1 comment block + CITATIONS.md.
          * The 'atinc' (at-or-above, atom-inclusive) figure is the two-sided
          * upper tail the frozen scoping's gate reads. */
-        printf("  [db1 rule-of-ten] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f atinc=%.8f\n",
+        printf("  [db1 rule-of-ten] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f atinc=%.8f se=%.3e/%.3e/%.3e/%.3e\n",
                db1S/sC, db1Min == INT_MAX ? 0 : db1Min, db1Max == INT_MIN ? 0 : db1Max,
-               db1_kw_x, db1Bel/sC, db1At/sC, db1Abv/sC, (db1At + db1Abv)/sC);
+               db1_kw_x, db1Bel/sC, db1At/sC, db1Abv/sC, (db1At + db1Abv)/sC,
+               KNUTH_MASS_SE(db1SqB, db1Bel/sC, sC, qC),
+               KNUTH_MASS_SE(db1SqA, db1At/sC, sC, qC),
+               KNUTH_MASS_SE(db1SqV, db1Abv/sC, sC, qC),
+               KNUTH_MASS_SE(db1SqA + db1SqV, (db1At + db1Abv)/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_DB1_HIST") && atoi(getenv("SOLVE_KNUTH_DB1_HIST")) == 1)
             for (int b2 = 0; b2 <= 32; b2++)
                 if (db1H[b2] > 0)
@@ -7892,11 +8454,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * fraction of canonical mass, so below+at+above ~= 1 per functional.
          * Leaves are orientation-BEARING (pre-dedup) per spec §4. */
         for (int k2 = 0; k2 < 11; k2++)
-            printf("  [f5 %02d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [f5 %02d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, f5_names[k2], f5S[k2]/sC,
                    f5Min[k2] == INT_MAX ? 0 : f5Min[k2],
                    f5Max[k2] == INT_MIN ? 0 : f5Max[k2],
-                   f5_kw[k2], f5Bel[k2]/sC, f5At[k2]/sC, f5Abv[k2]/sC);
+                   f5_kw[k2], f5Bel[k2]/sC, f5At[k2]/sC, f5Abv[k2]/sC,
+                   KNUTH_MASS_SE(f5SqB[k2], f5Bel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f5SqA[k2], f5At[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f5SqV[k2], f5Abv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_F5_HIST") && atoi(getenv("SOLVE_KNUTH_F5_HIST")) == 1 && f5H)
             for (int k2 = 0; k2 < 11; k2++)
                 for (int b2 = 0; b2 <= f5_hi[k2] - f5_lo[k2]; b2++)
@@ -7911,11 +8476,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * CITATIONS.md; masses = fraction of canonical mass, so
          * below+at+above ~= 1 per functional). */
         for (int k2 = 0; k2 < 7; k2++)
-            printf("  [f6 %d %-14s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [f6 %d %-14s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, f6_names[k2], f6S[k2]/sC,
                    f6Min[k2] == INT_MAX ? 0 : f6Min[k2],
                    f6Max[k2] == INT_MIN ? 0 : f6Max[k2],
-                   f6_kw[k2], f6Bel[k2]/sC, f6At[k2]/sC, f6Abv[k2]/sC);
+                   f6_kw[k2], f6Bel[k2]/sC, f6At[k2]/sC, f6Abv[k2]/sC,
+                   KNUTH_MASS_SE(f6SqB[k2], f6Bel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f6SqA[k2], f6At[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f6SqV[k2], f6Abv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_F6_HIST") && atoi(getenv("SOLVE_KNUTH_F6_HIST")) == 1 && f6H)
             for (int k2 = 0; k2 < 7; k2++)
                 for (int b2 = 0; b2 <= f6_hi[k2] - f6_lo[k2]; b2++)
@@ -7932,13 +8500,18 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * below+at+above ~= 1 per functional. REPORT-ONLY family — no promotion
          * path under any outcome). Leaves are orientation-BEARING (pre-dedup). */
         for (int k2 = 0; k2 < 13; k2++)
-            printf("  [perm %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [perm %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, perm_names[k2], permS[k2]/sC,
                    permMin[k2] == INT_MAX ? 0 : permMin[k2],
                    permMax[k2] == INT_MIN ? 0 : permMax[k2],
-                   perm_kw[k2], permBel[k2]/sC, permAt[k2]/sC, permAbv[k2]/sC);
-        printf("  [perm type-match] bot=%.10e top=%.10e (report-only, data-like; no p-value, no verdict)\n",
-               permTM[0]/sC, permTM[1]/sC);
+                   perm_kw[k2], permBel[k2]/sC, permAt[k2]/sC, permAbv[k2]/sC,
+                   KNUTH_MASS_SE(permSqB[k2], permBel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(permSqA[k2], permAt[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(permSqV[k2], permAbv[k2]/sC, sC, qC));
+        printf("  [perm type-match] bot=%.10e top=%.10e se=%.3e/%.3e (report-only, data-like; no p-value, no verdict)\n",
+               permTM[0]/sC, permTM[1]/sC,
+               KNUTH_MASS_SE(permTMsq[0], permTM[0]/sC, sC, qC),
+               KNUTH_MASS_SE(permTMsq[1], permTM[1]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_PERM_HIST") && atoi(getenv("SOLVE_KNUTH_PERM_HIST")) == 1 && permH)
             for (int k2 = 0; k2 < 13; k2++)
                 for (int b2 = 0; b2 < PERM_NBINS(k2); b2++)
@@ -15981,8 +16554,14 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             f1_dec(q, qdec);
             printf("F1C5 EXACT |C1 & C2 & C4 & C5| = %s\n", tdec);
             printf("  N / 24 (S4-orbit count) = %s\n", qdec);
-            printf("  vs estimator 1.3287e38 (+/-0.02%%): ratio = %.6f\n",
-                   f1_to_double(&total) / 1.3287e38);
+            /* 🔴 Q-366(B): this divided the C3-FREE exact |C1&C2&C4&C5| by the C3-INCLUSIVE
+               |C1-C5| flagship estimate 1.3287e38 -- two different objects -- and printed
+               ratio = 8.256576 where TR-11 section 9 publishes 0.999956. The correct comparand is
+               the C3-free Knuth estimate 1.0971e39 for the SAME object (TR11:311). verify.c pairs
+               its own object correctly, which is what makes this an error rather than a convention.
+               In-house find (solve-c-counting sweep, 2026-08-22); Codex R16 corroborated. */
+            printf("  vs estimator 1.0971e39 (C3-free, same object): ratio = %.6f\n",
+                   f1_to_double(&total) / 1.0971e39);
             printf("F1C5 EXACT: DONE (%.1fs)\n", omp_get_wtime() - T0);
         } else {
             printf("F1C5 SUBSET n=%d pairs [", n);
@@ -16792,7 +17371,59 @@ static int f1u_exact_main(const char *subset_spec, const char *orbit_spec, const
 
 /* ---------- Main ---------- */
 
+/* SOLVE_REGRESS_DIR is interpolated into `rm -rf ...` and handed to system(). QUOTING ALONE IS NOT
+   ENOUGH: an embedded single quote closes the quote and the remainder of the value is shell. So the
+   value is validated against an explicit safe alphabet at its source, and every destructive command
+   built from it is ALSO quoted -- belt and braces, because this is the disk-safety class.
+   Returns 1 if safe, 0 otherwise (explaining on stderr). Used at BOTH getenv sites: there are two,
+   and guarding only the first is how this defect class survives a fix. */
+static int regress_dir_safe(const char *p)
+{
+    const char *q;
+    if (!p || !*p) {
+        fprintf(stderr, "ERROR: SOLVE_REGRESS_DIR is empty; refusing to build a destructive command\n");
+        return 0;
+    }
+    for (q = p; *q; q++) {
+        if (!((*q >= 'A' && *q <= 'Z') || (*q >= 'a' && *q <= 'z') ||
+              (*q >= '0' && *q <= '9') || *q == '/' || *q == '.' ||
+              *q == '_' || *q == '-')) {
+            fprintf(stderr, "ERROR: SOLVE_REGRESS_DIR contains an unsafe character (0x%02X); "
+                            "allowed characters are A-Z a-z 0-9 / . _ -\n", (unsigned char)*q);
+            return 0;
+        }
+    }
+    return 1;
+}
+
 int main(int argc, char *argv[]) {
+    /* Q-377: handled FIRST, before the lock, the shard-manifest scan, or anything that writes.
+       Until 2026-08-28 there was NO --help handler and no unknown-argument rejection: an
+       unrecognised first argument fell through the else-if chain to the DEFAULT ACTION, so
+       `./solve --help` acquired solve.lock, ran orphaned-shard integrity checks, REWROTE
+       shard_manifest.txt in the cwd and began an unbounded enumeration. Measured live.
+       This list is deliberately NOT exhaustive -- an inline catalogue of ~100 modes would rot,
+       which is the doc-vs-reality failure this project keeps correcting. It points at the file
+       that is maintained instead. */
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        printf("solve -- ROAE enumeration / estimation / verification engine\n\n");
+        printf("Build:  gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz\n");
+        printf("Check:  ./solve --selftest      (must print the canonical sha256)\n\n");
+        printf("Common modes:\n");
+        printf("  --selftest                 canonical self-test; prints and checks the sha\n");
+        printf("  --verify <file>            verify a solutions artifact\n");
+        printf("  --validate <file>          validate an artifact's header and records\n");
+        printf("  --estimate-knuth <nodes>   Knuth tree-size estimate (whole tree or one branch)\n");
+        printf("  --list-branches            enumerate the depth-2 branch list\n");
+        printf("  --branch <p> <o> ...       run a single branch\n");
+        printf("  --merge <out> <in>...      merge shard artifacts\n\n");
+        printf("This list is NOT exhaustive and is not the source of truth.\n");
+        printf("Full CLI reference: documentation/SOLVE_C_CLI.md\n");
+        printf("With no recognised option, solve runs the DEFAULT ENUMERATION -- which is why an\n");
+        printf("unknown option is now an error rather than a silent full run.\n");
+        return 0;
+    }
+
     /* #165 deterministic eviction-injection hook (test-only; see g_kill_after_nodes). */
     { const char *e = getenv("SOLVE_KILL_AFTER_NODES"); if (e && *e) g_kill_after_nodes = atoll(e); }
     /* Candidate-registry cross-verification hook (test-only, estimator-independent):
@@ -17280,7 +17911,7 @@ int main(int argc, char *argv[]) {
         printf("[--selftest] Actual sha256:   %s\n", actual_sha);
         /* Cleanup temp dir */
         char rm_cmd[4200];
-        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf %s", tempdir_template);
+        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf '%s'", tempdir_template);
         int _rm = system(rm_cmd); (void)_rm;
         if (strcmp(actual_sha, expected_sha) == 0) {
             printf("[--selftest] PASS — sha256 matches canonical baseline\n");
@@ -17653,7 +18284,7 @@ int main(int argc, char *argv[]) {
         }
         char tdir_B[] = "/tmp/solve_selftest_resume_B_XXXXXX";
         if (!mkdtemp(tdir_B)) {
-            char rm[4200]; snprintf(rm, sizeof(rm), "rm -rf %s", tdir_A);
+            char rm[4200]; snprintf(rm, sizeof(rm), "rm -rf '%s'", tdir_A);
             int _rc = system(rm); (void)_rc;
             fprintf(stderr, "ERROR: mkdtemp B failed\n");
             return 10;
@@ -17727,7 +18358,7 @@ int main(int argc, char *argv[]) {
         printf("[--selftest-resume] Single-shot sha: %s\n", sha_single);
 
         char rm[4200];
-        snprintf(rm, sizeof(rm), "rm -rf %s %s", tdir_A, tdir_B);
+        snprintf(rm, sizeof(rm), "rm -rf '%s' '%s'", tdir_A, tdir_B);
         int _rc = system(rm); (void)_rc;
 
         if (sha_resume[0] != 0 && strcmp(sha_resume, sha_single) == 0) {
@@ -17890,7 +18521,7 @@ int main(int argc, char *argv[]) {
 
         /* Cleanup */
         char rm_cmd[4200];
-        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf %s", tdir);
+        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf '%s'", tdir);
         int _rm = system(rm_cmd); (void)_rm;
 
         if (match) {
@@ -18258,6 +18889,74 @@ int main(int argc, char *argv[]) {
                     td, Mroots, Kprobes, nlev);
             estimate_subtree_sampler(td, Mroots, Kprobes, nlev, lp, lo);
             return 0;
+        }
+        if (getenv("SOLVE_KNUTH_PURDOM_W")) {   /* Q-389 */
+            knuth_purdom_w = atoi(getenv("SOLVE_KNUTH_PURDOM_W"));
+            if (knuth_purdom_w < 2 || knuth_purdom_w > 64) {
+                fprintf(stderr, "[purdom] SOLVE_KNUTH_PURDOM_W must be 2..64 (got %d); "
+                                "w=1 IS the Knuth estimator — run it plain\n", knuth_purdom_w);
+                return 1;
+            }
+            if (getenv("SOLVE_KNUTH_PURDOM_DEPTH")) {
+                knuth_purdom_depth = atoi(getenv("SOLVE_KNUTH_PURDOM_DEPTH"));
+                if (knuth_purdom_depth < 1 || knuth_purdom_depth > 31) {
+                    fprintf(stderr, "[purdom] SOLVE_KNUTH_PURDOM_DEPTH must be 1..31 (got %d)\n",
+                            knuth_purdom_depth);
+                    return 1;
+                }
+            }
+            if (knuth_score || knuth_score_reg || knuth_score_f4p || knuth_score_dav ||
+                knuth_score_dav2 || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
+                knuth_score_perm || knuth_moore_strict || knuth_gender_strict || knuth_h2 ||
+                knuth_f11_hist || knuth_r11_hist || knuth_depth_profile || knuth_rc4b_t1 ||
+                knuth_bcond) {
+                fprintf(stderr, "[purdom] REFUSED: the Purdom worker implements only the core "
+                                "masses (nodes / leaves / canonical / records); combining it with "
+                                "scoring, strict-walk, histogram or boundary instruments would "
+                                "silently drop them. Run those on the Knuth worker.\n");
+                return 1;
+            }
+            fprintf(stderr, "[purdom] partial-backtracking estimator ACTIVE: w=%d depth_cutoff=%d "
+                            "(Purdom 1978, SIAM J. Comput. 7(2); unbiased for any (w,cutoff); "
+                            "Q-389 second-estimator derivation)\n",
+                    knuth_purdom_w, knuth_purdom_depth);
+        }
+        if (getenv("SOLVE_KNUTH_FIBER") && atoi(getenv("SOLVE_KNUTH_FIBER")) == 1) {   /* Q-388 */
+            if (getenv("SOLVE_KNUTH_C5_BUDGET")) {
+                fprintf(stderr, "[fiber] SOLVE_KNUTH_FIBER=1 with SOLVE_KNUTH_C5_BUDGET is REFUSED: "
+                                "the fiber DP's within-budget semantics are validated only for the "
+                                "standard and RELAX_C5 budgets\n");
+                return 1;
+            }
+            knuth_fiber = 1;
+            if (getenv("SOLVE_KNUTH_FIBER_XCHECK"))
+                knuth_fiber_xcheck = atoi(getenv("SOLVE_KNUTH_FIBER_XCHECK"));
+            fprintf(stderr, "[fiber] W/m(k) canonical-class (record) estimator ACTIVE "
+                            "(Q-388; A1 §6.1 design; KW gate enforced at init)\n");
+        }
+        if (getenv("SOLVE_KNUTH_FIBER_PERM")) {
+            /* Cross-check hook: exact fiber of ONE given pair ordering (standard budget),
+             * printed and done — verify.py fiber_count must return the same integer,
+             * including 0 for orderings with an empty fiber (the verifier-FALSE case). */
+            int perm[32], seen[32] = {0}, np2 = 0; const char *pp = getenv("SOLVE_KNUTH_FIBER_PERM");
+            while (*pp && np2 < 32) {
+                if (*pp >= '0' && *pp <= '9') {
+                    int v = (int)strtol(pp, (char**)&pp, 10);
+                    if (v < 0 || v > 31 || seen[v]) { np2 = -1; break; }
+                    seen[v] = 1; perm[np2++] = v;
+                } else pp++;
+            }
+            if (np2 != 32) { fprintf(stderr, "[fiber] FIBER_PERM: need a permutation of 0..31\n"); return 1; }
+            if (perm[0] != pair_index_of(63, 0)) {
+                fprintf(stderr, "[fiber] FIBER_PERM: slot 0 must be the pair {63,0} (C4)\n"); return 1;
+            }
+            int fseq[64];
+            for (int i = 0; i < 32; i++) { fseq[2*i] = pairs[perm[i]].a; fseq[2*i+1] = pairs[perm[i]].b; }
+            fseq[0] = 63; fseq[1] = 0;   /* C4 opening orientation */
+            int std1[7]; memcpy(std1, kw_dist, sizeof(std1)); std1[hamming(63,0)]--;
+            if (fiber_init(std1)) return 1;
+            printf("FIBER-PERM m=%.0f\n", fiber_count_c(fseq));
+            fflush(stdout); return 0;
         }
         fprintf(stderr, "[knuth] %llu probes, %d threads, %d prefix level(s)\n",
                 (unsigned long long)nprobe, nthreads, nlev);
@@ -19072,14 +19771,16 @@ int main(int argc, char *argv[]) {
         if (!base_dir) {
             struct stat sst;
             base_dir = (stat("/mnt/work", &sst) == 0) ? "/mnt/work" : "/tmp";
+        } else if (!regress_dir_safe(base_dir)) {
+            return 30;
         }
         char dir_full[PATH_MAX], dir_56[PATH_MAX];
         snprintf(dir_full, sizeof(dir_full), "%s/regress_full", base_dir);
         snprintf(dir_56,   sizeof(dir_56),   "%s/regress_56",   base_dir);
         printf("[regression-test] working dirs: %s, %s\n", dir_full, dir_56);
         char cleanup1[PATH_MAX * 2 + 64], cleanup2[PATH_MAX * 2 + 64];
-        snprintf(cleanup1, sizeof(cleanup1), "rm -rf %s && mkdir -p %s", dir_full, dir_full);
-        snprintf(cleanup2, sizeof(cleanup2), "rm -rf %s && mkdir -p %s", dir_56,   dir_56);
+        snprintf(cleanup1, sizeof(cleanup1), "rm -rf '%s' && mkdir -p '%s'", dir_full, dir_full);
+        snprintf(cleanup2, sizeof(cleanup2), "rm -rf '%s' && mkdir -p '%s'", dir_56,   dir_56);
         int _r;
         _r = system(cleanup1); (void)_r;
         _r = system(cleanup2); (void)_r;
@@ -19205,7 +19906,7 @@ int main(int argc, char *argv[]) {
             printf("[regression-test] PASS — partition invariance confirmed at total budget %lld\n",
                    total_budget);
             char rmcmd[PATH_MAX * 2 + 32];
-            snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s %s", dir_full, dir_56);
+            snprintf(rmcmd, sizeof(rmcmd), "rm -rf '%s' '%s'", dir_full, dir_56);
             _r = system(rmcmd); (void)_r;
             return 0;
         } else {
@@ -19282,6 +19983,8 @@ int main(int argc, char *argv[]) {
         if (!base_dir) {
             struct stat sst;
             base_dir = (stat("/mnt/work", &sst) == 0) ? "/mnt/work" : "/tmp";
+        } else if (!regress_dir_safe(base_dir)) {
+            return 30;
         }
         char dir_full[PATH_MAX], dir_56[PATH_MAX];
         snprintf(dir_full, sizeof(dir_full), "%s/dregress_full", base_dir);
@@ -19291,7 +19994,7 @@ int main(int argc, char *argv[]) {
         char cmd[PATH_MAX * 4 + 1024];
         int _r;
         char rmm[PATH_MAX * 6 + 128];
-        snprintf(rmm, sizeof(rmm), "rm -rf %s %s && mkdir -p %s/01_layer1 %s/02_layer2 %s/01_layer1 %s/02_layer2",
+        snprintf(rmm, sizeof(rmm), "rm -rf '%s' '%s' && mkdir -p '%s/01_layer1' '%s/02_layer2' '%s/01_layer1' '%s/02_layer2'",
                  dir_full, dir_56, dir_full, dir_full, dir_56, dir_56);
         _r = system(rmm);
         if (_r != 0) { fprintf(stderr, "ERROR: cannot prepare working dirs\n"); return 50; }
@@ -19441,7 +20144,7 @@ int main(int argc, char *argv[]) {
         CAPTURE_SHA(shapath, sha_full_merged, "full_merged");
         /* Free disk before next merge: drop the full-path merged solutions.bin
          * (sha already captured) and the symlinks dir. */
-        snprintf(cmd, sizeof(cmd), "rm -rf %s/_merged_", dir_full);
+        snprintf(cmd, sizeof(cmd), "rm -rf '%s/_merged_'", dir_full);
         _r = system(cmd); (void)_r;
 
         /* ---- Phase 6: layered-merge 56-branch path ---- */
@@ -19668,6 +20371,16 @@ int main(int argc, char *argv[]) {
         }
         printf("Single-sub-branch mode: p1=%d o1=%d p2=%d o2=%d p3=%d o3=%d\n",
                sb_pair, sb_orient, ssb_pair2, ssb_orient2, ssb_pair3, ssb_orient3);
+    } else if (argc > 1 && argv[1][0] == '-') {
+        /* Q-377: a dash-prefixed argument that matched NO branch above is a typo, not a request
+           for the default full enumeration. This sits at the END of the chain on purpose: a
+           known-flag list checked at the top would be a second copy of this chain and would
+           diverge the moment a mode is added. Positional arguments (e.g. a node budget) are
+           unaffected -- only unrecognised OPTIONS are rejected. */
+        fprintf(stderr, "ERROR: unknown option '%s'\n", argv[1]);
+        fprintf(stderr, "Run '%s --help' for the common modes, or see documentation/SOLVE_C_CLI.md\n",
+                argv[0]);
+        return 2;
     }
 
     /* Preflight external-dep check for any mode that will produce a sha256.
@@ -20086,6 +20799,27 @@ int main(int argc, char *argv[]) {
                 return 20;
             }
 
+            /* 🔴 Q-350: bit 0 of every record byte is RESERVED and must be zero
+             * (SOLUTIONS_FORMAT.md: "byte i = (pair_index<<2) | (orient<<1); bit 0 reserved").
+             * --verify never looked. Measured: setting bit 0 on the first record byte still
+             * printed "VERIFY PASS". The decode below MASKS the bit away, so a byte-wise
+             * non-canonical artifact decodes identically and passes -- its sha differs from
+             * canonical while the verifier calls it good, which is the direction that
+             * manufactures a false "reproduced" claim. Unswept sibling of verify.py's
+             * 2026-08-01 reserved-field fix: same defect, same file pair, one side fixed. */
+            {
+                int bad_bit = -1;
+                for (int bi = 0; bi < SOL_RECORD_SIZE; bi++)
+                    if (rec[bi] & 0x01) { bad_bit = bi; break; }
+                if (bad_bit >= 0) {
+                    fprintf(stderr, "ERROR: record %lld byte %d = 0x%02X has reserved bit 0 set; "
+                                    "MUST be zero per SOLUTIONS_FORMAT.md\n",
+                            r, bad_bit, rec[bad_bit]);
+                    printf("VERIFY=ERROR\n");
+                    gzclose(vf);
+                    return 30;
+                }
+            }
             /* Decode: byte i = (pair_index << 2) | (orient << 1) */
             int seq[64];
             int used_pairs[32];
@@ -20426,6 +21160,7 @@ int main(int argc, char *argv[]) {
             printf("ERROR: file smaller than header\n");
             gz_mmap_close(mmap_base, full_size, gz_tmp); return 1;
         }
+        uint64_t declared_records = 0;   /* Q-367: survives the block below for the completeness check */
         {
             uint64_t hdr_records = 0;
             if (sol_read_header_mem(mmap_base, &hdr_records) != 0) {
@@ -20435,6 +21170,7 @@ int main(int argc, char *argv[]) {
             }
             printf("  Header: ROAE v%d, %llu records declared\n",
                    SOL_FORMAT_VERSION, (unsigned long long)hdr_records);
+            declared_records = hdr_records;
         }
         long file_size = full_size - SOL_HEADER_SIZE;   /* record stream size */
         long long n_solutions = file_size / SOL_RECORD_SIZE;
@@ -20446,6 +21182,25 @@ int main(int argc, char *argv[]) {
         unsigned char *vall = mmap_base + SOL_HEADER_SIZE;  /* record-stream view */
 
         long long errors = 0;
+        /* 🔴 Q-367 (Codex R12b): the declared count was READ, PRINTED, and never COMPARED. The loop
+           bounds come from the FILE SIZE, so a header declaring 1000 records followed by ONE record
+           and EOF examined one record and still printed "ALL CONSTRAINTS VERIFIED"; and a 32-byte
+           header-only file -- the state solve.py --encode-solutions writes BEFORE patching the count
+           -- verified clean with ZERO loop iterations. A verifier whose strongest statement is
+           reachable without examining anything is not a verifier. Both are errors now. */
+        if ((long long)declared_records != n_solutions) {
+            fprintf(stderr,
+                "ERROR: header declares %llu record(s) but the stream holds %lld (Q-367).\n"
+                "       Refusing to validate a record stream that contradicts its own header.\n",
+                (unsigned long long)declared_records, n_solutions);
+            errors++;
+        }
+        if (n_solutions == 0) {
+            fprintf(stderr,
+                "ERROR: zero records present -- there is nothing to validate (Q-367).\n"
+                "       'ALL CONSTRAINTS VERIFIED' must not be reachable with no records examined.\n");
+            errors++;
+        }
         int kw_found_v = 0;
         int sorted_ok = 1;
 

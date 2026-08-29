@@ -134,7 +134,7 @@ invites a pair-ordering reading that is the OPPOSITE of what the enumeration sho
 orientation variants of King Wen's own pair sequence. The 16,504 are ORIENTED leaves — 899 distinct pair
 orderings — and C6/C7 eliminate 898 of the 899, leaving King Wen's alone. Verified with the shipped binary:
 pair ordering free, C6/C7 leave 8; every free slot additionally pinned to KW's pairs with only orientation
-free gives **also 8** (tree_nodes 1169 → 233, a strict subtree), so no survivor departs from KW's pair
+free gives **also 8** (tree_nodes 1169 → 233, a strict subtree) ⚠ **[RUN DESCRIPTION CORRECTED 2026-08-28 — first published as "tree_nodes 1169 → 233" with the words "every free slot". That run pinned slots 24–32, which leaves position 23 order-free (pins 24–31 give the identical 233, so slot 32 was a no-op); pinning all nine free steps 23–32 gives **75** nodes. The survivor count is **8** in every variant and the conclusion is unchanged — only the description of the run was wrong. Found by the D2 lens-1 executed review, which re-ran it.]**, so no survivor departs from KW's pair
 sequence. At this scope the check corroborates UNIQUENESS in the canonical frame — the paragraph above
 argues non-uniqueness at the ORIENTED level, which is a different object; both can hold, and the sentence
 must not be read as evidence for the first. See CORRECTIONS.md 2026-08-28.]**

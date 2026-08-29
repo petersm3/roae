@@ -72,6 +72,22 @@ trust-base note below for what that means and how it came to hold). What that bu
   `KingWen.lean` (~2 min, ~8.0 GB), `C3Decomposition.lean` (~1¼ min, ~4.7 GB, the null-law DP),
   `PruneGInvariance.lean` (~1½ min, ~4.1 GB), and — since their 2026-08-07 kernel migration —
   `TrigramTheorems.lean` (~2 min, ~4.8 GB) and `SymmetryCompleteness.lean` (~23 s, ~2.8 GB).
+
+  🔴 **RSS is not the only limit, and the other one is not fixed by a bigger machine (added
+  2026-08-28, Q-347).** An **address-space** cap — `ulimit -v`, which containers and CI images
+  commonly set — starves Lean's thread-stack reservation long before RSS approaches anything in
+  the table above. It surfaces as `lean::exception: failed to create thread`, **not** as an
+  allocator error. Measured on a 4 GB `-v`-capped host: all 13 modules failed at **~480 MB RSS**,
+  i.e. at 5% of the figure this table would have you provision for. Buying a larger host does
+  nothing. **Try this first — it is free:**
+
+  ```sh
+  LEAN_NUM_THREADS=1 lake env lean <file>.lean    # or: lean --threads=1 <file>.lean
+  ```
+
+  On that same capped host it kernel-verified `C1RuleConstants.lean` and `PruneSafety.lean`. The
+  RSS table below governs case (a), genuine memory; this paragraph governs case (b). Check which
+  one you hit before provisioning.
   ⚠ **These figures were REVISED UPWARD on 2026-08-21** after a full 13-module re-measurement on a
   Standard_D128als_v7 (`/usr/bin/time -v`, one module at a time on an otherwise-idle box, same
   pinned toolchain). The previous table under-stated four rows — `TrigramTheorems` by **8.9%**
@@ -131,7 +147,7 @@ destructuring the permutation to a closed bit-scatter form (carry bounds + `omeg
 concretized branches forward; explicit single-bit counterexamples reverse), reporting
 `[propext, Classical.choice, Quot.sound]`. Every other former `native_decide` site in those two
 files migrated to `decide +kernel` (kernel-evaluated, no compiler trust). **Zero `native_decide`
-now remains anywhere in the twelve files: every theorem in this directory is checked by Lean's
+now remains anywhere in the thirteen files: every theorem in this directory is checked by Lean's
 kernel alone, with `#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]` — Lean's standard
 axioms — suite-wide.** (Thirteen files since 2026-08-15: `PruneReprFC.lean` landed kernel-only —
 zero `native_decide`, its in-file `#print axioms` directives execute on every build and report

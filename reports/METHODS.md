@@ -148,9 +148,26 @@ which is what produced every published figure — with the divergence disclosed:
 [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §3 headline 3.
 
 ## Statistics conventions
-- **Knuth estimator CIs**: probes are i.i.d.; for each reported quantity the per-probe weight X and X²
-  are accumulated exactly, and the tool prints mean ± 1.96·√(v̂ar/N) with relerr = SE/mean — a standard
-  Wald CI on Knuth's (1975) unbiased estimator. Weighted fractions (masses of canonical weight) are
+- **Knuth estimator CIs**: for the ESTIMATOR TOTALS the per-probe weight X and X² are accumulated, and
+  the tool prints mean ± 1.96·√(v̂ar/N) with relerr = SE/mean — a standard Wald CI on Knuth's (1975)
+  unbiased estimator. ⚠ **[SCOPE CORRECTED 2026-08-28 — this read "for each reported quantity", which is
+  false. Exactly three accumulators keep a second moment (`sumsq`, `sumsq_leaf`, `sumsq_node`); the
+  score-mode accumulators behind published figures — `score_dav`, `score_perm`, `score_registry`, which
+  carry TR-10's Davis masses among others — keep **none**, and there is zero co-occurrence between the
+  two sets in `solve.c`. Those quantities are printed as bare point estimates with no CI, and the
+  sentence claimed otherwise for every one of them. Found by the effort-none Codex run (T07 + T10,
+  convergent) during the Q-332 triage and verified here against the source. **Note for whoever lands
+  Q-325:** that row's drafted fix corrects only "exactly" (double-precision rounding) and "i.i.d." — it
+  leaves "for each reported quantity" intact and would have shipped a still-false sentence.]**
+  **[CURED IN CODE 2026-08-28, same day (Q-374):** squared-weight twin accumulators and delta-method
+  SEs were added for every published mass family — `score_dav`, `score_dav2`, `score_f4p`, `score_f5`,
+  `score_f6`, `score_perm`, `score_db1`, `score_registry`, the `[score]` scalar masses and the
+  wrap-distance masses — and each mass line now prints `se=` (ratio-estimator delta method:
+  Var(m) ≈ [ΣW²I·(1−2m) + m²·ΣW²]/(ΣW)², exact for 0/1 indicators). Validated against 12
+  independent-seed replicates at 10⁷ probes (printed SE vs replicate SD ratios 0.73–1.45, within
+  chi-square noise of 1). Per-bin histogram rows (`dav_hist` etc.) remain point estimates. Archived
+  evidence files from earlier runs (e.g. `dav_tier1.out`, 2026-07-04) predate the field and carry
+  no `se=`; the masses themselves are unchanged (same-seed emissions byte-identical).]** Weighted fractions (masses of canonical weight) are
   same-run ratios ΣWX/ΣW; for fractions ≪ 1 the delta-method variance reduces exactly to the numerator's
   own relative variance, so a fraction's honest relerr equals the relerr of its numerator. *That is a
   statement about **variance only**.* ΣWX/ΣW is a ratio of correlated random sums, so it also carries a

@@ -105,7 +105,7 @@ constraint definitions, external kissat solver, DRAT certificates) adds *exact* 
 3. **The parity-alternation theorem is SAT-verified over the full space** (its third independent
    verification after the prose proof and the Lean-checked lemmas): both "≤14 alternations" and "≥16
    alternations" are UNSAT under C1+C2+C4+C5.
-4. The joint-strict population size (pinned-walk estimate): ≈1.13×10²⁹ canonical orderings (±4.7%).
+4. The joint-strict population size (pinned-walk estimate): ≈1.13×10²⁹ canonical orderings (95% CI [1.09, 1.17]×10²⁹; relerr 1.66%). ⚠ **[CORRECTED 2026-08-28 — the ±4.7% was a PREREGISTERED ANCHOR TOLERANCE BAND, not an error bar: `reports/evidence/f11/compute_f11_bf.py:85` names its check "Moore-joint size outside the +/-4.7% anchor band". The published 1.13×10²⁹ comes from `reports/evidence/r11/r11_moore_strict.out` (`est=1.131036e+29`, 95%CI [1.0942e+29, 1.1679e+29], relerr 1.66%), NOT from `f11_runB.out`, which reports 1.16583e29. See CORRECTIONS.md]**
 
 Certificates are archived and **independently verified** (drat-trim, 2026-07-03: all four UNSAT proofs —
 alt-le-14, alt-ge-16, moore-strict-near-2, rc4-strict-near-2 — check `s VERIFIED` against regenerated
@@ -159,7 +159,7 @@ with `python3 sat.py --witness moore-strict` and
 
 The full candidate inventory from the Schulz corpus (1990/2011/2016/2018 + the 1982 dissertation's
 Lai Zhide rules), [McKenna & Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), and [Schöter](CITATIONS.md#schoter1998) — 31 rules formalized (two-language verified,
-each reproducing its source's stated King Wen values), measured in one run. Full per-rule registry and
+**27 of them reproducing its source's stated King Wen values**), measured in one run. ⚠ **[CORRECTED 2026-08-28 — this read "each reproducing its source's stated King Wen values". `solve.py`'s own comment above `REGISTRY_KW_EXPECTED` says otherwise for four: MM-T3, MM-T6, C1 and the C2 histogram are **KW-measured anchors** because the registry states only qualitative or percentile expectations for them, and `reg_c1`/`reg_c2` additionally carry "exact formulation pending full-paper access, registry proxy used" in their docstrings. See CORRECTIONS.md]** Full per-rule registry and
 attribution: solve.py `--registry-verify` section.
 
 > **The rule predicates are code-resident, and that is a replication limit** (stated 2026-08-01, lens
@@ -186,7 +186,7 @@ findable by the row's identifier and not only by its description)
 four "right" trigrams in order) holds in 2×10⁻⁸ of the population (×5×10⁷) — 2.4 orders beyond the
 previous champion. Like Cook's exact level-3 positions, this is a highly *specific* configuration: its
 registry classification is data-like rather than principled, and it is reported as a measured property,
-not promoted. The exception-co-location meta-rule `ccn8` (both Schulz rules' violations confined to S25/26)
+not promoted. The exception-co-location meta-rule `ccn8` (both Schulz rules' violation sets sharing the locus S25/26) ⚠ **[CORRECTED 2026-08-28 — "confined" overstates the code, which requires only that the two violation sets SHARE the locus. Measured on King Wen: CC-A2 = {25,26} (confined), but R-S2 = {11,13,14,25,26,32} (not confined). `reg_ccn8`'s predicate is `set(v_a2)=={25,26}` and `{25,26} <= v_s2`, and its docstring already says "share the locus". The 2.6×10⁻⁷ population figure comes from the correct predicate and is UNAFFECTED. See CORRECTIONS.md]**
 measures 2.6×10⁻⁷ (×3.8M) — the anomaly locus itself is population-rare. `ccn8` carries no
 data-like/principled verdict, here or anywhere in the suite.
 

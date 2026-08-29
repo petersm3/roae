@@ -79,7 +79,6 @@ WARN_BASELINE='3 [-Wmisleading-indentation]
 1 [-Wunused-variable]
 2 [-Wunused-function]
 3 [-Wformat-truncation=]
-1 [-Wnonnull]
 1 [-Wstringop-truncation]'
 
 # Census: one "count class" line per class seen. awk ERE has no bounded
@@ -108,6 +107,27 @@ while read -r n cls; do
 done <<EOF
 $WARN_SEEN
 EOF
+# ---- ELIMINATED-CLASS SWEEP -------------------------------------------------
+# 🔴 The census loop above iterates over classes that were EMITTED, so it can only
+# report a class that SHRANK, never one that reached ZERO — the best outcome is the
+# one it cannot see. Measured 2026-08-28: the -Wnonnull memcpy(_,NULL,0) UB in
+# h2_ball_enum was fixed, the class went 1 -> 0, and this gate printed its ordinary
+# PASS with no ratchet note. A baselined class left standing at zero is not inert:
+# it keeps the class PERMANENTLY ALLOWED, so if the defect regresses the ratchet
+# accepts it silently at its old count. Same shape as the verifier-closure rule --
+# a check must be able to notice the target's ABSENCE, not only its presence.
+while read -r base cls; do
+    [ -n "$cls" ] || continue
+    seen=$(printf '%s\n' "$WARN_SEEN" | grep -F -- " $cls" | awk '{print $1}')
+    if [ -z "$seen" ]; then
+        echo "note: solve.c warning class $cls is now ELIMINATED (baseline $base, 0 emitted)"
+        echo "      — remove it from WARN_BASELINE in this same commit. Leaving it keeps the"
+        echo "      class permanently allowed and a regression would pass this gate silently."
+    fi
+done <<EOF
+$WARN_BASELINE
+EOF
+
 if [ "$WARN_BAD" -ne 0 ]; then
     echo "----- full -Wall -Wextra output -----"
     cat "$WARN_LOG"

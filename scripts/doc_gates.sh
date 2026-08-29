@@ -10716,9 +10716,98 @@ print("CEIL\t%.6f" % CEIL)
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# GATE 27 — a line restating a WITHDRAWN figure must carry a supersession marker.
+#
+# WHY THIS EXISTS AND WHY IT IS NOT GATE 3b. GATE 3b demands a content-anchored allowlist row
+# for EVERY occurrence ("no auto-exemption"), which is right for a statistic with a handful of
+# mentions. It does not scale to the project's LARGEST withdrawals: "3×10³⁷" alone occurs 40
+# times across 14 files, nearly all legitimate prose that already carries a marker. Registering
+# it in 3b would need ~40 hand-anchored rows — which is precisely why the headline 2026-08-24
+# withdrawal was NEVER registered anywhere, leaving the biggest retraction in the project
+# unguarded (Q-342).
+#
+# 🔴 MEASURED, NOT HYPOTHETICAL. Merging origin/v4-query-program restores
+# enumeration/LEADERBOARD.md lines 3 and 170, which state ≈3×10³⁷ with NO marker, silently
+# undoing commit b8d45b5e. Verified 2026-08-28 by copying the branch file over the corrected
+# one: `doc_gates retract-figures` PASSED and `doc_gates canonical-ceiling` PASSED. A 201-hunk
+# merge whose acceptance harness cannot see a reverted correction is worse than no merge.
+#
+# The rule is deliberately WEAKER than 3b's: it cannot judge whether a marker is apt, only that
+# some supersession word is on the line. That is the case a merge regression produces — a
+# reintroduced figure with no marker at all.
+#
+# documentation/CORRECTIONS.md is EXEMPT, and this is the only exemption. It is the ledger of
+# record: quoting a withdrawn figure is its job, all 12 of its unmarked lines do exactly that,
+# and GATE 10a makes it append-only so it cannot be quietly rewritten.
+gate_withdrawn_markers() {
+  echo "== GATE 27: withdrawn figures are never restated without a supersession marker =="
+  local REG=documentation/WITHDRAWN_FIGURES.tsv
+  require_rows "$REG" "A withdrawn figure that nothing registers is a figure nobody re-checks." || return 1
+  local out
+  out=$(printf '%s\n' "$DOCS" | python3 -c '
+import sys, io, re
+REG="documentation/WITHDRAWN_FIGURES.tsv"
+EXEMPT={"documentation/CORRECTIONS.md"}
+MARK=re.compile(r"withdrawn|label\s+corrected|corrected\s+20|scoped\s+20|superseded|retract|run\s+description\s+corrected", re.I)  # \\s+ not " ": a marker wrapping as "[CORRECTED\\n2026-08-28" is the normal case in this corpus and a literal space missed every one of them
+figs=[]
+for ln in io.open(REG,encoding="utf-8"):
+    if not ln.strip() or ln.startswith("#"): continue
+    c=ln.rstrip("\n").split("\t")
+    if len(c)>=2 and c[0].strip(): figs.append((c[0],c[1]))
+if not figs: print("NOFIGS"); sys.exit(0)
+files=[l.strip() for l in sys.stdin if l.strip()]
+if not files: print("EMPTY"); sys.exit(0)
+n=0
+for f in files:
+    if f in EXEMPT: continue
+    try: lines=io.open(f,encoding="utf-8").read().splitlines()
+    except OSError as e: print("READFAIL\t%s\t%s"%(f,e)); n+=1; continue
+    # 🔴 PARAGRAPH WINDOW, not a single line. Measured 2026-08-28 while building this gate: a
+    # line-level rule flagged reports/TR4:72 and DISTRIBUTIONAL_ANALYSIS.md:360, both of which
+    # ARE correctly marked -- TR4 carries the figures on one line and its marker on the next
+    # (wrapped prose), and DISTRIBUTIONAL holds "null P = 0.034" INSIDE the quoted text of its own
+    # correction marker. Flagging correctly-marked prose is the always-fires failure that gets a
+    # gate ignored. A reader sees the paragraph, so the gate reads the paragraph: blank-line
+    # delimited, which is how markdown blocks are actually bounded.
+    para=[]; start=[]; cur=[]; cs=1
+    for i,line in enumerate(lines,1):
+        if line.strip()=="":
+            if cur: para.append("\n".join(cur)); start.append(cs)
+            cur=[]; cs=i+1
+        else: cur.append(line)
+    if cur: para.append("\n".join(cur)); start.append(cs)
+    for blk,bs in zip(para,start):
+        if MARK.search(blk): continue
+        for fig,why in figs:
+            if fig in blk:
+                off=next((j for j,l in enumerate(blk.split("\n")) if fig in l),0)
+                bad_line=blk.split("\n")[off].strip()[:120]
+                print("HIT\t%s\t%d\t%s\t%s"%(f,bs+off,fig,bad_line)); n+=1; break
+print("COUNT\t%d"%n)
+') || { echo "  [FAIL] GATE 27 scanner failed — NOTHING was checked."; return 1; }
+  printf '%s\n' "$out" | grep -qx 'EMPTY' && { echo "  [FAIL] corpus reached GATE 27 empty."; return 1; }
+  printf '%s\n' "$out" | grep -qx 'NOFIGS' && { echo "  [FAIL] $REG parsed to zero figures."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag f ln fig line; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f:$ln restates withdrawn figure '$fig' with NO supersession marker"
+    echo "         $line"
+    rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         A merge or edit that reintroduces a withdrawn figure unmarked is the exact"
+    echo "         regression this gate exists for. Add the marker, or withdraw the line."
+    return 1
+  fi
+  echo "  [ok] every line stating a registered withdrawn figure carries a supersession marker"
+  return 0
+}
+
 case "$MODE" in
   repro-reach) gate_repro_reach || RC=1 ;;
   canonical-ceiling) gate_canonical_ceiling || RC=1 ;;
+  withdrawn-markers) gate_withdrawn_markers || RC=1 ;;
   value-domains) gate_value_domains || RC=1 ;;
   hex-prefix) gate_hex_prefix || RC=1 ;;
   tracked-ignored) gate_tracked_ignored || RC=1 ;;
@@ -10783,8 +10872,9 @@ case "$MODE" in
            echo; gate_script_paths || RC=1
            echo; gate_hex_prefix || RC=1
            echo; gate_tracked_ignored || RC=1
-           echo; gate_canonical_ceiling || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|all}"; exit 2 ;;
+           echo; gate_canonical_ceiling || RC=1
+           echo; gate_withdrawn_markers || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|all}"; exit 2 ;;
 esac
 
 echo
@@ -10831,7 +10921,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).

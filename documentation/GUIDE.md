@@ -10,7 +10,7 @@ The [I Ching](https://en.wikipedia.org/wiki/I_Ching) (Book of Changes) is one of
 
 The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is the traditional ordering of these 64 hexagrams. It is not the only possible ordering — there are 64! (approximately 10^89) ways to arrange 64 objects — but it is the one that has been used for millennia and is traditionally attributed to [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) (~1000 BCE), though modern scholarship is divided on the exact origin.
 
-The ordering is not alphabetical, not sorted by number of solid lines, and not random. It appears to follow rules, but those rules were never written down. This program tries to figure out what those rules are.
+The ordering is not alphabetical, not sorted by number of solid lines, and not random. It appears to follow rules, but **no surviving source states them as a construction**. The classical [Xugua](../reports/METHODS.md) commentary — one of the Ten Wings — does explain the succession, but in semantic and moral terms, not as a rule you could compute with. This program tries to figure out what the computable rules might be. ⚠ [CORRECTED 2026-08-28 — this read "those rules were never written down", which this repository's own methodology contradicts: METHODS.md cites the Xugua as the classical attestation for C4's orientation, and 14 files reference it. See documentation/CORRECTIONS.md]
 
 ## Why should I care?
 

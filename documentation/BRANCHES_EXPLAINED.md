@@ -420,7 +420,7 @@ counts come out as:
 | 10T (10^13 nodes) | ~63 M / d3 sub-branch | 706,427,594 | `b85c8871…` ² |
 | 100T (10^14 nodes) | ~631 M / d3 sub-branch | 3,432,399,297 | `915abf30…` |
 | **560T (5.6 × 10^14 nodes)** | **~3.5 B / d3 sub-branch** | **10,525,271,997** | `9a968fa2…` |
-| (unbounded — exhaustion) | (exhausted to true completion) | ≈3×10³⁷ distinct-canonical (est.)¹ | — | ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
+| (unbounded — exhaustion) | (exhausted to true completion) | ≈3×10³⁷ distinct-canonical (est.)¹ ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** | — |
 
 The "canonical form" means we collapse equivalent orderings (orientation
 flips of pairs) into one representative, so the count reflects distinct
@@ -428,7 +428,7 @@ mathematical solutions rather than re-orderings of the same pairs.
 
 ¹ The true exhausted total is not enumerated directly, but an unbiased
 Monte-Carlo estimate (Knuth random-probe) puts the full C1–C5 space at
-roughly **1.3×10³⁸ raw** (≈**3×10³⁷ distinct-canonical**). This is an ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
+roughly **1.3×10³⁸ raw** (≈**3×10³⁷ distinct-canonical** ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**). This is an
 exploration estimate, not a proven count — see
 [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) for method and validation.
 
@@ -517,7 +517,7 @@ This is an active research project. The current open questions:
    true total (with no budget cap, all sub-branches walked to completion)
    has not been enumerated directly, but an unbiased Monte-Carlo estimate
    (Knuth random-probe) puts the full C1–C5 space at roughly **1.3×10³⁸
-   raw** (≈**3×10³⁷ distinct-canonical**) — an exploration estimate, not a ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
+   raw** (≈**3×10³⁷ distinct-canonical** ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**) — an exploration estimate, not a
    proven count. See [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md).
 
 2. **Is KW statistically special, and HOW?** The former headline result
@@ -591,7 +591,7 @@ alone explain.
    an order of magnitude. The enumerated 100T-d3 number (3.43 billion)
    is a lower bound; an unbiased Monte-Carlo estimate (Knuth
    random-probe) now puts the full C1–C5 space at ≈**1.3×10³⁸ raw**
-   (≈**3×10³⁷ distinct-canonical**) — an exploration estimate, not a ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
+   (≈**3×10³⁷ distinct-canonical** ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**) — an exploration estimate, not a
    proven count (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). A
    defensible directly-exhausted value is still a goal.
 

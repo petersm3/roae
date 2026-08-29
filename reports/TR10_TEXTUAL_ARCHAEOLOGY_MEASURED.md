@@ -40,11 +40,11 @@ stated King Wen facts before measurement), and nine composites were pre-register
 Measurement by weighted-Knuth estimation (2×10⁹ probes; the instrument reproduced the
 previously-published C1–C5 space size *estimate* to 0.09% in the same run — a consistency check within
 the same estimator family, since that figure is itself a Knuth estimate; corrected 2026-08-01 from
-"independently-established", the adjective TR-1 v1.18's correction was about) yields: **four of nine NULL** —
+"independently-established", the adjective TR-1 v1.18's correction was about) yields: **five of nine NULL** —
 including both flagship compositional claims (the hexagram-7–16 complement-mirror block, present in
 ~1.1% of valid orderings; terminal-pair neighborhood contiguity, two-sided ~5.4×10⁻²); one notable
 (the #43–50 regular trigram array, 6.8×10⁻⁴ — survives its family correction but not the global
-91-observable ledger's ≈5.5×10⁻⁴ Bonferroni bar, though it *would* survive that ledger under BH-FDR; §3); one borderline at the threshold to reported precision; and three
+91-observable ledger's ≈5.5×10⁻⁴ Bonferroni bar, though it *would* survive that ledger under BH-FDR; §3); and three
 exact-placement templates rare-to-unsampled — the data-like class whose rarity is expected by
 construction (the circularity caveat) and evidential of nothing. Nothing promotes. Separately, exact
 recomputation refutes one Davis uniqueness claim — that #63/64 transforms into the fewest derivative
@@ -96,8 +96,8 @@ notational scoring — is accepted and stated.
    | 3 | `trigarray` — the #43–50 regular trigram array (pp. 76–77, 112) | 1 window | P(≥1) = 6.8×10⁻⁴ | notable (below candidate gate; does not survive the global 91-observable ledger **under Bonferroni** — would under BH-FDR, see §3 note) |
    | 4 | `parallel3040` — 30s/40s parallel with chiasmus (pp. 78, 253–254) | 1 | zero sampled mass in 2×10⁹ | extreme / data-like class |
    | 5 | `palnbr` — palindrome-neighborhood adjacency mass (pp. 121–128) | 10 | P(≥10) = 7.9×10⁻² (mean 4.9) | **NULL** |
-   | 6 | `rotinv` — rotation≡inversion pairs at 11/12, 17/18, 53/54, 63/64 (p. 68, 118 n14) | 1 | P = 6.5×10⁻⁵ | meets candidate-rule numerically — data-like; does not promote |
-   | 7 | `pureplace` — pure-hexagram placement (pp. 80, 82, 183) | 1 | P = 5.56×10⁻³ | borderline (at the 0.05/9 threshold to reported precision) |
+   | 6 | `rotinv` — rotation≡inversion pairs at 11/12, 17/18, 53/54, 63/64 (p. 68, 118 n14) | 1 | one-sided P = 6.5×10⁻⁵; **two-sided P = 1.31×10⁻⁴** | **data-like; does not promote — and does NOT meet the candidate bar.** ⚠ [CORRECTED 2026-08-28: this read "meets candidate-rule numerically". The bar declared at §3 is **two-sided** p < 10⁻⁴; the published 6.5×10⁻⁵ is the one-sided upper tail (`at`+`above` from `dav_tier1.out`), and 2 × 6.531×10⁻⁵ = 1.306×10⁻⁴ **exceeds** 10⁻⁴. Row 1 of this same table already applies the doubling convention. The one-sided value is retained above because downstream BH ranking in METHODS/TR-8 cites it.] |
+   | 7 | `pureplace` — pure-hexagram placement (pp. 80, 82, 183) | 1 | one-sided P = 5.56×10⁻³; **two-sided P = 1.11×10⁻²** | **NULL** ⚠ [CORRECTED 2026-08-28: this read "borderline (at the 0.05/9 threshold to reported precision)". It is not borderline under either reading — the declared bar is **two-sided** p < 0.05/9 = 5.5556×10⁻³, and the **one-sided** value 5.56152×10⁻³ already exceeds it before doubling.] |
    | 8 | `eccplace` — eccentric-class placements incl. 23/24–43/44 at distance 20 (pp. 124–125, 117 n10, 172, 211) | 1 | zero sampled mass | extreme / data-like class |
    | 9 | `asymhalf` — both-asymmetric-trigram half-split (pp. 111–112) | 4 of 16 | P(≤4) = 1.9×10⁻¹ (mean 7.3) | **NULL** |
 
@@ -331,8 +331,9 @@ notational scoring — is accepted and stated.
    himself first published in 1978/79 under his Chinese name, **Dai Sike 戴思客** (a self-citation, not
    a distinct prior author — see [CITATIONS #davis1987](../documentation/CITATIONS.md#davis1987));
    Li Shangxin for the pair-unit trisection; Gardner (1974) for the no-global-pattern verdict; overlaps between his observations and [Schulz's](../documentation/CITATIONS.md#schulz1990-motifs) and [Cook's](../documentation/CITATIONS.md#cook2006) are recorded in the attribution
-   registry. What is claimed here: nine pre-registered population measurements (four null, one
-   notable, one borderline, three data-like), one exact refutation of a uniqueness claim, one
+   registry. What is claimed here: nine pre-registered population measurements (**five** null, one
+   notable, three data-like — corrected 2026-08-28: `pureplace` was published as "borderline" and is
+   NULL under the report's own declared two-sided bar), one exact refutation of a uniqueness claim, one
    withdrawn refutation, and no promotion of anything into the constraint system. What is *not*
    claimed: that Davis's design thesis is false — population typicality is not a disproof of intent,
    and his textual arguments are unmeasured by construction. The honest summary is narrower: where

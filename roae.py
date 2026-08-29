@@ -555,7 +555,8 @@ def print_trigrams():
                (t << 3) | (t ^ 0b111), ((t ^ 0b001) << 3) | (t ^ 0b111),
                ((t ^ 0b011) << 3) | (t ^ 0b111), ((t ^ 0b010) << 3) | (t ^ 0b111),
                ((t ^ 0b010) << 3) | t]
-    assert len(set(jf)) == 64, "Jing Fang generator must produce all 64 hexagrams"
+    if not (len(set(jf)) == 64):
+        raise AssertionError("Jing Fang generator must produce all 64 hexagrams")
     r_jf = {h: i for i, h in enumerate(jf)}
     n = 64.0
     d2 = sum((pos[h] - r_jf[h]) ** 2 for h in range(64))
@@ -4012,8 +4013,10 @@ def _gs_rarity_batch(args):
         seq, tr = _gs_one_sample(rng)
         trials += tr
         if j == 0:  # per-batch sanity: C4 pin + C2 (no distance-5 transition)
-            assert seq[0] == 63 and seq[1] == 0
-            assert all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))
+            if not (seq[0] == 63 and seq[1] == 0):
+                raise AssertionError('guard failed: seq[0] == 63 and seq[1] == 0')
+            if not (all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))):
+                raise AssertionError('guard failed: all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))')
         tm, pm = _gs_seq_masks(seq)
         for ci, c in enumerate(cands):
             if _gs_eval_cand(c, tm, pm):
@@ -4043,7 +4046,8 @@ def _gs_setup_population():
     for p in pairs:
         if set(p) != {0, 63}:
             others.append(p)
-    assert len(others) == 31
+    if not (len(others) == 31):
+        raise AssertionError('guard failed: len(others) == 31')
     _GS["others"] = others
     kw_diffs = [_GS_PC[binary_hexagrams[i] ^ binary_hexagrams[i + 1]]
                 for i in range(63)]
@@ -4051,7 +4055,8 @@ def _gs_setup_population():
     for d in kw_diffs:
         target[d] += 1
     # C5's transition multiset (matches the published constraint definition).
-    assert target == [0, 2, 20, 13, 19, 0, 9], target
+    if not (target == [0, 2, 20, 13, 19, 0, 9]):
+        raise AssertionError(target)
     _GS["target"] = target
 
 
@@ -4075,8 +4080,10 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
     _GS["d2_pgates"] = tuple(p_glbl.index(x)
                              for x in ("ALL", "i%2==0", "i%2==1"))
     nt, np_ = len(_GS["t_atoms"]), len(_GS["p_atoms"])
-    assert nt == 118 and np_ == 52, (nt, np_)  # frozen sizes
-    assert len(_GS["t_gates"]) == 24 and len(_GS["p_gates"]) == 24
+    if not (nt == 118 and np_ == 52):   # frozen sizes
+        raise AssertionError((nt, np_))
+    if not (len(_GS["t_gates"]) == 24 and len(_GS["p_gates"]) == 24):
+        raise AssertionError('guard failed: len(_GS["t_gates"]) == 24 and len(_GS["p_gates"]) == 24')
 
     # ---- population definition (the declared conditioning, not a terminal) ----
     _gs_setup_population()
@@ -4296,9 +4303,11 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
     # sanity: C2 as a grammar sentence must hold on KW and all probe samples
     t_lbls = [a[0] for a in _GS["t_atoms"]]
     c2c = ("d1", "T", _GS_QUANTS.index("NONE"), 0, t_lbls.index("d==5"))
-    assert _gs_eval_cand(c2c, probe_tm[0], probe_pm[0])
-    assert all(_gs_eval_cand(c2c, probe_tm[s], probe_pm[s])
-               for s in range(1, min(51, nprobe + 1)))
+    if not (_gs_eval_cand(c2c, probe_tm[0], probe_pm[0])):
+        raise AssertionError('guard failed: _gs_eval_cand(c2c, probe_tm[0], probe_pm[0])')
+    if not (all(_gs_eval_cand(c2c, probe_tm[s], probe_pm[s])
+               for s in range(1, min(51, nprobe + 1)))):
+        raise AssertionError('guard failed: all(_gs_eval_cand(c2c, probe_tm[s], probe_pm[s]) for s in range(1, min(51, nprobe + 1)))')
     print("[S] sanity: NONE[T:ALL] d==5 (C2) true on KW + probe: OK")
 
     verdict = ("NULL — no survivor within the declared grammar at depth <= 2"
@@ -4419,8 +4428,10 @@ def _ph_batch(args):
         seq, tr = _gs_one_sample(rng)
         trials += tr
         if j == 0:  # per-batch sanity: C4 pin + C2 (no distance-5 transition)
-            assert seq[0] == 63 and seq[1] == 0
-            assert all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))
+            if not (seq[0] == 63 and seq[1] == 0):
+                raise AssertionError('guard failed: seq[0] == 63 and seq[1] == 0')
+            if not (all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))):
+                raise AssertionError('guard failed: all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))')
         a, p, q, ok = _ph_stats(seq)
         if not ok:
             parity_viol += 1
@@ -4436,7 +4447,8 @@ def _ph_median(hist, mode):
     mode "ge": largest integer tau with F(X >= tau) >= 1/2    (for T3's P).
     """
     n = sum(hist.values())
-    assert n > 0 and mode in ("le", "ge")
+    if not (n > 0 and mode in ("le", "ge")):
+        raise AssertionError('guard failed: n > 0 and mode in ("le", "ge")')
     if mode == "le":
         cum = 0
         for v in sorted(hist):
@@ -4508,9 +4520,11 @@ def _ph_run_stream(label, seed, seed_off, ntotal, workers, batches,
             for k, v in rec[key].items():
                 k = int(k)  # JSON round-trip stringifies integer keys
                 hist[k] = hist.get(k, 0) + v
-    assert n_eff == ntotal, (n_eff, ntotal)
+    if not (n_eff == ntotal):
+        raise AssertionError((n_eff, ntotal))
     # Parity shadow is a theorem (mass 1): any violation = sampler bug.
-    assert parity_viol == 0, f"parity-shadow violation: sampler defect"
+    if not (parity_viol == 0):
+        raise AssertionError(f"parity-shadow violation: sampler defect")
     return hist_a, hist_p, hist_q, n_eff, trials, parity_viol
 
 def _ph_mass(hist, pred):
@@ -4536,7 +4550,8 @@ def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
     L = {"T1": 7.58, "T2": 7.58, "T3": 9.17, "T4": 8.06}
     SEL = 2.00
     T2_CUT = 693  # floor((211^2 - 827)/63), closed form from C5's multiset
-    assert (211 * 211 - 827) // 63 == T2_CUT
+    if not ((211 * 211 - 827) // 63 == T2_CUT):
+        raise AssertionError('guard failed: (211 * 211 - 827) // 63 == T2_CUT')
 
     # ---- Phase T: threshold stream — completes BEFORE any KW evaluation ----
     t0 = time.time()
@@ -4565,8 +4580,8 @@ def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
     # ---- Phase V: FIRST KW read (structurally after the threshold freeze) --
     kw_a, kw_p, kw_q, kw_par = _ph_stats(list(binary_hexagrams))
     # Evaluator-correctness pins (frozen constants, NOT thresholds).
-    assert (kw_a, kw_p, kw_q, kw_par) == (648, 5, 2, True), \
-        (kw_a, kw_p, kw_q, kw_par)
+    if not ((kw_a, kw_p, kw_q, kw_par) == (648, 5, 2, True)):
+        raise AssertionError((kw_a, kw_p, kw_q, kw_par))
     kw_sat = {"T1": kw_a <= med_a, "T2": kw_a <= T2_CUT,
               "T3": kw_p >= med_p, "T4": kw_q == 2}
     print(f"[V] KW values: A=648 P=5 Q=2 (pinned); satisfaction: "

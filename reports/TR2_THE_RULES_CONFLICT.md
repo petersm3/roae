@@ -16,8 +16,7 @@ explanation: the four strongest design rules proposed for the sequence (two by S
 traceable through Larry Schulz to a 13th-century commentator) are **mutually contradictory — no
 C1∩C2∩C4∩C5-valid arrangement (the pairing-preserving space with the base constraints the encoding
 fixes; §2) can satisfy all of them**, a fact established by an exhaustive logic
-search with an independently checkable certificate. King Wen keeps one rule perfectly and misses the
-others by the smallest measured margins (2 each). Its irregularities are the visible seam of a forced trade-off,
+search with an independently checkable certificate. King Wen keeps one rule perfectly and misses the other three by two each — **not, as this previously claimed, by the smallest possible margins** ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]** Its irregularities are the visible seam of a forced trade-off,
 not damage to a once-perfect-under-all-four original — none could exist. **How far that may be read is
 calibrated in §5:** all four rules are KW-derived, so King Wen sitting near their joint Pareto frontier is
 *expected* rather than an efficiency result, and UNSAT means every C1∩C2∩C4∩C5-valid ordering sits at some
@@ -216,7 +215,7 @@ distrusts every piece of our software can still reproduce the formula and re-ver
 **The result is robust, not brittle.** The v1.6 extension pushed on it from several directions and it
 held: the five-rule union is UNSAT; *every* leave-one-out subset of that union is still UNSAT
 (`five_loo_parity`, `five_loo_rhythm`, `five_loo_gender`, `five_loo_ccn4`, `five_loo_ccn8`); the
-conflict decomposes into three minimal **two-rule cores**, so it is not an artifact of piling on
+conflict decomposes into minimal **two-rule cores** (four of them — corrected 2026-08-28, §4), so it is not an artifact of piling on
 constraints; and the union admits no repair at any tested edit distance (`grander-strict-near-2/3/4` all
 UNSAT). A single fragile encoding choice cannot produce that pattern.
 
@@ -234,8 +233,7 @@ leave-one-out certificates establish — so the conclusion does not rest on it.
 evidence of damage to an original perfect under the full four-rule inventory, because no such original
 could exist (damage relative to the three-graded-rule precursor, which does exist, is the separate
 question weighed in the Bayesian section). They are the visible
-seam of a forced trade-off among competing regularities. King Wen keeps one rule exactly and misses the
-other three by the minimal measured margins of two each.
+seam of a forced trade-off among competing regularities. King Wen keeps one rule exactly and misses the other three by two each — **not, as this previously claimed, by the smallest possible margins** ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]**
 
 **Baseline calibration — how far that may be read (added 2026-08-01).** It is tempting to read the
 preceding sentence as saying King Wen is a *good solution* to the unsatisfiable problem, and this report
@@ -286,7 +284,7 @@ Every verdict below was re-verified 2026-07-03 on a 2-core box; each command com
 ![Grouped bar chart of the four conflicting rules: King Wen misses Moore's 2005 parity rule by 2 (16/18), Moore's 1989 rhythm rule by 2 breaks, and Schulz's 1990 gender rule by 2 violations while satisfying the Schulz S25–28 trigram configuration exactly; the grand unified precursor is perfect (0) on the first three and violates the trigram configuration — no C1∩C2∩C4∩C5-valid ordering achieves zero on all four.](figures/fig_tr1_rules_tradeoff.png)
 
 *The forced trade-off (§4–5, shared with [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §5). King Wen (red)
-misses the three graded rules by the minimal measured margins (2 each) and keeps the S25–28 trigram configuration
+misses the three graded rules by two each ⚠ **[CORRECTED 2026-08-28 — "minimal" is UNSUPPORTED: `reports/evidence/f11/f11_runA.out` carries `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than KW's `2 2 2` with nonzero mass, and the histogram is not CC-N4-conditioned so no extremal check exists. See CORRECTIONS.md]** and keeps the S25–28 trigram configuration
 exactly; the grand unified precursor (green, 3 slot-edits from KW) perfects those three and breaks the
 trigram configuration — a binary configuration rule with no graded miss count. The joint-UNSAT
 certificate says no C1∩C2∩C4∩C5-valid ordering reaches zero on all four axes: the received order's irregularities are the
@@ -302,14 +300,22 @@ independent hardware:
 1. **The five-rule union is unconditionally unsatisfiable** — not merely "no perfect ordering": no
    C1∩C2∩C4∩C5-valid ordering satisfies the five rules at ANY repair distance (the near-2/near-3/near-4
    relaxations are all UNSAT as well).
-2. **The conflict decomposes into three minimal two-rule cores**: {Moore parity, Schulz S25–28},
-   {Moore rhythm, Schulz S25–28}, and {Schulz gender, CC-N8}. Every leave-one-out four-subset of the
+2. **The conflict decomposes into minimal two-rule cores**: {Moore parity, Schulz S25–28},
+   {Moore rhythm, Schulz S25–28}, {Schulz gender, CC-N8}, and **{Schulz gender, Schulz S25–28}**.
+   ⚠ **[CORRECTED 2026-08-28 — this read "three minimal two-rule cores" and listed only the first
+   three. A FOURTH minimal core exists: {Schulz gender, Schulz S25–28} is unsatisfiable while each
+   of its two rules is satisfiable alone. Verified twice independently: a full census of the
+   five-rule conflict lattice, and a separate re-derivation that built the CNF from scratch
+   (7,035 vars / 243,175 clauses), solved it (kissat `s UNSATISFIABLE`), replayed its own proof
+   (drat-trim `s VERIFIED`), and passed a SAT control ({parity, rhythm} → `s SATISFIABLE`) to show
+   the check can return either answer. Certificate: `core_gender_ccn4_unsat.drat`. The theorem in
+   item 1 is UNAFFECTED — a further core makes the conflict tighter, not weaker. See CORRECTIONS.md.]** Every leave-one-out four-subset of the
    five rules remains unsatisfiable, and each core is a two-rule contradiction on its own. In
    particular, the four-rule system of the main theorem was not a MINIMAL unsatisfiable set — the
    gender rule is not needed for that instance of the conflict. The main theorem's statement is
    unaffected; its anatomy is now finer: the literature's rules do not fail jointly in one tangle,
-   they fail in specific pairs. One disclosure the uniform presentation of the three cores previously
-   omitted (added 2026-07-30): the third core, **{Schulz gender, CC-N8}, is incompatible by
+   they fail in specific pairs. One disclosure the uniform presentation of the cores previously
+   omitted (added 2026-07-30): the core **{Schulz gender, CC-N8} is incompatible by
    construction** — CC-N8 requires the gender rule's violations to sit exactly at class positions
    25/26 while the strict gender rule demands zero violations, so that core is a definitional
    triviality rather than a discovered combinatorial fact (the encoding keeps CC-N8 as stated so the

@@ -101,7 +101,8 @@ def compute_comp_dist(seq):
 
 # Derive the C3 ceiling from KW itself (same source of truth as solve.c)
 KW_COMP_DIST = compute_comp_dist(KW)
-assert KW_COMP_DIST == 776, f"internal error: KW complement distance is {KW_COMP_DIST}, expected 776"
+if not (KW_COMP_DIST == 776):
+    raise AssertionError(f"internal error: KW complement distance is {KW_COMP_DIST}, expected 776")
 
 def decode(record):
     seq = []
@@ -1023,7 +1024,8 @@ def _c5_budget_from_kw():
     budget = [0] * 7
     for i in range(63):
         budget[hamming(KW[i], KW[i + 1])] += 1
-    assert budget == [0, 2, 20, 13, 19, 0, 9], f"KW budget mismatch: {budget}"
+    if not (budget == [0, 2, 20, 13, 19, 0, 9]):
+        raise AssertionError(f"KW budget mismatch: {budget}")
     return budget
 
 
@@ -1043,7 +1045,8 @@ def repr_of_key(pair_order):
     if len(pair_order) != 32:
         return None
     budget = _c5_budget_from_kw()
-    assert sum(budget) == 63, "budget/transition-count identity broken"
+    if not (sum(budget) == 63):
+        raise AssertionError("budget/transition-count identity broken")
 
     a0, b0 = PAIRS[pair_order[0]]
     # C4 forces the sequence to open (63, 0); only an orientation that produces
@@ -1738,8 +1741,8 @@ def _count_c1c2c4c5_packed(pairs, start, b0):
     b0idx = sum(b0[c] * stride[c] for c in range(5))
     total = 0
     for key, cnt in cur.items():
-        assert key & full == full and key >> shift_p == b0idx, \
-            "sum invariant violated — cap logic bug"
+        if not (key & full == full and key >> shift_p == b0idx):
+            raise AssertionError("sum invariant violated — cap logic bug")
         total += cnt
     return total
 
@@ -1762,7 +1765,8 @@ def recount_rung(n):
         return 2
     spec, b0_pub, pub = _C5_RUNGS_LARGE[n]
     pl = _spec_to_pairs_ordered(spec)
-    assert len(pl) == n
+    if not (len(pl) == n):
+        raise AssertionError('guard failed: len(pl) == n')
     t0 = time.time()
     # gate the packed DP against the plain DP on the largest cheap rung first
     xchk_pl = _spec_to_pairs_ordered("4.0,6.0,6.1")
@@ -1901,7 +1905,8 @@ def recount_rung_layers(n):
         return 1
     t0 = time.time()
     pl = _spec_to_pairs_ordered(spec)
-    assert len(pl) == n
+    if not (len(pl) == n):
+        raise AssertionError('guard failed: len(pl) == n')
     b0 = _b0_first_completion(pl, 0)
     got = _layer_masses_c1c2c4c5(pl, 0, tuple(b0))
     bad = 0
@@ -2414,7 +2419,8 @@ def _exact_subtree(prefix):
     budget = [0] * 7
     for i in range(63):
         budget[hamming(KW[i], KW[i + 1])] += 1
-    assert budget == [0, 2, 20, 13, 19, 0, 9]
+    if not (budget == [0, 2, 20, 13, 19, 0, 9]):
+        raise AssertionError('guard failed: budget == [0, 2, 20, 13, 19, 0, 9]')
     budget[6] -= 1                              # pair 0's within transition
     seq = [63, 0] + [0] * 62
     slotp = [0] * 32                            # pair index placed at each slot
@@ -2426,10 +2432,12 @@ def _exact_subtree(prefix):
         a, b = PAIRS[p]
         f, s = (b, a) if o else (a, b)
         bd = hamming(last, f)
-        assert bd != 5 and budget[bd] > 0, "prefix infeasible (boundary)"
+        if not (bd != 5 and budget[bd] > 0):
+            raise AssertionError("prefix infeasible (boundary)")
         budget[bd] -= 1
         wd = hamming(f, s)
-        assert budget[wd] > 0, "prefix infeasible (within)"
+        if not (budget[wd] > 0):
+            raise AssertionError("prefix infeasible (within)")
         budget[wd] -= 1
         seq[2 * step], seq[2 * step + 1] = f, s
         used |= 1 << p

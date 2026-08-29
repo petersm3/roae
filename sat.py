@@ -10,6 +10,12 @@ the King Wen ground truth and C1-C5 semantics. A clause encoding a C-rule from s
 a bug by definition. Validation discipline: every encoding is round-trip checked (SAT
 model -> decode -> solve.py constraint functions) before any UNSAT claim from it is trusted.
 
+GUARD RULE (Q-373, 2026-08-28): this file must contain NO `assert` statements. Every
+import-time ground-truth gate and runtime guard is an explicit `if not (...): raise`, so
+the trust base survives `python3 -O` (which strips asserts — measured before the fix: a
+corrupted BETWEEN_MULTISET silently emitted a syntactically valid wrong CNF under -O).
+Same convention as solve.py's table gates (VERIFY.md). Enforced by tests.py's AST scan.
+
 Architecture (operator-approved 2026-07-02): three canonical sources — solve.c (enumeration,
 sha-anchored), solve.py (analysis + ground truth), sat.py (this file; imports solve.py).
 External solvers (kissat / CaDiCaL) run as separate binaries; their UNSAT answers are only
@@ -135,8 +141,17 @@ _wp = {}
 for a, b in KW_PAIRS:
     _wp[solve.bit_diff(a, b)] = _wp.get(solve.bit_diff(a, b), 0) + 1
 _tot = {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}             # C5 (verified vs solve.py constraint funcs below)
-for d in (2, 4, 6):
-    assert _tot.get(d, 0) - _wp.get(d, 0) == BETWEEN_MULTISET.get(d, 0), "between-multiset derivation broke"
+# Q-357 (2026-08-28): was `for d in (2, 4, 6)` — EVEN distances only, so the two ODD entries of
+# BETWEEN_MULTISET (d=1 -> 2 and d=3 -> 13) were never asserted. They are correct, and they are
+# correct only because within-pair distance is always even (SPECIFICATION.md Theorem 1), which makes
+# _wp.get(1)=_wp.get(3)=0 — a dependency this file never cited. Measured: _wp = {2:12, 4:12, 6:8},
+# no odd keys, and both odd rows check out (2-0=2, 13-0=13). BETWEEN_MULTISET feeds the CNF at :604
+# and :606, so a wrong odd entry would silently build the wrong formula and every model count of it
+# would be a correct count of the wrong thing — the exact failure class Q-58 exists for. Iterating
+# the dict covers all five and leans on no uncited theorem.
+for d in BETWEEN_MULTISET:
+    if not (_tot.get(d, 0) - _wp.get(d, 0) == BETWEEN_MULTISET.get(d, 0)):
+        raise AssertionError("between-multiset derivation broke")
 
 # ---- static per-(pair,orient) facts, all derived from solve imports ----
 def pc(n): return bin(n).count("1")
@@ -153,31 +168,39 @@ SLOTS = list(range(1, 32))                        # slot 0 fixed: pair 0 as (63,
 # solve.mean_complement_distance (Rule 3 in solve.py); KW ceiling 776 = 12.125 * 64. CITATIONS.md.
 _kwpos = {h: i for i, h in enumerate(KW)}
 KW_C3 = sum(abs(_kwpos[h] - _kwpos[h ^ 63]) for h in range(64))
-assert KW_C3 == round(solve.mean_complement_distance(KW) * 64) == 776, "C3 ground-truth derivation broke"
+if not (KW_C3 == round(solve.mean_complement_distance(KW) * 64) == 776):
+    raise AssertionError("C3 ground-truth derivation broke")
 # the canonical pairing is closed under complement: comp of pair {a,b} is pair {a^63,b^63}
 C3_SELFC = [p for p, (a, b) in enumerate(KW_PAIRS) if a ^ b == 63]     # self-complement pairs
 C3_COUPLES = []                                                        # unordered {p,q} complement couples
 for _p, (_a, _b) in enumerate(KW_PAIRS):
     if _a ^ _b == 63: continue
     _q = PAIR_IDX[frozenset((_a ^ 63, _b ^ 63))]
-    assert _q != _p and _q != 0, "complement couple derivation broke"
+    if not (_q != _p and _q != 0):
+        raise AssertionError("complement couple derivation broke")
     if _p < _q: C3_COUPLES.append((_p, _q))
-assert len(C3_SELFC) == 8 and len(C3_COUPLES) == 12 and 0 in C3_SELFC
+if not (len(C3_SELFC) == 8 and len(C3_COUPLES) == 12 and 0 in C3_SELFC):
+    raise AssertionError('guard failed: len(C3_SELFC) == 8 and len(C3_COUPLES) == 12 and 0 in C3_SELFC')
 # a self-complement pair contributes |diff|=1 per member counted twice = 2; a couple with slots
 # s,t and orientation offsets e1,e2 contributes 2*(|(2s+e1)-(2t+e2)| + |(2s+1-e1)-(2t+1-e2)|)
 # = 8*|s-t| for s != t, orientation-independent (asserted exhaustively):
-assert all(2 * (abs((2*s + e1) - (2*t + e2)) + abs((2*s + 1 - e1) - (2*t + 1 - e2))) == 8 * abs(s - t)
-           for s in range(31) for t in range(31) if s != t for e1 in (0, 1) for e2 in (0, 1))
+if not (all(2 * (abs((2*s + e1) - (2*t + e2)) + abs((2*s + 1 - e1) - (2*t + 1 - e2))) == 8 * abs(s - t)
+           for s in range(31) for t in range(31) if s != t for e1 in (0, 1) for e2 in (0, 1))):
+    raise AssertionError('guard failed: all(2 * (abs((2*s + e1) - (2*t + e2)) + abs((2*s + 1 - e1) - (2*t + 1 - e2))) == 8 * ab...')
 # decomposition check on KW itself (KW slot of pair p is p):
-assert 2 * len(C3_SELFC) + 8 * sum(abs(u - v) for u, v in C3_COUPLES) == KW_C3, "C3 decomposition broke"
+if not (2 * len(C3_SELFC) + 8 * sum(abs(u - v) for u, v in C3_COUPLES) == KW_C3):
+    raise AssertionError("C3 decomposition broke")
 
 # ---- CC-N8 static facts (Schulz exception co-location), derived from solve imports ----
 # ATTRIBUTION: CC-N8 = Schulz 2016 (Hexagrammatics) pp. 14-15, SC-7 double-exception note;
 # Schulz 1990 JCP 17:3 for both underlying motifs. Semantics = solve.reg_ccn8: the CC-A2
 # (gender) violation set is EXACTLY {25, 26} and both class positions also violate R-S2.
-assert solve.reg_ccn8(KW) is True, "CC-N8 KW ground truth broke"
-assert solve.rc4_violations(KW) == (2, [25, 26]), "CC-A2 KW ground truth broke"
-assert solve._reg_rs2_violations(KW) == [11, 13, 14, 25, 26, 32], "R-S2 KW ground truth broke"
+if not (solve.reg_ccn8(KW) is True):
+    raise AssertionError("CC-N8 KW ground truth broke")
+if not (solve.rc4_violations(KW) == (2, [25, 26])):
+    raise AssertionError("CC-A2 KW ground truth broke")
+if not (solve._reg_rs2_violations(KW) == [11, 13, 14, 25, 26, 32]):
+    raise AssertionError("R-S2 KW ground truth broke")
 
 def _rs2_viol_from_bal(bal):
     """solve._reg_rs2_violations' run-segmented pairing, factored over a station-balance
@@ -205,9 +228,11 @@ import random as _random, itertools as _itertools
 _rng = _random.Random(217)
 for _t in range(300):
     _perm = list(range(64)); _rng.shuffle(_perm)
-    assert (_rs2_viol_from_bal(solve._reg_balances(solve._reg_stations(_perm)))
-            == solve._reg_rs2_violations(_perm)), "R-S2 balance-replica derivation broke"
-assert _rs2_viol_from_bal(solve._reg_balances(solve._reg_stations(KW))) == [11, 13, 14, 25, 26, 32]
+    if not (_rs2_viol_from_bal(solve._reg_balances(solve._reg_stations(_perm)))
+            == solve._reg_rs2_violations(_perm)):
+        raise AssertionError("R-S2 balance-replica derivation broke")
+if not (_rs2_viol_from_bal(solve._reg_balances(solve._reg_stations(KW))) == [11, 13, 14, 25, 26, 32]):
+    raise AssertionError('guard failed: _rs2_viol_from_bal(solve._reg_balances(solve._reg_stations(KW))) == [11, 13, 14, 25, 26...')
 
 def _rs2_r_after(bal_prefix):
     """R-S2 run-parity state: True iff the next non-zero station OPENS a pair."""
@@ -221,7 +246,8 @@ def _rs2_r_after(bal_prefix):
 # windows, each embedded in a full 36-vector — against the replica above:
 for _rprev in (True, False):
     _prefix = [0] * 23 if _rprev else [0] * 22 + [2]     # positions 1..23 realizing r_23
-    assert _rs2_r_after(_prefix) == _rprev
+    if not (_rs2_r_after(_prefix) == _rprev):
+        raise AssertionError('guard failed: _rs2_r_after(_prefix) == _rprev')
     for _w in _itertools.product((-6, -4, -2, 0, 2, 4, 6), repeat=4):
         _b24, _b25, _b26, _b27 = _w                      # positions 24..27
         _bal = _prefix + list(_w) + [0] * 9
@@ -232,14 +258,16 @@ for _rprev in (True, False):
             _pred = (_b25 + _b26) != 0                   # 25 opens, 26 closes: joint mismatch
         else:                                            # 25 closes 24's pair; 26 opens anew
             _pred = (_b24 + _b25) != 0 and (_b27 == 0 or (_b26 + _b27) != 0)
-        assert _pred == ({25, 26} <= set(_rs2_viol_from_bal(_bal))), "R-S2 CNF case analysis broke"
+        if not (_pred == ({25, 26} <= set(_rs2_viol_from_bal(_bal)))):
+            raise AssertionError("R-S2 CNF case analysis broke")
 
 KW_BAL = solve._reg_balances(solve._reg_stations(KW))
 KW_RS2_R24 = _rs2_r_after(KW_BAL[:24])   # True on KW: position 24 is zero-balance
 # gender-violation popcounts by class-position parity (solve.rc4_violations semantics:
 # {0,3,6} exempt; violation iff (pc < 3) != (position odd)) — used by the CC-N8 clauses:
-assert all(((w < 3) != bool(pos % 2)) == (w in ((4, 5) if pos % 2 else (1, 2)))
-           for w in (1, 2, 4, 5) for pos in (24, 25, 26, 27))
+if not (all(((w < 3) != bool(pos % 2)) == (w in ((4, 5) if pos % 2 else (1, 2)))
+           for w in (1, 2, 4, 5) for pos in (24, 25, 26, 27))):
+    raise AssertionError('guard failed: all(((w < 3) != bool(pos % 2)) == (w in ((4, 5) if pos % 2 else (1, 2))) for w in (1, 2...')
 
 # ---- CC-N4 static facts (Schulz S25-28 dui configuration), derived from solve imports ----
 # ATTRIBUTION: CC-N4 = Schulz 2016 (Hexagrammatics) pp. 23-24; Schulz 2011 (JCP 38:4).
@@ -251,15 +279,17 @@ assert all(((w < 3) != bool(pos % 2)) == (w in ((4, 5) if pos % 2 else (1, 2)))
 # face value each, and since KW satisfies CC-N4 (asserted), KW's own station faces — read
 # off solve._reg_stations, the same first-appearance machinery reg_ccn4 itself uses — ARE
 # those required values. No literal survives.
-assert solve.reg_ccn4(KW) is True, "CC-N4 KW ground truth broke"
-assert all((solve.upper_trigram(h) << 3) | solve.lower_trigram(h) == h for h in range(64)), \
-    "trigram-pair bijection broke"
+if not (solve.reg_ccn4(KW) is True):
+    raise AssertionError("CC-N4 KW ground truth broke")
+if not (all((solve.upper_trigram(h) << 3) | solve.lower_trigram(h) == h for h in range(64))):
+    raise AssertionError("trigram-pair bijection broke")
 CCN4_STATIONS = (25, 26, 27, 28)
 _st_kw = solve._reg_stations(KW)
 CCN4_REQ = {s: _st_kw[s - 1][0] for s in CCN4_STATIONS}
 # the required faces are inversion-asymmetric — the encoder's palindrome-pair in-window
 # forbid ("a palindrome face can never match") is sound only because of this:
-assert all(solve.reverse_6bit(v) != v for v in CCN4_REQ.values()), "CC-N4 face palindromicity broke"
+if not (all(solve.reverse_6bit(v) != v for v in CCN4_REQ.values())):
+    raise AssertionError("CC-N4 face palindromicity broke")
 
 def _ccn4_predict(seq):
     """Validation-only replica of the CNF's CC-N4 clause semantics: the station-25..28
@@ -272,7 +302,8 @@ def _ccn4_predict(seq):
 _rng_c4 = _random.Random(2016)
 for _t in range(300):
     _perm = list(range(64)); _rng_c4.shuffle(_perm)
-    assert _ccn4_predict(_perm) == solve.reg_ccn4(_perm), "CC-N4 replica/scorer drift"
+    if not (_ccn4_predict(_perm) == solve.reg_ccn4(_perm)):
+        raise AssertionError("CC-N4 replica/scorer drift")
 # targeted mutants (random permutations are near-always False on both sides, so also
 # probe the boundary): (i) orientation flip of the pair holding station 25's class —
 # stations unchanged, the face becomes its reversal (non-palindromic, so != REQ) ->
@@ -289,18 +320,19 @@ def _kw_mut(swaps=(), flips=()):
     return m
 _c4early = [p for p in range(1, min(_c4slot.values()))
             if solve.reverse_6bit(KW_PAIRS[p][0]) != KW_PAIRS[p][0]][:2]
-assert len(_c4early) == 2, "CC-N4 positive-control mutant needs 2 early non-palindrome pairs"
+if not (len(_c4early) == 2):
+    raise AssertionError("CC-N4 positive-control mutant needs 2 early non-palindrome pairs")
 for _mut, _want in ((_kw_mut(flips=(_c4slot[25],)), False),
                     (_kw_mut(swaps=((_c4slot[25], _c4slot[26]),)), False),
                     (_kw_mut(swaps=(tuple(_c4early),)), True)):
-    assert _mut != KW and _ccn4_predict(_mut) == solve.reg_ccn4(_mut) == _want, \
-        "CC-N4 mutant endorsement broke"
+    if not (_mut != KW and _ccn4_predict(_mut) == solve.reg_ccn4(_mut) == _want):
+        raise AssertionError("CC-N4 mutant endorsement broke")
 # ccn4-kwfail table: the required faces PERMUTED (S25<->S26 and S27<->S28 values
 # swapped) — derived from CCN4_REQ, not hand-written. A derangement on distinct
 # values, so KW pinned against it must mismatch at ALL FOUR stations [expect UNSAT]:
 CCN4_REQ_FAIL = {25: CCN4_REQ[26], 26: CCN4_REQ[25], 27: CCN4_REQ[28], 28: CCN4_REQ[27]}
-assert all(_st_kw[_s - 1][0] != CCN4_REQ_FAIL[_s] for _s in CCN4_STATIONS), \
-    "ccn4-kwfail derangement broke (KW matches a permuted face)"
+if not (all(_st_kw[_s - 1][0] != CCN4_REQ_FAIL[_s] for _s in CCN4_STATIONS)):
+    raise AssertionError("ccn4-kwfail derangement broke (KW matches a permuted face)")
 
 # ---- Moore parity/rhythm static facts, DERIVED from solve.r11_axes (F-1) ----
 # ATTRIBUTION: g1 = Moore 2005 (Oracle Papers No.1) pair-positioning parity; g2 =
@@ -374,16 +406,19 @@ for _d1 in (-1, 0, 1):
     if all(_d in (-1, 0, 1) for _d in _D.values()) and \
        _S0 + _S1 + _D[31] == _S0 + _S1b + _D[1] == sum(abs(_d) for _d in _D.values()):
         _dsol.append(dict(_D))
-assert len(_dsol) == 1, "parity differencing under-determined (%d candidates)" % len(_dsol)
+if not (len(_dsol) == 1):
+    raise AssertionError("parity differencing under-determined (%d candidates)" % len(_dsol))
 _D = _dsol[0]
 MOORE_COUNTED = {p: _D[p] != 0 for p in range(1, 32)}   # scored by g1/g2 ("directional")
 MOORE_WANT_ODD = {p: _D[p] == 1 for p in range(1, 32) if _D[p] != 0}
-assert sum(MOORE_COUNTED.values()) == 18, "expected 18 counted (directional) pairs"
+if not (sum(MOORE_COUNTED.values()) == 18):
+    raise AssertionError("expected 18 counted (directional) pairs")
 for _p in range(1, 32):                           # g1 must be orientation-blind
     for _base in (_A0, _A1):                      # (checks pair _p at both parities)
         _fl = list(_base)
         _fl[_fl.index((_p, 0))] = (_p, 1)
-        assert _g1(_fl) == _g1(_base), "g1 orientation-dependent at pair %d" % _p
+        if not (_g1(_fl) == _g1(_base)):
+            raise AssertionError("g1 orientation-dependent at pair %d" % _p)
 
 # --- rhythm: MOORE_BREAK[(po1, po2)] = 1 iff placing po2 directly after po1
 # (both counted) breaks the rising/falling alternation. Probed EXHAUSTIVELY for
@@ -403,10 +438,12 @@ for _po1 in _CO:
         _adj = [(_e1, 0), _po1, _po2, (_e2, 0), (_e3, 0)] + _rest
         _sep = [(_e1, 0), _po1, (_e2, 0), _po2, (_e3, 0)] + _rest
         _br = _g2(_adj) - _g2(_sep)
-        assert _br in (0, 1), "rhythm adjacency probe not isolated"
+        if not (_br in (0, 1)):
+            raise AssertionError("rhythm adjacency probe not isolated")
         MOORE_BREAK[(_po1, _po2)] = _br
 for (_po1, _po2), _b in MOORE_BREAK.items():      # sanity: relation is symmetric
-    assert MOORE_BREAK[(_po2, _po1)] == _b, "rhythm break relation asymmetric"
+    if not (MOORE_BREAK[(_po2, _po1)] == _b):
+        raise AssertionError("rhythm break relation asymmetric")
 # sanity: the probed relation is a two-class (rising/falling) equality relation
 _ref = _CO[0]
 _cls = {_ref: 0}
@@ -416,7 +453,8 @@ for _po in _CO:                                   # other pairs: classify agains
 _sib = (_ref[0], 1 - _ref[1])                     # ref's orientation-sibling: via _CO[2]
 _cls[_sib] = _cls[_CO[2]] if MOORE_BREAK[(_CO[2], _sib)] else 1 - _cls[_CO[2]]
 for (_po1, _po2), _b in MOORE_BREAK.items():
-    assert _b == (1 if _cls[_po1] == _cls[_po2] else 0), "break relation not 2-colorable"
+    if not (_b == (1 if _cls[_po1] == _cls[_po2] else 0)):
+        raise AssertionError("break relation not 2-colorable")
 
 def _moore_predict(arrangement):
     """(g1, g2) predicted by the derived tables for [(pair, orient)] in slots
@@ -438,13 +476,15 @@ def _moore_predict(arrangement):
 # (== the published 2 parity violations / 2 rhythm breaks) + 300 seeded random
 # arrangements (pair permutation x orientations) — validating the differencing
 # hypotheses above on full sequences, same discipline as the R-S2 replica.
-assert _moore_predict(_A0) == _moore_scores(KW) \
-    == tuple(solve.R11_KW_EXPECTED[:2]) == (2, 2), "KW Moore ground truth broke"
+if not (_moore_predict(_A0) == _moore_scores(KW) \
+    == tuple(solve.R11_KW_EXPECTED[:2]) == (2, 2)):
+    raise AssertionError("KW Moore ground truth broke")
 _rng_m = _random.Random(191)
 for _t in range(300):
     _pp = list(range(1, 32)); _rng_m.shuffle(_pp)
     _arr = [(_p, _rng_m.randint(0, 1)) for _p in _pp]
-    assert _moore_predict(_arr) == _moore_scores(_arr_seq(_arr)), "Moore table/scorer drift"
+    if not (_moore_predict(_arr) == _moore_scores(_arr_seq(_arr))):
+        raise AssertionError("Moore table/scorer drift")
 
 # ---- CNF builder ----
 class CNF:
@@ -957,7 +997,8 @@ def _hex_act(perm, h):
 # --- S4 pair-orbit structure (port of solve.c f1_build_group; = f1_orbit_dp.py) ---
 _G48 = [p for p in _itertools.permutations(range(6))
         if _perm_compose(p, _REV) == _perm_compose(_REV, p)]
-assert len(_G48) == 48, "centralizer of rev in S6 must have order 48"
+if not (len(_G48) == 48):
+    raise AssertionError("centralizer of rev in S6 must have order 48")
 _PSETS = [frozenset(pr) for pr in KW_PAIRS]
 _SET2PAIR = {s: i for i, s in enumerate(_PSETS)}
 def _pair_perm(g):
@@ -965,7 +1006,8 @@ def _pair_perm(g):
 _coset = {}
 for _g in sorted(_G48):
     _coset.setdefault(_pair_perm(_g), []).append(_g)
-assert len(_coset) == 24, "record-level pair group must be S4 (order 24)"
+if not (len(_coset) == 24):
+    raise AssertionError("record-level pair group must be S4 (order 24)")
 _G24_PP = sorted(_coset)                                    # 24 pair-perms of the 32 pairs
 _parent = list(range(32))                                   # union-find over the 32 pairs
 def _uf_find(x):
@@ -980,7 +1022,8 @@ _orbmap = {}
 for _i in range(1, 32):                                     # the 31 free pairs (pair 0 fixed)
     _orbmap.setdefault(_uf_find(_i), []).append(_i)
 PAIR_ORBITS = sorted(_orbmap.values(), key=lambda o: (len(o), o))  # == solve.c f1_orb_cmp order
-assert sorted(len(o) for o in PAIR_ORBITS) == [3, 3, 3, 4, 6, 6, 6], "pair-orbit sizes broke"
+if not (sorted(len(o) for o in PAIR_ORBITS) == [3, 3, 3, 4, 6, 6, 6]):
+    raise AssertionError("pair-orbit sizes broke")
 
 # group-closed orbit-union specs, verbatim from solve.c f1c5_unions[]
 F1C5_UNIONS = {
@@ -1018,7 +1061,8 @@ def subset_pairlist(npairs):
     pl = []
     for tok in body.split(","):
         L, I = tok.split("."); pl += _orbit_by(int(L), int(I))
-    assert len(pl) == npairs, "union table inconsistency"
+    if not (len(pl) == npairs):
+        raise AssertionError("union table inconsistency")
     return pl, start
 
 def derive_b0(pl, start_exit):
@@ -1050,7 +1094,8 @@ def derive_b0(pl, start_exit):
                 if dfs(mask | (1 << i), s, depth + 1):
                     return True
         return False
-    assert dfs(0, start_exit, 0), "no valid completion exists for the subset"
+    if not (dfs(0, start_exit, 0)):
+        raise AssertionError("no valid completion exists for the subset")
     b0 = {dv: 0 for dv in _DVAL}
     for c in cls:
         b0[_DVAL[c]] += 1

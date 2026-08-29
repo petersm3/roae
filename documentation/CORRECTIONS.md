@@ -1668,3 +1668,429 @@ are claimed to bound.
 **Attribution.** Raised by Codex target **R08** via the D1 batch-4 adjudication; the minimum-versus-
 rate reading, the coverage figure and the bias-does-not-decay point were derived here. Codex is
 **acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-28 (same day, later) — my own run description was wrong: "every free slot" pinned only eight of nine
+
+The entry above ("KW plus seven others") reports the corroborating runs as *"C6/C7 with the pair
+ordering free → 8 survivors, 1,169 nodes; C6/C7 with **every free slot** additionally pinned to KW's
+pairs → also 8, 233 nodes"*.
+
+**The 233-node run did not pin every free slot.** It passed
+`SOLVE_KNUTH_PIN_SLOTS="24,…,32"`, which leaves **position 23 order-free** — pins `24–31` produce the
+identical 233, so slot 32 was a no-op. Pinning all nine free steps (`23–32`) gives **75** nodes.
+
+**The finding is unaffected and the conclusion stands.** The survivor count is **8** in all three
+variants, so every C6/C7 survivor still carries King Wen's pair ordering; the reviewer additionally
+reproduced 690,176 / 16,504 / **899** / 8 from an independently written Python DFS — the first
+independent confirmation of the 899 figure. What was wrong was the *description of the run*, which
+claimed a stronger pinning than was performed.
+
+**How it was found, which is the part worth keeping.** A Fable reviewer was dispatched with one
+instruction the twenty-four Codex lenses could not follow — *run the artifact*. Those lenses all
+reported GCC, Lean, kissat and drat-trim absent, so not one executed anything. This reviewer re-ran
+the command and got a different node count than the sentence claimed. **An executed review caught,
+within hours, an error in a correction written the same day**; no amount of re-reading would have.
+
+These sites are corrected in place rather than by marker alone, because they were **committed but
+never pushed** — the error has not been published.
+
+---
+
+## 2026-08-28 — a firstness claim we had already ruled false stayed live for four weeks, and an author's name was wrong
+
+Two published errors in `CITATIONS.md`, found the same day by a review lens pointed at novelty
+language. They are unrelated in substance and share one cause: **the check that was supposed to catch
+each of them looked at the wrong line.**
+
+**1. The firstness claim.** The Suenaga 2012 entry read *"the first author we have located to start
+counting the arrangement space."* This project's own adjudication of 陳壯維 2007 ruled that sentence
+**false as written on 2026-08-24** — 黄石聲 1997 published the 8!×8! matrix-form count, and 陳壯維
+2007 restates it with a 7!×7! refinement. Both were already in our record. The sentence entered main
+on 2026-07-31 (`6a3feaaa`) and was still there on 2026-08-28. It now reads **"an independent arrival
+at counting the arrangement space"**, which is what we can support: independent arrival, no priority.
+
+**Why it survived two checks that both reported it gone.** Q-127 (closed) and Q-263 (open) each
+recorded the sentence as no longer live on main. Both were right about the text they read — the
+section *preamble* says "independently developed … and initiated counting" and "we claim no
+originality" — and neither read the *entry body* further down the same file. The good statement and
+the bad one coexisted for four weeks, and each check stopped at the good one. A consequence worth
+stating plainly: **an operator question (Q-263) was posed on a false premise**, because it described
+the remaining defect as a single citation chain when this sentence was also live.
+
+**2. The author's name.** Two files — this one's sibling `CITATIONS.md` and
+`KING_WEN_PROVENANCE.md` — named **關曉思** as the author of a structural mathematical model of the
+hexagram sequence. **No such author exists.** The name is **管小思** (Tongji University, 周易研究
+2004(1), pp. 61–74); wrong surname and wrong given name, both of which romanise identically to
+"GUAN Xiao-si", which is all we ever had from a printed contents list. Corrected across our private
+records on 2026-08-24; the two public sites were missed until 2026-08-28.
+
+This is a citation error, not a typo, and it had a cost: the author was repeatedly recorded as
+un-findable by author search, which we read as an indexing quirk. We were searching for a person who
+does not exist. Correcting the name made a further paper by him (1995) findable in about a minute.
+
+**3. The paragraphs those names sat in are also updated.** Both said the ordering-count question
+"has never been the target of a search designed for it" and that the two papers "are unread." Both
+statements were true when written and are now false: the designed search ran on 2026-08-16, and every
+obtainable paper by either author has been read (one item, 王俊龍 2007 in 劉大鈞 ed. 大易集釋
+pp. 812–836, remains unobtainable). **The narrow scoping those paragraphs impose is deliberately left
+in force** — the adjudication of those reads is not published yet, so the surrounding claim continues
+to be stated as a statement about five named authors and not as a survey result. Nothing here widens
+a claim.
+
+**Attribution.** All three were raised by a Fable review lens dispatched to re-read the project's
+novelty language from outside; the corrections and the premise analysis were derived here. The
+reviewer is **acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-28 — "three minimal two-rule cores" was an undercount: there are four
+
+`TR2_THE_RULES_CONFLICT.md:305` stated that the five-rule conflict *"decomposes into **three**
+minimal two-rule cores"* and listed {Moore parity, Schulz S25–28}, {Moore rhythm, Schulz S25–28} and
+{Schulz gender, CC-N8}.
+
+**There is a fourth: {Schulz gender, Schulz S25–28}.** It is unsatisfiable, and each of its two rules
+is satisfiable alone, which is what makes it minimal rather than merely conflicting.
+
+**How it was found, and why it took this long.** Every prior review of this claim read it. The
+statement is about what a solver decides, so reading it can neither confirm nor refute it — and the
+shipped `sat.py` has no target for this pair, so the claim's own tooling could not test it. It was
+found by a review that **enumerated the whole conflict lattice** (10 pairs, 5 singletons, the
+core-free triples) instead of checking the three pairs the sentence names. A claim of
+*completeness* — "the conflict decomposes into three" — is a claim about everything **not** listed,
+and it can only be checked by generating the unlisted cases.
+
+**Independently re-derived before this correction was written.** The CNF was rebuilt from scratch in
+a scratch copy of `sat.py` (7,035 variables / 243,175 clauses), solved with kissat
+(`s UNSATISFIABLE`), and its proof replayed with drat-trim (`s VERIFIED`) — a separate chain from the
+archived certificate. A **control** was run in the same harness ({Moore parity, Moore rhythm} →
+`s SATISFIABLE`), because a checker that can only return UNSAT would have "confirmed" this result
+regardless of the truth. Both singletons were also checked satisfiable.
+
+**The theorem is unaffected and is if anything strengthened.** The five-rule union is still
+unconditionally unsatisfiable; an additional minimal core makes the conflict tighter, not weaker.
+What was wrong is the **anatomy**, and specifically a completeness count we published without having
+enumerated the space it quantified over.
+
+**Attribution.** Codex **L01** asserted textually that the core list might be incomplete; it did not
+identify a pair. A Fable execution lens ran the census and found it. Both are **acknowledged**, not
+credited as authors.
+
+---
+
+## 2026-08-28 — two stale front-page statements: the Wilhelm "(hexagram names)" annotation, and a test count frozen at 67
+
+**What was wrong, and where.**
+
+1. `README.md` §References annotated the Wilhelm/Baynes citation "(hexagram names)". That was true
+   until 2026-08-27, when the copyrighted Wilhelm/Baynes English titles were removed from this
+   repository (see the CRITIQUE.md note of that date) and hexagram labels became trigram-derived.
+   The 2026-08-27 removal pass fixed the attribution claims in `CRITIQUE.md`, `SOLVE.md` and
+   `example/hexagrams.json` but missed this sibling site: the front page kept citing Wilhelm **as
+   the source of hexagram names this repository no longer ships** — the same
+   removed-the-data-kept-the-attribution defect the pass existed to cure. The annotation now states
+   what is true: the names were shipped until 2026-08-27, then removed rather than replaced.
+
+2. The "Check it yourself" block of the top-level `README.md` said the regression harness "has since grown to 67" tests. The
+   harness has 76 (`python3 tests.py`, run 2026-08-28: "Ran 76 tests… OK", agreeing with the
+   count already stated in this same README's Quick start). The sentence now pins the count to its
+   measurement date instead of asserting a present-tense figure that drifts.
+
+**Why it matters.** (1) is a provenance statement about copyrighted material — precisely the kind
+of claim a licensing reviewer checks first — and it was false on the front page while true
+everywhere the earlier fix reached. (2) is small, but the README contradicted itself (67 vs 76) in
+a corpus whose doc gates exist to catch exactly this class; neither figure was registered anywhere
+a gate reads.
+
+**Attribution.** Found by a Fable review lens (D2, sinologist/archivist pass, 2026-08-28), which
+re-verified the harness count by execution and the Wilhelm claim against the shipped tree.
+
+---
+
+## 2026-08-28 — two published verdicts in TR-10 were computed against the wrong tail, by our own declared rule
+
+`TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md` §3 freezes its thresholds in advance: *"'notable' = **two-sided**
+p < 0.05/9 (5.56×10⁻³); 'candidate rule' = < 10⁻⁴."* Rows 1–2 of the scoreboard duly report two-sided
+values. **Rows 6 and 7 did not** — they published the one-sided upper tail and then compared it to the
+two-sided bar.
+
+| row | one-sided (published) | two-sided (declared basis) | bar | was | is |
+|---|---|---|---|---|---|
+| 6 `rotinv` | 6.531×10⁻⁵ | **1.306×10⁻⁴** | candidate < 10⁻⁴ | "meets candidate-rule numerically" | **does not meet it** |
+| 7 `pureplace` | 5.56152×10⁻³ | **1.112×10⁻²** | notable < 5.5556×10⁻³ | "borderline (at the threshold to reported precision)" | **NULL** |
+
+Both recomputed from the committed evidence file `reports/evidence/dav_tier1.out`
+(`rotinv at=0.00006531 above=0.00000000`; `pureplace at=0.00556152 above=0.00000000`), where the upper
+tail is `at + above`.
+
+**`pureplace` was never borderline under either reading.** Its one-sided value **already exceeds**
+0.05/9 before any doubling — 5.56152×10⁻³ > 5.55556×10⁻³. The published word "borderline" came from
+comparing rounded values ("5.56×10⁻³" against "5.56×10⁻³"); at full precision it fails.
+
+**The tally moves with it:** nine pre-registered composites are now **five null, one notable, three
+data-like** — corrected in TR-10's abstract, TR-10 §"What is claimed", and `CITATIONS.md`.
+
+**What is NOT affected, and why.** METHODS and TR-8 use `dav_rotinv` as a **BH ranking anchor** — the
+argument needs it to be *strictly smaller* than `dav_trigarray`, not to clear an absolute bar.
+**Doubling is order-preserving**, so the rank-ordering and every conclusion resting on it stand
+unchanged. Only absolute-bar verdicts move. Both rows retain the one-sided figure alongside the
+two-sided one precisely so those downstream citations remain traceable.
+
+**Nothing promoted before or after.** `rotinv` was already classified data-like and non-promoting;
+what was wrong was the accompanying claim that it cleared the candidate bar. No constraint entered or
+left the system.
+
+**Attribution.** Raised by Codex target **T10** in the max-run cohort; the recomputation, the
+one-sided/two-sided diagnosis, the tally propagation and the order-preservation argument were derived
+here. Codex is **acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-28 — the withdrawal markers were attached to the wrong words, and on the front page to the wrong figure
+
+The 2026-08-24 withdrawal of the ≈3.3×10³⁷ orientation-deduped figure was applied by appending the
+marker to the **end of a physical source line**. Markdown joins consecutive lines into one paragraph,
+so in the rendered page several markers landed mid-sentence, away from the figure they withdraw.
+
+**The front page was the damaging case.** `README.md` rendered as:
+
+> …≈3.3×10³⁷ after orientation-dedup…; adding ⚠ **[WITHDRAWN 2026-08-24 …]** C6–C7 still leaves ~5×10³¹.
+
+A reader saw the withdrawal attached to **"adding C6–C7 still leaves ~5×10³¹"** — a figure that is
+**not** withdrawn — while the actually-withdrawn ≈3.3×10³⁷ stood a few words earlier as ordinary live
+prose. The marker is now adjacent to the figure it withdraws, and the "adding C6–C7…" clause is
+contiguous again.
+
+Three further sites in `BRANCHES_EXPLAINED.md` placed the marker inside the phrase *"an exploration
+estimate, not a **proven count**"*, so it read as qualifying "proven count" rather than the estimate;
+one of those was not prose at all but a **stray extra table cell** past the row's final pipe. All are
+relocated onto the figure. Two remaining sites (`SOLVE_SUMMARY.md`, `HISTORY.md`) already sit adjacent
+to the correct figure and are left as they are; the `HISTORY.md` instance is changelog text, which is
+a record and not re-edited.
+
+**Why no gate caught it.** GATE 27 requires that a line stating a registered withdrawn figure carry a
+supersession marker. Every one of these lines did — the marker was on the same *physical* line.
+**The gate is line-scoped and cannot see rendered position**, so a marker attached to the wrong clause
+satisfies it exactly as well as one attached to the right clause. No figure or verdict changes here;
+what changes is which words the withdrawal visibly governs.
+
+**Attribution.** Found by a Fable archivist lens reviewing the rendered output rather than the source.
+Acknowledged, not credited as an author.
+
+---
+
+## 2026-08-28 — the newcomer's entry point said the rules were "never written down"; our own methodology says otherwise
+
+`GUIDE.md` — the first page a newcomer reads — stated: *"It appears to follow rules, but those rules
+were never written down."*
+
+**This repository's own methodology contradicts that sentence.** `reports/METHODS.md:25` cites the
+**Xugua** (序卦傳), one of the Ten Wings, as the **"definitional and classically attested"** basis for
+C4's orientation — "the Xugua opens Heaven-then-Earth" — and **14 files** in this repository reference
+the Xugua or 序卦. A written classical account of hexagram succession exists, and we rely on it.
+
+**The true statement is narrower and more interesting**, and the page now makes it: *no surviving
+source states the rules as a **construction**.* The Xugua supplies a **semantic and moral succession**,
+not a computable algorithm. That is the actual gap this project works in — and it is a better framing
+than the one it replaces, because "never written down" invites the reader to think nothing classical
+addresses the ordering at all.
+
+**Worth recording about how it was found.** This is not a code defect, and **no gate could have caught
+it** — it is a conflict between a plain-language sentence and a citation four documents away. It was
+raised by exactly **one reviewer out of thirty-five** (a historian-of-ideas lens). The lesson is not
+that we need another gate; it is that a certain class of defect is only reachable by a reader who
+knows the classical corpus, and that class is worth buying deliberately rather than hoping for.
+
+**Attribution.** Raised by Codex **L09** in the max-run cohort; the corpus check (14 files, the
+METHODS C4 attestation) and the replacement wording were derived here. Codex is **acknowledged**, not
+credited as an author.
+
+---
+
+## 2026-08-28 — two shipped-identity errors: a false reproducibility contrast, and a ratio computed against the wrong object
+
+**(A) `solutions.sha256` is not byte-reproducible either.** `SOLUTIONS_FORMAT.md` stated: *"The
+sidecar contains timestamp and git hash, so it is NOT byte-reproducible across runs — deliberately.
+The canonical artifacts (`solutions.bin` and `solutions.sha256`) are."*
+
+`solve.c` writes a `# Date:` line into `solutions.sha256` on **every run**. Only its **first line —
+the bare digest — is an identity**. The sentence drew an explicit contrast with the sidecar on
+*precisely the property the two files share*, which is worse than simply omitting it: a reader
+checking `solutions.sha256` byte-for-byte across two runs would find a difference the document told
+them could not happen.
+
+**Rider, corrected with it.** The same file called `sha256(solutions.bin)` *"a pure function … and
+reproducible across runs, machines, and years"* **unconditionally**, while `DEVELOPMENT.md` concedes
+different hosts may produce different canonical shas, TR-3 records an actual host-level drift event,
+and `CANONICAL_HASHES.md` labels the 100B anchors build-recipe specific. The claim is now scoped to
+the tested toolchain class, with those three pointers, because the scope is not decoration.
+
+**(B) A published ratio was computed against the wrong object.** On the full-31
+`--f1-exact-c1c2c4c5` path, `solve.c` printed `vs estimator 1.3287e38 (+/-0.02%): ratio = …`,
+dividing the **C3-free** exact |C1∩C2∩C4∩C5| = 1.097051×10³⁹ by the **C3-inclusive** |C1–C5|
+flagship estimate 1.3287×10³⁸. Those are different objects, and the printed value was **8.256574**
+where [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §9 publishes **0.999956**
+against the C3-free estimate 1.0971×10³⁹. Now compared against the same object.
+
+**`verify.c` pairs its own object correctly**, which is what makes this an error rather than a
+convention. Both values were recomputed here before the fix: 1.097051×10³⁹ ÷ 1.0971×10³⁹ = 0.999955,
+and ÷ 1.3287×10³⁸ = 8.256574 — matching the wrong figure the binary printed.
+
+**Provenance, checked before filing.** (B) is an **in-house** finding from the 2026-08-22
+solve-c-counting sweep. It was recorded in three internal documents, **zero fixes were applied, and
+no backlog row was ever filed** — a grep for "8.256" and "vs estimator" in the backlog returned
+nothing. Codex **R16** corroborated it six days later. Credit is in-house; Codex is
+**acknowledged** for the corroboration, not credited as an author.
+
+---
+
+## 2026-08-28 — "the smallest measured margins" was refuted by our own evidence file
+
+Six published sites stated that King Wen keeps one of the four literature rules exactly and misses
+the other three **by the smallest / minimal measured margins (2 each)** — `README.md`,
+`TR2_THE_RULES_CONFLICT.md` (three sites), `TR1_EIGHT_CENTURIES_MEASURED.md`, and
+`SOLVE_SUMMARY.md`.
+
+**TR-2's own evidence file contradicts the superlative.** `reports/evidence/f11/f11_runA.out`
+contains:
+
+```
+f11_hist 1 1 0   4.1291082539e-09
+f11_hist 2 1 1   2.9255247935e-08
+```
+
+against King Wen's `f11_hist 2 2 2`. On the axes (Moore-2005 parity violations, Moore-1989 rhythm
+breaks, Schulz-1990 gender violations), **both cells are componentwise ≤ King Wen with strict
+improvement, and both carry nonzero measured mass.** Orderings that do better exist, and we measured
+them ourselves.
+
+**The honest verdict is UNSUPPORTED, not false — and the distinction matters.** That histogram is
+**not CC-N4-conditioned**, so an ordering sitting at `(1,1,0)` may well fail the fourth rule. No
+CC-N4-conditioned extremal check exists anywhere in the corpus. So the claim is not refuted outright;
+it is a superlative that **was never established**, and the sites now say what is measured — two
+each — without asserting minimality.
+
+**The surrounding argument is unaffected.** The four rules remain jointly unsatisfiable (UNSAT with
+an independently verified certificate), King Wen still keeps the trigram configuration exactly, and
+the anomalies are still a forced trade-off rather than damage to a once-perfect original. What is
+withdrawn is only the claim that its margins are the *smallest possible*.
+
+**The finding named five sites; there are six.** `reports/README.md:42` carries the "forced
+trade-off" language but not the margins claim, while `TR1:242` and `TR2:287` carry it and were not
+listed. A sweep for the phrasing variants found them; the two changelog occurrences are left as
+historical record.
+
+**Attribution.** Raised by Codex **T01** in the max-run cohort; the evidence-file check, the
+CC-N4 narrowing and the site sweep were derived here. Codex is **acknowledged**, not credited as an
+author.
+
+---
+
+## 2026-08-28 — two rule descriptions contradicted by our own code, one of them by measurement
+
+**(A) "each reproducing its source's stated King Wen values" was true of 27 of 31, not all 31.**
+`LITERATURE_RULES_POPULATION_TESTS.md` described the registry that way, while `solve.py`'s own comment
+directly above `REGISTRY_KW_EXPECTED` says the opposite for four of them: *"MM-T3=4, MM-T6=0, C1=24
+and the C2 histogram are **KW-measured anchors** (registry states only qualitative/percentile
+expectations for those)."* Two of the four carry further disclaimers in their docstrings —
+`reg_c1`: *"exact formulation pending full-paper access, registry proxy used … the registry gives the
+percentile, not the raw score"*; `reg_c2`: *"exact asymmetry metric pending full-paper access.
+Deterministic proxy."* Counted here: **31 entries, 4 anchors, so 27**.
+
+For four rules we are checking against **our own measurement of King Wen**, not against a value the
+source published. That is a materially weaker form of verification, and the sentence claimed the
+stronger one for all 31.
+
+**(B) "confined to S25/26" was measurably false for one of the two rules.** `LRPT:189` and
+`TR1:153` published the meta-rule `ccn8` as *"both Schulz rules' violations **confined** to S25/26."*
+Measured on King Wen here:
+
+```
+CC-A2 violations : [25, 26]                    -> confined
+R-S2  violations : [11, 13, 14, 25, 26, 32]    -> NOT confined
+```
+
+**The code was right and said so.** `reg_ccn8`'s predicate is `set(v_a2) == {25,26}` **and**
+`{25,26} <= v_s2` — CC-A2's set must be *exactly* {25,26}, while R-S2 need only *contain* it — and its
+docstring already used the correct word: the two sets **"share the locus {S25, S26}."** The published
+prose upgraded *share* to *confined*. Both sites now say "sharing the locus".
+
+**The population figure is unaffected.** `reg_ccn8(KW)` still returns `True`, and the 2.6×10⁻⁷ figure
+comes from the correct predicate. What was wrong was only the English description of it.
+
+**Attribution.** Raised by Codex **R11** in the max-run cohort; the measurement, the registry count
+(31 − 4 = 27) and the docstring comparison were derived here. Codex is **acknowledged**, not credited
+as an author.
+
+---
+
+## 2026-08-28 — a published figure carried an uncertainty that was not one, and a provenance that did not contain it
+
+The joint-strict population size was published at four sites as **≈1.13×10²⁹ ±4.7%**.
+
+**The ±4.7% is not an error bar.** It is a **preregistered anchor tolerance band**:
+`reports/evidence/f11/compute_f11_bf.py:85` names its check *"Moore-joint size outside the +/-4.7%
+anchor band"*, and `reports/evidence/f11/RESULTS.md:93` uses it as a pass/fail window — *"+3.5% vs
+the 1.1266e29 anchor (inside ±4.7%)"*. It says how far the measurement was allowed to fall from a
+pre-registered anchor before the check failed. It says nothing about the estimator's precision.
+
+Standing beside sibling figures that carry genuine confidence intervals, it read as one. The
+estimator's own numbers are different and were available all along: relerr **2.98%** at 5×10⁹ probes
+and **1.66%** at 2×10¹⁰; 95% half-widths **5.84%** and **3.26%**. **4.7 is none of them.**
+
+**And the archived instance named was the wrong file.** `TR1:473` pointed at
+`reports/evidence/f11/f11_runB.out`, which reports **`est=1.165830e+29`** — not the published
+1.13×10²⁹. The published value matches
+`reports/evidence/r11/r11_moore_strict.out`: **`est=1.131036e+29`, 95%CI [1.0942e+29, 1.1679e+29],
+relerr 1.66%**. `SOLVE_C_CLI.md` compounded it by citing "F11 runs B/C", which give 1.16583e29 and
+1.091306e29 — **neither is the published figure**.
+
+All four sites now carry the **real** 95% CI and point at the file the number actually came from.
+
+**The estimate itself is unchanged and was never wrong** — 1.13×10²⁹ is what the r11 walk measured.
+What was wrong was the uncertainty attached to it and the pointer offered for checking it, which is
+the part a reader would use to audit us.
+
+**Attribution.** Raised by Codex **T01** in the max-run cohort; the anchor-band identification, the
+file-by-file estimate reconciliation and the CI substitution were derived here. Codex is
+**acknowledged**, not credited as an author.
+
+---
+
+## 2026-08-29 — TR-6's "three fully independent ways" was two, plus a corroboration
+
+`TR6_PARITY_SKELETON.md` published the 15-alternation theorem as proved *"three fully independent
+ways"* — prose, Lean, and a SAT decision — adding that **"any one of the three would suffice."**
+
+**The SAT leg is not independent of the prose leg.** TR-6 itself names the prose proof's core as
+*"three lemmas + **the C5 odd-distance count**"* — and that count is `2(d=1) + 13(d=3) = 15`, read
+straight out of `BETWEEN_MULTISET`. The SAT targets ask whether ≤14 or ≥16 alternations are possible,
+and **both are refuted by C5's cardinality clauses alone**: the ordering-variable-free clause subset
+of each CNF is UNSAT on its own (kissat rc=20, fresh DRAT `s VERIFIED`). The solver re-runs the prose
+proof's arithmetic; it does not reach the ordering structure.
+
+**It also assumes the step that carries the content.** The theorem is about *parity-class
+alternations*; the encoding defines its `odd` variable as *odd Hamming distance*. The equivalence
+between those is the mathematical substance — and the encoding takes it as given rather than
+establishing it.
+
+**The Lean leg is genuinely independent and is unaffected.** `lean/KingWen.lean`'s
+`alternations_15_general` takes `c5ok l = true` as a *hypothesis* and derives the count by structural
+induction over the transition list — it proves the bridge the SAT encoding assumes. Verified by
+reading the proof rather than the README.
+
+**The theorem is true and nothing about it changes.** Exactly 15 alternations stands, the DRAT
+certificates verify, and prose and Lean each remain sufficient alone. What is corrected is a claim
+about **how many independent confirmations we have**: two, plus a mechanized corroboration of one
+step. Under this project's own standing rule that independence means *derivation* independence, the
+original wording overstated the evidence.
+
+A stronger SAT target — one posing the alternation predicate directly, without the odd-distance
+shortcut, so any refutation must traverse the ordering variables and the parity facts — would make
+this leg genuinely independent. That is recorded as follow-up work, not claimed here.
+
+**Attribution.** Raised by Codex **T06** in the max-run cohort (and reached first by the effort-none
+run); the clause-subset extraction, the Lean-leg check and the replacement wording were derived here.
+Codex is **acknowledged**, not credited as an author.

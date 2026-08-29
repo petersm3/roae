@@ -141,13 +141,19 @@ spacing cannot be coincidence. He never counts orderings, so the counting claim 
 honest contrast is **"they argue the order is principled; we measure how constraining the principles
 are,"** not "they classify and we count."
 
-**Second, and more important: we have not finished looking.** Every prior-art sweep this project has
-run was aimed at the *symmetry* question or the *symbol* question. **The ordering-count question has
-not yet been the target of a search designed for it**, and two papers whose titles sit directly on it
-— 王俊龍 on 「the mathematical regularity of the order of the hexagrams in the received version」 and
-關曉思 on 「the structural mathematical model of the hexagrams' sequence」 — **are unread as of this
-writing.** Until they are read, **treat the sentence above as a claim about the five named authors,
-not as a survey result.** We would rather record that limit here than have it found for us.
+**Second, and more important: we had not finished looking.** Every prior-art sweep this project ran
+before 2026-08-16 was aimed at the *symmetry* question or the *symbol* question, and two papers whose
+titles sit directly on the ordering-count question — 王俊龍 on 「the mathematical regularity of the
+order of the hexagrams in the received version」 and 管小思 on 「the structural mathematical model of
+the hexagrams' sequence」 — were unread when this paragraph was first written.
+
+**⚠ Updated 2026-08-28.** A search designed for the ordering-count question was run on 2026-08-16,
+and both named papers have since been read, along with every other obtainable paper by either author.
+One item remains unobtainable: 王俊龍 2007, in 劉大鈞 ed. 大易集釋, pp. 812–836. **The adjudication of
+those reads is not yet published, so the instruction below is unchanged: treat the sentence above as
+a claim about the five named authors, not as a survey result.** We would rather record that limit
+here than have it found for us. (One of the two author names was misspelled here until 2026-08-28;
+see [CORRECTIONS.md](CORRECTIONS.md).)
 
 *A note on how this section was built, because it bears on how much to trust it.* Each cession above
 was checked against the primary source, not against a summary. One paper (李尚信 2002) was

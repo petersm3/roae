@@ -1,0 +1,31 @@
+# Registry of WITHDRAWN FIGURES — consumed by scripts/doc_gates.sh (GATE 27).
+#
+# WHY THIS IS SEPARATE FROM RETRACTED_FIGURES.tsv (GATE 3b)
+#   GATE 3b requires a content-anchored allowlist row for EVERY occurrence, deliberately —
+#   "no auto-exemption" — which is right for small statistics with a handful of mentions.
+#   The project's LARGEST withdrawals are not like that: "3×10³⁷" alone has 40 occurrences
+#   across 14 files, nearly all of them legitimate prose already carrying a marker. Forcing
+#   40 hand-anchored allowlist rows would make the registry unmaintainable, and that is why
+#   the headline 2026-08-24 withdrawal was never registered at all — leaving the biggest
+#   retraction in the project unguarded (Q-342).
+#
+# THE RULE HERE IS WEAKER AND CHEAPER, ON PURPOSE: a line that states a withdrawn figure
+# must also carry a supersession marker ON THAT LINE. It cannot judge whether the marker is
+# apt — GATE 3b does that for the figures it covers — but it catches the case that matters
+# for a merge: a line reintroducing a withdrawn figure with NO marker at all.
+#
+# MEASURED NEED (2026-08-28): merging origin/v4-query-program would restore
+# enumeration/LEADERBOARD.md lines 3 and 170, which carry ≈3×10³⁷ with ZERO markers, silently
+# undoing commit b8d45b5e. Both doc_gates retract-figures and canonical-ceiling PASS on that
+# reverted file. This gate is the one that does not.
+#
+# figure <TAB> why it is withdrawn
+3×10³⁷	2026-08-24: the distinct-canonical whole-space figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×
+3.3×10³⁷	2026-08-24: same figure, one-decimal form
+1 part in 10²⁷	2026-08-24: the coverage denominator built on the withdrawn 3×10³⁷; corrected to ≈1 part in 7.81×10²³ (distinct-vs-distinct) / 3.03×10²⁷ (raw-vs-raw)
+1.26×10³⁶	2026-08-28: published as "canonical orderings per branch"; they are RAW oriented masses — labelled canonical they exceed the 30! ≈ 2.65×10³² per-branch ceiling by ~4,750×
+2.26×10³⁶	2026-08-28: same per-branch family, median
+3.46×10³⁶	2026-08-28: same per-branch family, max
+minimum across 10⁵ samples	2026-08-28: a sample minimum is an upper bound on the true minimum, never a lower bound; the item is a RATE bound scoped to a non-uniform sampler
+null P = 0.034	2026-08-28: the unconstrained null; the constrained value its own caveat named is 87/465 = 0.187, and the verdict reverses
+plus seven others	2026-08-28: "KW plus seven others" inverts the finding — all 8 C6/C7 survivors share King Wen's pair ordering; C6/C7 kill 898 of the 899 distinct pair orderings
