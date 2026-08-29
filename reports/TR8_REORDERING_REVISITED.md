@@ -103,10 +103,21 @@ retain a distinction that should be credited plainly: theirs was the first propo
 received order against an explicitly constructed alternative — the methodological seed of the present
 analysis. We supply the instruments their question required.
 
-## Structure (4 sections)
-1. **The 1979 position** — fair summary: their premise (no defensible global structure), their proposal
-   (Gray-code reordering starting from Kun), their motivation. One paragraph of historical respect: first
-   constructive test proposal in the literature. Reception note: the only published reply we have located
+## Structure — section summaries (4)
+
+**Note on this report's form (Q-352; relabelled 2026-08-29).** The four numbered items below are
+**section summaries, not written-out sections** — this report's fully-written material is the
+Verification Guide and §Commands beneath them, which carry the runnable form of both quantitative
+claims. Saying so is the point: TR-2 carried the identical "Structure (N sections)" heading over a
+summary list and was relabelled for it (v1.13), and TR-3's list was written out into prose; TR-8 was
+left, and a masthead plus a peer listing in [reports/README.md](README.md) invited a reader to
+expect four sections that are not there. The summaries are deliberate — §1 and §4 are
+humanities-register prose about what named scholars proposed, where every added sentence is a
+further claim about a person — but the label was not.
+
+1. **The 1979 position** — summarises their premise (no defensible global structure), their proposal
+   (Gray-code reordering starting from Kun), and their motivation, and credits theirs as the first
+   constructive test proposal in the literature. The only published reply we have located
    ([Hershock 1991](../documentation/CITATIONS.md#hershock1991), JCP) critiqued their method on
    philosophical grounds while sharing their premise of global randomness and proposing a mandala
    reordering of his own — so the premise itself went unmeasured, and the construction's feasibility
@@ -116,12 +127,12 @@ analysis. We supply the instruments their question required.
    validated against exhaustive slices) — this is the population over which the quoted rarities are
    mass fractions; note C2/C5 are themselves regularities read off the received order, so this null is
    conservative, not "undisputed"; (b) the pair-only (C1) space, 32!·2³² ≈ 1.1×10⁴⁵ — the truly
-   undisputed structure, checkable by direct seeded sampling on a laptop (Commands below). Table of
-   measured rule rarities for THREE rules only (over population (a): [Moore](../documentation/CITATIONS.md#moore2005) parity ×1,362; [Schulz](../documentation/CITATIONS.md#schulz1990-motifs) gender
+   undisputed structure, checkable by direct seeded sampling on a laptop (Commands below). Measured
+   rule rarities are reported for three rules only (over population (a): [Moore](../documentation/CITATIONS.md#moore2005) parity ×1,362; [Schulz](../documentation/CITATIONS.md#schulz1990-motifs) gender
    ×11,364; the 18:18 split ×2.7 as the honest weak case; the gender rule re-measured against null (b)
    computes **exactly** to 1.05×10⁻⁴ (47/445740; §Commands) — same order, different null) with sources credited (rules are
-   Zhu Yuansheng/Schulz/Moore observations, not ours; measurement is ours). Verifiability box: exact
-   commands, open repository.
+   Zhu Yuansheng/Schulz/Moore observations, not ours; measurement is ours). Exact commands are given
+   in §Commands below, against the open repository.
 3. **The proposal, decided** — Theorem: no Gray-code ordering satisfies the pair structure. Proof:
    within-pair Hamming distances are always even and nonzero (machine-checked in Lean via
    kernel `decide` since the 2026-07-27 migration; the evenness half, which alone rules out
@@ -134,12 +145,13 @@ analysis. We supply the instruments their question required.
    to the conflict result ([TR-2](TR2_THE_RULES_CONFLICT.md)) without developing it.
 
 ## Verification Guide (question → answer)
-- "How do we trust the 10³⁸ number?" -> reproduce-command; validated <1% vs exhaustive slices at
-  overlapping scales; but NOTE: section 2 can be written so that NOTHING depends on the estimator's
-  absolute value — rarities can ALSO be stated vs the pair-only (C1) null, which is small enough to
-  compute exactly (laptop-runnable; Commands below). CAUTION: the two nulls are different quantities — the published
-  ×11,364 is a C1–C5 mass fraction; the pair-null exact figure is 47/445740 = 1.05×10⁻⁴ (same order, not the same
-  number). PREFER the laptop-runnable framing throughout, with both nulls labeled.
+- **"How do we trust the 10³⁸ number?"** — a reproduce-command is given below, and the estimator is
+  validated to <1% against exhaustive slices at overlapping scales. **Nothing in §2 depends on that
+  estimator's absolute value:** every rarity is also stated against the pair-only (C1) null, which is
+  small enough to compute exactly and runnable on a laptop (§Commands). The two nulls are **different
+  quantities** and are labelled as such wherever they appear — the published ×11,364 is a C1–C5 mass
+  fraction, while the pair-null exact figure is 47/445740 = 1.05×10⁻⁴: the same order, not the same
+  number.
 
 ### Commands
 Run from a clone of the public repo (environment per METHODS.md); both tested 2026-07-03 on a 2-core
@@ -192,4 +204,5 @@ box.
 | v1.11 | 2026-08-02 | **Correction-family qualified on the look-elsewhere margin (unit d73-margin).** §Executive summary reported the global-bar margin as "a factor of ~5" without naming a correction family, while [METHODS.md](METHODS.md) §"Statistics conventions" (under **Correction-family disclosure**) reported that the family choice moves only one *verdict* in the suite. Both statements were true and both were under-qualified: they answer different questions (margins vs verdicts) and neither said which. The margin is now stated under **both** families — ~5× under Bonferroni, ≥~10× under BH-FDR at q = 0.05 — with the reason the BH figure is a floor rather than a point (BH's bar is rank-dependent, *i*·0.05/91, so the BH margin is exactly *i*× the Bonferroni margin; only *i* ≥ 2 is supported, forced by `dav_rotinv` at 6.5×10⁻⁵). A **~52×** figure that circulated for this rarity is recorded and **declined**: it is BH at rank *i* = 10, and rank 10 requires the nine registry masses METHODS withdrew from ranking on 2026-08-01. METHODS carries the matching scope split (its "only one verdict moves" sentence now says in place that it is about verdicts, and that margins are correction-specific and move by an order of magnitude with no verdict changing). Neither family is suppressed, because selecting the family that flatters a number is what makes a correction record dishonest. No measurement, verdict, theorem or certificate changed |
 | v1.12 | 2026-08-02 | **Revision-table order repaired (doc_gates GATE 12, hardening item A4).** v1.11 was added by replacing the v1.10 line and re-adding v1.10 underneath (`85d3b2c`), so the table ran 2026-08-02 then 2026-08-01 and `*(current)*` was not its last row. The two rows are restored to chronological order with their text unchanged; no claim, figure, date or scope was altered. The same prepend mistake was live in TR-4 (repaired there as v1.17) |
 | v1.13 | 2026-08-06 | **Benjamini–Hochberg cited at point of use (citation audit, UNASKED-7).** The executive summary's look-elsewhere margin has invoked "Benjamini–Hochberg FDR" since v1.11 without a source; the reference ([Benjamini & Hochberg 1995](../documentation/CITATIONS.md#benjamini-hochberg1995), *JRSS-B* 57(1)) is now in CITATIONS.md §Statistical methodology and linked where the FDR margin is stated. No figure, margin, or verdict changed |
-| v1.14 *(current)* | 2026-08-07 | **The dof-matched median is WITHDRAWN PENDING ARTIFACT ([CORRECTIONS](../documentation/CORRECTIONS.md) CX-27; operator-authorized action on the 18-lens red-team review).** v1.10 flagged the ~6×10⁻⁵ dof-matched median as unreproduced — no artifact, command, code path or evidence bundle anywhere in the repo — but left it in the executive summary doing load-bearing work: it is the single number that answers the predicate-specification objection in its own currency, and the look-elsewhere passage continued to lean on it ("the dof-matched comparison above shows…"). The figure and the "about half are at least as rare" comparison are now withdrawn as citable figures until the fix v1.10 itself specified exists: a `solve.py` sampler over the ≈16-clause KW-fitting predicate space, published with its seed and probe count, reporting the median rarity with a CI. The disclosure is kept, and the qualitative direction is kept as an acknowledged open question — it is conservative and argues against this suite's own rarity claims, and is independently supported by the data-like/principled firewall and TR-9's pricing — but the bulk-of-the-distribution placement is exactly as strong as the unpublished sampler behind it and is no longer claimed. The look-elsewhere sentence that leaned on the figure now reads "suggested", with the attribution-to-specification stated as open. No measurement with an artifact, theorem, certificate or verdict changed |
+| v1.14 | 2026-08-07 | **The dof-matched median is WITHDRAWN PENDING ARTIFACT ([CORRECTIONS](../documentation/CORRECTIONS.md) CX-27; operator-authorized action on the 18-lens red-team review).** v1.10 flagged the ~6×10⁻⁵ dof-matched median as unreproduced — no artifact, command, code path or evidence bundle anywhere in the repo — but left it in the executive summary doing load-bearing work: it is the single number that answers the predicate-specification objection in its own currency, and the look-elsewhere passage continued to lean on it ("the dof-matched comparison above shows…"). The figure and the "about half are at least as rare" comparison are now withdrawn as citable figures until the fix v1.10 itself specified exists: a `solve.py` sampler over the ≈16-clause KW-fitting predicate space, published with its seed and probe count, reporting the median rarity with a CI. The disclosure is kept, and the qualitative direction is kept as an acknowledged open question — it is conservative and argues against this suite's own rarity claims, and is independently supported by the data-like/principled firewall and TR-9's pricing — but the bulk-of-the-distribution placement is exactly as strong as the unpublished sampler behind it and is no longer claimed. The look-elsewhere sentence that leaned on the figure now reads "suggested", with the attribution-to-specification stated as open. No measurement with an artifact, theorem, certificate or verdict changed |
+| v1.15 *(current)* | 2026-08-29 | **Form labelling and author-directive removal (Q-352; the fix TR-2 took at v1.13 and TR-3 by being written out).** The heading read `Structure (4 sections)` over what are four **section summaries**, with no written-out §1-§4 beneath them — while the report ships a full technical-report masthead and [reports/README.md](README.md) lists it as a peer of TR-1..TR-11 with an evidence column, so a reader was invited to expect four sections that are not there. Relabelled `Structure — section summaries (4)` with a form note stating plainly what is summary and what is written out, and why §1/§4 deliberately stay summaries (humanities-register prose about what named scholars proposed). Three items carried planning voice addressed to the writer rather than the reader ("fair summary:", "One paragraph of historical respect:", "Table of measured rule rarities for THREE rules only", "Verifiability box:") and are rewritten as description. The Verification Guide carried two **instructions to the author** in published prose — "section 2 **can be written** so that NOTHING depends on the estimator's absolute value" and "**PREFER** the laptop-runnable framing throughout" — now stated as facts about the report the reader is holding: nothing in §2 depends on the estimator's absolute value, and both nulls are labelled wherever they appear. **Sibling sweep:** the Q-352 finding said TR-8 was the only report still containing author-directive text; that was not quite right — TR-2 items 2 and 4 carried "Method in one page:", "Verifiability box." and "One paragraph on … honestly", and those are converted in the same pass (TR-2 v1.24). No measurement, theorem, certificate, figure or verdict changed |

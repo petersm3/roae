@@ -10891,7 +10891,101 @@ PY
   return 0
 }
 
+gate_author_directives() {
+  echo "== GATE 29: instructions to the AUTHOR surviving in published report prose =="
+  # Q-352. TR-8 shipped a full technical-report masthead over what were four SECTION SUMMARIES
+  # labelled "Structure (4 sections)", and a Verification Guide that addressed the WRITER, not the
+  # reader: "section 2 CAN BE WRITTEN so that NOTHING depends on the estimator's absolute value" and
+  # "PREFER the laptop-runnable framing throughout". reports/README.md lists TR-8 as a peer of
+  # TR-1..TR-11 with an evidence column and no draft marker anywhere, so a reader was invited to
+  # expect four written sections that do not exist.
+  #
+  # THE CLASS HAD ALREADY BEEN FIXED TWICE AND LEFT ONCE: TR-2 was relabelled at v1.13 and TR-3 was
+  # written out into prose, both for this exact defect; TR-8 was skipped. And the finding's own claim
+  # that TR-8 was the ONLY remaining case was wrong — TR-2 items 2 and 4 still carried
+  # "Method in one page:", "Verifiability box." and "One paragraph on ... honestly".
+  #
+  # 🔴 THE EXEMPTION IS THE WHOLE DESIGN, and calibration is what forced it. Measured before writing
+  # a line of this gate: after the fix, six of the eleven candidate patterns STILL matched 1-2 times
+  # each — because the revision rows that RECORD the removal necessarily QUOTE the removed phrases.
+  # A naive gate here would fire on the correction that fixed the defect: the tenth instance of the
+  # Q-383 self-defeating-gate class in a week, authored by the fix for a different one. So an
+  # occurrence is exempt when it sits in a revision-history row or inside a correction marker —
+  # the same shape GATE 27 uses for withdrawn figures.
+  #
+  # 🔴 CLOSURE, and it cannot be a population floor, because ZERO live hits is the GOAL state here.
+  # Instead the corrections themselves are the fixture: the gate must still FIND the quoted
+  # occurrences inside those revision rows. If the pattern set matches nothing anywhere — not even
+  # the rows that quote these phrases verbatim — the patterns have rotted and the gate is blind,
+  # which is an ERROR, not a pass.
+  local out
+  out=$(python3 - <<'PY'
+import re, subprocess, sys
+files = [f for f in subprocess.run(["git","ls-files","reports/*.md"],capture_output=True,text=True).stdout.split() if f]
+if not files:
+    print("ERROR\tgit ls-files matched no reports"); raise SystemExit(0)
+# Directive shapes: modal-about-the-document, and meta-nouns naming a part as a thing to produce.
+# 🔴 `can be written` ALONE IS TOO BROAD, and the gate's own first run proved it: it flagged
+# METHODS.md:105, "it can be written as 'positions/values match King Wen's'" — a MATHEMATICAL
+# can-be-expressed-as, not an instruction to an author. The discriminating feature of the real
+# defect is that the modal is applied to a DOCUMENT PART: "section 2 can be written so that...".
+# So the pattern is anchored to a section reference. This is the same lesson the CNKI passes paid
+# for in a different domain: a term that matches the topic is not the same as a term that matches
+# the shape you are hunting.
+PATS = [r'(?:section|§)\s*\d+\s+can be written', r'(?:section|§)\s*\d+\s+should be written',
+        r'\bPREFER\b', r'\bTODO\b',
+        r'One paragraph (?:of|on)\b', r'\bVerifiability box', r'in one page:',
+        r'Table of measured', r'note to self', r'\bwe (?:should|must) (?:write|add|state)\b',
+        r'\bfair summary:']
+RX = re.compile("|".join(PATS))
+# Exempt: a revision-history row, or a line inside a correction marker.
+def exempt(line):
+    t = line.lstrip()
+    return t.startswith('| v1.') or '⚠ **[' in line or 'CORRECTED' in line or 'relabelled' in line
+seen = live = 0
+hits = []
+for f in files:
+    try: lines = open(f, encoding='utf-8', errors='replace').read().split("\n")
+    except OSError: continue
+    for i, l in enumerate(lines, 1):
+        m = RX.search(l)
+        if not m: continue
+        seen += 1
+        if exempt(l): continue
+        live += 1
+        hits.append((f, i, m.group(0), l.strip()[:100]))
+print("SEEN\t%d" % seen)
+if seen == 0:
+    print("ERROR\tthe directive pattern set matches NOTHING anywhere — not even the revision rows that quote these phrases verbatim. The patterns have rotted; this gate is blind.")
+for f,i,w,l in hits:
+    print("HIT\t%s\t%d\t%s\t%s" % (f,i,w,l))
+# Structural leg: an outline heading must say it is summaries.
+for f in files:
+    try: body = open(f, encoding='utf-8', errors='replace').read()
+    except OSError: continue
+    for m in re.finditer(r'^#+ *Structure \((\d+) sections?\)\s*$', body, re.M):
+        print("BARE\t%s\t%d" % (f, body[:m.start()].count("\n")+1))
+PY
+) || { echo "  [FAIL] GATE 29 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      SEEN)  echo "  [info] $a occurrence(s) of the directive shapes, counting the corrections that quote them" ;;
+      HIT)   echo "  [FAIL] $a:$b addresses the AUTHOR, not the reader — '$c'"
+             echo "         $d"; rc=1 ;;
+      BARE)  echo "  [FAIL] $a:$b heading 'Structure (N sections)' does not say the items are SUMMARIES."
+             echo "         A masthead over an unlabelled outline invites a reader to expect sections that are not there."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] no report addresses its own author; every outline heading declares itself a summary list"
+  return 0
+}
+
 case "$MODE" in
+  author-directives) gate_author_directives || RC=1 ;;
   framing-era) gate_framing_era || RC=1 ;;
   repro-reach) gate_repro_reach || RC=1 ;;
   canonical-ceiling) gate_canonical_ceiling || RC=1 ;;
@@ -10962,8 +11056,9 @@ case "$MODE" in
            echo; gate_tracked_ignored || RC=1
            echo; gate_canonical_ceiling || RC=1
            echo; gate_withdrawn_markers || RC=1
-           echo; gate_framing_era || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|all}"; exit 2 ;;
+           echo; gate_framing_era || RC=1
+           echo; gate_author_directives || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|all}"; exit 2 ;;
 esac
 
 echo
@@ -11010,7 +11105,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27, 28. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27, 28, 29. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).

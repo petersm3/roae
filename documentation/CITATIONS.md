@@ -1654,7 +1654,16 @@ Philosophy, 38*(4), 639–665. [doi:10.1163/15406253-03804010](https://doi.org/1
   stations 25/26. [analyzed]
 
 <a id="schulz2016"></a>
-Schulz, L. J. (2016). *Hexagrammatics: Rules and properties in binary sequences* (2nd ed.). Zizai.
+Schulz, L. J. (2016). *Hexagrammatics: Rules and properties in binary sequences*. Zizai. (42 pp.;
+ISBN 978-1-365-06531-6 — the 978-1-365 block is Lulu's, consistent with ZiZai being the author's own
+imprint, as the 2018 entry below notes.) ⚠ **[CORRECTED 2026-08-29 — this read "(2nd ed.)", which the
+held copy contradicts: its own title page states "First Edition: 2016", and a search of Open Library
+returns no record for either the ISBN or the title, so no second edition is confirmed to exist. The
+edition claim was unsupported and is withdrawn; the year, publisher and content are unchanged. Found
+while adjudicating the 夏世华 compilation (Q-356), where the question "is our copy complete?" decided
+whether a purchase was justified — the copy IS complete (title page through an annotated bibliography,
+last page footer "Hexagrammatics 38" within 42 pages), which is what makes the absence of the
+fourth-layer material in it meaningful rather than an artefact of holding an excerpt.]**
   Consolidated rule inventory; names stations 25/26 as the double-exception locus for both of his rules.
   [analyzed]
 

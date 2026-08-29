@@ -2392,3 +2392,90 @@ green.
 **Attribution.** The wrong run description was found by the Fable D2 outsider-read lens (§A1), which
 re-ran the check instead of reading it. The missing command, the step/position resolution and the
 gate were derived here.
+
+---
+
+## 2026-08-29 — two reports were still giving instructions to their own author
+
+`TR8_REORDERING_REVISITED.md` shipped a full technical-report masthead over a heading that read
+**`Structure (4 sections)`** — above what are four **section summaries**, with no written-out §1–§4
+beneath them. `reports/README.md` lists TR-8 as a peer of TR-1..TR-11 with an evidence column and no
+draft marker anywhere, so a reader was invited to expect four sections that do not exist.
+
+Worse, its Verification Guide addressed the **writer**, not the reader:
+
+> *"but NOTE: section 2 **can be written** so that NOTHING depends on the estimator's absolute value"*
+> *"**PREFER** the laptop-runnable framing throughout, with both nulls labeled."*
+
+Three summary items carried the same planning voice — *"fair summary:"*, *"One paragraph of
+historical respect:"*, *"Table of measured rule rarities for THREE rules only"*, *"Verifiability
+box:"*.
+
+**The class had already been fixed twice and left once.** TR-2 was relabelled for exactly this at
+v1.13, and TR-3 was written out into prose. TR-8 was skipped.
+
+**And the finding's own scope claim was wrong, which is why the sweep matters more than the fix.**
+It recorded TR-8 as *the only* report still containing author-directive text. Checking the class
+rather than the instance found **TR-2 items 2 and 4 still carrying** *"Method in one page:"*,
+*"Verifiability box."* and *"One paragraph on the data-like character of the trigram rule,
+honestly."* Milder there — v1.13's form note already tells the reader the list is an overview and
+that §2–§4 are written out beneath it — but the same shape, and fixed in the same pass.
+
+**Fixed.** TR-8's heading is now `Structure — section summaries (4)` with a form note stating what is
+summary, what is written out, and **why §1 and §4 deliberately stay summaries** (humanities-register
+prose about what named scholars proposed, where every added sentence is a further claim about a
+person). Both author-directives are restated as facts about the report the reader is holding.
+TR-2's three are converted to description. No measurement, theorem, certificate, figure or verdict
+changed anywhere. (TR-8 v1.15, TR-2 v1.28.)
+
+**Gated** as `doc_gates.sh author-directives` (GATE 29), in two legs: no report may address its own
+author, and no `Structure (N sections)` heading may stand without saying the items are summaries.
+
+**Two design points, both forced by measurement rather than chosen.** First, **the exemption is the
+whole gate**: calibrating the patterns *before* writing it showed six of eleven candidates still
+matched after the fix — because the revision rows that **record** the removal necessarily **quote**
+the removed phrases. A naive gate would have fired on the correction that fixed the defect: the
+tenth self-defeating-gate instance in a week, authored by the fix for a different one. Second, the
+gate's own first run flagged `METHODS.md:105` — *"it can be written as 'positions/values match King
+Wen's'"* — a **mathematical** can-be-expressed-as, not an instruction. The pattern is now anchored to
+a document part (`section N can be written`), because a term that matches the topic is not the same
+as a term that matches the shape being hunted.
+
+**Closure could not be a population floor here, because zero live hits is the goal state.** Instead
+the corrections are the fixture: if the pattern set stops matching even the revision rows that quote
+these phrases verbatim, it has rotted and the gate ERRORs rather than passing. Shown able to fail
+three ways — against the **real pre-fix reports** (it independently found all six live sites,
+including the two TR-2 ones the finding said were not there), against the bare heading, and against
+a blanked pattern list.
+
+**Attribution.** Raised by the Codex effort-none run (target T08, corroborated by T03).
+
+---
+
+## 2026-08-29 — we cited a second edition our own copy says does not exist
+
+`CITATIONS.md` carried **Schulz, L. J. (2016). *Hexagrammatics* (2nd ed.). Zizai.**
+
+The PDF we hold says otherwise on its own title page: ***"First Edition: 2016"***, ISBN
+978-1-365-06531-6. A search of Open Library returns **no record** for either that ISBN or the title,
+so no second edition is confirmed to exist anywhere. The edition claim was unsupported and is
+withdrawn. Year, publisher and content are unchanged, and the entry now carries the page count and
+ISBN it should have had.
+
+**How it was found, and why the finding is worth more than the fix.** It surfaced while adjudicating
+the 夏世华 compilation (Q-356), where one question decided whether a purchase was justified: *is our
+copy of `Hexagrammatics` complete, or an excerpt?* If it were an excerpt, the material the
+compilation advertises and we cannot find might simply sit in the part we do not hold — "absent from
+Schulz" and "absent from our copy" are very different claims and only one of them licenses spending.
+
+**The copy is complete.** It runs title page → contents → body → an annotated bibliography of the
+author's own works, with the last page footer reading *"Hexagrammatics 38"* inside a 42-page file.
+That is a short monograph in full, not a fragment. Which is what makes the absence meaningful: the
+fourth-layer treatment of 互体 that the compilation names **is not in this work**, rather than being
+missing from our slice of it.
+
+**Checking the edition is what checked the completeness.** The two questions had the same answer and
+neither had been asked — the entry sat marked `[analyzed]`, which asserts engagement, while carrying
+a bibliographic claim the artifact under it contradicts.
+
+**Sibling sweep:** no other file in `documentation/` or `reports/` repeats the second-edition claim.

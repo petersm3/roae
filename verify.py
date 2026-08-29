@@ -4521,8 +4521,9 @@ _T3_GEN = (
     "      --kc-sample <f-dir> 62500 <seed> --kc-record --kc-ooc --kc-cache-mb 384\n"
     "      (with SOLVE_F1_OOC_READ_MB=1)\n"
     "    WHICH BUILD: the --kc-* subcommands are NOT on main. They live in solve.c on\n"
-    "    the published branch `v4-compiler`, which BRANCH_REGISTRY.tsv classes as a\n"
-    "    snapshot (a frozen working branch, not the authoritative corpus). So the\n"
+    "    the published branch `v4-query-program`, which BRANCH_REGISTRY.tsv classes as\n"
+    "    a snapshot (a frozen working branch, not the authoritative corpus, and it may\n"
+    "    carry claims since corrected on main -- read main for the corpus). So the\n"
     "    honest price of regenerating this sample includes checking out that branch\n"
     "    and building its solve.c; the command is written here WITHOUT a `solve`\n"
     "    prefix precisely because it is not runnable against this ref's binary, and\n"
@@ -5144,7 +5145,7 @@ def main():
                              'KC-sampler invocation per stream — `--kc-sample <f-dir> 62500 '
                              '<seed> --kc-record --kc-ooc --kc-cache-mb 384`. Those subcommands '
                              'are NOT on main: they live in solve.c on the published snapshot '
-                             'branch `v4-compiler`, so regenerating the sample means building '
+                             'branch `v4-query-program`, so regenerating the sample means building '
                              'that branch. MEASURED ~12.6 h on one D16als_v7 against a 3.1 TB '
                              'f-ladder. The analysis itself is cheap: MEASURED 4.3-4.6 s wall '
                              'and ~22.9 MB peak RSS for the full 10^6 draws (3 runs, '
@@ -5159,7 +5160,7 @@ def main():
                              'prereg: an independent recompute of the engine-recorded cd= value, and '
                              'duplicate detection. Bar: 100%% members. Same input and generating '
                              'cost as --t3-stats (~12.6 h on a D16als_v7, plus a build of the '
-                             '`v4-compiler` branch, which is where the --kc-* sampler lives). '
+                             '`v4-query-program` branch, which is where the --kc-* sampler lives). '
                              'The analysis itself is cheap: MEASURED ~149 MB peak RSS for the '
                              'full 10^6 draws — the one figure that reproduced across every '
                              'measurement condition. Wall ranged 60-98 s depending on what else '
