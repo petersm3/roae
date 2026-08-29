@@ -3375,6 +3375,63 @@ static int do_verify_shard_manifest(const char *manifest_path,
             diverged++;
         }
     }
+    /* 🔴 Q-367 (#4): the verifier consumes MANIFEST LINES ONLY and never enumerates the directory,
+       while the merge step reads whatever shards are present. So a stale or extra `sub_*.bin` that
+       the manifest does not name passed verification by being invisible to it, and then entered the
+       merged result. Detect it here.
+
+       Cheap path first: compare the directory count to the manifest count. Only on a mismatch do we
+       pay for per-name matching, because a campaign can hold thousands of shards and this runs at
+       merge time. This does NOT redefine the manifest -- it reports files the manifest does not
+       cover, which is exactly the gap that made them invisible. */
+    {
+        int dir_shards = 0;
+        DIR *sd = opendir(".");
+        if (sd) {
+            struct dirent *de;
+            while ((de = readdir(sd)) != NULL) {
+                const char *n = de->d_name; size_t ln = strlen(n);
+                if (ln < 8 || strncmp(n, "sub_", 4) != 0) continue;
+                if (strcmp(n + ln - 4, ".bin") == 0 || (ln > 7 && strcmp(n + ln - 7, ".bin.gz") == 0))
+                    dir_shards++;
+            }
+            closedir(sd);
+        }
+        if (dir_shards > total) {
+            fprintf(stderr,
+                "ERROR: %d shard file(s) on disk but only %d named in the manifest (Q-367).\n"
+                "       The merge step reads what is PRESENT, so unlisted shards would enter the\n"
+                "       merged result without ever being verified. Naming them:\n",
+                dir_shards, total);
+            sd = opendir(".");
+            if (sd) {
+                struct dirent *de;
+                while ((de = readdir(sd)) != NULL) {
+                    const char *n = de->d_name; size_t ln = strlen(n);
+                    if (ln < 8 || strncmp(n, "sub_", 4) != 0) continue;
+                    if (!(strcmp(n + ln - 4, ".bin") == 0 || (ln > 7 && strcmp(n + ln - 7, ".bin.gz") == 0)))
+                        continue;
+                    FILE *mf2 = fopen(manifest_path, "r");
+                    int found = 0;
+                    if (mf2) {
+                        char lb[4096];
+                        while (fgets(lb, sizeof(lb), mf2)) {
+                            char *tab = strchr(lb, '\t');
+                            if (!tab) continue;
+                            *tab = 0;
+                            if (strcmp(lb, n) == 0) { found = 1; break; }
+                        }
+                        fclose(mf2);
+                    }
+                    if (!found) fprintf(stderr, "         UNLISTED: %s\n", n);
+                }
+                closedir(sd);
+            }
+            if (out_total) *out_total = total;
+            pclose(p);
+            return 22;
+        }
+    }
     /* 🔴 Q-367: the pipeline status was DISCARDED. If xargs/sh never ran, the parent read zero
        diagnostic lines and reported missing=shrunk=diverged=0 -- i.e. a verifier that could not run
        reported PASS. Same shape as #197, which captured pclose for exactly this reason. */
@@ -3421,17 +3478,25 @@ static int do_verify_shard_manifest(const char *manifest_path,
  * was the #163 eviction-resume false-abort (exit 22). A truly fresh start has no
  * .dfs_state and keeps the fatal verify (where byte-identity IS expected).
  * Read-only directory scan; sha-neutral. */
-static int resuming_in_progress(void) {
+/* 🔴 Q-367 (#5): this returned a BOOLEAN on the FIRST `.dfs_state` found, so a single resuming
+   shard downgraded the manifest check to advisory for ALL shards -- including ones that are not
+   resuming, whose divergence would be real corruption rather than legitimate advance. The #164
+   trade-off is sound (a resuming shard MUST be allowed to move past its snapshot) but its scope was
+   the whole run. Returning the COUNT lets the caller say how broad the downgrade actually is, and
+   shout when it is covering more shards than are resuming. Per-shard classification would be the
+   complete fix; it needs diagnostics this path does not carry, so it is recorded rather than
+   claimed. */
+static int resuming_shard_count(void) {
     DIR *d = opendir(".");
     if (!d) return 0;
     struct dirent *e;
-    int found = 0;
+    int n_dfs = 0;
     while ((e = readdir(d)) != NULL) {
         size_t n = strlen(e->d_name);
-        if (n >= 10 && strcmp(e->d_name + n - 10, ".dfs_state") == 0) { found = 1; break; }
+        if (n >= 10 && strcmp(e->d_name + n - 10, ".dfs_state") == 0) n_dfs++;
     }
     closedir(d);
-    return found;
+    return n_dfs;
 }
 
 static int auto_verify_shard_manifest_if_exists(void) {
@@ -3461,15 +3526,25 @@ static int auto_verify_shard_manifest_if_exists(void) {
      * the .budget sidecar + Outlier-#5 re-walk, and — authoritatively — the
      * merge-time sha-gate against the canonical sha. A fresh manifest is
      * re-emitted right after promotion, so the snapshot is brought current. */
-    if (resuming_in_progress()) {
+    int n_resuming = resuming_shard_count();
+    if (n_resuming > 0) {
+        int n_failed = missing + shrunk + diverged;
         fprintf(stderr,
             "[hardening] auto-verify-manifest ADVISORY on resume/extension "
-            "(%d total: %d missing, %d shrunk, %d diverged) — expected when shards "
-            "legitimately advanced past the prior snapshot; NOT fatal (#164). Final "
-            "correctness is enforced by the merge-time sha-gate; a fresh manifest is "
+            "(%d total: %d missing, %d shrunk, %d diverged; %d shard(s) carry a .dfs_state) — "
+            "expected when shards legitimately advanced past the prior snapshot; NOT fatal (#164). "
+            "Final correctness is enforced by the merge-time sha-gate; a fresh manifest is "
             "re-emitted after promotion. Override with SOLVE_SKIP_AUTO_MANIFEST=1 to "
             "skip this check entirely.\n",
-            total, missing, shrunk, diverged);
+            total, missing, shrunk, diverged, n_resuming);
+        if (n_failed > n_resuming) {
+            fprintf(stderr,
+                "[hardening] 🔴 SCOPE WARNING (Q-367): %d shard(s) failed the manifest check but only "
+                "%d are resuming. The #164 downgrade is therefore covering %d shard(s) that are NOT "
+                "resuming, whose divergence is NOT explained by legitimate advance. Inspect those "
+                "before trusting the merge; the sha-gate remains the authoritative control.\n",
+                n_failed, n_resuming, n_failed - n_resuming);
+        }
         return 0;
     }
     fprintf(stderr,
