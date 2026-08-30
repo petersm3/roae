@@ -253,8 +253,13 @@ def print_table(use_color=False):
     print("There are 8 possible trigrams (Heaven, Earth, Thunder, Water, Mountain, Wind,")
     print("Fire, Lake), giving 8x8 = 64 possible hexagrams.")
     print("---")
-    print("Pos | Hex | Binary | Upper          | Lower          | Name")
-    print("----|-----|--------|----------------|----------------|----")
+    # The Hex column is SIX display cells, not five: U+4DC0-U+4DFF are East Asian
+    # Wide and occupy two cells while len() counts one. display_width()/pad() were
+    # written for exactly this in 58a38dbc (2026-04-06) and then never called --
+    # dead code for five months, while the rows hardcoded three spaces against a
+    # five-cell header. Header and separator now match the rows at six.
+    print("Pos | Hex  | Binary | Upper          | Lower          | Name")
+    print("----|------|--------|----------------|----------------|----")
     for i in range(64):
         b = binary_hexagrams[i]
         upper = upper_trigram(b)
@@ -262,7 +267,7 @@ def print_table(use_color=False):
         bits = colorize_binary(b, use_color) if use_color else bin(b)[2:].zfill(6)
         _, up, um = trigram_names[upper]
         _, lp, lm = trigram_names[lower]
-        print(f"{i+1:02}  | {unicode_hexagrams[i]}   | {bits} | "
+        print(f"{i+1:02}  | {pad(unicode_hexagrams[i], 4)} | {bits} | "
               f"{up:<5}{um:<9} | {lp:<5}{lm:<9} | "
               f"{hexagram_names[i]}")
 
@@ -3176,8 +3181,9 @@ def print_codons():
         b3 = bases[val & 0b11]
         return b1 + b2 + b3
 
-    print("Pos | Hex | Binary | Codon | Amino Acid | Name")
-    print("----|-----|--------|-------|------------|----")
+    # Same six-cell Hex column as the trigram table above.
+    print("Pos | Hex  | Binary | Codon | Amino Acid | Name")
+    print("----|------|--------|-------|------------|----")
     amino_acids = []
     for i in range(64):
         b = binary_hexagrams[i]
@@ -3185,7 +3191,7 @@ def print_codons():
         codon = val_to_codon(b)
         aa = codon_table.get(codon, "?")
         amino_acids.append(aa)
-        print(f"{i+1:02}  | {unicode_hexagrams[i]}   | {bits} | {codon:<5} | {aa:<10} | {hexagram_names[i]}")
+        print(f"{i+1:02}  | {pad(unicode_hexagrams[i], 4)} | {bits} | {codon:<5} | {aa:<10} | {hexagram_names[i]}")
 
     # How many unique amino acids does the King Wen sequence map to?
     unique_aa = set(amino_acids)
