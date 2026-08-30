@@ -126,19 +126,42 @@ Spot pricing references (D-als-v7 family, westus3):
 az vm show -g <rg> -n <vm> --query priority -o tsv
 ```
 
-- Output `Spot` → OK to launch.
-- Output empty / `null` / `Regular` → STOP. Either recreate the VM with `--priority Spot --eviction-policy Deallocate --max-price -1`, or escalate to the operator. Do NOT proceed with a workload on a Regular-priority VM.
+**The answer depends on whether the workload can resume from a checkpoint.**
 
-**Creation command template (only allowed form for new VMs other than `claude`):**
+- **Enumeration / checkpointable work** — output `Spot` → OK to launch. Output empty / `null` /
+  `Regular` → **STOP.** Either recreate with `--priority Spot --eviction-policy Deallocate
+  --max-price -1`, or escalate. An eviction here costs a resume, not a re-run.
+- **Merge, or any UNCHECKPOINTABLE work** — `Regular` / Standard, **right-sized**, is the
+  REQUIRED type, not a violation. An eviction here loses the whole run. Pair it with a teardown
+  plan in the same breath, because the real hazard for Standard is not its rate but being
+  forgotten.
+
+Live example (2026-08-30): `c292-codex` ran the Codex review sweep as **Regular D4als_v7** — correct,
+because a Codex review cannot resume from a checkpoint and a Spot eviction loses the run outright. It
+was paired with a teardown tick that deallocated it automatically at 111/111.
+
+**Creation command templates — pick by checkpointability, and pair BOTH with a teardown plan:**
 ```
+# enumeration / checkpointable — the default
 az vm create ... --priority Spot --eviction-policy Deallocate --max-price -1
+
+# merge / uncheckpointable — right-size it, and say how it dies before you create it
+az vm create ... --size <right-sized>          # Regular; no --priority flag
 ```
 
 Failure modes this rule prevents:
 - 2026-04-19: d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. The run billed at on-demand rather than Spot rates for its full duration.
 - 2026-04-26 → 2026-04-29: deep-calib-westus3 was recreated as Regular D64als_v7 (intentionally, to avoid eviction during a calibration run) and then forgotten across multiple sessions. Idle Regular billing for ~3 days, kept alive by orphan monitor scripts.
 
-The new rule also implicitly supersedes the merge-VM-on-demand guidance previously in this section: even merge VMs are now Spot. If a merge gets evicted mid-run, restart it; the marginal cost of a re-run is much smaller than the systemic cost of forgotten Regular VMs.
+⚠ **[CORRECTED 2026-08-30]** This paragraph previously read: *"even merge VMs are now Spot. If a
+merge gets evicted mid-run, restart it; the marginal cost of a re-run is much smaller than the
+systemic cost of forgotten Regular VMs."* **That is withdrawn.** Blanket-Spot made the rule
+unfollowable for uncheckpointable work, which is why it was not followed — and an unfollowable rule
+is worse than none, because its existence suppresses the workable one. The operative split is above:
+enumeration → Spot, merge/uncheckpointable → Regular/Standard right-sized **with a teardown plan**.
+
+The systemic cost of forgotten Regular VMs is real, and the answer to it is the teardown plan, not
+banning the VM type that some workloads require.
 
 ## Cost control — SKU family restrictions (STRICT)
 
