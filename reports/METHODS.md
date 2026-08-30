@@ -22,8 +22,14 @@ Every report measures the same object. The formal predicates (full statements + 
   satisfies C3** (e.g. the wrap-d5 witness at 752). The threshold 776 is King Wen's own value —
   reverse-engineered, not derived; priced as circular in [TR-9](TR9_PRICING_THE_CONSTRAINTS.md).
 - **C4 — fixed opening pair, defined orientation.** The first pair is {Qian(63), Kun(0)}; its orientation
-  (Heaven 63 before Earth 0) is **definitional and classically attested** (the Xugua opens
-  Heaven-then-Earth). It is NOT forced by the other constraints — complementation (x ↦ x ⊕ 63) is an
+  (Heaven 63 before Earth 0) is **definitional**. ⚠ **[CORRECTED 2026-08-30 — the parenthetical
+  previously read "and classically attested (the Xugua opens Heaven-then-Earth)". The Xugua does not
+  attest the WITHIN-PAIR order.** Its opening, 有天地，然後萬物生焉, sequences *the pair* before the myriad
+  things — 天地 is a compound, not an ordering of Heaven over Earth. What the classical record does
+  attest is **C1**, the pairing rule: 孔穎達《周易正義·序卦傳疏》 gives 二二相耦，非覆即變 — "they pair
+  two-by-two; if not inverted, then complemented" — with both halves enumerated. That is the pairing
+  pedigree, and it is 7th-century. C4's orientation is **ours by definition**, and the honest framing is
+  that it is a convention we fixed, not an inheritance we found.]** It is NOT forced by the other constraints — complementation (x ↦ x ⊕ 63) is an
   exact symmetry of C1∩C2∩C3∩C5 broken only by oriented C4, machine-checked in
   [lean/KingWen.lean](../lean/KingWen.lean) *(the former "Theorem 6" forced-orientation claim is
   retracted, 2026-07-26 — see CLAIMS_DECIDED's corrections ledger)*. [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)
