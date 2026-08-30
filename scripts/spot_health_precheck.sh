@@ -74,8 +74,13 @@ fi
 # AllocationFailed even if the SKU shows no restriction.
 log "Signal 2: family vCPU quota headroom in $REGION"
 USAGE_JSON=$(az vm list-usage -l "$REGION" --query "[?contains(name.value, 'Dalsv7')]|[0]" -o json 2>/dev/null)
-USED=$(echo "$USAGE_JSON" | grep -oP '"currentValue":\s*\K[0-9]+' | head -1)
-LIMIT=$(echo "$USAGE_JSON" | grep -oP '"limit":\s*\K[0-9]+' | head -1)
+# az now emits these as QUOTED STRINGS ("currentValue": "8"), not bare numbers. The
+# original pattern required an unquoted digit and so matched NOTHING -- which became
+# FREE=0 and printed "only 0 free", a false WAIT that would block every launch while
+# 122 vCPU were actually free. Accept both forms. (Same class as the known az
+# silent-wrong-answer traps: -o tsv rendering null as "None", diskSizeGB vs diskSizeGb.)
+USED=$(echo "$USAGE_JSON" | grep -oP '"currentValue":\s*"?\K[0-9]+' | head -1)
+LIMIT=$(echo "$USAGE_JSON" | grep -oP '"limit":\s*"?\K[0-9]+' | head -1)
 # An unreadable quota is NOT "0 free". Both arms of the old arithmetic silently
 # treated a failed `az` call as zero, which happened to fail closed here -- but it
 # reported "0 / 0 used" as though measured. A check that cannot see its target must
