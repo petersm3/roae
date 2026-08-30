@@ -196,7 +196,7 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 |---------|----------|---------------------|
 | Perfect pair structure (all 32 pairs) | Very strong | Yes |
 | Complement distance (0th %-ile unconstrained; 8.1% exact C1&C4 null; 3.9th %-ile at C1+C2+C4+C5 — **flagged, see [SOLVE.md](SOLVE.md) §Rule 3**) | Moderate (see [caveat](SOLVE_SUMMARY.md#an-important-caveat)) | **Depends on the null.** Unconstrained: yes (0th %-ile, clears p < 0.0018). C1&C4 conditioned: **no** (8.1%, fails even uncorrected 0.05). C1+C2+C4+C5: unresolved (≈12% by the suite's ledger; the 3.9% figure is flagged, do not cite) *(corrected 2026-08-30: this cell read an unqualified "Yes", which graded only the unconstrained scope while spanning all three)* |
-| XOR algebraic regularity (7 products) | Theorem (universal) | N/A — true for any pairing |
+| XOR algebraic regularity (7 products) | Theorem (universal **within C1**) | N/A — true for any **reverse/inverse** pairing, not any pairing at all *(corrected 2026-08-30: the unqualified "any pairing" is false — the perfect matching (0,1), (2,3), …, (62,63) uses every hexagram once and yields the single product 000001, which is not among the 7. That matching is not a reverse/inverse pairing, so it is outside the theorem's scope rather than a counterexample to it; see [SPECIFICATION.md](SPECIFICATION.md) §Theorem (XOR universality) and [SOLVE.md](SOLVE.md) §Theorem 2)* |
 | No 5-line transitions (~1 in 550) | Moderate | Marginal |
 | Entropy (≈12th percentile) | Weak | No |
 | No detectable periodicity | Null result | N/A |
