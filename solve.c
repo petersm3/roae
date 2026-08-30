@@ -17164,13 +17164,15 @@ static int kc_load_as(KC *kc, const char *dir, const char *pfx, int is_g) {
     if (!f) { fprintf(stderr, "ERROR: [kc] no %s_manifest.txt in %s\n", pfx, dir); return -1; }
     char line[2048];
     int n = -1, start_exit = -1, last_k = -2, b0v[5] = {-1, -1, -1, -1, -1};
-    int pl[32], npl = 0, first = 1, hdr_ok = 0;
+    int pl[32], npl = 0, first = 1, hdr_ok = 0, have_mph = 0;
+    unsigned long long mph = 0;
     while (fgets(line, sizeof(line), f)) {
         if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
         if (sscanf(line, "n=%d", &n) == 1) continue;
         if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
         if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
         if (sscanf(line, "last_complete_k=%d", &last_k) == 1) continue;
+        if (sscanf(line, "pl_hash=%llx", &mph) == 1) { have_mph = 1; continue; }
         if (strncmp(line, "pl=", 3) == 0) {
             for (char *tok = strtok(line + 3, ",\n"); tok && npl < 32; tok = strtok(NULL, ",\n"))
                 pl[npl++] = atoi(tok);
@@ -17194,6 +17196,18 @@ static int kc_load_as(KC *kc, const char *dir, const char *pfx, int is_g) {
     kc->start_exit = start_exit;
     f1_ctx_init(&kc->c, n, pl, start_exit);
     kc_finish_init(kc, b0v);
+    /* K-3: the manifest's textual pl_hash= is PUBLISHED PROVENANCE — refuse
+     * a manifest that contradicts the pair table it sits next to. (Every
+     * layer header is checked against this same derived hash below, so
+     * agreement here binds manifest <-> layer headers <-> sidecars.) */
+    if (!have_mph || mph != (unsigned long long)f1_pl_hash(&kc->c)) {
+        fprintf(stderr, "ERROR: [kc] manifest pl_hash in %s/%s_manifest.txt %s the pl= "
+                "pair table (manifest %016llx vs derived %016llx) — provenance "
+                "contradiction, refusing to open\n", dir, pfx,
+                have_mph ? "contradicts" : "is MISSING vs", mph,
+                (unsigned long long)f1_pl_hash(&kc->c));
+        return -1;
+    }
     for (int k = 0; k <= n; k++) {
         snprintf(path, sizeof(path), "%s/%s_layer_%02d.bin", dir, pfx, k);
         FILE *lf = fopen(path, "rb");
@@ -17401,13 +17415,15 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
     if (!f) { fprintf(stderr, "ERROR: [kc-ooc] no %s_manifest.txt in %s\n", pfx, dir); return -1; }
     char line[2048];
     int n = -1, start_exit = -1, last_k = -2, b0v[5] = {-1, -1, -1, -1, -1};
-    int pl[32], npl = 0, first = 1, hdr_ok = 0;
+    int pl[32], npl = 0, first = 1, hdr_ok = 0, have_mph = 0;
+    unsigned long long mph = 0;
     while (fgets(line, sizeof(line), f)) {
         if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
         if (sscanf(line, "n=%d", &n) == 1) continue;
         if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
         if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
         if (sscanf(line, "last_complete_k=%d", &last_k) == 1) continue;
+        if (sscanf(line, "pl_hash=%llx", &mph) == 1) { have_mph = 1; continue; }
         if (strncmp(line, "pl=", 3) == 0) {
             for (char *tok = strtok(line + 3, ",\n"); tok && npl < 32; tok = strtok(NULL, ",\n"))
                 pl[npl++] = atoi(tok);
@@ -17432,6 +17448,18 @@ static int kc_ooc_open_as(KC *kc, const char *dir, const char *pfx, int is_g, in
     kc->start_exit = start_exit;
     f1_ctx_init(&kc->c, n, pl, start_exit);
     kc_finish_init(kc, b0v);
+    /* K-3: the manifest's textual pl_hash= is PUBLISHED PROVENANCE — refuse
+     * a manifest that contradicts the pair table it sits next to. (Every
+     * layer header is checked against this same derived hash below, so
+     * agreement here binds manifest <-> layer headers <-> sidecars.) */
+    if (!have_mph || mph != (unsigned long long)f1_pl_hash(&kc->c)) {
+        fprintf(stderr, "ERROR: [kc] manifest pl_hash in %s/%s_manifest.txt %s the pl= "
+                "pair table (manifest %016llx vs derived %016llx) — provenance "
+                "contradiction, refusing to open\n", dir, pfx,
+                have_mph ? "contradicts" : "is MISSING vs", mph,
+                (unsigned long long)f1_pl_hash(&kc->c));
+        return -1;
+    }
     KcOoc *o = (KcOoc *)calloc(1, sizeof(KcOoc));
     F1_CHECK(o != NULL, "[kc-ooc] alloc");
     for (int k = 0; k <= KC_MAX_PAIRS; k++) o->L[k].fd = -1;
@@ -22038,6 +22066,17 @@ static void kc_h_dump_rec(const char *path, uint64_t idx, const char *reason,
     fprintf(stderr, "\n");
 }
 
+/* K-2: a digest may satisfy an equality check ONLY if it is a well-formed
+ * 64-hex sha256. The "unavailable" sentinel (digest tool missing/failed)
+ * must FAIL any predicate that consumes it — sentinel==sentinel is not a
+ * match (verifier-closure invariant: TRUE requires the target PRESENT). */
+static int kc_h_sha_wellformed(const char *s) {
+    if (!s || strlen(s) != 64) return 0;
+    for (int i = 0; i < 64; i++)
+        if (!((s[i] >= '0' && s[i] <= '9') || (s[i] >= 'a' && s[i] <= 'f'))) return 0;
+    return 1;
+}
+
 /* stream one solutions container through the full check battery.
  * Returns 0 if the stream was processed (defects TALLIED in st), -1 on
  * IO/format errors that prevent processing (st->io_error/header_bad). */
@@ -22152,16 +22191,28 @@ static int kc_h_oracle_file(const KC *kc, const int *p2q, const char *path,
             }
         }
     }
-    if (st->is_gz) pclose(in); else fclose(in);
+    if (st->is_gz) {
+        /* K-5 sibling: a decompressor that died is a DIRECT IO-failure
+         * signal (count conservation happened to fence it; check the
+         * source too, not just the fence). */
+        if (pclose(in) != 0) { st->io_error = 1; rc = -1; }
+    } else {
+        fclose(in);
+    }
     if (shp) {
-        pclose(shp);
+        /* K-2: the digest co-process must have EXITED CLEAN and produced a
+         * well-formed 64-hex digest; anything else stays "unavailable",
+         * which can never satisfy the certificate equality check. */
+        const int shp_rc = pclose(shp);
+        int got_sha = 0;
         FILE *sf = fopen(shafile, "r");
         if (sf) {
-            if (fscanf(sf, "%64s", st->sha) != 1)
-                snprintf(st->sha, sizeof(st->sha), "unavailable");
+            got_sha = (fscanf(sf, "%64s", st->sha) == 1);
             fclose(sf);
             unlink(shafile);
         }
+        if (shp_rc != 0 || !got_sha || !kc_h_sha_wellformed(st->sha))
+            snprintf(st->sha, sizeof(st->sha), "unavailable");
     }
     return rc;
 }
@@ -22169,6 +22220,7 @@ static int kc_h_oracle_file(const KC *kc, const int *p2q, const char *path,
 /* per-file PASS predicate (count conservation + zero defects) */
 static int kc_h_oracle_file_pass(const KcOrFile *st, const KcOrOpts *o) {
     if (st->io_error || st->header_bad) return 0;
+    if (!kc_h_sha_wellformed(st->sha)) return 0;   /* K-2: no digest, no PASS */
     if (st->records != st->hdr_count) return 0;
     if (st->malformed || st->invalid || st->f0 || st->dupclass || st->orderviol) return 0;
     if (o->c3max >= 0 && st->c3_over) return 0;
@@ -22897,6 +22949,7 @@ static int kc_h_ladder_side(const char *dir, const char *pfx, int is_g,
 static int kc_h_ladder_verify(const char *fdir, const char *gdir,
                               int force_ooc, int cache_mb, int quiet) {
     int fails = 0;
+    int identities = 0;   /* K-1 census: f*g cut identities EVALUATED (needs a GDIR) */
     KC *fkc = (KC *)calloc(1, sizeof(KC));
     F1_CHECK(fkc != NULL, "[kc-ladder] alloc");
     if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); return -1; }
@@ -22922,16 +22975,33 @@ static int kc_h_ladder_verify(const char *fdir, const char *gdir,
         free(gkc);
         /* (f) the f*g cut identity at EVERY layer (the V3 gate) */
         if (!quiet) printf("[kc-ladder] running the f*g cut identity (kc_g_check)...\n");
-        if (kc_g_check_main(fdir, gdir, force_ooc, cache_mb) != 0) {
+        const int gc = kc_g_check_main(fdir, gdir, force_ooc, cache_mb);
+        if (gc != 2) identities = fkc->n + 1;   /* evaluated (2 = open failed: nothing ran) */
+        if (gc != 0) {
             if (!quiet) printf("[kc-ladder] f*g IDENTITY FAILED\n");
             fails++;
         }
     }
     kc_free(fkc);
     free(fkc);
-    if (!quiet)
-        printf("[kc-ladder] VERDICT: %s (%d failure%s)\n",
-               fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    if (!quiet) {
+        /* K-1: identity census — never an unqualified PASS on ZERO f*g
+         * identities. Without a GDIR this mode verifies STRUCTURE ONLY
+         * (per-layer shas, masses, sidecars, hash chain); the f*g cut
+         * identity needs a g ladder, and a verdict must not claim more
+         * than it checked. */
+        if (fails)
+            printf("[kc-ladder] VERDICT: FAIL (%d failure%s; %d f*g identit%s evaluated)\n",
+                   fails, fails == 1 ? "" : "s", identities, identities == 1 ? "y" : "ies");
+        else if (identities == 0)
+            printf("[kc-ladder] VERDICT: STRUCTURE-ONLY (0 identities; supply GDIR for the f*g cut)\n");
+        else
+            printf("[kc-ladder] VERDICT: PASS (0 failures; %d f*g cut identities held)\n",
+                   identities);
+        printf("KC_LADDER_IDENTITIES=%d\n", identities);
+        printf("KC_LADDER_RESULT=%s\n",
+               fails ? "FAIL" : (identities ? "PASS" : "STRUCTURE-ONLY"));
+    }
     return fails;
 }
 
@@ -23468,7 +23538,19 @@ static int kc_h1cert_cmp(const KcH1Cert *c, const KcOrFile *red, const KC *kc,
         const KcOrFile *a = &c->rec[i], *b = &red[i];
         char nm[128];
         snprintf(nm, sizeof(nm), "file %d: stream sha matches", i);
-        KCH_CK(nm, strcmp(a->sha, b->sha) == 0);
+        {
+            /* K-2: "unavailable" == "unavailable" is NOT a digest match — a
+             * sha field satisfies equality only when BOTH sides are
+             * well-formed 64-hex. The output distinguishes the two failure
+             * shapes (digest unavailable vs digest mismatch). */
+            const int wf = kc_h_sha_wellformed(a->sha) && kc_h_sha_wellformed(b->sha);
+            const int ok_ = wf && strcmp(a->sha, b->sha) == 0;
+            if (!quiet)
+                printf("[verify-certificate]   %-52s %s%s\n", nm, ok_ ? "PASS" : "FAIL",
+                       ok_ ? "" : (wf ? " (digest mismatch)"
+                                      : " (DIGEST UNAVAILABLE — never a match)"));
+            if (!ok_) fails++;
+        }
         snprintf(nm, sizeof(nm), "file %d: all tallies match", i);
         KCH_CK(nm, a->hdr_count == b->hdr_count && a->records == b->records &&
                    a->members == b->members && a->invalid == b->invalid &&
@@ -23511,8 +23593,32 @@ static int kc_h1cert_verify(const char *buf, const char *fdir_ov, int force_ooc,
     for (int i = 0; i < c->nf; i++)
         kc_h_oracle_file(kc, p2q, c->rec[i].path, &c->opts, &red[i], &dump_left);
     int fails = kc_h1cert_cmp(c, red, kc, quiet);
+    /* K-2 machine-readable digest state: UNAVAILABLE (a compared side was
+     * never meaningfully populated) / MISMATCH / MATCHED. */
+    int dig_unavail = 0, dig_mismatch = 0;
+    for (int i = 0; i < c->nf; i++) {
+        if (!kc_h_sha_wellformed(c->rec[i].sha) || !kc_h_sha_wellformed(red[i].sha))
+            dig_unavail++;
+        else if (strcmp(c->rec[i].sha, red[i].sha) != 0)
+            dig_mismatch++;
+    }
+    if (!quiet)
+        printf("CERT_DIGEST=%s\n", dig_unavail ? "UNAVAILABLE"
+                                                : (dig_mismatch ? "MISMATCH" : "MATCHED"));
     int uncaught = 0;
-    if (mutate && fails == 0) {
+    if (mutate && fails == 0 && dig_unavail) {
+        /* K-10: the battery perturbs RECORDED values, so it can only prove
+         * the comparison is WIRED, never that the compared value was
+         * MEANINGFUL. It must never report ALL CAUGHT over a
+         * sentinel-vs-sentinel comparison. (Unreachable while the K-2
+         * predicate holds — fails==0 implies well-formed digests — kept as
+         * a hard fence against regression.) */
+        if (!quiet)
+            printf("[verify-certificate] mutation battery REFUSED: %d digest field%s "
+                   "never meaningfully populated (sentinel, not a value)\n",
+                   dig_unavail, dig_unavail == 1 ? "" : "s");
+        uncaught = dig_unavail;
+    } else if (mutate && fails == 0) {
         static const char *mname[] = {
             "file_0 sha nibble flip", "file_0 members+1", "file_0 records+1",
             "file_0 dupclass+1", "verdict flip", "N_total+1", "pl_hash nibble flip"
@@ -25015,6 +25121,21 @@ static int kc_scan_selftest(void) {
         }
         KC_SCAN_GATE("quotient marginal column sums == N (all layers)", ok);
     }
+    /* NEGATIVE legs (K-4): a selftest with no leg that FAILS cannot tell a
+     * working checker from a stub of the right shape. */
+    {   /* N1: a corrupted extractor table entry MUST be caught by the brute
+         * cross-check (proves the comparator has power, not just shape) */
+        F1U192 save = T.cls[0];
+        T.cls[0].l0 ^= 1ull;
+        int caught = 0;
+        for (int k = 0; k < n && !caught; k++)
+            for (int d = 0; d < 5 && !caught; d++) {
+                F1U192 b = {bcls[k][d], 0, 0};
+                if (!f1_eq(&b, &T.cls[k * 5 + d])) caught = 1;
+            }
+        T.cls[0] = save;
+        KC_SCAN_GATE("NEGATIVE N1: corrupted extractor mass IS caught by brute", caught);
+    }
     /* run the full subcommand end-to-end (JSON emission + gates) */
     {
         char *argvv[6];
@@ -25036,6 +25157,42 @@ static int kc_scan_selftest(void) {
                      kc_h_field(buf, "N_total", v, sizeof(v)) == 0 &&
                      strcmp(v, "26112") == 0);
     }
+    {   /* N2 (K-4): corrupt ONE byte of an f-layer value on disk — the
+         * end-to-end scan MUST fail closed; restore MUST pass again.
+         * (The f ladder is the scan's value anchor; offset 24-from-end is
+         * the low byte of the last value, so trusted arithmetic cannot
+         * overflow on the mutant.) */
+        char lpath[4400];
+        snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_05.bin", fdir);
+        uint8_t orig = 0;
+        KC_SCAN_GATE("NEGATIVE N2: flip one f-layer value byte",
+                     kc_h_flip_byte(lpath, 24, &orig, 0, 0) == 0);
+        {
+            char *argvv[6];
+            argvv[0] = (char *)"solve";
+            argvv[1] = (char *)"--kc-scan";
+            argvv[2] = fdir;
+            argvv[3] = gdir;
+            argvv[4] = outp;
+            argvv[5] = (char *)"--kc-raw";
+            KC_SCAN_GATE("NEGATIVE N2: corrupted-ladder scan FAILS closed",
+                         kc_scan_main(6, argvv) != 0);
+        }
+        uint8_t dummy;
+        KC_SCAN_GATE("NEGATIVE N2: restore the byte",
+                     kc_h_flip_byte(lpath, 24, &dummy, 1, orig) == 0);
+        {
+            char *argvv[6];
+            argvv[0] = (char *)"solve";
+            argvv[1] = (char *)"--kc-scan";
+            argvv[2] = fdir;
+            argvv[3] = gdir;
+            argvv[4] = outp;
+            argvv[5] = (char *)"--kc-raw";
+            KC_SCAN_GATE("NEGATIVE N2: restored ladder scans PASS again",
+                         kc_scan_main(6, argvv) == 0);
+        }
+    }
     free(BR.walks);
     free(BR.cds);
     kc_scan_free(&T);
@@ -25046,6 +25203,7 @@ static int kc_scan_selftest(void) {
     kc_h_rm_rf(dir);
     printf("[kc-scan-selftest] %s (%d failure%s)\n",
            fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    printf("KC_SCAN_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
     return fails ? 1 : 0;
 }
 
@@ -25788,12 +25946,15 @@ static int kc_profile_selftest(void) {
  * identities; exhaustive leg (total <= 2^22): unrank3(i) for ALL i equals the
  * independently sorted brute enumeration (the emission side of AR-2). */
 static int kc_h_ar2_run(KC *fkc, KC *gkc, const uint8_t *W, int have_walk,
-                        int quiet) {
+                        int quiet, int *checks_out) {
     int fails = 0;
+    int nchecks = 0;   /* K-4 census: checks EXECUTED (no witness + space too
+                        * large for the exhaustive leg => ZERO, and a verdict
+                        * must say so rather than claim an unqualified PASS) */
     KcO3 o3;
     kc_o3_ctx_init(&o3, fkc, gkc);
     const int n = fkc->n;
-#define KC_AR2_CK(name, cond) do { int ok_ = (cond); \
+#define KC_AR2_CK(name, cond) do { int ok_ = (cond); nchecks++; \
         if (!quiet) printf("[kc-ar2] %-62s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
         if (!ok_) fails++; } while (0)
     if (have_walk) {
@@ -25857,6 +26018,7 @@ static int kc_h_ar2_run(KC *fkc, KC *gkc, const uint8_t *W, int have_walk,
     }
 #undef KC_AR2_CK
     kc_o3_ctx_free(&o3);
+    if (checks_out) *checks_out = nchecks;
     return fails;
 }
 
@@ -25884,9 +26046,20 @@ static int kc_ar2_main(const char *fdir, const char *gdir, const char *arg,
         have_walk = 1;
         printf("[kc-ar2] witness = built-in KW walk\n");
     }
-    const int fails = kc_h_ar2_run(fkc, gkc, W, have_walk, 0);
-    printf("[kc-ar2] VERDICT: %s (%d failure%s)\n", fails ? "FAIL" : "PASS",
-           fails, fails == 1 ? "" : "s");
+    int nchecks = 0;
+    const int fails = kc_h_ar2_run(fkc, gkc, W, have_walk, 0, &nchecks);
+    /* K-4 note (K-1 class): with no witness and a space too large for the
+     * exhaustive leg, ZERO checks execute — say so instead of "PASS". */
+    if (fails)
+        printf("[kc-ar2] VERDICT: FAIL (%d failure%s; %d check%s executed)\n",
+               fails, fails == 1 ? "" : "s", nchecks, nchecks == 1 ? "" : "s");
+    else if (nchecks == 0)
+        printf("[kc-ar2] VERDICT: VACUOUS (0 checks executed; supply a witness walk)\n");
+    else
+        printf("[kc-ar2] VERDICT: PASS (0 failures; %d check%s executed)\n",
+               nchecks, nchecks == 1 ? "" : "s");
+    printf("KC_AR2_CHECKS=%d\n", nchecks);
+    printf("KC_AR2_RESULT=%s\n", fails ? "FAIL" : (nchecks ? "PASS" : "VACUOUS"));
     printf("#provenance\tengine=solve.c/kc-ar2\tbranch=%s\tgit=%s\tsource_sha=%s\t"
            "n=%d\torder=O3\tobject=WALK\tspace=C1C2C4C5-SUPERSPACE\t"
            "certificate-not-proof\n", GIT_BRANCH, GIT_HASH, SOURCE_SHA, fkc->n);
@@ -25920,7 +26093,7 @@ static int kc_ar2_selftest(void) {
         F1U192 r0 = {0, 0, 0};
         F1_CHECK(kc_unrank(fkc, r0, W) == 0, "[kc-ar2-selftest] witness unrank");
         KC_AR2_GATE("n=9 battery (witness + EXHAUSTIVE emission)",
-                    kc_h_ar2_run(fkc, gkc, W, 1, 1) == 0);
+                    kc_h_ar2_run(fkc, gkc, W, 1, 1, NULL) == 0);
         kc_free(fkc);
         kc_free(gkc);
         free(fkc);
@@ -25945,7 +26118,7 @@ static int kc_ar2_selftest(void) {
             F1U192 r;
             kc_rand_rank(fkc, &seed, &r);
             F1_CHECK(kc_unrank(fkc, r, W) == 0, "[kc-ar2-selftest] n=13 unrank");
-            ok = kc_h_ar2_run(fkc, gkc, W, 1, 1) == 0;
+            ok = kc_h_ar2_run(fkc, gkc, W, 1, 1, NULL) == 0;
         }
         KC_AR2_GATE("n=13 witness battery on 6 seeded walks", ok);
         kc_free(fkc);
@@ -27114,6 +27287,43 @@ static int kc_enum_desc_selftest(void) {
             ok = kc_walk_cmp(DES.buf + r * (size_t)n,
                              DES.buf + (r + 1) * (size_t)n) > 0;
         KC_ED_GATE("G3 descending output strictly decreasing in the REL key", ok);
+    }
+
+    /* NEGATIVE legs (K-4): the gates must CATCH the realistic defect — a
+     * descending enumeration that silently ran ascending (the dispatcher/
+     * loop-reversal bug this selftest exists for), and a single out-of-order
+     * emission. A stub of the right SHAPE must not be able to pass. */
+    {
+        int g2_catches = 0;   /* asc posing as desc breaks desc[r]==asc[N-1-r] */
+        for (uint64_t r = 0; r < N && !g2_catches; r++)
+            if (memcmp(ASC.buf + r * (size_t)n,
+                       ASC.buf + (N - 1 - r) * (size_t)n, (size_t)n) != 0)
+                g2_catches = 1;
+        KC_ED_GATE("NEG1 G2 catches an ascending stream posing as descending",
+                   g2_catches);
+        int g3_catches = 0;   /* ...and it is not strictly decreasing either */
+        for (uint64_t r = 0; r + 1 < N && !g3_catches; r++)
+            if (kc_walk_cmp(ASC.buf + r * (size_t)n,
+                            ASC.buf + (r + 1) * (size_t)n) <= 0)
+                g3_catches = 1;
+        KC_ED_GATE("NEG2 G3 catches an ascending stream posing as descending",
+                   g3_catches);
+    }
+    {   /* NEG3: ONE swapped adjacent pair in the desc output must trip G3 */
+        uint8_t tmp[KC_MAX_PAIRS];
+        memcpy(tmp, DES.buf, (size_t)n);
+        memcpy(DES.buf, DES.buf + n, (size_t)n);
+        memcpy(DES.buf + n, tmp, (size_t)n);
+        int caught = 0;
+        for (uint64_t r = 0; r + 1 < N && !caught; r++)
+            if (kc_walk_cmp(DES.buf + r * (size_t)n,
+                            DES.buf + (r + 1) * (size_t)n) <= 0)
+                caught = 1;
+        memcpy(tmp, DES.buf, (size_t)n);              /* restore */
+        memcpy(DES.buf, DES.buf + n, (size_t)n);
+        memcpy(DES.buf + n, tmp, (size_t)n);
+        KC_ED_GATE("NEG3 G3 catches one swapped adjacent pair in desc output",
+                   caught);
     }
 
     /* ---- G4: --kc-limit 1 emits the REL-MAXIMAL walk ---- */
