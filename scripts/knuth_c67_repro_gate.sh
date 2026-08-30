@@ -49,7 +49,11 @@ for d in "${DOCS[@]}"; do
   # provenance sentence that merely NAMED the env var while promising a command it never gave.
   # Tokens dotted around a document are not a runnable recipe. All four must occur inside ONE
   # fenced code block, which is the smallest unit a reader can actually copy and paste.
-  miss=$(python3 - "$d" <<'PY'
+  # Q-407: this captured the extractor's OUTPUT and tested `[ -n "$miss" ]`, so a dead
+  # python3 yielded an empty string, fell to the else branch, printed [ok] for every
+  # document and emitted KNUTH_C67_REPRO=OK with the extractor never having run.
+  # Proven by putting an `exit 1` python3 first on PATH. Capture the STATUS.
+  if ! miss=$(python3 - "$d" <<'PY'
 import re, sys
 body = open(sys.argv[1], encoding='utf-8', errors='replace').read()
 need = {'SOLVE_KNUTH_C67=1': 'SOLVE_KNUTH_C67=1',
@@ -69,7 +73,11 @@ if best is None:
     best = ['no-fenced-code-block-at-all']
 print(' '.join(best))
 PY
-)
+); then
+    echo "  [FAIL] the block-scan extractor did not run (python3 failed); this gate cannot"
+    echo "         certify a recipe it never parsed."
+    echo "KNUTH_C67_REPRO=ERROR extractor-failed"; exit 1
+  fi
   miss=$(printf '%s' "$miss" | tr -s ' ')
   if [ -n "$miss" ]; then
     echo "  [FAIL] $d publishes 1169/233 but no single code block runs them; missing from the closest block: $miss"

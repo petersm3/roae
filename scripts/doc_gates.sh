@@ -6377,11 +6377,25 @@ gate_generated() {
     if ! timeout 300 python3 roae.py --all > "$tmp/fresh.txt" 2>/dev/null; then
       echo "  [FAIL] the generator itself did not run cleanly"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
-    ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown >/dev/null 2>&1 )
-    ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --html     >/dev/null 2>&1 )
+    # Codex v2 / fail-open class: these two runs had their exit status DISCARDED,
+    # while the --all run above is checked. A failing --markdown then left no
+    # report.md, and the "[skip] --markdown produced no report.md" arm below
+    # returned 0 -- so a dead generator produced a PASS. Measured by stubbing
+    # python3 to exit 1. Check both.
+    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown >/dev/null 2>&1 ); then
+      echo "  [FAIL] the generator did not run cleanly for --markdown"
+      [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
+    fi
+    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --html >/dev/null 2>&1 ); then
+      echo "  [FAIL] the generator did not run cleanly for --html"
+      [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
+    fi
     [ -n "$cur_sha" ] && printf '%s\n' "$cur_sha" > "$tmp/.roae_sha"
   fi
-  [ -f "$tmp/report.md" ] || { echo "  [skip] --markdown produced no report.md"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 0; }
+  # A missing artifact is NOT a skip. The generator was just run and checked, so an
+  # absent report.md means the gate cannot see its target -- which must be an error,
+  # never a pass. This arm returned 0 and was the second half of the same fail-open.
+  [ -f "$tmp/report.md" ] || { echo "  [FAIL] --markdown produced no report.md — cannot compare what was not generated"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1; }
 
   # THE GROUP SEPARATOR IS PART OF THE NUMBER (fixed 2026-08-02, round 4).
   # The first version stripped [0-9] and nothing else, so roae.py's `f"{ratio:,}"`
@@ -9828,6 +9842,21 @@ gate_branch_registry() {
   # first live run did exactly that — caught here rather than shipped.
   remotes=$(git for-each-ref --format='%(refname)' refs/remotes/origin/ 2>/dev/null \
             | grep -v '^refs/remotes/origin/HEAD$' | sed 's|^refs/remotes/origin/||')
+  # Codex v2: this enumerated ONLY branches that already exist on the remote, so a
+  # branch being published for the FIRST TIME could never be caught -- the gate ran
+  # after the fact, never before. DOC_GATES_PENDING_BRANCHES lets the pre-push hook
+  # name refs it is about to create, so they are declared BEFORE they are published,
+  # which is the only moment the check is worth anything.
+  if [ -n "${DOC_GATES_PENDING_BRANCHES:-}" ]; then
+    local _p
+    for _p in $DOC_GATES_PENDING_BRANCHES; do
+      _p=${_p#refs/heads/}
+      case " $remotes " in
+        *" $_p "*) ;;
+        *) remotes="$remotes $_p"; echo "  [pending] also checking branch about to be published: $_p" ;;
+      esac
+    done
+  fi
   if [ -z "$remotes" ]; then
     echo "  [note] no refs/remotes/origin/* in this clone, so the published-branch leg did NOT"
     echo "         run. This is a fresh or detached checkout, not a clean bill of health."
@@ -9912,6 +9941,9 @@ gate_publication_state() {
     rc=1
   fi
   # (b) unchecked boxes outside a reader checklist
+  # mktemp is CHECKED: a gate that cannot create its own scratch file must not proceed
+  # to report "clean". TMPDIR-honouring rather than hardcoded /tmp.
+  _G20_OUT=$(mktemp) || { echo "  [FAIL] GATE 20 could not create a temp file"; return 1; }
   n=0
   while IFS= read -r f; do
     [ -n "$f" ] || continue
@@ -9919,14 +9951,26 @@ gate_publication_state() {
       /^#{1,6}[[:space:]]/ { inck = (tolower($0) ~ /checklist/) ? 1 : 0 }
       /^[[:space:]]*- \[ \]/ { if (!inck) printf "  [FAIL] %s:%d unchecked box outside a reader checklist: %s\n", FN, NR, substr($0,1,72) }
     ' "$f"
-  done < <(printf '%s\n' "$DOCS") > /tmp/g20_$$ 2>/dev/null   # Q-284: guarded $DOCS, not a second unguarded enumeration
-  if [ -s /tmp/g20_$$ ]; then
-    cat /tmp/g20_$$
+  done < <(printf '%s\n' "$DOCS") > "$_G20_OUT" 2>/dev/null   # Q-284: guarded $DOCS, not a second unguarded enumeration
+  # Codex v2 / fail-open class: this wrote to /tmp/g20_$$ with the redirect UNCHECKED
+  # and stderr discarded. If the redirect failed -- unwritable /tmp, full disk -- the
+  # file never existed, `[ -s ... ]` was false, and the gate printed "[ok] every
+  # unchecked box sits under a reader checklist" having recorded nothing. Replicated
+  # with an unwritable dir plus a planted finding. ABSENT and EMPTY are now
+  # distinguished: absent is an ERROR, empty is genuinely clean.
+  if [ ! -f "$_G20_OUT" ]; then
+    echo "  [FAIL] GATE 20 could not write its findings file ($_G20_OUT)"
+    echo "         The scan did not run to completion, so 'no findings' would be a lie."
+    rm -f "$_G20_OUT"
+    return 1
+  fi
+  if [ -s "$_G20_OUT" ]; then
+    cat "$_G20_OUT"
     echo "         An unchecked box in published prose is an obligation the document has not met."
     echo "         Reader-facing checklists are exempt — put them under a heading containing 'checklist'."
     rc=1
   fi
-  rm -f /tmp/g20_$$
+  rm -f "$_G20_OUT"
   [ "$rc" -eq 0 ] && echo "  [ok] no heading-form draft markers; every unchecked box sits under a reader checklist"
   return $rc
 }

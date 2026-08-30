@@ -226,7 +226,24 @@ for key, e in seen.items():
                      ';'.join(e['src']), key]))
 PYEOF
 
+EXTRACT_RC=$?
+# Codex v2 / fail-open class: the extractor's exit status was DISCARDED. A stubbed
+# failing python3 left $INV empty, N_EXTRACTED=0, zero of ~645 commands ran, and the
+# lane reported EXEC_LANE=PASS with exit 0 -- a full green light having executed
+# nothing. Two guards: the extractor must succeed, AND it must find work. A corpus
+# that genuinely contains no runnable command is itself a finding, not a pass.
+if [ "$EXTRACT_RC" -ne 0 ]; then
+  echo "EXEC_LANE=ERROR extractor-failed rc=$EXTRACT_RC" >&2
+  echo "  The command inventory could not be built, so 'no failures' would be vacuous."
+  rm -f "$INV"; exit 1
+fi
 N_EXTRACTED=$(wc -l < "$INV")
+if [ "${N_EXTRACTED:-0}" -eq 0 ]; then
+  echo "EXEC_LANE=ERROR zero-commands-extracted" >&2
+  echo "  The published corpus has never extracted to zero runnable commands. This is a"
+  echo "  broken extractor, not a clean tree; refusing to report a lane result."
+  rm -f "$INV"; exit 1
+fi
 if [ "$MODE" = "list" ]; then
   sort -t$'\t' -k1,1 "$INV" | awk -F'\t' '{printf "%-17s gat=%s %-13s %-28s %s\n",$1,$2,$5,$6,$7}'
   echo "EXEC_LANE_EXTRACTED=$N_EXTRACTED"; echo "EXEC_LANE_SCOPE=LIST-ONLY"

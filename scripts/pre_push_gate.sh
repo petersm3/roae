@@ -136,6 +136,7 @@ needs_generated() {
 # if EITHER ref's range does.
 SHAS=""
 GENSHAS=""
+NEWREFS=""
 if [ -t 0 ]; then
   SHAS=$(git rev-parse HEAD) || exit 1
   echo "pre-push: direct invocation (no ref list on stdin) — gating HEAD ${SHAS:0:12}"
@@ -179,7 +180,16 @@ else
       if git merge-base --is-ancestor "$lsha" "$_r" 2>/dev/null; then _pub=$_r; break; fi
     done
     if [ -n "$_pub" ]; then
-      echo "pre-push: ${rref:-?} — ${lsha:0:12} already published (reachable from ${_pub#refs/remotes/}); no new tree, no gates to run"
+      # Codex v2: this skip is correct for TREE CONTENT -- no new tree, nothing to
+      # gate -- but it is ORTHOGONAL to the branch-name declaration check, which is
+      # about the REF, not the tree. A new branch pointing at an already-published
+      # sha therefore published with no declaration gate at all. Measured. Record
+      # the ref so the declaration check still runs below.
+      case "${rsha:-}" in
+        *[!0]*) ;;                       # existing remote branch: name already known
+        *) NEWREFS="$NEWREFS ${rref:-?}" ;;   # all-zero remote sha = NEW branch
+      esac
+      echo "pre-push: ${rref:-?} — ${lsha:0:12} already published (reachable from ${_pub#refs/remotes/}); no new tree, content gates skipped"
       continue
     fi
     case " $SHAS " in
@@ -195,7 +205,23 @@ else
   done
 fi
 SHAS=${SHAS# }
+NEWREFS=${NEWREFS# }
 if [ -z "$SHAS" ]; then
+  # A new branch whose tip is already published still introduces a REF NAME that the
+  # branch registry must declare. Run that one gate rather than exiting 0 blind.
+  if [ -n "$NEWREFS" ]; then
+    echo "pre-push: no new tree, but NEW branch ref(s) to declare: $NEWREFS"
+    if [ -x "$ROOT/scripts/doc_gates.sh" ]; then
+      if DOC_GATES_PENDING_BRANCHES="$NEWREFS" bash "$ROOT/scripts/doc_gates.sh" branch-registry; then
+        echo "pre-push: branch-registry gate PASSED for $NEWREFS"
+        exit 0
+      fi
+      echo "pre-push: BLOCKED — new branch ref(s) not declared in the branch registry"
+      exit 1
+    fi
+    echo "pre-push: BLOCKED — cannot run the branch-registry gate (scripts/doc_gates.sh missing)"
+    exit 1
+  fi
   echo "pre-push: no shas to gate"
   exit 0
 fi

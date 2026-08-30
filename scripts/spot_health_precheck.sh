@@ -33,6 +33,17 @@ REGION="${1:-westus3}"
 TARGET_SKU="${2:-Standard_D128als_v7}"
 NEED_VCPU="${3:-128}"
 
+# Codex v2 / fail-open class: `[ "$FREE" -lt "$NEED_VCPU" ]` ERRORS when NEED_VCPU is
+# not an integer ("integer expression expected"), and bash treats a failed test as
+# FALSE -- so the script fell through to "signal-2 OK" and printed a green light
+# having checked nothing, immediately before a real `az vm create`. Measured with
+# NEED_VCPU=128vCPU. Validate the input instead of trusting the caller.
+case "$NEED_VCPU" in
+    ''|*[!0-9]*)
+        echo "[precheck] SPOT_PRECHECK=ERROR need_vcpu must be a plain integer, got: $NEED_VCPU" >&2
+        exit 4 ;;
+esac
+
 PROBE_SKU="Standard_D2als_v7"
 PROBE_NAME="spot-health-probe-$$"
 PROBE_TIMEOUT_SEC=90
@@ -65,6 +76,18 @@ log "Signal 2: family vCPU quota headroom in $REGION"
 USAGE_JSON=$(az vm list-usage -l "$REGION" --query "[?contains(name.value, 'Dalsv7')]|[0]" -o json 2>/dev/null)
 USED=$(echo "$USAGE_JSON" | grep -oP '"currentValue":\s*\K[0-9]+' | head -1)
 LIMIT=$(echo "$USAGE_JSON" | grep -oP '"limit":\s*\K[0-9]+' | head -1)
+# An unreadable quota is NOT "0 free". Both arms of the old arithmetic silently
+# treated a failed `az` call as zero, which happened to fail closed here -- but it
+# reported "0 / 0 used" as though measured. A check that cannot see its target must
+# ERROR, not report a number it did not obtain.
+case "${USED:-}" in ''|*[!0-9]*) USED=""; esac
+case "${LIMIT:-}" in ''|*[!0-9]*) LIMIT=""; esac
+if [ -z "$USED" ] || [ -z "$LIMIT" ]; then
+    log "  signal-2 ERROR: could not read Dalsv7 quota from az (empty or unparseable)"
+    log "  refusing to report headroom this check did not measure"
+    echo "SPOT_PRECHECK=ERROR quota-unreadable" >&2
+    exit 4
+fi
 FREE=$((LIMIT - USED))
 log "  family Dalsv7: $USED / $LIMIT used; $FREE free"
 if [ "$FREE" -lt "$NEED_VCPU" ]; then

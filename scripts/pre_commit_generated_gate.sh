@@ -44,12 +44,20 @@ REPO_ROOT="$(git rev-parse --show-toplevel)" || exit 1
 cd "$REPO_ROOT" || exit 1
 
 # The generator plus every artifact derived from it.
-WATCHED="roae.py
-example/report.txt
-example/report.md
-example/README.md
-example/report.html
-example/report.pdf"
+#
+# Codex v2 / gate-population class: this was a HARDCODED list of six, while example/
+# holds TWELVE tracked generated files. hexagrams.{csv,json,svg} and all four wave.*
+# were unguarded -- a corrupted hexagrams.csv staged cleanly with rc=0. A hardcoded
+# population silently narrows every time the generator gains an output, which is the
+# same defect shape as GATE 3 (blind to C string literals) and GATE 25 (excludes
+# lean/). DERIVE it instead: roae.py plus everything tracked under example/.
+WATCHED=$(printf 'roae.py\n'; git ls-files example/ 2>/dev/null)
+# A population that collapses is an error, not an empty watch list. If git ls-files
+# returns nothing the gate would silently watch only roae.py and pass everything else.
+if [ "$(printf '%s\n' "$WATCHED" | grep -c .)" -lt 2 ]; then
+    echo "pre-commit: GENERATED_GATE=ERROR could not enumerate example/ — refusing to certify" >&2
+    exit 1
+fi
 
 STAGED=$(git diff --cached --name-only --diff-filter=ACM)
 [ -n "$STAGED" ] || exit 0
@@ -84,7 +92,11 @@ fi
 echo "pre-commit: running doc_gates.sh generated ..."
 if bash scripts/doc_gates.sh generated; then
   echo "pre-commit: generated-artifact gate PASSED"
-  echo "  NOTE: for report.txt/report.md/README.md this compares non-numeric lines"
+  echo "  NOTE: GATE 8 compares report.txt/report.md/README.md/report.html/report.pdf ONLY.
+  It does NOT compare example/hexagrams.{csv,json,svg} or example/wave.* at all —
+  staging those triggers this hook but nothing verifies their content. Widening the
+  WATCHED population (done) is not the same as widening the COMPARISON (not done).
+  For report.txt/report.md/README.md the comparison is non-numeric lines"
   echo "  only. A hand-edited DIGIT in example/report.txt is not covered by it."
   exit 0
 fi
