@@ -1338,6 +1338,18 @@ static int gz_mmap_open(const char *path, unsigned char **out_base,
             }
         }
         if (n < 0) { fprintf(stderr, "ERROR: gz decompress of %s failed\n", path); fclose(tf); gzclose(gf); remove(tmp); return -1; }
+        /* Q-409 (adjudicator-found, V2 batch 17, 2026-08-30): tf was never
+           fclose'd, so stdio's buffered tail (logical size modulo the stdio
+           block) never reached the temp file — the mapping was SHORT and
+           --validate/--analyze false-rejected EVERY real gz artifact whose
+           decompressed size is not a block multiple (measured: solve's own
+           106,080-byte gz merge output failed its own --validate). Fail-closed,
+           so no false accept — but flush+close, checked, before mapping. */
+        if (fclose(tf) != 0) {
+            fprintf(stderr, "ERROR: flush/close of decompress temp %s failed: %s\n",
+                    tmp, strerror(errno));
+            gzclose(gf); remove(tmp); return -1;
+        }
         /* 🔴 Q-367 (Codex R12b): `n < 0` alone is not a completeness test. zlib reports a TRUNCATED
            stream through gzeof()/gzerror() and through gzclose()'s return -- not by making gzread()
            return a negative. So a truncated shard decompressed to a SHORT temp file and this

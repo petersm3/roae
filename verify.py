@@ -3776,17 +3776,28 @@ def recount():
     n_na = sum(1 for r in rows if r[3] is None)
     print(f"summary: {n_ok} reproduced, {n_fail} MISMATCH, {n_na} not re-counted "
           f"(total wall time {time.time() - _t0:.1f}s)")
-    if all_match[0]:
-        print("RESULT: every quantity with a published target reproduced EXACTLY.")
-        print("        (C5 ladder n=9/13/16 re-counted here, B0 re-derived independently;")
-        print("        the larger C5 rungs exceed this host and are recorded as not")
-        print("        re-counted — they remain corroborated by the project's own two")
-        print("        engines (in-RAM + out-of-core agree digit-for-digit) + estimator.)")
+    # V2-F58 #8 (2026-08-30): the old absolute sentence ("every quantity with a
+    # published target reproduced") also covered the n/a rows, which carry
+    # published targets that were explicitly NOT re-counted. The verdict now
+    # states the census, and an empty census is a failure.
+    if all_match[0] and n_ok > 0:
+        print(f"RESULT: every quantity RE-COUNTED HERE reproduced its published target")
+        print(f"        EXACTLY ({n_ok} of {n_ok + n_fail + n_na} rows; {n_na} published "
+              f"rows NOT re-counted —")
+        print("        they exceed this host, are marked n/a above, and remain")
+        print("        corroborated by the project's own two engines (in-RAM +")
+        print("        out-of-core agree digit-for-digit) + estimator, NOT by this run.)")
+    elif all_match[0]:
+        print("RESULT: *** ZERO quantities re-counted — nothing was verified. ***")
     else:
         print("RESULT: *** MISMATCH DETECTED *** — a bug in one instrument or the")
         print("        other. See the *FAIL* row(s) above. Do NOT paper over this.")
+    print(f"RECOUNT_REPRODUCED={n_ok}")
+    print(f"RECOUNT_MISMATCH={n_fail}")
+    print(f"RECOUNT_NA={n_na}")
+    print(f"RECOUNT_RESULT={'PASS' if (all_match[0] and n_ok > 0) else 'FAIL'}")
     print("=" * 74)
-    return 0 if all_match[0] else 1
+    return 0 if (all_match[0] and n_ok > 0) else 1
 
 
 _PUBLISHED_F1C5 = 1097051278789181790036112071176579186688   # TR-11 §9, |C1∩C2∩C4∩C5|
@@ -3850,6 +3861,12 @@ def check_certificate(dirpath):
         return 1
     lay = _parse_layer_certificate(run_out)
     chk("run.out carries all 31 layer certificate rows", len(lay) == 31, f"got {len(lay)}")
+    # V2-F58 #3 (2026-08-30): len(lay)==31 alone accepted a run.out whose terminal
+    # row was duplicated 31 times — count COVERAGE, not just cardinality.
+    ks = sorted(k for k, *_r in lay)
+    chk("layer certificate rows cover k=1..31 exactly once (no duplicates, no gaps)",
+        ks == list(range(1, 32)),
+        "coverage exact" if ks == list(range(1, 32)) else f"k values = {ks}")
 
     if lay:
         chk("every layer: canonical_masks <= C(31,k)",
@@ -3883,9 +3900,15 @@ def check_certificate(dirpath):
             got == mine, f"manifest={got} derived={mine}")
         chk("manifest reports last_complete_k=31", 'last_complete_k=31' in mtxt)
     else:
-        rows.append(("manifest present", None, "no f1c5_manifest.txt"))
+        # V2-F58 #3/#4 class (2026-08-30): an absent manifest used to be an "n/a"
+        # row that left ok[0] untouched — absent expected evidence must go RED.
+        chk("f1c5_manifest.txt present (required artifact)", False,
+            "ABSENT — b0/last_complete_k anchors NOT EVALUATED")
 
-    # preserved digests
+    # preserved digests — a CENSUS, not a survivor count: "digest-intact" may only
+    # be claimed for digests actually recomputed (V2-F58 #3: zero digests used to
+    # print as intact).
+    ndig = 0
     if os.path.isfile(shas):
         import hashlib
         bad = []
@@ -3901,11 +3924,16 @@ def check_certificate(dirpath):
             with open(p, 'rb') as fh:
                 for blk in iter(lambda: fh.read(1 << 20), b''):
                     h.update(blk)
+            ndig += 1
             if h.hexdigest() != want:
                 bad.append(f"{fn}:MISMATCH")
-        chk("preserved artifact digests match PRESERVE_SHA256.txt", not bad, ",".join(bad) or "all match")
+        chk("preserved artifact digests match PRESERVE_SHA256.txt", not bad,
+            ",".join(bad) or f"all {ndig} recomputed digest(s) match")
+        chk("digest census: at least one preserved digest recomputed", ndig > 0,
+            f"DIGESTS_VERIFIED={ndig}")
     else:
-        rows.append(("PRESERVE_SHA256.txt present", None, "absent"))
+        chk("PRESERVE_SHA256.txt present (required artifact)", False,
+            "ABSENT — ZERO digests verified; 'digest-intact' cannot be claimed")
 
     print()
     for name, res, detail in rows:
@@ -3915,12 +3943,16 @@ def check_certificate(dirpath):
             print(f"          {detail}")
     print("=" * 74)
     if ok[0]:
-        print("RESULT: artifact is internally consistent, digest-intact, and terminates")
-        print("        at the published integer. This is NOT a recomputation — the")
-        print("        per-layer masses are taken as given; row-level recomputation is")
-        print("        the companion check and was not performed here.")
+        print(f"RESULT: artifact is internally consistent, digest-intact ({ndig} digest(s)")
+        print("        recomputed and matched), and terminates at the published integer.")
+        print("        This is NOT a recomputation — the per-layer masses are taken as")
+        print("        given; row-level recomputation is the companion check and was")
+        print("        not performed here.")
     else:
         print("RESULT: *** ARTIFACT CHECK FAILED *** — see FAIL row(s). Do not explain away.")
+    print(f"CERT_LAYER_ROWS={len(lay)}")
+    print(f"CERT_DIGESTS_VERIFIED={ndig}")
+    print(f"CERT_RESULT={'PASS' if ok[0] else 'FAIL'}")
     print("=" * 74)
     return 0 if ok[0] else 1
 
@@ -3969,7 +4001,8 @@ def check_layer_sidecars(dirpath):
         d = json.load(open(f))
         layers[d["k"]] = d
 
-    fails, n = [], [0]
+    fails, n, skipped = [], [0], []
+    chain_links = [0]
     def ck(cond, label):
         n[0] += 1
         if not cond:
@@ -4014,26 +4047,61 @@ def check_layer_sidecars(dirpath):
             ck(d["n"] == int(man["n"]), f"k={k}: n != manifest n")
             ck(d["pl_hash"] == man["pl_hash"], f"k={k}: pl_hash != manifest pl_hash")
             ck(",".join(str(x) for x in d["b0"]) == man["b0"], f"k={k}: b0 != manifest b0")
+        else:
+            # V2-F58 #4 (2026-08-30): an absent manifest used to silently REMOVE
+            # these three anchor checks from the census — the "8/8 passed" on a
+            # single fabricated sidecar. Skips are counted and reported.
+            skipped.append(f"k={k}: manifest anchors (n/pl_hash/b0) NOT EVALUATED — "
+                           "f1c5_manifest.txt absent")
 
         if k - 1 in layers:
+            chain_links[0] += 1
             ck(d.get("input_layer_k") == k - 1, f"k={k}: input_layer_k != k-1")
             ck(d.get("input_sha256_decompressed") == layers[k - 1]["own_sha256_decompressed"],
                f"k={k}: BROKEN HASH CHAIN — input sha != k-1's own sha")
+        elif k != min(layers):
+            # A gap inside the retained set: the chain link cannot be evaluated,
+            # which used to be a silent skip — the set is then NOT one proven
+            # lineage, so the absence itself is the failure.
+            ck(False, f"k={k}: chain link k-1->k UNVERIFIABLE — sidecar k-1 ABSENT "
+                      "(gap in the retained set)")
 
         print(f"  k={k:2d}  masks={d['n_masks']:>11,}  entries={d['n_entries']:>15,}  "
               f"mass={mt:>27,}  {'OK' if s_last == mt and s_rid == mt else 'FAIL'}")
 
+    # census verdict (V2-F58 #4, 2026-08-30): what was EVALUATED is stated
+    # separately from what was ITERATED, and the lineage claim requires the
+    # chain to have actually been walked — zero links, a gap, or an absent
+    # manifest is a failure, never a quiet shrink of the denominator.
+    census_fails = []
+    if not man:
+        census_fails.append(f"f1c5_manifest.txt ABSENT — {3 * len(layers)} external-anchor "
+                            "check(s) NOT EVALUATED; sidecars were checked only against themselves")
+    if chain_links[0] == 0:
+        census_fails.append("ZERO chain links evaluated — an 'unbroken hash chain' cannot be "
+                            "attested from fewer than 2 consecutive sidecars")
     print("=" * 74)
-    print(f"{n[0] - len(fails)}/{n[0]} checks passed")
+    print(f"{n[0] - len(fails)}/{n[0]} checks passed; {len(skipped)} SKIPPED; "
+          f"{chain_links[0]} chain link(s) evaluated")
+    if skipped:
+        print("SKIPPED (not evaluated, counted against the verdict):")
+        for s in skipped:
+            print("  " + s)
+    print(f"SIDECAR_CHAIN_LINKS_CHECKED={chain_links[0]}")
+    print(f"SIDECAR_CHECKS_SKIPPED={len(skipped)}")
+    fails = fails + census_fails
     if fails:
         print("FAILURES:")
         for f in fails:
             print("  " + f)
         print("RESULT: *** SIDECAR IDENTITY CHECK FAILED *** — do not explain away.")
+        print("SIDECARS_RESULT=FAIL")
         return 1
-    print("RESULT: all sidecar identities hold, and the layer hash chain is unbroken")
-    print("        across the retained set. This is NOT a recomputation of the masses —")
-    print("        it checks self-consistency and lineage, not the DP's arithmetic.")
+    print(f"RESULT: all sidecar identities hold, and the layer hash chain is unbroken")
+    print(f"        across the retained set ({chain_links[0]} link(s) walked). This is NOT")
+    print("        a recomputation of the masses — it checks self-consistency and")
+    print("        lineage, not the DP's arithmetic.")
+    print("SIDECARS_RESULT=PASS")
     print("=" * 74)
     return 0
 
@@ -4880,19 +4948,32 @@ def g_structure(c2on_path, c2off_path):
         n, mu, m2, m3, m4 = _g_moments(bins)
         print(f"\n=== {tag} ===")
         print(f"  bins={len(bins)} gmin={min(bins)} gmax={max(bins)}")
+        # V2-F58 #5 (2026-08-30): absent TOTAL/WSUM lines used to silently drop
+        # these checks from the census — a full-31 producer log ALWAYS carries
+        # both, so absence is a failure, not a skip.
         if total is not None:
             print(f"  sum(bins) == G_HIST_TOTAL : {n == total}")
             rc |= 0 if n == total else 1
+        else:
+            print("  G_HIST_TOTAL line ABSENT — sum check NOT EVALUATED: failure")
+            rc |= 1
         if wsum is not None:
             agree = sum(g * c for g, c in bins.items()) == wsum
             print(f"  sum(g*c)  == G_HIST_WSUM  : {agree}")
             rc |= 0 if agree else 1
+        else:
+            print("  G_HIST_WSUM line ABSENT — weighted-sum check NOT EVALUATED: failure")
+            rc |= 1
         print(f"  E[G]  = {mu}  = {float(mu):.9f}")
         print(f"  Var   = {m2}  = {float(m2):.6f}")
         print(f"  mu3   = {m3}  = {float(m3):.6f}")
         print(f"  skew  = {float(m3) / float(m2) ** 1.5:.8f}")
         print(f"  exkurt= {float(m4) / float(m2) ** 2 - 3:.8f}")
-        print(f"  all bins divisible by 48 : {all(c % 48 == 0 for c in bins.values())}")
+        # V2-F58 #5 (2026-08-30): this invariant was printed but never wired to
+        # the exit status — a False here now goes red like every other line.
+        div48 = all(c % 48 == 0 for c in bins.values())
+        print(f"  all bins divisible by 48 : {div48}")
+        rc |= 0 if div48 else 1
         print(f"  N factors (trial division to 100000; a residue above 10^10 may be"
               f" composite): {_g_factor(n)}")
 
@@ -4930,6 +5011,7 @@ def g_structure(c2on_path, c2off_path):
     print("  None of the above touches prefix-G g48-invariance. A quotiented run cannot")
     print("  test the assumption its own quotient makes; do not cite a green run here as")
     print("  narrowing that gap.")
+    print(f"GSTRUCTURE_RESULT={'PASS' if rc == 0 else 'FAIL'}")
     print("=" * 74)
     return rc
 

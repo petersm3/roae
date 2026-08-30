@@ -1310,6 +1310,24 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
                want ? (ok ? "  ok" : " *FAIL*") : " n/a");
     }
     if (mass_mism) fails += mass_mism;
+    /* Census (sibling of the plain-DP V2-F59 #4 shape, 2026-08-30): when a run
+     * log is explicitly supplied, zero executed comparisons must be a failure,
+     * not a table of "n/a" rows under a passing verdict. */
+    if (rm) {
+        printf("census   : run log supplied — masses COMPARED at %d of %d present layer(s)\n",
+               mass_cmp, checked);
+        printf("MASSES_COMPARED=%d\n", mass_cmp);
+        if (mass_cmp == 0 && checked > 0) {
+            printf("*** FAIL: run log %s was given but ZERO layer masses were compared — no\n"
+                   "          parseable mass line matches any present layer; nothing was\n"
+                   "          cross-checked against the log\n", run_out);
+            fails++;
+        }
+    }
+    if (checked == 0) {
+        printf("*** FAIL: ZERO layer files evaluated — nothing was verified\n");
+        fails++;
+    }
     if (rm) free(rm);
 
     printf("======================================================================\n");
@@ -2343,7 +2361,13 @@ static int lcs_selftest(const char *argv0) {
  *      (S_k = S_{k+1} + M_k) — plus t(root) == S_0 printed and checked.
  *
  * Any mismatch is a FINDING (GT_LADDER_FORMAT.md: report it, do not patch
- * around it). Entry-streaming; per-mask spans are buffered (a span is at
+ * around it). CENSUS DISCIPLINE (2026-08-30, FINDING_GLADDER_SKIP_IS_PASS):
+ * both modes count identities EVALUATED separately from layers ITERATED,
+ * print IDENTITIES_CHECKED= / IDENTITIES_SKIPPED= plus a GLADDER_RESULT= /
+ * TLADDER_RESULT= token, and exit nonzero when zero identities executed or
+ * any identity was skipped inside the requested range — an absent f layer
+ * used to make the whole check vacuous while rc stayed 0 (a corrupt f layer
+ * always failed; only ABSENCE was free). Entry-streaming; per-mask spans are buffered (a span is at
  * most 64*R entries by the key packing, ~11 MB worst-case at full-31), so
  * memory is O(nm + 64*R) per open layer. Like --check-layers this is a
  * campaign-VM tool for real ladders; the selftest runs anywhere at ~zero
@@ -2615,7 +2639,7 @@ static int lc_g_layer(const char *fdir, const char *gdir, int k, uint32_t n, uin
                       uint64_t plh, const int b0v[5], const uint32_t rad[5], uint32_t R,
                       const uint32_t *pl, uint8_t rp[24][32], int geff,
                       const u192 *expect, int have_expect,
-                      u192 *g0_out, int *g0_got) {
+                      u192 *g0_out, int *g0_got, int *ident_done) {
     GtCur gc, fc;
     int have_f = 0, fail = 0;
     if (gt_open(gdir, "g", "F1C5GLY", 'g', k, n, se, plh, b0v, &gc)) return 1;
@@ -2710,6 +2734,7 @@ static int lc_g_layer(const char *fdir, const char *gdir, int k, uint32_t n, uin
         printf("  k=%2d  g nm=%-7llu ne=%-10llu %s  Σ orbit·f·g = %s (expect N = %s)  %s\n",
                k, (unsigned long long)gc.nm, (unsigned long long)gc.ne, gc.is_v2?"v2":"v1",
                a, e, ok ? "OK" : "*** MISMATCH ***");
+        *ident_done = 1;
         if (!ok) fail = 1;
     } else if (!fail) {
         printf("  k=%2d  g nm=%-7llu ne=%-10llu %s  structural OK (identity skipped: %s)\n",
@@ -2757,18 +2782,22 @@ static int lc_check_g(const char *fdir, const char *gdir, int maxk) {
     }
     printf("----------------------------------------------------------------------\n");
     u192 g0 = {{0,0,0}}; int g0_got = 0, checked = 0;
+    int ident_checked = 0, ident_skipped = 0, absent_ok = 0;
     int hi = (maxk < (int)n) ? maxk : (int)n;
     for (int k = 0; k <= hi; k++) {
         char p[1024]; snprintf(p, sizeof p, "%s/g_layer_%02d.bin", gdir, k);
         FILE *t = fopen(p, "rb");
         if (!t) {
             if (k >= glk) { printf("  k=%2d  *** FAIL: g layer missing but manifest promises layers %d..%u\n", k, glk, n); fails++; }
+            else absent_ok++;
             continue;
         }
         fclose(t);
+        int idone = 0;
         fails += lc_g_layer(fdir, gdir, k, n, se, plh, b0v, rad, R, pl, rp, geff,
-                            &expect, have_expect, &g0, &g0_got);
+                            &expect, have_expect, &g0, &g0_got, &idone);
         checked++;
+        if (idone) ident_checked++; else ident_skipped++;
     }
     printf("----------------------------------------------------------------------\n");
     if (g0_got && have_expect) {
@@ -2778,12 +2807,39 @@ static int lc_check_g(const char *fdir, const char *gdir, int maxk) {
                a, ok ? "MATCHES" : "*** DOES NOT MATCH ***");
         if (!ok) fails++;
     }
+    /* FINDING_GLADDER_SKIP_IS_PASS (2026-08-30): a skipped identity used to be a
+     * silent pass — f-layer ABSENCE set have_f/have_expect without touching
+     * `fails`, and the RESULT line counted the skipped layers among the
+     * verified. Census: EVALUATED is counted separately from ITERATED, the
+     * verdict states the evaluated count, and the check goes RED when zero
+     * identities executed or any skip fell inside the requested range. */
+    printf("census   : range k=0..%d: %d layer(s) evaluated, %d absent per manifest "
+           "(last_complete_k=%d);\n"
+           "           f·g cut identity EVALUATED at %d and SKIPPED at %d of the %d evaluated\n",
+           hi, checked, absent_ok, glk, ident_checked, ident_skipped, checked);
+    if (checked == 0) {
+        printf("*** FAIL: ZERO g layers evaluated in the requested range — nothing was verified\n");
+        fails++;
+    } else if (ident_checked == 0) {
+        printf("*** FAIL: ZERO f·g cut identities evaluated — structural checks alone do not\n"
+               "          verify the identity; an absent f ladder must be a failure, not a skip\n");
+        fails++;
+    }
+    if (ident_skipped > 0) {
+        printf("*** FAIL: the f·g cut identity was SKIPPED at %d present layer(s) inside the\n"
+               "          requested range (absent f layer / no expected N)\n", ident_skipped);
+        fails++;
+    }
     if (fails == 0)
         printf("RESULT: %d g layer(s) verified — headers, layout, canonicity, stored domain,\n"
-               "        sum invariant, seed/anchor content, and the f·g cut identity at every\n"
-               "        checked layer.\n", checked);
+               "        sum invariant, seed/anchor content — and the f·g cut identity\n"
+               "        EVALUATED at %d of %d checked layer(s) (0 skipped).\n",
+               checked, ident_checked, checked);
     else
         printf("RESULT: *** %d FAILURE(S) *** — a finding. Report it; do not patch around it.\n", fails);
+    printf("IDENTITIES_CHECKED=%d\n", ident_checked);
+    printf("IDENTITIES_SKIPPED=%d\n", ident_skipped);
+    printf("GLADDER_RESULT=%s\n", fails ? "FAIL" : "PASS");
     printf("======================================================================\n");
     return fails ? 1 : 0;
 }
@@ -2792,7 +2848,8 @@ static int lc_check_g(const char *fdir, const char *gdir, int maxk) {
 static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uint32_t se,
                       uint64_t plh, const int b0v[5], const uint32_t rad[5], uint32_t R,
                       uint8_t rp[24][32], int geff,
-                      const u192 *Sk, int have_S, u192 *troot_out, int *troot_got) {
+                      const u192 *Sk, int have_S, u192 *troot_out, int *troot_got,
+                      int *ident_done) {
     GtCur tc, fc;
     if (gt_open(tdir, "t", "F1C5TLY", 't', k, n, se, plh, b0v, &tc)) return 1;
     if (gt_open(fdir, "f1c5", "F1C5LAY", 'f', k, n, se, plh, b0v, &fc)) {
@@ -2844,6 +2901,7 @@ static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uin
         printf("  k=%2d  t nm=%-7llu ne=%-10llu %s  Σ orbit·f·t = %s (expect nodes at depth ≥%d = %s)  %s\n",
                k, (unsigned long long)tc.nm, (unsigned long long)tc.ne, tc.is_v2?"v2":"v1",
                a, k, e, ok ? "OK" : "*** MISMATCH ***");
+        *ident_done = 1;
         if (!ok) fail = 1;
     } else if (!fail) {
         printf("  k=%2d  t nm=%-7llu ne=%-10llu %s  structural+geometry OK (identity skipped: M_j incomplete)\n",
@@ -2899,18 +2957,22 @@ static int lc_check_t(const char *fdir, const char *tdir, int maxk) {
     }
     printf("----------------------------------------------------------------------\n");
     u192 troot = {{0,0,0}}; int troot_got = 0, checked = 0;
+    int ident_checked = 0, ident_skipped = 0, absent_ok = 0;
     int hi = (maxk < (int)n) ? maxk : (int)n;
     for (int k = 0; k <= hi; k++) {
         char p[1024]; snprintf(p, sizeof p, "%s/t_layer_%02d.bin", tdir, k);
         FILE *t = fopen(p, "rb");
         if (!t) {
             if (k >= tlk) { printf("  k=%2d  *** FAIL: t layer missing but manifest promises layers %d..%u\n", k, tlk, n); fails++; }
+            else absent_ok++;
             continue;
         }
         fclose(t);
+        int idone = 0;
         fails += lc_t_layer(fdir, tdir, k, n, se, plh, b0v, rad, R, rp, geff,
-                            have_S ? &S[k] : NULL, have_S, &troot, &troot_got);
+                            have_S ? &S[k] : NULL, have_S, &troot, &troot_got, &idone);
         checked++;
+        if (idone) ident_checked++; else ident_skipped++;
     }
     printf("----------------------------------------------------------------------\n");
     if (troot_got) {
@@ -2922,12 +2984,38 @@ static int lc_check_t(const char *fdir, const char *tdir, int maxk) {
             if (!ok) fails++;
         } else printf("t(root) = %s  (no independent Σ M_j available)\n", a);
     }
+    /* FINDING_GLADDER_SKIP_IS_PASS (2026-08-30): same census as the g mode. An
+     * f layer absent even BEYOND max_k kills have_S and used to skip every
+     * identity in range while rc stayed 0 (the V2-F59 #3 half Fable caught).
+     * EVALUATED is counted separately from ITERATED; zero evaluations or any
+     * skip inside the requested range is a failure. */
+    printf("census   : range k=0..%d: %d layer(s) evaluated, %d absent per manifest "
+           "(last_complete_k=%d);\n"
+           "           f·t node identity EVALUATED at %d and SKIPPED at %d of the %d evaluated\n",
+           hi, checked, absent_ok, tlk, ident_checked, ident_skipped, checked);
+    if (checked == 0) {
+        printf("*** FAIL: ZERO t layers evaluated in the requested range — nothing was verified\n");
+        fails++;
+    } else if (ident_checked == 0) {
+        printf("*** FAIL: ZERO f·t node identities evaluated — an incomplete f ladder (any\n"
+               "          absent f layer, even beyond max_k) must be a failure, not a skip\n");
+        fails++;
+    }
+    if (ident_skipped > 0) {
+        printf("*** FAIL: the f·t node identity was SKIPPED at %d present layer(s) inside the\n"
+               "          requested range (M_j incomplete)\n", ident_skipped);
+        fails++;
+    }
     if (fails == 0)
         printf("RESULT: %d t layer(s) verified — headers, byte-exact f-geometry mirror,\n"
-               "        values >= 1, seed/anchor content, and the f·t node identity\n"
-               "        (recurrence unfolded, S_k = S_{k+1} + M_k) at every checked layer.\n", checked);
+               "        values >= 1, seed/anchor content — and the f·t node identity\n"
+               "        (recurrence unfolded, S_k = S_{k+1} + M_k) EVALUATED at %d of %d\n"
+               "        checked layer(s) (0 skipped).\n", checked, ident_checked, checked);
     else
         printf("RESULT: *** %d FAILURE(S) *** — a finding. Report it; do not patch around it.\n", fails);
+    printf("IDENTITIES_CHECKED=%d\n", ident_checked);
+    printf("IDENTITIES_SKIPPED=%d\n", ident_skipped);
+    printf("TLADDER_RESULT=%s\n", fails ? "FAIL" : "PASS");
     printf("======================================================================\n");
     return fails ? 1 : 0;
 }
@@ -3287,15 +3375,47 @@ static int lc_gt_selftest(void) {
       printf("\n[9] g seed layer with a value != 1 — must FAIL (exact seed content):\n");
       int r9 = lc_check_g(fd, gd, 31);
       Lvals[1][GTS_NP][0] = sv;
+      gts_write_v1(gd, "g", "F1C5GLY1", GTS_NP, plh, Lmasks[1][GTS_NP], Lnm[1][GTS_NP],
+                   Loff[1][GTS_NP], Lkeys[1][GTS_NP], Lvals[1][GTS_NP], Lne[1][GTS_NP]);
+
+      /* absence legs (A2, FINDING_GLADDER_SKIP_IS_PASS 2026-08-30): before the
+       * census fix, BOTH of these returned rc 0 with every identity silently
+       * skipped — the exact fail-open this selftest existed to prevent. */
+      char fp[1024];
+      /* [10] g mode: an INTERMEDIATE f layer deleted. expect-N still derives
+       * from the (present) final f layer, so exactly one identity is skipped —
+       * the mutation whose transcript used to be byte-identical to a clean
+       * run apart from one line. */
+      snprintf(fp, sizeof fp, "%s/f1c5_layer_03.bin", fd);
+      remove(fp);
+      printf("\n[10] f layer 3 DELETED (intermediate) — g check must FAIL (a skipped identity\n"
+             "     is a failure, not a pass):\n");
+      int r10 = lc_check_g(fd, gd, 31);
+      gts_write_v1(fd, "f1c5", "F1C5LAY1", 3, plh, Lmasks[0][3], Lnm[0][3], Loff[0][3],
+                   Lkeys[0][3], Lvals[0][3], Lne[0][3]);
+      /* [11] t mode: the FINAL f layer deleted with max_k BELOW it. M_j cannot
+       * complete, so every in-range identity is skipped while every in-range
+       * file is present — the V2-F59 #3 half that a no-max_k matrix misses. */
+      snprintf(fp, sizeof fp, "%s/f1c5_layer_%02d.bin", fd, GTS_NP);
+      remove(fp);
+      printf("\n[11] f layer %d DELETED (beyond max_k=2) — t check must FAIL (M_j incomplete\n"
+             "     means zero identities evaluated):\n", GTS_NP);
+      int r11 = lc_check_t(fd, td, 2);
+      gts_write_v1(fd, "f1c5", "F1C5LAY1", GTS_NP, plh, Lmasks[0][GTS_NP], Lnm[0][GTS_NP],
+                   Loff[0][GTS_NP], Lkeys[0][GTS_NP], Lvals[0][GTS_NP], Lne[0][GTS_NP]);
 
       printf("\n======================================================================\n");
       int ok = gen_ok && r2 == 0 && r3 == 0 && r4 == 0 &&
-               r5 != 0 && r6 != 0 && r7 != 0 && r8 != 0 && r9 != 0;
+               r5 != 0 && r6 != 0 && r7 != 0 && r8 != 0 && r9 != 0 &&
+               r10 != 0 && r11 != 0;
       printf("GT SELFTEST: anchors=%s  g-v1=%s  t-v1=%s  g-v2=%s  g-tamper=%s  t-tamper=%s\n"
-             "             t-geom-tamper=%s  magic-confusion=%s  seed-tamper=%s  =>  %s\n",
+             "             t-geom-tamper=%s  magic-confusion=%s  seed-tamper=%s\n"
+             "             f-absent-mid-g=%s  f-absent-beyond-maxk-t=%s  =>  %s\n",
              gen_ok?"Y":"N", r2==0?"Y":"N", r3==0?"Y":"N", r4==0?"Y":"N",
              r5!=0?"Y":"N", r6!=0?"Y":"N", r7!=0?"Y":"N", r8!=0?"Y":"N", r9!=0?"Y":"N",
+             r10!=0?"Y":"N", r11!=0?"Y":"N",
              ok ? "PASS" : "*** FAIL ***");
+      printf("GTSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
       printf("======================================================================\n");
       return ok ? 0 : 1;
     }
@@ -6040,7 +6160,7 @@ int main(int argc, char **argv) {
     uint8_t z[5] = {0,0,0,0,0};
     tab_add(&cur, 0u, 0, z, (u128)1);       /* virtual predecessor exits at Kun */
 
-    int deepest = 0, mismatches = 0;
+    int deepest = 0, mismatches = 0, compared = 0, absent_in_range = 0;
     printf("  k | independent plain mass          | solve.c reported                | match\n");
     printf("----+---------------------------------+---------------------------------+------\n");
     for (int k = 1; k <= maxk; k++) {
@@ -6072,7 +6192,7 @@ int main(int argc, char **argv) {
         char got[48]; print_u128(mass, got);
         const char *want = masses[k][0] ? masses[k] : "(absent)";
         int ok = masses[k][0] && strcmp(got, want) == 0;
-        if (masses[k][0] && !ok) mismatches++;
+        if (masses[k][0]) { compared++; if (!ok) mismatches++; } else absent_in_range++;
         printf(" %2d | %-31s | %-31s | %s\n", k, got, want,
                !masses[k][0] ? " n/a" : (ok ? "  ok" : " *FAIL*"));
         deepest = k;
@@ -6080,15 +6200,40 @@ int main(int argc, char **argv) {
     tab_free(&cur);
 
     printf("\n======================================================================\n");
-    if (mismatches == 0)
+    /* Census (V2-F59 #4, 2026-08-30): a run.out with no mass line at any layer
+     * the DP reached used to yield ZERO comparisons and still print "agrees …
+     * for every layer checked" with rc 0. EVALUATED is now counted separately
+     * from ITERATED: the verdict states the compared count, and an absent mass
+     * line inside the DP's computed range — or an empty census — is a failure. */
+    printf("census   : DP computed k=1..%d; masses COMPARED at %d layer(s), ABSENT from\n"
+           "           the run log at %d layer(s) inside that range\n",
+           deepest, compared, absent_in_range);
+    int dp_fails = mismatches;
+    if (compared == 0) {
+        printf("*** FAIL: ZERO mass comparisons executed — the run log carries no parseable\n"
+               "          mass line for any layer the DP reached; nothing was verified\n");
+        dp_fails++;
+    } else if (absent_in_range > 0) {
+        printf("*** FAIL: %d layer(s) inside the computed range have no mass line in the run\n"
+               "          log — a completed run logs every layer; absence is a failure, not n/a\n",
+               absent_in_range);
+        dp_fails++;
+    }
+    if (dp_fails == 0)
         printf("RESULT: independent plain DP agrees with solve.c's reported per-layer\n"
-               "        mass for every layer checked (k=1..%d) on the full-31 instance.\n"
-               "        This exercises the orbit expansion and prefix-stabilizer weighting.\n"
-               "        It is NOT the full-scale recomputation TR-11 §10(vi) asks for:\n"
-               "        layers beyond k=%d were not reached.\n", deepest, deepest);
-    else
+               "        mass at %d of %d computed layer(s) (k=1..%d, 0 absent) on the\n"
+               "        full-31 instance. This exercises the orbit expansion and\n"
+               "        prefix-stabilizer weighting. It is NOT the full-scale\n"
+               "        recomputation TR-11 §10(vi) asks for: layers beyond k=%d were\n"
+               "        not reached.\n", compared, deepest, deepest, deepest);
+    else if (mismatches)
         printf("RESULT: *** %d MISMATCH(ES) *** — a bug in one instrument or the other.\n"
                "        Do NOT reconcile this away; report it.\n", mismatches);
+    else
+        printf("RESULT: *** COMPARISON CENSUS FAILED *** — see FAIL line(s) above.\n");
+    printf("MASSES_COMPARED=%d\n", compared);
+    printf("MASSES_ABSENT_IN_RANGE=%d\n", absent_in_range);
+    printf("PLAINDP_RESULT=%s\n", dp_fails ? "FAIL" : "PASS");
     printf("======================================================================\n");
-    return mismatches ? 1 : 0;
+    return dp_fails ? 1 : 0;
 }
