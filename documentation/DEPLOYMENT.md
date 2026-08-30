@@ -50,8 +50,14 @@ the whole run. Keep them independent.
 - **Run ID file.** `/data/run_id.txt` identifies the current run. Before wiping
   the persistent volume at launch, compare to the intended run ID — resume if
   they match, wipe only if they differ.
-- **Checkpoint rotation.** `checkpoint.txt` → `.1` → `.2` on each update, so a
-  corrupted latest file still leaves two prior generations for recovery.
+- **Checkpoint files are append-only — there are no rotated generations.**
+  `checkpoint.txt` and the per-thread `checkpoint_t<N>.txt` files are appended,
+  never rotated to `.1`/`.2`. The loader's robustness is a different mechanism:
+  it tolerates a truncated final line (normal after SIGTERM) and *rejects*
+  malformed lines fail-safe — rejected sub-branches are not marked complete and
+  are re-walked (Q-368; see `load_sub_checkpoint` in `solve.c`). Recovery depth
+  comes from the `sub_*.bin` shards and their `.dfs_state` sidecars, not from
+  checkpoint copies.
 
 ## Persistent volume
 
@@ -70,10 +76,23 @@ launcher should scan for the partitionless ext4 volume rather than hardcoding
 
 ## Completion and archival
 
-- Monitor detects completion by solver exit plus presence of `solve_results.json`.
+- Completion detection depends on the mode. In **single-VM mode** (bundled
+  merge) the solver writes `solve_results.json` with a `SEARCH_COMPLETE` status
+  field, and solver exit plus that file is the signal. In **split enum/merge
+  mode** (`SOLVE_SKIP_AUTOMERGE=1` — mandatory for canonical runs ≥11.2T) the
+  enum process returns *before* the completion report and before the JSON is
+  written, so the enum VM never produces `solve_results.json` at all. There the
+  signal is solver exit rc=0 **plus** the `SOLVE_SKIP_AUTOMERGE set; skipping
+  bundled merge` line in `solve_output.txt` **plus** filesystem truth (shard
+  count and `shard_manifest.txt` state) — or, better, the supervisor-written
+  `done.marker` / `fail.marker` pair the canonical campaign scripts use.
+  Treating an absent `solve_results.json` as failure in split mode is the
+  §Lessons item 4 incident (monitor tore down a successful run) re-instructed.
 - Copy **all** outputs locally before tearing down the VM: `solutions.bin`,
-  `solutions.sha256`, `solve_output.txt`, `solve_results.json`, `checkpoint.txt`,
-  and any `sub_*.bin` shards. Sha-verify before deallocating.
+  `solutions.sha256`, `solve_output.txt`, `solve_results.json` (single-VM mode
+  only — see above), `checkpoint.txt` + `checkpoint_t*.txt`, and the
+  `sub_*.bin` shards with their `.dfs_state` / `.budget` / `.provenance.json`
+  sidecars and `shard_manifest.txt`. Sha-verify before deallocating.
 - Archive to `runs/<YYYYMMDD>_<label>/`.
 
 ## Checkpoint granularity must match eviction frequency
@@ -165,8 +184,8 @@ This bit on 2026-05-08 (T9+c.1 phase 4 on D16). Patched verify.py in this repo u
 **Rule of thumb for VM-sizing decisions:**
 
 - Single-thread merge: pick the smallest SKU that has enough RAM for the merge buffer (`SOLVE_MERGE_CHUNK_GB` × 2). D8/D16 are usually right.
-- Single-thread [`solve --verify`](SOLVE_C_CLI.md#--verify) (C-side): RAM doesn't matter (mmap + sequential read). Smallest SKU is fine. Disk speed (Standard HDD ~85 MB/s) dominates wall time.
-- Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.** **For 560T-scale (10.525B records, 3.07× 100T), projection at the linear regime: ~9h on 16 cores, ~5h on 32 cores, ~2.4h on 64 cores.** Important caveat: without numpy installed, the pure-Python decode path is ~3× slower per worker — make sure `pip install --break-system-packages numpy` runs before launching verify.py at canonical scale (the 560T campaign supervisor's `pip install ... || true` continued without numpy; observed ~3× slowdown vs the projected 19k records/sec/worker rate).
+- Single-thread [`solve --verify`](SOLVE_C_CLI.md#--verify) (C-side): RAM doesn't matter (mmap + sequential read). Smallest SKU is fine. Disk speed (Standard HDD ~85 MB/s) dominates wall time — ~21 min for a 100T-scale 109.8 GB `solutions.bin`. This is the fast single-threaded check; `verify.py --jobs 1` is CPU-bound and two orders of magnitude slower (see §Sizing rule for verify.py).
+- Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.** **For 560T-scale (10.525B records, 3.07× 100T), projection at the linear regime: ~9h on 16 cores, ~5h on 32 cores, ~2.4h on 64 cores.** Important caveat: verify.py's per-record decode path is **pure Python at every sha** — the only numpy import in the file is inside `check_t5_c3` (the T5/C3 recompute, unrelated to record verification), so installing numpy does not speed record verification up. The 560T campaign did observe roughly a 3× shortfall against the projected 19k records/sec/worker rate, but that shortfall was **misattributed** to a missing numpy package; disk contention (see §HDD-IOPS contention below) is the leading candidate, and the 19k projection itself may be optimistic. Budget from a measured rate on your own hardware, not from a package install.
 
 Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the cost delta is usually <$3 over a multi-hour campaign.
 
@@ -190,7 +209,13 @@ The memory-budget rule above tells you when verify.py won't OOM. It doesn't tell
 
 100T-scale (3.43B records, on Standard HDD scratch):
 
-- Single-thread (`--jobs 1`) on D2/D4: HDD-saturated reads at ~85 MB/s, ~21 min for 100T
+- Single-thread (`--jobs 1`) on D2/D4: **~50 h** for 100T — CPU-bound, not
+  disk-bound (3.43B records ÷ ~19k records/sec/worker = ~50 h; measured
+  single-worker throughput on a small file is ~27k records/sec, giving ~35 h).
+  The ~21 min figure this row used to carry is the *C-side* number
+  (109.8 GB ÷ ~85 MB/s of Standard HDD read) and belongs to the mmap'd C
+  verifier. For a single-threaded disk-speed check, use
+  [`solve --verify`](SOLVE_C_CLI.md#--verify), not `verify.py --jobs 1`.
 - `--jobs 16` on D16: ~3h (CPU-bound at ~620 KB/sec per worker after the streaming patch)
 - `--jobs 32` on D32: ~1.5h (sweet spot)
 - `--jobs 64` on D64: ~75 min (slight IOPS contention)
@@ -199,12 +224,12 @@ The memory-budget rule above tells you when verify.py won't OOM. It doesn't tell
 
 560T-scale (10.525B records, 3.07× the 100T workload — projection at the linear regime, on Standard SSD scratch as in the 2026-06-08 campaign):
 
-- `--jobs 16` on D16: ~9h with numpy (~27h without numpy — the in-flight campaign actual on D16 was running >2h without progress lines at observation time, consistent with the no-numpy path)
-- `--jobs 32` on D32: ~5h with numpy
-- `--jobs 64` on D64: ~2.4h with numpy (planned post-warm-copy verify run for 560T)
-- `--jobs 128` on D128: ~2h with numpy (still sub-linear above D64 per the 100T finding)
+- `--jobs 16` on D16: ~9h projected (the in-flight campaign actual on D16 ran roughly 3× slower than this projection — see the attribution note above; it is not a numpy effect)
+- `--jobs 32` on D32: ~5h projected
+- `--jobs 64` on D64: ~2.4h projected (planned post-warm-copy verify run for 560T)
+- `--jobs 128` on D128: ~2h projected (still sub-linear above D64 per the 100T finding)
 
-For ROAE 100T-scale verify on Standard HDD, **D32 is the empirical optimum** under the current verify.py design. For ROAE 560T-scale verify on Standard SSD, the disk-IOPS contention is less severe than HDD; D64 with numpy is the recommended sweet spot (1-3h wall, ~$0.50-1.50 Spot cost). If verify.py is rewritten to use a reader-thread design, D128 becomes optimal again at both scales.
+For ROAE 100T-scale verify on Standard HDD, **D32 is the empirical optimum** under the current verify.py design. For ROAE 560T-scale verify on Standard SSD, the disk-IOPS contention is less severe than HDD; D64 is the recommended sweet spot (1-3h wall, ~$0.50-1.50 Spot cost). If verify.py is rewritten to use a reader-thread design, D128 becomes optimal again at both scales.
 
 ### Quota tracking — deallocated VMs still consume quota (added 2026-05-10)
 
@@ -215,11 +240,32 @@ For ROAE 100T-scale verify on Standard HDD, **D32 is the empirical optimum** und
 **Pre-flight before any large `az vm create`:**
 
 ```bash
-# Free quota for the new VM:
-USED=$(az vm list -d --query "[?contains(hardwareProfile.vmSize,'Dalsv7')].{cores: hardwareProfile.vmSize}" -o tsv | wc -l)
-LIMIT=$(az vm list-usage -l <region> --query "[?name.value=='standardDalsv7Family'].limit | [0]" -o tsv)
+# Free quota for the new VM. Quota is accounted in CORES, so `USED` must be a
+# core count — do NOT count VM rows (`az vm list | wc -l`), which under-counts
+# by the per-VM core count and makes the check fail OPEN. `currentValue` from
+# `az vm list-usage` is the reserved-core figure and already includes
+# deallocated VMs, which is exactly what this pre-flight is about.
+REGION=<region>
 NEED=<new-VM cores>
-[ $((USED + NEED)) -le $LIMIT ] || echo "QUOTA WILL FAIL — delete deallocated VMs first"
+BUCKET=standardDalsv7Family        # on-demand/Regular bucket for the Dals_v7 family
+# For a Spot create, use the low-priority bucket instead — they are separate
+# quotas (see §Quota accounting below):
+#   BUCKET=$(az vm list-usage -l "$REGION" \
+#     --query "[?contains(name.value,'lowPriority')].name.value | [0]" -o tsv)
+USED=$(az vm list-usage -l "$REGION" \
+  --query "[?name.value=='$BUCKET'].currentValue | [0]" -o tsv)
+LIMIT=$(az vm list-usage -l "$REGION" \
+  --query "[?name.value=='$BUCKET'].limit | [0]" -o tsv)
+# az renders a null result as the string "None"; a broken query must ERROR, not pass.
+case "$USED$LIMIT" in
+  ''|*[!0-9]*) echo "QUOTA_PREFLIGHT=ERROR (non-numeric: USED='$USED' LIMIT='$LIMIT')"; exit 1;;
+esac
+if [ $((USED + NEED)) -le "$LIMIT" ]; then
+    echo "QUOTA_PREFLIGHT=OK ($USED + $NEED <= $LIMIT cores)"
+else
+    echo "QUOTA_PREFLIGHT=FAIL ($USED + $NEED > $LIMIT cores) — delete deallocated VMs first"
+    exit 1
+fi
 ```
 
 **Deallocated-VM cleanup workflow (when freeing quota):**
@@ -368,8 +414,10 @@ so its temp I/O runs at SSD speed; destroy the SSD afterward.**
 # 1. Provision a Premium SSD. P20 = 512 GB ($76/month base, ~$0.11/hour).
 #    For a 10T merge, P20 is plenty (~80 GB of temp chunks + slack).
 #    For 100T, use P40 (2 TB). Cost scales with size, NOT with I/O.
+SIZE_GB=512                      # P20; a single parameter for BOTH the create
+                                 # and the step-3 selector, so they cannot drift
 az disk create -g RG-CLAUDE -n merge-scratch -l westus2 \
-  --size-gb 512 --sku Premium_LRS --no-wait
+  --size-gb "$SIZE_GB" --sku Premium_LRS --no-wait
 
 # 2. Attach to the on-demand merge VM (after it's up).
 az vm disk attach -g RG-CLAUDE --vm-name <merge-vm-name> \
@@ -378,22 +426,24 @@ az vm disk attach -g RG-CLAUDE --vm-name <merge-vm-name> \
 # 3. On the VM: identify disk by SIZE + empty-FS state, format,
 #    mount, own. NEVER use `mkfs -F` (banned project-wide after the
 #    2026-05-06 wipe; see CLAUDE.md §"Disk-handling safety").
-#    The pattern below identifies the new 256 GB Premium SSD as the
-#    unique empty 256 GB disk. If 0 or 2+ match → hard-fail.
-ssh solver@<vm-private-ip> '
+#    The pattern below identifies the new Premium SSD as the unique empty
+#    disk of exactly $SIZE_GB. If 0 or 2+ match → hard-fail. $SIZE_GB is
+#    passed to the remote shell so the size predicate can never disagree
+#    with the `--size-gb` used in step 1.
+ssh solver@<vm-private-ip> "SIZE_GB=$SIZE_GB bash -s" <<'REMOTE'
   set -euo pipefail
-  EXPECTED_BYTES=$((256 * 1024**3))
+  EXPECTED_BYTES=$(( SIZE_GB * 1024**3 ))
   DEV=$(lsblk -bno NAME,SIZE,FSTYPE | \
-        awk -v sz="$EXPECTED_BYTES" "\$2==sz && \$3==\"\" {print \"/dev/\" \$1}")
+        awk -v sz="$EXPECTED_BYTES" '$2==sz && $3=="" {print "/dev/" $1}')
   COUNT=$(echo "$DEV" | grep -c .)
-  [ "$COUNT" -eq 1 ] || { echo "FATAL: expected 1 empty 256 GB disk, found $COUNT"; exit 1; }
+  [ "$COUNT" -eq 1 ] || { echo "FATAL: expected 1 empty ${SIZE_GB} GB disk, found $COUNT"; exit 1; }
   # Belt-and-suspenders: refuse if any blkid output (existing FS).
   blkid "$DEV" >/dev/null 2>&1 && { echo "FATAL: $DEV has existing filesystem"; exit 1; }
   sudo mkfs.ext4 -q "$DEV"          # NO -F flag
   sudo mkdir -p /mnt/merge-scratch
   sudo mount "$DEV" /mnt/merge-scratch
   sudo chown solver:solver /mnt/merge-scratch
-'
+REMOTE
 
 # 4. Run the merge with SOLVE_TEMP_DIR pointing at the SSD.
 #    CWD stays on /data (solver-data) so shards and final output live there.
@@ -461,33 +511,51 @@ combination gives an ~64 TB pre-dedup ceiling and >4096 concurrent FDs.
 
 | Phase | Bottleneck | Scales with |
 |---|---|---|
-| Enumeration | cores (64 pthreads, ~21M nodes/thread-sec) | node budget (linear) |
+| Enumeration | cores (one pthread per `SOLVE_THREADS`, ~21M nodes/thread-sec) | node budget (linear) |
 | Merge | RAM (`malloc(total_records × 32)`) | unique solution count |
 
-Enumeration RAM is flat (~10 GB regardless of budget: 64 per-thread hash
-tables of ~134 MB each, plus OS). Merge RAM scales with output size.
+Enumeration RAM is flat *in the node budget*, but it scales with thread count
+and hash-table size: `threads × 2^SOLVE_HASH_LOG2 × 32 B` is committed at
+start-up, and the tables auto-resize upward at 75% load. At current defaults
+(`SOLVE_HASH_LOG2=24` → 512 MB/thread; see §Hash table sizing) a 128-thread
+enumeration commits **64 GiB** before it walks a node — the 2026-04-19 100T d3
+run's own log records `Initial hash memory: 65536 MB (128 threads x 512 MB,
+auto-resize at 75%)`
+(`runs/20260419_100T_d3_d128westus3/enum_output.log.gz`). Do not provision a
+"lean" enumeration VM off a fixed RAM figure: compute it from the thread count
+you intend to run, or lower `SOLVE_HASH_LOG2` (22 → 128 MB/thread, 20 → 32
+MB/thread). Merge RAM scales with output size.
 
 **Two-phase pattern:**
 
 1. **Enumeration VM** — lean and core-dense. Writes `sub_*.bin` shards and
    `checkpoint.txt` to the managed data disk. Tears down on completion.
-   VM choice: F-series at the budget's preferred core count.
+   VM choice: D128als_v7 Spot in westus3. (F-series is BANNED on this
+   project since 2026-04-19 — see §Ad-hoc VM lifecycle rules, rule 1.)
 2. **Data disk survives** the teardown. Shards are the primary artifact; the
    final `solutions.bin` is derived.
-3. **Merge VM** — separate, memory-dense SKU, launched only when shards are
-   complete. Runs `./solve --merge /data/solutions.bin`, writes the merged
+3. **Merge VM** — separate and right-sized (by RAM and I/O, not cores),
+   launched only when shards are complete. Runs `./solve --merge /data/solutions.bin`, writes the merged
    output back to the same disk, verifies sha256, tears down.
-   VM choice: E- or M-series sized to `unique_records × 32 bytes × 1.3`
-   headroom. Or use an external-merge implementation (see future work) and
-   stay on a modest SKU.
+   VM choice: a **right-sized on-demand D-series** VM per §Standing policy
+   — D16/D32als_v7 for 10T–100T, D64als_v7 at 1000T+. Memory-optimized
+   E-/M-series are not used here: merge is a single-threaded heap-sort sized
+   by RAM and I/O, and external merge (`SOLVE_MERGE_MODE=external`, shipped)
+   keeps a modest SKU sufficient by streaming chunks instead of buffering
+   `unique_records × 32 bytes` in RAM.
 
-**Cost illustration (westus3 D-series spot, 2026-04-19 measured + projected):**
+**Cost illustration (westus3 D-series; enum on Spot, merge on-demand — 2026-04-19 measured + projected):**
 
 | Budget | Enum wall | Enum VM | Enum cost | Merge VM | Merge cost | Two-phase total |
 |---|---|---|---|---|---|---|
-| 10T | **1h 23m** (measured) | D128als_v7 spot ($1.70/h) | **~$2.35** | D64als_v7 spot for ~50 min | ~$0.43 | **~$2.78** |
-| 100T | **~14h** (projected) | D128als_v7 spot | ~$24 | D128 + P40 SSD for ~2-3h (external) | ~$5-7 | **~$29-31** |
-| 1000T | ~6-7 days | D128als_v7 spot | ~$250 | D128 + P40 SSD for ~30h (external, parallel chunks) | ~$50 | **~$300** |
+| 10T | **1h 23m** (measured) | D128als_v7 spot ($1.70/h) | **~$2.35** | D16als_v7 on-demand (~$0.50/h) for ~50 min | ~$0.42 | **~$2.77** |
+| 100T | **~14h** (projected) | D128als_v7 spot | ~$24 | D32als_v7 on-demand (~$1.30/h) + P40 SSD for ~2-5h (external) | ~$5-9 | **~$29-33** |
+| 1000T | ~6-7 days | D128als_v7 spot | ~$250 | D64als_v7 on-demand (~$2.00-2.50/h) + P40 SSD for ~30h (external, parallel chunks) | ~$75-90 | **~$325-340** |
+
+The merge column follows §Standing policy: **on-demand and right-sized, never
+D128 and never Spot.** An earlier revision of this table prescribed Spot merges
+and D128 merges — both are withdrawn; the merge-VM wall times are unchanged
+because merge is single-threaded and ignores core count.
 
 Legacy F64als_v6 westus2 figures (for historical reference): 10T ~$9 (6h enum + 30min merge), 100T was projected ~$175 with split (never run at scale post-pivot). F64 is retired 2026-04-19. See `DSERIES_ROI_REPORT.md` (outside repo) for full comparison.
 
@@ -495,8 +563,16 @@ Savings scale with wall-clock time; for ≥100T external merge with Premium SSD 
 
 **Orchestration requirements for the two-phase pattern** (most already exist):
 
-- Enumeration monitor detects `SEARCH_COMPLETE` via `solve_results.json`
-  (JSON status field, not stderr regex) and tears down the enumeration VM.
+- Enumeration monitor detects completion and tears down the enumeration VM.
+  In split mode the enum process returns *before* the completion report and
+  before `solve_results.json` is written (the `SOLVE_SKIP_AUTOMERGE` early
+  return), so that file never appears on the enum VM: key on solver exit rc=0
+  **plus** the `SOLVE_SKIP_AUTOMERGE set; skipping bundled merge` line in
+  `solve_output.txt` **plus** shard/`shard_manifest.txt` filesystem state — or
+  on the supervisor-written `done.marker` / `fail.marker` pair. The
+  `SEARCH_COMPLETE` status field in `solve_results.json` is the *single-VM*
+  (bundled-merge) signal, and in split mode it is written by the merge VM when
+  the merge finishes. Never key on stderr regex (§Lessons item 4).
 - Managed data disk survives. Run-ID file on disk identifies the run.
 - A separate merge script provisions the merge VM, attaches the same disk,
   verifies the run-ID matches, runs `./solve --merge`, copies the resulting
@@ -507,16 +583,38 @@ Savings scale with wall-clock time; for ≥100T external merge with Premium SSD 
 **Disk sizing for two-phase:**
 
 The data disk must hold (`sub_*.bin` shards) + (`solutions.bin`) simultaneously
-during the merge. Effectively **2× the final output size**, plus overhead.
+during the merge. Size it from the **inputs**, not from the output:
 
-| Budget | Est. `solutions.bin` | Disk size |
-|---|---|---|
-| 10T | ~24 GB | 64 GB (current) |
-| 100T | ~60–120 GB | resize to 200–300 GB |
-| 1000T | ~150–250 GB | resize to 500 GB–1 TB |
+```
+disk ≥ (pre_dedup_records × 32 B × framing_factor + final_output_size) × 1.5
+```
 
-Resize is a single `az disk update --size-gb N`, then `resize2fs` inside a
-VM after attach. No data loss.
+`framing_factor` is 1.0 for raw shards (`SOLVE_COMPRESS=0`, and everything
+written before #169); gz-framing is the default since #169 and shrinks the shard
+term, but by a ratio you should *measure* on a pilot run rather than assume.
+
+An earlier revision of this rule said "effectively 2× the final output size".
+That is wrong at d3 scale and this document's own measurements refute it: the
+2026-04-18 10T d3 re-merge (§Disk tier matters) read **56,404 shards, 83 GB,
+2.77B pre-dedup records** against a ~24 GB `solutions.bin` — the shards alone
+are ~3.5× the output, so the shard term dominates and "2× output" under-sizes
+the disk before the merge writes a byte.
+
+| Budget | Pre-dedup input (raw) | Est. `solutions.bin` | Disk size (raw-safe) |
+|---|---|---|---|
+| 10T | 2.77B records, **83 GB measured** | ~24 GB | **~160 GB** |
+| 100T | ~27.7B records, ~830 GB (§100T and beyond) | ~60–120 GB | **~1.4 TB** |
+| 1000T | ~277B records, ~8.3 TB (linear extrapolation) | ~150–250 GB | **~13 TB** |
+
+At 1000T the disk itself, not the VM, becomes the binding constraint — the raw
+figure exceeds a single 2 TB managed disk, so plan for gz-framed shards plus a
+multi-disk or staged-archive layout rather than one volume.
+
+Failure direction is loud, not silent: running out of space mid-merge is ENOSPC,
+the shards survive on disk, and recovery is a single
+`az disk update --size-gb N` + `resize2fs` inside a VM after attach, then
+re-merge. No data loss. Preferring the raw-safe number up front costs pennies of
+storage against an aborted multi-hour merge.
 
 **Operational runbook for canonical enumerations ≥11.2T:**
 
@@ -619,7 +717,13 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
 
 ## Pre-launch checklist
 
-- [ ] Previous monitor and checkpoint state cleaned or explicitly resumed (run_id guard)
+- [ ] Previous run state cleaned or explicitly resumed (run_id guard). "Cleaned"
+      means the **whole** resume surface: `sub_*.bin`, `sub_*.dfs_state`,
+      `sub_*.bin.budget`, `sub_*.bin.provenance.json`, `sub_ckpt_*`,
+      `sub_flush_chunk_*`, `shard_manifest.txt`, `checkpoint.txt`,
+      `checkpoint_t*.txt`, `progress.txt`, and the `solutions.*` outputs — see
+      §Deployment lifecycle step 6. A partial wipe resumes silently and reports
+      success.
 - [ ] Persistent volume mount verified
 - [ ] Free disk space ≥ estimated output × 1.5 (inputs + outputs both fit)
 - [ ] Free RAM ≥ estimated working set (merge needs ~uniqueN × 32 bytes in memory)
@@ -694,7 +798,7 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
 
    ```bash
    SUB_ID=$(az account show --query id -o tsv)
-   NIC_ID=$(az network nic show -g "$RG" -n spot-nic --query id -o tsv)
+   NIC_ID=$(az network nic show -g "$RG" -n solver-nic --query id -o tsv)
    DISK_ID=$(az disk show -g "$RG" -n solver-data --query id -o tsv)
    SSH_PUB="$(cat ~/.ssh/f64_key.pub)"
    SIZE=Standard_D128als_v7  # westus3; F64als_v6 legacy westus2 pattern retired 2026-04-19
@@ -731,7 +835,9 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
            --query "instanceView.statuses[?starts_with(code,'PowerState')].displayStatus" -o tsv)
        [ "$state" = "VM running" ] && break
    done
-   IP=$(az network public-ip show -g "$RG" -n spot-pip --query ipAddress -o tsv)
+   # This example is private-IP-only (step 2) — there is no public IP to query.
+   IP=$(az network nic show -g "$RG" -n solver-nic \
+       --query "ipConfigurations[0].privateIPAddress" -o tsv)
    for i in $(seq 1 12); do
        sleep 8
        ssh -i ~/.ssh/f64_key -o StrictHostKeyChecking=no \
@@ -767,16 +873,39 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
 6. **Run-ID guard before solver start.** Compare the disk's `run_id.txt` to the
    intended run ID and only wipe stale data if they differ; resume otherwise.
 
+   The wipe list must cover the solver's **entire resume surface**, not just
+   its shards. Anything left behind that the solver knows how to resume from
+   makes a "fresh" run silently inherit prior work: it will report
+   `*** SEARCH COMPLETE ***`, exit 0, and write a self-consistent sha over an
+   incomplete solution set. The resume surface has grown over time
+   (`.dfs_state` sidecars 2026-04-30, per-thread `checkpoint_t<N>.txt`
+   2026-05-26, `.budget` / `.provenance.json` / manifest sidecars since), so
+   **re-derive this list against `solve.c` whenever the solver's on-disk state
+   changes** — an out-of-date list fails open, not closed.
+
    ```bash
    ssh ... solver@$IP "
    if [ \"\$(cat /data/run_id.txt 2>/dev/null)\" != \"$RUN_ID\" ]; then
-       rm -f /data/sub_*.bin /data/solutions.bin /data/solutions.sha256 \
+       rm -f /data/sub_*.bin /data/sub_*.dfs_state \
+             /data/sub_*.bin.budget /data/sub_*.bin.provenance.json \
+             /data/sub_ckpt_* /data/sub_flush_chunk_* \
+             /data/shard_manifest.txt \
+             /data/solutions.bin /data/solutions.sha256 \
+             /data/solutions.meta.json /data/solutions.provenance.json \
              /data/solve_output.txt /data/solve_results.json \
-             /data/checkpoint.txt /data/checkpoint.txt.* /data/progress.txt
+             /data/checkpoint.txt /data/checkpoint.txt.* /data/checkpoint_t*.txt \
+             /data/progress.txt
    fi
    echo '$RUN_ID' > /data/run_id.txt
    "
    ```
+
+   Note that `solutions.bin` is matched by **exact name only** — that is what
+   lets §Chaining preserve a prior run's output by renaming it to
+   `solutions_A_<sha8>.bin`. None of the added patterns match that name either.
+   Verification after the wipe: the run's first log lines should report zero
+   resumed sub-branches; a `Resuming:` line with a non-zero count on a run you
+   believe is fresh means the wipe missed something.
 
 7. **Compile and launch the solver.** The solver binary stays on the OS disk
    under `~/solve`; output goes to `/data` (managed disk).
@@ -784,16 +913,26 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
    ```bash
    scp -i ~/.ssh/f64_key ./solve.c solver@$IP:~/solve.c
    ssh ... solver@$IP 'gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz'
-   ssh ... solver@$IP "cd /data && SOLVE_THREADS=64 SOLVE_NODE_LIMIT=$NODE_LIMIT \
-       nohup ~/solve 86400 > solve_output.txt 2>&1 &"
+   # Use the §Solver-launch SSH detachment "Required form" — a bare
+   # `nohup ... &` over ssh does NOT reliably release the channel and hangs
+   # the launcher before it can enter its poll loop.
+   timeout 15 ssh -n -i ~/.ssh/f64_key -o StrictHostKeyChecking=no "solver@$IP" \
+       "cd /data && SOLVE_THREADS=64 SOLVE_NODE_LIMIT=$NODE_LIMIT \
+        setsid nohup ~/solve 86400 > solve_output.txt 2>&1 < /dev/null &" \
+       < /dev/null 2>/dev/null
    sleep 5
    ssh ... solver@$IP 'pgrep -x solve >/dev/null && echo started || echo FAILED'
    ```
 
 ### Teardown (preserve managed disk!)
 
-8. **Serialized teardown order.** VM → NIC → public IP → NSG → vnet. Parallel
-   deletes hit dependency-ordering errors. Never delete `solver-data`.
+8. **Serialized teardown order.** VM → NIC → OS disk. Parallel deletes hit
+   dependency-ordering errors. Delete only what *this* run created: the
+   per-run VM, its NIC, and its orphan OS disk. Never delete `solver-data`,
+   and **never delete `claude-vnet`** — it is shared with the orchestrator
+   VM, so deleting it is an incident, not a cleanup. (There is no public IP
+   and no NSG in this design; see step 2. The general dependency order when
+   a run *does* own those resources is VM → NIC → public IP → NSG → vnet.)
 
    ```bash
    az vm delete -g "$RG" -n solver-vm --yes
@@ -802,10 +941,8 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
        [ -z "$state" ] && break
        sleep 5
    done
-   az network nic delete -g "$RG" -n spot-nic
-   az network public-ip delete -g "$RG" -n spot-pip
-   az network nsg delete -g "$RG" -n spot-nsg
-   az network vnet delete -g "$RG" -n spot-vnet
+   az network nic delete -g "$RG" -n solver-nic
+   # NOT deleted: claude-vnet (shared with the orchestrator) and solver-data.
    # Clean orphan OS disks (don't touch solver-data)
    for d in $(az disk list -g "$RG" --query \
        "[?diskState=='Unattached' && starts_with(name,'solver-vm_OsDisk_')].name" -o tsv); do
@@ -841,18 +978,40 @@ inspection or a short-lived compute task.
    - D4als_v7 (4 vCPU, $0.16/hr on-demand) — for 1-thread Python analysis
    - D8als_v7 and up only if the task is actually multi-threaded CPU-bound
 3. **Every `az vm create` must pair with teardown in the same command
-   sequence.** Example pattern:
+   sequence.** Register the teardown **before** doing the work, so it runs on every exit
+   path. An `&&` chain is the wrong shape here: it is nothing but skip-branches,
+   and the ordinary failure this section exists to prevent — a transient ssh
+   failure, `rc=255` — stops the chain *before* the delete and leaks the VM with
+   the data disk still attached. Both incidents above are exactly that.
+
    ```bash
-   # GOOD: teardown is part of the one-liner
-   az vm create ... -n temp-vm \
-     && az vm disk attach --vm-name temp-vm --name solver-data \
-     && ssh solver@<ip> '<inspection commands>' \
-     && az vm disk detach --vm-name temp-vm --name solver-data \
-     && az vm delete -g rg -n temp-vm --yes \
-     && az disk delete -g rg -n temp-vm_OsDisk_* --yes
+   # GOOD: teardown is a trap, so it fires on success, failure, and Ctrl-C
+   RG=rg-claude
+   teardown() {
+     az vm disk detach -g "$RG" --vm-name temp-vm --name solver-data || true
+     az vm delete -g "$RG" -n temp-vm --yes || true
+     # `az disk delete` takes EXACT names — a literal `temp-vm_OsDisk_*` glob
+     # never matches anything locally and errors. Resolve the name first.
+     for d in $(az disk list -g "$RG" --query \
+         "[?diskState=='Unattached' && starts_with(name,'temp-vm_OsDisk_')].name" -o tsv); do
+       az disk delete -g "$RG" -n "$d" --yes --no-wait
+     done
+   }
+   az vm create ... -g "$RG" -n temp-vm
+   trap teardown EXIT
+   az vm disk attach -g "$RG" --vm-name temp-vm --name solver-data
+   ssh solver@<ip> '<inspection commands>'
    ```
-   If the task is too complex to one-line, build teardown into an
-   immediately-scheduled follow-up wakeup with no branches that skip it.
+
+   ```bash
+   # BAD: any non-zero rc short-circuits the chain and the VM leaks
+   az vm create ... -n temp-vm && ssh solver@<ip> '...' && az vm delete ... --yes
+   ```
+
+   Rule 6's `--ephemeral-os-disk true` removes the orphan-OS-disk loop entirely
+   for VMs that will live < 1 hour. If the task is too complex to script in one
+   sequence, build teardown into an immediately-scheduled follow-up wakeup with
+   no branches that skip it.
 4. **Maintain a session-lifetime log of created VMs.** When creating a new
    VM, append to `/tmp/claude_session_vms.txt`:
    ```
