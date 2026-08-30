@@ -38,7 +38,7 @@ traceback) if the tool is not on `PATH`:
 | Subcommand | Requires on `PATH` | Role |
 |---|---|---|
 | `--witness` | [`kissat`](https://github.com/arminbiere/kissat) | external SAT solver for the witness-search loop |
-| `--certify-count` | [`d4`](https://github.com/crillab/d4) **and** `cpog-gen` + `cpog-check` ([CPOG](https://github.com/rebryant/cpog)) | d-DNNF compilation + certified model counting |
+| `--certify-count` | [`d4`](https://github.com/crillab/d4) **and** `cpog-gen` + `cpog-check` ([CPOG](https://github.com/rebryant/cpog)) **and**, transitively via `cpog-gen`, `cadical` + `drat-trim` — five binaries | d-DNNF compilation + certified model counting |
 
 No other part of `sat.py` (or of the project's Python layer) needs any
 of these; everything else works without them.
@@ -58,10 +58,24 @@ encodes a C-rule from scratch is "a bug by definition." Every encoding
 is round-trip checked (SAT model → `decode()` → `solve.py` constraint
 functions) before any UNSAT claim from it is trusted.
 
-External solvers (`kissat` / `CaDiCaL`) run as separate binaries;
-their UNSAT answers are only trusted via DRAT/LRAT certificates checked
-by an independent verified checker (third-party solver use authorized
-by the operator 2026-07-02).
+External solvers (`kissat` / `CaDiCaL`) run as separate binaries; their
+UNSAT answers are only trusted via DRAT/LRAT certificates checked by an
+independent checker. Two are used, and their trust status differs — the
+distinction matters, so it is stated rather than blurred:
+
+* **drat-trim** is the checker `verify_all.sh` runs. It is independent of
+  the solver but is **not itself formally verified**; it is an ordinary C
+  program with a soundness-fix history.
+* **cake_lpr** is *formally verified* — its soundness is machine-checked in
+  HOL4 down to the machine code. On 2026-07-27 the full 21-certificate
+  archive passed `drat-trim → LRAT → cake_lpr` (pinned commit
+  `a36874a8b750b43fe4b385b8ddbf5b033e46a3fa`), a chain in which drat-trim
+  is an **untrusted elaborator**: cake_lpr checks the LRAT against the
+  regenerated CNF directly, so a bad elaboration can only be rejected.
+
+An UNSAT claim resting on drat-trim alone is therefore scoped by an
+unverified checker; the archived 21 additionally carry a formally verified
+one. (Third-party solver use authorized by the operator 2026-07-02.)
 
 Argument parsing is hand-rolled `sys.argv` inspection (no `argparse`);
 the dispatch lives in the `__main__` block at the bottom of the file.
@@ -179,10 +193,13 @@ the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts).
 > (<https://github.com/crillab/d4>) and the **CPOG** toolchain's
 > `cpog-gen` / `cpog-check`
 > (<https://github.com/rebryant/cpog>; Bryant, Nawrocki & Avigad,
-> SAT 2023) on `PATH`. If any of the three binaries is missing, the
-> subcommand exits gracefully with an install message — **the rest of
-> `sat.py` works without them**, exactly as `kissat` is required only
-> by `--witness`.
+> SAT 2023) on `PATH` — and, transitively, **`cadical` and `drat-trim`**,
+> which `cpog-gen` shells out to. That is **five** binaries, not three:
+> measured 2026-08-20, with `drat-trim` absent the n=9 run fails
+> (`sh: 1: drat-trim: not found`, rc=1) and no certificate is produced.
+> If any of the five is missing, the subcommand exits gracefully with an
+> install message — **the rest of `sat.py` works without them**, exactly
+> as `kissat` is required only by `--witness`.
 
 Pipeline: (1) emit the DIMACS CNF (the same `build()` /
 `build_subset()` machinery as `--emit-cnf`); (2) `d4 -dDNNF … -out=…`
@@ -298,9 +315,8 @@ on `PATH` — the latter with a clear install message.
   are pinned in `tests.py` (`TestSatC5Subset`); `--certify-count` is the
   proof-emitting `#SAT` side of the model-count cross-check at these N
   (the C-binary side is `solve --f1-exact-c1c2c4c5 --f1-pairs N`, run
-  separately). The D4/CPOG invocation format is pending run-validation on a
-  host with the tools built. That has since happened: the D4/CPOG invocation
-  was **run-validated 2026-08-20 and independently reproduced 2026-08-26** on a
+  separately). The D4/CPOG invocation format is
+  **run-validated**: 2026-08-20, and independently reproduced 2026-08-26 on a
   separate host with the toolchain rebuilt from source, giving a **certified
   n=9 count of 26,112**, agreeing with the native reference; the `--expect`
   control has been shown able to fail. **No certified count exists at n=13** —
