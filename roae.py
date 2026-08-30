@@ -3366,7 +3366,14 @@ def export_html(filename="report.html"):
            "border: 1px solid #d1d9e0; border-radius: 6px; }")
     _print("  h1 { padding-bottom: 8px; border-bottom: 1px solid #d1d9e0; }")
     _print("  h2 { padding-bottom: 6px; border-bottom: 1px solid #d1d9e0; margin-top: 24px; }")
-    _print("  .hex { display: inline-block; width: 1ch; overflow: hidden; }")
+    # TWO cells, not one. U+4DC0-U+4DFF are East Asian Wide and the plain-text
+    # tables budget six display cells for the Hex column on that basis. This rule
+    # clamped the glyph to 1ch, so HTML and PDF needed a FIVE-cell column while
+    # txt/md needed six -- the two families silently disagreed, and fixing one
+    # broke the other. Matching the rule to the text geometry keeps a single
+    # layout across all four artifacts. (overflow:hidden retained so an unusual
+    # font cannot widen the cell and re-introduce the drift.)
+    _print("  .hex { display: inline-block; width: 2ch; overflow: hidden; }")
     _print("  .section { margin-bottom: 16px; }")
     _print("</style>")
     _print("</head><body>")
