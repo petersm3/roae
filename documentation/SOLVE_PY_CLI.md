@@ -10,8 +10,8 @@
 
 A man-page-style command-line reference for `solve.py`, the Python
 analysis + ground-truth CLI for the King Wen constraint system. Where
-`roae.py` characterizes King Wen as a fixed sequence (28 descriptive
-analyses; see [ROAE_PY_CLI.md](ROAE_PY_CLI.md)) and `solve.c`
+`roae.py` characterizes King Wen as a fixed sequence (29 analysis
+sections; see [ROAE_PY_CLI.md](ROAE_PY_CLI.md)) and `solve.c`
 enumerates the C1–C5 ordering space at canonical scale (see
 [SOLVE_C_CLI.md](SOLVE_C_CLI.md)), `solve.py` sits between them: it runs
 the constraint-structure analyses, the P2 distributional pipeline over
@@ -25,8 +25,8 @@ the sibling `sat.py` (see [SAT_CLI.md](SAT_CLI.md)), which imports
 
 ## NAME
 
-**solve.py** — King Wen constraint-structure analyses (pairs, generative
-recipe, adjacency graph, boundary features, backtracking enumeration,
+**solve.py** — King Wen constraint-structure analyses (pairs, the
+rule-set KW satisfies, adjacency graph, boundary features, backtracking enumeration,
 trigram/line/neighborhood decompositions, extremality and fingerprint
 analyses), the P2 population-distribution pipeline, P3 SAT encoders, and
 the ground-truth verification batteries.
@@ -70,8 +70,8 @@ python3 solve.py --h2-mass DUMP [DUMP ...]
 ## DESCRIPTION
 
 `solve.py` runs one or more analyses selected by flags. With **no
-analysis flag**, it defaults to `--rules` + `--narrow` (the generative
-recipe plus constraint-narrowing). Aggregate flags expand to several
+analysis flag**, it defaults to `--rules` + `--narrow` (the rule-set plus
+constraint-narrowing). Aggregate flags expand to several
 analyses: `--local` = `--graph` + `--boundaries` + `--construct`;
 `--deep` = `--enumerate` + `--trigram-paths` + `--line-decomp` +
 `--pair-neighborhoods` + `--residuals` + `--info`.
@@ -89,12 +89,12 @@ paths you name.
 Each flag runs one analysis over the King Wen sequence and its
 constraint structure.
 
-### Constraint structure & recipe
+### Constraint structure & rules
 
 | Flag | Description |
 |---|---|
 | `--pairs` | Show the 32 canonical pairs with their XOR products. |
-| `--rules` | Print the discovered generative recipe (the candidate rule-set that reconstructs KW). *Part of the default run.* |
+| `--rules` | Print the discovered rule-set — the constraints King Wen satisfies. **Not** a generative recipe: the rules do **not** determine the sequence (millions of orderings satisfy them; see [CORRECTIONS.md](CORRECTIONS.md) §CX-02). *Part of the default run.* |
 | `--narrow` | Run constraint-narrowing analysis — progressively adds constraints and reports the surviving-ordering count (Monte Carlo; honors `--trials`/`--seed`/`--verbose`). *Part of the default run.* |
 
 ### Local ordering
@@ -156,6 +156,13 @@ requires exact equality on every record, printing `ENCODE_ROUNDTRIP=PASS` or `=F
 drawn without C3 will legitimately fall outside them. Use `--uniform-marginals` for such a
 sample — measured on the 10⁶-draw T5 mega-sample, **87.9%** of rows fall outside the
 declared `c3_total` bins, so this is the normal case at that scope, not an edge.
+⚠ **Attested, not reproducible from this repo.** The figure is 878,975 / 1,000,000 =
+87.897%. Neither the T5 sample nor its producer ships here: the `--kc-*` sampler that
+drew it is **not on `main`** (it lives on the `v4-compiler` snapshot branch — see the
+*Branch note (T3 sampler)* under [VERIFY.md](VERIFY.md) §"Analyses over large
+artifacts"). `--uniform-marginals` would recompute the figure from the T5 chunks, but
+nothing on `main` can *produce* those chunks, so on this branch the number is attested
+rather than checkable.
 
 ### Refined (v2) analyses
 
@@ -188,15 +195,26 @@ workflow lives in the sibling `sat.py`; see [SAT_CLI.md](SAT_CLI.md).)
 
 | Flag | Description |
 |---|---|
-| `--sat-encode OUT_CNF` | Emit DIMACS CNF for C1+C2 over the King Wen sequence to `OUT_CNF`. |
-| `--sat-c3 none\|pb\|adder` | Include C3 in the encoding as a pseudo-Boolean (`pb`) constraint (default `none`). `adder` is **deferred/superseded** — see the note below. |
+| `--sat-encode OUT_CNF` | Emit DIMACS CNF for C1+C2 over the King Wen sequence to `OUT_CNF`. A `OUT_CNF.meta.json` sidecar (var/clause counts, the flags in force, and `sha256_clauses_only`) is always written alongside. |
+| `--sat-c3 none\|pb\|adder` | Default `none`. `pb` writes the C3 bound as a pseudo-Boolean constraint into a **separate `OUT_CNF.opb` file** — the DIMACS `.cnf` itself never carries C3 (see the two-file note under the P3 example below). `adder` is **deferred/superseded** — see the note below. |
 | `--sat-c4` | Force C4 in its **oriented** form: position 0 = Qian (hexagram **63**), position 1 = Kun (0), per [SPECIFICATION.md](SPECIFICATION.md) §C4. *(Corrected 2026-08-01: previously pinned hexagram 0 first — Kun — the complement of the spec. Isomorphic under this encoder's C1∩C2 scope, and the certification path is `sat.py`, which has no `--sat-c4`, so no published result moved.)* |
 | `--sat-c5` | C5 cardinality constraints — **deferred/superseded**; see the note below. |
 
 **Deferred/superseded flags — `--sat-c3 adder` and `--sat-c5` (honest
-status, operator decision 2026-07-10).** Neither encoder is built: both
-flags emit a `status: deferred_superseded_by_pairslot_model` entry in the
-JSON sidecar instead of clauses. They are not on any live path — C3 (Sinz
+status, operator decision 2026-07-10).** Neither encoder is built: the
+requested constraint is not encoded, a `status:
+deferred_superseded_by_pairslot_model` entry is recorded in the
+`.meta.json` sidecar, and the run prints a WARNING stating that the file
+carries C1+C2 only. ⚠ "Not encoded" is not the same as "emits nothing",
+and the two flags differ (measured 2026-08-31, this tree): `--sat-c5`
+emits **no** extra clauses — 4,096 vars / 272,128 clauses, clause-sha
+identical to `--sat-c3 none`. `--sat-c3 adder`, by contrast, still emits
+the `pb` mode's aux scaffolding — 262,144 `pair[v][i][j]` variables and
+786,432 linking clauses, 266,240 vars / 1,058,560 clauses, the **same
+clause-sha as `--sat-c3 pb`** — while the C3 bound itself is written
+nowhere (no `.opb` is produced in `adder` mode). So `adder` costs a 16 MB
+file and buys nothing over `none`; use `none`, or use `pb` and give the
+solver the `.opb`. They are not on any live path — C3 (Sinz
 sequential counters) and C5 are **native in `sat.py`'s pair-slot model**,
 which is the only certification-path model (see
 [SAT_CLI.md](SAT_CLI.md)). This legacy position-hexagram `x[i][p]` encoder
@@ -286,9 +304,15 @@ what TR-8 requires published alongside the number.
 template; a single failure is an implementation finding, not a result, and the
 run aborts. **H-b**: the pool's own rate of `rc4_violations(seq)[0] <= 2`,
 scored by the **unmodified** `rc4_violations`, must reproduce
-`pair_null_gender_le2_exact()` within a 5σ Poisson band — this is the evidence
-that the pool is the same null the comparator was computed over. H-b failure
-forces the verdict to `INCONCLUSIVE`.
+`pair_null_gender_le2_exact()` within the frozen band **`|observed − expected| ≤ 5σ + 3`**
+(Poisson σ, plus a 3-count integer-continuity floor; implemented as `hb_ok` in
+`solve.py`'s `_tr8_finish`) — this
+is the evidence that the pool is the same null the comparator was computed over. H-b
+failure forces the verdict to `INCONCLUSIVE`. ⚠ The `+3` term matters only where the
+expectation is small. At the 200,000-draw smoke scale used in the example below,
+expected ≈ 21.09 and σ ≈ 4.59, so the band widens from ±22.96 (5σ alone) to ±25.96 —
+H-b is weak by construction at that scale. At the default `N_pool` = 10⁷ (expected ≈
+1054.4, σ ≈ 32.47) it widens ±162.36 to ±165.36, under 2%, and is negligible.
 
 **Cost.** Measured on the 2-core orchestrator, 2026-08-11: ~10,000 draws/s per
 core for the full per-draw scoring path (draw + 319 templates + the H-b
@@ -347,10 +371,13 @@ specific record families each keystone boundary uniquely eliminates.
 
 ## VERIFICATION & COMPANION COMMANDS
 
-These commands run and exit; each is **already documented in full** in
+These commands run and exit. **Most** are documented in full in
 [SOLVE_C_CLI.md](SOLVE_C_CLI.md) (they are the two-language ground-truth
-gates and the P2 pipeline stage entry points). Listed here for
-discovery — follow the link for the authoritative description:
+gates and the P2 pipeline stage entry points), but several are not — so the
+authoritative home is whatever each row's **Reference** column names, not
+`SOLVE_C_CLI.md` by default. `(this doc)` means the row below **is** the
+primary documentation; `—` means no separate reference exists. Listed here
+for discovery — follow the Reference for the full description:
 
 | Command | One-liner | Reference |
 |---|---|---|
@@ -365,7 +392,7 @@ discovery — follow the link for the authoritative description:
 | `--symmetry-completeness` | TR-5 v2.0 completeness certificate: exhaustively verify (gates SC-1…SC-8, no sampling) that the order-48 symmetry group is complete over ALL 64! hexagram relabelings — ψ-isomorphism of the distance-5 graph to Q₆, hypercube two-common-neighbor rigidity, the explicit 46,080-element Aut(G₅), the fix-0 and partner-commuting filters, and the 1,824-sequence C2 witness family. Exit 0 iff certified. Companion SAT kernel: `sat.py --rigidity-cnf`. Sha-neutral. | [SYMMETRY_SEARCH.md §Completeness](SYMMETRY_SEARCH.md) |
 | `--trigram-verify` | Two-language ground truth for [`lean/TrigramTheorems.lean`](../lean/TrigramTheorems.lean): independently re-compute every finite fact and every KW instance of its machine-checked trigram-level statements (18 claims, TG1-a … TG5-b). No `solve` C equivalent. Sha-neutral. Scope + attribution: [TRIGRAM_STRUCTURE.md](TRIGRAM_STRUCTURE.md). | [TRIGRAM_STRUCTURE.md](TRIGRAM_STRUCTURE.md) |
 | `--registry-verify` | Run every `reg_*` candidate-rule ground-truth checker and assert each equals its registry KW-expected value. | [SOLVE_C_CLI.md#--registry-verify-solvepy-only](SOLVE_C_CLI.md#--registry-verify-solvepy-only) |
-| `--perm-verify [SEQ]` | Two-language ground truth for the 13 FROZEN R3 permutation-cycle functionals (`perm_ncyc_bot` … `perm_desc_top`; KW = 7,33,1,1,1320,31,1,3,52,0,1,260,30) on KW — or on an explicit `"h0,...,h63"` hexagram-value sequence. Prints one `perm_<name>: <value> OK/FAIL` line each; exit 0 iff all 13 match. This is the authoritative ground truth for the C `SOLVE_KNUTH_SCORE_PERM` population scorer (no `solve` C subcommand equivalent; the C side is the env-var scorer). Observable axis anchor: [Ge 2026](CITATIONS.md#ge2026). Sha-neutral. | [SOLVE_C_CLI.md#environment](SOLVE_C_CLI.md#environment) (`SOLVE_KNUTH_SCORE_PERM`) |
+| `--perm-verify [SEQ]` | Two-language ground truth for the 13 FROZEN R3 permutation-cycle functionals (`perm_ncyc_bot` … `perm_desc_top`; KW = 7,33,1,1,1320,31,1,3,52,0,1,260,30) on KW — or on an explicit `"h0,...,h63"` hexagram-value sequence. **Two modes, two contracts.** *KW mode* (no argument): prints one `perm_<name>: <value> OK/FAIL` line each plus `PERM VERIFY: PASS`; exit 0 iff all 13 match, 1 otherwise. *SEQ mode* (explicit sequence): prints **15** comma-separated raw values — the 13 functionals in the order above, then the 2 template indicators, matching `solve.c`'s `SOLVE_PERM_TESTVEC` ordering — and makes **no comparison at all**: it always exits 0 (exit 1 only if SEQ is not 64 integers). SEQ mode is a raw-values twin for external cross-language diffing; **the diff is the gate, not the exit status** — do not branch automation on SEQ mode's exit code. This is the authoritative ground truth for the C `SOLVE_KNUTH_SCORE_PERM` population scorer (no `solve` C subcommand equivalent; the C side is the env-var scorer). Observable axis anchor: [Ge 2026](CITATIONS.md#ge2026). Sha-neutral. | [SOLVE_C_CLI.md#environment](SOLVE_C_CLI.md#environment) (`SOLVE_KNUTH_SCORE_PERM`) |
 | `--rc4b-verify [SEQ]` | Two-language ground truth for the R13 HEC two-convention parity predicates ([Schulz 1990](CITATIONS.md#schulz1990-motifs) gender/position-parity, elaborated [Cook 2006](CITATIONS.md#cook2006)): asserts the KW anchors — 2 violations at adjacent class positions [25, 26]; R-C4-A (published ≤2 relaxation), R-C4-B (exception form: 0 violations OR 2 adjacent), R-C4-C (exactly {25,26}) and the rc3/rc3w level-3 checks all pass. With a 64-int SEQ prints `viol,vp0,vp1,rc4a,rc4b,rc4c,rc3,rc3w`. Sha-neutral. | [SOLVE_C_CLI.md#--rc4b-verify](SOLVE_C_CLI.md#--rc4b-verify) |
 | `--rc1c-verify [SEQ]` | Two-language ground truth for the R6 circular anchor-adjacency predicate (R-C1c): on KW the A2 anchor pair {21, 42} gives `slot2 = 0, slot32 = 1, adjacent = 1`. With a 64-int SEQ prints `slot2,slot32,adjacent` (ordering matches `solve.c --rc1c-verify SEQ`). Sha-neutral. | [SOLVE_C_CLI.md#--rc1c-verify](SOLVE_C_CLI.md#--rc1c-verify) |
 | `--r11-verify [SEQ]` | Two-language ground truth for the R11 frozen 8-axis violation bundle (g1..g6 T1 + g7, g8 T2); KW expected vector `2,2,2,0,0,0,0,0`. No-arg mode additionally prints a `violation positions` line (parity pair-slots, rhythm adjacent-pairs, gender inversion-class positions) for the three graded rules — an analysis extra beyond the C twin, which emits counts only. With a 64-int SEQ prints just the 8 values (ordering matches `solve.c --r11-verify SEQ`; this machine-output mode is the two-language gate and is unchanged). Sha-neutral. | [SOLVE_C_CLI.md#--r11-verify](SOLVE_C_CLI.md#--r11-verify) |
@@ -395,14 +422,15 @@ terminal and take precedence.
 | Code | Meaning |
 |---|---|
 | 0 | Success (or, for a verifier, all checks PASS). |
-| 1 | A verifier reported at least one mismatch (`--f4p-verify`, `--f6-verify`, `--dav-verify`, `--dav2-verify`, `--db1-verify`, `--vdb-verify`, `--perm-verify`, `--rc4b-verify`, `--rc1c-verify`, `--r11-verify`, `--r11-builder-verify`, `--r7-verify`, `--books-verify`, `--trigram-verify`, `--registry-verify`, `--extended-selftest`, `--h2-verify`, `--h2-mass`), or an invalid argument. |
+| 1 | A verifier reported at least one mismatch (`--f4p-verify`, `--f6-verify`, `--dav-verify`, `--dav2-verify`, `--db1-verify`, `--vdb-verify`, `--perm-verify`, `--rc4b-verify`, `--rc1c-verify`, `--r11-verify`, `--r11-builder-verify`, `--r7-verify`, `--books-verify`, `--trigram-verify`, `--registry-verify`, `--extended-selftest`, `--h2-verify`, `--h2-mass`), or a command's **own** argument validation rejected its input (e.g. `--perm-verify` given other than 64 integers). |
+| 2 | `argparse` usage error — unknown flag, missing argument value, or a value outside a flag's declared choices (e.g. `--branch-yield-depth 4` → `invalid choice: 4 (choose from 1, 2, 3)`). **Malformed command lines exit 2, not 1**; a wrapper that branches only on 1 will misclassify them. |
 
 The descriptive analyses print to stdout and exit 0; they do not encode
 findings in the exit status.
 
 ## EXAMPLES
 
-**Default run (recipe + constraint narrowing):**
+**Default run (rule-set + constraint narrowing):**
 
 ```
 python3 solve.py
@@ -434,11 +462,27 @@ python3 solve.py --marginals chunks/ marginals.md
 python3 solve.py --joint-density-v2 chunks/ joint.md --joint-density-bandwidth cv
 ```
 
-**Emit a CNF with C3 as a pseudo-Boolean constraint:**
+**Emit the C1+C2 CNF plus an OPB sidecar carrying C3 as a pseudo-Boolean
+constraint (two files):**
 
 ```
 python3 solve.py --sat-encode kw.cnf --sat-c3 pb --sat-c4
 ```
+
+⚠ **This writes two constraint files, and C3 is in only one of them.**
+`kw.cnf` (DIMACS) carries **C1+C2 (+C4)** together with the 262,144
+`pair[v][i][j]` aux variables and their 786,432 definitional linking
+clauses; the linking is bidirectional, so the aux vars are functionally
+determined and the model count over the `x[i][p]` variables is unchanged
+by their presence. The C3 bound itself — `Σ |i−j| · pair ≤ 776`, 258,048
+terms — is written **only** to `kw.cnf.opb`. A pure-`#SAT` counter pointed
+at `kw.cnf` therefore counts C1∩C2(∩C4) and **not** C3: it will report the
+wrong population. Give the `.opb` to a PB-capable solver (`ganak --pb`,
+`d4 --opb`, `sharpSAT-TD`) if you need C3 enforced. ⚠ Do not trust the
+`.cnf`'s own comment header on this point: as of 2026-08-31 it reads
+`c constraints: C1+C2+C3(pb)`, which overstates the file's contents — the
+sole occurrence of "C3" anywhere in `kw.cnf` is that comment. This
+warning can be dropped once the emitter's header is corrected.
 
 **Per-branch yield diff against a baseline, with CSV out:**
 
@@ -499,10 +543,10 @@ python3 solve.py --tr8-dof-merge out/
 
 | | `roae.py` | `solve.py` | `solve` (C, from `solve.c`) |
 |---|---|---|---|
-| **Role** | KW as a fixed sequence (28 descriptive analyses) | Constraint-structure analyses, ground truth, P2/P3 pipelines | Canonical enumeration of the C1–C5 space |
+| **Role** | KW as a fixed sequence (29 analysis sections; 28 statistical + the theorem-backed `--parity`) | Constraint-structure analyses, ground truth, P2/P3 pipelines | Canonical enumeration of the C1–C5 space |
 | **Reference** | [ROAE_PY_CLI.md](ROAE_PY_CLI.md) | this doc | [SOLVE_C_CLI.md](SOLVE_C_CLI.md) |
 | **Scale** | single sequence | single sequence + population post-processing | up to 560T-node canonical runs |
-| **Deps** | Python 3 stdlib (+ optional export deps) | Python 3 (+ pandas/pyarrow/scipy for P2) | gcc, pthread, sha256sum |
+| **Deps** | Python 3 stdlib (+ optional export deps) | Python 3 (+ `numpy`/`pyarrow` for P2; `matplotlib` for `--bivariate`; `scikit-learn` for the joint-density / stratified modes) | gcc, pthread, sha256sum |
 
 `solve.py` is the **ground-truth authority**: every `solve.c` port of a
 functional (F4′, F5, F6, the registry rules, the Davis / Van den Berghe

@@ -184,7 +184,17 @@ which is what produced every published figure — with the divergence disclosed:
   Caveats: weights are right-skewed, so CIs at low effective sample size (n_eff = 1/relerr²; e.g. relerr
   10% → n_eff ≈ 100) are approximate and skew toward underestimation — figures at ≥10% relerr should be
   read as ±20% with ~90–93% practical coverage; zero-hit estimates print 0 with a degenerate CI and are
-  reported as starvation, not as bounds. PRNG seeds are fixed constants: re-runs at identical (probes,
+  reported as starvation, not as bounds. **That is a reports-side convention applied by hand; the
+  estimator's own output does not mark it** (measured 2026-08-30 against `solve.c`'s print sites). A
+  starved fiber layer prints, verbatim, `records_C1C2C4C5 : est=0.000000e+00  95%CI=[0.0000e+00,
+  0.0000e+00]  relerr=0.00%` — a zero-width interval labelled 95%, whose coverage is zero — and the
+  fiber `records_*` lines carry no `hitrate=` or `hits=` field at any probe count (the `leaves` and
+  `[score]` lines do), so on those lines starvation is not machine-distinguishable from a measurement
+  except by the `est=0` itself. A reader of raw console output has to apply this convention
+  themselves. The change that would turn this sentence into a checkable behaviour rather than a
+  convention — an explicit `STARVATION` token on the line with the CI suppressed — is registered and
+  is **not in the binary**: no such token exists in `solve.c` today. This note is to be replaced by
+  the enforced wording when it does. PRNG seeds are fixed constants: re-runs at identical (probes,
   threads) reproduce identical output (a reproducibility feature; runs at the same thread count and
   different probe counts share stream prefixes and are not independent draws). CIs degrade visibly at hit
   rates below ~10⁻⁷ per probe; every reported number states its probe count.
@@ -212,10 +222,37 @@ which is what produced every published figure — with the divergence disclosed:
   re-counted inside the twelve, and the distinct Davis contribution is 12, giving **82 distinct
   observables**; (ii) the ledger omits the **F6 books family** (7 functionals, frozen and measured
   2026-07-05), so a strict "everything examined" reading gives **89**. The two errors nearly cancel.
+  **(iii) Added 2026-08-30 — a third omission, and unlike (i) and (ii) it does not cancel.** The
+  ledger also omits the pre-registered **H1/H3 family**: four predicates T1–T4, shipped as
+  `roae.py --prereg-h1h3`, spec frozen 2026-07-26 and escrowed as `PREREG_H1_H3_TEST_2026_07_26.md`
+  in [PREREGISTRATION_ESCROW.md](../documentation/PREREGISTRATION_ESCROW.md). A grep for `H1/H3`
+  returns **zero** hits in this file and zero in `CRITIQUE.md` §"Observable-selection accounting",
+  the itemization of record — so a shipped, pre-registered, escrowed family has no roster ids at all.
+  That is what the counting rule below forbids: an observable enters the ledger at **first
+  registration**, not on its outcome, precisely so that roster membership cannot be conditioned on
+  how a test came out (T1–T4's own pre-registered prediction is that all four fail, which is not a
+  reason to leave them out). Entering them gives **95** on the published convention, **93** on the
+  distinct-"everything examined" reading of (ii). Whether any of the four re-register an earlier F4′
+  id — arguable for the A-functional — is unestablished; if they do, the roster must say so in place
+  under the exactly-once rule rather than omit them. **This correction moves the bar DOWN, so 91 is
+  not the conservative choice on this axis**, unlike (i) and (ii): 0.05/95 = 5.26×10⁻⁴, below the
+  5.49–6.10×10⁻⁴ span the sentence below studies. **The published 91 is retained here as a
+  disclosure, not as a defence.** Re-freezing the total is a corpus-wide edit — the figure and its
+  0.05/91 bar appear across eleven tracked markdown files, including `CRITIQUE.md`, which holds the
+  itemization of record — and is deliberately not made piecemeal in this file. What would settle it:
+  rebuild the stable-id roster with T1–T4 entered, re-derive the total *from* the roster per the
+  counting rule, and re-check every published verdict against the corrected bar.
   **All three candidate bars — 0.05/91 = 5.49×10⁻⁴, 0.05/89 = 5.62×10⁻⁴, 0.05/82 = 6.10×10⁻⁴ — span
   under 11%, and NO published verdict differs between them** (the only value in the gap zone,
   `dav_trigarray` at 6.8×10⁻⁴, fails at all three). The published bar is therefore the strictest
-  defensible choice, and no conclusion in the suite depends on the count.
+  defensible choice **among those three**, and no conclusion in the suite depends on the count as
+  between them. *(Extended 2026-08-30 for (iii) above. The corrected bars are 0.05/95 = 5.26×10⁻⁴
+  and 0.05/93 = 5.38×10⁻⁴, and both lie **below** the studied span — so the no-flip statement in this
+  paragraph, established over 5.49–6.10×10⁻⁴, does not cover them. `dav_trigarray` still fails at
+  every candidate bar, and no published verdict has been **shown** to fall in the newly exposed
+  interval (5.26, 5.49)×10⁻⁴ — but showing that none does requires the roster rebuild named in (iii)
+  and has not been done. Stated in the honest direction: the exposure interval is real and, so far as
+  anything here establishes, unoccupied.)*
   **Correction-family disclosure (added 2026-08-01, self-reported).** The sentence above is scoped to
   the three *denominators*; it says nothing about the choice of *correction family*, and that choice is
   not neutral. The suite applies **Bonferroni (family-wise error rate)** throughout, and the global-ledger

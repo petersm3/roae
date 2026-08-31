@@ -40,15 +40,29 @@ Stated precisely, because the unqualified form would overclaim:
   different Spot fleets, through twelve combined evictions, and on independently provisioned hardware —
   byte-identical both times. Independent re-derivation across machines, regions, thread counts, merge
   paths and shard partitions is a *result*, not an aspiration.
-- **The toolchain qualifier.** Byte-exactness is claimed within a **matching toolchain class** (the gcc
-  major-version/optimization-flag combinations recorded with each anchor in
-  [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md)), not across arbitrary compilers, libc
-  versions, or architectures. This is not hypothetical caution: the project observed one **host-level**
+- **The toolchain qualifier.** Byte-exactness is claimed within a **matching toolchain class**, not
+  across arbitrary compilers, libc versions, or architectures. Be precise about what the registry
+  actually records, because it is less than a toolchain pin: the build recipe (gcc flags) is given once,
+  globally, in [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §"Solver version", and each
+  anchor's entry records its solver commit and VM SKU. A per-anchor **gcc version is not recorded** —
+  gcc versions appear only on the ARM cross-architecture witness rows. A reader matching "the toolchain
+  class" is therefore matching a recipe and a machine type, not a pinned compiler build.
+  The qualifier is not hypothetical caution: the project observed one **host-level**
   drift event, in which the same source produced a different artifact on a differently-provisioned host.
   It was documented, bisected, and fenced, and it was shown to be host-environment-level, **not**
-  source-level — the affected anchor re-derives byte-identically on a matching host. Host-fingerprint
-  sidecars and a `--validate-canonical` gate were added in response, so a reader who reproduces on a
-  different host class gets a diagnosed mismatch rather than a silent one.
+  source-level — the affected anchor re-derives byte-identically on a matching host. That conclusion is
+  auditable from the public record rather than asserted: the seven hardening commits in the suspect
+  range were empirically exonerated, and LTO was empirically ruled out as the mechanism — building with
+  `-fno-lto` still produced the drifted 1T sha `74d39760…`, not the pre-drift anchor `5a0f0bc2…`. The
+  drift is also scale-sensitive rather than universal: on the very code state that drifted at 1T, the
+  11.2T anchor `0c0fe37c…` re-derived byte-identically. See
+  [HISTORY.md](../documentation/HISTORY.md) §"May 27/28, 2026 UTC — Task #110 Tier 1
+  canonical-determinism hardening" and
+  [PERFORMANCE_HISTORY.md](../documentation/PERFORMANCE_HISTORY.md) §"2026-05-27 — task #106/#108"
+  (the ⚠ Correction of 2026-08-30 withdrawing the earlier LTO/hardening-commit attribution).
+  Host-fingerprint sidecars and a `--validate-canonical` gate were added in response, so a reader who
+  reproduces on a different host class gets a **visible** mismatch rather than a silent one — see §2(d)
+  for what that gate does and does not tell them.
 - **What the theorem covers.** Partition invariance is proved about the *model* of the computation
   (output independent of thread count, machine, merge path, and shard partition). The bridge from that
   model to the shipped binary is carried by the runtime gates — `--selftest`, the canonical-scale sha
@@ -63,17 +77,29 @@ Stated precisely, because the unqualified form would overclaim:
 ### 1. The reproducibility contract
 
 The claim this report defends is narrow and mechanical: `solutions.bin` is a **mathematical function of
-one integer**. Fix the node budget and the constraint system, and the output is determined — not
-determined up to ordering, not determined up to a tolerance, but byte-for-byte. Everything else in the
+its published launch configuration** — the enumeration depth `SOLVE_DEPTH`, the per-cell budget
+`SOLVE_PER_SUB_BRANCH_LIMIT`, and the node budget `SOLVE_NODE_LIMIT` — together with the constraint
+system. Fix those and the output is determined: not determined up to ordering, not determined up to a
+tolerance, but byte-for-byte. What the reproducer actually chooses is *which anchor* to reproduce;
+every value in that anchor's row is then published verbatim in
+[CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §"Reproducibility parameters", and none of
+them may be inferred. Depth is the trap worth naming here rather than in an appendix: `SOLVE_DEPTH`
+**defaults to 2**, while every depth-3 canonical in the registry — 1T through 560T — requires
+`SOLVE_DEPTH=3` alongside its explicit per-cell budget. A reproducer who takes "one number" literally
+and sets only the node budget runs a different partition of the search and cannot match the published
+sha. Everything else in the
 engineering exists to make that claim survive contact with real hardware.
 
 Three things make it hold. First, the **partition-invariance theorem**: the output is independent of
 thread count, machine, merge path, and shard partition. The enumeration is a set-valued computation, and
 the merge imposes a canonical order on that set, so how the work was divided cannot survive into the
 bytes. This is what licenses running on 128 threads today and 64 tomorrow, on a machine in one region
-and then another, and expecting identity rather than similarity. Second, the **budget is the only free
-parameter**, and it is recorded per canonical: `SOLVE_NODE_LIMIT` with its matching
-`SOLVE_PER_SUB_BRANCH_LIMIT`, published verbatim rather than derived. That last word is load-bearing —
+and then another, and expecting identity rather than similarity. Second, the **sha-determining
+parameters are few, and every one of them is published rather than derived**: `SOLVE_DEPTH` and
+`SOLVE_PER_SUB_BRANCH_LIMIT` always, and `SOLVE_NODE_LIMIT` in the one case where no explicit per-cell
+budget is supplied — with an explicit per-cell budget, which every depth-3 canonical here supplies, the
+DFS enforces that budget alone and the nominal node budget does not determine the sha
+(CANONICAL_HASHES.md §"Sha-determining vs operational env vars"). *Published* is load-bearing —
 the per-cell budget looks like it should be `node_limit / 158,364`, and computing it that way once
 produced a wrong budget and a wrong artifact. The published values are the empirical ones that produced
 the published shas, and `solve --validate-launcher-config <scale> <PSB>` exists so a launcher can assert
@@ -105,10 +131,20 @@ which on a small orchestrator takes ~15 minutes and needs real memory. Placing i
 on an undersized box has produced both false failures under memory pressure and dropped SSH connections
 during the hook; the gate is sound, its siting deserves care.
 
-**(b) Canonical-scale sha gates, on Spot D32 (~$0.20).** Any change touching checkpoint formats or hot
-paths must additionally reproduce a full canonical at a scale where the behaviour actually exercises —
-100 billion nodes, not 100 million. Twenty cents is cheap enough to run without deliberation and large
-enough to catch what the micro-enumeration cannot.
+**(b) Canonical-scale sha gates.** Any change touching checkpoint formats or hot paths must
+additionally reproduce a sha at a scale where the behaviour actually exercises, and the scale has two
+tiers that are easy to conflate. A 100-billion-node run on Spot D32 (~$0.20) is cheap enough to run
+without deliberation and catches what the 100-million-node micro-enumeration cannot — but it is a
+**smoke and correlation check, not a canonical reproduction**. Sub-1T shas are commit- and
+build-recipe-specific, and commits with no reachable effect on the DFS path have been measured to flip
+them (CANONICAL_HASHES.md §"100B and sub-canonical reference shas — code-specific, NOT
+canonical-grade"), so treating a 100B movement as a scientific regression will produce false alarms.
+`solve.c` enforces the distinction rather than leaving it to discipline: a canonical-enum run with
+`SOLVE_NODE_LIMIT` below 1T exits 25 unless the operator sets `SOLVE_ALLOW_SUB_CANONICAL=1` or supplies
+an explicit `SOLVE_PER_SUB_BRANCH_LIMIT`, both of which are acknowledgements that the resulting sha is
+code-specific. Canonical-grade cross-build verification starts at **1T** —
+`SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=1000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=6315458` — and costs
+accordingly.
 
 **(c) Two-language verification.** The constraint predicates are implemented independently in C
 (`solve.c`) and Python (`solve.py`), and cross-checked against each other; a third implementation, the
@@ -121,8 +157,14 @@ response to one observed **host-level** drift event: identical source, different
 artifact. The investigation established that the drift was environmental rather than in the source —
 the affected anchor re-derives byte-identically on a matching host — and the response was to make the
 condition visible rather than to relax the claim. A reader reproducing on a different toolchain class
-now receives a diagnosed mismatch instead of a silent one. The honest scope this implies is stated in
-§Scope of the reproducibility claim above.
+now receives a **visible** mismatch instead of a silent one. *Visible* is the accurate word, not
+*diagnosed*: `--validate-canonical` re-runs the anchor and prints the reader's own host fingerprint
+(gcc, glibc, kernel, CPU model, microcode, OS release) either way, and on mismatch adds the expected and
+measured shas plus three candidate causes — host environment, source regression, stale anchor — before
+exiting 33. It does **not** compare that fingerprint against a stored reference for the anchor: no
+reference fingerprint is published per anchor or read back by the gate, so choosing among the three
+causes is left to the reader.
+The honest scope this implies is stated in §Scope of the reproducibility claim above.
 
 ### 3. Surviving preemption
 
@@ -138,15 +180,22 @@ while claiming completeness. Getting that backwards is precisely the defect desc
 
 Durability is expensive, and the naive implementation spent most of its time waiting on it —
 serialised behind a single checkpoint mutex. **Giving each thread its own checkpoint file (#108)
-took CPU utilisation from ~35% to ~95%** — nearly a threefold improvement in effective throughput,
-obtained by removing contention rather than by doing less work.
+took CPU utilisation from ~35% to ~95.3%**, cutting 1T canonical enumeration wall time ~2.0×
+(3,430 s → 1,679 s) and raising measured sub-branch throughput ~43% (~28 → 40.05 sub-branches/sec) —
+obtained by removing contention rather than by doing less work. The occupancy ratio (~2.7×) is not the
+throughput figure: work completed rose by the smaller factors, and quoting the utilisation ratio as
+throughput overstates the gain.
 
 ⚠ **Corrected 2026-08-24.** This paragraph previously attributed the gain to *fsync batching*. That
 is wrong: fsync batching (#108b, `SOLVE_FSYNC_BATCH_SIZE`) is **opt-in and defaults to 1 — legacy
 per-write fsync, byte-identical to pre-#108b** — so it cannot produce a default-mode gain. The
-mutex elimination is the cause; see `PERFORMANCE_HISTORY.md:1174-1175`, which names #108 "the
-headline mutex elimination", and `solve.c`'s `checkpoint_mutex`. **The measured number was always
-right; only the causal story was wrong.**
+mutex elimination is the cause; see `PERFORMANCE_HISTORY.md` §"2026-05-27 — task #106/#108" →
+*Notes* item 1, which names #108 "the headline mutex elimination", and `solve.c`'s `checkpoint_mutex`.
+**The utilisation measurement was always right; the causal story was wrong.** Two further defects in
+this paragraph were fixed at v1.11, both of which this 2026-08-24 pass touched without catching: it
+also read the utilisation ratio out as "nearly a threefold improvement in effective throughput", which
+no throughput measurement supports; and the citation above was pinned by line number, which had already
+gone stale, so it is now given by section.
 
 The defect worth dwelling on is the **eviction-resume bug**. It was found by targeted testing rather
 than observed in production, reproduced deterministically with a kill-mid-walk regression test, and
@@ -161,9 +210,15 @@ rather than debated.
 ### 4. Spot economics and the reclamation pattern
 
 The economics are the reason for all of the above. D-family Spot capacity runs at roughly **15–20% of
-on-demand** — a D128als_v7 at ~$0.95/hr against ~$5.15/hr — so a 171-hour campaign costs a few hundred
-dollars instead of a few thousand. Checkpoint overhead is the price paid for that discount, and after
-fsync batching it is small enough that the trade is not close.
+on-demand** — a D128als_v7 at ~$0.95/hr against ~$5.15/hr — so the ~171.5-hour enumeration leg costs
+roughly **$163 rather than roughly $880**, and adding the ~18 h 42 m merge leg still leaves the
+on-demand figure under $1,000 at the same rate. A few hundred dollars instead of most of a thousand: a
+real discount, not the order of magnitude the round numbers invite. Checkpoint overhead is the price
+paid for it. Per-thread checkpoint files removed most of that overhead in the **default** configuration;
+`SOLVE_FSYNC_BATCH_SIZE>1` removes more where the storage is slow, but it is **opt-in and defaults to 1
+(batching off)**, so it is not what makes the default trade favourable (see the 2026-08-24 correction in
+§3).
+Either way the trade is not close.
 
 The empirical observation of independent interest is that **reclamation behaved as scheduled, not
 stochastic, over the observed window**. In
@@ -171,10 +226,12 @@ our region and SKU, all five evictions of the first 560T campaign fell on weekda
 37-minute window (07:12, 07:39, 07:33, 07:42, 07:49 PT), and the weekend produced none in two days.
 Five events in one campaign week is a pattern, not proof of a provider scheduling policy (the
 2026-06-30 re-run's seven evictions arrived in a different pattern —
-[CANONICAL_HASHES](../documentation/CANONICAL_HASHES.md) §d3 560T), but it
-is not the memoryless process the mental model assumes, and it has a direct operational consequence: a
-long run launched Friday evening buys an uninterrupted weekend, while one launched Sunday night walks
-into five consecutive morning reclamations.
+[CANONICAL_HASHES](../documentation/CANONICAL_HASHES.md) §d3 560T), and Spot capacity carries no
+availability SLA. Within that week it was not the memoryless process the mental model assumes, which is
+worth recording — but the operational reading has to stay an observation rather than a schedule. In the
+observed region and SKU a Friday-evening launch *may* reduce weekend exposure and a Sunday-night launch
+*may* walk into consecutive morning reclamations; the pattern did not replicate in the re-run, so do
+not schedule against it and do not plan a campaign that only completes if it holds.
 
 The resulting policy is a **75-minute backoff plus a weekday-morning deferral**: after an eviction, wait,
 and if the relaunch would land inside the reclamation window, defer to the far side of it rather than
@@ -269,7 +326,7 @@ SOLVE_SKIP_AUTOMERGE=1 ./solve            # shards to disk; survives eviction vi
 ./solve --merge
 
 # 3. verify — solutions.bin is GZIP-FRAMED under the default SOLVE_COMPRESS=1, and every
-#    canonical sha is computed on the DECOMPRESSED bytes (solve.c:1103-1110). Hashing the
+#    canonical sha is computed on the DECOMPRESSED bytes (sha256_of_logical() in solve.c). Hashing the
 #    container instead is a false mismatch — the 1T gz ladder caught exactly that (it read
 #    the container sha f5dfe17f instead of the canonical 74d39760). Under SOLVE_COMPRESS=0
 #    the file is raw and plain `sha256sum solutions.bin` is the right command.
@@ -304,4 +361,5 @@ parameters](../documentation/CANONICAL_HASHES.md#reproducibility-parameters).
 | v1.7 | 2026-07-20 | **Section bodies written (adversarial-review item F-8, operator-directed).** v1.6 honestly relabelled the numbered list as "section summaries" because no bodies existed; the bodies now exist. All six sections expanded from one-paragraph abstracts into prose: the reproducibility contract (output as a function of one integer; why the per-cell budget is published verbatim rather than derived; the sha registry as the anchor rather than the storage), the four gates and their costs (including the honest note that the selftest gate is itself heavy enough to misbehave on an undersized host), preemption survival (per-thread intra-layer checkpoints, the durability write-order invariant, fsync batching 35%->95%, and the eviction-resume defect answered by a full from-scratch re-derivation rather than an argument), Spot economics and the scheduled-reclamation finding with its backoff/deferral policy, the operational failure catalogue with the structural fix each incident produced, and what transfers to any long computation on preemptible capacity. No claim, number, sha or scope statement changed — this is the prose that the summaries stood in for |
 | v1.8 | 2026-07-31 | **Reclamation-pattern claim hedged + re-run effort figure re-attributed (novelty-gate audit #20, batch 2).** (1) "Reclamation was scheduled, not stochastic" (exec summary + §4) restated as an observed single-campaign pattern — five events in one week, weekday-morning 37-minute window — not a demonstrated provider scheduling policy; the 2026-06-30 re-run's seven evictions arrived in a different pattern (CANONICAL_HASHES §d3 560T). The launch-window policy is unchanged (it needs only the pattern). (2) §3 attributed "171.5 hours of compute" to the re-run; 171.5 h is the FIRST campaign's enumeration wall time (CANONICAL_HASHES §d3 560T) — the sentence now says the re-run repeated that workload rather than claiming its wall time. No sha, count, or verdict changed |
 | v1.9 | 2026-08-01 | **Verification Guide's sha step corrected: it hashed the wrong bytes (lens-sweep item T2-1).** Step 3 read `sha256sum solutions.bin`, but `solutions.bin` is gzip-framed under the default `SOLVE_COMPRESS=1` and every canonical sha is computed on the DECOMPRESSED stream (`solve.c:1103-1110`) — so a replicator following the published recipe verbatim would have computed the *container* sha and concluded the flagship canonical does not reproduce. This is the failure the 1T gz ladder already caught internally (container sha `f5dfe17f` read instead of canonical `74d39760`); our own 560T witnesses used `gzip -dc \| sha256sum`, which is why it never surfaced in-house. Step 3 now reads `gzip -dc solutions.bin \| sha256sum`, states the `SOLVE_COMPRESS=0` raw case, and notes `--verify` is gz-aware. The expected **336,808,703,936 bytes** is likewise the *logical* (decompressed) size — the on-disk gz is smaller — so the size cross-check is now stated against `gzip -dc \| wc -c` rather than `ls -l`. No sha, count, or verdict changed; the anchors are exactly as published |
-| v1.10 *(current)* | 2026-08-06 | **Gate (a)'s trigger corrected: the selftest does not run "on every commit" (fix-landing pass).** §2's heading claimed `--selftest` runs at commit time; verified false — no pre-commit gate invokes `--selftest` (grep count zero in both commit-side gate scripts). The real trigger is the pre-push compile gate, which fires only from a clone that has installed the git hooks (installation is per-clone and opt-in, one documented command — DEVELOPMENT.md §"Git hooks"), plus the operator's standing manual practice. Heading and opening rewritten to say exactly that, with a dated correction note; the §2 body's pre-push-siting discussion was already accurate and is unchanged. METHODS.md's environment-table source column ("every commit gate") corrected in the same pass. No sha, count, or verdict changed |
+| v1.10 | 2026-08-06 | **Gate (a)'s trigger corrected: the selftest does not run "on every commit" (fix-landing pass).** §2's heading claimed `--selftest` runs at commit time; verified false — no pre-commit gate invokes `--selftest` (grep count zero in both commit-side gate scripts). The real trigger is the pre-push compile gate, which fires only from a clone that has installed the git hooks (installation is per-clone and opt-in, one documented command — DEVELOPMENT.md §"Git hooks"), plus the operator's standing manual practice. Heading and opening rewritten to say exactly that, with a dated correction note; the §2 body's pre-push-siting discussion was already accurate and is unchanged. METHODS.md's environment-table source column ("every commit gate") corrected in the same pass. No sha, count, or verdict changed |
+| v1.11 *(current)* | 2026-08-31 | **Eight corrections from the executed prose review (batch P09).** (1) §1's contract read "`solutions.bin` is a mathematical function of **one integer**" and called the budget "the only free parameter". `SOLVE_DEPTH` is sha-determining and **defaults to 2**, while every depth-3 canonical requires `SOLVE_DEPTH=3`; a reproducer taking §1 literally could not match a published sha. §1 now states the contract over the whole published launch configuration and names depth explicitly. (2) §1's "budget is the only free parameter" replaced with the registry's own distinction: `SOLVE_DEPTH` and `SOLVE_PER_SUB_BRANCH_LIMIT` are sha-determining, `SOLVE_NODE_LIMIT` only when no explicit per-cell budget is given. (3) §Scope's toolchain qualifier claimed gcc major-version/flag combinations are "recorded with each anchor"; they are not — the build recipe is global and gcc versions appear only on the ARM witness rows. Restated to what the registry holds. (4) §Scope and §2(d) called a `--validate-canonical` mismatch **diagnosed**; the gate prints the reader's own host fingerprint plus three candidate causes and exits 33, with no stored reference fingerprint to compare against. Restated as *visible*, with the gate's actual output described. (5) §Scope now cites the public evidence for the host-level drift finding (HISTORY.md §Task #110; PERFORMANCE_HISTORY.md §2026-05-27 task #106/#108 and its 2026-08-30 correction) so the conclusion is checkable rather than asserted. (6) §2(b) offered a 100-billion-node run as reproducing "a full canonical"; the registry classes sub-1T shas as code-specific and `solve.c` exits 25 below 1T without an explicit override. Restated as a smoke/correlation check, with canonical-grade verification starting at 1T. (7) §3's "#108 … nearly a threefold improvement in effective throughput" was the occupancy ratio, not throughput: the measured figures are wall ~2.0× (3,430 s → 1,679 s) and sub-branch throughput +43% (~28 → 40.05/s). (8) §4's "a long run launched Friday evening buys an uninterrupted weekend" downgraded from a scheduling guarantee to an observation that did not replicate in the re-run; §4's "a few thousand" on-demand figure corrected to ~$880 for the enumeration leg (under $1,000 including merge) against the report's own published rates; and two stale line pins repinned to stable anchors (`PERFORMANCE_HISTORY.md:1174-1175` → §"2026-05-27 — task #106/#108" *Notes* item 1; `solve.c:1103-1110` → `sha256_of_logical()`). Two siblings swept beyond the charged sites: §2(d) carried the same "diagnosed mismatch" wording as §Scope, and §4 credited the low checkpoint overhead to "after fsync batching" — the same default-mode attribution the 2026-08-24 correction retracted in §3, left un-propagated one section away. Knowingly left unchanged: the v1.7 and v1.9 revision rows above still restate the "function of one integer" framing and the `solve.c:1103-1110` pin, because they are the historical record of what those revisions did, not live claims. No sha, record count, or canonical anchor changed |

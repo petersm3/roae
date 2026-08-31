@@ -110,7 +110,7 @@ $SSH "$ADMIN@$VM_IP" true || { emit "FATAL: ssh never came up"; teardown; exit 1
 
 # ---------- build ----------
 emit "STEP 2: Install + copy source + build both binaries"
-$SSH "$ADMIN@$VM_IP" 'sudo apt-get update -qq && sudo apt-get install -y -qq build-essential' 2>&1 | tail -1 | sed 's/^/  /'
+$SSH "$ADMIN@$VM_IP" 'sudo apt-get update -qq && sudo apt-get install -y -qq build-essential zlib1g-dev' 2>&1 | tail -1 | sed 's/^/  /'
 
 git -C "$REPO" show "${CONTROL_COMMIT}:solve.c"   > /tmp/solve_ctl_${CONTROL_COMMIT}.c
 git -C "$REPO" show "${TREATMENT_COMMIT}:solve.c" > /tmp/solve_trt_${TREATMENT_COMMIT}.c
@@ -251,6 +251,7 @@ cat <<EOF
   "vm_size": "$VM_SIZE",
   "branch": "$BRANCH_PAIR $BRANCH_ORIENT",
   "threads": $THREADS,
+  "_page_cache_flushed_NOTE": "🔴 the field below is a LITERAL, not a measurement: the drop_caches call at run_enum_only ends in `|| true`, so on a host without passwordless sudo the flush silently does not happen and this still says true. Fixing it properly means plumbing the status back from the remote shell through the same BUILD key=value channel the timings use — and that channel has a pre-existing parse issue flagged in this file. Do not trust this field until both are fixed.",
   "page_cache_flushed": true,
   "control": {
     "enum_wall_ns": ${ENUM_N_NS:-null},

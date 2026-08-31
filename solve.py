@@ -1567,7 +1567,11 @@ def print_pair_info(pairs):
     print(f"XOR values: {', '.join(bin(x)[2:].zfill(6) for x in sorted(kw_xor))}")
 
 def print_rules():
-    """Print the discovered rules as a generative recipe."""
+    """Print the discovered rules as a rule-set.
+
+    NOT a "generative recipe": CX-02 (2026-04-11) retracted that framing — the rules do not
+    determine the sequence. Millions of orderings satisfy the pair constraints.
+    """
     print("=" * 70)
     print("GENERATIVE RECIPE (discovered constraints)")
     print("=" * 70)
@@ -3102,10 +3106,22 @@ def print_rule7_test(max_nodes=100_000_000, time_limit=3600):
 
     if r7ab_unique:
         if len(r7ab_unique) == 1 and r7ab_unique[0] == binary_hexagrams:
-            print("*** KING WEN IS THE UNIQUE SOLUTION UNDER RULES 1-7 ***")
+            # CX-02 (2026-04-11) retracted the "complete generative recipe" claim: the recipe
+            # does NOT determine the sequence, and the figure that supported it was an artifact of
+            # a 438-solution sample from a single search branch. This banner was still emitting the
+            # retracted wording at runtime -- so the correction lived in CORRECTIONS.md while the
+            # program kept telling users the opposite. Worse, it is printed from a BUDGETED search
+            # (see this function's max_nodes/time_limit): "unique" here can only ever mean "unique
+            # among what this run enumerated", which is precisely the too-small-sample shape CX-02
+            # was written about. Scoped accordingly; the old text also said "RULES 1-7" and then
+            # "all 8 constraints" three lines apart.
+            print("*** KING WEN IS THE ONLY SURVIVOR IN THIS SEARCH UNDER RULES 1-7 ***")
             print()
-            print("The generative recipe is complete. The King Wen sequence is the")
-            print("only ordering of 64 hexagrams satisfying all 8 constraints:")
+            print("SCOPE: this enumeration is BUDGETED (see --help for the node/time limits), so")
+            print("this says King Wen is the only ordering *this run reached* that satisfies the")
+            print("8 listed conditions. It is NOT a uniqueness proof, and it does not show that a")
+            print("recipe determines the sequence -- see documentation/CORRECTIONS.md CX-02.")
+            print("The 8 conditions (Rules 1-7, with Rule 7 split into 7a/7b):")
             print("  1. Pair structure (reverse/inverse)")
             print("  2. No 5-line transitions")
             print("  3. Complement distance <= 12.125")
@@ -8552,10 +8568,20 @@ def h2_verify(dump_path, n_check=2, seed=20260726):
         print(f"h2-verify: witness slot-distance {d} != 3 FAIL")
         return 1
     leaves = h2_parse_dump(dump_path)
+    # 🔴 FAIL-OPEN, found by the v2 CODE review and reproduced: `min(n_check, len(leaves))` made an
+    # EMPTY dump sample zero leaves, run zero comparisons, and still print "H2 VERIFY: PASS" with
+    # exit 0. Measured before this guard: `--h2-verify /dev/null` -> "0 leaves; checking 2 ...
+    # H2 VERIFY: PASS". A verifier must be FALSE when its target is absent. The sibling --h2-mass
+    # already aborts on an empty dump; this is that guard, ported.
+    if len(leaves) < n_check:
+        print(f"h2-verify: {dump_path}: {len(leaves)} leaf/leaves, need at least {n_check} — "
+              f"REFUSING. An empty or short dump cannot verify anything; this is not a pass.")
+        print("H2 VERIFY: FAIL (insufficient leaves)")
+        return 1
     print(f"h2-verify: {dump_path}: {len(leaves)} leaves; checking {n_check} "
           f"(seed {seed}) + ground-truth gates OK")
     rng = random.Random(seed)
-    for lf in rng.sample(leaves, min(n_check, len(leaves))):
+    for lf in rng.sample(leaves, n_check):
         seq = lf["seq"]
         if not (h2_pop_valid(seq) and h2_strict_ok(seq)
                 and h2_comp_dist_x64(seq) == lf["c3"] and lf["c3"] <= 776):
@@ -11782,7 +11808,7 @@ def main():
     parser.add_argument("--pairs", action="store_true",
                         help="Show the 32 canonical pairs with XOR products")
     parser.add_argument("--rules", action="store_true",
-                        help="Print the discovered generative recipe")
+                        help="Print the discovered rule-set (NOT a generative recipe — see CX-02)")
     parser.add_argument("--narrow", action="store_true",
                         help="Run constraint narrowing analysis")
     parser.add_argument("--graph", action="store_true",
