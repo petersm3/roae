@@ -723,7 +723,7 @@ Across **~2.76 billion permutations** from the six unconditional families, **zer
 
 ```
 python3 solve.py                              # Print rules + run narrowing analysis
-python3 solve.py --rules                      # Print the generative recipe only
+python3 solve.py --rules                      # Print the rule-set only (not a generative recipe — CX-02)
 python3 solve.py --pairs                      # Show the 32 canonical pairs
 python3 solve.py --narrow --trials 100000     # Run constraint narrowing analysis
 python3 solve.py --narrow --seed 42           # Reproducible results

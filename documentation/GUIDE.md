@@ -246,7 +246,7 @@ The percentiles are Monte Carlo estimates based on 5,000-100,000 random permutat
 ## Where to go deeper
 
 - [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) — Plain-language summary of how the King Wen sequence is structured (start here)
-- [SOLVE.md](SOLVE.md) — Full technical details: the constraint solver and generative recipe (`solve.py`)
+- [SOLVE.md](SOLVE.md) — Full technical details: the constraint solver and the rule-set (`solve.py`)
 - [MCKENNA.md](MCKENNA.md) — How these findings relate to Terence McKenna's Timewave Zero theory, what holds up and what doesn't
 - [CRITIQUE.md](CRITIQUE.md) — Known limitations of the program's statistical methodology
 - [Example output](../example/README.md) — Full program output with all 28 analyses

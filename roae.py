@@ -2384,6 +2384,12 @@ def print_self_test():
         print("  All checks passed.")
     else:
         print("  WARNING: some checks failed — data may be corrupted.")
+    # 🔴 FAIL-OPEN, found by the v2 CODE review and reproduced in-process: this printed
+    # "28 passed, 9 failed" and then returned None, main() called it bare and returned, and the
+    # process exited 0. The self-test of the public-facing tool could not be used as a CI gate --
+    # a caller checking the exit status saw success while the tool was telling a human it had
+    # failed. Return the failure count so the caller can exit non-zero.
+    return failed
 
 def print_windowed_entropy():
     """Compute Shannon entropy over a sliding window of the difference wave."""
@@ -4993,8 +4999,8 @@ def main():
         print_help_sections()
         return
     if args.self_test:
-        print_self_test()
-        return
+        # exit non-zero when checks fail, so `roae.py --self-test` can gate CI
+        return 1 if print_self_test() else 0
     if args.grammar_search:
         run_grammar_search(
             nsamp=args.gs_samples, nprobe=args.gs_probe,
@@ -5122,4 +5128,7 @@ def main():
         print("---")
 
 if __name__ == "__main__":
-    main()
+    # main() returns None on every path except --self-test, and sys.exit(None) is exit 0, so this
+    # changes no existing exit status. It exists so --self-test's failure count can reach the shell:
+    # before this, main() was called bare and a failing self-test still exited 0.
+    sys.exit(main())
