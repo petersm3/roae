@@ -52,7 +52,8 @@ which is to say: not yet claimable. **Look-elsewhere context (F-32):** the suite
 enterprise-wide observable ledger is frozen at **91** observables ([METHODS.md](METHODS.md) §Global
 observable ledger), so a Bonferroni-style global bar sits at
 0.05/91 ≈ **5.5×10⁻⁴**. Read against that bar rather than against 0.05, a per-rule rarity of order
-10⁻⁴ (1.054×10⁻⁴) clears it by only a factor of **~5 under Bonferroni** — the correction family this
+10⁻⁴ — specifically the Schulz gender rule's **pair-null exact** value, 47/445740 = 1.054426×10⁻⁴
+(§Commands) — clears it by only a factor of **~5 under Bonferroni** — the correction family this
 suite applies throughout — and by **≥~10× under Benjamini–Hochberg FDR
 ([Benjamini & Hochberg 1995](../documentation/CITATIONS.md#benjamini-hochberg1995)) at q = 0.05** on the same
 91-observable ledger; neither is "the" margin, and both are stated because the margin is
@@ -62,11 +63,20 @@ supported here — forced by `dav_rotinv` at 6.5×10⁻⁵ — giving ≥~10×; 
 maximum rank *i* = 91, which is the same ~500× that reading against an uncorrected 0.05 would suggest.
 A ~52× figure for this rarity is BH at rank *i* = 10 and is **not** used: rank 10 requires nine
 strictly-smaller ledger values, and the only nine available were withdrawn from ranking on 2026-08-01.
-One asymmetry is load-bearing and is stated rather than assumed: this rarity is a literature-rule
-**registry mass** ([TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7), the class METHODS excludes from BH
-ranking, so it may hold no rank at all. That costs the Bonferroni reading nothing — a rank-free bar can
-be applied to any value as a conservative check — but it means the BH figure is **conditional** on
-reading this rarity as a ledger member, and the ~5× is therefore the firmer of the two.
+One asymmetry is load-bearing and is stated rather than assumed. The same rule carries **two**
+rarities in this report and they are different numbers in different classes: the value the margins
+above are computed on is the pair-null exact 1.054426×10⁻⁴, while its C1–C5 counterpart — the
+published ×11,364, i.e. ≈8.80×10⁻⁵ — is a literature-rule **registry mass**
+([TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7), the class METHODS excludes from BH ranking, so *that*
+one may hold no rank at all. Whether the pair-null restatement of the same rule escapes the same
+exclusion is not something this report decides, so the BH figure remains **conditional** on reading
+this rarity as a ledger member, and the ~5× is therefore the firmer of the two. Read instead on the
+registry mass the margins would be ~6.2× Bonferroni and ≥~12.5× BH, so the figures published here are
+the **smaller**, conservative pair either way. *(Corrected 2026-08-30 — this passage anchored the
+margins on 1.054×10⁻⁴ while calling that quantity "a literature-rule registry mass", which is the
+other number; §"Verification Guide" below already said in as many words that the two are "different
+quantities". No published margin moves, and the direction of the error was against interest. See
+v1.16.)*
 See [METHODS.md](METHODS.md) §"Statistics conventions", under **Correction-family disclosure**.)* So the family choice moves this margin
 by an order of magnitude — from ~5× to ~10× or beyond — while changing **no** verdict in this report,
 and exactly one in the suite (`dav_trigarray`, in [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)).
@@ -76,10 +86,22 @@ attribution now stands as an open question rather than a shown result, and indep
 nothing in this report's conclusion turns on which family a reader prefers. The multiple-comparisons accounting for the battery as a whole is in
 [CRITIQUE.md](../documentation/CRITIQUE.md) and is not re-derived here. Against that baseline the honest claim is narrower than
 "removing them removes what is special": removing them removes the measured regularities the received order
-happens to sit at. Second, by proof: the specific smooth construction their
-proposal requires (a Gray-code-style path) is **mathematically impossible** for any ordering that keeps
-the classical pairing — a two-line parity argument anyone can verify by hand. The refutation is offered
-with credit: theirs was a concrete, falsifiable proposal, which is exactly what made it answerable.
+happens to sit at. Second, by proof: no **fully smooth** ordering — one in
+which *every* adjacent pair differs in a single line — can realize a complement/inversion pairing at
+all, because within-pair Hamming distances under such a pairing are always even and nonzero. That is a
+two-line parity argument anyone can verify by hand, and it applies to the classical pairing and to
+McKenna and Mair's own all-complement pairing alike. **It does not refute their construction**, and
+versions v1.0–v1.15 of this report said that it did. Their published ordering is *hybrid* by design:
+the Gray-code single-line step governs only the transitions **between** pair representatives, while the
+step **within** each pair changes all six lines (PEW 29:4 pp. 424–426, Figure 2). It meets the
+requirement they actually stated — a single-line step at all 31 between-pair transitions, which follows
+directly from their taking consecutive 6-bit Gray-code values as the 32 pair bases — and it *replaces*
+the classical 28-inversion/4-complement pairing rather than keeping it, so neither conjunct of "a Gray
+path that keeps the classical pairing" is something they proposed. What answers their *position* is
+§2's premise measurement. The theorem's honest content is that the received order cannot be smoothed
+into a Gray path, and that no fully smooth ordering realizes a pairing of this family — which is
+precisely why a construction like theirs has to be hybrid. The credit is unchanged: theirs was a
+concrete, falsifiable proposal, which is exactly what made it answerable.
 
 Verification model: both results are mechanically checkable; the verification is procedural.
 
@@ -95,10 +117,14 @@ carries measurable structure far beyond pairing: positional regularities first n
 the thirteenth century onward hold in as few as one in ten thousand comparable orderings — whether the
 comparison population is the full C1–C5 constraint-satisfying space (≈1.33×10³⁸ orderings) or the far
 larger space constrained only by the pairing itself (32!·2³² ≈ 1.1×10⁴⁵; direct seeded sampling, same
-order of rarity for the gender rule). Second — and decisively for
-their constructive proposal — no Gray-code ordering can satisfy the pair structure at all: consecutive
-partners in the received order differ in two, four, or six lines, never one, so a sequence in which every
-adjacent pair differs in a single line cannot reproduce the pairing (a two-line proof). McKenna and Mair
+order of rarity for the gender rule). Second, a two-line proof
+settles the smoothness question their proposal raised: consecutive partners in the received order differ
+in two, four, or six lines, never one, so no sequence in which *every* adjacent pair differs in a single
+line can reproduce that pairing. Because within-pair distances are even and nonzero under any
+complement/inversion pairing — including the all-complement pairing McKenna and Mair themselves adopt —
+no fully smooth ordering realizes a pairing of this family. This does **not** refute their published
+construction, which is hybrid by design (single-line steps between pair representatives, six-line
+complement steps within them) and which replaces the classical pairing rather than preserving it. McKenna and Mair
 retain a distinction that should be credited plainly: theirs was the first proposal to evaluate the
 received order against an explicitly constructed alternative — the methodological seed of the present
 analysis. We supply the instruments their question required.
@@ -133,12 +159,19 @@ further claim about a person — but the label was not.
    computes **exactly** to 1.05×10⁻⁴ (47/445740; §Commands) — same order, different null) with sources credited (rules are
    Zhu Yuansheng/Schulz/Moore observations, not ours; measurement is ours). Exact commands are given
    in §Commands below, against the open repository.
-3. **The proposal, decided** — Theorem: no Gray-code ordering satisfies the pair structure. Proof:
-   within-pair Hamming distances are always even and nonzero (machine-checked in Lean via
-   kernel `decide` since the 2026-07-27 migration; the evenness half, which alone rules out
-   Gray adjacency, is also kernel-`decide`d as `within_even`; a two-line parity argument is in-text);
-   Gray adjacency requires distance 1. Their specific construction
-   also evaluated directly. (Also cite the modern complement: [Radisic 2026](../documentation/CITATIONS.md#radisic2026) proves the pairing is the
+3. **The smoothness question, decided — and what that does not decide** — Theorem: no *fully smooth*
+   ordering (every adjacent pair at Hamming distance 1) realizes a complement/inversion pairing.
+   Proof: within-pair Hamming distances under such a pairing are always even and nonzero
+   (machine-checked in Lean via kernel `decide` since the 2026-07-27 migration; the evenness half,
+   which alone rules out Gray adjacency, is also kernel-`decide`d as `within_even`; a two-line parity
+   argument is in-text); Gray adjacency requires distance 1. **Scope, stated because this report had
+   it wrong through v1.15:** the theorem covers McKenna and Mair's own all-complement pairing as
+   readily as the classical one, so it is *not* a refutation of their construction — that construction
+   is hybrid precisely because a fully smooth path is unavailable, applying the single-line step only
+   between pair representatives (PEW 29:4 pp. 424–426), and it discards the classical
+   28-inversion/4-complement pairing rather than keeping it. What the theorem does decide is that the
+   received order cannot be smoothed into a Gray path. Their specific construction is separately
+   evaluated directly, as the `reg_mmt3`–`reg_mmt6` scorers in `solve.py` record. (Also cite the modern complement: [Radisic 2026](../documentation/CITATIONS.md#radisic2026) proves the pairing is the
    unique Hamming-optimal comp/rev matching — the structure they discarded is, by a natural criterion, the
    optimal part of its class.)
 4. **What their question opened** — the constructed-alternative methodology at scale; one forward pointer
@@ -146,20 +179,25 @@ further claim about a person — but the label was not.
 
 ## Verification Guide (question → answer)
 - **"How do we trust the 10³⁸ number?"** — a reproduce-command is given below, and the estimator is
-  validated to <1% against exhaustive slices at overlapping scales. **Nothing in §2 depends on that
-  estimator's absolute value:** every rarity is also stated against the pair-only (C1) null, which is
-  small enough to compute exactly and runnable on a laptop (§Commands). The two nulls are **different
-  quantities** and are labelled as such wherever they appear — the published ×11,364 is a C1–C5 mass
-  fraction, while the pair-null exact figure is 47/445740 = 1.05×10⁻⁴: the same order, not the same
-  number.
+  validated to <1% against exhaustive slices at overlapping scales. **One of §2's three rule rarities is
+  independent of that estimator's absolute value:** the Schulz gender rule is also stated against the
+  pair-only (C1) null, which is small enough to compute exactly and runnable on a laptop (§Commands),
+  at 47/445740 = 1.054426×10⁻⁴. The other two — Moore parity ×1,362 and the 18:18 split ×2.7 — are
+  C1–C5 registry masses only; **no pair-null value or command is published for either**, so §2 as it
+  stands is not estimator-independent throughout. ⚠ **[CORRECTED 2026-08-30 —** v1.15 restated a drafting directive, "§2 can be written so that nothing depends on the estimator's absolute value", as a fact about the finished report, adding that "both nulls are labelled wherever they appear". Neither half
+  held: only one of the three rarities has a pair-null restatement, and the executive summary was
+  itself mislabelling one of the two nulls. See v1.16. Generalising the exact DP to the parity and
+  18:18 rules is the fix that would make the stronger sentence true; it has not been done.**]** The two
+  nulls are **different quantities**: the published ×11,364 is a C1–C5 mass fraction (≈8.80×10⁻⁵),
+  while the pair-null exact figure is 1.054426×10⁻⁴ — the same order, not the same number.
 
 ### Commands
 Run from a clone of the public repo (environment per METHODS.md); both tested 2026-07-03 on a 2-core
 box.
-- **Gray-code impossibility (§3):**
+- **Gray-code impossibility, for any complement/inversion pairing (§3):**
   `python3 -c "import solve; print(sorted({solve.bit_diff(a,b) for a,b in solve.king_wen_pairs()}))"`
-  → `[2, 4, 6]` — every within-pair Hamming distance is even and nonzero, never 1, so no Gray-code
-  ordering can realize the pairing. Machine-checked form: `within_pair_even_nonzero` in
+  → `[2, 4, 6]` — every within-pair Hamming distance is even and nonzero, never 1, so no *fully smooth*
+  ordering (all adjacent pairs at distance 1) can realize this pairing. Machine-checked form: `within_pair_even_nonzero` in
   `lean/KingWen.lean` (kernel `decide` since the 2026-07-27 migration; the evenness half also stands alone as `within_even`;
   `lean lean/KingWen.lean`, exit 0). Runs in <1 s.
 - **Pair-rarity — exact (§2, null (b) — the pair-only space):** the pair-only null is small enough to
@@ -205,4 +243,5 @@ box.
 | v1.12 | 2026-08-02 | **Revision-table order repaired (doc_gates GATE 12, hardening item A4).** v1.11 was added by replacing the v1.10 line and re-adding v1.10 underneath (`85d3b2c`), so the table ran 2026-08-02 then 2026-08-01 and `*(current)*` was not its last row. The two rows are restored to chronological order with their text unchanged; no claim, figure, date or scope was altered. The same prepend mistake was live in TR-4 (repaired there as v1.17) |
 | v1.13 | 2026-08-06 | **Benjamini–Hochberg cited at point of use (citation audit, UNASKED-7).** The executive summary's look-elsewhere margin has invoked "Benjamini–Hochberg FDR" since v1.11 without a source; the reference ([Benjamini & Hochberg 1995](../documentation/CITATIONS.md#benjamini-hochberg1995), *JRSS-B* 57(1)) is now in CITATIONS.md §Statistical methodology and linked where the FDR margin is stated. No figure, margin, or verdict changed |
 | v1.14 | 2026-08-07 | **The dof-matched median is WITHDRAWN PENDING ARTIFACT ([CORRECTIONS](../documentation/CORRECTIONS.md) CX-27; operator-authorized action on the 18-lens red-team review).** v1.10 flagged the ~6×10⁻⁵ dof-matched median as unreproduced — no artifact, command, code path or evidence bundle anywhere in the repo — but left it in the executive summary doing load-bearing work: it is the single number that answers the predicate-specification objection in its own currency, and the look-elsewhere passage continued to lean on it ("the dof-matched comparison above shows…"). The figure and the "about half are at least as rare" comparison are now withdrawn as citable figures until the fix v1.10 itself specified exists: a `solve.py` sampler over the ≈16-clause KW-fitting predicate space, published with its seed and probe count, reporting the median rarity with a CI. The disclosure is kept, and the qualitative direction is kept as an acknowledged open question — it is conservative and argues against this suite's own rarity claims, and is independently supported by the data-like/principled firewall and TR-9's pricing — but the bulk-of-the-distribution placement is exactly as strong as the unpublished sampler behind it and is no longer claimed. The look-elsewhere sentence that leaned on the figure now reads "suggested", with the attribution-to-specification stated as open. No measurement with an artifact, theorem, certificate or verdict changed |
-| v1.15 *(current)* | 2026-08-29 | **Form labelling and author-directive removal (Q-352; the fix TR-2 took at v1.13 and TR-3 by being written out).** The heading read `Structure (4 sections)` over what are four **section summaries**, with no written-out §1-§4 beneath them — while the report ships a full technical-report masthead and [reports/README.md](README.md) lists it as a peer of TR-1..TR-11 with an evidence column, so a reader was invited to expect four sections that are not there. Relabelled `Structure — section summaries (4)` with a form note stating plainly what is summary and what is written out, and why §1/§4 deliberately stay summaries (humanities-register prose about what named scholars proposed). Three items carried planning voice addressed to the writer rather than the reader ("fair summary:", "One paragraph of historical respect:", "Table of measured rule rarities for THREE rules only", "Verifiability box:") and are rewritten as description. The Verification Guide carried two **instructions to the author** in published prose — "section 2 **can be written** so that NOTHING depends on the estimator's absolute value" and "**PREFER** the laptop-runnable framing throughout" — now stated as facts about the report the reader is holding: nothing in §2 depends on the estimator's absolute value, and both nulls are labelled wherever they appear. **Sibling sweep:** the Q-352 finding said TR-8 was the only report still containing author-directive text; that was not quite right — TR-2 items 2 and 4 carried "Method in one page:", "Verifiability box." and "One paragraph on … honestly", and those are converted in the same pass (TR-2 v1.24). No measurement, theorem, certificate, figure or verdict changed |
+| v1.15 | 2026-08-29 | **Form labelling and author-directive removal (Q-352; the fix TR-2 took at v1.13 and TR-3 by being written out).** The heading read `Structure (4 sections)` over what are four **section summaries**, with no written-out §1-§4 beneath them — while the report ships a full technical-report masthead and [reports/README.md](README.md) lists it as a peer of TR-1..TR-11 with an evidence column, so a reader was invited to expect four sections that are not there. Relabelled `Structure — section summaries (4)` with a form note stating plainly what is summary and what is written out, and why §1/§4 deliberately stay summaries (humanities-register prose about what named scholars proposed). Three items carried planning voice addressed to the writer rather than the reader ("fair summary:", "One paragraph of historical respect:", "Table of measured rule rarities for THREE rules only", "Verifiability box:") and are rewritten as description. The Verification Guide carried two **instructions to the author** in published prose — "section 2 **can be written** so that NOTHING depends on the estimator's absolute value" and "**PREFER** the laptop-runnable framing throughout" — now stated as facts about the report the reader is holding: nothing in §2 depends on the estimator's absolute value, and both nulls are labelled wherever they appear. **Both of those fact-statements were false and are retracted at v1.16 below** — only one of §2's three rarities has a pair-null restatement, and the executive summary was mislabelling one of the two nulls at the time this row was written. Nothing is deleted: a dated row is a record of what that pass wrote. **Sibling sweep:** the Q-352 finding said TR-8 was the only report still containing author-directive text; that was not quite right — TR-2 items 2 and 4 carried "Method in one page:", "Verifiability box." and "One paragraph on … honestly", and those are converted in the same pass (TR-2 v1.28). No measurement, theorem, certificate, figure or verdict changed |
+| v1.16 *(current)* | 2026-08-30 | **Three corrections: the Gray-code theorem re-scoped off a claim McKenna and Mair never made, and two defects created by the v1.15 correction pass itself.** **(i) SUBSTANTIVE — the impossibility result was mapped onto the wrong claim.** The executive summary (§"Second, by proof"), the abstract, and summary item 3 stated that "the specific smooth construction their proposal requires (a Gray-code-style path) is mathematically impossible for any ordering that keeps the classical pairing", and called the result decisive against their constructive proposal. That tests a conjunction their 1979 construction negates on **both** conjuncts. Their construction is **hybrid**: all 32 pairs are p'ang-t'ung complements — the classical 28-inversion/4-complement pairing is deliberately *replaced*, which is the proposal's own point — and the Gray-code single-line step governs only the transition between pair representatives, while the within-pair step changes all six lines (PEW 29:4 pp. 424–426, incl. Figure 2). Their published 64-position ordering is a constructive existence proof that what they proposed is not impossible, and it meets the requirement they stated: a single-line step at all 31 between-pair transitions. This report's own tree already said so — `solve.py`'s `reg_mmt6` docstring records "their own ordering achieves HD1 on all 31 inter-pair transitions", and item 3 called the classical pairing "the structure they discarded". **The parity theorem is untouched and remains machine-checked** (within-pair distances even and nonzero; the evenness half kernel-`decide`d as `within_even`); what changes is what it is said to decide. Re-scoped throughout to: no *fully smooth* ordering (every adjacent pair at Hamming distance 1) realizes **any** complement/inversion pairing — including McKenna and Mair's own, which is exactly why their construction has to be hybrid — and the received order cannot be smoothed into a Gray path. Their *position* is answered by §2's premise measurement, not by an impossibility. The credit paragraph is unchanged. No number, certificate, or Lean artifact changes; this is a published-wording mis-mapping of a correct theorem. **Sibling still outstanding, reported not fixed here:** [CITATIONS.md](../documentation/CITATIONS.md)'s McKenna & Mair entry carries the same framing ("its construction refuted (with credit)"; "no Gray-code ordering can satisfy the pairing constraint at all") and needs the same re-scoping; [CRITIQUE.md](../documentation/CRITIQUE.md)'s Claim 2 was checked and is **correctly** scoped already. **(ii) The v1.15 pass converted an author-directive into a false certification.** v1.15 restated "§2 **can be written** so that NOTHING depends on the estimator's absolute value" as the fact "nothing in §2 depends on the estimator's absolute value: every rarity is also stated against the pair-only (C1) null", and added "both nulls are labelled wherever they appear". Measured: §2 reports three rule rarities over the C1–C5 population (Moore parity ×1,362; Schulz gender ×11,364; the 18:18 split ×2.7) and re-measures **only** gender against the pair-only null; no pair-null value or command exists for the other two. And the executive summary anchored its look-elsewhere margins on **1.054426×10⁻⁴** — the pair-null exact value, re-executed 2026-08-30 as `solve.pair_null_gender_le2_exact()` = 47/445740 — while calling that quantity "a literature-rule **registry mass**", which is the *different* ×11,364 figure (≈8.80×10⁻⁵). Both sentences are narrowed to what is true, and the two quantities are separated where the margins are stated. **No published margin moves**: on the registry mass the margins would be ~6.2× Bonferroni / ≥~12.5× BH, so the published ~5× / ≥~10× understate the margin — the error ran against interest. Every underlying quantity reproduces under its own null. **(iii)** The v1.15 row's own sibling-sweep pointer said the matching TR-2 conversions landed at "TR-2 v1.24"; v1.24 is TR-2's convergence-gate-figure supersession row (2026-08-02) and the Q-352 sweep is **v1.28** (2026-08-29), as [CORRECTIONS.md](../documentation/CORRECTIONS.md) already records. Pointer corrected. No measurement, theorem, certificate or verdict changed by any of the three |

@@ -20,9 +20,30 @@ trust-base note below for what that means and how it came to hold). What that bu
   sequence-level layer in
   `Automorphism.lean`): the constraint system has exactly 48 **bit-permutation** symmetries, they act
   freely
-  at the record level in 24-element orbits, and therefore **24 divides every exact solution count**.
-  This is the theorem behind the "divisible by 24" sanity gate applied to the project's exact counts;
-  if a count ever failed that gate, the computation — not the mathematics — would be at fault.
+  at the record level in 24-element orbits, and therefore **24 divides the length of any duplicate-free
+  complete RECORD-level listing** (`twenty_four_dvd_count` / `twenty_four_dvd_solution_count`, which
+  quantify over `SolRec`/pairKey listings). ⚠ **[CORRECTED 2026-08-30 — this read "24 divides every
+  exact solution count. This is the theorem behind the 'divisible by 24' sanity gate applied to the
+  project's exact counts; if a count ever failed that gate, the computation — not the mathematics —
+  would be at fault." The unqualified spelling is **queued for**
+  `documentation/RETRACTED_PHRASES.tsv` (GATE 3) — not yet entered there.]** The layers
+  the old wording ran together:
+  - **Lean, kernel-checked (this file):** 24 divides the length of any duplicate-free complete
+    *record-level* listing of the solution set.
+  - **Paper-proved, not duplicated in Lean:** the project's published exact counts — TR-11's 42- and
+    39-digit integers — count **orientation-explicit sequences**, on which the acting group is the
+    order-48 lift (`rev` flips within-pair orientation and so fixes no orientation-explicit sequence),
+    sequence-level orbits have size 48, and **48 ∣ N**. That is the layer the DIV-24 gate on the
+    published counts actually rests on, and `Automorphism.lean`'s own docstring says so — "that
+    raw-sequence layer is **paper-proved in SYMMETRY_SEARCH.md and not duplicated here**"; the
+    in-code gates in `solve.c` likewise cite the fixed-pairing argument (TR-5), not Lean. See
+    [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) v1.13, which settled this and noted that the mod-24 gate
+    is simply *weaker* than the space affords.
+  - **Consequence for a gate failure:** a published count indivisible by 24 would refute the **paper**
+    layer, while every named Lean theorem here would still compile unchanged. The old sentence pointed
+    a reader at the machine-checked layer for a gate the machine-checked layer does not back.
+  Queued as Lean backlog: an orientation-explicit `48 ∣ R.length` theorem, which would both close this
+  attribution and let the gates tighten from 24 to 48.
   (Completeness over all 64! hexagram relabelings — that NO permutation of the hexagram set outside
   these 48 preserves the predicate family — is prose-proven with machine-checked finite parts,
   not machine-checked end to end: see TR-5 §3 and `SymmetryCompleteness.lean`'s header. Wording
@@ -51,14 +72,35 @@ trust-base note below for what that means and how it came to hold). What that bu
   per-pair predicate is `decide`d over all 64 hexagrams; the fixed range-64 counts by kernel `decide`
   since 2026-07-27 — the whole file is now kernel-only, nothing in it trusts the compiler;
   the sequence-level constancy in the landed `within_double` style.)
-- **The exact C1∩C4 null law of the C3/G channel is kernel-checked end to end** (2026-07-24,
-  `C3Decomposition.lean` final section): the full exact distribution of the couple slot-distance
-  sum G over the 31! equally-weighted C1∩C4 pair-orders — total mass 31!, support exactly
-  [12, 228], E[G] = 128 exactly (hence E[C3] = 1040), and P(G ≤ 95) =
-  641983711307479/7919632354008375 exactly (≈ 8.106%; 95 is King Wen's own value) — every fact by
-  kernel `decide`, no `native_decide`, with the DP recurrence itself validated in-kernel against
-  brute-force enumeration over all orderings at small sizes. This upgrades the exact-null leg
-  previously carried by `verify.py --check-null-g` from exact-by-computation to machine-checked.
+- **The exact C1∩C4 null law of the C3/G channel is kernel-checked, in three layers that are worth
+  keeping apart** (2026-07-24, `C3Decomposition.lean` final section) — ⚠ **[CORRECTED 2026-08-30 —
+  this bullet opened "is kernel-checked **end to end**" and described the law as being over "the 31!
+  equally-weighted C1∩C4 pair-orders". "End to end" overstates the inventory: the bridge from the DP
+  to a permutation count is kernel-proved only at toy sizes. The retracted spelling is **queued for**
+  `documentation/RETRACTED_PHRASES.tsv` (GATE 3) — not yet entered there.]**
+  1. **Kernel-checked, about the DP-defined law** (`decide +kernel`, no `native_decide`): the
+     31-layer DP's histogram equals an explicit 217-bin literal (`null_law`), total mass exactly 31!
+     (`null_total`), support exactly [12, 228] and contiguous with closed-form endpoint counts
+     19!·2¹² and (12!)²·2¹²·7! (`null_support_*`), E[G] = 128 exactly and hence E[C3] = 1040
+     (`null_mean_128`, `null_c3_mean_1040`), and P(G ≤ 95) = 641983711307479/7919632354008375
+     exactly (≈ 8.106231%; 95 is King Wen's own value) in lowest terms (`null_p_le_95*`).
+  2. **Kernel-checked, DP ≡ brute force — at small sizes only**: `nullHist_matches_brute_2_1_5`,
+     `_2_3_7` and `_3_1_7` enumerate every ordering (120 / 5040 / 5040) at at most 3 couples and
+     7 slots and confirm the recurrence against it. The recurrence is validated, not assumed.
+  3. **A DP-free cross-check at production size**: `sum_absdiff_31` / `null_mean_linearity` derive
+     E[G] = 128 from linearity, 12·E|i−j| = 12·(9920/930), without touching the DP.
+  **What is NOT kernel-proved, stated plainly:** at production size (12 couples, 31 slots) there is
+  **no theorem asserting that bin g of the DP histogram counts the permutations whose G equals g.**
+  The DP→permutation-count bridge is machine-checked only at (2,1,5) / (2,3,7) / (3,1,7). So the
+  headline tail figure P(G ≤ 95) ≈ 8.106% is a kernel-proved fact about the DP-defined law, and its
+  reading as a probability over the 31! pair-orders rests on layers 2 and 3 plus the modeling step in
+  the trust note below — not on a production-size semantic theorem. That is a real constraint on any
+  undetected recurrence error (it would have to preserve the total, both endpoints with their
+  closed forms, and the exact mean), but it is not the same thing as a proof. `verify.py
+  --check-null-g` agreeing is independent corroboration, not the missing theorem. Queued as a Lean
+  backlog item: a generic `nullHist = bruteHist` structural-invariant proof, which would close the
+  gap at all sizes. This still upgrades the exact-null leg previously carried by `verify.py
+  --check-null-g` from exact-by-computation to machine-checked — at the DP-law layer.
 - **No proof gaps**: the files contain zero `sorry` placeholders; everything stated is proved, and
   each standalone file re-verifies from scratch with `lean <File>.lean` (the toolchain is pinned in
   this directory's `lean-toolchain`). Verification cost is real and is stated here honestly,
@@ -171,7 +213,9 @@ obvious inference from reading this file is wrong.** The `#print axioms` results
 this section were read from **dated full-file builds** (2026-07-26, 07-27 and 07-31; each
 dated at its own claim site below). They were **not** produced by the in-file `#print axioms`
 directives you will find in the `.lean` sources: those were added on 2026-08-01 (`d3d6772`)
-with bare names for constants declared inside `namespace` blocks, so six of twelve files —
+with bare names for constants declared inside `namespace` blocks, so — **as of the 2026-08-07 scan,
+when this directory held twelve files; `PruneReprFC.lean` landed 2026-08-15 and there are now
+thirteen** — six of twelve files —
 `TrigramTheorems`, `C3Decomposition`, `PruneExactness`, `PartitionInvariance`,
 `SymmetryCompleteness`, `PruneGInvariance` — failed with "Unknown constant" and the ~89
 directives **never executed**. `03c2a05` (2026-08-02) qualified every name; the re-run that
@@ -196,7 +240,10 @@ standard axioms. So the *only* above is now observed, module-wide, suite-wide �
 statically inferred.
 **RE-EXECUTED 2026-08-07, same day, on the tranche-2 tree** (the revision where the last two
 files migrated): the identical module-wide scan, run on all twelve compiled modules of the
-exact shipped tree, reports **zero** `Lean.ofReduceBool`-bearing constants in every module —
+exact shipped tree **as of 2026-08-07** (the directory has held thirteen since `PruneReprFC.lean`
+landed on 2026-08-15; the suite-wide claim above is stated at thirteen and is unchanged by the
+addition, which landed kernel-only), reports **zero** `Lean.ofReduceBool`-bearing constants in every
+module —
 906 non-internal constants scanned suite-wide (SymmetryCompleteness 70, up from 24 at its
 `native_decide` revision, and TrigramTheorems 158, up from 134 — the growth is the named
 structural lemmas; PartitionInvariance and PruneGInvariance unchanged at 99 and 111), **0
@@ -221,6 +268,31 @@ linearity arguments in the corresponding documentation — the machine-checked l
 finite computation those arguments rest on.
 
 ## Verify yourself
+
+**Start here — one command checks everything.** `reports/certificates/verify_all.sh` runs the whole
+machine-checkable suite: the enumerator selftest, the two-language gates, all 21 archived DRAT
+certificates (regenerating the CNF and replaying the proofs — **no SAT solver required**), the C3
+positional witnesses, and then a `lean` run over **every module in this directory** (its Lean phase
+is literally `for f in lean/*.lean`, so it picks up new files automatically — nothing here has to be
+listed by hand). It `cd`s to the repo root itself, so it can be invoked from anywhere:
+
+```bash
+bash reports/certificates/verify_all.sh
+# Exit 0 requires FAIL=0 AND RESOURCE=0 AND SKIP=0 — a skipped check (missing tool) and an
+# OOM- or ulimit-killed check are NOT passes, and the exit status stays nonzero for both.
+```
+
+Scope, stated precisely: "every module in this directory" is every `lean/*.lean` file on the branch
+you have checked out — thirteen on `main`. It is **not** a claim about every Lean file in the
+project: the file lean/CompilerCorrectness.lean (deliberately unbackticked — it does not exist on
+this branch) lives only on the `v4-query-program` branch and is verified separately there.
+
+**Then, for one module or to debug a failure**, run files individually. This is where the per-file
+timings and the memory guidance live, and it is the right path when a suite run reports a FAIL or a
+RESOURCE error and you want to reproduce just that file. (The list below is a *selection* — it names
+ten of the thirteen modules; `PruneExactness.lean`, `PruneGInvariance.lean` and
+`RecordConvention.lean` are checked by the suite above but have never been listed here. Each file is
+standalone, so `lean <AnyFile>.lean` works for all thirteen.)
 
 ```bash
 # install elan (Lean version manager); the pinned toolchain is in ./lean-toolchain
@@ -473,10 +545,18 @@ over Nat-histograms and evaluated inside the kernel. Verified statements:
 | `null_mass_le_95`, `null_p_le_95`, `null_p_le_95_lowest_terms` | P(G ≤ 95) = 641983711307479/7919632354008375 exactly (≈ 8.106231%), in lowest terms, with the ≤95 mass as an exact integer — 95 is King Wen's own slot-distance sum (`kw_slot_sum_95`) |
 
 **Scope / trust note.** What is kernel-checked is the law of the DP-defined distribution and its
-agreement with brute-force enumeration at small parameters; the single modeling step — reading
-the C1∩C4 null as "uniform over the 31! free pair-orders" — is stated in the file header and is
-the same reading `verify.py --check-null-g` implements independently (with a differently-phrased
-G accumulator). This is the C1∩C4 null ONLY — no C2, no C5, no budget truncation; it is not
+agreement with brute-force enumeration at small parameters. **Two** steps sit outside the kernel,
+not one — the second was omitted from this note until 2026-08-30:
+(i) the **modeling** step — reading the C1∩C4 null as "uniform over the 31! free pair-orders" — is
+stated in the file header and is the same reading `verify.py --check-null-g` implements
+independently (with a differently-phrased G accumulator); and
+(ii) the **semantic** step at production size — that bin g of `NullHist` counts exactly the
+pair-orders whose slot-distance sum is g. That equivalence is kernel-proved only at (2,1,5),
+(2,3,7) and (3,1,7) by `nullHist_matches_brute_*`; at 12 couples / 31 slots it is carried by the
+validated recurrence plus the DP-free mean identity (`sum_absdiff_31` / `null_mean_linearity`) and
+the closed-form endpoint counts, not by a theorem. Every figure in the table above is therefore
+exact **about the DP-defined law**; reading them as statements about the 31! orderings uses both
+steps. A generic `nullHist = bruteHist` proof is queued as Lean backlog and would retire (ii). This is the C1∩C4 null ONLY — no C2, no C5, no budget truncation; it is not
 comparable like-for-like to ceiling-tie shares measured over C2/C5-conditioned enumerated
 populations (same scope warning `verify.py` prints).
 
