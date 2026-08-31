@@ -4377,11 +4377,19 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
 # CIRCULARITY FIREWALL (KW hold-out, structural): the threshold stream
 # (seed+20000+b) is sampled and med*(A)/med*(P) are computed, printed, and
 # persisted BEFORE any code path below evaluates a functional on the KW
-# array. KW enters exactly twice, both after that freeze point: (i) the
-# KW-satisfaction bits, (ii) the at-KW masses — which are reported as
-# C3-class DATA (descriptive, priced-as-data), never as a test. The
+# array. KW-FUNCTIONAL evaluation enters exactly twice, both after that
+# freeze point: (i) the KW-satisfaction bits, (ii) the at-KW masses — which
+# are reported as C3-class DATA (descriptive, priced-as-data), never as a
+# test. The boundary is functional evaluation, NOT contact: the reference
+# population is built from KW before the thresholds are drawn
+# (_gs_setup_population reads binary_hexagrams for the 31 C1 pair units and
+# the C5 transition multiset, and is called first in run_prereg_h1h3) —
+# disclosed, deliberate conditioning on C1 & C5, priced as such. The
 # evaluation stream (seed+30000+b) is disjoint from the threshold stream and
-# from U2's streams (+100+w probe, +10000+b rarity) at the same base seed.
+# from U2's streams (+100+w probe, +10000+b rarity) at the same base seed
+# ONLY while batches < 10000, the gap between the two offsets; --gs-batches
+# is currently unbounded, so --gs-batches 20000 makes threshold batch
+# 10000+k and evaluation batch k seed-identical. Bound it before raising it.
 #
 # Accounting (frozen): L(C) per test from the declared coarse menus
 # (T1 7.58, T2 7.58, T3 9.17, T4 8.06 bits — breakdown in the spec §4.1),
@@ -4744,7 +4752,10 @@ def run_verify():
     That is the unguarded-invariant class this project keeps finding; this closes
     it for this file.
 
-    Ground truths only — no sampling, no RNG, no file I/O. Exit 0 = all pass.
+    Ground truths only — no sampling, no RNG. Reads exactly one file, solve.py,
+    by the CWD-relative path "solve.py": run this from the repository directory
+    or the cross-file table check fails with "could not load solve.py".
+    Nothing is written. Exit 0 = all pass.
     """
     import importlib.util as _ilu, sys as _sys
     checks, failures = [], []
@@ -4915,7 +4926,9 @@ def main():
                         help="grammar search: JSON report path")
     parser.add_argument("--gs-checkpoint", type=str, default="u2_checkpoint.jsonl",
                         help="grammar search: rarity checkpoint path (JSONL; "
-                             "resume-safe across restarts)")
+                             "completed batches skipped on re-run — only ncand "
+                             "is validated, so delete this file when changing "
+                             "--seed/--gs-samples/--gs-batches)")
     parser.add_argument("--prereg-h1h3", action="store_true",
                         help="pre-registered H1/H3 K=4 test against the "
                              "C1^C2^C4^C5 reference population (frozen "
