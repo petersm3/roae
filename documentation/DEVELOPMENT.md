@@ -58,7 +58,7 @@ sudo apt-get install -y build-essential zlib1g-dev
   pip install numpy pyarrow scikit-learn matplotlib
   ```
 
-  (Note the deps row in [SOLVE_PY_CLI.md](SOLVE_PY_CLI.md) §"Which tool for what" names
+  (Note the deps row in [SOLVE_PY_CLI.md](SOLVE_PY_CLI.md) names
   `pandas/pyarrow/scipy`; `pandas` and `scipy` are not imported anywhere in `solve.py`,
   `verify.py`, or `roae.py` — the list above is what the code actually imports.)
 - **Lean 4** (only for `lean/`) — via [elan](https://github.com/leanprover/elan), pinned to the
@@ -883,7 +883,7 @@ The `build.sha` file in the run directory holds `sha256(/proc/self/exe)` from th
 
 The guard's comparison branch is entered only when the on-disk `build.sha` parses as exactly one 64-character token. Three states bypass it, all returning 0 (proceed):
 
-1. **Malformed / truncated / partially-written `build.sha`** — **and this state also destroys the evidence.** `fscanf` yields `rn != 1` or a length ≠ 64, control falls through to the "First run (or unreadable prior)" path, and the file is *overwritten* with the current binary's sha. Reproduced here: a run directory seeded with `build.sha` containing `deadbeef-truncated-not-a-sha`, then a `SOLVE_NODE_LIMIT=2000000` dispatch → the log prints `[hardening] build.sha CREATED (binary sha 9992e1f1…)`, exit code carries no guard signal, and the prior content is gone. The strictest case the guard exists for — an abnormal run directory — is the one it converts into silent acceptance plus evidence replacement. `build.sha` *is* written tmp+rename, so this needs an out-of-band cause (a full disk, a manual edit, an interrupted recovery) — which is precisely the population the guard is for.
+1. **Malformed / truncated / partially-written `build.sha`** — **and this state also destroys the evidence.** `fscanf` yields `rn != 1` or a length ≠ 64, control falls through to the "First run (or unreadable prior)" path, and the file is *overwritten* with the current binary's sha. Reproduced here: a run directory seeded with `build.sha` containing `deadbeef-truncated-not-a-sha`, then a `SOLVE_NODE_LIMIT=2000000` dispatch → the log prints `[hardening] build.sha CREATED (binary sha 9992e1f1 (transient red-test value, not in-tree))`, exit code carries no guard signal, and the prior content is gone. The strictest case the guard exists for — an abnormal run directory — is the one it converts into silent acceptance plus evidence replacement. `build.sha` *is* written tmp+rename, so this needs an out-of-band cause (a full disk, a manual edit, an interrupted recovery) — which is precisely the population the guard is for.
 2. **`popen` of the sha tool fails** — warns, SKIPPED, proceeds.
 3. **No sha256 tool on `PATH`** — the guard itself warns and proceeds, but on the enum / merge / `--branch` dispatch paths this branch is **unreachable**: an earlier preflight (`require_sha256_tool`) already exits **10** with an install-coreutils message. Verified by running with an emptied `PATH`: rc 10, `build.sha` untouched. The fail-open is real in the function but not reachable where canonical work happens.
 
