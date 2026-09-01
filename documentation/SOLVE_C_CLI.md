@@ -47,8 +47,8 @@ solve --regression-test [scope]                         # canonical-sha regressi
 solve --double-regression-test [base]                   # full-enum vs 56-branch sha equivalence
 solve --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T
                                                         # streaming KDE scorer
-solve --emit-shard-manifest [dir]                       # write shard_manifest.txt for sub_*.bin in dir
-solve --verify-shard-manifest [dir]                     # check shard_manifest.txt vs current shards
+solve --emit-shard-manifest [manifest_path]             # write a manifest for sub_*.bin in the CWD
+solve --verify-shard-manifest [manifest_path]           # check a manifest vs the CWD's shards
 solve --compare-provenance A.json B.json                # assert two solutions.provenance.json are equivalent
 solve.py --extended-selftest <solve>                    # 9-subtest harness (solve.py command, NOT a solve C subcommand)
 solve --preflight [node_limit]                          # run in-process gates (no enum)
@@ -208,7 +208,7 @@ Recommended pre-560T: `solve --validate-canonical 0c0fe37c… 11.2T`
 ### --preflight
 
 ```
-solve --preflight [node_limit]          # default node_limit = 560T
+solve --preflight [node_limit]     # default 560000000000000 (= 560T nodes)
 ```
 
 In-process pre-flight aggregator (2026-05-28). Runs every gate solve.c
@@ -217,11 +217,38 @@ can check from inside its own process — auto-selftest (sha
 **without running the enum**. One command to confirm a campaign VM is
 ready. Run it FROM the campaign run-dir (the gates check the cwd).
 
+`node_limit` is a **bare node count**, not a scale token. It is parsed
+with `atoll` (solve.c:18668), which stops at the first non-digit and
+does not reject the remainder: `--preflight 560T` is taken as
+`NODE_LIMIT=560` and `--preflight 11.2T` as `11`. Pass the integer
+(`560000000000000`, `11200000000000`), or omit the argument and take the
+built-in default `560000000000000` (solve.c:18668).
+
 Does NOT cover what lives outside the process: VM/eviction/cost (the
 external monitor, task #55), full disk SMART/fsck
 (`scripts`-side `disk_health_precheck.sh`), or disk identity (use
-`--disk-precheck`). Exits **0** if all gates pass, else the first
-failing gate's exit code (24 / 29 / 31).
+`--disk-precheck`).
+
+Exit codes are two, but the outcomes are three — read them with that in
+mind:
+
+- **0**, printed as `RESULT: all in-process gates PASS.`
+- the first failing gate's exit code (**24** / **29** / **31**), printed
+  as `RESULT: FAIL - first failing gate exit N. Do NOT launch.`
+- a gate that **could not run** is reported as `PASS (rc=0)` like any
+  other and folded into exit **0**. Each of the three gates returns 0
+  unconditionally when `node_limit` is sub-canonical (< 1T:
+  solve.c:3618 / 3730 / 3960), when its `SOLVE_SKIP_*` override is set,
+  and when the check itself is unavailable (`statvfs` fails,
+  solve.c:3626; the probe cannot create files or threads, solve.c:3758;
+  `/proc/self/exe` is unreadable, solve.c:3969).
+
+There is no **SKIPPED** verdict and no count of gates actually executed,
+so **exit 0 does not on its own attest that all three gates ran** —
+`./solve --preflight 560T` prints three `-> PASS (rc=0)` lines and exits
+0 having checked nothing. Read the per-gate lines, not just the exit
+code. Reporting SKIPPED distinctly is an open code change against the
+`--preflight` dispatcher (solve.c:18654).
 
 ### --disk-precheck
 
@@ -508,9 +535,36 @@ each record, count value-1 transitions and check whether each occurs
 at a "C2-forced position" — i.e., the orient-flip alternative for
 the surrounding pair would have produced a value-5 transition. King
 Wen's two value-1 transitions occur only at such C2-forced positions
-per McKenna; this subcommand measures the violation rate across an
-arbitrary solutions.bin. Sha-preserving (post-enumeration analysis,
-no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) for context.
+per McKenna; this subcommand measures the violation rate across the
+records a `solutions.bin` **declares**. Sha-preserving (post-enumeration
+analysis, no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) for context.
+
+> ⚠️ **Input-trust limits — these apply equally to `--verify-9th-six`
+> and `--verify-wrap-parity`.** The three audit readers are tabulators,
+> not validators; they trust the artifact more than `--verify` does.
+>
+> - **Framing is not checked.** The record count comes from the header
+>   (solve.c:18071) and the read loop is bounded by it (solve.c:18088),
+>   with no comparison against the file's logical size. The Q-277
+>   invariant — logical size == 32-byte header + 32 bytes per declared
+>   record — landed in `--verify` only (solve.c:20915); the three audit
+>   readers were not swept. Measured on this tree: a 96-byte artifact
+>   whose header declares 1 record but carries 2 reports `records=1`,
+>   scans only the first, and prints `RULE2=TABULATED` — likewise
+>   `NINTH_SIX=PASS` and `WRAP_PARITY=PASS` — with the surplus record
+>   silently unexamined, while `--verify` on the same file prints
+>   `VERIFY=ERROR`.
+> - **Pair indices are not bounds-checked.** A record byte decodes to
+>   `pidx = (rec[i] >> 2) & 0x3F`, range 0-63 (solve.c:18101), and
+>   indexes `pairs[]`, which has 32 entries (solve.c:443), with no
+>   `pidx < 32` guard. Measured: a one-record artifact whose first byte
+>   is `0x80` (pidx 32) reads past the array and still prints a normal
+>   `RULE2=TABULATED` at exit 0.
+>
+> So run these on artifacts `--verify` has already accepted; on a
+> hand-crafted or corrupt file their verdicts are not trustworthy.
+> Adding the framing invariant and the `pidx` bound to all three readers
+> is an open code change.
 
 ### --verify-9th-six
 
@@ -527,7 +581,9 @@ value-6 from WPD=6 pairs + exactly 1 between-pair). Tabulates the
 distribution of which boundary index that between-pair value-6 lands
 at. In King Wen, it lands at boundary 19 (the transition between
 hexagrams 38 and 39, the unique "synthetic" value-6 noted by McKenna
-in Chapter 9). Sha-preserving.
+in Chapter 9). Sha-preserving. Subject to the input-trust limits noted
+under `--verify-rule2` above — unchecked framing, unchecked
+`pidx` bound.
 
 ### --verify-wrap-parity
 
@@ -539,6 +595,8 @@ Tabulates the wrap-around parity of every record — whether the value between t
 last and first hexagram is odd (d=1/3 split) — and reports the odd/even fractions
 and the d=1 vs d=3 breakdown. At the 560T canonical, 100% of records are odd-wrap
 (91.83% d=3, 8.17% d=1). gz-aware (#169), sha-preserving (post-enumeration analysis).
+Subject to the input-trust limits noted under
+`--verify-rule2` above — unchecked framing, unchecked `pidx` bound.
 
 ### --f4p-verify
 
@@ -1356,13 +1414,30 @@ Reads/writes test artifacts under `<base_dir>` (default `./`).
 ### --emit-shard-manifest
 
 ```
-solve --emit-shard-manifest [dir]
+solve --emit-shard-manifest [manifest_path]      # default shard_manifest.txt
 ```
 
-Walks `dir` (default CWD), opens each `sub_*.bin`, computes its sha256,
-and writes `shard_manifest.txt` recording `<filename> <size_bytes>
-<sha256>` per line. Header records the manifest version, build sha of
-the emitting binary, and emission timestamp.
+Scans the **current working directory** for `sub_*.bin`, computes each
+shard's logical sha256, and writes `<filename> <size_bytes> <sha256>`
+per line. Header records the manifest version, build sha of the emitting
+binary, and emission timestamp.
+
+The optional argument is the manifest's **output path**, not a directory
+to walk (solve.c:19810). The scan target is hard-coded `.`
+(`find . -maxdepth 1 -name 'sub_*.bin'`, solve.c:3260), so
+`--emit-shard-manifest /data/run42` scans the CWD and writes a *file*
+named `/data/run42` — it does not scan `/data/run42` and does not
+produce `/data/run42/shard_manifest.txt`. To manifest another directory,
+`cd` into it first.
+
+The path is interpolated **unquoted** into the emitting shell pipeline
+(solve.c:3272) and into the `wc -l` count (solve.c:19817), so a path
+containing spaces or shell metacharacters is not handled as a literal
+filename: measured on this tree, `--emit-shard-manifest 'x;touch
+INJECTED_PROOF'` created a file `INJECTED_PROOF`, printed
+`mv: missing destination file operand`, and still returned 0. Pass plain
+paths. Quoting these interpolations (and refusing metacharacters) is an
+open code change.
 
 Used by the auto-emit gate (default, suppressed via
 `SOLVE_SKIP_AUTO_MANIFEST=1`): solve auto-emits a `shard_manifest.txt`
@@ -1374,12 +1449,13 @@ re-baselining.
 ### --verify-shard-manifest
 
 ```
-solve --verify-shard-manifest [dir]
+solve --verify-shard-manifest [manifest_path]    # default shard_manifest.txt
 ```
 
-Reads `shard_manifest.txt` from `dir` (default CWD), re-computes
-sha256 of every shard, and reports MISSING / SHRUNK / DIVERGED /
-EXTRA entries. Exits 22 on any anomaly. Run at every canonical-enum
+Reads the manifest at `manifest_path` (the argument is the manifest
+*file*, not a directory — solve.c:19835), re-computes the sha256 of
+every shard named in it **relative to the current working directory**,
+and reports MISSING / SHRUNK / DIVERGED / EXTRA entries. Exits 22 on any anomaly. Run at every canonical-enum
 startup as the auto-verify gate — catches cross-run shard-set
 contamination before the new enumeration begins building on top of
 ambiguous prior state.
