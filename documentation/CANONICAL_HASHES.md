@@ -15,6 +15,18 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 > recipe (solver commit, `SOLVE_NODE_LIMIT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, partition depth). A
 > reader who re-derives and matches the sha needs nothing private; the archived bytes exist so the
 > operator can re-attest without re-deriving.
+>
+> **Extension is not on that public path, and this note previously did not say so** (added
+> 2026-09-01). *Verifying* a canonical needs nothing private — that is the claim above and it is
+> unchanged. *Extending* one to a deeper budget does: the recipe in
+> [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §"Concrete extension recipe" consumes
+> `shards.tar.gz`, `dfs_state.tar.gz` and `budget.tar.gz` from exactly the operator-held
+> `solver-data-westus3:/…` and `canonical-archive/…` locations named above, and those are storage
+> locations rather than public URLs. A third party who wants a deeper canonical without operator
+> cooperation must therefore re-run the parent campaign from scratch at the deeper budget — which is
+> sound and fully specified here, but is not the incremental path the extension methodology
+> describes. The distinction between "not required to verify" and "required to extend" is one this
+> boundary note did not previously draw.
 
 ## Quick reference (deepest first)
 
@@ -285,7 +297,32 @@ Frozen by operator directive 2026-05-24 (`feedback_v2_closed_2026_05_24`). v2's 
 
 This section exists because of the 2026-05-25 100B drift bisect (six-enum study on D32 Spot bisect-100b; full report at `petersm3/roae-private:100B_DRIFT_BISECT_RESULTS_2026_05_25.md`). Three findings make sub-1T scales unsuitable as cross-build verification gates:
 
-1. **All realistic canonical scales are BUDGETED at the per-sub-branch level** (per `petersm3/roae-private` memory `project_single_branch_exhaustion`, exhausting the smallest cell needs ≥31T nodes; 158,364 cells means total budget for true EXHAUSTED is ≥4,900T, infeasible). At 100B (per-cell 631K), 1T (6.3M), 11.2T (70.7M), 100T (631M), 560T (3.5B), every cell hits BUDGETED. Per solve.c's `PARTITION-INVARIANCE UNDER EXHAUSTIVE RUNS` docstring (locate by section title; solve.c:246-263 as of 2026-08-09), the SET of records found before BUDGETED depends on the per-sub-branch budget — change the partition, and so the budget denominator, and the record set and sha change with it. The stronger claim — that a change to the *prune set* also changes which records are found before per-cell budget exhausts — is **not** made by that docstring; the in-document evidence for it is §*v2 lineage — CLOSED 2026-05-24* above, where v2's prune stack produces strictly more records than v1 at the same node budget.
+1. **All realistic canonical scales are BUDGETED at the per-sub-branch level.** Under the uniform per-cell budget every canonical uses, a run can only report EXHAUSTED if the per-cell budget is at least as large as the *largest* cell's search tree — so a measured lower bound on any *one* cell is a lower bound on the per-cell budget, and multiplying by the cell count bounds the total. The one cell measured directly needs **≥31 × 10¹² nodes** (provenance below), so the total budget for a true EXHAUSTED d3 run is **≥ 158,364 × 31 × 10¹² = 4.909 × 10¹⁸ nodes ≈ 4,900,000 T** — infeasible. ⚠ **[CORRECTED 2026-09-01 — this read "exhausting the smallest cell needs ≥31T nodes; 158,364 cells means total budget for true EXHAUSTED is ≥4,900T", printing the wrong product directly beside the two factors it is the product of. `158,364 × 31 × 10¹² = 4.909 × 10¹⁸` — that is ~4,900,000 T, not 4,900 T, and the published threshold understated exhaustion by a factor of ~1,002. The consequence is not cosmetic: at ≥4,900 T the deepest canonical (560 T) reads as 8.75× short of exhaustion, when in fact `4.909 × 10¹⁸ / 560 × 10¹² =` **8,767× short**. The corrected value is the one the source probe itself recorded. [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §"Why budget matters" carried the same understated figure and is corrected in the same pass. The phrase "the smallest cell" is corrected too — the probe measured *a* cell drawn from the smallest first-level *branch*; it never established that any cell is the partition's minimum, and the product above does not need it to, because uniform budgeting keys off the largest cell, not the smallest.]** At 100B (per-cell 631K), 1T (6.3M), 11.2T (70.7M), 100T (631M), 560T (3.5B), every cell hits BUDGETED. Per solve.c's `PARTITION-INVARIANCE UNDER EXHAUSTIVE RUNS` docstring (locate by section title; solve.c:246-263 as of 2026-08-09), the SET of records found before BUDGETED depends on the per-sub-branch budget — change the partition, and so the budget denominator, and the record set and sha change with it. The stronger claim — that a change to the *prune set* also changes which records are found before per-cell budget exhausts — is **not** made by that docstring; the in-document evidence for it is §*v2 lineage — CLOSED 2026-05-24* above, where v2's prune stack produces strictly more records than v1 at the same node budget.
+
+   **Provenance of the ≥31 × 10¹² input — single-cell exhaustion probe, 2026-05-17.** Stated here so
+   the product above is auditable from published material rather than resting on a private citation.
+   A depth-3 cell was picked from `B[25,1]` — the smallest first-level branch in the v2 11.2T
+   canonical, 23,076 records — and specifically one that had hit BUDGETED there having found 0
+   solutions, i.e. a *candidate* for being cheap to exhaust. It is addressable directly:
+
+   ```bash
+   ./solve --sub-branch 25 1 1 0 3 1     # B[25,1] → (p3=1, o3=0) → (p4=3, o4=1)
+   ```
+
+   Run on a v2-bundled build (`1b32270`, same prune lineage as the v2 11.2T canonical commit
+   `9d00c48`) with 8 threads, at `SOLVE_NODE_LIMIT` = 1B, then 10B, then 100B. **All three rungs
+   returned BUDGETED**, with identical task statistics: the cell decomposes into **2,488** depth-5
+   parallel work tasks; the 8 threads each claimed one at startup and, after 12.5 × 10⁹ nodes apiece
+   at the 100B rung, **not one had finished its single task**; the remaining 2,480 tasks were never
+   started; 0 C3 leaves stored and 0 solutions found at every rung. **Taking the 2,480 untouched
+   tasks to be comparable in size to the 8 sampled** — they share the depth-5 prefix structure —
+   gives cell tree size ≥ 2,488 × 12.5 × 10⁹ ≈ **31 × 10¹² nodes**. That comparability step is the
+   one soft link in the chain, and it is load-bearing: without it the strictly-measured floor is only
+   the 8 sampled tasks, > 100 × 10⁹ nodes. **No upper bound was obtained** — none of the 8 sampled
+   tasks completed, so the true size may be far larger, and the bound is specific to that build's
+   prune set (stronger prunes shrink the same tree). Full writeup:
+   `petersm3/roae-private:SINGLE_CELL_PROBE_RESULT_2026_05_17.md` (operator-attested, per the access
+   boundary above; every number quoted here is reproducible from the command shown).
 2. **Even DFS-neutral code changes can flip sub-canonical sha.** The bisect found commit `d683794` (Phase E.2 + defense-in-depth, May 15) flips 100B sha from `61d2caa5…` (pre-d683794) to `30b52336…` (post-d683794). d683794's diff is 100% resume-gated assertions + new subcommand handlers; none reaches the fresh-enum DFS path. The likely mechanism is LTO compiler-layout effects from added (unreachable-at-runtime) code subtly changing OpenMP thread scheduling or branch-prediction timing. **You cannot predict from source-reading whether a commit will flip 100B sha — only empirically.**
 3. **~~Imperfect-resume during long-running generation contaminates the sha.~~ CORRECTED 2026-08-08 — this item was FALSE and is retracted; see [CORRECTIONS.md](CORRECTIONS.md) CX-34.** It read: *"The May-15 100B archive `f1709ab09486ba…` does not reproduce from its own baseline commit `3258f4c` on a clean re-run; same pattern as deprecated `c34390c0` (5.6T) and `f7b8c4fb` (10T)."* **It does reproduce.** `f1709ab0…` was regenerated from `3258f4c` — the very commit named here — and from three further code states across two lineages, all at 12,386,121 records (see §Reinstated below and `HISTORY.md`'s 2026-05-16 re-derivation, which recorded a byte-identical match at the time). The 2026-05-25 non-reproduction ran a **different decomposition** (`SOLVE_DEPTH=3`, `SOLVE_PER_SUB_BRANCH_LIMIT=631545`, ~158K shallow sub-branches, 27,664,734 records) from the engine's auto-divide (3,030 sub-branches × 33,003,300). A configuration difference, not contamination. **The sibling deprecations `c34390c0` and `f7b8c4fb` are NOT affected** — each cites a record-count delta against a named reproducible replacement, and both stand.
 
