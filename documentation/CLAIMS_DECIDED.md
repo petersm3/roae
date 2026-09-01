@@ -57,11 +57,12 @@ entries (5 of the 35 CX entries at this writing) but is not yet part of every en
 it is open. That record is also not exhaustive over the digest below: the MDL arithmetic cascade is
 recorded in place, in [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md)'s dated correction note and
 TR-9's draft-stage corrections note, and the TR-1/2/3/9 v1.5 scope corrections in those four
-reports' own Revision-history rows — none of these has a CORRECTIONS.md entry. The `--verify-wrap-parity`
-item named below has no landed record we can point at in the tracked corpus at all; it is listed
-here because dropping it would be the silent edit this ledger exists to forbid, and backfilling it
-is an open item. The summary paragraph that follows is therefore a digest of the self-correction
-practice as a whole, not of that one file, and not a substitute for either.
+reports' own Revision-history rows — and the `--verify-wrap-parity` false theorem in
+[TR7_CIRCULAR_READING.md](../reports/TR7_CIRCULAR_READING.md)'s Verification Guide, which names the
+public fix commit `0c24637` (2026-07-03). None of these three has a CORRECTIONS.md entry: all three
+predate that ledger's creation on 2026-08-02 and were never back-filled into it. The summary
+paragraph that follows is therefore a digest of the self-correction practice as a whole, not of that
+one file, and not a substitute for either.
 
 Corrections to our own published numbers (the never-silent ledger): the MDL arithmetic (144.4→143.7
 cascade), a false theorem in `--verify-wrap-parity`'s output, the TR-1/2/3/9 v1.5 scope corrections,
