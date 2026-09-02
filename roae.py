@@ -1774,8 +1774,36 @@ def print_sequences():
     print(f"Zero 0-line transitions: King Wen={kw['tally'][0]}, "
           f"Fu Xi={fx['tally'][0]}, Mawangdui={mw['tally'][0]}")
 
-def print_constraints():
-    """Estimate how many orderings satisfy the known King Wen constraints."""
+# --- PUBLISHED FIGURES, NOT TUNING KNOBS (C4, 2026-09-02) ------------------
+# print_constraints() ran two hard-coded trial counts and took no argument, so
+# `--trials` was silently ignored by `--constraints`.  The obvious repair —
+# wiring `trials=args.trials` at the call site — would have moved the DEFAULT
+# run from 10,000 permutations to 100,000 and, with it, the rule-of-three bound
+# "less than 1 in 3,333" (= 10000/3), with NOTHING red anywhere.  Both figures
+# are published: eight sites quote the trial count and four quote the bound,
+# across documentation/GUIDE.md, documentation/MCKENNA.md and
+# documentation/PROJECT_OVERVIEW.md, and documentation/ROAE_PY_CLI.md states
+# outright that "passing --trials alongside --constraints has no effect on its
+# output".
+#
+# So the counts are named here and the function is parameterised, while the
+# call site deliberately passes NOTHING — the documented behaviour is kept, and
+# the silent-ignore shape is gone.  `tests.py TestConstraintsTrialCountsPinned`
+# makes the coupling mechanical: it reads the trial count and the bound out of
+# the program's OWN output and requires every corpus site to agree, so wiring
+# --trials in later is still allowed but is no longer silent — it goes red at
+# the pages it would otherwise have invalidated.
+CONSTRAINTS_TRIALS = 10000          # unconstrained permutations (--constraints)
+CONSTRAINTS_COND_TRIALS = 100000    # pair-constrained permutations (same mode)
+
+
+def print_constraints(trials=CONSTRAINTS_TRIALS,
+                      cond_trials=CONSTRAINTS_COND_TRIALS):
+    """Estimate how many orderings satisfy the known King Wen constraints.
+
+    `trials` and `cond_trials` are published figures (see the note above the
+    module constants); the CLI does NOT bind `--trials` to either of them, by
+    design and by documentation."""
     _reseed(6)
     print("---")
     print("Constraint satisfaction analysis")
@@ -1787,7 +1815,6 @@ def print_constraints():
     print("random permutations against each constraint individually and combined.")
     print("---")
 
-    trials = 10000
     values = list(binary_hexagrams)
     count_pairs_ok = 0
     count_no_five = 0
@@ -1866,7 +1893,6 @@ def print_constraints():
         paired.add(v)
         paired.add(partner)
 
-    cond_trials = 100000
     cond_no_five = 0
     for _ in range(cond_trials):
         # Generate a random pair-constrained ordering:

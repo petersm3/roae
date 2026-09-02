@@ -23,6 +23,22 @@ def _load(name):
         sys.argv = argv
     return m
 
+def _emit_token(key, value):
+    """Print one `KEY=value` verdict line that OWNS its line.
+
+    C4 (2026-09-02), MEASURED not reasoned: unittest writes each test's name to
+    stderr WITHOUT a trailing newline, so under the harness's own
+    `python3 tests.py 2>&1` a bare `print("KEY=1")` can be appended to that
+    progress line — `PERM_NCYC_P2=0.30386238` was observed glued to the end of
+    `test_c3_and_c5_contribute_no_clauses_and_the_header_says_so ... `. The line
+    still CONTAINS the token, so every substring grep stays green while
+    `grep -qx` — the whole-line form this project requires — silently never
+    matches. The leading newline is what makes the whole-line assertion true;
+    the flushes keep the two streams from re-interleaving on the next write."""
+    sys.stderr.flush()
+    sys.stdout.write(f"\n{key}={value}\n")
+    sys.stdout.flush()
+
 solve = _load("solve")
 roae = _load("roae")
 sat = _load("sat")
@@ -1588,6 +1604,764 @@ class TestSubtreeCrossAnchors(unittest.TestCase):
         self.assertEqual(kinds, {"all-pass", "all-fail", "straddle"})
 
 
+class TestSubtreePairOrderings(unittest.TestCase):
+    """C4 (2026-09-02): the ORIENTATION-DEDUPED companion to the subtree
+    anchors — `verify.py --recount-subtree`'s new PAIR_ORDERINGS_* tokens.
+
+    WHY THIS EXISTS. _exact_subtree's third counter counts ORIENTED
+    completions: the walk tries (a,b) and (b,a) for every pair, so one
+    ordering of the 32 pair-BLOCKS is reached once per admissible orientation
+    assignment. The corpus has repeatedly used "canonical leaves" for both
+    quantities at once (that conflation is the root of the deferred
+    `canonical` -> `oriented` relabel). Neither instrument emitted the deduped
+    count at all, so nothing could go red on the conflation. It does now:
+    2 / 381 / 899 at the 5 / 7 / 9-free KW anchors.
+
+    THE INDEPENDENCE IS THE POINT. `_independent_orderings` below re-walks the
+    C1-C5 tree from `solve.binary_hexagrams` — solve.py's table, not
+    verify.py's — and rebuilds the pairs, the C5 budget, the C2 boundary rule
+    and the C3 sum from SPECIFICATION's statements of them, importing nothing
+    from verify beyond the function under test. What is asserted is SET
+    EQUALITY, not size equality: two walks that disagree about WHICH orderings
+    survive but agree on how many would pass a count check and fail this one.
+    A hardcoded set of 381 permutations is not a repair anyone can write.
+
+    THE WRONG REPAIR THIS CATCHES. Print the published constant
+    (`PAIR_ORDERINGS_9FREE=899`) while the recomputation drifts: both tokens
+    appear verbatim and a grep-only gate stays green. That is the exact shape
+    C3's RED 3 caught by exit status alone, so it gets its own leg here —
+    `test_token_prints_the_recomputed_set_not_a_constant` substitutes a stub
+    walk with a KNOWN-WRONG ordering set and requires the printed token to
+    carry the stub's number, which a constant-printing emitter cannot do.
+
+    NOT A SUBSTRING MATCH. The tokens are asserted as whole lines, per the
+    explicit-verdict rule.
+
+    COST. ~0.4 s: the 5-free and 7-free anchors only. The 9-free rung (two
+    9.4M-node walks, ~55 s) stays where TestSubtreeCrossAnchors left it — in
+    `python3 verify.py --recount-subtree`, wired into verify_all.sh SS2."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.V = _load("verify")
+
+    @staticmethod
+    def _independent_orderings(free):
+        """Clean-room re-walk. Returns (set of pair-ordering tuples, oriented
+        C3-passing leaf count) below the KW-following prefix with `free` free
+        positions. Built from solve.py's KW table and SPECIFICATION's rules;
+        verify.py is not consulted."""
+        kw = list(solve.binary_hexagrams)
+        pairs = [(kw[2 * i], kw[2 * i + 1]) for i in range(32)]
+        hd = lambda a, b: bin(a ^ b).count("1")
+        budget = [0] * 7
+        for i in range(63):
+            budget[hd(kw[i], kw[i + 1])] += 1
+        if budget != [0, 2, 20, 13, 19, 0, 9]:      # C5, from SPECIFICATION
+            raise AssertionError(f"C5 budget rebuilt wrong: {budget}")
+        budget[6] -= 1                              # pair 0's within-transition
+        seq = [63, 0] + [0] * 62                    # C4 start
+        slotp = [0] * 32
+        used, last, step = 1, 0, 1
+        for p in range(1, 31 - free + 1):           # KW-following prefix
+            slotp[step] = p
+            f, sc = pairs[p]
+            bd = hd(last, f)
+            if bd == 5 or budget[bd] <= 0:
+                raise AssertionError("prefix infeasible (boundary)")
+            budget[bd] -= 1
+            wd = hd(f, sc)
+            if budget[wd] <= 0:
+                raise AssertionError("prefix infeasible (within)")
+            budget[wd] -= 1
+            seq[2 * step], seq[2 * step + 1] = f, sc
+            used |= 1 << p
+            last = sc
+            step += 1
+        orders, oriented = set(), [0]
+
+        def rec(st, lst, usedm):
+            if st == 32:
+                pos = [0] * 64
+                for i, v in enumerate(seq):
+                    pos[v] = i
+                if sum(abs(pos[v] - pos[v ^ 63]) for v in range(64)) <= 776:
+                    oriented[0] += 1
+                    orders.add(tuple(slotp))
+                return
+            for p in range(1, 32):
+                if (usedm >> p) & 1:
+                    continue
+                a, b = pairs[p]
+                for f, sc in ((a, b), (b, a)):
+                    bd = hd(lst, f)
+                    if bd == 5 or budget[bd] == 0:
+                        continue
+                    budget[bd] -= 1
+                    wd = hd(f, sc)
+                    if budget[wd] == 0:
+                        budget[bd] += 1
+                        continue
+                    budget[wd] -= 1
+                    seq[2 * st], seq[2 * st + 1] = f, sc
+                    slotp[st] = p
+                    rec(st + 1, sc, usedm | (1 << p))
+                    budget[wd] += 1
+                    budget[bd] += 1
+
+        rec(step, last, used)
+        return orders, oriented[0]
+
+    def test_orderings_agree_setwise_with_an_independent_walk(self):
+        V = self.V
+        for free, want_nodes, want_canon, want_ord in ((5, 443, 4, 2),
+                                                       (7, 62256, 2232, 381)):
+            d = 31 - free
+            got = set()
+            nodes, _l, canon, _x = V._exact_subtree(
+                [(i, 0) for i in range(1, d + 1)], orderings=got)
+            mine, mine_oriented = self._independent_orderings(free)
+            self.assertEqual((nodes, canon), (want_nodes, want_canon), free)
+            self.assertEqual(canon, mine_oriented, f"{free}-free oriented")
+            # set equality, not size equality
+            self.assertEqual(got, mine, f"{free}-free ordering SETS differ")
+            self.assertEqual(len(got), want_ord, f"{free}-free count")
+
+    def test_deduped_count_is_strictly_coarser_than_the_oriented_count(self):
+        # The relation that makes the two numbers different objects: every
+        # ordering is reached by at least one oriented leaf, so
+        # 0 < |orderings| <= oriented. An implementation that collected the
+        # ORIENTED sequence instead of the pair ordering would satisfy
+        # equality here and inequality at the anchors; both legs run.
+        V = self.V
+        for free, want_ord in ((5, 2), (7, 381)):
+            d = 31 - free
+            got = set()
+            _n, _l, canon, _x = V._exact_subtree(
+                [(i, 0) for i in range(1, d + 1)], orderings=got)
+            self.assertGreater(len(got), 0, free)
+            self.assertLessEqual(len(got), canon, free)
+            self.assertLess(len(got), canon, f"{free}-free: dedup did nothing")
+            for t in got:
+                self.assertEqual(t[0], 0, "slot 0 is C4's pinned pair")
+                self.assertEqual(sorted(t), list(range(32)),
+                                 "an ordering must be a permutation of the "
+                                 "32 pair indices")
+            self.assertEqual(len(got), want_ord)
+
+    def test_orderings_argument_does_not_perturb_the_counters(self):
+        # The collector must be inert. If passing `orderings` changed any
+        # counter, every published anchor would be hostage to a debug knob.
+        V = self.V
+        pfx = [(i, 0) for i in range(1, 25)]        # 7-free
+        self.assertEqual(V._exact_subtree(pfx),
+                         V._exact_subtree(pfx, orderings=set()))
+
+    def test_token_prints_the_recomputed_set_not_a_constant(self):
+        """THE WRONG-REPAIR LEG. Substitute a stub walk whose ordering set has a
+        size no published constant matches; the emitted token must carry the
+        stub's size. A `print(f"PAIR_ORDERINGS_{free}FREE={want_ord}")` emitter
+        prints 2/381/899 here and fails. The stub also returns wrong counters,
+        so recount_subtree must return non-zero: the token leg and the exit-
+        status leg are asserted together, because C3 measured a defect that
+        only the second one caught."""
+        import io, contextlib
+        V = self.V
+        stub_sizes = {5: 7777, 7: 8888, 9: 9999}
+        real = V._exact_subtree
+
+        def stub(prefix, orderings=None):
+            free = 31 - len(prefix)
+            if orderings is not None and free in stub_sizes:
+                for j in range(stub_sizes[free]):
+                    orderings.add((j,))
+                return (0, 0, 0, 0)
+            return (0, 0, 0, 0)
+
+        buf = io.StringIO()
+        V._exact_subtree = stub
+        try:
+            with contextlib.redirect_stdout(buf):
+                rc = V.recount_subtree()
+        finally:
+            V._exact_subtree = real
+        out = buf.getvalue()
+        self.assertNotEqual(out.strip(), "", "stub run produced no output — "
+                            "cannot conclude anything; this is an ERROR")
+        lines = out.splitlines()
+        for free, n in stub_sizes.items():
+            self.assertIn(f"PAIR_ORDERINGS_{free}FREE={n}", lines,
+                          f"token did not carry the recomputed size for "
+                          f"{free}-free — it is printing a constant")
+            self.assertNotIn(f"PAIR_ORDERINGS_{free}FREE="
+                             f"{ {5: 2, 7: 381, 9: 899}[free] }", lines)
+        self.assertNotEqual(rc, 0, "a walk returning zeros must not report "
+                                   "ALL MATCH")
+        self.assertNotIn("recount-subtree: ALL MATCH", out)
+
+
+
+
+
+class TestRevPartnerTwoInstruments(unittest.TestCase):
+    """C4 (2026-09-02): the rev/partner leg is now TWO instruments.
+
+    C3 landed `REV_EQUALS_PARTNER_COUNT=56` / `REV_FIXES_ALL_PAIRS=yes` in
+    `verify.py --recount-finite` and recorded that it was deliberately not
+    mirrored in verify.c — no artifact is read, so the artifact-path
+    two-instrument rule does not bind it. What DOES bind is the standing rule
+    that a check derived once is one instrument: verify.py's two routes both
+    live in verify.py, so a defect common to its rev6/partner/pairs trio moves
+    them together and both routes agree on the wrong answer. `verify.c
+    --rev-partner` is a separate implementation of the same SPECIFICATION C1
+    statements, sharing no code and no header.
+
+    WHAT IS ASSERTED. Both instruments must emit the SAME verdict lines,
+    whole-line, and both must exit 0. Set equality alone is not enough — two
+    instruments that print nothing also agree — so the expected keys are
+    required to be present before the sets are compared. That is the trap this
+    class exists to avoid, and it is the same shape as the 2026-08-15
+    flips-census error one level up.
+
+    IT MUST BE ABLE TO FAIL. `test_the_c_twin_fails_on_the_retracted_claim`
+    rebuilds verify.c with the retracted claim made TRUE in code
+    (partner := rev) and requires the C instrument to go red and to stop
+    printing the 56. A twin that has only ever passed proves nothing about
+    whether it can fire."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="c4_revpartner_")
+        cls.vbin = os.path.join(cls.tmp, "verify_rp")
+        r = subprocess.run(["gcc", "-O1", "-o", cls.vbin, "verify.c",
+                            "-lz", "-lpthread", "-lm"],
+                           capture_output=True, text=True)
+        cls.have_c = (r.returncode == 0 and os.path.exists(cls.vbin))
+        cls.c_build_err = r.stderr[-2000:] if not cls.have_c else ""
+        with open("verify.c", encoding="utf-8") as fh:
+            cls.src = fh.read()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    KEYS = ("REV_EQUALS_PARTNER_COUNT=", "REV_FIXES_ALL_PAIRS=")
+
+    def _toks(self, out):
+        return {ln for ln in out.splitlines()
+                if any(ln.startswith(k) for k in self.KEYS)}
+
+    def test_both_instruments_emit_the_same_verdict_lines(self):
+        py = subprocess.run([sys.executable, "verify.py", "--recount-finite"],
+                            capture_output=True, text=True)
+        self.assertEqual(py.returncode, 0, py.stdout[-800:])
+        pyt = self._toks(py.stdout)
+        # presence FIRST: two silent instruments also "agree"
+        self.assertEqual(len(pyt), 2, f"verify.py emitted {pyt} — a missing "
+                                      f"verdict line is an ERROR, not a pass")
+        if not self.have_c:
+            self.skipTest("verify.c did not build: " + self.c_build_err)
+        c = subprocess.run([self.vbin, "--rev-partner"],
+                           capture_output=True, text=True)
+        self.assertEqual(c.returncode, 0, c.stdout[-800:])
+        ct = self._toks(c.stdout)
+        self.assertEqual(len(ct), 2, f"verify.c emitted {ct} — ERROR")
+        self.assertEqual(pyt, ct, "the two instruments disagree")
+        self.assertIn("REV_EQUALS_PARTNER_COUNT=56", ct)
+        self.assertIn("REV_FIXES_ALL_PAIRS=yes", ct)
+        _emit_token("REV_PARTNER_TWO_INSTRUMENT", 1)
+
+    def test_the_c_twin_fails_on_the_retracted_claim(self):
+        """Make the retracted sentence true in code — partner(h) := rev(h) —
+        and the C instrument must refuse it. The count leg is what moves; the
+        conclusion leg does not, which is exactly why both are printed."""
+        if not self.have_c:
+            self.skipTest("verify.c did not build")
+        bad = self.src.replace(
+            "static int partner(int h) { int r = rev6(h); return (r != h) ? r : comp6(h); }",
+            "static int partner(int h) { return rev6(h); }")
+        self.assertNotEqual(bad, self.src, "the partner() anchor moved")
+        src = os.path.join(self.tmp, "verify_bad.c")
+        with open(src, "w", encoding="utf-8") as fh:
+            fh.write(bad)
+        binp = os.path.join(self.tmp, "verify_bad")
+        b = subprocess.run(["gcc", "-O1", "-o", binp, src,
+                            "-lz", "-lpthread", "-lm"],
+                           capture_output=True, text=True)
+        self.assertEqual(b.returncode, 0, b.stderr[-800:])
+        r = subprocess.run([binp, "--rev-partner"], capture_output=True,
+                           text=True)
+        self.assertNotEqual(r.stdout.strip(), "", "no output — ERROR")
+        self.assertNotEqual(r.returncode, 0,
+                            "the C twin accepted partner := rev")
+        self.assertNotIn("REV_EQUALS_PARTNER_COUNT=56",
+                         r.stdout.splitlines(),
+                         "the poisoned build still printed the published count")
+
+    def test_the_c_twin_fails_when_rev_stops_fixing_the_pairs(self):
+        """The second token is not decoration. Break rev6 so the conclusion
+        fails while leaving a count behind; REV_FIXES_ALL_PAIRS must move."""
+        if not self.have_c:
+            self.skipTest("verify.c did not build")
+        bad = self.src.replace(
+            "static int rev6(int n) {",
+            "static int rev6(int n) { if (n >= 0) return (n + 1) & 63;")
+        self.assertNotEqual(bad, self.src, "the rev6 anchor moved")
+        src = os.path.join(self.tmp, "verify_rev.c")
+        with open(src, "w", encoding="utf-8") as fh:
+            fh.write(bad)
+        binp = os.path.join(self.tmp, "verify_rev")
+        b = subprocess.run(["gcc", "-O1", "-o", binp, src,
+                            "-lz", "-lpthread", "-lm"],
+                           capture_output=True, text=True)
+        self.assertEqual(b.returncode, 0, b.stderr[-800:])
+        r = subprocess.run([binp, "--rev-partner"], capture_output=True,
+                           text=True)
+        self.assertNotEqual(r.stdout.strip(), "", "no output — ERROR")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertNotIn("REV_FIXES_ALL_PAIRS=yes", r.stdout.splitlines())
+
+
+class TestAlternativeNullExactRationals(unittest.TestCase):
+    """C4 (2026-09-02): the four alternative-null figures TR-10 publishes as
+    EXACT RATIONALS, recomputed from the shipped predicates — C2's rank-1
+    backlog item, carried unimplemented through C2 and C3 under the standing
+    warning "do not pin a figure you have not reproduced".
+
+    NOTHING HERE IS A LITERAL. The warning is honoured by having no magic
+    number on either side of the comparison. The EXPECTED value is parsed out
+    of `reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md`'s own null-sensitivity
+    table — `2/C(31,4)`, `2·7/35,960` — and evaluated with math.comb. The
+    ACTUAL value is an exhaustive enumeration driven by `solve.dav_rotinv` and
+    `solve.dav_pureplace`, the shipped predicates the report says it measured.
+    So the report and the instrument are pinned to each other, and a drift in
+    EITHER goes red; a "repair" that edits the constant in this file does not
+    exist, because this file has no constant to edit.
+
+    THE SAMPLE SPACES ARE THE SUITE'S OWN NULL, executed rather than argued.
+    METHODS.md §"Permutation-test nulls" defines the pair-preserving null as
+    "shuffle the 32 canonical pairs + independent uniform orientation flips,
+    first pair fixed by C4 where stated". Both predicates read only pair-SLOT
+    placement (dav_rotinv compares a position set; dav_pureplace reads whole
+    slots), so the orientation half drops out — and that is not assumed here
+    either: `test_both_predicates_are_orientation_blind` measures it. C1 is
+    the free null; C1+C4 pins the {63,0} block to slot 1. Every enumeration
+    below is EXHAUSTIVE over its space (35,960 / 31,465 / 863,040 / 26,970
+    placements) — no sampling anywhere.
+
+    WHAT OTHER REPAIR WOULD TURN THIS GREEN? A predicate rewritten to accept
+    everything gives 35,960/35,960, not 1/35,960 — caught. A predicate
+    rewritten to accept nothing gives Fraction(0) — caught, and the
+    nonzero-numerator leg names it rather than letting a zero pass as a
+    measurement. A report edited to a new rational without touching the
+    predicate — caught, in the other direction. The one thing that stays green
+    is a change to BOTH, which is exactly the merge that is allowed.
+
+    PERM_NCYC_P2 IS DERIVED TWICE. TR-10's sibling figure lives in
+    CRITIQUE.md, whose 2026-09-01 correction turned 0.13 into 0.30386238 by
+    applying the family's frozen "two-sided atom-inclusive" convention to
+    `reports/evidence/perm_tier1.out`. Both routes are computed here: from the
+    summary line's below/at/above, and independently by re-summing the
+    `perm_hist` distribution in the same file. They must agree with each other
+    AND with the published figure, and the WITHDRAWN 0.12706032 must not have
+    come back.
+
+    Cost: ~10 s, dominated by the 863,040-placement pureplace sweep."""
+
+    TR10 = "reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md"
+    CRITIQUE = "documentation/CRITIQUE.md"
+    EVIDENCE = "reports/evidence/perm_tier1.out"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pairs = [(KW[2 * i], KW[2 * i + 1]) for i in range(32)]
+        rev6 = lambda h: int(format(h, "06b")[::-1], 2)
+        # the three block sets the two predicates read, located from their own
+        # stated definitions rather than hard-coded as indices
+        cls.rotinv_blocks = cls._blocks(
+            cls, [h for h in range(64)
+                  if rev6(h) == (h ^ 63) and rev6(h) != h])
+        dsym = (0b000, 0b010, 0b101, 0b111)
+        cls.sym_blocks = cls._blocks(cls, [(t << 3) | t for t in dsym])
+        cls.asym_blocks = cls._blocks(
+            cls, [(t << 3) | t for t in range(8) if t not in dsym])
+        with open(cls.TR10, encoding="utf-8") as fh:
+            cls.tr10 = fh.read()
+
+    def _blocks(self, hexes):
+        out = sorted({i for i in range(32)
+                      if self.pairs[i][0] in hexes or self.pairs[i][1] in hexes})
+        return out
+
+    def _seq(self, assign):
+        """A full 64-sequence with `assign` (0-based slot -> block index)
+        honoured; every other block fills the remaining slots in index order.
+        Both predicates read only the assigned blocks' positions, so the filler
+        is irrelevant — `test_filler_does_not_change_the_verdict` measures that
+        rather than asserting it."""
+        rest = [p for p in range(32) if p not in assign.values()]
+        seq, it = [], iter(rest)
+        for s in range(32):
+            p = assign.get(s)
+            if p is None:
+                p = next(it)
+            seq.extend(self.pairs[p])
+        return seq
+
+    # ---- expected values, parsed out of the report -------------------------
+    def _tr10_row(self, name):
+        for line in self.tr10.splitlines():
+            if line.lstrip().startswith("|") and f"`{name}`" in line \
+                    and "C(3" not in line.split("|")[1]:
+                cells = [c.strip() for c in line.strip().strip("|").split("|")]
+                if len(cells) >= 4 and cells[1] == f"`{name}`":
+                    return cells
+        raise AssertionError(f"no null-sensitivity row for {name} in "
+                             f"{self.TR10} — a scan that finds nothing is an "
+                             f"ERROR, not agreement")
+
+    @staticmethod
+    def _published_rational(cell):
+        """Evaluate the two-sided rational a TR-10 cell publishes, e.g.
+        '2/C(31,4) = **6.356x10-5**' or '2*14/4,495 = **6.229x10-3**'.
+        Returns (Fraction two_sided, decimal_string)."""
+        from fractions import Fraction
+        import math
+        m = re.match(r"2/C\((\d+),(\d+)\)", cell)
+        if m:
+            val = Fraction(2, math.comb(int(m.group(1)), int(m.group(2))))
+        else:
+            m = re.match(r"2·([\d,]+)/([\d,]+)", cell)
+            if not m:
+                raise AssertionError(f"unparsable published rational: {cell!r}")
+            val = Fraction(2 * int(m.group(1).replace(",", "")),
+                           int(m.group(2).replace(",", "")))
+        d = re.search(r"\*\*([\d.]+)×10⁻([⁰¹²³"
+                      r"⁴-⁹]+)\*\*", cell)
+        if not d:
+            raise AssertionError(f"no published decimal in cell: {cell!r}")
+        sup = {"⁰": "0", "¹": "1", "²": "2", "³": "3",
+               "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7",
+               "⁸": "8", "⁹": "9"}
+        exp = int("".join(sup[c] for c in d.group(2)))
+        return val, float(d.group(1)) * 10 ** (-exp)
+
+    def _check_row(self, name, one_sided_c1, one_sided_c1c4):
+        """Both cells of a TR-10 null-sensitivity row against the enumeration."""
+        cells = self._tr10_row(name)
+        for cell, mine in ((cells[2], one_sided_c1), (cells[3], one_sided_c1c4)):
+            pub, dec = self._published_rational(cell)
+            self.assertEqual(pub, 2 * mine,
+                             f"{name}: report publishes {pub} two-sided, "
+                             f"enumeration gives {2 * mine}")
+            self.assertAlmostEqual(float(pub) / dec, 1.0, places=3,
+                                   msg=f"{name}: the row's decimal {dec} does "
+                                       f"not render its own rational {pub}")
+
+    # ---- the enumerations --------------------------------------------------
+    def test_rotinv_exact_masses(self):
+        from fractions import Fraction
+        import math
+        blocks = self.rotinv_blocks
+        self.assertEqual(len(blocks), 4,
+                         "the rotation-equals-inversion class is not 4 blocks")
+        # C1: the 4 distinguishable blocks land on a uniformly random 4-subset
+        # of the 32 slots, and the predicate reads only that subset.
+        # The passing SUBSETS are collected, not just counted. MEASURED
+        # 2026-09-02: shifting dav_rotinv's target set by one pair-slot leaves
+        # the mass at 1/35,960 — one subset still passes, just a different one
+        # — so a count-only gate is blind to target drift. The subset that
+        # passes must be King Wen's own.
+        passing = [sl for sl in itertools.combinations(range(32), 4)
+                   if solve.dav_rotinv(self._seq(dict(zip(sl, blocks))))]
+        hits = len(passing)
+        kw_slots = tuple(sorted(b for b in blocks))
+        self.assertEqual(passing, [kw_slots],
+                         "the passing placement is not the one King Wen "
+                         "occupies — the predicate's target set has drifted")
+        c1 = Fraction(hits, math.comb(32, 4))
+        # C1+C4: block 0 ({63,0}) is pinned to slot 1; it is not in the class,
+        # so the class draws from the remaining 31 slots.
+        self.assertNotIn(0, blocks)
+        hits4 = sum(1 for sl in itertools.combinations(range(1, 32), 4)
+                    if solve.dav_rotinv(
+                        self._seq({0: 0, **dict(zip(sl, blocks))})))
+        c1c4 = Fraction(hits4, math.comb(31, 4))
+        self.assertGreater(hits, 0, "zero hits is not a measurement — the "
+                                    "predicate accepted nothing; ERROR")
+        self.assertGreater(hits4, 0, "zero hits under C1+C4; ERROR")
+        self._check_row("rotinv", c1, c1c4)
+        self.assertEqual(str(c1c4), "1/31465")
+        _emit_token("ROTINV_C1C4", c1c4)
+
+    def test_pureplace_exact_masses(self):
+        from fractions import Fraction
+        sb, ab = self.sym_blocks, self.asym_blocks
+        self.assertEqual((len(sb), len(ab)), (2, 2))
+        passing = set()
+        def sweep(slots, pinned):
+            n = hits = 0
+            for s1 in slots:
+                for a0 in slots:
+                    if a0 == s1:
+                        continue
+                    for a1 in slots:
+                        if a1 in (s1, a0):
+                            continue
+                        n += 1
+                        asg = dict(pinned)
+                        asg[s1] = sb[1]; asg[a0] = ab[0]; asg[a1] = ab[1]
+                        if solve.dav_pureplace(self._seq(asg)):
+                            hits += 1
+                            passing.add((s1, a0, a1))
+            return hits, n
+        # C1: all ordered placements of the four blocks over the 32 slots.
+        h = n = 0
+        for s0 in range(32):
+            hh, nn = sweep([x for x in range(32) if x != s0], {s0: sb[0]})
+            h += hh; n += nn
+        c1 = Fraction(h, n)
+        self.assertEqual(n, 32 * 31 * 30 * 29)
+        # C1+C4: sb[0] IS block 0, and C4 pins it to slot 1 — i.e. C4 hands the
+        # predicate half of the placement it tests, which is the whole reason
+        # this row is null-sensitive.
+        self.assertEqual(sb[0], 0, "the {63,0} block is not block 0")
+        h4, n4 = sweep(list(range(1, 32)), {0: sb[0]})
+        c1c4 = Fraction(h4, n4)
+        self.assertEqual(n4, 31 * 30 * 29)
+        self.assertGreater(h, 0, "zero hits is not a measurement; ERROR")
+        self.assertGreater(h4, 0, "zero hits under C1+C4; ERROR")
+        # King Wen's own placement must be one of them — the same
+        # target-drift hole the rotinv leg measured.
+        self.assertIn((sb[1], ab[0], ab[1]), passing,
+                      "King Wen's own placement of the doubled-trigram blocks "
+                      "does not satisfy dav_pureplace — the target has drifted")
+        self._check_row("pureplace", c1, c1c4)
+        self.assertEqual(str(c1), "7/35960")
+        self.assertEqual(str(c1c4), "14/4495")
+        _emit_token("PUREPLACE_C1", c1)
+        _emit_token("PUREPLACE_C1C4", c1c4)
+
+    def test_both_predicates_are_orientation_blind(self):
+        """The pair-preserving null flips each pair independently. Both masses
+        above are computed over SLOT placements only, which is sound exactly
+        because neither predicate can see an orientation. Measured over every
+        one of the 2^32 flips? No — over every flip of the blocks the
+        predicates actually read, which is the only thing that could matter,
+        plus the whole-sequence flip."""
+        for pred, blocks in ((solve.dav_rotinv, self.rotinv_blocks),
+                             (solve.dav_pureplace,
+                              self.sym_blocks + self.asym_blocks)):
+            base = list(KW)
+            v0 = pred(base)
+            for m in range(1 << len(blocks)):
+                seq = list(KW)
+                for j, b in enumerate(blocks):
+                    if (m >> j) & 1:
+                        seq[2 * b], seq[2 * b + 1] = seq[2 * b + 1], seq[2 * b]
+                self.assertEqual(pred(seq), v0,
+                                 f"{pred.__name__} is orientation-SENSITIVE; "
+                                 f"the slot-only enumeration is then invalid")
+            self.assertEqual(v0, 1, f"{pred.__name__} must fire on KW")
+
+    def test_filler_does_not_change_the_verdict(self):
+        """The enumerations fill unassigned slots in block-index order. If the
+        filler could change a verdict, every mass above would be an artefact
+        of that choice. Reverse the filler and require the same counts."""
+        blocks = self.rotinv_blocks
+        real = self._seq
+        def rev_seq(assign):
+            rest = [p for p in reversed(range(32)) if p not in assign.values()]
+            seq, it = [], iter(rest)
+            for s in range(32):
+                p = assign.get(s)
+                if p is None:
+                    p = next(it)
+                seq.extend(self.pairs[p])
+            return seq
+        a = sum(1 for sl in itertools.combinations(range(32), 4)
+                if solve.dav_rotinv(real(dict(zip(sl, blocks)))))
+        b = sum(1 for sl in itertools.combinations(range(32), 4)
+                if solve.dav_rotinv(rev_seq(dict(zip(sl, blocks)))))
+        self.assertEqual(a, b)
+        self.assertGreater(a, 0)
+
+    def test_perm_ncyc_two_sided_p_two_ways(self):
+        """CRITIQUE.md's 2026-09-01 correction, re-derived from the evidence
+        file two independent ways."""
+        self.assertTrue(os.path.exists(self.EVIDENCE),
+                        f"{self.EVIDENCE} missing — ERROR, not a pass")
+        with open(self.EVIDENCE, encoding="utf-8") as fh:
+            ev = fh.read()
+        m = re.search(r"\[perm 01 perm_ncyc_bot\][^\n]*?kw=(\d+) "
+                      r"below=([\d.]+) at=([\d.]+) above=([\d.]+)", ev)
+        self.assertIsNotNone(m, "no perm_ncyc_bot summary line — ERROR")
+        kw = int(m.group(1))
+        below, at, above = (float(m.group(i)) for i in (2, 3, 4))
+        # route 1: the summary line, under the family's frozen convention
+        # p = min(1, 2*min(P(X<=kw), P(X>=kw))), atom counted on BOTH sides
+        p1 = min(1.0, 2 * min(below + at, at + above))
+        # route 2: re-sum the histogram in the same file, never touching the
+        # summary line's three aggregates
+        hist = {int(a): float(b) for a, b in
+                re.findall(r"perm_hist perm_ncyc_bot (\d+) ([\d.eE+-]+)", ev)}
+        self.assertGreater(len(hist), 1, "no perm_ncyc_bot histogram — ERROR")
+        self.assertAlmostEqual(sum(hist.values()), 1.0, places=6)
+        p2 = min(1.0, 2 * min(sum(v for k, v in hist.items() if k <= kw),
+                              sum(v for k, v in hist.items() if k >= kw)))
+        self.assertAlmostEqual(p1, p2, places=7,
+                               msg="the summary aggregates and the histogram "
+                                   "in the same evidence file disagree")
+        with open(self.CRITIQUE, encoding="utf-8") as fh:
+            crit = fh.read()
+        pub = f"{p1:.8f}"
+        self.assertIn(f"**{pub}**", crit,
+                      f"CRITIQUE.md does not publish the re-derived {pub}")
+        # the WITHDRAWN figure is the strictly-above doubling; it must be
+        # present only as the named withdrawal, never as a live claim
+        withdrawn = f"{2 * above:.8f}"
+        self.assertIn(f"the withdrawn 0.13 is 2 × {above:.8f} = "
+                      f"{withdrawn}", crit,
+                      "the withdrawal of 0.13 is no longer stated as such")
+        self.assertNotEqual(pub, withdrawn)
+        _emit_token("PERM_NCYC_P2", pub)
+
+
+class TestConstraintsTrialCountsPinned(unittest.TestCase):
+    """C4 (2026-09-02): `--constraints`' trial count is a PUBLISHED FIGURE, and
+    this makes the coupling mechanical.
+
+    THE DEFECT THIS IS NOT. `print_constraints()` took no argument and the CLI
+    called it bare, so `--trials` was silently ignored. That is real, and it is
+    also DOCUMENTED — ROAE_PY_CLI.md's `--trials` row and its Examples section
+    both say the mode uses its own hard-coded counts and that passing --trials
+    "has no effect on its output". The hazard is not the behaviour; it is the
+    obvious REPAIR. `--trials` defaults to 100,000 and the function ran 10,000,
+    so wiring `trials=args.trials` moves the default run 10x and drags the
+    rule-of-three bound `1 in 3,333` (= trials/3) with it — while eight corpus
+    sites quote the count and four quote the bound, and nothing anywhere would
+    have gone red. Batch C2 caught that and refused to implement it.
+
+    SO THE GATE PINS THE COUPLING, NOT THE NUMBER. Nothing here hard-codes
+    10,000 or 3,333. The trial count and the bound are read out of the
+    PROGRAM'S OWN OUTPUT, the bound is re-derived from the count, and every
+    registered corpus site must agree with what the program printed. Wiring
+    --trials is still permitted — it just cannot be done silently any more: it
+    goes red at every page it would invalidate, which is exactly the merge C2
+    said had to happen in one piece.
+
+    WHAT OTHER REPAIR WOULD ALSO TURN THIS GREEN? Accepting a `trials=` keyword
+    and ignoring it. That satisfies the no-wiring leg and the corpus leg and
+    every published figure, while leaving the function exactly as unwired as
+    before. `test_the_parameter_is_actually_honoured` is the leg that refuses
+    it, and it is why the no-wiring leg means anything.
+
+    NO SILENT ZEROS. A corpus file that cannot be read, a run that produces no
+    output, or a scan that matches nothing is an ERROR here, never a pass; each
+    pattern carries a floor measured against the tree, so an empty scan cannot
+    be mistaken for agreement."""
+
+    ROAE = os.path.abspath("roae.py")
+    DOCS = ("documentation/GUIDE.md", "documentation/MCKENNA.md",
+            "documentation/PROJECT_OVERVIEW.md")
+    # (regex, minimum number of matches across DOCS, which figure it quotes)
+    # `[\d,]*\d` so a trailing comma in the prose is not captured as a digit
+    TRIAL_SITES = ((r"[Zz]ero (?:of|out of) ([\d,]*\d)", 5, "trials"),
+                   (r"out of ([\d,]*\d) random permutations", 1, "trials"),
+                   (r"random permutations out of ([\d,]*\d)", 1, "trials"),
+                   (r"0/([\d,]*\d) sample", 1, "trials"),
+                   (r"less than 1 in ([\d,]*\d)", 4, "bound"))
+
+    @classmethod
+    def setUpClass(cls):
+        r = subprocess.run([sys.executable, cls.ROAE, "--constraints",
+                            "--seed", "42"], capture_output=True, text=True)
+        if r.returncode != 0 or not r.stdout.strip():
+            raise RuntimeError("roae.py --constraints produced no usable "
+                               f"output (rc={r.returncode}) — ERROR, not a "
+                               f"pass: {r.stderr[-400:]}")
+        cls.out = r.stdout
+
+    def _figures(self):
+        """The two published figures, read out of the program's own output."""
+        t = re.search(r"Results from ([\d,]+) random permutations", self.out)
+        c = re.search(r"Pair-constrained trials: ([\d,]+)", self.out)
+        b = re.search(r"less than ~1 in ([\d,]+)", self.out)
+        for name, m in (("trials", t), ("cond_trials", c), ("bound", b)):
+            self.assertIsNotNone(m, f"--constraints did not print {name}; a "
+                                    f"figure that cannot be read is an ERROR")
+        return (int(t.group(1).replace(",", "")),
+                int(c.group(1).replace(",", "")),
+                int(b.group(1).replace(",", "")))
+
+    def test_runtime_figures_agree_with_the_declared_constants(self):
+        trials, cond, bound = self._figures()
+        self.assertEqual(trials, roae.CONSTRAINTS_TRIALS)
+        self.assertEqual(cond, roae.CONSTRAINTS_COND_TRIALS)
+        # the bound is the rule of three over the SAME count, recomputed here
+        self.assertEqual(bound, trials // 3,
+                         "the printed 95% upper bound is not trials/3")
+
+    def test_trials_flag_does_not_reach_the_constraints_mode(self):
+        """ROAE_PY_CLI.md: 'passing --trials alongside --constraints has no
+        effect on its output'. Executed, not read. Byte-identical output is the
+        assertion, so a wiring that changed ANY line fails, not just the
+        headline count."""
+        r = subprocess.run([sys.executable, self.ROAE, "--constraints",
+                            "--seed", "42", "--trials", "37"],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr[-400:])
+        self.assertNotEqual(r.stdout.strip(), "", "no output — ERROR")
+        self.assertEqual(r.stdout, self.out,
+                         "--trials changed --constraints' output; if that is "
+                         "intended, the corpus sites listed in this class must "
+                         "be re-derived in the SAME merge")
+
+    def test_the_parameter_is_actually_honoured(self):
+        """THE WRONG-REPAIR LEG. A print_constraints(trials=...) that accepts
+        the keyword and ignores it passes every other leg here. Call it
+        directly with counts nothing publishes and require them in the
+        output."""
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            roae.print_constraints(trials=37, cond_trials=41)
+        out = buf.getvalue()
+        self.assertNotEqual(out.strip(), "", "no output — ERROR")
+        self.assertIn("Results from 37 random permutations", out,
+                      "the trials parameter is accepted and ignored")
+        self.assertIn("Pair-constrained trials: 41", out,
+                      "the cond_trials parameter is accepted and ignored")
+        self.assertIn("less than ~1 in 12", out,
+                      "the rule-of-three bound is not derived from trials")
+
+    def test_every_published_site_agrees_with_the_program(self):
+        trials, _cond, bound = self._figures()
+        want = {"trials": f"{trials:,}", "bound": f"{bound:,}"}
+        texts = {}
+        for d in self.DOCS:
+            self.assertTrue(os.path.exists(d), f"{d} missing — ERROR")
+            with open(d, encoding="utf-8") as fh:
+                texts[d] = fh.read()
+        total = 0
+        for pat, floor, which in self.TRIAL_SITES:
+            hits = []
+            for d, txt in texts.items():
+                for m in re.finditer(pat, txt):
+                    hits.append((d, m.group(1)))
+            self.assertGreaterEqual(
+                len(hits), floor,
+                f"pattern {pat!r} matched {len(hits)} sites, floor {floor} — "
+                f"a scan that finds nothing is an ERROR, not agreement")
+            for d, got in hits:
+                self.assertEqual(got, want[which],
+                                 f"{d} quotes {got} where the program printed "
+                                 f"{want[which]} ({which})")
+            total += len(hits)
+        self.assertGreaterEqual(total, 12)
+        _emit_token("CONSTRAINTS_TRIALS_PINNED", total)
+
+
 class TestRoaePyDispatchGates(unittest.TestCase):
     """C2 (2026-09-02): two roae.py defects that both lived in DISPATCH, not in
     the mechanism they broke — the class this harness keeps failing to catch,
@@ -1612,7 +2386,7 @@ class TestRoaePyDispatchGates(unittest.TestCase):
         """Print the verdict line and return it, so callers assert the exact line
         rather than infer a verdict from output shape."""
         line = f"{key}={value}"
-        print(line)
+        _emit_token(key, value)      # C4: whole-line, see _emit_token's note
         return line
 
     def _run(self, args, cwd=None):
@@ -1794,7 +2568,7 @@ class TestSeedStreamDisjointness(unittest.TestCase):
                            capture_output=True, text=True)
         out = r.stdout + r.stderr
         if not out:
-            print("SEED_STREAMS_DISJOINT=ERROR")
+            _emit_token("SEED_STREAMS_DISJOINT", "ERROR")
             self.fail("SEED_STREAMS_DISJOINT=ERROR: roae.py produced no output; "
                       "an unreadable result is an ERROR, not a 0")
         refused = (r.returncode != 0
@@ -1802,7 +2576,7 @@ class TestSeedStreamDisjointness(unittest.TestCase):
                    # the guard must run BEFORE any sampling: the banner the
                    # sampler prints first must be absent.
                    and "Pre-registered H1/H3 test" not in out)
-        print("SEED_STREAMS_DISJOINT=" + ("1" if refused else "0"))
+        _emit_token("SEED_STREAMS_DISJOINT", 1 if refused else 0)
         self.assertTrue(refused,
                         f"rc={r.returncode}; output must refuse before sampling "
                         f"starts:\n{out[:800]}")

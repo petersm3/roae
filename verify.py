@@ -43,6 +43,7 @@ Usage:
     python3 verify.py --f1u192-binary-roundtrip     # gate the 24-byte on-disk limb layout
     python3 verify.py --recount-orbit-widths 31     # Burnside gate on the canonical_masks column
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
+                                                    # + pair orderings 2/381/899 (orientation-deduped)
                                                     # + 3 away-from-KW C3 cross-anchors (solve.c-exact expectations)
     python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
     python3 verify.py --recount-fiber               # TR-1 §7 orientation fiber (1,720,320 / 983,040)
@@ -2528,10 +2529,19 @@ _SIGMA_PREFIX = [(22, 1), (28, 0), (3, 1), (21, 1), (26, 0), (6, 1), (11, 0),
                  (20, 0), (18, 1), (25, 0), (24, 1), (1, 1), (15, 0), (4, 0),
                  (9, 0)]
 
-def _exact_subtree(prefix):
+def _exact_subtree(prefix, orderings=None):
     """Exact deterministic count of the C1-C5 backtracking tree below a fixed
     (pair, orient) prefix — returns (tree_nodes, leaves, canonical_leaves,
     canonical_and_C6C7).
+
+    `orderings`, when a set is passed, additionally collects the PAIR ORDERING
+    of every C3-passing leaf: the 32-tuple of pair indices by slot, with the
+    two orientations of a pair quotiented out (the tuple records WHICH pair
+    sits at each slot, never which way round it sits).  The third return
+    element counts ORIENTED leaves, so len(orderings) is the strictly coarser
+    orientation-deduped count; the two are different objects and the corpus
+    reserves different words for them.  Nothing else about the walk changes
+    when it is passed — the counters are computed identically either way.
 
     The tree object is the enumerator's: states are pair-sequences from the
     forced (63, 0) start; a placement must pass boundary distance != 5 (C2)
@@ -2580,6 +2590,8 @@ def _exact_subtree(prefix):
                 pos[v] = i
             if sum(abs(pos[v] - pos[v ^ 63]) for v in range(64)) <= 776:
                 stats[2] += 1
+                if orderings is not None:
+                    orderings.add(tuple(slotp))
                 # C6/C7 (SPECIFICATION.md): pairs 24,25 at slots 24,25 (C7)
                 # and pairs 26,27 at slots 26,27 (C6), orientation free
                 if slotp[24:28] == [24, 25, 26, 27]:
@@ -3569,8 +3581,12 @@ def recount_gender_null():
 def recount_subtree():
     """--recount-subtree: independently recompute the exact deterministic
     subtree anchors of TR-5 §3 / TR-4 §"validated" / SEARCH_SPACE_SIZE.md
-    (KW-following prefixes at 5/7/9 free positions) and the sigma-related
-    prefix tree-isomorphism check, plus TR-4 §4's uniqueness-refutation
+    (KW-following prefixes at 5/7/9 free positions), the orientation-DEDUPED
+    pair-ordering counts at the same three rungs (PAIR_ORDERINGS_5FREE=2 /
+    _7FREE=381 / _9FREE=899, emitted for whole-line `grep -qx` assertion; the
+    "canonical leaves" rows above them count ORIENTED completions and the two
+    quantities are not the same object), and the sigma-related prefix
+    tree-isomorphism check, plus TR-4 §4's uniqueness-refutation
     anchor (exactly 8 of the 16,504 canonical completions satisfy C6/C7),
     plus the three away-from-KW cross-instrument anchors of _CROSS_PREFIXES
     (expectations from solve.c --estimate-knuth exact mode; leaf C3 ranges
@@ -3593,14 +3609,43 @@ def recount_subtree():
         pub = "(no public target)" if want is None else f"{want:,}"
         print(f"[{tag}] {name}: recomputed {got:,}  {src} {pub}")
 
-    for free, want_nodes, want_canon in ((5, 443, 4), (7, 62256, 2232),
-                                         (9, 9422793, 16504)):
+    # PAIR-ORDERING gates (prose batch P33 / Codex V2-F53 #1, landed C4
+    # 2026-09-02).  The `canonical leaves` counters below count ORIENTED
+    # completions: _exact_subtree tries both (a,b) and (b,a) for every pair,
+    # so a single ordering of the 32 pair-BLOCKS is reached once per admissible
+    # orientation assignment.  The orientation-DEDUPED quantity — how many
+    # distinct pair orderings the subtree contains — was never emitted by
+    # either instrument, which is exactly why the two got conflated in the
+    # corpus.  It is recomputed here, never asserted from a literal: the
+    # PAIR_ORDERINGS_* token below prints len(orders), so a drifted walk
+    # changes the token itself, and the gate() line catches a drift that was
+    # "repaired" by printing the published constant instead.
+    #
+    # Independently re-derived 2026-09-02 by a clean-room second walk (2 / 381
+    # / 899) and recorded in documentation/CORRECTIONS.md's 2026-09-02
+    # SYMMETRY_SEARCH entry.  NOTE the labels below still read "canonical
+    # leaves": the corpus-wide `canonical` -> `oriented` relabel is coupled to
+    # solve.c's printf rename, which is behind the master gate, and splitting
+    # them would leave documentation/VERIFY.md:85 describing output that no
+    # longer exists.  The new rows say "pair orderings", which is unambiguous
+    # under either label.
+    for free, want_nodes, want_canon, want_ord in ((5, 443, 4, 2),
+                                                   (7, 62256, 2232, 381),
+                                                   (9, 9422793, 16504, 899)):
         d = 31 - free                    # KW-following prefix pairs 1..d
+        orders = set()
         nodes, leaves, canon, c67 = _exact_subtree(
-            [(i, 0) for i in range(1, d + 1)])
+            [(i, 0) for i in range(1, d + 1)], orderings=orders)
         gate(f"KW prefix {free}-free tree_nodes", nodes, want_nodes)
         gate(f"KW prefix {free}-free leaves_C1C2C4C5", leaves, None)
         gate(f"KW prefix {free}-free canonical leaves", canon, want_canon)
+        gate(f"KW prefix {free}-free distinct pair orderings",
+             len(orders), want_ord)
+        if len(orders) > canon:
+            rc[0] = 1
+            print(f"[*FAIL*] {free}-free: more pair orderings ({len(orders)}) "
+                  f"than oriented leaves ({canon}) — the dedup is inverted")
+        print(f"PAIR_ORDERINGS_{free}FREE={len(orders)}")
         if free == 9:
             gate("KW prefix 9-free canonical AND C6/C7 (TR-4 'exactly 8')",
                  c67, 8)

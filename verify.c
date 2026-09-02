@@ -6200,6 +6200,119 @@ static int kn_probe_main(int argc, char **argv) {
     return identfail ? 1 : 0;
 }
 
+/* ============================================================================
+ * --rev-partner : the C twin of `verify.py --recount-finite`'s rev/partner leg
+ * (batch C3 landed the Python half; C4 adds the second instrument, 2026-09-02).
+ *
+ * WHY A TWIN AT ALL. This mode reads no artifact, so the artifact-path
+ * two-instrument rule does not force it. What it does force is the standing
+ * rule that a check derived in one language is not two instruments: the Python
+ * leg's two routes both live inside verify.py, so a defect common to that
+ * file's rev6/partner/canonical-pairs trio moves them together. This file
+ * shares NO code and NO header with verify.py; rev6(), comp6() and partner()
+ * here are separate implementations of SPECIFICATION.md C1, and the pairs are
+ * re-derived from partner() rather than read out of the KW table.
+ *
+ * WHAT IT PINS. SYMMETRY_SEARCH.md once gave "rev maps every hexagram to its
+ * partner" as the REASON reversal fixes every pair-sequence. That is false for
+ * exactly the 8 palindromes, whose C1 partner is their complement. The
+ * CONCLUSION survives, so both halves are gated separately here:
+ *   REV_EQUALS_PARTNER_COUNT  the count, by two routes that share no call
+ *   REV_FIXES_ALL_PAIRS       the surviving conclusion, derived SETWISE
+ * A rewrite that keeps the count and drops the conclusion stays green on the
+ * first token alone; that is why the second exists.
+ *
+ * ROUTE 2 NEVER CALLS partner(). It counts rev's fixed points and subtracts,
+ * which is equivalent only because partner(h) != rev(h) exactly when
+ * rev(h) == h. A defect in partner() moves route 1 and leaves route 2 alone.
+ *
+ * The two verdict tokens are byte-identical to the ones verify.py prints, and
+ * tests.py TestRevPartnerTwoInstruments asserts them whole-line against BOTH
+ * binaries at once. Instant; no allocation; reads nothing.
+ * ========================================================================== */
+static int vc_rev_partner_main(void) {
+    int rc = 0;
+    int eq = 0, diss[64], nd = 0;
+    for (int h = 0; h < 64; h++) {
+        if (rev6(h) == partner(h)) eq++;
+        else if (nd < 64) diss[nd++] = h;
+    }
+    /* route 2 — partner() is deliberately not called in this loop */
+    int fixed = 0;
+    for (int h = 0; h < 64; h++) if (rev6(h) == h) fixed++;
+
+    printf("======================================================================\n");
+    printf("verify.c --rev-partner : rev(h) == partner(h) for 56 of 64, and rev\n");
+    printf("still fixes all 32 C1 pairs setwise (second instrument for the leg\n");
+    printf("verify.py --recount-finite carries; shares no code with it)\n");
+    printf("======================================================================\n");
+
+    if (eq != 64 - fixed) {
+        printf("[*FAIL*] routes disagree: direct %d, 64 - rev-fixed %d\n", eq, 64 - fixed);
+        rc = 1;
+    } else {
+        printf("[ MATCH] rev == partner count: direct and fixed-point routes agree (%d)\n", eq);
+    }
+    if (eq != 56) { printf("[*FAIL*] hexagrams where rev(h) == partner(h): %d, published 56\n", eq); rc = 1; }
+    else            printf("[ MATCH] hexagrams where rev(h) == partner(h): 56\n");
+
+    static const int PAL[8] = {0, 12, 18, 30, 33, 45, 51, 63};
+    int pal_ok = (nd == 8);
+    for (int i = 0; pal_ok && i < 8; i++) if (diss[i] != PAL[i]) pal_ok = 0;
+    if (!pal_ok) {
+        printf("[*FAIL*] the dissenters are not the 8 palindromes; got %d:", nd);
+        for (int i = 0; i < nd && i < 16; i++) printf(" %d", diss[i]);
+        printf("\n");
+        rc = 1;
+    } else {
+        printf("[ MATCH] the 8 dissenters are exactly the palindromes\n");
+    }
+    int comp_ok = 1;
+    for (int i = 0; i < nd; i++) if (partner(diss[i]) != comp6(diss[i])) comp_ok = 0;
+    if (!comp_ok) { printf("[*FAIL*] a dissenter's C1 partner is not its complement\n"); rc = 1; }
+    else            printf("[ MATCH] every dissenter's C1 partner is its complement\n");
+
+    /* The surviving conclusion, derived SETWISE from partner()-built pairs —
+     * not from the KW table, so a corrupted KW table cannot make it true. */
+    int seen[64] = {0}, npairs = 0, fixes = 1;
+    for (int h = 0; h < 64; h++) {
+        if (seen[h]) continue;
+        int q = partner(h);
+        if (q < 0 || q > 63 || partner(q) != h) {
+            printf("[*FAIL*] partner() is not an involution at %d\n", h);
+            return 1;                     /* ERROR: emit no verdict token */
+        }
+        seen[h] = 1; seen[q] = 1; npairs++;
+        int ra = rev6(h), rb = rev6(q);
+        if (!((ra == h && rb == q) || (ra == q && rb == h))) fixes = 0;
+    }
+    if (npairs != 32) {
+        printf("[*FAIL*] partner() yields %d pairs, not 32 — nothing was checked\n", npairs);
+        return 1;                          /* ERROR: emit no verdict token */
+    }
+    /* Second route to the same conclusion: the pairs AS THE KW TABLE ORDERS
+     * them. build_pairs() already refuses a table that violates C1. */
+    if (!build_pairs()) { printf("[*FAIL*] KW table violates C1 — nothing was checked\n"); return 1; }
+    int fixes_kw = 1;
+    for (int i = 0; i < NPAIR; i++) {
+        int ra = rev6(PA[i]), rb = rev6(PB[i]);
+        if (!((ra == PA[i] && rb == PB[i]) || (ra == PB[i] && rb == PA[i]))) fixes_kw = 0;
+    }
+    if (fixes != fixes_kw) {
+        printf("[*FAIL*] the partner-derived and KW-ordered pair sets disagree\n");
+        rc = 1;
+    } else {
+        printf("[ MATCH] rev fixes all 32 C1 pairs setwise (%s), two pair sources agree\n",
+               fixes ? "yes" : "NO");
+    }
+    if (!fixes) rc = 1;
+
+    printf("REV_EQUALS_PARTNER_COUNT=%d\n", eq);
+    printf("REV_FIXES_ALL_PAIRS=%s\n", fixes ? "yes" : "no");
+    printf("rev-partner: %s\n", rc == 0 ? "ALL MATCH" : "*** MISMATCH — investigate ***");
+    return rc;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--check-layers-selftest") == 0) return lc_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-gt-selftest") == 0) return lc_gt_selftest();
@@ -6208,6 +6321,7 @@ int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--ie-count") == 0) return ie_count_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--ie-probe") == 0) return ie_probe_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--dp-count") == 0) return dp_count_main(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "--rev-partner") == 0) return vc_rev_partner_main();
     if (argc >= 2 && strcmp(argv[1], "--knuth-anchors") == 0) return kn_anchors_main();
     if (argc >= 2 && strcmp(argv[1], "--knuth-probe") == 0) return kn_probe_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--check-layers") == 0) {
@@ -6249,11 +6363,14 @@ int main(int argc, char **argv) {
                                     "                                  non-IE second instrument; see source header)\n"
                                     "       %s --knuth-anchors        (clean-room Knuth prober: exact-anchor +\n"
                                     "                                  machinery validation gate; see source header)\n"
+                                    "       %s --rev-partner          (rev vs C1 partner: the 8 palindromes;\n"
+                                    "                                  second instrument for verify.py\n"
+                                    "                                  --recount-finite's rev/partner leg)\n"
                                     "       %s --knuth-probe N [--knuth-seed S] [--knuth-threads T]\n"
                                     "                     [--knuth-no-c67] [--knuth-free F]\n"
                                     "                                  (#194 clean-room Knuth random-probe estimator)\n",
                                     argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
-                                    argv[0], argv[0], argv[0], argv[0], argv[0]); return 2; }
+                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]); return 2; }
     int maxk = argc > 2 ? atoi(argv[2]) : 6;
     if (maxk < 1) maxk = 1;
     if (maxk > 31) maxk = 31;
