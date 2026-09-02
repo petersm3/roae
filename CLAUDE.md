@@ -8,10 +8,21 @@ invariants, not content.
 ## Project
 
 ROAE = a mathematical analysis of the King Wen sequence (I Ching). Core
-deliverable is `solve.c` — a multi-threaded C enumerator that finds all
-orderings of 64 hexagrams satisfying constraints C1-C5, plus the
-scientific record documenting what those enumerations reveal about
-King Wen's uniqueness vs. combinatorial structure.
+deliverable is `solve.c` — a multi-threaded C enumerator that searches for
+orderings of 64 hexagrams satisfying constraints C1-C5 **within a per-cell
+node budget** — plus the scientific record documenting what those
+enumerations reveal about King Wen's uniqueness vs. combinatorial structure.
+
+⚠ **It does not exhaust that space, and no run ever has.** Every published
+enumeration is budgeted per cell, so what it produces is an
+exactly-reproducible **slice** and its record count is a **LOWER BOUND** on
+the C1–C5 population — an absence *inside a slice* is not an absence in
+C1–C5. (Corrected 2026-08-28, Q-353; this sentence was missed by that sweep
+and repaired 2026-09-02. The retired wording is registered in
+[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
+[CORRECTIONS.md](documentation/CORRECTIONS.md); the corrected statement of
+what an enumeration artifact contains is
+[SOLUTIONS_FORMAT.md](documentation/SOLUTIONS_FORMAT.md).)
 
 ## Authoritative sources
 
@@ -299,11 +310,37 @@ provisioning scripts should source it.
 
 ## Single C source file — `solve.c` — no new `.c` files
 
-**Standing rule (2026-04-21):** All C code on this
-project lives in `solve.c`. All Python lives in `solve.py`. The only
-exception to the Python rule is `viz/visualize.py` (PCA plots — separate
-because its dependency footprint is heavy and it's run independently).
-No new `.c` or `.py` files elsewhere, not even for analysis tools.
+**Standing rule (2026-04-21):** All C code on this project lives in
+`solve.c` and all Python in `solve.py`, **except for the approved separates
+enumerated below**. No new `.c` or `.py` file outside that list, not even
+for analysis tools — adding one is an operator decision, not an
+implementation detail.
+
+**The approved separates — this is the complete list, and `git ls-files
+'*.py' '*.c'` must not exceed it.** Dates are *first-tracked* dates,
+measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
+
+- **`solve.c`, `solve.py`** — the two core files the rule is about.
+- **`sat.py`** (2026-07-02, operator-approved) — SAT/certificate layer; see
+  the paragraph below.
+- **`verify.py`** (first tracked 2026-04-17), **`verify.c`** (2026-07-22) —
+  the INDEPENDENCE exception, operator-approved 2026-07-21; see below.
+- **`roae.py`** (first tracked 2025-07-11, predating this rule) — the
+  analysis CLI, with its own reference in
+  [ROAE_PY_CLI.md](documentation/ROAE_PY_CLI.md).
+- **`tests.py`** (2026-07-04) — the regression harness. It has to be able to
+  fail on `solve.py`, so it cannot live inside it.
+- **`viz/visualize.py`** (2026-04-20), **`viz/growth_curve.py`**
+  (2026-06-15), **`viz/report_figures.py`** (2026-07-04) — the `viz/`
+  directory-scoped exception: heavy plotting dependencies, run independently.
+- **`scripts/c2c3_joint_null.py`** (2026-08-28) — the published reproducer
+  for the C2∧C3 joint null, shipped deliberately because "a published figure
+  whose only reproduction path was a private script would not be reproducible
+  at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
+  `solve.py` would destroy the independence it was created to supply.
+- **`reports/evidence/**/*.py`** (11 files under `f1/`, `f5/`, `f11/`,
+  `r11/`) — evidence instruments shipped and frozen alongside the results
+  they produced.
 
 - Need a tool to parse an enumeration log? Add it as a subcommand in
   `solve.c` (e.g., `./solve --yield-report`), not a separate `analyze_yields.c`.
@@ -312,6 +349,16 @@ No new `.c` or `.py` files elsewhere, not even for analysis tools.
   `solve.py --bivariate`, `solve.py --joint-density`) — not a separate
   `scripts/compute_stats.py` or similar.
 - Shell, markdown, binaries outside the two consolidated files are fine.
+
+⚠ This block previously described the rule as admitting exactly one Python
+exception. That was false when written against the tree: **20 `.py` and 2
+`.c` files are tracked**, sixteen of the Python files covered by no clause of
+the rule, and four of those sixteen are named elsewhere in this very file. An
+agent obeying the old wording literally would have consolidated files that
+exist precisely to be separate. Corrected 2026-09-02; the retired wording is
+registered in
+[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
+[CORRECTIONS.md](documentation/CORRECTIONS.md).
 
 Why: single source of truth, one compile target, one test matrix, no
 dependency sprawl. The canonical source files are `solve.c` (enumeration,
@@ -335,12 +382,15 @@ This is a NARROW exception justified by purpose, not a general licence. It was
 established after `verify_layers.c` was created and pushed without approval
 (2026-07-21) — the same failure as `analyze_yields.c` in 2026-04-21. If you need
 more C verification, extend `verify.c`; do not add a third file. The two directory-scoped
-exceptions, each a separate-toolchain component: `viz/` (visualize.py — heavy
-plotting deps) and `lean/` (**a per-module directory, not one file** — the Lean 4 machine-checked theorem
+exceptions, each a separate-toolchain component: `viz/` (**three plotting
+scripts, not one** — `visualize.py`, `growth_curve.py`, `report_figures.py`;
+heavy plotting deps, listed individually above) and `lean/` (**a per-module directory, not one file** — the Lean 4 machine-checked theorem
 modules + README; every file is inventoried in `lean/README.md` and checked independently by
 `reports/certificates/verify_all.sh`. The one-file wording here was written 2026-07-03 when `lean/`
-held exactly one file; the second and third landed 2026-07-04 and it is now thirteen
-(`PruneReprFC.lean`, the repr(k) prune-safety theorem, landed 2026-08-15). Per-module is
+held exactly one file; the second and third landed 2026-07-04 and it is now fourteen
+(`PruneReprFC.lean`, the repr(k) prune-safety theorem, landed 2026-08-15, took it to
+thirteen; `SatEncodingFidelity.lean` landed 2026-08-31 and took it to fourteen —
+`git ls-files 'lean/*.lean' | wc -l`, agreeing with `lean/README.md`). Per-module is
 the RIGHT structure for Lean and is not to be consolidated: compile cost is PER FILE. The landed
 kernel-`decide` `PruneGInvariance.lean` peaks at ~3.9 GB (an earlier revision of this sentence
 said "near 10.6 GB" — that WAS a real measurement, kept here for provenance, but of the REJECTED
@@ -393,7 +443,7 @@ itself contains the decision tree).
 ## Bi-region architecture
 
 - Orchestrator: `claude` VM (D2as_v6) in **westus2**.
-- Compute: D128als_v7 in **westus3** (as of 2026-04-19 pivot). **Spot** for ALL workloads, enumeration AND merge, per the 2026-04-29 standing policy in §"Cost control — VM purchase type" above (which explicitly supersedes the earlier enumeration=Spot / merge=on-demand split this line stated until 2026-08-06). See §Cost control above for the mandatory pre-launch verification gate. Note: the specific 100T d3 run on 2026-04-19/20 was inadvertently provisioned as on-demand by an earlier autonomous session; this is corrected-forward by the verification gate now documented here.
+- Compute: D128als_v7 in **westus3** (as of 2026-04-19 pivot). **Spot for enumeration and any other checkpointable work; Regular/Standard, right-sized, with a teardown plan stated in the same breath, for merge and any workload that cannot checkpoint** — per §"Cost control — VM purchase type" above. ⚠ This line previously claimed that a blanket Spot-for-everything policy superseded the enumeration=Spot / merge=on-demand split; **that supersession was withdrawn 2026-08-29/30** and the split is the operative rule, so the section this line cites as its authority is the same section that retracts the old wording. See §Cost control above for the mandatory pre-launch verification gate. Note: the specific 100T d3 run on 2026-04-19/20 was inadvertently provisioned as on-demand by an earlier autonomous session; this is corrected-forward by the verification gate now documented here.
 - F64als_v6 westus2 is **retired**. New large-scale enumeration uses
   Dalsv7 westus3 exclusively.
 - Managed disks are region-locked — cross-region needs snapshot+copy.

@@ -5291,3 +5291,97 @@ second uniqueness site and the three stale aggregate siblings, and the public re
 eighth validation path — are this lane's (Claude). Codex's V2-F12 review located all three sites;
 its prescribed figure for leg (a) and its prescribed fix for charge 3 were both declined on evidence,
 and both declines are recorded above rather than left silent.
+
+## 2026-09-02 — CLAUDE.md: an enumerator described as exhaustive in the file the correction did not sweep, a withdrawn VM rule citing its own retraction as authority, and a single-source-file rule contradicted by sixteen tracked files
+
+Prose batch P44, adjudicating Codex review V2-F56 against `CLAUDE.md` at `4b320e5c`. All three
+charges were TRUE and LIVE; one was three-quarters stale and is recorded as such below, and two
+uncharged siblings were fixed alongside.
+
+### 1. The orientation file still described the solver as exhaustive (`RP-309f3fd7`, `RP-0ae93dfb`)
+
+`solve.c`'s own header carries a `CORRECTED 2026-08-28 (Q-353)` block stating plainly that no run
+has ever enumerated the whole C1–C5 population: every published enumeration is budgeted per cell, so
+what it produces is an exactly-reproducible **slice** and its record count is a **LOWER BOUND**. That
+correction names the three files it swept — `SOLUTIONS_FORMAT.md`, `BRANCHES_EXPLAINED.md`,
+`SOLVE.md`. `CLAUDE.md` is not among them, and the wording survived in **its opening paragraph**: the
+first substantive sentence of the file every agent and every new reader is pointed at first.
+
+**Why this one matters more than its size suggests.** `SOLUTIONS_FORMAT.md` calls every published
+result a lower bound. Reading the 560T artifact's 10,525,271,997 records as the complete C1–C5
+population converts a *slice* absence into a *full-space* conclusion — which is the exact inference
+the Q-353 correction exists to block.
+
+**Census checked in both directions**, with a whitespace-flattened, bold-stripped scan over every
+tracked file rather than a line-based grep. It **confirms the charge at two live sites**: this one,
+and `solve.c:19–20`, ten lines below its own correction note. Three near-miss sites are correct prose
+and were deliberately left alone — `PARTITION_INVARIANCE.md` prefixes the phrase "Under exhaustive
+enumeration"; `BRANCHES_EXPLAINED.md` states it as the solver's *goal* and denies in the next clause
+that any run has achieved it; `lean/README.md`'s is a finite 120/5040 brute force.
+
+**The second site is not fixed here, and that is a scope limit, not an oversight.** GATE 3's corpus
+is `git ls-files '*.md'`, so C comments are structurally invisible to every retraction gate, and this
+lane does not edit `solve.c`. That half is queued for the code lane; it is also charge 7 of the same
+adjudication. Both wordings are registered so that neither can re-enter the markdown corpus, and they
+are registered as **two rows** because they share no substring — the morphology-evasion lesson of
+2026-08-01.
+
+### 2. A withdrawn VM rule citing, as its authority, the section that retracts it (`RP-8f82e8fd`)
+
+The blanket "every VM must be Spot" rule was withdrawn 2026-08-29 after measurement on the live
+subscription showed five of seven non-orchestrator VMs were `Regular`: the rule had never been
+followed and it contradicted `DEPLOYMENT.md`'s standing enumeration=Spot / merge=on-demand split.
+
+**CENSUS CORRECTED DOWNWARD, from four sites to one.** The charge named four. Checked against current
+`main` rather than against the reviewed sha, **three had already been repaired in place** by public
+commits landed after the review: the mandatory pre-launch gate no longer says a `Regular` answer means
+STOP (it now splits by checkpointability and calls Regular the *required* type for uncheckpointable
+work), the merge-VM paragraph now exists only as quoted text inside a dated `[CORRECTED 2026-08-30]`
+withdrawal, and the section heading's instructions are the corrected ones.
+
+**The one survivor was worse than anything the charge described.** `CLAUDE.md` §"Bi-region
+architecture" still commanded Spot for enumeration *and* merge, "per the 2026-04-29 standing policy in
+§'Cost control — VM purchase type' above (which explicitly supersedes the earlier enumeration=Spot /
+merge=on-demand split)" — and the section it named as its authority is precisely the one carrying the
+`[CORRECTED 2026-08-29]` block retracting that supersession. A cross-reference of the form "per §X,
+which supersedes Y" had outlived §X's own withdrawal of the supersession. It now states the split
+directly and marks the retraction inline.
+
+### 3. A single-source-file rule that twenty tracked files contradict (`RP-e12e4661`)
+
+The rule described itself as admitting exactly one Python file outside `solve.py`. Measured the same
+day: `git ls-files '*.py'` returns **20** and `git ls-files '*.c'` returns **2**. The section's later
+paragraphs license three more (`sat.py`, `verify.py`, `verify.c`), leaving **sixteen tracked Python
+files covered by no clause of the rule** — four of them named elsewhere in `CLAUDE.md` itself, and
+five of them listed in `tests.py`'s own trust base, which makes the contradiction machine-readable.
+
+The wording was a description, not an aspiration, and the failure mode is concrete: an agent obeying
+it literally folds `scripts/c2c3_joint_null.py` into `solve.py` and destroys the independence that
+this ledger's own 2026-08-28 entry created it to supply — "a published figure whose only reproduction
+path was a private script would not be reproducible at all". It is replaced by an **enumerated
+approved-separates list** whose dates are *first-tracked* dates measured with
+`git log --diff-filter=A -1 -- <path>` rather than asserted approvals; two of the entries (`roae.py`,
+2025-07-11; `verify.py`, 2026-04-17) **predate the 2026-04-21 rule** and were never approvals at all.
+The prohibition on *new* files outside the list is retained verbatim and is not retracted.
+
+**The `.c` half was stale too, which the charge did not say**, though benignly: "no new `.c` files
+elsewhere" was written when `solve.c` stood alone, and `verify.c` is covered by the independence
+exception the same section grants.
+
+### Two uncharged siblings, found by reading rather than by the charge sheet
+
+- **The `viz/` directory exception named one of its three files.** The closing paragraph glossed
+  `viz/` as "(visualize.py — heavy plotting deps)"; `viz/growth_curve.py` (2026-06-15) and
+  `viz/report_figures.py` (2026-07-04) have been tracked for months. All three are now named.
+- **The Lean module count was one file behind.** `CLAUDE.md` said the directory "is now thirteen",
+  citing `PruneReprFC.lean` (2026-08-15). `git ls-files 'lean/*.lean' | wc -l` returns **14**, and
+  `lean/README.md` has said **fourteen** since `SatEncodingFidelity.lean` landed 2026-08-31 — so the
+  two files disagreed. `CLAUDE.md` now gives fourteen, names both landings, and cites the command.
+
+**Attribution.** Codex's V2-F56 review located all three charges. The measurements above — the
+flattened whole-corpus needle scans that confirmed charge 1's census at two and narrowed charge 2's
+from four to one, the `git ls-files` counts and per-file first-tracked dates, and the `lean/` count
+discrepancy — are this lane's (Claude). The gate legs prescribed for charges 1 and 3 are not written
+here: charge 1's is partly unreachable (GATE 3 cannot see `.c` comments) and charge 3's must be wired
+to the filesystem rather than to a string; both are queued in the private prose-lane follow-ups
+rather than left implied.
