@@ -705,7 +705,7 @@ Linear-probe degradation after ~9.3M records: probe distance exploded from O(60)
 
 **Post-mortem preserved** in forensic checkpoint dir `roae-private/ckpt_pre_repro_20260424_142240/` (3.8 GB retained for any future regression investigation) plus `ckpt_hang_repro.sh` harness.
 
-**Trajectory-match finding** (`TRAJECTORY_MATCH_PASS1_VS_CURRENT.md` (private staging repo)): the fresh run's progress-line counters re-derive Pass 1's 10T trajectory to within 0.2% at matched node budgets (1e10 through 1e13). The solver is effectively deterministic on this branch. All within-run data below 10T is a re-derivation, not new science; the regime above 10T is new.
+**Trajectory-match finding** (`TRAJECTORY_MATCH_PASS1_VS_CURRENT.md` (private staging repo)): the fresh run's progress-line counters re-derive Pass 1's 10T trajectory to under 1% at every matched node budget from 1e11 through 1e13, after a startup transient (33.1% at 1e10, 2.7% at 3e10). The solver is effectively deterministic on this branch at progress-line granularity. ⚠ **[CORRECTED 2026-09-02 (prose batch P64) — this sentence claimed a five-times-tighter envelope, and started the range one decade lower, than the comparison table in [`PASS1_TRAJECTORY_DETERMINISM.md`](PASS1_TRAJECTORY_DETERMINISM.md) supports. That report's headline was corrected on 2026-09-01; this site did not receive the correction, so the retired figure stayed live here for a day. The corrected envelope is the one the report's own seven-row table gives: the five rows from 1e11 onward deviate by at most 0.8%, while the 1e10 row misses the old claim by 165×. Registered as `RP-17381934`; ledger entry in [CORRECTIONS.md](CORRECTIONS.md).]** All within-run data below 10T is a re-derivation, not new science; the regime above 10T is new.
 
 **Sunk cost.** ~$6 of avoidable spend across the zombie-runtime window (~$0.24/hr × 20 idle hours) plus ~$0.20 for the debugging VM work. Forensic preserves + fix validated; fresh run on track to finish within budget.
 
@@ -750,7 +750,7 @@ Full writeup: [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md). Working analysis + ite
 **Findings directory promoted** (`roae/findings/`): three previously-staging findings curated into the public repo as paper-citable scientific anchors:
 
 - [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md) — the negative result above.
-- [`PASS1_TRAJECTORY_DETERMINISM.md`](PASS1_TRAJECTORY_DETERMINISM.md) — solver re-derives Pass 1's progress trajectory to <0.2% across 10¹⁰ → 10¹³ nodes when re-run on the same branch with matched solver commit + threads. Reproducibility methodology / free correctness check.
+- [`PASS1_TRAJECTORY_DETERMINISM.md`](PASS1_TRAJECTORY_DETERMINISM.md) — solver re-derives Pass 1's progress trajectory to under 1% across 10¹¹ → 10¹³ nodes (33% at 10¹⁰, a startup transient) when re-run on the same branch with matched solver commit + threads. Reproducibility methodology / free correctness check. ⚠ **[CORRECTED 2026-09-02 (prose batch P64) — the same 2026-09-01 correction as the entry above; this index line carried the retired envelope in a second shape. Registered as `RP-501fb35a`; ledger entry in [CORRECTIONS.md](CORRECTIONS.md).]**
 - [`PARTITION_STABILITY_BOUNDARIES.md`](PARTITION_STABILITY_BOUNDARIES.md) — boundaries {25, 27} are mandatory in every minimum-boundary set identifying KW across all three canonicals tested (d2 10T, d3 10T, d3 100T). Most stable structural property of King Wen measured.
 
 Convention: working notes stay in `petersm3/roae-private`; findings polished and stable enough for external citation move to `roae/findings/`.
@@ -1524,13 +1524,22 @@ pre-560T gating.* Operator direction across two decisions on
   gate: byte-identical canonical sha on both scalar and AVX-512
   paths at 11.2T. Plan in private
   `AVX512_IMPLEMENTATION_PLAN_2026_05_03.md`.
+  ⚠ **[REFUTED 2026-05-16 — the 1.4–2.0× ceiling projected in this bullet was measured and did
+  not survive: the definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected), and #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits. The measurement and its commits are narrated in the May 18, 2026 PDT entry, item 3. This callout added 2026-09-02 (prose batch P64); it was owed and
+  had not been written.]**
 - **CPU optimization bundle** post-AVX-512: LTO + jemalloc
   (`LD_PRELOAD` runtime-only, no source change, BSD-2-Clause
   license posture preserved) + huge pages + PGO + NUMA-local
   allocation (raw kernel syscalls preferred over libnuma to
   keep solve.c license-clean) + conditional hash-table tuning
   if profile justifies. Composes with AVX-512 for **~2-3×
-  combined total speedup** in the mid case. Plan in private
+  combined total speedup** in the mid case.
+  ⚠ **[SCOPED 2026-09-02 (prose batch P64) — this composite multiplies the AVX-512 factor refuted
+  above, so its premise does not hold as written. What the composite actually comes to was never
+  re-measured after the refutation, and no figure is substituted here: the bundle's other factors
+  were measured separately and moved in both directions (LTO +2.06% full-mean at D64; PGO *slower*
+  than baseline at D64, later recorded at +6.5% on a different workload). Flagged rather than
+  repaired, per the standing caution against banking undirected multiplicative composites.]** Plan in private
   `FUTURE_PERFORMANCE_OPTIONS_2026_05_03.md` §5; license posture
   detailed in §5f. Recommendation: jemalloc tested *first*, even
   before AVX-512, both for the heap-stability bonus (the
@@ -2616,7 +2625,7 @@ Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, is
 **Phase 1 status updated 2026-05-15:**
 - **LTO (#47 partial): RECOMMEND SHIP to v1 main.** Sha-preserved, marginal-but-clean speedup, zero risk. Just add `-flto` to the canonical gcc invocation.
 - **PGO (#47 partial): DEFER pending re-profiling investigation.** Don't ship the current profile-at-100M binary.
-- **AVX-512 (#46): STILL THE HIGH-VALUE PHASE 1 ITEM.** Plan expects 1.4-2.0× per the implementation doc. Implementation hasn't started; needs 3-5 days engineering. Recommended next concrete operator-authorized work session.
+- **AVX-512 (#46): STILL THE HIGH-VALUE PHASE 1 ITEM.** Plan expects 1.4-2.0× per the implementation doc. Implementation hasn't started; needs 3-5 days engineering. Recommended next concrete operator-authorized work session. ⚠ **[REFUTED 2026-05-16 — the 1.4-2.0× expectation this status row carries did not survive measurement: the definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected), and #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits. The measurement and its commits are narrated in the May 18, 2026 PDT entry, item 3. The row is preserved as the status recorded on 2026-05-15; it was superseded the next day. This callout added 2026-09-02 (prose batch P64); it was owed and had not been written.]**
 - **Huge pages + NUMA (#47 remainder): not yet measured.** Need to be benchmarked but not blocking.
 
 **Compute cost:** $0.50/hr × ~50 min D64 Spot uptime = ~$0.42. RG + VM + vnet + NIC + PIP all deleted post-benchmark.
@@ -6060,3 +6069,143 @@ The verification harness used for the v1 half printed a false "matches NONE" ver
 it hashed an empty stream to `e3b0c442…` = sha256("") by running `gzip -dc` against an
 un-gzipped file — which is recorded with the private evidence. The engine's own
 `solutions.sha256` corroborates the hashes independently of that harness.
+
+## 2026-08-30/09-02: A merge every gate accepts, and a prose sweep whose refusals were the point
+
+> **Gap in this record, stated rather than glossed.** This entry resumes at **2026-08-30**. The span
+> **2026-08-08 → 2026-08-30** is *not* narrated in this file: a draft covering it exists in the
+> private staging repo and has not been ported. The jump from the previous section to this one is a
+> hole in the record, not a quiet period — and because the currency check measures the newest
+> narrated date against the newest commit, landing this entry turns that check green while the hole
+> remains. It is recorded here so the green is not read as continuity.
+
+### The canonical sha attests the enumeration path, and only that
+
+The `v4-query-program` → `main` merge for `solve.c` had been prepared in August with per-hunk
+dispositions. On 2026-09-02 it was **re-derived independently**, by a second model pass that was not
+permitted to read the prepared answer until it had written its own. The two agreed on **all twenty**
+marked conflict hunks — and the independent pass then found **four conflicts git does not mark**,
+because only one side had touched those lines.
+
+The sharpest of the four is measurable on published refs, so it is measured here rather than
+asserted. `main` hardened a class of destructive commands, writing every `rm -rf` format string with
+its argument quoted, behind a helper whose own comment says quoting alone is not sufficient. The
+branch forked before that fix:
+
+```
+$ for r in main archive/v4-query-program-20260829; do \
+    printf '%-34s  unquoted: %2d   quoted: %2d\n' "$r" \
+      "$(git grep -o -F '"rm -rf %s' $r -- solve.c | wc -l)" \
+      "$(git grep -o -F "\"rm -rf '%s'" $r -- solve.c | wc -l)"; done
+main                                unquoted:  0   quoted:  9
+archive/v4-query-program-20260829   unquoted: 11   quoted:  2
+```
+
+The resolution was then built and run, and its `--selftest` reproduced the baseline sha
+`403f7202…` exactly — while the same file still carried unquoted sites, at the positions the
+resolution had taken from the branch rather than from `main`.
+
+🔴 **So a fix present on `main` can be reverted by a merge that every gate in this project accepts.**
+The canonical sha attests the *enumeration path*; the regress harness, comments, and dispatch
+branches that return early all lie outside what it can see. **"The canonical sha is unchanged" is
+necessary and not sufficient** — and that is now demonstrated on a real artifact rather than argued
+from first principles. Nothing was merged: the merge sits behind a five-condition master gate, and
+at the time of writing none of the five is met.
+
+### A long prose sweep, and what it was actually for
+
+A run of prose batches worked through the accepted findings of the second external review (Codex
+V2). The number worth recording is not how many batches ran but the **refusal rate**: a substantial
+minority refused their charge outright, or refused half of a prescribed census, and the refusals
+held up on re-examination. Among them —
+
+- a prescribed fix that would have made a **true sentence false** — two sites assert a
+  three-predicate null model, and relabelling them to the five-constraint population would have
+  broken them;
+- a charge quoting a version of a file **that no longer existed**, whose live text already recorded
+  the very provenance the charge wanted added;
+- a charge whose own **diagnostic test was false**: it offered a marker for telling stale text from
+  corrected, and all four sites bearing the "stale" marker carried the corrected wording;
+- a census of twelve sites in twelve files where **none** were live;
+- an absence claim — that a literature figure had no in-repo reproducer — **refuted by executing the
+  reproducer**, in a document about reproducibility.
+
+**The technique that found the most was mechanical.** GATE 3 flattens whitespace before matching,
+precisely because a defective phrase spanning a hard line wrap is invisible to a line-based `grep`.
+Several batches found live sites only by searching the flattened corpus — including one retraction
+that had reached four of five files and was missing from the fifth *solely* because of a line break.
+This is a claim about our search, not about the corpus: a fixed-string gate attests that the
+registered strings are absent, never that the retracted claim is.
+
+### Findings the sweep produced
+
+- **Pair-slot rotation is not a symmetry of the constraint system, and C3 alone is what breaks it.**
+  The circular transition multiset is preserved exactly under rotation, so C1, circular C2 and C5
+  survive it; C3, which is absolute-position, does not. Reproducible with no build
+  ([CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md), "Symmetry under closure"):
+
+  ```
+  $ python3 -c "import verify as v; c=v.c3_of_ordering; r=lambda k:[(s+k)%32 for s in range(32)]; print(c(r(0)), c(r(4)), c(r(16)), sum(c(r(k))>776 for k in range(1,32)))"
+  776 888 1240 21
+  ```
+
+  C3(KW) = 776, rotate-4 = 888, rotate-16 = 1240, and **21 of the 31** non-identity rotations exceed
+  the 776 ceiling.
+- **An oriented leaf count had been published as a canonical one.** The exact-count engine iterates
+  both orientations, so a counter printed as a canonical leaf total is an *oriented* count — while
+  the same document reserved "canonical" for post-dedup sequences. The page contradicted itself.
+- **A pre-registration escrow disclosed less than it should have.** Three of its ten rows were
+  amended after their freeze commit, which the page never said. What did survive scrutiny is the
+  part that matters most: `git log --follow` on the escrow page returns a single commit, all ten
+  escrowed digests re-verify against the operator-held files, and not one published hash, byte count
+  or date was altered by the correction.
+- **The `--check-repr` oracle was sold as fails-closed and is blind to C3**, in both reference
+  verifiers. No published result is exposed — every registered canonical passes by the records path,
+  which does check C3 — but two review instruments carried a latent false-PASS.
+- **A software attribution was wrong, and is withdrawn rather than replaced.** Substituting a
+  corrected characterisation would mean describing a source that is not in the tracked corpus, so
+  the claim was removed instead.
+
+Each of these is recorded with its evidence, and with the reviewer who raised it acknowledged, in
+[CORRECTIONS.md](CORRECTIONS.md).
+
+### Certificates, and an encoder that emitted clauses nothing read
+
+The fourth two-rule core's certificate shipped, taking the archive from 21 to 22, and all 22 now
+verify under the formally verified checker. [CLAIM_TO_ARTIFACT.md](CLAIM_TO_ARTIFACT.md) row 12
+records the replay: `bash reports/certificates/verify_all.sh` → **22/22 `PASS cert`, zero FAIL,
+executed 2026-09-02 on the shipped tree**. Two hazards are recorded on that row and beside it because
+each can manufacture a false PASS: the checker exits 0 on failure as well as on success, and its
+default heap and stack exceed an 8 GB host.
+
+`--sat-c3 adder` was emitting the pseudo-Boolean mode's full auxiliary scaffolding — the 262,144
+`pair[v][i][j]` variables and their 786,432 definitional linking clauses — and then producing no
+adder network at all, its own metadata marking the mode deferred/superseded. The scaffolding is
+removed; `adder` is now byte-identical to `none`, and its clause sha **moved, intentionally**, which
+[SOLVE_PY_CLI.md](SOLVE_PY_CLI.md) says outright so the move is not read as a regression. No
+model-count proof was needed: the linking is a full Tseitin AND-definition, so removing a defined
+variable together with its definition cannot change the projected count.
+
+### A limit on the ranking, published rather than left implicit
+
+The full-31 ranking's total order — the comparator that makes a rank mean anything — existed only in
+a source comment and is now on the page. An independent reader written from the format specification
+alone agrees with the engine on all 26,112 walks at n = 9
+([FULL31_EXACT_AGGREGATES.md](../reports/FULL31_EXACT_AGGREGATES.md)).
+
+🔴 **What that does not fix is now stated too.** Every published check on the `f` ladder is a
+**linear functional** of the layer's values ([GT_LADDER_FORMAT.md](GT_LADDER_FORMAT.md)), so a
+perturbation orthogonal to the continuation counts satisfies every mass and cut identity exactly
+while changing individual ranks. The gates are not weak; they are the **wrong shape** — they
+constrain the values collectively, and a rank consumes them individually. The only pin we know of is
+exhaustive entry-level verification, and it was **declined**; this note is published in its place,
+with an instruction to revisit if any claim comes to depend on a specific rank.
+
+**Attribution, and the usual caution.** The measurements above — the two-ref `rm -rf` census, the
+rotation reproduction, and the certificate replay — are this lane's (Claude, Opus 5) under operator
+direction, and each is reproducible from this repository with the command printed beside it. The
+independent merge re-derivation was a separate model pass (Fable); the review findings the prose
+sweep worked through were raised by an external reviewer (Codex V2). Reviewers are **acknowledged,
+never credited as authors**. None of the above is offered as novel outside this project's own
+record, and corrections are welcome — the refusal rate reported here is itself a measurement of our
+charge sheets, not a claim about anyone else's.

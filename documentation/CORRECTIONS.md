@@ -5698,3 +5698,114 @@ is the sole authority for the count — which is why making it computable here w
   either way; the corrected 8.708× still exceeds it, so the sentence's claim survives and the hedge is
   left as-is rather than sharpened on unpublished bytes.
 - **`solve.c`.** Correct on both the IOPS gate and the recipe table; item 2 above is a doc-only defect.
+
+## 2026-09-02 — a determinism envelope corrected in its source report, and the two HISTORY.md sites the correction did not reach
+
+`documentation/PASS1_TRAJECTORY_DETERMINISM.md`'s headline was corrected on **2026-09-01**: the
+report claimed a far tighter run-to-run agreement, over a node range starting a decade lower, than
+its own seven-row comparison table supports. Only two of those seven rows meet the retired envelope
+and the first row misses it by **165×**; the report's body had already stated the table-supported
+figure twice, so the headline contradicted its own document.
+
+**The correction did not travel.** A day later `documentation/HISTORY.md` still carried the retired
+envelope at **two** sites, in two different shapes — the April-24 trajectory-match paragraph, and
+the findings-directory index line, which had reformatted the same figure into a superscript node
+range. Both are corrected now (prose batch P64), each with a dated callout naming its registry key.
+
+**The census, before → after.** The retired value was searched for as a *value*, not as a shape,
+which is what found the second site: a page that has reformatted a wrong number no longer looks
+wrong. Over the tracked corpus, live carriers of the retired envelope went **2 → 0**, both in
+`documentation/HISTORY.md`. Three neighbours were checked and deliberately **not** swept:
+
+- `documentation/README.md`'s findings index already carried the corrected figure — under 1% from
+  10¹¹ to 10¹³ with the 10¹⁰ row named as a startup transient — and is correct as written. (The
+  charge sheet named this site as `README.md:52`; the file is `documentation/README.md`, and the
+  repository-root `README.md` contains no form of this figure at all.)
+- `documentation/PASS1_TRAJECTORY_DETERMINISM.md` quotes the retired wording inside its own
+  retraction note, which is the legitimate narration of it.
+- the `~0.2%` / `~0.5%` new-cell contributions in the 3-point scaling trajectory are a *different*
+  measurement and stand untouched.
+
+**Registered:** `RP-17381934` and `RP-501fb35a` in `documentation/RETRACTED_PHRASES.tsv`, one per
+shape, because a single needle would have matched only one of the two sites. Both were verified at
+registration to match the two defective sites and nothing else in the tracked corpus, and neither
+matches the source report's own retraction note — one intervening word separates them.
+
+**What is corrected, and what is merely narrower.** This is **not** a re-measurement. The corrected
+envelope is read off the table that was already published. What the correction does is shrink the
+claim to the evidence that exists.
+
+**A limit on that evidence, which the source report states and this ledger repeats.** The
+comparison's second column comes from a run whose log was **never archived**, and no public script
+recomputes it, so the seven ratios cannot be re-derived by a reader. The **first** column can be,
+and was, at correction time — from the log shipped in this repository:
+
+```
+$ gzip -dc runs/20260422_passA_10T_d64_laggard/22_0_30_1_20_0/run.log.gz \
+  | awk '/B nodes,/ && /sol,/ {gsub(/B/,"",$1); n=$1+0; gsub(/M/,"",$3); s=$3+0; N[++c]=n; S[c]=s}
+         END{split("10 30 100 300 1000 3000 10000",T," ");
+             for(i=1;i<=7;i++){t=T[i]+0; b=1;
+               for(j=1;j<=c;j++) if((N[j]>t?N[j]-t:t-N[j]) < (N[b]>t?N[b]-t:t-N[b])) b=j;
+               printf "  target %7dB -> nearest sample %8.1fB, sol = %10.1fM\n", t, N[b], S[b]}}'
+  target      10B -> nearest sample      9.1B, sol =      345.0M
+  target      30B -> nearest sample     27.8B, sol =     1064.5M
+  target     100B -> nearest sample    100.7B, sol =     3667.7M
+  target     300B -> nearest sample    297.0B, sol =     9981.4M
+  target    1000B -> nearest sample    999.9B, sol =    32247.4M
+  target    3000B -> nearest sample   2995.5B, sol =    93205.6M
+  target   10000B -> nearest sample   9997.7B, sol =   298819.9M
+```
+
+All seven reproduce the report's first column exactly. That also settles one thing the report says
+is unsettleable: it states that the node-matching rule "cannot be re-derived by a reader", and the
+rule is **nearest sample** — first-sample-at-or-above does *not* reproduce the column, nearest does,
+on all seven rows. The report's caveat is therefore correct about the second column and too wide
+about the first. Correcting that sentence is owed on
+`documentation/PASS1_TRAJECTORY_DETERMINISM.md`, which this batch did not own; it is recorded here
+rather than left to be rediscovered.
+
+**Attribution.** The census, the two corrections, the registry rows and the reproduction above are
+this lane's (Claude, Opus 5) under operator direction, and each is reproducible with `git`, `grep`,
+`gzip` and `awk`. The charge that opened this item came from the prose queue; its scoping note about
+the neighbouring index line was substantively right and wrong about the path, which is recorded
+above rather than quietly obeyed.
+
+## 2026-09-02 — two `[REFUTED 2026-05-16]` callouts that had been owed in HISTORY.md, and the composite that inherited the refuted factor
+
+`documentation/HISTORY.md` narrates the AVX-512 (#46) null result under its May 18, 2026 entry: a
+definitive 1T paired bench measured AVX2 at 433.0 s against AVX-512 at 434.6 s — **0.9963×**, Welch
+t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected — and the work was closed via REVERT, gcc
+having already auto-vectorized the one loop that benefits.
+
+Two earlier sites in the same file still carried the **1.4–2.0×** projection with no callout: the
+bullet that first stated the ceiling, and the Phase 1 status row that still listed the item as the
+high-value candidate. Both now carry a dated `[REFUTED 2026-05-16]` callout naming the measurement
+that closed it. **The line numbers on the charge sheet had drifted** — the tracked item was recorded
+at `:1510-1514` and `:2610`, and the figures sit at `:1521` and `:2619`; both were located by
+content.
+
+**Census, before → after.** Live carriers of the projection with no refutation callout went
+**2 → 0** in `documentation/HISTORY.md`. Two further sites were examined:
+
+- a third `HISTORY.md` occurrence sits *inside* the refutation narrative itself and needs no
+  callout;
+- 🔴 `documentation/DEVELOPMENT.md` carries the same projection, as a live expectation, with no
+  callout and no reference to the null result. That file was outside this batch's ownership and is
+  **not** fixed here. It is the same class of defect and is recorded so the next pass can close it.
+
+**A sibling the charge did not name.** The CPU-optimization-bundle bullet immediately below the
+first site multiplies the refuted AVX-512 factor into a combined-speedup composite. It is now scoped
+rather than repaired: the composite's premise does not hold as written, no replacement figure is
+substituted because none was measured after the refutation, and the bundle's other factors moved in
+both directions when measured separately. Flagged under the standing caution against banking
+undirected multiplicative composites.
+
+**Not verified, and said plainly.** The three commit hashes the refutation narrative cites as its
+evidence (`cd4e61c`, `b26cd9b`, `0783d52`) **do not resolve on any ref or tag in this repository** —
+checked against the full history and every tag, not a shallow clone. They are v2-lineage commits and
+the v2 lineage is closed. The callouts added here therefore cite the *measured bench figures*, which
+are stated in the narrative itself, and not the commits. Whether those hashes should be annotated as
+unresolvable is a separate question this batch did not settle.
+
+**Attribution.** Located and corrected by this lane (Claude, Opus 5) under operator direction; the
+owed-callout item was raised by an earlier batch in the same lane and had gone unwritten.
