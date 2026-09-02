@@ -5579,3 +5579,122 @@ table row for row — 1T 6315458, 5.6T 35361598, 10T 63146557, 11.2T 70723196, 1
   which is true of four rows and false of the two deepest, where recipe and floor coincide exactly.
   The rule it defends is right; only its justification overreaches. It is a source-comment change and
   is queued for the code lane, not made here.
+
+## 2026-09-02 — CANONICAL_HASHES.md: three derived figures that do not reproduce — a compression ratio built from mixed units, a retired IOPS floor that survived only where it was load-bearing, and a ninth witness that was an intention
+
+Prose batch P47, charge `UNREPRODUCIBLE_DERIVED_FIGURES` against `documentation/CANONICAL_HASHES.md`.
+Three charges, all TRUE and LIVE, all from Codex reviews (V2-F25 #10/#11/#12, corroborated for the
+third by V2-F43 #8, the only one of the four already adjudicated ACCEPTED). Each is a number the
+registry publishes that cannot be re-derived from what the registry publishes. One census correction
+upward and one downward are recorded below, and one of the two Codex prescriptions is declined.
+
+### 1. A compression ratio assembled from a decimal numerator and a binary denominator (`RP-9788f906`)
+
+The v2 100T row published its gzip ratio beside the two byte counts that determine it, and the ratio
+did not follow from them. MEASURED: the archive is 13,462,264,289 bytes; the logical artifact, per
+this document's own §Format size convention, is `3,663,580,914 × 32 + 32 = 117,234,589,280` bytes;
+the quotient is **8.708×**, not the value published. The mechanism is exactly reconstructible rather
+than merely plausible — 13,462,264,289 bytes is **12.54 GiB**, the logical size is **117 GB decimal**,
+and dividing the second by the first reproduces the retired figure to three significant digits. A
+figure sitting between the two operands that contradict it is the easiest kind to leave standing,
+because nothing in the sentence looks unsourced.
+
+Both sites now state the operands in bytes and carry the one-line command that derives the ratio, so
+the number is checkable without any archive access. No sha256, record count, file size or archive
+location is affected: this is a derived field only. It is not cosmetic in the one use the figure has
+— storage or transfer planning at the retired ratio under-allocates compressed capacity by ~7%.
+
+**CENSUS CORRECTED UPWARD.** The charge named one site. A whitespace-flattened sweep for the
+*retired* value found **two**: the registry's frozen-lineage section and `HISTORY.md`'s 2026-05-23
+v2 100T entry, which is where the mixed units are actually visible ("117 GB → 12.54 GB"). The
+registry site had been rewritten into bytes at some point and so no longer displayed the unit error
+it inherited — the sweep for the withdrawn figure found it anyway, which a sweep for the class would
+not have.
+
+### 2. A gate criterion retired in code three months before it was retired in this document (`RP-c410da42`)
+
+The `SOLVE_SKIP_IOPS_CHECK=1` bullet named a fixed single-thread fsync/sec floor as the disk-IOPS
+pre-flight's criterion. **No such floor is in the shipped binary.** It was the task-#107 design of
+2026-05-27 and was retooled away by task #115 on 2026-05-29 *because it was mis-calibrated*:
+`solve.c`'s own retool comment records that single-thread fsync is latency-bound and that no
+network-attached managed disk reaches the rate (HDD 134/sec, Premium P40 218/sec measured), so the
+gate fired on every durable-disk canonical run.
+
+The shipped gate is a ratio, not a rate: a concurrent probe over `min(threads,32)` workers measures
+aggregate throughput, and the launch is refused when projected `fsync_wait / est_wall > 0.25`.
+Because `expected_fsyncs` and `est_wall` are both linear in `SOLVE_NODE_LIMIT`, **the node budget
+cancels**, and the implied aggregate floor is `threads / (1.4 × SOLVE_FSYNC_BATCH_SIZE × 0.25)`
+fsync/sec — **≈366/sec at the canonical 128 threads with batch 1**. That derivation, and the command
+that evaluates it for any thread count, are now on the page; there was previously no way to obtain
+the criterion from the document at all.
+
+**Why this one was worth the space: the error was fail-open for the reader.** A host measuring 500
+aggregate fsync/sec *passes* the real gate at 128 threads, and this bullet instructed its operator to
+disable the gate — surrendering the protection against a genuinely fsync-bound disk that the gate
+exists to provide. That is the same shape as the pre-flight failures catalogued elsewhere in this
+ledger: a numeric check that cannot fail its target, sitting immediately before real compute.
+
+**CENSUS CORRECTED DOWNWARD, in the useful direction.** Three occurrences of the retired rate exist
+in the corpus; **only this one was live**. `HISTORY.md`'s #115 entry and `SOLVE_C_CLI.md`'s exit-code
+31 row both narrate it as superseded and both state the ratio form correctly — so the single site
+that still asserted it was the operational one, in the document a launcher author reads. `solve.c` is
+**deliberately not changed**: the code has been right since 2026-05-29 and this was a documentation
+defect only.
+
+### 3. A ninth witness that was written as an intention and closed as a fact (`RP-8c9b7bd3`)
+
+The d3 11.2T section carried three different counts for one campaign: a heading of eight, a table of
+seven data rows, and a trailing sentence saying a 2026-06-13 re-derive was archived to add a ninth.
+Codex V2-F43 #8 was adjudicated ACCEPTED on the first two; V2-F25 #12 filed the third separately and
+prescribed renumbering the heading down to seven.
+
+**That prescription is declined, on the same evidence that declined its twin in `HISTORY.md`.** The
+eighth path is real and locatable: the post-`#45` patched-binary fresh full-enum of 2026-05-04
+04:21Z, which reproduced `0c0fe37c…` byte-identically and is recorded in `HISTORY.md` under "May 4 –
+May 5, 2026 PDT". Prose batch P43 restored it to `HISTORY.md`'s method-indexed roster after the same
+eight-versus-seven discrepancy was charged there; it belongs equally in this build-indexed table,
+where it is a distinct binary shared with no other row. Renumbering the heading would have deleted a
+real validation path from the public record for the second time. **The row has been added instead**,
+and the heading, the table, and the two restatements in §Quick reference and §Validation status now
+all read eight.
+
+The ninth is a different matter and is **withdrawn rather than repaired**, because it was never
+evidenced. Git history settles the provenance: the sentence was written 2026-06-13 with the re-derive described as *in flight* and the further
+witness named in the infinitive as its **purpose** — a statement of intent about an unfinished run. (The
+retired wording is not quoted here: it is registered, and quoting it would reintroduce into the corpus the
+exact string GATE 3 now exists to keep out.) A 2026-07-04 consistency sweep closed the in-flight wording to the past tense on the
+evidence that the 3-point trajectory analysis had consumed the run, and carried the purpose clause
+across unchanged. Consumption is evidence the run **completed**; it is not evidence its **sha
+matched**, and a witness is the second claim. **No sha attestation for that run is published anywhere
+in the tracked corpus** — checked in both directions, including the fact that it has no entry in the
+section's own Archives list, which every other witness campaign does. It is therefore not counted. If
+the run's sha and host tuple are published later it becomes a table row, and the count moves with the
+table rather than ahead of it.
+
+**A definition that was never given.** Neither the heading nor any restatement said what made a path
+independent, so a reader could not tell whether re-merges, rebuilt binaries or thread-count variants
+counted. The criterion is now stated — a row must differ from every other in source commit, build
+flags, physical host, CPU architecture, or merge path — together with a command that recomputes the
+count from the table's own rows, so the heading can no longer drift from what it introduces.
+
+**Verified in the other direction too.** V2-F43 #8 also cited `PARTITION_INVARIANCE.md:294` as
+restating the count as seven. That site no longer states a number: it now names this table as "the
+witness list of record" and defers. So the charge's two sites were one live site, and this document
+is the sole authority for the count — which is why making it computable here was the fix.
+
+### What was deliberately not changed
+
+- **The power-law fit.** `records ∝ T^α with α ≈ 0.67`, its pairwise legs 0.69 and 0.65, and the
+  ≈16.7 B projection at 1120T carry no reproduction command anywhere public, so they were examined as
+  a fourth candidate under this batch's charge. They were left alone because they **do** reproduce:
+  re-derived this batch from the three published record counts, the 3-point log-log slope is 0.6727,
+  the legs are 0.6889 and 0.6504, and `10,525,271,997 × 2^0.6727 = 16.78 B`. The published figures are
+  correct to their stated precision. A repro command would still be an improvement, but the charge is
+  for figures that do not reproduce, and adding one here would ripple into `HISTORY.md`,
+  `LEADERBOARD.md`, `PROJECT_OVERVIEW.md`, TR-4 and `viz/`, which is a separate sweep. Recorded so the
+  next batch inherits the measurement rather than repeating it.
+- **The `~8×` v2 11.2T compression precedent** quoted in `HISTORY.md` beside the ratio corrected
+  above. The v2 11.2T archive's compressed size is not published, so the comparison cannot be checked
+  either way; the corrected 8.708× still exceeds it, so the sentence's claim survives and the hedge is
+  left as-is rather than sharpened on unpublished bytes.
+- **`solve.c`.** Correct on both the IOPS gate and the recipe table; item 2 above is a doc-only defect.
