@@ -34,10 +34,12 @@ popcount-parity classes. Finally, the circular form of C2 ("no 5-line transition
 is a *genuine* extra constraint: valid linear orderings with a 5-line wrap exist (SAT-decided, explicit
 witness) even though exactly zero appear among the 10,525,271,997 records of the deepest canonical slice;
 the full-space wrap-distance masses are measured at d=1: 17.5%, d=3: 65.2%, d=5: 17.4% (2×10¹⁰
-weighted-Knuth probes; independently reproduced by the archived v2.0 r6 run —
-[`evidence/r6/rc1c_primary.out`](evidence/r6/rc1c_primary.out): 17.45 / 65.18 / 17.37% — agreeing
-within 0.05 percentage points per class; per-class ± figures were not emitted by the instrument, so
-the two-run agreement is the published uncertainty statement). The operator's
+weighted-Knuth probes; the archived v2.0 r6 run —
+[`evidence/r6/rc1c_primary.out`](evidence/r6/rc1c_primary.out): 17.45 / 65.18 / 17.37% — agrees
+within 0.05 percentage points per class, but it is a **partially overlapping replicate, not an
+independent draw**: it shares half its probes with the primary run (§5). The instrument has printed
+per-class SEs since 2026-08-28 and the archived artifacts predate that field, so **no ± figure is
+published for these masses**). The operator's
 documented decision: circular C2 is *not* promoted into the constraint system — the circular reading is
 McKenna's interpretive frame, not an attested property of the received artifact.
 
@@ -45,7 +47,9 @@ McKenna's interpretive frame, not an attested property of the received artifact.
 1. **The circular frame and its provenance.** McKenna & McKenna (1975, *The Invisible Landscape*, Part
    Two, Ch. 9) constructed their difference wave over 64 transitions *including* the wrap s₆₃ → s₀ (KW's
    wrap has Hamming distance 3) — the circular reading is theirs, with full attribution (CITATIONS.md,
-   [MCKENNA.md](../documentation/MCKENNA.md)). What closure does *not* touch: C1, C3, C4 are position/pair properties, unaffected. What
+   [MCKENNA.md](../documentation/MCKENNA.md)). What closure does *not* touch: C1, C3, C4 are position/pair properties, unaffected *by closure* —
+   note that C3 is an **absolute-position** functional, so "unaffected by closure" does not make it
+   rotation-invariant (§6). What
    it touches: the transition multiset (C5) gains a 64th member, and C2 acquires a 64th application — the
    wrap itself.
 2. **The wrap-parity theorem, three ways.** For any sequence satisfying C4 and C5, the wrap distance
@@ -78,12 +82,18 @@ McKenna's interpretive frame, not an attested property of the received artifact.
    does not measure full-space rarity — and the full-space wrap-distance masses are now MEASURED (2×10¹⁰
    weighted-Knuth probes, 2026-07-03; estimator per METHODS.md; mass ratios are
    heavy-tail dominated — small probe budgets will not resolve them):
-   **d=1: 17.5%, d=3: 65.2%, d=5: 17.4%**. Uncertainty, stated from archived artifacts (2026-07-26):
-   the instrument prints point masses without per-class CIs, so no ± figure is quoted; instead the
-   independent 2×10¹⁰-probe v2.0 r6 run ([`evidence/r6/rc1c_primary.out`](evidence/r6/rc1c_primary.out),
-   2026-07-10) re-measured the same three masses at **17.45 / 65.18 / 17.37%** — two independent draws
-   agreeing within **0.05 percentage points per class**, which bounds the run-to-run scatter at the
-   precision every figure here is quoted to. The 5-wrap orderings that
+   **d=1: 17.5%, d=3: 65.2%, d=5: 17.4%**. Uncertainty: **none is published for these masses.** The
+   archived artifacts (2026-07) predate the estimator's per-class `se=` field, which landed 2026-08-28
+   ([METHODS.md](METHODS.md) §"Statistics conventions"), so they carry point masses only. And the
+   2×10¹⁰-probe v2.0 r6 run ([`evidence/r6/rc1c_primary.out`](evidence/r6/rc1c_primary.out),
+   2026-07-10), which re-measured the same three masses at **17.45 / 65.18 / 17.37%**, is a
+   **partially overlapping replicate, not a second draw**: neither artifact carries a `SEED OVERRIDE`
+   line, so both ran on the fixed base seed, and the estimator seeds worker *i* as
+   `base ^ ((i+1)·0x9E3779B97F4A7C15)` — by thread index alone. The 32-thread primary and the 64-thread
+   rerun therefore replay the same first 312.5×10⁶ draws on each of threads 0–31, so **10×10⁹ of each
+   run's 20×10⁹ probes are literally the same probes**. The 0.05-percentage-point agreement is
+   arithmetic, not evidence; it bounds nothing. A genuine run-to-run scatter requires reruns under
+   distinct `SOLVE_KNUTH_SEED` values, quoting the emitted `se=` values; that is open. The 5-wrap orderings that
    no budgeted slice has ever contained are between a fifth and a sixth of the full space; circular C2
    would cut the space by ×1.21.
 6. **The non-promotion decision, on the record.** Operator decision 2026-07-03: circular C2 is documented,
@@ -94,11 +104,16 @@ McKenna's interpretive frame, not an attested property of the received artifact.
    the current lineage at every published canonical scale (zero 5-wrap records exist in any slice —
    divergence begins only in territory no budget has reached, as the SAT witness proves); as a prune it
    would change node consumption and open a new sha lineage. Neither is warranted. Closure also invites a
-   larger symmetry question — without C4, a circular system would be invariant under the 32 pair-slot
-   rotations as well as the B₃ relabelings — but under the actual system (C4 kept) the circular reading
-   changes nothing about the symmetry group.
+   larger symmetry question — without C4 **and with a circularized C3** (minimum circular displacement),
+   the 32 pair-slot rotations would be symmetries of a circular system, alongside the B₃ relabelings.
+   Under the C3 this report actually uses, which is absolute-position and is *not* redefined by closure
+   (§1), it is not: **21 of the 31 non-identity pair-slot rotations of KW exceed the 776 ceiling** —
+   rotate-4 gives 888, rotate-16 gives 1240, the maximum is 1320 and only 10 rotations survive. The
+   circular transition multiset is preserved exactly under rotation, so C1, circular C2 and C5 survive
+   it and **C3 alone breaks it**; dropping C4 therefore yields no C₃₂ action on the C1–C5 space at all.
+   Under the actual system (C4 kept) the circular reading changes nothing about the symmetry group.
 
-⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command in this document.** Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)*
+⚠ **Every `--estimate-knuth` command in this document requires a stack limit of at least 16 MB** — `ulimit -s 16384` suffices, and `ulimit -s unlimited` is one way to satisfy it, not the requirement itself. Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)* *(Narrowed 2026-09-02, Codex V2-F08 #4, prose batch P37: `ulimit -s unlimited` is a **sufficient** setting that had been published as a **necessary** one — and one that a host or container with a hard stack cap cannot even apply, so the published requirement was a false blocker there. `solve.c`'s `--estimate-knuth` preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB". EXECUTED under TR-9 v1.24 on a locally built binary: `ulimit -s 8192` refuses and exits 1, `ulimit -s 16384` runs the estimator to completion. `solve.c`'s own remedy line still prescribes only `unlimited` and is queued to offer both. This is the sibling propagation of the narrowing TR-9 made on 2026-09-02 and reported but did not sweep.)*
 
 ## Verification Guide
 - Wrap-parity theorem, statement + proof: documentation/SPECIFICATION.md §Theorem (Wrap-around parity is
@@ -114,11 +129,17 @@ McKenna's interpretive frame, not an attested property of the received artifact.
 - Wrap-d5 witness: `python3 sat.py --witness wrap-d5` → the explicit 64-hexagram sequence in
   [documentation/CIRCULAR_KING_WEN.md](../documentation/CIRCULAR_KING_WEN.md), C1–C5-valid, wrap d = 5
 - Full-space wrap masses: `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (2×10¹⁰ probes,
-  the budget behind the published 17.5/65.2/17.4% figures; the scorer prints point masses without
-  per-class CIs — the published uncertainty statement is the two-run agreement in §5
+  the budget behind the published 17.5/65.2/17.4% figures; the scorer has printed per-class `se=`
+  since 2026-08-28, but the archived artifacts predate the field and **no ± is published for these
+  masses** — the r6 rerun is a partially overlapping replicate, not an independence check (§5)
   — and mass *ratios* are heavy-tail dominated, so small budgets (~10⁵ probes) will NOT
   reproduce them; this is an hours-scale run on many-core hardware. Method self-validation in
   [documentation/SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md))
+- Rotations break C3 (§6: 21 of 31, rotate-4 = 888, rotate-16 = 1240) — reproduce in seconds from this
+  repository's own clean-room C3, no build required:
+  `python3 -c "import verify as v; c=v.c3_of_ordering; r=lambda k:[(s+k)%32 for s in range(32)]; print(c(r(0)), c(r(4)), c(r(16)), sum(c(r(k))>776 for k in range(1,32)))"`
+  → `776 888 1240 21`. (`c3_of_ordering` reads the pair-slot map; cross-checked against
+  `verify.compute_comp_dist` on the reconstituted 64-hexagram sequence, which returns the same values.)
 - 16-alternation corollary ingredients: documentation/PARITY_ALTERNATION.md + Lean
   `alternations_15_general`
 - Non-promotion decision + rationale: documentation/CIRCULAR_KING_WEN.md §Status decision (operator,
@@ -140,10 +161,16 @@ always.*
 
 [Peter Meyer](../documentation/CITATIONS.md#meyer1998) (1998, web) published the complete cyclic line-change sequence of the King Wen order —
 the 64 Hamming distances including the wraparound term — with an explicit XOR-and-popcount
-formalization (see CITATIONS.md). His data thus contains the wrap value d=3 this report analyzes,
-decades before this work; the wrap-parity theorem, the d in {1,3,5} space analysis, and the
-17.4%-vs-absent measurement remain, to our knowledge, first stated here. Found during a bibliography
-review 2026-07-04; corrections welcome.
+formalization. ⚠ **This attribution rests on an unrepeatable read.** The page was read first-hand on
+2026-07-04 and has since gone: `serendipity.li/dna/kws.html` returned 404 when re-checked 2026-08-01
+and the Internet Archive holds **zero captures of it**, so no reader can retrieve it and this project
+cannot **re**-verify its content. See the [Meyer 1998](../documentation/CITATIONS.md#meyer1998) entry,
+which also records that an earlier attempt to source Meyer's priority quoted a *McKenna*-authored page
+and was withdrawn as circular. What is credited to Meyer here is therefore reported, not verifiable:
+the wrap value d = 3 and the absence of distance-5 **as stated claims** belong to **McKenna & McKenna
+(1975)**, which is in print and citable, and no ROAE novelty claim rests on the Meyer entry. The
+wrap-parity theorem, the d ∈ {1,3,5} space analysis, and the 17.4%-vs-absent measurement remain, to
+our knowledge, first stated here. Found during a bibliography review 2026-07-04; corrections welcome.
 
 ## Corollary (added v1.8): exactly 32 parity switches in every circular reading
 
@@ -207,11 +234,23 @@ order, pair-counting, with only a mild residual tilt toward d = 3. (Hedge: the b
 reference, not a null; per-class CIs are heavy-tail dominated per §5; the per-pair spread within classes
 is unknown except for A₂.)
 
-**This re-prices Cook's anchor.** Against the naive 1/31 ≈ 3.2% the measured 7.84% looks like a ×2.4
-enrichment, but the parity-forced eligibility baseline is 1/16 = 6.25%, so of that apparent enrichment
-×1.9 is parity-forced (it holds for *every* C4+C5 ordering) and only **×1.25 is the contingent residual**
-(7.84 / 6.25). Within its own d = 3 class A₂ carries 7.84% against a 6.52% class average (the other nine
-d = 3 closers average 6.37%) — mildly, not dramatically, over-represented.
+**This re-prices Cook's anchor.** Against the naive 1/31 ≈ 3.2258% the measured 7.84% looks like a ×2.4
+enrichment. Splitting that requires a baseline, and the defensible baseline is the **measured** one, not
+a counted one: within its own d = 3 class A₂ carries 7.84% against a **6.52% class average** (the other
+nine d = 3 closers average 6.37%) — mildly, not dramatically, over-represented. Against that measured
+class mass, **×2.02 of the apparent enrichment tracks class structure** (6.52 / 3.2258) and **×1.20 is
+the A₂-specific residual** (7.84 / 6.52); the two compose to the ×2.4 observed.
+
+The bare counting baseline 1/16 = 6.25% is a **reference, not a null**, and the split it supports is
+withdrawn. Turning the theorem's 16-element eligibility *support* into a probability of 1/16 needs
+exchangeability across the 16 eligible pairs, which is not proven here — T2ii above says only that
+eligibility is necessary, and the per-pair spread inside a class is unknown except for A₂ — and the
+measured class masses already show the assumption failing: 65.2 / 17.5 / 17.4% against the
+counting baseline 62.5 / 18.75 / 18.75%. *(Through v2.2 this paragraph published the counting split
+×1.9 parity-forced · ×1.25 contingent as though 1/16 were a null; corrected v2.3 to the measured
+×2.02 · ×1.20. The two sibling statements of the counting split — [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)
+§2(d) and [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md)
+§3 — are adjudicated separately and are still outstanding.)*
 
 **Measured circular anchor adjacency (v2.0).** What remains genuinely contingent is the adjacency
 *placement* itself. Its circular population frequency — R-C1c, the weighted C1–C5-mass fraction in
@@ -274,4 +313,6 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
 | v1.9 | 2026-07-10 | "The anchors on the circle" section added: anchor-transition rigidity (T1) + seam eligibility (T2i) + pair-determined 10:3:3 wrap classification (T2ii) — elementary, exhaustively finite-verified (Lean formalization planned); Cook's final-pair anchor re-priced against the parity-forced 1/16 eligibility baseline (apparent ×2.4 = ×1.9 forced · ×1.25 contingent). Circular anchor-adjacency population frequency (R-C1c) and circular-space size |C_circ| pre-registered but PENDING measurement (walks not yet run). |
 | v2.0 | 2026-07-10 | R-C1c and \|C_circ\| measured (evidence `reports/evidence/r6/`): circular anchor adjacency = 13.05% of C1–C5 mass (slot 32 = 7.85%, reproducing the R-C1 gate; slot 2 = 5.20%, the largest non-final slot — U-shaped A₂ histogram), vs pre-registered references 6.45% uniform-slots / 7.84% eligibility lower bound; \|C_circ\| = 0.652·N_lin + 0.175·6.507×10³⁷ ≈ 9.80×10³⁷ ≈ 0.74× the linear space. Report-only; no promotion. |
 | v2.1 | 2026-07-20 | **Conditional-forcing correction (adversarial-review F-14a).** §3's "forced by the constraint system, an artifact of no design choice at all" restated as **forced given C4 + C5** — and therefore not an independent design choice *within* that system — with the added note that C5 is itself a regularity read off King Wen, so "forced" is relative to KW-derived constraints rather than to an unconstrained arranger. The prior phrasing smuggled the KW-derived constraints in as premise. No measurement changed |
-| v2.2 *(current)* | 2026-07-26 | **Wrap-mass uncertainty stated from archived artifacts (round-2 audit, completeness loop 4e G2).** The published 17.5/65.2/17.4% masses always cited "CIs per METHODS" without printing them; the instrument in fact emits point masses without per-class CIs, so no ± existed to print. The abstract and §5 now state the published uncertainty as the two-run agreement: the independent v2.0 r6 rerun (`evidence/r6/rc1c_primary.out`, 2×10¹⁰ probes) re-measured 17.45/65.18/17.37% — within 0.05 pp per class of the published figures. Per-class bootstrap CIs would need a recompute and are left as an open improvement. No mass value changed |
+| v2.2 | 2026-07-26 | **Wrap-mass uncertainty stated from archived artifacts (round-2 audit, completeness loop 4e G2).** The published 17.5/65.2/17.4% masses always cited "CIs per METHODS" without printing them; the instrument in fact emits point masses without per-class CIs, so no ± existed to print. The abstract and §5 now state the published uncertainty as the two-run agreement: the independent v2.0 r6 rerun (`evidence/r6/rc1c_primary.out`, 2×10¹⁰ probes) re-measured 17.45/65.18/17.37% — within 0.05 pp per class of the published figures. Per-class bootstrap CIs would need a recompute and are left as an open improvement. No mass value changed |
+| v2.3 | 2026-09-02 | **Four Codex V2-F09 corrections (prose batch P36).** (1) §6's rotation claim was false: without C4 the 32 pair-slot rotations act as symmetries of a circular system only if C3 is *also* circularized. Under this report's absolute-position C3, **21 of the 31 non-identity rotations of KW exceed the 776 ceiling** (rotate-4 = 888, rotate-16 = 1240); the sentence now says so, §1 carries the matching caveat that "unaffected by closure" is not rotation-invariance, and the Verification Guide gains a one-line reproduction from `verify.py`'s clean-room C3. The identical sentence at documentation/CIRCULAR_KING_WEN.md §"Symmetry under closure" was corrected in the same pass. (2) The published uncertainty statement is **withdrawn**: the r6 rerun is not an independent draw. Neither archived artifact carries a `SEED OVERRIDE` line, and the estimator seeds worker *i* by thread index alone, so the 32-thread and 64-thread runs share 10×10⁹ of their 20×10⁹ probes; the 0.05-pp agreement is arithmetic. The companion "no per-class CIs" premise was also stale — the instrument has printed `se=` since 2026-08-28 (METHODS.md), though the 2026-07 artifacts predate the field. Abstract, §5 and the Verification Guide now all state that **no ± is published for these masses**. (3) The Cook-anchor split ×1.9 forced · ×1.25 contingent assumed exchangeability across the 16 eligible pairs, which is unproved and which the same paragraph's measured class masses contradict; recomputed against the **measured** 6.52% d = 3 class average as **×2.02 · ×1.20**, with 1/16 relabelled a reference rather than a null. Two sibling sites (TR-1 §2(d), LITERATURE_RULES_POPULATION_TESTS.md §3) are adjudicated separately and remain outstanding. (4) The Meyer (1998) prior-art note stated the document's content flatly; the source 404'd in 2026-08 with zero Wayback captures, so the note now marks the read unrepeatable and credits the wrap value and no-5 property as stated claims to McKenna & McKenna (1975), as CITATIONS.md already did. No measurement, theorem or canonical sha changed; two published ratios changed and both are recomputations from figures already printed in this report |
+| v2.4 *(current)* | 2026-09-02 | **Stack requirement narrowed to what the binary enforces (prose batch P37, Codex V2-F08 #4; wording only).** The `--estimate-knuth` warning published `ulimit -s unlimited` as REQUIRED. It is a **sufficient** setting, not a necessary one, and on a host or container whose hard limit forbids `unlimited` the published requirement was a false blocker. `solve.c`'s preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB"; executed under TR-9 v1.24, `ulimit -s 8192` refuses and exits 1 while `ulimit -s 16384` runs the estimator to completion. The banner now states "at least 16 MB (`ulimit -s 16384` suffices)" with `unlimited` named as one sufficient setting. This is the sibling sweep TR-9 v1.24 reported but did not perform. No figure, count, command, claim or scope changes |

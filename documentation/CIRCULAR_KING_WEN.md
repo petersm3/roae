@@ -6,7 +6,8 @@ as McKenna & McKenna (1975) did in constructing the difference wave (their count
 including the wrap; see [MCKENNA.md](MCKENNA.md) and [CITATIONS.md](CITATIONS.md))?
 
 ## What carries over unchanged
-- **C1, C3, C4** are position/pair properties, unaffected by closure.
+- **C1, C3, C4** are position/pair properties, unaffected by closure. (C3 is unaffected by *closure*;
+  it is emphatically not invariant under *rotation* — see §"Symmetry under closure".)
 - **The wrap-around parity theorem** ([SPECIFICATION.md](SPECIFICATION.md)): for any C4+C5 sequence the
   wrap distance d(s₆₃, s₀) is odd — proven via the XOR parity identity. KW's wrap is d = 3.
 - **McKenna's 3:1 even:odd transition ratio** is the circular reading of that theorem plus C5 (16 odd of
@@ -38,10 +39,22 @@ of the linear solution set. Its absence from the 560T slice is a slice phenomeno
 the full-space wrap-distance masses are now MEASURED (2×10¹⁰ probes, 2026-07-03): **d=1: 17.5%, d=3: 65.2%, d=5: 17.4%** — the 5-wrap orderings that no budgeted slice has ever contained are between a fifth and a sixth of the full space, and circular C2 would cut the space by ×1.21.
 
 ## Symmetry under closure
-Closure invites a larger symmetry question: without C4 (which pins the starting pair), a circular
-constraint system would be invariant under the 32 pair-slot rotations as well as the B₃ relabelings —
-a quotient the linear system's C4 deliberately breaks. Under the actual system (C4 kept), the circular
-reading changes nothing about the symmetry group.
+Closure invites a larger symmetry question: without C4 (which pins the starting pair), the 32 pair-slot
+rotations would be symmetries of a circular constraint system, alongside the B₃ relabelings — **but only
+if C3 were dropped or redefined circularly**. With the absolute-position C3 retained — and it is
+retained, per "What carries over unchanged" above — rotations are *not* symmetries: **21 of the 31
+non-identity pair-slot rotations of King Wen exceed the C3 ceiling of 776** (rotate-4 gives 888,
+rotate-16 gives 1240; maximum 1320, only 10 survive). The circular distance multiset {1:2, 2:20, 3:14,
+4:19, 6:9} is preserved exactly under rotation, so C1, circular C2 and C5 survive it and C3 alone breaks
+it. Reproduce from this repository's clean-room C3, no build required:
+`python3 -c "import verify as v; c=v.c3_of_ordering; r=lambda k:[(s+k)%32 for s in range(32)]; print(c(r(0)), c(r(4)), c(r(16)), sum(c(r(k))>776 for k in range(1,32)))"`
+→ `776 888 1240 21`. Under the actual system (C4 kept), the circular reading changes nothing about the
+symmetry group.
+
+*(Corrected 2026-09-02, Codex V2-F32 #1, prose batch P36: this paragraph asserted the rotation
+invariance without the C3 exclusion. The identical sentence at
+[TR-7](../reports/TR7_CIRCULAR_READING.md) §6 was corrected in the same pass; the phrasing is
+registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv).)*
 
 *Attribution: the circular reading of the sequence is McKenna & McKenna (1975); the wrap-parity theorem,
 its 560T measurement, the alternation corollary, and the wrap-d5 SAT decision are ROAE (to our knowledge —
