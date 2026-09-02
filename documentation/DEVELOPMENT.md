@@ -58,9 +58,13 @@ sudo apt-get install -y build-essential zlib1g-dev
   pip install numpy pyarrow scikit-learn matplotlib
   ```
 
-  (Note the deps row in [SOLVE_PY_CLI.md](SOLVE_PY_CLI.md) names
-  `pandas/pyarrow/scipy`; `pandas` and `scipy` are not imported anywhere in `solve.py`,
-  `verify.py`, or `roae.py` — the list above is what the code actually imports.)
+  *(This note used to warn that the deps row in [SOLVE_PY_CLI.md](SOLVE_PY_CLI.md)
+  named `pandas/pyarrow/scipy`. That row was corrected in `98e4a81f` and now reads
+  `numpy`/`pyarrow` for P2, `matplotlib` for `--bivariate`, `scikit-learn` for the
+  KDE modes — matching the list above. Re-verified 2026-09-02: `pandas` and `scipy`
+  are imported nowhere in `solve.py`, `verify.py`, `roae.py`, `sat.py` or `tests.py`.
+  The warning is retired; the only remaining mentions of those two names in the repo
+  are this paragraph and the import-blocking test method described above.)
 - **Lean 4** (only for `lean/`) — via [elan](https://github.com/leanprover/elan), pinned to the
   version the reports name as tested: `elan default leanprover/lean4:v4.31.0`. Memory matters:
   the heaviest files need ~10 GB free RAM to verify (an 8 GB host cannot check
@@ -154,20 +158,36 @@ affecting per-thread rate must append an entry to
 at the top of that file.
 
 Standardized paired-bench harness lives at `scripts/perf_bench.sh`. It runs
-control vs treatment on a single fresh D128als_v7 Spot in westus3, flushes the
-page cache between paired runs, captures enum-only wall (merge wall separately,
-not part of the speedup metric), and emits a JSON block that pastes directly
-into a new entry. Multi-scale: 1B / 1T / 11.2T selectable via `--scale`.
+control vs treatment on a single fresh Spot VM in westus3, flushes the page
+cache between paired runs **and verifies that the flush happened**, captures
+enum-only wall (merge wall separately, not part of the speedup metric), and
+emits a JSON block that pastes directly into a new entry. Multi-scale: 1B / 1T
+/ 11.2T selectable via `--scale` — note the SKU is chosen **per scale**
+(`Standard_D8als_v7` for 1B, `Standard_D128als_v7` for 1T and 11.2T,
+`scripts/perf_bench.sh` `case "$SCALE"`), so a bench is comparable only to
+another bench at the same scale. *(This paragraph previously said "a single
+fresh D128als_v7 Spot" without qualification; corrected 2026-09-02 to match the
+script and `PERFORMANCE_HISTORY.md` §"Standard bench harness".)*
 
-> **Two known harness defects — verified still present 2026-08-30, fix pending.**
-> Do not treat `perf_bench.sh` as turnkey until they are cleared:
+> **Known harness defects.** Two of the three below are cleared; do not treat
+> `perf_bench.sh` as turnkey until the remaining one is.
 >
-> 1. **The provisioned VM cannot build.** The install line installs only
->    `build-essential`, but `solve.c:317` is `#include <zlib.h>` and all three
->    build lines link `-lz`; per §"Build prerequisites" above, a clean Ubuntu
->    24.04 host has no `zlib.h`. Until the script adds `zlib1g-dev`, install it
->    on the bench VM by hand before the build step.
-> 2. **Its `sha` and `records` fields are container-level, not logical.** The
+> 1. ~~**The provisioned VM cannot build.**~~ **CLEARED** — the install line now
+>    reads `build-essential zlib1g-dev`, so the bench VM builds `solve.c`
+>    (`#include <zlib.h>` at `solve.c:317`) without a manual step. Fixed
+>    `bb0b7430`; this note is kept because the paragraph above it told operators
+>    to install zlib by hand and that instruction is now wrong.
+> 2. ~~**The JSON certifies a page-cache flush that may not have happened.**~~
+>    **CLEARED 2026-09-02** — `"page_cache_flushed"` was an unconditional literal
+>    `true` while the flush itself ended `|| true`. Each build now emits a
+>    whole-line verdict token
+>    (`PERFBENCH_PAGE_CACHE_FLUSHED_{N,U}=CONFIRMED|FAILED|UNVERIFIED`), the JSON
+>    reports that status plus a detail string, and anything other than
+>    `CONFIRMED` on both builds sets `"methodology_valid": false`, emits
+>    `PERF_BENCH_METHODOLOGY=VIOLATED` and exits 3. A missing token reads
+>    `UNVERIFIED`, not pass. Gate a caller with
+>    `perf_bench.sh ... | grep -qx PERF_BENCH_METHODOLOGY=OK`.
+> 3. **STILL OPEN — its `sha` and `records` fields are container-level, not logical.** The
 >    script runs `sha256sum solutions.bin` and derives
 >    `records=(BYTES-32)/32` from the on-disk size, and it never sets
 >    `SOLVE_COMPRESS`. Under the #169 gz-framed default (`SOLVE_COMPRESS`

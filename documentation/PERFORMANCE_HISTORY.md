@@ -82,12 +82,17 @@ script at this commit, that overstates it on three counts, and the JSON it emits
   `Standard_D128als_v7` (`scripts/perf_bench.sh:60-62`). Per-scale SKU selection is fine — but it means a bench
   is comparable only to another bench at the same scale, and no entry below should be read as pairing numbers
   across scales.
-- **The page-cache flush is best-effort, and the emitted JSON does not report whether it happened.** The flush
-  line ends `|| true` (`perf_bench.sh:176`), so a failed flush lets the run proceed; the JSON field
-  `"page_cache_flushed"` is nevertheless emitted as an unconditional literal `true` (`perf_bench.sh:254`).
-  Until that field is wired to the flush's real exit status, **`page_cache_flushed: true` in any entry below
-  asserts nothing** — do not read it as evidence the cache was cold. A check that cannot see its target must
-  report false or error, never certify.
+- **The page-cache flush is now verified, and was not before 2026-09-02.** *(Fixed 2026-09-02, code lane.)*
+  The flush used to end `|| true` with the JSON emitting `"page_cache_flushed": true` as an unconditional
+  literal — a bench that never flushed shipped certified-looking JSON. The script now reports what it
+  observed: each build emits a whole-line verdict token
+  (`PERFBENCH_PAGE_CACHE_FLUSHED_{N,U}=CONFIRMED|FAILED|UNVERIFIED`), the JSON carries
+  `"page_cache_flushed"` as that status plus a per-build `page_cache_flush_detail`, and a run whose flush
+  is not `CONFIRMED` for **both** builds sets `"methodology_valid": false`, prints a red banner, emits
+  `PERF_BENCH_METHODOLOGY=VIOLATED` and exits 3. Absence of a token — an aborted or unreachable run —
+  reads as `UNVERIFIED`, not as a pass. **`page_cache_flushed: true` in any entry dated before 2026-09-02
+  still asserts nothing**, because those entries were produced by the unconditional-literal version; do not
+  read them as evidence the cache was cold.
 - **There is no preflight throttle probe or pure-CPU burn-in in the script** — only a comment referring to the
   rule. The 2026-05-18 entry below (§"Important methodological finding — `/proc/cpuinfo` MHz under solve.c load
   is NOT a throttle indicator") establishes that the preflight burn is *mandatory* precisely because
@@ -95,9 +100,10 @@ script at this commit, that overstates it on three counts, and the JSON it emits
   therefore carries **no throttle evidence** unless the operator ran the burn separately and recorded it in the
   entry — several entries below do exactly that, and those are the ones with throttle evidence.
 
-Repairing the script (status-checked flush field; a preflight burn, or an explicit `throttle_probe: absent`
-field) edits `scripts/perf_bench.sh` and is tracked outside this document. This paragraph exists so that no
-entry below is read as certifying conditions the harness never checked.
+The status-checked flush field landed 2026-09-02. **The preflight throttle burn has not** — the script still
+emits no `throttle_probe` field, so a run produced by it carries no throttle evidence unless the operator ran
+the burn separately and said so in the entry. That remainder is tracked outside this document. This paragraph
+exists so that no entry below is read as certifying conditions the harness never checked.
 
 ## Process gate
 
@@ -1526,6 +1532,13 @@ meantime.
    mandatory. The field must carry the flush's real status, and the burn must run or the JSON must say
    `throttle_probe: absent`. The "Standard bench harness" section at the top of this file has been corrected to
    describe what the script does rather than what it was said to do.
+   **➤ [UPDATE 2026-09-02] The flush half is FIXED.** The field now carries `CONFIRMED` / `FAILED` /
+   `UNVERIFIED` from a whole-line verdict token emitted by each build, a non-`CONFIRMED` result sets
+   `"methodology_valid": false` and exits 3, and a run that produced no token at all reads `UNVERIFIED`
+   rather than passing. Red-tested by running the harness on a host with no passwordless sudo: the
+   pre-fix script emitted `"page_cache_flushed": true` and exit 0; the fixed script emits
+   `UNVERIFIED (no-passwordless-sudo)` and exit 3. **The throttle-burn half is still open.** See
+   §"Standard bench harness" above.
 3. **The `[REFUTED 2026-05-16]` callouts promised for `HISTORY.md:1510-1514` and `:2610` do not exist** and need
    to be written, alongside a check that any sentence asserting a marker is "already in place" resolves to an
    actual marker at the named location.

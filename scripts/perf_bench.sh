@@ -8,7 +8,10 @@
 #     feedback_preflight_throttle_probe for the same-SKU 2× variance pattern).
 #   - Two builds compared head-to-head on the same VM (Build N = control,
 #     Build U = treatment); a single VM removes inter-machine variance.
-#   - Page-cache flushed (`echo 3 > /proc/sys/vm/drop_caches`) between paired runs.
+#   - Page-cache flushed (`echo 3 > /proc/sys/vm/drop_caches`) between paired
+#     runs, and the flush is VERIFIED, not assumed: each run reports
+#     CONFIRMED / FAILED / UNVERIFIED and the script refuses to certify a
+#     bench whose flush was not CONFIRMED for both builds.
 #   - Enum-only wall time captured around the `--branch` command, BEFORE
 #     `--merge`. Merge wall is captured separately as a correctness-gate cost,
 #     not a perf metric.
@@ -19,6 +22,17 @@
 #   perf_bench.sh --control-commit <sha> --treatment-commit <sha> [--treatment-pgo]
 #                 [--scale 1B|1T|11.2T] [--branch <p> <o>] [--threads N]
 #                 [--pgo-workload "<cmd>"] [--keep-vm]
+#
+# Exit codes:
+#   0  bench completed AND methodology confirmed (emits PERF_BENCH_METHODOLOGY=OK)
+#   2  bad arguments
+#   1  VM never reachable
+#   3  bench ran but the page-cache flush was NOT confirmed for both builds —
+#      the JSON is emitted with "methodology_valid": false and must NOT be
+#      pasted into PERFORMANCE_HISTORY.md (emits PERF_BENCH_METHODOLOGY=VIOLATED)
+#   4  build or --selftest failed on the VM; no bench produced
+#
+# Gate on it with:  perf_bench.sh ... | grep -qx PERF_BENCH_METHODOLOGY=OK
 #
 # Cost (D128als_v7 Spot ~$0.95/hr westus3):
 #   - 1B scale: ~$0.10 (≤10 min wall)
@@ -110,6 +124,14 @@ $SSH "$ADMIN@$VM_IP" true || { emit "FATAL: ssh never came up"; teardown; exit 1
 
 # ---------- build ----------
 emit "STEP 2: Install + copy source + build both binaries"
+# Per-step raw transcripts. These are the ONLY parse source for the result
+# fields below: they are written synchronously by `tee`, un-indented, so a
+# whole-line `grep -qx` on a verdict token means what it says. (The previous
+# version grepped /tmp/perf_bench_$$.log, which is written asynchronously by
+# the process-substitution `tee` on line 29 and is indented by `sed`.)
+RAW_DIR=/tmp/perf_bench_${LAUNCH_ID}_raw
+mkdir -p "$RAW_DIR"
+
 $SSH "$ADMIN@$VM_IP" 'sudo apt-get update -qq && sudo apt-get install -y -qq build-essential zlib1g-dev' 2>&1 | tail -1 | sed 's/^/  /'
 
 git -C "$REPO" show "${CONTROL_COMMIT}:solve.c"   > /tmp/solve_ctl_${CONTROL_COMMIT}.c
@@ -119,6 +141,10 @@ $SCP /tmp/solve_trt_${TREATMENT_COMMIT}.c "$ADMIN@$VM_IP:solve_trt.c" >/dev/null
 
 $SSH "$ADMIN@$VM_IP" "
     set -e
+    # pipefail is REQUIRED, not cosmetic: every build/selftest line below ends
+    # in \`| tail -N\`, and without pipefail the pipeline status is tail's (always
+    # 0). A failing \`--selftest\` would be reported as a clean build.
+    set -o pipefail
     # Build N (control)
     gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH=\\\"${CONTROL_COMMIT}\\\" -o solve_N solve_ctl.c -lm -lz 2>&1 | tail -2
     sha256sum solve_N
@@ -160,7 +186,16 @@ $SSH "$ADMIN@$VM_IP" "
     fi
     sha256sum solve_U
     ./solve_U --selftest 2>&1 | tail -2
-" 2>&1 | sed 's/^/  /'
+" 2>&1 | tee "$RAW_DIR/build.out" | sed 's/^/  /'
+# `set -uo pipefail` is in force, so this pipeline's status is ssh's. A failed
+# build must NOT fall through to a bench that then reports timings for
+# whichever binary happens to exist.
+if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+    emit "🔴 FATAL: build/selftest failed on the VM (see $RAW_DIR/build.out) — no bench produced"
+    teardown
+    printf '\nPERF_BENCH_METHODOLOGY=VIOLATED\n'
+    exit 4
+fi
 
 # ---------- paired run ----------
 emit "STEP 3: Paired enum-only runs"
@@ -173,7 +208,37 @@ run_enum_only() {
         set +e
         rm -rf run_$BUILD && mkdir run_$BUILD && cd run_$BUILD
         sync
-        echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null 2>&1 || true
+        # --- page-cache flush: ATTEMPT, then REPORT WHAT WAS OBSERVED ---
+        # Three outcomes, all reported explicitly on their own line:
+        #   CONFIRMED  - the kernel accepted the drop_caches write
+        #   FAILED     - the write was attempted and rejected
+        #   UNVERIFIED - the flush could not even be attempted (no sudo, no
+        #                interface, no /proc/meminfo). NOT a pass.
+        # There is deliberately no fourth outcome that means \"assume it worked\".
+        PCF=UNVERIFIED
+        PCF_DETAIL=no-detail
+        CB=\$(awk '/^Cached:/{print \$2; exit}' /proc/meminfo 2>/dev/null)
+        if [ -z \"\$CB\" ]; then
+            PCF=UNVERIFIED; PCF_DETAIL=proc-meminfo-unreadable
+        elif [ ! -e /proc/sys/vm/drop_caches ]; then
+            PCF=UNVERIFIED; PCF_DETAIL=no-drop_caches-interface
+        elif ! sudo -n true 2>/dev/null; then
+            PCF=UNVERIFIED; PCF_DETAIL=no-passwordless-sudo
+        elif ! echo 3 | sudo -n tee /proc/sys/vm/drop_caches >/dev/null 2>&1; then
+            PCF=FAILED; PCF_DETAIL=drop_caches-write-rejected
+        else
+            CA=\$(awk '/^Cached:/{print \$2; exit}' /proc/meminfo 2>/dev/null)
+            if [ -z \"\$CA\" ]; then
+                PCF=UNVERIFIED; PCF_DETAIL=proc-meminfo-unreadable-after-write
+            else
+                PCF=CONFIRMED; PCF_DETAIL=cached_kB_\${CB}_to_\${CA}
+            fi
+        fi
+        # Leading newline so the token owns its line: a verdict token that lands
+        # glued to prior output is invisible to the \`grep -qx\` that reads it.
+        printf '\\n'
+        echo \"PERFBENCH_PAGE_CACHE_FLUSHED_$BUILD=\$PCF\"
+        echo \"PERFBENCH_PAGE_CACHE_DETAIL_$BUILD=\$PCF_DETAIL\"
         START=\$(date +%s%N)
         SOLVE_NODE_LIMIT=$NODE_LIMIT SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 \\
             SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=$THREADS SOLVE_SKIP_AUTOMERGE=1 \\
@@ -197,29 +262,63 @@ run_enum_only() {
     "
 }
 
-run_enum_only N 2>&1 | sed 's/^/  /'
-run_enum_only U 2>&1 | sed 's/^/  /'
+run_enum_only N 2>&1 | tee "$RAW_DIR/N.out" | sed 's/^/  /'
+run_enum_only U 2>&1 | tee "$RAW_DIR/U.out" | sed 's/^/  /'
 
 # ---------- collect ----------
 emit "STEP 4: Collect results + emit JSON"
 
-OUTPUT=$($SSH "$ADMIN@$VM_IP" "
-    for B in N U; do
-        cd run_\$B
-        ENUM_NS=\$(grep 'enum_wall_ns=' solve.log 2>/dev/null || true)
-        echo \"\$B \$ENUM_NS\"
-        cd ..
+# Field extraction, from the raw per-build transcript only.
+bench_field() {  # $1 = build label, $2 = key
+    local raw="$RAW_DIR/$1.out"
+    [ -f "$raw" ] || return 0
+    sed -n "s/^BUILD $1 $2=//p" "$raw" | tail -1
+}
+
+# Page-cache-flush verdict. There are exactly three accepted tokens and the
+# absence of all three is NOT a pass — an unreachable/aborted run leaves no
+# token, and that reads as UNVERIFIED, which fails the methodology gate.
+pcf_status() {  # $1 = build label
+    local b=$1 raw="$RAW_DIR/$1.out" st
+    for st in CONFIRMED FAILED UNVERIFIED; do
+        if [ -f "$raw" ] && grep -qx "PERFBENCH_PAGE_CACHE_FLUSHED_${b}=${st}" "$raw"; then
+            printf '%s' "$st"; return
+        fi
     done
-" 2>&1)
-# Actually, the wall lines went to the orchestrator log, not solve.log. Parse them from stdout.
-ENUM_N_NS=$(grep "BUILD N enum_wall_ns=" /tmp/perf_bench_$$.log | tail -1 | sed 's/.*=//')
-ENUM_U_NS=$(grep "BUILD U enum_wall_ns=" /tmp/perf_bench_$$.log | tail -1 | sed 's/.*=//')
-MERGE_N_NS=$(grep "BUILD N merge_wall_ns=" /tmp/perf_bench_$$.log | tail -1 | sed 's/.*=//')
-MERGE_U_NS=$(grep "BUILD U merge_wall_ns=" /tmp/perf_bench_$$.log | tail -1 | sed 's/.*=//')
-SHA_N=$(grep "BUILD N sha=" /tmp/perf_bench_$$.log | tail -1 | sed 's/.*sha=//')
-SHA_U=$(grep "BUILD U sha=" /tmp/perf_bench_$$.log | tail -1 | sed 's/.*sha=//')
-RECS_N=$(grep "BUILD N records=" /tmp/perf_bench_$$.log | tail -1 | sed 's/.*=//')
-RECS_U=$(grep "BUILD U records=" /tmp/perf_bench_$$.log | tail -1 | sed 's/.*=//')
+    printf 'UNVERIFIED'
+}
+pcf_detail() {  # $1 = build label
+    local b=$1 raw="$RAW_DIR/$1.out" d=""
+    [ -f "$raw" ] && d=$(sed -n "s/^PERFBENCH_PAGE_CACHE_DETAIL_${b}=//p" "$raw" | tail -1)
+    printf '%s' "${d:-no-verdict-token-in-transcript}"
+}
+
+ENUM_N_NS=$(bench_field N enum_wall_ns)
+ENUM_U_NS=$(bench_field U enum_wall_ns)
+MERGE_N_NS=$(bench_field N merge_wall_ns)
+MERGE_U_NS=$(bench_field U merge_wall_ns)
+SHA_N=$(bench_field N sha)
+SHA_U=$(bench_field U sha)
+RECS_N=$(bench_field N records)
+RECS_U=$(bench_field U records)
+
+PCF_N=$(pcf_status N);  PCF_DETAIL_N=$(pcf_detail N)
+PCF_U=$(pcf_status U);  PCF_DETAIL_U=$(pcf_detail U)
+
+if [ "$PCF_N" = CONFIRMED ] && [ "$PCF_U" = CONFIRMED ]; then
+    PAGE_CACHE_FLUSHED="CONFIRMED"
+    METHODOLOGY_OK=1
+else
+    PAGE_CACHE_FLUSHED="NOT CONFIRMED (control=$PCF_N [$PCF_DETAIL_N], treatment=$PCF_U [$PCF_DETAIL_U])"
+    METHODOLOGY_OK=0
+    emit "🔴🔴🔴 METHODOLOGY VIOLATION — page-cache flush NOT confirmed"
+    emit "🔴   control:   $PCF_N ($PCF_DETAIL_N)"
+    emit "🔴   treatment: $PCF_U ($PCF_DETAIL_U)"
+    emit "🔴 The paired runs were NOT cache-isolated from each other. The"
+    emit "🔴 speedup below is NOT a valid perf measurement and must NOT be"
+    emit "🔴 pasted into PERFORMANCE_HISTORY.md. Re-run on a host with"
+    emit "🔴 passwordless sudo, or record the entry as methodology-invalid."
+fi
 
 # Speedup math (avoid bc dep; use awk)
 SPEEDUP_PCT=$(awk -v n="$ENUM_N_NS" -v u="$ENUM_U_NS" 'BEGIN{ if (u>0 && n>0) printf "%.2f", (n-u)*100.0/n; else print "TBD" }')
@@ -251,25 +350,44 @@ cat <<EOF
   "vm_size": "$VM_SIZE",
   "branch": "$BRANCH_PAIR $BRANCH_ORIENT",
   "threads": $THREADS,
-  "_page_cache_flushed_NOTE": "🔴 the field below is a LITERAL, not a measurement: the drop_caches call at run_enum_only ends in `|| true`, so on a host without passwordless sudo the flush silently does not happen and this still says true. Fixing it properly means plumbing the status back from the remote shell through the same BUILD key=value channel the timings use — and that channel has a pre-existing parse issue flagged in this file. Do not trust this field until both are fixed.",
-  "page_cache_flushed": true,
+  "page_cache_flushed": "$PAGE_CACHE_FLUSHED",
+  "methodology_valid": $([ "$METHODOLOGY_OK" -eq 1 ] && echo true || echo false),
   "control": {
     "enum_wall_ns": ${ENUM_N_NS:-null},
     "merge_wall_ns": ${MERGE_N_NS:-null},
     "sha": "${SHA_N:-TBD}",
-    "records": ${RECS_N:-null}
+    "records": ${RECS_N:-null},
+    "page_cache_flush": "$PCF_N",
+    "page_cache_flush_detail": "$PCF_DETAIL_N"
   },
   "treatment": {
     "enum_wall_ns": ${ENUM_U_NS:-null},
     "merge_wall_ns": ${MERGE_U_NS:-null},
     "sha": "${SHA_U:-TBD}",
-    "records": ${RECS_U:-null}
+    "records": ${RECS_U:-null},
+    "page_cache_flush": "$PCF_U",
+    "page_cache_flush_detail": "$PCF_DETAIL_U"
   },
   "speedup_enum_pct": "${SPEEDUP_PCT}",
   "sha_preserved": $([ "${SHA_N:-x}" = "${SHA_U:-y}" ] && echo true || echo false),
-  "artifacts": "$RESULTS_DIR/"
+  "artifacts": "$RESULTS_DIR/",
+  "raw_transcripts": "$RAW_DIR/"
 }
 ==== /PERF_BENCH_RESULT ====
-
-emit "DONE — copy the JSON block above into documentation/PERFORMANCE_HISTORY.md"
 EOF
+
+# The `emit "DONE ..."` line used to sit INSIDE the heredoc above, so it was
+# printed as literal text and never executed.
+emit "DONE — raw transcripts in $RAW_DIR/"
+
+# Machine-readable verdict, on its own line, for a caller to gate on with
+#   scripts/perf_bench.sh ... | grep -qx PERF_BENCH_METHODOLOGY=OK
+if [ "$METHODOLOGY_OK" -eq 1 ]; then
+    printf '\nPERF_BENCH_METHODOLOGY=OK\n'
+    emit "Copy the JSON block above into documentation/PERFORMANCE_HISTORY.md"
+    exit 0
+else
+    printf '\nPERF_BENCH_METHODOLOGY=VIOLATED\n'
+    emit "🔴 DO NOT paste this entry into PERFORMANCE_HISTORY.md — see the banner above"
+    exit 3
+fi
