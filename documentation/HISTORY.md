@@ -192,7 +192,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 | Boundary redundancy structure in 742M | Pairwise joint-survivor counts across all 465 boundary-pairs (2026-04-15) | Boundaries 15-19 are fully redundant: `joint(b1, b2) / min(survivors)` = 1.000 for every pair within the cascade-region {15,16,17,18,19}. Knowing one of these implies all the others. By contrast, boundaries 26 and 27 are highly *independent* of the cascade region (ratios ~0.007-0.010 with boundaries 3-8). This explains why the minimum 4-set picks {2, 21, 25, 27}: 2 catches position-2's high-entropy choice, 21 catches the cascade-end transition, 25 and 27 contribute *independent* information not implied by the others. |
 | Position 2 determines positions 3-19 (16 branches) | Proved by budget via [`--prove-cascade`](../solve.c) | Proved for pairs 1-18; disproven for others |
 | Cascade NOT deterministic for 12 branches | `--prove-cascade` full C3 proof found valid alternatives | Branch 24: all 17 configs valid; varies by branch |
-| Shift pattern (2 options at positions 3-19) | Analysis of 31.6M solutions | Observed universally; driven by C3 not budget |
+| Shift pattern (2 options at positions 3-19) | Analysis of 31.6M solutions | **Superseded — see the two "shift pattern" / "cascade determinism" rows above.** *(Status corrected 2026-09-02, Codex V2-F12 #2, prose batch P43: this read "Observed universally; driven by C3 not budget".)* The 31.6M dataset was undersampled by the file-collision bug. On the corrected 742M, only **2.926%** conform — 21,709,157 fully shift-conforming against 720,334,146 with at least one exception, 742,043,303 total ([`enumeration/analyze_c_742M.txt`](../enumeration/analyze_c_742M.txt) §[5]) — so "universally" was an artifact of the dataset named in this row's own Evidence column. Not driven by C3 either: the 2-option restriction is `--prove-cascade`'s own 2-candidate enumeration, per the cascade-determinism row above. |
 | Self-complementary branches always live | Constructive proof (7 examples verified against [C1-C5](SPECIFICATION.md#constraints)) | Proved |
 | XOR=100001 branches always dead | 10T enumeration observation | Empirical (not formally proved) |
 | Super-pair constraint at position 20 | Per-position analysis | Observed |
@@ -418,7 +418,13 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 **New analytical results consolidated in CRITIQUE.md.** (a) C1 impossibility proofs for de Bruijn B(2, 6) (period-4 contradiction) and all 6-bit Gray codes (Hamming-disjoint). (b) Latin-square C2-rate decomposition with exact reproduction of the empirical 57.96%. (c) King Wen's own adjacency decomposition: 32 within-pair transitions (Hamming 2/4/6 by C1 construction) + 31 between-pair transitions, with the 14:2 odd-transition concentration *(as written at the time; corrected 2026-07-02 — 14:2 is the CIRCULAR reading, the linear between-pair figure is 13:2, see TR-6 §2)* and zero Hamming-5 matching the prior-documented 3:1 even:odd ratio (McKenna 1975 / Cook 2006). (d) Open Questions section with 11 falsifiable follow-ups.
 
-**Aggregate across this batch:** 1.86 billion permutations tested across seven structured and unstructured families. Zero satisfy C1 in any *(scope note 2026-07-26: zero-of-1.86B is across the **six unconditional** families; the seventh, pair-constrained family satisfies C1 by construction — see [CRITIQUE.md](CRITIQUE.md)'s family table)*. The conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen across every tested family. McKenna's "no-5-line-transitions" observation reframed as a likely shared classical design principle across multiple ancient Chinese orderings — not a KW-unique accident.
+**Aggregate across this batch:** 1.86 billion permutations tested across seven structured and unstructured families. Zero satisfy C1 in any *(scope note 2026-07-26: zero-of-1.86B is across the **six unconditional** families; the seventh, pair-constrained family satisfies C1 by construction — see [CRITIQUE.md](CRITIQUE.md)'s family table)*. ⚠ **[CORRECTED 2026-09-02** (Codex V2-F12 #1, prose batch P43) **— two claims that stood in this paragraph are withdrawn, and the aggregate above is annotated rather than rewritten.**
+
+**(i) The 1.86 billion is kept as the 2026-04-19 figure, and it no longer sums the roster printed fifteen to twenty lines above.** Those family lines were later amended in place — `--null-random` went 10⁸ → 10⁹ — and the aggregate was not. The six unconditional families total **2,760,021,104** today: de Bruijn 134,217,728 + Gray orbit 256 + random Gray walks 10⁵ + Latin row×column 1,625,702,400 + lexicographic 720 + random 64-permutations 10⁹. On that same roster with the random row at 10⁸ the total was 1,860,021,104, which is the figure this paragraph rounds. The four `--null-historical` point-tests are not a family and are excluded from both totals; the Latin column×row pass re-traverses the same 8!×8! population as a direction-invariance check and is not double-counted. The current total is carried at [SOLVE.md](SOLVE.md) §"Null model: is the constraint framework special?" and in [GUIDE.md](GUIDE.md)'s aggregate paragraph, both corrected 2026-08-30; the same correction reached neither this page nor three others, which is why the roster arithmetic is spelled out here.
+
+**(ii) The uniqueness claim is withdrawn.** It said the conjunction C1 ∧ C2 ∧ C3 picks out King Wen in all seven families. It holds for the six unconditional ones only — and there it holds vacuously, because C1 is 0% in each, so nothing in them reaches the conjunction at all. In the seventh, pair-constrained family C1 holds by construction and the joint rate is ≈**0.305%**: about **3.06 million of 10⁹** pair-constrained orderings satisfy C2 ∧ C3 as well, so King Wen is not alone there. Measured 2026-08-28 at 0.305832% over 10⁹ draws and reproduced at 0.30478% over 10⁷ by an independently written sampler; re-run 2026-09-02, `python3 scripts/c2c3_joint_null.py` → `P(C2^C3|C1) = 0.30478%`, +16.7σ over the 0.27569% independence product, `C2C3_JOINT_NULL=OK`. See [CORRECTIONS.md](CORRECTIONS.md) 2026-08-28 and [CRITIQUE.md](CRITIQUE.md) §Missing analyses.
+
+**(iii) The shared-classical-design-principle inference is withdrawn**, as it already was fifteen lines above at the `--null-historical` entry on 2026-07-05. The Mawangdui array in use until then was erroneous; the authentic order ([Shaughnessy 2022](CITATIONS.md#shaughnessy2022), Table 11.2) has exactly one 5-line transition at its Kan→Zhen octet seam, so C2 is satisfied by King Wen and Jing Fang only — 2 of 4, not 3 of 4. The 2026-07-05 correction landed at that entry and never travelled the fifteen lines to this paragraph.**]**
 
 ## April 20, 2026 early morning — 100T d3 canonical lands
 
@@ -1405,7 +1411,7 @@ days to resolve:
   Full post-mortem in
   `petersm3/roae-private:CONCERNS_1_2_3_RESOLUTION_2026_05_02.md`.
 
-**8-path equivalence at 11.2T proven (as of May 2, 2026 evening PDT / 2026-05-02 ~22:30 UTC):**
+**8-path equivalence at 11.2T proven** — seven paths as of May 2, 2026 evening PDT / 2026-05-02 ~22:30 UTC; the eighth, the recovery cascade, landed 2026-05-04 04:21Z:
 
 | Path | Method | Sha |
 |---|---|---|
@@ -1416,6 +1422,9 @@ days to resolve:
 | Tier 4 | ARM Cobalt cross-arch | `0c0fe37c…` |
 | Tier 7a | Recursive DFS (no `SOLVE_DFS_ITERATIVE`) | `0c0fe37c…` (manual merge after auto-merge sanity-gate trip) |
 | Tier 7b canonical/64 | 11.2T at 64 threads | `0c0fe37c…` |
+| recovery cascade (post-#45 patch) | Patched-binary 11.2T fresh full-enum, 2026-05-04 04:21Z | `0c0fe37c…` |
+
+*(Eighth row added 2026-09-02, Codex V2-F12 #3, prose batch P43. The heading has said eight since it was written and the table listed seven; the missing path is the recovery-cascade re-enumeration recorded below under "May 4 – May 5, 2026 PDT" — "Patched binary 11.2T fresh full-enum reproduced sha=`0c0fe37c…` byte-identically with the Tier 1 canonical (May 4 04:21Z)" — and named alongside the 8-path validation in the loss inventory further down. The reviewer's prescribed fix was to renumber the heading to seven; that would have deleted a real validation path from the public record, so it was declined. The heading's contemporaneous May-2 timestamp is now split from the count, because path eight post-dates it by two days. Tier 7c (multi-stage chain) is deliberately NOT a ninth row: it was still running when the campaign's validation-path roster was fixed at eight, and that roster is what the heading counts.)*
 
 **Tier 7b small-scale at 4/32/64/128 threads:** all produce the
 same sha (`e43f2905…`) at 200M-node scale. Thread-count invariance
@@ -2436,7 +2445,7 @@ The better-fitting hypothesis: **the +1030 and +4607 deltas reflect records lost
 
 - `c34390c0` (Apr 29-30): documented Spot eviction at 90%, then 8 "missing branches" were re-run and merged in. If any of those 8 branches' resume state was imperfect, ~1030 records could be silently lost.
 - `f7b8c4fb` (Apr 18): predates all resume fixes (`1d4dc6e`, `c3ad271`, `d11bc0d`, `c3d3ad6` were all April 30 - May 2). Any interruption during the Apr 18 run on broken resume code would undercount.
-- `0c0fe37c` (May 1): generated under the iterative+checkpoint code state (`1d4dc6e` Apr 30), and its 7-path validation explicitly exercised resume modes (Tier 2c was 56-branch resume). Those validation runs are what CAUGHT resume bugs `c3d3ad6` + `db27d00`. By the time `0c0fe37c` was finalized, resume code was correct.
+- `0c0fe37c` (May 1): generated under the iterative+checkpoint code state (`1d4dc6e` Apr 30), and its 8-path validation explicitly exercised resume modes (Tier 2c was 56-branch resume). Those validation runs are what CAUGHT resume bugs `c3d3ad6` + `db27d00`. By the time `0c0fe37c` was finalized, resume code was correct.
 - `a09280fb` (depth-2 Apr 18): depth-2 enumeration has only ~3,030 sub-branches (vs depth-3's 158k), each completing in seconds. Far less interruption-prone. Even pre-fix code completes d2 cleanly.
 
 This pattern means **modern code's "fixed" output is what was always intended; the historical undercounts are the bug**. The records modern code finds within the same budget are valid C1-C5 canonical orderings that the older runs missed.
@@ -2444,7 +2453,7 @@ This pattern means **modern code's "fixed" output is what was always intended; t
 ### Methodology lessons (added 2026-05-14)
 
 - **Run completion matters more than code version.** A canonical generated by stable code that ran to clean completion (e.g., `0c0fe37c`, `a09280fb`) reproduces on modern code. A canonical generated by interrupted-and-imperfectly-resumed runs (e.g., `c34390c0`, `f7b8c4fb`) does not.
-- **The budget axis is misleading.** d3 10T (Apr 18) differs from modern by 4607; d3 11.2T (May 1) matches modern exactly. Only 1.2T apart in budget but 13 days apart in code stability and 7-path validation discipline.
+- **The budget axis is misleading.** d3 10T (Apr 18) differs from modern by 4607; d3 11.2T (May 1) matches modern exactly. Only 1.2T apart in budget but 13 days apart in code stability and 8-path validation discipline.
 - **Cross-build with date separation is what catches resume-bug-class issues.** A single-day 4-equivalence test on one binary cannot catch resume-mode imperfections that only surface on interrupted runs. The current SOP — two independent builds on different days/hosts — is the right durable check.
 - **`SOLVE_THREADS` is empirically order-stable.** Cascade Build A and B used `SOLVE_THREADS=64` due to westus3 D128 Spot capacity issues, yet produced byte-identical shas to the canonical `SOLVE_THREADS=128` for both d3 11.2T and d2 10T. Confirms the merge-dedup-order-stable property in CANONICAL_HASHES.md.
 

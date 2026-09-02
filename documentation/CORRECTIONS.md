@@ -5061,3 +5061,233 @@ freeze-commit digests for the three amended rows, the whole-tree filename census
 in both directions, the sweep of all ten digests against every tracked file, the line-level
 resolution of the Half-B pair, and the prior-art searches behind the absence claims — are this lane's
 (Claude), and each is reproducible with `git`, `grep` and `sha256sum`.
+
+## 2026-09-02 — PARITY_ALTERNATION.md: a sha prediction for code that was never written, a reproduction promise wider than its command, and a lemma cited by the wrong number
+
+Three defects raised by the Codex V2-F42 review pass and adjudicated in roae-private; the reviewer
+is acknowledged, not credited as an author. No theorem, lemma, figure or canonical value changes
+below — all three are scope and citation errors in the prose around them, and the checker's 18-line
+output is byte-for-byte what it was before this pass.
+
+### 1. An unwritten prune's sha effect was stated as fact — `RP-8717d434`
+
+§Consequences item 3 said that an exact prune changes node-visit ordering and counts, and then
+asserted the consequence for per-cell budgeted canonical outputs, and for canonical shas, in the
+unhedged conditional — the phrasing registered as `RP-8717d434`. The certainty is wrong twice over.
+
+It is wrong about *this* prune because this prune does not exist. MEASURED: `grep -ic alternation
+solve.c` returns **5**, and all five are scoring functionals or comments — Moore's `rf_alt` and
+Chan's `orient_alt` in the score table, a Moore-1989 comment, and two prose lines. A sweep for a
+differently-named equivalent (`parity_class`, `class_change`, `alt_used`, `alt_left`, an alternation
+budget) returns nothing, and the two parity prunes that *do* exist in `solve.c` are the Moore-2005
+c(S) slot restriction and the Schulz-1990 gender-strict walk, neither of which is the
+parity-class-alternation prefix prune item 2 describes. The item therefore predicted the sha
+behaviour of code that has never been written. (A small citation correction to the adjudication
+while we are here: it credited the surrounding discipline to "this document's own §Status decision
+… NOT promoted", but PARITY_ALTERNATION.md has no such section — that heading belongs to
+[CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md), the sibling discussed below, and the line range the
+adjudication gave points at this page's §Consequences instead.)
+
+It is also wrong as a general statement about exact prunes, and the project's own record settles it
+in both directions. [HISTORY.md](HISTORY.md) records that the v2 prune bundle did **not** flip the
+100B reference sha — at that per-cell budget of 631K nodes the DFS never reaches the subtrees the
+prunes would skip, so the prunes never fire and the output is identical to the pre-prune code. The
+same bundle **did** move the 11.2T canonical, where the per-cell budget is 70.7M: v1's `0c0fe37c…`
+and v2's `2cc966e4…` are different artifacts. So whether a prune moves a sha is an empirical
+question per prune-set and per budget, not a corollary of exactness. The corrected item says "can
+change, at budgets deep enough for the prune to fire" and states both v2 outcomes.
+
+One qualification the reviewer's counterexample did not carry, and it matters:
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) heads the section holding the 100B figure "100B and
+sub-canonical reference shas — code-specific, NOT canonical-grade", so the 100B non-flip demonstrates
+the firing mechanism but is not by itself a counterexample about a *canonical* output. The corrected
+prose says so rather than leaning on it.
+
+**Not changed, deliberately.** [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md) §"Status decision" and
+[TR-7](../reports/TR7_CIRCULAR_READING.md) §6 carry the sibling analysis for circular C2 — "as a pure
+leaf-emission filter it would be byte-identical to the current lineage at every published canonical
+scale … as a prune it would change node consumption and open a new sha lineage". That already draws
+the filter-versus-prune distinction this correction restores, its byte-identity half is evidenced
+(zero 5-wrap records exist in any slice), and its second half is a lineage-policy statement rather
+than a claim that two measured shas differ. Both were left as they stand.
+
+### 2. The reproduction promise was wider than the command — `RP-dc836305`, `RP-1734cf96`
+
+EXECUTED, 0.108 s, `rc=0`: `python3 verify.py --check-parity-alternation` emits **18** lines, and two
+numeric figures on the page appear in none of them — the **48**-element relabeling group in
+§Consequences item 4, and Moore's **16/18** King Wen compliance in §Novelty status. Both figures are
+correct; the defect is coverage, and the hazard is mechanical, because a drift in either uncovered
+figure would leave `PARITY_ALTERNATION=PASS` green. The promise is now narrowed to the theorem's
+figures, and each uncovered figure is named with its own reproducer.
+
+**A correction to the charge, in the direction that matters.** The adjudication proposed saying that
+Moore's 16/18 "is a literature figure with no in-repo reproducer". It has one. `solve.h2_parity_slots`
+returns KW's violating pair-slots (`[21, 22]`) against 18 non-exempt slots — comp-pairs and
+popcount-3 pairs are exempt — so `python3 -c "import solve; print(18 -
+len(solve.h2_parity_slots(list(solve.binary_hexagrams))))"` prints `16`, and
+`reports/evidence/r11/r11_calibration.py` asserts the same figure as its KW gate
+(`solve.r11_axes(KW) == [2, 2, 2, 0, 0, 0, 0, 0]`, the leading 2 being the parity violations). The
+page now names that command rather than declaring an absence that is not there. The 48 is checked by
+`python3 solve.py --symmetry-completeness`, leg SC-7, in about 4 s.
+
+**The census was corrected upward.** The charge named one site. Two markdown sites were live:
+[VERIFY.md](VERIFY.md)'s row for this command made the same unconditional claim in wording
+PARITY_ALTERNATION.md never uses — registered separately as `RP-1734cf96` — so no needle on this
+page's phrasing would have reached it. It is fixed in the same pass. A third site is in code and is queued rather than edited here, per the prose lane's code
+rule: `verify.py`'s `check_parity_alternation` docstring opens "Re-derive every published figure in
+PARITY_ALTERNATION.md from KW itself". GATE 3 does not scan it — its corpus is tracked `*.md` plus
+`reports/evidence/**` — so the registry rows above do not cover that site and the queue entry says so.
+
+### 3. The well-definedness clause cited the wrong lemma — `RP-2857f455`
+
+The page said the checker confirms that a pair's parity class is well defined, and named the wrong
+lemma as the one it thereby avoids assuming — the clause registered as `RP-2857f455`.
+Well-definedness is **Lemma 1** — pairs are parity-homogeneous, `popcount(partner(h)) ≡
+popcount(h) (mod 2)`, so each pair has a parity class independent of orientation. **Lemma 3** is the
+different transition-parity result, which *uses* the class Lemma 1 establishes. `verify.py`'s
+implementation is Lemma 1 verbatim: `all(bin(a).count("1") % 2 == bin(b).count("1") % 2 for a, b in
+pairs)`.
+
+**The census was corrected upward here too.** The charge named one markdown site and one code site.
+Two markdown sites were live — [VERIFY.md](VERIFY.md) carries the identical clause, word for word —
+and both are fixed. The code site is `verify.py`'s docstring, which restates Lemma 1's proof under
+Lemma 3's name; it is queued rather than edited, and the doc-side fix now stands ahead of it, so
+until that queue item lands the docstring and the page disagree. That is stated here rather than left
+to be discovered.
+
+**Attribution.** The measurements above — the `solve.c` alternation census and its
+differently-named-prune sweep, the timed execution and line count of the checker, the recovery of
+Moore's 16/18 from `solve.h2_parity_slots` and its cross-check against `r11_calibration.py`'s gate,
+the whitespace-flattened whole-corpus census behind each retracted needle, and the prior-art check
+behind the "no such prune exists" claim (`PRIOR_ART=HIT` — the parity-alternation prune is a
+pilot-gated future lever in the private v4 roadmap, never implemented, which confirms the absence
+rather than contradicting it) — are this lane's (Claude), and each is reproducible with `git`,
+`grep`, `python3` and the commands named above.
+
+---
+
+## 2026-09-02 — HISTORY.md: a null-model aggregate that outlived its own roster, a uniqueness claim its seventh family refutes, a withdrawal that never travelled fifteen lines, and an equivalence table one row short of its own heading
+
+Three charges from the Codex V2-F12 adjudication, all on [HISTORY.md](HISTORY.md). Two were executed
+rather than accepted: one prescribed figure was recomputed and found wrong, and one prescribed fix
+would have deleted a validation path from the public record.
+
+### 1. The null-model batch aggregate (Codex V2-F12 #1) — three legs, three different verdicts
+
+The 2026-04-19 null-model section closes with an aggregate paragraph carrying three claims. All three
+were live. They do not resolve the same way.
+
+**Leg (a) — the aggregate figure. The reviewer's replacement is wrong and the original is kept.**
+The figure is the six-unconditional-family roster total from when `--null-random` sampled 10⁸. That
+row was later raised to 10⁹ **in place, fifteen to twenty lines above the aggregate**, and the
+aggregate never followed — so the paragraph stopped summing the roster printed directly above it.
+The current total is **2,760,021,104**: de Bruijn 134,217,728 + Gray orbit 256 + random Gray walks
+10⁵ + Latin row × column 1,625,702,400 + lexicographic 720 + random 64-permutations 10⁹. The four
+`--null-historical` point-tests are excluded because they are point-tests, not a family; the Latin
+column × row pass is a direction-invariance re-traversal of the same 8!×8! population and is not
+double-counted.
+
+The adjudication prescribed **2,759,921,108**, reached by counting the four historical point-tests
+as a family and omitting the 10⁵ random-Gray walks. Those two errors nearly cancel — the gap is
+99,996 — which is why the wrong sum still rounds to the right billions. The roster is already
+enumerated in [SOLVE.md](SOLVE.md) §"Null model: is the constraint framework special?", which has
+carried 2,760,021,104 since 2026-08-30 together with the pre-upgrade total 1,860,021,104; that roster was used rather than
+re-derived, and the prescribed figure was **not** published.
+
+The figure itself is **not overwritten**. [GUIDE.md](GUIDE.md) records a 2026-08-30 decision that the
+dated aggregate in HISTORY.md is a correct record of the then-current roster and stays, and that
+decision post-dates the 2026-07-26 in-place amendment the adjudication cited as evidence the sentence
+is maintained rather than frozen. What was actually defective is that the staleness was invisible: a
+reader met a total that no longer matched the roster above it with nothing saying so. The paragraph
+now carries the current total, the roster arithmetic, and the reason the two differ. Registered as
+**RP-0b44734e**, with `documentation/HISTORY.md` as the allow column and every other file guarded.
+
+**Leg (b) — the uniqueness claim. Withdrawn, and the census was one site short.**
+The sentence said the conjunction C1 ∧ C2 ∧ C3 picks out King Wen in all seven tested families. It
+holds for the six unconditional families and holds **vacuously** there, because C1 is 0% in each, so
+nothing in them reaches the conjunction at all. In the seventh, pair-constrained family C1 holds by
+construction and the joint rate is ≈**0.305%** — about **3.06 million of 10⁹** orderings satisfy
+C2 ∧ C3 as well.
+
+Re-executed here rather than accepted: `python3 scripts/c2c3_joint_null.py` →
+`P(C2|C1) = 4.29159%` (−0.3σ against the exact 4.29341%), `P(C3|C1) = 6.41625%` (−0.6σ against the
+exact 6.4211367%), `P(C2^C3|C1) = 0.30478%`, **+16.7σ** over the 0.27569% independence product,
+`C2C3_JOINT_NULL=OK`. That agrees with the 0.305832% measured over 10⁹ draws on 2026-08-28.
+
+**CENSUS CORRECTED UPWARD.** The charge named one site; there were two. [SOLVE.md](SOLVE.md)
+§"Null model: is the constraint framework special?" carried the same claim with bold emphasis splitting it — invisible to
+a plain grep for the registered wording, visible once GATE 3's fold and whitespace normalisation are
+applied. That page contradicts itself: the paragraph immediately above publishes the pair-constrained joint
+rate and the +16.7σ excess over the product. Both sites now scope the claim to the six unconditional
+families and the four historical orderings and state plainly that King Wen is not alone in the
+seventh. The retired wording is registered as **RP-79f8f30b** with allow column `__none__`.
+
+**Leg (c) — the shared-classical-design-principle inference. Withdrawn 2026-07-05; the withdrawal
+never travelled fifteen lines.** The `--null-historical` entry in the same section has carried
+"the shared-design-principle inference is withdrawn" since 2026-07-05, and the aggregate paragraph
+fifteen lines below restated the inference unqualified. [CRITIQUE.md](CRITIQUE.md), [GUIDE.md](GUIDE.md)
+and [SOLVE.md](SOLVE.md) all received that 2026-07-05 propagation; this paragraph did not. It now
+carries the withdrawal with its citation ([Shaughnessy 2022](CITATIONS.md#shaughnessy2022), Table
+11.2 — the authentic Mawangdui order has exactly one 5-line transition at its Kan→Zhen octet seam,
+so C2 is 2 of 4, not 3 of 4).
+
+**Sibling sweep, in the other direction.** The 2026-08-30 aggregate correction had reached SOLVE.md
+and GUIDE.md and **three further pages were still publishing the pre-10⁹ total as a live,
+present-tense figure**: [CRITIQUE.md](CRITIQUE.md) §Missing analyses, [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
+§"Important methodological note", and [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) §"Seven-family null-model
+framework" — the last of which was publishing **both** totals on one page, the corrected one in an
+earlier section and the stale one here. All three now carry 2,760,021,104.
+
+### 2. A status row reviving a restriction two rows of its own table disprove (Codex V2-F12 #2)
+
+The "What actually advanced understanding" table carried a row whose Status read "Observed
+universally; driven by C3 not budget" for the positions-3–19 shift pattern, with "Analysis of 31.6M
+solutions" as its evidence. Two rows of the **same table** already record that the 31.6M dataset was
+undersampled by the file-collision bug and that only 2.93% of the corrected 742M conform.
+
+MEASURED against the shipped primary log, [`enumeration/analyze_c_742M.txt`](../enumeration/analyze_c_742M.txt)
+§[5]: rows with any shift exception **720,334,146 (97.074%)**, rows fully shift-conforming
+**21,709,157 (2.926%)**, total 742,043,303 — all three reproduced. The second clause fails too: the
+2-option restriction is `--prove-cascade`'s own 2-candidate enumeration, not a consequence of C3, as
+the cascade-determinism row above already states. The Status cell now reads **Superseded** and names
+both the corrected rate and the dataset it comes from. The middle column's "Analysis of 31.6M
+solutions" is left as-is — it is a correct record of what was analysed, and the defect was that the
+**Status** column, which is where a reader takes the verdict, carried no scope at all.
+
+### 3. An "8-path equivalence" table publishing seven paths (Codex V2-F12 #3) — the prescribed fix was declined
+
+The heading "8-path equivalence at 11.2T proven" is followed by a table with **seven** data rows. The
+adjudication's reviewer concluded no eighth path was identifiable and prescribed renumbering the
+heading to seven.
+
+**That fix was declined, and the count was right.** The eighth path is the **recovery cascade
+(post-#45 patch)**, and it is described in this same public file, under "May 4 – May 5, 2026 PDT":
+*"Patched binary 11.2T fresh full-enum reproduced sha=`0c0fe37c…` byte-identically with the Tier 1
+canonical (May 4 04:21Z)."* The loss inventory further down names "recovery cascade artifacts, 8-path
+equivalence validation" side by side. Renumbering the heading would have deleted a real validation
+path from the public record. The row has been added instead.
+
+**A second defect the charge did not name.** The eighth path landed 2026-05-04, two days after the
+heading's own "as of May 2, 2026 evening PDT / 2026-05-02 ~22:30 UTC" timestamp — a retrospective
+count wearing a contemporaneous date. The heading now separates the two: seven as of May 2, the
+eighth on May 4.
+
+**CENSUS CORRECTED UPWARD.** The charge named one inconsistent site for the count; there were two.
+Both sit in the 2026-05-05 reconciliation discussion — one describing `0c0fe37c`'s validation with a
+seven, the other contrasting runs "13 days apart in code stability and seven-path validation
+discipline". The retired count is spelled out in words here deliberately: GATE 36 (added by this
+batch) has no quotation exemption, so a ledger entry that quoted the digit form would trip the gate it
+records. Both sites now read 8-path, matching the heading and the loss inventory.
+
+**Deliberately not added: Tier 7c (multi-stage chain).** It appears in the campaign's planning
+material as a ninth candidate but was still running when the validation-path roster was fixed at
+eight, and the roster is what the heading counts. Adding it would break the heading's own arithmetic
+in the opposite direction.
+
+**Attribution.** The measurements above — the roster re-derivation and the arithmetic showing the
+adjudication's 99,996 discrepancy, the `scripts/c2c3_joint_null.py` re-run, the shift-conformance
+figures read off the primary log, the whitespace-flattened whole-corpus needle scans that found the
+second uniqueness site and the three stale aggregate siblings, and the public re-location of the
+eighth validation path — are this lane's (Claude). Codex's V2-F12 review located all three sites;
+its prescribed figure for leg (a) and its prescribed fix for charge 3 were both declined on evidence,
+and both declines are recorded above rather than left silent.

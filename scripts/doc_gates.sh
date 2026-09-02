@@ -11727,8 +11727,132 @@ PY
   return 0
 }
 
+# ----------------------------------------------------------------------------------
+# GATE 36 — an "N-path equivalence" heading whose table does not have N rows, and two
+# sites publishing a different N for the same campaign (Codex V2-F12 #3, prose batch P43,
+# 2026-09-02).
+#
+# WHY THIS EXISTS. documentation/HISTORY.md headed a table "8-path equivalence at 11.2T
+# proven" and listed SEVEN rows, and had done since the table was written. The review that
+# found it concluded no eighth path existed and prescribed renumbering the heading to seven
+# — which would have deleted a real validation path (the post-#45 recovery cascade,
+# described in the same file 175 lines below) from the public record. The count was right
+# and the table was short. Two further sites in the same file published "7-path" for the
+# same campaign, and neither was named in the charge.
+#
+# So the defect class is a PUBLISHED COUNT WITH A PUBLISHED DENOMINATOR NEXT TO IT: the
+# heading asserts N and the table beneath it is the enumeration of N. Nothing in the suite
+# compared them, and a reader who counts rows is the only instrument that ever did.
+#
+# LEG 1 (hard): every "<N>-path equivalence|validation" occurrence that DIRECTLY owns a
+# markdown table — only blank lines and the table's own header row may intervene, and the
+# separator row must be within ADJ lines — must have exactly N data rows in that table. An
+# occurrence with no such table is a MENTION, not a heading, and LEG 1 skips it; it is
+# LEG 2's business. Adjacency rather than a loose window is not a refinement, it is the
+# gate's first measured finding: a 20-line window fired on two prose mentions sitting above
+# an unrelated table.
+#
+# LEG 2 (hard): every occurrence in the corpus must publish the same N. This is correct
+# TODAY because the corpus documents exactly one N-path campaign (the 2026-05 11.2T
+# validation). WHAT THIS CANNOT SEE, stated rather than left to be discovered: if a SECOND
+# campaign is ever published with a different path count, LEG 2 will fire on correct prose
+# and the fix is to scope it by campaign (e.g. by the scale token beside the phrase), NOT
+# to widen the needle or delete the leg. The population line prints every distinct N so
+# that outcome is legible the moment it happens.
+#
+# FLOORS. The gate ERRORs — not passes — if it finds fewer than FLOOR_OCC occurrences or
+# no table-anchored one at all, because both are the state in which it is measuring
+# nothing. Measured 2026-09-02: 4 occurrences, 1 of them table-anchored, all N = 8.
+#
+# NOT FLATTENED, and here is why that is safe rather than an oversight: GATE 3's lesson is
+# that a PHRASE spanning a hard wrap is invisible to a line scan. The needle here is a
+# single token ("8-path") plus one following word, and a markdown table's structure is
+# line-based by definition — flattening would destroy the very rows LEG 1 counts. The
+# residual exposure is a wrap falling between "8-path" and "equivalence", which no
+# formatter produces and which LEG 2 would still catch at the other sites.
+#
+# RED TEST (2026-09-02, in the working tree, restored immediately after each):
+#   (a) deleted the recovery-cascade row -> LEG 1 [FAIL] "heading publishes 8, table has 7".
+#   (b) changed one "8-path validation" to "7-path validation" -> LEG 2 [FAIL] naming both
+#       values and every site carrying each.
+#   (c) closure: raised both floors to 99 in place -> two [FAIL] ERROR lines naming the
+#       measured populations (7 occurrences, 1 table-anchored), not a clean pass. The floors
+#       were exercised rather than the needle renamed, because renaming it means editing
+#       seven live sites; the floor is the mechanism under test either way, and it is the
+#       one that fires if the phrase is ever reworded out from under this gate.
+gate_npath() {
+  echo "== GATE 36: an N-path equivalence heading must enumerate N paths, and N must agree =="
+  local FLOOR_OCC=2 FLOOR_TABLE=1 ADJ=4
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor_occ, floor_tab, adj = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
+NEEDLE = re.compile(r'\b(\d+)-path\s+(?:equivalence|validation)\b', re.I)
+SEP    = re.compile(r'^\|[\s|:-]+\|\s*$')
+occ = []
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    lines = t.split("\n")
+    for i, l in enumerate(lines):
+        for m in NEEDLE.finditer(l):
+            n = int(m.group(1))
+            # ADJACENCY, NOT A WINDOW. First cut allowed the separator anywhere in a
+            # 20-line window and that immediately fired on two PROSE MENTIONS 40 lines
+            # above an unrelated table (measured 2026-09-02, the gate's first run). A
+            # heading owns the table DIRECTLY beneath it: only blank lines and the table's
+            # own header row may intervene, and the separator must be within ADJ lines.
+            rows = None
+            for j in range(i + 1, min(len(lines), i + 1 + adj)):
+                s = lines[j].strip()
+                if SEP.match(s):
+                    k, c = j + 1, 0
+                    while k < len(lines) and lines[k].lstrip().startswith("|"):
+                        c += 1; k += 1
+                    rows = c
+                    break
+                if s == "" or s.startswith("|"):
+                    continue
+                break
+            occ.append((f, i + 1, n, rows, l.strip()[:100]))
+tabled = [o for o in occ if o[3] is not None]
+for f, ln, n, rows, txt in tabled:
+    if rows != n:
+        print("ROWS\t%s\t%d\t%d\t%d\t%s" % (f, ln, n, rows, txt))
+vals = sorted(set(o[2] for o in occ))
+if len(vals) > 1:
+    for v in vals:
+        where = ", ".join("%s:%d" % (o[0], o[1]) for o in occ if o[2] == v)
+        print("SPLIT\t%d\t%s" % (v, where))
+print("POP\t%d occurrence(s), %d table-anchored, N value(s) seen: %s"
+      % (len(occ), len(tabled), ",".join(str(v) for v in vals) or "none"))
+if len(occ) < floor_occ:
+    print("ERROR\tfewer than %d N-path occurrences in the corpus (found %d) - the phrase this gate is anchored to has been reworded, so it is measuring nothing" % (floor_occ, len(occ)))
+if len(tabled) < floor_tab:
+    print("ERROR\tno N-path heading is directly followed by a table (within %d lines, floor %d) - LEG 1 checked nothing" % (adj, floor_tab))
+PY
+} | python3 - "$FLOOR_OCC" "$FLOOR_TABLE" "$ADJ" ) || { echo "  [FAIL] GATE 36 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d e; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      ROWS)  echo "  [FAIL] $a:$b publishes $c paths and the table beneath it has $d data row(s)"
+             echo "         $e"
+             echo "         Fix the TABLE unless the count is genuinely wrong — renumbering the heading"
+             echo "         deletes a validation path from the record, which is how this gate was earned."
+             rc=1 ;;
+      SPLIT) echo "  [FAIL] N=$a published at: $b"
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every N-path heading enumerates N paths, and every site publishes the same N"
+  return 0
+}
+
 case "$MODE" in
   author-directives) gate_author_directives || RC=1 ;;
+  npath) gate_npath || RC=1 ;;
   rotation-c3) gate_rotation_c3 || RC=1 ;;
   sk-gains) gate_sk_gains || RC=1 ;;
   fiber-anchor) gate_fiber_anchor || RC=1 ;;
@@ -11812,8 +11936,9 @@ case "$MODE" in
            echo; gate_fiber_anchor || RC=1
            echo; gate_superlative || RC=1
            echo; gate_printed_quotient || RC=1
-           echo; gate_stale_status || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|all}"; exit 2 ;;
+           echo; gate_stale_status || RC=1
+           echo; gate_npath || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|all}"; exit 2 ;;
 esac
 
 echo
@@ -11860,7 +11985,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
