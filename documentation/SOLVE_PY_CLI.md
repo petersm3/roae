@@ -208,13 +208,28 @@ deferred_superseded_by_pairslot_model` entry is recorded in the
 carries C1+C2 only. ⚠ "Not encoded" is not the same as "emits nothing",
 and the two flags differ (measured 2026-08-31, this tree): `--sat-c5`
 emits **no** extra clauses — 4,096 vars / 272,128 clauses, clause-sha
-identical to `--sat-c3 none`. `--sat-c3 adder`, by contrast, still emits
-the `pb` mode's aux scaffolding — 262,144 `pair[v][i][j]` variables and
-786,432 linking clauses, 266,240 vars / 1,058,560 clauses, the **same
-clause-sha as `--sat-c3 pb`** — while the C3 bound itself is written
-nowhere (no `.opb` is produced in `adder` mode). So `adder` costs a 16 MB
-file and buys nothing over `none`; use `none`, or use `pb` and give the
-solver the `.opb`. They are not on any live path — C3 (Sinz
+identical to `--sat-c3 none`. **`--sat-c3 adder` used to differ, and no longer
+does.** Until 2026-09-02 it still emitted the `pb` mode's aux scaffolding —
+262,144 `pair[v][i][j]` variables and 786,432 linking clauses, 266,240 vars /
+1,058,560 clauses, the same clause-sha as `--sat-c3 pb` — while the C3 bound
+itself was written nowhere, since no `.opb` is produced in `adder` mode. It
+therefore cost a 16 MB file and bought nothing over `none`.
+
+**Fixed 2026-09-02: `adder` now emits no scaffolding and is byte-identical to
+`none`** — 4,096 vars / 272,128 clauses. ⚠ **Its clause-sha therefore MOVED, from
+`968090af86ae3ffd16c1918b1f451800d13d17c137b14c18356d738184b76d18` to
+`de6749511bf06a95b810adac19f740ed595b2ad148f600092237fda231699a15` (the
+`sha256_clauses_only` field of the `.meta.json` sidecar — the same value `none`
+carries, as it must now that the two are byte-identical), and that move is INTENDED.** A reader comparing
+against the pre-fix figures should expect it. `pb` is unchanged, `.opb` included.
+
+The removal needed no model-count argument: the linking is a full Tseitin
+AND-definition (`pair[v][i][j] ↔ x[i][v] ∧ x[j][c̄(v)]`), so the aux variables are
+*defined* by `x`, and removing a defined variable together with its definition is
+a conservative extension in reverse — the projected model count over `x[i][p]`
+cannot change. Confirmed by a Beth-definability certificate rather than asserted:
+two copies of the linking over one shared `x` plus "some aux differs" is **UNSAT**
+(cadical, drat-trim VERIFIED). They are not on any live path — C3 (Sinz
 sequential counters) and C5 are **native in `sat.py`'s pair-slot model**,
 which is the only certification-path model (see
 [SAT_CLI.md](SAT_CLI.md)). This legacy position-hexagram `x[i][p]` encoder

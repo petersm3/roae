@@ -5348,7 +5348,7 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
     pair_aux_offset = n_vars  # aux vars start here (1-indexed)
     pair_var_count = 0
 
-    if include_c3 in ("pb", "adder"):
+    if include_c3 == "pb":
         # complement function: ~v in 6 bits = v XOR 0x3F
         comp = [v ^ 0b111111 for v in range(64)]
         # aux var index: pair[v][i][j] -> pair_aux_offset + 1 + (v*64 + i)*64 + j
@@ -5390,28 +5390,28 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
                 "n_link_clauses": len(pair_aux_clauses),
                 "opb_terms": opb_terms,  # will be emitted to .opb
             })
-        elif include_c3 == "adder":
-            # DEFERRED / SUPERSEDED (operator decision 2026-07-10). C3 is
-            # native (Sinz sequential counters) in sat.py's pair-slot model —
-            # the only certification-path model. A DIMACS adder summing
-            # network in THIS legacy position-hexagram x[i][p] encoder would
-            # be large and probably not faster in practice than PB; implement
-            # it only if a future variable-pairing analysis needs the x[i][p]
-            # model specifically (an instance the pair-slot model can't
-            # express, e.g. relaxing the fixed pairing). Not dead — deferred.
-            pb_constraints.append({
-                "form": "abs_sum_complement_distance",
-                "bound": 776,
-                "n_aux_vars": pair_var_count,
-                "n_link_clauses": len(pair_aux_clauses),
-                "status": "deferred_superseded_by_pairslot_model",
-                "note": "C3 is native (Sinz) in sat.py's pair-slot model (the "
-                        "certification path). Build the x[i][p] adder network "
-                        "only if a variable-pairing analysis ever needs this "
-                        "model; effort if built: binary adder summing network "
-                        "over per-pair distances — large, and likely not "
-                        "faster than the PB route.",
-            })
+    elif include_c3 == "adder":
+        # DEFERRED / SUPERSEDED (operator decision 2026-07-10). C3 is
+        # native (Sinz sequential counters) in sat.py's pair-slot model —
+        # the only certification-path model. A DIMACS adder summing
+        # network in THIS legacy position-hexagram x[i][p] encoder would
+        # be large and probably not faster in practice than PB; implement
+        # it only if a future variable-pairing analysis needs the x[i][p]
+        # model specifically (an instance the pair-slot model can't
+        # express, e.g. relaxing the fixed pairing). Not dead — deferred.
+        pb_constraints.append({
+            "form": "abs_sum_complement_distance",
+            "bound": 776,
+            "n_aux_vars": 0,
+            "n_link_clauses": 0,
+            "status": "deferred_superseded_by_pairslot_model",
+            "note": "C3 is native (Sinz) in sat.py's pair-slot model (the "
+                    "certification path). Build the x[i][p] adder network "
+                    "only if a variable-pairing analysis ever needs this "
+                    "model; effort if built: binary adder summing network "
+                    "over per-pair distances — large, and likely not "
+                    "faster than the PB route.",
+        })
     # include_c3 == "none" -> no C3 emitted
 
     # --- C5: KW's exact Hamming distribution ---

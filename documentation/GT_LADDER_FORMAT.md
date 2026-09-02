@@ -76,6 +76,42 @@ Hamming-isometric, so suffix counts and subtree sizes are preserved.
   just as a correct one does. Establishing an external pin at 10³⁹ scale is an
   open problem here, not an oversight: direct enumeration is the same 2×10¹²
   wall that closed the n = 13 count.
+
+  **Update 2026-09-02 — the traversal IS now externally pinned; the ladder
+  entries are not, and that limit is stated rather than left implicit.**
+
+  **What the ranking is.** `kc_rank` walks the sequence and, at each step, sums
+  the `f`-ladder counts of the completions that sort *before* the actual choice.
+  The total order is therefore fixed by the **REL comparator** (with `O3` as the
+  independent cross-check at n = 9), not by any property of the ladder files —
+  and that comparator had, until now, been named only in a `solve.c` comment.
+  A rank is meaningless without it, so it is named here.
+
+  **What was pinned.** An independent reader, written from this format
+  specification and reading the layer bytes directly, agrees with `kc_rank` on
+  **all 26,112 walks at n = 9** (zero mismatches, cross-checked against a
+  brute-force list built with a separate comparator). At full-31 the same reader
+  reproduces `N` from the layer-31 bytes, ranks the REL-last walk to **N−1
+  without executing `solve.c` at all**, and re-ranks sampled walks to the values
+  the engine produced. **The traversal is no longer an unpinned step.**
+
+  🔴 **What is NOT pinned, and why the existing gates cannot pin it.** Every
+  published check on the `f` ladder — the mass invariants, the f·g cut identity
+  `Σ orbit(mask)·f(s)·g(s) = N` — is a **linear functional** of the layer's
+  values. A perturbation introduced at layer *k* and propagated forward, chosen
+  orthogonal to `g_k` and to the continuation counts, satisfies **every one of
+  those identities exactly** while changing individual ranks. The undetectable
+  subspace is on the order of 10¹⁰ dimensions per layer. The gates are not weak;
+  they are the **wrong shape** — they constrain the values *collectively*, and a
+  rank consumes them *individually*.
+
+  **The only known pin on individual entries** is exhaustive entry-level
+  verification of the recurrence — this specification's own "strongest check",
+  run for every mask of every layer — which costs roughly a second Stage-F pass.
+  **Not undertaken (operator decision, 2026-09-02):** it is on no published
+  claim's critical path, and this note is published in its place. If a future
+  claim comes to depend on a specific full-31 rank, that decision must be
+  revisited before the claim ships.
 - **t-ladder** (`--kc-t-build FDIR TDIR`): `t(s)` = the exact number of
   **search-tree nodes** in the subtree rooted at `s` of the reference DFS,
   under the node-accounting convention pinned below.
