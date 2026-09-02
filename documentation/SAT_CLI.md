@@ -23,10 +23,15 @@ python3 sat.py --decode   MODEL.txt [TARGET]        [--with-c3] [--c3-max N] [--
 python3 sat.py --witness  TARGET                    [--with-c3] [--c3-max N] [--c3-min N] [--not-kw]
 python3 sat.py --certify-count TARGET               [--f1-pairs N]
                                                     [--expect N] [--keep DIR]
+python3 sat.py --rigidity-cnf OUT.cnf               [--run]
+python3 sat.py --c5-selfcheck
 ```
 
-With no recognized subcommand, `sat.py` prints its module docstring
-(the full target catalogue) and exits.
+With no arguments, `sat.py` prints its module docstring (the full target
+catalogue) and exits 0. An unrecognised flag — or, since 2026-09-02, an
+unrecognised subcommand token such as `--wittness` — exits 1 with
+`unrecognised flag(s): …` and writes nothing (before 2026-09-02 a mistyped
+subcommand printed the docstring and exited 0).
 
 ## EXTERNAL-BINARY REQUIREMENTS (all optional)
 
@@ -57,6 +62,19 @@ truth for the King Wen ground truth and C1–C5 semantics. A clause that
 encodes a C-rule from scratch is "a bug by definition." Every encoding
 is round-trip checked (SAT model → `decode()` → `solve.py` constraint
 functions) before any UNSAT claim from it is trusted.
+
+The two C5 tables the encoder and the round-trip verifier depend on —
+King Wen's 63-transition Hamming multiset `{1:2, 2:20, 3:13, 4:19, 6:9}`
+and its 31 pair-boundary multiset `{1:2, 2:8, 3:13, 4:7, 6:1}` — are
+**derived at import** by `derive_c5_tables(solve.binary_hexagrams)` (three
+`solve.bit_diff` counts sharing no intermediate) and gated by
+`c5_tables_guard()` against `solve.h2_kw_multiset()`, the distances over
+`solve.build_pairs()`, the cardinalities 63/32/31 and the identity
+`tot = wp + between`. `--c5-selfcheck` demonstrates that guard refusing a
+common-mode corruption. From 2026-07-02 to 2026-09-02 both tables were
+hand-written literals — correct, but in breach of this rule — behind a
+guard that compared only their difference and therefore passed a `+1`
+applied to both (see [CORRECTIONS.md](CORRECTIONS.md), 2026-09-02).
 
 ⚠ **The rule is the file's stated policy, and it currently has two measured
 exceptions.** No *clause* is hand-written, but two C5 *parameter* tables are
@@ -201,9 +219,36 @@ satisfy every clause except the final not-identity clause) and refuses
 to write on failure. With `--run` (see the caveat above): kissat
 decides (UNSAT expected, DRAT proof written to `OUT.cnf.drat`), then
 `drat-trim` verifies the proof if present on PATH (else the proof is
-emitted unverified with an explicit message). Prose + the exhaustive non-SAT machine check of the
+emitted unverified with an explicit message). With `kissat` absent, `--run`
+exits 1 with an install message after the CNF has been written. From
+2026-08-28 to 2026-09-02 the stray-flag guard rejected `--run` itself
+(`unrecognised flag(s): --run`, rc 1, nothing written), so this documented
+form was unreachable; fixed and pinned by `tests.py`. Prose + the
+exhaustive non-SAT machine check of the
 same kernel: [SYMMETRY_SEARCH.md §Completeness](SYMMETRY_SEARCH.md) and
 `solve.py --symmetry-completeness` (gate SC-4).
+
+### --c5-selfcheck
+
+```
+python3 sat.py --c5-selfcheck
+python3 sat.py --c5-selfcheck | grep -qx 'GUARD_REJECTS_COMMON_MODE=1'
+```
+
+Behavioural evidence for the header rule on the C5 tables (added
+2026-09-02). Prints `KEY=value` verdict lines — gate on them with
+`grep -qx`, never on output shape — and exits 0 iff every verdict passes:
+
+| Token | Passing value means |
+|---|---|
+| `C5_LITERALS_DERIVED=1` | the module tables equal `derive_c5_tables(KW)`; the derivation is input-sensitive (a non-KW sequence yields different tables); no dict literal equal to either table exists in `sat.py`'s AST |
+| `GUARD_ACCEPTS_TRUE_TABLES=1` | `c5_tables_guard` accepts the real tables |
+| `GUARD_REJECTS_COMMON_MODE=1` | `c5_tables_guard` refuses copies with `+1` applied to **both** tables at d=2 — the corruption the pre-2026-09-02 guard accepted. The red test. |
+| `GUARD_REJECTS_CORRUPTIONS=k/n` | the wider battery (common-mode `+1` at every admissible d, on all three tables, a sum-preserving 2↔4 transposition, each single-table `+1`); passing value is `k = n` |
+| `GUARD_REJECTS_NON_KW=1` | the guard refuses the tables of a non-KW sequence — anchored to King Wen, not to its input |
+
+Needs no external binary. `tests.py` pins the tokens and repeats the red
+test in-process with the reference recomputed from `solve.py` primitives.
 
 ### --certify-count TARGET
 
@@ -236,7 +281,7 @@ the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts).
 > (`sh: 1: drat-trim: not found`, rc=1) and no certificate is produced.
 > If any of the five is missing, the subcommand exits gracefully with an
 > install message — **the rest of `sat.py` works without them**, exactly
-> as `kissat` is required only by `--witness`.
+> as `kissat` is required only by `--witness` and `--rigidity-cnf --run`.
 
 Pipeline: (1) emit the DIMACS CNF (the same `build()` /
 `build_subset()` machinery as `--emit-cnf`); (2) `d4 -dDNNF … -out=…`
@@ -338,7 +383,11 @@ UNSAT verdict comes from an external DRAT/LRAT certificate checker, not
 from `sat.py`'s own exit status. Exceptions: `--certify-count` exits
 non-zero on a `--expect` `FAIL`, on any toolchain failure, and (like
 `--witness` with `kissat`) when its required external binaries are not
-on `PATH` — the latter with a clear install message.
+on `PATH` — the latter with a clear install message. `--rigidity-cnf
+--run` exits non-zero when `kissat` is absent, when the verdict is not
+UNSAT, or when `drat-trim` is present and does not verify the proof.
+`--c5-selfcheck` exits 0 iff every verdict token has its passing value.
+An unrecognised flag or subcommand token exits 1.
 
 ## NOTES
 

@@ -34,6 +34,10 @@ Subcommands:
                                 G5-automorphism fixing 0 + its six d5-neighbors pointwise, != id.
                                 Emits + self-validates the CNF; with --run, decides via kissat
                                 (DRAT proof to OUT.cnf.drat, drat-trim verified when on PATH).
+  --c5-selfcheck                behavioural evidence that the C5 tables are DERIVED from solve
+                                primitives and that their guard REFUSES a common-mode corruption;
+                                prints KEY=value verdict lines (C5_LITERALS_DERIVED,
+                                GUARD_REJECTS_COMMON_MODE, ...); exit 0 iff every verdict passes
   --certify-count TARGET        emit CNF, compile it with D4 (d-DNNF), then generate + verify a
                                 CPOG certificate (cpog-gen / cpog-check) and print the CERTIFIED
                                 model count. REQUIRES the OPTIONAL external binaries d4,
@@ -136,22 +140,156 @@ PAIRS = solve.build_pairs()                      # [(a, partner)] — canonical 
 KW_PAIRS = [(KW[2*i], KW[2*i+1]) for i in range(32)]
 # pair index convention aligned with solve.c: pairs in KW order of appearance
 PAIR_IDX = {frozenset(p): i for i, p in enumerate(KW_PAIRS)}
-BETWEEN_MULTISET = {1: 2, 2: 8, 3: 13, 4: 7, 6: 1}   # derived: C5 total minus fixed within-pair
-_wp = {}
-for a, b in KW_PAIRS:
-    _wp[solve.bit_diff(a, b)] = _wp.get(solve.bit_diff(a, b), 0) + 1
-_tot = {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}             # C5 (verified vs solve.py constraint funcs below)
-# Q-357 (2026-08-28): was `for d in (2, 4, 6)` — EVEN distances only, so the two ODD entries of
-# BETWEEN_MULTISET (d=1 -> 2 and d=3 -> 13) were never asserted. They are correct, and they are
-# correct only because within-pair distance is always even (SPECIFICATION.md Theorem 1), which makes
-# _wp.get(1)=_wp.get(3)=0 — a dependency this file never cited. Measured: _wp = {2:12, 4:12, 6:8},
-# no odd keys, and both odd rows check out (2-0=2, 13-0=13). BETWEEN_MULTISET feeds the CNF at :604
-# and :606, so a wrong odd entry would silently build the wrong formula and every model count of it
-# would be a correct count of the wrong thing — the exact failure class Q-58 exists for. Iterating
-# the dict covers all five and leans on no uncited theorem.
-for d in BETWEEN_MULTISET:
-    if not (_tot.get(d, 0) - _wp.get(d, 0) == BETWEEN_MULTISET.get(d, 0)):
-        raise AssertionError("between-multiset derivation broke")
+# ---- C5 tables: DERIVED from solve primitives, never written out (T6, 2026-09-02) ----
+# Until 2026-09-02 the two tables _tot and BETWEEN_MULTISET were hand-written dict literals -- a
+# direct violation of the header rule above -- and the guard between them (the Q-357 loop of
+# 2026-08-28, `_tot[d] - _wp[d] == BETWEEN_MULTISET[d]`) checked only their DIFFERENCE against the
+# derived _wp, so a common-mode edit (+1 at d=2 in BOTH literals) passed it: the encoder (build(),
+# the T[(s,d)] indicators and their exactly_k budget) and the round-trip verifier (verify_seq) would
+# have drifted together, undetected. Measured by the Codex V2 adjudication (A08 row 13, A09 row 17).
+# Both literals were correct; the defect was that nothing in this file could have said so.
+#
+# Now derive_c5_tables() computes all three tables from a sequence with solve.bit_diff, by three
+# counts that share no intermediate -- every transition (63), the within-pair transitions (32), and
+# the pair-BOUNDARY transitions counted directly (31: exit of pair s -> entry of pair s+1) -- and
+# c5_tables_guard() checks the module tables against anchors that a common-mode edit cannot
+# satisfy: solve.py's own C5 multiset (solve.h2_kw_multiset), the canonical pairing
+# (solve.build_pairs), the cardinalities 63/32/31 (from len(KW), independent of bit_diff), and the
+# additive identity tot = wp + between. `sat.py --c5-selfcheck` runs the guard on deliberately
+# corrupted copies and prints GUARD_REJECTS_COMMON_MODE=1 only if the +1/+1 corruption is REFUSED
+# (tests.py pins the token and repeats the red test in-process).
+# Key order is pinned ascending (1,2,3,4,6): build() allocates T[(s,d)] by iterating
+# BETWEEN_MULTISET, so the order fixes CNF variable numbering -- emitted CNFs are byte-identical
+# to the literal era (checked against ten pre-change emissions when this landed).
+_C5_KEYS = (1, 2, 3, 4, 6)   # admissible transition distances: C2 forbids 5, distinct hexagrams forbid 0
+
+def derive_c5_tables(seq):
+    """Return (tot, wp, between) for a sequence with an even number of hexagrams, using only
+    solve.bit_diff: tot = every adjacent transition; wp = the transition inside each (2i, 2i+1)
+    pair; between = the transition across each pair boundary (2i+1, 2i+2). Plain dicts, keys
+    ascending. Nothing here reads a constant: derive_c5_tables(KW) is this module's C5 ground
+    truth, and for any other sequence it is THAT sequence's tables (the selfcheck proves the
+    function is input-sensitive, so it cannot silently degrade into a literal)."""
+    from collections import Counter
+    n = len(seq)
+    tot = Counter(solve.bit_diff(seq[i], seq[i + 1]) for i in range(n - 1))
+    wp = Counter(solve.bit_diff(seq[2 * i], seq[2 * i + 1]) for i in range(n // 2))
+    between = Counter(solve.bit_diff(seq[2 * i + 1], seq[2 * i + 2]) for i in range(n // 2 - 1))
+    return tuple({d: c[d] for d in sorted(c)} for c in (tot, wp, between))
+
+def c5_tables_guard(tot, wp, between):
+    """Raise AssertionError unless (tot, wp, between) are exactly King Wen's C5 tables; else None.
+    Every anchor is computed WITHOUT the table it checks, so the guard cannot agree with a
+    corrupted table by construction (the verifier-closure invariant):
+      G1  tot   == solve.h2_kw_multiset()                 solve.py's own derivation (ground truth)
+      G2  wp    == distances over solve.build_pairs()     the canonical pairing, not KW adjacency
+      G3  sums  == (len(KW)-1, len(KW)//2, len(KW)//2-1)  structural; independent of bit_diff
+      G4  tot   == wp + between, key-wise                 the pre-2026-09-02 guard, kept as ONE leg
+      G5  keys  within _C5_KEYS                           C2 (no 5) and C1 (no 0)
+    A common-mode +1 on tot and between passes G4 alone -- that was the defect -- and fails G1 and G3."""
+    from collections import Counter
+    n = len(KW)
+    ref_tot = dict(solve.h2_kw_multiset())
+    ref_wp = dict(Counter(solve.bit_diff(a, b) for a, b in solve.build_pairs()))
+    keys = set(tot) | set(wp) | set(between)
+    checks = (
+        ("G1 tot != solve.h2_kw_multiset()", dict(tot) == ref_tot),
+        ("G2 wp != solve.build_pairs() distances", dict(wp) == ref_wp),
+        ("G3 cardinalities != (%d, %d, %d)" % (n - 1, n // 2, n // 2 - 1),
+         (sum(tot.values()), sum(wp.values()), sum(between.values())) == (n - 1, n // 2, n // 2 - 1)),
+        ("G4 tot != wp + between", all(tot.get(d, 0) == wp.get(d, 0) + between.get(d, 0) for d in keys)),
+        ("G5 key outside admissible distances", keys <= set(_C5_KEYS)),
+    )
+    failed = [name for name, ok in checks if not ok]
+    if failed:
+        raise AssertionError("C5 table guard failed: " + "; ".join(failed))
+
+_tot, _wp, BETWEEN_MULTISET = derive_c5_tables(KW)
+c5_tables_guard(_tot, _wp, BETWEEN_MULTISET)
+
+def c5_selfcheck(out=print):
+    """`--c5-selfcheck`: behavioural evidence for the C5 derivation and its guard (T6, 2026-09-02).
+    Prints KEY=value verdict lines -- gate on them with `grep -qx`, never on output shape:
+      C5_LITERALS_DERIVED=1         the module tables equal derive_c5_tables(KW); the derivation is
+                                    input-SENSITIVE (a non-KW sequence yields different tables, so it
+                                    is not a constant wearing a function's name); and no dict literal
+                                    equal to either KW table exists in this file's AST
+      GUARD_ACCEPTS_TRUE_TABLES=1   c5_tables_guard accepts the real tables (a guard that always
+                                    raises is not a guard either)
+      GUARD_REJECTS_COMMON_MODE=1   c5_tables_guard REFUSES copies with +1 applied to BOTH _tot and
+                                    BETWEEN_MULTISET at d=2 -- the corruption the pre-2026-09-02
+                                    guard accepted (Codex V2 A08 row 13). This is THE red test.
+      GUARD_REJECTS_CORRUPTIONS=k/n the wider battery: common-mode +1 at every admissible d, +1 on
+                                    all three tables, a sum-preserving 2<->4 transposition in both,
+                                    and each single-table +1
+      GUARD_REJECTS_NON_KW=1        the guard refuses the (different) tables of a non-KW sequence:
+                                    it is anchored to KW, not to whatever it is handed
+    Returns 0 iff every verdict is its passing value; every line is printed even on failure."""
+    import ast
+    tot, wp, between = _tot, _wp, BETWEEN_MULTISET
+    # --- derived, not written out
+    fresh = derive_c5_tables(KW)
+    same = (tot, wp, between) == fresh
+    other = list(KW)
+    other[2:4], other[4:6] = KW[4:6], KW[2:4]            # KW with pair slots 1 and 2 swapped
+    other_tabs = derive_c5_tables(other)
+    sensitive = other_tabs != fresh
+    with open(__file__) as fh:
+        tree = ast.parse(fh.read(), filename=__file__)
+    lits = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            try:
+                v = ast.literal_eval(node)
+            except (ValueError, TypeError, SyntaxError):
+                continue
+            if v == tot or v == between:
+                lits.append(node.lineno)
+    derived = same and sensitive and not lits
+    out("C5_LITERALS_DERIVED=%d" % derived)
+    out("  tables == derive_c5_tables(KW): %s; input-sensitive: %s; literal dict equal to a table at "
+        "line(s): %s" % (same, sensitive, lits or "none"))
+
+    def refuses(t, w, b):
+        try:
+            c5_tables_guard(t, w, b)
+        except AssertionError as e:
+            return str(e)
+        return None
+    accepts = refuses(tot, wp, between) is None
+    out("GUARD_ACCEPTS_TRUE_TABLES=%d" % accepts)
+    # --- THE red test: +1 on both formerly hand-written tables at d=2
+    t2, b2 = dict(tot), dict(between)
+    t2[2] += 1; b2[2] += 1
+    why_cm = refuses(t2, wp, b2)
+    out("GUARD_REJECTS_COMMON_MODE=%d" % (why_cm is not None))
+    out("  common-mode +1 at d=2 in _tot and BETWEEN_MULTISET -> %s" % (why_cm or "ACCEPTED (defect)"))
+    # --- the battery
+    cases = []
+    for d in _C5_KEYS:
+        t, b = dict(tot), dict(between)
+        t[d] = t.get(d, 0) + 1; b[d] = b.get(d, 0) + 1
+        cases.append(("common-mode +1 at d=%d" % d, t, wp, b))
+    t, w, b = dict(tot), dict(wp), dict(between)
+    t[2] += 1; w[2] += 1; b[2] += 1
+    cases.append(("common-mode +1 at d=2 on all three tables", t, w, b))
+    t, b = dict(tot), dict(between)
+    t[2], t[4] = t[4], t[2]; b[2], b[4] = b[4], b[2]
+    cases.append(("sum-preserving 2<->4 transposition in both", t, wp, b))
+    t = dict(tot); t[2] += 1; cases.append(("+1 in tot only", t, wp, between))
+    b = dict(between); b[2] += 1; cases.append(("+1 in between only", tot, wp, b))
+    w = dict(wp); w[2] += 1; cases.append(("+1 in wp only", tot, w, between))
+    k = 0
+    for name, t, w, b in cases:
+        why = refuses(t, w, b)
+        k += why is not None
+        out("  %-44s -> %s" % (name, why or "ACCEPTED (defect)"))
+    out("GUARD_REJECTS_CORRUPTIONS=%d/%d" % (k, len(cases)))
+    # --- verifier closure: the guard must be FALSE when the target (KW's tables) is absent
+    non_kw = sensitive and refuses(*other_tabs) is not None
+    out("GUARD_REJECTS_NON_KW=%d" % non_kw)
+    ok = derived and accepts and why_cm is not None and k == len(cases) and non_kw
+    return 0 if ok else 1
 
 # ---- static per-(pair,orient) facts, all derived from solve imports ----
 def pc(n): return bin(n).count("1")
@@ -1213,8 +1351,10 @@ def verify_seq(seq):
     scores is None when the base checks fail."""
     ok = len(seq) == 64 and len(set(seq)) == 64
     ok = ok and solve.has_no_five(seq)
-    from collections import Counter
-    ok = ok and dict(Counter(solve.bit_diff(seq[i], seq[i+1]) for i in range(63))) == _tot
+    # C5 against solve.py's OWN multiset (solve.h2_pop_valid -> solve.h2_kw_multiset), not the
+    # module table the encoder shares: until 2026-09-02 this compared against `_tot`, so a wrong
+    # `_tot` would have been confirmed by the round trip meant to catch it (Codex V2 A09 row 17).
+    ok = ok and solve.h2_pop_valid(seq)
     pos = {h: i for i, h in enumerate(seq)}
     c3 = sum(abs(pos[h] - pos[h ^ 63]) for h in range(64))
     scores = None
@@ -1403,7 +1543,21 @@ if __name__ == "__main__":
     # than emitting the wrong formula, because rc=0 is an assertion that the command ran.
     # Same silent-ignore class as Q-309 (`--f1-pairs` with C3 flags), one layer out: there the
     # flag was accepted and dropped, here the whole invocation is.
-    _stray = [a for a in args[1:] if a.startswith("--")]
+    run = False                                      # --rigidity-cnf only: decide via kissat (+ drat-trim)
+    if "--run" in args:
+        run = True; args.remove("--run")
+    if run and args[:1] != ["--rigidity-cnf"]:
+        raise SystemExit("--run applies to --rigidity-cnf only")
+    # 2026-09-02 (Codex V2 A08 row 18 / A09 row 20): this guard, installed 2026-08-28, rejected the
+    # documented `--rigidity-cnf OUT --run` (rc=1, nothing written) because `--run` was consumed
+    # AFTER it -- the complete kissat + DRAT + drat-trim path below was unreachable for five days --
+    # and it scanned from index 1, so a mistyped SUBCOMMAND (`--wittness plain`) still printed the
+    # help banner and exited 0, the very failure its comment says it closed. `--run` is now consumed
+    # first, and args[0] is validated against the closed subcommand list.
+    _SUBCOMMANDS = ("--emit-cnf", "--decode", "--witness", "--rigidity-cnf", "--certify-count",
+                    "--c5-selfcheck")
+    _stray = ([args[0]] if args and args[0] not in _SUBCOMMANDS else []) \
+           + [a for a in args[1:] if a.startswith("--")]
     if _stray:
         raise SystemExit("unrecognised flag(s): " + " ".join(_stray) +
                          "\n(a mistyped flag was silently ignored before 2026-08-28; it is an error now)")
@@ -1545,7 +1699,7 @@ if __name__ == "__main__":
             if ok and rule_ok and c3_ok:
                 print("WITNESS:", seq); break
             cnf.add(*[-Y[(s, j)] for s in SLOTS for j in range(NJ) if Y[(s, j)] in set(l for l in lits if l > 0)])
-    elif args[:1] == ["--rigidity-cnf"] and len(args) in (2, 3):
+    elif args[:1] == ["--rigidity-cnf"] and len(args) == 2:
         # TR-5 v-next SC-4 kernel [expect UNSAT]; see build_rigidity docstring.
         out = args[1]
         cnf, x = build_rigidity()
@@ -1554,7 +1708,7 @@ if __name__ == "__main__":
         cnf.write(out, "rigidity: G5-automorphism fixing 0+N5(0) pointwise, != id [expect UNSAT]")
         print("wrote %s (%d vars, %d clauses); encoding self-validation PASS" %
               (out, cnf.n, len(cnf.cl)))
-        if len(args) == 3 and args[2] == "--run":
+        if run:
             import shutil
             if shutil.which("kissat") is None:
                 raise SystemExit(
@@ -1576,5 +1730,7 @@ if __name__ == "__main__":
             else:
                 print("drat-trim not on PATH — proof emitted but UNVERIFIED "
                       "(run drat-trim %s %s independently)" % (out, proof))
+    elif args == ["--c5-selfcheck"]:
+        sys.exit(c5_selfcheck())
     else:
         print(__doc__)

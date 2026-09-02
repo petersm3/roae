@@ -500,6 +500,60 @@ class TestGates(unittest.TestCase):
         self.assertIn("kissat is required to run --witness", r.stderr)
         self.assertNotIn("Traceback", r.stderr)
 
+    def test_sat_c5_tables_derived_and_guard_rejects_common_mode(self):
+        # T6 (2026-09-02): sat.py's two C5 tables were hand-written literals, in breach of its own
+        # header rule, and the guard between them passed a common-mode +1 (Codex V2 A08 row 13 /
+        # A09 row 17). Pinned by verdict TOKENS (grep -qx semantics), never by output shape.
+        r = subprocess.run([sys.executable, "sat.py", "--c5-selfcheck"], capture_output=True, text=True)
+        lines = r.stdout.splitlines()
+        self.assertIn("C5_LITERALS_DERIVED=1", lines, r.stdout)
+        self.assertIn("GUARD_REJECTS_COMMON_MODE=1", lines, r.stdout)
+        self.assertIn("GUARD_REJECTS_NON_KW=1", lines, r.stdout)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-300:])
+        # The red test again, in-process and with the reference recomputed HERE from solve primitives
+        # (no sat.py code path reused), so a common-mode edit to both module tables goes red even if
+        # the subcommand's own accounting were wrong.
+        from collections import Counter
+        tot = dict(Counter(solve.bit_diff(KW[i], KW[i + 1]) for i in range(63)))
+        between = dict(Counter(solve.bit_diff(KW[2 * i + 1], KW[2 * i + 2]) for i in range(31)))
+        self.assertEqual(sat._tot, tot)
+        self.assertEqual(sat.BETWEEN_MULTISET, between)
+        sat.c5_tables_guard(sat._tot, sat._wp, sat.BETWEEN_MULTISET)       # the true tables pass
+        bad_tot, bad_between = dict(tot), dict(between)
+        bad_tot[2] += 1; bad_between[2] += 1                               # +1 on BOTH at d=2
+        with self.assertRaises(AssertionError):
+            sat.c5_tables_guard(bad_tot, sat._wp, bad_between)
+        # and the round-trip verifier no longer shares the encoder's table (A09 row 17)
+        self.assertTrue(sat.verify_seq(KW)[0])
+        self.assertFalse(sat.verify_seq(KW[:2] + KW[4:6] + KW[2:4] + KW[6:])[0])
+
+    def test_rigidity_run_reachable_and_subcommand_token_validated(self):
+        # Codex V2 A08 row 18 / A09 row 20: from 2026-08-28 to 2026-09-02 the documented
+        # `--rigidity-cnf OUT --run` exited 1 on the stray-flag guard with nothing written, leaving a
+        # complete kissat + DRAT + drat-trim implementation unreachable. Now the CNF is written and,
+        # with kissat absent, the run leg exits with the install message -- the same graceful-absence
+        # contract as --witness. The kissat leg itself is not exercised here (no solver on PATH).
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as empty:
+            out = os.path.join(empty, "rig.cnf")
+            env = dict(os.environ, PATH=empty)
+            r = subprocess.run([sys.executable, "sat.py", "--rigidity-cnf", out, "--run"],
+                               capture_output=True, text=True, env=env)
+            self.assertTrue(os.path.exists(out), r.stderr[-300:])
+            self.assertNotIn("unrecognised flag", r.stderr)
+            self.assertIn("kissat is required for --rigidity-cnf --run", r.stderr)
+            self.assertNotIn("Traceback", r.stderr)
+            # --run outside --rigidity-cnf is refused, not silently dropped (the Q-309 class)
+            r = subprocess.run([sys.executable, "sat.py", "--emit-cnf", "plain",
+                                os.path.join(empty, "x.cnf"), "--run"], capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("--run applies to --rigidity-cnf only", r.stderr)
+            self.assertFalse(os.path.exists(os.path.join(empty, "x.cnf")))
+        # sibling (A09 row 20, limb 2): a mistyped SUBCOMMAND is an error, not help banner + rc 0
+        r = subprocess.run([sys.executable, "sat.py", "--wittness", "plain"], capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("unrecognised flag(s): --wittness", r.stderr)
+
 
 class TestSatC5Subset(unittest.TestCase):
     """Gate for the C5 cardinality/budget encoding + the reduced-subset

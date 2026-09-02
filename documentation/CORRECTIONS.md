@@ -3219,3 +3219,50 @@ rather than the quoted sentence, item 7 settled by executing the tool, and the n
 settled by red-testing the gate. Two of the review's ten limbs did not survive that process and are
 recorded as not upheld rather than quietly dropped. Reviewers are **acknowledged**, not credited as
 authors.
+
+---
+
+## 2026-09-02 — `sat.py` broke its own "no hand-written constraint semantics" rule, and the guard could not have told us
+
+`sat.py`'s header, and [SAT_CLI.md](SAT_CLI.md) §DESCRIPTION, state that the file contains **no
+hand-written constraint semantics** — every constraint is derived from `solve.py` imports, so a
+transcription error cannot enter the encoding. Two C5 tables violated that rule from the file's
+creation (2026-07-02): the King Wen transition multiset `_tot = {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}`,
+which the round-trip verifier `verify_seq()` accepted models against, and the pair-boundary multiset
+`BETWEEN_MULTISET = {1: 2, 2: 8, 3: 13, 4: 7, 6: 1}`, which builds the C5 clauses. Both were
+**correct** — re-derived clean-room from `verify.py`'s own table by the Codex V2 adjudication (A08
+row 13) and again from `solve.binary_hexagrams` + `solve.bit_diff` in this fix — so no emitted CNF,
+model count or verdict changes. The defect is what stood *between* them: a guard
+(`_tot[d] - _wp[d] == BETWEEN_MULTISET[d]`, added 2026-08-28 under Q-357) that tied only their
+**difference** to the derived within-pair table. A `+1` applied to both literals at d=2 passed it
+(**measured**: `GUARD_PASSES_ON_COMMON_MODE_+1_AT_d2: True`), and `verify_seq()` compared decoded
+models against the same `_tot` the encoder used, so encoder and verifier would have drifted together
+undetected. That is the verifier-closure shape — a check sharing an assumption with the thing it
+checks — in the SAT lane, and it is the one error class hand-writing actually produces.
+
+**Fixed.** Both tables are now computed at import by `derive_c5_tables(solve.binary_hexagrams)` —
+three `solve.bit_diff` counts sharing no intermediate (all 63 transitions; the 32 within-pair
+transitions; the 31 pair-boundary transitions counted directly) — with key order pinned so CNF
+variable numbering is unchanged (ten pre-change emissions, including `--with-c3`, `--c3-min
+--not-kw`, `--f1-pairs 9` and `--rigidity-cnf`, re-emitted byte-identical). `c5_tables_guard()`
+replaces the difference check with anchors none of which is computed from the table it checks:
+`solve.h2_kw_multiset()` (solve.py's own derivation), the distances over `solve.build_pairs()`, the
+cardinalities 63/32/31 from `len(KW)`, and the additive identity kept as one leg of five.
+`verify_seq()` now calls `solve.h2_pop_valid()` — solve.py's constraint function — rather than the
+module table. The red test is a subcommand, `sat.py --c5-selfcheck`, which corrupts copies of the
+tables and reports `GUARD_REJECTS_COMMON_MODE=1` only if the `+1`/`+1` corruption is refused (it is:
+legs G1 and G3 fire), plus a battery of ten corruption classes and a non-KW sequence, all refused.
+`tests.py` pins the tokens and repeats the red test in-process with its reference recomputed from
+`solve.py` primitives. The guard's tolerance was not widened anywhere; every leg is an equality.
+
+**In the same pass** (A08 row 18 / A09 row 20): the documented `sat.py --rigidity-cnf OUT.cnf --run`
+had exited 1 with nothing written since 2026-08-28, because the unrecognised-flag guard added that
+day ran before the rigidity branch consumed `--run` — a complete kissat + DRAT + `drat-trim` path was
+unreachable for five days while SAT_CLI.md advertised it. `--run` is now consumed before the guard
+(and refused outside `--rigidity-cnf` rather than silently dropped); the same guard now also
+validates the subcommand token, so `--wittness plain` exits 1 instead of printing the help banner
+with exit 0. No solver was on the fixing host: the CNF-writing and kissat-absent paths are pinned
+by `tests.py`; the kissat verdict leg itself was not exercised here.
+
+**Attribution.** Raised by the Codex V2 review (V2-F50 #1, #6; V2-F62 #4, #7), adjudicated in
+roae-private A08 rows 13 and 18 and A09 rows 17 and 20, fixed in the Fable lane (T6).
