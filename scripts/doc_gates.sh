@@ -749,14 +749,52 @@ gate_cli() {
 # phrases, where '*' is only ever markdown emphasis splitting a span ("hard floor
 # **k ≥ 13**"), never a multiplication sign. sed with literal substitutions only (the
 # digit-comma rule uses the class [0-9]; no repetition operators of any kind).
+#
+# QUOTE FOLD (2026-09-02, batch C9) — the fourth character family, and the one this table
+# was measured to be MISSING. Variant 3 of the needle-reachability class: a registry needle
+# carrying an ASCII apostrophe cannot reach a typographic one, and vice versa. PROVEN LIVE
+# before the fix, on a scratch copy of this tree: the registered row "C4's attested
+# orientation" was planted into documentation/GUIDE.md spelled C4<U+2019>s, GATE 3 printed
+# [ok] for that row and PASS overall; the same sentence planted with an ASCII apostrophe
+# fired [FAIL] immediately. The character was the whole difference. Batch P54 had already
+# paid for this by hand — it took TWO narrow needles instead of the one covering phrase,
+# because the covering phrase contained an apostrophe and would have been defeated here.
+#
+# BLAST RADIUS, MEASURED rather than argued (the registry is 174 phrase rows + 14 figure
+# rows = 188 needles, all of them run through this function by GATE 3 and GATE 6). The
+# per-(needle, corpus-file) match set was captured before and after over the FULL corpus —
+# every tracked .md, the non-md half of reports/evidence/**, the figure generators and the
+# text-bearing .svg — 77 (needle, file) matches, and the before/after diff is EMPTY. The
+# fold folds needle and haystack alike, so it can only ADD matches; it added none here,
+# because zero registered needles and only 31 corpus characters carry a curly quote.
+#
+# BACKTICK IS DELIBERATELY NOT FOLDED, and this is the measured half of the decision, not
+# taste. (a) NO TRUE POSITIVE EXISTS: every backtick-followed-by-letter site in the corpus
+# is a code-span opener (`v4-canonical, `d683794`, `example`s) — not one is a possessive,
+# so folding ` to ' cannot recover a single real survivor. (b) A FALSE POSITIVE DOES EXIST
+# and was reproduced on real corpus bytes: with ` folded, the needle "example's" goes from
+# 1 matching file to 2, the extra being lean/README.md's "anonymous `example`s" — a code
+# span naming the Lean `example` keyword, pluralised. That is precisely a needle matching a
+# LITERAL rather than a claim. (c) The perturbation is 1,155x larger: 35,817 corpus
+# backticks against 31 curly quotes, and this file's GATE 21 keys on backticks as
+# STRUCTURE (backticked repo paths), so the character is load-bearing markup here, not an
+# alternative spelling of a glyph. Ellipsis (U+2026 -> "...") is the same shape and is also
+# NOT folded: 812 in the corpus but ZERO needles carry either spelling, so it has no
+# populated needle side and no red test. Both are recorded as measured, unfixed siblings.
 fold_variants() {
   # The four space variants are spelled as $'\u..' escapes, not embedded literally —
   # an invisible character pasted into a sed script is unreviewable and un-diffable.
+  # The four QUOTE variants are spelled the same way for a SHARPER version of that reason:
+  # ' and ’ are both VISIBLE and near-identical at a review font size, so a literal
+  # pasted here would not be unreadable, it would be MISREADABLE as the ASCII character it
+  # folds to — a reviewer would see s/'/'/g and read it as a no-op.
   local NB=$'\u00a0' FS=$'\u2007' TS=$'\u2009' NN=$'\u202f'
+  local RSQ=$'\u2019' LSQ=$'\u2018' LDQ=$'\u201c' RDQ=$'\u201d'
   sed -e 's/×/x/g; s/✕/x/g; s/⨯/x/g' \
       -e 's/–/-/g; s/—/-/g; s/−/-/g' \
       -e 's/≥/>=/g; s/≤/<=/g; s/＋/+/g' \
       -e "s/$NB/ /g; s/$FS/ /g; s/$TS/ /g; s/$NN/ /g" \
+      -e "s/$RSQ/'/g; s/$LSQ/'/g; s/$LDQ/\"/g; s/$RDQ/\"/g" \
       -e 's/\*//g' \
       -e 's/\([0-9]\),\([0-9]\)/\1\2/g' \
       -e 's/ +/+/g; s/+ /+/g'
@@ -1014,7 +1052,21 @@ if os.path.exists(ALLOW):
 FOLD1 = {0x00D7: 'x', 0x2715: 'x', 0x2A2F: 'x',
          0x2013: '-', 0x2014: '-', 0x2212: '-',
          0x2265: '>=', 0x2264: '<=', 0xFF0B: '+',
-         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' '}
+         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' ',
+         # QUOTE FOLD (2026-09-02, batch C9) — added HERE ONLY to hold the
+         # "keep the three in step" contract this table's own header states. The
+         # defect and the red tests are GATE 3's (see fold_variants); this side has
+         # ZERO quote-bearing needles today (14 figure rows, all numeric; 3 alias
+         # rows: C1+C2+C3, "the exhaustive enumeration", "Zheng Qiao"), so the
+         # extension is measured-INERT here and the full `all` output is unchanged
+         # by it. It is applied anyway because the alternative is a table that
+         # diverges silently and re-opens the same hole the day someone registers a
+         # quote-bearing figure caption or alias. U+0060 backtick is NOT folded, for
+         # the reason measured at fold_variants: no true positive exists and a real
+         # false positive does. 0x2019 is the only one of the four the corpus
+         # actually carries in prose; the other three are included so the pair
+         # (open, close) is closed on both the single and double forms.
+         0x2019: "'", 0x2018: "'", 0x201C: '"', 0x201D: '"'}
 def canon(s, star):
     # star is what ASCII '*' folds to, and it is genuinely two-valued: as a variant
     # of × it must become 'x' ("~52*"), as markdown emphasis it must vanish so the
@@ -9877,7 +9929,21 @@ def occ(hay, needle, stop):
 FOLD1 = {0x00D7: 'x', 0x2715: 'x', 0x2A2F: 'x',
          0x2013: '-', 0x2014: '-', 0x2212: '-',
          0x2265: '>=', 0x2264: '<=', 0xFF0B: '+',
-         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' '}
+         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' ',
+         # QUOTE FOLD (2026-09-02, batch C9) — added HERE ONLY to hold the
+         # "keep the three in step" contract this table's own header states. The
+         # defect and the red tests are GATE 3's (see fold_variants); this side has
+         # ZERO quote-bearing needles today (14 figure rows, all numeric; 3 alias
+         # rows: C1+C2+C3, "the exhaustive enumeration", "Zheng Qiao"), so the
+         # extension is measured-INERT here and the full `all` output is unchanged
+         # by it. It is applied anyway because the alternative is a table that
+         # diverges silently and re-opens the same hole the day someone registers a
+         # quote-bearing figure caption or alias. U+0060 backtick is NOT folded, for
+         # the reason measured at fold_variants: no true positive exists and a real
+         # false positive does. 0x2019 is the only one of the four the corpus
+         # actually carries in prose; the other three are included so the pair
+         # (open, close) is closed on both the single and double forms.
+         0x2019: "'", 0x2018: "'", 0x201C: '"', 0x201D: '"'}
 def canon(s, star):
     s = s.translate(FOLD1).replace('*', star)
     out = []
