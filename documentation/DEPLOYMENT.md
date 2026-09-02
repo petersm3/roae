@@ -145,7 +145,7 @@ split policy is the operative one. See CORRECTIONS.md]**
 
 - **Enumeration → spot, 128 cores** (D128als_v7 westus3). Eviction-resilient (sub-branch checkpoints). Spot gives ~70-85% discount ($5.146/hr on-demand → $0.95/hr spot).
 - **Merge → on-demand, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest sit idle. **Size the merge VM by RAM and I/O, NOT core count.** On-demand (not spot) because merge is fragile under eviction — a mid-merge eviction costs a full re-run at 100T+ scale (5+ hours).
-  - **d3 10T merge** (~89 GB pre-dedup, in-memory feasible): **D16als_v7** (16 cores, 32 GB RAM) or D32als_v7 (32 GB RAM fits 89 GB external, 64 GB fits in-memory). On-demand ~$0.50-$1/hr → <$1 for 1h merge.
+  - **d3 10T merge** (~89 GB pre-dedup): **D16als_v7** (16 cores, 32 GB RAM) with `SOLVE_MERGE_MODE=external`, or **D32als_v7** (32 cores, 64 GB RAM) which still needs the external path — 89 GB does not fit in 64 GB. On-demand ~$0.50-$1/hr → <$1 for 1h merge. *(This bullet previously read "D32als_v7 (32 GB RAM fits 89 GB external, 64 GB fits in-memory)", attaching two different RAM figures to one SKU and contradicting the 64 GB given for D32als_v7 in the next bullet. Corrected 2026-09-01 against the SKU→RAM table below.)*
   - **d3 100T merge** (~880 GB pre-dedup, external required): **D32als_v7** (32 cores, 64 GB RAM) is plenty — external merge streams in chunks, doesn't need to fit everything in RAM. On-demand ~$1.30/hr → ~$7 for a 5h merge.
   - **d3 1000T+** (if ever): external merge on **D64als_v7** (128 GB RAM) handles chunk sort comfortably, ~$2.50/hr.
   - **NEVER use D128als_v7 for merge.** Paying for 128 cores to run a 1-core workload is ~4× over-spend. The 2026-04-19/20 100T run's merge did exactly this: a D128 billed for a workload a D32 would have served.
@@ -535,8 +535,18 @@ MB/thread). Merge RAM scales with output size.
 2. **Data disk survives** the teardown. Shards are the primary artifact; the
    final `solutions.bin` is derived.
 3. **Merge VM** — separate and right-sized (by RAM and I/O, not cores),
-   launched only when shards are complete. Runs `./solve --merge /data/solutions.bin`, writes the merged
-   output back to the same disk, verifies sha256, tears down.
+   launched only when shards are complete. Runs `cd /data && ./solve --merge`,
+   writes the merged output back to the same disk, verifies sha256, tears down.
+   ⚠ **[CORRECTED 2026-09-01 — this read `./solve --merge /data/solutions.bin`,
+   which does not do what it looks like.]** `--merge` takes **no arguments**: it
+   sets `arg_offset = argc`, so every following argument is consumed and
+   silently discarded — no error, no warning. It then scans the **current
+   working directory** for `sub_*.bin` shards and writes `solutions.bin` and
+   `solutions.sha256` there. Run from `~` on a fresh merge VM, the old command
+   therefore finds no shards at all, or — worse — merges whatever stale shards
+   happen to be in the CWD, and the operator has a path in their shell history
+   that appears to say otherwise. **`--merge` is CWD-relative; `cd` to the shard
+   directory first.**
    VM choice: a **right-sized on-demand D-series** VM per §Standing policy
    — D16/D32als_v7 for 10T–100T, D64als_v7 at 1000T+. Memory-optimized
    E-/M-series are not used here: merge is a single-threaded heap-sort sized
@@ -1237,6 +1247,34 @@ F-series retired on this project (see §Cost control).
 | F64als_v6 | westus2 | 128 GB | **RETIRED 2026-04-19** (historical reference only) | ~$0.79/hr | ~$3.87/hr |
 | Standard HDD managed disk | any | — | Persistent `/data` (archival shards + solutions.bin) | — | ~$21-82/mo depending on tier (S15 300GB → S40 2TB) |
 | Premium SSD P20/P40 | any | — | External-merge temp scratch (attached-for-merge only) | — | ~$0.05-0.42/hr prorated |
+
+#### SKU to RAM reference
+
+*(The single SKU→RAM reference for this project; added 2026-09-01.)*
+
+Every `D<N>als_v7 (<RAM>)` figure published anywhere in this project must match
+this table. The table exists because the figures did **not** match: several
+sites doubled them, and the project paid for the assumption once already.
+
+| SKU | vCPU | RAM |
+|---|---:|---:|
+| D4als_v7 | 4 | 8 GB |
+| D16als_v7 | 16 | 32 GB |
+| D32als_v7 | 32 | 64 GB |
+| D64als_v7 | 64 | **128 GB** |
+| D96als_v7 | 96 | 192 GB |
+| D128als_v7 | 128 | **256 GB** |
+
+**The rule is 2 GB per vCPU**, and the reason is the `l`: `Dals_v7` is the
+**low-memory** variant of the `Das_v7` family. The same core count without the
+`l` carries twice the RAM — `D64as_v7` is 256 GB where `D64als_v7` is 128 GB.
+
+🔴 **This is a paid-for lesson, not a spec-sheet transcription.** During the
+100T pilot the project had to move a consolidation step "from D64als_v7 (128 GB
+RAM, 'l' = low memory) to **D64as_v7 (256 GB RAM)** … We had assumed D64als_v7
+was 256 GB" ([HISTORY.md](HISTORY.md), 100T-pilot entry). The two SKU names
+differ by one character and their memory differs by 2×. When sizing a merge by
+RAM, read the SKU name character by character.
 
 Spot prices fluctuate; check the Azure spot pricing page or set `--max-price`
 defensively. Spot evictions in westus2 under F64 averaged ~1 per 3 hours during

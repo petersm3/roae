@@ -36,7 +36,7 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
 
 The observation that consecutive hexagrams in the King Wen sequence **never differ by exactly five lines** is attributed to Terence McKenna.
 
-- **McKenna, Terence and McKenna, Dennis** (1975). *The Invisible Landscape: Mind, Hallucinogens, and the I Ching*. Seabury Press, New York (**2nd, revised and updated edition: HarperSanFrancisco/HarperCollins, 1993, 229 pp. — this is the edition carrying Peter Meyer's appendix *The Mathematics of Timewave Zero*, pp. 211–220**; subsequent printing 1994, ISBN 0-06-250635-8 / 978-0062506351; [Open Library](https://openlibrary.org/isbn/9780062506351)). The "first-order of difference" analysis appears in **Part Two, Chapter 9 ("Order in the I Ching and Order in the World")**. McKenna explicitly states "a perfect ratio of three to one; three even integers to each odd integer" and gives the count as "fourteen threes and two ones constitute sixteen instances of an odd integer occurring out of a possible sixty-four" — confirming he was using the **circular reading** (64 transitions including the wrap-around s₆₃ → s₀, which has Hamming distance 3 in King Wen). Figure 17 (Table II, "Change in the King Wen Sequence") enumerates the full difference-wave histogram pair-by-pair. In the same chapter McKenna formalizes the sequence design under three rules: (1) absolutely exclude transitions of value 5 (= our **C2**); (2) minimize transitions of value 1 except where doing so would force a value 5 — empirically measured at the d3 560T canonical 2026-06-15 (`9a968fa2…`, 10,525,271,997 records: 80.03% of C1-C5 records violate it; KW is in the 19.97% minority that obeys it). **NOT promoted to a formal C-rule** — it would be reverse-engineered from KW's specific value-1 placements without first-principles or independent-corroboration support; see MCKENNA.md for the peer-review-defensibility analysis; (3) maintain a three-to-one ratio of even to odd transitions (= our **Theorem on wrap-around parity**, since 3:1 circular is a consequence of C4 + C5 + the XOR parity identity).
+- **McKenna, Terence and McKenna, Dennis** (1975). *The Invisible Landscape: Mind, Hallucinogens, and the I Ching*. Seabury Press, New York (**2nd, revised and updated edition: HarperSanFrancisco/HarperCollins, 1993, 229 pp. — this is the edition carrying Peter Meyer's appendix *The Mathematics of Timewave Zero*, pp. 211–220**; subsequent printing 1994, ISBN 0-06-250635-8 / 978-0062506351; [Open Library](https://openlibrary.org/isbn/9780062506351)). The "first-order of difference" analysis appears in **Part Two, Chapter 9 ("Order in the I Ching and Order in the World")**. McKenna explicitly states "a perfect ratio of three to one; three even integers to each odd integer" and gives the count as "fourteen threes and two ones constitute sixteen instances of an odd integer occurring out of a possible sixty-four" — confirming he was using the **circular reading** (64 transitions including the wrap-around s₆₃ → s₀, which has Hamming distance 3 in King Wen). Figure 17 (Table II, "Change in the King Wen Sequence") enumerates the full difference-wave histogram pair-by-pair. In the same chapter McKenna formalizes the sequence design under three rules: (1) absolutely exclude transitions of value 5 — the **linear** restriction of this is our **C2**, but McKenna applies it circularly (all 64 transitions including the wrap), which is strictly stronger: C1–C5-valid orderings with a 5-line wrap exist (SAT-decided 2026-07-03, explicit witness in [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md) §"New result"; reproduce with `python3 sat.py --witness wrap-d5`), and circular C2 would cut the space by ×1.21 (full-space d=5-wrap mass 17.4%, 2×10¹⁰ probes). Cf. [MCKENNA.md](MCKENNA.md) §"McKenna's 25/75 odd-even split"; (2) minimize transitions of value 1 except where doing so would force a value 5 — empirically measured at the d3 560T canonical 2026-06-15 (`9a968fa2…`, 10,525,271,997 records: 80.03% of C1-C5 records violate it; KW is in the 19.97% minority that obeys it). **NOT promoted to a formal C-rule** — it would be reverse-engineered from KW's specific value-1 placements without first-principles or independent-corroboration support; see MCKENNA.md for the peer-review-defensibility analysis; (3) maintain a three-to-one ratio of even to odd transitions (= our **Theorem on wrap-around parity**, since 3:1 circular is a consequence of C4 + C5 + the XOR parity identity).
 - *Status of earlier references:* The 1975 first edition (Seabury Press) contains the same I Ching analysis as the 1994 HarperCollins reprint; the work was reprinted, not revised. The underlying intuitions date to the McKennas' 1971 Amazonian expedition (see *True Hallucinations*, 1993, and Timewave-Zero biographical sources). No pre-1975 peer-reviewed paper or published lecture transcript on the I Ching analysis has been located via open web sources.
 - Cook (2006) also presents the 5-line absence as part of the broader combinatorial analysis; independently derived within his framework.
 
@@ -53,12 +53,12 @@ The observation that King Wen positions complementary hexagrams (bitwise-opposit
 
 **Status in ROAE:** We believe C3 as a specifically-quantified constraint (776 as the KW value) is an original observation. *(**Amended 2026-08-01, lens sweep:** this claim previously read "776 as the KW value; 3.9th percentile — sampled — within orderings satisfying the other constraints, C1+C2+C4+C5". The 3.9th-percentile figure is flagged — it is not supported by the population it is labelled with, and the suite's own ledger gives ≈12% at that scope; see [SOLVE.md](SOLVE.md) §Rule 3. **The novelty claim does not depend on the figure** — it is about 776 being identified and quantified as a constraint at all — but the specific percentile must not travel with it.)* If prior work exists, please notify — we will credit appropriately.
 
-**Scope qualifier (added 2026-04-20 after d3 100T enumeration; scope label corrected 2026-07-22):** KW's C3 is low (3.9th percentile, sampled — **flagged 2026-08-01, see [SOLVE.md](SOLVE.md) §Rule 3: not supported by that population; ledger ≈12%**) *within orderings satisfying the other constraints (C1+C2+C4+C5)* — not within C1-only orderings, where the measured tail is ~6-8% (C3|C1 = exact 6.4211367496% via `verify.py --check-null-g --unpinned` — the 10⁹-sample MC via `solve.c --null-pair-constrained` measured 6.42%, consistent; exact 8.106% at C1&C4 via `verify.py --check-null-g`) — but once the full C1–C5 canonical is enumerated, **KW sits at the C3 ceiling (776), not the floor**. Minimum C3 is 424 (221 records) at 100T and 392 at the deeper 560T canonical; about **1 in 10 (~10%)** of canonical orderings tie with KW at 776 — a fraction measured over the enumerated set, not a universal constant (9.91% over the 100T sample, 10.11% over the deeper 560T sample; both correct, converging near 10% — the full ~10³⁸ space was never fully enumerated). So within the conjoint C1–C5 frame, KW's C3 value is a *jointly satisfied upper bound* that many other orderings match, not a distinguishing minimum. The low-percentile framing of C3 applies specifically to the C1+C2+C4+C5 comparison population (every constraint except C3 itself) and should not be generalized — and it is a lowest-4% placement, not a minimization. See [SOLVE.md](SOLVE.md) §Rule 3 revision and [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+**Scope qualifier (added 2026-04-20 after d3 100T enumeration; scope label corrected 2026-07-22):** KW's C3 is low (3.9th percentile, sampled — **flagged 2026-08-01, see [SOLVE.md](SOLVE.md) §Rule 3: not supported by that population; ledger ≈12%**) *within orderings satisfying the other constraints (C1+C2+C4+C5)* — not within C1-only orderings, where the measured tail is ~6-8% (C3|C1 = exact 6.4211367496% via `verify.py --check-null-g --unpinned` — the 10⁹-sample MC via `solve.c --null-pair-constrained` measured 6.42%, consistent; exact 8.106% at C1&C4 via `verify.py --check-null-g`) — but once the full C1–C5 canonical is enumerated, **KW sits at the C3 ceiling (776), not the floor**. Minimum C3 is 424 (221 records) at 100T and 392 at the deeper 560T canonical; about **1 in 10 (~10%)** of canonical orderings tie with KW at 776 — a fraction measured over the enumerated set, not a universal constant (9.91% over the 100T sample, 10.11% over the deeper 560T sample; both correct, converging near 10% — the full ~10³⁸ space was never fully enumerated). So within the conjoint C1–C5 frame, KW's C3 value is a *jointly satisfied upper bound* that many other orderings match, not a distinguishing minimum. The low-percentile framing of C3 applies specifically to the C1+C2+C4+C5 comparison population (every constraint except C3 itself) and should not be generalized. ⚠ **[CORRECTED 2026-09-01 — a trailing clause here classified KW's C3 placement using the very percentile figure this same sentence flags as unsupported and which [SOLVE.md](SOLVE.md) §Rule 3 records as withdrawn from citation. A statistic withdrawn from citation cannot be the premise of a present-tense classification, and unlike its marked neighbours above and in §"What is original to ROAE" the clause carried no marker. It is removed; nothing it asserted is lost, because this sentence already states that KW sits at the C3 ceiling rather than the floor and that its C3 value is not a distinguishing minimum. The ledger figure at the C1+C2+C4+C5 scope is ≈12%.]** See [SOLVE.md](SOLVE.md) §Rule 3 revision and [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
 
 ### C4 — fixed start (Qian, Kun)
 
-The placement of the two constant hexagrams (Qian 乾, Kun 坤) first is classically attested,
-independently of any modern analysis:
+The placement of the two constant hexagrams (Qian 乾, Kun 坤) first **as the opening pair** is
+classically attested, independently of any modern analysis — the *pair*, not the order within it:
 
 <a id="xugua"></a>
 - **Xugua zhuan** 序卦傳 ("Sequence of the Hexagrams"), one of the Ten Wings of the *Yi Zhuan*
@@ -69,9 +69,19 @@ independently of any modern analysis:
   source for C4 (see that entry: the qian/kun "pure yang / pure yin" precedence as an "unavoidable
   priority", p. 298).
 
-**Status in ROAE:** classical fact, encoded as C4; not novel to ROAE. The orientation layer (63
-before 0) is definitional/classically attested — the former "Theorem 6 (forced orientation)" claim
-was retracted 2026-07-26 (see CLAIMS_DECIDED.md). *(Stub added 2026-07-30 — constraint-provenance
+**Status in ROAE:** the **pair choice** is a classical fact, encoded as C4; not novel to ROAE. The
+orientation layer (63 before 0) is **definitional — a convention this project fixed, not an
+inheritance it found**; the former "Theorem 6 (forced orientation)" claim was retracted 2026-07-26
+(see CLAIMS_DECIDED.md). ⚠ **[CORRECTED 2026-09-01 — this line previously described the orientation
+layer as classically attested as well as definitional. The *Xugua* does not attest the WITHIN-PAIR
+order: 有天地，然後萬物生焉 sequences *the pair* before the myriad things, and 天地 is a compound, not an
+ordering of Heaven over Earth. What the classical record does attest is C1, the pairing rule —
+孔穎達《周易正義·序卦傳疏》, 二二相耦，非覆即變, whose principle is stated in the
+[Kong Yingda](#kongyingda) entry above — together with C4's *pair choice*, which is unaffected and remains classically attested. The
+narrowing landed in [METHODS.md](../reports/METHODS.md) §"Constraint set" on 2026-08-30 and in
+[SPECIFICATION.md](SPECIFICATION.md) §Constraints on 2026-09-01; this file missed the propagation.
+[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) already prices C4 at its full 6 bits (pair +
+orientation), so no ledger value moves.]** *(Stub added 2026-07-30 — constraint-provenance
 audit; C4 previously had no subsection here.)*
 
 ### C5 — transition-distance multiset
@@ -81,7 +91,9 @@ both already cited in full elsewhere in this file; this stub is the landing poin
 
 - **As data:** [Meyer (1998)](#meyer1998) publishes the complete cyclic line-change sequence
   (all Hamming distances including the wrap-around term) with an explicit XOR-and-popcount
-  formalization — prior art for the transition multiset *as data*.
+  formalization — prior art for the transition multiset *as data*. The document was read first-hand on
+  2026-07-04 and the page has since gone (checked 2026-08-01, no Internet Archive capture), so this read
+  is this project's own and a reader cannot repeat it; see the [Meyer 1998](#meyer1998) entry.
 - **As a measured statistic:** [Chan (2026)](#chan2026) first published the mean consecutive
   Hamming distance 3.35 (= 211/63) measured against random permutations — the same number ROAE's
   C5 multiset forces exactly.
@@ -194,9 +206,25 @@ applicable.
   4. **Within-pair vs between-pair Hamming-distance asymmetry:
      0.63 coefficient** (99.2nd percentile). ROAE's C1 (pair
      structure) STRUCTURALLY forces within-pair distances into
-     `{0, 2, 4, 6}` via the reverse/complement construction
-     (Hamming-2 for reverse-pair, Hamming-6 for complement-pair),
-     while between-pair distances are unrestricted. ROAE's
+     `{2, 4, 6}` via the reverse/complement construction — in every
+     C1-valid ordering they form exactly the multiset
+     `{2:12, 4:12, 6:8}`: the 28 reverse pairs at 2, 4 or 6 (the four
+     at 6 being those where reversal coincides with complementation),
+     and the 4 remaining complement pairs always at 6 — while
+     between-pair distances are unrestricted. ⚠ **[CORRECTED
+     2026-09-01 — this line put 0 in C1's within-pair distance set and
+     gave reverse pairs a single fixed distance of 2. Neither holds.
+     Distance 0 cannot occur, because no hexagram is its own partner
+     under either operation, and the reverse pairs are spread across
+     2, 4 and 6. Re-derived from scratch over `verify.py`'s `KW` and
+     `PAIRS` — no solver binary and no enumeration artifact involved;
+     the same multiset is published at
+     [SPECIFICATION.md](SPECIFICATION.md) §"Theorem (Trigram-level
+     structure, 2026-07-11)" and machine-checked as `within_multiset_general` in
+     [`lean/TrigramTheorems.lean`](../lean/TrigramTheorems.lean),
+     which proves the counts at distances 0 and 1 are both zero. The
+     augchan42 asymmetry finding this paragraph credits is
+     unaffected.]** ROAE's
      `CRITIQUE.md` notes this structural consequence. **Same
      phenomenon, different framing** — augchan42 measures the
      resulting asymmetry as statistical surprise vs random; ROAE
@@ -276,7 +304,7 @@ ROAE's **exhaustive enumeration of all 2^27 B(2, 6) permutations and analytic pr
 <a id="savage1997"></a>
 - **Savage, Carla D.** (1997). "A survey of combinatorial Gray codes." *SIAM Review* 39: 605–629. [doi:10.1137/S0036144595295272](https://doi.org/10.1137/S0036144595295272) Standard reference on Gray code families.
 
-ROAE's **analytic proof that no 6-bit Gray code satisfies C1** (Hamming-1 adjacency is disjoint from C1's required {0, 2, 4, 6}) is believed novel but straightforward; it follows trivially from the Gray code definition.
+ROAE's **analytic proof that no 6-bit Gray code satisfies C1** (Hamming-1 adjacency is disjoint from C1's required {2, 4, 6}) is believed novel but straightforward; it follows trivially from the Gray code definition.
 
 ---
 
@@ -287,12 +315,23 @@ the Chinese and Japanese algebraic literature on the hexagram set, previously un
 this repository.)*
 
 The algebraic framing this project uses — the 64 hexagrams as (Z/2)⁶ under line-wise XOR, with the 8
-self-complementary hexagrams as an order-8 subgroup whose cosets organize the reversal-pairs — is
+self-reverse hexagrams as an order-8 subgroup whose cosets organize the reversal-pairs — is
 prior art: Ouyang Weicheng 欧阳维诚 ([1992](#ouyang1992)) proved the group structure and read the
 Jing Fang, Mawangdui, and Fuxi sequences as subgroup-coset arrangements, and Suenaga Takayasu
 末永高康 ([2012](#suenaga2012)) independently developed the same machinery and initiated counting
 the arrangement space, computing the number of order-8 subgroups exactly (1395 = [6 choose 3]₂) and
-posing, though not completing, a full product count. We claim no originality for this framing or for
+posing, though not completing, a full product count. ⚠ **[CORRECTED 2026-09-01 — this framing named the
+order-8 subgroup as the set of self-*complementary* hexagrams, here and again in the
+[Suenaga 2012](#suenaga2012) entry below. Under this repository's own `comp(h) = h ⊕ 63` that set is
+**empty** — [SPECIFICATION.md](SPECIFICATION.md) §Definitions says so directly, since a fixed point would
+require 63 = 0 — so the construction as written yielded nothing and the cosets could not be built from it.
+The order-8 XOR subgroup is the **self-reverse** set, the eight hexagrams fixed by 綜 rather than by 錯;
+it is closed under XOR, and it is the same eight this file already calls self-reverse in the
+[Wu Cheng](#wucheng) entry (his 正對不反易者四). Both sites are corrected. This matters beyond wording
+because these two sentences describe **Ouyang's and Suenaga's** mathematics, not this project's, and the
+wrong fixed-point set misstated their result. Checked from scratch over `verify.py`'s primitives: no
+hexagram satisfies `h ^ 63 == h`; the eight satisfying reversal-fixity are {0, 12, 18, 30, 33, 45, 51, 63}
+and are XOR-closed.]** We claim no originality for this framing or for
 the idea of counting hexagram-arrangement spaces; the contributions here are the exact
 full-scale counts at the C1∩C2∩C4 and C1∩C2∩C4∩C5 layers (with validated estimates for C1–C5 and
 C1–C7, which remain estimates — TR-11 §10) — a different counting object — the equivariance-ceiling theorem, and the
@@ -428,8 +467,17 @@ enumerates that space, or proves a ceiling on it.
   Xing judges the convergence with Shen genuine (「这确实与沈先生的卦序论"不谋而合"」), and Cui
   claims the novelty himself: 纯卦人皆知之，而交卦则罕有言者。反对人多言之，而平对则罕有及者. Shen scopes the convergence himself:
   至散卦之排列，崔氏未详其故 — Cui does **not** account for the arrangement of the 48 subordinate
-  hexagrams, which is where all of Shen's 三序/三势 material sits. We have **not** examined Cui's
-  text; recorded as *per Shen's 1936 report*, not as a verified earlier root.
+  hexagrams, which is where all of Shen's 三序/三势 material sits. Cui's text was **read from the print
+  2026-08-16** — Kansai University 内藤文庫 IIIF scan, with the ctext transcription agreeing
+  character-for-character on every load-bearing sentence; see the [Cui Shu](#cuishu) entry. Shen's 1936
+  report is the corroborating secondary route, not the only one. ⚠ **[CORRECTED 2026-09-01 — this sentence
+  said the project had not examined Cui's text and recorded the attribution as resting on Shen's report
+  alone. Two named routes to that text, one of them dated and first-hand, are documented in the
+  [Cui Shu](#cuishu) entry below. The sentence carried no date and no marker of its own, and it sits in a
+  passage a reader would use to grade this project's evidence quality — exactly the reader it misled.
+  Related and reported rather than changed here: the consultation-status inventory further down labels the
+  listed classical sources secondary as a class, while the [Lai Zhide](#laizhide), [Cui Shu](#cuishu) and
+  [朱元昇](#zhuyuansheng) entries each document direct transcription.]**
 
   **The 1936 pieces state nothing orbit-theoretic — though one of them turns out to be
   orbit-theoretic in extension.** Shen claims no group, no action, and no orbit; in that sense they
@@ -559,7 +607,10 @@ enumerates that space, or proves a ceiling on it.
   **But he never composes the two.** His table contains no 錯綜 compound, and he presents the
   operations as **two side-by-side diagrams** (「伏羲圓圖相錯圖　文王序卦相綜圖…因此將二圖並列之」) —
   two attributes per hexagram, never a four-element set, never a size. **That is exactly the line
-  between Lai Zhide and [Wu Cheng](#wucheng)**, and it is why the composition is ceded to the latter.
+  between Lai Zhide and the sources that do compose the two**, and it is why the composition is not ceded
+  to Lai Zhide. It is ceded to [朱元昇](#zhuyuansheng), complete by 1270, not to
+  [Wu Cheng](#wucheng) — the latter retains the count and the operational phrasing (narrowed 2026-09-01;
+  see the [朱元昇](#zhuyuansheng) entry).
   Corroborated by a hostile contemporary: 黃宗羲《易學象數論》 objects that 來知德 「於頤、過八卦相反之
   外取反對者，而**亦復錯之**」 — an objection that is itself evidence the practice was conspicuous.
   Cited by [Li Shangxin 2002](#lishangxin2002) as his source for both definitions.
@@ -606,7 +657,9 @@ enumerates that space, or proves a ceiling on it.
   elsewhere, so they are **one rule under 70 labellings**: "fixed point" versus "swapped pair" is a
   vacuous distinction exactly where the two operations coincide — i.e. exactly on his sixteen.
   Reproduce with `python3 verify.py --check-classical-groups`.
-  **What this leaves us.** The orbit decomposition itself is ceded to Wu Cheng. **Nothing in Wu Cheng
+  **What this leaves us.** The orbit decomposition itself is ceded to [朱元昇](#zhuyuansheng)
+  (complete by 1270), with Wu Cheng retaining the count and the operational phrasing — the same narrowing
+  this entry records at its head, applied here too (2026-09-01). **Nothing in Wu Cheng
   — or in [Cui Shu](#cuishu), 焦循, 來知德 or [Kong Yingda](#kongyingda) — counts ORDERINGS.** They
   classify the 64; this project counts arrangements of them subject to constraints, which is a
   different object. **⚠ Scoped 2026-08-16: that is a statement about those five authors, NOT a survey
@@ -678,9 +731,21 @@ enumerates that space, or proves a ceiling on it.
   `L21--1-589-14-0093`…`-0096`); ctext transcription `https://ctext.org/wiki.pl?if=gb&chapter=917813`
   agrees character-for-character on every load-bearing sentence.
   **⚠ SUPERSEDED as "earliest" the same day — see [Wu Cheng](#wucheng), c. 1300, who has the
-  COMPLETE 20-orbit decomposition of all 64. Cui is an INDEPENDENT REDISCOVERER of a subset**, and
+  COMPLETE 20-orbit decomposition of all 64 — and who is himself superseded as earliest by
+  [朱元昇](#zhuyuansheng), complete by 1270 (narrowed 2026-09-01: a supersession must not re-publish a
+  stale priority under the authority of a correction). Cui is an INDEPENDENT REDISCOVERER of a subset**, and
   creditably so: 《易纂言外翼》 was lost after the Ming and only reconstructed from the 永樂大典 in
-  1781, so he almost certainly could not have read it.
+  1781. ⚠ **[CORRECTED 2026-09-01 — that date was given here as the reason Cui almost certainly could not
+  have read Wu Cheng. It does not support the conclusion, and it points the other way: this entry dates Cui
+  1740–1816 with composition ≤1816, so the 1781 reconstruction precedes his death by thirty-five years and
+  precedes the latest possible composition date by the same margin. Nothing cited establishes a composition
+  date before 1781, and nothing addresses circulation or access, so **access cannot be excluded on
+  chronology**. The hedge made this worse rather than better, since it read as though the chronology had
+  been checked. What independence actually rests on is internal to the text: Cui names no predecessor at
+  all — only 先儒 — and his vocabulary (平對 / 反對) is neither Wu Cheng's (正對 / 反易) nor the 錯 / 綜
+  pair. That is evidence he had not surveyed, which is weaker than a demonstration that he had no access,
+  and it is stated here as the weaker thing. The [朱元昇](#zhuyuansheng) entry carries a clean model for
+  the distinction: an arrival recorded as independent but not prior.]**
   **He groups hexagrams by BOTH operations, defining each by an explicit line rule.** 「何謂平對？陰陽之爻互易者也。何謂反對？上下之爻互易者也。」 — 平對 = invert
   all six lines (= 錯 / 旁通), 反對 = turn the hexagram over (= 綜 / 覆). He then forms the
   four-element sets and **states their sizes**: 「震與巽平對而反對則艮也；兌與艮平對而反對則巽也。
@@ -694,7 +759,15 @@ enumerates that space, or proves a ceiling on it.
   inside his 散卦 — he files 漸歸妹 under 震艮. **The full 12 + 8 decomposition of all 64 is not in
   Cui.**
   **This project claims no priority for grouping by both operations** — that belongs to
-  [Wu Cheng](#wucheng), c. 1300, with Cui an independent rediscoverer c. 1800. Reproduce the arithmetic — the six groups on the sixteen ARE the six K₄ orbits — with
+  [朱元昇](#zhuyuansheng), complete by 1270, with [Wu Cheng](#wucheng) (c. 1300) contributing the count
+  and the operational phrasing, and Cui an independent rediscoverer c. 1800. ⚠ **[CORRECTED 2026-09-01 —
+  four sentences in this file still ceded the priority for grouping by both operations to Wu Cheng: this
+  one, one in the [Lai Zhide](#laizhide) entry, one in the [Wu Cheng](#wucheng) entry, and the supersession
+  marker a few lines above — the last being the worst of the four, because it re-published the stale
+  attribution as the content of a correction. The 2026-08-16 narrowing that installed 朱元昇 as earliest
+  reached only the head of the Wu Cheng entry. All four now name 朱元昇. Nothing said about what Wu Cheng
+  does contribute is withdrawn, and this file's finding that his statement may be independent while
+  independence is not priority is unchanged.]** Reproduce the arithmetic — the six groups on the sixteen ARE the six K₄ orbits — with
   `python3 verify.py --check-shen-orbits` (reads no files); the same check covers both Cui and
   [Shen 1936](#shen1936), because **their sixteen and their six groups are identical**, which is why
   Shen wrote 「近讀崔東壁遺書易卦次圖說，乃與予說不謀而合」. Their *epistemic status* differs — see
@@ -838,7 +911,7 @@ enumerates that space, or proves a ceiling on it.
 - **Suenaga Takayasu 末永高康** (2012). "Kinbon *Shūeki* no kajo o megutte" 今本『周易』の卦序をめぐって
   [On the hexagram order of the received *Zhouyi*]. *Tōyō koten-gaku kenkyū* 東洋古典學研究 34: 1–18.
   Independent rediscovery of the (Z/2)⁶/XOR framing (yin=0/yang=1, six-bit vectors), the order-8
-  subgroup of the 8 self-complementary hexagrams, and the coset organization of reversal-pairs — and
+  subgroup of the 8 self-reverse hexagrams, and the coset organization of reversal-pairs — and
   **an independent arrival at counting the arrangement space** ⚠ **[FIRSTNESS CLAIM WITHDRAWN 2026-08-28 — this read "the first author we have located to start counting the arrangement space". This project's own Chen Zhuangwei adjudication ruled that FALSE AS WRITTEN on 2026-08-24; the sentence entered main on 2026-07-31 (`6a3feaaa`) and was never removed. Q-127 (DONE) and Q-263 (OPEN) both recorded it as no longer live because the checks read this section's preamble (:293) and never this entry body — so Q-263's question to the operator rests on a false premise. No firstness is asserted here; the cession chain is public. Found by the D2 novelty lens; see Q-358.]**: computes exactly
   1395 = [6 choose 3]₂ order-8 subgroups, and poses (but does not complete — halted, he reports, by
   his calculator's display) the product 1395 × 56 × 48 × 40 × 32 × 24 × 16 × 8 ≈ 1.47×10¹³ for
@@ -881,29 +954,48 @@ constructive, or confirmatory in aim, and so is not prior art for this project's
 contributions (the exact C1∩C2∩C4 and C1∩C2∩C4∩C5 full-scale counts — C1–C5/C1–C7 remain validated estimates — the equivariance ceiling, and the Lean formalization).
 Recorded here to document the survey's breadth.*
 
+<a id="guchengcheng2021"></a>
 - **Gu Chengcheng 谷成城** (2021/2022). *Xitong kexue xuebao* 系统科学学报 30(3). An intension-lattice /
   systems-theory reading; the author notes that lattice methods yield a *sufficient-not-necessary*
   condition and cannot derive the King Wen order de novo (confirmatory, not enumerative).
+<a id="liugang2017"></a>
 - **Liu Gang 刘钢** (2017). "Lun xiantian yitu yu buer daishu de dengjiaxing" 论先天易图与布尔代数的等价性.
   *Zhexue dongtai* 哲学动态 2017(11): 88–92. Proves the Fuxi (先天) eight-trigram diagram is isomorphic
   to the Boolean algebra 2³ — a structure characterization of the *trigram* diagram, not the sequence.
+<a id="houweimin1997"></a>
 - **Hou Weimin 侯维民** (1997). "Fuxi guatu zhong de buer daishu" 伏羲卦图中的布尔代数. *Zhouyi yanjiu*
   周易研究 1997(3): 81–85. A Boolean-algebra reading of the Fuxi diagram (八卦 as B₂³, 64 as B₂⁶); descriptive.
+<a id="kezineng2001"></a>
 - **Ke Zineng 柯资能** (2001). *Zhouyi yanjiu* 周易研究 2001(3): 79–91. The Fuxi (先天) order as a binary
   ordinal (Peano-style) system; concerns 先天, not King Wen.
+<a id="wangjunlong2002"></a>
 - **Wang Junlong 王俊龙** (2002–2005 trilogy; 2010; 2014). Numerological constructions that presuppose
   the received King Wen order (back-fitting rather than deriving it). *(All five obtainable papers
   read in full 2026-08; the 2002–2005 trilogy adjudicated against full texts 2026-08-27 — none
   counts orderings. One item remains unobtainable: the 2007 chapter in 劉大鈞 ed. 大易集釋,
   pp. 812–836.)*
+<a id="wuguokai2012"></a>
 - **Wu Guokai 吴国凯** (2012). *Yangming xuekan* 阳明学刊 6: 193–226. A formula fitting the Jing Fang
   eight-palace (京房八宫) order, within Ouyang (1992)'s coset framing.
+<a id="zhangkebin2020"></a>
 - **Zhang Kebin 张克宾** (2020). "Guaxu er ti" 卦序二题. *Zhongguo zhexue shi* 中国哲学史 2020(2): 49–55.
   An exegetical treatment that itself notes the ordering's non-uniqueness.
+<a id="zhaozhongguo2008"></a>
 - **Zhao Zhongguo 赵中国** (2008). *Zhouyi yanjiu* 周易研究 2008(1): 75–82. A historiographical survey of
   the 先天-diagram / binary-encoding debate.
+<a id="suzhi2017"></a>
 - **Su Zhi 苏智** (2017). *Weinan shifan xueyuan xuebao* 渭南师范学院学报 32(15): 45–50. A
   Saussurean-semiotics reading (non-mathematical).
+
+⚠ **[CORRECTED 2026-09-01 — the nine entries immediately above carried no HTML anchor, against the
+promise at the top of this file that every bibliographic entry has one. Each gives author, year, journal,
+volume and pages in this file's own entry form, and this section exists to record what is ceded to each,
+so they are entries rather than passing mentions. Anchors added following the stated convention. A
+full-file parse initially flagged eighteen entry-shaped lines as unanchored; reading them cleared nine —
+the short-list restatements near the top of the file whose full entries carry anchors elsewhere
+(`wilhelm-baynes1967`, `cook2006`, `mckenna-mckenna1975`, `shaughnessy1996`, `shaughnessy2022`,
+`chan2026`, each verified present), plus three cross-references that are not entries. These nine were the
+real ones, and none of the nine surnames had an anchor anywhere in the file before this edit.]**
 
 <a id="acquisition-2026-08"></a>
 ### The 2026-08 prior-art acquisition round — annotated (added 2026-08-29)
@@ -1034,7 +1126,7 @@ and [曹红军 et al. 1995](#caohongjun1995) (§the (Z/2)⁶ algebra), [李尚�
 <a id="hierholzer1873"></a>
 - **Hierholzer, Carl** (1873). "Ueber die Möglichkeit, einen Linienzug ohne Wiederholung und ohne Unterbrechung zu umfahren." *Mathematische Annalen* 6(1): 30–32. [doi:10.1007/BF01442866](https://doi.org/10.1007/BF01442866) Eulerian-circuit algorithm, used by ROAE's randomized de Bruijn sampler.
 <a id="fisher-yates1938"></a>
-- **Fisher, R. A. and Yates, F.** (1938). *Statistical Tables for Biological, Agricultural and Medical Research* (3rd ed.), Oliver & Boyd, London. Fisher-Yates shuffle algorithm, used in `--null-random` and `--null-pair-constrained`.
+- **Fisher, R. A. and Yates, F.** (1938). *Statistical Tables for Biological, Agricultural and Medical Research*, Oliver & Boyd, London. Fisher-Yates shuffle algorithm, used in `--null-random` and `--null-pair-constrained`. ⚠ **[CORRECTED 2026-09-01 — this entry paired the 1938 date with an edition label naming a later printing, gave that edition neither its own year nor a page or table locator, and so could not be resolved to a specific text. The label is dropped; the 1938 date and the `fisher-yates1938` anchor are unchanged, keeping the inbound link from [HISTORY.md](HISTORY.md) live. No locator for the shuffle has been checked against a held copy, so none is asserted.]**
 <a id="burnside-cauchy-frobenius"></a>
 - **Burnside / Cauchy–Frobenius orbit-counting lemma** (standard; see Burnside, W., *Theory of Groups of Finite Order*, Cambridge University Press, 1897). The orbit-counting identity (|orbits| = average number of fixed points over the group) underlying ROAE's symmetry-quotient exact count in [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md).
 <a id="mckay1998"></a>
@@ -1174,7 +1266,7 @@ certified-counting checks rest on this stack.)*
 
 Subject to the disclaimer at the top of this document, the following are believed to be ROAE-original contributions:
 
-1. **Partition Invariance theorem** — the guarantee that the canonical `solutions.bin` sha256 is byte-identical across hardware, region, thread count, and merge algorithm for fixed solver + input parameters. Formal statement in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
+1. **Partition Invariance theorem** — the guarantee that the canonical `solutions.bin` sha256 is byte-identical across **partition granularity** (one full-parallel invocation vs 56 independent single-branch invocations), thread count, and invocation mode, for **one fixed solver binary** and fixed input parameters. Formal statement in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §1; its hypothesis is enumeration to exhaustion, and for budgeted runs — which is every published canonical — invariance additionally requires the per-sub-branch budget to be pinned with `SOLVE_PER_SUB_BRANCH_LIMIT` (§3 there). Reproduction from *source* rather than from one binary is the weaker claim, holding **within the tested toolchain class documented in [DEVELOPMENT.md](DEVELOPMENT.md)** — that scope is not decoration: the same `solve.c` rebuilt on later hardware has produced a different sha ([DEVELOPMENT.md](DEVELOPMENT.md) §"Build reproducibility"; [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Reproducibility). Cross-hardware and cross-region byte-identity is recorded **empirically** (item 2 below; PARTITION_INVARIANCE.md §5a), not derived from the theorem. ⚠ **[CORRECTED 2026-09-01 — this item listed hardware and region among the axes the theorem holds fixed and named no toolchain scope, promising the reader more here than the format spec and the build-reproducibility section give, and more than §1 states. It also omitted the budget condition, so it read as covering canonicals the theorem's stated hypothesis does not reach.]**
 2. **4-corners validation grid** — cross-SKU, cross-region, cross-merge-algorithm empirical confirmation of partition invariance. See [HISTORY.md](HISTORY.md) and [SOLVE.md](SOLVE.md).
 3. **Large-scale budgeted enumeration under the C1+C2+C3 conjunction at 10T, 100T, and 560T scale** (every sub-branch budget-limited, none exhausted — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md); "exhaustive" corrected to "budgeted" 2026-08-01 to match the repo's own coverage framing; constraint set is the full C1–C5 canonical — "C1+C2+C3" in older text is legacy naming for the same population, see METHODS §"Legacy shorthand"; corrected 2026-08-01 from an earlier parenthetical of mine that asserted C1+C2+C3 was the narrower truth) — 10,525,271,997 d3 560T (sha `9a968fa2…`, 2026-06-08, **current deepest**) / 3,432,399,297 d3 100T (sha `915abf30…`) / 706,427,594 d3 10T (current canonical `b85c8871…`) / 286,357,503 d2 10T. Revealed that the boundary-minimum is monotone non-decreasing with scale (greedy minimum: 4 at 10T, 5 at 100T, 5 at 560T with the identical set {1, 4, 21, 25, 27}; working 4-set count drops 8 → 0 across 11.2T → 560T, where the 8 is log-verified at d3 10T and the 11.2T attribution is pending archived-log confirmation (note added 2026-07-04) — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md); corrected 2026-07-04 from an earlier "non-monotone, 4 again at 560T" reading, a survivor-counting error) and that KW sits at the C3 ceiling, not the floor, reaffirmed at 560T.
 4. **Comprehensive null-model testing framework** — seven structured and unstructured permutation families tested via `solve.c --null-*` subroutines: de Bruijn, Gray, Latin-square, lexicographic, historical, random, pair-constrained.
@@ -1276,7 +1368,7 @@ promotion of these rules into the formal constraint system carries these credits
   exception to the parity rule was first recognized by **Zhu Yuansheng (13th century)**. Schulz's later
   treatments: "Structural Elements in the Zhou Yijing Hexagram Sequence," *JCP* 38:4 (2011), 639–665
   (formalizes the "exception-proves-the-rule" design principle); *Hexagrammatics: Rules and Properties in
-  Binary Sequences*, 2nd ed. (Zizai, 2016); "N Gua Theory" (ZiZai, 2018). The companion seasonal
+  Binary Sequences* (Zizai, 2016) ⚠ **[CORRECTED 2026-09-01 — an edition label here duplicated the one withdrawn from the [Schulz 2016](#schulz2016) bibliography entry on 2026-08-29, where the held copy's own title page contradicts it. That withdrawal's sibling sweep was scoped to *other* files and so could not see this second occurrence inside the file the correction was written about. Label dropped; year, publisher and content unchanged.]**; "N Gua Theory" (ZiZai, 2018). The companion seasonal
   hypothesis: Schulz & Cunningham, "The Seasonal Structure Underlying the Arrangement of Hexagrams in the
   Yijing," *JCP* 17 (1990), 289–313. Schulz's first motif (balance-value pairing) and third (xiaoxi trisection,
   with Schulz & Cunningham 1988 seasonal hypothesis) are under population test as R-S2/R-S1. The pair
@@ -1687,12 +1779,12 @@ in the Yijing. *Journal of Chinese Philosophy, 17*(3), 289–313. [doi:10.1163/1
   complement) explicitly, and p. 298 states the qian/kun "pure yang / pure yin" precedence as an "unavoidable
   priority"; it also motivates the circular reading, tying the *zhou/zhounian* ("rounded year") etymology to
   reading the order as an annual cycle (p. 297) — a thematic motivation, not a wrap-around adjacency claim.
-  Novelty-humility caveat: C1 and C4 are classical facts the paper reports (from the Xugua/Tuan/Xici
-  commentary tradition), not ones it invents — ROAE claims only the conjoint C1–C5 system, its exhaustive
+  Novelty-humility caveat: C1 and C4's *pair choice* are classical facts the paper reports (from the Xugua/Tuan/Xici
+  commentary tradition), not ones it invents — ROAE claims only the conjoint C1–C5 system, its budgeted
   enumeration, and the population-scale measurements, never the pair or start primitives themselves. Its own
   contribution is orthogonal: the guaqi/xiaoxi seasonal framework and a temperature/humidity regression on a
   running line-sum (a descriptive statistical axis); it anticipates none of C2, C3, C5, the ~10^38
-  search-space size, the S4 symmetry theorem, or exhaustive enumeration. [analyzed]
+  search-space size, the S4 symmetry theorem, or enumeration of the ordering space. ⚠ **[CORRECTED 2026-09-01 — two clauses in this caveat described ROAE's enumeration as having been carried to exhaustion. It has not been: every sub-branch is budget-limited and none is exhausted — see §"What is original to ROAE" item 3 below and [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). The 2026-08-01 correction that replaced this wording elsewhere swept the originality section and not the per-entry caveats, and the phrase here wrapped a line break, so a flat string search did not reach it.]** [analyzed]
 
 <a id="shaughnessy1996"></a>
 Shaughnessy, E. L. (1996). *I Ching: The classic of changes*. Ballantine Books.
@@ -1757,13 +1849,21 @@ Using a McKenna sentence to establish Meyer's priority was circular, and it is w
 are credited to McKenna & McKenna, as they already were.
 
 *What remains attributable to Meyer, honestly stated:* the lost 1998 web document, whose specific content
-this project can no longer verify; and the 1993 timewave-mathematics appendix. **No ROAE novelty claim rests
+this project read on 2026-07-04 and can no longer **re**-verify; and the 1993 timewave-mathematics appendix. **No ROAE novelty claim rests
 on the Meyer entry** — the corresponding priority belongs to McKenna & McKenna 1975 and is credited there.
   Publishes the complete cyclic line-change sequence of the King Wen order (Hamming distances including
   the wraparound term) with an explicit XOR-and-popcount formalization — prior art for the transition
   multiset AS DATA (C5's axis) and for the cyclic reading's difference data. The absence of distance-5
   is visible in his published list but unremarked; the no-5 property as a stated claim remains McKenna &
-  McKenna (1975). Found via the zhouyi.com bibliography review, 2026-07-04. [analyzed]
+  McKenna (1975). **Content read first-hand on 2026-07-04**, during the zhouyi.com bibliography review —
+  before the page 404'd, which was found on 2026-08-01. The annotation above rests on that read, not on a
+  document a reader can now retrieve: **the read is unrepeatable**, and it is the reason the attribution is
+  stated rather than withdrawn. ⚠ **[CORRECTED 2026-09-01 — this entry stated the 1998 document's specific
+  content as fact and tagged it as analyzed, while saying a few lines below that the content could no longer
+  be verified, and it gave no date for the analysis. The tension was real: what was missing was not the
+  evidence but the date and the warning. The evidence is a dated project read that predates the page's
+  removal. Nothing about the attribution is weakened here, and no ROAE novelty claim rests on this
+  entry.]** [analyzed 2026-07-04]
 
 <a id="vandenberghe1999"></a>
 Van den Berghe, D. (c. 1999–2002). *The explanation of King Wen's order of the 64 hexagrams*. Web
@@ -1779,7 +1879,8 @@ document (icrea site, Belgium; later fourpillars.net). [Archived](https://web.ar
   pair 3/4). Our measurement (TR-1 §7, 2026-07-05; scope corrected 2026-07-26) confirms his 29/30
   exactly and sharpens it: 29 is
   the maximum of the 1,720,320-vector **C4-oriented** orientation fiber of King Wen's pair sequence —
-  the vectors keeping the classically attested (63, 0) opening — (12 vectors
+  the vectors keeping the received (63, 0) opening, whose orientation is definitional rather than
+  classically attested (narrowed 2026-09-01; §C4 above) — (12 vectors
   attain it; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided, 1.3951×10⁻⁵ two-sided), where 30/30 is
   unattainable — **his declared exception is forced given the received opening orientation**, making
   the rule perfect up to impossibility rather than "almost perfect". On the pair-only-C4 fiber

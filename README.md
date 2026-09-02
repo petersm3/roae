@@ -64,8 +64,18 @@ inventory. That figure is a Knuth random-probe **estimate**, 95% CI [5.13, 5.29]
 estimate, not a proven cardinality — but the verdict needs only that the count is not 1, and the CI's
 *lower* bound is 5.13×10³¹, so no plausible estimator error touches it. The conclusion is also
 corroborated **exactly, with no estimator involved**: inside King Wen's own 22-pair prefix, exact
-counting finds **16,504** C1–C5 completions of which exactly **8** satisfy C6–C7 — King Wen and seven
-others in its immediate neighbourhood ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4). King Wen is
+counting finds **16,504** *oriented* C1–C5 completions of which exactly **8** satisfy C6–C7 — and
+**all eight carry King Wen's own pair ordering**, the other seven being orientation variants of it
+([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4). So the exact corroboration is at the **oriented**
+level — the level the full-space estimate above also counts. Read as *pair orderings*, this one slice
+runs the other way: C6–C7 leave King Wen's alone among the 899 distinct pair orderings that those
+16,504 oriented leaves represent. ⚠ **[CORRECTED 2026-09-01 — this passage previously glossed the eight
+survivors as King Wen accompanied by seven further members of its neighbourhood, which invites a
+pair-ordering reading that is the opposite of what the enumeration shows. Ruled 2026-08-28; the
+verifying runs are published at [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4 and
+[SEARCH_SPACE_SIZE.md](documentation/SEARCH_SPACE_SIZE.md). Both counts, 16,504 and 8, are unchanged
+and correct — only the gloss was wrong. This front page was missed by the 2026-08-28 sweep because
+the retracted phrase wrapped a line break, which a line-based grep cannot see.]** King Wen is
 unique only within **budgeted enumerated slices**, never in the full space. Read against the
 literature, this is **a measured confirmation of prior under-determination claims, and the magnitude
 is a single-instrument estimate**: the direction was asserted qualitatively before this project
@@ -74,8 +84,8 @@ alone — every two-instrument exact quantity in the suite is C3-free
 ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)). Neither label doubts the number:
 the estimator is externally validated at both full-scale layers where exact ground truth exists,
 inside its stated envelope both times ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §"Estimator
-calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 of 16,504
-above). What no prior author did is the measurement **at combinatorial scale, over
+calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 oriented
+survivors of 16,504 above). What no prior author did is the measurement **at combinatorial scale, over
 constraint-defined spaces** — exhaustive searches over small curated families of candidate
 orders do exist in the literature, and are not what this sentence excludes.
 

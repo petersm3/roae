@@ -656,7 +656,22 @@ comp : x ↦ x ⊕ 63, applied to every hexagram of a sequence, is an **exact sy
 C1 ∩ C2 ∩ C3 ∩ C5**, and an involution; only the **oriented** form of C4 breaks it. In particular
 comp∘KW opens (0, 63) — the reversed orientation — and satisfies C1, C5 (hence C2), and C3 with
 the sum at exactly 776: the opening orientation is a free Z₂ of the pair-only system, fixed in C4
-by definition (classically attested, Xugua Heaven-then-Earth), not by mathematics. Verified
+by definition — our convention, not a classical attestation: the *Xugua* attests that the
+{Heaven, Earth} pair opens, not the order within it (narrowed 2026-09-01,
+[SPECIFICATION.md](../documentation/SPECIFICATION.md) §Constraints) — and not by mathematics.
+
+⚠ **[CORRECTED 2026-09-01 — the sentence above previously offered the *Xugua*'s opening as a classical
+attestation of the within-pair order as well. It does not attest it: 有天地，然後萬物生焉 sequences
+*the pair* before the myriad things, and 天地 is a compound, not an ordering of one over the other.
+What the classical record does attest is C1, the pairing rule — 孔穎達《周易正義·序卦傳疏》,
+二二相耦，非覆即變. C4's *pair choice* is unaffected and remains classically attested; only the
+orientation epithet is withdrawn — no Lean statement, proof, axiom set, or trust base changes, and
+`c4ok_breaks_under_comp` and `orientation_not_forced` say exactly what they said before. Narrowed in
+[METHODS.md](../reports/METHODS.md) §"Constraint set" on 2026-08-30. The same wording survives in a
+source comment in `KingWen.lean`'s retracted-Theorem-6 note, which is outside this pass's file scope
+and is corrected on its own track.]**
+
+Verified
 statements:
 
 | Theorem | Statement |

@@ -42,9 +42,9 @@ Read the first 32 bytes of the file. Per [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMA
 | 0      | 4    | Magic           | ASCII `'R','O','A','E'` (`0x52 0x4F 0x41 0x45`) |
 | 4      | 4    | Format version  | uint32 little-endian, must equal `1`        |
 | 8      | 8    | Record count    | uint64 little-endian                        |
-| 16     | 16   | Reserved        | zero-filled (advisory — tolerate nonzero)   |
+| 16     | 16   | Reserved        | zero-filled — **MUST be zero; reject nonzero** |
 
-**Reject** the file if magic ≠ `'ROAE'` or version is not a version you know. A conformant reader that does not understand a future version MUST refuse rather than guess, because the format may change in ways that would silently corrupt interpretation.
+**Reject** the file if magic ≠ `'ROAE'`, if version is not a version you know, or if any of the 16 reserved bytes is nonzero. ⚠ **[CORRECTED 2026-09-01 — the header table's Reserved row read "zero-filled (advisory — tolerate nonzero)" and the Python below performed no check. Both shipped readers reject: [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md) §File header is normative ("MUST be zero"), and since 2026-08-28 all three C readers plus `verify.py` enforce it. Executed on a 135,780-record artifact with byte 20 set to `0x5A`: `verify.py` returns **rc=1** ("header reserved bytes NONZERO … VERIFY FAIL") and `./solve --verify` returns **rc=20** ("ERROR: header reserved byte 20 is 0x5A, must be zero (SOLUTIONS_FORMAT.md)"); the same artifact unmodified gives rc=0 from both. A verifier built from the old wording would have accepted a file both shipped verifiers reject — which defeats the point of the independence cross-check, since a disagreement is supposed to indicate a defective artifact, not a defective recipe.]** A conformant reader that does not understand a future version MUST refuse rather than guess, because the format may change in ways that would silently corrupt interpretation.
 
 After header parse, assert `file_size == 32 + record_count × 32`. If the declared count and the actual file geometry disagree, the file is corrupt — reject.
 
@@ -61,6 +61,8 @@ with open(path, 'rb') as f:
     if version != 1:
         raise ValueError(f"unknown format version {version}")
     record_count = int.from_bytes(hdr[8:16], 'little')
+    if hdr[16:32] != b'\x00' * 16:
+        raise ValueError("header reserved bytes must be zero")
     records_blob = f.read()
     if len(records_blob) != record_count * 32:
         raise ValueError(
@@ -112,12 +114,23 @@ A record is 32 bytes. Byte `i` (for `i` in 0..31) encodes the pair at position `
 
     byte[i] = (pair_index << 2) | (orient << 1)
 
-where `pair_index` is 0-31 and `orient` is 0 or 1. Bit 0 is reserved (always 0).
+where `pair_index` is 0-31 and `orient` is 0 or 1. Bit 0 is reserved and **MUST be zero — validate
+it, do not merely mask it away**:
 
-To decode byte `i`:
-
+    if byte[i] & 0x01:
+        reject("record byte has reserved bit 0 set")
     pair_index = (byte[i] >> 2) & 0x3F
     orient     = (byte[i] >> 1) & 0x01
+
+⚠ **[ADDED 2026-09-01 — this step previously said only "Bit 0 is reserved (always 0)" and the
+decode masked it without checking, so a rebuilt verifier accepted records both shipped readers
+reject. Executed on the same 135,780-record artifact with bit 0 of record 0 byte 0 set:
+`verify.py` returns **rc=1** ("Format errors: 1 (records with reserved bit 0 set)") and
+`./solve --verify` returns **rc=30** ("ERROR: record 0 byte 0 = 0x01 has reserved bit 0 set; MUST
+be zero per SOLUTIONS_FORMAT.md"). The bit matters beyond conformance: it is masked out of the
+canonical sort key (`& 0xFC`) but participates in the full-byte dedup tie-break, so a set bit 0
+silently breaks byte-exact reproducibility between two otherwise-conformant implementations
+(`verify.py`, comment above the check).]**
 
 Then expand to positions `2i` and `2i+1` of the full sequence. Let `(a, b) = pairs[pair_index]`:
 
@@ -339,11 +352,23 @@ Part of the value of this exercise is surfacing places where the authoritative s
 - **Total-order claim on `compare_solutions`**. [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md) §Sort order previously defined the comparator but did not explicitly state it produces a total strict order on distinct records. That property is what makes sha256 reproducibility independent of sort-algorithm stability. Added 2026-04-18.
 - **Lex-smallest orient variant wins dedup**. [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md) §Deduplication now states explicitly that the deterministic choice within a canonical class is the lex-smallest orient variant by full-byte comparison. A re-implementation that keeps a different variant would produce a valid-under-C1-C5 file with a different sha256. Added 2026-04-18.
 
-No further gaps identified. A verifier built from the current specs + this document will be correct and byte-reproducible.
+No further gaps identified as of 2026-04-18. A verifier built from the current specs + this document will be correct and byte-reproducible.
+
+> ⚠ **Updated 2026-09-01 — a fourth gap, and this claim is only as fresh as its last audit.** The
+> two reserved fields (header bytes 16-31, and bit 0 of every record byte) were described here as
+> advisory while [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md) called them normative, and the 2026-08-28
+> hardening pass that made all three C readers plus `verify.py` enforce them did not reach this
+> document. A verifier built from the pre-correction recipe accepted artifacts both shipped verifiers
+> reject — the failure mode this recipe exists to prevent, since independent verification only works
+> if a disagreement means a defective artifact rather than a defective recipe. Both are fixed above,
+> with the executed rc values recorded. The sentence above is therefore scoped: it holds against the
+> specs as audited on the dates listed here, and re-earning it after any change to the normative
+> spec is part of that change, not a separate task.
 
 ## Changelog
 
 - **2026-04-18**: Initial version. Scope: verifier only. Companion artifact: `verify.py` (Python, independently implements this recipe).
+- **2026-09-01**: Reserved-field conformance brought into line with the normative spec and the shipped readers (propagation of the 2026-08-28 hardening, which had not reached this document). Header bytes 16-31 and record bit 0 both change from "advisory / tolerate" to "MUST be zero — reject", in the prose, in the header table, and in the supplied Python. Verified by execution against both shipped readers on a clean and on a corrupted copy of the same 135,780-record artifact. No change to the pair table, the constraint checks, the sort order, or the dedup rule.
 
 ---
 

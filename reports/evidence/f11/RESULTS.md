@@ -89,10 +89,10 @@ Moore-parity violations = 2, Moore-rhythm breaks = 2, Schulz-gender violations =
 |---|---|---|---|---|
 | 1 | KW violation profile (2,2,2), V=6 | exact | REUSED (re-asserted) | solve.py checkers; sat.py import gates; `f11_events.py` asserts |
 | 2 | Minimal repair = 3 slot-edits (grand-strict) | exact | REUSED | SAT + DRAT ([LITERATURE_RULES_POPULATION_TESTS.md](../../../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §results 5–7); independently REPRODUCED by the k≤2 exhaustive event enumeration in RUN D (0 hits) |
-| 3 | \|C1–C5\| canonical space N_can | **1.328702e38** (2e10 probes, relerr 0.03%, 95%CI [1.3280e38, 1.3294e38]) — matches the 1.3287e38 anchor; RUN C2 independent: 1.328327e38 | RE-MEASURED (same-run consistency) | c208/c211 scoreboard; `f11_runA.out` |
+| 3 | \|C1–C5\| space, **raw / orientation-explicit** (printed as `N_can`) | **1.328702e38** raw (2e10 probes, relerr 0.03%, 95%CI [1.3280e38, 1.3294e38]) — matches the published raw anchor 1.3287×10³⁸ ([SEARCH_SPACE_SIZE.md](../../../documentation/SEARCH_SPACE_SIZE.md)); RUN C2 independent: 1.328327e38 raw. ⚠ **[LABEL CORRECTED 2026-09-01 — this cell read "canonical space N_can". In this corpus *canonical* means orientation-DEDUPLICATED, a count of pair orderings whose ceiling is 31! ≈ 8.2228×10³³; 1.328702e38 exceeds that ceiling by ~16,159× and cannot be a canonical count. The VALUE is right and nothing downstream moves — it is the raw orientation-explicit estimate (raw ceiling 31!·2³¹ ≈ 1.77×10⁴³), it equals the published raw anchor, and every f11 mass that consumes it is a fraction of the same population, so no ratio in §4 changes. What was wrong is the label, inherited from the estimator's own printed `leaves_canonical_C1C5` line. The symbol `N_can` is kept because it is what `compute_f11_bf.py` prints (line 171); read it as *raw*. The orientation-deduplicated count of this space is NOT this figure — the previously published ≈3.3×10³⁷ estimate for it was withdrawn 2026-08-24 for exceeding the same 31! ceiling.]** | RE-MEASURED (same-run consistency) | c208/c211 scoreboard; `f11_runA.out` |
 | 4 | Moore-joint strict size N_mj | **1.16583e29** (5e9 probes, relerr 2.98%) — +3.5% vs the 1.1266e29 anchor (inside ±4.7%); RUN C independent: 1.091306e29 (−3.1%) | RE-MEASURED | c208 strict walk; `f11_runB.out` |
 | 5 | Triple-strict ("grand-strict") size N_gs | **3.57e25** primary (RUN C: 1.091306e29 × 3.27e-4); **1.03e25** cross (RUN B (0,0,0) cell: 1.16583e29 × 8.8277e-5). ×3.5 disagreement (rare-cell estimator noise); BOTH carried through the sensitivity table; the LARGER (corruption-conservative) is primary | **DERIVED** — see honest note below the table: the planned in-walk gender-strict prune output did not ship; N_gs comes from the gender-0-violation fraction *within* the delivered Moore-joint walks | `f11_runC.out` (scoreboard), `f11_runB.out` (hist plane); prereg anticipated: "the triple-strict size is measurable" |
-| 6 | Gender-strict-only size | **~1.3e32** (RUN C2: 1.328327e38 × 1e-6; scoreboard precision 1 s.f.) — i.e. gender-strict mass ≈ 1e-6 of canonical, one order LARGER than the prereg data-vector's rough "~<1e-7" guess (flagged in §8; info-only, does not enter the BF) | MEASURED FRESH (info/cross-check) | `f11_runC2.out` |
+| 6 | Gender-strict-only size | **~1.3e32** (RUN C2: 1.328327e38 × 1e-6; scoreboard precision 1 s.f.) — i.e. gender-strict mass ≈ 1e-6 of the raw C1–C5 space (row 3), one order LARGER than the prereg data-vector's rough "~<1e-7" guess (flagged in §8; info-only, does not enter the BF) | MEASURED FRESH (info/cross-check) | `f11_runC2.out` |
 | 7 | Joint violation histogram f(v1,v2,v3) | **4,892 cells, Σf = 1.000000**; min total-V observed = 2 (cell (1,1,0)); KW's own cell (2,2,2) observed: f = 1.981e-8 ≈ 2.63e30 orderings | **MEASURED FRESH** (new SOLVE_KNUTH_F11_HIST instrument) | `f11_runA.out` (bulk) |
 | 8 | Conditional gender histogram within Moore-strict (0,0,v3 plane) | **complete plane v3 = 0..24, Σf = 1.000000**; (0,0,0) = 8.8277e-5 | MEASURED FRESH | `f11_runB.out` |
 | 9 | Conditional (v1,v2,0) plane within gender-strict | **NOT DELIVERED** — RUN C2 shipped scoreboard only (no `f11_hist` lines). The `aug`/`bridge` Z therefore uses the RUN B plane + the N_gs cell only (disclosed; effect bounded — see §6) | — (absent) | `f11_runC2.out` |
@@ -102,14 +102,16 @@ Moore-parity violations = 2, Moore-rhythm breaks = 2, Schulz-gender violations =
 
 **Honest note on ingredient 5 (N_gs) — instrument deviation.** The pre-drafted plan (and the §7
 instrument-provenance paragraph below) expected RUN C to be a triple-strict *pruned* walk
-(SOLVE_KNUTH_GENDER_STRICT) whose `leaves_canonical` would be N_gs directly, with an in-walk
+(SOLVE_KNUTH_GENDER_STRICT) whose `leaves_canonical` (the estimator's printed label for the RAW
+orientation-explicit count — see the row-3 note) would be N_gs directly, with an in-walk
 leaf-scorer cross-check line ("mismatches must be 0"). The delivered `f11_runC.out` is instead a
 second independent Moore-joint-strict walk (5e9 probes, 64 threads) whose scoreboard reports the
 gender-0-violation fraction within that space (3.27e-4, scoreboard precision 3 s.f.); no prune
 line and no mismatch line are present. N_gs is therefore a derived product, not a direct pruned
 count, and it is the single least-precise ingredient in the whole computation: the two independent
 derivations (RUN C: 3.57e25; RUN B's exactly-printed (0,0,0) histogram cell: 1.03e25) disagree by
-×3.5, consistent with heavy-tailed weighted-estimator noise on a ~1e-13-of-canonical cell. Per the
+×3.5, consistent with heavy-tailed weighted-estimator noise on a cell holding ~1e-13 of the raw
+C1–C5 space. Per the
 strictest-reading rule, the LARGER value (which weakens M_corr, since L_corr ∝ 1/N_gs) is primary,
 and the full sensitivity table reports every configuration under both. The BF conclusion is
 unchanged under either (§4).
@@ -145,7 +147,7 @@ E(KW) ∈ grand-strict:
   0.4–0.9% of the numerator across the p_c grid.
 
 ### M_tend
-Gibbs form P(S) ∝ exp(−λ·V(S)) over canonical C1–C5 space, V = parity + rhythm + gender violations:
+Gibbs form P(S) ∝ exp(−λ·V(S)) over the C1–C5 space of §2 row 3 (raw / orientation-explicit), V = parity + rhythm + gender violations:
 
     L_tend(λ) = exp(−6λ) / Z(λ),   Z(λ) = Σ_cells N(v1,v2,v3) · exp(−λ(v1+v2+v3))
 
@@ -171,7 +173,7 @@ Model prior 50:50 (frozen), so posterior odds = BF.
 ## 4. Results
 
 Population masses (recomputed at integration time from the archived outputs):
-N_can = 1.328702e38, N_mj = 1.16583e29, N_gs = 3.5686e25 (primary, RUN C) / 1.0292e25 (cross,
+N_can = 1.328702e38 (raw / orientation-explicit — legacy symbol, see §2 row 3), N_mj = 1.16583e29, N_gs = 3.5686e25 (primary, RUN C) / 1.0292e25 (cross,
 RUN B), N_gender-only ≈ 1.3e32.
 
 **Headline (primary configuration: N_gs = RUN C, Z = `aug`, conditioned on C1–C5):**

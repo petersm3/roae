@@ -69,8 +69,9 @@ the set {0, 63} (only flips 0 and 63 do), comp commutes with every σ ∈ G (σ 
 σ(63) = 63), and the 672 non-centralizer permutations stay excluded by the C1 witness check above
 (comp preserves C1, so composing with comp cannot rescue them). This is also the corrected home of
 the retracted "Theorem 6": the opening orientation is a free Z₂ of the pair-only system — fixed in
-C4 by definition (classically attested, Xugua Heaven-then-Earth), not forced by the mathematics
-(see CLAIMS_DECIDED's corrections ledger, 2026-07-26).
+C4 by definition (our convention — the *Xugua* attests that the {Heaven, Earth} pair opens, not the
+order within it; narrowed 2026-09-01, [SPECIFICATION.md](SPECIFICATION.md) §Constraints), not forced
+by the mathematics (see CLAIMS_DECIDED's corrections ledger, 2026-07-26).
 
 **Group structure.** rev = (0 5)(1 4)(2 3) splits the six bit positions into three pairs; its centralizer
 permutes the three pairs (S₃) and swaps within each independently ((Z₂)³): G ≅ Z₂ ≀ S₃ ≅ B₃, order 48,
@@ -205,7 +206,7 @@ its own right — hexagram-level orbit structure is prior art and is ceded above
 
 ## Reproducibility
 
-⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command below.** Under the default 8 MB stack these commands abort with SIGSEGV before producing output: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB, so the 8 MB limit is exceeded the moment the estimator is entered. This is environmental, not a logic fault — with the limit raised the published figures reproduce. *(Added 2026-08-21: found by a cold external-reviewer pass and independently reproduced; the requirement had been documented only in CANONICAL_HASHES.md's large-scale-enumeration recipe, while these guides state the estimator needs no data disk and costs pennies.)*
+⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command below.** Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB, so the 8 MB limit is exceeded the moment the estimator would be entered (since 2026-08-21 the binary preflights `RLIMIT_STACK`, refuses to start with an actionable message naming the >= 16 MB it needs, and exits 1; previously a bare SIGSEGV). This is environmental, not a logic fault — with the limit raised the published figures reproduce. *(Added 2026-08-21: found by a cold external-reviewer pass and independently reproduced; the requirement had been documented only in CANONICAL_HASHES.md's large-scale-enumeration recipe, while these guides state the estimator needs no data disk and costs pennies.)* *(Corrected 2026-09-01: the failure mode was previously described as a segfault before any output, telling an operator to expect exit 139 from a binary that has exited 1 with a diagnostic since 2026-08-21. `solve.c`'s `--estimate-knuth` parse block preflights `RLIMIT_STACK` and, below 16 MB, prints "solve: stack limit is %lu MB, but --estimate-knuth needs >= 16 MB ... Re-run with: ulimit -s unlimited" and returns 1; its own comment records "previously a bare SIGSEGV after the banner". The `ulimit -s unlimited` requirement itself is unchanged and remains mandatory for every command below.)*
 ```bash
 # exact tree-isomorphism check (any sigma in G; prefix = 22 (pair,orient) args after the forced first pair):
 ./solve --estimate-knuth 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0 13 0 14 0 15 0 16 0 17 0 18 0 19 0 20 0 21 0 22 0

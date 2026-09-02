@@ -11,10 +11,17 @@ is itself a Knuth estimate from the same estimator family (METHODS status **esti
 so agreement with it is not independent establishment. TR-1 v1.21 recorded this file's copy as still
 outstanding; it is corrected here.)* This converts decades of by-inspection claims into measured
 population statistics for the first time. **Attribution:** every rule below is credited to its source (with lineage where it runs deep — the pair
-structure itself is attested to [Yu Fan](CITATIONS.md#yufan), 164–233 AD; the 36-unit consolidation to [Lai Zhide](CITATIONS.md#laizhide), 1525–1604 (the earlier statement of the 36 *count* by Shao Yong, 11th c., is confirmed first-hand and applied 2026-08-29 — see [CITATIONS.md#shaoyong](CITATIONS.md#shaoyong); the consolidation credit to Lai Zhide is unchanged); the
+structure itself is attested to [Yu Fan](CITATIONS.md#yufan), 164–233 AD; the 36-unit consolidation to the 张行成/朱熹/胡一桂 → 來知德 lineage — Hu Yigui's 13th-c. condensation of the received text (b. 1247; recorded in [CITATIONS.md](CITATIONS.md#hacker-moore2003) §"18:18 two-part class split"), transmitted to [Lai Zhide](CITATIONS.md#laizhide), 1525–1604 — while the earlier statement of the 36 *count* is [Shao Yong](CITATIONS.md#shaoyong)'s, 11th c. (confirmed first-hand and applied 2026-08-29); the
 gender/position-parity rule measured at ×11,364 in the companion registry originates with **[Schulz 1990](CITATIONS.md#schulz1990-motifs)**
 and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 [CITATIONS.md](CITATIONS.md) §Attributed candidate rules. ROAE's contribution is formalization + measurement.
+*(Corrected 2026-09-01: the consolidation credit read "the 36-unit consolidation to Lai Zhide, 1525–1604 …
+the consolidation credit to Lai Zhide is unchanged". That overassigned priority and contradicted this
+file's own scoreboard row for the same result — "Zhang Xingcheng + Zhu Xi, 12th c.; Hu Yigui 1247" — and
+[CITATIONS.md](CITATIONS.md), which places the *condensation of the received text* into 36 figures and the
+18:18 reasoning with the 张行成/朱熹/胡一桂 → 來知德 lineage and only the 36-*count* with Shao Yong. Lai Zhide
+is the terminus of that lineage, not its sole author; his credit stands as such. Settled inside the tree
+— no external source is load-bearing here. No measurement changes.)*
 
 ## The scoreboard
 
@@ -31,8 +38,18 @@ and was elaborated by [Cook 2006](CITATIONS.md#cook2006)); see
 
 **Reproduce the scoreboard:** `ulimit -s unlimited; SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`
 (2×10¹⁰ weighted Knuth probes — the instrument and probe count named in the opening paragraph, and the
-method in §"Method and caveats" below). ⚠ `ulimit -s unlimited` is required: without it the estimator
-aborts with SIGSEGV under the default 8 MB stack (see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)).
+method in §"Method and caveats" below). ⚠ `ulimit -s unlimited` is required: under the default 8 MB stack
+the estimator **refuses to start**, printing the required stack size and exiting 1 (before 2026-08-21 it
+segfaulted). See [VERIFY.md](VERIFY.md) §"Hardware you need" and
+[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). *(Corrected 2026-09-01: this described the
+default-8 MB-stack failure as a segfault before any output, telling an operator to expect exit 139 from a
+binary that has exited 1 with a diagnostic since 2026-08-21. `solve.c`'s `--estimate-knuth` parse block preflights `RLIMIT_STACK` and,
+below 16 MB, prints "solve: stack limit is %lu MB, but --estimate-knuth needs >= 16 MB … Re-run with:
+ulimit -s unlimited" and returns 1; its own comment records "previously a bare SIGSEGV after the banner".
+[VERIFY.md](VERIFY.md) already stated the current behaviour correctly. The `ulimit` requirement itself is
+unchanged and remains mandatory. The four out-of-scope siblings that carried the same stale wording —
+among them [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md), which this sentence cites — were corrected the
+same day in a follow-up pass, so the class is closed corpus-wide.)*
 *(Added 2026-08-21: GATE 25 LEG 2 — a report-only gate leg that no review pass had ever invoked — flagged
 this table's figures as published without an adjacent re-derivation path. The command was already in this
 document, 70+ lines away; it is now beside the numbers it produces.)*
@@ -48,18 +65,34 @@ document, 70+ lines away; it is now beside the numbers it produces.)*
 2. **King Wen is near-optimal but strictly suboptimal on both Moore rules — and fully-compliant orderings
    exist on each.** Perfect 18/18 parity compliance is achieved by ~5×10⁻⁶ of the population (observed
    directly; Moore himself conjectured such "uncorrupted" orderings might exist — the conjecture is
-   **confirmed** for each rule separately; whether an ordering satisfies both strict forms simultaneously
-   is under investigation with a targeted instrument, since ~10⁻⁹-scale masses exceed plain sampling).
+   **confirmed** for each rule separately; and both strict forms **can** hold simultaneously — an explicit
+   witness is given at §"SAT-decided exact results" result 1, and the joint-strict population is estimated
+   there at ≈1.13×10²⁹ oriented leaves, result 4).
+   *(Corrected 2026-09-01: this read "whether an ordering satisfies both strict forms simultaneously is
+   under investigation with a targeted instrument, since ~10⁻⁹-scale masses exceed plain sampling". Both
+   halves of that clause are answered later in this same document — existence by the explicit jointly-strict
+   witness, with exact 3-edit minimality; the mass by the pinned-walk estimate, which *is* the targeted
+   instrument's result. The status marker was narrating a superseded state.)*
    Both readings of the pairs-22/23 anomaly therefore remain live: deliberate/corrupted deviation from a
    compliant precursor (Moore), or the rules being strong tendencies rather than exact laws.
 3. **Cook's anchor rules are real but partially explained.** The final-pair anchor holds in 7.8% of the
    population — far above the naive 1/31 ≈ 3.2%, **but most of that gap is forced: the wrap-parity theorem
-   makes 16 of the 31 non-initial pairs ineligible to close ([TR-7](../reports/TR7_CIRCULAR_READING.md)
-   §"The anchors on the circle"), so the eligibility-adjusted baseline is 1/16 = 6.25% and the residual
+   makes 15 of the 31 non-initial pairs ineligible to close — all 16 even pairs are ineligible, but the
+   pure pair, itself even, is already fixed at the opening by C4 — leaving 16 eligible odd pairs
+   ([TR-7](../reports/TR7_CIRCULAR_READING.md) §"The anchors on the circle"), so the
+   eligibility-adjusted baseline is 1/16 = 6.25% and the residual
    enrichment is only ×1.25** — the rule is genuine but its surprise is smaller than raw position-counting
    suggests. (The earlier "because C5's transition budget favors closing on a distance-6 pair" reading is
    demoted to at most a candidate mechanism for the ×1.25 residual: only 4 of the 16 eligible closers are
    distance-6-within pairs, so it cannot carry the main effect.)
+   *(Corrected 2026-09-01: the rationale read "makes **16** of the 31 non-initial pairs ineligible", whose
+   own arithmetic gives 31 − 16 = 15 eligible and a baseline of 1/15 = 6.67%, not the 1/16 stated in the
+   same sentence. [TR-7](../reports/TR7_CIRCULAR_READING.md) §"The anchors on the circle" is the source:
+   pairs are parity-homogeneous, 16 even / 16 odd; the wrap-parity theorem forbids all 16 even pairs —
+   "including all four self-reverse pairs and the pure pair itself" — from the final slot; and TR-7 then
+   works with "the 16 eligible (odd) pairs". C4 pins the pure pair, which is even, as the opening, so only
+   15 of the 31 non-initial pairs are ineligible. The 7.8% measurement, the 1/16 baseline and the ×1.25
+   residual were always right; only the counting rationale beside them was wrong.)*
 4. **The classical 18:18 split is weak as a discriminator** (36% of all valid orderings have it) — its
    significance is historical attestation, not statistical rarity.
 5. None of these rules, singly or jointly, approaches uniqueness (the full C1–C7 space itself holds
@@ -69,9 +102,19 @@ document, 70+ lines away; it is now beside the numbers it produces.)*
 
 ## Method and caveats
 
-Weighted Knuth random probes (validated in [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)): each probe walks
-a uniformly-random constraint-satisfying completion, weighting by the product of branching factors; per-leaf
-rule predicates accumulate weighted mass; fractions are ratios of canonical-leaf masses. Caveats: fractions
+Weighted Knuth random probes (validated in [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)): each probe is one
+random root→dead-end walk; at a node with `d` live children it multiplies `W` by `d` and descends to a
+uniform-random one, stopping at a dead end or a depth-32 leaf. Only ≈0.18% of probes reach a C1–C5 leaf
+(`reports/evidence/f11/f11_runA.out:4`, `hitrate=0.0018`); the `∏d` weight is what makes the average
+unbiased **despite** the non-uniform leaf probabilities. Per-leaf
+rule predicates accumulate weighted mass; fractions are ratios of canonical-leaf masses. *(Corrected
+2026-09-01: this read "each probe walks a uniformly-random constraint-satisfying completion, weighting by
+the product of branching factors" — two halves that cannot both be true. `solve.c` draws uniformly among
+the `d` live children **at the current node** (`int k = (int)(ks_next(&rng) % (uint64_t)d);`) and breaks on
+`d == 0` with no leaf, so a leaf's probability is 1/∏d and varies leaf to leaf; the ∏d weight exists
+precisely to correct that. The replacement wording is [SOLVE_C_CLI.md](SOLVE_C_CLI.md)'s own — the declared
+CLI source of truth, which stated it correctly all along. No figure changes: the estimator was always the
+one described here.)* Caveats: fractions
 are over raw orientation-resolved sequences. A rule's *value* is orientation-invariant when it depends
 only on the pair ordering, but its reported *fraction* is not: it is Σ_{P: R(P)} fiber(P) / Σ_P fiber(P),
 a fiber-size-weighted fraction, and fiber size is a function of the pair ordering's transition geometry —
@@ -102,10 +145,31 @@ constraint definitions, external kissat solver, DRAT certificates) adds *exact* 
 2. **The minimal repair is exactly 3 slot-edits** — SAT-decided: no ordering within 2 slot-edits of King Wen
    achieves joint compliance (UNSAT, a fortiori under C3), and 3 suffices. If a compliant precursor ever
    existed, the deviation to KW was a 3-edit event centered on Moore's own anomaly locus.
-3. **The parity-alternation theorem is SAT-verified over the full space** (its third independent
-   verification after the prose proof and the Lean-checked lemmas): both "≤14 alternations" and "≥16
-   alternations" are UNSAT under C1+C2+C4+C5.
-4. The joint-strict population size (pinned-walk estimate): ≈1.13×10²⁹ canonical orderings (95% CI [1.09, 1.17]×10²⁹; relerr 1.66%). ⚠ **[CORRECTED 2026-08-28 — the ±4.7% was a PREREGISTERED ANCHOR TOLERANCE BAND, not an error bar: `reports/evidence/f11/compute_f11_bf.py:85` names its check "Moore-joint size outside the +/-4.7% anchor band". The published 1.13×10²⁹ comes from `reports/evidence/r11/r11_moore_strict.out` (`est=1.131036e+29`, 95%CI [1.0942e+29, 1.1679e+29], relerr 1.66%), NOT from `f11_runB.out`, which reports 1.16583e29. See CORRECTIONS.md]**
+3. **The parity-alternation theorem is SAT-verified over the full space** (a mechanized *corroboration* of
+   the counting step — not a third independent verification; the prose proof and the Lean-checked lemmas
+   are the two independent legs): both "≤14 alternations" and "≥16
+   alternations" are UNSAT under C1+C2+C4+C5. *(Corrected 2026-09-01: this read "its third independent
+   verification after the prose proof and the Lean-checked lemmas". The 2026-08-29 retraction carried at
+   [TR-6](../reports/TR6_PARITY_SKELETON.md) §"Abstract" established that the SAT leg is **not** independent
+   of the prose leg: `BETWEEN_MULTISET` forces 2(d=1) + 13(d=3) = 15 odd-distance slots, so both targets are
+   refuted by C5's cardinality clauses alone — the ordering-variable-free clause subset of each CNF is UNSAT
+   on its own (kissat rc=20, DRAT `s VERIFIED`) — and the encoding additionally *assumes* the
+   alternation-to-odd-distance bridge that carries the mathematical content, the bridge the Lean proof
+   establishes. The theorem, the count of 15 and the certificates are unaffected; what changes is how many
+   independent confirmations are claimed. Two of the four dependent sites were corrected earlier; this is
+   one of the survivors.)*
+4. The joint-strict population size (pinned-walk estimate): ≈1.13×10²⁹ (95% CI [1.09, 1.17]×10²⁹; relerr 1.66%) **raw orientation-explicit sequences** — the estimator's un-deduped `leaves_canonical_C1C5`, i.e. oriented leaves, **not** distinct pair orderings (see §"Method and caveats"). ⚠ **[CORRECTED 2026-08-28 — the ±4.7% was a PREREGISTERED ANCHOR TOLERANCE BAND, not an error bar: `reports/evidence/f11/compute_f11_bf.py:85` names its check "Moore-joint size outside the +/-4.7% anchor band". The published 1.13×10²⁹ comes from `reports/evidence/r11/r11_moore_strict.out` (`est=1.131036e+29`, 95%CI [1.0942e+29, 1.1679e+29], relerr 1.66%), NOT from `f11_runB.out`, which reports 1.16583e29. See CORRECTIONS.md]** *(Corrected 2026-09-01: the
+object was labelled "canonical **orderings**". [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Deduplication
+defines a canonical ordering as the orientation-collapsed class — orientation bits masked, "exactly one
+record per canonical class" — whereas the field this figure comes from is defined in
+[SOLVE_C_CLI.md](SOLVE_C_CLI.md) as `leaves_canonical_C1C5` (C3-valid = canonical, **un-deduped**), and the
+corrections ledger's 2026-08-28 entry on the 16,504 states outright that the binary's field name reports an
+**oriented** count. §"Method and caveats" thirty lines above already said fractions are over raw
+orientation-resolved sequences, so the label contradicted its own file by a wide margin — and "orderings"
+reads harder than "leaves". Converting to a distinct-pair-order count would need the fiber estimator and is
+deliberately **not** published here; the level is stated instead. The number, CI and relative error are
+unchanged: `reports/evidence/r11/r11_moore_strict.out:8` reads
+`leaves_canonical_C1C5 : est=1.131036e+29  95%CI=[1.0942e+29, 1.1679e+29]  relerr=1.66%`.)*
 
 Certificates are archived and independently verified by **two external checkers**: drat-trim
 (2026-07-03: all four UNSAT proofs — alt-le-14, alt-ge-16, moore-strict-near-2, rc4-strict-near-2 —
@@ -127,7 +191,8 @@ with `python3 sat.py --witness moore-strict` and
 ### Schulz gender rule + the grand unified precursor (2026-07-03)
 
 5. **Schulz's gender rule is perfectly satisfiable — and its minimal repair is ALSO exactly 3 edits.**
-   The strict form of the strongest measured discriminator (gender/position-parity, Schulz 1990; exception
+   The strict form of the strongest *principled* literature rule (gender/position-parity, Schulz 1990,
+   ×11,364 at King Wen's satisfied level; exception
    first noticed by Zhu Yuansheng, 13th c.) had 0 hits in 36M samples — *flagged 2026-08-01 as unsourced
    and withdrawn pending a stated null: no null, sampler or source run was ever recorded with that figure,
    and it is not consistent with this suite's later measurement of the strict gender rule at ≈10⁻⁶ of
@@ -137,7 +202,14 @@ with `python3 sat.py --witness moore-strict` and
    it: witnesses exist
    (C1–C5-valid, C3 = 776), and the minimal repair from King Wen is exactly 3 slot-edits (≤2 UNSAT, DRAT
    cert archived) — a swap of the adjacent pairs at slots 21/22 (= class positions 25/26, precisely the
-   Zhu Yuansheng/Schulz exception locus) plus one orientation flip.
+   Zhu Yuansheng/Schulz exception locus) plus one orientation flip. *(Corrected 2026-09-01: the rule was
+   called "the strongest measured discriminator", unqualified, which contradicts §"What the measurements
+   establish" item 1 in this file — Moore's pair-positioning rule is the strongest of the
+   population-measured rules **in the scoreboard table**, ×1,362 at KW's level — and the extended
+   scoreboard's headline 1, where the data-like S25–28 configuration measures ×5×10⁷. Those are three
+   different populations. The ranking restored here is the one [CITATIONS.md](CITATIONS.md) already carries:
+   Schulz's gender/position-parity rule is the strongest *principled* literature rule at ×11,364, later
+   exceeded by the data-like S25–28 trigram rule. No mass changes.)*
 
    *Convention-stability note (2026-07-12).* The rule admits two natural predicate forms: the form its
    sources state — parity throughout, with at most one exception pair at adjacent class positions
@@ -158,13 +230,23 @@ with `python3 sat.py --witness moore-strict` and
    `63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,
    53,43,20,10,35,49,24,6,62,31,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42`
 7. **The grand minimal repair is exactly 3 slot-edits** (a fortiori ≥3 from result 5; 3 achieved): an
-   orientation flip at slot 7 and an adjacent-pair swap at slots 21/22. The three rules' minimal repairs
+   orientation flip at slot 7, an adjacent-pair swap at slots 21/22, **and an orientation flip at slot 22**
+   (0-based slots; result 1 above describes the same three edits in 1-based pair positions). The three
+   rules' minimal repairs
    are not merely equal-sized — they are *compatible*: a single 3-edit event completes all three at once.
    If any corruption/precursor reading of the literature is right, the deviation was one small event, and
    every independently-observed anomaly (Moore's pairs 22–23, Zhu Yuansheng/Schulz's stations 25–26) is a
    shadow of it. We note the standard caveat: witnesses produced by a solver seeded with King Wen's
    variable order are biased toward KW-like repairs; minimality (3) is exact, the specific repair need not
    be unique. Reproduce: `python3 sat.py --witness grand-strict`; certificates in the evidence archive.
+   *(Corrected 2026-09-01: the recipe named only the slot-7 flip and the 21/22 swap, and a reader
+   reconstructing the precursor from it would not reproduce the witness printed just above. Measured by
+   diffing the two 64-integer sequences directly against `solve.py`'s `binary_hexagrams`: result 6's
+   sequence is value-identical to result 1's, and it differs from King Wen at exactly three 0-based slots —
+   slot 7, `(4,8) → (8,4)`, an orientation flip; slot 21, `(31,62) → (24,6)`; and slot 22,
+   `(24,6) → (62,31)`. The pair {24,6} moves from slot 22 to slot 21 with its orientation unchanged, while
+   {31,62} moves from slot 21 to slot 22 **and is flipped** — that third edit was the one missing. Result 1
+   already named all three. The 3-edit minimality result is untouched.)*
 
 ## The extended scoreboard: 31 further literature rules (2026-07-03 batch, 2×10¹⁰ probes)
 
@@ -233,7 +315,10 @@ positional predicate is this suite's own formalization. Schulz's separate xiaoxi
 count. Full detail in
 [reports/TR1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §3 headline 3.
 
-Full table (fraction of canonical mass; KW satisfies each at its measured level by construction of the
+Full table (fraction of canonical mass — read as **raw orientation-resolved** mass: the denominator is the
+estimator's un-deduped `leaves_canonical_C1C5`, oriented leaves, not the orientation-collapsed object
+[SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Deduplication calls a canonical ordering; gloss added 2026-09-01,
+see §"Method and caveats"; KW satisfies each at its measured level by construction of the
 threshold forms; the eight **1.0 (theorem)** entries are the proven C1 constants of headline 2 — exact by
 theorem, not estimates): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs KW 20) · ccn1 3.4×10⁻⁵ ·
 ccn2 1.5×10⁻³ · ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** (*data-like* — see finding 1) · ccn6 0.427 · ccn7 1.1×10⁻³ · **ccn8 2.6×10⁻⁷** ·
@@ -258,15 +343,23 @@ Moore's 2005 parity (18/18), Moore's 1989 rhythm (0 breaks), the Schulz gender r
 the Schulz S25–28 trigram configuration simultaneously (UNSAT under C1+C2+C4+C5, hence a fortiori with
 C3; certificate independently verified). The pieces fit together sharply:
 
-- King Wen satisfies the trigram configuration **exactly**, and misses the other three by the minimal
-  measured margins (16/18, 2 breaks, 2 violations).
+- King Wen keeps the trigram configuration **exactly** and misses the other three by two each (16/18,
+  2 breaks, 2 violations). *(Corrected 2026-09-01: this read "by the **minimal measured margins**". The
+  superlative was withdrawn on 2026-08-28 as UNSUPPORTED — `reports/evidence/f11/f11_runA.out:112` is
+  `f11_hist 1 1 0 4.1291082539e-09`, a nonzero cell componentwise better than King Wen's `f11_hist 2 2 2`
+  at `:338` on all three axes. That histogram is not CC-N4-conditioned, so the claim was never established
+  rather than false, and no CC-N4-conditioned extremal check exists in the corpus. The 2026-08-28 sweep
+  named six sites and did not reach this file: the phrase here spans a hard line wrap, so a line-based grep
+  could not see it. The measured margins, the UNSAT theorem and its certificate are unaffected.)*
 - The 3-edit "grand precursor" satisfies those three **perfectly** — and breaks the trigram configuration.
 - Both cannot be had: **the rules compete**, and any ordering must choose which to satisfy.
 
 Consequence for the corruption hypothesis: an "uncorrupted precursor" perfect under the literature's full
 rule inventory **never existed** — the corruption reading survives only in the restricted sense (perfect
 under Moore's two rules alone, breaking the trigram structure KW keeps). King Wen's profile now reads
-naturally as a **trade-off position**: exact on one strong rule, minimally imperfect on the others. All
+naturally as a **trade-off position**: exact on one strong rule, imperfect by two on each of the others
+(*corrected 2026-09-01 from "minimally imperfect" — the same withdrawn superlative as the bullet above,
+carried in a second spelling that the phrase sweep did not cover*). All
 four rules are KW-derived — selected because King Wen exhibits them, even where their form is general —
 so King Wen sitting near their joint Pareto frontier is expected rather than an efficiency result; the
 ~1-in-25-million figure **describes** how population-atypical that joint profile is under KW-fitted
@@ -280,6 +373,18 @@ unearned. Treat it as an unreproduced figure until a regeneration command is pub
 it is a stated joint-profile predicate plus a run of `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth
 <probes>` reporting its mass with a CI.)* The usual
 caveat travels with this: the trigram configuration is a data-like rule (highly specific); the theorem is
-about the literature's rules exactly as its authors stated them. Reproduce:
+about the literature's rules **as encoded here** — see
+§"The rule predicates are code-resident, and that is a replication limit" for why that is not the same as
+the authors' own statements. *(Corrected 2026-09-01:
+this read "exactly as its authors stated them", which presupposes the source fidelity this same document
+denies upstream: the code-resident disclosure states that no document — not this one, not SPECIFICATION.md,
+not SAT_CLI.md — states Moore parity, Moore rhythm, Schulz gender, CC-N4 or CC-N8 formally enough for an
+independent team to re-encode them, and that the KW-value gate each rule passes is a **one-point** check
+that cannot distinguish a faithful rendering of what Moore or Schulz wrote from a differently-scoped
+predicate agreeing on that one sequence; §"The extended scoreboard" headline 3 concedes separately, of the
+`d7` row, that its positional predicate is this suite's own formalization. The UNSAT result, the
+certificate and the four encoded predicates are unchanged — what changes is what those predicates are said
+to be. The residual, whether a given rendering is faithful, is not closable without source-derived formal
+statements, which this document already names as outstanding work.)* Reproduce:
 `python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf` (encoding two-way validated: ccn4-kwtest SAT,
 rc4-kwtest UNSAT).

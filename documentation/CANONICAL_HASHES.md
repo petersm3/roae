@@ -92,7 +92,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 - **Established:** 2026-06-08 by the 560T canonical campaign
 - **King Wen found:** YES
 
-**Campaign details:** D128als_v7 Spot westus3 enum, 4 TB Premium SSD for shards, 171.5 h wall time across 5 weekday Spot evictions (all in a tight 07:12-07:49 PT window — see [HISTORY.md](HISTORY.md) "June 1-8, 2026" entry). 158,364/158,364 cells scanned (100%), 65,281 cells produced solutions (41.2% yield). Merge: D16als_v7 Standard, external chunked-sort on Premium scratch, 18 h 42 m wall. 43.88 B raw pre-dedup records → 10.525 B unique canonical (4.17× dedup ratio).
+**Campaign details:** D128als_v7 Spot westus3 enum, 4 TB Premium SSD for shards, 171.5 h wall time across 5 weekday Spot evictions (all in a tight 07:12-07:49 PT window — see [HISTORY.md](HISTORY.md) "June 1-8, 2026" entry). 158,364/158,364 cells scanned (100%), 65,281 cells produced solutions (41.2% yield). Merge: D16als_v7 Standard, external chunked-sort on Premium scratch, 18 h 42 m wall. 43.88 B pre-merge shard records (per-sub-branch canonical) → 10.525 B unique canonical (4.17× cross-sub-branch rediscovery ratio — NOT an orientation-dedup ratio) ⚠ **[LABEL CORRECTED 2026-08-28 — this clause previously called the pre-merge total a count of raw records and its ratio a deduplication ratio. `solve.c:39-61` hashes and dedups on pair identity with the orient bit masked, and CLEARS each thread's table after every sub-branch, so a shard record is a per-sub-branch CANONICAL key rather than a raw oriented leaf. The record total is therefore a LOWER BOUND on raw leaves visited, and the ratio measures cross-sub-branch rediscovery under the depth-3 partition, not orientation multiplicity. Both values are unchanged, and the old-vs-new run comparison above is unaffected because it compares two totals of the same kind. The reasoning is set out at [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7 ("Worked example — the 560 T canonical campaign"), whose pre-merge shard-record row carries the same marker.]**
 
 **Power-law fit (3-point across 11.2T → 100T → 560T):** records ∝ T^α with α ≈ 0.67 (3-point log-log fit; pairwise legs 0.69 and 0.65). 1120T extension projection ≈ 16.7 B records — a **projection that will not be measured**: the 1120T extension is not planned (2026-08-01). The 2026-06-14 three-point per-cell analysis confirms the record sets are **strictly nested** under pair-identity keying (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations; cells yielding 9,799 → 10,062 → 10,618) and grow by **deepening** of existing productive cells (cells first appearing at a larger scale add only ~0.2% → ~0.5% of records — under pair-identity keying, the granularity at which the canonical dedups; under enumeration-cell keying the picture inverts, with 60.4% of 560T's records from cells empty at 11.2T — see [HISTORY.md](HISTORY.md)'s June-11 #126 entry; both keyings are stated there); every sampled sub-branch is BUDGETED, none EXHAUSTED, so the budgeted enumeration cannot state the total count of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate now puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), meaning even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space. See [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) and [HISTORY.md](HISTORY.md) §"3-point per-cell scaling trajectory". ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 
@@ -415,18 +415,30 @@ The other variables shown above are **operational** — they affect runtime / sc
 
 ### PSB-formula caveat
 
-The published `SOLVE_PER_SUB_BRANCH_LIMIT` values above are NOT all exactly `floor(SOLVE_NODE_LIMIT / 158,364)`:
+The published `SOLVE_PER_SUB_BRANCH_LIMIT` values above are NOT all exactly `floor(SOLVE_NODE_LIMIT / 158,364)` — and where they do coincide, the coincidence is arithmetic luck, not a property of the formula:
 
-| Scale | Recipe PSB | `floor(NL/158,364)` | Off by |
-|---|---:|---:|---:|
-| 5.6T | 35,361,598 | 35,361,598 | 0 |
-| 100T | 631,456,644 | 631,456,644 | 0 |
-| 560T | 3,536,157,207 | 3,536,157,207 | 0 |
-| 11.2T | 70,723,196 | 70,723,144 | +52 |
-| 10T | 63,146,557 | 63,146,544 | +13 |
-| 1T | 6,315,458 | 6,315,272 | +186 |
+| Scale | `SOLVE_NODE_LIMIT` | Recipe PSB | `floor(NL/158,364)` | Off by |
+|---|---:|---:|---:|---:|
+| 1T | 1000000000000 | 6,315,458 | 6,314,566 | +892 |
+| 5.6T | 5600000000000 | 35,361,598 | 35,361,572 | +26 |
+| 10T | 10000000000000 | 63,146,557 | 63,145,664 | +893 |
+| 11.2T | 11200000000000 | 70,723,196 | 70,723,144 | +52 |
+| 100T | 100000000000000 | 631,456,644 | 631,456,644 | 0 |
+| 560T | 560000000000000 | 3,536,157,207 | 3,536,157,207 | 0 |
 
-The 11.2T / 10T / 1T published PSBs are the empirically-correct values — they're what the original enum runs used to produce the published canonical shas byte-identically across many independent witnesses. The original solve.c may have used a slightly different per-cell-budget computation (perhaps including per-thread checkpoint overhead, or a different rounding mode), or those rows may be documentation typos that have been faithfully reproduced across builds because everyone uses the published recipe. Either way: **use the published value**.
+Every cell of that table — formula column and off-by column, all six rows — is reproduced by this one command (`NL`, `PSB` and the scale label are the only inputs; both computed columns are derived):
+
+```
+for p in 1T:1000000000000:6315458 5.6T:5600000000000:35361598 10T:10000000000000:63146557 11.2T:11200000000000:70723196 100T:100000000000000:631456644 560T:560000000000000:3536157207; do IFS=: read -r s nl psb <<<"$p"; f=$((nl/158364)); printf '%-6s %12d %12d %+d\n' "$s" "$psb" "$f" "$((psb-f))"; done
+```
+
+⚠ **[CORRECTED 2026-09-01 — the `floor(NL/158,364)` column was wrong in three of six rows, and the off-by column wrong in the same three. It read 5.6T `35,361,598` / off by `0`, 10T `63,146,544` / off by `+13`, and 1T `6,315,272` / off by `+186`; the correct floors are `35,361,572`, `63,145,664` and `6,314,566`, off by `+26`, `+893` and `+892`. The 100T, 560T and 11.2T rows were already right and are unchanged. Each corrected value was derived twice independently — shell integer division (the command above) and a bracketing multiplication confirming `158,364 × floor ≤ NL < 158,364 × (floor+1)` — and the two agree on all six rows.**
+>
+> **Why this mattered more than the digits.** No canonical is at risk: no sha, record count or file size depends on this table, and every published PSB in §Reproducibility parameters is unchanged. The error also pointed the safe way — the real divergence is *larger* than what was printed, which strengthens rather than weakens this section's conclusion, and that is very likely why it survived so long. But the 5.6T row asserted the formula agrees **exactly**, and that is the one failure mode a caveat cannot have. A reader who trusted it was told the shortcut is safe at one scale where it is in fact off by 26 nodes per cell — a different per-cell budget, therefore a different walk, therefore a different sha. A caveat that mis-states its own arithmetic is worse than no caveat, because it converts "do not use this formula" into "the formula is fine here."
+>
+> **The two exact rows are not an exception to the rule.** 100T and 560T do land exactly on `floor(NL/158,364)`; that is now the only claim of agreement this table makes, and it is verified above. It is not a licence to use the formula at those scales. The formula misses at four of the six published scales, including 11.2T which sits between the two exact ones, so exactness at 100T and 560T predicts nothing about any other scale — including any future one. **Derive nothing from this column. Copy the recipe PSB.**]**
+
+The 1T / 5.6T / 10T / 11.2T published PSBs are the empirically-correct values — they're what the original enum runs used to produce the published canonical shas byte-identically across many independent witnesses. The original solve.c may have used a slightly different per-cell-budget computation (perhaps including per-thread checkpoint overhead, or a different rounding mode), or those rows may be documentation typos that have been faithfully reproduced across builds because everyone uses the published recipe. Either way: **use the published value**.
 
 ## Solver version
 

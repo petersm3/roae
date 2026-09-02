@@ -58,6 +58,20 @@ encodes a C-rule from scratch is "a bug by definition." Every encoding
 is round-trip checked (SAT model → `decode()` → `solve.py` constraint
 functions) before any UNSAT claim from it is trusted.
 
+⚠ **The rule is the file's stated policy, and it currently has two measured
+exceptions.** No *clause* is hand-written, but two C5 *parameter* tables are
+hard-coded rather than derived: `sat.py:139` `BETWEEN_MULTISET`, which builds
+the C5 CNF, and `sat.py:143` `_tot`, the round-trip verifier's acceptance
+multiset. Both are **correct today** — re-derived clean-room on 2026-09-01 from
+`solve.binary_hexagrams` and `solve.bit_diff` alone, giving exactly
+`{1:2, 2:8, 3:13, 4:7, 6:1}` and `{1:2, 2:20, 3:13, 4:19, 6:9}` respectively.
+But the in-file guard at `sat.py:152-154` ties only their *difference* to the
+derived within-pair multiset, so an equal edit to both passes it: adding 1 to
+the `d = 2` entry of each literal was measured on 2026-09-01 to satisfy the
+guard. Deriving both from `solve.py` is a three-line change with no interface
+impact; until it lands, read the header rule as holding for clauses, and as
+guarded-but-not-derived for these two tables. *(Caveat added 2026-09-01.)*
+
 External solvers (`kissat` / `CaDiCaL`) run as separate binaries; their
 UNSAT answers are only trusted via DRAT/LRAT certificates checked by an
 independent checker. Two are used, and their trust status differs — the
@@ -106,11 +120,24 @@ Rebuilds the CNF for `TARGET` (default `plain`, or the reduced subset when
 `--f1-pairs N` is given) to recover the variable map, parses the model
 (`v`-lines, or a bare whitespace/newline-separated list of signed integers),
 decodes the true position variables into a hexagram sequence, and re-verifies
-it against `solve.py` ground truth. For a full-31 target it prints the
-64-hexagram sequence, `verify=…`, and the C3 complement distance; for a
-`--f1-pairs N` subset it prints the 2N-hexagram sequence and the per-class
-boundary histogram against the derived budget `B0`. This is the standalone
-form of the `decode()` helper the `--witness` loop uses internally.
+it against `solve.py`'s **base** ground truth — C1 (permutation), C2 (no
+distance-5 step) and the C5 transition multiset, via `verify_seq`. For a
+full-31 target it prints the 64-hexagram sequence, `verify=…`, and the C3
+complement distance; for a `--f1-pairs N` subset it prints the 2N-hexagram
+sequence and the per-class boundary histogram against the derived budget `B0`.
+This is the standalone form of the `decode()` helper the `--witness` loop uses
+internally.
+
+⚠ **`verify=True` does not mean the model satisfies `TARGET`.** The target's
+literature rules are re-scored and *printed* on the next line, but are **not**
+folded into `verify=` or into the exit status. Measured 2026-09-01: a King Wen
+model built under `plain` and decoded as `grand-strict` prints
+`verify=True  c3=776  c3<=776 PASS` above
+`moore-parity-viol=2 rhythm-breaks=2 gender-viol=2`, and exits 0 — although
+`grand-strict` requires all three of those scores to be zero. `--witness` does
+enforce them (`sat.py:1535-1539`); `--decode` does not. *(Scope added
+2026-09-01: the ground-truth claim on the line above was previously
+unqualified, immediately after naming `TARGET`.)*
 
 ### --emit-cnf … --f1-pairs N
 
@@ -152,6 +179,16 @@ python3 sat.py --rigidity-cnf rigidity.cnf
 python3 sat.py --rigidity-cnf rigidity.cnf --run   # requires kissat; drat-trim optional
 ```
 
+⚠ **Measured 2026-09-01: the second form exits 1 and writes nothing.** The
+global unrecognised-flag guard added 2026-08-28 (`sat.py:1406-1409`) rejects
+`--run` before dispatch, printing `unrecognised flag(s): --run`. The `--run`
+implementation is intact but unreached (`sat.py:1557-1578` — `kissat`
+preflight, `kissat -q`, an expected-UNSAT assertion, and the optional
+`drat-trim` leg). Until the guard is taught this flag, emit the CNF with the
+first form and run `kissat` and `drat-trim` yourself. *(Behaviour note added
+2026-09-01; the paragraph below describes the intended, currently unreachable
+path.)*
+
 TR-5 v2.0 symmetry-completeness rigidity kernel **[expect UNSAT]**: a
 bijection on the 64 hexagrams that is edge-preserving on the
 Hamming-distance-5 graph (adjacency derived from `solve.bit_diff` — no
@@ -161,10 +198,10 @@ The encoding is deliberately RELAXED (bijection + one-directional
 edge-support only) so its UNSAT is a-fortiori sufficient for the
 theorem's kernel. Emission self-validates (the identity assignment must
 satisfy every clause except the final not-identity clause) and refuses
-to write on failure. With `--run`: kissat decides (UNSAT expected,
-DRAT proof written to `OUT.cnf.drat`), then `drat-trim` verifies the
-proof if present on PATH (else the proof is emitted unverified with an
-explicit message). Prose + the exhaustive non-SAT machine check of the
+to write on failure. With `--run` (see the caveat above): kissat
+decides (UNSAT expected, DRAT proof written to `OUT.cnf.drat`), then
+`drat-trim` verifies the proof if present on PATH (else the proof is
+emitted unverified with an explicit message). Prose + the exhaustive non-SAT machine check of the
 same kernel: [SYMMETRY_SEARCH.md §Completeness](SYMMETRY_SEARCH.md) and
 `solve.py --symmetry-completeness` (gate SC-4).
 
@@ -192,8 +229,8 @@ the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts).
 > requires the **D4** d-DNNF compiler
 > (<https://github.com/crillab/d4>) and the **CPOG** toolchain's
 > `cpog-gen` / `cpog-check`
-> (<https://github.com/rebryant/cpog>; Bryant, Nawrocki & Avigad,
-> SAT 2023) on `PATH` — and, transitively, **`cadical` and `drat-trim`**,
+> (<https://github.com/rebryant/cpog>; Bryant, Nawrocki, Avigad
+> & Heule, SAT 2023) on `PATH` — and, transitively, **`cadical` and `drat-trim`**,
 > which `cpog-gen` shells out to. That is **five** binaries, not three:
 > measured 2026-08-20, with `drat-trim` absent the n=9 run fails
 > (`sh: 1: drat-trim: not found`, rc=1) and no certificate is produced.
@@ -224,7 +261,7 @@ temp directory.
 | Token | Effect |
 |---|---|
 | `--with-c3` | Include the C3 complement-distance constraint in the encoding (bounded at KW's C3, 776, unless `--c3-max` overrides). |
-| `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Values below the structural minimum C3 = 112 (2·8 self-complementary pairs + 8·12 complement couples at slot distance ≥ 1) are refused with a non-zero exit: no C1 layout attains them, and the unary ladder cannot represent such a bound. Consumes the following token as the integer bound. |
+| `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Values below the structural minimum C3 = 112 (2·8 self-complementary pairs + 8·12 complement couples at slot distance ≥ 1) are refused with a non-zero exit: no C1 layout attains them, and the unary ladder cannot represent such a bound. Consumes the following token as the integer bound. ⚠ Measured 2026-09-01: unless `--c3-min` is **also** given, `--c3-max N` bounds the **CNF** only — the `--decode` printer (`sat.py:1456`) and the `--witness` acceptance test (`sat.py:1540`) both fall back to a hard-coded `c3 ≤ 776`, so a model with C3 in 777–`N` is reported `fail C3` and, in `--witness`, blocked out and retried. Supplying `--c3-min` (e.g. `--c3-min 112`) selects the arm that does honour `--c3-max`. |
 | `--c3-min N` | Encode C3 ≥ `N` (the ≥ side of the unary couple-distance ladder). Does **not** imply the ≤ 776 ceiling — combine with `--c3-max` to window C3 exactly. Unlike the relaxed one-directional ≤ encoding, the ≥ side is exact (two-sided X↔Y binding plus spurious-true-distance-lit kill clauses), so a model's ladder value equals the decoded ordering's true couple-distance sum. Used by the C3 positional certificates (above-ceiling witness `--c3-min 784`, i.e. G ≥ 96; the G = 95 tie witness via `--c3-min 776 --c3-max 776`; and the `kw-pin --c3-min 777` KW-exactness UNSAT gate). Consumes the following token as the integer bound. |
 | `--not-kw` | Exclude every ordering whose pair-slot **layout** matches King Wen's (slot s = pair s for all s) — KW itself and all its within-pair orientation variants. Since the excluded set contains KW, any witness is ≠ KW, and stronger: it places at least one pair in a non-KW slot (G is orientation-blind, so an orientation-only variant would tie G trivially). |
 | `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count` (not `--witness`). The C5 budget `B0` is derived per subset. Refuses combination with `--with-c3`/`--c3-max`/`--c3-min`/`--not-kw`: the subset instances encode C1&C2&C4&C5 only (before 2026-08-27 those flags were silently ignored here). Consumes the following token as the integer `N`. |
@@ -319,11 +356,31 @@ on `PATH` — the latter with a clear install message.
   **run-validated**: 2026-08-20, and independently reproduced 2026-08-26 on a
   separate host with the toolchain rebuilt from source, giving a **certified
   n=9 count of 26,112**, agreeing with the native reference; the `--expect`
-  control has been shown able to fail. **No certified count exists at n=13** —
-  `d4` v1 segfaults at that scale on a 32-bit index overflow in its DAG storage
-  — so 2,063,395,607,040 remains an engine/DP result and must not acquire
+  control has been shown able to fail (2026-08-26, `--expect 26113` →
+  `expect=26113 certified=26112  FAIL`, exit 1). The certificate itself is
+  **not shipped** — the n=9 `instance.cpog` is 1,392,854,105 B — so it is
+  identified by hash instead: `instance.cpog` sha256
+  `b311715fcc4e225fb7dfc2e444141aa1011739b23b9d017fa94ba4843921a087`,
+  `instance.cnf` (71,429 B) sha256
+  `800fde577c86e99ed611ebc6088c49a083169b8c6ffeb510df1a965946335f16`, and
+  `instance.nnf` (1,834,177 B) sha256
+  `2317b6c2bc813c287f07465aa3d0119c46cf4537b7da4cf814d3f8cb03d7ddc8`,
+  produced with
+  **d4 v1 `333370cc`, CPOG `a97ed854`, cadical `c6073042`, drat-trim
+  `2e3b2dc0`** under gcc 13.3.0, `cpog-check` reporting FULL-PROOF SUCCESS.
+  Regenerate with `--certify-count f1c5 --f1-pairs 9 --keep DIR` and compare
+  the sha. *(Artifact identification added 2026-09-01; the two run dates above
+  previously stood without any hash or toolchain pin.)*
+  **No certified count exists at n=13** — `d4` v1 (crillab `333370cc`, which
+  was upstream v1 HEAD when checked on 2026-08-21, so no upstream fix exists)
+  overflows a **signed 32-bit index in its DAG storage**: `idxUnitLit` in
+  `DAG/Branch.hh`, which holds the return of `saveUnitLit` in `DAG/DAG.hh`. It
+  segfaults after 298,549,248 DAG nodes (13,185 s), before writing the n=13
+  d-DNNF; a wrapped node count of -84,627,967 was observed at the crash. So
+  2,063,395,607,040 remains an engine/DP result and must not acquire
   "certified" by proximity. (The absent-tools graceful path is gated in
-  `tests.py`.)
+  `tests.py`.) *(Diagnosis attributed to a named source symbol and a pinned
+  commit 2026-09-01; it was previously asserted with neither.)*
 - `sat.py` imports `solve.py` as `solve`; if you change constraint
   semantics, change them in `solve.py` — never re-encode them here.
 
