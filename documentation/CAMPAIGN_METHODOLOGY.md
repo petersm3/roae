@@ -90,7 +90,9 @@ enumerator at a specific search budget that:
    meaningful);
 3. **Is deduplicated** (each record appears once);
 4. **Is reproducible byte-identically** on independent hardware in the same
-   region/microcode class, given the same source commit and search budget;
+   region/microcode class, given the same **source commit, partition depth,
+   global node limit and per-sub-branch limit** — the full sha-determining
+   tuple, set out with its evidence under "Why budget matters" below;
 5. **Has a published sha256** in [CANONICAL_HASHES.md](CANONICAL_HASHES.md)
    that any third party can verify by recomputing it on their own host.
 
@@ -99,6 +101,21 @@ produce a mismatching sha for the same parameters, the project treats that as
 a bug to investigate, not as a new finding. See "Sha stability vs host
 environment" at the end of this document for the empirically-documented
 limits of that.
+
+⚠ **[CORRECTED 2026-09-02 (prose batch P70) — item 4 named only the source
+commit and the search budget, dropping partition depth from a stated
+reproducibility contract.** It is the same defect the 2026-09-01 pass fixed
+at "Why budget matters" below, where the tuple is now four elements and
+carries its own correction marker; that pass did not sweep this second site,
+and the charge that raised it (Codex V2-F22 #5) named both. The consequence
+is the one §8 step 4 warns about: `SOLVE_DEPTH` is sha-determining, omitting
+it does not error because the code default is `2`, and a reader who plans a
+reproduction from this list alone would enumerate the d2 partition and never
+match a d3 sha. `CANONICAL_HASHES.md` §"Reproducibility parameters" publishes
+distinct d3 and d2 canonicals at the same 10 T node limit, which is only
+possible if depth is in the tuple. The retired wording is registered in
+[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in
+[CORRECTIONS.md](CORRECTIONS.md) as `RP-60bf9367`.]**
 
 ### Why budget matters
 
@@ -666,6 +683,17 @@ What this means for a third-party reproducer:
   you which records are missing — neither instrument checks completeness
   ([VERIFY.md](VERIFY.md)) — so it is a useful next step in the
   investigation, **not a substitute verdict**.
+- **Also compare the record count**, which is the cheapest completeness
+  signal available and needs no re-enumeration. The canonical file layout is
+  a 32-byte header followed by fixed 32-byte records, so the count is
+  `(filesize − 32) ÷ 32` — for the 560 T canonical,
+  `(336,808,703,936 − 32) ÷ 32 = 10,525,271,997`, the count published for
+  that scale in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). A **differing**
+  count proves the record sets differ and tells you by how much. A
+  **matching** count does not prove the sets are equal — two different sets
+  can be the same size — but it separates "the walk reached a different
+  frontier" from "the walk stopped short", and that is the first fork in the
+  investigation §1 asks you to open.
 
 ⚠ **[CORRECTED 2026-09-01 — the second bullet previously read: reproducing on
 a different provider or on-premises "may produce a different sha at the same
@@ -971,7 +999,12 @@ specific symptom that motivated it.
    six lines below. The two published factors give 12.5 min, not 22. The same
    figure appears in `documentation/HISTORY.md` (2026-06-10/11 analyze-sizing
    entry) and is **not** corrected there by this pass — reported, not
-   edited.]** D64 (128 GB, 38% cache) was where the
+   edited. ⚠ **[FOLLOW-UP CLOSED 2026-09-02 (prose batch P70) — the HISTORY.md
+   site named above is now corrected, and its withdrawn cost comparison with
+   it; that entry carries its own marker and the two retired forms are
+   registered as `RP-a8eb3931` and `RP-dd27f0bf`. The handoff sentence above
+   is preserved as the record of how the site was carried forward rather than
+   lost.]**]** D64 (128 GB, 38% cache) was where the
    original §[10] code ran for 24h+ without finishing — but that was a
    pre-rewrite issue, not a sizing issue per se. **D128 (256 GB, 76%
    cache)** finished a full --analyze on the 560T canonical in

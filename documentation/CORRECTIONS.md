@@ -5809,3 +5809,121 @@ unresolvable is a separate question this batch did not settle.
 
 **Attribution.** Located and corrected by this lane (Claude, Opus 5) under operator direction; the
 owed-callout item was raised by an earlier batch in the same lane and had gone unwritten.
+
+---
+
+## 2026-09-02 — a reproducibility contract missing a parameter at its second site, and the analyze-sizing entry a prior pass reported but left standing
+
+Prose batch **P70** worked eight ACCEPTED charges against `documentation/CAMPAIGN_METHODOLOGY.md`
+(Codex reviewers V2-F22, V2-L05, V2-L11; adjudication batch 11). **Six of the eight were already
+fixed at HEAD** by a 2026-09-01 pass and are listed at the end as verified-no-op rather than
+reported as work. The two that were still live are recorded here, and both were half-fixes: in each
+case the earlier pass corrected one site of a defect and left a second one that the same charge had
+named.
+
+### 1. A byte-identical-reproducibility contract stated over an incomplete tuple (`RP-60bf9367`)
+
+`CAMPAIGN_METHODOLOGY.md` §1 defines what a canonical artifact is, and item 4 of that definition
+promised byte-identical reproduction on independent hardware given a **two**-element tuple. Partition
+depth was absent from it.
+
+The omission is not cosmetic, and the document says so itself three sections later: `SOLVE_DEPTH` is
+sha-determining, and omitting it does **not** raise an error, because the code default is `2`. A
+reader who plans a reproduction from §1's definition alone therefore enumerates the depth-2
+partition and can never match a depth-3 sha, with nothing to signal why.
+`CANONICAL_HASHES.md` §"Reproducibility parameters" settles the point empirically: it publishes
+**distinct d3 and d2 canonicals at the identical 10 T node limit**, which is only possible if depth
+is an element of the tuple.
+
+The same defect at this file's "Why budget matters" tuple was corrected on 2026-09-01 to a
+four-element form — source commit, partition depth, global node limit, per-sub-branch limit — and
+that site carries its own marker. **The §1 site was not swept in that pass, although the charge that
+raised it named both.** Item 4 now states the same four elements and points at the fuller treatment
+below it.
+
+**Census, before → after: 1 → 0.** The retired clause was registered on the full phrase rather than
+on the words "search budget", which are legitimate throughout the corpus, and it matched
+`CAMPAIGN_METHODOLOGY.md` and nothing else under GATE 3's own character fold before the fix.
+
+### 2. A per-pass disk time that contradicts its own stated bandwidth, and a cost comparison built on a projection (`RP-a8eb3931`, `RP-dd27f0bf`)
+
+`documentation/HISTORY.md`'s 2026-06-10/11 analyze-VM-sizing entry stated two figures and then a
+quotient that is not theirs. The file is 336,808,703,936 bytes and the entry names ~450 MB/s of
+Premium SSD bandwidth; that division is **748 s ≈ 12.5 min** per pass. The figure published beside
+it was about 76 % larger, implying ~255 MB/s. This is a division, not a forecast — one of the two
+stated numbers had to be wrong, and it was the derived one. It is corrected in place.
+
+The dependent "~3 h on D32" is **withdrawn rather than re-derived**: it was computed from the retired
+per-pass figure, and no D32 analyze run at 560 T was ever executed against which a replacement could
+be checked.
+
+The same entry then priced the run by multiplying an hourly rate by the D128 **projection**, and
+concluded that D128 costs marginally more than D32 while finishing sooner. The measurement refutes
+the numerator: the post-rewrite D128 analyze run completed in **13,631 s (3 h 47 m)**, recorded eight
+lines below in that same entry, so at the stated $5/h the run cost **~$18.93**, roughly 2.5× the
+published product. The comparison is withdrawn rather than rescaled, because its D32 half has no
+measured wall at any scale.
+
+**What was deliberately preserved.** The sentence "Projected total wall on D128: ~1.5 h" stands
+exactly as written. It is correctly labelled a projection of that date, and it is the primary
+evidence `CAMPAIGN_METHODOLOGY.md` rule 8 cites when showing that the same figure was later restated
+*there* as an accomplished fact. Deleting it would have removed the ground under a correction that
+depends on it.
+
+**How this site was found — and it was not found by this batch.** The 2026-09-01 pass that corrected
+rule 8 in `CAMPAIGN_METHODOLOGY.md` located this HISTORY.md entry, named it in its own marker, and
+recorded that it was "reported, not edited". That handoff is now closed, and the marker carrying it
+has been extended rather than reworded, so the trail from report to fix stays readable. The line
+number on the charge sheet had drifted by 18 lines; the site was located by content.
+
+**Census, before → after: 1 → 0 for each of the two retired forms.** They were registered as **two
+narrow needles, not one**: they share no substring, sit in different sentences, and a single needle
+would have caught only one of them. The per-pass form was registered on its verb-bearing clause
+rather than on the bare number, because `CAMPAIGN_METHODOLOGY.md`'s own correction marker
+legitimately quotes that number in different words and a bare needle would have fired on it.
+
+### A prescribed fix that had been dropped, and is now applied
+
+Charge 8 (V2-F22 #4) was adjudicated against §6's claim that a cross-host reproduction may yield a
+different sha at an unchanged record set — impossible under the published format, since the sha is a
+pure function of the record set. That mechanism was corrected on 2026-09-01. But the adjudicated fix
+had a second clause the pass did not apply: **also compare the record count against the published
+count.** §6 now carries it. The canonical layout is a 32-byte header plus fixed 32-byte records, so
+the count is `(filesize − 32) ÷ 32`, and for the 560 T canonical
+`(336,808,703,936 − 32) ÷ 32 = 10,525,271,997` — the count published for that scale. The bullet is
+explicit that a matching count does not prove set equality, only that the walk did not stop short.
+
+### Verified still-live FALSE — six charges already fixed at HEAD
+
+Reported as no-ops rather than as work, each checked by content because the line numbers had drifted:
+the §1/§7 front-matter box (now states the §10 settlement, no replacement or checklist language
+survives anywhere in the tree); the extension-cost and extension-wall rules 9 and 10 (rebuilt from
+the 100 % cap-hit fraction, dollar figures withdrawn for want of a ledger); the delegated cost
+authority (the delegation no longer includes cost estimation, and the older guide's worked example
+now shows planned-against-actual); the exhaustion floor (the arithmetic is corrected and the
+single-cell probe is now published in full, with its comparability assumption and n = 1 caveat, in
+`CANONICAL_HASHES.md`); the mid-run zero-cell rate in the operations bullet (replaced by the final
+actuals); and rule 8's wall and cost (re-derived from the measured 13,631 s).
+
+### What was deliberately not changed
+
+- **The realized cost of the 560 T campaign is not published here.** The adjudication asked that the
+  older guide's worked example be annotated with it, but the figure exists only in operator-held
+  material and has no public reproduction path. The example's cost row already says the planned
+  range is unreliable and declines to state an actual, which is the honest form; publishing a number
+  a reader cannot check would be a weaker one. Left pending the open ruling on private-material
+  citation.
+- **The single-cell probe's cost and wall are not published**, for the same reason. The probe's
+  *derivation* — the addressable cell, the three-rung ladder, the 2,488 tasks, the comparability
+  assumption — is public and reproducible from the command shown; its dollar and minute figures are
+  host-specific measurements with no public artifact behind them.
+- **`CAMPAIGN_METHODOLOGY.md`'s "Why budget matters" and rule 8 correction markers quote wording that
+  a strict reading of the adjudication's proposed grep legs would forbid.** Those legs were proposed
+  as file-wide phrase bans; applied literally they would fire on the correction markers that exist to
+  narrate the retraction. This batch did not write those gate legs and flags the conflict for
+  whoever does: the registry's allow-column, not a file-wide ban, is the mechanism that handles it.
+
+**Attribution.** Located and corrected by this lane (Claude, Opus 5) under operator direction; the
+charges were raised by Codex reviewers V2-F22, V2-L05 and V2-L11 and adjudicated in batch 11. The
+HISTORY.md site was surfaced by the 2026-09-01 pass, which recorded it rather than fixing it — this
+batch's contribution there is closing the handoff, not finding the defect.
