@@ -39,10 +39,16 @@
 #                     cheap budget and was killed — expensive, not failed), RESOURCE
 #                     (SIGKILL/SIGABRT with allocator messages — the host, not the claim),
 #                     PLACEHOLDER (<metavars>, unset $VARS, ..., heredocs — not runnable
-#                     verbatim), OPS (cloud/network/privileged/destructive — never run),
-#                     FRAGMENT (an inline prose mention that is not a complete command).
+#                     verbatim; quoting is honoured, so a literal inside a quoted argument
+#                     is NOT a metavariable), OPS (cloud/network/privileged/destructive —
+#                     never run), FRAGMENT (an inline prose mention that is not a complete
+#                     command — listed individually, never silent, and split into
+#                     "justified" (the corpus publishes a complete form of the same command)
+#                     and UNJUSTIFIED (it does not — the only invocation a reader has is the
+#                     one that did not run)).
 #   4. VERDICT: EXEC_LANE=PASS only if no gating FAIL. Machine-checkable tokens
-#      (grep -qx): EXEC_LANE=PASS|FAIL, plus EXEC_LANE_{EXTRACTED,RUN,PASS,FAIL,SKIP}=N
+#      (grep -qx): EXEC_LANE=PASS|FAIL, plus EXEC_LANE_{EXTRACTED,RUN,PASS,FAIL,SKIP}=N,
+#      EXEC_LANE_{FRAGMENT,FRAGMENT_UNJUSTIFIED}=N
 #      and EXEC_LANE_SCOPE=FULL|PARTIAL|LIST-ONLY.
 #
 # GATING SCOPE (a class rule, not a per-command list): a FAIL gates the verdict only when
@@ -59,6 +65,9 @@
 #     silent cap cannot read as coverage. Long-running repo gates (verify_all.sh, tests.py,
 #     full roae.py) budget-skip here because they are already executed elsewhere.
 #   - The OPS deny-list means cloud/deployment recipes are never exercised here.
+#   - SKIP-FRAGMENT is a skip, not a verdict: by default a published command that exits with a
+#     usage error still does not gate. EXEC_LANE_FRAGMENT_UNJUSTIFIED is the number to watch,
+#     and EXEC_LANE_STRICT_FRAGMENT=1 is how to make it bite.
 #
 # USAGE
 #   scripts/exec_lane.sh                 # full lane on this tree
@@ -71,6 +80,15 @@
 #   EXEC_LANE_BUDGET=30                  # per-command budget, seconds (default 30)
 #   EXEC_LANE_BUILD_BUDGET=300           # per-build budget, seconds (default 300)
 #   EXEC_LANE_KEEP=1                     # keep the scratch workspace for inspection
+#   EXEC_LANE_STRICT_FRAGMENT=1          # promote UNJUSTIFIED fragments from a gating document
+#                                        # to FAIL. OFF by default and the reason is measured,
+#                                        # not assumed: 204 inline-origin RUN commands in the
+#                                        # tracked corpus publish no longer runnable form, and at
+#                                        # least one (`gcc -Wconversion -Wsign-conversion`,
+#                                        # reports/TR11:366) is a genuine prose mention of two
+#                                        # compiler flags that would become a false FAIL. The
+#                                        # count is published either way; turning this on is the
+#                                        # operator's call and costs a full lane run.
 #
 # https://github.com/petersm3/roae — Developed with AI assistance (Claude, Anthropic)
 set -uo pipefail
@@ -92,7 +110,7 @@ BUILD_BUDGET="${EXEC_LANE_BUILD_BUDGET:-300}"
 # Generative extraction: every tracked *.md, three source shapes, no curated command list.
 INV="$(mktemp "${TMPDIR:-/tmp}/exec_lane_inv.XXXXXX")"
 python3 - "$ROOT" > "$INV" <<'PYEOF'
-import os, re, shutil, subprocess, sys
+import os, re, shlex, shutil, subprocess, sys
 ROOT = sys.argv[1]
 files = [f for f in subprocess.run(['git','-C',ROOT,'ls-files','*.md'],
          capture_output=True, text=True).stdout.split('\n') if f]
@@ -131,10 +149,27 @@ def placeholder(c):
     if '<<' in c: return True
     for v in re.findall(r'\$\{?([A-Z][A-Z0-9_]*)', c):
         if v not in os.environ: return True           # unset $METAVAR
-    if re.search(r'\S\|\S', c): return True           # a|b alternation inside a token
-    body = re.sub(r'^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*', '', c)
-    for w in body.split()[1:]:
-        w = w.strip('"\'')
+    # Codex v2 (adjudication row 27's named policy fix, batch P77): QUOTING WAS IGNORED, so a
+    # LITERAL living inside a quoted argument was misread as a metavariable and the command was
+    # exempted from execution. MEASURED pre-fix: `grep -n "REFUTED 2026-05-16" doc.md` and
+    # `grep -n 'E1 F1U exact' solve.c` carry no metavariable at all -- whitespace-splitting cut
+    # the quoted string into words and `REFUTED` / `E1` looked like metavariables. Same shape for
+    # the alternation test: `--json|--csv` IS a synopsis alternation, but `grep -E "avx|sse"` is
+    # an alternation inside a regex ARGUMENT and the command runs verbatim. Both tests now see
+    # quoted spans neutralised, and the ALL-CAPS test walks whole shell WORDS, so a multi-word
+    # quoted literal is one word and cannot match. A single-word quoted metavariable ("DIR") does
+    # still match -- the exemption is narrowed, never widened.
+    unq = re.sub(r'"[^"]*"|\'[^\']*\'', ' Q ', c)
+    if re.search(r'\S\|\S', unq): return True         # a|b alternation OUTSIDE any quoted span
+    try:
+        words = shlex.split(c)
+    except ValueError:                                # unbalanced quotes: fail CLOSED, keep the
+        words = [w.strip('"\'') for w in            # old whitespace-split behaviour
+                 re.sub(r'^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*', '', c).split()]
+    i = 0
+    while i < len(words) and re.match(r'^[A-Za-z_][A-Za-z0-9_]*=\S*$', words[i]):
+        i += 1                                        # leading VAR=val assignments, as before
+    for w in words[i+1:]:
         if re.match(r'^[A-Z][A-Z0-9_.]*$', w): return True   # ALL-CAPS metavariable
     return False
 GIT_MUT = r'\bgit\s+(clone|push|commit|fetch|pull|reset|checkout|rebase|merge|tag|add|rm|mv|stash|init|remote)\b'
@@ -269,6 +304,41 @@ echo
 # ---------------------------------------------------------------- 3. EXECUTE
 NP=0; NF=0; NS=0; NR=0; NFN=0; IDX=0
 FAIL_LINES=""
+NFRAG=0; NFRAGU=0
+FRAG_LINES=""
+
+# Codex v2 adjudication row 27 / batch P77, PROVEN BY EXECUTION against a scratch tree: the
+# SKIP-FRAGMENT exemption below is what actually swallowed `solve --f1-exact-c1c2`, the command
+# published as THE reproduction path for 4.29341%. It is extracted, classed RUN, gating, EXECUTED,
+# exits 2 with "Usage: solve --f1-exact-c1c2 --f1-mod P ..." -- and the lane printed
+# SKIP-FRAGMENT, EXEC_LANE=PASS, exit 0. (The adjudication and the gate-designation pass both
+# attributed this to SKIP-PLACEHOLDER; measured, that class never sees the command.)
+#
+# The exemption cannot simply be deleted. Measured on the tracked corpus, 204 inline-origin RUN
+# commands have no longer runnable form published, and at least one of them --
+# `gcc -Wconversion -Wsign-conversion` (reports/TR11:366) -- is a genuine prose mention of two
+# compiler flags that would become a false FAIL. There is no mechanical way inside the lane to
+# separate "prose mention of a flag" from "published-but-broken invocation".
+#
+# So: the exemption stays a SKIP (the lane's three-outcome doctrine), but it stops being INVISIBLE.
+# Every fragment is now listed with its source and counted in its own whole-line token, and the
+# subset with no complete form published anywhere in the corpus -- the suspicious set, which is
+# where row 27's defect sat -- is counted separately. EXEC_LANE_STRICT_FRAGMENT=1 promotes that
+# subset (gating sources only) to FAIL, so the operator can run the measurement the default
+# cannot afford to assume.
+STRICT_FRAG="${EXEC_LANE_STRICT_FRAGMENT:-0}"
+
+corpus_publishes_complete_form() {   # $1 = command; true iff the inventory holds a STRICTLY
+  C="$1" awk -F'\t' '               # longer RUN/BUILD form of it (a runnable complete form --
+    function norm(x) { sub(/^\.\//, "", x); return x }   # a SKIP-PLACEHOLDER synopsis such as
+    BEGIN { c = norm(ENVIRON["C"]); n = length(c) + 1 }    # `... --f1-mod P` does NOT count)
+    ($1 == "RUN" || $1 == "BUILD") {
+      f = norm($7)
+      if (length(f) > n && substr(f, 1, n) == c " ") { found = 1; exit }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$INV"
+}
 
 run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   local cls="$1" gat="$2" ctx="$3" cwd="$4" org="$5" src="$6" cmd="$7"
@@ -320,7 +390,23 @@ $(tail -c 2000 "$ref")"; fi
   elif grep -qE "No such file or directory|cannot open|cannot read|\[Errno 2\]|[Nn]o .* files found" <<<"$out"; then
     outcome="SKIP-MISSING-INPUT"
   elif [ "$org" = "inline" ] && grep -qiE "usage|requires an argument|missing operand|no input file|invalid|unexpected end of file|stdin|no makefile found|No rule to make target|no matching criteria|Try '" <<<"$out"; then
-    outcome="SKIP-FRAGMENT(inline mention, incomplete as a command)"
+    if corpus_publishes_complete_form "$cmd"; then
+      outcome="SKIP-FRAGMENT(inline mention; the corpus publishes a complete form)"
+      NFRAG=$((NFRAG+1))
+      FRAG_LINES="$FRAG_LINES  justified   $src  $cmd"$'\n'
+    elif [ "$STRICT_FRAG" = "1" ] && [ "$gat" = "1" ]; then
+      outcome="FAIL(incomplete invocation — the corpus publishes no complete form of this command)"
+      NFRAG=$((NFRAG+1)); NFRAGU=$((NFRAGU+1))
+      FRAG_LINES="$FRAG_LINES  UNJUSTIFIED $src  $cmd"$'\n'
+    else
+      outcome="SKIP-FRAGMENT(inline mention; NO complete form published — see UNJUSTIFIED below)"
+      NFRAG=$((NFRAG+1))
+      # NOT `[ ... ] && NFRAGU=...` as the branch's last statement: that leaves run_one
+      # returning 1 for every non-gating fragment, which is a landmine for any future caller
+      # that checks its status.
+      if [ "$gat" = "1" ]; then NFRAGU=$((NFRAGU+1)); fi
+      FRAG_LINES="$FRAG_LINES  UNJUSTIFIED $src  $cmd"$'\n'
+    fi
   else outcome="FAIL(rc=$rc)"; fi
   git -C "$WS" checkout -q -- . 2>/dev/null
   git -C "$WS" clean -fdqx -e solve -e verify >/dev/null 2>&1
@@ -358,12 +444,21 @@ done < "$INV"
 echo
 echo "== SUMMARY =="
 [ -n "$FAIL_LINES" ] && { echo "FAILURES:"; printf '%s' "$FAIL_LINES"; echo; }
+# A skip is not a verdict, but an INVISIBLE skip reads as coverage. Row 27's defect lived here.
+[ -n "$FRAG_LINES" ] && {
+  echo "INCOMPLETE PUBLISHED INVOCATIONS (skips, not verdicts — commands the docs publish that"
+  echo "did not run; UNJUSTIFIED = the corpus publishes no complete form anywhere, so the only"
+  echo "invocation a reader has is this one. Re-run with EXEC_LANE_STRICT_FRAGMENT=1 to gate them):"
+  printf '%s' "$FRAG_LINES"; echo
+}
 echo "EXEC_LANE_EXTRACTED=$N_EXTRACTED"
 echo "EXEC_LANE_RUN=$IDX"
 echo "EXEC_LANE_PASS=$NP"
 echo "EXEC_LANE_FAIL=$NF"
 echo "EXEC_LANE_FAIL_NONGATING=$NFN"
 echo "EXEC_LANE_SKIP=$((NS+NR))"
+echo "EXEC_LANE_FRAGMENT=$NFRAG"
+echo "EXEC_LANE_FRAGMENT_UNJUSTIFIED=$NFRAGU"
 if [ -n "$ONLY" ]; then echo "EXEC_LANE_SCOPE=PARTIAL"; else echo "EXEC_LANE_SCOPE=FULL"; fi
 if [ "${EXEC_LANE_KEEP:-0}" != "1" ]; then rm -rf "$WS"; else echo "workspace kept: $WS"; fi
 rm -f "$INV"
