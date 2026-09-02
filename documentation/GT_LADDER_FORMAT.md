@@ -62,6 +62,20 @@ Hamming-isometric, so suffix counts and subtree sizes are preserved.
   whole-space count `N` re-derived from the suffix side; more generally
   `f(s)·g(s)` = the number of full walks whose depth-`k` state is `s`, which
   is what makes exact rank/unrank from any prefix possible.
+
+  ⚠ **That is a statement about the mathematics, not an attestation of the
+  implementation.** The identity `f(s)·g(s)` licenses exact rank/unrank in
+  principle; it does not establish that this codebase's rank/unrank is correct
+  at full-31. **The shipped ranking is pinned against an external instrument
+  only at n = 9**, where two independent brute-force lists are built and sorted
+  with a separate comparator and every rank/unrank pair is checked
+  (`solve.c:18076`, `:18236`, `:20972`, `:21017`). At n = 13 and above the gates
+  are **sampled** round-trips plus sampled monotonicity, with a local neighbour
+  bracket — and `rank(unrank(r)) == r` is **closure, not correctness**. A
+  consistently wrong, n-dependent ranking round-trips and certificate-verifies
+  just as a correct one does. Establishing an external pin at 10³⁹ scale is an
+  open problem here, not an oversight: direct enumeration is the same 2×10¹²
+  wall that closed the n = 13 count.
 - **t-ladder** (`--kc-t-build FDIR TDIR`): `t(s)` = the exact number of
   **search-tree nodes** in the subtree rooted at `s` of the reference DFS,
   under the node-accounting convention pinned below.
