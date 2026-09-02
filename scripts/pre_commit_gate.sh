@@ -38,6 +38,29 @@ if [ ! -f "$SDIR/pre_commit_generated_gate.sh" ]; then
   echo "[pre-commit] Refusing to commit -- a BLOCKING gate that cannot run must not pass." >&2
   exit 1
 fi
+# 🔴 THREE VERDICTS, NOT TWO (FINDING_FAILOPEN_CLASS instance 38, 2026-09-02).
+# This line used to be `[ "$RRC" -ne 0 ] && echo "... reported findings (rc=$RRC) ..."`. Observed
+# live: another unit was mid-edit on scripts/doc_gates.sh, bash refused to parse it, every leg
+# returned 2, and this dispatcher announced that the registry gate "reported findings" — on a commit
+# staging RETRACTED_PHRASES.tsv and CORRECTIONS.md. The gate reported nothing; it never ran. The
+# commit was verified by nothing while the message said the gates had looked and had opinions.
+#
+# WARN-ONLY IS UNCHANGED AND IS NOT THE DEFECT. The caller still decides; nothing here blocks. What
+# changes is that "I could not look" now has its own words and its own exit status, so the two are
+# no longer indistinguishable downstream.
+#
+# rc contract, defined in pre_commit_registry_gate.sh's header:
+#   0 = CLEAN or NOT-APPLICABLE   1 = FINDINGS   2 = COULD-NOT-RUN
+# Anything else (127 = the gate script itself is missing/unexecutable, >=128 = signal) is also
+# "could not look" — classified, never defaulted to "findings".
 bash "$SDIR/pre_commit_registry_gate.sh"; RRC=$?
-[ "$RRC" -ne 0 ] && echo "[pre-commit] registry gate reported findings (rc=$RRC) - WARN ONLY, commit proceeds"
+case "$RRC" in
+  0) ;;
+  1) echo "[pre-commit] registry gate reported FINDINGS (rc=1) - WARN ONLY, commit proceeds" ;;
+  *) echo "[pre-commit] 🔴 registry gate COULD NOT RUN (rc=$RRC) - it reported NOTHING."
+     echo "[pre-commit]    This is not a finding and not a pass: the registry/ledger content of this"
+     echo "[pre-commit]    commit was checked by NOTHING. WARN ONLY, commit proceeds (O-redfloor),"
+     echo "[pre-commit]    but do not record this commit as gated. Re-run once the box is quiet:"
+     echo "[pre-commit]        bash scripts/pre_commit_registry_gate.sh" ;;
+esac
 exec bash "$SDIR/pre_commit_generated_gate.sh"

@@ -104,11 +104,40 @@ fi
 if [ ! -x scripts/doc_gates.sh ] && [ ! -f scripts/doc_gates.sh ]; then
   echo "pre-commit: REFUSING — scripts/doc_gates.sh is missing, so the artifacts in"
   echo "  this commit cannot be checked. That is a reason to stop, not to proceed."
+  echo "PRECOMMIT_GENERATED=COULD-NOT-RUN"
+  exit 1
+fi
+
+# 🔴 SIBLING OF FINDING_FAILOPEN_CLASS INSTANCE 38, swept 2026-09-02. This gate is BLOCKING, so a
+# crashed doc_gates.sh stops the commit rather than passing it — but the message below sent the
+# reader to "Fix the SOURCE (roae.py) and regenerate", which is the wrong repair for a gate that
+# never looked at an artifact. A blocking gate can still misattribute, and misattribution costs a
+# regeneration cycle chasing a defect that is not there. `bash -n` first: 11 ms against ~62 s for
+# the gate itself. THE BLOCKING BEHAVIOUR IS UNCHANGED — only which failure it names.
+if ! DG_PARSE_ERR=$(bash -n scripts/doc_gates.sh 2>&1); then
+  echo "pre-commit: 🔴 BLOCKED — COULD NOT RUN. scripts/doc_gates.sh does not parse, so the"
+  echo "  generated-artifact gate never executed and NOTHING about example/ was checked."
+  echo "  ${DG_PARSE_ERR:-bash -n returned non-zero with no message}"
+  echo "  DO NOT regenerate artifacts in response to this — no artifact was compared. The likely"
+  echo "  cause is another unit mid-edit on scripts/doc_gates.sh. Re-run when 'bash -n' is quiet."
+  echo "PRECOMMIT_GENERATED=COULD-NOT-RUN"
   exit 1
 fi
 
 echo "pre-commit: running doc_gates.sh generated ..."
-if bash scripts/doc_gates.sh generated; then
+bash scripts/doc_gates.sh generated; _dgrc=$?
+# 0 = clean, 1 = findings, anything else = the gate did not produce a verdict (its usage arm exits
+# 2; 126/127 exec; >=128 signal). Only 1 means "the artifacts disagree with roae.py".
+if [ "$_dgrc" -ne 0 ] && [ "$_dgrc" -ne 1 ]; then
+  echo
+  echo "pre-commit: 🔴 BLOCKED — COULD NOT RUN. 'doc_gates.sh generated' exited $_dgrc, which is"
+  echo "  neither clean(0) nor findings(1). It parsed and then aborted — an unknown mode on an"
+  echo "  older tree, a kill under CPU contention, or an internal exit 2. NO artifact comparison"
+  echo "  completed, so this says nothing about example/. Do NOT regenerate; re-run."
+  echo "PRECOMMIT_GENERATED=COULD-NOT-RUN"
+  exit 1
+fi
+if [ "$_dgrc" -eq 0 ]; then
   echo "pre-commit: generated-artifact gate PASSED"
   # SCOPE, restated because it used to be WRONG in the reassuring direction. Until
   # 2026-09-02 this NOTE said the WATCHED population had been widened to all twelve
@@ -121,6 +150,7 @@ if bash scripts/doc_gates.sh generated; then
   echo "  roae.py is unseeded, so a hand-edited DIGIT in those three is caught by nothing),"
   echo "  report.html/report.pdf, and — byte-exact, digits included — hexagrams.{csv,json,svg},"
   echo "  wave.dot, wave.dot.png, wave.dot.svg and wave.mid."
+  echo "PRECOMMIT_GENERATED=CLEAN"
   exit 0
 fi
 
@@ -133,4 +163,5 @@ echo "    cp example/report.md example/README.md"
 echo "    ( cd example && python3 ../roae.py --html )"
 echo "  If you are certain this is wrong, 'git commit --no-verify' bypasses it"
 echo "  and leaves that decision visible in your shell history."
+echo "PRECOMMIT_GENERATED=FINDINGS"
 exit 1

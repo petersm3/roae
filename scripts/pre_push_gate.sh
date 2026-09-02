@@ -250,16 +250,31 @@ NEWREFS=${NEWREFS# }
 NEWREF_RC=0
 if [ -n "$NEWREFS" ]; then
   echo "pre-push: NEW branch ref(s) to declare: $NEWREFS"
-  if [ -f "$ROOT/scripts/doc_gates.sh" ]; then
-    if DOC_GATES_PENDING_BRANCHES="$NEWREFS" bash "$ROOT/scripts/doc_gates.sh" branch-registry; then
-      echo "pre-push: branch-registry gate PASSED for $NEWREFS"
-    else
-      echo "pre-push: BLOCKED — new branch ref(s) not declared in the branch registry"
-      NEWREF_RC=1
-    fi
-  else
-    echo "pre-push: BLOCKED — cannot run the branch-registry gate (scripts/doc_gates.sh missing)"
+  # 🔴 SIBLING SWEEP 2026-09-02 (FINDING_FAILOPEN_CLASS instance 38). This leg is the ONE dispatch
+  # in this hook that reads $ROOT's WORKING-TREE doc_gates.sh rather than a pushed sha's committed
+  # copy, so it sits squarely in the concurrency window where another unit's half-written script is
+  # unparseable. It is BLOCKING either way — the fail direction does not change — but "not declared
+  # in the branch registry" is a false statement about a gate that never ran, and it sends the
+  # reader to edit a registry that is fine. Classify instead of testing for zero.
+  if [ ! -f "$ROOT/scripts/doc_gates.sh" ]; then
+    echo "pre-push: BLOCKED — COULD NOT RUN the branch-registry gate (scripts/doc_gates.sh missing)."
+    echo "         Nothing was checked. This is not a registry finding."
     NEWREF_RC=1
+  elif ! _dgerr=$(bash -n "$ROOT/scripts/doc_gates.sh" 2>&1); then
+    echo "pre-push: 🔴 BLOCKED — COULD NOT RUN the branch-registry gate: $ROOT/scripts/doc_gates.sh"
+    echo "         does not parse, so GATE 19 never executed and the branch registry was NOT read."
+    echo "         ${_dgerr:-bash -n returned non-zero with no message}"
+    echo "         DO NOT edit the branch registry in response to this — re-push once 'bash -n' is quiet."
+    NEWREF_RC=1
+  else
+    DOC_GATES_PENDING_BRANCHES="$NEWREFS" bash "$ROOT/scripts/doc_gates.sh" branch-registry; _brc=$?
+    case "$_brc" in
+      0) echo "pre-push: branch-registry gate PASSED for $NEWREFS" ;;
+      1) echo "pre-push: BLOCKED — new branch ref(s) not declared in the branch registry"; NEWREF_RC=1 ;;
+      *) echo "pre-push: 🔴 BLOCKED — COULD NOT RUN: the branch-registry gate exited $_brc, which is"
+         echo "         neither clean(0) nor findings(1). It aborted after parsing; the registry was"
+         echo "         not read. This is not a registry finding."; NEWREF_RC=1 ;;
+    esac
   fi
 fi
 
@@ -310,7 +325,17 @@ for sha in $SHAS; do
   SHAFAIL_SEEN=${SHAFAIL_SEEN:-0}
   if [ -f "$WT/scripts/doc_gates.sh" ]; then
     ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-        bash scripts/doc_gates.sh all ) || SHARC=1
+        bash scripts/doc_gates.sh all ); _arc=$?
+    # Sibling sweep 2026-09-02: same class as the branch-registry leg above. Blocking either way
+    # (SHARC=1 in both arms) — what changes is that a pushed tree whose doc_gates.sh does not parse,
+    # or which aborted, is no longer reported as a documentation finding it never made.
+    if [ "$_arc" -gt 1 ]; then
+      echo "pre-push: 🔴 COULD NOT RUN — 'doc_gates.sh all' in pushed sha $short exited $_arc"
+      echo "         (neither clean(0) nor findings(1)). NOTHING in that tree was checked; this is"
+      echo "         not a documentation finding. bash -n on that tree's copy says:"
+      ( cd "$WT" && bash -n scripts/doc_gates.sh 2>&1 | sed 's/^/           /' ) || true
+      SHARC=1
+    elif [ "$_arc" -ne 0 ]; then SHARC=1; fi
   else
     echo "pre-push: FAIL — pushed sha $short has no scripts/doc_gates.sh."
     echo "  For a current tree that is a regression; for a deliberate push of"
@@ -330,7 +355,13 @@ for sha in $SHAS; do
         echo "pre-push: pushed range touches roae.py/example/ (or has no base to diff) —"
         echo "          running its generated-artifact gate (GATE 8, ~67-107 s: 3 roae.py runs)"
         ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-            bash scripts/doc_gates.sh generated ) || SHARC=1
+            bash scripts/doc_gates.sh generated ); _grc=$?
+        if [ "$_grc" -gt 1 ]; then
+          echo "pre-push: 🔴 COULD NOT RUN — 'doc_gates.sh generated' in pushed sha $short exited"
+          echo "         $_grc (neither clean(0) nor findings(1)). No artifact comparison completed;"
+          echo "         do NOT regenerate example/ in response to this."
+          SHARC=1
+        elif [ "$_grc" -ne 0 ]; then SHARC=1; fi
       fi ;;
   esac
   echo

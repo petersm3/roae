@@ -93,6 +93,75 @@ set -u
 REPO_ROOT="$(git rev-parse --show-toplevel)" || exit 1
 cd "$REPO_ROOT" || exit 1
 
+# ---------------------------------------------------------------------------
+# 🔴 THREE VERDICTS, NOT TWO: CLEAN / FINDINGS / COULD-NOT-RUN.
+#
+# Observed live 2026-09-02 (FINDING_FAILOPEN_CLASS_2026_08_30.md, instance 38). Another unit was
+# mid-edit on scripts/doc_gates.sh; bash could not parse it, every leg returned 2, this gate
+# recorded all six as failures, and the dispatcher printed
+#     [pre-commit] registry gate reported findings (rc=1) - WARN ONLY, commit proceeds
+# on a commit staging RETRACTED_PHRASES.tsv and CORRECTIONS.md — the two files GATE 3 and GATE 11
+# exist to police. The gates reported nothing. They never ran. A crashed check and a check with
+# findings are the two states that must never be conflated: one says "here is what I found", the
+# other says "I could not look", and only the second means the commit was verified by nothing.
+#
+# WARN-ONLY IS NOT THE DEFECT and is NOT changed here. Whether the commit proceeds stays the
+# caller's decision (operator ruling O-redfloor: a hook that refuses a red commit also stops a unit
+# committing to protect its work from another unit's `git checkout -- .`). The defect was that the
+# two states were INDISTINGUISHABLE downstream, so nothing ever surfaced which one had happened.
+#
+# EXIT CODES OF THIS SCRIPT, read by scripts/pre_commit_gate.sh:
+#     0 = CLEAN or NOT-APPLICABLE   1 = FINDINGS   2 = COULD-NOT-RUN
+# and every terminal path prints a whole-line token at column 0, for `grep -qx`:
+#     PRECOMMIT_REGISTRY=CLEAN | FINDINGS | COULD-NOT-RUN | NOT-APPLICABLE | REFUSED-DIRTY
+# Match the token. NEVER infer the verdict from the shape of the text above it — that inference is
+# exactly what produced instance 38.
+RC_FINDINGS=1; RC_CANTRUN=2
+
+# Leaf dispatch names only (item B2): each entry names exactly one gate function, so a refusal
+# below can say which gate answered. Defined here rather than at the loop so the COULD-NOT-RUN
+# message can name what was NOT checked.
+GATES="retract retract-figures ledger-phrases ledger-figures appendonly-head appendonly-history"
+GATES_LIST="$GATES"
+
+# A leg's exit status, CLASSIFIED rather than tested for zero. doc_gates.sh's own convention is
+# 0 = clean (its `exit $RC` tail), 1 = findings (`|| RC=1` at every gate call site), 2 = usage or
+# cannot-start (its `*)` usage arm, and its `cd ... || exit 2`). Everything else — 126/127 from
+# exec, >=128 from a signal — is likewise "produced no verdict". ONLY 1 is a finding.
+leg_verdict(){ case "$1" in 0) echo clean;; 1) echo findings;; *) echo cantrun;; esac; }
+
+# `bash -n` BEFORE dispatch. This is the check instance 38 needed and did not have: a file that
+# does not parse cannot have an opinion, and asking it for one costs six subshells that all
+# return 2 and read as six failing gates. Measured 2026-09-02: 11 ms on the 12k-line doc_gates.sh,
+# against ~4.4 s for the six legs — the precheck is free.
+DG_PARSE_ERR=""
+doc_gates_runnable(){
+  if [ ! -f scripts/doc_gates.sh ]; then DG_PARSE_ERR="scripts/doc_gates.sh is missing"; return 1; fi
+  if ! DG_PARSE_ERR=$(bash -n scripts/doc_gates.sh 2>&1); then
+    [ -n "$DG_PARSE_ERR" ] || DG_PARSE_ERR="bash -n returned non-zero with no message"
+    return 1
+  fi
+  DG_PARSE_ERR=""; return 0
+}
+
+# The loud third verdict. It ERRORS rather than summarising, per feedback_failure_must_be_loud:
+# a check that cannot run must say so, not report a verdict it never obtained.
+cantrun(){
+  echo
+  echo "pre-commit: 🔴 COULD NOT RUN — the registry/ledger gate(s) did not execute."
+  echo "  THIS IS NOT A FINDING, AND IT IS NOT A PASS. Nothing was checked."
+  echo "  Reason: $1"
+  [ -n "${2:-}" ] && printf '  %s\n' "$2"
+  echo "  Most likely cause: another unit is mid-edit on scripts/doc_gates.sh (the concurrency"
+  echo "  window — see instance 36/38). Re-run"
+  echo "      bash scripts/pre_commit_registry_gate.sh"
+  echo "  once 'bash -n scripts/doc_gates.sh' is quiet, and read THAT result before relying on"
+  echo "  this commit having been gated. The pre-push hook gates the committed tree and will"
+  echo "  re-ask the same question against the pushed sha."
+  echo "PRECOMMIT_REGISTRY=COULD-NOT-RUN"
+  exit "$RC_CANTRUN"
+}
+
 # The retraction registries and the append-only ledger they are checked against.
 WATCHED="documentation/RETRACTED_PHRASES.tsv
 documentation/RETRACTED_FIGURES.tsv
@@ -103,7 +172,7 @@ documentation/CORRECTIONS.md"
 # an exemption from it; require_tracked inside GATE 11 is what catches it. R covers
 # a rename, which reports the new path.
 STAGED=$(git diff --cached --name-only --diff-filter=ACMRD)
-[ -n "$STAGED" ] || exit 0
+[ -n "$STAGED" ] || { echo "PRECOMMIT_REGISTRY=NOT-APPLICABLE"; exit 0; }
 
 HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/null || true)
 
@@ -130,17 +199,25 @@ HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/nu
 #   that touches neither.
 if [ -z "$HITS" ]; then
   DOC_HITS=$(printf '%s\n' "$STAGED" | grep -E '^(reports/[^/]+\.md|documentation/[^/]+\.md|README\.md)$' || true)
-  [ -n "$DOC_HITS" ] || exit 0
+  [ -n "$DOC_HITS" ] || { echo "PRECOMMIT_REGISTRY=NOT-APPLICABLE"; exit 0; }
   echo "pre-commit: doc-corpus file(s) staged — running the two cheap retraction scans (WARN-only):"
   printf '  %s\n' $DOC_HITS
-  if [ ! -f scripts/doc_gates.sh ]; then
-    echo "[WARN] pre-commit: scripts/doc_gates.sh missing — retraction scans skipped"
-    exit 0
-  fi
-  WFAILED=""
+  # WAS: a missing doc_gates.sh printed [WARN] and exited 0 — indistinguishable from "scans ran and
+  # were clean" to anything reading the exit status. Same conflation as instance 38, one path over.
+  doc_gates_runnable || cantrun "$DG_PARSE_ERR" \
+    "The two cheap retraction scans (retract, retract-figures) were NOT run."
+  WFAILED=""; WCANT=""
   for g in retract retract-figures; do
-    bash scripts/doc_gates.sh "$g" || WFAILED="$WFAILED $g"
+    bash scripts/doc_gates.sh "$g"; _rc=$?
+    case "$(leg_verdict "$_rc")" in
+      findings) WFAILED="$WFAILED $g" ;;
+      cantrun)  WCANT="$WCANT $g (rc=$_rc)" ;;
+    esac
   done
+  # A leg that aborted AFTER the file parsed — unknown mode, killed under contention, internal
+  # exit 2. Still "could not look", still must not be reported as a finding or as clean.
+  [ -n "$WCANT" ] && cantrun "leg(s) exited with a status that is neither clean(0) nor findings(1):$WCANT" \
+    "scripts/doc_gates.sh PARSED, so this is a runtime abort, not a mid-edit file."
   if [ -n "$WFAILED" ]; then
     echo
     echo "[WARN] pre-commit: retraction scan(s) found findings:$WFAILED"
@@ -149,8 +226,14 @@ if [ -z "$HITS" ]; then
     echo "  block — fix the finding now, while it is one commit old, not at push"
     echo "  time. Note the scans read the working tree; if the finding is in an"
     echo "  unstaged edit it is not in this commit, but it is still in your tree."
+    # EXIT CODE STAYS 0 ON THIS PATH, deliberately and unchanged — see the WARN-ONLY note in the
+    # DOC-CORPUS TRIGGER header above ("even when invoked standalone"). Only the TOKEN distinguishes
+    # this from clean; the could-not-run path above is the one that changes the exit status, because
+    # "I could not look" is not a WARN-able finding, it is an absence of measurement.
+    echo "PRECOMMIT_REGISTRY=FINDINGS"
   else
     echo "pre-commit: retraction scans clean (retract, retract-figures)"
+    echo "PRECOMMIT_REGISTRY=CLEAN"
   fi
   exit 0
 fi
@@ -170,26 +253,36 @@ if [ -n "$DIRTY" ]; then
   printf '  %s\n' $DIRTY
   echo "  The gates inspect the working tree, so they would be checking bytes this"
   echo "  commit will not contain. Stage them (git add) or stash the difference."
-  exit 1
+  # rc 2, not 1: this is "the gates were not run against this commit's bytes", which belongs to
+  # COULD-NOT-RUN, not to FINDINGS. It used to exit 1 and the dispatcher said "reported findings".
+  echo "PRECOMMIT_REGISTRY=REFUSED-DIRTY"
+  exit "$RC_CANTRUN"
 fi
 
-if [ ! -f scripts/doc_gates.sh ]; then
-  echo "pre-commit: REFUSING — scripts/doc_gates.sh is missing, so the registry and"
-  echo "  ledger in this commit cannot be checked. That is a reason to stop, not to proceed."
-  exit 1
-fi
+# WAS: `[ ! -f scripts/doc_gates.sh ] && exit 1`, i.e. missing-file was reported to the dispatcher
+# with the same status as six legs full of findings. A missing gate and an unparseable gate are the
+# same state — no measurement — and now report as one.
+doc_gates_runnable || cantrun "$DG_PARSE_ERR" \
+  "The registry and ledger in this commit were NOT checked by any of: $GATES_LIST"
 
-# Leaf dispatch names only (item B2): each entry names exactly one gate function, so
-# a refusal below can say which gate answered.
-GATES="retract retract-figures ledger-phrases ledger-figures appendonly-head appendonly-history"
-
-FAILED=""
+FAILED=""; CANTRUN=""
 for g in $GATES; do
   echo "pre-commit: running doc_gates.sh $g ..."
-  if ! bash scripts/doc_gates.sh "$g"; then
-    FAILED="$FAILED $g"
-  fi
+  bash scripts/doc_gates.sh "$g"; _rc=$?
+  case "$(leg_verdict "$_rc")" in
+    findings) FAILED="$FAILED $g" ;;
+    cantrun)  CANTRUN="$CANTRUN $g (rc=$_rc)" ;;
+  esac
 done
+
+# 🔴 CHECKED BEFORE $FAILED, and that order is the fix. The pre-parse guard above catches a file
+# that will not parse; this catches a leg that parsed and then did not produce a verdict — an
+# unknown mode (doc_gates.sh's usage arm exits 2), a kill under CPU contention, an internal abort.
+# Reporting either as a finding is the instance-38 conflation one line deeper.
+if [ -n "$CANTRUN" ]; then
+  cantrun "leg(s) exited with a status that is neither clean(0) nor findings(1):$CANTRUN" \
+    "scripts/doc_gates.sh PARSED, so this is a runtime abort, not a mid-edit file.${FAILED:+ Other leg(s) DID return findings:$FAILED — but the run as a whole is incomplete, so the absence of a finding from the aborted leg(s) means nothing.}"
+fi
 
 if [ -z "$FAILED" ]; then
   echo "pre-commit: registry/ledger gates PASSED ($GATES)"
@@ -198,6 +291,7 @@ if [ -z "$FAILED" ]; then
   echo "  committed CORRECTIONS.md line has been removed. It does NOT check that the"
   echo "  entry DESCRIBES the retraction correctly — round 14's CX-23 passed and was"
   echo "  still wrong."
+  echo "PRECOMMIT_REGISTRY=CLEAN"
   exit 0
 fi
 
@@ -232,4 +326,5 @@ echo "    every committed version. Append a superseding entry instead of editing
 echo
 echo "  If you are certain this is wrong, 'git commit --no-verify' bypasses it and"
 echo "  leaves that decision visible in your shell history."
-exit 1
+echo "PRECOMMIT_REGISTRY=FINDINGS"
+exit "$RC_FINDINGS"
