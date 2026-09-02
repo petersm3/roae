@@ -363,10 +363,13 @@ Search for an explicit ordering satisfying both Moore rules:
 python3 sat.py --witness moore-strict
 ```
 
-Reproduce the five-rule conflict decision:
+Reproduce the four-rule conflict theorem (`grand-ccn4` enforces exactly Moore parity +
+Moore rhythm + Schulz gender + CC-N4), and the five-rule union that adds CC-N8
+(`grander-strict`):
 
 ```
 python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf
+python3 sat.py --emit-cnf grander-strict f.cnf && kissat f.cnf
 ```
 
 Decide the circular (wrap-around) reading:

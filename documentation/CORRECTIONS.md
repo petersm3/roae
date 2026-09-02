@@ -7068,3 +7068,27 @@ comparator split, the two-reading margin arithmetic, the cardinality-6 counterex
 cardinality 5, the two uncharged PROJECT_OVERVIEW siblings, the rejection of a single broad CLI
 needle on a measured seven-file count, and the append-only reasoning are this lane's. Codex is
 **acknowledged**, not credited as an author.
+
+## 2026-09-02 — the conflict theorem is a FOUR-rule result; three sites said five (backlog 43/44/45, SAT batch B5)
+
+`sat.py`'s `grand-ccn4` target is the certificate-backed conflict theorem. Its `RULESETS` entry enforces
+exactly `("parity", "rhythm", "gender", "ccn4")` — four gated clause blocks in `build()` — and the emitted
+CNF is exactly additive over them: `plain` 239,062 clauses + parity 558 + rhythm 18,360 + gender 3,113
+(incl. the 635-clause E-counter) + ccn4 1,000 = **262,093 = `grand-ccn4`**; adding CC-N8 (8,973 more,
++214 vars) gives `grander-strict` 271,066, the five-rule union. `five-loo-ccn8` regenerates a CNF whose
+non-comment bytes are identical to `grand-ccn4`'s. Three sites nevertheless called the four-rule
+decision "five": the `grand-ccn4` docstring (`sat.py`), the EXAMPLES heading above the `grand-ccn4`
+command (`documentation/SAT_CLI.md`), and the executive summary of `reports/certificates/README.md`
+("the retired five-rules wording"). All three now say four and name the rules; the SAT_CLI example additionally
+gives the `grander-strict` command for the five-rule union. The README's dangling clause left by the
+2026-08-01 scope insertion (", and specific two-rule pairs are already incompatible." hanging after a
+closed parenthesis) is repaired in the same sentence. Registered as **RP-c4a9eaf8** and **RP-84aeeb62**.
+
+### Census
+Whitespace-flattened (the `sat.py` site wrapped "five-rule / conflict decision" across a line break and
+is invisible to a line-wise grep): RP-c4a9eaf8 2 files / 2 sites → 0; RP-84aeeb62 1 → 0. The correct
+`SAT_CLI.md` table row "The four- / five-rule conflict decisions" is untouched and does not match the
+needle. No number, certificate, clause count or verdict changed: `grand-ccn4` re-emitted after the edit is
+byte-identical to the pre-edit emission (md5 1ad4d61adffacb9076fb806664fc518c).
+
+*(Key correction, pre-commit: this entry was drafted citing `RP-61e5ca49` for the first needle. The registry key is `sha256(phrase)[0:8]`, and the computed value is **`RP-c4a9eaf8`** — the drafted key was never computed. Caught by GATE 11 asking for a key no entry cited, and fixed before this append was committed, since the ledger is append-only thereafter.)*

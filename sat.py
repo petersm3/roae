@@ -79,9 +79,11 @@ Targets:
   rc4-kwexempt   encoding validation: KW forced + clauses exempting class positions 25/26  [expect SAT]
   grand-strict   Moore 2005 parity 18/18 AND Moore 1989 rhythm 0-breaks AND Schulz gender 0-violations
                  (the "grand unified precursor" question: all three literature rules simultaneously)
-  grand-ccn4     grand-strict AND CC-N4 (Schulz S25-28 dui-trigram configuration) — the five-rule
-                 conflict decision, increment 1: UNSAT proves no ordering is perfect under Moore
-                 parity + Moore rhythm + Schulz gender + the trigram champion simultaneously.
+  grand-ccn4     grand-strict AND CC-N4 (Schulz S25-28 dui-trigram configuration) — the FOUR-rule
+                 conflict theorem, increment 1 of the #217 five-rule family (RULESETS enforces
+                 exactly parity+rhythm+gender+ccn4; grander-strict below is the five-rule union):
+                 UNSAT proves no C1+C2+C4+C5-valid ordering is perfect under Moore parity +
+                 Moore rhythm + Schulz gender + the trigram champion simultaneously.
   ccn4-kwtest    encoding validation: KW forced + ccn4 clauses  [expect SAT — KW satisfies ccn4]
   ccn4-kwfail    encoding validation: KW forced + ccn4 clauses with the required S25-28
                  faces PERMUTED (S25<->S26 and S27<->S28 values swapped)  [expect UNSAT —

@@ -6,13 +6,16 @@ This directory contains **impossibility proofs with independently checkable rece
 historical claims about the King Wen sequence amount to rules it "should" satisfy. We encoded those
 rules as logical formulas and used an industry-standard SAT solver to prove that certain
 combinations admit **no sequence in the base space these proofs range over** — most notably the
-conflict theorem: the five classical rules cannot all hold together. **Read the scope carefully:**
+conflict theorem: the four literature rules (Moore parity, Moore rhythm, Schulz gender, and the
+S25–28 trigram configuration) cannot all hold together; the five-rule union that adds CC-N8 is
+likewise UNSAT. **Read the scope carefully:**
 every UNSAT result in this directory is a statement over the **C1∩C2∩C4∩C5**-valid space — the CNF
 fixes the pair structure, the no-5 rule, the oriented opening pair, and King Wen's own transition
 multiset. It is *not* a statement about all 64! orderings, and an arrangement with a different
 transition multiset is excluded by no byte of these proofs. *(Scope added 2026-08-01: this summary
 read "no possible sequence at all", inviting exactly the universal reading TR-2 v1.18/v1.20
-corrected in the reports — and this front page is where a sceptical reader starts.)*, and specific two-rule pairs are already incompatible.
+corrected in the reports — and this front page is where a sceptical reader starts.)* Specific
+two-rule pairs are already incompatible on their own — the two-rule cores listed below.
 
 The point of this directory is that **you do not have to trust our solver, our code, or us**:
 each result ships as a DRAT certificate — a step-by-step logical derivation that any third-party
