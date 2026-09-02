@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # One-command verification of the ROAE technical-report suite's machine-checkable claims.
-# Requirements (SOFTWARE): gcc, python3, drat-trim, lean (elan). See reports/METHODS.md for versions.
+# Requirements (SOFTWARE): gcc, python3, drat-trim, lean (elan), and git -- the last one for
+#   SECTION 7 ONLY, because scripts/doc_gates.sh enumerates the documentation corpus with
+#   `git ls-files`, so a tarball export with no work tree cannot run it (added 2026-09-02 with
+#   sections 5-7). See reports/METHODS.md for versions.
 # Requirements (HARDWARE) -- added 2026-08-21, and they are NOT optional:
 #   RAM   : >= 12 GB free. The Lean phase peaks at ~9.6 GB resident on Automorphism.lean and
 #           ~8.0 GB on KingWen.lean; an 8 GB host CANNOT check those two files
@@ -99,19 +102,118 @@ check() {
 }
 skip() { echo "SKIP  $1   ($2)"; SKIP=$((SKIP+1)); }
 
+# --- CLASS-B SWEEP 2026-09-02: no check may pipe a producer into `grep -q` --------------------
+# The note above is_resource_status explains this hazard and was written when THAT function was
+# fixed. The `check` CALL SITES below it were not swept, so the reasoning landed in 2026-08-09 and
+# the four siblings did not (§1 --selftest, §2 registry-verify, §2 recount-subtree, and §3's
+# drat-trim replay). Restated here because the fix now lives in two places and each has to be
+# able to justify itself alone:
+#   Under this script's `set -o pipefail`, `producer | grep -q PAT` returns the PRODUCER's exit
+#   status, and `grep -q` stops reading at the first match — which SIGPIPEs the producer, so a
+#   check that genuinely PASSED reports 141 and prints FAIL. It is size-dependent, which is what
+#   makes it nasty: it looks fine on a short output and breaks the day the tool gets chattier.
+#   MEASURED 2026-09-02 against this file's own check(): a producer that prints the pattern and
+#   then 200,000 lines and exits 0 reported **FAIL** through the pipe and **PASS** through
+#   require_match. The same run showed the second, unconditional half of the defect — $LOG gained
+#   only the 14-byte "### <label>" banner, so the tool's own words never reached the log a
+#   replicator is told to read. For the drat-trim site that means the PASS line was this script's
+#   assertion about the checker rather than the checker's verdict (Codex V2-14).
+# require_match therefore:
+#   * captures instead of piping, and ECHOES the capture, so $LOG holds the tool's own output;
+#   * requires BOTH a zero producer status AND the match, so it is not weaker than the pipeline
+#     it replaces — a producer that prints the pattern and then dies still FAILs;
+#   * returns the PRODUCER's status unchanged when nonzero, so is_resource_status still sees
+#     134/137/139 and still reports ERROR rather than FAIL;
+#   * matches with a bash `case`, NOT a second pipeline, so the race cannot be reintroduced here.
+#     The pattern is quoted inside the case, which makes it a literal test — the same fixed-string
+#     semantics as the `grep` it replaces, neither wider nor narrower.
+require_match() {          # $1 = fixed string that MUST appear; $2.. = command and arguments
+  local pat=$1; shift
+  local out rc
+  out=$("$@" 2>&1); rc=$?
+  printf '%s\n' "$out"
+  [ "$rc" -eq 0 ] || { echo "NONZERO EXIT $rc from: $*"; return "$rc"; }
+  case $out in
+    *"$pat"*) return 0 ;;
+    *) echo "EXPECTED OUTPUT NOT FOUND: $pat"; return 1 ;;
+  esac
+}
+
+# Same contract as require_match, plus a COUNT FLOOR — because exit status alone is fail-open for
+# a test suite: `unittest` exits 0 when it collects ZERO tests, so "every test passed" and "an
+# import error emptied the suite" are the same status. A floor rather than an equality so a suite
+# that GROWS keeps passing while one that silently SHRANK fails. Emits a whole-line verdict token.
+require_floor() {          # $1 = token name  $2 = floor  $3 = text before N  $4 = text after N
+  local tok=$1 floor=$2 pre=$3 post=$4; shift 4   # $5.. = command and arguments
+  local out rc line n=""
+  out=$("$@" 2>&1); rc=$?
+  printf '%s\n' "$out"
+  [ "$rc" -eq 0 ] || { echo "NONZERO EXIT $rc from: $*"; return "$rc"; }
+  while IFS= read -r line; do                     # here-string, not a pipe: see the note above
+    case $line in *"$pre"*"$post"*) n=${line#*"$pre"}; n=${n%%"$post"*} ;; esac
+  done <<< "$out"
+  case $n in ''|*[!0-9]*)
+    echo "$tok=ABSENT"
+    echo "COUNT LINE NOT FOUND: expected a number between '$pre' and '$post'"; return 1 ;;
+  esac
+  echo "$tok=$n"
+  [ "$n" -ge "$floor" ] || { echo "COUNT BELOW FLOOR: $n < $floor"; return 1; }
+  return 0
+}
+
+# SIBLING SWEPT 2026-09-02, one line below the class-B site above: `diff <(A) <(B)` is fail-open.
+# Process substitution does not propagate either producer's exit status — `pipefail` does not
+# reach inside `<()` — so if BOTH instruments fail and print nothing to stdout, diff compares two
+# EMPTY streams and returns 0, and the two-language gate PASSES on a run where neither instrument
+# produced anything. MEASURED 2026-09-02: `diff <(false) <(false)` -> rc 0; so does a pair that
+# writes its error to stderr and exits 1. This is the same shape as the grep -q sites (a status
+# that never reaches the verdict), which is why it is fixed in the same pass rather than filed.
+# require_agree keeps the comparison identical and adds the two things `diff` cannot see: that
+# both producers exited 0, and that each side actually emitted something. The floor is a LINE
+# COUNT because "two empty streams compare equal" is the exact failure being closed.
+# It returns the FAILING PRODUCER's status, so is_resource_status still classifies 134/137/139.
+require_agree() {  # $1 = token name  $2 = minimum lines per side  $3 = command A  $4 = command B
+  local tok=$1 minl=$2 A=$3 B=$4
+  local fa fb ra rb na nb rc=0
+  fa=$(mktemp "${TMPDIR:-/tmp}/roae_agree_a.XXXXXX") || { echo "$tok=MKTEMP_FAILED"; return 1; }
+  fb=$(mktemp "${TMPDIR:-/tmp}/roae_agree_b.XXXXXX") || { echo "$tok=MKTEMP_FAILED"; rm -f "$fa"; return 1; }
+  eval "$A" > "$fa"; ra=$?      # stderr is NOT redirected: check() already sends it to $LOG
+  eval "$B" > "$fb"; rb=$?
+  na=$(wc -l < "$fa"); nb=$(wc -l < "$fb")
+  echo "$tok=rcA:$ra,rcB:$rb,linesA:$na,linesB:$nb"
+  if [ "$ra" -ne 0 ] || [ "$rb" -ne 0 ]; then
+    echo "AN INSTRUMENT DID NOT RUN: exit $ra (A) / $rb (B) — this is NOT a disagreement"
+    rc=$ra; if [ "$rc" -eq 0 ]; then rc=$rb; fi
+  elif [ "$na" -lt "$minl" ] || [ "$nb" -lt "$minl" ]; then
+    echo "OUTPUT BELOW FLOOR: $na / $nb line(s), floor $minl — two empty streams compare EQUAL"
+    rc=1
+  elif ! diff "$fa" "$fb"; then
+    rc=1
+  fi
+  rm -f "$fa" "$fb"
+  return "$rc"
+}
+
 echo "== 0. Prerequisites =="
 DRAT=${DRAT:-drat-trim}
 LEAN=${LEAN:-lean}
 command -v "$LEAN" >/dev/null 2>&1 || LEAN="$HOME/.elan/bin/lean"
-HAVE_GCC=1; HAVE_PY=1; HAVE_DRAT=1; HAVE_LEAN=1
+HAVE_GCC=1; HAVE_PY=1; HAVE_DRAT=1; HAVE_LEAN=1; HAVE_GIT=1
 command -v gcc      >/dev/null 2>&1 || HAVE_GCC=0
 command -v python3  >/dev/null 2>&1 || HAVE_PY=0
 command -v "$DRAT"  >/dev/null 2>&1 || HAVE_DRAT=0
 command -v "$LEAN"  >/dev/null 2>&1 || HAVE_LEAN=0
-for t in "gcc:$HAVE_GCC" "python3:$HAVE_PY" "drat-trim ($DRAT):$HAVE_DRAT" "lean ($LEAN):$HAVE_LEAN"; do
+# git: section 7 only, and BOTH legs matter — the binary AND a work tree. An exported tarball has
+# the binary and no work tree, which is the case that would otherwise fail obscurely deep inside
+# doc_gates.sh instead of being reported here, where a replicator reads what is missing.
+command -v git      >/dev/null 2>&1 || HAVE_GIT=0
+[ "$HAVE_GIT" = "1" ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1 || HAVE_GIT=0
+for t in "gcc:$HAVE_GCC" "python3:$HAVE_PY" "drat-trim ($DRAT):$HAVE_DRAT" "lean ($LEAN):$HAVE_LEAN" \
+         "git (work tree; section 7 only):$HAVE_GIT"; do
   if [ "${t##*:}" = "1" ]; then echo "  found    ${t%:*}"; else echo "  MISSING  ${t%:*}"; fi
 done
-if [ "$HAVE_DRAT" = "0" ] || [ "$HAVE_LEAN" = "0" ] || [ "$HAVE_GCC" = "0" ] || [ "$HAVE_PY" = "0" ]; then
+if [ "$HAVE_DRAT" = "0" ] || [ "$HAVE_LEAN" = "0" ] || [ "$HAVE_GCC" = "0" ] || [ "$HAVE_PY" = "0" ] \
+   || [ "$HAVE_GIT" = "0" ]; then
   echo "  -> checks needing a missing tool are reported SKIP, not FAIL. A SKIP says nothing about"
   echo "     whether the claim verifies; install the tool (reports/METHODS.md pins versions) and re-run."
 fi
@@ -123,19 +225,22 @@ if [ "$HAVE_GCC" = "0" ]; then
   skip "--selftest" "needs gcc"
 else
   check "solve.c build" "gcc -O2 -pthread -fopenmp -o /tmp/roae_verify_solve solve.c -lm -lz"
-  check "--selftest" "/tmp/roae_verify_solve --selftest | grep -q PASS"
+  check "--selftest" "require_match PASS /tmp/roae_verify_solve --selftest"
 fi
 
 echo "== 2. Two-language gates =="
 if [ "$HAVE_PY" = "0" ]; then
   skip "solve.py --registry-verify (31 rules)" "needs python3"
 else
-  check "solve.py --registry-verify (31 rules)" "python3 solve.py --registry-verify | grep -q 'ALL 31'"
+  check "solve.py --registry-verify (31 rules)" "require_match 'ALL 31' python3 solve.py --registry-verify"
 fi
 if [ "$HAVE_PY" = "0" ] || [ "$HAVE_GCC" = "0" ]; then
   skip "f4p two-language match" "needs gcc + python3"
 else
-  check "f4p two-language match" "diff <(/tmp/roae_verify_solve --f4p-verify) <(python3 solve.py --f4p-verify)"
+  # 14 = the line count each side emits, measured 2026-09-02. A floor, not an equality, for the
+  # same reason as sections 5 and 6: the table may grow, but it must never silently empty.
+  check "f4p two-language match" \
+    "require_agree F4P_AGREE 14 '/tmp/roae_verify_solve --f4p-verify' 'python3 solve.py --f4p-verify'"
 fi
 # The exact-subtree recount is the ONLY independent instrument that exercises the C3
 # predicate in both directions (false-positive AND false-negative) — the full-scale
@@ -150,7 +255,7 @@ if [ "$HAVE_PY" = "0" ]; then
   skip "verify.py --recount-subtree (C3 both-direction subtree anchors)" "needs python3"
 else
   check "verify.py --recount-subtree (C3 both-direction subtree anchors)" \
-    "python3 verify.py --recount-subtree | grep -q 'recount-subtree: ALL MATCH'"
+    "require_match 'recount-subtree: ALL MATCH' python3 verify.py --recount-subtree"
 fi
 
 echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 22 archived certs) =="
@@ -162,9 +267,33 @@ echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 22 archive
 # (README.md §"Checker coverage"). This script supplies only the drat-trim leg; the cake_lpr leg is
 # run out of band and recorded there, so a PASS here is NOT evidence about cake_lpr.
 #
-# KNOWN GAP, queued: the drat-trim invocation below pipes into `grep -q`, so this log records only
-# the PASS line and never the checker's own "s VERIFIED" output. A PASS line is therefore this
-# script's assertion about drat-trim rather than drat-trim's own words. Tee it.
+# [CLOSED 2026-09-02 — this paragraph previously read "KNOWN GAP, queued: the drat-trim invocation
+#  below pipes into `grep -q`, so this log records only the PASS line and never the checker's own
+#  's VERIFIED' output. A PASS line is therefore this script's assertion about drat-trim rather
+#  than drat-trim's own words. Tee it." (Codex V2-14.) The pipe is gone: the call now goes through
+#  require_match, which echoes drat-trim's captured output into $LOG, so the checker's verdict line
+#  is recorded next to this script's PASS line and can be read back. The checker's IDENTITY is
+#  emitted below as DRAT_TRIM_ID= — a PASS is evidence only about the binary that produced it, and
+#  drat-trim carries no --version flag, so the sha256 of the resolved binary is the honest name.]
+# The checker's identity, emitted as a whole-line verdict token so a reader (or a matcher, with
+# `grep -qx`) can tell WHICH binary produced the PASS lines below. drat-trim has no --version
+# flag, so the sha256 of the resolved executable is the only honest name for it. This must be
+# emitted on EVERY run, including the run where drat-trim is absent: a token that vanishes when
+# the tool is missing is indistinguishable from a token nobody looked for, and the certificate
+# checks in that case are SKIPped, which already holds the exit status nonzero.
+if [ "$HAVE_DRAT" = "1" ]; then
+  DRAT_PATH=$(command -v "$DRAT" 2>/dev/null || echo "$DRAT")
+  if command -v sha256sum >/dev/null 2>&1 && [ -r "$DRAT_PATH" ]; then
+    DRAT_SHA=$(sha256sum "$DRAT_PATH" | cut -d" " -f1)
+  else
+    DRAT_SHA=UNAVAILABLE                  # never silently blank: an empty token reads as a pass
+  fi
+  echo "DRAT_TRIM_ID=$DRAT_SHA"      | tee -a "$LOG"
+  echo "DRAT_TRIM_PATH=$DRAT_PATH"   | tee -a "$LOG"
+else
+  echo "DRAT_TRIM_ID=ABSENT"         | tee -a "$LOG"
+  echo "DRAT_TRIM_PATH=ABSENT"       | tee -a "$LOG"
+fi
 declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [moore-strict-near-2]="moore-strict-near-2" [rc4_near2_unsat]="rc4-strict-near-2" \
   [grand_ccn4_unsat]="grand-ccn4" \
@@ -199,7 +328,7 @@ for cert in "${!CERTS[@]}"; do
     continue
   fi
   check "cert $cert ($t)" \
-    "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > /tmp/roae_$t.drat && $DRAT /tmp/roae_$t.cnf /tmp/roae_$t.drat | grep -q 's VERIFIED'"
+    "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > /tmp/roae_$t.drat && require_match 's VERIFIED' \"$DRAT\" /tmp/roae_$t.cnf /tmp/roae_$t.drat"
 done
 
 echo "== 3b. C3 positional witnesses (independent verify.py-path recheck) =="
@@ -242,6 +371,76 @@ for f in lean/*.lean; do
   if [ "$HAVE_LEAN" = "0" ]; then skip "$f" "needs lean (elan)"; continue; fi
   check "$f" "\"$LEAN\" \"$f\""
 done
+
+echo "== 5. Python regression harness (python3 tests.py) =="
+# ADDED 2026-09-02 (backlog F2, from README P11). Until today the repo's advertised one-command
+# front door ran neither the regression harness nor the analysis battery nor the doc gates, while
+# README.md described it as "the instrument that checks the other five". The three sections below
+# close that, each gated by the same HAVE_* probe + skip() the rest of the file uses, so a host
+# without the tool still gets SKIP (not FAIL) and still exits nonzero.
+#
+# The floor, not an equality: `unittest` exits 0 when it collects ZERO tests, so exit status alone
+# would pass a suite emptied by an import error. A suite that GROWS keeps passing; one that
+# silently shrank fails.
+# THE FLOOR IS 128, MEASURED, NOT 77. `python3 tests.py` reported "Ran 128 tests in 94.281s",
+# 0 skipped, on 2026-09-02, and `grep -c '    def test_' tests.py` independently gives 128 —
+# collection is unconditional, so the two agree by construction. README.md §Quick start still
+# says "77 tests as of 2026-09-01" and documentation/DEVELOPMENT.md still says 76; BOTH are
+# stale against HEAD. Those are published figures and correcting them needs an append to the
+# corrections ledger, so they are reported rather than edited here — but this gate is set to
+# what it actually measured, because a floor pinned to a stale figure is barely a floor at all.
+# gcc as well as python3: TestCheckArtifactControls.setUpClass shells out to `gcc` to build
+# verify.c, uncaught, so on a host without gcc the whole class ERRORs and section 5 would report
+# FAIL for a missing tool — the exact confusion the SKIP machinery at the top of this file exists
+# to prevent. Gated the same way the f4p check above is gated.
+if [ "$HAVE_PY" = "0" ] || [ "$HAVE_GCC" = "0" ]; then
+  skip "tests.py (regression harness, >= 128 tests)" "needs gcc + python3 (tests.py builds verify.c)"
+else
+  check "tests.py (regression harness, >= 128 tests)" \
+    "require_floor TESTS_PY_RAN 128 'Ran ' ' test' python3 tests.py"
+fi
+
+echo "== 6. Analysis-battery ground-truth smoke (python3 roae.py --verify) =="
+# SCOPE, stated rather than implied: this runs `roae.py --verify`, NOT the full battery. A bare
+# `python3 roae.py` is `--all`, which includes Monte-Carlo sections — minutes of runtime and a
+# non-deterministic result, neither of which belongs in a pass/fail gate. `--verify` is the
+# battery's own deterministic ground-truth self-check (table identity vs solve.py, permutation /
+# involution / trigram invariants, the KW C5 multiset, oriented C4; no sampling) and it is the
+# only roae.py path that reaches the shell with a meaningful exit status — `main()` returns None
+# on nearly every other path, so `sys.exit(main())` would be 0 regardless. So: a PASS here says
+# roae.py imports and its ground truth holds. It is NOT evidence about the 28 analyses.
+# Floor 11 = the count measured 2026-09-02, same reasoning as section 5.
+if [ "$HAVE_PY" = "0" ]; then
+  skip "roae.py --verify (ground-truth self-check, >= 11 checks)" "needs python3"
+else
+  check "roae.py --verify (ground-truth self-check, >= 11 checks)" \
+    "require_floor ROAE_VERIFY_CHECKS 11 'ROAE VERIFY: ALL ' ' CHECKS PASS' python3 roae.py --verify"
+fi
+
+echo "== 7. Documentation gates (scripts/doc_gates.sh) =="
+# Plain invocation ONLY. `scripts/doc_gates.sh --selftest` mutation-tests the gates and reverts
+# with `git checkout -- .`, which discards the whole working tree; that flag is confined to the
+# `--selftest` branch of that script and is deliberately not reachable from here.
+# The gates read the tracked markdown corpus via `git ls-files`, so they need a git work tree.
+# HAVE_GIT is probed in section 0 with the other tools, so a tarball export is told what is
+# missing where a replicator reads it rather than failing obscurely inside doc_gates.sh.
+if [ ! -r scripts/doc_gates.sh ]; then
+  skip "scripts/doc_gates.sh" "script not present in this tree"
+elif [ "$HAVE_GIT" = "0" ]; then
+  skip "scripts/doc_gates.sh" "needs a git work tree (the gates enumerate the corpus with git ls-files)"
+else
+  # TWO legs, because exit status alone is not the whole verdict here: doc_gates.sh prints
+  # "DOC GATES: PASS  — hard gates only: ..." ONLY when its own RC is 0 AND it ran the full
+  # `all` mode. Requiring the banner as well as the status catches a run that died silently
+  # after the last gate, and pins the check to `all` rather than to one of the named modes
+  # (`retract`, `generated`, `repro-reach`) whose banners read "PASS" too.
+  # NOT a substitute for reading the output: that banner covers the HARD gates only, and
+  # names its own carve-outs — gates 1, 5, 13 and GATE 17 LEG B are report-only, GATE 24 is
+  # not in `all` at all, and GATE 18 is hard for UNADJUDICATED defects only. A PASS here is
+  # exactly what the banner says it is and no more. Measured 2026-09-02: 2m24s, 38 gates.
+  check "scripts/doc_gates.sh (documentation gates, 'all' mode)" \
+    "require_match 'DOC GATES: PASS  — hard gates only:' bash scripts/doc_gates.sh"
+fi
 
 echo; echo "RESULT: $PASS passed, $FAIL failed, $RESOURCE host-resource errors, $SKIP skipped"
 if [ "$SKIP" -gt 0 ]; then

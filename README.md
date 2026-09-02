@@ -182,7 +182,7 @@ C1–C5, with C6–C7 added only where the text says so.
 | **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
 | **[roae.py](roae.py)** | The exploratory analysis suite: 28 analyses of the sequence — most with null-model comparisons, several descriptive-only, and [CRITIQUE.md](documentation/CRITIQUE.md) names which are which ([example output](example/)). |
 | **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas, four sequence-level theorems, the trigram-level structure ([TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)), and the model-level merge/partition-invariance theorems (see [lean/README.md](lean/README.md) for the trust-base and scope notes). |
-| **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of the enumerator selftest, the two-language gates, every archived DRAT certificate and the Lean proofs (it does not run roae.py or tests.py). |
+| **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of the enumerator selftest, the two-language gates, every archived DRAT certificate, the Lean proofs, the regression harness, `roae.py`'s ground-truth self-check and the documentation gates. Scope, stated because the earlier wording over-claimed: section 6 runs `roae.py --verify` — the deterministic ground-truth check — and **not** the 28 analyses. |
 
 ## What was found
 
@@ -290,9 +290,11 @@ python3 roae.py                          # the analysis battery (29 sections; 28
 python3 solve.py --registry-verify       # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                           # SAT layer usage + targets
 python3 tests.py                         # regression harness (77 tests as of 2026-09-01)
-bash reports/certificates/verify_all.sh  # selftest + two-language gates + all DRAT certs + Lean, one command (does NOT run roae.py or tests.py)
+bash reports/certificates/verify_all.sh  # one command: selftest, two-language gates, all DRAT certs, Lean, tests.py, roae.py --verify, doc gates
 ```
-`verify_all.sh` needs four external tools — **gcc**, **python3**, **drat-trim** and **lean** (elan).
+`verify_all.sh` needs five external tools — **gcc**, **python3**, **drat-trim**, **lean** (elan) and
+**git** (section 7 only: the documentation gates enumerate the corpus with `git ls-files`, so an
+exported tarball with no work tree cannot run them).
 It probes for each up front and reports any dependent check as **SKIP**, not FAIL: a SKIP means the
 tool is absent, never that a certificate failed to verify. SKIPs do not pass the run — the exit
 status distinguishes them — so a machine without drat-trim and Lean gives a partial, honestly-labelled
