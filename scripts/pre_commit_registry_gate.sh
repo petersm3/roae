@@ -202,7 +202,19 @@ if [ -z "$FAILED" ]; then
 fi
 
 echo
-echo "pre-commit: BLOCKED — registry/ledger gate(s) failed:$FAILED"
+# 🔴 THIS GATE REPORTS; IT DOES NOT DECIDE. It used to print "BLOCKED" here, which was false
+# whenever it ran under scripts/pre_commit_gate.sh -- that dispatcher runs this gate WARN-ONLY on
+# purpose (a hook that refuses a red commit also stops one unit committing to protect its work from
+# another unit, which destroyed uncommitted work four times). So the log read "pre-commit: BLOCKED"
+# and then the commit landed anyway. Observed 2026-09-02: the word sent a reader to check git log
+# to find out whether their own commit had happened. A gate that misstates its own consequence is
+# the same defect class as a gate that passes while covering less than it claims -- state the
+# FINDING, and let the caller state the consequence.
+echo "pre-commit: FINDINGS — registry/ledger gate(s) failed:$FAILED"
+echo "  ⚠ WHETHER THE COMMIT PROCEEDS IS THE CALLER'S DECISION, NOT THIS GATE'S."
+echo "     Under scripts/pre_commit_gate.sh this gate is WARN-ONLY and the commit DOES proceed;"
+echo "     that dispatcher prints its own line saying so. Run directly, this exits non-zero."
+echo "     Do not read the findings below as evidence that anything was prevented."
 echo "  WHY THIS FIRED: this commit stages one or more of"
 printf '    %s\n' $HITS
 echo "  and the gate(s) named above returned non-zero against the resulting tree."
