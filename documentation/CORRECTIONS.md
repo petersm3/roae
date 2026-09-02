@@ -3460,3 +3460,276 @@ roae-private. The re-derivations recorded above — the fiber recount, the repre
 counterexample, the three-fixture cross-instrument divergence, and the `solve.c` selftest-fork
 measurement — are the Fable lane's (Claude), as is the ruling that the second finding's prescribed
 fix must not be adopted. Reviewers are acknowledged, not credited as authors.
+
+## 2026-09-02 — the McKenna page was audited against the sources it cites, and seven things did not survive
+
+`documentation/MCKENNA.md` is the project's narrative record of what Terence McKenna claimed and
+where this project's measurements agree or disagree with him. It is also the page most exposed to a
+particular failure: it makes **attribution claims** — statements about what a named person wrote,
+computed or conceded — and those are held to the project's strictest standard, because a reader
+cannot check them against a number in this repository. Seven defects were raised against it by the
+Codex V2-F30 review pass and adjudicated in roae-private; all seven are upheld, two with corrections
+to the charge, and the siblings of four of them were swept out of four other documents.
+
+**Registry keys: `RP-65106433`, `RP-be2a6efd`, `RP-be4a6abe`, `RP-743533eb`, `RP-cacb9f78`,
+`RP-29cb8f06`, `RP-92dc78d2`, `RP-82072e49`, `RP-9a287287`, `RP-a78e27b3`, `RP-d6011566`,
+`RP-636f16f9`, `RP-538fb752`, `RP-1108d09e`, `RP-a6787b2d`, `RP-80ea600d`**
+(`documentation/RETRACTED_PHRASES.tsv`, one row each, each carrying its own evidence).
+
+### 1. A budgeted slice was offered as the size of the constrained space, in five places
+
+`MCKENNA.md:120` said five rules cut 10^89 orderings down to *billions*, and `:135` said down to *at
+least millions*. Those are enumerated record counts written to disk under a per-cell node budget.
+The C1–C5 space itself is estimated at **1.3287×10³⁸ raw** ([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md),
+a Knuth random-probe estimate, not a proven cardinality), so "billions" understated it by roughly 28
+decimal orders — and in the direction that flatters the project, by making the constraints look far
+more decisive than they are. This is the same inversion `CITATIONS.md` corrected as CX-30 on
+2026-08-07 and `PROJECT_OVERVIEW.md` and `GUIDE.md` corrected on 2026-08-24; `MCKENNA.md` is the
+un-propagated tail of it.
+
+**The class, not the instance.** A census of the sentence shape found **five** live sites, not two.
+The three not charged were `SOLVE_SUMMARY.md:209`, `SOLVE.md:583` and `CRITIQUE.md:362`; all three
+are corrected here. `SOLVE_SUMMARY.md:209` was the worst of the five — wholly uncaveated, and
+contradicted by the step table twenty lines below it in its own file, which had said since
+2026-08-06 that the billion-scale counts are "budgeted 10T slices, not the layer size". **No record
+count changes anywhere.** What changes is what a count is said to measure. Each of the five is now
+registered separately rather than under one loose needle, because a needle short enough to cover all
+five would also fire on legitimate prose.
+
+### 2. A false software attribution, and an objection that was never made
+
+`MCKENNA.md:98` credited Peter Meyer with writing the first Timewave Zero software, and said that he
+and the mathematician Matthew Watkins had independently confirmed arithmetic errors in McKenna's
+hand calculations. Both halves are settled **against the primary sources the sentence itself
+linked**, fetched by `curl` on 2026-09-02.
+
+The archived history page (`fractal-timewave.com/articles/hist.html`, snapshot 2026-07-04) is
+Meyer's own account, and it says the wave was calculated "in 1974 or earlier" by **Royce Kelley and
+Leon Taylor** using "a FORTRAN program running on a CDC 6400 computer"; that in "1978 or 1979"
+**Peter Broadwell** "developed the first Timewave software to run on a microcomputer, the Apple
+II+"; and that Meyer's own involvement begins in 1985, producing the Apple //e version in February
+1987 and the MS-DOS rewrite in C from January 1989. The cited page refuted the sentence citing it.
+
+The error claim has no source at all. The Watkins objection
+(`fourmilab.ch/rpkp/autopsy.html`) contains zero occurrences of *arithmetic*, *error*, *mistake* or
+*miscalculat*: its entire argument is that the "half twist" step is unjustified — "why introduce
+such a step … whilst admitting that the reason for doing so is 'not well understood at present'?" —
+which is a **derivational** objection, and which `MCKENNA.md:95` had been stating correctly all
+along, one item earlier on the same page. So this was a within-file contradiction, not a sourcing
+gap. Meyer's history describes his own contribution as "a new mathematical description of the
+timewave (different from that presented in the appendices to the 1975 version of *The Invisible
+Landscape*)" — a reformulation, not a repair. The claim is **withdrawn rather than restated**: this
+project relays third-party critiques with attribution and does not re-derive them, so a critique
+nobody can be shown to have made cannot be relayed. The closing paragraph at `:135`, which compressed
+the same claim into a two-word epithet, is corrected with it.
+
+### 3. The Figure 18B closure was called derived; the predicate does not exist here
+
+`MCKENNA.md:68` said McKenna's 180°-rotation congruence property was partially captured by ROAE's
+`--palindromes` analysis and appeared to be a derived property of C1+C2+C3+C5.
+
+**The reviewer's charge understated it.** `--palindromes` is not a partial proxy for that property;
+it is a **different symmetry class**. `roae.py` searches the difference wave for contiguous runs
+equal to their own reversal — mirror symmetry, D(i) = D(n−i) within a window. Congruence of a plot
+with its own 180° rotation is point symmetry about a centre. They are different predicates and in
+places opposite ones, which is why no amount of palindrome counting bears on the closure claim.
+McKenna's own text does not settle which he meant: his derivation article says the graph is "rotated
+180 degrees within the plane and superimposed upon itself", then captions the same figure as the
+graph "with its mirror image fitted against it".
+
+A whole-tree search returns no definition, no enumeration and no theorem for the Figure 18B
+predicate anywhere in this repository — the private 2026-05-19 book review that seeded the mapping
+lists formalising it as a **future** action item, which corroborates the absence rather than filling
+it. The correct status is *untested conjecture*. The consequence lands two sections later, where
+McKenna's 1971 Monte Carlo filter (3:1 ratio + no-5 + closure) was called "consistent with" this
+project's looser C2|C1 rate: that comparison rests on a component never measured here, and now says
+so. **The settling programme the reviewer sketched — formalise the predicate, reproduce it on King
+Wen, then prove or measure the implication — is recorded as his text and is neither proposed nor
+queued.** `documentation/HISTORY.md`'s dated 2026-05-19 entry keeps the original wording as the
+record of what was decided then, and carries a supersession marker pointing here.
+
+### 4. The DFT verdict contradicted the report shipped beside it
+
+`MCKENNA.md:88` said the `--fft` showed no frequencies above the white noise floor. `example/report.txt`,
+in this repository, prints a white-noise floor of **0.1741** and a magnitude of **0.4266** at
+frequency 24 — **2.45×** the floor — and summarises `Frequencies above 2x noise floor: 1/31`. The
+sentence was false as written.
+
+The corrected reading does not swing the other way. The report calls its own 2× threshold ad hoc in
+its own words and names Fisher's g-statistic or a Bonferroni correction as what a real verdict would
+need; with N=63 and no multiple-testing correction, one bin at 2.45× establishes **neither a
+significant peak nor a calibrated absence**. A further caveat that had gone missing: this page
+concedes at `:22` that McKenna's fractal expansion step is not implemented, so a DFT of the raw
+63-value difference wave does not test the multiscale claim it was offered against. Three sibling
+sites are swept to the same hedge — `MCKENNA.md:23`, `MCKENNA.md:131` and `PROJECT_OVERVIEW.md:53`.
+The last of those was defensible under an ad-hoc threshold and is sharpened rather than retracted:
+it now names the threshold instead of leaning on it silently.
+
+### 5. The day calibration and the 384-value module are two different claims
+
+`MCKENNA.md:100` denied the number 384 any bearing on the wave's mathematics and declared the base
+period freely replaceable. That is right about the calendar mapping
+and wrong about the mathematics. Meyer's *Mathematical Definition of the Timewave* (archived
+2026-07-04, fetched 2026-09-02) defines the wave as a doubly-infinite sum of terms `v(x/64^i)·64^i`
+"where 64^i is 64 — the so-called 'wave factor' — raised to the ith power", and `v(x)` as "simply
+the xth number in the set of 384 numbers … after 383 we use x modulus 384". Substitute a different
+module and `v` changes, so the function changes. The item's **heading** — that the 384-*day* period
+is assumed, not derived — is correct and stands untouched; what was over-generalised was the leap
+from the arbitrary calibration to the fixed construction, and the two are now stated separately.
+
+### 6. A construction-forced zero was read onto a statistic the construction does not force
+
+`MCKENNA.md:107` reported near-zero mutual information between upper and lower trigram *transitions*
+and explained it by the complete Latin square — "independence is expected by construction".
+`--mutual-info` prints **two** statistics and the explanation belongs to the other one.
+`example/report.txt` gives the changed/unchanged **transition** MI as **0.0078 bits**, against a
+random-permutation mean of **0.0200 bits**, at the **7.0th percentile**; the construction-forced
+quantity is the **static** 8-state MI over trigram identities, **0.000000 bits**, and the report's
+own note attaches "independence is expected by construction" to *that* figure, where it is correct
+and is left alone. Random permutations contain the same 64 hexagrams and their transition MI varies,
+so the construction demonstrably does not force the transition result — and the measured direction is
+the opposite of "expected": King Wen sits *below* random on it. The bullet's closing verdict, that
+whatever rules govern the sequence do not couple the two halves of each hexagram, went further than a
+single binary projection can carry and is deleted.
+
+### 7. A bolded conclusion whose own sentence withdrew its basis
+
+`MCKENNA.md:106` bolded a claim that the wave's structure is local rather than global, and said the
+structure arrives in patches, on the evidence of `--windowed-entropy` — whose shipped report states
+that it is "an exploratory visualization, not a statistical test" and that "without a null model, no
+significance can be assigned to specific regions".
+
+**The reviewer's framing was wrong and it changes the fix.** The bullet was not missing that caveat:
+it carried it verbatim, in its own trailing parenthetical. The defect is therefore not an absent
+hedge but a **bolded headline retracted by the end of its own sentence** — a reader takes the
+headline, and a parenthetical cannot claw it back. Adding a caveat would have changed nothing. The
+headline is demoted to what the instrument supports, and the patches claim, which is precisely what
+the missing null model forbids, is deleted. The reviewer's failure scenario — a later pass
+cherry-picking low-entropy regions as findings — survives the correction and is the reason the
+demotion is the right fix.
+
+**Not done, and not claimed.** Two gates were proposed alongside these charges and neither is built:
+a cross-check that a published prose verdict may not contradict `example/report.txt`'s own summary
+line, and a rule that a **bolded** claim may not be immediately followed by a parenthetical
+withdrawing its basis. Both are queued to the code lane. A citation-audit check that verifies a claim
+against the page it links — the thing that would have caught defect 2 at write time — is queued with
+them.
+
+**Attribution.** The seven defects were raised by the Codex V2-F30 review pass and adjudicated in
+roae-private. The source fetches recorded above — the Meyer history, the Watkins objection, the
+Timewave mathematical definition and McKenna's derivation article, all retrieved and read on
+2026-09-02 — and the corrections to charges 3 and 7, and the sibling census that found four
+uncharged sites in four other files, are the Fable lane's (Claude). Reviewers are acknowledged, not
+credited as authors.
+
+## 2026-09-02 — TR-9 claimed an upper bound on a denominator this project says it has not published, and a net-bit row that failed the ledger's own definition of "net"
+
+[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) prices every constraint in bits. Six defects were
+raised against it by the Codex V2-F11 review pass and adjudicated in roae-private; all six are
+upheld, one with a correction to the charge. Two of them retire published figures, which is what this
+entry records. **No solution count, log-cardinality, marginal compression, residual endpoint or
+verdict changes anywhere in the report.**
+
+**Registry keys: `RF-047e690e`, `RF-455570a2`, `RF-e2b24ea8`**
+(`documentation/RETRACTED_FIGURES.tsv`, one row each) and **`RP-e35a1705`**
+(`documentation/RETRACTED_PHRASES.tsv`).
+
+### 1. A conditional selection charge was published as an upper bound — `RF-047e690e`
+
+§5(f) offered a reader who wants the meta-selection charge — the cost of selecting the constraint
+*families themselves* — a closed answer in bits: selecting seven constraints from the frozen
+91-observable global ledger "costs **at most** log₂ C(91,7) ≈ 32.9 bits", from which it banked
+dominance surviving with a margin of roughly ninety-four bits.
+
+The arithmetic is right and the denominator is the wrong universe.
+[METHODS.md](../reports/METHODS.md) §"Global observable ledger" builds the 91 as 28 exploratory
+observables + 58 pre-registered testing-family tests + 5 corpus-control predicates — a ledger of
+**tests performed**. The meta-selection charge is denominated in **candidate constraint families**,
+and METHODS.md §"The file drawer — an open gap, stated as such" says of exactly that quantity: "how
+many constraint families were tested and set aside before the published set was fixed? **This suite
+does not currently publish that denominator**", adding that it is "a **different quantity** from the
+testing-phase ledger" and that "reconstructing that testing ledger does not close this gap". TR-9
+therefore converted a gap this project explicitly declares open into a claimed closed bound. The
+file-drawer paragraph is dated 2026-08-07; the bound is TR-9 v1.22, dated 2026-08-06. The
+contradiction stood for four weeks.
+
+It is not an upper bound on its own denominator either. METHODS.md §"Global observable ledger"
+recorded on 2026-08-30 that the ledger omits the pre-registered H1/H3 family and that entering it
+gives **95**; log₂ C(95,7) ≈ 33.4 exceeds 32.9.
+
+**What was searched before the absence was claimed.** No roster of tried-and-dropped constraint
+families exists anywhere in the corpus:
+`prior_art_check.sh 'discovery-phase constraint-family roster'` and
+`prior_art_check.sh 'tried-and-dropped constraint families'` both return
+`PRIOR_ART=NONE  surfaces searched: roae-private *.md, *.tsv, codex_transcripts/; roae *.md; git log
+--all -S on both repos`.
+
+**What is not retracted.** The figure 32.9 itself. It survives, relabelled as conditional on the
+testing-phase ledger, alongside the discovery-battery reading log₂ C(28,5) ≈ 16.6. What is retracted
+is the claim that it *bounds* anything and the margin computed from it. What the surrounding argument
+actually needs — that every selection charge this corpus can price is of order tens of bits against
+C1's 146.3 — survives as a statement about the charges that have been quantified, not as a proof that
+no larger one exists. Settling it means publishing the tried-and-dropped constraint-family roster and
+its encoding; that is not done, is not queued, and §5(f) now says so.
+
+### 2. A net-bit bracket no published cost could produce, and the envelope corner built on it — `RF-e2b24ea8`, `RF-455570a2`
+
+TR-9 §1 defines net value as compression − statement cost, and two of the three rows of §"Sensitivity
+table" obey that identity exactly: C1 publishes +133 to +146 from 146.3 − 13 and 146.3 − 0; C5
+publishes −6.3 to −13.9 from 9.4 − 15.7 and 9.4 − 23.3. The C2 row did not. It published
+"≈ 0 (+2.0 to −4)" against a compression of 4.5 and a cost cell reading "~2.6–4", and the ledger row
+in §2 published the same bracket at greater length.
+
+Recomputed from the report's own exact operands: C2's compression is log₂ 23.325025987… = **4.5438**
+bits (§2, exact marginals); the declared per-distance-ban family has six members, log₂ 6 = **2.585**,
+giving **+1.96** — the published +2.0, correct. The largest statement cost stated anywhere in the
+corpus is the sensitivity table's own **4**, giving **+0.54**. Every published coding therefore gives
+C2 a **positive** net. Reaching the published −0.6 would require a 5.14-bit statement cost and
+reaching −4 an 8.54-bit one, and no explicit-grammar coding producing either is published here or
+recorded privately: `prior_art_check.sh 'C2 grammar statement cost derivation'` returns
+`PRIOR_ART=NONE`. The mechanical cause is visible in the row itself — the bracket's lower endpoint was
+the maximum *cost*, sign-flipped, rather than compression minus that cost.
+
+The bracket is corrected to **+0.5 to +2.0**. The verdict does not move: C2 is break-even to
+marginally explanatory either way, and remains the only narrow rule that reaches break-even.
+
+The consequence is not confined to one cell. §4's net-savings envelope was published as
+**102.7–148.3 bits ≈ 35–50%**, and its low corner consumed the withdrawn −4:
+127.3 + (−4) + (−20.6) = 102.7. With the supported endpoint it is 127.3 + 0.5 − 20.6 = **107.2**, and
+107.2 ÷ 296.0 = **36.2%**. The envelope is now **107.2–148.3 bits ≈ 36–50%**. The high corner
+(146.3 + 2.0 = 148.3 = 50.1%) and the C5-retaining variant (142.0) are unchanged; the envelope
+narrows from below only.
+
+**Two sibling sites are knowingly left live**, and they are registered as such rather than quietly
+allowlisted. `documentation/DESCRIPTION_LENGTH.md:36` and `:129` carry the same withdrawn bracket and
+`:84` carries the old envelope. All three are adjudicated separately under the Codex V2-F35 pass,
+whose prescribed fixes cover exactly those lines, and the batch that produced this entry owns TR-9.
+They are entered in `documentation/DOC_GATE_FIGURE_ALLOWLIST.txt` with class `open`, which makes
+GATE 3b print each of them as `[OPEN]` on every run until that batch lands. An `[OPEN]` row is an
+open defect, not an exemption.
+
+### 3. Four defects that changed no figure, recorded for completeness
+
+(i) The report opened with "Every MEASURED result carries a reproduction command". Its two Knuth
+estimates, 1.3287×10³⁸ and 5.21×10³¹, have none: the only published whole-tree invocation reproduces
+the *superseded* 5×10⁸ draw, as [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §Verification Guide and
+[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) both recorded on 2026-09-02. The banner carrying that
+promise is shared boilerplate, byte-identical across all eleven TRs and enforced as such by GATE 9, so
+it was left untouched and the exception is disclosed in its own paragraph directly beneath it. (ii) The exact start-free C2 rarity **4.29341%** shipped beside
+`solve --f1-exact-c1c2`, which is not a command: executed against a binary built from this
+repository's `solve.c` it prints a usage line and exits **2**, because `--f1-mod P` is required and a
+single run yields only a residue. The three 63-bit primes, the three complete invocations, the
+residues, the CRT reconstruction and the arithmetic from it to the percentage are now published in
+TR-9's Verification Guide, all checkable offline without the ~13.1 GB run. The figure was never in
+doubt — it was computed and ledgered; only its publication was missing. (iii) The ±0.02% quoted on
+estimator counts is a relative **standard error**, not a 95% half-width, so the "±0.0003 bits" beside
+it understated the 95% interval by 1.96×; both sites now state ±1.96·SE ≈ ±0.0006 bits. No
+one-decimal figure in the report moves. (iv) "`ulimit -s unlimited` is REQUIRED" is a sufficient
+setting published as a necessary one — `solve.c`'s preflight tests for **16 MB**, and executed both
+ways, `ulimit -s 8192` refuses while `ulimit -s 16384` runs to completion. TR-9's site is narrowed;
+twelve sibling sites in other files are reported and queued, not swept here.
+
+**Attribution.** The six defects were raised by the Codex V2-F11 review pass and adjudicated in
+roae-private. The execution evidence recorded above — the two `ulimit` runs, the `--f1-exact-c1c2`
+exit-2 reproduction, the CRT and percentage re-derivations, and the prior-art searches behind the two
+absence claims — is the Fable lane's (Claude). Reviewers are acknowledged, not credited as authors.

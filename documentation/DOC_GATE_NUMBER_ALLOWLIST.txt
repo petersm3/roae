@@ -14,3 +14,10 @@
 12:1785714293
 12:1785714294
 12:3368087039
+# Reviewed 2026-09-02 (prose batch P31):
+#   19:4611686018 - the three 63-bit CRT moduli of the exact start-free |C1 & C2| run
+#                   (2^62-57, 2^62-87, 2^62-117), published as a reproduction command in
+#                   reports/TR9_PRICING_THE_CONSTRAINTS.md §Verification Guide. They are
+#                   DELIBERATELY near-twins: three distinct primes just under 2^62 chosen so
+#                   their product exceeds |C1| = 32!*2^32. Intentional, not a transcription defect.
+19:4611686018
