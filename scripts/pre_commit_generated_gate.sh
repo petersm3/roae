@@ -59,10 +59,28 @@ if [ "$(printf '%s\n' "$WATCHED" | grep -c .)" -lt 2 ]; then
     exit 1
 fi
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+# SWEEP (2026-09-02), same class as the WATCHED-population charge one line up: BOTH of the
+# next two emptiness tests used to be reachable from a FAILED command as well as from a
+# genuinely empty result, and both arms exit 0. A `git diff --cached` that errors gives an
+# empty $STAGED, and the hook then certifies a commit it never looked at. Status first,
+# emptiness second.
+if ! STAGED=$(git diff --cached --name-only --diff-filter=ACM); then
+  echo "pre-commit: GENERATED_GATE=ERROR could not read the index (git diff --cached failed)." >&2
+  echo "  Refusing to certify a commit whose contents this hook could not enumerate." >&2
+  exit 1
+fi
 [ -n "$STAGED" ] || exit 0
 
-HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/null || true)
+# grep's exit codes are three-valued and only ONE of them means "clean": 0 = matched,
+# 1 = no match, >=2 = ERROR. `|| true` collapsed all three, so a grep that failed (bad
+# pattern file, unreadable fd, resource limit) read as "this commit touches no generated
+# artifact" and the hook exited 0.
+HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/null); _hrc=$?
+if [ "$_hrc" -ge 2 ]; then
+  echo "pre-commit: GENERATED_GATE=ERROR the staged-path match failed (grep rc=$_hrc)." >&2
+  echo "  An error is not 'nothing matched'. Refusing to certify." >&2
+  exit 1
+fi
 [ -n "$HITS" ] || exit 0
 
 echo "pre-commit: generated artifacts touched by this commit:"
@@ -92,12 +110,17 @@ fi
 echo "pre-commit: running doc_gates.sh generated ..."
 if bash scripts/doc_gates.sh generated; then
   echo "pre-commit: generated-artifact gate PASSED"
-  echo "  NOTE: GATE 8 compares report.txt/report.md/README.md/report.html/report.pdf ONLY.
-  It does NOT compare example/hexagrams.{csv,json,svg} or example/wave.* at all —
-  staging those triggers this hook but nothing verifies their content. Widening the
-  WATCHED population (done) is not the same as widening the COMPARISON (not done).
-  For report.txt/report.md/README.md the comparison is non-numeric lines"
-  echo "  only. A hand-edited DIGIT in example/report.txt is not covered by it."
+  # SCOPE, restated because it used to be WRONG in the reassuring direction. Until
+  # 2026-09-02 this NOTE said the WATCHED population had been widened to all twelve
+  # tracked example/ paths while the COMPARISON still covered only the five reports --
+  # so staging a corrupted example/hexagrams.csv fired this hook, ran a gate that never
+  # looked at it, and printed PASSED. Measured (rc=0). GATE 8 LEG 7 now compares the
+  # seven data artifacts BYTE-EXACT, digits included, and this text describes what is
+  # actually checked rather than what was intended.
+  echo "  SCOPE: GATE 8 compares report.txt/report.md/README.md (NON-NUMERIC lines only —"
+  echo "  roae.py is unseeded, so a hand-edited DIGIT in those three is caught by nothing),"
+  echo "  report.html/report.pdf, and — byte-exact, digits included — hexagrams.{csv,json,svg},"
+  echo "  wave.dot, wave.dot.png, wave.dot.svg and wave.mid."
   exit 0
 fi
 

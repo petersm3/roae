@@ -167,6 +167,36 @@ else
       echo "pre-push: ${rref:-?} — annotated tag peeled to commit ${_peeled:0:12}"
       lsha=$_peeled
     fi
+    # ---- (1b) EVERY NEW BRANCH REF IS A DECLARATION EVENT -------------------
+    # Codex v2 charge 5, SECOND HALF (2026-09-02). NEWREFS used to be collected ONLY
+    # inside the already-published arm below, so a new branch carrying a NEW tree was
+    # never named to GATE 19 either — and GATE 19, run inside the pushed tree's own
+    # worktree, enumerates `refs/remotes/origin/*`, which by definition does not yet
+    # contain the branch being created. Both halves of "a new public ref name" were
+    # therefore ungated: one because the check was skipped, one because the check could
+    # not see its subject. An all-zero REMOTE sha is the githooks(5) signal for "this ref
+    # does not exist on the remote yet", and that is the only condition that matters here
+    # — it is orthogonal to whether the TREE is new.
+    #
+    # SCOPED TO refs/heads/, and that scope is load-bearing rather than tidy. GATE 19 is a
+    # BRANCH registry; it strips `refs/heads/` and looks the remainder up. The first cut of
+    # this collection took ${rref} unconditionally, so pushing a TAG at a published sha
+    # handed GATE 19 the literal string "refs/tags/v4-…" as a branch name and BLOCKED the
+    # push — reintroducing exactly the breakage the annotated-tag peel at (1) above was
+    # written to cure (found 2026-08-21 pushing v4-2a-engine-ed8125c). MEASURED 2026-09-02
+    # on the shipped hook: `refs/tags/v4-test` at a published sha produced
+    # "[pending] also checking branch about to be published: refs/tags/v4-test".
+    # Tags are not in the branch registry's population; a tag push must not consult it.
+    case "${rref:-}" in
+      refs/heads/*)
+        case "${rsha:-}" in
+          ''|*[!0]*) ;;                      # existing remote branch: name already known
+          *) case " $NEWREFS " in
+               *" $rref "*) ;;
+               *) NEWREFS="$NEWREFS $rref" ;;
+             esac ;;
+        esac ;;
+    esac
     # ---- (2) SKIP WHAT IS ALREADY PUBLISHED --------------------------------
     # A ref pointing at a commit already reachable on origin publishes NO new
     # tree, so there is nothing to gate. This is not a loophole: to be reachable
@@ -183,12 +213,9 @@ else
       # Codex v2: this skip is correct for TREE CONTENT -- no new tree, nothing to
       # gate -- but it is ORTHOGONAL to the branch-name declaration check, which is
       # about the REF, not the tree. A new branch pointing at an already-published
-      # sha therefore published with no declaration gate at all. Measured. Record
-      # the ref so the declaration check still runs below.
-      case "${rsha:-}" in
-        *[!0]*) ;;                       # existing remote branch: name already known
-        *) NEWREFS="$NEWREFS ${rref:-?}" ;;   # all-zero remote sha = NEW branch
-      esac
+      # sha therefore published with no declaration gate at all. Measured. The ref was
+      # already recorded in NEWREFS at (1b) above, unconditionally, so the declaration
+      # check still runs whether or not we skip the content gates here.
       echo "pre-push: ${rref:-?} — ${lsha:0:12} already published (reachable from ${_pub#refs/remotes/}); no new tree, content gates skipped"
       continue
     fi
@@ -206,21 +233,40 @@ else
 fi
 SHAS=${SHAS# }
 NEWREFS=${NEWREFS# }
-if [ -z "$SHAS" ]; then
-  # A new branch whose tip is already published still introduces a REF NAME that the
-  # branch registry must declare. Run that one gate rather than exiting 0 blind.
-  if [ -n "$NEWREFS" ]; then
-    echo "pre-push: no new tree, but NEW branch ref(s) to declare: $NEWREFS"
-    if [ -x "$ROOT/scripts/doc_gates.sh" ]; then
-      if DOC_GATES_PENDING_BRANCHES="$NEWREFS" bash "$ROOT/scripts/doc_gates.sh" branch-registry; then
-        echo "pre-push: branch-registry gate PASSED for $NEWREFS"
-        exit 0
-      fi
+# ---- DECLARATION LEG: unconditional, and it runs BEFORE the content legs -------
+# Codex v2 charge 5, RESIDUAL (2026-09-02). This leg used to live INSIDE the
+# `[ -z "$SHAS" ]` arm below, so it ran only when the push carried no new tree at all.
+# A push of two refs — one new undeclared branch at a published sha, one ordinary
+# branch with new commits — made SHAS non-empty and skipped the declaration check
+# entirely. MEASURED: with both lines on stdin the hook never emitted "NEW branch
+# ref(s) to declare" and never set DOC_GATES_PENDING_BRANCHES, so GATE 19 ran in the
+# pushed worktree against `refs/remotes/origin/*` only and could not see the branch
+# being created. That is the same defect the charge closed, restored by the shape of
+# the fix: a check nested under a precondition orthogonal to it.
+#
+# It runs in $ROOT and not in a pushed worktree ON PURPOSE: the registry rows that
+# matter are the ones in the tree being published, but the REMOTE REF LIST lives in
+# this clone. GATE 19 reads both, so it must run where both are readable.
+NEWREF_RC=0
+if [ -n "$NEWREFS" ]; then
+  echo "pre-push: NEW branch ref(s) to declare: $NEWREFS"
+  if [ -f "$ROOT/scripts/doc_gates.sh" ]; then
+    if DOC_GATES_PENDING_BRANCHES="$NEWREFS" bash "$ROOT/scripts/doc_gates.sh" branch-registry; then
+      echo "pre-push: branch-registry gate PASSED for $NEWREFS"
+    else
       echo "pre-push: BLOCKED — new branch ref(s) not declared in the branch registry"
-      exit 1
+      NEWREF_RC=1
     fi
+  else
     echo "pre-push: BLOCKED — cannot run the branch-registry gate (scripts/doc_gates.sh missing)"
-    exit 1
+    NEWREF_RC=1
+  fi
+fi
+
+if [ -z "$SHAS" ]; then
+  if [ -n "$NEWREFS" ]; then
+    echo "pre-push: no new tree; the declaration leg above is the whole verdict"
+    exit "$NEWREF_RC"
   fi
   echo "pre-push: no shas to gate"
   exit 0
@@ -246,7 +292,9 @@ trap 'cleanup; exit 143' TERM
 trap 'cleanup; exit 129' HUP
 
 # ---- gate each pushed sha in its own detached worktree --------------------
-RC=0
+# Seeded from the declaration leg: an undeclared new branch blocks the push even when
+# every pushed tree passes its own gates.
+RC=$NEWREF_RC
 for sha in $SHAS; do
   short=${sha:0:12}
   t0=$SECONDS
@@ -259,6 +307,7 @@ for sha in $SHAS; do
   echo "pre-push: gating pushed sha $short (its own committed gates, temp worktree)"
 
   SHARC=0
+  SHAFAIL_SEEN=${SHAFAIL_SEEN:-0}
   if [ -f "$WT/scripts/doc_gates.sh" ]; then
     ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
         bash scripts/doc_gates.sh all ) || SHARC=1
@@ -296,7 +345,7 @@ for sha in $SHAS; do
 
   cleanup
   if [ "$SHARC" -ne 0 ]; then
-    RC=1
+    RC=1; SHAFAIL_SEEN=1
     echo "pre-push: pushed sha $short FAILED its gates ($((SECONDS - t0)) s)"
   else
     echo "pre-push: pushed sha $short passed both gates ($((SECONDS - t0)) s)"
@@ -305,11 +354,18 @@ done
 
 if [ "$RC" -ne 0 ]; then
   echo
-  echo "pre-push: BLOCKED — at least one pushed sha failed its gates above."
-  echo "  The gates ran against the COMMITTED trees being published, not the"
-  echo "  working tree: a fix that exists only as an uncommitted edit does not"
-  echo "  clear this — commit it. 'git push --no-verify' bypasses this and"
-  echo "  leaves that visible in shell history."
+  if [ "$NEWREF_RC" -ne 0 ]; then
+    echo "pre-push: BLOCKED — a NEW branch ref is not declared in documentation/BRANCH_REGISTRY.tsv."
+    echo "  Declare it (authoritative or snapshot) before publishing the name; an"
+    echo "  undeclared public branch is the CX-30-on-five-refs failure mode."
+  fi
+  if [ "${SHAFAIL_SEEN:-0}" -ne 0 ]; then
+    echo "pre-push: BLOCKED — at least one pushed sha failed its gates above."
+    echo "  The gates ran against the COMMITTED trees being published, not the"
+    echo "  working tree: a fix that exists only as an uncommitted edit does not"
+    echo "  clear this — commit it."
+  fi
+  echo "  'git push --no-verify' bypasses this and leaves that visible in shell history."
 fi
 
 # ---- ADVISORY: pre-codex review-loop state (NEVER blocking) ---------------

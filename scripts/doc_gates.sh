@@ -6525,10 +6525,18 @@ gate_generated() {
   _cmp example/report.txt  "$tmp/fresh.txt"   "roae.py --all"      || rc=1
   _cmp example/report.md   "$tmp/report.md"   "roae.py --markdown" || rc=1
   _cmp example/README.md   "$tmp/report.md"   "roae.py --markdown" || rc=1
+  # Codex v2 charge 1, SIBLING SWEEP: the report.md arm of this pair was converted to a
+  # [FAIL] (see the "A missing artifact is NOT a skip" note above) and this one was left
+  # as a [skip] that does not move rc. Same carrier, same gate, one line apart: --html can
+  # exit 0 and still leave no report.html (an exporter that catches its own error), and the
+  # gate then attests report.html by not comparing it. Symmetric now.
   if [ -f "$tmp/report.html" ]; then
     _cmp example/report.html "$tmp/report.html" "roae.py --html"    || rc=1
   else
-    echo "  [skip] --html produced no report.html"
+    echo "  [FAIL] --html produced no report.html — cannot compare what was not generated"
+    echo "         example/report.html is shipped and tracked; an absent reference means this"
+    echo "         leg did not run, which is a failure of the gate, not a pass for the file."
+    rc=1
   fi
 
   # LEG 5 — example/report.pdf is the wkhtmltopdf rendering of example/report.html.
@@ -6661,6 +6669,88 @@ PY
     return 1
   }
   _cmp_copy example/README.md example/report.md || rc=1
+
+  # LEG 7 — the SEVEN non-report artifacts under example/ (Codex v2 charge 6, 2026-09-02).
+  #
+  # WHAT WAS WRONG. pre_commit_generated_gate.sh's WATCHED population had already been
+  # widened from six hardcoded names to "roae.py plus every tracked example/ path", so
+  # staging a corrupted example/hexagrams.csv now TRIGGERS the hook — and the hook then ran
+  # this gate, which compared five report files and nothing else, printed PASS, and exited
+  # 0. Widening the population is not widening the comparison; the hook even narrated the
+  # hole in its own PASS message and shipped anyway. MEASURED 2026-09-02 in a scratch clone:
+  # `sed -i '4s/$/,XCORRUPTX/' example/hexagrams.csv && git add` then the hook -> rc=0.
+  #
+  # WHY BYTE-EXACT AND NOT DIGIT-STRIPPED. Legs 1-4 strip digits because roae.py seeds
+  # nothing and its Monte Carlo figures move every run. These seven carry NO Monte Carlo
+  # output at all — they are pure functions of the 64-hexagram table (export_csv,
+  # export_json, export_svg, print_graphviz, export_midi). MEASURED before switching this
+  # on: all seven regenerate byte-identical on this host, so the comparison that catches a
+  # hand-edited DIGIT — the hole legs 1-3 cannot close — is available here and is used.
+  #
+  # THE TWO RENDERED FILES. wave.dot.png and wave.dot.svg are graphviz renderings of
+  # wave.dot, so their bytes depend on the installed `dot`, not only on roae.py. A renderer
+  # upgrade will therefore turn this leg red WITHOUT any hand-edit. That is not a false
+  # positive to be suppressed: it is the gate correctly reporting that the shipped artifacts
+  # no longer match what this repo's toolchain produces, and the fix is to regenerate and
+  # commit them (`cd example && python3 ../roae.py --dot`). Stated here so a future
+  # maintainer reaches for the regeneration rather than for a skip.
+  #
+  # AND `dot` ABSENT IS A FAIL, NOT A SKIP — the A1 rule this file already applies to
+  # python3. Without graphviz the two rendered artifacts cannot be regenerated, so nothing
+  # verifies bytes that are shipped and tracked; saying so loudly beats attesting a
+  # comparison that never happened.
+  local dtmp
+  dtmp="$tmp/data"
+  rm -rf "$dtmp"; mkdir -p "$dtmp" || { echo "  [FAIL] LEG 7 could not create its scratch dir"; rc=1; }
+  if [ -d "$dtmp" ]; then
+    # ~0.6 s for all five (measured), so unlike the report legs this is not cached: a cache
+    # is one more thing that can go stale and clear the gate falsely, and it buys nothing.
+    local _flag
+    for _flag in csv json svg dot midi; do
+      if ! ( cd "$dtmp" && timeout 300 python3 "$OLDPWD/roae.py" "--$_flag" >/dev/null 2>&1 ); then
+        echo "  [FAIL] the generator did not run cleanly for --$_flag"
+        rc=1
+      fi
+    done
+    _cmp_exact() {   # <tracked artifact> <fresh reference> <flag that produces it>
+      _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
+      if [ ! -f "$2" ]; then
+        echo "  [FAIL] roae.py $3 produced no $(basename "$2") — cannot compare what was not"
+        echo "         generated. $1 is tracked and shipped, so an absent reference is a"
+        echo "         failure of this leg, never a pass for the artifact."
+        return 1
+      fi
+      if cmp -s "$1" "$2"; then
+        echo "  [ok]   $1 is BYTE-IDENTICAL to a fresh roae.py $3 (digits included)"
+        return 0
+      fi
+      echo "  [FAIL] $1 differs BYTE-FOR-BYTE from a fresh roae.py $3 — hand-edited?"
+      if ! LC_ALL=C grep -qI . "$1" 2>/dev/null; then
+        echo "           (binary; first difference: $(cmp "$1" "$2" 2>&1 | head -1))"
+      else
+        diff "$2" "$1" | head -6 | sed 's/^/           /'
+      fi
+      echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact:"
+      echo "           ( cd example && python3 ../roae.py $3 )"
+      return 1
+    }
+    _cmp_exact example/hexagrams.csv  "$dtmp/hexagrams.csv"  --csv   || rc=1
+    _cmp_exact example/hexagrams.json "$dtmp/hexagrams.json" --json  || rc=1
+    _cmp_exact example/hexagrams.svg  "$dtmp/hexagrams.svg"  --svg   || rc=1
+    _cmp_exact example/wave.dot       "$dtmp/wave.dot"       --dot   || rc=1
+    _cmp_exact example/wave.mid       "$dtmp/wave.mid"       --midi  || rc=1
+    if command -v dot >/dev/null 2>&1; then
+      _cmp_exact example/wave.dot.png "$dtmp/wave.dot.png"   --dot   || rc=1
+      _cmp_exact example/wave.dot.svg "$dtmp/wave.dot.svg"   --dot   || rc=1
+    else
+      echo "  [FAIL] graphviz 'dot' is not on PATH, so example/wave.dot.png and"
+      echo "         example/wave.dot.svg could not be regenerated and NOTHING compared them."
+      echo "         They are tracked and shipped. This is not a skip — install graphviz"
+      echo "         (apt-get install graphviz) or push with the bypass and say why."
+      rc=1
+    fi
+    rm -rf "$dtmp"
+  fi
 
   [ "$owned" = 1 ] && rm -rf "$tmp"
   return "$rc"
@@ -9736,7 +9826,59 @@ for k in [k for k in opens if k not in used_open]:
     print(f'         Either the defect was fixed (delete the row — the backlog count must')
     print(f'         shrink honestly) or the anchor drifted and the defect is now unwatched.')
 
-nbad = len(bad) + len(spans) + len(cfgbad)
+# ---------------------------------------------------------------------------
+# Codex v2 charge 4 (2026-09-02) — THE ESCALATION LOOPHOLE, and why it is closed with a
+# ratchet rather than by folding openhits into nbad.
+#
+# THE CHARGE, verified live: `all`'s PASS banner named GATE 18 among the HARD gates while
+# an [OPEN] row exits 0. Two consequences, and only the second is a real defect. The
+# backlog itself is DECLARED and cannot go invisible — every row re-prints with a count
+# and a "[note] ... DEFECTS, not exemptions" line every run — so a reader is not misled
+# about the sites. But a future genuine [FAIL] could be silenced by ADDING an `open` row,
+# with no correction anywhere and no change in exit status. That is an escape hatch that
+# opens itself, which is the shape this suite exists to refuse.
+#
+# WHY NOT `nbad += len(openhits)`. It is the cleaner rule and it was rejected on measured
+# grounds, not taste: there are 2 live open sites today, so switching it on turns `all`
+# RED for every push until a #146/#157 adjudication lands that is not this lane's to make.
+# A hard gate that is red for reasons the pusher cannot fix is a hook that gets bypassed
+# with --no-verify, and --no-verify uncovers EVERYTHING (this file's own argument for
+# keeping GATE 8 out of `all`). So the backlog stays declared and non-blocking, and the
+# HATCH is what gets nailed shut.
+#
+# THE RATCHET. Both counts are budgeted, and a budget may only ever be LOWERED:
+#   * OPEN_SITE_BUDGET  — sites actually silenced by an `open` row. Adding a row that
+#     covers a NEW defect raises this and FAILS, which is precisely the escalation.
+#   * OPEN_ROW_BUDGET   — rows in the registry. Adding a row that matches nothing (a
+#     speculative pre-emptive hatch) raises this and FAILS too.
+# Lowering a budget is a one-line diff in this gate, in the same commit as the fix, and
+# is visible in review. Raising one is the same diff and is not something that can happen
+# by accident or by silence — which is the whole difference from today.
+#
+# MEASURED at adoption, 2026-09-02: 2 open sites, 42 open rows.
+OPEN_SITE_BUDGET = 2
+OPEN_ROW_BUDGET  = 42
+ratchet = []
+if len(openhits) > OPEN_SITE_BUDGET:
+    ratchet.append(f'{len(openhits)} adjudicated-open SITE(s), budget {OPEN_SITE_BUDGET}')
+if len(opens) > OPEN_ROW_BUDGET:
+    ratchet.append(f'{len(opens)} `open` registry ROW(s), budget {OPEN_ROW_BUDGET}')
+if ratchet:
+    print(f'  [FAIL] the adjudicated-open backlog GREW: ' + '; '.join(ratchet))
+    print(f'         An `open` row is a DECLARED DEFECT carried from an adjudication, not a')
+    print(f'         way to clear a new one. If a [FAIL] appeared and an `open` row was added')
+    print(f'         to silence it, that is the escalation this ratchet exists to refuse: fix')
+    print(f'         the line instead. If the backlog genuinely has to grow, raise the budget')
+    print(f'         in scripts/doc_gates.sh IN THE SAME COMMIT, so the decision is reviewable')
+    print(f'         rather than silent.')
+# Under budget is the direction of travel, and it must not be silent either: a budget left
+# above the true count is a hatch reopening by itself.
+if len(openhits) < OPEN_SITE_BUDGET or len(opens) < OPEN_ROW_BUDGET:
+    print(f'  [note] backlog SHRANK ({len(openhits)} site(s) / {len(opens)} row(s) vs budget '
+          f'{OPEN_SITE_BUDGET}/{OPEN_ROW_BUDGET}) — lower the budget in scripts/doc_gates.sh')
+    print(f'         so the ratchet keeps its grip. A budget above the true count is slack.')
+
+nbad = len(bad) + len(spans) + len(cfgbad) + len(ratchet)
 if not nbad:
     byclass = {}
     for _, _, _, cls, _ in exempt:
@@ -9872,9 +10014,24 @@ gate_branch_registry() {
       esac
     done
   fi
+  # NO SUBJECT vs CANNOT SEE THE SUBJECT — two states this used to report as one, and only
+  # one of them may pass (swept 2026-09-02 alongside Codex v2 charge 5, which is about this
+  # same gate). A tree with no `origin` remote CONFIGURED has nothing published to check and
+  # is a legitimate pass; a tree that HAS an `origin` remote but from which no ref could be
+  # enumerated is an enumeration that failed, and "no undeclared branches" would then be a
+  # statement about data nobody read. The old branch printed a [note] and returned 0 for
+  # both, which is the class root exactly: absence of evidence read as evidence.
   if [ -z "$remotes" ]; then
-    echo "  [note] no refs/remotes/origin/* in this clone, so the published-branch leg did NOT"
-    echo "         run. This is a fresh or detached checkout, not a clean bill of health."
+    if git remote get-url origin >/dev/null 2>&1; then
+      echo "  [FAIL] an 'origin' remote IS configured but NO refs/remotes/origin/* could be"
+      echo "         enumerated. That is a failed enumeration, not an empty remote — this gate"
+      echo "         cannot certify branches it was unable to list. (git fetch, or check that"
+      echo "         'git for-each-ref refs/remotes/origin/' works here.)"
+      return 1
+    fi
+    echo "  [note] no 'origin' remote is configured in this clone, so there are no published"
+    echo "         branches for this leg to check. That is a genuine empty subject (a tarball"
+    echo "         or 'git init' tree), not a clean bill of health about any remote."
     return 0
   fi
   n=0
@@ -9960,12 +10117,28 @@ gate_publication_state() {
   # to report "clean". TMPDIR-honouring rather than hardcoded /tmp.
   _G20_OUT=$(mktemp) || { echo "  [FAIL] GATE 20 could not create a temp file"; return 1; }
   n=0
+  # Codex v2 charge 2/3, SIBLING FOUND WHILE SWEEPING (2026-09-02). The charge closed the
+  # SCRATCH-FILE carrier (unchecked `> /tmp/g20_$$`); it did not close the SCANNER carrier,
+  # which is the same defect one level in. `awk` is invoked once per file with its exit
+  # status discarded, so an awk that cannot run — absent, broken, or erroring on a file —
+  # produces NO output, and no output was read as "no unchecked boxes". MEASURED: with a
+  # shim `awk` that exits 127 and a planted `- [ ]` outside any checklist heading in
+  # documentation/DEPLOYMENT.md, this gate printed "[ok] ... every unchecked box sits under
+  # a reader checklist" and exited 0 — the exact sentence it exists to be able to refuse.
+  #
+  # THE FIX IS A POSITIVE ATTESTATION, not another rc check: awk stamps a ##SCANNED line
+  # for every file it reaches the END of, and the shell requires one stamp per corpus file.
+  # An rc check alone would still miss a partial write; a per-file receipt cannot be
+  # forged by silence, which is the property the whole class is short of.
+  local _g20_docs _g20_scanned
+  _g20_docs=$(printf '%s\n' "$DOCS" | grep -c .)
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     awk -v FN="$f" '
       /^#{1,6}[[:space:]]/ { inck = (tolower($0) ~ /checklist/) ? 1 : 0 }
       /^[[:space:]]*- \[ \]/ { if (!inck) printf "  [FAIL] %s:%d unchecked box outside a reader checklist: %s\n", FN, NR, substr($0,1,72) }
-    ' "$f"
+      END { printf "##SCANNED\t%s\n", FN }
+    ' "$f" || printf '##AWKFAIL\t%s\n' "$f"
   done < <(printf '%s\n' "$DOCS") > "$_G20_OUT" 2>/dev/null   # Q-284: guarded $DOCS, not a second unguarded enumeration
   # Codex v2 / fail-open class: this wrote to /tmp/g20_$$ with the redirect UNCHECKED
   # and stderr discarded. If the redirect failed -- unwritable /tmp, full disk -- the
@@ -9979,14 +10152,34 @@ gate_publication_state() {
     rm -f "$_G20_OUT"
     return 1
   fi
-  if [ -s "$_G20_OUT" ]; then
-    cat "$_G20_OUT"
+  # THE RECEIPTS, checked BEFORE the findings are read. If the scan did not cover the
+  # corpus, "no findings" is not a result — the count must match or this gate has nothing
+  # to say, and saying nothing must be loud.
+  if grep -q '^##AWKFAIL	' "$_G20_OUT" 2>/dev/null; then
+    echo "  [FAIL] GATE 20's per-file scanner FAILED on:"
+    grep '^##AWKFAIL	' "$_G20_OUT" | cut -f2 | sed 's/^/           /'
+    echo "         Those files were NOT scanned, so this gate cannot report them clean."
+    rm -f "$_G20_OUT"
+    return 1
+  fi
+  _g20_scanned=$(grep -c '^##SCANNED	' "$_G20_OUT" 2>/dev/null); _g20_scanned=${_g20_scanned:-0}
+  if [ "$_g20_scanned" -ne "${_g20_docs:-0}" ]; then
+    echo "  [FAIL] GATE 20 scanned $_g20_scanned of ${_g20_docs:-0} corpus files."
+    echo "         A partial scan cannot certify the corpus. This is the fail-open shape the"
+    echo "         mktemp guard above was added for, one level in: an empty findings file is"
+    echo "         indistinguishable from a scanner that never ran unless every file leaves a"
+    echo "         receipt. Do not read this as zero findings."
+    rm -f "$_G20_OUT"
+    return 1
+  fi
+  if grep -v '^##' "$_G20_OUT" | grep -q .; then
+    grep -v '^##' "$_G20_OUT"
     echo "         An unchecked box in published prose is an obligation the document has not met."
     echo "         Reader-facing checklists are exempt — put them under a heading containing 'checklist'."
     rc=1
   fi
   rm -f "$_G20_OUT"
-  [ "$rc" -eq 0 ] && echo "  [ok] no heading-form draft markers; every unchecked box sits under a reader checklist"
+  [ "$rc" -eq 0 ] && echo "  [ok] no heading-form draft markers; every unchecked box in all $_g20_scanned scanned corpus file(s) sits under a reader checklist"
   return $rc
 }
 
@@ -11985,9 +12178,19 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
+  # GATE 18's CARVE-OUT, made explicit 2026-09-02 (Codex v2 charge 4). Naming 18 as hard
+  # without this line over-attested: its adjudicated-open sites are real DEFECTS and they
+  # exit 0 by design, so "hard gate 18 passed" read as "no alias-reach defects" when it
+  # means "no UNADJUDICATED ones". The backlog is not hidden — it prints as [OPEN] with a
+  # count on every run — but a green banner must not imply it is empty.
+  echo "                   GATE 18 IS HARD FOR UNADJUDICATED DEFECTS ONLY. Its [OPEN] rows"
+  echo "                   are adjudicated-open DEFECTS that do NOT set this exit code; a"
+  echo "                   green verdict means no NEW alias-reach defect, not none at all."
+  echo "                   The [OPEN] set is ratcheted (it cannot grow without a budget"
+  echo "                   change in this file), so it can no longer absorb a new [FAIL]."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
   # The one-liner this replaces ("run it separately") named neither what was uncovered nor
   # the command, so an all-green run read as attesting example/report.pdf when it attested
@@ -12011,8 +12214,10 @@ elif [ "$MODE" = all ]; then
   echo "                   nothing about them; run them by name. GATE 25's LEG 2 is"
   echo "                   REPORT-ONLY even then, and says so in its own banner."
   echo "                   GATE 8 ('generated') is NOT in 'all' — by cost, not oversight."
-  echo "                   This verdict attests NOTHING about the example/ artifacts"
-  echo "                   (report.txt, report.md, README.md, report.html, report.pdf):"
+  echo "                   This verdict attests NOTHING about the 12 tracked example/"
+  echo "                   artifacts — the five reports (report.txt/.md/.html/.pdf, README.md)"
+  echo "                   AND, since 2026-09-02, hexagrams.{csv,json,svg}, wave.dot,"
+  echo "                   wave.dot.png, wave.dot.svg and wave.mid (LEG 7, byte-exact):"
   echo "                       bash scripts/doc_gates.sh generated   # checks them; ~67-135 s, 3 roae.py runs"
   echo "                   (Enforced at pre-commit when roae.py/example/ is staged, and at"
   echo "                   pre-push when the pushed range touches roae.py or example/.)"
