@@ -359,7 +359,14 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 > ("Speedup ceiling revised upward to **1.4–2.0× total runtime**") and at `HISTORY.md:2610` ("Plan expects
 > 1.4-2.0× per the implementation doc"). Searching for the bare token "REFUTED" near both sites finds nothing
 > either. This is the failure mode of a document asserting a marker it never supplied — a reader who trusts the
-> sentence above never goes looking. Adding the two callouts edits `HISTORY.md` and is tracked outside this
+> sentence above never goes looking.
+>
+> **✅ RESOLVED 2026-09-02 (prose batch P64).** Both callouts now exist. The line numbers had drifted —
+> the figures are at `HISTORY.md:1521` and `:2628`, not `:1510-1514` and `:2610` — and were located by
+> content rather than by number. A third occurrence sits inside the refutation narrative itself and
+> correctly needs no callout. **The correction above is left standing, not rewritten:** it was true when
+> written, and deleting it would erase the 3.5-month interval during which this file asserted a marker
+> that did not exist. That interval is the finding. Adding the two callouts edits `HISTORY.md` and is tracked outside this
 > document; **until they land, treat the sentence above as not yet true.** The null result it points at is
 > sound — it is the cross-reference that is missing. See the 2026-08-30 re-evaluation entry at the end of this file. Task #82 ("HARDWARE_CPU_COMPARISON.md doesn't exist") was marked stale because the AVX-512 numbers actually live across commits `b26cd9b` and `0783d52` rather than the conjectured doc.
 
@@ -1493,7 +1500,7 @@ says so explicitly and states what the original text read.
 | 2 | 2026-05-11 #70 (C3 optimistic bound) | Baseline labelled "#67 alone" | The 831-record delta is over **v1+C5+#67**. A `v1+#67+#70` run does not exist anywhere in this log |
 | 3 | 2026-05-13 LTO | Sha gate recorded as passing *by definition* | Reworded to the **measured** byte-identical result. Sha gates in this solver settle only empirically |
 | 4 | 2026-05-16 #46 (AVX-512 null) | "verified from commits `cd4e61c`/`b26cd9b`/`0783d52`" | Those objects are **absent from the shipped repo** (`git cat-file -t` fails on each) → the figures are operator-attested, per this file's Access boundary |
-| 5 | 2026-05-16 #46 (AVX-512 null) | "HISTORY.md … now carries a `[REFUTED 2026-05-16]` callout" | **The callout is not there.** The one match in `HISTORY.md` is that sentence's twin claiming it is "already in place"; the 1.4–2.0× projections stand unmarked at `HISTORY.md:1510-1514` and `:2610` |
+| 5 | 2026-05-16 #46 (AVX-512 null) | "HISTORY.md … now carries a `[REFUTED 2026-05-16]` callout" | **The callout is not there.** The one match in `HISTORY.md` is that sentence's twin claiming it is "already in place"; the 1.4–2.0× projections stand unmarked at `HISTORY.md:1510-1514` and `:2610`. **✅ Discharged 2026-09-02 (P64): both callouts written, at the drifted lines `:1521` / `:2628`; the third site in `DEVELOPMENT.md:586` marked the same day.** |
 | 6 | 2026-05-17 v2 11.2T anchor | A "~1-2%" v2 advantage projected for 100T+ | Measured **+6.74%** at 100T (+231,181,617 records). The advantage **grew** with depth: +4.83% at 11.2T → +6.74% at 100T |
 | 7 | 2026-05-18 per-prune ladder | #68 called 24-27× more impactful than #67 at every scale | **≈14.5-36.9×** across the four scales in its own table; 24-27× holds only at 1B-10B. The *ranking* claim stands |
 | 8 | 2026-05-18 per-prune ladder | Unlimited budget framed as v1 and v2 exhausting different predicates; +4.83% called v2's "real" extra solutions | Both prune sets are sound: **v1(∞) = v2(∞) = v3(∞)**. +4.83% is a **budgeted-slice** delta at 11.2T — a convergence-rate effect, not a larger solution space |
