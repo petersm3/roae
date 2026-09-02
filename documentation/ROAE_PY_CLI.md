@@ -39,8 +39,15 @@ python3 roae.py --json|--csv|--svg|--html|--markdown|--midi|--dot
 ordering** — it does NOT enumerate the space of possible orderings
 (that's `solve.c`'s job; see [SOLVE_C_CLI.md](SOLVE_C_CLI.md)). Instead,
 it computes 29 different descriptive measures of the King Wen
-sequence's structure and compares each measure to appropriate null
-models.
+sequence's structure and, **where a null comparison is meaningful**,
+compares the measure to an appropriate null model. Several sections are
+descriptive-only and carry no null and no significance test — the
+trigram transition matrices (~1 expected observation per cell, so no
+goodness-of-fit test has power), windowed entropy, and the Gray-code
+ratio; and the 64×64 Hamming matrix is a property of the 6-bit encoding,
+identical under any ordering, so no null over orderings applies to it at
+all. See [CRITIQUE.md](CRITIQUE.md) and the REPRODUCIBILITY section
+below, which also states which sections use randomness.
 
 The default action (no flags) runs all 29 analyses. With a single
 `--<section>` flag, runs only that section. With `--quick`, runs a
@@ -50,9 +57,13 @@ Output is human-readable text by default; alternative output formats
 (JSON, CSV, SVG, HTML, PDF, MIDI, Graphviz DOT) are available via
 output-format flags.
 
-`roae.py` is **deterministic** for analyses without Monte Carlo
-content. For Monte Carlo analyses (`--stats`, `--bootstrap`,
-`--constraints`), use `--seed` for reproducible results.
+**Twelve of the 29 sections draw random numbers**, not the three that an
+earlier version of this page named; a thirteenth (`--trigrams`) runs a
+Monte Carlo null under an RNG seeded internally to a fixed constant and
+does not read `--seed` at all. Pass `--seed N` to make the twelve
+reproducible. The full census, derived from the code, is in
+REPRODUCIBILITY below — read it before assuming any section is
+closed-form.
 
 ## ANALYSIS SECTIONS
 
@@ -173,10 +184,16 @@ artifacts and change no constraint definitions.
 A circularity-safe, MDL-charged search for candidate structural
 constraints that KW satisfies but that are *not* implied by the
 published constraint set C1–C5. The search enumerates **every** predicate
-of a fixed, pre-registered grammar of KW-independent structural
-terminals at depth ≤ 2 (frozen sizes, asserted at startup: 118
-transition atoms, 52 position atoms, 24 gates per domain), then runs
-each KW-satisfied candidate through a five-phase pipeline:
+of a grammar of KW-independent structural terminals at depth ≤ 2. The
+grammar is **frozen in code, and its freeze is self-attested**: the
+sizes (118 transition atoms, 52 position atoms, 24 gates per domain) are
+asserted at startup by `roae.py` itself (`roae.py`, the guard above
+Phase A), which constrains the grammar only against the same file that
+defines it. Unlike `--prereg-h1h3` below, **no external escrow artifact
+exists for this grammar** — it has no row in
+[PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md), so an outside
+reader cannot check that the grammar predates any particular run. Each
+KW-satisfied candidate then runs through a five-phase pipeline:
 
 1. **Probe sampling (A)** — a small probe set (`--gs-probe`) drawn from
    a seed stream *disjoint* from the rarity sample;
@@ -190,15 +207,39 @@ each KW-satisfied candidate through a five-phase pipeline:
    checkpointable batches (JSONL checkpoint; completed batches are
    skipped on re-run — subject to the validation caveat documented
    under `--gs-checkpoint` below);
-5. **MDL ledger (E)** — bits-explained = −log₂ f vs the MDL statement
-   cost L(C) plus the selection charge; prints survivors, the zero-hit
+5. **MDL ledger (E)** — bits-explained = −log₂ f, compared against the
+   MDL statement cost L(C); prints the survivor list, the zero-hit
    shortlist, closest approaches, a Wilson lower bound for the rarest
    resolved candidate, and the detection floor.
 
+**The printed survivor list is admitted at a LOWER bar than the
+detection floor states, and this is the one thing to get right when
+reading the output.** Two different bars are in play:
+
+| | bar applied | where it appears |
+|---|---|---|
+| **Detection floor** (the honest bar) | bits-explained > L(C) **+ selection charge** | the `[E] DETECTION FLOOR:` line, and the circularity audit |
+| **Survivor list** (what is printed) | bits-explained > L(C) **alone** | the `SURVIVOR?` lines, the `survivors` count, and the `verdict` field |
+
+A candidate with L(C) < bits-explained ≤ L(C) + selection therefore
+appears as a `SURVIVOR?` line and flips the verdict, **without having
+cleared the multiple-selection charge**. The direction is
+over-flagging, not under-detection: nothing that clears the full bar can
+be missed this way, but a `SURVIVOR?` line is a shortlist entry, not a
+result. The program says as much in its own output — it labels the
+tally `MDL-net-positive (pre-selection)`, ends each candidate line with
+a question mark, and heads the margins `closest approaches
+(bits-explained - L(C), pre-selection)` — and the trailing `?` is doing
+real work.
+
 The verdict line is either `NULL — no survivor within the declared
-grammar at depth <= 2` or `ATTENTION — ... run the circularity audit
-before any claim`. The result is scoped to this grammar and depth —
-never a universal completeness claim. The full design and the
+grammar at depth <= 2` or `ATTENTION — survivor or zero-hit shortlist
+present; run the circularity audit before any claim`. `ATTENTION` fires
+whenever the pre-selection survivor list **or** the zero-hit shortlist
+is non-empty, so it too is a pre-selection signal. The JSON
+`verdict` and `survivors` fields carry no pre-selection marker; read
+them against this table, not at face value. The result is scoped to this
+grammar and depth — never a universal completeness claim. The full design and the
 circularity firewall (every terminal structural and KW-independent; no
 fitted thresholds, no KW-read constants) are documented in the section
 banner in `roae.py` above `run_grammar_search`.
@@ -228,6 +269,20 @@ pre-registration spec verbatim — functionals, threshold rules, seed
 streams, L(C) menus, the log₂(4) = 2.00-bit selection charge, and the
 pre-registered prediction that all four tests FAIL their bars (an
 expected, legitimate null).
+
+**Scope of "the frozen spec" (read before relying on it).** The spec
+file is not published. It is escrowed by hash as
+`PREREG_H1_H3_TEST_2026_07_26.md` in
+[PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md), whose own text
+states the limits of what that establishes: the hash makes the file's
+*content* checkable **if it is ever disclosed unredacted**, and it does
+not establish correctness, does not establish that the freeze preceded
+the measurement, and — for this row specifically — was published
+2026-08-22 against a file first committed 2026-07-28, i.e. after the
+date the filename carries. The escrow page's "first committed" column
+is, in its own words, a claim rather than a proof. So "verbatim" here
+means *this code implements that document*, an operator attestation you
+cannot currently check; only the code below it is public.
 
 Circularity firewall (KW hold-out): the threshold stream (seed+20000+b,
 `--ph-thr-samples` samples) is sampled and the medians med\*(A) /
@@ -283,13 +338,26 @@ so U2 artifacts are never clobbered.
 --seed N           Random seed for reproducible Monte Carlo / bootstrap results
 ```
 
-`--seed` applies independently to each analysis that uses randomness;
-re-running with the same seed produces identical numerical output for
-`--stats`, `--bootstrap`, and `--constraints`. **`--cast` is NOT
-reproducible under `--seed`**: the cast path returns before the global
-seed is applied, so repeated `--cast --seed 42` runs differ (measured —
-four runs, four distinct hashes). Note also that `--constraints` is
-reproducible but ignores `--trials` (above).
+`--seed` applies independently to each analysis that uses randomness —
+**twelve** of the 29 sections, not the three most often named; the full
+census is under REPRODUCIBILITY below and `--stats`, `--bootstrap` and
+`--constraints` are only three of its entries. Re-running with the same
+seed produces identical numerical output for all twelve. One section
+sits outside that guarantee: **`--trigrams` ignores `--seed`** — its
+permutation nulls draw from an RNG pinned to a constant inside the
+function, so the flag never reaches them. Note also that `--constraints`
+is reproducible but ignores `--trials` (above).
+
+⚠ **[HISTORY — this page previously said `--cast` was not reproducible
+under `--seed`.** That was true and measured when written: `--cast`
+returned from the dispatch ladder before the global-seed assignment, so
+the seed was parsed and never installed. The dispatch order was fixed
+2026-09-02 (code batch C2, `3901097b`) and the behaviour re-measured —
+three `--cast --seed 42` runs are now byte-identical, `--seed 7` gives a
+different casting, and three unseeded runs give three distinct ones. The
+`tests.py` gate `CAST_SEED_DETERMINISTIC=1` holds it. The correction
+reached [GUIDE.md](GUIDE.md) on the day of the fix and did not reach
+this page until 2026-09-02.**]**
 
 ## OUTPUT FORMATS
 
@@ -449,13 +517,53 @@ paths outside the CWD included).
 
 ## REPRODUCIBILITY
 
-- Analyses without randomness (`--table`, `--pairs`, `--wave`,
-  `--trigrams`, `--nuclear`, `--complements`, `--symmetry`,
-  `--graycode`, `--codons`, etc.) are fully deterministic — output
-  depends only on the King Wen sequence (which is fixed).
-- Monte Carlo analyses (`--stats`, `--bootstrap`, `--constraints`)
-  use Python's `random` module; pass `--seed N` to make their
-  output reproducible.
+This census is taken from the code, not from prose: a section draws
+random numbers iff its function calls `_reseed()` (or constructs its own
+`random.Random`). Reproduce the census yourself — this prints the twelve
+randomized sections plus `print_casting` (the `--cast` mode), and
+nothing else:
+
+```
+awk '/^def /{f=$0} /^ +_reseed\([0-9]+\)/ {print f}' roae.py \
+  | sed 's/^def //;s/(.*//' | sort -u
+```
+
+`--trigrams` does **not** appear in that list and is still randomized;
+it is the one section that builds a private `random.Random` instead
+(`grep -n 'Random(' roae.py`).
+
+- **Randomized, and reproducible under `--seed` (12 sections).**
+  `--complements`, `--palindromes`, `--canons`, `--entropy`, `--path`,
+  `--markov`, `--constraints`, `--mutual-info`, `--neighborhoods`,
+  `--recurrence`, `--bootstrap`, `--stats`. Each calls `_reseed(salt)`
+  at entry, so a given `--seed` fixes its stream regardless of which
+  other sections run or in what order. Their printed values are
+  estimates from random draws, **not** functions of the King Wen
+  sequence alone.
+  - Measured: `--seed 1` vs `--seed 2` gives different output for
+    `--palindromes`, `--canons`, `--entropy`, `--path`, `--markov`,
+    `--mutual-info`, `--neighborhoods` and `--recurrence`.
+  - `--complements` is the exception at present: its 10,000-shuffle
+    null concentrates enough that the one-decimal printed summary is
+    byte-identical across seeds. That is **empirical concentration at
+    the current print precision, not determinism** — one added decimal
+    or a smaller trial count would break it silently. Treat it as
+    randomized.
+- **Monte Carlo under a hard-coded internal seed (1 section).**
+  `--trigrams` builds its pair-preserving permutation nulls from
+  `random.Random(42)`, a constant private to that function. Its output
+  is byte-identical on every run, but it is a sampled null, and
+  `--seed` has **no effect on it**.
+- **No randomness (16 sections).** `--table`, `--pairs`, `--wave`,
+  `--barchart`, `--nuclear`, `--lines`, `--hamming`,
+  `--autocorrelation`, `--fft`, `--graycode`, `--symmetry`,
+  `--sequences`, `--windowed-entropy`, `--yinyang`, `--parity`,
+  `--codons`. These are closed-form: the output is a function of the
+  King Wen sequence (which is fixed) and nothing else.
+- **`--cast` is a separate mode, not one of the 29 sections**, and
+  since 2026-09-02 it *is* reproducible under `--seed` (see the dated
+  history note under ANALYSIS MODIFIERS). Unseeded, it varies per run
+  by design.
 - Floating-point output may vary in the last decimal across
   Python versions / platforms; the qualitative findings (rankings,
   percentile placements) are stable.
@@ -477,7 +585,7 @@ The two tools are complementary:
 | **Analyzes** | KW as a given fixed sequence | The unconstrained ~10⁸⁹ (64!) permutation space; the C1–C5-satisfying subset is estimated ≈10³⁸ (Knuth estimate, see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)) |
 | **Output** | Statistics about KW (29 analyses, optional reports) | Enumeration artifacts: `solutions.bin` (millions of valid orderings), sha256 anchors, statistics across the solution set |
 | **Scale** | Single sequence, prints instantly | Hundreds of millions of orderings; canonical runs take hours on D128 |
-| **Determinism** | Closed-form analyses are deterministic; Monte Carlo sections are reproducible under `--seed` (except `--cast`) | Fully — given fixed solver + inputs, the **decompressed** `solutions.bin` stream is byte-identical (partition invariance). The gzip container is not canonical: raw `sha256sum solutions.bin` hashes the framing, which varies with zlib version and compression level. Verify via the `solutions.sha256` sidecar or `gzip -dc solutions.bin \| sha256sum` (see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); the raw file is byte-identical only under `SOLVE_COMPRESS=0` |
+| **Determinism** | 16 sections are closed-form; 12 are randomized and reproducible under `--seed`; `--trigrams` samples a null under an internally pinned seed and ignores `--seed`. See REPRODUCIBILITY | Fully — given fixed solver + inputs, the **decompressed** `solutions.bin` stream is byte-identical (partition invariance). The gzip container is not canonical: raw `sha256sum solutions.bin` hashes the framing, which varies with zlib version and compression level. Verify via the `solutions.sha256` sidecar or `gzip -dc solutions.bin \| sha256sum` (see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); the raw file is byte-identical only under `SOLVE_COMPRESS=0` |
 | **Dependencies** | `roae.py` itself: Python 3 stdlib only. PDF and PNG/SVG side-outputs additionally invoke the external `wkhtmltopdf` / `dot` binaries when present, and are silently skipped when absent. (This row covers `roae.py` only — `solve.py`'s P2 analysis modes are **not** stdlib; see [DEVELOPMENT.md](DEVELOPMENT.md).) | `gcc` with OpenMP, `zlib` (`zlib1g-dev` — `solve.c` includes `<zlib.h>` unconditionally), `libm` (`-lm`), `pthread`, `sha256sum`; canonical build line in [DEVELOPMENT.md](DEVELOPMENT.md) |
 | **Audience** | Anyone curious about KW's internal structure | Researchers evaluating uniqueness against C1-C5 |
 
@@ -523,9 +631,16 @@ Recent material changes (full record in [HISTORY.md](HISTORY.md)):
   (XOR algebra reframed as a theorem; null-model framings added
   for constraints, palindromes, canon split, recurrence,
   neighborhoods)
-- 2026-03 28-section coverage stabilized (parity added later → 29); output formats expanded
-  (HTML, PDF, MIDI, Graphviz)
-- Pre-2026 initial 6-round adversarial scientific review surfaced
-  the trigram name swap bug, the complement-distance direction
-  error ("maximizes" → "minimizes"), the XOR-as-theorem
-  realization, and the null-model caveat
+- 2026-04 the analysis-section buildout — the multi-section coverage
+  this page documents begins at `37065808` (2026-04-06, "Add hexagram
+  names, trigram analysis, spark lines, Monte Carlo, and CLI flags");
+  output formats (HTML, PDF, MIDI, Graphviz) expanded over the weeks
+  following. The 29th section, `--parity`, was added 2026-05-19
+  (`7d84ffe5`)
+- 2026-04 (early) the initial six-round adversarial scientific review
+  surfaced the trigram name swap bug (fixed 2026-04-07, `dc489e8c`),
+  the complement-distance direction error ("maximizes" → "minimizes",
+  corrected 2026-04-09, `5494ebac`), the XOR-as-theorem realization
+  (`32bf7bf5` 2026-04-08, `d149bb70` 2026-04-09), and the null-model
+  caveat. [HISTORY.md](HISTORY.md) frames this whole phase as its
+  "Prelude — Before April 10, 2026"

@@ -5927,3 +5927,250 @@ actuals); and rule 8's wall and cost (re-derived from the measured 13,631 s).
 charges were raised by Codex reviewers V2-F22, V2-L05 and V2-L11 and adjudicated in batch 11. The
 HISTORY.md site was surfaced by the 2026-09-01 pass, which recorded it rather than fixing it — this
 batch's contribution there is closing the handoff, not finding the defect.
+
+---
+
+## 2026-09-02 — ROAE_PY_CLI.md: a randomness census three sections wide against a code base of thirteen, a survivor bar printed one term short of the floor above it, a grammar called escrowed that has no row, and two history bullets a year off
+
+Prose batch **P71** worked five ACCEPTED charges against `documentation/ROAE_PY_CLI.md` (Codex
+reviewer V2-F49; adjudication rows 5, 6, 9, 11 and 14). **All five were still live at HEAD** — none
+had been closed by the 2026-09-01 pass — and each was verified against `roae.py` before it was
+edited, not against another document. A sixth defect, out of charge, was found while restating a
+sentence the page already carried; it is recorded last because it is the one a reader would have
+been most likely to act on.
+
+### 1. A null-model promise the same document withdraws before it ends (`RP-01d32a30`)
+
+The DESCRIPTION section stated that the program compares every one of its 29 measures against an
+appropriate null. The NOTES section, twelve lines from the end of the same file, already used the
+correct quantifier — *some* analyses include null-model framing — so the page contradicted itself on
+its face.
+
+`CRITIQUE.md` settles which reading is right, and it is the tail's. Trigram transition matrices have
+~1 expected observation per cell, so no goodness-of-fit test has power against them and the matrices
+are ruled descriptive only; windowed entropy is exploratory visualization with no null and no
+significance test; and the 64×64 Hamming matrix is a fixed property of the 6-bit encoding, identical
+under any ordering of the 64 hexagrams, so a null over *orderings* is not a meaningful comparison for
+it at all. The DESCRIPTION now scopes the claim to where a null comparison is meaningful, names those
+sections, and points at both `CRITIQUE.md` and the section below.
+
+**Census, before → after: 1 → 0**, corpus-wide under GATE 3's own character fold.
+
+### 2. A randomness census that named three sections and missed nine (`RP-0b8a8eab`, `RP-7f2b1c58`)
+
+This is the charge that changed the most text, and the adjudication's own census was itself one
+section short.
+
+Two places in the page told a reader which analyses use random numbers, and both named the same
+three: `--stats`, `--bootstrap`, `--constraints`. The REPRODUCIBILITY list went further and put
+`--complements` and `--trigrams` in the *deterministic* column, with the mechanism spelled out —
+their output was said to be a function of the King Wen sequence and nothing else.
+
+The code says otherwise, and it is not close. **Twelve** of the 29 sections call `_reseed()`:
+`--complements`, `--palindromes`, `--canons`, `--entropy`, `--path`, `--markov`, `--constraints`,
+`--mutual-info`, `--neighborhoods`, `--recurrence`, `--bootstrap`, `--stats`. `print_complements`
+alone runs a 10,000-shuffle null.
+
+**Measured at correction time**, because a census is a claim until it is run: `--seed 1` against
+`--seed 2` gives *visibly different output* for eight of the nine sections the page had not listed —
+`--palindromes`, `--canons`, `--entropy`, `--path`, `--markov`, `--mutual-info`, `--neighborhoods`,
+`--recurrence`. A researcher who pinned `--seed` for "the Monte Carlo analyses" as the page defined
+them left every one of those unpinned while believing them closed-form.
+
+`--complements` is the ninth, and it is byte-identical across seeds. That is not a rescue of the old
+text; it is the reason the defect was invisible. Its 10,000-trial aggregates concentrate enough that
+the one-decimal printed summary does not move — **empirical concentration at the current print
+precision, not determinism**. One added decimal, or a smaller trial count, breaks it silently. The
+page now says so in those words and tells the reader to treat the section as randomized.
+
+**A thirteenth section the charge did not name.** The adjudication's census was taken by grepping
+`_reseed` and returned thirteen call sites, one of which is the `--cast` mode rather than a section.
+`print_trigrams` does not appear in it — and `print_trigrams` runs three 10,000-trial permutation
+nulls, off `random.Random(42)`, a constant private to the function. So it is a Monte Carlo section
+that is byte-identical on every run **and ignores `--seed` entirely**: a third category that neither
+the old two-way split nor the proposed fix had a slot for. The page now carries a three-way census —
+12 seed-honouring, 1 internally pinned, 16 closed-form — which sums to 29, and each of the 29 flag
+names was checked against `roae.py`'s argparse definitions rather than copied from the prose.
+
+All 16 sections in the closed-form group were **run under `--seed 1` and `--seed 999` and confirmed
+byte-identical**; the claim is not inferred from the absence of a grep hit.
+
+The census is now reproducible from the page rather than asserted by it. Both published commands
+were executed and return exactly what the page says they return:
+
+```
+$ awk '/^def /{f=$0} /^ +_reseed\([0-9]+\)/ {print f}' roae.py \
+    | sed 's/^def //;s/(.*//' | sort -u
+print_bootstrap
+print_canons
+print_casting
+print_complements
+print_constraints
+print_entropy
+print_markov
+print_mutual_info
+print_neighborhoods
+print_palindromes
+print_path
+print_recurrence
+print_stats
+
+$ grep -n 'Random(' roae.py
+480:    _rng = _rnd.Random(42)
+4023:    rng = random.Random(seed)
+4052:    rng = random.Random(seed)
+4568:    rng = random.Random(seed_base + seed_off + batch_idx)
+```
+
+Line 480 is inside `print_trigrams`; the other three are the grammar-search and pre-registration
+machinery, which take their seed as an explicit argument.
+
+**Census, before → after: 1 → 0 for each of the two shapes.** They were registered as two needles
+rather than one because they share no substring; a single needle would have closed one site and left
+the other reading like closure.
+
+### 3. A grammar described as pre-registered that has no escrow row (`RP-b0f4f882`)
+
+The `--grammar-search` section described the U2 search space with a term that, everywhere else in
+this project, denotes a hash-escrowed artifact. It is not one.
+
+`PREREGISTRATION_ESCROW.md` publishes ten hashes and none of them is the grammar. It also publishes,
+since its 2026-09-02 amendment, an itemized list of six further frozen pre-registrations that it does
+**not** escrow — and the grammar is absent from that list too, so it is not even a recorded omission.
+What the grammar has instead is `roae.py` asserting its own frozen sizes at startup: 118 transition
+atoms, 52 position atoms, 24 gates per domain, checked in the same file that defines them. That is
+self-attestation, and an outside reader cannot use it to establish that the grammar predates any
+particular run.
+
+The section now says frozen in code and self-attested, states plainly that no external escrow
+artifact exists for it, and contrasts it with `--prereg-h1h3` below, which does have a row.
+
+**The second site the charge named is a different problem and got a different fix.** The
+`--prereg-h1h3` section claims verbatim implementation of a frozen spec the reader cannot read. That
+spec *is* escrowed — `PREREG_H1_H3_TEST_2026_07_26.md`, one commit in its private history, so its
+escrowed digest and its freeze-state digest are the same value. Nothing there needed retracting; what
+was missing was the pointer. The section now carries a scope note routing the reader to the escrow
+page **and to that page's own statement of its limits**: the hash makes content checkable only on
+unredacted disclosure, establishes nothing about correctness, and — for this row specifically — was
+published 2026-08-22 against a file first committed 2026-07-28, which is *after* the date the
+filename carries. The escrow page calls its own first-committed column a claim rather than a proof,
+and the CLI reference now says so at the point of use instead of leaving the reader to find it.
+
+**Census, before → after: 1 → 0.** The needle is the enumerates-clause, not the bare term, which also
+appears in `roae.py`'s `--help` text — outside this gate's markdown corpus, and outside this batch's
+ownership. See the code-owned siblings at the end.
+
+### 4. Two bars, one of them printed, and the page described the other (`RP-eaf9bc64`)
+
+The U2 MDL ledger was described as weighing bits-explained against the statement cost **and** the
+selection charge, and then printing survivors. That reads as one bar. There are two, and the one that
+governs the printed list is the weaker.
+
+The detection-floor line applies the full bar. The survivor gate is `if be > L:` — no selection term.
+A candidate sitting between the two therefore prints as a `SURVIVOR?` line and flips the run verdict
+to `ATTENTION` **without having cleared the multiple-selection charge**, and the JSON `verdict` and
+`survivors` fields carry no qualifier saying so.
+
+The direction matters and is stated in the fix: this over-flags, it does not under-detect. Nothing
+that clears the full bar can be lost this way. The cost is a reader — or a downstream consumer of the
+JSON — treating a shortlist entry as a result.
+
+**Credit where the adjudication placed it, and it is deserved: the code already knows.** It labels
+the tally *MDL-net-positive (pre-selection)*, ends every candidate line with a question mark, and
+heads the margin list *closest approaches (bits-explained − L(C), pre-selection)*. The implementation
+was honest about the two-tier structure and the document was not. The section now carries a
+two-row table naming each bar and where it appears, and says explicitly that the trailing `?` is
+doing real work.
+
+**Census, before → after: 1 → 0.**
+
+### 5. A history section whose two dated bullets are wrong by up to a year (`RP-44ddcb59`, `RP-2bfae150`)
+
+Both were checked against `git log`, not against `HISTORY.md`.
+
+The first dated the section buildout to **2026-03**. This repository has **zero commits in that
+month** — the date census jumps from 2025-08-09 straight to 2026-04-06. The buildout is `37065808`,
+2026-04-06 ("Add hexagram names, trigram analysis, spark lines, Monte Carlo, and CLI flags", 24
+commits that day), and the 29th section arrives at `7d84ffe5`, 2026-05-19.
+
+The second credited a review dated before 2026 with surfacing the trigram name swap bug. The
+trigram-names code was **added** 2026-04-06 and the swap **fixed** 2026-04-07 (`dc489e8c`); a review
+cannot have surfaced a defect in code that did not exist. Care was taken not to over-claim here: the
+repository genuinely does begin 2025-07-11, so a pre-2026 review is not impossible in principle. It
+is refuted for this bullet specifically — only six commits predate 2026-04 and none touches trigram
+names, XOR or null-model framing, the other three items the bullet credits all land 2026-04-08/09
+(`5494ebac`, `32bf7bf5`, `d149bb70`), and `HISTORY.md` frames the entire phase as its "Prelude —
+Before April 10, 2026". Both bullets are redated from git and now cite the commits.
+
+**Census, before → after: 1 → 0 for each.** Registered with their full clauses because bare `2026-03`
+occurs legitimately elsewhere in the corpus — a publication date in `CITATIONS.md`, a Microsoft Learn
+SKU date in `HISTORY.md` — and a bare needle would have fired on both.
+
+### 6. Out of charge: a correction that landed in the code and one document, and missed three sites in this one (`RP-733f9b69`, `RP-e11d6b76`)
+
+This page said `--cast` was not reproducible under `--seed`, and gave the mechanism: the cast path
+returned before the global seed was installed. **That was true and measured when it was written, and
+it stopped being true the same day.** Code batch C2 (`3901097b`, 2026-09-02) hoisted the global-seed
+assignment above the early-dispatch ladder, and `tests.py` now holds the behaviour with
+`CAST_SEED_DETERMINISTIC=1`, verified red against the pre-fix file.
+
+Re-measured here before touching the text, with `python3 roae.py --cast --seed N | sha256sum`:
+three `--cast --seed 42` runs are byte-identical, at
+`d80da293985398e5b0dd2d555495aa8f067d2bbdcb73d518502774db09f31b36`; `--seed 7` gives a different
+casting, `613fa06273d1877b90347f97a5d942c16794efbb07f460e38b76f1f9396c0ae4`; and three unseeded runs
+give three distinct ones. These are digests of program stdout, reproducible from the command above on
+any host with the same `roae.py`; they are not digests of any file in the tree. The behaviour is now
+exactly what a reader would want.
+
+`GUIDE.md` was corrected on the day of the fix and carries a dated history note. **This page carried
+the retired claim at three sites** — the modifier note, the reproducibility list, and the comparison
+table, where it had been compressed to a four-word parenthetical. This was found only because the
+batch restated the sentence while fixing something else, which is the honest account of how it
+surfaced. All three are corrected, and the modifier note now carries a dated history note in the same
+shape `GUIDE.md` uses, rather than deleting the old claim.
+
+The two prose shapes and the table parenthetical were registered as two needles. The third site is
+the reason: it had reformatted the claim into a parenthetical and no longer looked like the claim,
+which is the recurring lesson that a census must hunt the retired *content*, not the defect's shape.
+
+**Census, before → after: 1 → 0 for each shape**, and `GUIDE.md`'s own narration of the same
+correction uses different wording and is correctly not caught.
+
+### Verified still-live before editing
+
+All five charged rows were confirmed live at HEAD against `roae.py` before any edit. **Every line
+number on the charge sheet had drifted** — the file had grown by roughly seventy lines since the
+sheet was written — and every site was located by content. The sheet's `:185-192`, `:167-172`,
+`:216-222`, `:405-407`, `:53-55`, `:41-43` and `:479-484` should be read as identifiers, not
+addresses.
+
+One item on the sheet was checked and found **already correct**, and is recorded as a no-op rather
+than as work: the dependency row asserting `roae.py` is Python-3-stdlib-only. Its imports are
+`argparse`, `cmath`, `json`, `math`, `os`, `random`, `sys`, `time`, `unicodedata`, plus `io`, `re`,
+`subprocess`, `itertools` and `importlib.util` in function scope — every one of them standard
+library. `wkhtmltopdf` and `dot` are invoked through `subprocess` and skipped when absent, exactly as
+the row says.
+
+### What was not changed, and why
+
+- **The JSON `survivors` and `verdict` fields still carry no pre-selection marker.** The adjudication
+  offered two remedies for §4 — apply the charge in the survivor gate, or state the two-tier reality
+  in the document. This batch owns the document and took the documentation remedy. Stamping the
+  applied bar into the JSON record is a `roae.py` change and is left to the code lane, which is the
+  only place it can be made correctly.
+- **`roae.py`'s `--help` text carries the same grammar wording this batch retracted from the
+  document.** It is outside GATE 3's markdown corpus and outside this batch's ownership, so it is
+  flagged rather than fixed. It is a real sibling: the retraction is incomplete until it lands.
+- **The U2 grammar was not escrowed.** The adjudication named creating an escrow row as an
+  alternative to scoping the claim. Hashing the grammar definition block is an operator action on
+  operator-held material, and the honest scoping was available without it, so the scoping was taken
+  and the escrow option left open. The page now states the gap, which is what makes the option
+  legible.
+- **No private filename was newly cited.** The one private artifact this batch points at,
+  `PREREG_H1_H3_TEST_2026_07_26.md`, is already named in the public escrow page and is cited by
+  routing the reader there rather than by asserting anything new about it.
+
+**Attribution.** Located and corrected by this lane (Claude, Opus 5) under operator direction; the
+five charges were raised by Codex reviewer V2-F49 and adjudicated in the V2 batch. The
+thirteenth randomized section, the `--cast` staleness and its three sites were found by this batch
+while verifying the charges, not by the review.
