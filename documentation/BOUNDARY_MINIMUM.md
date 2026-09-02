@@ -4,7 +4,7 @@
 
 **Revision note (2026-07-04).** The 2026-06-11 version of this document reported the greedy boundary minimum as "4 at 10T → 5 at 100T → 4 at 560T (non-monotone)". That was a survivor-counting error, not a property of the data: the "4 at 560T" counted greedy steps until **≤ 1 non-KW survivor** remained, while the "5 at 100T" counted steps until **0** remained — and this document's own definition requires reduction to {KW} (zero non-KW). The canonical 560T analyze log (§[6]) in fact runs five steps, `{4, 27, 25, 21}` leaving one non-KW survivor and boundary 1 eliminating it: `Boundaries chosen: { 1 4 21 25 27 }` — identical to 100T. The previously-published "ordered vs unordered minimum" distinction also dissolves: boundary conjunction is a commutative intersection, so no ordering of 4 boundaries can succeed where the unordered 4-set fails (§[8] = 0 at 100T/560T already implied the minimum exceeds 4). We are correcting rather than silently revising; the prior text remains in git history.
 
-**Result:** The number of boundary constraints required to uniquely identify King Wen among C1 ∩ C2 ∩ C3 canonical orderings is **4 at d3 10T and 5 at both d3 100T and d3 560T** — monotone non-decreasing in enumeration depth, with the set `{1, 4, 21, 25, 27}` (identical membership and greedy order) at both canonical scales. No 3-subset works at any scale (§[7]), and no 4-subset works at ≥100T (§[8] = 0), so 5 is exact at 100T/560T.
+**Result:** The number of boundary constraints required to uniquely identify King Wen among **C1–C5** canonical orderings is **4 at d3 10T and 5 at both d3 100T and d3 560T** — monotone non-decreasing in enumeration depth, with the set `{1, 4, 21, 25, 27}` (identical membership and greedy order) at both canonical scales. No 3-subset works at any scale (§[7]), and no 4-subset works at ≥100T (§[8] = 0), so 5 is exact at 100T/560T.
 
 **The single hardest-to-kill King Wen impostor is the same nameable record at every tested depth:** rec#330177707, King Wen with the pair blocks at positions 2 and 3 interchanged (hexagrams 3/4 ↔ 5/6, Zhun/Meng ↔ Xu/Song). It survives {4, 21, 25, 27} because it matches KW at every pinned position; only a front-zone boundary (1, 2, or 3) eliminates it. The 5th boundary in the identifying set exists solely for this one twin (§[6] count = 1 + §[24] membership check).
 
@@ -37,13 +37,15 @@ The 742M figure cited below is the pre-format-v1 (pre-2026-04-19) hash-table-bug
 
 ## Result table
 
-| Dataset | Greedy-ordered min size (A) | Greedy set | Unordered working 4-sets (B) | {25, 27} in greedy min? |
-|---|---:|---|---:|:---:|
-| d2 10T (286M) | **4** | `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}` | 4 | ✓ |
-| d3 10T (706M) | **4** | `{25, 27} ∪ two-of-{1..6}` | 8 | ✓ |
-| 742M (historical) | — | — | 4 | — |
-| d3 100T (3.43B) | **5** | `{1, 4, 21, 25, 27}` | 0 | ✓ |
-| **d3 560T (10.5B)** | **5** | **`{4, 27, 25, 21, 1}`** (cumulative non-KW survivors 51,404 → 481 → 14 → 1 → 0) | **0** | **✓** |
+| Dataset | Greedy-ordered min size (A) | Greedy set (§[6], in greedy order) | Working 4-sets (§[8], exhaustive over C(31,4)) | (B) count | {25, 27} in greedy set? |
+|---|---:|---|---|---:|:---:|
+| d2 10T (286M) | **4** | `{2, 27, 25, 21}` | `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}` — exactly 2 × 2 = 4 sets | 4 | ✓ |
+| d3 10T (706M) | **4** | `{4, 27, 25, 1}` | exactly these 8: `{2,3,25,27}` `{3,4,25,27}` `{3,5,25,27}` `{3,6,25,27}` `{2,4,25,27}` `{2,5,25,27}` `{1,3,25,27}` `{1,4,25,27}` | 8 | ✓ |
+| 742M (historical) | — | — | — | 4 | — |
+| d3 100T (3.43B) | **5** | `{4, 27, 25, 21, 1}` | none | 0 | ✓ |
+| **d3 560T (10.5B)** | **5** | **`{4, 27, 25, 21, 1}`** (cumulative non-KW survivors 51,404 → 481 → 14 → 1 → 0) | **none** | **0** | **✓** |
+
+⚠ **[CORRECTED 2026-09-02 — column A and column B held two different objects and the "Greedy set" column carried both. §[6] selects a **single** ordered set per dataset; §[8] returns a **family**. The two 10T rows previously showed the §[8] family under the greedy heading: the d2 greedy walk picks `2 → 27 → 25 → 21`, the d3 10T walk `4 → 27 → 25 → 1`. Separately, the d3 10T family was published as a shorthand union of `{25, 27}` with any two of `{1..6}`, admitting C(6,2) = 15 sets and therefore advertising **7 that do not work** (`{1,2}` `{1,5}` `{1,6}` `{2,6}` `{4,5}` `{4,6}` `{5,6}`, each ∪ `{25, 27}`); the 8 that do are listed above verbatim from `runs/20260418_10T_d3_fresh/analyze_output.log.gz` §[8]. The d2 shorthand is exact and unchanged. See [CORRECTIONS.md](CORRECTIONS.md).]**
 
 §[7] at d3 560T proves no 3-tuple of boundaries works (best `{4, 25, 27}` leaves 15 survivors, KW-inclusive), and §[8] = 0 proves no 4-set works, so **5 is the exact minimum at both canonical scales (100T, 560T)**.
 
