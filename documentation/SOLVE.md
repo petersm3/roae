@@ -565,7 +565,7 @@ No single feature or combination of features uniquely identifies King Wen among 
 
 ### Additional findings
 
-- **Ending pair is a choice.** Four different pairs can validly end the sequence. King Wen's choice (䷾ #63 / ䷿ #64) is the most common (35% of solutions) but not forced. The starting orientation (䷀ #1 before ䷁ #2) is part of C4's **definition** — enforced by the enumerator, classically attested (Xugua), and NOT forced by the other constraints (see §Theorem 6 — RETRACTED below).
+- **Ending pair is a choice.** Four different pairs can validly end the sequence. King Wen's choice (䷾ #63 / ䷿ #64) is the most common (35% of solutions) but not forced. The starting orientation (䷀ #1 before ䷁ #2) is part of C4's **definition** — enforced by the enumerator, this project's own convention rather than a classical inheritance, and NOT forced by the other constraints (see §Theorem 6 — RETRACTED below). ⚠ **[CORRECTED 2026-09-01 — this line previously offered the *Xugua* as attesting the orientation as well. It does not: its opening sequences *the pair* before the myriad things, and 天地 is a compound, not an ordering of Heaven over Earth. C4's *pair choice* is the classically attested part; the within-pair order is ours by definition. Narrowed in [METHODS.md](../reports/METHODS.md) §"Constraint set" on 2026-08-30; see §"What C4's orientation actually rests on" below.]**
 - **Within-pair orientation has no rule.** Which hexagram comes first within each pair follows no consistent pattern — not yang count, not binary value, not trigram weight. *(An earlier version called it "a free choice at each pair"; that gloss is retracted.)* TR-1 §7 measured the freedom and found it **coupled, not independent**: ≈20.7 bits, not 31, with only 9 of the 31 pairs flippable individually.
 - **Complement proximity detail.** 9 of 32 complement pairs sit directly adjacent in the sequence (distance 1). The farthest apart are ䷂ #3 and ䷱ #50 (distance 47). The average is 12.1, vs ~21.7 for random orderings.
 
@@ -661,9 +661,18 @@ theorem. Machine-checked in Lean 4 (`comp_symmetry_c1_c2_c3_c5`, `c4ok_breaks_un
 `orientation_not_forced` in [lean/KingWen.lean](../lean/KingWen.lean); kernel-only trust base
 `[propext, Quot.sound]`, no native_decide).
 
-**What C4's orientation actually rests on.** Definition plus classical attestation — the *Xugua*
-commentary opens Heaven-then-Earth (Qian before Kun), centuries before any enumeration. That is an
-honest, sufficient basis for a definitional convention, and it needs no theorem. The solver's
+**What C4's orientation actually rests on.** Definition alone — a convention this project fixed,
+not an inheritance it found. ⚠ **[CORRECTED 2026-09-01 — this subsection previously gave a two-part
+answer, adding a classical attestation to the definition and reading the *Xugua*'s opening as
+evidence for Qian before Kun. That reading does not hold: 有天地，然後萬物生焉 sequences *the pair* before the myriad things, and
+天地 is a compound, not an ordering of Heaven over Earth within it. What the classical record does
+attest is C1, the pairing rule — 孔穎達《周易正義·序卦傳疏》 gives 二二相耦，非覆即變, "they pair
+two-by-two; if not inverted, then complemented" — together with C4's *pair choice*, that
+{Qian 63, Kun 0} opens, which is unaffected and remains classically attested. The within-pair order
+is ours by definition. The narrowing landed in [METHODS.md](../reports/METHODS.md)
+§"Constraint set" on 2026-08-30; this file missed the propagation.]** A convention stated as a
+convention is an honest, sufficient basis for a definitional constraint, and it needs no theorem —
+but it is a convention, not a pedigree. The solver's
 `seq[0] = 63; seq[1] = 0` is a **definitional commitment** implementing oriented C4, not an
 optimization licensed by a proof. All published counts and shas are unaffected: they count the
 system with C4 as defined (oriented), and do so correctly. [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)'s

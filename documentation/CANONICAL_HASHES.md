@@ -15,6 +15,18 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 > recipe (solver commit, `SOLVE_NODE_LIMIT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, partition depth). A
 > reader who re-derives and matches the sha needs nothing private; the archived bytes exist so the
 > operator can re-attest without re-deriving.
+>
+> **Extension is not on that public path, and this note previously did not say so** (added
+> 2026-09-01). *Verifying* a canonical needs nothing private — that is the claim above and it is
+> unchanged. *Extending* one to a deeper budget does: the recipe in
+> [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §"Concrete extension recipe" consumes
+> `shards.tar.gz`, `dfs_state.tar.gz` and `budget.tar.gz` from exactly the operator-held
+> `solver-data-westus3:/…` and `canonical-archive/…` locations named above, and those are storage
+> locations rather than public URLs. A third party who wants a deeper canonical without operator
+> cooperation must therefore re-run the parent campaign from scratch at the deeper budget — which is
+> sound and fully specified here, but is not the incremental path the extension methodology
+> describes. The distinction between "not required to verify" and "required to extend" is one this
+> boundary note did not previously draw.
 
 ## Quick reference (deepest first)
 
@@ -80,7 +92,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 - **Established:** 2026-06-08 by the 560T canonical campaign
 - **King Wen found:** YES
 
-**Campaign details:** D128als_v7 Spot westus3 enum, 4 TB Premium SSD for shards, 171.5 h wall time across 5 weekday Spot evictions (all in a tight 07:12-07:49 PT window — see [HISTORY.md](HISTORY.md) "June 1-8, 2026" entry). 158,364/158,364 cells scanned (100%), 65,281 cells produced solutions (41.2% yield). Merge: D16als_v7 Standard, external chunked-sort on Premium scratch, 18 h 42 m wall. 43.88 B raw pre-dedup records → 10.525 B unique canonical (4.17× dedup ratio).
+**Campaign details:** D128als_v7 Spot westus3 enum, 4 TB Premium SSD for shards, 171.5 h wall time across 5 weekday Spot evictions (all in a tight 07:12-07:49 PT window — see [HISTORY.md](HISTORY.md) "June 1-8, 2026" entry). 158,364/158,364 cells scanned (100%), 65,281 cells produced solutions (41.2% yield). Merge: D16als_v7 Standard, external chunked-sort on Premium scratch, 18 h 42 m wall. 43.88 B pre-merge shard records (per-sub-branch canonical) → 10.525 B unique canonical (4.17× cross-sub-branch rediscovery ratio — NOT an orientation-dedup ratio) ⚠ **[LABEL CORRECTED 2026-08-28 — this clause previously called the pre-merge total a count of raw records and its ratio a deduplication ratio. `solve.c:39-61` hashes and dedups on pair identity with the orient bit masked, and CLEARS each thread's table after every sub-branch, so a shard record is a per-sub-branch CANONICAL key rather than a raw oriented leaf. The record total is therefore a LOWER BOUND on raw leaves visited, and the ratio measures cross-sub-branch rediscovery under the depth-3 partition, not orientation multiplicity. Both values are unchanged, and the old-vs-new run comparison above is unaffected because it compares two totals of the same kind. The reasoning is set out at [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7 ("Worked example — the 560 T canonical campaign"), whose pre-merge shard-record row carries the same marker.]**
 
 **Power-law fit (3-point across 11.2T → 100T → 560T):** records ∝ T^α with α ≈ 0.67 (3-point log-log fit; pairwise legs 0.69 and 0.65). 1120T extension projection ≈ 16.7 B records — a **projection that will not be measured**: the 1120T extension is not planned (2026-08-01). The 2026-06-14 three-point per-cell analysis confirms the record sets are **strictly nested** under pair-identity keying (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations; cells yielding 9,799 → 10,062 → 10,618) and grow by **deepening** of existing productive cells (cells first appearing at a larger scale add only ~0.2% → ~0.5% of records — under pair-identity keying, the granularity at which the canonical dedups; under enumeration-cell keying the picture inverts, with 60.4% of 560T's records from cells empty at 11.2T — see [HISTORY.md](HISTORY.md)'s June-11 #126 entry; both keyings are stated there); every sampled sub-branch is BUDGETED, none EXHAUSTED, so the budgeted enumeration cannot state the total count of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate now puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), meaning even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space. See [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) and [HISTORY.md](HISTORY.md) §"3-point per-cell scaling trajectory". ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 
@@ -285,7 +297,32 @@ Frozen by operator directive 2026-05-24 (`feedback_v2_closed_2026_05_24`). v2's 
 
 This section exists because of the 2026-05-25 100B drift bisect (six-enum study on D32 Spot bisect-100b; full report at `petersm3/roae-private:100B_DRIFT_BISECT_RESULTS_2026_05_25.md`). Three findings make sub-1T scales unsuitable as cross-build verification gates:
 
-1. **All realistic canonical scales are BUDGETED at the per-sub-branch level** (per `petersm3/roae-private` memory `project_single_branch_exhaustion`, exhausting the smallest cell needs ≥31T nodes; 158,364 cells means total budget for true EXHAUSTED is ≥4,900T, infeasible). At 100B (per-cell 631K), 1T (6.3M), 11.2T (70.7M), 100T (631M), 560T (3.5B), every cell hits BUDGETED. Per solve.c's `PARTITION-INVARIANCE UNDER EXHAUSTIVE RUNS` docstring (locate by section title; solve.c:246-263 as of 2026-08-09), the SET of records found before BUDGETED depends on the per-sub-branch budget — change the partition, and so the budget denominator, and the record set and sha change with it. The stronger claim — that a change to the *prune set* also changes which records are found before per-cell budget exhausts — is **not** made by that docstring; the in-document evidence for it is §*v2 lineage — CLOSED 2026-05-24* above, where v2's prune stack produces strictly more records than v1 at the same node budget.
+1. **All realistic canonical scales are BUDGETED at the per-sub-branch level.** Under the uniform per-cell budget every canonical uses, a run can only report EXHAUSTED if the per-cell budget is at least as large as the *largest* cell's search tree — so a measured lower bound on any *one* cell is a lower bound on the per-cell budget, and multiplying by the cell count bounds the total. The one cell measured directly needs **≥31 × 10¹² nodes** (provenance below), so the total budget for a true EXHAUSTED d3 run is **≥ 158,364 × 31 × 10¹² = 4.909 × 10¹⁸ nodes ≈ 4,900,000 T** — infeasible. ⚠ **[CORRECTED 2026-09-01 — this read "exhausting the smallest cell needs ≥31T nodes; 158,364 cells means total budget for true EXHAUSTED is ≥4,900T", printing the wrong product directly beside the two factors it is the product of. `158,364 × 31 × 10¹² = 4.909 × 10¹⁸` — that is ~4,900,000 T, not 4,900 T, and the published threshold understated exhaustion by a factor of ~1,002. The consequence is not cosmetic: at ≥4,900 T the deepest canonical (560 T) reads as 8.75× short of exhaustion, when in fact `4.909 × 10¹⁸ / 560 × 10¹² =` **8,767× short**. The corrected value is the one the source probe itself recorded. [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §"Why budget matters" carried the same understated figure and is corrected in the same pass. The phrase "the smallest cell" is corrected too — the probe measured *a* cell drawn from the smallest first-level *branch*; it never established that any cell is the partition's minimum, and the product above does not need it to, because uniform budgeting keys off the largest cell, not the smallest.]** At 100B (per-cell 631K), 1T (6.3M), 11.2T (70.7M), 100T (631M), 560T (3.5B), every cell hits BUDGETED. Per solve.c's `PARTITION-INVARIANCE UNDER EXHAUSTIVE RUNS` docstring (locate by section title; solve.c:246-263 as of 2026-08-09), the SET of records found before BUDGETED depends on the per-sub-branch budget — change the partition, and so the budget denominator, and the record set and sha change with it. The stronger claim — that a change to the *prune set* also changes which records are found before per-cell budget exhausts — is **not** made by that docstring; the in-document evidence for it is §*v2 lineage — CLOSED 2026-05-24* above, where v2's prune stack produces strictly more records than v1 at the same node budget.
+
+   **Provenance of the ≥31 × 10¹² input — single-cell exhaustion probe, 2026-05-17.** Stated here so
+   the product above is auditable from published material rather than resting on a private citation.
+   A depth-3 cell was picked from `B[25,1]` — the smallest first-level branch in the v2 11.2T
+   canonical, 23,076 records — and specifically one that had hit BUDGETED there having found 0
+   solutions, i.e. a *candidate* for being cheap to exhaust. It is addressable directly:
+
+   ```bash
+   ./solve --sub-branch 25 1 1 0 3 1     # B[25,1] → (p3=1, o3=0) → (p4=3, o4=1)
+   ```
+
+   Run on a v2-bundled build (`1b32270`, same prune lineage as the v2 11.2T canonical commit
+   `9d00c48`) with 8 threads, at `SOLVE_NODE_LIMIT` = 1B, then 10B, then 100B. **All three rungs
+   returned BUDGETED**, with identical task statistics: the cell decomposes into **2,488** depth-5
+   parallel work tasks; the 8 threads each claimed one at startup and, after 12.5 × 10⁹ nodes apiece
+   at the 100B rung, **not one had finished its single task**; the remaining 2,480 tasks were never
+   started; 0 C3 leaves stored and 0 solutions found at every rung. **Taking the 2,480 untouched
+   tasks to be comparable in size to the 8 sampled** — they share the depth-5 prefix structure —
+   gives cell tree size ≥ 2,488 × 12.5 × 10⁹ ≈ **31 × 10¹² nodes**. That comparability step is the
+   one soft link in the chain, and it is load-bearing: without it the strictly-measured floor is only
+   the 8 sampled tasks, > 100 × 10⁹ nodes. **No upper bound was obtained** — none of the 8 sampled
+   tasks completed, so the true size may be far larger, and the bound is specific to that build's
+   prune set (stronger prunes shrink the same tree). Full writeup:
+   `petersm3/roae-private:SINGLE_CELL_PROBE_RESULT_2026_05_17.md` (operator-attested, per the access
+   boundary above; every number quoted here is reproducible from the command shown).
 2. **Even DFS-neutral code changes can flip sub-canonical sha.** The bisect found commit `d683794` (Phase E.2 + defense-in-depth, May 15) flips 100B sha from `61d2caa5…` (pre-d683794) to `30b52336…` (post-d683794). d683794's diff is 100% resume-gated assertions + new subcommand handlers; none reaches the fresh-enum DFS path. The likely mechanism is LTO compiler-layout effects from added (unreachable-at-runtime) code subtly changing OpenMP thread scheduling or branch-prediction timing. **You cannot predict from source-reading whether a commit will flip 100B sha — only empirically.**
 3. **~~Imperfect-resume during long-running generation contaminates the sha.~~ CORRECTED 2026-08-08 — this item was FALSE and is retracted; see [CORRECTIONS.md](CORRECTIONS.md) CX-34.** It read: *"The May-15 100B archive `f1709ab09486ba…` does not reproduce from its own baseline commit `3258f4c` on a clean re-run; same pattern as deprecated `c34390c0` (5.6T) and `f7b8c4fb` (10T)."* **It does reproduce.** `f1709ab0…` was regenerated from `3258f4c` — the very commit named here — and from three further code states across two lineages, all at 12,386,121 records (see §Reinstated below and `HISTORY.md`'s 2026-05-16 re-derivation, which recorded a byte-identical match at the time). The 2026-05-25 non-reproduction ran a **different decomposition** (`SOLVE_DEPTH=3`, `SOLVE_PER_SUB_BRANCH_LIMIT=631545`, ~158K shallow sub-branches, 27,664,734 records) from the engine's auto-divide (3,030 sub-branches × 33,003,300). A configuration difference, not contamination. **The sibling deprecations `c34390c0` and `f7b8c4fb` are NOT affected** — each cites a record-count delta against a named reproducible replacement, and both stand.
 
@@ -378,18 +415,30 @@ The other variables shown above are **operational** — they affect runtime / sc
 
 ### PSB-formula caveat
 
-The published `SOLVE_PER_SUB_BRANCH_LIMIT` values above are NOT all exactly `floor(SOLVE_NODE_LIMIT / 158,364)`:
+The published `SOLVE_PER_SUB_BRANCH_LIMIT` values above are NOT all exactly `floor(SOLVE_NODE_LIMIT / 158,364)` — and where they do coincide, the coincidence is arithmetic luck, not a property of the formula:
 
-| Scale | Recipe PSB | `floor(NL/158,364)` | Off by |
-|---|---:|---:|---:|
-| 5.6T | 35,361,598 | 35,361,598 | 0 |
-| 100T | 631,456,644 | 631,456,644 | 0 |
-| 560T | 3,536,157,207 | 3,536,157,207 | 0 |
-| 11.2T | 70,723,196 | 70,723,144 | +52 |
-| 10T | 63,146,557 | 63,146,544 | +13 |
-| 1T | 6,315,458 | 6,315,272 | +186 |
+| Scale | `SOLVE_NODE_LIMIT` | Recipe PSB | `floor(NL/158,364)` | Off by |
+|---|---:|---:|---:|---:|
+| 1T | 1000000000000 | 6,315,458 | 6,314,566 | +892 |
+| 5.6T | 5600000000000 | 35,361,598 | 35,361,572 | +26 |
+| 10T | 10000000000000 | 63,146,557 | 63,145,664 | +893 |
+| 11.2T | 11200000000000 | 70,723,196 | 70,723,144 | +52 |
+| 100T | 100000000000000 | 631,456,644 | 631,456,644 | 0 |
+| 560T | 560000000000000 | 3,536,157,207 | 3,536,157,207 | 0 |
 
-The 11.2T / 10T / 1T published PSBs are the empirically-correct values — they're what the original enum runs used to produce the published canonical shas byte-identically across many independent witnesses. The original solve.c may have used a slightly different per-cell-budget computation (perhaps including per-thread checkpoint overhead, or a different rounding mode), or those rows may be documentation typos that have been faithfully reproduced across builds because everyone uses the published recipe. Either way: **use the published value**.
+Every cell of that table — formula column and off-by column, all six rows — is reproduced by this one command (`NL`, `PSB` and the scale label are the only inputs; both computed columns are derived):
+
+```
+for p in 1T:1000000000000:6315458 5.6T:5600000000000:35361598 10T:10000000000000:63146557 11.2T:11200000000000:70723196 100T:100000000000000:631456644 560T:560000000000000:3536157207; do IFS=: read -r s nl psb <<<"$p"; f=$((nl/158364)); printf '%-6s %12d %12d %+d\n' "$s" "$psb" "$f" "$((psb-f))"; done
+```
+
+⚠ **[CORRECTED 2026-09-01 — the `floor(NL/158,364)` column was wrong in three of six rows, and the off-by column wrong in the same three. It read 5.6T `35,361,598` / off by `0`, 10T `63,146,544` / off by `+13`, and 1T `6,315,272` / off by `+186`; the correct floors are `35,361,572`, `63,145,664` and `6,314,566`, off by `+26`, `+893` and `+892`. The 100T, 560T and 11.2T rows were already right and are unchanged. Each corrected value was derived twice independently — shell integer division (the command above) and a bracketing multiplication confirming `158,364 × floor ≤ NL < 158,364 × (floor+1)` — and the two agree on all six rows.**
+>
+> **Why this mattered more than the digits.** No canonical is at risk: no sha, record count or file size depends on this table, and every published PSB in §Reproducibility parameters is unchanged. The error also pointed the safe way — the real divergence is *larger* than what was printed, which strengthens rather than weakens this section's conclusion, and that is very likely why it survived so long. But the 5.6T row asserted the formula agrees **exactly**, and that is the one failure mode a caveat cannot have. A reader who trusted it was told the shortcut is safe at one scale where it is in fact off by 26 nodes per cell — a different per-cell budget, therefore a different walk, therefore a different sha. A caveat that mis-states its own arithmetic is worse than no caveat, because it converts "do not use this formula" into "the formula is fine here."
+>
+> **The two exact rows are not an exception to the rule.** 100T and 560T do land exactly on `floor(NL/158,364)`; that is now the only claim of agreement this table makes, and it is verified above. It is not a licence to use the formula at those scales. The formula misses at four of the six published scales, including 11.2T which sits between the two exact ones, so exactness at 100T and 560T predicts nothing about any other scale — including any future one. **Derive nothing from this column. Copy the recipe PSB.**]**
+
+The 1T / 5.6T / 10T / 11.2T published PSBs are the empirically-correct values — they're what the original enum runs used to produce the published canonical shas byte-identically across many independent witnesses. The original solve.c may have used a slightly different per-cell-budget computation (perhaps including per-thread checkpoint overhead, or a different rounding mode), or those rows may be documentation typos that have been faithfully reproduced across builds because everyone uses the published recipe. Either way: **use the published value**.
 
 ## Solver version
 

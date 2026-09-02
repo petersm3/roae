@@ -2,6 +2,14 @@
 
 Every claim this project published and later changed, in one place.
 
+> ⚠ **Scoped in part, 2026-09-01 — see item 4 of the 2026-09-01 `rev_V2-F14` entry at the foot of this file.**
+> This subtitle promises a completeness the file deliberately does not have: `:520` excludes **C4
+> qualifier** changes, which live in the inventory rather than here, and `:521` records that silent
+> edits leaving no trace cannot be found by any sweep. Both exclusions are correct and are stated
+> below — 517 lines below — so this is a placement defect, not a false claim. Read the promise as
+> "except C4 qualifier changes and silent edits, both scoped below." The original wording is
+> preserved: this ledger is append-only.
+
 This file follows the [HISTORY.md](HISTORY.md) pattern: an honest record kept *out* of the technical
 prose, so that the technical prose can be about the mathematics and the record can be about what we
 got wrong. It is **append-only**. Entries are never edited to look better and never deleted; if an
@@ -217,6 +225,13 @@ reintroduce the exact strings that `scripts/doc_gates.sh retract` exists to keep
 
 ---
 
+> ⚠ **Corrected in part, 2026-09-01 — see item 4 of the 2026-09-01 entry at the foot of this file.**
+> The retraction below stands. One clause in its `NOW:` bullet does not: "C4's orientation is
+> definitional and classically attested (Xugua)". The Xugua does **not** attest the within-pair order —
+> `reports/METHODS.md:24-33`, narrowed 2026-08-30, records that 有天地，然後萬物生焉 sequences the pair
+> before the myriad things and that C4's orientation is ours by definition. C4's *pair choice* is the
+> classical part. The original wording is preserved: this ledger is append-only.
+
 ### CX-09 · 2026-07-26 · C1 · "Theorem 6 (forced orientation)" (`RP-460f7742`)
 
 The most serious retraction in this record.
@@ -265,6 +280,16 @@ The most serious retraction in this record.
   makes it a *test*.
 
 ---
+
+> ⚠ **Corrected in part, 2026-09-01 — see item 1 of the 2026-09-01 entry at the foot of this file.**
+> Two statements below are wrong. The step-3 information gain is **larger** than the step-1 divisor
+> (11.10 bits against 10.38, `reports/TR4_SIZE_OF_THE_SPACE.md:253`), not smaller — and that reversed
+> inequality is what breaks the divide-by-maximum argument, where a genuinely smaller later gain would
+> have left it standing. And the "heuristic floor" label, together with the CLAIMS_DECIDED wording
+> quoted below, was superseded the **same day** by TR-4 v1.16, which removed the word rather than
+> re-qualifying it; `documentation/CLAIMS_DECIDED.md:34` now reads "NOT a floor of any kind". The
+> withdrawal this entry records still stands. The original wording is preserved: this ledger is
+> append-only.
 
 ### CX-11 · 2026-08-01 · C1 · the information-theoretic floor (`RP-3aafb254`, `RP-daf28670`, `RP-98c566a5`, `RP-527b3fcc`)
 
@@ -1102,6 +1127,13 @@ silence — which is why it is named here at all.
 
 ---
 
+> ⚠ **Corrected in part, 2026-09-01 — see item 5 of the 2026-09-01 entry at the foot of this file.**
+> "Both budget exactly 100B nodes" is arithmetically false: 158,364 × 631,545 = 100,013,992,380 and
+> 3,030 × 33,003,300 = 99,999,999,000, a 0.014% difference, and neither equals 100B. The comparison is
+> a partition-shape comparison, not an exactly budget-matched one. Everything else in this entry —
+> the four-build reproduction, the retraction of the deprecation, and shape as the mechanism — stands.
+> The original wording is preserved: this ledger is append-only.
+
 ### CX-34 · 2026-08-08 · C1 · the 100B canonical `f1709ab0…` was deprecated as a resume artifact; it reproduces exactly, and the deprecation is retracted (`RP-adb0fbfa`, `RP-d487703e`)
 
 - **Documents:** [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated canonicals (the `d3 100B` row),
@@ -1167,6 +1199,15 @@ silence — which is why it is named here at all.
 
 ---
 
+> ⚠ **Corrected in part, 2026-09-01 — see item 3 of the 2026-09-01 `rev_V2-F14` entry at the foot of this file.**
+> The "What follows" bullet states two unhedged universals — that the published line **always was**
+> append-only, and that **no reader could ever have observed** the broken invariant — while the
+> qualifier that governs them sits in the next bullet, "Residual limitation", which rates the same
+> evidence as very strong but **not a proof**. The entry does not bury its limitation; it headlines
+> it. The defect is structural: the hedge is never attached to the conclusion, so a reader quoting the
+> conclusion carries away the universals alone. The 404 table, the positive control and the reflog
+> check are unaffected. The original wording is preserved: this ledger is append-only.
+
 ### CX-35 · 2026-08-08 · C2 · CX-29's one unconfirmed assumption, measured: the excised commits never reached the remote at all
 
 - **Documents:** [CORRECTIONS.md](CORRECTIONS.md) — CX-29, its "Stated limitation" bullet and the
@@ -1214,6 +1255,15 @@ silence — which is why it is named here at all.
   hedge is why the correction was findable at all.
 
 ---
+
+> ⚠ **Corrected in part, 2026-09-01 — see item 2 of the 2026-09-01 `rev_V2-F14` entry at the foot of this file.**
+> The corrected coverage figure below is stated as "≈1 part in 7.81×10²³", but its denominator is
+> `31!` — the **upper** end of this entry's own bounds — so it is a **bound, not an estimate**, and it
+> is offered six lines after the entry declines to give a point estimate. Since the true population
+> P ≤ 31!, coverage is **at least** 1 part in 7.81×10²³
+> (`python3 -c "import math; print(math.factorial(31)/1.0525e10)"` → 7.8127e+23). The withdrawal, the
+> bounds and the qualitative verdict are unaffected. The original wording is preserved: this ledger is
+> append-only.
 
 ## 2026-08-24 — the "≈3×10³⁷ distinct canonical orderings" figure is WITHDRAWN
 
@@ -1280,6 +1330,15 @@ record of earlier corrections: `CORRECTIONS_INVENTORY.tsv:584`, `CITATIONS.md:87
 > with the full 19-site sweep and the private-records audit. **Both stay.** That two
 > divergent copies of an append-only ledger could exist at all is itself the defect
 > recorded as the branch-documentation drift.
+
+> ⚠ **Corrected in part, 2026-09-01 — see item 2 of the 2026-09-01 `rev_V2-F14` entry at the foot of this file.**
+> The corrected coverage figure below is stated as "≈1 part in 7.81×10²³", but its denominator is
+> `31!` — the **upper** end of this entry's own bounds — so it is a **bound, not an estimate**, and it
+> is offered six lines after the entry declines to give a point estimate. Since the true population
+> P ≤ 31!, coverage is **at least** 1 part in 7.81×10²³
+> (`python3 -c "import math; print(math.factorial(31)/1.0525e10)"` → 7.8127e+23). The withdrawal, the
+> bounds and the qualitative verdict are unaffected. The original wording is preserved: this ledger is
+> append-only.
 
 ## 2026-08-23 — the "≈3×10³⁷ distinct canonical orderings" figure is WITHDRAWN
 
@@ -1584,6 +1643,13 @@ use. Codex is **acknowledged**, not credited as an author.
 
 ---
 
+> ⚠ **Corrected in part, 2026-09-01 — see item 5 of the 2026-09-01 `rev_V2-F14` entry at the foot of this file.**
+> "The 2026-08-28 entry above corrected `CRITIQUE.md:137`" points at nothing: `CRITIQUE.md:137`
+> occurs in this file only at `:1655` and `:1681`, **both inside this entry**, and no earlier
+> 2026-08-28 entry treats the C2∩C3 ceiling. The pointer should be a self-reference. The sampler, the
+> marginals and the ~11% result are unaffected. The original wording is preserved: this ledger is
+> append-only.
+
 ## 2026-08-28 — the C2∩C3 joint, reproduced independently: the product is exceeded by ~11%
 
 The 2026-08-28 entry above corrected `CRITIQUE.md:137`'s "rough **ceiling**" on reasoning alone — a
@@ -1698,6 +1764,13 @@ never pushed** — the error has not been published.
 
 ---
 
+> ⚠ **Corrected in part, 2026-09-01 — see item 6 of the 2026-09-01 `rev_V2-F14` entry at the foot of this file.**
+> "No such author exists" (`:1797`) is a claim about the world; what the evidence establishes is that
+> **this paper's** author is 管小思 and that the printed form was a romanisation collision. The same
+> over-reach recurs at `:1803-1804`, where the recorded cost of the error infers nonexistence from absence
+> of search results. The bibliographic correction, the dates and the 1995 paper are unaffected. The
+> original wording is preserved: this ledger is append-only.
+
 ## 2026-08-28 — a firstness claim we had already ruled false stayed live for four weeks, and an author's name was wrong
 
 Two published errors in `CITATIONS.md`, found the same day by a review lens pointed at novelty
@@ -1744,6 +1817,17 @@ novelty language from outside; the corrections and the premise analysis were der
 reviewer is **acknowledged**, not credited as an author.
 
 ---
+
+> ⚠ **Corrected in part, 2026-09-01 — see item 7 of the 2026-09-01 `rev_V2-F14` entry at the foot of this file.**
+> The sentence below stating that the shipped `sat.py` **has no target for this pair** was **false when
+> it was committed**. `python3 sat.py --emit-cnf five-sub-gender+ccn4 out.cnf` builds the pair on the
+> unmodified shipped file (`vars=7035 clauses=243175`, 0.74 s); `ccn4` is Schulz S25-28 (`sat.py:78`)
+> and the generic handler is `sat.py:612-615`, landed in `36a78482` on **2026-07-04**, eight weeks
+> before this entry. The entry's own scratch-copy counts four lines below are byte-for-byte what the
+> shipped file emits. The fourth minimal core, its certificates and the control run are unaffected,
+> and the entry's other explanation — that prior reviews checked the three named pairs instead of
+> enumerating the lattice — is correct and is the real one. The original wording is preserved: this
+> ledger is append-only.
 
 ## 2026-08-28 — "three minimal two-rule cores" was an undercount: there are four
 
@@ -1808,6 +1892,16 @@ a gate reads.
 re-verified the harness count by execution and the Wilhelm claim against the shipped tree.
 
 ---
+
+> ⚠ **Corrected in part, 2026-09-01 — see item 3 of the 2026-09-01 entry at the foot of this file.**
+> The candidate bar's **sidedness was never frozen**: the pinned freeze
+> (`git show 2d19a3f:documentation/CRITIQUE.md`, line 388; `documentation/CRITIQUE.md:571` at HEAD)
+> attaches "two-sided" to the *notable* bar only and does not contain the < 10⁻⁴ figure at all, as
+> TR-10's own abstract now records. `rotinv`'s demotion is correct under the two-sided convention
+> **adopted uniformly on 2026-08-28**, not by preregistration, so "by our own declared rule" overstates
+> it. And "Rows 1–2 … duly report two-sided values" is false for row 2, which reports only
+> P(≥1) = 1.12×10⁻². Row 7's NULL, the tally and the non-promotion are unaffected. The original wording
+> is preserved: this ledger is append-only.
 
 ## 2026-08-28 — two published verdicts in TR-10 were computed against the wrong tail, by our own declared rule
 
@@ -2123,6 +2217,13 @@ Acknowledged, not credited as an author.
 
 ---
 
+> ⚠ **Corrected in part, 2026-09-01 — see item 4 of the 2026-09-01 entry at the foot of this file.**
+> The rewording below is right and stands; its supporting taxonomy over-corrected. **C4's pair choice
+> is classical too** (`documentation/CITATIONS.md:58-71`: "classical fact, encoded as C4; not novel to
+> ROAE") — what is ours in C4 is the *orientation* (`reports/METHODS.md:24-33`, narrowed 2026-08-30).
+> And the count below is wrong by its own sentence: it attributes C2 to McKenna 1975, so **two** of the
+> five, not three, are ours. The original wording is preserved: this ledger is append-only.
+
 ## 2026-08-29 — "the classical constraints" borrowed an authority three of the five do not have
 
 TR-10 twice described the conditioning set as *"orderings satisfying **the classical constraints**"*.
@@ -2192,6 +2293,24 @@ TR-11's prior-art chain at the counting-question credit was extended accordingly
 
 ---
 
+> ⚠ **Corrected in part, 2026-09-01 — see item 2 of the 2026-09-01 entry at the foot of this file.**
+> "Both documents now state the operative rule" was premature. At the reconciling commit `cbf818c4`
+> three later blocks of `CLAUDE.md` §Cost control still commanded the blanket rule the paragraph above
+> them had withdrawn; they were fixed the next day in `0e4fe585` (2026-08-30). A fourth site,
+> `CLAUDE.md:396` in §"Bi-region architecture", still commands Spot for all workloads including merge
+> and is live as this note is written. The original wording is preserved: this ledger is
+> append-only.
+
+> ⚠ **Corrected in part, 2026-09-01 — see item 1 of the 2026-09-01 `rev_V2-F14` entry at the foot of this file.**
+> The measurement paragraph below is the entry's evidential basis and **its arithmetic does not
+> close**: five `Regular` plus one Spot is six of the seven VMs it counts, leaving one unaccounted
+> for. No VM list from 2026-08-29 survives in either repository, so the seventh is not recoverable;
+> the supported statement is that **at least** five of seven were `Regular`, one was Spot, and the
+> seventh's priority is unrecorded. Separately, "has never followed" is a claim about the whole
+> campaign history drawn from a single day's snapshot — the supported form is **"did not follow it on
+> the date measured (2026-08-29)"**. The policy conclusion is unaffected. The original wording is
+> preserved: this ledger is append-only.
+
 ## 2026-08-29 — two public documents gave contradictory VM policies, and the one claiming priority was the one practice ignored
 
 `CLAUDE.md` stated: *"All VMs other than the … orchestrator MUST be Spot priority. No exceptions for
@@ -2220,6 +2339,14 @@ document-control failure. The subscription measurement and the reconciliation we
 is **acknowledged**, not credited as an author.
 
 ---
+
+> ⚠ **Corrected in part, 2026-09-01 — see item 6 of the 2026-09-01 entry at the foot of this file.**
+> "wrong for **anything** produced since #169 … It **cannot match**" states a default as a universal.
+> Under `SOLVE_COMPRESS=0` shards are written raw (`solve.c:1165`), the sidecar is framing-invariant,
+> and the recipe below verifies OK at rc=0 — measured 2026-08-30. The era sets the default; the
+> **container** decides. The entry's own replacement inherited the same flaw: `gzip -dc` on a raw shard
+> hashes the empty stream and exits 0. The finding and GATE 28 stand; only the universal quantifier is
+> withdrawn. The original wording is preserved: this ledger is append-only.
 
 ## 2026-08-29 — the published archive verification recipe FAILED on byte-correct artifacts
 
@@ -2285,6 +2412,13 @@ instead of reading it. The sibling sweep, the era arithmetic and the gate were d
 Canonical selftest sha unchanged: `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`.
 
 ---
+
+> ⚠ **Corrected in part, 2026-09-01 — see item 5 of the 2026-09-01 `rev_V2-F14` entry at the foot of this file.**
+> "The 2026-08-28 entry above removed `d2-10T` from a documented scale list" points at nothing:
+> `d2-10T` occurs in this file only at `:2425-2471`, all of it inside **this** entry, and no earlier
+> 2026-08-28 entry names the scale or the list. The pointer should be a self-reference. The finding,
+> the byte-identical-message diagnosis and the distinguishability gate are unaffected. The original
+> wording is preserved: this ledger is append-only.
 
 ## 2026-08-29 — a real scale and a typo got the same answer from the pre-flight gate
 
@@ -2479,3 +2613,609 @@ neither had been asked — the entry sat marked `[analyzed]`, which asserts enga
 a bibliographic claim the artifact under it contradicts.
 
 **Sibling sweep:** no other file in `documentation/` or `reports/` repeats the second-edition claim.
+
+---
+
+## 2026-09-01 — six entries in this ledger asserted a state the tree does not have
+
+An adjudicated review of **this file's own entries**. Six of them assert something about the corpus,
+the artifacts or the frozen record that does not hold when the assertion is checked: a reversed
+inequality, two "now reads / both documents now state" claims that outran the tree, a
+preregistration that was never frozen, an arithmetic "exactly" that is not exact, and a default
+stated as a universal. Five of the six share one class — **a correction record asserting a tree
+state, with nothing checking that the assertion survived the next edit.**
+
+**Nothing below deletes or rewords an existing entry.** This ledger is append-only and gated as such
+(`doc_gates.sh appendonly`, GATE 10a/10b): every corrected entry keeps its original wording and now
+carries a dated pointer to the item here that corrects it. A reader must be able to see that the
+record itself was wrong, which is the whole reason the append-only rule exists.
+
+### 1. CX-11 — the inequality runs the other way, and the label the entry endorses was withdrawn the same day
+
+**(a) "the same data shows a smaller gain at step 3" is backwards.** TR-4 lists the per-boundary
+information gains for k = 1..8 as **10.38, 9.64, 11.10, 9.40, 10.13, 8.64, 7.93, …**
+(`reports/TR4_SIZE_OF_THE_SPACE.md:253`). The step-3 gain, **11.10 bits, is LARGER** than the
+step-1 gain of 10.38 that the withdrawn derivation used as its divisor — and that is exactly what
+breaks the argument. The divisor was asserted to be the maximum single-boundary gain *by
+construction*, which is true only of the first, unconditional gain; an observed conditional gain
+that **exceeds** it demonstrates the divisor was not the supremum, so no bound follows. Had the
+later gain genuinely been *smaller*, the divide-by-maximum floor would have survived. CX-11 gives as
+its reason for withdrawal the one fact that would have saved the claim.
+
+**(b) "The correct label is a *heuristic* floor" and "CLAIMS_DECIDED now reads 'heuristic floor
+≥12'" are superseded — and were already superseded on the day CX-11 was written.** TR-4 v1.16, same
+date, removed the word rather than re-qualifying it: *"The 'floor' label is removed, not
+re-qualified — the argument bounds nothing"* (`reports/TR4_SIZE_OF_THE_SPACE.md:287`), and the body
+says of the two labels *"It is neither"* (`:234`). At HEAD `documentation/CLAIMS_DECIDED.md:34`
+reads *"an observed-rate extrapolation of ~12 boundaries — NOT a floor of any kind"*. The quoted
+string is not in that file. `grep -rn "heuristic floor" --include=*.md .` returns three lines
+corpus-wide and **none of them is a live label**: TR-4:258, recording that file's own 2026-08-09
+correction of a pre-v1.16 survivor; CLAIMS_DECIDED.md:34, inside the sentence denying it; and CX-11
+itself.
+
+**The entry is also internally contradictory**: it endorses the heuristic label two lines after
+recording that *"the decision taken was to delete the 'floor' label rather than qualify it a third
+time"*.
+
+**What stands.** CX-11's headline — the hard information-theoretic floor is **withdrawn**, and no
+necessity bound follows from the argument at all — is right, and is the stronger of the two readings
+the entry contains. Only its mechanism sentence and its CLAIMS_DECIDED quotation are corrected here.
+
+### 2. The 2026-08-29 VM-policy entry — "Both documents now state the operative rule" was a day early, and a fourth site is still live
+
+That entry closes: *"Both documents now state the operative rule: enumeration → Spot; merge and any
+workload that cannot checkpoint → Regular/Standard, right-sized; the orchestrator stays Regular."*
+
+`DEPLOYMENT.md` did — its STANDING POLICY block (`documentation/DEPLOYMENT.md:140-147`) states the
+split rule and was reaffirmed that day. **`CLAUDE.md` did not.** At the reconciling commit
+`cbf818c4` (2026-08-29) three later blocks in the same §Cost control section still commanded the
+blanket rule the paragraph above them had just withdrawn: the mandatory pre-launch gate told a
+reader whose VM reported `Regular` to stop and recreate it as Spot (`:130`); the creation-command
+template admitted only the Spot form (`:132`); and the paragraph asserting that merge VMs too are
+now Spot survived verbatim (`:141`). A reader following CLAUDE.md's own mandatory gate would still
+have recreated a merge VM as Spot — the precise failure the entry claims to have removed.
+
+Those three were fixed the **next** day, in `0e4fe585` (2026-08-30). At HEAD the gate splits
+enumeration from uncheckpointable work (`CLAUDE.md:131-134`), the template carries both forms
+(`:146-149`), and the blanket-Spot paragraph is struck with a dated withdrawal marker (`:156-163`).
+
+**A fourth site is still live as this is written.** `CLAUDE.md:396`, in §"Bi-region architecture",
+still reads *"**Spot** for ALL workloads, enumeration AND merge, per the 2026-04-29 standing policy …
+(which explicitly supersedes the earlier enumeration=Spot / merge=on-demand split…)"*. It
+contradicts §Cost control in its own file. It escaped both the 2026-08-29 reconciliation and the
+2026-08-30 fix because both worked the §Cost control section and the surviving copy is 250 lines
+below it — the same scope-too-narrow mechanism CX-34 and CX-13 record. It is written down here
+rather than corrected here: this pass is confined to this file.
+
+### 3. The 2026-08-28 TR-10 tails entry — the candidate bar's sidedness was never frozen, and row 2 does not report a two-sided value
+
+**(a) "by our own declared rule" claims a preregistration the freeze does not contain.** The pinned
+freeze is `git show 2d19a3f:documentation/CRITIQUE.md` (line 388 there; `documentation/CRITIQUE.md:571`
+at HEAD), and it reads, in full: *"Thresholds as F4': two-sided p < 0.05/9 Bonferroni 'notable';
+'candidate rule' additionally requires the corpus-control specificity gate."* **"two-sided" attaches
+to the notable bar only, and the < 10⁻⁴ figure is not in that sentence at all.** TR-10's own abstract
+now records the same thing: the candidate-level bar is inherited from the F4' family's registration,
+*"worded '< 10⁻⁴ after Bonferroni'; sidedness unstated there"*
+(`reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md:39`).
+
+So `rotinv`'s demotion off the candidate bar is right **under the two-sided convention adopted
+uniformly on 2026-08-28** — consistent with row 1 and with the notable bar — and it is not the
+enforcement of an explicit frozen rule. The distinction is the whole difference between a
+preregistered verdict and a post-hoc convention applied evenly, and the entry's headline sells the
+stronger of the two.
+
+**(b) "Rows 1–2 of the scoreboard duly report two-sided values" is false for row 2.** Row 1
+(`termruns`, `reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md:105`) does: *"P(≤3) = 2.7×10⁻² (two-sided
+~5.4×10⁻²; population mean 5.2 runs)"*. Row 2 (`compmirror`, `:106`) reports only *"P(≥1) =
+1.12×10⁻² (~1 in 89 orderings)"* — there is no two-sided figure on that row.
+
+**What stands, untouched.** Row 7's `pureplace` NULL — its one-sided 5.56152×10⁻³ already exceeds
+5.55556×10⁻³ before any doubling, with the ≈0.1-SE knife-edge caveat added 2026-08-29 — the
+five-null / one-notable / three-data-like tally, `rotinv`'s non-promotion (data-like under either
+convention), and the order-preservation argument that protects the BH ranking anchor in METHODS and
+TR-8.
+
+**Still outstanding, outside this file.** TR-10's row-6 inline correction marker (`:110`) still
+asserts *"The bar declared at §3 is **two-sided** p < 10⁻⁴"* — the same retrofit, at the claim site.
+
+### 4. The 2026-08-29 provenance entry — the correction over-corrected, and miscounted using its own sentence
+
+That entry replaced TR-10's *"the classical constraints"* with *"the C1–C5 constraints"*. The
+direction is right and the two reworded sites stand. Its supporting taxonomy does not.
+
+**(a) "only C1 is classical" is contradicted by CITATIONS.md.** `documentation/CITATIONS.md:58-71`,
+§"C4 — fixed start (Qian, Kun)", opens *"The placement of the two constant hexagrams (Qian 乾, Kun 坤)
+first is classically attested, independently of any modern analysis"* and closes *"**Status in
+ROAE:** classical fact, encoded as C4; not novel to ROAE."* What is **ours** in C4 is the
+*orientation*, not the pair: `reports/METHODS.md:24-33` (narrowed 2026-08-30) records that the Xugua
+does **not** attest the within-pair order, and that *"C4's orientation is **ours by definition**"* —
+while the pedigree the classical record does supply is C1's pairing rule, 孔穎達's 二二相耦，非覆即變,
+7th century.
+
+**(b) The count is wrong by the entry's own sentence.** That same sentence attributes **C2 to
+McKenna 1975**. So at most **two** of the five — C3, a KW-fitted threshold, and C5, a histogram
+extracted from KW — are ours. C2 borrows McKenna's authority: not the classics', and not ours
+either.
+
+**The taxonomy as the tree holds it:** C1 classical (Kong Yingda); C4 pair classical, orientation
+definitional and ours; C2 external-modern (McKenna 1975); C3 and C5 project-derived. Reading "ours"
+loosely as "non-classical" does not rescue the entry — it then fails on the other clause instead,
+because C4's pair choice is classical.
+
+**A sibling in this same file, found while checking the above.** The 2026-08-28 GUIDE.md entry cites
+*"reports/METHODS.md:25"* as calling the Xugua the *"definitional and classically attested"* basis
+for **C4's orientation**. That quotation no longer greps in METHODS.md: the 2026-08-30 narrowing says
+the opposite of it. The GUIDE.md sentence that entry replaced stays correctly replaced — a written
+classical account of the ordering does exist and this repository does rely on it — but the account is
+C1's pairing rule, not C4's orientation, and the entry's supporting quote now describes a state the
+tree does not have. **CX-09 carries the same superseded claim as a live assertion**, in its `NOW:`
+bullet: *"C4's orientation is definitional and classically attested (Xugua)."* Its retraction of the
+forced-orientation theorem is unaffected — that rests on the complementation symmetry, machine-checked
+in Lean — but the attestation half of that sentence is now contradicted by METHODS.md. Both sites are
+annotated in place and neither is rewritten: same class as items 1, 2 and this one.
+
+### 5. CX-34 — "Both budget exactly 100B nodes" is not exact, and the two budgets are not equal
+
+CX-34 contrasts the 2026-05-25 bisect configuration (158,364 cells × a hand-set
+`SOLVE_PER_SUB_BRANCH_LIMIT` of 631,545) with the auto-divided runs (3,030 sub-branches ×
+33,003,300 nodes) and says *"Both budget exactly 100B nodes and spend them differently."*
+Recomputed:
+
+| configuration | product | vs 100,000,000,000 |
+|---|---|---|
+| bisect, 158,364 × 631,545 | **100,013,992,380** | +13,992,380 |
+| auto-divide, 3,030 × 33,003,300 | **99,999,999,000** | −1,000 |
+
+The two differ from each other by **13,993,380 nodes (0.014%)**, and **neither equals 100B**. No
+global cap makes them equal: the budget is enforced **per branch**, against each thread's own
+counter (`ts->branch_nodes >= per_branch_node_limit` — `solve.c:4609`, `:4876`, `:9460`, with the
+invariant spelled out in the comment at `:592`), and `SOLVE_PER_SUB_BRANCH_LIMIT` **replaces** the
+auto-divide quotient rather than capping a total. The allocated work therefore *is* the product.
+
+**CX-34's conclusion is untouched.** The bytes reproduce from four independent code states across
+two lineages, the deprecation stays retracted, and partition **shape** — 3,030 deep sub-branches
+against roughly 158K shallow ones — remains the mechanism for the record-set divergence, since a
+0.014% budget difference cannot move a record count from 12,386,121 to 27,664,734. What is corrected
+is the word *exactly*: this is a shape comparison, not an exactly budget-matched one, and a ledger
+entry should not claim a control it does not have.
+
+### 6. The 2026-08-29 archive-recipe entry — a default published as a universal, and a replacement that inherited the flaw
+
+**(a) "It cannot match" is true of a default, not of every artifact.** The entry says the published
+`sha256sum -c` recipe *"is wrong for anything produced since #169 … It cannot match."* Framing is an
+environment variable: `solve.c:1165` documents *"SOLVE_COMPRESS — default ON; =0 writes TRANSPARENT
+(raw, no gz wrapper) bytes"*, and the `.sha256` sidecar is framing-invariant by design — which is
+fact (1) of the entry itself. On a raw shard the sidecar's logical sha **is** the sha of the bytes on
+disk, and the recipe verifies. Measured on the orchestrator 2026-08-30, same sub-branch and same
+node budget, two framings:
+
+| | default (gz) | `SOLVE_COMPRESS=0` (raw) |
+|---|---|---|
+| on-disk magic | `1f 8b 08 00` | `52 4f 41 45` = `ROAE` |
+| sidecar line 1 | `4cd43b2b…f287` | `4cd43b2b…f287` — **identical** |
+| `sha256sum <bin>` | `6e4d49b8…a2f2` | `4cd43b2b…f287` |
+| `sha256sum -c` | FAILED, rc=1 | **OK, rc=0** |
+
+The gz column reproduces the entry's own published table byte-for-byte, both shas. The raw column is
+the case the entry does not admit exists. **The era sets the default; the container decides the
+recipe.**
+
+**(b) The replacement recipe fails the same way, mirrored.** `gzip -dc <bin> | sha256sum`, run
+against a raw shard, writes gzip's complaint to stderr, emits nothing on stdout, and hashes the
+**empty stream** — `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`, which is
+sha256 of zero bytes — while the pipeline exits **0**. A clean exit plus a digest that cannot match
+any sidecar is a false mismatch on a byte-correct artifact: the same phantom-drift direction the
+entry itself calls *"the expensive direction"*, and the direction this project has already spent
+about six hours on. `gzip -dcf` matches the sidecar in **both** framings, which removes the
+era-dependence instead of qualifying it — but `-dcf` fixes the *framing* half only: `| sha256sum`
+still discards gzip's exit status, so the loud form needs `set -o pipefail` or an explicit status
+check. Evidence for both halves is retained privately.
+
+**Still outstanding, outside this file.** `documentation/DEPLOYMENT.md:1074` still publishes the
+`gzip -dc` form as its executable line. The era-exception block immediately below it (`:1077-1082`)
+does name `SOLVE_COMPRESS=0`, so a careful reader is warned; the command itself is still
+framing-fragile.
+
+**What stands.** The original finding is right and it mattered: the recipe as published was wrong for
+the artifacts it was actually pointed at, the sidecar-versus-container diagnosis is correct, and
+GATE 28 is a real gate. Only the universal quantifier is withdrawn.
+
+### What this pass did NOT do, and where those items live
+
+Four of the six adjudications prescribe work outside this file, and none of it is done here:
+`CLAUDE.md:396`; TR-10's row-6 marker; `DEPLOYMENT.md:1074`; and five proposed `doc_gates.sh` legs —
+a `ledger-quotes` leg (every *now reads "…"* quotation in this file must grep verbatim in the named
+target, or carry a supersession pointer), a `prereg-claims` leg (any *frozen/preregistered/declared*
+sidedness assertion must carry a quote that greps in the pinned freeze), an `exact-products` leg (a
+sentence asserting *exactly* of a number next to a stated `A × B` must satisfy A×B = that number),
+plus registrations in `RETRACTED_PHRASES.tsv` and an extension of GATE 28's population to
+`gzip -dc`-style recipes. Items 1 through 4 of this entry are precisely the class a `ledger-quotes`
+leg would have caught mechanically, which is the argument for building it.
+
+**How it was found.** An adjudicated review pass over this ledger's own entries, in which each charge
+was re-derived against the working tree before it was written up rather than taken on the reviewer's
+word — which is how items 2 and 4 came to be narrowed: the CLAUDE.md blocks had been fixed a day
+after the charge was raised, and METHODS.md's C4 wording had already been narrowed, so both had to be
+restated against what the tree holds now. Reviewers are **acknowledged**, not credited as authors.
+
+---
+
+## 2026-09-01 — the `--estimate-knuth` stack failure was described as a segfault long after it stopped being one
+
+**Registry keys: `RP-0db497ec`, `RP-05e4f10d`** (`documentation/RETRACTED_PHRASES.tsv`).
+
+**BEFORE.** Five published sites told readers that under the default 8 MB stack the
+`--estimate-knuth` commands *abort with SIGSEGV before producing output* — i.e. to expect exit 139
+from a crashed process.
+
+**NOW.** Since **2026-08-21** the binary preflights `RLIMIT_STACK`, prints an actionable diagnostic
+naming the ≥ 16 MB it needs, and **exits 1**:
+
+```
+solve: stack limit is 8 MB, but --estimate-knuth needs >= 16 MB
+       (main ~7.2 MB frame + estimator ~1.0 MB frame).
+       Re-run with:  ulimit -s unlimited
+```
+
+`solve.c:18865-18875` is the preflight; its own comment records *"previously a bare SIGSEGV after the
+banner."*
+
+**WHAT DID NOT MOVE — and this is the load-bearing half.** The `ulimit -s unlimited` **requirement is
+true and unchanged**. The freshly built binary asserts it itself. Only the *failure mode* was
+retracted. No verdict, figure or sha is affected: the estimator's outputs are identical either way,
+because in both regimes it either runs with enough stack or does not run at all.
+
+**HOW IT WAS FOUND — six passes, five of them miscounted.** Two independent reviewers filed it, two
+adjudication batches accepted it at *13 sites*, and one intermediate finding **denied it entirely**
+before being retracted. Every wrong answer came from **counting `grep` hits for `SIGSEGV` instead of
+reading what each hit said**:
+
+- **9 files** matched only on a *correct historical clause* — "previously a bare SIGSEGV" — and had
+  already been corrected. Sweeping them would have deleted accurate text.
+- **5 files** carried the live stale claim. Four were corrected in a dedicated pass; the fifth was
+  the file that first reported the other four.
+- The denial came from measuring a **binary built 14 hours before the `solve.c` it was testing**. A
+  fresh build exits 1; only the stale one segfaulted. A `roae-private/scripts/binary_freshness_check.sh`
+  now refuses that mistake.
+
+**WHY REGISTRATION WAITED.** Four consecutive adjudication batches each named this registration as
+the cheapest available fix, and each was right that it was cheap and wrong that it was available:
+registering the phrase while any live site remained would have turned **GATE 3 red for the whole
+corpus**, which is how a gate gets disabled rather than obeyed. It was registered only after a
+verified **zero-hit** sweep, and red-tested by planting the phrase and confirming GATE 3 fails.
+
+**Consequence for future notes.** A correction note that **quotes** a retracted phrase verbatim is
+indistinguishable from a live claim to a literal-string scan, and blocks its own registration. Notes
+in this class **paraphrase** — "described the failure as a segfault before any output" — which is why
+the nine already-corrected files say only *"previously a bare SIGSEGV."* That convention is
+load-bearing for the registry, not stylistic.
+
+---
+
+## 2026-09-01 — C4's within-pair orientation was called classically attested; it is our convention
+
+**Eight registry keys** in `documentation/RETRACTED_PHRASES.tsv` carry this retraction, one per
+surviving phrasing.
+**Registry keys, one per phrasing** (each row carries its own allow file). Each is identified below
+by the site it lived at, **never by quoting it** — a verbatim quote in this ledger would itself trip
+GATE 3, which is the hazard the paraphrase rule exists to prevent and which this list tripped on its
+first draft:
+
+- `RP-e4ba092e` — the `TR9_PRICING_THE_CONSTRAINTS.md:94` / `DESCRIPTION_LENGTH.md:43` footnote form
+- `RP-ce8ea543` — the `TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md:103` parenthetical
+- `RP-458d6f24` — the `lean/README.md:659` form
+- `RP-471438a5` — the `TR1_EIGHT_CENTURIES_MEASURED.md:362` framing epithet
+- `RP-117df1a3` — the short form at `TR1_EIGHT_CENTURIES_MEASURED.md:371`
+- `RP-aa034cb6` — the `TR1_EIGHT_CENTURIES_MEASURED.md:370` "classical opening" form
+- `RP-0a5fa699` — the `SOLVE_SUMMARY.md:204` parenthetical (allow: `reports/METHODS.md`)
+- `RP-bab8cf34` — the `SPECIFICATION.md` / `CLAIMS_DECIDED.md` form (allow: `documentation/CORRECTIONS.md`)
+
+**BEFORE.** Fourteen sites across eleven files described C4's **orientation** — Heaven (63) before
+Earth (0) — as *definitional and classically attested*, citing the *Xugua* commentary's
+Heaven-then-Earth opening.
+
+**NOW.** The *Xugua* attests that the **{Heaven, Earth} pair opens**. It does **not** attest the order
+**within** that pair. C4's orientation is **this project's convention, not an inheritance it found.**
+
+**HOW IT WAS FOUND, and why the basis is stronger than the correction needed.** The narrowing landed
+in `reports/METHODS.md` on 2026-08-30 as an assertion. The **primary-text** verification behind it was
+surfaced later, by a prior-art check during propagation:
+`roae-private/books/li_shangxin/B1_KONGYINGDA_XUGUA_VERIFY.md` reads 孔穎達's
+**二二相耦，非覆即變** against the source and finds it a **C1** pedigree — 乾坤 appears there as an
+*example of a complement pair*, not as an ordering. The *Xugua*'s own 有天地，然後萬物生焉 treats
+天地 as a compound. So the retraction rests on a reading of the classical text, not on our say-so.
+
+**WHAT DID NOT MOVE.** No count, sha, rung, orbit figure or canonical integer. **C4 is still charged
+its full 6 bits** (pair *and* orientation) in `DESCRIPTION_LENGTH.md` and TR-9 — being definitional
+rather than attested returns no bit. TR-1's 12-of-1,720,320 result is untouched; only the epithet on
+its framing was wrong. No Lean statement, proof, axiom set or trust base changes.
+
+**WHAT WAS DELIBERATELY LEFT.** Three classes of surviving text, each correct as it stands:
+- sentences scoped to the **pair choice**, which genuinely is classically attested
+- **revision rows** and the append-only entries above, which record what a past pass adopted
+- `documentation/HISTORY.md:5740-5741`, a dated narrative log entry that accurately reports what the
+  2026-07-26 batch did. Only one of its three descriptors later fell. It carries a dated annotation
+  rather than a rewrite: **editing it would make that batch appear to have adopted a position it did
+  not hold**, which is falsifying history to make it look better.
+
+**ONE QUESTION LEFT OPEN, deliberately.** `documentation/CITATIONS.md` cites Schulz & Cunningham
+(1990) p. 298 for a qian/kun "unavoidable priority". The held notes on that paper are 82 lines and
+contain no such passage, so **we cite a page we cannot read**. If it argues *within-pair* order, then
+a **modern secondary source** bears on the orientation — which would leave every sentence above
+still true, because each is confined to the **classical** record. Tracked in
+`roae-private/TASK_VERIFY_SCHULZ_1990_PRECEDENCE_CLAIM.md`; a circularity audit applies before it
+could ever be staged as support.
+
+**Registration discipline.** All eight needles were registered only after a verified **zero live
+occurrences** sweep run through GATE 3's own pipeline (fold `*`, flatten, `grep -F`), and the two
+that need an allow file use the **directory-prefixed** form: the allow column is a *substring* match
+on `file:line`, so a bare basename can silently exempt a sibling — a bare `HISTORY.md` would also
+exempt `PERFORMANCE_HISTORY.md`.
+
+---
+
+## 2026-09-01 — the front page carried the retracted "seven others" gloss for four days
+
+**Registry key: `RP-8ec652db`** (`documentation/RETRACTED_PHRASES.tsv`), registered on the short
+front-page form. The wording is identified here **by its site**, never restated, so this entry does
+not itself trip the scan.
+
+**BEFORE.** `README.md:67-68` glossed the exact-counting result as King Wen plus seven others in its
+immediate neighbourhood, inside the passage arguing **non-uniqueness**.
+
+**NOW.** All eight C6–C7 survivors carry **King Wen's own pair ordering**; the other seven are
+**orientation variants** of it, not different orderings. Read as pair orderings, that slice runs the
+*other* way — which the passage now says, immediately before its correct and unchanged statement that
+King Wen is unique only within budgeted enumerated slices, never in the full space.
+
+**WHAT DID NOT MOVE.** **16,504 and 8 are correct** and were not touched. The exact corroboration
+still stands *at the oriented level*, where 8 ≠ 1 and the full-space figure lives too. Nothing was
+softened: the non-uniqueness argument survives, now stated at the level it is true at.
+
+**HOW IT WAS MISSED — and the diagnosis I first published was wrong.**
+This was ruled on **2026-08-28** (entry above). `TR-4` and `SEARCH_SPACE_SIZE.md` were corrected then;
+the front page was not, and stayed wrong on `main` for four days.
+
+The phrase **wraps a line break**, so the human `grep -rn` sweep that propagated the 2026-08-28 fix
+returned nothing for `README.md`. I recorded that as a **gate** defect and wrote up "flatten
+whitespace in the retraction legs" as the highest-leverage fix available. **That fix would have been a
+no-op.** `scripts/doc_gates.sh:829` and `:1932` **already flatten** (`tr '\n' ' ' | tr -s ' '`), and a
+second batch had established the same thing hours earlier.
+
+The gate did not miss this phrase — **it was never asked to look for it.** No row in
+`RETRACTED_PHRASES.tsv` covered this wording; its only `King Wen` rows belong to an unrelated
+boundary-constraint retraction. **A line break defeated a human sweep; the registry gap is what let it
+survive.** Registering the row is the actual fix, and it is done.
+
+**The generalisable point.** A correction is not propagated by fixing the sites a `grep` returns. It
+is propagated by **registering the retracted wording**, so that every future pass is checked against
+it mechanically. Between 2026-08-28 and today, three separate sweeps of this corpus ran and none
+found the front page, because all three were looking for sites rather than being told what to reject.
+
+---
+
+## 2026-09-01 — six ledger sentences claimed more than their evidence reaches, and one was false when it was written
+
+A second adjudicated review of **this file's own entries**, from a transcript (`rev_V2-F14`) nobody
+had read until today. The class is narrower than the previous pass's and more uniform: **a true
+finding written up in a wider form than the evidence behind it supports** — an inventory whose
+arithmetic does not close, a bound printed as an estimate, two unhedged universals, a completeness
+promise the body itself scopes, and two internal pointers that resolve to nothing. Item 7 is a
+different and worse kind: a sentence that was **false on the day it was committed**, and that this
+pass found only because it re-executed the tool the sentence was about.
+
+**Nothing below deletes or rewords an existing entry.** Every corrected entry keeps its original
+wording and now carries a dated blockquote pointer to the item here that corrects it. GATE 10a is a
+strict `diff` against `HEAD` and would reject anything else; that it permits an inserted pointer is
+deliberate and documented (`scripts/doc_gates.sh:6664-6665`).
+
+### 1. The 2026-08-29 VM-policy entry — the inventory offered as its evidential basis does not add up, and "never" outruns a one-day snapshot
+
+The entry's measurement paragraph states that of the **seven** non-orchestrator VMs, **five** are
+`Regular`, and that only the enumeration VM is Spot. **Five plus one is six.** One of the seven is
+unaccounted for in the very sentence offered as the evidential basis for changing the policy, so a
+reader cannot audit the count that decided it.
+
+**The seventh is not recoverable, and that is the honest answer.** The measurement was a live-subscription
+snapshot taken on 2026-08-29; no VM list from that date is preserved in either repository. A
+plausible candidate is the `c292-codex` review box, which `CLAUDE.md:139` records as having run
+`Regular` — but the entry does not say so, and reconstructing an inventory after the fact from a
+different document is not auditing it. **What the evidence supports is the weaker statement: at least
+five of seven were `Regular`, one was Spot, and the seventh's priority is unrecorded.** The policy
+conclusion is unaffected — it needs only that most non-orchestrator VMs were not Spot, which five of
+seven establishes on its own.
+
+**"Practice has never followed the blanket rule" is a claim about the whole campaign history drawn
+from one day's snapshot.** The supported form is **"did not follow it on the date measured
+(2026-08-29)"**. The distinction matters because the entry uses the universal to argue the rule was
+*unfollowable*, and a single observation cannot separate a rule never followed from one abandoned.
+
+**Sibling sweep, including files outside this batch.** The same two defects propagated. `CLAUDE.md:105`
+and `documentation/DEPLOYMENT.md:143` carry the five-of-seven figure without the "only the enumeration
+VM is Spot" clause, so their arithmetic does not fail to close — but all three of `CLAUDE.md:105`,
+`CLAUDE.md:107` and `DEPLOYMENT.md:143` carry the "never followed" universal, and `CLAUDE.md:107`
+carries both defects in full. Those are recorded here rather than corrected here: this pass is
+confined to this file.
+
+**Not re-filed here.** The `CLAUDE.md` §Cost-control half of the originating charge is already ruled —
+item 2 of the entry above, and the surviving `CLAUDE.md:396` site disclosed there. Nothing in this
+item is about that.
+
+### 2. The withdrawn-figure entries — a coverage figure computed against `31!` is an upper bound, printed six lines after the entry refuses to give a point estimate
+
+Both copies of the withdrawal entry state their replacement as **bounds, both ends exact**, with
+`31!` explicitly the **upper** end, and then decline a point estimate on the ground that `E[1/m]` has
+never been measured. Six lines later each gives the corrected coverage as **"≈1 part in 7.81×10²³"**.
+
+**The figure's denominator is `31!` itself**, which is what makes the approximation sign wrong:
+
+```
+python3 -c "import math; print(math.factorial(31)/1.0525e10)"   # -> 7.8127e+23
+```
+
+Since the true population **P ≤ 31!**, coverage `= 1.0525×10¹⁰ / P` is **at least** 1 part in
+7.81×10²³ and may be very much better. It is a bound, computed from the entry's own stated upper
+limit, and the "≈" presents it as an estimate six lines after the same entry refuses to offer one.
+
+**Corrected reading: "at least 1 part in 7.81×10²³"**, at both sites — `documentation/CORRECTIONS.md:1303`
+and the branch-preserved duplicate at `:1377`.
+
+**What does not move.** The qualitative verdict is untouched and survives either reading: exhaustion
+is infeasible at any conceivable budget. The entry's own note that the error *understated* the
+enumeration is likewise unaffected, and is the reason the label is worth correcting rather than
+ignoring — the number is load-bearing in exactly the direction a reader extrapolating search cost
+would use it.
+
+### 3. CX-35 — the conclusion paragraph states two universals whose qualifier lives in the next bullet and is never pointed at
+
+CX-35's "What follows" bullet (`:1239-1243`) concludes that the ledger's published line has been
+append-only throughout and **always was**, and that **no reader outside this machine could ever have
+observed** the broken invariant.
+
+**The reviewer's charge — that the entry over-reaches epistemically — does not survive contact with
+the entry.** The bullet that immediately follows is headed *"Residual limitation, stated rather than
+buried"*, and it rates the evidence honestly: a 404 six days after the fact is very strong evidence,
+**not a proof**, and a stronger form would need the remote's own audit log. The entry headlines its
+own weakness and names the instrument that would settle it. That is better practice than most of what
+either review pass found, and the record should say so.
+
+**What survives the refutation is structural, and it is the whole defect: the hedge is not attached to
+the claim.** A reader quoting the conclusion bullet — the quotable one — carries away two flat
+universals with no marker that the qualifier exists. The two paragraphs are adjacent and still
+uncross-linked.
+
+**Corrected reading:** the conclusion should read *"…has been append-only throughout, on the
+strongest evidence available short of the remote's audit log (see the Residual limitation bullet
+below)"*. The finding, the 404 table, the positive control and the reflog check are all unaffected.
+
+### 4. The file's own subtitle promises a completeness the file deliberately does not have
+
+Line 3 promises every claim this project published and later changed, in one place. Two passages
+below scope that promise out of existence, both deliberately and both correctly:
+`:520` excludes **C4 qualifiers** entirely — they are in the inventory, not in this file — and `:521`
+concedes that **silent edits nobody noticed** cannot be found by any sweep, by construction.
+
+**The exclusions are disclosed, so this is a placement defect rather than a false claim** — but the
+promise is the file's one-line subtitle and the exclusions are 517 lines below it. A reader who stops
+at the subtitle, which is what subtitles are for, gets a guarantee the file does not offer.
+
+**Corrected reading:** *"Every claim this project published and later changed, except C4 qualifier
+changes (see the inventory) and silent edits — both scoped below."*
+
+### 5. Two "the entry above" pointers resolve to no entry above
+
+- **`:1655`** attributes to a 2026-08-28 entry above the correction of `CRITIQUE.md:137`'s ceiling
+  wording. Whole-file search finds `CRITIQUE.md:137` at exactly two lines, `:1655` and `:1681`, **both
+  inside the entry that makes the reference** (headed `:1653`). Every earlier 2026-08-28 entry was
+  read; the nearest candidate, the P-value entry at `:1591`, is about `DISTRIBUTIONAL_ANALYSIS.md:358`
+  and the 87/465 baseline, not the C2∩C3 ceiling.
+- **`:2462`** attributes to a 2026-08-28 entry above the removal of `d2-10T` from a documented scale
+  list. `d2-10T` appears only at `:2425-2471`, **all inside the entry that makes the reference**
+  (headed `:2423`).
+
+**Sibling sweep, run against this file itself and not only against its neighbours.** A flattened
+census — `tr '\n' ' ' | tr -s ' '`, which folds the line wraps that plain `grep` misses — finds
+**seven** "entry above" references, one more than a line-based count reports. Five resolve and were
+checked individually: `:1329` and `:1493` to the 2026-08-24 withdrawal entry at `:1268`; `:1742` to
+the "seven others" entry at `:1591`; `:2204` to the TR-10 tails entry at `:1906`; `:2976` to `:1591`.
+**Only the two above dangle.** Recording the sweep's population matters as much as its result: the
+previous defect in this class was a sweep that reported "no *other* file" and was structurally unable
+to see a second occurrence in its own.
+
+**Corrected reading:** both pointers should be self-references — the correction each describes is made
+in the entry that carries the sentence, not in an earlier one.
+
+### 6. "No such author exists" is a claim about the world drawn from one bibliographic correction
+
+`:1797` states, in bold, as the finding of its section, that **no such author exists** for the name
+關曉思. What the section's own next sentence establishes is narrower and fully supported: **this
+paper's** author is 管小思 (Tongji University, 周易研究 2004(1), pp. 61-74), and 關曉思 was an
+artefact of two names romanising identically to "GUAN Xiao-si" in a printed contents list. That
+settles the attribution. It does not establish that no person bearing that name exists.
+
+**The entry contains the same error a second time, and the charge named only the first.** At `:1803-1804`
+the recorded *cost* of the mistake is that the author was repeatedly un-findable by author search —
+*"We were searching for a person who does not exist."* That is a nonexistence inference drawn from
+absence of search results, which is precisely the reasoning error the project's own
+`prior_art_check.sh` discipline exists to prevent, restated one level up. A sweep that had stopped at
+the bolded sentence would have corrected half of it.
+
+**Corrected reading:** *"No author of that name wrote this paper; the name as printed is a
+romanisation collision."* The bibliographic correction, the dates, and the observation that fixing
+the name made a further 1995 paper findable in about a minute are all unaffected.
+
+### 7. The undercount entry says the shipped `sat.py` could not test the pair it is about. It could, and had been able to for eight weeks.
+
+This is the one item here that is not a matter of scope. `:1843` explains why the fourth minimal
+two-rule core went undetected by saying, in part, that the shipped `sat.py` **has no target for this
+pair**, so the claim's own tooling could not test it.
+
+**Executed on the shipped file, unmodified:**
+
+```
+$ python3 sat.py --emit-cnf five-sub-gender+ccn4 out.cnf
+vars=7035 clauses=243175 -> out.cnf          # 0.74 s
+```
+
+`ccn4` **is** Schulz S25-28 (`sat.py:78`, `:272`), so `five-sub-gender+ccn4` **is** the pair
+{Schulz gender, Schulz S25-28}. The generic `five-sub-` handler is `sat.py:612-615`.
+
+**It was not a late arrival.** `git log -S'five-sub-' -- sat.py` puts the handler in **`36a78482`,
+2026-07-04**; `git log -S` on the sentence puts it in **`84259168`, 2026-08-29**. The sentence was
+**false by eight weeks on the day it was committed**.
+
+**The entry contradicts itself four lines later**, which is how this was caught: `:1850-1851` reports
+the CNF rebuilt "in a scratch copy of `sat.py`" at **7,035 variables / 243,175 clauses** — byte-for-byte
+the counts the *shipped* file emits above. The scratch copy was never needed, and its own reported
+numbers are the proof.
+
+**What actually explains the miss, and it is the entry's better answer.** The undercount survived
+because every prior review **checked the three pairs the sentence names instead of enumerating the
+lattice** — which is the reason the entry itself gives, in the same paragraph, and which is true.
+The tooling was available and simply was not pointed at the case. **The finding, the fourth core, the
+kissat/drat-trim verification and the control run are all unaffected.**
+
+**Why this one matters beyond its own line.** A corrections ledger is cited as authority. This
+sentence was cited as authority today, in an adjudication row, for a claim about what the project's
+tooling can do — and it was never true. The generalisable rule is the one the sweep above applies:
+**a ledger sentence asserting a capability must be executed, not read**, and the same standard that
+governs a published figure governs the record of why it was missed.
+
+### Examined and NOT upheld: the append-only prose is accurate, and GATE 10a is order-sensitive
+
+One charge in this batch is recorded here because it was **refuted by execution**, and the refutation
+protects prose that would otherwise have been weakened.
+
+The charge held that `:15-16`'s "machine-enforced" and `:457-458`'s stronger statement — every committed
+line must still be present **in order**, and **rewriting** an entry fails the gate — overstate what
+the gate does; that the implementation is a `sort`ed `comm -23` set difference in which line order is
+never examined; and that the prose should therefore be weakened to "no committed line is ever lost".
+
+**Measured, on a scratch clone, against GATE 10a's own logic:**
+
+| injected mutation | `doc_gates.sh appendonly-head` |
+|---|---|
+| two committed lines transposed, nothing deleted | **[FAIL]** — 2 lines reported, rc 1 |
+| one committed line reworded in place | **[FAIL]** — 1 line reported, rc 1 |
+| a negating sentence inserted inside an existing entry | `[ok]`, rc 0 |
+
+**The charge measured the wrong half.** The `sort`/`comm -23` it describes is **GATE 10b**
+(`scripts/doc_gates.sh:6816`, `:6846`), which is explicitly the multiset-containment half. **GATE 10a**
+(`gate_appendonly_head`, `:6741`) is `diff "$tmp" "$f" | grep -c '^< '` — an LCS, and therefore
+order-sensitive. The implementation says so itself at `:6789-6790`: *"10a is the order-sensitive half
+(diff is an LCS); the two are complementary and both run."* The third row is not a hole either: mid-file
+insertion passing is **documented intended behaviour** (`:6664-6665`) and is precisely what lets this
+ledger carry a dated pointer in front of the entry it corrects, as every item above does.
+
+**So the prose at `:457-458` is true as written and is not weakened.** Recorded here because the
+proposed fix would have made this file's description of its own gate *weaker than the gate*, and an
+under-claim in a corrections ledger is a defect in the same family as an over-claim.
+
+**Attribution.** Raised by an **OpenAI Codex** review (target `V2-F14`) whose transcript had not been
+read until today. Every item was re-derived against the working tree before being written up: item 1's
+seventh VM was searched for and not found, item 2's arithmetic recomputed, item 5's cross-references
+resolved one at a time by a flattened census, item 6's second occurrence found by sweeping the entry
+rather than the quoted sentence, item 7 settled by executing the tool, and the not-upheld charge
+settled by red-testing the gate. Two of the review's ten limbs did not survive that process and are
+recorded as not upheld rather than quietly dropped. Reviewers are **acknowledged**, not credited as
+authors.

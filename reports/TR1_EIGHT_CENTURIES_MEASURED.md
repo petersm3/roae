@@ -60,7 +60,8 @@ exactly 3 slot-edits, and one ordering — the grand unified precursor — perfe
 Schulz's gender rule simultaneously via a single compatible 3-edit event centered on the literature's own
 anomaly loci. And then the ceiling: **the four strongest rules are jointly unsatisfiable** (the conflict
 theorem, drat-trim-verified). Perfection was never available; King Wen's profile reads as a trade-off
-position — exact on one strong rule, minimally imperfect on the others. (All four rules are
+position — exact on one strong rule, missing the other three by 2 each (measured margins; no
+extremal check exists). (All four rules are
 KW-descriptive, so sitting near their joint Pareto frontier is expected rather than an efficiency
 result — see §5.)
 
@@ -244,8 +245,10 @@ result — see §5.)
    which to satisfy. Consequence for the corruption hypothesis: an "uncorrupted precursor" perfect under
    the literature's full rule inventory **never existed** — the corruption reading survives only in the
    restricted sense (perfect under Moore's two rules alone, breaking the trigram structure KW keeps). King
-   Wen's profile now reads naturally as a **trade-off position**: exact on one strong rule, minimally
-   imperfect on the others. All four rules are KW-derived — selected because King Wen exhibits them, even
+   Wen's profile now reads naturally as a **trade-off position**: exact on one strong rule, missing the
+   other three by 2 each — a measured margin, with no extremal check (see the correction marker
+   earlier in this paragraph; "minimally imperfect" asserted the same unsupported extremal property and is withdrawn here
+   too). All four rules are KW-derived — selected because King Wen exhibits them, even
    where their form is general — so King Wen
    sitting near their joint Pareto frontier is expected rather than an efficiency result; the
    ~1-in-25-million figure **describes** how population-atypical that joint profile is under KW-fitted
@@ -289,8 +292,9 @@ result — see §5.)
    final pre-registered battery measures the layer the literature has almost entirely ignored — **which
    member of each pair comes first**. Of the 32 within-pair orientation choices, slot 0 is fixed by
    **C4's definition** *(re-scoped 2026-07-26: the earlier text said "forced (Theorem 6)" — that
-   theorem is retracted as false; C4's orientation is definitional and classically attested, and
-   complementation is an exact symmetry of C1∩C2∩C3∩C5 — see [lean/KingWen.lean](../lean/KingWen.lean)
+   theorem is retracted as false; C4's orientation is definitional — this project's convention, not a
+   classical attestation, since the Xugua attests that the {Heaven, Earth} pair opens and not the
+   order within it (narrowed 2026-09-01); and complementation is an exact symmetry of C1∩C2∩C3∩C5 — see [lean/KingWen.lean](../lean/KingWen.lean)
    and CLAIMS_DECIDED's corrections ledger)*, leaving 31 binary choices; conditioning on King Wen's
    pair sequence, exact enumeration shows the constraints leave a valid orientation **fiber of exactly
    1,720,320 vectors** — the **C4-oriented fiber**, the battery's frozen dispositive null
@@ -355,8 +359,8 @@ result — see §5.)
    and exact enumeration sharpens both in his favor, **on the C4-oriented fiber** *(scope made explicit
    2026-07-26)*. King Wen's agreement count of 29 is the **maximum
    attained anywhere on the C4-oriented fiber**: exactly **12 of 1,720,320** vectors reach 29 (King Wen
-   among them; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided), and **none reaches 30** — given the received,
-   classically attested opening orientation, perfect agreement is
+   among them; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided), and **none reaches 30** — given the received
+   opening orientation, which C4 fixes by definition, perfect agreement is
    unattainable, so his declared exception is not a blemish his rule tolerates but a **forced** feature:
    no valid orientation of King Wen's pair sequence *keeping the (63, 0) opening* satisfies all 30
    predictions. The 2026-07-26 pair-only re-check locates where the impossibility lives: on the
@@ -364,8 +368,8 @@ result — see §5.)
    30/30** — both open (0, 63), and the minimal one is King Wen with precisely the opening pair and
    pair 3/4 (**his own declared exception**) orientation-reversed (the second additionally reverses the
    final pair); fiber-wide P(X ≥ 29) = 30/2,703,360 = 1.1097×10⁻⁵ one-sided. The exception is therefore
-   forced **by the classical Heaven-first opening**, not by the pair geometry alone — the received
-   text's one deviation from his rule is exactly what C4's attested orientation makes unavoidable.
+   forced **by the received Heaven-first opening**, not by the pair geometry alone — the received
+   text's one deviation from his rule is exactly what C4's definitional orientation makes unavoidable.
    That clarifies the
    rule's standing — under the received opening it is not "almost perfect"; it is **perfect up to
    impossibility**. The unconditional
@@ -448,8 +452,7 @@ result — see §5.)
 
 ![Grouped bar chart of the four conflicting rules: King Wen misses Moore's 2005 parity rule by 2 (16/18), Moore's 1989 rhythm rule by 2 breaks, and Schulz's 1990 gender rule by 2 violations while satisfying the Schulz S25–28 trigram configuration exactly; the grand unified precursor is perfect (0) on the first three and violates the trigram configuration — no C1∩C2∩C4∩C5-valid ordering achieves zero on all four.](figures/fig_tr1_rules_tradeoff.png)
 
-*The conflict theorem's trade-off (§5). King Wen (red) misses the three graded rules by the minimal
-measured margins (2 each) and keeps the S25–28 trigram configuration exactly; the grand unified
+*The conflict theorem's trade-off (§5). King Wen (red) misses the three graded rules by 2 each ⚠ **[CORRECTED 2026-09-01 — this caption read "by the minimal measured margins (2 each)"; "minimal" is UNSUPPORTED on the same grounds §5 gave on 2026-08-28: `reports/evidence/f11/f11_runA.out` carries `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than KW's `2 2 2` and with nonzero mass, and that histogram is not CC-N4-conditioned, so no extremal check exists. The rendered image above still carries the old wording: its generator `viz/report_figures.py` is outside this pass's file scope and has not been regenerated — the caption, not the image, is authoritative until it is.]** and keeps the S25–28 trigram configuration exactly; the grand unified
 precursor (green, 3 slot-edits from KW) perfects all three graded rules and breaks the trigram
 configuration — which, being a specific binary configuration, has no graded miss count. The jointly
 UNSAT result (drat-trim-verified) says no C1∩C2∩C4∩C5-valid ordering can reach zero on all four axes at once.
@@ -469,9 +472,16 @@ All values are the reports' stated numbers; generated by
 - Moore joint witness: `python3 sat.py --witness moore-strict` (explicit sequence in
   LITERATURE_RULES_POPULATION_TESTS.md §SAT-decided, C3 = 776)
 - Grand precursor witness: `python3 sat.py --witness grand-strict`
-- Joint-strict population size (§4, ≈1.13×10²⁹, 95% CI [1.09, 1.17]×10²⁹) ⚠ **[CORRECTED 2026-08-28 — the ±4.7% was a PREREGISTERED ANCHOR TOLERANCE BAND, not an error bar: `reports/evidence/f11/compute_f11_bf.py:85` names its check "Moore-joint size outside the +/-4.7% anchor band". The published 1.13×10²⁹ comes from `reports/evidence/r11/r11_moore_strict.out` (`est=1.131036e+29`, 95%CI [1.0942e+29, 1.1679e+29], relerr 1.66%), NOT from `f11_runB.out`, which reports 1.16583e29. See CORRECTIONS.md]**: `SOLVE_KNUTH_MOORE_STRICT=1 ./solve
-  --estimate-knuth 5000000000` (pinned strict-Moore walk; flag documented in [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md)
-  §ENVIRONMENT; archived instance: reports/evidence/f11/f11_runB.out)
+- Joint-strict population size (§4, ≈1.13×10²⁹, 95% CI [1.09, 1.17]×10²⁹) ⚠ **[CORRECTED 2026-08-28 — the ±4.7% was a PREREGISTERED ANCHOR TOLERANCE BAND, not an error bar: `reports/evidence/f11/compute_f11_bf.py:85` names its check "Moore-joint size outside the +/-4.7% anchor band". The published 1.13×10²⁹ comes from `reports/evidence/r11/r11_moore_strict.out` (`est=1.131036e+29`, 95%CI [1.0942e+29, 1.1679e+29], relerr 1.66%), NOT from `f11_runB.out`, which reports 1.16583e29. See CORRECTIONS.md]**: `SOLVE_KNUTH_SCORE=1 SOLVE_KNUTH_R11_HIST=1
+  SOLVE_KNUTH_MOORE_STRICT=1 SOLVE_THREADS=64 ./solve --estimate-knuth 20000000000` (pinned
+  strict-Moore walk; flags documented in [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md) §ENVIRONMENT;
+  archived instance: reports/evidence/r11/r11_moore_strict.out — the run the published figure comes
+  from, and its own first four lines record the invocation: `STRICT-MOORE walk ACTIVE`, `R11 8-axis
+  joint violation histogram ACTIVE`, `attributed-rule scoring ACTIVE`, `20000000000 probes, 64
+  threads`. Probe **and** thread count are both load-bearing: PRNG seeds are fixed constants, so a
+  re-run reproduces this output identically only at the same (probes, threads) —
+  [METHODS.md](METHODS.md). The `SCORE`/`R11_HIST` flags are report-only additions carried by the
+  archived run.)
 - Minimal-repair UNSAT certificates (moore-strict-near-2, rc4-strict-near-2) + alternation-theorem
   certificates (alt-le-14, alt-ge-16): regenerate CNFs via `python3 sat.py --emit-cnf <name> f.cnf &&
   kissat f.cnf`; check archived DRAT certificates with drat-trim → `s VERIFIED` (all four, 2026-07-03)
@@ -513,4 +523,6 @@ All values are the reports' stated numbers; generated by
 | v1.23 | 2026-08-02 | **The `ccn4` data-like verdict was findable only by description, not by its row id (hardening item C1).** §3 headline 1 has classified Schulz's S25–28 configuration as data-like since 2026-07-03, but never wrote the scoreboard id `ccn4` next to it — so the 2026-08-01 sweep that concluded `d7` was "the last unclassified load-bearing row" worked by matching id tokens and could not see it. The most-cited row on the board (2×10⁻⁸, the strongest discriminator) was carried as unclassified by that sweep's own instrument. The id is now named at the verdict, in this report and in [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md), and the §3 mass listing carries the verdict inline as `d7`'s already does. **No classification changed and none was added**: `ccn8` and the remaining sampled rows carry no data-like/principled verdict, which §3 now states outright instead of leaving it to be inferred from silence. No figure, mass, theorem or scope changed |
 | v1.24 | 2026-08-06 | **18:18-split attribution correction propagated (fix-landing pass, task #157).** The 2026-07-30 correction (CITATIONS.md: the classical 18:18 hexagram-split credit is Zhang Xingcheng 张行成 + Zhu Xi 朱熹 per the Li Shangxin 2008 first-hand pass, in which the previously-credited Zheng Qiao does not appear — attribution corrected 2026-07-30) had reached the bibliography but not this report's live text. Four sites updated: the executive summary's "begins with" clause, the abstract's lineage opening, the §2 rule-table row, and §6's bolded credit line (which now carries the dated correction note in the same style as the Schulz 2026-07-03 correction). Both replacement names are 12th-century, so the "eight centuries" framing in the title, executive summary, and abstract is unchanged by the correction. The v1.17 revision row retains the superseded name as an append-only historical record. No number, verdict, measurement, or certificate changed |
 | v1.25 | 2026-08-21 | **Shao Yong candidate-cession hedge added to the 36-unit attribution (pre-review self-hardening pass; attribution unchanged).** §6's "36-unit consolidation to Lai Zhide (1525–1604)" now notes that a candidate earlier statement of the 8+28=36 *count* — not the consolidation — by Shao Yong (11th c.) is recorded, second-hand and unconfirmed, in CITATIONS.md (⚠ CANDIDATE EARLIER CESSION, 2026-08-21). The Lai Zhide attribution stands until the 皇極經世 locus is read first-hand. No measurement, verdict, or certificate changed |
-| v1.26 *(current)* | 2026-08-29 | **Shao Yong candidate-cession hedge discharged (attribution of the 36-*count* moves; consolidation attribution unchanged).** The v1.25 hedge ("second-hand and unconfirmed") is superseded: the 皇極經世/觀物外篇 locus was read first-hand from the 四庫 woodblock scan (twice, 2026-08-26/27), the 8+28=36 count confirmed in 邵雍's own wording, and the applied cession published in CITATIONS.md 2026-08-29 (see CORRECTIONS.md). §6's lineage clause now points to the confirmed entry instead of the candidate paragraph. The 36-unit *consolidation* remains credited to Lai Zhide; no measurement, verdict, or certificate changed |
+| v1.26 | 2026-08-29 | **Shao Yong candidate-cession hedge discharged (attribution of the 36-*count* moves; consolidation attribution unchanged).** The v1.25 hedge ("second-hand and unconfirmed") is superseded: the 皇極經世/觀物外篇 locus was read first-hand from the 四庫 woodblock scan (twice, 2026-08-26/27), the 8+28=36 count confirmed in 邵雍's own wording, and the applied cession published in CITATIONS.md 2026-08-29 (see CORRECTIONS.md). §6's lineage clause now points to the confirmed entry instead of the candidate paragraph. The 36-unit *consolidation* remains credited to Lai Zhide; no measurement, verdict, or certificate changed |
+| v1.27 | 2026-09-01 | **The 2026-08-28 "minimal" retraction completed at the three sites its own gate could not see, and the §4 joint-strict rerun line finished.** (i) The 2026-08-28 correction withdrew "minimal" from §5's margin claim, but three phrase-variants survived in this report because they span line breaks or use a different spelling: the executive summary and §5 both re-asserted "minimally imperfect" (§5's within five lines of the marker retracting it), and the figure caption read "the minimal measured margins (2 each)". All three now state the measured margin (2 each) with the absence of an extremal check said explicitly. The rendered PNG/SVG and their generator `viz/report_figures.py` still carry the old wording and are flagged in the caption; regenerating them is outside this pass's file scope. Surviving out-of-scope siblings: `documentation/LITERATURE_RULES_POPULATION_TESTS.md` (2 sites) and the generator. (ii) §4's joint-strict Verification Guide bullet still gave the pre-correction recipe (`--estimate-knuth 5000000000`, archived instance `f11_runB.out`) beside the marker saying the published 1.13×10²⁹ is **not** from that file; the command and instance now match the marker — `reports/evidence/r11/r11_moore_strict.out`, 2×10¹⁰ probes / 64 threads, as that file's own header lines record — with the (probes, threads) reproduction condition stated. No theorem, certificate, count or verdict changed |
+| v1.28 *(current)* | 2026-09-01 | **C4's orientation narrowed from attested to definitional at four §7 sites (the 2026-08-30 correction propagated).** [METHODS.md](METHODS.md) §"Constraint set" established on 2026-08-30 that the *Xugua* attests only that the {Heaven, Earth} pair opens, and not the order of Heaven over Earth within it — 天地 is a compound, not an ordering — so what the classical record carries is C1's pairing rule (孔穎達《周易正義·序卦傳疏》, 二二相耦，非覆即變), verified from the primary text, and C4's *pair choice*, which is unaffected. Four sites in this report still gave C4's orientation the wider classical epithet: §7's re-scope parenthetical, the Van den Berghe fiber-ceiling sentence, and the two clauses of the 2026-07-26 pair-only re-check that credited a *classical* rather than a *received* opening with forcing his declared exception. All four now say **definitional — this project's convention**, and where the point is about the received text they say **received**. **No number, count, fiber size, p-value, verdict or certificate changed**: the 12-of-1,720,320 C4-oriented result, the 2-of-2,703,360 pair-only result, both P(X ≥ 29) figures and every frozen 2026-07-05 value stand exactly as published — the orientation is fixed by C4 either way, so the fibers are the same fibers and only the epithet on their defining bit moved. The v1.16 row above retains the superseded epithet as an append-only historical record, per the v1.24 precedent |

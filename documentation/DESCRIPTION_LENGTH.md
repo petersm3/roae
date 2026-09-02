@@ -40,7 +40,9 @@ compression − statement cost. Conventions, declared up front:
 | strongest *principled* literature rule ([Schulz](CITATIONS.md#schulz1990-motifs) gender — "strongest" among rules stated independently of King Wen; the data-like trigram rule scores higher but is descriptive) | — | — | 13.5 | rule text ≈ 10–15 | ≈ 0 to small + |
 
 ¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits, charged in full — pair AND
-orientation (the orientation bit is definitional, classically attested; the former
+orientation (the orientation bit is definitional — our convention, not a classical attestation: the
+*Xugua* attests that the {Heaven, Earth} pair opens, not the order within it (narrowed 2026-09-01,
+[SPECIFICATION.md](SPECIFICATION.md) §Constraints); the former
 "forced-orientation theorem" that would have returned that 1 bit is retracted as false, 2026-07-26 —
 see [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md) — so nothing is returned and no ledger value changes).
 ² Radisic 2026 (arXiv preprint; his Lean 4 + Mathlib artifact was independently rebuilt and

@@ -301,7 +301,7 @@ orientation-retention convention.*
 
 - **Not a uniqueness proof — and the original version of this analysis was
   itself an instance of the extraction problem.** Recall from
-  [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md): specific "KW-property extraction"
+  [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md#an-important-caveat): specific "KW-property extraction"
   can make almost any C1+C2 ordering appear uniquely determined. An earlier
   version of this document claimed the analysis "avoids that extraction
   problem by using dimensions chosen for general information content";

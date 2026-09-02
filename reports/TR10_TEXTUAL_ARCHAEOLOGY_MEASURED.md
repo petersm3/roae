@@ -86,7 +86,7 @@ notational scoring — is accepted and stated.
    (`reports/evidence/dav_tier1.out`, 2026-07-04; `dav2_tier1.out`, 2026-07-12) contain NO `se=`
    field — both predate the estimator gaining it on 2026-08-28, and a reader opening either file
    finds no standard errors. The SEs quoted here were computed separately. Regenerate them with
-   `SOLVE_KNUTH_SCORE_DAV=1 SOLVE_KNUTH_DAV_HIST=1 ./solve --estimate-knuth 2000000000`, whose
+   `SOLVE_THREADS=32 SOLVE_KNUTH_SCORE_DAV=1 SOLVE_KNUTH_DAV_HIST=1 ./solve --estimate-knuth 2000000000`, whose
    current output prints `se=` per mass; the archived files are retained as the original evidence
    and are NOT being restated.]** **A verdict whose
    95% CI straddles its bar is labelled "unresolved at N probes", not classified.** Among the nine rows
@@ -103,14 +103,54 @@ notational scoring — is accepted and stated.
    | # | Candidate (Davis claim, pages) | KW | Population | Pre-registered verdict |
    |---|---|---|---|---|
    | 1 | `termruns` — terminal-pair one-line-neighborhood contiguity (flagship, pp. 251–255) | 3 runs | P(≤3) = 2.7×10⁻² (two-sided ~5.4×10⁻²; population mean 5.2 runs) | **NULL** |
-   | 2 | `compmirror` — the 7–16 complement-mirror block (pp. 81–82, 92, 95–96) | 1 block | P(≥1) = 1.12×10⁻² (~1 in 89 orderings) | **NULL** |
-   | 3 | `trigarray` — the #43–50 regular trigram array (pp. 76–77, 112) | 1 window | P(≥1) = 6.8×10⁻⁴ | notable (below candidate gate; does not survive the global 91-observable ledger **under Bonferroni** — would under BH-FDR, see §3 note) |
+   | 2 | `compmirror` — the 7–16 complement-mirror block (pp. 81–82, 92, 95–96) | 1 block | P(≥1) = 1.12×10⁻² (~1 in 89 orderings); **two-sided 2.24×10⁻²** | **NULL** |
+   | 3 | `trigarray` — the #43–50 regular trigram array (pp. 76–77, 112) | 1 window | P(≥1) = 6.8×10⁻⁴; **two-sided 1.36×10⁻³** | notable (below candidate gate; does not survive the global 91-observable ledger **under Bonferroni** — would under BH-FDR, see §3 note) ⚠ [SIDEDNESS FLAG 2026-09-01: that BH counterfactual is computed on the ONE-SIDED masses (trigarray 6.8×10⁻⁴, `rotinv` 6.5×10⁻⁵). Under this table's own declared two-sided convention the same rank-2 comparison is 1.36×10⁻³ against 2·(0.05/91) = 1.10×10⁻³, so "would under BH-FDR" does not hold two-sided. The **published** verdict is unchanged either way — 1.36×10⁻³ still exceeds the global Bonferroni bar 0.05/91 = 5.49×10⁻⁴. Flagged for adjudication together with [METHODS.md](METHODS.md) §"Global observable ledger"; deliberately NOT restated here.] |
    | 4 | `parallel3040` — 30s/40s parallel with chiasmus (pp. 78, 253–254) | 1 | zero sampled mass in 2×10⁹ | extreme / data-like class |
-   | 5 | `palnbr` — palindrome-neighborhood adjacency mass (pp. 121–128) | 10 | P(≥10) = 7.9×10⁻² (mean 4.9) | **NULL** |
-   | 6 | `rotinv` — rotation≡inversion pairs at 11/12, 17/18, 53/54, 63/64 (p. 68, 118 n14) | 1 | one-sided P = 6.5×10⁻⁵; **two-sided P = 1.31×10⁻⁴** | **data-like; does not promote — and does NOT meet the candidate bar.** ⚠ [CORRECTED 2026-08-28: this read "meets candidate-rule numerically". The bar declared at §3 is **two-sided** p < 10⁻⁴; the published 6.5×10⁻⁵ is the one-sided upper tail (`at`+`above` from `dav_tier1.out`), and 2 × 6.531×10⁻⁵ = 1.306×10⁻⁴ **exceeds** 10⁻⁴. Row 1 of this same table already applies the doubling convention. The one-sided value is retained above because downstream BH ranking in METHODS/TR-8 cites it.] |
-   | 7 | `pureplace` — pure-hexagram placement (pp. 80, 82, 183) | 1 | one-sided P = 5.56×10⁻³; **two-sided P = 1.11×10⁻²** | **NULL** ⚠ [CORRECTED 2026-08-28: this read "borderline (at the 0.05/9 threshold to reported precision)". It is not borderline under either reading — the declared bar is **two-sided** p < 0.05/9 = 5.5556×10⁻³, and the **one-sided** value 5.56152×10⁻³ already exceeds it before doubling — but that is a **≈0.1-SE gap**, true of the printed estimate and far too close to carry weight, so it is recorded and NOT relied on. The NULL rests on the two-sided reading, which is **≈45 SE** clear.] |
+   | 5 | `palnbr` — palindrome-neighborhood adjacency mass (pp. 121–128) | 10 | P(≥10) = 7.9×10⁻² (mean 4.9); **two-sided 1.57×10⁻¹** | **NULL** |
+   | 6 | `rotinv` — rotation≡inversion pairs at 11/12, 17/18, 53/54, 63/64 (p. 68, 118 n14) | 1 | one-sided P = 6.5×10⁻⁵; **two-sided P = 1.31×10⁻⁴** | **data-like; does not promote — and does NOT meet the candidate bar under the C1–C5 null. `null-sensitive` — see the null-sensitivity note below the table.** ⚠ [CORRECTED 2026-08-28: this read "meets candidate-rule numerically". The suite applies a two-sided convention throughout — row 1 of this same table already doubles — so this row is read two-sided: the published 6.5×10⁻⁵ is the one-sided upper tail (`at`+`above` from `dav_tier1.out`), and 2 × 6.531×10⁻⁵ = 1.306×10⁻⁴ **exceeds** 10⁻⁴. The one-sided value is retained above because downstream BH ranking in METHODS/TR-8 cites it.] ⚠ [SIDEDNESS ATTRIBUTION CORRECTED 2026-09-01: the 2026-08-28 note above read "The bar declared at §3 is **two-sided** p < 10⁻⁴". That contradicts this report's own Abstract. §3's *notable* bar is declared two-sided (0.05/9); the < 10⁻⁴ *candidate* bar is **inherited** from the F4′ family's registration, worded there "< 10⁻⁴ after Bonferroni" with **sidedness unstated**, and is not restated verbatim in `2d19a3f`. The two-sided reading is retained as the suite's operating convention — but it is a convention applied here, not a sidedness the candidate bar's own registration fixed, and under a one-sided reading of the inherited bar this row would meet it numerically (6.5×10⁻⁵ < 10⁻⁴). Nothing turns on the resolution: the row does not promote under either reading, because it is a KW-extracted exact template — the data-like class the pre-registration bars from promoting whatever its rarity.] |
+   | 7 | `pureplace` — pure-hexagram placement (pp. 80, 82, 183) | 1 | one-sided P = 5.56×10⁻³; **two-sided P = 1.11×10⁻²** | **NULL** under the C1–C5 null. `null-sensitive` — see the null-sensitivity note below the table. ⚠ [CORRECTED 2026-08-28: this read "borderline (at the 0.05/9 threshold to reported precision)". It is not borderline under either reading — the declared bar is **two-sided** p < 0.05/9 = 5.5556×10⁻³, and the **one-sided** value 5.56152×10⁻³ already exceeds it before doubling — but that is a **≈0.1-SE gap**, true of the printed estimate and far too close to carry weight, so it is recorded and NOT relied on. The NULL rests on the two-sided reading, which is **≈45 SE** clear.] |
    | 8 | `eccplace` — eccentric-class placements incl. 23/24–43/44 at distance 20 (pp. 124–125, 117 n10, 172, 211) | 1 | zero sampled mass | extreme / data-like class |
-   | 9 | `asymhalf` — both-asymmetric-trigram half-split (pp. 111–112) | 4 of 16 | P(≤4) = 1.9×10⁻¹ (mean 7.3) | **NULL** |
+   | 9 | `asymhalf` — both-asymmetric-trigram half-split (pp. 111–112) | 4 of 16 | P(≤4) = 1.9×10⁻¹ (mean 7.3); **two-sided 3.90×10⁻¹** | **NULL** |
+
+   **Null-sensitivity of rows 6 and 7 (added 2026-09-01; a disclosure gap, not an arithmetic error).**
+   Every mass above is computed against the *operative, pre-registered* null — the C1–C5
+   constraint-satisfying population — and every one of them is correct under it. That is not the only
+   defensible null this suite maintains: [METHODS.md](METHODS.md) §"Permutation-test nulls" also defines the
+   **pair-preserving** null — "shuffle the 32 canonical pairs + independent uniform orientation flips, first
+   pair fixed by C4 where stated" — and [TR-8](TR8_REORDERING_REVISITED.md) §2 measures against it, noting
+   that "C2/C5 are themselves regularities read off the received order, so this null is conservative, not
+   'undisputed'", and re-deriving the Schulz gender rule under it in closed form (47/445740). Two of the nine
+   rows above change classification under that null, and this report did not previously say so. Both
+   predicates are functions of *pair-slot placement only* — `dav_rotinv` compares a position **set**, and
+   `dav_pureplace` reads positions that come in whole slots — so both are invariant to the orientation-flip
+   half of the pair-preserving null, and the masses below are exact rationals over slot arrangements, not
+   estimates:
+
+   | row | predicate | C1 only | C1 + C4 | C1–C5 (published above) |
+   |---|---|---:|---:|---:|
+   | 6 | `rotinv` | 2/C(32,4) = **5.562×10⁻⁵** | 2/C(31,4) = **6.356×10⁻⁵** | 1.31×10⁻⁴ |
+   | 7 | `pureplace` | 2·7/35,960 = **3.893×10⁻⁴** | 2·14/4,495 = **6.229×10⁻³** | 1.11×10⁻² |
+
+   (Two-sided throughout, to match the table above. Row 6: the notation-fixed 8-member class — the hexagram
+   values {7, 11, 21, 25, 38, 42, 52, 56} with rev6(*h*) = comp6(*h*) ≠ *h* — forms exactly four pair-blocks,
+   {7,56}, {11,52}, {21,42}, {25,38}, and the predicate asks that they occupy pair-slots {6, 9, 27, 32}; with
+   31 free blocks exchangeable over 31 free slots that is 4!·27!/31! = 1/C(31,4) = 1/31,465, and 4!·28!/32! =
+   1/C(32,4) = 1/35,960 without C4, which pins a block outside the class. Row 7: the two doubled-symmetric
+   blocks {63,0} and {18,45} must take slots {1, 15} — 1/C(32,2) under C1, but only 1/31 under C1+C4, because
+   **C4 already pins {63,0} to slot 1**, i.e. C4 hands the predicate half of the very placement it tests —
+   times the 42 of C(30,2) = 435 remaining slot-pairs that put the two doubled-asymmetric blocks, {9,36} and
+   {27,54}, inside one decade straddling its 5/6 centre.)
+
+   **What this changes.** Row 6 `rotinv` clears the 10⁻⁴ candidate bar numerically under *either* alternative
+   null, where under C1–C5 it misses at 1.31×10⁻⁴. Row 7 `pureplace` clears both the 0.05/9 = 5.556×10⁻³
+   family bar and the 0.05/91 = 5.495×10⁻⁴ global bar under **C1 alone**, against the **NULL** recorded above
+   — but is NULL again as soon as C4 is added (6.229×10⁻³, 1.12× the family bar), the whole ×16.0 being C4's
+   pinning of {63,0}. **What this does not change:** no published mass here is wrong, each being correct
+   under its stated null; the corpus-control specificity gate is null-free; and *nothing promotes* under any
+   of the three nulls — rows 6 and 7 are exact templates read off King Wen, the data-like class the
+   pre-registration bars from promoting whatever its rarity, which is precisely why a reversal in the rarity
+   *number* does not become a reversal in the *verdict*. The correct reading of rows 6 and 7 is therefore
+   `null-sensitive`: their classification is a statement about the C1–C5 null, not about the sequence.
 
    Corpus control: every flagged predicate evaluates to zero on both Jing Fang and Mawangdui — the
    specificity gate passes *(re-verified 2026-07-05 on the corrected Mawangdui array — see the v1.2
@@ -201,7 +241,8 @@ notational scoring — is accepted and stated.
    **The declined candidate, completed with a power analysis.** The scope decline of the
    named-size candidate (§5(c)) stands on its own grounds. Independently of them, an analytic
    result added at this landing shows the declined test was also *incapable* of producing a
-   significant result:
+   significant result under the pair-exchangeable null it is evaluated against (scope added
+   2026-09-01 with the narrowing below):
 
    > **Power note (analytic).** Independently of the scope grounds for declining it, this
    > test could never have produced a significant result, for a reason that has nothing to
@@ -224,12 +265,24 @@ notational scoring — is accepted and stated.
    > and sixteen-fold above the 0.05/12 family-corrected gate this test would have faced.
    > The test was uninformative by construction — even its maximally favorable outcome,
    > which the King Wen sequence happens to realize, could never have registered as
-   > significant. (The bound is exact under the pair-exchangeable null; conditioning further
-   > on the boundary constraints perturbs the fifteen arrangement probabilities through the
-   > pairs' bit patterns alone — a label-independent, purely structural effect — and
-   > breaching the family gate would require a sixteen-fold depletion of the target
-   > arrangement, an order of magnitude beyond any pair-position coupling measured in this
-   > project.)
+   > significant **under this null**. (The bound is exact under the pair-exchangeable null;
+   > conditioning further on the boundary constraints perturbs the fifteen arrangement
+   > probabilities through the pairs' bit patterns alone — a label-independent, purely
+   > structural effect — and breaching the family gate would require a sixteen-fold
+   > depletion of the target arrangement.) ⚠ [NARROWED 2026-09-01: this parenthetical
+   > used to end with a comparative magnitude claim — that a sixteen-fold depletion was far
+   > beyond every effect of its kind the project had measured. It is withdrawn, not
+   > restated. The statistic that comparison ranged over is defined nowhere in this
+   > repository and no value of it is published anywhere in it — before this narrowing, a
+   > search of the public tree for the phrase naming that statistic returned the sentence
+   > making the claim and nothing else — so a reader had no way to check it or to falsify
+   > it. What survives is the part that is checkable, and it is narrower: the 1/15
+   > bound is **exact** under the pair-exchangeable (C1-only) null, and under the fuller
+   > C1–C5 conditioning the perturbation is **unmeasured for this predicate class** — this
+   > note therefore asserts no bound on it. Nor should the perturbation be assumed small:
+   > §3's null-sensitivity table moves `pureplace` by exactly ×16.0 on the addition of C4
+   > alone. That is a different predicate class and does not transfer to the 2-of-6 class
+   > analysed here — which is precisely why the untested comparison is no longer made.]
 
    The note is fully reproducible without any ROAE code and without implementing the declined
    predicate — see the Verification Guide. The exchangeability argument is elementary and may
@@ -356,11 +409,23 @@ notational scoring — is accepted and stated.
 
 ⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command in this document.** Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)*
 
+⚠ **`SOLVE_THREADS` is part of the reproduction, not a performance knob.** Every `--estimate-knuth`
+command in this document now carries `SOLVE_THREADS=32`, the value the three archived runs used
+(`reports/evidence/dav_tier1.out`, `dav2_tier1.out`, `db1_tier1.out`, each line 1: `threads=32`).
+The estimator seeds worker *i* at `base ^ ((i+1)·0x9E3779B97F4A7C15)` (`solve.c`), and with
+`SOLVE_THREADS` unset the thread count falls back to the running host's core count
+(`sysconf(_SC_NPROCESSORS_ONLN)`, `solve.c`) — so the thread count selects the sample, and
+[METHODS.md](METHODS.md) §"Knuth estimator CIs" guarantees identical output only for re-runs at
+identical *(probes, threads)*. Without the prefix a reader on a different host reproduces a
+different draw. *(Added 2026-09-01 — see v1.13. The commands read without it from the report's
+first landing.)*
+
 - KW-value reproduction, two-language gate: `python3 solve.py --dav-verify` and `./solve --dav-verify`
   → `DAV VERIFY: PASS` (each of the nine candidates reproduces its expected King Wen value; solve.py
   is the spec, solve.c the engine)
-- Population masses and histograms (§3 table): `SOLVE_KNUTH_SCORE_DAV=1 SOLVE_KNUTH_DAV_HIST=1
-  ./solve --estimate-knuth 2000000000` (evidence file: `dav_tier1.out`, tier-1 run 2026-07-04;
+- Population masses and histograms (§3 table): `SOLVE_THREADS=32 SOLVE_KNUTH_SCORE_DAV=1
+  SOLVE_KNUTH_DAV_HIST=1 ./solve --estimate-knuth 2000000000` (evidence file: `dav_tier1.out`,
+  tier-1 run 2026-07-04;
   self-validation: same run's canonical-leaf estimate 1.3275×10³⁸ vs [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)'s
   1.3287×10³⁸, 0.09%)
 - Pre-registration prior to measurement: documentation/CRITIQUE.md §"Pre-registered tests … Davis
@@ -384,8 +449,8 @@ notational scoring — is accepted and stated.
 - Wave-2 KW-value reproduction, two-language gate: `python3 solve.py --dav2-verify` and
   `./solve --dav2-verify` → `DAV2 VERIFY: PASS` (`tquartet` = 1, `xunslots` = 5; solve.py is the
   spec, solve.c the engine)
-- Wave-2 population masses and histograms (§3b table): `SOLVE_KNUTH_SCORE_DAV2=1
-  SOLVE_KNUTH_DAV2_HIST=1 ./solve --estimate-knuth 2000000000` (evidence file: `dav2_tier1.out`,
+- Wave-2 population masses and histograms (§3b table): `SOLVE_THREADS=32
+  SOLVE_KNUTH_SCORE_DAV2=1 SOLVE_KNUTH_DAV2_HIST=1 ./solve --estimate-knuth 2000000000` (evidence file: `dav2_tier1.out`,
   tier-1 run 2026-07-11; self-validation: same run's canonical-leaf estimate 1.3275×10³⁸ vs
   [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)'s 1.3287×10³⁸, 0.09%)
 - The C-D5 power note (§3b) — self-contained; **requires no ROAE binary, no data files, and no
@@ -416,8 +481,8 @@ notational scoring — is accepted and stated.
 - The D-B1 tautology (§3b): KW-value + classifier reproduction, two-language gate:
   `python3 solve.py --db1-verify` and `./solve --db1-verify` → `DB1 VERIFY: PASS` (Table 4.1
   reproduced 64/64; KW conformity X = 22, ten deviant pairs listed). Population descriptives:
-  `SOLVE_KNUTH_SCORE_DB1=1 SOLVE_KNUTH_DB1_HIST=1 ./solve --estimate-knuth 2000000000` (evidence
-  file: `db1_tier1.out`). The argmax verification is arithmetic on the received sequence alone:
+  `SOLVE_THREADS=32 SOLVE_KNUTH_SCORE_DB1=1 SOLVE_KNUTH_DB1_HIST=1 ./solve --estimate-knuth
+  2000000000` (evidence file: `db1_tier1.out`). The argmax verification is arithmetic on the received sequence alone:
   for each group, list its members' KW ordinals and check that Drasny's room is the
   maximum-coverage decade window (or step-10 window) for that list, with per-group coverages
   3+3+3+3+4+5 plus the residue conformity = 22
@@ -436,4 +501,6 @@ notational scoring — is accepted and stated.
 | v1.8 | 2026-08-01 | **Correction-family disclosure (statistics-methodology review, F3).** The trigarray global-ledger verdict is shown to be Bonferroni-specific: under Benjamini–Hochberg FDR at q = 0.05 against the same 91-observable ledger, `trigarray` (6.8×10⁻⁴) *would* be declared significant: BH rejects at every rank ≥ 2 (*i* = 2 already gives 1.1×10⁻³ > 6.8×10⁻⁴), and rank *i* = 1 is excluded by `rotinv` (6.5×10⁻⁵) in the same registered Davis family. *(Ranking support narrowed 2026-08-01, second pass: this row first read "at least twelve ledger values are strictly smaller, so its BH rank is i ≥ 13 … about 10× the measured p". The extra values were literature-rule registry masses outside the 91-observable roster plus two zero-sampled-mass entries; that "≈10×" margin is withdrawn. The verdict is unchanged — see [METHODS.md](METHODS.md) §"Global observable ledger".)* This is the ONLY verdict in the suite the correction family moves, and it moves the result most favourable to the hypothesis the suite argues against; the global-ledger layer was also added (2026-07-11) after the measurement it adjudicates. The FWER reading is retained as the conservative choice and the dependence is disclosed at §3, in the §3 table row, in the narrative, and in METHODS §"Correction-family disclosure". FWER clearance implies FDR clearance, so every claim reported as *clearing* the bar is unaffected. No measured number changes |
 | v1.9 | 2026-08-06 | **Benjamini–Hochberg cited at point of use (citation audit, UNASKED-7).** §3's correction-family disclosure has invoked "Benjamini–Hochberg FDR" since v1.8 without a source; the reference ([Benjamini & Hochberg 1995](../documentation/CITATIONS.md#benjamini-hochberg1995), *JRSS-B* 57(1)) is now in CITATIONS.md §Statistical methodology and linked where the FDR verdict is stated. No verdict, rate, or measured number changed |
 | v1.10 | 2026-08-06 | **TR-9 residual range propagated (MDL audit, mirrors TR-9 v1.22).** The Davis-predictions passage quoted TR-9's residual as "~105–127 bits"; TR-9 v1.22 widened the range to **105–139** (the former upper endpoint 126.6 retained the bit-cuts of C5 and C3, both of which TR-9 itself classifies as non-explanatory; the consistent endpoint is log₂\|C1∩C2∩C4\| = 139.1). The quoted range is updated; this report's own measurements, batteries, and verdicts are untouched — the widening strengthens the residual claim this report's null results support |
-| v1.11 *(current)* | 2026-08-30 | **The standard-error claim is corrected: no PUBLISHED artifact carries `se=`.** §3 said masses "each now carr[y] a delta-method standard error (printed as `se=` by the estimator since 2026-08-28)" — true of the estimator, false of the evidence: `reports/evidence/dav_tier1.out` (2026-07-04) and `dav2_tier1.out` (2026-07-12) both predate that capability and contain **zero** `se=` fields, so a reader opening either finds no standard errors. The regeneration command is now given in-line per the published-numbers-need-code rule; the archived files are retained as original evidence and are NOT restated. No mass, verdict, or classification changes — `rotinv`'s ≈2.3 SE margin and the "no published classification changes" conclusion both stand. Found by Codex v2 |
+| v1.11 | 2026-08-30 | **The standard-error claim is corrected: no PUBLISHED artifact carries `se=`.** §3 said masses "each now carr[y] a delta-method standard error (printed as `se=` by the estimator since 2026-08-28)" — true of the estimator, false of the evidence: `reports/evidence/dav_tier1.out` (2026-07-04) and `dav2_tier1.out` (2026-07-12) both predate that capability and contain **zero** `se=` fields, so a reader opening either finds no standard errors. The regeneration command is now given in-line per the published-numbers-need-code rule; the archived files are retained as original evidence and are NOT restated. No mass, verdict, or classification changes — `rotinv`'s ≈2.3 SE margin and the "no published classification changes" conclusion both stand. Found by Codex v2 |
+| v1.12 | 2026-09-01 | **Null-sensitivity disclosed for §3 rows 6–7; sidedness attribution corrected; one-sided-only rows completed.** (a) §3 gains a null-sensitivity note: the scoreboard's classifications are relative to the pre-registered C1–C5 null, and two rows reverse under the suite's own second null ([METHODS.md](METHODS.md) §"Permutation-test nulls", measured by [TR-8](TR8_REORDERING_REVISITED.md) §2). Exact rationals over slot arrangements, both predicates being orientation-invariant: `rotinv` = 2/C(31,4) = 6.356×10⁻⁵ under C1+C4 and 2/C(32,4) = 5.562×10⁻⁵ under C1, both **below** the 10⁻⁴ candidate bar its C1–C5 figure (1.31×10⁻⁴) misses; `pureplace` = 2·7/35,960 = 3.893×10⁻⁴ under C1, clearing both the 0.05/9 and the 0.05/91 bars against the published **NULL**, but NULL again at 2·14/4,495 = 6.229×10⁻³ once C4 is added — the whole ×16.0 being C4's pinning of block {63,0} to slot 1, half of the placement `pureplace` tests. Rows 6 and 7 now carry a `null-sensitive` marker. **No published mass is wrong** (each is correct under its stated null) and **nothing promotes** under any of the three nulls — both rows are KW-extracted exact templates, the data-like class. (b) Row 6's 2026-08-28 note asserted "The bar declared at §3 is **two-sided** p < 10⁻⁴", contradicting this report's own Abstract, which records the < 10⁻⁴ candidate bar as inherited from F4′ "with sidedness unstated there"; the two-sided reading is retained as the suite's operating convention but is no longer attributed to the bar's registration, and the row does not promote under either reading. (c) Rows 2, 3, 5 and 9 published a one-sided tail only, where row 1 already carried both; the two-sided atom-inclusive values (2.24×10⁻², 1.36×10⁻³, 1.57×10⁻¹, 3.90×10⁻¹) are added from `reports/evidence/dav_tier1.out` — **no verdict moves**. Row 3 additionally carries a sidedness flag: the v1.8 BH-FDR counterfactual is computed on one-sided masses and does not hold two-sided (1.36×10⁻³ vs 2·(0.05/91) = 1.10×10⁻³); the published Bonferroni verdict is unchanged and the BH leg is flagged for adjudication, not restated. Regeneration for every mass: `SOLVE_THREADS=32 SOLVE_KNUTH_SCORE_DAV=1 SOLVE_KNUTH_DAV_HIST=1 ./solve --estimate-knuth 2000000000` (thread count added 2026-09-01 — see v1.13); the closed forms are checkable by hand from the predicate definitions in `solve.py` (`dav_rotinv`, `dav_pureplace`) |
+| v1.13 *(current)* | 2026-09-01 | **Reproduction commands carry their thread count; the undocumented in-place corrections are entered in this table; the power note's comparative magnitude claim is withdrawn.** (a) **`SOLVE_THREADS=32` added to all five `--estimate-knuth` commands in this report** (§3's `se=` regeneration line and the four Verification-Guide lines — including the regeneration command v1.12 itself published without it, which is the defect v1.12 was correcting reproduced one row lower). The thread count is not a performance knob: the estimator seeds worker *i* at `base ^ ((i+1)·0x9E3779B97F4A7C15)` and, with `SOLVE_THREADS` unset, takes the thread count from `sysconf(_SC_NPROCESSORS_ONLN)` (both in `solve.c`), so the thread count selects the sample; [METHODS.md](METHODS.md) §"Knuth estimator CIs" guarantees identical output only at identical *(probes, threads)*. 32 is the value all three archived runs used (`reports/evidence/dav_tier1.out`, `dav2_tier1.out`, `db1_tier1.out`, each line 1: `threads=32`). A Verification-Guide warning now states the rule once. No mass, verdict or classification changes — this makes the published masses reproducible, which they were not. (b) **Revision-history coverage completed.** Per [reports/README.md](README.md) §"Living documents" every content change takes a Revision History entry; five in-place corrections carrying their own dated markers had none. They are entered here rather than back-dated: **2026-08-21** — the `ulimit -s unlimited` requirement added to the Verification Guide (execution-lane finding); **2026-08-28** — §3 row 6 (`rotinv`) re-read two-sided, §3 row 7 (`pureplace`) moved from borderline to NULL, and §5's nine-row summary re-counted to match (five null, one notable, three data-like); **2026-08-29** — §4's conditioning set named as C1–C5 rather than as classical. A sixth, the Abstract's 2026-08-01 adjective correction about the 0.09% cross-check, falls on the same date as v1.8 but is not described by it; it is named here for the same reason. No number or verdict is touched by (b). (c) **§3b power note narrowed.** The analytic power note closed with a comparative magnitude claim ranging over a statistic this repository never defines and never publishes — a search of the public tree returns the claim site alone — so a reader could neither check nor falsify it. It is withdrawn and not restated. The note now asserts only what it establishes: min-p = 1/15 is **exact** under the pair-exchangeable (C1-only) null, and the perturbation from the fuller C1–C5 conditioning is **unmeasured for this predicate class**. The lead-in sentence is scoped to that null to match, and the reader is pointed at v1.12's own null-sensitivity table, where C4 alone moves `pureplace` by ×16.0 — a different predicate class that does not transfer, which is exactly why no untested bound is claimed. The declined test stays declined on the §5(c) scope grounds, which never depended on the power note. Found by Codex v2 (V2-F01 #2–#4). |

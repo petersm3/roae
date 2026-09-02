@@ -64,8 +64,18 @@ inventory. That figure is a Knuth random-probe **estimate**, 95% CI [5.13, 5.29]
 estimate, not a proven cardinality — but the verdict needs only that the count is not 1, and the CI's
 *lower* bound is 5.13×10³¹, so no plausible estimator error touches it. The conclusion is also
 corroborated **exactly, with no estimator involved**: inside King Wen's own 22-pair prefix, exact
-counting finds **16,504** C1–C5 completions of which exactly **8** satisfy C6–C7 — King Wen and seven
-others in its immediate neighbourhood ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4). King Wen is
+counting finds **16,504** *oriented* C1–C5 completions of which exactly **8** satisfy C6–C7 — and
+**all eight carry King Wen's own pair ordering**, the other seven being orientation variants of it
+([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4). So the exact corroboration is at the **oriented**
+level — the level the full-space estimate above also counts. Read as *pair orderings*, this one slice
+runs the other way: C6–C7 leave King Wen's alone among the 899 distinct pair orderings that those
+16,504 oriented leaves represent. ⚠ **[CORRECTED 2026-09-01 — this passage previously glossed the eight
+survivors as King Wen accompanied by seven further members of its neighbourhood, which invites a
+pair-ordering reading that is the opposite of what the enumeration shows. Ruled 2026-08-28; the
+verifying runs are published at [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4 and
+[SEARCH_SPACE_SIZE.md](documentation/SEARCH_SPACE_SIZE.md). Both counts, 16,504 and 8, are unchanged
+and correct — only the gloss was wrong. This front page was missed by the 2026-08-28 sweep because
+the retracted phrase wrapped a line break, which a line-based grep cannot see.]** King Wen is
 unique only within **budgeted enumerated slices**, never in the full space. Read against the
 literature, this is **a measured confirmation of prior under-determination claims, and the magnitude
 is a single-instrument estimate**: the direction was asserted qualitatively before this project
@@ -74,8 +84,8 @@ alone — every two-instrument exact quantity in the suite is C3-free
 ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)). Neither label doubts the number:
 the estimator is externally validated at both full-scale layers where exact ground truth exists,
 inside its stated envelope both times ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §"Estimator
-calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 of 16,504
-above). What no prior author did is the measurement **at combinatorial scale, over
+calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 oriented
+survivors of 16,504 above). What no prior author did is the measurement **at combinatorial scale, over
 constraint-defined spaces** — exhaustive searches over small curated families of candidate
 orders do exist in the literature, and are not what this sentence excludes.
 
@@ -154,9 +164,10 @@ are treated as axioms defining a space of orderings ([formal definitions](docume
 - **C7** — the same kind of pin one boundary earlier: the pair at positions 49–50 is immediately
   followed by the pair at 51–52.
 
-C1–C2 are robust properties, stated in the literature independently of any one ordering. C3–C5 are
+C1–C2 are robust properties, stated in the literature independently of any one ordering. C3 and C5 are
 extracted from the sequence itself — C3's ceiling is King Wen's own value, C5's multiset is King Wen's
-own multiset. C6–C7 go furthest still: they name the specific hexagrams King Wen puts at those slots
+own multiset; C4's opening pair is classically attested, not extracted. C6–C7 go furthest still:
+they name the specific hexagrams King Wen puts at those slots
 ([exact values](documentation/SPECIFICATION.md)), so they describe the received order rather than
 explain it. That distinction is the difference between a result and a restatement, and it is policed
 throughout ([CRITIQUE.md](documentation/CRITIQUE.md)) — which is why headline counts are reported over
@@ -169,9 +180,9 @@ C1–C5, with C6–C7 added only where the text says so.
 | **[solve.c](solve.c)** | The enumerator. Multi-threaded C; produces byte-reproducible enumeration slices anchored by sha256 ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md)); also an unbiased estimator of the full space. Deepest artifact: 10.5 billion orderings, derived twice byte-identically on preemptible cloud. |
 | **[solve.py](solve.py)** | The independent ground truth. Every constraint implemented a second time, in Python, and cross-checked against the C. |
 | **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
-| **[roae.py](roae.py)** | The exploratory analysis suite: 28 statistical analyses of the sequence with honest null models ([example output](example/)). |
+| **[roae.py](roae.py)** | The exploratory analysis suite: 28 analyses of the sequence — most with null-model comparisons, several descriptive-only, and [CRITIQUE.md](documentation/CRITIQUE.md) names which are which ([example output](example/)). |
 | **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas, four sequence-level theorems, the trigram-level structure ([TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)), and the model-level merge/partition-invariance theorems (see [lean/README.md](lean/README.md) for the trust-base and scope notes). |
-| **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of every certificate, gate, and proof. |
+| **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of the enumerator selftest, the two-language gates, every archived DRAT certificate and the Lean proofs (it does not run roae.py or tests.py). |
 
 ## What was found
 
@@ -204,7 +215,9 @@ Headlines only — each links to its full treatment (technical reports in [repor
   configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
   caveat. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
 - **Every valid ordering has exactly 23 record-level indistinguishable twins** (the symmetry group acts
-  freely), and exactly **15 parity-class alternations** (proven three independent ways). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
+  freely), and exactly **15 parity-class alternations** (proven two independent ways — the
+  prose argument and the Lean 4 kernel — with a SAT/DRAT corroboration that mechanizes the counting
+  step under the alternation–distance bridge). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
 - **No symmetry-respecting generator can single out King Wen.** Any generator that scores orderings
   using only G-invariant structural primitives (Hamming distance, complement, reversal, the values 0/63,
   …) gives King Wen's record and each of its 23 twins equal probability — so it can place at most **1 in
@@ -250,13 +263,17 @@ Headlines only — each links to its full treatment (technical reports in [repor
   ~64 GB of RAM plus ~4 TB of disk; the statistical estimator is validated absolutely at 10³⁹ (the
   exact value lands inside its stated ±0.01% envelope). The flagship C1–C5 figure remains an
   estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
-- **The record is reproducible**: every published count re-derivable to the byte by one command; the
-  deepest run reproduced from scratch through seven fresh Spot evictions (twelve across both runs). [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)
+- **The enumeration record is reproducible**: every canonical count re-derivable to the byte by one
+  command; the deepest run reproduced from scratch through seven fresh Spot evictions (twelve across
+  both runs). Three legacy figures are attested-not-reproducible and say so where they appear: the
+  5,449-sequence check above, TR-1's ~1-in-25-million, and the
+  [f11halfb](reports/evidence/f11halfb/RESULTS.md) bundle. [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)
 
 **Honesty apparatus.** Every caveat lives in [CRITIQUE.md](documentation/CRITIQUE.md) — read it before
 quoting anything above. It covers the constraint-extraction circularity, the null-model studies, the
-look-elsewhere accounting, and the corrected published results (the full never-silent corrections
-ledger — including a retracted theorem — is in [CLAIMS_DECIDED.md](documentation/CLAIMS_DECIDED.md)). It also reports the corpus-control test:
+look-elsewhere accounting, and the corrected published results (the scorecard is
+[CLAIMS_DECIDED.md](documentation/CLAIMS_DECIDED.md); the full never-silent corrections ledger — including a
+retracted theorem — is [CORRECTIONS.md](documentation/CORRECTIONS.md)). It also reports the corpus-control test:
 the same methodology flags **both** non-KW controls — a provably algorithmic ordering
 ([Jing Fang](documentation/CITATIONS.md#jingfang)) on 9 of 11 axes **and the trigram-block-sorted
 Mawangdui order on 9 of 11** — while King Wen comes out on exactly its three documented constraints
@@ -269,11 +286,11 @@ exists in the corpus).
 ## Quick start
 ```
 gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest  # must print PASS
-python3 roae.py                          # the analysis battery (29 sections; 28 statistical + the theorem-backed --parity)
+python3 roae.py                          # the analysis battery (29 sections; 28 analyses, most with null models — see CRITIQUE.md — plus the theorem-backed --parity)
 python3 solve.py --registry-verify       # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                           # SAT layer usage + targets
-python3 tests.py                         # regression harness (76 tests)
-bash reports/certificates/verify_all.sh  # everything above + all DRAT certs + Lean, one command
+python3 tests.py                         # regression harness (77 tests as of 2026-09-01)
+bash reports/certificates/verify_all.sh  # selftest + two-language gates + all DRAT certs + Lean, one command (does NOT run roae.py or tests.py)
 ```
 `verify_all.sh` needs four external tools — **gcc**, **python3**, **drat-trim** and **lean** (elan).
 It probes for each up front and reports any dependent check as **SKIP**, not FAIL: a SKIP means the

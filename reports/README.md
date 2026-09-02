@@ -73,6 +73,20 @@ record's permanence — the worst possible place for a claim that is not true. *
 is git-native**: a commit sha is content-addressed and immutable, which is the property a DOI would
 have been bought for. Cite the sha.
 
+The repository-level [`CITATION.cff`](../CITATION.cff) follows that rule from the other side. It is what
+GitHub's "Cite this repository" button and reference managers read — without a human in the loop — so it
+stamps **no commit, no version and no release date of its own**: it resolves to `main`, the published
+corpus ([README](../README.md) §"Which branch to read — `main`, and only `main`"), and asks the citer to
+add the sha they read. Until 2026-09-01 it pinned commit `9169b0e5`, which by then was 643 commits behind
+`main` and whose tree contains no TR-10, no TR-11, no [CORRECTIONS](../documentation/CORRECTIONS.md) — and
+not even this index. The machine-readable citation was sending readers to a tree in which the reports they
+had come to check do not exist, while the README sent human readers to `main`. The release tag
+`reports-v1.0` resolves to that same commit and has the same holes, and no later suite-version tag was
+ever cut, so no frozen ref holds the eleven-report suite: the pinning rule in [METHODS](METHODS.md)
+§"Environment (version pinning)" — pin to a commit sha — is discharged by the citer, on the state they
+read, and cannot be discharged in advance by a static file. That reasoning is recorded in `CITATION.cff`'s
+own comments, so the next reader of that file finds the argument and not just the fields.
+
 **Version lifecycle:** versioning discipline begins at publication. Pre-release drafts carry
 `v1.0-draft` and may churn freely (git history is the audit trail); the first public release is stamped
 `v1.0`; every subsequent content change to a published report is a version bump with a Revision History

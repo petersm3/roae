@@ -32,8 +32,10 @@ is different:
   each other (every line flipped) or upside-down versions of each
   other. *This is a classical observation* — it appears in the *Yi
   Zhuan* commentary tradition (traditionally dated ~5th-3rd c. BCE,
-  though modern dating is later) and is presented rigorously in modern
-  form first by [Goldenberg (1975)](CITATIONS.md#goldenberg1975), with
+  though modern dating is later); the earliest rigorous modern-form
+  presentation known to this project is
+  [Goldenberg (1975)](CITATIONS.md#goldenberg1975) (first in the Western
+  literature), with
   the fullest treatment in [Cook (2006)](CITATIONS.md#cook2006); the
   pairing convention is used throughout
   [Wilhelm & Baynes (1967)](CITATIONS.md#wilhelm-baynes1967).
@@ -56,10 +58,18 @@ is different:
   complement ䷁ #2 (binary 000000, all-broken). The
   *choice* of this pair first is classically attested (the *Xugua*
   commentary's ordering rationale); the *orientation* (Creative before
-  Receptive) is C4's own definitional choice, classically attested (the *Xugua* opens
-  Heaven-then-Earth) — **not** forced by the other rules. Complementing every hexagram maps any
-  valid arrangement to an equally-valid one opening (0, 63) that still satisfies C1, C2, C3, and C5
-  (machine-checked in [lean/KingWen.lean](../lean/KingWen.lean)). *(An earlier version claimed the
+  Receptive) is C4's own definitional choice — this project's convention,
+  not something the classical record attests — and is **not** forced by
+  the other rules. ⚠ **[CORRECTED 2026-09-01 — the orientation was
+  previously described here as classically attested too, on the strength
+  of the *Xugua*'s opening. The *Xugua* attests that the {Heaven, Earth}
+  pair opens, not the order of Heaven over Earth within it: 天地 is a
+  compound, not an ordering. The pair-choice clause immediately above is
+  unaffected and stands. Narrowed in
+  [METHODS.md](../reports/METHODS.md) §"Constraint set" on 2026-08-30.]**
+  Complementing every hexagram maps any valid arrangement to an
+  equally-valid one opening (0, 63) that still satisfies C1, C2, C3, and
+  C5 (machine-checked in [lean/KingWen.lean](../lean/KingWen.lean)). *(An earlier version claimed the
   orientation was forced by C5 — retracted 2026-07-26; see SOLVE_SUMMARY.md / CLAIMS_DECIDED.md.)*
 - **C5 — Distance count.** Across the 63 consecutive transitions, the
   number of distances of each value (1, 2, 3, 4, 6) has to match a
@@ -274,8 +284,9 @@ collects.
 
 ## Part 8: A "node" is one decision step
 
-When the solver is walking the tree, every step from a parent to a child
-is a "node." A node represents one specific commitment: "given everything
+When the solver is walking the tree, every **frame entry** is a "node" —
+including the frame the walk starts from, which costs a node before any
+child is tried. A node represents one specific commitment: "given everything
 I've already decided up to position P, I'm now trying value V at the next
 position."
 
@@ -344,11 +355,17 @@ There are two main ways to drive the solver:
 **All-branch enumeration** (`solve 0 64`): the solver starts at the root
 and walks the WHOLE tree, depth-first, expanding all 56 first-level
 branches in turn. One process does it all. Output: a directory full of
-shard files (one per depth-3 sub-sub-branch), automatically merged into
-a single `solutions.bin`.
+shard files — one per depth-3 cell **that found at least one solution**;
+a zero-yield cell leaves a `.dfs_state` checkpoint and no `.bin`, because
+`flush_sub_solutions_d3` in [solve.c](../solve.c) returns before opening
+the file when `solution_count == 0`. (At 560T that is **65,281**
+non-empty shards against **158,364** `.dfs_state` checkpoints — see
+[CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7. The `.dfs_state`
+count, not the `.bin` count, is the progress denominator.) The shards are
+automatically merged into a single `solutions.bin`.
 
 ```
-   solve 0 64 (one process)
+   SOLVE_DEPTH=3 SOLVE_PER_SUB_BRANCH_LIMIT=<budget> solve 0 64 (one process)
         │
         ├─ walks all 56 first-level branches
         │  └─ which means all 158,364 depth-3 sub-sub-branches
@@ -362,7 +379,8 @@ you'd run it 56 times (once per valid first-level branch) and merge the
 results.
 
 ```
-   solve --branch 22 0 (one of 56 processes)
+   SOLVE_DEPTH=3 SOLVE_PER_SUB_BRANCH_LIMIT=<budget> \
+       solve --branch 22 0 (one of 56 processes)
         │
         ├─ walks ONLY first-level branch B[22, 0]
         │  └─ which means ~2,828 depth-3 sub-sub-branches
@@ -379,6 +397,21 @@ Why both? Different tradeoffs:
 | Recovery from crash | resume the whole walk | re-run just that branch |
 | Final merge step | automatic | explicit, across 56 outputs |
 
+**Both environment settings above are load-bearing, and neither is the
+default.** `SOLVE_DEPTH` defaults to **2**, not 3 — [solve.c](../solve.c)
+keeps depth 2 "for byte-identical behavior with the canonical 10T
+baseline" — so the bare commands `solve 0 64` and `solve --branch 22 0`
+partition at depth 2 (3,030 cells globally, ~54 per first-level branch)
+and write depth-2-named shards, not the depth-3 cells the diagrams show.
+And `SOLVE_NODE_LIMIT` is read only if it is set, so a bare command runs
+**unbounded**. Set the per-cell budget with `SOLVE_PER_SUB_BRANCH_LIMIT`
+rather than `SOLVE_NODE_LIMIT`: `SOLVE_NODE_LIMIT` is auto-divided by the
+number of cells *in that invocation's scope*, so the same value gives the
+all-branch and single-branch runs different per-cell budgets and
+different shas — which is exactly what the invariance below does *not*
+survive. See [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)
+§"Scope restriction: exhaustive vs budgeted".
+
 For 5.6 trillion-node runs at depth-3 partitioning, both produce
 EXACTLY the same `solutions.bin` byte-for-byte. That's not an accident —
 it's a theorem.
@@ -390,13 +423,26 @@ it's a theorem.
 This is the key mathematical guarantee that makes the parallelism above
 work. Stated plainly:
 
-> **No matter how you partition the work — by depth-2 sub-branches, by
-> depth-3 sub-sub-branches, by first-level branches, all at once, or
-> across many machines — if all per-sub-branch budgets are the same, the
+> **At a fixed partition depth, no matter how you split the work — by
+> first-level branches, by sub-branches, all at once, or across many
+> machines — if every cell gets the same per-sub-branch budget, the
 > resulting `solutions.bin` is byte-for-byte identical.**
 
+"At a fixed partition depth" is load-bearing, and so is the budget
+qualifier. Changing the depth changes the number of cells — 3,030 at
+depth 2 against 158,364 at depth 3 — so an equal *per-cell* budget buys
+52.27x the aggregate work at depth 3 and a strictly larger truncated
+record set. The theorem as stated in
+[PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §"Scope restriction:
+exhaustive vs budgeted" requires **exhaustive** enumeration of each cell;
+under a node budget it holds only when the per-sub-branch budget is held
+equal across the partitionings being compared, which is what
+`SOLVE_PER_SUB_BRANCH_LIMIT` exists to do.
+
 We've verified this:
-- Across CPU architectures (Intel Zen 5 vs ARM Cobalt 100)
+- Across CPU architectures (AMD EPYC x86-64 vs ARM Cobalt 100,
+  Neoverse-N2) — the 11.2T cross-architecture witness in
+  [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 11.2T
 - Across regions (Azure westus2 vs westus3)
 - Across enumerator modes (all-branch vs single-branch via `--branch`)
 
@@ -462,6 +508,16 @@ sub-sub-branch), we record:
 - **Yield** — how many valid orderings emerge from this branch?
 - **Nodes spent** — how much computation did the search take here?
 - **Depth profile** — at what positions did most of the work happen?
+  **Not recorded per canonical cell.** The per-depth node histogram
+  (`nodes_at_depth[33]` in [solve.c](../solve.c)) is gated on
+  `SOLVE_DEPTH_PROFILE=1`, which is off by default precisely so that
+  existing runs stay byte-identical — so canonical enumeration runs leave
+  it off by construction — and when it is on it is aggregated per
+  *invocation*, not per cell. The parallel `--sub-branch` path separately
+  writes `per_task_stats.csv`, whose schema is per depth-5 task. Profile
+  data does exist where the flag was set: [HISTORY.md](HISTORY.md)
+  records a 1T profile for cell `22_0_30_1_20_0` with 99.9% of the work
+  at depths 28-32, peaking at depth 30.
 - **Distance to King Wen** — for each ordering produced, how many
   positions differ from King Wen's choice?
 
@@ -472,7 +528,8 @@ This per-branch data lets us ask:
 - Are there branches that produce orderings particularly NEAR King Wen?
 - Are there branches that produce orderings FAR from King Wen?
 - Does work concentrate at certain positions (e.g., position 14 vs
-  position 50)?
+  position 50)? — answerable only for runs launched with
+  `SOLVE_DEPTH_PROFILE=1`, which the canonical runs were not.
 
 ---
 
@@ -481,11 +538,34 @@ This per-branch data lets us ask:
 Comparing two or more branches' data gives us results that one branch
 alone can't.
 
-**Pair-orientation symmetry.** For most pairs, branch B[i, 0] and
-B[i, 1] (same pair, opposite orientation) produce equal counts of
-orderings — sometimes the very same orderings up to a structural mirror.
-This isn't a coincidence; it falls out of the constraint structure. We
-can quantify how often it holds, and where it fails.
+**Pair-orientation symmetry.** Branch B[i, 0] and B[i, 1] (same pair,
+opposite orientation) do **not** produce equal counts. Summing the 60,533
+per-shard yields recorded in the committed 100T d3 enumeration log by
+first-level branch gives 56 branches over 28 pairs, with **exact equality
+in 0 of 28**. Gaps run from 0.0068% (pair 20) to 28.9% (pair 13:
+472,267,753 against 352,935,249; percentages relative to the pair's
+mean). Reproduce from the tree:
+
+```sh
+gzip -dc runs/20260419_100T_d3_d128westus3/enum_output.log.gz |
+  grep -o 'Wrote [0-9]* solutions to sub_[0-9]*_[0-9]*_' |
+  awk '{split($5,a,"_"); s[a[2]"_"a[3]] += $2} END {for (k in s) print k, s[k]}' |
+  sort -t_ -k1,1n -k2,2n
+```
+
+At the finer scope of multi-variant groups,
+[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) records 16.3% (1,636 of
+10,027) exhibiting perfect orientation-symmetry and the remaining 83.7%
+variant-dependent.
+
+⚠ These are **budget-truncated** yields. Per the 2026-07-02 reversal
+recorded in [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md), comparisons of this
+kind measure budget and dedup artifacts, not solution-set asymmetry. The
+counts above therefore refute the observed-count claim outright, but they
+decide nothing about the underlying solution set in either direction —
+mistaking one for the other is the exact error that document corrected.
+For what is actually proven about the constraint system's symmetry group,
+see [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md).
 
 **First-level yield distribution.** Plotting yields across all 56
 first-level branches makes a histogram. If it's flat, the constraints
@@ -531,8 +611,10 @@ This is an active research project. The current open questions:
    description of which branches yield more or fewer orderings?
 
 4. **Are there orientation/mirror symmetries beyond the obvious ones?**
-   Empirically, certain symmetries seem to hold. Can we prove them
-   formally and use them to compress the search?
+   The bit-position symmetry group is now proven and machine-checked —
+   see [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md). The open part is whether
+   its orbit structure can be turned into a real compression of the
+   search, and whether the solution set admits automorphisms beyond it.
 
 5. **Where does cumulative work go?** If 90% of node visits land in 10%
    of sub-branches, the remaining 90% of sub-branches are "easy" and
@@ -559,21 +641,34 @@ existing runs without redoing the whole thing. So a "100T full enum"
 result can be EXTENDED on a chosen subset of branches to 1000T, without
 recomputing the others.
 
-**Cross-arch validation continues.** ARM (Cobalt 100), x86 Zen 5, and
-ideally x86 Sapphire Rapids should all produce the same sha256 for the
-same enumeration parameters. We've done two of three so far.
+**Cross-arch validation continues.** ARM (Cobalt 100), x86 AMD EPYC, and
+ideally an Intel x86 part (e.g. Sapphire Rapids) should all produce the
+same sha256 for the same enumeration parameters. We've done two of three
+so far.
 
 **SAT-encoder cross-validation.** [solve.py](../solve.py) has a SAT/PB
-encoder (`solve.py --sat-encode`) that emits the same problem in DIMACS
-or OPB format. Running an external SAT or model-counting solver on the
-encoded problem and matching solution counts would give a completely
-independent verification of the C-based enumerator.
+encoder, but it does **not** currently emit the enumerator's problem, so
+matching counts against it is not yet available as a check. Per
+[SOLVE_PY_CLI.md](SOLVE_PY_CLI.md): `--sat-encode` writes DIMACS CNF for
+**C1+C2 only**; `--sat-c3 pb` writes the C3 bound as a pseudo-Boolean
+constraint into a *separate* `.opb` file, so the `.cnf` itself never
+carries C3; `--sat-c4` is opt-in; and `--sat-c5` is deferred/superseded —
+measured 2026-08-31, it emits no extra clauses at all, clause-sha
+identical to `--sat-c3 none`. A model count against this encoding is
+therefore guaranteed to **exceed** the C enumerator's C1-C5 count, and
+reading that gap as a `solve.c` defect would be a mistake. The
+certification path is [sat.py](../sat.py). An encoder carrying all of
+C1-C5, against which counts could legitimately be matched, remains future
+work.
 
 **Exhaustion at the symmetry boundary.** If yield-symmetry holds
 strictly (e.g., all (pair_i, orient_0) and (pair_i, orient_1) produce
 identical counts), then we only need to enumerate HALF the first-level
 branches; the other half is determined by symmetry. This would
-double-effectively the available compute.
+double-effectively the available compute. Note that the measured
+budget-truncated yields above do **not** settle this either way — see
+[SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) for the symmetry group that is
+actually proven, and for why truncated yields cannot decide it.
 
 **Distributional null models.** We've started this in
 [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md). The idea: take
@@ -596,22 +691,31 @@ alone explain.
    defensible directly-exhausted value is still a goal.
 
 2. **A reproducible sha256** that's been validated on at least three
-   independent computational paths. We have two so far (Zen 5 and Cobalt
-   100). The third is in planning.
+   independent computational paths. We have two CPU architectures so far
+   (AMD EPYC x86-64 and ARM Cobalt 100). The third is in planning.
 
 3. **A formal account of where King Wen sits** in the joint distribution
    of observable structural features across all valid orderings.
    [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) is the start.
 
 4. **A formalization of the symmetry group** acting on the constraint
-   system. Empirically we observe orientation symmetries, but a clean
-   mathematical statement and a proof that they're exact would let us
-   simplify the enumeration considerably.
+   system — **done (2026-07-02, machine-checked in Lean 2026-07-05).**
+   The group is the 48 bit-position permutations that commute with
+   bit-reversal (B₃, the octahedral group; the effective group on
+   canonical records is S₄, order 24), and it is complete over all 64!
+   hexagram relabelings that preserve each constraint predicate. See
+   [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md). What remains open: whether
+   the solution set's automorphism group exceeds that group (the proof
+   gives containment only), and whether the orbit structure can be turned
+   into an actual enumeration saving.
 
 5. **A published canonical solutions.bin** (with a small reference
    format) so that anyone can audit the count and re-run the
-   enumeration. The 102 GB current size is a logistics problem; we may
-   compress, deduplicate, or shard for distribution.
+   enumeration. The current canonical (d3 560T) is **336,808,703,936
+   bytes** — ~336.8 GB for 10,525,271,997 records — per
+   [CANONICAL_HASHES.md](CANONICAL_HASHES.md), which is the registry of
+   record for canonical sizes and counts. That size is a logistics
+   problem; we may compress, deduplicate, or shard for distribution.
 
 ---
 
@@ -626,11 +730,11 @@ alone explain.
 | **Branch (first-level)** | A specific (pair, orientation) choice for pair 1 of the sequence. There are 56 valid first-level branches. |
 | **Sub-branch (depth-2)** | A specific choice for pair 2 inside a first-level branch. About 54 per first-level. |
 | **Sub-sub-branch (depth-3)** | A specific choice for pair 3 inside a sub-branch. About 50 per sub-branch. There are 158,364 depth-3 sub-sub-branches total in the King Wen problem. |
-| **Node** | One step of the solver: one parent-to-child decision in the search tree. |
+| **Node** | One step of the solver: one frame entry in the search tree, including the frame the walk starts from. See §"Exactly what counts as a node (the replicator's definition)" for the replicator-grade statement. |
 | **Node budget** | A maximum number of nodes the solver can spend in one sub-branch before stopping. |
 | **Yield** | The number of valid orderings produced by a given branch (or the whole problem). |
-| **Partition invariance** | The theorem that all partitioning strategies (whole-tree vs by-branch vs by-sub-sub-branch) give byte-identical merged outputs. |
-| **`solutions.bin`** | The binary file containing all valid orderings produced by an enumeration run. Each ordering is 32 bytes (one hexagram per byte for 32 of the 64 positions; the rest is fixed by C1-C5). |
+| **Partition invariance** | The theorem that, **at a fixed partition depth**, the invocation modes (whole-tree vs by-branch) give byte-identical merged outputs. Stated for **exhaustive** enumeration; under a node budget it holds only when every cell gets the same per-sub-branch budget (`SOLVE_PER_SUB_BRANCH_LIMIT`). Changing the partition depth changes the cell count and so the aggregate work, and does **not** preserve the output. See [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §"Scope restriction: exhaustive vs budgeted". |
+| **`solutions.bin`** | The binary file containing all valid orderings produced by an enumeration run. Each record is exactly 32 bytes, one byte per **pair** (not per hexagram): `byte[i] = (pair_index << 2) \| (orient << 1)`, with `pair_index` in bits 7-2 and the orientation bit in bit 1. The 64 hexagrams are recovered by expanding each byte through the fixed pair table. See [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Record format. |
 | **sha256** | A 256-bit cryptographic hash. We use it as a fingerprint of `solutions.bin`. Two runs that produce the same orderings in the same order have identical sha256. |
 | **All-branch** | Solver mode that walks the whole tree from the root. One process. |
 | **Single-branch (`--branch`)** | Solver mode that walks one first-level branch only. Run 56 of these to cover the whole problem. |
@@ -666,3 +770,5 @@ For implementation details and the actual C source code, see
 ---
 
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
+
+*Revision 2026-09-01 (prose-correction batch P21 — this document's first pass through the correction lane): eleven adjudicated findings applied. Partition invariance qualified to a fixed partition depth and to the exhaustive-vs-budgeted restriction (Part 10 and the glossary); the two Part 9 example commands given their `SOLVE_DEPTH=3` and `SOLVE_PER_SUB_BRANCH_LIMIT` prefixes, with the depth-2/unbounded defaults stated; the "one shard per depth-3 sub-sub-branch" invariant corrected to non-empty cells only; the node definition reconciled between Part 8 and the glossary (frame entry, root frame included); the `solutions.bin` record bytes corrected from hexagrams to `(pair_index << 2) \| (orient << 1)`; the "for most pairs … equal counts" claim replaced by a measurement re-derived from the committed 100T log (0 of 28 pairs equal) with its reproduction command; the `solve.py --sat-encode` cross-validation claim scoped to what the encoder actually emits; depth profiles scoped to `SOLVE_DEPTH_PROFILE=1`; the canonical `solutions.bin` size corrected 102 GB → 336.8 GB (d3 560T); and "Intel Zen 5" corrected to AMD EPYC x86-64 (Zen is AMD's microarchitecture family). Five further sites were swept as siblings rather than left inconsistent: two more CPU-generation references; the two places that still posed the constraint system's symmetry group as an open problem after [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) proved it; and the "exhaustion at the symmetry boundary" sketch, which the truncated yields cannot decide either way.*
