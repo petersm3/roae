@@ -6312,3 +6312,129 @@ located, verified against source and corrected by this lane (Claude, Opus 5) und
 The unit correction (the 12 B per-mask index term), the peak-pair arithmetic, and the two items
 flagged above under "not changed" were found by this batch while verifying the charges, not by the
 review.
+
+## 2026-09-02 — TR-2: a withdrawn result reinstated in the one section the withdrawal's own propagation list missed, a historical event decided by a theorem that cannot reach it, a reproduction promise no shipped command kept, two source attributions the project's own held notes contradict, and the last live copy of a retracted superlative — inside the figure
+
+Codex reviewer charges V2-F04 #4/#5/#6 and V2-L09 #2, adjudication batch 6 rows 4, 6, 7, 8 and 10.
+All five verified still live at HEAD before anything was edited; none had been fixed by an earlier
+pass. Located, re-derived and corrected by this lane (Claude, Opus 5) under operator direction. Where
+this entry states a number, it was recomputed here rather than taken on the adjudication's word.
+
+### 1. The four-class Outcome section still said the withdrawn result stood
+
+CX-26 (2026-08-07) demoted the v1.7/v1.12 Bayes factor and posterior from claimed results to the
+as-computed record — recorded, not claimed. Its revision row lists its own propagation set: executive
+summary, the result banner, the CX-25 bullet, the band note, the scope note, README, the evidence
+banners, SOLVE_SUMMARY and CRITIQUE. TR-2's four-class §Outcome is not in that list, and it closed on
+an absolute present-tense status sentence saying the earlier two-model result was untouched and still
+published. For a reader entering the report at that section — which is where the four-class veto is
+told — the standing withdrawal was inverted.
+
+Swept before rewriting: this was the only live occurrence. The same words in TR-2's own v1.9 revision
+row are a dated changelog record and are left alone; the superficially similar sentences in TR-1,
+LITERATURE_RULES and HISTORY are about other results entirely. The corrected sentence keeps what was
+true — the four-class comparison does not revise the earlier computation — and carries the withdrawal
+with its CX id. Registered as `RP-e7b774b8`.
+
+### 2. A theorem that decides existence, used to decide a historical event
+
+§3 opened by stating Moore's conjecture in its historical form — an originally compliant ordering
+*had been altered* — and then pronounced it decided and true. What the SAT results establish is that
+the compliant ordering exists and sits exactly three slot-edits from the received order. That it ever
+historically existed, and that an alteration event occurred, are not in the reach of any theorem here.
+The report already knew this six lines below, where it says the result settles the *existence half*;
+LITERATURE_RULES states it in the correct conditional register; and the alteration question is
+precisely what §6's Bayesian comparison weighed — which CX-26 has made recorded-not-claimed, so after
+that withdrawal there is no standing support for the historical half at all.
+
+The section's closing paragraph carried the same slide in softer form. Both are corrected, and they
+are registered separately (`RP-0df9f7d5` and `RP-6d478af9`) because they share no usable substring: a
+single needle would have retired one and left the other, which is the half-fix shape this session has
+now met repeatedly.
+
+### 3. A reproduction promise the shipped script does not keep — fixed at the root
+
+§"Reproduction" offered a single command as regenerating all of the report's Bayes factors. Run at the
+pinned tree: `cd reports/evidence/f11 && python3 compute_f11_bf.py` prints
+`N_gs(C,primary)=3.5686e+25` and primary BF **6625** (U) / **7901** (A) — the v1.7 as-computed record,
+the 6.6×10³/7.9×10³ figures. It derives N_gs internally and never opens the r11 direct measurement,
+and it has no argument parsing at all, so nothing shipped emitted the **live v1.12 headline**
+(≈5.2×10³ / ≈6.3×10³) that the same report quotes two sections earlier. A published figure with
+methods prose and no runnable command is exactly what the standing rule forbids.
+
+The adjudication offered two remedies — ship the missing path, or label the live headline as
+prose-only. The first was taken, because relabelling would have left a published figure without a
+command. `compute_f11_bf.py` now accepts an opt-in `--ngs-measured`, which pools the four published
+r11 seeds to N_gs = 4.5031×10²⁵ and re-emits BF **5250** (U) / **6261** (A) — the live figures, to the
+digit, through the same integration and the same grids, with only n_gs moved. The flag is opt-in and
+the bare-run output was verified byte-identical before and after the change, so the frozen record is
+untouched. The report now names both commands and what each produces. Registered as `RP-c2c5074a`;
+the same unqualified promise on the f11 bundle README's first line — a different spelling, found by
+grepping the retired promise rather than the charge's named site — as `RP-4d682627`.
+
+### 4. Two attributions the project's own first-hand notes contradict
+
+The M_corr model bullet credited the alteration conjecture to Schulz alongside Moore. Checked against
+the held source record (`books/papers/SCHULZ_2011_NOTES.md` SC-25, pp. 648 and 661–662): Schulz reads
+the S25/S26 exceptions as *intentional* — exceptions that stand out by design to highlight the
+patterns they figure in — and raises no corruption conjecture. TR-2's own structure list calls that
+design reading vindicated in exact form, so the bullet contradicted the source and the report at once.
+Registered as `RP-afe960d9`.
+
+The same bullet gave Rutt (1996) the mechanism and then, in apposition, named the model's event
+operations as its content. The held record (`books/papers/HACKER_MOORE_2003_NOTES.md`) carries Rutt
+only as bamboo-slat cord fraying, a physical corruption hypothesis, and CITATIONS.md already marks him
+`[secondary]`, read via Hacker & Moore 2003. No held source states an adjacency restriction,
+disjointness, orientation flips, a geometric k, or an adjacency weighting: those are this work's
+operationalization. Rutt's own 1996 text **could not be checked** — there are no first-hand Rutt notes
+in `books/` — so this is corrected on the burden the scoped-results rule puts on the citing sentence,
+not on a demonstration that Rutt says otherwise. The report's attribution footer is split the same
+way. Registered as `RP-12595256`, and the sibling site the charge named, in
+`reports/evidence/f11/RESULTS.md` §3, as `RP-cdff36be` — a file whose own attribution footer already
+said the event model is ours, so the document had been contradicting itself.
+
+### 5. The retracted superlative was still in the figure's pixels
+
+The 2026-08-28 margin correction withdrew "minimal" from the claim that King Wen misses the three
+graded rules by the smallest possible margins, and the 2026-09-01 pass finished the prose and the
+captions. Neither reached the rendered figure. `viz/report_figures.py` still drew the withdrawn
+wording into the plot; the shipped SVG carried it in its accessibility text; the PNG embedded in both
+TR-1 §5 and TR-2 §Figure rendered it. A reader or republisher of the image alone received the
+retracted claim with no marker attached, and the marker TR-1 added on 2026-09-01 said so in terms —
+recording the defect, and reading like closure.
+
+Re-derived before touching it: `reports/evidence/f11/f11_runA.out:112` is `f11_hist 1 1 0` at
+4.1291082539e-09 and `:320` is `f11_hist 2 1 1` at 2.9255247935e-08, both nonzero and componentwise no
+worse than King Wen's `2 2 2`, and that histogram is not CC-N4-conditioned, so no extremal check
+exists. The drawn string now states the measured margin and says no extremal check excludes a smaller
+miss; the PNG and SVG were regenerated and both reports' captions updated. Verified before
+regenerating that the generator reproduces the committed PNG byte-for-byte, so the only change in the
+image is the corrected sentence.
+
+### What was not changed, and why
+
+- **No registry row for the figure's wording.** The adjudication's gate proposal was to register the
+  retracted phrase and grep `viz/*.py` and the shipped SVGs against it. It cannot be a GATE 3 row:
+  measured at HEAD, that phrase has five occurrences in the markdown corpus and every one of them is a
+  legitimate correction marker or changelog record quoting what was withdrawn. GATE 3 allows exactly
+  one file per row, so the row would have fired on four honest narrations. And GATE 3's corpus is
+  `*.md` plus `reports/evidence/**` — neither `viz/*.py` nor `reports/figures/*.svg` is in it, so no
+  registry row could have protected the image in the first place. The gate the charge wants is a new
+  leg in `scripts/doc_gates.sh`, which is another lane's file this session. Run here as a one-off
+  instead: all 152 registry phrases against all 9 generator and SVG targets, 0 hits after the fix.
+- **`PREREGISTRATION.md` was not touched.** It carries the Rutt attribution correctly scoped —
+  "gives physical plausibility" — and it is a frozen pre-registration regardless.
+- **TR-2 has no §5 body section.** The charge cites "§1/§5" for the design reading; the phrase is in
+  the executive summary's structure list, and the report's headings run §2, §3, §4, then the
+  Verification Guide. The citation was adjusted to what exists. Whether TR-2 should have the §5 and §6
+  bodies its own structure list promises is a separate question, flagged and not acted on.
+- **Files edited outside this batch's charge set, named here for the record:**
+  `reports/evidence/f11/compute_f11_bf.py` (the new flag), `reports/evidence/f11/README.md` (census
+  sibling), `viz/report_figures.py` plus the two regenerated figure files, and
+  `reports/TR1_EIGHT_CENTURIES_MEASURED.md` — the last because regenerating the image made TR-1's own
+  marker, which said the image had not been regenerated, false as it stood.
+
+**Attribution.** Charges raised by Codex reviewers V2-F04 and V2-L09 and adjudicated in the V2 batch-6
+sheet; verified against source, re-derived and corrected by this lane. The f11 README sibling, the
+missing-§5 observation, and the byte-identity check on the figure generator were found by this batch
+while verifying the charges, not by the review.

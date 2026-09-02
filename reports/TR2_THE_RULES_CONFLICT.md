@@ -168,7 +168,10 @@ re-instrumentation required.**
 
 Moore observed that King Wen complies with his rules at sixteen of eighteen testable positions, with both
 exceptions adjacent, and conjectured that an originally compliant ordering had been altered. That
-conjecture is decidable, and it is true.
+conjecture has a decidable **existence half**, and that half is true: the ordering he hypothesised
+exists, and it sits three slot-edits away. Whether the received order was in fact altered is a
+historical question no theorem here can decide — §6 weighed exactly that question, and post-CX-26 that
+comparison is recorded, not claimed.
 
 **The witness.** `python3 sat.py --witness grand-strict` returns an explicit C1–C5-valid ordering that is
 **perfect** on all three graded rules simultaneously: Moore's 2005 parity rule 18/18, Moore's 1989 rhythm
@@ -186,9 +189,12 @@ Three adjacent-position edits, and they run through the very anomaly Moore ident
 the load-bearing one and carries its certificate (`moore-strict-near-2.drat.gz`); the SAT half is
 self-evidencing, since it produces the ordering.
 
-This is what the report means by making a historical conjecture exact. "The received order looks like a
-slightly corrupted version of a rule-perfect original" becomes a measured quantity: minimum edit distance
-three, established in both directions, machine-checkable in seconds.
+This is what the report means by making the *existence-and-distance content* of a historical conjecture
+exact. "The received order looks like a slightly corrupted version of a rule-perfect original" becomes a
+measured quantity: minimum edit distance three, established in both directions, machine-checkable in
+seconds. What stays outside the theorem is the historical event itself — that a corruption occurred is
+not decided here, and §6's comparison of that reading against a tendency arranger is recorded, not
+claimed (CX-26).
 
 ### 4. The conflict theorem
 
@@ -309,7 +315,7 @@ Every verdict below was re-verified 2026-07-03 on a 2-core box; each command com
 ![Grouped bar chart of the four conflicting rules: King Wen misses Moore's 2005 parity rule by 2 (16/18), Moore's 1989 rhythm rule by 2 breaks, and Schulz's 1990 gender rule by 2 violations while satisfying the Schulz S25–28 trigram configuration exactly; the grand unified precursor is perfect (0) on the first three and violates the trigram configuration — no C1∩C2∩C4∩C5-valid ordering achieves zero on all four.](figures/fig_tr1_rules_tradeoff.png)
 
 *The forced trade-off (§4–5, shared with [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §5). King Wen (red)
-misses the three graded rules by two each ⚠ **[CORRECTED 2026-08-28 — "minimal" is UNSUPPORTED: `reports/evidence/f11/f11_runA.out` carries `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than KW's `2 2 2` with nonzero mass, and the histogram is not CC-N4-conditioned so no extremal check exists. See CORRECTIONS.md]** and keeps the S25–28 trigram configuration
+misses the three graded rules by two each ⚠ **[CORRECTED 2026-08-28 — "minimal" is UNSUPPORTED: `reports/evidence/f11/f11_runA.out` carries `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than KW's `2 2 2` with nonzero mass, and the histogram is not CC-N4-conditioned so no extremal check exists. The image itself kept the withdrawn wording until 2026-09-02, when the generator string was fixed and the PNG/SVG regenerated. See CORRECTIONS.md]** and keeps the S25–28 trigram configuration
 exactly; the grand unified precursor (green, 3 slot-edits from KW) perfects those three and breaks the
 trigram configuration — a binary configuration rule with no graded miss count. The joint-UNSAT
 certificate says no C1∩C2∩C4∩C5-valid ordering reaches zero on all four axes: the received order's irregularities are the
@@ -408,11 +414,21 @@ the data support and no more — by a pre-registered Bayesian comparison of the 
 literature itself supplies:
 
 - **M_corr (corruption):** an originally rule-perfect ordering (under the three graded rules) was hit by
-  a small physical transmission accident. Moore (1989, 2005) conjectured a compliant original later
-  altered; Schulz's exceptions sit at the same locus; [Rutt (1996)](../documentation/CITATIONS.md#rutt1996) supplies the physical mechanism
-  (re-strung bamboo-slat cords, allowing adjacent transpositions and slat inversions), as discussed by
-  [Hacker & Moore (2003)](../documentation/CITATIONS.md#hacker-moore2003). This work quantifies the conjecture Moore and Schulz raised on interpretive
-  grounds.
+  a small physical transmission accident. The alteration conjecture is **Moore's** (1989, 2005): a
+  compliant original later altered. Schulz *documented* exceptions at the same locus but read them the
+  opposite way — as intentional, exceptions that stand out by design to point at the patterns they
+  figure in — which is the reading this report itself calls vindicated in exact form (structure item 5),
+  so he is not a party to the corruption conjecture.
+  [Rutt (1996)](../documentation/CITATIONS.md#rutt1996) — cited at second hand, via
+  [Hacker & Moore (2003)](../documentation/CITATIONS.md#hacker-moore2003), which is where this project
+  read him — supplies only the physical *possibility*: cord-fraying on re-strung bamboo slats. The
+  event space this model integrates over — disjoint adjacent transpositions plus slat inversions,
+  geometric in k, under the two adjacency-weighting variants — is **this work's operationalization** of
+  that possibility, not a restriction Rutt states
+  ([evidence/f11/RESULTS.md](evidence/f11/RESULTS.md) §3). This section quantifies Moore's conjecture.
+  *(Corrected 2026-09-02: this bullet credited the alteration conjecture to Schulz as well as Moore,
+  against his own published reading and this report's, and credited the event space's operational
+  content to Rutt, whose held source supplies only the physical possibility.)*
 - **M_tend (tendency):** the arranger held the three rules as soft preferences (a Gibbs strength λ),
   never exactly; the anomaly is ordinary imperfection, with no corruption event at all.
 
@@ -607,9 +623,7 @@ recorded, not asserted; the sentence above stands only as the as-computed record
 
 **Reproduction.** The complete evidence bundle is PUBLIC at [evidence/f11/](evidence/f11/): the frozen
 pre-registration, the full results document (model forms, priors grids, sensitivity table), the
-closed-form integration script (`compute_f11_bf.py` — rerun it on the bundled raw outputs to
-reproduce every Bayes factor; `cd reports/evidence/f11 && python3 compute_f11_bf.py`, ~1 s,
-stdlib-only), and all five raw run outputs plus the exact edit-event enumeration
+closed-form integration script (`compute_f11_bf.py`), and all five raw run outputs plus the exact edit-event enumeration
 (`f11_events.json`, regenerable by the bundled `f11_events.py`). The underlying population runs are
 reproducible from `solve.c`'s `--estimate-knuth` estimator at the stated probe counts (2×10¹⁰, 5×10⁹,
 5×10⁹, 2×10⁹) with the documented environment flags — `SOLVE_KNUTH_SCORE=1` (scoreboard, all runs),
@@ -617,6 +631,17 @@ reproducible from `solve.c`'s `--estimate-knuth` estimator at the stated probe c
 (Moore-joint-strict walks, runs B/C), `SOLVE_KNUTH_GENDER_STRICT=1` (triple-strict prune, available
 for re-derivation) — all in the public `solve.c` and documented in [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md) §ENVIRONMENT; the
 edit-event geometry (k ≤ 6) is an exact enumeration, not sampled.
+
+Two commands, because two different N_gs are in play and the script must be told which. Run bare —
+`cd reports/evidence/f11 && python3 compute_f11_bf.py` (~1 s, stdlib-only) — it reproduces the **v1.7
+as-computed record**: BF **6625** (U) / **7901** (A), the 6.6×10³ / 7.9×10³ figures, plus the full
+sensitivity grid, deriving N_gs internally from the bundled runs (3.5686×10²⁵). The **live v1.12
+headline** rests on the *directly measured* N_gs from [evidence/r11/](evidence/r11/) instead; add
+`--ngs-measured` and the same script pools that measurement over its four published seeds
+(4.5031×10²⁵) and re-emits BF **5250** (U) / **6261** (A) — the ≈5.2×10³ / ≈6.3×10³ figures quoted
+above. *(Added 2026-09-02: until then the live headline had derivation prose and no single-command
+path, while this paragraph promised that one script rerun regenerated all of the report's Bayes
+factors — a promise the bare run does not keep. The flag is opt-in and the bare-run output is byte-identical to the frozen record.)*
 
 ## Pre-registered extension (v1.9): a four-class model comparison — calibration run, verdict VETOED (v1.14)
 
@@ -725,8 +750,10 @@ the right object: the exact 3-edit event count reproduces the published 7,975, a
 measured completion probability is 0.8–1.4% across the β grid (n = 32,000 per point) — an independent
 sighting of how thin the C1–C5 space is.
 The comparison is **report-only, with no promotion path**, and it does not revise the v1.7 two-model
-result, which stands as published (if the wider comparison ever dethrones corruption, this section gains
-a forward-pointer; it is not rewritten).
+computation, which remains on the page as the as-computed record — **WITHDRAWN as a claimed result**
+([CORRECTIONS](../documentation/CORRECTIONS.md) CX-26, 2026-08-07; see §"The result"). If the wider
+comparison is ever revisited under a fresh pre-registration, this section gains a forward-pointer; it is
+not rewritten.
 
 **STATUS (v1.14, 2026-07-20): calibration RUN; verdict VETOED; nothing further will be published.**
 *(This block previously read "STATUS (v1.12): ingredients collected; verdict not computed" and stated
@@ -745,8 +772,9 @@ design's formal operator freeze stamp; the design summarized here was committed 
 verdict-relevant element moved in response. Results, when computed, land in
 `reports/evidence/r11/` under the frozen verdict template, whatever their direction.
 
-*Attribution: the modeled rules belong to their authors (Moore, Schulz, Cook; the corruption mechanism
-to Rutt via Hacker & Moore); the greedy-builder formalization and the four-class design are ROAE,
+*Attribution: the modeled rules belong to their authors (Moore, Schulz, Cook; the corruption mechanism's
+physical possibility to Rutt via Hacker & Moore, the corruption **event space** built on it to this
+work); the greedy-builder formalization and the four-class design are ROAE,
 developed with AI assistance (Claude, Anthropic). Corrections welcome via
 [CITATIONS.md](../documentation/CITATIONS.md).*
 
@@ -781,4 +809,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.27 | 2026-08-07 | **The Bayes factor and posterior are WITHDRAWN as claimed results (SUBSTANTIVE; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-26; operator-authorized action on the 18-lens red-team review).** v1.25/CX-25 recorded the two-model confusability veto (M_tend self-recovery 68/100 against a frozen 70) but drew the line at withdrawing only the figures' *calibration support*, leaving the BF (≈5.2×10³ U / ≈6.3×10³ A) and the ≈0.9998 posterior standing as results. The red team's charge — that a project whose rule is airtight-or-shelve was, on its own definitions, defending a weak claim — is accepted. The figures are demoted from reported results to the **as-computed record: recorded, not claimed** (the register TR-9 uses for C3's marginal bits — priced as data, not claimed as explanation). Nothing about the computation is in dispute: the derivation, sensitivity grid and evidence bundle are unchanged and reproducible from [evidence/f11/](evidence/f11/); what is withdrawn is the license to cite the numbers as evidence for corruption over tendency, including the residual "narrows the field by one rival" reading. Edits: a v1.27 update block in the executive summary; a status banner and a superseding close to the CX-25 calibration bullet in §"The result"; the band-provenance note and §"What this does NOT say" annotated. Reinstatement path stated in place: a V-matched confusability gate ("at V≈6, are M_corr and M_tend distinguishable?") with its bar frozen before it runs, followed by a dated revision. Propagated the same day to reports/README.md's index row, the f11 / f11halfb / r11 evidence banners, SOLVE_SUMMARY.md and CRITIQUE.md. No theorem, certificate, count, measurement or sha changed |
 | v1.28 | 2026-08-29 | **Author-directive residue removed (Q-352 sibling sweep).** Q-352 found TR-8 shipping instructions to its own author in published prose and recorded TR-8 as the only report still doing so. Checking the class rather than the instance showed that was not quite right: items 2 and 4 of this report's summary list carried "Method in one page:", "Verifiability box." and "One paragraph on the data-like character of the trigram rule, honestly" — planning voice addressed to the writer. Milder here than in TR-8, because v1.13's form note already tells the reader the list is an overview and that §2-§4 are written out in full beneath it; converted to description anyway, since fixing the instance and leaving the class is the recurring defect this suite keeps correcting. No claim, figure, certificate, theorem or verdict changed |
 | v1.29 | 2026-09-01 | **Three §4 overclaims corrected and the fourth two-rule core's certificate gap disclosed (prose review, batch P15).** **(1)** §4's robustness paragraph read "The theorem survives its removal — that is exactly what the leave-one-out certificates establish — so the conclusion does not rest on it" of the S25–28 trigram rule. That is false for the four-rule theorem this section states: dropping the trigram rule leaves {parity, rhythm, gender} = `grand-strict`, which is **satisfiable** — §3's grand precursor is this report's own witness, achieving all three exactly. It is true of the five-rule union (`five_loo_ccn4` UNSAT), but the only trigram-free minimal two-rule core is {gender, CC-N8}, which the Extension itself calls a definitional triviality, so the surviving conflict runs through that core alone. Restated to exactly that, with the four-rule theorem's dependence on the trigram rule stated plainly. **(2)** §4's "A single fragile encoding choice cannot produce that pattern" attributed to the UNSAT lattice an exclusion the lattice does not carry: every core but {gender, CC-N8} runs through the `ccn4` encoding and that core is UNSAT by construction, so a wrong-but-satisfiable trigram encoding reproduces the whole pattern with the cores still minimal. What excludes a fragile encoding is the separate CC-N4 validation battery (`ccn4-kwtest` SAT / `ccn4-kwfail` UNSAT, faces derived from `solve.reg_ccn4` and cross-checked against an independent replica on KW, 300 seeded permutations and three targeted mutants, `sat.py:294-328`); the paragraph now names it. **(3)** The Extension's heading still read "three two-rule cores" after the 2026-08-28 correction established a fourth ({gender, S25–28}); the count is removed from the heading, and the certificate paragraph now says which three of the four cores are archived here and states that `core_gender_ccn4_unsat.drat` — cited in the 2026-08-28 correction marker — is **not** among the 21 certificates in this directory, with the 14→15 / 21→22 propagation recorded as outstanding. **Deliberately unchanged:** the sentence "The other two cores are genuine discoveries" and the certificate counts 14 and 21. Whether {gender, S25–28} is a genuine discovery or definitional-by-construction like {gender, CC-N8} was left explicitly open when the fourth core was certified, and is queued as a separate adjudication; the counts are accurate about the directory as it stands and move only when the certificate ships. The v1.8 and v1.15 rows below also say "three two-rule cores" and are left as the record of what those revisions did. No theorem, certificate, count, verdict or sha changed |
-| v1.30 *(current)* | 2026-09-02 | **The fourth two-rule core's certificate shipped, its classification ruled, and the counts carried through (Fable lane, queue T4(a)+(c)).** **(1)** `core_gender_ccn4_unsat.drat.gz` (produced and drat-trim-verified off-tree 2026-08-28, Q-380; `gzip -t` clean and byte-identical to the private evidence record before copying) is now in certificates/ with its `five-sub-gender+ccn4` regeneration row and its `verify_all.sh` entry; the counts move 14→15 (extension certificates) and 21→22 (directory) here, in certificates/README.md, CLAIM_TO_ARTIFACT.md rows 8 and 12, lean/README.md, SAT_CLI.md and LITERATURE_RULES_POPULATION_TESTS.md. **(2)** The classification v1.29 left open is ruled: {Schulz gender, Schulz S25–28} is **definitional-by-construction**, in the same operative class as {gender, CC-N8}, by direct evaluation — S25–28 pins the faces at stations 25 and 26 to popcounts 5 and 2, each violating strict gender at its own parity, so either station alone contradicts the rule and no solver was needed; the same criterion confirms the two Moore cores as genuine (aggregates over all 32 slots, undecidable by pointwise substitution). "The other two cores are genuine discoveries" is restated as one further definitional core plus two genuine ones. **(3)** Disclosed in place: the 22nd certificate has passed drat-trim only; the 21 archived before it also passed the formally verified cake_lpr on 2026-07-27, and the 22nd has not been run through that chain, nor has a 22/22 `verify_all.sh` replay been executed on the shipped tree. No theorem or verdict changed; two counts changed (14→15, 21→22) and one classification was decided — see [CORRECTIONS](../documentation/CORRECTIONS.md) 2026-09-02 |
+| v1.30 | 2026-09-02 | **The fourth two-rule core's certificate shipped, its classification ruled, and the counts carried through (Fable lane, queue T4(a)+(c)).** **(1)** `core_gender_ccn4_unsat.drat.gz` (produced and drat-trim-verified off-tree 2026-08-28, Q-380; `gzip -t` clean and byte-identical to the private evidence record before copying) is now in certificates/ with its `five-sub-gender+ccn4` regeneration row and its `verify_all.sh` entry; the counts move 14→15 (extension certificates) and 21→22 (directory) here, in certificates/README.md, CLAIM_TO_ARTIFACT.md rows 8 and 12, lean/README.md, SAT_CLI.md and LITERATURE_RULES_POPULATION_TESTS.md. **(2)** The classification v1.29 left open is ruled: {Schulz gender, Schulz S25–28} is **definitional-by-construction**, in the same operative class as {gender, CC-N8}, by direct evaluation — S25–28 pins the faces at stations 25 and 26 to popcounts 5 and 2, each violating strict gender at its own parity, so either station alone contradicts the rule and no solver was needed; the same criterion confirms the two Moore cores as genuine (aggregates over all 32 slots, undecidable by pointwise substitution). "The other two cores are genuine discoveries" is restated as one further definitional core plus two genuine ones. **(3)** Disclosed in place: the 22nd certificate has passed drat-trim only; the 21 archived before it also passed the formally verified cake_lpr on 2026-07-27, and the 22nd has not been run through that chain, nor has a 22/22 `verify_all.sh` replay been executed on the shipped tree. No theorem or verdict changed; two counts changed (14→15, 21→22) and one classification was decided — see [CORRECTIONS](../documentation/CORRECTIONS.md) 2026-09-02 |
+| v1.31 *(current)* | 2026-09-02 | **A withdrawn result reinstated in the section CX-26's propagation list missed; the existence/history slide corrected at both its sites; the F11 reproduction promise made true by shipping the missing command; two source attributions corrected against held first-hand notes; and the retracted margin superlative removed from the figure itself (prose review, batch P73; Codex V2-F04 #4/#5/#6, V2-L09 #2, adjudication batch 6).** **(1)** The four-class §Outcome closed on an absolute present-tense sentence saying the v1.7 two-model result was unrevised and still published. CX-26 (2026-08-07) withdrew the BF and posterior as claimed results, and its own propagation row lists nine locations, none of them this one — so a reader entering at §Outcome received the inverted status. Swept: the only live occurrence; the v1.9 revision row's identical words are a dated record and are untouched. Restated with the withdrawal and its CX id ([CORRECTIONS](../documentation/CORRECTIONS.md) `RP-e7b774b8`). **(2)** §3 opened by declaring Moore's conjecture — an originally compliant ordering *had been altered* — decided and true. The SAT results decide the **existence half** (the ordering exists, three slot-edits away); the historical event is outside any theorem here, and §6's comparison of that question is recorded-not-claimed post-CX-26. The section's closing paragraph carried the same slide in softer form; both are corrected and registered separately (`RP-0df9f7d5`, `RP-6d478af9`) because one needle would have caught only one. **(3)** §"Reproduction" offered one command as regenerating all of the report's Bayes factors. Measured by execution: the bare run emits the v1.7 as-computed record (BF 6625 U / 7901 A, N_gs derived at 3.5686×10²⁵) and had no argument parsing at all, so no shipped command produced the live v1.12 headline. Fixed at the root rather than by relabelling: `compute_f11_bf.py` gains an opt-in `--ngs-measured` pooling the four published r11 seeds (4.5031×10²⁵) and re-emitting BF 5250 (U) / 6261 (A) — the live figures to the digit; bare-run output verified byte-identical before and after. Both commands are now named with what each produces (`RP-c2c5074a`; the f11 README's differently-spelled copy of the same promise, `RP-4d682627`). **(4)** The M_corr bullet credited the alteration conjecture to Schulz as well as Moore — against `SCHULZ_2011_NOTES.md` SC-25, where the S25/S26 exceptions are read as intentional, and against this report's own structure list — and credited the event space's operational content to Rutt, whose held record supplies only cord-fraying as a physical possibility. Rutt's 1996 text could not be checked (no first-hand notes held), so the fix rests on the scoped-results burden. Attribution footer split the same way; sibling site in `evidence/f11/RESULTS.md` §3 fixed in the same pass (`RP-afe960d9`, `RP-12595256`, `RP-cdff36be`). **(5)** The 2026-08-28/09-01 margin correction never reached the rendered figure: `viz/report_figures.py` still drew the withdrawn superlative and the shipped PNG/SVG carried it into both TR-1 and TR-2. Re-derived from `f11_runA.out` (`f11_hist 1 1 0` at 4.13e-09, `f11_hist 2 1 1` at 2.93e-08, both componentwise no worse than KW's `2 2 2`, histogram not CC-N4-conditioned), the drawn string now states the measured margin; PNG and SVG regenerated after verifying the generator reproduces the committed PNG byte-for-byte. **Not done:** the charge's figure-text gate needs a new `scripts/doc_gates.sh` leg (another lane's file) and could not be a registry row — the phrase has five legitimate narrations in the markdown corpus and GATE 3's corpus excludes `viz/` and `reports/figures/` entirely; a one-off sweep of all 152 registry phrases over all 9 generator/SVG targets returned 0 hits after the fix. No theorem, certificate, count, verdict or sha changed; one script gained an opt-in flag and one figure was regenerated |

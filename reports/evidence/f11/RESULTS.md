@@ -121,8 +121,12 @@ unchanged under either (§4).
 ### M_corr (both corruption-location variants)
 Uniform precursor draw from the grand-strict set (probability 1/N_gs each) × a corruption event of k
 slot-edits, k ~ Geometric(p_c). An event is a set of disjoint adjacent-slat transpositions (slots s,
-s+1 exchange) plus slat inversions (orientation flips), the two elementary operations of Rutt's
-bamboo-slat mechanism; displaced slats may additionally be inverted. Slot 0 (pair 0 = 63,0) is fixed
+s+1 exchange) plus slat inversions (orientation flips) — the two elementary operations **we adopt to
+model** Rutt's bamboo-slat mechanism, not operations Rutt specifies: what is sourced (Rutt 1996 via
+Hacker & Moore 2003, where this project read him) is cord-fraying on re-strung slats as a physical
+corruption possibility; the restriction to *disjoint* and *adjacent* transpositions, the inclusion of
+orientation flips, the geometric k and the adjacency weighting below are this work's
+operationalization. Displaced slats may additionally be inverted. Slot 0 (pair 0 = 63,0) is fixed
 by canonical form; edits act on slots 1–31. The slot-edit count k = number of slots whose
 (pair, orientation) content changed — exactly sat.py's near-k metric, so the SAT distance results
 apply verbatim. Events are involutions, so P(received = KW) enumerates KW-anchored events E with

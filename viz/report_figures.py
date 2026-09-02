@@ -217,10 +217,15 @@ def fig_tr1_rules_tradeoff():
     ax.set_title("THE CONFLICT THEOREM's trade-off: the four rules cannot all be satisfied\n"
                  "(jointly UNSAT under C1+C2+C4+C5, drat-trim-verified) — any ordering must choose",
                  fontsize=12)
-    ax.text(1.7, -0.95,
-            "KW keeps the trigram configuration exactly and misses the other three by the minimal "
-            "measured margins;\nthe 3-edit grand precursor perfects those three and breaks the trigram "
-            "configuration. Both cannot be had.",
+    # The superlative ("the minimal measured margins") was WITHDRAWN 2026-08-28: f11_runA.out
+    # carries `f11_hist 1 1 0` (4.13e-09) and `f11_hist 2 1 1` (2.93e-08), both nonzero and
+    # componentwise no worse than KW's `2 2 2`, and that histogram is not CC-N4-conditioned, so
+    # no extremal check exists. The prose and captions were corrected then and on 2026-09-01;
+    # this rendered string was the last live copy (fixed 2026-09-02, prose batch P73).
+    ax.text(1.7, -1.0,
+            "KW keeps the trigram configuration exactly and misses the other three by two each\n"
+            "(no extremal check excludes a smaller miss); the 3-edit grand precursor perfects\n"
+            "those three and breaks the trigram configuration. Both cannot be had.",
             ha="center", va="center", fontsize=9, color="#555555")
     ax.grid(True, axis="x", ls=":", alpha=0.4)
     ax.legend(fontsize=9, loc="upper right")
