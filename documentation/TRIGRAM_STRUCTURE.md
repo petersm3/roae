@@ -274,7 +274,7 @@ The binding ledger is the header of
 [`lean/TrigramTheorems.lean`](../lean/TrigramTheorems.lean), reproduced
 below (it travels with the code, per the project's attribution rules;
 corrections invited on every "we have not located..." hedge). The fenced
-block is verbatim — lines 44–106 of that file, less the two-space comment
+block is verbatim — lines 44–115 of that file, less the two-space comment
 indent and the closing rule; this document's own two annotations to it now
 sit after the fence rather than inside it. Bibliographic entries:
 [CITATIONS.md](CITATIONS.md).
@@ -318,8 +318,17 @@ corrections invited on every "we have not located..." hedge):
   reversal, and trigram swap: that group, and its 14-orbit ("families of
   derivation") decomposition of the 64 hexagrams, is Hershock 1991
   (J. Chinese Philosophy 18:3) — a DIFFERENT group acting on a DIFFERENT
-  object, machine-verified separately by this project, and any statement
-  about trigram OPERATIONS on hexagrams must cite Hershock. TG-3's result
+  object, machine-verified separately by this project. Any statement about
+  the 14-family decomposition, or about his circular reordering built from
+  complement, reversal, trigram swap and the nuclear ("linking") map, must
+  cite Hershock. Trigram OPERATIONS on hexagrams as such are older and are
+  NOT his: ⟨comp, rev⟩ and ⟨rev, swap⟩ are Wu Cheng's (13th c.) and
+  ⟨comp, swap⟩ Jiao Xun's (18th c.) — verify.py --check-classical-groups —
+  and the two groups are related by more than vocabulary: they share the
+  order-4 subgroup ⟨rev, swap⟩, every element of which is a line-position
+  permutation in G₁₂; complement is not a line permutation, and that is
+  what puts Hershock's group outside the S₆ framing (corrected 2026-09-02;
+  Codex V2-F54 #6). TG-3's result
   — exactly 12 of the 48 line-position symmetries respect the trigram
   bipartition, ≅ S₃ × C₂, collapsing to S₃ (order 6) at record level —
   has no located external prior art (the constraint system itself is

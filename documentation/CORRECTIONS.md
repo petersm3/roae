@@ -3733,3 +3733,169 @@ twelve sibling sites in other files are reported and queued, not swept here.
 roae-private. The execution evidence recorded above — the two `ulimit` runs, the `--f1-exact-c1c2`
 exit-2 reproduction, the CRT and percentage re-derivations, and the prior-art searches behind the two
 absence claims — is the Fable lane's (Claude). Reviewers are acknowledged, not credited as authors.
+
+---
+
+## 2026-09-02 — two Lean file headers still carried retired wording; both corrected, both re-compiled, axiom sets unchanged
+
+Lean files sit outside GATE 3's corpus (it scans tracked Markdown and `reports/evidence/`), so a
+retraction that has been propagated through every document can survive verbatim in a `.lean`
+comment — and be re-published the moment a document quotes that header, which
+`TRIGRAM_STRUCTURE.md` §4 does by design as a verbatim fence. Three retired phrasings are
+registered in `documentation/RETRACTED_PHRASES.tsv`, each identified here by site and key, never
+by quotation: `RP-c816eea6`, `RP-365d6b64`, `RP-2e3a1f61`.
+
+**1. `lean/TrigramTheorems.lean`, header ledger §TG-3 (`RP-c816eea6`).**
+- **BEFORE:** an attribution rule requiring that any statement about trigram operations on
+  hexagrams be cited to Hershock 1991.
+- **NOW:** the rule is narrowed to what is his — the 14-family decomposition and the circular
+  reordering built from complement, reversal, trigram swap and the nuclear map. Trigram operations
+  on hexagrams as such predate him by centuries: `verify.py` (the `--check-classical-groups`
+  battery, attributions at its source) credits ⟨comp, rev⟩ and ⟨rev, swap⟩ to
+  [Wu Cheng](CITATIONS.md#wucheng) (1249–1333) and ⟨comp, swap⟩ to
+  [Jiao Xun](CITATIONS.md#jiaoxun) (1763–1820). The header now also states the real relation
+  between the two groups — a shared order-4 subgroup ⟨rev, swap⟩, all of it line-position
+  permutations inside G₁₂; complement is not a line permutation — in place of a rule that put the
+  whole subject under one 1991 citation.
+- **How it was found:** the prose form at `TRIGRAM_STRUCTURE.md` §2 was raised by the Codex V2-F54
+  review (#6) and corrected by prose batch P28 (2026-09-01). P28 could not touch the Lean header
+  because §4 reproduces `TrigramTheorems.lean`'s header lines verbatim, so the header and the fence
+  had to move in one change. They did: the fence now mirrors lines 44–115 of the file (was 44–106),
+  less the two-space comment indent and the closing rule, and `diff` against the source is empty.
+
+**2. `lean/KingWen.lean`, complement-symmetry header and the `orientation_not_forced` docstring
+(`RP-365d6b64`, `RP-2e3a1f61`).**
+- **BEFORE:** both comments described C4's within-pair orientation as classically attested by the
+  Xugua's opening.
+- **NOW:** both carry the 2026-08-30 narrowing (`reports/METHODS.md` §C4; the 2026-09-01 entry
+  above, with its eight keys): the Xugua attests that the {Heaven, Earth} *pair* opens, not the
+  order within it, and C4's orientation is our convention. `lean/README.md`'s prose form was
+  corrected on 2026-09-01 (`RP-458d6f24`) and already agrees.
+
+**What did not move.** No statement, proof, definition, count or `#print axioms` result. This is
+measured, not argued: each file was compiled before and after the edit on the pinned toolchain
+(`leanprover/lean4:v4.31.0`, commit `68218e87`) with `#print axioms` appended for every theorem
+(70 in `KingWen.lean`, 102 in `TrigramTheorems.lean`, plus the 40 already in that file). All four runs exited 0; the two before/after output pairs are byte-identical once the input-sha and timestamp lines are excluded — 70 results for `KingWen.lean`, 142 for `TrigramTheorems.lean`.
+The axiom vocabulary in both files is {`propext`, `Quot.sound`, `Classical.choice`} and
+`Lean.ofReduceBool` occurs zero times, before and after.
+
+**Attribution.** The Hershock over-attribution was raised by the Codex V2-F54 review (#6) and
+adjudicated in roae-private; the C4 narrowing is the project's own 2026-08-30 finding. The Lean
+edits, the fence re-sync and the before/after axiom measurement are the Fable lane's (Claude).
+Reviewers are acknowledged, not credited as authors.
+
+---
+
+## 2026-09-02 — the F1C5 layer-format spec was audited against `solve.c`, and six of its operational guarantees did not survive
+
+[`documentation/F1C5_LAYER_FORMAT.md`](F1C5_LAYER_FORMAT.md) is a binary-format specification: an
+independent reader implements against it. Its *format* half — header layout, block framing, the
+zlib-not-gzip codec, the `pl_hash` recipe — was re-read against the producing code in this pass and
+is accurate as written. Its *operational* half was not. Six statements about durability, cadence,
+sizing and the archival hook were checked against `solve.c` line by line and all six overstated
+what the code does. Four retired phrasings are registered in
+[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and are identified below by site and key, never by
+quotation: `RP-ad9d1d07`, `RP-76bd0543`, `RP-f2905114`, `RP-10357f26`.
+
+**1. A durable, completed layer is not a checkpoint unless the manifest names it (`RP-ad9d1d07`).**
+- **BEFORE:** §Checkpoint and resume semantics made durability alone sufficient.
+- **NOW:** the guarantee is keyed to the manifest, and the window is stated: the layer file is
+  renamed into place *before* `f1c5_write_manifest` runs (`solve.c:16435`, both the in-RAM and
+  out-of-core paths), while `f1c5_try_resume` (`solve.c:14523`–`14557`) reads only
+  `last_complete_k` and opens that layer — it never stats the directory for a durable next-layer
+  file, so no discovery or promotion path exists. A kill between the two writes discards a
+  complete, correctly named layer and rebuilds it. **The count is unaffected; only work is lost.**
+  §Ordering, two sections earlier, already stated the ordering that makes this true — the defect
+  was a guarantee written wider than the mechanism directly beneath it.
+
+**2. The checkpoint rejection path is not unconditional (`RP-76bd0543`).**
+- **BEFORE:** §Intra-layer checkpoint said rejection is universal and therefore always safe.
+- **NOW:** the narrower true claim (*a rejected marker never yields a wrong count*) is kept, and
+  the escape is documented. `f1c5_build_ckpt_read` allocates `off[]`, `kidx[]`/`vidx[]` and the
+  partial-block accumulator from the marker's own length fields at `solve.c:15363`–`15385`, each
+  guarded by `F1_CHECK`, **before** the trailing CRC32 is compared at `solve.c:15394`–`15396`.
+  `F1_CHECK` is `exit(71)` (`solve.c:13172`–`13176`), so an allocation refusal terminates the
+  process before both the CRC comparison and the unlink-and-rebuild path at
+  `solve.c:15419`–`15422`, and the marker survives to abort every automatic restart identically.
+  **Bounded honestly:** under default Linux overcommit the oversized `malloc` succeeds and the
+  following short read rejects the marker as designed, so this needs a host that genuinely refuses
+  the allocation — a `ulimit -v` or cgroup memory cap, or `vm.overcommit_memory=2`. The retracted
+  wording was unconditional regardless of how often the escape fires. The recovery (delete the
+  marker by hand) is now in the doc.
+
+**3. The ~300 s snapshot cadence is a floor, not a bound on work at risk (`RP-f2905114`).**
+- **BEFORE:** §Intra-layer checkpoint published it as a cadence, which reads as an upper bound on
+  what a kill can cost.
+- **NOW:** stated as *at chunk boundaries only, and no more often than ~300 s*. The test
+  `do_kill || now - last_ckpt_wt >= CKPT_INTERVAL_S` sits **inside** the per-chunk loop, after the
+  chunk's output has been pushed (`solve.c:15944`); `CKPT_INTERVAL_S` is 300 s at
+  `solve.c:15734`, overridable by `SOLVE_F1_CKPT_SEC`. `chunk_cap` is derived from the scratch
+  budget (`solve.c:15700`–`15703`) and nothing subdivides a chunk on time —
+  `f1c5_build_ckpt_write` has exactly one call site, so there is no secondary time-triggered path.
+  Worst-case loss is therefore one whole chunk, which a large `SOLVE_F1_OOC_SCRATCH_MB` on a slow
+  layer makes arbitrarily long.
+
+**4. `f1c5_progress.json` is boundary-triggered, not timer-refreshed (`RP-10357f26`).**
+- **BEFORE:** the run-directory table described a periodic refresh.
+- **NOW:** four emission points, named: layer begin (`solve.c:15617`), layer end (`:15640`),
+  out-of-core chunk boundary (`:15963`), run completion (`:16542`). `f1c5_prog_emit` returns early
+  when `!force && now - p->last_emit_wt < 5.0` (`solve.c:15533`–`15538`) — a minimum-interval
+  **throttle**, not a timer. No `SIGALRM`, `setitimer`, `timer_create` or emitter thread exists in
+  this path, so `updated_utc` is arbitrarily stale during a long non-out-of-core layer or a long
+  chunk. **Operational consequence, now stated in the doc:** a watchdog keyed on `updated_utc` age
+  kills healthy work; key on phase transitions instead. The upstream source comment at
+  `solve.c:15473` carries the same error and is queued to the code lane — the doc inherited it.
+
+**5. The full-ladder disk figure is a projection, and shipped as if measured.** No phrase is
+retracted: the figure itself is unchanged and is the best one available. What was missing is its
+evidential status. `≈2.5–2.7 TB` is now published as **projected**, with its basis inline —
+**1.624 TB measured on disk at `k = 0..16`, 17 of the 32 layers, on 2026-07-23**, the remainder by
+mask-palindrome projection, at v2 zlib level 6 and the default BLK. The measurement basis is
+recorded in roae-private and is not reproducible from any shipped artifact: the run's
+`runs/20260716_f1c5_c1c2c4c5_d128westus3/PRESERVE_SHA256.txt` holds six sha256 lines
+(`f1c5_layer_30.bin`, `f1c5_layer_31.bin`, the manifest, `run.out`, `run.pid`, `done.marker`) and
+**no byte sizes**, because the rolling window deleted layers 0–29 during the run. A measured total
+would require a `SOLVE_F1_KEEP_LAYERS=1` full-31 re-run — a canonical-scale campaign, recorded here
+as the reviewer's proposal and **neither proposed nor queued**. Both public sites moved together:
+`F1C5_LAYER_FORMAT.md` §Rolling window and
+[`SOLVE_C_CLI.md`](SOLVE_C_CLI.md) `SOLVE_F1_KEEP_LAYERS`. A third site, the source comment at
+`solve.c:16130`, is queued to the code lane.
+
+**6. The cold-storage archival hook can lose the layer it was invoked to save.** Two properties are
+now stated in §Rolling window that the one-line description did not carry. (i) The command string
+is passed to `system()`, i.e. to `/bin/sh`, with the layer path interpolated **unquoted** — the
+format is literally `"%s %s %d"` (`solve.c:16085`–`16088`) — so a run directory containing a space,
+quote or glob character does not reach the hook as two arguments. (ii) The hook's exit status is
+logged but not acted on: `unlink()` of that layer runs three lines later regardless
+(`solve.c:16367`–`16372` out-of-core, `:16439`–`16444` in-RAM), and the source comment says so in
+as many words. Together, a hook that fails *because of* (i) loses the only local copy. **This
+repository already knows the class:** `solve.c:17481`–`17486` records that quoting alone is
+insufficient, validates `SOLVE_REGRESS_DIR` against an explicit safe alphabet at its source
+(`regress_dir_safe`), and notes that "guarding only the first is how this defect class survives a
+fix". The cold hook is an unguarded site of that same class. The code fix and a sibling sweep — two
+further unquoted interpolations of an argv-supplied path at `solve.c:4131` and `solve.c:4181`,
+against the quoted-and-validated `rm -rf` at `solve.c:17745` — are queued to the code lane, not
+applied here. The doc now documents the hazard loudly, which is the other half of the prescribed
+fix.
+
+**Declined, and why.** The review proposed registering the ladder figure in
+[CANONICAL_VALUE_STATUS.tsv](CANONICAL_VALUE_STATUS.tsv). It is not entered. That registry's own
+header names `reports/METHODS.md`'s "Canonical quantities" table as its single source of truth and
+instructs that a row be added *when METHODS gains a quantity*; a disk-sizing plan figure is not one.
+GATE 5's status vocabulary is `exact`/`estimate`, so a `projected` row would be inert — it would
+check nothing — while GATE 5b could raise fresh warnings on the `SOLVE_C_CLI.md` table the figure
+sits in. The provenance is carried inline at every site instead, which is what the prescribed fix
+asked for.
+
+**What did not move.** No layer byte, no header field, no offset, no record size, no framing rule,
+no sentinel, no count, and no `pl_hash`. Every structural claim touched in this pass was re-read
+against the producing code and confirmed unchanged; the `chunk_cap` formula at §Intra-layer
+checkpoint was re-derived from `solve.c:15700`–`15703` and is correct for this document's scope
+(the G-band factor in the code is 1 outside `--f1-c3-hist`, which this document does not cover).
+
+**Attribution.** The six defects were raised by the Codex V2-F37 review pass and adjudicated in
+roae-private. The code measurements recorded above — the `system()`/`unlink` ordering, the
+`f1c5_try_resume` census, the allocate-before-CRC ordering and the `exit(71)` path, the
+single-call-site checks on `f1c5_build_ckpt_write` and the four-site census on `f1c5_prog_emit`, and
+the `PRESERVE_SHA256.txt` inspection behind item 5 — are the Fable lane's (Claude). Reviewers are
+acknowledged, not credited as authors.

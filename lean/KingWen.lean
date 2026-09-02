@@ -864,8 +864,12 @@ theorem popcount_profile_const_on_kw_images :
    the reversed orientation, with C3 = 776 exactly. So under the pair-only
    reading of C4 (the first pair is {0, 63}, orientation unspecified) the
    opening orientation is a FREE Z₂, not a theorem; the published oriented C4
-   (Heaven 63 before Earth 0) is definitional — classically attested (the
-   Xugua's Heaven-then-Earth opening) — and needs no theorem.
+   (Heaven 63 before Earth 0) is definitional — our convention, not a
+   classical attestation: the Xugua attests that the {Heaven, Earth} PAIR
+   opens (有天地，然後萬物生焉 sequences the pair before the myriad things;
+   天地 is a compound, not an ordering of Heaven over Earth), not the order
+   within it (narrowed 2026-08-30, reports/METHODS.md §C4; what the classical
+   record does attest is C1, the pairing rule) — and needs no theorem.
 
    Proof architecture (all structural + kernel `decide`; no native_decide):
    * C1: partner commutes with complement (partner_comp_comm63, finite decide),
@@ -1076,7 +1080,8 @@ theorem kw_c3_776_kernel : c3x64 KW = 776 := kw_c3_exactly_776
     of the symmetry theorem instantiated at King Wen; the finite facts are
     kernel `decide`, no native_decide. Both orientations of the opening pair
     are therefore valid for C1∩C2∩C3∩C5, and the orientation in C4 is a free
-    Z₂ fixed by definition (classical Xugua attestation), not by mathematics. -/
+    Z₂ fixed by definition — our convention: the Xugua attests the opening
+    PAIR, not the order within it (narrowed 2026-08-30) — not by mathematics. -/
 theorem orientation_not_forced :
     c1ok (compSeq KW) = true ∧ c5ok (compSeq KW) = true ∧
     c3ok (compSeq KW) = true ∧ c3x64 (compSeq KW) = 776 ∧
