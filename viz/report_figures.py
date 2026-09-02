@@ -94,7 +94,9 @@ def fig_tr4_boundary_information():
     #   k=1: 7.49e-4 (9.95e34 survivors); k=2: 9.39e-7 (1.25e32);
     #   k=3: 4.27e-10 (5.68e28); k=4: 6.34e-13 (8.42e25).
     # Full-space size 1.3287e38 (TR-4 §3); greedy per-boundary cut ~1e3; weakest-boundary
-    # bracket (k=5-8) still cut x15-17 per boundary; extrapolated uniqueness at ~15-20
+    # bracket (k=5-8) reported at x15-17 per boundary but ILLUSTRATIVE, not measured — its
+    # chain outputs are not archived and it is not reproducible from published material
+    # (restated 2026-09-02, TR-4 v1.25); extrapolated uniqueness at ~15-20
     # boundaries (current; supersedes an earlier ~13-14 estimate; heuristic floor k>=12).
     # NOTE 2026-08-01: the former "hard"-floor-of-13 wording was WITHDRAWN (the exact
     # retracted string is deliberately not repeated here — doc_gates.sh GATE 6 scans this
@@ -136,11 +138,14 @@ def fig_tr4_boundary_information():
     ax.plot(k_ext, S[-1] * (1e-3) ** (k_ext - 4), "--", color="#1f77b4", lw=1.3, alpha=0.8,
             label="extrapolation at the ~×10³/boundary greedy cut (NOT measured)")
 
-    # weakest-remaining-boundary bracket: k=5-8 still cut x15-17 per boundary
+    # weakest-remaining-boundary bracket: k=5-8 reported at x15-17 per boundary.
+    # ILLUSTRATIVE, not measured: the only archived S(k) outputs (reports/evidence/sk/)
+    # are greedy chains, so these two literals are the one thing on this figure with no
+    # file under reports/evidence/ behind it. Labelled as such since 2026-09-02.
     k_br = np.arange(4, 9)
     ax.fill_between(k_br, S[-1] * (1 / 17.0) ** (k_br - 4), S[-1] * (1 / 15.0) ** (k_br - 4),
                     color="#e8a33d", alpha=0.35,
-                    label="weakest-remaining-boundary bracket, ×15–17/boundary (measured, k = 5–8)")
+                    label="weakest-remaining-boundary bracket, ×15–17/boundary (illustrative, k = 5–8)")
 
     # the uniqueness level and the extrapolated-uniqueness band
     ax.axhline(S_unique, color="#388e3c", lw=1.3, ls="-.")

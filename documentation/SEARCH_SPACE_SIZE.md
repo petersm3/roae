@@ -32,7 +32,7 @@ Implementation: `solve --estimate-knuth <probes> [prefix…]` (see [`SOLVE_C_CLI
 | 7 | 62,256 | 62,257 | 2,232 | 2,233 |
 | 9 | 9,422,793 | 9,424,649 | 16,504 | 16,422 |
 
-Agreement is **<1% at every depth**. Independent cross-check: the 56 per-branch estimates (below) **sum to 1.33×10³⁸**, matching the independently-estimated whole-tree value **1.32×10³⁸** to <1%.
+Agreement is **<1% at every depth**. *(A 56-branch cross-sum was run at the same time and is deliberately NOT restated here — scoped out 2026-08-27, TR-4 v1.22, see [CORRECTIONS.md](CORRECTIONS.md). Its per-branch values were never archived; the untraced-claims audit records the claim as NOT FOUND, and the "(below)" the sentence used to point at publishes only three order statistics (min/median/max), from which no sum is recoverable. The ladder agreement above is unaffected and stands on its own.)*
 
 ## Result — the whole C1–C5 tree
 
@@ -201,9 +201,13 @@ see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)) — still admit
 space-uniqueness distinction this document has always cautioned about. Extrapolating the roughly constant
 ~10³ per-boundary cut put full-space uniqueness at roughly 13–14 boundaries; the 2026-07-05 S(6)–S(8)
 measurement (TR-4 §"the marginal-gain curve bends") shows the gains decline past k=5, revising the
-projection to ~15–20 (observed-rate extrapolation ~12; see the note below — it is not a lower bound). A bracketing run choosing among the *weakest* remaining boundaries
-(k = 5–8) still cut ×15–17 per boundary, so the decay is robust to boundary choice within an order of
-magnitude per step. Extending the *greedy* curve past k = 4 requires ~100× the probe budget (conditional
+projection to ~15–20 (observed-rate extrapolation ~12; see the note below — it is not a lower bound). A bracketing exploration choosing among the *weakest* remaining boundaries
+(k = 5–8) reported roughly ×15–17 per boundary, but ⚠ **that band is not reproducible from published
+material and is offered as illustration, not measurement** (restated 2026-09-02; both archived S(k)
+artifacts, `reports/evidence/sk/sk5_7_rounds.out` and `sk8_round.out`, are *greedy* chains, no
+weakest-remaining chain or command for one is published, and "weakest" is nowhere defined against a
+candidate set — round 5's own sweep puts its largest-surviving candidate at a ×14.5 cut, below the
+band's floor). The robustness-to-boundary-choice reading rests on it and is correspondingly weak. Extending the *greedy* curve past k = 4 requires ~100× the probe budget (conditional
 masses starve below ~10⁻¹³ hit rates); it was completed 2026-07-05 (S(6)–S(8), TR-4). Reproduce:
 `SOLVE_KNUTH_PIN_SLOTS="3,4,26,27,24,25,20,21" SOLVE_KNUTH_BOUNDARY_COND=1 ./solve --estimate-knuth 2000000000`.
 
@@ -249,11 +253,14 @@ greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 
   premise — that 10.38 is a universal per-boundary cap — but this bullet was left deriving 13 from it,
   so the paragraph contradicted itself. The divisor must be the maximum over all contexts, not the
   unconditional maximum.)* This is heuristic, not a
-  theorem — boundary synergies could in principle exceed the single-boundary maximum — but the observed
-  flatness across five steps shows no synergy at all so far: gains behave as near-independent, close to
-  the naive slot-information value.
+  theorem — boundary synergies can exceed the *unconditional* single-boundary maximum, and this chain
+  already shows one: step 3's 11.10 bits exceeds step 1's 10.38, which is precisely why 11.10 is the
+  divisor above. What the five steps show is flatness (all within ~1 bit, close to the naive
+  slot-information value), not the absence of synergy. *(Corrected 2026-09-02, prose batch P34: the retired wording
+  denied any synergy across the five steps while this same bullet divided by 11.10 precisely because
+  step 3 exceeds step 1. See CORRECTIONS.md, RP-fa6c3b89, and TR-4 v1.15.)*
 - **Rate projection: ≈ 13.** At the observed average marginal rate, the chain reaches 126.6 bits at
   k ≈ 13, tightening the earlier 13–20 extrapolation toward its lower end.
 
-Both figures sharpen when S(6..8) land — **they landed 2026-07-05 and revised the projection up to ~15–20** (see the S(k) section above and TR-4 v1.8); the ≈13 figure below predates that measurement. Derivation: this section's arithmetic
+Both figures sharpened once S(6..8) had landed: **2026-07-05, revising the projection up to ~15–20** (see the S(k) section above and TR-4 v1.8); the ≈13 figure below predates that measurement. *(Tense corrected 2026-09-02, prose batch P34 — the line had read as a pending condition beside its own answer; RP-11166bb6.)* Derivation: this section's arithmetic
 is fully reproducible from the S(k) masses above and the space size; no new measurement was used.

@@ -4083,3 +4083,278 @@ roae-private; reviewers are acknowledged, not credited as authors. The computati
 the clean-room subtree walk with pair-ordering dedup, the depth-3 cell census, the re-derivation of
 the 48 σ and the ambient orbit decomposition, and the `rev`-vs-`partner` census — are this lane's
 (Claude), and each is reproducible from `verify.py`'s public primitives.
+
+## 2026-09-02 — TR-4: a withdrawn cross-check still live in the body, a premise its own table falsifies, a "measured" band with no measurement, stale calibration coverage, and completed work called queued
+
+Five charges from the Codex V2-F06 review pass against
+[`reports/TR4_SIZE_OF_THE_SPACE.md`](../reports/TR4_SIZE_OF_THE_SPACE.md), adjudicated in roae-private
+and applied here as prose batch **P34**. All five were true and live. No measurement was re-run and no
+count, estimate, CI or canonical value changed; what changed is what the prose claims about them.
+Recorded as TR-4 v1.25.
+
+### 1. The withdrawn 56-branch cross-sum was still published as evidence — at two sites, not one
+
+TR-4 v1.22 (2026-08-27) scoped the 56-branch cross-sum out of the report's validation claim: its
+per-branch values were never archived, the untraced-claims audit records the claim as NOT FOUND, and
+an unreproducible cross-check strengthens nothing. **The withdrawal reached the abstract's marker and
+stopped there.** The body — §Sections item 2 — still read "Independent cross-check: 56 per-branch
+estimates …ing to 1.33×10³⁸ vs the independently-estimated whole-tree 1.32×10³⁸ (<1%)" — elided here
+so the registered needle does not fire on this ledger — three lines below its own retraction.
+
+The review named that one site. **There were three.**
+[`SEARCH_SPACE_SIZE.md`](SEARCH_SPACE_SIZE.md) §Validation carried the same sentence, and
+[`HISTORY.md`](HISTORY.md)'s 2026-07 narrative carried it in the past tense ("summed to"), a
+morphology a needle on "sum to" would have missed. The SEARCH_SPACE_SIZE site invited a refutation
+worth recording: it says the 56 estimates are "(below)", which would make the values public and the
+withdrawal over-broad. **Checked, and it does not** — that section publishes exactly three order
+statistics (min 1.26×10³⁶, median 2.26×10³⁶, max 3.46×10³⁶), from which no sum is recoverable. The
+withdrawal stands at both.
+
+Removed from TR-4 and SEARCH_SPACE_SIZE.md. HISTORY.md keeps the sentence, under a scope-out marker,
+because it is the dated record of what was run rather than a live evidentiary claim — the same
+treatment the other three withdrawn figures in that paragraph already carry. Registered as
+**RP-3338fb66**, keyed on a morphology-independent stem that matches both the present and past tense
+forms — the literal is deliberately not repeated on this page — with HISTORY.md as the allowed narrator.
+
+### 2. "The maximum by construction" — falsified by a number twelve lines below it
+
+§5's information-gain paragraph described the ~10.1-bits-per-boundary chain as having "the first being
+the maximum **by construction**", and added that "unmeasured boundary synergies could beat the
+single-boundary maximum, but five steps show none". The same section's Update prints the measured
+gains for k = 1..8: **10.38, 9.64, 11.10, 9.40, 10.13, 8.64, 7.93, 6.14 bits**. k = 3 at 11.10 exceeds
+k = 1 at 10.38. A conditional gain beat the unconditional one, and one of the five steps shows exactly
+the synergy the sentence denies.
+
+This is not a new finding — it is [TR-4 v1.15](../reports/TR4_SIZE_OF_THE_SPACE.md)'s own, recorded on
+2026-08-01: "conditioning can increase information, and the greedy construction bounds no conditional
+gain." v1.16 then recorded that v1.15's propagation was itself incomplete. **These two sentences are
+what it did not reach.** Greedy maximises the *unconditional* single-boundary gain, which is true and
+is all it establishes; the retired wording attached that guarantee to the whole five-step chain.
+
+Both restated. The identical claim in [`SEARCH_SPACE_SIZE.md`](SEARCH_SPACE_SIZE.md)'s extrapolation
+bullet — "the observed flatness across five steps shows no synergy at all so far", three lines after
+that same bullet divides by 11.10 *because* step 3 exceeds step 1 — is corrected in the same pass.
+Registered as **RP-7ec28c39**, **RP-0fa05509** and **RP-fa6c3b89**: three needles because the three
+sites word one false premise three ways, and one loose needle would have left two live.
+
+### 3. A ×15–17 robustness band with no measurement behind it
+
+Three sites in TR-4 (§5, the figure alt-text, the figure caption), one in SEARCH_SPACE_SIZE.md and two
+hard-coded literals in [`viz/report_figures.py`](../viz/report_figures.py) published a
+weakest-remaining-boundary bracket as a **measured** ×15–17 per-boundary cut, the figure legend saying
+so in as many words.
+
+**MEASURED.** The tree ships exactly two S(k) artifacts,
+[`reports/evidence/sk/sk5_7_rounds.out`](../reports/evidence/sk/sk5_7_rounds.out) and
+[`sk8_round.out`](../reports/evidence/sk/sk8_round.out). Both are **greedy** chains — `round 5 PICK=2`,
+`round 8 PICK=5` — with per-round selection sweeps. Neither contains a weakest-remaining chain; no
+command producing one is published anywhere in the corpus; and "the weakest remaining boundaries" is
+plural and nowhere defined against a candidate set, so even the object being claimed is unspecified.
+`roae-private/scripts/prior_art_check.sh` on `weakest remaining boundaries` and `weakest-remaining-boundary
+bracket` returns **PRIOR_ART=HIT n=41**, and every hit is either the same published string, a review
+transcript quoting it, or the adjudication of this charge — no run log, public or private. The private
+`sk_round_*.out` files that do exist are boundary-conditional probe outputs from a later task, not a
+weakest chain.
+
+**The band's own numbers are kept; only their status changes.** Deleting a figure a reader can see on
+the published plot would be worse than labelling it honestly. All five prose/code sites and the figure
+legend now read *illustrative, not reproducible from published material*, and §5 names the one public
+datum that bears on the band: round 5's own selection sweep, whose largest-surviving candidate
+(`cand 22: est=5.797785e+24`) is a **×14.5** cut against N(4) = S(4)·1.3287×10³⁸ = 8.42×10²⁵ — *below*
+the published band's floor — while its second-largest (`cand 28: est=5.123237e+24`) is ×16.4, inside
+it. The figure was regenerated from the edited generator; its PNG is otherwise byte-identical to the
+shipped one, and the SVG differs only in its embedded timestamp and element ids.
+
+Registered as **RP-77441d0d**, **RP-540f6cab** and **RP-51313d1a** — again three needles for three
+wordings, and deliberately not a loose one on "measured", which is legitimate and correct for the four
+S(k) points on the same figure.
+
+**Left open, and named as open:** the reproduction command for this band does not exist, because the
+run it would reproduce is not archived. Either the four weakest-chain round outputs are published with
+their command, or the band stays illustrative. This is the honest state, not a temporary one.
+
+### 4. Calibration coverage said 2 of 2; a third exact full-scale anchor has existed since 2026-07-26
+
+TR-4's estimator-calibration section read "**Coverage: 2 of 2**" and "With **n=2** we can say the
+estimator's envelope has held wherever it has been checkable". [`METHODS.md`](../reports/METHODS.md)
+§"Canonical quantities" has recorded since 2026-07-26 that the C1–C7 layer with C3 dropped is **exact**
+at **516,880,238,445,773,965,371,923,491,676,160**, two-instrument (an inclusion–exclusion pinned-step
+recount and an independent mask-DP recount of a different algorithm class, agreeing on the integer),
+and labels it in as many words "a **3rd independent estimator-calibration anchor**".
+
+COMPUTED here from TR-4's own §4 estimate for that layer, 5.18×10³² ±0.25%: est/exact = **1.002166**,
+a +0.2166% deviation, inside the stated band [5.16705, 5.19295]×10³². Added as a fourth table row with
+the exact integer, the ratio, and both reproduction commands —
+`./verify --ie-count --ie-spec full31@0 --ie-pin-c6c7 --ie-no-quotient` and
+`./verify --dp-count --dp-spec full31@0 --dp-pin-c6c7`. Coverage is now **3 of 3** and n = 3.
+
+Three consequences carried onto the page rather than left implicit. (a) The table's sixth column read
+"Inside stated ±0.01%?"; the new row's envelope is ±0.25%, so the column is now per-row. (b) The
+section said the exact values land "with roughly half the claimed error budget to spare" — true of the
+two ±0.01% layers, but the new anchor consumes ~87% of its budget, and the sentence now says both.
+(c) The new anchor is the **only** calibration on the C6/C7-pinned estimator path, which carries the
+≈5.21×10³¹ uniqueness-refutation figure; and being itself C3-free it **sharpens** rather than softens
+the standing caveat that C3's conditional ratio is the one full-scale factor with no exact cross-check.
+
+**A fourth consequence the charge did not name, found while applying it.** The section's
+"What this does NOT establish" paragraph argued that the deviations' shared positive sign is
+indistinguishable from quoting precision, because the estimates are quoted to four and five significant
+figures with rounding granularities ≈6.6×10⁻⁵ and ≈4.6×10⁻⁵ — the same order as the deviations. **That
+argument does not extend to the third anchor.** 5.18×10³² is quoted to three significant figures, a
+granularity of ≈9.7×10⁻⁴, and the deviation is +2.17×10⁻³ — about 2.2× it. The third deviation
+therefore survives rounding and is a real signed one. It is still inside its stated envelope and it is
+one point, so no bias is claimed; but the paragraph now says which layers its argument covers instead
+of saying "both deviations" over a table of three.
+
+**Refutation attempted.** The table is titled for layers "where ground truth exists", so a layer out of
+its scope would not belong. It is not out of scope — ground truth now exists — and the row that still
+reads "*none — no exact value exists*" is a different layer (C1–C5, C3 included), which remains
+correct and uncalibrated.
+
+### 5. Work completed on 2026-07-05 was still described as pending
+
+§5's greedy-curve item ended "**queued**", and the information-gain paragraph ended "sharpens further
+**when S(6..8) land**". The heading sixteen lines below the second is "### Update (2026-07-05): the
+marginal-gain curve bends — **S(6)-S(8) measured**", and the same numbered item already cites that
+measurement eight lines above its own "queued". The evidence is shipped: `sk5_7_rounds.out` ends
+"S(6)=1.879066e20" and `sk8_round.out` ends "round 8 PICK=5 … SK8 COMPLETE". There is no reading on
+which either was a live status. Both now point at the Update.
+[`SEARCH_SPACE_SIZE.md`](SEARCH_SPACE_SIZE.md)'s two sibling sites already carried the corrected
+status and were not touched. Registered as **RP-b1c1f805** and **RP-11166bb6** — the first with its
+preceding context rather than on the bare word "queued", which is legitimate live status elsewhere in
+the corpus.
+
+**Attribution.** The five charges were raised by the Codex V2-F06 review pass and adjudicated in
+roae-private; reviewers are acknowledged, not credited as authors. The arithmetic recorded above — the
+est/exact ratio against the exact pinned integer, the ×14.5 and ×16.4 cuts read off the round-5 sweep,
+and the k = 3 versus k = 1 gain comparison — is this lane's (Claude), and each is reproducible from the
+published evidence files and the two `verify` commands named above.
+
+**Not changed, deliberately.** The retired §Sections item 2 sentence sits beside "16,504 vs 16,422
+canonical", which prose batch P33 established on 2026-09-02 is an **oriented** leaf count, not a
+canonical one. P33 relabelled it at SYMMETRY_SEARCH.md and left ten further sites — TR-4 among them —
+because the label's root is `solve.c`'s own field name, and relabelling the documents ahead of the
+code would leave the two disagreeing. That decision is respected here; the site is reported, not
+relabelled.
+
+## 2026-09-02 — the boundary-stability pages were audited against their own shipped analyze logs, and five things did not survive
+
+Five charges against `documentation/PARTITION_STABILITY_BOUNDARIES.md`, raised by the Codex V2-F44
+review pass and adjudicated in roae-private. Every figure on the page survives: no count, sha,
+survivor ladder or greedy-minimum size moves. What moves is scope, naming, and one published set
+family that was wrong.
+
+### 1. "Mandatory" is a stronger claim than any search that was run (`RP-813641e8`)
+
+**BEFORE.** The page opened by calling `{25, 27}` **mandatory**, and its paper-implications bullet
+asked §7 of the analysis paper to preserve their mandatoriness "as the genuine structural invariant".
+
+**NOW.** MEASURED in `solve.c`'s `--analyze` block: §[7] exhausts all C(31, 3) = 4,495 triples and
+§[8] exhausts all C(31, 4) = 31,465 quadruples, but **no C(31, 5) pass exists anywhere in the
+binary**, and §[6]'s greedy scan compares with a strict `surv < best_remain`, so ties resolve toward
+the lowest boundary index and it emits **one** deterministic path per dataset. At 100T and 560T
+§[8] = 0, which fixes the minimum **size** at 5 — but the only 5-set ever scored is the greedy one.
+The C(31, 5) = 169,911 five-subsets were never enumerated, no tied alternative greedy trajectory was
+enumerated, and therefore **no 5-subset lacking 25 or 27 has been tested**. The page now carries a
+scope paragraph saying exactly that, and states the claim as presence in the greedy representative at
+each of the four partitions.
+
+**Where it *is* settled, checked before rescoping.** At 10T the claim holds at size 4 by exhaustion:
+`runs/20260418_10T_d3_fresh/analyze_output.log.gz` §[8] reports 25 and 27 at 100.0% frequency across
+all 8 working sets, and both 10T logs print `Boundaries appearing in EVERY working 4-set: { 25 27 }`.
+That exhausts size 4 at 10T and says nothing about size 5 at 560T.
+
+**Not registered: the bare word "mandatory".** It is legitimate at 10T scope in ten other files
+(`SOLVE.md`, `SOLVE_SUMMARY.md`, `CITATIONS.md`, `HISTORY.md` and others say "in every working
+4-set", which is what §[8] proves). [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) has carried the
+correct scope since 2026-09-01, when adjudication A01 accepted the identical charge against `:96`
+and `:105`; this page missed that propagation.
+
+### 2. The enumerated population was named by a shorthand the project retired a month ago (`RP-c938d088`, `RP-d691d304`)
+
+**BEFORE.** [PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md) and
+[BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) each named the enumerated population with the legacy
+three-constraint shorthand.
+
+**NOW.** Both say **C1–C5**, and the first links the two notes that already ruled on it:
+[METHODS.md](../reports/METHODS.md) §"Legacy shorthand" (2026-08-01 — "historical naming, not a
+narrower constraint set … New text should say C1–C5") and [GUIDE.md](GUIDE.md) §Glossary. Confirmed
+a naming defect rather than a scope error before changing anything: `solve.c`'s own comment on the
+`solutions_c3` counter reads *"C3-valid" = passed ALL constraints (C1-C5), not just C3*.
+
+**Correction to the charge as filed.** The review's class census listed `SOLVE_SUMMARY.md:288` and
+`:320` as two more sites of the same defect. They are not. Both are statements about **three
+predicates** in a null-model setting — `:288` reports the measured joint rate P(C2∧C3 | C1) ≈ 0.305%,
+and `scripts/c2c3_joint_null.py`, the script it names, implements exactly C1, C2 and C3 with no C4 or
+C5 anywhere in it; `:320` asks whether a published order-64 Costas array might satisfy those same
+three. Rewriting either to "C1–C5" would make it false. The review's proposed gate needle — the
+legacy shorthand in its `satisfies …` form — would in any case have fired on `:288`'s own
+correction annotation, which quotes the withdrawn wording it is correcting. Neither site was
+changed, and neither needle was registered.
+
+### 3. A published 4-set family advertised seven sets that do not work (`RP-6d921792`)
+
+**BEFORE.** The d3 10T working-4-set family was given as a shorthand union of `{25, 27}` with any
+two of `{1..6}` — at three sites: this page, [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) and
+[SPECIFICATION.md](SPECIFICATION.md).
+
+**NOW.** That shorthand admits C(6, 2) = **15** sets. `runs/20260418_10T_d3_fresh/analyze_output.log.gz`
+§[8] reports **8** (`total working 4-subsets: 8`), so the shorthand advertised **7 that do not
+work**: `{1,2}` `{1,5}` `{1,6}` `{2,6}` `{4,5}` `{4,6}` `{5,6}`, each ∪ `{25, 27}`. All three sites
+now list the 8 verbatim.
+
+**And the column header was wrong under it.** Both boundary tables ran a single "Greedy set" column
+holding two different objects: the **single ordered set** §[6] selects, and the **family** §[8]
+returns by exhaustion. The tables are now split. From the shipped logs: the d2 10T greedy walk is
+`2 → 27 → 25 → 21`, the d3 10T walk `4 → 27 → 25 → 1`, and 100T and 560T are both
+`4 → 27 → 25 → 21 → 1` — identical in membership and order, which is the claim the
+560T row makes.
+
+**Checked and left alone.** The d2 shorthand `one-of-{2,3} ∪ one-of-{21,22}` is **exact**: 2 × 2 = 4,
+and the d2 log's §[8] reports `total working 4-subsets: 4` over precisely those sets. It was wrong
+only in the column it sat in. `SOLVE.md`'s d3 10T section writes a similar summary but enumerates all
+8 sets two lines above it and prints the per-boundary frequency table beneath, so there the summary
+abbreviates a stated list rather than replacing one; it is unchanged and outside the registered
+needle.
+
+### 4. "Sourced publicly above" was false for the deepest row (`RP-96d7a817`)
+
+**BEFORE.** The provenance parenthetical closed by asserting that the findings the document asks a
+reader to accept are stated and sourced publicly on the page.
+
+**NOW.** MEASURED: `canonical-archive/` does not exist in the tree,
+`runs/20260608_560T_9a968fa2/` holds only `viz/`, and
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Access boundary" defines `canonical-archive/…` as
+operator-held cold blob storage, "not public URLs". So `analyze_v3_560T.log` is not fetchable and
+every 560T §[6]–§[8] figure on the page is a **transcription**. The page now says so, marks the two
+`canonical-archive/` rows in its source table as operator-held, and distinguishes them from the d2
+10T / d3 10T / d3 100T figures, whose `analyze_output.log.gz` files **do** ship in `runs/`.
+
+**Correction to the charge as filed.** The review's title implied the 560T figures are unverified.
+They are not. `roae-private/PRIMARY_EVIDENCE_SWEEP_2026_07.md:169–170` records a 2026-07
+primary-evidence sweep that checked these exact figures against the operator-held log — the §[6]
+560T survivor ladder 51,404 → 481 → 14 → 1 → 0, and §[7]/§[8] at all four scales.
+This is a **publication gap, not a computation gap**, and the page now states the attestation and its
+boundary rather than claiming a public source it does not have.
+
+### 5. A node budget was repeatedly called a partition depth (`RP-91287bc7`)
+
+**BEFORE.** The page described four enumerations as "progressively deeper partitions" and asserted a
+result held "no matter the partition depth (10T to 560T tested)".
+
+**NOW.** 10T, 100T and 560T are **budgets at one depth**.
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility parameters" gives all three recipes as
+`SOLVE_DEPTH=3`, differing in `SOLVE_PER_SUB_BRANCH_LIMIT` (63,146,557 → 631,456,644 →
+3,536,157,207); the only partition-depth comparison the project has ever run is d2 vs d3, both at
+10T. The page contradicted itself — its own §"Limits and scope" already said "partition-strategy is
+held constant at d3 for the 100T/560T datapoints" — and
+[SPECIFICATION.md](SPECIFICATION.md) fixed the identical defect in its own prose on 2026-09-01. The
+source-data table's single "Partition" column, which mixed the two axes and is the likely origin,
+is split into depth and budget.
+
+**Attribution.** The five charges were raised by the Codex V2-F44 review pass and adjudicated in
+roae-private; reviewers are acknowledged, not credited as authors. The measurements recorded above —
+the `solve.c` §[6]–§[8] source read (greedy tie-breaking, the absence of any C(31, 5) pass), the
+transcription of §[6] and §[8] from the three shipped `analyze_output.log.gz` files, the
+`c2c3_joint_null.py` predicate check, and the `runs/` / `canonical-archive/` tree audit — are this
+lane's (Claude) and every one of them is reproducible from files in this repository.

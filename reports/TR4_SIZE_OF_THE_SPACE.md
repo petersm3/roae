@@ -57,8 +57,10 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    tree the enumerator walks, touches no solution data, and is sha-neutral (--selftest unchanged).
    Validation: `--estimate-knuth 0 <prefix>` gives *exact* deterministic subtree counts; Monte-Carlo agrees
    <1% at every rung (5 free positions: 443 exact vs 442.9; 7: 62,256 vs 62,257; 9: 9,422,793 vs 9,424,649
-   nodes, 16,504 vs 16,422 canonical). Independent cross-check: 56 per-branch estimates sum to 1.33×10³⁸ vs
-   the independently-estimated whole-tree 1.32×10³⁸ (<1%).
+   nodes, 16,504 vs 16,422 canonical). *(A 56-branch cross-sum was run at the same time and is deliberately
+   NOT restated here: its per-branch values were never archived, so no reader can recompute it — scoped
+   out 2026-08-27, see the abstract's marker, v1.22 and [CORRECTIONS.md](../documentation/CORRECTIONS.md).
+   The three-rung ladder above is unaffected and is the whole of the validation claim.)*
 3. **The measurement.** 5×10¹⁰ probes (definitive 100×-probe run, 2026-07-01; the earlier 5×10⁸ run gave 1.32×10³⁸
    (rel. err 0.18%), ≈2–3.7σ below the definitive value (the exact figure is rounding-dependent — ~2σ on the
    less-rounded early value, ~3.7σ if 1.32×10³⁸ is taken as exact) — an unremarkable deviation for one early draw from a
@@ -127,10 +129,21 @@ The conclusion is untouched by all of this: **8** survivors in every variant, al
    uniqueness at roughly 13–14 well-chosen boundaries — but the 2026-07-05 S(6)–S(8) measurement (see the
    Update below) shows the per-boundary gains bend downward past k = 5, revising this projection **up to
    ~15–20 boundaries** and superseding the earlier 13–14 figure; the ~12-boundary
-   observed-rate extrapolation (not a bound — see v1.7 update) is unaffected. A
-   bracketing run on the *weakest* remaining boundaries (k = 5–8) still cut ×15–17 per boundary, so the
-   decay is robust to boundary choice within an order of magnitude per step. Extending the greedy curve
-   past k = 4 needs ~100× the probe budget (conditional masses starve below ~10⁻¹³ hit rates); queued.
+   observed-rate extrapolation (not a bound — see v1.7 update) is unaffected. A bracketing exploration
+   over the *weakest* remaining boundaries (k = 5–8) reported roughly ×15–17 per boundary — but ⚠ **that
+   band is not reproducible from published material and is offered as illustration, not measurement**
+   (restated 2026-09-02, v1.25). The tree ships exactly two S(k) artifacts,
+   [`reports/evidence/sk/sk5_7_rounds.out`](evidence/sk/sk5_7_rounds.out) and
+   [`sk8_round.out`](evidence/sk/sk8_round.out), and both are **greedy** chains (`round 5 PICK=2`,
+   `round 8 PICK=5`); no weakest-remaining chain is archived, no command for one is published, and
+   "the weakest remaining boundaries" is nowhere defined against a candidate set. The one public datum
+   that bears on it is round 5's own selection sweep in `sk5_7_rounds.out`, whose largest-surviving
+   candidate (`cand 22: est=5.797785e+24`) is a ×14.5 cut against N(4) = S(4)·1.3287×10³⁸ = 8.42×10²⁵ —
+   *below* the band's floor, while its second-largest (`cand 28: est=5.123237e+24`) is ×16.4, inside it.
+   Read the band as an order-of-magnitude illustration; the claim that the decay is robust to boundary
+   choice rests on it and is correspondingly weak. Extending the greedy curve
+   past k = 4 needs ~100× the probe budget (conditional masses starve below ~10⁻¹³ hit rates); **done
+   2026-07-05, see the Update below**.
 6. **Why King Wen is found "early" — an artifact, fully owned.** The enumeration is a systematic DFS, not
    random sampling: time-to-reach a known ordering depends on where it sits in traversal order, not on the
    solution-set size. King Wen's early appearance is produced by three setup choices — the constraints
@@ -143,7 +156,7 @@ The conclusion is untouched by all of this: **8** survivors in every variant, al
    distinction is purely structural, which is exactly why the project's claims are about where KW sits in
    the distribution, never about combinatorial uniqueness.
 
-## Estimator calibration against exact ground truth (v1.11, 2026-07-20)
+## Estimator calibration against exact ground truth (v1.11, 2026-07-20; third anchor added v1.25, 2026-09-02)
 
 The estimator's error bars were, until 2026, self-reported: an internal variance estimate with no
 external check at full scale. Two constraint layers have since been computed **exactly** by the
@@ -151,29 +164,53 @@ symmetry-quotient DP ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)), whi
 into ground truth against which the estimator can be scored. Consolidated here, since the comparison was
 previously scattered across two documents:
 
-| Layer | Exact value | Prior Knuth estimate | est/exact | Deviation | Inside stated ±0.01%? |
+| Layer | Exact value | Prior Knuth estimate | est/exact | Deviation | Inside its stated envelope? |
 |---|---|---|---|---|---|
 | C1∩C2∩C4 | 757,058,601,340,255,440,651,419,713,405,330,315,358,208 (7.570586×10⁴¹) | 7.571×10⁴¹ ±0.01% | 1.0000547 | **+5.47×10⁻⁵** | yes |
 | C1∩C2∩C4∩C5 | 1,097,051,278,789,181,790,036,112,071,176,579,186,688 (1.097051×10³⁹) | 1.0971×10³⁹ ±0.01% | 1.0000444 | **+4.44×10⁻⁵** | yes |
+| C1∩C2∩C4∩C5∩C6∩C7 (C3 dropped; C6/C7 pinned; raw, orientation-explicit like the two rows above) | 516,880,238,445,773,965,371,923,491,676,160 (5.16880×10³²) | 5.18×10³² ±0.25% (§4) | 1.002166 | **+2.166×10⁻³** | yes |
 | C1–C5 (adds C3) | *none — no exact value exists* | 1.3287×10³⁸ | — | — | **uncalibrated** |
 
-**Coverage: 2 of 2.** At both layers where ground truth exists, the exact value falls inside the
-estimator's stated envelope, with roughly half the claimed error budget to spare. This is the first
+**Coverage: 3 of 3.** At all three layers where ground truth exists, the exact value falls inside the
+estimator's stated envelope — with roughly half the claimed error budget to spare at the two ±0.01%
+layers, and about 87% of it consumed at the ±0.25% pinned layer. This is the first
 external validation of the estimator at full scale, and it is the substantive result of this section.
 
+**The third row, added 2026-09-02 (v1.25).** The C6/C7-pinned, C3-free layer was computed **exactly**
+on 2026-07-25/26 and is recorded at [METHODS.md](METHODS.md) §"Canonical quantities (single source of
+truth)" as a *3rd independent estimator-calibration anchor*; this section had not been updated and still said 2 of 2. It is
+two-instrument: an inclusion–exclusion pinned-step recount and an independent mask-DP recount of a
+different algorithm class, which agree on the integer. **Reproduce:**
+`gcc -O3 -pthread -o verify verify.c -lm`, then
+`./verify --ie-count --ie-spec full31@0 --ie-pin-c6c7 --ie-no-quotient` (Route B) and
+`./verify --dp-count --dp-spec full31@0 --dp-pin-c6c7` (Route D); the estimate it scores,
+5.18×10³² ±0.25%, is §4's. This is the **only** calibration point on the C6/C7-pinned estimator
+path — the path carrying the ≈5.21×10³¹ uniqueness-refutation figure, and the one with the fewest
+cross-checks.
+
 **What this does NOT establish, stated explicitly because the numbers invite the stronger reading.**
-Both deviations happen to be positive and of similar size, which looks like a small systematic upward
-bias. **That inference is not available from these figures.** The published estimates are quoted to four
-and five significant figures, giving rounding granularities of ≈6.6×10⁻⁵ and ≈4.6×10⁻⁵ — *the same order
-as the deviations being measured*. The apparent common sign is therefore not distinguishable from
-quoting precision, and no bias direction or magnitude is claimed here. Recovering the unrounded estimator
+All three deviations happen to be positive, which looks like a small systematic upward
+bias. **That inference is not available from these figures.** For the two ±0.01% layers the published
+estimates are quoted to four and five significant figures, giving rounding granularities of ≈6.6×10⁻⁵
+and ≈4.6×10⁻⁵ — *the same order as the deviations being measured* — so their apparent common sign is
+not distinguishable from quoting precision. The third anchor is a different case and is stated as one:
+5.18×10³² is quoted to three significant figures, a granularity of ≈9.7×10⁻⁴, and its +2.17×10⁻³
+deviation is about 2.2× that, so it survives rounding and is a real signed deviation — but it is a
+single point in that regime, still inside its stated envelope, and one point is not a bias estimate.
+No bias direction or magnitude is claimed here. Recovering the unrounded estimator
 outputs from the original run records would be required before any bias statement could be made.
 
-**Two points are consistency, not an error model.** With n=2 we can say the estimator's envelope has held
+**Three points are consistency, not an error model.** With n=3 we can say the estimator's envelope has held
 wherever it has been checkable; we cannot fit an error distribution, and nothing here licenses
-extrapolating a tightened error bar to the uncalibrated C3 layer. The honest summary is that the
+extrapolating a tightened error bar to the uncalibrated C3 layer — a point the third anchor **sharpens
+rather than softens**, because it too is C3-free, so all three anchors leave C3's conditional ratio the
+one full-scale factor with no exact cross-check (the same gap the clean-room
+`./verify --knuth-probe` estimator was built to attack — see
+[VERIFY.md](../documentation/VERIFY.md), which states it in as many words: "every existing full-scale
+cross-check is C3-free by scope"). The honest summary is that the
 flagship 1.3287×10³⁸ retains its stated CI on the estimator's own terms, now with the reassurance that
-the same machinery was accurate to <10⁻⁴ at two independent layers spanning three orders of magnitude.
+the same machinery was accurate to <10⁻⁴ at two independent layers and to 2.2×10⁻³ at a third, the
+three spanning nine orders of magnitude (10⁴¹ → 10³²).
 
 **What would upgrade this to a genuine error model.** More calibration points, which means exact counts
 at more layers or at reduced instances. The reduced-rung ladder published in
@@ -191,15 +228,16 @@ literature: [CITATIONS.md](../documentation/CITATIONS.md).
 
 ## Figure
 
-![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four measured points falling from 7.49e-4 at k=1 to 6.34e-13 at k=4, a dashed extrapolation at the ~×1000-per-boundary greedy cut, an orange measured bracket for the weakest remaining boundaries (×15–17 per boundary, k=5–8), and a shaded band at k≈13–20 where extrapolation reaches full-space uniqueness.](figures/fig_tr4_boundary_information.png)
+![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four measured points falling from 7.49e-4 at k=1 to 6.34e-13 at k=4, a dashed extrapolation at the ~×1000-per-boundary greedy cut, an orange illustrative bracket for the weakest remaining boundaries (×15–17 per boundary, k=5–8; not reproducible from published material), and a shaded band at k≈13–20 where extrapolation reaches full-space uniqueness.](figures/fig_tr4_boundary_information.png)
 
 *The boundary-information curve S(k) (§5). Red points are the measured pinned-Knuth values on the first
 four boundaries of the 560T greedy identifying order {4, 27, 25, 21, 1}, annotated with the
 surviving-orderings counts — those k = 4 boundaries (which inside the 560T slice leave KW plus one
 impostor; the full identifying set has 5 boundaries) still admit ≈8.4×10²⁵ full-space
 orderings. The dashed line extrapolates the roughly constant ~×10³ per-boundary cut (NOT measured); the
-orange band is the measured weakest-remaining-boundary bracket (×15–17 per boundary at k = 5–8),
-bounding how much the decay depends on boundary choice. The green band marks where extrapolation
+orange band is an **illustrative** weakest-remaining-boundary bracket (×15–17 per boundary at k = 5–8)
+whose chain outputs are not archived and which is not reproducible from published material — see §5;
+it indicates rather than bounds how much the decay depends on boundary choice. The green band marks where extrapolation
 reaches one surviving ordering: ~15–20 boundaries (revised up from an earlier ~13–14 estimate by the
 2026-07-05 S(6)–S(8) measurement; wide error; observed-rate extrapolation ~12, not a bound).
 Generated by [`viz/report_figures.py`](../viz/report_figures.py);
@@ -245,12 +283,16 @@ Generated by [`viz/report_figures.py`](../viz/report_figures.py);
 > "floor" has been removed rather than qualified, because a caveated bound still reads as a bound.
 
 The measured greedy chain's per-boundary information gains are strikingly flat (~10.1 bits per
-boundary across all five measured steps, the first being the maximum by construction). Since
+boundary across all five measured steps, the first being the maximum of the **unconditional** gain by
+construction — greedy picks it first — and nothing more: the greedy construction bounds no *conditional*
+gain, and the k = 3 step's 11.10 bits exceeds it). Since
 identifying King Wen in the C1–C5 space requires 126.6 bits, dividing through gives
 an observed-rate extrapolation of **~12 boundaries** (explicitly NOT a lower bound — see v1.15) and a projection of **≈ 13** — tightening this report's earlier
-13–20 extrapolation toward its lower end. (Heuristic: unmeasured boundary synergies could beat the
-single-boundary maximum, but five steps show none — gains behave as near-independent.) Full arithmetic
-in SEARCH_SPACE_SIZE.md; sharpens further when S(6..8) land.
+13–20 extrapolation toward its lower end. (Heuristic: boundary synergies can beat the *unconditional*
+single-boundary maximum, and the measured chain already does — the k = 3 gain of 11.10 bits exceeds the
+k = 1 gain of 10.38, which is exactly why 11.10 is the divisor above. What the five steps show is that
+the gains stay within about 1 bit of each other, not that no synergy exists.) Full arithmetic
+in SEARCH_SPACE_SIZE.md; sharpened by the 2026-07-05 S(6)–S(8) measurement below.
 
 
 ### Update (2026-07-05): the marginal-gain curve bends — S(6)-S(8) measured
@@ -299,4 +341,5 @@ outputs; the private log adds working narrative, and this report rests no claim 
 | v1.21 | 2026-08-27 | **The 2026-08-24 withdrawal marker now NAMES ITS TARGET and sits beside it (Q-140).** It stood immediately after the word "not" in "This is a statistical estimate, not … a proven cardinality", splicing that sentence and leading every reader to attach the retraction to the headline **1.3287×10³⁸**. Arithmetic settles which figure it retracts: 3.3×10³⁷ ÷ 8.2228×10³³ = **4,013**, exactly the factor the marker cites, while raw ÷ ceiling = 16,159. The withdrawn quantity is the **orientation-deduplicated ≈3.3×10³⁷**; the raw estimate stands, and CORRECTIONS.md already said so. Wording and placement only — no figure changes. |
 | v1.22 | 2026-08-27 | **The 56-branch cross-sum is scoped out of the validation claim (Q-183/Q-65).** The sentence read "validated to <1% against exact subtree counts on a three-rung ladder plus an independent 56-branch cross-sum". The cross-sum's per-branch values were never archived — the untraced-claims audit records it as **NOT FOUND** — so it cannot be offered as evidence, and an unreproducible cross-check strengthens nothing. The three-rung ladder validation is unaffected and stands. No figure changes. |
 | v1.23 | 2026-09-01 | **Stale `--estimate-knuth` stack-failure mode corrected (prose batch P48; wording only).** The stack warning preceding the reproduction commands described the default-8 MB-stack failure as a segfault before any output. That has been false since 2026-08-21: `solve.c`'s `--estimate-knuth` parse block preflights `RLIMIT_STACK` and, below 16 MB, prints the required stack size with a `ulimit -s unlimited` remedy and returns 1. An operator told to expect a segfault would read the clean exit 1 as a different fault entirely. The clause now matches the nine sibling documents that already carried the corrected wording, and keeps the segfault as dated past behaviour rather than deleting it. The `ulimit -s unlimited` requirement and the >= 16 MB figure are unchanged and remain mandatory; no claim, figure, count, date or scope altered |
-| v1.24 *(current)* | 2026-09-02 | **Two claims narrowed to what the evidence supports (prose batch P67; wording only, no figure recomputed).** (i) *The coverage figure is a bound, not an approximate equality.* §Abstract's raw-against-raw correction marker stated the 560T canonical's coverage as an approximate equality rather than as a bound. Its numerator, 43,876,464,466, counts per-sub-branch **canonical** keys, which [CORRECTIONS.md](../documentation/CORRECTIONS.md) records is a **lower bound** on raw oriented leaves and "never the quantity itself"; a lower-bounded numerator over the raw estimate yields a lower-bounded fraction. Re-derived here: 43,876,464,466 ÷ 1.3287×10³⁸ = 3.3022×10⁻²⁸ = 1 part in 3.0283×10²⁷, and the estimate's own 95% CI moves that only across 3.0274–3.0294×10²⁷ — all rounding to 3.03, so the stated three figures survive the change of claim. Now reads **at least** 1 part in 3.03×10²⁷. Four sibling sites outside this report's scope carry the same wording and are reported, not touched. (ii) *The reproduction command does not reproduce the headline.* §Verification Guide published `--estimate-knuth 500000000` beside a report whose headline is the 5×10¹⁰-probe definitive run; SEARCH_SPACE_SIZE.md's own results section records the 5×10⁸ draw as **superseded** by it. Verified here that no 5×10¹⁰ whole-tree invocation exists anywhere in the tracked corpus and that `reports/evidence/` archives KNUTH-ESTIMATE stdout at 2×10⁹, 5×10⁹, 2×10¹⁰, 4×10¹⁰ and 5.5×10¹⁰ probes but **none** at 5×10¹⁰. The command is now labelled as reproducing the superseded figure, with the missing invocation named as the open fix. The command itself, the 1.3287×10³⁸ estimate, its CI and every count are unchanged |
+| v1.24 | 2026-09-02 | **Two claims narrowed to what the evidence supports (prose batch P67; wording only, no figure recomputed).** (i) *The coverage figure is a bound, not an approximate equality.* §Abstract's raw-against-raw correction marker stated the 560T canonical's coverage as an approximate equality rather than as a bound. Its numerator, 43,876,464,466, counts per-sub-branch **canonical** keys, which [CORRECTIONS.md](../documentation/CORRECTIONS.md) records is a **lower bound** on raw oriented leaves and "never the quantity itself"; a lower-bounded numerator over the raw estimate yields a lower-bounded fraction. Re-derived here: 43,876,464,466 ÷ 1.3287×10³⁸ = 3.3022×10⁻²⁸ = 1 part in 3.0283×10²⁷, and the estimate's own 95% CI moves that only across 3.0274–3.0294×10²⁷ — all rounding to 3.03, so the stated three figures survive the change of claim. Now reads **at least** 1 part in 3.03×10²⁷. Four sibling sites outside this report's scope carry the same wording and are reported, not touched. (ii) *The reproduction command does not reproduce the headline.* §Verification Guide published `--estimate-knuth 500000000` beside a report whose headline is the 5×10¹⁰-probe definitive run; SEARCH_SPACE_SIZE.md's own results section records the 5×10⁸ draw as **superseded** by it. Verified here that no 5×10¹⁰ whole-tree invocation exists anywhere in the tracked corpus and that `reports/evidence/` archives KNUTH-ESTIMATE stdout at 2×10⁹, 5×10⁹, 2×10¹⁰, 4×10¹⁰ and 5.5×10¹⁰ probes but **none** at 5×10¹⁰. The command is now labelled as reproducing the superseded figure, with the missing invocation named as the open fix. The command itself, the 1.3287×10³⁸ estimate, its CI and every count are unchanged |
+| v1.25 *(current)* | 2026-09-02 | **Five claims corrected against their own evidence (prose batch P34, Codex V2-F06; no measurement re-run).** (i) *The withdrawn 56-branch cross-sum was still live in the body.* §Sections item 2 published it as an "independent cross-check" three lines after the abstract's own marker scoped it out (v1.22) for having no archived per-branch values. Removed here, and at the two sibling sites the withdrawal had not reached — [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) §Validation (whose "(below)" points at three order statistics from which no sum is recoverable) and [HISTORY.md](../documentation/HISTORY.md), where the dated narrative keeps the sentence under a scope-out marker. Registered as RP-3338fb66. (ii) *A premise the section's own data falsifies.* §5's information-gain paragraph called the k = 1 gain "the maximum by construction" and said "five steps show none" of the synergy that could beat it; the k = 1..8 gains printed twelve lines below include **11.10 bits at k = 3**, exceeding k = 1's 10.38. Greedy maximises the UNCONDITIONAL gain only and bounds no conditional one — exactly v1.15's finding, whose propagation stopped short of these two sentences. Both restated; the identical claim in SEARCH_SPACE_SIZE.md's extrapolation bullet, which contradicted its own 11.10 divisor, is corrected in the same pass. Registered as RP-7ec28c39 / RP-0fa05509 / RP-fa6c3b89. (iii) *A "measured" band with no measurement behind it.* The ×15–17 weakest-remaining-boundary bracket was published as measured at three sites here, one in SEARCH_SPACE_SIZE.md and two literals in `viz/report_figures.py`. The tree ships two S(k) artifacts, `reports/evidence/sk/sk5_7_rounds.out` and `sk8_round.out`, and **both are greedy chains**; no weakest-remaining chain, no command for one, and no definition of "weakest" is published. All five sites now read *illustrative, not reproducible from published material*, the figure legend with them (regenerated; PNG otherwise byte-identical), and §5 now names the one public datum that bears on the band — round 5's own sweep, whose largest-surviving candidate is a ×14.5 cut, below the band's floor. The band's numbers are unchanged; only their status is. Registered as RP-77441d0d / RP-540f6cab / RP-51313d1a. (iv) *Stale calibration coverage.* "Coverage: 2 of 2" and "With n=2" predate the C1–C7-minus-C3 layer becoming exact on 2026-07-25/26, which [METHODS.md](METHODS.md) already labels a 3rd independent estimator-calibration anchor. Added as a fourth table row with its exact integer, est/exact = 1.002166 against this report's own §4 estimate of 5.18×10³² ±0.25% (inside, at ~87% of the budget) and both `verify` reproduction commands; coverage is now 3 of 3, n = 3, and the table's envelope column is per-row rather than a blanket ±0.01%. Stated with it: the new anchor is the ONLY calibration on the C6/C7-pinned path, and being itself C3-free it sharpens rather than softens the C3 caveat. The section's rounding-granularity paragraph, which argued the deviations' common sign was indistinguishable from quoting precision, is rescoped in the same edit: that argument holds for the two ±0.01% layers and NOT for the third, whose +2.17×10⁻³ deviation is ~2.2× the ≈9.7×10⁻⁴ granularity of a three-significant-figure quote. It is a real signed deviation, inside its envelope, and n = 1 in that regime — so still no bias claim. (v) *Completed work described as pending.* "queued" and "sharpens further when S(6..8) land" both sat within twenty lines of the 2026-07-05 Update that reports S(6)–S(8) measured; both now point at it. Registered as RP-b1c1f805 / RP-11166bb6. No count, estimate, CI or canonical value changed by any of the five. |

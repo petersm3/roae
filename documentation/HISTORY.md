@@ -5135,7 +5135,7 @@ size. It touches no solution data and needs no mounted disk — pure compute.
 
 Validated first against exact subtree counts (`--estimate-knuth 0`, deterministic): agreement to **<1%** at every
 prefix depth, and an independent cross-check where the 56 per-branch estimates summed to within <1% of the
-whole-tree estimate. The result: **≈1.3×10³⁸ raw C1–C5 orderings (≈3×10³⁷ distinct-canonical after ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
+whole-tree estimate ⚠ **[the 56-branch cross-sum is SCOPED OUT of the validation claim 2026-08-27 (TR-4 v1.22): its per-branch values were never archived, so it cannot be offered as evidence. Kept here as the dated record of what was run, not as a live claim; removed from TR-4 §Sections and SEARCH_SPACE_SIZE.md by prose batch P34 on 2026-09-02. The prefix-depth ladder agreement is unaffected; see documentation/CORRECTIONS.md]**. The result: **≈1.3×10³⁸ raw C1–C5 orderings (≈3×10³⁷ distinct-canonical after ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 orientation-dedup)**, with the 56 first-level branches all comparably enormous (~2×10³⁶ raw ⚠ **[LABEL CORRECTED 2026-08-28 — raw, not canonical; see documentation/CORRECTIONS.md]**, spread only ~2.7× — no
 small or near-exhaustible branch). This reframes everything: the deepest published canonical (560T, 1.05×10¹⁰
 records) has enumerated **≈1 part in 10²⁷** of the space; exhaustion, of the space or of any single branch, is off ⚠ **[the distinct-vs-distinct pairing is WITHDRAWN; stated raw-against-raw it is ≈1 part in 3.03×10²⁷ — see documentation/CORRECTIONS.md]**
