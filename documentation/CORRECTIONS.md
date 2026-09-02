@@ -3807,6 +3807,15 @@ quotation: `RP-ad9d1d07`, `RP-76bd0543`, `RP-f2905114`, `RP-10357f26`.
   complete, correctly named layer and rebuilds it. **The count is unaffected; only work is lost.**
   §Ordering, two sections earlier, already stated the ordering that makes this true — the defect
   was a guarantee written wider than the mechanism directly beneath it.
+- **Swept, two further sites, both live claims and neither in this batch's target file.** Registering
+  the phrasing turned GATE 3 red on
+  [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(v), where the use **spanned a
+  hard wrap** and was invisible to line-based search — the gate flattens before matching, which is
+  the only reason it was seen. Its Verification Guide restated the same guarantee in a different
+  spelling that the registry needle does not match, and was corrected with it rather than left as a
+  latent survivor. Both now key to the manifest and link to the F1C5 spec; TR-11 carries the change
+  as **v1.24**. Neither was allowlisted: an allow row is for a document narrating a retraction, and
+  these were live instructions to a reader running the campaign.
 
 **2. The checkpoint rejection path is not unconditional (`RP-76bd0543`).**
 - **BEFORE:** §Intra-layer checkpoint said rejection is universal and therefore always safe.
@@ -3899,3 +3908,178 @@ roae-private. The code measurements recorded above — the `system()`/`unlink` o
 single-call-site checks on `f1c5_build_ckpt_write` and the four-site census on `f1c5_prog_emit`, and
 the `PRESERVE_SHA256.txt` inspection behind item 5 — are the Fable lane's (Claude). Reviewers are
 acknowledged, not credited as authors.
+
+---
+
+## 2026-09-02 — SYMMETRY_SEARCH.md: an oriented leaf count called canonical, an orbit test called all-cells, a public-verifiability claim its own page contradicted, and two stale statuses
+
+**Registry keys: `RP-92020fef`, `RP-35480bc8`, `RP-a5c2bc8c`, `RP-78ce5960`, `RP-60226f4a`,
+`RP-11f9daff`, `RP-efc6640b`** ([documentation/RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv)).
+
+Prose batch P33, from the Codex V2-F53 review of
+[SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md). Six charges were filed; five were live and are corrected
+below, one was already fixed and is recorded as declined. Every group-theoretic figure below was
+recomputed for this entry from the constraint definitions by a clean-room walk over `verify.py`'s
+`KW`/`PAIRS`/`hamming` — not read from a group table, and not taken from either shipped instrument.
+
+### 1. `canonical leaves = 16,504` — the label names the wrong object (`RP-92020fef`, `RP-35480bc8`)
+
+**BEFORE.** §"Empirical corroboration" item 2 and the `--estimate-knuth` code fence beneath it
+published the exact-tree-isomorphism anchor as *"tree_nodes = 9,422,793 and canonical leaves =
+16,504"* / *"leaves_canonical = 16,504"*. TR-5 §3(ii) carried the same wording at two sites.
+
+**NOW.** 16,504 is an **oriented** C1–C5 leaf count. `solve.c`'s `exact_count` iterates
+`for (int orient=0; orient<2; orient++)` over every pair and increments the counter it prints as
+`leaves_canonical_C1C5` once per orientation-resolved C3-passing completion. SYMMETRY_SEARCH.md's
+own §Result reserves *canonical* for the opposite object — "pair-sequences after orientation dedup" —
+and its §Reproducibility snippet performs exactly that dedup with `frozenset`. So the document
+contradicted itself, and the root is the shipped binary's field name, which the prose inherited.
+
+The orientation-deduped count is **899 distinct pair orderings**, which this repository was **already
+publishing**: `README.md` ("King Wen's alone among the 899 distinct pair orderings that those 16,504
+oriented leaves represent") and this ledger's 2026-08-28 `TR-4:95–97` entry both state it. The defect
+is that four sites did not propagate.
+
+Recomputed 2026-09-02 by a clean-room DFS with a pair-ordering dedup added:
+
+| KW-following prefix | tree_nodes | leaves C1+C2+C4+C5 | oriented C1–C5 leaves | distinct pair orderings |
+|---|---:|---:|---:|---:|
+| 5 free positions | 443 | 52 | 4 | **2** |
+| 7 free positions | 62,256 | 5,624 | 2,232 | **381** |
+| 9 free positions | 9,422,793 | 690,176 | 16,504 | **899** |
+| 9 free, σ-related prefix | 9,422,793 | 690,176 | 16,504 | **899** |
+
+The walk that produced this table is now **published**, in
+[SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) §Reproducibility, so every figure in it has a public command.
+The first three rows reproduce `verify.py --recount-subtree`'s published anchors to the integer, from
+an instrument that shares no code with it, and the fourth shows the tree isomorphism holds at the
+pair-ordering level as well as the oriented level. The 899 is **not** new — see above. The 381 and the
+2 appear to be published here for the first time: a prior-art check over roae-private `*.md`/`*.tsv`
+and `codex_transcripts/`, roae `*.md`, and `git log --all -S` on both repositories returns
+`PRIOR_ART=NONE` for "381 distinct pair orderings" and for "2 distinct pair orderings". Corrections
+welcome.
+
+**WHAT DID NOT MOVE.** No count. 443 / 62,256 / 9,422,793, 4 / 2,232 / 16,504 and the "exactly 8 of
+the 16,504 satisfy C6/C7" anchor are all correct and all unchanged; only the noun they were given is.
+
+**Not swept here, and named so it is not lost.** *"canonical leaves"* remains live and legitimate-looking
+at ten further sites — `documentation/SEARCH_SPACE_SIZE.md`, `documentation/VERIFY.md`,
+`reports/TR4_SIZE_OF_THE_SPACE.md`, `reports/TR1_EIGHT_CENTURIES_MEASURED.md`,
+`documentation/SOLVE_C_CLI.md`, `documentation/LITERATURE_RULES_POPULATION_TESTS.md`, evidence READMEs
+— plus `verify.py`, `verify.c`, `tests.py` and `solve.c`'s printf field itself. That relabel is one pass
+and belongs with the `solve.c` field rename to `leaves_oriented_C1C5`, which is a code change and is
+queued to the code lane; the registry needle is deliberately the `= 16,504` form so this gate does not
+fail across the corpus while fixing nothing.
+
+### 2. The "all-cells" orbit test measures 41.2% of the cells (`RP-a5c2bc8c`, `RP-78ce5960`)
+
+**BEFORE.** *"**All-cells orbit test:** the 65,281 productive 560T cells partition into 4,183
+G-orbits … True per-cell counts are orbit-equal within measurement resolution across the entire
+space."*
+
+**NOW.** Recomputed 2026-09-02 from the C2/C5 prune and from the 48 σ re-derived as the centralizer of
+`rev` (order 48 confirmed, element orders {1:1, 2:19, 3:8, 4:12, 6:8}):
+
+- the depth-3 feasible cell space has **158,364** cells;
+- it is **G-closed** — every one of the 48 σ maps every feasible cell to a feasible cell, zero escapes;
+- it falls into **4,382** ambient G-orbits, of sizes {6:14, 12:270, 24:1736, 48:2362} (6·14 + 12·270 + 24·1736 + 48·2362 = 158,364).
+
+That computation is also **published** — [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) §Reproducibility now
+carries it as a self-contained snippet that runs in under a second from the repo root, with the
+G-closure check as an `assert`.
+
+The 65,281 productive cells are **41.2%** of that space and are *not* G-closed, so the 4,183 measured
+classes are **intersections of ambient orbits with the productive subset, not orbits**; 199 ambient
+orbits contain no productive cell at all, and 93,083 cells carry no measurement. The invariance
+statement is now scoped to the productive subset.
+
+Both halves were already public in this repository before the review:
+[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) §"What is being measured" gives "each of the 158,364
+depth-3 cells" and §"Result — per-cell distribution + budgeted yield is uncorrelated with cell size"
+says the remainder "lies in the ~93K cells that produced 0 records", and
+SYMMETRY_SEARCH.md's own mechanism section concedes that "orbit-mates of productive cells are often
+unproductive at a given budget". This was a zero-compute prose defect; the computation above was run
+to state the ambient figures exactly, not to discover the gap.
+
+**WHAT DID NOT MOVE.** The CV figures (0.112 median within-orbit, 0.130 median relerr, 0.72
+population) and the 4,183 are unchanged; the 4,183 is read from the private per-cell table and is
+**not** independently recomputed here, which item 3 now says on the page.
+
+### 3. The promised public verification path rested on private inputs (`RP-11f9daff`)
+
+**BEFORE.** §Reproducibility: *"The per-cell estimate table itself is private working data … this
+rerun spec is the public path."* Four lines later, the provenance parenthetical: *"The theorem, its
+proof, the correction notice, and every table needed to verify are public in this document."* Both
+cannot hold.
+
+**NOW.** The second sentence is withdrawn and replaced by a named split. Publicly reproducible: the
+theorem and proof, the 720-permutation σ(KW) snippet, the exact-subtree commands, and — measured for
+this entry — the **ambient** G-orbit partition, which recomputes in about a second from the
+document's own published snippet. Not public: the **productive-cell list** (from the 560T shard
+manifest) and the **per-cell estimate table** (~65K estimator calls). Verified for this entry: no
+tracked file is a 65,281-cell manifest (the largest tracked `.txt`/`.tsv`/`.csv` is 5,490 lines), and
+the only `4,183`/`within-orbit` hits in tracked `.py`/`.sh`/`.c` are `solve.py:7174` and
+`solve.c:5649`, both about the unrelated Klein-four-group orbit structure — so no aggregation program
+for this table is in the tree either.
+
+The rerun command was additionally **machine-dependent**, which the review inferred and this entry
+confirms from the source: `solve.c`'s `--estimate-knuth` parse block reads `SOLVE_THREADS` and falls
+back to `sysconf(_SC_NPROCESSORS_ONLN)`, then splits the probe budget across workers seeded from
+`knuth_seed_base` (`SOLVE_KNUTH_SEED`, default `0x243F6A8885A308D3`) — so the **thread count selects
+the sample**, exactly as `reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md` v1.13 recorded on 2026-09-01
+for its own five estimator commands. Both variables are now pinned in the published command, with the
+reason stated; the exact-mode (`--estimate-knuth 0`) commands are deterministic and are left unpinned.
+
+### 4. `rev` does not map every hexagram to its partner (`RP-60226f4a`)
+
+**BEFORE.** §"Group structure": *"rev itself is the central element −I; it maps every hexagram to its
+partner and therefore fixes every pair-sequence."*
+
+**NOW.** False for exactly **8** hexagrams. EXECUTED against `verify.py`'s `_partner`:
+`rev(h) ≠ partner(h)` for `{0, 12, 18, 30, 33, 45, 51, 63}` — the palindromes, which `rev` fixes and
+whose C1 partner is their complement `h ⊕ 63` — and `rev(h) = partner(h)` for the other **56**. The
+**conclusion survives**: `rev` fixes all 32 C1 pairs setwise (verified the same way), so it does act
+trivially on pair-sequences and the record-level group is still B₃/{±I} ≅ S₄. The defect was the
+stated reason, not the result, and the same document's Theorem proof already carried the careful form
+("σ preserves the palindrome set and commutes with comp"). A whole-corpus scan, with line breaks
+normalised, finds no second site.
+
+### 5. Related-work status stale in both directions (`RP-efc6640b`)
+
+**BEFORE.** §Related work ended *"full-text verification pending acquisition"*, and both the
+§Theorem novelty note and the alignment note enumerated the algebra's arrivals as "at least five —
+Goldenberg, Ouyang (1992), Schöter (1998), Suenaga (2012), Radisic (2026)".
+
+**NOW.** (a) [CITATIONS.md](CITATIONS.md) has recorded since **2026-07-11** that Goldenberg (1975) was
+read in full from an official interlibrary-loan scan and that all repo-encoded claims (G-T1–T4, T7,
+including the KW5↔KW63-via-KW7 worked example, p. 170) are verified against the primary text. The
+prose now says so. (b) The enumeration omitted **two** names the ledger credits — Yuan Zuoxing (1991)
+and Cao Hongjun / Li Shuzhong / Liu Yanan (1995), added to the chain by the 2026-08-29 correction that
+made ROAE the **seventh** arrival — and it listed Schöter inside the numbered chain, where the ledger
+places him beside it as an *independent-then-crediting* arrival (he credits Goldenberg's ⊕ and ⊗ as
+the direct parallels of his own operators while reporting that the bulk of his work predated his
+awareness of Goldenberg). Both sites now reproduce the ledger's six pre-ROAE arrivals, state Schöter's
+status as the ledger states it, and name CITATIONS.md as the list of record.
+
+**Correction to the charge as filed.** The review read the ledger as *excluding* Schöter. It does not;
+it excludes him from the numbering while calling him an arrival. That distinction is now carried on
+the page rather than resolved by picking a side.
+
+### 6. Declined — the stale stack-failure mode was already corrected
+
+The sixth charge held that SYMMETRY_SEARCH.md still described the default-8-MB-stack
+`--estimate-knuth` failure as a segfault before any output. **It does not, and has not since
+2026-09-01**, when the entry three above this one corrected that wording at five sites including this
+one. The site reads "since 2026-08-21 the binary preflights `RLIMIT_STACK` … and exits 1; previously a
+bare SIGSEGV" and carries a dated 2026-09-01 correction marker; the retracted phrase survives nowhere
+in the corpus but in that entry. The charge also offered a mechanical marker — that the stale sites
+say "command **below**" and the corrected ones "command **in this document**". That correlation does
+not hold: all four "below" sites (`SYMMETRY_SEARCH.md`, `SEARCH_SPACE_SIZE.md`, `TR4`, `TR5`) carry the
+corrected long-form wording, and the two templates differ in length, not in currency. Nothing was
+changed for this charge.
+
+**Attribution.** The six charges were raised by the Codex V2-F53 review pass and adjudicated in
+roae-private; reviewers are acknowledged, not credited as authors. The computations recorded above —
+the clean-room subtree walk with pair-ordering dedup, the depth-3 cell census, the re-derivation of
+the 48 σ and the ambient orbit decomposition, and the `rev`-vs-`partner` census — are this lane's
+(Claude), and each is reproducible from `verify.py`'s public primitives.

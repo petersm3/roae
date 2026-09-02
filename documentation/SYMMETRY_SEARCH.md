@@ -28,10 +28,16 @@ relabelings of KW, all with complement distance 776 exactly.
 *Novelty status (hedge aligned with CITATIONS 2026-08-06): we are not aware of a prior statement of this
 symmetry group for the King Wen constraint system **on orderings**. The ambient hexagram-level algebra it
 acts through is prior art and is not claimed: the (Z/2)⁶/XOR framing and hexagram-level group actions
-have at least five independent arrivals — [Goldenberg (1975)](CITATIONS.md#goldenberg1975),
-[Ouyang (1992)](CITATIONS.md#ouyang1992) (the earliest and fullest, with proofs and subgroup×coset
-partitions of historical sequences), [Schöter (1998)](CITATIONS.md#schoter1998),
-[Suenaga (2012)](CITATIONS.md#suenaga2012), and [Radisic (2026)](CITATIONS.md#radisic2026) — and the
+has, on [CITATIONS.md](CITATIONS.md)'s current accounting, **six independent pre-ROAE arrivals**:
+[Goldenberg (1975)](CITATIONS.md#goldenberg1975), [Ouyang (1992)](CITATIONS.md#ouyang1992) (the earliest
+and fullest, with proofs and subgroup×coset partitions of historical sequences; his
+[1990](CITATIONS.md#ouyang1990) already states the group),
+[Yuan Zuoxing 袁作兴 (1991)](CITATIONS.md#yuanzuoxing1991),
+[Cao Hongjun, Li Shuzhong and Liu Yanan (1995)](CITATIONS.md#caohongjun1995),
+[Suenaga (2012)](CITATIONS.md#suenaga2012) and [Radisic (2026)](CITATIONS.md#radisic2026), with
+[Schöter (1998)](CITATIONS.md#schoter1998) a further **independent-then-crediting** arrival (he credits
+Goldenberg's ⊕ and ⊗ as the direct parallels of his own bit-wise operators and reports that the bulk of
+his work predated his awareness of Goldenberg) — and the
 classical lineage is older still: [Wu Cheng 吳澄 (c. 1300)](CITATIONS.md#wucheng) gives the **complete
 ⟨complement, reversal⟩ orbit decomposition of all 64** (「二十對」 = 12×4 + 8×2), with
 [Lai Zhide (c. 1600)](CITATIONS.md#laizhide) tabulating both operations across all 64 without composing
@@ -75,8 +81,15 @@ by the mathematics (see CLAIMS_DECIDED's corrections ledger, 2026-07-26).
 
 **Group structure.** rev = (0 5)(1 4)(2 3) splits the six bit positions into three pairs; its centralizer
 permutes the three pairs (S₃) and swaps within each independently ((Z₂)³): G ≅ Z₂ ≀ S₃ ≅ B₃, order 48,
-element orders {1:1, 2:19, 3:8, 4:12, 6:8}. rev itself is the central element −I; it maps every hexagram to
-its partner and therefore fixes every pair-sequence — giving the record-level group B₃/{±I} ≅ S₄.
+element orders {1:1, 2:19, 3:8, 4:12, 6:8}. rev itself is the central element −I; it maps each hexagram to
+its **reversal**, which is that hexagram's C1 partner for the 56 non-palindromes and which fixes the 8
+palindromes {0, 12, 18, 30, 33, 45, 51, 63} (whose C1 partners are their complements, `partner(h) = h ⊕ 63`).
+Either way rev fixes each of the 32 C1 pairs setwise, and therefore fixes every pair-sequence — giving the
+record-level group B₃/{±I} ≅ S₄. *(Corrected 2026-09-02, prose batch P33, `RP-60226f4a`: this sentence
+previously gave the reason as rev sending each hexagram to its partner, which is false for exactly those
+eight. EXECUTED against `verify.py`'s `_partner`: rev and partner disagree on 8 of 64 hexagrams — the
+palindrome set above, all with partner = complement — and agree on the other 56; rev still fixes all 32
+pairs setwise, so the **conclusion** is unchanged. §Theorem's C1 step already carried the careful form.)*
 
 ## Completeness over ALL 64! relabelings (2026-07-18)
 
@@ -172,12 +185,37 @@ symmetric group for the King Wen constraint system; corrections welcome via
    pair-orderings** (KW + 23 twins), each with C3 = 776.
 2. **Exact tree isomorphism:** for a KW-following 23-pair prefix (9 free positions) and three random σ ∈ G,
    the exact deterministic subtree counts (`solve --estimate-knuth 0 <prefix>`) are **identical to the
-   integer**: tree_nodes = 9,422,793 and canonical leaves = 16,504 for all four σ-related prefixes. σ maps
-   entire backtrack subtrees isomorphically.
-3. **All-cells orbit test:** the 65,281 productive 560T cells partition into 4,183 G-orbits; the within-orbit
-   coefficient of variation of the per-cell Knuth size estimates (10⁵ probes/cell) is **0.112 (median)** —
-   indistinguishable from the estimator's own noise floor (median relerr 0.130) and 6× below the population
-   CV (0.72). True per-cell counts are orbit-equal within measurement resolution across the entire space.
+   integer**: tree_nodes = 9,422,793 and **16,504 oriented C1–C5 leaves — 899 distinct pair orderings** —
+   for all four σ-related prefixes. σ maps entire backtrack subtrees isomorphically. *(Label corrected
+   2026-09-02, prose batch P33, `RP-92020fef` / `RP-35480bc8`: the 16,504 were published under a label this document reserves
+   for the orientation-deduped object (this document's opening Result statement: "canonical-record level
+   (pair-sequences after orientation dedup)"). They are not that object. `solve.c`'s `exact_count` walks both orientations of every pair and
+   increments `leaves_canonical_C1C5` once per **oriented** C3-passing completion, so the mislabel
+   originates in the instrument's field name and the prose inherited it; [README.md](../README.md) and
+   [CORRECTIONS.md](CORRECTIONS.md) already publish these 16,504 as oriented leaves representing 899 pair
+   orderings. Recomputed 2026-09-02 by a clean-room walk over `verify.py`'s
+   `KW`/`PAIRS`/`hamming` with a pair-ordering dedup added: the KW-following prefix and the σ-related prefix
+   below both give 9,422,793 nodes / 690,176 C1+C2+C4+C5 leaves / 16,504 oriented / 899 orderings — so the
+   isomorphism holds at the pair-ordering level too. The shallower published rungs are the same object:
+   7-free is 62,256 / 5,624 / 2,232 oriented / **381** orderings, 5-free is 443 / 52 / 4 / **2**.)*
+3. **Productive-cells orbit test:** the 65,281 *productive* 560T cells meet **4,183 of the 4,382 ambient
+   G-orbits** of the 158,364-cell depth-3 space; the classes measured are therefore **intersections of
+   ambient orbits with the productive subset, not complete orbits**, and 199 ambient orbits contain no
+   productive cell at all. The within-orbit coefficient of variation of the per-cell Knuth size estimates
+   (10⁵ probes/cell) is **0.112 (median)** — indistinguishable from the estimator's own noise floor
+   (median relerr 0.130) and 6× below the population CV (0.72). True per-cell counts are orbit-equal within
+   measurement resolution **on the productive 41.2% of cells** (65,281 of 158,364); the other 93,083 cells
+   were not measured. *(Scope corrected 2026-09-02, prose batch P33, `RP-a5c2bc8c` / `RP-78ce5960`: the heading and the closing
+   sentence generalised a productive-subset measurement to the whole space. The **ambient** cell space is
+   G-closed and the productive subset is not — recomputed 2026-09-02 from the constraint definitions, the
+   depth-3 C2/C5-feasible cells number 158,364 and all 48 σ map every one of them to another feasible cell,
+   in 4,382 orbits of sizes {6:14, 12:270, 24:1736, 48:2362}; the 4,183 is read from the private per-cell
+   table and is not recomputed here. This repository already published the gap:
+   [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) §"What is being measured" gives the 158,364 depth-3 cells
+   and §"Result — per-cell distribution + budgeted yield is uncorrelated with cell size" records that the
+   remainder "lies in the ~93K cells that produced 0 records", and
+   §"What the 2026-04-25 test actually measured" below concedes that orbit-mates of productive cells are
+   often unproductive at a given budget.)*
 
 ## What the 2026-04-25 test actually measured
 
@@ -211,7 +249,9 @@ its own right — hexagram-level orbit structure is prior art and is ceded above
 # exact tree-isomorphism check (any sigma in G; prefix = 22 (pair,orient) args after the forced first pair):
 ./solve --estimate-knuth 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0 13 0 14 0 15 0 16 0 17 0 18 0 19 0 20 0 21 0 22 0
 ./solve --estimate-knuth 0 22 1 28 0 3 1 21 1 26 0 6 1 11 0 5 0 19 0 27 0 7 1 16 1 30 1 14 0 20 0 18 1 25 0 24 1 1 1 15 0 4 0 9 0
-# -> identical tree_nodes = 9,422,793 and leaves_canonical = 16,504
+# -> both print tree_nodes = 9,422,793 and leaves_canonical_C1C5 = 16,504
+#    (that is the binary's own field name; the object it counts is ORIENTED C1-C5 leaves,
+#     which are 899 distinct pair orderings -- see the label correction in item 2 above)
 ```
 
 σ(KW) validity over all 720 bit permutations + the orbit collapse (<1 s, pure python, run from the
@@ -233,14 +273,143 @@ recs = {tuple(frozenset(s[2*k:2*k+2]) for k in range(32)) for s in good}   # ori
 print(len(good), "of 720 valid ->", len(recs), "distinct canonical records (KW + 23 twins)")
 ```
 
-All-cells orbit test (within-orbit CV 0.112): the per-cell estimates are `./solve --estimate-knuth
-100000 <p1> <o1> <p2> <o2> <p3> <o3>` over the 65,281 productive 560T cells (cell list from the 560T
-shard manifest, reproducible per [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); the G-orbit partition (4,183 orbits) is the
-σ-action on (pair, orient) prefixes from the snippet above. The per-cell estimate table itself is
-private working data (~65K estimator calls, hours-scale); this rerun spec is the public path.
+Productive-cells orbit test (within-orbit CV 0.112): the per-cell estimates are
+
+```bash
+SOLVE_THREADS=32 SOLVE_KNUTH_SEED=0x243F6A8885A308D3 \
+  ./solve --estimate-knuth 100000 <p1> <o1> <p2> <o2> <p3> <o3>
+```
+
+over the 65,281 productive 560T cells (cell list from the 560T shard manifest, reproducible per
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md)); the ambient G-orbits are the σ-action on (pair, orient)
+prefixes from the snippet above. **Pin both variables.** `solve.c`'s `--estimate-knuth` parse block takes
+its worker count from `SOLVE_THREADS` and, when that is unset, from `sysconf(_SC_NPROCESSORS_ONLN)`; the
+probe budget is split across workers and each worker is seeded from `knuth_seed_base` (`SOLVE_KNUTH_SEED`,
+default `0x243F6A8885A308D3`), so the **thread count selects the sample** and an unpinned command is
+machine-dependent — [METHODS.md](../reports/METHODS.md) §"Knuth estimator CIs" guarantees identical output
+only at identical (probes, threads). The exact-mode commands above (`--estimate-knuth 0`) are
+deterministic and need no pin. *(Added 2026-09-02, prose batch P33: the command shipped with neither
+variable pinned.)*
+
+**What of this reproduces publicly.** The σ(KW) validity/orbit-collapse snippet and the exact-subtree
+commands above are fully public and self-contained, and the **ambient** G-orbit partition of the
+158,364-cell depth-3 space recomputes in about a second from the same snippet's σ-action. Two inputs are
+not public: the **productive-cell list** (derived from the 560T shard manifest) and the **per-cell estimate
+table** (~65K estimator calls, hours-scale private working data). The 4,183 orbit-class count and the
+0.112 median CV rest on those two, and a replicator regenerating the estimates must expect
+thread-count-dependent scatter on each cell, so a re-derived CV should be compared against a published
+tolerance rather than to the third decimal.
+
+**Ambient G-orbits of the depth-3 cell space** (<1 s, pure python, run from the repo root — verified
+output: `158364 depth-3 cells; 4382 ambient G-orbits, sizes {6: 14, 12: 270, 24: 1736, 48: 2362}`).
+The `assert` is the G-closure check: no σ-image of a feasible cell leaves the feasible set.
+
+```python
+from itertools import permutations
+from collections import Counter
+import solve
+KW = solve.binary_hexagrams
+PAIRS = [(KW[2*i], KW[2*i+1]) for i in range(32)]
+d = solve.bit_diff
+BUD0 = [0]*7
+for i in range(63): BUD0[d(KW[i], KW[i+1])] += 1   # C5 multiset
+BUD0[6] -= 1                                       # pair 0's own within-pair transition
+sig = lambda p, h: sum(((h >> b) & 1) << i for i, b in enumerate(p))
+rev = (5, 4, 3, 2, 1, 0)
+G = [p for p in permutations(range(6))             # the centralizer of rev, re-derived
+     if all(sig(p, sig(rev, h)) == sig(rev, sig(p, h)) for h in range(64))]
+
+def cells(depth):                                  # C2/C5-feasible (pair, orient) prefixes
+    out, stack = [], [((), 0, 1, BUD0)]
+    while stack:
+        pre, last, used, bud = stack.pop()
+        if len(pre) == 2*depth: out.append(pre); continue
+        for p in range(1, 32):
+            if (used >> p) & 1: continue
+            a, b = PAIRS[p]
+            for o, (f, s) in enumerate(((a, b), (b, a))):
+                bd, wd = d(last, f), d(f, s)
+                if bd == 5 or bud[bd] == 0: continue
+                nb = bud[:]; nb[bd] -= 1
+                if nb[wd] == 0: continue
+                nb[wd] -= 1
+                stack.append((pre + (p, o), s, used | 1 << p, nb))
+    return out
+
+slot = {h: (i, j) for i, ab in enumerate(PAIRS) for j, h in enumerate(ab)}
+def act(p, c):                                     # sigma's action on a (pair, orient) prefix
+    out = []
+    for k in range(0, len(c), 2):
+        a, b = PAIRS[c[k]]
+        f, s = (b, a) if c[k+1] else (a, b)
+        i, o = slot[sig(p, f)]
+        out += [i, o]
+    return tuple(out)
+
+C = cells(3); S = set(C); seen, orb = set(), []
+for c in C:
+    if c in seen: continue
+    im = {act(p, c) for p in G}
+    assert im <= S                                 # the ambient space is G-closed
+    seen |= im; orb.append(len(im))
+print(len(C), "depth-3 cells;", len(orb), "ambient G-orbits, sizes",
+      dict(sorted(Counter(orb).items())))
+```
+
+**Oriented leaves vs distinct pair orderings** (the label correction in §"Empirical corroboration"
+item 2). Continuing from the definitions above, this recomputes the exact subtree anchors and adds the
+orientation dedup the published `canonical` label implied but the instruments never performed —
+verified output `5-free: tree_nodes=443 leaves_C1C2C4C5=52 oriented_C1C5=4 pair_orderings=2`,
+`7-free: … 62256 … 5624 … 2232 … 381`, `9-free: … 9422793 … 690176 … 16504 … 899`. The 5- and 7-free
+rungs are instant; 9-free visits ~9.4M nodes and takes a couple of minutes in CPython.
+
+```python
+def walk(prefix):                      # exact C1-C5 subtree below a (pair, orient) prefix
+    bud = [0]*7
+    for i in range(63): bud[d(KW[i], KW[i+1])] += 1
+    bud[6] -= 1
+    seq, slotp, used, last, step = [63, 0] + [0]*62, [0]*32, 1, 0, 1
+    for p, o in prefix:
+        a, b = PAIRS[p]; f, s = (b, a) if o else (a, b)
+        bud[d(last, f)] -= 1; bud[d(f, s)] -= 1
+        seq[2*step], seq[2*step+1] = f, s
+        slotp[step] = p; used |= 1 << p; last = s; step += 1
+    stat, orders = [0, 0, 0], set()
+    def rec(st, lst, um):
+        stat[0] += 1
+        if st == 32:
+            stat[1] += 1
+            pos = [0]*64
+            for i, v in enumerate(seq): pos[v] = i
+            if sum(abs(pos[v] - pos[v ^ 63]) for v in range(64)) <= 776:   # C3
+                stat[2] += 1; orders.add(tuple(slotp))                     # drop orientation
+            return
+        for p in range(1, 32):
+            if (um >> p) & 1: continue
+            a, b = PAIRS[p]
+            for f, s in ((a, b), (b, a)):
+                bd = d(lst, f)
+                if bd == 5 or bud[bd] == 0: continue
+                bud[bd] -= 1; wd = d(f, s)
+                if bud[wd] == 0: bud[bd] += 1; continue
+                bud[wd] -= 1
+                seq[2*st], seq[2*st+1] = f, s; slotp[st] = p
+                rec(st + 1, s, um | 1 << p)
+                bud[wd] += 1; bud[bd] += 1
+    rec(step, last, used)
+    return stat, len(orders)
+
+for free in (5, 7):                    # add 9 for the 9,422,793-node anchor (~2 min)
+    st, n = walk([(i, 0) for i in range(1, 32 - free)])
+    print(f"{free}-free: tree_nodes={st[0]} leaves_C1C2C4C5={st[1]} "
+          f"oriented_C1C5={st[2]} pair_orderings={n}")
+```
+
+The σ-related prefix of the code block above is checked the same way — pass its 22 `(pair, orient)`
+tuples to `walk()` instead of the KW-following list, and it returns the same four integers.
 
 Original 2026-04-25 phases 1–3 ([`./solve --symmetry-search [--validate-counts]`](SOLVE_C_CLI.md#--symmetry-search)) remain reproducible; their
-output is correct as *budgeted-yield* data. Full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md` *(private staging repo — not publicly accessible; a provenance pointer. The theorem, its proof, the correction notice, and every table needed to verify are public in this document, and the reruns above are the public verification path)*.
+output is correct as *budgeted-yield* data. Full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md` *(private staging repo — not publicly accessible; a provenance pointer, and no claim here rests on it)*. The theorem, its proof and the correction notice are public in this document, and the reruns above are the public verification path for everything except the two private inputs named in §Reproducibility — the productive-cell list and the per-cell estimate table. *(Corrected 2026-09-02, prose batch P33, `RP-11f9daff`: this sentence had asserted that every table needed to verify is public, four lines after §Reproducibility said the per-cell estimate table is private working data; the two could not both hold, and it is this one that was false.)*
 
 ## Corollary (2026-07-03): the action is free — every solution has exactly 23 twins
 
@@ -304,11 +473,23 @@ project assumes throughout), the inversion mapping as an automorphism, and a "me
 (the XOR difference vector) for every pair. His results concern the hexagram *set*; the theorem
 here concerns the automorphism group of the C1–C5 *constraint system on orderings*, which has no
 counterpart in Goldenberg. Credit to [Hacker, Moore & Patsco (2002)](CITATIONS.md#hacker-moore2002), entry B:154, whose annotation
-surfaced this work to us; full-text verification pending acquisition.
+surfaced this work to us. **Read in full 2026-07-11** — all repo-encoded claims (G-T1–T4, T7, including
+the KW5↔KW63-via-KW7 worked example, p. 170) are verified against the primary text; see
+[CITATIONS.md](CITATIONS.md) §"Goldenberg, Daniel S. (1975)". *(Corrected 2026-09-02, prose batch P33,
+`RP-efc6640b`: this sentence still reported the acquisition as outstanding, while
+[CITATIONS.md](CITATIONS.md) had recorded the interlibrary-loan scan and the claim-by-claim verification
+since 2026-07-11.)*
 
-*(Alignment note, 2026-08-06.)* Goldenberg is the earliest of at least five independent arrivals at the
-hexagram-set-level algebra — the others being [Ouyang (1992)](CITATIONS.md#ouyang1992),
-[Schöter (1998)](CITATIONS.md#schoter1998), [Suenaga (2012)](CITATIONS.md#suenaga2012), and
-[Radisic (2026)](CITATIONS.md#radisic2026) — catalogued, with the priority cession, in
-[CITATIONS.md](CITATIONS.md) §"The (Z/2)⁶ hexagram algebra … — priority ceded". The same scoping applies
-to each: set-level, not ordering-level, prior art.
+*(Alignment note, 2026-08-06; enumeration re-synced to the ledger 2026-09-02, prose batch P33.)*
+Goldenberg is the earliest of the independent arrivals at the hexagram-set-level algebra. The full,
+authoritative list is the chain in [CITATIONS.md](CITATIONS.md) §"The (Z/2)⁶ hexagram algebra and
+hexagram-level group actions — priority ceded", which makes ROAE the **seventh**: Goldenberg (1975) →
+Ouyang (≤1986 framework; [1990](CITATIONS.md#ouyang1990), [1992](CITATIONS.md#ouyang1992)) →
+[Yuan Zuoxing (1991)](CITATIONS.md#yuanzuoxing1991) →
+[Cao Hongjun, Li Shuzhong and Liu Yanan (1995)](CITATIONS.md#caohongjun1995) →
+[Suenaga (2012)](CITATIONS.md#suenaga2012) → [Radisic (2026)](CITATIONS.md#radisic2026) → ROAE, with
+[Schöter (1998)](CITATIONS.md#schoter1998) recorded there as a further independent-then-crediting arrival
+rather than a numbered link in the chain. *(Corrected 2026-09-02: the enumeration here read "the others
+being" and named four, omitting Yuan and Cao, whom the ledger has credited since 2026-08-29; treat
+CITATIONS.md, not this note, as the list of record.)* The same scoping applies to each: set-level, not
+ordering-level, prior art.
