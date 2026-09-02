@@ -63,6 +63,17 @@ corrected result documented in [TR-5](TR5_SYMMETRY.md)). Citations should name a
 `abc1234`". Where a journal article is one frozen argument, these reports are the maintained state of
 what is known — with its full history attached.
 
+**What "these reports" means here, stated 2026-09-02.** The policy above governs the **eleven numbered
+reports** in the table — TR-1 through TR-11 — and only those. Three files in this directory are not
+numbered reports and carry **no Revision History**: this index, [METHODS](METHODS.md), and
+[FULL31_EXACT_AGGREGATES](FULL31_EXACT_AGGREGATES.md). All three are still corrected in the open, but by
+a different mechanism: a dated inline `⚠ [CORRECTED …]` marker at the claim, plus — for anything
+load-bearing — an entry in [CORRECTIONS](../documentation/CORRECTIONS.md). Both already carry such
+markers (METHODS.md on C4's attestation and on the estimator's scope; FULL31_EXACT_AGGREGATES.md on a
+withdrawn instrument sentence). Cite those two by **commit sha alone**; they have no version to name.
+This scope was left undecided when the policy was written, and the paragraph above read as though every
+file under `reports/` were versioned — it was not, and is not.
+
 *Corrected 2026-08-07 (CX-31).* This paragraph previously read "Snapshots are **archived with
 versioned DOIs** (Zenodo: a concept DOI resolves to the latest state; version DOIs pin what you
 read)." **No such archival exists.** There is no Zenodo deposit for this project, `CITATION.cff`

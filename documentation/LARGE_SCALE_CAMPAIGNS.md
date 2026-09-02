@@ -759,9 +759,20 @@ SKU step**, which is the whole point of the table.]
 
 **The 560T row is the only one that is not an extrapolation, and it did not use
 an in-memory merge at all.** 10.525 B unique records were merged from 43.88 B
-raw on a **D16als_v7 (32 GB)** by external chunked-sort on Premium SSD scratch,
-18 h 42 m wall ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §560T campaign
-details). At 32 bytes/record an in-memory hash table over 10.5 B records is far
+pre-merge shard records on a **D16als_v7 (32 GB)** by external chunked-sort on
+Premium SSD scratch, 18 h 42 m wall ([CANONICAL_HASHES.md](CANONICAL_HASHES.md)
+§560T campaign details). ⚠ **[LABEL CORRECTED 2026-09-02 — this figure was published
+here, and at two more sites in this file, as *raw* records. It is not a raw
+oriented-leaf count: `solve.c` deduplicates on pair identity with the orient bit
+masked and clears the table after each sub-branch, so 43,876,464,466 counts
+**per-sub-branch canonical keys** and is a LOWER BOUND on raw leaves visited; the
+43.88 B / 10.525 B quotient is cross-sub-branch rediscovery, not an
+orientation-dedup ratio. Established by [CORRECTIONS.md](CORRECTIONS.md)
+2026-08-28, which named three sites; `CANONICAL_HASHES.md` and `HISTORY.md` were
+marked, this file was not reached by that sweep or by the follow-up that closed
+those two.]**
+
+At 32 bytes/record an in-memory hash table over 10.5 B records is far
 past any of these SKUs, and the campaign never attempted it. Read that as the
 practical lesson: past ~1 B records, plan the external path (§9b) and size the
 **scratch disk**, not the RAM.
@@ -808,7 +819,9 @@ three environment variables:
 
 **And the project has run it at the largest scale it has ever reached.** The
 560T merge was "external chunked-sort on Premium scratch, 18 h 42 m" on a
-D16als_v7 — 43.88 B raw records down to 10.525 B unique. So the disk-based path
+D16als_v7 — 43.88 B pre-merge shard records (per-sub-branch canonical keys, not
+raw leaves — see the correction in §9a above) down to 10.525 B unique.
+So the disk-based path
 is not a follow-on project to scope; it is the path the deepest canonical took.
 For anything past ~1 B records, set `SOLVE_MERGE_MODE=external`, point
 `SOLVE_TEMP_DIR` at fast scratch sized to ~1.5× the output, and size the
@@ -855,7 +868,9 @@ follow-on project"* — **false, and it is the same error as the section preambl
 above.** This is the shipped `SOLVE_MERGE_MODE=external` path, and it is what
 produced the 560T canonical. There is nothing to build. The old text also
 projected "~6 hours per TB" on a Standard SSD at ~500 MB/sec; the measured
-560T merge ran 18 h 42 m over 43.88 B raw records (~1.4 TB) on **Premium** SSD
+560T merge ran 18 h 42 m over 43.88 B pre-merge shard records (per-sub-branch
+canonical keys, not raw leaves — see the correction in §9a above,
+~1.4 TB) on **Premium** SSD
 scratch. Standard SSD is the wrong medium for this — its throughput collapses
 under sustained sequential load — so budget Premium scratch and measure your
 own, rather than reading a rate off this paragraph.

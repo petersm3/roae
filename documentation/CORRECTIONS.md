@@ -6596,3 +6596,102 @@ corrected by this lane. The managed-disk deletion step, the d2/d3 family misattr
 stale pointers inside the verify.py charge, the corrected mechanism for the perf_bench exposure, the
 missing `trap`, and the generated gate's divergence from the stated return-code contract were found
 by this batch while verifying the charges, not by the review.
+
+## 2026-09-02 — a recorded seed nothing reads, a label correction that reached two of five files, and a versioning promise whose scope was never decided
+
+Prose batch P76. Four adjudicated charges were re-verified at HEAD before anything was
+touched; **two were already closed** and are recorded here as no-ops rather than as fixes,
+because a no-op reported as a repair is a false record. What was live is below, plus one
+defect found by census rather than by charge.
+
+### The timing-probe seed (Codex V2-F52 #4) — `RP-f5a32940`
+
+`documentation/SOLVE_PY_CLI.md` §Cost stated that the `timing-probe` seed is derived and
+recorded in `header.json` so that the probe is fixed by it, even though a probe produces no
+statistic. **Both halves are false, and the second is what makes the first matter.**
+
+MEASURED at HEAD, in `solve.py`:
+
+- The seed is derived and written at `:744` — and that is the **only** occurrence of the
+  string `timing-probe` in the file. No code path reads the value back.
+- Pool draws come from the `pool-<A|B>/shard-<i>` seeds at `:887`; `tr8_pool_shard` hands
+  each one to a fresh `random.Random`. A probe run with the same seed root and pool name
+  therefore redraws a **prefix of the measurement pool's own shard streams** — not an
+  isolated stream. To keep a probe off them, give it its own `--tr8-dof-seed` root.
+- `results.json` and `RESULTS.md` are written unconditionally at `:1023`, probes included.
+  A probe's statistics are discarded **by convention, not by code**.
+
+The narrowing the adjudication attached to the charge is adopted and is worth keeping: the
+measurement **pool is not corrupted** — a probe writes into a throwaway `OUT_DIR`, so no
+artifact is polluted. What fails is the pinning claim and the isolation of the seeded
+stream. Corrected in place, and at a second site the charge did not name: the
+`--tr8-dof-seed` flag row listed `timing-probe` among the seed purposes with nothing to say
+it is reserved. The registry needle is the pinning clause only — "timing evidence only" is
+true and still stated.
+
+### The pre-merge shard label (Codex V2-F14 #5, by census) — `RP-4ab3aa76`
+
+The 2026-08-28 entry above ruled that 43,876,464,466 counts **per-sub-branch canonical
+keys** — `solve.c` deduplicates on pair identity with the orient bit masked and clears the
+table after each sub-branch — so the figure is a lower bound on raw leaves visited and the
+4.17× quotient is cross-sub-branch rediscovery, not an orientation-dedup ratio.
+
+The two sites the V2 charge named, `CANONICAL_HASHES.md` and `HISTORY.md`, **are both marked
+at HEAD** and needed nothing; the charge is closed, not fixed. But grepping the retired
+*value* rather than the charge's named sites found the label alive in a fifth file the
+2026-08-28 sweep and its follow-up both missed: `documentation/LARGE_SCALE_CAMPAIGNS.md`, at
+**three** sites — the §9a RAM-sizing note, the §9b preamble, and the §9b Option-3 caveat —
+each writing the compressed `43.88 B` spelling with the retired label attached, which is why
+a long-form grep on the full integer exonerated the file. All three now read "pre-merge
+shard records (per-sub-branch canonical keys)"; the §9a site carries the full marker and the
+other two point at it.
+
+Two nearby strings were checked and deliberately **not** swept, for the reasons the
+2026-08-28 adjudication already gave: `HISTORY.md`'s "26.5 B of 43.88 B (pre-dedup) records"
+is correct as written (these *are* pre-merge-dedup, and it asserts no ratio), and
+`CORRECTIONS_INVENTORY.tsv`'s 2026-06-08 row is a git commit-message transcript — a record
+of what a commit said, which must not be rewritten. One sibling is **reported, not edited**:
+`HISTORY.md:4002` writes "15,035,483,184 raw records → 3,663,580,914 unique canonical
+orderings" for a different, smaller campaign. The same mechanism would make the same label
+wrong there, but that figure was never adjudicated, this lane has not verified which
+producer emitted it, and correcting it on inference would be exactly the over-reach the
+2026-08-28 entry warns against.
+
+### The reports versioning policy (Codex V2-L18 #2) — no registry row, and why
+
+`reports/README.md` promises that "every content change is a version bump with a Revision
+History entry in the affected report". The two violations the charge named are **both closed
+at HEAD**: TR-6 is at v1.8 (2026-09-02) against its 2026-08-29 correction marker, and TR-4 —
+the third instance an earlier adjudication found by sweeping rather than trusting the charge
+— is at v1.26 (2026-09-02) against its 2026-08-28 markers. A fresh sweep of all fourteen
+files in `reports/` (last `*(current)*` date vs the newest dated correction marker in the
+same file) shows **all eleven numbered reports passing**.
+
+What was still open is the item that adjudication explicitly left unruled: whether
+`METHODS.md` and `FULL31_EXACT_AGGREGATES.md` — which sit in `reports/`, carry dated
+corrections, and have no Revision History at all — are in scope for that promise. They are
+not, and neither is the index itself; that is now **stated at the policy** instead of being
+inferable from a table three screens up. The three unversioned files are named, their
+correction mechanism (dated inline marker plus a ledger entry) is described, and readers are
+told to cite them by commit sha.
+
+**No registry row for this one.** Nothing was retracted: the policy sentence is true of the
+eleven reports it governs and stands unchanged. Registering a needle against wording that
+still stands would put a false retraction on the record and make the gate lie about it.
+
+### Charges that were already closed, recorded as such
+
+- **`reports/METHODS.md` C4 attestation (Codex V2 batch-2 #8).** Closed on 2026-08-30 and
+  propagated: `METHODS.md:25` carries the marker, `SPECIFICATION.md` at :69/:104/:163,
+  `DESCRIPTION_LENGTH.md` fn 1, and `TR9:271` all read the narrowed wording, and the phrase
+  is already registered with `reports/METHODS.md` as its allow file. Nothing to do, and the
+  landing gate the adjudication attached (the v4 constraint freeze / Li Shangxin review) is
+  therefore not engaged by this batch.
+- **`CANONICAL_HASHES.md` and `HISTORY.md` dedup labels** — see above.
+- **TR-6 and TR-4 version bumps** — see above.
+
+**Attribution.** Charges raised by Codex reviewers V2-F52 (#4), V2-F14 (#5) and V2-L18 (#2),
+adjudicated in the V2 sheet; re-verified against the shipped `solve.py`, the tracked corpus
+and the `reports/` sweep, and corrected by this lane. The three
+`LARGE_SCALE_CAMPAIGNS.md` sites, the `--tr8-dof-seed` flag row, and the unversioned-file
+scope question were found by this batch while verifying the charges, not by the review.

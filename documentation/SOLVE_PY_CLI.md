@@ -298,7 +298,7 @@ is therefore a **measured** quantity of each calibration draw, not a constant.
 | `--tr8-dof-emit-bank` | Measure and print the admitted clause bank with its marginals, then exit — the pre-registration's bank-freeze step. Combine with `--tr8-dof-sampler OUT_DIR` to also write `bank.json` there (the bank is emitted and the pool is **not** run). |
 | `--tr8-dof-merge OUT_DIR` | Merge the per-shard hit files in `OUT_DIR` and compute the statistics (terminal command). Refuses to merge a partial pool or shards whose run headers disagree. |
 | `--tr8-dof-selftest` | Run the instrument self-tests — bank integrity, H-a, the H-b null calibration, determinism, and shard/merge equivalence — then exit. Exit 0 = all passed. These are also standing regressions in `tests.py`. |
-| `--tr8-dof-seed ROOT` | Seed **root** string. Every seed is `uint64(sha256("ROOT/<purpose>")[:8], big-endian)` over the purposes `bank-calibration`, `pool-<A\|B>/shard-<i>`, `predicates/K-<K>`, `timing-probe`. Echoed verbatim in `header.json` together with every derived seed as a decimal integer. Default: the pre-registration namespace. |
+| `--tr8-dof-seed ROOT` | Seed **root** string. Every seed is `uint64(sha256("ROOT/<purpose>")[:8], big-endian)` over the purposes `bank-calibration`, `pool-<A\|B>/shard-<i>`, `predicates/K-<K>`, `timing-probe` (**`timing-probe` is reserved and unused** — it is derived and echoed but no code path reads it; see §Cost). Echoed verbatim in `header.json` together with every derived seed as a decimal integer. Default: the pre-registration namespace. |
 | `--tr8-dof-pool A\|B\|calib` | Which seed family the pool draws from (default `A`). The registration's pool-B replication gate re-runs the identical measurement on `B`. |
 | `--tr8-dof-pool-draws N` | `N_pool` — total pair-only-null draws, the **probe count** (default 10000000). Split equally across the shards. |
 | `--tr8-dof-predicates N` | `N_pred` — predicates drawn per K (default 1000). |
@@ -336,9 +336,21 @@ core for the full per-draw scoring path (draw + 319 templates + the H-b
 `N_pool` = 10⁷ needs a few hundred MB and **must not** be run on the 2-core /
 8 GB orchestrator. A timing probe is a short run into a throwaway `OUT_DIR`
 with a small `--tr8-dof-pool-draws`; its output is **timing evidence only** and
-is never merged into a measurement pool. The `timing-probe` seed is derived and
-recorded in `header.json` so that the probe is pinned even though it produces
-no statistic.
+is never merged into a measurement pool — **by convention, not by code**: a probe
+runs the ordinary sampler and writes a full `results.json`/`RESULTS.md` like any
+other run (`solve.py:1023`); the operator discards them. ⚠ **[CORRECTED
+2026-09-02 — this paragraph previously said the `timing-probe` seed is recorded
+in `header.json` so that the probe is reproducibly fixed by it, and that a probe
+produces no statistic. Both halves are false, and the second is what makes the
+first matter. The seed is derived and written (`solve.py:744`) but **no code path
+reads it** — that string is its only occurrence in the file; the pool draws come
+from the `pool-<A|B>/shard-<i>` seeds (`solve.py:887`), and `tr8_pool_shard`
+seeds a fresh `random.Random` with them. So a probe run with the same seed root
+and pool name does not get an isolated stream: it redraws a **prefix of the
+measurement pool's own shard streams**. The `timing-probe` entry in `header.json`
+is **reserved and unused**, there is no dedicated timing-probe mode, and no
+reproducibility property is claimed for a probe. To keep a probe off the
+measurement streams, give it its own `--tr8-dof-seed` root.]**
 
 ## BRANCH-YIELD REPORTING
 
