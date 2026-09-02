@@ -1588,5 +1588,298 @@ class TestSubtreeCrossAnchors(unittest.TestCase):
         self.assertEqual(kinds, {"all-pass", "all-fail", "straddle"})
 
 
+class TestRoaePyDispatchGates(unittest.TestCase):
+    """C2 (2026-09-02): two roae.py defects that both lived in DISPATCH, not in
+    the mechanism they broke — the class this harness keeps failing to catch,
+    because the mechanism tests green in isolation.
+
+    VERDICT TOKENS. Each gate emits one `KEY=value` line on stdout and asserts it
+    WHOLE, so an external runner can gate on
+    `python3 tests.py 2>&1 | grep -qx CAST_SEED_DETERMINISTIC=1`. Whole-line, not
+    a substring and not a character class: the 2026-08-15 flips-census error came
+    from `^BAD_[A-Z_]+=[1-9]`, whose class excludes digits, and both tokens here
+    end in a digit too.
+
+    NO GATE HERE MAY PRINT A ZERO FOR AN INPUT IT COULD NOT READ. If a subprocess
+    dies, or prints nothing, the token emitted is `=ERROR` and the test fails.
+    A checker that reports 0 on a missing input is reporting the absence of
+    evidence as evidence of absence, which is the defect shape this project has
+    now hit three times."""
+
+    ROAE = os.path.abspath("roae.py")
+
+    def _emit(self, key, value):
+        """Print the verdict line and return it, so callers assert the exact line
+        rather than infer a verdict from output shape."""
+        line = f"{key}={value}"
+        print(line)
+        return line
+
+    def _run(self, args, cwd=None):
+        return subprocess.run([sys.executable, self.ROAE, *args],
+                              capture_output=True, text=True, cwd=cwd)
+
+    def test_cast_seed_is_deterministic(self):
+        """`--cast --seed N` must be reproducible.
+
+        RED BEFORE (MEASURED 2026-09-02, pre-hoist roae.py): three runs of
+        `roae.py --cast --seed 42` produced three DISTINCT sha256s —
+        1096f6a0.../5631c28f.../be9160f3... . Cause was dispatch order: `--cast`
+        returned above the `_global_seed` assignment, so print_casting()'s
+        opening _reseed(9) was a no-op and the reading came off the unseeded
+        global RNG. The mechanism was never broken; only the order was, which is
+        why `--seed 42` alone and `--entropy --seed 42` were both already
+        reproducible and neither caught it.
+
+        THE SEED-SENSITIVITY LEG IS WHAT KEEPS THIS FROM PASSING VACUOUSLY. Three
+        equal hashes would also be produced by a --cast that ignored the RNG
+        entirely, so seed 43 must differ from seed 42. That comparison is itself
+        deterministic — both sides are seeded — so this leg cannot flake."""
+        runs = [self._run(["--cast", "--seed", "42"]) for _ in range(3)]
+        other = self._run(["--cast", "--seed", "43"])
+        bad = [r for r in runs + [other] if r.returncode != 0 or not r.stdout]
+        if bad:
+            line = self._emit("CAST_SEED_DETERMINISTIC", "ERROR")
+            self.fail(f"{line}: roae.py --cast did not produce output "
+                      f"(rc={[r.returncode for r in bad]}); an unreadable "
+                      f"result is an ERROR, not a 0. stderr: {bad[0].stderr[-500:]!r}")
+        same = len({r.stdout for r in runs}) == 1
+        sensitive = other.stdout != runs[0].stdout
+        line = self._emit("CAST_SEED_DETERMINISTIC",
+                          "1" if (same and sensitive) else "0")
+        self.assertEqual(line, "CAST_SEED_DETERMINISTIC=1",
+                         "--cast --seed 42 must be byte-identical across runs "
+                         f"(identical={same}) and must differ from --seed 43 "
+                         f"(sensitive={sensitive})")
+
+    def test_verify_gate_is_cwd_independent(self):
+        """`roae.py --verify` must give the same verdict from any directory.
+
+        RED BEFORE (MEASURED 2026-09-02, pre-fix roae.py): run from `/`, the gate
+        printed `[FAIL] KW table identical to solve.py's <- could not load
+        solve.py: ... '/solve.py'` and `ROAE VERIFY: 1 FAILURE(S)`, rc 1, with
+        nothing whatever wrong — solve.py was resolved CWD-relative. A gate that
+        reports a failure that is not there is as useless as one that misses a
+        failure that is, and it is worse in CI, which cds.
+
+        FAIL-CLOSED IS ASSERTED, NOT ASSUMED. The companion test below builds the
+        two real defects — sibling absent, and sibling present but drifted — and
+        requires rc 1 for each. Without that leg this test would pass just as
+        happily against a --verify that had been changed to skip the cross-file
+        check instead of relocating it, which is exactly how a checker silently
+        narrows its own scope while still reporting PASS."""
+        here = self._run(["--verify"])
+        away = self._run(["--verify"], cwd=os.path.abspath(os.sep))
+        if not here.stdout or not away.stdout:
+            line = self._emit("ROAE_VERIFY_CWD_INDEPENDENT", "ERROR")
+            self.fail(f"{line}: roae.py --verify produced no output from one of "
+                      f"the two directories (rc {here.returncode}/{away.returncode})")
+        agree = (here.returncode == away.returncode == 0
+                 and "ROAE VERIFY: ALL 11 CHECKS PASS" in here.stdout
+                 and "ROAE VERIFY: ALL 11 CHECKS PASS" in away.stdout)
+        line = self._emit("ROAE_VERIFY_CWD_INDEPENDENT", "1" if agree else "0")
+        self.assertEqual(line, "ROAE_VERIFY_CWD_INDEPENDENT=1",
+                         "--verify must pass from both the repo directory and "
+                         f"/ (rc {here.returncode}/{away.returncode})\n"
+                         f"--- from /:\n{away.stdout[-800:]}")
+
+    def test_verify_gate_still_fails_closed_on_a_broken_sibling(self):
+        """The negative control for the test above: the relocated lookup must
+        still be FALSE when its target is absent or wrong.
+
+        Two constructed defects, in a scratch directory so the real tree is never
+        touched: (1) roae.py with NO sibling solve.py; (2) roae.py beside a
+        solve.py whose King Wen table has had two entries transposed. Both must
+        exit 1. (2) is the leg that proves the check still compares tables rather
+        than merely locating a file."""
+        tmp = tempfile.mkdtemp(prefix="c2_verify_")
+        try:
+            alone = os.path.join(tmp, "alone")
+            os.makedirs(alone)
+            shutil.copy(self.ROAE, alone)
+            r1 = subprocess.run([sys.executable, os.path.join(alone, "roae.py"),
+                                 "--verify"], capture_output=True, text=True)
+            self.assertEqual(r1.returncode, 1,
+                             "--verify must FAIL when the sibling solve.py is "
+                             "absent; an unreadable input is an ERROR, not a pass")
+            self.assertIn("could not load solve.py", r1.stdout)
+
+            drift = os.path.join(tmp, "drift")
+            os.makedirs(drift)
+            shutil.copy(self.ROAE, drift)
+            with open(os.path.abspath("solve.py")) as fh:
+                src = fh.read()
+            old = "    0b111111, 0b000000, 0b010001, 0b100010,"
+            new = "    0b111111, 0b000000, 0b100010, 0b010001,"
+            self.assertEqual(src.count(old), 1,
+                             "the KW literal this control transposes moved; "
+                             "re-anchor it rather than deleting the control")
+            with open(os.path.join(drift, "solve.py"), "w") as fh:
+                fh.write(src.replace(old, new))
+            r2 = subprocess.run([sys.executable, os.path.join(drift, "roae.py"),
+                                 "--verify"], capture_output=True, text=True)
+            self.assertEqual(r2.returncode, 1,
+                             "--verify must FAIL when the sibling solve.py's KW "
+                             "table disagrees with roae.py's")
+            self.assertIn("disagree on the King Wen sequence", r2.stdout)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+class TestSeedStreamDisjointness(unittest.TestCase):
+    """C2 (2026-09-02): roae.py's four sampling streams are separated by fixed
+    seed offsets, and nothing bounded the index that is added on top of them.
+
+    THE DEFECT IS A CIRCULARITY, NOT A SLOWDOWN. The pre-registered H1/H3 test
+    draws its thresholds from seed+20000+b and evaluates against seed+30000+b.
+    At --gs-batches 20000 those are the SAME stream for 10,000 of the batches,
+    so the evaluation re-draws the samples that set the thresholds it is judged
+    against, and the run completes and prints verdicts with no error and no
+    visible symptom. roae.py's own source comment named the collision and ended
+    "Bound it before raising it"; nothing bounded it.
+
+    THIS TEST EXHIBITS THE COLLISION ARITHMETICALLY rather than pinning the
+    constant 10000. A test that only asserted "batches >= 10000 exits nonzero"
+    would still pass if someone moved the offsets to 5,000 apart and left the
+    limit alone, which is the exact way a guard silently stops guarding."""
+
+    ROAE = os.path.abspath("roae.py")
+
+    def test_the_collision_the_guard_defends_against_is_real(self):
+        off = roae._SEED_STREAM_OFFSETS
+        # The exhibited case from the followups: seed 42, threshold batch 10005,
+        # evaluation batch 5. Derived from the offsets, not typed as a constant.
+        seed = 42
+        thr = seed + off["prereg_threshold"] + 10005
+        ev = seed + off["prereg_eval"] + 5
+        self.assertEqual(thr, ev,
+                         "the offsets no longer produce the collision this guard "
+                         "was built for; re-derive the bound before trusting it")
+        self.assertEqual(off["prereg_eval"] - off["prereg_threshold"],
+                         roae._SEED_STREAM_GAP,
+                         "the guard's gap constant no longer equals the real "
+                         "offset spacing — the bound is now arbitrary")
+        # The worker bound is derived the same way: the probe stream is
+        # seed+100+w and the rarity stream is seed+10000+b, so the first
+        # colliding worker index is exactly the spacing between them. Assert the
+        # guard's behaviour AT that derived index rather than at a typed 9900.
+        first_bad_w = off["rarity"] - off["probe"]
+        self.assertEqual(seed + off["probe"] + first_bad_w,
+                         seed + off["rarity"] + 0,
+                         "probe/rarity spacing changed; re-derive the worker bound")
+        with self.assertRaises(SystemExit):
+            roae._guard_seed_stream_disjointness(1, first_bad_w)
+        roae._guard_seed_stream_disjointness(1, first_bad_w - 1)
+
+    def test_guard_refuses_colliding_batch_and_worker_counts(self):
+        for batches, workers in ((10000, 1), (10001, 1), (20000, 1), (0, 1),
+                                 (100, 9900), (100, 0)):
+            with self.subTest(batches=batches, workers=workers):
+                with self.assertRaises(SystemExit,
+                                       msg=f"batches={batches} workers={workers} "
+                                           "was accepted"):
+                    roae._guard_seed_stream_disjointness(batches, workers)
+
+    def test_guard_accepts_the_largest_safe_configuration(self):
+        # A guard that refuses everything also "passes" the test above. 9999 is
+        # the largest batch count with no collision under the guard's own bound,
+        # and it must be accepted.
+        roae._guard_seed_stream_disjointness(9999, 9899)
+        roae._guard_seed_stream_disjointness(1, 1)
+
+    def test_cli_exits_nonzero_before_sampling(self):
+        r = subprocess.run([sys.executable, self.ROAE, "--prereg-h1h3",
+                            "--gs-batches", "20000", "--gs-samples", "10",
+                            "--ph-thr-samples", "10", "--gs-workers", "1"],
+                           capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        if not out:
+            print("SEED_STREAMS_DISJOINT=ERROR")
+            self.fail("SEED_STREAMS_DISJOINT=ERROR: roae.py produced no output; "
+                      "an unreadable result is an ERROR, not a 0")
+        refused = (r.returncode != 0
+                   and "seed-stream" in out
+                   # the guard must run BEFORE any sampling: the banner the
+                   # sampler prints first must be absent.
+                   and "Pre-registered H1/H3 test" not in out)
+        print("SEED_STREAMS_DISJOINT=" + ("1" if refused else "0"))
+        self.assertTrue(refused,
+                        f"rc={r.returncode}; output must refuse before sampling "
+                        f"starts:\n{out[:800]}")
+
+
+class TestRotationsAreNotC3Symmetries(unittest.TestCase):
+    """C2 (2026-09-02): the TR-7 6 rotation counterexample, mechanically pinned
+    (Codex V2-F09 #1, code half; prose half landed in batch P36).
+
+    WHAT WAS WRONG. TR-7 6 and CIRCULAR_KING_WEN.md said the 32 pair-slot
+    rotations act as symmetries of the circular system. Under this repository's
+    absolute-position C3 they do not: 21 of the 31 non-identity rotations exceed
+    the 776 ceiling. The corrected prose publishes 21 / 888 / 1240 / 1320 / 10,
+    but the only reproduction was a `python3 -c` one-liner printed inside the
+    report, so a drift in verify.c3_of_ordering would have falsified five
+    published figures with nothing red.
+
+    THE THIRD DERIVATION IS THE POINT. verify.py --recount-finite now computes
+    the rotation C3s by both of its own routes and gates their agreement. This
+    test does NOT take that agreement on the instrument's word: it re-derives
+    rotate-4 and the violation count HERE, from SPECIFICATION C3's definition
+    over the KW literal, importing nothing from verify. If both of verify.py's
+    routes drifted together, this is what stays false.
+
+    RED-TESTED 2026-09-02 against two constructed defects in a scratch copy:
+    (i) c3_of_ordering summing 11 of its 12 complement couples -> tokens 20 /
+    872 / 1224, rc 1; (ii) c3_of_ordering CIRCULARIZED (min(d, 32-d)), which is
+    the very error the retracted prose made -> KW_ROTATIONS_VIOLATING_C3=0,
+    every rotation constant at 664, rc 1. Neither defect was caught by the
+    existing _c3_couples known-answer anchor, which recomputes G by its own
+    plain-abs route and stayed green through both."""
+
+    TOKENS = {"KW_ROT_C3_DERIVATIONS_AGREE=1",
+              "KW_ROTATIONS_VIOLATING_C3=21",
+              "KW_ROTATIONS_SURVIVING_C3=10",
+              "KW_ROT4_C3=888",
+              "KW_ROT16_C3=1240",
+              "KW_ROT_C3_MAX=1320"}
+
+    @staticmethod
+    def _c3_from_spec(seq):
+        """SPECIFICATION C3, written out here rather than imported: the sum over
+        all 64 values of |pos(v) - pos(v ^ 63)|."""
+        pos = {h: i for i, h in enumerate(seq)}
+        return sum(abs(pos[v] - pos[v ^ 63]) for v in range(64))
+
+    def _rotated(self, k):
+        return [h for slot in range(32)
+                for h in (KW[2 * ((slot + k) % 32)], KW[2 * ((slot + k) % 32) + 1])]
+
+    def test_third_derivation_reproduces_the_published_rotation_figures(self):
+        c3 = [self._c3_from_spec(self._rotated(k)) for k in range(32)]
+        self.assertEqual(c3[0], 776, "rotation 0 must be KW itself")
+        self.assertEqual(c3[4], 888)
+        self.assertEqual(c3[16], 1240)
+        self.assertEqual(max(c3), 1320)
+        self.assertEqual(sum(v > 776 for v in c3[1:]), 21)
+        self.assertEqual(sum(v <= 776 for v in c3[1:]), 10)
+
+    def test_recount_finite_emits_the_rotation_verdict_tokens(self):
+        r = subprocess.run([sys.executable, "verify.py", "--recount-finite"],
+                           capture_output=True, text=True)
+        if not r.stdout:
+            self.fail("verify.py --recount-finite produced no output; an "
+                      "unreadable result is an ERROR, not a pass")
+        lines = set(r.stdout.splitlines())
+        missing = sorted(t for t in self.TOKENS if t not in lines)
+        self.assertEqual(missing, [],
+                         "verify.py --recount-finite did not emit these verdict "
+                         f"lines VERBATIM: {missing}\n"
+                         "(whole-line match: a token differing only in its digits "
+                         "is a FAILURE, not a near-miss)\n"
+                         + "\n".join(l for l in r.stdout.splitlines()
+                                      if l.startswith("KW_ROT")))
+        self.assertEqual(r.returncode, 0,
+                         "--recount-finite must exit 0 when every gate matches")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

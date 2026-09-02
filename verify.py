@@ -3611,7 +3611,14 @@ def recount_finite():
     CIRCULAR_KING_WEN).  Validity of each sigma(KW) is checked from the
     constraint definitions directly — NOT via group membership — so this is a
     second instrument for the 48-of-720 classification itself, not only for
-    the group order.  Seconds.  Returns 0 iff everything matched."""
+    the group order.
+
+    Also carries the TR-7 6 rotation counterexample (added 2026-09-02, batch
+    C2): the 32 pair-slot rotations of KW are NOT C3-symmetries, and the
+    published 21 / 888 / 1240 / 1320 / 10 are emitted as KEY=value verdict
+    tokens computed from BOTH of this file's independent C3 routes.
+
+    Seconds.  Returns 0 iff everything matched."""
     import itertools
     from collections import Counter
     from math import comb
@@ -3696,6 +3703,59 @@ def recount_finite():
                    for b in (0, 1))
     gate("15-alternation 16/16 arrangement count (DP)", arr(0, 0, 0, 0), 82818450)
     gate("same, closed form 2*C(15,7)^2", 2 * comb(15, 7) ** 2, 82818450)
+
+    # ---- ROTATIONS ARE NOT SYMMETRIES: the C3 counterexample (Codex V2-F09 #1)
+    #
+    # TR-7 §6 and CIRCULAR_KING_WEN.md §"Symmetry under closure" once said the
+    # 32 pair-slot rotations act as symmetries of the circular system. They do
+    # not, under this repository's absolute-position C3: 21 of the 31 non-
+    # identity rotations exceed the 776 ceiling. The prose was corrected in
+    # batch P36; the figures were reproducible only by a `python3 -c` one-liner
+    # printed in the report, so nothing would have caught a regression in
+    # c3_of_ordering that moved them. This is that guard.
+    #
+    # TWO DERIVATIONS, AND THE AGREEMENT IS ITSELF GATED. c3_of_ordering reads
+    # the slot map and uses the identity C3 = 16 + 8*G over the 12 complement
+    # couples; compute_comp_dist walks the reconstituted 64-hexagram sequence
+    # and sums |pos(v) - pos(v^63)|. They share no code. A rotation leg that
+    # called only one of them would go green on a defect common to neither, but
+    # would also go green if that one derivation drifted -- so the per-rotation
+    # equality of the two is gated across all 32 rotations, not spot-checked.
+    #
+    # VERDICT TOKENS are printed with the RECOMPUTED value, never a literal, so
+    # `grep -qx KW_ROT4_C3=888` is false exactly when the recomputation is. The
+    # surviving-rotation count is included because "only 10 survive" is
+    # published in the same sentence as the 21, and a guard that pins one half
+    # of a sentence is the scope-narrowing failure this project keeps hitting.
+    def _rot(k):
+        return [(sl + k) % 32 for sl in range(32)]
+
+    def _seq_of_pairs(perm):
+        out = []
+        for pr in perm:
+            out += [KW[2 * pr], KW[2 * pr + 1]]
+        return out
+
+    rot_slotmap = [c3_of_ordering(_rot(k)) for k in range(32)]
+    rot_seqwalk = [compute_comp_dist(_seq_of_pairs(_rot(k))) for k in range(32)]
+    gate("rotation C3: slot-map and sequence-walk derivations agree",
+         rot_slotmap == rot_seqwalk, True)
+    gate("rotation 0 is KW itself", rot_slotmap[0], 776)
+    gate("non-identity rotations violating C3 (TR-7 6)",
+         sum(c > 776 for c in rot_slotmap[1:]), 21)
+    gate("non-identity rotations surviving C3", 
+         sum(c <= 776 for c in rot_slotmap[1:]), 10)
+    gate("rotate-4 C3", rot_slotmap[4], 888)
+    gate("rotate-16 C3", rot_slotmap[16], 1240)
+    gate("maximum C3 over all rotations", max(rot_slotmap), 1320)
+    print(f"KW_ROT_C3_DERIVATIONS_AGREE="
+          f"{1 if rot_slotmap == rot_seqwalk else 0}")
+    print(f"KW_ROTATIONS_VIOLATING_C3={sum(c > 776 for c in rot_slotmap[1:])}")
+    print(f"KW_ROTATIONS_SURVIVING_C3={sum(c <= 776 for c in rot_slotmap[1:])}")
+    print(f"KW_ROT4_C3={rot_slotmap[4]}")
+    print(f"KW_ROT16_C3={rot_slotmap[16]}")
+    print(f"KW_ROT_C3_MAX={max(rot_slotmap)}")
+
     print("recount-finite:",
           "ALL MATCH" if rc[0] == 0 else "*** MISMATCH — investigate ***")
     return rc[0]

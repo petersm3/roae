@@ -4079,10 +4079,99 @@ def _gs_setup_population():
     _GS["target"] = target
 
 
+# ---------------------------------------------------------------------------
+# SEED-STREAM DISJOINTNESS GUARD (added 2026-09-02, batch C2).
+#
+# Four sampling streams are derived from one base seed by fixed offsets:
+#
+#     U2 probe       seed +   100 + w      w = 0 .. workers-1
+#     U2 rarity      seed + 10000 + b      b = 0 .. batches-1
+#     prereg thr     seed + 20000 + b      b = 0 .. batches-1
+#     prereg eval    seed + 30000 + b      b = 0 .. batches-1
+#
+# The offsets are 10,000 apart and the batch index is added on top, so the
+# streams are disjoint only while the index stays inside that gap. Nothing
+# enforced it: --gs-batches was unbounded. EXHIBITED at --gs-batches 20000 with
+# --seed 42, threshold batch 10005 and evaluation batch 5 are the SAME stream --
+#
+#     42 + 20000 + 10005  ==  42 + 30000 + 5  ==  30047
+#
+# so the pre-registered evaluation stream would silently re-draw samples the
+# threshold stream had already used to set the very thresholds it is evaluated
+# against. That is a circularity, not a slowdown, and it produces no error and
+# no visible symptom -- the run completes and reports verdicts.
+#
+# THE BOUND IS DELIBERATELY ONE BELOW THE TIGHT ONE. batches == 10000 is
+# provably safe (the largest index is 9999, strictly inside the 10,000 gap), but
+# a guard sitting exactly on the boundary it protects has no margin for a future
+# off-by-one in the job-splitting loop. 10000 is refused, and the message says
+# why, so nobody "fixes" it back by one.
+#
+# The workers leg is the sibling, swept with it: the probe offset is only 100,
+# so w >= 9900 collides with the rarity stream. It has never been reached in
+# practice -- workers defaults to the CPU count -- which is exactly the kind of
+# unenforced invariant this project keeps finding after the fact.
+#
+# Gated by tests.py SEED_STREAMS_DISJOINT=1, which exhibits the arithmetic
+# collision itself and not merely the constant.
+# ---------------------------------------------------------------------------
+_SEED_STREAM_OFFSETS = {"probe": 100, "rarity": 10000,
+                        "prereg_threshold": 20000, "prereg_eval": 30000}
+_SEED_STREAM_GAP = 10000
+
+
+def _guard_seed_stream_disjointness(batches, workers):
+    """Refuse a batch/worker count that would make two seed streams overlap.
+
+    Raises SystemExit(2) rather than returning a flag: this runs before any
+    sampling, and a caller that ignored a return value would produce a report
+    that looks exactly like a valid one. Not an `assert` -- guards must survive
+    `python3 -O` (tests.py TestNoBareAsserts pins that convention).
+    """
+    if batches is None or batches < 1:
+        raise SystemExit(f"roae.py: --gs-batches must be >= 1, got {batches!r}")
+    if workers is None or workers < 1:
+        raise SystemExit(f"roae.py: --gs-workers must be >= 1, got {workers!r}")
+    if batches >= _SEED_STREAM_GAP:
+        head = (f"roae.py: --gs-batches {batches} refused for seed-stream "
+                f"disjointness (limit {_SEED_STREAM_GAP - 1}).\n"
+                f"  Streams are seed+100+w, seed+10000+b, seed+20000+b, "
+                f"seed+30000+b; the offsets are {_SEED_STREAM_GAP} apart.\n")
+        if batches > _SEED_STREAM_GAP:
+            # A collision genuinely EXISTS at this batch count; name one, and
+            # name one that is really in range. Index _SEED_STREAM_GAP is the
+            # first colliding threshold batch and it exists iff batches > gap.
+            why = (f"  Threshold batch {_SEED_STREAM_GAP} and evaluation "
+                   f"batch 0 are the same stream "
+                   f"({_SEED_STREAM_OFFSETS['prereg_threshold']}+"
+                   f"{_SEED_STREAM_GAP} == "
+                   f"{_SEED_STREAM_OFFSETS['prereg_eval']}+0), so the "
+                   f"pre-registered evaluation would re-draw the samples that "
+                   f"set its own thresholds.")
+        else:
+            # batches == gap is provably safe (max index gap-1). Say exactly
+            # that rather than inventing a collision that is not there.
+            why = (f"  batches == {_SEED_STREAM_GAP} has no collision (the "
+                   f"largest index is {_SEED_STREAM_GAP - 1}); it is refused "
+                   f"only so the guard does not sit on the boundary it "
+                   f"protects.")
+        raise SystemExit(head + why + "\n  Raise the OFFSETS if you need more "
+                         "batches; do not raise this limit alone.")
+    if workers >= _SEED_STREAM_GAP - _SEED_STREAM_OFFSETS["probe"]:
+        raise SystemExit(
+            f"roae.py: --gs-workers {workers} would break seed-stream "
+            f"disjointness (limit "
+            f"{_SEED_STREAM_GAP - _SEED_STREAM_OFFSETS['probe'] - 1}).\n"
+            f"  The probe stream is seed+100+w and the rarity stream is "
+            f"seed+10000+b, so w >= "
+            f"{_SEED_STREAM_GAP - _SEED_STREAM_OFFSETS['probe']} collides.")
+
+
 def run_grammar_search(nsamp, nprobe, workers, batches, seed,
                        json_path, ckpt_path):
     """U2 grammar search over the declared depth<=2 grammar (see the section
     banner above for the design and the circularity firewall)."""
+    _guard_seed_stream_disjointness(batches, workers)
     from multiprocessing import Pool
     report = {}
     print("U2 grammar search (--grammar-search)")
@@ -4393,9 +4482,13 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
 # disclosed, deliberate conditioning on C1 & C5, priced as such. The
 # evaluation stream (seed+30000+b) is disjoint from the threshold stream and
 # from U2's streams (+100+w probe, +10000+b rarity) at the same base seed
-# ONLY while batches < 10000, the gap between the two offsets; --gs-batches
-# is currently unbounded, so --gs-batches 20000 makes threshold batch
-# 10000+k and evaluation batch k seed-identical. Bound it before raising it.
+# ONLY while batches < 10000, the gap between the two offsets: --gs-batches
+# 20000 makes threshold batch 10000+k and evaluation batch k seed-identical.
+# BOUNDED 2026-09-02 (batch C2): _guard_seed_stream_disjointness() now refuses
+# batches >= 10000 (and workers >= 9900, the probe/rarity sibling) before any
+# sampling starts. This comment read "--gs-batches is currently unbounded" and
+# said "Bound it before raising it"; it is bounded, and raising the LIMIT alone
+# would restore the defect -- raise the OFFSETS.
 #
 # Accounting (frozen): L(C) per test from the declared coarse menus
 # (T1 7.58, T2 7.58, T3 9.17, T4 8.06 bits — breakdown in the spec §4.1),
@@ -4563,6 +4656,7 @@ def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
                     json_path, ckpt_path):
     """Pre-registered H1/H3 K=4 test (see the section banner above; the
     frozen 2026-07-26 pre-registration document is authoritative)."""
+    _guard_seed_stream_disjointness(batches, workers)
     report = {}
     print("Pre-registered H1/H3 test (--prereg-h1h3), K=4")
     print(f"  frozen params: n_eval={n_eval} n_thr={n_thr} seed={seed} "
@@ -4758,12 +4852,13 @@ def run_verify():
     That is the unguarded-invariant class this project keeps finding; this closes
     it for this file.
 
-    Ground truths only — no sampling, no RNG. Reads exactly one file, solve.py,
-    by the CWD-relative path "solve.py": run this from the repository directory
-    or the cross-file table check fails with "could not load solve.py".
-    Nothing is written. Exit 0 = all pass.
+    Ground truths only — no sampling, no RNG. Reads exactly one file: the
+    solve.py sitting NEXT TO this one, resolved from __file__, so the gate gives
+    the same verdict from any working directory. If that sibling is missing or
+    unreadable the cross-file check FAILS (it does not skip) and the exit code is
+    1. Nothing is written. Exit 0 = all pass.
     """
-    import importlib.util as _ilu, sys as _sys
+    import importlib.util as _ilu, sys as _sys, os as _os
     checks, failures = [], []
 
     def ck(name, ok, detail=""):
@@ -4772,8 +4867,25 @@ def run_verify():
             failures.append(f"{name}: {detail}")
 
     # 1. CROSS-FILE TABLE IDENTITY — the load-bearing one.
+    #
+    # solve.py is resolved as roae.py's SIBLING, not CWD-relative. It was
+    # CWD-relative until 2026-09-02, and MEASURED from `/` this gate printed
+    # "[FAIL] KW table identical to solve.py's <- could not load solve.py:
+    # ... '/solve.py'" and exited 1 with nothing actually wrong: a FALSE
+    # NEGATIVE that made the gate unusable from any directory but one, and
+    # unusable from CI that cds elsewhere.
+    #
+    # Fail-closed behaviour is DELIBERATELY preserved. If the sibling solve.py
+    # is genuinely absent or unreadable, this still records a FAILURE and
+    # run_verify() still exits 1 -- an unreadable input is an ERROR, never a
+    # silent pass and never a vacuous zero. The change is WHERE it looks, not
+    # WHETHER it fails when it cannot look.
     try:
-        _spec = _ilu.spec_from_file_location("_solve_for_verify", "solve.py")
+        _here = _os.path.dirname(_os.path.abspath(__file__))
+        _solve_path = _os.path.join(_here, "solve.py")
+        _spec = _ilu.spec_from_file_location("_solve_for_verify", _solve_path)
+        if _spec is None or _spec.loader is None:
+            raise ImportError(f"no import spec for {_solve_path}")
         _sv = _ilu.module_from_spec(_spec)
         _argv, _sys.argv = _sys.argv, ["solve.py"]
         try:
@@ -4991,6 +5103,30 @@ def main():
 
     args = parser.parse_args()
 
+    # Set the global seed BEFORE the early-dispatch ladder below, not after it.
+    #
+    # This assignment used to sit further down, past every `return`-ing mode.
+    # `--cast` is one of those modes, and print_casting() opens with _reseed(9),
+    # which is a NO-OP while _global_seed is still None -- so `roae.py --cast
+    # --seed 42` drew from the unseeded global RNG and produced a different
+    # reading every run. MEASURED 2026-09-02 before this change: three
+    # invocations of `--cast --seed 42`, three distinct output sha256s. The
+    # controls were already reproducible (`--seed 42` alone, `--entropy --seed
+    # 42`), which is precisely why the defect survived -- it lived in dispatch
+    # ORDER, not in the seeding mechanism.
+    #
+    # Hoisting is behaviour-neutral for every other early mode: _reseed() is
+    # called only from the print_* section functions, and none of --verify,
+    # --help-sections, --self-test, --grammar-search, --prereg-h1h3, --lookup,
+    # --compare or --explain reaches one. --grammar-search and --prereg-h1h3
+    # take their seed as an explicit argument and are unaffected either way.
+    #
+    # Gated by tests.py CAST_SEED_DETERMINISTIC=1 (matched with an exact-line
+    # assertion). That gate was red against the pre-hoist file.
+    global _global_seed
+    if args.seed is not None:
+        _global_seed = args.seed
+
     # Special modes that bypass normal output
     if args.verify:
         import sys as _s
@@ -5040,11 +5176,6 @@ def main():
         print_header()
         print_explain(args.explain)
         return
-    # Set global seed before any analysis runs (including exports)
-    global _global_seed
-    if args.seed is not None:
-        _global_seed = args.seed
-
     if args.json:
         export_json()
         return
