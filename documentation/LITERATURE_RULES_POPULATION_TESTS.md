@@ -185,7 +185,9 @@ cake_lpr checks the LRAT against the regenerated CNF **directly**, so in this ch
 UNSAT verdicts therefore do not rest on trusting drat-trim. cake_lpr pinned at commit
 `a36874a8b750b43fe4b385b8ddbf5b033e46a3fa`. Those 21 `.drat.gz` files are byte-unchanged since that
 run, so it attests the artifacts published here; the 22nd, `core_gender_ccn4_unsat.drat.gz` (shipped
-2026-09-02), postdates it and has passed drat-trim only. The encoder round-trip validation's first solver model, pleasingly, is King Wen itself. Reproduce
+2026-09-02), postdates that batch and was taken through the same chain on 2026-09-02, on a
+rebuild of the same pin whose compiled sha is byte-identical to the batch binary — so all 22
+now carry the verified checker. The encoder round-trip validation's first solver model, pleasingly, is King Wen itself. Reproduce
 with `python3 sat.py --witness moore-strict` and
 `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf`.
 

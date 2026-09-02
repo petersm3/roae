@@ -155,10 +155,16 @@ fi
 
 echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 22 archived certs) =="
 # No SAT solver is invoked here — see the header note. $DRAT is probed in section 0.
-# core_gender_ccn4_unsat (the fourth two-rule core, shipped 2026-09-02) is the one certificate that
-# has passed drat-trim ONLY: the other 21 also passed the formally verified cake_lpr on 2026-07-27,
-# and this one postdates that batch (README.md §"Checker coverage"). This script replays it exactly
-# like the rest; what it cannot supply is the cake_lpr leg.
+# All 22 certificates carry BOTH checkers as of 2026-09-02: the 21 archived earlier passed the
+# formally verified cake_lpr in the 2026-07-27 batch, and core_gender_ccn4_unsat (the fourth
+# two-rule core, shipped 2026-09-02) went through the same drat-trim -> LRAT -> cake_lpr chain that
+# day, on a rebuild of pin a36874a8 whose compiled sha is byte-identical to the batch binary
+# (README.md §"Checker coverage"). This script supplies only the drat-trim leg; the cake_lpr leg is
+# run out of band and recorded there, so a PASS here is NOT evidence about cake_lpr.
+#
+# KNOWN GAP, queued: the drat-trim invocation below pipes into `grep -q`, so this log records only
+# the PASS line and never the checker's own "s VERIFIED" output. A PASS line is therefore this
+# script's assertion about drat-trim rather than drat-trim's own words. Tee it.
 declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [moore-strict-near-2]="moore-strict-near-2" [rc4_near2_unsat]="rc4-strict-near-2" \
   [grand_ccn4_unsat]="grand-ccn4" \

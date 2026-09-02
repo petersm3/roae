@@ -372,14 +372,17 @@ certificates archived before 2026-09-02 additionally passed the formally verifie
 The fourth core's certificate, `core_gender_ccn4_unsat.drat.gz`, was produced off-tree on 2026-08-28
 (kissat 4.0.1, drat-trim `s VERIFIED`, both singletons SAT so the core is minimal) and shipped to
 certificates/ on 2026-09-02 with its regeneration row (`five-sub-gender+ccn4`, 7,035 vars /
-243,175 clauses) and its `verify_all.sh` entry. **Its checker coverage is weaker than the other 21's,
-and is stated rather than blurred:** it has passed drat-trim only. The 21 certificates archived before
-it were also run through drat-trim → LRAT → cake_lpr, the formally verified checker, on 2026-07-27;
-this certificate postdates that batch and has not been run through it. Until it is, this one UNSAT
-verdict rests on drat-trim alone — an unverified checker — where the others also rest on a verified
-one. A 22/22 `verify_all.sh` replay of the shipped directory has likewise not yet been executed (the
-shipping host carries no drat-trim); the executed verifications are the 21/21 replay of 2026-08-28
-and the off-tree `s VERIFIED` for the 22nd.
+243,175 clauses) and its `verify_all.sh` entry. **Its checker coverage briefly lagged the other 21's, was
+stated rather than blurred, and has since been brought level.** For part of 2026-09-02 it carried
+drat-trim only, because the 21 earlier certificates had also gone through drat-trim → LRAT →
+cake_lpr — the formally verified checker — in the batch of 2026-07-27, which this certificate
+postdates. Later the same day both gaps were closed on a host carrying drat-trim: the shipped
+directory replayed **22/22 with zero failures**, and the fourth core went through the full LRAT →
+cake_lpr chain to `s VERIFIED UNSAT`. The cake_lpr binary was rebuilt from the same pin
+`a36874a8` and its compiled sha is byte-identical to the 2026-07-27 batch binary, so the parity is
+with provably the same checker, not merely one of the same name. **All 22 certificates now rest on a
+formally verified checker.** Details, including the red tests run before that pass was trusted, are in
+`reports/certificates/README.md` §Checker coverage.
 
 ## A Bayesian comparison: corruption vs. tendency (v1.7)
 

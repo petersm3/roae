@@ -33,7 +33,7 @@ the original 5 (conflict theorem + repair ladder + alternation theorem), the 14 
 extension (five-rule union, its near-2/3/4 repair ladder, all five leave-one-out subsets, three of
 the four two-rule cores, and two encoding-validation gates), the fourth two-rule core
 (`core_gender_ccn4_unsat.drat.gz`, found 2026-08-28, shipped 2026-09-02 — see §Checker coverage
-below: it has passed drat-trim only), the [TR-5](../TR5_SYMMETRY.md) SC-4 rigidity kernel, and the
+below: as of 2026-09-02 it has passed both checkers, like the other 21), the [TR-5](../TR5_SYMMETRY.md) SC-4 rigidity kernel, and the
 C3 positional KW-exactness gate — plus one SAT-witness artifact (`c3_positional_witnesses.txt`).
 
 ## TR-5 SC-4 rigidity kernel
@@ -96,7 +96,7 @@ encoder-arithmetic empty clause would certify nothing a reader could not check f
 | core_parity_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf five-sub-parity+ccn4 f.cnf` | two-rule core: {Moore parity, S25–28} |
 | core_rhythm_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf five-sub-rhythm+ccn4 f.cnf` | two-rule core: {Moore rhythm, S25–28} |
 | core_gender_ccn8_unsat.drat.gz | `python3 sat.py --emit-cnf gender-ccn8 f.cnf` | two-rule core: {Schulz gender, CC-N8} |
-| core_gender_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf five-sub-gender+ccn4 f.cnf` | two-rule core: {Schulz gender, S25–28} — the fourth core (found 2026-08-28, shipped 2026-09-02; not part of v1.6). Definitional-by-construction: S25–28 pins stations 25/26 to popcounts 5 and 2, each violating strict gender at its own parity (TR-2 §Extension). **drat-trim only** — see §Checker coverage |
+| core_gender_ccn4_unsat.drat.gz | `python3 sat.py --emit-cnf five-sub-gender+ccn4 f.cnf` | two-rule core: {Schulz gender, S25–28} — the fourth core (found 2026-08-28, shipped 2026-09-02; not part of v1.6). Definitional-by-construction: S25–28 pins stations 25/26 to popcounts 5 and 2, each violating strict gender at its own parity (TR-2 §Extension). drat-trim **and** cake_lpr, 2026-09-02 — see §Checker coverage |
 | ccn8_kwfail_unsat.drat.gz | `python3 sat.py --emit-cnf ccn8-kwfail f.cnf` | encoding gate: CC-N8 at shifted locus (24,25) correctly rejects KW |
 | ccn8_kwchain_not_unsat.drat.gz | `python3 sat.py --emit-cnf ccn8-kwchain-not f.cnf` | encoding gate: R-S2 run-parity chain pinned against its KW value is UNSAT |
 
@@ -116,12 +116,27 @@ drat-trim is an untrusted elaborator.
 | certificates | drat-trim | cake_lpr |
 |---|---|---|
 | the 21 archived before 2026-09-02 (every file above except `core_gender_ccn4_unsat.drat.gz`) | `s VERIFIED` — 21/21 replay executed 2026-08-28 | `s VERIFIED UNSAT`, all 21, executed 2026-07-27 |
-| `core_gender_ccn4_unsat.drat.gz` | `s VERIFIED` — produced with kissat 4.0.1 and checked off-tree 2026-08-28; sha256 `bcfc72a1a9ce5ef7c4703f4fb0f321033ed6eb7f8d593007c136d449fb78fe61` | **not run** — the certificate postdates the 2026-07-27 batch |
+| `core_gender_ccn4_unsat.drat.gz` | `s VERIFIED` — produced with kissat 4.0.1, checked off-tree 2026-08-28, and **replayed in the 22/22 run of 2026-09-02**; sha256 `bcfc72a1a9ce5ef7c4703f4fb0f321033ed6eb7f8d593007c136d449fb78fe61` | `s VERIFIED UNSAT` — executed **2026-09-02** on the same pinned checker |
 
-The fourth core's UNSAT verdict therefore currently rests on drat-trim alone, where the other 21 also
-rest on a formally verified checker. Running it through the same LRAT → cake_lpr chain is outstanding
-and needs a host with drat-trim and cake_lpr; so does a 22/22 `verify_all.sh` replay of this directory
-as shipped (the 21/21 replay predates the file). The fourth core's *content* — that S25–28 entails the
+**Both outstanding items are now closed, and the parity is real rather than asserted.** On 2026-09-02
+the shipped directory was replayed end to end — `verify_all.sh` reported **22/22 `PASS cert` lines,
+zero FAIL** — and the fourth core was taken through the full `drat-trim … -L <lrat>` → `cake_lpr`
+chain to `s VERIFIED UNSAT`. The cake_lpr binary was rebuilt from the same pin `a36874a8` and its
+compiled sha is **byte-identical to the binary used for the 2026-07-27 batch**, so all 22 certificates
+have now been checked by provably the same verified checker, not merely by one bearing the same name.
+The proof's maximum variable (13,015) exceeds the CNF's variable count (7,035); this is ordinary
+solver factoring and both checkers were confirmed to accept it rather than assumed to.
+
+⚠ **Two operational facts, recorded because each can produce a false PASS.** `cake_lpr` **exits 0 on
+both success and failure** — the verdict is the `s VERIFIED UNSAT` line and nothing else; and its
+default heap and stack (4096 + 4096 MB) exceed an 8 GB host, where it aborts with "failed to allocate
+sufficient CakeML heap and stack space". The 2026-09-02 run used `--CML_HEAP_SIZE=2048
+--CML_STACK_SIZE=1024`, which are runtime sizing flags of the same verified binary. The checker was
+red-tested before its pass was trusted: seven mutations — a removed empty-clause step, a satisfiable
+CNF, a truncated LRAT, a bogus hint id, a mutated core clause, a deleted first clause, a negated
+literal — were each rejected with a reason line, and the control then re-verified.
+
+The fourth core's *content* — that S25–28 entails the
 gender rule's exceptions at stations 25/26 — is also checkable by hand in constant time
 ([TR-2](../TR2_THE_RULES_CONFLICT.md) §Extension), which is why it is classified as definitional rather
 than discovered; the certificate makes that entailment machine-checked.
