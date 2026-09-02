@@ -990,8 +990,12 @@ def _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted,
     p_exact = tr8_r_kw()
     exp_hb = p_exact * drawn
     # H-b: the pool's own rate of rc4_violations <= 2 against the exact closed form. Poisson
-    # error at the pool size; 5 sigma is the frozen tolerance and is stated, not tuned after
-    # the fact. At small pool sizes this gate is weak by construction and says so.
+    # error at the pool size; the frozen tolerance is |observed - expected| <= 5*sigma + 3 --
+    # five Poisson sigma PLUS a 3-count integer-continuity floor -- and is stated, not tuned
+    # after the fact. At small pool sizes this gate is weak by construction and says so.
+    # (Corrected 2026-09-02, code batch C3: this comment and the h_b_note below both read
+    # "5 sigma", two lines above the "+ 3.0" they were describing. SOLVE_PY_CLI.md has
+    # carried the full band since it was written; only the code understated it.)
     import math
     sigma = math.sqrt(exp_hb) if exp_hb > 0 else 0.0
     hb_ok = abs(hb - exp_hb) <= 5.0 * sigma + 3.0
@@ -1007,8 +1011,9 @@ def _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted,
              "h_b_null_calibration": hb_ok,
              "h_b_observed": hb, "h_b_expected": exp_hb,
              "h_b_sigma": sigma,
-             "h_b_note": "5-sigma Poisson band on P(rc4_violations<=2) = %s"
-                         % Fraction(47, 445740)}
+             "h_b_note": "band |observed-expected| <= 5*sigma + 3 (Poisson sigma "
+                         "plus a 3-count integer-continuity floor) on "
+                         "P(rc4_violations<=2) = %s" % Fraction(47, 445740)}
     if not hb_ok:
         verdict, why = "INCONCLUSIVE", "sanity gate H-b (null calibration) FAILED"
     res = {"header": header, "gates": gates, "statistics": stats,
@@ -2511,7 +2516,9 @@ def print_info_content():
     print()
 
     # Information removed by each constraint
-    print("--- Information removed by each constraint ---")
+    print("--- Information removed by each constraint (HISTORICAL ESTIMATE) ---")
+    print("    Rates below are 2026-era estimates and the Rule 6 step is an")
+    print("    explicit guess; the measured verdict is at the end of this report.")
     print()
 
     # Rule 1: Pair structure
@@ -2550,15 +2557,32 @@ def print_info_content():
     print(f"  Remaining: ~{remaining_6:.1f} bits")
 
     print()
-    print(f"Total bits removed by known rules: ~{total_bits - remaining_6:.1f} of {total_bits:.1f}")
-    print(f"Remaining unknown information: ~{max(0, remaining_6):.1f} bits")
+    print(f"Ladder total (SUPERSEDED — see below): ~{total_bits - remaining_6:.1f} of "
+          f"{total_bits:.1f} bits removed, ~{max(0, remaining_6):.1f} remaining")
+
+    # SUPERSEDED LADDER, KEPT AS HISTORY. The rates above are 2026-era estimates
+    # and the Rule 6 step is an explicit guess ("est. ~1 in 50,000"), so the
+    # ladder's totals -- 176.3 removed / 119.7 remaining -- match no currently
+    # published scope and understate the measured C1-C5 population by ~100x.
+    # SOLVE.md ("Information content") retired them on 2026-08-30 and recorded
+    # that this command still printed them; until 2026-09-02 (code batch C3) it
+    # did, as its headline answer. The measured verdict below is DERIVED from
+    # H2_N_CAN, the same constant the rest of this file uses, so it cannot drift
+    # away from the ledger it cites.
+    bits_can = math.log2(H2_N_CAN)
+    bits_c67 = math.log2(5.21e31)          # C1-C7, refuted-uniqueness count
     print()
-    if remaining_6 > 0:
-        print(f"This means ~2^{remaining_6:.0f} = ~{2**remaining_6:.0f} sequences likely satisfy")
-        print(f"all known rules. The missing local rule must encode ~{remaining_6:.0f} additional bits.")
-    else:
-        print("The known rules may be sufficient to uniquely determine King Wen.")
-        print("(Estimate is rough — actual count requires enumeration.)")
+    print("--- MEASURED (this is the answer; the ladder above is history) ---")
+    print()
+    print(f"The measured C1-C5 population is {H2_N_CAN:.4e} = 2^{bits_can:.1f}, so the")
+    print(f"constraints remove ~{total_bits - bits_can:.1f} of the {total_bits:.1f} bits and "
+          f"~{bits_can:.1f} remain.")
+    print("Any rule that would pin King Wen down from C1-C5 has to encode that many")
+    print(f"additional bits. Adding the C6/C7 adjacency pins leaves ~5.21e31 = "
+          f"2^{bits_c67:.1f},")
+    print(f"so ~{bits_c67:.1f} bits remain even then (uniqueness refuted 2026-07-02).")
+    print()
+    print("Authority: TR9_PRICING_THE_CONSTRAINTS.md, 'The measured ledger'.")
 
 def compute_features(seq):
     """Compute a comprehensive feature vector for a sequence."""
@@ -3675,20 +3699,37 @@ def print_reconstruct():
     print()
     if reconstructed == kw_seq:
         print("✓ Reconstruction matches King Wen exactly.")
+        print("  (TRUE BY CONSTRUCTION, not a derivation: this mode replays King")
+        print("   Wen's own choice at every step — the routine's own comment reads")
+        print("   'Pick King Wen's actual choice' — so it can never surface a rival.)")
     else:
         print("✗ Reconstruction does NOT match King Wen.")
 
+    # SCOPE OF THE CLOSING VERDICT. Until 2026-09-02 the else-branch below
+    # printed "The specification's uniqueness holds globally" — a claim REFUTED
+    # on 2026-07-02, and printed to users on a default `--reconstruct` run for
+    # every day since. SOLVE.md question 4 carried a standing "a correction to
+    # solve.py is pending" note in its place; that note is retired in the same
+    # merge. The replacement states the scope the tree actually publishes
+    # (SPECIFICATION.md §Constraints and §"Constructive algorithm",
+    # BOUNDARY_MINIMUM.md §[6]–§[8]).
+    print()
     if all_forced:
-        print("✓ Every step had exactly 1 valid choice — the sequence is fully determined.")
+        print("✓ Every step had exactly 1 valid choice — along King Wen's own path.")
         print()
-        print("The constructive algorithm in SPECIFICATION.md is verified:")
-        print("constraints C1-C7 admit exactly one valid path at every step.")
+        print("Scope: that is a property of THIS replay, not a uniqueness result.")
+        print("C1-C7 alone do NOT single out King Wen: 14 non-KW records survive")
+        print("C6+C7+boundary-4 at 560T, and full-space uniqueness of C1-C7 was")
+        print("REFUTED 2026-07-02 (~5.21e31 survivors). See BOUNDARY_MINIMUM.md.")
     else:
-        non_forced = sum(1 for _ in [] )  # placeholder
-        print(f"Some steps had multiple valid choices — constraints C1-C7 alone")
-        print(f"do not force a unique path at every step without lookahead.")
-        print(f"The specification's uniqueness holds globally but the greedy")
-        print(f"constructive algorithm may require backtracking at some steps.")
+        print("Some steps had multiple valid choices — constraints C1-C7 alone")
+        print("do not force a unique path at every step without lookahead.")
+        print("Nor do they force one globally: full-space uniqueness of C1-C7 was")
+        print("REFUTED 2026-07-02 (~5.21e31 survivors), and even within the")
+        print("enumerated datasets 14 non-KW records survive C6+C7+boundary-4 at")
+        print("560T. Dataset-uniqueness needs C1-C5 PLUS the five greedy boundary")
+        print("constraints {4, 27, 25, 21, 1} — SPECIFICATION.md, 'Constructive")
+        print("algorithm'; evidence in BOUNDARY_MINIMUM.md [6]-[8].")
 
 # --- Null model: structured permutations from de Bruijn B(2, 6) ---
 
@@ -5442,11 +5483,26 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
     with open(out_path, "w") as f:
         f.write(f"c roae P3 SAT encoding — King Wen sequence\n")
         f.write(f"c generated {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n")
-        f.write(f"c constraints: C1+C2"
-                + (f"+C3({include_c3})" if include_c3 != "none" else "")
-                + ("+C4" if include_c4 else "")
-                + ("+C5" if include_c5 else "")
-                + "\n")
+        # The DIMACS header names what is IN THIS FILE, not what was REQUESTED.
+        # Until 2026-09-02 it echoed the flags: --sat-c3=pb produced
+        # "c constraints: C1+C2+C3(pb)" although the C3 bound is written only to
+        # the .opb sidecar, and --sat-c5 produced "+C5" although C5 emits no
+        # clause at all here (deferred/superseded — see the sidecar note above).
+        # A pure-#SAT counter pointed at this file therefore counted C1nC2(nC4)
+        # while the header told it otherwise. SOLVE_PY_CLI.md carried a standing
+        # "do not trust the .cnf's own comment header" warning in place of this
+        # fix; that warning is retired in the same merge.
+        in_file = ["C1", "C2"] + (["C4"] if include_c4 else [])
+        f.write("c constraints: " + "+".join(in_file) + "\n")
+        if include_c3 == "pb":
+            f.write("c NOT in this file: C3 — the bound is written only to the "
+                    "parallel .opb; give that to a PB-capable solver\n")
+        elif include_c3 == "adder":
+            f.write("c NOT in this file: C3 — the adder encoder is deferred/"
+                    "superseded and emits no clause; a status sidecar only\n")
+        if include_c5:
+            f.write("c NOT in this file: C5 — deferred/superseded, native in "
+                    "sat.py's pair-slot model; a status sidecar only\n")
         f.write(f"c vars are x[i][p] = 1 iff position i (0-63) holds hexagram p (0-63), 1-indexed\n")
         f.write(f"p cnf {n_vars} {n_clauses}\n")
         for cl in clauses:

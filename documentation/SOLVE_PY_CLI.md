@@ -493,11 +493,15 @@ by their presence. The C3 bound itself — `Σ |i−j| · pair ≤ 776`, 258,048
 terms — is written **only** to `kw.cnf.opb`. A pure-`#SAT` counter pointed
 at `kw.cnf` therefore counts C1∩C2(∩C4) and **not** C3: it will report the
 wrong population. Give the `.opb` to a PB-capable solver (`ganak --pb`,
-`d4 --opb`, `sharpSAT-TD`) if you need C3 enforced. ⚠ Do not trust the
-`.cnf`'s own comment header on this point: as of 2026-08-31 it reads
-`c constraints: C1+C2+C3(pb)`, which overstates the file's contents — the
-sole occurrence of "C3" anywhere in `kw.cnf` is that comment. This
-warning can be dropped once the emitter's header is corrected.
+`d4 --opb`, `sharpSAT-TD`) if you need C3 enforced. The `.cnf`'s own comment
+header now says so: it reads `c constraints: C1+C2` (`+C4` when asked) followed
+by a `c NOT in this file:` line naming C3 and pointing at the `.opb`. *(Corrected
+2026-09-02, code batch C3. Until then the header echoed the request flags rather
+than the file, printing `c constraints: C1+C2+C3(pb)`; `--sat-c5` was the same
+defect unreported, since C5 is deferred here and emits no clause. The standing
+"do not trust the header" warning that stood in this paragraph is retired with
+the fix, and `tests.py` now measures that C3 and C5 add zero clauses before it
+lets the header claim anything.)*
 
 **Per-branch yield diff against a baseline, with CSV out:**
 

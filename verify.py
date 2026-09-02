@@ -618,7 +618,17 @@ def check_flips():
 
 
 def check_parity_alternation():
-    """Re-derive every published figure in PARITY_ALTERNATION.md from KW itself.
+    """Re-derive the THEOREM'S figures in PARITY_ALTERNATION.md from KW itself.
+
+    NOT every figure on that page (corrected 2026-09-02, Codex V2-F42 #3, code
+    batch C3; the retired promise is registered in RETRACTED_PHRASES.tsv as
+    RP-dc836305 / RP-1734cf96). This command emits 18 lines and TWO published
+    figures are outside them, each with its own reproducer named on the page:
+    the 48-element relabeling group (Consequences item 4) is checked by
+    `python3 solve.py --symmetry-completeness` leg SC-7, and Moore 2005's 16/18
+    King Wen compliance (Novelty status) by
+    `python3 -c "import solve; print(18 - len(solve.h2_parity_slots(list(solve.binary_hexagrams))))"`.
+    Neither is covered by PARITY_ALTERNATION=PASS and neither is claimed here.
 
     WHY THIS EXISTS. That document is listed in CLAUDE.md as a stable, paper-citable
     finding, and it published its central figures -- the forced 15 alternations and the
@@ -626,10 +636,13 @@ def check_parity_alternation():
     A reviewer had no way to re-derive them. GATE 25 LEG 2 flagged the file on
     2026-08-16 and this is the answer to that flag.
 
-    Lemma 3 of that document: a pair's parity class is the popcount parity of either
+    Lemma 1 of that document: a pair's parity class is the popcount parity of either
     member, because reversal preserves popcount and complement maps p -> 6-p (same
     parity). So the class is well defined per pair, which this check confirms rather
-    than assumes.
+    than assumes. (Corrected 2026-09-02, Codex V2-F42 #2, code batch C3: this read
+    "Lemma 3", which is that document's TRANSITION-parity result, not its
+    well-definedness lemma. Registered RP-2857f455; the two markdown sites that
+    carried the same slip were fixed in prose batch P42.)
 
     The arrangement count is computed TWICE by different routes that share no code
     path: a dynamic program over (position, evens used, last class, changes so far),
@@ -3755,6 +3768,47 @@ def recount_finite():
     print(f"KW_ROT4_C3={rot_slotmap[4]}")
     print(f"KW_ROT16_C3={rot_slotmap[16]}")
     print(f"KW_ROT_C3_MAX={max(rot_slotmap)}")
+
+    # ---- REV IS NOT PARTNER: the 8 palindromes (Codex V2-F53 #4, batch C3)
+    #
+    # SYMMETRY_SEARCH.md's Group-structure paragraph once gave "rev maps every
+    # hexagram to its partner" as the REASON reversal fixes every pair-sequence.
+    # It is false for exactly 8 of the 64: the palindromes, which rev fixes and
+    # whose C1 partner is their complement h^63. The CONCLUSION survives -- rev
+    # does fix all 32 C1 pairs setwise -- so the site was rewritten to give the
+    # correct reason (RETRACTED_PHRASES.tsv, "maps every hexagram to its
+    # partner"). Nothing in the tree recomputed either half, so a second
+    # regression to the same false reason would have been caught by no gate.
+    #
+    # TWO ROUTES, AND THEIR AGREEMENT IS GATED. Route 1 counts h with
+    # _rev6(h) == _partner(h) directly. Route 2 never calls _partner at all: it
+    # counts rev's FIXED POINTS and subtracts, which is equivalent only because
+    # partner(h) != rev(h) exactly when rev(h) == h. A defect in _partner moves
+    # route 1 and leaves route 2 alone, so the equality is the instrument on the
+    # instrument. The palindrome SET is gated too -- a count of 8 that named the
+    # wrong 8 would otherwise pass.
+    #
+    # REV_FIXES_ALL_PAIRS is the surviving conclusion and is derived setwise
+    # from _canonical_pairs(), not from the count above: pinning only the count
+    # would leave green a rewrite that dropped the conclusion the paragraph
+    # exists to support.
+    rev_eq_partner = [h for h in range(64) if _rev6(h) == _partner(h)]
+    rev_fixed      = [h for h in range(64) if _rev6(h) == h]
+    gate("rev == partner count: direct and fixed-point routes agree",
+         len(rev_eq_partner), 64 - len(rev_fixed))
+    gate("hexagrams where rev(h) == partner(h)", len(rev_eq_partner), 56)
+    gate("the 8 dissenters are exactly the palindromes",
+         sorted(set(range(64)) - set(rev_eq_partner)),
+         [0, 12, 18, 30, 33, 45, 51, 63])
+    gate("every dissenter's C1 partner is its complement",
+         all(_partner(h) == h ^ 63 for h in set(range(64)) - set(rev_eq_partner)),
+         True)
+    rev_fixes_pairs = all({_rev6(a), _rev6(b)} == {a, b}
+                          for (a, b) in _canonical_pairs())
+    gate("rev fixes all 32 C1 pairs setwise (the surviving conclusion)",
+         rev_fixes_pairs, True)
+    print(f"REV_EQUALS_PARTNER_COUNT={len(rev_eq_partner)}")
+    print(f"REV_FIXES_ALL_PAIRS={'yes' if rev_fixes_pairs else 'no'}")
 
     print("recount-finite:",
           "ALL MATCH" if rc[0] == 0 else "*** MISMATCH — investigate ***")

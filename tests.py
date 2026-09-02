@@ -11,7 +11,7 @@ per-tool gates (--registry-verify, --f4p-verify) by running them all plus
 helper-level checks in a single pass. Stdlib only."""
 
 import subprocess, sys, unittest, importlib.util, itertools
-import os, random, shutil, struct, tempfile
+import os, random, re, shutil, struct, tempfile
 
 def _load(name):
     spec = importlib.util.spec_from_file_location(name, name + ".py")
@@ -1879,6 +1879,514 @@ class TestRotationsAreNotC3Symmetries(unittest.TestCase):
                                       if l.startswith("KW_ROT")))
         self.assertEqual(r.returncode, 0,
                          "--recount-finite must exit 0 when every gate matches")
+
+
+class TestRevIsNotPartner(unittest.TestCase):
+    """C3 (2026-09-02): the rev/partner split, mechanically pinned
+    (Codex V2-F53 #4, code half; prose half landed in batch P33).
+
+    WHAT WAS WRONG. SYMMETRY_SEARCH.md's Group-structure paragraph gave
+    "rev maps every hexagram to its partner" as the REASON reversal fixes
+    every pair-sequence. It is false for exactly 8 of the 64 -- the
+    palindromes {0, 12, 18, 30, 33, 45, 51, 63}, which rev fixes and whose C1
+    partner is their complement h ^ 63. The phrasing is registered in
+    RETRACTED_PHRASES.tsv, but GATE 3's corpus is tracked *.md, and nothing
+    anywhere recomputed either half -- so the false reason could have been
+    reintroduced with nothing red.
+
+    WHY THE CONCLUSION IS PINNED TOO. The paragraph's conclusion -- rev fixes
+    all 32 C1 pairs setwise -- is TRUE and survived the correction. A gate that
+    pinned only the 56 would stay green against a rewrite that kept the count
+    and dropped the conclusion, which is the scope-narrowing failure this
+    project keeps hitting. Both are asserted.
+
+    THE THIRD DERIVATION IS THE POINT. verify.py --recount-finite computes the
+    count by two of its own routes and gates their agreement. This test does
+    not take that on the instrument's word: it re-derives rev, partner and the
+    32 pairs HERE from SPECIFICATION C1's definition, importing nothing from
+    verify. If both of verify.py's routes drifted together, this is what stays
+    false.
+
+    RED-TESTED 2026-09-02, four ways -- see the private followups entry."""
+
+    TOKENS = {"REV_EQUALS_PARTNER_COUNT=56",
+              "REV_FIXES_ALL_PAIRS=yes"}
+
+    @staticmethod
+    def _rev(h):
+        """SPECIFICATION 6-bit reversal, written out here rather than imported."""
+        return sum(((h >> b) & 1) << (5 - b) for b in range(6))
+
+    @classmethod
+    def _partner(cls, h):
+        """SPECIFICATION C1: partner(h) = rev(h) if rev(h) != h else h ^ 63."""
+        r = cls._rev(h)
+        return r if r != h else h ^ 63
+
+    def test_third_derivation_reproduces_the_rev_partner_split(self):
+        agree = [h for h in range(64) if self._rev(h) == self._partner(h)]
+        dissent = sorted(set(range(64)) - set(agree))
+        self.assertEqual(len(agree), 56)
+        self.assertEqual(dissent, [0, 12, 18, 30, 33, 45, 51, 63])
+        self.assertTrue(all(self._rev(h) == h for h in dissent),
+                        "the dissenters must be exactly rev's fixed points")
+        self.assertTrue(all(self._partner(h) == h ^ 63 for h in dissent),
+                        "each dissenter's C1 partner must be its complement")
+        seen, pairs = set(), []
+        for h in range(64):
+            if h in seen:
+                continue
+            q = self._partner(h)
+            seen.update((h, q))
+            pairs.append((h, q))
+        self.assertEqual(len(pairs), 32)
+        self.assertTrue(all({self._rev(a), self._rev(b)} == {a, b}
+                            for a, b in pairs),
+                        "rev must fix all 32 C1 pairs setwise -- the surviving "
+                        "half of the retracted paragraph")
+
+    def test_recount_finite_emits_the_rev_partner_verdict_tokens(self):
+        r = subprocess.run([sys.executable, "verify.py", "--recount-finite"],
+                           capture_output=True, text=True)
+        if not r.stdout:
+            self.fail("verify.py --recount-finite produced no output; an "
+                      "unreadable result is an ERROR, not a pass")
+        lines = set(r.stdout.splitlines())
+        missing = sorted(t for t in self.TOKENS if t not in lines)
+        self.assertEqual(missing, [],
+                         "verify.py --recount-finite did not emit these verdict "
+                         f"lines VERBATIM: {missing}\n"
+                         "(whole-line match: a token differing only in its digits "
+                         "is a FAILURE, not a near-miss)\n"
+                         + "\n".join(l for l in r.stdout.splitlines()
+                                      if l.startswith("REV_")))
+        self.assertEqual(r.returncode, 0,
+                         "--recount-finite must exit 0 when every gate matches")
+
+
+class TestParityAlternationScope(unittest.TestCase):
+    """C3 (2026-09-02): check_parity_alternation()'s docstring cited the wrong
+    lemma and promised more than it delivers (Codex V2-F42 #2 and #3, code half;
+    the two markdown twins were fixed in prose batch P42).
+
+    WHAT WAS WRONG. (i) The docstring attributed pair-parity well-definedness to
+    PARITY_ALTERNATION.md's "Lemma 3" and then restated Lemma 1's proof verbatim
+    in substance; Lemma 3 is that document's TRANSITION-parity result. (ii) Its
+    opening line read "Re-derive every published figure in PARITY_ALTERNATION.md"
+    while two of that page's figures -- the 48-element relabeling group and
+    Moore 2005's 16/18 King Wen compliance -- are in none of the command's 18
+    output lines. Both defects were corrected on the two markdown pages on
+    2026-09-02 and left live in the docstring, so until this landed the source
+    contradicted the two pages it cites. GATE 3 cannot see it: its corpus is
+    tracked *.md plus reports/evidence/**, never *.py.
+
+    WHY THE LEMMA LEG IS DERIVED, NOT PINNED. Asserting the literal string
+    "Lemma 1" would stay green if PARITY_ALTERNATION.md renumbered its lemmas --
+    the same class of failure as the original slip. Instead the number is READ
+    OUT of the page, by finding the lemma whose statement is the popcount
+    congruence, and the docstring is required to cite that one. An unreadable or
+    unmatchable page is an ERROR here, never a pass.
+
+    WHY THE 18 KEYS ARE PINNED EXACTLY. Both corrected pages now publish the
+    sentence "outside that command's 18-line output". That figure had no gate:
+    adding one print would have falsified a published sentence with nothing red.
+    Pinning the exact key list -- not a line count, and not a "does the output
+    mention X" test, which would pass on any line that happened to contain the
+    string -- is what makes the scope claim checkable in both directions.
+
+    RED-TESTED 2026-09-02 -- see the private followups entry."""
+
+    MD = "documentation/PARITY_ALTERNATION.md"
+
+    EXPECTED_KEYS = [
+        "KW_TRANSITIONS", "KW_DISTANCE_MULTISET",
+        "KW_DISTANCE_MULTISET_MATCHES_PUBLISHED", "KW_ODD_TRANSITIONS",
+        "PAIR_CLASS_WELL_DEFINED", "PAIR_CLASS_SPLIT",
+        "PAIR_CLASS_SPLIT_IS_16_16", "KW_CLASS_ALTERNATIONS",
+        "KW_HAS_THE_FORCED_15", "KW_ODD_TRANSITIONS_EQUALS_ALTERNATIONS",
+        "C4_PINS_FIRST_PAIR_TO_EVEN_CLASS", "ARRANGEMENTS_15_CHANGES_DP",
+        "ARRANGEMENTS_15_CHANGES_CLOSED_FORM", "DP_AGREES_WITH_CLOSED_FORM",
+        "TOTAL_ARRANGEMENTS_C32_16", "REDUCTION_FACTOR",
+        "PARITY_ALTERNATION", "SCOPE",
+    ]
+
+    @staticmethod
+    def _slurp(path):
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def _docstring(self):
+        src = self._slurp("verify.py")
+        m = re.search(r'def check_parity_alternation\(\):\n    """(.*?)"""',
+                      src, re.S)
+        if m is None:
+            self.fail("could not locate check_parity_alternation()'s docstring "
+                      "in verify.py; an unreadable input is an ERROR, not a pass")
+        return m.group(1)
+
+    def test_docstring_cites_the_lemma_the_page_actually_states(self):
+        md = self._slurp(self.MD)
+        cited = [int(n) for n, body in
+                 re.findall(r'\*\*Lemma (\d+) \([^)]*\)\.\*\*([^\n]*)', md)
+                 if "popcount(partner(h))" in body]
+        if len(cited) != 1:
+            self.fail(f"{self.MD} does not state exactly one popcount-congruence "
+                      f"lemma (found {cited}); an unmatchable input is an ERROR, "
+                      "not a pass")
+        want = cited[0]
+        doc = self._docstring()
+        got = re.findall(r'Lemma (\d+) of that document', doc)
+        self.assertEqual(got, [str(want)],
+                         f"check_parity_alternation() must attribute pair-parity "
+                         f"well-definedness to {self.MD}'s Lemma {want} (the "
+                         f"popcount congruence); the docstring cites {got}")
+
+    def test_docstring_does_not_promise_every_figure_on_the_page(self):
+        doc = self._docstring()
+        self.assertNotIn("every published figure", doc,
+                         "the docstring must not re-promise every figure on "
+                         "PARITY_ALTERNATION.md: two of them are outside this "
+                         "command and have their own reproducers")
+
+    def test_the_command_emits_exactly_the_eighteen_published_keys(self):
+        r = subprocess.run([sys.executable, "verify.py",
+                            "--check-parity-alternation"],
+                           capture_output=True, text=True)
+        if not r.stdout:
+            self.fail("verify.py --check-parity-alternation produced no output; "
+                      "an unreadable result is an ERROR, not a pass")
+        lines = r.stdout.splitlines()
+        self.assertEqual([l.split("=", 1)[0] for l in lines], self.EXPECTED_KEYS,
+                         "both PARITY_ALTERNATION.md and VERIFY.md publish the "
+                         "sentence \"outside that command's 18-line output\"; "
+                         "changing this key list falsifies it")
+        self.assertIn("PARITY_ALTERNATION=PASS", lines)
+        self.assertEqual(r.returncode, 0)
+
+    def test_the_two_out_of_scope_figures_have_live_reproducers(self):
+        r = subprocess.run([sys.executable, "solve.py",
+                            "--symmetry-completeness"],
+                           capture_output=True, text=True)
+        if not r.stdout:
+            self.fail("solve.py --symmetry-completeness produced no output; an "
+                      "unreadable result is an ERROR, not a pass")
+        self.assertIn("[SC-7 partner-commuters among 720 == 48 == C_S6(rev)] PASS",
+                      r.stdout.splitlines(),
+                      "PARITY_ALTERNATION.md redirects its 48-element group "
+                      "figure to leg SC-7; a dead redirect is the same defect "
+                      "as a wrong one")
+        m = subprocess.run(
+            [sys.executable, "-c",
+             "import solve; print(18 - "
+             "len(solve.h2_parity_slots(list(solve.binary_hexagrams))))"],
+            capture_output=True, text=True)
+        if not m.stdout.strip():
+            self.fail("the Moore 16/18 one-liner produced no output; an "
+                      "unreadable result is an ERROR, not a pass")
+        self.assertEqual(m.stdout.strip(), "16",
+                         "PARITY_ALTERNATION.md publishes this one-liner as the "
+                         "reproducer for Moore 2005's 16/18 KW compliance")
+
+
+class TestSatEncodeHeaderNamesTheFileContents(unittest.TestCase):
+    """C3 (2026-09-02): the DIMACS header claimed constraints the file does not
+    contain (P07 residue, and its unreported sibling).
+
+    WHAT WAS WRONG. p3_sat_encode() built "c constraints: ..." from the REQUEST
+    flags, not from what it emitted. --sat-c3=pb wrote "C1+C2+C3(pb)" although
+    the C3 bound goes only to the parallel .opb, so a pure-#SAT counter aimed at
+    the .cnf counted C1nC2(nC4) while the header told it C3 was enforced.
+    SOLVE_PY_CLI.md carried a standing "do not trust the .cnf's own comment
+    header" warning in place of the fix.
+
+    THE SIBLING NOBODY CHARGED. --sat-c5 appended "+C5" the same way, and C5 in
+    this encoder is deferred/superseded: it emits NO clause at all, only a
+    status entry in the sidecar JSON. --sat-c3=adder is the third instance. The
+    charge named C3(pb); the class is "the header echoes the flags".
+
+    WHY THE FIRST LEG IS SEMANTIC, NOT TEXTUAL. Asking whether the header
+    "mentions C3" would pass on any wording that happened to contain the string,
+    and would pass equally against a header that had simply been deleted. The
+    first leg instead MEASURES that C3 and C5 contribute zero clauses: the pb
+    encoding's clause list is the none-mode list plus exactly 3 x 262,144
+    aux-linking clauses, and the none-mode list is a prefix of it. Only then is
+    the header required to name C1+C2(+C4) and nothing else. If C3 or C5 ever
+    gain real encoders here, this leg goes red and forces the header to move
+    with them -- which is the coupling whose absence caused the defect.
+
+    RED-TESTED 2026-09-02 -- see the private followups entry."""
+
+    AUX_LINK_CLAUSES = 3 * 64 * 64 * 64      # 3 linking clauses per pair[v][i][j]
+
+    @staticmethod
+    def _header(path):
+        out = []
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                if not line.startswith(("c ", "* ")):
+                    break
+                out.append(line.rstrip("\n"))
+        return out
+
+    def test_c3_and_c5_contribute_no_clauses_and_the_header_says_so(self):
+        with tempfile.TemporaryDirectory() as d:
+            plain = os.path.join(d, "plain.cnf")
+            pb = os.path.join(d, "pb.cnf")
+            solve.p3_sat_encode(plain, include_c3="none", include_c4=True,
+                                include_c5=False)
+            solve.p3_sat_encode(pb, include_c3="pb", include_c4=True,
+                                include_c5=True)
+
+            def clauses(path):
+                with open(path, encoding="utf-8") as fh:
+                    return [l for l in fh if l[0] not in "c*p"]
+
+            a, b = clauses(plain), clauses(pb)
+            if not a or not b:
+                self.fail("p3_sat_encode wrote no clauses; an empty result is "
+                          "an ERROR, not a pass")
+            self.assertEqual(len(b) - len(a), self.AUX_LINK_CLAUSES,
+                             "the pb encoding must differ from the plain one by "
+                             "the aux-linking clauses ALONE: C3's bound lives in "
+                             "the .opb and C5 is deferred, so neither may add a "
+                             "clause to the DIMACS file")
+            self.assertEqual(b[:len(a)], a,
+                             "the plain clause list must be a prefix of the pb "
+                             "one; if it is not, something other than the aux "
+                             "linking changed and the count above is a coincidence")
+
+            hdr = self._header(pb)
+            claims = [l.split(":", 1)[1].strip() for l in hdr
+                      if l.startswith("c constraints:")]
+            self.assertEqual(claims, ["C1+C2+C4"],
+                             "the DIMACS header must name what is IN the file. "
+                             f"Header was:\n" + "\n".join(hdr))
+            absent = " ".join(l for l in hdr if l.startswith("c NOT in this file:"))
+            self.assertIn("C3", absent,
+                          "the header must say where the C3 bound actually is")
+            self.assertIn("C5", absent,
+                          "the header must say that C5 is not encoded here")
+
+    def test_the_opb_redirect_is_not_dead(self):
+        with tempfile.TemporaryDirectory() as d:
+            pb = os.path.join(d, "pb.cnf")
+            solve.p3_sat_encode(pb, include_c3="pb", include_c4=True,
+                                include_c5=False)
+            opb = pb + ".opb"
+            self.assertTrue(os.path.exists(opb),
+                            "--sat-c3=pb must write the .opb the header points at")
+            hdr = self._header(opb)
+            self.assertTrue(any(l.startswith("* constraints:") and "C3(pb)" in l
+                                for l in hdr),
+                            "the .opb header must claim the C3 bound it carries")
+            with open(opb, encoding="utf-8") as fh:
+                bounds = [l for l in fh if l.rstrip("\n").endswith("<= 776 ;")]
+            self.assertEqual(len(bounds), 1,
+                             "the .opb must carry exactly one C3 <= 776 PB "
+                             "constraint; a header that claims C3 over a file "
+                             "without it is the same defect one level up")
+
+
+class TestReconstructVerdictIsNotRefuted(unittest.TestCase):
+    """C3 (2026-09-02): `solve.py --reconstruct` printed a REFUTED claim to
+    users on every default run (P06 residue).
+
+    WHAT WAS WRONG. The mode's closing summary read "The specification's
+    uniqueness holds globally". Global uniqueness of C1-C7 was refuted on
+    2026-07-02 -- about 5.21e31 orderings satisfy C1-C7 over the full space --
+    and even inside the enumerated datasets 14 non-KW records survive
+    C6+C7+boundary-4 at 560T. SOLVE.md question 4 carried "a correction to
+    solve.py is pending" in place of the fix; the docs were honest and the
+    shipped tool was not. The same paragraph named a second live overclaim, the
+    unqualified "Reconstruction matches King Wen exactly", which is true by
+    construction because the routine replays King Wen's own choice; that is now
+    scoped in the output too.
+
+    WHY THE FIGURES ARE READ OUT OF THE PAGE. Asserting only that the retracted
+    sentence is GONE would pass equally against a repair that deleted the
+    summary, or the whole mode, rather than correcting it -- the absent-target
+    failure this project keeps hitting. So the two published figures the
+    replacement rests on are sourced from SPECIFICATION.md at test time and
+    required to appear in the runtime output. If the page's figures move and the
+    printout does not, this goes red; if the page stops stating them, that is an
+    ERROR here, not a pass.
+
+    RED-TESTED 2026-09-02 -- see the private followups entry."""
+
+    RETRACTED = "The specification's uniqueness holds globally"
+
+    def _spec_figures(self):
+        with open("documentation/SPECIFICATION.md", encoding="utf-8") as fh:
+            md = fh.read()
+        if "14 non-KW records still survive at 560T" not in md and \
+           "14 non-KW records survive C6+C7+boundary-4 at 560T" not in md:
+            self.fail("SPECIFICATION.md no longer states the 14-survivor figure; "
+                      "an unmatchable input is an ERROR, not a pass")
+        if "5.21×10³¹" not in md:
+            self.fail("SPECIFICATION.md no longer states the 5.21e31 full-space "
+                      "survivor count; an unmatchable input is an ERROR, not a pass")
+        return ("14", "5.21e31")
+
+    def test_reconstruct_does_not_print_the_refuted_uniqueness_claim(self):
+        r = subprocess.run([sys.executable, "solve.py", "--reconstruct"],
+                           capture_output=True, text=True)
+        if not r.stdout:
+            self.fail("solve.py --reconstruct produced no output; an unreadable "
+                      "result is an ERROR, not a pass")
+        self.assertNotIn(self.RETRACTED, r.stdout,
+                         "--reconstruct must not print the claim refuted on "
+                         "2026-07-02")
+        self.assertIn("✓ Reconstruction matches King Wen exactly.", r.stdout,
+                      "the mode itself must still work; a repair that removed "
+                      "the summary by removing the mode is not a repair")
+        self.assertIn("TRUE BY CONSTRUCTION", r.stdout,
+                      "the match is a replay of King Wen's own choices and the "
+                      "output must say so")
+
+    def test_the_closing_scope_carries_the_published_refutation_figures(self):
+        n_survivors, full_space = self._spec_figures()
+        r = subprocess.run([sys.executable, "solve.py", "--reconstruct"],
+                           capture_output=True, text=True)
+        if not r.stdout:
+            self.fail("solve.py --reconstruct produced no output; an unreadable "
+                      "result is an ERROR, not a pass")
+        tail = r.stdout.split("Reconstruction matches King Wen exactly.", 1)[-1]
+        self.assertIn("REFUTED 2026-07-02", tail)
+        self.assertIn(full_space, tail,
+                      "the closing scope must carry SPECIFICATION.md's full-space "
+                      "survivor count")
+        self.assertIn(f"{n_survivors} non-KW records", tail,
+                      "the closing scope must carry SPECIFICATION.md's "
+                      "within-dataset survivor count")
+
+
+class TestHbBandIsDescribedAsImplemented(unittest.TestCase):
+    """C3 (2026-09-02): the TR-8 H-b tolerance was described as "5 sigma" two
+    lines above the `+ 3.0` it actually applies (P07 residue, and its sibling in
+    the shipped artifact).
+
+    WHAT WAS WRONG. `_tr8_finish` gates the pool's null calibration with
+    `abs(hb - exp_hb) <= 5.0 * sigma + 3.0`. Its own comment called 5 sigma "the
+    frozen tolerance", and the `h_b_note` field written into every run's
+    results.json said "5-sigma Poisson band" -- so the artifact a reader keeps
+    understated the band that was actually applied. SOLVE_PY_CLI.md has always
+    carried the correct `|observed - expected| <= 5σ + 3`, with a paragraph on
+    why the +3 matters at small pool sizes; only the code disagreed with it.
+
+    HOW THE COEFFICIENTS ARE OBTAINED. Not by reading the comment, and not by
+    matching the source text -- by EVALUATING the predicate's right-hand side at
+    sigma = 0 and sigma = 1. The intercept and slope that come back are the band
+    the code applies, whatever it is written as. Those two numbers are then
+    required to appear in the prose page and in the shipped note. Change 5.0 or
+    3.0 and all three legs go red together; that coupling is what was missing.
+
+    RED-TESTED 2026-09-02 -- see the private followups entry."""
+
+    def _predicate_rhs(self):
+        with open("solve.py", encoding="utf-8") as fh:
+            src = fh.read()
+        m = re.search(r'hb_ok = abs\(hb - exp_hb\) <= (.+)', src)
+        if m is None:
+            self.fail("could not locate the H-b band predicate in solve.py; an "
+                      "unreadable input is an ERROR, not a pass")
+        return m.group(1).strip()
+
+    def test_the_band_the_code_applies_is_five_sigma_plus_three(self):
+        rhs = self._predicate_rhs()
+        f = lambda sig: eval(rhs, {"__builtins__": {}}, {"sigma": sig})
+        intercept, slope = f(0.0), f(1.0) - f(0.0)
+        self.assertEqual((slope, intercept), (5.0, 3.0),
+                         f"H-b band changed: RHS is {rhs!r}. If that is "
+                         "intentional, SOLVE_PY_CLI.md and h_b_note must move "
+                         "with it -- which is what the next two legs enforce")
+
+    def test_the_published_page_states_the_band_the_code_applies(self):
+        with open("documentation/SOLVE_PY_CLI.md", encoding="utf-8") as fh:
+            md = fh.read()
+        self.assertIn("`|observed − expected| ≤ 5σ + 3`", md,
+                      "SOLVE_PY_CLI.md must state the band _tr8_finish applies")
+
+    def test_the_shipped_note_states_the_band_the_code_applies(self):
+        with open("solve.py", encoding="utf-8") as fh:
+            src = fh.read()
+        m = re.search(r'"h_b_note": (.+?)% Fraction', src, re.S)
+        if m is None:
+            self.fail("could not locate h_b_note in solve.py; an unreadable "
+                      "input is an ERROR, not a pass")
+        note = m.group(1)
+        self.assertIn("5*sigma + 3", note,
+                      "results.json's h_b_note is the description a reader keeps "
+                      "with the artifact; it must name the band that was applied, "
+                      "not the sigma term alone")
+
+
+class TestInfoContentLeadsWithTheMeasuredLedger(unittest.TestCase):
+    """C3 (2026-09-02): `solve.py --info` printed retired figures as its answer
+    (P06 residue).
+
+    WHAT WAS WRONG. The command's headline totals were "~176.3 of 296.0 bits
+    removed, ~119.7 remaining", from a heuristic ladder whose last rung is an
+    explicit guess ("est. ~1 in 50,000"). SOLVE.md retired those numbers on
+    2026-08-30 -- they match no published scope and understate the measured
+    C1-C5 population by ~100x -- and recorded, in the correction itself, that
+    the tool still printed them. It did, for three more days.
+
+    WHY THE FIGURES ARE DERIVED, NOT TYPED. The replacement block computes
+    log2 of H2_N_CAN, the same constant solve.py already uses for the C1-C5
+    population, so the command cannot drift away from the ledger row it cites.
+    This test re-derives both figures HERE from the module constant and from the
+    published 5.21e31, and requires the printed report to carry them -- so a
+    later hand-edit of the printed text, or a change to H2_N_CAN that does not
+    reach the print, is red. It also requires the retired totals to still be
+    labelled: keeping the ladder is fine, presenting it as the answer is not.
+
+    RED-TESTED 2026-09-02 -- see the private followups entry."""
+
+    def _info(self):
+        r = subprocess.run([sys.executable, "solve.py", "--info"],
+                           capture_output=True, text=True)
+        if not r.stdout:
+            self.fail("solve.py --info produced no output; an unreadable result "
+                      "is an ERROR, not a pass")
+        self.assertEqual(r.returncode, 0)
+        return r.stdout
+
+    def test_the_measured_bits_are_log2_of_the_published_populations(self):
+        import math
+        out = self._info()
+        can = math.log2(solve.H2_N_CAN)
+        c67 = math.log2(5.21e31)
+        self.assertAlmostEqual(can, 126.6, places=1,
+                               msg="H2_N_CAN moved; TR-9's ledger row and this "
+                                   "command's report must move together")
+        tail = out.split("--- MEASURED", 1)
+        self.assertEqual(len(tail), 2,
+                         "--info must close on the MEASURED block, not on the "
+                         "retired ladder")
+        tail = tail[1]
+        self.assertIn(f"2^{can:.1f}", tail,
+                      "the measured C1-C5 bit figure must be log2(H2_N_CAN)")
+        self.assertIn(f"{296.0 - can:.1f}", tail,
+                      "the removed-bits figure must be 296.0 - log2(H2_N_CAN)")
+        self.assertIn(f"2^{c67:.1f}", tail,
+                      "the C1-C7 bit figure must be log2(5.21e31)")
+
+    def test_the_retired_ladder_is_labelled_and_is_not_the_answer(self):
+        out = self._info()
+        self.assertIn("HISTORICAL ESTIMATE", out,
+                      "the 176.3 / 119.7 ladder is retired; keeping it is fine, "
+                      "printing it unlabelled is not")
+        head, _, tail = out.partition("--- MEASURED")
+        self.assertIn("119.7", head,
+                      "the ladder itself is preserved as history; if it is gone, "
+                      "this test's premise no longer holds and it must be revised, "
+                      "not silently passed")
+        self.assertNotIn("119.7", tail,
+                         "the retired remaining-bits total must not appear in the "
+                         "measured verdict")
+        self.assertNotIn("176.3", tail,
+                         "the retired removed-bits total must not appear in the "
+                         "measured verdict")
 
 
 if __name__ == "__main__":
