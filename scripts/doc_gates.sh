@@ -2062,6 +2062,24 @@ DISPO = ['stopped at', 'was stopped', 'completed', 'requested', 'never reached',
          'never carried out', 'superseded', 'aborted', 'cancelled', 'partial',
          'previously read', 'corrected', 'no longer', 'observed scenario',
          'hypothetical', 'as of this', 'at the time']
+# NARRATION MARKERS — deliberately SAME-LINE scope, not the ±4/+3 window DISPO uses.
+#
+# Added 2026-09-02. GATE 7 fired on documentation/CORRECTIONS.md:5662, a correction entry
+# NARRATING a frozen status it had just withdrawn: "the sentence was written 2026-06-13 with
+# the re-derive described as *in flight*". A report ABOUT a defect is not an instance of it,
+# and because `all` is the blocking pre-push leg this false positive blocked EVERY PUSH. It
+# also gets louder every time the prose lane does its job, since each new correction that
+# documents a frozen status re-triggers it — the wrong gradient.
+#
+# 🔴 WHY LINE SCOPE AND NOT DISPO. Adding these to DISPO was tried first and MEASURED: with
+# the ±4/+3 window, a genuine "the 4000T ladder build is in flight" was suppressed by an
+# unrelated "was withdrawn last week" on the preceding line. That is a recall loss in exactly
+# the direction this gate exists to prevent, and the corpus makes it reachable — 7 files carry
+# a liveness keyword and 37 carry one of these markers. On the same LINE the association is
+# grammatical rather than coincidental, and the real case satisfies it: 'described as' sits in
+# the same sentence as 'in flight'. Re-tested after the change: the narration case passes, and
+# BOTH genuine cases fire again, including the one the window had suppressed.
+NARRATION = ['withdrawn', 'described as', 'retired wording']
 bad = 0
 # The registry is the authority on which budgets were actually REACHED. A run named
 # after a budget in the registry is named correctly; one named after a budget that
@@ -2101,6 +2119,10 @@ for f in files:
             # item R18: for the boundary-sensitive keys the bare substring is not enough —
             # "concurrently running" contains "currently running" and claims nothing.
             if k in WORDSTART and not re.search(r'\b' + re.escape(k), low):
+                continue
+            # Same-line narration check FIRST: it is the tighter test, so a line that
+            # quotes or reports a past claim is cleared without widening the window.
+            if any(n in low for n in NARRATION):
                 continue
             ctx = ' '.join(lines[max(0, i-4):i+3]).lower()
             if any(d in ctx for d in DISPO):
