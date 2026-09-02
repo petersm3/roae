@@ -6899,3 +6899,172 @@ asserting a frequency nobody has measured.
 **Attribution.** The charge was filed against this lane as `NUMBERLESS_UNIVERSALS`. The derivability
 check, the decision to publish the gap rather than a hedge, the apostrophe-fold reasoning behind the
 needle choice and the anchor re-verification are this lane's.
+
+---
+
+## 2026-09-02 — an order-preservation argument that names the wrong comparator at two of the three sites it clears, an independence universal a six-boundary set refutes, and a lookup key the tool stopped accepting a week before the docs did
+
+Three adjudicated charges, one of them against this ledger itself. Each was re-verified at HEAD
+before anything was written, and one of the three was **already closed** at the line it cited — that
+is reported below rather than counted as a fix.
+
+### 1. The 2026-08-28 entry's "What is NOT affected" paragraph — corrected by supersession, not by edit
+
+**How append-only is honoured.** The charge asks for an amendment to a sentence committed on
+2026-08-28. This ledger is append-only and is gated as such (GATE 10a against HEAD, GATE 10b against
+every historical version), so no committed line may be reworded or removed. The only honest
+instrument is this **appended superseding entry**, and it is used deliberately: the 2026-08-28
+paragraph stands exactly as written, and this entry states where it is right, where it is wrong, and
+what the wrong part costs. Nothing above this line was touched.
+
+**What that paragraph says.** It clears the `dav_rotinv` doubling (one-sided 6.531×10⁻⁵ → two-sided
+1.306×10⁻⁴) on the ground that METHODS and TR-8 use `dav_rotinv` only as a **BH ranking anchor**,
+that the argument needs it to be strictly smaller than `dav_trigarray`, and that doubling is
+order-preserving.
+
+**That is exactly right for one of its three downstream sites and wrong for the other two, because
+they do not share a comparator.** Read rather than counted:
+
+| site | what `dav_rotinv` is compared against | 6.531×10⁻⁵ | 1.306×10⁻⁴ | order |
+|---|---|---|---|---|
+| `reports/METHODS.md:264` | `dav_trigarray`, 6.8×10⁻⁴ | smaller | still smaller | **preserved** — the paragraph is right |
+| `reports/TR8_REORDERING_REVISITED.md:62` | the Schulz-gender **pair-null exact** mass 47/445740 = 1.054426×10⁻⁴ | smaller | **larger** | **reversed** |
+| `reports/METHODS.md:292` | the same 1.054×10⁻⁴ rarity, same sentence shape | smaller | **larger** | **reversed** |
+
+`dav_trigarray` is named in the paragraph; the pair-null mass is not, and it is the quantity the two
+reversed sites rank. Only one operand of that comparison was doubled, so order-preservation is not
+available there — it is a property of doubling *both* sides.
+
+**What the reversal costs, stated under every reading rather than under the one that flatters it.**
+The BH bar at rank *i* is *i*·0.05/91; at rank 1 it coincides with the Bonferroni bar 5.4945×10⁻⁴.
+
+- **Mixed** (the rarity left one-sided, the anchor doubled): the anchor no longer sits below the
+  rarity, so *i* ≥ 2 is not forced by it, and at rank 1 the margin is
+  5.4945×10⁻⁴ ÷ 1.054426×10⁻⁴ = **5.21×** — the Bonferroni number, because at rank 1 the two bars
+  are the same bar.
+- **Consistently two-sided** (the convention TR-10 adopted on 2026-08-28): the rarity doubles too, to
+  2.108853×10⁻⁴, so *i* ≥ 2 is restored — and the margin is
+  2·(0.05/91) ÷ 2.108853×10⁻⁴ = **5.21×** again. Under this reading the *Bonferroni* margin also
+  halves, from 5.21× to **2.61×**.
+- **Consistently one-sided:** the published ≥~10× stands, but that reading is the one the
+  2026-08-28 correction ruled against.
+
+So the published BH margin survives only under a wholly one-sided ledger, and under both readings
+that respect the 2026-08-28 convention the figure is ~5.2×, not ≥~10×. The two arithmetics landing on
+the same number is not a coincidence: doubling the anchor either demotes the rank or doubles the
+ranked value, and those cancel.
+
+**One dependency stated rather than assumed.** The rank-1 conclusion holds *given that the anchor
+those two sentences name is the only support they offer for i ≥ 2*, which is what they say. The full
+91-observable ordering is not published as a list anywhere in this corpus, so "no ledger value is
+strictly smaller than 1.054426×10⁻⁴" is **not** something this entry checked; METHODS' own
+2026-08-01 narrowing withdrew the nine registry masses that were the previously-offered support, and
+the C1–C5 counterpart of this same rule (≈8.80×10⁻⁵) is itself a registry mass excluded from BH
+ranking. If some other ranked value is smaller, the rank rises and the margin rises with it.
+
+**Still outstanding, and not fixed here.** `TR8:62`, `TR8:242` (the v1.11 revision row, which
+restates the claim in the present tense) and `METHODS:292` all still carry the *i* ≥ 2 support and
+the ≥~10× margin. They are outside this documentation lane's files; the outstanding fix is to restate
+TR-8's BH margin as ~5.21× or rebuild the ordering with consistently sided p-values, and to add a
+TR-8 revision row for it. Nothing in this entry changes a measured value in those reports, and no
+verdict in the suite moves either way: the rarity clears the global bar under every reading above.
+`reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md:110` already carries the two-sided correction inline
+and needs nothing.
+
+**No needle is registered for this defect, and the reason is structural.** The wording that is wrong
+lives in this append-only ledger, where it must stay. A registry row would match at HEAD forever and
+fail GATE 3 on every run. A gate that cannot be satisfied is not a gate.
+
+### 2. `documentation/PROJECT_OVERVIEW.md` — the charged site was already closed; two uncharged siblings were not
+
+The charge cited the conditional-entropy paragraph's claim that boundaries 25 and 27 are structurally
+independent "of all other boundaries". **Verified at HEAD: already closed.** That sentence now reads
+"of the other boundaries … that the rest of the greedy set does not reach", and carries a scope
+paragraph. Reported as closed, not counted as a fix.
+
+**Censusing the claim rather than the charged string found two live sites the charge did not name** —
+the minimum-4-set paragraph and the 560T "still mandatory" bullet, both asserting that the
+information carried by 25 and 27 is implied by no other boundary. That is false, and deciding it
+needs no enumeration at all. `documentation/SOLVE.md` defines boundary *N* as pinning the pair at
+position *N* **and** the pair at position *N*+1. So boundary 24 ∧ boundary 26 entails boundary 25
+(24 supplies position 25, 26 supplies position 26), and boundary 26 ∧ boundary 28 entails boundary
+27. Every record satisfying {1, 4, 21, 24, 26, 28} therefore satisfies {1, 4, 21, 25, 27}, which
+leaves **zero** non-KW survivors at 560T — so a six-boundary set containing neither 25 nor 27
+identifies King Wen.
+
+**Both sites now state the exact claim instead of the universal:** no *single* other boundary carries
+that information, because one boundary pins two consecutive positions and only boundary 25 pins
+{25, 26}. The scope paragraph now records the decided counterexample **and its limit**: the argument
+cannot be pushed to cardinality 5, because entailing boundary 25 and boundary 27 together requires
+positions 25, 26, 27 and 28 all pinned, two boundaries pin at most four positions, and the only
+two-boundary set pinning exactly those four is {25, 27} itself. The five-subset question stays open
+by enumeration; the unrestricted reading is closed as false. Registered as **RP-212288d7**.
+
+**Where the charge overreached, published rather than repeated.** The adjudication reads the
+counterexample as showing "the surviving claim is about greedy minima only". It shows less than that
+and more than the page said. It refutes the *unrestricted* reading — every identifying set contains
+25 or 27 — at cardinality 6. It does **not** touch the *minimum-set* reading, since 6 > 5, and the
+construction provably cannot reach cardinality 5. Both bounds are now on the page.
+
+**One sibling site is reported, not fixed, because it is outside this lane's files:**
+`documentation/HISTORY.md:795` states the same universal in a different grammatical form ("no
+combination of other boundaries kills the families they catch"). **RP-212288d7 cannot reach it**
+
+🔴 **A second sibling was claimed and is withdrawn before this entry was committed.** The draft of
+this entry also named `documentation/SOLVE.md:391` as carrying "no other boundary combination can
+eliminate what they eliminate". That is wrong twice over, and both halves were checked rather than
+one: the quoted string appears **nowhere** in `SOLVE.md` — nor anywhere in the adjudication it was
+attributed to — and `:391` is a per-boundary conditional-entropy paragraph. The genuinely related
+claim in that file is at **`:413`**, and it is **correctly scoped and not contradicted**: it says
+"no matter how cleverly you choose the other 2 of your **4** boundary constraints…", which is the
+*minimum-set* reading the counterexample at cardinality 6 explicitly leaves standing. Naming it as a
+survivor would have manufactured a contradiction that does not exist, in an append-only file where
+it could only ever be superseded, never removed — that is the reachability class this batch also recorded in the private
+finding note, and it is why the two survivors are named here in full rather than left to a needle.
+
+### 3. `documentation/ROAE_PY_CLI.md` — the data description was corrected on 2026-08-27; the interface description was not
+
+Traditional and translated hexagram titles were removed from `roae.py` on 2026-08-27, and prose batch
+P07 corrected the §FILES description of the shipped **data**. Three summaries of the **interface**
+kept advertising a name as an accepted lookup key: the SYNOPSIS comment and the two INTERACTIVE
+QUERIES rows.
+
+**Verified by running the tool, not by reading it.** `--lookup Qian`, `--lookup 乾`, `--lookup Zhun`
+and `--lookup 屯` each print `No hexagram found matching '…'`; `--lookup "Water over Thunder"`
+returns hexagram 3; `--compare Qian Kun` prints `Could not find hexagram: Qian`. All three doc rows
+now name the trigram-derived label as the key, and the `--lookup` row states the negative the
+reviewer executed, so the row is falsifiable by running it. Registered as **RP-f00d31ac**,
+**RP-625ddaa2** and **RP-40edf278** — three rows and not one, because the three sites share no
+substring; the single spelling that would have covered all three matches seven files at HEAD, in most
+of which it is correct, so it was measured and rejected rather than registered.
+
+**Code-side residue disclosed in the doc rather than left silent.** `roae.py:2241` and `:2242` (the
+`--help-sections` menu rows) and `roae.py:5088` and `:5090` (the matching `argparse` help strings)
+still offer a name as a key, and the not-found message still does not say what the tool accepts.
+Those are code edits outside this documentation pass. **No registry row can guard them:** GATE 3's
+corpus is the tracked `*.md` set plus `reports/evidence/**`, so a needle cannot reach a Python file
+at all.
+
+### Census
+
+Whitespace-flattened and character-folded over GATE 3's own corpus, by re-implementing its fold and
+match rather than trusting a plain `grep`: **RP-212288d7 1 file / 2 sites → 0. RP-f00d31ac 1 → 0.
+RP-625ddaa2 1 → 0. RP-40edf278 1 → 0.** The `allow` column is `__none__` on all four, and this entry
+cites the keys rather than quoting the strings. The in-place marker on the 560T bullet **describes**
+the retired universal instead of quoting it, for the same reason: quoting it in the file the needle
+guards would have made the needle unsatisfiable there.
+
+### Nothing measured changed
+
+No count, sha, certificate, theorem or verdict moves. The §[9] independence ratio, the §[6] greedy
+set and the 560T survivor counts are as published. What changed is that two pages stopped stating a
+universal that is decidably false, one page stopped advertising an input the tool rejects, and the
+BH-margin arithmetic is now on the record with its comparator named per site.
+
+### Attribution
+
+The three charges were raised by Codex review lenses (V2-L01 #1 and #3, V2-L22 #1). The per-site
+comparator split, the two-reading margin arithmetic, the cardinality-6 counterexample's **limit** at
+cardinality 5, the two uncharged PROJECT_OVERVIEW siblings, the rejection of a single broad CLI
+needle on a measured seven-file count, and the append-only reasoning are this lane's. Codex is
+**acknowledged**, not credited as an author.

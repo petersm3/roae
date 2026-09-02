@@ -21,7 +21,7 @@ python3 roae.py --quick              # core sections only (fast)
 python3 roae.py --<section>          # run a specific analysis
 python3 roae.py --help-sections      # list all available sections
 python3 roae.py --self-test          # data-integrity invariant checks
-python3 roae.py --lookup HEX         # interactive: hexagram by number/name
+python3 roae.py --lookup HEX         # interactive: hexagram by number/derived label
 python3 roae.py --compare A B        # interactive: two-hexagram comparison
 python3 roae.py --cast               # interactive: simulate I Ching reading
 python3 roae.py --explain N          # interactive: walk one transition (1-63)
@@ -147,8 +147,14 @@ The 29 analysis sections, each invoked by a single flag:
 ## INTERACTIVE QUERIES
 
 ```
---lookup HEX                    Look up a hexagram by number (1-64) or by name
---compare A B                   Compare two hexagrams (each by number or name)
+--lookup HEX                    Look up a hexagram by number (1-64) or by its
+                                trigram-derived label (e.g. "Water over Thunder").
+                                Traditional and translated titles were removed on
+                                2026-08-27 and are NOT accepted: `--lookup Qian`,
+                                `--lookup 乾` and `--lookup Zhun` all report
+                                "No hexagram found".
+--compare A B                   Compare two hexagrams (each by number or
+                                trigram-derived label, on the same terms as --lookup)
 --cast                          Simulate an I Ching reading using the three-coin method
 --explain N                     Walk through transition N (1-63) step by step
 ```
@@ -156,6 +162,23 @@ The 29 analysis sections, each invoked by a single flag:
 These are interactive convenience subcommands that print human-readable
 output for a single hexagram or transition. Useful for debugging specific
 claims in the analyses and for individual reference lookups.
+
+*(Corrected 2026-09-02, adjudicated correction. The three summaries above read
+"by name"/"by number/name". The 2026-08-27 removal of traditional and
+translated titles corrected the **data** description at §FILES but not the
+**interface** description here, so the documented lookup key outlived the key
+the tool accepts. Verified by running it, not by reading it: `--lookup Qian`,
+`--lookup 乾`, `--lookup Zhun` and `--lookup 屯` each print
+`No hexagram found matching '...'`, while `--lookup "Water over Thunder"`
+returns hexagram 3 and `--compare Qian Kun` prints
+`Could not find hexagram: Qian`. **Residue disclosed rather than left silent:**
+`roae.py` itself still says "or name" in four places — its `--help-sections`
+menu rows for `--lookup` and `--compare` (`roae.py:2241`, `:2242`) and the two
+matching `argparse` help strings (`roae.py:5088`, `:5090`) — and the
+not-found message still does not say what the tool does accept. Those are code
+edits outside this documentation pass, and the retracted-phrase registry cannot
+guard them either: GATE 3's corpus is the tracked `*.md` set plus
+`reports/evidence/**`, so no needle registered here can reach a Python file.)*
 
 Examples:
 
