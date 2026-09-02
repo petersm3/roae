@@ -83,7 +83,7 @@ DIR` for the streaming mode; mutually exclusive) contains:
 | `f1c5_layer_<kk>.bin.vals.tmp` | v1 out-of-core only: value-section staging sidecar, relocated into the `.tmp` at finalize and deleted. |
 | `f1c5_layer_<kk>.bin.kblk.tmp`, `.vblk.tmp` | v2 only: streaming compressed-block sidecars (keys / values), assembled into the `.tmp` at finalize and deleted. They persist across a mid-layer crash on purpose — the intra-layer checkpoint references them (§Intra-layer checkpoint). |
 | `f1c5_build.ckpt` (+ `.tmp`) | v2 only: intra-layer chunk checkpoint marker (§Intra-layer checkpoint). Deleted when the layer's final rename lands. |
-| `f1c5_progress.json` (+ `.tmp`) | `main` branch only: sha-neutral JSON observability sidecar, atomically swapped ~every 5 s. Not part of the verification surface; never affects layer bytes. Absent on `v4-canonical`. |
+| `f1c5_progress.json` (+ `.tmp`) | `main` branch only: sha-neutral JSON observability sidecar, written atomically (`.tmp` then rename) at **four points only** — layer begin, layer end, each out-of-core chunk boundary, and run completion — and throttled to at most one write per 5 s. It is **not** refreshed on a timer: there is no timer thread and no within-layer emitter, so `updated_utc` can be arbitrarily stale during a long non-out-of-core layer or a long chunk. A watchdog must therefore key on phase transitions, not on `updated_utc` age. Not part of the verification surface; never affects layer bytes. Absent on `v4-canonical`. |
 
 **Write discipline (every durable file):** write to a `.tmp` name → `fflush`
 + `fsync` the file → `rename` to the final name → `fsync` the directory.
@@ -99,9 +99,29 @@ mode) or finishes (in-RAM mode), layer `k−1` is deleted — the directory hold
 at most two adjacent complete layers, and after a completed full run it holds
 layers `n−1` and `n` only. Two `main`-only environment hooks modify this:
 `SOLVE_F1_KEEP_LAYERS=1` suppresses the delete entirely (all layers `0..n`
-retained; full-31 v2 ladder ≈ 2.5–2.7 TB), and `SOLVE_F1_STREAM_COLD_CMD`
-names a command run as `<cmd> <layer_path> <k>` on each layer just before the
-rolling delete (non-fatal, purely archival). Neither changes layer bytes.
+retained; full-31 v2 ladder ≈ 2.5–2.7 TB **projected** — 1.624 TB was
+measured on disk at `k = 0..16`, 17 of the 32 layers, on 2026-07-23, and the
+remainder is a mask-palindrome projection rather than a measurement, at v2
+zlib level 6 with the default BLK; plan a 4 TB disk), and
+`SOLVE_F1_STREAM_COLD_CMD` names a command invoked as
+`<cmd> <layer_path> <k>` on each layer just before the rolling delete.
+Neither changes layer bytes.
+
+**Two properties of the cold hook a caller must plan around**, because
+neither is what the shorthand above suggests:
+
+1. **The command string goes to `system()`, i.e. to `/bin/sh`, and the layer
+   path is interpolated unquoted** (the format is literally `"%s %s %d"`). A
+   run directory whose path contains a space, a quote or a glob character
+   therefore does *not* reach the hook as two arguments — the hook is handed
+   a mis-split or shell-expanded command line. Keep run directory paths to a
+   shell-safe alphabet (letters, digits, `_`, `-`, `.`, `/`).
+2. **The hook's exit status is logged but not acted on.** The rolling
+   `unlink()` of that layer runs immediately afterwards whether the hook
+   succeeded or failed, so a hook that fails — including one that failed
+   because of (1) — loses the only local copy of the layer. A caller that
+   cannot tolerate that should use `SOLVE_F1_KEEP_LAYERS=1` and copy layers
+   out itself.
 
 **Format selection:** the in-RAM `--layers-dir` mode always writes v1. The
 out-of-core mode writes v2 by default; `SOLVE_F1_OOC_FORMAT=v1` selects raw
@@ -289,9 +309,17 @@ cross-checks on resume.
 
 ## Checkpoint and resume semantics
 
-**Layer-level (both formats):** every completed layer file is a free
-checkpoint. On start (automatic; `--resume-from-layers` merely makes a
-missing manifest a hard error) the engine reads the manifest, validates
+**Layer-level (both formats):** every layer file **recorded in the
+manifest** is a free checkpoint; a layer that completed after the last
+manifest write is **rebuilt**, not adopted. The two writes are ordered
+rename-then-manifest (§Ordering), and resume reads only `last_complete_k`
+from the manifest — it never scans the directory for a durable next-layer
+file — so a crash or eviction landing between a layer's rename and the
+manifest write discards a complete, correctly named, durable layer and
+rebuilds it. Both the in-RAM and out-of-core paths carry this window. The
+count is unaffected; only the work is. On start (automatic;
+`--resume-from-layers` merely makes a missing manifest a hard error) the
+engine reads the manifest, validates
 `n` / `start_exit` / `pl_hash` / `b0` against the current run parameters,
 opens `f1c5_layer_<last_complete_k>.bin`, validates its header (magic,
 version, `n`, `k`, `start_exit`, `pl_hash`, `b0`), and resumes building from
@@ -305,9 +333,16 @@ silent rebuild.
 hours, so the builder also snapshots at chunk boundaries — a *chunk* is a
 range of `chunk_cap` consecutive target masks, where `chunk_cap =
 max(1, min(nm, floor(SOLVE_F1_OOC_SCRATCH_MB·2^20 / (64 · V_{k+1} · 24))))`
-and `V_{k+1}` is the number of rids with digit sum `k+1`. Snapshot cadence is
-~300 s of wall time (`SOLVE_F1_CKPT_SEC`), plus a deterministic test kill
-hook (`SOLVE_F1_KILL_AFTER_CHUNK`).
+and `V_{k+1}` is the number of rids with digit sum `k+1`. Snapshots are
+taken **at chunk boundaries only**, and no more often than ~300 s of wall
+time (`SOLVE_F1_CKPT_SEC`) — that is a *minimum interval between*
+snapshots, not a bound on the work at risk. Nothing subdivides a chunk on
+time, so the worst case lost to a kill is one whole chunk, whose duration
+follows from `chunk_cap` and therefore from the scratch budget: a large
+`SOLVE_F1_OOC_SCRATCH_MB` on a slow layer produces a chunk that can run far
+longer than 300 s. A deterministic test kill hook
+(`SOLVE_F1_KILL_AFTER_CHUNK`) additionally forces a snapshot at a chosen
+chunk index.
 
 `f1c5_build.ckpt` layout (contiguous, native little-endian, written
 tmp + fsync + rename + dir-fsync):
@@ -336,10 +371,24 @@ CRC32 verifies; the entry-conservation invariant
 exactly the recorded sizes (discarding any post-marker partial append) and
 the build restarts at chunk `t0_next`; because the partial-block accumulator
 is restored byte-for-byte, the finished layer file is **byte-identical** to a
-straight-through build (given the same zlib, level, and BLK). On *any*
-rejection the marker is unlinked and the layer rebuilds from scratch —
-always correct, never a silent wrong count. Note the `chunk_cap` match makes
-checkpoint validity environment-dependent: resuming under a different
+straight-through build (given the same zlib, level, and BLK). A marker that
+fails any of those checks is unlinked and the layer rebuilds from scratch, so
+a rejected checkpoint never yields a wrong count.
+
+⚠ **One failure mode escapes that rejection path.** The reader allocates
+`off[]`, `kidx[]`/`vidx[]` and the partial-block accumulator from the
+marker's own length fields (`t0_next`, `nblk`, `fill`) *before* the trailing
+CRC32 is compared, and an allocation refusal on those three is fatal
+(`exit(71)`), not a rejection. Under default Linux overcommit an oversized
+`malloc` succeeds and the following short read rejects the marker as
+intended; on a host that actually refuses it — a `ulimit -v` or cgroup
+memory cap, or `vm.overcommit_memory=2` — a corrupted length field aborts
+the run *and leaves the marker in place*, so every automatic restart aborts
+identically. Delete `f1c5_build.ckpt` by hand to recover; the layer then
+rebuilds and the count is unaffected.
+
+Note the `chunk_cap` match makes checkpoint validity
+environment-dependent: resuming under a different
 `SOLVE_F1_OOC_SCRATCH_MB` silently discards the intra-layer snapshot (the
 layer restarts; the count is unaffected). The marker is deleted when the
 layer's final rename lands, so a stale marker can never leak into the next
