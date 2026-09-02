@@ -119,7 +119,7 @@ trust-base note below for what that means and how it came to hold). What that bu
   2026-08-28, Q-347).** An **address-space** cap — `ulimit -v`, which containers and CI images
   commonly set — starves Lean's thread-stack reservation long before RSS approaches anything in
   the table above. It surfaces as `lean::exception: failed to create thread`, **not** as an
-  allocator error. Measured on a 4 GB `-v`-capped host: all 13 modules failed at **~480 MB RSS**,
+  allocator error. Measured on a 4 GB `-v`-capped host: all 13 modules then present failed at **~480 MB RSS**,
   i.e. at 5% of the figure this table would have you provision for. Buying a larger host does
   nothing. **Try this first — it is free:**
 
@@ -189,7 +189,7 @@ destructuring the permutation to a closed bit-scatter form (carry bounds + `omeg
 concretized branches forward; explicit single-bit counterexamples reverse), reporting
 `[propext, Classical.choice, Quot.sound]`. Every other former `native_decide` site in those two
 files migrated to `decide +kernel` (kernel-evaluated, no compiler trust). **Zero `native_decide`
-now remains anywhere in the thirteen files: every theorem in this directory is checked by Lean's
+now remains anywhere in the fourteen files: every theorem in this directory is checked by Lean's
 kernel alone, with `#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]` — Lean's standard
 axioms — suite-wide.** (Thirteen files since 2026-08-15: `PruneReprFC.lean` landed kernel-only —
 zero `native_decide`, its in-file `#print axioms` directives execute on every build and report
@@ -214,8 +214,8 @@ this section were read from **dated full-file builds** (2026-07-26, 07-27 and 07
 dated at its own claim site below). They were **not** produced by the in-file `#print axioms`
 directives you will find in the `.lean` sources: those were added on 2026-08-01 (`d3d6772`)
 with bare names for constants declared inside `namespace` blocks, so — **as of the 2026-08-07 scan,
-when this directory held twelve files; `PruneReprFC.lean` landed 2026-08-15 and there are now
-thirteen** — six of twelve files —
+when this directory held twelve files; `PruneReprFC.lean` landed 2026-08-15 and
+`SatEncodingFidelity.lean` on 2026-08-31, so there are now **fourteen** — six of twelve files —
 `TrigramTheorems`, `C3Decomposition`, `PruneExactness`, `PartitionInvariance`,
 `SymmetryCompleteness`, `PruneGInvariance` — failed with "Unknown constant" and the ~89
 directives **never executed**. `03c2a05` (2026-08-02) qualified every name; the re-run that
@@ -240,7 +240,7 @@ standard axioms. So the *only* above is now observed, module-wide, suite-wide �
 statically inferred.
 **RE-EXECUTED 2026-08-07, same day, on the tranche-2 tree** (the revision where the last two
 files migrated): the identical module-wide scan, run on all twelve compiled modules of the
-exact shipped tree **as of 2026-08-07** (the directory has held thirteen since `PruneReprFC.lean`
+exact shipped tree **as of 2026-08-07** (the directory held thirteen from `PruneReprFC.lean` (2026-08-15) until `SatEncodingFidelity.lean` (2026-08-31) made fourteen
 landed on 2026-08-15; the suite-wide claim above is stated at thirteen and is unchanged by the
 addition, which landed kernel-only), reports **zero** `Lean.ofReduceBool`-bearing constants in every
 module —
@@ -283,16 +283,16 @@ bash reports/certificates/verify_all.sh
 ```
 
 Scope, stated precisely: "every module in this directory" is every `lean/*.lean` file on the branch
-you have checked out — thirteen on `main`. It is **not** a claim about every Lean file in the
+you have checked out — **fourteen** on `main` since `SatEncodingFidelity.lean` (2026-08-31). It is **not** a claim about every Lean file in the
 project: the file lean/CompilerCorrectness.lean (deliberately unbackticked — it does not exist on
 this branch) lives only on the `v4-query-program` branch and is verified separately there.
 
 **Then, for one module or to debug a failure**, run files individually. This is where the per-file
 timings and the memory guidance live, and it is the right path when a suite run reports a FAIL or a
 RESOURCE error and you want to reproduce just that file. (The list below is a *selection* — it names
-ten of the thirteen modules; `PruneExactness.lean`, `PruneGInvariance.lean` and
-`RecordConvention.lean` are checked by the suite above but have never been listed here. Each file is
-standalone, so `lean <AnyFile>.lean` works for all thirteen.)
+ten of the fourteen modules; `PruneExactness.lean`, `PruneGInvariance.lean` and
+`RecordConvention.lean` and `SatEncodingFidelity.lean` are checked by the suite above but have never been listed here. Each file is
+standalone, so `lean <AnyFile>.lean` works for all fourteen.)
 
 ```bash
 # install elan (Lean version manager); the pinned toolchain is in ./lean-toolchain
@@ -328,6 +328,7 @@ reproduced their D16 figures to within 0.03 GB):
 | `C3Decomposition.lean` | ~1 min 13 s | 4.5 GB |
 | `TrigramTheorems.lean` | ~1 min 55 s | 4.4 GB |
 | `PruneGInvariance.lean` | ~1 min 24 s | 3.9 GB |
+| `SatEncodingFidelity.lean` | ~7 s | 0.55 GB |
 | `SymmetryCompleteness.lean` | ~22 s | 2.8 GB |
 | `C1RuleConstants.lean` | ~1 s | 0.7 GB |
 | the other five (`PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |
