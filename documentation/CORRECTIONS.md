@@ -6438,3 +6438,161 @@ image is the corrected sentence.
 sheet; verified against source, re-derived and corrected by this lane. The f11 README sibling, the
 missing-§5 observation, and the byte-identity check on the figure generator were found by this batch
 while verifying the charges, not by the review.
+
+## 2026-09-02 — DEVELOPMENT.md: an archival banner that was the exact inverse of the catalogue, a verifier wall time two orders of magnitude off its own stated rate, a completed measurement still written as future work with the wrong partition attached, and a topology claim a shipped script contradicts on every run
+
+Four adjudicated Codex charges against `documentation/DEVELOPMENT.md`, plus a hook-contract rewrite
+routed from the code lane. All four charges verified still live at HEAD before anything was edited;
+none was a no-op. Two further defects were found by this batch while verifying the charges and are
+corrected here with the rest, marked as such.
+
+### The archival banner (Codex V2-F15 #9) — `RP-2e39a795`, `RP-456ed634`
+
+The section head banner declared the Azure Blob Archive flow designed but never stood up, no
+automation chosen, and the `solver-data` managed disk the sole tier of redundancy the project had.
+`CANONICAL_HASHES.md` records archives at every active-lineage canonical scale: d3 560T with a warm
+gzip mirror and a cold blob for the original campaign and again for the byte-identical 2026-06-30
+re-run, d3 100T with a cold blob re-verified live 2026-07-17, d3 11.2T with a build-A/build-B pair
+plus a witness-only v3 upload plus the dress rehearsal, and d3 10T, d3 5.6T and d2 10T with a
+build-A/build-B pair each. (The banner's replacement deliberately does not publish a total: a raw
+grep of `canonical-archive/` returns fourteen distinct paths in sixteen lines, and that population
+includes the CLOSED v2 lineage and one path CANONICAL_HASHES.md's own note records as never
+populated. A count that needs three caveats to be true is worse than the enumeration.) The banner was not imprecise; it was
+inverted. The incident cost of believing it is the reviewer's own scenario — an operator declares
+recoverable data lost, or re-pays to archive what is already archived.
+
+**Half-fix, and which half.** The charge named two sites. The second, the historical `aa1415174c…`
+paragraph, had already been repaired by an earlier pass, which added a *Superseded:* note; its
+retired sentence "No run has yet been archived" has zero matches corpus-wide today. The banner
+twelve lines above it was left. Only by grepping the *retired values* rather than the charge's line
+numbers was it clear which half survived — the line numbers themselves had drifted by ~80 lines.
+
+**Found while verifying, not by the review:** with the banner corrected to DEPLOYED, the
+long-term-pause procedure's step 3 — **"Delete the managed disk"**, in bold, justified by ~$64 saved
+over six months — stopped being harmless aspirational text and became an executable instruction
+contradicting the standing rule this repo states three times in `DEPLOYMENT.md` ("never delete data
+disks"; "Managed disks preserved = the win condition for every class of failure"; "Never delete
+`solver-data`"). It is corrected to retain-and-resize in the same pass, because the banner fix is
+what made it dangerous.
+
+### The verify.py wall time (Codex V2-F15 #14) — `RP-e0ad193f`
+
+The tool description promised one to five minutes single-threaded on a 10T `solutions.bin` and, in
+the same sentence, a rate of ~19k records/sec per Python worker. The two are inconsistent by more
+than two orders of magnitude and the arithmetic needed to see it is entirely inside the sentence:
+706,427,594 / 19,000 = 37,180 s = 10.3 h. The sentence's own 100T arm was already right —
+3,432,399,297 / (16 × 19,000) = 11,291 s = 3.1 h — which is what identifies the 10T arm as the
+defect rather than the rate. `HISTORY.md`'s May 4–5 entry measured it: ~10 h single-threaded on the
+759M-record file before an eviction killed it at ~95%, and ~6 min for the same file at `--jobs 128`,
+i.e. 16.5k records/sec/worker. A contributor who schedules a five-minute timeout kills a healthy
+verifier and reports a hang.
+
+**Where this batch declined the adjudication's prescription.** The row prescribed a flat "~10 h /
+~40 min / ~3 h". Those numbers are kept, but not as facts: `DEPLOYMENT.md` records that the 560T
+campaign measured roughly a **3× shortfall** against the 19k projection, and says in terms that the
+projection itself may be optimistic. The corrected passage therefore labels 19k a projection rather
+than a floor and sends the reader to the measured rates. Publishing the derived hours without that
+qualifier would have replaced one over-confident number with three.
+
+**Two stale pointers in the charge itself, corrected rather than transcribed.** The row cited
+`HISTORY.md:1590-1593` for the ten-hour measurement; that passage is at ~`:1604-1632` today and
+`:1590-1593` is about an unrelated validation chain. The row also implied a second "sheet site" at
+`:870`; `verify.py` is mentioned at six places in `DEVELOPMENT.md` and **exactly one** of them
+carries a wall-time claim. There was no second site to fix. `solve.py:3822` also says "~1-5
+minutes", and is **not** a sibling — it describes `--null-debruijn-exact`, a different program.
+
+### The partition-stability item (Codex V2-F15 #18)
+
+Item 6 of "What's pending / open" presented the 100T re-check as future work: a 100T dataset will
+either confirm the 4-boundary structure or refine it. The measurement completed and is published.
+`PARTITION_STABILITY_BOUNDARIES.md` records the greedy-ordered minimum rising 4 → 5 → 5 across d3
+10T → 100T → 560T and the count of working unordered 4-subsets collapsing 8 → 0 → 0. The outcome
+was "refine", so the sentence is technically satisfied — and that is exactly why it needed
+rewriting: a researcher reads an open item and re-spends the compute, or cites the 4-boundary
+structure as a live hypothesis.
+
+**Found while verifying, not by the review — the item also attached the family to the wrong
+partition.** It named `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}` as established on the **d3** 10T
+canonical. That shorthand is the **d2** 10T family: exactly 2 × 2 = 4 sets, exactly what §[8]
+reports for d2. The d3 10T family is **8** explicitly enumerated sets and none of them contains
+boundary 21 or 22. Every other site in the corpus scopes the shorthand to d2 correctly —
+`CRITIQUE.md:3` and `:108`, `SOLVE.md:389` and `:603`, `SOLVE_SUMMARY.md:218`,
+`enumeration/LEADERBOARD.md:178-181`, which states outright that the phrasing is d2-specific. This
+was the last site in the corpus still carrying the d3 attribution, and it was found by grepping the
+retired value, not the charge's named defect.
+
+**No registry row for it, deliberately.** The string is a *correct* statement about d2 at six other
+sites. A needle narrow enough to catch only this one would have to encode the surrounding
+attribution and would not survive a reword; a needle robust enough to survive would fire on six
+honest sentences. GATE 3 allows one allowlisted file per row, which is not enough. An inline
+correction marker carries it instead.
+
+### The network-topology claim (Codex V2-L21 #2) — `RP-5e7da3fc`
+
+The section’s claim that each new solver VM is created without a public IP or an NSG rule and
+therefore presents no external attack surface at all is contradicted unconditionally by `scripts/perf_bench.sh`, the standardized paired benchmark harness
+this same document endorses. It provisions a fresh resource group with its **own** `vnet`/`subnet`
+at `10.0.0.0/16` (`:104-105`) instead of joining `claude-vnet`, so no private path from the
+orchestrator exists at all, then creates the VM with `--public-ip-sku Standard --nsg-rule SSH`
+(`:110`) and connects with `StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`
+(`:118-119`). This happens on every invocation, including from the orchestrator — the existing
+laptop caveat does not cover it.
+
+The adjudication's mechanism was slightly off and is corrected here: it read the script as taking
+the public path *despite* sharing `claude-vnet`. It does not share it. The script builds its own
+isolated network, which is *why* it cannot be reached privately — a structural reason, not an
+oversight, and it changes what the fix would have to be.
+
+Severity stands as adjudicated (High → Medium): key-auth-only port 22 on a transient Spot VM
+holding public repo source and bench output. A posture contradiction and a first-connection MITM
+window; no credential or data-secrecy stake. One thing the charge did not note and the doc now
+says: `teardown()` is called explicitly at three sites with **no `trap`**, so an interrupted or
+crashed run leaves the public-IP VM standing until someone deletes the resource group by hand.
+
+**The preferred repair is not the one applied.** Putting the NIC on `claude-vnet/default` with no
+public IP when the run originates on the orchestrator, keeping an explicit `--public` flag for the
+off-vnet case, fixes the posture instead of documenting the hole. That is a change to `scripts/`,
+which another lane owns this session. The exception is documented, the residual is stated plainly,
+and the script change is left open rather than silently dropped.
+
+### The hook verdict contract (routed from the code lane, `0414d072`) — not a Codex charge
+
+§"Git hooks" described a two-state world. Since `0414d072` there are three, and the section now
+states the contract read off the shipped scripts rather than off the hand-off note that requested
+the edit. **The scripts disagree with that note in one material respect and the scripts win:** the
+`0` / `1` / `2` return-code contract holds for `pre_commit_registry_gate.sh` and its dispatcher, and
+**does not hold for `pre_commit_generated_gate.sh`**, which never returns 2 — being blocking, it
+exits `0` for CLEAN and `1` for everything else, FINDINGS and COULD-NOT-RUN alike. Its token still
+separates the three states; its exit status cannot, so anything scripting on it must `grep -qx` the
+token. `PRECOMMIT_REGISTRY=` also has **five** values, not three: `NOT-APPLICABLE` (nothing staged,
+or no watched path) exits 0, and `REFUSED-DIRTY` (index and working tree disagree on a watched path)
+exits 2. `pre_push_gate.sh` was swept for the same class in the same commit but emits **no**
+`PREPUSH_*` token and changed no return code — only its message text distinguishes a crash from a
+finding — so the section says not to write a `grep -qx` reader against it.
+
+WARN-ONLY is unchanged and is stated as such in three places, because the rework reads like a
+tightening and is not one: the registry gate still blocks nothing, on FINDINGS or on COULD-NOT-RUN,
+per O-redfloor. The one operational consequence the section adds is that a COULD-NOT-RUN commit
+proceeds and **must not be recorded as gated**.
+
+The pre-commit "Both fail closed" sentence was sharpened in the same pass: it was true of the
+pre-push hook and the generated gate and false of the registry gate, and "both" invited reading it
+as both *hooks*.
+
+### What was not changed, and why
+
+- **`scripts/perf_bench.sh` was not touched** — another lane owns `scripts/` this session. Neither
+  was `scripts/pre_commit_generated_gate.sh`, whose own install header still documents the
+  superseded bare-symlink recipe (`ln -s ../../scripts/pre_commit_generated_gate.sh
+  .git/hooks/pre-commit` plus `chmod +x`) that `pre_commit_gate.sh` exists to prevent. Reported, not
+  edited — and reported *as* a defect, not as a fix.
+- **No registry row for the d2/d3 boundary-family misattribution**, for the reason given above.
+- **`DEPLOYMENT.md:188`'s 19k caveat was read, not rewritten.** It is already honest about the
+  measured shortfall; `DEVELOPMENT.md` now points at it instead of restating it.
+
+**Attribution.** Charges raised by Codex reviewers V2-F15 (#9, #14, #18) and V2-L21 (#2), adjudicated
+in the V2 sheet; verified against the shipped scripts and the canonical catalogue, re-derived and
+corrected by this lane. The managed-disk deletion step, the d2/d3 family misattribution, the two
+stale pointers inside the verify.py charge, the corrected mechanism for the perf_bench exposure, the
+missing `trap`, and the generated gate's divergence from the stated return-code contract were found
+by this batch while verifying the charges, not by the review.

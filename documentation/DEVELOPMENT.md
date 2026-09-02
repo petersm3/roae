@@ -277,8 +277,11 @@ not updated by the commit that changes the mechanism unless something forces it.
 case-insensitive search of this file for `needs_generated`, `third leg`, `GATE 8` or
 `67 s` returned **zero** before this correction.
 
-Both fail **closed**: a false stop costs one retry, a false pass ships a
-compile error or a hand-edited artifact into the published record. Neither has
+The pre-push hook and the pre-commit **generated** gate fail **closed**: a
+false stop costs one retry, a false pass ships a compile error or a
+hand-edited artifact into the published record. The pre-commit **registry**
+gate is the deliberate exception — WARN-only, blocking nothing; §"Gate
+verdicts" below says why, and what its exit status does and does not mean. Neither has
 a private `SKIP=1` escape hatch, because an env-var bypass is how a gate
 quietly stops running — `git push --no-verify` / `git commit --no-verify`
 already exist and leave the decision visible in shell history.
@@ -292,6 +295,72 @@ run. **Read its header before trusting it** — for `report.txt`, `report.md` an
 `example/report.txt` is still caught by nothing. Closing that hole means
 shipping `example/` generated with `--seed`; that changes published artifacts
 and is an operator decision.
+
+#### Gate verdicts: three states, not two (reworked 2026-09-02, `0414d072`)
+
+A crashed gate and a gate with findings are different answers, and until
+2026-09-02 the pre-commit dispatcher printed the second when it had received
+the first. Reproduced on unmodified HEAD: another unit was mid-edit on
+`scripts/doc_gates.sh`, `bash` could not parse it, all six registry legs
+returned 2, and the hook announced `registry gate reported findings (rc=1) -
+WARN ONLY, commit proceeds` — on a commit staging `RETRACTED_PHRASES.tsv` and
+`CORRECTIONS.md`, the two files GATE 3 and GATE 11 exist to police. Nothing
+had been checked. The states now have separate words and separate statuses.
+
+**Read the verdict from the token, never from the shape of the text.** Every
+terminal path of both pre-commit gates prints a whole-line `KEY=value` token
+at column 0, so `grep -qx` is the correct reader:
+
+| token | values |
+|---|---|
+| `PRECOMMIT_REGISTRY=` | `CLEAN` · `FINDINGS` · `COULD-NOT-RUN` · `NOT-APPLICABLE` · `REFUSED-DIRTY` |
+| `PRECOMMIT_GENERATED=` | `CLEAN` · `FINDINGS` · `COULD-NOT-RUN` |
+
+**Return codes are NOT uniform across the two gates, and the difference is
+deliberate.** `pre_commit_registry_gate.sh` implements the three-state
+contract declared in its own header — `0` = CLEAN **or** NOT-APPLICABLE, `1`
+= FINDINGS, `2` = COULD-NOT-RUN, with `REFUSED-DIRTY` (index and working tree
+disagree on a watched path, so the gates would inspect bytes the commit does
+not contain) also exiting `2`, because that is "not measured", not "found
+something". `pre_commit_generated_gate.sh` does **not** carry a `2`: it is a
+blocking gate, so CLEAN exits `0` and *everything else* — FINDINGS,
+missing `doc_gates.sh`, unparseable `doc_gates.sh`, an inner gate that
+exited neither 0 nor 1 — exits `1`. Its token still separates the three
+states even though its status does not. If you are scripting on the
+generated gate, `grep -qx 'PRECOMMIT_GENERATED=COULD-NOT-RUN'` is the only
+way to tell a crash from a finding; the exit status cannot.
+
+`pre_commit_gate.sh` is the dispatcher and does no checking of its own. It
+classifies the registry gate's status (`0` silent, `1` "reported FINDINGS",
+**anything else** — 2, 126/127 from exec, ≥128 from a signal — the loud
+"COULD NOT RUN … it reported NOTHING") and then `exec`s the generated gate,
+whose status becomes the hook's.
+
+🔴 **WARN-ONLY IS UNCHANGED. This rework did not make anything block.** The
+registry gate still cannot refuse a commit — not on FINDINGS and not on
+COULD-NOT-RUN — per operator ruling O-redfloor: a hook that refuses a red
+commit also stops a unit committing to protect its work from another unit's
+`git checkout -- .`, which has destroyed uncommitted work four times. What
+changed is *classification*: "I could not look" now has its own words and its
+own exit status, so the two states are no longer indistinguishable
+downstream. A COULD-NOT-RUN commit proceeds — and must not be recorded as
+gated. Re-run `bash scripts/pre_commit_registry_gate.sh` once `bash -n
+scripts/doc_gates.sh` is quiet, and read *that* result.
+
+Both gates run `bash -n scripts/doc_gates.sh` **before** dispatch, which is
+the check the failure above needed and did not have: a file that does not
+parse cannot have an opinion, and asking it for one costs six subshells that
+all return 2 and read as six failing gates. Measured 2026-09-02: 11 ms,
+against ~4.4 s for the six registry legs and ~62 s for the generated gate.
+
+The same class was swept through `pre_push_gate.sh` in the same commit — its
+branch-registry leg, its `doc_gates.sh all` leg and its conditional
+`doc_gates.sh generated` leg each now distinguish "exited neither 0 nor 1"
+from "found something" in their message text. **The pre-push hook emits no
+`PREPUSH_*` token and its return codes did not change**: every one of those
+legs was blocking before and is blocking after, so only the wording moved.
+Do not write a `grep -qx` reader against the pre-push hook expecting one.
+
 
 ### Build reproducibility — toolchain manifest and cross-build verification
 
@@ -699,13 +768,46 @@ shards), this is non-destructive.
 
 ### Storage strategy: parallel redundancy and long-term archival
 
-> **Status: OPTIONAL / ASPIRATIONAL — not currently in use.**
-> The entire Azure Blob Archive flow below is a designed-but-undeployed
-> backup tier. We are not confident enough in the current `solutions.bin`
-> outputs to archive them, and no automated process has been chosen for
-> the upload/sha-verify pipeline. The working copy on the `solver-data`
-> managed disk is currently the only redundancy tier. Treat this section
-> as a reference for a future archival workflow, not current policy.
+> **Status: DEPLOYED — this is current policy, not a proposal.**
+> Cold-blob archival has been in production since the June–July 2026
+> campaign. [CANONICAL_HASHES.md](CANONICAL_HASHES.md), not this section, is
+> the authority on what exists. Every active-lineage canonical scale has
+> `canonical-archive/…` entries there — d3 560T holds a warm gzip mirror plus a
+> cold blob for the original campaign **and** for the byte-identical 2026-06-30
+> re-run; d3 100T a cold blob whose presence was re-verified live 2026-07-17
+> (plus a known byte-redundant duplicate); d3 11.2T a build-A/build-B pair, a
+> witness-only v3 upload and the 2026-05-31 dress rehearsal; d3 10T, d3 5.6T
+> and d2 10T a build-A/build-B pair each. Read the counts off that file rather
+> than from here: it also lists the CLOSED v2-lineage archives and one path
+> (`canonical-archive/20260530_100T_revalidation_4e15885/`) that its own note
+> records as never populated, so a raw grep over-counts. Uploads run from **one** implementation —
+> `roae-private/scripts/lib/archive_canonical_lib.sh` in the private operator repo
+> (`~/github/roae-private/`, not committed here). Do not write a second
+> uploader; a divergent second path is how an archive stops matching its
+> catalogue. The flow written out below is the **original 2026-04 design**,
+> kept because its folder taxonomy and tier economics are still the ones in
+> use — read it as the design record, and read CANONICAL_HASHES.md for state.
+
+⚠ **[CORRECTED 2026-09-02 — the banner above previously carried a status of
+OPTIONAL / ASPIRATIONAL, described the Azure Blob Archive flow as a backup tier
+that had been designed but never stood up, and stated categorically that the
+working copy on the `solver-data` managed disk was the project's sole
+redundancy tier. Both statements were the exact inverse of the catalogue by the
+time anyone was likely to read them, and the cost of believing them is the
+reason this is a correction rather than a silent edit: an operator responding to
+an incident would have declared recoverable data lost, or re-paid to archive
+what was already archived. The retired phrasings are registered in
+[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in
+[CORRECTIONS.md](CORRECTIONS.md) as `RP-456ed634` (the undeployed-status phrasing) and
+`RP-2e39a795` (the sole-redundancy-tier phrasing). Origin is
+stale-ledger residue, not a wrong measurement: the archival campaign ran June–
+July 2026 and never swept this May-era section — the same shape as the
+`needs_generated` staleness recorded under §"Git hooks". Found by Codex review
+V2-F15 #9. Note that one site of this defect was already repaired: the
+historical paragraph further down carries a *Superseded:* note added by an
+earlier pass, which fixed the sentence "No run has yet been archived" and left
+the banner — that sentence has zero matches corpus-wide today while the banner
+survived, which is why this correction exists at all.]**
 
 The managed disk is the *working* copy of large artifacts, not the *durable*
 copy. Two things would motivate a separate backup tier:
@@ -786,11 +888,24 @@ cases.
 1. Ensure the parallel backup above exists and has been sha-verified.
 2. Optionally download a local copy to operator-controlled hardware (external
    SSD, home server) as a third tier of redundancy. Cost: one-time transfer.
-3. **Delete the managed disk** (only after both blob backup and, if chosen,
-   local backup are verified). Drops ongoing storage cost from
-   ~$0.04/GB/month to ~$0.001/GB/month. For 260 GB over 6 months this is
-   ~$64 saved.
-4. Delete all VMs. Full idle state.
+3. **Do NOT delete the managed disk.** ⚠ **[CORRECTED 2026-09-02 — this step
+   read "**Delete the managed disk** (only after both blob backup and, if
+   chosen, local backup are verified)", justified by dropping storage cost
+   from ~$0.04/GB/month to ~$0.001/GB/month, ~$64 over 6 months for 260 GB.
+   That instruction contradicts the standing operator rule this repo states
+   three times elsewhere — [DEPLOYMENT.md](DEPLOYMENT.md) §"Teardown" ("never
+   delete data disks"), its retrospective ("Managed disks preserved = the win
+   condition for every class of failure"), and its teardown script comments
+   ("Never delete `solver-data`"). It was harmless while this section was
+   labelled aspirational and became executable the moment the banner above was
+   corrected to DEPLOYED, so it is corrected in the same pass. Found while
+   verifying the banner, not by the review that filed the banner.]** Shrink the
+   idle footprint by *resizing* the data disk down to what the retained
+   artifacts need, or by detaching it; the disk itself is preserved. Every
+   recovery this project has had — eviction, truncation, regex bug — was saved
+   by `solver-data` outliving a VM.
+4. Delete all VMs (their OS disks contain nothing campaign-related). Full idle
+   state, data disk retained and unattached.
 
 **Rehydration procedure (resuming work):**
 
@@ -981,10 +1096,40 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
   Creative/Receptive), C5 (exact distance distribution)** plus sort
   order and dedup. No shared code with solve.c — genuine second opinion.
   Usage: `python3 verify.py [--jobs N] /path/to/solutions.bin`. Exit 0
-  on PASS, 1 on constraint failures, 2 on header/format errors. Runs in
-  ~1-5 minutes on a 10T solutions.bin (single-thread); ~3 hours on a
-  100T solutions.bin with `--jobs 16` (CPU-bound at ~19k records/sec
-  per Python worker after the 2026-05-08 streaming-reads patch).
+  on PASS, 1 on constraint failures, 2 on header/format errors. `--jobs`
+  defaults to 1, so the default invocation is the single-thread arm.
+  Wall time scales with record count at ~19k records/sec per Python worker
+  (CPU-bound, post-2026-05-08 streaming-reads patch), which puts the current
+  10T d3 file (706,427,594 records) at **~10 h single-threaded** and ~40 min
+  at `--jobs 16`, and the 100T file (3,432,399,297 records) at ~3 h at
+  `--jobs 16`. Treat 19k as a projection, not a floor: the 560T campaign
+  measured roughly a 3× shortfall against it — see
+  [DEPLOYMENT.md](DEPLOYMENT.md) §"Memory-budget validation for chunk-based
+  parallel verifiers" for the measured rates and the disk-contention caveat,
+  and budget from a rate you measured on your own hardware.
+
+  ⚠ **[CORRECTED 2026-09-02 — this passage previously advertised a
+  single-threaded run of one to five minutes on the 10T solutions.bin, in the
+  same sentence as the ~19k records/sec rate that contradicts it. The two are inconsistent by
+  more than two orders of magnitude, and the arithmetic needed to see it is
+  entirely inside the sentence: 706,427,594 / 19,000 = 37,180 s = 10.3 h. The
+  sentence's own 100T arm was already right (3,432,399,297 / (16 × 19,000) =
+  11,291 s = 3.1 h), which is what identifies the 10T arm as the defect rather
+  than the rate. [HISTORY.md](HISTORY.md) §"May 4 - May 5, 2026 PDT" measured
+  it: the single-threaded run took ~10 h on the 759M-record file before an
+  eviction killed it at ~95%, and the same file finished in ~6 min at
+  `--jobs 128` — 16.5k records/sec/worker, corroborating the rate and
+  refuting the claim. (The adjudication cited HISTORY.md:1590-1593 for this;
+  the passage is at ~:1604-1632 today. Locate by content.) Likely origin: the figure described the
+  original ~160-line spot-check verifier, before `--recount` and the
+  artifact-check surfaces grew the per-record work — but the sentence sits in
+  the CURRENT tool description with no era stated, and an era defence needs
+  the era on the page. Operational cost of the retired figure: a contributor
+  who schedules a 5-minute timeout kills a healthy verifier and reports a
+  hang. The retired phrasing is registered in
+  [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in
+  [CORRECTIONS.md](CORRECTIONS.md) as `RP-e0ad193f`. Found by Codex review
+  V2-F15 #14.]**
 
 - **Independent completeness reference** (added 2026-05-28):
   `python3 verify.py --enumerate-reference NPAIRS` (2 ≤ NPAIRS ≤ 9).
@@ -1458,13 +1603,50 @@ for the experimental protocol and validation strategy.
 ### Solver-VM network topology: private IP only
 
 Solver VMs live on the shared `claude-vnet/default` subnet alongside the
-orchestrator (`claude` VM at `$ORCH_IP`). Each new solver VM is created with
-a private IP (e.g., the next free private IP on the subnet) and **no public IP, no NSG rule**. The
-orchestrator SSHes to the private IP directly.
+orchestrator (`claude` VM at `$ORCH_IP`). Each new solver VM created by
+`monitor_canonical.sh` gets a private IP (the next free private IP on the
+subnet) and **no public IP and no NSG rule**. The orchestrator SSHes to the
+private IP directly.
 
-**Why:** zero external attack surface (no port 22 reachable from the
-internet), no public-IP cost (~$0.005/hr per VM), simpler resource
-inventory.
+**Why:** no port 22 reachable from the internet, no public-IP cost
+(~$0.005/hr per VM), simpler resource inventory.
+
+**Documented exception — `scripts/perf_bench.sh` (the standardized paired
+benchmark harness).** This one endorsed script does **not** follow the rule,
+on every invocation and not only from a laptop. It provisions a *fresh
+resource group of its own* with its own `vnet`/`subnet` at `10.0.0.0/16`
+(`perf_bench.sh:104-105`) rather than joining `claude-vnet`, so no private
+path from the orchestrator exists at all, and then creates the VM with
+`--public-ip-sku Standard --nsg-rule SSH` (`:110`) and connects with
+`StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` (`:118-119`).
+Read honestly, that is: port 22 open to the internet with no source-IP
+restriction, plus an accepted first-connection MITM window on every run.
+Mitigations, such as they are — key-only auth (`--ssh-key-values`), a Spot VM
+that exists for the length of one bench, and no secret on the box beyond
+public repo source and bench output. The residual is real, not zero. The
+teardown that closes the window is `az group delete` (`:88-92`), called
+explicitly at three sites (`:123`, `:195`, `:336`) with **no `trap`** — so an
+interrupted or crashed run leaves the public-IP VM standing until someone
+removes the resource group by hand, and `--keep-vm` suppresses teardown by
+design. Check for orphans after any bench that did not print `TEARDOWN`.
+
+⚠ **[CORRECTED 2026-09-02 — this section previously asserted, as an
+unconditional property of solver VMs, that they present no external attack
+surface whatsoever, with the only caveat being an analyst running from a
+laptop off the vnet. The claim was
+contradicted by a script shipped in this repo and endorsed by the performance
+methodology section above, taking the public path unconditionally — including
+when run from the orchestrator. The retired phrasings are registered in
+[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in
+[CORRECTIONS.md](CORRECTIONS.md) as `RP-5e7da3fc`. Found by
+Codex review V2-L21 #2, filed High and adjudicated Medium on threat model: the
+exposure is key-auth-only port 22 on a transient Spot VM holding public source,
+so it is a posture contradiction rather than a credential or data-secrecy
+stake. The preferred repair is in `perf_bench.sh`, not here — put the NIC on
+`claude-vnet/default` with no public IP when the run originates on the
+orchestrator, keeping an explicit `--public` flag for the off-vnet case. That
+is a change to `scripts/`, which this pass does not own; the exception is
+documented rather than closed, and the script change is left open.]**
 
 **How `monitor_canonical.sh` does it:**
 - `az network nic create --vnet-name claude-vnet --subnet default`
@@ -1724,12 +1906,40 @@ Tracked in detail in `LONG_TERM_PLAN.md` (project-local staging in
    here — that CRITIQUE.md compared only to random and pair-constrained
    permutations — was stale. Costas arrays specifically were not among
    the seven families and remain unexplored.
-6. **Partition-stability re-check on 100T data.** The 4-boundary
-   structure `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}` is established on
-   the d3 10T canonical; the mandatory-{25, 27} sub-claim is partition-
-   stable (holds on both d2 and d3 10T). A 100T dataset will either
-   confirm the full 4-boundary structure or refine it — partition
-   dependence is expected for the 2 non-stable boundaries.
+6. **~~Partition-stability re-check on 100T data.~~ — DONE (measured at
+   100T and again at 560T; this entry corrected 2026-09-02).** The outcome
+   was *refine*, and sharply: the greedy-ordered minimum boundary-set size
+   rose from **4 at d3 10T to 5 at d3 100T and stays 5 at d3 560T**, and the
+   count of working unordered 4-subsets collapsed **8 → 0 → 0** over the
+   same three scales. No 4-set identifies King Wen beyond 10T, so the
+   4-boundary framing is scale-bounded, not a live hypothesis. The
+   mandatory-{25, 27} sub-claim survived every scale and partition tested and
+   is the one durable part. Full table, method and scope note in
+   [PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md);
+   the 560T survivor-count correction is in
+   [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).
+
+   ⚠ **[CORRECTED 2026-09-02 — two defects in one item, one of them not in
+   the charge that found it. (1) The item was written in the future tense
+   ("A 100T dataset will either confirm the full 4-boundary structure or
+   refine it"), which reads as an open measurement and invites a researcher
+   to re-spend the compute or to cite the 4-boundary structure as live. The
+   measurement completed in 2026-07 and the July completion never swept this
+   list — the same stale-ledger residue as the archival banner above; found
+   by Codex review V2-F15 #18. (2) **The item attributed the wrong family to
+   the wrong partition.** It named `{25, 27} ∪ one-of-{2,3} ∪
+   one-of-{21,22}` as established on the **d3** 10T canonical. That shorthand
+   is the **d2** 10T family — exactly 2 × 2 = 4 sets, and exactly what
+   §[8] reports for d2. The d3 10T family is **8** explicitly enumerated
+   sets, none of which involve boundaries 21 or 22. Every other site in the
+   corpus scopes the shorthand to d2 correctly — CRITIQUE.md:3 and :108,
+   SOLVE.md:389 and :603, SOLVE_SUMMARY.md:218, LEADERBOARD.md:178-181 — and
+   this was the last remaining site carrying the d3 attribution. Found by
+   grepping the retired value rather than the charge's named defect. This
+   second half is not registered as a retracted phrase: the string is a
+   correct statement about d2 at six other sites, so a needle narrow enough
+   to catch this one would have to encode the surrounding attribution, and a
+   needle wide enough to be robust would fire on six honest sentences.]**
 7. **Connection to known combinatorial structures** (block designs, error-
    correcting codes, group actions). Would elevate empirical findings
    to mathematical connections. Exploratory notes in `INSIGHTS.md` and
