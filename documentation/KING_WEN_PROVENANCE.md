@@ -87,8 +87,16 @@ rule is known for it*, despite two millennia of attempts. That is the question t
 ## 5. What we do and do not claim
 
 **We claim:** the received King Wen order satisfies a specific set of structural constraints, and we
-count how many of the 64! orders satisfy the same constraints. That count is a mathematical fact
-about the constraint system, verifiable independently.
+count how many of the 64! orders satisfy the same constraints. That count is a well-defined
+mathematical fact about the constraint system — but being well-defined and being *in hand* are
+different things, and for the full C1–C5 system we do not have it exactly. The published figure is a
+statistical estimate: Knuth unbiased random-probe, 1.3287×10³⁸, 95% CI [1.3283, 1.3292]×10³⁸, whose
+own report calls it "a statistical estimate, not a proven cardinality" and marks the C1–C5 rung
+*uncalibrated*, its exact-value cell reading "none — no exact value exists"
+([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md)). Exact values have been computed two rungs below, at
+C1∩C2∩C4 and C1∩C2∩C4∩C5 ([TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)) — by this
+project on its own mechanisms; TR-11 states that no independent party has yet audited or reproduced
+any of it.
 
 **We do not claim:** that King Wen wrote it, that it dates to 1000 BCE, that it is unique, that its
 structure was intentional, or that our constraints are the ones its makers had in mind.
@@ -98,10 +106,13 @@ reversal or, where a hexagram is reversal-symmetric, its complement — **this i
 not ours.** It is stated explicitly by 孔穎達 (574–648) and has an earlier lineage.
 
 *What we can add is a measurement, not a claim of authorship.* That rule reproduces King Wen's
-adjacent-pair structure **64/64**; every alternative tested scores 12–16/64 — **including one built
-from a rival group the tradition itself supplies.** 焦循's 八卦相錯 (c. 1813) generates 20 orbits with
-the *same* size profile as ⟨complement, reversal⟩ — 8 of size 2 and 12 of size 4, structurally
-indistinguishable — and King Wen respects it only 24/64. Exactly, not sampled: of the 3.845×10⁴⁶
+adjacent-pair structure **64/64**; every **complete** alternative pairing rule tested scores
+12–16/64. Bare reversal is the one rule outside that range and is not a rival: it is the rule the
+classical one *completes*, scoring 56/64 (`RULE_REV_ALONE`) and leaving exactly the eight
+self-reverse hexagrams unpaired — 64 − 8. **The tradition also supplies a rival group**, and it fares
+no better: 焦循's 八卦相錯 (c. 1813) generates 20 orbits with the *same* size profile as ⟨complement,
+reversal⟩ — 8 of size 2 and 12 of size 4, structurally indistinguishable — and **at the group
+level** King Wen respects it only 24/64. Exactly, not sampled: of the 3.845×10⁴⁶
 involutions on the 64 with eight fixed points, **exactly 70** reproduce King Wen's pairing, and all 70
 are 孔穎達's rule up to a **vacuous relabelling** on the hexagrams where the two operations coincide.
 **So the classical rule is not *a* symmetry that happens to fit; it is *the* rule** — and the rival it
@@ -110,7 +121,8 @@ beats was supplied by the same tradition, not constructed by us. Reproduce with
 applied to the Chu manuscript's symbols by 濮茅左 (2003), and to a 36-unit quotient by 近藤浩之
 (2005). **We claim no priority for the pairing insight.**
 
-**Nor for combining the two operations — that is Yuan-dynasty, c. 1300.**
+**Nor for combining the two operations — Southern Song, by 1270 ([朱元昇](CITATIONS.md#zhuyuansheng));
+the count and the operational phrasing are Yuan, c. 1300 (吳澄).**
 [吳澄 (1249–1333)](CITATIONS.md#wucheng), in 《易纂言外翼》卷一〈卦對第二〉, gives the **complete
 decomposition of all 64**: 「卦畫奇偶正對，二篇共**二十對**…正對不反易者四…正對兼反易者四…反易取正對
 者十二」 — twelve groups of four and eight of two, twenty in all, with his three classes matching the
@@ -136,23 +148,27 @@ cited throughout this repository.
 
 What this project contributes is narrower still, and should be read narrowly: **counting the
 ORDERINGS of the 64 that respect the orbits**, subject to a stated constraint system. Wu Cheng, Cui
-Shu, 焦循, 來知德 and Kong Yingda all **classify** the 64; **none of those five counts arrangements of
-it.** See [TR5](../reports/TR5_SYMMETRY.md) for the scoped statement.
+Shu, 焦循, 來知德 and Kong Yingda are the five classical authors this section cedes to, and their
+coverage differs: Wu Cheng and 來知德 classify all 64; 崔述 covers sixteen hexagrams and 焦循 five
+quadruples (twenty hexagrams); Kong Yingda states the pairing rule. **None of the five counts
+arrangements.** See [TR5](../reports/TR5_SYMMETRY.md) for the scoped statement.
 
 **Two qualifications, added 2026-08-16, both of which narrow that claim.**
 
 **First, "classify versus count" flatters us.** It is accurate for the five classical authors named
 above and for no one else. **李尚信 (1999, 2002) does not classify** — he argues that the received
-sequence is *arranged* on 錯綜 principles, with the orbits falling at regular intervals, and that the
-spacing cannot be coincidence. He never counts orderings, so the counting claim survives him; but the
+sequence is *arranged* on 錯綜 principles, with the 錯綜 pairs he selects falling at regular
+intervals, and that the spacing cannot be coincidence. He never counts orderings, so the counting claim survives him; but the
 honest contrast is **"they argue the order is principled; we measure how constraining the principles
 are,"** not "they classify and we count."
 
-**Second, and more important: we had not finished looking.** Every prior-art sweep this project ran
-before 2026-08-16 was aimed at the *symmetry* question or the *symbol* question, and two papers whose
+**Second, and more important: we had not finished looking.** The 2026-07-30 sweep *did* cover the
+enumeration and counting channels — [HISTORY.md](HISTORY.md), §"The prior-art sweep closed", records
+CNKI, reference-mining, a Japanese-author sweep, Western and OEIS returning "no missed enumeration,
+ceiling, or formalization prior art" — and it closed on that finding **incorrectly**. Two papers whose
 titles sit directly on the ordering-count question — 王俊龍 on 「the mathematical regularity of the
 order of the hexagrams in the received version」 and 管小思 on 「the structural mathematical model of
-the hexagrams' sequence」 — were unread when this paragraph was first written.
+the hexagrams' sequence」 — were unread when it closed.
 
 **⚠ Updated 2026-08-28 and 2026-08-29.** A search designed for the ordering-count question was run
 on 2026-08-16, and both named papers have since been read, along with every other obtainable paper
@@ -168,7 +184,10 @@ in 劉大鈞 ed. 大易集釋, pp. 812–836; the remaining residues are flagged
 [CORRECTIONS.md](CORRECTIONS.md).)
 
 *A note on how this section was built, because it bears on how much to trust it.* Each cession above
-was checked against the primary source, not against a summary. One paper (李尚信 2002) was
+was checked against the primary source, not against a summary — with one exception, stated here
+rather than only in the citation: 孔穎達 is cited at **attribution level**, the paraphrase above
+stating the rule while the verbatim 《周易正義》 wording is held for a pending classical-Chinese
+verification pass ([CITATIONS](CITATIONS.md#kongyingda)). One paper (李尚信 2002) was
 characterised three different ways in a single day — overstated, over-corrected, then read in the
 original — and the version here is the one taken from the PDF. Where we have **not** read the source
 first-hand, the citation says so.
@@ -188,9 +207,13 @@ whose partner is not adjacent.
 The same command also records a **negative** result worth stating plainly: because King Wen's blocks
 and its pairing orbits coincide *by construction*, symbol evidence from the Chu manuscript **cannot
 distinguish** "the symbols respect reversal" from "the symbols are constant on contiguous blocks of
-the received order." Tested on directly-observed symbols only, the editor's invariance claim holds 9
-out of 9 — and that agreement is equally predicted by both explanations. **This is an impossibility
-argument, not a criticism of his reading.**
+the received order." The nine directly-observed symbol pairs are listed in `verify.py`
+(`SHANGBO_OBSERVED_PAIRS`, from 濮茅左 2003's per-slip 释文考释, pp. 136–215, excluding every entry
+附錄二 reconstructs *from* the invariance). What the command reports about them is that **0 of the 9
+are discriminating** — every one sits inside a single King Wen block, so the editor's reported
+agreement is equally predicted by both explanations. **The command does not check the symbols
+themselves**; it reads no symbol values and compares nothing. **This is an impossibility argument,
+not a criticism of his reading.**
 
 ---
 
