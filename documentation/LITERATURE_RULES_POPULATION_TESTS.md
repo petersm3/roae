@@ -38,7 +38,7 @@ is the terminus of that lineage, not its sole author; his credit stands as such.
 
 **Reproduce the scoreboard:** `ulimit -s unlimited; SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`
 (2×10¹⁰ weighted Knuth probes — the instrument and probe count named in the opening paragraph, and the
-method in §"Method and caveats" below). ⚠ `ulimit -s unlimited` is required: under the default 8 MB stack
+method in §"Method and caveats" below). ⚠ A stack limit of at least **16 MB** is required (`ulimit -s 16384` suffices; the `unlimited` above is one sufficient setting, not the requirement — narrowed 2026-09-02, prose batch P37): under the default 8 MB stack
 the estimator **refuses to start**, printing the required stack size and exiting 1 (before 2026-08-21 it
 segfaulted). See [VERIFY.md](VERIFY.md) §"Hardware you need" and
 [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). *(Corrected 2026-09-01: this described the
@@ -46,8 +46,8 @@ default-8 MB-stack failure as a segfault before any output, telling an operator 
 binary that has exited 1 with a diagnostic since 2026-08-21. `solve.c`'s `--estimate-knuth` parse block preflights `RLIMIT_STACK` and,
 below 16 MB, prints "solve: stack limit is %lu MB, but --estimate-knuth needs >= 16 MB … Re-run with:
 ulimit -s unlimited" and returns 1; its own comment records "previously a bare SIGSEGV after the banner".
-[VERIFY.md](VERIFY.md) already stated the current behaviour correctly. The `ulimit` requirement itself is
-unchanged and remains mandatory. The four out-of-scope siblings that carried the same stale wording —
+[VERIFY.md](VERIFY.md) already stated the current behaviour correctly. That pass corrected the failure MODE
+only; the requirement itself is narrowed above. The four out-of-scope siblings that carried the same stale wording —
 among them [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md), which this sentence cites — were corrected the
 same day in a follow-up pass, so the class is closed corpus-wide.)*
 *(Added 2026-08-21: GATE 25 LEG 2 — a report-only gate leg that no review pass had ever invoked — flagged

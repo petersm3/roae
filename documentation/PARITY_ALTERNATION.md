@@ -3,8 +3,13 @@
 **Result (Theorem, 2026-07-02):** In every sequence satisfying C1–C5, the 32 pairs — each of which is
 *parity-homogeneous* (both members share popcount parity) — form exactly 16 even-parity and 16 odd-parity
 pairs, and the pair ordering exhibits **exactly 15 parity-class alternations** across its 31 pair boundaries.
-This is forced by the constraint system, not a King Wen choice; KW satisfies it necessarily (verified: KW's
-alternation count is 15). The theorem generalizes the wrap-around-parity theorem ([SPECIFICATION.md](SPECIFICATION.md)), which is
+This is forced by C1+C5 rather than chosen; KW satisfies it necessarily (verified: KW's
+alternation count is 15). ⚠ **Scope of "forced" (added 2026-09-02, Codex V2-F08 #1, prose batch P37):**
+C5 is itself a regularity **read off King Wen** — [reports/METHODS.md](../reports/METHODS.md) grades it
+"Extracted from KW (confirmatory, not predictive)" — so "forced" here is relative to KW-derived
+constraints, **not** to an unconstrained arranger. This is the same conditional-forcing correction
+[TR-7](../reports/TR7_CIRCULAR_READING.md) §3 made on 2026-07-20 (revision v2.1, adversarial-review
+F-14a); the prior phrasing smuggled the KW-derived constraints in as premise. The theorem generalizes the wrap-around-parity theorem ([SPECIFICATION.md](SPECIFICATION.md)), which is
 recovered as its total-parity corollary, and it supplies the "novel structural theorem" that the earlier
 C5-tightening investigation concluded would be required for any further provable pruning.
 

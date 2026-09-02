@@ -4,7 +4,9 @@
 > (calibration leg: `python3 r11_calibration.py --phase <gates|draws|pcomplete|hits|score|report>`).
 > ⚠ **Scope, stated plainly (2026-08-21, execution-lane findings):** (1) `--phase` is required —
 > the bare calibration command errors with a usage message; (2) the battery's estimator legs need
-> `ulimit -s unlimited` — under the default 8 MB stack `--estimate-knuth` refuses to start;
+> a stack limit of at least 16 MB (`ulimit -s 16384` suffices; the `unlimited` in the Reproduce line above
+> is one sufficient setting, not the requirement — narrowed 2026-09-02, prose batch P37) — under the
+> default 8 MB stack `--estimate-knuth` refuses to start;
 > (3) **the battery script is the archived CAMPAIGN DRIVER, not a repo-relative reproduction**:
 > it hardcodes the campaign VM's layout (`/home/solver/r11p2/…`, `nohup` self-supervision, `sudo
 > shutdown` self-halt) and exits immediately on a host without that layout. Reproducing the

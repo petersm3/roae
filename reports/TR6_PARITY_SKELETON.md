@@ -6,6 +6,26 @@ author wrote the claims, the software that checks them, and this report that gra
 Verification here is independent in mechanism, never in authorship; no independent party has yet
 audited or reproduced any of it (METHODS.md §"Authorship independence").*
 
+⚠ **One exception to the banner's reproduction-command promise, stated here because the banner is
+shared boilerplate and is not this report's to amend** (added 2026-09-02, Codex V2-F08 #3, prose batch
+P37): the **cardinality-only subset experiment** cited in the Abstract's 2026-08-29 correction marker —
+the ordering-variable-free clause subset of each CNF shown UNSAT on its own — **has no public
+reproduction command and no public artifact.** `sat.py` exposes no subset-extraction flag;
+`reports/certificates/` holds the two *full-encoding* proofs (`alt-le-14.drat.gz`, `alt-ge-16.drat.gz`)
+and no subset CNF, subset proof or extractor; `reports/certificates/verify_all.sh` regenerates only the
+full targets. The subset run was performed and is recorded in the project's private working notes
+(2026-08-29, kissat 4.0.1 built from source, both subsets UNSAT with drat-trim-verified proofs), but a
+private note is not a reproduction command: from this repository the subset result is **asserted, not
+checkable**. Shipping the extractor and the two subset certificates is queued, not done.
+
+**What this does *not* put in doubt.** The theorem, the two published full-encoding DRAT certificates,
+and the "corroborating, not independent" verdict all stand without the subset artifact — the verdict
+also follows from *reading* the public encoding: `sat.py`'s `BETWEEN_MULTISET` fixes the per-distance
+between-pair counts (2 at d=1, 13 at d=3) and the encoding defines `odd[s]` as `T[s,1] ∨ T[s,3]`, so
+|odd| = 15 identically and both alternation targets are contradicted before any ordering variable is
+consulted. That reading is checkable from the tracked `sat.py` today; only the mechanical subset
+demonstration of it is not.
+
 Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
 ## Executive summary
@@ -13,18 +33,21 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 The 32 hexagram pairs come in two kinds — "even" and "odd" line-balance — and as you read the sequence,
 the kind alternates: sometimes it switches, sometimes it stays. This report proves that the number of
 switches is **always exactly 15** — not just in King Wen, but in every ordering that satisfies the core
-constraints. A pattern that could have been the arranger's aesthetic choice is in fact a mathematical
-law. The proof is given three ways: a human-readable argument; a machine-checked formal proof
+constraints. A pattern that could have been an aesthetic choice is, **given C1 and C5**, a mathematical
+law — with the caveat that C5 is itself a regularity read off King Wen, so "forced" here is relative to
+KW-derived constraints, not to an unconstrained arranger. The proof is given three ways: a human-readable argument; a machine-checked formal proof
 (Lean 4 kernel), which independently establishes both the counting step and the alternation–distance
 bridge; and a logic-solver check with DRAT certificates that mechanizes the counting step (the C5
 odd-distance count) under that bridge as an encoding assumption. **The prose and Lean proofs are each
 sufficient alone; the SAT check re-verifies the counting core by an independent mechanism but is
-corroborating rather than independently sufficient.** ⚠ **[CORRECTED 2026-08-29 — this claimed "three fully independent ways" and "any one of the three would suffice". The SAT leg is NOT independent: `BETWEEN_MULTISET` forces 2(d=1)+13(d=3)=15 odd-distance slots, so `alt-le-14` and `alt-ge-16` are refuted by the C5 cardinality clauses ALONE — verified by extracting the ordering-variable-free clause subset and showing it UNSAT on its own (kissat rc=20, DRAT `s VERIFIED`). The encoding also ASSUMES the alternation-to-odd-distance bridge that carries the mathematical content. The THEOREM IS UNAFFECTED. See CORRECTIONS.md]**
+corroborating rather than independently sufficient.** ⚠ **[CORRECTED 2026-08-29 — this claimed "three fully independent ways" and "any one of the three would suffice". The SAT leg is NOT independent: `BETWEEN_MULTISET` forces 2(d=1)+13(d=3)=15 odd-distance slots, so `alt-le-14` and `alt-ge-16` are refuted by the C5 cardinality clauses ALONE — verified by extracting the ordering-variable-free clause subset and showing it UNSAT on its own (kissat rc=20, DRAT `s VERIFIED`) — a run that has no public artifact; see the reproduction-gap note beneath the banner above. The encoding also ASSUMES the alternation-to-odd-distance bridge that carries the mathematical content. The THEOREM IS UNAFFECTED. See CORRECTIONS.md]**
 
 ## Abstract
 In every sequence satisfying C1–C5, the 32 pairs are parity-homogeneous, split exactly 16 even / 16 odd,
 and the pair ordering exhibits **exactly 15 parity-class alternations** across its 31 pair boundaries —
-forced by the constraint system, not a King Wen choice (KW's count is 15, necessarily). The theorem has
+forced by C1+C5 rather than chosen (KW's count is 15, necessarily) — though C5 is itself a regularity read
+off King Wen, so "forced" here is relative to KW-derived constraints, not to an unconstrained arranger.
+The theorem has
 been verified in **three modalities (two independently sufficient)**: a short prose proof (three lemmas + the C5
 odd-distance count); a **Lean 4 kernel-checked general theorem** (`alternations_15_general` — every C1+C5
 sequence of 64 six-bit values has exactly 15 alternations, proven by structural argument, not finite
@@ -85,14 +108,19 @@ inherits.
    and canonical shas — would change; production adoption is a gated lineage decision. Nothing in the
    published canonicals is affected by the theorem itself. (d) Combined with the symmetry theorem ([TR-5](TR5_SYMMETRY.md)),
    the solution space has two proven skeletons: a 48-element relabeling group and a rigid 15-alternation
-   parity profile — both properties of the constraint system that KW inherits rather than chooses.
+   parity profile — both properties of the constraint system, which KW satisfies necessarily rather than
+   by choice; subject to the Abstract's caveat, since C5 is itself read off King Wen, so the necessity is
+   relative to KW-derived constraints.
 6. **The lineage atop the skeleton (attribution).** To our knowledge the theorem as stated (the exact
    15-alternation count as a *forced* property of C1–C5) is first proven here; given how deep this
    literature runs, we state that with humility — corrections and prior-art pointers are welcomed via
    CITATIONS.md. The empirical parity observations sitting atop the skeleton deserve their credits as
    cousins of (not sources for) the theorem: **Zhu Yuansheng (13th century)** first recognized the single
    exception to the gender/position-parity rule (per [Schulz 2018](../documentation/CITATIONS.md#schulz2018), fn. 42); **Schulz (1990, *JCP* 17:3)**
-   stated that rule over his 36 consolidated units — the strongest measured literature discriminator, with
+   stated that rule over his 36 consolidated units — the strongest measured literature discriminator at the
+   time of the SAT work (×11,364), later exceeded by the data-like S25–28 configuration at ×5×10⁷ (see
+   [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md),
+   headline finding 1, "A new strongest discriminator") — with
    exceptions at stations 25–26 (elaborated by [Cook 2006](../documentation/CITATIONS.md#cook2006); attribution corrected 2026-07-03 upon first-hand
    reading — Cook had been credited as primary); **Moore (2005, *Oracle Papers* No. 1)** stated the
    yin/yang pair-positioning parity rule over the 32 pair positions (King Wen complies 16/18). Cook (2006)
@@ -127,7 +155,7 @@ C1–C5-valid ordering shares. Computed directly from solve.py's King Wen sequen
 
 ## Corollary (added v1.3): exactly 30 parity switches, always
 
-⚠ **`ulimit -s unlimited` is REQUIRED for every `--estimate-knuth` command in this document.** Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)*
+⚠ **Every `--estimate-knuth` command in this document requires a stack limit of at least 16 MB** — `ulimit -s 16384` suffices, and `ulimit -s unlimited` is one way to satisfy it, not the requirement itself. Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)* *(Narrowed 2026-09-02, Codex V2-F08 #4, prose batch P37: `ulimit -s unlimited` is a **sufficient** setting that had been published as a **necessary** one — and one that a host or container with a hard stack cap cannot even apply, so the published requirement was a false blocker there. `solve.c`'s `--estimate-knuth` preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB". EXECUTED under TR-9 v1.24 on a locally built binary: `ulimit -s 8192` refuses and exits 1, `ulimit -s 16384` runs the estimator to completion. `solve.c`'s own remedy line still prescribes only `unlimited` and is queued to offer both. This is the sibling propagation of the narrowing TR-9 made on 2026-09-02 and reported but did not sweep.)*
 
 The transition-parity string (63 values: transition i is "odd" iff an odd number of lines change)
 switches value exactly **30 times** in every C1+C5-valid ordering. Proof: every within-pair transition
@@ -152,4 +180,5 @@ three-modality status as the main theorem.
 | v1.4 | 2026-07-04 | Corollary machine-checked: switches_30_general kernel-verified in lean/KingWen.lean |
 | v1.5 | 2026-07-04 | Reproducibility completion: F4' discovery-measurement evidence published (reports/evidence/f4p_tier1.out) and cited from the corollary; `SOLVE_KNUTH_SCORE_F4P` documented in SOLVE_C_CLI.md |
 | v1.6 | 2026-07-11 | Trust-base wording precision: §3's modality heading is "machine-checked" (its finite lemmas were `native_decide` — extended trust base per lean/README.md — until the 2026-07-31 kernel migration, see v1.7); the general theorems (`alternations_15_general`, `wrap_parity_general`, `switches_30_general`) remain kernel-checked structural proofs, stated as such. No result changes |
-| v1.7 *(current)* | 2026-07-31 | **Kernel-only trust base restored (post-merge, authoritative `#print axioms`).** The `wip-h2c3` kernel migration landed on main; §3's finite lemmas (`partner_preserves_parity`, `parity_split_32_32`, `xor_parity_identity`, `kw_alternations_15`) are now **kernel-only** — a clean 2026-07-31 build confirms `[propext]`, no `native_decide`. §3 modality-2 wording updated from the v1.6 `native_decide`/extended-trust-base phrasing. No result changed |
+| v1.7 | 2026-07-31 | **Kernel-only trust base restored (post-merge, authoritative `#print axioms`).** The `wip-h2c3` kernel migration landed on main; §3's finite lemmas (`partner_preserves_parity`, `parity_split_32_32`, `xor_parity_identity`, `kw_alternations_15`) are now **kernel-only** — a clean 2026-07-31 build confirms `[propext]`, no `native_decide`. §3 modality-2 wording updated from the v1.6 `native_decide`/extended-trust-base phrasing. No result changed |
+| v1.8 *(current)* | 2026-09-02 | **Three claims conditioned, qualified or disclosed, and the stack requirement narrowed (prose batch P37, Codex V2-F08 #1–#4).** (1) **The forcing claim now states its premise.** The Executive summary, Abstract and §5(d) presented the 15-alternation count as forced against an unconstrained arranger ("a mathematical law", "not a King Wen choice", a property KW "inherits rather than chooses"). It is forced **given C1 and C5**, and C5 is itself read off King Wen — [METHODS.md](METHODS.md) grades it "Extracted from KW (confirmatory, not predictive)". [TR-7](TR7_CIRCULAR_READING.md) §3 made this exact correction on 2026-07-20 (v2.1, adversarial-review F-14a) and it had reached none of the four sibling sites; the fourth, [PARITY_ALTERNATION.md](../documentation/PARITY_ALTERNATION.md), is corrected in the same pass. (2) **§6's Schulz superlative is dated.** "The strongest measured literature discriminator" now reads "…at the time of the SAT work (×11,364), later exceeded by the data-like S25–28 configuration at ×5×10⁷", the ranking [CITATIONS.md](../documentation/CITATIONS.md) has carried all along. (3) **The Abstract's subset experiment is disclosed as not publicly reproducible.** The 2026-08-29 correction marker justifies the independence retraction with an ordering-variable-free clause subset shown UNSAT alone; `sat.py` has no subset flag, `reports/certificates/` holds no subset CNF or proof, and `verify_all.sh` regenerates only the full targets. The run was performed and is privately recorded, and a new paragraph beneath the banner says so, says that a private note is not a reproduction command, and shows that the retraction itself follows from *reading* the tracked `sat.py` regardless. Shipping the extractor and the two subset certificates is queued, not claimed. (4) **Stack requirement narrowed to what the binary enforces (prose batch P37, Codex V2-F08 #4; wording only).** The `--estimate-knuth` warning published `ulimit -s unlimited` as REQUIRED. It is a **sufficient** setting, not a necessary one, and on a host or container whose hard limit forbids `unlimited` the published requirement was a false blocker. `solve.c`'s preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB"; executed under TR-9 v1.24, `ulimit -s 8192` refuses and exits 1 while `ulimit -s 16384` runs the estimator to completion. The banner now states "at least 16 MB (`ulimit -s 16384` suffices)" with `unlimited` named as one sufficient setting. This is the sibling sweep TR-9 v1.24 reported but did not perform. No figure, count, command, claim or scope changes. **No theorem, count, certificate or verdict changes; the 15-alternation result and both DRAT proofs stand exactly as published** |

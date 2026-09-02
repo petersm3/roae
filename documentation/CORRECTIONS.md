@@ -4358,3 +4358,236 @@ the `solve.c` §[6]–§[8] source read (greedy tie-breaking, the absence of any
 transcription of §[6] and §[8] from the three shipped `analyze_output.log.gz` files, the
 `c2c3_joint_null.py` predicate check, and the `runs/` / `canonical-archive/` tree audit — are this
 lane's (Claude) and every one of them is reproducible from files in this repository.
+
+## 2026-09-02 — TR-6: a KW-derived premise sold as an unconstrained fact, a stale superlative, an unreproducible experiment, and a sufficient stack setting published as a necessary one
+
+*(Codex V2-F08 #1–#4, prose batch P37. No theorem, count, mass, certificate or verdict changes anywhere
+below; every change is to what the prose CLAIMS about premises, rankings, reproducibility and
+requirements. Two of the four charges turned out to be partly already-fixed classes and one turned up a
+fifth site the charge did not name — recorded as such rather than silently absorbed.)*
+
+### 1. A forcing claim conditioned on a constraint read off King Wen (`RP-a1101ab8`, `RP-8cf62ef8`)
+
+**BEFORE.** Four sites presented the 15-alternation count as forced against an **unconstrained** arranger:
+TR-6's Executive summary called it a mathematical law rather than an aesthetic choice, its Abstract denied
+it was a King Wen decision, §5(d) called the parity profile something the arranger receives rather than
+picks, and [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md) — the proof document TR-6 cites — said the same.
+The three retired wordings are keyed above and deliberately **not** restated here, so GATE 3 binds these
+sites rather than exempting the ledger that describes them.
+
+**NOW.** All four sites state the premise. The theorem's 15 comes from C5's odd-distance count, and
+[reports/METHODS.md](../reports/METHODS.md) grades C5 "Extracted from KW (confirmatory, not
+predictive)" — so "forced" is relative to KW-derived constraints, not to an unconstrained arranger.
+This is not a new finding: [TR-7](../reports/TR7_CIRCULAR_READING.md) §3 made exactly this correction on
+2026-07-20 (v2.1, adversarial-review F-14a — "the prior phrasing smuggled the KW-derived constraints in
+as premise"), and in the two months since it reached **zero of the four sibling sites**. The retired
+phrasings are registered so the gate, not the next reviewer, holds the class.
+
+### 2. A superlative that its own ledger had already retired (`RP-56313583`)
+
+**BEFORE.** TR-6 §6 credited Schulz (1990) with "the strongest measured literature discriminator",
+unqualified.
+
+**NOW.** "…the strongest measured literature discriminator **at the time of the SAT work** (×11,364),
+later exceeded by the data-like S25–28 configuration at ×5×10⁷", with the pointer to
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md), headline finding 1
+("A new strongest discriminator"). [CITATIONS.md](CITATIONS.md) has carried the qualified ranking all along and is
+unchanged. **The sibling the charge named is already fixed:** the same unqualified superlative was
+corrected inside LITERATURE_RULES_POPULATION_TESTS.md on 2026-09-01, so TR-6 was the last live site, not
+one of two. The needle registered for this class is deliberately trailed by the following comma-word,
+because the bare superlative is *correct* prose at CITATIONS.md — where it spans a line wrap and so
+matches once GATE 3 flattens. A general superlative gate is the durable fix and is queued, not claimed.
+
+### 3. The cardinality-only subset experiment has no public reproduction command (`RP-713f9cf6`, `RP-cb49f826`, `RP-1efe0dbb`)
+
+**BEFORE.** TR-6's 2026-08-29 correction marker justified retracting the SAT leg's independence by an
+experiment — extracting each CNF's ordering-variable-free clause subset and showing it UNSAT alone — that
+the repository does not contain. `sat.py` has no subset-extraction flag; `reports/certificates/` holds the
+two full-encoding proofs and no subset CNF, subset proof or extractor; `verify_all.sh` regenerates only
+the full targets. TR-6's own banner promises that every MEASURED result carries a reproduction command.
+
+**NOW.** The gap is stated on the page, in its own paragraph beneath the banner (the banner is shared
+boilerplate byte-identical across all eleven TRs and enforced as such, so it is not TR-6's to amend — the
+same construction TR-9 used for its two Knuth estimates on 2026-09-02). The subset run was in fact
+performed and is recorded in this project's private working notes, with solver version and per-target
+clause counts; that is disclosed, and so is the fact that a private note is not a reproduction command.
+**The finding it supports does not depend on the missing artifact**, and the page now says why: the same
+conclusion follows from *reading* the tracked `sat.py`, where `BETWEEN_MULTISET` fixes 2 between-pair
+slots at d=1 and 13 at d=3 and the encoding defines `odd[s]` as `T[s,1] ∨ T[s,3]`, so |odd| = 15
+identically. Shipping the extractor and the two subset certificates is queued, not done.
+
+**The propagation half of this charge was already four-fifths done — and the missing fifth was not on the
+charge's list.** README.md, [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md),
+[CLAIM_TO_ARTIFACT.md](CLAIM_TO_ARTIFACT.md) and LITERATURE_RULES_POPULATION_TESTS.md all already carried
+the 2026-08-29 retraction. [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §4 did not, and is
+corrected here. It survived every propagation pass for the same reason the 2026-08-01 conflict-theorem
+scope did: the phrase **spans a hard line wrap** ("(third⏎independent verification"), so no line-based
+grep for it could see it. It was found only by flattening the corpus before matching — the check GATE 3
+performs and reviewers do not. Three needles are registered for this class; until today **none existed**,
+so the gate had been blind to the retraction for the whole of its life.
+
+### 4. A sufficient stack setting published as a necessary one, at fifteen sites (`RP-21300ed8`)
+
+**BEFORE.** Eleven documents carried a banner declaring the `unlimited` stack setting a requirement of
+every `--estimate-knuth` command (retired wording keyed above, not restated), and four more said the same
+in their own words
+([VERIFY.md](VERIFY.md)'s requirements table, [GUIDE.md](GUIDE.md),
+LITERATURE_RULES_POPULATION_TESTS.md's scoreboard note, and
+[reports/evidence/r11/PHASE2_README.md](../reports/evidence/r11/PHASE2_README.md)).
+
+**NOW.** All fifteen state what the binary enforces: **at least 16 MB**, of which `ulimit -s 16384`
+suffices and `unlimited` is one sufficient setting. `solve.c`'s `--estimate-knuth` preflight tests
+`rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB"; executed under
+TR-9 v1.24 on a locally built binary, `ulimit -s 8192` refuses and exits 1 while `ulimit -s 16384` runs
+the estimator to completion. The published requirement was therefore a **false blocker** on any host or
+container whose hard limit forbids `unlimited`. TR-9 narrowed its own site on 2026-09-02 and reported the
+siblings without sweeping them; this is that sweep. `solve.c`'s own remedy line still prescribes only
+`unlimited` and is queued — it is a defect of helpfulness, not of correctness, since the setting it names
+does satisfy the requirement. Four of the eleven banners also carried a 2026-09-01 tail asserting the
+requirement "is unchanged and remains mandatory"; that sentence was true of the failure-mode correction it
+belonged to and false of this one, and is rescoped rather than deleted. Note the two classes stay
+disjoint: the older `RP-` row retracting the SIGSEGV failure *mode* had carried a standing caution that
+this requirement was true and must never be swept, which is corrected in the registry itself.
+
+**Attribution.** The four charges were raised by the Codex V2-F08 review pass and adjudicated in
+roae-private; reviewers are acknowledged, not credited as authors. The work recorded above — the
+`sat.py` encoding read (`BETWEEN_MULTISET` = {1:2, 2:8, 3:13, 4:7, 6:1} and the `odd[s]` clauses, both
+verified against the tracked file), the `reports/certificates/` and `verify_all.sh` inventory, the
+flattened-corpus sweep that found the TR-1 survivor, and the fifteen-site stack census — is this lane's
+(Claude), and every one of them is reproducible from files in this repository.
+
+## 2026-09-02 — TR-7: a symmetry claim C3 refutes, an "independence" check that shares half its probes, an enrichment split resting on an unproved uniformity, and a prior-art note that outran its own citation
+
+Four charges against [`reports/TR7_CIRCULAR_READING.md`](../reports/TR7_CIRCULAR_READING.md), raised
+by the Codex V2-F09 review pass and adjudicated in roae-private. No measurement, theorem, canonical
+sha or wrap mass moves. Two published *ratios* move, and both are recomputations from figures the
+report already prints. One charge was applied in part and refused in part, on the record below.
+
+### 1. Rotations are not symmetries, because C3 is not rotation-invariant (`RP-ed80aa5e`)
+
+**BEFORE.** §6 closed with a symmetry aside: without C4, a circular system "would be
+invariant under the 32 pair-slot rotations" as well as the B₃ relabelings. The same sentence stood at
+[`documentation/CIRCULAR_KING_WEN.md`](CIRCULAR_KING_WEN.md) §"Symmetry under closure".
+
+**WHY IT IS FALSE.** C3 is an absolute-position functional — Σ over all v of |pos[v] − pos[v^63]|,
+with the ceiling 776 set by King Wen's own value — so rotating the sequence moves it. Both documents
+foreclosed their own escape four lines earlier by stating that "C1, C3, C4 are position/pair
+properties, unaffected by closure": *unaffected by closure* is not rotation-invariance, and keeping C3
+linear is exactly what breaks the group action. A genuinely circular system might also circularize C3
+(minimum circular displacement), which would be rotation-invariant — but neither document does that.
+
+**MEASURED**, on two derivations inside `verify.py` that agree on every value: `c3_of_ordering`, which
+reads the pair-slot map only, and `compute_comp_dist`, which walks the reconstituted 64-hexagram
+sequence. C3(KW) = 776; rotate-4 = 888; rotate-16 = 1240; maximum 1320, minimum 664; **21 of the 31
+non-identity pair-slot rotations exceed 776**, and only 10 survive. The circular transition multiset
+{1:2, 2:20, 3:14, 4:19, 6:9} is preserved *exactly* under rotation, so C1, circular C2 and C5 all
+survive it and **C3 alone breaks it** — dropping C4 yields no C₃₂ action on the C1–C5 space at all.
+
+**REPRODUCTION** (seconds, no build):
+
+```
+python3 -c "import verify as v; c=v.c3_of_ordering; r=lambda k:[(s+k)%32 for s in range(32)]; print(c(r(0)), c(r(4)), c(r(16)), sum(c(r(k))>776 for k in range(1,32)))"
+```
+
+prints `776 888 1240 21`. The command is now in TR-7's Verification Guide and in CIRCULAR_KING_WEN.md.
+
+**AFTER.** Both sentences state the C3 exclusion and the 21-of-31 count; both files carry the caveat
+that C3's immunity to *closure* is not immunity to *rotation*. The phrase "invariant under the 32
+pair-slot rotations" is registered as `RP-ed80aa5e` on its **bare** form, and both corrected sentences
+were reworded to "the 32 pair-slot rotations would be symmetries of …" so the conditional truth is
+still sayable. The bare form was chosen because this class recurred: an earlier adjudication accepted
+the identical charge at the TR-7 site, nothing landed, and a second reviewer refiled it at the
+CIRCULAR_KING_WEN.md sibling. A needle that only covered TR-7 would not have stopped that.
+
+### 2. The published uncertainty statement rested on two runs that share half their probes (`RP-3d9ad619`)
+
+**BEFORE.** The abstract, §5 and the Verification Guide all said the same thing three ways: the
+instrument prints point masses with no per-class CIs, so the published uncertainty for the
+wrap-distance masses 17.5 / 65.2 / 17.4% is the agreement of the f11 primary and the r6 rerun —
+"two independent draws agreeing within 0.05 percentage points per class, which bounds the run-to-run
+scatter".
+
+**WHY IT IS FALSE.** The two runs are not independent. `reports/evidence/f11/f11_runA.out` is
+`probes=20000000000 threads=32`; `reports/evidence/r6/rc1c_primary.out` is
+`probes=20000000000 threads=64`; and `grep -c 'SEED OVERRIDE'` returns **0 in both**, so both ran on
+the fixed base seed. The estimator splits `per = n_total/nthreads` and seeds worker *i* as
+`base ^ ((i+1)·0x9E3779B97F4A7C15)` — by thread **index** alone, with no dependence on the thread
+count. 2×10¹⁰ divides evenly by 32 and by 64, so threads 0–31 of the 64-thread run replay the first
+312,500,000 draws of threads 0–31 of the 32-thread run: **10×10⁹ of each run's 20×10⁹ probes are
+literally the same probes.** The 0.05-percentage-point agreement is arithmetic, not evidence.
+
+The companion premise was separately stale. Per-class `se=` landed for every published mass family,
+the wrap-distance masses included, on **2026-08-28** ([METHODS.md](../reports/METHODS.md)
+§"Statistics conventions"); only the 2026-07 archived artifacts predate the field, and neither carries `se=`.
+
+**AFTER.** All three sites now say that **no ± figure is published for these masses**, name the r6 run
+a partially overlapping replicate rather than an independence check, and date the `se=` field. The
+mass values themselves are untouched. Quoting a real run-to-run scatter needs reruns under distinct
+`SOLVE_KNUTH_SEED` values; that is stated as open, not as done.
+
+### 3. The enrichment split converted an eligibility *support* into a probability (`RP-f21d636c`)
+
+**BEFORE.** §"The anchors on the circle" priced Cook's final-pair anchor as: against the naive
+1/31 ≈ 3.2% the measured 7.84% is a ×2.4 enrichment, of which — against the "parity-forced eligibility
+baseline" 1/16 = 6.25% — ×1.9 "is parity-forced" and ×1.25 "is the contingent residual".
+
+**WHY IT IS FALSE.** The wrap-parity theorem restricts the closing pair to a 16-element **support**.
+Turning that into a probability of 1/16 requires exchangeability across those 16 pairs, which the
+report does not prove — T2ii states eligibility as *necessary* only, and the per-pair spread inside a
+class is unknown except for A₂ — and which the report's own measurements contradict: the measured
+class masses are 65.2 / 17.5 / 17.4% against the counting baseline 62.5 / 18.75 / 18.75%. The
+paragraph does hedge two lines above ("the baseline is a heuristic reference, not a null"), then
+states the split in unhedged causal language anyway; that contradiction is the defect.
+
+**COMPUTED** from figures the same paragraph already prints — no new measurement. A₂ carries 7.84%
+against a **6.52%** d = 3 class average. So 6.52 / 3.2258 = **×2.02** of the apparent enrichment
+tracks class structure, and 7.84 / 6.52 = **×1.20** is the A₂-specific residual; the two compose to
+7.84 / 3.2258 = ×2.43, the ×2.4 observed.
+
+**AFTER.** The split is stated as ×2.02 · ×1.20 against the measured class average, and 1/16 is
+relabelled a reference rather than a null.
+
+**NOT CHANGED, and visible rather than whitelisted.** Two sibling sites state the same counting split
+— [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §2(d) and
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md) §3. They are adjudicated
+separately and are **still live**. `RP-f21d636c` is registered on TR-7's specific word order, "of that
+apparent enrichment ×1.9 is parity-forced", rather than on the bare figures, precisely so that the two
+outstanding sites stay outstanding: a bare-figure needle would have forced an allow-row for each,
+which is whitelisting a known defect. TR-7 §"The anchors on the circle" now names both as outstanding
+in its own text.
+
+### 4. The Meyer prior-art note asserted content its own citation says cannot be re-verified (`RP-b5267deb`)
+
+**BEFORE.** §"Prior work note" stated flatly that Peter Meyer (1998, web) "published the complete
+cyclic line-change sequence of the King Wen order … with an explicit XOR-and-popcount formalization",
+and that "His data thus contains the wrap value d=3 this report analyzes, decades before this work."
+
+**WHY IT OVERRAN THE CITATION.** The source is unrecoverable. `serendipity.li/dna/kws.html` returned
+404 on re-check 2026-08-01 (the site root is still live, so the page was removed) and the Internet
+Archive holds **zero captures of it** — both the Wayback availability API and a CDX query come back
+empty. [CITATIONS.md](CITATIONS.md) also records that an earlier attempt to source Meyer's priority
+quoted a *McKenna*-authored page and "was circular, and it is withdrawn". The report carried none of
+that: it stated the content as established prior art with no indication a reader cannot check it.
+
+**AFTER.** The note marks the read unrepeatable, gives the 404 and the zero-capture result, links the
+CITATIONS.md entry including the withdrawn circular attribution, and credits the wrap value and the
+absence of distance-5 **as stated claims** to McKenna & McKenna (1975), which is in print and citable.
+No ROAE novelty claim rested on the Meyer entry before or after; this is an over-attribution to a
+third party, not a novelty overclaim.
+
+**REFUSED, and why.** The charge named three sites and proposed rewriting all of them to say the
+project "cannot verify its content". Two of the three — CITATIONS.md's `meyer1998` entry and its
+§"C5's axis" stub — were **not** changed, because that rewrite would have made a true record false.
+Their live text says the content was **read first-hand on 2026-07-04**, before the page went, and that
+the project "can no longer **re**-verify" it, with both sites flagging the read as unrepeatable by a
+reader. That framing landed in the 2026-09-01 prose sweep, after the charge was drafted; the charge
+quotes the pre-sweep wording. Deleting the dated first-hand read would erase a real provenance fact in
+the name of caution. The TR-7 site, which had no hedge at all, is the one that was live and is fixed.
+
+**Attribution.** The four charges were raised by the Codex V2-F09 review pass (charge 1 refiled
+against the CIRCULAR_KING_WEN.md sibling as V2-F32 #1) and adjudicated in roae-private; reviewers are
+acknowledged, not credited as authors. The measurements recorded above — the two-instrument C3
+rotation sweep, the `SEED OVERRIDE` and thread-count audit of the two archived artifacts, the
+estimator's seeding and probe-splitting read, the `se=` landing date, and the ×2.02 / ×1.20
+recomputation — are this lane's (Claude), and every one of them is reproducible from files in this
+repository.

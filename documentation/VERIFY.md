@@ -13,7 +13,7 @@ closing section.)*
 | resource | requirement | why |
 |---|---|---|
 | **RAM** | **≥ 12 GB free** for the full `verify_all.sh` suite | the Lean phase peaks at **~9.3–9.6 GB** on `Automorphism.lean` and **~8.0 GB** on `KingWen.lean`; **an 8 GB host cannot check those two files.** ⚠ *(Corrected 2026-09-01: this row named `PruneGInvariance.lean` as the second-heaviest file. It is not — it measures ~4.1 GB and an 8 GB host runs it fine. The same transposition was corrected in `reports/certificates/verify_all.sh`'s header on 2026-08-28 and never propagated here; the ≥ 12 GB requirement is unchanged and was never wrong, only the file named as its reason.)* Per-file measured table in [lean/README.md](../lean/README.md) §"Verify yourself" — half the files check in ~1 s under 0.7 GB |
-| **Stack** | `ulimit -s unlimited` for any `--estimate-knuth` command | `main`'s frame is ~7.23 MB and the estimator adds ~1.02 MB, so an 8 MB default stack is exceeded on entry. The binary now **refuses with an actionable message** instead of segfaulting |
+| **Stack** | at least **16 MB** for any `--estimate-knuth` command — `ulimit -s 16384` suffices; `ulimit -s unlimited` is one sufficient setting, not the requirement (narrowed 2026-09-02, prose batch P37) | `main`'s frame is ~7.23 MB and the estimator adds ~1.02 MB, so an 8 MB default stack is exceeded on entry. The binary now **refuses with an actionable message** instead of segfaulting |
 | **Disk** | ~2 GB scratch | regenerated CNF + decompressed proofs |
 | **CPU** | any | the verification path is not core-hungry and needs no large VM. Large-scale *enumeration* is a different matter — see [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) for the D128 + Premium-SSD envelope and why random-IO isolation matters there |
 
