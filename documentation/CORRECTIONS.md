@@ -3266,3 +3266,111 @@ by `tests.py`; the kissat verdict leg itself was not exercised here.
 
 **Attribution.** Raised by the Codex V2 review (V2-F50 #1, #6; V2-F62 #4, #7), adjudicated in
 roae-private A08 rows 13 and 18 and A09 rows 17 and 20, fixed in the Fable lane (T6).
+
+---
+
+## 2026-09-02 — the fourth two-rule core: its certificate ships, its classification is decided, and it carries one checker where the other 21 carry two
+
+**What changed, and where.** The 2026-08-28 entry above established a fourth minimal two-rule core,
+{Schulz gender, Schulz S25–28}, and left two things open: its certificate was verified off-tree but
+not published (TR-2 v1.29 and CLAIM_TO_ARTIFACT row 8 said so), and whether the core is a genuine
+discovery or definitional-by-construction like {gender, CC-N8} was deferred.
+
+**The certificate is now in `reports/certificates/`** as `core_gender_ccn4_unsat.drat.gz` (sha256
+`bcfc72a1a9ce5ef7c4703f4fb0f321033ed6eb7f8d593007c136d449fb78fe61`), with its regeneration row
+(`python3 sat.py --emit-cnf five-sub-gender+ccn4 f.cnf`, 7,035 vars / 243,175 clauses) and a
+`verify_all.sh` entry. The counts move 14→15 and 21→22 in TR-2 §Extension, certificates/README.md,
+CLAIM_TO_ARTIFACT.md rows 8 and 12, lean/README.md, SAT_CLI.md and
+LITERATURE_RULES_POPULATION_TESTS.md. Before copying, the archived file was checked: `gzip -t` clean,
+byte-identical to the blob committed in the private evidence record, and the decompressed proof parsed
+as binary DRAT ending in the empty clause against a freshly emitted CNF of the pair.
+
+**The classification: definitional-by-construction.** The criterion is the one already applied to
+{gender, CC-N8}: can the contradiction be derived by evaluating one rule's predicate on what the other
+pins, using nothing beyond the 36-station coordinate system both are stated in? For this pair, yes.
+S25–28 pins the faces at stations 25–28 to `{25: 31, 26: 24, 27: 26, 28: 29}` (`sat.py`), whose
+popcounts are 5, 2, 3, 4; the strict gender rule requires a face of popcount ∉ {0, 3, 6} to satisfy
+`(pc < 3) == (station odd)`. Station 25 (odd, popcount 5) and station 26 (even, popcount 2) each
+violate it; either alone contradicts the rule, and popcount is reversal-invariant, so no orientation
+escapes. The conflict is one constant-time evaluation from the rule statements — which is also why it
+hid from every census until 2026-08-28: S25–28's *statement* never mentions gender. "Findable only by
+census" and "a discovered combinatorial fact" are different claims, and only the second earns the
+label. Minimality does not rescue "discovery": {gender, CC-N8} is equally minimal and is classified
+definitional. The same criterion confirms the two Moore cores as genuine — parity (18/18) and rhythm
+(zero breaks) are aggregates over all 32 slots, and no pointwise substitution on four pinned faces
+decides them. The certificate is retained because it makes certificate-backed the statement that
+Schulz's S25–28 configuration entails his gender-rule exceptions at exactly their published locus.
+What would overturn the ruling: a first-hand reading of Schulz 2016 pp. 23–24 showing that S25–28 as
+published prescribes less than a unique face per station (we do not hold that text), or an error in
+the gender predicate's exemption set or parity convention, which is validated against Schulz's own KW
+tallies in-repo. TR-2's "The other two cores are genuine discoveries" is restated accordingly.
+
+**The disclosure that must travel with the file.** All 21 certificates archived before this one were
+run through `drat-trim → LRAT → cake_lpr` on 2026-07-27 — cake_lpr being the formally verified
+checker, so those verdicts do not rest on trusting drat-trim. This certificate postdates that batch
+and has passed **drat-trim only**. Shipping it silently alongside the others would publish a 22nd
+certificate weaker than the 21 beside it, so the gap is stated in certificates/README.md, SAT_CLI.md,
+LITERATURE_RULES_POPULATION_TESTS.md, TR-2 and CLAIM_TO_ARTIFACT.md. Also not yet executed: a 22/22
+`verify_all.sh` replay of the shipped directory — the shipping host has neither drat-trim nor
+cake_lpr; the executed verifications are the 21/21 replay of 2026-08-28 and the off-tree `s VERIFIED`
+for the 22nd. The certificate was produced with kissat 4.0.1, where METHODS.md's environment table
+lists kissat 4.0.4; the version is recorded here rather than folded into the listed one.
+
+**Attribution.** The publication gap was raised by the Codex V2 review (V2-03, V2-14, V2-19, V2-L08
+and V2-F62 #3) and the checker-coverage residue by V2-14 #1, adjudicated in roae-private
+(CODEX_V2_ADJUDICATION rows 1, 10, 16); Codex L01 had asserted the core list might be incomplete
+without naming a pair. The census that found the core, its certificate, the classification ruling
+and this shipping change are the Fable lane's (Claude). Reviewers are acknowledged, not credited as
+authors.
+
+## 2026-09-02 — the repr(k) oracle was sold as fails-closed; it is blind to C3, in both languages
+
+**Retraction key: `RP-f89ba1e5`.** VERIFY.md's `--check-repr` row read *"Fails closed: an
+*incomputable* key is a finding too, since the artifact claims a canonical record for a key this
+instrument says cannot be completed."* Unqualified, that is false on one constraint. The row also
+quoted the definition the oracle is written from —
+[`lean/RecordConvention.lean`](../lean/RecordConvention.lean), *"the lexicographically least
+orientation completion of the pair-order key satisfying the constraint set"* — without saying that
+the code implements only part of that set. The Lean file states the predicate explicitly at its B6
+bullet: `P` = "the completed sequence satisfies **C2/C3/C5**" (C1/C4 by construction). `verify.py`'s
+`repr_of_key` and `verify.c`'s `vc_repr_of_key` apply the forced (63,0) opening, the HD-5 exclusion
+and the exact C5 budget, and nothing else — `compute_comp_dist` and `16 + 8·G` appear in neither
+function.
+
+**Why it matters, and why it is not cosmetic.** C3 is orientation-invariant (`C3 = 16 + 8·G`,
+constant across the orientation fiber), so its absence cannot change *which* completion is
+lex-least — the AGREE/DISAGREE verdict on a C3-valid key is unaffected. What it changes is the
+`INCOMPUTABLE` leg, which is precisely the leg the retracted sentence advertised: a key whose pair
+sequence has `C3 > 776` admits **no** valid completion under the definition, so the correct verdict
+is `INCOMPUTABLE`, and both oracles instead return a record and call it agreement.
+
+**Executed, not inferred (2026-09-02).** On a one-record `ROAE`-headed artifact whose decoded
+sequence has `C3 = 1080` against the 776 ceiling — the same fixture the `--check-artifact` C3
+finding used — `python3 verify.py FILE --check-repr 1` and `./verify --check-repr FILE 1` each
+printed `CHECKED=1`, `AGREE=1`, `DISAGREE=0`, `INCOMPUTABLE=0`, `CHECK_REPR=PASS`, rc = 0. The
+records path on the same file (`python3 verify.py FILE`) printed `C3 failures: 1 … VERIFY FAIL`,
+rc = 1. `--check-artifact` also printed `ARTIFACT=PASS`, rc = 0, in both languages, as already
+recorded for that finding.
+
+**Scope of the fix landed today.** Prose only. The `--check-repr` row now says the oracle fails
+closed *only over the constraints it implements* and states the C3 gap, the executed verdicts and
+the pairing instruction; the `verify.c --check-repr` section carries the same caveat beside its
+negative-controls paragraph, with the note that those controls could not have shown it — they
+perturb a record until an *existing* check fires; and the `--check-artifact` blind-spot note is
+extended from "one mode" to **two modes and four code paths** (`check_artifact` and `repr_of_key`,
+in each language). The code legs — a C3 rejection in the repr pair, a `BAD_C3` counter in the
+artifact pair, and negative controls for both — are **not** done and are queued to the code lane.
+
+**No registered canonical is exposed.** Every registered canonical's VERIFY PASS is a records-path
+pass, and the records path checks C3 (`verify.py:1218`); the enumerator enforces C3 in-walk. The
+defect is a latent false-PASS in two review instruments, not a false published result.
+
+**How it was found.** Not by its own charge. The Codex V2 review's accepted finding named
+`--check-artifact` alone; this is its sibling, turned up by the standing "fix the class, not the
+instance" sweep of the rest of `VERIFY.md` after that charge was confirmed already closed on the
+doc side. It is the same A3-audit class the blind-spot note names — an independent verifier
+inheriting an enumerator-enforced invariant instead of re-deriving it.
+
+**Attribution.** The `--check-artifact` half was raised by the Codex V2 review (V2-F20 #1) and
+adjudicated in roae-private; the repr sibling, its execution and this entry are the Claude lane's.
+Reviewers are acknowledged, not credited as authors.
