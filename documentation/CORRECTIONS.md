@@ -6819,3 +6819,83 @@ bit returns nothing to the ledger for exactly the reason an attested one returns
 roae-private (`CODEX_V2_ADJUDICATION` line 2843). The adjudicated site itself — `reports/METHODS.md`
 — was already closed on 2026-08-30 and is confirmed closed here; this entry records the survivor that
 the closure's own propagation sweep could not see. Reviewers are acknowledged, not credited as authors.
+
+---
+
+## 2026-09-02 — a numberless universal in two files, one day after the same sentence was retired in a third
+
+**Keys:** RP-33e91f43 and RP-944b9b41 (`documentation/RETRACTED_PHRASES.tsv`).
+
+**Sites:** `documentation/SOLVE.md` §"Null model: is the constraint framework special?", the
+paragraph beginning "What is genuinely special about King Wen", and
+`documentation/SOLVE_SUMMARY.md` §"An important caveat", its closing sentence — both **as of HEAD
+`599acfcf`** (line numbers omitted deliberately; the correction adds text and both had already
+drifted from the numbers the charge was filed against).
+
+**BEFORE:** each paragraph ended by asserting that the properties the constraint framework extracts
+— complement distance, starting pair, difference distribution — carry the same narrowing power for
+an unrestricted universal class of sequences as they do for King Wen. Two different predicates, two
+different objects, one defect: a sweeping claim with **no population, no scope and no measured
+degree** behind it. Neither site's wording could be reached by a needle written against the other's.
+
+**AFTER:** the quantifier is gone and the paragraphs state the **deductive** content in its place —
+the extraction is self-fulfilling, because C3–C5 are values read *off the target*, so the constraints
+it returns are ones that target satisfies by construction and the narrowing that follows is narrowing
+around *it*. Each site then states the gap in terms: **the mechanism is deductive; the scale is not
+measured.** Nothing in this project reports, for any population of orderings, what fraction the
+extraction drives to near-uniqueness or how near it drives them.
+
+**Why a gap and not a number.** The project's standing rule is that a published figure ships with its
+reproduction command; the corollary this entry applies is that a published *universal* ships with its
+population. Before concluding that no measurement exists, the lane checked whether one was
+**derivable**, which is the failure mode that produced RP-502d8730 four batches ago (a "each of the 31
+rules" universal whose true count, 27, was sitting in `solve.py`). It is not derivable here. The only
+evidence bearing on the claim is the 9/10 historical null run already disclosed at the SOLVE.md site,
+whose artifacts were not preserved. The **outstanding fix** is a `solve.py --extraction-null` mode, and
+it has never been built — it appears in this tree only at documentation sites
+that disclaim it and in `scripts/doc_gates.sh`'s GATE 25 proposal-marker comment, which exists
+*because* those sites are the project being scrupulous about what does not exist. roae-private's
+`CURRENT_STATE.md` records the same conclusion independently ("no reproduction surface in either
+tree"). No cached 13,296-ordering differential population survives from which a fiber-size
+distribution could be derived instead, and regenerating it is a ~63-minute solver run — a measurement
+task, not a prose-lane derivation. **A stated gap outranks a confident sentence**, so the gap is what
+is published.
+
+**One consequence handled rather than left standing.** Both paragraphs also carry a hedged sibling of
+the same shape — the framework "makes almost any sequence appear uniquely determined". It is left as
+written, because it is explicitly labelled a qualitative conclusion resting on stated reasoning, and
+because `documentation/HISTORY.md` deliberately preserves the identical wording as an annotated
+period record while `documentation/DISTRIBUTIONAL_ANALYSIS.md` scopes its version to C1+C2 orderings,
+a named population. Retiring it would have been a second, wider claim needing its own sweep. Instead
+each corrected paragraph now says explicitly that the qualitative wording is an inference from the
+mechanism plus the unreproduced run and **not a measured frequency**, which scopes it rather than
+contradicting it. Reported, not silently absorbed.
+
+**This is a sibling-residue closure, and the residue was one day old.** `documentation/GUIDE.md`
+retired the identical sentence on 2026-09-01 as `INL-b7f79b5`
+(`documentation/CORRECTIONS_INVENTORY.tsv:227`). That pass reached GUIDE.md alone. The same lesson has
+now been recorded three times in four days — RP-502d8730 (a retired value surviving in an abbreviated
+spelling), RP-032dfbe6 (a retired claim surviving as a hyphenated compound), and here, a retired
+sentence surviving in two files under two different predicates. No needle registered against the
+GUIDE.md wording could match either survivor.
+
+**Anchor safety.** `SOLVE_SUMMARY.md` §"An important caveat" is the target of three inbound anchors to
+`#an-important-caveat` — two in `documentation/GUIDE.md` and one in
+`documentation/DISTRIBUTIONAL_ANALYSIS.md`. The correction is body prose only; no heading, and no
+heading's slug, changed. All three were re-checked against the heading after the edit and resolve.
+
+**Census.** Whitespace-flattened over every tracked `.md`, `.tsv` and `.txt`: each needle 1 → 0. The
+subject-side spelling that would have covered both sites in a single row was considered and
+**rejected** — it carries an ASCII apostrophe, and GATE 3's character-variant fold normalises dashes,
+multiplication signs, inequality signs and four space variants but **not** quote characters, so a
+typographic apostrophe would walk past it unseen. Both registered needles are apostrophe-free by
+construction. `allow` is `__none__` on both: this entry cites the keys rather than quoting the
+strings, per the RP-502d8730 precedent.
+
+**Nothing measured changed.** No count, percentage, sha, certificate, theorem or claim verdict moves.
+The 9/10 run keeps exactly the standing it already had. What changed is that two paragraphs stopped
+asserting a frequency nobody has measured.
+
+**Attribution.** The charge was filed against this lane as `NUMBERLESS_UNIVERSALS`. The derivability
+check, the decision to publish the gap rather than a hedge, the apostrophe-fold reasoning behind the
+needle choice and the anchor re-verification are this lane's.
