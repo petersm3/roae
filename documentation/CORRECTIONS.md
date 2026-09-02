@@ -6772,3 +6772,50 @@ this charge; TR-2 is another lane's file and needed no change either.
 roae-private (`CODEX_V2_ADJUDICATION` rows 26 and 16). The re-derivation from `solve.py`, the
 flattened census and the registry decision are this lane's. Reviewers are acknowledged, not
 credited as authors.
+
+---
+
+## 2026-09-02 — a retracted attestation that survived nine registered needles because one site hyphenated it
+
+**Key:** RP-032dfbe6 (`documentation/RETRACTED_PHRASES.tsv`).
+
+**Site:** `documentation/DEVELOPMENT.md:1894` **as of HEAD `0f55aad1`** (the correction below adds
+lines, so the item now spans 1888-1908), item 3 of §"Scientific / analysis extensions", the
+entry that records the 2026-07-26 retraction of the forced-orientation "Theorem 6".
+
+**BEFORE:** the clause closing that item gave C4's within-pair orientation a parenthetical epithet
+crediting the *Xugua* with attesting it — written as a single hyphenated compound rather than as the
+"classically attested" phrasing every other site in the tree used.
+
+**AFTER:** the orientation is stated as definitional — this project's convention, not a classical
+attestation — with a dated marker recording what the *Xugua* does and does not attest and pointing at
+the narrowing in [METHODS.md](../reports/METHODS.md) §"Constraint set".
+
+**Why it survived.** The narrowing landed 2026-08-30 in METHODS.md and was propagated on 2026-09-01
+to SPECIFICATION.md, DESCRIPTION_LENGTH.md, SOLVE.md, SOLVE_SUMMARY.md, BRANCHES_EXPLAINED.md,
+CITATIONS.md, CLAIMS_DECIDED.md, lean/README.md, TR-1, TR-9 and TR-11, with eight needles registered
+and two more added on 2026-09-02 by the Lean batch. All ten spell the claim with the words
+*classically attested*. The DEVELOPMENT.md site spells it as a hyphenated adjective instead, so no
+registered needle could reach it, and GATE 3 reported clean over it every time. **A green GATE 3
+attests that the registered strings are absent, not that the retracted claim is** — the lesson the
+CX-34 row already recorded, reproduced here in a second, independent instance.
+
+**Verified live before editing.** `documentation/DEVELOPMENT.md:1894` carried the wording at
+HEAD `0f55aad1`, and a run of all pre-existing registry needles against that file returned no match,
+confirming the site was unreachable from the registry rather than merely unswept. Census of the
+retired claim across the tree: **1 live site before -> 0 after**. Every other hit is either correctly
+scoped to C4's *pair choice* (`CRITIQUE.md:75`, `SOLVE.md:576`, `SOLVE_SUMMARY.md:200`,
+`BRANCHES_EXPLAINED.md:59`), or an append-only historical record already annotated in place
+(`HISTORY.md:5872`, TR-1's v1.16 revision row, `CORRECTIONS_INVENTORY.tsv`, and this ledger's own
+:230/:247/:1985/:2752 — the last of which the 2026-09-01 sibling audit deliberately annotated rather
+than rewrote).
+
+**Nothing quantitative moves.** The Theorem 6 retraction the site records rests on the Complement Z₂
+symmetry theorem, machine-checked in `lean/KingWen.lean` with a kernel-only trust base, not on any
+attestation; TR-9 continues to price C4 at its full ≈6 bits (pair + orientation), and a definitional
+bit returns nothing to the ledger for exactly the reason an attested one returns nothing.
+
+**Attribution.** The charge was raised by the Codex V2 review (V2-13 #1) and adjudicated in
+roae-private (`CODEX_V2_ADJUDICATION` line 2843). The adjudicated site itself — `reports/METHODS.md`
+— was already closed on 2026-08-30 and is confirmed closed here; this entry records the survivor that
+the closure's own propagation sweep could not see. Reviewers are acknowledged, not credited as authors.

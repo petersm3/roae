@@ -1891,8 +1891,21 @@ Tracked in detail in `LONG_TERM_PLAN.md` (project-local staging in
    exact symmetry of C1∩C2∩C3∩C5; only oriented C4 breaks it). The true
    replacement statement — the Complement Z₂ symmetry theorem — is
    machine-checked in `lean/KingWen.lean`; C4's orientation is
-   definitional (Xugua-attested), needing no theorem. See
-   SPECIFICATION.md §Theorems and CLAIMS_DECIDED's corrections ledger.
+   definitional — this project's convention, not a classical
+   attestation — needing no theorem. ⚠ **[CORRECTED 2026-09-02 — the
+   parenthetical here credited the *Xugua* with attesting the
+   orientation, written as a hyphenated short form that every earlier
+   sweep of this retraction grepped past. The *Xugua* attests that the
+   {Heaven, Earth} pair opens, not the order of Heaven over Earth
+   within it — 天地 is a compound, not an ordering. What the classical
+   record does attest is C1's pairing rule (孔穎達《周易正義·序卦傳疏》,
+   二二相耦，非覆即變) together with C4's *pair choice*, which is
+   unaffected. Narrowed in [METHODS.md](../reports/METHODS.md)
+   §"Constraint set" on 2026-08-30; this file missed the propagation.
+   The Theorem 6 retraction this item records is untouched — it rests
+   on the complementation symmetry, machine-checked in Lean, not on any
+   attestation.]** See SPECIFICATION.md §Theorems and CLAIMS_DECIDED's
+   corrections ledger.
 4. **Bootstrap confidence intervals** on percentile claims (complement
    distance at 3.9th percentile — a figure flagged 2026-08-01, see
    SOLVE.md §Rule 3 — shift pattern percentages on the current
