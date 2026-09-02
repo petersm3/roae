@@ -16,8 +16,18 @@
  * ARCHITECTURE OVERVIEW
  * =====================
  * The King Wen sequence is 64 hexagrams (6-bit integers, 0-63). It naturally groups
- * into 32 consecutive pairs. This solver finds all orderings of those 32 pairs that
- * satisfy a set of mathematical constraints derived from the original sequence.
+ * into 32 consecutive pairs. This solver enumerates orderings of those 32 pairs --
+ * WITHIN A NODE BUDGET, so any run's record count is a LOWER BOUND over a
+ * reproducible slice -- that satisfy a set of mathematical constraints derived from
+ * the original sequence.
+ *
+ * 🔴 CORRECTED 2026-09-02 (operator-authorised, comment-only). This read "finds all
+ * orderings", which is the registered retracted phrasing
+ * (documentation/RETRACTED_PHRASES.tsv) and the SAME unqualified claim the header
+ * correction above withdraws. That correction fixed the file summary and missed this
+ * restatement fifteen lines below it -- in the very paragraph its own text says was
+ * missed. Found 2026-09-02 by sweeping the 128 tracked text files that sit in no
+ * needle scan: solve.c is outside GATE 3's corpus, so no gate could have caught it.
  *
  * The search is a depth-32 backtracking tree. At each depth, we try placing one of
  * the remaining unused pairs (in either orientation) at the next position. Pruning:
