@@ -1925,7 +1925,34 @@ gate_figures() {
   # already this file's own rule, three hundred lines above.
   gens=$( { git ls-files 'viz/*.py'
             git ls-files '*.py' | xargs grep -ln 'savefig' 2>/dev/null; } | sort -u)
-  [ -n "$gens" ] || { echo "  [skip] no figure generators tracked (no viz/*.py in the index and no tracked .py calls savefig)"; return 0; }
+  # ---- THE PUBLISHED-ASSET POPULATION, and the [skip] that was a fail-open ----------
+  # Added 2026-09-02 (batch C7) with LEG 3 below, which needs this population anyway.
+  #
+  # 🔴 THE LINE THIS REPLACES READ `[ -n "$gens" ] || { echo "  [skip] ..."; return 0; }`.
+  # With no generator tracked, this gate printed [skip] and RETURNED 0 — a PASS — while every
+  # published figure in the tree stayed exactly as unscanned as it had ever been. The glyph-path
+  # assets cannot be scanned through their output (this gate's own WHY header measures that:
+  # matplotlib renders text to glyph paths), so the generator is the ONLY place a retracted
+  # phrase in them can be caught. "No generator" is therefore the state in which this gate
+  # protects nothing at all, and it was the state in which it reported clean. That is the
+  # fail-open class — a verdict inferred from an absence that can mean "the check did not run".
+  local imgs nimg
+  imgs=$(git ls-files '*.svg' '*.png')
+  nimg=$(printf '%s\n' "$imgs" | grep -c . )
+  if [ "$nimg" -eq 0 ]; then
+    echo "  [FAIL] zero tracked image assets enumerated — vacuous, treated as failure."
+    echo "         This gate exists to protect published figures and it just found none. If the"
+    echo "         assets genuinely moved, update the pathspec; do not read an empty glob as clean."
+    return 1
+  fi
+  if [ -z "$gens" ]; then
+    echo "  [FAIL] $nimg tracked image asset(s) are published and ZERO figure generators are"
+    echo "         tracked (no viz/*.py in the index, and no tracked .py calls savefig). The"
+    echo "         glyph-path assets are unscannable through their own output, so the generator"
+    echo "         is the only place a retracted phrase in them could be caught — and there is"
+    echo "         no generator. This printed [skip] and returned 0 until 2026-09-02."
+    return 1
+  fi
   for g in $gens; do
     # Every path here came out of the index, so require_tracked can only return 0 or 2.
     local grc=0
@@ -1999,10 +2026,112 @@ gate_figures() {
   esac
   [ "$figbad" -eq 0 ] || bad=1
 
+  # ---- LEG 3: THE OUTPUT SIDE (batch C7, 2026-09-02). --------------------------------
+  #
+  # WHY. Both legs above scan GENERATORS, and that is sound for a matplotlib figure because its
+  # text is unreachable in the output. It is NOT the whole population. A published .svg whose
+  # text survives as real XML character data — example/hexagrams.svg carries 64 <text> nodes,
+  # example/wave.dot.svg 255 (graphviz, not matplotlib) — is greppable, is published, and was in
+  # no needle scan anywhere: neither GATE 3 (whose corpus is *.md plus reports/evidence/**) nor
+  # either leg above (whose corpus is *.py). Their producer, roae.py, writes SVG directly and
+  # calls no savefig, so it is not in `gens` either. A registry row for a phrase drawn into one
+  # of those two files would have been present, ledgered, and checked against nothing.
+  #
+  # 🔴 WHAT WAS PROPOSED AND WHY IT IS NOT WHAT SHIPPED. The finding that raised this asked for
+  # a scan of `viz/*.py` and `reports/figures/*.svg`. Measured before writing a line:
+  #   * `viz/` IS ALREADY COVERED — by the two legs above, for BOTH registries, since 2026-08-01
+  #     and widened past the directory key on 2026-08-27 (Q-283 / Codex N10 finding 9). The
+  #     premise that a viz/ row "could not have fired" is false.
+  #   * `reports/figures/*.svg` IS COVERED BY NOTHING AND SCANNING IT WOULD ATTEST NOTHING: all
+  #     six carry ZERO <text> elements (815/465/929/384/373/199 <use> refs instead). A needle
+  #     scan over them passes for every needle, always — the exact vacuous-population defect the
+  #     leg was asked to avoid. Scanning them and printing [ok] would have MANUFACTURED a
+  #     fail-open rather than closed one.
+  # So the population is keyed on the BEHAVIOUR that makes a scan meaningful — the asset carries
+  # renderable character data — and never on a directory. That is this file's own rule ("exempt
+  # a construction, never a directory") and the rule Q-283 was raised to enforce here.
+  #
+  # THE UNSCANNABLE REMAINDER IS COUNTED AND PRINTED, not passed over in silence. An asset this
+  # leg cannot read is not an asset it has cleared, and the census line below says so every run.
+  local svgs nsvg=0 ntext=0 nglyph=0 npng tbf="" ff xd nx xln
+  npng=$(printf '%s\n' "$imgs" | grep -c '\.png$')
+  svgs=$(printf '%s\n' "$imgs" | grep '\.svg$')
+  if [ -z "$svgs" ]; then
+    echo "  [FAIL] LEG 3 — zero tracked .svg assets, out of $nimg tracked image asset(s)."
+    echo "         Vacuous, treated as failure: this leg's whole population is the .svg pathspec"
+    echo "         and it matched nothing. If this tree genuinely ships no SVG, retire this leg"
+    echo "         deliberately; do not let a mis-globbed population report clean."
+    bad=1
+  fi
+  for ff in $svgs; do
+    nsvg=$((nsvg+1))
+    # `git ls-files` is an INDEX listing. This gate's own item A1(ii) records the shape: a
+    # tracked file deleted from the worktree stayed in the list, produced no match, and was
+    # reported clean. Absence is an ERROR here, never a silent skip.
+    if [ ! -f "$ff" ]; then
+      echo "  [FAIL] $ff is tracked in git but absent from the worktree, so it was NOT scanned."
+      bad=1; continue
+    fi
+    if grep -qE '<(text|tspan|title)[ />]' "$ff"; then
+      ntext=$((ntext+1)); tbf="$tbf $ff"
+    else
+      nglyph=$((nglyph+1))
+    fi
+  done
+  echo "  [info] LEG 3 population: $nsvg tracked .svg — $ntext text-bearing (SCANNED),"
+  echo "         $nglyph glyph-path; plus $npng tracked .png. The $((nglyph + npng)) unscannable"
+  echo "         asset(s) are NOT cleared by this leg — they rest on the generator legs above."
+  if [ "$ntext" -eq 0 ] && [ "$nsvg" -gt 0 ]; then
+    echo "  [note] LEG 3 scanned ZERO files: no tracked .svg carries renderable character data."
+    echo "         Stated, not silent — this leg attests nothing this run."
+  fi
+  for ff in $tbf; do
+    # Strip tags and unescape the entities that can split or hide a needle. Deliberately a
+    # SUPERSET of the rendered text (style/CDATA character data comes along): a superset can
+    # only over-report, and an over-report here is loud and one edit away from fixed, whereas
+    # an element type this leg forgot to name would be silent. &amp; is unescaped LAST.
+    xd=$(sed -e 's/<[^>]*>/ /g' \
+             -e 's/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#39;/'"'"'/g; s/&apos;/'"'"'/g; s/&amp;/\&/g' \
+             "$ff") || { echo "  [FAIL] LEG 3 could not extract text from $ff — NOTHING was scanned for it."; bad=1; continue; }
+    nx=$(printf '%s' "$xd" | fold_variants | tr '\n' ' ' | tr -s ' ')
+    # The allow column is ignored here for the same reason the generator leg ignores it: a
+    # rendered figure carries no changelog row and no retraction narration to quote.
+    while IFS=$'\t' read -r phrase allow note; do
+      case "$phrase" in ''|'#'*) continue;; esac
+      local np3
+      np3=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
+      if printf '%s' "$nx" | grep -qF -- "$np3"; then
+        xln=$(printf '%s' "$xd" | fold_variants | grep -nF -- "$np3" | head -1 | cut -d: -f1)
+        echo "  [FAIL] retracted phrasing RENDERED in a published figure: \"$phrase\""
+        echo "         matched as the fixed string: \"$np3\"   ($note)"
+        if [ -n "$xln" ]; then echo "      $ff:$xln  — fix the generator and regenerate"
+        else echo "      $ff(spans-lines)  — fix the generator and regenerate"; fi
+        bad=1
+      fi
+    done < "$reg"
+    if [ -f "$figreg" ]; then
+      while IFS=$'\t' read -r figure fignote; do
+        case "$figure" in ''|'#'*) continue;; esac
+        local nf3
+        nf3=$(printf '%s' "$figure" | fold_variants | tr '\n' ' ' | tr -s ' ')
+        if printf '%s' "$nx" | grep -qF -- "$nf3"; then
+          xln=$(printf '%s' "$xd" | fold_variants | grep -nF -- "$nf3" | head -1 | cut -d: -f1)
+          echo "  [FAIL] retracted FIGURE rendered in a published figure: \"$figure\""
+          echo "         matched as the fixed string: \"$nf3\"   ($fignote)"
+          if [ -n "$xln" ]; then echo "      $ff:$xln  — fix the generator and regenerate"
+          else echo "      $ff(spans-lines)  — fix the generator and regenerate"; fi
+          bad=1
+        fi
+      done < "$figreg"
+    fi
+  done
+
   if [ "$bad" -eq 0 ]; then
     echo "  [ok] $(echo $gens | wc -w) figure generator(s) — every tracked viz/*.py plus every"
     echo "       tracked .py that calls savefig — carry no registered retracted phrasing"
     echo "  [ok] ...and none of the $nfig registered retracted FIGURE(s) either (item A8)"
+    echo "  [ok] LEG 3: $ntext text-bearing published .svg carry neither a registered retracted"
+    echo "       phrase nor a registered retracted FIGURE"
   fi
   return $bad
 }
@@ -5915,14 +6044,21 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --doc-gat
   _G25_CBASE=$(bash "$0" repro-reach 2>&1)
   _G25_CU=$(printf '%s' "$_G25_CBASE" | grep -oE '[0-9]+ documented command-flag use' | grep -oE '^[0-9]+')
   _G25_CW=$(printf '%s' "$_G25_CBASE" | grep -oE '[0-9]+ declared-narration waiver' | grep -oE '^[0-9]+')
-  if [ -z "$_G25_CU" ] || [ -z "$_G25_CW" ]; then
+  # The PROPOSAL count is pinned too (added 2026-09-02, batch C7). Without it this control had
+  # a new way to go green with the gate broken, and the comment above already names the shape:
+  # "a NARRATION waiver absorbing the injection moves the waiver count -> RED". A PROPOSAL
+  # waiver absorbing it would have moved no number this assertion read. Pinned, not added as a
+  # new caller: `documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt` machine-reads `callers=N` for
+  # both helpers and GATE 15 LEG 3 re-derives it, so a new invocation is a two-file change.
+  _G25_CP=$(printf '%s' "$_G25_CBASE" | grep -oE '[0-9]+ proposal-marker waiver' | grep -oE '^[0-9]+')
+  if [ -z "$_G25_CU" ] || [ -z "$_G25_CW" ] || [ -z "$_G25_CP" ]; then
     echo "  [FAIL] GATE 25 negative control — the base repro-reach run printed no census line,"
     echo "         so the control below has no base to compare against. A leg that cannot read"
     echo "         its own base is silent, not clean."
-    PASS=1; _G25_CU=-1; _G25_CW=-1
+    PASS=1; _G25_CU=-1; _G25_CW=-1; _G25_CP=-1
   fi
   assert_stays_clean_why "GATE 25 the same sentence citing a flag that DOES exist stays silent" \
-    repro-reach "$((_G25_CU + 1))"' documented command-flag use\(s\), '"$_G25_CW"' declared-narration waiver\(s\)' \
+    repro-reach "$((_G25_CU + 1))"' documented command-flag use\(s\), '"$_G25_CW"' declared-narration waiver\(s\), '"$_G25_CP"' proposal-marker waiver\(s\)' \
 "p='documentation/GUIDE.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount\n')"
@@ -10645,13 +10781,36 @@ PY
 # load-bearing — if a correction writes the invocation form this gate FAILS, and the fix
 # is to reword the correction, not to widen the extractor.
 #
-# NOT IN 'all' YET — by caution, the same way GATE 24 and GATE 8 sit out. Run it by name
-# (`doc_gates.sh repro-reach`). Promote only after it has been observed silent across a
-# full corpus for a while; that promotion is a deliberate decision, not a default.
+# PROMOTED INTO 'all' ON 2026-09-02 (batch C7), and the honest basis for it is recorded here
+# rather than implied. This header used to read "NOT IN 'all' YET ... promote only after it has
+# been observed silent across a full corpus for a while; that promotion is a deliberate
+# decision, not a default." The DELIBERATE half is satisfied — it was decided, with reasons.
+# 🔴 THE OBSERVATION WINDOW IS NOT. LEG 1 had been RED, on two false positives, and was made
+# clean the same day it was promoted; it has not been silent "for a while" and no reader should
+# infer that it has. What was substituted for the window, deliberately, is EVIDENCE:
+#   * both red lines were shown to be false positives at the source, not reworded away;
+#   * the fix was red-tested three ways (a genuine unreachable command still FAILS in isolation,
+#     a proposal passes, and a genuine command adjacent to a proposal still FAILS);
+#   * LEG 1 accumulates EVERY unresolved flag before printing, so the two known reds could not
+#     have masked a third — measured: 18 unreachable sites, 13 declared narration, 5 proposals,
+#     0 remaining;
+#   * LEG 2 cannot move the exit code (`sys.exit(1 if bad else 0)`, and nothing in LEG 2 touches
+#     `bad`), so promoting the gate promotes only LEG 1;
+#   * cost is not an argument here the way it is for GATE 8: measured 0.89-0.99 s over three runs.
+#
+# 🔴 THE RESIDUAL RISK, stated because promotion makes it blocking. This gate is WORDING-
+# SENSITIVE by design — the convention note above says so ("if a correction writes the
+# invocation form this gate FAILS, and the fix is to reword the correction"). A future doc that
+# discloses a missing mode in the invocation form, using proposal language OUTSIDE the three
+# markers in PROPOSAL below, will block every push until either the wording or that list moves.
+# Two of the five proposal sites in the corpus were written in the three days before promotion,
+# by exactly that activity. Extending PROPOSAL is a one-line change; REWORDING THE CORPUS TO
+# SATISFY THIS GATE IS NOT THE FIX, per GATE 7's header. If that trade proves wrong, the
+# revert is this gate's line in the `all` dispatch arm and the two banner lines that name it.
 gate_repro_reach() {
   echo "== GATE 25: every documented reproduction command resolves to a real flag =="
   python3 - <<'PY'
-import glob, re, sys
+import bisect, glob, re, sys
 
 TOOLS = {"verify.py": "verify.py", "solve.py": "solve.py", "sat.py": "sat.py",
          "roae.py": "roae.py", "solve": "solve.c", "verify": "verify.c"}
@@ -10672,6 +10831,64 @@ INV = re.compile(r'(?:python3?\s+)?(?:\./)?'
                  r'(verify\.py|solve\.py|sat\.py|roae\.py|solve|verify)\s+'
                  r'((?:--[a-z0-9][a-z0-9-]*\s*)+)')
 FLAG = re.compile(r'--[a-z0-9][a-z0-9-]*')
+
+# PROPOSAL MARKERS (added 2026-09-02, batch C7) — a doc that names a flag it is PROPOSING,
+# not claiming. LEG 1 could not tell "run this" from "we should build this", so it fired on
+# four PROJECT_OVERVIEW/SOLVE/SOLVE_SUMMARY/SPECIFICATION sites whose own sentence disclaims
+# the figure the flag would reproduce ("the outstanding fix is a `solve.py --extraction-null`
+# mode") and on CORRECTIONS.md:4659 ("It is queued to the code lane ... and a
+# `verify.py --twins-bisect` flag"). Every one is the project being scrupulous about what does
+# NOT exist. A gate that gets louder the more honestly the corpus describes its own gaps has
+# the wrong gradient — this file's GATE 7 header records rewording the corpus to satisfy an
+# instrument as "the worst way to pay for a false positive".
+#
+# 🔴 SCOPE WAS CHOSEN BY MEASUREMENT, AND THE FIRST TWO CANDIDATES WERE BOTH REFUTED.
+#   * SAME-LINE (the scope ced18ec9 landed for GATE 7) is INSUFFICIENT here: it clears all four
+#     --extraction-null sites and MISSES CORRECTIONS.md:4659, where the marker "is queued to the
+#     code lane" ends line 4658 and the invocation opens 4659. Markdown hard-wrap, not a
+#     coincidence of adjacency — it is one sentence.
+#   * WHOLE-SENTENCE (bounded only by terminators and blank lines) is far WORSE than the ±4/+3
+#     window ced18ec9 rejected: measured over this corpus the longest such span is 57 newlines /
+#     4,924 chars in SOLVE_C_CLI.md and swallows 45 command-flag sites in one gulp, because a
+#     fenced block or table carries no sentence terminator at all.
+#   * WHAT SHIPPED: the sentence containing the flag, reconstructed across AT MOST ONE hard-wrap
+#     (the immediately preceding line, and never across a blank line). Bounded by construction to
+#     two physical lines, and on a wall-of-text line it is strictly NARROWER than line scope
+#     because it stops at the sentence boundary. It also reproduces ced18ec9's recall result: an
+#     unrelated marker on the preceding line does NOT suppress, because a preceding line that
+#     ends a sentence is outside the span — the association has to be grammatical.
+#
+# MEASURED over the real corpus at the time of the change: 18 sites cite a flag that does not
+# exist. This waives EXACTLY the 5 proposal sites; the other 13 are the NARRATION-registry rows
+# and every one still fires. Zero collateral. Ambient reachability, for the next person changing
+# this list: 'queued' appears 79 times in 21 files, 'outstanding fix' 6 times in 5.
+#
+# DELIBERATELY NOT ADDED — 'does not exist' (21 occurrences, 11 files). Documented NON-existence
+# is case (b) in this gate's header and it is ALREADY handled, by a NARRATION row that must state
+# a reason so a stale waiver is visible. An automatic marker for it would open a second,
+# unreviewable path to the same waiver and quietly retire that review. Also not added: 'proposed',
+# 'would be', 'planned' — each matches ordinary prose far more often than it matches a proposal.
+#
+# WAIVERS ARE PRINTED, not merely counted: a proposal that is never built must stay visible.
+PROPOSAL = ['queued', 'outstanding fix', 'not yet implemented']
+
+def _proposal_scope(lines, i, col):
+    """The sentence containing column `col` of lines[i], reconstructed across at most one
+    hard-wrap. Returns lowercase text. Never crosses a blank line."""
+    cur = lines[i]
+    prev = lines[i - 1] if i > 0 else ""
+    if not prev.strip():
+        joined, pos = cur, col
+    else:
+        joined, pos = prev + " " + cur, len(prev) + 1 + col
+    s = 0
+    for mm in re.finditer(r'(?<=[.!?])\s', joined[:pos]):
+        s = mm.end()
+    e = len(joined)
+    mm = re.search(r'(?<=[.!?])\s', joined[pos:])
+    if mm:
+        e = pos + mm.end()
+    return joined[s:e].lower()
 
 have = {}
 for tool, src in sorted(TOOLS.items()):
@@ -10695,11 +10912,19 @@ if not docs:
     sys.exit(1)
 
 total = waived = 0
+proposals = []
 bad = {}
 for d in docs:
     text = open(d, encoding="utf-8", errors="replace").read()
+    lines = text.split("\n")
+    offs, acc = [], 0
+    for ln in lines:
+        offs.append(acc)
+        acc += len(ln) + 1
     for m in INV.finditer(text):
         tool = m.group(1)
+        i = bisect.bisect_right(offs, m.start()) - 1
+        scope = None                      # computed lazily; only unreachable flags need it
         for fl in FLAG.findall(m.group(2)):
             # A trailing hyphen is never a real flag: it is the stub of a family template
             # the extractor truncated — `solve --null-<family>`, `--null-*`.
@@ -10711,14 +10936,25 @@ for d in docs:
             if (tool, fl) in NARRATION:
                 waived += 1
                 continue
+            if scope is None:
+                scope = _proposal_scope(lines, i, m.start() - offs[i])
+            hit = [k for k in PROPOSAL if k in scope]
+            if hit:
+                # PER-SITE, not per-flag: the same flag proposed in one doc and asserted as
+                # runnable in another must still FAIL at the second site.
+                proposals.append((d, i + 1, tool, fl, hit[0]))
+                continue
             bad.setdefault((tool, fl), set()).add(d)
 
 if not total:
     print("  [FAIL] zero command-flag uses compared — vacuous, treated as failure.")
     sys.exit(1)
 
-print("  scanned %d docs, %d documented command-flag use(s), %d declared-narration waiver(s)"
-      % (len(docs), total, waived))
+print("  scanned %d docs, %d documented command-flag use(s), %d declared-narration waiver(s),"
+      " %d proposal-marker waiver(s)" % (len(docs), total, waived, len(proposals)))
+for (d, ln, tool, fl, kw) in sorted(proposals):
+    print("  [prop] %s %s — %s:%d names it as a PROPOSAL (%r), not as a runnable command"
+          % (tool, fl, d, ln, kw))
 if bad:
     for (tool, fl), ds in sorted(bad.items()):
         print("  [FAIL] %s %s — not a flag of %s" % (tool, fl, TOOLS[tool]))
@@ -10751,8 +10987,13 @@ else:
 #   * scripts/pre_commit_registry_gate.sh runs only `retract retract-figures ledger-phrases
 #     ledger-figures appendonly-head appendonly-history`, and a WARN-only `retract`/
 #     `retract-figures` pair on the doc-corpus path.
-# So TODAY a LEG 2 false positive stops nothing: it prints a [note] to whoever ran the mode by
-# name, and this gate reaches no hook at all.
+# 🔴 THAT VERIFICATION WAS TRUE ON 2026-08-11 AND IS NO LONGER TRUE — GATE 25 was promoted into
+# `all` on 2026-09-02, so it now runs on every blocking pre-push. The three bullets above are
+# KEPT as the dated record of how the exclusion was verified rather than assumed; what changed is
+# the third one. LEG 2 is unaffected and that is the point of having settled it early: it cannot
+# move the exit code (`sys.exit(1 if bad else 0)`; nothing below touches `bad`), so what promotion
+# made blocking is LEG 1 alone. A LEG 2 [note] on a pre-push run is a question, not a finding, and
+# the `all` banner now says so in its own text.
 #
 # THE REASONING IS KEPT BECAUSE IT IS CORRECT ABOUT THE CASE IT WAS WRITTEN FOR. `all` IS
 # wired into pre-push as blocking, and GATE 25's header says promotion into `all` is the plan
@@ -12149,6 +12390,7 @@ case "$MODE" in
            echo; gate_rotation_c3 || RC=1
            echo; gate_sk_gains || RC=1
            echo; gate_fiber_anchor || RC=1
+           echo; gate_repro_reach || RC=1
            echo; gate_superlative || RC=1
            echo; gate_printed_quotient || RC=1
            echo; gate_stale_status || RC=1
@@ -12200,7 +12442,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 25 (LEG 1 ONLY), 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 18's CARVE-OUT, made explicit 2026-09-02 (Codex v2 charge 4). Naming 18 as hard
@@ -12225,16 +12467,20 @@ elif [ "$MODE" = all ]; then
   # when the pushed range touches roae.py or example/ (fail-closed when it has no base to
   # diff against), which is also the only way a hand-edited artifact committed with
   # `git commit --no-verify` can be on its way out.
-  # GATES 24 AND 25 ARE EXCLUDED TOO, and until 2026-08-11 this banner named only GATE 8's
-  # exclusion — so a green `all` read as covering two gates it has never run. Both sit out by
-  # the CAUTION each header states (observe it silent across a full corpus first), not by
-  # cost, which is why they are named separately from GATE 8 rather than folded into its line.
-  # Derived from the dispatch arm above, which is the only list: `all` calls neither
-  # gate_value_domains nor gate_repro_reach.
-  echo "                   GATES 24 ('value-domains') and 25 ('repro-reach') are NOT in 'all'"
-  echo "                   either — by caution, per their own headers. This verdict attests"
-  echo "                   nothing about them; run them by name. GATE 25's LEG 2 is"
-  echo "                   REPORT-ONLY even then, and says so in its own banner."
+  # GATE 24 IS EXCLUDED, and until 2026-08-11 this banner named only GATE 8's exclusion — so a
+  # green `all` read as covering gates it has never run. It sits out by the CAUTION its header
+  # states (observe it silent across a full corpus first), not by cost, which is why it is named
+  # separately from GATE 8 rather than folded into its line.
+  # GATE 25 WAS PROMOTED INTO `all` ON 2026-09-02 and is named in the hard list above; it is
+  # LEG 1 ONLY, so its report-only half needs a line here for the same reason GATE 17's LEG B
+  # and GATE 18's carve-out do. Both statements are derived from the dispatch arm above, which
+  # is the only list: `all` calls gate_repro_reach and does NOT call gate_value_domains.
+  echo "                   GATE 24 ('value-domains') is NOT in 'all' — by caution, per its own"
+  echo "                   header. This verdict attests nothing about it; run it by name."
+  echo "                   GATE 25 ('repro-reach') IS in 'all' since 2026-09-02, but its LEG 1"
+  echo "                   ONLY — a documented reproduction command must resolve to a real"
+  echo "                   flag. Its LEG 2 ([note] lines on figures with no re-derivation"
+  echo "                   path) is REPORT-ONLY and is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is NOT in 'all' — by cost, not oversight."
   echo "                   This verdict attests NOTHING about the 12 tracked example/"
   echo "                   artifacts — the five reports (report.txt/.md/.html/.pdf, README.md)"
