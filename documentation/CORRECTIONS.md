@@ -5385,3 +5385,104 @@ discrepancy — are this lane's (Claude). The gate legs prescribed for charges 1
 here: charge 1's is partly unreachable (GATE 3 cannot see `.c` comments) and charge 3's must be wired
 to the filesystem rather than to a string; both are queued in the private prose-lane follow-ups
 rather than left implied.
+
+## 2026-09-02 — A conditional-forcing correction that reached one site of eight in six weeks, and a format spec whose g-domain parenthetical contradicted its own seed layer
+
+*(Prose batch P45. Codex V2-F32 #1/#2 and V2-F38 #1.)*
+
+### The rotation charge was already closed — census correction, 2 named, 0 live
+
+V2-F32 #1 charged that `CIRCULAR_KING_WEN.md` §"Symmetry under closure" and
+[TR-7](../reports/TR7_CIRCULAR_READING.md) §6 both assert rotation-invariance of "the constraint
+system" without naming the C3 exclusion, and named the class as **2 sites in 2 files**. **Both were
+corrected earlier the same day** by prose batch P36 (TR-7 v2.3): each page now states the exclusion
+conditionally, gives the measured 21-of-31 violation count with `rotate-4 = 888` and
+`rotate-16 = 1240`, and `CIRCULAR_KING_WEN.md` carries a one-line reproduction from `verify.py`'s
+clean-room C3. The retired wording is registered (the row's key is **RP-ed80aa5e**) and
+`scripts/doc_gates.sh rotation-c3` — a claim-shape gate, not a string gate — was added the same
+night. **Live sites at this batch: zero.** Nothing was changed for this charge, and the charge is
+not wrong about the defect, only about its survival.
+
+### The conditional-forcing correction: three live sites, and what the propagation census actually is
+
+TR-7 v2.1 (2026-07-20, adversarial-review F-14a) restated §3's forcing claim about McKenna's 3:1
+even:odd transition ratio as **forced given C4 + C5** — and therefore not an independent design
+choice *within* that system — noting that **C5 is itself a regularity read off King Wen**, which
+[SPECIFICATION.md](SPECIFICATION.md) grades "**extracted from KW** — King Wen's own multiset". So
+"forced" is relative to KW-derived constraints, not to an unconstrained arranger.
+
+That correction stayed inside the report that authored it. A05 recorded that it had reached **zero of
+the four** TR-6/`PARITY_ALTERNATION.md` sites; those four landed in prose batch P37 earlier tonight.
+The three remaining sites are corrected here:
+
+- **`CIRCULAR_KING_WEN.md` §"What carries over unchanged"** stated the forcing in the unconditioned
+  short form and delegated the qualification to `MCKENNA.md` by bare parenthetical. The delegation
+  failed: `MCKENNA.md` carried the unqualified form **twice** and the qualification nowhere. The
+  bullet now states the conditioning, cites `SPECIFICATION.md` for C5's provenance, and points at
+  TR-7 §3. Registered: **RP-49f1f526**.
+- **`MCKENNA.md`'s closing assessment of the 25/75 observation** graded the ratio forced rather than
+  coincidental with no premise named. Now conditioned in full, with the reason the conditioning is
+  load-bearing spelled out rather than left to the citation. Registered: **RP-1ddfe122** — a
+  **differently-worded twin**, invisible to any needle built for the `CIRCULAR_KING_WEN.md` site,
+  which is why it outlived six weeks of review.
+- **`MCKENNA.md`'s cross-reference table**, status cell for McKenna's Rule (3), read "Now a theorem"
+  flat. It now reads "A theorem **given C4 + C5**". That two-word cell is **deliberately not
+  registered as a fixed string**: it is too generic to gate on and would ban legitimate future use.
+
+**What was deliberately not changed.** TR-7 §3's own bullet headline uses the short form and states
+the conditioning four lines below it, inside the same bullet — the charge grades that page passing
+and so do we; it was left alone. `solve.py`'s `trigram_tg5b` docstring and the "not a design choice"
+sentences in `TRIGRAM_STRUCTURE.md` and `lean/README.md` are about **pure-hexagram pair adjacency
+forced by C1**, which `SPECIFICATION.md` records as *classical* rather than KW-extracted — a
+different claim, correctly worded, and **not** in this class. `CLAIMS_DECIDED.md`'s "Consequences of
+the constraints, not choices" grades the eight literature rules, which are constant on the whole C1
+space; also not in this class.
+
+**Why the bare phrase is not registered.** The obvious needle would have false-positived on every one
+of those correct C1-family sentences, and on TR-7 §3. The rows are registered on the
+**scope-bearing** forms instead, and both notes say so. A green GATE 3 attests that the registered
+*strings* are absent, not that the retracted *claim* is; the claim-shaped instrument is a proximity
+gate — a forcing claim about a C5-conditioned result must name "given C4 + C5" or the KW extraction
+within ±3 lines — and it is **queued**, not written here.
+
+### `GT_LADDER_FORMAT.md`: a normative parenthetical the same spec's seed layer denies
+
+§"Stored domains" said the g-ladder's stored keys at layer `k ≥ 1` are restricted to `last` ∈ the
+elements of the mask's pairs, **as an exact characterization of the forward-reachable `last`
+values**. Two other sections of the same document deny it: §"Expected boundary layers" requires the
+seed layer `n` — which is a g layer with `k = n ≥ 1` — to store **all** `2n` pair elements
+*including* `last` values no valid prefix ever reaches, and §"What is convention vs derivable"
+already lists the restriction as "pair-elements only". The parenthetical was the odd one out of
+three.
+
+The relation is a **superset**, and the stored set coincides with the forward-reachable set in
+neither direction: unreachable pair elements are stored at the seed with `g = 1` by the empty-suffix
+convention, while a **forward-reachable dead end** has `g = 0` and is skipped. The section now says
+this.
+
+**Provenance of the wording**, from the private record: it is the section *heading* of a 2026-07-17
+Stage-G review whose *body* states the correct thing. The heading was transcribed into the published
+spec as a normative claim. Registered: **RP-1877125a**, on the scope-bearing form — bare
+"forward-reachable" is correct and load-bearing in `reports/evidence/f1/FH1_RESIDUAL_DOMINANCE.md`
+and `lean/PruneExactness.lean` and is not touched.
+
+**Census extension the charge did not name.** The identical sentence survives as a `solve.c` source
+comment on the `v4-compiler` branch at `453e1bf` — the commit this specification records itself as
+having been written from. It is outside GATE 3's markdown corpus and outside this batch's edit
+scope; it is **queued for the code lane**. The class is **2 sites**, not 1.
+
+**What was deliberately not changed.** The reviewer's failure scenario — an implementer emitting only
+the reachable seed entries and going undetected until after an expensive build — does not hold as
+stated: `verify.c`'s `--check-g-ladder` reconstructs all `2n` elements at `k == n`, compares the
+count, and reports "seed layer content wrong", so a short seed **fails the shipped gate**. What
+survives is the intermediate-layer half: at `1 ≤ k < n` the checked rule is a membership bitmap, an
+⊆ test rather than the equality the retracted parenthetical asserted, so a suffix-only omission there
+is invisible to both the structural check and the f·g cut identity (the missing entries meet
+`f = 0`). Tightening that check from membership to equality is a **`verify.c` change** and is queued
+for the code lane; no prose in this batch claims the tighter check exists.
+
+**Attribution.** Codex located all three charges (V2-F32 #1/#2, V2-F38 #1). The propagation census
+across the flattened corpus, the two census corrections above, the in-class/out-of-class
+adjudication of the seven "forced"/"not a design choice" sentences the flattened sweep returned, and
+the branch-level survival of the `solve.c` twin are this lane's (Claude). No figure, count,
+certificate, theorem or canonical sha changes in this batch.

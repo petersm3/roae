@@ -41,7 +41,7 @@ McKenna formalizes the King Wen sequence under three rules (his framing — he p
 |---|---|---|
 | (1) "Absolutely exclude transition situations with a value of five." | C2 | Already in spec |
 | (2) "Absolutely exclude transition situations with a value of one, except in cases where this would interfere with rule (1)." | NOT in spec — empirical observation only | **Declined for promotion**; see below |
-| (3) "A three to one ratio of even to odd transitions was maintained." | Theorem (this section) | Now a theorem |
+| (3) "A three to one ratio of even to odd transitions was maintained." | Theorem (this section) | A theorem **given C4 + C5**, and C5 is extracted from KW |
 
 ### McKenna's Rule 2 — declined for promotion to formal C-rule
 
@@ -73,7 +73,7 @@ In the same chapter, McKenna reports an early-1970s Monte Carlo: "More than 1.2 
 
 ROAE's `solve.c --null-pair-constrained` (10⁹ samples) measures a related but distinct quantity: **4.29%** of C1-satisfying sequences satisfy C2 alone (no-5). McKenna's filter is strictly tighter — it adds the 3:1 ratio and the closure property — and the two rates do not conflict in direction. But this is not a like-for-like comparison: **closure is a component this project has never tested** (see the closure section above, where the predicate is shown to be unformalised), so "consistent" here means the two numbers sit the right way round, not that the same predicate was measured twice. Both are compatible with KW's structure being highly unusual within the C1 universe.
 
-This makes the 25/75 observation one of McKenna's most accurate quantitative claims about the King Wen sequence — empirically correct, exact in the circular reading, and mathematically forced rather than coincidental.
+This makes the 25/75 observation one of McKenna's most accurate quantitative claims about the King Wen sequence — empirically correct, exact in the circular reading, and **forced given C4 + C5** rather than coincidental. The conditioning is load-bearing and is stated here rather than left implicit: C5 is itself a regularity read off King Wen — [SPECIFICATION.md](SPECIFICATION.md) grades it "**extracted from KW** — King Wen's own multiset" — so "forced" is relative to KW-derived constraints and says that the ratio is not an independent design choice *within* that system, not that an unconstrained arranger had no choice. [TR-7](../reports/TR7_CIRCULAR_READING.md) §3 made this correction on 2026-07-20 (adversarial-review F-14a) and it had not reached this file. *(Conditioned 2026-09-02, Codex V2-F32 #2, prose batch P45; the retired wording is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv). The status cell for McKenna's Rule (3) in the cross-reference table above carried the same unconditioned grade and was rescoped in the same pass — that two-word cell is deliberately NOT registered as a fixed string, since it is too generic to gate on.)*
 
 ## Where ROAE challenges McKenna
 

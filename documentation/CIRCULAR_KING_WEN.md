@@ -11,7 +11,14 @@ including the wrap; see [MCKENNA.md](MCKENNA.md) and [CITATIONS.md](CITATIONS.md
 - **The wrap-around parity theorem** ([SPECIFICATION.md](SPECIFICATION.md)): for any C4+C5 sequence the
   wrap distance d(s₆₃, s₀) is odd — proven via the XOR parity identity. KW's wrap is d = 3.
 - **McKenna's 3:1 even:odd transition ratio** is the circular reading of that theorem plus C5 (16 odd of
-  64) — forced, not designed (MCKENNA.md).
+  64) — **forced given C4 + C5**, and hence not an independent design choice *within* that constraint
+  system. C5 is itself a regularity read off King Wen — [SPECIFICATION.md](SPECIFICATION.md) grades it
+  "**extracted from KW** — King Wen's own multiset" — so "forced" here is relative to KW-derived
+  constraints, not to an unconstrained arranger ([MCKENNA.md](MCKENNA.md);
+  [TR-7](../reports/TR7_CIRCULAR_READING.md) §3, which made this correction on 2026-07-20).
+  *(Conditioned 2026-09-02, Codex V2-F32 #2, prose batch P45: this bullet asserted the forcing in the
+  unconditioned short form. The retired wording is registered in
+  [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv).)*
 
 ## What changes under closure
 - **C5 (circular form):** the transition multiset gains the wrap value. For KW: {1:2, 2:20, **3:14**,

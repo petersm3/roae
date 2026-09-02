@@ -148,12 +148,27 @@ format; that is a separate certificate.
 ## Stored domains (the load-bearing g/t difference)
 
 - **g**: stored keys at layer `k ≥ 1` are restricted to `last` ∈ the
-  **elements of the mask's pairs** (exactly the forward-reachable `last`
-  values, closed under the recurrence); at `k = 0` the only `last` is the
-  anchor `start_exit`. States with `g = 0` are **not stored** (the emitters
-  skip zero slots, as in f). `g` is well-defined on other `last` values too
-  but they are never stored — a documented deviation that keeps the g ladder
-  f-sized.
+  **elements of the mask's pairs** — a **superset** of the forward-reachable
+  `last` values, not a characterization of them, and closed under the
+  recurrence; at `k = 0` the only `last` is the anchor `start_exit`. States
+  with `g = 0` are **not stored** (the emitters skip zero slots, as in f).
+  `g` is well-defined on other `last` values too but they are never stored —
+  a documented deviation that keeps the g ladder f-sized. The stored key set
+  is therefore the mask's pair elements minus the zero-`g` slots, and it is
+  **incomparable** with the forward-reachable set — neither contains the
+  other. The seed layer stores **all** `2n` pair elements, including `last`
+  values no valid prefix ever reaches (see §"Expected boundary layers" —
+  harmless, because they meet `f = 0` in every identity), while a
+  forward-reachable **dead end** has `g = 0` and is skipped.
+  *(Corrected 2026-09-02, Codex V2-F38 #1, prose batch P45: the parenthetical
+  read that the restriction was an exact characterization of the
+  forward-reachable `last` values, which this document's own seed-layer
+  requirement below denies — and §"What is convention vs derivable" already
+  described the restriction correctly as "pair-elements only". The retired
+  wording is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv).
+  The same sentence survives as a `solve.c` source comment on the
+  `v4-compiler` branch at `453e1bf`, the commit this specification was
+  written from; that is a code-lane edit and is queued, not swept here.)*
 - **t**: the t layer `k` inherits the f layer `k`'s **geometry — masks,
   offsets, and keys — byte-identically**; only the value channel differs.
   This is forced by the dead-end case: a valid prefix with `g = 0` is still a
