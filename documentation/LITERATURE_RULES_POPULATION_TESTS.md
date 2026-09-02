@@ -175,7 +175,7 @@ Certificates are archived and independently verified by **two external checkers*
 (2026-07-03: all four UNSAT proofs — alt-le-14, alt-ge-16, moore-strict-near-2, rc4-strict-near-2 —
 check `s VERIFIED` against regenerated CNFs), and **cake_lpr**, the *formally verified* LRAT checker
 whose soundness is machine-checked in HOL4 down to the machine code, which on 2026-07-27 verified the
-full **21-certificate archive**, these four included. Per certificate:
+then-complete **21-certificate archive**, these four included. Per certificate:
 
     drat-trim <cnf> <drat> -L <lrat>     # re-prints `s VERIFIED`, emits the LRAT
     cake_lpr  <cnf> <lrat>               # prints `s VERIFIED UNSAT`
@@ -183,8 +183,9 @@ full **21-certificate archive**, these four included. Per certificate:
 cake_lpr checks the LRAT against the regenerated CNF **directly**, so in this chain drat-trim is an
 *untrusted elaborator* — a bad elaboration can only be rejected, never falsely accepted — and these
 UNSAT verdicts therefore do not rest on trusting drat-trim. cake_lpr pinned at commit
-`a36874a8b750b43fe4b385b8ddbf5b033e46a3fa`. The 21 `.drat.gz` files are byte-unchanged since that
-run, so it attests the artifacts published here. The encoder round-trip validation's first solver model, pleasingly, is King Wen itself. Reproduce
+`a36874a8b750b43fe4b385b8ddbf5b033e46a3fa`. Those 21 `.drat.gz` files are byte-unchanged since that
+run, so it attests the artifacts published here; the 22nd, `core_gender_ccn4_unsat.drat.gz` (shipped
+2026-09-02), postdates it and has passed drat-trim only. The encoder round-trip validation's first solver model, pleasingly, is King Wen itself. Reproduce
 with `python3 sat.py --witness moore-strict` and
 `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf`.
 

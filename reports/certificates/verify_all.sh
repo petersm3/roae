@@ -153,8 +153,12 @@ else
     "python3 verify.py --recount-subtree | grep -q 'recount-subtree: ALL MATCH'"
 fi
 
-echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 21 archived certs) =="
+echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 22 archived certs) =="
 # No SAT solver is invoked here — see the header note. $DRAT is probed in section 0.
+# core_gender_ccn4_unsat (the fourth two-rule core, shipped 2026-09-02) is the one certificate that
+# has passed drat-trim ONLY: the other 21 also passed the formally verified cake_lpr on 2026-07-27,
+# and this one postdates that batch (README.md §"Checker coverage"). This script replays it exactly
+# like the rest; what it cannot supply is the cake_lpr leg.
 declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [moore-strict-near-2]="moore-strict-near-2" [rc4_near2_unsat]="rc4-strict-near-2" \
   [grand_ccn4_unsat]="grand-ccn4" \
@@ -164,7 +168,7 @@ declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [five_loo_gender_unsat]="five-loo-gender" [five_loo_ccn4_unsat]="five-loo-ccn4" \
   [five_loo_ccn8_unsat]="five-loo-ccn8" \
   [core_parity_ccn4_unsat]="five-sub-parity+ccn4" [core_rhythm_ccn4_unsat]="five-sub-rhythm+ccn4" \
-  [core_gender_ccn8_unsat]="gender-ccn8" \
+  [core_gender_ccn8_unsat]="gender-ccn8" [core_gender_ccn4_unsat]="five-sub-gender+ccn4" \
   [ccn8_kwfail_unsat]="ccn8-kwfail" [ccn8_kwchain_not_unsat]="ccn8-kwchain-not" \
   [rigidity_sc4_unsat]="rigidity" [c3_kwpin_ge777_unsat]="kwpin-ge777" )
 # The rigidity kernel (TR-5 SC-4) regenerates via its own flag, not --emit-cnf; the KW

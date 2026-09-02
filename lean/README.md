@@ -270,7 +270,7 @@ finite computation those arguments rest on.
 ## Verify yourself
 
 **Start here — one command checks everything.** `reports/certificates/verify_all.sh` runs the whole
-machine-checkable suite: the enumerator selftest, the two-language gates, all 21 archived DRAT
+machine-checkable suite: the enumerator selftest, the two-language gates, all 22 archived DRAT
 certificates (regenerating the CNF and replaying the proofs — **no SAT solver required**), the C3
 positional witnesses, and then a `lean` run over **every module in this directory** (its Lean phase
 is literally `for f in lean/*.lean`, so it picks up new files automatically — nothing here has to be

@@ -99,15 +99,19 @@ distinction matters, so it is stated rather than blurred:
   the solver but is **not itself formally verified**; it is an ordinary C
   program with a soundness-fix history.
 * **cake_lpr** is *formally verified* — its soundness is machine-checked in
-  HOL4 down to the machine code. On 2026-07-27 the full 21-certificate
+  HOL4 down to the machine code. On 2026-07-27 the then-complete 21-certificate
   archive passed `drat-trim → LRAT → cake_lpr` (pinned commit
   `a36874a8b750b43fe4b385b8ddbf5b033e46a3fa`), a chain in which drat-trim
   is an **untrusted elaborator**: cake_lpr checks the LRAT against the
   regenerated CNF directly, so a bad elaboration can only be rejected.
 
 An UNSAT claim resting on drat-trim alone is therefore scoped by an
-unverified checker; the archived 21 additionally carry a formally verified
-one. (Third-party solver use authorized by the operator 2026-07-02.)
+unverified checker; the 21 certificates archived before 2026-09-02
+additionally carry a formally verified one. The 22nd,
+`core_gender_ccn4_unsat.drat.gz` (shipped 2026-09-02), postdates that run
+and has passed **drat-trim only**; it has not yet been run through the
+cake_lpr chain (`reports/certificates/README.md` §Checker coverage).
+(Third-party solver use authorized by the operator 2026-07-02.)
 
 Argument parsing is hand-rolled `sys.argv` inspection (no `argparse`);
 the dispatch lives in the `__main__` block at the bottom of the file.
