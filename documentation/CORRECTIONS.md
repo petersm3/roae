@@ -6174,3 +6174,141 @@ the row says.
 five charges were raised by Codex reviewer V2-F49 and adjudicated in the V2 batch. The
 thirteenth randomized section, the `--cast` staleness and its three sites were found by this batch
 while verifying the charges, not by the review.
+## 2026-09-02 — TR-11: a per-layer profile that stopped four layers short of its own peak, a withdrawn quantity back with an extra digit, a closed universal inside a sentence a later pass had already edited, and an evidence pointer aimed at a directory that holds none of it
+
+**Charges.** Codex reviewer V2-F02, adjudication batch 4, charges 2, 3, 4 and 5, worked as prose
+batch P72. Two charges of that batch are not corrections here and are recorded as such: **charge 6**
+(the header version line disagreeing with the revision table's *(current)* row) was re-verified at
+HEAD and is **already fixed** — v1.24 refreshed the subtitle on 2026-09-02 and recorded the miss in
+its own row — so it is logged as a no-op, not as work; **charge 1** (an out-of-core scratch-budget
+example) belongs to another lane and was not touched.
+
+### 1. §6's measured layer profile stopped four layers short of its own peak, in a unit it did not have
+
+§6 is the table an operator sizes a machine from. It ran k=9 to k=15, gave k=12 as a subtraction from
+two-live-layer telemetry, gave k=15 as a lower bound above 2.45 TB with the provenance
+*observed-incomplete (in-RAM run retired mid-layer)*, and had no rows past 15. From those rows it drew
+two conclusions: that footprints fall from layer 16 onward, because the canonical-mask count follows
+C(31,k); and that the in-RAM two-live-layer floor is k14 + k15, above 4.05 TB.
+
+Three things are wrong, and the third is the one that costs money.
+
+**The unit.** The 2.45 TB figure is a real measurement, but not of what the column measures. It is the
+live in-RAM allocation observed part-way through layer 15 on the retired in-RAM attempt — hash-table
+overhead included — and [HISTORY.md](HISTORY.md) records it as exactly that. The column's unit is
+packed bytes. A mid-layer partial cannot exceed its own completed layer in packed bytes, and the
+completed layer packs to 2155.82 GB, so the two figures were never the same quantity. The observation
+is not withdrawn; it is relabelled in place, and HISTORY.md's narration of the retired attempt is
+correct as it stands and was left alone.
+
+**The reason given for the shrink.** It refutes the claim it was offered for. C(31,15) = C(31,16), and
+the canonical-mask counts are palindromic — masks(15) = masks(16) = 13,047,760, a pair TR-11 §9's own
+integrity check already prints. Mask counts therefore cannot make layer 16 smaller. Entries per mask
+keep growing: k16 holds 83,585,570,784 entries against k15's 76,987,817,848. **Layer 16 is the peak.**
+
+**The floor.** Because both inputs were wrong, so was the number derived from them. Measured from the
+completed run: k14 + k15 = 3.85 TB, and the true peak adjacent live pair is **k16 + k17 = 4.51 TB**
+packed, with k15 + k16 just behind at 4.50 TB. An operator provisioning to the retired floor was short
+of the real peak window by ~460 GB. **The adjudication itself named the wrong pair here** — it gave
+k15 + k16 as the peak — and the figures published are this batch's recomputation from the aggregate
+table, not the charge's arithmetic. Maximising GB[k] + GB[k+1] over all k puts the maximum at k=16.
+
+**What replaced it.** All ten rows k9–k18 now come from
+[FULL31_EXACT_AGGREGATES.md](../reports/FULL31_EXACT_AGGREGATES.md) §1, the completed full-31 run's
+own aggregate, which has sat in the same directory since 2026-07-16. §6's future-tense promise that
+the out-of-core manifest *will* complete the profile is deleted with it — it completed thirteen
+revisions ago. The unit line is also made exact: that file's `layer GB` column is
+entries × 28 B **plus a 12 B per-canonical-mask index**, GB = 10⁹ B, which reproduces all 31 published
+rows to the last printed digit; TR-11 had been calling it entries × 28 B, off by under 0.02% but off.
+The rows are quoted with that file's own caveat attached — engine-internal telemetry, how *this*
+implementation laid the layer out, not a property of the mathematical object — because sizing a
+machine is exactly the use that caveat permits.
+
+Registered: `RP-9d39b21a` (executive summary), `RP-089c4de7` (abstract), `RP-8c31ba03` (the table
+cell), `RP-754f8752` (§6 body) for the mislabelled footprint; `RP-bb84c16f` for the shrink claim;
+`RP-bb7395cd` for the floor. Four needles for one mislabel because the only string common to all four
+sites is `2.45 TB`, which HISTORY.md carries legitimately — a single broad needle would have killed
+the true record along with the false ones.
+
+### 2. An evidence pointer aimed at a directory that holds none of the evidence
+
+§8's Spot-ladder bullet publishes four integers — the 24-, 25-, 27- and 28-pair rungs — and closed by
+citing `reports/evidence/f1/` as publishing the run outputs behind them. That directory holds the
+|C1∩C2∩C4| headline result, its progress log and the Python prototypes. It holds no out-of-core
+output for any of the four rungs, no manifest, no kill/resume log, and **none of the four integers
+appears anywhere in it**. The Verification Guide's separate pointer to the same directory is the
+accurate one; this one over-pointed it.
+
+The records do exist. Checked before the sentence was rewritten, and each integer matched
+digit-for-digit against a private artifact: a 24-pair out-of-core session log with its manifest; the
+2026-07-08 retool battery's Phase-1 lines carrying the 24/27/28-pair v1-vs-v2 count-identical
+comparison; a later 25-pair re-run manifest and progress record; and a random-timing crash-fuzz log,
+15/15 direct-PID kills, resume byte-identical. **One record is gone**: the original ladder session's
+raw outputs, including the 25-pair kill-and-resume log the bullet narrates, were copied to a volatile
+`/tmp` on the orchestrator before the VM was deleted. The corrected sentence enumerates what is
+retained, says plainly that it is retained privately and not published, says which warrant now carries
+the 25-pair integer and which carries kill-and-resume at scale, and states that no public artifact
+backs these four integers today. Registered as `RP-71e86ccc`, cut at `published at` so the retraction
+survives a future edit that re-points the same sentence at some other directory.
+
+### 3. A quantity v1.4 withdrew, back seven lines below its own hedge with an extra digit
+
+The executive summary reported the exact count's distance from the prior statistical estimate as a
+measured deviation, to seven significant figures, under the word *actual*. Seven lines above, the same
+paragraph says that deviation is unmeasured at that precision. §9 says the figure is the estimate's
+five-significant-figure rounding gap and not a resolved error. And v1.4 (2026-07-21) recorded
+withdrawing precisely this quantity, on precisely this ground.
+
+Recomputed here rather than taken on the adjudication's word: the number is obtained only by
+differencing against the estimate's **rounded** numeral 1.0971×10³⁹. It is the rounding gap, restated
+with more precision than the estimate itself carries, under a word that asserts the resolved-error
+reading v1.4 retired. The v1.4 sweep fixed §9 and missed the executive summary — the
+correction-missed-a-site shape v1.15, v1.19 and v1.20 each record for other passes. The sentence now
+makes the claim that is supported: the exact value falls inside the estimate's stated ±0.01%
+envelope. Registered as `RP-507e823d`.
+
+### 4. A universal this report closed in 2026-07-17, still live in a sentence a 2026-08-01 pass had edited
+
+§7's reproducibility sentence ended on a universal about machines in general — that none could
+meet the multi-terabyte requirement. TR-11 v1.1 retired that universal on 2026-07-17 and §6 states the replacement in terms:
+no machine class **this project provisioned** sufficed; 6–24 TiB single nodes exist commercially and
+were not tested; the multi-terabyte route was dead at the price points this project could justify, not
+in principle. The aggravator is that a 2026-08-01 status-correction pass rewrote the front half of
+this very sentence — the parenthetical recording that the run had landed — and left the retired
+universal standing in its tail. §6's scope is now stated inline, per the rule that a scoped result
+states its scope at every occurrence. Registered as `RP-1b6b1678`. The v1.1 row's quotation of the
+older wording is a changelog record and is untouched.
+
+### What was not changed, and why
+
+- **The retained ladder records were not published into the public tree.** The adjudication's remedy
+  for §2 above was to publish them into a new `f1c5` subdirectory of `reports/evidence/`. That
+  publication is already an open
+  operator decision point (D2 on the batch's decision sheet: copying private artifacts into the public
+  tree, review-before-push applies). Two further reasons found while checking the files: the battery
+  log that warrants the 27- and 28-pair integers also contains a crash-fuzz phase that reads as a
+  26-of-40 failure and is recorded privately as a **test-harness** defect, not a checkpoint defect —
+  publishing the passing excerpt alone would be selective, and publishing the whole file requires the
+  framing the private record supplies; and the 25-pair artifact is a later re-run, not the original
+  session. So the false citation was corrected — which is the defect the charge names — and the
+  publication left where it already sat, as a decision for the operator with the reasons now written
+  down. Until it lands, TR-11 says outright that no public artifact backs those four integers.
+- **The bare digits of the withdrawn deviation were not registered in `RETRACTED_FIGURES.tsv`.** The
+  adjudication proposed a GATE 3b row keyed on the digits, which would catch a reworded restatement
+  that the phrase needle misses. That registry and its content-anchored allowlist were outside this
+  batch's ownership, and adding a figure row without its allowlist rows would fire on the legitimate
+  quotations. Flagged, not done.
+- **HISTORY.md's account of the retired in-RAM attempt was left alone.** It carries the same 2.45 TB
+  number, correctly labelled as an in-RAM observation, and it is the source the relabelling now cites.
+  Editing it would have deleted the evidence the correction rests on.
+- **A discrepancy found in passing, not adjudicated.** HISTORY.md describes the retired in-RAM machine
+  as 2.79 TB of RAM with 5.6 TB of striped swap; TR-11 §6 and its abstract say 2.75 TB with 3.55 TB.
+  Both cannot be right. TR-11's figures were left as they stand because nothing in this batch's
+  charges settles which is the measurement, and guessing would have replaced a visible inconsistency
+  with an invisible one. It is flagged for whoever holds the machine-provisioning record.
+
+**Attribution.** Charges raised by Codex reviewer V2-F02 and adjudicated in the V2 batch-4 sheet;
+located, verified against source and corrected by this lane (Claude, Opus 5) under operator direction.
+The unit correction (the 12 B per-mask index term), the peak-pair arithmetic, and the two items
+flagged above under "not changed" were found by this batch while verifying the charges, not by the
+review.
