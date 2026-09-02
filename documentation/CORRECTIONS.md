@@ -5486,3 +5486,96 @@ across the flattened corpus, the two census corrections above, the in-class/out-
 adjudication of the seven "forced"/"not a design choice" sentences the flattened sweep returned, and
 the branch-level survival of the `solve.c` twin are this lane's (Claude). No figure, count,
 certificate, theorem or canonical sha changes in this batch.
+
+---
+
+## 2026-09-02 — a wrong division published in three files, corrected in one, and the two sites the correction did not reach
+
+The 2026-09-01 sweep corrected the `floor(NL/158,364)` column of
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"PSB-formula caveat", which was wrong in three of its six
+rows. That correction is complete and is verified below. What it did not do is follow the same wrong
+arithmetic out of the registry: the **10T** row's bad floor had already been copied into two other
+documents, in two different wordings, and both were still live at `origin/main` a day later.
+
+### 1. The 10T auto-divide was published as 63,146,544 in two files — `RP-32ce2154`, `RP-c7f1960c`, `RP-9be4fa60`
+
+- **Documents:** [DEVELOPMENT.md](DEVELOPMENT.md) §"Reproduce from scratch" step 2;
+  [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md) §"Exactly what counts as a node".
+- **Claimed BEFORE:** that with `SOLVE_PER_SUB_BRANCH_LIMIT` unset a 10T depth-3 run auto-divides to
+  a per-cell budget of **63,146,544**, i.e. **13** nodes per cell below the recipe value 63146557 —
+  and, in `BRANCHES_EXPLAINED.md`, that a gap that small (2×10⁻⁷) already suffices to produce a valid
+  but non-canonical sha.
+- **Claimed NOW:** the auto-divide is **63,145,664** and the gap is **893** nodes per cell
+  (1.4×10⁻⁵). Both documents say so, both carry a dated correction marker, and neither figure is
+  derived by hand:
+
+  ```
+  python3 -c 'print(10**13 // 158364, 63146557 - 10**13 // 158364)'   # 63145664 893
+  ```
+
+  The auto-divide is `node_limit / total_branches` — `solve.c`, the block that sets
+  `per_branch_node_limit` from `divisor` — and `total_branches` at depth 3 is 158,364, so the floor is
+  what the command prints. Checked a second, independent way, because a division that was already
+  published wrong once does not get to be checked only by re-dividing — a bracketing multiplication,
+  which uses no division at all and so cannot inherit its error:
+
+  ```
+  python3 -c 'f=63145664; d=158364; print(d*f <= 10**13 < d*(f+1))'   # True
+  ```
+
+  The first draft of this very bullet stated that product by hand and stated it **wrong**. The
+  command replaced it, which is the rule this ledger keeps re-learning: a figure ships with the
+  command that prints it, or it does not ship.
+- **What did NOT change, and this is most of the point:** no sha, no record count, no file size and
+  no published canonical parameter. `63146557` was the required value before this entry and is the
+  required value after it; the instruction both documents give is unchanged. What changed is that the
+  number they printed as the *consequence of ignoring* that instruction is now the number the solver
+  would actually use.
+- **One claim was withdrawn rather than repaired.** `BRANCHES_EXPLAINED.md` used the 13-node gap as
+  its worked example of how little counter drift breaks a canonical sha. Correcting 13 to 893 would
+  have left the sentence asserting, still without evidence, that a specific gap was *measured* to
+  produce a non-canonical sha; no run was ever cited for it, at either value. It now cites the case
+  the project did measure — the 11.2T canonical, where a **derived** PSB of 70,723,144 against the
+  published 70,723,196 (a 52-node gap, 7×10⁻⁷) produced output whose sha begins `2184bdd8`, against
+  the anchor `0c0fe37c…`, recorded in `solve.c`'s `CANONICAL_RECIPES` comment. That is a smaller gap
+  than either published figure and it is attested, so the section's point survives on better evidence
+  than it had. **GATE 22 fired on the first version of that sentence**, which wrote the prefix with an
+  ellipsis: the full 64-nibble digest of the non-canonical output was never published, so nothing in
+  the tree expands it. The gate was right, and the replacement says on the page that the prefix is
+  provenance rather than a value a reader can check — the anchor it is measured against is fully
+  published, the mismatching output is not.
+- **How it was found:** not by the charge sheet. The batch was dispatched against the
+  `CANONICAL_HASHES.md` caveat table alone, found that table already correct at `HEAD`, and re-ran
+  the table's own six rows two ways before looking anywhere else. The two survivors came from
+  grepping the corpus for the *retired* values rather than the corrected ones — a census in the
+  direction that finds propagation. Nineteen prior-art hits show four Codex review transcripts
+  reading `BRANCHES_EXPLAINED.md`'s sentence verbatim and none filing on it; one internal
+  adjudication row cites the 13-node figure as support for a different argument.
+- **Registered on scope-bearing forms, deliberately not on the bare number.** `63,146,544` is now
+  legitimately narrated in three correction markers — the `CANONICAL_HASHES.md` caveat block and the
+  two markers added today — so a bare needle would fire on the very sentences that withdraw it. The
+  three registered rows are the two site wordings and the worked-example phrase, which share no
+  substring with each other.
+
+### 2. Verification of the 2026-09-01 caveat-table correction it inherits
+
+Re-derived independently before extending it, because this entry rests on it. All six rows of the
+`floor(NL/158,364)` column and all six off-by values reproduce exactly from the one-line command the
+table ships, and again from a bracketing multiplication `158364 × f ≤ NL < 158364 × (f+1)`, which
+holds for all six. The six recipe PSBs the table takes as inputs match `solve.c`'s `CANONICAL_RECIPES`
+table row for row — 1T 6315458, 5.6T 35361598, 10T 63146557, 11.2T 70723196, 100T 631456644, 560T
+3536157207 — so the table's inputs are the binary's, not a transcription of themselves.
+
+### What was deliberately not changed
+
+- **`CANONICAL_HASHES.md` §"PSB-formula caveat".** Correct at `HEAD`, verified above, untouched. Its
+  correction marker keeps `63,146,544` and the other two retired floors; that is narration of a
+  withdrawal, which is what the ledger and the registry both exist to protect.
+- **`PARTITION_INVARIANCE.md`'s `SOLVE_PER_SUB_BRANCH_LIMIT=35361572`** (§3, §4). It looks like a
+  fourth site of the same class and is not: 35361572 is exactly `floor(5.6×10¹² / 158364)`, and it is
+  a regression-test budget chosen to be that quotient, not a canonical recipe PSB. The 5.6T canonical
+  PSB is 35361598 and is elsewhere. Left alone.
+- **`solve.c:1467`'s parenthetical** — "These are EMPIRICAL values (NOT floor(NODE_LIMIT/158364))" —
+  which is true of four rows and false of the two deepest, where recipe and floor coincide exactly.
+  The rule it defends is right; only its justification overreaches. It is a source-comment change and
+  is queued for the code lane, not made here.

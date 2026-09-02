@@ -305,10 +305,38 @@ The prose above is enough to read the rest of this page, but it is *not*
 enough to re-derive a canonical sha. A different team writing its own
 C1–C5 enumerator has to increment its counter on exactly the same events,
 because the per-sub-branch node budget is the enumeration's only free
-parameter and a **13-node** difference in 63 million (2×10⁻⁷) already
-produces a valid but non-canonical sha — see
-[DEVELOPMENT.md](DEVELOPMENT.md) §"Reproduce from scratch" on
-`SOLVE_PER_SUB_BRANCH_LIMIT=63146557` vs the auto-divided 63,146,544.
+parameter, and a difference of **52 nodes in 70.7 million** (7×10⁻⁷) has
+been *measured* to produce a valid but non-canonical sha: at the 11.2T
+depth-3 canonical, a per-cell budget derived as `floor(node_limit/158364)`
+= 70,723,144 instead of the published 70,723,196 produced a `solutions.bin`
+whose sha begins `2184bdd8`, against the anchor `0c0fe37c…`. That
+measurement is recorded in `solve.c`'s `CANONICAL_RECIPES` comment (locate
+by the `--validate-canonical` note that names both shas) — and only as that
+8-character prefix: the full 64-nibble digest of the non-canonical output
+was never published, so `2184bdd8` cannot be expanded from anything in this
+repository and is cited here as provenance, not as a checkable value. The
+anchor it is measured against, `0c0fe37c…`, is fully published in
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md). The six-row
+formula-vs-recipe comparison, with a one-line
+command that reproduces every cell of it, is
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"PSB-formula caveat". The same
+trap at 10T is why [DEVELOPMENT.md](DEVELOPMENT.md) §"Reproduce from
+scratch" requires `SOLVE_PER_SUB_BRANCH_LIMIT=63146557` rather than the
+auto-divide's 63,145,664.
+
+⚠ **[CORRECTED 2026-09-02 — this paragraph read that a 13-node gap in 63
+million (2×10⁻⁷) already sufficed, and gave the 10T auto-divide as
+63,146,544. That floor is wrong: `10000000000000 / 158364 = 63145664`
+(`python3 -c 'print(10**13 // 158364)'`), so the 10T gap is 893 nodes and
+1.4×10⁻⁵, not 13 and 2×10⁻⁷. The same wrong floor was published in the
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"PSB-formula caveat" table and
+corrected there on 2026-09-01; this site and
+[DEVELOPMENT.md](DEVELOPMENT.md) did not receive that fix. The example is
+now the 11.2T one because that gap is the only one of this class the
+project has actually measured through to a sha — the 10T claim was an
+inference from a wrong subtraction, and no run was ever cited for it. No
+sha, record count or file size depends on either figure. See
+[CORRECTIONS.md](CORRECTIONS.md).]**
 
 The counter (`ts->nodes`, and the budget-bearing `ts->branch_nodes`) is
 incremented in exactly one place per engine — on **frame entry**

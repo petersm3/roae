@@ -1517,9 +1517,23 @@ then.
    ```
    `SOLVE_PER_SUB_BRANCH_LIMIT=63146557` is required: it is the empirical
    per-cell budget the canonical was generated under. If left unset, solve
-   auto-divides `node_limit/158364` = 63,146,544 (−13 per cell), which
-   produces a valid but different, non-canonical sha — see the recipe-table
+   auto-divides `node_limit/158364` = 63,145,664, which is 893 nodes per
+   cell below the recipe value and produces a valid but different,
+   non-canonical sha — see the recipe-table
    comment in solve.c and CANONICAL_HASHES.md §Reproducibility parameters.
+
+   ⚠ **[CORRECTED 2026-09-02 — this gave the auto-divide as 63,146,544 and
+   the shortfall as 13 nodes per cell. Both digits were wrong:
+   `10000000000000 / 158364 = 63145664`, so the shortfall is 893 —
+   `python3 -c 'print(10**13 // 158364, 63146557 - 10**13 // 158364)'`.
+   Nothing about the instruction changes: 63146557 is still the required
+   value and is still not derivable from the formula. The same wrong floor
+   was published in the [CANONICAL_HASHES.md](CANONICAL_HASHES.md)
+   §"PSB-formula caveat" table and corrected there on 2026-09-01; this site
+   and [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md) did not receive that
+   fix. No sha, record count or file size depends on either figure. See
+   [CORRECTIONS.md](CORRECTIONS.md).]**
+
    Pass `0` as the wall-clock argument for the reproducibility rule — each
    sub-branch runs to its full per-branch node budget, producing byte-identical
    output regardless of thread count or hardware. Empirical timing: 10T d3
