@@ -239,10 +239,34 @@ def check_artifact(path, count=-1, offset=0):
     blind to a wrong pair sequence, since repr_of_key() is handed the key decoded
     from the very record it is compared against. This function is not.
 
-    CHECKED HERE: (1) each record's OWN orientations satisfy the constraint set
-    (forced 63->0 opening, no HD-5 transition, C5 budget consumed EXACTLY);
-    (2) pair-order keys strictly increase, matching compare_solutions;
-    (3) strictness in (2) IS the one-record-per-class dedup claim.
+    CHECKED HERE: (1) each record satisfies the constraint set -- the forced
+    63->0 opening (C4), no HD-5 transition (C2), the C5 budget consumed EXACTLY,
+    and the C3 complement-distance ceiling; (2) pair-order keys strictly
+    increase, matching compare_solutions; (3) strictness in (2) IS the
+    one-record-per-class dedup claim; (4) header conformance -- format version,
+    the zero reserved field, and the declared count against the stream.
+
+    (1) READ "each record's OWN ORIENTATIONS satisfy the constraint set" until
+    2026-09-02. That was an overclaim in two directions at once: it promised the
+    whole constraint set while C3 was absent, and the word "orientations" scoped
+    the promise to a property C3 does not have. Both are now true as written --
+    C3 landed with this revision -- but the wording was the thing that made the
+    gap invisible, so it is corrected here rather than merely satisfied.
+
+    SCOPE TOKEN, DELIBERATELY UNCHANGED. This mode still prints
+    SCOPE=validity_sortedness_dedup_only_NOT_completeness. C3 and the header legs
+    make the "validity" term MORE complete; they do not move the boundary the
+    token actually draws, which is completeness -- that no valid solution is
+    MISSING remains outside any single forward pass. Changing the string would
+    break every `grep -qx` consumer to signal nothing.
+
+    NOT CHECKED: completeness, as above; and the representative convention --
+    whether a stored orientation is the class's global lex-least. That is
+    --check-repr's job and it is deliberately NOT wired in here: solutions.bin is
+    a PRE-normalization artifact and a raw merge output disagrees with the global
+    representative on 1.06%-42.2% of records (measured 2026-08-15 over
+    1,776,347,935). Folding that in would make this checker reject the project's
+    own canonical artifacts.
 
     NOT CHECKED: completeness. That no valid solution is MISSING is the
     enumeration's claim, attested by the canonical sha -- a single forward pass
@@ -253,7 +277,8 @@ def check_artifact(path, count=-1, offset=0):
     opener = gzip.open if path.endswith('.gz') or (path.endswith('.bin') and _is_gzip(path)) else open
     budget0 = _c5_budget_from_kw()
     n = 0
-    bad = dict(KEY=0, SPARE_BIT=0, OPENING=0, HD5=0, BUDGET=0, BUDGET_RESIDUE=0, ORDER=0)
+    bad = dict(KEY=0, SPARE_BIT=0, OPENING=0, HD5=0, BUDGET=0, BUDGET_RESIDUE=0, ORDER=0,
+               C3=0, HDR_VERSION=0, HDR_RESERVED=0, GEOMETRY=0)
     shown = 0
     prev = None
     try:
@@ -271,10 +296,40 @@ def check_artifact(path, count=-1, offset=0):
                 print("  refusing: first 4 bytes are not 'ROAE'. A headerless shard would")
                 print("  otherwise have its first record consumed as a header.")
                 return 2
+            # HEADER CONFORMANCE (added 2026-09-02; Codex V2-F48 #3 / V2-F58 #2).
+            # Before this, the magic was the ONLY header field either checked --
+            # the version and the declared count were never read and the reserved
+            # field was never inspected, so a v2 header, a nonzero reserved byte
+            # and a count that disagreed with the body all returned ARTIFACT=PASS.
+            # SOLUTIONS_FORMAT.md makes version==1, a zero reserved field and an
+            # accurate count normative; REBUILD_FROM_SPEC.md requires a conformant
+            # reader to REJECT an unknown version. These are counters rather than
+            # hard exits so that every record-level verdict below still prints:
+            # a nonconformant header does not make the records unreadable, and an
+            # operator is better served by both facts than by the first one alone.
+            (hdr_version,) = struct.unpack("<I", hdr[4:8])
+            if hdr_version != SOL_FORMAT_VERSION:
+                bad['HDR_VERSION'] = 1
+                print(f"  header: unsupported format version {hdr_version} "
+                      f"(this reader knows version {SOL_FORMAT_VERSION})")
+            if hdr[16:32] != b"\0" * 16:
+                bad['HDR_RESERVED'] = 1
+                print(f"  header: reserved bytes [16:32] are NONZERO ({hdr[16:32].hex()})")
+            (hdr_declared,) = struct.unpack("<Q", hdr[8:16])
             fh.seek(SOL_HEADER_SIZE + offset * 32)
             while count < 0 or n < count:
                 rec = fh.read(32)
                 if len(rec) < 32:
+                    # A TORN TRAILING RECORD IS A DEFECT, NOT AN END. This used to
+                    # be a bare `break`, which silently discarded the partial tail
+                    # and reported ARTIFACT=PASS over the records that happened to
+                    # be whole -- while verify.c, on the same file, returned
+                    # ARTIFACT=FAIL_partial_record rc=2. Two independent
+                    # instruments that diverge on corrupt framing are not two
+                    # instruments. verify.c fails closed here and is right to; this
+                    # side now matches it, token for token.
+                    if len(rec) > 0:
+                        print("ARTIFACT=FAIL_partial_record"); return 2
                     break
                 idx = offset + n
                 n += 1
@@ -286,6 +341,30 @@ def check_artifact(path, count=-1, offset=0):
                     if shown < 5:
                         print(f"  record {idx}: key is not a permutation of 0..31"); shown += 1
                     continue
+
+                # C3 (added 2026-09-02; Codex V2-F20 #1, corroborated V2-F58 #1).
+                # SPECIFICATION.md's constraint set is C1-C5 and SOLUTIONS_FORMAT.md
+                # states outright that "a re-implementation that omits C3 produces a
+                # strict SUPERSET". This loop checked C4/C2/C5 and never computed C3,
+                # so a record with cd = 1080 against the 776 ceiling was certified
+                # ARTIFACT=PASS by BOTH implementations. The seven-negative controls
+                # table could not catch it: a controls table exercises the counters
+                # that exist and is blind, by construction, to a missing predicate.
+                # Computed from the DECODED SEQUENCE, exactly as the records path
+                # does -- not from the pair-order key via the 16+8*G identity, which
+                # would import an algebraic result this instrument is meant to test
+                # independently. (C3 is in fact orientation-invariant, so the two
+                # agree; deriving it the long way keeps that a MEASUREMENT here
+                # rather than an assumption.)
+                seq = []
+                for slot in range(32):
+                    pa, pb = PAIRS[pair_order[slot]]
+                    seq += [pb, pa] if orient[slot] else [pa, pb]
+                if compute_comp_dist(seq) > KW_COMP_DIST:
+                    bad['C3'] += 1
+                    if shown < 5:
+                        print(f"  record {idx}: complement distance "
+                              f"{compute_comp_dist(seq)} > {KW_COMP_DIST} (C3)"); shown += 1
 
                 ident = bytes(b & 0xFC for b in rec)
                 if prev is not None and ident <= prev:
@@ -337,11 +416,23 @@ def check_artifact(path, count=-1, offset=0):
                 # ever breaks that identity. No negative control can exercise it.
                 if any(v != 0 for v in budget):
                     bad['BUDGET_RESIDUE'] += 1
+            # GEOMETRY: the declared record count must match the stream.
+            # Only meaningful on a WHOLE-FILE read. Ignoring the count for loop
+            # TERMINATION is a deliberate convention that makes the [N] [OFFSET]
+            # sub-range form work -- but that explains not USING the count, never
+            # not CHECKING it, so the default full pass compares them and a
+            # sub-range invocation stays green. Measured on the logical (post-gunzip)
+            # stream, so a .gz artifact is checked on its contents, not its
+            # compressed size.
+            if count < 0 and offset == 0 and n != hdr_declared:
+                bad['GEOMETRY'] = 1
+                print(f"  header declares {hdr_declared} records but the stream holds {n}")
     except OSError as e:
         print(f"ARTIFACT=FAIL_io {e}"); return 2
 
     print(f"RECORDS={n}")
-    for k in ("KEY", "SPARE_BIT", "OPENING", "HD5", "BUDGET", "BUDGET_RESIDUE", "ORDER"):
+    for k in ("KEY", "SPARE_BIT", "OPENING", "HD5", "BUDGET", "BUDGET_RESIDUE", "ORDER",
+              "C3", "HDR_VERSION", "HDR_RESERVED", "GEOMETRY"):
         print(f"BAD_{k}={bad[k]}")
     if n and not any(bad.values()):
         print("ARTIFACT=PASS")
@@ -1040,9 +1131,31 @@ def repr_of_key(pair_order):
       * C2  -- no adjacent transition may have Hamming distance 5.
       * C5  -- the combined 63-transition multiset (every within-pair and every
                between-pair transition) must match the KW-derived budget.
+      * C3  -- the complement distance ceiling (added 2026-09-02; see below).
     Budget totals 63 and there are exactly 63 transitions, so the running cap
     check IS exact consumption; that identity is asserted, not assumed."""
     if len(pair_order) != 32:
+        return None
+    # C3 PRE-FILTER (added 2026-09-02). lean/RecordConvention.lean defines repr(k)
+    # as the lex-least completion satisfying C2/C3/C5; this function implemented
+    # C4/C2/C5 and omitted C3, so for a key whose C3 exceeds the ceiling it
+    # RETURNED A RECORD where the definition says none exists. Because C3 cannot
+    # change WHICH completion is lex-least (it is orientation-invariant -- swapping
+    # a pair moves a hexagram and its complement together), the omission never
+    # corrupted an AGREE/DISAGREE verdict. It corrupted the INCOMPUTABLE leg
+    # instead: the one VERIFY.md advertises as fail-closed. Measured on a
+    # C3 = 1080 key, both languages: CHECK_REPR=PASS, INCOMPUTABLE=0, rc 0.
+    #
+    # That same invariance is what makes this a legitimate PRE-DFS filter rather
+    # than a leaf test: C3 is a function of the key alone, so it is decided once
+    # here instead of at every completion, and it PRUNES rather than costing.
+    # Verified by measurement, not assumed -- over random keys, C3 is constant
+    # across every orientation assignment.
+    seq0 = []
+    for slot in range(32):
+        a, b = PAIRS[pair_order[slot]]
+        seq0 += [a, b]
+    if compute_comp_dist(seq0) > KW_COMP_DIST:
         return None
     budget = _c5_budget_from_kw()
     if not (sum(budget) == 63):

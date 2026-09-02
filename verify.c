@@ -132,6 +132,63 @@ static int build_pairs(void) {
     return 1;
 }
 
+/* ---------- C3, re-derived HERE from this file's own KW table --------------
+ *
+ * SPECIFICATION.md C3: sum over all v in 0..63 of |pos(v) - pos(v ^ 63)|, where
+ * ^63 is the 6-bit complement. Every complement pair contributes its positional
+ * distance twice, once from each end. King Wen's value is the ceiling.
+ *
+ * DERIVED, NOT COPIED. The ceiling is computed from the KW table above rather
+ * than written as the literal 776, and then ASSERTED against 776 -- the same
+ * shape verify.py uses. A corrupted table must fail loudly rather than silently
+ * redefine the constraint. Note the identity C3 = 16 + 8*G is deliberately NOT
+ * used: it is an algebraic result this file exists to check independently, so
+ * importing it here would close the loop it is supposed to open.
+ *
+ * WHY THIS ARRIVED LATE (2026-09-02, Codex V2-F20 #1 / V2-F58 #1). Neither
+ * --check-artifact nor the repr oracle computed C3 at all. Both certified a
+ * record whose complement distance is 1080 against this 776 ceiling. The
+ * enumerator enforces C3 in-walk, and inheriting an enumerator-enforced
+ * invariant is precisely what an independent verifier may not do. */
+
+static int vc_comp_dist(const int *seq) {
+    int pos[64];
+    for (int i = 0; i < 64; i++) pos[seq[i]] = i;
+    int total = 0;
+    for (int v = 0; v < 64; v++) {
+        int d = pos[v] - pos[v ^ 63];
+        total += (d < 0) ? -d : d;
+    }
+    return total;
+}
+
+/* Lazily derived and asserted. Lazy rather than folded into vc_build_budget()
+ * so that any future caller of vc_repr_of_key() gets a built ceiling; a zero
+ * ceiling would silently reject every key, which is the failure direction that
+ * looks like success. */
+static int vc_c3_ceiling(void) {
+    static int c3max = 0;
+    if (c3max == 0) {
+        c3max = vc_comp_dist(KW);
+        if (c3max != 776) {
+            fprintf(stderr, "*** verify.c: KW complement distance is %d, expected 776 "
+                            "(C3) -- KW table corrupt\n", c3max);
+            exit(2);
+        }
+    }
+    return c3max;
+}
+
+/* The 64-value hexagram sequence a record encodes, from its key and orientation
+ * bits. Slot s contributes its pair in stored order. */
+static void vc_seq_of(const int *key, const int *orient, int *seq) {
+    for (int slot = 0; slot < 32; slot++) {
+        int P = key[slot], a = PA[P], b = PB[P];
+        seq[2 * slot]     = orient[slot] ? b : a;
+        seq[2 * slot + 1] = orient[slot] ? a : b;
+    }
+}
+
 /* C5 boundary classes; distance 5 is forbidden by C2, distance 0 cannot occur. */
 static const int CLS[5] = {1, 2, 3, 4, 6};
 static int cls_ix(int d) { for (int i = 0; i < 5; i++) if (CLS[i] == d) return i; return -1; }
@@ -212,6 +269,26 @@ static int vc_rec(VcRepr *st, int slot, int last) {
  * valid completion (which is itself a finding if the artifact stores one). */
 static int vc_repr_of_key(const int *pair_order, unsigned char *out) {
     VcRepr st;
+    /* C3 PRE-FILTER (added 2026-09-02). lean/RecordConvention.lean defines
+     * repr(k) as the lex-least completion satisfying C2/C3/C5; this function
+     * implemented C4/C2/C5 and omitted C3, so for a key whose C3 exceeds the
+     * ceiling it RETURNED A RECORD where the definition says none exists.
+     *
+     * Because C3 is ORIENTATION-INVARIANT -- swapping a pair moves a hexagram
+     * and its complement together -- the omission could never change WHICH
+     * completion is lex-least, so no AGREE/DISAGREE verdict was ever wrong. What
+     * it corrupted is the INCOMPUTABLE leg, the one VERIFY.md advertises as
+     * fail-closed: measured on a C3 = 1080 key in both languages, CHECK_REPR=PASS
+     * with INCOMPUTABLE=0 and rc 0.
+     *
+     * That same invariance is what makes this a legitimate PRE-DFS filter rather
+     * than a leaf test: C3 is a function of the key alone, so it is decided once,
+     * here, instead of at every completion -- it PRUNES rather than costing. Any
+     * orientation gives the same value, so the all-zero assignment is used. */
+    int seq0[64], orient0[32];
+    for (int i = 0; i < 32; i++) orient0[i] = 0;
+    vc_seq_of(pair_order, orient0, seq0);
+    if (vc_comp_dist(seq0) > vc_c3_ceiling()) return 0;
     st.key = pair_order;
     memcpy(st.budget, vc_budget0, sizeof(st.budget));
     int P0 = pair_order[0], a0 = PA[P0], b0 = PB[P0], o0;
@@ -256,12 +333,28 @@ static int vc_repr_of_key(const int *pair_order, unsigned char *out) {
  * identical by construction and a disagreement can only ever be an orientation
  * bit. This check is not blind to it.
  *
- * WHAT THIS CHECKS INSTEAD -- the three properties the file does claim:
- *   (1) VALIDITY   every stored record's OWN orientations satisfy the constraint
- *                  set: forced (63,0) opening, no HD-5 transition, and the C5
- *                  budget consumed EXACTLY (not merely "fits").
+ * WHAT THIS CHECKS INSTEAD -- the four properties the file does claim:
+ *   (1) VALIDITY   every stored record satisfies the constraint set: the forced
+ *                  (63,0) opening (C4), no HD-5 transition (C2), the C5 budget
+ *                  consumed EXACTLY (not merely "fits"), and the C3
+ *                  complement-distance ceiling.
  *   (2) SORTEDNESS pair-order keys strictly increase, matching compare_solutions.
  *   (3) DEDUP      strictness in (2) is exactly the one-record-per-class claim.
+ *   (4) HEADER     format version, the zero reserved field, and the declared
+ *                  count against the stream.
+ *
+ * (1) READ "every stored record's OWN ORIENTATIONS satisfy the constraint set"
+ * until 2026-09-02. That was an overclaim in two directions at once: it promised
+ * the whole constraint set while C3 was absent, and the word "orientations"
+ * scoped the promise to a property C3 does not have. Both are now true as
+ * written -- C3 landed with this revision -- but the wording is what made the
+ * gap invisible, so it is corrected here rather than merely satisfied.
+ *
+ * SCOPE TOKEN, DELIBERATELY UNCHANGED. This mode still prints
+ * SCOPE=validity_sortedness_dedup_only_NOT_completeness. C3 and the header legs
+ * make the "validity" term MORE complete; they do not move the boundary the
+ * token actually draws, which is completeness. Changing the string would break
+ * every `grep -qx` consumer to signal nothing.
  *
  * This is a linear walk per record, not a backtracking search, so the whole
  * artifact streams in minutes rather than the ~47 h a repr sweep costs -- and
@@ -294,12 +387,37 @@ static int vc_check_artifact_main(int argc, char **argv) {
         printf("  otherwise have its first record consumed as a header.\n");
         gzclose(fh); return 2;
     }
+    /* HEADER CONFORMANCE (added 2026-09-02; Codex V2-F48 #3 / V2-F58 #2).
+     * Before this, the magic was the ONLY header field checked: the version and
+     * the declared count were never read and the reserved field was never
+     * inspected, so a v2 header, a nonzero reserved byte and a count that
+     * disagreed with the body each returned ARTIFACT=PASS. SOLUTIONS_FORMAT.md
+     * makes version==1, a zero reserved field and an accurate count normative,
+     * and REBUILD_FROM_SPEC.md requires a conformant reader to REJECT an unknown
+     * version. Counters rather than hard exits, matching verify.py: a
+     * nonconformant header does not make the records unreadable, and an operator
+     * is better served by both facts than by the first one alone. */
+    long long bad_hdr_version = 0, bad_hdr_reserved = 0, bad_geometry = 0;
+    unsigned int hdr_version = (unsigned int)hdr[4] | ((unsigned int)hdr[5] << 8)
+                             | ((unsigned int)hdr[6] << 16) | ((unsigned int)hdr[7] << 24);
+    if (hdr_version != 1u) {
+        bad_hdr_version = 1;
+        printf("  header: unsupported format version %u (this reader knows version 1)\n", hdr_version);
+    }
+    for (int i = 16; i < 32; i++) if (hdr[i]) { bad_hdr_reserved = 1; break; }
+    if (bad_hdr_reserved) {
+        printf("  header: reserved bytes [16:32] are NONZERO (");
+        for (int i = 16; i < 32; i++) printf("%02x", hdr[i]);
+        printf(")\n");
+    }
+    unsigned long long hdr_declared = 0;
+    for (int i = 15; i >= 8; i--) hdr_declared = (hdr_declared << 8) | (unsigned long long)hdr[i];
     unsigned char rec[32], prev[32];
     for (long long i = 0; i < off; i++)
         if (gzread(fh, rec, 32) != 32) { printf("ARTIFACT=FAIL_offset_past_eof\n"); gzclose(fh); return 2; }
 
     long long n = 0, bad_key = 0, bad_spare = 0, bad_open = 0,
-              bad_hd5 = 0, bad_budget = 0, bad_residue = 0, bad_order = 0, shown = 0;
+              bad_hd5 = 0, bad_budget = 0, bad_residue = 0, bad_order = 0, bad_c3 = 0, shown = 0;
     int have_prev = 0;
 
     while (want < 0 || n < want) {
@@ -322,6 +440,26 @@ static int vc_check_artifact_main(int argc, char **argv) {
             seen |= 1u << key[i];
         }
         if (bad) { bad_key++; if (shown < 5) { printf("  record %lld: key is not a permutation of 0..31\n", idx); shown++; } continue; }
+
+        /* C3 (added 2026-09-02). SPECIFICATION.md's constraint set is C1-C5 and
+         * SOLUTIONS_FORMAT.md states outright that "a re-implementation that omits
+         * C3 produces a strict SUPERSET". This loop checked C4/C2/C5 and never
+         * computed C3, so a record with cd = 1080 against the 776 ceiling was
+         * certified ARTIFACT=PASS by BOTH implementations. The seven-negative
+         * controls table could not catch it: a controls table exercises the
+         * counters that exist and is blind, by construction, to a missing
+         * predicate. Computed from the DECODED SEQUENCE, matching verify.py --
+         * not via the 16+8*G identity, which this file exists to check rather
+         * than to assume. */
+        {
+            int seq[64];
+            vc_seq_of(key, orient, seq);
+            int cd = vc_comp_dist(seq);
+            if (cd > vc_c3_ceiling()) {
+                bad_c3++;
+                if (shown < 5) { printf("  record %lld: complement distance %d > %d (C3)\n", idx, cd, vc_c3_ceiling()); shown++; }
+            }
+        }
 
         /* (2)+(3): strictly increasing on the pair-identity bytes. */
         if (have_prev) {
@@ -364,10 +502,25 @@ static int vc_check_artifact_main(int argc, char **argv) {
     }
     gzclose(fh);
 
-    long long bad_total = bad_key + bad_spare + bad_open + bad_hd5 + bad_budget + bad_residue + bad_order;
+    /* GEOMETRY: the declared record count must match the stream. Only meaningful
+     * on a WHOLE-FILE read. Ignoring the count for loop TERMINATION is a
+     * deliberate convention that makes the [N] [OFFSET] sub-range form work --
+     * but that explains not USING the count, never not CHECKING it, so the
+     * default full pass compares them and a sub-range invocation stays green.
+     * Measured on the logical (post-inflate) stream via gzread, so a .gz artifact
+     * is checked on its contents rather than its compressed size. */
+    if (want < 0 && off == 0 && (unsigned long long)n != hdr_declared) {
+        bad_geometry = 1;
+        printf("  header declares %llu records but the stream holds %lld\n", hdr_declared, n);
+    }
+
+    long long bad_total = bad_key + bad_spare + bad_open + bad_hd5 + bad_budget + bad_residue
+                        + bad_order + bad_c3 + bad_hdr_version + bad_hdr_reserved + bad_geometry;
     printf("RECORDS=%lld\nBAD_KEY=%lld\nBAD_SPARE_BIT=%lld\nBAD_OPENING=%lld\n"
-           "BAD_HD5=%lld\nBAD_BUDGET=%lld\nBAD_BUDGET_RESIDUE=%lld\nBAD_ORDER=%lld\n",
-           n, bad_key, bad_spare, bad_open, bad_hd5, bad_budget, bad_residue, bad_order);
+           "BAD_HD5=%lld\nBAD_BUDGET=%lld\nBAD_BUDGET_RESIDUE=%lld\nBAD_ORDER=%lld\n"
+           "BAD_C3=%lld\nBAD_HDR_VERSION=%lld\nBAD_HDR_RESERVED=%lld\nBAD_GEOMETRY=%lld\n",
+           n, bad_key, bad_spare, bad_open, bad_hd5, bad_budget, bad_residue, bad_order,
+           bad_c3, bad_hdr_version, bad_hdr_reserved, bad_geometry);
     if (n > 0 && bad_total == 0) {
         printf("ARTIFACT=PASS\nSCOPE=validity_sortedness_dedup_only_NOT_completeness\n");
         return 0;

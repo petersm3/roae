@@ -11,6 +11,7 @@ per-tool gates (--registry-verify, --f4p-verify) by running them all plus
 helper-level checks in a single pass. Stdlib only."""
 
 import subprocess, sys, unittest, importlib.util, itertools
+import os, random, shutil, struct, tempfile
 
 def _load(name):
     spec = importlib.util.spec_from_file_location(name, name + ".py")
@@ -1311,6 +1312,194 @@ class TestVerifyRecordsPath(unittest.TestCase):
         finally:
             V.KW, V.PAIRS, V.KW_DIST = saved_kw, saved_pairs, saved_dist
         V._verify_tables_against_rules()   # the real tables still pass
+
+
+class TestCheckArtifactControls(unittest.TestCase):
+    """C1 (2026-09-02): negative controls for the four predicates `--check-artifact`
+    was missing, asserted against BOTH shipped implementations at once.
+
+    WHY BOTH IN ONE TEST. verify.py and verify.c are two INDEPENDENT instruments;
+    that independence is the deliverable, so nothing here is shared between them
+    beyond the fixture bytes and the expected verdict. What is asserted is that
+    they agree token for token — `verify.c` already carried the note that "two
+    independent instruments that diverge on compound defects are not two
+    instruments", and this pins it. A real divergence was measured while these
+    controls were being written: on a torn trailing record verify.py returned
+    ARTIFACT=PASS rc 0 while verify.c returned ARTIFACT=FAIL_partial_record rc 2.
+
+    WHY EXACT-LINE MATCHING. Verdicts are `KEY=value` matched whole, never
+    inferred from output shape or from a regex over a character class. The
+    2026-08-15 flips-census error came from a harness grepping
+    `^BAD_[A-Z_]+=[1-9]`, whose class excludes DIGITS, so `BAD_HD5=1` never
+    matched and 7 failures were silently counted as passes. `BAD_C3` and
+    `BAD_HD5` both carry digits.
+
+    EVERY CONTROL HERE WAS RED FIRST. Each fixture was measured against the
+    pre-change binaries and observed to be ACCEPTED (`ARTIFACT=PASS` / rc 0,
+    `CHECK_REPR=PASS` / rc 0) before the predicate was added. A control written
+    after a fix, that has only ever passed, proves nothing about whether it can
+    fire."""
+
+    KWREC_HEX = ("0004080c1014181c2024282c3034383c"
+                 "4044484c5054585c6064686c7074787c")
+    # C3 = 1080 against the 776 ceiling; C1/C2/C4/C5-valid, so ONLY a C3 leg
+    # rejects it. From the Codex V2-F20 #1 fixture.
+    C3REC_HEX = "0060743e36207a5e10265472644e2a684204520e146e08187e1c303a58464a2c"
+    # The lex-least completion of that same key: the stored record IS what the
+    # repr oracle returns, so before the C3 pre-filter landed --check-repr
+    # reported AGREE=1 INCOMPUTABLE=0 CHECK_REPR=PASS rc 0 on a key the record
+    # convention says has no valid completion at all.
+    C3REPR_HEX = "0060743c3620785c10245670664c28684204520c146c0a187c1e323a58464a2c"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="c1_ctl_")
+        cls.vbin = os.path.join(cls.tmp, "verify_ctl")
+        r = subprocess.run(["gcc", "-O0", "-o", cls.vbin, "verify.c",
+                            "-lz", "-lpthread", "-lm"],
+                           capture_output=True, text=True)
+        cls.have_c = (r.returncode == 0 and os.path.exists(cls.vbin))
+        cls.c_build_err = r.stderr[-2000:] if not cls.have_c else ""
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _artifact(self, name, records, declared=None, version=1,
+                  reserved=b"\0" * 16, tail=b""):
+        """Build a ROAE artifact. `declared` defaults to len(records) so a caller
+        must ASK for a geometry mismatch rather than get one by accident."""
+        body = b"".join(records)
+        if declared is None:
+            declared = len(records)
+        blob = (b"ROAE" + struct.pack("<I", version) + struct.pack("<Q", declared)
+                + reserved + body + tail)
+        path = os.path.join(self.tmp, name)
+        with open(path, "wb") as fh:
+            fh.write(blob)
+        return path
+
+    def _both(self, path, mode="--check-artifact"):
+        """Run the fixture through both instruments. Returns (rc, token_set) per
+        side; the token set is the set of whole verdict lines."""
+        def toks(out):
+            keys = ("ARTIFACT=", "CHECK_REPR=", "RECORDS=", "BAD_", "AGREE=",
+                    "DISAGREE=", "INCOMPUTABLE=", "CHECKED=")
+            return {ln for ln in out.splitlines()
+                    if any(ln.startswith(k) for k in keys)}
+        p = subprocess.run([sys.executable, "verify.py", path, mode],
+                           capture_output=True, text=True)
+        py = (p.returncode, toks(p.stdout))
+        if not self.have_c:
+            self.skipTest("verify.c did not build: " + self.c_build_err)
+        c = subprocess.run([self.vbin, mode, path], capture_output=True, text=True)
+        cc = (c.returncode, toks(c.stdout))
+        return py, cc
+
+    def _assert_agree(self, path, mode, want_rc, want_tokens):
+        py, c = self._both(path, mode)
+        self.assertEqual(py[0], want_rc, f"verify.py rc on {os.path.basename(path)}")
+        self.assertEqual(c[0], want_rc, f"verify.c rc on {os.path.basename(path)}")
+        for t in want_tokens:
+            self.assertIn(t, py[1], f"verify.py missing verdict token {t!r}")
+            self.assertIn(t, c[1], f"verify.c missing verdict token {t!r}")
+        self.assertEqual(py[1], c[1],
+                         "the two independent instruments printed DIFFERENT verdict "
+                         f"tokens on {os.path.basename(path)}; symmetric difference: "
+                         f"{py[1] ^ c[1]}")
+
+    # ---- negative controls: each was ACCEPTED before the fix ----
+
+    def test_ctl_c3_artifact_is_rejected(self):
+        # RED BEFORE: ARTIFACT=PASS rc 0 from both, on a record with cd=1080.
+        p = self._artifact("c3bad.bin", [bytes.fromhex(self.C3REC_HEX)])
+        self._assert_agree(p, "--check-artifact", 1, {"BAD_C3=1", "ARTIFACT=FAIL"})
+
+    def test_ctl_hdr_version_is_rejected(self):
+        # RED BEFORE: ARTIFACT=PASS rc 0. REBUILD_FROM_SPEC.md requires a
+        # conformant reader to reject an unknown version.
+        p = self._artifact("v2.bin", [bytes.fromhex(self.KWREC_HEX)], version=2)
+        self._assert_agree(p, "--check-artifact", 1,
+                           {"BAD_HDR_VERSION=1", "ARTIFACT=FAIL"})
+
+    def test_ctl_hdr_reserved_is_rejected(self):
+        # RED BEFORE: ARTIFACT=PASS rc 0. SOLUTIONS_FORMAT.md: bytes 16-31 MUST
+        # be zero.
+        p = self._artifact("resv.bin", [bytes.fromhex(self.KWREC_HEX)],
+                           reserved=b"\0" * 4 + b"\x5a" + b"\0" * 11)
+        self._assert_agree(p, "--check-artifact", 1,
+                           {"BAD_HDR_RESERVED=1", "ARTIFACT=FAIL"})
+
+    def test_ctl_geometry_is_rejected(self):
+        # RED BEFORE: ARTIFACT=PASS rc 0 on a header declaring 5 records over a
+        # 1-record body. Ignoring the count for loop TERMINATION is what makes
+        # the sub-range form work; it never justified not CHECKING it.
+        p = self._artifact("geom.bin", [bytes.fromhex(self.KWREC_HEX)], declared=5)
+        self._assert_agree(p, "--check-artifact", 1,
+                           {"BAD_GEOMETRY=1", "ARTIFACT=FAIL"})
+
+    def test_ctl_partial_record_is_rejected_by_both(self):
+        # RED BEFORE, AND A TRUE DIVERGENCE: verify.py ARTIFACT=PASS rc 0 (the
+        # torn tail silently dropped by a bare `break`) while verify.c already
+        # returned ARTIFACT=FAIL_partial_record rc 2. verify.c was right.
+        p = self._artifact("partial.bin", [bytes.fromhex(self.KWREC_HEX)],
+                           tail=b"\x11" * 10)
+        self._assert_agree(p, "--check-artifact", 2, {"ARTIFACT=FAIL_partial_record"})
+
+    def test_ctl_repr_c3_is_incomputable(self):
+        # RED BEFORE: AGREE=1 INCOMPUTABLE=0 CHECK_REPR=PASS rc 0 — the
+        # fail-closed leg passing a key the convention says cannot be completed.
+        # Note the mode verdict CHECK_REPR=FAIL alone would NOT have caught the
+        # bug on the other fixture (a non-minimal variant of the same key already
+        # failed, for the wrong reason); INCOMPUTABLE=1 is the load-bearing token.
+        p = self._artifact("c3repr.bin", [bytes.fromhex(self.C3REPR_HEX)])
+        self._assert_agree(p, "--check-repr", 1,
+                           {"INCOMPUTABLE=1", "DISAGREE=0", "CHECK_REPR=FAIL"})
+
+    # ---- positive controls: these must NOT have been broken ----
+
+    def test_ctl_pos_king_wen_still_passes(self):
+        p = self._artifact("pos.bin", [bytes.fromhex(self.KWREC_HEX)])
+        self._assert_agree(p, "--check-artifact", 0,
+                           {"BAD_C3=0", "BAD_HDR_VERSION=0", "BAD_HDR_RESERVED=0",
+                            "BAD_GEOMETRY=0", "ARTIFACT=PASS"})
+
+    def test_ctl_subrange_invocation_stays_green(self):
+        # The geometry leg must fire ONLY on a whole-file read. A sub-range
+        # request deliberately reads fewer records than the header declares and
+        # must not be reported as corrupt framing.
+        recs = [bytes.fromhex(self.KWREC_HEX)]
+        p = self._artifact("sub.bin", recs)
+        py = subprocess.run([sys.executable, "verify.py", p, "--check-artifact", "1"],
+                            capture_output=True, text=True)
+        self.assertEqual(py.returncode, 0)
+        self.assertIn("BAD_GEOMETRY=0", py.stdout.splitlines())
+        if not self.have_c:
+            self.skipTest("verify.c did not build")
+        c = subprocess.run([self.vbin, "--check-artifact", p, "1", "0"],
+                           capture_output=True, text=True)
+        self.assertEqual(c.returncode, 0)
+        self.assertIn("BAD_GEOMETRY=0", c.stdout.splitlines())
+
+    def test_c3_is_orientation_invariant_so_the_prefilter_is_exact(self):
+        """The repr C3 pre-filter runs BEFORE the DFS, on the all-zero
+        orientation. That is only sound if C3 is a function of the key alone.
+        Measured here rather than assumed — it is the load-bearing premise."""
+        V = _load("verify")
+        random.seed(20260902)
+        for _ in range(8):
+            key = list(range(32))
+            random.shuffle(key)
+            seen = set()
+            for _t in range(32):
+                orient = [random.randint(0, 1) for _ in range(32)]
+                seq = []
+                for slot in range(32):
+                    a, b = V.PAIRS[key[slot]]
+                    seq += [b, a] if orient[slot] else [a, b]
+                seen.add(V.compute_comp_dist(seq))
+            self.assertEqual(len(seen), 1,
+                             f"C3 varied with orientation for key {key}: {sorted(seen)}")
 
 
 class TestNoBareAsserts(unittest.TestCase):
