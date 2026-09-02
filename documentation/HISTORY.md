@@ -5713,6 +5713,117 @@ and Fable 5) under operator direction; the completeness theorem is TR-5's, its m
 (Fable 5). Every remediation preserves the canonical selftest sha `403f7202…` — nothing in this arc
 touched the enumeration.
 
+## 2026-07-22/31: The results ledger for the second-instrument window — an exact null law, a third exact count, two Lean corollaries, and the C3 floor
+
+*(Ported 2026-09-02 from a staging draft written 2026-07-26 and left unported for five weeks. It is
+placed here, ahead of the entry that follows, because the two describe the same eleven days from
+different sides: the next entry is that window's **process** record — the second-instrument program,
+the two retractions, the audit of the auditor — and this one is its **results** record. They are
+deliberately not merged, and neither restates the other.)*
+
+**One correction to the neighbouring entry's framing, recorded here rather than by editing it.** The
+entry that follows opens "eleven days that produced almost no new results." That is true of the
+*headline* quantities — the C1–C5 flagship did not move, no count on the front page changed — and it
+is not true of the corpus. Five results landed in this window — every one of them still standing and
+publicly checkable — together with one deliberate withdrawal. They are listed below because a history
+that narrates only the corrections a window produced, and not the mathematics, is not a history of the
+window.
+
+**The exact C1∩C4 null G-law, machine-checked by the kernel (2026-07-24, `d130a206`).** The reference
+baseline for every C3 statement — the distribution of the couple slot-distance sum G over the 31!
+equally-weighted C1∩C4 pair-orders, with no C2/C5 conditioning and no budget truncation — moved from
+*computed* to *proven*. `lean/C3Decomposition.lean`'s final section evaluates the 31-layer DP inside
+the Lean kernel (`decide +kernel`, no `native_decide`) and carries the full histogram over
+G ∈ [12, 228] as a literal, with total mass 31! (`null_total`), closed-form endpoint counts, the mean
+E[G] = 128 exactly and hence E[C3] = 1040 (`null_mean_128`, `null_c3_mean_1040`), and the tail
+P(G ≤ 95) = 641983711307479/7919632354008375 exact and in lowest terms (`null_p_le_95`,
+`null_p_le_95_lowest_terms`) — the 8.106% that CRITIQUE.md and SOLVE.md cite at C1∩C4 scope. The
+recurrence itself is validated in-kernel against brute-force enumeration at small sizes, so the DP is
+not taken on trust either. Reproduce: `lean C3Decomposition.lean` (~2 min; see
+[lean/README.md](../lean/README.md) §"The C1∩C4 null G-law"), or the numeric route
+`python3 verify.py --check-null-g`. Scope, stated because it is narrow: this is the C1∩C4 null, not
+the canonical population.
+
+**A third exact count, and a genuinely different second instrument for it (2026-07-25/26,
+`5cadf619` then `b4b59888`).** |C1∩C2∩C4∩C5∩C6∩C7| — the C6/C7-pinned layer with C3 dropped —
+became **exact** at
+516,880,238,445,773,965,371,923,491,676,160 (≈5.16880×10³²) via an inclusion–exclusion pinned-step
+recount, and then **two-instrument** when a direct layered exact-cover mask DP ("Route D") — no
+inclusion–exclusion, no subset-sum signs, no symmetry quotient, sharing only the problem spec —
+reproduced the same integer to the digit. In the same batch |C1∩C2∩C4| was independently recomputed
+at full scale (`1de24f9c`) and flipped single- to two-instrument. Reproduce, after
+`gcc -O3 -pthread -o verify verify.c -lm`:
+`./verify --ie-count --ie-spec full31@0 --ie-pin-c6c7 --ie-no-quotient` (Route B) and
+`./verify --dp-count --dp-spec full31@0 --dp-pin-c6c7` (Route D); `./verify --ie-count --ie-no-budget`
+for |C1∩C2∩C4|. Route D was small-n validated 44/44 including three-way against brute force before it
+was allowed to score anything. The value's standing use is as the **only** calibration anchor on the
+C6/C7-pinned estimator path — the path that carries the ≈5.21×10³¹ estimate that refutes C1–C7 uniqueness — and
+it lands inside that estimator's prior 5.18×10³² ±0.25% interval, about 0.22% below the point
+estimate ([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4, [METHODS.md](../reports/METHODS.md)).
+
+**Radisic's C1 optimality, re-derived in this repository (2026-07-26, `e28fc5f4`).** That the
+comp/rev pairing rule C1 is the unique Hamming-cost-minimizing matching had rested on an external
+unrefereed preprint. Radisic's artifact was rebuilt and audited, and the theorem was then re-proved
+from scratch in the repo's own Lean as `lean/HammingOptimalMatching.lean` —
+`partner_is_unique_minimum` quantifying over *all* comp/rev pairings, plus the full-K₄ relaxation
+scope guard that keeps the claim inside the class it is true in. The dependency is downgraded from
+external to independently-verified-and-machine-checked across TR-9, SPECIFICATION, CITATIONS,
+CLAIMS_DECIDED and DESCRIPTION_LENGTH. **Result credit remains Radisic's** (arXiv:2601.07175); what is
+ours is the independent re-derivation, and any error of adaptation. Reproduce:
+`lean HammingOptimalMatching.lean`.
+
+**The equivariance ceiling (2026-07-26, `e28fc5f4`; trust base tightened 2026-07-27).** A corollary of
+the free-action symmetry, and the sharpest thing this project can say about generators that claim to
+produce King Wen: any generator whose scoring factors through a G-invariant bit-structural vocabulary
+— Hamming distance, popcount, complement, reversal, the distinguished values 0/63, slot indices, and
+aggregates of these — assigns King Wen's record and each of its 23 record-level twins the same mass,
+so it can place at most **1/24** of its output distribution on King Wen and can never single it out
+(`equivariance_ceiling`, `no_unique_kw_concentration` in `lean/KingWen.lean`). The orbit length reuses
+the existing `twins_24_records` verbatim, so this is a corollary of the free-action theorem rather
+than a re-proof of it, and the chain became kernel-only on 2026-07-27. Reproduce: `lean KingWen.lean`.
+Two scope statements travel with it and are not optional: it says nothing about generators using
+non-invariant vocabulary — lexicographic label conventions or KW-derived constants break the ceiling
+by construction, which is the point — and **the mathematics is the standard invariance/orbit
+argument**; only the King-Wen instantiation and its machine-check are new here.
+
+**The C3 floor is exactly 112, and the enumerated minima were budget artifacts.** The published
+minima — 424 at the 100T canonical, 392 at the deeper 560T — were always scope-labelled as minima
+*seen at those depths*, and they are: the constraint-space floor is far lower. A SAT witness attains
+C3 = 112 with all twelve complement-couples adjacent (G = 12), published as a verified row in
+[reports/certificates/c3_positional_witnesses.txt](../reports/certificates/c3_positional_witnesses.txt)
+(2026-07-24, `1e6b3816`) and rechecked through `verify.py`'s independent functions by
+`reports/certificates/verify_all.sh` §3b. The matching lower bound needs no search certificate at all: the scalar identity
+C3 = 16 + 8·G (`c3_slot_decomposition`, kernel-checked since 2026-07-04, `409d05dd`) plus the
+structural fact that each of the twelve cross couples occupies two *distinct* slots gives G ≥ 12 and
+so C3 ≥ 112 for every C1-valid ordering — `c3slot_ge_12` and `c3_ge_112`, dated 2026-07-27 in
+`lean/C3Decomposition.lean` and first pushed 2026-07-31 in `c5b39d61`. Reproduce:
+`lean C3Decomposition.lean`. This sharpens rather than overturns the standing result that King Wen
+does not minimize complement distance — KW sits at the C3 **ceiling** (776, G = 95), the opposite
+extreme from a floor of 112. Nothing was retracted; the floor is the exact, permanently checkable
+number the depth-limited minima were standing in for. **One residual gap, recorded because it is
+ours:** unlike every other doc-cited theorem in that file, `c3slot_ge_12` and `c3_ge_112` carry no
+`#print axioms` directive, so their trust base is inferred from the proof text — which uses only
+`slot_ne`, list induction and `omega`, with no `decide` and no `native_decide` — rather than attested
+by the file's own axiom-audit block. The directive should be added.
+
+**And one cost figure withdrawn rather than widened (2026-07-22, `4059fd5d`).** [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+v1.10 removed its compute-cost band for a full-scale exact-C3 run entirely. The v1.9 band's footprint
+multiplier and wall-time band both derive from the same entry-count scaling, so their uncertainties
+are correlated and the plausible joint corner sits more than an order of magnitude above the
+midpoint — a band that had already been revised once. Restating it wider would have invited the same
+misreading, so §10(ii) now says only that such a run is computationally expensive and **not bounded
+above** until cheap reduced-scale instrument re-runs land. What this window established about C3 is
+therefore a *cost* barrier, not a structural one — the structural-obstruction framing had been
+withdrawn the day before in TR-11 v1.5 (`f8b14284`) when the identity C3 = 16 + 8·G was published —
+and any narration of the C3 program as "closed" that leans on a specific core-year or dollar figure
+is leaning on a number this report deliberately does not publish.
+
+Attribution: the null G-law was authored by Claude (Fable 5) and independently recompiled and verified
+by Claude (Opus 4.8); the Route D engine, the Radisic re-derivation, the equivariance ceiling, and the
+cost-figure withdrawal by Claude (Opus 4.8), the withdrawal on a Fable 5 review finding — all under
+operator direction. Result credit for the C1 optimality theorem is Radisic's; the orbit/invariance
+argument behind the ceiling is classical. Corrections invited.
+
 ## 2026-07-22/08-01: Second instruments, two retractions, and the audit that audited the auditor
 
 Eleven days that produced almost no new results and a great deal of new confidence. The through-line:
