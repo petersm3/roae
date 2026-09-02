@@ -51,6 +51,21 @@
 #                                   # GATE 2 misses; and LEG 2 (REPORT-ONLY, never affects rc) a
 #                                   # doc that publishes a measured figure and names no way to
 #                                   # re-derive it. NOT in `all` — by caution, per its header.
+#   scripts/doc_gates.sh rotation-c3      # GATE 30: a pair-slot rotation-symmetry claim that
+#                                   # does not name C3 (flattened; claim SHAPE, not a string)
+#   scripts/doc_gates.sh sk-gains   # GATE 31: the S(k) gain lists must agree on their maximum,
+#                                   # the divisor must BE that maximum, and a first/greedy
+#                                   # maximum claim must say "unconditional"
+#   scripts/doc_gates.sh fiber-anchor # GATE 32: the orientation-fiber anchors — a published
+#                                   # factorization/sum must equal what its own sentence states,
+#                                   # and the per-key orientation exponent is 2^31, not 2^32
+#   scripts/doc_gates.sh superlative # GATE 33: "strongest measured ... discriminator" with no
+#                                   # temporal or category qualifier (flattened; the qualified
+#                                   # twin in CITATIONS.md spans a hard wrap)
+#   scripts/doc_gates.sh printed-quotient # GATE 34: a published xratio must equal the quotient
+#                                   # printed beside it, at the ratio's own precision
+#   scripts/doc_gates.sh stale-status # GATE 35: a pending-status word surviving beside the dated
+#                                   # update that completed it. POPULATION = ONE heading today
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (3 roae.py runs,
 #                                   # ~67 s measured 2026-08-07, ~107-135 s on earlier recorded runs;
 #                                   # NOT in `all` — by cost; the PASS banner states what that excludes,
@@ -11028,8 +11043,698 @@ PY
   return 0
 }
 
+
+# ==================================================================================
+# GATES 30-35 (2026-09-02, code batch G1). Six legs queued in
+# roae-private/PROSE_LANE_FOLLOWUPS.md as "the gate half is not built".
+#
+# 🔴 EVERY ONE OF THESE WAS RED-TESTED BEFORE IT WAS TRUSTED — the defect was
+# reconstructed in a scratch clone, the gate was observed FAILING on it, and only then
+# was it observed passing on the clean tree. A gate that has only ever passed has not
+# been tested. The reconstructed defect for each is named in its own header.
+#
+# 🔴 THEY ALL FLATTEN. Four prose batches on 2026-09-02 found live sites only after
+# whitespace-flattening the file, because the phrase spanned a hard wrap — GATE 3's
+# lesson (a), relearned. `_g1_flatten` below is the shared normaliser and every text
+# leg here runs on its output, never on a raw line. Line numbers survive the flattening
+# through the `starts` offset table, so a finding still names a real source line.
+#
+# 🔴 A MISSING OR UNREADABLE INPUT IS AN ERROR, NEVER A ZERO. Each scanner emits
+# `ERROR\t...` on an unreadable file or a collapsed population and each shell wrapper
+# maps ERROR onto rc=1. This is the `[FAIL] ... printing 0 where it should have printed
+# ERROR` class the suite has already been bitten by once.
+#
+# 🔴 AND THEY ALL CARRY A POPULATION FLOOR, for Codex N07's verifier-closure invariant:
+# a verifier must be FALSE when its target is absent. A gate that passes because its
+# subject vanished from the corpus is measuring nothing. Floors are set BELOW today's
+# measured population and count the SUBJECT, never the fix's own commentary — the
+# distinction GATE 28's header records paying for.
+#
+# The shared python prelude is duplicated into each heredoc rather than sourced: these
+# are `python3 - <<'PY'` blocks with no import path between them, and a helper file
+# would be a new gate-support input with its own missing-input question.
+# ==================================================================================
+
+# _g1_py — the prelude every G1 scanner starts with. Emitted into the heredoc by the
+# caller so each scanner is self-contained; see the note above on why it is not a module.
+# flatten(text) -> (flat, starts): `flat` is the whole file whitespace-normalised onto
+#   ONE line (GATE 3's fold), `starts[i]` is the offset in `flat` at which source line
+#   i+1 begins, so lno() recovers an exact source line for any flat offset.
+# sent(flat,a,b): the flattened SENTENCE containing [a,b). Sentence, not line — the
+#   qualifier legs below all ask "does the same sentence also say X".
+# quoted(seg,a): True when offset a sits inside a quotation within seg. Callers pass the
+#   END of the match, not its start: the claim shapes below often begin OUTSIDE the quotation
+#   and end inside it (`called the k = 1 gain "the maximum by construction"`), and testing the
+#   start read that as unquoted. Measured - it was this gate's first false positive, at
+#   reports/TR4_SIZE_OF_THE_SPACE.md:345. A retracted
+#   phrase QUOTED by the correction that retired it is narration, not assertion, and
+#   exempting it is what stops these gates firing on their own fixes. Measured: without
+#   it, GATE 30 fails on documentation/CORRECTIONS.md:4496-4497 and GATE 31 on :4121,
+#   all three of which are the ledger describing the wording it removed.
+_g1_prelude() {
+cat <<'PRELUDE'
+import re, sys, bisect, subprocess
+_SUP = {'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4',
+        '⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9'}
+def desup(s):
+    out=[]; i=0
+    while i < len(s):
+        if s[i] in _SUP:
+            j=i
+            while j < len(s) and s[j] in _SUP: j+=1
+            out.append('^'+''.join(_SUP[c] for c in s[i:j])); i=j
+        else:
+            out.append(s[i]); i+=1
+    return ''.join(out)
+def corpus(pattern='*.md'):
+    r = subprocess.run(["git","ls-files",pattern], capture_output=True, text=True)
+    if r.returncode != 0:
+        print("ERROR\tgit ls-files failed (%s) - NOTHING was checked" % r.returncode.__str__())
+        raise SystemExit(0)
+    return [f for f in r.stdout.split() if f]
+def read(f):
+    # An unreadable tracked file is an ERROR, not an empty document. Returning '' here
+    # would make every text leg below report the file clean, which is the fail-open the
+    # suite has already shipped once.
+    try:
+        return open(f, encoding='utf-8', errors='replace').read()
+    except OSError as e:
+        print("ERROR\t%s is unreadable (%s) - it was NOT checked" % (f, e.strerror))
+        return None
+def flatten(t):
+    out=[]; starts=[]; off=0
+    for l in t.split("\n"):
+        s=" ".join(l.split())
+        if out: out.append(" "); off+=1
+        starts.append(off); out.append(s); off+=len(s)
+    return "".join(out), starts
+def lno(starts,pos):
+    return bisect.bisect_right(starts,pos)
+_SB = re.compile(r'(?<=[.!?])\s')
+def sent(flat,a,b):
+    s=0
+    for m in _SB.finditer(flat,0,a): s=m.end()
+    m=_SB.search(flat,b)
+    return flat[s:(m.start() if m else len(flat))]
+def quoted(seg,a):
+    return (seg.count('"',0,a) + seg.count('“',0,a) + seg.count('”',0,a)) % 2 == 1
+PRELUDE
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 30 — a pair-slot rotation-symmetry claim with no C3 exclusion.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P36 / Codex V2-F09 #1, "gate half".
+# THE DEFECT: reports/TR7_CIRCULAR_READING.md §6 and documentation/CIRCULAR_KING_WEN.md
+# §"Symmetry under closure" both asserted that, without C4, the 32 pair-slot rotations are
+# symmetries of the circular constraint system. They are not: under the absolute-position
+# C3 the suite actually uses, 21 of the 31 non-identity rotations of King Wen exceed the
+# 776 ceiling (rotate-4 = 888, rotate-16 = 1240). The claim is true only if C3 is dropped
+# or circularized, and neither sentence said so.
+#
+# 🔴 WHY A REGISTRY ROW IS NOT ENOUGH, and this is the finding's own argument: `RP-ed80aa5e`
+# catches the exact retired string. This class survived one adjudication and was then
+# REFILED at a sibling site, i.e. it recurs REWORDED, and a fixed string cannot see that.
+# So the gate keys on the CLAIM SHAPE (rotations + symmetry) and demands the exclusion,
+# not on any particular wording of it.
+#
+# RED TEST (2026-09-02, scratch clone): restored the pre-P36 sentence at
+# CIRCULAR_KING_WEN.md §"Symmetry under closure" - "the 32 pair-slot rotations would be
+# symmetries of a circular constraint system, alongside the B3 relabelings." with the
+# C3 clause deleted. Gate went [FAIL] naming that line. Restored; gate [ok].
+gate_rotation_c3() {
+  echo "== GATE 30: a pair-slot rotation-symmetry claim that does not name C3 =="
+  local FLOOR=4
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+
+floor = int(sys.argv[1])
+ROT = re.compile(r'(?:pair-slot|32)\s+rotations')
+SYM = re.compile(r'symmetr', re.I)
+C3  = re.compile(r'\bC3\b')
+pop = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in ROT.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        if not SYM.search(s):
+            continue          # a rotation mentioned outside a symmetry claim is not the subject
+        pop += 1
+        if quoted(s, s.find(m.group(0)) + len(m.group(0))):
+            continue          # the correction ledger quoting the wording it retired
+        if C3.search(s):
+            continue
+        print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:150]))
+print("POP\t%d" % pop)
+if pop < floor:
+    print("ERROR\tonly %d pair-slot rotation-symmetry sentence(s) found (floor %d) - the claim shape has been reworded out of this gate's reach, so it is measuring nothing" % (pop, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 30 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a pair-slot rotation-symmetry sentence(s) in the corpus" ;;
+      HIT)   echo "  [FAIL] $a:$b claims pair-slot rotations are symmetries without naming C3"
+             echo "         $c"
+             echo "         Under the absolute-position C3 they are not: 21 of the 31 non-identity"
+             echo "         rotations of King Wen exceed the 776 ceiling (rotate-4 = 888, rotate-16 = 1240)."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every rotation-symmetry claim states the C3 exclusion"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 31 — the S(k) marginal-gain curve, and the qualifier its maximum needs.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P34 / Codex V2-F06 charge 13,
+# "prescribed mechanisation". The charge's own rationale for wanting a machine: this is
+# the THIRD pass at one defect (v1.15 corrected the divisor, v1.16 found v1.15's
+# propagation incomplete, P34 found two more sentences), so the class needs a gate and
+# not a fourth reading.
+#
+# LEG 1 — ARITHMETIC. Every published per-boundary gain list must agree on its maximum,
+# and the divisor the extrapolation uses must BE that maximum. The 126.6-bit budget was
+# divided by 10.38, the k = 1 gain, asserted to be "the maximum by construction"; the
+# same section's own list contains 11.10 at k = 3. Greedy maximises the UNCONDITIONAL
+# gain and bounds no conditional one. Measured today: 4 lists, max 11.10 in all four.
+# Note the maximum is DERIVED from the corpus, not hardcoded - if every list moved
+# together the gate would follow them, which is correct; what it forbids is a divisor
+# sentence and a gain list that disagree.
+#
+# LEG 2 — THE QUALIFIER. A sentence calling a measured single-boundary gain "the
+# maximum" must say UNCONDITIONAL.
+# 🔴 THE NEEDLE ALONE FAILS ON CORRECT PROSE, measured before this leg was written and
+# the reason it has three exemptions rather than none:
+#   * TR4:280 - "deriving one requires the maximum single-boundary information gain over
+#     *all* boundaries and *all* conditioning contexts" is exactly RIGHT and needs no
+#     "unconditional"; it is already quantified over contexts. Hence the `supremum` exemption.
+#   * CORRECTIONS.md:4121 - the ledger QUOTING the retired sentence. Hence `quoted`.
+#   * HISTORY.md:5892 - narrates the divisor without attributing it to a first/greedy step.
+#     Hence the requirement that the sentence attribute the maximum to the first/greedy gain.
+# A gate that fired on any of these would be the self-defeating shape this suite keeps
+# catching: a rule red on the correction that fixed the thing it hunts.
+#
+# RED TESTS (2026-09-02, scratch clone), one per leg:
+#   LEG 1: changed TR4:302's list entry 11.10 -> 9.10, so the published max became 10.38
+#          while the divisor sentence still says 11.10. Gate [FAIL] on the divisor
+#          mismatch AND on the cross-file list disagreement. Restored; [ok].
+#   LEG 2: deleted the word "unconditional" from SEARCH_SPACE_SIZE.md:245. Gate [FAIL]
+#          naming that line. Restored; [ok].
+gate_sk_gains() {
+  echo "== GATE 31: the S(k) marginal-gain maximum, its divisor, and its qualifier =="
+  local LIST_FLOOR=3 DIV_FLOOR=2 MAX_FLOOR=3
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+
+list_floor, div_floor, max_floor = (int(a) for a in sys.argv[1:4])
+# A published per-boundary gain list: five or more two-decimal values, comma separated.
+LIST = re.compile(r'((?:\d+\.\d\d,\s*){4,}\d+\.\d\d)')
+# 🔴 THE VALUE, NOT THE SENTENCE. This read `is the divisor` and asked whether the
+# sentence mentioned the peak anywhere - and the red test walked straight through it,
+# because TR-4's sentence names BOTH 11.10 and 10.38 while asserting one of them is the
+# divisor. Swapping which one it asserts left the gate green. It now reads the number
+# that is actually claimed.
+DIV  = re.compile(r'(\d+\.\d+)\s+is the divisor')
+# The claim shape leg 2 hunts, and its three discriminators.
+MAXC = re.compile(r'maximum[^.]{0,80}?(?:single-boundary|per-boundary)[^.]{0,60}?gain'
+                  r'|the (?:first|k = 1|step 1)[^.]{0,60}?(?:being |is )?the maximum')
+FIRST = re.compile(r'\bfirst\b|\bgreedy\b|k *= *1|step 1|10\.38')
+# The maximum a floor argument actually needs: quantified over CONTEXTS, not over the
+# greedy path. A sentence that already says so needs no 'unconditional' and must not be
+# failed for its absence (reports/TR4_SIZE_OF_THE_SPACE.md:280). Deliberately NOT a bare
+# 'over all' - that would exempt any sentence containing the phrase, including one that
+# says 'across all five measured steps', which is the defect's own wording.
+SUPREMUM = re.compile(r'all\b[^.]{0,40}(?:conditioning|contexts)'
+                      r'|over \*?all\*? [^.]{0,40}(?:boundaries|contexts)|supremum')
+UNC = re.compile(r'unconditional', re.I)
+lists = []      # (file, line, values)
+divs  = []      # (file, line, sentence)
+maxes = []      # (file, line, sentence, offset-in-sentence)
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in LIST.finditer(flat):
+        vals = [float(x) for x in m.group(1).replace(" ", "").split(",")]
+        lists.append((f, lno(starts, m.start()), vals))
+    for m in DIV.finditer(flat):
+        divs.append((f, lno(starts, m.start()), m.group(1), sent(flat, m.start(), m.end())))
+    for m in MAXC.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        maxes.append((f, lno(starts, m.start()), s, s.find(m.group(0)) + len(m.group(0))))
+print("POP\t%d gain list(s), %d divisor sentence(s), %d maximum-claim sentence(s)"
+      % (len(lists), len(divs), len(maxes)))
+if len(lists) < list_floor:
+    print("ERROR\tonly %d published gain list(s) (floor %d) - the S(k) curve has left the corpus and this gate is measuring nothing" % (len(lists), list_floor))
+if len(divs) < div_floor:
+    print("ERROR\tonly %d divisor sentence(s) (floor %d) - the extrapolation's arithmetic is no longer stated in the words this gate reads" % (len(divs), div_floor))
+if len(maxes) < max_floor:
+    print("ERROR\tonly %d maximum-claim sentence(s) (floor %d) - leg 2's pattern set has rotted" % (len(maxes), max_floor))
+# LEG 1a: every list must agree on its maximum.
+if lists:
+    peaks = sorted({max(v) for _, _, v in lists})
+    if len(peaks) > 1:
+        for f, ln, v in lists:
+            print("LISTMAX\t%s\t%d\t%.2f\t%s" % (f, ln, max(v), "/".join("%.2f" % p for p in peaks)))
+    peak = max(peaks)
+    # LEG 1b: the divisor sentence must name that maximum.
+    for f, ln, claimed, s in divs:
+        if abs(float(claimed) - peak) > 0.005:
+            print("DIVISOR\t%s\t%d\t%.2f (claimed %s)\t%s" % (f, ln, peak, claimed, s.strip()[:120]))
+# LEG 2: a first/greedy maximum claim must be qualified UNCONDITIONAL.
+for f, ln, s, off in maxes:
+    if UNC.search(s) or SUPREMUM.search(s):  continue
+    if off >= 0 and quoted(s, off):          continue
+    if not FIRST.search(s):                  continue
+    print("UNCOND\t%s\t%d\t%s" % (f, ln, s.strip()[:150]))
+PY
+} | python3 - "$LIST_FLOOR" "$DIV_FLOOR" "$MAX_FLOOR" ) || { echo "  [FAIL] GATE 31 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR)   echo "  [FAIL] $a"; rc=1 ;;
+      POP)     echo "  [info] $a" ;;
+      LISTMAX) echo "  [FAIL] $a:$b publishes a gain list peaking at $c, but the corpus publishes peaks $d"
+               echo "         Two documents disagree about the largest measured per-boundary gain."
+               rc=1 ;;
+      DIVISOR) echo "  [FAIL] $a:$b names a divisor that is not the published maximum gain ($c)"
+               echo "         $d"
+               echo "         The extrapolation must divide by the largest MEASURED gain, not by the k = 1 gain."
+               rc=1 ;;
+      UNCOND)  echo "  [FAIL] $a:$b calls a first/greedy single-boundary gain 'the maximum' without saying UNCONDITIONAL"
+               echo "         $c"
+               echo "         Greedy maximises the unconditional gain only; the measured k = 3 step exceeds k = 1."
+               rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every gain list agrees on its maximum, every divisor is that maximum, every maximum claim is qualified"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 32 — the King Wen orientation-fiber anchors, cross-checked against their own prose.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, Codex V2-F48 #7 — "Add 1,720,320 and 2^31 to the
+# doc-figure cross-check so a future edit of either site fails."
+# THE DEFECT BEHIND IT: REBUILD_FROM_SPEC.md carried King Wen's collapsed orientation class
+# as **4** (it is 1,720,320) and the enumerator's per-key orientation space as **2^32** (it
+# is 2^31 — C4 pins slot 0's orientation, leaving 31 of 32 bits free). Both shipped for
+# weeks; both were found by hand.
+#
+# 🔴 IT IS NOT A LIST OF HARDCODED CONSTANTS, and that is the whole design. Three anchors
+# are named (1,720,320 C4-oriented / 983,040 flipped-opening / 2,703,360 pair-only-C4)
+# ONLY to select the population — the sentences that talk about the fiber. What is then
+# checked is DERIVED FROM THE PROSE: a published factorization must equal an integer the
+# same sentence states, and a published sum must equal a total the same sentence states.
+# Rewrite all three anchors consistently and this gate follows you; get one site's
+# arithmetic wrong and it fails. A gate that only compared literals against a table
+# would go stale the day the table did.
+#
+# 🔴 THE EXPONENT LEG WOULD FAIL ON CORRECT PROSE WITHOUT ITS SCOPE, measured before it
+# was written: documentation/SOLVE.md:133 publishes "x 2^32 ... the number of ways to
+# order 32 pairs and choose an orientation for each" — which is RIGHT, because that is the
+# ambient space BEFORE C4 pins anything. The defect is only ever about the space
+# recoverable from ONE stored pair-ordering, so the leg is scoped to sentences that say so
+# (recoverable / per-key / C4-oriented / C4 pins / collapsed orientation). What that scope
+# cannot see is a future defect written without any of that vocabulary; recorded, not hidden.
+#
+# RED TESTS (2026-09-02, scratch clone), one per leg:
+#   FACT: changed documentation/SOLUTIONS_FORMAT.md:226 `3·5·7·2^14` -> `3·5·7·2^15`.
+#         Gate [FAIL]: factorization evaluates to 3,440,640, which the sentence does not state.
+#   SUM:  changed documentation/SOLVE.md:683 `983,040 reversed` -> `983,041 reversed`.
+#         Gate [FAIL]: 1,720,320 + 983,041 is stated nowhere in that sentence.
+#   EXP:  changed documentation/PROJECT_OVERVIEW.md:137 `2^31 combinations` -> `2^32`.
+#         Gate [FAIL] naming that line.
+#   CLOSURE: deleted every 1,720,320 from the corpus. Gate [FAIL] ERROR, not a pass.
+gate_fiber_anchor() {
+  echo "== GATE 32: the orientation-fiber anchors must survive their own arithmetic =="
+  local FACT_FLOOR=4 SUM_FLOOR=2 EXP_FLOOR=6
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+fact_floor, sum_floor, exp_floor = (int(a) for a in sys.argv[1:4])
+ANCHORS = {1720320, 983040, 2703360}
+# A comma-grouped integer as the corpus writes them. Bare digit runs are excluded on
+# purpose: this population is prose, and prose here always groups these magnitudes.
+INT  = re.compile(r'\b\d{1,3}(?:,\d{3})+\b')
+# A product written as a factorization: 3·5·7·2^14, 48·48·64, 1024*1024.
+FACT = re.compile(r'(?<![\d.])(\d+(?:[·*]\d+)+(?:\^\d+)?)(?![\d.])')
+# A published sum. 🔴 NOT one regex spanning the '+': a single pattern with a slack gap
+# is GREEDY ON THE WRONG SIDE, measured on this gate's first run - at
+# documentation/SOLVE.md:682, "the pair-only-C4 fiber is 2,703,360 vectors (= 1,720,320
+# forward + 983,040 reversed)", it paired 2,703,360 with 983,040 and reported a false
+# 3,686,400 at three sites. The operands are therefore taken as the NEAREST grouped
+# integer either side of the '+', which is what a reader takes them as.
+# The '+' must be a BINARY operator: whitespace on both sides. Measured on this gate's
+# second run - reports/TR1_EIGHT_CENTURIES_MEASURED.md:526 writes "2,703,360 vectors
+# (+983,040 reversed-opening)", where the '+' is a SIGN on an annotation, not an
+# addition, and reading it as one failed the gate on correct prose.
+PLUS = re.compile(r'(?<=\s)\+\s(\d{1,3}(?:,\d{3})+)')
+E31, E32 = re.compile(r'2\^31'), re.compile(r'2\^32')
+# The per-key scope: the space recoverable from ONE stored pair-ordering, which is where
+# C4 has already pinned slot 0. Outside this, 2^32 is the correct ambient figure.
+PERKEY = re.compile(r'recoverab|per-key|per pair-ordering|C4-oriented|C4 pins'
+                    r'|testing all|collapsed orientation')
+CORRM  = re.compile(r'until 20\d\d-|corrected|previously|→|superseded', re.I)
+nfact = nsum = n31 = nanchor = 0
+for f in corpus():
+    raw = read(f)
+    if raw is None: continue
+    t = desup(raw)
+    flat, starts = flatten(t)
+    if INT.search(flat):
+        nanchor += sum(1 for x in INT.findall(flat) if int(x.replace(',', '')) in ANCHORS)
+    for m in FACT.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        stated = {int(x.replace(',', '')) for x in INT.findall(s)}
+        if not (stated & ANCHORS):
+            continue                      # not a fiber sentence; out of this gate's scope
+        v, expr = 1, m.group(1)
+        try:
+            for part in expr.replace('*', '·').split('·'):
+                if '^' in part:
+                    b, e = part.split('^'); v *= int(b) ** int(e)
+                else:
+                    v *= int(part)
+        except ValueError:
+            continue
+        nfact += 1
+        if v not in stated:
+            print("FACT\t%s\t%d\t%s\t%d" % (f, lno(starts, m.start()), expr, v))
+    for m in PLUS.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        stated = {int(x.replace(',', '')) for x in INT.findall(s)}
+        if not (stated & ANCHORS):
+            continue
+        left = None
+        for lm in INT.finditer(flat, max(0, m.start() - 60), m.start()):
+            left = lm            # nearest grouped integer to the LEFT of the '+'
+        if left is None or '+' in flat[left.end():m.start()]:
+            continue
+        a = int(left.group(0).replace(',', '')); b = int(m.group(1).replace(',', ''))
+        nsum += 1
+        if a + b not in stated:
+            print("SUM\t%s\t%d\t%s + %s\t%d" % (f, lno(starts, m.start()), left.group(0), m.group(1), a + b))
+    for m in E31.finditer(flat):
+        if PERKEY.search(sent(flat, m.start(), m.end())): n31 += 1
+    for m in E32.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        if not PERKEY.search(s):        continue
+        if E31.search(s) or CORRM.search(s): continue   # the ledger narrating the 2^32 -> 2^31 fix
+        print("EXP\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:140]))
+print("POP\t%d anchor mention(s), %d factorization(s), %d sum(s), %d per-key 2^31 site(s)"
+      % (nanchor, nfact, nsum, n31))
+if nanchor == 0:
+    print("ERROR\tno fiber anchor (1,720,320 / 983,040 / 2,703,360) appears anywhere in the corpus - every leg below selected an EMPTY population and checked nothing")
+if nfact < fact_floor:
+    print("ERROR\tonly %d fiber factorization(s) (floor %d) - the FACT leg is measuring nothing" % (nfact, fact_floor))
+if nsum < sum_floor:
+    print("ERROR\tonly %d fiber sum(s) (floor %d) - the SUM leg is measuring nothing" % (nsum, sum_floor))
+if n31 < exp_floor:
+    print("ERROR\tonly %d per-key 2^31 site(s) (floor %d) - the EXP leg is measuring nothing" % (n31, exp_floor))
+PY
+} | python3 - "$FACT_FLOOR" "$SUM_FLOOR" "$EXP_FLOOR" ) || { echo "  [FAIL] GATE 32 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"
+             echo "         A gate that passes because its subject vanished is not a green gate."
+             rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      FACT)  echo "  [FAIL] $a:$b factorization '$c' = $d, which this sentence does not state"
+             echo "         A published factorization must equal the integer it factorizes."
+             rc=1 ;;
+      SUM)   echo "  [FAIL] $a:$b published sum '$c' totals $d, which this sentence does not state"
+             echo "         The C4-oriented fiber plus the flipped-opening fiber is the pair-only-C4 fiber."
+             rc=1 ;;
+      EXP)   echo "  [FAIL] $a:$b gives the per-key orientation space as 2^32; C4 pins slot 0, so it is 2^31"
+             echo "         $c"
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every fiber factorization, sum and per-key exponent agrees with its own sentence"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 33 — an unqualified "strongest measured discriminator".
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P37 / Codex V2-F08 charge 22, "tooling
+# half". THE DEFECT: TR-6 §6 carried "the strongest measured literature discriminator"
+# unqualified for months while CITATIONS.md and LITERATURE_RULES_POPULATION_TESTS.md both
+# already published the successor (the data-like S25-28 configuration at ×5×10⁷ against
+# Schulz's ×11,364). A superlative outlived its own scoreboard.
+#
+# 🔴 WHY P37 REFUSED TO REGISTER THIS AS A GATE 3 NEEDLE, which is why the item exists at
+# all: the retracted thing is an unqualified SHAPE, not a string. A bare needle on
+# "strongest measured ... discriminator" is red on the LEGITIMATELY QUALIFIED twin in
+# CITATIONS.md - and that twin SPANS A LINE WRAP, so it is invisible to an unflattened
+# matcher and visible to a flattened one. P37 had to hand-cut a comma-trailed needle
+# precise enough to miss it. This gate flattens (so it sees the twin) and then asks
+# whether the same sentence carries a temporal or category qualifier (so it passes it).
+# MEASURED at authoring time: 7 occurrences, 0 unqualified. One match itself spans a wrap
+# (documentation/CITATIONS.md:1362-1363, "strongest measured literature / discriminator")
+# and at that same site the QUALIFIER "at the time of the SAT work" is on the following
+# source line again — so both the needle and its exemption are line-based-invisible there.
+#
+# 🔴 SCOPE, stated rather than implied. The item asks for a SECOND leg — generate the
+# scoreboard's current champion FROM LITERATURE_RULES_POPULATION_TESTS.md instead of
+# restating it in each citing document. That is a generator, not a gate, and it is NOT
+# built here. This gate attests the qualifier and nothing about whether the successor
+# figure each site quotes is still the champion.
+#
+# RED TEST (2026-09-02, scratch clone): deleted "at the time of the SAT work (×11,364),
+# later exceeded by the data-like S25-28 configuration at ×5×10⁷" from
+# reports/TR6_PARITY_SKELETON.md:120-121, restoring the pre-P37 bare superlative. Gate
+# [FAIL] naming that line. Restored; [ok]. A second red test confirmed the wrap case:
+# deleted the qualifier from documentation/CITATIONS.md:1362-1363, where the superlative
+# and its qualifier sit on DIFFERENT source lines - gate [FAIL], as flattening requires.
+gate_superlative() {
+  echo "== GATE 33: a 'strongest measured discriminator' with no qualifier =="
+  local FLOOR=4
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor = int(sys.argv[1])
+SUP = re.compile(r'strongest measured[^.]{0,40}?discriminator')
+# Temporal or category scoping. Any ONE of these makes the superlative a statement about a
+# named population or moment rather than an unqualified championship claim.
+QUAL = re.compile(r'at the time of|as of \d|later exceeded|then-|until 20\d\d'
+                  r'|in the scoreboard table|of the population-measured|among the'
+                  r'|\bin this\b|headline finding', re.I)
+# The ledger's own word for what it removed. A sentence that SAYS the phrase was
+# unqualified is narrating the correction; failing it would be the self-defeating shape.
+NARR = re.compile(r'unqualified|\bBEFORE\.|Corrected 20\d\d|RP-[0-9a-f]{8}')
+pop = wrapped = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in SUP.finditer(flat):
+        pop += 1
+        s = sent(flat, m.start(), m.end())
+        if lno(starts, m.start()) != lno(starts, m.end()):
+            wrapped += 1
+        if quoted(s, s.find(m.group(0)) + len(m.group(0))): continue
+        if NARR.search(s):                                  continue
+        if QUAL.search(s):                                  continue
+        print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:150]))
+print("POP\t%d superlative(s), %d of them spanning a line wrap" % (pop, wrapped))
+if pop < floor:
+    print("ERROR\tonly %d 'strongest measured ... discriminator' occurrence(s) (floor %d) - the phrase has been reworded out of this gate's reach and it is measuring nothing" % (pop, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 33 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b publishes an UNQUALIFIED 'strongest measured ... discriminator'"
+             echo "         $c"
+             echo "         The scoreboard has a successor; the superlative needs its era or its population."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every 'strongest measured discriminator' names its era or its population"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 34 — a published ratio must equal the quotient printed beside it.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P36 / Codex V2-F09 #3, "gate half".
+# THE DEFECT: TR-7 priced Cook's final-pair anchor as ×1.25 — that is 7.84 / 6.25, against
+# the 1/16 counting baseline — while the MEASURED d = 3 class average of 6.52 was printed
+# two lines below. 7.84 / 6.52 is ×1.20. The document contained everything needed to catch
+# itself and nobody divided.
+#
+# 🔴 FLATTENING IS LOAD-BEARING HERE AND WAS MEASURED TO BE. TR-7 writes the second split
+# as "**×1.20 is / the A₂-specific residual** (7.84 / 6.52)" across a hard wrap. An
+# unflattened scan of the corpus finds ONE of TR-7's two ratios; a flattened scan finds
+# both. Half a gate that reports PASS is the scope-narrowing failure this suite exists to
+# catch, so this is recorded rather than left to be rediscovered.
+#
+# 🔴 IT MUST NOT EAT SCIENTIFIC NOTATION. '×10⁻³' is a magnitude, not a ratio, and a first
+# cut of this leg matched "×10⁻³ against 2·(0.05/91)" at TR-10:107 and :505 and
+# "×10⁻⁶ | ×200,000 | **fails** (16/18)" at TR-1:110 — four false positives, all
+# arithmetic that was never claimed. A multiplier of exactly 10 carrying an exponent is
+# therefore excluded, and the parenthesised form requires the quotient to be adjacent.
+#
+# TOLERANCE: the quotient must round to the published ratio at the ratio's OWN printed
+# precision. 6.52 / 3.2258 = 2.02116..., published ×2.02 — correct at two decimals and it
+# must not be failed for that.
+#
+# RED TEST (2026-09-02, scratch clone): restored TR-7's pre-P36 ratio, changing
+# "**×1.20 is the A₂-specific residual** (7.84 / 6.52)" to "**×1.25 …** (7.84 / 6.52)".
+# Gate [FAIL]: 7.84 / 6.52 = 1.2025, published ×1.25. Restored; [ok]. The red test was run
+# on the WRAPPED site specifically, because that is the one an unflattened gate cannot see.
+gate_printed_quotient() {
+  echo "== GATE 34: a published ×ratio must equal the quotient printed beside it =="
+  local FLOOR=3
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor = int(sys.argv[1])
+N = r'\d+(?:\.\d+)?'
+# Shape A: "6.52 / 3.2258 = **×2.02**"     Shape B: "**×2.02 …** (6.52 / 3.2258)"
+A = re.compile(r'(%s)\s*/\s*(%s)\s*=\s*\**[×x](%s)(?![\d^⁰¹²³⁴⁵⁶⁷⁸⁹])' % (N, N, N))
+B = re.compile(r'[×x](%s)(?![\d^])\**[^()]{0,120}?\((%s)\s*/\s*(%s)\)' % (N, N, N))
+found = []
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in A.finditer(flat):
+        a, b, r = (float(x) for x in m.groups())
+        found.append((f, lno(starts, m.start()), a, b, r, m.group(3), m.group(0)))
+    for m in B.finditer(flat):
+        r, a, b = (float(x) for x in m.groups())
+        found.append((f, lno(starts, m.start()), a, b, r, m.group(1), m.group(0)))
+kept = 0
+for f, ln, a, b, r, rtext, txt in found:
+    if r == 10 or b == 0:
+        continue                       # a magnitude (×10⁻³), not a claimed ratio
+    kept += 1
+    dp = len(rtext.split('.')[1]) if '.' in rtext else 0
+    if round(a / b, dp) != round(r, dp):
+        print("HIT\t%s\t%d\t%s\t%.4f" % (f, ln, txt.strip()[:90], a / b))
+print("POP\t%d published quotient claim(s)" % kept)
+if kept < floor:
+    print("ERROR\tonly %d published quotient claim(s) (floor %d) - this gate is measuring nothing" % (kept, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 34 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b published ratio disagrees with its own printed quotient"
+             echo "         $c   — the division gives $d"
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every published ×ratio equals the quotient printed beside it"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 35 — a status word outliving the work it describes.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P34 / Codex V2-F06 charge 16,
+# "prescribed mechanisation", including the shape: "'queued' within N lines of a heading
+# matching Update (20..-..-..)".
+# THE DEFECT: TR-4 §5 said the S(6)-S(8) work was "queued" and would "sharpen further when
+# S(6..8) land" — within twenty lines of the dated Update heading that REPORTS S(6)-S(8)
+# measured. P34 registered `hit rates); queued` as RP-b1c1f805, which catches that one
+# site and nothing else; the class is a status word that outlived its work.
+#
+# 🔴 ITS POPULATION IS ONE HEADING, AND THAT IS STATED RATHER THAN AVERAGED AWAY. The whole
+# tracked corpus contains exactly ONE dated Update heading (TR-4:298), measured both on the
+# prescribed pattern and on a deliberately widened one that also admits bold and
+# "Updated". So this gate is, today, a regression guard on one section — not a corpus
+# sweep — and its floor is correspondingly 1. It is worth its 40 lines because that section
+# has now had the same defect twice, and because the floor makes the gate ERROR rather than
+# pass if the heading is ever renamed out from under it. It is NOT worth quoting as
+# corpus-wide coverage of the status-word class, and no banner here says it is.
+#
+# RED TEST (2026-09-02, scratch clone): restored the pre-P34 wording at
+# reports/TR4_SIZE_OF_THE_SPACE.md:296, twelve lines above the Update heading —
+# "sharpens further when S(6..8) land". Gate [FAIL] naming that line and the heading it
+# contradicts. Restored; [ok]. Closure red test: renamed the heading to "### Later work",
+# and the gate went [FAIL] ERROR (population 0) rather than reporting clean.
+gate_stale_status() {
+  echo "== GATE 35: a status word surviving beside the dated update that completed it =="
+  local FLOOR=1 WINDOW=20
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor, window = int(sys.argv[1]), int(sys.argv[2])
+# The prescribed heading pattern, widened to bold/"Updated" forms. Measured 2026-09-02:
+# both the narrow and the widened form select exactly one heading in the tracked corpus.
+HEAD = re.compile(r'^\s*(?:#+|\*\*|__)?\s*Update[ds]?\b[^|]{0,80}\(20\d\d-\d\d-\d\d\)')
+# Forward-looking status vocabulary. "when ... land" is included because it was HALF of
+# the actual defect ("sharpens further when S(6..8) land") and a bare "queued" needle would
+# have caught only the other half.
+# 🔴 THE GAP IS `.{0,40}?` AND NOT `[^.]{0,40}`, which is what it was first written as and
+# what let the red test walk straight through: the defect's own text is "when S(6..8) land"
+# and `S(6..8)` CONTAINS DOTS. The file's SAFETY rule bans bounded repetition because a
+# POSIX ERE `.{0,80}X.{0,60}` once hung this box; that hazard is two unanchored bounded
+# reps under grep -oE. This is ONE lazy bounded rep in python re over a <=41-window inside
+# an already-bounded slice of the file, which is linear in the window.
+STALE = re.compile(r'\bqueued\b|\bnot yet\b|\bstill pending\b|\bwill land\b'
+                   r'|\bwhen\b.{0,40}?\blands?\b', re.I)
+heads = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    lines = t.split("\n")
+    hs = [i for i, l in enumerate(lines) if HEAD.match(l)]
+    heads += len(hs)
+    for h in hs:
+        lo, hi = max(0, h - window), min(len(lines), h + window + 1)
+        # 🔴 THE WINDOW IS FLATTENED, not scanned line by line. A status phrase that spans a
+        # hard wrap is invisible to a line scan — GATE 3's lesson (a), and the reason four
+        # prose batches on 2026-09-02 found live sites only after flattening. The heading's
+        # own line is blanked first so the gate never fires on the heading it anchors to.
+        win = list(lines[lo:hi]); win[h - lo] = ""
+        flat, starts = flatten("\n".join(win))
+        for m in STALE.finditer(flat):
+            print("HIT\t%s\t%d\t%d\t%s" % (f, lo + lno(starts, m.start()), h + 1,
+                                             flat[max(0, m.start() - 40):m.end() + 40].strip()[:120]))
+print("POP\t%d dated update heading(s), window +/-%d lines" % (heads, window))
+if heads < floor:
+    print("ERROR\tno dated update heading found (floor %d) - the heading this gate is anchored to has been renamed, so it is measuring nothing" % floor)
+PY
+} | python3 - "$FLOOR" "$WINDOW" ) || { echo "  [FAIL] GATE 35 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b describes work as pending, beside the dated update heading at $a:$c"
+             echo "         $d"
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] no pending-status word survives beside a dated update that completes it"
+  return 0
+}
+
 case "$MODE" in
   author-directives) gate_author_directives || RC=1 ;;
+  rotation-c3) gate_rotation_c3 || RC=1 ;;
+  sk-gains) gate_sk_gains || RC=1 ;;
+  fiber-anchor) gate_fiber_anchor || RC=1 ;;
+  superlative) gate_superlative || RC=1 ;;
+  printed-quotient) gate_printed_quotient || RC=1 ;;
+  stale-status) gate_stale_status || RC=1 ;;
   framing-era) gate_framing_era || RC=1 ;;
   repro-reach) gate_repro_reach || RC=1 ;;
   canonical-ceiling) gate_canonical_ceiling || RC=1 ;;
@@ -11101,8 +11806,14 @@ case "$MODE" in
            echo; gate_canonical_ceiling || RC=1
            echo; gate_withdrawn_markers || RC=1
            echo; gate_framing_era || RC=1
-           echo; gate_author_directives || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|all}"; exit 2 ;;
+           echo; gate_author_directives || RC=1
+           echo; gate_rotation_c3 || RC=1
+           echo; gate_sk_gains || RC=1
+           echo; gate_fiber_anchor || RC=1
+           echo; gate_superlative || RC=1
+           echo; gate_printed_quotient || RC=1
+           echo; gate_stale_status || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|all}"; exit 2 ;;
 esac
 
 echo
@@ -11149,7 +11860,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27, 28, 29. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
