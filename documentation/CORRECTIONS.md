@@ -6695,3 +6695,80 @@ adjudicated in the V2 sheet; re-verified against the shipped `solve.py`, the tra
 and the `reports/` sweep, and corrected by this lane. The three
 `LARGE_SCALE_CAMPAIGNS.md` sites, the `--tr8-dof-seed` flag row, and the unversioned-file
 scope question were found by this batch while verifying the charges, not by the review.
+
+## 2026-09-02 — a source-provenance claim that survived its own correction because it was spelled short and wrapped
+
+**Retraction key: `RP-502d8730`.** The 2026-08-28 entry above — *"'each reproducing its
+source's stated King Wen values' was true of 27 of 31, not all 31"* — corrected
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md) and left
+[TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) untouched. TR-1's extended-scoreboard
+paragraph still claimed the provenance for *each* of the 31 formalized literature rules,
+five days later. It is now corrected there to **27 of the 31**, with the four exceptions
+named.
+
+**The measurement, re-derived rather than inherited.** `solve.py`'s comment directly above
+`REGISTRY_KW_EXPECTED` (`solve.py:7343-7347`) reads *"MM-T3=4, MM-T6=0, C1=24 and the C2
+histogram are **KW-measured anchors** (registry states only qualitative/percentile
+expectations for those)"*, and the list it introduces (`solve.py:7348-7357`) holds **31**
+entries — counted, not quoted: `rs1 rs2 ccn1 ccn2 ccn3 ccn4 ccn6 ccn7 ccn8 c2011n1 c2011n2
+c2011n4 mmt3 mmt4 mmt5 mmt6 p1c4 p2c3 p2c4 p2c5 p2c6 d4 d7 s1 s6 m2 r3 r4 r5 c1 c2`. 31
+entries, 4 anchors, so **27**. Nothing about the registry run changes: `--registry-verify`
+checks all 31 and passes; what was wrong is the stated *origin* of four of the values it
+checks against.
+
+**Why it survived, and it is the transferable part.** TR-1 spells the clause `KW values`
+where the corrected sibling spells it `King Wen values`, **and** the clause spans a hard
+line break. A long-spelling grep missed it; a line-oriented grep of the short spelling
+missed it too. It was found only by flattening every tracked file before matching — the
+operation GATE 3 performs and an ordinary sweep does not. **Census, whitespace-flattened
+over every tracked file:** `reproducing its source` matches exactly three —
+`reports/TR1_EIGHT_CENTURIES_MEASURED.md` (the defect, now fixed),
+`LITERATURE_RULES_POPULATION_TESTS.md` (correct at 27 since 2026-08-28, with its marker)
+and this ledger (the append-only entry quoting the old wording). Before: 1 wrong of 3.
+After: 0 wrong of 3.
+
+**The needle registered is the abbreviated spelling**, and deliberately so: the long
+spelling is what the corrected site and this ledger's 2026-08-28 entry legitimately quote
+while explaining the retraction, and GATE 3's allow column names one file, so no single row
+could exempt both. The short spelling is the one that evaded the sweep, which is exactly
+what the registry exists to keep dead. Its allow column is `__none__`; the only surviving
+instance is TR-1's v1.31 revision row, which GATE 3 exempts as a changelog row, and this
+entry cites the key rather than the string.
+
+**`tests.py` cannot see this class.** `test_registry_verify` (`tests.py:433-439` at HEAD;
+the adjudication cited `:416-419`, which has drifted to an unrelated trigram test) asserts
+the banner `ALL 31 REGISTRY CHECKS PASS` and `returncode == 0`. **Executed here:**
+`python3 solve.py --registry-verify` prints that banner and exits 0 — identically whether a
+checked value came from a source or from King Wen. Provenance was invisible to the test
+suite before this correction and still is; the gate that now covers it is GATE 3, on the
+flattened text.
+
+**Not touched, and deliberately.** `LITERATURE_RULES_POPULATION_TESTS.md` is already correct
+at 27 and needed no edit; the 2026-08-28 entry above quotes the retired wording under the
+append-only discipline and must keep it.
+
+### The batch's second charge was already closed, and is recorded as such
+
+`CODEX_V2_ADJUDICATION` row 16 charged `documentation/CLAIM_TO_ARTIFACT.md:35` and
+`reports/TR2_THE_RULES_CONFLICT.md:313` with labelling a fourth two-rule core CERTIFIED
+against an unshipped certificate, and separately charged this ledger's 2026-08-28 sentence
+that the shipped `sat.py` had no target for the pair. **Both limbs are closed at HEAD, and
+the closure was checked against the artifacts rather than against the entries claiming it.**
+`reports/certificates/` holds **22** `.drat.gz` files including
+`core_gender_ccn4_unsat.drat.gz`; `verify_all.sh`'s regeneration map names all four cores
+(`five-sub-parity+ccn4`, `five-sub-rhythm+ccn4`, `gender-ccn8`, `five-sub-gender+ccn4`);
+row 8's own command was **executed here** — `python3 sat.py --emit-cnf five-sub-gender+ccn4
+f.cnf` → `vars=7035 clauses=243175`, 0.75 s, exit 0 — and row 16's independent statement of
+the same arithmetic ("27 of 31 reproduce a source-stated KW value; 4 are KW-measured
+anchors") agrees with the correction above. The `sat.py` limb was closed on 2026-09-01 by
+the banner now standing above the 2026-08-28 entry. **What this lane could NOT re-execute,
+stated rather than implied:** neither `kissat`, `drat-trim` nor `cake_lpr` is on this
+orchestrator's PATH, so rows 8 and 12's checker verdicts (`s VERIFIED UNSAT`, the 22/22
+`verify_all.sh` replay) were confirmed only for internal consistency across
+`reports/certificates/README.md`, `HISTORY.md` and TR-2, not re-run. Nothing was edited for
+this charge; TR-2 is another lane's file and needed no change either.
+
+**Attribution.** The charge was raised by the Codex V2 review (V2-F63 #6) and adjudicated in
+roae-private (`CODEX_V2_ADJUDICATION` rows 26 and 16). The re-derivation from `solve.py`, the
+flattened census and the registry decision are this lane's. Reviewers are acknowledged, not
+credited as authors.
