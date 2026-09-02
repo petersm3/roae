@@ -4684,3 +4684,151 @@ flattened whole-corpus scans that produced both census corrections, the GATE 9 b
 that refuses the banner edit, and the reads of `verify.py --recount-subtree`, SYMMETRY_SEARCH.md
 §Reproducibility and SOLUTIONS_FORMAT.md §Sort order — are this lane's (Claude), and every one is
 reproducible from files in this repository.
+
+## 2026-09-02 — BOUNDARY_MINIMUM.md: a record index quoted across datasets, a measure quoted across conventions, and a record count quoted as a depth
+
+*(Codex V2-F31 #1–#4, prose batch P39. No count, sha, survivor ladder, greedy-minimum size or set
+membership moves anywhere below; every change is to what an identifier, a measure or a ratio is
+qualified as holding over. One of the four charges arrived already fixed, one census expanded from one
+site to four, and one sibling sweep was carried in that no charge named.)*
+
+### 1. Charge #1 arrived already fixed — census correction, downward
+
+The first charge held that the result table's "Greedy set" column conflated the §[6] greedy result with
+the §[8] unordered family at the two 10T rows, and that the d3 10T family was published as a 15-set
+shorthand for an 8-set result. Both were true when the charge was drafted and **both were fixed on
+2026-09-02 by prose batch P35**, whose ledger entry is `RP-6d921792` earlier on this page: the table now
+runs separate "Greedy set (§[6], in greedy order)" and "Working 4-sets (§[8], exhaustive over C(31,4))"
+columns, and lists the eight d3 10T sets verbatim. Re-verified against the shipped logs before
+concluding that, rather than taken on the ledger's word — `runs/20260418_10T_d2_fresh/analyze_output.log.gz`
+§[6] gives `2 → 27 → 25 → 21` and §[8] `total working 4-subsets: 4`;
+`runs/20260418_10T_d3_fresh/…` §[6] gives `4 → 27 → 25 → 1` and §[8] the eight sets, in the order the
+page prints them; `runs/20260419_100T_d3_d128westus3/…` §[6] gives `4 → 27 → 25 → 21 → 1` and §[8] `0`.
+**No change was made and no needle was registered for this charge.**
+
+### 2. A `rec#` index was qualified as holding across datasets (`RP-c79db9ce`, `RP-926ac304`)
+
+**BEFORE.** The page named the hardest-to-kill King Wen impostor `rec#330177707` and qualified that
+literal as holding "at every tested depth" (headline) and "at both canonical scales" (§What this
+implies). A third site carried the literal in a paper-implications bullet spanning both canonical
+scales.
+
+**NOW.** A `rec#` is a position in **one dataset's own sort order** and does not survive a change of
+dataset. MEASURED: `grep 330177707` over
+`runs/20260419_100T_d3_d128westus3/analyze_output.log.gz` returns **0 hits**. What is stable is the
+*ordering* — King Wen with the pair blocks at positions 2 and 3 interchanged — and it is indexed
+`rec#330177707` at d3 560T, `rec#104178045` at d3 100T (§[24] row 12: `[ 12] dist=2 rec#104178045:
+pos2=2 pos3=1`) and `rec#21262918` at d3 10T (§[24] row 10). The page now names the swap, lists all
+three indices against their datasets, and says at both sites that the index is dataset-relative.
+
+**A second reason not to quote the number across scales.** `104178045` also appears in the same 100T log
+as boundary 1's discriminating count (3.0351% of 3.43 B) — a different quantity that happens to share the
+integer. A reader grepping the figure across scales can land on either.
+
+**The companion figure was per-dataset too, and the charge caught it in passing.** "One of the **14**
+dist-2 records" is a 560T count. §[24] holds **10** dist-2 records at d3 10T and **12** at d3 100T. The
+sentence had scoped its *log* to 560T but not its *number*, so the 14 read as scale-free. The page now
+gives all three counts and states that the 100T half of the check is publicly reproducible — the 100T
+`analyze_output.log.gz` ships, prints the §[24] row above, and prints `Step 4: Boundary 21 eliminates 6,
+1 remain` in §[6] — while the 560T half is a transcription.
+
+**Census correction, upward.** The charge named one site. Four carry the literal in this file: the
+headline, the §What-this-implies paragraph, the paper-implications bullet, and the 560T survivor-curve
+paragraph. The first three were qualified across scales and are corrected; **the fourth was left alone
+deliberately** — its sentence opens "The cumulative-survivor curve for d3 560T's greedy set", so the
+560T index is the right one there and rewriting it would have removed a true statement. Two needles, not
+one, because the two defective sentences share no wording: the headline says "at every tested depth" and
+the body "at both canonical scales", and one needle would have missed the other. The **bare** literal is
+not registered — it is correct prose at 560T scope in eight other files.
+
+**Noted, not changed, and outside this file.** [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md)'s row for the
+boundary-minimum correction calls `rec#330177707` "the lone 4-boundary survivor" in a sentence whose
+subject is the identical 5-set "at 100T and 560T". That is the same reading, one step weaker, and is
+queued rather than edited: the row is mirrored verbatim in
+[CORRECTIONS_INVENTORY.tsv](CORRECTIONS_INVENTORY.tsv) and the two must move together.
+
+### 3. The historical 742M row was not the measure the column header names
+
+**BEFORE.** §What is being measured defines Measure B as the count of unordered 4-subsets whose
+conjunction "reduces survivors to **≤ 1**". The result table gave the historical 742M row a (B) of
+**4**, in that column, with no qualifier. The page caveated the *dataset* three paragraphs above; it
+never caveated the *measure*.
+
+**NOW.** MEASURED in `enumeration/analyze_c_742M.txt`: §[8] is headed *"All 4-subsets that reduce
+survivors to `<=4`"* and lists four sets each reporting `survivors=4`; §[7] likewise tests "Triples
+reaching `<=4` survivors". The `<=4` is the pre-format-v1 convention, and §[4] of the same log says why —
+`KW records found: 4`, because that dataset held King Wen as **four un-deduplicated orientation
+variants** (varying at positions 2, 3, 28, 29, 30). So "survivors ≤ 4" there carries the meaning
+"survivors ≤ 1" carries on an orientation-deduplicated canonical, and under this document's literal
+definition the 742M value would be **0** — King Wen alone accounts for four survivors in that dataset.
+Footnote ² now states the threshold, the reason for it, and the value under the page's own definition;
+the table cell is marked.
+
+**Checked before writing it, and it narrows the claim.** §[6] on the same log **is** directly comparable,
+because it counts *non-KW* survivors: it reaches 0 with `{2, 21, 25, 27}`, a greedy minimum of 4. The
+convention gap is confined to Measure B. The greedy-minimum cell for that row is left as "—" and was not
+filled in; that is a separate editorial question about how far a bug-era dataset should be presented
+alongside four sha-anchored canonicals.
+
+**No needle registered, and why.** The defect is an **omission** — a missing qualifier — not a phrasing
+that can be banned. A needle on the table row would be brittle against any unrelated table edit and would
+protect nothing. What is wanted is a positive-assertion gate (any row citing `analyze_c_742M.txt` must
+state the `<=4` threshold within its paragraph); `scripts/doc_gates.sh` is under concurrent edit by
+another lane, so the gate is queued in `roae-private/PROSE_LANE_FOLLOWUPS.md` rather than added here.
+
+**Census, checked outward.** Two sibling sites quote the same "4 at 742M" for §[8] without the
+convention: [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) §560T results and [CRITIQUE.md](CRITIQUE.md)'s
+2026-06-11 update block. Neither was changed. Neither page defines Measure B as `≤ 1`, so neither
+contradicts itself the way this one did, and the CRITIQUE.md block is mirrored verbatim in
+`CORRECTIONS_INVENTORY.tsv`. [`LEADERBOARD.md`](../enumeration/LEADERBOARD.md) already carries the
+convention caveat and needed nothing. Both are queued with the gate.
+
+### 4. A record count was called a depth (`RP-0147d9f7`, `RP-4dbc26f6`)
+
+**BEFORE.** Two sentences — the opening of §What this implies and the §7 paper-implications
+bullet — attached the bare figure **3.07×** to the words *deepening* and *depth increase* for the
+100T → 560T step. (The two retracted strings are registered as `RP-0147d9f7` and `RP-4dbc26f6` and are
+deliberately **not** quoted here: they carry no allow-row, so the ban is corpus-wide with no exemption,
+including for this ledger.)
+
+**NOW.** COMPUTED: 10,525,271,997 / 3,432,399,297 = **3.0664** — the **record-count** ratio. MEASURED at
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility parameters": the 100T and 560T recipes are
+both `SOLVE_DEPTH=3` and differ in `SOLVE_PER_SUB_BRANCH_LIMIT`, 631,456,644 → 3,536,157,207 — **5.6×**,
+the same factor `SOLVE_NODE_LIMIT` moves by. Calling the record ratio a deepening erases exactly the
+relationship [`LEADERBOARD.md`](../enumeration/LEADERBOARD.md) states in its own headline: a linear node
+budget yields sublinear new orderings. Both sentences now name the budget and give the record ratio
+beside it, and §"Limits and scope" gains a bullet stating that the budget ratio is 5.6×, the record ratio
+is 3.07×, the gap is the sublinear growth, and a record-count ratio is never a depth.
+
+**Census checked in both directions, and it narrows the class.** The figure has **7** sites. **Five**
+attach it to "scale", "workload" or "ratio" — [`LEADERBOARD.md`](../enumeration/LEADERBOARD.md) ×2,
+[CRITIQUE.md](CRITIQUE.md), [DEPLOYMENT.md](DEPLOYMENT.md) ×2 — where the record-count reading is the
+natural one and is correct. **They are not retracted and were not touched.** Exactly two attached it to
+the word *depth*, and both were in this file. Sibling of `RP-91287bc7`, which retracted the same axis
+confusion on [PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md) earlier the same
+day; the bare word "depth" is again **not** registered, because the page uses "canonical depth" as the
+project's established idiom for the deepest enumerations and a bare needle would fail on correct prose
+in half the corpus. The new bullet defines the idiom instead of banning it.
+
+### 5. Sibling sweep no charge named: the 560T analyze log was listed as though a reader could open it
+
+`RP-96d7a817`, adjudicated earlier on this page on 2026-09-02, established that
+`canonical-archive/…` is operator-held cold blob storage, that `canonical-archive/` is not in this tree,
+and that `runs/20260608_560T_9a968fa2/` holds only `viz/`. That correction landed on
+[PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md) and **stopped there**.
+`BOUNDARY_MINIMUM.md` listed `analyze_v3_560T.log` under "Pre-computed analyze logs" in the same bullet
+list as the three `analyze_output.log.gz` files that **do** ship in `runs/`, and its source table marked
+neither cold-blob row. Since this pass makes the page lean harder on 560T-only §[24] and §[6] figures,
+leaving them looking fetchable was not an option. §Reproducibility and both cold-blob rows in the source
+table now say what is operator-held, state that every 560T §[6]/§[8]/§[24] figure on the page is a
+**transcription**, name the 2026-07 primary-evidence sweep that attests them, and distinguish them from
+the 10T/100T figures a reader can read out of `runs/`. This is a **publication gap, not a computation
+gap**, and the page now says which.
+
+**Attribution.** The four charges were raised by the Codex V2-F31 review pass and adjudicated in
+roae-private; reviewers are acknowledged, not credited as authors. The measurements recorded above — the
+§[4]/§[6]/§[7]/§[8]/§[24] transcriptions from `enumeration/analyze_c_742M.txt` and the three shipped
+`analyze_output.log.gz` files, the `330177707` null grep over the 100T log, the
+`SOLVE_PER_SUB_BRANCH_LIMIT` read, the record-ratio arithmetic, and the flattened whole-corpus scans that
+produced both census corrections — are this lane's (Claude), and every one is reproducible from files in
+this repository.
