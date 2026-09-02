@@ -4591,3 +4591,96 @@ rotation sweep, the `SEED OVERRIDE` and thread-count audit of the two archived a
 estimator's seeding and probe-splitting read, the `se=` landing date, and the ×2.02 / ×1.20
 recomputation — are this lane's (Claude), and every one of them is reproducible from files in this
 repository.
+
+## 2026-09-02 — TR-5's summary claimed the one thing its own scope note leaves open, and its banner's reproduction promise fails three times
+
+Four charges against [reports/TR5_SYMMETRY.md](../reports/TR5_SYMMETRY.md), raised by the Codex V2-F07
+review pass and adjudicated in roae-private. **No count, theorem, group order, orbit size or estimate
+moves.** What moves is the scope the executive summary states, and how the page describes the evidence
+behind three of its results. Two of the four charges arrived already fixed by earlier batches and are
+recorded here as a census correction rather than as a change.
+
+### 1. The summary stated the solution-set result the report does not have (`RP-d11cce62`, `RP-376ec746`)
+
+**BEFORE.** The executive summary announced the order-48 group as the *complete set of the symmetries*
+that carry one valid ordering to another, and described the 23 twins as indistinguishable in a way it
+attributed to the rules themselves rather than to relabeling.
+
+**WHY IT IS WRONG — and why the reviewer understated the proved result while doing so.** The charge said
+the report establishes only "a particular 48-element subgroup". Measured, that is false and the truth is
+stronger: [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) §Completeness proves the classification over **all
+64! hexagram relabelings** (C4 forces σ(63)=63 and σ(0)=0; C2's distance-5 witness family forces
+σ ∈ Aut(G₅), order 46,080; the fix-0 and partner-commuting filters cut that to 48), and TR-5 §1 states
+this correctly. The defect is narrower and real: §1 also records the limit — *the solution-set
+automorphism group is bounded below by G and not decided above*, a per-predicate scope repeated in the
+v2.0 revision row — and the summary dropped that qualifier at two sites while the body carried it at
+three. The second of the two summary sites was the sharper one: describing the twins as
+indistinguishable *to the rules* is the solution-set-automorphism reading verbatim, which is exactly the
+question §1 leaves open. A narrow reading rescues the first site (if "such symmetries" is read as
+"relabelings" it is true); nothing rescues the second.
+
+**AFTER.** The summary now says the report works out the complete set of such **relabeling** symmetries
+— a group of 48, complete over all 64! hexagram relabelings, with §1 named — and states the twins result
+as "23 twins that no hexagram relabeling can distinguish", followed by the open question in plain words:
+whether some map on the solution set not induced by a hexagram relabeling could tell a twin pair apart
+is undecided. Both retired phrasings are registered in
+[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) at the keys above.
+
+**NOT REGISTERED, deliberately.** The companion wording that attributes the indistinguishability to the
+rules is live at `documentation/SOLVE_SUMMARY.md` in a **qualified** form, where its subject is
+*relabelings* and the sentence therefore says only that the C1–C5 predicate is relabeling-invariant —
+which is true and proved. Registering the short needle would have failed GATE 3 on correct prose. The
+census in the charge named one file; a whole-corpus flattened scan finds two sites, of which one is
+sound.
+
+### 2. The banner promises a reproduction command for every MEASURED result; three TR-5 results have none
+
+**BEFORE.** The report's banner carries the suite-wide promise about reproduction commands. Three of its
+results do not keep it: §3(ii)'s exact-tree-isomorphism claim covers four σ-related prefixes and the
+Verification Guide publishes runnable commands for two of them (`verify.py --recount-subtree` encodes
+the same one σ); §3(iii)'s orbit and within-orbit-CV statistics have no aggregation script and no
+archived per-cell estimate table — SYMMETRY_SEARCH.md §Reproducibility itself names the productive-cell
+list and the per-cell table as private working data; and §5's twins-absent bisection has no shipped flag
+and no result artifact. A private reproducibility audit graded the CV item the weakest TR-5 item in
+2026-07 and the promise was left standing.
+
+**AFTER, and what was REFUSED.** The banner is **not** edited. `scripts/doc_gates.sh` **GATE 9 requires
+the report banner byte-identical across every `reports/TR*.md`**, so softening it in TR-5 alone fails the
+gate, and softening it everywhere is a claim about eleven reports this pass has not audited — the same
+promise was separately charged against TR-9 and is likewise open. That sweep is queued, not performed.
+Instead each gap is flagged where the result is stated: §3(ii) and §3(iii) each gain a *Reproduction
+status* note, and the Verification Guide gains an entry for the CV test — which it had never listed at
+all — and marks the twins bisection a prose recipe rather than a command. A reader can now see which
+figures on the page are re-derivable from this repository and which are not.
+
+**Not claimed here.** An exhaustive all-48-σ replacement for §3(ii)'s three-σ sample was proposed in the
+adjudication and is *not* published: no generator ships, so the figure would arrive ahead of its
+reproduction command. It is queued to the code lane with the CV aggregation script and a
+`verify.py --twins-bisect` flag. The third charged bullet was **overstated** by the reviewer — the 24
+record keys are derivable in under a second from the published snippet and the sort key specified in
+[SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Sort order, so what is missing is a shipped command and an
+artifact, not the information.
+
+### 3 and 4. Two charges arrived already fixed — census correction, both directions
+
+The oriented-versus-canonical leaf mislabel was charged at four TR-5 sites. Measured: two were the
+§3(ii) body sites and were relabelled by prose batch P33 on 2026-09-02 (see this ledger's entry for that
+pass); a third carries no label at all and never needed one; **the fourth, which P33's own record did not
+count, was the v2.7 revision row 70 lines below the body** — the correction had reached the prose and
+stopped short of the history that describes it. That row now matches the body. The bare label remains
+live and **deliberately deferred** at the ten sites named earlier in this ledger, pending the `solve.c`
+field rename; it is not registered, because a needle for it would fail across the corpus while fixing
+nothing.
+
+The `--estimate-knuth` stack charge — that `unlimited` is published as required and that the sub-16 MB
+failure mode is a segfault — was **fully fixed before this pass**: the failure mode by prose batch P48
+on 2026-09-01 and the necessity claim by prose batch P37 on 2026-09-02, whose registry row already gates
+the class corpus-wide. A flattened whole-corpus re-scan on 2026-09-02 finds no surviving site of either
+wording outside the ledger, the registry and dated historical clauses. No change was made for it.
+
+**Attribution.** The four charges were raised by the Codex V2-F07 review pass and adjudicated in
+roae-private; reviewers are acknowledged, not credited as authors. The measurements recorded above — the
+flattened whole-corpus scans that produced both census corrections, the GATE 9 byte-identity constraint
+that refuses the banner edit, and the reads of `verify.py --recount-subtree`, SYMMETRY_SEARCH.md
+§Reproducibility and SOLUTIONS_FORMAT.md §Sort order — are this lane's (Claude), and every one is
+reproducible from files in this repository.
