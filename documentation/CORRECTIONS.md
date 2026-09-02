@@ -3374,3 +3374,89 @@ inheriting an enumerator-enforced invariant instead of re-deriving it.
 **Attribution.** The `--check-artifact` half was raised by the Codex V2 review (V2-F20 #1) and
 adjudicated in roae-private; the repr sibling, its execution and this entry are the Claude lane's.
 Reviewers are acknowledged, not credited as authors.
+
+---
+
+## 2026-09-02 — the rebuild recipe was audited against the specs it claims to be derivable from, and eight things did not survive
+
+`documentation/REBUILD_FROM_SPEC.md` exists to be a forcing function: if a reader can build a
+conformant `solutions.bin` verifier from it plus `SPECIFICATION.md` plus `SOLUTIONS_FORMAT.md`,
+the specs stand on their own. A review pass (Codex V2-F48) charged eight defects against it. All
+eight were re-derived here before being acted on, seven were applied as charged, and one was
+applied **against** its own prescribed fix. Six retired phrasings are registered:
+`RP-1b0f6251`, `RP-60347080`, `RP-1856b0c8`, `RP-e0e32f70`, `RP-0a272ba2`, `RP-584d442b`.
+
+**The class, and why a doc-wide sweep missed it.** Five of the eight are un-propagated residue of
+corrections this project had already made elsewhere — the 2026-08-28 budget-scoping of
+`SOLUTIONS_FORMAT.md` §Overview, the 2026-09-01 rescope of its §Deduplication representative rule,
+the gz-framing note added 2026-08-01, and the `--expect-kw` semantics in `verify.py`. Each of those
+corrections was landed and each was correct. None of them had a row in `RETRACTED_PHRASES.tsv`, so
+GATE 3 had nothing to look for, and the recipe kept restating the withdrawn readings while every
+gate stayed green. The registry rows above are the fix for the class; the edits are the fix for the
+instances. A correction that does not register its retired wording is a correction that will be
+re-published somewhere else.
+
+**What changed, by site.** The C6/C7 bullet no longer presents the artifact as the complete C1-C5
+population: it is the slice a budgeted run reached, its record count is a floor, and the three
+canonical counts it cites are relabelled as per-artifact lower bounds rather than population sizes.
+Step 9 no longer requires a King Wen record — presence is informational, absence is valid for a
+shard or a merged subset, and `--expect-kw` is named as the flag that promotes it — and the size of
+King Wen's collapsed orientation class is corrected from a single digit to **1,720,320** = 3·5·7·2¹⁴,
+re-derived here by running `python3 verify.py --recount-fiber` to completion on 2026-09-02 (every
+figure MATCH, forced slot [30]). The enumerator's per-key orientation space is corrected to **2^31**,
+the figure `SOLUTIONS_FORMAT.md` §Deduplication semantics states, since C4 pins slot 0's orientation
+and leaves 31 free bits. Step 1 now sniffs the gzip magic before the header parse, because
+`SOLVE_COMPRESS` is ON by default and gates the writer on the merge and enumeration paths alike, so
+the old Step 1 rejected the generator's own default output — a defect the document already conceded
+further down without connecting it to Step 1. The `pair_index` range test moved from Step 4 into
+Step 3, ahead of the pair-table lookup: the field decodes to 0..63 against a 32-entry table, so a
+literal implementation of the old ordering turned a reportable C1 failure into an out-of-bounds
+read. The standalone reproduction of `./solve --selftest` is replaced by the environment `solve.c`
+actually builds — a wildcard `SOLVE_*` scrub plus nine settings, measured against the `snprintf`
+that composes the child command — where the published one-liner carried three of the nine, no scrub,
+and one variable the fork never sets. And two stale size figures for `verify.py` and `solve.c` are
+replaced with dated measurements; the unanchored "core" and "enumeration path" line counts are
+deleted rather than re-estimated, because neither named a function set or a line range against which
+a reader could check them.
+
+**The charge we did not follow.** The review's second finding is right that the closing claim
+overreached: Steps 1-11 cannot certify that a producer kept the correct orient variant of a
+canonical class, because the competing variants are exactly what deduplication removed. Reproduced
+here on 2026-09-02: a two-record artifact holding natural King Wen plus a C1-C5-valid but
+non-minimal orient variant of a second pair key (the `…787c` / `…787e` tails the reviewer names)
+returns `VERIFY PASS` from `verify.py` even under `--expect-kw`, and `ARTIFACT=PASS` from
+`verify.c --check-artifact`. But the prescribed remedy — add a Step 10c and wire the repr oracle
+into `--check-artifact` in both verifiers as a hard `BAD_REPR` — is **wrong**, and this is stated
+plainly rather than quietly skipped. `solutions.bin` is a pre-normalization artifact: `solve.c`
+retains a running minimum over the orient variants a run actually inserts, not the class-global
+minimum, so a raw merge output is *expected* to disagree with the global representative on a
+regionally varying 1.06%-42.2% of records (measured 2026-08-15 over 1,776,347,935 records,
+INCOMPUTABLE=0 throughout), and the normalizing post-pass that would make agreement the right
+expectation is on no published ref in this tree. Both verifiers already carry the oracle as a
+separate `--check-repr` mode with that rationale written above it in their source; on the fixture
+above it correctly reports `DISAGREE=1` / `CHECK_REPR=FAIL`. Adopting the prescription would have
+made the shipped verifiers reject the project's own canonical artifacts. The recipe now says
+correctness is what it certifies, that byte-reproducibility belongs to the producer, and where the
+instrument for the representative question lives and why it is scoped the way it is.
+
+**A defect found while checking the charge, not charged.** The review's third finding asserted in
+passing that "both current reference verifiers reject" reserved-field violations. That assertion is
+false, and correcting it enlarges the defect rather than closing it. Executed 2026-09-02 on
+one-record artifacts built from King Wen: with `header[20]=0x5A`, with a declared format version of
+`2`, and with a header declaring 5 records over a 1-record body, `verify.py` returns rc=1, rc=2 and
+rc=2 with a named error in each case, and `verify.c --check-artifact` returns `ARTIFACT=PASS` on all
+three. `verify.c` reads the 32-byte header and checks the magic only; it holds no version,
+reserved-byte or file-geometry test. The three readers inside `solve.c` were all hardened under
+Q-350 on 2026-08-28, whose own comment reads that guarding one entry point and leaving its siblings
+open "is the defect this project keeps finding" — and the independent C instrument was left open one
+level up. The recipe now discloses that scope at the site of the header table so no reader treats a
+`verify.c` pass as agreement about the header. **The `verify.c` fix itself is not done**: adding
+`BAD_HDR_VERSION`, `BAD_HDR_RESERVED` and `BAD_GEOMETRY`, with a cross-instrument fixture suite
+asserting identical verdict tokens from both verifiers on the same poisoned artifacts, is queued to
+the code lane and is not claimed here.
+
+**Attribution.** The eight defects were raised by the Codex V2-F48 review pass and adjudicated in
+roae-private. The re-derivations recorded above — the fiber recount, the representative
+counterexample, the three-fixture cross-instrument divergence, and the `solve.c` selftest-fork
+measurement — are the Fable lane's (Claude), as is the ruling that the second finding's prescribed
+fix must not be adopted. Reviewers are acknowledged, not credited as authors.
