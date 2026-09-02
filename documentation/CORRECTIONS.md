@@ -4832,3 +4832,129 @@ roae-private; reviewers are acknowledged, not credited as authors. The measureme
 `SOLVE_PER_SUB_BRANCH_LIMIT` read, the record-ratio arithmetic, and the flattened whole-corpus scans that
 produced both census corrections — are this lane's (Claude), and every one is reproducible from files in
 this repository.
+
+---
+
+## 2026-09-02 — DESCRIPTION_LENGTH.md's four inherited defects: a bound on an unpublished denominator, a literature figure that priced our own relaxation, a net bracket no published cost could produce, and a standard error published as a ± band
+
+[DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) is the public face of the bit ledger that
+[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) computes. Four defects were raised against it by
+the Codex V2-F35 review pass and adjudicated in roae-private; all four are upheld. Three of them
+were already known: TR-9's own correction on 2026-09-02 (prose batch P31) fixed the report and
+deliberately left this page's three sibling sites live, registering them in
+`documentation/DOC_GATE_FIGURE_ALLOWLIST.txt` with class `open` so GATE 3b would print each as
+`[OPEN]` on every run until this batch landed. It has landed; all three rows are deleted and
+GATE 3b reports **0 open** rows against this file. **No solution count, log-cardinality, marginal
+compression, residual endpoint or verdict changes.**
+
+**Registry keys: `RP-fe502239`** (`documentation/RETRACTED_PHRASES.tsv`, new) and
+**`RF-e2b24ea8`, `RF-455570a2`** (`documentation/RETRACTED_FIGURES.tsv`, registered by prose batch
+P31 on 2026-09-02; both rows are amended here to record that their last live sites are closed).
+
+### 1. A conditional selection charge published as an upper bound — `RP-fe502239`
+
+The Framework conventions told a reader that the meta-selection charge — the cost of selecting the
+constraint *families themselves* — has a closed answer in bits, priced against the frozen
+91-observable ledger at ≈ 32.9 bits, "small against C1's 146.3". The arithmetic is right
+(log₂ C(91,7) = 32.914) and the denominator is the wrong universe.
+[METHODS.md](../reports/METHODS.md) §"Global observable ledger" builds the 91 as 28 exploratory
+observables + 58 pre-registered testing-family tests + 5 corpus-control predicates — a ledger of
+**tests performed** — while METHODS.md §"The file drawer — an open gap, stated as such" says of the
+constraint-family denominator that "this suite does not currently publish that denominator" and that
+it is "a different quantity" from the testing-phase ledger. It is not a bound on its own denominator
+either: METHODS.md recorded on 2026-08-30 that entering the omitted pre-registered H1/H3 family gives
+**95**, and log₂ C(95,7) = 33.363 > 32.914.
+
+This is the same defect TR-9 §5(f) withdrew earlier the same day, and the sentence here was the last
+live one in the corpus. It was not caught by either needle that batch registered — `RP-e35a1705`
+(the phrase naming the withdrawn joint charge) and `RF-047e690e` (the margin it licensed) — because this page worded the
+claim differently and never quoted either. That is the sibling-residue failure mode in its exact
+form, and it is why the wording is registered here rather than only edited.
+
+**What survives.** The figures 32.9 and log₂ C(28,5) ≈ 16.6, relabelled as conditional readings, and
+the *direction* of the argument: every selection charge this corpus can currently price is of order
+tens of bits against C1's 146.3. What does not survive is the word "bounded" and any margin computed
+from it. Settling the charge means publishing the tried-and-dropped constraint-family roster; that is
+not done and the page now says so.
+
+### 2. A literature figure that prices this project's own relaxation
+
+The ledger's last row gives "the strongest *principled* literature rule (Schulz gender)" a
+compression of 13.5 bits, and the residual paragraph promotes that to "the literature's strongest
+independent rule prices at ~13.5 bits gross". Measured: log₂(11,364) = 13.472, so the figure is
+log₂ of the ×11,364 rarity — and
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md)'s 2026-07-12
+convention-stability note states in terms what that ×11,364 measures: the "≤2 violations anywhere"
+relaxation **this project defined**, not the form Schulz's sources state (parity throughout with at
+most one exception pair at adjacent class positions). Re-measured on identical probes the
+source-stated form is ≈11× rarer, so the rule *as its sources state it* compresses
+log₂(11,364 × 11) = 16.932 bits — about 3.5 bits more than the row prices.
+
+The error runs in the direction that makes the literature look **weaker**, so no headline moves: 16.9
+against a 105–139-bit residual is still negligible, and the row's "≈ 0 to small +" verdict becomes
++1.9 to +6.9 against the same cost cell, which is slightly stronger for the literature, not weaker.
+What was wrong is what the number is *about*. The cell and the residual sentence now name the
+relaxation and give the source-stated figure beside it.
+
+Separately, the same row's cost cell "rule text ≈ 10–15" is now labelled **underived**, in the exact
+style the page already uses for the C6/C7 "~20.6". `prior_art_check.sh 'Schulz rule text statement
+cost 10-15 bits derivation'` returns `PRIOR_ART=NONE  surfaces searched: roae-private *.md, *.tsv,
+codex_transcripts/; roae *.md; git log --all -S on both repos`: no codebook, computation or working
+note producing 10–15 exists, and every occurrence of the figure in the corpus is this cell, its TR-9
+mirror, or a review transcript quoting one of them. It is retained, so labelled, because nothing
+rests on it — the verdict holds across the whole band and at 16.9 as well.
+
+### 3. The two sites TR-9's correction knowingly left live — `RF-e2b24ea8`, `RF-455570a2`
+
+The C2 ledger row and the 2026-07-10 refinement note both carried a net bracket whose lower endpoint
+no published cost can produce. Net is compression − statement cost; C2's compression is
+log₂ 23.325025987… = 4.5438 bits; the declared per-distance-ban family has six members, log₂ 6 =
+2.585, giving +1.96 (the published +2.0, correct); the largest statement cost stated anywhere in the
+corpus is 4, giving +0.54. Every published coding gives C2 a **positive** net. The retired endpoints
+would need 5.14-bit and 8.54-bit explicit grammars; `prior_art_check.sh 'C2 explicit-grammar coding
+statement cost 5.14 8.54 bits'` returns `PRIOR_ART=NONE  surfaces searched: roae-private *.md, *.tsv,
+codex_transcripts/; roae *.md; git log --all -S on both repos`. The bracket is corrected to
+**+0.5 to +2.0**, mirroring TR-9 §2 fn⁷.
+
+The prose site carried an extra claim the ledger cell did not: that C2's **sign** is therefore a
+coding-convention choice. That inference has no surviving premise and is withdrawn with the endpoint.
+C2's verdict is unchanged — break-even to marginally explanatory, the only narrow rule that reaches
+break-even — but it is now break-even *from above* under every coding the corpus states, not
+sign-ambiguous.
+
+The consequence the allowlist row at `:84` flagged is the savings envelope, whose low corner consumed
+the retired endpoint. With the supported endpoint it is 127.3 + 0.5 − 20.6 = **107.2** and
+107.2 ÷ 296.0 = **36.2%**, so the page now publishes **107.2–148.3 bits ≈ 36–50%** with the corner
+arithmetic on the page rather than only behind a pointer to TR-9 §4. The high corner
+(146.3 + 2.0 = 148.3 = 50.1%) and the C5-retaining variant (142.0) are unchanged; the envelope
+narrows from below only.
+
+### 4. A relative standard error published as a ± precision band
+
+The residual's precision was stated as "±0.01 bits", derived from the C1–C7 estimate's published
+0.78%. That 0.78% is the estimator's relative **standard error** — METHODS.md §"Statistics
+conventions": the tool prints mean ± 1.96·√(v̂ar/N) with relerr = SE/mean — not a 95% half-width, so
+the 95% interval is ±1.96·SE ≈ **±0.022 bits**, understated by a factor of 1.96. The published
+interval [5.13, 5.29]×10³¹ gives the same answer independently: −0.0223/+0.0220 bits. The same slip
+ran in the Framework conventions bullet, where ±0.02% was converted to ±0.0003 bits; the 95% figure
+is ±1.96·SE ≈ ±0.0006 bits, which is what TR-9 §1 already publishes.
+
+This completes on this page the ruling this ledger made on 2026-08-28 — that a relerr is not an error
+bar — which reached four F11 sites and none of these, and which prose batch P31 propagated to TR-9's
+two sites on 2026-09-02.
+
+**One sibling is knowingly left uncorrected and is not swept here.** `README.md`'s residual bullet
+still converts the same 0.78% to "≈ ±0.01 bits" and calls the C1–C5 estimate's 0.02% "tighter" in the
+same breath. It is outside this batch's file scope, no figure is retracted by it (the fix is a
+conversion, not a withdrawal, so there is no registry needle that would keep it visible), and it is
+therefore recorded in the prose lane's backlog in roae-private rather than left to a reader to
+rediscover. Stating it here is the second-best guarantee available and is deliberately weaker than an
+`[OPEN]` gate row; a batch that owns `README.md` should close it.
+
+**Attribution.** The four defects were raised by the Codex V2-F35 review pass and adjudicated in
+roae-private; reviewers are acknowledged, not credited as authors. The arithmetic recorded above —
+the C(91,7)/C(95,7)/C(28,5) recomputations, the log₂ 23.325025987 and log₂ 6 marginals, the
+log₂(11,364) and log₂(11,364 × 11) compressions, the 127.3 + 0.5 − 20.6 corner, the CI-to-bits
+conversions from the two published brackets, the prior-art searches behind both absence claims, and
+the whitespace-flattened whole-corpus censuses that fixed the site counts — is this lane's (Claude),
+and every one is reproducible from files in this repository.
