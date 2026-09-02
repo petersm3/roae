@@ -59,7 +59,7 @@ These docs hold **paper-citable scientific findings** that have stabilized beyon
 
 - **[VERIFY.md](VERIFY.md)** — The independent second instruments (`verify.py`, `verify.c`): what each recomputes, and why derivation-independence rather than re-execution is what makes them independent.
 - **[CLAIM_TO_ARTIFACT.md](CLAIM_TO_ARTIFACT.md)** — The claim-to-artifact matrix: for each headline claim, the named artifact and the named command that check it.
-- **[PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md)** — sha256 escrow of the frozen pre-registration files, so a pre-registered observable, family size and decision rule can be shown to predate its result.
+- **[PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md)** — sha256 escrow of ten frozen pre-registration files, fixing their content from 2026-08-22 onward. It does **not** show that an observable, family size or decision rule predates its result: every row was committed before the page was published, so freeze timing there remains operator-attested. The page says which further pre-registrations are not escrowed, and which listed files are already public.
 - **[F1C5_LAYER_FORMAT.md](F1C5_LAYER_FORMAT.md)** — On-disk format specification for the `--f1-exact-c1c2c4c5` out-of-core layer files, run manifests and build checkpoints.
 - **[GT_LADDER_FORMAT.md](GT_LADDER_FORMAT.md)** — On-disk format specification for the g-ladder and t-ladder artifacts (`--kc-g-build` / `--kc-t-build`); companion to F1C5_LAYER_FORMAT.md, which defines the shared container.
 

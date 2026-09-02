@@ -4958,3 +4958,106 @@ log₂(11,364) and log₂(11,364 × 11) compressions, the 127.3 + 0.5 − 20.6 c
 conversions from the two published brackets, the prior-art searches behind both absence claims, and
 the whitespace-flattened whole-corpus censuses that fixed the site counts — is this lane's (Claude),
 and every one is reproducible from files in this repository.
+## 2026-09-02 — PREREGISTRATION_ESCROW.md: an escrow page that claimed more than escrow can deliver
+
+Four defects on the page whose entire value is that it constrains the project after the fact, plus
+one disclosure the page never made. All four were raised by the Codex V2-F46 review pass and
+adjudicated in roae-private; reviewers are acknowledged, not credited as authors.
+
+**The provenance question first, because on this page it outranks the charges.** A pre-registration
+escrow edited after the outcome is not a weak document, it is a destroyed instrument, so the first
+check was whether the page's own record survives. It does. `git log --follow` on
+`documentation/PREREGISTRATION_ESCROW.md` returns **one** commit, `0daa5ecb`, authored and committed
+2026-08-22 03:10:07 +0000 — matching the publication date the page states — with a clean working
+tree and no intervening edit. Independently, all ten escrowed digests were re-verified against the
+operator-held files on 2026-09-02 and **all ten still match**, and every one of the ten
+"first committed (private)" dates equals that file's first-commit date in the private history. The
+date column and the hash column are both honest. What follows are scope errors, not fabrications,
+and the amendment below changes no published hash, byte count or date.
+
+### 1. Escrow converts content identity, not freeze timing — `RP-f145f963`, `RP-057e3756`
+
+The page answered the question in its own title by saying that publishing a hash converts freeze
+timing from attested to checkable, and its own bullet list denied that five lines later. The narrow
+version is truer and worse than the reviewer's: the sentence is not always false — for a test
+measured *after* the escrow is published it is exactly right — but it was written prospectively for a
+table that is **entirely retrospective**. All ten rows carry a first-committed date between
+2026-07-17 and 2026-08-18, every one before the 2026-08-22 publication, and for the Half-B extension
+the *result* was already public in this repository on 2026-08-04, eighteen days early. The page's one
+genuinely converting case has **zero instances in its own table**.
+
+The census was corrected upward. The charge named one site; there were two. `documentation/README.md`
+line 62 carried the same claim in wording the escrow page never uses, and would have survived any
+needle drawn from the page itself — the morphology-evasion lesson of 2026-08-01, now caught the way
+prose batch P40 caught its last live site.
+
+### 2. "Each frozen file" over a table of ten — `RP-be8e188a`
+
+A whole-tree sweep for private pre-registration filenames appearing in tracked public files found
+**six** further frozen pre-registrations with no row on the page, each described in shipped source as
+fixed before measurement with a Bonferroni denominator attached: F4′ (N=13), F5 orientation (N=11),
+F6 books (N=7), R3 permutation (N=13), R8 Davis (§3.1/§3.2) and the F11 Bayes model. These are
+exactly the families `METHODS.md` §"Global observable ledger" builds the 91-observable ledger from, so
+they are what a referee checking that ledger would ask for. Both the reviewer's four and the
+adjudication's five undercounted the files; the adjudication's **19 sites overcounted** the
+occurrences, which measure at 14 across 6 distinct tracked files. Two further names are not omissions
+and the page now says so: a superseded F5 draft, and a name cited in `RESULTS.md` as "the frozen
+pre-registration" that matches no file in the private repository today — an unresolved citation, not
+an unescrowed freeze. The page now says it escrows ten, names the six, and states that adding them is
+an operator action that has not been done.
+
+### 3. The undisclosed defect: for three rows the date and the hash describe different versions
+
+No charge named this one. The escrow pairs a "first committed" date with a hash, and a reader who
+obtains a disclosed file and finds it matches will conclude that this is what was frozen on that
+date. For seven rows that is right — one commit each. **For three it is wrong.**
+`PREREG_KNUTH_CLEANROOM_2026_08_08.md` was 4,254 bytes when frozen on 2026-08-08 before the prober
+was written; the escrowed 7,117-byte digest is of the version committed on **2026-08-09 in a commit
+whose message records the gate's PASS result**. `PREREG_REPR_COST_VS_T_2026_08_18.md` was 5,298 bytes
+when frozen before the correlation was computed; the escrowed 8,359-byte digest is of a **2026-08-19**
+version appending metrics and conclusions. `PREREG_F_CATALOG_T1_T4_2026_08_06.md` gained same-day
+dated annotations, recorded in its commit message as made before the first T3 draw — benign, but
+still not the frozen bytes. The escrowed hash of two pre-registrations therefore attests a document
+that **contains its own outcome**. The page now publishes the freeze-commit digest for all three, so
+both states are checkable, under the same "claim, not proof" caveat the date column already carries.
+
+### 4. "Not publicly fetchable", and a promise the page's own argument refutes — `RP-fe3f7b05`, `RP-920e2f02`
+
+Sweeping the ten digests against `sha256sum` of every tracked file returns exactly one match:
+`reports/evidence/f11halfb/PREREGISTRATION_VMATCHED.md`, 5,336 bytes, **byte-identical** to its
+escrowed row. So one of the ten is published in full and verifies — the page's only end-to-end
+checkable row, and it is now presented as the worked example.
+
+The second instance is the one that matters, and it resolves the question the adjudication recorded
+as unresolvable from the public side. `reports/evidence/f11halfb/PREREGISTRATION_EXTENDED.md`
+(3,986 bytes, `1dedbda1…`) is the escrowed `PREREG_HALFB_EXTENDED_2026_08_03.md` (3,965 bytes,
+`09d711c3…`) **published in redacted form**: the two are 81 lines each and differ in **exactly one
+line, the last**, where a name identifying operator-held infrastructure was replaced with a generic
+description. Same document, one redaction, different digest. The page had promised that each
+published file would verify against its hash — two sentences after arguing that publishing the files
+would require redaction and that redaction breaks byte-identity. The page contained its own
+refutation, and the refutation had already fired **before the page was written**: the public copy was
+committed 2026-08-04 and neither file has changed since, so the mismatch was published knowingly
+rather than introduced by drift. The promise is now conditional on unredacted publication, and both
+outcomes are enumerated on the page.
+
+A third public counterexample sits outside the table entirely: `reports/evidence/f11/PREREGISTRATION.md`
+is headed "FROZEN 2026-07-04 by operator approval", is 3,901 bytes, is published in full, and has no
+row on the escrow page.
+
+### What was deliberately not changed
+
+The ten published rows. Not one hash, byte count or date was altered, reordered or removed; the
+table and its verification snippet are byte-identical to the 2026-08-22 commit, and every correction
+is additive and dated. `documentation/ROAE_PY_CLI.md` was checked because the adjudication's A03
+row 9 recorded it as reading the escrow with the weight this correction removes; its lines 214 and
+227 are CLI-table rows about a JSON pre-registration record and a spec followed verbatim, carry no
+escrow-weight claim, and were left alone. `reports/TR2_THE_RULES_CONFLICT.md`'s sentence on readers
+who discount unverifiable freezes is correct prose and was not touched.
+
+**Attribution.** The measurements recorded above — the `git log --follow` provenance check on the
+page and on every escrowed file, the ten-way re-verification of the escrowed digests, the
+freeze-commit digests for the three amended rows, the whole-tree filename census and its correction
+in both directions, the sweep of all ten digests against every tracked file, the line-level
+resolution of the Half-B pair, and the prior-art searches behind the absence claims — are this lane's
+(Claude), and each is reproducible with `git`, `grep` and `sha256sum`.
