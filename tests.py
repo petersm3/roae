@@ -3650,5 +3650,46 @@ class TestOutOfRangePairIndexReportsNotRaises(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
 
 
+class TestGrammarSearchCheckpointIdentity(unittest.TestCase):
+    """A checkpoint row must carry the identity of the run that produced it.
+
+    Until 2026-09-03 the loader validated only `ncand`, while each batch draws from
+    `seed + 10000 + b`. A resume under a DIFFERENT --seed silently reused rows from a
+    different stream whenever the candidate count matched, and the report then described a
+    single-seed run that never happened. Proven by execution on both sides: the old code
+    printed "4 batches already complete" for rows written under seed=99 while running --seed 7.
+
+    This pins the CONTRACT rather than re-running the search, which is minutes of Monte Carlo:
+    the writer must emit every identity field, and the loader must compare all of them.
+    """
+
+    IDENT = ("seed", "ncand", "batches", "nsamp")
+
+    def _src(self):
+        import os
+        here = os.path.dirname(os.path.abspath(__file__))
+        return open(os.path.join(here, "roae.py"), encoding="utf-8").read()
+
+    def test_checkpoint_writer_emits_every_identity_field(self):
+        import re
+        src = self._src()
+        m = re.search(r"ck\.write\(json\.dumps\(dict\((.*?)\)\)", src, re.S)
+        self.assertIsNotNone(m, "could not locate the checkpoint writer")
+        row = m.group(1)
+        for k in self.IDENT + ("want",):
+            self.assertIn(f"{k}=", row,
+                          f"checkpoint row omits '{k}' — a resume cannot then prove the row "
+                          f"belongs to this run")
+
+    def test_checkpoint_loader_compares_all_of_them(self):
+        src = self._src()
+        self.assertIn("_ck_ident", src, "the loader no longer builds an identity dict")
+        # the ncand-only test is exactly the defect; it must not come back
+        self.assertNotIn('if rec["ncand"] == len(ridx):', src,
+                         "loader reverted to validating ncand alone — a row from a different "
+                         "seed would be silently reused")
+        self.assertIn("IGNORED", src, "mismatched rows must be reported, not dropped in silence")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

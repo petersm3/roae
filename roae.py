@@ -4452,13 +4452,41 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
             break
         jobs.append((b, seed + 10000 + b, want))
         left -= want
+    jobs_by_batch = [(b, w) for b, _sd, w in jobs]
     done = {}          # batch_idx -> (n, hits)
+    # 🔴 A CHECKPOINT ROW MUST CARRY THE IDENTITY OF THE RUN THAT PRODUCED IT.
+    # Until 2026-09-03 the only field validated on load was `ncand`, while each batch draws from
+    # `seed + 10000 + b`. So a resume under a DIFFERENT --seed silently reused rows computed on a
+    # different stream whenever the candidate count happened to match, and the report then described
+    # a single-seed run that never happened. Same for a changed --nsamp/--gs-batches, which move
+    # `want` and the batch partition. Every field that selects the sample is now written and checked.
+    _ck_ident = dict(seed=seed, ncand=len(ridx), batches=len(jobs), nsamp=nsamp)
     if ckpt_path and os.path.exists(ckpt_path):
+        rejected = {}
         with open(ckpt_path) as f:
             for line in f:
-                rec = json.loads(line)
-                if rec["ncand"] == len(ridx):
-                    done[rec["batch"]] = (rec["n"], rec["hits"])
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    rejected["unparsable row"] = rejected.get("unparsable row", 0) + 1
+                    continue
+                # A row written before this fix has no `seed`; it cannot be shown to belong to this
+                # run, so it is refused rather than trusted. Silently accepting it is the defect.
+                bad = [k for k, v in _ck_ident.items() if rec.get(k) != v]
+                want_b = dict(jobs_by_batch).get(rec.get("batch"))
+                if want_b is not None and rec.get("want") != want_b:
+                    bad.append("want")
+                if bad:
+                    key = ",".join(sorted(bad))
+                    rejected[key] = rejected.get(key, 0) + 1
+                    continue
+                done[rec["batch"]] = (rec["n"], rec["hits"])
+        for key, cnt in sorted(rejected.items()):
+            print(f"[D] checkpoint: IGNORED {cnt} row(s) — mismatched {key} "
+                  f"(rows from a different run are not reusable)")
         if done:
             print(f"[D] checkpoint: {len(done)} batches already complete")
     todo = [j for j in jobs if j[0] not in done]
@@ -4473,6 +4501,8 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
             if ck:
                 ck.write(json.dumps(dict(batch=batch_idx, n=n_b,
                                          trials=trials_b, ncand=len(ridx),
+                                         seed=seed, batches=len(jobs), nsamp=nsamp,
+                                         want=dict(jobs_by_batch).get(batch_idx),
                                          hits=hits_b)) + "\n")
                 ck.flush()
             if nb_done % 10 == 0 or nb_done == len(jobs):
