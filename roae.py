@@ -3461,9 +3461,19 @@ def export_svg(filename="hexagrams.svg"):
     total_h = margin + rows * (hex_h + label_h + 15)
 
     lines = []
+    # ACCESSIBILITY (2026-09-03, Codex V2-L22). The export was 577 <rect> and 64 <text> with zero
+    # <title>, <desc>, role= or aria-*: a reader using a screen reader got 64 numbers and glyphs and
+    # no line content at all, which is the entire information in the diagram. No published claim was
+    # false — ROAE_PY_CLI promised only "line-diagrams" — so this is an addition, not a correction.
     lines.append(f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="{total_h}"'
-                 f' font-family="monospace" font-size="9">')
-    lines.append(f'<rect width="100%" height="100%" fill="white"/>')
+                 f' font-family="monospace" font-size="9"'
+                 f' role="img" aria-labelledby="svg-title svg-desc">')
+    lines.append('<title id="svg-title">The 64 hexagrams as line diagrams, in King Wen order</title>')
+    lines.append('<desc id="svg-desc">Eight rows of eight. Each hexagram is six horizontal lines read '
+                 'bottom to top: a solid line is yang, a line broken in the middle is yin. Every '
+                 'hexagram carries its own text alternative giving its King Wen number and its six '
+                 'lines in bottom-to-top order.</desc>')
+    lines.append(f'<rect width="100%" height="100%" fill="white" aria-hidden="true"/>')
 
     for i in range(64):
         col = i % cols
@@ -3472,6 +3482,15 @@ def export_svg(filename="hexagrams.svg"):
         y = margin + row * (hex_h + label_h + 15)
 
         b = binary_hexagrams[i]
+
+        # One group per hexagram, carrying the text alternative. Lines are named bottom-to-top,
+        # which is how hexagrams are read — the drawing order below is top-to-bottom, so this is
+        # derived from the bits rather than from the emission order.
+        _btt = ["yang" if (b >> k) & 1 else "yin" for k in range(6)]
+        lines.append(f'  <g role="img" aria-label="Hexagram {i+1}, {unicode_hexagrams[i]}; '
+                     f'lines bottom to top: {", ".join(_btt)}">')
+        lines.append(f'    <title>Hexagram {i+1} {unicode_hexagrams[i]} — '
+                     f'{", ".join(_btt)} (bottom to top)</title>')
 
         # Label
         lines.append(f'  <text x="{x + hex_w//2}" y="{y - 3}" text-anchor="middle">'
@@ -3490,6 +3509,8 @@ def export_svg(filename="hexagrams.svg"):
                              f' fill="black"/>')
                 lines.append(f'  <rect x="{x + seg_w + gap * 2}" y="{ly}" width="{seg_w}"'
                              f' height="{line_h}" fill="black"/>')
+
+        lines.append('  </g>')
 
     lines.append('</svg>')
     with open(filename, "w") as f:
