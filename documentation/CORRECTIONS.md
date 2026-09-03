@@ -7092,3 +7092,765 @@ needle. No number, certificate, clause count or verdict changed: `grand-ccn4` re
 byte-identical to the pre-edit emission (md5 1ad4d61adffacb9076fb806664fc518c).
 
 *(Key correction, pre-commit: this entry was drafted citing `RP-61e5ca49` for the first needle. The registry key is `sha256(phrase)[0:8]`, and the computed value is **`RP-c4a9eaf8`** — the drafted key was never computed. Caught by GATE 11 asking for a key no entry cited, and fixed before this append was committed, since the ledger is append-only thereafter.)*
+
+## 2026-09-02 — README.md's residual bullet published a relative standard error as a ± precision band (routed from prose batch B9)
+
+`README.md`'s "half the sequence is explained" bullet stated the 105.4-bit reading's precision as a
+±0.01-bit band derived from the C1–C7 estimate's published 0.78%, and in the same breath called the
+C1–C5 estimate's 0.02% "tighter". Both legs are the 2026-08-28 relerr-is-not-an-error-bar defect.
+
+**The arithmetic, re-derived here rather than inherited.** `reports/METHODS.md`'s statistics
+conventions say the estimator prints mean ± 1.96·√(v̂ar/N) and reports relerr = SE/mean, so a count
+with relative standard error *r* costs log₂(1+*r*) bits at one sigma and log₂(1+1.96·*r*) at 95%.
+For *r* = 0.0078: log₂(1.0078) = **0.01121**, which is the figure that was printed; log₂(1+1.96·0.0078)
+= **0.02189**, which is the figure that should have been. The published [5.13, 5.29]×10³¹ bracket
+gives the same answer with no relerr in the derivation at all: −0.02232 / +0.02198 bits about the
+5.21×10³¹ estimate. **The published precision was understated by a factor of 1.96.** The second leg
+is not an arithmetic error but a category one: 0.78% and 0.02% are two *standard errors*, so calling
+one tighter than the other is a comparison of estimator precision and not of two published bands;
+the bullet now says so, and gives 0.02%'s own 95% conversion, ±1.96·SE ≈ ±0.0006 bits, which is what
+TR-9 §1 already publishes.
+
+**This closes a sibling a prior entry in this file knowingly left open.** The 2026-09-02
+`documentation/DESCRIPTION_LENGTH.md` entry above corrected the same slip on its own page and then
+disclosed, in prose, that `README.md` still carried it — outside that batch's file scope, with no
+registry needle available because the fix is a conversion and not a withdrawal, so nothing would
+have kept it visible. That disclosure is now discharged.
+
+**A gate replaces the disclosure.** `scripts/doc_gates.sh se-vs-ci` (GATE 37) decides the property by
+arithmetic and needs no bracket: a stated precision that reproduces the ONE-SIGMA conversion of a
+stated relerr, and does not reproduce the 95% one, is a standard error wearing an error bar. It was
+red-tested in both directions against the defect (`[FAIL]` before the fix, `[ok]` after) and is in
+the hard set. This ledger is exempt from it by file, for the same reason it is exempt from GATES 26
+and 27: quoting the withdrawn figure is the ledger's job, and GATE 10a makes the
+quotation unremovable.
+
+**Nothing measured moved.** 105.4, 139.1, 126.6, the 5.21×10³¹ estimate and its bracket are all as
+published; what changed is the confidence level the precision is quoted at.
+
+**Provenance, stated exactly.** The `README.md` edit and GATE 37 were made by prose batch B9 and are
+**in the working tree, not committed** — the project's commit window is closed until 17:30 PT on
+2026-09-02, so this entry cites no sha for them. That is a weaker attestation than every other entry
+in this file and is flagged rather than smoothed over; the sha belongs here in the commit that lands
+them. B9 could not write this entry itself because a single lane holds `documentation/CORRECTIONS.md`
+for the window, so it was routed to that lane (B2) and the arithmetic above was recomputed before
+it was written.
+
+## 2026-09-02 — the private adjudication writer's two safety guards could not fire, and the selftest that cleared them could not fail (routed from code batch C8)
+
+**Scope, declared before the entry, because this one sits at the edge of this file's stated scope.**
+The artifact is `roae-private/scripts/codex_adj_append.sh`, in the private staging repository the
+Access boundary note at the head of this file describes. **No published claim in this repository
+rests on it** — no tracked file here names it — so a reader can check nothing below beyond the
+operator-attested provenance that note already covers. It is recorded here anyway, and as its own
+entry rather than as a line of prose, because what failed was a *verification instrument* and the
+retraction it forces is of a verification I reported as done. A ledger that files only the
+corrections a reader can audit would file the easy half.
+
+**The defect.** `set -o pipefail` is on at the top of that script. Both of its guards — the pre-write
+dry run and the post-verify revert — were written as `bash "$CHECK" | grep -q …`. The checker exits 1
+whenever it reports `INCOMPLETE`, which is its *normal* state for as long as any adjudication debt
+exists, so under `pipefail` the pipeline returned 1 **even when `grep` matched**. Neither guard could
+fire in any repository state it exists to protect. Proven rather than reasoned: reverting only the
+post-verify leg to its pre-fix form made the writer report OK and leave an unverified row on disk.
+Fixed by capture-then-grep at all three checker call sites.
+
+**And the harness that had cleared them could not go red.** In the shipped selftest, the assertion
+helper `want` ran on the right-hand side of a pipe, so the `rc=1` it set was set in a subshell and
+discarded: **every assertion in the file was a no-op**, including the already-recorded case. Proven
+by flipping one expected token in a copy of the shipped selftest and watching it still report PASS.
+The verdict now hangs on a fail-marker file that survives the subshell, and the first case is a
+harness-sanity case that deliberately mismatches and asserts the marker was written.
+
+**The retraction.** When the preceding code batch landed, that selftest was run, `PASS` was observed,
+and the operator was told the writer had been verified independently. The run happened; the
+assertion behind it did not exist. **That verification claim is withdrawn.** A green harness is
+evidence only if the harness can go red, and that was not checked before the green was cited.
+
+**Commit:** `c2cfdd16` in `roae-private` (2026-09-02 13:54 UTC), "C8: the legacy-DONE branch, and TWO
+siblings that made last night's safety net decorative". Re-verified against that repository's HEAD
+before this entry was written: the two guards now capture the checker's output into a variable and
+match against the variable, and the two comment blocks at the guard sites state the `pipefail`
+reason. Both siblings are the same family — a pipe into `grep` under `pipefail`, where the writer's
+exit status silently becomes the verdict — and the same family had already produced a defect in that
+session's own tick script hours earlier. The family is the finding worth more than either instance.
+
+## 2026-09-02 — six ledger defects: two corrections this file never recorded, three completed items still written as pending, and a schema field thirty entries never carried (prose batch B2)
+
+Six backlog items that all land in this file. **All six were re-verified as live against HEAD before
+anything was written**; none was already closed. Because this file is append-only, five of the six
+are discharged by *this entry* rather than by an edit — where the stale text is inside a committed
+entry, the superseding statement below is the whole of the fix, and the wrong sentence stays exactly
+where it is. That is said plainly rather than worked around.
+
+### 1. The 2026-07-04 MDL arithmetic correction was published in two documents and recorded in none (backlog 36)
+
+- **Class:** C3 · **Documents:** `documentation/DESCRIPTION_LENGTH.md`, `reports/TR9_PRICING_THE_CONSTRAINTS.md`
+- **BEFORE:** the first published version of the description-length ledger table gave log₂(31!·2³¹)
+  as **144.4**, and with it C4's marginal 5.3 and C2's marginal/net 5.3 / +2.3.
+- **NOW:** log₂(31!·2³¹) = **143.7**; C4's marginal 6.0; C2's marginal/net 4.6 / +1.6 at that date.
+  No conclusion changed — C2 stayed modestly explanatory, C5 stayed descriptive.
+- **And it was itself superseded six days later.** TR-9 v1.7 (2026-07-10) recomputed both C2 figures
+  from unrounded operands: the marginal moved down in its last decimal place and the net moved to
+  about break-even, sign-convention-dependent. **Both superseded values are registered retracted
+  figures**, so this entry describes the move rather than restating them — the live pair is TR-9 §2's
+  and the draft-stage pair is the one given under NOW above. Both dated notes are preserved in place
+  in TR-9 rather than rewritten, so the page carries the draft-stage values and the live ones side by
+  side. Anyone reading the 2026-07-04 note in isolation gets superseded numbers, which is why the
+  supersession is stated here at all.
+- **How it was found:** not by a gate. `grep '144\.4\|143\.7' documentation/CORRECTIONS.md` returns
+  nothing at HEAD, while both source documents carry the correction in dated italics — a defect
+  visible only by sweeping the corpus for published corrections and asking which of them this file
+  holds. No mechanism looks the other way round.
+- **Commits:** `cfe5ce80` (2026-07-03 23:04 UTC, the arithmetic fix and the `DESCRIPTION_LENGTH.md`
+  note), `9169b0e5` (2026-07-03 23:21 UTC, the TR-9 draft-stage note, in the report suite's first
+  publication).
+- ⚠ **A date discrepancy, measured and not adjudicated.** Both published notes date the correction
+  2026-07-04. Both commits landed 2026-07-03, at 23:04 and 23:21 UTC — which is 2026-07-03 in UTC
+  and in PT alike. The published date may record the review rather than the landing; this entry
+  records the measurement and does not decide which is authoritative.
+
+### 2. The 2026-07-04 "adversarial round 2" scope corrections reached four reports and never reached this file (backlog 37)
+
+- **Class:** C2 · **Documents:** `reports/TR1_EIGHT_CENTURIES_MEASURED.md`,
+  `reports/TR2_THE_RULES_CONFLICT.md`, `reports/TR3_REPRODUCIBLE_ENUMERATION.md`,
+  `reports/TR9_PRICING_THE_CONSTRAINTS.md` — one `| v1.5 | 2026-07-04 |` revision row each.
+- **BEFORE:** conflict-theorem claims stated unscoped in the TR-1 and TR-2 bodies, executive
+  summaries, figure captions and the front-page bullet; TR-3 describing the enumeration timeline as
+  months; TR-9 carrying residual dual-convention phrasing in the residual paragraph.
+- **NOW:** all four corrected in one commit, with a v1.5 revision row in each report.
+- 🔴 **The correction was itself retracted twenty-six days later, and that is why this belongs here.**
+  The scope v1.5 adopted for the conflict theorem is the wording now registered as **`RP-1e38a453`**
+  (and its sibling **`RP-74fbfafe`**) — retired on 2026-07-30 when the DRAT certificate placed the
+  theorem at C1∩C2∩C4∩C5 scope, recorded above as **CX-10**. So the record ran: unscoped claim →
+  scoped 2026-07-04 → rescoped 2026-07-30. CX-10 records the third step and the ledger had no trace
+  of the second, which is exactly the correction-of-a-correction class **CX-14** calls the one this
+  ledger most needs to make visible, because the second error inherits the first one's credibility.
+  The strings themselves are cited by key and not quoted, per this file's own convention.
+- **How it was found:** `grep 'v1\.5' documentation/CORRECTIONS.md` returns nothing at HEAD while
+  four reports carry a dated v1.5 correction row.
+- **Commits:** `a92c3d54` (2026-07-04 15:44 UTC, "CRITICAL scope corrections (adversarial round 2)").
+
+### 3. Three completed items are still written as pending, in text this file cannot edit (backlog 74, 152, and the code-legs half of 77)
+
+Each of the three is a sentence inside a committed entry above. **None of them is edited.** The
+correction is this list; the original sentences stay.
+
+**(a) The `--check-repr` code legs are done.** The entry registering **`RP-f89ba1e5`** closes by
+saying that a C3 rejection in the repr pair, a `BAD_C3` counter in the artifact pair, and negative
+controls for both are not done and are queued to the code lane. **All three shipped** in `77c14f6a`
+(2026-09-02 02:56 UTC). Verified against HEAD rather than taken from the commit message:
+`verify.c:270-291` carries a C3 pre-filter ahead of the DFS in `vc_repr_of_key`, dated 2026-09-02;
+`verify.c:518-523` sums and prints `BAD_C3`, `BAD_HDR_VERSION`, `BAD_HDR_RESERVED` and
+`BAD_GEOMETRY` into `bad_total`; `verify.py:434-441` prints the same four counters from its own
+loop. The controls were **executed** by this batch, not read:
+`python3 -m unittest tests.TestCheckArtifactControls` runs 9 tests green, including
+`test_ctl_repr_c3_is_incomputable` and `test_ctl_c3_artifact_is_rejected`, and it builds `verify.c`
+with `gcc` and asserts both instruments print identical whole-line verdict tokens.
+`documentation/VERIFY.md` already records the landing; only this file lagged.
+
+**(b) The 22-certificate replay is done.** An entry above states that a 22/22 `verify_all.sh` replay
+of the shipped directory is not yet executed because the shipping host has neither `drat-trim` nor
+`cake_lpr`. `reports/TR2_THE_RULES_CONFLICT.md` records both gaps closed later the same day on a
+host that had them: the shipped directory replayed **22/22 with zero failures**, and the fourth core
+went through the full LRAT → `cake_lpr` chain to `s VERIFIED UNSAT`, with the `cake_lpr` binary
+rebuilt from pin `a36874a8` to a byte-identical compiled sha. All 22 certificates now rest on a
+formally verified checker.
+
+**(c) The `verify.c` header divergence is closed** — see item 4, which is the one item in this batch
+that fixes text in place, because it lives in a document that is not append-only.
+
+**No registry needle is registered for any of the three, and the reason is a decision, not an
+oversight.** The stale wording is inside `documentation/CORRECTIONS.md`, which is in GATE 3's own
+corpus and cannot be edited; a needle matching it would fail the gate on every run for ever. The
+`allow` column could exempt this file, but then the needle would be guarding the phrase "queued to
+the code lane", which is live and *correct* at seven other sites in this file and two in
+`reports/TR5_SYMMETRY.md`. Registering it would put a false retraction on the record. A status word
+that went stale is not a retracted claim; the right instrument is GATE 35, and its reach is recorded
+as owed in item 4.
+
+### 4. `documentation/REBUILD_FROM_SPEC.md` told readers that a closed `verify.c` gap was still open (backlog 77)
+
+The recipe carried a dated 2026-09-02 disclosure that `verify.c --check-artifact` enforces neither
+the format version, nor the reserved bytes, nor the file geometry, and instructed the reader not to
+read a `verify.c` pass as agreement about the header "until that is closed". It closed the same day,
+in `77c14f6a`. That document is **not** append-only — its own convention is an in-place fix plus a
+dated changelog row, which is what its 2026-09-01 reserved-field correction did — so it is fixed in
+place, with the superseded reading preserved in a dated marker and a changelog row added. Measured,
+not inherited: the three fixtures the disclosure names (`header[20]=0x5A`, a declared version of 2,
+and a header declaring 5 records over a 1-record body) are the three negative controls in
+`tests.py::TestCheckArtifactControls`, and all three were executed green by this batch, both
+instruments agreeing token for token.
+
+⚠ **Owed, and named so it is not lost.** GATE 35 exists to catch exactly this — a status word
+surviving beside the dated update that completed it — and it could not see either site, because it
+anchors on a heading of the form `Updated (YYYY-MM-DD)` and this document's headings read
+"measured 2026-09-02". Widening that anchor is a change to `scripts/doc_gates.sh`, which this batch
+does not own; until it lands, the class is guarded by nothing.
+
+### 5. The `Commits` field this file's own schema promises, and which thirty of thirty-five entries never carried (backlog 35)
+
+The **Entries** section near the head of this file declares the shape of an entry as
+"date · id · class · documents · claimed BEFORE · claimed NOW · how it was found · **commit**".
+Measured at HEAD: **35** `### CX-` entries exist and **5** carry a `**Commits:**` field — CX-03,
+CX-04, CX-10, CX-11 and CX-13. Thirty do not. The header is not wrong about what an entry should
+contain; the entries are short of it, and a reader cannot get from thirty entries to the change.
+
+**Why this is not fixed by retrofitting the thirty.** Two reasons, the second measured. First,
+inserting a field into thirty committed entries would edit the record this file's whole value rests
+on. Second — and this is why the field was almost certainly left blank rather than skipped — **the
+correction-landing commit is not mechanically recoverable in the general case.** Demonstrated on
+CX-14: `git log -S'3,432,399,297'` returns as its *first* hit a 2026-05-12 commit that merely moved
+the documents into `documentation/`, not the 2026-07-04 correction. A bulk retrofit driven by that
+technique would have manufactured thirty plausible-looking wrong anchors — which is worse than
+thirty blanks, because a blank is visibly missing and a wrong sha is not.
+
+**What is supplied instead: an anchor for every entry, mechanically derived, stated for what it is.**
+The commit below is the one that introduced each entry *into this file*, reproducible for any id with
+
+```
+git log --format='%h %ad' --date=short -S'### CX-NN ·' --reverse -- documentation/CORRECTIONS.md | head -1
+```
+
+It is the commit that anchors the **record**, and in general it is not the commit that landed the
+**change**. Where the two differ the gap can be four months, and CX-03's and CX-04's existing
+`**Commits:**` fields show what a change-anchor looks like when it is supplied.
+
+| entry | record commit | date | change commit already on the entry |
+|---|---|---|---|
+| CX-01 | `2b3a3ac1` | 2026-08-02 | — |
+| CX-02 | `2b3a3ac1` | 2026-08-02 | — |
+| CX-03 | `2b3a3ac1` | 2026-08-02 | yes |
+| CX-04 | `2b3a3ac1` | 2026-08-02 | yes |
+| CX-05 | `2b3a3ac1` | 2026-08-02 | — |
+| CX-06 | `2b3a3ac1` | 2026-08-02 | — (change: `c77fed9c`, 2026-07-04) |
+| CX-07 | `2b3a3ac1` | 2026-08-02 | — |
+| CX-08 | `2b3a3ac1` | 2026-08-02 | — |
+| CX-09 | `2b3a3ac1` | 2026-08-02 | — |
+| CX-10 | `2b3a3ac1` | 2026-08-02 | yes |
+| CX-11 | `2b3a3ac1` | 2026-08-02 | yes |
+| CX-12 | `2b3a3ac1` | 2026-08-02 | — |
+| CX-13 | `2b3a3ac1` | 2026-08-02 | yes |
+| CX-14 | `2b3a3ac1` | 2026-08-02 | — (change: `7556d38c`, 2026-07-04) |
+| CX-15 | `2b3a3ac1` | 2026-08-02 | — |
+| CX-16 | `7f596d0a` | 2026-08-02 | — |
+| CX-17 | `7f596d0a` | 2026-08-02 | — |
+| CX-18 | `0345f2ce` | 2026-08-02 | — |
+| CX-19 | `dc9eaff2` | 2026-08-02 | — |
+| CX-20 | `5b33e14c` | 2026-08-02 | — |
+| CX-21 | `9b11bcd5` | 2026-08-02 | — |
+| CX-22 | `23853561` | 2026-08-02 | — |
+| CX-23 | `bed707db` | 2026-08-02 | — |
+| CX-24 | `fff39f58` | 2026-08-02 | — |
+| CX-25 | `66eefd64` | 2026-08-04 | — |
+| CX-26 | `09c276fc` | 2026-08-07 | — |
+| CX-27 | `09c276fc` | 2026-08-07 | — |
+| CX-28 | `09c276fc` | 2026-08-07 | — |
+| CX-29 | `f463605b` | 2026-08-07 | — |
+| CX-30 | `f463605b` | 2026-08-07 | — |
+| CX-31 | `f463605b` | 2026-08-07 | — |
+| CX-32 | `f463605b` | 2026-08-07 | — |
+| CX-33 | `ddca1eb8` | 2026-08-07 | — |
+| CX-34 | `af12a678` | 2026-08-08 | — |
+| CX-35 | `c1113a2a` | 2026-08-08 | — |
+
+**Fifteen of the thirty-five resolve to one commit, and that is a finding rather than a defect in the
+table.** `2b3a3ac1` is the commit that created this file, and CX-01 through CX-15 were back-filled
+into it from history reaching back to 2026-04-09. For those fifteen the record commit anchors the
+*writing down*, and nothing else. Two change-anchors were derived with certainty during this batch
+and are given in the table: CX-06's `c77fed9c` and CX-14's `7556d38c`, both 2026-07-04, each
+identified by a commit subject that names the correction outright rather than by a bare `-S` hit.
+The remaining twenty-eight are left blank deliberately. **This does not close the schema gap; it
+bounds it** — every entry now has a reproducible git anchor, and what that anchor does and does not
+attest is stated rather than implied.
+
+### 6. Two entries verified rather than rewritten, and one registry note repaired
+
+**`RP-c4a9eaf8` and `RP-84aeeb62` were checked, not re-added.** The conflict-theorem four-rule entry
+immediately above this one was audited against HEAD rather than trusted: `sat.py:683` gives
+`RULESETS["grand-ccn4"]` as exactly `("parity", "rhythm", "gender", "ccn4")`; the clause arithmetic
+239,062 + 558 + 18,360 + 3,113 + 1,000 = **262,093** reproduces; both keys recompute from the
+registry's phrase column under `sha256 | cut -c1-8`; GATE 11 reports both recorded; GATE 3 reports
+both at zero live sites. The entry stands as written and nothing was appended to restate it.
+
+**One registry note was repaired, and it is not in this file.** The `RP-c4a9eaf8` row of
+`documentation/RETRACTED_PHRASES.tsv` quoted the exact string it registers inside its own note,
+while the `RP-84aeeb62` row directly beneath it cites its key and explains at length why quoting a
+needle inside its own note is the self-match GATE 3 exists to prevent. One batch, two rows, opposite
+conventions. It is inert **today** only because GATE 3's corpus is the tracked `*.md` set plus
+`reports/evidence/**` and the registry is a `.tsv` — but that corpus has been widened once already,
+in 2026-08-07, and on the day it reaches the registry that row becomes a permanent self-match. The
+note now cites the key. **No key moved:** the key is `sha256` of the *phrase* column alone, the
+phrase column is untouched, and GATE 11 was re-run to confirm both keys still resolve to entries in
+this file.
+
+### What did not move
+
+No count, sha, certificate, theorem, verdict or published figure changes anywhere in this batch. The
+only executed measurement is the negative-control suite in item 3(a) and item 4, which was already
+green and was run to confirm rather than to establish. Everything else is provenance.
+
+## 2026-09-02 — an April retraction that was never registered, and the emitter the registry cannot reach (backlog item 17, prose batch B3)
+
+**CX-02** (2026-04-11, above in this file) withdrew three claims at once. Its third clause has had no
+row in `documentation/RETRACTED_PHRASES.tsv` for the four and a half months since, so GATE 3 has run
+green over it on every pass. That is the gate hole this entry closes, and closing it is a *record*,
+not a correction: **no published claim moves here, and no figure, sha, count or verdict changes.**
+
+**The row.** The retracted wording is registered as **`RP-20bac6b5`**, allow column `CORRECTIONS`.
+It is cited by key and deliberately not restated — quoting a needle inside the entry that registers it
+puts the retracted wording back into the corpus, which is what GATE 3 exists to prevent. The key was
+**computed, not copied from a draft**: `printf '%s' "<the registered phrase>" | sha256sum | cut -c1-8`
+→ `20bac6b5`.
+
+**Census at registration: 1 → 1, and the one is allowed.** The only occurrence anywhere in GATE 3's
+corpus is CX-02's own BEFORE line in this file, which the allow column exempts. Nothing was swept,
+because nothing in the corpus asserts the claim: [SOLVE.md](SOLVE.md)'s `--rules` comment and its
+section heading, [SOLVE_PY_CLI.md](SOLVE_PY_CLI.md)'s `--rules` row and [HISTORY.md](HISTORY.md)'s
+April-2026 list of later-overturned claims all negate or historicise it, and
+[CITATIONS.md](CITATIONS.md)'s single hit is an unrelated trigram-circle sense. **This row bans
+reintroduction; it did not find a survivor.** Said plainly so the row is not read as evidence of a
+sweep it did not do.
+
+**What the row cannot cover, named rather than implied.** `solve.py:1581` still prints the retired
+framing as the banner of `--rules` at run time, four lines below the `solve.py:1577` docstring that
+withdraws it. GATE 3's corpus is the tracked `*.md` set plus `reports/evidence/**`, so **no registry
+row can reach a Python file** — the same corpus-boundary limit recorded for `RP-40edf278`'s four
+`roae.py` siblings. The backlog item that asked for this row said that a phrase ban which does not
+cover the emitter is not a ban. It is right. This row is the reachable half; the unreachable half is
+disclosed here and is not fixed by it. `tests.py` pins no assertion on that banner, so nothing today
+would notice if it changed either.
+
+**A second limit, worth recording because it is general.** The broader three-word spelling would be
+the stronger needle, and it **cannot be registered at all**: it is live in two narrating files — this
+one, and `HISTORY.md`'s April-11 claims list — and the allow column holds exactly **one** filename.
+A row naming either file alone would hold the other permanently red over correct historical
+narration, and editing a faithful record of what was once claimed in order to satisfy a gate is the
+wrong direction. **One allow file per row is a reachability limit of the same family as the spelling
+and corpus-boundary limits** already recorded in this project's needle-reachability finding.
+
+## 2026-09-02 — one refuted attribution, three grammars, two files, and no registry row for any of them (backlog item 19, prose batch B3)
+
+On **2026-08-30** the project withdrew its May-25 working diagnosis of the 1T canonical anchor drift
+`5a0f0bc2…` → `74d39760…`. Task #108's Q4–Q10 investigation, closed 2026-05-27, had already settled
+the question: the drift is **host-environment-level** — gcc/glibc/kernel patch versions, ASLR seed,
+CPU microcode revision — and **not source-level**. The seven hardening commits between `9f10f05` and
+`c72eada` were **empirically exonerated**, and LTO was **empirically ruled out** (`-fno-lto`
+reproduced `74d39760…` exactly). That correction was propagated to
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) and [PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md) and
+**registered nowhere**, so GATE 3 has printed `PASS` over a retracted attribution ever since. This
+entry closes that hole. **No measured quantity moves: the shas, the exoneration and the settled
+host-level mechanism are all exactly as already published.**
+
+**Three rows, because one claim is spelled three ways.** Registered in
+`documentation/RETRACTED_PHRASES.tsv` and cited by key, never restated:
+
+| key | narrating file (allow column) | site |
+|---|---|---|
+| `RP-3bbdabe5` | `CANONICAL_HASHES` | `documentation/CANONICAL_HASHES.md:249` |
+| `RP-b2782ac4` | `CANONICAL_HASHES` | `documentation/CANONICAL_HASHES.md:267` |
+| `RP-a9fbf7b7` | `PERFORMANCE_HISTORY` | `documentation/PERFORMANCE_HISTORY.md:1331` |
+
+Every key was **computed** with `printf '%s' "<phrase>" | sha256sum | cut -c1-8`, not carried over
+from a draft. Census at registration is **1 → 1 for each row**, the one match in each case being the
+narration the allow column exempts.
+
+**Why not one row, measured rather than argued.** The two `CANONICAL_HASHES.md` sites spell the
+refuted cause differently; their longest shared span that is not the bare mechanism name is the
+neutral commit-range referent, and that referent is **live and correct** at
+`CANONICAL_HASHES.md:251` and `PERFORMANCE_HISTORY.md:1338`, so registering it would put a false
+retraction on the record. The bare mechanism name was rejected for the same reason: it is live and
+correct at `CANONICAL_HASHES.md:340`, where the separate #99 100B-bisect speculation about `d683794`
+is deliberately left standing as a hedged likely mechanism at a scale `HISTORY.md` does not
+supersede. And the allow column holds exactly **one** filename per row, so two narrating files need
+at least two rows however the wording falls.
+
+**One prediction in the backlog item was wrong, and is corrected here.** The item asked for the row
+plus **three** allow entries, naming `reports/TR3_REPRODUCIBLE_ENUMERATION.md` as the third.
+Measured at HEAD, TR-3 describes the withdrawal at `:54-55` and `:62` **without quoting any
+registrable wording of it**. It therefore needs no allow entry and was given none — an allow entry
+for a file that cannot match is an exemption that reads like coverage.
+
+**`PERFORMANCE_HISTORY.md:1331` was deliberately not swept.** The 2026-08-30 pass chose to leave that
+bullet as written and place a correction blockquote directly beneath it, the opposite convention from
+`CANONICAL_HASHES.md`'s in-place brackets. Re-editing a disclosed, adjacent withdrawal to make a gate
+green would overwrite another batch's recorded choice, so the row records the site instead.
+
+## 2026-09-02 — a false theorem the registry never covered, and a registration request declined because the string was true (backlog item 32, prose batch B3)
+
+Public commit `0c24637` (2026-07-03) fixed a **false theorem** that `solve.c --verify-wrap-parity`
+printed to stdout: it excluded wrap distance 5, contradicting this project's own SAT-established
+witness (`python3 sat.py --witness wrap-d5`, sequence published in
+[CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md)). The fix was comment and stdout only — the tabulator
+was always correct and the selftest sha did not move — and it was **never registered**, so GATE 3
+has been blind to a reintroduction of the false statement for two months.
+
+**The row.** Registered as **`RP-9ef9344b`**, allow column `TR7_CIRCULAR_READING`, cited by key and
+not restated. Key **computed**, not drafted: `printf '%s' "<phrase>" | sha256sum | cut -c1-8` →
+`9ef9344b`. Census at registration **1 → 1**: the single corpus occurrence is
+[TR7](../reports/TR7_CIRCULAR_READING.md)`:126`, which quotes the old line in the act of recording
+the correction, and which the allow column exempts. `solve.c` carries no residue at HEAD.
+
+**The backlog item asked for a different string, and that request is declined on the record.** It
+asked to register the bare clause stating that C2 excludes transition distance 5. **That clause is
+true.** It is live and correct in `sat.py:166` and `verify.py:2755`, where it annotates the
+admissible-distance tuple, and in [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md)`:181` in its
+relative-clause spelling. Registering it would have put a **false retraction** on the permanent
+record and, had a sweep followed the registration, would have driven correct statements out of two
+verifiers. What 2026-07-03 withdrew was not the premise but the **implication drawn from it** — the
+two-element conclusion set — so the needle carries the arrow and the set, and includes the premise
+only to be narrow enough to match uniquely.
+
+## 2026-09-02 — a retired universal that survived in a second file with no substring in common, and the p-value that went with it (backlog item 55, prose batch B3)
+
+Two 2026-09-01 corrections were made and neither was registered, so GATE 3 and GATE 3b have both run
+green over them. Registering them turned up a **live, uncorrected sibling of one of them**, which is
+the substantive half of this entry.
+
+### 1. The order-invariance universal — two spellings, one of them still live
+
+On 2026-09-01 [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) withdrew a blanket claim that the
+project's findings are unaffected by traversal order. The claim is unsupported: a percentile or a
+boundary minimum is a function of the **comparison set**, and this tree holds measured evidence that
+reordering moves the comparison set. That pass corrected its own file and stopped there.
+
+**[CRITIQUE.md](CRITIQUE.md)`:104` asserted the same universal, unqualified, and was still doing so at
+HEAD today.** It is **now fixed in place**: the clause states the surviving scoped result — values
+read off King Wen itself, and King Wen's membership in the C1–C5 set, are order-invariant; relative
+comparisons over the enumerated set are properties of the canonical record set under the **fixed
+published regime** and are **not** claimed invariant under traversal reordering — and it carries a
+dated scope-correction marker that **describes** the retired universal rather than quoting it.
+**No figure, count, sha or verdict in `CRITIQUE.md` moves.**
+
+| key | site | allow | census |
+|---|---|---|---|
+| `RP-face5c0c` | `documentation/SEARCH_SPACE_SIZE.md:93-94` (the 2026-09-01 narration) | `SEARCH_SPACE_SIZE` | 1 → 1, allowed |
+| `RP-9854018f` | `documentation/CRITIQUE.md:104` (live defect, swept here) | `__none__` | **1 → 0** |
+
+**The two sites share no substring**, so no needle derived from the first correction could ever have
+reached the second; it was found by censusing the *claim* rather than the string. And the first
+site's wording **spans a hard line wrap**, so `git grep` cannot see it either — GATE 3 reports it as
+`(spans-lines)`. Both keys were **computed**, not drafted.
+
+### 2. The withdrawn permutation-cycle p-value
+
+`CRITIQUE.md`'s pre-registered permutation-cycle section reported a two-sided p for its closest call
+(`perm_ncyc_bot`, KW = 7) that was **2 × the strictly-above mass alone** and therefore excluded the
+equality atom, while the family's frozen convention is two-sided **atom-inclusive**. It was corrected
+in place on 2026-09-01 to **0.30386238** — `2 × (0.08840103 + 0.06353016)` from
+`reports/evidence/perm_tier1.out` line 7 — and registered nowhere. It is now
+**`RF-22697c24`** in `documentation/RETRACTED_FIGURES.tsv`, with the single legitimate restatement
+allowlisted **content-anchored** in `documentation/DOC_GATE_FIGURE_ALLOWLIST.txt` rather than
+exempted by file, per that registry's no-automatic-exemption design.
+
+**The NULL verdict is unchanged.** Both the withdrawn and the corrected value sit far above the
+`0.05/13 = 3.8×10⁻³` Bonferroni gate, this axis is report-only with no promotion path, and no
+downstream figure moves.
+
+## 2026-09-02 — three published recipes that could not do what they said: a build line with no provenance, a command with an ellipsis for its probe count, and a verifier line that listed a check the verifier does not make (code batch V-1; Codex V2-L13 #1, V2-19 #3, V2-F25 #8)
+
+All three were reproduced by execution on a stock build of `main` before anything was edited. They share
+one shape — a published instruction whose literal execution produces something other than what the
+surrounding prose says it produces — and none of them changes a figure, a sha or a verdict.
+
+### 1. The re-derivation build line dropped the git hash (V2-L13 #1)
+
+`CANONICAL_HASHES.md` §"How to re-derive from scratch", and the "minimum to reproduce canonical sha"
+line under §"Solver version", both printed `gcc -O3 -pthread -fopenmp -march=native -o solve solve.c
+-lm -lz` with no `-DGIT_HASH`. `solve.c` defaults `GIT_HASH` to the literal `unknown`, so a binary
+built by that recipe writes `"git_hash": "unknown"` into `solutions.meta.json` and
+`solutions.provenance.json` and prints `Build: src unknown (git: unknown)` — measured on this tree:
+`./solve --print-config` from the README/CANONICAL_HASHES build → `git_hash : unknown`; the same
+source built with `-DGIT_HASH="\"$(git rev-parse --short HEAD)\""` → `git_hash : a4479176`,
+**and `--selftest` returns `403f7202…` either way** (the stamp reaches only the provenance files, never
+the record stream). `DEVELOPMENT.md` §"Reproduce from scratch" and `SOLUTIONS_FORMAT.md` §"Reproducing
+from source" already published the stamped form; the other enumeration recipes did not. The sweep of
+every build line whose next step is an enumeration that writes provenance: `CANONICAL_HASHES.md` (three
+lines), `DEPLOYMENT.md` §7 (the VM has no clone, so the hash is computed on the launcher and passed
+through `ssh`), `SOLVE.md` §"C solver", `enumeration/LEADERBOARD.md` §"Running the solver",
+`DEVELOPMENT.md` §"Compile" (under "Known gotchas"). **Out of population, deliberately:** the README's
+"check it yourself" line and TR-3's selftest gate build only for `--selftest`, which writes no
+provenance; the estimator recipes (`--estimate-knuth`) write no artifact. Previously recorded as a
+branch-only defect (KC batch, K-2); it was live on `main`, in the recipe the public is told to use.
+
+### 2. A command with an ellipsis where the probe count belongs (V2-19 #3)
+
+`reports/TR4_SIZE_OF_THE_SPACE.md` §Verification Guide printed the uniqueness-refutation command as
+`SOLVE_KNUTH_C67=1 ./solve --estimate-knuth ...` and pointed at a private run log. `strtoull("...")` is
+0, and zero probes is the estimator's **exact-enumeration** mode — bounded only by a prefix, and there
+was none. Executed literally: 25 s, no output, rc 124 under `timeout`; the control `--estimate-knuth
+1000` prints its banner immediately. No 5×10¹⁰ invocation existed anywhere in the tracked corpus, for
+either headline. The invocation was recovered from the private run log itself, whose banner reads
+`[knuth] 50000000000 probes, 32 threads, 0 prefix level(s)`: **`SOLVE_KNUTH_C67=1 SOLVE_THREADS=32
+./solve --estimate-knuth 50000000000`** (≈2 h 04 min wall on 32 threads). Its stdout is now archived at
+`reports/evidence/c67_probe.out` (screened 2026-08-13 as free of identifiers; matches the published
+C1–C7 table digit-for-digit), and the whole-tree headline's invocation, `SOLVE_THREADS=32 ./solve
+--estimate-knuth 50000000000`, is published beside it with `reports/evidence/knuth_whole_tree_5e10.out`
+— the 2026-07-26 same-seed re-run (the 2026-07-01 original's stdout was never archived), byte-identical
+in every reported figure. Sites: TR-4 §Verification Guide (v1.27), `SEARCH_SPACE_SIZE.md`
+§"Provenance and status" / §"The C1–C7 space", TR-9's banner-exception note (v1.25).
+
+| key | needle | allow | census |
+|---|---|---|---|
+| `RP-65575f51` | `./solve --estimate-knuth ...` (the ellipsis form) | `CORRECTIONS.md` | **1 → 0**; A2, A3, A5, A6 run — see the registry note |
+
+### 3. "KW-present checks" — a check the C verifier does not make (V2-F25 #8)
+
+`CANONICAL_HASHES.md` §"How to verify a `solutions.bin`" (the "independent constraint-spec verification" paragraph) said `solve --verify` checks C1–C5
+"plus sorted-order, dedup, and KW-present checks". It does not: `--verify` computes `kw_found_v`,
+prints `King Wen found: YES/No`, and omits it from `total_fail`. Measured on this tree with the
+repository's own 13,320-record `solutions.bin`, the King Wen record deleted and the header count
+patched: `King Wen found: No` … `*** VERIFY PASS: all 13319 records … ***`, `VERIFY=PASS`, rc 0.
+`python3 verify.py` on the same file: `King Wen: No` … `VERIFY PASS`, rc 0 — by design (the
+2026-09-02 retraction of the per-file King Wen requirement, Codex V2-F48 #1 / prose batch P29, records
+why: a shard legitimately need not contain King Wen; `--expect-kw` makes it a requirement). What is corrected:
+the sentence now says presence is printed, not enforced; the Python-side canonical recipe here and in
+`LARGE_SCALE_CAMPAIGNS.md` carries `--expect-kw`; and `verify.py` now prints whole-line tokens
+(`VERIFY=PASS|FAIL`, `KW_PRESENT=YES|NO`, `KW_REQUIRED=YES|NO`) and a PASS-without-King-Wen sentence
+that names its own scope, so the default's scope is machine-readable rather than inferred. The
+`solve.c` half — folding `--expect-kw` into `--verify` and `--validate` — is prepared and red-tested
+in the private tree and waits on the solve.c change gate; until it lands, `solve --verify`'s King Wen
+line must be read by eye.
+
+## 2026-09-02 — a Gray-code universal, two more grammars of the keystone universal, and forward pointers for three append-only records superseded later the same day (prose lane, PROSE_LANE_FOLLOWUPS batch)
+
+Every item below was re-measured at the working tree before it was touched; the batch's stale rows
+(already-done at HEAD) are recorded in `roae-private/PROSE_LANE_FOLLOWUPS.md` with the measurement,
+not here. Nothing above this entry is edited.
+
+### 1. The Gray-code C3 universal — `RP-84738f4b`
+
+[CRITIQUE.md](CRITIQUE.md) §"C3 concentration varies by family" asserted, as an empirical universal
+over the 6-bit Gray-code family, that King Wen's complement distance is unbeaten by any Gray code,
+on the strength of a 10⁵-draw sample minimum (832 > 776) from a sampler `solve.c` itself prints as
+non-uniform. The 2026-08-28 marker at `:60` had already demoted the *minimum* reading — a sample
+minimum is an upper bound on the family minimum — but that bullet was never swept and stood at HEAD
+today. It now states the sampler-scoped rate result (0 of 10⁵, rule-of-three ≤ 3×10⁻⁵ on that
+sampler's rate) under a dated marker that describes the retired universal rather than quoting it.
+Whether any 6-bit Gray code has C3 < 776 is open. Census 1 → 0 with Parts A2/A3/A5/A6 run (row note).
+
+### 2. The keystone universal in its second and third grammars — `RP-4e9124e6`, `RP-9d2dfa92`
+
+`RP-212288d7` (prose batch P68) retired the claim that boundaries 25 and 27 carry information no
+other boundary implies, and its own note reported two unreachable siblings as NOT FIXED. Both were
+live at HEAD today: [HISTORY.md](HISTORY.md)`:795-796` (keystone families that no combination of
+other boundaries removes) and [SOLVE.md](SOLVE.md)`:391` (no other combination eliminating what the
+keystones eliminate). The refutation needs no enumeration: boundary N pins pairs N and N+1, so
+{24, 26} entails 25 and {26, 28} entails 27, and {1, 4, 21, 24, 26, 28} isolates King Wen at 560T
+with neither keystone. What survives at both sites, and is now what they say, is the 4-boundary
+statement of SOLVE.md's mandatory-{25,27} finding and the exact single-boundary fact (only 25 pins
+{25, 26}; only 27 pins {27, 28}); cardinality 5 stays open. One claim, three grammars, three
+registry rows (B1); HISTORY.md keeps its wording under a scope marker as a dated log, hence its
+allow — and because the P68 entry quotes HISTORY's bare clause as narration, the HISTORY needle is
+registered one word wider (`irreplaceable:` prefixed) and the bare clause is disclosed as uncovered
+(B3). `SOLVE.md:413` ("the other 2 of your 4") is the scoped statement and is **not** a site.
+**A correction to the P68 entry above, which this ledger's form requires be made here rather than
+there:** that entry withdrew the SOLVE.md sibling on the ground that the quoted string "appears
+nowhere in `SOLVE.md`". Measured today, `git show HEAD:documentation/SOLVE.md` carries it exactly
+once, at `:391` — the closing sentence of the conditional-entropy paragraph, which P68 correctly
+described but did not read to its end. The registry note for `RP-212288d7`, written in the same
+batch, had it right. The site is swept and registered as `RP-9d2dfa92` with `CORRECTIONS` allowed
+for the P68 narration.
+
+### 3. Forward pointers for append-only records that are correct as history and misleading as current
+
+None of these lines is edited; a reader who lands on them needs to know what superseded them.
+
+* **The 2026-08-24 and 2026-08-23 entries above (`:1302`, `:1376`) state the raw-against-raw
+  coverage as "≈1 part in 3.03×10²⁷".** The 2026-08-28 entry relabelled the numerator
+  (43,876,464,466 is a count of per-sub-branch canonical keys, a lower bound on raw oriented
+  leaves), and [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) v1.24 drew the consequence: the
+  coverage is **at least** 1 part in 3.03×10²⁷, a bound, not an approximate equality. The same
+  wording survived at four sites outside this ledger; the two report/documentation sites it named
+  as siblings — `HISTORY.md` (the "How big is the search space" entry) and
+  `enumeration/LEADERBOARD.md:3` — now carry a BOUND-NOT-EQUALITY marker beside the older marker.
+  Not registered as a phrase: the wording legitimately persists inside four dated markers and
+  entries (B3, two narrators), and each is now accompanied by the corrected statement.
+* **The 2026-09-02 entry "the fourth two-rule core: its certificate ships …" (`:3272`) says the
+  22nd certificate has passed drat-trim only and that no 22/22 replay has been executed.** Both
+  closed later the same day — the shipped directory replayed 22/22 with zero failures and the
+  fourth core passed the full LRAT → `cake_lpr` chain — recorded at
+  [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) §"Extension (v1.6)" and in item (b) of the
+  2026-09-02 "code legs are done" entry above. TR-2's v1.30 revision row now carries the same
+  forward pointer; the row itself is unchanged.
+* **HISTORY.md's 2026-05-14 hardening item names `--selftest-resume` "SIGTERM-then-resume".** It
+  sends no signal (three `system()` invocations and a sha comparison; no `kill()`/`raise()` on the
+  path) — it tests budget-extension resume, not interrupted-process resume. Labelled in place
+  under a dated marker; the DEVELOPMENT.md sibling (Codex V2-F15 #5) was corrected earlier.
+* **HISTORY.md's 2026-05-21 v2 100T entry labels 15,035,483,184 "raw records".** Same class as
+  the 2026-08-28 correction above: it is `solve --merge`'s input total over the 61,550 shards
+  (481 GB ÷ 32 B = 15.03 B), and shard records have been per-sub-branch canonical keys since the
+  2026-04-11/12 commits that predate that campaign's build — so the figure is cross-sub-branch
+  rediscovery of canonical keys (4.10× over the merged count) and a lower bound on raw oriented
+  leaves. The producer was the open question that had kept this row from being relabelled; it is
+  identified by those two measurements, and the merge log itself is in neither repository.
+
+### 4. Scope words restored at three "byte-identical" sites
+
+[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)'s determinism cell and
+[SPECIFICATION.md](SPECIFICATION.md)'s partition-invariance theorem said `solutions.bin` is
+byte-identical, unqualified. [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) has stated the
+invariant correctly since its opening paragraph — the **logical (decompressed) record stream**,
+hence the canonical sha256; the gzip container bytes match only additionally under a fixed
+compression path — and that unqualified phrasing is the shape behind the documented phantom-drift
+false alarms. Both sites now say the decompressed stream. No sha or count moves.
+
+**Attribution and the usual caution.** The measurements here are this lane's (Claude, Opus 5) under
+operator direction; the keystone counterexample is prose batch P68's, the Gray-code demotion
+2026-08-28's, and the Barrett/Li scoping (see CITATIONS.md) was raised by a Fable 24-lens review.
+Reviewers are acknowledged, never credited as authors. Corrections welcome.
+
+## 2026-09-02 — the `--rules` banner registered by the strings it printed, and the harness now reads the emitter (docs/tests lane, items R-1 to R-4)
+
+The `RP-20bac6b5` entry above ("an April retraction that was never registered") recorded that `solve.py:1581`
+still printed CX-02's retired framing at run time and that no registry row could reach a Python file. Both
+halves moved the same day: the code lane retired the banner (`print_rules()` in `solve.py`, uncommitted at
+the time of writing), and GATE 47 (`code-needles`) put every tracked non-markdown text file into a needle
+scan. GATE 47's own build measurement then exposed the remaining gap: run against the pre-fix `HEAD:solve.py`
+it returned **no hit**, because the registry held the *framing* in `RP-20bac6b5`'s spelling and the banner
+printed different bytes. A ban on a claim that does not name what the emitter prints is not a ban on the
+emitter. This entry closes that gap. **No published claim, figure, sha, count or verdict moves.**
+
+**Two rows, cited by key and not restated.** `RP-6986cc78` is the banner's upper-case title, parenthetical
+included; `RP-fe7deb9f` is the banner's second line, registered without its trailing colon so that a
+quotation of it is reached as well. Both allow columns are `__none__`. Keys computed with
+`printf '%s' "<phrase>" | sha256sum | cut -c1-8`, not drafted. Two rows rather than one because the two
+lines share no span that is the claim (registry header, Part B1).
+
+**Why the title is registered in full, measured rather than argued.** The bare two-word title
+(`RP-3b8f1985`, *not* registered) was tried first: it survives once in the working tree, inside the
+`print_rules()` comment (`solve.py:1580-1581`) that quotes the old banner in order to withdraw it, and a GATE 47
+allowance anchored on that construction would have kept the row measurably alive. GATE 6 rejected it: that gate
+treats every tracked `.py` containing `savefig` — `solve.py` included — as a figure generator, folds and
+flattens *without* stripping comment markers, and has no allow mechanism, so it fired on the withdrawal comment
+(`[FAIL] retracted phrasing in a figure generator`), and `solve.py` is not this lane's to edit. The full title
+matches `HEAD:solve.py` once and the working tree zero times: Part C is satisfied at HEAD, the row needs no
+allowance, and — said plainly — it will print `[ok]` from now on with nothing to distinguish it from a row whose
+claim was swept. The second row is the one an allowance keeps measurably alive: one row in
+`documentation/DOC_GATE_CODE_NEEDLE_ALLOW.tsv`, `max 1`, anchored on the comment's withdrawal construction; its
+quote-to-withdraw is hard-wrapped across two comment lines, which is why GATE 6 (the `#` left in the flattened
+text) does not see it and GATE 47 (marker stripped) does. GATE 47 reports an allowance that matches nothing as a
+FAIL.
+
+**Census at registration, A1–A6 run with GATE 47's own strip+fold+flatten pipeline.** GATE 3 corpus (tracked
+`*.md` plus `reports/evidence/**`): **0 → 0** for both rows; the upper-case spelling never appeared in a
+document. GATE 47 corpus: **`HEAD:solve.py` 1 → working tree 0** for the title and **1 → 1** for the second line, the
+survivor being the quote-to-withdraw above — hard-wrapped across two comment lines, so a line-based grep sees only half of the second
+string and only the gate's flatten sees the whole (A4). **Known-positive before trusting the zero:** GATE 47
+in a disposable shared clone at `HEAD` with the new rows → `[FAIL] solve.py: retracted phrasing present 1
+time(s)` for each, rc 1; on the working tree → `[ok] … 18 of 18 allowances used`, rc 0. **B2, measured and
+decisive:** the lower-case phrase is *not* registered — it is live and correct in negations at `SOLVE.md:735`,
+`SOLVE_PY_CLI.md:97`, `HISTORY.md:42` and `solve.py:1577/1592/11878`, and in `CITATIONS.md:1615`'s unrelated
+trigram-circle sense; the match is case-sensitive fixed-string, so the registered title reaches none of them.
+**A6, run and disclosed:** `solve.py:7`'s module docstring says the program "Attempts to reconstruct the King
+Wen sequence from a minimal set of rules" — what it tries, not that it succeeds — and is left standing; neither
+row reaches it and neither should.
+
+**A registration request measured and declined (item R-2).** `PROSE_LANE_FOLLOWUPS.md` P06 asked for a row on
+the banner that `solve.py:3105` printed until commit `90f60f55` ("The generative recipe is complete …"). Census
+across *every* tracked file, not only the markdown corpus: **0 live sites** — the only occurrence anywhere is
+`CORRECTIONS_INVENTORY.tsv:1995`, which quotes the fixing commit's message and is excluded from GATE 47 by
+name. The registry header's Part C forbids registering a needle that matches nothing at HEAD, for the reason
+given two paragraphs up, so no row is written; the item is closed with the measurement and the note that its
+only known-positive is `git show 90f60f55^:solve.py`. What the item actually asked for — a ban that reaches the
+emitter — is now structural (GATE 47) rather than per-string.
+
+**`tests.py` now reads the emitter, not just its source.** `TestRulesBannerCarriesNoRetractedPhrase` runs
+`python3 solve.py --rules` and asserts that no registry phrase — read from the registry at test time, never a
+hand-copied list; an empty registry is a test failure, not a pass — appears in the folded, flattened output.
+Measured 2026-09-02: against a copy of the pre-fix `HEAD:solve.py` it fails naming `RP-6986cc78` and
+`RP-fe7deb9f`; with a registered phrase planted in the banner path of a scratch copy it fails; with a
+comments-only registry it fails on the empty population; on the fixed tree it passes. The sentence in the
+`RP-20bac6b5` entry above — "`tests.py` pins no assertion on that banner" — is dated by this.
+
+**And pins the C verifier's King Wen scope as shipped (item R-3).** `TestSolveVerifyKingWenScope` builds the
+tracked `solve.c` and asserts the contract `RP-60347080`'s retraction implies: `solve --verify` reports
+`King Wen found: No` on a valid non-King-Wen record and still returns `VERIFY=PASS`, rc 0, because
+`total_fail` sums the constraint, decode, sort and duplicate counts only; a C4 control (`comp(KW)`) shows the
+same verdict path returning `VERIFY=FAIL`, rc 1. Mutation measured: a scratch `solve.c` that adds
+`(kw_found_v ? 0 : 1)` to `total_fail` fails exactly the absent-King-Wen test. `solve.c` itself is behind the
+master gate and is untouched.
+
+**Attribution and the usual caution.** The measurements here are this lane's (Claude, Opus 5) under operator
+direction; the emitter retirement and GATE 47 are the code and gate lanes' work of the same day, and the
+banner finding is `RP-20bac6b5`'s. Corrections welcome.
+
+## 2026-09-02 — the withdrawn counting split's two sibling sites, swept (prose lane, backlog item 104; Codex V2-F09 #3 sibling class; GATE 59's first live hit)
+
+**What this closes.** The `RP-f21d636c` entry above (prose batch P36, "The enrichment split converted an
+eligibility *support* into a probability") corrected [TR-7](../reports/TR7_CIRCULAR_READING.md)
+§"The anchors on the circle" and, deliberately, left two sibling statements of the same counting split
+live and named: [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §2(d) and
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md) §3. The same defect was
+then found a second time, independently, by the new GATE 59 (`baseline-arithmetic`) on its first live
+run, which held the TR-1 site as an adjudicated-open row. This entry is the sweep.
+
+**BEFORE, re-measured live before editing (not taken from the backlog row).** TR-1 §2(d), lines
+130–140 of the working tree: "the wrap-parity theorem makes **16** of the 31 non-initial pairs
+ineligible to close". The same sentence went on: "so the eligibility-adjusted baseline is 1/16 = 6.25%,
+×1.9 of the apparent enrichment is parity-forced (it holds for *every* C4+C5 ordering) and only ×1.25
+is the contingent residual" — carrying both the withdrawn split *and* the 16-versus-15 miscount that
+LITERATURE_RULES_POPULATION_TESTS.md corrected on 2026-09-01 without reaching this copy (its own
+arithmetic gives 1/15). LITERATURE_RULES_POPULATION_TESTS.md §3, lines 78–96: "most of that gap is
+forced … the eligibility-adjusted baseline is 1/16 = 6.25% and the residual enrichment is only ×1.25",
+with the 2026-09-01 marker beneath it asserting that "the ×1.25 residual" was "always right". Both
+were priced off the counting baseline as though it were a null.
+
+**WHY IT IS FALSE** is the P36 argument and is not repeated: the theorem yields a 16-element eligibility
+*support*; 1/16 as a *probability* assumes an exchangeability across the 16 eligible pairs that TR-7
+does not prove (T2ii states eligibility as necessary only) and that TR-7's own measured wrap-class
+masses — 65.2 / 17.5 / 17.4% against the counting 62.5 / 18.75 / 18.75% — contradict. The TR-1 clause
+"it holds for every C4+C5 ordering" was true of the support and false of the ×1.9 it was attached to.
+
+**COMPUTED, re-derived from what TR-7 prints rather than copied from the backlog row.** The d = 3
+class average is the §5 d = 3 wrap mass spread over T2ii's ten d = 3 closers: 65.2% / 10 = 6.52%,
+which cross-checks against TR-7's own "the other nine d = 3 closers average 6.37%":
+(65.2 − 7.84) / 9 = 6.373. Then 6.52 / 3.2258 = **×2.02** (2.0212) tracks class structure,
+7.84 / 6.52 = **×1.20** (1.2025) is the A₂-specific residual, and they compose to
+7.84 / 3.2258 = **×2.43** (2.4304), the ×2.4 observed. 3.2258% is 1/31, all 31 non-initial pairs.
+No measurement was run; 7.84%, 65.2% and the ten-closer class are TR-7's published figures.
+
+**AFTER.** Both sites price the anchor against the measured 6.52% class average as ×2.02 · ×1.20,
+state the counting figure as a reference and not a null with the exchangeability reason beside it,
+and count 15 of the 31 non-initial pairs as ineligible. TR-1's "mostly forced" becomes "mostly class
+structure"; the population-tests document's "partially explained" likewise. The distance-6 candidate
+mechanism stays demoted, now to a candidate for the ×1.20 residual. TR-1 carries the change at
+**v1.32** with the 2026-08-01 marker amended and a 2026-09-02 marker added; the population-tests
+document carries a 2026-09-02 marker and its 2026-09-01 marker's "always right" clause is superseded
+in place. TR-7's marker, which had named the two as "still outstanding", is updated at **v2.5** so
+that fixing the siblings did not leave TR-7 stale instead. The GATE 59 adjudicated-open row for TR-1
+in `DOC_GATE_BASELINE_ARITHMETIC_OPEN.tsv` is deleted in the same change (the table is now
+header-only; GATE 59 reports 2 eligibility-baseline sentences, 2 self-consistent, 0 open). **No
+allow-row was added anywhere**, per the backlog row's own constraint; `RP-f21d636c`'s registry note
+records the sweep.
+
+**Sibling sweep — population and count, not a claim.** Command: a flattener over
+`git ls-files` (every tracked file, every extension — `.md`, `.py`, `.c`, `.sh`, `.lean`, `.tsv`,
+`.txt`, `reports/evidence/**`), whitespace collapsed and `*` stripped so hard wraps and bold cannot
+hide a phrase (registry Parts A3/A4), then regex needles. **Population: 395 tracked files.** Needles
+(A1, both glyphs, both value spellings): `[×x]1.9`, `[×x]1.25`, postfix `1.9×` / `1.25×` (0 → 0);
+(A2, re-inflected): `parity-forced`, `eligibility-adjusted`, `contingent residual`, `counting split`,
+`mostly forced`, `partially explained`; (A6, the claim's shape): `1/16 = 6.25`, `6.25%`,
+`anchor … forced`, `forced … 1/16`. Every needle was verified against a known positive before its
+zero was trusted: `[×x]1.25` and `parity-forced` each matched the TR-1 and population-tests sites
+at line 134 / 83 before the edit. **Live sites before: 2. Live sites after: 0.** Raw hit counts
+after (e.g. `[×x]1.25` 17 → 19) *rise*, because every remaining hit is narration: dated correction
+markers in the three documents, TR-1's v1.21 and TR-7's v1.9/v2.3 revision rows (append-only
+history, per the TR-1 v1.24 precedent), this ledger, `CORRECTIONS_INVENTORY.tsv` (generated
+quotations), the `RP-f21d636c` registry note, `scripts/doc_gates.sh`'s GATE 34 red-test comment, and
+`HISTORY.md`'s 2026-07-02 narrative ("partially explained by C5 budget dynamics" — the record of
+what was then believed, append-only). A6 negatives read and rejected: `reports/README.md:47` "Wrap
+parity forced" is the wrap-parity theorem, not the split; `solve.py:7355` "partially explained by
+reg_r3" is the level-3 registry rule; the `forced` hits in `lean/SymmetryCompleteness.lean`,
+`solve.c` and `solve.py` are rigidity lemmas. A5 (non-`.md` emitters): 0 sites print the split.
+Registry census for `RP-f21d636c` under GATE 3: unchanged, it matches this ledger only, before and
+after — the needle was registered on TR-7's word order and never reached the siblings, which is why
+the siblings had to be swept by reading rather than by the gate.
+
+**What did not move.** 7.84%, the wrap masses, the 10 : 3 : 3 classification, T1/T2i/T2ii, every
+scoreboard entry, every certificate and every verdict. Two derived ratios move at two sites, to the
+values TR-7 has carried since v2.3.
+
+**Attribution and the usual caution.** The defect and its correction are Codex V2-F09 #3's and prose
+batch P36's; GATE 59 (code-fix lane, same day) found the TR-1 site independently; this sweep is the
+prose lane's (Claude) under operator direction. Corrections welcome.

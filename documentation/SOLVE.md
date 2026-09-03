@@ -388,7 +388,7 @@ Structure: `{25, 27}` plus two-of-`{1..6}` chosen in varied combinations. Bounda
 
 **Scientific interpretation:** the canonical claim "{25, 27} are mandatory" is a stable finding. The broader phrasing "{25,27} ∪ one-of-{2,3} ∪ one-of-{21,22}" is a d2-specific statement, not a general property of C1-C5 orderings. See CRITIQUE.md for the scope-aware framing and the null-model caveat.
 
-Per-boundary conditional entropy at d3 (`analyze_d3.log` section [18], baseline 73.17 bits): boundary 4 contributes 46.8 bits, boundary 5 contributes 42.7 bits — highest info gain. Boundaries 25 and 27 sit at 9.96 bits and 10.63 bits — mid-pack. Their mandatory status is due to structural independence (no other boundary combination can eliminate what they eliminate), not informational weight.
+Per-boundary conditional entropy at d3 (`analyze_d3.log` section [18], baseline 73.17 bits): boundary 4 contributes 46.8 bits, boundary 5 contributes 42.7 bits — highest info gain. Boundaries 25 and 27 sit at 9.96 bits and 10.63 bits — mid-pack. Their mandatory status is due to structural independence, not informational weight ⚠ **[SCOPE CORRECTED 2026-09-02 (prose lane, `RP-9d2dfa92`; sibling of `RP-212288d7`) — the parenthetical here stated, as a universal over all boundary combinations, that nothing else eliminates what 25 and 27 eliminate. As a universal that is false by the definition at the top of this section: boundary N pins pairs N and N+1, so {24, 26} entails 25 and {26, 28} entails 27, and {1, 4, 21, 24, 26, 28} isolates King Wen at 560T with neither keystone present. What the measurement supports is the 4-boundary statement of the mandatory-{25,27} finding below and the exact single-boundary fact that only 25 pins {25, 26} and only 27 pins {27, 28}; the cardinality-5 case is open.]**
 
 ### What "boundary 25" and "boundary 27" concretely specify
 
@@ -774,7 +774,7 @@ python3 solve.py --null-debruijn --trials 20000   # Null-model comparison agains
 For enumeration at scale, the C implementation is ~60x faster than the Python version. It counts the solutions satisfying C1, C2, C4, C5 and then C3 **that it reaches within its node budget**, de-duplicates by canonical pair ordering, and reports unique ordering counts. (Corrected 2026-08-28: this read "For complete enumeration of the solution space". No published enumeration is complete — every one is budgeted; see [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) and [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md).)
 
 ```
-gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz    # Compile
+gcc -O3 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz    # Compile (-DGIT_HASH: sha-neutral provenance stamp; without it the run records git_hash "unknown")
 SOLVE_NODE_LIMIT=10000000000000 ./solve 0          # Canonical 10T run (deterministic)
 ./solve 3600                                        # Exploratory 1-hour run (non-reproducible)
 ```

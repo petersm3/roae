@@ -1098,7 +1098,9 @@ For any campaign producing a sha you intend to publish:
    checks this.
 5. **Two-language constraint verification on the merged output,
    pre-publication.** Run `solve --verify solutions.bin` AND
-   `python3 verify.py solutions.bin` before declaring the sha
+   `python3 verify.py --expect-kw solutions.bin` before declaring the sha
+   canonical (`--expect-kw`: a merged canonical must contain King Wen, and
+   without the flag its absence is reported, not failed)
    canonical. Both must pass. The two checkers share no code —
    `solve --verify` is C in the same binary that produced the
    file (catches bit-flip, disk corruption, merge bugs);

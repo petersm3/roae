@@ -75,16 +75,22 @@ document, 70+ lines away; it is now beside the numbers it produces.)*
    instrument's result. The status marker was narrating a superseded state.)*
    Both readings of the pairs-22/23 anomaly therefore remain live: deliberate/corrupted deviation from a
    compliant precursor (Moore), or the rules being strong tendencies rather than exact laws.
-3. **Cook's anchor rules are real but partially explained.** The final-pair anchor holds in 7.8% of the
-   population — far above the naive 1/31 ≈ 3.2%, **but most of that gap is forced: the wrap-parity theorem
+3. **Cook's anchor rules are real but mostly class structure.** The final-pair anchor holds in 7.84% of the
+   population — far above the naive 1/31 ≈ 3.2258%, **but most of that gap tracks the wrap-distance class
+   the closing pair belongs to, not the pair itself.** The wrap-parity theorem
    makes 15 of the 31 non-initial pairs ineligible to close — all 16 even pairs are ineligible, but the
    pure pair, itself even, is already fixed at the opening by C4 — leaving 16 eligible odd pairs
-   ([TR-7](../reports/TR7_CIRCULAR_READING.md) §"The anchors on the circle"), so the
-   eligibility-adjusted baseline is 1/16 = 6.25% and the residual
-   enrichment is only ×1.25** — the rule is genuine but its surprise is smaller than raw position-counting
-   suggests. (The earlier "because C5's transition budget favors closing on a distance-6 pair" reading is
-   demoted to at most a candidate mechanism for the ×1.25 residual: only 4 of the 16 eligible closers are
-   distance-6-within pairs, so it cannot carry the main effect.)
+   ([TR-7](../reports/TR7_CIRCULAR_READING.md) §"The anchors on the circle"), so the counting baseline is
+   1/16 = 6.25%; that figure is a **reference, not a null**, because reading the 16-element eligibility
+   support as a probability of 1/16 assumes an exchangeability across the eligible pairs that TR-7 does
+   not prove and that its measured wrap-class masses (65.2 / 17.5 / 17.4% for d = 3 / 1 / 5, against the
+   counting 62.5 / 18.75 / 18.75%) already contradict. Priced against the **measured** 6.52% average of
+   the ten d = 3 closers (65.2% / 10), **×2.02 of the apparent enrichment tracks class structure**
+   (6.52 / 3.2258) and **only ×1.20 is the A₂-specific residual** (7.84 / 6.52); they compose to
+   7.84 / 3.2258 = ×2.43, the ×2.4 observed — the rule is genuine but its surprise is smaller than raw
+   position-counting suggests. (The earlier "because C5's transition budget favors closing on a distance-6
+   pair" reading is demoted to at most a candidate mechanism for the residual: only 4 of the 16 eligible
+   closers are distance-6-within pairs, so it cannot carry the main effect.)
    *(Corrected 2026-09-01: the rationale read "makes **16** of the 31 non-initial pairs ineligible", whose
    own arithmetic gives 31 − 16 = 15 eligible and a baseline of 1/15 = 6.67%, not the 1/16 stated in the
    same sentence. [TR-7](../reports/TR7_CIRCULAR_READING.md) §"The anchors on the circle" is the source:
@@ -92,7 +98,17 @@ document, 70+ lines away; it is now beside the numbers it produces.)*
    "including all four self-reverse pairs and the pure pair itself" — from the final slot; and TR-7 then
    works with "the 16 eligible (odd) pairs". C4 pins the pure pair, which is even, as the opening, so only
    15 of the 31 non-initial pairs are ineligible. The 7.8% measurement, the 1/16 baseline and the ×1.25
-   residual were always right; only the counting rationale beside them was wrong.)*
+   residual were always right; only the counting rationale beside them was wrong. — Superseded in part
+   2026-09-02, next marker: the measurement and the 1/16 count stand, but the ×1.25 residual read 1/16 as
+   a null and is withdrawn.)*
+   *(Corrected 2026-09-02: through the marker above this item read "most of that gap is forced … the
+   eligibility-adjusted baseline is 1/16 = 6.25% and the residual enrichment is only ×1.25" — the counting
+   split [TR-7](../reports/TR7_CIRCULAR_READING.md) v2.3 withdrew earlier the same day for converting an
+   eligibility support into a probability, kept here as an un-swept sibling — and it printed the mass as
+   7.8% where the quotient uses TR-7's 7.84%. It is now priced against the measured d = 3 class average,
+   as TR-7 is. No new measurement: 7.84%, the 65.2% d = 3 wrap mass and the ten-closer class are figures
+   TR-7 already prints; [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §2(d), the other sibling, is
+   corrected at v1.32 in the same pass.)*
 4. **The classical 18:18 split is weak as a discriminator** (36% of all valid orderings have it) — its
    significance is historical attestation, not statistical rarity.
 5. None of these rules, singly or jointly, approaches uniqueness (the full C1–C7 space itself holds

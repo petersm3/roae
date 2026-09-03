@@ -70,8 +70,10 @@ Required fields: hypothesis, methodology, enum_wall, sha-gate, decision. Optiona
 ## Standard bench harness
 
 The standardized paired-bench script lives at `scripts/perf_bench.sh`. It captures the schema fields above,
-provisions a fresh Spot VM in westus3, attempts a page-cache flush between paired runs, and emits a JSON line
-that pastes directly into a new entry. Any new perf entry should be produced by `perf_bench.sh` or document why
+provisions a fresh Spot VM in westus3, runs a pure-CPU preflight throttle probe, flushes the page cache between
+paired runs (both verified and both gating — a run without `HEALTHY` and `CONFIRMED` verdicts cannot certify
+itself), takes `sha` and `records` over the decompressed stream, and emits a JSON line that pastes directly
+into a new entry. Any new perf entry should be produced by `perf_bench.sh` or document why
 it deviates from the standard methodology.
 
 **What the harness actually does — corrected 2026-08-30.** The paragraph above previously said the script "runs
@@ -93,17 +95,35 @@ script at this commit, that overstates it on three counts, and the JSON it emits
   reads as `UNVERIFIED`, not as a pass. **`page_cache_flushed: true` in any entry dated before 2026-09-02
   still asserts nothing**, because those entries were produced by the unconditional-literal version; do not
   read them as evidence the cache was cold.
-- **There is no preflight throttle probe or pure-CPU burn-in in the script** — only a comment referring to the
-  rule. The 2026-05-18 entry below (§"Important methodological finding — `/proc/cpuinfo` MHz under solve.c load
-  is NOT a throttle indicator") establishes that the preflight burn is *mandatory* precisely because
-  workload-time MHz cannot distinguish throttle from memory-bound saturation. A run produced by this script
-  therefore carries **no throttle evidence** unless the operator ran the burn separately and recorded it in the
-  entry — several entries below do exactly that, and those are the ones with throttle evidence.
+- ~~**There is no preflight throttle probe or pure-CPU burn-in in the script**~~ **Landed 2026-09-02** *(code lane;
+  this bullet previously said the script carried only a comment referring to the rule)*. After the build and
+  **before any bench**, the script runs `yes > /dev/null` on every core for `--burn-seconds` (default 60,
+  floor 30), samples per-core MHz at the *end* of the burn, and requires the minimum to be
+  `>= --throttle-min-mhz` (default 3664, the AVX-512 definitive-bench precedent for D128als_v7; the default
+  applies at every `--scale`, including the D8als_v7 1B smoke, unless overridden). The 2026-05-18 entry below
+  (§"Important methodological finding — `/proc/cpuinfo` MHz under solve.c load is NOT a throttle indicator")
+  is why the burn is pure-CPU and precedes the workload. The verdict is a whole-line token,
+  `PERFBENCH_THROTTLE_PROBE=HEALTHY|THROTTLED|UNVERIFIED`, with a `PERFBENCH_THROTTLE_DETAIL=` line carrying
+  min/avg/max MHz, sample count and threshold; anything but `HEALTHY` — a throttled host, an unreadable MHz
+  source, a burn shorter than the floor, or no token at all — tears the VM down before the bench, emits
+  `PERF_BENCH_METHODOLOGY=VIOLATED` and exits 5. The JSON carries `"throttle_probe"` and
+  `"throttle_probe_detail"`, and `"methodology_valid"` now requires `HEALTHY` as well as both flushes
+  `CONFIRMED`. **Entries dated before 2026-09-02 still carry no throttle evidence from the harness** — only
+  those whose operator ran the burn separately and recorded it in the entry do, and several below did.
+- **`sha` and `records` are logical since 2026-09-02, and were container-level before.** `solutions.bin` is
+  gz-framed by default (SOLUTIONS_FORMAT.md §"On-disk framing"), and the script used to run
+  `sha256sum solutions.bin` — the sha of the compressed *container*, which varies with zlib version and level
+  and is the substance of every documented phantom-drift false alarm — and to derive `records` from the
+  container size, a fictional count. It now sniffs the gzip magic and takes both over the decompressed stream
+  (`gzip -dc solutions.bin | sha256sum`, the convention of every anchor in CANONICAL_HASHES.md), reports the
+  container sha separately as `container_sha`, prints a `framing` field (`gzip` / `raw` / `absent`), and a
+  failed decompression yields `sha=DECOMPRESS-FAILED` rather than a hash of partial bytes. **A harness `sha`
+  in any entry dated before 2026-09-02 is a container sha and is not comparable to any anchor.**
 
-The status-checked flush field landed 2026-09-02. **The preflight throttle burn has not** — the script still
-emits no `throttle_probe` field, so a run produced by it carries no throttle evidence unless the operator ran
-the burn separately and said so in the entry. That remainder is tracked outside this document. This paragraph
-exists so that no entry below is read as certifying conditions the harness never checked.
+All three halves of the 2026-08-30 correction — the flush verdict, the throttle probe, and the logical sha —
+landed 2026-09-02. This paragraph previously read "the preflight throttle burn has not"; that is no longer
+true of the script, and it remains true of every entry produced before that date, which is why this section
+stays: no entry below is to be read as certifying conditions the harness did not check *at the time it ran*.
 
 ## Process gate
 
@@ -1544,7 +1564,10 @@ meantime.
    `"methodology_valid": false` and exits 3, and a run that produced no token at all reads `UNVERIFIED`
    rather than passing. Red-tested by running the harness on a host with no passwordless sudo: the
    pre-fix script emitted `"page_cache_flushed": true` and exit 0; the fixed script emits
-   `UNVERIFIED (no-passwordless-sudo)` and exit 3. **The throttle-burn half is still open.** See
+   `UNVERIFIED (no-passwordless-sudo)` and exit 3. ~~**The throttle-burn half is still open.**~~
+   **➤ [UPDATE 2026-09-02, later the same day] The throttle-burn half landed too** — a pure-CPU burn on every
+   core before the bench, `PERFBENCH_THROTTLE_PROBE=HEALTHY|THROTTLED|UNVERIFIED`, teardown and exit 5 on
+   anything but `HEALTHY`; and `sha`/`records` moved from the container to the decompressed stream. See
    §"Standard bench harness" above.
 3. **The `[REFUTED 2026-05-16]` callouts promised for `HISTORY.md:1510-1514` and `:2610` do not exist** and need
    to be written, alongside a check that any sentence asserting a marker is "already in place" resolves to an

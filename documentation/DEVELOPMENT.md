@@ -77,9 +77,9 @@ sudo apt-get install -y build-essential zlib1g-dev
 Verified from a fresh clone on 2026-08-04: `--selftest` printed
 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, `python3 tests.py` ran 64 tests
 OK (1 skipped), and `lean lean/KingWen.lean` exited 0 with no output. (The harness has since grown:
-as of 2026-08-21 it holds 76 tests — count re-verified by a local `python3 tests.py` run reporting
-`Ran 76 tests in 24.329s … OK`; (the previous figure, 67, was correct when recorded on 2026-08-06 and
-drifted as tests were added — corrected 2026-08-21 after a cold reviewer pass flagged it); the fresh-clone figures above are preserved as recorded on their date.)
+as of 2026-09-02 it holds 133 tests — count re-verified by a local `python3 tests.py` run reporting
+`Ran 133 tests in 95.920s … OK`; (the previous figures — 67 on 2026-08-06, 76 on 2026-08-21 (`Ran 76 tests in 24.329s … OK`), 77 on 2026-09-01, and 128 then 129 earlier on 2026-09-02 — were each correct when recorded and
+drifted as tests were added — corrected 2026-08-21 after a cold reviewer pass flagged it, and again 2026-09-02 by re-measurement); the fresh-clone figures above are preserved as recorded on their date.)
 
 Note that `documentation/REBUILD_FROM_SPEC.md` §Prerequisites is deliberately silent on all of the
 above and should stay that way — it describes writing an independent verifier in *any* language,
@@ -158,10 +158,13 @@ affecting per-thread rate must append an entry to
 at the top of that file.
 
 Standardized paired-bench harness lives at `scripts/perf_bench.sh`. It runs
-control vs treatment on a single fresh Spot VM in westus3, flushes the page
-cache between paired runs **and verifies that the flush happened**, captures
-enum-only wall (merge wall separately, not part of the speedup metric), and
-emits a JSON block that pastes directly into a new entry. Multi-scale: 1B / 1T
+control vs treatment on a single fresh Spot VM in westus3, runs a pure-CPU
+preflight throttle probe on every core **and refuses to bench a host that does
+not read `HEALTHY`** (teardown, exit 5), flushes the page cache between paired
+runs **and verifies that the flush happened**, captures enum-only wall (merge
+wall separately, not part of the speedup metric), takes `sha` and `records`
+over the **decompressed** stream, and emits a JSON block that pastes directly
+into a new entry. Multi-scale: 1B / 1T
 / 11.2T selectable via `--scale` — note the SKU is chosen **per scale**
 (`Standard_D8als_v7` for 1B, `Standard_D128als_v7` for 1T and 11.2T,
 `scripts/perf_bench.sh` `case "$SCALE"`), so a bench is comparable only to
@@ -169,8 +172,10 @@ another bench at the same scale. *(This paragraph previously said "a single
 fresh D128als_v7 Spot" without qualification; corrected 2026-09-02 to match the
 script and `PERFORMANCE_HISTORY.md` §"Standard bench harness".)*
 
-> **Known harness defects.** Two of the three below are cleared; do not treat
-> `perf_bench.sh` as turnkey until the remaining one is.
+> **Known harness defects — all cleared as of 2026-09-02.** The notes are kept
+> because the paragraphs above them once told operators to install zlib by hand
+> and to recompute the sha themselves, and both instructions are now wrong.
+> Item 4 records the probe the 2026-08-30 audit found missing.
 >
 > 1. ~~**The provisioned VM cannot build.**~~ **CLEARED** — the install line now
 >    reads `build-essential zlib1g-dev`, so the bench VM builds `solve.c`
@@ -187,18 +192,30 @@ script and `PERFORMANCE_HISTORY.md` §"Standard bench harness".)*
 >    `PERF_BENCH_METHODOLOGY=VIOLATED` and exits 3. A missing token reads
 >    `UNVERIFIED`, not pass. Gate a caller with
 >    `perf_bench.sh ... | grep -qx PERF_BENCH_METHODOLOGY=OK`.
-> 3. **STILL OPEN — its `sha` and `records` fields are container-level, not logical.** The
->    script runs `sha256sum solutions.bin` and derives
->    `records=(BYTES-32)/32` from the on-disk size, and it never sets
->    `SOLVE_COMPRESS`. Under the #169 gz-framed default (`SOLVE_COMPRESS`
->    defaults ON, solve.c:1165) those are the sha of the *compressed container*
->    and a fictional record count. Every canonical sha in
->    [CANONICAL_HASHES.md](CANONICAL_HASHES.md) is taken on the **decompressed**
->    stream. Until the script is fixed, either export `SOLVE_COMPRESS=0` for the
->    bench run (and say so in the entry) or recompute with
->    `gzip -dc solutions.bin | sha256sum` and count from the decompressed bytes.
->    Never paste the raw harness `sha`/`records` into
->    [PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md).
+> 3. ~~**STILL OPEN — its `sha` and `records` fields are container-level, not logical.**~~
+>    **CLEARED 2026-09-02** — the script used to run `sha256sum solutions.bin`
+>    and derive `records=(BYTES-32)/32` from the on-disk size; under the #169
+>    gz-framed default (`SOLVE_COMPRESS` defaults ON) those were the sha of the
+>    *compressed container* and a fictional record count, while every canonical
+>    sha in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) is taken on the
+>    **decompressed** stream. It now sniffs the gzip magic and hashes and counts
+>    over `gzip -dc solutions.bin` (`framing=gzip`), or the file itself when it
+>    is raw (`framing=raw`); the container sha is still emitted, labelled
+>    `container_sha`, and a failed decompression reports `sha=DECOMPRESS-FAILED`.
+>    A harness `sha` in any entry dated before 2026-09-02 is a container sha and
+>    is not comparable to an anchor.
+> 4. **Preflight throttle probe — added 2026-09-02** (the 2026-08-30 audit found
+>    the script carried only a comment referring to the rule). After the build
+>    and before any bench: `yes > /dev/null` on every core for `--burn-seconds`
+>    (default 60, floor 30), per-core MHz sampled at the end of the burn, minimum
+>    must be `>= --throttle-min-mhz` (default 3664, the D128als_v7 precedent,
+>    applied at every scale unless overridden). Verdict token
+>    `PERFBENCH_THROTTLE_PROBE=HEALTHY|THROTTLED|UNVERIFIED` plus a
+>    `PERFBENCH_THROTTLE_DETAIL=` line; anything but `HEALTHY` (including a
+>    missing token or a burn under the floor) tears the VM down before the
+>    bench, emits `PERF_BENCH_METHODOLOGY=VIOLATED` and exits 5. The JSON carries
+>    `throttle_probe` / `throttle_probe_detail`, and `methodology_valid` requires
+>    `HEALTHY` as well as both flushes `CONFIRMED`.
 >
 > The entry that PERFORMANCE_HISTORY.md identifies as the first produced by this
 > harness (2026-05-18, task #78) predates #169 and is unaffected.
@@ -247,6 +264,18 @@ trade-off.
 |---|---|---|
 | `pre-push` | for **each pushed sha**, in a temporary detached worktree of that sha: the pushed tree's own `doc_gates.sh all` (~12–20 s), then its `pre_push_compile_gate.sh` (~56 s), and — when `needs_generated()` says the pushed range touches `roae.py`/`example/`, or the base cannot be determined — `doc_gates.sh generated` (~67 s). All three always run, findings aggregate; worktree add+remove ≈0.5 s; deletion pushes gate nothing | any hard doc gate red (the blocking set is the PASS banner in `doc_gates.sh`; its report-only gates print `[WARN]`/`[note]` without blocking), or `solve.c` missing/empty, gcc non-zero, `--selftest` not producing sha `403f7202…`, or a pushed tree with **no gate scripts at all** (deliberate pushes of pre-gate history use `--no-verify`, visibly) |
 | `pre-commit` | `pre_commit_registry_gate.sh` (WARN-only; full 6-gate scan when a registry/ledger file is staged, the two cheap retraction scans when any `reports/*.md`, `documentation/*.md` or `README.md` is staged), then `pre_commit_generated_gate.sh` (blocking) | a commit touching `roae.py` or any `example/` artifact whose `doc_gates.sh generated` check fails |
+
+**Pre-commit rc contract (2026-09-02, route C6).** The dispatcher reads **three** verdicts from
+`pre_commit_registry_gate.sh`, not two: rc `0` = CLEAN or NOT-APPLICABLE, rc `1` = FINDINGS, rc `2` =
+COULD-NOT-RUN; anything else (127 = the gate script is missing or unexecutable, ≥128 = signal) is
+classified as "could not look", never defaulted to findings. Each gate also prints one whole-line
+token at column 0 for `grep -qx` — `PRECOMMIT_REGISTRY=CLEAN | FINDINGS | COULD-NOT-RUN |
+NOT-APPLICABLE | REFUSED-DIRTY` and `PRECOMMIT_GENERATED=CLEAN | FINDINGS | COULD-NOT-RUN` — and the
+verdict is that token, never inferred from the shape of the text above it. The WARN-only disposition of
+the registry gate is unchanged; the contract exists so that "the gate found nothing" and "the gate never
+ran" are distinguishable downstream. They were not on 2026-09-02, when a mid-edit `doc_gates.sh` made
+every leg return 2 and the dispatcher reported it as findings over a commit staging the two files those
+gates exist to police.
 
 **The pre-push hook gates the committed trees being published, not the
 working tree** (task #150). The 218-commit replay (task #149) found 12
@@ -1042,7 +1071,7 @@ For full schema + design rationale see `roae-private/METADATA_EQUIVALENCE_DESIGN
 
 ### Compile
 
-- Build flags: `gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz` (minimum to reproduce canonical sha); `gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm -lz` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15). The `-lz` (zlib) link flag is required since #169 (native-gzip live compression); it is the only build change and is sha-neutral (gzip is a non-sha-determining storage layer).
+- Build flags: `gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz` (minimum to reproduce canonical sha; the `-DGIT_HASH` stamp is sha-neutral — measured 2026-09-02 — and without it every artifact the run writes records `"git_hash": "unknown"`); `gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15). The `-lz` (zlib) link flag is required since #169 (native-gzip live compression); it is the only build change and is sha-neutral (gzip is a non-sha-determining storage layer).
 - `-fopenmp` parallelizes the `--analyze` hot loops. Without it, pragmas are
   no-ops and everything still compiles + runs single-threaded. `libgomp`
   (gcc's OpenMP runtime) ships with gcc under the GCC Runtime Library

@@ -472,11 +472,13 @@ The 1T / 5.6T / 10T / 11.2T published PSBs are the empirically-correct values �
 **v3** is the canonical-producing lineage on `main` HEAD as of 2026-05-25 (post-reset). v3 = v1 prune set + `-flto` + #72 bitset + v3.1 orphan-promotion patch. v3 sha-preserves on v1 byte-identically at every tested scale. The current `main` HEAD reproduces every Active canonical above. Specific commits that established each canonical are recorded in [HISTORY.md](HISTORY.md). v3 binary builds on stock toolchain — no patched glibc, no jemalloc, no PGO (the 2026-05-24 paired-bench re-run confirmed PGO did not replicate the predicted speedup):
 
 ```
-# Minimum to reproduce canonical sha:
-gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
+# Minimum to reproduce canonical sha (the -DGIT_HASH stamp is sha-neutral — measured 2026-09-02:
+# selftest 403f7202… with and without it — and is what makes the run's solutions.meta.json /
+# solutions.provenance.json record the commit instead of the literal "unknown"):
+gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz
 
 # Recommended (sha-preserving, with LTO — Phase 1c validated 2026-05-15 on D64 Zen 4):
-gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm -lz
+gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz
 ```
 
 Both commands produce the canonical selftest sha `403f7202…` and reproduce every canonical above byte-identically. `-flto` (link-time optimization) reduces binary size ~1-2% and produces a ~2% wall-time speedup at 100B-node canonical-correlation scale on AMD Zen 4 with tight run-to-run variance (stddev 0.11% across 4 trials). Drop it if your toolchain doesn't support LTO.
@@ -505,8 +507,8 @@ gzip -dc solutions.bin | sha256sum
 
 For independent constraint-spec verification (slower than sha but cross-checks the binary's enumeration logic):
 
-- C-side: `solve --verify solutions.bin` — checks every record satisfies C1–C5 (plus sorted-order, dedup, and KW-present checks) per [SPECIFICATION.md](SPECIFICATION.md).
-- Python-side: `python3 verify.py --jobs N solutions.bin` — independent re-implementation. The `--jobs` flag parallelizes; `--jobs 128` matches the canonical's enumeration parallelism but any value works for verification.
+- C-side: `solve --verify solutions.bin` — checks every record satisfies C1–C5, plus sorted-order and dedup, per [SPECIFICATION.md](SPECIFICATION.md). ⚠ **King Wen's presence is printed, not enforced, by `--verify`** (measured 2026-09-02: the King Wen record deleted from an artifact and the header count patched → `King Wen found: No` … `VERIFY=PASS`, rc 0). Read that line by eye; folding it into the verdict (`--expect-kw`) is a prepared `solve.c` change held behind the solve.c change gate. *(Corrected 2026-09-02 — this line previously listed "KW-present" among the checks.)*
+- Python-side: `python3 verify.py --jobs N --expect-kw solutions.bin` — independent re-implementation. `--expect-kw` makes King Wen's absence a FAIL (rc 1), which on a complete canonical it must be; without it the verifier reports `KW_PRESENT=NO` and certifies the records only. The `--jobs` flag parallelizes; `--jobs 128` matches the canonical's enumeration parallelism but any value works for verification.
 
 Both verifiers operate without reference to the canonical sha; they validate the file against the constraint specification directly.
 
@@ -515,7 +517,9 @@ Both verifiers operate without reference to the canonical sha; they validate the
 ```
 git clone https://github.com/petersm3/roae
 cd roae
-gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
+# pin the source: check out the commit named in the canonical's row above before building
+gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz
+./solve --print-config | grep git_hash   # must NOT say "unknown" — that is the provenance stamp the run writes
 ./solve --selftest                    # must print sha 403f7202
 ulimit -s unlimited                   # required at large scales
 <env vars from the table above> ./solve 0 128

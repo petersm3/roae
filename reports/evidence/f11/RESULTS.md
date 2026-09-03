@@ -340,11 +340,17 @@ The script re-derives every population mass from the raw run outputs, re-asserts
 (0,0,·); RUN A contains no Moore-strict-plane cell; event-space counts base-independent;
 n_1 = n_2 = 0 reproducing SAT minimal-repair = 3), and prints the headline BFs, the full 24-row
 sensitivity table, the per-gridpoint likelihoods, and the 7×7 BF(p_c, λ) matrix exactly as
-tabulated in §4. To regenerate RUN D from scratch (exact enumeration, ~minutes, needs the repo's
-`solve.py` on PYTHONPATH):
+tabulated in §4. To regenerate RUN D from scratch (exact enumeration; measured 2026-09-02 on the
+2-core orchestrator: 4 m 39 s, rc 0, stdout and `f11_events.json` byte-identical to the tracked copies):
 
     cd reports/evidence/f11
-    PYTHONPATH=../../.. python3 f11_events.py   # rewrites f11_events.json
+    python3 f11_events.py                     # rewrites f11_events.json
+
+The script locates the repo's `solve.py` itself (a `sys.path` line, the same idiom as the `f1/`,
+`f5/` and `r11/` instruments). Until 2026-09-02 it did not, so the header's `python3 f11_events.py`
+"from this directory" died with `ModuleNotFoundError: No module named 'solve'` unless the reader
+supplied `PYTHONPATH=../../..` — which this paragraph prescribed but the header did not. Found by
+`scripts/exec_lane.sh`; the `PYTHONPATH` form still works.
 
 Instrument provenance: the F11 estimator extension (SOLVE_KNUTH_F11_HIST joint histogram +
 SOLVE_KNUTH_GENDER_STRICT in-walk prune; estimator-only, sha-neutral) ran on the worker as

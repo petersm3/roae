@@ -286,7 +286,7 @@ prefixes from the snippet above. **Pin both variables.** `solve.c`'s `--estimate
 its worker count from `SOLVE_THREADS` and, when that is unset, from `sysconf(_SC_NPROCESSORS_ONLN)`; the
 probe budget is split across workers and each worker is seeded from `knuth_seed_base` (`SOLVE_KNUTH_SEED`,
 default `0x243F6A8885A308D3`), so the **thread count selects the sample** and an unpinned command is
-machine-dependent — [METHODS.md](../reports/METHODS.md) §"Knuth estimator CIs" guarantees identical output
+machine-dependent — [METHODS.md](../reports/METHODS.md) §"Reproducibility rule for estimator output" guarantees identical output
 only at identical (probes, threads). The exact-mode commands above (`--estimate-knuth 0`) are
 deterministic and need no pin. *(Added 2026-09-02, prose batch P33: the command shipped with neither
 variable pinned.)*

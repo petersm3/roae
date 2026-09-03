@@ -415,7 +415,7 @@ command in this document now carries `SOLVE_THREADS=32`, the value the three arc
 The estimator seeds worker *i* at `base ^ ((i+1)·0x9E3779B97F4A7C15)` (`solve.c`), and with
 `SOLVE_THREADS` unset the thread count falls back to the running host's core count
 (`sysconf(_SC_NPROCESSORS_ONLN)`, `solve.c`) — so the thread count selects the sample, and
-[METHODS.md](METHODS.md) §"Knuth estimator CIs" guarantees identical output only for re-runs at
+[METHODS.md](METHODS.md) §"Reproducibility rule for estimator output" guarantees identical output only for re-runs at
 identical *(probes, threads)*. Without the prefix a reader on a different host reproduces a
 different draw. *(Added 2026-09-01 — see v1.13. The commands read without it from the report's
 first landing.)*

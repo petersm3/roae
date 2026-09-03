@@ -1533,8 +1533,12 @@ common-mode regression that moves both paths identically. Exits 50 on any
 phase failure or sha mismatch.
 
 *(Corrected 2026-09-01. The argument is a budget, not a scope name: measured,
-`solve --regression-test 100B` parses as **100 nodes** and proceeds — it does
-not resolve `100B` as a scale. This section previously described a multi-scope
+`solve --regression-test 100B` parses as **100 nodes** — it does
+not resolve `100B` as a scale. ⚠ **[AMENDED 2026-09-02 — this note said it "proceeds", and that half
+is false. Measured on a stock build of `main`: `./solve --regression-test 100B` returns **rc 50** and
+prints `[regression-test] FAIL: full-enum phase exit=6400`. It parses the budget as 100 nodes and then
+FAILS; it does not proceed. Found by the exec-lane sweep, which executes published commands rather
+than reading them — this line had been read and corrected once already without being run.]** This section previously described a multi-scope
 matrix compared against recorded hashes.)*
 
 ### --double-regression-test

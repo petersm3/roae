@@ -105,7 +105,7 @@ inherits.
    class (pair {63, 0}). (b) An O(1) exact prefix prune (two-sided achievable-alternation interval check),
    exact by derivation, firing from the earliest placements. (c) Sha-lineage caveat: an exact prune
    preserves the solution set but changes node-visit ordering and counts, so budgeted canonical outputs —
-   and canonical shas — would change; production adoption is a gated lineage decision. Nothing in the
+   and canonical shas — can change; production adoption is a gated lineage decision. Nothing in the
    published canonicals is affected by the theorem itself. (d) Combined with the symmetry theorem ([TR-5](TR5_SYMMETRY.md)),
    the solution space has two proven skeletons: a 48-element relabeling group and a rigid 15-alternation
    parity profile — both properties of the constraint system, which KW satisfies necessarily rather than

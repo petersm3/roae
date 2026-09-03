@@ -241,10 +241,17 @@ Headlines only — each links to its full treatment (technical reports in [repor
   nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
   description, not explanation; **between about 105 and 139 bits** remain open — the exact figure
   depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most
-  conservative reading, resting on the ±0.78% C1–C7 estimate ≈ ±0.01 bits; 139.1 bits =
+  conservative reading, resting on the C1–C7 estimate — whose published 0.78% is the estimator's
+  relative **standard error**, not a 95% half-width, so the 95% interval is ±1.96·SE ≈ **±0.022
+  bits**, which the published [5.13, 5.29]×10³¹ bracket independently gives as −0.0223/+0.0220
+  ⚠ **[CORRECTED 2026-09-02 — this bullet converted a relative standard error into a ± band,
+  understating the interval by 1.96×; completing here the 2026-08-28 ruling already applied in
+  documentation/DESCRIPTION_LENGTH.md and TR-9 §1]**; 139.1 bits =
   log₂|C1∩C2∩C4|, the residual against the claimed-explanatory layers alone — a logarithm of an
-  exact count; the intermediate C1–C5 reading ~126.6 rests on the tighter ±0.02%
-  estimate). [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
+  exact count; the intermediate C1–C5 reading ~126.6 rests on an estimate with a smaller relative
+  standard error, 0.02%, i.e. ±1.96·SE ≈ ±0.0006 bits at 95% — a tighter *estimate*, which is a
+  comparison of two standard errors and not of two published precision bands).
+  [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
 - **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
   population-typical; one uniqueness claim is corrected; the ~126-bit (C1–C5-layer) residual survives its second
   literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
@@ -289,7 +296,7 @@ gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest  # must
 python3 roae.py                          # the analysis battery (29 sections; 28 analyses, most with null models — see CRITIQUE.md — plus the theorem-backed --parity)
 python3 solve.py --registry-verify       # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                           # SAT layer usage + targets
-python3 tests.py                         # regression harness (77 tests as of 2026-09-01)
+python3 tests.py                         # regression harness (133 tests as of 2026-09-02)
 bash reports/certificates/verify_all.sh  # one command: selftest, two-language gates, all DRAT certs, Lean, tests.py, roae.py --verify, doc gates
 ```
 `verify_all.sh` needs five external tools — **gcc**, **python3**, **drat-trim**, **lean** (elan) and

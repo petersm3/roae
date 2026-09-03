@@ -1074,8 +1074,12 @@ specific symptom that motivated it.
    **(b) No `$360` anchor exists in the public corpus.** `grep -rn '\$360'`
    over `documentation/`, `reports/` and the root markdown returns exactly one
    hit — the sentence this note replaces. The 560 T campaign entry in
-   HISTORY.md records launch, wall, records, sha, dedup ratio, verify status
-   and eviction count, and **no cost total**; the file's cost totals stop at
+   HISTORY.md records launch, wall, records, sha, verify status
+   and eviction count, and **no cost total** *(2026-09-02, prose lane: this list read
+   "…sha, dedup ratio, verify status…"; measured, that HISTORY entry records no ratio of
+   any kind — the pre-merge shard total and its 4.17× factor live in this file's own 560 T
+   table above, relabelled 2026-08-28 as cross-sub-branch rediscovery of canonical keys,
+   not an orientation-dedup ratio)*; the file's cost totals stop at
    earlier, smaller campaigns. The `$690 = 2 × $360` anchor and the `~$390
    incremental` figure derived from it therefore both rested on a number the
    corpus never published, and the `~$390` additionally assumed the 41-50 %
