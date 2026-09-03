@@ -27,13 +27,13 @@ every scale where exact counts exist.
 We measure the total number of hexagram orderings satisfying constraints C1–C5 — the number every budgeted
 enumeration has only ever bounded from below — using Knuth's (1975) unbiased random-probe estimator run
 over the *exact* production search tree: **1.3287×10³⁸ raw canonical orderings (95% CI [1.3283,
-1.3292]×10³⁸, rel. error 0.02%; ≈3.3×10³⁷ after orientation-dedup ⚠ **[the ORIENTATION-DEDUPLICATED ≈3.3×10³⁷ is WITHDRAWN 2026-08-24 — it exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×. The raw 1.3287×10³⁸ STANDS; see documentation/CORRECTIONS.md]**)**. This is a statistical estimate, not
+1.3292]×10³⁸, rel. error 0.02%; ≈3.3×10³⁷ after orientation-dedup)**. ⚠ **[WITHDRAWN 2026-08-24 — the ≈3.3×10³⁷ orientation-dedup figure in the sentence just above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; the raw 1.3287×10³⁸ estimate is not affected and STANDS; see documentation/CORRECTIONS.md]** This is a statistical estimate, not
 a proven cardinality, validated to <1% against exact subtree counts on a three-rung ladder. ⚠ **[a
 56-branch cross-sum was also run at the time and is NOT offered as evidence here: its per-branch
 values were not archived, and it is recorded as untraced — see the T04 row of the untraced-claims
 audit. The three-rung ladder validation stands.]** Three consequences follow. First, the deepest published canonical (560T;
-1.05×10¹⁰ distinct orderings) has enumerated ≈1 part in 10²⁷ of the space — exhaustion is infeasible at any ⚠ **[the distinct-vs-distinct pairing is WITHDRAWN; stated raw-against-raw it is at least 1 part in 3.03×10²⁷ — see documentation/CORRECTIONS.md]**
-budget. Second, extending the walk with the spec's C6/C7 adjacency constraints **refutes the
+1.05×10¹⁰ distinct orderings) has enumerated ≈1 part in 10²⁷ of the space — exhaustion is infeasible at any
+budget. ⚠ **[WITHDRAWN — the distinct-vs-distinct pairing in the sentence just above; stated raw-against-raw it is at least 1 part in 3.03×10²⁷ — see documentation/CORRECTIONS.md]** Second, extending the walk with the spec's C6/C7 adjacency constraints **refutes the
 Uniqueness Conjecture** — our name for the strong determinism reading of the literature's
 derivation-flavored claims, and this project's own early working hypothesis; to our knowledge no author
 asserted it in exactly this form (attribution note:
