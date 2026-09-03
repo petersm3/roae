@@ -3601,5 +3601,54 @@ class TestPublishedMoorePrecursorWitness(unittest.TestCase):
         self.assertEqual(len(slots), 3)
 
 
+class TestOutOfRangePairIndexReportsNotRaises(unittest.TestCase):
+    """V2-F48 #5: a record whose pair_index exceeds 31 must be REPORTED, never raised.
+
+    A reference parser that throws on malformed input cannot be pointed at an untrusted
+    artifact, which is the only kind worth checking. `decode()` returns (None, None, None)
+    for pidx >= 32 and --check-artifact turns that into BAD_KEY with a whole-line verdict.
+
+    The fixture isolates the charged condition: key = [32, 1, 2, ..., 31] is out of range at
+    byte 0 and has NO duplicates, so a failure here cannot be blamed on non-distinctness.
+    """
+
+    def _artifact(self, key):
+        import struct, tempfile, os
+        rec = bytes(((k << 2) & 0xFF) for k in key)
+        hdr = bytearray(32)
+        hdr[0:4] = b"ROAE"
+        struct.pack_into("<I", hdr, 4, 1)
+        struct.pack_into("<Q", hdr, 8, 1)
+        fd, path = tempfile.mkstemp(suffix=".bin")
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(bytes(hdr) + rec)
+        return path
+
+    def test_decode_returns_none_rather_than_raising(self):
+        import verify
+        rec = bytes(((k << 2) & 0xFF) for k in ([32] + list(range(1, 32))))
+        self.assertEqual((32,), ((rec[0] >> 2) & 0x3F,), "fixture does not carry pair_index 32")
+        try:
+            got = verify.decode(rec)
+        except Exception as e:                      # noqa: BLE001 - that is the defect
+            self.fail(f"decode() RAISED on an out-of-range pair_index: {e!r}")
+        self.assertEqual(got, (None, None, None))
+
+    def test_check_artifact_reports_bad_key_and_exits_nonzero(self):
+        import os, subprocess, sys
+        path = self._artifact([32] + list(range(1, 32)))
+        try:
+            r = subprocess.run([sys.executable, "verify.py", path, "--check-artifact", "1"],
+                               capture_output=True, text=True,
+                               cwd=os.path.dirname(os.path.abspath(__file__)))
+        finally:
+            os.unlink(path)
+        self.assertNotIn("Traceback", r.stdout + r.stderr,
+                         "the reference parser raised instead of reporting")
+        self.assertIn("BAD_KEY=1", r.stdout)
+        self.assertIn("ARTIFACT=FAIL", r.stdout)
+        self.assertNotEqual(r.returncode, 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
