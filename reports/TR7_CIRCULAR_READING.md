@@ -34,7 +34,22 @@ popcount-parity classes. Finally, the circular form of C2 ("no 5-line transition
 is a *genuine* extra constraint: valid linear orderings with a 5-line wrap exist (SAT-decided, explicit
 witness) even though exactly zero appear among the 10,525,271,997 records of the deepest canonical slice;
 the full-space wrap-distance masses are measured at d=1: 17.5%, d=3: 65.2%, d=5: 17.4% (2×10¹⁰
-weighted-Knuth probes; the archived v2.0 r6 run —
+weighted-Knuth probes.
+
+⚠ **[REPRODUCTION COMMAND ADDED 2026-09-03 — these masses were MEASURED and no runnable command
+resolved within their window, only a pointer to an archived artifact. The artifact records its own
+parameters, so the invocation is recoverable rather than guessed:**
+```
+SOLVE_KNUTH_SCORE=1 SOLVE_THREADS=64 ./solve --estimate-knuth 20000000000
+```
+**read off `evidence/r6/rc1c_primary.out`'s own header — `[knuth] 20000000000 probes, 64 threads` and
+`KNUTH-ESTIMATE probes=20000000000 threads=64 start_step=1 prefix_levels=0` — with
+`SOLVE_KNUTH_SCORE=1` being the flag that emits the `[score] R-C1c` line at all (`SOLVE_C_CLI.md`
+§`SOLVE_KNUTH_SCORE`). 🔴 The `SOLVE_THREADS=64` pin is load-bearing, not decoration: the estimator's
+seeds are fixed constants and **the thread count selects the sample** (METHODS §"Reproducibility rule
+for estimator output"), so a re-run at a different thread count is a different draw, not this one.]**
+
+The archived v2.0 r6 run —
 [`evidence/r6/rc1c_primary.out`](evidence/r6/rc1c_primary.out): 17.45 / 65.18 / 17.37% — agrees
 within 0.05 percentage points per class, but it is a **partially overlapping replicate, not an
 independent draw**: it shares half its probes with the primary run (§5). The instrument has printed
