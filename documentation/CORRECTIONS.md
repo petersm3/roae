@@ -7864,3 +7864,51 @@ values TR-7 has carried since v2.3.
 **Attribution and the usual caution.** The defect and its correction are Codex V2-F09 #3's and prose
 batch P36's; GATE 59 (code-fix lane, same day) found the TR-1 site independently; this sweep is the
 prose lane's (Claude) under operator direction. Corrections welcome.
+
+## 2026-09-03 — a typo'd sha prefix that broke a paper-citable anchor, and the gate that made recording it impossible (code-fix lane, Codex V2-23 #1)
+
+### 1. Typo'd sha prefix, corrected: `a09280fbf…` → `a09280fb8…` in the d2 10T anchor
+
+- **Class:** C3 · **Documents:** `documentation/BOUNDARY_MINIMUM.md:29`,
+  `documentation/PARTITION_STABILITY_BOUNDARIES.md:21`.
+- **BEFORE:** `a09280fbf…`
+- **NOW:** `a09280fb8…` — the prefix of the d2 10T canonical (286,357,503 records,
+  `runs/20260418_10T_d2_fresh/`), fixed in commit `05d2771a`, *"Typo'd sha prefix broke a
+  paper-citable anchor in both boundary docs"*.
+- **Why it mattered.** The two differ at the ninth nibble. A reader who copied the published prefix
+  into a grep got nothing back, which is the precise failure a citable anchor exists to prevent.
+
+### 🔴 2. This entry could not be written until today, because a gate forbade it
+
+`doc_gates.sh` GATE 22 requires every ellipsis-truncated hex token in a `.md` file to be a prefix of
+some 64-nibble string in the tree. The typo `a09280fbf…` is not — that is *what was wrong with it*. Its NEAR
+branch failed unconditionally and said in as many words *"NO allowlist row waives this leg."*
+
+So an entry quoting the typo verbatim failed the pre-push gate, and this file's own rule
+(`:7`, entries *"are never edited to look better"*) forbade paraphrasing it away. The ledger that
+promises *"every claim this project published and later changed, in one place"* had a class of
+correction it was structurally unable to record — and the omission was invisible, because the gate
+that caused it reported PASS.
+
+**Fixed in the same commit as this entry.** A NEAR token is now waived when **every** occurrence of it
+sits in a correction marker or revision-history row — the shape GATES 27 and 29 already use, and
+deliberately not a filename allowlist, which GATE 3b measured and rejected as too coarse. One loose
+occurrence in ordinary prose and the token fails exactly as before.
+
+### 3. The same gate was also witnessing itself
+
+GATE 22 built its universe with `git grep -ohIE '[0-9a-f]+' HEAD` over the whole tree —
+`scripts/doc_gates.sh` included, which embeds full 64-nibble hashes in its own allowlist comments. A
+token could therefore "resolve" against the checker's own narration. Nine files carry the hash today
+and eight do so independently, so the gate was **not** false-green; but it could not have told that
+world apart from one where every independent expansion had been deleted and only its own comment
+survived.
+
+This is the verifier-closure invariant — a verifier must be FALSE when its target is absent, and may
+never supply the witness from its own text. It was closed once as Codex N07 in commit `130479f8`
+(*"stop the checker witnessing itself"*), **on a branch that never reached `main`**, so it regressed
+here unnoticed. The universe now excludes this file.
+
+**Attribution.** Both defects are Codex V2-23 #1's; the second (self-witnessing) was not named in the
+finding and was measured during adjudication. Fix and entry are the code-fix lane's (Claude) under
+operator direction. Corrections welcome.

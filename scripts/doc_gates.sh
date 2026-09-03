@@ -10770,8 +10770,15 @@ gate_hex_prefix() {
   local d; d=$(mktemp -d) || { echo "  [FAIL] GATE 22: mktemp failed, so nothing was checked."; return 1; }
   # UNIVERSE. `[0-9a-f]+` is unbounded on a CHARACTER CLASS, then length-filtered in awk —
   # deliberately not `[0-9a-f]{64}`, so this file's own no-bounded-repetition rule holds.
-  { git grep -ohIE '[0-9a-f]+' HEAD 2>/dev/null
-    git diff -z --name-only HEAD 2>/dev/null | xargs -0 -r grep -ohIE '[0-9a-f]+' 2>/dev/null
+  # 🔴 THIS FILE IS EXCLUDED FROM ITS OWN UNIVERSE — the verifier-closure invariant, closed once as
+  # Codex N07 in 130479f8 and never merged to main, so it regressed here. doc_gates.sh embeds full
+  # 64-nibble hashes in its own allowlist comments. Counting them means a token can "resolve" against
+  # the checker's own narration: delete every independent expansion from the corpus and this gate
+  # still reports OK. A verifier must be FALSE when its target is absent, and it cannot supply the
+  # witness from its own text.
+  { git grep -ohIE '[0-9a-f]+' HEAD -- ':!scripts/doc_gates.sh' 2>/dev/null
+    git diff -z --name-only HEAD 2>/dev/null | grep -zv '^scripts/doc_gates\.sh$' \
+      | xargs -0 -r grep -ohIE '[0-9a-f]+' 2>/dev/null
   } | awk 'length($0)==64' | sort -u > "$d/univ"
   if [ ! -s "$d/univ" ]; then
     echo "  [FAIL] zero 64-nibble strings found in the tree. That is a broken scan, not a"
@@ -10779,8 +10786,41 @@ gate_hex_prefix() {
     echo "         noise. Re-anchor this gate, do not silence it."
     rm -rf "$d"; return 1
   fi
-  git grep -ohE '[0-9a-f]+(…|\.\.\.)' -- '*.md' 2>/dev/null \
-    | sed 's/…$//; s/\.\.\.$//' | awk 'length($0)>=7 && length($0)<=63' | sort -u > "$d/tok"
+  # TOKENS, NOW WITH THEIR LINE CONTEXT. `-o` alone discards the line, and the NEAR leg needs it:
+  # a mistyped anchor QUOTED INSIDE A CORRECTION ENTRY is the ledger doing exactly its job, while the
+  # same token in ordinary prose is the defect. Only the line separates them. Four gates in this file
+  # already carve out this case (3b, 26, 27, 29); GATE 22 was the fifth and had no mechanism, which
+  # made a faithful CORRECTIONS.md entry literally unpublishable.
+  # 🔴 THE EXEMPTION IS PER-TOKEN AND UNANIMOUS, NOT PER-LINE. A token is narration ONLY if EVERY
+  # one of its occurrences sits in a marker; one loose occurrence in plain prose and it is PROSE
+  # again and still fails. A per-line waiver would let a real typo hide behind one tidy citation.
+  git grep -nHE '[0-9a-f]+(…|\.\.\.)' -- '*.md' 2>/dev/null > "$d/hits" || true
+  python3 - "$d/hits" "$d/tok" "$d/narr" <<'PYTOK'
+import re, sys
+hits, tokf, narrf = sys.argv[1], sys.argv[2], sys.argv[3]
+TOK  = re.compile(r'[0-9a-f]+(?:\u2026|\.\.\.)')
+# Same marker vocabulary GATE 27 uses, plus the CORRECTIONS.md entry shape itself. \s+ not " ":
+# a marker wrapping as "[CORRECTED\n2026-08-28" is the normal case in this corpus.
+MARK = re.compile(r'withdrawn|label\s+corrected|corrected\s+20|scoped\s+20|superseded|retract'
+                  r'|\*\*before:\*\*|\*\*now:\*\*|typo', re.I)
+seen, prose = set(), set()
+try:
+    fh = open(hits, encoding='utf-8', errors='replace')
+except OSError:
+    fh = []
+for line in fh:
+    parts = line.split(':', 2)
+    body = parts[2] if len(parts) == 3 else line
+    narr = bool(MARK.search(body))
+    for m in TOK.finditer(body):
+        t = m.group(0).rstrip('\u2026').rstrip('.')
+        if 7 <= len(t) <= 63:
+            seen.add(t)
+            if not narr:
+                prose.add(t)
+open(tokf,  'w').write(''.join(t + '\n' for t in sorted(seen)))
+open(narrf, 'w').write(''.join(t + '\n' for t in sorted(seen - prose)))
+PYTOK
   awk -v near="$NEAR_MIN" '
     NR==FNR { U[++n]=$0; next }
     { t=$0; best=0; bu=""
@@ -10801,10 +10841,16 @@ gate_hex_prefix() {
     case "$kind" in
       OK) ;;
       NEAR)
+        # NARRATION WAIVER — narrow by construction, and NOT a filename allowlist (GATE 3b measured
+        # that coarseness and rejected it). The token qualifies only if EVERY occurrence of it in the
+        # corpus sits in a correction marker or revision row. A typo quoted by the ledger that
+        # records the typo is the ledger working; the same token loose in prose still fails below.
+        if grep -qxF "$t" "$d/narr" 2>/dev/null; then declared=$((declared+1)); continue; fi
         echo "  [FAIL] NEAR MISS: \`$t…\` is a prefix of NO 64-nibble string in the tree, but agrees with"
         echo "         $u for $n nibbles. That is a mistyped anchor, not a"
         echo "         narrative identifier: a reviewer's prefix grep returns nothing. Fix the"
-        echo "         digits against the registry. NO allowlist row waives this leg."
+        echo "         digits against the registry. Only a correction marker or revision row waives"
+        echo "         this leg, and only when EVERY occurrence of the token carries one."
         rc=1;;
       DANGLE)
         why=$(hex_allow "$t")
