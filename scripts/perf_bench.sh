@@ -8,6 +8,17 @@
 #     feedback_preflight_throttle_probe for the same-SKU 2× variance pattern).
 #   - Two builds compared head-to-head on the same VM (Build N = control,
 #     Build U = treatment); a single VM removes inter-machine variance.
+#   - PREFLIGHT THROTTLE PROBE (added 2026-09-02; mandatory per the 2026-05-18
+#     finding in PERFORMANCE_HISTORY.md — workload-time MHz cannot distinguish
+#     a throttled host from memory-bound saturation, so the ONLY throttle
+#     signal is a pure-CPU burn BEFORE the bench): `yes > /dev/null` on every
+#     core for --burn-seconds (default 60, floor 30), then per-core MHz is
+#     sampled at the end of the burn. The minimum must be >= --throttle-min-mhz
+#     (default 3664, the AVX-512 definitive-bench precedent for D128als_v7).
+#     Reported as HEALTHY / THROTTLED / UNVERIFIED on its own token line; a
+#     THROTTLED or UNVERIFIED host is torn down BEFORE any bench runs (exit 5),
+#     because a bench without throttle evidence cannot enter the record either
+#     way and would only spend the VM.
 #   - Page-cache flushed (`echo 3 > /proc/sys/vm/drop_caches`) between paired
 #     runs, and the flush is VERIFIED, not assumed: each run reports
 #     CONFIRMED / FAILED / UNVERIFIED and the script refuses to certify a
@@ -15,6 +26,15 @@
 #   - Enum-only wall time captured around the `--branch` command, BEFORE
 #     `--merge`. Merge wall is captured separately as a correctness-gate cost,
 #     not a perf metric.
+#   - `sha` and `records` are LOGICAL (added 2026-09-02): solutions.bin is
+#     gz-framed by default (SOLUTIONS_FORMAT.md "On-disk framing"), so the
+#     gzip magic is sniffed and the hash and byte count are taken over the
+#     DECOMPRESSED stream — `gzip -dc solutions.bin | sha256sum`, the
+#     convention every anchor in CANONICAL_HASHES.md uses. The previous
+#     `sha256sum solutions.bin` hashed the compressed CONTAINER, which varies
+#     with zlib version and level and false-mismatches a byte-identical
+#     artifact (phantom drift), and `(container_bytes-32)/32` was a fictional
+#     record count. The container sha is still reported, labelled as such.
 #   - Multi-scale: 1B-node smoke + 1T-node full bench by default.
 #   - Output: JSON line to stdout that drops into a PERFORMANCE_HISTORY.md entry.
 #
@@ -22,6 +42,7 @@
 #   perf_bench.sh --control-commit <sha> --treatment-commit <sha> [--treatment-pgo]
 #                 [--scale 1B|1T|11.2T] [--branch <p> <o>] [--threads N]
 #                 [--pgo-workload "<cmd>"] [--keep-vm]
+#                 [--throttle-min-mhz N] [--burn-seconds N]
 #
 # Exit codes:
 #   0  bench completed AND methodology confirmed (emits PERF_BENCH_METHODOLOGY=OK)
@@ -31,6 +52,11 @@
 #      the JSON is emitted with "methodology_valid": false and must NOT be
 #      pasted into PERFORMANCE_HISTORY.md (emits PERF_BENCH_METHODOLOGY=VIOLATED)
 #   4  build or --selftest failed on the VM; no bench produced
+#   5  preflight throttle probe did not read HEALTHY (THROTTLED, or UNVERIFIED
+#      because MHz could not be sampled / the burn was too short / no token
+#      came back) — VM torn down, no bench produced, PERF_BENCH_METHODOLOGY=VIOLATED.
+#      Per feedback_throttle_probe_eviction_recovery: deallocate and retry on
+#      another host.
 #
 # Gate on it with:  perf_bench.sh ... | grep -qx PERF_BENCH_METHODOLOGY=OK
 #
@@ -52,6 +78,9 @@ BRANCH_ORIENT=0
 THREADS=128
 PGO_WORKLOAD="SOLVE_NODE_LIMIT=200000000 SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 SOLVE_THREADS=8 ./solve_inst --branch 25 1"
 KEEP_VM=0
+THROTTLE_MIN_MHZ=3664   # AVX-512 definitive-bench precedent (PERFORMANCE_HISTORY.md, D128als_v7)
+BURN_SECS=60            # sample is taken at the END of the burn; the 2026-05-18 finding needs >=30 s
+BURN_FLOOR=30
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -63,12 +92,19 @@ while [ $# -gt 0 ]; do
         --threads) THREADS="$2"; shift 2 ;;
         --pgo-workload) PGO_WORKLOAD="$2"; shift 2 ;;
         --keep-vm) KEEP_VM=1; shift ;;
+        --throttle-min-mhz) THROTTLE_MIN_MHZ="$2"; shift 2 ;;
+        --burn-seconds) BURN_SECS="$2"; shift 2 ;;
         *) echo "Unknown arg: $1"; exit 2 ;;
     esac
 done
 
 [ -z "$CONTROL_COMMIT" ]   && { echo "Required: --control-commit <sha>"; exit 2; }
 [ -z "$TREATMENT_COMMIT" ] && { echo "Required: --treatment-commit <sha>"; exit 2; }
+case "$THROTTLE_MIN_MHZ" in ''|*[!0-9]*) echo "--throttle-min-mhz must be an integer MHz"; exit 2 ;; esac
+case "$BURN_SECS" in ''|*[!0-9]*) echo "--burn-seconds must be an integer"; exit 2 ;; esac
+# A burn shorter than the floor is accepted so a harness can exercise the path, but the probe it
+# yields is UNVERIFIED by construction (below), never HEALTHY: there is no flag that turns the
+# throttle evidence off.
 
 case "$SCALE" in
     1B)    NODE_LIMIT=1000000000      ; VM_SIZE=Standard_D8als_v7  ; DISK_GB=32  ;;
@@ -129,8 +165,11 @@ emit "STEP 2: Install + copy source + build both binaries"
 # whole-line `grep -qx` on a verdict token means what it says. (The previous
 # version grepped /tmp/perf_bench_$$.log, which is written asynchronously by
 # the process-substitution `tee` on line 29 and is indented by `sed`.)
-RAW_DIR=/tmp/perf_bench_${LAUNCH_ID}_raw
-mkdir -p "$RAW_DIR"
+# Keyed on $$ as well as the minute: two launches in the same minute used to share this
+# directory, and the token parsers below read whatever transcript is there — a stale
+# probe.out from an earlier run would have supplied this run's verdict.
+RAW_DIR=/tmp/perf_bench_${LAUNCH_ID}_$$_raw
+rm -rf "$RAW_DIR"; mkdir -p "$RAW_DIR"
 
 $SSH "$ADMIN@$VM_IP" 'sudo apt-get update -qq && sudo apt-get install -y -qq build-essential zlib1g-dev' 2>&1 | tail -1 | sed 's/^/  /'
 
@@ -197,6 +236,65 @@ if [ "${PIPESTATUS[0]}" -ne 0 ]; then
     exit 4
 fi
 
+# ---------- preflight throttle probe ----------
+# Pure-CPU burn on every core, MHz sampled at the END of the burn. Three outcomes, each on its
+# own token line, and no fourth that means "assume healthy":
+#   HEALTHY    - min per-core MHz >= THROTTLE_MIN_MHZ after a burn of at least BURN_FLOOR s
+#   THROTTLED  - sampled and below the threshold
+#   UNVERIFIED - could not be sampled (no nproc / no MHz source), or the burn was shorter than
+#                the floor, or no token came back at all. NOT a pass.
+emit "STEP 2b: Preflight throttle probe (${BURN_SECS}s pure-CPU burn on every core; min MHz must be >= ${THROTTLE_MIN_MHZ}; floor ${BURN_FLOOR}s)"
+$SSH "$ADMIN@$VM_IP" "
+    set +e
+    PROBE=UNVERIFIED; PROBE_DETAIL=no-detail
+    NC=\$(nproc 2>/dev/null); case \"\$NC\" in ''|*[!0-9]*) NC=0;; esac
+    if [ \"\$NC\" -lt 1 ]; then
+        PROBE_DETAIL=nproc-unreadable
+    else
+        for i in \$(seq 1 \"\$NC\"); do yes > /dev/null & done
+        sleep $BURN_SECS
+        MHZ=\$(awk '/^cpu MHz/{print \$4}' /proc/cpuinfo 2>/dev/null)
+        if [ -z \"\$MHZ\" ]; then
+            MHZ=\$(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | awk '{printf \"%.0f\\n\", \$1/1000}')
+        fi
+        kill \$(jobs -p) 2>/dev/null; wait 2>/dev/null
+        if [ -z \"\$MHZ\" ]; then
+            PROBE_DETAIL=cpu-mhz-unreadable
+        else
+            STATS=\$(printf '%s\\n' \"\$MHZ\" | awk 'NR==1{mn=\$1;mx=\$1} {s+=\$1; n++; if(\$1<mn)mn=\$1; if(\$1>mx)mx=\$1} END{printf \"%d %d %d %d\", mn, s/n, mx, n}')
+            set -- \$STATS
+            PROBE_DETAIL=min_\${1}_avg_\${2}_max_\${3}_mhz_over_\${4}_samples_\${NC}_cores_burn_${BURN_SECS}s_threshold_${THROTTLE_MIN_MHZ}
+            if [ $BURN_SECS -lt $BURN_FLOOR ]; then
+                PROBE=UNVERIFIED; PROBE_DETAIL=burn-too-short-\${PROBE_DETAIL}
+            elif [ \"\$1\" -ge $THROTTLE_MIN_MHZ ]; then PROBE=HEALTHY
+            else PROBE=THROTTLED; fi
+        fi
+    fi
+    printf '\\n'
+    echo \"PERFBENCH_THROTTLE_PROBE=\$PROBE\"
+    echo \"PERFBENCH_THROTTLE_DETAIL=\$PROBE_DETAIL\"
+" 2>&1 | tee "$RAW_DIR/probe.out" | sed 's/^/  /'
+
+probe_status() {   # exactly three accepted tokens; absence of all three reads UNVERIFIED
+    local raw="$RAW_DIR/probe.out" st
+    for st in HEALTHY THROTTLED UNVERIFIED; do
+        if [ -f "$raw" ] && grep -qx "PERFBENCH_THROTTLE_PROBE=${st}" "$raw"; then printf '%s' "$st"; return; fi
+    done
+    printf 'UNVERIFIED'
+}
+THROTTLE_PROBE=$(probe_status)
+THROTTLE_DETAIL=$( { [ -f "$RAW_DIR/probe.out" ] && sed -n 's/^PERFBENCH_THROTTLE_DETAIL=//p' "$RAW_DIR/probe.out" | tail -1; } )
+THROTTLE_DETAIL=${THROTTLE_DETAIL:-no-verdict-token-in-transcript}
+emit "  throttle_probe=$THROTTLE_PROBE ($THROTTLE_DETAIL)"
+if [ "$THROTTLE_PROBE" != HEALTHY ]; then
+    emit "🔴 FATAL: preflight throttle probe is $THROTTLE_PROBE, not HEALTHY — no bench will be run on this host"
+    emit "🔴   $THROTTLE_DETAIL"
+    emit "🔴   Deallocate and retry on another host (feedback_throttle_probe_eviction_recovery)."
+    teardown
+    printf '\nPERF_BENCH_METHODOLOGY=VIOLATED\n'
+    exit 5
+fi
+
 # ---------- paired run ----------
 emit "STEP 3: Paired enum-only runs"
 
@@ -255,9 +353,36 @@ run_enum_only() {
             MEND=\$(date +%s%N)
             MERGE_WALL_NS=\$((MEND - MSTART))
             echo \"BUILD $BUILD merge_wall_ns=\${MERGE_WALL_NS}\"
-            sha256sum solutions.bin 2>/dev/null | awk '{print \"BUILD $BUILD sha=\" \$1}'
-            BYTES=\$(stat -c %s solutions.bin 2>/dev/null || echo 0)
-            echo \"BUILD $BUILD records=\$(( (BYTES - 32) / 32 ))\"
+            # LOGICAL sha + record count (SOLUTIONS_FORMAT.md \"On-disk framing\"): sniff the
+            # gzip magic 1f 8b; a gz-framed file is hashed and sized over its DECOMPRESSED
+            # stream, the convention of every anchor in CANONICAL_HASHES.md. The container
+            # sha is reported too, labelled, so a reader can never mistake one for the other.
+            if [ -s solutions.bin ]; then
+                CSHA=\$(sha256sum solutions.bin | awk '{print \$1}')
+                if [ \"\$(head -c 2 solutions.bin | od -An -tx1 | tr -d ' \\n')\" = 1f8b ]; then
+                    FRAMING=gzip
+                    LSHA=\$(gzip -dc solutions.bin | sha256sum | awk '{print \$1}'); R1=\${PIPESTATUS[0]}
+                    LBYTES=\$(gzip -dc solutions.bin | wc -c); R2=\${PIPESTATUS[0]}
+                    if [ \"\$R1\" -ne 0 ] || [ \"\$R2\" -ne 0 ]; then LSHA=DECOMPRESS-FAILED; LBYTES=; fi
+                else
+                    FRAMING=raw
+                    LSHA=\$CSHA
+                    LBYTES=\$(stat -c %s solutions.bin)
+                fi
+                echo \"BUILD $BUILD framing=\$FRAMING\"
+                echo \"BUILD $BUILD sha=\$LSHA\"
+                echo \"BUILD $BUILD container_sha=\$CSHA\"
+                if [ -n \"\$LBYTES\" ] && [ \"\$LBYTES\" -ge 32 ]; then
+                    echo \"BUILD $BUILD logical_bytes=\$LBYTES\"
+                    echo \"BUILD $BUILD records=\$(( (LBYTES - 32) / 32 ))\"
+                else
+                    echo \"BUILD $BUILD logical_bytes=null\"
+                    echo \"BUILD $BUILD records=null\"
+                fi
+            else
+                echo \"BUILD $BUILD framing=absent\"
+                echo \"BUILD $BUILD sha=ABSENT\"
+            fi
         fi
     "
 }
@@ -301,13 +426,24 @@ SHA_N=$(bench_field N sha)
 SHA_U=$(bench_field U sha)
 RECS_N=$(bench_field N records)
 RECS_U=$(bench_field U records)
+FRAMING_N=$(bench_field N framing)
+FRAMING_U=$(bench_field U framing)
+CSHA_N=$(bench_field N container_sha)
+CSHA_U=$(bench_field U container_sha)
 
 PCF_N=$(pcf_status N);  PCF_DETAIL_N=$(pcf_detail N)
 PCF_U=$(pcf_status U);  PCF_DETAIL_U=$(pcf_detail U)
 
-if [ "$PCF_N" = CONFIRMED ] && [ "$PCF_U" = CONFIRMED ]; then
+# Verifier closure: the probe gate above exits 5 on anything but HEALTHY, so this branch is
+# unreachable today — it is here so that if that exit is ever removed or bypassed, the JSON
+# still cannot say methodology_valid without throttle evidence.
+if [ "$PCF_N" = CONFIRMED ] && [ "$PCF_U" = CONFIRMED ] && [ "$THROTTLE_PROBE" = HEALTHY ]; then
     PAGE_CACHE_FLUSHED="CONFIRMED"
     METHODOLOGY_OK=1
+elif [ "$THROTTLE_PROBE" != HEALTHY ]; then
+    PAGE_CACHE_FLUSHED="control=$PCF_N, treatment=$PCF_U"
+    METHODOLOGY_OK=0
+    emit "🔴🔴🔴 METHODOLOGY VIOLATION — throttle probe is $THROTTLE_PROBE ($THROTTLE_DETAIL)"
 else
     PAGE_CACHE_FLUSHED="NOT CONFIRMED (control=$PCF_N [$PCF_DETAIL_N], treatment=$PCF_U [$PCF_DETAIL_U])"
     METHODOLOGY_OK=0
@@ -351,11 +487,16 @@ cat <<EOF
   "branch": "$BRANCH_PAIR $BRANCH_ORIENT",
   "threads": $THREADS,
   "page_cache_flushed": "$PAGE_CACHE_FLUSHED",
+  "throttle_probe": "$THROTTLE_PROBE",
+  "throttle_probe_detail": "$THROTTLE_DETAIL",
   "methodology_valid": $([ "$METHODOLOGY_OK" -eq 1 ] && echo true || echo false),
+  "sha_scope": "logical (decompressed stream; gzip -dc solutions.bin | sha256sum when gz-framed) — the CANONICAL_HASHES.md convention; container_sha is the on-disk file and is NOT comparable to any anchor",
   "control": {
     "enum_wall_ns": ${ENUM_N_NS:-null},
     "merge_wall_ns": ${MERGE_N_NS:-null},
     "sha": "${SHA_N:-TBD}",
+    "container_sha": "${CSHA_N:-TBD}",
+    "framing": "${FRAMING_N:-unknown}",
     "records": ${RECS_N:-null},
     "page_cache_flush": "$PCF_N",
     "page_cache_flush_detail": "$PCF_DETAIL_N"
@@ -364,12 +505,14 @@ cat <<EOF
     "enum_wall_ns": ${ENUM_U_NS:-null},
     "merge_wall_ns": ${MERGE_U_NS:-null},
     "sha": "${SHA_U:-TBD}",
+    "container_sha": "${CSHA_U:-TBD}",
+    "framing": "${FRAMING_U:-unknown}",
     "records": ${RECS_U:-null},
     "page_cache_flush": "$PCF_U",
     "page_cache_flush_detail": "$PCF_DETAIL_U"
   },
   "speedup_enum_pct": "${SPEEDUP_PCT}",
-  "sha_preserved": $([ "${SHA_N:-x}" = "${SHA_U:-y}" ] && echo true || echo false),
+  "sha_preserved": $([ -n "${SHA_N:-}" ] && [ "${SHA_N}" = "${SHA_U:-}" ] && [ "${SHA_N}" != ABSENT ] && [ "${SHA_N}" != DECOMPRESS-FAILED ] && echo true || echo false),
   "artifacts": "$RESULTS_DIR/",
   "raw_transcripts": "$RAW_DIR/"
 }

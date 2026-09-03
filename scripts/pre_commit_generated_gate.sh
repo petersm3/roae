@@ -9,12 +9,15 @@
 #   based discipline is exactly what this project's retrospective says does not
 #   work; this makes it mechanical.
 #
-# INSTALL (same pattern as scripts/pre_push_compile_gate.sh):
+# INSTALL — via the DISPATCHER, never as a bare symlink to this file. Until 2026-09-02 this
+# header prescribed `ln -s ../../scripts/pre_commit_generated_gate.sh .git/hooks/pre-commit`,
+# which is exactly the install scripts/pre_commit_gate.sh exists to prevent: a hook pointing at
+# this gate alone SILENTLY DROPS the registry gate (see the dispatcher's header and
+# DEVELOPMENT.md "Git hooks"). One command per clone, no chmod (the target carries its exec bit):
 #
-#   ln -s ../../scripts/pre_commit_generated_gate.sh .git/hooks/pre-commit
-#   chmod +x .git/hooks/pre-commit
+#   ln -sf ../../scripts/pre_push_gate.sh .git/hooks/pre-push && ln -sf ../../scripts/pre_commit_gate.sh .git/hooks/pre-commit
 #
-# Or invoke directly:  bash scripts/pre_commit_generated_gate.sh && git commit
+# Or invoke this gate directly:  bash scripts/pre_commit_generated_gate.sh && git commit
 #
 # WHEN IT FIRES
 #   Only when the commit touches the generator or one of its outputs. A commit
