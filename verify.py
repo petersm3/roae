@@ -46,6 +46,10 @@ Usage:
                                                     # + pair orderings 2/381/899 (orientation-deduped)
                                                     # + 3 away-from-KW C3 cross-anchors (solve.c-exact expectations)
     python3 verify.py --recount-finite              # TR-5/TR-6 finite record-mode + wrap/parity tallies
+    python3 verify.py --twins-bisect solutions.bin  # TR-5 §5: the 24 record keys (KW + 23 twins), each
+                                                    # PRESENT/ABSENT in the given canonical (bisect; gz = scan)
+    python3 verify.py --sigma-isomorphism-all48     # TR-5 §3(ii): all 48 sigma image prefixes walked
+                                                    # (~27 s each, ~21.5 min total; --sigma-limit N = smoke)
     python3 verify.py --recount-fiber               # TR-1 §7 orientation fiber (1,720,320 / 983,040)
     python3 verify.py --recount-gender-null         # TR-8 exact pair-null gender figure (47/445740)
     python3 verify.py [solutions.bin] --fiber-sweep # orientation-fiber factor: records -> sequences
@@ -3578,6 +3582,228 @@ def recount_gender_null():
           if ok else "*** MISMATCH — investigate ***")
     return 0 if ok else 1
 
+# ---------------------------------------------------------------------------
+# THE 48 SIGMA AND THE 24 RECORD KEYS  (--twins-bisect, --sigma-isomorphism-all48)
+#
+# Both flags below are built on recount_finite()'s primitives (the 48-of-720
+# classification checked from the constraint definitions, not via group
+# membership) and _exact_subtree().  Queued as TR-5 code legs (prose batch P38,
+# Codex V2-F07): TR-5 §5's twins-absent measurement had a prose recipe and no
+# shipped command; TR-5 §3(ii) publishes a THREE-sigma sample of the tree
+# isomorphism because the all-48 figure would otherwise arrive ahead of its
+# reproduction command.  Code batch 2026-09-02 (code-fix lane, doc_gates +
+# verify.py territory).
+#
+# WHY --sigma-isomorphism-all48 IS ITS OWN FLAG AND NOT PART OF --recount-subtree.
+# Batch C4 (2026-09-02) MEASURED the cost the backlog item guessed at "~30 s":
+# every one of the 48 sigma yields a DISTINCT 22-pair prefix and each is a full
+# 9,422,793-node walk at ~27 s in CPython -> ~21.5 min for the sweep, against
+# the "~1-2 min" that documentation/VERIFY.md publishes for --recount-subtree.
+# Folding it in would silently falsify a published runtime; so it ships behind
+# its own flag with its own stated cost, and --recount-subtree is untouched.
+# --sigma-limit N runs the first N sigma as a smoke test and can NEVER print
+# the PASS token: a partial sweep is reported as PARTIAL.
+
+_PAIR_INDEX = {frozenset(pr): i for i, pr in enumerate(PAIRS)}
+
+def _sigma_valid_perms():
+    """The bit permutations g with g(KW) C1-C5-valid, decided from the constraint
+    definitions directly (the same classify() route recount_finite uses)."""
+    import itertools
+    kw_ms = sorted(hamming(KW[i], KW[i + 1]) for i in range(63))
+    def ok(s):
+        if any(s[2*i+1] != _partner(s[2*i]) for i in range(32)):
+            return False
+        if any(hamming(s[i], s[i+1]) == 5 for i in range(63)):
+            return False
+        if compute_comp_dist(s) > 776:
+            return False
+        if not (s[0] == 63 and s[1] == 0):
+            return False
+        return sorted(hamming(s[i], s[i+1]) for i in range(63)) == kw_ms
+    return [g for g in itertools.permutations(range(6))
+            if ok([_apply_bitperm(g, h) for h in KW])]
+
+def _sigma_images():
+    """[(g, seq, slots, prefix22)] for every valid sigma: seq = g(KW), slots =
+    the pair index at each of the 32 slots, prefix22 = the (pair, orient) list
+    for slots 1..22 in _exact_subtree's convention (the 9-free KW rung uses
+    slots 1..22 too, so the image prefix is the same depth)."""
+    out = []
+    for g in _sigma_valid_perms():
+        s = [_apply_bitperm(g, h) for h in KW]
+        slots = [_PAIR_INDEX[frozenset((s[2*i], s[2*i+1]))] for i in range(32)]
+        prefix = []
+        for i in range(1, 23):
+            p = slots[i]
+            prefix.append((p, 0 if (s[2*i], s[2*i+1]) == PAIRS[p] else 1))
+        out.append((g, s, slots, prefix))
+    return out
+
+def _sigma_record_keys():
+    """The distinct RECORD keys (orientation masked, SOLUTIONS_FORMAT.md §Sort
+    order primary key) of the 48 images: {key_bytes: (first g, slots)}.
+    Expected 24 = KW + 23 twins (recount_finite gates the same count)."""
+    keys = {}
+    for g, s, slots, _pfx in _sigma_images():
+        k = bytes(p << 2 for p in slots)
+        keys.setdefault(k, (g, slots))
+    return keys
+
+def twins_bisect(path):
+    """--twins-bisect PATH: print the 24 record keys (KW + 23 twins) and each
+    one's presence in the given solutions.bin.  A raw file is BISECTED on the
+    primary sort key (24 x ~log2(N) 32-byte reads — the 560T canonical is
+    ~35 reads per key, not a 336 GB scan); a gzip-framed file cannot seek and
+    is scanned linearly instead (stated in the output as TWINS_METHOD=scan).
+    The ABSENT verdict of a bisect rests on the file being sorted, which
+    `verify.py PATH` certifies and this flag ASSUMES (TWINS_SORT_ASSUMED=YES).
+    Returns 0 iff 24 keys were derived and every key was decided; the
+    presence pattern itself is a MEASUREMENT and never fails the tool —
+    a budgeted shard legitimately lacks KW, and TR-5 §5's published pattern
+    (KW present, all 23 twins absent at 560T) is a claim about ONE artifact."""
+    keys = _sigma_record_keys()
+    print(f"TWINS_KEYS={len(keys)}")
+    if len(keys) != 24:
+        print(f"[*FAIL*] expected 24 distinct record keys (KW + 23 twins), derived {len(keys)}")
+        print("TWINS_BISECT=FAIL")
+        return 1
+    kw_key = bytes(i << 2 for i in range(32))
+    if kw_key not in keys:
+        print("[*FAIL*] KW's own record key is not among the 48 images")
+        print("TWINS_BISECT=FAIL")
+        return 1
+    try:
+        fh = open(path, 'rb')
+    except OSError as e:
+        print(f"[*FAIL*] cannot open {path}: {e}")
+        print("TWINS_BISECT=FAIL")
+        return 1
+    with fh:
+        gz = fh.read(2) == b'\x1f\x8b'
+    order = [kw_key] + sorted(k for k in keys if k != kw_key)
+    present = {}
+    if gz:
+        print("TWINS_METHOD=scan")
+        want = set(order)
+        try:
+            with gzip.open(path, 'rb') as g:
+                hdr = g.read(SOL_HEADER_SIZE)
+                n = parse_header(hdr)
+                print(f"TWINS_RECORDS={n}")
+                seen = 0
+                while True:
+                    rec = g.read(32)
+                    if len(rec) < 32:
+                        break
+                    seen += 1
+                    c = canonical(rec)
+                    if c in want:
+                        present[c] = True
+        except (OSError, ValueError, EOFError) as e:
+            print(f"[*FAIL*] cannot read {path}: {e}")
+            print("TWINS_BISECT=FAIL")
+            return 1
+        if seen != n:
+            print(f"[*FAIL*] header declares {n:,} records, stream held {seen:,}")
+            print("TWINS_BISECT=FAIL")
+            return 1
+    else:
+        print("TWINS_METHOD=bisect")
+        print("TWINS_SORT_ASSUMED=YES")
+        try:
+            with open(path, 'rb') as f:
+                n = parse_header(f.read(SOL_HEADER_SIZE))
+                print(f"TWINS_RECORDS={n}")
+                size = os.path.getsize(path)
+                if size != SOL_HEADER_SIZE + 32 * n:
+                    print(f"[*FAIL*] size {size:,} != header + {n:,} x 32")
+                    print("TWINS_BISECT=FAIL")
+                    return 1
+                for k in order:
+                    lo, hi = 0, n
+                    while lo < hi:
+                        mid = (lo + hi) // 2
+                        f.seek(SOL_HEADER_SIZE + 32 * mid)
+                        c = canonical(f.read(32))
+                        if c < k:
+                            lo = mid + 1
+                        else:
+                            hi = mid
+                    hit = False
+                    if lo < n:
+                        f.seek(SOL_HEADER_SIZE + 32 * lo)
+                        hit = canonical(f.read(32)) == k
+                    present[k] = hit
+        except (OSError, ValueError) as e:
+            print(f"[*FAIL*] cannot read {path}: {e}")
+            print("TWINS_BISECT=FAIL")
+            return 1
+    npres = 0
+    for idx, k in enumerate(order):
+        g, slots = keys[k]
+        p = bool(present.get(k, False))
+        npres += p
+        tag = "KW" if idx == 0 else f"{idx:02d}"
+        perm = "".join(str(x) for x in g)
+        print(f"TWIN_{tag}={'PRESENT' if p else 'ABSENT'}  sigma={perm}  "
+              f"slots={' '.join(str(x) for x in slots)}")
+    print(f"KW_PRESENT={'YES' if present.get(kw_key) else 'NO'}")
+    print(f"TWINS_PRESENT={npres - (1 if present.get(kw_key) else 0)}")
+    print(f"TWINS_ABSENT={23 - (npres - (1 if present.get(kw_key) else 0))}")
+    print("TWINS_BISECT=DONE")
+    return 0
+
+def sigma_isomorphism_all48(limit=None):
+    """--sigma-isomorphism-all48 [--sigma-limit N]: for EVERY valid sigma, walk
+    the exact C1-C5 tree below the 22-pair image prefix and gate it against the
+    KW 9-free anchors (tree_nodes 9,422,793 / canonical leaves 16,504).
+    ~27 s per sigma in CPython (measured 2026-09-02) -> ~21.5 min for all 48.
+    Prints SIGMA_ISOMORPHISM_ALL48=PASS only when all 48 ran and matched;
+    a --sigma-limit run prints PARTIAL.  Returns 0 iff every sigma that ran
+    matched AND the structural gates (48 sigma, 48 distinct prefixes, the
+    hard-coded _SIGMA_PREFIX among them) held."""
+    import time
+    imgs = _sigma_images()
+    rc = 0
+    def gate(name, got, want):
+        nonlocal rc
+        ok = (got == want)
+        if not ok:
+            rc = 1
+        print(f"[{' MATCH' if ok else '*FAIL*'}] {name}: recomputed {got!r}  published {want!r}")
+    gate("48-of-720 sigma(KW) C1-C5-valid", len(imgs), 48)
+    prefixes = [tuple(p) for _g, _s, _sl, p in imgs]
+    gate("distinct 22-pair image prefixes", len(set(prefixes)), 48)
+    gate("hard-coded _SIGMA_PREFIX is one of the 48 images", tuple(_SIGMA_PREFIX) in set(prefixes), True)
+    print(f"SIGMA_PREFIXES_DISTINCT={len(set(prefixes))}")
+    if limit is not None and limit < 1:
+        print("[*FAIL*] --sigma-limit must be >= 1")
+        print("SIGMA_ISOMORPHISM_ALL48=FAIL")
+        return 1
+    todo = imgs if limit is None else imgs[:limit]
+    ran = 0
+    t_all = time.time()
+    for i, (g, _s, _sl, pfx) in enumerate(todo):
+        t0 = time.time()
+        nodes, leaves, canon, _c67 = _exact_subtree(pfx)
+        ran += 1
+        ok = (nodes == 9422793 and canon == 16504)
+        if not ok:
+            rc = 1
+        perm = "".join(str(x) for x in g)
+        print(f"SIGMA_{i:02d}={perm} tree_nodes={nodes} leaves={leaves} canonical_leaves={canon} "
+              f"{'MATCH' if ok else 'FAIL'} ({time.time() - t0:.1f}s)")
+    print(f"SIGMA_ISOMORPHISM_RUN={ran}/48")
+    if rc != 0:
+        verdict = "FAIL"
+    elif ran == 48:
+        verdict = "PASS"
+    else:
+        verdict = "PARTIAL"
+    print(f"SIGMA_ISOMORPHISM_ALL48={verdict}  ({time.time() - t_all:.0f}s)")
+    return rc
+
 def recount_subtree():
     """--recount-subtree: independently recompute the exact deterministic
     subtree anchors of TR-5 §3 / TR-4 §"validated" / SEARCH_SPACE_SIZE.md
@@ -5368,6 +5594,21 @@ def main():
                              'solve.c --estimate-knuth exact mode (leaf C3 528..1104 — the C3 '
                              'predicate exercised in both directions away from the 776 threshold; '
                              'see _CROSS_PREFIXES). ~1-2 min. Does NOT read solutions.bin.')
+    parser.add_argument('--twins-bisect', metavar='SOLUTIONS_BIN', default=None,
+                        help='TR-5 §5 twins demonstration: derive the 24 record keys (KW + 23 twins) '
+                             'from the 48 valid sigma and report each PRESENT/ABSENT in the given '
+                             'solutions.bin. A raw file is bisected on the primary sort key (~35 '
+                             'reads per key on the 560T canonical); a gzip-framed file is scanned. '
+                             'The presence pattern is a measurement and never fails the tool.')
+    parser.add_argument('--sigma-isomorphism-all48', action='store_true',
+                        help='TR-5 §3(ii): walk the exact C1-C5 tree below EVERY one of the 48 sigma '
+                             'image prefixes and gate each against 9,422,793 / 16,504. ~27 s per sigma '
+                             'in CPython, ~21.5 min for all 48 (measured 2026-09-02) — deliberately NOT '
+                             'folded into --recount-subtree, whose published runtime is ~1-2 min. '
+                             'Prints SIGMA_ISOMORPHISM_ALL48=PASS only after all 48 match.')
+    parser.add_argument('--sigma-limit', type=int, metavar='N', default=None,
+                        help='With --sigma-isomorphism-all48: run only the first N sigma (smoke test). '
+                             'Never yields PASS; the verdict token reads PARTIAL.')
     parser.add_argument('--recount-finite', action='store_true',
                         help='Independently recompute the finite record-mode + wrap/parity tallies: '
                              'TR-5\'s 48-of-720 validity classification / 24 records / 23 twins '
@@ -5589,6 +5830,12 @@ def main():
     if args.recount_finite:
         sys.exit(recount_finite())
 
+    if args.twins_bisect is not None:
+        sys.exit(twins_bisect(args.twins_bisect))
+
+    if args.sigma_isomorphism_all48:
+        sys.exit(sigma_isomorphism_all48(args.sigma_limit))
+
     if args.recount_fiber:
         sys.exit(recount_fiber())
 
@@ -5736,11 +5983,30 @@ def main():
     total_fail = (fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5
                   + fail_decode + fail_sort + fail_dup + fail_fmt
                   + header_reserved_bad + fail_kw)
+    # Explicit verdict tokens (code batch V-1, 2026-09-02; Codex V2-F25 #8, root R1 "verdict
+    # asserted, not derived from every check"). Before this, the only machine-readable verdict
+    # was the exit status, and the one predicate the verdict does NOT fold in by default -- King
+    # Wen's presence -- was visible solely as prose ("King Wen: No") two lines above a "VERIFY
+    # PASS" sentence that named every OTHER check. Measured on this tree: the repository's own
+    # 13,320-record solutions.bin with the King Wen record deleted and the header count patched
+    # printed "King Wen: No" and then "VERIFY PASS: all 13,319 records satisfy C1-C5, sorted, no
+    # duplicates", rc 0, and no line a script could grep -qx for either fact. The default is
+    # UNCHANGED (a shard legitimately need not contain KW; registered as a scope decision in
+    # RETRACTED_PHRASES.tsv, 2026-09-02) -- what changes is that the scope is now STATED, in the
+    # PASS sentence and in whole-line KEY=value tokens, so PASS-without-KW can no longer be read
+    # as PASS-of-the-canonical by anything that does not read prose.
+    print(f"KW_PRESENT={'YES' if kw_found else 'NO'}")
+    print(f"KW_REQUIRED={'YES' if args.expect_kw else 'NO'}")
     if total_fail == 0:
-        print(f"\nVERIFY PASS: all {n:,} records satisfy C1-C5, sorted, no duplicates")
+        scope = ("" if kw_found else
+                 " — King Wen NOT present: this certifies the RECORDS only, not the claim that "
+                 "King Wen is among the solutions (pass --expect-kw on a complete canonical)")
+        print(f"\nVERIFY PASS: all {n:,} records satisfy C1-C5, sorted, no duplicates{scope}")
+        print("VERIFY=PASS")
         sys.exit(0)
     else:
         print(f"\nVERIFY FAIL: {total_fail} issues")
+        print("VERIFY=FAIL")
         sys.exit(1)
 
 if __name__ == "__main__":

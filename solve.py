@@ -1577,11 +1577,19 @@ def print_rules():
     NOT a "generative recipe": CX-02 (2026-04-11) retracted that framing — the rules do not
     determine the sequence. Millions of orderings satisfy the pair constraints.
     """
+    # The banner used to read "GENERATIVE RECIPE" / "To reconstruct the King Wen sequence,
+    # satisfy these rules simultaneously" — the framing CX-02 retracted on 2026-04-11 and the
+    # docstring above withdraws. It kept printing at run time until 2026-09-02, unreachable by
+    # any registry row (GATE 3 scans *.md and reports/evidence/, not this file's stdout).
+    # Same class as solve.c:19. The text below states what the rules are: constraints King
+    # Wen satisfies, which do not determine it.
     print("=" * 70)
-    print("GENERATIVE RECIPE (discovered constraints)")
+    print("DISCOVERED CONSTRAINTS (the rule-set King Wen satisfies)")
     print("=" * 70)
     print()
-    print("To reconstruct the King Wen sequence, satisfy these rules simultaneously:")
+    print("King Wen satisfies all of the rules below simultaneously. They do NOT")
+    print("determine the sequence: millions of orderings satisfy the pair constraints")
+    print("(the 'generative recipe' framing was retracted 2026-04-11, CX-02).")
     print()
     print("Rule 1: PAIR STRUCTURE")
     print("  Group all 64 hexagrams into 32 consecutive pairs. Each pair must be")
@@ -1616,9 +1624,12 @@ def print_rules():
     for d in sorted(dist):
         print(f"    {d}-line transitions: {dist[d]}")
     print()
-    print("OPEN QUESTION: Are these rules sufficient to uniquely determine the")
-    print("King Wen sequence, or do additional rules remain undiscovered?")
-    print("The --narrow analysis attempts to answer this.")
+    # This closing paragraph was the banner's second retracted framing: it posed "are these
+    # rules sufficient to uniquely determine King Wen?" as OPEN after CX-02 had answered it.
+    print("ANSWERED (not open): these rules do NOT uniquely determine the King Wen")
+    print("sequence — millions of orderings satisfy the pair constraints alone")
+    print("(CX-02, 2026-04-11). What remains open is which further structure, if any,")
+    print("the sequence carries beyond these constraints; --narrow measures that.")
 
 def upper_trigram(val):
     return (val >> 3) & 0b111
@@ -6232,6 +6243,16 @@ def extended_selftest(solve_binary):
 
     def _run(env_extra, dir_, args_=("0", "4")):
         env = os.environ.copy()
+        # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
+        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:20627) refuses to start
+        # without this override and the whole selftest dies at subtest 1. The gate exists
+        # because a sub-1T sha is CODE-SPECIFIC and therefore not a cross-build anchor -- but
+        # these subtests compare shas THREE WAYS AGAINST EACH OTHER on one build (recursive vs
+        # iterative vs iterative+v2), never against a published anchor, so code-specific is
+        # precisely what they want. The gate's own comment records that it is sha-preserving:
+        # "gate only blocks startup, never alters DFS". Set before env_extra so a subtest that
+        # deliberately exercises the gate can still override it.
+        env["SOLVE_ALLOW_SUB_CANONICAL"] = "1"
         env.update(env_extra)
         log = os.path.join(dir_, "run.log")
         with open(log, "w") as lf:

@@ -11,7 +11,7 @@ per-tool gates (--registry-verify, --f4p-verify) by running them all plus
 helper-level checks in a single pass. Stdlib only."""
 
 import subprocess, sys, unittest, importlib.util, itertools
-import os, random, re, shutil, struct, tempfile
+import os, random, re, shutil, struct, tempfile, hashlib
 
 def _load(name):
     spec = importlib.util.spec_from_file_location(name, name + ".py")
@@ -961,6 +961,46 @@ class TestVerifyRecordsPath(unittest.TestCase):
         r = self._run_main(self._wrap(comp), ["--expect-kw"])
         self.assertEqual(r.returncode, 1)
         self.assertIn("VERIFY FAIL: 2 issues", r.stdout)   # C4 + missing KW
+
+    def test_records_verdict_and_kw_scope_are_whole_line_tokens(self):
+        # Code batch V-1 (2026-09-02, Codex V2-F25 #8). The verdict and the ONE predicate it
+        # does not fold in by default (King Wen's presence) must be whole-line KEY=value
+        # tokens, matched the way the project matches every verdict: exact line, never
+        # output shape. RED BEFORE (verify.py at 2026-09-02 HEAD): no "VERIFY=" or
+        # "KW_" line at all; the only machine-readable verdict was the exit status, and
+        # a PASS without King Wen was distinguishable from a PASS of the canonical only
+        # by reading prose two lines above the verdict sentence.
+        kw = self._encode(self.V.KW)
+        # A VALID non-KW record, found rather than guessed: of the 31 single-orientation
+        # flips of King Wen's own record, VERIFY.md's census says 9 satisfy C1-C5 (the
+        # rest break the C5 budget or C2). Take the first that passes every per-record
+        # check, so the only open question on this fixture is the King Wen scope.
+        nokw = None
+        for i in range(1, 32):
+            cand = bytearray(kw); cand[i] ^= 0x02
+            c = self._counts(bytes(cand))
+            if not c["kw_found"] and all(c[k] == 0 for k in (
+                    "fail_c1", "fail_c2", "fail_c3", "fail_c4", "fail_c5",
+                    "fail_decode", "fail_fmt")):
+                nokw = bytes(cand); break
+        self.assertIsNotNone(nokw, "no valid single-flip non-KW record found")
+        def lines(r): return r.stdout.splitlines()
+        r = self._run_main(self._wrap(kw))
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("VERIFY=PASS", lines(r)); self.assertIn("KW_PRESENT=YES", lines(r))
+        self.assertIn("KW_REQUIRED=NO", lines(r))
+        r = self._run_main(self._wrap(nokw))
+        self.assertEqual(r.returncode, 0)                  # default: scope-limited PASS
+        self.assertIn("VERIFY=PASS", lines(r)); self.assertIn("KW_PRESENT=NO", lines(r))
+        self.assertIn("KW_REQUIRED=NO", lines(r))
+        self.assertTrue(any(l.startswith("VERIFY PASS") and "King Wen NOT present" in l
+                            for l in lines(r)),
+                        "a PASS without King Wen must say so in the PASS sentence itself")
+        r = self._run_main(self._wrap(nokw), ["--expect-kw"])
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("VERIFY=FAIL", lines(r)); self.assertIn("KW_PRESENT=NO", lines(r))
+        self.assertIn("KW_REQUIRED=YES", lines(r))
+        self.assertNotIn("VERIFY=PASS", lines(r))
 
     def test_orientation_fiber_matches_tr1(self):
         # A7: TR-1 §7's dispositive null. Recomputed by transfer DP over KW's own pair
@@ -3161,6 +3201,225 @@ class TestInfoContentLeadsWithTheMeasuredLedger(unittest.TestCase):
         self.assertNotIn("176.3", tail,
                          "the retired removed-bits total must not appear in the "
                          "measured verdict")
+
+
+# ---------------------------------------------------------------------------
+# Docs/tests lane, 2026-09-02 (items R-3 / R-4): the C verifier's King Wen scope, pinned
+# as shipped, and a guard for the run-time-emitter class.
+
+RETRACTED_REGISTRY = os.path.join("documentation", "RETRACTED_PHRASES.tsv")
+
+
+def _fold_like_doc_gates(text):
+    """Mirror of scripts/doc_gates.sh fold_variants() followed by the GATE 3 / GATE 47
+    flatten (newline -> space, runs collapsed). Kept in step BY HAND: the folds are listed
+    in the order sed applies them, so a diff against the shell function is a line-by-line
+    read. Backtick, ellipsis and the approximation glyphs are deliberately NOT folded,
+    matching that function's recorded decision."""
+    # Non-ASCII glyphs are spelled as \u escapes, never pasted: an invisible or
+    # near-identical character in a fold table is unreviewable (the shell function
+    # records the same decision and the reason for it).
+    for a, b in (("\u00d7", "x"), ("\u2715", "x"), ("\u2a2f", "x"),        # multiplication glyphs
+                 ("\u2013", "-"), ("\u2014", "-"), ("\u2212", "-"),        # en/em dash, minus
+                 ("\u2265", ">="), ("\u2264", "<="), ("\uff0b", "+"),
+                 ("\u00a0", " "), ("\u2007", " "), ("\u2009", " "), ("\u202f", " "),
+                 ("\u2019", "'"), ("\u2018", "'"), ("\u201c", '"'), ("\u201d", '"'),
+                 ("*", "")):                                                # markdown bold
+        text = text.replace(a, b)
+    text = re.sub(r"(\d),(\d)", r"\1\2", text)                                # digit-group commas
+    text = text.replace(" +", "+").replace("+ ", "+")
+    # the gates' flatten is `tr '\n' ' ' | tr -s ' '`: newlines become spaces and runs of
+    # SPACES collapse; tabs are left alone, exactly as there
+    return re.sub(" +", " ", text.replace("\n", " "))
+
+
+def _registered_retracted_phrases(path=None):
+    """Column 1 of every non-comment, non-blank registry row, read at CALL time. Never a
+    hand-copied list: a copied needle set is a second registry nobody updates, which is
+    the defect class this project keeps meeting."""
+    path = path or RETRACTED_REGISTRY          # resolved at CALL time, so a runner can redirect it
+    phrases = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            if not line.strip() or line.startswith("#"):
+                continue
+            cols = line.rstrip("\n").split("\t")
+            if len(cols) >= 2 and cols[0]:
+                phrases.append(cols[0])
+    return phrases
+
+
+class TestRulesBannerCarriesNoRetractedPhrase(unittest.TestCase):
+    """R-4 (2026-09-02): the run-time-emitter class, two confirmed instances the same
+    day — solve.c:19 (a comment restating the Q-353 wording fifteen lines below the block
+    that withdrew it) and solve.py:1581 (the `--rules` banner printing the CX-02 framing
+    four lines below the docstring that withdraws it). Both sat outside every needle scan
+    because GATE 3 reads *.md and reports/evidence/** only. GATE 47 now scans the tracked
+    code, but a gate reads SOURCE and this test reads what the program PRINTS: a banner
+    assembled at run time from pieces no source grep can see is still caught here.
+
+    The needle set is documentation/RETRACTED_PHRASES.tsv read at test time. An empty
+    registry is a test ERROR, never a pass — a check that cannot run must say so.
+
+    RED BEFORE, measured 2026-09-02: with RP-6986cc78 and RP-fe7deb9f registered, this
+    test run against a copy of the pre-fix `HEAD:solve.py` (ROAE_TESTS_RULES_EMITTER
+    pointed at the copy) fails naming both keys; on the fixed tree it passes. MUTATION: a
+    registered phrase planted in the banner path of a scratch copy fails it. The env hook
+    exists only so those two runs are reproducible; the default is the shipped solve.py
+    and nothing in the harness sets it."""
+
+    def test_rules_output_contains_no_registered_retracted_phrase(self):
+        phrases = _registered_retracted_phrases()
+        self.assertGreaterEqual(len(phrases), 1,
+                                f"{RETRACTED_REGISTRY} parsed to ZERO rows: the needle "
+                                "population is empty, so this test can check nothing")
+        emitter = os.environ.get("ROAE_TESTS_RULES_EMITTER", "solve.py")
+        r = subprocess.run([sys.executable, emitter, "--rules"],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        self.assertIn("Rule 1:", r.stdout, "--rules printed no rule-set; wrong emitter?")
+        flat = _fold_like_doc_gates(r.stdout)
+        hits = []
+        for p in phrases:
+            needle = _fold_like_doc_gates(p)
+            if needle and needle in flat:
+                hits.append("RP-" + hashlib.sha256(p.encode("utf-8")).hexdigest()[:8])
+        self.assertEqual(hits, [],
+                         "`--rules` prints registered retracted wording at run time; "
+                         f"registry keys {hits} (cited by key, never restated, so this "
+                         "message cannot itself become a needle hit)")
+
+
+class TestSolveVerifyKingWenScope(unittest.TestCase):
+    """R-3 (2026-09-02): the C binary's `--verify` contract on King Wen's presence, pinned
+    AS SHIPPED — the cross-language control for verify.py's
+    test_expect_kw_promotes_kw_presence_to_a_failure.
+
+    THE CONTRACT. `solve --verify` computes `King Wen found:` and does NOT gate on it:
+    solve.c's `total_fail` sums fail_c1..fail_dup only, so an artifact holding a valid
+    record that is not King Wen returns VERIFY=PASS, rc 0, with `King Wen found: No` on
+    its own line. That is deliberate. A shard or a budgeted slice legitimately lacks the
+    record — the rule requiring one per file was retracted on 2026-09-02 (registry key
+    RP-60347080) — and solve.c has no --expect-kw; verify.py's flag is the only
+    instrument that promotes absence to a failure. A test asserting rc != 0 here would
+    assert the shipped behaviour is wrong. This one pins what ships, and the C4 control
+    shows the same verdict path DOES go red on a real constraint failure, so the PASS on
+    the King-Wen-less fixture is a scoped PASS and not a verifier that passes everything.
+
+    FIXTURES. Raw (uncompressed) ROAE artifacts, one record each. The non-King-Wen record
+    is King Wen with one pair's orientation flipped, found by verify.py's per-record
+    checks rather than guessed; it shares King Wen's CANONICAL key (same pair order), so
+    a two-record artifact holding both is a duplicate-records FAIL — measured — which is
+    why "the King Wen record deleted" is modelled as the one-record file.
+
+    solve.c is behind the MASTER GATE and is not edited; the binary is built from the
+    tracked source at -O1 (4.5 s measured on the 2-core orchestrator) into a temp dir. A
+    build failure is a test FAILURE, not a skip.
+
+    MUTATION, measured 2026-09-02: a scratch copy of solve.c with `+ (kw_found_v ? 0 : 1)`
+    added to total_fail, built via ROAE_TESTS_SOLVE_SRC, returns VERIFY=FAIL rc 1 on the
+    King-Wen-less fixture and fails test_absent_king_wen_does_not_gate_the_verdict while
+    the other two still pass. The env hook exists only for that run; the default is the
+    tracked solve.c and nothing in the harness sets it."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="kwscope_")
+        cls.sbin = os.path.join(cls.tmp, "solve_kwscope")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.V = _load("verify")
+        cls.PIDX = {frozenset(p): i for i, p in enumerate(cls.V.PAIRS)}
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _encode(self, seq):
+        out = bytearray()
+        for i in range(32):
+            a, b = seq[2 * i], seq[2 * i + 1]
+            p = self.PIDX[frozenset((a, b))]
+            out.append((p << 2) | ((0 if self.V.PAIRS[p] == (a, b) else 1) << 1))
+        return bytes(out)
+
+    def _artifact(self, name, records):
+        blob = (b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", len(records))
+                + b"\0" * 16 + b"".join(records))
+        path = os.path.join(self.tmp, name)
+        with open(path, "wb") as fh:
+            fh.write(blob)
+        return path
+
+    def _verify(self, path):
+        """(rc, lines): every stdout line with \\r stripped and runs of whitespace
+        collapsed, so `King Wen found:         No` is matched WHOLE as
+        `King Wen found: No` and the verdict token is matched whole, never by shape."""
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        r = subprocess.run([self.sbin, "--verify", path], capture_output=True, text=True)
+        return r.returncode, [" ".join(l.split()) for l in r.stdout.splitlines()]
+
+    def _valid_non_kw_record(self):
+        kw = self._encode(self.V.KW)
+        for i in range(1, 32):
+            cand = bytearray(kw); cand[i] ^= 0x02
+            fd, path = tempfile.mkstemp(dir=self.tmp, suffix=".bin")
+            try:
+                os.write(fd, b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1)
+                         + b"\0" * 16 + bytes(cand))
+                os.close(fd)
+                c = self.V.verify_chunk((path, 0, 1))
+            finally:
+                os.unlink(path)
+            if not c["kw_found"] and all(c[k] == 0 for k in (
+                    "fail_c1", "fail_c2", "fail_c3", "fail_c4", "fail_c5",
+                    "fail_decode", "fail_fmt")):
+                return bytes(cand)
+        self.fail("no valid single-flip non-King-Wen record found; the fixture premise "
+                  "no longer holds and this test must be revised, not passed")
+
+    ZERO_FAILURE_LINES = ("C1 failures (pairs): 0", "C2 failures (hamming5): 0",
+                          "C3 failures (cd>776): 0", "C4 failures (first pair): 0",
+                          "C5 failures (dist): 0", "Decode failures: 0",
+                          "Sort order violations: 0", "Duplicate records: 0")
+
+    def test_king_wen_record_passes_and_is_reported_found(self):
+        rc, lines = self._verify(self._artifact("kw.bin", [self._encode(self.V.KW)]))
+        self.assertEqual(rc, 0)
+        self.assertIn("VERIFY=PASS", lines)
+        self.assertIn("King Wen found: YES", lines)
+
+    def test_absent_king_wen_does_not_gate_the_verdict(self):
+        # THE PIN. Every per-record and per-file count is zero, King Wen is reported
+        # absent, and the verdict is PASS rc 0 — the shipped contract, not a defect.
+        rc, lines = self._verify(self._artifact("nokw.bin", [self._valid_non_kw_record()]))
+        for want in self.ZERO_FAILURE_LINES:
+            self.assertIn(want, lines)
+        self.assertIn("King Wen found: No", lines)
+        self.assertIn("VERIFY=PASS", lines,
+                      "solve --verify now gates on King Wen's presence. If that is a "
+                      "deliberate contract change, revise this test AND the registry row "
+                      "RP-60347080 that retracted the per-file requirement; do not edit "
+                      "the test alone.")
+        self.assertNotIn("VERIFY=FAIL", lines)
+        self.assertEqual(rc, 0)
+
+    def test_constraint_failure_does_gate_the_verdict(self):
+        # CONTROL: the same verdict path goes red on comp(KW), which C4's oriented
+        # opening rejects and nothing else does. Without this a PASS above could be a
+        # verifier that never fails.
+        comp = self._encode([h ^ 63 for h in self.V.KW])
+        rc, lines = self._verify(self._artifact("comp.bin", [comp]))
+        self.assertEqual(rc, 1)
+        self.assertIn("VERIFY=FAIL", lines)
+        self.assertNotIn("VERIFY=PASS", lines)
+        self.assertIn("C4 failures (first pair): 1", lines)
+        self.assertIn("King Wen found: No", lines)
+
 
 
 if __name__ == "__main__":

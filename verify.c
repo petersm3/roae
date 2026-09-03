@@ -3582,12 +3582,21 @@ static int lc_gt_selftest(void) {
  * PURPOSE. TR-11 §10(vi): the landed |C1∩C2∩C4∩C5| =
  * 1,097,051,278,789,181,790,036,112,071,176,579,186,688 rests on a single
  * instrument (the out-of-core symmetry-quotient layered DP in solve.c).
- * This mode is the genuinely-independent second engine: a different
- * algorithm class that recomputes the same integer at full scale while
- * sharing NONE of the primary's machinery — no canonical-mask bookkeeping,
- * no gather/canonicalization/inverse-element mapping, no stabilizer
- * weighting, no layer files, no out-of-core streaming, no 192-bit hot-path
- * arithmetic. Shares only this file's already-independent helpers
+ * This mode is the independent second engine: a different algorithm class
+ * that recomputes the same integer at full scale sharing no CODE and no
+ * STATE with the primary — no layer files, no out-of-core streaming, no
+ * gather-based layer transfer, no 192-bit hot-path arithmetic. What the two
+ * engines DO share is one mathematical lemma, not an implementation:
+ * orbit-stabilizer weighting under the same 24-element group, applied by
+ * solve.c to canonical masks per layer and HERE to free-pair subsets of the
+ * IE outer sum — ie_canon_orbit() is a min-image canonical-representative
+ * test that also counts the stabilizer, quotienting is ON by default, and
+ * --ie-no-quotient (full 2^n outer loop) must agree with it.
+ * [CORRECTED 2026-09-02, TR-11 v1.23 / prose batch P67: this header used to
+ * deny any canonical-mask bookkeeping, canonicalization or stabilizer
+ * weighting in this mode. All three are used; the independence claim is
+ * narrowed to "no shared code, no shared state, one shared lemma".]
+ * Shares only this file's already-independent helpers
  * (build_pairs / derive_pair_perms / lc_restrict_perms / lc_radix / u192).
  *
  * ALGORITHM (classical signed inclusion–exclusion — Karp-1982-style
@@ -4401,13 +4410,18 @@ static int ie_count_main(int argc, char **argv) {
 
     printf("======================================================================\n");
     if (no_budget) {
+        /* Banner wording CORRECTED 2026-09-02 (TR-11 v1.23 / P67): it read "shares no
+         * machinery with solve.c" while the outer sum is quotiented through the same
+         * orbit-stabilizer lemma solve.c uses (ie_canon_orbit; ON by default). */
         printf("verify.c --ie-count --ie-no-budget : independent IE recount of\n");
         printf("|C1 cap C2 cap C4| (C5/budget layer dropped; DP state = (last)\n");
-        printf(" alone, no mask, no lattice; shares no machinery with solve.c)\n");
+        printf(" alone, no mask, no lattice; no code or state shared with solve.c;\n");
+        printf(" one lemma shared: orbit-stabilizer weighting under the 24-group)\n");
     } else {
         printf("verify.c --ie-count : Route B — independent IE transfer-walk recount\n");
         printf("(signed inclusion-exclusion over free-pair subsets; DP state = (last,\n");
-        printf(" budget) with NO mask; shares no code or machinery with solve.c)\n");
+        printf(" budget) with NO mask; no code or state shared with solve.c;\n");
+        printf(" one lemma shared: orbit-stabilizer weighting under the 24-group)\n");
     }
     printf("======================================================================\n");
     if (no_budget && have_b0) {
