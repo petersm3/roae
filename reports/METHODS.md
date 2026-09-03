@@ -302,6 +302,17 @@ which is what produced every published figure — with the divergence disclosed:
   since even *i* = 2 gives 2·0.05/91 = 1.1×10⁻³ > 6.8×10⁻⁴; only *i* = 1 would fail. And *i* = 1 is
   excluded by `dav_rotinv` (6.5×10⁻⁵) — a smaller p-value inside the same registered Davis family — so
   *i* ≥ 2 and the rejection stands.
+  ⚠ **[SIDEDNESS STATED 2026-09-03 — every p-value in this paragraph is the ONE-SIDED mass, and it did
+  not say so. TR-10 publishes `trigarray` as **two-sided 1.36×10⁻³** and freezes its own thresholds
+  two-sided, so the two conventions sit unmarked in the same argument. The rank arithmetic is not
+  invariant to the swap: one-sided 6.8×10⁻⁴ rejects at *i* ≥ 2 (2·0.05/91 = 1.099×10⁻³), but two-sided
+  1.36×10⁻³ needs *i* ≥ 3 (3·0.05/91 = 1.648×10⁻³). **At *i* ≥ 3 this paragraph's support is
+  incomplete**: it excludes *i* = 1 by exhibiting one strictly smaller value (`dav_rotinv`, two-sided
+  1.31×10⁻⁴), and *i* ≥ 3 requires a **second**, which is not exhibited here. So the FDR counterfactual
+  is sidedness-dependent and, two-sided, is not established by the argument as written.
+  **No published verdict moves.** The suite applies Bonferroni throughout and retains the FWER reading
+  as the conservative choice; `dav_trigarray` fails the Bonferroni bar on either mass. This is a
+  disclosure that the counterfactual is narrower than it reads, not a retraction of anything claimed.]**
   *(Ranking support narrowed 2026-08-01, second pass. This paragraph previously supported the rank with
   "at least twelve ledger values are strictly smaller … so its BH rank is i ≥ 13 … about 10× the measured
   p", listing nine `ccn*`/`rs1`/`d4`/`d7`/`p2c6`/`c2011n*` values plus three Davis entries. **Both extra

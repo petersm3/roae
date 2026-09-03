@@ -172,7 +172,15 @@ notational scoring — is accepted and stated.
    Bonferroni-specific and is the one place in the suite where the correction family matters**: under
    Benjamini–Hochberg FDR ([Benjamini & Hochberg 1995](../documentation/CITATIONS.md#benjamini-hochberg1995))
    at q = 0.05, against the same 91-observable ledger, `trigarray` *would* be
-   declared significant. We retain the FWER reading as the conservative choice and disclose the
+   declared significant — **on the one-sided mass, and not on the two-sided one.**
+   ⚠ **[SIDEDNESS STATED 2026-09-03 — this counterfactual was computed on one-sided masses and did
+   not say so, while the row above publishes `trigarray` as two-sided 1.36×10⁻³ and this report's
+   frozen thresholds are two-sided throughout. The BH rank-2 critical value against a 91-observable
+   ledger is 2·(0.05/91) = 1.0989×10⁻³. One-sided 6.8×10⁻⁴ clears it; **two-sided 1.36×10⁻³ does
+   not.** So the FDR counterfactual is sidedness-dependent and the earlier wording implied it was
+   not. **The published verdict is unchanged either way** — the FWER reading is retained as the
+   conservative choice, `trigarray` fails Bonferroni on either mass, and nothing else in the suite
+   moves. This is a scoping disclosure, not a retraction.]** We retain the FWER reading as the conservative choice and disclose the
    dependence rather than rely on it — see METHODS §"Correction-family disclosure". A reader who
    prefers FDR control should read this row as clearing global correction; nothing else in the suite
    changes, since FWER clearance implies FDR clearance.
