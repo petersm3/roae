@@ -96,6 +96,22 @@ Each hexagram is also split into two halves called **trigrams** — the bottom t
 
 With 8 possible trigrams in each position, there are 8 x 8 = 64 possible hexagrams.
 
+### Why you will not find hexagram names here
+
+This corpus ships **no hexagram names** — no 卦名, no romanisation of them, and no English
+titles. Where a name would normally appear you get the position number, the Unicode glyph, the
+six bits, and a **structural** description built from the two trigrams: hexagram 1 is
+`Heaven over Heaven`, not "The Creative". The *trigram* names (Qian, Kun, Li, Dui …) do appear,
+because they name the eight three-line figures the description is assembled from — they are not
+hexagram titles.
+
+That is deliberate and it is a limitation, not a feature. Translated titles carry the translator's
+copyright, so a Wilhelm-derived set was removed on 2026-08-27 and public-domain 卦名 were never
+substituted in its place. The cost is real and worth stating plainly: it makes the output harder to
+read for anyone who knows the sequence by name, harder to teach from, and harder to join against
+other datasets. **If you need names, you must supply them yourself** — the `position` column in
+`example/hexagrams.csv` is a stable 1–64 key to join on.
+
 ## Key concepts
 
 ### [Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance)
