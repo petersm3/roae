@@ -154,9 +154,9 @@ which is what produced every published figure — with the divergence disclosed:
 [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §3 headline 3.
 
 ## Statistics conventions
-- **Knuth estimator CIs**: for the ESTIMATOR TOTALS the per-probe weight X and X² are accumulated, and
-  the tool prints mean ± 1.96·√(v̂ar/N) with relerr = SE/mean — a standard Wald CI on Knuth's (1975)
-  unbiased estimator. ⚠ **[SCOPE CORRECTED 2026-08-28 — this read "for each reported quantity", which is
+- **Knuth estimator CIs**: for the ESTIMATOR TOTALS the per-probe weight X and X² are accumulated in
+  IEEE-754 double precision, and the tool prints mean ± 1.96·√(v̂ar/N) with relerr = SE/mean — a
+  standard Wald CI on Knuth's (1975) unbiased estimator. ⚠ **[SCOPE CORRECTED 2026-08-28 — this read "for each reported quantity", which is
   false. Exactly three accumulators keep a second moment (`sumsq`, `sumsq_leaf`, `sumsq_node`); the
   score-mode accumulators behind published figures — `score_dav`, `score_perm`, `score_registry`, which
   carry TR-10's Davis masses among others — keep **none**, and there is zero co-occurrence between the
@@ -211,6 +211,32 @@ which is what produced every published figure — with the divergence disclosed:
   under its own heading — §"Reproducibility rule for estimator output" below — which is the anchor to
   cite; it lived only inside this bullet until 2026-09-02.* CIs degrade visibly at hit
   rates below ~10⁻⁷ per probe; every reported number states its probe count.
+- **Estimator arithmetic and randomness — what "accumulated" and "random probe" mean here.** This
+  section used to assert two idealizations flatly ("accumulated exactly", i.i.d. probes); both are
+  now stated with their bounds. Raised by Codex A06 (tracked as Q-325); the code facts and the two
+  bounds below were re-derived from `solve.c` for this entry rather than carried over from the review.
+  **(i) The accumulation is `double`, not exact.** The moment accumulators are plain C `double`
+  (`sum_leaf, sumsq_leaf, sum_c3, sumsq_c3, sum_node, sumsq_node`, declared together in the per-thread
+  worker struct and updated as `a->sum_leaf += leaf; a->sumsq_leaf += leaf*leaf;`), one struct per
+  thread, reduced once at the end. Naive sequential summation of non-negative terms has a worst-case
+  relative error of at most n·u, with u = 2⁻⁵³ ≈ 1.11×10⁻¹⁶ and n the number of additions into one
+  accumulator. For the headline whole-tree run (5×10¹⁰ probes over 32 threads — n ≈ 1.5625×10⁹ per
+  accumulator, plus a 32-term final reduction) that bound is **≤ 1.8×10⁻⁷**, about three decades below
+  the same run's 0.02% relative standard error and so below every published digit. It is a *bound*,
+  not a measurement: no compensated-summation replay has been run against the production stream.
+  **(ii) The probes are a deterministic stream, not i.i.d. draws.** A probe descends by choosing among
+  the d admissible children with `ks_next(&rng) % (uint64_t)d` — xorshift64 (shifts 13/7/17) reduced by
+  modulo. Taking the 64-bit word as uniform, each residue's probability differs from 1/d by less than
+  2⁻⁶⁴, a *relative* bias under d/2⁶⁴; d ≤ 64 here (32 pairs × 2 orientations bounds both the child
+  loop and the child array), so the bias is **≤ 3.5×10⁻¹⁸**. A third departure is *not* quantified
+  in-tree: xorshift64's own equidistribution (its cycle is 2⁶⁴−1 long and it never emits 0), for which
+  this suite has run no test-battery. Independence across probes is likewise a model idealization of a
+  seeded deterministic stream; its concrete consequence — runs at the same thread count but different
+  probe counts share stream prefixes and are not independent draws — is stated in the bullet above and
+  under §"Reproducibility rule for estimator output" below. Both bounded effects are numerically
+  immaterial at every probe count this suite publishes; they are recorded because a statistics
+  contract that says "exactly" about floating-point arithmetic is the same wording class this suite
+  polices in its results.
 - **Permutation-test nulls**: seeded (`random.Random(42)` unless stated); N=10,000 default; the
   pair-preserving null = shuffle the 32 canonical pairs + independent uniform orientation flips, first
   pair fixed by C4 where stated.

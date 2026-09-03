@@ -778,8 +778,16 @@ checkpoint resume continues writing into the same layer dir. Same scope,
 same budget, same data continuation. New layer only when the operator
 intentionally chooses a new `(scope, budget)` pair.
 
-**Merge:** `solve --merge-layers <run_root>` walks the layer subdirs in
-sort order; for each sub-branch tuple, the LAST layer to contain a shard
+**Merge:** `solve --merge-layers <run_root>` — 🔴 **`<run_root>` MUST BE AN
+ABSOLUTE PATH.** The winners are installed as symlinks whose target is built as
+`<layer_path>/<shard>` (`solve.c`, the `--merge-layers` walk), so a *relative*
+run_root yields targets that resolve relative to `_merged_/` — **100% of the
+winner symlinks dangle**, and the run then aborts on the first override with
+`ERROR: symlink … File exists` (exit 20), because a dangling `dst` makes the
+`access(dst, F_OK)` override check false so the `unlink` never happens. Measured
+2026-09-03 (Codex V2-F15 #10); `solve.c` does not `realpath()` the layer root, so
+this is a live constraint on the caller, not a historical note. Given an absolute
+run_root it walks the layer subdirs in sort order; for each sub-branch tuple, the LAST layer to contain a shard
 wins. Winners are symlinked into `<run_root>/_merged_/`, the standard
 merge runs in that dir, and produces `<run_root>/_merged_/solutions.bin`
 plus a `MANIFEST.txt` recording each shard's source layer. The result is
@@ -1562,10 +1570,16 @@ Unlike `--branch` (which runs ALL sub-branches of a first-level branch),
 `--sub-branch` targets exactly one. It bypasses checkpoint.txt loading so
 that a fresh run is a fresh run — no accidental resume from stale state.
 
-Pair this mode with small parallel VMs (D2als_v7 or D4als_v7 spot, one
-per sub-branch). The workload is single-threaded inside a sub-branch, so
-D128 is 99% wasted. See `DSERIES_ROI_REPORT.md` (outside repo) for SKU
-sizing rationale.
+Sizing. ⚠ **[CORRECTED 2026-09-03 — this paragraph described the pre-P1 engine
+(Codex V2-F15 #15). It read "the workload is single-threaded inside a sub-branch,
+so D128 is 99% wasted" and advised pairing with D2/D4; that has not been true
+since P1.]** `--sub-branch` **auto-parallelizes across intra-branch tasks whenever
+`SOLVE_THREADS > 1`** (`solve.c`, "P1 parallel-sub-branch: auto-enable when
+SOLVE_THREADS > 1"); set `SOLVE_SUB_BRANCH_PARALLELISM=single` to opt out, which
+is the regression-mode path. So size the VM **from measured scaling on your own
+workload**, not from a single-thread assumption — the old advice would leave a
+parallel run on two cores. See `DSERIES_ROI_REPORT.md` (outside repo) for SKU
+sizing rationale, and note it predates P1 on this same point.
 
 Validation guarantee: if you later exhaust a sub-branch via `--sub-branch`
 AND separately compute a full `--merge`'d canonical from independent

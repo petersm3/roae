@@ -3483,5 +3483,60 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
 
 
 
+class TestRoaePathAndCodons(unittest.TestCase):
+    """Codex v2 F61 #4 and L17 #1/#2. RED-TEST: MAX_PATH = 378 fails the first two;
+    an index-order greedy tie rule fails the third and fourth; a bit-flip-only
+    degeneracy count fails the last two."""
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util, io, contextlib, sys
+        here = os.path.dirname(os.path.abspath(__file__))
+        spec = importlib.util.spec_from_file_location("roae_mod",
+                                                      os.path.join(here, "roae.py"))
+        cls.R = importlib.util.module_from_spec(spec)
+        argv, sys.argv = sys.argv, ["roae.py"]
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                spec.loader.exec_module(cls.R)
+        finally:
+            sys.argv = argv
+
+    def test_max_path_bound_is_derived_not_asserted(self):
+        R = self.R
+        self.assertEqual(R.MAX_PATH, 347)
+        # every vertex has exactly ONE distance-6 neighbour, so the d6 edges of a
+        # Hamiltonian path form a matching: at most 32 of 63 edges
+        for v in range(64):
+            self.assertEqual(sum(1 for w in range(64) if R.bit_diff(v, w) == 6), 1)
+
+    def test_max_path_bound_is_attained(self):
+        R = self.R
+        w = R.max_path_witness()
+        self.assertEqual(sorted(w), list(range(64)))
+        self.assertEqual(sum(R.bit_diff(w[k], w[k + 1]) for k in range(63)), R.MAX_PATH)
+
+    def test_greedy_nn_total_token(self):
+        print(f"GREEDY_NN_TOTAL={self.R.greedy_nn_total()[0]}")
+        self.assertEqual(self.R.greedy_nn_total()[0], 63)
+
+    def test_greedy_tie_rule_does_not_read_the_ordering(self):
+        R = self.R
+        saved = R.binary_hexagrams[:]
+        try:
+            for perm in (list(reversed(saved)), saved[17:] + saved[:17]):
+                R.binary_hexagrams[:] = perm
+                self.assertEqual(R.greedy_nn_total(saved[0])[0], 63)
+        finally:
+            R.binary_hexagrams[:] = saved
+
+    def test_codon_degeneracy_tokens(self):
+        p, t, bp, bt = self.R.codon_degeneracy()
+        print(f"CODON_SINGLE_BASE_PRESERVED={p}")
+        print(f"CODON_SINGLE_BASE_TOTAL={t}")
+        self.assertEqual((p, t), (138, 576))
+        self.assertEqual((bp, bt), (100, 384))   # the bit-flip subset, kept and labelled
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

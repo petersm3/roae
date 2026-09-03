@@ -611,18 +611,18 @@ Length  3: 18 found
 --- Palindrome null model ---
 How many palindromes of length >= 3 do random permutations produce?
 King Wen palindromes: 27, longest: 7
-Random mean palindromes: 22.0, mean longest: 6.8
-King Wen palindrome count percentile: 80.1%
-King Wen longest palindrome percentile: 44.9%
+Random mean palindromes: 22.2, mean longest: 6.9
+King Wen palindrome count percentile: 81.0%
+King Wen longest palindrome percentile: 42.4%
 
 --- Pair-constrained palindrome null model ---
 The unconstrained comparison shuffles all 64 hexagrams freely. A fairer
 comparison preserves the pair structure: each pair of hexagrams stays
 adjacent, only the pair order and within-pair orientation are randomized.
 King Wen palindromes: 27, longest: 7
-Pair-constrained mean palindromes: 27.7, mean longest: 8.5
-King Wen palindrome count percentile (pair-constrained): 48.6%
-King Wen longest palindrome percentile (pair-constrained): 13.1%
+Pair-constrained mean palindromes: 27.5, mean longest: 8.5
+King Wen palindrome count percentile (pair-constrained): 49.1%
+King Wen longest palindrome percentile (pair-constrained): 12.2%
 </pre>
 </div>
 <div class="section">
@@ -664,8 +664,8 @@ Permutation test: is the King Wen split at position 30 special, or would
 any random split of the 64-hexagram sequence show a similar gap in mean
 line-change differences between the two halves?
 King Wen |upper_mean - lower_mean|: 0.0460
-Random permutations with gap >= King Wen: 8755/10000
-King Wen gap percentile: 12.5%
+Random permutations with gap >= King Wen: 8786/10000
+King Wen gap percentile: 12.1%
 The King Wen canon split does not produce a statistically significant
 mean-difference gap. The observed difference between upper and lower
 halves is consistent with what random shuffles produce.
@@ -812,7 +812,7 @@ are anecdotes, not statistically meaningful.)
 --- Permutation test ---
 Is the transition matrix more concentrated than random orderings produce?
 King Wen matrix concentration: 2.3303
-Random orderings equally or more concentrated: 2160/5000 (43.2%)
+Random orderings equally or more concentrated: 2170/5000 (43.4%)
 </pre>
 </div>
 <div class="section">
@@ -1012,8 +1012,8 @@ Joint distribution of trigram changes:
 Mutual information: 0.0078 bits
 Normalized MI: 0.0230 (0=independent, 1=perfectly correlated)
 
-Mean MI of random permutations: 0.0202 bits
-King Wen percentile: 7.7%
+Mean MI of random permutations: 0.0199 bits
+King Wen percentile: 8.4%
 
 --- Full 8-state trigram mutual information ---
 Using actual trigram identities (8 possible values each) rather than
@@ -1259,9 +1259,9 @@ Hamming-1 neighbors are closer than average in the sequence (clustered).
 --- Neighborhood clustering null model ---
 Shuffling binary hexagrams 10,000 times to build a null distribution
 of mean sequence distance between Hamming-1 neighbors.
-Null distribution: min=18.0, mean=21.7, max=25.4
+Null distribution: min=18.0, mean=21.7, max=25.5
 King Wen observed mean: 20.6
-Percentile: 11.8% (proportion of shuffles with mean <= King Wen's)
+Percentile: 11.7% (proportion of shuffles with mean <= King Wen's)
 King Wen's neighborhood clustering is within the range expected by chance.
 </pre>
 </div>
@@ -1347,7 +1347,7 @@ Theoretical expected recurrence rate (sum of p_i^2): 25.6%
 
 King Wen recurrence rate:       24.4%
 Mean random recurrence rate:    23.2%
-King Wen percentile vs random:  72.4%
+King Wen percentile vs random:  72.5%
 </pre>
 </div>
 <div class="section">
@@ -1437,8 +1437,16 @@ Total possible amino acids + stop: 21
 
 --- Degeneracy comparison ---
 In DNA, many single-base changes preserve the amino acid (the code is 'degenerate').
-Do single-line hexagram changes preserve the mapped amino acid?
-Single-line changes that preserve amino acid: 100/384 (26.0%)
+A base has THREE possible substitutions, but a hexagram line has only one flip, and
+under this bit-to-base convention a flipped bit reaches only two of the three. The
+line graph is therefore not the mutation graph, and the two are reported separately:
+the full single-base neighbourhood first, then the single-line subset of it.
+Single-base changes that preserve amino acid: 138/576 (24.0%)
+Single-LINE changes (one flipped bit) that preserve it: 100/384 (26.0%)
+The second figure is the higher of the two, and it is not a subsample: a flipped
+bit reaches two of a base's three substitutions, so it omits 192 of the 576 moves
+by a rule the encoding fixes, not by chance. Read it as the degeneracy of an
+encoding-selected two-thirds of mutation types, never as the genetic code's.
 </pre>
 </div>
 <div class="section">
@@ -1454,28 +1462,28 @@ unusually low, the sequence is more structured than random chance would produce.
 King Wen difference wave entropy: 2.0759 bits
 Maximum entropy (all 7 values): 2.8074 bits
 Maximum entropy (5 observed values): 2.3219 bits
-Mean entropy of random permutations: 2.1938 bits
-Min random entropy observed: 1.6648 bits
-Max random entropy observed: 2.5009 bits
-King Wen percentile: 12.4% (lower = more structured)
-Effect size (Cohen's d): -1.15 (negative = more structured than random)
+Mean entropy of random permutations: 2.1944 bits
+Min random entropy observed: 1.6273 bits
+Max random entropy observed: 2.4817 bits
+King Wen percentile: 12.6% (lower = more structured)
+Effect size (Cohen's d): -1.16 (negative = more structured than random)
 
 --- Entropy conditioned on pair constraint ---
 The unconstrained comparison above may be misleading: the pair structure
 itself constrains the entropy. How does King Wen compare against random
 orderings that also satisfy the pair constraint?
-Mean pair-constrained entropy: 2.2336 bits
-King Wen percentile (pair-constrained): 5.9%
-(Similar to unconstrained percentile of 12.4%.)
+Mean pair-constrained entropy: 2.2347 bits
+King Wen percentile (pair-constrained): 5.6%
+(Similar to unconstrained percentile of 12.6%.)
 
 --- Distribution comparison ---
 Value    King Wen Expected (random avg)
   0             0                  0.0
-  1             2                  6.1
-  2            20                 15.0
-  3            13                 20.0
-  4            19                 15.0
-  5             0                  5.9
+  1             2                  6.0
+  2            20                 15.1
+  3            13                 19.8
+  4            19                 15.1
+  5             0                  6.0
   6             9                  1.0
 </pre>
 </div>
@@ -1488,32 +1496,35 @@ two is the number of lines that differ. The King Wen sequence is a route that
 visits all 64 cities. Is it a short, efficient route (nearby hexagrams placed
 next to each other), or a long, wandering one? We compare its total distance
 against random routes and a greedy 'always go to the nearest unvisited city'
-algorithm. This reveals whether the King Wen ordering was optimized for smooth
-transitions or had other priorities.
+algorithm whose ties are broken on the hexagram's own 6-bit value, so that the
+baseline cannot borrow the very ordering it is a control for (breaking ties on
+sequence position instead would report 75 rather than 63). This is a descriptive
+comparison of path lengths; it is not a test of whether the King Wen ordering
+was optimized for smooth transitions.
 ---
 King Wen total path length:  211 (sum of all line changes)
-Greedy nearest-neighbor:     75
+Greedy nearest-neighbor:     63 (ties broken on hexagram value)
 Mean random path length:     192.1
-Min random observed:         160
-Max random observed:         232
-King Wen percentile:         97.7% (lower = shorter path)
-Effect size (Cohen's d):     +2.03
+Min random observed:         158
+Max random observed:         228
+King Wen percentile:         97.6% (lower = shorter path)
+Effect size (Cohen's d):     +2.04
 
 --- Theoretical bounds ---
 Minimum possible (63 transitions of 1): 63
-Maximum possible (63 transitions of 6): 378
-King Wen uses 55.8% of maximum path length
+Maximum possible (32 complement steps of 6 + 31 of ≤5): 347
+King Wen uses 60.8% of maximum path length
 
 --- Pair-constrained comparison ---
 The above compares against fully random orderings. A fairer comparison is
 against random orderings that also preserve the pair structure (each pair
 of hexagrams stays adjacent). This is the right null model for asking
 whether King Wen's path length is unusual GIVEN its pair constraint.
-Mean pair-constrained path length: 214.2
-Min pair-constrained observed:     190
+Mean pair-constrained path length: 214.0
+Min pair-constrained observed:     191
 Max pair-constrained observed:     239
-King Wen percentile (pair-constrained): 28.4%
-Effect size (Cohen's d, pair-constrained): -0.49
+King Wen percentile (pair-constrained): 29.7%
+Effect size (Cohen's d, pair-constrained): -0.46
 </pre>
 </div>
 <div class="section">
@@ -1529,7 +1540,7 @@ random permutations against each constraint individually and combined.
 ---
 Results from 10,000 random permutations:
   All pairs reverse/inverse:       0 (0.000%)
-  No 5-line transitions:          19 (0.19%)
+  No 5-line transitions:          22 (0.22%)
   Both constraints together:       0 (0.0000%)
   No random permutation satisfied both constraints.
   Statistical note: 0/10,000 gives a 95% upper bound of <0.0300%
@@ -1541,8 +1552,8 @@ The pair structure constrains transitions within pairs (always even or 6),
 so 5-line transitions can only occur at the 31 between-pair boundaries.
 How often do pair-constrained orderings also avoid 5-line transitions?
   Pair-constrained trials: 100,000
-  Also satisfy no-5:       4,506 (4.51%)
-  Approximately 1 in 22 pair-constrained orderings avoid 5-line transitions.
+  Also satisfy no-5:       4,329 (4.33%)
+  Approximately 1 in 23 pair-constrained orderings avoid 5-line transitions.
   The no-5 property is uncommon but not extraordinary among pair-constrained orderings.
 
 --- Sensitivity analysis: reversed bit convention ---
@@ -1569,11 +1580,11 @@ Base trials: 10,000
 Bootstrap resamples: 1000
 
 No-5-line-transition rate: 0.140%
-95% confidence interval: [0.070%, 0.220%]
-Interval width: 0.150 percentage points
+95% confidence interval: [0.070%, 0.210%]
+Interval width: 0.140 percentage points
 
 Approximately 1 in 714 random orderings
-95% CI: 1 in 455 to 1 in 1429
+95% CI: 1 in 476 to 1 in 1429
 
 Note: These CIs measure the precision of the Monte Carlo estimate, not
 fundamental uncertainty about the true proportion. They reflect how much
@@ -1592,9 +1603,9 @@ randomly shuffle the 64 hexagrams thousands of times and check how often a
 random ordering also avoids 5-line transitions. The rarer it is, the less
 plausible chance becomes as an explanation for the avoidance.
 ---
-Permutations with no 5-line transitions: 11/10,000 (0.11%)
-Approximately 1 in 909 random orderings share this property.
-Odds ratio against random: 908:1
+Permutations with no 5-line transitions: 24/10,000 (0.24%)
+Approximately 1 in 416 random orderings share this property.
+Odds ratio against random: 416:1
 </pre>
 </div>
 </body></html>

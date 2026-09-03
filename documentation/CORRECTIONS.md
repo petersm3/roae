@@ -7912,3 +7912,49 @@ here unnoticed. The universe now excludes this file.
 **Attribution.** Both defects are Codex V2-23 #1's; the second (self-witnessing) was not named in the
 finding and was measured during adjudication. Fix and entry are the code-fix lane's (Claude) under
 operator direction. Corrections welcome.
+
+## 2026-09-03 — a published "maximum path length" that was not attainable, and a greedy baseline tuned by the ordering it controlled for (code-fix lane, Codex V2-L17 #1 and the roae.py path/codon sites)
+
+### 1. `378` was not merely wrong, it was impossible — the maximum is `347`
+
+- **Class:** C1 · **Documents:** `example/README.md`, `example/report.{txt,md,html,pdf}` (the five
+  generated artifacts; no `reports/` or `documentation/` file carried the figure — swept).
+- **BEFORE:** `Maximum possible (63 transitions of 6): 378` · `King Wen uses 55.8% of maximum path length`
+- **NOW:** `Maximum possible (32 complement steps of 6 + 31 of ≤5): 347` · `60.8%`
+- **Why the old figure could not be right, by its own parenthetical.** It assumed all 63 transitions
+  could have Hamming distance 6. In a 6-bit cube the only distance-6 neighbour of a vertex is its
+  complement, so the distance-6 edges form a **perfect matching**; a 64-vertex Hamiltonian path has 63
+  edges and can use at most **32** of them. Hence `32·6 + 31·5 = 347`.
+- **The bound is attained**, so 347 is exact and not merely an upper limit: interleaving each vertex
+  with its complement along a 5-bit Gray walk gives a permutation of 0..63 whose distance histogram is
+  `{6: 32, 5: 31}`, summing to 347.
+- King Wen's own path length is unchanged at **211** — independently fixed by C5's histogram
+  (`1·2 + 2·20 + 3·13 + 4·19 + 6·9 = 211`, `SOLVE.md`). Only the denominator moved, so the percentage
+  rose 55.8% → 60.8%. **The correction is not favourable to the project's earlier framing and is not
+  meant to be**: it makes King Wen look *closer* to a maximum that is itself smaller.
+
+### 2. The greedy nearest-neighbour baseline resolved ties using King Wen's own ordering
+
+- **Class:** C1 · **Document:** `roae.py` (`--path`), and the same five generated artifacts.
+- **BEFORE:** greedy total **75**, reported as the control King Wen is measured against.
+- **NOW:** **63**, with ties broken on the hexagram's own 6-bit value.
+- 🔴 **The defect and why it mattered.** The loop ran `for j in range(64)` and updated on a strict
+  `d < best_dist`, so the candidate index *was* the King Wen position: every distance tie was resolved
+  by the very ordering the baseline exists to control for. Measured from the same start vertex, the
+  three natural tie policies give King Wen position **75**, reverse King Wen position **68**, hexagram
+  value **63** — and **the shipped policy was the largest of the three**, i.e. the one that most
+  flattered King Wen (211/75 = 2.81× against 211/63 = 3.35×). The intro prose claiming the comparison
+  "reveals whether the King Wen ordering was optimized" has been removed.
+- The new rule is ordering-independent by construction: the walk runs over **values**, so
+  `binary_hexagrams` is read once for the start vertex and cannot re-enter through the candidate loop.
+
+### 3. Codon degeneracy counted only the bit-flip subset of single-base changes
+
+- **Class:** C2 · **Document:** `roae.py` (`codon_degeneracy`), and the generated artifacts.
+- **NOW:** the true single-base graph is **576** moves and preserves **138** (**24.0%**). The former
+  bit-flip-only subset (**384** moves, **100** preserved, 26.0%) is retained and **explicitly labelled
+  as encoding-selected**, rather than presented as the single-base result.
+
+**Attribution.** The tie-breaking defect is Codex v2 L17 #1's. The path-maximum and codon items were
+found by the code-fix lane (Claude) under operator direction; the 347 bound and its witness were
+re-derived independently by the parent before the change was accepted. Corrections welcome.

@@ -1255,6 +1255,57 @@ def print_entropy():
     for n in range(7):
         print(f"  {n}     {kw_tally[n]:>9}       {avg_tally[n]:>14.1f}")
 
+# 63 x 6 = 378 is IMPOSSIBLE, not merely unattained, and the published figure was
+# 378 until 2026-09-03 (Codex v2 F61 #4). A distance-6 edge joins v only to its
+# complement v ^ 0b111111, so EVERY vertex has exactly ONE distance-6 neighbour; the
+# distance-6 edges of a Hamiltonian path therefore form a matching and number at most
+# 32 of the 63 edges, leaving at least 31 edges at distance <= 5. Hence the maximum is
+# at most 32*6 + 31*5 = 347 -- and 347 is ATTAINED, so this is the exact bound: take
+# the 5-bit Gray sequence g_i = i ^ (i >> 1) for i = 0..31 and emit g_0, ~g_0, g_1,
+# ~g_1, ..., which visits all 64 hexagrams exactly once with distance histogram
+# {6: 32, 5: 31}. print_self_test() re-proves attainment rather than pinning 347 as a
+# literal. King Wen's 211 is 60.8% of 347, not the 55.8% of 378 published before.
+MAX_PATH = 32 * 6 + 31 * 5  # = 347
+
+def max_path_witness():
+    """The interleaved 5-bit-Gray ordering that attains MAX_PATH.
+
+    Returned as a witness so the self-test can re-derive attainment instead of
+    trusting the constant: a bound with no construction behind it is a literal."""
+    seq = []
+    for i in range(32):
+        g = i ^ (i >> 1)
+        seq.append(g)
+        seq.append(g ^ 0b111111)
+    return seq
+
+def greedy_nn_total(start_value=None):
+    """Greedy nearest-neighbour walk over the 64 hexagrams, with a FROZEN,
+    ORDERING-INDEPENDENT tie rule.
+
+    Until 2026-09-03 this loop ran `for j in range(64)` and updated on a strict
+    `d < best_dist`, so the candidate index WAS the King Wen position and every
+    distance tie was resolved by the very ordering the baseline exists to control for
+    (Codex v2 L17 #1). Measured from the same start vertex, the three natural policies
+    give: King Wen position 75, reverse King Wen position 68, hexagram value 63. The
+    shipped policy was the LARGEST of the three, i.e. the one that most flattered King
+    Wen (211/75 = 2.81x against 211/63 = 3.35x). Ties are now broken on the hexagram's
+    own 6-bit value, which no ordering of the sequence can influence. The walk is now
+    expressed over VALUES rather than sequence positions, so binary_hexagrams is read
+    once, for the start vertex, and cannot re-enter through the candidate loop."""
+    if start_value is None:
+        start_value = binary_hexagrams[0]
+    remaining = set(range(64)) - {start_value}
+    path = [start_value]
+    total = 0
+    while remaining:
+        current = path[-1]
+        nxt = min(remaining, key=lambda v: (bit_diff(current, v), v))
+        total += bit_diff(current, nxt)
+        remaining.discard(nxt)
+        path.append(nxt)
+    return total, path
+
 def print_path():
     """Analyze the King Wen sequence as a path through a graph where nodes are
     hexagrams and edge weights are Hamming distances. Compare its total path
@@ -1267,8 +1318,11 @@ def print_path():
     print("visits all 64 cities. Is it a short, efficient route (nearby hexagrams placed")
     print("next to each other), or a long, wandering one? We compare its total distance")
     print("against random routes and a greedy 'always go to the nearest unvisited city'")
-    print("algorithm. This reveals whether the King Wen ordering was optimized for smooth")
-    print("transitions or had other priorities.")
+    print("algorithm whose ties are broken on the hexagram's own 6-bit value, so that the")
+    print("baseline cannot borrow the very ordering it is a control for (breaking ties on")
+    print("sequence position instead would report 75 rather than 63). This is a descriptive")
+    print("comparison of path lengths; it is not a test of whether the King Wen ordering")
+    print("was optimized for smooth transitions.")
     print("---")
 
     diffs = compute_diffs(wrap=False)
@@ -1289,27 +1343,10 @@ def print_path():
     below = sum(1 for t in random_totals if t < kw_total)
     percentile = below / len(random_totals) * 100
 
-    # Greedy nearest-neighbor heuristic: always go to the closest unvisited hexagram
-    visited = [False] * 64
-    greedy_path = [0]  # Start at hexagram 1
-    visited[0] = True
-    greedy_total = 0
-    for _ in range(63):
-        current = greedy_path[-1]
-        best_dist = 7
-        best_next = -1
-        for j in range(64):
-            if not visited[j]:
-                d = bit_diff(binary_hexagrams[current], binary_hexagrams[j])
-                if d < best_dist:
-                    best_dist = d
-                    best_next = j
-        greedy_path.append(best_next)
-        visited[best_next] = True
-        greedy_total += best_dist
+    greedy_total, _greedy_path = greedy_nn_total()
 
     print(f"King Wen total path length:  {kw_total} (sum of all line changes)")
-    print(f"Greedy nearest-neighbor:     {greedy_total}")
+    print(f"Greedy nearest-neighbor:     {greedy_total} (ties broken on hexagram value)")
     print(f"Mean random path length:     {mean_random:.1f}")
     print(f"Min random observed:         {min(random_totals)}")
     print(f"Max random observed:         {max(random_totals)}")
@@ -1321,8 +1358,8 @@ def print_path():
     # Theoretical bounds
     print(f"\n--- Theoretical bounds ---")
     print(f"Minimum possible (63 transitions of 1): 63")
-    print(f"Maximum possible (63 transitions of 6): 378")
-    print(f"King Wen uses {kw_total/378*100:.1f}% of maximum path length")
+    print(f"Maximum possible (32 complement steps of 6 + 31 of ≤5): {MAX_PATH}")
+    print(f"King Wen uses {kw_total/MAX_PATH*100:.1f}% of maximum path length")
 
     # Pair-constrained comparison: the right null model
     # Generate random orderings that preserve the pair structure (pairs stay adjacent)
@@ -2367,6 +2404,55 @@ def print_self_test():
     comp_ok = all((b ^ 0b111111) ^ 0b111111 == b for b in range(64))
     check("XOR complement is self-inverse", comp_ok)
 
+    # --- Path-length bounds and the greedy baseline (Codex v2 F61 #4 / L17 #1,
+    # landed 2026-09-03). RE-DERIVED, NOT PINNED: a bare `MAX_PATH == 347` would
+    # pass just as contentedly if the reasoning behind it were wrong, which is how
+    # 378 survived. Each half of the bound is recomputed and the witness that
+    # attains it is rebuilt and re-checked from scratch. ---
+    check("path: MAX_PATH = 32*6 + 31*5 = 347", MAX_PATH == 32 * 6 + 31 * 5 == 347)
+    check("path: every vertex has exactly ONE distance-6 neighbour",
+          all(sum(1 for w in range(64) if bit_diff(v, w) == 6) == 1 for v in range(64)))
+    _w = max_path_witness()
+    check("path: max-bound witness is a permutation of 0..63",
+          sorted(_w) == list(range(64)))
+    check("path: max-bound witness attains MAX_PATH exactly",
+          sum(bit_diff(_w[k], _w[k + 1]) for k in range(63)) == MAX_PATH)
+    _g6 = [k ^ (k >> 1) for k in range(64)]
+    check("path: 6-bit Gray code attains the minimum of 63",
+          sorted(_g6) == list(range(64))
+          and sum(bit_diff(_g6[k], _g6[k + 1]) for k in range(63)) == 63)
+    check("path: greedy nearest-neighbour total = 63 (value tie rule)",
+          greedy_nn_total()[0] == 63)
+    # The leak this replaced was invisible to any check that only pinned the number:
+    # 75 was a stable, reproducible constant. What makes it visible is asking whether
+    # the answer MOVES when the sequence does. Two deterministic re-orderings, same
+    # start vertex; the pre-2026-09-03 index-order loop fails this.
+    _saved = binary_hexagrams[:]
+    _indep = True
+    try:
+        for _perm in (list(reversed(_saved)), _saved[17:] + _saved[:17]):
+            binary_hexagrams[:] = _perm
+            if greedy_nn_total(_saved[0])[0] != 63:
+                _indep = False
+    finally:
+        binary_hexagrams[:] = _saved
+    check("path: greedy total is invariant under re-ordering the sequence", _indep)
+
+    # --- Codon degeneracy neighbourhood (Codex v2 L17 #2, landed 2026-09-03). ---
+    _cp, _ctot, _cbp, _cbt = codon_degeneracy()
+    check("codons: single-base neighbourhood is 64*3*3 = 576 directed moves",
+          _ctot == 64 * 3 * 3 == 576)
+    check("codons: single-base moves preserving the amino acid = 138", _cp == 138)
+    check("codons: bit-flip subset is 64*6 = 384 moves, 100 preserved",
+          _cbt == 64 * 6 == 384 and _cbp == 100)
+    check("codons: the bit-flip subset omits 192 of the 576 moves",
+          _ctot - _cbt == 192)
+    _cua, _cuc = 0b010010, 0b010001
+    check("codons: CUA/CUC is synonymous and NOT a single bit flip",
+          val_to_codon(_cua) == "CUA" and val_to_codon(_cuc) == "CUC"
+          and codon_table[val_to_codon(_cua)] == codon_table[val_to_codon(_cuc)] == "Leu"
+          and bit_diff(_cua, _cuc) == 2)
+
     # --- Pre-registered H1/H3 evaluator pins (--prereg-h1h3; frozen spec
     # 2026-07-26). These pin the evaluators to independently-verified
     # values — they are correctness constants, NEVER thresholds. ---
@@ -3163,6 +3249,73 @@ def print_explain(position):
     print(f"\n  Result: transition {pos} changes {diff} of 6 lines.")
     print(f"  This contributes '{diff}' to the difference wave. {'*' * diff}")
 
+# Standard genetic code: map 6-bit values to codons
+# Encoding: each pair of bits maps to a base
+# Using the convention: 00=U, 01=C, 10=A, 11=G
+bases = {0b00: 'U', 0b01: 'C', 0b10: 'A', 0b11: 'G'}
+
+# Standard codon table (codon -> amino acid)
+codon_table = {
+    "UUU": "Phe", "UUC": "Phe", "UUA": "Leu", "UUG": "Leu",
+    "UCU": "Ser", "UCC": "Ser", "UCA": "Ser", "UCG": "Ser",
+    "UAU": "Tyr", "UAC": "Tyr", "UAA": "Stop", "UAG": "Stop",
+    "UGU": "Cys", "UGC": "Cys", "UGA": "Stop", "UGG": "Trp",
+    "CUU": "Leu", "CUC": "Leu", "CUA": "Leu", "CUG": "Leu",
+    "CCU": "Pro", "CCC": "Pro", "CCA": "Pro", "CCG": "Pro",
+    "CAU": "His", "CAC": "His", "CAA": "Gln", "CAG": "Gln",
+    "CGU": "Arg", "CGC": "Arg", "CGA": "Arg", "CGG": "Arg",
+    "AUU": "Ile", "AUC": "Ile", "AUA": "Ile", "AUG": "Met",
+    "ACU": "Thr", "ACC": "Thr", "ACA": "Thr", "ACG": "Thr",
+    "AAU": "Asn", "AAC": "Asn", "AAA": "Lys", "AAG": "Lys",
+    "AGU": "Ser", "AGC": "Ser", "AGA": "Arg", "AGG": "Arg",
+    "GUU": "Val", "GUC": "Val", "GUA": "Val", "GUG": "Val",
+    "GCU": "Ala", "GCC": "Ala", "GCA": "Ala", "GCG": "Ala",
+    "GAU": "Asp", "GAC": "Asp", "GAA": "Glu", "GAG": "Glu",
+    "GGU": "Gly", "GGC": "Gly", "GGA": "Gly", "GGG": "Gly",
+}
+
+def val_to_codon(val):
+    """Convert a 6-bit value to a 3-base codon."""
+    b1 = bases[(val >> 4) & 0b11]
+    b2 = bases[(val >> 2) & 0b11]
+    b3 = bases[val & 0b11]
+    return b1 + b2 + b3
+
+def codon_degeneracy():
+    """Amino-acid preservation under the TWO different neighbourhoods, counted.
+
+    Until 2026-09-03 this analysis flipped one bit at a time and published the
+    result as the genetic code's degeneracy (Codex v2 L17 #2). That transfers the
+    wrong relation. Under 00=U, 01=C, 10=A, 11=G a nucleotide has THREE single-base
+    substitutions but only TWO one-bit neighbours, so the bit-flip graph sees
+    64 * 6 = 384 directed moves and silently drops 192 of the biological graph's
+    64 * 3 * 3 = 576. The dropped moves are not a neutral sample: CUA -> CUC is
+    synonymous (both Leu) and is invisible to a bit flip because A = 0b10 and
+    C = 0b01 differ in two mapped bits. Measured over the table above, the omission
+    INFLATES the figure -- the bit-flip subset reads 100/384 = 26.0% where the full
+    single-base graph reads 138/576 = 24.0%.
+
+    Returns (preserved, total, bitflip_preserved, bitflip_total)."""
+    preserved = total = bf_preserved = bf_total = 0
+    for val in range(64):
+        aa = codon_table.get(val_to_codon(val), "?")
+        for pos in range(3):
+            shift = (2 - pos) * 2
+            cur = (val >> shift) & 0b11
+            for base in range(4):
+                if base == cur:
+                    continue
+                nb = (val & ~(0b11 << shift)) | (base << shift)
+                total += 1
+                if aa == codon_table.get(val_to_codon(nb), "?"):
+                    preserved += 1
+        for bit in range(6):
+            nb = val ^ (1 << bit)
+            bf_total += 1
+            if aa == codon_table.get(val_to_codon(nb), "?"):
+                bf_preserved += 1
+    return preserved, total, bf_preserved, bf_total
+
 def print_codons():
     """Map the 64 hexagrams to the 64 DNA codons and compare structures.
     https://en.wikipedia.org/wiki/Genetic_code
@@ -3181,37 +3334,6 @@ def print_codons():
     print("This analysis is illustrative, not evidence of a biological connection.")
     print("---")
 
-    # Standard genetic code: map 6-bit values to codons
-    # Encoding: each pair of bits maps to a base
-    # Using the convention: 00=U, 01=C, 10=A, 11=G
-    bases = {0b00: 'U', 0b01: 'C', 0b10: 'A', 0b11: 'G'}
-
-    # Standard codon table (codon -> amino acid)
-    codon_table = {
-        "UUU": "Phe", "UUC": "Phe", "UUA": "Leu", "UUG": "Leu",
-        "UCU": "Ser", "UCC": "Ser", "UCA": "Ser", "UCG": "Ser",
-        "UAU": "Tyr", "UAC": "Tyr", "UAA": "Stop", "UAG": "Stop",
-        "UGU": "Cys", "UGC": "Cys", "UGA": "Stop", "UGG": "Trp",
-        "CUU": "Leu", "CUC": "Leu", "CUA": "Leu", "CUG": "Leu",
-        "CCU": "Pro", "CCC": "Pro", "CCA": "Pro", "CCG": "Pro",
-        "CAU": "His", "CAC": "His", "CAA": "Gln", "CAG": "Gln",
-        "CGU": "Arg", "CGC": "Arg", "CGA": "Arg", "CGG": "Arg",
-        "AUU": "Ile", "AUC": "Ile", "AUA": "Ile", "AUG": "Met",
-        "ACU": "Thr", "ACC": "Thr", "ACA": "Thr", "ACG": "Thr",
-        "AAU": "Asn", "AAC": "Asn", "AAA": "Lys", "AAG": "Lys",
-        "AGU": "Ser", "AGC": "Ser", "AGA": "Arg", "AGG": "Arg",
-        "GUU": "Val", "GUC": "Val", "GUA": "Val", "GUG": "Val",
-        "GCU": "Ala", "GCC": "Ala", "GCA": "Ala", "GCG": "Ala",
-        "GAU": "Asp", "GAC": "Asp", "GAA": "Glu", "GAG": "Glu",
-        "GGU": "Gly", "GGC": "Gly", "GGA": "Gly", "GGG": "Gly",
-    }
-
-    def val_to_codon(val):
-        """Convert a 6-bit value to a 3-base codon."""
-        b1 = bases[(val >> 4) & 0b11]
-        b2 = bases[(val >> 2) & 0b11]
-        b3 = bases[val & 0b11]
-        return b1 + b2 + b3
 
     # Same six-cell Hex column as the trigram table above.
     print("Pos | Hex  | Binary | Codon | Amino Acid | Name")
@@ -3234,23 +3356,21 @@ def print_codons():
     # preserve the amino acid (degeneracy). Is this true for single-line hexagram changes?
     print(f"\n--- Degeneracy comparison ---")
     print("In DNA, many single-base changes preserve the amino acid (the code is 'degenerate').")
-    print("Do single-line hexagram changes preserve the mapped amino acid?")
+    print("A base has THREE possible substitutions, but a hexagram line has only one flip, and")
+    print("under this bit-to-base convention a flipped bit reaches only two of the three. The")
+    print("line graph is therefore not the mutation graph, and the two are reported separately:")
+    print("the full single-base neighbourhood first, then the single-line subset of it.")
 
-    preserved = 0
-    total_neighbors = 0
-    for i in range(64):
-        for bit in range(6):
-            neighbor = binary_hexagrams[i] ^ (1 << bit)
-            codon_a = val_to_codon(binary_hexagrams[i])
-            codon_b = val_to_codon(neighbor)
-            aa_a = codon_table.get(codon_a, "?")
-            aa_b = codon_table.get(codon_b, "?")
-            total_neighbors += 1
-            if aa_a == aa_b:
-                preserved += 1
+    preserved, total_neighbors, bf_preserved, bf_total = codon_degeneracy()
 
-    print(f"Single-line changes that preserve amino acid: {preserved}/{total_neighbors} "
+    print(f"Single-base changes that preserve amino acid: {preserved}/{total_neighbors} "
           f"({preserved/total_neighbors*100:.1f}%)")
+    print(f"Single-LINE changes (one flipped bit) that preserve it: "
+          f"{bf_preserved}/{bf_total} ({bf_preserved/bf_total*100:.1f}%)")
+    print("The second figure is the higher of the two, and it is not a subsample: a flipped")
+    print("bit reaches two of a base's three substitutions, so it omits 192 of the 576 moves")
+    print("by a rule the encoding fixes, not by chance. Read it as the degeneracy of an")
+    print("encoding-selected two-thirds of mutation types, never as the genetic code's.")
 
 def export_midi(filename="wave.mid"):
     """Export the difference wave as a MIDI file."""
@@ -5271,11 +5391,16 @@ def main():
     if run_all:
         print("\n---")
         print("Note on multiple comparisons")
-        print("This report runs 29 sections, 28 of them statistical analyses (the")
-        print("29th, --parity, is theorem-backed — deductive, so it carries no p-value")
-        print("and sits outside this accounting). When testing many properties, some will")
-        print("appear 'unusual' by chance alone. A result at the 5% level (p<0.05)")
-        print("is expected ~1.4 times out of 28 tests even for a purely random sequence.")
+        print("This report runs 29 sections: 28 analyses — most with null-model")
+        print("comparisons, but several descriptive-only, and CRITIQUE.md names which are")
+        print("which (the trigram transition matrices, windowed entropy and the Gray-code")
+        print("comparison among them) — plus --parity, which is theorem-backed:")
+        print("deductive, so it carries no p-value and sits outside this accounting.")
+        print("The Bonferroni arithmetic below is over the frozen ledger of 28 exploratory")
+        print("observables, which is a count of sections, not of surviving null tests.")
+        print("When testing many properties, some will appear 'unusual' by chance alone.")
+        print("A result at the 5% level (p<0.05) is expected ~1.4 times out of 28 tests")
+        print("even for a purely random sequence.")
         print("A Bonferroni-corrected significance threshold for 28 tests is")
         print("p < 0.05/28 = 0.0018. Only findings below this threshold can be considered")
         print("significant after correction. The pair structure (p < 0.0001) survives.")

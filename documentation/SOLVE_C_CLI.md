@@ -389,7 +389,21 @@ depth-32 leaf. Averaging `N` independent probes is an **unbiased** estimate of:
 `tree_nodes` (total nodes), `leaves_C1C2C4C5` (complete orderings), and
 `leaves_canonical_C1C5` (C3-valid = canonical, un-deduped). Prints mean, 95 % CI,
 relative error, and hit-rate for each. `SOLVE_THREADS` sets parallelism (default
-`nproc`); each thread uses an independent xorshift seed.
+`nproc`); each thread uses a **distinct** xorshift seed, derived as
+`base ^ ((i+1) * 0x9E3779B97F4A7C15)` (`solve.c`).
+
+⚠ **[CORRECTED 2026-09-03 — this read "an independent xorshift seed" (Codex v2,
+lane B sibling sweep).]** Distinct is not independent, and the distinction is
+mechanical rather than pedantic: **xorshift64 has a single cycle of length
+2⁶⁴−1**, so seeding threads differently chooses different *starting points on the
+same orbit*, not different streams. Two threads whose start points happen to fall
+within one thread's consumption of the cycle will replay the same values, and
+nothing in the estimator detects that. The overlap probability is negligible at
+the scales run here (~10⁻⁵ pairwise at the headline budget), so **no published
+figure is affected** — but the guarantee the old word implied does not exist, and
+a reader sizing a much larger run should know which property they actually have.
+A genuinely independent construction would need a generator with provably
+disjoint substreams, which this is not.
 
 - No prefix → the whole C1–C5 tree (all 56 first-level branches).
 - A `<p> <o>` prefix (up to **28** levels, e.g. `22 0 30 1 20 0`) scopes the estimate
