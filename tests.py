@@ -3538,5 +3538,68 @@ class TestRoaePathAndCodons(unittest.TestCase):
         self.assertEqual((bp, bt), (100, 384))   # the bit-flip subset, kept and labelled
 
 
+class TestPublishedMoorePrecursorWitness(unittest.TestCase):
+    """The 64-number Moore-precursor witness is published in exactly ONE place, and TR-2 now
+    points at it rather than carrying a second copy (Codex V2-F04 #9, 2026-09-03).
+
+    A pointer is only as good as the thing it points at, so this pins the published copy's
+    properties instead of trusting the prose beside it. RED-TEST: perturbing any number in
+    LITERATURE_RULES_POPULATION_TESTS.md fails at least one assertion below.
+    """
+
+    SRC = "documentation/LITERATURE_RULES_POPULATION_TESTS.md"
+    EXPECTED_COPIES = 2   # measured 2026-09-03: lines ~157 and ~249, currently identical
+
+    def _witness(self):
+        """Return the published witness, requiring EVERY copy of it to agree.
+
+        🔴 The file carries the literal TWICE (measured 2026-09-03: two occurrences, currently
+        identical). Two uncoordinated copies of a 64-number constant is a drift waiting to happen,
+        and TR-2 now points here instead of adding a third. So this does not just read the first
+        one — it reads them all and fails if they diverge.
+        """
+        import re, os
+        here = os.path.dirname(os.path.abspath(__file__))
+        txt = open(os.path.join(here, self.SRC), encoding="utf-8").read()
+        # 🔴 DO NOT ANCHOR THE PATTERN ON THE VALUE BEING CHECKED. The first cut matched
+        # `63,0,17,...`, so perturbing the FIRST number made that copy invisible to findall
+        # instead of making it disagree: one copy found, trivially self-consistent, test green.
+        # Measured 2026-09-03 by red-testing this very check. Match any backticked run of >=60
+        # comma-separated integers, so a changed digit anywhere still yields a copy that DIFFERS.
+        raw = [r for r in re.findall(r"`([0-9]+(?:[,\s]+[0-9]+){59,})`", txt, re.S)]
+        self.assertEqual(len(raw), self.EXPECTED_COPIES,
+                         f"{self.SRC}: expected {self.EXPECTED_COPIES} copies of the witness, "
+                         f"found {len(raw)} — a copy that vanished is as bad as one that drifted, "
+                         f"because TR-2 points here for it")
+        self.assertTrue(raw, f"{self.SRC}: the published witness literal is GONE — TR-2 points "
+                             f"here for it, so its absence is a broken promise, not a missing test")
+        seqs = {tuple(int(x) for x in re.split(r"[,\s]+", r.strip()) if x) for r in raw}
+        self.assertEqual(len(seqs), 1,
+                         f"{self.SRC}: {len(raw)} copies of the witness and they DISAGREE — "
+                         f"a reader following TR-2's pointer would get whichever one they found first")
+        return list(next(iter(seqs)))
+
+    def test_published_witness_has_the_properties_tr2_claims(self):
+        import roae, verify
+        w = self._witness()
+        self.assertEqual(len(w), 64)
+        self.assertEqual(sorted(w), list(range(64)), "witness is not a permutation of 0..63")
+        self.assertEqual(w[:2], [63, 0], "witness does not open (63,0) — C4")
+        # TR-2 states it sits at the same C3 ceiling as King Wen.
+        self.assertEqual(verify.compute_comp_dist(w), 776)
+        self.assertEqual(verify.compute_comp_dist(roae.binary_hexagrams), 776)
+
+    def test_published_witness_is_exactly_three_SLOT_edits_from_king_wen(self):
+        import roae
+        w = self._witness()
+        KW = roae.binary_hexagrams
+        slots = sorted({i // 2 for i in range(64) if w[i] != KW[i]})
+        # 3 slots, NOT 3 adjacent positions: pairs 8, 22, 23 (zero-based slots 7, 21, 22).
+        # TR-2 said "three adjacent-position edits" until 2026-09-03; slot 7 is nowhere near 21/22.
+        self.assertEqual(slots, [7, 21, 22],
+                         f"witness slot-edit footprint moved: {slots}")
+        self.assertEqual(len(slots), 3)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
