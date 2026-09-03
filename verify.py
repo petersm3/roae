@@ -26,7 +26,9 @@ This file now independently verifies BOTH kinds of published result:
       now the only constraint with no independent re-count at all, and the one
       the full-31 integer rests on most heavily — therefore has one.
 
-Different language, different implementation, standard-library only, NO import
+Different language, different implementation, standard-library only on every mode
+but one (--check-t5-c3 reads the T5 parquet sample and needs numpy + pyarrow; it
+declares that and stops with T5_C3_AGREE=ERROR if they are absent), NO import
 of solve.c / solve.py / roae.py / sat.py — every quantity is rebuilt from the
 published mathematical definitions (SPECIFICATION.md constraints C1–C5,
 rev/comp/partner, the symmetry group; TR-11's reduced-rung tables).
@@ -38,9 +40,11 @@ Usage:
     python3 verify.py --enumerate-reference N       # small-n brute-force (2<=N<=9)
     python3 verify.py --recount                     # independent count reproduction
     python3 verify.py --recount-rung N              # C5 ladder rung n=18/19 (worker-sized)
-    python3 verify.py --recount-rung-layers N       # gate published per-layer masses (n=9/13)
+    python3 verify.py --recount-rung-layers N       # gate published per-layer masses (n=9/13/16;
+                                                    # 16 is ~90 s and ~1 GB)
     python3 verify.py --f1-dec-roundtrip            # gate the 192-bit decimal renderer, full range
-    python3 verify.py --f1u192-binary-roundtrip     # gate the 24-byte on-disk limb layout
+    python3 verify.py --f1u192-binary-roundtrip     # gate the 24-byte on-disk limb layout + every
+                                                    # intermediate layer's orbit-weighted mass (Q-269)
     python3 verify.py --recount-orbit-widths 31     # Burnside gate on the canonical_masks column
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
                                                     # + pair orderings 2/381/899 (orientation-deduped)
@@ -439,6 +443,12 @@ def check_artifact(path, count=-1, offset=0):
     for k in ("KEY", "SPARE_BIT", "OPENING", "HD5", "BUDGET", "BUDGET_RESIDUE", "ORDER",
               "C3", "HDR_VERSION", "HDR_RESERVED", "GEOMETRY"):
         print(f"BAD_{k}={bad[k]}")
+    if n == 0:
+        # Not fail-open (the `n and` below has refused it since the mode landed) but it
+        # failed SILENTLY: every BAD_* counter read 0 and the verdict said FAIL with no
+        # reason a reader could act on. Same class as the records-path zero-record guard.
+        print("  ZERO records in the checked range -- nothing was checked; an empty "
+              "artifact is unverifiable, not valid")
     if n and not any(bad.values()):
         print("ARTIFACT=PASS")
         print("SCOPE=validity_sortedness_dedup_only_NOT_completeness")
@@ -1404,8 +1414,12 @@ def enumerate_reference(npairs):
     Enumerates the complete set of valid arrangements of the first `npairs`
     KW-derived pairs under the structural constraints that reduce cleanly to a
     truncated sequence — C1 (each pair once), C2 (no hamming-5 transition
-    between consecutive hexagrams), C4 (pair 0 = hexagram 1 / hexagram 2 placed
-    first; either orientation). C3/C5 are GLOBAL (defined over the full
+    between consecutive hexagrams), C4-pair (pair 0 = hexagram 1 / hexagram 2
+    placed first; EITHER orientation — deliberately NOT the oriented C4 of
+    SPECIFICATION.md, which pins s0 = 63, s1 = 0 and admits only a subset of
+    these sets; the banner, the --help text and a whole-line REFERENCE_C4=
+    token say so, and the oriented subset is counted alongside — Codex V2-F58
+    #6, 2026-09-03). C3/C5 are GLOBAL (defined over the full
     64-hexagram sequence vs KW's distribution) and do NOT reduce, so they are
     intentionally excluded here.
 
@@ -1488,8 +1502,22 @@ def enumerate_reference(npairs):
         used[0] = False
 
     print(f"=== verify.py --enumerate-reference {npairs} ===")
-    print(f"Reduced problem: first {npairs} KW pairs, constraints C1+C2+C4 "
+    print(f"Reduced problem: first {npairs} KW pairs, constraints C1+C2+C4-pair "
           f"(C3/C5 are global, excluded — see docstring)")
+    # LABEL DISCIPLINE (Codex V2-F58 #6, 2026-09-03). "C4" formally names the ORIENTED
+    # constraint (SPECIFICATION.md: s0 = 63, s1 = 0); this reduced problem admits pair 0 in
+    # either orientation, so a reader validating pruning against a bare "C4" banner was
+    # validating against a larger problem than the documented one. This project has already
+    # ruled either-orientation-C4 a defect and fixed it three times (solve.c --verify and
+    # --validate, verify.py's records path); this reference enumerator was the fourth sibling,
+    # relaxed on purpose but labelled as if it were not. The relaxation is now NAMED in the
+    # banner, in --help and in a whole-line token, and the oriented-C4 subset of Method A is
+    # counted so the formal number is available without changing the mode's A-vs-B product.
+    oriented_A = sum(1 for seq in setA if seq[0] == 63 and seq[1] == 0)
+    print("REFERENCE_C4=PAIR_ONLY_ORIENTATION_FREE")
+    print("  (pair 0 first in EITHER orientation; NOT the oriented C4 of SPECIFICATION.md)")
+    print(f"REFERENCE_VALID_ORIENTED_C4={oriented_A}")
+    print(f"  (the subset of Method A's {len(setA)} sets with s0 = 63, s1 = 0)")
     print(f"Method A (exhaustive generate+filter): {candidates_A:,} candidates -> {len(setA):,} valid")
     print(f"Method B (prune-as-you-go DFS):        {len(setB):,} valid")
     if setA == setB:
@@ -1981,22 +2009,25 @@ def _layer_masses_c1c2c4c5(pairs, start, b0):
 def _published_rung_layers(n):
     """Parse the n=9 / n=13 layer-mass columns out of the published artifact.
 
-    Returns a list of n integers, or raises. The two rungs share one markdown
-    table (n=9 in cols 1-2, n=13 in cols 4-5), so a row is read by POSITION and a
-    short row simply has no n=13 cell."""
+    Returns a list of n integers, or raises. The rungs share one markdown table
+    (n=9 in cols 1-2, n=13 in cols 4-5, n=16 in cols 7-8 once published), so a
+    row is read by POSITION and a short row simply has no cell for the wider
+    rung. A five-cell table (n=9 and n=13 only) is accepted for those two rungs
+    and yields NO n=16 mass, which the caller reports as a failure, not a pass."""
     import os, re
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), _AGG_DOC)
     if not os.path.exists(path):
         raise RuntimeError(f"{_AGG_DOC} is absent -- nothing to gate. This is a "
                            f"failure, not a pass.")
-    col = 0 if n == 9 else 3
+    col = {9: 0, 13: 3, 16: 6}[n]
     got = {}
     # SCOPE THE PARSE. The first cut matched any pipe row in the file and so read
     # the 31-row table of section 1, whose columns mean something else entirely --
     # it reported all nine n=9 layers as mismatched against numbers that were never
     # n=9 masses. A gate that fails for the wrong reason is only luckier than one
-    # that passes for the wrong reason. The rung table is the one under "## 2" and
-    # it is exactly five cells wide; section 1's is eight.
+    # that passes for the wrong reason. The rung table is the one under "## 2"; it
+    # is five cells wide today and eight once the n=16 column lands (section 1's
+    # table is also eight, but it is excluded by the section scope, not by width).
     in_s2 = False
     for line in open(path, encoding="utf-8"):
         if line.startswith("## "):
@@ -2005,7 +2036,7 @@ def _published_rung_layers(n):
         if not in_s2 or not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) != 5:
+        if len(cells) not in (5, 8) or col + 1 >= len(cells):
             continue
         k, m = cells[col], cells[col + 1]
         if not re.fullmatch(r"\d+", k) or not re.fullmatch(r"[\d,]+", m):
@@ -2019,16 +2050,22 @@ def _published_rung_layers(n):
     return [got[k] for k in range(1, n + 1)]
 
 def recount_rung_layers(n):
-    """--recount-rung-layers N: gate the published per-layer masses for the N=9
-    or N=13 C5 rung against an independent recount. Returns 0 iff every layer
-    matches AND the published table was found and fully parsed."""
+    """--recount-rung-layers N: gate the published per-layer masses for the N=9,
+    N=13 or N=16 C5 rung against an independent recount. Returns 0 iff every
+    layer matches AND the published table was found and fully parsed.
+
+    n=16 (Q-265, 2026-09-03): the same plain DP the packed-DP self-gate already
+    runs in-process at n=16 (spec 4.0,6.0,6.1); measured 90 s and 0.95 GB peak
+    on a 2-core host. The engine's own n=16 per-layer masses were measured to
+    agree with this DP at all 16 layers before the rung was admitted here. A
+    table with no n=16 column FAILS -- nothing to gate -- it does not pass."""
     import time
-    if n not in (9, 13):
-        print(f"--recount-rung-layers: n={n} not supported. Supported: 9, 13.")
+    if n not in (9, 13, 16):
+        print(f"--recount-rung-layers: n={n} not supported. Supported: 9, 13, 16.")
         print("Larger rungs exceed the plain DP's single-node budget; see")
         print("--recount-rung for the worker-sized totals.")
         return 2
-    spec = {9: "3.0,3.1,3.2", 13: "3.0,4.0,6.2"}[n]
+    spec = {9: "3.0,3.1,3.2", 13: "3.0,4.0,6.2", 16: "4.0,6.0,6.1"}[n]
     try:
         pub = _published_rung_layers(n)
     except RuntimeError as e:
@@ -2259,10 +2296,125 @@ def _parse_v2_vals(path, raw, hs, nm, ne, blk):
             vals.append(l0 | (l1 << 64) | (l2 << 128))
     return vals
 
+def _parse_f1c5_layer_masks(path):
+    """The canonical-mask table and per-mask entry offsets of a layer file, read from
+    the same raw bytes _parse_f1c5_layer() validates: hdr | masks[nm] u32 | off[nm+1]
+    u64 | ... Returns (header, masks, off, vals); entries of mask i are
+    vals[off[i]:off[i+1]]. A non-monotone or non-covering offset table raises."""
+    import struct
+    h, vals = _parse_f1c5_layer(path)
+    raw = open(path, "rb").read()
+    hs = struct.calcsize(_F1C5_HDR)
+    nm = h["n_masks"]
+    masks = struct.unpack_from("<%dI" % nm, raw, hs)
+    off = struct.unpack_from("<%dQ" % (nm + 1), raw, hs + 4 * nm)
+    if nm == 0 or off[0] != 0 or off[nm] != h["n_entries"] \
+            or any(off[i] > off[i + 1] for i in range(nm)):
+        raise RuntimeError(f"{path}: per-mask offsets are not a monotone partition of "
+                           f"{h['n_entries']} entries over {nm} masks")
+    return h, masks, off, vals
+
+def _rung_orbit_size_fn(pl):
+    """Orbit size of a rung mask under the pair-permutation quotient, DERIVED here.
+
+    The induced pair-perms come from _induced_pair_perms() -- the same derivation
+    the Q-266 Burnside gate uses, built from the 48 commuting bit-permutations and
+    not read from solve.c. Restricted to the rung's own pairs and deduplicated they
+    are the group the engine calls the "faithful restricted index-perm action"
+    (n_eff distinct elements); orbit size is |G_rung| / |stabiliser| by
+    orbit-stabiliser. A rung not closed under the group raises rather than
+    silently using a subgroup. Returns (size_of_mask, |G_rung|)."""
+    index_of = {frozenset(p): i for i, p in enumerate(PAIRS)}
+    sel = [index_of[frozenset(p)] for p in pl]
+    pos = {g: i for i, g in enumerate(sel)}
+    n = len(sel)
+    G = set()
+    for img in _induced_pair_perms():
+        r = []
+        for g in sel:
+            im = img[g - 1]
+            if im not in pos:
+                raise RuntimeError(f"rung is not closed under the pair-perm group: "
+                                   f"pair {g} -> {im} lies outside the rung")
+            r.append(pos[im])
+        G.add(tuple(r))
+    G = sorted(G)
+
+    def apply(r, m):
+        o = 0
+        for i in range(n):
+            if (m >> i) & 1:
+                o |= 1 << r[i]
+        return o
+
+    def size(m):
+        st = sum(1 for r in G if apply(r, m) == m)
+        if st == 0 or len(G) % st:
+            raise RuntimeError(f"orbit-stabiliser violation: |G|={len(G)} stab={st} "
+                               f"mask={m:#x}")
+        return len(G) // st
+    return size, len(G)
+
+def _intermediate_layer_mass_gate(d, name, pl, want_layers):
+    """Q-269 (2026-09-03): ARITHMETIC gate on every layer BELOW the top.
+
+    Before this, layers 1..n-1 of a rung build were checked only structurally
+    (index/inflate consistency) and the final layer by mass -- the full mask is a
+    single orbit of size 1, so its mass needs no group arithmetic. Every layer
+    below it stores one value per (canonical mask, exit) and its mass is
+    sum over stored masks of orbit_size(mask) * sum of that mask's values. A
+    defect confined to entries the final layer does not depend on -- or a wrong
+    orbit weight -- passed. Here orbit sizes come from _rung_orbit_size_fn (group
+    derived in this file), values from the raw bytes, and the expectation from
+    the plain layered DP with no quotient at all. Returns 0 iff every intermediate
+    layer agrees AND at least one stored mask had an orbit wider than 1 -- an arm
+    in which the weighting was never exercised proved nothing about it and FAILS.
+    A missing intermediate layer file is a failure, not a layer to skip."""
+    import os
+    n = len(pl)
+    size, g = _rung_orbit_size_fn(pl)
+    nontrivial = 0
+    for k in range(1, n):
+        fp = os.path.join(d, f"f1c5_layer_{k:02d}.bin")
+        if not os.path.exists(fp):
+            print(f"*FAIL* [{name}] layer {k} file is missing -- an intermediate layer that "
+                  f"cannot be read is a failure of this gate, not a layer it skips")
+            return 1
+        try:
+            h, masks, off, vals = _parse_f1c5_layer_masks(fp)
+        except Exception as e:
+            print(f"*FAIL* [{name}] {e}")
+            return 1
+        if h["k"] != k or h["n"] != n:
+            print(f"*FAIL* [{name}] {fp}: header says n={h['n']} k={h['k']}, "
+                  f"expected n={n} k={k}")
+            return 1
+        got = 0
+        for i, m in enumerate(masks):
+            if bin(m).count("1") != k:
+                print(f"*FAIL* [{name}] layer {k}: stored mask {m:#x} has popcount != {k}")
+                return 1
+            w = size(m)
+            if w > 1:
+                nontrivial += 1
+            got += w * sum(vals[off[i]:off[i + 1]])
+        if got != want_layers[k - 1]:
+            print(f"  *** MISMATCH *** [{name}] layer {k}: orbit-weighted read-back {got:,}, "
+                  f"independent plain DP {want_layers[k - 1]:,}")
+            return 1
+    if nontrivial == 0:
+        print(f"*FAIL* [{name}] no stored mask had an orbit wider than 1 -- the group "
+              f"weighting was never exercised, so this arm proved nothing about it")
+        return 1
+    print(f"[{name}] layers 1..{n - 1}: orbit-weighted masses ({g} restricted pair-perms, "
+          f"{nontrivial} masks with orbit > 1) == independent plain DP  [ok]")
+    return 0
+
 def f1u192_binary_roundtrip():
     """--f1u192-binary-roundtrip: build the n=9 rung's layer files with solve, then
     read the FINAL layer back from raw bytes in Python and check its mass against
-    this file's own independent count. Returns 0 iff they agree."""
+    this file's own independent count, and (Q-269) every INTERMEDIATE layer's
+    orbit-weighted mass against the plain layered DP. Returns 0 iff all agree."""
     import os, subprocess, tempfile, shutil
     here = os.path.dirname(os.path.abspath(__file__))
     binp = os.environ.get("SOLVE_BIN") or os.path.join(here, "solve")
@@ -2274,12 +2426,23 @@ def f1u192_binary_roundtrip():
     pl = _spec_to_pairs_ordered("3.0,3.1,3.2")
     b0 = _b0_first_completion(pl, 0)
     want = _count_c1c2c4c5(pl, 0, tuple(b0))
+    # Per-layer expectations for the Q-269 intermediate gate: a second recurrence, whose
+    # top entry must reproduce the total above (two in-file derivations that disagree
+    # are a failure before any byte is read).
+    want_layers = _layer_masses_c1c2c4c5(pl, 0, tuple(b0))
+    if want_layers[-1] != want:
+        print(f"*FAIL* in-file derivations disagree: layered {want_layers[-1]:,} vs "
+              f"total {want:,}")
+        return 1
     # BOTH on-disk formats. v1 is what --layers-dir writes; v2 (per-block zlib) is
     # what --f1-out-of-core writes and therefore what every real Stage F / 560T
     # artifact is actually made of. Gating only v1 would gate bytes nothing ships.
-    arms = [("v1", ["--layers-dir"], {}),
-            ("v2", ["--f1-out-of-core"], {"SOLVE_F1_OOC_FORMAT": "v2"})]
-    rc, v2_ok = 0, False
+    # SOLVE_F1_KEEP_LAYERS=1 in BOTH arms: without it the engine retains only the top two
+    # layer files (measured: 08 and 09), and the intermediate gate must read all of them.
+    arms = [("v1", ["--layers-dir"], {"SOLVE_F1_KEEP_LAYERS": "1"}),
+            ("v2", ["--f1-out-of-core"], {"SOLVE_F1_OOC_FORMAT": "v2",
+                                          "SOLVE_F1_KEEP_LAYERS": "1"})]
+    rc, v2_ok, mid_ok = 0, False, 0
     for name, flag, extra_env in arms:
         d = tempfile.mkdtemp(prefix=f"f1u192_{name}_")
         try:
@@ -2320,6 +2483,9 @@ def f1u192_binary_roundtrip():
                 print("  these bytes; only an outside reader can see this.")
                 rc = 1; continue
             print(f"[{name}] binary read-back {got:,} == independent count {want:,}  [ok]")
+            if _intermediate_layer_mass_gate(d, name, pl, want_layers) != 0:
+                rc = 1; continue
+            mid_ok += 1
             if name == "v2":
                 v2_ok = True
         finally:
@@ -2332,19 +2498,24 @@ def f1u192_binary_roundtrip():
     # 89,388 entries, so it does cross, and it builds in about four seconds.
     if rc == 0:
         rc = _v2_multiblock_structural(binp)
-    # Explicit verdict token: a harness must not have to infer pass from output shape.
+    # Explicit verdict tokens: a harness must not have to infer pass from output shape.
     if v2_ok and rc == 0:
         print("F1U192_V2_LAYOUT=GATED")
+    if rc == 0 and mid_ok == len(arms):
+        print("F1U192_INTERMEDIATE_MASS=GATED")
     return rc
 
 def _v2_multiblock_structural(binp):
     """Sweep every kept n=16 v2 layer and check the block seam structurally.
 
-    Mass is NOT checked here: layers below the top have many canonical masks and
-    weighting them needs the symmetry group, which would import the engine's own
-    assumptions into the expectation. What IS checked is everything the group is not
-    needed for -- index arithmetic, exact inflate sizes per block, and the entry
-    total -- which is precisely where a block-boundary defect lives."""
+    Mass is not re-checked HERE: the plain DP at n=16 costs ~90 s, and the
+    intermediate masses are gated arithmetically at n=9 in both arms by
+    _intermediate_layer_mass_gate (Q-269), with the group DERIVED in this file
+    rather than imported from the engine -- the same weighting was also run once
+    at n=16 (16/16 layers agree, 2026-09-03). What is checked here is everything
+    the group is not needed for -- index arithmetic, exact inflate sizes per
+    block, and the entry total -- which is precisely where a block-boundary
+    defect lives."""
     import os, subprocess, tempfile, shutil
     d = tempfile.mkdtemp(prefix="f1u192_mb_")
     try:
@@ -2356,7 +2527,12 @@ def _v2_multiblock_structural(binp):
         if r.returncode != 0:
             print(f"*FAIL* [v2/multiblock] solve exited {r.returncode} at n=16")
             return 1
-        files = sorted(x for x in os.listdir(d) if x.startswith("f1c5_layer_"))
+        # .bin ONLY. The engine now writes f1c5_layer_stats_NN.json sidecars beside the
+        # layers; this sweep matched them by prefix and died on the first one ("magic
+        # '{\n  \"sid' is not a layer file", rc 1) -- measured on main 2026-09-03, so the
+        # whole mode was red on the shipped engine until this filter.
+        files = sorted(x for x in os.listdir(d)
+                       if x.startswith("f1c5_layer_") and x.endswith(".bin"))
         seen_multi, checked = 0, 0
         for fn in files:
             try:
@@ -2932,8 +3108,21 @@ def check_t5_c3(sol_bin, chunks_dir):
     Emits T5_C3_AGREE=PASS/FAIL.
     """
     import glob, struct
-    import numpy as np
-    import pyarrow.parquet as pq
+    # THE ONLY NON-STDLIB MODE (Codex V2-F58 #9, 2026-09-03). The T5 sample is parquet, so
+    # the dependency is forced; the defect was that it was UNDECLARED under a file header
+    # reading "standard-library only". It is declared now (this file's header, VERIFY.md,
+    # CITATIONS.md) and guarded here: absence names the extras and stops with a verdict token.
+    # Measured before this guard: `python3 -S verify.py --check-t5-c3 ...` died at the import
+    # with ModuleNotFoundError, rc 1, before any verdict line.
+    try:
+        import numpy as np
+        import pyarrow.parquet as pq
+    except ImportError as e:
+        print('--check-t5-c3 needs numpy + pyarrow to read the T5 parquet sample -- the ONLY '
+              'non-stdlib mode in verify.py; every other mode is standard-library only (see '
+              'VERIFY.md). Missing: %s' % e)
+        print('T5_C3_AGREE=ERROR')
+        return 2
 
     with open(sol_bin, 'rb') as f:
         hdr = f.read(32)
@@ -2971,6 +3160,13 @@ def check_t5_c3(sol_bin, chunks_dir):
     for idx, w, g in first:
         print('  MISMATCH rec %d: parquet=%d verify.py=%d' % (idx, w, g))
     print('[t5-c3] compared %d records, mismatches %d' % (seen, mism))
+    # Zero-record sibling of the records-path guard (2026-09-03): a header declaring 0
+    # records beside parquet chunks holding 0 rows passed the length check and reached
+    # `mism == 0` with nothing compared -- measured: T5_C3_AGREE=PASS, rc 0. An empty sample
+    # agrees with anything; nothing was verified.
+    if seen == 0:
+        print('T5_C3_AGREE=FAIL zero records compared -- nothing was verified')
+        return 1
     if mism == 0:
         print('T5_C3_AGREE=PASS')
         return 0
@@ -3691,6 +3887,11 @@ def twins_bisect(path):
                 hdr = g.read(SOL_HEADER_SIZE)
                 n = parse_header(hdr)
                 print(f"TWINS_RECORDS={n}")
+                if n == 0:
+                    print("[*FAIL*] header declares ZERO records -- every ABSENT would be "
+                          "vacuous; nothing to search (2026-09-03 zero-record sibling)")
+                    print("TWINS_BISECT=FAIL")
+                    return 1
                 seen = 0
                 while True:
                     rec = g.read(32)
@@ -3715,6 +3916,11 @@ def twins_bisect(path):
             with open(path, 'rb') as f:
                 n = parse_header(f.read(SOL_HEADER_SIZE))
                 print(f"TWINS_RECORDS={n}")
+                if n == 0:
+                    print("[*FAIL*] header declares ZERO records -- every ABSENT would be "
+                          "vacuous; nothing to search (2026-09-03 zero-record sibling)")
+                    print("TWINS_BISECT=FAIL")
+                    return 1
                 size = os.path.getsize(path)
                 if size != SOL_HEADER_SIZE + 32 * n:
                     print(f"[*FAIL*] size {size:,} != header + {n:,} x 32")
@@ -5527,7 +5733,9 @@ def main():
                              'Recommended: number of physical cores.')
     parser.add_argument('--enumerate-reference', type=int, metavar='NPAIRS', default=None,
                         help='Independent completeness reference: brute-force the reduced NPAIRS-pair '
-                             'problem (C1+C2+C4) two ways (exhaustive vs prune-as-you-go) and assert '
+                             'problem (C1+C2+C4-pair: pair 0 first in EITHER orientation, NOT the '
+                             'oriented C4 of SPECIFICATION.md; the oriented subset is counted and '
+                             'printed alongside) two ways (exhaustive vs prune-as-you-go) and assert '
                              'identical sets. Does NOT read solutions.bin. 2<=NPAIRS<=9.')
     parser.add_argument('--recount', action='store_true',
                         help='Independently reproduce the published exact COUNTS (small-n structural '
@@ -5546,7 +5754,10 @@ def main():
                              '24-byte little-endian limb triples) and check its mass against '
                              'this file\'s own independent count. solve\'s own write/resume '
                              'round-trip cannot do this: writer and reader share any limb-order '
-                             'defect and cancel it exactly. Absence of a binary FAILS.')
+                             'defect and cancel it exactly. Also (Q-269) weights every '
+                             'INTERMEDIATE layer\'s stored values by an orbit size derived here '
+                             'and checks them against the plain layered DP, both on-disk formats; '
+                             'emits F1U192_INTERMEDIATE_MASS=GATED. Absence of a binary FAILS.')
     parser.add_argument('--f1-dec-roundtrip', action='store_true',
                         help='Gate solve.c\'s 192-bit decimal renderer f1_dec() against exact '
                              'Python integer arithmetic across the full range -- both limb '
@@ -5556,11 +5767,13 @@ def main():
                              'binary (SOLVE_BIN or ./solve); absence FAILS.')
     parser.add_argument('--recount-rung-layers', type=int, metavar='N', default=None,
                         help='Gate the PER-LAYER masses published in '
-                             'reports/FULL31_EXACT_AGGREGATES.md for the N=9 or N=13 C5 rung '
+                             'reports/FULL31_EXACT_AGGREGATES.md for the N=9, N=13 or N=16 C5 rung '
                              'against an independent recount by the plain budgeted DP (no '
                              'symmetry quotient, B0 re-derived). The rung TOTALS were already '
                              'gated; the intermediate layers were not gated by anything until '
-                             'this mode. A missing or unparsable table FAILS. Under a second.')
+                             'this mode. A missing or unparsable table FAILS, as does a table with '
+                             'no column for the requested rung. n=9/13 in seconds; n=16 about 90 s '
+                             'and 1 GB.')
     parser.add_argument('--recount-rung', type=int, metavar='N', default=None,
                         help='Independently recompute a worker-sized TR-11 §4b C5 rung (N in {18, 19}) '
                              'by the plain budgeted packed-state DP, with B0 re-derived by §5 Step 1 '
@@ -5903,6 +6116,27 @@ def main():
     if n != declared_records:
         print(f"ERROR: header declares {declared_records} records but file has {n}")
         sys.exit(2)
+    # Q-285 SIBLING (Codex V2-F63 #1, landed 2026-09-03). The verdict at the bottom of this
+    # function is the SUM OF OBSERVED FAILURES, and a file with no records produces no
+    # observations -- so a 32-byte header-only artifact, exactly what an interrupted encoder
+    # leaves behind after writing its placeholder header, printed "VERIFY PASS: all 0 records
+    # satisfy C1-C5, sorted, no duplicates" / VERIFY=PASS and exited 0. Measured on this tree
+    # on 2026-09-03 before this guard. solve.c --verify has rejected the identical case since
+    # 2026-08-27 (Q-285: VERIFY=ERROR, rc 30, "contains ZERO records -- nothing was
+    # verified"); this file was the unswept sibling -- in the verifier a third party is told
+    # to run -- so the two verifiers now agree on the case: same sentence, same token, same
+    # status. An empty artifact is not a verified artifact; it is an unverifiable one, and a
+    # check that cannot run must ERROR rather than pass.
+    # SIBLING SEARCH, stated (Q-305 discipline): every `=PASS` emitter in this file was
+    # enumerated (`grep -n '=PASS' verify.py`, 2026-09-03) and classified. The other fail-open
+    # population verdict was --check-t5-c3 (PASS over zero compared records, measured), fixed
+    # in the same batch; --twins-bisect reported 24 vacuous ABSENTs on an empty file and now
+    # refuses; --check-artifact, --check-repr, --recount, --check-certificate,
+    # --check-layer-sidecars and --g-structure already refused an empty population.
+    if n == 0:
+        print(f"\nVERIFY ERROR: {args.path} contains ZERO records — nothing was verified")
+        print("VERIFY=ERROR")
+        sys.exit(30)
     # The 16 reserved header bytes MUST be zero (SOLUTIONS_FORMAT.md). Counted
     # as a format error rather than a hard exit: the file is still readable and
     # every record-level verdict below stays meaningful, so a nonzero reserved

@@ -1903,6 +1903,16 @@ re-verified the harness count by execution and the Wilhelm claim against the shi
 > P(≥1) = 1.12×10⁻². Row 7's NULL, the tally and the non-promotion are unaffected. The original wording
 > is preserved: this ledger is append-only.
 
+> ⚠ **Corrected in part, 2026-09-02 (pointer added 2026-09-03) — see item 1 of the 2026-09-02 entry "an
+> order-preservation argument that names the wrong comparator at two of the three sites it clears".**
+> The "What is NOT affected" paragraph below clears the `dav_rotinv` doubling on the ground that doubling
+> is order-preserving. That holds where the comparator is `dav_trigarray` (6.8×10⁻⁴,
+> `reports/METHODS.md` §Statistics conventions) and fails at the two sites that rank `dav_rotinv`
+> against the Schulz-gender pair-null mass 47/445740 = 1.054426×10⁻⁴ (`TR8` §Executive summary and
+> the METHODS worked pair): only one operand was doubled, 1.306×10⁻⁴ > 1.054426×10⁻⁴, the order
+> reverses, and *i* ≥ 2 is no longer forced there. The absolute-bar verdicts, the tally and the
+> non-promotion are unaffected. The original wording is preserved: this ledger is append-only.
+
 ## 2026-08-28 — two published verdicts in TR-10 were computed against the wrong tail, by our own declared rule
 
 `TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md` §3 freezes its thresholds in advance: *"'notable' = **two-sided**

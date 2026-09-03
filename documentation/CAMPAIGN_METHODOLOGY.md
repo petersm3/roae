@@ -9,7 +9,12 @@
 > document owns what, and names the material that exists only in the older
 > file. For anything operational — sizing, per-thread rates, orchestrator
 > pseudocode, branch distribution, merge mechanics, gotchas, and the
-> scale-honesty disclosure — read that file.
+> scale-honesty disclosure — read that file. Its cost and wall tables are
+> **pre-560 T forecasts**: the one campaign that tested them ran ~2.1× the
+> mid wall estimate and ~9× the merge estimate (171.5 h enum + 18 h 42 m
+> merge, §7 here), and that file's own §14 worked example now carries those
+> actuals beside its plan. Take sizing *patterns* from there; take measured
+> numbers from §7.
 >
 > ⚠ **[CORRECTED 2026-09-01 — this boxed note contradicted itself and the
 > document's own §10.** Within one paragraph it said §7 "**is populated**
@@ -47,7 +52,10 @@ It is aimed at three audiences:
    and those live only in operator-held storage
    ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Access boundary names the
    locations and states plainly that they are not public URLs). So audience 2
-   needs **either** operator-supplied checkpoints **or** a full re-run of the
+   needs **either** operator-supplied checkpoints — the archive is
+   sha-manifested and is retained so it can be re-attested or shared on
+   request, but no public request procedure or transfer-rate expectation has
+   been published — **or** a full re-run of the
    parent campaign at the deeper budget — the latter is fully specified here
    and needs nothing private, but it is exactly the work the extension
    methodology exists to avoid. *(Added 2026-09-01: this item previously read
@@ -231,14 +239,24 @@ those runs are not canonical and are not entered into `CANONICAL_HASHES.md`.
 > product and region names (`D128als_v7`, `westus2`/`westus3`, AMD EPYC 9V74 / Bergamo Zen 4c),
 > and there are no public IP addresses, subscription or tenant IDs, keys, endpoints, or credentials
 > anywhere in the public corpus. The only IP-shaped strings in the tree are the Azure IMDS
-> link-local address and RFC1918 example ranges — five occurrences, all non-secret: `solve.c` and
-> `scripts/capture_build_manifest.sh` each query `169.254.169.254` (IMDS), and
-> `scripts/perf_bench.sh` (twice) plus `documentation/DEPLOYMENT.md` name `10.0.0.0/16` and
-> `10.0.0.0/24` in `az network vnet create` examples. *(Corrected 2026-09-01: this asserted a
+> link-local address and RFC1918 example ranges — all non-secret. Measured at `3ef705c9`
+> (2026-09-03) over every tracked file, excluding the correction notes and registries that quote
+> these literals as narration, with
+> `git ls-files -z | xargs -0 grep -noP '(?<![\w.])(\d{1,3}\.){3}\d{1,3}(?![\w.])' | grep -vE '^documentation/(CAMPAIGN_METHODOLOGY\.md|CORRECTIONS\.md|CORRECTIONS_INVENTORY\.tsv|RETRACTED_PHRASES\.tsv):'`
+> (one output line per occurrence, `file:line:literal`):
+> **seven occurrences on six lines in five files** — `solve.c` and
+> `scripts/capture_build_manifest.sh` each query `169.254.169.254` (IMDS) once;
+> `scripts/perf_bench.sh` names `10.0.0.0/16` and `10.0.0.0/24` in an `az network vnet create`
+> example; `documentation/DEPLOYMENT.md` names `10.0.0.0/24` twice on one line in the same kind of
+> example; and `documentation/DEVELOPMENT.md` names `10.0.0.0/16` once (added 2026-09-02, after the
+> 2026-09-01 count below). The lookbehind/lookahead exclude Lean projection chains such as
+> `h5.1.1.1.1`, which are not addresses. *(Corrected 2026-09-01: this asserted a
 > repo-wide scan found **zero** IP-shaped strings. Re-running that scan over `*.md`, `*.sh`, `*.c`
-> and `*.py` returns the five above. The surrounding no-credentials claim is unaffected — link-local
+> and `*.py` returned five. The surrounding no-credentials claim is unaffected — link-local
 > and RFC1918 literals disclose nothing — but the scan result as stated was false, and an assertion
-> about a scan should be produced by that scan.)* (2) *They are load-bearing.* §6
+> about a scan should be produced by that scan. Re-measured 2026-09-03: the 2026-09-01 list said
+> `DEPLOYMENT.md` named `10.0.0.0/16`; it never has — that literal is `perf_bench.sh`'s — and one
+> site had been added since, so the count and the command that produces it are restated above.)* (2) *They are load-bearing.* §6
 > and §7 argue that a canonical sha reproduces byte-identically **on a specific host class** —
 > that is the whole content of the sha-stability-vs-host-fragility result. "A large cloud VM"
 > would make those claims uncheckable. Genericizing would damage the reproducibility argument it
@@ -249,7 +267,12 @@ those runs are not canonical and are not entered into `CANONICAL_HASHES.md`.
 
 A canonical produced at budget *B* per cell **enables a canonical at any
 budget *B′* > B without redoing the original work**. This is the most
-important property of the campaign methodology.
+important property of the campaign methodology. *(Scope, 2026-09-03: that
+is the property of the method. The shipped enumerator realises it only for
+cells that emitted a shard — its `#167` resume guard re-walks every
+zero-yield cell from scratch, 58.8 % of a 560 T parent; §7 rule 9 states the
+arithmetic and the open code fix. The saving is real for the other 41.2 %
+and the bytes come out the same either way.)*
 
 ### Why this works: prefix-determinism per cell
 
@@ -316,7 +339,21 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 
    The enumerator picks up each cell from its `.dfs_state` checkpoint and
    walks forward to the new per-cell budget, appending only the additional
-   records to each `sub_<cell>.bin`.
+   records to each `sub_<cell>.bin` — **for the cells that have a shard.**
+   ⚠ **[SCOPED 2026-09-03 — as written this described every cell, and at
+   the shipped `solve.c` it is true only of the 65,281 cells (41.2 %) whose
+   source walk found ≥ 1 solution.** A zero-yield cell writes no
+   `sub_<cell>.bin` (the flush returns before creating a file), and the
+   resume-side `#167` guard discards any checkpoint whose shard is absent
+   and walks that cell fresh from node 0 — so the 93,083 zero-yield cells
+   (58.8 %) of a 560 T parent are **not** resumed; they are re-walked in full
+   before the new budget range is reached. The output is still correct (the
+   fresh walk is deterministic and reaches the same records), but the
+   delta-only cost story this sentence implied is not: see §7 rule 9 for
+   the node arithmetic (≈329 T of repeated work at 560 T → 1120 T) and the
+   code fix that is still open. Demonstrated by execution during the
+   2026-08-30 review: a two-stage d2 extension fired the guard exactly once
+   per checkpoint-without-shard cell, 1,933 of 1,933.]**
 
 > **Note on `SOLVE_SKIP_IOPS_CHECK=1` and the I/O pre-check behavior.**
 >
@@ -381,6 +418,10 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
      inventory: every cell must carry a checkpoint whose recorded node
      boundary is the new per-cell budget, not the parent's. A cell still
      sitting at the parent boundary was not extended.
+   - `sha256(new) ≠ sha256(parent)` — implied by the strict count increase
+     (a different record set cannot sort to the same bytes, §6) but cheaper
+     to check directly, since both shas are one `gzip -dc | sha256sum` away.
+     An equal sha means nothing happened. *(Added 2026-09-03.)*
 
    Note that raising `SOLVE_NODE_LIMIT` alone does **not** move the frontier —
    see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Reproducibility parameters
