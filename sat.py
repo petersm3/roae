@@ -63,6 +63,18 @@ Targets:
   alt-le-14      C1+C2+C4+C5 AND (odd between-pair transitions <= 14)   [expect UNSAT]
   alt-ge-16      C1+C2+C4+C5 AND (odd between-pair transitions >= 16)   [expect UNSAT]
                  (both UNSAT == SAT-certified parity-alternation theorem, PARITY_ALTERNATION.md)
+  alt-le-14-noY  the CARDINALITY-ONLY clause subset of the target above (2026-09-02, TR-6 /
+  alt-ge-16-noY  Codex V2-F08 #3): exactly the clauses of alt-le-14 / alt-ge-16 in which NO Y
+                 (slot -> pair/orientation ordering) variable occurs, variable numbering
+                 unchanged, so the output is a syntactic subset of the full CNF. What survives:
+                 the per-boundary distance exactly_one, the C5 per-distance exactly_k, the odd
+                 definitions and the alternation bound; what is dropped: every C1/C2/C4 clause.
+                 [expect UNSAT -- the alternation theorem is decided by C5's cardinalities alone;
+                 archived as alt_le_14_noY_unsat / alt_ge_16_noY_unsat, replayed by
+                 verify_all.sh which emits ALT_NOY_SUBSET_UNSAT=PASS]. --emit-cnf only: the
+                 Y-free formula has no ordering to decode, so --witness/--decode/--certify-count
+                 refuse it, as do --with-c3/--c3-max/--c3-min/--not-kw and -near- (each would
+                 add Y-touching clauses that the predicate then silently removes).
   moore-strict   C1+C2+C4+C5 AND Moore-2005 parity (all 18) AND Moore-1989 rhythm (0 breaks)
                  [expect SAT -> explicit witness ordering; C3 enforced by verify-loop]
                  (attribution: Moore 2005 Oracle Papers No.1; Moore 1989 Trigrams of Han App.2)
@@ -689,6 +701,53 @@ RULESETS = {   # target base -> literature rules enforced strictly (task #217 5-
 for _r in FIVE_RULES:
     RULESETS["five-loo-" + _r] = tuple(x for x in FIVE_RULES if x != _r)
 
+# ---- cardinality-only subset targets (2026-09-02; TR-6 abstract, Codex V2-F08 #3) ----
+# `<target>-noY` emits exactly the clauses of <target> in which no Y variable occurs. The
+# selection rule is that one predicate and nothing else: the Y variables are allocated FIRST in
+# build() (1..NY, NY = len(SLOTS)*NJ = 1922), so "no Y variable" is "every |literal| > NY", and
+# the emitted formula is a syntactic subset of the full CNF with numbering unchanged. Scope is
+# the two alternation targets only: the private record of the 2026-08-29 run (le-14 11,073 of
+# 240,039 clauses, ge-16 11,134 of 240,100, both UNSAT, both DRAT `s VERIFIED`) was the
+# justification for TR-6's "corroborating, not independent" retraction, and this flag exists so
+# that record is reproducible from the public tree. Other targets are refused, not extrapolated.
+NOY_SUFFIX = "-noY"
+NOY_TARGETS = ("alt-le-14", "alt-ge-16")
+
+def split_noy(target):
+    """(base_target, is_noy) for `target`; refuses -noY on any base but NOY_TARGETS."""
+    if not target.endswith(NOY_SUFFIX):
+        return target, False
+    base = target[:-len(NOY_SUFFIX)]
+    if base not in NOY_TARGETS:
+        raise SystemExit("%s: the -noY subset is defined for %s only, not %r"
+                         % (target, "/".join(NOY_TARGETS), base))
+    return base, True
+
+def noy_subset(cnf, ny):
+    """The clauses of `cnf` mentioning no variable in 1..ny, as a new CNF with the SAME
+    variable count. Returns (subset, dropped). Verifier-closure: the result is re-scanned, and
+    a surviving Y literal raises -- the function may not vouch for its own filter."""
+    if ny != len(SLOTS) * NJ:              # anchor independent of the allocator's bookkeeping
+        raise SystemExit("noy_subset: Y range %d != len(SLOTS)*NJ = %d; something was allocated "
+                         "before the Y block, so the predicate would misname a variable"
+                         % (ny, len(SLOTS) * NJ))
+    sub = CNF(); sub.n = cnf.n
+    keep, drop = [], []
+    for c in cnf.cl:
+        (keep if all(abs(l) > ny for l in c) else drop).append(c)
+    # both directions, re-scanned from the partition, not from the predicate that built it:
+    # every kept clause is Y-free AND every dropped clause names a Y variable
+    leaked = sum(1 for c in keep for l in c if abs(l) <= ny)
+    wrongly_dropped = sum(1 for c in drop if not any(abs(l) <= ny for l in c))
+    if leaked != 0 or wrongly_dropped != 0:
+        raise SystemExit("noy_subset: partition check failed (%d Y literal(s) kept, %d Y-free "
+                         "clause(s) dropped)" % (leaked, wrongly_dropped))
+    if len(keep) + len(drop) != len(cnf.cl) or not (0 < len(keep) < len(cnf.cl)):
+        raise SystemExit("noy_subset: implausible subset %d of %d clauses (an empty or total "
+                         "subset means the Y range %d is wrong)" % (len(keep), len(cnf.cl), ny))
+    sub.cl = keep
+    return sub, len(drop)
+
 
 def build_rigidity():
     """TR-5 v-next rigidity kernel as CNF [expect UNSAT] (2026-07-18).
@@ -748,6 +807,7 @@ def rigidity_validate(cnf, x):
 def target_rules(target):
     """Literature rules enforced strictly by `target` (shared by build() and the
     witness verify-loop's decoded-witness rule re-scoring)."""
+    target, _ = split_noy(target)
     tbase = target.split("-near-")[0]
     if tbase.startswith("five-sub-"):
         # generic subset of the five-rule family, e.g. five-sub-parity+ccn8
@@ -761,6 +821,13 @@ def target_rules(target):
     return set(RULESETS[tbase])
 
 def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
+    target, noy = split_noy(target)
+    if noy and (with_c3 or c3_max is not None or c3_min is not None or not_kw
+                or "-near-" in target):
+        raise SystemExit("%s%s refuses --with-c3/--c3-max/--c3-min/--not-kw and -near-: each "
+                         "adds Y-touching clauses that the -noY predicate would then silently "
+                         "drop, so the label would name a formula the file does not contain"
+                         % (target, NOY_SUFFIX))
     tbase = target.split("-near-")[0]
     rules = target_rules(target)
     cnf = CNF()
@@ -768,6 +835,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
     for s in SLOTS:
         for j in range(NJ):
             Y[(s, j)] = cnf.var()
+    ny = cnf.n                            # Y vars are exactly 1..ny (allocated first, nothing before)
     for s in SLOTS:                       # one (pair,orient) per slot
         exactly_one(cnf, [Y[(s, j)] for j in range(NJ)])
     for p in range(1, 32):                # each pair used exactly once (across slots+orients)
@@ -1095,6 +1163,16 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
                 raise SystemExit("--c3-min %d exceeds the encodable maximum" % c3_min)
             if s_lower > len(C3_COUPLES):
                 at_least_k(cnf, dlits, s_lower - len(C3_COUPLES))
+    if noy:
+        sub, dropped = noy_subset(cnf, ny)
+        # whole-line verdict tokens (grep -qx); the population a caller must see before trusting
+        # a subset UNSAT -- an extractor that quietly kept 0 or all clauses would still be "UNSAT"
+        print("NOY_Y_VARS=%d" % ny)
+        print("NOY_TOTAL_CLAUSES=%d" % len(cnf.cl))
+        print("NOY_KEPT_CLAUSES=%d" % len(sub.cl))
+        print("NOY_DROPPED_CLAUSES=%d" % dropped)
+        print("NOY_Y_LITERALS_IN_OUTPUT=0")   # noy_subset raised otherwise
+        return sub, Y
     return cnf, Y
 
 # ============================================================================
@@ -1604,6 +1682,9 @@ if __name__ == "__main__":
                   % (ok, [cls[dv] for dv in _DVAL], [ctx["b0"][dv] for dv in _DVAL]))
         else:
             target = args[2] if len(args) == 3 else "plain"
+            if split_noy(target)[1]:
+                raise SystemExit("--decode refuses %s: the Y-free subset has no ordering to decode"
+                                 % target)
             cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max, c3_min=c3_min, not_kw=not_kw)
             seq = decode(lits, Y)
             ok, c3, scores = verify_seq(seq)
@@ -1638,6 +1719,9 @@ if __name__ == "__main__":
             raise SystemExit("--certify-count refuses near-k targets: bare "
                              "at_most/at_least cardinality registers are not "
                              "total-model-count-safe")
+        if split_noy(target)[1]:
+            raise SystemExit("--certify-count refuses %s: the Y-free subset counts no orderings "
+                             "(its models assign only distance indicators and counters)" % target)
         if npairs is not None:
             cnf, _ctx = build_subset(npairs)
         else:
@@ -1660,6 +1744,9 @@ if __name__ == "__main__":
             raise SystemExit("--witness does not support --f1-pairs "
                              "(full-31 targets only)")
         target = args[1]
+        if split_noy(target)[1]:
+            raise SystemExit("--witness refuses %s: the Y-free subset has no ordering to decode"
+                             % target)
         cnf, Y = build(target, with_c3=with_c3, c3_max=c3_max, c3_min=c3_min, not_kw=not_kw)
         import tempfile
         for attempt in range(200):
@@ -1725,8 +1812,11 @@ if __name__ == "__main__":
                 raise SystemExit("EXPECTED UNSAT — got " + verdict)
             if shutil.which("drat-trim"):
                 r2 = subprocess.run(["drat-trim", out, proof], capture_output=True, text=True)
-                ver = "VERIFIED" if "s VERIFIED" in r2.stdout else "NOT VERIFIED"
-                print("drat-trim: %s" % ver)
+                # WHOLE line + rc, two legs (2026-09-02, same rule as verify_all.sh): drat-trim
+                # prefixes each line with a bare CR and exits 0 on some runs that checked nothing.
+                lines = [ln.strip("\r") for ln in r2.stdout.splitlines()]
+                ver = "VERIFIED" if (r2.returncode == 0 and "s VERIFIED" in lines) else "NOT VERIFIED"
+                print("drat-trim: %s (rc=%d)" % (ver, r2.returncode))
                 if ver != "VERIFIED":
                     raise SystemExit("DRAT proof did not verify")
             else:

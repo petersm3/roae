@@ -22,6 +22,8 @@
 #   file. A cold external-reviewer pass on a 4 GB host hit ERROR 134 on all 13 Lean files and
 #   reported them as unverifiable -- the requirement was documented, just not where a
 #   replicator reads it.
+#   OPTIONAL: cake_lpr (formally verified LRAT checker) — section 3c runs it only when CAKE_LPR is
+#   set; by default that section emits CAKE_LPR_LEG=NOT_RUN and the run is drat-trim-only.
 #   NOT required: a SAT solver. This script REPLAYS the archived DRAT proofs against freshly
 #   regenerated CNF, which is the sufficient check and needs only drat-trim. kissat was listed
 #   here until 2026-08-01 and never invoked by any code path — building it from source was
@@ -89,11 +91,13 @@ is_resource_status() {
   return 1
 }
 
+LAST_RC=-1                     # status of the most recent check(); -1 = none ran (read by section 3)
 check() {
   local rc before
   before=$(wc -c < "$LOG")
   { echo "### $1"; eval "$2"; } >>"$LOG" 2>&1
   rc=$?
+  LAST_RC=$rc
   if [ "$rc" -eq 0 ]; then echo "PASS  $1"; PASS=$((PASS+1))
   elif is_resource_status "$rc" "$before"; then
     echo "ERROR $1   (host resources: exit $rc, killed or out of memory — NOT a failed proof; output: $LOG)"
@@ -194,6 +198,44 @@ require_agree() {  # $1 = token name  $2 = minimum lines per side  $3 = command 
   return "$rc"
 }
 
+# WHOLE-LINE VERDICT, TWO LEGS, LOG FIRST (added 2026-09-02, lane S-1/S-2). require_match above is a
+# SUBSTRING test on the captured output, which is the right shape for a producer whose sentence
+# carries the verdict inside a longer line ("ALL 31 …"). For a proof CHECKER it is too loose: the
+# verdict is a line the checker prints on its own -- drat-trim's `s VERIFIED`, cake_lpr's
+# `s VERIFIED UNSAT` -- and the harness must consume exactly that line, not a fragment of it.
+# Three measured facts shaped this function (all 2026-09-02, on this box, against the archive):
+#   * drat-trim exits 0 on a run that checked NOTHING: an empty CNF gives "c ERROR: did not find
+#     p cnf line", no `s` line, rc 0. So rc alone is fail-open. It exits 1 with `s NOT VERIFIED` on
+#     a truncated or empty proof of a non-trivial instance, and 255 on a missing proof file.
+#   * drat-trim prefixes EVERY output line with a bare carriage return (its progress-line erase):
+#     `grep -cx 's VERIFIED'` on a clean run's output is 0; after `tr -d '\r'` it is 1. The CR is
+#     the ONE byte normalised below; nothing else is.
+#   * cake_lpr exits 0 on pass AND on fail (documentation/SAT_CLI.md §Checkers). The verdict line is
+#     the whole verdict; the rc leg here is inert for it and costs nothing.
+# Contract: capture the producer's UNFILTERED stdout+stderr to a file; copy it to the log BEFORE
+# anything is judged; then leg A = producer rc 0, leg B = the exact line is present (grep -Fqx on
+# the CR-stripped FILE -- not a pipe: `tr | grep -q` is the class-B shape this file bans). Emits one
+# whole-line token `<TOKEN>=PASS` or `<TOKEN>=FAIL rc=<n> verdict_line=<present|absent>` so a reader
+# can `grep -qx` the log. Returns the producer's status when nonzero (is_resource_status still sees
+# 134/137/139), else 1 when the line is missing. A grep that cannot read its own file is reported
+# and treated as ABSENT: "could not look" must never read as "found".
+require_verdict_line() {   # $1 = token name  $2 = exact whole line that MUST appear  $3.. = command
+  local tok=$1 want=$2; shift 2
+  local cap rc line=absent g
+  cap=$(mktemp "${TMPDIR:-/tmp}/roae_verdict.XXXXXX") || { echo "$tok=FAIL rc=? verdict_line=MKTEMP_FAILED"; return 1; }
+  "$@" > "$cap" 2>&1; rc=$?
+  cat "$cap"
+  tr -d '\r' < "$cap" > "$cap.nocr"
+  grep -Fqx -- "$want" "$cap.nocr"; g=$?
+  case $g in 0) line=present ;; 1) line=absent ;; *) echo "GREP FAILED rc=$g on $cap.nocr -- treated as ABSENT"; line=absent ;; esac
+  rm -f "$cap" "$cap.nocr"
+  if [ "$rc" -eq 0 ] && [ "$line" = present ]; then echo "$tok=PASS"; return 0; fi
+  echo "$tok=FAIL rc=$rc verdict_line=$line"
+  [ "$line" = absent ] && echo "EXPECTED VERDICT LINE NOT FOUND (whole line): $want"
+  [ "$rc" -ne 0 ] && return "$rc"
+  return 1
+}
+
 echo "== 0. Prerequisites =="
 DRAT=${DRAT:-drat-trim}
 LEAN=${LEAN:-lean}
@@ -275,6 +317,16 @@ echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 22 archive
 #  is recorded next to this script's PASS line and can be read back. The checker's IDENTITY is
 #  emitted below as DRAT_TRIM_ID= — a PASS is evidence only about the binary that produced it, and
 #  drat-trim carries no --version flag, so the sha256 of the resolved binary is the honest name.]
+# [TIGHTENED 2026-09-02, later the same day: require_match tested `s VERIFIED` as a SUBSTRING. The
+#  call now goes through require_verdict_line, which demands the WHOLE line (after stripping
+#  drat-trim's leading CR) AND rc 0 as two separate legs, and writes DRAT_VERIFIED_<cert>=PASS|FAIL
+#  into $LOG per certificate. Mutation-tested against the real archive: a proof truncated to half,
+#  an empty proof, and a fake checker that prints `xs VERIFIED` / prints the line and exits 1 /
+#  prints nothing and exits 0 all FAIL; the 24 archived proofs all PASS. Note two mutations that do
+#  NOT fail and must not be expected to: a byte flipped inside a DELETION line (drat-trim warns
+#  "deleted clause … does not occur" and still verifies -- a stray deletion is harmless) and one
+#  non-core clause removed from the CNF (the proof still refutes what remains). Both are soundness,
+#  not leniency.]
 # The checker's identity, emitted as a whole-line verdict token so a reader (or a matcher, with
 # `grep -qx`) can tell WHICH binary produced the PASS lines below. drat-trim has no --version
 # flag, so the sha256 of the resolved executable is the only honest name for it. This must be
@@ -305,13 +357,29 @@ declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
   [core_parity_ccn4_unsat]="five-sub-parity+ccn4" [core_rhythm_ccn4_unsat]="five-sub-rhythm+ccn4" \
   [core_gender_ccn8_unsat]="gender-ccn8" [core_gender_ccn4_unsat]="five-sub-gender+ccn4" \
   [ccn8_kwfail_unsat]="ccn8-kwfail" [ccn8_kwchain_not_unsat]="ccn8-kwchain-not" \
-  [rigidity_sc4_unsat]="rigidity" [c3_kwpin_ge777_unsat]="kwpin-ge777" )
+  [rigidity_sc4_unsat]="rigidity" [c3_kwpin_ge777_unsat]="kwpin-ge777" \
+  [alt_le_14_noY_unsat]="alt-le-14-noY" [alt_ge_16_noY_unsat]="alt-ge-16-noY" )
 # The rigidity kernel (TR-5 SC-4) regenerates via its own flag, not --emit-cnf; the KW
 # C3-exactness gate (kw-pin + C3 >= 777) needs the --c3-min flag; see the loop below.
+# alt_{le_14,ge_16}_noY_unsat (added 2026-09-02, TR-6 / Codex V2-F08 #3): the CARDINALITY-ONLY
+# clause subset of alt-le-14 / alt-ge-16 -- exactly the clauses in which no ordering (Y) variable
+# occurs (sat.py `-noY`; le-14 keeps 11,073 of 240,039 clauses, ge-16 11,134 of 240,100) -- shown
+# UNSAT on its own. Proofs: kissat 4.0.1, 2026-09-02, then CORE-TRIMMED with `drat-trim -l` (the
+# raw kissat proofs gzip to 1,049,354 / 330,799 B; the trimmed ones to 614,082 / 171,203 B) and
+# re-verified from the trimmed file: ~36.4k / ~11.7k core lemmas, so neither is decided by unit
+# propagation, and a half-truncated trimmed proof is `s NOT VERIFIED`. The trimming is drat-trim's,
+# but the archived file is checked as a proof in its own right by this loop, not trusted as one. These certify the SEMANTIC claim behind TR-6's
+# "corroborating, not independent" verdict: the alternation theorem follows from C5's cardinalities
+# before any ordering variable is consulted. They do NOT certify "no ordering variable appears in
+# the full proofs" -- the archived alt-le-14 core contains 356 of them (cores are proof-relative).
+# The pair's joint verdict is emitted below as ALT_NOY_SUBSET_UNSAT=PASS|FAIL|NOT_RUN.
+CERT_FLOOR=24        # archived certificates as of 2026-09-02; a corpus that silently shrinks must not pass
 # Completeness gate: every archived .drat.gz must be in the CERTS map above.
 for f in reports/certificates/*.drat.gz; do b=$(basename "$f" .drat.gz)
   check "cert inventory covers $b" "[ -n \"\${CERTS[$b]+x}\" ]"
 done
+declare -A CERT_RC=()          # cert -> status of its drat-trim check (only certs that RAN)
+CERTS_CHECKED=0
 for cert in "${!CERTS[@]}"; do
   t=${CERTS[$cert]}
   # The TR-5 rigidity kernel has its own emitter flag (--rigidity-cnf, self-validating);
@@ -327,9 +395,84 @@ for cert in "${!CERTS[@]}"; do
     skip "cert $cert ($t)" "needs python3 + drat-trim"
     continue
   fi
+  # With the opt-in cake_lpr leg requested (section 3c), drat-trim also elaborates the LRAT that
+  # cake_lpr checks; a stale LRAT from an earlier run is removed first so 3c can never read one
+  # this run did not write.
+  LRAT_OPT=""
+  if [ -n "${CAKE_LPR:-}" ]; then rm -f "/tmp/roae_$t.lrat"; LRAT_OPT="-L /tmp/roae_$t.lrat"; fi
   check "cert $cert ($t)" \
-    "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > /tmp/roae_$t.drat && require_match 's VERIFIED' \"$DRAT\" /tmp/roae_$t.cnf /tmp/roae_$t.drat"
+    "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > /tmp/roae_$t.drat && require_verdict_line DRAT_VERIFIED_$cert 's VERIFIED' \"$DRAT\" /tmp/roae_$t.cnf /tmp/roae_$t.drat $LRAT_OPT"
+  CERT_RC[$cert]=$LAST_RC
+  CERTS_CHECKED=$((CERTS_CHECKED+1))
 done
+# POPULATION, then the pair verdict. Both are whole-line tokens, emitted on every run: a count that
+# vanished would be indistinguishable from one nobody looked for.
+echo "DRAT_CERTS_CHECKED=$CERTS_CHECKED" | tee -a "$LOG"
+if [ "$HAVE_DRAT" = "1" ] && [ "$HAVE_PY" = "1" ]; then
+  check "cert population >= $CERT_FLOOR (checked $CERTS_CHECKED)" "[ $CERTS_CHECKED -ge $CERT_FLOOR ]"
+else
+  skip "cert population >= $CERT_FLOOR" "needs python3 + drat-trim"
+fi
+if [ -n "${CERT_RC[alt_le_14_noY_unsat]+x}" ] && [ -n "${CERT_RC[alt_ge_16_noY_unsat]+x}" ]; then
+  if [ "${CERT_RC[alt_le_14_noY_unsat]}" -eq 0 ] && [ "${CERT_RC[alt_ge_16_noY_unsat]}" -eq 0 ]; then
+    echo "ALT_NOY_SUBSET_UNSAT=PASS" | tee -a "$LOG"
+  else
+    echo "ALT_NOY_SUBSET_UNSAT=FAIL" | tee -a "$LOG"
+  fi
+else
+  echo "ALT_NOY_SUBSET_UNSAT=NOT_RUN" | tee -a "$LOG"
+fi
+
+echo "== 3c. cake_lpr (formally verified LRAT checker) — OPT-IN second leg =="
+# DECISION, stated so it can be argued with (2026-09-02, lane S-2): cake_lpr is NOT part of the
+# default shipped verification and this section says so with a token rather than by silence.
+# Reasons: (1) it is a CakeML binary built from a ~100 MB generated assembly file, with no package
+# on any common host; (2) its default heap+stack (4096+4096 MB) refuses to start on an 8 GB host
+# and needs --CML_HEAP_SIZE/--CML_STACK_SIZE; (3) the archive's cake_lpr coverage is an out-of-band
+# record (README.md §Checker coverage), and a SKIP here on every replicator's machine would hold the
+# exit status nonzero for a checker most cannot install. But the hazard SAT_CLI.md documents --
+# cake_lpr EXITS 0 WHETHER IT VERIFIES OR FAILS -- was until today documented and never exercised by
+# any code in this tree. So the leg exists, opt-in: set CAKE_LPR=<path or name> (and, on a small
+# host, CAKE_LPR_OPTS='--CML_HEAP_SIZE=2048 --CML_STACK_SIZE=1024'); every certificate is then
+# elaborated to LRAT by drat-trim in section 3 and checked here, gated on the WHOLE line
+# `s VERIFIED UNSAT` via require_verdict_line -- never on the exit status. An LRAT that is absent or
+# empty, or whose drat-trim leg did not pass, FAILS loudly: it is not a proof that was checked.
+# With CAKE_LPR set to a binary that cannot be found, the resolve check FAILs and the per-cert legs
+# SKIP -- an operator who asked for the leg must not receive a green run without it.
+if [ -z "${CAKE_LPR:-}" ]; then
+  echo "CAKE_LPR_LEG=NOT_RUN"  | tee -a "$LOG"
+  echo "CAKE_LPR_ID=NOT_RUN"   | tee -a "$LOG"
+  echo "  not requested (set CAKE_LPR=/path/to/cake_lpr to run it). The shipped verification is the"
+  echo "  drat-trim leg above; cake_lpr coverage of the archive is recorded out of band in"
+  echo "  reports/certificates/README.md §\"Checker coverage\". NOT_RUN is not a pass and not a failure."
+else
+  CAKE_PATH=$(command -v "$CAKE_LPR" 2>/dev/null || true)
+  if [ -z "$CAKE_PATH" ] || [ ! -x "$CAKE_PATH" ]; then
+    echo "CAKE_LPR_LEG=REQUESTED_BUT_ABSENT" | tee -a "$LOG"
+    echo "CAKE_LPR_ID=ABSENT"                | tee -a "$LOG"
+    check "cake_lpr binary resolves (CAKE_LPR=$CAKE_LPR)" "false"
+    for cert in "${!CERTS[@]}"; do skip "cake_lpr $cert" "CAKE_LPR is set but not executable"; done
+  elif [ "$HAVE_DRAT" = "0" ] || [ "$HAVE_PY" = "0" ]; then
+    echo "CAKE_LPR_LEG=REQUESTED_NO_LRAT"   | tee -a "$LOG"
+    echo "CAKE_LPR_ID=ABSENT"               | tee -a "$LOG"
+    for cert in "${!CERTS[@]}"; do skip "cake_lpr $cert" "needs python3 + drat-trim to elaborate the LRAT"; done
+  else
+    if command -v sha256sum >/dev/null 2>&1; then CAKE_SHA=$(sha256sum "$CAKE_PATH" | cut -d" " -f1); else CAKE_SHA=UNAVAILABLE; fi
+    echo "CAKE_LPR_LEG=RUN"          | tee -a "$LOG"
+    echo "CAKE_LPR_ID=$CAKE_SHA"     | tee -a "$LOG"
+    echo "CAKE_LPR_PATH=$CAKE_PATH"  | tee -a "$LOG"
+    for cert in "${!CERTS[@]}"; do
+      t=${CERTS[$cert]}
+      if [ "${CERT_RC[$cert]:--1}" -ne 0 ]; then
+        check "cake_lpr $cert ($t)" "echo 'drat-trim leg did not pass; its LRAT is not evidence'; false"
+        continue
+      fi
+      # ${CAKE_LPR_OPTS:-} is deliberately unquoted: it is a word list of runtime sizing flags.
+      check "cake_lpr $cert ($t)" \
+        "{ [ -s /tmp/roae_$t.lrat ] || { echo 'LRAT ABSENT OR EMPTY: /tmp/roae_$t.lrat'; false; }; } && require_verdict_line CAKE_LPR_VERIFIED_$cert 's VERIFIED UNSAT' \"$CAKE_PATH\" \${CAKE_LPR_OPTS:-} /tmp/roae_$t.cnf /tmp/roae_$t.lrat"
+    done
+  fi
+fi
 
 echo "== 3b. C3 positional witnesses (independent verify.py-path recheck) =="
 if [ "$HAVE_PY" = "0" ]; then skip "c3_positional_witnesses.txt (42 witnesses)" "needs python3"; else

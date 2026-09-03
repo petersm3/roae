@@ -123,6 +123,36 @@ allocate sufficient CakeML heap and stack space"; `--CML_HEAP_SIZE` and
 and do not change what is being checked.
 (Third-party solver use authorized by the operator 2026-07-02.)
 
+**How `reports/certificates/verify_all.sh` consumes the two checkers (2026-09-02).**
+Each certificate's replay runs through `require_verdict_line`, which captures
+the checker's *unfiltered* output into the log first and only then judges it
+on two separate legs: the checker's exit status must be 0 **and** the exact
+whole line — `s VERIFIED` for drat-trim, `s VERIFIED UNSAT` for cake_lpr —
+must be present (`grep -Fqx` on the captured file, never `cmd | grep -q`).
+It writes one token per certificate, `DRAT_VERIFIED_<cert>=PASS` (or
+`=FAIL rc=<n> verdict_line=<present|absent>`), and after the loop the
+script prints `DRAT_CERTS_CHECKED=<n>` (floor 24, a shrunken corpus fails)
+and `ALT_NOY_SUBSET_UNSAT=PASS|FAIL|NOT_RUN` for the two cardinality-only
+certificates. Three measured facts explain the shape. drat-trim **exits 0
+on a run that checked nothing** — an empty CNF yields
+`c ERROR: did not find p cnf line`, no `s` line, rc 0 — so its exit status
+alone is fail-open; on a truncated or empty proof of a non-trivial instance
+it prints `s NOT VERIFIED` and exits 1. drat-trim also **prefixes every
+output line with a bare carriage return** (its progress-line erase):
+`grep -cx 's VERIFIED'` on a clean run's output is 0, and 1 after
+`tr -d '\r'`, which is the one byte the harness normalises. And, as above,
+cake_lpr's exit status carries no verdict at all. The cake_lpr leg is
+**opt-in**: `CAKE_LPR=/path/to/cake_lpr bash reports/certificates/verify_all.sh`
+(add `CAKE_LPR_OPTS='--CML_HEAP_SIZE=2048 --CML_STACK_SIZE=1024'` on an
+8 GB host) makes section 3 elaborate every proof to LRAT and section 3c
+check each with cake_lpr, tokens `CAKE_LPR_LEG=RUN`, `CAKE_LPR_ID=<sha256>`
+and `CAKE_LPR_VERIFIED_<cert>=PASS|FAIL`; an absent or empty LRAT fails
+loudly. Unset, section 3c prints `CAKE_LPR_LEG=NOT_RUN` and the shipped
+verification is the drat-trim leg — the archive's cake_lpr coverage is
+the out-of-band record in `reports/certificates/README.md`
+§Checker coverage. `NOT_RUN` is neither a pass nor a failure; a `CAKE_LPR`
+that is set but does not resolve is a FAIL, never a silent fallback.
+
 Argument parsing is hand-rolled `sys.argv` inspection (no `argparse`);
 the dispatch lives in the `__main__` block at the bottom of the file.
 
@@ -140,6 +170,50 @@ Prints a `vars=… clauses=… -> OUT.cnf` summary line. The resulting
 file is fed to an external `#SAT` / SAT solver (e.g.
 `kissat f.cnf`). `TARGET` is one of the named constraint bundles
 below.
+
+#### `TARGET-noY` — the cardinality-only clause subset (2026-09-02)
+
+```
+python3 sat.py --emit-cnf alt-le-14-noY f.cnf
+python3 sat.py --emit-cnf alt-ge-16-noY f.cnf
+```
+
+Emits **exactly the clauses of `alt-le-14` / `alt-ge-16` in which no
+ordering (Y) variable occurs**, with the variable numbering unchanged,
+so the output is a syntactic subset of the full CNF. The selection rule
+is that one predicate: the Y variables are allocated first in `build()`
+(`1..1922` = 31 slots × 62 pair/orientation atoms), so "no Y variable"
+is "every |literal| > 1922". What survives is the per-boundary distance
+`exactly_one`, the C5 per-distance `exactly_k`, the `odd[s] ⇔ T[s,1] ∨ T[s,3]`
+definitions and the alternation bound; every C1/C2/C4 clause is dropped.
+Measured 2026-09-02: `alt-le-14-noY` keeps **11,073 of 240,039** clauses,
+`alt-ge-16-noY` **11,134 of 240,100**, both UNSAT (kissat 4.0.1), both
+proofs `s VERIFIED` by drat-trim with ~36.7k / ~11.8k core lemmas — so
+neither is decided by unit propagation. The archived files are the
+**core-trimmed** proofs (`drat-trim -l` on the raw kissat output, then
+re-verified from the trimmed file: ~36.4k / ~11.7k lemmas in core, a
+half-truncated copy `s NOT VERIFIED`); trimming cut the gzipped sizes
+from 1,049,354 / 330,799 B to 614,082 / 171,203 B. These are the two certificates
+`reports/certificates/alt_le_14_noY_unsat.drat.gz` /
+`alt_ge_16_noY_unsat.drat.gz`, replayed by `verify_all.sh`, which prints
+`ALT_NOY_SUBSET_UNSAT=PASS` when both verify. They certify the *semantic*
+claim behind [TR-6](../reports/TR6_PARITY_SKELETON.md)'s "corroborating,
+not independent" verdict — the alternation theorem follows from C5's
+cardinalities before any ordering variable is consulted — and **not** the
+claim "no ordering variable appears in the full proofs" (the archived
+`alt-le-14` core contains 356 of them; drat-trim cores are proof-relative).
+
+The extractor prints five whole-line tokens before the summary line —
+`NOY_Y_VARS=1922`, `NOY_TOTAL_CLAUSES=…`, `NOY_KEPT_CLAUSES=…`,
+`NOY_DROPPED_CLAUSES=…`, `NOY_Y_LITERALS_IN_OUTPUT=0` — and refuses
+(exit 1, nothing written) an empty or total subset and any surviving Y
+literal, so it cannot vouch for its own filter. Scope is the two
+alternation targets only; `plain-noY`, `grand-ccn4-noY` or a `-near-k`
+base are refused rather than extrapolated, as are `--with-c3`, `--c3-max`,
+`--c3-min` and `--not-kw` (each adds Y-touching clauses the predicate
+would then silently remove, so the label would name a formula the file
+does not contain). `--witness`, `--decode` and `--certify-count` refuse a
+`-noY` target: the Y-free formula has no ordering to decode or count.
 
 ### --decode MODEL.txt [TARGET]
 
@@ -341,6 +415,7 @@ catalogue and the expected SAT/UNSAT verdict of each):
 |---|---|
 | `plain` | C1+C2+C4+C5 only — baseline satisfiability sanity. |
 | `alt-le-14` / `alt-ge-16` | Base AND odd between-pair transitions ≤ 14 / ≥ 16 (both UNSAT ⇒ SAT-certified parity-alternation theorem; see [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md)). |
+| `alt-le-14-noY` / `alt-ge-16-noY` | The cardinality-only clause subset of the row above — every clause with no ordering variable, numbering unchanged (11,073 of 240,039 / 11,134 of 240,100 clauses). Both UNSAT on their own: the alternation theorem is decided by C5's cardinalities alone (TR-6). `--emit-cnf` only; see §`TARGET-noY` above. |
 | `moore-strict` | Base AND [Moore 2005](CITATIONS.md#moore2005) parity (all 18) AND [Moore 1989](CITATIONS.md#moore1989) rhythm (0 breaks) — expect SAT → explicit witness. |
 | `rc4-strict` | Base AND [Schulz 1990](CITATIONS.md#schulz1990-motifs) gender/position-parity, 0 violations (semantics = `solve.rc4_violations`). |
 | `grand-strict` | Moore parity + Moore rhythm + Schulz gender simultaneously ("grand unified precursor" question). |
