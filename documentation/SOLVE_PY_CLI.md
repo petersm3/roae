@@ -579,11 +579,19 @@ python3 solve.py --tr8-dof-merge out/
 | **Scale** | single sequence | single sequence + population post-processing | up to 560T-node canonical runs |
 | **Deps** | Python 3 stdlib (+ optional export deps) | Python 3 (+ `numpy`/`pyarrow` for P2; `matplotlib` for `--bivariate`; `scikit-learn` for the joint-density / stratified modes) | gcc, pthread, sha256sum |
 
-`solve.py` is the **ground-truth authority**: every `solve.c` port of a
-functional (F4′, F5, F6, the registry rules, the Davis / Van den Berghe
-candidates) is gated two-language against the matching `solve.py`
-verifier, and `sat.py` imports `solve.py` rather than re-encoding any
-constraint (see [SAT_CLI.md](SAT_CLI.md)).
+`solve.py` is the **ground-truth authority**: `solve.c`'s ports of F4′, F6, the
+registry rules and the Davis / Van den Berghe candidates are gated two-language
+against the matching `solve.py` verifier, and `sat.py` imports `solve.py` rather
+than re-encoding any constraint (see [SAT_CLI.md](SAT_CLI.md)).
+
+⚠ **[CORRECTED 2026-09-03 — this sentence listed **F5** among the two-language-gated
+functionals (Codex V2-F52 #3), and this same file contradicts it four hundred lines
+earlier. `--f5-verify` covers the **11 frozen F5 orientation-layer functionals** and is
+described at its own table row as *"a `solve` **C** gate"*; only functional #11
+(`f5_vdb_nuc`) has a `solve.py` twin, reached through `--vdb-verify`'s `vdb_nucorient`.
+So F5 is **1 of 11** two-language, not two-language as a set. The remaining ten are
+C-side only, and a reader sizing the independence of the F5 layer needs that number, not
+the category.]**
 
 ## SEE ALSO
 

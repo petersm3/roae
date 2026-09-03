@@ -639,12 +639,31 @@ distributions of random or pair-constrained random orderings. The
 choice of null model matters; see [CRITIQUE.md](CRITIQUE.md) for
 methodological caveats.
 
-**Single Python source file:** `roae.py` is one file. The project's
-single-Python-file rule (modeled on the single-C-file rule for
-solve.c) means `roae.py` and `solve.py` are the only Python files,
-plus `viz/visualize.py` (PCA plots, an exception with heavy
-dependencies). No `scripts/` subdirectory; no separate analysis
-scripts.
+**Single Python source file:** `roae.py` is one file, and the project's
+single-file rule (modeled on the single-C-file rule for `solve.c`) is about
+**one file per role**, not one Python file in the repo.
+
+⚠ **[CORRECTED 2026-09-03 — this read *"`roae.py` and `solve.py` are the only Python
+files, plus `viz/visualize.py` … No `scripts/` subdirectory; no separate analysis
+scripts"* (Codex V2-F49 #13). Measured against `git ls-files '*.py'`: **21 tracked
+Python files**, and `scripts/c2c3_joint_null.py` exists, so both halves were false.]**
+
+The rule's actual scope — one file per role:
+
+| role | file |
+|---|---|
+| C solver / enumerator | `solve.c` |
+| Python solver + ground-truth authority | `solve.py` |
+| SAT encoder | `sat.py` |
+| analysis battery | `roae.py` |
+| independent verifier | `verify.py` (plus `verify.c`) |
+| regression harness | `tests.py` |
+
+Outside those roles the repo also tracks `scripts/c2c3_joint_null.py`, three `viz/`
+plotting scripts (`visualize.py`, `growth_curve.py`, `report_figures.py` — heavy
+dependencies, not part of any gate), and **12** one-shot instruments under
+`reports/evidence/` that are archived beside the results they produced. Those are
+evidence, not solver surface; the rule constrains the six files above.
 
 ## HISTORY
 
