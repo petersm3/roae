@@ -95,7 +95,7 @@ current defaults the two modes' files are content-identical but byte-different �
 | Repository | **pin to a commit sha** — content-addressed and immutable. *(Corrected 2026-08-07, CX-31: this row previously said "pin to the release tag stamped at publication (git tag per suite version)". No such per-suite-version tagging exists: 14 tags are present but only `reports-v1.0` (2026-07-03) is a suite version, while reports have since advanced to TR-2 v1.24, TR-3 v1.9 and beyond with no subsequent tag. Combined with the withdrawn DOI claim in [reports/README](README.md), the stated pinning policy had no executable mechanism at all — the sha is the one that always works.)* | [github.com/petersm3/roae](https://github.com/petersm3/roae) |
 | C toolchain | gcc (Ubuntu 22.04 class), flags: `-O2 -pthread -fopenmp` (portable default). **The output sha is flag- and architecture-invariant on every recipe tested**, so the differing build lines a replicator meets across this repo are interchangeable: `-O2`, `-O3 -march=native`, `-O3 -march=x86-64-v3` and `-O3 -flto` all produce the same selftest sha `403f7202…`, and the 11.2T canonical is byte-identical between an x86 `-march=native` build and an ARM Neoverse-N2 `-mcpu=native` build. The published canonical recipe ([CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §"Solver version") is therefore `-O3 … -march=native`; the reason to prefer a fixed `-march` baseline for a redistributed binary is SIGILL on older CPUs, **not** sha movement ([DEVELOPMENT.md](../documentation/DEVELOPMENT.md) §"Use `-march=x86-64-v3` for canonical builds"). Two witnesses, not an exhaustive guarantee over every compiler version and host. | — |
 | solve.c selftest anchor | sha256 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` | pre-push compile gate (git hooks, installed per clone — opt-in) + manual operator runs; not a commit-time gate |
-| Python | 3.10+ stdlib-only (solve.py, sat.py, roae.py, verify.py) | — |
+| Python | 3.10+, **stdlib-only on every reproduction path in this report**: `roae.py` and `sat.py` import nothing outside the standard library; `solve.py` and `verify.py` are stdlib-only on their default, `--verify`, `--recount` and SAT-emission legs. *(Scoped 2026-09-02, prose lane: this row read "stdlib-only (solve.py, sat.py, roae.py, verify.py)", which is false of two files' optional modes — `solve.py`'s P2 population post-processing modes lazily import `numpy`/`pyarrow`, with `matplotlib` for `--bivariate` and `scikit-learn` for the joint-density / stratified modes, and `verify.py --check-t5-c3` lazily imports `numpy` + `pyarrow.parquet`. Every such import sits inside its handler, so no default path needs them — [DEVELOPMENT.md](../documentation/DEVELOPMENT.md) §Prerequisites lists the modes; the [SOLVE_PY_CLI.md](../documentation/SOLVE_PY_CLI.md) dependencies row is the per-feature attribution.)* | — |
 | SAT solver | kissat 4.0.4 (build from source) | [github.com/arminbiere/kissat](https://github.com/arminbiere/kissat) |
 | Proof checker | drat-trim ([Wetzler, Heule & Hunt 2014](../documentation/CITATIONS.md#drattrim2014)). **Unpinned** — built from the upstream master branch circa 2024; no commit hash was recorded at build time, so this row names a moving target, not a version (disclosure replacing the earlier "2024+ master" phrasing, which read as a pin; that open task is now CLOSED for verification runs from 2026-08-09 onward: the 2026-08-09 end-to-end `verify_all.sh` run — 60 passed / 0 failed / **0 skipped**, on a fresh clone of public HEAD `c1113a2` — used drat-trim at commit **`2e3b2dc0ecf938addbd779d42877b6ed69d9a985`** (committed 2024-11-25, consistent with the "circa 2024" above). **SCOPE, stated because the distinction is the whole point of this row:** that hash pins the checker used by *that verification run*. It does **not** retroactively identify the build that produced the archived certificates — no hash was recorded then, and that gap is not closeable after the fact. A replicator can therefore pin the *checking* step exactly, while the *production* step remains a moving target) | [github.com/marijnheule/drat-trim](https://github.com/marijnheule/drat-trim) |
 | Lean | 4.31.0 via elan; core only (no mathlib) ([de Moura & Ullrich 2021](../documentation/CITATIONS.md#demoura-ullrich2021)) | `lean lean/KingWen.lean` exits 0 |
@@ -169,9 +169,20 @@ which is what produced every published figure — with the divergence disclosed:
   SEs were added for every published mass family — `score_dav`, `score_dav2`, `score_f4p`, `score_f5`,
   `score_f6`, `score_perm`, `score_db1`, `score_registry`, the `[score]` scalar masses and the
   wrap-distance masses — and each mass line now prints `se=` (ratio-estimator delta method:
-  Var(m) ≈ [ΣW²I·(1−2m) + m²·ΣW²]/(ΣW)², exact for 0/1 indicators). Validated against 12
-  independent-seed replicates at 10⁷ probes (printed SE vs replicate SD ratios 0.73–1.45, within
-  chi-square noise of 1). Per-bin histogram rows (`dav_hist` etc.) remain point estimates. Archived
+  Var(m) ≈ [ΣW²I·(1−2m) + m²·ΣW²]/(ΣW)², exact for 0/1 indicators). Validated 2026-09-02 against 12
+  independent-seed replicates at 10⁷ probes — `SOLVE_KNUTH_SEED` = 1, 2, …, 12 at `SOLVE_THREADS=2`,
+  archived with the run script, the ratio script and a README under `evidence/q374_se_replicates/`
+  (reproduce: `ulimit -s unlimited; bash reports/evidence/q374_se_replicates/run_replicates.sh`, then
+  `python3 reports/evidence/q374_se_replicates/analyze.py reports/evidence/q374_se_replicates`).
+  Printed SE ÷ replicate SD for the seven non-degenerate `at=` masses: 0.75 / 0.92 / 0.91 / 1.02 /
+  0.69 / 1.56 / 1.44 (termruns / compmirror / trigarray / palnbr / rotinv / pureplace / asymhalf) —
+  six of seven inside the 12-replicate chi-square 95% band [0.71, 1.70]; `leaves_canonical` 1.38, in-band.
+  The exception, `rotinv`, averages ≈1 hit per replicate (2 of 12 replicates hit nothing and print
+  `se=0`), and the two rarer tails (`compmirror`/`trigarray` `above=`, ≤3 hitting replicates of 12)
+  print SE ÷ SD ≈ 0.29: **the delta-method SE is validated where a mass has hits and understates in
+  the zero/single-hit regime** — the zero-hit/starvation caveat below, made quantitative. *(An earlier
+  12-replicate validation, 2026-08-28, reported ratios 0.73–1.45 but recorded neither its seeds nor its
+  outputs; it is withdrawn as unreproducible and superseded by the archived run above.)* Per-bin histogram rows (`dav_hist` etc.) remain point estimates. Archived
   evidence files from earlier runs (e.g. `dav_tier1.out`, 2026-07-04) predate the field and carry
   no `se=`; the masses themselves are unchanged (same-seed emissions byte-identical).]** Weighted fractions (masses of canonical weight) are
   same-run ratios ΣWX/ΣW; for fractions ≪ 1 the delta-method variance reduces exactly to the numerator's
@@ -196,7 +207,9 @@ which is what produced every published figure — with the divergence disclosed:
   is **not in the binary**: no such token exists in `solve.c` today. This note is to be replaced by
   the enforced wording when it does. PRNG seeds are fixed constants: re-runs at identical (probes,
   threads) reproduce identical output (a reproducibility feature; runs at the same thread count and
-  different probe counts share stream prefixes and are not independent draws). CIs degrade visibly at hit
+  different probe counts share stream prefixes and are not independent draws). *This rule is restated
+  under its own heading — §"Reproducibility rule for estimator output" below — which is the anchor to
+  cite; it lived only inside this bullet until 2026-09-02.* CIs degrade visibly at hit
   rates below ~10⁻⁷ per probe; every reported number states its probe count.
 - **Permutation-test nulls**: seeded (`random.Random(42)` unless stated); N=10,000 default; the
   pair-preserving null = shuffle the 32 canonical pairs + independent uniform orientation flips, first
@@ -314,6 +327,18 @@ which is what produced every published figure — with the divergence disclosed:
   "notable" verdict states in place whether it clears that bar. Model comparisons (the TR-2 Bayes factors) are **not** observables
   and do not enter this ledger. This accounting does not touch the suite's headline findings — the
   nulls, and the proven/certified impossibilities, which are deductive.
+
+### Reproducibility rule for estimator output
+
+*(Heading added 2026-09-02, prose lane. The rule itself is unchanged; until today it was stated only
+inside the "Knuth estimator CIs" bullet above, so every citation of it resolved through a bold label
+rather than a section.)* The Knuth estimator's PRNG seeds are fixed constants and the thread count
+selects the sample, so **a re-run reproduces a published estimator output only at the identical
+(probes, threads) pair**. Consequences: every reproduction command for a sampled figure must carry its
+thread count (`SOLVE_THREADS=N`) as well as its probe count; runs at the same thread count and different
+probe counts share stream prefixes and are **not** independent draws; and a reader on a host with a
+different core count who omits the pin reproduces a *different* draw, not the published one. Exact-mode
+commands (`--estimate-knuth 0`, the orbit-quotient DP, `--verify`) are deterministic and need no pin.
 
 ## Artifact access
 - **Certificates (DRAT) and raw run outputs** ship publicly with the suite under `reports/certificates/`
