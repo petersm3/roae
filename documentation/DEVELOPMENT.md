@@ -477,8 +477,15 @@ The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 U
 - An explicit glibc version (frozen with the base image)
 - An explicit libgomp version
 - A fixed `-march=` baseline
+- **`SOURCE_DATE_EPOCH`, and the rest of the deterministic flag set above** ⚠ **[ADDED 2026-09-03
+  (Codex V2-F15 #16) — the four ingredients above are NOT sufficient for the claim that follows.
+  Pinning the compiler, libc, libgomp and `-march=` still leaves `__DATE__`/`__TIME__` baked into
+  `.rodata`, so two builds in the same container differ. `SOURCE_DATE_EPOCH`, `-fno-record-gcc-switches`,
+  `-ffile-prefix-map` and `-fdebug-prefix-map` are what make the binary reproducible, and the container
+  pins the toolchain those flags are applied by.]**
 
-Build `solve.c` inside the container; the same container + same source → bit-identical binary on any host. Publish the container image digest alongside `CANONICAL_HASHES.md`. This is the gold standard for scientific reproducibility (used by Nature/Cell/CodeOcean submissions, Bitcoin Core, Debian package builds).
+Build `solve.c` inside the container **with the deterministic flag set**; the same container + same
+source + the same `SOURCE_DATE_EPOCH` → bit-identical binary on any host. Publish the container image digest alongside `CANONICAL_HASHES.md`. This is the gold standard for scientific reproducibility (used by Nature/Cell/CodeOcean submissions, Bitcoin Core, Debian package builds).
 
 Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Status: deferred pending operator authorization; if shipped, a future deeper canonical's pre-launch checklist gains a "build container image digest" gate.
 
@@ -587,19 +594,24 @@ Violation → `_exit(21)` with diagnostic to stderr (distinct from existing exit
 
 **Implementation:** two subcommands in solve.c:
 - `./solve --emit-shard-manifest [path]` — scans `sub_*.bin` in CWD, computes sha256 + size per shard, writes a tab-separated manifest (default `shard_manifest.txt`): `<filename>\t<size>\t<sha256_hex>` per line.
-- `./solve --verify-shard-manifest [path]` — reads the manifest and, for each entry, asserts: (1) shard exists, (2) current size ≥ stored size (legitimate resume only grows shards), (3) sha256 of the first `<stored_size>` bytes matches the stored sha256 (catches mid-write corruption + bug-2-class cross-ref divergence). Any failure → `_exit(22)` with diagnostic.
+- `./solve --verify-shard-manifest [path]` — reads the manifest and, for each entry, asserts: (1) shard exists, (2) current size **equals** stored size ⚠ **[CORRECTED 2026-09-03 — this read "current size ≥ stored size (legitimate resume only grows shards)", which is now the OPPOSITE of the shipped verifier (Codex V2-F15 #7 / V2-L05 #3). Since the Q-367 fix, growth is classified `DIVERGED` unconditionally — `solve.c` prints `DIVERGED <shard> grew-to-<n>-bytes-manifest-says-<m>` and exits 22. That is deliberate: a silent append was a false-accept, because the merger globs the enlarged file and the extra records enter the merged result.]**, (3) sha256 of the first `<stored_size>` bytes matches the stored sha256 (catches mid-write corruption + bug-2-class cross-ref divergence). Any failure → `_exit(22)` with diagnostic.
 
 **Workflow for resume-protected canonical runs:**
 1. After PHASE_A enum completes: `solve --emit-shard-manifest shards.manifest`
 2. (Optional Spot eviction + reallocation. Or asymmetric-extension PHASE_B at higher budget.)
-3. Before PHASE_B merge: `solve --verify-shard-manifest shards.manifest`. Aborts loudly if any shard was silently modified by the resume path.
+3. Before PHASE_B merge: `solve --verify-shard-manifest shards.manifest`. Aborts loudly if any shard was modified since the manifest was emitted.
+   🔴 **After an INTENTIONAL asymmetric extension (step 2), RE-EMIT the manifest before verifying** —
+   `solve --emit-shard-manifest`. Growth is `DIVERGED` by design since Q-367, so verifying an extended
+   shard set against the pre-extension manifest fails by construction. Without this step an operator
+   either discards legitimately extended shards as corrupt, or bypasses the integrity gate to get past
+   it — and the bypass is the dangerous one.
 
 **Verified 2026-05-14, four test cases:**
 
 | Case | Action | Result |
 |---|---|---|
 | Positive | No corruption | PASS — 1097 entries, 0 missing/shrunk/diverged |
-| Negative 1 | Append bytes to a shard (legitimate "resume extended this shard" pattern) | PASS — append accepted (size grew, original content unchanged) |
+| Negative 1 | Append bytes to a shard | **FAIL — append rejected**, `DIVERGED … grew-to-N-bytes-manifest-says-M`, exit 22 ⚠ **[the 2026-05-14 run recorded "PASS — append accepted"; Q-367 reversed this deliberately, because the merger reads the enlarged file and the appended records would enter the merged result. Re-verified 2026-09-03.]** |
 | Negative 2 | Truncate a shard to 10 bytes | FAIL — `1 shrunk` detected, exit 22 |
 | Negative 3 | Modify the first 4 bytes of a shard | FAIL — `1 diverged` detected, exit 22, diagnostic prints both shas |
 
@@ -1095,7 +1107,7 @@ For canonical-grade reproducibility, use the **deterministic recipe**:
 SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct -- solve.c) \
 gcc -O3 -g -march=native -flto -pthread -fopenmp \
     -fno-record-gcc-switches \
-    -Wl,--build-id=sha256 \
+    -Wl,--build-id=sha1 \
     -ffile-prefix-map="$(pwd)=." \
     -fdebug-prefix-map="$(pwd)=." \
     -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" \
@@ -1108,11 +1120,11 @@ Compared to the bare `-O3 -flto -pthread -fopenmp -march=native`, these flags ad
 |---|---|---|
 | `SOURCE_DATE_EPOCH=<unix-ts>` | Pins `__DATE__` and `__TIME__` to a deterministic value | Eliminates the `.rodata` cosmetic non-determinism documented in `roae-private/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md` Q10 |
 | `-fno-record-gcc-switches` | Removes embedded build command line from `.GCC.command_line` section | Builds without referencing the build directory |
-| `-Wl,--build-id=sha256` | Derives the ELF build-id deterministically from binary content (instead of random hash) | Two builds of same source on same host produce identical build-ids |
+| `-Wl,--build-id=sha1` | Derives the ELF build-id deterministically from binary content (instead of random hash). ⚠ **[CORRECTED 2026-09-03 — this recipe said `sha256`, which GNU ld does not accept: it emits `warning: unrecognized --build-id style ignored` and the binary ends up with **NO build-id at all**, so the row's own guarantee was unverifiable. Measured on the stock toolchain (Codex V2-F15 #16). `sha1` is accepted, reproducible across rebuilds, and content-derived — a changed source gives a different id.]** | Two builds of same source on same host produce identical build-ids |
 | `-ffile-prefix-map="$(pwd)=."` | Strips the absolute build path from any embedded references | Same source compiled in different directories produces identical binary |
 | `-fdebug-prefix-map="$(pwd)=."` | Same for debug info (DWARF section) | Debug builds across hosts have identical DWARF paths |
 
-**Result**: two builds of the same source on the same host produce **byte-identical binaries** (the same `.text`, same `.rodata`, same build-id). The empirical Q10 finding showed that without these flags, two builds had byte-identical `.text` but differing `.rodata` and build-id — cosmetic but messy. The deterministic recipe eliminates the mess.
+**Result**: two builds of the same source on the same host produce **byte-identical binaries** (the same `.text`, same `.rodata`, same build-id — the last of these only since the `sha1` correction above; under the previously documented `sha256` the flag was ignored and there was no build-id to compare). The empirical Q10 finding showed that without these flags, two builds had byte-identical `.text` but differing `.rodata` and build-id — cosmetic but messy. The deterministic recipe eliminates the mess.
 
 **Caveat — cross-host reproducibility**: even with this recipe, builds across different physical hosts (different gcc patch, glibc patch, kernel, CPU revision) can produce DIFFERENT binaries — and may produce different canonical sha at BUDGETED-cell-density-sensitive scales like 1T. See the structured `validation_history` block in `CANONICAL_HASHES.md` and the `feedback_canonical_sha_drift_management` memory for the operational discipline.
 
@@ -1227,9 +1239,24 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
   filled up mid-write. The solver's sha256 still matched the truncated file
   (sha was computed post-write from what landed on disk). Every `fwrite`,
   `fopen`, `fclose`, `fflush`, `fsync`, `rename`, `fseek`, `ftell`, and
-  `fread` now has its return checked at every call site (enumeration flush,
+  `fread` has its return checked in the paths named here (enumeration flush,
   external-sort chunks, both merge paths). Short reads are hard errors, not
-  warnings. Post-write `stat()` verifies size at every file write.
+  warnings. Post-write `stat()` verifies size at those writes.
+  ⚠ **[SCOPED 2026-09-03 — this read "at every call site" and "at every file
+  write", and that universal is FALSE (Codex V2-F15 #3). The checkpoint
+  METADATA writers are the exception and they are resume-critical: the
+  `sub_ckpt_meta.txt` writer calls `fprintf`, `fflush`, `fsync`, `fclose` and
+  `rename` with **none** of them checked, so a failed flush still lets the
+  `rename` install a possibly-truncated meta OVER the good one. The
+  `sub_ckpt_depth<tid>.txt` and `sub_ckpt_task_done.txt` writers repeat the
+  pattern. These files restore `shared_nodes` (budget state) and the
+  completed-task frontier on resume, so a bad one is not cosmetic. The worker
+  snapshot writer immediately above them DOES check (`if (fflush(wf) != 0 ||
+  fsync(fileno(wf)) != 0)`) and aborts the checkpoint — which is what makes the
+  omission a gap rather than a convention. The fix (check the flush and SKIP the
+  rename on failure — a stale-but-consistent meta is recoverable, an
+  installed-truncated one is not) is a `solve.c` change and is HELD behind the
+  five-condition MASTER GATE; this note is the honest statement until then.]**
 - **Preflight disk space**: `free_disk >= estimated_output × 1.5`. At 10T the
   sub_*.bin shards total ~23 GB AND the final solutions.bin is ~24 GB —
   together they exceed a naive 32 GB disk.
@@ -1542,14 +1569,26 @@ env var is active.
 **Workaround without the env var**: if you want concentration semantics
 under the default reproducible path, compute the target total manually:
 
+🔴 **[CORRECTED 2026-09-03 — the recipe that stood here was wrong by its own
+arithmetic (Codex V2-F15 #2), and it under-budgeted every remaining branch.** It
+set `SOLVE_NODE_LIMIT = TARGET_PER_BRANCH × REMAINING_SUB_BRANCHES`. But the
+default (non-`CONCENTRATE`) path divides `SOLVE_NODE_LIMIT` by the **full**
+partition — `n_all_subs + n_skipped_subs` — never by the remaining count. So each
+remaining branch actually received `TARGET × REMAINING/TOTAL`: at half
+completion, **half** the intended depth, while the text below promised "same
+effective per-sub-branch depth". Scaling the numerator by `remaining` cannot
+work under a total-divisor.]**
+
+Use the per-sub-branch control directly, which is what it is for:
+
 ```bash
-TARGET_PER_BRANCH=$(( 10000000000000 / TOTAL_SUB_BRANCHES ))
-SCALED_TOTAL=$(( TARGET_PER_BRANCH * REMAINING_SUB_BRANCHES ))
-SOLVE_NODE_LIMIT=$SCALED_TOTAL ./solve 0
+SOLVE_PER_SUB_BRANCH_LIMIT=$TARGET_PER_BRANCH ./solve 0
 ```
 
-Same effective per-sub-branch depth on remaining, full reproducibility
-of the pass.
+or simply **re-supply the ORIGINAL total budget** unchanged — under a
+total-divisor the per-branch depth is already what you wanted, and completed
+branches cost nothing to re-skip. Either gives the same effective per-sub-branch
+depth on the remaining branches with full reproducibility of the pass.
 
 ### `--sub-branch` CLI mode (targeted depth-3 sub-branch exhaustion)
 
