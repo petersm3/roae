@@ -182,14 +182,14 @@ C1–C5, with C6–C7 added only where the text says so.
 | **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
 | **[roae.py](roae.py)** | The exploratory analysis suite: 28 analyses of the sequence — most with null-model comparisons, several descriptive-only, and [CRITIQUE.md](documentation/CRITIQUE.md) names which are which ([example output](example/)). |
 | **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas, four sequence-level theorems, the trigram-level structure ([TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)), and the model-level merge/partition-invariance theorems (see [lean/README.md](lean/README.md) for the trust-base and scope notes). |
-| **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of the enumerator selftest, the two-language gates, every archived DRAT certificate, the Lean proofs, the regression harness, `roae.py`'s ground-truth self-check and the documentation gates. Scope, stated because the earlier wording over-claimed: section 6 runs `roae.py --verify` — the deterministic ground-truth check — and **not** the 28 analyses. |
+| **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of the enumerator selftest, the two-language gates, every archived DRAT certificate, the Lean proofs, the regression harness, `roae.py`'s ground-truth self-check and the documentation gates (`scripts/doc_gates.sh` in its `all` mode, whose PASS banner covers the hard gates only). Scope, stated because the earlier wording over-claimed: section 6 runs `roae.py --verify` — the deterministic ground-truth check — and **not** the 28 analyses. |
 
 ## What was found
 
 Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
-- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings — a raw, orientation-explicit count; ≈3.3×10³⁷ ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** after orientation-dedup ([METHODS](reports/METHODS.md) §"Canonical quantities") — (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding
-  C6–C7 still leaves ~5×10³¹. So the hypothesis that the constraints pin down King Wen is false — that
+- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings — a raw, orientation-explicit count; ≈3.3×10³⁷ after orientation-dedup ([METHODS](reports/METHODS.md) §"Canonical quantities") — (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding
+  C6–C7 still leaves ~5×10³¹. ⚠ **[WITHDRAWN 2026-08-24 — the ≈3.3×10³⁷ orientation-dedup figure in the sentence just above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; the raw 1.33×10³⁸ estimate and the ~5×10³¹ C1–C7 figure are not affected; see documentation/CORRECTIONS.md]** So the hypothesis that the constraints pin down King Wen is false — that
   was the strong reading of the literature's derivation claims, and this project's own early working
   assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
@@ -270,8 +270,11 @@ Headlines only — each links to its full treatment (technical reports in [repor
   ~64 GB of RAM plus ~4 TB of disk; the statistical estimator is validated absolutely at 10³⁹ (the
   exact value lands inside its stated ±0.01% envelope). The flagship C1–C5 figure remains an
   estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
-- **The enumeration record is reproducible**: every canonical count re-derivable to the byte by one
-  command; the deepest run reproduced from scratch through seven fresh Spot evictions (twelve across
+- **The enumeration record is reproducible**: every canonical count re-derivable to the byte from its
+  published recipe — the sha-determining parameters verbatim; one `solve` invocation with the merge
+  bundled through 100T, and enumerate-then-`--merge` as two steps for the 560T canonical
+  ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md) §"Reproducibility parameters"; TR-3
+  §"Verification Guide"); the deepest run reproduced from scratch through seven fresh Spot evictions (twelve across
   both runs). Three legacy figures are attested-not-reproducible and say so where they appear: the
   5,449-sequence check above, TR-1's ~1-in-25-million, and the
   [f11halfb](reports/evidence/f11halfb/RESULTS.md) bundle. [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)

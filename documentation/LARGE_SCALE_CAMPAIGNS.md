@@ -58,6 +58,15 @@ Before sizing anything, answer these questions:
    The number of unique solutions found grows sub-linearly with
    per-cell budget. Empirical curve from this project's runs:
 
+   ("Tier N" in this guide is the 2026-05 **validation-campaign** tier
+   numbering recorded in [HISTORY.md](HISTORY.md) — the "Tier 1 — 11.2T
+   canonical" entry and the tier table that follows it: Tier 1 = the 11.2T
+   canonical, Tier 5 = the (22, 0) asymmetric extension, Tier 9+ = the
+   production-scale spot checks. It is unrelated to the proof-strength
+   tiers in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) and the
+   determinism-hardening tiers in [DEVELOPMENT.md](DEVELOPMENT.md) and
+   [CANONICAL_HASHES.md](CANONICAL_HASHES.md), which reuse the word.)
+
    | Per-cell budget | Approximate solutions | Notes |
    |---|---|---|
    | 70 M (Tier 1's depth-3 70M) | 759 M unique | The current canonical |
@@ -96,12 +105,32 @@ Before sizing anything, answer these questions:
 
 ### 2a. Architectural cap: ~64 useful threads per single-branch run
 
-[`solve --branch <p1> <o1>`](SOLVE_C_CLI.md#--branch) parallelizes across ~2,824 depth-3
-sub-branches per first-level branch. Empirically, per-thread rate
-**halves past 64 threads** due to NUMA boundaries (D128 has two
-sockets) and hash-table contention. **D64-class VMs are the right
-size** for single-branch enumeration. D128 wastes half its cores
-unless you run two concurrent `--branch` jobs on it.
+[`solve --branch <p1> <o1>`](SOLVE_C_CLI.md#--branch) parallelizes across the
+depth-3 sub-branches of one first-level branch — **~2,828 on average**
+(158,364 cells ÷ 56 valid branches, per
+[BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md)); the "~2,824" this line used
+to give is one branch's count, not the mean.
+
+⚠ **[SCOPED 2026-09-03 — the thread-scaling sentence here was a pre-fix
+`--sub-branch` measurement carried as a current causal fact about `--branch`.]**
+It read: *"Empirically, per-thread rate **halves past 64 threads** due to NUMA
+boundaries (D128 has two sockets) and hash-table contention."* What was
+measured: the April 2026 P1 `--sub-branch` scaling runs
+([HISTORY.md](HISTORY.md), the "P1 v3: per-CCD counters" entry and the
+measurements before it) found single-process throughput on D128 capping near
+~1 B nodes/s against a ~1.6 B/s packed-aggregate — roughly a halving — and
+traced it to **every thread contending on one shared atomic node counter**,
+not to NUMA. The per-CCD counter fix that followed is recorded there as
+"mechanism is correct by construction; not re-measured on D128". "Two
+sockets" appears in no measurement record in this project, and nothing on
+file distinguishes sockets from NUMA nodes or CCDs on those hosts. So: **a
+>64-thread single process lost about half its per-thread rate in the pre-fix
+`--sub-branch` measurement; whether `--branch` on a current binary still does
+is unmeasured.** The sizing advice survives on cost grounds — HISTORY.md
+records D64 packing as the measured cost optimum for single-branch work, so
+**D64-class VMs remain the right size**, and a D128 should run two concurrent
+`--branch` jobs rather than one — but treat the halving as a pre-fix
+observation to re-measure, not as a property of the hardware.
 
 ### 2b. VM count: cost-equivalent, wall-time-different
 
@@ -115,6 +144,11 @@ redundancy**.
 | 1 × D64 | 64 | ~5.6 days | ~$60 | one VM eviction halts campaign |
 | **2 × D64** (recommended for 128-vCPU spot quota) | 128 | **~3.4 days** | ~$80 mid | redundant — one VM evicts, other progresses |
 | 4 × D64 (needs 256-vCPU quota) | 256 | ~1.7 days | ~$80 mid | best |
+
+These rows are the 2026-05 **forecast** for the 560T campaign, kept as the
+worked plan; §14 sets them beside what the campaign actually took — 171.5 h of
+enum wall on a D128 (~2.1× the mid estimate) and an 18 h 42 m merge the plan
+carried at ~2 h. Read them as a sizing method, not as expected outcomes.
 
 For 5.6 PT or 56 PT campaigns, scale up VM count proportionally
 to keep wall under ~10 days; cost scales linearly with budget.
@@ -322,7 +356,8 @@ without it the recipe fails on every healthy VM.** The sub-canonical hard gate
 landed 2026-05-25 and refuses to start a canonical enum at
 `SOLVE_NODE_LIMIT < 1 T` unless the operator sets either
 `SOLVE_PER_SUB_BRANCH_LIMIT` explicitly or `SOLVE_ALLOW_SUB_CANONICAL=1`
-([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Sub-canonical hard-gate"). This
+([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"100B and sub-canonical reference
+shas", paragraph "Sub-canonical hard-gate (landed 2026-05-25)"). This
 block set neither, so it exited **25** and wrote no shards — failing its own
 first two assertions — and it had done so since the gate landed. The smoke test
 predates the gate and was never updated. `SOLVE_ALLOW_SUB_CANONICAL=1` is the
@@ -544,8 +579,8 @@ SCRIPT orchestrator():
                              # and writes the CURRENT DIRECTORY. Any
                              # trailing argument is silently discarded.
          REDIRECT >> "$ROOT/logs/global_merge.log"
+    ASSERT exit code == 0
 
-  ASSERT exit code == 0
   ASSERT exists("$MERGE_DIR/solutions.sha256")
 
   sha  = first_field(read("$MERGE_DIR/solutions.sha256"))
@@ -728,9 +763,10 @@ works correctly.
 ## 9. Merge VM sizing — and disk-based alternative for extreme scale
 
 You have two strategies for the global merge: **in-memory dedup**
-(simple, fast, what `solve --merge` currently does) or **disk-based
-external merge** (needed when in-memory dedup would exceed available
-RAM). Pick based on your campaign's expected solution count.
+(simple, fast, what `solve --merge` does when the set fits in RAM) or
+**disk-based external merge** (what the same `--merge` falls back to,
+or is forced to with `SOLVE_MERGE_MODE=external`, when it would not —
+§9b). Pick based on your campaign's expected solution count.
 
 ### 9a. In-memory merge (the default)
 
@@ -1157,11 +1193,15 @@ For any campaign producing a sha you intend to publish:
    collection.
 
    The original `merge_audit_pre.sh` and `merge_audit_post.sh`
-   reference scripts were removed 2026-06-11; equivalent
-   functionality is planned as native `solve.c` subcommands (project
-   task #58). Nothing shipped can act on the checks below today, so
-   they are a specification for a future implementer, not a
-   procedure you can run:
+   reference scripts were removed 2026-06-11; bundling them as native
+   `solve.c` subcommands is planned (project task #58). What does not
+   ship is the **bundle** — one command that runs the list below and
+   fails on any item. Each item is individually runnable today with
+   the shipped `solve` subcommands, `verify.py` and coreutils, so wire
+   them into your orchestrator one by one until #58 lands. (Until
+   2026-09-03 this paragraph said "nothing shipped can act on the
+   checks below" — true of the bundle, false of the first and most
+   important item, `--verify-shard-manifest`.)
 
    *Pre-merge (refuse if anything looks wrong):*
    - **Exact** shard-manifest reconciliation per contributing VM —
@@ -1170,7 +1210,10 @@ For any campaign producing a sha you intend to publish:
      (158,364 at depth-3), counted on the filesystem rather than
      parsed from a log
    - No zero-byte / sub-32-byte shards (truncated writes)
-   - All shards record-aligned (no mid-record truncation)
+   - All shards record-aligned (no mid-record truncation) — on the
+     **decompressed** byte count: shards are gz-framed by default, so a
+     physical `size % 32` test fails on every healthy shard
+     (`gzip -dc <shard> | wc -c`, then `% 32`)
 
    *Post-merge:*
    - `solve --verify` (C-side per-record correctness)
@@ -1184,10 +1227,13 @@ For any campaign producing a sha you intend to publish:
      `solve --yield-report` reading the enum log on stdin. (Not
      `solve --branch-yield-report`; that option does not exist.)
 
-   Both scripts are bash + GNU coreutils + Python. Wire into
-   your orchestrator before/after `solve --merge`. Fail-fast on
-   any audit failure. Audit overhead: ~5-10 min per merge
-   (deterministic re-merge dominates). What it does NOT catch:
+   The removed scripts were bash + GNU coreutils + Python; whatever
+   replaces them, wire it into your orchestrator before/after
+   `solve --merge` and fail fast on any audit failure. Their audit
+   overhead was ~5-10 min per merge at the scale of that time
+   (deterministic re-merge dominates — at 560T a re-merge is another
+   18 h 42 m, so that step is a decision, not overhead). What it does
+   NOT catch:
    per-cell yield drift within bounds, agreed bugs across
    C and Python implementations, heap-corruption-induced
    silent data corruption that produces records still
@@ -1211,9 +1257,11 @@ things are still open:
 - Per-thread rate at very large budgets (≥100 T per cell on a
   single first-level branch) is extrapolated from the 100T pilot,
   not directly observed.
-- Hash-table contention behavior beyond 64 threads is observed but
-  not architecturally analyzed; the 50% efficiency drop past 64 may
-  be NUMA, may be lock contention, may be both.
+- The ~50% per-thread efficiency drop past 64 threads was observed in
+  the pre-fix `--sub-branch` scaling runs and traced to one shared
+  atomic counter, which was then sharded per CCD and not re-measured
+  (§2a). Whether a current binary still shows it, and how much of any
+  residue is NUMA versus hash-table contention, is unmeasured.
 - Spot eviction frequency in westus3 is highly variable; budget
   for at least 1–2 evictions per VM per multi-day campaign.
 - Storage fragmentation effects across very long campaigns
@@ -1312,11 +1360,18 @@ chunked-sort on Premium scratch, 18 h 42 m. Full record in
    external path opens many chunks at once — see `SOLVE_MERGE_CHUNK_GB`), and a
    filesystem with inodes to spare.
 
-5. **Merge memory at PT scale.** §9b discusses this — but the
-   transition from in-memory to disk-based merge is currently
-   based on extrapolation, not measurement. The disk-based merge
-   path in solve.c (if/when it lands) needs validation at PT-scale
-   shard counts, not just unit-tested.
+5. **Merge memory at PT scale.** ⚠ **[CORRECTED 2026-09-03 — this item
+   said the disk-based merge path would need validation "if/when it
+   lands"; it shipped before this guide was written and it produced the
+   560T canonical (§9b). Sibling of the §9b inversion, which the
+   2026-09-01 correction did not reach here.]** What is measured: one
+   external merge, 43.88 B pre-merge shard records in 65,281 non-empty
+   shards down to 10.525 B unique, on a 32 GB VM, 18 h 42 m. What is
+   not: any point between the in-memory Tier 1 merge (~750 M records,
+   ~90 GB estimated, never recorded) and that one, and anything beyond
+   it — chunk counts an order of magnitude past the 560T merge's,
+   `ulimit -n` at that count, and scratch sized at ~1.5× a multi-TB
+   input are extrapolations from a single measured point.
 
 6. **Long-running fragmentation and OS instability.** Multi-week
    continuous campaigns surface OS-level issues (kernel memory
@@ -1365,13 +1420,23 @@ solve.c, just operational patterns worth knowing about:
    (cells that hit budget at the lower setting find more solutions
    at the higher setting). Don't compare shas across runs unless
    the per-cell budget matches exactly.
-3. **`SOLVE_NODE_LIMIT / 3030` auto-compute at depth=3 under-shoots.**
-   solve.c's auto-compute of per-sub-branch budget uses divisor
-   3030 (depth-2 cell count). At depth=3 with ~2,824 cells per
-   first-level branch, this means setting `SOLVE_NODE_LIMIT=10T`
-   actually allocates ~9.32 T per branch (7% under intent). Always
-   set `SOLVE_PER_SUB_BRANCH_LIMIT` explicitly at depth=3. (See §3
-   for the math and recipe table.)
+3. **Set `SOLVE_PER_SUB_BRANCH_LIMIT` explicitly — but not for the
+   reason this item used to give.** ⚠ **[CORRECTED 2026-09-03 —
+   sibling of the §3a retraction, which the 2026-09-01 sweep did not
+   reach.]** It read: *"solve.c's auto-compute of per-sub-branch budget
+   uses divisor 3030 (depth-2 cell count). At depth=3 with ~2,824 cells
+   per first-level branch, this means setting `SOLVE_NODE_LIMIT=10T`
+   actually allocates ~9.32 T per branch (7% under intent)"*, and sent
+   the reader to a §3 "recipe table" that has been retracted. The
+   `/3030` sites in `solve.c` set only the resume-skip threshold; the
+   enforced per-cell budget is `node_limit / 158,364` (the real depth-3
+   partition), and the published 560T value is exactly that quotient —
+   see §3a. The advice stands on a different footing: copy the value
+   **verbatim** from the recipe table in
+   [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility
+   parameters", so that a future change to the auto-compute cannot move
+   a sha and so that nobody re-derives it from a formula — the incident
+   that rule cites was exactly such a re-derivation.
 4. **Disk device numbering reshuffles after VM restart.** Every
    spot-eviction recovery may surface the data disk at a different
    `/dev/nvmeNnM` than before. Use `lsblk`/`blkid`/UUID-mount, not

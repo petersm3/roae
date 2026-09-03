@@ -146,7 +146,7 @@ split policy is the operative one. See CORRECTIONS.md]**
 - **Enumeration → spot, 128 cores** (D128als_v7 westus3). Eviction-resilient (sub-branch checkpoints). Spot gives ~70-85% discount ($5.146/hr on-demand → $0.95/hr spot).
 - **Merge → on-demand, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest sit idle. **Size the merge VM by RAM and I/O, NOT core count.** On-demand (not spot) because merge is fragile under eviction — a mid-merge eviction costs a full re-run at 100T+ scale (5+ hours).
   - **d3 10T merge** (~89 GB pre-dedup): **D16als_v7** (16 cores, 32 GB RAM) with `SOLVE_MERGE_MODE=external`, or **D32als_v7** (32 cores, 64 GB RAM) which still needs the external path — 89 GB does not fit in 64 GB. On-demand ~$0.50-$1/hr → <$1 for 1h merge. *(This bullet previously read "D32als_v7 (32 GB RAM fits 89 GB external, 64 GB fits in-memory)", attaching two different RAM figures to one SKU and contradicting the 64 GB given for D32als_v7 in the next bullet. Corrected 2026-09-01 against the SKU→RAM table below.)*
-  - **d3 100T merge** (~880 GB pre-dedup, external required): **D32als_v7** (32 cores, 64 GB RAM) is plenty — external merge streams in chunks, doesn't need to fit everything in RAM. On-demand ~$1.30/hr → ~$7 for a 5h merge.
+  - **d3 100T merge** (~443 GB pre-dedup, external required): **D32als_v7** (32 cores, 64 GB RAM) is plenty — external merge streams in chunks, doesn't need to fit everything in RAM. On-demand ~$1.30/hr → ~$7 for a 5h merge (the 2026-04-19/20 merge measured 5h 25m 38s). *(The pre-dedup figure is measured: 13,832,832,979 records × 32 B = 442,650,655,328 B ≈ 443 GB, from `runs/20260419_100T_d3_d128westus3/README.md`. This bullet previously said "~880 GB" — the pre-run projection of ~27.7B records, which was never replaced by the measurement after the run. Corrected 2026-09-03; the same projection also survived as "~830 GB" (the same number in GiB) in §Premium-SSD-attach-for-merge, §100T and beyond, §Known scale limits and §Disk sizing, all corrected in the same pass.)*
   - **d3 1000T+** (if ever): external merge on **D64als_v7** (128 GB RAM) handles chunk sort comfortably, ~$2.50/hr.
   - **NEVER use D128als_v7 for merge.** Paying for 128 cores to run a 1-core workload is ~4× over-spend. The 2026-04-19/20 100T run's merge did exactly this: a D128 billed for a workload a D32 would have served.
 
@@ -341,10 +341,17 @@ Compared to the alternatives on various hardware (updated 2026-04-19 with measur
 |---|---|---|---|
 | F64als_v6 + external merge on Standard_LRS HDD (above, legacy) | 3-4 h | $12-15 on-demand | cheapest disk, slow merge; F64 retired |
 | F64als_v6 + in-memory merge (~89 GB fits in 128 GB RAM) | ~30 min | ~$2 on-demand | fast; F64 retired |
-| **D128als_v7 westus3 + in-memory heap-sort merge** | **~52 min** | **~$1.46 spot** | measured 2026-04-19; new default |
-| **D128als_v7 westus3 + external merge on Premium SSD (P20)** | **~43 min** | **~$1.26 spot + $0.05 SSD** | measured 2026-04-19; faster than in-memory at 10T |
-| D64als_v7 westus3 + in-memory merge (128 GB RAM, perfect fit) | ~52 min | ~$0.43 spot | cheaper than D128 — single-threaded merge ignores core count |
+| **D128als_v7 westus3 + in-memory heap-sort merge** | **~52 min** | **~$1.46 spot** | measured 2026-04-19; **superseded** (see note) |
+| **D128als_v7 westus3 + external merge on Premium SSD (P20)** | **~43 min** | **~$1.26 spot + $0.05 SSD** | measured 2026-04-19; faster than in-memory at 10T; **superseded** (see note) |
+| D64als_v7 westus3 + in-memory merge (128 GB RAM, perfect fit) | ~52 min | ~$0.43 spot | cheaper than D128 — single-threaded merge ignores core count; Spot **superseded** (see note) |
 | Premium SSD for `solver-data` permanently | (same as in-memory) | $3/month → $40/month | wasteful; SSD only needed during merge |
+
+*(Scope note, 2026-09-03: the three D-series rows are measurements from 2026-04-19, the
+day **before** the §Standing policy of 2026-04-20. The "new default" this table used
+to attach to the D128 spot row was true for one day. Under the standing policy the merge
+VM is **on-demand and right-sized (D16/D32als_v7 at 10T–100T) — never D128 and never
+Spot**. The wall times remain valid planning figures because merge is single-threaded
+and ignores core count; the SKU and priority in these rows are withdrawn.)*
 
 ### Recommendations by dataset scale
 
@@ -384,10 +391,12 @@ in-memory, the pattern is unnecessary — auto mode selects in-memory and
 neither the SSD nor external mode is involved.
 
 **When the pattern is strictly necessary.** 100T and beyond. In-memory is
-not viable (~830 GB buffer requires M-series VMs at $15-30/hr — 10× the
-cost for marginal benefit). External merge is forced; running external on
-HDD at that scale projects to 30+ hour wall times. Premium SSD takes it to
-~3 hours.
+not viable (the measured ~443 GB pre-dedup buffer exceeds the 70%-of-RAM
+in-memory rule on every D-series SKU this project uses — D128als_v7 is
+256 GB — and a memory-optimized SKU costs ~10× for marginal benefit).
+External merge is forced; running external on HDD at that scale projects to
+30+ hour wall times. Premium SSD took the 2026-04-19/20 100T merge to
+**5h 25m 38s** measured (§100T and beyond).
 
 **The cost economics.** SSD is billed by capacity per hour. A 2-hour P20
 (512 GB) attached to a 10T merge costs ~$0.22 in disk. A P40 (2 TB) for a
@@ -473,15 +482,28 @@ pattern becomes the path forward, not an optimization.
 
 ### 100T and beyond — in-memory is not an option
 
-Extrapolating: 100T enumeration produces ~27.7B pre-dedup records = ~830 GB
-of input. In-memory merge would need an **M-series VM (2-4 TB RAM, ~$15-30/hr)**
-— technically possible but 10× the cost for marginal benefit. The practical
-path at 100T is **external merge on Premium SSD**:
+Measured: the 2026-04-19/20 100T d3 enumeration produced **13,832,832,979
+pre-dedup records = 442,650,655,328 B ≈ 443 GB** of merge input
+(`runs/20260419_100T_d3_d128westus3/README.md`), against a 109.8 GB
+`solutions.bin` (3,432,399,297 unique records). *(This section previously
+extrapolated "~27.7B pre-dedup records = ~830 GB" — the pre-run linear
+projection from 10T, never replaced by the measurement; the real 10T→100T
+pre-dedup growth was 5.0× per 10× budget. Corrected 2026-09-03.)* In-memory
+merge would need a memory-optimized SKU (≥512 GB RAM under the 70% rule;
+D128als_v7 is 256 GB) at roughly 10× the cost for marginal benefit. The
+practical path at 100T is **external merge on Premium SSD**:
 
-- F64als_v6 (128 GB RAM) + Premium SSD P40 (2 TB, 250 MB/s) as temp dir
+- a right-sized on-demand D-series merge VM per §Standing policy (D32als_v7,
+  64 GB RAM — the F64als_v6 this bullet used to name is retired) + Premium
+  SSD P40 (2 TB, 250 MB/s) as temp dir
 - `SOLVE_TEMP_DIR=/mnt/merge-scratch SOLVE_MERGE_MODE=external`
-- ~2.7 TB total I/O (read shards once, write chunks, read chunks, write output)
-- ~3 hours wall time, ~$13-15 total (VM + prorated disk)
+- ~1.4 TB total I/O (read 443 GB of shards once, write and read back 443 GB
+  of chunks, write the 110 GB output)
+- **5h 25m 38s wall measured** on the 2026-04-19/20 run (on a D128 the
+  standing policy now forbids for merge; the wall does not depend on core
+  count) → ~$7 of D32als_v7 on-demand + ~$1.25 of P40, ~$8-9 total projected.
+  *(Previously "~3 hours wall time, ~$13-15 total" — a pre-run estimate on
+  the retired F64.)*
 
 The in-memory path effectively tops out around the 10T-at-our-current-VM-size
 combination. Everything larger is external-merge-with-SSD territory.
@@ -492,15 +514,19 @@ Two compile-time / runtime limits cap how far external merge can scale:
 
 | Limit | Source | Ceiling at default | Mitigation |
 |---|---|---|---|
-| `MAX_SORTED_CHUNKS = 4096` | `solve.c` constant | 4096 × 4 GB = **16 TB pre-dedup** (~2,000T node enumeration at d3 rates) | Raise `SOLVE_MERGE_CHUNK_GB` (e.g., to 16 or 32) — multiplies ceiling; no code change. Or bump the constant (one-line source change) |
-| `ulimit -n` (open FDs) | OS per-shell default | Linux default 1024 → ~500T before hitting it | `ulimit -n 16384` before running [`./solve --merge`](SOLVE_C_CLI.md#--merge) |
+| `MAX_SORTED_CHUNKS = 4096` | `solve.c` constant | 4096 × 4 GB = **16 TB pre-dedup** (≥ ~3,600T node enumeration at the measured 100T d3 rate of 443 GB per 100T, linear) | Raise `SOLVE_MERGE_CHUNK_GB` (e.g., to 16 or 32) — multiplies ceiling; no code change. Or bump the constant (one-line source change) |
+| `ulimit -n` (open FDs) | OS per-shell default | Linux default 1024 → ≥ ~900T before hitting it (1024 × 4 GB chunks = 4 TB pre-dedup, same rate) | `ulimit -n 16384` before running [`./solve --merge`](SOLVE_C_CLI.md#--merge) |
 
 **Implications.** At any enumeration scale we're realistically considering
 (10T through 1,000T), both limits have comfortable headroom with default
-settings. The first limit we'd hit in practice is `ulimit -n` (around 500T);
+settings. The first limit we'd hit in practice is `ulimit -n` (around 900T);
 that's a one-line shell setting. Actually running into `MAX_SORTED_CHUNKS`
-would require ~2,000T enumerations, which are neither cost-practical nor
-currently planned.
+would require ~3,600T enumerations, which are neither cost-practical nor
+currently planned. *(The budgets in this table were previously "~500T" and
+"~2,000T", derived from the ~830 GB pre-run projection for 100T; re-derived
+2026-09-03 from the measured 443 GB. They are linear extrapolations and, since
+measured pre-dedup growth is sub-linear in budget — 5.0× for the 10× step from
+10T to 100T — they are lower bounds on the budget at which each limit binds.)*
 
 The solver emits a clear error with the mitigation if either limit is hit —
 no silent failure. For runs beyond 1,000T, it's good hygiene to both
@@ -613,8 +639,16 @@ the disk before the merge writes a byte.
 | Budget | Pre-dedup input (raw) | Est. `solutions.bin` | Disk size (raw-safe) |
 |---|---|---|---|
 | 10T | 2.77B records, **83 GB measured** | ~24 GB | **~160 GB** |
-| 100T | ~27.7B records, ~830 GB (§100T and beyond) | ~60–120 GB | **~1.4 TB** |
-| 1000T | ~277B records, ~8.3 TB (linear extrapolation) | ~150–250 GB | **~13 TB** |
+| 100T | 13.83B records, **443 GB measured** (§100T and beyond) | 109.8 GB measured | **~830 GB** |
+| 1000T | ~138B records, ~4.4 TB (linear extrapolation from 100T; measured 10T→100T growth was 5.0× per 10×, so this is an upper bound) | ≥337 GB (the 560T canonical already holds 10,525,271,997 records = 337 GB); ~0.5 TB at the α≈0.67 fit in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) | **~7.5 TB** |
+
+*(Rows corrected 2026-09-03: the 100T row previously carried the ~27.7B / ~830 GB
+pre-run projection and a ~1.4 TB disk; the 1000T row was extrapolated from that
+projection (~277B / ~8.3 TB / ~13 TB) and estimated `solutions.bin` at
+~150–250 GB, which the 560T canonical's 337 GB already exceeds. Arithmetic for
+the 100T disk: (442.65 GB + 109.84 GB) × 1.5 = 829 GB — by coincidence the same
+magnitude as the retired "~830 GB" pre-dedup projection; the two are different
+quantities, and a grep for 830 GB now finds the disk figure, not the projection.)*
 
 At 1000T the disk itself, not the VM, becomes the binding constraint — the raw
 figure exceeds a single 2 TB managed disk, so plan for gz-framed shards plus a
@@ -739,7 +773,7 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
 - [ ] Free RAM ≥ estimated working set (merge needs ~uniqueN × 32 bytes in memory)
 - [ ] `run_id.txt` written before solver start (write BEFORE wipe, not after)
 - [ ] Monitor started **as a separate process** and verified with `pgrep`
-- [ ] Monitor completion-detection string matches what the solver actually emits (JSON status field)
+- [ ] Monitor completion-detection signal matches what the solver actually emits **in the mode being run**: the `solve_results.json` status field in single-VM (bundled-merge) mode; in split mode (`SOLVE_SKIP_AUTOMERGE=1`) that file is never written on the enum VM — key on rc=0 + the `skipping bundled merge` line + shard/manifest state, or the supervisor's done/fail markers (§Completion and archival)
 - [ ] Post-completion gates configured: `--verify` pass + hash-drop count == 0
 - [ ] Sub_*.bin integrity check enabled on eviction resume (size % 32 == 0)
 - [ ] Watchdog merge-phase exemption verified (don't kill solver during merge)
@@ -753,9 +787,12 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
 
 ## Appendix A: Azure spot-VM provisioning (reference example)
 
-Concrete example of provisioning an Azure F-series spot VM with an attached
-persistent managed disk. Adapt names, regions, and SKUs to your environment. All
-commands assume `az login` has been completed and an SSH keypair exists (here at
+Concrete example of provisioning an Azure spot VM (D128als_v7 in step 3) with an
+attached persistent managed disk. This appendix was first written for the
+F64als_v6, which is **banned** on this project since 2026-04-19 (§Ad-hoc VM
+lifecycle rules, rule 1); the key-file name `f64_key` is the surviving trace.
+Adapt names, regions, and SKUs to your environment. All commands assume
+`az login` has been completed and an SSH keypair exists (here at
 `~/.ssh/f64_key{,.pub}`).
 
 ### One-time setup (per resource group)
@@ -768,11 +805,16 @@ commands assume `az login` has been completed and an SSH keypair exists (here at
    LOCATION=westus2
    az group create -n "$RG" -l "$LOCATION"
    az disk create -g "$RG" -n solver-data \
-       --size-gb 64 --sku Standard_LRS -l "$LOCATION"
+       --size-gb 160 --sku Standard_LRS -l "$LOCATION"   # 10T d3 raw-safe; see §Disk sizing for two-phase
    ```
 
-   Size depends on workload: for a 10T enumeration the `sub_*.bin` files total
-   ~23 GB and `solutions.bin` adds another ~24 GB. Provision with headroom
+   Size depends on workload — size it from the **inputs** per §Disk sizing for
+   two-phase: a depth-3 10T enumeration measured **83 GB** of `sub_*.bin` shards
+   plus ~24 GB of `solutions.bin` (§Disk tier matters), i.e. ~160 GB raw-safe;
+   100T measured 443 GB of shards (~830 GB raw-safe). *(This step previously
+   said `--size-gb 64` with "~23 GB" of shards — the 2026-04-14 bugfix-era
+   figure from §Lessons, where a filename collision left only 64 shard files;
+   corrected 2026-09-03.)* Provision with headroom
    (≥1.5× expected output total) to avoid the silent-truncation failure
    documented in the lessons section above.
 
@@ -1083,15 +1125,28 @@ cd /data/archive/<run-label>/<branch>
 # (d8671550, 2026-06-17) shards are gz-framed by DEFAULT, so `sha256sum -c`
 # hashes the gzip CONTAINER and reports FAILED on a byte-correct artifact.
 # Compare against the logical stream instead:
-gzip -dc sub_<branch>.bin | sha256sum   # gz-framed (the default since #169)
-head -1 sub_<branch>.sha256             # the hash above must match this line
+set -o pipefail                           # REQUIRED: without it a gzip failure is
+                                          # swallowed and sha256sum hashes an EMPTY
+                                          # stream (e3b0c442…) with exit status 0
+gzip -dcf sub_<branch>.bin | sha256sum    # -f: non-gzip (raw) input is copied
+                                          # through unchanged, so this one line is
+                                          # right for BOTH framings
+head -1 sub_<branch>.sha256               # the hash above must match this line
 
-# ERA EXCEPTION. Archives written BEFORE #169 hold RAW bytes, as does anything
-# produced under SOLVE_COMPRESS=0. For those — including the 2026-04-22 and
-# 2026-04-23 pass-A/pass-B archives — logical and on-disk bytes are the same and
+# CORRECTED 2026-09-03 (Q-406): this recipe read `gzip -dc … | sha256sum` with no
+# `-f` and no pipefail. On a RAW shard (anything written before #169, or under
+# SOLVE_COMPRESS=0) gzip exits non-zero and writes nothing, sha256sum hashes the
+# empty stream, and the pipeline exits 0 reporting
+#   e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+# — a silent false MISMATCH on a byte-correct artifact, the same phantom-drift
+# direction that burned ~6 h on 2026-05-31. Measured 2026-09-03 with gzip 1.12:
+# `gzip -dc` on raw → e3b0c442… rc=0; `gzip -dcf` → the logical sha on both a raw
+# and a gz-framed file; a truncated gz under `-dcf` returns rc=1 only WITH pipefail.
+# ERA NOTE. For raw shards — including the 2026-04-22 and 2026-04-23 pass-A/pass-B
+# archives — logical and on-disk bytes are the same, so
 #     sha256sum -c sub_<branch>.sha256
-# is the correct command. Sniff the first two bytes to tell them apart: `1f 8b`
-# is gz-framed, `ROAE` is raw.
+# is also correct; it is WRONG for gz-framed shards (it hashes the container).
+# Sniff the first two bytes to tell them apart: `1f 8b` is gz-framed, `ROAE` is raw.
 
 ./solve --verify sub_<branch>.bin  # per-record C1-C5 check, framing auto-detected
 ```
@@ -1242,8 +1297,8 @@ F-series retired on this project (see §Cost control).
 | SKU | Region | RAM | Use case | Spot price | On-demand |
 |---|---|---|---|---|---|
 | **D128als_v7** | westus3 | 256 GB | **Enumeration ≥10T (new default)** | ~$1.70/hr | ~$6.80/hr |
-| **D64als_v7** | westus3 | 128 GB | d3 10T merge | ~$0.50/hr | ~$2.00/hr |
-| **D16als_v7** | westus3 | 32 GB | d2 10T merge | ~$0.13/hr | ~$0.50/hr |
+| **D64als_v7** | westus3 | 128 GB | 1000T+ external merge (on-demand, §Standing policy); `--sub-branch` K=8 N=8 packing (Spot) | ~$0.50/hr | ~$2.00/hr |
+| **D16als_v7** | westus3 | 32 GB | 10T merge, external (on-demand, §Standing policy) | ~$0.13/hr | ~$0.50/hr |
 | **D4als_v7** | westus3 | 8 GB | Analysis / --analyze / --verify | ~$0.03/hr | ~$0.13/hr |
 | D2as_v6 | westus2 | 8 GB | Orchestrator / claude VM | ~$0.09/hr (on-demand) | — |
 | F64als_v6 | westus2 | 128 GB | **RETIRED 2026-04-19** (historical reference only) | ~$0.79/hr | ~$3.87/hr |

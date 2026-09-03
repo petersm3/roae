@@ -1057,6 +1057,15 @@ and [曹红军 et al. 1995](#caohongjun1995) (§the (Z/2)⁶ algebra), [李尚�
   文王作《周易》卦序之探索. *Yindu xuekan* 殷都學刊 1997(2): 20–23
   (doi:10.16140/j.cnki.ydxk.1997.02.005). Carries the matrix-form count **1,625,702,400 = 8!×8!**,
   attributed to 沈宜甲/董光璧, with the remark 「只有當上下卦都定好次序，才是唯一的64種排法」.
+  ⚠ **The primary has not been consulted.** 沈宜甲/董光璧 are named here on Huang's authority, not
+  from the source. 董光璧《易图的数学结构》(上海人民出版社 1987, 139 pp; OCLC 21527099, LCCN
+  89176569) was requested via interlibrary loan on 2026-08-25 — narrowed to a chapter/table-of-
+  contents scan rather than the full book — and the request was **cancelled 2026-09-03, "unable to
+  find a library to fill"**. A grep of every held source finds the figure only in the two
+  transmitters above; no held work carries it with a page cite. The arithmetic itself is
+  elementary and independently verified here (8! = 40,320; 8!² = 1,625,702,400), so nothing in
+  this project depends on the attribution — but the attribution is second-hand and is recorded
+  as such.
   ⚠ **Labels the figure the count of *arbitrary* arrangements** — 「六十四卦如果任意排列」 — which
   is false: arbitrary arrangement of 64 objects is 64!, and 8!×8! is the independent-choice count
   of the matrix form. Carries the size-of-the-space framing in 1997 (「姬昌從六十四卦十六億多種

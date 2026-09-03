@@ -58,7 +58,11 @@ def bit_diff(a, b):
     return bin(a ^ b).count("1")
 
 # The 32 canonical pairs: each hexagram paired with its reverse (or inverse
-# for the 4 symmetric hexagrams). This pairing is unique and deterministic.
+# for the 8 symmetric hexagrams -- the 6-bit palindromes 0,12,18,30,33,45,51,63,
+# which the complement fallback joins into 4 pairs). This pairing is unique and
+# deterministic. (Q-330 / Codex T04, 2026-09-03: this comment, the --pairs and
+# --rules banners and has_pair_structure_c1's docstring all gave the PAIR
+# count, 4, where the hexagram count, 8, belonged.)
 def build_pairs():
     """Build the 32 canonical reverse/inverse pairs from the 64 hexagrams.
 
@@ -1545,8 +1549,10 @@ def print_pair_info(pairs):
     print("=" * 70)
     print()
     print("The 64 hexagrams form 32 unique pairs. Each hexagram is paired with")
-    print("its 180-degree rotation (reverse). For the 4 symmetric hexagrams that")
-    print("equal their own reverse, the complement (inverse) is used instead.")
+    n_sym = sum(1 for v in range(64) if reverse_6bit(v) == v)
+    print(f"its 180-degree rotation (reverse). For the {n_sym} symmetric hexagrams that")
+    print(f"equal their own reverse (the 6-bit palindromes), the complement (inverse)")
+    print(f"is used instead, joining them into {n_sym // 2} complement pairs.")
     print()
 
     kw_pairs = king_wen_pairs()
@@ -1593,8 +1599,10 @@ def print_rules():
     print()
     print("Rule 1: PAIR STRUCTURE")
     print("  Group all 64 hexagrams into 32 consecutive pairs. Each pair must be")
-    print("  a hexagram and its 180-degree rotation (reverse), or for the 4")
-    print("  symmetric hexagrams, its bitwise complement (inverse).")
+    n_sym = sum(1 for v in range(64) if reverse_6bit(v) == v)
+    print(f"  a hexagram and its 180-degree rotation (reverse), or for the {n_sym}")
+    print(f"  symmetric hexagrams (6-bit palindromes, forming {n_sym // 2} complement")
+    print("  pairs), its bitwise complement (inverse).")
     print()
     print("Rule 2: NO 5-LINE TRANSITIONS")
     print("  No two consecutive hexagrams may differ by exactly 5 lines.")
@@ -3786,7 +3794,8 @@ def debruijn_to_hexagram_permutation(binary_seq, n=6):
 
 def has_pair_structure_c1(seq):
     """C1: every consecutive pair (seq[2i], seq[2i+1]) is either
-    reverse-pair (bit-reversal) or — for the 4 symmetric hexagrams —
+    reverse-pair (bit-reversal) or — for the 8 symmetric hexagrams (the
+    6-bit palindromes, which the complement fallback joins into 4 pairs) —
     bitwise complement of each other."""
     symmetric = {v for v in range(64) if reverse_6bit(v) == v}
     for i in range(32):
@@ -4145,12 +4154,34 @@ def _p2_parquet_schema():
 
 def p2_compute_stats(solutions_bin, out_dir, workers=None,
                      chunk_size=_P2_CHUNK_RECORDS_DEFAULT, max_records=None):
-    """Handler for --compute-stats. See scripts/compute_stats.py history."""
+    """Handler for --compute-stats. See scripts/compute_stats.py history.
+
+    Returns 0 on `COMPUTE_STATS=PASS`, 1 on `COMPUTE_STATS=FAIL`; the dispatch
+    site passes that to sys.exit. Codex V2-F60 #2 (2026-09-03), MEASURED
+    before the fix: a header declaring 10 records over a 9-record body printed
+    `DONE 3 files, 9 rows` and exited 0 -- the declared and written counts were
+    printed six lines apart and never compared; and a second, shorter run into
+    a populated out_dir left the earlier chunks in place, so every downstream
+    `glob(chunk_*.parquet)` (twelve sites) read a MIXED population as one.
+    """
+    import glob
     import multiprocessing as mp
     import os
     import time
     import pyarrow.parquet as pq
 
+    # A populated out_dir is refused outright rather than cleared: the reader
+    # has to be TOLD that stale chunks were about to be mixed in. No force
+    # switch -- an empty directory is one `rm -rf` away and the refusal names
+    # the count it saw.
+    stale = sorted(glob.glob(os.path.join(out_dir, "chunk_*.parquet")))
+    if stale:
+        print(f"COMPUTE_STATS=FAIL out_dir {out_dir} already holds "
+              f"{len(stale)} chunk_*.parquet ({os.path.basename(stale[0])} .. "
+              f"{os.path.basename(stale[-1])}); a shorter run would leave them "
+              f"for every downstream glob to read as one population -- "
+              f"use an empty directory", flush=True)
+        return 1
     os.makedirs(out_dir, exist_ok=True)
     if workers is None:
         workers = os.cpu_count() or 4
@@ -4164,13 +4195,21 @@ def p2_compute_stats(solutions_bin, out_dir, workers=None,
 
 def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
                            chunk_size, max_records, schema):
+    import json
     import multiprocessing as mp
     import os
     import time
     with open(solutions_bin, "rb") as f:
         total_records, version = _p2_read_header(f)
+    declared_records = total_records
     if max_records:
         total_records = min(total_records, max_records)
+    if total_records == 0:
+        # A zero-record run would drain an empty pool and report PASS over
+        # nothing. A check that cannot run must ERROR, never PASS.
+        print(f"COMPUTE_STATS=FAIL {solutions_bin} declares 0 records "
+              f"(max_records={max_records}); nothing to compute", flush=True)
+        return 1
 
     print(f"[compute-stats] v{version} solutions.bin, {total_records:,} rows, "
           f"{workers} workers, {chunk_size:,}/chunk, out={out_dir}", flush=True)
@@ -4206,7 +4245,37 @@ def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
                       f"ETA {eta/60:.1f}m", flush=True)
     total_elapsed = time.time() - t0
     print(f"[compute-stats] DONE {chunks_done} files, {seen:,} rows, "
-          f"{total_elapsed:.1f}s ({seen/total_elapsed/1e6:.2f}M/s)", flush=True)
+          f"{total_elapsed:.1f}s ({seen/max(total_elapsed, 1e-9)/1e6:.2f}M/s)",
+          flush=True)
+    # The workers round a short read DOWN to whole records (see
+    # _p2_worker_chunk), so a body shorter than the header declares yields
+    # fewer rows than tasks were issued for. Equality, not a tolerance: the
+    # header is the contract and the body either honours it or the artifact
+    # is torn.
+    if seen != total_records or chunks_done != len(tasks):
+        print(f"COMPUTE_STATS=FAIL declared {total_records:,} records but wrote "
+              f"{seen:,} rows in {chunks_done}/{len(tasks)} chunks "
+              f"(body shorter than header -- torn or truncated artifact)",
+              flush=True)
+        return 1
+    # Producer sidecar: the record count the chunks were computed from, so a
+    # consumer (--uniform-marginals) can test the population's COMPLETENESS
+    # against something that is not derived from the chunks themselves.
+    sidecar = os.path.join(out_dir, "compute_stats.json")
+    with open(sidecar, "w") as sf:
+        json.dump({
+            "tool": "solve.py --compute-stats",
+            "solutions_bin": os.path.abspath(solutions_bin),
+            "declared_records": declared_records,
+            "max_records": max_records,
+            "rows_written": seen,
+            "chunks": chunks_done,
+            "chunk_size": chunk_size,
+        }, sf, indent=2)
+        sf.write("\n")
+    print(f"COMPUTE_STATS=PASS {seen:,} rows in {chunks_done} chunks "
+          f"(sidecar {sidecar})", flush=True)
+    return 0
 
 
 def _p2_percentile_from_hist(counts, values, target, total):
@@ -4370,8 +4439,30 @@ def _t5_kw_and_declared():
 
 
 def t5_uniform_marginals(chunks_dir, out_md):
-    """Handler for --uniform-marginals."""
+    """Handler for --uniform-marginals. Returns 0 on `UNIFORM_MARGINALS=PASS`,
+    1 otherwise; the dispatch site passes that to sys.exit.
+
+    Two named checks feed the verdict (Codex V2-F60 #6, 2026-09-03):
+
+    * `UNIFORM_MARGINALS_MUTATION` -- the per-column `histogram sum == row
+      count` test. Bins are derived from the data in pass 1 and the counts are
+      taken over the SAME files in pass 2, so this can only fail when the chunk
+      set changes between the passes (a value outside pass-1's support falls
+      off the `[:size]` slice). It is a mid-run mutation detector, and was
+      mislabelled a "coverage gate" until 2026-09-03.
+    * `UNIFORM_MARGINALS_COVERAGE` -- the population's COMPLETENESS, which no
+      quantity derived from the chunks themselves can test: the parquet row
+      total must equal the record count the PRODUCER (`--compute-stats`)
+      recorded in `compute_stats.json` beside the chunks. Without that
+      sidecar the check cannot run and the verdict is FAIL (`UNVERIFIED`),
+      never PASS.
+
+    MEASURED before the fix: an empty directory printed `UNIFORM_MARGINALS=FAIL`
+    and exited 0, because the dispatch discarded the return value.
+    """
     import glob
+    import json
+    import os
     import numpy as np
     import pyarrow.parquet as pq
 
@@ -4399,6 +4490,36 @@ def t5_uniform_marginals(chunks_dir, out_md):
             ssum[n] += float(a.sum())
             ssq[n] += float((a ** 2).sum())
     print(f"[uniform-marginals] pass 1: {total:,} rows, support measured", flush=True)
+    if total == 0:
+        print(f"UNIFORM_MARGINALS=FAIL {len(files)} chunk files hold 0 rows in "
+              f"{chunks_dir}; nothing to measure", flush=True)
+        return 1
+
+    # ---- coverage: row total vs the producer's recorded record count ----
+    sidecar = os.path.join(chunks_dir, "compute_stats.json")
+    coverage_note = ""
+    if os.path.exists(sidecar):
+        with open(sidecar) as sf:
+            meta = json.load(sf)
+        expected = int(meta.get("rows_written", -1))
+        chunks_expected = int(meta.get("chunks", -1))
+        if expected == total and chunks_expected == len(files):
+            coverage = "PASS"
+            coverage_note = (f"{total:,} rows in {len(files)} chunks == producer "
+                             f"sidecar ({os.path.basename(meta.get('solutions_bin', '?'))}, "
+                             f"declared {meta.get('declared_records')}, "
+                             f"max_records {meta.get('max_records')})")
+        else:
+            coverage = "FAIL"
+            coverage_note = (f"rows {total:,} in {len(files)} chunks vs producer "
+                             f"sidecar rows_written {expected:,} in {chunks_expected} "
+                             f"chunks -- incomplete or mixed population")
+    else:
+        coverage = "UNVERIFIED"
+        coverage_note = (f"no compute_stats.json beside the chunks; the row total "
+                         f"cannot be tested against anything not derived from the "
+                         f"chunks themselves -- regenerate with --compute-stats")
+    print(f"UNIFORM_MARGINALS_COVERAGE={coverage} {coverage_note}", flush=True)
 
     # ---- pass 2: histograms on the OBSERVED support ----
     NF = 10000
@@ -4415,9 +4536,14 @@ def t5_uniform_marginals(chunks_dir, out_md):
             b = np.clip(((a - lo[n]) / span * (NF - 1)).astype(np.int32), 0, NF - 1)
             fhist[n] += np.bincount(b, minlength=NF)[:NF]
 
-    # ---- coverage gate: every row must land in exactly one bin, per column ----
+    # ---- mid-run mutation check: histogram sums vs the pass-1 row count ----
+    # NOT a coverage test (see the docstring): both sides come from the same
+    # files, so only a chunk set that changed between the passes can fail it.
     bad = [n for n in _T5_INT_COLS if int(ihist[n].sum()) != total]
     bad += [n for n in _T5_FLOAT_COLS if int(fhist[n].sum()) != total]
+    mutation = "PASS" if not bad else "FAIL"
+    print(f"UNIFORM_MARGINALS_MUTATION={mutation}"
+          + ("" if not bad else f" mismatched: {', '.join(bad)}"), flush=True)
 
     L = []
     L.append("# T5 uniform-scoped marginals\n\n")
@@ -4460,15 +4586,23 @@ def t5_uniform_marginals(chunks_dir, out_md):
                  f"{ssum[n]/total:.4f} | "
                  f"{max(ssq[n]/total - (ssum[n]/total) ** 2, 0.0) ** 0.5:.4f} | "
                  f"**~{kw[n]:g}** | **~{pct:.4f}%** |\n")
-    verdict = "UNIFORM_MARGINALS=PASS" if not bad else "UNIFORM_MARGINALS=FAIL"
-    L.append(f"\n**Coverage gate** (per column, histogram counts == row count): `{verdict}`")
-    L.append("" if not bad else f" — mismatched: {', '.join(bad)}")
-    L.append("\n")
+    ok = (mutation == "PASS" and coverage == "PASS")
+    verdict = "UNIFORM_MARGINALS=PASS" if ok else "UNIFORM_MARGINALS=FAIL"
+    L.append(f"\n**Mid-run mutation check** (per column, histogram sum == pass-1 row "
+             f"count; fails only if the chunk set changed between the two passes): "
+             f"`UNIFORM_MARGINALS_MUTATION={mutation}`"
+             + ("" if not bad else f" — mismatched: {', '.join(bad)}") + "\n\n")
+    L.append(f"**Coverage check** (parquet row total == the producer's recorded record "
+             f"count in `compute_stats.json`): `UNIFORM_MARGINALS_COVERAGE={coverage}` — "
+             f"{coverage_note}\n\n")
+    L.append(f"**Verdict:** `{verdict}`"
+             + ("" if ok else " (PASS requires both checks to pass; UNVERIFIED is not a pass)")
+             + "\n")
     with open(out_md, "w") as fh:
         fh.writelines(L)
     print(f"[uniform-marginals] wrote {out_md}", flush=True)
     print(verdict, flush=True)
-    return 0 if not bad else 1
+    return 0 if ok else 1
 
 
 _P2_BIVARIATE_PAIRS = [
@@ -5036,6 +5170,15 @@ def p2_stratified_p2pair(chunks_dir, out_md, samples_per_chunk=30,
         # EXHAUSTIVE per-stratum scoring. Native engine if available
         # (one subprocess per stratum, mask filters chunks to that p2 value).
         results = []
+        # Codex V2-F60 #4 (2026-09-03): these two dicts were bound ONLY in the
+        # sklearn arm below, while the report writer reads
+        # sum(stratum_counts.values()) for every exhaustive run -- so the
+        # native arm always crashed with UnboundLocalError AFTER the scoring
+        # pass and AFTER open(out_md, "w") had truncated the previous report.
+        # Bound here for both arms; the native arm fills them from the counts
+        # _p2_strat_native_count already returns.
+        stratum_counts = {s: 0 for s in strata}
+        stratum_below = {s: 0 for s in strata}
         if native_solve_binary:
             print(f"[v2-strat] EXHAUSTIVE via native scorer", flush=True)
             kw_bw = (lambda mdl: ((mdl['fit_n'] * (mdl['fit_n'] + 2) / 4.0) ** (-1.0/(mdl['fit_n'] + 4))) if mdl else None)
@@ -5070,6 +5213,8 @@ def p2_stratified_p2pair(chunks_dir, out_md, samples_per_chunk=30,
                 n_below, n_total = _p2_strat_native_count(
                     native_solve_binary, sub_fit_std, bw_s, mdl["kw_score"],
                     chunks_dir, full_cols, mdl["mu"], mdl["sigma"], stratum_value=s)
+                stratum_counts[s] = int(n_total)
+                stratum_below[s] = int(n_below)
                 pct = n_below / n_total * 100.0 if n_total else float("nan")
                 is_kw = (s == kw_p2)
                 note = f"fit_n={mdl['fit_n']} (native)" + (" [KW STRATUM]" if is_kw else "")
@@ -5079,8 +5224,6 @@ def p2_stratified_p2pair(chunks_dir, out_md, samples_per_chunk=30,
             print(f"[v2-strat] EXHAUSTIVE scoring pass over all {n_chunks} chunks (sklearn)",
                   flush=True)
             files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
-            stratum_counts = {s: 0 for s in strata}
-            stratum_below = {s: 0 for s in strata}
             for fi, f in enumerate(files):
                 t = pq.read_table(f, columns=cols)
                 full = np.column_stack([t.column(c).to_numpy() for c in cols]).astype(np.float64)
@@ -5736,8 +5879,15 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
                     f"file body {data_size} not a multiple of 32 (corrupt)")
             record_count_actual = data_size // 32
             if record_count_actual != record_count_hdr:
-                print(f"WARN: header says {record_count_hdr} records but "
-                      f"file has {record_count_actual} (using actual)")
+                # Was a WARN that carried on "using actual" (2026-09-03,
+                # sibling of Codex V2-F60 #2): a header/body mismatch is a
+                # torn artifact and no report over it is a report.
+                raise ValueError(
+                    f"{path}: header says {record_count_hdr} records but the "
+                    f"body holds {record_count_actual} (torn or truncated "
+                    f"artifact; refusing to bucket it)")
+            if record_count_actual == 0:
+                raise ValueError(f"{path}: zero records -- nothing to bucket")
             buckets = defaultdict(int)
             CHUNK = 1 << 20  # 1M records per chunk = 32 MB
             while True:
@@ -5820,8 +5970,15 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         return budget_default
 
     # ----- Build report rows -----
+    # Codex V2-F60 #5 (2026-09-03): iterating the CURRENT buckets alone meant a
+    # branch present in the baseline and absent now was never reached -- its
+    # records surfaced only in the TOTAL delta, blamed on no branch, and the
+    # manifest sanity check below (which derives from `rows`) excluded it
+    # from numerator and denominator alike. Iterate the union.
     rows = []
-    for key, count in sorted(buckets.items()):
+    all_keys = set(buckets) | set(baseline_buckets or {})
+    for key in sorted(all_keys):
+        count = buckets.get(key, 0)
         row = {"key": key, "count": count}
         row["pct"] = (100.0 * count / total) if total else 0.0
         if baseline_buckets is not None:
@@ -5848,6 +6005,9 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         print(f"Baseline: {baseline_bin}")
     print(f"Total records: {total:,}")
     print(f"Distinct buckets with non-zero count: {len(buckets):,}")
+    if baseline_buckets is not None:
+        lost = sum(1 for r in rows if r['count'] == 0 and r['baseline_count'])
+        print(f"Baseline buckets with ZERO records now (lost branches): {lost:,}")
     print()
 
     # Header
@@ -5911,15 +6071,22 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         print(f"  CV:      {cv:.3f}  ({'high' if cv > 0.5 else 'moderate' if cv > 0.2 else 'low'} variation)")
 
     # Sanity check vs manifest (extended branches should differ from baseline)
+    sanity_rc = 0
     if baseline_buckets is not None and manifest_data:
         ext_changed = sum(1 for r in rows if r.get('extended') and r['delta'] != 0)
         ext_total = sum(1 for r in rows if r.get('extended'))
         non_ext_changed = sum(1 for r in rows if not r.get('extended') and r['delta'] != 0)
         non_ext_total = sum(1 for r in rows if not r.get('extended'))
+        # 0/0 is not a PASS: a manifest whose overrides match no bucket (or a
+        # report with no default-budget bucket at all) has checked nothing.
+        ext_ok = ext_total > 0 and ext_changed == ext_total
+        non_ext_ok = non_ext_total > 0 and non_ext_changed == 0
+        sanity_rc = 0 if (ext_ok and non_ext_ok) else 1
         print()
         print(f"Sanity check vs manifest:")
-        print(f"  extended-budget buckets with non-zero delta: {ext_changed}/{ext_total} {'PASS' if ext_changed == ext_total else 'FAIL — expected all extended buckets to differ'}")
-        print(f"  default-budget buckets with zero delta:      {non_ext_total - non_ext_changed}/{non_ext_total} {'PASS' if non_ext_changed == 0 else 'FAIL — expected all default-budget buckets identical to baseline'}")
+        print(f"  extended-budget buckets with non-zero delta: {ext_changed}/{ext_total} {'PASS' if ext_ok else ('FAIL — no extended-budget bucket matched the manifest (nothing checked)' if ext_total == 0 else 'FAIL — expected all extended buckets to differ')}")
+        print(f"  default-budget buckets with zero delta:      {non_ext_total - non_ext_changed}/{non_ext_total} {'PASS' if non_ext_ok else ('FAIL — no default-budget bucket in the report (nothing checked)' if non_ext_total == 0 else 'FAIL — expected all default-budget buckets identical to baseline')}")
+        print(f"BRANCH_YIELD_SANITY={'PASS' if sanity_rc == 0 else 'FAIL'}")
 
     # CSV output -----------------------------------------------------------
     if out_csv:
@@ -5980,6 +6147,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         with open(out_json, "w") as f:
             json.dump(report, f, indent=2)
         print(f"JSON written to {out_json}")
+    return sanity_rc
 
 
 def keystone_analysis(solutions_bin, out_md, dump_dir=None,
@@ -6044,6 +6212,11 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
         30: ("drop-1",  "All matched except boundary 1 — boundary 1 uniquely kills these"),
     }
     interesting_records = {m: [] for m in INTERESTING}
+    # Codex V2-F60 #7 (2026-09-03): the cap used to be tested against
+    # len(interesting_records[m]) -- the number of per-chunk ARRAYS appended,
+    # not records -- so two chunks of >=10,000 matches retained 19,999 against
+    # a documented cap of 10,000 (measured: 19 for 2x10 at dump_limit=10).
+    n_dumped = {m: 0 for m in INTERESTING}
 
     if dump_dir is not None:
         os.makedirs(dump_dir, exist_ok=True)
@@ -6075,14 +6248,15 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
 
             # capture interesting records up to dump_limit per mask
             for m in INTERESTING:
-                if len(interesting_records[m]) >= dump_limit:
+                if n_dumped[m] >= dump_limit:
                     continue
                 idxs = np.where(mask == m)[0]
-                room = dump_limit - len(interesting_records[m])
+                room = dump_limit - n_dumped[m]
                 if len(idxs) > room:
                     idxs = idxs[:room]
                 if len(idxs) > 0:
                     interesting_records[m].append(records[idxs].copy())
+                    n_dumped[m] += len(idxs)
 
             offset += n * _P2_RECORD_SIZE
             remaining -= n
@@ -6098,8 +6272,16 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
                 last_log = now
 
     elapsed = time.time() - t0
+    # Sibling of Codex V2-F60 #2 (2026-09-03): a short read was trimmed to
+    # whole records and the loop broke out, then DONE printed with `seen`
+    # below the header's count and the report was written as if complete.
+    if seen != total_records or total_records == 0:
+        print(f"KEYSTONE_ANALYSIS=FAIL declared {total_records:,} records but "
+              f"read {seen:,} (torn/truncated artifact or zero records); "
+              f"no report written", flush=True)
+        raise SystemExit(1)
     print(f"[keystone] DONE {seen:,} records in {elapsed:.1f}s "
-          f"({seen/elapsed/1e6:.2f}M/s)", flush=True)
+          f"({seen/max(elapsed, 1e-9)/1e6:.2f}M/s)", flush=True)
 
     # Write dumps
     dump_paths = {}
@@ -12252,22 +12434,26 @@ def main():
                                        args.compare_depth_profile[1],
                                        threshold=args.compare_depth_profile_threshold))
 
+    # 2026-09-03 (Codex V2-F60 #6 and its class): every handler below used to
+    # be called BARE, so a returned failure status never reached the shell --
+    # measured: `--uniform-marginals <empty-dir>` printed FAIL and exited 0.
+    # Handlers that return None still exit 0 under sys.exit(None).
     if args.branch_yield_report:
-        branch_yield_report(
+        sys.exit(branch_yield_report(
             args.branch_yield_report,
             baseline_bin=args.branch_yield_baseline,
             manifest=args.branch_yield_manifest,
             depth=args.branch_yield_depth,
             out_csv=args.branch_yield_csv,
             out_json=args.branch_yield_json,
-        )
+        ))
         return
 
     if args.keystone_analysis:
         keystone_analysis(args.keystone_analysis[0],
                           args.keystone_analysis[1],
                           dump_dir=args.keystone_dump_dir,
-                          dump_limit=args.keystone_dump_limit)
+                          dump_limit=args.keystone_dump_limit)  # returns (counts, paths); failure raises SystemExit(1)
         return
 
     if args.encode_solutions:
@@ -12277,47 +12463,47 @@ def main():
                                      args.encode_solutions[1:]))
 
     if args.compute_stats:
-        p2_compute_stats(args.compute_stats[0], args.compute_stats[1],
+        sys.exit(p2_compute_stats(args.compute_stats[0], args.compute_stats[1],
                          workers=args.compute_stats_workers,
                          chunk_size=args.compute_stats_chunk_size,
-                         max_records=args.compute_stats_max_records)
+                         max_records=args.compute_stats_max_records))
         return
     if args.marginals:
-        p2_marginals(args.marginals[0], args.marginals[1])
+        sys.exit(p2_marginals(args.marginals[0], args.marginals[1]))
         return
     if args.uniform_marginals:
-        t5_uniform_marginals(args.uniform_marginals[0], args.uniform_marginals[1])
+        sys.exit(t5_uniform_marginals(args.uniform_marginals[0], args.uniform_marginals[1]))
         return
     if args.bivariate:
-        p2_bivariate(args.bivariate[0], args.bivariate[1])
+        sys.exit(p2_bivariate(args.bivariate[0], args.bivariate[1]))
         return
     if args.joint_density:
-        p2_joint_density(args.joint_density[0], args.joint_density[1],
+        sys.exit(p2_joint_density(args.joint_density[0], args.joint_density[1],
                          samples_per_chunk=args.joint_density_samples_per_chunk,
-                         bootstrap_n=args.joint_density_bootstrap_n)
+                         bootstrap_n=args.joint_density_bootstrap_n))
         return
 
     if args.joint_density_v2:
-        p2_joint_density_v2(args.joint_density_v2[0], args.joint_density_v2[1],
+        sys.exit(p2_joint_density_v2(args.joint_density_v2[0], args.joint_density_v2[1],
                             samples_per_chunk=args.joint_density_samples_per_chunk,
                             bandwidth_method=args.joint_density_bandwidth,
                             exhaustive=args.joint_density_exhaustive,
                             native_solve_binary=args.native_solve_binary,
-                            bootstrap_n=args.joint_density_bootstrap_n)
+                            bootstrap_n=args.joint_density_bootstrap_n))
         return
 
     if args.stratified_by_position_2_pair:
-        p2_stratified_p2pair(args.stratified_by_position_2_pair[0],
+        sys.exit(p2_stratified_p2pair(args.stratified_by_position_2_pair[0],
                              args.stratified_by_position_2_pair[1],
                              samples_per_chunk=args.joint_density_samples_per_chunk,
                              exhaustive=args.stratified_exhaustive,
-                             native_solve_binary=args.native_solve_binary)
+                             native_solve_binary=args.native_solve_binary))
         return
 
     if args.joint_permutation_test:
-        p2_joint_permutation_test(args.joint_permutation_test[0],
+        sys.exit(p2_joint_permutation_test(args.joint_permutation_test[0],
                                   args.joint_permutation_test[1],
-                                  samples_per_chunk=args.joint_density_samples_per_chunk)
+                                  samples_per_chunk=args.joint_density_samples_per_chunk))
         return
 
     if args.tr8_dof_selftest:
@@ -12344,10 +12530,10 @@ def main():
                                  calib_draws=args.tr8_dof_calib_draws))
 
     if args.sat_encode:
-        p3_sat_encode(args.sat_encode,
+        sys.exit(p3_sat_encode(args.sat_encode,
                       include_c3=args.sat_c3,
                       include_c4=args.sat_c4,
-                      include_c5=args.sat_c5)
+                      include_c5=args.sat_c5))
         return
 
     if args.local:

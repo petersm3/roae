@@ -32,14 +32,25 @@
  *         layer, so it exhausts long before k=31), and therefore does NOT constitute the
  *         independent full-scale recomputation §10(vi) asks for. That remains open.
  *
- * INDEPENDENCE. Everything is rebuilt from the published definitions — SPECIFICATION.md's
- * C1-C5, partner() = rev unless palindromic else comp, and TR-11 §5's first-completion DFS
- * for the budget B0. No solve.c header, no shared table, no magic constant copied. The KW
- * pair table and B0 are DERIVED here, then B0 is cross-checked against the value solve.c
+ * INDEPENDENCE — OF ALGORITHM, NOT OF INPUT. Everything is rebuilt from the published
+ * definitions — SPECIFICATION.md's C1-C5, partner() = rev unless palindromic else comp, and
+ * TR-11 §5's first-completion DFS for the budget B0. No solve.c header, no shared traversal,
+ * no copied table of RESULTS. The KING WEN INPUT is deliberately shared: KW[64] below is the
+ * same 64-entry literal solve.c and verify.py carry — it is the object of study, and every
+ * instrument reads it, so it is an acknowledged DATA-level closure, not an independence
+ * (Codex V2-12 #1, 2026-09-02: a line-position permutation applied to all 64 entries changes
+ * 48 of them and still satisfies partner-pairing, C4, the C5 histogram and C3 = 776 — every
+ * shared-input verifier would agree on a wrong convention; the datum is anchored EXTERNALLY,
+ * by a re-derivation from source texts, not by anything in this file). What this file does
+ * with that input is derived, not trusted: the KW pair table and B0 are DERIVED here, C3's
+ * ceiling is recomputed and asserted, and B0 is cross-checked against the value solve.c
  * records in its manifest (a disagreement is itself a finding).
  *
- * BUILD:  cc -O2 -o verify verify.c -lz -lpthread
- *         (zlib: the v2 layer codec is per-block zlib; pthreads: the --ie-* modes)
+ * BUILD:  cc -O2 -o verify verify.c -lz -lpthread -lm
+ *         (zlib: the v2 layer codec is per-block zlib; pthreads: the --ie-* modes;
+ *          libm: sqrtl in the Knuth prober's kn_ci — WITHOUT -lm THE LINK FAILS on the
+ *          stock toolchain, "undefined reference to `sqrtl'". This header omitted -lm
+ *          until 2026-09-03 (Codex V2-F59 #8) while the compile gate silently supplied it.)
  * USAGE:  ./verify <run.out> [max_layer]      (default max_layer = 6)
  *         Increase max_layer while memory allows; the program reports what it reached and
  *         stops cleanly rather than being killed.
@@ -195,11 +206,18 @@ static int cls_ix(int d) { for (int i = 0; i < 5; i++) if (CLS[i] == d) return i
 
 /* ---------- independent repr(k) oracle (--check-repr) ----------------------
  *
- * WHY IT EXISTS. solve.c's --kc-repr-normalize says outright that "there is NO
- * separate repr oracle in this tree": its only built-in check is IDEMPOTENCE
- * (re-run on the output, expect byte-identical), which is self-consistent and
- * so cannot catch a normalization that is stable but WRONG. The SOLVE_REPR_FC
- * A/B is weaker than it looks for the same reason at one remove -- both arms
+ * WHY IT EXISTS. AVAILABILITY FIRST (2026-09-03, Codex V2-L21 #3 / V2-F59 #7):
+ * `--kc-repr-normalize` and the SOLVE_REPR_FC A/B are NOT in main's solve.c and
+ * are on NO published ref — they live only on the unlanded
+ * orbit-port-188-candidate branch, which BRANCH_REGISTRY marks
+ * snapshot-do-not-cite (VERIFY.md §"NOT AVAILABLE IN THIS TREE"). They are
+ * quoted below as the design rationale this oracle answers, not as commands a
+ * reader of this tree can run. That branch's --kc-repr-normalize said outright
+ * that "there is NO separate repr oracle in this tree": its only built-in
+ * check was IDEMPOTENCE (re-run on the output, expect byte-identical), which
+ * is self-consistent and so cannot catch a normalization that is stable but
+ * WRONG. The SOLVE_REPR_FC A/B was weaker than it looked for the same reason
+ * at one remove -- both arms
  * share solve.c's DFS, child order and code, so a defect in the shared
  * traversal is invisible to it at any sample size. This is the second
  * instrument, of a different algorithm class, per the TR-11 v1.11 pattern.
@@ -313,8 +331,11 @@ static int vc_repr_of_key(const int *pair_order, unsigned char *out) {
  * completion of this key?". That IS the record convention -- forced by
  * partition-invariance, and settled against the cell-scoped alternative -- but it
  * is established by a POST-PASS, not by the merge. orb_normalize_rec_op ->
- * orb_repr_global, exposed as `solve --kc-repr-normalize IN.bin OUT.bin`, is what
- * applies it. Against a raw merge output that pass has not run, so --check-repr
+ * orb_repr_global, exposed as `solve --kc-repr-normalize IN.bin OUT.bin` ON THE
+ * UNLANDED orbit-port-188-candidate BRANCH ONLY (NOT on any published ref, NOT in
+ * main's solve.c — VERIFY.md §"NOT AVAILABLE IN THIS TREE"; in this tree the
+ * convention is an acceptance-test CONTRACT, with no shipped tool that applies
+ * it), is what applies it. Against a raw merge output that pass has not run, so --check-repr
  * disagrees on exactly the records the post-pass would rewrite: measured
  * 2026-08-15 over 1,776,347,935 records, a regionally varying 1.06%-42.2% with
  * INCOMPUTABLE=0 throughout. Expected, not a defect. --check-repr is the right
@@ -1038,6 +1059,14 @@ static int lc_pread(FILE *f, long off, void *buf, size_t n) {
     if (fseek(f, off, SEEK_SET) != 0) return 0;
     return fread(buf, 1, n, f) == n;
 }
+/* FNV-1a over a record's text — the LC_RESUME row integrity token (V2, 2026-09-03).
+ * Integrity against silent corruption (torn write, bad sector, hand edit landing as a
+ * complete row), not tamper-proofing. */
+static uint64_t lc_rec_hash(const char *s) {
+    uint64_t h = 1469598103934665603ULL;
+    for (; *s; s++) { h ^= (unsigned char)*s; h *= 1099511628211ULL; }
+    return h;
+}
 
 /* Verify one layer file. Returns 0 ok, 1 fail. Accumulates grand into *grand
  * (only meaningful when the caller knows this is the final layer) and the
@@ -1083,6 +1112,20 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     uint64_t nm = nm64, ne = ne64;
     uint32_t BLK = is_v2 ? pad : 0;
     if (is_v2) LCF(BLK>0, "v2 block size (pad field) is zero");
+    /* Spec LAYOUT invariants (F1C5_LAYER_FORMAT.md: v1 pad = 0; exact file size
+     * 80+12·nm+28·ne for v1 and kblk_base+kidx[nblk]+vidx[nblk] for v2; kidx/vidx
+     * monotone; per-block compressed size within compressBound). Added 2026-09-03
+     * (Codex V2-F59 #5): a trailing byte and a pad of 0x5A on the selftest's own
+     * fixture both produced output byte-identical to the clean run — this reader
+     * claimed spec conformance it did not check. The gt reader (gt_open) had these
+     * checks; --check-layers and --scan-layers did not. */
+    if (is_v1) LCF(pad==0, "v1 pad=%u != 0 (spec: v1 pad is zero)", pad);
+    long fsz = -1;
+    if (fseek(f, 0, SEEK_END) == 0) fsz = ftell(f);
+    LCF(fsz >= 72, "cannot size the file");
+    if (is_v1) LCF(fsz == (long)(80 + 12*nm + 28*ne), "v1 file size %ld != spec 80+12*nm+28*ne = %llu",
+                   fsz, (unsigned long long)(80 + 12*nm + 28*ne));
+    if (fail) { fclose(f); return 1; }
 
     /* masks[] + off[] */
     uint8_t *orbits = NULL;
@@ -1139,8 +1182,23 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             !lc_pread(f, kidx_off, kidx, (nblk+1)*8) || !lc_pread(f, vidx_off, vidx, (nblk+1)*8)) {
             printf("  k=%2d  *** FAIL: short kidx/vidx\n", k); free(kidx); free(vidx); goto cleanup; }
         LCF(kidx[0]==0 && vidx[0]==0, "kidx/vidx[0] != 0");
+        for (uint64_t b = 0; b < nblk && !fail; b++) {
+            LCF(kidx[b+1] >= kidx[b] && vidx[b+1] >= vidx[b],
+                "kidx/vidx not monotone at block %llu", (unsigned long long)b);
+            if (fail) break;
+            LCF(kidx[b+1]-kidx[b] <= compressBound(4u*BLK),
+                "key block %llu compressed size %llu > compressBound(4*BLK)",
+                (unsigned long long)b, (unsigned long long)(kidx[b+1]-kidx[b]));
+            LCF(vidx[b+1]-vidx[b] <= compressBound(24u*BLK),
+                "val block %llu compressed size %llu > compressBound(24*BLK)",
+                (unsigned long long)b, (unsigned long long)(vidx[b+1]-vidx[b]));
+        }
         kblk_base = 96 + 12*(long)nm + 16*(long)nblk;
         vblk_base = kblk_base + (long)kidx[nblk];
+        if (!fail) LCF(fsz == vblk_base + (long)vidx[nblk],
+                       "v2 file size %ld != spec kblk_base+kidx[nblk]+vidx[nblk] = %ld",
+                       fsz, vblk_base + (long)vidx[nblk]);
+        if (fail) { free(kidx); free(vidx); goto cleanup; }
     }
 
     uint32_t *kbuf = malloc((BLK?BLK:65536)*4);
@@ -1336,12 +1394,20 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
 
     /* Per-layer eviction resume (env LC_RESUME=FILE, opt-in; Spot-host runs).
      * Each layer that streams CLEAN is appended to FILE (k, nm, ne, codec,
-     * Σval, mass — exact decimal strings); on restart those layers are
-     * replayed from the record instead of re-read, so the worst-case loss
-     * from an eviction is one layer. A straight-through run and a resumed
-     * run print byte-identical output (the g-build GA9 invariant). The
-     * header pins n + pl_hash: a resume file from another run is REFUSED
-     * (a finding, not silently ignored). Failing layers are never recorded. */
+     * Σval, mass — exact decimal strings, plus an FNV-1a hash of that record
+     * text since V2, 2026-09-03); on restart those layers are replayed from
+     * the record instead of re-read, so the worst-case loss from an eviction
+     * is one layer. The PER-LAYER lines of a straight-through run and a
+     * resumed run are byte-identical (the g-build GA9 invariant); the FINAL
+     * label is NOT — it states how many layers were re-derived in this run
+     * and how many were replayed (LAYERS_REDERIVED= / LAYERS_REPLAYED=), so a
+     * resumed run cannot attest "re-derived at every layer" (Codex V2-F59 #2:
+     * a record with its mass edited to 999 replayed and the label still read
+     * "re-derived at every layer", rc 0). The header pins n + pl_hash: a
+     * resume file from another run is REFUSED (a finding, not silently
+     * ignored); a row failing its hash REFUSES the whole resume, as the IE
+     * checkpoint has since Q-286; a V1 file (no hashes) fails the header
+     * compare. Failing layers are never recorded. */
     const char *rf_path = getenv("LC_RESUME");
     FILE *rf = NULL;
     int rk_got[32]; uint64_t rk_nm[32], rk_ne[32];
@@ -1352,17 +1418,23 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
         if (in) {
             char line[512]; uint32_t hn = 0; unsigned long long hh = 0; int hdr_ok = 0;
             if (fgets(line, sizeof line, in) &&
-                sscanf(line, "LC_RESUME_V1 n=%u pl_hash=%llx", &hn, &hh) == 2 &&
+                sscanf(line, "LC_RESUME_V2 n=%u pl_hash=%llx", &hn, &hh) == 2 &&
                 hn == mn && hh == (unsigned long long)m_plhash) hdr_ok = 1;
             if (!hdr_ok) {
-                printf("*** FAIL: LC_RESUME file %s does not match this run (n/pl_hash header)\n",
+                printf("*** FAIL: LC_RESUME file %s does not match this run (n/pl_hash header;\n"
+                       "          a pre-2026-09-03 LC_RESUME_V1 file has no row hashes and is refused)\n",
                        rf_path);
                 fclose(in); return 1;
             }
+            int rows_bad = 0;
             while (fgets(line, sizeof line, in)) {
-                int k; unsigned long long lnm, lne; char cod[4], gd[64], md[64];
-                if (sscanf(line, "k=%d nm=%llu ne=%llu codec=%3s grand=%63s mass=%63s",
-                           &k, &lnm, &lne, cod, gd, md) == 6 && k >= 0 && k < 32) {
+                int k; unsigned long long lnm, lne, lh; char cod[4], gd[64], md[64];
+                if (sscanf(line, "k=%d nm=%llu ne=%llu codec=%3s grand=%63s mass=%63s h=%llx",
+                           &k, &lnm, &lne, cod, gd, md, &lh) == 7 && k >= 0 && k < 32) {
+                    char rec[256];
+                    snprintf(rec, sizeof rec, "k=%d nm=%llu ne=%llu codec=%s grand=%s mass=%s",
+                             k, lnm, lne, cod, gd, md);
+                    if (lh != lc_rec_hash(rec)) { rows_bad++; continue; }
                     rk_got[k] = 1; rk_nm[k] = lnm; rk_ne[k] = lne;
                     snprintf(rk_codec[k], 4, "%s", cod);
                     snprintf(rk_grand[k], 64, "%s", gd);
@@ -1370,17 +1442,24 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
                 }
             }
             fclose(in);
+            if (rows_bad) {
+                printf("*** FAIL: %d corrupted LC_RESUME row(s) in %s — refusing to resume;\n"
+                       "          delete the file to re-derive every layer from bytes\n",
+                       rows_bad, rf_path);
+                printf("LC_RESUME=CORRUPT\n");
+                return 1;
+            }
         }
         rf = fopen(rf_path, "a");
         if (!rf) { printf("*** FAIL: cannot open LC_RESUME file %s for append\n", rf_path); return 1; }
         if (ftell(rf) == 0) {
-            fprintf(rf, "LC_RESUME_V1 n=%u pl_hash=%016llx\n", mn, (unsigned long long)m_plhash);
+            fprintf(rf, "LC_RESUME_V2 n=%u pl_hash=%016llx\n", mn, (unsigned long long)m_plhash);
             fflush(rf); fsync(fileno(rf));
         }
     }
 
     int hi = last_k; if (maxk < hi) hi = maxk;
-    int fails = !plhash_ok + !kw_ok + !geff_ok, checked = 0;
+    int fails = !plhash_ok + !kw_ok + !geff_ok, checked = 0, replayed = 0;
     u192 finalgrand = {{0,0,0}}; int saw_final = 0;
     u192 lmass[32]; int lgot[32];
     for (int k = 0; k < 32; k++) lgot[k] = 0;
@@ -1395,7 +1474,7 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
             fflush(stdout);
             if (cfg)
                 printf("[scan] k=%2d riders skipped (layer replayed from LC_RESUME record, not re-read)\n", k);
-            lmass[k] = u192_dec(rk_mass[k]); lgot[k] = 1; checked++;
+            lmass[k] = u192_dec(rk_mass[k]); lgot[k] = 1; checked++; replayed++;
             if (is_final) { finalgrand = u192_dec(rk_grand[k]); saw_final = 1; }
             continue;
         }
@@ -1437,9 +1516,11 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
             if (cfg) fflush(stdout);
             lmass[k] = ms; lgot[k] = 1;
             if (rf) {
-                fprintf(rf, "k=%d nm=%llu ne=%llu codec=%s grand=%s mass=%s\n",
-                        k, (unsigned long long)onm, (unsigned long long)one,
-                        ov2?"v2":"v1", gd, md);
+                char rec[256];
+                snprintf(rec, sizeof rec, "k=%d nm=%llu ne=%llu codec=%s grand=%s mass=%s",
+                         k, (unsigned long long)onm, (unsigned long long)one,
+                         ov2?"v2":"v1", gd, md);
+                fprintf(rf, "%s h=%016llx\n", rec, (unsigned long long)lc_rec_hash(rec));
                 fflush(rf); fsync(fileno(rf));
             }
         }
@@ -1480,7 +1561,14 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
     if (checked == 0) {
         printf("*** FAIL: ZERO layer files evaluated — nothing was verified\n");
         fails++;
+    } else if (replayed == checked) {
+        printf("*** FAIL: every one of the %d present layer(s) was REPLAYED from the LC_RESUME\n"
+               "          record — this run re-derived nothing from layer bytes; delete the\n"
+               "          record (or run without LC_RESUME) to attest from scratch\n", checked);
+        fails++;
     }
+    printf("LAYERS_REDERIVED=%d\n", checked - replayed);
+    printf("LAYERS_REPLAYED=%d\n", replayed);
     if (rm) free(rm);
 
     printf("======================================================================\n");
@@ -1500,13 +1588,21 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
         printf("NOTE: final layer k=%u not present (run incomplete or window-pruned) —\n"
                "      the end-to-end published-count check did not fire.\n", mn);
     }
-    if (fails==0)
+    if (fails==0 && replayed==0)
         printf("RESULT: %d layer file(s) internally consistent; headers, pl_hash, layout,\n"
                "        per-entry keys/rids/values, sum invariant, and mask canonicity all\n"
                "        hold; orbit-weighted mass re-derived at every layer%s%s.\n",
                checked,
                mass_cmp ? " and it matches the run log at every compared layer" : "",
                (saw_final && mn==31) ? ", and the final layer sums to the published count" : "");
+    else if (fails==0)
+        printf("RESULT: %d layer file(s) consistent — %d RE-DERIVED from bytes in this run\n"
+               "        (headers, pl_hash, layout, per-entry keys/rids/values, sum invariant,\n"
+               "        mask canonicity, orbit-weighted mass), %d REPLAYED from the LC_RESUME\n"
+               "        record of a prior run (asserted, NOT re-read here)%s%s.\n",
+               checked, checked - replayed, replayed,
+               mass_cmp ? "; masses match the run log at every compared layer" : "",
+               (saw_final && mn==31) ? "; the final layer sums to the published count" : "");
     else
         printf("RESULT: *** %d FAILURE(S) *** — a finding. Report it; do not patch around it.\n", fails);
     printf("======================================================================\n");
@@ -1606,6 +1702,29 @@ static int lc_selftest(void) {
     printf("\n[3] corrupted v2 fixture (a value zeroed) — MUST be rejected:\n");
     int r3 = lc_check_layers(dir, 31, NULL);
 
+    /* ---- LAYOUT legs (2026-09-03, Codex V2-F59 #5): rebuild the VALID v2 file, then
+     * mutate only the layout — content stays byte-for-byte spec-valid. ---- */
+    for(uint64_t b=0;b<nblk;b++){ uint64_t bs=b*BLK, bn=(bs+BLK<=ne)?BLK:ne-bs;
+        unsigned char vv[2*24]; for(uint64_t j=0;j<bn;j++) memcpy(vv+j*24,&vals[bs+j],24);
+        zvl[b]=sizeof zv[b]; compress2(zv[b],&zvl[b],(Bytef*)vv,bn*24,6);
+        vidx[b+1]=vidx[b]+zvl[b]; }
+    #define WRITE_V2(kidx_,extra_) do{ f=fopen(path,"wb"); lc_wr(f,hd,72); lc_wr(f,masks,nm*4); \
+        lc_wr(f,off,(nm+1)*8); lc_wr(f,kidx_,(nblk+1)*8); lc_wr(f,vidx,(nblk+1)*8); \
+        for(uint64_t b=0;b<nblk;b++) lc_wr(f,zk[b],zkl[b]); \
+        for(uint64_t b=0;b<nblk;b++) lc_wr(f,zv[b],zvl[b]); \
+        if(extra_){ unsigned char z_=0; lc_wr(f,&z_,1); } fclose(f);}while(0)
+    WRITE_V2(kidx,1);
+    printf("\n[8] valid v2 fixture with ONE trailing byte appended (spec: exact size\n"
+           "    kblk_base+kidx[nblk]+vidx[nblk]) — MUST be rejected (was byte-identical PASS):\n");
+    int r8 = lc_check_layers(dir, 31, NULL);
+    { uint64_t kbad[3]={0,0,0}; kbad[1]=kidx[2]+1; kbad[2]=kidx[2];   /* kidx[1] > kidx[2] */
+      WRITE_V2(kbad,0); }
+    printf("\n[9] v2 fixture with NON-MONOTONE kidx (kidx[1] > kidx[2]; block-0 length\n"
+           "    underflows) — MUST be rejected AS A SPEC VIOLATION, not a generic short read:\n");
+    int r9 = lc_check_layers(dir, 31, NULL);
+    WRITE_V2(kidx,0);                                    /* leave the fixture valid */
+    #undef WRITE_V2
+
     #undef PUT
 
     /* =====================================================================
@@ -1693,15 +1812,40 @@ static int lc_selftest(void) {
       for(int i=0;i<2;i++) { lc_wr(g3,&vs_[i],24); } fclose(g3); }
     printf("\n[7] layer 1 rewritten with NON-CANONICAL mask 010 (min of orbit is 001) — must FAIL:\n");
     int r7 = lc_check_layers(dir2, 31, NULL);
+    /* restore a canonical layer 1 so the v1 LAYOUT legs isolate ONE mutation each */
+    { PUT3(1,1,2); uint32_t m_=0x1; uint64_t o_[2]={0,2};
+      uint32_t ks_[2]={(5u<<16)|1u,(6u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
+      snprintf(path,sizeof path,"%s/f1c5_layer_01.bin",dir2); FILE *g3=fopen(path,"wb");
+      lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,ks_,8);
+      for(int i=0;i<2;i++) { lc_wr(g3,&vs_[i],24); } fclose(g3); }
+    #define WRITE_L2(padv_,extra_) do{ PUT3(2,1,1); uint32_t p_=padv_; memcpy(h3+68,&p_,4); \
+      uint32_t m_=0x3; uint64_t o_[2]={0,1}; uint32_t k_=(1u<<16)|3u; u192 v_={{5,0,0}}; \
+      snprintf(path,sizeof path,"%s/f1c5_layer_02.bin",dir2); FILE *g3=fopen(path,"wb"); \
+      lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,&k_,4); lc_wr(g3,&v_,24); \
+      if(extra_){ unsigned char z_=0; lc_wr(g3,&z_,1); } fclose(g3); }while(0)
+    WRITE_L2(0,1);
+    printf("\n[10] v1 layer 2 with ONE trailing byte appended (spec: exact size 80+12nm+28ne)\n"
+           "     — must FAIL (was byte-identical PASS):\n");
+    int r10 = lc_check_layers(dir2, 31, NULL);
+    WRITE_L2(0x5A,0);
+    printf("\n[11] v1 layer 2 with pad=0x5A (spec: v1 pad = 0) — must FAIL (was byte-identical PASS):\n");
+    int r11 = lc_check_layers(dir2, 31, NULL);
+    WRITE_L2(0,0);                                       /* leave the fixture valid */
+    #undef WRITE_L2
     #undef PUT3
 
     printf("\n======================================================================\n");
-    int ok = (r1==0 && r2==0 && r3!=0 && grp_ok && r5==0 && r6!=0 && r7!=0);
+    int layout_ok = (r8!=0 && r9!=0 && r10!=0 && r11!=0);
+    int ok = (r1==0 && r2==0 && r3!=0 && grp_ok && r5==0 && r6!=0 && r7!=0 && layout_ok);
     printf("SELFTEST: v1 pass=%s  v2 pass=%s  corruption caught=%s  group-math=%s\n"
            "          nontrivial-stab mass pass=%s  wrong-mass caught=%s  non-canonical caught=%s\n"
+           "          layout caught (v2 trailing=%s v2 kidx=%s v1 trailing=%s v1 pad=%s)\n"
            "          =>  %s\n",
            r1==0?"Y":"N", r2==0?"Y":"N", r3!=0?"Y":"N", grp_ok?"Y":"N",
-           r5==0?"Y":"N", r6!=0?"Y":"N", r7!=0?"Y":"N", ok?"PASS":"*** FAIL ***");
+           r5==0?"Y":"N", r6!=0?"Y":"N", r7!=0?"Y":"N",
+           r8!=0?"Y":"N", r9!=0?"Y":"N", r10!=0?"Y":"N", r11!=0?"Y":"N",
+           ok?"PASS":"*** FAIL ***");
+    printf("LCSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
     printf("======================================================================\n");
     return ok ? 0 : 1;
 }
@@ -2039,6 +2183,14 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     uint64_t nm = nm64, ne = ne64;
     uint32_t BLK = is_v2 ? pad : 0;
     if (is_v2) LCF(BLK>0, "v2 block size (pad field) is zero");
+    /* spec LAYOUT invariants — same checks as lc_check_layer (2026-09-03) */
+    if (is_v1) LCF(pad==0, "v1 pad=%u != 0 (spec: v1 pad is zero)", pad);
+    long fsz = -1;
+    if (fseek(f, 0, SEEK_END) == 0) fsz = ftell(f);
+    LCF(fsz >= 72, "cannot size the file");
+    if (is_v1) LCF(fsz == (long)(80 + 12*nm + 28*ne), "v1 file size %ld != spec 80+12*nm+28*ne = %llu",
+                   fsz, (unsigned long long)(80 + 12*nm + 28*ne));
+    if (fail) { fclose(f); return 1; }
 
     /* masks[] + off[] — the small tables; stdio like the sequential path */
     uint8_t *orbits = NULL;
@@ -2114,8 +2266,22 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             !lc_pread(f, kidx_off, kidx, (nblk+1)*8) || !lc_pread(f, vidx_off, vidx, (nblk+1)*8)) {
             printf("  k=%2d  *** FAIL: short kidx/vidx\n", k); fail=1; goto cleanup; }
         LCF(kidx[0]==0 && vidx[0]==0, "kidx/vidx[0] != 0");
+        for (uint64_t b = 0; b < nblk && !fail; b++) {
+            LCF(kidx[b+1] >= kidx[b] && vidx[b+1] >= vidx[b],
+                "kidx/vidx not monotone at block %llu", (unsigned long long)b);
+            if (fail) break;
+            LCF(kidx[b+1]-kidx[b] <= compressBound(4u*BLK),
+                "key block %llu compressed size %llu > compressBound(4*BLK)",
+                (unsigned long long)b, (unsigned long long)(kidx[b+1]-kidx[b]));
+            LCF(vidx[b+1]-vidx[b] <= compressBound(24u*BLK),
+                "val block %llu compressed size %llu > compressBound(24*BLK)",
+                (unsigned long long)b, (unsigned long long)(vidx[b+1]-vidx[b]));
+        }
         kblk_base = 96 + 12*(long)nm + 16*(long)nblk;
         vblk_base = kblk_base + (long)kidx[nblk];
+        if (!fail) LCF(fsz == vblk_base + (long)vidx[nblk],
+                       "v2 file size %ld != spec kblk_base+kidx[nblk]+vidx[nblk] = %ld",
+                       fsz, vblk_base + (long)vidx[nblk]);
     }
     if (fail) goto cleanup;
 
@@ -3690,8 +3856,14 @@ static int lc_gt_selftest(void) {
  * are derived from the KW[] table and CROSS-CHECKED elementwise against
  * those SPEC hexagram constants at startup. Together with the full-31
  * budget this counts |C1∩C2∩C4∩C5∩C6∩C7| — the "C1–C7, C3 dropped" row,
- * published only as a Knuth ESTIMATE 5.18e32 (0.25%); there is no exact
- * target, so no default --ie-expect in pinned mode.
+ * published EXACT (LC_PUBLISHED_COUNT_C1C7NOC3 above; METHODS.md's
+ * estimate-vs-exact table; two-instrument: this route and Route D agreeing
+ * digit-for-digit) and, since 2026-09-03, installed as the DEFAULT target
+ * whenever --ie-pin-c6c7 is the ONLY pin set and the budget is on. Before
+ * that this comment still called the row estimate-only and a pinned
+ * reproduction ran with no comparison at all (Codex V2-F59 #1). Any other
+ * pin set has no published exact: pass --ie-expect, or the run reports
+ * IE_COMPARED=0.
  *
  * HONEST GATE LOSS (pins): the pinned subset space is NOT closed under
  * the 24-group (the pointwise stabilizer of pairs {24,25,26,27} is
@@ -4156,6 +4328,15 @@ static uint64_t ie_ck_hash(uint64_t ci, uint64_t a, uint64_t w, uint64_t s, uint
             h *= 1099511628211ULL;         /* FNV prime */
         }
     return h;
+}
+/* Route D unit-row sibling (2026-09-03, Codex V2-F59 #2): the Q-286 fix above was landed on
+ * the IE checkpoint ONLY, and --dp-count kept accepting bare `U pi nj value` rows — MEASURED:
+ * every `U pi 0 48` of a clean n=3 checkpoint edited to 49 resumed as "3 completed unit(s)"
+ * and printed "RESULT: N = 49 … pass complete", rc 0. Same FNV-1a, a distinct domain tag so a
+ * DP row can never validate as an IE row or vice versa. */
+static uint64_t dp_ck_hash(int pi, int nj, uint64_t v) {
+    return ie_ck_hash(0xD9D9000000000000ULL | (uint64_t)(unsigned)pi, (uint64_t)(unsigned)nj, v,
+                      0x4450ULL /* 'DP' */, 0);
 }
 
 /* ---- threaded pass over a subset-mask range, chunked + checkpointed ---- */
@@ -4653,7 +4834,7 @@ static int ie_count_main(int argc, char **argv) {
     }
     printf("----------------------------------------------------------------------\n");
 
-    int fails = 0;
+    int fails = 0, compared = 0;
     if (ran[1] && ran[2] && ran[3]) {
         uint64_t a3[3] = { acc[1], acc[2], acc[3] };
         u192 N;
@@ -4675,13 +4856,29 @@ static int ie_count_main(int argc, char **argv) {
             if (!eq) fails++;
         }
         const char *target = expect;
-        if (!target && C.n == 31 && !have_range && !C.npin)
-            /* pinned full-31 (|C1..C7|, C3 dropped) has NO published exact —
-             * only the Knuth estimate 5.18e32 (0.25%) — so no default target */
-            target = no_budget ? LC_PUBLISHED_COUNT_C1C2C4 : LC_PUBLISHED_COUNT;
+        if (!target && C.n == 31 && !have_range && !have_b0) {
+            /* Default published targets — the same table Route D (dp_count_main) installs:
+             *   no pins, budget on   -> LC_PUBLISHED_COUNT         |C1∩C2∩C4∩C5|
+             *   no pins, no budget   -> LC_PUBLISHED_COUNT_C1C2C4  |C1∩C2∩C4|
+             *   --ie-pin-c6c7 ONLY,  -> LC_PUBLISHED_COUNT_C1C7NOC3  |C1..C7, C3 dropped|
+             *     budget on             (published 2026-07-26; THIS route and Route D agreed)
+             *   any other pin set    -> none (no published exact; pass --ie-expect)
+             * Until 2026-09-03 the third row was missing HERE while Route D had it: the
+             * comment at this site still said the pinned full-31 "has NO published exact —
+             * only the Knuth estimate", stale against LC_PUBLISHED_COUNT_C1C7NOC3 defined in
+             * this same file. MEASURED (Codex V2-F59 #1): three fully forged checkpoints
+             * summing to N = 0 resumed under --ie-pin-c6c7 and this function printed
+             * "RESULT: pass complete; all in-run gates hold", rc 0 — a pinned reproduction
+             * was comparison-free unless the operator remembered --ie-expect. */
+            if (!C.npin)
+                target = no_budget ? LC_PUBLISHED_COUNT_C1C2C4 : LC_PUBLISHED_COUNT;
+            else if (pin_c6c7 && npin_cli == 4 && !no_budget)
+                target = LC_PUBLISHED_COUNT_C1C7NOC3;
+        }
         if (target) {
             u192 E = u192_dec(target);
             int eq = u192_eq(N, E);
+            compared = 1;
             if (negctl) {
                 printf("          vs published %s : %s (negative control %s)\n", target,
                        eq ? "EQUAL" : "DIFFERS", eq ? "*** FAILED ***" : "passed");
@@ -4691,21 +4888,45 @@ static int ie_count_main(int argc, char **argv) {
                        eq ? "MATCH" : "*** MISMATCH ***");
                 if (!eq) fails++;
             }
+        } else {
+            printf("compare : NONE — no published exact for this configuration and no --ie-expect\n");
         }
     } else if (ran[0]) {
         printf("wrap    : N mod 2^64 = %llu (exact iff N < 2^64)\n",
                (unsigned long long)acc[0]);
-        if (expect && !negctl) {
+        if (expect) {
             u192 E = u192_dec(expect);
             int eq = (E.l[1] == 0 && E.l[2] == 0 && E.l[0] == acc[0]);
-            printf("          vs expected %s : %s\n", expect, eq ? "MATCH" : "*** MISMATCH ***");
-            if (!eq) fails++;
+            compared = 1;
+            if (negctl) {   /* before 2026-09-03 a wrap-only negative control compared NOTHING */
+                printf("          vs published %s : %s (negative control %s)\n", expect,
+                       eq ? "EQUAL" : "DIFFERS", eq ? "*** FAILED ***" : "passed");
+                if (eq) fails++;
+            } else {
+                printf("          vs expected %s : %s\n", expect, eq ? "MATCH" : "*** MISMATCH ***");
+                if (!eq) fails++;
+            }
+        } else {
+            printf("compare : NONE — no --ie-expect (wrap-only run has no default target)\n");
         }
     } else {
         for (int p = 1; p < 4; p++)
             if (ran[p]) printf("residue : N mod %s(%llu) = %llu\n", passes[p].name,
                                (unsigned long long)passes[p].mod, (unsigned long long)acc[p]);
+        printf("compare : NONE — single-modulus residue only (no CRT; nothing to compare)\n");
     }
+    /* A negative control that was never compared has not run (Q-291 shape, second half —
+     * 2026-09-03): "the count MUST differ" is printed at the top of this function, and
+     * without a target nothing enforced it. Same guard in Route D. */
+    if (negctl && !compared) {
+        printf("*** FAIL: --ie-negctl ran but NOTHING was compared — no default published\n"
+               "          target for this configuration and no --ie-expect. \"The count MUST\n"
+               "          differ\" was narrated, not enforced; a control that cannot be\n"
+               "          compared has not passed, it has not run.\n");
+        printf("IE_NEGCTL=NO_TARGET\n");
+        fails++;
+    }
+    printf("IE_COMPARED=%d\n", compared);
     printf("======================================================================\n");
     printf("RESULT: %s\n", fails ? "*** FAILURE(S) — a finding; report, do not patch around ***"
                                  : "pass complete; all in-run gates hold");
@@ -5406,6 +5627,15 @@ static int dp_count_main(int argc, char **argv) {
     /* ---- budget ---- */
     if (no_budget) {
         if (have_b0) { printf("*** FAIL: --dp-b0 contradicts --dp-no-budget\n"); return 1; }
+        if (negctl) {
+            /* Route D's negctl is a d2/d4 budget swap; with no budget there is nothing to
+             * swap and the "control" would be the baseline wearing a banner (2026-09-03). */
+            printf("*** FAIL: --dp-negctl has NOTHING to perturb under --dp-no-budget (the swap\n"
+                   "          acts on the C5 budget, which this mode drops). This control has\n"
+                   "          not passed; it has not run.\n");
+            printf("DP_NEGCTL=INAPPLICABLE\n");
+            return 1;
+        }
         printf("budget  : NONE (--dp-no-budget: C5 dropped; plain (M,last) DP)\n");
         X.ncomb = 1; X.D = 0; X.nnodes = 1; X.comb_final = 0;
         X.tsum[0] = 0;
@@ -5429,6 +5659,20 @@ static int dp_count_main(int argc, char **argv) {
                    X.b0v[0], X.b0v[1], X.b0v[2], X.b0v[3], X.b0v[4]);
         }
         if (negctl) {
+            /* Q-291 guard, PORTED from the IE route (it landed there 2026-08-27 and not
+             * here — Codex V2-F59 #6, 2026-09-03). The swap is the IDENTITY whenever
+             * d2 == d4; on the PUBLISHED n=13 rung 3.0,4.0,6.2@0, B0 = (1,6,0,6,0), this
+             * route printed "NEGATIVE CONTROL: d2/d4 budgets swapped -> (1,6,0,6,0)", then
+             * N = 2,063,395,607,040 — the baseline value the control exists to differ from —
+             * and "RESULT: pass complete", rc 0. A control that CANNOT perturb has not run. */
+            if (X.b0v[1] == X.b0v[3]) {
+                printf("*** FAIL: --dp-negctl cannot perturb this rung — d2 == d4 == %d, so swapping\n"
+                       "          them is the IDENTITY and the count CANNOT differ. This control has\n"
+                       "          not passed; it has not run. Use --dp-b0 to supply a budget that\n"
+                       "          actually differs, or perturb a different coordinate.\n", X.b0v[1]);
+                printf("DP_NEGCTL=INAPPLICABLE\n");
+                return 1;
+            }
             int tt = X.b0v[1]; X.b0v[1] = X.b0v[3]; X.b0v[3] = tt;
             printf("budget  : *** NEGATIVE CONTROL: d2/d4 budgets swapped -> (%d,%d,%d,%d,%d);\n"
                    "          the count MUST differ from the published value ***\n",
@@ -5511,10 +5755,12 @@ static int dp_count_main(int argc, char **argv) {
     else if (!strcmp(modsel, "p2")) runp[2] = 1;
     else { printf("*** FAIL: bad --dp-mod '%s' (all|p0|p1|p2)\n", modsel); return 1; }
 
-    /* ---- unit checkpoint (prime x node granularity) ---- */
+    /* ---- unit checkpoint (prime x node granularity) ----
+     * DPv2 (2026-09-03): every U row carries dp_ck_hash; a DPv1 file (unhashed rows) is
+     * refused by the header compare below — loudly, as a mismatch, never silently re-run. */
     char hdr[512];
     snprintf(hdr, sizeof hdr,
-             "DPv1 n=%d start=%d b0=%d,%d,%d,%d,%d nb=%d negctl=%d D=%d nodes=%d pins=%s pl=",
+             "DPv2 n=%d start=%d b0=%d,%d,%d,%d,%d nb=%d negctl=%d D=%d nodes=%d pins=%s pl=",
              X.n, X.start, X.b0v[0], X.b0v[1], X.b0v[2], X.b0v[3], X.b0v[4],
              X.no_budget, X.negctl, X.D, X.nnodes, X.npin ? X.pinstr : "-");
     for (int i = 0; i < X.n; i++) {
@@ -5538,13 +5784,22 @@ static int dp_count_main(int argc, char **argv) {
                        ckpt, line, hdr);
                 fclose(f); return 1;
             }
-            int pi, nj; unsigned long long vv;
-            int resumed = 0;
-            while (fscanf(f, "U %d %d %llu\n", &pi, &nj, &vv) == 3) {
+            int pi, nj; unsigned long long vv, ckh;
+            int resumed = 0, rows_bad = 0;
+            while (fscanf(f, "U %d %d %llu %llu\n", &pi, &nj, &vv, &ckh) == 4) {
+                if (ckh != dp_ck_hash(pi, nj, (uint64_t)vv)) { rows_bad++; continue; }
                 if (pi < 0 || pi > 2 || nj < 0 || nj >= X.nnodes || have[pi][nj]) continue;
                 V[pi][nj] = vv; have[pi][nj] = 1; resumed++;
             }
             fclose(f);
+            if (rows_bad) {
+                printf("*** FAIL: %d corrupted checkpoint row(s) in %s — refusing to resume.\n",
+                       rows_bad, ckpt);
+                printf("         A row that fails its own hash was silently installed as a unit\n"
+                       "         value before 2026-09-03 (the IE route had this gate since Q-286).\n");
+                printf("DP_CHECKPOINT=CORRUPT\n");
+                return 1;
+            }
             printf("[dp] resumed %d completed unit(s) from %s\n", resumed, ckpt);
             ck = fopen(ckpt, "a");
         } else {
@@ -5569,7 +5824,8 @@ static int dp_count_main(int argc, char **argv) {
             printf("[dp] unit p%d y=%-2d  V=%llu  trans=%llu  wall=%.1fs\n",
                    pi, nj + 1, (unsigned long long)val, (unsigned long long)tr, wall);
             fflush(stdout);
-            if (ck) { fprintf(ck, "U %d %d %llu\n", pi, nj, (unsigned long long)val);
+            if (ck) { fprintf(ck, "U %d %d %llu %llu\n", pi, nj, (unsigned long long)val,
+                              (unsigned long long)dp_ck_hash(pi, nj, val));
                       fflush(ck); fsync(fileno(ck)); }
         }
     }
@@ -5624,14 +5880,16 @@ static int dp_count_main(int argc, char **argv) {
                                             : "  *** FAIL: expected 0 ***") : "");
     if (X.n == 31 && !negctl && !X.npin && u192_mod(N, 24) != 0) fails++;
     const char *target = expect;
+    int compared = 0;
     if (!target && X.n == 31 && !have_b0)
         target = X.no_budget
                  ? (X.npin ? NULL : LC_PUBLISHED_COUNT_C1C2C4)
-                 : (pin_c6c7 ? LC_PUBLISHED_COUNT_C1C7NOC3
+                 : ((pin_c6c7 && X.npin == 4) ? LC_PUBLISHED_COUNT_C1C7NOC3
                              : (X.npin ? NULL : LC_PUBLISHED_COUNT));
     if (target) {
         u192 E = u192_dec(target);
         int eq = u192_eq(N, E);
+        compared = 1;
         if (negctl) {
             printf("          vs published %s : %s (negative control %s)\n", target,
                    eq ? "EQUAL" : "DIFFERS", eq ? "*** FAILED ***" : "passed");
@@ -5641,7 +5899,21 @@ static int dp_count_main(int argc, char **argv) {
                    eq ? "MATCH" : "*** MISMATCH ***");
             if (!eq) fails++;
         }
+    } else {
+        printf("compare : NONE — no published exact for this configuration and no --dp-expect\n");
     }
+    /* Second half of the Q-291 shape (Codex V2-F59 #6, adjudicator-noted): on a rung with
+     * no default target the negctl printed "MUST differ" and enforced nothing, so even a
+     * functioning swap would have passed vacuously. Mirror of the IE guard. */
+    if (negctl && !compared) {
+        printf("*** FAIL: --dp-negctl ran but NOTHING was compared — no default published\n"
+               "          target for this configuration and no --dp-expect. \"The count MUST\n"
+               "          differ\" was narrated, not enforced; a control that cannot be\n"
+               "          compared has not passed, it has not run.\n");
+        printf("DP_NEGCTL=NO_TARGET\n");
+        fails++;
+    }
+    printf("DP_COMPARED=%d\n", compared);
     printf("RESULT: pass complete (%d units, %.1fs total unit wall)%s\n",
            3 * X.nnodes, tot_wall, fails ? "  *** WITH FAILURES ***" : "");
     return fails ? 1 : 0;
