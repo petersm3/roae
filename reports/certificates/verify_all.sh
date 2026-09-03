@@ -238,8 +238,45 @@ require_verdict_line() {   # $1 = token name  $2 = exact whole line that MUST ap
 
 echo "== 0. Prerequisites =="
 DRAT=${DRAT:-drat-trim}
-LEAN=${LEAN:-lean}
-command -v "$LEAN" >/dev/null 2>&1 || LEAN="$HOME/.elan/bin/lean"
+# 🔴 THE ELAN FALLBACK IS FOR AN UNSET LEAN, NOT FOR A BAD ONE. Until 2026-09-03 this read
+# `LEAN=${LEAN:-lean}` followed by an unconditional `command -v "$LEAN" || LEAN=~/.elan/bin/lean`,
+# so an operator who exported `LEAN=/path/with/a/typo` had it SILENTLY REPLACED and the whole Lean
+# section then ran against a different toolchain than the one they named — an opt-out that fires on
+# a typo. An explicit override that is wrong must be an ERROR; only the default may fall back.
+if [ -n "${LEAN+set}" ] && [ -n "$LEAN" ]; then
+  if ! command -v "$LEAN" >/dev/null 2>&1; then
+    echo "LEAN_RESOLVE=FAIL explicit LEAN='$LEAN' is not executable"
+    echo "  You set LEAN explicitly, so this run will NOT silently fall back to"
+    echo "  \$HOME/.elan/bin/lean — that would verify with a different toolchain than the one"
+    echo "  you named. Fix the path, or unset LEAN to accept the default resolution."
+    exit 2
+  fi
+else
+  LEAN=lean
+  command -v "$LEAN" >/dev/null 2>&1 || LEAN="$HOME/.elan/bin/lean"
+fi
+# 🔴 RAM WAS DOCUMENTED AND NEVER CHECKED. The header has said ">= 12 GB free" since the Lean phase
+# was added (it peaks ~9.6 GB resident on Automorphism.lean), but nothing asserted it, so a host that
+# is short — c293-satcert has 7.9 GB — discovers this as an OOM kill deep inside section 4 rather than
+# here. That is the same failure mode this section already prevents for git, and for the same reason:
+# a replicator should read what is missing, not decode a signal 9. Reported, NOT fatal: the shortfall
+# only affects the Lean phase, and a run that skips Lean is still useful.
+LEAN_MIN_GB=${LEAN_MIN_GB:-12}
+if [ -r /proc/meminfo ]; then
+  _avail_kb=$(awk '/^MemAvailable:/{print $2; exit}' /proc/meminfo 2>/dev/null)
+  case "$_avail_kb" in
+    ''|*[!0-9]*) echo "  [note] could not read MemAvailable — RAM headroom for section 4 unverified" ;;
+    *) if [ "$_avail_kb" -lt $((LEAN_MIN_GB * 1024 * 1024)) ]; then
+         echo "LEAN_RAM=LOW available=$((_avail_kb / 1048576))GB required=${LEAN_MIN_GB}GB"
+         echo "  [warn] section 4 (Lean) peaks ~9.6 GB resident on Automorphism.lean and ~7.9 GB on"
+         echo "         KingWen.lean. On this host it may be OOM-killed, which surfaces as a bare"
+         echo "         'Killed' or signal 9 rather than a Lean error. This is a WARNING, not a"
+         echo "         refusal — the other sections are unaffected."
+       else
+         echo "LEAN_RAM=OK available=$((_avail_kb / 1048576))GB required=${LEAN_MIN_GB}GB"
+       fi ;;
+  esac
+fi
 HAVE_GCC=1; HAVE_PY=1; HAVE_DRAT=1; HAVE_LEAN=1; HAVE_GIT=1
 command -v gcc      >/dev/null 2>&1 || HAVE_GCC=0
 command -v python3  >/dev/null 2>&1 || HAVE_PY=0
