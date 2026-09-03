@@ -1,0 +1,15 @@
+[pilot 5e8 pinned] 2026-07-02T03:14:46Z
+[knuth] C6/C7 pins ACTIVE (slots 24-27 fixed to KW pairs; estimating |C1-C7|)
+[knuth] 500000000 probes, 32 threads, 0 prefix level(s)
+KNUTH-ESTIMATE probes=500000000 threads=32 start_step=1 prefix_levels=0
+  tree_nodes            : est=1.452894e+35  95%CI=[1.4520e+35, 1.4538e+35]  relerr=0.03%  hitrate=1
+  leaves_C1C2C4C5       : est=5.075667e+32  95%CI=[4.8240e+32, 5.3273e+32]  relerr=2.53%  hitrate=5.36e-06
+  leaves_canonical_C1C5 : est=4.851379e+31  95%CI=[4.1023e+31, 5.6004e+31]  relerr=7.88%  hitrate=5.72e-07
+[full 5e10 pinned] 2026-07-02T03:16:01Z
+[knuth] C6/C7 pins ACTIVE (slots 24-27 fixed to KW pairs; estimating |C1-C7|)
+[knuth] 50000000000 probes, 32 threads, 0 prefix level(s)
+KNUTH-ESTIMATE probes=50000000000 threads=32 start_step=1 prefix_levels=0
+  tree_nodes            : est=1.453916e+35  95%CI=[1.4538e+35, 1.4540e+35]  relerr=0.00%  hitrate=1
+  leaves_C1C2C4C5       : est=5.184964e+32  95%CI=[5.1596e+32, 5.2103e+32]  relerr=0.25%  hitrate=5.45e-06
+  leaves_canonical_C1C5 : est=5.211639e+31  95%CI=[5.1317e+31, 5.2916e+31]  relerr=0.78%  hitrate=5.77e-07
+[DONE] 2026-07-02T05:20:08Z

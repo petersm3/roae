@@ -1,0 +1,3 @@
+# GATE 59 (baseline-arithmetic) adjudicated-open sites. TAB-separated: file, K, N, M, reason.
+# A row must match a live "K of the N ... (in)eligible ... baseline is 1/M" defect; an unmatched row FAILS the gate.
+# Delete the row in the same change that fixes the site.

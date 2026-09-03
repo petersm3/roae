@@ -1,0 +1,46 @@
+# Allowances for scripts/doc_gates.sh GATE 47 (`code-needles`): registered retracted phrasings
+# that a NON-markdown tracked text file legitimately contains. GATE 3 scans *.md and
+# reports/evidence/**; every other tracked text file (solve.c, verify.c, *.py, *.sh, *.lean,
+# *.tsv, *.json, ...) is GATE 47's corpus, and the SAME registry (RETRACTED_PHRASES.tsv) is its
+# needle set. GATE 3's allow COLUMN does not apply here — it is filename-scoped and was written
+# for the markdown ledger; a code file needs a row in THIS table instead.
+#
+# WHY A SEPARATE TABLE, AND WHY THIS SHAPE. A phrase legitimately survives in code for exactly two
+# reasons: (a) a CORRECTED block quotes the withdrawn wording in order to withdraw it (solve.c's
+# header, verify.c's and tests.py's WHAT-WAS-WRONG comments), and (b) the gate scripts hold the
+# needles themselves in their own comments (doc_gates.sh, corrections_inventory.sh). Neither is a
+# reason to exempt a FILE: a second, live use of the same phrase in the same file is exactly the
+# defect this gate exists to catch (solve.c:19 carried one fifteen lines below the block that
+# withdrew it). So every row names the FILE, the PHRASE (byte-identical to its registry row), and
+# the MAXIMUM occurrence count measured when the row was written. More occurrences than `max`
+# FAILS; ZERO occurrences FAILS too — a stale allowance is a row that could later hide a new use,
+# and it is reported by name rather than tolerated. Widening a row is a one-line edit that the
+# gate prints on every run.
+#
+# Columns (tab-separated): file <TAB> phrase <TAB> max <TAB> anchor <TAB> reason
+#   anchor = one or more fixed strings separated by `|`; EVERY allowed occurrence must be preceded,
+#   within 170 characters of the folded+flattened file, by one of them. This is the withdrawal
+#   CONSTRUCTION (`This read`, `once gave`, `WHAT WAS WRONG`, the gate's own `fixed string` fixture),
+#   and it is what separates a quote-to-withdraw from a live use — a bare count cannot: the pre-fix
+#   solve.c (ff804bb0^) held the Q-353 phrase exactly ONCE (the live :19 site) and the fixed file holds
+#   it exactly once too (the quote that withdraws it). Measured 2026-09-02; the count-only first cut
+#   passed the pre-fix tree, which is why this column exists.
+# Measured 2026-09-02 (code-fix lane), each count from the same fold+flatten pipeline GATE 3 uses.
+scripts/doc_gates.sh	preserving the classical pairing	1	retracted:	the gate file holds this needle in its own comments / self-test fixtures
+scripts/doc_gates.sh	the exact C1–C7 enumeration	2	registry row	the gate file holds this needle in its own comments / self-test fixtures
+scripts/doc_gates.sh	hard floor k ≥ 13	3	retracted|needles|withdrawn	the gate file holds this needle in its own comments / self-test fixtures
+scripts/doc_gates.sh	hard floor k>=13	6	fixed string|regenerate|assert_fires	the gate file holds this needle in its own comments / self-test fixtures
+scripts/doc_gates.sh	hard floor k >= 13	3	retracted|needles|withdrawn	the gate file holds this needle in its own comments / self-test fixtures
+scripts/doc_gates.sh	C4's attested orientation	1	registered row	the gate file holds this needle in its own comments / self-test fixtures
+scripts/doc_gates.sh	shows no frequencies above the white noise floor	1	THE DEFECT	the gate file holds this needle in its own comments / self-test fixtures
+scripts/doc_gates.sh	All-cells orbit test	1	retired wording	the gate file holds this needle in its own comments / self-test fixtures
+scripts/doc_gates.sh	hit rates); queued	1	registered	the gate file holds this needle in its own comments / self-test fixtures
+scripts/doc_gates.sh	when S(6..8) land	4	THE DEFECT|RED TEST|defect	the gate file holds this needle in its own comments / self-test fixtures
+scripts/corrections_inventory.sh	hard floor k ≥ 13	1	exemption that let	header comment names the TR-4 survivor that motivated the corpus rule
+scripts/corrections_inventory.sh	hard floor k >= 13	1	exemption that let	header comment names the TR-4 survivor that motivated the corpus rule
+verify.c	maps every hexagram to its partner	1	once gave	WHAT-WAS-WRONG comment quotes the SYMMETRY_SEARCH wording it refutes (Codex V2-F53 #4)
+verify.py	maps every hexagram to its partner	2	once gave|RETRACTED_PHRASES.tsv	WHAT-WAS-WRONG comment quotes the SYMMETRY_SEARCH wording it refutes (Codex V2-F53 #4)
+tests.py	maps every hexagram to its partner	1	WHAT WAS WRONG	WHAT-WAS-WRONG comment quotes the SYMMETRY_SEARCH wording it refutes (Codex V2-F53 #4)
+solve.c	finds all orderings	1	This read	header CORRECTED block quotes the withdrawn wording to withdraw it (Q-353 / P44; the :19 site retired ff804bb0)
+solve.c	Enumerates ALL orderings	1	This read	header CORRECTED block quotes the withdrawn wording to withdraw it (Q-353 / P44; the :19 site retired ff804bb0)
+solve.py	To reconstruct the King Wen sequence, satisfy these rules simultaneously	1	The banner used to read	print_rules() comment quotes the retired --rules banner's second line, hard-wrapped across two comment lines, to withdraw it (CX-02)
