@@ -488,7 +488,8 @@ for ln in open('reports/certificates/c3_positional_witnesses.txt'):
     if not ln.startswith('SEQ='):
         continue
     seq = [int(x) for x in ln[4:].split()]
-    assert sorted(seq) == list(range(64))                                 # permutation of H
+    if sorted(seq) != list(range(64)):                                    # permutation of H
+        raise SystemExit(f'FAIL witness {n}: not a permutation of H')
     # C1 is the PAIRING predicate (SPECIFICATION.md: s_{i+1} = partner(s_i) for even i),
     # not permutation-ness. Until 2026-08-01 this line asserted only the permutation and
     # labelled it "C1, C4" — so a witness with broken pair structure would have passed the
@@ -496,15 +497,25 @@ for ln in open('reports/certificates/c3_positional_witnesses.txt'):
     # imported for exactly this. (All 42 archived witnesses re-verified WITH pairing when the
     # gap was found: all pass. The data was sound; the checker was not.)
     _pairs = {frozenset(pr) for pr in verify.PAIRS}
-    assert all(frozenset((seq[2*k], seq[2*k+1])) in _pairs for k in range(32))  # C1
-    assert seq[:2] == [63, 0]                                             # C4 (oriented)
-    assert all(verify.hamming(seq[i], seq[i+1]) != 5 for i in range(63))  # C2
+    if not all(frozenset((seq[2*k], seq[2*k+1])) in _pairs for k in range(32)):  # C1
+        raise SystemExit(f'FAIL witness {n}: C1 pairing broken')
+    if seq[:2] != [63, 0]:                                                # C4 (oriented)
+        raise SystemExit(f'FAIL witness {n}: C4 orientation, head={seq[:2]}')
+    if not all(verify.hamming(seq[i], seq[i+1]) != 5 for i in range(63)):  # C2
+        raise SystemExit(f'FAIL witness {n}: C2 violated (a step of Hamming 5)')
     dist = [0]*7
     for i in range(63): dist[verify.hamming(seq[i], seq[i+1])] += 1
-    assert dist == verify.KW_DIST                                         # C5
-    assert verify.compute_comp_dist(seq) == c3 == 16 + 8*g                # C3/G
+    if dist != verify.KW_DIST:                                            # C5
+        raise SystemExit(f'FAIL witness {n}: C5 spectrum {dist} != {verify.KW_DIST}')
+    if not (verify.compute_comp_dist(seq) == c3 == 16 + 8*g):             # C3/G
+        raise SystemExit(f'FAIL witness {n}: C3/G mismatch '
+                         f'({verify.compute_comp_dist(seq)} vs c3={c3} vs {16 + 8*g})')
     n += 1
-assert n == 42, n
+if n != 42:
+    raise SystemExit(f'FAIL: checked {n} witnesses, expected 42 — '
+                     f'a short count means the input was truncated or empty, '
+                     f'not that the witnesses passed')
+print(f'  [ok] {n} witnesses re-checked independently (permutation, C1, C2, C3/G, C4, C5)')
 PYEOF"
 fi
 

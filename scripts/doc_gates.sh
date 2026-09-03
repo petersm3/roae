@@ -4554,10 +4554,12 @@ import os, sys
 p = 'reports/TR9_PRICING_THE_CONSTRAINTS.md'
 a = '1.3287×10³⁸ (**estimate** — Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸, 0.02%)'
 s = open(p, encoding='utf-8').read()
-assert s.count(a) == 1, 'anchor moved: found %d occurrences' % s.count(a)
+if s.count(a) != 1:
+    raise SystemExit('anchor moved: found %d occurrences' % s.count(a))
 lines = s.split(chr(10))
 hits = [n for n, l in enumerate(lines) if a in l]
-assert len(hits) == 1, 'anchor spans lines or repeats'
+if len(hits) != 1:
+    raise SystemExit('anchor spans lines or repeats')
 open(os.environ['G5BLINEF'], 'w').write(str(hits[0] + 1))
 open(p, 'w', encoding='utf-8').write(s.replace(a, '1.3287×10³⁸', 1))
 G5BPY

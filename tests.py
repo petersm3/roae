@@ -582,9 +582,16 @@ class TestSatC5Subset(unittest.TestCase):
         by unit propagation over the emitted clauses — a genuine SAT decision,
         Sinz counters being UP-complete once the Y/T inputs are fixed) equals
         exactly the valid C1&C2&C4&C5 sequences and the reference DP count;
-      * pinned: the B0 budget and exact |C1&C2&C4&C5| at the group-closed
-        N in {9,13,16} match the values a #SAT/C-binary cross-check must also
-        reproduce (that heavier cross-check is the noted follow-up).
+      * pinned: the B0 budget and CNF construction at the group-closed
+        N in {9,13,16}. The exact |C1&C2&C4&C5| is asserted LIVE AT N=9 ONLY
+        (26,112, recomputed here every run). The N=13 and N=16 counts are
+        carried as DOCUMENTATION of the values `verify.py --recount` gates —
+        this class does not check them, and a reader should not infer from a
+        `"count"` field that it does. `verify.py --recount` reproduces
+        2,063,395,607,040 and 267,765,117,419,520 independently with B0
+        re-derived (RECOUNT_RESULT=PASS); VERIFY.md tabulates both. Their
+        reference DP has a ~10^7-10^9 state space, too heavy for a per-run
+        gate, which is why they are gated there and not here.
     Python-only, stdlib-only, <1 s."""
     DVAL = (1, 2, 3, 4, 6)
     CLS = {1: 0, 2: 1, 3: 2, 4: 3, 6: 4}
@@ -780,10 +787,20 @@ class TestSatC5Subset(unittest.TestCase):
         # heavy for a per-run gate; verified once out-of-band, see the R2 note).
         EXPECT = {
             9:  {"b0": {1: 2, 2: 5, 3: 0, 4: 2, 6: 0}, "count": 26_112, "live": True},
-            13: {"b0": {1: 1, 2: 6, 3: 0, 4: 6, 6: 0}, "count": 2_063_395_607_040, "live": False},
-            16: {"b0": {1: 1, 2: 8, 3: 1, 4: 6, 6: 0}, "count": 267_765_117_419_520, "live": False},
+            13: {"b0": {1: 1, 2: 6, 3: 0, 4: 6, 6: 0}, "count": 2_063_395_607_040, "live": False, "gated_by": "verify.py --recount"},
+            16: {"b0": {1: 1, 2: 8, 3: 1, 4: 6, 6: 0}, "count": 267_765_117_419_520, "live": False, "gated_by": "verify.py --recount"},
         }
+        # 🔴 A DEAD LITERAL MUST BE IMPOSSIBLE TO ADD SILENTLY. A `"count"` guarded by
+        # `"live": False` asserts nothing, but reads exactly like a pinned oracle — this class
+        # carried two such values while its own docstring claimed they were matched. So a
+        # non-live count is only allowed if it NAMES the instrument that does gate it.
         for N, exp in EXPECT.items():
+            if not exp["live"]:
+                self.assertIn("gated_by", exp,
+                              f"N={N}: a non-live 'count' is a dead literal unless 'gated_by' "
+                              f"names the instrument that checks it")
+                self.assertIsInstance(exp["gated_by"], str)
+                self.assertTrue(exp["gated_by"].strip(), f"N={N}: 'gated_by' must not be empty")
             pl, start = sat.subset_pairlist(N)
             self.assertEqual(len(pl), N)
             b0 = sat.derive_b0(pl, start)
@@ -1582,6 +1599,50 @@ class TestNoBareAsserts(unittest.TestCase):
             hits = [n.lineno for n in ast.walk(tree) if isinstance(n, ast.Assert)]
             self.assertEqual(hits, [], f"{f}: bare assert statement(s) at line(s) "
                              f"{hits} — guards must be explicit raises (Q-373)")
+
+    def test_heredoc_python_has_no_assert_statements(self):
+        # 🔴 THE FILE LIST WAS THE BLIND SPOT, NOT THE RULE. The leg above scans a fixed tuple of
+        # .py files, so Python embedded in a shell heredoc was never in scope — and that is where
+        # the trust base actually broke. verify_all.sh's §3b "independent verify.py-path recheck"
+        # is a heredoc carrying seven bare asserts, INCLUDING its `assert n == 42` witness count.
+        # Measured 2026-09-03 on the shipped block: default python3 -> AssertionError, exit 1;
+        # `python3 -O` -> exit 0, having checked ZERO of 42 witnesses, which verify_all.sh's
+        # `check` wrapper reads as PASS. PYTHONOPTIMIZE=1 is an env var a CI image can carry
+        # without the caller ever knowing.
+        # Scanning heredocs closes this for every future one, not just the file that exposed it.
+        import ast, re, subprocess
+        sh = [f for f in subprocess.run(["git", "ls-files", "*.sh"],
+                                        capture_output=True, text=True).stdout.split() if f]
+        self.assertTrue(sh, "git ls-files matched no shell scripts — the scan would be vacuous")
+        # `python3 - <<'TAG' ... TAG` / `python3 - <<TAG`. The quoted-tag form is the common one.
+        HD = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?\s*\n(.*?)\n[ \t]*\1",
+                        re.S)
+        scanned = 0
+        for f in sh:
+            try:
+                body = open(f, encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            for m in HD.finditer(body):
+                block = m.group(2)
+                # Only Python blocks: parse and skip anything that is not valid Python.
+                try:
+                    tree = ast.parse(block)
+                except SyntaxError:
+                    continue
+                if not any(isinstance(n, (ast.Import, ast.ImportFrom, ast.FunctionDef,
+                                          ast.Assert, ast.Assign, ast.For, ast.If))
+                           for n in ast.walk(tree)):
+                    continue
+                scanned += 1
+                off = body[:m.start(2)].count("\n")
+                hits = [n.lineno + off for n in ast.walk(tree) if isinstance(n, ast.Assert)]
+                self.assertEqual(hits, [], f"{f}: bare assert statement(s) in an embedded "
+                                 f"python heredoc at line(s) {hits} — they vanish under "
+                                 f"`python3 -O`, so the block can exit 0 having checked "
+                                 f"nothing (Q-373, V2-F63 #2)")
+        self.assertGreater(scanned, 0, "no python heredoc was parsed — the extractor has rotted "
+                           "and this leg is blind, which is a failure, not a pass")
 
 
 class TestSubtreeCrossAnchors(unittest.TestCase):
