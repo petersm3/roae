@@ -3691,5 +3691,369 @@ class TestGrammarSearchCheckpointIdentity(unittest.TestCase):
         self.assertIn("IGNORED", src, "mismatched rows must be reported, not dropped in silence")
 
 
+class TestSatLane12(unittest.TestCase):
+    """sat.py gates for Codex V2 A09 rows 14/18/19, the 2026-09-03 verdict-emitter sweep and the
+    Q-58 King Wen over-constraint control (lane 12), plus the Fable-review discriminators for
+    model_check() / _print_model_check() (2026-09-03).
+
+    Every test but the byte pin is RED on the pre-2026-09-03 sat.py -- measured by running this
+    class from INSIDE a pristine tree (FAILED: failures=6, errors=2; a run whose subprocesses
+    resolve `sat.py` in an edited cwd while `import sat` comes from elsewhere measures nothing,
+    which is how "7 of 9 pass on pristine" was once reported). The four Fable tests are red on
+    lane 12's own version of the file: no attribution/contradiction tokens, unit seeding that
+    stopped at the first contradicted unit, unknown families excluded silently.
+    Subprocess tests run `sat.py` relative to the cwd, like every other sat test in this file."""
+
+    WITNESS_FILE = os.path.join("reports", "certificates", "c3_positional_witnesses.txt")
+
+    @staticmethod
+    def _seq_lits(seq):
+        """The 31 Y literals of a 64-hexagram sequence in build()'s variable numbering (Y is
+        allocated first: var = (s-1)*NJ + j + 1). Computed from ORIENTS, not from a build()."""
+        lits = []
+        for s in sat.SLOTS:
+            a, b = seq[2 * s], seq[2 * s + 1]
+            j = next(j for j in range(sat.NJ) if (sat.ORIENTS[j][2], sat.ORIENTS[j][3]) == (a, b))
+            lits.append((s - 1) * sat.NJ + j + 1)
+        return lits
+
+    def _witness_seq(self, g):
+        """SEQ of the `G=<g>` row of the shipped C3 positional witness file."""
+        with open(self.WITNESS_FILE) as fh:
+            lines = fh.read().splitlines()
+        for i, ln in enumerate(lines):
+            if ln.startswith("G=%d " % g):
+                return [int(x) for x in lines[i + 1].split("=", 1)[1].split()]
+        raise AssertionError("no G=%d witness in %s" % (g, self.WITNESS_FILE))
+
+    @staticmethod
+    def _full_model(cnf, lits):
+        """Extend `lits` by unit propagation over cnf.cl, then set every free variable false.
+        A test-side propagator: the test may not borrow the propagator under test."""
+        occ = {}
+        for ci, c in enumerate(cnf.cl):
+            for l in c:
+                occ.setdefault(abs(l), []).append(ci)
+        val = {abs(l): l > 0 for l in lits}
+        q = list(val)
+        for c in cnf.cl:
+            if len(c) == 1 and abs(c[0]) not in val:
+                val[abs(c[0])] = c[0] > 0; q.append(abs(c[0]))
+        while q:
+            v = q.pop()
+            for ci in occ.get(v, ()):
+                un, done = [], False
+                for l in cnf.cl[ci]:
+                    w = val.get(abs(l))
+                    if w is None:
+                        un.append(l)
+                    elif w == (l > 0):
+                        done = True; break
+                if not done and len(un) == 1:
+                    val[abs(un[0])] = un[0] > 0; q.append(abs(un[0]))
+        return [v if val.get(v, False) else -v for v in range(1, cnf.n + 1)]
+
+    @staticmethod
+    def _direct_eval(cnf, full):
+        """Direct evaluation of a FULL assignment: (falsified count, {family: count}). No
+        propagation anywhere -- the independent leg model_check() is measured against."""
+        tru = set(l for l in full if l > 0)
+        fam, n = {}, 0
+        for ci, c in enumerate(cnf.cl):
+            if not any((l > 0 and l in tru) or (l < 0 and -l not in tru) for l in c):
+                n += 1; k = cnf.stage_of(ci); fam[k] = fam.get(k, 0) + 1
+        return n, fam
+
+    @staticmethod
+    def _sat(args, env=None):
+        return subprocess.run([sys.executable, "sat.py"] + args, capture_output=True, text=True, env=env)
+
+    @staticmethod
+    def _stub(tmp, body):
+        """A `kissat` stub on a private PATH; returns the env to run with."""
+        d = os.path.join(tmp, "bin"); os.makedirs(d, exist_ok=True)
+        p = os.path.join(d, "kissat")
+        with open(p, "w") as fh:
+            fh.write("#!/bin/sh\n" + body + "\n")
+        os.chmod(p, 0o755)
+        return dict(os.environ, PATH=d + os.pathsep + os.environ.get("PATH", ""))
+
+    def _model_file(self, tmp, lits, name="m.txt"):
+        p = os.path.join(tmp, name)
+        with open(p, "w") as fh:
+            fh.write("v " + " ".join(map(str, lits)) + " 0\n")
+        return p
+
+    def test_decode_is_target_aware_and_a_verdict_emitter(self):
+        # Codex V2 A09 row 14 (+ the verdict sweep): --decode consulted no target and exited 0
+        # whatever it found. RED on the shipped file: a KW model under ccn4-kwfail printed
+        # `verify=True` with no CC-N4 line and rc 0. Note the FAIL here comes from the MODEL leg
+        # alone: solve.reg_ccn4(KW) is True, so TARGET_RULES_VIOLATED is `none` and only the
+        # formula (faces permuted) refuses the assignment.
+        with tempfile.TemporaryDirectory() as tmp:
+            m = self._model_file(tmp, self._seq_lits(KW))
+            r = self._sat(["--decode", m, "ccn4-kwfail"])
+            lines = r.stdout.splitlines()
+            self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr[-300:])
+            self.assertIn("DECODE_VERDICT=FAIL", lines)
+            self.assertIn("TARGET_RULES_VIOLATED=none", lines)
+            self.assertIn("MODEL_CHECK=FALSIFIED", lines)
+            fam = [ln for ln in lines if ln.startswith("MODEL_FALSIFIED_BY_FAMILY=")]
+            self.assertEqual(len(fam), 1, r.stdout)
+            self.assertIn("rule ccn4", fam[0])      # first-conflict attribution on a partial model
+            # the same model under the target KW DOES satisfy: PASS, exit 0, model SATISFIED
+            r = self._sat(["--decode", m, "ccn4-kwtest"])
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-300:])
+            self.assertIn("DECODE_VERDICT=PASS", r.stdout.splitlines())
+            self.assertIn("MODEL_CHECK=SATISFIED", r.stdout.splitlines())
+            # the SAT_CLI.md example: KW under grand-strict is a FAIL with all three named
+            r = self._sat(["--decode", m, "grand-strict"])
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("TARGET_RULES_VIOLATED=gender=2,parity=2,rhythm=2", r.stdout.splitlines())
+
+    def test_five_rules_rescored_and_every_target_rule_is_scorable(self):
+        # Row 14, second leg: target_rules(t) must be a subset of what the re-score can score,
+        # for every target -- goes red the moment a sixth rule is added without a scorer.
+        scores = sat.rule_scores(KW)
+        self.assertEqual(scores, {"parity": 2, "rhythm": 2, "gender": 2, "ccn4": 0, "ccn8": 0})
+        targets = list(sat.RULESETS) + ["five-loo-" + r for r in sat.FIVE_RULES] + \
+                  ["five-sub-ccn4+ccn8", "grander-strict-near-2", "alt-le-14-noY"]
+        for t in targets:
+            self.assertTrue(sat.target_rules(t) <= set(scores), t)
+        # the measured gap, decode form: the shipped G=95 witness has solve.reg_ccn4() == False
+        g95 = self._witness_seq(95)
+        self.assertIs(solve.reg_ccn4(g95), False)
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self._sat(["--decode", self._model_file(tmp, self._seq_lits(g95)), "five-sub-ccn4"])
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("TARGET_RULES_VIOLATED=ccn4=1", r.stdout.splitlines(), r.stdout)
+
+    def test_witness_solver_error_is_not_reported_as_unsat(self):
+        # Codex V2 A09 row 18. RED on the shipped file: a stub exiting 42 with empty stdout
+        # printed `UNSAT (or solver error) at attempt 0` and exited 0.
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self._sat(["--witness", "moore-strict"], env=self._stub(tmp, "exit 42"))
+            self.assertNotEqual(r.returncode, 0, r.stdout)
+            self.assertFalse(any(ln.startswith("UNSAT") for ln in r.stdout.splitlines()), r.stdout)
+            self.assertIn("WITNESS_RESULT=SOLVER_ERROR", r.stdout.splitlines())
+            # a genuine UNSAT: whole line AND exit status 20 -> UNSAT, exit 0
+            r = self._sat(["--witness", "moore-strict"],
+                          env=self._stub(tmp, 'echo "s UNSATISFIABLE"; exit 20'))
+            self.assertEqual(r.returncode, 0, r.stdout)
+            self.assertIn("WITNESS_RESULT=UNSAT", r.stdout.splitlines())
+            # the verdict line without its exit status (and CR-prefixed) is NOT an UNSAT
+            r = self._sat(["--witness", "moore-strict"],
+                          env=self._stub(tmp, 'printf "\\rs UNSATISFIABLE\\n"; exit 0'))
+            self.assertNotEqual(r.returncode, 0, r.stdout)
+            self.assertIn("WITNESS_RESULT=SOLVER_ERROR", r.stdout.splitlines())
+
+    def test_decode_honours_c3_max(self):
+        # Codex V2 A09 row 19. RED on the shipped file: the G=97 / C3=792 witness under
+        # --c3-max 800 printed `fail C3` (literal 776 in the label).
+        g97 = self._witness_seq(97)
+        with tempfile.TemporaryDirectory() as tmp:
+            m = self._model_file(tmp, self._seq_lits(g97))
+            r = self._sat(["--decode", m, "plain", "--c3-max", "800"])
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-300:])
+            self.assertIn("c3<=800 PASS", r.stdout)
+            self.assertNotIn("fail C3", r.stdout)
+            r = self._sat(["--decode", m, "plain"])              # default window: KW's 776 ceiling
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("DECODE_VERDICT=FAIL", r.stdout.splitlines())
+            r = self._sat(["--decode", m, "plain", "--c3-min", "784"])   # the witness file's recipe
+            self.assertEqual(r.returncode, 0, r.stdout)
+
+    def test_arity_keep_and_inapplicable_modifiers_are_errors(self):
+        # Verdict sweep siblings of A09 row 20 / Q-309 / Q-311. RED on the shipped file:
+        # `--emit-cnf plain` printed the help banner and exited 0; `--expect`/`--keep` on
+        # --emit-cnf were parsed and dropped; `--keep` as the last argument was an IndexError.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "x.cnf")
+            r = self._sat(["--emit-cnf", "plain"])
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("wrong argument count", r.stderr)
+            r = self._sat(["--emit-cnf", "plain", out, "--expect", "5", "--keep", tmp])
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("does not apply to --emit-cnf", r.stderr)
+            self.assertFalse(os.path.exists(out))
+            r = self._sat(["--witness", "plain", "--expect", "5"])
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("does not apply to --witness", r.stderr)
+            r = self._sat(["--certify-count", "plain", "--keep"])
+            self.assertNotEqual(r.returncode, 0)
+            self.assertNotIn("Traceback", r.stderr)
+            self.assertIn("--keep needs a directory", r.stderr)
+        r = self._sat([])                                        # no arguments: catalogue, exit 0
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("Subcommands:", r.stdout)
+
+    def test_decode_rejects_empty_and_garbage_models(self):
+        # Q-311 residue. RED on the shipped file: an empty model file was a KeyError traceback
+        # (verify_seq computed C3 over a 2-element decode) and `v 1 abc 0` a ValueError one.
+        with tempfile.TemporaryDirectory() as tmp:
+            e = os.path.join(tmp, "empty.txt"); open(e, "w").close()
+            g = os.path.join(tmp, "garbage.txt")
+            with open(g, "w") as fh:
+                fh.write("v 1 abc 0\n")
+            for path in (e, g):
+                r = self._sat(["--decode", path, "plain"])
+                self.assertNotEqual(r.returncode, 0)
+                self.assertNotIn("Traceback", r.stderr, path)
+
+    def test_witness_checks_the_solver_model_against_the_formula(self):
+        # Verdict sweep: the loop re-verified the decoded SEQUENCE but never the solver's MODEL.
+        # RED on the shipped file: a stub returning the same (C3-failing) model after every
+        # blocking clause was believed 200 times, then the loop fell out with exit 0 and no
+        # verdict line. Now the second answer falsifies the blocking clause -> SOLVER_ERROR.
+        cnf, _ = sat.build("plain")
+        full = self._full_model(cnf, self._seq_lits(self._witness_seq(97)))   # C3 = 792 > 776
+        with tempfile.TemporaryDirectory() as tmp:
+            mp = os.path.join(tmp, "model.txt")
+            with open(mp, "w") as fh:
+                fh.write("s SATISFIABLE\nv " + " ".join(map(str, full)) + " 0\n")
+            r = self._sat(["--witness", "plain"], env=self._stub(tmp, "cat %s; exit 10" % mp))
+        lines = r.stdout.splitlines()
+        self.assertNotEqual(r.returncode, 0, r.stdout[-500:])
+        self.assertIn("WITNESS_RESULT=SOLVER_ERROR", lines)
+        self.assertFalse(any(ln.startswith("WITNESS:") for ln in lines))
+        self.assertLess(sum(1 for ln in lines if ln.startswith("attempt")), 3)
+
+    def test_kw_control_on_certified_unsat_targets(self):
+        # Q-58, the over-constraint leg the Lean module does not cover (build() has no Lean
+        # model; all shipped certificates are UNSAT proofs, where no witness can be decoded).
+        # Executable control at full n=31: the King Wen assignment must falsify ONLY the clause
+        # families the target is about (its theorem family, plus the rule families KW is known
+        # by solve.py's own scorers to violate) and NOTHING else. This is the exclusion form,
+        # which is propagation-order independent (model_check docstring); the family names of
+        # the un-excluded run are not, and are deliberately not asserted here. RED on the
+        # shipped file: neither model_check() nor clause-family marks exist (AttributeError).
+        P, R, G = "rule parity", "rule rhythm", "rule gender"
+        cases = [("alt-le-14", {}, {"alternation bound (alt-le-14)"}),
+                 ("alt-ge-16", {}, {"alternation bound (alt-ge-16)"}),
+                 ("grander-strict", {}, {P, R, G}), ("gender-ccn8", {}, {G}),
+                 ("five-loo-ccn8", {}, {P, R, G}),
+                 ("ccn8-kwfail", {}, {"rule ccn8 (locus 24,25)"}),
+                 ("ccn8-kwchain-not", {}, {"ccn8 chain machinery (ccn8-kwchain-not)"}),
+                 ("kw-pin", {"c3_min": 777}, {"C3 >= 777 bound"})]
+        for target, kw, expect in cases:
+            cnf, Y = sat.build(target, **kw)
+            lits = self._seq_lits(KW)
+            families = set(name for _, name in cnf.marks)
+            self.assertTrue(expect <= families, (target, expect - families))
+            full = sat.model_check(cnf, lits)
+            self.assertEqual(full["verdict"], "FALSIFIED", (target, full))
+            rest = sat.model_check(cnf, lits, exclude_stages=expect)
+            self.assertEqual((rest["falsified"], rest["foreign"]), (0, 0), (target, rest))
+        # and the SAT-expected controls: KW is a model (every clause determined and satisfied)
+        for target in ("plain", "kw-pin", "ccn4-kwtest", "ccn8-kwchain"):
+            cnf, Y = sat.build(target)
+            self.assertEqual(sat.model_check(cnf, self._seq_lits(KW))["verdict"], "SATISFIED", target)
+
+    def test_model_check_is_a_direct_evaluation_on_a_full_model(self):
+        # Fable review 2026-09-03. The witness loop hands model_check() a FULL solver model, so
+        # its tallies there must equal a direct clause evaluation with no propagation at all --
+        # measured here with an independent evaluator, on the formula's own clause families.
+        # For moore-strict the family counts must ALSO equal solve.py's violation scores: the
+        # parity/rhythm clauses are one forbid per violation, so the CNF and the scorer agree
+        # one-for-one on King Wen (2 + 2) -- an encoding-fidelity check, not a bookkeeping one.
+        rng = random.Random(1203)
+        for target, kw, seq, want in (("moore-strict", {}, KW, {"rule parity": 2, "rule rhythm": 2}),
+                                      ("plain", {"not_kw": True}, KW, {"not-kw layout exclusion": 1}),
+                                      ("plain", {}, KW, {})):
+            cnf, Y = sat.build(target, **kw)
+            full = self._full_model(cnf, self._seq_lits(seq))
+            mc = sat.model_check(cnf, full)
+            n, fam = self._direct_eval(cnf, full)
+            self.assertEqual(mc["attribution"], "exact", target)
+            self.assertEqual((mc["falsified"], mc["undetermined"], mc["falsified_by_stage"]),
+                             (n, 0, fam), (target, mc))
+            self.assertEqual(mc["verdict"], "FALSIFIED" if n else "SATISFIED", target)
+            self.assertEqual(fam, want, target)
+            if target == "moore-strict":
+                rs = sat.rule_scores(KW)
+                self.assertEqual((fam["rule parity"], fam["rule rhythm"]), (rs["parity"], rs["rhythm"]))
+            for _ in range(3):                      # a single flipped literal, both legs again
+                i = rng.randrange(len(full)); fl = list(full); fl[i] = -fl[i]
+                mc = sat.model_check(cnf, fl)
+                n, fam = self._direct_eval(cnf, fl)
+                self.assertEqual((mc["falsified"], mc["undetermined"], mc["falsified_by_stage"],
+                                  mc["verdict"]), (n, 0, fam, "FALSIFIED" if n else "SATISFIED"),
+                                 (target, i + 1))
+
+    def test_decode_model_check_is_its_own_leg_and_names_its_scope(self):
+        # Fable review 2026-09-03: the model leg must be able to FAIL a decode whose sequence
+        # leg passes, and the printed family attribution must say which kind it is.
+        with tempfile.TemporaryDirectory() as tmp:
+            m = self._model_file(tmp, self._seq_lits(KW))
+            r = self._sat(["--decode", m, "plain", "--not-kw"])     # KW passes every sequence check
+            lines = r.stdout.splitlines()
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr[-300:])
+            self.assertIn("TARGET_RULES_VIOLATED=none", lines)
+            self.assertIn("c3<=776 PASS", r.stdout)
+            self.assertIn("MODEL_CHECK=FALSIFIED", lines)
+            self.assertIn("MODEL_FALSIFIED_BY_FAMILY=not-kw layout exclusion:1", lines)
+            self.assertIn("MODEL_FAMILY_ATTRIBUTION=first-conflict", lines)
+            self.assertIn("MODEL_INPUT_CONTRADICTORY=0", lines)
+            self.assertIn("DECODE_VERDICT=FAIL", lines)
+            # a literal naming a variable the formula does not have: a model of ANOTHER formula
+            r = self._sat(["--decode", self._model_file(tmp, self._seq_lits(KW) + [10 ** 6], "f.txt"),
+                           "plain"])
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("MODEL_FOREIGN_LITERALS=1", r.stdout.splitlines())
+            self.assertIn("MODEL_CHECK=FALSIFIED", r.stdout.splitlines())
+            # x and -x in one model file: FALSIFIED with no falsified clause -- and it says so
+            r = self._sat(["--decode", self._model_file(tmp, [5, -5], "c.txt"), "plain"])
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("MODEL_INPUT_CONTRADICTORY=1", r.stdout.splitlines())
+            self.assertIn("MODEL_CHECK=FALSIFIED", r.stdout.splitlines())
+            # a full model is evaluated exactly; the formula can be satisfied while the C3
+            # POLICY fails (G=97 has C3 = 792): the two legs disagree the other way round
+            cnf, _ = sat.build("plain")
+            full = self._full_model(cnf, self._seq_lits(self._witness_seq(97)))
+            r = self._sat(["--decode", self._model_file(tmp, full, "full.txt"), "plain"])
+            lines = r.stdout.splitlines()
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("MODEL_CHECK=SATISFIED", lines)
+            self.assertIn("MODEL_FAMILY_ATTRIBUTION=exact", lines)
+            self.assertIn("DECODE_VERDICT=FAIL", lines)
+
+    def test_model_check_seeds_every_unit_clause(self):
+        # Fable review 2026-09-03: seeding stopped at the first contradicted unit clause, so a
+        # kw-pin formula given one anti-pin literal assigned 152 variables and left 237,400
+        # clauses undetermined. The closure must not depend on whether the pin units arrive as
+        # unit clauses of the formula or as input literals.
+        cnf, Y = sat.build("kw-pin")
+        pins = [Y[(s, next(j for j in range(sat.NJ) if sat.ORIENTS[j][0] == s and sat.ORIENTS[j][1] == 0))]
+                for s in sat.SLOTS]
+        a = sat.model_check(cnf, [-pins[0]])
+        b = sat.model_check(cnf, [-pins[0]] + pins[1:])
+        self.assertEqual(a["verdict"], "FALSIFIED")
+        self.assertEqual((a["assigned"], a["undetermined"], a["falsified"]),
+                         (b["assigned"], b["undetermined"], b["falsified"]), (a, b))
+        self.assertLess(a["undetermined"], 1000, a)
+
+    def test_model_check_refuses_an_unknown_family(self):
+        # Fable review 2026-09-03: an exclusion naming no family of the formula excluded nothing
+        # and reported a control it had not run (verifier closure).
+        cnf, Y = sat.build("plain")
+        with self.assertRaises(ValueError):
+            sat.model_check(cnf, self._seq_lits(KW), exclude_stages={"rule parity"})
+
+    def test_emitted_cnf_bytes_pinned(self):
+        # Regression guard, not a red test: the shipped .drat.gz certificates verify only against
+        # byte-identical formulas, and the 2026-09-03 clause-family marks must not move a byte.
+        # Pins measured 2026-09-03 on sat.py at 12bbb7ac (pre-change) == post-change.
+        pins = {"plain": "5d5c3594607ad5c440ee60d42a28c7acc60f06c6a106489b1ab9517b81950c7c",
+                "alt-le-14": "0db4b905cc96b3e3c659b68cb170426bc64dc9afca094141b3e70292d4d7b579",
+                "alt-ge-16": "892c1eab5ef34700ff42a843905a6f8c8f4ac3c0c16e1a7b03bf62913dd093d7"}
+        with tempfile.TemporaryDirectory() as tmp:
+            for target, sha in pins.items():
+                out = os.path.join(tmp, target + ".cnf")
+                r = self._sat(["--emit-cnf", target, out])
+                self.assertEqual(r.returncode, 0, r.stderr[-300:])
+                with open(out, "rb") as fh:
+                    self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), sha, target)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

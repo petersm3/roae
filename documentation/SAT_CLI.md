@@ -234,16 +234,28 @@ sequence and the per-class boundary histogram against the derived budget `B0`.
 This is the standalone form of the `decode()` helper the `--witness` loop uses
 internally.
 
-⚠ **`verify=True` does not mean the model satisfies `TARGET`.** The target's
-literature rules are re-scored and *printed* on the next line, but are **not**
-folded into `verify=` or into the exit status. Measured 2026-09-01: a King Wen
-model built under `plain` and decoded as `grand-strict` prints
-`verify=True  c3=776  c3<=776 PASS` above
-`moore-parity-viol=2 rhythm-breaks=2 gender-viol=2`, and exits 0 — although
-`grand-strict` requires all three of those scores to be zero. `--witness` does
-enforce them (`sat.py:1535-1539`); `--decode` does not. *(Scope added
-2026-09-01: the ground-truth claim on the line above was previously
-unqualified, immediately after naming `TARGET`.)*
+Since 2026-09-03 `--decode` is a **verdict emitter**. After the sequence it
+prints whole-line tokens (`grep -qx`):
+
+| Token | Meaning |
+|---|---|
+| `TARGET_RULES=…` | the literature rules `TARGET` enforces strictly (`none` for base targets) |
+| `TARGET_RULES_VIOLATED=…` | `rule=count` for every enforced rule with a non-zero `solve.py` score, `none`, or `n/a (base checks failed)`; all **five** rules (parity, rhythm, gender, ccn4, ccn8) are re-scored — until 2026-09-03 only three were |
+| `MODEL_CHECK=SATISFIED\|CONSISTENT\|FALSIFIED` | the literals checked against the **formula** by unit propagation: `SATISFIED` = every clause has a true literal; `CONSISTENT` = no clause falsified but some left open (a partial model, e.g. the 31 Y literals of a sequence, leaves counter registers undetermined — *not refuted*, not proven); `FALSIFIED` = a clause with every literal false, contradictory input literals, or a literal naming a variable the formula does not have |
+| `MODEL_FALSIFIED_CLAUSES=` / `MODEL_UNDETERMINED_CLAUSES=` / `MODEL_FOREIGN_LITERALS=` | the tallies behind that verdict |
+| `MODEL_FALSIFIED_BY_FAMILY=family:count;…` | which clause families (C1, C2, C5, `rule parity`, …, `KW pin`, `C3 <= N bound`, …) are falsified. **Scope:** exact when the model assigns every variable (`MODEL_FAMILY_ATTRIBUTION=exact`); for a partial model it is a *first-conflict* attribution (`MODEL_FAMILY_ATTRIBUTION=first-conflict`) — the verdict is propagation-order independent, but which of two clauses forcing opposite values ends up falsified is not, so a family named here beside the expected one may be an artefact of the queue (measured: King Wen's 31 Y literals under `alt-le-14` name `C2 + boundary distance indicators` beside the alternation bound, though KW satisfies C2). The order-independent family-level control is `model_check(cnf, lits, exclude_stages=…)` in `tests.py` (`TestSatLane12`) |
+| `MODEL_INPUT_CONTRADICTORY=0\|1` | the model file asserted both `x` and `-x` |
+| `DECODE_VERDICT=PASS\|FAIL` | `PASS` iff base checks pass, no enforced rule is violated, C3 is inside the requested window (`--c3-max`/`--c3-min`, default `≤ 776`), and `MODEL_CHECK` is not `FALSIFIED`; the exit status is 0 on `PASS`, 1 on `FAIL` |
+
+The model-check leg is independent of the sequence-level leg: a King Wen model
+decoded under `plain --not-kw` passes every sequence check and still fails
+(`MODEL_FALSIFIED_BY_FAMILY=not-kw layout exclusion:1`), because the formula
+excludes it. Until 2026-09-03 `--decode` consulted no target, re-scored three of
+the five rules, carried a literal `776` in place of `--c3-max`, never checked the
+literals against the formula, and exited 0 whatever it printed (measured
+2026-09-01: a King Wen model decoded as `grand-strict` printed `verify=True`
+above three non-zero rule scores and exited 0). An empty model file or a
+non-integer token exits 1 with a message (both were tracebacks before).
 
 ### --emit-cnf … --f1-pairs N
 
@@ -268,15 +280,34 @@ python3 sat.py --witness moore-strict
 ```
 
 Builds the CNF for `TARGET`, runs `kissat -q` on it, and — if
-SATISFIABLE — decodes the solver model's `v`-lines into a 64-hexagram
-sequence, re-verifies it via `solve.py` (`verify_seq`), and checks the
-C3 complement-distance bound (≤ 776, KW's ceiling). If the witness
-fails C3 it adds a blocking clause and iterates (up to 200 attempts)
-until a C3-passing witness is found or the solver returns UNSAT. On
-success prints `WITNESS: [...]` (the explicit ordering); on UNSAT
-prints the UNSAT line and the tail of the solver output. **Requires
-`kissat` on `PATH`** (see the requirements table above); if it is
-missing, `sat.py` exits with a clear install message.
+SATISFIABLE — checks the solver's model against the formula
+(`model_check`, every variable assigned, so the check is a direct
+evaluation), decodes the `v`-lines into a 64-hexagram sequence,
+re-verifies it via `solve.py` (`verify_seq` plus every literature rule
+the target enforces, all five re-scored), and checks the C3
+complement-distance window (`--c3-max`/`--c3-min`; default ≤ 776, KW's
+ceiling). If the witness fails only the *default* C3 window — C3 not in
+the formula — it adds a blocking clause and iterates (up to 200
+attempts). **Requires `kissat` on `PATH`** (see the requirements table
+above); if it is missing, `sat.py` exits with a clear install message.
+
+Since 2026-09-03 the loop ends with a whole-line `WITNESS_RESULT=` token
+and a matching exit status:
+
+| `WITNESS_RESULT=` | Meaning | Exit |
+|---|---|---|
+| `WITNESS` | `WITNESS: [...]` printed — passed base, every enforced rule and the C3 window | 0 |
+| `UNSAT` | the solver printed the whole line `s UNSATISFIABLE` **and** exited 20 | 0 |
+| `SOLVER_ERROR` | anything else from the solver (a bare exit status, a truncated or CR-prefixed verdict line, an `s SATISFIABLE` without exit 10), or a claimed model that does not satisfy the formula — e.g. one that ignores the blocking clauses | 2 |
+| `ENCODING_DIVERGENCE` | a genuine model of the formula decodes to an ordering the formula was meant to exclude: base C1/C2/C5 fails, an *encoded* rule is violated, or C3 falls outside a *natively encoded* window — the Q-58 signal, never blocked-and-retried | 3 |
+| `EXHAUSTED` | 200 blocking rounds without a verdict | 4 |
+
+Until 2026-09-03 a solver exiting 42 with empty stdout was reported as
+`UNSAT (or solver error) at attempt 0` with exit 0 — the same first
+token and exit status as a real UNSAT; 200 exhausted rounds printed no
+verdict line and exited 0; and the solver's model was never checked
+against the CNF (measured with a stub that returned the same assignment
+after every blocking clause: believed 200 times).
 
 ### --rigidity-cnf OUT.cnf [--run]
 
@@ -394,7 +425,7 @@ temp directory.
 | Token | Effect |
 |---|---|
 | `--with-c3` | Include the C3 complement-distance constraint in the encoding (bounded at KW's C3, 776, unless `--c3-max` overrides). |
-| `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Values below the structural minimum C3 = 112 (2·8 self-complementary pairs + 8·12 complement couples at slot distance ≥ 1) are refused with a non-zero exit: no C1 layout attains them, and the unary ladder cannot represent such a bound. Consumes the following token as the integer bound. ⚠ Measured 2026-09-01: unless `--c3-min` is **also** given, `--c3-max N` bounds the **CNF** only — the `--decode` printer (`sat.py:1456`) and the `--witness` acceptance test (`sat.py:1540`) both fall back to a hard-coded `c3 ≤ 776`, so a model with C3 in 777–`N` is reported `fail C3` and, in `--witness`, blocked out and retried. Supplying `--c3-min` (e.g. `--c3-min 112`) selects the arm that does honour `--c3-max`. |
+| `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Values below the structural minimum C3 = 112 (2·8 self-complementary pairs + 8·12 complement couples at slot distance ≥ 1) are refused with a non-zero exit: no C1 layout attains them, and the unary ladder cannot represent such a bound. Consumes the following token as the integer bound. Since 2026-09-03 the `--decode` window label and the `--witness` acceptance test both honour `N` (until then both fell back to a literal `c3 ≤ 776` unless `--c3-min` was also given — measured 2026-09-01 on a C3 = 792 witness under `--c3-max 800`, reported `fail C3`). |
 | `--c3-min N` | Encode C3 ≥ `N` (the ≥ side of the unary couple-distance ladder). Does **not** imply the ≤ 776 ceiling — combine with `--c3-max` to window C3 exactly. Unlike the relaxed one-directional ≤ encoding, the ≥ side is exact (two-sided X↔Y binding plus spurious-true-distance-lit kill clauses), so a model's ladder value equals the decoded ordering's true couple-distance sum. Used by the C3 positional certificates (above-ceiling witness `--c3-min 784`, i.e. G ≥ 96; the G = 95 tie witness via `--c3-min 776 --c3-max 776`; and the `kw-pin --c3-min 777` KW-exactness UNSAT gate). Consumes the following token as the integer bound. |
 | `--not-kw` | Exclude every ordering whose pair-slot **layout** matches King Wen's (slot s = pair s for all s) — KW itself and all its within-pair orientation variants. Since the excluded set contains KW, any witness is ≠ KW, and stronger: it places at least one pair in a non-KW slot (G is orientation-blind, so an orientation-only variant would tie G trivially). |
 | `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count` (not `--witness`). The C5 budget `B0` is derived per subset. Refuses combination with `--with-c3`/`--c3-max`/`--c3-min`/`--not-kw`: the subset instances encode C1&C2&C4&C5 only (before 2026-08-27 those flags were silently ignored here). Consumes the following token as the integer `N`. |
@@ -468,18 +499,27 @@ python3 sat.py --certify-count f1c5 --f1-pairs 9 --expect 26112
 
 ## EXIT STATUS
 
-`sat.py` does not set explicit exit codes for most subcommands; the
-scientific verdict is conveyed on stdout (`vars=/clauses=` summary for
-`--emit-cnf`; `WITNESS: …` / `UNSAT …` for `--witness`). Trust in an
-UNSAT verdict comes from an external DRAT/LRAT certificate checker, not
-from `sat.py`'s own exit status. Exceptions: `--certify-count` exits
-non-zero on a `--expect` `FAIL`, on any toolchain failure, and (like
-`--witness` with `kissat`) when its required external binaries are not
-on `PATH` — the latter with a clear install message. `--rigidity-cnf
---run` exits non-zero when `kissat` is absent, when the verdict is not
-UNSAT, or when `drat-trim` is present and does not verify the proof.
-`--c5-selfcheck` exits 0 iff every verdict token has its passing value.
-An unrecognised flag or subcommand token exits 1.
+The scientific verdict is conveyed on stdout as whole-line tokens
+(`vars=/clauses=` summary for `--emit-cnf`; `DECODE_VERDICT=` for
+`--decode`; `WITNESS_RESULT=` for `--witness`; `C5_…`/`GUARD_…` for
+`--c5-selfcheck`), and since 2026-09-03 the exit status agrees with the
+token: `--decode` exits 0 on `PASS`, 1 on `FAIL`; `--witness` exits 0 on
+`WITNESS`/`UNSAT`, 2 `SOLVER_ERROR`, 3 `ENCODING_DIVERGENCE`, 4
+`EXHAUSTED`. Trust in an UNSAT verdict still comes from an external
+DRAT/LRAT certificate checker, not from `sat.py`'s own exit status.
+`--certify-count` exits non-zero on a `--expect` `FAIL`, on any toolchain
+failure, and (like `--witness` with `kissat`) when its required external
+binaries are not on `PATH` — the latter with a clear install message.
+`--rigidity-cnf --run` exits non-zero when `kissat` is absent, when the
+verdict is not UNSAT (whole line **and** exit status 20, since
+2026-09-03), or when `drat-trim` is present and does not verify the
+proof. `--c5-selfcheck` exits 0 iff every verdict token has its passing
+value. An unrecognised flag or subcommand token exits 1; so does a
+recognised modifier on a subcommand it does not apply to (e.g. `--expect`
+with `--emit-cnf`), a wrong argument count (`--emit-cnf plain` with no
+`OUT.cnf` — it printed the help banner and exited 0 before 2026-09-03),
+and an `OUT.cnf` whose directory does not exist or is not writable
+(checked before the build).
 
 ## NOTES
 
