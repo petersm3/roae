@@ -210,7 +210,7 @@ weakest-remaining chain or command for one is published, and "weakest" is nowher
 candidate set — round 5's own sweep puts its largest-surviving candidate at a ×14.5 cut, below the
 band's floor). The robustness-to-boundary-choice reading rests on it and is correspondingly weak. Extending the *greedy* curve past k = 4 requires ~100× the probe budget (conditional
 masses starve below ~10⁻¹³ hit rates); it was completed 2026-07-05 (S(6)–S(8), TR-4). Reproduce:
-`SOLVE_KNUTH_PIN_SLOTS="3,4,26,27,24,25,20,21" SOLVE_KNUTH_BOUNDARY_COND=1 ./solve --estimate-knuth 2000000000`.
+`SOLVE_KNUTH_PIN_SLOTS="3,4,26,27,24,25,20,21" SOLVE_KNUTH_BOUNDARY_COND=1 ./solve --estimate-knuth 2000000000`. ⚠ **[THREAD PIN MISSING — 2026-09-03 sibling sweep. Per [METHODS](../reports/METHODS.md) §"Reproducibility rule for estimator output", the Knuth estimator's seeds are fixed constants and **the thread count selects the sample**, so a re-run reproduces a published figure only at the identical (probes, threads) pair. This command carries no `SOLVE_THREADS=N`, and the thread count used for the published number is not recorded anywhere in the corpus — so it is **not reproducible exactly as stated**; a reader on a different core count gets a different draw, not this one. The two 5×10¹⁰ invocations were pinned by code batch V-1 (Codex V2-19 #3); these sampled siblings in the same files were not. Note this is a REPRODUCIBILITY defect, not the performance caveat recorded nearby: thread count changes the estimate, not merely the wall time.]**
 
 ## Absolute validation against an exact count (2026-07-04)
 
