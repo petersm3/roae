@@ -713,10 +713,19 @@ theorem circular_ratio_3_to_1 (l : List Nat) (hb : ∀ x ∈ l, x < 64)
    record receives exactly 1/24 of whatever mass the orbit receives.
 
    Formalization notes.
-   * Masses are unnormalized Nat weights: a distribution with rational output
-     probabilities (any computable generator) becomes a Nat weight function after
-     clearing denominators, with `total` the scaled total mass; the conclusion
-     `24 * mass(KW-record) ≤ total` then reads P(KW-record) ≤ 1/24.
+   * Masses are unnormalized Nat weights, and that is the exact scope of what is
+     proved: `mass : γ → Nat` and `total : Nat` are ARBITRARY (every Nat-valued
+     mass function, every Nat bound satisfying `htotal`); the theorems mention
+     no generator, no probability and no ℚ/ℝ (core Lean, no mathlib). A
+     distribution whose 24 orbit-record probabilities and total mass are
+     RATIONAL reduces to this case by multiplying through by a common
+     denominator (finitely many values, so one exists), and the conclusion
+     `24 * mass(KW-record) ≤ total` then reads P(KW-record) ≤ 1/24 — but that
+     reduction is prose, NOT formalized here. Irrational output probabilities
+     are outside the ceiling theorems as stated (an earlier version of this
+     note wrote "any computable generator"; that is the wrong class — a
+     computable sampler can realize irrational probabilities). Only the
+     equality `mass_const_on_kwOrbit` is codomain-generic (any δ).
    * The hypothesis `hconst` (the score takes one value across all valid symmetry
      images of KW) is precisely G-invariance instantiated at KW; the fully
      general lemma `mass_of_invariant_score` shows any mass factoring through a

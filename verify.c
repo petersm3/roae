@@ -208,11 +208,13 @@ static int cls_ix(int d) { for (int i = 0; i < 5; i++) if (CLS[i] == d) return i
  *
  * WHY IT EXISTS. AVAILABILITY FIRST (2026-09-03, Codex V2-L21 #3 / V2-F59 #7):
  * `--kc-repr-normalize` and the SOLVE_REPR_FC A/B are NOT in main's solve.c and
- * are on NO published ref — they live only on the unlanded
- * orbit-port-188-candidate branch, which BRANCH_REGISTRY marks
+ * are on NO published ref AT ALL (zero occurrences on main, v4-compiler,
+ * v4-canonical AND orbit-port-188-candidate; they exist only on an unpushed
+ * local branch). The orb_* functions they wrap are published only on the
+ * unlanded orbit-port-188-candidate branch, which BRANCH_REGISTRY marks
  * snapshot-do-not-cite (VERIFY.md §"NOT AVAILABLE IN THIS TREE"). They are
  * quoted below as the design rationale this oracle answers, not as commands a
- * reader of this tree can run. That branch's --kc-repr-normalize said outright
+ * reader of this tree can run. That unpublished --kc-repr-normalize said outright
  * that "there is NO separate repr oracle in this tree": its only built-in
  * check was IDEMPOTENCE (re-run on the output, expect byte-identical), which
  * is self-consistent and so cannot catch a normalization that is stable but
@@ -331,9 +333,10 @@ static int vc_repr_of_key(const int *pair_order, unsigned char *out) {
  * completion of this key?". That IS the record convention -- forced by
  * partition-invariance, and settled against the cell-scoped alternative -- but it
  * is established by a POST-PASS, not by the merge. orb_normalize_rec_op ->
- * orb_repr_global, exposed as `solve --kc-repr-normalize IN.bin OUT.bin` ON THE
- * UNLANDED orbit-port-188-candidate BRANCH ONLY (NOT on any published ref, NOT in
- * main's solve.c — VERIFY.md §"NOT AVAILABLE IN THIS TREE"; in this tree the
+ * orb_repr_global, exposed as `solve --kc-repr-normalize IN.bin OUT.bin` — the
+ * orb_* functions published only on the UNLANDED orbit-port-188-candidate branch,
+ * the flag itself on NO published ref at all (NOT in main's solve.c — VERIFY.md
+ * §"NOT AVAILABLE IN THIS TREE"; in this tree the
  * convention is an acceptance-test CONTRACT, with no shipped tool that applies
  * it), is what applies it. Against a raw merge output that pass has not run, so --check-repr
  * disagrees on exactly the records the post-pass would rewrite: measured

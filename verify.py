@@ -135,7 +135,14 @@ def canonical(record):
 # ---------------------------------------------------------------------------
 # INDEPENDENT repr(k) ORACLE  (--check-repr)
 #
-# WHY THIS EXISTS. solve.c's --kc-repr-normalize states outright that "there is
+# WHY THIS EXISTS. `--kc-repr-normalize` is NOT in main's solve.c and is on NO
+# published ref AT ALL (zero occurrences on main, v4-compiler, v4-canonical and
+# orbit-port-188-candidate; it exists only on an unpushed local branch). The
+# orb_* functions it wraps are published only on the unlanded
+# orbit-port-188-candidate branch, which BRANCH_REGISTRY marks
+# snapshot-do-not-cite (VERIFY.md §"NOT AVAILABLE IN THIS TREE"). It is quoted
+# here as design rationale, not as a command a reader of this tree can run.
+# That unpublished flag states outright that "there is
 # NO separate repr oracle in this tree": its only built-in check is IDEMPOTENCE
 # (re-run on the output, expect byte-identical), which is self-consistent and
 # therefore cannot catch a normalization that is stable but WRONG. The
@@ -230,7 +237,12 @@ def check_artifact(path, count=-1, offset=0):
     record convention -- forced by partition-invariance, and settled against the
     cell-scoped alternative -- but it is established by a POST-PASS, not by the
     merge: orb_normalize_rec_op -> orb_repr_global, exposed as
-    `solve --kc-repr-normalize IN.bin OUT.bin`. Against a raw merge output that
+    `solve --kc-repr-normalize IN.bin OUT.bin` -- the orb_* functions are
+    published only on the unlanded orbit-port-188-candidate branch, and the
+    flag itself is on NO published ref at all (NOT in main's solve.c; VERIFY.md
+    section "NOT AVAILABLE IN THIS TREE"; in this
+    tree the convention is an acceptance-test CONTRACT, with no shipped tool
+    that applies it). Against a raw merge output that
     pass has not run, so check_repr() disagrees on exactly the records the
     post-pass would rewrite. Measured 2026-08-15 over 1,776,347,935 records: a
     regionally varying 1.06%-42.2%, INCOMPUTABLE=0 throughout. Expected, not a

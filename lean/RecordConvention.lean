@@ -32,12 +32,27 @@
       NOTE (2026-08-15): a --check-repr sweep of the 1.78e9-record merge
       artifact disagreed with this definition on 1.06%-42.2% of records,
       regionally, with INCOMPUTABLE=0. That is NOT a defect and NOT a
-      divergence: solutions.bin is a PRE-NORMALIZATION artifact. The
-      global repr is applied by orb_normalize_rec_op -> orb_repr_global,
-      exposed as `solve --kc-repr-normalize IN.bin OUT.bin` (task #20),
-      which has not been run on it. The disagreeing records ARE the
-      post-pass's work-list, so --check-repr is the correct acceptance
-      test for the post-pass OUTPUT and is expected to fail on its input.
+      divergence: solutions.bin is a PRE-NORMALIZATION artifact — main's
+      merge stores the v1/v3 visited-min representative described in
+      CONTEXT above, and nothing in this tree claims that artifact carries
+      the v4 convention. The global repr would be applied by a post-pass,
+      orb_normalize_rec_op -> orb_repr_global, exposed as
+      `solve --kc-repr-normalize IN.bin OUT.bin` (task #20).
+      AVAILABILITY (2026-09-03, Codex v2): that flag is in NO published
+      ref's solve.c — zero occurrences on main, v4-compiler and
+      v4-canonical — and every solve.c orb_* symbol named in this file
+      (orb_normalize_rec_op, orb_repr_global, orb_recanon,
+      orb_recanon_dfs, orb_expand_record) is published only on
+      orbit-port-188-candidate, which BRANCH_REGISTRY.tsv classes
+      "snapshot" / "CANDIDATE, EXPLICITLY NOT LANDED" (do not cite). So
+      in this tree the v4 convention is an acceptance-test CONTRACT with
+      no shipped tool that applies it (VERIFY.md §"NOT AVAILABLE IN THIS
+      TREE"); "has not been run" is not the situation — a reader of main
+      CANNOT run it. The argument does not depend on the tool: the
+      disagreeing records are exactly those any normalization pass would
+      rewrite, so --check-repr (verify.py / verify.c, both in this tree)
+      is the correct acceptance test for an artifact that CLAIMS the v4
+      convention and is expected to fail on solutions.bin, which does not.
 
       Guard against one misreading, made and retracted on 2026-08-15:
       orb_recanon (which pins slots 0..3 from a member CELL's prefix) is
@@ -87,7 +102,11 @@
     valid completion IS the lex-min"), machine-checked at the model level.
 
   Bridge facts — the honest trust boundary (NOT machine-checked; the
-  PartitionInvariance.lean B1–B4 pattern, continued numbering):
+  PartitionInvariance.lean B1–B4 pattern, continued numbering). B6 names
+  solve.c code (`orb_recanon`) that is published on orbit-port-188-candidate
+  ONLY (see the AVAILABILITY note above): a reader of main can check the
+  model theorems but cannot inspect the C side of THAT bridge fact in a
+  citable tree. B5 and B7 describe main's per-cell DFS.
   · B5 (walk-order monotonicity): solve.c's per-cell DFS visits nodes in
     a fixed budget-independent order, so the visited leaf/key set at
     budget B is a subset of that at budget B' ≥ B (truncation nesting);
