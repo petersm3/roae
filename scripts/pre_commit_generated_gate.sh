@@ -1,0 +1,187 @@
+#!/bin/bash
+# Pre-commit gate for GENERATED artifacts (task #85).
+#
+# WHY THIS EXISTS
+#   Generated output under example/ has now been hand-edited THREE times
+#   (example/report.html at dbba77d was caught by the operator, not by a gate).
+#   `doc_gates.sh generated` detects it — but nothing ever forced that gate to
+#   run before a commit, so detection depended on someone remembering. Memory-
+#   based discipline is exactly what this project's retrospective says does not
+#   work; this makes it mechanical.
+#
+# INSTALL — via the DISPATCHER, never as a bare symlink to this file. Until 2026-09-02 this
+# header prescribed `ln -s ../../scripts/pre_commit_generated_gate.sh .git/hooks/pre-commit`,
+# which is exactly the install scripts/pre_commit_gate.sh exists to prevent: a hook pointing at
+# this gate alone SILENTLY DROPS the registry gate (see the dispatcher's header and
+# DEVELOPMENT.md "Git hooks"). One command per clone, no chmod (the target carries its exec bit):
+#
+#   ln -sf ../../scripts/pre_push_gate.sh .git/hooks/pre-push && ln -sf ../../scripts/pre_commit_gate.sh .git/hooks/pre-commit
+#
+# Or invoke this gate directly:  bash scripts/pre_commit_generated_gate.sh && git commit
+#
+# WHEN IT FIRES
+#   Only when the commit touches the generator or one of its outputs. A commit
+#   that touches neither is not slowed down at all.
+#
+# FAIL DIRECTION: CLOSED, deliberately, and opposite to the Stage G ENOSPC guard.
+#   That guard fails OPEN because a false stop costs a Spot restart. Here a false
+#   stop costs one `git commit` retry, while a false pass ships a fabricated
+#   number into the published record. Cheap to be wrong in the blocking direction.
+#
+# NO PRIVATE BYPASS. There is deliberately no SKIP=1 env var: an env-var escape
+# hatch is how a gate quietly stops running. `git commit --no-verify` already
+# exists, is standard, and is visible in the operator's own command line.
+#
+# WHAT IT DOES *NOT* COVER — read scripts/doc_gates.sh around gate_generated
+# before trusting this. THIS PARAGRAPH'S CAVEAT IS CLOSED, and the closed form is
+# kept rather than deleted because the hole was real for thirteen months. It read:
+# the `generated` gate compares NON-NUMERIC lines only for
+# report.txt/report.md/README.md, because roae.py seeds nothing by default
+# (roae.py:22) and Monte-Carlo figures differ every run, so a hand-edited DIGIT in
+# example/report.txt is caught by nothing — measured, and documented at
+# doc_gates.sh's "ITEM A2" comment; closing it means shipping example/ with
+# `--seed` so the comparison can be byte-exact, which changes published artifacts
+# and is an operator decision, not a gate edit. THAT DECISION WAS TAKEN
+# 2026-09-04: example/ is regenerated and shipped under `--seed 20260904`, GATE 8
+# regenerates under the same seed, and all ELEVEN tracked artifacts are compared
+# BYTE-EXACT, digits included. This hook still only FORCES the gate to run; what
+# widened is the gate, not the hook.
+set -u
+
+REPO_ROOT="$(git rev-parse --show-toplevel)" || exit 1
+cd "$REPO_ROOT" || exit 1
+
+# The generator plus every artifact derived from it.
+#
+# Codex v2 / gate-population class: this was a HARDCODED list of six, while example/
+# holds TWELVE tracked generated files. hexagrams.{csv,json,svg} and all four wave.*
+# were unguarded -- a corrupted hexagrams.csv staged cleanly with rc=0. A hardcoded
+# population silently narrows every time the generator gains an output, which is the
+# same defect shape as GATE 3 (blind to C string literals) and GATE 25 (excludes
+# lean/). DERIVE it instead: roae.py plus everything tracked under example/.
+WATCHED=$(printf 'roae.py\n'; git ls-files example/ 2>/dev/null)
+# A population that collapses is an error, not an empty watch list. If git ls-files
+# returns nothing the gate would silently watch only roae.py and pass everything else.
+if [ "$(printf '%s\n' "$WATCHED" | grep -c .)" -lt 2 ]; then
+    echo "pre-commit: GENERATED_GATE=ERROR could not enumerate example/ — refusing to certify" >&2
+    exit 1
+fi
+
+# SWEEP (2026-09-02), same class as the WATCHED-population charge one line up: BOTH of the
+# next two emptiness tests used to be reachable from a FAILED command as well as from a
+# genuinely empty result, and both arms exit 0. A `git diff --cached` that errors gives an
+# empty $STAGED, and the hook then certifies a commit it never looked at. Status first,
+# emptiness second.
+if ! STAGED=$(git diff --cached --name-only --diff-filter=ACM); then
+  echo "pre-commit: GENERATED_GATE=ERROR could not read the index (git diff --cached failed)." >&2
+  echo "  Refusing to certify a commit whose contents this hook could not enumerate." >&2
+  exit 1
+fi
+[ -n "$STAGED" ] || exit 0
+
+# grep's exit codes are three-valued and only ONE of them means "clean": 0 = matched,
+# 1 = no match, >=2 = ERROR. `|| true` collapsed all three, so a grep that failed (bad
+# pattern file, unreadable fd, resource limit) read as "this commit touches no generated
+# artifact" and the hook exited 0.
+HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/null); _hrc=$?
+if [ "$_hrc" -ge 2 ]; then
+  echo "pre-commit: GENERATED_GATE=ERROR the staged-path match failed (grep rc=$_hrc)." >&2
+  echo "  An error is not 'nothing matched'. Refusing to certify." >&2
+  exit 1
+fi
+[ -n "$HITS" ] || exit 0
+
+echo "pre-commit: generated artifacts touched by this commit:"
+printf '  %s\n' $HITS
+
+# The gate reads the WORKING TREE, but the commit records the INDEX. If those
+# disagree for a watched path, the gate would validate bytes that are not the
+# bytes being committed and report a pass for them. Refuse rather than mislead.
+DIRTY=""
+for f in $HITS; do
+  if ! git diff --quiet -- "$f" 2>/dev/null; then DIRTY="$DIRTY $f"; fi
+done
+if [ -n "$DIRTY" ]; then
+  echo "pre-commit: REFUSING — these paths differ between the index and the working tree:"
+  printf '  %s\n' $DIRTY
+  echo "  The gate inspects the working tree, so it would be checking bytes this"
+  echo "  commit will not contain. Stage them (git add) or stash the difference."
+  exit 1
+fi
+
+if [ ! -x scripts/doc_gates.sh ] && [ ! -f scripts/doc_gates.sh ]; then
+  echo "pre-commit: REFUSING — scripts/doc_gates.sh is missing, so the artifacts in"
+  echo "  this commit cannot be checked. That is a reason to stop, not to proceed."
+  echo "PRECOMMIT_GENERATED=COULD-NOT-RUN"
+  exit 1
+fi
+
+# 🔴 SIBLING OF FINDING_FAILOPEN_CLASS INSTANCE 38, swept 2026-09-02. This gate is BLOCKING, so a
+# crashed doc_gates.sh stops the commit rather than passing it — but the message below sent the
+# reader to "Fix the SOURCE (roae.py) and regenerate", which is the wrong repair for a gate that
+# never looked at an artifact. A blocking gate can still misattribute, and misattribution costs a
+# regeneration cycle chasing a defect that is not there. `bash -n` first: 11 ms against ~62 s for
+# the gate itself. THE BLOCKING BEHAVIOUR IS UNCHANGED — only which failure it names.
+if ! DG_PARSE_ERR=$(bash -n scripts/doc_gates.sh 2>&1); then
+  echo "pre-commit: 🔴 BLOCKED — COULD NOT RUN. scripts/doc_gates.sh does not parse, so the"
+  echo "  generated-artifact gate never executed and NOTHING about example/ was checked."
+  echo "  ${DG_PARSE_ERR:-bash -n returned non-zero with no message}"
+  echo "  DO NOT regenerate artifacts in response to this — no artifact was compared. The likely"
+  echo "  cause is another unit mid-edit on scripts/doc_gates.sh. Re-run when 'bash -n' is quiet."
+  echo "PRECOMMIT_GENERATED=COULD-NOT-RUN"
+  exit 1
+fi
+
+echo "pre-commit: running doc_gates.sh generated ..."
+bash scripts/doc_gates.sh generated; _dgrc=$?
+# 0 = clean, 1 = findings, anything else = the gate did not produce a verdict (its usage arm exits
+# 2; 126/127 exec; >=128 signal). Only 1 means "the artifacts disagree with roae.py".
+if [ "$_dgrc" -ne 0 ] && [ "$_dgrc" -ne 1 ]; then
+  echo
+  echo "pre-commit: 🔴 BLOCKED — COULD NOT RUN. 'doc_gates.sh generated' exited $_dgrc, which is"
+  echo "  neither clean(0) nor findings(1). It parsed and then aborted — an unknown mode on an"
+  echo "  older tree, a kill under CPU contention, or an internal exit 2. NO artifact comparison"
+  echo "  completed, so this says nothing about example/. Do NOT regenerate; re-run."
+  echo "PRECOMMIT_GENERATED=COULD-NOT-RUN"
+  exit 1
+fi
+if [ "$_dgrc" -eq 0 ]; then
+  echo "pre-commit: generated-artifact gate PASSED"
+  # SCOPE, restated because it used to be WRONG in the reassuring direction. Until
+  # 2026-09-02 this NOTE said the WATCHED population had been widened to all twelve
+  # tracked example/ paths while the COMPARISON still covered only the five reports --
+  # so staging a corrupted example/hexagrams.csv fired this hook, ran a gate that never
+  # looked at it, and printed PASSED. Measured (rc=0). GATE 8 LEG 7 now compares the
+  # seven data artifacts BYTE-EXACT, digits included, and this text describes what is
+  # actually checked rather than what was intended.
+  # WIDENED 2026-09-04 from three files to FOUR, then from NON-NUMERIC to BYTE-EXACT later
+  # the same day. example/report.pdf was removed that morning (it embedded the complete
+  # unsubsetted DejaVu font programs) and it was GATE 8 LEG 5 — the only leg that compared
+  # report.html DIGIT-FOR-DIGIT — so for a few hours all four report artifacts were
+  # digit-blind. That afternoon example/ was regenerated and reshipped under
+  # `--seed 20260904`, GATE 8 regenerates under the same seed, and legs 1-4 are now byte
+  # comparisons. There is no digit-blind file left in this gate's scope, and this text says
+  # so rather than leaving the earlier caveat to be read as still live.
+  echo "  SCOPE: GATE 8 compares ALL ELEVEN tracked example/ artifacts BYTE-EXACT, digits"
+  echo "  included: report.txt/report.md/README.md/report.html against a fresh roae.py run"
+  echo "  at --seed 20260904 (the seed example/ is shipped under, printed into the reports"
+  echo "  themselves), README.md against report.md, and hexagrams.{csv,json,svg}, wave.dot,"
+  echo "  wave.dot.png, wave.dot.svg and wave.mid against their own exports."
+  echo "PRECOMMIT_GENERATED=CLEAN"
+  exit 0
+fi
+
+echo
+echo "pre-commit: BLOCKED — the generated-artifact gate failed."
+echo "  Fix the SOURCE (roae.py) and regenerate; never edit the artifact by hand."
+echo "  PASS THE SEED: example/ is shipped as one fixed draw under --seed 20260904, and an"
+echo "  unseeded regeneration will differ on every Monte Carlo figure."
+echo "    python3 roae.py --all --seed 20260904 > example/report.txt"
+echo "    ( cd example && python3 ../roae.py --markdown --seed 20260904 )"
+echo "    cp example/report.md example/README.md"
+echo "    ( cd example && python3 ../roae.py --html --seed 20260904 )"
+echo "    for f in csv json svg dot midi; do ( cd example && python3 ../roae.py --\$f --seed 20260904 ); done"
+echo "  If you are certain this is wrong, 'git commit --no-verify' bypasses it"
+echo "  and leaves that decision visible in your shell history."
+echo "PRECOMMIT_GENERATED=FINDINGS"
+exit 1

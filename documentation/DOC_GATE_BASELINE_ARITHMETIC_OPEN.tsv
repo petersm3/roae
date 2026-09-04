@@ -1,0 +1,19 @@
+# GATE 59 (baseline-arithmetic) adjudicated-open sites. TAB-separated: file, K, N, M, reason.
+# A row must match a live "K of the N ... (in)eligible ... baseline is 1/M" defect; an unmatched row FAILS the gate.
+# Delete the row in the same change that fixes the site.
+#
+# 🟢 SHOWN DISCRIMINATING 2026-09-03 (Q-164 lane). Until today this table stood at ZERO data rows
+# with NO fixture anchored on it, which means it had never demonstrated that a row here actually
+# HOLDS anything — and an empty registry is indistinguishable from a working one. Measured, by
+# hand, against the live gate (mutations reverted by exact reverse edit, never `git checkout`):
+#   seed TWO defective sentences (7 of 31 ineligible -> 1/97; 8 of 31 -> 1/98) into
+#   documentation/LITERATURE_RULES_POPULATION_TESTS.md and TWO matching rows here
+#     -> rc 0, BOTH printed [OPEN], census "4 sentence(s) ... 2 adjudicated-open";
+#   delete row B only
+#     -> rc 1, "[FAIL] ... 8 of 31 ineligible -> baseline 1/98, but N-K arithmetic gives 1/23"
+#        WHILE row A is still printed [OPEN] in the same run.
+# One figure held, one figure failed, same corpus, same run: the row is what holds the figure.
+# The TWO-sentence form is deliberate. With one sentence, the post-deletion tree is byte-for-byte
+# what an unregistered defect already produces, which proves the reaction without proving the
+# mechanism. The fixture pair that encodes this is a patch to scripts/doc_gates.sh handed on in
+# roae-private/LANE_SWEEP_2026_09_03.md, because that script belongs to another lane.

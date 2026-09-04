@@ -1,6 +1,7 @@
 {
   "description": "King Wen sequence hexagram data",
-  "source": "https://en.wikipedia.org/wiki/King_Wen_sequence",
+  "sequence_source": "https://en.wikipedia.org/wiki/King_Wen_sequence",
+  "label_source": "derived from the two trigrams; not a translation",
   "hexagrams": [
     {
       "position": 1,

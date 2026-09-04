@@ -14,9 +14,13 @@
 # (The Trigrams of Han, App.2) rising/falling rhythm; Schulz 1990 (JCP 17:3) gender/
 # position-parity (exception noted by Zhu Yuansheng, 13th c.), elaborated Cook 2006.
 # Developed with AI assistance (Claude, Anthropic).
-import json, sys
+import json, os, sys
 from collections import Counter
 from itertools import combinations
+# `python3 f11_events.py` is published as runnable FROM THIS DIRECTORY (RESULTS.md:3); solve.py lives
+# at the repo root, three levels up. Same idiom as the sibling instruments under f1/, f5/, r11/.
+# Measured 2026-09-02 before this line: ModuleNotFoundError: No module named 'solve'.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..')))
 import solve
 
 KW = list(solve.binary_hexagrams)

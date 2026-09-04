@@ -5,13 +5,38 @@ Prior versions: v0 (unstructured record stream, no header) — superseded.
 
 ## Overview
 
-`solutions.bin` contains every unique pair ordering of 64 I Ching hexagrams
-that satisfies constraints C1-C5. The file layout is:
+`solutions.bin` contains the unique pair orderings of 64 I Ching hexagrams
+satisfying constraints C1-C5 **that the producing run found within its node
+budget** — not every such ordering. Every enumeration this project publishes is
+budgeted: each cell stops at its node allowance rather than completing, so a
+`solutions.bin` is an exactly-reproducible *slice* and its record count is a
+**lower bound**, never the cardinality of the C1-C5 space. (Corrected
+2026-08-28: this sentence read "contains every unique pair ordering … that
+satisfies constraints C1-C5", with no budget qualifier anywhere in the file —
+an unscoped completeness claim that the rest of the corpus, and
+[`SEARCH_SPACE_SIZE.md`](SEARCH_SPACE_SIZE.md), contradict.) The file layout is:
 
     [ 32-byte header ] [ N × 32-byte records ]
 
 Records are sorted (by `compare_solutions` — see §Sort order) and
 deduplicated (one record per canonical pair-sequence — see §Deduplication).
+
+**On-disk framing — read this before writing a reader.** Since #169, `solve`
+writes `solutions.bin` **gzip-framed by default** (`SOLVE_COMPRESS=1`; the
+filename does not change). Everything in this document — the 32-byte header,
+the `32 + i*32` record offsets, the file-size arithmetic — describes the
+**logical (decompressed)** byte stream. Every canonical sha256, including the
+one in `solutions.sha256`, is computed over that logical stream:
+
+    gzip -dc solutions.bin | sha256sum        # gz-framed (default)
+    sha256sum solutions.bin                   # only under SOLVE_COMPRESS=0
+
+A reader should sniff the gzip magic `1f 8b` at offset 0 and decompress
+first; `solve --verify`, `solve --validate` and `verify.py` all do this
+automatically. Set `SOLVE_COMPRESS=0` at enumeration time to get the raw
+stream on disk — the logical content, and therefore the sha, is identical
+either way. *(Documented 2026-08-01: this file previously described only the
+raw layout, the same omission corrected in TR-3 v1.9.)*
 
 ## File header (32 bytes)
 
@@ -33,9 +58,28 @@ are trivial.
 **Reproducibility.** The header contains only deterministic-from-input
 fields. No timestamps, git hashes, hostnames, or build identifiers live
 here — they live in the sidecar `solutions.meta.json`. As a result,
-`sha256(solutions.bin)` is a pure function of the enumeration inputs
-(node limit, depth, constraints) and is reproducible across runs,
-machines, and years.
+`sha256` of `solutions.bin`'s **logical (decompressed) stream** is a pure
+function of the enumeration inputs
+(depth, the per-sub-branch budget, constraints) ⚠ **[CORRECTED 2026-09-01 — this read "(node
+limit, depth, constraints)". `SOLVE_NODE_LIMIT` is the *nominal* global budget; the DFS enforces
+`SOLVE_PER_SUB_BRANCH_LIMIT`, and when that is set explicitly — as every published depth-3 recipe
+sets it — `SOLVE_NODE_LIMIT` does not affect the output at all
+([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility parameters"). The node limit reaches the sha
+only through auto-divide, i.e. when no explicit per-sub-branch limit is given.]** and is
+reproducible across runs,
+machines, and years **within the tested toolchain class documented in
+[DEVELOPMENT.md](DEVELOPMENT.md)** — that scope is not decoration: a
+host-level drift event is on the record ([TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md)),
+and the 100B anchors are build-recipe specific
+([CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
+
+⚠ **[CORRECTED 2026-09-01 — the sentence above wrote the hash as a
+function of the file `solutions.bin` rather than of that file's logical
+stream. Under the default gz framing the bytes on disk additionally depend
+on `SOLVE_COMPRESS` and `SOLVE_GZIP_LEVEL`; only the decompressed stream is
+the invariant every canonical sha in this project is taken over (§Overview,
+"On-disk framing"). The toolchain-class scope stated above is unaffected and
+still applies.]**
 
 ## Sidecar metadata (`solutions.meta.json`)
 
@@ -61,9 +105,20 @@ just a human-readable breadcrumb. Example:
       "generated_utc": "2026-04-18T01:45:12Z"
     }
 
+The `generator` placeholder above is only filled in when the binary was
+built with `-DGIT_HASH` (see §"Reproducing from source"); all five
+`solutions.meta.json` files shipped in this repository read
+`solve.c git unknown` instead.
+
 The sidecar contains timestamp and git hash, so **it is NOT byte-
-reproducible across runs** — deliberately. The canonical artifacts
-(`solutions.bin` and `solutions.sha256`) are.
+reproducible across runs** — deliberately. `solutions.bin`'s **logical
+stream** is; the bytes on disk are not, since they also depend on
+`SOLVE_COMPRESS` and `SOLVE_GZIP_LEVEL` (§Overview, "On-disk framing").
+⚠ **[CORRECTED 2026-08-28 — this read "The canonical artifacts (`solutions.bin` and
+`solutions.sha256`) are." `solutions.sha256` is NOT byte-reproducible either: `solve.c` writes a
+`# Date:` line into it on every run. Only its FIRST LINE, the bare digest, is an identity. The
+sentence drew a contrast with the sidecar on precisely the property both files share. See
+CORRECTIONS.md]**
 
 ## Record format
 
@@ -74,7 +129,15 @@ encodes the pair at position `i` of the sequence:
 
 - **pair_index** (bits 7-2): index into the pair table (0-31)
 - **orient** (bit 1): 0 = natural order (a, b), 1 = reversed (b, a)
-- **bit 0**: unused, always 0
+- **bit 0**: reserved — **MUST be zero; reject a record with it set.** ⚠ **[NORMATIVE
+  STRENGTH ALIGNED 2026-09-03 — this read "unused, always 0", which describes the writer and
+  says nothing to a reader. Both shipped readers already REJECT a nonzero bit 0 (`verify.py`
+  rc=1, "Format errors: 1 (records with reserved bit 0 set)"; `./solve --verify` rc=30), and
+  [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) §"Step 3. Decode one record to a 64-hexagram
+  sequence" has said "MUST be zero — validate" since 2026-09-01. This file is the normative
+  format spec and was the weakest statement of the three. The header's own reserved field
+  (§"File header (32 bytes)", bytes 16–31) already said MUST. Charged by Codex T04 as a writer-versus-reader
+  split, tracked as Q-330(3).]**
 
 To decode byte `i`:
 
@@ -134,8 +197,17 @@ Records are deduplicated by **canonical pair ordering**: orientation bits
 treated as the same canonical ordering.
 
 **Exactly one record per canonical class is retained**, and the
-deterministic choice is **the lexicographically smallest orient variant by
-full-byte comparison**. This matters for byte-exact reproducibility: two
+deterministic choice is **the lexicographically smallest orient variant
+among those the run encountered** — `solve.c:4471-4482` keeps a running
+byte-wise minimum over the variants that are actually inserted, which is
+what makes parallel `--sub-branch` merges deterministic. **It is not the
+class-global minimum**: every enumeration this project publishes is
+budgeted (§Overview), so no published run visits every valid orient
+variant of every class, and `solutions.bin` is a pre-normalization
+artifact — see [VERIFY.md](VERIFY.md), **"`solutions.bin` is a
+PRE-NORMALIZATION artifact"**.
+
+This matters for byte-exact reproducibility: two
 conformant implementations that both enumerate every valid orient variant
 and then dedup MUST keep the same variant, or their `solutions.bin` shas
 will differ despite containing equivalent information. A re-implementation
@@ -143,10 +215,32 @@ that keeps, say, the lexicographically-largest orient variant would
 produce a correct file under C1-C5 but NOT a bit-for-bit match against
 the reference.
 
+⚠ **[CORRECTED 2026-09-01 — the retained-record sentence at the head of
+this section previously stated the choice to be the lexicographically
+smallest orient variant by full-byte comparison, without qualification and
+ahead of the condition the paragraph above attaches to it. `solve.c`
+computes a running minimum over the variants a run encounters, not a
+minimum over the class; the unqualified form promised a postcondition that
+no artifact this project has published satisfies, so a re-implementer
+computing the class-global minimum would produce a conformant file with a
+different sha.]**
+
 The output counts **unique pair orderings**, not unique oriented
 sequences. Other orientation variants for any canonical ordering are
-cheaply recoverable by testing all 2^31 combinations against C2/C5 —
-they do not need to be stored.
+**recoverable without storing them** — by the **31-step transfer DP**
+shipped as `python3 verify.py --recount-fiber`, not by testing all 2^31
+combinations against C2/C5 (2,147,483,648 candidate tests per record;
+291,585,329,725,440 over the 135,780-record selftest artifact). The DP
+returns King Wen's C4-oriented fiber directly — 1,720,320 = 3·5·7·2^14,
+about 1 in 1,248 of the 2^31 — in milliseconds.
+
+⚠ **[CORRECTED 2026-09-01 — this passage previously presented the 2^31
+brute force as an inexpensive recovery route and named no alternative,
+which would send a re-implementer through 2.9×10^14 constraint evaluations
+for a quantity this repository computes in milliseconds. The conclusion
+that the variants need not be stored was and remains correct; only the
+method was wrong. `python3 verify.py --recount-fiber` was run to completion
+on 2026-09-01: every figure above MATCHes the published TR-1 §7 values.]**
 
 ## Sort order
 
@@ -182,7 +276,18 @@ Each record in solutions.bin satisfies:
 
 - **C1 (pair structure):** all 32 pairs used exactly once
 - **C2 (no hamming-5):** no consecutive hexagrams have Hamming distance 5
-- **C3 (complement distance):** implied by C1+C2+C5 for these specific pairs
+- **C3 (complement distance):** total complement distance ≤ **776**
+  (= 64 × 12.125, King Wen's own value). C3 is an **independently enforced
+  filter, not a consequence of C1+C2+C5**: the enumerator tests it at every
+  complete leaf and `--verify` reports C3 failures on their own line. On this
+  repository's own 100M-node run (`solve_results.json`) 30,906,944
+  C1+C2+C4+C5 leaves reduce to 273,808 C3-passing leaves, so a
+  re-implementation that omits C3 produces a strict **superset** of
+  `solutions.bin` and will not reproduce any canonical sha.
+  *(Corrected 2026-08-01, solve.c sweep: this line read "implied by C1+C2+C5
+  for these specific pairs", contradicting [SPECIFICATION.md](SPECIFICATION.md)
+  §C3 and [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) Step 6, both of which
+  require the check.)*
 - **C4 (first pair):** position 0 is always pair 0 (Creative/Receptive, 63→0)
 - **C5 (distance distribution):** the multiset of Hamming distances across
   all 63 consecutive transitions exactly matches King Wen's distribution:
@@ -190,40 +295,136 @@ Each record in solutions.bin satisfies:
 
 ## File integrity
 
-- `solutions.sha256` contains the SHA-256 hash of the entire `solutions.bin`
-  (header included, since the header is part of the canonical artifact).
+- `solutions.sha256` contains the SHA-256 hash of the entire **logical**
+  `solutions.bin` byte stream (header included, since the header is part of
+  the canonical artifact). Under the default gzip framing that is
+  `gzip -dc solutions.bin | sha256sum`, **not** `sha256sum solutions.bin` —
+  see §Overview "On-disk framing".
 - `solutions.meta.json` is the human-readable sidecar (format version,
   record count, embedded sha, generation timestamp, git hash).
 - `solve_results.json` contains run parameters, git hash, and analytics.
-- [`./solve --verify solutions.bin`](SOLVE_C_CLI.md#--verify) parses the header (fails loudly on bad
-  magic or unknown version), then independently checks every record against
-  C1-C5, verifies sort order, and checks for duplicates.
+- [`./solve --verify solutions.bin`](SOLVE_C_CLI.md#--verify) independently
+  checks every record against C1-C5, verifies sort order, and checks for
+  canonical duplicates. **Header handling is auto-detecting, not strict:** if
+  the first four logical bytes are not `ROAE` the command does *not* abort —
+  it reports `Shard mode (no header)` and treats the input as a headerless
+  `sub_*.bin` shard, which **skips the sort-order and duplicate checks** and
+  consumes the first 32 bytes as a record. An unknown *version* (with valid
+  magic) does abort. When you mean to check a canonical artifact, confirm the
+  output says `Header: magic ROAE` before trusting a PASS.
+  *(Clarified 2026-08-01, solve.c sweep: this bullet previously claimed
+  `--verify` "fails loudly on bad magic".)*
 
 ## Reading the file from another language
 
 Minimum sketch for any language:
 
-    1. Open solutions.bin
+    0. Open solutions.bin. If bytes 0..1 are 1f 8b it is gzip-framed
+       (the default) — decompress first and apply every step below to
+       the decompressed stream. See §Overview "On-disk framing".
+    1. Position at offset 0 of the logical stream.
     2. Read 32 bytes — the header.
     3. Check bytes 0..3 are 'R','O','A','E'. Reject if not.
     4. Read uint32 LE at offset 4 — must equal 1 (current format version).
        A reader that does not understand a newer version MUST refuse
        to interpret the file rather than guess.
     5. Read uint64 LE at offset 8 — the record count.
-    6. Validate: (file_size - 32) must equal record_count * 32.
+    6. Validate: (logical_size - 32) must equal record_count * 32.
+       (`verify.py` performs this cross-check, and so does `solve` — see
+       the note below the block.)
     7. Seek to offset 32 and read records sequentially.
+
+⚠ **[CORRECTED 2026-09-01 — step 6 previously asserted that neither of the
+two `solve` subcommands performed this cross-check, and told the reader not
+to rely on them for it. Both implement it, and both landed before that
+sentence was last reviewed: `solve.c:20915-20924` for `solve --verify`
+(Q-277, 2026-08-28), which prints `VERIFY=ERROR` and refuses when a header
+under-declares its record count, and `solve.c:21332-21338` for
+`solve --validate` (Q-367, 2026-08-29), which refuses to validate a record
+stream that contradicts its own header. The retracted advice steered
+operators away from a check that already existed.]**
 
 For a full walkthrough — header parse, record decode, per-constraint
 checks, sort-order and dedup validation — see
 [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md). It walks a reader from
 zero to a conformant verifier in any language. `verify.py` in this
-repository is the reference implementation of that recipe (~130 lines
-of Python).
+repository is the reference implementation of that recipe — a ~130-line
+record-verification **core** inside a file that has since grown to ~5,500
+lines of independent recount / certificate / null-law instruments (5,475
+lines, measured 2026-09-01; see [VERIFY.md](VERIFY.md)).
+
+⚠ **[CORRECTED 2026-09-01 — the parenthetical here previously sized the
+whole of `verify.py` at roughly 130 lines of Python. That was its size at
+the commit that introduced it (`402b8358`, 2026-04-17, 133 lines); the file
+is 5,475 lines today, so the published figure understated it by 41×. The
+~130-line figure is accurate only of the record-verification core — the
+qualifier [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) already carries.]**
 
 ## Reproducing from source
 
-    git checkout <commit-hash-from-solve_results.json>
-    gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
+    git checkout <git_hash from solve_results.json>
+    gcc -O3 -pthread -fopenmp -march=native \
+        -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" \
+        -o solve solve.c -lm -lz
+
+⚠ **The first line does not work against anything this repository ships.**
+A binary built without `-DGIT_HASH` records the literal string `unknown`
+(`solve.c:356-358`), and every shipped artifact was built that way:
+`enumeration/solve_results.json` carries no `git_hash` key at all,
+`runs/20260418_10T_d2_fresh/solve_results.json:16` records `unknown`, and
+all five tracked `solutions.meta.json` files — the 10T d2, 10T d3 fresh,
+10T d3 v1, 100T d3 and 10T d3 westus3 runs — record a generator of
+`solve.c git unknown`. For those artifacts the revision has to come from
+the run's own notes, and how far that gets you varies per run:
+`runs/20260419_100T_d3_d128westus3/README.md:10` names the solver commit
+outright, `runs/20260419_10T_d3_d128westus3/README.md:8` records that its
+run was made from an uncommitted working tree (so no checkout target
+exists), and `runs/20260418_10T_d2_fresh/` ships no README at all. The
+`-DGIT_HASH` form above is the build line [DEVELOPMENT.md](DEVELOPMENT.md)
+already gives, and adding it is what makes the checkout step executable for
+artifacts produced from here on.
+
+⚠ **[CORRECTED 2026-09-01 — the checkout line above previously named a
+commit hash to be read back out of `solve_results.json`, paired with a
+build command carrying no `-DGIT_HASH`. The two halves contradicted each
+other: the build the recipe prescribes is exactly the build that makes the
+hash unrecoverable, so the recipe's own first step could not be executed
+against any artifact this repository ships.]**
+
+**Three** env vars determine the output sha — `SOLVE_DEPTH`, `SOLVE_NODE_LIMIT` and
+`SOLVE_PER_SUB_BRANCH_LIMIT` ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Sha-determining vs
+operational env vars"). `solve_results.json` records only the first two: its writer emits
+`node_limit` and `solve_depth` and no per-sub-branch field at all. The third is **empirical, not
+derivable** from the other two — the published values are the budgets that actually produced the
+canonical shas, *not* `floor(SOLVE_NODE_LIMIT / 158364)`. Worked check at the 11.2T depth-3
+canonical: that formula gives 70,723,144, while the value behind the anchor sha is **70,723,196**
+(a difference of 52). The formula misses at four of the six published scales — the full six-row
+comparison, with a one-line command that reproduces it, is CANONICAL_HASHES.md
+§"PSB-formula caveat".
+
+So for a **depth-3** artifact, source the per-sub-branch limit from the recipe table in
+CANONICAL_HASHES.md, or from the binary, which carries the same table:
+
+    set -a; eval "$(./solve --canonical-config 11.2T)"; set +a   # DEPTH, NODE_LIMIT, PER_SUB_BRANCH_LIMIT
+    SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128 ./solve 0
+
+The `set -a` is not decoration. A bare `eval $(./solve --canonical-config …)` creates *shell*
+variables and exports nothing, so the `./solve` that follows is a child process that never sees
+them — measured: after `eval $(./solve --canonical-config 11.2T)`, `env | grep -c '^SOLVE_DEPTH='`
+returns **0**. The run then falls back to the code default `SOLVE_DEPTH=2` and silently enumerates
+a different partition ([SOLVE_C_CLI.md](SOLVE_C_CLI.md) §ENVIRONMENT, `SOLVE_DEPTH`).
+
+For a **non-canonical** depth-3 artifact the budget that ran is recorded in the provenance
+sidecars rather than in `solve_results.json`: each shard's `.provenance.json` carries
+`final_per_sub_branch_limit` (and a `per_sub_branch_limit` per write record), aggregated into
+`solutions.provenance.json`. Read it from there.
+
+The two-variable recipe below reproduces a run **only** when no explicit per-sub-branch limit was
+set, so that auto-divide from `SOLVE_NODE_LIMIT` stood — the default (`SOLVE_PER_SUB_BRANCH_LIMIT`
+is 0 = off, and the override was introduced 2026-04-29). That is the depth-2 case and any
+pre-override artifact; `solve_results.json` alone cannot tell you which case you are in, which is
+why the provenance sidecar is the check:
+
     SOLVE_NODE_LIMIT=<from-json> SOLVE_DEPTH=<from-json> ./solve 0
 
 For exhaustive enumeration (no node limit):

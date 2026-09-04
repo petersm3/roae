@@ -104,8 +104,28 @@ def fig_tr4_boundary_information():
     #   k=1: 7.49e-4 (9.95e34 survivors); k=2: 9.39e-7 (1.25e32);
     #   k=3: 4.27e-10 (5.68e28); k=4: 6.34e-13 (8.42e25).
     # Full-space size 1.3287e38 (TR-4 §3); greedy per-boundary cut ~1e3; weakest-boundary
-    # bracket (k=5-8) still cut x15-17 per boundary; extrapolated uniqueness at ~13-14
-    # boundaries (wide error; prior structural estimate 15-20).
+    # bracket (k=5-8) reported at x15-17 per boundary but ILLUSTRATIVE, not measured — its
+    # chain outputs are not archived and it is not reproducible from published material
+    # (restated 2026-09-02, TR-4 v1.25); extrapolated uniqueness at ~15-20
+    # boundaries (current; supersedes an earlier ~13-14 estimate; heuristic floor k>=12).
+    # NOTE 2026-08-01: the former "hard"-floor-of-13 wording was WITHDRAWN (the exact
+    # retracted string is deliberately not repeated here — doc_gates.sh GATE 6 scans this
+    # file for registered retracted phrasings and cannot distinguish narration from
+    # assertion). The divisor 10.38 is only the
+    # unconditional maximum gain, and the same data shows 11.10 at step 3, giving 12; and no
+    # necessity bound follows from the argument at all (TR-4 v1.15). The old wording was still
+    # RENDERED in the committed SVG, where matplotlib had turned it into glyph paths — invisible
+    # to the markdown retraction gate. Regenerate the figure after changing this text.
+    # NOTE 2026-08-06: the title's parenthetical formerly asserted that 4 boundaries uniquely
+    # identify KW in the 560T slice — the claim CORRECTIONS.md CX-06 (2026-07-04) retracted:
+    # the 4-count was a survivor-counting error (the count stopped at 1 remaining non-KW
+    # survivor, rec#330177707, KW with positions 2-3 pair-swapped); the 560T slice-identifying
+    # set has FIVE boundaries, {4, 27, 25, 21, 1}, identical at 100T and 560T. The corrected
+    # title matches TR-4 v1.7.1: the first 4 of the 5 (the ones S(k) measures here) still
+    # admit ~8.4e25 full-space orderings. The stale wording survived 33 days in the rendered
+    # PNG/SVG because it is not a registered string in RETRACTED_PHRASES.tsv, so GATE 6's
+    # generator scan had nothing to match. (This comment narrates; it does not restate the
+    # retracted claim as fact.)
     k = np.array([1, 2, 3, 4])
     S = np.array([7.49e-4, 9.39e-7, 4.27e-10, 6.34e-13])
     survivors = ["9.95×10³⁴", "1.25×10³²", "5.68×10²⁸", "8.42×10²⁵"]
@@ -118,7 +138,7 @@ def fig_tr4_boundary_information():
     # measured greedy points
     ax.plot(k, S, "-", color="#1f77b4", lw=1.5, alpha=0.7, zorder=4)
     ax.scatter(k, S, s=90, color="#d32f2f", zorder=5,
-               label="measured S(k), greedy 560T identifying order {4, 27, 25, 21}")
+               label="measured S(k), greedy 560T identifying order {4, 27, 25, 21, 1}")
     for ki, Si, sv in zip(k, S, survivors):
         ax.annotate(f"S({ki}) = {Si:.2e}\n{sv} survivors", (ki, Si),
                     textcoords="offset points", xytext=(10, 4), fontsize=9)
@@ -128,19 +148,22 @@ def fig_tr4_boundary_information():
     ax.plot(k_ext, S[-1] * (1e-3) ** (k_ext - 4), "--", color="#1f77b4", lw=1.3, alpha=0.8,
             label="extrapolation at the ~×10³/boundary greedy cut (NOT measured)")
 
-    # weakest-remaining-boundary bracket: k=5-8 still cut x15-17 per boundary
+    # weakest-remaining-boundary bracket: k=5-8 reported at x15-17 per boundary.
+    # ILLUSTRATIVE, not measured: the only archived S(k) outputs (reports/evidence/sk/)
+    # are greedy chains, so these two literals are the one thing on this figure with no
+    # file under reports/evidence/ behind it. Labelled as such since 2026-09-02.
     k_br = np.arange(4, 9)
     ax.fill_between(k_br, S[-1] * (1 / 17.0) ** (k_br - 4), S[-1] * (1 / 15.0) ** (k_br - 4),
                     color="#e8a33d", alpha=0.35,
-                    label="weakest-remaining-boundary bracket, ×15–17/boundary (measured, k = 5–8)")
+                    label="weakest-remaining-boundary bracket, ×15–17/boundary (illustrative, k = 5–8)")
 
     # the uniqueness level and the extrapolated-uniqueness band
     ax.axhline(S_unique, color="#388e3c", lw=1.3, ls="-.")
     ax.text(0.7, S_unique * 3, "uniqueness: S(k) = 1/1.3287×10³⁸ (one surviving ordering)",
             fontsize=9, color="#2e7d32", va="bottom")
-    ax.axvspan(13, 20, color="#388e3c", alpha=0.12)
-    ax.text(16.5, 1e-8, "extrapolated full-space\nuniqueness range:\n~13–14 boundaries (wide error;\n"
-                        "prior structural estimate 15–20)",
+    ax.axvspan(15, 20, color="#388e3c", alpha=0.12)
+    ax.text(16.5, 1e-8, "extrapolated full-space\nuniqueness range:\n~15–20 boundaries (current;\n"
+                        "supersedes earlier ~13–14 est.;\nheuristic floor k ≥ 12)",
             fontsize=9, color="#2e7d32", ha="center")
 
     ax.set_xlim(0.5, 20.5)
@@ -149,8 +172,8 @@ def fig_tr4_boundary_information():
     ax.set_xlabel("k = number of King Wen boundary constraints imposed", fontsize=12)
     ax.set_ylabel("S(k) = fraction of the full C1–C5 population agreeing with KW (log scale)", fontsize=11)
     ax.set_title("The boundary-information curve S(k) — slice-uniqueness vs space-uniqueness\n"
-                 "(the 4 boundaries that uniquely identify KW in the 560T slice still admit ≈8.4×10²⁵ "
-                 "full-space orderings)", fontsize=12)
+                 "(the first 4 of the 5 boundaries that identify KW in the 560T slice still admit "
+                 "≈8.4×10²⁵ full-space orderings)", fontsize=12)
     ax.grid(True, which="both", ls=":", alpha=0.4)
     ax.legend(fontsize=9, loc="lower left")
     ax.set_facecolor("#f8f8f8")
@@ -204,10 +227,15 @@ def fig_tr1_rules_tradeoff():
     ax.set_title("THE CONFLICT THEOREM's trade-off: the four rules cannot all be satisfied\n"
                  "(jointly UNSAT under C1+C2+C4+C5, drat-trim-verified) — any ordering must choose",
                  fontsize=12)
-    ax.text(1.7, -0.95,
-            "KW keeps the trigram configuration exactly and misses the other three by the minimal "
-            "measured margins;\nthe 3-edit grand precursor perfects those three and breaks the trigram "
-            "configuration. Both cannot be had.",
+    # The superlative ("the minimal measured margins") was WITHDRAWN 2026-08-28: f11_runA.out
+    # carries `f11_hist 1 1 0` (4.13e-09) and `f11_hist 2 1 1` (2.93e-08), both nonzero and
+    # componentwise no worse than KW's `2 2 2`, and that histogram is not CC-N4-conditioned, so
+    # no extremal check exists. The prose and captions were corrected then and on 2026-09-01;
+    # this rendered string was the last live copy (fixed 2026-09-02, prose batch P73).
+    ax.text(1.7, -1.0,
+            "KW keeps the trigram configuration exactly and misses the other three by two each\n"
+            "(no extremal check excludes a smaller miss); the 3-edit grand precursor perfects\n"
+            "those three and breaks the trigram configuration. Both cannot be had.",
             ha="center", va="center", fontsize=9, color="#555555")
     ax.grid(True, axis="x", ls=":", alpha=0.4)
     ax.legend(fontsize=9, loc="upper right")

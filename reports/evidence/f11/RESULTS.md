@@ -1,5 +1,10 @@
 # F11 — Corruption vs. tendency: Bayes-factor RESULTS (executed under the frozen pre-registration)
 
+> **Reproduce:** `python3 f11_events.py` then `python3 compute_f11_bf.py` from this directory;
+> the raw run outputs are preserved beside them (`f11_runA.out`, `f11_runB.out`, `f11_runC.out`,
+> `f11_runC2.out`, `f11_events.json`). This bundle carries its instruments deliberately — see
+> [../f11halfb/README.md](../f11halfb/README.md), which contrasts itself against this one.
+
 > **Bayes verdict RESOLVED and RE-AFFIRMED (2026-07-13).** After this document was computed, the
 > direct N_gs measurement in [../r11/](../r11/) fell **outside** the derived bracket used here,
 > firing a pre-registered stop-and-investigate gate (2026-07-11). That gate is now closed: the
@@ -10,9 +15,30 @@
 > §"Stop-flag resolution" and [../r11/](../r11/). Everything below is the as-computed 2026-07-04
 > record, unchanged.
 
+> **Calibration veto (2026-08-03; note added 2026-08-06 —
+> [CORRECTIONS CX-25](../../../documentation/CORRECTIONS.md)).** The two-model pair behind this
+> verdict — M_corr versus M_tend — has since failed its own pre-registered synthetic-draw
+> confusability gate: Half B (M_tend self-recovery) **FAILED at 68/100** against a bar frozen at 70
+> before the run (Half A passed 93/100; master seed published before launch, not re-run). The
+> published BF ≈ 5.2×10³ (U) / 6.3×10³ (A) and the ≈0.9998 posterior are therefore **no longer
+> calibrated in the pooled sense**; the numbers are unchanged and not withdrawn — what is withdrawn
+> is their *calibration support*. The failure is stratum-confined (V=0 provably confusable, 0/277;
+> V≥5 provably distinguishable, 599/599; the received sequence has V=6), but the gate's registration
+> defines no bar at n=1000 and cannot produce a PASS, so the V-restricted rate may not be quoted as
+> the gate outcome; a V-matched gate is a new instrument, registered but not yet run. See
+> [../f11halfb/](../f11halfb/) and [TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result".
+
+> **Withdrawal (2026-08-07 — [CORRECTIONS CX-26](../../../documentation/CORRECTIONS.md)).** The
+> note above stopped at withdrawing calibration support; that split is superseded. The BF and the
+> ≈0.9998 posterior are **withdrawn as claimed results**: everything below is the as-computed
+> 2026-07-04 record — recorded, not claimed — and asserts no corruption-vs-tendency verdict pending
+> the V-matched gate. See [TR-2](../../TR2_THE_RULES_CONFLICT.md) v1.27.
+
 **Executed 2026-07-04** under the frozen pre-registration [PREREGISTRATION.md](PREREGISTRATION.md)
 (FROZEN 2026-07-04, operator approval "approve F11 defaults" — PROOF_PROGRAM UPDATE 32). Model forms,
-model prior (50:50), and Jeffreys decision bands (BF > 10 substantial, > 100 strong) are as frozen;
+model prior (50:50), and Jeffreys decision bands (BF > 10 substantial, > 100 strong —
+[Jeffreys 1961](../../../documentation/CITATIONS.md#jeffreys1961); a frozen project convention, not
+Jeffreys' published table, see §5) are as frozen;
 nothing in this document was altered after seeing the numbers except the numbers themselves. Per the
 pre-registered commitment, the FULL sensitivity table is published regardless of direction.
 
@@ -63,10 +89,10 @@ Moore-parity violations = 2, Moore-rhythm breaks = 2, Schulz-gender violations =
 |---|---|---|---|---|
 | 1 | KW violation profile (2,2,2), V=6 | exact | REUSED (re-asserted) | solve.py checkers; sat.py import gates; `f11_events.py` asserts |
 | 2 | Minimal repair = 3 slot-edits (grand-strict) | exact | REUSED | SAT + DRAT ([LITERATURE_RULES_POPULATION_TESTS.md](../../../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §results 5–7); independently REPRODUCED by the k≤2 exhaustive event enumeration in RUN D (0 hits) |
-| 3 | \|C1–C5\| canonical space N_can | **1.328702e38** (2e10 probes, relerr 0.03%, 95%CI [1.3280e38, 1.3294e38]) — matches the 1.3287e38 anchor; RUN C2 independent: 1.328327e38 | RE-MEASURED (same-run consistency) | c208/c211 scoreboard; `f11_runA.out` |
+| 3 | \|C1–C5\| space, **raw / orientation-explicit** (printed as `N_can`) | **1.328702e38** raw (2e10 probes, relerr 0.03%, 95%CI [1.3280e38, 1.3294e38]) — matches the published raw anchor 1.3287×10³⁸ ([SEARCH_SPACE_SIZE.md](../../../documentation/SEARCH_SPACE_SIZE.md)); RUN C2 independent: 1.328327e38 raw. ⚠ **[LABEL CORRECTED 2026-09-01 — this cell read "canonical space N_can". In this corpus *canonical* means orientation-DEDUPLICATED, a count of pair orderings whose ceiling is 31! ≈ 8.2228×10³³; 1.328702e38 exceeds that ceiling by ~16,159× and cannot be a canonical count. The VALUE is right and nothing downstream moves — it is the raw orientation-explicit estimate (raw ceiling 31!·2³¹ ≈ 1.77×10⁴³), it equals the published raw anchor, and every f11 mass that consumes it is a fraction of the same population, so no ratio in §4 changes. What was wrong is the label, inherited from the estimator's own printed `leaves_canonical_C1C5` line. The symbol `N_can` is kept because it is what `compute_f11_bf.py` prints (line 171); read it as *raw*. The orientation-deduplicated count of this space is NOT this figure — the previously published ≈3.3×10³⁷ estimate for it was withdrawn 2026-08-24 for exceeding the same 31! ceiling.]** | RE-MEASURED (same-run consistency) | c208/c211 scoreboard; `f11_runA.out` |
 | 4 | Moore-joint strict size N_mj | **1.16583e29** (5e9 probes, relerr 2.98%) — +3.5% vs the 1.1266e29 anchor (inside ±4.7%); RUN C independent: 1.091306e29 (−3.1%) | RE-MEASURED | c208 strict walk; `f11_runB.out` |
 | 5 | Triple-strict ("grand-strict") size N_gs | **3.57e25** primary (RUN C: 1.091306e29 × 3.27e-4); **1.03e25** cross (RUN B (0,0,0) cell: 1.16583e29 × 8.8277e-5). ×3.5 disagreement (rare-cell estimator noise); BOTH carried through the sensitivity table; the LARGER (corruption-conservative) is primary | **DERIVED** — see honest note below the table: the planned in-walk gender-strict prune output did not ship; N_gs comes from the gender-0-violation fraction *within* the delivered Moore-joint walks | `f11_runC.out` (scoreboard), `f11_runB.out` (hist plane); prereg anticipated: "the triple-strict size is measurable" |
-| 6 | Gender-strict-only size | **~1.3e32** (RUN C2: 1.328327e38 × 1e-6; scoreboard precision 1 s.f.) — i.e. gender-strict mass ≈ 1e-6 of canonical, one order LARGER than the prereg data-vector's rough "~<1e-7" guess (flagged in §8; info-only, does not enter the BF) | MEASURED FRESH (info/cross-check) | `f11_runC2.out` |
+| 6 | Gender-strict-only size | **~1.3e32** (RUN C2: 1.328327e38 × 1e-6; scoreboard precision 1 s.f.) — i.e. gender-strict mass ≈ 1e-6 of the raw C1–C5 space (row 3), one order LARGER than the prereg data-vector's rough "~<1e-7" guess (flagged in §8; info-only, does not enter the BF) | MEASURED FRESH (info/cross-check) | `f11_runC2.out` |
 | 7 | Joint violation histogram f(v1,v2,v3) | **4,892 cells, Σf = 1.000000**; min total-V observed = 2 (cell (1,1,0)); KW's own cell (2,2,2) observed: f = 1.981e-8 ≈ 2.63e30 orderings | **MEASURED FRESH** (new SOLVE_KNUTH_F11_HIST instrument) | `f11_runA.out` (bulk) |
 | 8 | Conditional gender histogram within Moore-strict (0,0,v3 plane) | **complete plane v3 = 0..24, Σf = 1.000000**; (0,0,0) = 8.8277e-5 | MEASURED FRESH | `f11_runB.out` |
 | 9 | Conditional (v1,v2,0) plane within gender-strict | **NOT DELIVERED** — RUN C2 shipped scoreboard only (no `f11_hist` lines). The `aug`/`bridge` Z therefore uses the RUN B plane + the N_gs cell only (disclosed; effect bounded — see §6) | — (absent) | `f11_runC2.out` |
@@ -76,14 +102,16 @@ Moore-parity violations = 2, Moore-rhythm breaks = 2, Schulz-gender violations =
 
 **Honest note on ingredient 5 (N_gs) — instrument deviation.** The pre-drafted plan (and the §7
 instrument-provenance paragraph below) expected RUN C to be a triple-strict *pruned* walk
-(SOLVE_KNUTH_GENDER_STRICT) whose `leaves_canonical` would be N_gs directly, with an in-walk
+(SOLVE_KNUTH_GENDER_STRICT) whose `leaves_canonical` (the estimator's printed label for the RAW
+orientation-explicit count — see the row-3 note) would be N_gs directly, with an in-walk
 leaf-scorer cross-check line ("mismatches must be 0"). The delivered `f11_runC.out` is instead a
 second independent Moore-joint-strict walk (5e9 probes, 64 threads) whose scoreboard reports the
 gender-0-violation fraction within that space (3.27e-4, scoreboard precision 3 s.f.); no prune
 line and no mismatch line are present. N_gs is therefore a derived product, not a direct pruned
 count, and it is the single least-precise ingredient in the whole computation: the two independent
 derivations (RUN C: 3.57e25; RUN B's exactly-printed (0,0,0) histogram cell: 1.03e25) disagree by
-×3.5, consistent with heavy-tailed weighted-estimator noise on a ~1e-13-of-canonical cell. Per the
+×3.5, consistent with heavy-tailed weighted-estimator noise on a cell holding ~1e-13 of the raw
+C1–C5 space. Per the
 strictest-reading rule, the LARGER value (which weakens M_corr, since L_corr ∝ 1/N_gs) is primary,
 and the full sensitivity table reports every configuration under both. The BF conclusion is
 unchanged under either (§4).
@@ -93,8 +121,12 @@ unchanged under either (§4).
 ### M_corr (both corruption-location variants)
 Uniform precursor draw from the grand-strict set (probability 1/N_gs each) × a corruption event of k
 slot-edits, k ~ Geometric(p_c). An event is a set of disjoint adjacent-slat transpositions (slots s,
-s+1 exchange) plus slat inversions (orientation flips), the two elementary operations of Rutt's
-bamboo-slat mechanism; displaced slats may additionally be inverted. Slot 0 (pair 0 = 63,0) is fixed
+s+1 exchange) plus slat inversions (orientation flips) — the two elementary operations **we adopt to
+model** Rutt's bamboo-slat mechanism, not operations Rutt specifies: what is sourced (Rutt 1996 via
+Hacker & Moore 2003, where this project read him) is cord-fraying on re-strung slats as a physical
+corruption possibility; the restriction to *disjoint* and *adjacent* transpositions, the inclusion of
+orientation flips, the geometric k and the adjacency weighting below are this work's
+operationalization. Displaced slats may additionally be inverted. Slot 0 (pair 0 = 63,0) is fixed
 by canonical form; edits act on slots 1–31. The slot-edit count k = number of slots whose
 (pair, orientation) content changed — exactly sat.py's near-k metric, so the SAT distance results
 apply verbatim. Events are involutions, so P(received = KW) enumerates KW-anchored events E with
@@ -119,7 +151,7 @@ E(KW) ∈ grand-strict:
   0.4–0.9% of the numerator across the p_c grid.
 
 ### M_tend
-Gibbs form P(S) ∝ exp(−λ·V(S)) over canonical C1–C5 space, V = parity + rhythm + gender violations:
+Gibbs form P(S) ∝ exp(−λ·V(S)) over the C1–C5 space of §2 row 3 (raw / orientation-explicit), V = parity + rhythm + gender violations:
 
     L_tend(λ) = exp(−6λ) / Z(λ),   Z(λ) = Σ_cells N(v1,v2,v3) · exp(−λ(v1+v2+v3))
 
@@ -145,7 +177,7 @@ Model prior 50:50 (frozen), so posterior odds = BF.
 ## 4. Results
 
 Population masses (recomputed at integration time from the archived outputs):
-N_can = 1.328702e38, N_mj = 1.16583e29, N_gs = 3.5686e25 (primary, RUN C) / 1.0292e25 (cross,
+N_can = 1.328702e38 (raw / orientation-explicit — legacy symbol, see §2 row 3), N_mj = 1.16583e29, N_gs = 3.5686e25 (primary, RUN C) / 1.0292e25 (cross,
 RUN B), N_gender-only ≈ 1.3e32.
 
 **Headline (primary configuration: N_gs = RUN C, Z = `aug`, conditioned on C1–C5):**
@@ -225,6 +257,15 @@ that one corner under the conservative N_gs.
 
 Frozen decision bands: BF > 10 substantial, BF > 100 strong.
 
+**Band provenance (note added 2026-08-06; the bands themselves are as frozen 2026-07-04 and are
+unchanged).** These values are a project convention loosely following
+[Jeffreys (1961)](../../../documentation/CITATIONS.md#jeffreys1961), **not a quotation of his
+table**, and they match neither published scale: Jeffreys' own "substantial" grade is ≈3.2–10, and
+[Kass & Raftery (1995)](../../../documentation/CITATIONS.md#kass-raftery1995) place "strong" at
+20–150. Each frozen threshold sits at or above its published counterpart, so every verdict below
+that clears the frozen bands also clears both published tables. See the full band-provenance note in
+[TR-2](../../TR2_THE_RULES_CONFLICT.md) §"Pre-registration discipline".
+
 - **Variant U (uniform edit location): BF ≈ 6.6×10³ → STRONG evidence for M_corr** (corruption),
   ~66× beyond the strong threshold.
 - **Variant A (bamboo-adjacent-biased): BF ≈ 7.9×10³ → STRONG evidence for M_corr**, ~79× beyond.
@@ -240,6 +281,10 @@ confidence interval, and a four-seed direct re-measurement gives N_gs = 4.50×10
 convergence gates passing) — **re-affirming** this Jeffreys-band verdict at BF ≈ 5.2×10³ (U) /
 6.3×10³ (A). See [TR-2 v1.12](../../TR2_THE_RULES_CONFLICT.md) §"Stop-flag resolution". The
 as-computed record here is unchanged; the flip threshold at the directly measured value is ≈ 52×.**)**
+*(Superseded in one respect, 2026-08-03 — see the calibration-veto note in the document header:
+the pair later failed its confusability gate, so this Jeffreys-band verdict is no longer calibrated
+in the pooled sense; the numbers stand, their calibration support does not.
+[CORRECTIONS CX-25](../../../documentation/CORRECTIONS.md).)*
 
 ## 6. Sensitivity — which ingredient dominates
 
@@ -295,11 +340,17 @@ The script re-derives every population mass from the raw run outputs, re-asserts
 (0,0,·); RUN A contains no Moore-strict-plane cell; event-space counts base-independent;
 n_1 = n_2 = 0 reproducing SAT minimal-repair = 3), and prints the headline BFs, the full 24-row
 sensitivity table, the per-gridpoint likelihoods, and the 7×7 BF(p_c, λ) matrix exactly as
-tabulated in §4. To regenerate RUN D from scratch (exact enumeration, ~minutes, needs the repo's
-`solve.py` on PYTHONPATH):
+tabulated in §4. To regenerate RUN D from scratch (exact enumeration; measured 2026-09-02 on the
+2-core orchestrator: 4 m 39 s, rc 0, stdout and `f11_events.json` byte-identical to the tracked copies):
 
     cd reports/evidence/f11
-    PYTHONPATH=../../.. python3 f11_events.py   # rewrites f11_events.json
+    python3 f11_events.py                     # rewrites f11_events.json
+
+The script locates the repo's `solve.py` itself (a `sys.path` line, the same idiom as the `f1/`,
+`f5/` and `r11/` instruments). Until 2026-09-02 it did not, so the header's `python3 f11_events.py`
+"from this directory" died with `ModuleNotFoundError: No module named 'solve'` unless the reader
+supplied `PYTHONPATH=../../..` — which this paragraph prescribed but the header did not. Found by
+`scripts/exec_lane.sh`; the `PYTHONPATH` form still works.
 
 Instrument provenance: the F11 estimator extension (SOLVE_KNUTH_F11_HIST joint histogram +
 SOLVE_KNUTH_GENDER_STRICT in-walk prune; estimator-only, sha-neutral) ran on the worker as

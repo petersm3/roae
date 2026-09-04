@@ -653,7 +653,7 @@ Super-pairs: 20
     KW complement distance (x64): 776  (= 12.1250 per hex)
     KW percentile within C1-C5 dataset: 100.00%
     NOTE: KW at 100% is tautological — C3 enforces cd <= 776.
-    The '3.9th percentile' in SOLVE-SUMMARY.md compares KW against
+    The '3.9th percentile' in SOLVE_SUMMARY.md compares KW against
     ALL pair-constrained orderings (C1 only), not within C1-C5.
     Range within C1-C5 dataset: [448, 776]
     Distribution (20-unit bins, non-zero):

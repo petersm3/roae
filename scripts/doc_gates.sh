@@ -46,11 +46,110 @@
 #                                   # it — or (kind `attrib`, 2026-08-06) a SUPERSEDED
 #                                   # ATTRIBUTION restated with no path to its correction;
 #                                   # registry-driven, open-backlog adjudicated
+#   scripts/doc_gates.sh branch-registry # GATE 19: every branch ON THE REMOTE (git ls-remote, not
+#                                   # the refs/remotes cache) is declared in
+#                                   # documentation/BRANCH_REGISTRY.tsv; a remote that cannot be
+#                                   # listed FAILS (offline opt-in documented in the gate header)
 #   scripts/doc_gates.sh repro-reach # GATE 25: LEG 1 (hard) a documented reproduction command
 #                                   # naming a flag that does not exist — the doc->code direction
 #                                   # GATE 2 misses; and LEG 2 (REPORT-ONLY, never affects rc) a
 #                                   # doc that publishes a measured figure and names no way to
 #                                   # re-derive it. NOT in `all` — by caution, per its header.
+#   scripts/doc_gates.sh withdrawn-markers # GATE 27: a registered WITHDRAWN figure restated with
+#                                   # no supersession marker — table rows judged PER ROW, prose per
+#                                   # blank-line paragraph (a marker on the wrapped next line
+#                                   # counts); the judged population is printed and zero FAILS
+#   scripts/doc_gates.sh rotation-c3      # GATE 30: a pair-slot rotation-symmetry claim that
+#                                   # does not name C3 (flattened; claim SHAPE, not a string)
+#   scripts/doc_gates.sh sk-gains   # GATE 31: the S(k) gain lists must agree on their maximum,
+#                                   # the divisor must BE that maximum, and a first/greedy
+#                                   # maximum claim must say "unconditional"
+#   scripts/doc_gates.sh fiber-anchor # GATE 32: the orientation-fiber anchors — a published
+#                                   # factorization/sum must equal what its own sentence states,
+#                                   # and the per-key orientation exponent is 2^31, not 2^32
+#   scripts/doc_gates.sh superlative # GATE 33: "strongest measured ... discriminator" with no
+#                                   # temporal or category qualifier (flattened; the qualified
+#                                   # twin in CITATIONS.md spans a hard wrap)
+#   scripts/doc_gates.sh printed-quotient # GATE 34: a published xratio must equal the quotient
+#                                   # printed beside it, at the ratio's own precision
+#   scripts/doc_gates.sh stale-status # GATE 35: a pending-status word surviving beside the dated
+#                                   # update that completed it. POPULATION = ONE heading today
+#   scripts/doc_gates.sh se-vs-ci   # GATE 37: a relative STANDARD ERROR published as a +- band,
+#                                   # caught by arithmetic: the band equals log2(1+r), not log2(1+1.96r)
+#   scripts/doc_gates.sh dvd24-scope # GATE 38: a mod-24 divisibility claim stated as an
+#                                   # UNRESTRICTED UNIVERSAL. The theorem quantifies over a
+#                                   # duplicate-free complete listing of the RECORD-level set;
+#                                   # sequence-level counts sit in orbits of 48
+#   scripts/doc_gates.sh p14-claims # GATE 39: the four claim-to-artifact legs Codex V2
+#                                   # prescribed — LEG 1 cert-claims-shipped (every named
+#                                   # .drat is archived AND in verify_all.sh's map), LEG 2
+#                                   # four-five-labels (grander-strict is five rules,
+#                                   # grand-ccn4 four), LEG 3 se-claims-have-se (an SE claim
+#                                   # must be true of the evidence file it names), LEG 4 the
+#                                   # n-ladder integers are orientation-explicit, not canonical
+#   scripts/doc_gates.sh mi-disambig # GATE 40: a --mutual-info citation explained by the
+#                                   # complete Latin square must name the STATIC 8-state MI —
+#                                   # the square forces that one and not the transition MI
+#   scripts/doc_gates.sh cell-space # GATE 41: 65,281 is the PRODUCTIVE 41.2% subset, not the
+#                                   # 158,364-cell depth-3 space, and is not G-closed
+#   scripts/doc_gates.sh band-status # GATE 42: the x15-17 weakest-remaining-boundary band must
+#                                   # be labelled illustrative everywhere it is published, the
+#                                   # figure GENERATOR included (rendered legends are ungreppable).
+#                                   # NOT the literal-presence check charge 14 prescribed — that
+#                                   # shape inverts on its own inputs; see the gate's header
+#   scripts/doc_gates.sh anchor-coverage # GATE 43: an exact estimator-calibration anchor cannot
+#                                   # land in METHODS without moving TR-4's live "Coverage: N of N"
+#   scripts/doc_gates.sh report-verdict # GATE 44: a null spectrum verdict contradicted by the
+#                                   # report shipped beside it. Reads example/report.txt as an
+#                                   # INPUT (the corpus widening the charge asked for); ERRORs
+#                                   # rather than passing if that summary line cannot be read
+#   scripts/doc_gates.sh net-brackets # GATE 45: a ledger row's published Net bracket must be its
+#                                   # compression minus each of its cost figures, at the row's own
+#                                   # printed precision (TR-9 + DESCRIPTION_LENGTH ledgers)
+#   scripts/doc_gates.sh history-scope # GATE 46: HISTORY.md's findings table may not carry a
+#                                   # scope-free universal Status against 31.6M-dataset Evidence
+#                                   # (a Status that scopes itself, or is superseded, passes)
+#   scripts/doc_gates.sh code-needles # GATE 47: the registry's retracted phrasings in every tracked
+#                                   # NON-markdown text file (solve.c, *.py, *.sh, *.lean, data) —
+#                                   # the 128-file corpus GATE 3 never scanned; allowances name
+#                                   # file + phrase + max count + withdrawal anchor
+#                                   # (documentation/DOC_GATE_CODE_NEEDLE_ALLOW.tsv); an unused
+#                                   # allowance FAILS
+#   scripts/doc_gates.sh sha-prediction # GATE 48: a sha change asserted for a NAMED prune must be
+#                                   # hedged (can/may) or evidenced (byte-identical / a sha)
+#   scripts/doc_gates.sh parity-figures # GATE 49: every figure in PARITY_ALTERNATION.md is printed
+#                                   # by --check-parity-alternation (run here) or sits beside its
+#                                   # named reproducer / CITATIONS source
+#   scripts/doc_gates.sh file-drawer # GATE 50: a document pricing C(91,k)/C(95,k) against the
+#                                   # observable ledger cites METHODS §The file drawer
+#   scripts/doc_gates.sh seed-provenance # GATE 51: a positive "independent draws/seeds" claim in a
+#                                   # report cites evidence whose SEED OVERRIDE bases differ
+#   scripts/doc_gates.sh unrepeatable-cite # GATE 52: a CITATIONS entry recorded as 404 + zero
+#                                   # captures is hedged in every paragraph that cites it
+#   scripts/doc_gates.sh branch-list # GATE 53: LARGE_SCALE_CAMPAIGNS.md's (pair, orient) split sums
+#                                   # to 56 and names no dead pair (0, 4, 6, 21)
+#   scripts/doc_gates.sh index-fidelity # GATE 54: every tracked documentation/*.md is an index-row
+#                                   # link target in documentation/README.md; reading times >= words/300
+#   scripts/doc_gates.sh sha-tuple  # GATE 55: a "function of (...)" enumeration of the sha inputs
+#                                   # names all four registry inputs (CANONICAL_HASHES §Reproducibility)
+#   scripts/doc_gates.sh log-derived-figures # GATE 56: a figure a doc attributes to a tracked
+#                                   # analyze log's §[3]/§[6]/§[9] is that log's own figure (dataset-keyed)
+#   scripts/doc_gates.sh nontrivial-display # GATE 57: an indented/fenced display equation never has identical sides (x = x)
+#   scripts/doc_gates.sh witness-count    # GATE 58: '(N independent paths):' equals its table's row count; 11.2T restatements agree
+#   scripts/doc_gates.sh baseline-arithmetic # GATE 59: 'K of the N … ineligible, so the baseline is 1/M' has M = N-K; adjudicated-open sites in DOC_GATE_BASELINE_ARITHMETIC_OPEN.tsv print [OPEN]
+#   scripts/doc_gates.sh derived-coefficient # GATE 60: CAMPAIGN_METHODOLOGY's zero-cell % and .bin-per-cell coefficient equal its own actuals table
+#   scripts/doc_gates.sh cpu-vendor       # GATE 61: a CPU vendor is paired only with its own microarchitecture family (no 'Intel Zen')
+#   scripts/doc_gates.sh az-name-closure  # GATE 62: every az resource DEPLOYMENT.md shows/deletes/attaches was created in its section or is pre-existing
+#   scripts/doc_gates.sh glossary-consistency # GATE 63: every definition of 'node' in BRANCHES_EXPLAINED.md names the frame (registered-term list)
+#   scripts/doc_gates.sh identifying-set-arity # GATE 64: 'C1–C5/C1–C7 plus N' agrees with BOUNDARY_MINIMUM.md's greedy-set sizes (C6/C7 are inside them)
+#   scripts/doc_gates.sh stdlib-claims    # GATE 65: a 'stdlib only' claim naming a file with third-party imports carries a scope word
+#   scripts/doc_gates.sh lean-header-verbatim # GATE 66: TRIGRAM_STRUCTURE.md's 'verbatim' ledger block IS lean/TrigramTheorems.lean's header
+#   scripts/doc_gates.sh evidence-type-vocabulary # GATE 67: PARTITION_INVARIANCE.md evidence types from a closed vocabulary; 'every scale' needs every row direct
+#   scripts/doc_gates.sh theorem-vs-slice # GATE 68: SPECIFICATION.md's '(d=1 vs d=3)' wrap enumeration names d=5 or scopes itself to the slice
+#   scripts/doc_gates.sh chronology-access # GATE 69: a CITATIONS.md 'could not have read' clause never rests on a year inside the author's life-range
+#   scripts/doc_gates.sh layer-profile    # GATE 70: TR-11's per-layer footprint table equals FULL31_EXACT_AGGREGATES.md's layer GB at printed precision
+#   scripts/doc_gates.sh boundary-scope   # GATE 75: a mandatoriness claim over boundary SETS is scoped to the subset size actually exhausted (C(31,4)), not to depth
+#   scripts/doc_gates.sh merge-semantics  # GATE 76: prose may not deny a merge capability solve.c's env surface (SOLVE_MERGE_MODE/CHUNK_GB) provides
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (3 roae.py runs,
 #                                   # ~67 s measured 2026-08-07, ~107-135 s on earlier recorded runs;
 #                                   # NOT in `all` — by cost; the PASS banner states what that excludes,
@@ -92,18 +191,56 @@ RC=0
 # example/ was excluded here until 2026-08-01. That is a CONTAINER-level exemption — the same
 # construction that let the retracted "hard floor k >= 13" survive in TR-4's body while its
 # changelog narrated the retraction. Exempt a construction, never a directory.
-DOCS=$(git ls-files '*.md' || true)
+# 🔴 Q-284. This was `DOCS=$(git ls-files '*.md' || true)`. A failed enumeration left DOCS
+# EMPTY and every consumer then saw a corpus of zero documents and reported it clean -- and
+# DOCS feeds ten sites across GATES 1, 3, 8 and 13, so ONE failure silently disarms four
+# gates at once. Measured with a stand-in `git` that exits 128 on ls-files: the gates examine
+# zero files and report clean. `|| true` cannot distinguish "the corpus contains no markdown"
+# from "the corpus could not be read", and only one of those is a passing condition.
+DOCS=$(git ls-files '*.md')
+if [ $? -ne 0 ]; then
+  echo "  [FAIL] cannot enumerate the markdown corpus (git ls-files failed) — NOTHING was checked." >&2
+  exit 2
+fi
+if [ -z "$DOCS" ]; then
+  echo "  [FAIL] the markdown corpus is EMPTY — that is not a clean tree, it is an unreadable one." >&2
+  exit 2
+fi
 
 # ----------------------------------------------------------------------------------
 # ITEM A1 (2026-08-02) — WHAT EVERY GATE DOES WITH A MISSING INPUT.
 #
 # EVERY LEG OF GATE 8 used to `[skip]` a deleted git-tracked artifact, so `rm example/report.pdf`
-# passed in silence. (This sentence read "GATE 8's five legs" until round 15 drain-3. SIX exist,
-# and they are named rather than counted because a bare multiplicity is not checkable by a
+# passed in silence. (This sentence read "GATE 8's five legs" until round 15 drain-3, then six,
+# and the legs are named rather than counted because a bare multiplicity is not checkable by a
 # reader against the code and a named list is: legs 1-4 are `_cmp` on example/report.txt,
-# report.md, README.md and report.html; LEG 5 is report.pdf by multiset; LEG 6 is README.md as
-# a byte-identical copy. LEG 6 arrived with item A2 on the SAME DAY this sentence was written
-# and the tally never moved with it. De-numbered, not bumped.)
+# report.md, README.md and report.html; LEG 6 is README.md as a byte-identical copy of
+# report.md; LEG 7 is the seven non-report artifacts under example/, byte-exact. LEG 6 arrived
+# with item A2 on the SAME DAY this sentence was written and the tally never moved with it;
+# LEG 7 landed 2026-09-02 and it did not move either. De-numbered, not bumped.
+#   LEG 5 IS RETIRED, 2026-09-04. It compared example/report.pdf against example/report.html
+#   by multiset. The PDF was deleted from the repository that day because wkhtmltopdf embedded
+#   the COMPLETE UNSUBSETTED DejaVu font programs in it (`pdffonts`: DejaVuSans,
+#   DejaVuSans-Bold, DejaVuSansMono, all `emb yes sub no`), which made a public-domain
+#   repository a redistributor of font software under the Bitstream Vera terms; roae.py's
+#   export_html no longer shells out to wkhtmltopdf, so no PDF is produced to compare.
+#   THE NUMBER 5 IS NOT REUSED: leg numbers here are identifiers that fire-proof labels and
+#   this header both cite, and renumbering 6 and 7 down would silently repoint every one of
+#   those citations at a different check. A gap in the numbering is the cheaper signal.
+#   WHAT THE RETIREMENT COST, stated because a removal that only says what it deleted is the
+#   over-attestation this file exists to refuse: LEG 5 was the ONLY leg that compared
+#   example/report.html DIGIT-FOR-DIGIT. It could be strict where legs 1-4 then could not,
+#   because it compared two artifacts of ONE `--html` invocation rather than a shipped
+#   artifact against a fresh UNSEEDED run. report.html therefore joined report.txt and
+#   report.md as digit-blind, and a hand-edited number in it was caught by nothing -- the
+#   dbba77d class returning, measured on the live tree (`8x8 = 64` -> `65`, rc 0, PASS).
+#   AND WHAT CLOSED IT, THE SAME DAY: the fix named under Q2 at LEG 5's old site was an
+#   operator decision about published artifacts, and the operator took it. example/ was
+#   regenerated and reshipped under `--seed 20260904`; legs 1-4 are BYTE-EXACT against a
+#   same-seed regeneration; self-test CASE 6 is reinstated on the identical mutation, now
+#   asserting leg 4 rather than the deleted leg 5. The cost paragraph is left standing rather
+#   than deleted because the hole was real while it lasted, and because the close is the
+#   evidence that this file's habit of writing gaps down is what got them fixed.)
 # That was fixed and proven on 2026-08-02; the same question was then asked
 # of GATES 2, 3, 3b, 6, 10a, 10b and 11, and every one of them had the same shape. MEASURED,
 # not reasoned: with `documentation/CORRECTIONS.md` deleted from the working tree,
@@ -131,12 +268,17 @@ DOCS=$(git ls-files '*.md' || true)
 #       GATE 1: it reads a missing file as empty SILENTLY, so it is the consumer for which
 #       nobody would have thought to write a per-gate test.
 #
-# WHAT THIS STILL CANNOT SEE, stated rather than implied: absence of a TOOL. `pdftotext`
-# absence remains a `[skip]` (poppler is not part of the toolchain this repo requires);
-# `python3` and `sha256sum` absence are now FAILs because each voids a whole gate, but neither
+# WHAT THIS STILL CANNOT SEE, stated rather than implied: absence of a TOOL.
+# `python3` and `sha256sum` absence are FAILs because each voids a whole gate, but neither
 # carries a mutation fire-proof — hiding one tool from `$PATH` without also hiding `git`,
 # `grep` and `cut` cannot be done cleanly, so those two legs are asserted by reading, not by
 # running. That is a weaker warrant than every other leg here and is recorded as such.
+#   THE ONE TOOL-ABSENCE `[skip]` THIS PARAGRAPH USED TO NAME IS GONE, and it went in the
+#   direction the paragraph wanted: it read "`pdftotext` absence remains a `[skip]` (poppler
+#   is not part of the toolchain this repo requires)", and the only caller of pdftotext was
+#   GATE 8 LEG 5, retired 2026-09-04 with example/report.pdf. No gate now degrades to a
+#   `[skip]` on a missing tool. That is a narrowing of this caveat, NOT a widening of
+#   coverage — LEG 5's checking went with it; see the gate's own header for what it cost.
 #
 # require_tracked <path> [remedy-line]
 #   rc 0 = present; rc 1 = absent and NOT tracked (a legitimate skip, printed); rc 2 = tracked
@@ -152,19 +294,20 @@ require_tracked() {
   return 1
 }
 
-# 🔴 Codex N10 finding 4, 2026-08-26. require_tracked proves a registry EXISTS. It does not prove
-# the registry has any ROWS, and the shared newline guard explicitly accepts an empty file. So
-# truncating a registry to zero bytes makes its gate iterate nothing and pass. VERIFIED: with a
-# zero-byte RETRACTED_PHRASES.tsv, GATE 3 printed its header and nothing else -- the 15 retracted
-# phrasings it normally reports all went silent. A registry is never legitimately empty in this
-# repo (24 / 12 / 61 rows today), so zero rows is a defect, not a clean bill of health.
+# 🔴 Q-283 / Codex N10 finding 4 — reproduced on the PUBLISHED suite 2026-08-27. require_tracked
+# proves a registry EXISTS; it does not prove the registry has any ROWS, and the shared newline
+# guard explicitly accepts an empty file. So emptying a registry makes its gate iterate nothing and
+# return clean. Measured: with a zero-row RETRACTED_PHRASES.tsv, GATE 3 printed its header and
+# NOTHING ELSE — not "[ok]", not "[FAIL]" — and the suite exited 0. That is worse than a false
+# "[ok]": in a long log a silent gate reads as one that ran and had nothing to say.
+# A registry is never legitimately empty here (23 / 11 / 61 rows today), so zero rows is a defect.
 require_rows() { # $1=registry  $2=why it matters
   local f="$1" n
-  # grep -c PRINTS 0 and EXITS 1 when it matches nothing, so `|| echo 0` appended a SECOND zero
-  # and the test became [ "0\n0" -eq 0 ] -- an integer-expression error, not a verdict.
+  # NOTE: `grep -c` PRINTS 0 and EXITS 1 when nothing matches, so an appended `|| echo 0` would
+  # emit a SECOND zero and make the test an integer-expression error rather than a verdict.
   n=$(grep -cvE '^[[:space:]]*(#|$)' "$f" 2>/dev/null); n=${n:-0}
   if [ "${n:-0}" -eq 0 ]; then
-    echo "  [FAIL] $f has ZERO rows. A registry with no rows silences its gate rather than"
+    echo "  [FAIL] $f has ZERO rows. A registry with no rows SILENCES its gate rather than"
     echo "         passing it: the loop iterates nothing and returns clean. $2"
     return 1
   fi
@@ -301,10 +444,17 @@ require_final_newline() {
 # number is copied out of any of them into this paragraph — that is the point of item R3,
 # and copying them here is the one way this block goes stale in silence. Each site is named
 # by the sentence it lives in; run the command beside it if you want the value.
-#   GATE 6's WHY header, "N of the repo's M image assets"  — git ls-files | grep -iE
-#       '\.(svg|png|pdf)$', then grep -c '<text' over the SVGs. Every figure in the
-#       sentence re-derives, INCLUDING the two the round-12 sample did not check: the
-#       <text> and <use> counts it quotes for fig_tr4_boundary_information.svg.
+#   GATE 6's WHY header, the unscannable-asset description  — `git ls-files '*.svg'
+#       '*.png'` (the gate's OWN population), then grep -c '<text' over the SVGs. The
+#       <text> and <use> counts it quotes for fig_tr4_boundary_information.svg
+#       re-derive. CORRECTED 2026-09-04 TWICE OVER: this recipe used to say
+#       `grep -iE '\.(svg|png|pdf)$'`, which is NOT what the gate counts — it included
+#       example/report.pdf and so returned 40 where `$nimg` was 39, and the header's
+#       quoted "N of M" was taken from the recipe rather than from the gate. That PDF was
+#       removed from the repository on 2026-09-04 (embedded DejaVu font programs), so the
+#       two populations would now agree by accident; the recipe is corrected anyway,
+#       because agreeing by accident is how the disagreement went unnoticed. The header
+#       no longer quotes a tally at all.
 #   GATE 12's SCOPE paragraph, the per-TR `## Revision history` census  — grep -c over
 #       git ls-files 'reports/TR*.md' plus the documentation/ negative.
 #   GATE 9's Q2 answer, the banner-block line counts against MAXBLK/MAXIDX  — re-derive
@@ -544,13 +694,14 @@ gate_numbers() {
   # Round numbers (>=4 trailing zeros) are budgets/powers of ten — skipped.
   # Report-only ([WARN]) with an allowlist, because legitimately-close pairs exist
   # (e.g. a byte count with and without the 32-byte header).
-  # 🔴 Codex N10 finding 3 — EXECUTABLE FALSE CLEAR. This was `tmp=$(mktemp)` UNCHECKED.
-  # When mktemp fails (read-only or restricted tmp) $tmp is EMPTY, `sort -u > ""` fails, the
-  # reads that follow find nothing, and the gate reports its clean message having examined
-  # nothing at all. Codex demonstrated exactly this: under one temp-write restriction GATES 3,
-  # 10 and 22 -- which CHECK their mktemp -- correctly went red, while GATES 1, 2 and 20 passed.
-  # Report-only refers to this gate's FINDINGS being advisory. It does not make its ability to
-  # RUN optional: a check that cannot run must ERROR, never emit [ok].
+  # 🔴 Q-283 / Codex N10 finding 3 — EXECUTABLE FALSE CLEAR, reproduced on origin/main
+  # 2026-08-27. This was `tmp=$(mktemp)` UNCHECKED: when mktemp fails (read-only or
+  # restricted TMPDIR) $tmp is EMPTY, every write to it fails, the reads that follow find
+  # nothing, and the gate emits its clean message having examined nothing at all. Measured
+  # under TMPDIR pointed at a mode-500 directory: GATES 3 and 22, which DO check their
+  # mktemp, correctly went [FAIL] while GATES 1 and 20 emitted [ok] on the same condition.
+  # Report-only refers to a gate's FINDINGS being advisory; it does not make its ability to
+  # RUN optional. A check that cannot run must ERROR, never emit [ok].
   local tmp allow
   tmp=$(mktemp) || { echo "  [FAIL] GATE 1: mktemp failed, so NOTHING was checked."; return 1; }
   allow="documentation/DOC_GATE_NUMBER_ALLOWLIST.txt"
@@ -591,17 +742,14 @@ gate_cli() {
     require_tracked "$doc"  "Delete a CLI doc and its pair stops being checked, silently." || rcd=$?
     if [ "$rcc" -eq 2 ] || [ "$rcd" -eq 2 ]; then bad=1; return 0; fi
     if [ "$rcc" -ne 0 ] || [ "$rcd" -ne 0 ]; then return 0; fi
-    # 🔴 Codex N10 finding 3 — same false-clear shape as GATE 1: both were UNCHECKED, so a
-    # failed mktemp left empty paths, every write failed, and the comparison ran over two
-    # nonexistent files and found no discrepancy. GATE 2 is BLOCKING, so this one could clear
-    # a push. Fail loudly instead, and do not leak cf if df is the one that fails.
-    # ⚠ `bad=1`, NOT a bare `return 1`. check_pair is an INNER function whose return value is
-    # DISCARDED by its five call sites; gate_cli ends with `return $bad`. The first cut of this
-    # fix returned 1 here and MEASURED rc=0 on the whole gate -- it printed a loud [FAIL] and
-    # still cleared the push. That is the same false clear one layer up, produced by the fix for
-    # it. The established shape is two lines above: set bad, then return.
-    cf=$(mktemp) || { echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; bad=1; return 0; }
-    df=$(mktemp) || { rm -f "$cf"; echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; bad=1; return 0; }
+    # 🔴 Q-283 / Codex N10 finding 3 — the same false-clear shape, and this one is WORSE
+    # because GATE 2 is BLOCKING, so it can clear a push. Reproduced: it printed
+    #   [ok] roae.py fully documented in ... ( flag(s) compared against  documented, ...)
+    # with the counts BLANK, because it compared zero flags against zero documentation. The
+    # gate's own message carried the proof it had examined nothing, and nothing read it.
+    # Do not leak cf if df is the one that fails.
+    cf=$(mktemp) || { echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; return 1; }
+    df=$(mktemp) || { rm -f "$cf"; echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; return 1; }
     # ITEM A4 (2026-08-02) — DECIDED: NARROW, and here is the decision rather than a
     # rediscovery of the question. The extractor is a line-based grep, so a COMMENTED-OUT
     # declaration was emitted as an undocumented flag. MEASURED while writing item A3's
@@ -721,14 +869,52 @@ gate_cli() {
 # phrases, where '*' is only ever markdown emphasis splitting a span ("hard floor
 # **k ≥ 13**"), never a multiplication sign. sed with literal substitutions only (the
 # digit-comma rule uses the class [0-9]; no repetition operators of any kind).
+#
+# QUOTE FOLD (2026-09-02, batch C9) — the fourth character family, and the one this table
+# was measured to be MISSING. Variant 3 of the needle-reachability class: a registry needle
+# carrying an ASCII apostrophe cannot reach a typographic one, and vice versa. PROVEN LIVE
+# before the fix, on a scratch copy of this tree: the registered row "C4's attested
+# orientation" was planted into documentation/GUIDE.md spelled C4<U+2019>s, GATE 3 printed
+# [ok] for that row and PASS overall; the same sentence planted with an ASCII apostrophe
+# fired [FAIL] immediately. The character was the whole difference. Batch P54 had already
+# paid for this by hand — it took TWO narrow needles instead of the one covering phrase,
+# because the covering phrase contained an apostrophe and would have been defeated here.
+#
+# BLAST RADIUS, MEASURED rather than argued (the registry is 174 phrase rows + 14 figure
+# rows = 188 needles, all of them run through this function by GATE 3 and GATE 6). The
+# per-(needle, corpus-file) match set was captured before and after over the FULL corpus —
+# every tracked .md, the non-md half of reports/evidence/**, the figure generators and the
+# text-bearing .svg — 77 (needle, file) matches, and the before/after diff is EMPTY. The
+# fold folds needle and haystack alike, so it can only ADD matches; it added none here,
+# because zero registered needles and only 31 corpus characters carry a curly quote.
+#
+# BACKTICK IS DELIBERATELY NOT FOLDED, and this is the measured half of the decision, not
+# taste. (a) NO TRUE POSITIVE EXISTS: every backtick-followed-by-letter site in the corpus
+# is a code-span opener (`v4-canonical, `d683794`, `example`s) — not one is a possessive,
+# so folding ` to ' cannot recover a single real survivor. (b) A FALSE POSITIVE DOES EXIST
+# and was reproduced on real corpus bytes: with ` folded, the needle "example's" goes from
+# 1 matching file to 2, the extra being lean/README.md's "anonymous `example`s" — a code
+# span naming the Lean `example` keyword, pluralised. That is precisely a needle matching a
+# LITERAL rather than a claim. (c) The perturbation is 1,155x larger: 35,817 corpus
+# backticks against 31 curly quotes, and this file's GATE 21 keys on backticks as
+# STRUCTURE (backticked repo paths), so the character is load-bearing markup here, not an
+# alternative spelling of a glyph. Ellipsis (U+2026 -> "...") is the same shape and is also
+# NOT folded: 812 in the corpus but ZERO needles carry either spelling, so it has no
+# populated needle side and no red test. Both are recorded as measured, unfixed siblings.
 fold_variants() {
   # The four space variants are spelled as $'\u..' escapes, not embedded literally —
   # an invisible character pasted into a sed script is unreviewable and un-diffable.
+  # The four QUOTE variants are spelled the same way for a SHARPER version of that reason:
+  # ' and ’ are both VISIBLE and near-identical at a review font size, so a literal
+  # pasted here would not be unreadable, it would be MISREADABLE as the ASCII character it
+  # folds to — a reviewer would see s/'/'/g and read it as a no-op.
   local NB=$'\u00a0' FS=$'\u2007' TS=$'\u2009' NN=$'\u202f'
+  local RSQ=$'\u2019' LSQ=$'\u2018' LDQ=$'\u201c' RDQ=$'\u201d'
   sed -e 's/×/x/g; s/✕/x/g; s/⨯/x/g' \
       -e 's/–/-/g; s/—/-/g; s/−/-/g' \
       -e 's/≥/>=/g; s/≤/<=/g; s/＋/+/g' \
       -e "s/$NB/ /g; s/$FS/ /g; s/$TS/ /g; s/$NN/ /g" \
+      -e "s/$RSQ/'/g; s/$LSQ/'/g; s/$LDQ/\"/g; s/$RDQ/\"/g" \
       -e 's/\*//g' \
       -e 's/\([0-9]\),\([0-9]\)/\1\2/g' \
       -e 's/ +/+/g; s/+ /+/g'
@@ -736,7 +922,6 @@ fold_variants() {
 
 gate_retract() {
   echo "== GATE 3: retracted phrasings still surviving =="
-  require_rows "documentation/RETRACTED_PHRASES.tsv" "Zero rows silences every retraction check." || return 1
   # Registry-driven and deliberately so: auto-parsing retraction prose is unreliable,
   # and a wrong gate is worse than none. Each entry is a FIXED string that was retracted;
   # the gate fails if it appears anywhere outside the file allowed to narrate the retraction.
@@ -750,6 +935,7 @@ gate_retract() {
   #   (c) allow-column over-reach — matching the allow string anywhere on the line exempted
   #       too much. FIX: the allow column now matches the FILENAME only.
   local reg="documentation/RETRACTED_PHRASES.tsv"
+  require_rows "documentation/RETRACTED_PHRASES.tsv" "Zero rows silences every retraction check." || return 1
   # ITEM A1: the registry IS this gate. Skipping on its absence reported PASS for a gate
   # that had checked nothing at all.
   require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero phrases are checked."
@@ -813,21 +999,7 @@ gate_retract() {
       case "$f" in *"$allow"*) continue;; esac          # the doc allowed to narrate it
       [ -f "$folddir/$f" ] || continue
       # normalise the FOLDED file to one whitespace-collapsed line, then fixed-string match
-      # 🔴 Codex N10 finding 6. This asked "does the FLATTENED text contain the phrase",
-      # and the exemption below then asked "is there any non-revision LINE hit". Those two
-      # questions cannot distinguish a wrapped prose occurrence from a revision row: put the phrase
-      # on a `| v9.9 |` row AND split a second occurrence across two prose lines, and the line test
-      # finds only the exempt row, `hitln` comes back empty, the `elif` sees the phrase IS present
-      # on a line, and the gate reports nothing. GATE 3b already solved this with OCCURRENCE COUNTS
-      # and its comments describe this exact masking shape -- so the fix is to use the answer that
-      # was already in the file.
-      # nflat > nrev means at least one occurrence is NOT accounted for by revision rows.
-      # Codex's own scan found ZERO instances in the current tree: a constructible bypass, not a
-      # live survivor, and it is not recorded as one.
-      local nflat nrev
-      nflat=$(tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -oF -- "$np" 2>/dev/null | wc -l)
-      nrev=$(grep -E '^\| v[0-9]' "$folddir/$f" 2>/dev/null | grep -oF -- "$np" 2>/dev/null | wc -l)
-      if [ "${nflat:-0}" -gt "${nrev:-0}" ]; then
+      if tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -qF -- "$np"; then
         # changelog rows legitimately quote superseded wording; only exempt if EVERY
         # line-level hit is a revision row.
         # RECORD WHERE, not just WHICH FILE (2026-08-02, #65). A bare filename makes the
@@ -838,13 +1010,21 @@ gate_retract() {
         local hitln
         hitln=$(grep -nF -- "$np" "$folddir/$f" 2>/dev/null | grep -vE '^[0-9]+:\| v[0-9]' \
                 | head -1 | cut -d: -f1)
+        # 🔴 Q-283 / Codex N10 finding 6 — reproduced on the PUBLISHED suite 2026-08-28.
+        # The `elif` below asked "does the phrase appear on NO single line?", so a WRAPPED prose
+        # use was reported only when nothing else in the file matched line-wise. A revision row
+        # legitimately quoting the retracted wording matches on one line — and therefore SUPPRESSED
+        # the wrapped hit. Measured: a TR with one revision row plus the same phrase broken across
+        # two prose lines left GATE 3 printing `[ok] retracted: "preserving the classical pairing"`
+        # at rc=0. Count instead of test: if the FLATTENED file holds more occurrences than the
+        # revision rows do, at least one lives outside them.
+        local nflat nrev
+        nflat=$(tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -oF -- "$np" 2>/dev/null | wc -l)
+        nrev=$(grep -E '^\| v[0-9]' "$folddir/$f" 2>/dev/null | grep -oF -- "$np" 2>/dev/null | wc -l)
         if [ -n "$hitln" ]; then
           hits="$hits $f:$hitln"
-        else
-          # No non-revision LINE hit, yet the count says an occurrence exists beyond the revision
-          # rows -- so it spans lines. The old `elif ! grep -qF` was the bug: it asked whether the
-          # phrase was absent from every line, which a legitimate revision row made false.
-          hits="$hits $f(spans-lines)"
+        elif [ "${nflat:-0}" -gt "${nrev:-0}" ]; then
+          hits="$hits $f(spans-lines)"                  # only visible after normalisation
         fi
       fi
     done
@@ -929,6 +1109,7 @@ gate_retract_figures() {
   # cannot tell "never existed" from "deleted"). The ALLOWLIST is deliberately NOT guarded
   # here: losing it makes this gate STRICTER, not blinder — every exemption disappears and
   # the gate goes red. That is the fail-safe direction, so it needs no guard.
+  require_rows "documentation/RETRACTED_FIGURES.tsv" "A retracted FIGURE that nothing registers is a figure nobody re-checks." || return 1
   require_tracked "documentation/RETRACTED_FIGURES.tsv" \
     "The figure registry IS this gate; with it gone, zero statistics are checked."
   case $? in 1) return 0;; 2) return 1;; esac
@@ -991,7 +1172,21 @@ if os.path.exists(ALLOW):
 FOLD1 = {0x00D7: 'x', 0x2715: 'x', 0x2A2F: 'x',
          0x2013: '-', 0x2014: '-', 0x2212: '-',
          0x2265: '>=', 0x2264: '<=', 0xFF0B: '+',
-         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' '}
+         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' ',
+         # QUOTE FOLD (2026-09-02, batch C9) — added HERE ONLY to hold the
+         # "keep the three in step" contract this table's own header states. The
+         # defect and the red tests are GATE 3's (see fold_variants); this side has
+         # ZERO quote-bearing needles today (14 figure rows, all numeric; 3 alias
+         # rows: C1+C2+C3, "the exhaustive enumeration", "Zheng Qiao"), so the
+         # extension is measured-INERT here and the full `all` output is unchanged
+         # by it. It is applied anyway because the alternative is a table that
+         # diverges silently and re-opens the same hole the day someone registers a
+         # quote-bearing figure caption or alias. U+0060 backtick is NOT folded, for
+         # the reason measured at fold_variants: no true positive exists and a real
+         # false positive does. 0x2019 is the only one of the four the corpus
+         # actually carries in prose; the other three are included so the pair
+         # (open, close) is closed on both the single and double forms.
+         0x2019: "'", 0x2018: "'", 0x201C: '"', 0x201D: '"'}
 def canon(s, star):
     # star is what ASCII '*' folds to, and it is genuinely two-valued: as a variant
     # of × it must become 'x' ("~52*"), as markdown emphasis it must vanish so the
@@ -1307,7 +1502,11 @@ BOLD   = re.compile(r'^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*([^*][^
 # The trailing `` ` `` is ITEM B1's backtick leg: a path written as `` `documentation/X.md` §"…" ``
 # was invisible to this gate because \s* cannot match the closing backtick. Two references in the
 # corpus are written that way and one of them — PARTITION_STABILITY_BOUNDARIES.md:83 — is dead.
-SEC_Q  = re.compile(r'([\w./+-]+\.md)`?\s*§\s*"([^"]+)"')
+# ⚠ ':' added 2026-08-27 (Q-283 finding 5). Without it the class could not capture a
+# `repo:FILE.md` qualifier, so the `':' not in path` exclusion below was UNREACHABLE for the colon
+# form — and the colon form is exactly what the FINDING message tells the reader to write. The fix
+# advised a remedy its own regex could not see. Verified: clean tree still reports zero findings.
+SEC_Q  = re.compile(r'([\w.:/+-]+\.md)`?\s*§\s*"([^"]+)"')
 SEC_N  = re.compile(r'([\w./+-]+\.md)`?\s+(Q\d+)\b')
 ALLOW  = 'documentation/DOC_GATE_SECREF_ALLOWLIST.txt'
 
@@ -1378,21 +1577,38 @@ for m in mds:
                 if len(same) == 1:
                     dest = same[0]
             if dest is None:
-                # 🔴 Codex N10 finding 5, 2026-08-26. This said `continue -- file-level resolution is
-                # phase 1's job`. But phase 1 (GATE 4) extracts only MARKDOWN LINK syntax, so a BARE
-                # `FILE.md §"..."` reference reached NEITHER gate. A gap between two checks, each
-                # deferring to the other. Live instance: documentation/HISTORY.md cited a file that
-                # exists only in roae-PRIVATE and secrefs printed 'every delimited section reference
-                # resolves'. An explicit cross-repo form (repo:FILE.md) is legible and excluded.
+                # 🔴 Q-283 / Codex N10 finding 5 — reproduced on the PUBLISHED suite 2026-08-27.
+                # "file-level resolution is phase 1's job" is true for a path phase 1 can SEE.
+                # A path with no repo qualifier that resolves to nothing in this repo reaches
+                # NEITHER gate: phase 1 skips it as out-of-repo, and this skipped it as phase 1's.
+                # Measured: `NO_SUCH_FILE_ZZ.md §"A Heading That Does Not Exist"` planted in a
+                # tracked file left GATE 4b printing "[ok] every delimited section reference
+                # resolves ... (90 markdown files scanned)" at rc=0 — not silence, an explicit
+                # positive claim about a reference that resolves nowhere.
+                # A qualified `repo:FILE.md` is deliberate cross-repo intent and still skips here.
                 # `roae-private/FILE.md` is the same explicit cross-repo intent as `repo:FILE.md`,
                 # just written with a slash. Both are legible to a reader; neither is a dangling
-                # same-repo link. A first cut excluded only the colon form and flagged 3 of these.
-                if ':' not in path and not path.startswith('roae-private/'):
-                    print(f'  [FINDING] {f}:{ln} - bare section reference to "{path}", which '
+                # same-repo link. ⚠ I ported commit 8f291120 and MISSED its sibling 86f58ce9, which
+                # exists precisely because a first cut excluded only the colon form — so my version
+                # flagged 3 of these on a clean tree. Two commits, one defect class; porting one is
+                # the "fix the instance, not the class" error this repo queued as Q-305 today.
+                # `FILE.md` is the documented PLACEHOLDER for this very syntax — TR9 §changelog
+                # narrates "the form `FILE.md §\"Name\"` / `FILE.md Q<n>`". No file is named that,
+                # so treating it as a dangling reference makes the gate fire on the document that
+                # explains the gate. Narration is not a claim; this repo's own GATE 20 draws the
+                # same line between a marker and a sentence about markers.
+                if ':' not in path and not path.startswith('roae-private/') and path != 'FILE.md':
+                    # ⚠ The enclosing loop is `for m in mds:` with `lineno`; `ln` is a COMPREHENSION
+                    # variable bound to file lines, and `rc` does not exist here — this block signals
+                    # failure through `bad`, consumed by `sys.exit(1 if (bad or stale) else 0)`.
+                    # My first port copied the branch's `{f}:{ln}` and `rc = 1` verbatim: the message
+                    # printed a LIST and the finding did not move the exit code. Copying the shape of
+                    # a fix without checking its scope is the same error twice in one evening.
+                    print(f'  [FINDING] {m}:{lineno} - bare section reference to "{path}", which '
                           f'resolves to no file in this repo. Qualify it as repo:FILE.md if the '
                           f'target is private, or fix the name.')
-                    rc = 1
-                continue
+                    bad = True
+                continue                           # file-level resolution is phase 1's job
             want = norm(sec)
             if not want:
                 continue
@@ -1534,7 +1750,6 @@ PY
 gate_links_and_secrefs() {
   local rc=0
   gate_links   || rc=1
-  require_rows "documentation/RETRACTED_FIGURES.tsv" "A retracted FIGURE that nothing registers is a figure nobody re-checks." || bad=1
   gate_secrefs || rc=1
   return $rc
 }
@@ -1629,7 +1844,27 @@ for f in files:
     for ln, line in enumerate(_lines, 1):
         for val, want in rows:
             if re.fullmatch(r'[\d.]+', val) and ',' not in val:
-                if not re.search(re.escape(val) + r'\s*[×x]\s*10', line): continue
+                # SIBLING OF GATE 26 LEG 2 (2026-09-02), and measured the same way. This
+                # required the SUPERSCRIPT form, so a registry value typed the way the solver
+                # PRINTS it -- 1.3287e38 -- was invisible to GATE 5/5b: FOUR occurrences
+                # (documentation/CORRECTIONS.md:2025, reports/evidence/f1/
+                # F1_ORBIT_QUOTIENT_2026_07.md:9, and FH1_RESIDUAL_DOMINANCE.md:179 and :181),
+                # none of them examined.
+                # 🔴 THE FIRST CUT OF THIS FIX WAS WRONG AND THE MEASUREMENT CAUGHT IT. Without
+                # the code-span condition below it added ONE [WARN], and that [WARN] was false:
+                # CORRECTIONS.md:2025 quotes solver output, and the only 'exact' token on the
+                # line is the FLAG NAME `--f1-exact-c1c2c4c5` inside a code span. A quoted
+                # transcript is evidence, not a status claim about the figure -- the same
+                # reasoning, on the same notation, that GATE 26 LEG 2 records at length. With
+                # the condition: population +3, findings +0.
+                # The hex-context lookbehind is also LEG 2's: without it a sha256 fragment
+                # reads as a registry value.
+                _spans = [(m.start(), m.end()) for m in re.finditer(r'`[^`]*`', line)]
+                _asc = re.search(r'(?<![0-9a-fA-F.])' + re.escape(val) + r'[eE]\+?\d', line)
+                if _asc and any(a <= _asc.start() and _asc.end() <= b for a, b in _spans):
+                    _asc = None
+                if not (re.search(re.escape(val) + r'\s*[×x]\s*10', line) or _asc):
+                    continue
             elif val not in line:
                 continue
             seen += 1
@@ -1830,9 +2065,16 @@ gate_figures() {
   # WHY: on 2026-08-01 a withdrawn claim ("hard floor k >= 13") was found RENDERED in a
   # published figure, having survived every gate. matplotlib converts text to glyph
   # paths, so fig_tr4_boundary_information.svg holds 0 <text> elements and 920 <use>
-  # refs — the sentence is visible to a reader and invisible to grep. 38 of the repo's
-  # 40 image assets are in that state (15 matplotlib SVGs incl. the PCA plots, plus
-  # every PNG). We cannot grep the output, so we grep what PRODUCES it: the annotation
+  # refs — the sentence is visible to a reader and invisible to grep. Most of the repo's
+  # image assets are in that state (the matplotlib SVGs incl. the PCA plots, plus every
+  # PNG). NO TALLY IS QUOTED HERE, and that is a correction: this sentence said "38 of
+  # the repo's 40", a pair that was BOTH wrong by 2026-09-04 — the live [info] line this
+  # gate prints on every run said 37 unscannable of 39, and the 40 counted
+  # example/report.pdf, which is not in this gate's population (`git ls-files '*.svg'
+  # '*.png'`) and was removed from the repository that day for embedding the complete
+  # unsubsetted DejaVu font programs. LEG 3's [info] line below is the authority; it is
+  # computed from `$nimg` every run and a comment restating it can only be right by
+  # accident. We cannot grep the output, so we grep what PRODUCES it: the annotation
   # strings in the figure generators. Keeping generator text and figure in sync is the
   # generators' documented obligation.
   #
@@ -1873,18 +2115,43 @@ gate_figures() {
   require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero generators are checked."
   case $? in 1) return 0;; 2) return 1;; esac
   local gens bad=0 g
-  # 🔴 Codex N10 finding 9. This was `git ls-files 'viz/*.py'` alone -- a population keyed on a
-  # DIRECTORY CONVENTION -- while the [ok] line below made the UNQUALIFIED claim "N figure
-  # generator(s) carry no registered retracted phrasing". MEASURED 2026-08-26: four tracked .py
-  # files call savefig, and solve.py is the fourth. It holds a documented matplotlib generator
-  # (matplotlib.use("Agg") and fig.savefig at solve.py:3197), so a registered retracted annotation
-  # added to `solve.py --bivariate` was invisible to this gate while the gate said "3 generators".
-  # Same shape as GATE 12's exemption: the comment promised a population the code did not have.
-  # THE POPULATION IS NOW DERIVED FROM CONTENT, and the directory convention is kept as a FLOOR so
-  # this can only ever widen: a viz/ file that stops calling savefig is still checked.
+  # 🔴 Q-283 / Codex N10 finding 9 — reproduced on origin/main 2026-08-27. This population was
+  # keyed on a DIRECTORY, so it covered 3 tracked viz/*.py and reported "[ok] 3 figure
+  # generator(s)" while a FOURTH tracked file — solve.py — also calls savefig and was never
+  # examined. A gate that checks 3 of 4 and reports on all of them is a coverage hole that
+  # states its own count and is still read as complete. Key on the BEHAVIOUR (calls savefig),
+  # not on where the file happens to live: "exempt a construction, never a directory" is
+  # already this file's own rule, three hundred lines above.
   gens=$( { git ls-files 'viz/*.py'
             git ls-files '*.py' | xargs grep -ln 'savefig' 2>/dev/null; } | sort -u)
-  [ -n "$gens" ] || { echo "  [skip] no figure generators tracked (no viz/*.py in the index and no tracked .py calls savefig)"; return 0; }
+  # ---- THE PUBLISHED-ASSET POPULATION, and the [skip] that was a fail-open ----------
+  # Added 2026-09-02 (batch C7) with LEG 3 below, which needs this population anyway.
+  #
+  # 🔴 THE LINE THIS REPLACES READ `[ -n "$gens" ] || { echo "  [skip] ..."; return 0; }`.
+  # With no generator tracked, this gate printed [skip] and RETURNED 0 — a PASS — while every
+  # published figure in the tree stayed exactly as unscanned as it had ever been. The glyph-path
+  # assets cannot be scanned through their output (this gate's own WHY header measures that:
+  # matplotlib renders text to glyph paths), so the generator is the ONLY place a retracted
+  # phrase in them can be caught. "No generator" is therefore the state in which this gate
+  # protects nothing at all, and it was the state in which it reported clean. That is the
+  # fail-open class — a verdict inferred from an absence that can mean "the check did not run".
+  local imgs nimg
+  imgs=$(git ls-files '*.svg' '*.png')
+  nimg=$(printf '%s\n' "$imgs" | grep -c . )
+  if [ "$nimg" -eq 0 ]; then
+    echo "  [FAIL] zero tracked image assets enumerated — vacuous, treated as failure."
+    echo "         This gate exists to protect published figures and it just found none. If the"
+    echo "         assets genuinely moved, update the pathspec; do not read an empty glob as clean."
+    return 1
+  fi
+  if [ -z "$gens" ]; then
+    echo "  [FAIL] $nimg tracked image asset(s) are published and ZERO figure generators are"
+    echo "         tracked (no viz/*.py in the index, and no tracked .py calls savefig). The"
+    echo "         glyph-path assets are unscannable through their own output, so the generator"
+    echo "         is the only place a retracted phrase in them could be caught — and there is"
+    echo "         no generator. This printed [skip] and returned 0 until 2026-09-02."
+    return 1
+  fi
   for g in $gens; do
     # Every path here came out of the index, so require_tracked can only return 0 or 2.
     local grc=0
@@ -1958,13 +2225,112 @@ gate_figures() {
   esac
   [ "$figbad" -eq 0 ] || bad=1
 
+  # ---- LEG 3: THE OUTPUT SIDE (batch C7, 2026-09-02). --------------------------------
+  #
+  # WHY. Both legs above scan GENERATORS, and that is sound for a matplotlib figure because its
+  # text is unreachable in the output. It is NOT the whole population. A published .svg whose
+  # text survives as real XML character data — example/hexagrams.svg carries 64 <text> nodes,
+  # example/wave.dot.svg 255 (graphviz, not matplotlib) — is greppable, is published, and was in
+  # no needle scan anywhere: neither GATE 3 (whose corpus is *.md plus reports/evidence/**) nor
+  # either leg above (whose corpus is *.py). Their producer, roae.py, writes SVG directly and
+  # calls no savefig, so it is not in `gens` either. A registry row for a phrase drawn into one
+  # of those two files would have been present, ledgered, and checked against nothing.
+  #
+  # 🔴 WHAT WAS PROPOSED AND WHY IT IS NOT WHAT SHIPPED. The finding that raised this asked for
+  # a scan of `viz/*.py` and `reports/figures/*.svg`. Measured before writing a line:
+  #   * `viz/` IS ALREADY COVERED — by the two legs above, for BOTH registries, since 2026-08-01
+  #     and widened past the directory key on 2026-08-27 (Q-283 / Codex N10 finding 9). The
+  #     premise that a viz/ row "could not have fired" is false.
+  #   * `reports/figures/*.svg` IS COVERED BY NOTHING AND SCANNING IT WOULD ATTEST NOTHING: all
+  #     six carry ZERO <text> elements (815/465/929/384/373/199 <use> refs instead). A needle
+  #     scan over them passes for every needle, always — the exact vacuous-population defect the
+  #     leg was asked to avoid. Scanning them and printing [ok] would have MANUFACTURED a
+  #     fail-open rather than closed one.
+  # So the population is keyed on the BEHAVIOUR that makes a scan meaningful — the asset carries
+  # renderable character data — and never on a directory. That is this file's own rule ("exempt
+  # a construction, never a directory") and the rule Q-283 was raised to enforce here.
+  #
+  # THE UNSCANNABLE REMAINDER IS COUNTED AND PRINTED, not passed over in silence. An asset this
+  # leg cannot read is not an asset it has cleared, and the census line below says so every run.
+  local svgs nsvg=0 ntext=0 nglyph=0 npng tbf="" ff xd nx xln
+  npng=$(printf '%s\n' "$imgs" | grep -c '\.png$')
+  svgs=$(printf '%s\n' "$imgs" | grep '\.svg$')
+  if [ -z "$svgs" ]; then
+    echo "  [FAIL] LEG 3 — zero tracked .svg assets, out of $nimg tracked image asset(s)."
+    echo "         Vacuous, treated as failure: this leg's whole population is the .svg pathspec"
+    echo "         and it matched nothing. If this tree genuinely ships no SVG, retire this leg"
+    echo "         deliberately; do not let a mis-globbed population report clean."
+    bad=1
+  fi
+  for ff in $svgs; do
+    nsvg=$((nsvg+1))
+    # `git ls-files` is an INDEX listing. This gate's own item A1(ii) records the shape: a
+    # tracked file deleted from the worktree stayed in the list, produced no match, and was
+    # reported clean. Absence is an ERROR here, never a silent skip.
+    if [ ! -f "$ff" ]; then
+      echo "  [FAIL] $ff is tracked in git but absent from the worktree, so it was NOT scanned."
+      bad=1; continue
+    fi
+    if grep -qE '<(text|tspan|title)[ />]' "$ff"; then
+      ntext=$((ntext+1)); tbf="$tbf $ff"
+    else
+      nglyph=$((nglyph+1))
+    fi
+  done
+  echo "  [info] LEG 3 population: $nsvg tracked .svg — $ntext text-bearing (SCANNED),"
+  echo "         $nglyph glyph-path; plus $npng tracked .png. The $((nglyph + npng)) unscannable"
+  echo "         asset(s) are NOT cleared by this leg — they rest on the generator legs above."
+  if [ "$ntext" -eq 0 ] && [ "$nsvg" -gt 0 ]; then
+    echo "  [note] LEG 3 scanned ZERO files: no tracked .svg carries renderable character data."
+    echo "         Stated, not silent — this leg attests nothing this run."
+  fi
+  for ff in $tbf; do
+    # Strip tags and unescape the entities that can split or hide a needle. Deliberately a
+    # SUPERSET of the rendered text (style/CDATA character data comes along): a superset can
+    # only over-report, and an over-report here is loud and one edit away from fixed, whereas
+    # an element type this leg forgot to name would be silent. &amp; is unescaped LAST.
+    xd=$(sed -e 's/<[^>]*>/ /g' \
+             -e 's/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#39;/'"'"'/g; s/&apos;/'"'"'/g; s/&amp;/\&/g' \
+             "$ff") || { echo "  [FAIL] LEG 3 could not extract text from $ff — NOTHING was scanned for it."; bad=1; continue; }
+    nx=$(printf '%s' "$xd" | fold_variants | tr '\n' ' ' | tr -s ' ')
+    # The allow column is ignored here for the same reason the generator leg ignores it: a
+    # rendered figure carries no changelog row and no retraction narration to quote.
+    while IFS=$'\t' read -r phrase allow note; do
+      case "$phrase" in ''|'#'*) continue;; esac
+      local np3
+      np3=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
+      if printf '%s' "$nx" | grep -qF -- "$np3"; then
+        xln=$(printf '%s' "$xd" | fold_variants | grep -nF -- "$np3" | head -1 | cut -d: -f1)
+        echo "  [FAIL] retracted phrasing RENDERED in a published figure: \"$phrase\""
+        echo "         matched as the fixed string: \"$np3\"   ($note)"
+        if [ -n "$xln" ]; then echo "      $ff:$xln  — fix the generator and regenerate"
+        else echo "      $ff(spans-lines)  — fix the generator and regenerate"; fi
+        bad=1
+      fi
+    done < "$reg"
+    if [ -f "$figreg" ]; then
+      while IFS=$'\t' read -r figure fignote; do
+        case "$figure" in ''|'#'*) continue;; esac
+        local nf3
+        nf3=$(printf '%s' "$figure" | fold_variants | tr '\n' ' ' | tr -s ' ')
+        if printf '%s' "$nx" | grep -qF -- "$nf3"; then
+          xln=$(printf '%s' "$xd" | fold_variants | grep -nF -- "$nf3" | head -1 | cut -d: -f1)
+          echo "  [FAIL] retracted FIGURE rendered in a published figure: \"$figure\""
+          echo "         matched as the fixed string: \"$nf3\"   ($fignote)"
+          if [ -n "$xln" ]; then echo "      $ff:$xln  — fix the generator and regenerate"
+          else echo "      $ff(spans-lines)  — fix the generator and regenerate"; fi
+          bad=1
+        fi
+      done < "$figreg"
+    fi
+  done
+
   if [ "$bad" -eq 0 ]; then
-    # The count is qualified by HOW the population was derived, so a reader can tell what was
-    # actually scanned. An unqualified "N figure generators" is what let solve.py's omission read
-    # as coverage rather than as a gap.
     echo "  [ok] $(echo $gens | wc -w) figure generator(s) — every tracked viz/*.py plus every"
     echo "       tracked .py that calls savefig — carry no registered retracted phrasing"
     echo "  [ok] ...and none of the $nfig registered retracted FIGURE(s) either (item A8)"
+    echo "  [ok] LEG 3: $ntext text-bearing published .svg carry neither a registered retracted"
+    echo "       phrase nor a registered retracted FIGURE"
   fi
   return $bad
 }
@@ -1986,7 +2352,7 @@ gate_figures() {
 gate_liveness() {
   echo "== GATE 7: no frozen present-tense run status; no run named after an unreached budget =="
   python3 - <<'PY'
-import re, glob, sys
+import re, glob, sys, os
 LIVE = ['in flight', 'currently running', 'results pending', 'and growing',
         'is underway', 'awaiting results', 'run is ongoing']
 # WORD-BOUNDARY KEYS (round 15, item R18). A bare substring test matched "concurrently
@@ -2024,6 +2390,24 @@ DISPO = ['stopped at', 'was stopped', 'completed', 'requested', 'never reached',
          'never carried out', 'superseded', 'aborted', 'cancelled', 'partial',
          'previously read', 'corrected', 'no longer', 'observed scenario',
          'hypothetical', 'as of this', 'at the time']
+# NARRATION MARKERS — deliberately SAME-LINE scope, not the ±4/+3 window DISPO uses.
+#
+# Added 2026-09-02. GATE 7 fired on documentation/CORRECTIONS.md:5662, a correction entry
+# NARRATING a frozen status it had just withdrawn: "the sentence was written 2026-06-13 with
+# the re-derive described as *in flight*". A report ABOUT a defect is not an instance of it,
+# and because `all` is the blocking pre-push leg this false positive blocked EVERY PUSH. It
+# also gets louder every time the prose lane does its job, since each new correction that
+# documents a frozen status re-triggers it — the wrong gradient.
+#
+# 🔴 WHY LINE SCOPE AND NOT DISPO. Adding these to DISPO was tried first and MEASURED: with
+# the ±4/+3 window, a genuine "the 4000T ladder build is in flight" was suppressed by an
+# unrelated "was withdrawn last week" on the preceding line. That is a recall loss in exactly
+# the direction this gate exists to prevent, and the corpus makes it reachable — 7 files carry
+# a liveness keyword and 37 carry one of these markers. On the same LINE the association is
+# grammatical rather than coincidental, and the real case satisfies it: 'described as' sits in
+# the same sentence as 'in flight'. Re-tested after the change: the narration case passes, and
+# BOTH genuine cases fire again, including the one the window had suppressed.
+NARRATION = ['withdrawn', 'described as', 'retired wording']
 bad = 0
 # The registry is the authority on which budgets were actually REACHED. A run named
 # after a budget in the registry is named correctly; one named after a budget that
@@ -2046,13 +2430,12 @@ for m in re.finditer(r'\b([0-9.]+T)\b', reg):
     if re.search(r'\b[0-9a-f]{16,64}\b', window):     # a sha256 (or its prefix) attests completion
         REACHED.add(m.group(1))
 files = [f for f in glob.glob('documentation/*.md') + glob.glob('reports/*.md') + ['README.md']
-         if not (f == 'HISTORY.md' or f.endswith('/HISTORY.md'))]  # dated narrative exempt
-  # 🔴 Codex N10 finding 1, 2026-08-26. This was `if 'HISTORY.md' not in f` -- a SUBSTRING
-  # test, so it silently also exempted documentation/PERFORMANCE_HISTORY.md, which is NOT
-  # dated narrative and was never meant to be exempt. A live stale-status defect hid behind
-  # it: line 345 called the 1T enumeration "in flight" while line 355 of the SAME FILE gave
-  # its "final accounting" with shas and timings. An exemption written as a substring
-  # exempts every path that happens to contain it.
+         if os.path.basename(f) != 'HISTORY.md']   # dated narrative is exempt by design
+# Codex N10 finding 1: the exemption was `'HISTORY.md' not in f`, a SUBSTRING test, so it
+# also exempted documentation/PERFORMANCE_HISTORY.md -- and anything else ending in the same
+# eleven characters. That file said a 1T enumeration was "in flight" at line 352 while the
+# same entry gave its FINAL ACCOUNTING at line 362, and this gate printed ok. The exemption
+# is for ONE named file and is now written that way.
 for f in files:
     text = open(f, errors='replace').read()
     lines = text.split('\n')
@@ -2064,6 +2447,10 @@ for f in files:
             # item R18: for the boundary-sensitive keys the bare substring is not enough —
             # "concurrently running" contains "currently running" and claims nothing.
             if k in WORDSTART and not re.search(r'\b' + re.escape(k), low):
+                continue
+            # Same-line narration check FIRST: it is the tighter test, so a line that
+            # quotes or reports a past claim is cleared without widening the window.
+            if any(n in low for n in NARRATION):
                 continue
             ctx = ' '.join(lines[max(0, i-4):i+3]).lower()
             if any(d in ctx for d in DISPO):
@@ -2291,10 +2678,8 @@ import re, subprocess, sys
 HEAD = '## Revision history'
 ROW  = re.compile(r'^\|\s*(v[0-9][^|]*?)\s*\|\s*([^|]*?)\s*\|')
 VER  = re.compile(r'^v(\d+)\.(\d+)(.*)$')
-DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
-# Anchored and exact: `-draft` only. Not a prefix test -- `-draft-2` is not a draft
-# label, and a widening here is precisely the defect Codex N10 finding 7 names.
 DRAFT = re.compile(r'^-draft$', re.I)
+DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
 out = subprocess.run(['git', 'ls-files', 'reports/TR*.md'],
                      capture_output=True, text=True)
@@ -2352,22 +2737,14 @@ for f in trs:
             continue
         key, suffix = (int(m.group(1)), int(m.group(2))), m.group(3).strip()
         keys.append(key)
-        # DRAFT-KEYED exemption: `v1.0-draft` is a draft label, not a released number, so
-        # repeats of it are legitimate (TR-11 x3, TR-10 x1). `v1.0` repeated is not.
-        #
-        # 🔴 Codex N10 finding 7. This read `if not suffix:`, which exempts EVERY suffix,
-        # not the draft label the header three screens up says is the one tolerated duplicate.
-        # Codex's concrete bypass: two rows named `v1.2-final`, the latter current and last,
-        # pass every relevant leg -- neither enters `released`, so the duplicate check never
-        # sees them. "The exemption is keyed on the SUFFIX ... so it cannot silently widen"
-        # was true of the COMMENT and false of the CODE: the code had already widened to the
-        # whole class of suffixes, and only the corpus happening to contain no other suffixed
-        # duplicate kept it from mattering.
-        # MEASURED across the tracked corpus before narrowing, because a gate that fires on
-        # legitimate content gets switched off: 87 version cells carry no suffix, 4 carry
-        # `-draft` (TR-11 x3 + TR-10 x1), and exactly one carries `.1` (TR-4's v1.7.1). That
-        # last one becomes "released" under this narrowing and is unique, so nothing legitimate
-        # starts failing.
+        # SUFFIX-KEYED exemption: `v1.0-draft` is a draft label, not a released number, so
+        # repeats of it are legitimate (TR-11 x3). `v1.0` repeated is not.
+        # 🔴 Q-283 / Codex N10 finding 7 — reproduced on the PUBLISHED suite 2026-08-27. This read
+        # `if not suffix:`, so a version was checked for duplication ONLY when it had no suffix at
+        # all — meaning EVERY suffix (`-rc1`, `-final`, anything) silently exempted it. Measured:
+        # two identical `v1.21-rc1` rows planted in TR9 left GATE 12 reporting
+        #   [ok] ... no repeated released version
+        # at rc=0, asserting exactly what was false. Only the DRAFT label may repeat.
         if not DRAFT.match(suffix):
             released.append((plain, ln))
         if not DATE.match(date):
@@ -2390,10 +2767,6 @@ for f in trs:
     for plain, ln in released:
         if plain in seen:
             print(f'  [FAIL] {f}:{ln} — released version {plain} is already used at line {seen[plain]}')
-            # The old wording ended "this one has no suffix", which became FALSE the moment
-            # the exemption was narrowed to `-draft` (Codex N10 finding 7): a repeated
-            # `v1.2-final` HAS a suffix and is now correctly refused. Caught by reading the
-            # fixture's own output rather than only its exit code.
             print('         (only the draft label -draft may legitimately repeat; every other')
             print('          version, suffixed or not, is a released number and must be unique)')
             bad = 1
@@ -2825,49 +3198,11 @@ if [ "${1:-}" = "--selftest" ]; then
   # call line starts with exactly two spaces, the label is the first double-quoted token on
   # it, the ERE is the first single-quoted token in the argument list, and the mutation body
   # opens at column 0. Keep the shape or GATE 16's per-invocation vacuity guard fails.
-  # 🔴 Q-235, found 2026-08-26 while landing Codex N10 finding 7. "could not inject (anchor
-  # moved)" was printed IDENTICALLY whether the anchor moved because this branch is stale or
-  # because the injection code itself is broken. A new GATE 12 fixture shipped with a regex that
-  # reached python as `\d` -- matching a literal backslash -- and its harness line was
-  # indistinguishable from the three GATE 12 fixtures that fail for real staleness, so it was
-  # misattributed to staleness. That shape appears at least NINE times in one selftest run on this
-  # branch, which is a crowd a broken fixture can hide in indefinitely.
-  # The injection's AssertionError message was already being raised and thrown away. Keep it.
-  INJECT_WHY=""
-  _inject() {   # $1 = python mutation source. Sets INJECT_WHY when it fails.
-    local mut="$1" err rc f paths
-    # `2>&1 >/dev/null` in THIS order: stderr to the capture, then stdout to the bin. Reversed,
-    # the capture would take stdout and the traceback would go on being discarded.
-    err=$(python3 -c "$mut" 2>&1 >/dev/null); rc=$?
-    [ "$rc" -eq 0 ] && { INJECT_WHY=""; return 0; }
-    INJECT_WHY="         why: $(printf '%s' "$err" | tail -1)"
-    # HEURISTIC, and labelled as one in the output it produces: pull quoted repo paths out of the
-    # mutation SOURCE and ask whether each still matches main. A differing file makes staleness the
-    # likely cause; an identical one points at the fixture. It cannot be exact -- the mutation is
-    # arbitrary python -- so it names a likelihood and never a verdict.
-    paths=$(printf '%s' "$mut" | grep -oE "'[A-Za-z0-9_./-]+\.(md|py|c|tsv|txt)'" | tr -d "'" | sort -u)
-    for f in $paths; do
-      git ls-files --error-unmatch "$f" >/dev/null 2>&1 || continue
-      if ! git rev-parse --verify -q main >/dev/null 2>&1; then
-        INJECT_WHY="$INJECT_WHY
-         anchor $f: no local main to compare against, so neither cause can be ruled out"
-      elif git diff --quiet main -- "$f" 2>/dev/null; then
-        INJECT_WHY="$INJECT_WHY
-         anchor $f is IDENTICAL to main -- so this is likely the FIXTURE, not branch staleness"
-      else
-        INJECT_WHY="$INJECT_WHY
-         anchor $f DIFFERS from main -- branch staleness is the likely cause"
-      fi
-    done
-    return 1
-  }
-
   assert_fires_why() {
     local label="$1" gate="$2" want="$3" mut="$4" out rc
-    _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
-                        echo "         assertion did NOT run. A skipped assertion is not a pass."
-                        printf '%s\n' "$INJECT_WHY"
-                        PASS=1; _selftest_revert; return; }
+    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
+                           echo "         assertion did NOT run. A skipped assertion is not a pass."
+                           PASS=1; _selftest_revert; return; }
     out=$(bash "$0" "$gate" 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -eq 0 ]; then
@@ -2926,6 +3261,17 @@ if [ "${1:-}" = "--selftest" ]; then
   #   GATE 14  adjudicated pairs `1 ... 0 new`                          ** ABSOLUTE **
   #   GATE 15  `12 instrument(s) in the --selftest region`              ** ABSOLUTE **
   #   GATE 15 LEG 3  `claims column: 8 kind=INVOCATION`                 ** ABSOLUTE **
+  #   GATE 59  59a  the seeded figure printed [OPEN] WITH its adjudication reason  DISCRIMINATOR
+  #   GATE 5b  5b-i   mixed-table class census 0 -> 2 (both twins)      ** ABSOLUTE **
+  #   GATE 5b  5b-ii  mixed-table class census 0 -> 1 (one allow-rowed) ** ABSOLUTE **
+  #   GATE 5b  5b-iii the NON-allow-rowed twin's own line                DISCRIMINATOR
+  #   GATE 5b  5b-iv  the allowlist audit's COMPUTED `exemption live` line  DISCRIMINATOR
+  # THE FIVE ADDED 2026-09-03 are the two zero-row registries' pairs. Three pin a line the run
+  # can only print having READ the seeded registry row, which is the discriminator form. TWO
+  # ARE ABSOLUTE AND SAY SO AT THEIR CALL SITES: 5b-i and 5b-ii pin the seed's contribution
+  # (+2 and +1) on top of a live mixed-table census of ZERO, so the next live 5b finding turns
+  # both red. That is a rot hazard, not a design, and the re-take recipe is written beside
+  # them rather than left to be rediscovered.
   #
   # SCOREBOARD, 2026-08-11: FOUR of these are now RELATIVE (GATE 12 and GATE 25 converted
   # first; GATE 2's two converted the same night after they went RED). FOUR REMAIN ABSOLUTE
@@ -2934,6 +3280,11 @@ if [ "${1:-}" = "--selftest" ]; then
   #   GATE 14      breaks on a 2nd adjudicated allowlist pair
   #   GATE 15      breaks on instrument #13
   #   GATE 15 L3   breaks on a 9th kind=INVOCATION row
+  #   GATE 5b 5b-i breaks on the FIRST live mixed-table 5b finding (census 0 -> 1)
+  #   GATE 5b 5b-ii breaks on that same event, for the same reason
+  # SIX REMAIN ABSOLUTE as of 2026-09-03, not four. The number is restated ONLY because the
+  # two new ones landed in the SAME change as this line, which is the one condition under
+  # which restating a count in a comment is not the caveat-4 shape this block is about.
   # WHY THIS LIST WAS WRONG BEFORE, which is the argument for keeping it exact: it said
   # "44 -> 45" (live ERE is 45 -> 46), listed GATE 2's two pins as absolute after they had
   # been converted, said "THE LAST TWO ARE RELATIVE" when four were, and named only three
@@ -2958,9 +3309,8 @@ if [ "${1:-}" = "--selftest" ]; then
   # the hour they were written — caught by this batch's own Phase-4 pass.)
   assert_stays_clean_why() {
     local label="$1" gate="$2" want="$3" mut="$4" out rc
-    _inject "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
-                        printf '%s\n' "$INJECT_WHY"
-                        PASS=1; _selftest_revert; return; }
+    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
+                           PASS=1; _selftest_revert; return; }
     out=$(bash "$0" "$gate" 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -ne 0 ]; then
@@ -3255,19 +3605,6 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
     'matched as the fixed string: "hard floor k>=13"' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>=13 by construction.\n')"
-
-  # 🔴 Codex N10 finding 6: a legitimate `| vN.N |` revision row MASKED a wrapped prose
-  # occurrence. The old logic asked "is there a non-revision LINE hit" and, finding none, then asked
-  # "is the phrase absent from every line" — which the revision row made false, so the gate reported
-  # nothing. This fixture builds Codex's exact case: ONE occurrence on a revision row, ONE split
-  # across two prose lines. Measured before shipping: the pre-fix gate named CRITIQUE.md ZERO times
-  # on this injection; the fixed gate names it as (spans-lines).
-  assert_fires_why "GATE 3 (N10-6) a revision row must not mask a wrapped prose hit" retract \
-    'documentation/CRITIQUE\.md\(spans-lines\)' \
-"f='documentation/CRITIQUE.md'
-s=open(f).read()
-open(f,'w').write(s+'\n| v9.9 | 2026-01-01 | probe row quoting the hard floor k>=13 wording |\n'
-                  '\nProbe prose whose wording is split by a hard floor\nk>=13 across two lines.\n')"
 
   # GATE 3b — THREE cases, and the positive one is its OWN MOTIVATING EXAMPLE rather than a
   # synthetic string. reports/evidence/r11/PHASE2_README.md is the artifact that actually
@@ -3604,20 +3941,6 @@ sys.exit(1) if not c else None
 s=open(c[0]).read()
 open(c[0],'w').write(s+'\n# hard floor k>=13\n')"
 
-  # 🔴 Codex N10 finding 9: the generator population was keyed on viz/ and solve.py holds a
-  # real matplotlib generator, so a retracted phrase annotated there was invisible while the gate
-  # reported "3 figure generators". This fixture pins the WIDENED population specifically -- it
-  # injects into solve.py, NOT into viz/, so it goes red the moment the population narrows back to
-  # a directory glob. Measured before shipping: pre-fix the same injection returned rc=0 and
-  # "[ok] 3 figure generator(s) carry no registered retracted phrasing".
-  assert_fires_why "GATE 6 (N10-9) a retracted phrase in solve.py's figure generator" figures \
-    'retracted phrasing in a figure generator: "preserving the classical pairing"' \
-"f='solve.py'
-s=open(f).read()
-a='    import matplotlib'
-assert s.count(a)==1, 'anchor moved: solve.py matplotlib import not found exactly once'
-open(f,'w').write(s.replace(a, '    # figure caption: preserving the classical pairing'+chr(10)+a, 1))"
-
   # ITEM A8: the FIGURE half of GATE 6. The phrase assertions above cannot cover it — they
   # inject a registered PHRASE, which the phrase loop would catch whether or not the figure
   # loop exists. This injects a registered STATISTIC, which nothing in this repo could see
@@ -3737,12 +4060,59 @@ open('reports/README.md','w').write(s.replace(a,'interpretation are sound.',1))"
   # DISPATCH (2026-08-02, item A7): `appendonly-head`, not `appendonly`. Since 10b landed,
   # `appendonly` is two gates behind one exit code and this assertion would be satisfiable
   # by either — the same untested-test shape A3 fixed for GATE 4b.
+  # Q-251 (2026-09-03) TOUCHED BOTH HALVES OF THIS ASSERTION. The ERE moved because 10a's
+  # FAIL text now says which CLASS the missing line is in; and the mutation now picks the
+  # first NON-BLANK line at or after the midpoint. `del L[len(L)//2]` could land on a blank
+  # line — it does not today, checked — and a removed blank line carries no content, so under
+  # the new classification it would report as a re-wrap and this assertion would go red for a
+  # reason that has nothing to do with the leg. A fixture whose class depends on where the
+  # midpoint happens to fall is the "fails for the wrong reason" shape; it is pinned now.
   assert_fires_why "GATE 10a append-only vs HEAD (committed line deleted)" appendonly-head \
-    '1 committed line\(s\) no longer present' \
+    'missing committed line\(s\) are LOST' \
 "L=open('documentation/CORRECTIONS.md').read().split(chr(10))
 assert len(L) > 60, 'ledger too short to mutate meaningfully'
-del L[len(L)//2]
+i=len(L)//2
+while i < len(L) and not L[i].strip(): i+=1
+assert i < len(L), 'no non-blank line at or after the midpoint'
+del L[i]
 open('documentation/CORRECTIONS.md','w').write(chr(10).join(L))"
+
+  # Q-251 FIRE-PROOF — a RE-WRAP must be reported as a re-wrap, not as a deletion.
+  #
+  # THE DEFECT: this gate compares LINES, so re-flowing a committed paragraph reported every
+  # one of its old lines as "removed or reworded" while not one word had gone. Measured before
+  # the fix, on a three-line reflow: 1 [FAIL] here and 73 in 10b, one per historical blob.
+  # The hazard is the REMEDY — a maintainer goes looking for content that was never deleted,
+  # or concludes a published append-only ledger was tampered with.
+  #
+  # ANCHOR-FREE BY CONSTRUCTION. The mutation FINDS a run of three consecutive committed prose
+  # lines rather than naming one, so it cannot go stale as the ledger grows, and it asserts
+  # that its own re-flow is loss-free (flattened text identical) BEFORE writing — a fixture
+  # that accidentally dropped a word would be proving the LOST branch instead. `break_on_
+  # hyphens=False` is load-bearing for that: splitting `machine-enforced` across lines inserts
+  # a space into the flattened text and is a genuine content change, which the first cut of
+  # this fixture did and which the pre-write assert would now catch.
+  #
+  # THE VERDICT IS UNCHANGED (rc=1 either way) — only the classification and the message move,
+  # which is why the companion assertion this needs is the LOST one directly above: together
+  # they show the two classes are distinguished and neither swallows the other.
+  assert_fires_why "GATE 10a a re-wrapped paragraph is reported as a RE-WRAP, not a deletion" appendonly-head \
+    'missing committed line\(s\) are RE-WRAPS, not deletions' \
+"import re, textwrap
+p='documentation/CORRECTIONS.md'
+L=open(p,encoding='utf-8').read().split(chr(10))
+def prose(x): return bool(x) and not x.startswith(('#','|','-','*','>','\u0060','    ')) and len(x)>60
+blk=None
+for i in range(len(L)-3):
+    if all(prose(L[j]) for j in (i,i+1,i+2)) and not prose(L[i+3]):
+        blk=L[i:i+3]; break
+assert blk, 'no run of three consecutive committed prose lines to re-flow'
+joined=' '.join(x.strip() for x in blk)
+new=textwrap.wrap(joined,width=72,break_on_hyphens=False,break_long_words=False)
+assert re.sub(r'\s+',' ',' '.join(new)).strip()==re.sub(r'\s+',' ',joined).strip(), 'the re-flow was not loss-free'
+assert new!=blk, 'the re-flow changed no line'
+L[i:i+3]=new
+open(p,'w',encoding='utf-8').write(chr(10).join(L))"
 
   # GATE 10 NEGATIVE CONTROL. An APPEND must NOT fire it. Without this the [ok] above
   # proves only that the gate is capable of failing, not that it is capable of passing
@@ -3878,22 +4248,83 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
   # it would otherwise be repeated.
   #
   # CASE 1 is the item's own concern: a figure registered TODAY, with nobody having written
-  # anything anywhere, must fail. CASE 2 proves what is holding the seven known-open rows
-  # green — delete one row from the open list and its figure fails immediately, so the file
-  # is load-bearing rather than decorative. CASE 3 is the missing-input class.
+  # anything anywhere, must fail. CASE 2a/2b prove what an open-list row is DOING. CASE 3 is
+  # the missing-input class.
   assert_fires_why "GATE 11 (figures) a newly registered figure nobody recorded" ledger-figures \
 '"a synthetic figure 9\.99sigma" has NO entry' \
 "open('documentation/RETRACTED_FIGURES.tsv','a').write(
  'a synthetic figure 9.99sigma'+chr(9)+'Self-test row: no ledger entry and no open-list row, so the figures pass must fail.'+chr(10))"
 
-  assert_fires_why "GATE 11 (figures) an open-list row deleted stops holding its figure" ledger-figures \
-'RF-1f093dc3 "\+125" has NO entry' \
-"p='documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt'
-L=open(p,encoding='utf-8').read().split(chr(10))
-h=[i for i,x in enumerate(L) if x.startswith('+125'+chr(9))]
-assert len(h)==1, 'anchor moved: %d rows' % len(h)
+  # CASE 2 — REBUILT SELF-SEEDING 2026-09-03 (Q-237). WHAT IT USED TO BE AND WHY THAT COULD
+  # NOT SURVIVE SUCCESS. The old case deleted the row beginning `+125<TAB>` from
+  # documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt to show the file is load-bearing. Its
+  # precondition was therefore an OUTSTANDING DEFECT: the open list is a BACKLOG, every row
+  # in it is a ledger entry somebody still owes, and the file reaches ZERO rows exactly when
+  # the corpus is finished. It is at zero today — 52 lines, all comment or blank — so the
+  # injection asserted out with "anchor moved: 0 rows" and the assertion did NOT run, on a
+  # file BYTE-IDENTICAL to main. Not branch staleness; the fixture.
+  #
+  # THIS IS A CLASS, NOT AN INSTANCE, and the class was censused before rewriting one member.
+  # Three registries stand at zero data rows today — DOC_GATE_FIGURE_LEDGER_OPEN.txt,
+  # DOC_GATE_BASELINE_ARITHMETIC_OPEN.tsv and DOC_GATE_UNMARKED_ALLOWLIST.txt — and this was
+  # the ONLY fixture anchored on any of them (the other two carried no fixture at all, which
+  # was a coverage gap of a different kind and was reported rather than fixed here).
+  # 🟢 THAT GAP IS CLOSED as of 2026-09-03: both now carry a self-seeding pair, immediately
+  # below this block (labels "GATE 59 (baseline, 59a/59b)" and "GATE 5b (5b-i…iv)"). This
+  # sentence is corrected rather than deleted because the census it records is the reason the
+  # pairs exist, and a note reporting a gap it no longer has is the stale-claim shape. The house
+  # pattern already existed twenty lines from a sibling: GATE 18's ratchet CASE 1 seeds its own
+  # registry row and its own anchor, and its comment says why — "ANCHOR-FREE ON THE REGISTRY
+  # SIDE: the row is APPENDED, and the planted sentence is its own anchor".
+  #
+  # 2a IS THE LOAD-BEARING HALF and 2b is its reaction. 2a seeds a figure AND an open row and
+  # asserts the gate STAYS GREEN while naming that figure as [OPEN] — a line it can only print
+  # having read BOTH files, which is the claim no other assertion in this pass makes: the open
+  # row is what holds the figure. 2b seeds TWO figures with two open rows, deletes ONE, and
+  # asserts the FAIL names the one whose row went. The two-figure form is deliberate: with a
+  # single figure, 2b's post-mutation tree is byte-for-byte what CASE 1 already builds and it
+  # would prove the reaction without proving the mechanism. With two, one figure is still held
+  # [OPEN] in the same run, so the gate is demonstrably discriminating between them.
+  #
+  # NEITHER KEY IS HARDCODED. `RF-<sha8>` is matched as a pattern, for the reason the phrases
+  # fixture above states: a sha copied out of a run into a fire-proof is the shape this project
+  # bans everywhere else.
+  assert_stays_clean_why "GATE 11 (figures, 2a) a seeded open-list row HOLDS its seeded figure" ledger-figures \
+'RF-[0-9a-f]+ "a synthetic OPEN-LIST figure 8\.88sigma".*no ledger entry yet' \
+"r='documentation/RETRACTED_FIGURES.tsv'
+o='documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt'
+fig='a synthetic OPEN-LIST figure 8.88sigma'
+s=open(r,encoding='utf-8').read()
+assert s.endswith(chr(10)), 'the figure registry does not end with a newline'
+assert fig not in s, 'the synthetic figure is already registered'
+open(r,'a',encoding='utf-8').write(fig+chr(9)+'Self-test row: held green ONLY by the open-list row seeded beside it.'+chr(10))
+t=open(o,encoding='utf-8').read()
+assert t.endswith(chr(10)), 'the open list does not end with a newline'
+assert fig not in t, 'the synthetic open row is already present'
+open(o,'a',encoding='utf-8').write(fig+chr(9)+'Self-test open row: seeded so this leg is proven in the HEALTHY state.'+chr(10))"
+
+  assert_fires_why "GATE 11 (figures, 2b) deleting one seeded open row fails ONLY that figure" ledger-figures \
+'RF-[0-9a-f]+ "a synthetic OPEN-LIST figure 8\.88sigma" has NO entry' \
+"r='documentation/RETRACTED_FIGURES.tsv'
+o='documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt'
+gone='a synthetic OPEN-LIST figure 8.88sigma'
+kept='a synthetic STILL-OPEN figure 7.77sigma'
+s=open(r,encoding='utf-8').read()
+assert s.endswith(chr(10)), 'the figure registry does not end with a newline'
+assert gone not in s and kept not in s, 'a synthetic figure is already registered'
+open(r,'a',encoding='utf-8').write(
+ gone+chr(9)+'Self-test row: its open-list row is deleted below, so it must FAIL.'+chr(10)+
+ kept+chr(9)+'Self-test row: its open-list row survives, so it must stay [OPEN].'+chr(10))
+t=open(o,encoding='utf-8').read()
+assert t.endswith(chr(10)), 'the open list does not end with a newline'
+open(o,'a',encoding='utf-8').write(
+ gone+chr(9)+'Self-test open row: about to be deleted by this same injection.'+chr(10)+
+ kept+chr(9)+'Self-test open row: kept, so the gate must discriminate between the two.'+chr(10))
+L=open(o,encoding='utf-8').read().split(chr(10))
+h=[i for i,x in enumerate(L) if x.startswith(gone+chr(9))]
+assert len(h)==1, 'the injection just seeded exactly one row for it; found %d' % len(h)
 del L[h[0]]
-open(p,'w',encoding='utf-8').write(chr(10).join(L))"
+open(o,'w',encoding='utf-8').write(chr(10).join(L))"
 
   # CASE 4 — the SILENT DROP. `while read` returns non-zero on an unterminated final line,
   # so a row appended without a trailing newline is registered and never checked, and the
@@ -3913,6 +4344,143 @@ open(p,'w',encoding='utf-8').write(s.rstrip(chr(10)))"
 "import os
 assert os.path.exists('documentation/RETRACTED_FIGURES.tsv'), 'anchor moved'
 os.remove('documentation/RETRACTED_FIGURES.tsv')"
+
+  # -----------------------------------------------------------------------
+  # GATE 59 and GATE 5b — THE OTHER TWO ZERO-ROW REGISTRIES (2026-09-03, fixtures lane).
+  #
+  # CASE 2 above censused three registries standing at zero data rows and said of the other
+  # two that they "carry no fixture at all, which is a coverage gap of a different kind and
+  # is reported rather than fixed here". This is that gap closed. Both pairs are SELF-SEEDING
+  # for CASE 2's reason and not by preference: each of these tables reaches zero rows exactly
+  # when the corpus is finished, so a fixture whose precondition is an outstanding defect
+  # cannot survive success — and GATE 5b's only live candidate was adjudicated and fixed the
+  # same day these landed (reports/METHODS.md:71), which is that hazard arriving in the hour.
+  #
+  # EVERY ERE BELOW WAS TAKEN FROM A RUN, not from the patch that proposed them: the two
+  # pairs were handed on as exact patches in roae-private/LANE_SWEEP_2026_09_03.md and each
+  # was re-measured against the live gate before being written here, mutations reverted by
+  # `cp` from a saved copy and both target files confirmed sha-identical afterwards.
+
+  # GATE 59 (baseline-arithmetic). 59a IS THE LOAD-BEARING HALF: it asserts the gate STAYS
+  # GREEN while naming the seeded figure as [OPEN] — a line it can only print having read
+  # BOTH the doc and the registry, so the row is what HOLDS the figure. Measured: rc 0,
+  # "3 eligibility-baseline sentence(s) across 93 docs; 2 self-consistent, 1 adjudicated-open".
+  assert_stays_clean_why "GATE 59 (baseline, 59a) a seeded open row HOLDS its seeded defect" baseline-arithmetic \
+'7 of 31 ineligible -> 1/97 \(arithmetic gives 1/24\) — adjudicated open' \
+"d='documentation/LITERATURE_RULES_POPULATION_TESTS.md'
+a='documentation/DOC_GATE_BASELINE_ARITHMETIC_OPEN.tsv'
+s=open(d,encoding='utf-8').read()
+assert s.endswith(chr(10)), 'the doc does not end with a newline'
+assert '1/97' not in s, 'the synthetic sentence is already present'
+open(d,'a',encoding='utf-8').write(chr(10)+'Self-test paragraph A. 7 of the 31 synthetic candidates are ineligible, so the baseline is 1/97.'+chr(10))
+t=open(a,encoding='utf-8').read()
+assert t.endswith(chr(10)), 'the registry does not end with a newline'
+open(a,'a',encoding='utf-8').write(d+chr(9)+'7'+chr(9)+'31'+chr(9)+'97'+chr(9)+'Self-test row A.'+chr(10))"
+
+  # 59b IS ITS REACTION, and it seeds TWO figures so the gate is shown DISCRIMINATING rather
+  # than merely reactive: two rows are seeded, ONE is deleted, and the same run must FAIL on
+  # the deleted one WHILE STILL PRINTING the other as [OPEN]. The two-sentence form is
+  # deliberate for CASE 2b's reason — with one sentence the post-deletion tree is
+  # byte-for-byte what an unregistered defect already produces, which proves the reaction
+  # without proving the mechanism. Measured: rc 1, both lines present in one run.
+  assert_fires_why "GATE 59 (baseline, 59b) deleting ONE open row fails ONLY that figure" baseline-arithmetic \
+'8 of 31 ineligible -> baseline 1/98, but N-K arithmetic gives 1/23' \
+"d='documentation/LITERATURE_RULES_POPULATION_TESTS.md'
+a='documentation/DOC_GATE_BASELINE_ARITHMETIC_OPEN.tsv'
+s=open(d,encoding='utf-8').read()
+assert s.endswith(chr(10)), 'the doc does not end with a newline'
+assert '1/97' not in s and '1/98' not in s, 'a synthetic sentence is already present'
+open(d,'a',encoding='utf-8').write(chr(10)+'Self-test paragraph A. 7 of the 31 synthetic candidates are ineligible, so the baseline is 1/97.'+chr(10)+chr(10)+'Self-test paragraph B. 8 of the 31 synthetic candidates are ineligible, so the baseline is 1/98.'+chr(10))
+t=open(a,encoding='utf-8').read()
+assert t.endswith(chr(10)), 'the registry does not end with a newline'
+open(a,'a',encoding='utf-8').write(
+ d+chr(9)+'7'+chr(9)+'31'+chr(9)+'97'+chr(9)+'Self-test row A: survives, so its figure must still print [OPEN].'+chr(10)+
+ d+chr(9)+'8'+chr(9)+'31'+chr(9)+'98'+chr(9)+'Self-test row B: deleted below, so its figure must FAIL.'+chr(10))
+L=open(a,encoding='utf-8').read().split(chr(10))
+h=[i for i,x in enumerate(L) if x.startswith(d+chr(9)+'8'+chr(9)+'31'+chr(9)+'98'+chr(9))]
+assert len(h)==1, 'the injection just seeded exactly one row for it; found %d' % len(h)
+del L[h[0]]
+open(a,'w',encoding='utf-8').write(chr(10).join(L))"
+
+  # GATE 5b (inside `status`). 🔴 BOTH HALVES ARE assert_stays_clean_why BY MEASUREMENT, NOT
+  # BY PREFERENCE, and the handed-on framing ("neither gate has ever demonstrated it can
+  # fail") is half wrong here: GATE 5b CANNOT FAIL AT ALL. Its python ends `sys.exit(0)`
+  # unconditionally and a finding prints [WARN] plus "(report-only: ...)" while setting no
+  # rc, so `assert_fires_why` has nothing to catch and is UNUSABLE on this gate. The
+  # discrimination is therefore asserted on the PRINTED lines, which are the only signal 5b
+  # has. That is the honest answer to "why does the GATE 11 shape not fit here".
+  #
+  # THE SEED DERIVES ITS VALUE FROM documentation/CANONICAL_VALUE_STATUS.tsv rather than
+  # hardcoding one, by the gate's OWN selection rule (a plain-numeric, comma-free row whose
+  # status is `estimate`). The patch that proposed this pair hardcoded 1.3287 and flagged the
+  # hardcoding as its own weakness; deriving it means the seed cannot drift from the registry,
+  # and it asserts out loudly if the registry ever declares no such value. The exponent is
+  # written `×10^SYNTHETIC` on purpose: 5b keys only on `<value>×10`, so a real magnitude is
+  # not needed, and a magnitude that is not a real one cannot be misread as a canonical claim
+  # if a reader ever sees the mutated tree.
+  #
+  # The seeded table carries ONE marked sibling and TWO unmarked twins whose lines differ
+  # textually, because the allowlist anchor is a literal substring of the line and identical
+  # twins would give one anchor two homes (the audit reports that case rather than resolving it).
+  _5b_seed="import re
+d='documentation/LITERATURE_RULES_POPULATION_TESTS.md'
+r='documentation/CANONICAL_VALUE_STATUS.tsv'
+v=[p[0].strip() for p in (l.split(chr(9)) for l in open(r,encoding='utf-8') if l.strip() and not l.lstrip().startswith('#')) if len(p)>1 and p[1].strip()=='estimate' and re.fullmatch(r'[\d.]+',p[0].strip()) and ',' not in p[0]]
+assert v, 'the registry declares no plain-numeric estimate value; the seed cannot be derived'
+val=v[0]
+s=open(d,encoding='utf-8').read()
+assert s.endswith(chr(10)), 'the doc does not end with a newline'
+assert 'synthetic unmarked alpha' not in s, 'the synthetic table is already present'
+open(d,'a',encoding='utf-8').write(chr(10)+'## Self-test table (5b fixture)'+chr(10)+chr(10)+'| synthetic item | value |'+chr(10)+'|---|---|'+chr(10)+'| synthetic marked sibling | '+val+chr(215)+'10^SYNTHETIC (estimate) |'+chr(10)+'| synthetic unmarked alpha | '+val+chr(215)+'10^SYNTHETIC |'+chr(10)+'| synthetic unmarked beta | '+val+chr(215)+'10^SYNTHETIC |'+chr(10))"
+
+  # 5b-i — the ACHIEVABILITY control and the first half of the discriminator. With no
+  # allowlist entry, BOTH seeded twins land in the reported class. The pinned count is what
+  # makes 5b-ii mean anything: without it, 5b-ii's silence about alpha is equally consistent
+  # with "the entry suppressed it" and "the seed never produced it".
+  assert_stays_clean_why "GATE 5b (5b-i) both seeded twins enter the reported class with no allowlist entry" status \
+'2 of those are in a MIXED table' \
+"$_5b_seed"
+
+  # 5b-ii — THE DISCRIMINATOR. Same seed, plus ONE allowlist entry anchored on ONE twin. The
+  # class census must fall by EXACTLY ONE, 2 -> 1, in a gate that cannot signal through rc.
+  # 🔴 THIS IS AN ABSOLUTE PIN and it is a live rot hazard, declared rather than hidden: the
+  # numbers 2 and 1 are the seed's contribution ON TOP OF a live mixed-table census of ZERO,
+  # measured 2026-09-03 immediately after reports/METHODS.md:71 was labelled. The next live
+  # 5b finding turns both EREs red. RE-TAKE RECIPE, not a reason to weaken them: run
+  # `bash scripts/doc_gates.sh status`, read the "N of those are in a MIXED table" figure,
+  # and rewrite these two as N+2 and N+1.
+  assert_stays_clean_why "GATE 5b (5b-ii) one allowlist entry removes exactly ONE occurrence from the class" status \
+'1 of those are in a MIXED table' \
+"$_5b_seed
+a='documentation/DOC_GATE_UNMARKED_ALLOWLIST.txt'
+t=open(a,encoding='utf-8').read()
+assert t.endswith(chr(10)), 'the allowlist does not end with a newline'
+open(a,'a',encoding='utf-8').write(d+chr(9)+'synthetic unmarked alpha'+chr(10))"
+
+  # 5b-iii — WHICH twin survived, in the SAME tree state as 5b-ii. 5b-ii proves one
+  # occurrence left the class; this proves the one still in it is the twin with NO entry, so
+  # the entry cannot be swallowing the table. Relative to nothing and immune to the corpus
+  # moving, which is why the absolute pin above is not asked to carry this claim as well.
+  assert_stays_clean_why "GATE 5b (5b-iii) the twin with NO entry is still reported in that same run" status \
+'\| synthetic unmarked beta \|' \
+"$_5b_seed
+a='documentation/DOC_GATE_UNMARKED_ALLOWLIST.txt'
+t=open(a,encoding='utf-8').read()
+assert t.endswith(chr(10)), 'the allowlist does not end with a newline'
+open(a,'a',encoding='utf-8').write(d+chr(9)+'synthetic unmarked alpha'+chr(10))"
+
+  # 5b-iv — the REGISTRY names itself. The allowlist audit prints `exemption live` only when
+  # the anchor resolves to EXACTLY ONE line (zero matches and >1 match each print a different
+  # [note]), and it prints the line number it COMPUTED. This is the assertion the file's own
+  # header claim rests on: an empty registry and a dead registry look identical from the file,
+  # and this is the run that tells them apart.
+  assert_stays_clean_why "GATE 5b (5b-iv) the allowlist audit resolves the seeded anchor to one live line" status \
+'DOC_GATE_UNMARKED_ALLOWLIST\.txt: documentation/LITERATURE_RULES_POPULATION_TESTS\.md:[0-9]+ exemption live' \
+"$_5b_seed
+a='documentation/DOC_GATE_UNMARKED_ALLOWLIST.txt'
+t=open(a,encoding='utf-8').read()
+assert t.endswith(chr(10)), 'the allowlist does not end with a newline'
+open(a,'a',encoding='utf-8').write(d+chr(9)+'synthetic unmarked alpha'+chr(10))"
 
   # -----------------------------------------------------------------------
   # GATE 12 — FIVE fire-proofs and ONE negative control (2026-08-02, item A4).
@@ -3954,37 +4522,6 @@ prev=lines[rows[-2]].split('|')[1].strip()
 last=lines[rows[-1]].split('|')
 assert '(current)' in last[1], 'the last row is not the current one'
 last[1]=' '+prev+' *(current)* '
-lines[rows[-1]]='|'.join(last)
-open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
-
-  # (1b) A SUFFIXED duplicate — Codex N10 finding 7's exact bypass, 2026-08-26.
-  #      Two rows named `vN.M-final`, the latter current and last, used to pass every relevant
-  #      leg: the old `if not suffix:` classified ANY suffixed version as non-released, so the
-  #      duplicate check never saw them, and the ordering test only refuses `<`, so equal keys
-  #      pass it too. THE VERSION IS DERIVED, NOT HARDCODED -- it bumps the minor of the last
-  #      real row, so the pair ascends from the row above and the versions-backwards leg CANNOT
-  #      account for the firing. That matters: an assertion satisfied by a different leg proves
-  #      nothing about this one. Verified before shipping by re-running with the fix reverted:
-  #      rc=0 and no duplicate message, i.e. this fixture is able to fail.
-  assert_fires_why "GATE 12 a SUFFIXED duplicate (Codex N10 finding 7: two vN.M-final rows)" revhist \
-    'released version v[0-9]+\.[0-9]+-final is already used at line' \
-"f='reports/TR1_EIGHT_CENTURIES_MEASURED.md'
-lines=open(f,encoding='utf-8').read().split(chr(10))
-h=[n for n,l in enumerate(lines) if l.strip()=='## Revision history']
-assert len(h)==1, 'no single revision-history heading'
-rows=[n for n in range(h[0],len(lines)) if lines[n].startswith('| v')]
-assert len(rows)>=2, 'need two rows to duplicate one onto the other'
-import re
-m=re.match(r'v(\\d+)\\.(\\d+)', lines[rows[-1]].split('|')[1].strip())
-assert m, 'last row version cell is not vN.M'
-v='v%d.%d-final' % (int(m.group(1)), int(m.group(2))+1)
-last=lines[rows[-1]].split('|')
-assert '(current)' in last[1], 'the last row is not the current one'
-prev=lines[rows[-2]].split('|')
-assert '(current)' not in prev[1], 'the row above is already current'
-prev[1]=' '+v+' '
-last[1]=' '+v+' *(current)* '
-lines[rows[-2]]='|'.join(prev)
 lines[rows[-1]]='|'.join(last)
 open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
 
@@ -4314,19 +4851,21 @@ open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUI
   # built from that, so the check is "5b names the cell I just broke", which is the real
   # claim, and it cannot drift. The anchor STRING is still pinned and still asserted unique —
   # the drift-proofing is on the coordinate, not on the identity of the defect.
-  # 🔴 Codex N10 finding 3, same class -- unchecked mktemp. Codex named gates 1, 2 and 20; these
-  # two were found by fixing the CLASS rather than the three instances it happened to execute.
-  G5BMUT=$(mktemp)   || { echo "  [FAIL] GATE 5b: mktemp failed, so NOTHING was checked."; return 1; }
-  G5BLINEF=$(mktemp) || { rm -f "$G5BMUT"; echo "  [FAIL] GATE 5b: mktemp failed, so NOTHING was checked."; return 1; }
+  # 🔴 Q-283 / Codex N10 finding 3, same class (GATE 13 is report-only, which changes the
+  # severity of its FINDINGS and not its obligation to be able to run).
+  G5BMUT=$(mktemp) || { echo "  [FAIL] GATE 13: mktemp failed, so NOTHING was checked."; return 1; }
+  G5BLINEF=$(mktemp) || { rm -f "$G5BMUT"; echo "  [FAIL] GATE 13: mktemp failed, so NOTHING was checked."; return 1; }
   cat > "$G5BMUT" <<'G5BPY'
 import os, sys
 p = 'reports/TR9_PRICING_THE_CONSTRAINTS.md'
 a = '1.3287×10³⁸ (**estimate** — Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸, 0.02%)'
 s = open(p, encoding='utf-8').read()
-assert s.count(a) == 1, 'anchor moved: found %d occurrences' % s.count(a)
+if s.count(a) != 1:
+    raise SystemExit('anchor moved: found %d occurrences' % s.count(a))
 lines = s.split(chr(10))
 hits = [n for n, l in enumerate(lines) if a in l]
-assert len(hits) == 1, 'anchor spans lines or repeats'
+if len(hits) != 1:
+    raise SystemExit('anchor spans lines or repeats')
 open(os.environ['G5BLINEF'], 'w').write(str(hits[0] + 1))
 open(p, 'w', encoding='utf-8').write(s.replace(a, '1.3287×10³⁸', 1))
 G5BPY
@@ -4368,24 +4907,26 @@ G5BPY
   # roae.py — three runs, ~45 s each, so three naive cases would cost ~7 minutes. They
   # share ONE regeneration through DOC_GATES_GEN_CACHE, keyed on roae.py's sha256:
   # measured 135 s for the first case and 0.08 s for each of the others.
-  # 🔴 Codex N10 finding 3, same class -- unchecked mktemp -d. An empty GEN_CACHE would send
-  # every cached regeneration to a path under "", so each assert_gen_fires would compare nothing.
-  GEN_CACHE=$(mktemp -d) || { echo "  [FAIL] mktemp -d failed, so NO generator assertion ran."; return 1; }
+  GEN_CACHE=$(mktemp -d) || { echo "  [FAIL] GATE 13: mktemp -d failed, so NOTHING was checked."; return 1; }
 
   # assert_gen_fires <label> <evidence-ERE> <python-mutation>
   #   <evidence-ERE> must match a line of GATE 8's output.
   # ITEM A5: [FAIL], not [SKIP] — see the moved-anchor note at the head of the harness. This
   # one matters most of the helpers:
-  # all four of its cases anchor on shipped prose in example/ ('terminal attractor', the
-  # "organizing feature" sentence, report.pdf's existence), and example/ is REGENERATED
+  # every one of its cases anchors on shipped content in example/ ('terminal attractor', the
+  # "organizing feature" sentence, one byte of wave.mid), and example/ is REGENERATED
   # output, so a legitimate roae.py change moves those anchors without anyone editing a
   # fire-proof. GATE 8 is also the gate whose hand-taken proof already went stale once.
+  # (The anchor list said "all four of its cases" and named report.pdf's existence until
+  # 2026-09-04, when CASES 3 and 4 were retired with GATE 8 LEG 5 and the artifact they
+  # mutated. The count is not restated: `callers=N` on this helper's row in
+  # documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt is the machine-read authority, and
+  # GATE 15 LEG 3 re-derives it every run.)
   assert_gen_fires() {
     local label="$1" want="$2" mut="$3" out rc
-    _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
-                        echo "         assertion did NOT run. A skipped fire-proof is not a proof."
-                        printf '%s\n' "$INJECT_WHY"
-                        PASS=1; _selftest_revert; return; }
+    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
+                           echo "         assertion did NOT run. A skipped fire-proof is not a proof."
+                           PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -eq 0 ]; then
@@ -4406,8 +4947,13 @@ G5BPY
   # shape of the 2026-08-01 demonstration: remove the nuclear-attractor line from
   # example/report.txt. 0 added / 1 missing is the whole point — a `comm -13`-only gate
   # scores 0 added and reports [ok].
+  # RE-ANCHORED 2026-09-04, when legs 1-4 became byte-exact under the shipped seed. The
+  # VERDICT line no longer carries the normalised counts — `cmp` decides now — so the ERE is
+  # moved onto the digit-stripped DIAGNOSTIC line, which still prints those counts and is
+  # still the thing that distinguishes a deletion from an addition. The both-directions
+  # property this case exists for is therefore still asserted, on the same numbers.
   assert_gen_fires "GATE 8 deletion from a shipped artifact" \
-'example/report\.txt vs roae\.py --all: 0 added, 1 missing' \
+'example/report\.txt digit-stripped: 0 added, 1 missing' \
 "p='example/report.txt'
 L=open(p,encoding='utf-8').read().split(chr(10))
 h=[i for i,x in enumerate(L) if 'terminal attractor' in x]
@@ -4420,90 +4966,109 @@ open(p,'w',encoding='utf-8').write(chr(10).join(L))"
   # UNCONDITIONALLY (print_complements' static preamble), so the case cannot be flaked by
   # a Monte Carlo verdict landing in a different branch.
   assert_gen_fires "GATE 8 one-word substitution in a shipped artifact" \
-'example/README\.md vs roae\.py --markdown: 1 added, 1 missing' \
+'example/README\.md digit-stripped: 1 added, 1 missing' \
 "p='example/README.md'
 a=\"is an organizing feature of the sequence's structure\"
 s=open(p,encoding='utf-8').read()
 assert s.count(a)==1, 'anchor moved'
 open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organising'),1))"
 
-  # CASE 3 — the PDF leg (item A2), which has no other proof. Mutating report.html trips
-  # leg 4 as well, so the assertion targets leg 5's OWN verdict line: proof that the
-  # pdftotext/tag-strip comparison ran and disagreed, not merely that the gate went red
-  # for some earlier reason.
-  assert_gen_fires "GATE 8 PDF no longer renders the shipped HTML" \
-'example/report\.pdf vs example/report\.html: 1 line\(s\) only in the PDF, 1 only in the HTML' \
-"p='example/report.html'
-a=\"is an organizing feature of the sequence's structure\"
-s=open(p,encoding='utf-8').read()
-assert s.count(a)==1, 'anchor moved'
-open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organising'),1))"
+  # CASES 3 AND 4 — RETIRED 2026-09-04, WITH GATE 8 LEG 5 AND THE ARTIFACT THEY MUTATED.
+  # Both were fire-proofs for the PDF leg: CASE 3 mutated example/report.html and asserted
+  # LEG 5's OWN verdict line (so that a red gate could not be scored by leg 4 firing for its
+  # own reason), and CASE 4 deleted example/report.pdf outright, which is the case that
+  # PROVED a deleted tracked artifact FAILS rather than [skip]s — `rm example/report.pdf`
+  # passing in silence is the defect this whole harness section was built around.
+  #
+  # THE DELETION-IS-NOT-A-SKIP PROPERTY IS NOT LOST WITH THEM, and this is the one thing a
+  # reader must be able to check rather than take on trust. It never lived in CASE 4: it
+  # lives in `require_tracked` at the head of this file, which GATE 8's `_present` calls for
+  # EVERY leg, and in the corpus-wide `preflight_tracked_docs`. Both are still asserted here
+  # — see the "PREFLIGHT (A1) a tracked .md deleted blinds every DOCS-iterating gate"
+  # assertion, which fires on exactly this shape. What CASE 4 added on top was one END-TO-END
+  # demonstration on a real tracked artifact, and that demonstration was written against a
+  # file that no longer exists: example/report.pdf was removed on 2026-09-04 because
+  # wkhtmltopdf embedded the complete unsubsetted DejaVu font programs in it.
+  #
+  # WHY NOT RE-POINT CASE 4 AT ANOTHER example/ ARTIFACT instead of retiring it. Considered
+  # and rejected: `_selftest_revert` restores the tree with git, so a case that DELETES a
+  # tracked file is only safe for a file the revert provably restores, and every candidate
+  # (report.txt/.md/.html, README.md, the LEG 7 seven) is already covered by a case that
+  # MUTATES it — a deletion adds a second path into the same `require_tracked` call. The
+  # honest statement is that the end-to-end demonstration is gone and the implementation it
+  # demonstrated is still asserted, not that nothing changed.
 
-  # CASE 4 — a DELETED shipped artifact. Found by Phase-4'ing this batch and asking what
-  # every leg does when its input is not there: all five used to [skip] on `! -f`, so
-  # `rm example/report.pdf` passed in silence. Absence is the strongest mismatch there is.
-  assert_gen_fires "GATE 8 shipped artifact deleted outright" \
-'example/report\.pdf is tracked in git but missing from the working tree' \
-"import os
-assert os.path.exists('example/report.pdf'), 'anchor moved'
-os.remove('example/report.pdf')"
-
-  # CASE 5 — the NEGATIVE control the other four do not provide, and the one that pins
-  # the 2026-08-02 false FAIL. Cases 1-4 all prove GATE 8 goes RED; none proves it stays
-  # GREEN when the generator legitimately prints a different Monte Carlo figure, which is
-  # the single thing the digit-stripping exists to tolerate. It did not tolerate a figure
-  # that crosses 1000: roae.py:1400 formats with `{ratio:,}`, the normaliser stripped
-  # digits but not the separator, and `doc_gates.sh generated` reported
+  # CASE 5 — THE NEGATIVE CONTROL, REBUILT 2026-09-04 WHEN ITS OLD SUBJECT CEASED TO EXIST.
+  #
+  # WHAT IT USED TO BE, and why it is not that any more. Until today legs 1-4 stripped digits,
+  # and this case existed to pin the 2026-08-02 false FAIL: roae.py:1400 formats with
+  # `{ratio:,}`, the normaliser stripped digits but not the group separator, and
+  # `doc_gates.sh generated` printed
   #   +added   > Approximately in random orderings share this property.
   #   -missing > Approximately in , random orderings share this property.
-  # on artifacts that were correct. This case mutates the REGENERATED REFERENCE (not the
-  # shipped artifact) to carry a grouped figure and asserts the gate stays green AND still
-  # prints the html leg's own [ok] line — an rc-only assertion would be satisfied by the
-  # leg skipping. FIRE-PROOF: run against the pre-fix normaliser this case FAILS; see the
-  # round-4 handover for the transcript.
+  # on artifacts that were CORRECT. The case injected a comma-grouped figure into the
+  # REGENERATED REFERENCE and asserted the gate stayed GREEN. That assertion is now FALSE BY
+  # DESIGN: example/ ships under `--seed $ROAE_EXAMPLE_SEED`, the reference is regenerated
+  # under the same seed, and a changed figure in either side is exactly what legs 1-4 must now
+  # go red on. Keeping the old case would have asserted the opposite of the new contract.
+  # THE NORMALISER IS STILL THERE and still fixed — it prints the digit-stripped diagnostic
+  # counts that CASES 1 and 2 assert on — so the round-4 defect remains covered, one level
+  # down, by the two cases that read those counts.
+  #
+  # WHAT IT IS NOW, and why the gate still needs one. Every other GATE 8 case proves the gate
+  # goes RED. None of them can tell a working gate from one that is red on everything —
+  # and byte-exactness is precisely the change that could make a gate red on a correct tree
+  # (a seed mismatch between the shipped artifacts and the regeneration would do it, silently,
+  # and every firing case would still pass). So the control runs GATE 8 on the UNMUTATED tree
+  # and requires rc 0 AND each of the four byte-exact [ok] lines by name. Naming them
+  # individually is the load-bearing part: an rc-only assertion is satisfied by a leg that
+  # skipped, which is the `[skip]`-is-not-a-pass shape this whole gate was rebuilt around.
+  #
+  # assert_gen_clean <label> <ere> [<ere> ...]
   assert_gen_clean() {
-    local label="$1" want="$2" mut="$3" out rc
-    if [ ! -s "$GEN_CACHE/report.html" ]; then
-      echo "  [FAIL] $label — no regenerated reference to mutate"; PASS=1; return
-    fi
-    cp "$GEN_CACHE/report.html" "$GEN_CACHE/report.html.orig"
-    if ! GEN_CACHE="$GEN_CACHE" python3 -c "$mut"; then
-      echo "  [FAIL] $label — could not inject (anchor moved)"; PASS=1
-      mv "$GEN_CACHE/report.html.orig" "$GEN_CACHE/report.html"; return
-    fi
+    local label="$1"; shift
+    local out rc want
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
-    mv "$GEN_CACHE/report.html.orig" "$GEN_CACHE/report.html"
-    if [ "$rc" -ne 0 ] || ! printf '%s\n' "$out" | grep -Eq -- "$want"; then
-      echo "  [FAIL] $label — GATE 8 did not stay green on a legitimate figure change (rc=$rc)"
-      echo "         expected rc 0 and a line matching: $want"
-      printf '%s\n' "$out" | grep -E '\[FAIL\]|\+added|-missing' | head -4 | sed 's/^/           got > /'
+    if [ "$rc" -ne 0 ]; then
+      echo "  [FAIL] $label — GATE 8 is RED on the UNMUTATED tree (rc=$rc). Every firing case"
+      echo "         in this harness would still pass; this is the only one that can see it."
+      printf '%s\n' "$out" | grep -E '\[FAIL\]' | head -4 | sed 's/^/           got > /'
       PASS=1; return
     fi
-    echo "  [ok]   $label — GATE 8 stays green, and says so: $want"
+    for want in "$@"; do
+      if ! printf '%s\n' "$out" | grep -Eq -- "$want"; then
+        echo "  [FAIL] $label — GATE 8 exited 0 but never printed the byte-exact verdict for one"
+        echo "         of its legs, so that leg did not compare anything."
+        echo "         expected a line matching: $want"
+        PASS=1; return
+      fi
+    done
+    echo "  [ok]   $label — GATE 8 is green on the shipped tree and all four report legs"
+    echo "         reported BYTE-IDENTICAL rather than skipping"
   }
 
-  assert_gen_clean "GATE 8 comma-grouped Monte Carlo figure is not a difference" \
-'example/report\.html agrees with roae\.py --html on every NON-NUMERIC line' \
-'import os, re
-p = os.path.join(os.environ["GEN_CACHE"], "report.html")
-s = open(p, encoding="utf-8").read()
-pat = re.compile(r"Approximately 1 in (\d[\d,]*) random orderings share this property\.")
-m = pat.search(s)
-assert m, "anchor moved"
-assert m.group(1) != "1,046", "reference already carries the injected value"
-open(p, "w", encoding="utf-8").write(
-    pat.sub("Approximately 1 in 1,046 random orderings share this property.", s, count=1))'
+  assert_gen_clean "GATE 8 stays green on the shipped tree, byte-exact and not skipped" \
+'\[ok\] +example/report\.txt is BYTE-IDENTICAL to a fresh roae\.py --all --seed [0-9]+' \
+'\[ok\] +example/report\.md is BYTE-IDENTICAL to a fresh roae\.py --markdown --seed [0-9]+' \
+'\[ok\] +example/README\.md is BYTE-IDENTICAL to a fresh roae\.py --markdown --seed [0-9]+' \
+'\[ok\] +example/report\.html is BYTE-IDENTICAL to a fresh roae\.py --html --seed [0-9]+'
 
-  # CASES 6 and 7 — THE DIGIT LEGS (item A2 residual, 2026-08-02).
+  # CASES 6 and 7 — THE DIGIT LEGS (item A2 residual, 2026-08-02). CASE 6 IS RETIRED, see
+  # below; everything this paragraph says about "these two" is now carried by CASE 7 alone,
+  # and the leg-5 half of it is history rather than a description of the harness.
   #
-  # These two assert something the other cases cannot: that the new leg is the ONLY thing
-  # that sees the defect. Every case above is satisfied by ANY leg going red, so a case that
-  # merely proved "GATE 8 fires" would still be green if legs 5/6 were deleted tomorrow and
-  # some other leg fired for its own reason. Each of these therefore asserts TWO lines: the
-  # new leg's own verdict, AND the digit-blind leg's [ok] on the same file — the second is
-  # what proves the coverage is new. That is the shape GATE 8's own history argues for: its
-  # first fire-proof was taken by hand, was satisfied by an exit code, and a one-directional
-  # comparison shipped behind it.
+  # These assert something the other cases cannot: that the firing is PER FILE rather than a
+  # gate that went red across the board. Every case above is satisfied by ANY leg going red,
+  # so a case that merely proved "GATE 8 fires" would still be green if a leg were deleted
+  # tomorrow and some other leg fired for its own reason. Each of these therefore asserts TWO
+  # lines: the named leg's own verdict, AND a NAMED SIBLING's [ok] in the same run.
+  # RE-POINTED 2026-09-04: the sibling used to be "the digit-BLIND leg's [ok] on the SAME
+  # file", which proved the coverage was NEW. With legs 1-4 byte-exact there is no digit-blind
+  # leg left, so the sibling is now a DIFFERENT FILE the mutation does not touch — which
+  # proves per-file discrimination instead. That is a different property, weaker in one
+  # direction and stronger in another, and it is named rather than swapped in silently.
+  # That is the shape GATE 8's own history argues for: its first fire-proof was taken by hand,
+  # was satisfied by an exit code, and a one-directional comparison shipped behind it.
   #
   # THE MUTATION IS ONE DIGIT in a line roae.py prints unconditionally (the static preamble),
   # so no Monte Carlo branch can flake it, and 64 -> 65 keeps the line's length and every
@@ -4513,10 +5078,9 @@ open(p, "w", encoding="utf-8").write(
   # assert_gen_fires_only <label> <new-leg-ERE> <other-leg-stays-ok-ERE> <mutation>
   assert_gen_fires_only() {
     local label="$1" want="$2" alsowant="$3" mut="$4" out rc
-    _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
-                        echo "         assertion did NOT run. A skipped fire-proof is not a proof."
-                        printf '%s\n' "$INJECT_WHY"
-                        PASS=1; _selftest_revert; return; }
+    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
+                           echo "         assertion did NOT run. A skipped fire-proof is not a proof."
+                           PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -eq 0 ]; then
@@ -4537,28 +5101,108 @@ open(p, "w", encoding="utf-8").write(
     echo "  [ok]   $label — only the digit leg sees it: \"$want\" while \"$alsowant\""
   }
 
-  # CASE 6 — a hand-edited digit in example/report.html. This is the dbba77d class: that
-  # file was hand-patched once already and was caught by the operator, not by a gate.
-  assert_gen_fires_only "GATE 8 hand-edited DIGIT in report.html (leg 5 only)" \
-'example/report\.pdf vs example/report\.html: the PROSE agrees and the NUMBERS do not' \
-'\[ok\] +example/report\.html agrees with roae\.py --html on every NON-NUMERIC line' \
+  # CASE 6 — REINSTATED 2026-09-04, LATER THE SAME DAY IT WAS RETIRED, BY A DIFFERENT LEG.
+  #
+  # WHAT IT WAS AND WHAT KILLED IT: it mutated one digit in example/report.html and asserted
+  # that GATE 8 LEG 5 caught it while the digit-BLIND leg 4 still reported [ok] on the same
+  # file. LEG 5 compared report.pdf against report.html with digits intact, and it went with
+  # example/report.pdf when that artifact was deleted for embedding the complete unsubsetted
+  # DejaVu font programs. For a few hours the dbba77d class — a hand-edited number in
+  # example/report.html, the file that WAS hand-patched once and was caught by the operator
+  # rather than by a gate — was covered by nothing, and this file said so.
+  #
+  # WHAT BRINGS IT BACK is the close that the retirement note itself named: example/ is now
+  # generated under `--seed $ROAE_EXAMPLE_SEED`, so leg 4 compares report.html BYTE-EXACT
+  # against a reference generated under the same seed and sees the digit directly. The
+  # coverage returns through the PRIMARY comparison rather than through a second artifact of
+  # the same invocation, which is strictly better: it needs no PDF, no second renderer, and no
+  # font programs on the machine that runs the gate.
+  #
+  # THE MUTATION IS THE ONE THAT WAS MEASURED TO PASS. On the live tree on 2026-09-04, before
+  # the seed landed, `8x8 = 64` -> `65` in example/report.html left `doc_gates.sh generated` at
+  # rc 0 and PASS. It is one digit in a line roae.py prints UNCONDITIONALLY (print_table's
+  # static preamble), so no Monte Carlo branch can flake it, and it changes no non-digit
+  # character — which is exactly why the pre-seed digit-stripped leg could not see it.
+  #
+  # THIS CASE IS assert_gen_fires, NOT assert_gen_fires_only: with legs 1-4 byte-exact there is
+  # no longer a digit-BLIND sibling leg on report.html for a "the OTHER leg stayed green"
+  # clause to name. The per-file discrimination that clause used to buy is asserted by CASE 7
+  # (README.md mutated, report.md still [ok]) and by CASE 8 (csv mutated, json still [ok]).
+  assert_gen_fires "GATE 8 hand-edited DIGIT in report.html (the dbba77d class, leg 4 byte-exact)" \
+'example/report\.html differs BYTE-FOR-BYTE from a fresh roae\.py --html' \
 "p='example/report.html'
 a='giving 8x8 = 64 possible hexagrams'
 s=open(p,encoding='utf-8').read()
 assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
 open(p,'w',encoding='utf-8').write(s.replace(a,'giving 8x8 = 65 possible hexagrams',1))"
 
-  # CASE 7 — a hand-edited digit in example/README.md, which legs 2 and 3 compare against
-  # the generator separately and digit-blind, so before leg 6 the two shipped copies could
-  # disagree on every number in the corpus and the gate printed [ok] twice.
-  assert_gen_fires_only "GATE 8 hand-edited DIGIT in README.md (leg 6 only)" \
+  # CASE 7 — a hand-edited digit in example/README.md. Before leg 6 the two shipped copies
+  # could disagree on every number in the corpus and the gate printed [ok] twice; leg 6 closed
+  # that by comparing them to each other byte-exact.
+  # RE-POINTED 2026-09-04. The sibling clause used to name leg 3's digit-BLIND [ok] on the same
+  # file, which is what proved leg 6 was the only thing that saw the digit. Legs 1-4 are
+  # byte-exact now, so leg 3 sees it too and that [ok] no longer exists; the clause is
+  # re-pointed at example/report.md, the file the mutation did NOT touch. It proves a
+  # different and still necessary thing: that the comparison is PER FILE and the gate did not
+  # simply go red across the board. The label keeps its identity minus the stale "(leg 6
+  # only)", which stopped being true today.
+  assert_gen_fires_only "GATE 8 hand-edited DIGIT in README.md (leg 6, per-file)" \
 'example/README\.md is not byte-identical to example/report\.md' \
-'\[ok\] +example/README\.md agrees with roae\.py --markdown on every NON-NUMERIC line' \
+'\[ok\] +example/report\.md is BYTE-IDENTICAL to a fresh roae\.py --markdown --seed [0-9]+' \
 "p='example/README.md'
 a='giving 8x8 = 64 possible hexagrams'
 s=open(p,encoding='utf-8').read()
 assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
 open(p,'w',encoding='utf-8').write(s.replace(a,'giving 8x8 = 65 possible hexagrams',1))"
+
+  # CASES 8 and 9 — LEG 7, THE SEVEN NON-REPORT ARTIFACTS (item 2477, 2026-09-03, wave-4
+  # lane A2). LEG 7 landed 2026-09-02 for Codex v2 charge 6 with a red test taken BY HAND in
+  # a scratch clone and nothing wired into the harness. That is the exact configuration this
+  # file's own header calls the GATE 8 defect — "the gate whose hand-taken proof already went
+  # stale once" — reproduced on the same gate one leg later. A hand-taken proof does not
+  # re-run, and LEG 7 compares REGENERATED output, so the anchors it depends on move whenever
+  # roae.py does.
+  #
+  # TWO CASES, NOT ONE, because LEG 7 has two output paths and only one of them is textual.
+  # `_cmp_exact`'s failure branch forks on `grep -qI .`: a text artifact gets a `diff` excerpt
+  # and a binary one gets `cmp`'s byte offset. A single csv case leaves the binary arm — the
+  # arm that carries example/wave.mid and the two graphviz renderings, i.e. 3 of the 7 files —
+  # proven by nothing.
+  #
+  # CASE 8 uses assert_gen_fires_only rather than assert_gen_fires, and the sibling clause is
+  # the load-bearing half: LEG 7's seven comparisons share one loop and one helper, so "the
+  # gate fired" is equally consistent with "the loop went red for all seven". MEASURED on the
+  # injection below: hexagrams.csv FAILS while the other six print [ok] BYTE-IDENTICAL, so the
+  # comparison is per-artifact. The sibling asserted is hexagrams.json — the nearest neighbour,
+  # written by the same export path in the same generator run.
+  #
+  # THE INJECTION IS A SINGLE DIGIT, deliberately: legs 1-4 stripped digits when this case was
+  # written (roae.py's Monte Carlo output moved every run), and LEG 7's whole reason to exist
+  # was that these seven carry no Monte Carlo output and so can be compared byte-exact. Legs
+  # 1-4 are byte-exact too since 2026-09-04, so a digit is no longer a mutation ONLY LEG 7
+  # could see — but it is still a mutation only LEG 7 sees IN THESE SEVEN FILES, which is
+  # what the case asserts, and the sibling clause below is what proves it per-artifact.
+  assert_gen_fires_only "GATE 8 LEG 7 hand-edited DIGIT in example/hexagrams.csv (byte-exact leg, per-artifact)" \
+'example/hexagrams\.csv differs BYTE-FOR-BYTE from a fresh roae\.py --csv' \
+'\[ok\] +example/hexagrams\.json is BYTE-IDENTICAL to a fresh roae\.py --json' \
+"p='example/hexagrams.csv'
+a='3,\u4dc2,010001,17,'
+s=open(p,encoding='utf-8').read()
+assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
+open(p,'w',encoding='utf-8').write(s.replace(a,'3,\u4dc2,010001,18,',1))"
+
+  # CASE 9 — THE BINARY ARM. One byte flipped at the end of example/wave.mid. The evidence ERE
+  # requires the `(binary; first difference: ...)` sentence, which only the `grep -qI .` branch
+  # can print, so a run that took the text branch on a binary file cannot satisfy it. The
+  # mutation is arithmetic on the last byte rather than a literal, because a literal byte value
+  # would be an anchor into generated MIDI and would move the day roae.py's --midi output does.
+  assert_gen_fires "GATE 8 LEG 7 one flipped byte in example/wave.mid (binary arm)" \
+'example/wave\.mid differs BYTE-FOR-BYTE from a fresh roae\.py --midi' \
+"p='example/wave.mid'
+b=bytearray(open(p,'rb').read())
+assert len(b)>0, 'anchor moved: wave.mid is empty'
+b[-1]=(b[-1]+1)%256
+open(p,'wb').write(bytes(b))"
 
   rm -rf "$GEN_CACHE"
 
@@ -5971,14 +6615,21 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --doc-gat
   _G25_CBASE=$(bash "$0" repro-reach 2>&1)
   _G25_CU=$(printf '%s' "$_G25_CBASE" | grep -oE '[0-9]+ documented command-flag use' | grep -oE '^[0-9]+')
   _G25_CW=$(printf '%s' "$_G25_CBASE" | grep -oE '[0-9]+ declared-narration waiver' | grep -oE '^[0-9]+')
-  if [ -z "$_G25_CU" ] || [ -z "$_G25_CW" ]; then
+  # The PROPOSAL count is pinned too (added 2026-09-02, batch C7). Without it this control had
+  # a new way to go green with the gate broken, and the comment above already names the shape:
+  # "a NARRATION waiver absorbing the injection moves the waiver count -> RED". A PROPOSAL
+  # waiver absorbing it would have moved no number this assertion read. Pinned, not added as a
+  # new caller: `documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt` machine-reads `callers=N` for
+  # both helpers and GATE 15 LEG 3 re-derives it, so a new invocation is a two-file change.
+  _G25_CP=$(printf '%s' "$_G25_CBASE" | grep -oE '[0-9]+ proposal-marker waiver' | grep -oE '^[0-9]+')
+  if [ -z "$_G25_CU" ] || [ -z "$_G25_CW" ] || [ -z "$_G25_CP" ]; then
     echo "  [FAIL] GATE 25 negative control — the base repro-reach run printed no census line,"
     echo "         so the control below has no base to compare against. A leg that cannot read"
     echo "         its own base is silent, not clean."
-    PASS=1; _G25_CU=-1; _G25_CW=-1
+    PASS=1; _G25_CU=-1; _G25_CW=-1; _G25_CP=-1
   fi
   assert_stays_clean_why "GATE 25 the same sentence citing a flag that DOES exist stays silent" \
-    repro-reach "$((_G25_CU + 1))"' documented command-flag use\(s\), '"$_G25_CW"' declared-narration waiver\(s\)' \
+    repro-reach "$((_G25_CU + 1))"' documented command-flag use\(s\), '"$_G25_CW"' declared-narration waiver\(s\), '"$_G25_CP"' proposal-marker waiver\(s\)' \
 "p='documentation/GUIDE.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount\n')"
@@ -6092,6 +6743,12 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
   #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
   #            5b (output), 6 x3 (2 phrase + 1 FIGURE, item A8), 7 x2,
   #            8 x7 — the four assert_gen_fires legs, the assert_gen_clean NEGATIVE
+  #            control (rebuilt 2026-09-04; it was x6 for part of that day, between LEG 5's
+  #            retirement taking two assert_gen_fires callers and the seeded reshipping
+  #            adding one back, and this line said x7 throughout that window — which is
+  #            exactly the rot the "not a hand count" sentence below claims immunity from,
+  #            and it is recorded rather than quietly corrected, because the immunity is
+  #            real for the THREE FIELDS and not for this prose that sums them),
   #            control, and the TWO assert_gen_fires_only legs the one-directional-comparison
   #            fix added. This entry read "8 x5 (4 fire + 1 NEGATIVE control)" until round 14
   #            (item R14): the two gen_fires_only legs use a THIRD helper in the same GATE 8
@@ -6333,7 +6990,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
   #            byte-identical (sha-checked) after each mutation. Same clean-tree debt:
   #            in-harness legs for (a)-(c) plus a negative control that the five
   #            resolution-note/historical allow rows stay silent.
-  #   NOT covered YET, THE REST OF THE TAIL — GATES 19, 20, 21, 22, 23 and 24. This bullet
+  #   NOT covered YET, THE REST OF THE TAIL — GATES 19, 21, 22, 23 and 24. This bullet
   #            named GATE 18 ALONE until 2026-08-11, which read as "18 is the gap" when it was
   #            only the gap that had been WRITTEN DOWN; six more gates had landed behind it and
   #            joined nothing. MEASURED that day, two ways, because one of them keys on a
@@ -6341,9 +6998,204 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
   #            for each of 18-24, AND `grep -nE '\[ok\] +GATE (1[89]|2[0-4])'` returns no line
   #            at all, so they have no helper leg and no inline-echo leg either. GATE 25 was
   #            the seventh member of that set for one day and is now in `covered` above.
+  #            GATES 18 AND 20 LEFT THIS SET 2026-09-03 (item 2477, wave-4 lane A2), and only
+  #            PARTLY: what joined the harness is GATE 18's RATCHET (both counters, one case
+  #            each) and GATE 20's per-file RECEIPTS plus a heading-keyed negative control.
+  #            GATE 18's main alias-reach leg, its whitespace-wrap leg and its `attrib` kind
+  #            are still proven only by the by-hand transcripts named in the bullet above, and
+  #            GATE 20's two SCANNING legs — heading-form draft markers, and an unchecked box
+  #            outside a checklist — have no fire-proof at all. Naming a gate "covered" on the
+  #            strength of one leg is the census error this whole block keeps recording, so it
+  #            is not done here.
   #            THIS IS A DEBT, NOT A DISPOSITION: no claim is made here that a fire-proof for
-  #            any of the six is impossible or unwarranted, only that none exists and that a
+  #            any of the five is impossible or unwarranted, only that none exists and that a
   #            green --selftest attests nothing whatever about them.
+  # ==========================================================================
+  # ITEM 2477 (2026-09-03, wave-4 lane A2) — FIRE-PROOFS FOR THREE LEGS THAT SHIPPED WITH
+  # A HAND-TAKEN RED TEST AND NOTHING WIRED INTO THE HARNESS.
+  #
+  # P74 landed GATE 8 LEG 7, GATE 20's per-file receipts and GATE 18's escalation ratchet on
+  # 2026-09-02, each red-tested directly and none of them joined to anything that re-runs. A
+  # direct red test is a measurement of one tree at one moment; the note two screens below
+  # ("no mutation-test leg AT ALL: GATES 18, 19, 20, ...") is what a green self-test was
+  # actually attesting about them, which is nothing. GATE 8's cases are with the other GATE 8
+  # cases above, where the regeneration cache is; GATE 18's and GATE 20's are here.
+  #
+  # NONE OF THESE WERE PROVEN BY RUNNING --selftest. This lane was forbidden to run it (it
+  # executes `git checkout -- .` and three other lanes held uncommitted work in the tree), so
+  # every injection below was first executed BY HAND against a real tree in a detached scratch
+  # worktree — `git worktree add --detach <scratch> HEAD` with the current doc_gates.sh copied
+  # in — and the gate's output captured to a FILE and grepped from the file, never through a
+  # pipe whose exit status is the pipe's. The measured result of each is quoted at the case.
+  # What is NOT claimed: that these cases have run inside a live --selftest. They are written
+  # to the harness contract and each has been shown to fire against the same tree the harness
+  # would mutate, which is the strongest thing available without running the forbidden command.
+
+  # GATE 18 RATCHET, CASE 1 — THE ESCALATION ITSELF.
+  #
+  # The ratchet exists because a future genuine [FAIL] could be silenced by ADDING an `open`
+  # row, with no correction anywhere and no change in exit status. This case performs exactly
+  # that in two steps: plant a NEW use of the ruled alias out of reach of its ruling (a [FAIL]
+  # by GATE 18's main leg), then adjudicate it away with a new `open` row. Under the shipped
+  # gate that pair exits 0. The ratchet must refuse it.
+  #
+  # THE EVIDENCE ERE NAMES THE SITE HALF, `3 adjudicated-open SITE\(s\), budget 2`, and not
+  # the whole message: this injection moves BOTH counters (a new row that matches is also a
+  # new site), so an ERE on the joint text could be satisfied by the row half alone and case 2
+  # below would then be proving something case 1 had already covered. MEASURED, one line:
+  #   [FAIL] the adjudicated-open backlog GREW: 3 adjudicated-open SITE(s), budget 2;
+  #          3 `open` registry ROW(s), budget 2                                      rc=1
+  #
+  # ANCHOR-FREE ON THE REGISTRY SIDE: the row is APPENDED, and the planted sentence is its own
+  # anchor, so neither half can go stale when the registry gains or loses rows. The planted
+  # line is appended to documentation/GUIDE.md, which already carries the alias legitimately
+  # (an inline glossary token at :161 and an `allow literal` row) — so this case also shows the
+  # ratchet firing in a file where the alias is NOT globally forbidden.
+  assert_fires_why "GATE 18 ratchet: a new defect silenced by a new open row (the escalation)" \
+    alias-reach '3 adjudicated-open SITE\(s\), budget 2' \
+"p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+chr(10)+'Self-test line: the C1+C2+C3 canonical, stated with no path to its ruling.'+chr(10))
+r='documentation/DOC_GATE_ALIAS_REACH.tsv'
+t=open(r,encoding='utf-8').read().rstrip(chr(10))
+assert t.count(chr(9)) > 0, 'anchor moved: the registry is not tab-separated'
+open(r,'w',encoding='utf-8').write(t+chr(10)+chr(9).join(['open','documentation/GUIDE.md','C1+C2+C3','stated with no path to its ruling','Self-test escalation row.'])+chr(10))"
+
+  # GATE 18 RATCHET, CASE 2 — THE ROW HALF, ISOLATED.
+  #
+  # OPEN_ROW_BUDGET is a SEPARATE counter from OPEN_SITE_BUDGET and case 1 cannot prove it,
+  # for the reason case 1's own note gives. Isolating it needs a row that adds no site, which
+  # sounds impossible — a row that matches is a site — and is not: the gate collects ALL
+  # anchors matching a line into `used_open` but appends to `openhits` ONCE per line. So a
+  # SECOND anchor keyed to an ALREADY-open line raises the row count while leaving the site
+  # count exactly where it was. MEASURED, and note the message carries only one clause:
+  #   [FAIL] the adjudicated-open backlog GREW: 3 `open` registry ROW(s), budget 2     rc=1
+  #
+  # WHY THE ROW HALF IS WORTH ITS OWN CASE: a speculative pre-emptive hatch — a row planted
+  # against a defect that has not been written yet — is invisible to the site counter by
+  # construction, because it matches nothing on the day it lands. That is the one form of
+  # escalation the site budget alone cannot see.
+  #
+  # THE `backlog GREW: ` PREFIX IN THE ERE IS THE ISOLATION PROOF, not decoration. The two
+  # clauses are joined with `; ` in the order SITE-then-ROW, so a message that also moved the
+  # site counter reads `GREW: N adjudicated-open SITE(s)...; N \`open\` registry ROW(s)...` and
+  # this ERE does NOT match it. Requiring the ROW clause to sit IMMEDIATELY after `GREW: ` is
+  # what makes this case fail if it ever stops being isolated — without the prefix it would be
+  # satisfied by case 1's output and would be proving nothing case 1 had not already proved.
+  #
+  # THE SECOND ANCHOR IS DERIVED, NOT WRITTEN: the injection reads the live registry's own
+  # first `open` row, opens the file it names, finds the line its anchor sits on, and takes a
+  # DIFFERENT substring of that same line. Hardcoding a substring of CRITIQUE.md:137 would be
+  # an anchor into adjudicated prose that the #146 fix is expected to rewrite; deriving it
+  # means this case survives the row set changing and fails loudly if it cannot build.
+  assert_fires_why "GATE 18 ratchet: an extra open row on an already-open line (row budget, isolated)" \
+    alias-reach 'backlog GREW: [0-9]+ .open. registry ROW\(s\), budget' \
+"r='documentation/DOC_GATE_ALIAS_REACH.tsv'
+rows=[l.split(chr(9)) for l in open(r,encoding='utf-8').read().split(chr(10)) if l.startswith('open'+chr(9))]
+assert rows, 'anchor moved: the registry carries no open rows'
+pick=None
+tried=[]
+for row in rows:
+    f,alias,anchor=row[1],row[2],row[3]
+    try:
+        hits=[l for l in open(f,encoding='utf-8').read().split(chr(10)) if anchor in l]
+    except OSError as e:
+        tried.append('%s unreadable' % f); continue
+    if len(hits)!=1:
+        tried.append('%s: %d line(s) carry the anchor' % (f,len(hits))); continue
+    line=hits[0]; i=line.find(anchor)
+    rest=(line[:i]+line[i+len(anchor):]).strip()
+    alt=rest[-40:] if len(rest)>=12 else ''
+    if alt and alt in line and anchor not in alt and alt!=anchor:
+        pick=(f,alias,alt); break
+    tried.append('%s: no distinct second substring on the line' % f)
+assert pick, 'could not derive a second anchor on any already-open line: ' + '; '.join(tried)
+f,alias,alt=pick
+t=open(r,encoding='utf-8').read().rstrip(chr(10))
+open(r,'w',encoding='utf-8').write(t+chr(10)+chr(9).join(['open',f,alias,alt,'Self-test second anchor on an already-open line.'])+chr(10))"
+
+  # GATE 20 RECEIPTS — A CORPUS FILE THE SCANNER CANNOT READ.
+  #
+  # THE DEFECT THE RECEIPTS CLOSE, quoted from GATE 20's own header: an `awk` that cannot run
+  # "produces NO output, and no output was read as no unchecked boxes" — measured with a shim
+  # awk exiting 127, which made the gate print "[ok] ... every unchecked box sits under a
+  # reader checklist" and exit 0. The fix was a positive per-file receipt. Nothing proved the
+  # receipt could fail.
+  #
+  # WHY THIS IS HAND-ROLLED AND NOT AN assert_fires_why CALL. The natural injection —
+  # `chmod 000` on a corpus file — is NOT reverted by `_selftest_revert`. git records only the
+  # executable bit, so a 000 file whose content is unchanged is not a modification git can see
+  # and `git checkout -- .` leaves it unreadable. Routed through the helper, this case would
+  # poison every later assertion in the run with an unreadable GUIDE.md. So the mode is
+  # restored HERE, on every path including the could-not-inject path, before anything else
+  # runs. (The obvious alternative, deleting the file, does NOT reach this leg: the tracked-md
+  # PREFLIGHT catches a missing corpus file first and returns before GATE 20's scanner is
+  # entered — measured, rc 1 with the preflight's wording and no GATE 20 line at all. Same for
+  # replacing the file with a directory. Unreadable-but-present is the only shape that reaches
+  # the receipt.)
+  #
+  # MEASURED (uid 1000, so mode 000 genuinely denies read):
+  #   == GATE 20: no live pre-publish / draft markers in the published corpus ==
+  #     [FAIL] GATE 20's per-file scanner FAILED on:
+  #              documentation/GUIDE.md
+  #            Those files were NOT scanned, so this gate cannot report them clean.   rc=1
+  #
+  # THE ROOT CAVEAT, stated rather than discovered later: run as uid 0, chmod 000 denies
+  # nothing and awk reads the file fine. This case would then find no defect and report
+  # [FAIL] — the honest direction — rather than passing vacuously.
+  # THE ORIGINAL MODE IS READ BACK, NOT ASSUMED. A first cut restored 644 unconditionally and
+  # silently dropped the group-write bit from a 664 file. git records neither bit, so nothing
+  # would ever have reported it — a fire-proof quietly editing the tree it is supposed to leave
+  # alone, which is the same class as `_selftest_revert` not reaching this case at all.
+  _G20_VICTIM=documentation/GUIDE.md
+  _G20_MODE=$(stat -c %a "$_G20_VICTIM" 2>/dev/null)
+  if [ -n "$_G20_MODE" ] && [ -r "$_G20_VICTIM" ] && chmod 000 "$_G20_VICTIM" 2>/dev/null; then
+    G20OUT=$(bash "$0" publication-state 2>&1); G20RC=$?
+    chmod "$_G20_MODE" "$_G20_VICTIM"
+    if [ "$G20RC" -ne 0 ] && printf '%s' "$G20OUT" | grep -qF "GATE 20's per-file scanner FAILED on"; then
+      echo "  [ok]   GATE 20 receipts — a corpus file the scanner could not read is a FAIL, not a clean scan"
+    else
+      echo "  [FAIL] GATE 20 receipts — an unreadable corpus file did NOT stop the gate reporting"
+      echo "         clean (rc=$G20RC). That is the fail-open shape the per-file receipt was"
+      echo "         added for. If this box runs as root, chmod denies nothing and this case"
+      echo "         cannot inject — which is still a failure to prove, never a pass."
+      printf '%s\n' "$G20OUT" | head -3 | sed 's/^/           > /'
+      PASS=1
+    fi
+  else
+    [ -n "$_G20_MODE" ] && chmod "$_G20_MODE" "$_G20_VICTIM" 2>/dev/null
+    echo "  [FAIL] GATE 20 receipts — could not inject (chmod refused, $_G20_VICTIM moved, or"
+    echo "         its mode could not be read back for restoration),"
+    echo "         so the assertion did NOT run. A skipped fire-proof is not a proof."
+    PASS=1
+  fi
+
+  # GATE 20 RECEIPTS — NEGATIVE CONTROL, and it is the half that makes the count mean
+  # something. The case above proves a receipt can be MISSING. It does not prove the receipt
+  # count is the CORPUS count rather than some smaller number the scanner happens to reach; a
+  # gate that stamped one receipt and compared it to one would pass both.
+  #
+  # The control appends an unchecked box UNDER a heading containing "checklist" — legitimate
+  # reader-facing content, which GATE 20 must stay silent about — and requires the [ok] line
+  # to name a scanned count EQUAL to the base run's. RELATIVE, not absolute, per GATE 12's
+  # converted control: the corpus grows, and an absolute census pinned in a fire-proof breaks
+  # on a schedule (that comment's own reconstruction of 158 -> 172 -> 175 is the argument).
+  # The count must NOT move here, since the mutation adds a line to an existing file and no
+  # file to the corpus — so a run that scanned fewer files is RED even though it found nothing.
+  _G20_BASE=$(bash "$0" publication-state 2>&1)
+  _G20_N=$(printf '%s' "$_G20_BASE" | grep -oE 'in all [0-9]+ scanned corpus file' | grep -oE '[0-9]+')
+  if [ -z "$_G20_N" ]; then
+    echo "  [FAIL] GATE 20 negative control — the base run printed no scanned-file census, so"
+    echo "         the control has no base to compare against. A leg that cannot read its own"
+    echo "         base is silent, not clean."
+    PASS=1; _G20_N=-1
+  fi
+  assert_stays_clean_why "GATE 20 an unchecked box under a reader checklist heading is exempt (heading-keyed)" \
+    publication-state 'every unchecked box in all '"$_G20_N"' scanned corpus file\(s\) sits under a reader checklist' \
+"p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+chr(10)+'## Self-test reader checklist'+chr(10)+chr(10)+'- [ ] a reader-facing unchecked box, which is exempt by heading.'+chr(10))"
+
   # The old note said GATE 8 was excluded because ~90s regeneration "exceeds the
   # orchestrator's budget". MEASURED 2026-08-02 on the orchestrator: 45 s and 31 MB peak
   # RSS per run. The budget claim was inherited, not measured, and it was wrong; the
@@ -6357,9 +7209,17 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
   # PRINTED, not only commented, for the reason the PASS banner's own exclusions are printed:
   # a gap recorded in a comment is invisible to the person reading a green run. GATE 25 LEFT
   # this line on 2026-08-11 when its two legs landed; the rest of the tail is still on it.
-  echo "  [note] no mutation-test leg AT ALL: GATES 18, 19, 20, 21, 22, 23, 24. A green"
+  echo "  [note] no mutation-test leg AT ALL: GATES 19, 21, 22, 23, 24. A green"
   echo "         SELF-TEST attests nothing about them — they are dispatched and run, but"
   echo "         nothing here has ever proven any of them CAN fail."
+  # GATES 18 and 20 came off the line above on 2026-09-03 (item 2477) and are printed
+  # SEPARATELY rather than silently dropped, because what they gained is one leg each and
+  # the difference between "has a fire-proof" and "is fire-proofed" is the census error the
+  # comment block above this note exists to record.
+  echo "  [note] PARTIALLY mutation-tested: GATE 18 (the escalation RATCHET only — both"
+  echo "         counters; its main alias-reach leg, its hard-wrap leg and the `attrib` kind"
+  echo "         are proven only by by-hand transcripts) and GATE 20 (the per-file RECEIPTS"
+  echo "         only; neither of its two SCANNING legs has ever been shown to fire)."
 
   _selftest_revert
   echo
@@ -6384,32 +7244,73 @@ fi
 # links resolve and the numbers are self-consistent. The defect is only visible
 # by RE-RUNNING THE GENERATOR.
 #
-# Comparison is DIGIT-STRIPPED. roae.py seeds nothing by default, so Monte Carlo
-# figures legitimately change every run; a byte-diff would fail always and the
-# gate would be turned off within a day. Stripping digits compares the PROSE and
-# the structure, which is where hand-edits live. Numeric drift is gate 1's job.
+# Comparison is BYTE-EXACT since 2026-09-04, on all eleven tracked example/ artifacts.
+# It was DIGIT-STRIPPED for the four report artifacts until then, and the reason was real:
+# roae.py seeded nothing by default, so its Monte Carlo figures legitimately changed every
+# run and a byte-diff would have failed always — a gate that goes red on correct artifacts
+# is a gate that gets switched off. THE PREMISE IS GONE, not the reasoning. example/ is now
+# regenerated and shipped under `--seed $ROAE_EXAMPLE_SEED` (declared once, just above
+# gate_generated), and every regeneration in this gate passes the same seed, so the shipped
+# artifact and the fresh run agree byte for byte on a correct tree. The digit-stripped
+# comparison survives as a DIAGNOSTIC that classifies a failure (numeric-only vs prose), not
+# as the verdict.
 #
-# COVERAGE, stated exactly (extended 2026-08-02, item A2). Until then the gate covered
-# report.txt, report.md and README.md only — example/report.html and example/report.pdf
-# were shipped generator-derived artifacts with NO generator-match check of any kind,
-# and report.html is the file that was hand-patched in dbba77d. Both are now covered,
-# by two DIFFERENT strategies, because a PDF cannot be line-diffed:
+# WHAT THAT BOUGHT, in one sentence, because this is the whole point of the change: a
+# hand-edited NUMBER in example/report.txt, report.md, README.md or report.html now fires.
+# Before it, report.txt and report.html were covered by NOTHING — measured on the live tree
+# the same morning, `8x8 = 64` -> `65` in example/report.html left `doc_gates.sh generated`
+# at rc 0, PASS — and the README/report.md pair was covered by leg 6 alone.
 #
-#   report.html  -> compared against a fresh `roae.py --html` (like-for-like, same as
-#                   the other three: digit-stripped line diff, both directions).
-#   report.pdf   -> compared against the SHIPPED example/report.html, by extracting the
-#                   PDF's text with pdftotext and the HTML's text by tag-stripping, then
-#                   comparing the two as MULTISETS of digit-stripped lines.
+# WHAT IT COSTS, stated because the seed is not free: every number in example/ is now ONE
+# FIXED DRAW rather than a fresh sample per run. No CLAIM depends on those figures (they are
+# an example bundle, not evidence), but a reader must not read a frozen draw as a converged
+# value. roae.py prints the seed INTO the three report artifacts for exactly that reason, and
+# documentation/CORRECTIONS.md carries the entry.
 #
-# The PDF leg deliberately does NOT regenerate. wkhtmltopdf(report.html) is the ONLY
-# route by which report.pdf is produced (roae.py's export_html shells out to it), so
-# "the PDF's text equals the shipped HTML's text" is exactly the derivation invariant,
-# and checking it against the shipped HTML costs nothing and is deterministic. The
-# chain closes: generator -> html (leg 4) -> pdf (leg 5). Regenerating a PDF and
-# diffing it would instead compare two renderings whose page breaks move whenever a
-# Monte Carlo figure changes width — a gate that fails for reasons nobody can act on.
-# MEASURED before shipping: on the artifacts as committed the two bags differ by
-# exactly ZERO lines once <title>/<style>/<script> are stripped.
+# COVERAGE, stated exactly (extended 2026-08-02, item A2; narrowed 2026-09-04 by LEG 5's
+# retirement; widened to byte-exact the same day by the seed). Until
+# 2026-08-02 the gate covered report.txt, report.md and README.md only — example/report.html
+# and example/report.pdf were shipped generator-derived artifacts with NO generator-match
+# check of any kind, and report.html is the file that was hand-patched in dbba77d. Item A2
+# covered both, by two DIFFERENT strategies, because a PDF cannot be line-diffed:
+#
+#   report.html  -> compared against a fresh `roae.py --html --seed $ROAE_EXAMPLE_SEED`
+#                   (like-for-like, same as the other three: BYTE-EXACT since 2026-09-04,
+#                   digit-stripped line diff in both directions before that).  LIVE.
+#   report.pdf   -> LEG 5, RETIRED 2026-09-04 with the artifact itself. It compared the
+#                   PDF against the SHIPPED example/report.html, by extracting the PDF's
+#                   text with pdftotext and the HTML's text by tag-stripping, then
+#                   comparing the two as MULTISETS of lines WITH DIGITS INTACT.
+#
+# WHY IT IS GONE AND WHAT WENT WITH IT. example/report.pdf was deleted from the repository
+# on 2026-09-04: wkhtmltopdf embeds the fonts it renders with, and `pdffonts` on the shipped
+# artifact reported DejaVuSans, DejaVuSans-Bold and DejaVuSansMono, all `emb yes sub no` —
+# the complete unsubsetted font programs, inside a tracked file, in a repository that is
+# otherwise public domain. That made the project a redistributor of font software under the
+# Bitstream Vera terms, whose grant is conditioned on the notice travelling with any copy.
+# roae.py's export_html no longer shells out to wkhtmltopdf, so nothing produces a PDF to
+# compare. The leg's ARGUMENT was sound and is recorded because it is the argument any
+# replacement would have to reproduce: wkhtmltopdf(report.html) was the ONLY route by which
+# report.pdf was produced, inside ONE `--html` invocation, so "the PDF's text equals the
+# shipped HTML's text" was exactly the derivation invariant — deterministic, costing no
+# regeneration, and strict about DIGITS where legs 1-4 cannot be. (Regenerating a PDF and
+# diffing it would instead have compared two renderings whose page breaks move whenever a
+# Monte Carlo figure changes width — a gate that fails for reasons nobody can act on.)
+# MEASURED at the time it shipped: on the artifacts as committed the two bags differed by
+# exactly ZERO lines once <title>/<style>/<script> were stripped.
+#
+# 🔴 THE COST OF LEG 5's RETIREMENT, AND ITS CLOSE — BOTH ON THE SAME DAY, AND THE COST IS
+# LEFT WRITTEN because a hole that was real for a few hours is not made unreal by having been
+# closed. LEG 5 was the ONLY check that compared example/report.html digit-for-digit; when it
+# went, report.html became digit-blind like report.txt and report.md and a hand-edited NUMBER
+# in it was caught by nothing — the dbba77d class, uncovered again, and MEASURED as such
+# (`8x8 = 64` -> `65`, `doc_gates.sh generated` rc 0, PASS). The close is the one this note
+# named as an operator decision: example/ was regenerated and reshipped under
+# `--seed $ROAE_EXAMPLE_SEED` that afternoon, and legs 1-4 are byte-exact against a
+# same-seed regeneration. The coverage came back through the PRIMARY comparison rather than
+# through a second artifact of the same invocation, which needs no PDF, no second renderer,
+# and no embedded font programs on the machine running the gate. Digit coverage across the
+# four report artifacts is now ALL FOUR, each against its own generator.
 #
 # Cost: three roae.py runs (~45 s each, measured 2026-08-02 at 31 MB peak RSS), so this
 # is NOT part of `all`. Run it before publishing. See DOC_GATES_GEN_CACHE below for how
@@ -6421,17 +7322,29 @@ fi
 # can run several mutation cases for one regeneration; it is opt-in precisely because a
 # silently-reused stale cache would be a false clear, and it self-invalidates on the only
 # input that can change the answer — roae.py's own sha256.
+# THE SEED example/ IS SHIPPED UNDER (2026-09-04). It is declared ONCE, here, and every
+# regeneration below passes it, because a gate that regenerated under a different seed than
+# the artifacts were published under would be red on a correct tree — the exact failure mode
+# ("a gate that goes red at random on correct artifacts is a gate that gets switched off")
+# this file already records for the digit-stripping. The value is the ISO date of the
+# regeneration pass, chosen and written down BEFORE the first seeded run so it cannot have
+# been picked for the figures it produces; it is published in documentation/ROAE_PY_CLI.md
+# and printed INTO the report artifacts by roae.py's _seed_note(), so a reader holding
+# example/report.md can read the seed off the file itself.
+ROAE_EXAMPLE_SEED=20260904
+
 gate_generated() {
-  echo "== GATE 8: generated artifacts match their generator =="
+  echo "== GATE 8: generated artifacts match their generator (seed $ROAE_EXAMPLE_SEED) =="
   # Compare LIKE FOR LIKE. The first draft diffed every artifact against `--all`
   # stdout, so the markdown files failed on their own headers -- a gate that
   # flags correct files gets switched off, which is the mistake ops_gates GATE 4
   # made the same day. Each artifact is now compared against the invocation that
   # actually produces it.
   #
-  # Digit-stripped: roae.py seeds nothing by default, so Monte Carlo figures
-  # legitimately change every run. Stripping digits compares PROSE and structure,
-  # which is where hand-edits live. Numeric drift is gate 1's business.
+  # BYTE-EXACT since 2026-09-04. This read "Digit-stripped: roae.py seeds nothing by default,
+  # so Monte Carlo figures legitimately change every run" — true until example/ was reshipped
+  # under `--seed $ROAE_EXAMPLE_SEED` and this gate started regenerating under the same seed.
+  # Digit-stripping survives only as the failure classifier inside `_cmp`.
   local tmp rc=0 owned=0 cur_sha
   # ITEM A1 (tool half). This was a [skip], and roae.py IS python3 — without it the gate
   # regenerates nothing and compares nothing, while `generated` still exits 0. GATES 3b and 5
@@ -6442,19 +7355,13 @@ gate_generated() {
     echo "  [FAIL] python3 not on PATH — roae.py cannot be run, so nothing was regenerated"
     echo "         and nothing was compared. This is not a skip."
     return 1; }
-  # 🔴 Codex N10 finding 2, second half: "its cheap refusals run AFTER the expensive work."
-  # Confirmed. pdftotext's availability decides whether LEG 5 can run at all, costs nothing to
-  # test, and was tested inside _cmp_pdf -- i.e. AFTER `roae.py --all` had already regenerated
-  # everything (measured 135 s). A host without pdftotext paid the full regeneration and then
-  # skipped the leg, and the skip line arrived buried at the bottom of the output. Decide it
-  # here, and SAY SO FIRST, so a skipped leg is visible before anything expensive runs.
-  local have_pdftotext=1
-  if ! command -v pdftotext >/dev/null 2>&1; then
-    have_pdftotext=0
-    echo "  [skip] no pdftotext on PATH — LEG 5 (report.pdf vs report.html) will NOT be checked."
-    echo "         This is an ENVIRONMENT gap, not repository state: install poppler-utils to close it."
-  fi
   cur_sha=$(sha256sum roae.py 2>/dev/null | cut -d' ' -f1)
+  # THE CACHE KEY CARRIES THE SEED AS WELL AS THE GENERATOR (2026-09-04). Before example/ was
+  # seeded the only input that could change the reference was roae.py itself. It is not any
+  # more: the same roae.py under a different --seed produces a DIFFERENT correct reference, so
+  # a key on the sha alone would let a cache built at one seed clear a comparison at another —
+  # a false clear of exactly the kind the sha key was introduced to prevent.
+  local gen_key="${cur_sha}:seed=${ROAE_EXAMPLE_SEED}"
 
   if [ -n "${DOC_GATES_GEN_CACHE:-}" ]; then
     tmp="$DOC_GATES_GEN_CACHE"; mkdir -p "$tmp" || return 1
@@ -6467,8 +7374,8 @@ gate_generated() {
   # suite exists to stop — so the key is the generator's own sha256, the only input that
   # can change what the reference should be.
   if [ -s "$tmp/fresh.txt" ] && [ -s "$tmp/report.md" ] && [ -s "$tmp/report.html" ] \
-     && [ -n "$cur_sha" ] && [ "$(cat "$tmp/.roae_sha" 2>/dev/null)" = "$cur_sha" ]; then
-    echo "  reusing regeneration cache $tmp (roae.py sha256 $(printf '%.12s' "$cur_sha")… unchanged)"
+     && [ -n "$cur_sha" ] && [ "$(cat "$tmp/.roae_sha" 2>/dev/null)" = "$gen_key" ]; then
+    echo "  reusing regeneration cache $tmp (roae.py sha256 $(printf '%.12s' "$cur_sha")… and seed $ROAE_EXAMPLE_SEED unchanged)"
   else
     # `--markdown` and `--html` are run WITHOUT `--all` and from inside $tmp, because that
     # is what the generator actually does: roae.py's main() short-circuits on args.markdown
@@ -6477,17 +7384,90 @@ gate_generated() {
     # example/ once already; the gate should not model it. (Function names, not line
     # numbers, on purpose — a recorded line number is the thing that drifts, cf. the
     # GATE 5 allowlist.)
-    echo "  regenerating (3 runs, ~45s each, unseeded): --all to stdout, then --markdown and --html into a temp dir"
+    echo "  regenerating (3 runs, ~45s each, --seed $ROAE_EXAMPLE_SEED): --all to stdout, then --markdown and --html into a temp dir"
     rm -f "$tmp/.roae_sha"
-    if ! timeout 300 python3 roae.py --all > "$tmp/fresh.txt" 2>/dev/null; then
+    if ! timeout 300 python3 roae.py --all --seed "$ROAE_EXAMPLE_SEED" > "$tmp/fresh.txt" 2>/dev/null; then
       echo "  [FAIL] the generator itself did not run cleanly"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
-    ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown >/dev/null 2>&1 )
-    ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --html     >/dev/null 2>&1 )
-    [ -n "$cur_sha" ] && printf '%s\n' "$cur_sha" > "$tmp/.roae_sha"
+    # Codex v2 / fail-open class: these two runs had their exit status DISCARDED,
+    # while the --all run above is checked. A failing --markdown then left no
+    # report.md, and the "[skip] --markdown produced no report.md" arm below
+    # returned 0 -- so a dead generator produced a PASS. Measured by stubbing
+    # python3 to exit 1. Check both.
+    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); then
+      echo "  [FAIL] the generator did not run cleanly for --markdown"
+      [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
+    fi
+    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --html --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); then
+      echo "  [FAIL] the generator did not run cleanly for --html"
+      [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
+    fi
+    [ -n "$cur_sha" ] && printf '%s\n' "$gen_key" > "$tmp/.roae_sha"
   fi
-  [ -f "$tmp/report.md" ] || { echo "  [skip] --markdown produced no report.md"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 0; }
+  # A missing artifact is NOT a skip. The generator was just run and checked, so an
+  # absent report.md means the gate cannot see its target -- which must be an error,
+  # never a pass. This arm returned 0 and was the second half of the same fail-open.
+  [ -f "$tmp/report.md" ] || { echo "  [FAIL] --markdown produced no report.md — cannot compare what was not generated"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1; }
 
+  # ITEM A2 (2026-08-02) — THE TWO QUESTIONS, ANSWERED BY RUNNING THE NORMALISER.
+  # REWRITTEN 2026-09-04: the normaliser no longer decides any verdict, so Q1/Q2 are now
+  # questions about a DIAGNOSTIC, and the answers that mattered are recorded as history
+  # rather than as live caveats. What they were is kept, because the round-4 defect they
+  # document is a live hazard for anyone who reaches for digit-stripping again.
+  #
+  # Q1. WHAT LEGITIMATE VARIATION DID IT ERASE? Every numeric difference, by design. roae.py
+  #     seeded nothing by default (`_global_seed`, roae.py:22 — a `--seed` flag existed but
+  #     the shipped artifacts were not produced with it), so Monte Carlo figures differed
+  #     every run and a byte comparison would have failed always. THAT IS NO LONGER TRUE OF
+  #     THIS GATE: example/ ships under `--seed $ROAE_EXAMPLE_SEED` and the regeneration above
+  #     passes the same seed, so there is no legitimate numeric variation left to tolerate.
+  #
+  # Q2. WHAT ILLEGITIMATE VARIATION DID IT LET THROUGH? A HAND-EDITED NUMBER, and it was
+  #     MEASURED twice, a month apart, on two different files:
+  #       2026-08-02, example/report.txt: `111111` -> `911111`, rc 0, and the gate printed
+  #         "[ok] example/report.txt matches roae.py --all exactly (digit-stripped, ...)"
+  #       2026-09-04, example/report.html: `8x8 = 64` -> `65`, `doc_gates.sh generated` rc 0,
+  #         PASS — taken AFTER LEG 5's retirement removed the only digit check on that file.
+  #     GATE 1 covered neither: it iterates $DOCS = `git ls-files '*.md'`, and neither
+  #     report.txt nor report.html is markdown. BOTH ARE NOW CAUGHT by the byte-exact
+  #     comparison, and the second is CASE 6 in the self-test harness — the same mutation,
+  #     wired in, so it cannot silently stop being caught.
+  #
+  # AN ATTEMPTED FIX THAT FAILED, recorded so it is not rebuilt — and it is worth MORE now
+  # than when it was written, because it is the route somebody would try if the seed were
+  # ever removed. Sample the generator TWICE and treat a line identical in both samples as
+  # deterministic, requiring the artifact to match those lines with digits intact. IT
+  # PRODUCES FALSE FAILS ON CORRECT ARTIFACTS. Measured: `Min pair-constrained observed:`
+  # (roae.py:1355, `min(pair_totals)` over `random.random()` draws) read 192 in two
+  # consecutive runs and 189 in the shipped artifact; three further samples gave 193, 190,
+  # 192. A min over a narrow discrete range repeats often, so two agreeing samples are not
+  # evidence of determinism, and no number of samples turns that into a sound inference. The
+  # leg was written, run against the CORRECT artifacts, seen to fire, and reverted. It is only
+  # because the negative control ran that this was caught before shipping. THE SEED IS THE
+  # SOUND VERSION OF THE SAME IDEA: it does not INFER determinism, it IMPOSES it.
+  #
+  # WHAT CLOSED Q2 FOR EVERY LEG (2026-09-04) is the operator decision this note asked for:
+  # ship example/ generated with `--seed`. It was taken, example/ was regenerated under
+  # `--seed $ROAE_EXAMPLE_SEED`, and legs 1-4 are byte-exact. PROVEN BEFORE SWITCHING IT ON,
+  # by running rather than by reasoning: two independent same-seed generations into scratch
+  # directories were `cmp`-clean on all ELEVEN tracked example/ artifacts; a third generation
+  # at a DIFFERENT seed differed on all FOUR report artifacts (and on none of the other
+  # seven, which are closed-form) — the negative control without which byte-exactness could
+  # have been an artefact of the seed never reaching the randomness at all.
+  #
+  # WHAT REMAINS UNCOVERED, kept in the place that used to list a longer set: an identical
+  # hand-edit applied to BOTH example/report.md and example/README.md was invisible to leg 6,
+  # which compares them only to each other. It is NOT invisible to legs 2 and 3, which now
+  # compare each of them byte-exact against the generator, so that hole — named here since
+  # 2026-08-02 — is closed too. What is left is the ordinary limit of every regeneration gate:
+  # a defect introduced into roae.py ITSELF and then propagated into the artifacts is
+  # consistent by construction and this gate cannot see it.
+  #
+  # THE DIGIT-STRIPPED NORMALISER IS RETAINED as a failure classifier only. `0 added,
+  # 0 missing` after a byte mismatch means the prose is identical and only digits moved (a
+  # hand-edit, or a regeneration under the wrong seed); non-zero counts mean the generator
+  # changed. The GROUP-SEPARATOR fix below is load-bearing for that classifier and stays.
+  #
   # THE GROUP SEPARATOR IS PART OF THE NUMBER (fixed 2026-08-02, round 4).
   # The first version stripped [0-9] and nothing else, so roae.py's `f"{ratio:,}"`
   # (roae.py:1400) left a bare comma behind whenever a Monte Carlo figure landed at
@@ -6496,62 +7476,10 @@ gate_generated() {
   #               -> "Approximately in random orderings share this property."
   #     generator "Approximately 1 in 1,046 random orderings share this property."
   #               -> "Approximately in , random orderings share this property."
-  # That is a FALSE FAIL — it fired in anger on `doc_gates.sh generated` this round and
-  # is the exact pair of lines the gate printed as +added/-missing. A gate that goes red
-  # at random on correct artifacts is a gate that gets switched off, which is the same
-  # failure mode the digit-stripping was introduced to avoid; it was simply not carried
-  # through to the separator. Digit-adjacent commas are collapsed FIRST (the /g scan
-  # handles multi-group values: 1,234,567 -> 1234567), then digits are stripped. Commas
-  # that are not between two digits — ordinary prose punctuation — are untouched, so no
-  # sensitivity to hand-edited prose is given up.
-  # ITEM A2 (2026-08-02) — THE TWO QUESTIONS, ANSWERED BY RUNNING THE NORMALISER.
-  #
-  # Q1. WHAT LEGITIMATE VARIATION DOES THIS ERASE? Every numeric difference, by design.
-  #     roae.py seeds nothing by default (`_global_seed`, roae.py:22 — a `--seed` flag
-  #     exists but the shipped artifacts were not produced with it), so Monte Carlo figures
-  #     differ every run and a byte comparison would fail always.
-  #
-  # Q2. WHAT ILLEGITIMATE VARIATION DOES IT LET THROUGH? A HAND-EDITED NUMBER. MEASURED,
-  #     with a clean tree: corrupting `111111` to `911111` in example/report.txt and running
-  #     `doc_gates.sh generated` gives rc 0 and prints
-  #       "[ok] example/report.txt matches roae.py --all exactly (digit-stripped, both directions)"
-  #     GATE 1 does not cover it either — GATE 1 iterates $DOCS = `git ls-files '*.md'`, and
-  #     report.txt is not markdown. So for a corrupted digit in report.txt there is currently
-  #     NO gate at all, and this one says "exactly" while missing it. That word is doing more
-  #     work than the comparison behind it.
-  #
-  # AN ATTEMPTED FIX THAT FAILED, recorded so it is not rebuilt. Sample the generator TWICE
-  # and treat a line identical in both samples as deterministic, requiring the artifact to
-  # match those lines with digits intact. IT PRODUCES FALSE FAILS ON CORRECT ARTIFACTS, which
-  # is round 4's `9084589` defect reached by a different route. Measured: `Min pair-constrained
-  # observed:` (roae.py:1355, `min(pair_totals)` over `random.random()` draws) read 192 in two
-  # consecutive runs and 189 in the shipped artifact; three further samples gave 193, 190, 192.
-  # A min over a narrow discrete range repeats often, so two agreeing samples are not evidence
-  # of determinism, and no number of samples turns that into a sound inference. The leg was
-  # written, run against the CORRECT artifacts, seen to fire, and reverted. It is only because
-  # the negative control ran that this was caught before shipping.
-  #
-  # WHAT WOULD ACTUALLY CLOSE Q2 FOR EVERY LEG is not a normalisation change: ship example/
-  # generated with `--seed`, after which the comparison can be byte-exact and the whole
-  # question disappears. That changes published artifacts, so it is an operator decision,
-  # not a gate edit.
-  #
-  # WHAT WAS CLOSED WITHOUT IT (item A2 residual, 2026-08-02) — legs 5 and 6 below. The
-  # reason legs 1-4 must strip digits is that they compare a shipped artifact against a
-  # FRESH generator run. Two of the shipped artifacts are not in that relationship with
-  # anything: report.pdf is rendered from report.html inside ONE `--html` invocation, and
-  # README.md is a `cp` of report.md. Those two pairs agree digit-for-digit by
-  # construction, so they are now compared with digits INTACT — leg 5 by multiset, leg 6
-  # byte-exact. A hand-edited digit in report.html, report.pdf or README.md now fires;
-  # before 2026-08-02 none of them did, and example/report.html had already been
-  # hand-patched once (dbba77d, caught by the operator, not by a gate).
-  #
-  # THE HOLE THAT REMAINS, stated so the two new legs are not read as closing it:
-  # example/report.txt is the output of a SEPARATE `--all` run and has no shipped partner,
-  # so its digits are still compared by nothing — the measurement under Q2 above stands
-  # exactly as written. The same is true of a hand-edit applied identically to BOTH
-  # report.md and README.md. Digit coverage after this change is 4 artifacts of 5, and one
-  # of those 4 (report.md) is covered only against its own copy.
+  # That was a FALSE FAIL and it fired in anger on `doc_gates.sh generated`. Digit-adjacent
+  # commas are collapsed FIRST (the /g scan handles multi-group values: 1,234,567 -> 1234567),
+  # then digits are stripped. Commas that are not between two digits — ordinary prose
+  # punctuation — are untouched, so no sensitivity to hand-edited prose is given up.
   _norm() { sed -E 's/([0-9]),([0-9])/\1\2/g; s/[0-9]//g; s/[[:space:]]+/ /g' "$1" | grep -v '^ *$' | sort; }
   # BOTH DIRECTIONS. The first version compared one way only (`comm -13`: lines the
   # ARTIFACT has that the generator does not), so a pure DELETION from a shipped
@@ -6562,167 +7490,155 @@ gate_generated() {
   # A MISSING shipped artifact is a FAILURE, not a skip (2026-08-02). Every leg below used
   # to `[skip]` on `! -f`, so `rm example/report.pdf` passed the gate in silence — the same
   # false-clear shape as the one-directional comparison, and reached the same way: by asking
-  # what the gate does when its input is not there. Absence is only a skip for an artifact
-  # git does not track; for a tracked one it is the strongest possible mismatch.
+  # what the gate does when its input is not there. (That artifact was itself removed on
+  # 2026-09-04, and the rule is unchanged: it is `require_tracked`, keyed on what git tracks,
+  # so it applies to whatever the legs below name TODAY. The sentence names report.pdf
+  # because that is the file the defect was found on, not because the rule is about it.)
+  # Absence is only a skip for an artifact git does not track; for a tracked one it is the
+  # strongest possible mismatch.
   # Hoisted to the top of the file as `require_tracked` (item A1, 2026-08-02) once the same
   # shape was found in GATES 2, 3, 3b, 6, 10a, 10b and 11. One implementation, so a future
   # correction to the rule cannot land in six places and miss the seventh.
   _present() {   # <path>
     require_tracked "$1" "A shipped artifact that is absent is not a passing artifact — regenerate it."
   }
+  # BYTE-EXACT SINCE 2026-09-04, AND THAT IS THE WHOLE POINT OF SEEDING example/.
+  # Legs 1-4 stripped digits for as long as example/ was an UNSEEDED draw: roae.py re-sampled
+  # its Monte Carlo figures every run, so a byte comparison would have been red on a correct
+  # tree every time and the gate would have been switched off within a day. example/ is now
+  # generated under --seed $ROAE_EXAMPLE_SEED, the regeneration above passes the same seed,
+  # and the two are therefore equal BYTE FOR BYTE on a correct tree -- measured, not assumed,
+  # before this was switched on (two independent seeded runs into scratch directories,
+  # `cmp` clean on all eleven tracked example/ artifacts; a third run at a DIFFERENT seed
+  # differed on all four report artifacts, which is what says the seed reaches the randomness
+  # rather than the outputs merely being constant).
+  #
+  # WHAT THIS CLOSES, named because it is the defect the gate was built for: a hand-edited
+  # NUMBER in example/report.txt, report.md, README.md or report.html. Until this change that
+  # was caught by NOTHING for report.txt and report.html (measured on the live tree the same
+  # day: `8x8 = 64` -> `65` in example/report.html left `doc_gates.sh generated` at rc 0,
+  # PASS), and by leg 6 alone for the README/report.md pair. That is the dbba77d class, and it
+  # is now caught four times over by the primary comparison itself.
+  #
+  # THE DIGIT-STRIPPED COMPARISON IS KEPT, DEMOTED TO A DIAGNOSTIC. It no longer decides the
+  # verdict, but it is what tells a maintainer WHICH failure they have: `0 added, 0 missing`
+  # after a byte mismatch means the prose is identical and only digits moved -- a hand-edited
+  # number, or a regeneration under the wrong seed -- while non-zero counts mean the generator
+  # itself changed. Deleting it would have thrown away the only cheap classifier this gate has.
   _cmp() {   # <artifact> <reference> <label>
     _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
+    if cmp -s "$1" "$2"; then
+      echo "  [ok]   $1 is BYTE-IDENTICAL to a fresh $3 --seed $ROAE_EXAMPLE_SEED (digits included)"
+      return 0
+    fi
     local extra missing
     extra=$(comm -13 <(_norm "$2") <(_norm "$1") | wc -l)
     missing=$(comm -23 <(_norm "$2") <(_norm "$1") | wc -l)
+    echo "  [FAIL] $1 differs BYTE-FOR-BYTE from a fresh $3 --seed $ROAE_EXAMPLE_SEED -- hand-edited?"
+    echo "         $1 digit-stripped: $extra added, $missing missing"
     if [ "$extra" -eq 0 ] && [ "$missing" -eq 0 ]; then
-      # NOT "matches exactly" (item A2, 2026-08-02). It said that for years while ignoring
-      # every digit in both files, so a corrupted number was reported as an exact match. The
-      # verdict now states its own scope: this comparison is silent about numbers.
-      echo "  [ok]   $1 agrees with $3 on every NON-NUMERIC line (both directions; digits not compared)"
+      echo "         The prose agrees in BOTH directions, so the difference is NUMERIC ONLY:"
+      echo "         a hand-edited number, or a regeneration under a seed other than"
+      echo "         $ROAE_EXAMPLE_SEED. Digits were not compared here before 2026-09-04."
     else
-      echo "  [FAIL] $1 vs $3: $extra added, $missing missing (normalised lines) -- hand-edited?"
       comm -13 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           +added   > /'
       comm -23 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           -missing > /'
-      echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact."
-      echo "         CAUTION (recipe corrected 2026-08-01): only --all writes to stdout."
-      echo "         --markdown and --html OPEN THEIR OWN FILES in the cwd (roae.py's"
-      echo "         export_markdown / export_html) and print only a status line, so"
-      echo "         'roae.py --markdown > f' writes 'Markdown report written to"
-      echo "         report.md' INTO f and leaves the real report at the repo root."
-      echo "         Run them from example/ instead:"
-      echo "           python3 roae.py --all > example/report.txt"
-      echo "           ( cd example && python3 ../roae.py --markdown )   # writes example/report.md"
-      echo "           cp example/report.md example/README.md"
-      echo "           ( cd example && python3 ../roae.py --html )       # writes report.html + report.pdf"
-      return 1
     fi
+    diff "$2" "$1" | head -6 | sed 's/^/           /'
+    echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact."
+    echo "         CAUTION (recipe corrected 2026-08-01): only --all writes to stdout."
+    echo "         --markdown and --html OPEN THEIR OWN FILES in the cwd (roae.py's"
+    echo "         export_markdown / export_html) and print only a status line, so"
+    echo "         'roae.py --markdown > f' writes 'Markdown report written to"
+    echo "         report.md' INTO f and leaves the real report at the repo root."
+    echo "         Run them from example/ instead, AND PASS THE SEED -- an unseeded"
+    echo "         regeneration will differ from the shipped artifacts on every"
+    echo "         Monte Carlo figure and this gate will stay red:"
+    echo "           python3 roae.py --all --seed $ROAE_EXAMPLE_SEED > example/report.txt"
+    echo "           ( cd example && python3 ../roae.py --markdown --seed $ROAE_EXAMPLE_SEED )"
+    echo "           cp example/report.md example/README.md"
+    echo "           ( cd example && python3 ../roae.py --html --seed $ROAE_EXAMPLE_SEED )"
+    return 1
   }
   _cmp example/report.txt  "$tmp/fresh.txt"   "roae.py --all"      || rc=1
   _cmp example/report.md   "$tmp/report.md"   "roae.py --markdown" || rc=1
   _cmp example/README.md   "$tmp/report.md"   "roae.py --markdown" || rc=1
+  # Codex v2 charge 1, SIBLING SWEEP: the report.md arm of this pair was converted to a
+  # [FAIL] (see the "A missing artifact is NOT a skip" note above) and this one was left
+  # as a [skip] that does not move rc. Same carrier, same gate, one line apart: --html can
+  # exit 0 and still leave no report.html (an exporter that catches its own error), and the
+  # gate then attests report.html by not comparing it. Symmetric now.
   if [ -f "$tmp/report.html" ]; then
     _cmp example/report.html "$tmp/report.html" "roae.py --html"    || rc=1
   else
-    echo "  [skip] --html produced no report.html"
+    echo "  [FAIL] --html produced no report.html — cannot compare what was not generated"
+    echo "         example/report.html is shipped and tracked; an absent reference means this"
+    echo "         leg did not run, which is a failure of the gate, not a pass for the file."
+    rc=1
   fi
 
-  # LEG 5 — example/report.pdf is the wkhtmltopdf rendering of example/report.html.
-  # No regeneration: see the header. Multiset (not sorted-diff) comparison, because
-  # pdftotext reflows page-by-page and the ORDER of identical lines carries no
-  # information here; what a hand-edit changes is WHICH lines exist.
+  # LEG 5 — RETIRED 2026-09-04, WITH example/report.pdf ITSELF.
   #
-  # DIGITS ARE COMPARED HERE, and legs 5 and 6 are the ONLY legs in this gate that compare
-  # them (item A2, 2026-08-02). Legs 1-4 compare a shipped artifact against a FRESH
-  # generator run, and roae.py seeds nothing by default, so their Monte Carlo figures
-  # legitimately differ and every digit must be stripped. Legs 5 and 6 compare two SHIPPED
-  # artifacts that come out of ONE generator invocation — `roae.py --html` writes
-  # report.html and then renders report.pdf from it — so their digits agree BY CONSTRUCTION
-  # and a difference is a hand-edit. That asymmetry is the whole reason these two legs can
-  # be strict where the others cannot.
+  # It compared example/report.pdf against example/report.html as MULTISETS of lines with
+  # DIGITS INTACT, extracting the PDF's text with `pdftotext -layout` and the HTML's by
+  # tag-stripping. It could be strict about digits — the only leg of this gate that was,
+  # for report.html — because the two artifacts came out of ONE `roae.py --html`
+  # invocation (export_html wrote the HTML and then shelled out to wkhtmltopdf to render
+  # the PDF from it), so they agreed digit-for-digit BY CONSTRUCTION and any difference
+  # was a hand-edit.
   #
-  # MEASURED BEFORE SWITCHING IT ON, on the shipped pair (2026-08-02):
-  #   digits stripped : 0 pdf-only, 0 html-only, 1424 normalised lines
-  #   digits INTACT   : 0 pdf-only, 0 html-only, 1428 normalised lines
-  # Not reasoned — run. The 4-line difference in the totals is lines made up ENTIRELY of
-  # digits, which the digit-stripped bag drops as empty: those four lines were previously
-  # not compared at all, in either direction.
+  # WHY THE ARTIFACT WENT. wkhtmltopdf embeds the font programs it renders with. `pdffonts`
+  # on the shipped example/report.pdf reported DejaVuSans, DejaVuSans-Bold and
+  # DejaVuSansMono, every one `emb yes sub no` — the complete unsubsetted programs, not
+  # subsets. A tracked file containing them makes this repository a redistributor of font
+  # software under the Bitstream Vera terms, whose grant is conditioned on the notice
+  # travelling with any copy, and that was the ONLY third-party obligation an otherwise
+  # public-domain (Unlicense) project carried. Measured and rejected before the removal:
+  # Symbola is licence-free and covers all 64 hexagram glyphs but is not monospaced (135
+  # distinct advance widths in its first 399 glyphs) against 28 column-aligned <pre> blocks
+  # totalling ~1,400 lines; naming Courier or generic `monospace` does not avoid embedding,
+  # because wkhtmltopdf resolves through fontconfig and embedded DejaVuSansMono anyway
+  # (tested); and no obligation-free monospace face exists on the reference host. So the
+  # PDF was dropped rather than re-rendered, and roae.py's export_html no longer invokes
+  # any PDF backend.
   #
-  # THE FALSE-FAIL RISK, and why it is not the round-4 `9084589` shape. pdftotext -layout
-  # decides line breaks from rendered text width, so in principle a longer number could
-  # reflow a line and produce a difference that is not a hand-edit. If that happens the
-  # PROSE moves across lines too, so the digit-STRIPPED comparison disagrees as well —
-  # which is why a failure here recomputes the stripped bags and says which of the two
-  # cases it is. A digits-only disagreement cannot be a reflow.
-  _cmp_pdf() {   # <pdf> <html>
-    _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
-    _present "$2"; case $? in 1) return 0;; 2) return 1;; esac
-    # Decided at the top of the gate, before the expensive regeneration, and reported there.
-    [ "$have_pdftotext" -eq 1 ] || return 0
-    python3 - "$1" "$2" <<'PY'
-import collections, html, re, subprocess, sys, tempfile, os
-pdf, htm = sys.argv[1], sys.argv[2]
-with tempfile.TemporaryDirectory() as d:
-    txt = os.path.join(d, 'p.txt')
-    # 🔴 Codex N10 finding 2 — THE DIRECT BYPASS. This was `[skip] … sys.exit(0)`, so an
-    # UNREADABLE PDF passed the leg. Replacing the shipped example/report.pdf with 40 KB of
-    # /dev/urandom was measured to exit 0 and clear the gate. That is repository state, not the
-    # environment: the artifact is git-tracked, it is in the tree, and it cannot be read. The
-    # TOOL being absent is the only legitimate skip here, and it is checked separately above.
-    _r = subprocess.run(['pdftotext', '-layout', pdf, txt], capture_output=True)
-    if _r.returncode != 0:
-        print(f"  [FAIL] pdftotext could not read {pdf} (rc={_r.returncode}).")
-        for _ln in _r.stderr.decode('utf-8', 'replace').strip().splitlines()[:3]:
-            print(f"           {_ln}")
-        print("         A tracked artifact that cannot be parsed is a broken artifact. Its only")
-        print("         production route is wkhtmltopdf(report.html) via roae.py's export_html:")
-        print("           ( cd example && python3 ../roae.py --html )")
-        sys.exit(1)
-    pdftext = open(txt, encoding='utf-8', errors='replace').read()
-h = open(htm, encoding='utf-8', errors='replace').read()
-for tag in ('style', 'script', 'title'):     # <title> duplicates the <h1>; not body text
-    h = re.sub(r'(?s)<%s\b.*?</%s>' % (tag, tag), '', h)
-# `</?[A-Za-z!]` and NOT `<[^>]+>`: roae.py emits unescaped "<->" inside <pre>, and the
-# permissive pattern eats it — which silently made 69 lines look mismatched while the
-# artifacts were in fact identical (measured 2026-08-02 while designing this leg).
-h = html.unescape(re.sub(r'</?[A-Za-z!][^>]*>', '', h))
-def bag(t, keep_digits):
-    c = collections.Counter()
-    for ln in t.splitlines():
-        # Group separators are collapsed in BOTH modes, so "1,046" and "1046" are the same
-        # number to this leg. wkhtmltopdf does not reformat numbers, but pdftotext -layout
-        # can pad with spaces, and the separator rule is the one _norm above already uses —
-        # keeping the contract single rather than double is deliberate (round 4's false FAIL
-        # came from two legs disagreeing about what "the same line" means).
-        ln = re.sub(r'(?<=[0-9]),(?=[0-9])', '', ln)
-        if not keep_digits:
-            ln = re.sub(r'[0-9]', '', ln)
-        ln = re.sub(r'\s+', ' ', ln).strip()
-        if ln: c[ln] += 1
-    return c
-P, H = bag(pdftext, True), bag(h, True)
-only_p, only_h = P - H, H - P
-if not only_p and not only_h:
-    print(f"  [ok]   {pdf} is the rendering of {htm} "
-          f"({sum(H.values())} normalised lines, both directions, DIGITS INCLUDED)")
-    sys.exit(0)
-# Which kind of difference is it? Recomputed, not guessed: if the digit-stripped bags
-# agree, every differing line differs ONLY in its numbers, and a pdftotext reflow cannot
-# produce that (a reflow moves prose too). Saying which case it is costs one more pass
-# over data already in memory, and is the difference between "regenerate" and "someone
-# edited a number".
-sp, sh = bag(pdftext, False), bag(h, False)
-if not (sp - sh) and not (sh - sp):
-    print(f"  [FAIL] {pdf} vs {htm}: the PROSE agrees and the NUMBERS do not — "
-          f"{sum(only_p.values())} line(s) only in the PDF, {sum(only_h.values())} only in the HTML")
-    print("         A digits-only difference between these two cannot come from PDF reflow.")
-else:
-    print(f"  [FAIL] {pdf} vs {htm}: {sum(only_p.values())} line(s) only in the PDF, "
-          f"{sum(only_h.values())} only in the HTML")
-for x, n in list(only_p.items())[:3]: print(f"           +pdf-only  ({n}) > {x[:100]}")
-for x, n in list(only_h.items())[:3]: print(f"           -html-only ({n}) > {x[:100]}")
-print("         The PDF's ONLY production route is wkhtmltopdf(report.html) via roae.py's")
-print("         export_html, so a difference means one of the two was edited by hand.")
-print("         Fix roae.py, then: ( cd example && python3 ../roae.py --html )")
-sys.exit(1)
-PY
-  }
-  _cmp_pdf example/report.pdf example/report.html || rc=1
+  # 🔴 WHAT THIS LEG'S ABSENCE MEANT FOR THIS GATE'S VERDICT, kept in the past tense with the
+  # hole it names, because a gap that was real for part of a day is not made unreal by being
+  # closed later the same day: for a few hours example/report.html was compared by leg 4 ONLY,
+  # which stripped digits, so a hand-edited NUMBER in it was caught by nothing. That is the
+  # dbba77d class — the defect this leg was built for — and it was open again, MEASURED as
+  # such (`8x8 = 64` -> `65`, rc 0, PASS). Its fire-proof (self-test CASE 6) was retired with
+  # it, and the retirement was written at both sites rather than at one.
+  #
+  # WHAT CLOSED IT, the same afternoon and exactly as Q2 above predicted: example/ was
+  # regenerated and reshipped under `--seed $ROAE_EXAMPLE_SEED`, legs 1-4 became byte-exact,
+  # and no same-invocation partner is needed at all. CASE 6 is REINSTATED on the same
+  # mutation, now asserting leg 4's byte-exact verdict instead of this leg's multiset one.
+  # Rendering a PDF at gate time and comparing THAT would not have closed it — it
+  # reintroduces the embedded font programs into the machine that runs the gate for no
+  # coverage the seed does not give more cheaply, and it is the two-renderings comparison the
+  # header rejects. The seed was the cheaper close and it is the one that was taken.
+  #
+  # THE NUMBER 5 IS LEFT UNUSED. Legs 6 and 7 keep their names; see the ITEM A1 note at the
+  # head of this file for why a gap beats a renumbering.
 
   # LEG 6 — example/README.md is a COPY of example/report.md (item A2, 2026-08-02).
   #
-  # Legs 2 and 3 compare each of them, separately and digit-stripped, against a fresh
-  # `--markdown` run. Neither compares them TO EACH OTHER, so until now the two shipped
-  # files could disagree on every number in the corpus and this gate said [ok] twice.
-  # The production route is a copy — the gate's own remediation text says
-  # `cp example/report.md example/README.md` — so the pair can be compared BYTE-EXACT,
-  # which is stronger than anything legs 1-4 can do. MEASURED before switching it on:
-  # `cmp example/report.md example/README.md` is byte-identical on the shipped tree.
+  # Legs 2 and 3 compare each of them, separately, against a fresh `--markdown` run —
+  # digit-stripped when this leg landed, byte-exact since 2026-09-04. Neither compares them TO
+  # EACH OTHER, so before this leg the two shipped files could disagree on every number in the
+  # corpus and this gate said [ok] twice. The production route is a copy — the gate's own
+  # remediation text says `cp example/report.md example/README.md` — so the pair can be
+  # compared BYTE-EXACT. MEASURED before switching it on: `cmp example/report.md
+  # example/README.md` is byte-identical on the shipped tree.
   #
-  # WHAT THIS STILL CANNOT SEE: an identical hand-edit applied to BOTH files. That is a
-  # real hole and it is not closable from here — it would have to be caught by legs 2 and
-  # 3, which are digit-blind. So a hand-edited number surviving in both copies is caught
-  # by nothing.
+  # WHAT THIS LEG STILL CANNOT SEE, AND WHY THAT NO LONGER LEAVES A HOLE: an identical
+  # hand-edit applied to BOTH files is invisible HERE, because this leg only asks whether the
+  # two agree with each other. Until 2026-09-04 that was a real uncovered hole, since the only
+  # other legs looking at these files were digit-blind. It is not one now: legs 2 and 3
+  # compare each file byte-exact against the generator, so an edit present in both fires
+  # twice over there. This leg's remaining value is that it names the DEFECT precisely — the
+  # copy diverged from its original — rather than reporting two independent mismatches.
   _cmp_copy() {   # <copy> <original>
     _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
     _present "$2"; case $? in 1) return 0;; 2) return 1;; esac
@@ -6733,11 +7649,99 @@ PY
     echo "  [FAIL] $1 is not byte-identical to $2, but its only production route is a copy"
     diff "$2" "$1" | head -6 | sed 's/^/           /'
     echo "         Regenerate the original and re-copy; never edit either one by hand:"
-    echo "           ( cd example && python3 ../roae.py --markdown )"
+    echo "           ( cd example && python3 ../roae.py --markdown --seed $ROAE_EXAMPLE_SEED )"
     echo "           cp example/report.md example/README.md"
     return 1
   }
   _cmp_copy example/README.md example/report.md || rc=1
+
+  # LEG 7 — the SEVEN non-report artifacts under example/ (Codex v2 charge 6, 2026-09-02).
+  #
+  # WHAT WAS WRONG. pre_commit_generated_gate.sh's WATCHED population had already been
+  # widened from six hardcoded names to "roae.py plus every tracked example/ path", so
+  # staging a corrupted example/hexagrams.csv now TRIGGERS the hook — and the hook then ran
+  # this gate, which compared five report files and nothing else, printed PASS, and exited
+  # 0. Widening the population is not widening the comparison; the hook even narrated the
+  # hole in its own PASS message and shipped anyway. MEASURED 2026-09-02 in a scratch clone:
+  # `sed -i '4s/$/,XCORRUPTX/' example/hexagrams.csv && git add` then the hook -> rc=0.
+  #
+  # WHY BYTE-EXACT AND NOT DIGIT-STRIPPED. (Written 2026-09-02, when this was the ONLY
+  # byte-exact comparison in the gate. Legs 1-4 joined it on 2026-09-04 once example/ was
+  # reshipped under a seed; the argument below is what they then reproduced for the reports.)
+  # Legs 1-4 stripped digits because roae.py seeded
+  # nothing and its Monte Carlo figures move every run. These seven carry NO Monte Carlo
+  # output at all — they are pure functions of the 64-hexagram table (export_csv,
+  # export_json, export_svg, print_graphviz, export_midi). MEASURED before switching this
+  # on: all seven regenerate byte-identical on this host, so the comparison that catches a
+  # hand-edited DIGIT — the hole legs 1-3 could not close at the time — is available here and
+  # is used. Their route to the same strictness was the seed, not a different comparison.
+  #
+  # THE TWO RENDERED FILES. wave.dot.png and wave.dot.svg are graphviz renderings of
+  # wave.dot, so their bytes depend on the installed `dot`, not only on roae.py. A renderer
+  # upgrade will therefore turn this leg red WITHOUT any hand-edit. That is not a false
+  # positive to be suppressed: it is the gate correctly reporting that the shipped artifacts
+  # no longer match what this repo's toolchain produces, and the fix is to regenerate and
+  # commit them (`cd example && python3 ../roae.py --dot --seed $ROAE_EXAMPLE_SEED`; the seed
+  # changes nothing in these seven -- MEASURED across two seeds, all seven byte-identical --
+  # and is passed only so one recipe covers every artifact). Stated here so a future
+  # maintainer reaches for the regeneration rather than for a skip.
+  #
+  # AND `dot` ABSENT IS A FAIL, NOT A SKIP — the A1 rule this file already applies to
+  # python3. Without graphviz the two rendered artifacts cannot be regenerated, so nothing
+  # verifies bytes that are shipped and tracked; saying so loudly beats attesting a
+  # comparison that never happened.
+  local dtmp
+  dtmp="$tmp/data"
+  rm -rf "$dtmp"; mkdir -p "$dtmp" || { echo "  [FAIL] LEG 7 could not create its scratch dir"; rc=1; }
+  if [ -d "$dtmp" ]; then
+    # ~0.6 s for all five (measured), so unlike the report legs this is not cached: a cache
+    # is one more thing that can go stale and clear the gate falsely, and it buys nothing.
+    local _flag
+    for _flag in csv json svg dot midi; do
+      if ! ( cd "$dtmp" && timeout 300 python3 "$OLDPWD/roae.py" "--$_flag" --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); then
+        echo "  [FAIL] the generator did not run cleanly for --$_flag"
+        rc=1
+      fi
+    done
+    _cmp_exact() {   # <tracked artifact> <fresh reference> <flag that produces it>
+      _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
+      if [ ! -f "$2" ]; then
+        echo "  [FAIL] roae.py $3 produced no $(basename "$2") — cannot compare what was not"
+        echo "         generated. $1 is tracked and shipped, so an absent reference is a"
+        echo "         failure of this leg, never a pass for the artifact."
+        return 1
+      fi
+      if cmp -s "$1" "$2"; then
+        echo "  [ok]   $1 is BYTE-IDENTICAL to a fresh roae.py $3 (digits included)"
+        return 0
+      fi
+      echo "  [FAIL] $1 differs BYTE-FOR-BYTE from a fresh roae.py $3 — hand-edited?"
+      if ! LC_ALL=C grep -qI . "$1" 2>/dev/null; then
+        echo "           (binary; first difference: $(cmp "$1" "$2" 2>&1 | head -1))"
+      else
+        diff "$2" "$1" | head -6 | sed 's/^/           /'
+      fi
+      echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact:"
+      echo "           ( cd example && python3 ../roae.py $3 --seed $ROAE_EXAMPLE_SEED )"
+      return 1
+    }
+    _cmp_exact example/hexagrams.csv  "$dtmp/hexagrams.csv"  --csv   || rc=1
+    _cmp_exact example/hexagrams.json "$dtmp/hexagrams.json" --json  || rc=1
+    _cmp_exact example/hexagrams.svg  "$dtmp/hexagrams.svg"  --svg   || rc=1
+    _cmp_exact example/wave.dot       "$dtmp/wave.dot"       --dot   || rc=1
+    _cmp_exact example/wave.mid       "$dtmp/wave.mid"       --midi  || rc=1
+    if command -v dot >/dev/null 2>&1; then
+      _cmp_exact example/wave.dot.png "$dtmp/wave.dot.png"   --dot   || rc=1
+      _cmp_exact example/wave.dot.svg "$dtmp/wave.dot.svg"   --dot   || rc=1
+    else
+      echo "  [FAIL] graphviz 'dot' is not on PATH, so example/wave.dot.png and"
+      echo "         example/wave.dot.svg could not be regenerated and NOTHING compared them."
+      echo "         They are tracked and shipped. This is not a skip — install graphviz"
+      echo "         (apt-get install graphviz) or push with the bypass and say why."
+      rc=1
+    fi
+    rm -rf "$dtmp"
+  fi
 
   [ "$owned" = 1 ] && rm -rf "$tmp"
   return "$rc"
@@ -6827,6 +7831,9 @@ gate_appendonly_head() {
   local tmp gone
   tmp=$(mktemp) || return 1
   git show "HEAD:$f" > "$tmp" 2>/dev/null
+  # ⚠ Q-284: the `|| true` here is CORRECT and must stay. `grep -c` exits 1 when the count
+  # is ZERO, which is a normal result, not a failure. A sweep that strips every `|| true`
+  # would break this gate. Two of the four sites found were real defects; these two are not.
   gone=$(diff "$tmp" "$f" | grep -c '^< ' || true)
   if [ "${gone:-0}" -eq 0 ]; then
     local added
@@ -6834,11 +7841,61 @@ gate_appendonly_head() {
     echo "  [ok] no committed line removed or reworded ($added line(s) appended since HEAD)"
     rm -f "$tmp"; return 0
   fi
-  echo "  [FAIL] $gone committed line(s) no longer present — CORRECTIONS.md is append-only."
-  echo "         Removed or reworded (first 5):"
-  diff "$tmp" "$f" | grep '^< ' | head -5 | cut -c1-140 | sed 's/^/           /'
-  echo "         If an entry is wrong, APPEND an entry saying so. Both stay."
-  rm -f "$tmp"
+  # Q-251 (2026-09-03) — THE GATE IS RIGHT ABOUT THE LINES AND WAS WRONG TO IMPLY CONTENT
+  # WAS LOST. This gate compares LINES, so re-flowing a committed paragraph at different
+  # line breaks reports every one of its old lines as "removed or reworded" while not one
+  # word has gone. MEASURED, on this file, in a scratch worktree: re-wrapping THREE
+  # consecutive committed prose lines at width 72 — no word changed — produced
+  # `[FAIL] 3 committed line(s) no longer present` here and SEVENTY-THREE `[FAIL]` blocks in
+  # GATE 10b, one per historical blob.
+  #
+  # The hazard is the REMEDY, not the report: a maintainer reading that goes looking for
+  # deleted content that does not exist, or restores old line breaks, or concludes a
+  # published append-only ledger has been tampered with.
+  #
+  # THE VERDICT IS UNCHANGED AND DELIBERATELY SO. A reflow of published text really does
+  # rewrite bytes of an append-only file, and this gate's own success sentence is "no
+  # committed line removed or reworded" — the lines DID change. What changes is that the two
+  # classes are now named separately, so the reader is told which remedy applies. NOTHING
+  # NEWLY PASSES: both classes still set the exit code, so this cannot be a false clear, and
+  # a real deletion INSIDE a re-wrapped paragraph is still LOST because its flattened text is
+  # no longer a substring of the flattened file.
+  #
+  # CAVEAT, stated rather than implied: classification is by flattened-substring, so a very
+  # short missing line (`---`, a lone `|`) can be labelled a re-wrap on weak evidence. That
+  # affects the LABEL only, never the verdict — both classes fail — which is why the cheap
+  # test is acceptable here and would not be if one class were exempt.
+  local missf
+  missf=$(mktemp) || { echo "  [FAIL] GATE 10a: mktemp failed, so the finding could not be classified."; rm -f "$tmp"; return 1; }
+  diff "$tmp" "$f" | sed -n 's/^< //p' > "$missf"
+  DG_MISS="$missf" DG_CUR="$f" DG_N="$gone" python3 - <<'PY'
+import os, re, sys
+cur  = open(os.environ["DG_CUR"], encoding="utf-8", errors="replace").read()
+flat = re.sub(r"\s+", " ", cur)
+miss = [l.rstrip("\n") for l in open(os.environ["DG_MISS"], encoding="utf-8", errors="replace")]
+rew, lost = [], []
+for l in miss:
+    t = re.sub(r"\s+", " ", l).strip()
+    (rew if (not t or t in flat) else lost).append(l)
+n = os.environ["DG_N"]
+if lost:
+    print("  [FAIL] %d of %s missing committed line(s) are LOST — their text is not in the file"
+          % (len(lost), n))
+    print("         at any line breaks. CORRECTIONS.md is append-only (first 5):")
+    for l in lost[:5]:
+        print("           " + l[:140])
+    print("         If an entry is wrong, APPEND an entry saying so. Both stay.")
+if rew:
+    print("  [REWRAP] %d of %s missing committed line(s) are RE-WRAPS, not deletions: every"
+          % (len(rew), n))
+    print("           word survives, re-flowed at different line breaks (first 5):")
+    for l in rew[:5]:
+        print("             " + l[:140])
+    print("           DO NOT go looking for deleted content and DO NOT conclude the ledger was")
+    print("           tampered with. The remedy is to restore the FLOW you changed — a published")
+    print("           append-only ledger is not re-flowed — not to rewrite any prose.")
+PY
+  rm -f "$tmp" "$missf"
   return 1
 }
 
@@ -6902,18 +7959,40 @@ gate_appendonly_history() {
   local cur tmp bad=0 n=0 blob src seen=""
   cur=$(mktemp) || return 1
   tmp=$(mktemp) || { rm -f "$cur"; return 1; }
+  # Q-251: the flattened working copy, computed ONCE, and the accumulator for re-wrapped
+  # lines seen across every baseline. A three-line reflow produced SEVENTY-THREE identical
+  # [FAIL] blocks here (one per historical blob) before this change; they are now collected
+  # and reported once, because seventy-three repetitions of the same fact is a report nobody
+  # reads to the end of.
+  local g10b_flat g10b_rew
+  g10b_flat=$(mktemp) || { rm -f "$cur" "$tmp"; return 1; }
+  g10b_rew=$(mktemp)  || { rm -f "$cur" "$tmp" "$g10b_flat"; return 1; }
+  tr -s '[:space:]' ' ' < "$f" > "$g10b_flat"
   grep -v '^[[:space:]]*$' "$f" | sort > "$cur"
   # Baselines, deduplicated by BLOB id: a commit that did not change the file, and a
   # remote ref pointing at a commit already walked, contribute nothing.
-  # 🔴 Codex N10 finding 8. This walked every commit reachable from HEAD, but of the remotes only
-  # each ref's CURRENT TIP — so a line that existed in a remote-only commit A and was deleted in B
-  # was never examined, while the success sentence claimed "ANY committed or published version".
-  # NOT merely constructible on this tree: HEAD reaches 2 commits touching this file, and the
-  # remote histories contain 24. The gate was checking 2 of 24 and reporting on all of them.
-  # Passing the remote refs to rev-list walks their HISTORY, not their tip, and rev-list
-  # deduplicates the overlap for free. Measured cost: 24 blobs instead of 10 — negligible.
+  # 🔴 Q-283 / Codex N10 finding 8 — reproduced on the PUBLISHED suite 2026-08-28. This walked
+  # every commit reachable from HEAD, but of the remotes only each ref's CURRENT TIP — so a line
+  # that existed in a remote-only commit and was later deleted was never examined, while the
+  # success sentence claimed "ANY committed or published version".
+  # Measured on THIS tree (the branch's own "2 of 24" is tree-specific and does not hold here):
+  # HEAD reaches 22 commits touching the file and 23 distinct blobs; walking the remote HISTORIES
+  # reaches 24 commits and 24 blobs. The one blob visible only with this fix, 2f14cc5f, contains
+  # THREE lines absent from the current file — a live miss, not a constructible one.
+  # Passing the remote refs to rev-list walks their history, and rev-list dedupes the overlap free.
   for src in $(git rev-list HEAD $(git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null) \
-                 -- "$f" 2>/dev/null); do
+               -- "$f" 2>/dev/null); do
+    # 🔴 Q-283 finding 8, second half — a distinction the branch's fix does not draw and this tree
+    # needs. Walking remote HISTORIES surfaces two different defects that must not share a verdict:
+    #   * the blob's commit IS an ancestor of HEAD  -> a line vanished from OUR OWN lineage. That is
+    #     the append-only violation this gate exists for, and it is a hard FAIL.
+    #   * the blob's commit is NOT an ancestor      -> the content lives on an unmerged branch and
+    #     was never in this lineage to lose. That is a MERGE GAP (Q-77 / A8), not a deletion.
+    # Measured 2026-08-28: the only blob this fix newly reaches, 2f14cc5f from b2b8d0da, is on
+    # v4-query-program ONLY — 441 commits divergent. Its 3 lines were never removed from main; they
+    # never arrived. Reporting that as "a line was lost" would blame the wrong act and leave a hard
+    # gate permanently red for a merge decision the gate cannot make.
+    if git merge-base --is-ancestor "$src" HEAD 2>/dev/null; then _g10b_kind=ancestor; else _g10b_kind=unmerged; fi
     blob=$(git rev-parse --quiet --verify "$src:$f" 2>/dev/null) || continue
     [ -n "$blob" ] || continue
     case " $seen " in *" $blob "*) continue;; esac
@@ -6923,19 +8002,66 @@ gate_appendonly_history() {
     local lost
     lost=$(comm -23 "$tmp" "$cur" | wc -l)
     if [ "${lost:-0}" -ne 0 ]; then
-      echo "  [FAIL] $lost line(s) present in $src ($blob) are absent from the working copy."
-      echo "         That version is committed or published; append-only means it can never lose a line."
-      comm -23 "$tmp" "$cur" | head -5 | cut -c1-140 | sed 's/^/           /'
-      echo "         If an entry is wrong, APPEND an entry saying so. Both stay."
-      bad=1
+      # Q-251: split the missing lines into RE-WRAPS (every word still in the file, at
+      # different line breaks) and genuine LOSSES, before any verdict is printed. A line whose
+      # whitespace-collapsed text is still a substring of the whitespace-collapsed working copy
+      # was not deleted. Re-wraps are accumulated and reported once, after the loop; only real
+      # losses print a per-baseline [FAIL]. Nothing newly passes: the accumulator sets `bad`
+      # too, so a reflow is still a finding — it is a DIFFERENT finding, with a different fix.
+      local g10b_lostf
+      g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_flat" "$g10b_rew"; return 1; }
+      comm -23 "$tmp" "$cur" | DG_FLAT="$g10b_flat" DG_REW="$g10b_rew" python3 -c '
+import os, re, sys
+flat = re.sub(r"\s+", " ", open(os.environ["DG_FLAT"], encoding="utf-8", errors="replace").read())
+rew  = open(os.environ["DG_REW"], "a", encoding="utf-8")
+for line in sys.stdin:
+    l = line.rstrip("\n")
+    t = re.sub(r"\s+", " ", l).strip()
+    if not t or t in flat:
+        rew.write(l + "\n")
+    else:
+        sys.stdout.write(l + "\n")
+' > "$g10b_lostf"
+      lost=$(wc -l < "$g10b_lostf")
     fi
+    if [ "${lost:-0}" -ne 0 ]; then
+      if [ "${_g10b_kind:-ancestor}" = ancestor ]; then
+        echo "  [FAIL] $lost line(s) present in $src ($blob) are absent from the working copy"
+        echo "         at any line breaks — their text is gone, not re-flowed."
+        echo "         That version is committed or published; append-only means it can never lose a line."
+        head -5 "$g10b_lostf" | cut -c1-140 | sed 's/^/           /'
+        echo "         If an entry is wrong, APPEND an entry saying so. Both stay."
+        bad=1
+      else
+        # Q-283 finding 8: an UNMERGED branch commit. The content was never in this lineage, so it
+        # was not lost — it never arrived. Reported, never a FAIL: the remedy is the merge (Q-77 /
+        # A8), which this gate cannot perform and must not block on.
+        echo "  [note] $lost line(s) exist in $src ($blob) but not here — that commit is NOT an"
+        echo "         ancestor of HEAD, so this is a MERGE GAP, not a lost line. Remedy: the"
+        echo "         Q-77 / A8 merge. Reported, not failed."
+        head -3 "$g10b_lostf" | cut -c1-140 | sed 's/^/           /'
+      fi
+    fi
+    [ -n "${g10b_lostf:-}" ] && rm -f "$g10b_lostf" && g10b_lostf=""
   done
+  # Q-251, the aggregate. Printed ONCE however many baselines carried the same re-flowed line.
+  if [ -s "$g10b_rew" ]; then
+    local nrew
+    nrew=$(sort -u "$g10b_rew" | wc -l)
+    echo "  [REWRAP] $nrew distinct committed line(s) are absent AS LINES but present AS TEXT —"
+    echo "           re-flowed at different line breaks, with every word surviving (first 5):"
+    sort -u "$g10b_rew" | head -5 | cut -c1-140 | sed 's/^/             /'
+    echo "           This is NOT a lost line and NOT tampering. The remedy is to restore the FLOW"
+    echo "           you changed; a published append-only ledger is not re-flowed. Do not go"
+    echo "           looking for deleted content, and do not rewrite any prose to satisfy this."
+    bad=1
+  fi
   if [ "$n" -eq 0 ]; then
     echo "  [ok] $f has no committed or published version yet — no baseline to lose a line from"
   elif [ "$bad" -eq 0 ]; then
     echo "  [ok] every line of all $n distinct historical/published version(s) survives in the working copy"
   fi
-  rm -f "$cur" "$tmp"
+  rm -f "$cur" "$tmp" "$g10b_flat" "$g10b_rew"
   return $bad
 }
 
@@ -7383,12 +8509,29 @@ if start is None or end is None:
     print("         instrument that was switched off. Re-anchor this gate, do not silence it.")
     sys.exit(1)
 
-DEF = re.compile(r"^[ \t]*([A-Za-z_][A-Za-z0-9_]*)\(\)[ \t]*\{")
+# CODEX N10 FINDING 11, adjudicated 2026-09-03: the claim above is "every function DEFINED
+# between the --selftest guard and its closing fi", and the matcher recognised exactly ONE of
+# bash's three spellings, `name() {`. A `function unproved { ... }` or a `unproved () { ... }`
+# helper — both valid bash, both would run — was invisible to the enumeration and therefore
+# needed no declaration row. That is the same shape as finding 9 (a population keyed on a
+# convention rather than on the thing itself), and the caveat list below did not admit it.
+#
+# All three spellings now match. MEASURED before landing, over the live --selftest region
+# (lines 2973-6856): old matcher 12 functions, new matcher 12 functions, NEW-ONLY set empty,
+# OLD-ONLY set empty — and zero occurrences of either alternative spelling anywhere in the
+# 17k-line file. So this widens the population by nothing today and cannot start failing on
+# existing content; it closes the hole for the next helper somebody writes the other way.
+# GATE 15's instrument count is an ABSOLUTE claim on the selftest-instruments scoreboard, and
+# it is unmoved at 12.
+DEF = re.compile(r"^[ \t]*(?:"
+                 r"function[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*(?:\(\)[ \t]*)?"  # function f {  / function f() {
+                 r"|([A-Za-z_][A-Za-z0-9_]*)[ \t]*\(\)[ \t]*"                    # f() {  / f () {
+                 r")\{")
 defined = {}
 for i in range(start + 1, end):
     m = DEF.match(lines[i])
     if m:
-        defined[m.group(1)] = i + 1
+        defined[m.group(1) or m.group(2)] = i + 1
 
 if not defined:
     print("  [FAIL] zero functions found in the --selftest region (lines %d-%d), which is"
@@ -9612,6 +10755,7 @@ gate_alias_reach() {
   # pure-exemption allowlist. (Until the file is first committed, require_tracked's
   # untracked-and-absent arm is the reachable one; after that, tracked-but-missing is
   # a FAIL like every other registry.)
+  require_rows "documentation/DOC_GATE_ALIAS_REACH.tsv" "Zero rules makes the alias-reach gate claim every alias use is resolved." || return 1
   require_tracked "documentation/DOC_GATE_ALIAS_REACH.tsv" \
     "The alias-ruling registry IS this gate; with it gone, zero rulings are checked."
   case $? in 1) return 0;; 2) return 1;; esac
@@ -9625,6 +10769,7 @@ if not os.path.exists(REG):
     print(f'  [FAIL] {REG} is absent, so this gate checked nothing'); sys.exit(1)
 
 rules, allows, opens, cfgbad = [], {}, {}, []
+stale = []   # GATE 18 LEG stale-registry-row, 2026-09-03 — see the leg comment below
 for lno, ln in enumerate(open(REG, encoding='utf-8'), 1):
     if not ln.strip() or ln.startswith('#'):
         continue
@@ -9679,7 +10824,21 @@ def occ(hay, needle, stop):
 FOLD1 = {0x00D7: 'x', 0x2715: 'x', 0x2A2F: 'x',
          0x2013: '-', 0x2014: '-', 0x2212: '-',
          0x2265: '>=', 0x2264: '<=', 0xFF0B: '+',
-         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' '}
+         0x00A0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202F: ' ',
+         # QUOTE FOLD (2026-09-02, batch C9) — added HERE ONLY to hold the
+         # "keep the three in step" contract this table's own header states. The
+         # defect and the red tests are GATE 3's (see fold_variants); this side has
+         # ZERO quote-bearing needles today (14 figure rows, all numeric; 3 alias
+         # rows: C1+C2+C3, "the exhaustive enumeration", "Zheng Qiao"), so the
+         # extension is measured-INERT here and the full `all` output is unchanged
+         # by it. It is applied anyway because the alternative is a table that
+         # diverges silently and re-opens the same hole the day someone registers a
+         # quote-bearing figure caption or alias. U+0060 backtick is NOT folded, for
+         # the reason measured at fold_variants: no true positive exists and a real
+         # false positive does. 0x2019 is the only one of the four the corpus
+         # actually carries in prose; the other three are included so the pair
+         # (open, close) is closed on both the single and double forms.
+         0x2019: "'", 0x2018: "'", 0x201C: '"', 0x201D: '"'}
 def canon(s, star):
     s = s.translate(FOLD1).replace('*', star)
     out = []
@@ -9778,15 +10937,109 @@ if openhits:
     print(f'  [note] {len(openhits)} adjudicated-open site(s) above are DEFECTS, not exemptions')
     print(f'         (DOC_GATE_FIGURE_LEDGER_OPEN.txt contract). Each is closed by fixing the')
     print(f'         line and deleting its `open` row; a NEW unadjudicated use is a [FAIL].')
+# GATE 18 LEG stale-registry-row (2026-09-03, wave-4 lane A2) — A NON-MATCHING ROW WAS A
+# [note], AND A [note] IS NOT EVIDENCE OF ANYTHING.
+#
+# THE DEFECT, measured before the fix: 42 `open` rows in the registry, of which **40 matched
+# nothing**. Every one had in fact been fixed — 15 anchors gone from the file entirely, 25
+# with the anchor still present but the alias replaced (C1+C2+C3 -> C1–C5, "the exhaustive
+# enumeration" -> "the budgeted enumeration", the Zheng Qiao credit amended) — but the gate
+# could not say so, and neither could a reader: the two dispositions the note itself names,
+# "fixed (delete the row)" and "the anchor drifted and the defect is now UNWATCHED", print
+# identically and exit 0. A backlog inventory that rots silently is the same shape as an
+# allowlist that widens silently, and this suite already refuses that shape twice (GATE 3b's
+# closed allow-class vocabulary, GATE 59's unmatched-allowance FAIL).
+#
+# It is also what the OPEN_ROW_BUDGET ratchet below was quietly resting on. The ratchet
+# counts ROWS, so 40 dead rows were holding the budget at 42 and buying 40 rows of headroom
+# in which a genuinely new defect could be silenced without the count ever moving. Deleting
+# them dropped the budget to 2; this leg is what keeps it there without anyone remembering.
+#
+# WHY IT IS SAFE TO MAKE IT A FAIL, measured rather than assumed: after the 40 resolved rows
+# were deleted, live is 0 unmatched `open` rows and 0 unmatched `allow` rows (the `allow`
+# side has been at 0 all along — 17 rows, all matching). So this leg is not red on correct
+# content today, and the only way to turn it red is to fix a line and leave its row behind,
+# which is exactly the event it exists to name.
+#
+# NOT self-witnessing (needle-reachability mechanism 7): the predicate is "this registry row
+# matched no line", so the witness is the ABSENCE of a match in the corpus, never the row's
+# own text. Perturbing the row's anchor cannot make the target vanish — it makes the row
+# match nothing, which is the failure.
 for k in [k for k in allows if k not in used_allow]:
-    print(f'  [note] allow row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
-    print(f'         Either the text was fixed (delete the row) or the anchor drifted.')
+    stale.append(('allow', k))
+    print(f'  [FAIL] allow row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
+    print(f'         An exemption for text that is no longer there exempts nothing and')
+    print(f'         hides the fact that it exempts nothing. Delete the row if the text was')
+    print(f'         fixed; re-anchor it if the anchor drifted and the sense still needs the')
+    print(f'         exemption. Leaving it is not a third option.')
 for k in [k for k in opens if k not in used_open]:
-    print(f'  [note] open row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
-    print(f'         Either the defect was fixed (delete the row — the backlog count must')
-    print(f'         shrink honestly) or the anchor drifted and the defect is now unwatched.')
+    stale.append(('open', k))
+    print(f'  [FAIL] open row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
+    print(f'         An `open` row is a DECLARED, UNFIXED defect. One that matches nothing is')
+    print(f'         either a defect that WAS fixed — delete the row, the backlog count must')
+    print(f'         shrink honestly and the ratchet budget below must come down with it — or')
+    print(f'         an anchor that drifted off a defect which is now carried by no row and')
+    print(f'         watched by nothing. The gate cannot tell those apart; a human must, and')
+    print(f'         must then say which by editing the registry.')
 
-nbad = len(bad) + len(spans) + len(cfgbad)
+# ---------------------------------------------------------------------------
+# Codex v2 charge 4 (2026-09-02) — THE ESCALATION LOOPHOLE, and why it is closed with a
+# ratchet rather than by folding openhits into nbad.
+#
+# THE CHARGE, verified live: `all`'s PASS banner named GATE 18 among the HARD gates while
+# an [OPEN] row exits 0. Two consequences, and only the second is a real defect. The
+# backlog itself is DECLARED and cannot go invisible — every row re-prints with a count
+# and a "[note] ... DEFECTS, not exemptions" line every run — so a reader is not misled
+# about the sites. But a future genuine [FAIL] could be silenced by ADDING an `open` row,
+# with no correction anywhere and no change in exit status. That is an escape hatch that
+# opens itself, which is the shape this suite exists to refuse.
+#
+# WHY NOT `nbad += len(openhits)`. It is the cleaner rule and it was rejected on measured
+# grounds, not taste: there are 2 live open sites today, so switching it on turns `all`
+# RED for every push until a #146/#157 adjudication lands that is not this lane's to make.
+# A hard gate that is red for reasons the pusher cannot fix is a hook that gets bypassed
+# with --no-verify, and --no-verify uncovers EVERYTHING (this file's own argument for
+# keeping GATE 8 out of `all`). So the backlog stays declared and non-blocking, and the
+# HATCH is what gets nailed shut.
+#
+# THE RATCHET. Both counts are budgeted, and a budget may only ever be LOWERED:
+#   * OPEN_SITE_BUDGET  — sites actually silenced by an `open` row. Adding a row that
+#     covers a NEW defect raises this and FAILS, which is precisely the escalation.
+#   * OPEN_ROW_BUDGET   — rows in the registry. Adding a row that matches nothing (a
+#     speculative pre-emptive hatch) raises this and FAILS too.
+# Lowering a budget is a one-line diff in this gate, in the same commit as the fix, and
+# is visible in review. Raising one is the same diff and is not something that can happen
+# by accident or by silence — which is the whole difference from today.
+#
+# MEASURED at adoption, 2026-09-02: 2 open sites, 42 open rows.
+# LOWERED 2026-09-03 (wave-4 lane A2): 40 of those 42 rows matched nothing and every one of
+# them was a fix that had already landed — deleted, leaving 2 rows for the 2 live sites. The
+# ratchet had been resting on 40 dead rows' worth of headroom; see GATE 18 LEG
+# stale-registry-row above, which is what now keeps the two counts equal without anyone
+# remembering to lower this line.
+OPEN_SITE_BUDGET = 2
+OPEN_ROW_BUDGET  = 2
+ratchet = []
+if len(openhits) > OPEN_SITE_BUDGET:
+    ratchet.append(f'{len(openhits)} adjudicated-open SITE(s), budget {OPEN_SITE_BUDGET}')
+if len(opens) > OPEN_ROW_BUDGET:
+    ratchet.append(f'{len(opens)} `open` registry ROW(s), budget {OPEN_ROW_BUDGET}')
+if ratchet:
+    print(f'  [FAIL] the adjudicated-open backlog GREW: ' + '; '.join(ratchet))
+    print(f'         An `open` row is a DECLARED DEFECT carried from an adjudication, not a')
+    print(f'         way to clear a new one. If a [FAIL] appeared and an `open` row was added')
+    print(f'         to silence it, that is the escalation this ratchet exists to refuse: fix')
+    print(f'         the line instead. If the backlog genuinely has to grow, raise the budget')
+    print(f'         in scripts/doc_gates.sh IN THE SAME COMMIT, so the decision is reviewable')
+    print(f'         rather than silent.')
+# Under budget is the direction of travel, and it must not be silent either: a budget left
+# above the true count is a hatch reopening by itself.
+if len(openhits) < OPEN_SITE_BUDGET or len(opens) < OPEN_ROW_BUDGET:
+    print(f'  [note] backlog SHRANK ({len(openhits)} site(s) / {len(opens)} row(s) vs budget '
+          f'{OPEN_SITE_BUDGET}/{OPEN_ROW_BUDGET}) — lower the budget in scripts/doc_gates.sh')
+    print(f'         so the ratchet keeps its grip. A budget above the true count is slack.')
+
+nbad = len(bad) + len(spans) + len(cfgbad) + len(ratchet) + len(stale)
 if not nbad:
     byclass = {}
     for _, _, _, cls, _ in exempt:
@@ -9845,7 +11098,6 @@ doc_gates_concurrency_advisory() {
   if [ -n "${DOC_GATES_SELFTEST_DEPTH:-}" ]; then return 0; fi
   local lock holder
   lock="$(git rev-parse --git-dir 2>/dev/null || echo .git)/doc_gates_selftest.lock"
-  require_rows "documentation/DOC_GATE_ALIAS_REACH.tsv" "Zero rules makes GATE 18 claim every alias use is resolved." || bad=1
   if [ ! -d "$lock" ]; then return 0; fi
   holder="$(cat "$lock/pid" 2>/dev/null || true)"
   case "$holder" in ''|*[!0-9]*) return 0 ;; esac
@@ -9890,8 +11142,24 @@ preflight_support_newlines || RC=1
 # status, so a reader is told which refs are authoritative and which are frozen snapshots that
 # may contain since-corrected claims. A new undeclared branch fails the gate.
 #
-# No network: reads refs/remotes/origin/* already in the local clone. A fresh clone with no
-# remote refs SAYS SO and does not silently pass (a silent skip would read as coverage).
+# SUBJECT = THE REMOTE, NOT THE CACHE (V-2, 2026-09-02). Until this date the gate read
+# refs/remotes/origin/* — whatever this clone last fetched, with no fetch or prune — and so
+# certified a CACHE. Measured in a scratch clone against a local bare remote: delete one cached
+# ref and its registry row and the old form printed "[ok] 4 published branch(es)" rc 0 while
+# `git ls-remote --heads origin` still listed that branch, undeclared; the mirror image, an
+# unpruned ref for a branch deleted days earlier, FAILED a clean remote — the false positive a
+# reviewer filed (Codex V2-L15 #1). In this clone cache happened to equal remote, so the live
+# verdict was right by accident. Now `git ls-remote --heads origin` is the subject (one network
+# round-trip, ~1 s measured to GitHub), the local cache is diffed against it and every drift is
+# printed as a [note], and a remote that cannot be listed is a FAILED MEASUREMENT (rc 1), not a
+# pass. Two knobs, documented HERE and deliberately NOT in the failure text — an escape hatch
+# printed beside the failure it silences becomes the fix:
+#   DOC_GATES_LS_REMOTE_TIMEOUT=<seconds>  give up on ls-remote after this long (default 25)
+#   DOC_GATES_ALLOW_STALE_REMOTE=1         OFFLINE OPT-IN: certify the local cache instead. Prints
+#                                          BRANCH_REGISTRY_SOURCE=local-cache and the fetch time,
+#                                          so the verdict says what it is about.
+# A clone with NO origin remote configured is a genuine empty subject and passes with a [note];
+# an origin that is configured but yields no refs is a failed enumeration and fails.
 gate_branch_registry() {
   echo "== GATE 19: every published branch is declared in the branch registry =="
   local REG=documentation/BRANCH_REGISTRY.tsv rc=0
@@ -9902,15 +11170,125 @@ gate_branch_registry() {
   fi
   local declared remotes b st n
   declared=$(grep -v '^#' "$REG" | awk -F'\t' 'NF && $1 != "" {print $1}')
+  # CODEX N10 FINDING 10, adjudicated 2026-09-03: THE CLAIM EXCEEDED THE CHECK. The header
+  # thirty lines above promises "every published branch must appear in
+  # documentation/BRANCH_REGISTRY.tsv WITH A STATUS", and the extraction above reads column 1
+  # and nothing else. A one-column row, or a row whose status is `nonsense`, satisfied the gate
+  # and the [ok] line still said the branches were declared. The status IS the disclosure —
+  # `snapshot` is what tells a reader the ref may carry claims since corrected on main — so a
+  # row without one declares a name and no fact.
+  #
+  # THE VOCABULARY IS ASSERTED HERE, IN THE ENFORCER, NOT READ FROM THE SUBJECT. A gate that
+  # learns its accepted values from the file it is checking can be widened by editing that
+  # file, which is the verifier-closure defect (a witness derived from its own target). The
+  # registry's own header ALSO declares the set, so the two are cross-checked and a drift
+  # between them is itself a failure: widening the vocabulary now takes a deliberate edit in
+  # both places.
+  local G19_VOCAB="authoritative snapshot merged" _g19hdr _g19bad
+  _g19hdr=$(grep -m1 -oE 'status: [a-z]+( \| [a-z]+)*' "$REG" | sed 's/^status: //; s/ *| */ /g')
+  if [ "$_g19hdr" != "$G19_VOCAB" ]; then
+    echo "  [FAIL] $REG's own header declares the status vocabulary as"
+    echo "         '${_g19hdr:-(no \"status: a | b | c\" line found)}' but this gate enforces '$G19_VOCAB'."
+    echo "         One of the two moved. Change BOTH deliberately or neither: a vocabulary a"
+    echo "         gate reads from its own subject can be widened by editing the subject."
+    rc=1
+  fi
+  _g19bad=$(awk -F'\t' -v vocab="$G19_VOCAB" '
+      BEGIN { n = split(vocab, v, " "); for (i = 1; i <= n; i++) ok[v[i]] = 1 }
+      /^#/ { next } !NF { next } $1 == "" { next }
+      (NF < 2 || !($2 in ok)) {
+        printf "%d\t%s\t%s\n", FNR, $1, (NF < 2 ? "(no status column at all)" : "\"" $2 "\"")
+      }' "$REG")
+  if [ -n "$_g19bad" ]; then
+    while IFS=$'\t' read -r _ln _br _st; do
+      echo "  [FAIL] $REG:$_ln declares branch '$_br' with status $_st, which is not one of"
+      echo "         { $G19_VOCAB }. The status is the disclosure this registry exists to make;"
+      echo "         a row without a valid one names a branch and tells a reader nothing about it."
+    done <<< "$_g19bad"
+    rc=1
+  fi
   # Filter refs/remotes/origin/HEAD by its FULL refname, not its short form. Its short form is
   # bare "origin" (not "HEAD"), so a `grep -v '^HEAD$'` on the shortened name never matches it
   # and the symbolic default-branch pointer gets reported as an undeclared branch. This gate's
   # first live run did exactly that — caught here rather than shipped.
-  remotes=$(git for-each-ref --format='%(refname)' refs/remotes/origin/ 2>/dev/null \
+  local cache
+  cache=$(git for-each-ref --format='%(refname)' refs/remotes/origin/ 2>/dev/null \
             | grep -v '^refs/remotes/origin/HEAD$' | sed 's|^refs/remotes/origin/||')
+  # V-2 (Codex V2-L15 #1 residue, 2026-09-02): refs/remotes/origin/* is a CACHE of whatever
+  # this clone last fetched, not the remote. Measured in a scratch clone: delete the cached
+  # ref of a real published branch and drop its registry row -> the old form printed [ok]
+  # rc=0 while `git ls-remote --heads origin` still listed that branch, undeclared. The
+  # reviewer's own FALSE charge was the mirror image (unpruned refs for branches deleted
+  # days earlier). Neither state is visible to a reader of the cache. So the subject is
+  # read from the remote when it can be, the cache is compared against it and any drift is
+  # printed, and a remote that cannot be reached is a FAILED measurement, not a pass
+  # (an explicit opt-in for offline runs is documented in the gate header, not here).
+  local live src=local-cache
+  remotes=""
+  if git remote get-url origin >/dev/null 2>&1; then
+    if live=$(timeout "${DOC_GATES_LS_REMOTE_TIMEOUT:-25}" git ls-remote --heads origin 2>/dev/null); then
+      remotes=$(printf '%s\n' "$live" | awk 'NF==2 {print $2}' | sed 's|^refs/heads/||')
+      src=remote; echo "  BRANCH_REGISTRY_SOURCE=remote"
+      local _c
+      for _c in $cache; do
+        printf '%s\n' "$remotes" | grep -qxF "$_c" \
+          || echo "  [note] local cache ref origin/$_c is NOT on the remote — a stale remote-tracking ref (git fetch --prune); it is NOT counted"
+      done
+      for _c in $remotes; do
+        printf '%s\n' "$cache" | grep -qxF "$_c" \
+          || echo "  [note] remote branch '$_c' is absent from the local cache (git fetch); it IS counted"
+      done
+    elif [ "${DOC_GATES_ALLOW_STALE_REMOTE:-0}" = "1" ]; then
+      remotes=$cache
+      echo "  BRANCH_REGISTRY_SOURCE=local-cache"
+      echo "  [note] the remote could not be listed; certifying the LOCAL CACHE as of $(stat -c '%y' .git/FETCH_HEAD 2>/dev/null || echo 'an unknown fetch time'),"
+      echo "         which is NOT a statement about what is published now."
+    else
+      echo "  [FAIL] an 'origin' remote IS configured but 'git ls-remote --heads origin' failed or"
+      echo "         timed out, so the set of PUBLISHED branches could not be measured. A verdict"
+      echo "         drawn from the local refs/remotes cache would certify a cache, not the remote."
+      return 1
+    fi
+  fi
+  # Codex v2: this enumerated ONLY branches that already exist on the remote, so a
+  # branch being published for the FIRST TIME could never be caught -- the gate ran
+  # after the fact, never before. DOC_GATES_PENDING_BRANCHES lets the pre-push hook
+  # name refs it is about to create, so they are declared BEFORE they are published,
+  # which is the only moment the check is worth anything.
+  if [ -n "${DOC_GATES_PENDING_BRANCHES:-}" ]; then
+    local _p
+    for _p in $DOC_GATES_PENDING_BRANCHES; do
+      _p=${_p#refs/heads/}
+      # $remotes is NEWLINE-separated. This was `case " $remotes " in *" $_p "*)`, a SPACE-delimited
+      # membership test that never matched, so an already-published name was appended AGAIN.
+      # Measured 2026-09-02 (pre-push hook, 5 real branches): "[ok] 10 published branch(es)" and
+      # a false "registry row 'v4-query-program' matches no published branch" note, because the
+      # appended names shared one line with the last real one. The per-branch verdict loop
+      # word-splits and was unaffected; the printed population was wrong by 2x.
+      if ! printf '%s\n' "$remotes" | grep -qxF "$_p"; then
+        remotes="${remotes:+$remotes
+}$_p"; echo "  [pending] also checking branch about to be published: $_p"
+      fi
+    done
+  fi
+  # NO SUBJECT vs CANNOT SEE THE SUBJECT — two states this used to report as one, and only
+  # one of them may pass (swept 2026-09-02 alongside Codex v2 charge 5, which is about this
+  # same gate). A tree with no `origin` remote CONFIGURED has nothing published to check and
+  # is a legitimate pass; a tree that HAS an `origin` remote but from which no ref could be
+  # enumerated is an enumeration that failed, and "no undeclared branches" would then be a
+  # statement about data nobody read. The old branch printed a [note] and returned 0 for
+  # both, which is the class root exactly: absence of evidence read as evidence.
   if [ -z "$remotes" ]; then
-    echo "  [note] no refs/remotes/origin/* in this clone, so the published-branch leg did NOT"
-    echo "         run. This is a fresh or detached checkout, not a clean bill of health."
+    if git remote get-url origin >/dev/null 2>&1; then
+      echo "  [FAIL] an 'origin' remote IS configured but NO refs/remotes/origin/* could be"
+      echo "         enumerated. That is a failed enumeration, not an empty remote — this gate"
+      echo "         cannot certify branches it was unable to list. (git fetch, or check that"
+      echo "         'git for-each-ref refs/remotes/origin/' works here.)"
+      return 1
+    fi
+    echo "  [note] no 'origin' remote is configured in this clone, so there are no published"
+    echo "         branches for this leg to check. That is a genuine empty subject (a tarball"
+    echo "         or 'git init' tree), not a clean bill of health about any remote."
     return 0
   fi
   n=0
@@ -9934,7 +11312,7 @@ gate_branch_registry() {
     echo "         entry point. A notice nobody is routed to is not a disclosure."
     rc=1
   fi
-  [ "$rc" -eq 0 ] && echo "  [ok] $n published branch(es) declared; README routes readers to the registry"
+  [ "$rc" -eq 0 ] && echo "  [ok] $n published branch(es) declared (source: $src); README routes readers to the registry"
   return $rc
 }
 
@@ -9980,7 +11358,11 @@ gate_publication_state() {
   # CORRECTIONS.md's "TR-9's draft-stage note", which must not fire. The multi-word
   # phrases are matched case-insensitively because they are never conventions.
   # Measured at adoption: zero hits across the tracked markdown corpus.
-  hits=$(git ls-files '*.md' 2>/dev/null | xargs grep -nE '^#{1,6}[[:space:]].*(\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public)' 2>/dev/null || true)
+  # 🔴 Q-284: this re-enumerated the corpus with its own unguarded `git ls-files ... || true`,
+  # so a failed enumeration produced an empty $hits and the gate announced the published
+  # corpus free of draft markers having read nothing. Consume the guarded $DOCS instead:
+  # one enumeration, one guard, and no second place for this to go wrong.
+  hits=$(printf '%s\n' "$DOCS" | xargs grep -nE '^#{1,6}[[:space:]].*(\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public)' 2>/dev/null)
   if [ -n "$hits" ]; then
     echo "$hits" | sed 's/^/  [FAIL] heading-form draft marker: /'
     echo "         A published document must not carry a section announcing it is unpublished."
@@ -9988,36 +11370,79 @@ gate_publication_state() {
     rc=1
   fi
   # (b) unchecked boxes outside a reader checklist
-  # 🔴 Codex N10 finding 3 — EXECUTABLE FALSE CLEAR, and the most direct instance in the suite.
-  # This leg used to redirect into a HARDCODED /tmp/g20_$$ with `2>/dev/null`, then decide by
-  # `[ -s /tmp/g20_$$ ]`. If that write failed for ANY reason -- read-only /tmp, a restricted
-  # sandbox, a full filesystem, a name collision -- the redirect error was swallowed, the file
-  # did not exist, `-s` was false, rc stayed 0 and the gate printed its clean message. Every
-  # violation this leg exists to catch became invisible, silently. The tree had 16 real
-  # unchecked-box FAILs at the time this was fixed; all 16 would have vanished with no error.
-  # THE FIX IS TO REMOVE THE FAILURE MODE, NOT TO DETECT IT: capture into a variable, so there
-  # is no temp file to fail to write and no /tmp dependency to be denied. `local` is declared on
-  # its own line because `local x=$(cmd)` masks the command's exit status behind local's own.
-  local boxes
-  boxes=$(while IFS= read -r f; do
+  # mktemp is CHECKED: a gate that cannot create its own scratch file must not proceed
+  # to report "clean". TMPDIR-honouring rather than hardcoded /tmp.
+  _G20_OUT=$(mktemp) || { echo "  [FAIL] GATE 20 could not create a temp file"; return 1; }
+  n=0
+  # Codex v2 charge 2/3, SIBLING FOUND WHILE SWEEPING (2026-09-02). The charge closed the
+  # SCRATCH-FILE carrier (unchecked `> /tmp/g20_$$`); it did not close the SCANNER carrier,
+  # which is the same defect one level in. `awk` is invoked once per file with its exit
+  # status discarded, so an awk that cannot run — absent, broken, or erroring on a file —
+  # produces NO output, and no output was read as "no unchecked boxes". MEASURED: with a
+  # shim `awk` that exits 127 and a planted `- [ ]` outside any checklist heading in
+  # documentation/DEPLOYMENT.md, this gate printed "[ok] ... every unchecked box sits under
+  # a reader checklist" and exited 0 — the exact sentence it exists to be able to refuse.
+  #
+  # THE FIX IS A POSITIVE ATTESTATION, not another rc check: awk stamps a ##SCANNED line
+  # for every file it reaches the END of, and the shell requires one stamp per corpus file.
+  # An rc check alone would still miss a partial write; a per-file receipt cannot be
+  # forged by silence, which is the property the whole class is short of.
+  local _g20_docs _g20_scanned
+  _g20_docs=$(printf '%s\n' "$DOCS" | grep -c .)
+  while IFS= read -r f; do
     [ -n "$f" ] || continue
     awk -v FN="$f" '
       /^#{1,6}[[:space:]]/ { inck = (tolower($0) ~ /checklist/) ? 1 : 0 }
       /^[[:space:]]*- \[ \]/ { if (!inck) printf "  [FAIL] %s:%d unchecked box outside a reader checklist: %s\n", FN, NR, substr($0,1,72) }
-    ' "$f"
-  done < <(git ls-files '*.md' 2>/dev/null))
-  if [ -n "$boxes" ]; then
-    printf '%s\n' "$boxes"
+      END { printf "##SCANNED\t%s\n", FN }
+    ' "$f" || printf '##AWKFAIL\t%s\n' "$f"
+  done < <(printf '%s\n' "$DOCS") > "$_G20_OUT" 2>/dev/null   # Q-284: guarded $DOCS, not a second unguarded enumeration
+  # Codex v2 / fail-open class: this wrote to /tmp/g20_$$ with the redirect UNCHECKED
+  # and stderr discarded. If the redirect failed -- unwritable /tmp, full disk -- the
+  # file never existed, `[ -s ... ]` was false, and the gate printed "[ok] every
+  # unchecked box sits under a reader checklist" having recorded nothing. Replicated
+  # with an unwritable dir plus a planted finding. ABSENT and EMPTY are now
+  # distinguished: absent is an ERROR, empty is genuinely clean.
+  if [ ! -f "$_G20_OUT" ]; then
+    echo "  [FAIL] GATE 20 could not write its findings file ($_G20_OUT)"
+    echo "         The scan did not run to completion, so 'no findings' would be a lie."
+    rm -f "$_G20_OUT"
+    return 1
+  fi
+  # THE RECEIPTS, checked BEFORE the findings are read. If the scan did not cover the
+  # corpus, "no findings" is not a result — the count must match or this gate has nothing
+  # to say, and saying nothing must be loud.
+  if grep -q '^##AWKFAIL	' "$_G20_OUT" 2>/dev/null; then
+    echo "  [FAIL] GATE 20's per-file scanner FAILED on:"
+    grep '^##AWKFAIL	' "$_G20_OUT" | cut -f2 | sed 's/^/           /'
+    echo "         Those files were NOT scanned, so this gate cannot report them clean."
+    rm -f "$_G20_OUT"
+    return 1
+  fi
+  _g20_scanned=$(grep -c '^##SCANNED	' "$_G20_OUT" 2>/dev/null); _g20_scanned=${_g20_scanned:-0}
+  if [ "$_g20_scanned" -ne "${_g20_docs:-0}" ]; then
+    echo "  [FAIL] GATE 20 scanned $_g20_scanned of ${_g20_docs:-0} corpus files."
+    echo "         A partial scan cannot certify the corpus. This is the fail-open shape the"
+    echo "         mktemp guard above was added for, one level in: an empty findings file is"
+    echo "         indistinguishable from a scanner that never ran unless every file leaves a"
+    echo "         receipt. Do not read this as zero findings."
+    rm -f "$_G20_OUT"
+    return 1
+  fi
+  if grep -v '^##' "$_G20_OUT" | grep -q .; then
+    grep -v '^##' "$_G20_OUT"
     echo "         An unchecked box in published prose is an obligation the document has not met."
     echo "         Reader-facing checklists are exempt — put them under a heading containing 'checklist'."
     rc=1
   fi
-  [ "$rc" -eq 0 ] && echo "  [ok] no heading-form draft markers; every unchecked box sits under a reader checklist"
+  rm -f "$_G20_OUT"
+  [ "$rc" -eq 0 ] && echo "  [ok] no heading-form draft markers; every unchecked box in all $_g20_scanned scanned corpus file(s) sits under a reader checklist"
   return $rc
 }
 
 # ---------------------------------------------------------------------------
-# GATE 21 — backticked `scripts/…` paths must resolve, or be declared narration.
+# GATE 21 — backticked repo paths (top-level dirs, `roae-private/`, `roae/`) must
+# resolve, or be declared narration.
 #
 # WHAT IT CAUGHT. Markdown LINKS are gated (GATE 4). Code-font PATHS were not.
 # On 2026-08-09 that gap was holding four references to
@@ -10026,25 +11451,55 @@ gate_publication_state() {
 # imperatively to RUN it before a paired bench. The real check was always
 # `./solve --cpu-freq`, which is what the project's own launcher calls.
 #
-# TWO OUTCOMES, NOT ONE. A token that resolves in roae-private but not here is
-# NOT the same defect as one that resolves nowhere:
-#   * DANGLE    — points at nothing. Fix the text.
-#   * COLLISION — `scripts/` IS a real published directory, so the reader
-#     follows the path into a directory that exists and lacks the file. The fix
-#     is the `roae-private/` prefix, which HISTORY.md already uses correctly 69
-#     times. Two such collisions were live on 2026-08-09.
-# The collision leg needs the private repo, so it is SKIPPED-WITH-NOTICE when
-# absent: a fresh clone or third-party replicator still gets the dangle leg,
-# and is told plainly which leg did not run rather than shown a bare green.
+# WIDENED 2026-08-21 (Unit B, Q29-G) from the original `scripts/…`-only leg to the
+# path conventions the corpus actually uses, prefix-scoped and GENERATIVE:
+#   (a) any token under a CURRENT top-level tracked directory — computed from
+#       `git ls-tree` at runtime, never hardcoded, so new directories are covered
+#       automatically (this subsumes the original `scripts/` leg);
+#   (b) `roae-private/…`-qualified pointers, checked against the private checkout;
+#   (c) `roae/…` repo-name-prefixed tokens, checked after stripping the prefix.
+# Measured on the 2026-08-21 tree: 175 tokens matched; the widening would have
+# caught 8 of that day's 14 fix-sites plus the FLAG-1 dangle mechanically, with
+# zero false positives beyond one narration allowlist row (`roae/findings/`).
 #
-# ALLOWLIST = NARRATION, and every row must say why. Four of the five current
-# non-resolving tokens are CORRECT prose describing files deliberately removed
-# (the 2026-04-21 consolidation into solve.py); the fifth is a retraction naming
-# the phantom in order to withdraw it. Banning those would forbid the corpus
-# from describing its own history — the same mistake as banning inline mention
-# of a retracted phrase.
+# SCOPE LIMITS — stated here so a PASS is never read as more coverage than it has:
+#   * NOT all slash tokens. Of the 186 backticked slash-containing tokens measured
+#     2026-08-21, at least 40 are legitimate non-paths (fractions, exact rationals,
+#     macro families like PAIR_MASK_SET/CLR, git refs, GitHub slugs, figure
+#     shorthand). A whole-class gate would be a standing false-positive generator —
+#     worse than the retrospective enumeration it replaces. Do NOT widen it there.
+#   * CANNOT see unprefixed strays: `x/roae/…` local-workspace prefixes, bare
+#     `560t_scripts/…`, and `owner/repo:path` notation match no prefix rule —
+#     5 of the 2026-08-21 fix-sites were of these shapes. That residue is bounded
+#     by Unit B's one-time full 186-token classification
+#     (roae-private/PRECODEX_UNITB_Q29G_PATHS.md §6) and by fresh-eyes review,
+#     not by this gate.
+#
+# THREE FAILURE SHAPES, NOT ONE. A token that resolves in roae-private but not
+# here is NOT the same defect as one that resolves nowhere:
+#   * DANGLE        — points at nothing. Fix the text.
+#   * COLLISION     — the prefix IS a real published directory (e.g. `scripts/`),
+#     so the reader follows the path into a directory that exists and lacks the
+#     file. The fix is the `roae-private/` prefix, which HISTORY.md already used
+#     correctly 69 times when the gate was born. Two such collisions were live on
+#     2026-08-09.
+#   * STALE-PRIVATE — a correctly `roae-private/`-qualified pointer whose target
+#     moved INSIDE roae-private (the 2026 reorganizations into campaigns/,
+#     results/, validation/). The fix recipe differs from DANGLE: find the moved
+#     file and update the pointer — do not rewrite the prose.
+# The private-checkout legs (COLLISION, STALE-PRIVATE) need the private repo, so
+# they are SKIPPED-WITH-NOTICE when absent: a fresh clone or third-party
+# replicator still gets the dangle leg, and is told plainly which legs did not
+# run rather than shown a bare green.
+#
+# ALLOWLIST = NARRATION, and every row must say why. Most rows are CORRECT prose
+# describing files deliberately removed (the 2026-04-21 consolidation into
+# solve.py) or a retraction naming a phantom in order to withdraw it. Banning
+# those would forbid the corpus from describing its own history — the same
+# mistake as banning inline mention of a retracted phrase. One row (Q28-A2) is
+# TEMPORARY and loudly says so: a green does not bless that pointer.
 gate_script_paths() {
-  echo "== GATE 21: backticked \`scripts/…\` paths resolve, or are declared narration =="
+  echo "== GATE 21: backticked repo paths (top-level dirs, roae-private/, roae/) resolve, or are declared narration =="
   local rc=0 t priv=/home/claude/github/roae-private
   # (token, why-it-is-narration) — extend ONLY with a reason.
   allow() { case "$1" in
@@ -10052,27 +11507,55 @@ gate_script_paths() {
       echo "narrating the 2026-04-21 consolidation into solve.py (file deliberately removed)";;
     scripts/d128_preflight_throttle_probe.sh)
       echo "retraction text naming the phantom in order to withdraw it (2026-08-09)";;
+    example/report.pdf)
+      echo "CORRECTIONS.md's 2026-09-04 withdrawal entry naming the artifact it withdraws; the ledger is append-only so the text cannot be rewritten, and a withdrawal that could not name its own subject would be unreadable";;
+    roae/findings/)
+      echo "dated HISTORY narration of the pre-2026-06 findings/ layout (consolidation recorded at HISTORY.md ~:4875)";;
+    runs/20260420_singlebranch1T_d32westus3/)
+      echo "TEMPORARY: known defect Q28-A2, operator-gated publish/boundary decision — REMOVE THIS ROW when Q28 lands; a green here does NOT bless the pointer";;
     *) echo "";; esac; }
-  local seen=0 dang=0 coll=0
+  local seen=0 dang=0 coll=0 stale=0
+  local topdirs; topdirs=$(git ls-tree -d --name-only HEAD | paste -sd'|')
   while read -r t; do
     [ -n "$t" ] || continue
     seen=$((seen+1))
-    git ls-files --error-unmatch "$t" >/dev/null 2>&1 && continue
+    case "$t" in
+      roae-private/*)  # private-qualified pointer: must exist in the private checkout
+        if [ -d "$priv" ]; then [ -e "$priv/${t#roae-private/}" ] && continue
+        else continue; fi ;;  # covered by the skip-with-notice line below
+      roae/*)          # repo-name-prefixed: resolve after stripping the prefix
+        git ls-files --error-unmatch "${t#roae/}" >/dev/null 2>&1 && continue ;;
+      *)               # top-level-dir tokens (includes the original scripts/ leg)
+        git ls-files --error-unmatch "$t" >/dev/null 2>&1 && continue ;;
+    esac
     local why; why=$(allow "$t")
     if [ -n "$why" ]; then continue; fi
-    if [ -d "$priv" ] && [ -e "$priv/$t" ]; then
-      echo "  [FAIL] COLLISION: \`$t\` resolves in roae-private but NOT here."
-      echo "         'scripts/' is a real published directory, so a reader follows this into"
-      echo "         a directory that exists and lacks the file. Prefix it: \`roae-private/$t\`."
-      coll=$((coll+1)); rc=1
-    else
-      echo "  [FAIL] DANGLE: \`$t\` resolves nowhere — not tracked here, not in roae-private."
-      echo "         Fix the text, or add an allowlist row SAYING WHY it is narration."
-      dang=$((dang+1)); rc=1
-    fi
-  done < <(git grep -ohE '`scripts/[A-Za-z0-9_./-]+`' -- '*.md' 2>/dev/null | tr -d '`' | sort -u)
-  [ -d "$priv" ] || echo "  [note] roae-private not present: the COLLISION leg did NOT run. Dangle leg did."
-  [ "$rc" -eq 0 ] && echo "  [ok] $seen distinct \`scripts/…\` token(s); all resolve or are declared narration"
+    case "$t" in
+      roae-private/*)
+        echo "  [FAIL] STALE-PRIVATE: \`$t\` is correctly qualified but its target is absent from"
+        echo "         the roae-private checkout — past instances were reorganizations into"
+        echo "         campaigns/, results/, validation/. Find the moved file and update the"
+        echo "         pointer; do not rewrite the prose."
+        stale=$((stale+1)); rc=1 ;;
+      *)
+        if [ -d "$priv" ] && [ -e "$priv/$t" ]; then
+          echo "  [FAIL] COLLISION: \`$t\` resolves in roae-private but NOT here."
+          echo "         Its prefix is a real published directory, so a reader follows this into"
+          echo "         a directory that exists and lacks the file. Prefix it: \`roae-private/$t\`."
+          coll=$((coll+1)); rc=1
+        else
+          echo "  [FAIL] DANGLE: \`$t\` resolves nowhere — not tracked here, not in roae-private."
+          echo "         Fix the text, or add an allowlist row SAYING WHY it is narration."
+          dang=$((dang+1)); rc=1
+        fi ;;
+    esac
+  done < <(git grep -ohE "\`(roae-private|roae|$topdirs)/[A-Za-z0-9_./-]+\`" -- '*.md' 2>/dev/null | tr -d '`' | sort -u)
+  [ -d "$priv" ] || echo "  [note] roae-private not present: the COLLISION leg and the roae-private/ pointer leg did NOT run. Dangle leg did."
+  if [ "$rc" -eq 0 ]; then
+    echo "  [ok] $seen distinct prefixed path token(s); all resolve or are declared narration"
+    echo "       (scope: prefix-matched tokens only — NOT all slash tokens, and unprefixed strays"
+    echo "        like \`x/roae/…\`, bare \`560t_scripts/…\` or repo:path notation are invisible here)"
+  fi
   return $rc
 }
 
@@ -10087,10 +11570,7 @@ gate_script_paths() {
 # a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2 — the NINTH
 # nibble is wrong (f, not 8). A reviewer who greps the published prefix gets
 # nothing back and cannot tell a typo from a withdrawn anchor. That instance is
-# was NOT in fact fixed when this comment first claimed it: BOUNDARY_MINIMUM.md:29 and
-  # PARTITION_STABILITY_BOUNDARIES.md:19 both still read `a09280fbf…` until 2026-08-25, and this gate
-  # had been correctly reporting the NEAR MISS the entire time while the comment said otherwise.
-  # Both are corrected now. A comment asserting a fix is not a fix; this gate is
+# already fixed (BOUNDARY_MINIMUM.md:29 now reads `a09280fb8…`); this gate is
 # what stops the class returning.
 #
 # TWO LEGS, and the second exists BECAUSE the first has an allowlist.
@@ -10164,17 +11644,12 @@ gate_hex_prefix() {
   local d; d=$(mktemp -d) || { echo "  [FAIL] GATE 22: mktemp failed, so nothing was checked."; return 1; }
   # UNIVERSE. `[0-9a-f]+` is unbounded on a CHARACTER CLASS, then length-filtered in awk —
   # deliberately not `[0-9a-f]{64}`, so this file's own no-bounded-repetition rule holds.
-  # 🔴 THE CHECKER IS EXCLUDED FROM ITS OWN UNIVERSE. Found by an OpenAI Codex review (unit N07,
-  # 2026-08-25). This file is in HEAD and embeds a full 64-nibble hash in a comment explaining a past
-  # fix, so without the exclusion the gate's OWN SOURCE is a valid witness for the truncated tokens
-  # citing that hash. Today seven independent files also carry it, so the gate is not false-green —
-  # but it CANNOT DISTINGUISH that world from one where every independent expansion was deleted and
-  # only the explanatory comment survived. It would still report the token resolved.
-  #
-  # The general invariant, from the same review: a verifier must be FALSE in the
-  # "verifier present, target absent" state — no witness may come from the verifier's own closure.
-  # Negative control for this gate: delete every independent expansion of a hash while leaving this
-  # file untouched; the token MUST then classify as DANGLE, not OK.
+  # 🔴 THIS FILE IS EXCLUDED FROM ITS OWN UNIVERSE — the verifier-closure invariant, closed once as
+  # Codex N07 in 130479f8 and never merged to main, so it regressed here. doc_gates.sh embeds full
+  # 64-nibble hashes in its own allowlist comments. Counting them means a token can "resolve" against
+  # the checker's own narration: delete every independent expansion from the corpus and this gate
+  # still reports OK. A verifier must be FALSE when its target is absent, and it cannot supply the
+  # witness from its own text.
   { git grep -ohIE '[0-9a-f]+' HEAD -- ':!scripts/doc_gates.sh' 2>/dev/null
     git diff -z --name-only HEAD 2>/dev/null | grep -zv '^scripts/doc_gates\.sh$' \
       | xargs -0 -r grep -ohIE '[0-9a-f]+' 2>/dev/null
@@ -10185,8 +11660,41 @@ gate_hex_prefix() {
     echo "         noise. Re-anchor this gate, do not silence it."
     rm -rf "$d"; return 1
   fi
-  git grep -ohE '[0-9a-f]+(…|\.\.\.)' -- '*.md' 2>/dev/null \
-    | sed 's/…$//; s/\.\.\.$//' | awk 'length($0)>=7 && length($0)<=63' | sort -u > "$d/tok"
+  # TOKENS, NOW WITH THEIR LINE CONTEXT. `-o` alone discards the line, and the NEAR leg needs it:
+  # a mistyped anchor QUOTED INSIDE A CORRECTION ENTRY is the ledger doing exactly its job, while the
+  # same token in ordinary prose is the defect. Only the line separates them. Four gates in this file
+  # already carve out this case (3b, 26, 27, 29); GATE 22 was the fifth and had no mechanism, which
+  # made a faithful CORRECTIONS.md entry literally unpublishable.
+  # 🔴 THE EXEMPTION IS PER-TOKEN AND UNANIMOUS, NOT PER-LINE. A token is narration ONLY if EVERY
+  # one of its occurrences sits in a marker; one loose occurrence in plain prose and it is PROSE
+  # again and still fails. A per-line waiver would let a real typo hide behind one tidy citation.
+  git grep -nHE '[0-9a-f]+(…|\.\.\.)' -- '*.md' 2>/dev/null > "$d/hits" || true
+  python3 - "$d/hits" "$d/tok" "$d/narr" <<'PYTOK'
+import re, sys
+hits, tokf, narrf = sys.argv[1], sys.argv[2], sys.argv[3]
+TOK  = re.compile(r'[0-9a-f]+(?:\u2026|\.\.\.)')
+# Same marker vocabulary GATE 27 uses, plus the CORRECTIONS.md entry shape itself. \s+ not " ":
+# a marker wrapping as "[CORRECTED\n2026-08-28" is the normal case in this corpus.
+MARK = re.compile(r'withdrawn|label\s+corrected|corrected\s+20|scoped\s+20|superseded|retract'
+                  r'|\*\*before:\*\*|\*\*now:\*\*|typo', re.I)
+seen, prose = set(), set()
+try:
+    fh = open(hits, encoding='utf-8', errors='replace')
+except OSError:
+    fh = []
+for line in fh:
+    parts = line.split(':', 2)
+    body = parts[2] if len(parts) == 3 else line
+    narr = bool(MARK.search(body))
+    for m in TOK.finditer(body):
+        t = m.group(0).rstrip('\u2026').rstrip('.')
+        if 7 <= len(t) <= 63:
+            seen.add(t)
+            if not narr:
+                prose.add(t)
+open(tokf,  'w').write(''.join(t + '\n' for t in sorted(seen)))
+open(narrf, 'w').write(''.join(t + '\n' for t in sorted(seen - prose)))
+PYTOK
   awk -v near="$NEAR_MIN" '
     NR==FNR { U[++n]=$0; next }
     { t=$0; best=0; bu=""
@@ -10207,10 +11715,16 @@ gate_hex_prefix() {
     case "$kind" in
       OK) ;;
       NEAR)
+        # NARRATION WAIVER — narrow by construction, and NOT a filename allowlist (GATE 3b measured
+        # that coarseness and rejected it). The token qualifies only if EVERY occurrence of it in the
+        # corpus sits in a correction marker or revision row. A typo quoted by the ledger that
+        # records the typo is the ledger working; the same token loose in prose still fails below.
+        if grep -qxF "$t" "$d/narr" 2>/dev/null; then declared=$((declared+1)); continue; fi
         echo "  [FAIL] NEAR MISS: \`$t…\` is a prefix of NO 64-nibble string in the tree, but agrees with"
         echo "         $u for $n nibbles. That is a mistyped anchor, not a"
         echo "         narrative identifier: a reviewer's prefix grep returns nothing. Fix the"
-        echo "         digits against the registry. NO allowlist row waives this leg."
+        echo "         digits against the registry. Only a correction marker or revision row waives"
+        echo "         this leg, and only when EVERY occurrence of the token carries one."
         rc=1;;
       DANGLE)
         why=$(hex_allow "$t")
@@ -10242,6 +11756,87 @@ gate_hex_prefix() {
 # of defaulting. Empty output plus a non-zero exit is indistinguishable from
 # "nothing found" unless the exit status is inspected, so it is — a checker
 # that finds nothing must never report [ok].
+# ---------------------------------------------------------------------------
+# GATE 79 — a documented memory-knob EXAMPLE must fit the box the sentence sizes.
+#
+# WHY THIS EXISTS (measured, Codex V2 `TR11:471`, fixed 2026-09-03). TR-11's commodity
+# recipe read `raise SOLVE_F1_OOC_SCRATCH_MB (e.g. 61440 on a 64 GiB box)`. The solver's
+# own documented model, stated in three places, is that TOTAL RSS is ~2.2x that value.
+# 2.2 x 60 GiB = 132 GiB, on the 64 GiB box the same sentence sizes. Even the bare floor,
+# scratch + staging, is 130 GiB before read windows. The recipe OOMs by its own
+# documentation, and a resume repeats the OOM until someone edits the env var.
+#
+# Root cause was not a typo: 61440 is the PRODUCTION 256-GiB D128 setting from TR-11 section 8,
+# copied into the commodity recipe. Both numbers are correct for their own host, which is
+# exactly why prose review did not catch it -- the value is defensible in isolation and
+# wrong only against the box named beside it. Nothing in the corpus compared the two.
+#
+# TWO LEGS, because one instance had two independent defects:
+#   1. ARITHMETIC  -- 2.2 x N MiB must be <= the Y GiB the same phrase names.
+#   2. CROSS-DOC   -- two documents giving an example for the SAME box size must agree.
+#      TR-11 said 61440 where SOLVE_C_CLI.md said 16384 for the identical 64 GiB box, and
+#      the disagreement itself was the tell. A reader following either document alone
+#      cannot see it.
+#
+# SCANNER, NOT REGISTRY, and deliberately so: the pattern is narrow enough
+# ("e.g. N on a Y GiB box") that a false positive would have to be prose that means
+# precisely this and is wrong anyway. The RSS multiplier is pinned in one place below;
+# if solve.c's staging model changes, this constant must move with it.
+RSS_MULTIPLIER_TENTHS=22   # 2.2x, from SOLVE_C_CLI.md's env table and solve.c's block comment
+gate_scratch_examples() {
+  echo "== GATE 79: documented memory-knob examples fit the box they name =="
+  local hits n bad=0 f ln val box need
+  # A file: prefixed grep over TRACKED markdown only -- an untracked scratch note must not
+  # gate a push, and an unreadable corpus must ERROR rather than report a clean bill.
+  if ! hits=$(git ls-files '*.md' 2>/dev/null | xargs -r grep -noE "e\.g\.,? \*{0,2}[0-9]{3,6}\*{0,2} on a [0-9]+ ?GiB box" 2>/dev/null); then
+    : # grep exits 1 when there are no matches; that is not an error here
+  fi
+  n=$(printf '%s' "$hits" | grep -c . || true)
+  if [ "${n:-0}" -eq 0 ]; then
+    echo "  [FAIL] zero sites matched the example pattern across tracked *.md."
+    echo "         This gate has never legitimately measured zero -- the corpus carries at least"
+    echo "         two such examples. Zero means the pattern or the file list broke, and a check"
+    echo "         that cannot see its target must not report OK."
+    return 1
+  fi
+  # LEG 1 -- arithmetic
+  local -a boxes=() vals=() srcs=()
+  while IFS= read -r h; do
+    [ -n "$h" ] || continue
+    f=${h%%:*}; ln=$(printf '%s' "$h" | cut -d: -f2)
+    # 🔴 STRIP THE file:line: PREFIX BEFORE EXTRACTING THE NUMBER. The first cut of this leg
+    # ran the digit regex over the whole grep -n line, so it captured the LINE NUMBER as the
+    # example value and reported "SOLVE_C_CLI.md:1779 says 1779". Caught on the first real run
+    # rather than by reading, which is the only reason it is not in the corpus now.
+    local body; body=$(printf '%s' "$h" | cut -d: -f3-)
+    val=$(printf '%s' "$body" | grep -oE "[0-9]{3,6}" | head -1)
+    box=$(printf '%s' "$body" | grep -oE "on a [0-9]+ ?GiB" | grep -oE "[0-9]+")
+    [ -n "$val" ] && [ -n "$box" ] || continue
+    need=$(( val * RSS_MULTIPLIER_TENTHS / 10 ))          # MiB of RSS the model predicts
+    if [ "$need" -gt $(( box * 1024 )) ]; then
+      echo "  [FAIL] $f:$ln — example $val MiB on a $box GiB box needs ~$(( need / 1024 )) GiB RSS"
+      echo "         at the documented ${RSS_MULTIPLIER_TENTHS}/10x multiplier. The recipe OOMs by its own model."
+      bad=1
+    fi
+    boxes+=("$box"); vals+=("$val"); srcs+=("$f:$ln")
+  done <<< "$hits"
+  # LEG 2 -- cross-document agreement for the same box size
+  local i j
+  for (( i=0; i<${#boxes[@]}; i++ )); do
+    for (( j=i+1; j<${#boxes[@]}; j++ )); do
+      if [ "${boxes[$i]}" = "${boxes[$j]}" ] && [ "${vals[$i]}" != "${vals[$j]}" ]; then
+        echo "  [FAIL] two documents disagree for the same ${boxes[$i]} GiB box:"
+        echo "         ${srcs[$i]} says ${vals[$i]}; ${srcs[$j]} says ${vals[$j]}."
+        echo "         A reader following either alone cannot see the disagreement."
+        bad=1
+      fi
+    done
+  done
+  [ "$bad" -ne 0 ] && return 1
+  echo "  [ok] $n documented example(s) fit their named box at ${RSS_MULTIPLIER_TENTHS}/10x RSS, and agree across documents"
+  return 0
+}
+
 gate_tracked_ignored() {
   echo "== GATE 23: no tracked file is also ignored =="
   local out rc n
@@ -10295,11 +11890,21 @@ import re, sys
 FAIL = 0
 
 # --- the one declared domain ------------------------------------------------
-# solve.c carries the accepted --f1-pairs domain in TWO places that must agree:
-#   (a) the f1c5_unions[] table (all sizes except the full 31), and
-#   (b) the "supported: ..." error string printed when an unsupported N is given.
-# The full-31 case is handled by a separate branch and is not a table row, so the
-# authoritative code-side domain is  table ∪ {31}.
+# solve.c carries the accepted --f1-pairs domain in THREE places that must agree:
+#   (a) the f1c5_unions[] table (all sizes except the full 31),
+#   (b) the "supported: ..." error string printed when an unsupported N is given, and
+#   (c) the SEPARATE BRANCH that admits the full pair set without a table row.
+# The authoritative code-side domain is  table ∪ {whatever (c) admits}.
+#
+# CODEX N10 FINDING 12, adjudicated 2026-09-03: (c) USED TO BE THE LITERAL `{31}`, WRITTEN
+# HERE. This gate's own title is "documented value-domain sets match the LITERAL DOMAIN IN
+# CODE", and for the one value that is not a table row it supplied the answer itself instead of
+# reading it. Codex demonstrated the consequence: change solve.c's branch to `npairs == 30`,
+# leave the table, the error string and the docs untouched, and the gate still passed and still
+# claimed 31 was accepted — a gate reporting on a code behaviour it had hardcoded, which is the
+# verifier-closure defect (the witness came from the checker, not from the subject).
+# The branch is now PARSED. If it cannot be found the gate FAILS rather than assuming a value:
+# a domain this gate cannot locate is a domain it did not check.
 try:
     src = open("solve.c", encoding="utf-8", errors="replace").read()
 except OSError as exc:
@@ -10322,7 +11927,25 @@ if not m2:
     sys.exit(1)
 err = sorted(int(x) for x in m2.group(1).split(",") if x.strip())
 
-code_domain = sorted(set(table) | {31})
+# (c) the separate branch. `full<N> = (npairs == <V>)`: N is what the code CALLS the case and
+# V is what it actually admits, so a mutation of the comparison alone (Codex's exact
+# construction) shows up as the two disagreeing, and a mutation of both still moves the domain
+# and is caught against the error string and the docs below.
+m3 = re.search(r"int\s+full(\d+)\s*=\s*\(\s*npairs\s*==\s*(\d+)\s*\)\s*;", src)
+if not m3:
+    print("  [FAIL] the full-pair-set branch (`int full<N> = (npairs == <V>);`) was not found in")
+    print("         solve.c, so the one domain value that is NOT a table row could not be read.")
+    print("         This gate used to hardcode it. Re-anchor the pattern; do not restore a")
+    print("         literal — a value supplied by the checker is not a measurement of the code.")
+    sys.exit(1)
+special_name, special = int(m3.group(1)), int(m3.group(2))
+if special_name != special:
+    print("  [FAIL] solve.c disagrees with ITSELF: the full-pair-set flag is named full%d but the"
+          % special_name)
+    print("         branch admits npairs == %d. One of the two was edited alone." % special)
+    FAIL = 1
+
+code_domain = sorted(set(table) | {special})
 if err != code_domain:
     print("  [FAIL] solve.c disagrees with ITSELF: the error string lists")
     print("         %s" % ",".join(map(str, err)))
@@ -10330,8 +11953,9 @@ if err != code_domain:
     print("         %s" % ",".join(map(str, code_domain)))
     FAIL = 1
 else:
-    print("  [ok] solve.c self-consistent: table(%d) + {31} == error string (%d values)"
-          % (len(table), len(err)))
+    print("  [ok] solve.c self-consistent: table(%d) + the full-pair branch's {%d}, read from"
+          " `int full%d = (npairs == %d);`, == error string (%d values)"
+          % (len(table), special, special_name, special, len(err)))
 
 # --- the doc sites that publish that domain ---------------------------------
 # Declared explicitly. Each must contain the domain as a comma-separated set.
@@ -10414,13 +12038,36 @@ PY
 # load-bearing — if a correction writes the invocation form this gate FAILS, and the fix
 # is to reword the correction, not to widen the extractor.
 #
-# NOT IN 'all' YET — by caution, the same way GATE 24 and GATE 8 sit out. Run it by name
-# (`doc_gates.sh repro-reach`). Promote only after it has been observed silent across a
-# full corpus for a while; that promotion is a deliberate decision, not a default.
+# PROMOTED INTO 'all' ON 2026-09-02 (batch C7), and the honest basis for it is recorded here
+# rather than implied. This header used to read "NOT IN 'all' YET ... promote only after it has
+# been observed silent across a full corpus for a while; that promotion is a deliberate
+# decision, not a default." The DELIBERATE half is satisfied — it was decided, with reasons.
+# 🔴 THE OBSERVATION WINDOW IS NOT. LEG 1 had been RED, on two false positives, and was made
+# clean the same day it was promoted; it has not been silent "for a while" and no reader should
+# infer that it has. What was substituted for the window, deliberately, is EVIDENCE:
+#   * both red lines were shown to be false positives at the source, not reworded away;
+#   * the fix was red-tested three ways (a genuine unreachable command still FAILS in isolation,
+#     a proposal passes, and a genuine command adjacent to a proposal still FAILS);
+#   * LEG 1 accumulates EVERY unresolved flag before printing, so the two known reds could not
+#     have masked a third — measured: 18 unreachable sites, 13 declared narration, 5 proposals,
+#     0 remaining;
+#   * LEG 2 cannot move the exit code (`sys.exit(1 if bad else 0)`, and nothing in LEG 2 touches
+#     `bad`), so promoting the gate promotes only LEG 1;
+#   * cost is not an argument here the way it is for GATE 8: measured 0.89-0.99 s over three runs.
+#
+# 🔴 THE RESIDUAL RISK, stated because promotion makes it blocking. This gate is WORDING-
+# SENSITIVE by design — the convention note above says so ("if a correction writes the
+# invocation form this gate FAILS, and the fix is to reword the correction"). A future doc that
+# discloses a missing mode in the invocation form, using proposal language OUTSIDE the three
+# markers in PROPOSAL below, will block every push until either the wording or that list moves.
+# Two of the five proposal sites in the corpus were written in the three days before promotion,
+# by exactly that activity. Extending PROPOSAL is a one-line change; REWORDING THE CORPUS TO
+# SATISFY THIS GATE IS NOT THE FIX, per GATE 7's header. If that trade proves wrong, the
+# revert is this gate's line in the `all` dispatch arm and the two banner lines that name it.
 gate_repro_reach() {
   echo "== GATE 25: every documented reproduction command resolves to a real flag =="
   python3 - <<'PY'
-import glob, re, sys
+import bisect, glob, re, sys
 
 TOOLS = {"verify.py": "verify.py", "solve.py": "solve.py", "sat.py": "sat.py",
          "roae.py": "roae.py", "solve": "solve.c", "verify": "verify.c"}
@@ -10434,14 +12081,172 @@ NARRATION = {
     ("solve", "--constraint-spec"):       "removed subcommand, cited in LARGE_SCALE_CAMPAIGNS",
     ("solve.py", "--compare-leaf-rates"): "removed subcommand, cited in DEVELOPMENT/HISTORY",
     ("solve", "--extended-selftest"):     "documented NON-existence; SOLVE_C_CLI.md:387 warns readers away",
+    ("solve", "--kc-repr-normalize"):     "documented NON-existence (case b); lives on an UNLANDED v4 branch that BRANCH_REGISTRY marks snapshot-do-not-cite. VERIFY.md carries a NOT-AVAILABLE box, and both invocation-form cite sites were given an inline warning 2026-08-16 so a reader entering the file at either one cannot be misled. Retire this row if the branch lands.",
 }
 
-INV = re.compile(r'(?:python3?\s+)?(?:\./)?'
-                 r'(verify\.py|solve\.py|sat\.py|roae\.py|solve|verify)\s+'
-                 r'((?:--[a-z0-9][a-z0-9-]*\s*)+)')
-FLAG = re.compile(r'--[a-z0-9][a-z0-9-]*')
+# CODEX N10 FINDING 13 HALF A, adjudicated 2026-09-03. The extractor was
+# `((?:--[a-z0-9][a-z0-9-]*\s*)+)` — an INITIAL RUN of VALUELESS flags. It stopped dead at the
+# first flag that takes a value, so in Codex's construction
+#
+#     solve --depth 3 --definitely-not-a-flag
+#
+# it extracted `--depth` and the invalid trailing flag was never examined. Every documented
+# command of the form `--flag VALUE --other-flag` was checked to its first value and no
+# further, while the gate's own [ok] line claims "every documented reproduction command
+# resolves to a real flag".
+#
+# WHAT REPLACES IT, and why not simply "read to end of line". A regex that swallows the rest
+# of the line finds 1,238 flag uses against the old 1,085 — and the extra 153 are markdown and
+# prose, measured: `roae.py --verify, doc gates`, `solve --merge) instead of running fresh
+# sha256sum — fast`, `--json|--csv|--svg|...` alternation lists, `[--sat-c3 pb]` optional-arg
+# notation. Attributing those to the tool is how a blocking gate starts firing on correct
+# prose. So the walk is TOKENWISE and CONSERVATIVE: a `--flag` is a flag, at most ONE
+# value-shaped token may follow each flag, and the command ENDS at the first token that is
+# neither (and at a backtick or a newline, whichever comes first).
+#
+# MEASURED over the live corpus before landing: old 1,085 uses / 8 distinct unresolved;
+# tokenwise 1,125 uses / 8 distinct unresolved — 40 newly examined flag uses, ZERO new
+# unresolved flags and ZERO previously-found ones lost. The widening is therefore inert on
+# today's corpus and cannot start blocking a push on existing content; it closes the hole for
+# the next command somebody documents with a value in the middle.
+#
+# WHAT IT STILL CANNOT SEE, stated rather than implied: 52 sites carry a `--flag` after a token
+# this walk refuses (bracketed optionals `[--sat-c4]`, `|`-alternation lists, shell operators).
+# Those are UNDER-coverage, not false clears — the same trade GATE 25's header already makes.
+HEAD_RE = re.compile(r'(?:python3?\s+)?(?:\./)?'
+                     r'(verify\.py|solve\.py|sat\.py|roae\.py|solve|verify)\s+'
+                     r'(?=--[a-z0-9])')
+FLAGTOK = re.compile(r'^--[a-z0-9][a-z0-9-]*$')
+VALTOK  = re.compile(r'^[-A-Za-z0-9_./:=*%+~^@\[\]{}<>,]*[-A-Za-z0-9_./:=*%+~^@\]}>]$')
+
+def _command_flags(text, at):
+    """Flags of the invocation whose flag run begins at offset `at`. At most one value-shaped
+    token may follow each flag; the command stops at the first token that is neither, and
+    never crosses a backtick or a newline."""
+    stop = text.find("\n", at)
+    if stop < 0:
+        stop = len(text)
+    tick = text.find("`", at)
+    if 0 <= tick < stop:
+        stop = tick
+    flags, pend = [], False
+    for tok in text[at:stop].split():
+        base = tok.split("=", 1)[0]
+        if tok.startswith("--") and FLAGTOK.match(base):
+            flags.append(base)
+            pend = True
+        elif pend and not tok.startswith("-") and VALTOK.match(tok):
+            pend = False          # this token is the preceding flag's VALUE
+        else:
+            break
+    return flags
+
+# PROPOSAL MARKERS (added 2026-09-02, batch C7) — a doc that names a flag it is PROPOSING,
+# not claiming. LEG 1 could not tell "run this" from "we should build this", so it fired on
+# four PROJECT_OVERVIEW/SOLVE/SOLVE_SUMMARY/SPECIFICATION sites whose own sentence disclaims
+# the figure the flag would reproduce ("the outstanding fix is a `solve.py --extraction-null`
+# mode") and on CORRECTIONS.md:4659 ("It is queued to the code lane ... and a
+# `verify.py --twins-bisect` flag"). Every one is the project being scrupulous about what does
+# NOT exist. A gate that gets louder the more honestly the corpus describes its own gaps has
+# the wrong gradient — this file's GATE 7 header records rewording the corpus to satisfy an
+# instrument as "the worst way to pay for a false positive".
+#
+# 🔴 SCOPE WAS CHOSEN BY MEASUREMENT, AND THE FIRST TWO CANDIDATES WERE BOTH REFUTED.
+#   * SAME-LINE (the scope ced18ec9 landed for GATE 7) is INSUFFICIENT here: it clears all four
+#     --extraction-null sites and MISSES CORRECTIONS.md:4659, where the marker "is queued to the
+#     code lane" ends line 4658 and the invocation opens 4659. Markdown hard-wrap, not a
+#     coincidence of adjacency — it is one sentence.
+#   * WHOLE-SENTENCE (bounded only by terminators and blank lines) is far WORSE than the ±4/+3
+#     window ced18ec9 rejected: measured over this corpus the longest such span is 57 newlines /
+#     4,924 chars in SOLVE_C_CLI.md and swallows 45 command-flag sites in one gulp, because a
+#     fenced block or table carries no sentence terminator at all.
+#   * WHAT SHIPPED: the sentence containing the flag, reconstructed across AT MOST ONE hard-wrap
+#     (the immediately preceding line, and never across a blank line). Bounded by construction to
+#     two physical lines, and on a wall-of-text line it is strictly NARROWER than line scope
+#     because it stops at the sentence boundary. It also reproduces ced18ec9's recall result: an
+#     unrelated marker on the preceding line does NOT suppress, because a preceding line that
+#     ends a sentence is outside the span — the association has to be grammatical.
+#   * 🔴 THE SHIPPED ARM WAS ASYMMETRIC UNTIL 2026-09-03 — it walked BACKWARDS only, so a flag
+#     whose proposal marker sits on the FOLLOWING wrapped line read as a broken command and,
+#     since promotion into `all`, blocked the push. Prose batch P54 hit it in its own ledger
+#     text. A FORWARD arm now mirrors the backward one (see `_proposal_scope`). MEASURED before
+#     landing over the live corpus: 1,082 command-flag uses, 13 narration waivers, 7 proposal
+#     waivers, 0 unreachable — IDENTICAL with and without the forward arm, i.e. zero live delta,
+#     so this widens no existing waiver. Red-tested on a four-case fixture (a real-source
+#     scratch tree, symlinked verify.py/solve.py/sat.py/roae.py/solve.c/verify.c): forward-wrap
+#     marker -> false FAIL before, [prop] after; a genuine unreachable flag with no marker ->
+#     FAIL both; a marker on the next line that STARTS a new sentence -> FAIL both (recall
+#     preserved, the same result ced18ec9 established for the backward direction); backward-wrap
+#     marker -> [prop] both.
+#
+# MEASURED over the real corpus at the time of the change: 18 sites cite a flag that does not
+# exist. This waives EXACTLY the 5 proposal sites; the other 13 are the NARRATION-registry rows
+# and every one still fires. Zero collateral. Ambient reachability, for the next person changing
+# this list: 'queued' appears 79 times in 21 files, 'outstanding fix' 6 times in 5.
+#
+# DELIBERATELY NOT ADDED — 'does not exist' (21 occurrences, 11 files). Documented NON-existence
+# is case (b) in this gate's header and it is ALREADY handled, by a NARRATION row that must state
+# a reason so a stale waiver is visible. An automatic marker for it would open a second,
+# unreviewable path to the same waiver and quietly retire that review. Also not added: 'proposed',
+# 'would be', 'planned' — each matches ordinary prose far more often than it matches a proposal.
+#
+# WAIVERS ARE PRINTED, not merely counted: a proposal that is never built must stay visible.
+PROPOSAL = ['queued', 'outstanding fix', 'not yet implemented']
+
+def _proposal_scope(lines, i, col):
+    """The sentence containing column `col` of lines[i], reconstructed across at most one
+    hard-wrap IN EACH DIRECTION. Returns lowercase text. Never crosses a blank line."""
+    cur = lines[i]
+    prev = lines[i - 1] if i > 0 else ""
+    if not prev.strip():
+        joined, pos = cur, col
+    else:
+        joined, pos = prev + " " + cur, len(prev) + 1 + col
+    # FORWARD ARM (2026-09-03, wave-3 lane A). The backward-only walk was ASYMMETRIC: a flag
+    # whose proposal marker sits on the FOLLOWING wrapped line read as a broken command and
+    # blocked the push. Found by prose batch P54 hitting it in its own ledger text. The
+    # extension is grammatical, not positional — `e` below still stops at the first sentence
+    # terminator after `pos`, so the next line enters the span ONLY when the sentence really
+    # continues onto it; a next line that starts a NEW sentence is outside the span exactly as
+    # a preceding line that ENDS one already is. Bounded by construction to three physical
+    # lines, never across a blank line.
+    nxt = lines[i + 1] if i + 1 < len(lines) else ""
+    if nxt.strip():
+        joined = joined + " " + nxt
+    s = 0
+    for mm in re.finditer(r'(?<=[.!?])\s', joined[:pos]):
+        s = mm.end()
+    e = len(joined)
+    mm = re.search(r'(?<=[.!?])\s', joined[pos:])
+    if mm:
+        e = pos + mm.end()
+    return joined[s:e].lower()
+
+# CODEX N10 FINDING 13 HALF B, adjudicated 2026-09-03. `have[tool]` is every quoted
+# `--...` string ANYWHERE in the tool's source — comments, dead code and narration included —
+# and it is used as the set of flags that EXIST. So a fake flag mentioned in a source comment
+# legitimises the same fake flag in a doc, and the [ok] line still says the documented command
+# resolves. The acceptance set is not an implementation set.
+#
+# 🔴 WHAT IS NOT BUILT HERE, AND WHY, because the obvious fix is the wrong one. Stripping
+# comments before extracting would need a real C/Python lexer inside a gate that is BLOCKING at
+# pre-push: one mis-parsed string literal removes a REAL flag from `have`, and every doc citing
+# it FAILS. Measured, that fix would buy nothing today — an inline-comment stripper and the raw
+# scan return the SAME set for all six tools (roae.py 60/60, sat.py 14/14, solve 84/84,
+# solve.py 99/99, verify 44/44, verify.py 42/42; zero comment-only flags). So the acceptance
+# set is left exactly as it was — nothing that passes today can start failing.
+#
+# WHAT IS BUILT is the assertion, in the direction that cannot false-clear and needs no lexer:
+# a flag whose ONLY quoted occurrence in the source sits on a WHOLE-LINE comment (the line's
+# first non-space run is `#`, `//`, `*` or `/*`) is not an implementation, and if a doc cites it
+# that is reported. Whole-line detection needs no string-literal parsing, which is where a
+# lexer's false positives come from. MEASURED: 0 such flags across all six tools today, so this
+# arm is silent on the live corpus and its count is printed even when zero (Q-284's rule).
+_CMT_LINE = re.compile(r'^\s*(?:#|//|\*|/\*)')
+_QFLAG = re.compile(r'"(--[a-z0-9][a-z0-9-]*)"|\'(--[a-z0-9][a-z0-9-]*)\'')
 
 have = {}
+comment_only = {}
 for tool, src in sorted(TOOLS.items()):
     try:
         t = open(src, encoding="utf-8", errors="replace").read()
@@ -10455,6 +12260,13 @@ for tool, src in sorted(TOOLS.items()):
         print("  [FAIL] zero flags parsed from %s — vacuous, treated as failure." % src)
         print("         If the declaration style changed, update this gate; do not delete it.")
         sys.exit(1)
+    in_code = set()
+    for _line in t.split("\n"):
+        if _CMT_LINE.match(_line):
+            continue
+        for _m in _QFLAG.finditer(_line):
+            in_code.add(_m.group(1) or _m.group(2))
+    comment_only[tool] = have[tool] - in_code
 
 docs = sorted(set(glob.glob("documentation/*.md") + glob.glob("reports/*.md")
                   + glob.glob("*.md") + glob.glob("reports/**/*.md", recursive=True)))
@@ -10463,21 +12275,40 @@ if not docs:
     sys.exit(1)
 
 total = waived = 0
+proposals = []
 bad = {}
+cited_comment_only = {}   # finding 13 half B: doc cites a flag witnessed only by a comment
 for d in docs:
     text = open(d, encoding="utf-8", errors="replace").read()
-    for m in INV.finditer(text):
+    lines = text.split("\n")
+    offs, acc = [], 0
+    for ln in lines:
+        offs.append(acc)
+        acc += len(ln) + 1
+    for m in HEAD_RE.finditer(text):
         tool = m.group(1)
-        for fl in FLAG.findall(m.group(2)):
+        i = bisect.bisect_right(offs, m.start()) - 1
+        scope = None                      # computed lazily; only unreachable flags need it
+        for fl in _command_flags(text, m.end()):
             # A trailing hyphen is never a real flag: it is the stub of a family template
             # the extractor truncated — `solve --null-<family>`, `--null-*`.
             if fl.endswith("-") or fl in BUILTIN:
                 continue
             total += 1
             if fl in have[tool]:
+                if fl in comment_only[tool]:
+                    cited_comment_only.setdefault((tool, fl), set()).add(d)
                 continue
             if (tool, fl) in NARRATION:
                 waived += 1
+                continue
+            if scope is None:
+                scope = _proposal_scope(lines, i, m.start() - offs[i])
+            hit = [k for k in PROPOSAL if k in scope]
+            if hit:
+                # PER-SITE, not per-flag: the same flag proposed in one doc and asserted as
+                # runnable in another must still FAIL at the second site.
+                proposals.append((d, i + 1, tool, fl, hit[0]))
                 continue
             bad.setdefault((tool, fl), set()).add(d)
 
@@ -10485,15 +12316,29 @@ if not total:
     print("  [FAIL] zero command-flag uses compared — vacuous, treated as failure.")
     sys.exit(1)
 
-print("  scanned %d docs, %d documented command-flag use(s), %d declared-narration waiver(s)"
-      % (len(docs), total, waived))
+print("  scanned %d docs, %d documented command-flag use(s), %d declared-narration waiver(s),"
+      " %d proposal-marker waiver(s), %d flag(s) witnessed ONLY by a source comment"
+      % (len(docs), total, waived, len(proposals), len(cited_comment_only)))
+for (d, ln, tool, fl, kw) in sorted(proposals):
+    print("  [prop] %s %s — %s:%d names it as a PROPOSAL (%r), not as a runnable command"
+          % (tool, fl, d, ln, kw))
+for (tool, fl), ds in sorted(cited_comment_only.items()):
+    print("  [FAIL] %s %s — its ONLY quoted occurrence in %s is on a comment line, so the"
+          % (tool, fl, TOOLS[tool]))
+    print("         \"real flag\" set accepted it on the strength of narration, not code.")
+    for d in sorted(ds):
+        print("         cited as runnable in %s" % d)
+
 if bad:
     for (tool, fl), ds in sorted(bad.items()):
         print("  [FAIL] %s %s — not a flag of %s" % (tool, fl, TOOLS[tool]))
         for d in sorted(ds):
             print("         cited in %s" % d)
+elif cited_comment_only:
+    pass                      # already reported above; the [ok] claim must not be printed
 else:
-    print("  [ok] every documented reproduction command resolves to a real flag")
+    print("  [ok] every documented reproduction command resolves to a real flag whose witness"
+          " in the source is code, not a comment")
 
 # --- LEG 2 (REPORT-ONLY, 2026-08-11): a doc that PUBLISHES a measured figure and names no
 # way to re-derive it. LEG 1 asks whether a documented command RESOLVES; it can only ask that
@@ -10519,8 +12364,13 @@ else:
 #   * scripts/pre_commit_registry_gate.sh runs only `retract retract-figures ledger-phrases
 #     ledger-figures appendonly-head appendonly-history`, and a WARN-only `retract`/
 #     `retract-figures` pair on the doc-corpus path.
-# So TODAY a LEG 2 false positive stops nothing: it prints a [note] to whoever ran the mode by
-# name, and this gate reaches no hook at all.
+# 🔴 THAT VERIFICATION WAS TRUE ON 2026-08-11 AND IS NO LONGER TRUE — GATE 25 was promoted into
+# `all` on 2026-09-02, so it now runs on every blocking pre-push. The three bullets above are
+# KEPT as the dated record of how the exclusion was verified rather than assumed; what changed is
+# the third one. LEG 2 is unaffected and that is the point of having settled it early: it cannot
+# move the exit code (`sys.exit(1 if bad else 0)`; nothing below touches `bad`), so what promotion
+# made blocking is LEG 1 alone. A LEG 2 [note] on a pre-push run is a question, not a finding, and
+# the `all` banner now says so in its own text.
 #
 # THE REASONING IS KEPT BECAUSE IT IS CORRECT ABOUT THE CASE IT WAS WRITTEN FOR. `all` IS
 # wired into pre-push as blocking, and GATE 25's header says promotion into `all` is the plan
@@ -10580,6 +12430,33 @@ else:
 FIG = re.compile(r"[0-9][0-9,]*[0-9]")
 REPRO_PATH = re.compile(r"`(?:bash\s+)?scripts/[a-z0-9_./-]+\.sh")
 
+# BUNDLE-LOCAL INSTRUMENTS (added 2026-08-16). reports/evidence/*/ bundles ship the script
+# that produced their figures NEXT TO the document -- f11/compute_f11_bf.py,
+# r11/r11_phase2_battery.sh, f1/f1_orbit_dp.py. Those files ARE a reproduction path, and
+# before this recognizer existed LEG 2 flagged six of them: precisely the failure this
+# gate's own header names as the one to avoid, "a [note] should mean 'this file offers the
+# reader nothing', not 'this file offers something my extractor does not recognise'".
+#
+# THE ANTI-GAMING PROPERTY IS EXISTENCE, NOT WORDING. A `**Reproduce:**` directive clears a
+# file only when the script it names is REALLY THERE, in the same directory, on disk. Writing
+# the sentence is not enough; a renamed or deleted instrument re-flags the file automatically.
+# That is deliberately stricter than the four clearing rules above, three of which (a fenced
+# block, a tests.py mention, a scripts/*.sh backtick) clear on text alone.
+#
+# STILL REPORT-ONLY. This widens what counts as cleared; it does not touch the exit code,
+# which is taken from LEG 1 alone, per this gate's header.
+REPRO_LOCAL = re.compile(r"\*\*Reproduce:?\*\*[^\n]*?`(?:python3?\s+|bash\s+)?"
+                         r"([a-z0-9_][a-z0-9_.-]*\.(?:py|sh))`")
+
+def _local_instrument(doc_path, text):
+    """A **Reproduce:** directive naming a script that EXISTS beside the document."""
+    import os
+    d = os.path.dirname(doc_path)
+    for m in REPRO_LOCAL.finditer(text):
+        if os.path.exists(os.path.join(d, m.group(1))):
+            return True
+    return False
+
 def _grouped(tok):
     """True for a comma-grouped integer: leading group 1-3 digits, every later group 3."""
     g = tok.split(",")
@@ -10596,14 +12473,21 @@ for d in docs:
     figs = sorted({t for t in FIG.findall(text) if _grouped(t)}, key=lambda s: (-len(s), s))
     if not figs:
         continue
-    if (INV.search(text) or "```" in text or REPRO_PATH.search(text)
-            or "tests.py" in text):
+    # `HEAD_RE` replaced `INV` here 2026-09-03 with finding 13 half A. Both ask the same
+    # boolean question — does this doc contain a tool invocation carrying at least one flag —
+    # and HEAD_RE is INV's head with the flag run moved into a lookahead, so the match SET is
+    # identical. Measured: LEG 2's doc counts are unchanged. (Caught by READING the output: the
+    # first cut of half A deleted INV and left this line, and LEG 2 printed a NameError
+    # traceback while LEG 1 printed its [ok] — a gate whose interpreter fails mid-run.)
+    if (HEAD_RE.search(text) or "```" in text or REPRO_PATH.search(text)
+            or "tests.py" in text or _local_instrument(d, text)):
         continue
     naked.append((d, figs))
 
 print("  -- LEG 2 (REPORT-ONLY): a published figure whose file names no way to re-derive it --")
 print("  [note] LEG 2 read %d doc(s); %d publish a comma-grouped figure and carry no tool"
-      " invocation, no fenced block, no scripts/*.sh path and no tests.py mention"
+      " invocation, no fenced block, no scripts/*.sh path, no tests.py mention and no"
+      " **Reproduce:** directive naming a script that exists beside them"
       % (len(docs), len(naked)))
 for d, figs in naked:
     print("  [note] %s — %d figure(s), largest %s" % (d, len(figs), figs[0]))
@@ -10612,7 +12496,10 @@ print("          PASS verdict. A [note] is a QUESTION — 'can a reader re-deriv
 print("          a finding; an index or a narrative may legitimately carry a figure whose")
 print("          reproduction lives in the report it links to.)")
 
-sys.exit(1 if bad else 0)
+# `cited_comment_only` joins `bad` in the exit code (finding 13 half B). It is kept as its own
+# name rather than folded into `bad` so the two FAILs read differently: `bad` is "no such flag",
+# this is "the flag's only witness is narration". LEG 2 still cannot move the exit code.
+sys.exit(1 if (bad or cited_comment_only) else 0)
 PY
   local rc=$?
   if [ "$rc" != "0" ]; then
@@ -10625,8 +12512,5327 @@ PY
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# GATE 26 — a count labelled CANONICAL may not exceed its own factorial ceiling.
+#
+# WHY THIS GATE AND NOT ANOTHER SWEEP. The "≈3×10³⁷ distinct canonical orderings" figure was
+# withdrawn on 2026-08-24 by enumerating nineteen sites that matched the STRING. Four days later,
+# building this gate found the same figure still live at five more (`enumeration/LEADERBOARD.md:3`
+# and `:170`, `documentation/SOLVE_SUMMARY.md:178` and `:211`, `documentation/CITATIONS.md:97`) and
+# the same DEFECT live at five per-branch sites written as `10³⁶`. None of the ten matched a search
+# for `3.3×10³⁷`, because a decomposition (`10³⁶` per branch), a restatement ("valid arrangements")
+# and a hyphenation (`distinct-canonical`) are not the string. A sweep keyed on a figure cannot find
+# that figure's rewordings; only a check keyed on the PROPERTY can.
+#
+# THE PROPERTY, and it needs no estimate to state. The deduplicated object is a PAIR ORDERING. C4
+# pins pair 1, leaving 31 to order, so there are at most 31! ≈ 8.2228×10³³ canonical orderings in
+# the whole space — and every canonical count published here is a count of a subset of that set.
+# So: a figure labelled canonical whose magnitude exceeds 31! is wrong on arithmetic alone, with no
+# estimator, sampling argument or distributional assumption involved.
+#
+# 🔴 THE CEILING IS DERIVED HERE, NOT READ FROM A DOCUMENT. log10(31!) is summed in the gate. If it
+# were grepped out of CORRECTIONS.md the gate would be checking the corpus against itself, and a
+# wrong ceiling in the doc would license the very figures it is supposed to refuse — the
+# verifier-closure defect this suite keeps finding. An INDEPENDENT derivation is the whole point.
+#
+# 🔴 WHY THE BINDING IS TIGHT AND MEASURED. The first cut required only that "canonical" appear
+# somewhere on the LINE. Measured against the corpus: 68 hits, essentially all false — raw figures
+# (1.3287×10³⁸ raw C1–C5, 1.097051×10³⁹ complete C1/C2/C4/C5) sitting on lines that mention the word
+# elsewhere. Both are correctly above 31!, because the RAW ceiling is 31!·2³¹ ≈ 1.77×10⁴³. A gate
+# firing on 68 sites reports nothing — the always-fires failure that has killed audits here before.
+# Requiring "canonical" within 40 characters of the figure, and no "raw" in that same window, takes
+# it to the real defects and their quotations.
+#
+# EXCLUSIONS, each with its reason, because an unexplained exclusion is a hole:
+#   * a window naming `30!`/`31!` or "ceiling" — that is the ceiling STATEMENT, not a claim.
+#   * a line already carrying WITHDRAWN or LABEL CORRECTED — marked is the cured state.
+#   * "canonical-leaf" / "canonical tree" — TR-10 uses these for leaves OF the canonical search
+#     tree, i.e. RAW C1–C5 leaves, not deduplicated orderings. Its 1.3275×10³⁸ is the raw estimate
+#     and is correct. That the same word carries both senses in this corpus is a real terminology
+#     hazard; it is recorded rather than enforced here, because this gate must not adjudicate it.
+#   * `documentation/CORRECTIONS.md` figures inside a `code span` — the ledger's job is to quote the
+#     figure it withdraws, and GATE 10a makes it append-only, so it could not be edited even if the
+#     quotation were wrong.
+#
+# ---------------------------------------------------------------------------------------------
+# LEG 2 (2026-09-02) — THE SAME PROPERTY, IN ASCII SCIENTIFIC NOTATION.
+#
+# 🔴 THE DEFECT THIS LEG EXISTS FOR IS THE NOTATION, NOT THE ARITHMETIC. Measured before it was
+# written, by planting ONE claim twice in `documentation/PROJECT_OVERVIEW.md`:
+#     "about 3.3×10³⁷ distinct canonical orderings"  -> GATE 26 FAILS  (rc 1)
+#     "about 3.3e37 distinct canonical orderings"    -> GATE 26 PASSES (rc 0)
+# Identical claim, identical magnitude, identical window. LEG 1's pattern requires the Unicode
+# superscript form, so a figure typed the way the solver PRINTS it — `est=1.328702e38` — walked
+# through a gate built to refuse exactly that figure. A gate that can be evaded by changing the
+# keyboard is not checking the property it says it checks.
+#
+# 🔴 WHY NOT THE REGEX THAT WAS PRESCRIBED. The adjudicated form was the bare
+# `\d(?:\.\d+)?[eE]\+?\d+`. It was PLANT-TESTED BEFORE BEING ADOPTED, and it is unusable:
+# run over the corpus with every one of LEG 1's other filters applied, it fires on EIGHT sha256
+# fragments in five files and on nothing else —
+#   documentation/HISTORY.md:2014 (`…df2495e7999315afc…` -> 5e7999315),  :2268, :4784, :4786, :4808,
+#   documentation/PERFORMANCE_HISTORY.md:424 (`2cc966e48399841e…` -> 6e48399841),
+#   documentation/PROJECT_OVERVIEW.md:109, runs/20260419_100T_d3_d128westus3/README.md:3
+# — because a hex digest contains `e` between digits, and `9a968fa21f74e36ad…` therefore reads as
+# 4×10³⁶. Eight false positives and zero true ones is the always-fires failure this gate's own
+# charter (above) was written to refuse; it would be switched off within a day.
+#
+# THE TWO GUARDS, AND WHAT EACH IS INDEPENDENTLY WORTH — MEASURED, NOT ASSERTED:
+#   (a) hex-context lookarounds `(?<![0-9a-fA-F.])…(?![0-9a-fA-F])`. Corpus-wide they cut the
+#       candidate set from 628 raw matches to 181, and on their own they suppress all eight of the
+#       sha fragments above.
+#   (b) the code-span skip, which LEG 1 grants only to CORRECTIONS.md, applied HERE to every file.
+#       On its own it ALSO suppresses all eight, because all eight are inside backticks.
+# So on today's corpus either guard alone would do, and that is exactly why BOTH ship: (b) covers a
+# digest quoted as `code`, (a) covers one written bare in prose, and each is a real shape.
+#
+# 🔴 THE RECORD, RUN 2026-09-02 ON A 91-FILE COPY OF THIS CORPUS. Every line below is measured
+# output, not a description of what the code should do. Reproduce it by appending the quoted line
+# to `documentation/PROJECT_OVERVIEW.md` and running `scripts/doc_gates.sh canonical-ceiling`.
+#
+#   PRE-FIX BASELINE, this leg absent — the defect and the notation separated:
+#     "about 3.3×10³⁷ distinct canonical orderings"  -> [FAIL] ... log10=37.52 exceeds ...   rc 1
+#     "about 3.3e37 distinct canonical orderings"    -> [ok] every canonical-labelled ...     rc 0
+#   RED, this leg present:
+#     "about 3.3e37 distinct canonical orderings"           -> [FAIL] '3.3e37' ... rc 1
+#     "the canonical count is est=1.328702e38 for the ..."  -> [FAIL] '1.328702e38' ... rc 1
+#   NEGATIVE CONTROLS, this leg present — silence, and silence for the stated reason:
+#     "the raw canonical-tree leaf estimate is est=1.328702e38"      -> rc 0 (the raw carve-out)
+#     "560T canonical sha 9a968fa21f74e36a…" written BARE            -> rc 0, hex census 447->449
+#     "the canonical layer prints `leaves_canonical : est=1.328702e38`" -> rc 0, span census 0->1
+#   Each control moves the census counter that names its own guard, so the silence is attributed
+#   rather than assumed.
+#
+#   MUTANTS — each removes exactly ONE defence from a copy of this script and is then shown to be
+#   caught by the case that defence was holding. A red test proves the checker fires on a case
+#   that was thought of; a mutant proves it fires on one deliberately hidden from it.
+#     MUTANT A  hex-context lookarounds deleted (i.e. the PRESCRIBED regex adopted verbatim)
+#               -> fires on the BARE sha control: [FAIL] '4e36' is labelled CANONICAL, log10=36.60
+#               real gate on the same input: rc 0.   Guard (a) is load-bearing.
+#     MUTANT B  the all-files code-span skip deleted, nothing else
+#               -> fires on the quoted-output control: [FAIL] '1.328702e38' ... log10=38.12
+#               real gate on the same input: rc 0.   Guard (b) is load-bearing.
+#     MUTANT C  the LEG 2 pattern made unmatchable
+#               -> [FAIL] GATE 26 LEG 2 matched ZERO ... candidates, rc 1.  The dead-leg check
+#               ERRORS instead of passing, which is the whole point of it.
+#   Corpus-wide regression: `doc_gates.sh all` before and after this leg differ by exactly the
+#   three LEG 2 census lines — no finding gained, and none suppressed.
+#
+# ⚠ OWED: a permanent `--selftest` fire-proof pair for this leg. It is NOT written here because it
+#   could not be run — `--selftest` reverts the whole tree with `git checkout -- .`, and this leg
+#   landed during a long no-commit window with other lanes' uncommitted work in the tree. An
+#   assertion that has never been executed is the no-op-assertion shape this suite keeps finding,
+#   and shipping one blind would be worse than the transcript above. Write it, and RUN it, on a
+#   clean committed tree.
+#
+# WHY THE CODE-SPAN SKIP IS WIDER HERE THAN IN LEG 1, and why that is not a hole. In this corpus
+# ASCII scientific notation is the SOLVER'S OUTPUT FORMAT — `est=1.328702e38  95%CI=[…]`. It
+# appears inside backticks because it is a transcript of what a tool printed, and a transcript is
+# evidence, not a claim; prose claims here are written in the superscript form, which LEG 1 still
+# covers with CORRECTIONS.md as its only exemption. The skip is therefore scoped to the notation
+# that only ever appears as quoted output — and it is AUDITED rather than trusted: the gate prints
+# how many candidates each guard suppressed, so the exemption cannot grow in silence.
+#
+# 🔴 A LEG THAT SCANS NOTHING HAS CLEARED NOTHING. If the ASCII pattern matches zero candidates
+# anywhere in the corpus, this leg FAILS instead of passing. Reaching that state means either the
+# corpus lost every scientific-notation figure it has, or the pattern broke — and neither of those
+# is a clean tree. The same reasoning as the EMPTY-corpus check below.
+#
+# 🔴 DO NOT "SIMPLIFY" EITHER GUARD BACK OUT. The prescribed one-liner is shorter and it is wrong;
+# the eight sites and the two mutants above are the record of why.
+# ---------------------------------------------------------------------------------------------
+gate_canonical_ceiling() {
+  echo "== GATE 26: no count labelled CANONICAL may exceed its own factorial ceiling =="
+  local out rc=0
+  out=$(printf '%s\n' "$DOCS" | python3 -c '
+import sys, io, re, math
+SUP={"⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9"}
+NEG="⁻"
+CEIL=sum(math.log10(k) for k in range(1,32))          # log10(31!), derived HERE
+pat=re.compile(r"(\d(?:[.,]\d+)?)\s*[×x]\s*10([" + "".join(SUP) + NEG + r"]+)")
+# LEG 2. The lookarounds are the whole difference between a gate and a sha-fragment siren.
+sci=re.compile(r"(?<![0-9a-fA-F.])(\d(?:\.\d+)?)[eE]\+?(\d+)(?![0-9a-fA-F])")
+lax=re.compile(r"\d(?:\.\d+)?[eE]\+?\d+")   # the PRESCRIBED form, kept only to size guard (a)
+span=re.compile(r"`[^`]*`")
+files=[l.strip() for l in sys.stdin if l.strip()]
+if not files:
+    print("EMPTY"); sys.exit(0)
+n=0; sci_cand=0; sci_hex=0; sci_span=0
+for f in files:
+    try: lines=io.open(f,encoding="utf-8").read().splitlines()
+    except OSError as e:
+        print("READFAIL\t%s\t%s" % (f,e)); n+=1; continue
+    for ln,line in enumerate(lines,1):
+        if "WITHDRAWN" in line or "LABEL CORRECTED" in line: continue
+        low=line.lower()
+        spans=[(m.start(),m.end()) for m in span.finditer(line)]
+        for m in pat.finditer(line):
+            if NEG in m.group(2): continue
+            try:
+                v=math.log10(float(m.group(1).replace(",","")))+int("".join(SUP[c] for c in m.group(2)))
+            except (ValueError,KeyError): continue
+            if v<=CEIL+0.01: continue
+            w=low[max(0,m.start()-40):m.end()+40]
+            if "canonical" not in w: continue
+            if "raw" in w: continue
+            if re.search(r"3[01]!|ceiling", w): continue
+            if "canonical-leaf" in w or "canonical tree" in w: continue
+            if f=="documentation/CORRECTIONS.md" and any(a<=m.start() and m.end()<=b for a,b in spans): continue
+            n+=1
+            print("HIT\t%s\t%d\t%s\t%.2f\t%s" % (f,ln,m.group(0),v,line[max(0,m.start()-60):m.end()+60].strip()[:150]))
+        # ---- LEG 2: the same property written the way the solver prints it ----
+        sci_cand+=len(sci.findall(line))
+        sci_hex+=len(lax.findall(line))-len(sci.findall(line))
+        for m in sci.finditer(line):
+            try:
+                v=math.log10(float(m.group(1)))+int(m.group(2))
+            except (ValueError,OverflowError): continue
+            if v<=CEIL+0.01: continue
+            w=low[max(0,m.start()-40):m.end()+40]
+            if "canonical" not in w: continue
+            if "raw" in w: continue
+            if re.search(r"3[01]!|ceiling",w): continue
+            if "canonical-leaf" in w or "canonical tree" in w: continue
+            # code-span skip, ALL files. Reason in the LEG 2 header block. Counted, never silent.
+            if any(a<=m.start() and m.end()<=b for a,b in spans):
+                sci_span+=1; continue
+            n+=1
+            print("HIT\t%s\t%d\t%s\t%.2f\t%s" % (f,ln,m.group(0),v,line[max(0,m.start()-60):m.end()+60].strip()[:150]))
+print("SCI\t%d\t%d\t%d" % (sci_cand,sci_hex,sci_span))
+print("CEIL\t%.6f" % CEIL)
+') || { echo "  [FAIL] GATE 26 could not run its scanner — NOTHING was checked."; return 1; }
+  if printf '%s\n' "$out" | grep -qx 'EMPTY'; then
+    echo "  [FAIL] the markdown corpus reached this gate EMPTY — nothing was checked."
+    return 1
+  fi
+  local ceil; ceil=$(printf '%s\n' "$out" | awk -F'\t' '$1=="CEIL"{print $2}')
+  # LEG 2's census. A leg that matched nothing corpus-wide is not a leg that cleared the corpus.
+  local sci_cand sci_hex sci_span
+  sci_cand=$(printf '%s\n' "$out" | awk -F'\t' '$1=="SCI"{print $2}')
+  sci_hex=$(printf '%s\n' "$out" | awk -F'\t' '$1=="SCI"{print $3}')
+  sci_span=$(printf '%s\n' "$out" | awk -F'\t' '$1=="SCI"{print $4}')
+  if ! printf '%s\n' "$sci_cand" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] GATE 26 LEG 2 printed no census line — the ASCII scientific-notation leg did not"
+    echo "         run, so nothing it is responsible for was checked."
+    return 1
+  fi
+  if [ "$sci_cand" -eq 0 ]; then
+    echo "  [FAIL] GATE 26 LEG 2 matched ZERO scientific-notation candidates in the whole corpus."
+    echo "         Either the corpus lost every 'NeNN' figure it has, or the pattern broke. A leg"
+    echo "         that scans nothing has cleared nothing, so this is a finding, not a pass."
+    return 1
+  fi
+  while IFS=$'\t' read -r tag f ln fig v ctx; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f:$ln  '$fig' is labelled CANONICAL but log10=$v exceeds log10(31!)=$ceil"
+    echo "         … $ctx"
+    rc=1
+  done < <(printf '%s\n' "$out")
+  while IFS=$'\t' read -r tag f err; do
+    [ "$tag" = READFAIL ] || continue
+    echo "  [FAIL] $f could not be read ($err) — a file this gate cannot read is not a file it cleared."
+    rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         A canonical count is a count of pair orderings. C4 pins pair 1, leaving 31 to order,"
+    echo "         so at most 31! ≈ 8.2228×10³³ exist. Either the figure is RAW and mislabelled (say raw,"
+    echo "         and check it against 31!·2³¹ ≈ 1.77×10⁴³), or it is withdrawn. See CORRECTIONS.md 2026-08-28."
+    return 1
+  fi
+  echo "  [ok] every canonical-labelled magnitude sits under log10(31!)=$ceil (ceiling derived in-gate)"
+  echo "  [ok] LEG 2 (ASCII 'NeNN'): $sci_cand candidates examined; $sci_hex suppressed as hex/sha"
+  echo "       fragments by the hex-context guard; $sci_span suppressed as quoted output inside a"
+  echo "       code span. Both suppression counts are printed so neither exemption can grow unseen."
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 27 — a line restating a WITHDRAWN figure must carry a supersession marker.
+#
+# WHY THIS EXISTS AND WHY IT IS NOT GATE 3b. GATE 3b demands a content-anchored allowlist row
+# for EVERY occurrence ("no auto-exemption"), which is right for a statistic with a handful of
+# mentions. It does not scale to the project's LARGEST withdrawals: "3×10³⁷" alone occurs 40
+# times across 14 files, nearly all legitimate prose that already carries a marker. Registering
+# it in 3b would need ~40 hand-anchored rows — which is precisely why the headline 2026-08-24
+# withdrawal was NEVER registered anywhere, leaving the biggest retraction in the project
+# unguarded (Q-342).
+#
+# 🔴 MEASURED, NOT HYPOTHETICAL. Merging origin/v4-query-program restores
+# enumeration/LEADERBOARD.md lines 3 and 170, which state ≈3×10³⁷ with NO marker, silently
+# undoing commit b8d45b5e. Verified 2026-08-28 by copying the branch file over the corrected
+# one: `doc_gates retract-figures` PASSED and `doc_gates canonical-ceiling` PASSED. A 201-hunk
+# merge whose acceptance harness cannot see a reverted correction is worse than no merge.
+#
+# The rule is deliberately WEAKER than 3b's: it cannot judge whether a marker is apt, only that
+# some supersession word is on the line. That is the case a merge regression produces — a
+# reintroduced figure with no marker at all.
+#
+# documentation/CORRECTIONS.md is EXEMPT, and this is the only exemption. It is the ledger of
+# record: quoting a withdrawn figure is its job, all 12 of its unmarked lines do exactly that,
+# and GATE 10a makes it append-only so it cannot be quietly rewritten.
+gate_withdrawn_markers() {
+  echo "== GATE 27: withdrawn figures are never restated without a supersession marker =="
+  local REG=documentation/WITHDRAWN_FIGURES.tsv
+  require_rows "$REG" "A withdrawn figure that nothing registers is a figure nobody re-checks." || return 1
+  local out
+  out=$(printf '%s\n' "$DOCS" | python3 -c '
+import sys, io, re
+REG="documentation/WITHDRAWN_FIGURES.tsv"
+EXEMPT={"documentation/CORRECTIONS.md"}
+MARK=re.compile(r"withdrawn|label\s+corrected|corrected\s+20|scoped\s+20|superseded|retract|run\s+description\s+corrected", re.I)  # \\s+ not " ": a marker wrapping as "[CORRECTED\\n2026-08-28" is the normal case in this corpus and a literal space missed every one of them
+figs=[]
+for ln in io.open(REG,encoding="utf-8"):
+    if not ln.strip() or ln.startswith("#"): continue
+    c=ln.rstrip("\n").split("\t")
+    if len(c)>=2 and c[0].strip(): figs.append((c[0],c[1]))
+if not figs: print("NOFIGS"); sys.exit(0)
+files=[l.strip() for l in sys.stdin if l.strip()]
+if not files: print("EMPTY"); sys.exit(0)
+n=0; nfiles=0; pop_rows=0; pop_blocks=0
+for f in files:
+    if f in EXEMPT: continue
+    nfiles+=1
+    try: lines=io.open(f,encoding="utf-8").read().splitlines()
+    except OSError as e: print("READFAIL\t%s\t%s"%(f,e)); n+=1; continue
+    # 🔴 PARAGRAPH WINDOW, not a single line. Measured 2026-08-28 while building this gate: a
+    # line-level rule flagged reports/TR4:72 and DISTRIBUTIONAL_ANALYSIS.md:360, both of which
+    # ARE correctly marked -- TR4 carries the figures on one line and its marker on the next
+    # (wrapped prose), and DISTRIBUTIONAL holds "null P = 0.034" INSIDE the quoted text of its own
+    # correction marker. Flagging correctly-marked prose is the always-fires failure that gets a
+    # gate ignored. A reader sees the paragraph, so the gate reads the paragraph: blank-line
+    # delimited, which is how markdown blocks are actually bounded.
+    para=[]; start=[]; cur=[]; cs=1
+    for i,line in enumerate(lines,1):
+        if line.strip()=="":
+            if cur: para.append("\n".join(cur)); start.append(cs)
+            cur=[]; cs=i+1
+        else: cur.append(line)
+    if cur: para.append("\n".join(cur)); start.append(cs)
+    # V-3 (Codex V2-04 #4, root R10 guarantee-granularity mismatch, 2026-09-02): the paragraph
+    # window is right for WRAPPED PROSE and wrong for TABLES. A table row is a self-contained
+    # claim -- a reader takes "| headline | 3x10^37 |" at face value whether or not some OTHER
+    # row of the same table says "corrected 2026-08-28". Measured before this change: an
+    # unmarked withdrawn figure in a table row whose neighbouring row carried a marker passed
+    # rc=0 while the same row in a marker-free block failed rc=1. So: table rows (lines that
+    # begin with "|") are judged PER ROW; everything else keeps the paragraph window. The [ok]
+    # sentence below states exactly that split, so the guarantee and the scan agree.
+    for blk,bs in zip(para,start):
+        blines=blk.split("\n")
+        rows=[(j,l) for j,l in enumerate(blines) if l.lstrip().startswith("|")]
+        prose=[(j,l) for j,l in enumerate(blines) if not l.lstrip().startswith("|")]
+        # POPULATION, counted before any marker test: how many rows / prose blocks state a
+        # registered figure at all. Printed, and a zero fails -- the registry names figures
+        # with ~40 known occurrences, so a scan that matched none of them is a broken scan.
+        pop_rows+=sum(1 for j,l in rows if any(fig in l for fig,why in figs))
+        if prose and any(fig in "\n".join(l for j,l in prose) for fig,why in figs): pop_blocks+=1
+        hit=False
+        for j,l in rows:
+            if MARK.search(l): continue
+            for fig,why in figs:
+                if fig in l:
+                    print("HIT\t%s\t%d\t%s\t%s"%(f,bs+j,fig,l.strip()[:120])); n+=1; hit=True; break
+            if hit: break
+        if hit: continue
+        ptext="\n".join(l for j,l in prose)
+        if not prose or MARK.search(ptext): continue
+        for fig,why in figs:
+            if fig in ptext:
+                off=next((j for j,l in prose if fig in l),0)
+                bad_line=blines[off].strip()[:120]
+                print("HIT\t%s\t%d\t%s\t%s"%(f,bs+off,fig,bad_line)); n+=1; break
+print("POP\t%d\t%d\t%d"%(nfiles,pop_rows,pop_blocks))
+print("COUNT\t%d"%n)
+') || { echo "  [FAIL] GATE 27 scanner failed — NOTHING was checked."; return 1; }
+  printf '%s\n' "$out" | grep -qx 'EMPTY' && { echo "  [FAIL] corpus reached GATE 27 empty."; return 1; }
+  printf '%s\n' "$out" | grep -qx 'NOFIGS' && { echo "  [FAIL] $REG parsed to zero figures."; return 1; }
+  local pf pr pb
+  IFS=$'\t' read -r pf pr pb < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${pr:-}" | grep -qxE '[0-9]+' || ! printf '%s\n' "${pb:-}" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] GATE 27 printed no population census — the scan did not complete, so nothing it"
+    echo "         is responsible for was checked."
+    return 1
+  fi
+  if [ $((pr+pb)) -eq 0 ]; then
+    echo "  [FAIL] GATE 27 found ZERO table rows and ZERO prose blocks stating ANY registered withdrawn"
+    echo "         figure across $pf files. The registry names figures with dozens of known occurrences,"
+    echo "         so a scan that matched none of them is a broken scan, not a clean corpus."
+    return 1
+  fi
+  local rc=0
+  while IFS=$'\t' read -r tag f ln fig line; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f:$ln restates withdrawn figure '$fig' with NO supersession marker"
+    echo "         $line"
+    rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         A merge or edit that reintroduces a withdrawn figure unmarked is the exact"
+    echo "         regression this gate exists for. Add the marker, or withdraw the line."
+    return 1
+  fi
+  echo "  [ok] every TABLE ROW (judged per row) and every PROSE PARAGRAPH (judged as a block, so a"
+  echo "       marker on the wrapped next line counts) that states a registered withdrawn figure"
+  echo "       carries a supersession marker — population: $pf files scanned, $pr figure-bearing"
+  echo "       table rows and $pb figure-bearing prose blocks judged"
+  return 0
+}
+
+gate_framing_era() {
+  echo "== GATE 28: a published sha256sum recipe that ignores the gz-framing era =="
+  # Q-346. DEPLOYMENT.md:910 published `sha256sum -c sub_<branch>.sha256` as THE archive
+  # verification recipe. Since #169 (d8671550, 2026-06-17) shards are gz-framed by default and
+  # the .sha256 sidecar holds the LOGICAL (decompressed) sha, so that command hashes the gzip
+  # CONTAINER and prints FAILED on a byte-correct artifact. Measured 2026-08-29 with the shipped
+  # binary on a fresh --sub-branch run: sidecar 4cd43b2b…, container 6e4d49b8…, `sha256sum -c`
+  # rc=1 "FAILED", `gzip -dc | sha256sum` exact. A reader following the published recipe
+  # concludes the archive is corrupt. That is the phantom-drift direction the Q-324 commit
+  # itself calls the expensive kind.
+  #
+  # 🔴 WHY IT DOES NOT GREP FOR THE FIX'S OWN WORDING, which was the obvious design and is the
+  # implementation-shaped one. This gate derives its population from the corpus: every place a
+  # sha256sum recipe is actually PUBLISHED. The fix text is not privileged — a differently
+  # worded but genuinely era-qualified recipe passes, and my exact sentences with the era note
+  # deleted FAIL. What it requires is that the era is DISAMBIGUATED near the command, by any of
+  # the vocabulary the corpus already uses for it (#169 / SOLVE_COMPRESS=0 / gzip -dc / 1f 8b).
+  #
+  # 🔴 AND IT IS NOT SATISFIED BY ITS OWN EMPTINESS. If every `sha256sum -c` disappeared from
+  # the corpus this would pass vacuously while measuring nothing, which is the closure defect
+  # Codex N07 named: a verifier must be FALSE when its target is absent. So a population floor
+  # is asserted first, and a collapse is an ERROR, not a pass.
+  #
+  # 🔴 THE FLOOR COUNTS FILES, NOT MATCHING LINES, and that distinction was measured rather
+  # than guessed. The pre-fix corpus held exactly 2 recipe LINES in 2 files; the fix's own
+  # explanatory prose names `sha256sum -c` twice more, taking the line count to 4. A line
+  # floor of 2 would therefore have become satisfiable BY THE FIX'S OWN COMMENTARY — both
+  # real recipes could be deleted and the gate would still report a healthy population, which
+  # is the closure defect one level up. The file count is 2 before the fix and 2 after, so it
+  # tracks the subject instead of the fix.
+  local FLOOR=2
+  local out
+  out=$(python3 - "$FLOOR" <<'PY'
+import re, subprocess, sys, os
+floor = int(sys.argv[1])
+# Population: tracked markdown only. Untracked scratch files are not published.
+files = subprocess.run(["git","ls-files","*.md"], capture_output=True, text=True).stdout.split()
+if not files:
+    print("ERROR\tgit ls-files returned no markdown at all"); raise SystemExit(0)
+# A RECIPE, not a mention: `sha256sum -c` is only ever an executable instruction.
+RECIPE = re.compile(r'sha256sum\s+-c\b')
+# The era vocabulary already in use across the corpus for exactly this distinction. Any ONE of
+# these within the window disambiguates which framing the recipe assumes.
+ERA = re.compile(r'#169|SOLVE_COMPRESS=0|gzip\s+-dc|1f\s*8b|\bRAW\b|raw bytes|pre-#169', re.I)
+WINDOW = 14        # lines either side; a code fence plus its explanatory comment block
+pop = 0            # matching lines — reported, not floored
+sites = set()      # distinct files — this is what the floor guards
+bad = []
+for f in files:
+    try:
+        lines = open(f, encoding="utf-8", errors="replace").read().split("\n")
+    except OSError:
+        continue
+    for i, l in enumerate(lines):
+        if not RECIPE.search(l):
+            continue
+        pop += 1
+        sites.add(f)
+        lo, hi = max(0, i - WINDOW), min(len(lines), i + WINDOW + 1)
+        if not ERA.search("\n".join(lines[lo:hi])):
+            bad.append((f, i + 1, l.strip()[:110]))
+print("POP\t%d line(s) in %d file(s)" % (pop, len(sites)))
+if len(sites) < floor:
+    print("ERROR\tpopulation collapsed to %d file(s) (floor %d) — this gate is measuring nothing"
+          % (len(sites), floor))
+for f, ln, l in bad:
+    print("HIT\t%s\t%d\t%s" % (f, ln, l))
+PY
+) || { echo "  [FAIL] GATE 28 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"
+             echo "         A gate that passes because its subject vanished is not a green gate."
+             rc=1 ;;
+      HIT)   echo "  [FAIL] $a:$b publishes a sha256sum -c recipe with no framing-era qualifier"
+             echo "         $c"
+             echo "         Under the post-#169 default this command FAILS on a byte-correct artifact."
+             rc=1 ;;
+      POP)   echo "  [info] $a of published sha256sum -c recipe(s) in tracked markdown" ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every published sha256sum -c recipe states which framing era it assumes"
+  return 0
+}
+
+gate_author_directives() {
+  echo "== GATE 29: instructions to the AUTHOR surviving in published report prose =="
+  # Q-352. TR-8 shipped a full technical-report masthead over what were four SECTION SUMMARIES
+  # labelled "Structure (4 sections)", and a Verification Guide that addressed the WRITER, not the
+  # reader: "section 2 CAN BE WRITTEN so that NOTHING depends on the estimator's absolute value" and
+  # "PREFER the laptop-runnable framing throughout". reports/README.md lists TR-8 as a peer of
+  # TR-1..TR-11 with an evidence column and no draft marker anywhere, so a reader was invited to
+  # expect four written sections that do not exist.
+  #
+  # THE CLASS HAD ALREADY BEEN FIXED TWICE AND LEFT ONCE: TR-2 was relabelled at v1.13 and TR-3 was
+  # written out into prose, both for this exact defect; TR-8 was skipped. And the finding's own claim
+  # that TR-8 was the ONLY remaining case was wrong — TR-2 items 2 and 4 still carried
+  # "Method in one page:", "Verifiability box." and "One paragraph on ... honestly".
+  #
+  # 🔴 THE EXEMPTION IS THE WHOLE DESIGN, and calibration is what forced it. Measured before writing
+  # a line of this gate: after the fix, six of the eleven candidate patterns STILL matched 1-2 times
+  # each — because the revision rows that RECORD the removal necessarily QUOTE the removed phrases.
+  # A naive gate here would fire on the correction that fixed the defect: the tenth instance of the
+  # Q-383 self-defeating-gate class in a week, authored by the fix for a different one. So an
+  # occurrence is exempt when it sits in a revision-history row or inside a correction marker —
+  # the same shape GATE 27 uses for withdrawn figures.
+  #
+  # 🔴 CLOSURE, and it cannot be a population floor, because ZERO live hits is the GOAL state here.
+  # Instead the corrections themselves are the fixture: the gate must still FIND the quoted
+  # occurrences inside those revision rows. If the pattern set matches nothing anywhere — not even
+  # the rows that quote these phrases verbatim — the patterns have rotted and the gate is blind,
+  # which is an ERROR, not a pass.
+  local out
+  out=$(python3 - <<'PY'
+import re, subprocess, sys
+files = [f for f in subprocess.run(["git","ls-files","reports/*.md"],capture_output=True,text=True).stdout.split() if f]
+if not files:
+    print("ERROR\tgit ls-files matched no reports"); raise SystemExit(0)
+# Directive shapes: modal-about-the-document, and meta-nouns naming a part as a thing to produce.
+# 🔴 `can be written` ALONE IS TOO BROAD, and the gate's own first run proved it: it flagged
+# METHODS.md:105, "it can be written as 'positions/values match King Wen's'" — a MATHEMATICAL
+# can-be-expressed-as, not an instruction to an author. The discriminating feature of the real
+# defect is that the modal is applied to a DOCUMENT PART: "section 2 can be written so that...".
+# So the pattern is anchored to a section reference. This is the same lesson the CNKI passes paid
+# for in a different domain: a term that matches the topic is not the same as a term that matches
+# the shape you are hunting.
+PATS = [r'(?:section|§)\s*\d+\s+can be written', r'(?:section|§)\s*\d+\s+should be written',
+        r'\bPREFER\b', r'\bTODO\b',
+        r'One paragraph (?:of|on)\b', r'\bVerifiability box', r'in one page:',
+        r'Table of measured', r'note to self', r'\bwe (?:should|must) (?:write|add|state)\b',
+        r'\bfair summary:']
+RX = re.compile("|".join(PATS))
+# Exempt: a revision-history row, or a line inside a correction marker.
+def exempt(line):
+    t = line.lstrip()
+    return t.startswith('| v1.') or '⚠ **[' in line or 'CORRECTED' in line or 'relabelled' in line
+seen = live = 0
+hits = []
+for f in files:
+    try: lines = open(f, encoding='utf-8', errors='replace').read().split("\n")
+    except OSError: continue
+    for i, l in enumerate(lines, 1):
+        m = RX.search(l)
+        if not m: continue
+        seen += 1
+        if exempt(l): continue
+        live += 1
+        hits.append((f, i, m.group(0), l.strip()[:100]))
+print("SEEN\t%d" % seen)
+if seen == 0:
+    print("ERROR\tthe directive pattern set matches NOTHING anywhere — not even the revision rows that quote these phrases verbatim. The patterns have rotted; this gate is blind.")
+for f,i,w,l in hits:
+    print("HIT\t%s\t%d\t%s\t%s" % (f,i,w,l))
+# Structural leg: an outline heading must say it is summaries.
+for f in files:
+    try: body = open(f, encoding='utf-8', errors='replace').read()
+    except OSError: continue
+    for m in re.finditer(r'^#+ *Structure \((\d+) sections?\)\s*$', body, re.M):
+        print("BARE\t%s\t%d" % (f, body[:m.start()].count("\n")+1))
+PY
+) || { echo "  [FAIL] GATE 29 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      SEEN)  echo "  [info] $a occurrence(s) of the directive shapes, counting the corrections that quote them" ;;
+      HIT)   echo "  [FAIL] $a:$b addresses the AUTHOR, not the reader — '$c'"
+             echo "         $d"; rc=1 ;;
+      BARE)  echo "  [FAIL] $a:$b heading 'Structure (N sections)' does not say the items are SUMMARIES."
+             echo "         A masthead over an unlabelled outline invites a reader to expect sections that are not there."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] no report addresses its own author; every outline heading declares itself a summary list"
+  return 0
+}
+
+
+# ==================================================================================
+# GATES 30-35 (2026-09-02, code batch G1). Six legs queued in
+# roae-private/PROSE_LANE_FOLLOWUPS.md as "the gate half is not built".
+#
+# 🔴 EVERY ONE OF THESE WAS RED-TESTED BEFORE IT WAS TRUSTED — the defect was
+# reconstructed in a scratch clone, the gate was observed FAILING on it, and only then
+# was it observed passing on the clean tree. A gate that has only ever passed has not
+# been tested. The reconstructed defect for each is named in its own header.
+#
+# 🔴 THEY ALL FLATTEN. Four prose batches on 2026-09-02 found live sites only after
+# whitespace-flattening the file, because the phrase spanned a hard wrap — GATE 3's
+# lesson (a), relearned. `_g1_flatten` below is the shared normaliser and every text
+# leg here runs on its output, never on a raw line. Line numbers survive the flattening
+# through the `starts` offset table, so a finding still names a real source line.
+#
+# 🔴 A MISSING OR UNREADABLE INPUT IS AN ERROR, NEVER A ZERO. Each scanner emits
+# `ERROR\t...` on an unreadable file or a collapsed population and each shell wrapper
+# maps ERROR onto rc=1. This is the `[FAIL] ... printing 0 where it should have printed
+# ERROR` class the suite has already been bitten by once.
+#
+# 🔴 AND THEY ALL CARRY A POPULATION FLOOR, for Codex N07's verifier-closure invariant:
+# a verifier must be FALSE when its target is absent. A gate that passes because its
+# subject vanished from the corpus is measuring nothing. Floors are set BELOW today's
+# measured population and count the SUBJECT, never the fix's own commentary — the
+# distinction GATE 28's header records paying for.
+#
+# The shared python prelude is duplicated into each heredoc rather than sourced: these
+# are `python3 - <<'PY'` blocks with no import path between them, and a helper file
+# would be a new gate-support input with its own missing-input question.
+# ==================================================================================
+
+# _g1_py — the prelude every G1 scanner starts with. Emitted into the heredoc by the
+# caller so each scanner is self-contained; see the note above on why it is not a module.
+# flatten(text) -> (flat, starts): `flat` is the whole file whitespace-normalised onto
+#   ONE line (GATE 3's fold), `starts[i]` is the offset in `flat` at which source line
+#   i+1 begins, so lno() recovers an exact source line for any flat offset.
+# sent(flat,a,b): the flattened SENTENCE containing [a,b). Sentence, not line — the
+#   qualifier legs below all ask "does the same sentence also say X".
+# quoted(seg,a): True when offset a sits inside a quotation within seg. Callers pass the
+#   END of the match, not its start: the claim shapes below often begin OUTSIDE the quotation
+#   and end inside it (`called the k = 1 gain "the maximum by construction"`), and testing the
+#   start read that as unquoted. Measured - it was this gate's first false positive, at
+#   reports/TR4_SIZE_OF_THE_SPACE.md:345. A retracted
+#   phrase QUOTED by the correction that retired it is narration, not assertion, and
+#   exempting it is what stops these gates firing on their own fixes. Measured: without
+#   it, GATE 30 fails on documentation/CORRECTIONS.md:4496-4497 and GATE 31 on :4121,
+#   all three of which are the ledger describing the wording it removed.
+_g1_prelude() {
+cat <<'PRELUDE'
+import re, sys, bisect, subprocess
+_SUP = {'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4',
+        '⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9'}
+def desup(s):
+    out=[]; i=0
+    while i < len(s):
+        if s[i] in _SUP:
+            j=i
+            while j < len(s) and s[j] in _SUP: j+=1
+            out.append('^'+''.join(_SUP[c] for c in s[i:j])); i=j
+        else:
+            out.append(s[i]); i+=1
+    return ''.join(out)
+def corpus(pattern='*.md'):
+    r = subprocess.run(["git","ls-files",pattern], capture_output=True, text=True)
+    if r.returncode != 0:
+        print("ERROR\tgit ls-files failed (%s) - NOTHING was checked" % r.returncode.__str__())
+        raise SystemExit(0)
+    return [f for f in r.stdout.split() if f]
+def read(f):
+    # An unreadable tracked file is an ERROR, not an empty document. Returning '' here
+    # would make every text leg below report the file clean, which is the fail-open the
+    # suite has already shipped once.
+    try:
+        return open(f, encoding='utf-8', errors='replace').read()
+    except OSError as e:
+        print("ERROR\t%s is unreadable (%s) - it was NOT checked" % (f, e.strerror))
+        return None
+def flatten(t):
+    out=[]; starts=[]; off=0
+    for l in t.split("\n"):
+        s=" ".join(l.split())
+        if out: out.append(" "); off+=1
+        starts.append(off); out.append(s); off+=len(s)
+    return "".join(out), starts
+def lno(starts,pos):
+    return bisect.bisect_right(starts,pos)
+_SB = re.compile(r'(?<=[.!?])\s')
+def sent(flat,a,b):
+    s=0
+    for m in _SB.finditer(flat,0,a): s=m.end()
+    m=_SB.search(flat,b)
+    return flat[s:(m.start() if m else len(flat))]
+def quoted(seg,a):
+    return (seg.count('"',0,a) + seg.count('“',0,a) + seg.count('”',0,a)) % 2 == 1
+PRELUDE
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 30 — a pair-slot rotation-symmetry claim with no C3 exclusion.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P36 / Codex V2-F09 #1, "gate half".
+# THE DEFECT: reports/TR7_CIRCULAR_READING.md §6 and documentation/CIRCULAR_KING_WEN.md
+# §"Symmetry under closure" both asserted that, without C4, the 32 pair-slot rotations are
+# symmetries of the circular constraint system. They are not: under the absolute-position
+# C3 the suite actually uses, 21 of the 31 non-identity rotations of King Wen exceed the
+# 776 ceiling (rotate-4 = 888, rotate-16 = 1240). The claim is true only if C3 is dropped
+# or circularized, and neither sentence said so.
+#
+# 🔴 WHY A REGISTRY ROW IS NOT ENOUGH, and this is the finding's own argument: `RP-ed80aa5e`
+# catches the exact retired string. This class survived one adjudication and was then
+# REFILED at a sibling site, i.e. it recurs REWORDED, and a fixed string cannot see that.
+# So the gate keys on the CLAIM SHAPE (rotations + symmetry) and demands the exclusion,
+# not on any particular wording of it.
+#
+# RED TEST (2026-09-02, scratch clone): restored the pre-P36 sentence at
+# CIRCULAR_KING_WEN.md §"Symmetry under closure" - "the 32 pair-slot rotations would be
+# symmetries of a circular constraint system, alongside the B3 relabelings." with the
+# C3 clause deleted. Gate went [FAIL] naming that line. Restored; gate [ok].
+gate_rotation_c3() {
+  echo "== GATE 30: a pair-slot rotation-symmetry claim that does not name C3 =="
+  local FLOOR=4
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+
+floor = int(sys.argv[1])
+ROT = re.compile(r'(?:pair-slot|32)\s+rotations')
+SYM = re.compile(r'symmetr', re.I)
+C3  = re.compile(r'\bC3\b')
+pop = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in ROT.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        if not SYM.search(s):
+            continue          # a rotation mentioned outside a symmetry claim is not the subject
+        pop += 1
+        if quoted(s, s.find(m.group(0)) + len(m.group(0))):
+            continue          # the correction ledger quoting the wording it retired
+        if C3.search(s):
+            continue
+        print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:150]))
+print("POP\t%d" % pop)
+if pop < floor:
+    print("ERROR\tonly %d pair-slot rotation-symmetry sentence(s) found (floor %d) - the claim shape has been reworded out of this gate's reach, so it is measuring nothing" % (pop, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 30 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a pair-slot rotation-symmetry sentence(s) in the corpus" ;;
+      HIT)   echo "  [FAIL] $a:$b claims pair-slot rotations are symmetries without naming C3"
+             echo "         $c"
+             echo "         Under the absolute-position C3 they are not: 21 of the 31 non-identity"
+             echo "         rotations of King Wen exceed the 776 ceiling (rotate-4 = 888, rotate-16 = 1240)."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every rotation-symmetry claim states the C3 exclusion"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 31 — the S(k) marginal-gain curve, and the qualifier its maximum needs.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P34 / Codex V2-F06 charge 13,
+# "prescribed mechanisation". The charge's own rationale for wanting a machine: this is
+# the THIRD pass at one defect (v1.15 corrected the divisor, v1.16 found v1.15's
+# propagation incomplete, P34 found two more sentences), so the class needs a gate and
+# not a fourth reading.
+#
+# LEG 1 — ARITHMETIC. Every published per-boundary gain list must agree on its maximum,
+# and the divisor the extrapolation uses must BE that maximum. The 126.6-bit budget was
+# divided by 10.38, the k = 1 gain, asserted to be "the maximum by construction"; the
+# same section's own list contains 11.10 at k = 3. Greedy maximises the UNCONDITIONAL
+# gain and bounds no conditional one. Measured today: 4 lists, max 11.10 in all four.
+# Note the maximum is DERIVED from the corpus, not hardcoded - if every list moved
+# together the gate would follow them, which is correct; what it forbids is a divisor
+# sentence and a gain list that disagree.
+#
+# LEG 2 — THE QUALIFIER. A sentence calling a measured single-boundary gain "the
+# maximum" must say UNCONDITIONAL.
+# 🔴 THE NEEDLE ALONE FAILS ON CORRECT PROSE, measured before this leg was written and
+# the reason it has three exemptions rather than none:
+#   * TR4:280 - "deriving one requires the maximum single-boundary information gain over
+#     *all* boundaries and *all* conditioning contexts" is exactly RIGHT and needs no
+#     "unconditional"; it is already quantified over contexts. Hence the `supremum` exemption.
+#   * CORRECTIONS.md:4121 - the ledger QUOTING the retired sentence. Hence `quoted`.
+#   * HISTORY.md:5892 - narrates the divisor without attributing it to a first/greedy step.
+#     Hence the requirement that the sentence attribute the maximum to the first/greedy gain.
+# A gate that fired on any of these would be the self-defeating shape this suite keeps
+# catching: a rule red on the correction that fixed the thing it hunts.
+#
+# RED TESTS (2026-09-02, scratch clone), one per leg:
+#   LEG 1: changed TR4:302's list entry 11.10 -> 9.10, so the published max became 10.38
+#          while the divisor sentence still says 11.10. Gate [FAIL] on the divisor
+#          mismatch AND on the cross-file list disagreement. Restored; [ok].
+#   LEG 2: deleted the word "unconditional" from SEARCH_SPACE_SIZE.md:245. Gate [FAIL]
+#          naming that line. Restored; [ok].
+gate_sk_gains() {
+  echo "== GATE 31: the S(k) marginal-gain maximum, its divisor, and its qualifier =="
+  local LIST_FLOOR=3 DIV_FLOOR=2 MAX_FLOOR=3
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+
+list_floor, div_floor, max_floor = (int(a) for a in sys.argv[1:4])
+# A published per-boundary gain list: five or more two-decimal values, comma separated.
+LIST = re.compile(r'((?:\d+\.\d\d,\s*){4,}\d+\.\d\d)')
+# 🔴 THE VALUE, NOT THE SENTENCE. This read `is the divisor` and asked whether the
+# sentence mentioned the peak anywhere - and the red test walked straight through it,
+# because TR-4's sentence names BOTH 11.10 and 10.38 while asserting one of them is the
+# divisor. Swapping which one it asserts left the gate green. It now reads the number
+# that is actually claimed.
+DIV  = re.compile(r'(\d+\.\d+)\s+is the divisor')
+# The claim shape leg 2 hunts, and its three discriminators.
+MAXC = re.compile(r'maximum[^.]{0,80}?(?:single-boundary|per-boundary)[^.]{0,60}?gain'
+                  r'|the (?:first|k = 1|step 1)[^.]{0,60}?(?:being |is )?the maximum')
+FIRST = re.compile(r'\bfirst\b|\bgreedy\b|k *= *1|step 1|10\.38')
+# The maximum a floor argument actually needs: quantified over CONTEXTS, not over the
+# greedy path. A sentence that already says so needs no 'unconditional' and must not be
+# failed for its absence (reports/TR4_SIZE_OF_THE_SPACE.md:280). Deliberately NOT a bare
+# 'over all' - that would exempt any sentence containing the phrase, including one that
+# says 'across all five measured steps', which is the defect's own wording.
+SUPREMUM = re.compile(r'all\b[^.]{0,40}(?:conditioning|contexts)'
+                      r'|over \*?all\*? [^.]{0,40}(?:boundaries|contexts)|supremum')
+UNC = re.compile(r'unconditional', re.I)
+lists = []      # (file, line, values)
+divs  = []      # (file, line, sentence)
+maxes = []      # (file, line, sentence, offset-in-sentence)
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in LIST.finditer(flat):
+        vals = [float(x) for x in m.group(1).replace(" ", "").split(",")]
+        lists.append((f, lno(starts, m.start()), vals))
+    for m in DIV.finditer(flat):
+        divs.append((f, lno(starts, m.start()), m.group(1), sent(flat, m.start(), m.end())))
+    for m in MAXC.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        maxes.append((f, lno(starts, m.start()), s, s.find(m.group(0)) + len(m.group(0))))
+print("POP\t%d gain list(s), %d divisor sentence(s), %d maximum-claim sentence(s)"
+      % (len(lists), len(divs), len(maxes)))
+if len(lists) < list_floor:
+    print("ERROR\tonly %d published gain list(s) (floor %d) - the S(k) curve has left the corpus and this gate is measuring nothing" % (len(lists), list_floor))
+if len(divs) < div_floor:
+    print("ERROR\tonly %d divisor sentence(s) (floor %d) - the extrapolation's arithmetic is no longer stated in the words this gate reads" % (len(divs), div_floor))
+if len(maxes) < max_floor:
+    print("ERROR\tonly %d maximum-claim sentence(s) (floor %d) - leg 2's pattern set has rotted" % (len(maxes), max_floor))
+# LEG 1a: every list must agree on its maximum.
+if lists:
+    peaks = sorted({max(v) for _, _, v in lists})
+    if len(peaks) > 1:
+        for f, ln, v in lists:
+            print("LISTMAX\t%s\t%d\t%.2f\t%s" % (f, ln, max(v), "/".join("%.2f" % p for p in peaks)))
+    peak = max(peaks)
+    # LEG 1b: the divisor sentence must name that maximum.
+    for f, ln, claimed, s in divs:
+        if abs(float(claimed) - peak) > 0.005:
+            print("DIVISOR\t%s\t%d\t%.2f (claimed %s)\t%s" % (f, ln, peak, claimed, s.strip()[:120]))
+# LEG 2: a first/greedy maximum claim must be qualified UNCONDITIONAL.
+for f, ln, s, off in maxes:
+    if UNC.search(s) or SUPREMUM.search(s):  continue
+    if off >= 0 and quoted(s, off):          continue
+    if not FIRST.search(s):                  continue
+    print("UNCOND\t%s\t%d\t%s" % (f, ln, s.strip()[:150]))
+PY
+} | python3 - "$LIST_FLOOR" "$DIV_FLOOR" "$MAX_FLOOR" ) || { echo "  [FAIL] GATE 31 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR)   echo "  [FAIL] $a"; rc=1 ;;
+      POP)     echo "  [info] $a" ;;
+      LISTMAX) echo "  [FAIL] $a:$b publishes a gain list peaking at $c, but the corpus publishes peaks $d"
+               echo "         Two documents disagree about the largest measured per-boundary gain."
+               rc=1 ;;
+      DIVISOR) echo "  [FAIL] $a:$b names a divisor that is not the published maximum gain ($c)"
+               echo "         $d"
+               echo "         The extrapolation must divide by the largest MEASURED gain, not by the k = 1 gain."
+               rc=1 ;;
+      UNCOND)  echo "  [FAIL] $a:$b calls a first/greedy single-boundary gain 'the maximum' without saying UNCONDITIONAL"
+               echo "         $c"
+               echo "         Greedy maximises the unconditional gain only; the measured k = 3 step exceeds k = 1."
+               rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every gain list agrees on its maximum, every divisor is that maximum, every maximum claim is qualified"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 32 — the King Wen orientation-fiber anchors, cross-checked against their own prose.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, Codex V2-F48 #7 — "Add 1,720,320 and 2^31 to the
+# doc-figure cross-check so a future edit of either site fails."
+# THE DEFECT BEHIND IT: REBUILD_FROM_SPEC.md carried King Wen's collapsed orientation class
+# as **4** (it is 1,720,320) and the enumerator's per-key orientation space as **2^32** (it
+# is 2^31 — C4 pins slot 0's orientation, leaving 31 of 32 bits free). Both shipped for
+# weeks; both were found by hand.
+#
+# 🔴 IT IS NOT A LIST OF HARDCODED CONSTANTS, and that is the whole design. Three anchors
+# are named (1,720,320 C4-oriented / 983,040 flipped-opening / 2,703,360 pair-only-C4)
+# ONLY to select the population — the sentences that talk about the fiber. What is then
+# checked is DERIVED FROM THE PROSE: a published factorization must equal an integer the
+# same sentence states, and a published sum must equal a total the same sentence states.
+# Rewrite all three anchors consistently and this gate follows you; get one site's
+# arithmetic wrong and it fails. A gate that only compared literals against a table
+# would go stale the day the table did.
+#
+# 🔴 THE EXPONENT LEG WOULD FAIL ON CORRECT PROSE WITHOUT ITS SCOPE, measured before it
+# was written: documentation/SOLVE.md:133 publishes "x 2^32 ... the number of ways to
+# order 32 pairs and choose an orientation for each" — which is RIGHT, because that is the
+# ambient space BEFORE C4 pins anything. The defect is only ever about the space
+# recoverable from ONE stored pair-ordering, so the leg is scoped to sentences that say so
+# (recoverable / per-key / C4-oriented / C4 pins / collapsed orientation). What that scope
+# cannot see is a future defect written without any of that vocabulary; recorded, not hidden.
+#
+# RED TESTS (2026-09-02, scratch clone), one per leg:
+#   FACT: changed documentation/SOLUTIONS_FORMAT.md:226 `3·5·7·2^14` -> `3·5·7·2^15`.
+#         Gate [FAIL]: factorization evaluates to 3,440,640, which the sentence does not state.
+#   SUM:  changed documentation/SOLVE.md:683 `983,040 reversed` -> `983,041 reversed`.
+#         Gate [FAIL]: 1,720,320 + 983,041 is stated nowhere in that sentence.
+#   EXP:  changed documentation/PROJECT_OVERVIEW.md:137 `2^31 combinations` -> `2^32`.
+#         Gate [FAIL] naming that line.
+#   CLOSURE: deleted every 1,720,320 from the corpus. Gate [FAIL] ERROR, not a pass.
+gate_fiber_anchor() {
+  echo "== GATE 32: the orientation-fiber anchors must survive their own arithmetic =="
+  local FACT_FLOOR=4 SUM_FLOOR=2 EXP_FLOOR=6
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+fact_floor, sum_floor, exp_floor = (int(a) for a in sys.argv[1:4])
+ANCHORS = {1720320, 983040, 2703360}
+# A comma-grouped integer as the corpus writes them. Bare digit runs are excluded on
+# purpose: this population is prose, and prose here always groups these magnitudes.
+INT  = re.compile(r'\b\d{1,3}(?:,\d{3})+\b')
+# A product written as a factorization: 3·5·7·2^14, 48·48·64, 1024*1024.
+FACT = re.compile(r'(?<![\d.])(\d+(?:[·*]\d+)+(?:\^\d+)?)(?![\d.])')
+# A published sum. 🔴 NOT one regex spanning the '+': a single pattern with a slack gap
+# is GREEDY ON THE WRONG SIDE, measured on this gate's first run - at
+# documentation/SOLVE.md:682, "the pair-only-C4 fiber is 2,703,360 vectors (= 1,720,320
+# forward + 983,040 reversed)", it paired 2,703,360 with 983,040 and reported a false
+# 3,686,400 at three sites. The operands are therefore taken as the NEAREST grouped
+# integer either side of the '+', which is what a reader takes them as.
+# The '+' must be a BINARY operator: whitespace on both sides. Measured on this gate's
+# second run - reports/TR1_EIGHT_CENTURIES_MEASURED.md:526 writes "2,703,360 vectors
+# (+983,040 reversed-opening)", where the '+' is a SIGN on an annotation, not an
+# addition, and reading it as one failed the gate on correct prose.
+PLUS = re.compile(r'(?<=\s)\+\s(\d{1,3}(?:,\d{3})+)')
+E31, E32 = re.compile(r'2\^31'), re.compile(r'2\^32')
+# The per-key scope: the space recoverable from ONE stored pair-ordering, which is where
+# C4 has already pinned slot 0. Outside this, 2^32 is the correct ambient figure.
+PERKEY = re.compile(r'recoverab|per-key|per pair-ordering|C4-oriented|C4 pins'
+                    r'|testing all|collapsed orientation')
+CORRM  = re.compile(r'until 20\d\d-|corrected|previously|→|superseded', re.I)
+nfact = nsum = n31 = nanchor = 0
+for f in corpus():
+    raw = read(f)
+    if raw is None: continue
+    t = desup(raw)
+    flat, starts = flatten(t)
+    if INT.search(flat):
+        nanchor += sum(1 for x in INT.findall(flat) if int(x.replace(',', '')) in ANCHORS)
+    for m in FACT.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        stated = {int(x.replace(',', '')) for x in INT.findall(s)}
+        if not (stated & ANCHORS):
+            continue                      # not a fiber sentence; out of this gate's scope
+        v, expr = 1, m.group(1)
+        try:
+            for part in expr.replace('*', '·').split('·'):
+                if '^' in part:
+                    b, e = part.split('^'); v *= int(b) ** int(e)
+                else:
+                    v *= int(part)
+        except ValueError:
+            continue
+        nfact += 1
+        if v not in stated:
+            print("FACT\t%s\t%d\t%s\t%d" % (f, lno(starts, m.start()), expr, v))
+    for m in PLUS.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        stated = {int(x.replace(',', '')) for x in INT.findall(s)}
+        if not (stated & ANCHORS):
+            continue
+        left = None
+        for lm in INT.finditer(flat, max(0, m.start() - 60), m.start()):
+            left = lm            # nearest grouped integer to the LEFT of the '+'
+        if left is None or '+' in flat[left.end():m.start()]:
+            continue
+        a = int(left.group(0).replace(',', '')); b = int(m.group(1).replace(',', ''))
+        nsum += 1
+        if a + b not in stated:
+            print("SUM\t%s\t%d\t%s + %s\t%d" % (f, lno(starts, m.start()), left.group(0), m.group(1), a + b))
+    for m in E31.finditer(flat):
+        if PERKEY.search(sent(flat, m.start(), m.end())): n31 += 1
+    for m in E32.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        if not PERKEY.search(s):        continue
+        if E31.search(s) or CORRM.search(s): continue   # the ledger narrating the 2^32 -> 2^31 fix
+        print("EXP\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:140]))
+print("POP\t%d anchor mention(s), %d factorization(s), %d sum(s), %d per-key 2^31 site(s)"
+      % (nanchor, nfact, nsum, n31))
+if nanchor == 0:
+    print("ERROR\tno fiber anchor (1,720,320 / 983,040 / 2,703,360) appears anywhere in the corpus - every leg below selected an EMPTY population and checked nothing")
+if nfact < fact_floor:
+    print("ERROR\tonly %d fiber factorization(s) (floor %d) - the FACT leg is measuring nothing" % (nfact, fact_floor))
+if nsum < sum_floor:
+    print("ERROR\tonly %d fiber sum(s) (floor %d) - the SUM leg is measuring nothing" % (nsum, sum_floor))
+if n31 < exp_floor:
+    print("ERROR\tonly %d per-key 2^31 site(s) (floor %d) - the EXP leg is measuring nothing" % (n31, exp_floor))
+PY
+} | python3 - "$FACT_FLOOR" "$SUM_FLOOR" "$EXP_FLOOR" ) || { echo "  [FAIL] GATE 32 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"
+             echo "         A gate that passes because its subject vanished is not a green gate."
+             rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      FACT)  echo "  [FAIL] $a:$b factorization '$c' = $d, which this sentence does not state"
+             echo "         A published factorization must equal the integer it factorizes."
+             rc=1 ;;
+      SUM)   echo "  [FAIL] $a:$b published sum '$c' totals $d, which this sentence does not state"
+             echo "         The C4-oriented fiber plus the flipped-opening fiber is the pair-only-C4 fiber."
+             rc=1 ;;
+      EXP)   echo "  [FAIL] $a:$b gives the per-key orientation space as 2^32; C4 pins slot 0, so it is 2^31"
+             echo "         $c"
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every fiber factorization, sum and per-key exponent agrees with its own sentence"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 33 — an unqualified "strongest measured discriminator".
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P37 / Codex V2-F08 charge 22, "tooling
+# half". THE DEFECT: TR-6 §6 carried "the strongest measured literature discriminator"
+# unqualified for months while CITATIONS.md and LITERATURE_RULES_POPULATION_TESTS.md both
+# already published the successor (the data-like S25-28 configuration at ×5×10⁷ against
+# Schulz's ×11,364). A superlative outlived its own scoreboard.
+#
+# 🔴 WHY P37 REFUSED TO REGISTER THIS AS A GATE 3 NEEDLE, which is why the item exists at
+# all: the retracted thing is an unqualified SHAPE, not a string. A bare needle on
+# "strongest measured ... discriminator" is red on the LEGITIMATELY QUALIFIED twin in
+# CITATIONS.md - and that twin SPANS A LINE WRAP, so it is invisible to an unflattened
+# matcher and visible to a flattened one. P37 had to hand-cut a comma-trailed needle
+# precise enough to miss it. This gate flattens (so it sees the twin) and then asks
+# whether the same sentence carries a temporal or category qualifier (so it passes it).
+# MEASURED at authoring time: 7 occurrences, 0 unqualified. One match itself spans a wrap
+# (documentation/CITATIONS.md:1362-1363, "strongest measured literature / discriminator")
+# and at that same site the QUALIFIER "at the time of the SAT work" is on the following
+# source line again — so both the needle and its exemption are line-based-invisible there.
+#
+# 🔴 SCOPE, stated rather than implied. The item asks for a SECOND leg — generate the
+# scoreboard's current champion FROM LITERATURE_RULES_POPULATION_TESTS.md instead of
+# restating it in each citing document. That is a generator, not a gate, and it is NOT
+# built here. This gate attests the qualifier and nothing about whether the successor
+# figure each site quotes is still the champion.
+#
+# RED TEST (2026-09-02, scratch clone): deleted "at the time of the SAT work (×11,364),
+# later exceeded by the data-like S25-28 configuration at ×5×10⁷" from
+# reports/TR6_PARITY_SKELETON.md:120-121, restoring the pre-P37 bare superlative. Gate
+# [FAIL] naming that line. Restored; [ok]. A second red test confirmed the wrap case:
+# deleted the qualifier from documentation/CITATIONS.md:1362-1363, where the superlative
+# and its qualifier sit on DIFFERENT source lines - gate [FAIL], as flattening requires.
+gate_superlative() {
+  echo "== GATE 33: a 'strongest measured discriminator' with no qualifier =="
+  local FLOOR=4
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor = int(sys.argv[1])
+SUP = re.compile(r'strongest measured[^.]{0,40}?discriminator')
+# Temporal or category scoping. Any ONE of these makes the superlative a statement about a
+# named population or moment rather than an unqualified championship claim.
+QUAL = re.compile(r'at the time of|as of \d|later exceeded|then-|until 20\d\d'
+                  r'|in the scoreboard table|of the population-measured|among the'
+                  r'|\bin this\b|headline finding', re.I)
+# The ledger's own word for what it removed. A sentence that SAYS the phrase was
+# unqualified is narrating the correction; failing it would be the self-defeating shape.
+NARR = re.compile(r'unqualified|\bBEFORE\.|Corrected 20\d\d|RP-[0-9a-f]{8}')
+pop = wrapped = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in SUP.finditer(flat):
+        pop += 1
+        s = sent(flat, m.start(), m.end())
+        if lno(starts, m.start()) != lno(starts, m.end()):
+            wrapped += 1
+        if quoted(s, s.find(m.group(0)) + len(m.group(0))): continue
+        if NARR.search(s):                                  continue
+        if QUAL.search(s):                                  continue
+        print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:150]))
+print("POP\t%d superlative(s), %d of them spanning a line wrap" % (pop, wrapped))
+if pop < floor:
+    print("ERROR\tonly %d 'strongest measured ... discriminator' occurrence(s) (floor %d) - the phrase has been reworded out of this gate's reach and it is measuring nothing" % (pop, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 33 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b publishes an UNQUALIFIED 'strongest measured ... discriminator'"
+             echo "         $c"
+             echo "         The scoreboard has a successor; the superlative needs its era or its population."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every 'strongest measured discriminator' names its era or its population"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 34 — a published ratio must equal the quotient printed beside it.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P36 / Codex V2-F09 #3, "gate half".
+# THE DEFECT: TR-7 priced Cook's final-pair anchor as ×1.25 — that is 7.84 / 6.25, against
+# the 1/16 counting baseline — while the MEASURED d = 3 class average of 6.52 was printed
+# two lines below. 7.84 / 6.52 is ×1.20. The document contained everything needed to catch
+# itself and nobody divided.
+#
+# 🔴 FLATTENING IS LOAD-BEARING HERE AND WAS MEASURED TO BE. TR-7 writes the second split
+# as "**×1.20 is / the A₂-specific residual** (7.84 / 6.52)" across a hard wrap. An
+# unflattened scan of the corpus finds ONE of TR-7's two ratios; a flattened scan finds
+# both. Half a gate that reports PASS is the scope-narrowing failure this suite exists to
+# catch, so this is recorded rather than left to be rediscovered.
+#
+# 🔴 IT MUST NOT EAT SCIENTIFIC NOTATION. '×10⁻³' is a magnitude, not a ratio, and a first
+# cut of this leg matched "×10⁻³ against 2·(0.05/91)" at TR-10:107 and :505 and
+# "×10⁻⁶ | ×200,000 | **fails** (16/18)" at TR-1:110 — four false positives, all
+# arithmetic that was never claimed. A multiplier of exactly 10 carrying an exponent is
+# therefore excluded, and the parenthesised form requires the quotient to be adjacent.
+#
+# TOLERANCE: the quotient must round to the published ratio at the ratio's OWN printed
+# precision. 6.52 / 3.2258 = 2.02116..., published ×2.02 — correct at two decimals and it
+# must not be failed for that.
+#
+# RED TEST (2026-09-02, scratch clone): restored TR-7's pre-P36 ratio, changing
+# "**×1.20 is the A₂-specific residual** (7.84 / 6.52)" to "**×1.25 …** (7.84 / 6.52)".
+# Gate [FAIL]: 7.84 / 6.52 = 1.2025, published ×1.25. Restored; [ok]. The red test was run
+# on the WRAPPED site specifically, because that is the one an unflattened gate cannot see.
+gate_printed_quotient() {
+  echo "== GATE 34: a published ×ratio must equal the quotient printed beside it =="
+  local FLOOR=3
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor = int(sys.argv[1])
+N = r'\d+(?:\.\d+)?'
+# Shape A: "6.52 / 3.2258 = **×2.02**"     Shape B: "**×2.02 …** (6.52 / 3.2258)"
+A = re.compile(r'(%s)\s*/\s*(%s)\s*=\s*\**[×x](%s)(?![\d^⁰¹²³⁴⁵⁶⁷⁸⁹])' % (N, N, N))
+B = re.compile(r'[×x](%s)(?![\d^])\**[^()]{0,120}?\((%s)\s*/\s*(%s)\)' % (N, N, N))
+found = []
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in A.finditer(flat):
+        a, b, r = (float(x) for x in m.groups())
+        found.append((f, lno(starts, m.start()), a, b, r, m.group(3), m.group(0)))
+    for m in B.finditer(flat):
+        r, a, b = (float(x) for x in m.groups())
+        found.append((f, lno(starts, m.start()), a, b, r, m.group(1), m.group(0)))
+kept = 0
+for f, ln, a, b, r, rtext, txt in found:
+    if r == 10 or b == 0:
+        continue                       # a magnitude (×10⁻³), not a claimed ratio
+    kept += 1
+    dp = len(rtext.split('.')[1]) if '.' in rtext else 0
+    if round(a / b, dp) != round(r, dp):
+        print("HIT\t%s\t%d\t%s\t%.4f" % (f, ln, txt.strip()[:90], a / b))
+print("POP\t%d published quotient claim(s)" % kept)
+if kept < floor:
+    print("ERROR\tonly %d published quotient claim(s) (floor %d) - this gate is measuring nothing" % (kept, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 34 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b published ratio disagrees with its own printed quotient"
+             echo "         $c   — the division gives $d"
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every published ×ratio equals the quotient printed beside it"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 35 — a status word outliving the work it describes.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P34 / Codex V2-F06 charge 16,
+# "prescribed mechanisation", including the shape: "'queued' within N lines of a heading
+# matching Update (20..-..-..)".
+# THE DEFECT: TR-4 §5 said the S(6)-S(8) work was "queued" and would "sharpen further when
+# S(6..8) land" — within twenty lines of the dated Update heading that REPORTS S(6)-S(8)
+# measured. P34 registered `hit rates); queued` as RP-b1c1f805, which catches that one
+# site and nothing else; the class is a status word that outlived its work.
+#
+# 🔴 ITS POPULATION IS ONE HEADING, AND THAT IS STATED RATHER THAN AVERAGED AWAY. The whole
+# tracked corpus contains exactly ONE dated Update heading (TR-4:298), measured both on the
+# prescribed pattern and on a deliberately widened one that also admits bold and
+# "Updated". So this gate is, today, a regression guard on one section — not a corpus
+# sweep — and its floor is correspondingly 1. It is worth its 40 lines because that section
+# has now had the same defect twice, and because the floor makes the gate ERROR rather than
+# pass if the heading is ever renamed out from under it. It is NOT worth quoting as
+# corpus-wide coverage of the status-word class, and no banner here says it is.
+#
+# RED TEST (2026-09-02, scratch clone): restored the pre-P34 wording at
+# reports/TR4_SIZE_OF_THE_SPACE.md:296, twelve lines above the Update heading —
+# "sharpens further when S(6..8) land". Gate [FAIL] naming that line and the heading it
+# contradicts. Restored; [ok]. Closure red test: renamed the heading to "### Later work",
+# and the gate went [FAIL] ERROR (population 0) rather than reporting clean.
+gate_stale_status() {
+  echo "== GATE 35: a status word surviving beside the dated update that completed it =="
+  local FLOOR=1 WINDOW=20
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor, window = int(sys.argv[1]), int(sys.argv[2])
+# The prescribed heading pattern, widened to bold/"Updated" forms. Measured 2026-09-02:
+# both the narrow and the widened form select exactly one heading in the tracked corpus.
+HEAD = re.compile(r'^\s*(?:#+|\*\*|__)?\s*Update[ds]?\b[^|]{0,80}\(20\d\d-\d\d-\d\d\)')
+# Forward-looking status vocabulary. "when ... land" is included because it was HALF of
+# the actual defect ("sharpens further when S(6..8) land") and a bare "queued" needle would
+# have caught only the other half.
+# 🔴 THE GAP IS `.{0,40}?` AND NOT `[^.]{0,40}`, which is what it was first written as and
+# what let the red test walk straight through: the defect's own text is "when S(6..8) land"
+# and `S(6..8)` CONTAINS DOTS. The file's SAFETY rule bans bounded repetition because a
+# POSIX ERE `.{0,80}X.{0,60}` once hung this box; that hazard is two unanchored bounded
+# reps under grep -oE. This is ONE lazy bounded rep in python re over a <=41-window inside
+# an already-bounded slice of the file, which is linear in the window.
+STALE = re.compile(r'\bqueued\b|\bnot yet\b|\bstill pending\b|\bwill land\b'
+                   r'|\bwhen\b.{0,40}?\blands?\b', re.I)
+heads = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    lines = t.split("\n")
+    hs = [i for i, l in enumerate(lines) if HEAD.match(l)]
+    heads += len(hs)
+    for h in hs:
+        lo, hi = max(0, h - window), min(len(lines), h + window + 1)
+        # 🔴 THE WINDOW IS FLATTENED, not scanned line by line. A status phrase that spans a
+        # hard wrap is invisible to a line scan — GATE 3's lesson (a), and the reason four
+        # prose batches on 2026-09-02 found live sites only after flattening. The heading's
+        # own line is blanked first so the gate never fires on the heading it anchors to.
+        win = list(lines[lo:hi]); win[h - lo] = ""
+        flat, starts = flatten("\n".join(win))
+        for m in STALE.finditer(flat):
+            print("HIT\t%s\t%d\t%d\t%s" % (f, lo + lno(starts, m.start()), h + 1,
+                                             flat[max(0, m.start() - 40):m.end() + 40].strip()[:120]))
+print("POP\t%d dated update heading(s), window +/-%d lines" % (heads, window))
+if heads < floor:
+    print("ERROR\tno dated update heading found (floor %d) - the heading this gate is anchored to has been renamed, so it is measuring nothing" % floor)
+PY
+} | python3 - "$FLOOR" "$WINDOW" ) || { echo "  [FAIL] GATE 35 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b describes work as pending, beside the dated update heading at $a:$c"
+             echo "         $d"
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] no pending-status word survives beside a dated update that completes it"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 36 — an "N-path equivalence" heading whose table does not have N rows, and two
+# sites publishing a different N for the same campaign (Codex V2-F12 #3, prose batch P43,
+# 2026-09-02).
+#
+# WHY THIS EXISTS. documentation/HISTORY.md headed a table "8-path equivalence at 11.2T
+# proven" and listed SEVEN rows, and had done since the table was written. The review that
+# found it concluded no eighth path existed and prescribed renumbering the heading to seven
+# — which would have deleted a real validation path (the post-#45 recovery cascade,
+# described in the same file 175 lines below) from the public record. The count was right
+# and the table was short. Two further sites in the same file published "7-path" for the
+# same campaign, and neither was named in the charge.
+#
+# So the defect class is a PUBLISHED COUNT WITH A PUBLISHED DENOMINATOR NEXT TO IT: the
+# heading asserts N and the table beneath it is the enumeration of N. Nothing in the suite
+# compared them, and a reader who counts rows is the only instrument that ever did.
+#
+# LEG 1 (hard): every "<N>-path equivalence|validation" occurrence that DIRECTLY owns a
+# markdown table — only blank lines and the table's own header row may intervene, and the
+# separator row must be within ADJ lines — must have exactly N data rows in that table. An
+# occurrence with no such table is a MENTION, not a heading, and LEG 1 skips it; it is
+# LEG 2's business. Adjacency rather than a loose window is not a refinement, it is the
+# gate's first measured finding: a 20-line window fired on two prose mentions sitting above
+# an unrelated table.
+#
+# LEG 2 (hard): every occurrence in the corpus must publish the same N. This is correct
+# TODAY because the corpus documents exactly one N-path campaign (the 2026-05 11.2T
+# validation). WHAT THIS CANNOT SEE, stated rather than left to be discovered: if a SECOND
+# campaign is ever published with a different path count, LEG 2 will fire on correct prose
+# and the fix is to scope it by campaign (e.g. by the scale token beside the phrase), NOT
+# to widen the needle or delete the leg. The population line prints every distinct N so
+# that outcome is legible the moment it happens.
+#
+# FLOORS. The gate ERRORs — not passes — if it finds fewer than FLOOR_OCC occurrences or
+# no table-anchored one at all, because both are the state in which it is measuring
+# nothing. Measured 2026-09-02: 4 occurrences, 1 of them table-anchored, all N = 8.
+#
+# NOT FLATTENED, and here is why that is safe rather than an oversight: GATE 3's lesson is
+# that a PHRASE spanning a hard wrap is invisible to a line scan. The needle here is a
+# single token ("8-path") plus one following word, and a markdown table's structure is
+# line-based by definition — flattening would destroy the very rows LEG 1 counts. The
+# residual exposure is a wrap falling between "8-path" and "equivalence", which no
+# formatter produces and which LEG 2 would still catch at the other sites.
+#
+# RED TEST (2026-09-02, in the working tree, restored immediately after each):
+#   (a) deleted the recovery-cascade row -> LEG 1 [FAIL] "heading publishes 8, table has 7".
+#   (b) changed one "8-path validation" to "7-path validation" -> LEG 2 [FAIL] naming both
+#       values and every site carrying each.
+#   (c) closure: raised both floors to 99 in place -> two [FAIL] ERROR lines naming the
+#       measured populations (7 occurrences, 1 table-anchored), not a clean pass. The floors
+#       were exercised rather than the needle renamed, because renaming it means editing
+#       seven live sites; the floor is the mechanism under test either way, and it is the
+#       one that fires if the phrase is ever reworded out from under this gate.
+gate_npath() {
+  echo "== GATE 36: an N-path equivalence heading must enumerate N paths, and N must agree =="
+  local FLOOR_OCC=2 FLOOR_TABLE=1 ADJ=4
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor_occ, floor_tab, adj = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
+NEEDLE = re.compile(r'\b(\d+)-path\s+(?:equivalence|validation)\b', re.I)
+SEP    = re.compile(r'^\|[\s|:-]+\|\s*$')
+occ = []
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    lines = t.split("\n")
+    for i, l in enumerate(lines):
+        for m in NEEDLE.finditer(l):
+            n = int(m.group(1))
+            # ADJACENCY, NOT A WINDOW. First cut allowed the separator anywhere in a
+            # 20-line window and that immediately fired on two PROSE MENTIONS 40 lines
+            # above an unrelated table (measured 2026-09-02, the gate's first run). A
+            # heading owns the table DIRECTLY beneath it: only blank lines and the table's
+            # own header row may intervene, and the separator must be within ADJ lines.
+            rows = None
+            for j in range(i + 1, min(len(lines), i + 1 + adj)):
+                s = lines[j].strip()
+                if SEP.match(s):
+                    k, c = j + 1, 0
+                    while k < len(lines) and lines[k].lstrip().startswith("|"):
+                        c += 1; k += 1
+                    rows = c
+                    break
+                if s == "" or s.startswith("|"):
+                    continue
+                break
+            occ.append((f, i + 1, n, rows, l.strip()[:100]))
+tabled = [o for o in occ if o[3] is not None]
+for f, ln, n, rows, txt in tabled:
+    if rows != n:
+        print("ROWS\t%s\t%d\t%d\t%d\t%s" % (f, ln, n, rows, txt))
+vals = sorted(set(o[2] for o in occ))
+if len(vals) > 1:
+    for v in vals:
+        where = ", ".join("%s:%d" % (o[0], o[1]) for o in occ if o[2] == v)
+        print("SPLIT\t%d\t%s" % (v, where))
+print("POP\t%d occurrence(s), %d table-anchored, N value(s) seen: %s"
+      % (len(occ), len(tabled), ",".join(str(v) for v in vals) or "none"))
+if len(occ) < floor_occ:
+    print("ERROR\tfewer than %d N-path occurrences in the corpus (found %d) - the phrase this gate is anchored to has been reworded, so it is measuring nothing" % (floor_occ, len(occ)))
+if len(tabled) < floor_tab:
+    print("ERROR\tno N-path heading is directly followed by a table (within %d lines, floor %d) - LEG 1 checked nothing" % (adj, floor_tab))
+PY
+} | python3 - "$FLOOR_OCC" "$FLOOR_TABLE" "$ADJ" ) || { echo "  [FAIL] GATE 36 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c d e; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      ROWS)  echo "  [FAIL] $a:$b publishes $c paths and the table beneath it has $d data row(s)"
+             echo "         $e"
+             echo "         Fix the TABLE unless the count is genuinely wrong — renumbering the heading"
+             echo "         deletes a validation path from the record, which is how this gate was earned."
+             rc=1 ;;
+      SPLIT) echo "  [FAIL] N=$a published at: $b"
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every N-path heading enumerates N paths, and every site publishes the same N"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 37 — a relative STANDARD ERROR published as a +- band.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P40 / Codex V2-F35 #4 — "a bare percentage
+# beside a published `95% CI [a, b]` must equal (b - mean)/mean", red-test site README.md.
+#
+# 🔴 THE PRESCRIBED RULE WAS RE-DERIVED AND CHANGED, AND THE REASON IS MEASURED. The charge asks
+# for a percentage checked against a bracket that stands beside it. Its own named red-test site,
+# README.md's residual bullet, carries NO bracket — `grep -n "95% CI" README.md` returns :63 and
+# :191 and neither is that bullet — so the rule as written cannot fire on the one defect it was
+# written for. A gate that passes its target is worse than no gate, because it certifies it.
+#
+# WHAT THE DEFECT ACTUALLY IS, stated so the check can be arithmetic. The estimator prints
+# `mean +- 1.96*sqrt(vhat/N)` and a relerr of SE/mean (METHODS.md, "Statistics conventions"). A
+# count with relative standard error r therefore costs, in bits, log2(1+r) at ONE sigma and
+# log2(1+1.96r) at 95%. README.md published "the +-0.78% C1-C7 estimate ~= +-0.01 bits":
+#     log2(1.0078)          = 0.01121   -> rounds to 0.01, the figure that was printed
+#     log2(1 + 1.96*0.0078) = 0.02189   -> rounds to 0.02, the figure that should have been
+# and the published [5.13, 5.29]x10^31 bracket gives -0.0223/+0.0220 independently. So the
+# property is decidable with no lookup and no bracket: a stated precision that reproduces the
+# ONE-SIGMA conversion of a stated relerr, and does NOT reproduce the 95% one, is a standard
+# error wearing an error bar. That is the 2026-08-28 relerr-is-not-an-error-bar ruling, made
+# checkable.
+#
+# PRECISION IS TAKEN FROM THE PAGE, NOT ASSUMED. Each candidate is compared at the number of
+# decimals the document itself printed - "0.01" is judged at 2 dp, "0.011" at 3 - which is the
+# same technique GATE 34 uses on published ratios. A fixed tolerance would either miss the
+# rounded site or swallow the corrected one.
+#
+# TWO EXEMPTIONS, BOTH MEASURED, BOTH COUNTED IN THE OUTPUT SO NEITHER CAN GROW UNSEEN:
+#   * documentation/CORRECTIONS.md, entirely. Quoting the defect it withdrew is the ledger's
+#     job and GATE 10a makes it append-only, so the text could not be edited even if it were
+#     wrong. Same exemption, same reason, as GATES 26 and 27. Measured: 4 pairs, 3 units.
+#   * a unit carrying BOTH a supersession word and a date. DESCRIPTION_LENGTH.md's 2026-08-06
+#     change-note quotes its own superseded "+-0.011 bits" and then says, in the same paragraph,
+#     that the figure "no longer stand[s] as written ... corrected or withdrawn on 2026-09-02".
+#     Marked is the cured state; the DATE requirement is what keeps a bare "corrected" anywhere
+#     in a paragraph from being a free pass. Measured: 2 pairs in 1 unit. ⚠ ITS LIMIT, STATED: a genuinely
+#     new defect written inside a dated correction paragraph would escape. That is a narrower
+#     hole than GATE 27's (which accepts a supersession word alone) and it is the price of not
+#     firing on the corpus's own history.
+#
+# THE UNIT IS A LIST ITEM OR PARAGRAPH, NOT A LINE. The percentage and the band are 30 words
+# apart in README and markdown wraps wherever it likes; a line-scoped check is one reflow away
+# from silence. Splitting at blank lines AND at every list-item / table-row start keeps a
+# neighbouring bullet's correction marker from exempting the bullet next to it.
+#
+# 🔴 THE FLOOR. If fewer than FLOOR units in the whole corpus pair a percentage with a bit-band,
+# this gate has nothing to measure and says so instead of passing. Measured population 2026-09-02:
+# TEN units, so the floor of 4 leaves room for ordinary rewording while still catching a collapse
+# to nothing. Proven by raising it to 9999 in place: "[FAIL] only 10 unit(s) ... floor 9999 - this
+# gate is measuring nothing", rc 1 — an ERROR, not a pass.
+#
+# RED TEST (2026-09-02, measured, both directions, on a full copy of the corpus):
+#   BEFORE README.md's fix -> [FAIL] README.md:240 0.78% with +-0.01 bits, rc 1, exactly one HIT.
+#   AFTER  README.md's fix -> [ok], rc 0, with the candidate and exemption census unchanged.
+#   MUTANT (the charge's own rule, i.e. compare against the 95% conversion instead of the
+#     1-sigma one) -> fires on documentation/DESCRIPTION_LENGTH.md and reports/TR9... , the two
+#     pages that are CORRECT, and stays silent on README. Recorded because it is the exact
+#     inversion a future "simplification" would produce.
+# ⚠ OWED: a permanent `--selftest` fire-proof pair. Not written blind — see the same note under
+#   GATE 26 LEG 2. Write it, and RUN it, on a clean committed tree.
+# ----------------------------------------------------------------------------------
+gate_se_vs_ci() {
+  echo "== GATE 37: a relative standard error may not be published as a +- band =="
+  local FLOOR=4
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+import math
+floor = int(sys.argv[1])
+PCT  = re.compile(r'(?<![0-9.])(\d{1,2}(?:\.\d+)?)\s*%')
+CONF = re.compile(r'\b(?:90|95|99)(?:\.\d+)?\s*%')
+BITS = re.compile(r'\u00b1\s*(\d+(?:\.\d+)?)\s*bits?')
+MARK = re.compile(r'(?i)(corrected|withdrawn|superseded|no longer stand)')
+DATE = re.compile(r'\b20\d\d-\d\d-\d\d\b')
+NEW  = re.compile(r'\s*(?:[-*+]\s|\d+\.\s|\|)')
+cand = ex_ledger = ex_marked = 0
+for f in corpus():
+    t = read(f)
+    if t is None:
+        continue
+    lines = t.split("\n")
+    units = []
+    buf = []
+    start = 1
+    for i, l in enumerate(lines, 1):
+        if (not l.strip() or NEW.match(l)) and buf:
+            units.append((start, buf)); buf = []
+        if not l.strip():
+            continue
+        if not buf:
+            start = i
+        buf.append(l)
+    if buf:
+        units.append((start, buf))
+    for start, buf in units:
+        text = " ".join(buf)
+        # the confidence LEVEL is not a relative error; mask 90/95/99% before reading percentages
+        pcts = sorted(set(m.group(1) for m in PCT.finditer(CONF.sub(" CONF ", text))))
+        bits = sorted(set(m.group(1) for m in BITS.finditer(text)))
+        if not pcts or not bits:
+            continue
+        cand += 1
+        for ps in pcts:
+            r = float(ps) / 100.0
+            if r <= 0:
+                continue
+            s1 = math.log2(1 + r)
+            c95 = math.log2(1 + 1.96 * r)
+            for bs in bits:
+                dp = len(bs.split(".")[1]) if "." in bs else 0
+                x = float(bs)
+                # the published band reproduces ONE sigma and does NOT reproduce 95%
+                if round(s1, dp) != x or round(c95, dp) == x:
+                    continue
+                if f == "documentation/CORRECTIONS.md":
+                    ex_ledger += 1
+                    continue
+                if MARK.search(text) and DATE.search(text):
+                    ex_marked += 1
+                    continue
+                print("HIT\t%s\t%d\t%s\t%s\t%.5f\t%.5f\t%s"
+                      % (f, start, ps, bs, s1, c95, " ".join(text.split())[:150]))
+print("CENSUS\t%d\t%d\t%d" % (cand, ex_ledger, ex_marked))
+if cand < floor:
+    print("ERROR\tonly %d unit(s) in the corpus pair a percentage with a bit-band (floor %d) - this gate is measuring nothing" % (cand, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 37 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0 cand="" exl="" exm=""
+  while IFS=$'\t' read -r tag a b c d e g h; do
+    case "$tag" in
+      ERROR)  echo "  [FAIL] $a"; rc=1 ;;
+      CENSUS) cand=$a; exl=$b; exm=$c ;;
+      HIT)    echo "  [FAIL] $a:$b publishes a relative STANDARD ERROR as a +- band"
+              echo "         $c% relerr with \"±$d bits\": log2(1+r)=$e rounds to $d at this precision,"
+              echo "         log2(1+1.96r)=$g does not. The 95% figure is the one to publish, or say SE."
+              echo "         … $h"
+              rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  if [ -z "$cand" ]; then
+    echo "  [FAIL] GATE 37 printed no census line — the scan did not complete, so nothing was checked."
+    return 1
+  fi
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] $cand unit(s) pair a percentage with a bit-band; every published band reproduces the"
+  echo "       95% conversion, not the 1-sigma one. Exempt: $exl percentage/band pair(s) in the"
+  echo "       append-only ledger, $exm carrying a dated supersession marker — both counted so"
+  echo "       neither exemption can grow unseen."
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 38 — a mod-24 divisibility claim may not be stated as an UNRESTRICTED UNIVERSAL.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, "doc_gates legs prescribed by P12's sheet" —
+# "`divisible by 24` proximity leg", with the sheet's own warning that the sibling sites
+# "may already carry a local level qualifier; do not assume either way".
+#
+# THE DEFECT (fb696340, prose P16): lean/README.md read "24 divides **every exact solution
+# count**". The Lean theorem does not say that. It says 24 divides the length of any
+# DUPLICATE-FREE COMPLETE LISTING of the RECORD-LEVEL solution set, for a G-invariant
+# predicate containing C1. Drop those restrictions and the claim is false of the counts
+# this suite actually publishes: TR-11 v1.13 and TR-5's own note establish that the
+# ORIENTATION-EXPLICIT sequence-level counts sit in orbits of size 48, so mod-24 is the
+# strictly weaker gate there, and METHODS.md:75 records "mod-24 N/A under pins" for the
+# C6/C7-pinned layer, where the free action does not hold at all.
+#
+# 🔴 WHAT THIS LEG IS *NOT*, measured before it was written rather than after. The sheet's
+# literal "proximity" shape — every `divisible by 24` sentence must name its authority —
+# was BUILT AND MEASURED FIRST and is NOT what shipped. Over the tracked corpus it returns
+# 47 occurrences with 11 unqualified, and inspection of all 11 found ZERO defects: they are
+# revision rows, correction markers narrating the level-attribution fix, and table cells
+# whose "sentence" is an entire row. A leg with 11 false positives and no true one is a
+# demand that eleven correct sentences be reworded, which is the disclosure-penalising
+# shape this suite is under standing instruction not to build. Recorded here so the shape
+# is not re-proposed as an oversight.
+#
+# 🔴 POPULATION vs PREDICATE ARE DELIBERATELY DIFFERENT SETS. The population is every
+# mod-24 divisibility claim in the corpus (stable, ~45); the predicate fires only on the
+# unrestricted-universal SHAPE. Keying the floor to the predicate's own matches would make
+# the floor 1 — the surviving quoted copy inside the CORRECTED marker — and a gate whose
+# population is one quoted string ERRORs the moment that marker is reworded. Keyed this
+# way, the floor tracks the thing that would actually have to disappear for the gate to be
+# measuring nothing.
+#
+# 🔴 IT MUST NOT FAIL THE CORRECTION THAT WITHDREW IT. lean/README.md:25 still contains the
+# retired sentence VERBATIM, inside the dated `[CORRECTED 2026-08-30 — this read "…"]`
+# marker that withdrew it, because CORRECTIONS are append-only and a withdrawal has to
+# quote what it withdrew. Two independent exemptions cover it — the prelude's `quoted()`
+# (the phrase sits inside double quotes) and a narration regex — and BOTH are counted and
+# printed, so neither can grow unseen.
+gate_dvd24_scope() {
+  echo "== GATE 38: a mod-24 divisibility claim stated as an unrestricted universal =="
+  local FLOOR=10
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor = int(sys.argv[1])
+# POPULATION: any mod-24 divisibility claim at all.
+POP = re.compile(r'divisib\w{0,4} by 24|indivisible by 24|\bmod[- ]24\b|24 divides|divides\b[^.]{0,30}\bby 24')
+# PREDICATE: the divisibility asserted over an unrestricted universal class of counts.
+U = re.compile(r'(?:24|twenty-four)\s+divides\s+(?:the\s+length\s+of\s+)?(?:every|all|any|each)\b[^.]{0,60}?count'
+               r'|(?:every|all|any|each)\s+exact\s+(?:solution\s+)?count[^.]{0,40}?(?:divisib\w+ by 24|\bmod[- ]24\b)',
+               re.I)
+# The restriction the theorem actually carries. Tested against the MATCHED QUANTIFIER SPAN,
+# never the sentence. 🔴 THIS SCOPE WAS SET BY A FAILED RED TEST, not by taste: with the
+# check on sentence scope the gate went GREEN on its own pre-fix baseline, because the
+# retired sentence states the restriction as its PREMISE ("they act freely at the record
+# level in 24-element orbits") and then over-generalises in its CONCLUSION ("and therefore
+# 24 divides every exact solution count"). A restriction word anywhere in the sentence is
+# therefore evidence of nothing. It has to qualify the quantified noun phrase itself.
+RESTR = re.compile(r'duplicate-free|record[- ]level|complete listing', re.I)
+# A correction quoting the sentence it retired is doing its job; failing it would be the
+# self-defeating shape. Same-scope only — the SENTENCE, never a line window.
+NARR = re.compile(r'CORRECTED 20\d\d|this read|\bBEFORE\.|RETIRED|withdraw|RP-[0-9a-f]{8}')
+pop = ex_quoted = ex_narr = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    pop += len(POP.findall(flat))
+    for m in U.finditer(flat):
+        s = sent(flat, m.start(), m.end())
+        if RESTR.search(m.group(0)):
+            continue
+        if quoted(s, s.find(m.group(0)) + len(m.group(0))):
+            ex_quoted += 1
+            continue
+        if NARR.search(s):
+            ex_narr += 1
+            continue
+        print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), " ".join(m.group(0).split())[:150]))
+print("POP\t%d mod-24 divisibility claim(s); %d retired-wording copy(ies) exempt as quoted, %d as narration" % (pop, ex_quoted, ex_narr))
+if pop < floor:
+    print("ERROR\tonly %d mod-24 divisibility claim(s) in the corpus (floor %d) - the class has been reworded out of this gate's reach and it is measuring nothing" % (pop, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 38 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b states mod-24 divisibility as an UNRESTRICTED UNIVERSAL"
+             echo "         $c"
+             echo "         The theorem restricts to a duplicate-free complete listing of the"
+             echo "         RECORD-LEVEL set. Sequence-level counts sit in orbits of 48, and the"
+             echo "         C6/C7-pinned layer has no free action at all (METHODS.md:75, 'N/A under pins')."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every mod-24 divisibility claim carries the restriction the theorem quantifies over"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 39 — the four claim-to-artifact legs Codex V2 prescribed (P14's sheet).
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, "the four doc_gates legs P14 prescribed
+# (`cert-claims-shipped`, `four-five-labels`, `se-claims-have-se`, the 26,112/`canonical`
+# pair leg)". Each leg's shape and red test are quoted from CODEX_V2_ADJUDICATION.md rows
+# 1/2/5/3b. All four prose defects are FIXED at HEAD, so all four legs are REGRESSION
+# GUARDS and their red tests are run against the pre-fix tree, not against HEAD.
+#
+# LEG 1 `cert-claims-shipped` (adjudication row 1 + row 8) — every `*.drat`/`*.drat.gz`
+#   named in tracked markdown must exist under reports/certificates/ AND appear in
+#   verify_all.sh's regeneration map. THE DEFECT: CLAIM_TO_ARTIFACT.md:35 and TR-2:313
+#   cited `core_gender_ccn4_unsat.drat` — a fourth two-rule core certificate that existed
+#   at no public ref — while verify_all.sh's completeness check ran ONE WAY (every archived
+#   proof is mapped) and so could not notice a CLAIMED 22nd proof that was absent. 21/21
+#   passed green while the fourth advertised core was never replayed. This leg is the other
+#   direction: claimed ⊆ archived.
+#   🔴 BRACE EXPANSION IS LOAD-BEARING. CLAIM_TO_ARTIFACT.md writes the set as
+#   `core_{gender_ccn8,parity_ccn4,rhythm_ccn4,gender_ccn4}_unsat.drat.gz`. A plain
+#   filename regex extracts `_unsat.drat` from that and checks NOTHING, so the one site
+#   the leg exists for is invisible to it — measured: without expansion the four real names
+#   never enter the population. One brace group per line is expanded before matching.
+#   EXEMPT: command metavariables (`OUT.cnf.drat` at SAT_CLI.md:234 — a template, not a
+#   claim). Declared as an ALL-CAPS stem segment, and counted.
+#
+# LEG 2 `four-five-labels` (row 2) — `grander-strict` is the FIVE-rule union and
+#   `grand-ccn4` the FOUR-rule conflict theorem. THE DEFECT: CLAIM_TO_ARTIFACT.md:34 mapped
+#   "The four literature rules are jointly unsatisfiable" to `grander_strict_unsat.drat.gz`
+#   — a different formula (7249v/271066c vs 7035v/262093c), and UNSAT(F∧ccn8) does not
+#   imply UNSAT(F). SAT_CLI.md:253 inverted the same pair.
+#   🔴 IDENTIFIER MASKING IS LOAD-BEARING AND WAS MEASURED. The ruleset and certificate
+#   names CONTAIN the words: `five_loo_ccn8_unsat.drat.gz`, `five-loo-ccn8`, `five-sub-…`.
+#   certificates/README.md:98 reads "five_loo_ccn8_unsat.drat.gz | … (= grand-ccn4): still
+#   UNSAT" — a CORRECT line that a bare `grand-ccn4` AND `five` needle fails. So identifier-
+#   embedded four/five and code spans are masked before the PROSE words are read, while the
+#   ruleset detection runs on the raw line. A line naming BOTH rulesets is exempt: that is
+#   the "four- / five-rule conflict decisions" row, which is how the pair is stated correctly.
+#
+# LEG 3 `se-claims-have-se` (row 5) — a sentence claiming standard errors for a named
+#   evidence file must be true of that file. THE DEFECT: CLAIM_TO_ARTIFACT.md:37 asserted
+#   "masses now carry SEs" while naming `reports/evidence/dav_tier1.out`, which contains
+#   ZERO `se=` fields (the delta-method emission landed 2026-08-28; the archived run is
+#   2026-07-04). METHODS.md itself disclosed the gap the matrix row denied.
+#
+# LEG 4 the 26,112/`canonical` pair leg (row 3b) — the n-ladder integers 26,112 /
+#   2,063,395,607,040 / 267,765,117,419,520 are ORIENTATION-EXPLICIT sequence counts.
+#   THE DEFECT: CLAIM_TO_ARTIFACT.md:41 called 26,112 the "n=9 **canonical** count", and in
+#   this repository "canonical" records collapse orientation (SOLUTIONS_FORMAT.md), so the
+#   adjective states a different quantity. TR-11 v1.13 exists because the same conflation
+#   was already caught once at the report level.
+#
+# 🔴 SENTENCE SCOPE, CELL-AWARE — AND THIS WAS SET BY MEASUREMENT, NOT TASTE. Legs 3 and 4
+# were first written at LINE scope, which is what the adjudication rows say ("any tracked-md
+# line …"). Measured, that produced FOUR false positives and no true one, all of the
+# disclosure-penalising shape: TR-10:506 is a single revision row ~3,000 characters long in
+# which the `se=` clause and the `dav_tier1.out` citation are unrelated neighbours (the
+# files are cited for `threads=32`), and TR-11:746 pairs 26,112 with the boilerplate "No
+# count, theorem, or canonical value changed". Failing either would be failing a revision
+# row for narrating a correction. The fix is scope, not an exemption list: ` | ` is treated
+# as a sentence boundary alongside `.!?`, so one table cell is one unit.
+gate_p14_claims() {
+  echo "== GATE 39: the four claim-to-artifact legs (cert / four-five / se / orientation) =="
+  require_tracked "reports/certificates/verify_all.sh" "GATE 39 LEG 1" || return 1
+  local FA=15 FB=15 FC=2 FD=15
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+import os
+fa, fb, fc, fd = (int(x) for x in sys.argv[1:5])
+# Cell-aware sentence split: a markdown table cell is its own unit.
+_CB = re.compile(r'(?<=[.!?])\s|\s\|\s')
+def csent(flat, a, b):
+    s = 0
+    for m in _CB.finditer(flat, 0, a): s = m.end()
+    m = _CB.search(flat, b)
+    return flat[s:(m.start() if m else len(flat))]
+
+# ---------- LEG 1: cert-claims-shipped ----------
+BRACE = re.compile(r'\{([^{}]*,[^{}]*)\}')
+TOK   = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.\-]{2,}\.drat(?:\.gz)?')
+META  = re.compile(r'(?:^|[._-])(?:OUT|DIR|FILE|NAME|PATH)(?:[._-]|$)')
+named = {}
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    for i, l in enumerate(t.split("\n"), 1):
+        outs = [l]
+        m = BRACE.search(l)
+        if m:
+            outs = [l[:m.start()] + alt + l[m.end():] for alt in m.group(1).split(',')]
+        for o in outs:
+            for tok in TOK.findall(o):
+                named.setdefault(tok[:-3] if tok.endswith('.gz') else tok, set()).add("%s:%d" % (f, i))
+try:
+    arch = {(x[:-3] if x.endswith('.gz') else x) for x in os.listdir('reports/certificates')
+            if x.endswith('.drat') or x.endswith('.drat.gz')}
+except OSError as e:
+    print("ERROR\treports/certificates/ is unreadable (%s) - LEG 1 checked NOTHING" % e.strerror)
+    arch = None
+vmap = read('reports/certificates/verify_all.sh')
+if arch is not None and vmap is not None:
+    ex_meta = 0
+    for n in sorted(named):
+        if META.search(n[:-5]):
+            ex_meta += 1
+            continue
+        where = sorted(named[n])[0]
+        if n not in arch:
+            print("HIT1\t%s\t%s\tnamed in markdown but NOT archived under reports/certificates/" % (where, n))
+        elif n not in vmap and n[:-5] not in vmap:
+            print("HIT1\t%s\t%s\tarchived but absent from verify_all.sh's regeneration map" % (where, n))
+    print("POPA\t%d certificate filename(s) named in markdown, %d archived, %d command metavariable(s) exempt"
+          % (len(named), len(arch), ex_meta))
+    if len(named) - ex_meta < fa:
+        print("ERROR\tonly %d claimed certificate name(s) (floor %d) - LEG 1 is measuring nothing" % (len(named) - ex_meta, fa))
+
+# ---------- LEG 2: four-five-labels ----------
+G4 = re.compile(r'grand-ccn4|grand_ccn4')
+G5 = re.compile(r'grander-strict|grander_strict')
+# 🔴 THE MASK MUST NOT EAT THE PROSE WORD IT IS LOOKING FOR. This first read
+# `[A-Za-z0-9_]*(?:five|four)[A-Za-z0-9_.\-]*`, whose zero-length prefix and suffix make it
+# match the bare word "four" as well as `five_loo_ccn8`. Measured against the pre-fix tree
+# at 89e7a9a1, the leg went GREEN on CLAIM_TO_ARTIFACT.md:34 — the single site it was
+# written for — because it masked the "four" in "The four literature rules". Code spans are
+# masked (the rulesets are cited in backticks), then only IDENTIFIER forms of the words:
+# `five_loo_ccn8`, `five-loo-ccn8`, `five-sub-gender+ccn4`. `four-rule` / `five-rule` are
+# deliberately NOT masked — they are the prose labels this leg reads.
+MASK = re.compile(r'`[^`]*`'
+                  r'|\b(?:five|four)[_-](?:loo|sub|ccn|strict|rules?_)[A-Za-z0-9_.+\-]*'
+                  r'|\b(?:five|four)_[A-Za-z0-9_.+\-]+')
+W4 = re.compile(r'\bfour\b', re.I)
+W5 = re.compile(r'\bfive\b', re.I)
+popb = exb = exl = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    for i, l in enumerate(t.split("\n"), 1):
+        h4, h5 = bool(G4.search(l)), bool(G5.search(l))
+        if not (h4 or h5): continue
+        popb += 1
+        if h4 and h5:
+            exb += 1
+            continue          # states the pair — the correct form
+        # The append-only ledger QUOTES the labels it retired: CORRECTIONS.md:7080 reads
+        # 'Three sites nevertheless called the four-rule decision "five": the `grand-ccn4`
+        # docstring …'. Failing a correction for naming the wording it withdrew is the
+        # disclosure-penalising shape; a withdrawal has to quote what it withdrew, and the
+        # ledger is append-only so it can never be reworded out of the way. Counted, so the
+        # exemption cannot grow unseen.
+        if f == 'documentation/CORRECTIONS.md':
+            exl += 1
+            continue
+        m = MASK.sub(' ', l)
+        if h5 and W4.search(m):
+            print("HIT2\t%s:%d\tgrander-strict (the FIVE-rule union) labelled 'four'\t%s" % (f, i, " ".join(l.split())[:130]))
+        if h4 and W5.search(m):
+            print("HIT2\t%s:%d\tgrand-ccn4 (the FOUR-rule theorem) labelled 'five'\t%s" % (f, i, " ".join(l.split())[:130]))
+print("POPB\t%d line(s) name a conflict ruleset, %d naming both (exempt), %d in the append-only ledger (exempt)" % (popb, exb, exl))
+if popb < fb:
+    print("ERROR\tonly %d conflict-ruleset mention(s) (floor %d) - LEG 2 is measuring nothing" % (popb, fb))
+
+# ---------- LEG 3: se-claims-have-se ----------
+# 🔴 ROW SCOPE, NOT CELL SCOPE — AND THE OPPOSITE CHOICE WAS MEASURED AND REJECTED. Legs 3
+# and 4 share the cell-aware splitter above; LEG 3 must NOT use it. The defect lives in a
+# CLAIM-TO-ARTIFACT matrix row whose artifact cell holds `reports/evidence/dav_tier1.out`
+# and whose status cell holds "masses now carry SEs" — two different cells. Under cell
+# scope the leg went green on its own pre-fix red-test site, which is the failure mode of
+# a needle that cannot fire on the case it was written for. Binding a claim to an artifact
+# is a ROW-level relation, so the row is the unit.
+# The line-scope false positives that motivated cell scope came from REVISION-HISTORY rows
+# (TR-10:506 is ~3,000 characters in which the `se=` clause and the `dav_tier1.out`
+# citation are unrelated neighbours — the files are cited there for `threads=32`). Those
+# are excluded by SHAPE, declared and counted, rather than by shrinking the scope until
+# the real defect disappears with the false ones.
+EV  = re.compile(r'([A-Za-z0-9_]+\.out)\b')
+SE  = re.compile(r'\bse=|standard error|\bSEs\b', re.I)
+# A sentence that says the file has NO SEs is disclosing the gap, not claiming it closed.
+# 🔴 TIGHTENED AFTER A MEASURED NO-OP. This first read `\bno\b|carry|carries|predates?|...`,
+# which exempted 8 of 8 population members — a leg that cannot fire. Worse, the PRE-FIX
+# sentence it exists to catch ("masses now **carry** SEs") contains `carry`, so the leg
+# would have gone green on its own red test. The negation must attach to the SE claim.
+NEG = re.compile(r'no `?se=|carr(?:y|ies|ied) no|contains? no|zero `?se=|does not carry'
+                 r'|predates?\b|no standard error|without `?se=|no PUBLISHED artifact', re.I)
+REV = re.compile(r'^\s*\|\s*\*{0,2}v?\d+\.\d+[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')
+popc = exc = exr = 0
+_seen = {}
+def has_se(n):
+    if n not in _seen:
+        p = 'reports/evidence/' + n
+        try:
+            _seen[n] = 'se=' in open(p, encoding='utf-8', errors='replace').read()
+        except OSError:
+            _seen[n] = None          # named file absent — reported, never silently passed
+    return _seen[n]
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    for i, l in enumerate(t.split("\n"), 1):
+        if not SE.search(l): continue
+        names = set(EV.findall(l))
+        if not names: continue
+        if REV.match(l):
+            exr += 1
+            continue
+        popc += 1
+        if NEG.search(l):
+            exc += 1
+            continue
+        for n in sorted(names):
+            r = has_se(n)
+            if r is None:
+                print("HIT3\t%s:%d\t%s\tclaims standard errors for an evidence file that does not exist" % (f, i, n))
+            elif not r:
+                print("HIT3\t%s:%d\t%s\tclaims standard errors, but the named file contains no `se=` field" % (f, i, n))
+print("POPC\t%d row(s) pair an SE claim with a named evidence file, %d disclosing the gap (exempt), %d revision-history row(s) excluded by shape" % (popc, exc, exr))
+if popc < fc:
+    print("ERROR\tonly %d SE/evidence-file row(s) (floor %d) - LEG 3 is measuring nothing" % (popc, fc))
+
+# ---------- LEG 4: the n-ladder is orientation-explicit, not canonical ----------
+LAD = re.compile(r'26,112|2,063,395,607,040|267,765,117,419,520')
+CAN = re.compile(r'\bcanonical\b', re.I)
+OE  = re.compile(r'orientation-explicit', re.I)
+popd = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in LAD.finditer(flat):
+        popd += 1
+        s = csent(flat, m.start(), m.end())
+        if CAN.search(s) and not OE.search(s):
+            print("HIT4\t%s:%d\t%s" % (f, lno(starts, m.start()), " ".join(s.split())[:150]))
+print("POPD\t%d n-ladder integer mention(s)" % popd)
+if popd < fd:
+    print("ERROR\tonly %d n-ladder mention(s) (floor %d) - LEG 4 is measuring nothing" % (popd, fd))
+PY
+} | python3 - "$FA" "$FB" "$FC" "$FD" ) || { echo "  [FAIL] GATE 39 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0 sawa="" sawb="" sawc="" sawd=""
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POPA)  sawa=1; echo "  [info] LEG 1 cert-claims-shipped: $a" ;;
+      POPB)  sawb=1; echo "  [info] LEG 2 four-five-labels: $a" ;;
+      POPC)  sawc=1; echo "  [info] LEG 3 se-claims-have-se: $a" ;;
+      POPD)  sawd=1; echo "  [info] LEG 4 orientation-explicit: $a" ;;
+      HIT1)  echo "  [FAIL] $a cites \`$b\` — $c"
+             echo "         A CERTIFIED claim must name a proof object a third party can replay."
+             rc=1 ;;
+      HIT2)  echo "  [FAIL] $a $b"
+             echo "         … $c"
+             echo "         UNSAT of the five-rule union does not imply UNSAT of the four-rule theorem."
+             rc=1 ;;
+      HIT3)  echo "  [FAIL] $a names \`$b\` and $c"
+             rc=1 ;;
+      HIT4)  echo "  [FAIL] $a calls an n-ladder integer 'canonical'"
+             echo "         $b"
+             echo "         These are orientation-explicit SEQUENCE counts (TR-11 §2 precision note);"
+             echo "         repository 'canonical' records collapse orientation."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  if [ -z "$sawa" ] || [ -z "$sawb" ] || [ -z "$sawc" ] || [ -z "$sawd" ]; then
+    echo "  [FAIL] GATE 39 did not print all four census lines — a leg did not run, so it checked nothing."
+    return 1
+  fi
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every named certificate is archived and mapped; every conflict-ruleset label"
+  echo "       matches its rule count; every SE claim is true of the file it names; every"
+  echo "       n-ladder integer is labelled orientation-explicit rather than canonical."
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 40 — a `--mutual-info` citation may not be explained by the wrong MI.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P30 / Codex V2-F30 #6 — "any line citing
+# `--mutual-info` must disambiguate" which of the two statistics it means.
+# THE DEFECT (152c986c): MCKENNA.md:107 read "`--mutual-info` shows near-zero mutual
+# information between upper and lower trigram **transitions**" and then explained that
+# value with the complete Latin square. The analysis prints TWO figures and the explanation
+# belongs to the other one: the TRANSITION MI (changed/unchanged indicators across the 63
+# transitions) is 0.0078 bits at the 7th percentile and is NOT forced by the construction —
+# random permutations contain the same 64 hexagrams and their transition MI varies. It is
+# the STATIC 8-state MI over trigram identities that is exactly 0.000000 bits and IS forced,
+# because all 64 (upper, lower) combinations appear exactly once.
+#
+# 🔴 TWO EARLIER SHAPES WERE BUILT, MEASURED AND DISCARDED — recorded so neither is
+# re-proposed as an oversight:
+#   (a) "every `--mutual-info` mention must disambiguate" returns 6 findings and 0 defects:
+#       five are FLAG ENUMERATIONS (`--palindromes`, `--canons`, `--entropy`, `--path`,
+#       `--mutual-info`, … in ROAE_PY_CLI.md's reseed census) and one is the ledger.
+#       Citing a flag in a list of flags is not citing a figure.
+#   (b) "…must disambiguate when it publishes a figure" scores ZERO on its own red-test
+#       site, twice over: the pre-fix sentence publishes no numeral ("near-zero"), and it
+#       CONTAINS the words "Latin square", which the first draft had in its disambiguation
+#       vocabulary. The retired sentence would have exempted itself.
+# What ships is the coupling the correction actually established: invoking the complete
+# square is a claim about the STATIC MI, so a sentence that invokes it must name that one.
+gate_mi_disambig() {
+  echo "== GATE 40: a --mutual-info citation explained by the wrong mutual information =="
+  local FLOOR=2
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor = int(sys.argv[1])
+MI  = re.compile(r'--mutual-info|mutual information', re.I)
+# The complete-Latin-square construction. It forces the STATIC 8-state MI and nothing else.
+LSQ = re.compile(r'Latin square|complete square|all 64 \(upper|every \(upper, ?lower\) combination', re.I)
+STATIC = re.compile(r'\bstatic\b|8-state|eight-state|trigram identit', re.I)
+pop = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    for i, l in enumerate(t.split("\n"), 1):
+        if not (MI.search(l) and LSQ.search(l)):
+            continue
+        pop += 1
+        if STATIC.search(l):
+            continue
+        print("HIT\t%s\t%d\t%s" % (f, i, " ".join(l.split())[:150]))
+print("POP\t%d site(s) explain a mutual-information figure with the complete-square construction" % pop)
+if pop < floor:
+    print("ERROR\tonly %d MI/complete-square site(s) (floor %d) - this gate is measuring nothing" % (pop, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 40 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0 saw=""
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   saw=1; echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b explains a mutual-information figure with the complete Latin square"
+             echo "         $c"
+             echo "         The square forces the STATIC 8-state MI (0.000000 bits) only. The TRANSITION"
+             echo "         MI (0.0078 bits, 7th percentile) is not forced and varies across permutations."
+             echo "         Name which of the two the sentence means."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ -n "$saw" ] || { echo "  [FAIL] GATE 40 printed no census line — the scan did not complete."; return 1; }
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every complete-square explanation names the static 8-state MI it applies to"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 41 — 65,281 is the PRODUCTIVE subset, never the space.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P33 / Codex V2-F53 #2 — "cross-check
+# 158,364 against 65,281 … fail any 'entire space'/'all-cells' wording that appears near
+# 65,281".
+# THE MEASURED FACTS (recomputed 2026-09-02, recorded in the backlog row): the depth-3
+# C2/C5-feasible space is 158,364 cells in 4,382 ambient G-orbits (sizes {6:14, 12:270,
+# 24:1736, 48:2362}), G-closed under all 48 sigma. The productive 65,281 are 41.2% of it
+# and are NOT G-closed — so an orbit statement made over the 65,281 is a statement about a
+# non-invariant subset, which is exactly the error the "all-cells orbit test" wording made.
+#
+# 🔴 THE ONE CANDIDATE IN THE CORPUS IS THE LEDGER QUOTING ITSELF, and it is exempted by
+# CONTENT rather than by filename: CORRECTIONS.md:3976 carries the retired wording inside
+# its own **BEFORE.** quotation, on a line that also says "measures 41.2% of the cells".
+# The 41.2%/productive/158,364 vocabulary is what makes the sentence correct, so the same
+# test that clears the correction is the test the corrected prose has to pass — no
+# file-level carve-out, which would also clear a genuinely wrong sentence in that file.
+gate_cell_space() {
+  echo "== GATE 41: 65,281 described as the space rather than the productive subset =="
+  local FLOOR=20
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor = int(sys.argv[1])
+_CB = re.compile(r'(?<=[.!?])\s|\s\|\s')
+def csent(flat, a, b):
+    s = 0
+    for m in _CB.finditer(flat, 0, a): s = m.end()
+    m = _CB.search(flat, b)
+    return flat[s:(m.start() if m else len(flat))]
+N   = re.compile(r'65,281')
+ALL = re.compile(r'all[- ]cells|entire space|whole space|all the cells|every cell|the full space', re.I)
+# What makes such a sentence true: it names the AMBIENT count or the fraction, or states
+# the non-closure. 🔴 `productive` AND `yield` WERE REMOVED AFTER A FAILED RED TEST, for
+# the same reason GATE 38's restriction moved off sentence scope. The retired wording at
+# SYMMETRY_SEARCH.md:177 reads "**All-cells orbit test:** the 65,281 **productive** 560T
+# cells partition into 4,183 G-orbits … orbit-equal … across the entire space." The word
+# `productive` is in its PREMISE; the defect is the conclusion generalising to the whole
+# space from a subset that is 41.2% of it and not G-closed. With `productive` in this
+# vocabulary the gate went green on all three of its own pre-fix sites.
+OK  = re.compile(r'158,364|41\.2|non-empty|not G-closed', re.I)
+pop = ex = 0
+for f in corpus():
+    t = read(f)
+    if t is None: continue
+    flat, starts = flatten(t)
+    for m in N.finditer(flat):
+        pop += 1
+        s = csent(flat, m.start(), m.end())
+        if not ALL.search(s):
+            continue
+        if OK.search(s):
+            ex += 1
+            continue
+        print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), " ".join(s.split())[:150]))
+print("POP\t%d mention(s) of 65,281; %d pair all-cells wording with the ambient count, the 41.2%% fraction or the non-closure" % (pop, ex))
+if pop < floor:
+    print("ERROR\tonly %d mention(s) of 65,281 (floor %d) - this gate is measuring nothing" % (pop, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 41 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0 saw=""
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   saw=1; echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b calls the 65,281 productive cells the whole space"
+             echo "         $c"
+             echo "         The depth-3 C2/C5-feasible space is 158,364 cells (4,382 G-orbits, G-closed)."
+             echo "         The 65,281 are its 41.2% productive subset and are NOT G-closed."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ -n "$saw" ] || { echo "  [FAIL] GATE 41 printed no census line — the scan did not complete."; return 1; }
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every all-cells statement about 65,281 names the ambient 158,364, the 41.2% fraction,"
+  echo "       or the fact that the productive subset is not G-closed"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 42 — the x15-17 weakest-remaining-boundary band must be labelled illustrative
+#           EVERYWHERE it is published, the figure generator included.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, charge 14's prescribed mechanisation — "every figure
+# literal hard-coded in `viz/report_figures.py` must appear in a file under
+# `reports/evidence/`".
+#
+# 🔴 THE PRESCRIBED GATE IS NOT WHAT SHIPPED, AND THE REASON IS MEASURED, NOT ARGUED. The
+# literal-presence check was built first and INVERTS on its own inputs:
+#     7.49e-4    (measured S(1), archived)      -> absent from reports/evidence/  [would FAIL]
+#     9.39e-7, 4.27e-10, 6.34e-13 (measured)    -> absent from reports/evidence/  [would FAIL]
+#     17.0, 15.0 (the two ILLUSTRATIVE literals -> present as substrings of unrelated
+#                 this charge exists to catch)      evidence numerals             [would PASS]
+# The archived S(k) artifacts record per-candidate `est=1.689464e+24` values; S(k) is a
+# survival FRACTION derived from them, so it is nowhere in the files verbatim. A gate in the
+# prescribed shape would fail the four numbers that are measured, pass the two that are not,
+# and report a green tree as broken. Closing the gap properly means recomputing S(k) from
+# the est values against a published definition of the candidate set — a numerical
+# re-derivation, not a documentation gate, and the definition of "weakest" it needs is
+# itself unpublished (that is charge 14's other half, still open).
+#
+# WHAT SHIPS INSTEAD is the invariant the 2026-09-02 correction actually established, and it
+# is the half that is fully checkable: the band's STATUS must be identical everywhere it is
+# published. THE DEFECT: the x15-17 bracket shipped for two months as MEASURED at three
+# sites in TR-4, one in SEARCH_SPACE_SIZE.md and two literals in viz/report_figures.py,
+# under a figure legend that said "(measured)". The tree ships two S(k) artifacts and both
+# are greedy chains; no weakest-remaining chain, no command for one, and no definition of
+# "weakest" is published.
+#
+# 🔴 IT SPANS MARKDOWN AND A GENERATOR, which is why it is not a GATE 3 registry row. The
+# rendered legend text inside a PNG is ungreppable — the same reason GATE 6 exists — so the
+# generator's own `label=` string is the only place the published wording can be checked.
+gate_band_status() {
+  echo "== GATE 42: the x15-17 weakest-remaining band must be labelled illustrative everywhere =="
+  local FLOOR=5
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor = int(sys.argv[1])
+files = corpus('*.md') + corpus('viz/*.py')
+BAND = re.compile(r'(?:×|x)\s?15\s?[-–]\s?17|15\s?[-–]\s?17\s?(?:/|per )boundary|weakest[- ]remaining[- ]boundary', re.I)
+# The status the correction fixed on. Any one of these marks the band as unreproduced.
+MARK = re.compile(r'illustrative|not reproducible|NOT measured|no measurement behind', re.I)
+# A revision row or the append-only ledger narrating the correction QUOTES the old status.
+# 🔴 NARROWED AFTER A MEASURED FALSE CLEAR. This first read
+# `published as measured|said|read|BEFORE\.|Registered as RP-|Corrected 20\d\d`. At block
+# scope `Corrected 20\d\d` matches ANY dated correction anywhere in the paragraph, and
+# SEARCH_SPACE_SIZE.md's pre-fix block carries an unrelated "corrected 2026-07-04" about
+# the identifying-set size — so the gate cleared one of the five sites this charge exists
+# to catch, silently. The narration marker has to be about THIS band's status, not about
+# the paragraph having a correction somewhere in it.
+NARR = re.compile(r'published as measured|was published as|BEFORE\.|Registered as RP-', re.I)
+REV  = re.compile(r'^\s*\|\s*\*{0,2}v?\d+\.\d+[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')
+# 🔴 CONTIGUOUS-BLOCK SCOPE, AND A LINE-SCOPE DRAFT WAS MEASURED FAILING BOTH ITS OWN
+# SITES. The marker sits on the NEXT physical line at both places it matters:
+# TR-4:133 ends "…reported roughly ×15–17 per boundary — but ⚠ **that" and :134 opens
+# "band is not reproducible from published material"; report_figures.py:141 is the bracket
+# comment and :142 the "ILLUSTRATIVE, not measured" one. A line-scope needle reports two
+# [FAIL]s on correct prose — the hard-wrap blindness this suite has already been bitten by.
+# The unit is the maximal run of non-blank lines: a paragraph, or a comment block and the
+# call it annotates. That is a real syntactic unit, not a +-N line window.
+def blocks(t):
+    out, buf, start = [], [], 1
+    for i, l in enumerate(t.split("\n"), 1):
+        if l.strip():
+            if not buf:
+                start = i
+            buf.append(l)
+        elif buf:
+            out.append((start, " ".join(" ".join(buf).split())))
+            buf = []
+    if buf:
+        out.append((start, " ".join(" ".join(buf).split())))
+    return out
+pop = exn = 0
+for f in files:
+    t = read(f)
+    if t is None: continue
+    for i, blk in blocks(t):
+        if not BAND.search(blk):
+            continue
+        pop += 1
+        if MARK.search(blk):
+            continue
+        if REV.match(blk) or NARR.search(blk) or f == 'documentation/CORRECTIONS.md':
+            exn += 1
+            continue
+        print("HIT\t%s\t%d\t%s" % (f, i, blk[:150]))
+print("POP\t%d block(s) publish the x15-17 band, %d narrating the correction (exempt)" % (pop, exn))
+if pop < floor:
+    print("ERROR\tonly %d x15-17 band site(s) (floor %d) - this gate is measuring nothing" % (pop, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 42 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0 saw=""
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   saw=1; echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b publishes the x15-17 band with no illustrative marker"
+             echo "         $c"
+             echo "         Both archived S(k) artifacts are GREEDY chains. No weakest-remaining chain,"
+             echo "         no command for one, and no published definition of 'weakest' — the band is"
+             echo "         not reproducible from published material and must say so."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ -n "$saw" ] || { echo "  [FAIL] GATE 42 printed no census line — the scan did not complete."; return 1; }
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every published x15-17 band site, figure generator included, is labelled illustrative"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 43 — an exact anchor cannot land in METHODS without moving TR-4's coverage line.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, charge 15's prescribed mechanisation — the exact
+# integer at reports/METHODS.md:75 "should be tied to TR-4's coverage line so that a future
+# exact anchor cannot land in METHODS without failing TR-4's 'Coverage: N of N'".
+# THE DEFECT: |C1-C7| with C3 dropped became exact on 2026-07-25/26 (two instruments: an IE
+# pinned-step recount and an independent mask-DP recount of a different algorithm class).
+# METHODS labelled it a third independent estimator-calibration anchor. TR-4's calibration
+# table kept "Coverage: 2 of 2" and "With n=2" for six weeks, until P34 found it by hand.
+#
+# 🔴 DERIVED VALUES ARE NOT ANCHORS, and the distinction is drawn from the row's own words.
+# METHODS:79 publishes 45,710,469,949,549,241,251,504,669,632,357,466,112 as **exact** — it
+# is |C1nC2nC4nC5|/24, "(= N/24 of the two-instrument count above)". Dividing an anchor by
+# 24 does not calibrate an estimator against anything, and that integer correctly appears
+# nowhere in TR-4's coverage table. A leg that required every **exact** integer in METHODS
+# to appear in TR-4 reports it as a defect; measured, it is the gate's only false positive.
+#
+# 🔴 THE COVERAGE LINE MUST BE READ LIVE, NOT FROM THE REVISION HISTORY. TR-4 contains two
+# `Coverage: N of M` strings: the live one at :174 ("3 of 3") and "2 of 2" inside v1.25's
+# revision row, which is the row RECORDING this very correction. Reading the wrong one
+# inverts the gate's verdict, so revision rows are excluded by shape before the match.
+gate_anchor_coverage() {
+  echo "== GATE 43: METHODS exact anchors vs TR-4's Coverage: N of N =="
+  require_tracked "reports/METHODS.md" "GATE 43" || return 1
+  require_tracked "reports/TR4_SIZE_OF_THE_SPACE.md" "GATE 43" || return 1
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+INT = re.compile(r'\b\d{1,3}(?:,\d{3}){8,}\b')
+# A row whose value is computed FROM another row is not an independent calibration anchor.
+DERIV = re.compile(r'=\s*N\s*/\s*24|/24 of the|derived from|of the two-instrument count above', re.I)
+REV   = re.compile(r'^\s*\|\s*\*{0,2}v?\d+\.\d+[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')
+m_txt = read('reports/METHODS.md')
+t_txt = read('reports/TR4_SIZE_OF_THE_SPACE.md')
+if m_txt is None or t_txt is None:
+    print("ERROR\tan input report is unreadable - NOTHING was checked")
+    raise SystemExit(0)
+anchors, derived = [], 0
+for i, l in enumerate(m_txt.split("\n"), 1):
+    if '**exact**' not in l or REV.match(l):
+        continue
+    for m in INT.finditer(l):
+        if DERIV.search(l):
+            derived += 1
+        else:
+            anchors.append((i, m.group(0)))
+missing = [(i, v) for i, v in anchors if v not in t_txt]
+for i, v in missing:
+    print("HITA\tMETHODS.md\t%d\t%s" % (i, v))
+# the LIVE coverage line only — revision rows quote the superseded one
+cov = None
+for i, l in enumerate(t_txt.split("\n"), 1):
+    if REV.match(l):
+        continue
+    mm = re.search(r'Coverage:\s*(\d+)\s*of\s*(\d+)', l)
+    if mm:
+        cov = (i, int(mm.group(1)), int(mm.group(2)))
+        break
+if cov is None:
+    print("ERROR\tTR-4 publishes no live 'Coverage: N of N' line - the gate's anchor is gone and it checked nothing")
+else:
+    i, n, d = cov
+    if n != d:
+        print("HITC\t%d\tCoverage: %d of %d - the two halves disagree" % (i, n, d))
+    elif n != len(anchors):
+        print("HITC\t%d\tCoverage: %d of %d, but METHODS publishes %d exact estimator-calibration anchor(s)" % (i, n, d, len(anchors)))
+print("POP\t%d exact estimator-calibration anchor(s) in METHODS (%d derived value(s) excluded); TR-4 coverage %s"
+      % (len(anchors), derived, ("%d of %d" % (cov[1], cov[2])) if cov else "ABSENT"))
+if not anchors:
+    print("ERROR\tMETHODS publishes no exact anchors (floor 1) - this gate is measuring nothing")
+PY
+} | python3 - ) || { echo "  [FAIL] GATE 43 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0 saw=""
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      POP)   saw=1; echo "  [info] $a" ;;
+      HITA)  echo "  [FAIL] reports/$a:$b publishes exact anchor $c"
+             echo "         — it appears nowhere in TR-4, so TR-4's coverage line cannot account for it."
+             rc=1 ;;
+      HITC)  echo "  [FAIL] reports/TR4_SIZE_OF_THE_SPACE.md:$a $b"
+             echo "         An exact anchor landing in METHODS must move this line in the same change."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ -n "$saw" ] || { echo "  [FAIL] GATE 43 printed no census line — the scan did not complete."; return 1; }
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] every exact estimator-calibration anchor in METHODS appears in TR-4, and TR-4's"
+  echo "       live coverage line accounts for exactly that many"
+  return 0
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 44 — a null verdict about an analysis the shipped report contradicts.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P30 / Codex V2-F30 #4. The row states the
+# corpus-widening requirement in as many words: "`example/report.txt` is NOT in GATE 3's
+# corpus (`DOCS=$(git ls-files '*.md')` plus `reports/evidence/**` non-markdown), so the
+# corpus needs widening as part of this."
+# THE DEFECT: MCKENNA.md:88 published "the `--fft` shows no frequencies above the white
+# noise floor" while the report shipped IN THE SAME REPOSITORY printed floor 0.1741,
+# magnitude 0.4266 at frequency 24 — 2.45x the floor — and summarised its own count as
+# `Frequencies above 2x noise floor: 1/31`. Nothing in the suite compared the two.
+#
+# 🔴 THE REPORT IS AN INPUT, NOT A SCANNED DOCUMENT. The widening is deliberately narrow:
+# example/report.txt is READ for its own summary line and never added to the prose corpus.
+# Widening DOCS itself would put ~1,700 lines of generated analysis output under every
+# needle in GATES 1, 3, 8 and 13, which is a different change with a different blast radius.
+# The count is parsed from the report, so if the analysis ever legitimately finds nothing
+# the gate stops demanding a hedge on its own — the verdict tracks the artifact.
+#
+# 🔴 FAIL-CLOSED ON AN UNREADABLE REPORT. If example/report.txt is missing, or its summary
+# line is reworded, the gate ERRORs rather than reporting clean: a null-verdict scan whose
+# contradicting evidence could not be loaded has checked nothing. This is the 46-instance
+# fail-open class (roae-private FINDING_FAILOPEN_CLASS_2026_08_30.md) and the reason the
+# parsed count is printed on every run.
+gate_report_verdict() {
+  echo "== GATE 44: a null verdict contradicted by the report shipped beside it =="
+  require_tracked "example/report.txt" "GATE 44" || return 1
+  # FLOOR 2 = the two surviving copies of the retired verdict inside the markers that
+  # withdrew it (CORRECTIONS.md and MCKENNA.md's own "Corrected 2026-09-02" parenthetical).
+  # MEASURED, not chosen: the corrected corpus states no live null verdict, so this gate is
+  # a REGRESSION GUARD, and the floor is keyed to the narration copies because they are what
+  # would have to disappear for the needle to have gone blind. Stated rather than averaged
+  # away, exactly as GATE 35's one-heading population is.
+  local FLOOR=2
+  local out
+  out=$( { _g1_prelude; cat <<'PY'
+floor = int(sys.argv[1])
+rep = read('example/report.txt')
+if rep is None:
+    print("ERROR\texample/report.txt is unreadable - the contradicting evidence could not be loaded, so NOTHING was checked")
+    raise SystemExit(0)
+m = re.search(r'Frequencies above 2x noise floor:\s*(\d+)\s*/\s*(\d+)', rep)
+if not m:
+    print("ERROR\texample/report.txt no longer prints its 'Frequencies above 2x noise floor: N/M' summary - this gate's evidence anchor is gone and it checked nothing")
+    raise SystemExit(0)
+hits, bins = int(m.group(1)), int(m.group(2))
+floor_v = re.search(r'White noise floor:\s*([\d.]+)', rep)
+print("EVID\t%d\t%d\t%s" % (hits, bins, floor_v.group(1) if floor_v else "?"))
+# A NULL VERDICT about the spectrum: the analysis found nothing above the floor.
+NULL = re.compile(r'(?:shows?|showed|showing|finds?|found|reveals?|with)\s+no\s+(?:significant\s+)?'
+                  r'(?:frequenc\w+|peaks?|magnitudes?|periodicit\w+|structure)[^.]{0,60}?'
+                  r'(?:above|over|exceed\w*)[^.]{0,30}?noise floor'
+                  r'|nothing\s+(?:rises?|rose|is|was)?\s*above\s+the\s+(?:white\s+)?noise floor'
+                  r'|no\s+frequenc\w+\s+above\s+the\s+(?:white\s+)?noise floor', re.I)
+# A correction quoting the verdict it withdrew, or a hypothetical, is doing its job.
+NARR = re.compile(r'Corrected 20\d\d|CORRECTED 20\d\d|said\b|used to claim|BEFORE\.|RP-[0-9a-f]{8}'
+                  r'|may not\b|might not\b|even real\b|would not\b', re.I)
+pop = ex = 0
+if hits > 0:
+    for f in corpus():
+        t = read(f)
+        if t is None: continue
+        flat, starts = flatten(t)
+        for mm in NULL.finditer(flat):
+            pop += 1
+            s = sent(flat, mm.start(), mm.end())
+            if f == 'documentation/CORRECTIONS.md' or NARR.search(s) or quoted(s, s.find(mm.group(0)) + len(mm.group(0))):
+                ex += 1
+                continue
+            print("HIT\t%s\t%d\t%s" % (f, lno(starts, mm.start()), " ".join(mm.group(0).split())[:130]))
+print("POP\t%d null-spectrum verdict(s) in the corpus, %d narrating or hypothetical (exempt)" % (pop, ex))
+# The needle must remain able to see SOMETHING. The corpus carries the retired verdict inside
+# its correction markers; if even those vanish the vocabulary has drifted and the gate is blind.
+if pop < floor:
+    print("ERROR\tonly %d null-spectrum verdict(s) matched (floor %d) - the vocabulary has drifted out of this gate's reach and it is measuring nothing" % (pop, floor))
+PY
+} | python3 - "$FLOOR" ) || { echo "  [FAIL] GATE 44 scanner failed — NOTHING was checked."; return 1; }
+  local rc=0 saw="" sawe=""
+  while IFS=$'\t' read -r tag a b c; do
+    case "$tag" in
+      ERROR) echo "  [FAIL] $a"; rc=1 ;;
+      EVID)  sawe=1
+             echo "  [info] example/report.txt reports $a of $b frequency bins above 2x its white-noise floor of $c" ;;
+      POP)   saw=1; echo "  [info] $a" ;;
+      HIT)   echo "  [FAIL] $a:$b publishes a NULL spectrum verdict the shipped report contradicts"
+             echo "         \"$c\""
+             echo "         example/report.txt prints a magnitude above 2x its own noise floor and"
+             echo "         summarises the count itself. The verdict must match the artifact, or say"
+             echo "         why the artifact's own threshold does not support one."
+             rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  if [ -z "$sawe" ]; then
+    echo "  [FAIL] GATE 44 never read example/report.txt's summary — the evidence side did not run."
+    return 1
+  fi
+  [ -n "$saw" ] || { echo "  [FAIL] GATE 44 printed no census line — the scan did not complete."; return 1; }
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] no document states a null spectrum verdict that the shipped report contradicts"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 45 — a published Net bracket must be the arithmetic of the cells beside it.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P31 / Codex V2-F11 #3 — "for every row
+# publishing a Net bracket beside its own compression and cost cells, assert
+# net_endpoint == compression − cost_endpoint".
+# THE DEFECT (TR-9 v1.7, 2026-07-10, live until commit 6ffab778 on 2026-09-02): the C2
+# sensitivity row published compression 4.5, cost `~2.6–4`, net `≈ 0 (+2.0 to −4)`. The −4 is
+# the maximum COST with its sign flipped, not 4.5 − 4 = +0.5. Three rows, one table, and the
+# same table mirrored in DESCRIPTION_LENGTH.md; nothing in the suite subtracted.
+#
+# WHAT IS JUDGED, exactly. Every markdown table whose header names a compression column, at
+# least one cost column and a Net column. Per row: K = the FIRST number in the compression
+# cell (DESCRIPTION_LENGTH's C1 cell is "146.3 (C1) + 6.0 (C4)" — the bold lead figure is the
+# rule's compression, C4's 6.0 is a rider), costs = every number in every cost cell,
+# net = the first "a to b" bracket in the Net cell, else its first number. Parenthetical
+# asides are stripped from compression and cost cells before numbers are read (TR-9's C5
+# cost reads "15.7 (marginal-consistent: 31 boundary transitions)" — the 31 is a count of
+# transitions, not a price), but NOT from the Net cell, because DESCRIPTION_LENGTH writes its
+# bracket inside one: "≈ 0 (+0.5 to +2.0)". U+2212 minus is a minus; an en-dash between two
+# numbers is a range. The rule: every published net endpoint must equal K − c for some cost
+# figure c, AND every K − c must be published — a bracket that drops an endpoint is as wrong
+# as one that invents one. Tolerance is the half-unit of the last printed digit of each of
+# the three figures summed, so "+133 to +146" against 146.3 − 13 = 133.3 passes on its own
+# integer precision and "+2.0" against 4.5 − 2.6 = 1.9 passes on its one decimal; the
+# sign-flipped "−4" against +0.5 is 4.5 off and cannot.
+#
+# ROWS THIS DOES NOT JUDGE, and prints as [note] so the exemption cannot grow unseen: a cost
+# cell that says "underived" or "circular" (C3, C6+C7, the Schulz rule — a statement cost
+# the corpus declines to price cannot be subtracted), and a row with no numeric compression,
+# cost or net, and a Net cell whose bracket has a non-numeric endpoint ("≈ 0 to small +", the
+# Schulz row in TR-9 — a qualitative bracket has no endpoint to subtract; it is printed, not
+# judged). The judged population is printed and fewer than 3 rows is an ERROR: the two
+# tables hold three priced rows each, so a smaller count means the parser lost a table.
+#
+# MEASURED BEFORE LANDING (2026-09-02, local clone overlaid with the tree's edits):
+#   * the pre-fix TR-9 file (git show 6ffab778^) -> HIT on the C2 row, rc 1; a real
+#     baseline, not a planted string;
+#   * mutation: flip the sign of TR-9's live C5 bracket -> HIT, rc 1;
+#   * mutation: delete the Net header word from both tables -> population 0 -> ERROR, rc 1
+#     (a gate whose corpus silently emptied is a fail-open, not a pass);
+#   * the live tree: TR-9's three rows pass; DESCRIPTION_LENGTH.md's C2 row FAILS — its cost
+#     cell still reads "~3" while its bracket "+0.5 to +2.0" is 4.5 − {4, 2.585}, the TR-9
+#     pair. The backlog row that queued this gate predicted exactly that ("it would still
+#     fire today on DESCRIPTION_LENGTH.md", owned by Codex V2-F35 #3). The finding is real and
+#     is reported, not exempted.
+gate_net_brackets() {
+  echo "== GATE 45: a Net bracket must equal compression minus each cost figure beside it =="
+  local FLOOR=3 out
+  out=$(printf '%s\n' "$DOCS" | python3 -c '
+import sys, io, re
+files=[l.strip() for l in sys.stdin if l.strip()]
+if not files: print("EMPTY"); sys.exit(0)
+PAREN=re.compile(r"\([^()]*\)")
+NUM=re.compile(r"(?<![0-9.])([+-]?[0-9]+(?:\.[0-9]+)?)(?![0-9])")   # ASCII digits: a superscript footnote mark is not a digit
+BR=re.compile(r"([+-]?[0-9]+(?:\.[0-9]+)?)\s*(?:to|–)\s*([+-]?[0-9]+(?:\.[0-9]+)?)")
+UNPRICED=re.compile(r"underived|circular", re.I)
+SPLIT=re.compile(r"(?<!\\)\|")
+def norm(s): return s.replace("−","-").replace("**","").replace("~","")
+def dec(s): return len(s.split(".")[1]) if "." in s else 0
+def cells(line): return [p.strip() for p in SPLIT.split(line.strip().strip("|"))]
+def tol(a,b,c): return 0.5*10**-dec(a)+0.5*10**-dec(b)+0.5*10**-dec(c)+1e-9
+tables=0; judged=0; skipped=[]
+for f in files:
+    try: lines=io.open(f,encoding="utf-8").read().splitlines()
+    except OSError as e: print("READFAIL\t%s\t%s"%(f,e)); continue
+    i=0
+    while i<len(lines):
+        if not lines[i].lstrip().startswith("|"): i+=1; continue
+        j=i
+        while j<len(lines) and lines[j].lstrip().startswith("|"): j+=1
+        block=lines[i:j]; lo=[h.lower() for h in cells(block[0])]
+        ci=[k for k,h in enumerate(lo) if "compression" in h]
+        ni=[k for k,h in enumerate(lo) if re.search(r"\bnet\b",h)]
+        si=[k for k,h in enumerate(lo) if "cost" in h]
+        if ci and ni and si and len(block)>2:
+            tables+=1
+            for r,row in enumerate(block[2:],start=i+3):
+                c=cells(row)
+                if len(c)<=max(ci[0],ni[0],max(si)): continue
+                name=c[0][:60]
+                ms=NUM.search(norm(PAREN.sub("",c[ci[0]])))
+                costs=[]; unpriced=False
+                for k in si:
+                    if UNPRICED.search(c[k]): unpriced=True
+                    costs+=NUM.findall(norm(PAREN.sub("",c[k])))
+                if unpriced: skipped.append((f,r,name,"cost cell says underived/circular")); continue
+                if not ms or not costs: skipped.append((f,r,name,"no numeric compression or cost figure")); continue
+                net_s=norm(c[ni[0]]); mb=BR.search(net_s)
+                if mb: nets=[mb.group(1),mb.group(2)]
+                elif re.search(r"\bto\b",net_s): skipped.append((f,r,name,"qualitative net bracket (\"%s\" has a non-numeric endpoint)"%net_s[:40])); continue
+                else:
+                    mn=NUM.search(PAREN.sub("",net_s))
+                    if not mn: skipped.append((f,r,name,"no numeric net")); continue
+                    nets=[mn.group(1)]
+                judged+=1
+                K=ms.group(1); exp=[(float(K)-float(x),x) for x in costs]
+                bad=[n for n in nets if not any(abs(float(n)-e)<=tol(n,x,K) for e,x in exp)]
+                miss=[x for e,x in exp if not any(abs(float(n)-e)<=tol(n,x,K) for n in nets)]
+                if bad or miss:
+                    print("HIT\t%s\t%d\t%s\tcompression %s, cost {%s} -> expected net {%s}; published {%s}; published-but-unexplained {%s}; expected-but-unpublished {%s}"%(
+                        f,r,name,K,", ".join(costs),", ".join("%.1f"%e for e,x in exp),", ".join(nets),", ".join(bad) or "-",", ".join("%.1f"%(float(K)-float(x)) for x in miss) or "-"))
+        i=j
+for s in skipped: print("SKIP\t%s\t%d\t%s\t%s"%s)
+print("POP\t%d\t%d\t%d"%(tables,judged,len(skipped)))
+') || { echo "  [FAIL] GATE 45 scanner failed — NOTHING was checked."; return 1; }
+  printf '%s\n' "$out" | grep -qx 'EMPTY' && { echo "  [FAIL] corpus reached GATE 45 empty."; return 1; }
+  local pt pj ps
+  IFS=$'\t' read -r pt pj ps < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${pj:-}" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] GATE 45 printed no population census — the scan did not complete."; return 1
+  fi
+  if [ "$pj" -lt "$FLOOR" ]; then
+    echo "  [FAIL] GATE 45 judged only $pj priced ledger row(s) across $pt table(s) (floor $FLOOR). The"
+    echo "         TR-9 and DESCRIPTION_LENGTH ledgers hold three priced rows each; a smaller count"
+    echo "         means a table lost its Compression/cost/Net header or a cell stopped parsing, and"
+    echo "         a gate whose population silently shrank has not cleared what it no longer reads."
+    return 1
+  fi
+  local rc=0 tag f ln name detail
+  while IFS=$'\t' read -r tag f ln name detail; do
+    case "$tag" in
+      HIT)  echo "  [FAIL] $f:$ln  row '$name': $detail"; rc=1 ;;
+      READFAIL) echo "  [FAIL] $f could not be read ($ln) — a file this gate cannot read is not a file it cleared."; rc=1 ;;
+      SKIP) echo "  [note] $f:$ln  row '$name' NOT judged: $detail" ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         A net endpoint is compression minus a cost endpoint, at the row's own printed"
+    echo "         precision. Fix the cell that is wrong (TR-9 2026-09-02 restated the C2 net as"
+    echo "         +0.5 to +2.0 = 4.5438 − {4, 2.585}); do not widen the tolerance."
+    return 1
+  fi
+  echo "  [ok] every published Net bracket is compression minus its cost figures — $pj priced row(s)"
+  echo "       across $pt ledger table(s) judged, $ps row(s) skipped as unpriced/non-numeric (listed above)"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 46 — HISTORY.md's findings table may not hold a scope-free universal on the 31.6M dataset.
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P43 / Codex V2-F12 #2 — inside
+# documentation/HISTORY.md's "What actually advanced understanding" table, a Status cell
+# containing "universally"/"always"/"proven" whose Evidence cell names the 31.6M dataset
+# must FAIL.
+# THE DEFECT (live until commit 4b320e5c, 2026-09-02): the "Shift pattern (2 options at
+# positions 3-19)" row carried Status "Observed universally; driven by C3 not budget" against
+# Evidence "Analysis of 31.6M solutions" — a dataset the SAME table records as undersampled by
+# the file-collision bug. On the corrected 742M only 2.926% conform.
+#
+# THE DESIGN HAZARD THE BACKLOG ROW NAMED, cleared here rather than encoded: the table has a
+# live, CORRECT row whose Status reads "Proven for 31.6M dataset" — it contains both the status
+# word and the dataset token, because it scopes itself in the Status cell. So the predicate is
+# NOT `status-word AND 31.6M`. It is: the Evidence cell names a corrupted dataset (31.6M) AND
+# the Status cell asserts a universal (universally/universal/always/proven/proved) AND the
+# Status cell carries NO scope of its own (no "<n>M" dataset token and no word "dataset") AND
+# the Status cell carries no supersession marker (superseded/corrected/retract/withdrawn — the
+# corrected row quotes the withdrawn wording inside its own correction, and a correction is
+# doing its job). The corrupted-dataset token list is hard-coded to 31.6M from the charge and
+# printed with the population; widening it is a one-line edit that the [ok] line will show.
+#
+# POPULATION, printed and floored: the table must parse to >= 10 rows and >= 1 row whose
+# Evidence names 31.6M, else ERROR — a heading rename or a column reorder would otherwise turn
+# this into a gate over nothing.
+#
+# MEASURED BEFORE LANDING (2026-09-02, local clone): pre-P43 HISTORY.md (git show 4b320e5c^)
+# -> HIT on the shift-pattern row, rc 1; live tree rc 0 with the "Proven for 31.6M dataset" row
+# passing on its own scope; mutation (row "No scalar property uniquely identifies KW" given
+# Evidence "...over 31.6M solutions" and Status "Proven") -> HIT rc 1; the same mutation with
+# Status "Proven for 31.6M dataset" -> rc 0 (the hazard row, by construction); heading
+# removed -> ERROR rc 1.
+gate_history_scope() {
+  echo "== GATE 46: HISTORY.md findings table — no scope-free universal whose evidence is the 31.6M dataset =="
+  local F=documentation/HISTORY.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import sys, io, re
+F=sys.argv[1]
+HEAD="## What actually advanced understanding"
+CORRUPT=["31.6M"]
+UNIV=re.compile(r"\b(universally|universal|always|proven|proved)\b", re.I)
+SCOPE=re.compile(r"\b[0-9]+(?:\.[0-9]+)?M\b|\bdataset\b", re.I)
+MARK=re.compile(r"superseded|corrected|retract|withdrawn", re.I)
+SPLIT=re.compile(r"(?<!\\)\|")
+def cells(l): return [p.strip() for p in SPLIT.split(l.strip().strip("|"))]
+try: lines=io.open(F,encoding="utf-8").read().splitlines()
+except OSError as e: print("ERROR\t%s unreadable: %s"%(F,e)); sys.exit(0)
+hs=[i for i,l in enumerate(lines) if l.strip()==HEAD]
+if len(hs)!=1: print("ERROR\theading %r found %d times in %s (need exactly 1)"%(HEAD,len(hs),F)); sys.exit(0)
+i=hs[0]+1
+while i<len(lines) and not lines[i].lstrip().startswith("|") and not lines[i].startswith("#"): i+=1
+if i>=len(lines) or not lines[i].lstrip().startswith("|"): print("ERROR\tno table directly under the heading"); sys.exit(0)
+j=i
+while j<len(lines) and lines[j].lstrip().startswith("|"): j+=1
+block=lines[i:j]; hdr=[c.lower() for c in cells(block[0])]
+ev=[k for k,c in enumerate(hdr) if "discovered" in c or "evidence" in c]; st=[k for k,c in enumerate(hdr) if "status" in c]
+if not ev or not st: print("ERROR\ttable header lacks a How-discovered/Evidence or Status column: %s"%hdr); sys.exit(0)
+ev=ev[0]; st=st[0]; rows=subj=exempt=scoped=0
+for r,row in enumerate(block[2:],start=i+3):
+    c=cells(row)
+    if len(c)<=max(ev,st): continue
+    rows+=1
+    if not any(t in c[ev] for t in CORRUPT): continue
+    subj+=1; S=c[st]
+    if MARK.search(S): exempt+=1; continue
+    if not UNIV.search(S): continue
+    if SCOPE.search(S): scoped+=1; continue
+    print("HIT\t%s\t%d\t%s\t%s"%(F,r,c[0][:70],S[:110]))
+print("POP\t%d\t%d\t%d\t%d\t%s"%(rows,subj,exempt,scoped,",".join(CORRUPT)))
+PY
+) || { echo "  [FAIL] GATE 46 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 46 could not measure its subject: $err"; return 1; fi
+  local pr ps pe pc tok
+  IFS=$'\t' read -r pr ps pe pc tok < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5"\t"$6; exit}')
+  if ! printf '%s\n' "${pr:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 46 printed no population census — the scan did not complete."; return 1; fi
+  if [ "$pr" -lt 10 ] || [ "$ps" -lt 1 ]; then
+    echo "  [FAIL] GATE 46 parsed $pr row(s), $ps with Evidence naming {$tok}. The table holds >= 10 rows"
+    echo "         and at least two 31.6M-evidenced rows; a smaller population is a parse failure, not a pass."
+    return 1
+  fi
+  local rc=0 tag f ln name status
+  while IFS=$'\t' read -r tag f ln name status; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f:$ln  row '$name' — Status '$status' is a scope-free universal, but its"
+    echo "         Evidence cell names the 31.6M dataset, which this same table records as undersampled."
+    echo "         Scope the verdict in the Status cell (\"... for the 31.6M dataset\"), or supersede it."
+    rc=1
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] $pr findings rows parsed; $ps evidenced on {$tok}: $pe superseded/corrected (exempt), $pc self-scoped,"
+  echo "       0 scope-free universals"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 47 — retracted phrasings in the NON-markdown corpus (`code-needles`).
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md "A needle leg over solve.c/*.py/*.sh — 128 tracked text
+# files are in NO needle scan. Needs an ALLOW mechanism first."
+# THE GAP, MEASURED: GATE 3 scans `git ls-files '*.md'` plus reports/evidence/**. Every other
+# tracked text file — solve.c, verify.c, every *.py and *.sh, the Lean sources, the TSV/JSON/TXT
+# data — was in no needle scan at all. Two live emitters of registered-retracted claims were found
+# on 2026-09-02 precisely because no registry row could reach them: solve.c:19 (a comment carrying
+# the Q-353 wording fifteen lines below the block that withdrew it; retired ff804bb0) and
+# solve.py:1581 (the `--rules` banner printing the CX-02 "generative recipe" framing AT RUN TIME,
+# four lines below the docstring that withdraws it; retired the same day, uncommitted).
+#
+# CORPUS: every tracked file that is not *.md, not under reports/evidence/ (GATE 3's half), and
+# is text (`grep -I`, so .gz/.png/.mid are skipped BY CONTENT, not by a directory — .pdf was
+# in this list until 2026-09-04, when the repository's only tracked PDF was removed), minus
+# exactly THREE files named here and printed on every run, each of which holds withdrawn wording
+# BY CONSTRUCTION: documentation/RETRACTED_PHRASES.tsv (the registry — every needle is in it),
+# documentation/DOC_GATE_CODE_NEEDLE_ALLOW.tsv (this gate's allow table — same reason), and
+# documentation/CORRECTIONS_INVENTORY.tsv (generated by scripts/corrections_inventory.sh from
+# inline CORRECTED markers AND commit messages, so it quotes the wording every correction
+# withdrew). MEASURED at build time: the wider population had 209 hits, 195 of them in that one
+# file; a first cut tried a per-row construction rule keyed on the registry's allow column and
+# it still fired on an inventory row that quotes a COMMIT MESSAGE (GIT-ae98df6), which no allow
+# column describes. A named exclusion with a stated reason is the honest form; it is three files,
+# each printed on the [ok] line, and widening it is a visible edit.
+#
+# MATCH RULE: identical to GATE 3 — fold_variants, then newline->space and runs collapsed, then a
+# FIXED-STRING match of the folded, flattened needle. Comment markers are stripped per line before
+# flattening (`*` already goes in fold_variants; a leading `#`, `//` or `--` does here), because a
+# phrase hard-wrapped across two comment lines is the same phrase — solve.c's retired site was
+# exactly that shape and a line-based grep could not see it.
+#
+# THE ALLOW MECHANISM, and why it cannot become a blanket exemption:
+#   * an allowance is a ROW naming the FILE, the PHRASE (byte-identical to its registry row), a
+#     MAXIMUM occurrence count, and an ANCHOR — one or more fixed strings, one of which must
+#     precede EVERY allowed occurrence within 170 chars of the flattened file. The anchor is the
+#     withdrawal CONSTRUCTION (`This read`, `once gave`, `WHAT WAS WRONG`, the gate's own
+#     `fixed string` fixtures). A file-level allow would have hidden solve.c:19 behind the header
+#     block that quotes the same phrase to withdraw it — and so would a COUNT: measured before
+#     landing, the count-only first cut passed the pre-fix solve.c, because ff804bb0^ holds the
+#     Q-353 phrase exactly once (the live :19 site) and the fixed file holds it exactly once too
+#     (the quote that withdraws it). Six gates built the same day went green as no-ops on first
+#     construction for the same reason; the anchor column is the fix, not the count;
+#   * an occurrence NOT preceded by its row's anchor is a FAIL (a live use);
+#   * MORE occurrences than `max` is a FAIL (a second use, even if anchored);
+#   * ZERO occurrences is a FAIL too, printed by name: an unused allowance is a row that could
+#     later hide a new use, so it is reported rather than tolerated;
+#   * an allow row naming a phrase the registry does not hold is an ERROR (a typo'd phrase would
+#     otherwise allow nothing and be silently "unused" — the ERROR makes the mismatch loud).
+#
+# POPULATION, printed and floored: >= 30 text files scanned and >= 1 registry phrase, else ERROR.
+#
+# MEASURED BEFORE LANDING (2026-09-02, local clone; the red trees are disposable git repos holding
+# the historical files, never the shared worktree):
+#   pre-fix solve.c (`git show ff804bb0^:solve.c`)  -> HIT: the Q-353 wording's one occurrence is not
+#     preceded by `This read` (the :19 live site), rc 1 — with the count-only rule it was rc 0
+#   HEAD solve.py (the :1581 banner still printing)  -> NO HIT: the banner's literal strings are not
+#     registered needles (the registry's CX-02 row holds a different spelling of the recipe
+#     claim) — the row's premise "registered-retracted framing" is true of the FRAMING and false
+#     of the STRING, so this gate could not have caught solve.py:1581 with today's registry; the
+#     two banner strings need registering (prose lane) for the leg to reach that class
+#   live tree                                        -> rc 0, 14 allowances all used at their max
+#   mutation: a needle planted in a live .py         -> HIT rc 1
+#   mutation: allow row deleted                      -> HIT on that file rc 1 (the allowance was
+#     load-bearing, so its removal must fire)
+#   mutation: allow row max lowered by 1             -> HIT (count > max) rc 1
+#   mutation: allow row anchor replaced by an absent string -> HIT (unanchored occurrence) rc 1
+#   mutation: allow row for a phrase the file lacks  -> "unused allowance" FAIL rc 1
+#   mutation: allow row phrase misspelled            -> ERROR (not in registry) rc 1
+#   mutation: allow table removed                    -> ERROR rc 1
+gate_code_needles() {
+  echo "== GATE 47: retracted phrasings in the NON-markdown corpus (solve.c, *.py, *.sh, *.lean, data) =="
+  local reg="documentation/RETRACTED_PHRASES.tsv" allow="documentation/DOC_GATE_CODE_NEEDLE_ALLOW.tsv"
+  require_rows "$reg" "Zero rows silences every retraction check." || return 1
+  require_tracked "$reg" "The retraction registry IS this gate; with it gone, zero phrases are checked."
+  case $? in 1) return 0;; 2) return 1;; esac
+  if [ ! -f "$allow" ]; then
+    echo "  [FAIL] $allow is missing. Without it this gate fires on its own needle-holding sources, so it"
+    echo "         cannot distinguish a live survivor from a correction doing its job — NOTHING was judged."
+    return 1
+  fi
+  require_final_newline "$allow" || { echo "  [FAIL] $allow does not end with a newline — its last row is dropped by read"; return 1; }
+  local files f flatdir n=0
+  files=$(git ls-files) || { echo "  [FAIL] git ls-files failed — the corpus could not be enumerated."; return 1; }
+  flatdir=$(mktemp -d "${TMPDIR:-/tmp}/docgates_codeneedle.XXXXXX") || { echo "  [FAIL] mktemp failed"; return 1; }
+  local skipped_named=0
+  for f in $files; do
+    case "$f" in
+      *.md|reports/evidence/*) continue;;                       # GATE 3's corpus
+      "$reg"|"$allow"|documentation/CORRECTIONS_INVENTORY.tsv) skipped_named=$((skipped_named+1)); continue;;   # withdrawn wording by construction, by NAME
+    esac
+    [ -f "$f" ] || continue                                    # tracked-but-deleted: preflight's finding
+    grep -qI . "$f" 2>/dev/null || continue                    # binary by CONTENT (grep -I), not by directory
+    mkdir -p "$flatdir/$(dirname "$f")"
+    # strip leading comment markers, fold like GATE 3, flatten to one whitespace-collapsed line
+    sed -E 's@^[[:space:]]*(#|//|--)+[[:space:]]?@@' "$f" | fold_variants | tr '\n' ' ' | tr -s ' ' > "$flatdir/$f"
+    n=$((n+1))
+  done
+  if [ "$n" -lt 30 ]; then
+    echo "  [FAIL] GATE 47 flattened only $n text file(s) (floor 30) — the corpus enumeration or the text"
+    echo "         filter broke; a gate whose population silently emptied has cleared nothing."
+    rm -rf "$flatdir"; return 1
+  fi
+  local out
+  out=$(python3 - "$reg" "$allow" "$flatdir" <<'PY'
+import sys, os, io, subprocess
+reg, allow, flatdir = sys.argv[1:4]
+WIN=170   # chars of preceding flattened text an allow-row anchor must fall in (stated in the table header)
+def fold(s):
+    p = subprocess.run(["bash","-c",'source /dev/stdin <<<"$(sed -n "/^fold_variants() {/,/^}/p" scripts/doc_gates.sh)"; fold_variants'],
+                       input=s, capture_output=True, text=True)
+    return " ".join(p.stdout.split())
+rows=[]
+for l in io.open(reg, encoding="utf-8"):
+    if not l.strip() or l.startswith("#"): continue
+    c=l.rstrip("\n").split("\t")
+    if len(c)<2: continue
+    rows.append((c[0], c[1], c[2] if len(c)>2 else ""))
+if not rows: print("ERROR\tregistry parsed to zero rows"); sys.exit(0)
+phrases={p for p,_,_ in rows}
+allows={}
+for ln,l in enumerate(io.open(allow, encoding="utf-8"),1):
+    if not l.strip() or l.startswith("#"): continue
+    c=l.rstrip("\n").split("\t")
+    if len(c)<5 or not c[2].isdigit() or not c[3].strip(): print("ERROR\t%s:%d malformed allow row (need file<TAB>phrase<TAB>max<TAB>anchor<TAB>reason)"%(allow,ln)); sys.exit(0)
+    if c[1] not in phrases: print("ERROR\t%s:%d allows a phrase the registry does not hold: %r"%(allow,ln,c[1])); sys.exit(0)
+    anchors=[a for a in c[3].split("|") if a]
+    allows[(c[0],c[1])]=(int(c[2]),ln,[" ".join(fold(a).split()) for a in anchors])
+# flatten every registry needle ONCE via the gate's own fold_variants (same bytes GATE 3 matches on)
+needles={}
+for p,_,_ in rows: needles[p]=fold(p)
+files=[]
+for d,_,fs in os.walk(flatdir):
+    for fn in fs: files.append(os.path.relpath(os.path.join(d,fn), flatdir))
+texts={f: io.open(os.path.join(flatdir,f), encoding="utf-8", errors="replace").read() for f in files}
+used=set(); hits=0
+for p,allowcol,note in rows:
+    np_=needles[p]
+    if not np_: continue
+    for f in files:
+        cnt=texts[f].count(np_)
+        if cnt==0: continue
+        key=(f,p)
+        if key in allows:
+            mx,ln,anchors=allows[key]; used.add(key)
+            if cnt>mx: print("HIT\t%s\t%s\t%d\tallowed max %d (allow row %d) — a NEW use beyond the quoted-to-withdraw site(s)"%(f,p,cnt,mx,ln)); hits+=1; continue
+            # every occurrence must sit inside the withdrawal CONSTRUCTION the row names: one of its
+            # anchors within WIN chars BEFORE it. A count alone passed the pre-fix solve.c (see header).
+            t=texts[f]; i=0; k=0
+            while True:
+                j=t.find(np_,i)
+                if j<0: break
+                k+=1; pre=t[max(0,j-WIN):j]
+                if not any(a in pre for a in anchors):
+                    print("HIT\t%s\t%s\t%d\toccurrence %d is NOT preceded (within %d chars) by the row's anchor %s — a live use, not a quote-to-withdraw (allow row %d)"%(f,p,cnt,k,WIN,"|".join(anchors),ln)); hits+=1
+                i=j+1
+            continue
+        print("HIT\t%s\t%s\t%d\tno allow row (%s)"%(f,p,cnt,note[:90])); hits+=1
+for key,(mx,ln,_a) in sorted(allows.items(), key=lambda kv: kv[1][1]):
+    if key not in used:
+        print("STALE\t%s\t%s\t%d\tallow row %d matched nothing — the quoted site is gone; delete the row so it cannot hide a future use"%(key[0],key[1],mx,ln)); hits+=1
+print("POP\t%d\t%d\t%d\t%d"%(len(files),len(rows),len(allows),len(used)))
+PY
+) || { echo "  [FAIL] GATE 47 scanner failed — NOTHING was checked."; rm -rf "$flatdir"; return 1; }
+  rm -rf "$flatdir"
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 47 could not judge its corpus: $err"; return 1; fi
+  local pf pp pa pu
+  IFS=$'\t' read -r pf pp pa pu < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5; exit}')
+  if ! printf '%s\n' "${pf:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 47 printed no population census — the scan did not complete."; return 1; fi
+  if [ "$pf" -lt 30 ] || [ "$pp" -lt 1 ]; then
+    echo "  [FAIL] GATE 47 judged $pf file(s) against $pp phrase(s) (floors 30 / 1) — population collapsed."; return 1
+  fi
+  local rc=0 tag f p cnt detail
+  while IFS=$'\t' read -r tag f p cnt detail; do
+    case "$tag" in
+      HIT)   echo "  [FAIL] $f: retracted phrasing present $cnt time(s): \"$p\""; echo "         $detail"; rc=1 ;;
+      STALE) echo "  [FAIL] $f: UNUSED allowance for \"$p\" (max $cnt)"; echo "         $detail"; rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         A code file may carry a registered phrase ONLY inside a block that quotes it to withdraw it,"
+    echo "         and only with an allow row naming the file, the phrase, the count and the withdrawal anchor: $allow"
+    return 1
+  fi
+  echo "  [ok] $pf non-markdown text files scanned against $pp registered phrases; $pu of $pa allowances used"
+  echo "       at or under their max (excluded by NAME, withdrawn wording by construction: $reg, $allow,"
+  echo "       documentation/CORRECTIONS_INVENTORY.tsv; reports/evidence/** and *.md are GATE 3's corpus)"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 48 — a sha change predicted for a NAMED prune must be hedged or evidenced (`sha-prediction`).
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md "two gate legs the adjudication specified", leg (a), from
+# prose batch P42 (Codex V2-F12): a public sentence asserting a sha change for a named prune must
+# cite a before/after artifact or use "can"/"may". Red-test = PARITY_ALTERNATION.md's pre-P42
+# §Consequences item 3; CIRCULAR_KING_WEN.md §"Status decision" must pass.
+# THE DESIGN NOTE THE ROW CARRIED, honoured: the CIRCULAR_KING_WEN / TR-7 sentence DOES contain an
+# unhedged "would ... open a new sha lineage", so a modal-verb needle fails its own red-test. What
+# separates the two is that the CIRCULAR sentence carries an EVIDENCED byte-identity clause
+# ("as a pure leaf-emission filter it would be byte-identical ... zero 5-wrap records exist in any
+# slice") beside its prune clause, and PARITY's did not. So the predicate is:
+#   SUBJECT   = a sentence (flattened, bold stripped) naming a prune AND a sha AND a change verb
+#               (would/will change, changes the/node/canonical, opens a new sha lineage, would differ)
+#   PASSES if = the same sentence hedges (can/may/might change|move|differ|open, "wherever it
+#               fires", "empirical question") OR evidences (byte-identical, or a hex sha token of
+#               8-64 digits — a measured before/after)
+# Sentence scope, not paragraph: at paragraph scope four live paragraphs fired on correct prose
+# (numbered-list blocks flatten into one paragraph); at sentence scope the live tree yields the
+# populations printed below.
+# POPULATION, printed and floored: >= 2 subject sentences, else ERROR (PARITY + CIRCULAR exist
+# today; a smaller count means the sentence splitter or the fold broke).
+# MEASURED BEFORE LANDING (2026-09-02): pre-P42 tree (`git show 4ba41c12^`) -> HIT on
+# PARITY_ALTERNATION.md item 3 ("would change", no hedge, no sha), CIRCULAR_KING_WEN passes;
+# live tree -> PARITY passes ("can change" + two hex shas), CIRCULAR passes, and ONE live finding:
+# reports/TR6_PARITY_SKELETON.md §Sections (c) still carries the pre-P42 wording ("canonical shas
+# — would change") — the sibling P42 did not sweep; it escaped GATE 3 because its wording drops
+# the word "therefore" that the registered needle carries. Owner: the prose lane.
+# Mutation: live PARITY sentence with "can" -> "would" and the shas removed -> HIT rc 1.
+gate_sha_prediction() {
+  echo "== GATE 48: a sha change predicted for a named prune is hedged or evidenced =="
+  local out
+  out=$(python3 - <<'PY'
+import re, io, subprocess, sys
+files=subprocess.run(["git","ls-files","documentation/*.md","reports/*.md"],capture_output=True,text=True).stdout.split()
+files=[f for f in files if not f.startswith("reports/evidence/")]
+SUBJ=lambda s: re.search(r"\bprunes?\b",s) and re.search(r"\bshas?\b|sha lineage",s) and re.search(r"would change|will change|changes? (the|node|canonical)|opens? a new sha lineage|would differ",s)
+HEDGE=re.compile(r"\b(can|may|might) (change|move|differ|open)|byte-identical|\b[0-9a-f]{8,64}\b|wherever it fires|empirical question")
+n=0
+for f in files:
+    try: t=io.open(f,encoding="utf-8").read()
+    except OSError as e: print("ERROR\t%s unreadable: %s"%(f,e)); sys.exit(0)
+    flat=" ".join(t.replace("*","").split())
+    for s in re.split(r"(?<=[.!?])\s+(?=[A-Z(\[⚠\"])",flat):
+        if s.startswith("| v"): continue          # revision rows quote superseded wording
+        if not SUBJ(s): continue
+        n+=1
+        if HEDGE.search(s): continue
+        print("HIT\t%s\t%s"%(f,s[:220]))
+print("POP\t%d\t%d"%(n,len(files)))
+PY
+) || { echo "  [FAIL] GATE 48 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 48 could not read its corpus: $err"; return 1; fi
+  local pn pf
+  IFS=$'\t' read -r pn pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 48 printed no population census."; return 1; fi
+  if [ "$pn" -lt 2 ]; then
+    echo "  [FAIL] GATE 48 found only $pn prune-sha-change sentence(s) across $pf files (floor 2): PARITY_ALTERNATION"
+    echo "         and CIRCULAR_KING_WEN both carry one today, so a smaller count is a broken splitter, not a pass."
+    return 1
+  fi
+  local rc=0 tag f s
+  while IFS=$'\t' read -r tag f s; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f: a sha change is asserted for a named prune with neither a hedge nor evidence:"
+    echo "         \"$s\""
+    rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         Say \"can\"/\"may\" (whether a prune moves a sha is empirical per prune-set and budget), or cite"
+    echo "         the measured before/after shas, as PARITY_ALTERNATION.md §Consequences item 3 does since P42."
+    return 1
+  fi
+  echo "  [ok] $pn prune-sha-change sentence(s) across $pf files, every one hedged or evidenced"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 49 — every figure in PARITY_ALTERNATION.md is re-derived or names its reproducer (`parity-figures`).
+#
+# QUEUED AS: the same P42 row, leg (b): every distinct integer figure in PARITY_ALTERNATION.md
+# must appear in `verify.py --check-parity-alternation` output OR within +-3 lines of its own named
+# reproducer. Red-test = the pre-P42 `48` and `16/18` trip; both pass after P42.
+# WHAT COUNTS AS A FIGURE: an integer of >= 2 digits or comma-grouped, or an a/b fraction; NOT a
+# year (19xx/20xx), a date, a version token, a link target, or a revision row. A figure PASSES if
+# (i) it is an integer printed by the checker (run here, ~0.1 s, and REQUIRED to print
+# PARITY_ALTERNATION=PASS after CR-normalisation, else ERROR), or (ii) at least one of its
+# occurrences sits within +-3 lines of a reproducer line (`verify.py --`, `solve.py --`,
+# `python3 -c`, `tests.py`) — the +-3 rule is applied per file, not per occurrence, because P42
+# put the two reproducers in one block at the top and the figures recur in the body, or (iii) it
+# sits within +-3 lines of a CITATIONS.md link (a LITERATURE figure — Cook's 36 classes, Moore's
+# 16/18 — whose reproducer IS the source), or (iv) it is one of the problem-definition constants
+# printed on the [ok] line (6 bits, 31 boundaries, 32 pairs, 63 transitions, 64 hexagrams).
+# MEASURED BEFORE LANDING (2026-09-02): the literal spec (i)+(ii) fires on the LIVE tree at `31`
+# (":5 across its 31 pair boundaries") and `36` (":108 his 36-class ordering") — correct prose the
+# adjudication never measured — which is why (iii) and (iv) exist; both are printed. Pre-P42 tree
+# (`git show 4ba41c12^`) -> HIT on 48 and 16/18 (no reproducer anywhere in the file), rc 1; live
+# tree -> rc 0; mutation (reproducer block deleted from the live file) -> HIT rc 1; checker output
+# without its PASS token -> ERROR rc 1.
+gate_parity_figures() {
+  echo "== GATE 49: PARITY_ALTERNATION.md figures are re-derived by --check-parity-alternation or name a reproducer =="
+  local F=documentation/PARITY_ALTERNATION.md cpa
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  [ -f verify.py ] || { echo "  [FAIL] verify.py is missing — the reproducer this gate runs is absent."; return 1; }
+  cpa=$(python3 verify.py --check-parity-alternation 2>&1 | tr -d '\r')
+  if ! printf '%s\n' "$cpa" | grep -qx 'PARITY_ALTERNATION=PASS'; then
+    echo "  [FAIL] verify.py --check-parity-alternation did not print PARITY_ALTERNATION=PASS — the output this gate"
+    echo "         compares figures against is not trustworthy, so NOTHING was judged."
+    return 1
+  fi
+  local out
+  out=$(python3 - "$F" <<'PY' "$cpa"
+import re, io, sys
+F=sys.argv[1]; cpa=sys.argv[2]
+out=set(re.findall(r"\d+", cpa))
+CONST={"6","31","32","63","64"}
+doc=io.open(F,encoding="utf-8").read().split("\n")
+REPRO=re.compile(r"(verify|solve|tests)\.py\s+--|python3 -c |tests\.py")
+LIT=re.compile(r"CITATIONS\.md#")
+figs={}
+for i,l in enumerate(doc):
+    if re.match(r"^\|\s*v\d",l): continue
+    l2=re.sub(r"\]\([^)]*\)","]()",l)
+    l2=re.sub(r"\b(19|20)\d\d-\d\d-\d\d\b","",l2); l2=re.sub(r"\bv\d+(\.\d+)*\b","",l2); l2=re.sub(r"\b(19|20)\d\d\b","",l2)
+    for m in re.finditer(r"(?<![\w.])(\d{1,3}(?:,\d{3})+|\d{2,})(?:/(\d+))?(?![\w.])",l2):
+        figs.setdefault(m.group(0).replace(",",""),[]).append(i)
+def near(i,rx):
+    return any(rx.search(x) for x in doc[max(0,i-3):i+4])
+bad=0
+for tok,idx in sorted(figs.items()):
+    parts=tok.split("/")
+    if all(p in out for p in parts) or tok in CONST: continue
+    if any(near(i,REPRO) for i in idx) or any(near(i,LIT) for i in idx): continue
+    bad+=1; print("HIT\t%s\t%s\t%s"%(F,tok,",".join(str(i+1) for i in idx[:6])))
+print("POP\t%d\t%d"%(len(figs),len(out)))
+PY
+) || { echo "  [FAIL] GATE 49 scanner failed — NOTHING was checked."; return 1; }
+  local pn po
+  IFS=$'\t' read -r pn po < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 49 printed no population census."; return 1; fi
+  if [ "$pn" -lt 5 ] || [ "$po" -lt 5 ]; then
+    echo "  [FAIL] GATE 49 judged $pn figure(s) against $po checker integers (floors 5 / 5) — the page or the"
+    echo "         checker output shrank past recognition; a collapsed population is not a pass."
+    return 1
+  fi
+  local rc=0 tag f tok lns
+  while IFS=$'\t' read -r tag f tok lns; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f: figure '$tok' (line(s) $lns) is neither printed by --check-parity-alternation nor within"
+    echo "         +-3 lines of a named reproducer or a CITATIONS.md source anywhere on the page."
+    rc=1
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] $pn distinct figures on $F: each re-derived by the checker ($po integers printed), or"
+  echo "       within +-3 lines of a reproducer / CITATIONS source, or a problem constant {6,31,32,63,64}"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 50 — a selection charge priced against the 91/95-observable ledger cites the file drawer (`file-drawer`).
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P31 / Codex V2-F11 #1, leg 1: "no document may
+# price a selection charge against the 91-observable ledger without citing METHODS.md §The file
+# drawer". Leg 2 of that row — a literal ban on `91-observable` — is NOT built and the reason is
+# measured: 37 live hits, the majority being the NAME of the frozen ledger METHODS deliberately
+# retains ("the 91-observable ledger ... as a disclosure"); a literal ban demands correct text be
+# reworded. Leg 1 IS mechanical: the pricing is the binomial `C(91,k)` / `C(95,k)` literal, and
+# the citation is the string "file drawer" in the same document (file scope, as the row states).
+# POPULATION, printed and floored: >= 2 pricing documents, else ERROR (DESCRIPTION_LENGTH and
+# TR-9 both price today; CORRECTIONS.md quotes the pricing and cites the drawer, and passes on
+# the same rule with no exemption).
+# MEASURED BEFORE LANDING (2026-09-02): pre-P31 tree (`git show 6ffab778^`) -> DESCRIPTION_LENGTH.md
+# (2 pricings, 0 citations) and TR9_PRICING_THE_CONSTRAINTS.md (2, 0) HIT, rc 1; live tree ->
+# rc 0 (3 pricing documents, each citing); mutation (the two "file drawer" citations removed from
+# the live DESCRIPTION_LENGTH.md) -> HIT rc 1.
+gate_file_drawer() {
+  echo "== GATE 50: a document pricing a selection charge against the observable ledger cites §The file drawer =="
+  local f n=0 rc=0 c d
+  for f in $DOCS; do
+    [ -f "$f" ] || continue
+    c=$(grep -c -E 'C\(9[15],' "$f"); c=${c:-0}
+    [ "$c" -gt 0 ] || continue
+    n=$((n+1))
+    d=$(grep -c -i 'file drawer' "$f"); d=${d:-0}
+    if [ "$d" -eq 0 ]; then
+      echo "  [FAIL] $f prices a selection charge against the observable ledger ($c C(91,k)/C(95,k) site(s)) and"
+      echo "         never cites METHODS.md §\"The file drawer\" — the charge is stated without the gap that bounds it."
+      rc=1
+    fi
+  done
+  if [ "$n" -lt 2 ]; then
+    echo "  [FAIL] GATE 50 found only $n document(s) pricing C(91,k)/C(95,k) (floor 2) — DESCRIPTION_LENGTH and TR-9"
+    echo "         both price today; a smaller population means the pricing literal changed shape, not that it is gone."
+    return 1
+  fi
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] $n document(s) price a selection charge against the ledger; each cites §The file drawer"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 51 — a claim of independent draws cites artifacts whose seeds differ (`seed-provenance`).
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, V2-F09 #2 gate half: any prose claiming independent draws
+# or an independence check must cite two artifacts under reports/evidence/ whose `SEED OVERRIDE`
+# lines differ; artifacts with no SEED OVERRIDE line ran on the fixed base seed and can never
+# satisfy it. Red-test = TR-7's pre-P36 §5.
+# THE GRAMMAR the prior lane said did not exist, measured into existence: a POSITIVE claim is a
+# sentence in reports/*.md containing `independent draw(s)`, `independent seed(s)`,
+# `independent-seed`, `independent replicate(s)` or `independence check`, whose 40 preceding
+# characters do not carry a negation (not / never / neither / nor / rather than / instead of).
+# The live corpus was censused before the rule was written: the negated forms (TR-7 §1 "is NOT an
+# independent draw", METHODS "are not independent draws", TR-7 §5 "not an independence check")
+# are exactly the corrected sentences and must not fire; the positive forms are TR-2's "four
+# independent seeds" (r11 Phase-2) and METHODS' "12 independent-seed replicates".
+# CITATION RESOLUTION: an `evidence/<path>` token in the same FILE resolves to that file, or to
+# every tracked file under it when it names a directory — TR-2 cites `evidence/r11/` as a
+# directory and the four seed files sit inside it; demanding two explicit filenames would have
+# failed correct prose. The claim passes when the cited set holds >= 2 files whose SEED OVERRIDE
+# `base=` values differ.
+# POPULATION, printed and floored: the evidence tree must hold >= 2 SEED OVERRIDE files with
+# distinct bases (6 today), else ERROR — the class cannot be judged without them.
+# MEASURED BEFORE LANDING (2026-09-02): pre-P36 TR-7 (`git show 59027647^`) -> HIT on §5's
+# registered two-draws claim citing evidence/r6/* (no SEED OVERRIDE line in any r6 file), rc 1; live tree
+# -> TR-2 passes via r11/, TR-7's negated forms are not claims; ONE live finding printed by the
+# run: METHODS.md:173 "Validated against 12 independent-seed replicates at 10⁷ probes" cites no
+# evidence artifact at all. Owner: the prose lane (it is exactly the class the charge names).
+gate_seed_provenance() {
+  echo "== GATE 51: a claim of independent draws / seeds cites evidence whose SEED OVERRIDE lines differ =="
+  local out
+  out=$(python3 - <<'PY'
+import re, io, os, subprocess, sys
+ev=subprocess.run(["git","ls-files","reports/evidence/*"],capture_output=True,text=True).stdout.split()
+seeds={}
+for f in ev:
+    if not os.path.isfile(f): continue
+    try: t=io.open(f,encoding="utf-8",errors="replace").read()
+    except OSError: continue
+    m=re.search(r"SEED OVERRIDE ACTIVE: base=(0x[0-9a-fA-F]+|\d+)",t)
+    if m: seeds[f]=m.group(1).lower()
+if len(set(seeds.values()))<2: print("ERROR\tthe evidence tree holds %d SEED OVERRIDE file(s) with distinct bases (need >= 2) — the class cannot be judged"%len(set(seeds.values()))); sys.exit(0)
+files=[f for f in subprocess.run(["git","ls-files","reports/*.md"],capture_output=True,text=True).stdout.split() if not f.startswith("reports/evidence/")]
+CLAIM=re.compile(r"independent[- ](draws?|seeds?|replicates?)|independence check",re.I)
+NEG=re.compile(r"\b(not|never|neither|nor|rather than|instead of)\b",re.I)
+n=0
+for f in files:
+    t=io.open(f,encoding="utf-8").read()
+    cites=set(re.findall(r"evidence/[A-Za-z0-9_./-]*[A-Za-z0-9_/]",t))
+    resolved=set()
+    for c in cites:
+        p="reports/"+c if not c.startswith("reports/") else c
+        p=p.rstrip("/")
+        for e in seeds:
+            if e==p or e.startswith(p+"/"): resolved.add(e)
+    bases={seeds[e] for e in resolved}
+    flat=" ".join(t.replace("*","").split())
+    for s in re.split(r"(?<=[.!?])\s+(?=[A-Z(\[⚠\"])",flat):
+        if s.startswith("| v"): continue
+        for m in CLAIM.finditer(s):
+            if NEG.search(s[max(0,m.start()-40):m.start()]): continue
+            n+=1
+            if len(bases)>=2: break
+            print("HIT\t%s\t%s\t%d\t%s"%(f,s[:200],len(resolved),",".join(sorted(cites))[:120] or "(no evidence path cited)"))
+            break
+print("POP\t%d\t%d\t%d"%(n,len(files),len(set(seeds.values()))))
+PY
+) || { echo "  [FAIL] GATE 51 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 51 could not judge its subject: $err"; return 1; fi
+  local pn pf ps
+  IFS=$'\t' read -r pn pf ps < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 51 printed no population census."; return 1; fi
+  local rc=0 tag f s nres cites
+  while IFS=$'\t' read -r tag f s nres cites; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f claims independent draws/seeds but its cited evidence resolves to $nres SEED OVERRIDE file(s):"
+    echo "         \"$s\""
+    echo "         cited: $cites"
+    rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         Cite two reports/evidence/ artifacts whose SEED OVERRIDE bases differ (a directory such as"
+    echo "         evidence/r11/ resolves to its files), or say the runs share the fixed base seed."
+    return 1
+  fi
+  echo "  [ok] $pn positive independent-draw/seed claim(s) across $pf reports, each backed by cited evidence"
+  echo "       with distinct SEED OVERRIDE bases ($ps distinct bases exist in the evidence tree)"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 52 — a citation the ledger records as unrepeatable is hedged wherever it is used (`unrepeatable-cite`).
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md, V2-F09 #4 gate half (dangling evidence): fail when a report
+# states the specific content of a source whose CITATIONS.md entry records that the content cannot
+# be re-verified, unless the report carries the hedge. Red-test = TR-7's pre-P36 §"Prior work
+# note". THE ROW'S OWN CAVEAT, honoured: the ledger does NOT say the content was never verified —
+# it was read first-hand 2026-07-04 and can no longer be RE-verified — so this gate keys on the
+# hedge's ABSENCE in the citing paragraph, never on the citation entry describing content.
+# MECHANICS: an anchor in CITATIONS.md is UNREPEATABLE when its entry carries `404` and "zero
+# captures" / "no snapshot" (the ledger's own vocabulary for the Meyer page). Every paragraph in
+# reports/*.md or documentation/*.md (CITATIONS.md itself excluded) that links `#<anchor>` must
+# carry a hedge: unrepeatable / 404 / zero captures / no snapshot / cannot|can no longer be
+# re-verified / no reader can retrieve / not retrievable.
+# POPULATION, printed and floored: >= 1 unrepeatable anchor, else ERROR with the instruction to
+# retire this gate if the class is genuinely gone (1 today: meyer1998).
+# MEASURED BEFORE LANDING (2026-09-02): pre-P36 TR-7 (`git show 59027647^`) -> HIT on the "Prior
+# work note" paragraph (asserts Meyer's content, no hedge), rc 1; live tree -> rc 0 (the paragraph
+# now says "This attribution rests on an unrepeatable read ... returned 404 ... zero captures");
+# mutation (hedge sentence deleted from the live paragraph) -> HIT rc 1.
+gate_unrepeatable_cite() {
+  echo "== GATE 52: a citation CITATIONS.md records as unrepeatable is hedged wherever it is used =="
+  local C=documentation/CITATIONS.md out
+  require_tracked "$C" || { [ $? -eq 2 ] && return 1; echo "  [skip] $C absent and untracked"; return 0; }
+  out=$(python3 - "$C" <<'PY'
+import re, io, subprocess, sys
+C=sys.argv[1]
+t=io.open(C,encoding="utf-8").read()
+blocks=re.split(r'(?=<a id="[^"]+"></a>)',t)
+unrep=[]
+for b in blocks:
+    m=re.match(r'<a id="([^"]+)"></a>',b)
+    if not m: continue
+    body=b.split("\n<a id=")[0]
+    if re.search(r"\b404\b",body) and re.search(r"zero captures|no snapshot|no captures?\b",body,re.I): unrep.append(m.group(1))
+if not unrep: print("ERROR\tno CITATIONS.md entry carries both '404' and 'zero captures/no snapshot' — if the class is gone, retire this gate explicitly rather than let it pass on nothing"); sys.exit(0)
+HEDGE=re.compile(r"unrepeatable|\b404\b|zero captures|no snapshot|cannot be re-?verified|can no longer be re-?verified|no longer be re-?verified|no reader can retrieve|not retrievable",re.I)
+files=[f for f in subprocess.run(["git","ls-files","reports/*.md","documentation/*.md"],capture_output=True,text=True).stdout.split() if f!=C and not f.startswith("reports/evidence/")]
+n=0
+for f in files:
+    try: d=io.open(f,encoding="utf-8").read()
+    except OSError as e: print("ERROR\t%s unreadable: %s"%(f,e)); sys.exit(0)
+    for p in re.split(r"\n\s*\n",d):
+        for a in unrep:
+            if "#"+a not in p: continue
+            n+=1
+            if HEDGE.search(p): continue
+            print("HIT\t%s\t%s\t%s"%(f,a," ".join(p.split())[:200]))
+print("POP\t%d\t%d\t%s"%(n,len(files),",".join(unrep)))
+PY
+) || { echo "  [FAIL] GATE 52 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 52 could not judge its subject: $err"; return 1; fi
+  local pn pf anchors
+  IFS=$'\t' read -r pn pf anchors < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 52 printed no population census."; return 1; fi
+  local rc=0 tag f a p
+  while IFS=$'\t' read -r tag f a p; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f cites #$a — a source CITATIONS.md records as no longer re-verifiable — with no hedge in the paragraph:"
+    echo "         \"$p\""
+    rc=1
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] unrepeatable anchor(s) {$anchors}: $pn citing paragraph(s) across $pf files, each carrying the hedge"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 53 — the published (pair, orient) branch split enumerates the 56 live branches (`branch-list`).
+#
+# QUEUED AS: Codex A12-designated leg `branch-list` (V2-F23 #5, LARGE_SCALE_CAMPAIGNS.md): the
+# shipped split must have exactly 56 entries and exclude pair 0 and the six execution-confirmed
+# dead tuples (4,0) (4,1) (6,0) (6,1) (21,0) (21,1). Red-test: the 62-entry split at 8efd6ee2.
+# (A12 also asked for a tests.py behavioural token; tests.py is not this lane's file.)
+# MECHANICS: every `→ N branches` line in documentation/LARGE_SCALE_CAMPAIGNS.md outside a
+# CORRECTED-marker paragraph (the live file QUOTES the old 31+31 split inside its own correction,
+# and a correction is doing its job) must sum to 56; and every `pairs a, b, c ...` list on those
+# lines must avoid {0, 4, 6, 21}, be pairwise disjoint across VMs, and cover 28 pair indices.
+# POPULATION, printed and floored: >= 2 split lines, else ERROR.
+# MEASURED BEFORE LANDING (2026-09-02): 8efd6ee2 tree -> 31 + 31 = 62 HIT, rc 1; live tree ->
+# 28 + 28 = 56, pair sets {1..16}\{4,6} and {17..31}\{21}, rc 0; mutation (live VM-B list given
+# pair 21) -> HIT rc 1; mutation ("→ 28 branches" edited to 29) -> sum 57 HIT rc 1.
+gate_branch_list() {
+  echo "== GATE 53: LARGE_SCALE_CAMPAIGNS.md's branch split enumerates the 56 live (pair, orient) branches =="
+  local F=documentation/LARGE_SCALE_CAMPAIGNS.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, sys
+F=sys.argv[1]
+DEAD={0,4,6,21}
+t=io.open(F,encoding="utf-8").read()
+lines=[]; sets=[]
+for p in re.split(r"\n\s*\n",t):
+    if "CORRECTED" in p: continue
+    for l in p.split("\n"):
+        l2=l.replace("*","")
+        m=re.search(r"(?:→|->)\s*(\d+)\s+branches",l2)
+        if not m: continue
+        lines.append((int(m.group(1)),l2.strip()[:90]))
+        pm=re.search(r"pairs?\s+((?:\d+\s*,\s*)+\d+)",l2)
+        if pm: sets.append({int(x) for x in re.findall(r"\d+",pm.group(1))})
+if len(lines)<2: print("ERROR\tonly %d '→ N branches' split line(s) found outside CORRECTED paragraphs (need >= 2)"%len(lines)); sys.exit(0)
+tot=sum(n for n,_ in lines)
+if tot!=56: print("HIT\tsum\tthe published split sums to %d branches, not 56: %s"%(tot," / ".join(l for _,l in lines)))
+allp=set()
+for s in sets:
+    bad=s&DEAD
+    if bad: print("HIT\tdead\ta VM list contains dead/fixed pair index(es) %s"%sorted(bad))
+    if allp&s: print("HIT\toverlap\tpair index(es) %s appear on more than one VM"%sorted(allp&s))
+    allp|=s
+if sets and len(allp)!=28: print("HIT\tcover\tthe VM lists cover %d pair indices, not 28"%len(allp))
+print("POP\t%d\t%d\t%d\t%d"%(len(lines),tot,len(sets),len(allp)))
+PY
+) || { echo "  [FAIL] GATE 53 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 53 could not find its subject: $err"; return 1; fi
+  local pl pt ps pp
+  IFS=$'\t' read -r pl pt ps pp < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5; exit}')
+  if ! printf '%s\n' "${pl:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 53 printed no population census."; return 1; fi
+  local rc=0 tag kind msg
+  while IFS=$'\t' read -r tag kind msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F ($kind): $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         The 28 live pair indices are 1-31 minus {4, 6, 21}, each in both orientations = 56 branches;"
+    echo "         a runner fed a dead tuple never finishes (LARGE_SCALE_CAMPAIGNS.md §Where the six go)."
+    return 1
+  fi
+  echo "  [ok] $pl split line(s) sum to $pt branches; $ps VM pair list(s) covering $pp pair indices, none dead, none shared"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 54 — documentation/README.md indexes every tracked doc and states reading times honestly (`index-fidelity`).
+#
+# QUEUED AS: Codex A12-designated leg `index-fidelity` (V2-F47 #1/#3/#12): LEG 1 (coverage) every
+# tracked documentation/*.md must appear as a link target in an index ROW of documentation/README.md
+# — a list item or a table row; a mention inside a prose sentence does not count (the pre-P20
+# LARGE_SCALE_CAMPAIGNS.md was reachable only from a deprecation sentence). LEG 2 (reading time)
+# a stated minutes-to-read beside a named target must be >= wc -w(target) / 300 (the charge's floor;
+# the index itself uses 250 wpm, which is stricter).
+# NOT BUILT, with the measurement: A12's "figures check" (a percentage in an index line must appear
+# verbatim in the target). It inverts on its own inputs: the pre-fix "<0.2%" PASSES because "0.2%"
+# occurs in the target for a different quantity, and the live "33%" FAILS because the target prints
+# "33.1%". A leg that is red on correct prose and green on the defect is the wrong leg.
+# POPULATION, printed and floored: >= 20 tracked docs and >= 1 reading-time entry, else ERROR.
+# MEASURED BEFORE LANDING (2026-09-02): pre-P20 tree (`git show fbd6f9e5^`) -> LEG 1: 12 docs
+# unindexed (CIRCULAR_KING_WEN, CLAIMS_DECIDED, ..., VERIFY) HIT; LEG 2: "1–2 min" for the root
+# README (4,101 words -> 13.7 min at 300 wpm) HIT; rc 1. Live tree -> 0 unindexed of 42, three
+# reading-time entries all >= floor, rc 0. Mutation (one index row deleted) -> HIT rc 1.
+# NOTE printed, not judged: the index's stated word counts (4,202 / 8,313 / 14,527, "measured
+# 2026-09-01") already lag `wc -w` by 6-8 %; a count-drift leg is a candidate, not built here.
+gate_index_fidelity() {
+  echo "== GATE 54: documentation/README.md indexes every tracked doc; reading times are >= words/300 =="
+  local F=documentation/README.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, os, subprocess, sys
+F=sys.argv[1]
+idx=io.open(F,encoding="utf-8").read().split("\n")
+rows=[l for l in idx if re.match(r"^\s*([-*]|\d+\.|\|)\s",l)]
+targets={}
+for l in rows:
+    for m in re.finditer(r"\]\(([^)#]+\.md)",l):
+        targets[os.path.normpath(os.path.join(os.path.dirname(F),m.group(1)))]=l
+docs=subprocess.run(["git","ls-files","documentation/*.md"],capture_output=True,text=True).stdout.split()
+docs=[d for d in docs if d!=F]
+if len(docs)<20: print("ERROR\tonly %d tracked documentation/*.md (need >= 20)"%len(docs)); sys.exit(0)
+miss=[d for d in docs if d not in targets]
+for d in miss: print("HIT\tunindexed\t%s\tno index list item or table row in %s links it"%(d,F))
+nrt=0
+for i,l in enumerate(idx,1):
+    m=re.search(r"\((?:~(\d+)|(\d+)\s*[-–]\s*(\d+))\s*min",l)
+    tg=re.findall(r"\]\(([^)#]+\.md)",l)
+    if not m or not tg: continue
+    nrt+=1
+    mins=int(m.group(1) or m.group(3))
+    t=os.path.normpath(os.path.join(os.path.dirname(F),tg[0]))
+    try: w=len(io.open(t,encoding="utf-8").read().split())
+    except OSError: print("HIT\treadtime\t%s:%d\ttarget %s unreadable"%(F,i,t)); continue
+    floor=w/300.0
+    if mins<floor: print("HIT\treadtime\t%s:%d\t%s: stated %d min, but %d words need >= %.1f min at 300 wpm"%(F,i,t,mins,w,floor))
+print("POP\t%d\t%d\t%d\t%d"%(len(docs),len(targets),len(miss),nrt))
+PY
+) || { echo "  [FAIL] GATE 54 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 54 could not judge its subject: $err"; return 1; fi
+  local pd pt pm pr
+  IFS=$'\t' read -r pd pt pm pr < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5; exit}')
+  if ! printf '%s\n' "${pd:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 54 printed no population census."; return 1; fi
+  if [ "$pr" -lt 1 ]; then echo "  [FAIL] GATE 54 found no reading-time entry in $F (floor 1) — the section moved or its shape changed; LEG 2 judged nothing."; return 1; fi
+  local rc=0 tag kind where msg
+  while IFS=$'\t' read -r tag kind where msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] ($kind) $where — $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -eq 0 ] || return 1
+  echo "  [ok] $pd tracked docs, $pt index-row link targets, $pm unindexed; $pr reading-time entries all >= words/300"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# GATE 55 — every enumeration of the sha-determining inputs is the registry's tuple (`sha-tuple`).
+#
+# QUEUED AS: Codex A12-designated leg `sha-tuple` (V2-F22 #5): every tracked-md enumeration of the
+# sha-determining inputs must be the same set as CANONICAL_HASHES.md §"Reproducibility parameters".
+# Red-test: CAMPAIGN_METHODOLOGY.md:86's two-element "(source code, search budget)" red against
+# the registry's four, with the same file's §8 green.
+# MECHANICS: the enumeration grammar is the literal `a function of (...)` (fold strips bold); a
+# sentence beginning "this read" or sitting in a CORRECTED paragraph is narration. The tuple must
+# name all four inputs, each recognised by a stated token family: source code / (partition|search)
+# depth|SOLVE_DEPTH / node limit|SOLVE_NODE_LIMIT / per-sub-branch|SOLVE_PER_SUB_BRANCH_LIMIT.
+# The registry side is checked too: CANONICAL_HASHES.md §Reproducibility parameters must name the
+# three env vars, else ERROR (the tuple this gate encodes would then be stale).
+# POPULATION, printed and floored: >= 1 enumeration, else ERROR (one today, CAMPAIGN_METHODOLOGY:150).
+# MEASURED BEFORE LANDING (2026-09-02): pre-P19 tree (`git show 97f50cc6^`) -> HIT "(source code,
+# search budget)" names 1 of 4, rc 1; live tree -> the four-element tuple passes, its correction
+# paragraph is narration, rc 0; mutation (live tuple with "partition depth," removed) -> HIT rc 1.
+gate_sha_tuple() {
+  echo "== GATE 55: every 'function of (...)' enumeration of the sha inputs matches the registry tuple =="
+  local R=documentation/CANONICAL_HASHES.md out
+  require_tracked "$R" || { [ $? -eq 2 ] && return 1; echo "  [skip] $R absent and untracked"; return 0; }
+  out=$(python3 - "$R" <<'PY'
+import re, io, subprocess, sys
+R=sys.argv[1]
+reg=io.open(R,encoding="utf-8").read()
+m=re.search(r"^##+ .*Reproducibility parameters.*$",reg,re.M)
+if not m: print("ERROR\t%s has no §Reproducibility parameters heading"%R); sys.exit(0)
+sect=reg[m.end():m.end()+3000]
+for v in ("SOLVE_DEPTH","SOLVE_NODE_LIMIT","SOLVE_PER_SUB_BRANCH_LIMIT"):
+    if v not in sect: print("ERROR\t%s §Reproducibility parameters no longer names %s — the tuple this gate encodes is stale"%(R,v)); sys.exit(0)
+FAM={"source code":r"source code|code version|binary",
+     "depth":r"depth|SOLVE_DEPTH",
+     "node limit":r"node limit|SOLVE_NODE_LIMIT|global budget",
+     "per-sub-branch limit":r"per-sub-branch|SOLVE_PER_SUB_BRANCH_LIMIT|per-cell"}
+files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split()
+n=0
+for f in files:
+    t=io.open(f,encoding="utf-8").read()
+    for p in re.split(r"\n\s*\n",t):
+        if "CORRECTED" in p: continue
+        flat=" ".join(p.replace("*","").split())
+        for mm in re.finditer(r"function of \(([^)]*)\)",flat):
+            pre=flat[max(0,mm.start()-60):mm.start()].lower()
+            if "this read" in pre or "previously read" in pre: continue
+            n+=1; tup=mm.group(1)
+            missing=[k for k,rx in FAM.items() if not re.search(rx,tup,re.I)]
+            if missing: print("HIT\t%s\t(%s)\tnames %d of 4 inputs; missing: %s"%(f,tup[:100],4-len(missing),", ".join(missing)))
+print("POP\t%d\t%d"%(n,len(files)))
+PY
+) || { echo "  [FAIL] GATE 55 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 55 could not judge its subject: $err"; return 1; fi
+  local pn pf
+  IFS=$'\t' read -r pn pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 55 printed no population census."; return 1; fi
+  if [ "$pn" -lt 1 ]; then echo "  [FAIL] GATE 55 found no 'function of (...)' enumeration across $pf docs (floor 1) — the grammar moved; nothing judged."; return 1; fi
+  local rc=0 tag f tup msg
+  while IFS=$'\t' read -r tag f tup msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f: the sha is stated as a function of $tup — $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         The registry tuple is (source code, partition depth, global node limit, per-sub-branch limit) —"
+    echo "         $R §Reproducibility parameters; §8 of CAMPAIGN_METHODOLOGY says the same."
+    return 1
+  fi
+  echo "  [ok] $pn sha-input enumeration(s) across $pf docs, each naming all four registry inputs"
+  return 0
+}
+
+# GATE 56 — figures a document attributes to an analyze-log section are the log's own figures
+# (`log-derived-figures`).
+#
+# QUEUED AS: Codex A12-designated leg `log-derived-figures` (BATCH A01 rows 33/39, A02 row 29,
+# A05 rows 9/29): boundary survivor counts, greedy sets and redundancy pairs stated in prose must be
+# regenerated from the shipped, tracked `analyze_output.log.gz` §[3]/§[6]/§[9] blocks and compared
+# by string equality, never transcribed.
+# PREMISE CORRECTED BEFORE BUILDING (measured 2026-09-02): A12's prescribed red-test — "the
+# reviewer's unsourceable 21,794,755 / 152,468,987 must fail and §[3]'s 93,439,670 / 872,797,288
+# must pass" — is WRONG. `runs/20260418_10T_d3_fresh/analyze_output.log.gz` IS tracked and its
+# §[3] prints boundary 15 = 21794755 and boundary 19 = 152468987; the 93,439,670 / 872,797,288
+# pair is the 100T log's. The live PROJECT_OVERVIEW.md:102 attributes the first pair to "d3 10T
+# (§[3])", which is exactly right. A gate built to the prescribed red-test would fail a correct
+# figure. So the leg keys every figure on the DATASET the sentence names, mapped to the tracked
+# log for that dataset; the red-test is a real historical tree instead (below).
+# MECHANICS. Logs (dataset -> tracked file, each parsed for §[3] survivors, §[6] chosen set and
+# step counts, §[9] pair/joint/min_single/ratio; a log that yields none of these is ERROR):
+#   d3 10T -> runs/20260418_10T_d3_fresh, d2 10T -> runs/20260418_10T_d2_fresh,
+#   100T -> runs/20260419_100T_d3_d128westus3, 742M -> enumeration/analyze_c_742M.txt.
+#   560T and 11.2T name datasets whose analyze log is NOT in the tree: UNCHECKABLE, printed.
+# LEG T (tables): a table whose header cell cites §[6] or reads "Greedy set" — for each row naming
+#   a logged dataset, the `{...}` set in that cell must be exactly the log's `Boundaries chosen`
+#   set. LEG P (prose): a paragraph citing §[3], §[6] or §[9] and naming a logged dataset — every
+#   comma-grouped or >=5-digit integer must be a figure of the cited section(s) of a named log
+#   (elsewhere in that log = [note], a mis-cited section; nowhere = FAIL), and under §[9] every
+#   `0.ddd` ratio must be one the log prints. A paragraph that ALSO names an un-logged dataset
+#   cannot have a figure pinned on it (the figure may be that dataset's): a miss there is printed
+#   as unattributable, not failed. Correction narration is excluded: CORRECTIONS.md and HISTORY.md
+#   whole, `⚠ [CORRECTED` paragraphs, and `*(Corrected ...)*` spans.
+# POPULATION, printed and floored: >= 1 checkable table row AND >= 1 checkable paragraph, else
+#   ERROR — an absent population is not a clean one.
+# MEASURED BEFORE LANDING (2026-09-02): see the [ok] line and PROSE_LANE_FOLLOWUPS for the
+#   red-test (`git show 84590abe:documentation/BOUNDARY_MINIMUM.md` — the pre-P39 table whose
+#   "Greedy set" column held the §[8] union-shorthand families on the two 10T rows, rows 42-43;
+#   the d3 shorthand is registry row 186, so it is not quoted here) and the mutation cases.
+gate_log_derived_figures() {
+  echo "== GATE 56: figures attributed to an analyze-log section (§[3]/§[6]/§[9]) are that log's own figures =="
+  local out
+  out=$(python3 - <<'PY'
+import gzip, io, re, subprocess, sys
+LOGS = {'d3 10T': 'runs/20260418_10T_d3_fresh/analyze_output.log.gz',
+        'd2 10T': 'runs/20260418_10T_d2_fresh/analyze_output.log.gz',
+        '100T':   'runs/20260419_100T_d3_d128westus3/analyze_output.log.gz',
+        '742M':   'enumeration/analyze_c_742M.txt'}
+NOLOG = ['560T', '11.2T']
+DS_RX = {'d3 10T': r'\bd3[ _-]10T\b|\b10T[ _-]d3\b|\b10T \(d3\)', 'd2 10T': r'\bd2[ _-]10T\b|\b10T[ _-]d2\b|\b10T \(d2\)',
+         '100T': r'\b100T\b', '742M': r'\b742M\b', '560T': r'\b560T\b', '11.2T': r'\b11\.2T\b'}
+tracked = set(subprocess.run(['git','ls-files'], capture_output=True, text=True).stdout.split('\n'))
+def parse(path):
+    if path not in tracked: print('ERROR\t%s is not tracked — the dataset map is stale' % path); sys.exit(0)
+    try:
+        t = gzip.open(path, 'rt', encoding='utf-8', errors='replace').read() if path.endswith('.gz') \
+            else io.open(path, encoding='utf-8', errors='replace').read()
+    except OSError as e: print('ERROR\tcannot read %s: %s' % (path, e)); sys.exit(0)
+    secs, cur = {}, None
+    for l in t.split('\n'):
+        m = re.match(r'^\[(\d+)\]', l)
+        if m: cur = int(m.group(1)); secs[cur] = []; continue
+        if cur is not None: secs[cur].append(l)
+    surv, chosen, n6, pairs, ratios, n9 = {}, None, set(), {}, set(), set()
+    for l in secs.get(3, []):
+        m = re.match(r'^\s*Boundary\s+(\d+)\s+\(pos [\d-]+\):\s+(\d+)', l)
+        if m: surv[int(m.group(1))] = int(m.group(2))
+    for l in secs.get(6, []):
+        m = re.search(r'Boundaries chosen: \{([\d ]+)\}', l)
+        if m and chosen is None: chosen = frozenset(int(x) for x in m.group(1).split())
+        n6.update(int(x) for x in re.findall(r'\b(\d{5,})\b', l))
+    for l in secs.get(9, []):
+        m = re.match(r"^\s*b=(\d+), b'=(\d+)\s+joint=(\d+)\s+min_single=(\d+)\s+ratio=([\d.]+)", l)
+        if m:
+            pairs[(int(m.group(1)), int(m.group(2)))] = m.group(5)
+            ratios.add(m.group(5)); n9.add(int(m.group(3))); n9.add(int(m.group(4)))
+    if len(surv) < 31 or chosen is None or not pairs:
+        print('ERROR\t%s: §[3]/§[6]/§[9] did not parse (surv=%d chosen=%s pairs=%d) — the log format moved' % (path, len(surv), chosen, len(pairs))); sys.exit(0)
+    allnums = set(int(x) for x in re.findall(r'\b(\d{5,})\b', t))
+    return dict(surv=surv, n3=set(surv.values()), chosen=chosen, n6=n6, pairs=pairs, ratios=ratios, n9=n9, all=allnums)
+L = {k: parse(v) for k, v in LOGS.items()}
+def named(s): return [d for d, rx in DS_RX.items() if re.search(rx, s)]
+files = [f for f in subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True).stdout.split('\n')
+         if f and f not in ('documentation/CORRECTIONS.md', 'documentation/HISTORY.md')]
+NUM = r'(?<![\d.,])\d{1,3}(?:,\d{3})+(?![\d,])|(?<![\d.,])\d{5,}(?![\d,])'
+pt = pp = un = 0
+for f in files:
+    text = io.open(f, encoding='utf-8', errors='replace').read()
+    text = re.sub(r'\*\(Corrected.*?\)\*', '', text, flags=re.S)
+    lines = text.split('\n')
+    # LEG T
+    for i, l in enumerate(lines):
+        if not l.startswith('|') or i+1 >= len(lines) or not re.match(r'^\|[\s:|-]+\|?\s*$', lines[i+1]): continue
+        hdr = [c.strip() for c in l.strip().strip('|').split('|')]
+        cols = [k for k, c in enumerate(hdr) if re.search(r'§\s*\[6\]|Greedy set', c)]
+        if not cols: continue
+        j = i + 2
+        while j < len(lines) and lines[j].startswith('|'):
+            cells = [c.strip() for c in lines[j].strip().strip('|').split('|')]
+            ds = named(cells[0] if cells else '')
+            for k in cols:
+                if k >= len(cells): continue
+                sets = [frozenset(int(x) for x in re.findall(r'\d+', s)) for s in re.findall(r'\{[\d,\s]+\}', cells[k])]
+                if not sets: continue
+                ok_ds = [d for d in ds if d in L]
+                if not ok_ds:
+                    if ds: un += 1; print('UNCHECKABLE\t%s:%d\ttable row for %s — no tracked analyze log' % (f, j+1, '/'.join(ds)))
+                    continue
+                pt += 1
+                if not any(len(sets) == 1 and sets[0] == L[d]['chosen'] for d in ok_ds):
+                    print('HIT\t%s:%d\t§[6] column holds %s but the %s log says Boundaries chosen = {%s}' % (
+                        f, j+1, ' '.join('{%s}' % ','.join(map(str, sorted(s))) for s in sets), '/'.join(ok_ds),
+                        ', '.join(' '.join(map(str, sorted(L[d]['chosen']))) for d in ok_ds)))
+            j += 1
+    # LEG P — the window is the citing line ±1 within its paragraph (a sentence may be hard-wrapped),
+    # overlapping windows merged; the figures judged are those in log-figure grammar (a number
+    # after "boundary N['s]", "survivors", "joint", "min_single", "eliminates", "remain", "non-KW",
+    # or before "survivors"/"remain"). Measured 2026-09-02 on the whole-paragraph, every-number
+    # version: PROJECT_OVERVIEW.md:102's 130,674,232 — a correct DIFFERENCE of two §[3] figures —
+    # was a FAIL, and 60 unattributable notes came from paragraphs that merely mention 560T.
+    KEY = r"(?:[Bb]oundary \d+(?:'s|’s)?|survivors?|joint|min[- _]?single|eliminates?|remain(?:ing)?|non-KW)"
+    def figures(flat):
+        got = set()
+        for m in re.finditer(KEY + r"\W+(?:[\w'’×-]+\W+){0,3}?(" + NUM + r")", flat): got.add(int(m.group(1).replace(',', '')))
+        for m in re.finditer(r"(" + NUM + r")\W+(?:[\w'’-]+\W+){0,2}?(?:survivors?|remain|non-KW)", flat): got.add(int(m.group(1).replace(',', '')))
+        return got
+    blank = [not l.strip() for l in lines]
+    wins = []
+    for i, l in enumerate(lines):
+        if not re.search(r'§\s*\[(3|6|9)\]', l) or l.lstrip().startswith('|'): continue
+        lo = i if i == 0 or blank[i-1] else i-1
+        hi = i if i+1 >= len(lines) or blank[i+1] else i+1
+        if wins and lo <= wins[-1][1] + 1: wins[-1][1] = max(wins[-1][1], hi)
+        else: wins.append([lo, hi])
+    for lo, hi in wins:
+        para = '\n'.join(lines[lo:hi+1]); ln = lo + 1
+        if para.lstrip().startswith('⚠') or '[CORRECTED' in para: continue
+        cited = set(int(x) for x in re.findall(r'§\s*\[(3|6|9)\]', para))
+        flat = ' '.join(para.split())
+        ds = named(flat); ok_ds = [d for d in ds if d in L]
+        if not ok_ds:
+            if ds: un += 1; print('UNCHECKABLE\t%s:%d\tcites §%s for %s — no tracked analyze log' % (f, ln, sorted(cited), '/'.join(ds)))
+            continue
+        pp += 1
+        # Each SENTENCE is keyed on the dataset and section it names itself, falling back to the
+        # window's. Measured 2026-09-02: with window-level keys, swapping :102's "d3 10T (§[3])" to
+        # "100T (§[3])" did NOT fire, because the next line's "d3 10T §[9]" sat in the same window.
+        for sent in re.split(r'(?<=[.!?;])\s+(?=[A-Z`*(\[])', flat):
+            sds = named(sent) or ds; sok = [d for d in sds if d in L]
+            if not sok: continue
+            scited = set(int(x) for x in re.findall(r'§\s*\[(3|6|9)\]', sent)) or cited
+            partial = any(d in NOLOG for d in sds)
+            want = set().union(*[L[d]['n%d' % s] for d in sok for s in scited])
+            anywhere = set().union(*[L[d]['all'] for d in sok])
+            for n in sorted(figures(sent)):
+                if n in want: continue
+                if n in anywhere: print('NOTE\t%s:%d\t%s is in the %s log but not in the cited §%s' % (f, ln, format(n, ','), '/'.join(sok), sorted(scited))); continue
+                if partial: print('UNATTRIB\t%s:%d\t%s is in no tracked log named here (%s); %s has no tracked log' % (f, ln, format(n, ','), '/'.join(sok), '/'.join(d for d in sds if d in NOLOG))); continue
+                print('HIT\t%s:%d\t%s is attributed to §%s of the %s log, and that log does not contain it' % (f, ln, format(n, ','), sorted(scited), '/'.join(sok)))
+            if 9 in scited:
+                rset = set().union(*[L[d]['ratios'] for d in sok])
+                for r in sorted(set(re.findall(r'\b0\.\d{3}\b', sent))):
+                    if r in rset: continue
+                    if partial: print('UNATTRIB\t%s:%d\tratio %s is printed by no tracked log named here' % (f, ln, r)); continue
+                    print('HIT\t%s:%d\tratio %s is attributed to §[9] of the %s log, whose ratio column never prints it' % (f, ln, r, '/'.join(sok)))
+print('POP\t%d\t%d\t%d\t%d' % (pt, pp, un, len(files)))
+PY
+) || { echo "  [FAIL] GATE 56 scanner failed — NOTHING was checked."; return 1; }
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 56 could not judge its subject: $err"; return 1; fi
+  local pt pp un pf
+  IFS=$'\t' read -r pt pp un pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5; exit}')
+  if ! printf '%s\n' "${pt:-}" | grep -qxE '[0-9]+' || ! printf '%s\n' "${pp:-}" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] GATE 56 printed no population census."; return 1; fi
+  if [ "$pt" -lt 1 ] || [ "$pp" -lt 1 ]; then
+    echo "  [FAIL] GATE 56 population below floor: $pt checkable §[6] table row(s), $pp checkable §-citing paragraph(s) across $pf docs (floor 1 each) — the citation grammar or the dataset names moved; nothing judged."; return 1; fi
+  local rc=0 tag site msg
+  while IFS=$'\t' read -r tag site msg; do
+    case "$tag" in
+      HIT)         echo "  [FAIL] $site: $msg"; rc=1 ;;
+      NOTE)        echo "  [note] $site: $msg" ;;
+      UNATTRIB)    echo "  [note] $site: $msg (unattributable, not failed)" ;;
+      UNCHECKABLE) echo "  [note] $site: $msg" ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         A figure cited to a log section is the log's figure or it is a transcription error;"
+    echo "         regenerate it from the tracked log named above (gzip -dc ... | sed -n '/^\[N\]/,/^\[/p')."
+    return 1
+  fi
+  echo "  [ok] GATE 56: $pt §[6] table row(s) match their log's chosen set; $pp §[3]/§[6]/§[9] paragraph(s) carry only their log's figures; $un site(s) name a dataset with no tracked log (listed above, unjudged); $pf docs scanned"
+  return 0
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 57 — a display equation in a documentation/reports block has two DIFFERENT sides
+# (`nontrivial-display`).
+#
+# QUEUED AS: Codex A-batch designated leg `nontrivial-display` (BATCH A03 row 29,
+# PARTITION_INVARIANCE.md:25): the displayed theorem read `sha256( M( ⋃ E(B) ) ) = sha256( M( ⋃ E(B) ) )`
+# — character-identical sides, i.e. `x = x`, with the two meanings assigned only in the prose after it.
+# MECHANICS: population = every indented (>= 4 spaces) or fenced line in tracked documentation/*.md +
+# reports/**/*.md that splits on a spaced ` = ` into exactly two sides, each >= 6 chars after stripping
+# whitespace, bold markers and trailing punctuation. HIT when the two normalised sides are byte-equal.
+# No theorem-block heuristic: an `x = x` display is vacuous wherever it sits, and the same predicate
+# over the whole corpus found ZERO live hits (so no "theorem section" carve-out was needed to go green).
+# POPULATION printed and floored at 20 (93 candidate lines across 73 docs measured 2026-09-02).
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix tree (`git show 89e7a9a1:documentation/PARTITION_INVARIANCE.md`)
+# -> HIT :25, rc 1; live -> `E_full` vs `E_branch` sides differ, rc 0; mutation (live :31 with the right
+# side copied from the left) -> HIT rc 1; population floor raised above the live count -> ERROR rc 1.
+gate_nontrivial_display() {
+  echo "== GATE 57: a display equation (indented/fenced ' = ' line) does not have identical sides =="
+  local out
+  out=$(python3 - <<'PY'
+import re, io, subprocess, sys
+files=[f for f in subprocess.run(["git","ls-files","documentation/*.md","reports/*.md","reports/**/*.md"],capture_output=True,text=True).stdout.split() if f.endswith(".md")]
+files=sorted(set(files))
+n=0
+for f in files:
+    fence=False
+    for i,line in enumerate(io.open(f,encoding="utf-8").read().split("\n"),1):
+        if line.strip().startswith("```"): fence=not fence; continue
+        if not (fence or re.match(r"^ {4,}\S",line)): continue
+        s=line.strip()
+        if s[:1] in "#$>|-*": continue
+        parts=s.split(" = ")
+        if len(parts)!=2: continue
+        def norm(x):
+            x=x.replace("**","").strip()
+            return re.sub(r"[\s.,;:]+$","",re.sub(r"\s+","",x))
+        a,b=norm(parts[0]),norm(parts[1])
+        if len(a)<6 or len(b)<6: continue
+        n+=1
+        if a==b: print("HIT\t%s:%d\t%s"%(f,i,s[:110]))
+print("POP\t%d\t%d"%(n,len(files)))
+PY
+) || { echo "  [FAIL] GATE 57 scanner failed — NOTHING was checked."; return 1; }
+  local pn pf
+  IFS=$'\t' read -r pn pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 57 printed no population census."; return 1; fi
+  if [ "$pn" -lt 20 ]; then echo "  [FAIL] GATE 57 found only $pn two-sided display line(s) across $pf docs (floor 20) — the corpus or the grammar moved; nothing judged."; return 1; fi
+  local rc=0 tag loc s
+  while IFS=$'\t' read -r tag loc s; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $loc: display equation has IDENTICAL sides (it states x = x): $s"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         Parameterise the sides (e.g. E_full vs E_branch) — a formula whose sides are the same string is true of any E, M."
+    return 1
+  fi
+  echo "  [ok] GATE 57: $pn two-sided display line(s) across $pf docs, none with identical sides"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 58 — a stated "N independent paths/witnesses" equals the rows of the table it introduces,
+# and every 11.2T restatement matches (`witness-count`).
+#
+# QUEUED AS: Codex A-batch designated leg `witness-count` (BATCH A03 row 33): CANONICAL_HASHES.md
+# headed its 11.2T witness table "8 independent paths" over 7 data rows, while PARTITION_INVARIANCE.md
+# restated "7 independent witnesses total" — three counts for one campaign.
+# MECHANICS: LEG 1 — every tracked-md line of the form `... (N independent paths|witnesses):` that is
+# followed by a markdown table: N must equal that table's data-row count (rows beginning `| 2026`, the
+# table's own date column; a row in the same table with no date is still a row, so any `|`-row after
+# the separator counts). LEG 2 — outside CORRECTIONS.md/HISTORY.md (chronicles), any sentence or table
+# row naming `11.2 T` together with `<cardinal> independent (witnesses|paths)` must state the registry
+# count (LEG 1's CANONICAL_HASHES.md table). Number words one..twelve are folded to digits.
+# POPULATION printed: LEG 1 headings (floor 1), LEG 2 restatements (printed, no floor).
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`89e7a9a1`: CANONICAL_HASHES.md heading 8 over 7
+# rows; PARTITION_INVARIANCE.md:294 "(7 independent witnesses total)") -> 2 HITs, rc 1; live -> 8 over
+# 8 rows, "eight independent paths" restatement = 8, rc 0; mutation (live heading 8 -> 9) -> HIT rc 1.
+gate_witness_count() {
+  echo "== GATE 58: 'N independent paths/witnesses' equals the rows of its table; 11.2T restatements agree =="
+  local R=documentation/CANONICAL_HASHES.md out
+  require_tracked "$R" || { [ $? -eq 2 ] && return 1; echo "  [skip] $R absent and untracked"; return 0; }
+  out=$(python3 - "$R" <<'PY'
+import re, io, subprocess, sys
+R=sys.argv[1]
+W={"one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10,"eleven":11,"twelve":12}
+files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split()
+heads=0; reg=None
+for f in files:
+    lines=io.open(f,encoding="utf-8").read().split("\n")
+    for i,l in enumerate(lines):
+        m=re.search(r"\((\d+) independent (?:paths|witnesses)[^)]*\):?\**\s*$",l)
+        if not m: continue
+        j=i+1
+        while j<len(lines) and lines[j].strip()=="": j+=1
+        if j>=len(lines) or not lines[j].lstrip().startswith("|"): continue
+        heads+=1
+        rows=0; k=j
+        while k<len(lines) and lines[k].lstrip().startswith("|"):
+            c=lines[k].strip()
+            if not re.match(r"^\|\s*:?-",c) and k>j: rows+=1
+            k+=1
+        n=int(m.group(1))
+        if f==R: reg=n if reg is None else reg
+        if n!=rows: print("HIT\t%s:%d\tsays %d independent paths/witnesses; the table it introduces has %d data row(s)"%(f,i+1,n,rows))
+        elif f==R: reg=n
+if reg is None: print("ERROR\t%s has no '(N independent paths):' heading followed by a table — the registry count cannot be read"%R); sys.exit(0)
+rest=0
+for f in files:
+    if f.endswith("CORRECTIONS.md") or f.endswith("HISTORY.md"): continue
+    t=io.open(f,encoding="utf-8").read()
+    for p in re.split(r"\n\s*\n",t):
+        units=[l for l in p.split("\n") if l.lstrip().startswith("|")] or [" ".join(p.split())]
+        for u in units:
+            u=u.replace("*","")
+            u=re.sub(r"\[CORRECTED\b.*?\]"," ",u,flags=re.S)
+            for s in re.split(r"(?<=[.!?])\s+",u):
+                if not re.search(r"11\.2\s?T\b",s): continue
+                mm=re.search(r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b independent (?:witnesses|paths)",s,re.I)
+                if not mm: continue
+                rest+=1
+                v=mm.group(1).lower(); v=int(v) if v.isdigit() else W[v]
+                if v!=reg: print("HIT\t%s\tstates '%s independent %s' for 11.2T; the registry table has %d"%(f,mm.group(1),mm.group(0).split()[-1],reg))
+print("POP\t%d\t%d\t%d"%(heads,rest,reg))
+PY
+) || { echo "  [FAIL] GATE 58 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 58 could not judge its subject: $err"; return 1; fi
+  local ph pr reg
+  IFS=$'\t' read -r ph pr reg < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${ph:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 58 printed no population census."; return 1; fi
+  if [ "$ph" -lt 1 ]; then echo "  [FAIL] GATE 58 found no '(N independent paths):' heading followed by a table (floor 1) — the grammar moved; nothing judged."; return 1; fi
+  local rc=0 tag loc msg
+  while IFS=$'\t' read -r tag loc msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $loc: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         One manifest, one count: add the row or fix the number — never quote evidence weight from memory ($R §d3 11.2T)."
+    return 1
+  fi
+  echo "  [ok] GATE 58: $ph witness heading(s) match their tables; $pr 11.2T restatement(s) agree with the registry count $reg"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 59 — "K of the N ... (in)eligible, so the baseline is 1/M" must satisfy M = N-K (or M = K)
+# (`baseline-arithmetic`).
+#
+# QUEUED AS: Codex A-batch designated leg `baseline-arithmetic` (BATCH A03 row 15,
+# LITERATURE_RULES_POPULATION_TESTS.md:56): "16 of the 31 non-initial pairs ineligible ... so the
+# baseline is 1/16" — its own arithmetic gives 1/15. The published 1/16 was RIGHT (15 ineligible); only
+# the rationale was wrong, which is exactly why a reader never catches it.
+# MECHANICS: per flattened sentence of tracked md (correction narration stripped: `*(Corrected …)*`,
+# `[CORRECTED …]`), the first `K of (the) N … eligible|ineligible` fixes (K, N, polarity); a later
+# `baseline (is|of) 1/M` in the same sentence must have M = N-K when ineligible, M = K when eligible.
+# POPULATION printed and floored at 1.
+# ADJUDICATED-OPEN SITES (the GATE 18 / GATE 47 pattern): documentation/DOC_GATE_BASELINE_ARITHMETIC_OPEN.tsv
+# names file + the (K, N, M) triple + the reason; a matching hit prints [OPEN] and does NOT set rc; an
+# allowance that matches nothing FAILS, so a row cannot outlive the fix it waits for. ZERO rows today:
+# the table is header-only. It briefly held reports/TR1_EIGHT_CENTURIES_MEASURED.md:132-134 -- the
+# un-swept sibling of the LRPT correction, found by this gate's FIRST live run on 2026-09-02 -- and the
+# prose lane FIXED that site the same day (TR-1 v1.32, TR-7 v2.5, CORRECTIONS entry appended), so the
+# row was removed rather than left standing. That is the intended lifecycle and it is worth stating:
+# the backlog row for this defect said explicitly "deliberately NOT whitelisted ... rather than being
+# allow-rowed into silence", so an [OPEN] row here is a SHORT-LIVED holding position for a defect
+# already scheduled to be fixed, never a resting place for one that is not.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:documentation/LITERATURE_RULES_POPULATION_TESTS.md`)
+# -> HIT "16 of the 31 … ineligible … 1/16 (expected 1/15)", rc 1; live "15 of the 31 … ineligible … 1/16"
+# -> rc 0 with TR-1 printed [OPEN] (the `*(Corrected …)*` narration quoting the old 16 is stripped, not
+# counted); mutation (live LRPT 15 -> 14) -> HIT rc 1; OPEN row deleted -> TR-1 FAILs rc 1; OPEN row
+# pointed at a file with no such sentence -> "allowance matched nothing" FAIL rc 1.
+gate_baseline_arithmetic() {
+  echo "== GATE 59: 'K of the N ... ineligible, so the baseline is 1/M' satisfies M = N-K =="
+  local A=documentation/DOC_GATE_BASELINE_ARITHMETIC_OPEN.tsv out
+  require_tracked "$A" || { [ $? -eq 2 ] && return 1; echo "  [skip] $A absent and untracked"; return 0; }
+  out=$(python3 - "$A" <<'PY'
+import re, io, subprocess, sys
+A=sys.argv[1]
+allow={}
+for line in io.open(A,encoding="utf-8").read().split("\n"):
+    if not line.strip() or line.startswith("#"): continue
+    c=line.split("\t")
+    if len(c)<5: print("ERROR\t%s row has %d columns, need 5 (file, K, N, M, reason): %r"%(A,len(c),line[:60])); sys.exit(0)
+    allow[(c[0],int(c[1]),int(c[2]),int(c[3]))]=[c[4],0]
+files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split()
+n=0
+for f in files:
+    t=io.open(f,encoding="utf-8").read()
+    for p in re.split(r"\n\s*\n",t):
+        p=re.sub(r"\*\(Corrected\b.*?\)\*"," ",p,flags=re.S)
+        p=re.sub(r"\[CORRECTED\b.*?\]"," ",p,flags=re.S)
+        flat=" ".join(p.replace("*","").split())
+        for s in re.split(r"(?<=[.!?])\s+",flat):
+            mb=re.search(r"baseline (?:is|of) 1/(\d+)",s)
+            if not mb: continue
+            mk=re.search(r"\b(\d+) of (?:the )?(\d+)\b[^.;]*?\b(ineligible|eligible)\b",s[:mb.start()])
+            if not mk: continue
+            n+=1
+            K,N,pol=int(mk.group(1)),int(mk.group(2)),mk.group(3)
+            M=int(mb.group(1)); exp=N-K if pol=="ineligible" else K
+            if M!=exp:
+                key=(f,K,N,M)
+                if key in allow:
+                    allow[key][1]+=1; print("OPEN\t%s\t%d of %d %s -> 1/%d (arithmetic gives 1/%d) — adjudicated open: %s"%(f,K,N,pol,M,exp,allow[key][0]))
+                else: print("HIT\t%s\t%d of %d %s -> baseline 1/%d, but N-K arithmetic gives 1/%d"%(f,K,N,pol,M,exp))
+for key,(why,used) in allow.items():
+    if used==0: print("HIT\t%s\tallowance (%d of %d -> 1/%d) matched NOTHING — the site was fixed or moved; delete the row from %s"%(key[0],key[1],key[2],key[3],A))
+print("POP\t%d\t%d"%(n,len(files)))
+PY
+) || { echo "  [FAIL] GATE 59 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 59 could not read its allowance table: $err"; return 1; fi
+  local pn pf
+  IFS=$'\t' read -r pn pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 59 printed no population census."; return 1; fi
+  if [ "$pn" -lt 1 ]; then echo "  [FAIL] GATE 59 found no 'K of the N … (in)eligible … baseline is 1/M' sentence across $pf docs (floor 1) — the grammar moved; nothing judged."; return 1; fi
+  local rc=0 tag f msg no=0
+  while IFS=$'\t' read -r tag f msg; do
+    case "$tag" in
+      HIT) echo "  [FAIL] $f: $msg"; rc=1 ;;
+      OPEN) echo "  [OPEN] $f: $msg"; no=$((no+1)) ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -ne 0 ] && return 1
+  echo "  [ok] GATE 59: $pn eligibility-baseline sentence(s) across $pf docs; $((pn-no)) arithmetically self-consistent, $no adjudicated-open (listed above, NOT covered by this verdict)"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 60 — the zero-cell percentage and the .bin-per-cell coefficient equal the campaign actuals
+# in the same file (`derived-coefficient`).
+#
+# QUEUED AS: Codex A-batch designated leg `derived-coefficient` (BATCH A02 row 11,
+# CAMPAIGN_METHODOLOGY.md:634-635): "63.6 % of fully-scanned cells produced zero solutions … roughly
+# 0.37×" against the same file's finals (93,083 zero cells of 158,364 = 58.78 %; 65,281/158,364 = 0.4122).
+# MECHANICS: actuals from the campaign table — `| Cells with zero solutions | Z (P %)` and the cell total
+# from `= 560 T / T cells`. Claims, outside `[CORRECTED …]` spans: every `X % of fully-scanned cells
+# produced zero` and every `roughly C× the scanned-cells count`. X must equal 100·Z/T and C must equal
+# (T-Z)/T, each at the claim's own printed precision; the table's own P must equal 100·Z/T too.
+# POPULATION printed and floored at 1 percentage claim + 1 coefficient claim.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show d70d8dde:documentation/CAMPAIGN_METHODOLOGY.md`)
+# -> 2 HITs (63.6 vs 58.8; 0.37 vs 0.41), rc 1; live -> 58.8 / 0.41 pass, the CORRECTED span quoting
+# 63.6/0.37 is stripped, rc 0; mutation (live 0.41 -> 0.37) -> HIT rc 1; actuals row deleted -> ERROR.
+gate_derived_coefficient() {
+  echo "== GATE 60: CAMPAIGN_METHODOLOGY.md's zero-cell % and .bin-per-cell coefficient equal its own campaign actuals =="
+  local F=documentation/CAMPAIGN_METHODOLOGY.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, sys
+F=sys.argv[1]
+t=io.open(F,encoding="utf-8").read()
+mz=re.search(r"^\|\s*Cells with zero solutions\s*\|\s*([\d,]+)\s*\(([\d.]+)\s*%\)",t,re.M)
+mt=re.search(r"=\s*560\s*T\s*/\s*([\d,]+)\s*cells",t)
+if not mz: print("ERROR\t%s has no '| Cells with zero solutions | Z (P %%)' actuals row"%F); sys.exit(0)
+if not mt: print("ERROR\t%s no longer states the cell total as '= 560 T / N cells'"%F); sys.exit(0)
+Z=int(mz.group(1).replace(",","")); T=int(mt.group(1).replace(",",""))
+pct=100.0*Z/T; coef=(T-Z)/T
+def dec(s): return len(s.split(".")[1]) if "." in s else 0
+def eq(claim,actual): return round(actual,dec(claim))==float(claim)
+if not eq(mz.group(2),pct): print("HIT\tactuals row\tzero-cell row prints %s %% but %s/%s = %.2f %%"%(mz.group(2),mz.group(1),mt.group(1),pct))
+body=re.sub(r"\[CORRECTED\b.*?\]"," ",t,flags=re.S).replace("*","")
+flat=" ".join(body.split())
+np_=nc=0
+for m in re.finditer(r"([\d.]+)\s*% of fully-scanned cells produced zero",flat):
+    np_+=1
+    if not eq(m.group(1),pct): print("HIT\tprose\t'%s %% of fully-scanned cells produced zero' but the actuals give %.2f %% (%d of %d)"%(m.group(1),pct,Z,T))
+for m in re.finditer(r"roughly ([\d.]+)×? ?the scanned-cells count",flat):
+    nc+=1
+    if not eq(m.group(1),coef): print("HIT\tprose\t'roughly %s× the scanned-cells count' but (T-Z)/T = %.4f"%(m.group(1),coef))
+print("POP\t%d\t%d\t%d\t%d"%(np_,nc,Z,T))
+PY
+) || { echo "  [FAIL] GATE 60 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 60 could not judge its subject: $err"; return 1; fi
+  local pp pc z tt
+  IFS=$'\t' read -r pp pc z tt < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5; exit}')
+  if ! printf '%s\n' "${pp:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 60 printed no population census."; return 1; fi
+  if [ "$pp" -lt 1 ] || [ "$pc" -lt 1 ]; then echo "  [FAIL] GATE 60 found $pp percentage claim(s) and $pc coefficient claim(s) in $F (floor 1 each) — the sentence grammar moved; nothing judged."; return 1; fi
+  local rc=0 tag where msg
+  while IFS=$'\t' read -r tag where msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F ($where): $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -ne 0 ] && return 1
+  echo "  [ok] GATE 60: $pp zero-cell % claim(s) and $pc coefficient claim(s) agree with the actuals ($z zero cells of $tt)"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 61 — a CPU vendor is never paired with another vendor's microarchitecture (`cpu-vendor`).
+#
+# QUEUED AS: Codex A-batch designated leg `cpu-vendor` (BATCH A02 row 34, BRANCHES_EXPLAINED.md:399):
+# "Intel Zen 5 vs ARM Cobalt 100" — Zen is AMD's. The prescribed shared SKU->CPU table is NOT built
+# here (no such registry exists in-tree; inventing one would be a hand-kept table nothing derives), so
+# this is the vendor<->family half only: a registered mapping of vendor word to architecture family.
+# MECHANICS: over tracked md (CORRECTIONS.md excluded as the ledger of quoted defects; `*Revision …`
+# paragraphs and `[CORRECTED …]` spans stripped as narration), every `<Vendor> <Family>` adjacency with
+# Vendor in {Intel, AMD, ARM, Ampere} and Family in {Zen, EPYC, Ryzen, Xeon, Core i, Cobalt, Neoverse,
+# Altra, Graviton} must be a registered pair. POPULATION printed and floored at 3 adjacencies.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show d70d8dde:documentation/BRANCHES_EXPLAINED.md`)
+# -> HIT "Intel Zen", rc 1; live -> 0 mismatches over the measured adjacency population, rc 0
+# (BRANCHES_EXPLAINED.md:802's revision narration quoting "Intel Zen 5" is stripped, not counted);
+# mutation (live "AMD EPYC" -> "Intel EPYC" at one site) -> HIT rc 1.
+gate_cpu_vendor() {
+  echo "== GATE 61: a CPU vendor is paired only with its own microarchitecture family =="
+  local out
+  out=$(python3 - <<'PY'
+import re, io, subprocess, sys
+OK={"intel":{"xeon","core"},"amd":{"zen","epyc","ryzen"},"arm":{"cobalt","neoverse","altra","graviton"},"ampere":{"altra","neoverse"}}
+files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split() if not f.endswith("CORRECTIONS.md")]
+n=0
+for f in files:
+    t=io.open(f,encoding="utf-8").read()
+    for p in re.split(r"\n\s*\n",t):
+        if p.lstrip().startswith("*Revision") or p.lstrip().startswith("*(Revision"): continue
+        p=re.sub(r"\[CORRECTED\b.*?\]"," ",p,flags=re.S)
+        flat=" ".join(p.replace("*","").split())
+        for m in re.finditer(r"\b(Intel|AMD|ARM|Ampere)\s+(Zen|EPYC|Ryzen|Xeon|Core|Cobalt|Neoverse|Altra|Graviton)\b",flat):
+            n+=1
+            if m.group(2).lower() not in OK[m.group(1).lower()]:
+                print("HIT\t%s\t'%s' — %s does not make %s parts"%(f,m.group(0),m.group(1),m.group(2)))
+print("POP\t%d\t%d"%(n,len(files)))
+PY
+) || { echo "  [FAIL] GATE 61 scanner failed — NOTHING was checked."; return 1; }
+  local pn pf
+  IFS=$'\t' read -r pn pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 61 printed no population census."; return 1; fi
+  if [ "$pn" -lt 3 ]; then echo "  [FAIL] GATE 61 found only $pn vendor+family adjacency(ies) across $pf docs (floor 3) — the corpus moved; nothing judged."; return 1; fi
+  local rc=0 tag f msg
+  while IFS=$'\t' read -r tag f msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -ne 0 ] && return 1
+  echo "  [ok] GATE 61: $pn vendor+family adjacency(ies) across $pf docs, every pairing registered"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 62 — every Azure resource name DEPLOYMENT.md shows/deletes/attaches was created in the same
+# section, or is a documented pre-existing resource (`az-name-closure`).
+#
+# QUEUED AS: Codex A-batch designated leg `az-name-closure` (batch 10 row 13, DEPLOYMENT.md:640 appendix):
+# the example created `solver-nic` and then queried `spot-nic`, queried a `spot-pip` it never created,
+# and tore down `spot-nic`/`spot-pip`/`spot-nsg`/`spot-vnet` — rename residue from a partial sweep.
+# MECHANICS: DEPLOYMENT.md is split at H2 headings. Backslash-continued lines are joined. In each
+# section, CREATED = names after `-n|--name` on `az … create`, plus the resource segment of an
+# `az rest --method PUT --url …/<type>/<name>?`; REFERENCED = names after `-n|--name|--vm-name` on
+# `az … show|delete|update|get-instance-view|start|stop|deallocate|wait|attach|detach`. A referenced
+# name that is a shell variable (`$X`, `"$X"`), a placeholder (`<x>`), or on the pre-existing allowlist
+# (`solver-data` — the persistent data disk; `claude-vnet` / `claude` — the orchestrator's) is skipped;
+# any other referenced name absent from the section's CREATED set is a HIT. Same-section, not
+# strictly-prior: the ad-hoc lifecycle section shows its cleanup pattern before its create pattern.
+# POPULATION printed and floored at 3 references.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:documentation/DEPLOYMENT.md`) ->
+# HITs spot-nic ×2, spot-pip ×2, spot-nsg, spot-vnet, plus the exact-name `az disk delete -n temp-vm_OsDisk_*`
+# glob the live doc itself later fixed, rc 1; live -> all 16 references close, rc 0;
+# mutation (live `az network nic show … -n solver-nic` -> `spot-nic`) -> HIT rc 1.
+gate_az_name_closure() {
+  echo "== GATE 62: every az resource name DEPLOYMENT.md references was created in its section (or is pre-existing) =="
+  local F=documentation/DEPLOYMENT.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, sys
+F=sys.argv[1]
+ALLOW={"solver-data","claude-vnet","claude"}
+t=io.open(F,encoding="utf-8").read()
+t=re.sub(r"\\\n\s*"," ",t)
+secs=re.split(r"(?m)^## ",t)
+nref=0
+for si,sec in enumerate(secs):
+    title=sec.split("\n",1)[0][:50]
+    created=set()
+    for m in re.finditer(r"\baz\s+(?:[a-z-]+\s+)+create\b[^\n]*?(?:\s-n|\s--name)\s+([^\s\"'\\]+)",sec): created.add(m.group(1))
+    for m in re.finditer(r"az rest --method PUT[^\n]*?/(?:virtualMachines|disks|networkInterfaces|publicIPAddresses|virtualNetworks|networkSecurityGroups)/([A-Za-z0-9_.-]+)\??",sec): created.add(m.group(1))
+    for ln,line in enumerate(sec.split("\n"),1):
+        for m in re.finditer(r"\baz\s+(?:[a-z-]+\s+)+(?:show|delete|update|get-instance-view|start|stop|deallocate|wait|attach|detach)\b(.*)$",line):
+            tail=m.group(1)
+            for nm in re.findall(r"(?:\s-n|\s--name|\s--vm-name)\s+([^\s\"'\\]+)",tail):
+                if nm.startswith("$") or nm.startswith("<") or nm.startswith("{") or "$" in nm: continue
+                nref+=1
+                if nm in ALLOW or nm in created: continue
+                print("HIT\t%s\t%s\t%s"%(title,nm,line.strip()[:100]))
+print("POP\t%d\t%d"%(nref,len(secs)))
+PY
+) || { echo "  [FAIL] GATE 62 scanner failed — NOTHING was checked."; return 1; }
+  local pn ps
+  IFS=$'\t' read -r pn ps < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 62 printed no population census."; return 1; fi
+  if [ "$pn" -lt 3 ]; then echo "  [FAIL] GATE 62 found only $pn literal az resource reference(s) in $F (floor 3) — the appendix moved or its commands changed shape; nothing judged."; return 1; fi
+  local rc=0 tag sec nm line
+  while IFS=$'\t' read -r tag sec nm line; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F §\"$sec\": '$nm' is referenced but never created in this section (and is not a documented pre-existing resource): $line"; rc=1
+  done < <(printf '%s\n' "$out")
+  [ "$rc" -ne 0 ] && return 1
+  echo "  [ok] GATE 62: $pn literal az resource reference(s) across $ps sections of $F, every one created in its section or pre-existing"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 63 — every definition of a registered term carries the term's discriminating token
+# (`glossary-consistency`).
+#
+# QUEUED AS: Codex A-batch designated leg `glossary-consistency` (BATCH A02 row 30,
+# BRANCHES_EXPLAINED.md:277-279/:629): the body defined a node as "every step from a parent to a
+# child" and the glossary as "one parent-to-child decision", while :314-319 said the frame the walk
+# starts from is counted — a one-node difference against a sha-determining 3,536,157,207 budget.
+# The general "any term defined twice must agree" is UNGATEABLE (paraphrase); this is the registered-
+# term core the row prescribed, with exactly one term registered: node -> `frame`.
+# MECHANICS: in documentation/BRANCHES_EXPLAINED.md, definition sites of `node` are (a) the glossary
+# row `| **Node** | … |` and (b) every flattened sentence matching `(is|counts as) (a|one)? "node"`
+# (any quote style, or none). Each must contain `frame`. `[CORRECTED …]` spans and `*Revision` paragraphs
+# are stripped. POPULATION printed and floored at 2 (glossary row + >= 1 body definition).
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show d70d8dde:documentation/BRANCHES_EXPLAINED.md`)
+# -> 2 HITs (:277 body, :629 glossary), rc 1; live -> "every frame entry is a node" + glossary "one frame
+# entry", rc 0; mutation (live glossary row with BOTH `frame` mentions replaced by "parent-to-child")
+# -> HIT rc 1 (a first mutation that left the cell's second `frame` in place did not fire — correctly).
+gate_glossary_consistency() {
+  echo "== GATE 63: every definition of 'node' in BRANCHES_EXPLAINED.md names the frame (registered term list: node) =="
+  local F=documentation/BRANCHES_EXPLAINED.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, sys
+F=sys.argv[1]
+TERMS={"node":"frame"}
+t=io.open(F,encoding="utf-8").read()
+n=0
+for term,disc in TERMS.items():
+    for p in re.split(r"\n\s*\n",t):
+        if p.lstrip().startswith("*Revision"): continue
+        p=re.sub(r"\[CORRECTED\b.*?\]"," ",p,flags=re.S)
+        for line in p.split("\n"):
+            m=re.match(r"^\|\s*\*\*%s\*\*\s*\|(.*)$"%term.capitalize(),line.strip())
+            if m:
+                n+=1
+                if disc not in m.group(1).lower(): print("HIT\tglossary row\t%s"%line.strip()[:120])
+        flat=" ".join(p.replace("*","").split())
+        if flat.startswith("|") or flat.startswith("#"): continue
+        for s in re.split(r"(?<=[.!?])\s+",flat):
+            if re.search(r"\b(?:is|counts as) (?:a |one )?[\"“'‘]?%s[\"”'’]?(?=[\s,.;:—)])"%term,s):
+                n+=1
+                if disc not in s.lower(): print("HIT\tbody definition\t%s"%s[:120])
+print("POP\t%d"%n)
+PY
+) || { echo "  [FAIL] GATE 63 scanner failed — NOTHING was checked."; return 1; }
+  local pn
+  pn=$(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 63 printed no population census."; return 1; fi
+  if [ "$pn" -lt 2 ]; then echo "  [FAIL] GATE 63 found only $pn definition site(s) of 'node' in $F (floor 2: glossary row + body) — the definitions moved; nothing judged."; return 1; fi
+  local rc=0 tag where s
+  while IFS=$'\t' read -r tag where s; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F ($where) defines a node without naming the frame: $s"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         The frame the walk starts from is counted (§'Exactly what counts as a node'); a parent-to-child definition is one node short per walk."; return 1; fi
+  echo "  [ok] GATE 63: $pn definition site(s) of 'node' in $F, each naming the frame"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 64 — every "C1–C5 plus N" / "C1–C7 plus N" identifying-set count agrees with BOUNDARY_MINIMUM.md's
+# result table (`identifying-set-arity`).
+#
+# QUEUED AS: Codex A-batch designated leg `identifying-set-arity` (BATCH A03 row 21, SPECIFICATION.md:3):
+# "C1–C7 plus four … five" double-counted C6 and C7, which are boundaries 27 and 25 and sit INSIDE the
+# four/five-boundary greedy sets per BOUNDARY_MINIMUM.md's "{25, 27} in greedy set?" column.
+# MECHANICS: registry = BOUNDARY_MINIMUM.md rows `| <dataset> | **size** | … | ✓ |` -> the set S of
+# greedy-minimum sizes and, for rows whose last cell is ✓, S-2. Claims over tracked md (CORRECTIONS.md/
+# HISTORY.md excluded; `[CORRECTED …]` spans and `*Revision` paragraphs stripped): `C1–C5 plus (the) N`
+# needs N ∈ S; `C1–C7 plus (the) N` needs N ∈ {s-2}. N is a digit or a number word; a non-numeric
+# continuation ("plus the dedup semantics", "plus C6 and C7") is not a count and is skipped.
+# POPULATION printed and floored at 1 claim.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:documentation/SPECIFICATION.md`) ->
+# HIT "C1–C7 plus four" (4 ∉ {2,3}), rc 1; live -> "C1–C5 plus four", "C1–C7 plus two", "C1–C7 plus
+# three", "C1–C5 plus the five" all consistent, rc 0; mutation (live "plus two" -> "plus four") -> HIT rc 1;
+# registry ✓ column blanked -> the C7 set empties and every "C1–C7 plus N" claim HITs (rc 1).
+gate_identifying_set_arity() {
+  echo "== GATE 64: every 'C1–C5/C1–C7 plus N' identifying-set count matches BOUNDARY_MINIMUM.md's result table =="
+  local R=documentation/BOUNDARY_MINIMUM.md out
+  require_tracked "$R" || { [ $? -eq 2 ] && return 1; echo "  [skip] $R absent and untracked"; return 0; }
+  out=$(python3 - "$R" <<'PY'
+import re, io, subprocess, sys
+R=sys.argv[1]
+W={"one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10}
+reg=io.open(R,encoding="utf-8").read()
+S=set(); S7=set()
+for line in reg.split("\n"):
+    m=re.match(r"^\|\s*\**(d[23] \S+[^|]*?)\**\s*\|\s*\**(\d+)\**\s*\|(.*)\|\s*$",line.strip())
+    if not m: continue
+    size=int(m.group(2)); S.add(size)
+    last=m.group(3).split("|")[-1]
+    if "✓" in last: S7.add(size-2)
+if not S: print("ERROR\t%s has no '| d? … | **size** | … |' result rows — the registry cannot be read"%R); sys.exit(0)
+files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split() if not (f.endswith("CORRECTIONS.md") or f.endswith("HISTORY.md"))]
+n=0
+for f in files:
+    t=io.open(f,encoding="utf-8").read()
+    for p in re.split(r"\n\s*\n",t):
+        if p.lstrip().startswith("*Revision"): continue
+        p=re.sub(r"\[CORRECTED\b.*?\]"," ",p,flags=re.S)
+        flat=" ".join(p.replace("*","").split())
+        for m in re.finditer(r"C1[–-]C([57]) plus (?:the )?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b",flat):
+            v=m.group(2).lower(); N=int(v) if v.isdigit() else W[v]; base=m.group(1)
+            n+=1
+            allowed=S if base=="5" else S7
+            if N not in allowed: print("HIT\t%s\t'%s' — allowed counts are %s (BOUNDARY_MINIMUM.md sizes %s%s)"%(f,m.group(0),sorted(allowed),sorted(S),"" if base=="5" else ", minus the two that are C6/C7"))
+print("POP\t%d\t%d\t%s\t%s"%(n,len(files),",".join(map(str,sorted(S))),",".join(map(str,sorted(S7)))))
+PY
+) || { echo "  [FAIL] GATE 64 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 64 could not judge its subject: $err"; return 1; fi
+  local pn pf s s7
+  IFS=$'\t' read -r pn pf s s7 < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 64 printed no population census."; return 1; fi
+  if [ "$pn" -lt 1 ]; then echo "  [FAIL] GATE 64 found no 'C1–C5/C1–C7 plus N' claim across $pf docs (floor 1) — the grammar moved; nothing judged."; return 1; fi
+  local rc=0 tag f msg
+  while IFS=$'\t' read -r tag f msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         C6 and C7 ARE boundaries 27 and 25, inside every greedy set ($R) — 'C1–C7 plus' must not count them twice."; return 1; fi
+  echo "  [ok] GATE 64: $pn identifying-set claim(s) across $pf docs agree with $R (greedy sizes {$s}; beyond C1–C7: {$s7})"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 65 — a "stdlib only" claim naming a file that imports third-party modules must be scoped
+# (`stdlib-claims`).
+#
+# QUEUED AS: Codex A-batch designated leg `stdlib-claims` (batch 11 row 6, DEVELOPMENT.md:47 +
+# METHODS.md:93): "Stdlib only; no third-party modules are required" for tests.py/solve.py/roae.py/
+# verify.py, while solve.py's P2 modes and verify.py --check-t5-c3 import numpy/pyarrow — V2-L13 hit
+# ModuleNotFoundError following the doc.
+# MECHANICS: per flattened paragraph (or table row) of tracked md, CORRECTIONS.md/HISTORY.md excluded,
+# a stdlib claim is `stdlib-only|stdlib only|standard library … no third-party|no third-party
+# (modules|dependencies)`. The files it names are the tracked `*.py` paths in the same paragraph. For
+# each named file, THIRD-PARTY = any `import|from` of numpy|pyarrow|pandas|scipy|sklearn|matplotlib at
+# any indentation (lazy imports count — they are the ones that fail). "Named" = a .py path in the
+# clause (split at `.`/`;`) that carries the claim, or — when that clause names none — in the clause
+# just before it ("for tests.py, solve.py, …. Stdlib only;" is the pre-fix shape). MEASURED: a whole-
+# paragraph scope fired on reports/evidence/r11/README.md ("r11_calibration.py … stdlib-only; reuses the
+# M_G builder in solve.py"), a correct sentence, so the clause rule is what separates the two.
+# A claim naming such a file must carry a scope word in the same paragraph: core|except|default|
+# optional|lazily|lazy|P2|itself|Scoped|--check-t5-c3. POPULATION printed and floored at 3 claims.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:` DEVELOPMENT.md:47 + METHODS.md:93)
+# -> 2 HITs (solve.py 39 third-party import lines, verify.py 2; no scope word), rc 1; live -> every
+# claim naming solve.py/verify.py carries core/default/except/lazily, rc 0 (12 claims, 7 naming such a
+# file); mutation (live DEVELOPMENT.md:47-55 bullet replaced by the unscoped pre-fix sentence) -> HIT rc 1
+# — a mutation touching only :47 did NOT fire because the same bullet carries `P2` at :51/:55, i.e. the
+# paragraph-scope qualifier is deliberately lenient: the bullet as a whole IS scoped.
+gate_stdlib_claims() {
+  echo "== GATE 65: a 'stdlib only' claim naming a file that imports third-party modules carries a scope word =="
+  local out
+  out=$(python3 - <<'PY'
+import re, io, subprocess, sys
+files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split() if not (f.endswith("CORRECTIONS.md") or f.endswith("HISTORY.md"))]
+tracked=set(subprocess.run(["git","ls-files"],capture_output=True,text=True).stdout.split())
+imp={}
+def third(path):
+    if path not in imp:
+        try: src=io.open(path,encoding="utf-8").read()
+        except Exception: src=""
+        imp[path]=len(re.findall(r"(?m)^\s*(?:import|from)\s+(?:numpy|pyarrow|pandas|scipy|sklearn|matplotlib)\b",src))
+    return imp[path]
+CLAIM=re.compile(r"stdlib[ -]only|standard library[^.]{0,40}no third-party|no third-party (?:modules|dependencies)",re.I)
+SCOPE=re.compile(r"\b(core|except|default|optional|lazily|lazy|P2|itself|Scoped)\b|--check-t5-c3")
+n=0; named=0
+for f in files:
+    t=io.open(f,encoding="utf-8").read()
+    for p in re.split(r"\n\s*\n",t):
+        units=[l for l in p.split("\n") if l.lstrip().startswith("|")] or [" ".join(p.split())]
+        for u in units:
+            u=" ".join(u.replace("*","").split())
+            if not CLAIM.search(u): continue
+            n+=1
+            clauses=re.split(r"(?<=[.;])\s+",u)
+            named_files=set()
+            for ci,cl in enumerate(clauses):
+                if not CLAIM.search(cl): continue
+                fs=set(re.findall(r"`?([A-Za-z0-9_./-]+\.py)`?",cl))
+                if not fs and ci>0: fs=set(re.findall(r"`?([A-Za-z0-9_./-]+\.py)`?",clauses[ci-1]))
+                named_files|=fs
+            for py in named_files:
+                cands=[py] if py in tracked else [x for x in tracked if x.endswith("/"+py)]
+                for c in cands:
+                    k=third(c)
+                    if k==0: continue
+                    named+=1
+                    if not SCOPE.search(u): print("HIT\t%s\t%s has %d third-party import line(s) but the claim carries no scope word: %s"%(f,c,k,u[:110]))
+print("POP\t%d\t%d\t%d"%(n,named,len(files)))
+PY
+) || { echo "  [FAIL] GATE 65 scanner failed — NOTHING was checked."; return 1; }
+  local pn pm pf
+  IFS=$'\t' read -r pn pm pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 65 printed no population census."; return 1; fi
+  if [ "$pn" -lt 3 ]; then echo "  [FAIL] GATE 65 found only $pn stdlib claim(s) across $pf docs (floor 3) — the grammar moved; nothing judged."; return 1; fi
+  local rc=0 tag f msg
+  while IFS=$'\t' read -r tag f msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $f: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         Scope it: 'stdlib only for the core paths; the P2 modes / --check-t5-c3 need numpy/pyarrow' (DEVELOPMENT.md:47 form)."; return 1; fi
+  echo "  [ok] GATE 65: $pn stdlib claim(s) across $pf docs; $pm name a file with third-party imports and each of those is scoped"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 66 — TRIGRAM_STRUCTURE.md's "verbatim" ledger block IS the header of lean/TrigramTheorems.lean
+# (`lean-header-verbatim`).
+#
+# QUEUED AS: Codex A-batch designated leg `lean-header-verbatim` (BATCH A04 row 16,
+# TRIGRAM_STRUCTURE.md:242): the block said "reproduced verbatim" and differed in 12 lines / 3 hunks —
+# one word change ("kernel-checked" -> "machine-checked", a trust-base weakening) and two inserted
+# parentheticals.
+# MECHANICS: the fenced block after the paragraph that says the ledger is reproduced (the first fence
+# following the line containing "binding ledger") is compared line-by-line, after rstrip, against the
+# Lean file from the first line equal to the block's first line (comment indent of two spaces stripped).
+# Trailing truncation of the block is allowed; any interior difference, insertion, or a block longer
+# than the header is a HIT. If the doc states its own range "lines A–B of that file", A must be where
+# the block was found and B its end, else HIT (the doc's own claim about itself is checked too).
+# POPULATION printed and floored at 20 block lines.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:` both files) -> first divergence at
+# the TG-1 "machine-checked" line, rc 1; live -> 72 lines identical to lean lines 44–115, rc 0; mutation
+# (live block with one interior line changed) -> HIT rc 1; block deleted -> ERROR rc 1.
+gate_lean_header_verbatim() {
+  echo "== GATE 66: TRIGRAM_STRUCTURE.md's fenced attribution ledger is verbatim lean/TrigramTheorems.lean's header =="
+  local F=documentation/TRIGRAM_STRUCTURE.md L=lean/TrigramTheorems.lean out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  require_tracked "$L" || { [ $? -eq 2 ] && return 1; echo "  [skip] $L absent and untracked"; return 0; }
+  out=$(python3 - "$F" "$L" <<'PY'
+import re, io, sys
+F,L=sys.argv[1],sys.argv[2]
+doc=io.open(F,encoding="utf-8").read().split("\n")
+lean=[l.rstrip() for l in io.open(L,encoding="utf-8").read().split("\n")]
+start=None
+for i,l in enumerate(doc):
+    if "binding ledger" in l: start=i; break
+if start is None: print("ERROR\t%s no longer says which block is the binding ledger"%F); sys.exit(0)
+i=start
+while i<len(doc) and not doc[i].strip().startswith("```"): i+=1
+if i>=len(doc): print("ERROR\t%s has no fenced block after 'binding ledger'"%F); sys.exit(0)
+blk=[]; j=i+1
+while j<len(doc) and not doc[j].strip().startswith("```"): blk.append(doc[j].rstrip()); j+=1
+while blk and blk[-1]=="": blk.pop()
+if not blk: print("ERROR\t%s: the ledger fence is empty"%F); sys.exit(0)
+stripped=[re.sub(r"^  ","",l) for l in lean]
+try: a=stripped.index(blk[0])
+except ValueError: print("HIT\tblock line 1\t%r is not a line of %s"%(blk[0][:80],L)); print("POP\t%d"%len(blk)); sys.exit(0)
+hits=0
+for k,bl in enumerate(blk):
+    if a+k>=len(stripped): print("HIT\tblock line %d\tblock runs past the end of %s"%(k+1,L)); hits+=1; break
+    if bl!=stripped[a+k]:
+        print("HIT\tblock line %d (doc :%d vs %s:%d)\tdoc: %r | lean: %r"%(k+1,i+2+k,L,a+k+1,bl[:70],stripped[a+k][:70])); hits+=1
+        if hits>=3: break
+m=re.search(r"lines (\d+)[–-](\d+) of that file"," ".join(doc[start:i]))
+if m:
+    A,B=int(m.group(1)),int(m.group(2))
+    if A!=a+1 or B!=a+len(blk): print("HIT\tdoc's own range claim\tsays lines %d–%d, but the block matches %s:%d–%d"%(A,B,L,a+1,a+len(blk)))
+print("POP\t%d\t%d"%(len(blk),a+1))
+PY
+) || { echo "  [FAIL] GATE 66 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 66 could not judge its subject: $err"; return 1; fi
+  local pn pa
+  IFS=$'\t' read -r pn pa < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 66 printed no population census."; return 1; fi
+  if [ "$pn" -lt 20 ]; then echo "  [FAIL] GATE 66: the ledger block has only $pn line(s) (floor 20) — it was truncated to nothing; nothing judged."; return 1; fi
+  local rc=0 tag where msg
+  while IFS=$'\t' read -r tag where msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F ($where): $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         The block claims to be verbatim: move annotations outside the fence, or land them in the Lean header."; return 1; fi
+  echo "  [ok] GATE 66: $pn-line ledger block is byte-identical (indent-stripped) to $L from line $pa"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 67 — every Evidence-type cell of PARTITION_INVARIANCE.md's evidence table is drawn from the
+# closed vocabulary, and a heading claiming every scale needs every row DIRECT
+# (`evidence-type-vocabulary`).
+#
+# QUEUED AS: Codex A-batch designated leg `evidence-type-vocabulary` (BATCH A03 row 26,
+# PARTITION_INVARIANCE.md:286/:296): the 560T row was labelled "Direct second same-scale witness" for a
+# same-partition determinism re-run, under a heading "verified at every canonical scale to date".
+# MECHANICS: the table whose header names `Evidence type`; each data row's last cell, bold stripped,
+# must BEGIN with one of: Partition-path | Execution-mode | Host/ISA | Re-run determinism | Inherited
+# (case-insensitive). LEG 2: the nearest preceding heading, if it says "every … scale", requires every
+# row's type ∈ {Partition-path, Execution-mode} (the two DIRECT partition witnesses).
+# POPULATION printed and floored at 3 rows.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:documentation/PARTITION_INVARIANCE.md`)
+# -> 4 vocabulary HITs ("Direct sha-equality across …") + the "every canonical scale" heading over a
+# non-direct row, rc 1; live -> 4 rows in vocabulary, heading scoped "directly at 5.6 T and 100 T;
+# inherited at 560 T", rc 0; mutation (live 560T cell "Re-run determinism" -> "Direct second witness")
+# -> HIT rc 1; heading mutated to "every canonical scale" -> LEG 2 HIT rc 1.
+gate_evidence_type_vocabulary() {
+  echo "== GATE 67: PARTITION_INVARIANCE.md evidence-type cells use the closed vocabulary; 'every scale' needs every row direct =="
+  local F=documentation/PARTITION_INVARIANCE.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, sys
+F=sys.argv[1]
+VOCAB=["partition-path","execution-mode","host/isa","re-run determinism","inherited"]
+DIRECT={"partition-path","execution-mode"}
+lines=io.open(F,encoding="utf-8").read().split("\n")
+hi=None
+for i,l in enumerate(lines):
+    if l.lstrip().startswith("|") and "evidence type" in l.lower(): hi=i; break
+if hi is None: print("ERROR\t%s has no table with an 'Evidence type' column"%F); sys.exit(0)
+head=""
+for k in range(hi,-1,-1):
+    if lines[k].startswith("#"): head=lines[k]; break
+rows=0; k=hi+1; types=[]
+while k<len(lines) and lines[k].lstrip().startswith("|"):
+    c=lines[k].strip()
+    if not re.match(r"^\|\s*:?-",c):
+        cells=[x.strip() for x in c.strip("|").split("|")]
+        cell=cells[-1].replace("**","").strip()
+        rows+=1
+        t=next((v for v in VOCAB if cell.lower().startswith(v)),None)
+        types.append(t)
+        if t is None: print("HIT\t:%d\tEvidence-type cell is not in the closed vocabulary %s: %r"%(k+1,VOCAB,cell[:80]))
+    k+=1
+if re.search(r"\bevery\b.*\bscale",head,re.I):
+    nd=[i for i,t in enumerate(types) if t not in DIRECT]
+    if nd: print("HIT\theading\t%r claims every scale, but %d row(s) carry a non-direct evidence type"%(head.strip()[:90],len(nd)))
+print("POP\t%d"%rows)
+PY
+) || { echo "  [FAIL] GATE 67 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 67 could not judge its subject: $err"; return 1; fi
+  local pn
+  pn=$(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 67 printed no population census."; return 1; fi
+  if [ "$pn" -lt 3 ]; then echo "  [FAIL] GATE 67 found only $pn evidence row(s) in $F (floor 3) — the table shrank; nothing judged."; return 1; fi
+  local rc=0 tag where msg
+  while IFS=$'\t' read -r tag where msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F ($where): $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         A witness that is real but witnesses a different proposition needs its own type; 'every scale' is earned only by direct rows."; return 1; fi
+  echo "  [ok] GATE 67: $pn evidence row(s) in $F, every type in the closed vocabulary; the heading claims no more than the rows carry"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 68 — SPECIFICATION.md's enumeration of observed wrap distances names d=5 or scopes itself
+# (`theorem-vs-slice`).
+#
+# QUEUED AS: Codex A-batch designated leg `theorem-vs-slice` (BATCH A03 row 22, SPECIFICATION.md:173):
+# the theorem admits every odd wrap; the sentence "(d=1 vs d=3)" read as exhaustive while
+# CIRCULAR_KING_WEN.md publishes a C1–C5-valid witness with wrap d=5 (absent from the 560T slice).
+# MECHANICS: every flattened SPECIFICATION.md sentence (`[CORRECTED …]` spans stripped) containing
+# `d=1 vs d=3` must contain `d=5` or a scope marker: `within the canonical` | `as measured` | `slice` |
+# `in the enumerated`. Kept to SPECIFICATION.md as the row prescribed: SOLVE_C_CLI.md:677 uses the same
+# phrase to describe what `--verify-wrap-parity` prints, where neither d=5 nor a scope word belongs.
+# POPULATION printed and floored at 1.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:documentation/SPECIFICATION.md`) ->
+# HIT :173, rc 1; live -> "**Within the canonical**, which odd value …" passes, rc 0; mutation (live
+# with "Within the canonical, " removed) -> HIT rc 1.
+gate_theorem_vs_slice() {
+  echo "== GATE 68: SPECIFICATION.md's '(d=1 vs d=3)' wrap enumeration names d=5 or scopes itself to the slice =="
+  local F=documentation/SPECIFICATION.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, sys
+F=sys.argv[1]
+t=io.open(F,encoding="utf-8").read()
+n=0
+for p in re.split(r"\n\s*\n",t):
+    p=re.sub(r"\[CORRECTED\b.*?\]"," ",p,flags=re.S)
+    flat=" ".join(p.replace("*","").split())
+    for s in re.split(r"(?<=[.!?])\s+",flat):
+        if not re.search(r"d ?= ?1 vs\.? d ?= ?3",s): continue
+        n+=1
+        if not re.search(r"d ?= ?5|within the canonical|as measured|\bslice\b|in the enumerated",s,re.I):
+            print("HIT\t%s"%s[:140])
+print("POP\t%d"%n)
+PY
+) || { echo "  [FAIL] GATE 68 scanner failed — NOTHING was checked."; return 1; }
+  local pn
+  pn=$(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 68 printed no population census."; return 1; fi
+  if [ "$pn" -lt 1 ]; then echo "  [FAIL] GATE 68 found no '(d=1 vs d=3)' sentence in $F (floor 1) — the sentence moved; nothing judged."; return 1; fi
+  local rc=0 tag s
+  while IFS=$'\t' read -r tag s; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F: wrap distances enumerated as exhaustive without d=5 or a scope word: $s"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         The theorem permits d=5 (CIRCULAR_KING_WEN.md witness); say 'within the canonical' or name d=5."; return 1; fi
+  echo "  [ok] GATE 68: $pn wrap-distance enumeration(s) in $F, each scoped or naming d=5"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 69 — a CITATIONS.md access-exclusion clause may not rest on a year inside the author's own
+# life-range (`chronology-access`).
+#
+# QUEUED AS: Codex A-batch designated leg `chronology-access` (BATCH A07 row 13, CITATIONS.md:683-684):
+# "reconstructed … in 1781, so he almost certainly could not have read it" — of Cui Shu (1740–1816):
+# 1781 precedes his death by 35 years, so the date argues the other way.
+# MECHANICS: CITATIONS.md is split into `- **Name** (YYYY–YYYY)` entries (the life-range in the entry's
+# first line); within an entry, `[CORRECTED …]` spans stripped, every flattened sentence carrying an
+# exclusion clause (`could not have read|almost certainly could not|no access to|had no access|could
+# not have seen`) and a 4-digit year Y is a HIT when lo <= Y <= hi. POPULATION printed and floored at
+# 3 entries with a life-range on the entry's first line (MEASURED 3 today: Jiao Xun, Wu Cheng, Cui Shu;
+# the other life-ranges in the file are inline mentions, not entry heads); the number of exclusion
+# clauses judged is printed (0 today: the live clause sits inside its CORRECTED span).
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:documentation/CITATIONS.md`) ->
+# HIT Cui Shu / 1781 in 1740–1816, rc 1; live -> 0 clauses outside CORRECTED spans, rc 0; mutation
+# (the pre-fix clause ", so he almost certainly could not have read it" re-planted after the live
+# "1781.") -> HIT rc 1. NEEDLE NOTE: "in 1781" is hard-wrapped across two lines in the live file, so a
+# single-line sed on it matched nothing the first time — verified against the flattened text.
+gate_chronology_access() {
+  echo "== GATE 69: a CITATIONS.md 'could not have read' clause does not rest on a year inside the author's life-range =="
+  local F=documentation/CITATIONS.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, sys
+F=sys.argv[1]
+t=io.open(F,encoding="utf-8").read()
+entries=re.split(r"(?m)^(?=- \*\*)",t)
+ne=nc=0
+for e in entries:
+    head=e.split("\n",1)[0]
+    m=re.search(r"\((\d{4})[–-](\d{4})\)",head)
+    if not m: continue
+    ne+=1; lo,hi=int(m.group(1)),int(m.group(2))
+    name=re.sub(r"\*","",head)[2:40]
+    body=re.sub(r"\[CORRECTED\b.*?\]"," ",e,flags=re.S)
+    flat=" ".join(body.replace("*","").split())
+    for s in re.split(r"(?<=[.!?])\s+",flat):
+        if not re.search(r"could not have read|almost certainly could not|no access to|had no access|could not have seen",s,re.I): continue
+        nc+=1
+        for y in re.findall(r"\b(1[0-9]{3}|20[0-9]{2})\b",s):
+            y=int(y)
+            if lo<=y<=hi: print("HIT\t%s\tyear %d lies inside the life-range %d–%d, so it cannot exclude access: %s"%(name.strip(),y,lo,hi,s[:110]))
+print("POP\t%d\t%d"%(ne,nc))
+PY
+) || { echo "  [FAIL] GATE 69 scanner failed — NOTHING was checked."; return 1; }
+  local pe pc
+  IFS=$'\t' read -r pe pc < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pe:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 69 printed no population census."; return 1; fi
+  if [ "$pe" -lt 3 ]; then echo "  [FAIL] GATE 69 found only $pe entries with a (YYYY–YYYY) life-range in $F (floor 3) — the entry shape moved; nothing judged."; return 1; fi
+  local rc=0 tag who msg
+  while IFS=$'\t' read -r tag who msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F [$who]: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         State the honest clause: 'access cannot be excluded on chronology; independence rests on the absence of any citation'."; return 1; fi
+  echo "  [ok] GATE 69: $pe life-ranged entries in $F; $pc access-exclusion clause(s) judged, none resting on an in-range year"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 70 — TR-11's per-layer footprint table equals FULL31_EXACT_AGGREGATES.md's `layer GB` column
+# at TR-11's own printed precision (`layer-profile`).
+#
+# QUEUED AS: Codex A-batch designated leg `layer-profile` (batch 4 row 2, TR11:218-232): the table
+# carried ">2.45 TB" for k=15 (an in-RAM mid-layer allocation, not entries×28 B), "≈656 GB" derived for
+# k=12 and "1.6 TB" for k=14, against completed telemetry of 2155.82 / 655.23 / 1698.15 GB.
+# MECHANICS: TR-11's `| Layer k | Footprint | Provenance |` table rows `| k | X GB|TB … |`; FULL31's
+# `| k | canonical_masks | C(31,k) | states | entries | V_k | layer GB | …` rows. X (bold, ≈, >, ~
+# stripped; TB → GB ×1000) must equal FULL31's layer GB rounded to X's printed decimals; a parenthesised
+# entry count in the TR-11 cell must equal FULL31's entries. POPULATION printed and floored at 5 rows.
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:reports/TR11_…md`) -> HITs k=12
+# (≈656 vs 655.23), k=14 (1.6 vs 1.698 TB), k=15 (>2.45 vs 2.156 TB), rc 1; live -> 10 rows agree,
+# rc 0; mutation (live k=16 "2.341 TB" -> "2.451 TB") -> HIT rc 1.
+gate_layer_profile() {
+  echo "== GATE 70: TR-11's per-layer footprint table equals FULL31_EXACT_AGGREGATES.md's layer GB column =="
+  local T=reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md A=reports/FULL31_EXACT_AGGREGATES.md out
+  require_tracked "$T" || { [ $? -eq 2 ] && return 1; echo "  [skip] $T absent and untracked"; return 0; }
+  require_tracked "$A" || { [ $? -eq 2 ] && return 1; echo "  [skip] $A absent and untracked"; return 0; }
+  out=$(python3 - "$T" "$A" <<'PY'
+import re, io, sys
+T,A=sys.argv[1],sys.argv[2]
+agg={}
+for line in io.open(A,encoding="utf-8").read().split("\n"):
+    c=[x.strip() for x in line.strip().strip("|").split("|")]
+    if len(c)>=7 and re.fullmatch(r"\d+",c[0]):
+        try: agg[int(c[0])]=(float(c[6].replace(",","")),int(c[4].replace(",","")))
+        except ValueError: pass
+if len(agg)<20: print("ERROR\t%s has %d parseable '| k | … | entries | V_k | layer GB |' rows (need 20+)"%(A,len(agg))); sys.exit(0)
+lines=io.open(T,encoding="utf-8").read().split("\n")
+hi=None
+for i,l in enumerate(lines):
+    if re.match(r"^\s*\|\s*Layer k\s*\|\s*Footprint\s*\|",l): hi=i; break
+if hi is None: print("ERROR\t%s has no '| Layer k | Footprint | … |' table"%T); sys.exit(0)
+n=0; k=hi+1
+while k<len(lines) and lines[k].strip().startswith("|"):
+    c=[x.strip() for x in lines[k].strip().strip("|").split("|")]
+    k+=1
+    if len(c)<2 or not re.fullmatch(r"\d+",c[0]): continue
+    layer=int(c[0]); cell=c[1].replace("**","")
+    m=re.search(r"[≈>~]?\s*([\d.]+)\s*(GB|TB)\b",cell)
+    if not m: continue
+    n+=1
+    if layer not in agg: print("HIT\tk=%d\tno such layer in %s"%(layer,A)); continue
+    gb,ent=agg[layer]
+    val=float(m.group(1)); unit=m.group(2); dec=len(m.group(1).split(".")[1]) if "." in m.group(1) else 0
+    actual=gb/1000.0 if unit=="TB" else gb
+    if round(actual,dec)!=val: print("HIT\tk=%d\tTR-11 says %s %s; %s layer GB = %.6f (%.*f %s)"%(layer,m.group(1),unit,A,gb,dec,actual,unit))
+    me=re.search(r"\(([\d,]+) entries\)",cell)
+    if me and int(me.group(1).replace(",",""))!=ent: print("HIT\tk=%d\tTR-11 says %s entries; %s says %d"%(layer,me.group(1),A,ent))
+print("POP\t%d\t%d"%(n,len(agg)))
+PY
+) || { echo "  [FAIL] GATE 70 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 70 could not judge its subject: $err"; return 1; fi
+  local pn pa
+  IFS=$'\t' read -r pn pa < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 70 printed no population census."; return 1; fi
+  if [ "$pn" -lt 5 ]; then echo "  [FAIL] GATE 70 found only $pn footprint row(s) in $T (floor 5) — the table shrank; nothing judged."; return 1; fi
+  local rc=0 tag where msg
+  while IFS=$'\t' read -r tag where msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $T ($where): $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         The table's unit is entries × 28 B + masks × 12 B; quote $A, never an in-RAM allocation or a derived value."; return 1; fi
+  echo "  [ok] GATE 70: $pn footprint row(s) in $T agree with $A ($pa layers) at their printed precision"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 71 — a prose enumeration of the (Z/2)⁶ arrivals is the CITATIONS.md chain (`arrivals-sync`).
+#
+# QUEUED AS: prose batch P33 / Codex V2-F53 #5. Two sites in documentation/SYMMETRY_SEARCH.md
+# enumerated the (Z/2)⁶ hexagram-algebra arrivals and BOTH had drifted from CITATIONS.md
+# §"The (Z/2)⁶ hexagram algebra and hexagram-level group actions — priority ceded": Yuan Zuoxing
+# (1991) and Cao Hongjun et al. (1995) joined the ledger's chain in the 2026-08-29 correction and
+# reached neither prose site until P33 fixed them on 2026-09-02. A priority cession that a reader
+# meets in the wrong place is a smaller cession than the one the ledger actually made.
+# MECHANICS: the LEDGER set is read from CITATIONS.md, never from the checked text — the single
+# paragraph of the priority-ceded section carrying "independent arrival" and "→ ROAE"; its `](#a)`
+# anchors are folded to one key per person (trailing year stripped, so #ouyang1990 and #ouyang1992
+# are one arrival), and each key's SURNAME comes from that anchor's own bibliography entry head.
+# The judged population is every blank-line paragraph of every other tracked *.md that links >= 3
+# distinct ledger keys as `CITATIONS.md#anchor` — i.e. that is already enumerating the chain. Such
+# a paragraph must name EVERY ledger key, as a link OR as the bibliography surname in plain prose
+# (accent-folded). The plain-prose arm is not a softening: SYMMETRY_SEARCH.md:483 names Goldenberg
+# in running text and links the other six, and a link-only predicate would have failed correct
+# published content — MEASURED, 1 false positive of 2 paragraphs.
+# 🔴 VERIFIER-CLOSURE / NEEDLE-REACHABILITY GUARD: the >= 3 trigger is read off the checked
+# paragraph, so deleting arrival links would make a drifted paragraph LEAVE the population instead
+# of failing. That is why POP is printed and FLOORED AT 2 paragraphs (exactly 2 today) and the
+# ledger at 5 arrivals — a site dropping out of the census fails the gate rather than passing it.
+# MEASURED BEFORE LANDING (2026-09-03): pre-P33 tree (`git show c67737d2^` of CITATIONS.md +
+# SYMMETRY_SEARCH.md, staged in a scratch repo so `git ls-files` sees them) -> 2 HITs,
+# SYMMETRY_SEARCH.md:28 and :309, each "enumerates 5 of the ledger's 7 arrivals but never names
+# Cao (#caohongjun1995); Yuan (#yuanzuoxing1991)", rc 1. Live tree -> LEDGER 7
+# (caohongjun/goldenberg/ouyang/radisic/schoter/suenaga/yuanzuoxing), POP 2, rc 0.
+gate_arrivals_sync() {
+  echo "== GATE 71: a prose enumeration of the (Z/2)⁶ arrivals names every arrival CITATIONS.md's chain names =="
+  local C=documentation/CITATIONS.md out
+  require_tracked "$C" || { [ $? -eq 2 ] && return 1; echo "  [skip] $C absent and untracked"; return 0; }
+  out=$(python3 - "$C" <<'PY'
+import re, io, sys, subprocess, unicodedata
+C=sys.argv[1]
+def deacc(s): return "".join(c for c in unicodedata.normalize("NFKD",s) if not unicodedata.combining(c))
+try: t=io.open(C,encoding="utf-8").read()
+except Exception as e: print("ERROR\tcannot read %s: %s"%(C,e)); sys.exit(0)
+L=t.split("\n")
+hs=[i for i,l in enumerate(L) if l.startswith("## ") and "hexagram algebra" in l and "priority ceded" in l]
+if len(hs)!=1: print("ERROR\t%s has %d '## ... hexagram algebra ... priority ceded' heading(s), expected 1"%(C,len(hs))); sys.exit(0)
+s=hs[0]; e=next((i for i in range(s+1,len(L)) if L[i].startswith("## ")), len(L))
+paras=re.split(r"\n\s*\n","\n".join(L[s:e]))
+chain=[p for p in paras if "independent arrival" in p and "→ ROAE" in p]
+if len(chain)!=1: print("ERROR\tthe priority-ceded section holds %d chain paragraph(s) ('independent arrival' + an arrow to ROAE), expected 1"%len(chain)); sys.exit(0)
+anchors=sorted(set(re.findall(r"\]\(#([a-z0-9]+)\)",chain[0])))
+keys={}
+for a in anchors: keys.setdefault(re.sub(r"\d{4}$","",a),set()).add(a)
+if len(keys)<5: print("ERROR\tthe chain paragraph names only %d distinct cited arrival(s) (floor 5)"%len(keys)); sys.exit(0)
+sur={}
+for k in keys:
+    got=None
+    for a in sorted(keys[k]):
+        m=re.search(r'<a id="%s"></a>\n(.*?)(?:\n|$)'%re.escape(a),t)
+        if not m: continue
+        head=re.sub(r"^(?:##\s+|-\s+)","",m.group(1)).replace("*","").strip()
+        w=re.match(r"([A-Za-zÀ-ɏ]+)",head)
+        if w: got=w.group(1); break
+    if not got: print("ERROR\tno bibliography entry head yields a surname for chain member '%s' (%s)"%(k,",".join(sorted(keys[k])))); sys.exit(0)
+    sur[k]=got
+print("LEDGER\t%s"%(" ".join("%s=%s"%(k,sur[k]) for k in sorted(sur))))
+files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split()
+npara=0
+for f in files:
+    if f==C: continue
+    try: d=io.open(f,encoding="utf-8",errors="replace").read()
+    except Exception: continue
+    if "CITATIONS.md#" not in d: continue
+    off=0
+    for p in re.split(r"(\n\s*\n)",d):
+        if re.fullmatch(r"\n\s*\n",p): off+=p.count("\n"); continue
+        linked={re.sub(r"\d{4}$","",a) for a in re.findall(r"CITATIONS\.md#([a-z0-9]+)\)",p)} & set(sur)
+        if len(linked)>=3:
+            npara+=1; ln=off+1
+            flat=deacc(" ".join(p.split()))
+            miss=[]
+            for k in sorted(sur):
+                if k in linked: continue
+                if re.search(r"(?<![A-Za-z])%s(?![a-z])"%re.escape(deacc(sur[k])),flat): continue
+                miss.append("%s (#%s)"%(sur[k],sorted(keys[k])[0]))
+            if miss: print("HIT\t%s:%d\tenumerates %d of the ledger's %d arrivals but never names %s"%(f,ln,len(sur)-len(miss),len(sur),"; ".join(miss)))
+        off+=p.count("\n")
+print("POP\t%d\t%d"%(npara,len(sur)))
+PY
+) || { echo "  [FAIL] GATE 71 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 71 could not judge its subject: $err"; return 1; fi
+  local pp pl
+  IFS=$'\t' read -r pp pl < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pp:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 71 printed no population census."; return 1; fi
+  if [ "$pp" -lt 2 ]; then echo "  [FAIL] GATE 71 found only $pp paragraph(s) enumerating the arrivals chain (floor 2) — a site left the census instead of failing; nothing judged."; return 1; fi
+  local rc=0 tag where msg
+  while IFS=$'\t' read -r tag where msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $where: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         $C §'The (Z/2)⁶ hexagram algebra ... — priority ceded' is the list of record; re-sync the prose to its chain."; return 1; fi
+  echo "  [ok] GATE 71: $pp paragraph(s) enumerating the arrivals chain name all $pl of $C's arrivals"
+  printf '  '; printf '%s\n' "$out" | awk -F'\t' '$1=="LEDGER"{print "ledger chain: "$2}'
+  return 0
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 72 — every CLAIMS_DECIDED row's linked report names a reproduction command
+# (`scorecard-repro`).
+#
+# QUEUED AS: P12's sheet, "GATE-25 extension: every CLAIMS_DECIDED row's linked report resolves to
+# a command whose inputs are classified in-tree / archived-external (declared) / ABSENT — ABSENT
+# fails." SHIPPED IS THE FIRST HALF ONLY, and the second half is declined here with its
+# measurement rather than left implied:
+#   * "inputs classified" HAS NO DECLARATION CONVENTION TO READ. `archived-external` and
+#     `archived external` have ZERO occurrences anywhere in the corpus or in scripts/, so the
+#     middle class of the prescribed trichotomy is unrepresentable today.
+#   * MEASURED, the naive form is 7/19 FALSE: taking every path-shaped token after a tool command
+#     in a row's linked report and requiring it to exist flags 7 of the 19 rows, and every hit is
+#     an OUTPUT PLACEHOLDER, not an input — `f.cnf`/`f.drat` (`python3 sat.py --emit-cnf <name>
+#     f.cnf && kissat f.cnf`: the file is created by the left half and consumed by the right),
+#     `NEW.bin`/`OLD.bin`, `analyze_output.log`, `shard_manifest_phaseA.txt`.
+#   * THE PROPERTY IS ALREADY INSTRUMENTED, corpus-wide and at 29x this coverage:
+#     `scripts/exec_lane.sh` classifies missing inputs as `SKIP-MISSING-INPUT` over all 544 RUN
+#     commands (85 such on the 2026-09-02 full-lane run), not over 19 rows.
+# WHAT THIS LEG DOES ENFORCE is the page's own stated promise, which nothing checked: CLAIMS_DECIDED
+# opens "Every row carries a link in its last column, and the reproduction command for that row
+# lives in the linked report — not here." GATE 25 LEG 2's standing observation is that this page
+# publishes figures and names no command of its own; that is only acceptable while the delegation
+# holds. A row whose linked report names NO command has silently withdrawn the promise, and GATE 1
+# (anchors resolve) and GATE 4 (links resolve) both stay green through it.
+# 🔴 VERIFIER-CLOSURE GUARD: a row with no link at all must FAIL, never vanish — the row census is
+# taken from the table's own rows, the link census from the last cell, and both are printed and
+# floored (15 rows; every row must yield >= 1 resolvable .md target). Deleting a link makes the row
+# fail on "names no linked report", it does not remove it from the population.
+# MEASURED BEFORE LANDING (2026-09-03): live -> 19 rows, 26 distinct link targets, all resolve,
+# 19/19 carry >= 1 tool command in a linked report; rc 0. Red-tested on a scratch tree by planting
+# a row linking only to a command-free doc (HIT), by emptying a row's Proof cell (HIT), and by
+# deleting the table (POP floor HIT).
+gate_scorecard_repro() {
+  echo "== GATE 72: every CLAIMS_DECIDED row's linked report names a reproduction command =="
+  local F=documentation/CLAIMS_DECIDED.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, os, sys
+F=sys.argv[1]
+D=os.path.dirname(F)
+CMD=re.compile(r"(?:python3?\s+)?(?:\./)?(?:verify\.py|solve\.py|sat\.py|roae\.py|solve|verify)\s+--[a-z0-9][a-z0-9-]*")
+try: t=io.open(F,encoding="utf-8").read()
+except Exception as e: print("ERROR\tcannot read %s: %s"%(F,e)); sys.exit(0)
+rows=[l for l in t.split("\n")
+      if l.startswith("|") and not re.match(r"^\|[-\s|:]+\|$",l) and not l.startswith("| Claim ")]
+nrow=len(rows); ntgt=set(); cache={}
+for r in rows:
+    cells=[c.strip() for c in r.strip("|").split("|")]
+    claim=re.sub(r"\s+"," ",re.sub(r"[*`]","",cells[0]))[:62]
+    if len(cells)<2:
+        print("HIT\t%s\tmalformed row: %d cell(s), expected the 5-column scorecard shape"%(claim,len(cells))); continue
+    proof=cells[-1]
+    links=re.findall(r"\]\(([^)#]+\.md)",proof)
+    if not links:
+        print("HIT\t%s\tthe Proof cell names no linked report, but this page delegates every reproduction command to one"%claim); continue
+    ok=False; gone=[]
+    for l in links:
+        p=os.path.normpath(os.path.join(D,l)); ntgt.add(p)
+        if not os.path.exists(p): gone.append(l); continue
+        if p not in cache:
+            try: cache[p]=len(CMD.findall(io.open(p,encoding="utf-8",errors="replace").read()))
+            except Exception: cache[p]=0
+        if cache[p]: ok=True
+    if gone: print("HIT\t%s\tProof link(s) do not resolve: %s"%(claim,", ".join(gone))); continue
+    if not ok:
+        print("HIT\t%s\tnone of its linked report(s) (%s) names a solve/verify/sat/roae command, so the row's reproduction path ends nowhere"%(claim,", ".join(links)))
+print("POP\t%d\t%d"%(nrow,len(ntgt)))
+PY
+) || { echo "  [FAIL] GATE 72 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 72 could not judge its subject: $err"; return 1; fi
+  local pr pt
+  IFS=$'\t' read -r pr pt < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
+  if ! printf '%s\n' "${pr:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 72 printed no population census."; return 1; fi
+  if [ "$pr" -lt 15 ]; then echo "  [FAIL] GATE 72 found only $pr scorecard row(s) in $F (floor 15) — the table shape moved; nothing judged."; return 1; fi
+  local rc=0 tag who msg
+  while IFS=$'\t' read -r tag who msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F [$who]: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         $F states 'the reproduction command for that row lives in the linked report'; either point the row at the report that carries the command, or add the command there."; return 1; fi
+  echo "  [ok] GATE 72: $pr scorecard row(s), $pt linked report target(s), every row reaching at least one that names a command"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 73 — a CLAIMS_DECIDED Source cell may not attribute more than its own linked report
+# (`scorecard-attribution`).
+#
+# QUEUED AS: P12's sheet, "source-column-attribution cross-doc leg (a scorecard attribution may not
+# exceed the linked report's attribution sentence)". The scorecard adjudicates and delegates its
+# evidence; an attribution that appears only on the scorecard is a credit no report backs, and the
+# reader who follows the link to check it finds nothing to check.
+# TWO LEGS, both pure CONTAINMENT (scorecard ⊆ report), so neither can be satisfied by the
+# scorecard's own text — the witness always comes from the linked file:
+#   LEG 1 — every `CITATIONS.md#anchor` cited in a row's Source cell must be cited by at least one
+#     of that row's linked reports (as `CITATIONS.md#anchor` or, inside CITATIONS.md itself, `(#a)`).
+#   LEG 2 — every page number a Source cell cites (`p.257 n2`, `pp. 113–114`) must appear inside a
+#     page reference in a linked report. Comma-separated groups are expanded on BOTH sides: the
+#     first cut compared `p.257` against TR-10's `pp. 251–255, 257 n2` and reported a FALSE HIT
+#     because it stopped the group at the first range — measured and fixed before landing.
+# NOT BUILT, with the measurement: a NAME+YEAR leg ("Davis 2012" in the Source must be co-located
+# in the report). It returns 2 hits of 12 and BOTH are false. (i) "Li Shangxin 2007" — the Source
+# cell and TR-4 both delegate to the SAME `CITATIONS.md#uniqueness-conjecture` attribution note,
+# which TR-4 links four times; the report is not under-attributing, it is pointing at the shared
+# record. (ii) "publication 2026" is not a name at all — the regex ate "earlier ROAE publication
+# (2026-06-11)". The semantic half of the charge ("may not exceed the attribution SENTENCE") is
+# left to review: 11 of the 19 rows carry a plain-prose Source ("Davis 2012, p.114", "earlier ROAE
+# publication") with nothing an exceeds-relation can be computed against.
+# POPULATION printed and floored: >= 6 anchor citations and >= 6 page numbers judged, else the
+# gate FAILS rather than passing on an empty census — a Source cell stripped of its anchors must
+# not be able to leave the population (needle-reachability mechanism 7).
+# MEASURED BEFORE LANDING (2026-09-03): live -> 8 anchor citations across 8 anchored Source cells,
+# 8 page numbers, 0 hits, rc 0. Red-tested by planting an unbacked anchor, an unbacked page, and by
+# stripping the anchors to trip the floor.
+gate_scorecard_attribution() {
+  echo "== GATE 73: a CLAIMS_DECIDED Source cell attributes no more than its linked report does =="
+  local F=documentation/CLAIMS_DECIDED.md out
+  require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
+  out=$(python3 - "$F" <<'PY'
+import re, io, os, sys
+F=sys.argv[1]; D=os.path.dirname(F)
+GRP=re.compile(r"pp?\.\s?((?:[0-9]{1,4}(?:\s?[–-]\s?[0-9]{1,4})?)(?:\s?,\s?(?:n?[0-9]{1,4}(?:\s?[–-]\s?[0-9]{1,4})?))*)")
+def pages(s):
+    out=set()
+    for m in GRP.finditer(s):
+        for part in m.group(1).split(","):
+            mm=re.match(r"([0-9]{1,4})(?:\s?[–-]\s?([0-9]{1,4}))?$",part.strip().lstrip("n"))
+            if not mm: continue
+            a=int(mm.group(1)); b=int(mm.group(2)) if mm.group(2) else a
+            if a<=b<=a+200: out|=set(range(a,b+1))
+    return out
+try: t=io.open(F,encoding="utf-8").read()
+except Exception as e: print("ERROR\tcannot read %s: %s"%(F,e)); sys.exit(0)
+rows=[l for l in t.split("\n")
+      if l.startswith("|") and not re.match(r"^\|[-\s|:]+\|$",l) and not l.startswith("| Claim ")]
+if not rows: print("ERROR\tno scorecard table rows found in %s"%F); sys.exit(0)
+na=npg=0; cache={}
+for r in rows:
+    c=[x.strip() for x in r.strip("|").split("|")]
+    if len(c)<3: continue
+    claim=re.sub(r"\s+"," ",re.sub(r"[*`]","",c[0]))[:56]
+    src=c[1]; body=""; tgt=[]
+    for l in re.findall(r"\]\(([^)#]+\.md)",c[-1]):
+        p=os.path.normpath(os.path.join(D,l))
+        if not os.path.exists(p): continue
+        if p not in cache:
+            try: cache[p]=io.open(p,encoding="utf-8",errors="replace").read()
+            except Exception: cache[p]=""
+        body+=cache[p]; tgt.append(l)
+    if not tgt: continue
+    seen=set(re.findall(r"CITATIONS\.md#([a-z0-9-]+)",body))|set(re.findall(r"\]\(#([a-z0-9-]+)\)",body))
+    for a in sorted(set(re.findall(r"CITATIONS\.md#([a-z0-9-]+)",src))):
+        na+=1
+        if a not in seen:
+            print("HIT\t%s\tSource credits CITATIONS.md#%s, which none of its linked report(s) (%s) cites"%(claim,a,", ".join(tgt)))
+    rp=pages(body)
+    for x in sorted(pages(src)):
+        npg+=1
+        if x not in rp:
+            print("HIT\t%s\tSource cites p.%d, which none of its linked report(s) (%s) references"%(claim,x,", ".join(tgt)))
+print("POP\t%d\t%d\t%d"%(len(rows),na,npg))
+PY
+) || { echo "  [FAIL] GATE 73 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 73 could not judge its subject: $err"; return 1; fi
+  local pr pa pg
+  IFS=$'\t' read -r pr pa pg < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${pa:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 73 printed no population census."; return 1; fi
+  if [ "$pa" -lt 6 ]; then echo "  [FAIL] GATE 73 judged only $pa anchored Source citation(s) in $F (floor 6) — the Source column stopped citing the ledger; nothing to contain."; return 1; fi
+  if [ "$pg" -lt 6 ]; then echo "  [FAIL] GATE 73 judged only $pg page citation(s) in $F (floor 6) — the page-reference idiom moved; LEG 2 checked nothing."; return 1; fi
+  local rc=0 tag who msg
+  while IFS=$'\t' read -r tag who msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $F [$who]: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         The scorecard adjudicates and the report carries the evidence; move the credit into the report, or drop it from the Source cell."; return 1; fi
+  echo "  [ok] GATE 73: $pr row(s); $pa anchored Source citation(s) and $pg page citation(s), all backed by a linked report"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 74 — a report whose body scopes a result "not decided above" repeats that scope in its
+# executive summary (`summary-scope`).
+#
+# QUEUED AS: the GATE 12-class summary/scope coupling leg (Codex V2-F07 #1, prose batch P38).
+# TR-5's body stated the scope correctly at three sites — "the solution-set automorphism group is
+# bounded below by G and not decided above" — and the EXECUTIVE SUMMARY dropped it at two, opening
+# with an unqualified completeness claim over "such [relabeling] symmetries (a group of 48)",
+# solution-set-automorphism reading, which is exactly what §1 leaves open. A reader who reads only
+# the summary — which is what an executive summary is for — got the stronger claim.
+# 🔴 THE PREDICATE HAS TO BE PER-SENTENCE, AND THAT WAS MEASURED, NOT ASSUMED. A document-level
+# "does the summary contain 'relabeling'" test does NOT fire on the defect: the pre-fix summary
+# already used the word in its opening clause ("relabeling every hexagram by the same
+# line-permutation"), three lines above the unqualified completeness claim. The qualifier has to
+# sit in the CLAIM's own sentence.
+# MECHANICS: population = every `reports/TR*.md` whose text OUTSIDE the `## Executive summary`
+# section carries "not decided above". Inside that section, a flattened sentence is judged when it
+# is (a) a COMPLETENESS claim — `complete*` together with `symmetr*` / `automorphism` / "group of
+# 48" — or (b) a TWIN-INDISTINGUISHABILITY claim — `twin` together with `indistinguishable` /
+# "cannot tell" / "cannot distinguish" / "no … distinguish". Such a sentence must contain
+# `relabel`. Both censuses are printed and floored at 1, so a report that stops stating the scope
+# in its body, or a summary that stops making the claim, FAILS instead of leaving the population.
+# MEASURED BEFORE LANDING (2026-09-03): live -> 1 report in population (TR-5; it is the only
+# `reports/TR*.md` carrying the phrase), 3 claim sentences judged, 0 hits, rc 0. Pre-fix
+# (`git show 53760aa2^:reports/TR5_SYMMETRY.md`) -> HIT on that report's opening summary sentence,
+# rc 1. (The pre-fix wording is NOT quoted here: it is a registered retracted phrase, and GATE 47
+# reads this file. It is on the record at documentation/RETRACTED_PHRASES.tsv:201.) Mutations: the `## Executive summary` heading
+# renamed -> the SPECIFIC hit ("no '## Executive summary' section to repeat it in"), which is why
+# a summary-less report is counted INTO the population rather than dropped — otherwise the
+# population floor fires first and masks the finding; every `relabel` stripped from the summary
+# -> both legs hit (twin-indistinguishability and completeness); the body's scope phrase reworded
+# -> population floor hit. Also verified as a correct NON-firing: deleting only the first of the
+# summary's two qualifiers leaves the claim sentence still carrying one, and the gate stays green
+# because the sentence is still scoped — the per-sentence rule, working as specified.
+gate_summary_scope() {
+  echo "== GATE 74: a body scoped 'not decided above' is repeated in the report's executive summary =="
+  local out
+  out=$(python3 - <<'PY'
+import re, io, glob
+SCOPE=re.compile(r"not decided above",re.I)
+COMPLETE=re.compile(r"\bcomplete\w*\b",re.I)
+GROUP=re.compile(r"\bsymmetr\w+|\bautomorphism\b|group of 48",re.I)
+TWIN=re.compile(r"\btwins?\b",re.I)
+INDIST=re.compile(r"indistinguishable|cannot tell|can(?:not|'t) distinguish|no[^.]{0,60}distinguish",re.I)
+QUAL=re.compile(r"relabel",re.I)
+docs=sorted(glob.glob("reports/TR*.md"))
+if not docs: print("ERROR\tzero reports/TR*.md found — vacuous, treated as failure."); raise SystemExit
+npop=nsumm=nclaim=0
+for f in docs:
+    try: t=io.open(f,encoding="utf-8",errors="replace").read()
+    except Exception: continue
+    L=t.split("\n")
+    hs=[i for i,l in enumerate(L) if re.match(r"^##\s+Executive summary",l,re.I)]
+    if not hs:
+        # In population, and a HIT: the scope has nowhere to be repeated. Counted into npop so the
+        # population floor does not fire FIRST and mask the more specific finding.
+        if SCOPE.search(t):
+            npop+=1
+            print("HIT\t%s\tits body states a 'not decided above' scope but the report has no '## Executive summary' section to repeat it in"%f)
+        continue
+    s=hs[0]; e=next((i for i in range(s+1,len(L)) if L[i].startswith("## ")),len(L))
+    summ="\n".join(L[s+1:e]); body="\n".join(L[:s]+L[e:])
+    if not SCOPE.search(body): continue
+    npop+=1; nsumm+=1
+    flat=" ".join(re.sub(r"[*`]","",summ).split())
+    for sent in re.split(r"(?<=[.!?])\s+",flat):
+        comp = bool(COMPLETE.search(sent) and GROUP.search(sent))
+        twin = bool(TWIN.search(sent) and INDIST.search(sent))
+        if not (comp or twin): continue
+        nclaim+=1
+        if not QUAL.search(sent):
+            print("HIT\t%s\tthe executive summary's %s claim carries no 'relabeling' qualifier, but the body scopes it 'not decided above': %s"
+                  %(f,"completeness" if comp else "twin-indistinguishability",sent[:160]))
+print("POP\t%d\t%d\t%d"%(npop,nsumm,nclaim))
+PY
+) || { echo "  [FAIL] GATE 74 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 74 could not judge its subject: $err"; return 1; fi
+  local pp ps pc
+  IFS=$'\t' read -r pp ps pc < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${pp:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 74 printed no population census."; return 1; fi
+  if [ "$pp" -lt 1 ]; then echo "  [FAIL] GATE 74 found no reports/TR*.md whose body states a 'not decided above' scope (floor 1) — the scope note left the corpus; nothing judged."; return 1; fi
+  if [ "$ps" -ge 1 ] && [ "$pc" -lt 1 ]; then echo "  [FAIL] GATE 74 judged 0 summary claim sentence(s) across $ps summarised report(s) (floor 1) — the executive summary stopped making the claim this leg scopes; nothing judged."; return 1; fi
+  local rc=0 tag where msg
+  while IFS=$'\t' read -r tag where msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $where: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         The completeness result is per-predicate over hexagram RELABELINGS; say so in the sentence that makes the claim, not three lines above it."; return 1; fi
+  echo "  [ok] GATE 74: $pp report(s) scoped 'not decided above' in body ($ps with an executive summary); $pc summary claim sentence(s), all carrying the relabeling qualifier"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 75 — a mandatoriness claim over boundary SETS must be scoped to the subset size that was
+# actually exhausted (`boundary-scope`).
+#
+# QUEUED AS: Codex A01 row 32 (PROJECT_OVERVIEW.md:96/:105) and A05 row 7
+# (PARTITION_STABILITY_BOUNDARIES.md:62). Both rows accepted the same charge, at different
+# sites, six weeks apart — A05:7's own adjudication opens by noting `PRIOR_ART=HIT n=42` on
+# `C(31,5)` and that "this project has already ruled on the identical defect once, at different
+# sites, and not fixed it". A05:7 then prescribed exactly this gate: *"`scripts/doc_gates.sh`
+# fails when 'mandatory' or 'no combination' appears within N lines of a boundary-set claim whose
+# document does not also state the exhausted subset size."*
+#
+# ITEM 2474 CLASSIFIED THIS ROW AS "only running C(31,5)=169,911 decides it", AND THAT IS THE
+# RESIDUAL, NOT THE GATE. A05:7's remediation column reads "**Zero compute**" and records the
+# 169,911-subset enumeration as "**the reviewer's text, not a proposal**". What the run would
+# decide is the SCIENCE — whether some 5-set lacking 25 or 27 identifies KW. What this gate
+# decides is whether the PROSE claims more than the search performed. Those are different
+# questions and only the second one needed a gate; the row was buildable all along.
+#
+# THE SUBSTANCE. §[7] and §[8] exhaust all C(31,3) = 4,495 triples and all C(31,4) = 31,465
+# quadruples, and at 100T/560T §[8] = 0, so the minimum is 5 and §[6] returns ONE deterministic
+# tie-broken greedy 5-set. The C(31,5) = 169,911 five-subsets were never enumerated. So the
+# evidence supports "{25,27} are in the greedy representative" and not "mandatory, full stop".
+#
+# DEPTH IS NOT A SCOPE FOR THIS CLAIM, and getting that wrong cost this leg its first two
+# drafts. A scope vocabulary that accepted "at both d2 and d3", "across all four partitions
+# tested" or "partition depths" scored the real pre-fix tree 13 population / 13 scoped / 0 fires
+# — because every defective site was depth-qualified and that is precisely the conflation the
+# charge is about. Exhausting C(31,4) at four depths says nothing whatever about the five-subsets.
+# The accepted scope tokens are therefore about the SEARCH: greedy / C(31,3) / C(31,4) /
+# "working 4" / 4-boundary / 4-set / "at their respective subset sizes" / an explicit C(31,5)
+# disclaimer. Nothing about depth.
+#
+# NOT SELF-WITNESSING (needle-reachability mechanism 7). The needle is the CLAIM and the witness
+# is a SCOPE TOKEN elsewhere in the window — two different strings. Perturbing the scope token
+# does not make the claim vanish, it makes the claim unscoped, which is the failure. Perturbing
+# the claim removes it from the population, and the FLOOR below is what refuses that: if the
+# population drops under 10 the gate ERRORS rather than reporting a clean corpus.
+#
+# WINDOW = THE MARKDOWN UNIT the claim sits in (its list item, table row, heading or paragraph,
+# following hard wraps to the end of that unit). Not the whole document, and that is a measured
+# choice: PARTITION_STABILITY_BOUNDARIES.md:5 is literally a paragraph headed "Scope of that
+# claim, stated once for this document", so a document-wide rule would clear every site in that
+# file on one sentence. Not the single line either — hard wraps split these sentences routinely.
+# AND NOT +/- N RAW LINES, which is what the first cut used and what MUT A caught: stripping
+# "greedy" from documentation/README.md:49 did NOT fire, because :50 is a DIFFERENT document's
+# index entry (BOUNDARY_MINIMUM.md's) and it carries "greedy minimum 4 -> 5". One index entry was
+# scoping its neighbour. That is a false NEGATIVE, so it is invisible on a green run — the only
+# reason it surfaced is that the mutation was run and its result read rather than assumed.
+#
+# MEASURED. Live: 14 claim sites, 14 scoped, 0 fires, rc 0. REAL PRE-FIX TREE
+# `793210b7^` (the commit before "Prose sweep 2026-09-01: 23 batches, 37 files") with
+# PROJECT_OVERVIEW.md / PARTITION_STABILITY_BOUNDARIES.md / BOUNDARY_MINIMUM.md restored:
+# 12 sites, 11 scoped, **1 FIRE at documentation/PROJECT_OVERVIEW.md:96** — the exact A01 row 32
+# site, "eliminate non-KW solutions that no combination of other boundaries can reach", rc 1.
+# NOTE `git log -S` DOES NOT FIND THAT COMMIT: the fix moved the phrase from :96 into the
+# revision narration at :211, so the occurrence COUNT never changed and the pickaxe reports only
+# a 2026-07-03 commit. `-G` finds it. Recorded because the wrong tool here reads as "no fix ever
+# landed" rather than "the count did not move".
+#
+# WHAT IS AND IS NOT RED-TESTED, stated rather than blurred: LEG 1 (`no combination`) has a
+# demonstrated true positive on a real pre-fix tree. LEG 2 (quantified mandatoriness) does NOT —
+# its pre-fix sites at PARTITION_STABILITY_BOUNDARIES.md and BOUNDARY_MINIMUM.md already carried
+# "greedy" as far back as `bbf5348e` (2026-06-11), so no reachable tree fires it. It is proven by
+# MUTATION only (strip the scope token from a live claim -> fires), which is strictly weaker.
+gate_boundary_scope() {
+  echo "== GATE 75: a mandatoriness claim over boundary sets is scoped to the subset size exhausted =="
+  local out err pop nsc
+  out=$(python3 - <<'PY'
+import subprocess, sys
+mds = subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True).stdout.split()
+if not mds:
+    print('ERR\tgit ls-files returned no markdown at all'); sys.exit(0)
+# Correction narration DOCUMENTS the defect and must not be judged as committing it — the GATE 47
+# counting trap, and the reason CORRECTIONS.md and HISTORY.md are whole-file exclusions here.
+SKIP = ('documentation/CORRECTIONS.md', 'documentation/HISTORY.md')
+SCOPE = ('greedy', 'c(31,3)', 'c(31,4)', 'working 4', '4-boundary', '4 boundary', '4-set',
+         'four-set', 'at their respective subset sizes', 'c(31,5)', 'five-subsets were never')
+def starts_unit(l):
+    # A line that OPENS a new markdown unit: list item, heading, table row, blockquote, or blank.
+    t = l.lstrip()
+    if not t: return True
+    if t[0] in '#|>': return True
+    if t[:2] in ('- ', '* ', '+ '): return True
+    k = 0
+    while k < len(t) and t[k].isdigit(): k += 1
+    if k and k < len(t) and t[k] in '.)' and t[k+1:k+2] == ' ': return True
+    return False
+def unit(lines, idx):
+    # THE WINDOW IS THE MARKDOWN UNIT, NOT +/- N RAW LINES, and this was forced by a measurement.
+    # The first cut used lines[i-3:i+2]; MUT A (strip 'greedy' from documentation/README.md:49)
+    # did NOT fire, because :50 is a DIFFERENT document's index entry — the BOUNDARY_MINIMUM.md
+    # summary — and it happens to contain 'greedy minimum 4 -> 5'. One index entry was scoping
+    # its neighbour. A raw-line window in any list, index or table leaks the neighbour's text,
+    # which is a false NEGATIVE and so is invisible on a green run.
+    a = idx
+    while a > 0 and not starts_unit(lines[a]): a -= 1
+    b = idx
+    while b + 1 < len(lines) and not starts_unit(lines[b+1]): b += 1
+    return ' '.join(lines[a:b+1])
+QUANT = ('in every', 'in all', 'in any', 'every working', 'every minimum', 'all working',
+         'every greedy', 'no matter how')
+pop = 0; nsc = 0
+for m in mds:
+    if m in SKIP: continue
+    try:
+        lines = open(m, encoding='utf-8').read().split('\n')
+    except OSError as e:
+        print('ERR\t%s could not be read: %s' % (m, e)); sys.exit(0)
+    for i, l in enumerate(lines, 1):
+        low = l.lower()
+        if 'no combination of other boundaries' in low:
+            kind = 'no-combination'
+        elif 'mandator' in low and any(q in low for q in QUANT):
+            kind = 'quantified-mandatory'
+        else:
+            continue
+        pop += 1
+        para = unit(lines, i-1).lower()
+        if any(t in para for t in SCOPE):
+            nsc += 1
+        else:
+            print('HIT\t%s:%d\t%s\t%s' % (m, i, kind, l.strip()[:150]))
+print('POP\t%d\t%d' % (pop, nsc))
+PY
+) || { echo "  [FAIL] GATE 75 scanner failed — NOTHING was checked."; return 1; }
+  err=$(printf '%s\n' "$out" | sed -n 's/^ERR\t//p')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 75 could not judge its subject: $err"; return 1; fi
+  pop=$(printf '%s\n' "$out" | sed -n 's/^POP\t\([0-9]*\)\t.*/\1/p')
+  nsc=$(printf '%s\n' "$out" | sed -n 's/^POP\t[0-9]*\t\([0-9]*\)/\1/p')
+  # A gate that scanned nothing must say so LOUDLY, never report a clean corpus (the fail-open
+  # class). Both the census line and the floor are checked before any verdict is printed.
+  if ! printf '%s\n' "${pop:-}" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] GATE 75 printed no population census, so 'no findings' would be a lie."; return 1
+  fi
+  if [ "$pop" -lt 10 ]; then
+    echo "  [FAIL] GATE 75 judged only $pop boundary-mandatoriness claim(s) (floor 10, measured 14)."
+    echo "         Either the claim left the corpus — in which case this gate has nothing to say and"
+    echo "         must not say it is clean — or the population grammar stopped matching text that is"
+    echo "         still there. Re-measure before lowering this floor."
+    return 1
+  fi
+  local rc=0 line
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    case "$line" in HIT*) ;; *) continue ;; esac
+    echo "  [FAIL] $(printf '%s' "$line" | cut -f2) — a boundary-set mandatoriness claim with no subset-size scope"
+    echo "         KIND: $(printf '%s' "$line" | cut -f3)"
+    echo "         LINE: $(printf '%s' "$line" | cut -f4)"
+    rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then
+    echo "         §[7]/§[8] exhaust all C(31,3) = 4,495 triples and all C(31,4) = 31,465 quadruples."
+    echo "         The C(31,5) = 169,911 five-subsets were NEVER enumerated, so a claim quantified over"
+    echo "         boundary SETS must name the search: 'in every greedy-ordered minimum', 'in every"
+    echo "         working 4-set', or an explicit C(31,5) disclaimer. Depth is not a scope for this"
+    echo "         claim — exhausting C(31,4) at four depths says nothing about the five-subsets."
+    return 1
+  fi
+  echo "  [ok] GATE 75: $pop boundary-set mandatoriness claim(s), all $nsc scoped to the subset size searched"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 76 — prose may not DENY a merge capability the binary's env surface provides
+# (`merge-semantics`).
+#
+# QUEUED AS: Codex A01 row 20, whose adjudication ends by naming this gap in its own words:
+# *"a NEW wrong paraphrase of merge semantics is not a registrable string; reaching that needs a
+# GATE 2 (cli) env-surface leg (`SOLVE_MERGE_MODE`/`SOLVE_MERGE_CHUNK_GB` documented in
+# SOLVE_C_CLI.md ⇒ prose may not deny external sort), which does not exist yet and is the honest
+# gap here."* `grep -c` over doc_gates.sh for `SOLVE_MERGE_MODE`: 0. It did not exist.
+#
+# WHY GATE 3 IS NOT ENOUGH, which is the whole reason this row was flagged as needing machinery
+# beyond a regex. GATE 3 registers the three refuted SPELLINGS in RETRACTED_PHRASES.tsv, so those
+# exact sentences cannot come back. It cannot refuse a sentence nobody has written yet. The
+# durable fact is not a string: it is that `solve.c` HAS the capability, and the evidence for
+# that is its ENV SURFACE. So this leg derives the capability from the binary's source and then
+# refuses prose that contradicts it — the needle is the DENIAL and the witness is `solve.c`.
+#
+# FALSE WHEN THE TARGET IS ABSENT, deliberately and in the loud direction. If SOLVE_MERGE_MODE or
+# SOLVE_MERGE_CHUNK_GB leaves solve.c, this gate ERRORS. It does NOT pass. Two things could be
+# true at that point and the gate can distinguish neither: the capability was removed (in which
+# case the "denials" become TRUE and this leg must be retired, not satisfied), or the scan broke.
+# Either way a clean verdict would be a lie, which is the fail-open shape this suite exists to
+# refuse. The documented half is a FAIL rather than an ERROR: the code still has the capability,
+# only SOLVE_C_CLI.md stopped saying so.
+#
+# THE DENIAL GRAMMAR IS CLAUSE-SCOPED, ON FLATTENED PARAGRAPHS, AND CHECKS EVERY OCCURRENCE.
+# Three separate measurements forced each of those:
+#   (1) LINE-scoped scored the real pre-fix tree 0 — `793210b7^`'s defect at
+#       LARGE_SCALE_CAMPAIGNS.md:590 is HARD-WRAPPED as "does not currently implement true
+#       external" / "sort + dedup", so the noun does not exist on any single line. Same lesson as
+#       GATE 18's whitespace-normalisation leg, met again on a different gate.
+#   (2) PARAGRAPH-scoped without a clause bound fired on affirmations: `DEPLOYMENT.md:149`
+#       ("external merge streams in chunks, doesn't…") and `LARGE_SCALE_CAMPAIGNS.md:995`
+#       ("There is no S at which you need code that does not exist. External merge is not
+#       RAM-bounded") both carry a negation and an external-merge noun and both are CORRECT. The
+#       negation must govern the noun within one clause, cut at `. ` / `; ` / ` — `.
+#   (3) FIRST-occurrence-only let a paragraph that affirms and then denies pass on its opening
+#       clause — measured on the live narration paragraph at :841, which opens "**`solve --merge`
+#       already does external sort + dedup.**" and quotes the retracted denial two sentences
+#       later. Every occurrence is now checked.
+#
+# NARRATION IS EXCLUDED, not counted — the GATE 47 trap. LARGE_SCALE_CAMPAIGNS.md:841-847 is the
+# paragraph that DOCUMENTS this very correction and quotes the refuted wording inside `*"…"*`.
+# A gate that fires there punishes the fix. Whole-file exclusions: CORRECTIONS.md, HISTORY.md.
+# THE REFUTED WORDING IS NOT QUOTED IN THIS COMMENT — see RETRACTED_PHRASES.tsv for the
+# registered spellings; the sentence above is A01 row 20's own description of the GAP, not the
+# retracted claim.
+#
+# MEASURED. Live: 56 markdown units mention external sort/merge, 0 denials, 1 correctly excluded
+# as narration, rc 0. REAL PRE-FIX TREE `793210b7^` with LARGE_SCALE_CAMPAIGNS.md restored:
+# 49 units, **1 DENIAL at documentation/LARGE_SCALE_CAMPAIGNS.md:587** (the unit holding :590),
+# 0 narration exclusions, rc 1 — the exact A01 row 20 site.
+gate_merge_semantics() {
+  echo "== GATE 76: prose may not deny a merge capability the binary's env surface provides =="
+  local out err npara nden
+  out=$(python3 - <<'PY'
+import subprocess, sys, os
+ENV = ('SOLVE_MERGE_MODE', 'SOLVE_MERGE_CHUNK_GB')
+CLI = 'documentation/SOLVE_C_CLI.md'
+if not os.path.exists('solve.c'):
+    print('ERR\tsolve.c is absent, so the env surface this leg derives from could not be read')
+    sys.exit(0)
+src = open('solve.c', encoding='utf-8', errors='replace').read()
+missing = [e for e in ENV if e not in src]
+if missing:
+    print('ERR\tsolve.c no longer mentions %s — the capability this leg asserts cannot be '
+          'confirmed from the source. If the capability was REMOVED the prose denials become '
+          'true and this gate must be retired, not satisfied; if the scan broke, fix the scan. '
+          'A clean verdict is not available here.' % ', '.join(missing))
+    sys.exit(0)
+try:
+    cli = open(CLI, encoding='utf-8').read()
+except OSError as e:
+    print('ERR\t%s could not be read: %s' % (CLI, e)); sys.exit(0)
+undoc = [e for e in ENV if e not in cli]
+for e in undoc:
+    print('UNDOC\t%s' % e)
+mds = subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True).stdout.split()
+if not mds:
+    print('ERR\tgit ls-files returned no markdown at all'); sys.exit(0)
+SKIP = ('documentation/CORRECTIONS.md', 'documentation/HISTORY.md')
+NOUN = ('external sort', 'external chunked-sort', 'external merge')
+NEG  = ('does not currently implement', 'does not implement', 'not implement',
+        'is not implemented', 'no true', 'not in `solve.c`', 'not in solve.c',
+        'cannot do', 'does not do', 'no external', 'does not currently')
+NARR = ('the old text', 'previously read', 'used to read', 'now reads', '[corrected',
+        '*(corrected', 'the old wording', 'superseded', 'old text opened')
+def starts_unit(l):
+    t = l.lstrip()
+    if not t: return True
+    if t[0] in '#|>': return True
+    if t[:2] in ('- ', '* ', '+ '): return True
+    k = 0
+    while k < len(t) and t[k].isdigit(): k += 1
+    if k and k < len(t) and t[k] in '.)' and t[k+1:k+2] == ' ': return True
+    return False
+npara = nden = nnarr = 0
+for m in mds:
+    if m in SKIP: continue
+    try:
+        L = open(m, encoding='utf-8').read().split('\n')
+    except OSError as e:
+        print('ERR\t%s could not be read: %s' % (m, e)); sys.exit(0)
+    i = 0
+    while i < len(L):
+        a = i; b = i
+        while b + 1 < len(L) and not starts_unit(L[b+1]): b += 1
+        i = b + 1
+        flat = ' '.join(' '.join(L[a:b+1]).split()).lower()
+        if not any(n in flat for n in NOUN): continue
+        npara += 1
+        poss = []
+        for n in NOUN:
+            k = flat.find(n)
+            while k >= 0:
+                poss.append(k); k = flat.find(n, k + 1)
+        for pos in sorted(set(poss)):
+            seg = flat[:pos]
+            cut = max(seg.rfind('. '), seg.rfind('; '), seg.rfind(' — '))
+            clause = seg[cut+1:] if cut >= 0 else seg
+            if not any(g in clause for g in NEG): continue
+            if any(x in flat for x in NARR):
+                nnarr += 1
+            else:
+                nden += 1
+                print('HIT\t%s:%d\t%s' % (m, a + 1, flat[max(0, pos-100):pos+45]))
+            break
+print('POP\t%d\t%d\t%d' % (npara, nden, nnarr))
+PY
+) || { echo "  [FAIL] GATE 76 scanner failed — NOTHING was checked."; return 1; }
+  err=$(printf '%s\n' "$out" | sed -n 's/^ERR\t//p')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 76 could not judge its subject: $err"; return 1; fi
+  local rc=0 line
+  while IFS= read -r line; do
+    case "$line" in
+      UNDOC*) echo "  [FAIL] $(printf '%s' "$line" | cut -f2) is in solve.c but not documented in documentation/SOLVE_C_CLI.md."
+              echo "         This leg's whole premise is that the documented env surface is the public"
+              echo "         evidence for the capability. Undocumented, the capability is real and the"
+              echo "         reader cannot check it — document the variable."
+              rc=1 ;;
+      HIT*)   echo "  [FAIL] $(printf '%s' "$line" | cut -f2) — prose denies a merge capability solve.c has"
+              echo "         CLAUSE: …$(printf '%s' "$line" | cut -f3)"
+              rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+  npara=$(printf '%s\n' "$out" | sed -n 's/^POP\t\([0-9]*\)\t.*/\1/p')
+  nden=$(printf '%s\n' "$out" | sed -n 's/^POP\t[0-9]*\t\([0-9]*\)\t.*/\1/p')
+  if ! printf '%s\n' "${npara:-}" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] GATE 76 printed no population census, so 'no findings' would be a lie."; return 1
+  fi
+  if [ "$npara" -lt 20 ]; then
+    echo "  [FAIL] GATE 76 judged only $npara markdown unit(s) mentioning external sort/merge (floor 20,"
+    echo "         measured 56). The subject left the corpus or the unit splitter broke; either way this"
+    echo "         gate has nothing to say and must not say the corpus is clean."
+    return 1
+  fi
+  if [ "$rc" -ne 0 ]; then
+    echo "         solve.c carries SOLVE_MERGE_MODE and SOLVE_MERGE_CHUNK_GB: \`--merge\` runs in"
+    echo "         memory when the set fits and falls back to external sort otherwise. The 560T merge"
+    echo "         WAS an external chunked-sort. Rewrite the sentence, or — if the capability really"
+    echo "         was removed — retire this gate in the same commit rather than wording around it."
+    return 1
+  fi
+  echo "  [ok] GATE 76: $npara markdown unit(s) mention external sort/merge; 0 deny what SOLVE_MERGE_MODE/SOLVE_MERGE_CHUNK_GB provide; both documented in $(basename documentation/SOLVE_C_CLI.md)"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 80 — a `rec#` literal qualified across datasets must be attached to the dataset it indexes
+# (`rec-scope`).
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md "GATE (proposed, not built) — cross-scale rec# identifiers"
+# (prose batch P39, Codex V2-F31). A `rec#` is a position in ONE dataset's sort order and does not
+# survive a change of dataset: the same ordering — KW with the position-2/3 pair blocks swapped —
+# is rec#330177707 at d3 560T, rec#104178045 at d3 100T and rec#21262918 at d3 10T (MEASURED by
+# P39: rec#330177707 has zero occurrences in runs/20260419_100T_d3_d128westus3/analyze_output.log.gz).
+# P39 registered the two literal defect sentences as RP-c79db9ce / RP-926ac304; those needles catch
+# those two strings and nothing else, and the class needs a PREDICATE.
+#
+# THE PREDICATE, per SENTENCE (hard-wrapped paragraphs are flattened first, so a line-based grep is
+# not what runs here). A sentence is JUDGED when it carries a multi-dataset qualifier — "at both
+# canonical scales", "at every tested depth", "at every scale", "across scales", "in all four
+# datasets" and the like (QUAL below) — AND at least one `rec#<digits>` literal. In a judged
+# sentence EVERY literal must be ATTACHED to a scale token (560T, 100T, 10T, 11.2T, 5.6T, 742M …):
+#   (a) directly after it: `rec#N at 560T`, `rec#N in the 560T canonical's own sort order`,
+#       `rec#N at d3 100T` — a preposition and at most one article/depth word between; or
+#   (b) directly before it: `the 560T record rec#N`, `at 560T: rec#N` — a scale token within 30
+#       chars of the literal with no `,` `;` `(` `)` in between. That last clause is what keeps
+#       "(100T and 560T), the survivor is rec#N" — the defect itself — from passing on proximity
+#       alone, and it was the first thing a 48-char proximity window got wrong.
+# A literal that is unattached is a HIT: it is being read across datasets.
+#
+# QUOTED QUALIFIERS ARE MENTIONS, NOT USES. Correction narration — CORRECTIONS.md's BEFORE
+# paragraphs, BOUNDARY_MINIMUM.md's own revision note — writes `was qualified as holding "at every
+# tested depth"`. Double-quoted spans ("…", “…”) are removed from the sentence BEFORE the qualifier
+# search, so a narrated qualifier does not put its sentence in the population. That is an exemption
+# by CONSTRUCTION (the quotation marks), not by file or directory, and removing the quotation marks
+# is one of the mutants below: the sentence then becomes a use, and fires.
+#
+# POPULATION, printed and floored: >= 10 `rec#` literals corpus-wide and >= 2 judged sentences,
+# else FAIL. A rewrite that deletes every cross-scale sentence, or every rec# literal, must not
+# produce a quiet green.
+#
+# MEASURED BEFORE LANDING (2026-09-04, disposable shared clone, never the shared worktree):
+#   live main 2a929ea3  -> 1 HIT: documentation/SOLVE.md:329 — "identical greedy order at both
+#     canonical scales (… boundary 1 kills the last impostor, rec#330177707)" — a third live site
+#     of the P39 class that the two registered needles could not reach; rc 1
+#   live main with SOLVE.md:329 attached ("rec#330177707 at 560T")  -> 0 hits, rc 0
+#   pre-P39 tree (`42620c77^`)  -> HITs on BOUNDARY_MINIMUM.md's headline ("at every tested depth")
+#     and §What this implies ("at both canonical scales") plus SOLVE.md:329, rc 1
+#   mutation: BOUNDARY_MINIMUM.md:58 "at 560T" deleted after the literal  -> HIT rc 1
+#   mutation: BOUNDARY_MINIMUM.md:97 quotation marks removed from the narrated qualifier -> HIT rc 1
+#   mutation: CLAIMS_DECIDED.md:42 sixty chars of filler between the literal and "560T" -> HIT rc 1
+#   mutation: "(100T and 560T), the survivor is rec#330177707" planted -> HIT rc 1 (proximity alone
+#     would have passed it)
+#   mutation: qualifier reworded "across the three scales" -> still judged, HIT rc 1
+#   mutation: every rec# literal removed from the corpus -> population FAIL rc 1, not green
+#   correct NON-firing: a sentence with a literal and no qualifier stays green
+gate_rec_scope() {
+  echo "== GATE 80: a rec# literal qualified across datasets is attached to the dataset it indexes =="
+  local out
+  out=$(python3 - <<'PY'
+import re, io, sys, subprocess
+QUAL=re.compile(r"\b(?:at|in|across)\s+(?:both|every|each|all)(?:\s+(?:of|the|four|three|two|tested|canonical|published|partition))*\s+(?:scales?|depths?|canonicals?|datasets?|budgets?)\b"
+                r"|\bacross\s+(?:(?:the|all|four|three|two|tested|canonical|published)\s+)*(?:scales|depths|datasets|canonicals|budgets)\b"
+                r"|\bat\s+every\s+(?:tested\s+)?(?:depth|scale|budget)\b"
+                r"|\bscale-invariant\b|\bdataset-invariant\b", re.I)
+REC=re.compile(r"rec#\d+")
+SCALE=r"(?:\d+(?:\.\d+)?\s?T|742M|31\.6M)"
+AFTER=re.compile(r"rec#\d+\)?,?\s+(?:at|in|of|from|for)\s+(?:the\s+)?(?:d[23]\s+)?"+SCALE+r"\b", re.I)
+BEFORE=re.compile(SCALE+r"(?:'s)?[^,;()]{0,30}rec#\d+", re.I)
+QUOTED=re.compile(r'"[^"\n]{1,160}"|“[^”\n]{1,160}”')
+try:
+    files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True,check=True).stdout.split("\n")
+except Exception as e:
+    print("ERROR\tgit ls-files failed — the corpus could not be enumerated: %s"%e); raise SystemExit
+files=[f for f in files if f.strip()]
+if not files: print("ERROR\tzero tracked *.md — vacuous, treated as failure."); raise SystemExit
+nfiles=nlit=njudged=0
+for f in files:
+    try: t=io.open(f,encoding="utf-8",errors="replace").read()
+    except OSError: continue
+    nfiles+=1
+    nlit+=len(REC.findall(t))
+    pos=0
+    for para in re.split(r"\n[ \t]*\n", t):
+        start=t.count("\n",0,pos)+1; pos+=len(para)+2
+        if "rec#" not in para: continue
+        flat=" ".join(re.sub(r"[*`]","",para).split())
+        for sent in re.split(r"(?<=[.!?])\s+(?=[A-Z(\[\"“*])", flat):
+            lits=REC.findall(sent)
+            if not lits: continue
+            unquoted=QUOTED.sub(" ",sent)
+            q=QUAL.search(unquoted)
+            if not q: continue
+            njudged+=1
+            attached=set()
+            for m in AFTER.finditer(unquoted): attached.add(REC.search(m.group()).group())
+            for m in BEFORE.finditer(unquoted): attached.add(REC.findall(m.group())[-1])
+            for lit in dict.fromkeys(REC.findall(unquoted)):
+                if lit not in attached:
+                    k=para.find(lit); line=start+(para[:k].count("\n") if k>=0 else 0)
+                    print("HIT\t%s:%d\t%s is qualified %r but attached to no dataset — a rec# is a position in ONE dataset's sort order: %s"
+                          %(f,line,lit,q.group(),sent[:150]))
+print("POP\t%d\t%d\t%d"%(nfiles,nlit,njudged))
+PY
+) || { echo "  [FAIL] GATE 80 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 80 could not judge its corpus: $err"; return 1; fi
+  local pf pl pj
+  IFS=$'\t' read -r pf pl pj < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${pl:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 80 printed no population census — the scan did not complete."; return 1; fi
+  if [ "$pl" -lt 10 ]; then echo "  [FAIL] GATE 80 found only $pl rec# literal(s) across $pf files (floor 10) — the identifier idiom left the corpus; nothing judged."; return 1; fi
+  if [ "$pj" -lt 2 ]; then echo "  [FAIL] GATE 80 judged only $pj cross-scale sentence(s) carrying a rec# literal (floor 2) — the population collapsed; a quiet green is not evidence."; return 1; fi
+  local rc=0 tag where msg
+  while IFS=$'\t' read -r tag where msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $where: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         Name the dataset the index belongs to (\"rec#N at 560T\") or drop the literal; the ORDERING is what holds across scales, the rec# is not."; return 1; fi
+  echo "  [ok] GATE 80: $pl rec# literal(s) in $pf files; $pj cross-scale sentence(s) judged, every literal attached to its dataset"
+  return 0
+}
+
 case "$MODE" in
+  author-directives) gate_author_directives || RC=1 ;;
+  npath) gate_npath || RC=1 ;;
+  mi-disambig) gate_mi_disambig || RC=1 ;;
+  cell-space) gate_cell_space || RC=1 ;;
+  band-status) gate_band_status || RC=1 ;;
+  anchor-coverage) gate_anchor_coverage || RC=1 ;;
+  report-verdict) gate_report_verdict || RC=1 ;;
+  net-brackets) gate_net_brackets || RC=1 ;;
+  history-scope) gate_history_scope || RC=1 ;;
+  code-needles) gate_code_needles || RC=1 ;;
+  sha-prediction) gate_sha_prediction || RC=1 ;;
+  parity-figures) gate_parity_figures || RC=1 ;;
+  file-drawer) gate_file_drawer || RC=1 ;;
+  seed-provenance) gate_seed_provenance || RC=1 ;;
+  unrepeatable-cite) gate_unrepeatable_cite || RC=1 ;;
+  branch-list) gate_branch_list || RC=1 ;;
+  index-fidelity) gate_index_fidelity || RC=1 ;;
+  sha-tuple) gate_sha_tuple || RC=1 ;;
+  log-derived-figures) gate_log_derived_figures || RC=1 ;;
+  nontrivial-display) gate_nontrivial_display || RC=1 ;;
+  witness-count) gate_witness_count || RC=1 ;;
+  baseline-arithmetic) gate_baseline_arithmetic || RC=1 ;;
+  derived-coefficient) gate_derived_coefficient || RC=1 ;;
+  cpu-vendor) gate_cpu_vendor || RC=1 ;;
+  az-name-closure) gate_az_name_closure || RC=1 ;;
+  glossary-consistency) gate_glossary_consistency || RC=1 ;;
+  identifying-set-arity) gate_identifying_set_arity || RC=1 ;;
+  stdlib-claims) gate_stdlib_claims || RC=1 ;;
+  lean-header-verbatim) gate_lean_header_verbatim || RC=1 ;;
+  evidence-type-vocabulary) gate_evidence_type_vocabulary || RC=1 ;;
+  theorem-vs-slice) gate_theorem_vs_slice || RC=1 ;;
+  chronology-access) gate_chronology_access || RC=1 ;;
+  layer-profile) gate_layer_profile || RC=1 ;;
+  arrivals-sync) gate_arrivals_sync || RC=1 ;;
+  scorecard-repro) gate_scorecard_repro || RC=1 ;;
+  scorecard-attribution) gate_scorecard_attribution || RC=1 ;;
+
+  summary-scope) gate_summary_scope || RC=1 ;;
+  boundary-scope) gate_boundary_scope || RC=1 ;;
+  merge-semantics) gate_merge_semantics || RC=1 ;;
+  rec-scope) gate_rec_scope || RC=1 ;;
+  p14-claims) gate_p14_claims || RC=1 ;;
+  dvd24-scope) gate_dvd24_scope || RC=1 ;;
+  se-vs-ci) gate_se_vs_ci || RC=1 ;;
+  rotation-c3) gate_rotation_c3 || RC=1 ;;
+  sk-gains) gate_sk_gains || RC=1 ;;
+  fiber-anchor) gate_fiber_anchor || RC=1 ;;
+  superlative) gate_superlative || RC=1 ;;
+  printed-quotient) gate_printed_quotient || RC=1 ;;
+  stale-status) gate_stale_status || RC=1 ;;
+  framing-era) gate_framing_era || RC=1 ;;
   repro-reach) gate_repro_reach || RC=1 ;;
+  canonical-ceiling) gate_canonical_ceiling || RC=1 ;;
+  withdrawn-markers) gate_withdrawn_markers || RC=1 ;;
   value-domains) gate_value_domains || RC=1 ;;
   hex-prefix) gate_hex_prefix || RC=1 ;;
   tracked-ignored) gate_tracked_ignored || RC=1 ;;
@@ -10671,6 +17877,7 @@ case "$MODE" in
   collisions) gate_preflight_collisions || RC=1 ;;
   scoreboard) gate_scoreboard_verdicts || RC=1 ;;
   alias-reach) gate_alias_reach || RC=1 ;;
+  scratch-examples) gate_scratch_examples || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -10690,8 +17897,62 @@ case "$MODE" in
            echo; gate_publication_state || RC=1
            echo; gate_script_paths || RC=1
            echo; gate_hex_prefix || RC=1
-           echo; gate_tracked_ignored || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|all}"; exit 2 ;;
+           echo; gate_tracked_ignored || RC=1
+           echo; gate_scratch_examples || RC=1
+           echo; gate_canonical_ceiling || RC=1
+           echo; gate_withdrawn_markers || RC=1
+           echo; gate_framing_era || RC=1
+           echo; gate_author_directives || RC=1
+           echo; gate_rotation_c3 || RC=1
+           echo; gate_sk_gains || RC=1
+           echo; gate_fiber_anchor || RC=1
+           echo; gate_repro_reach || RC=1
+           echo; gate_superlative || RC=1
+           echo; gate_printed_quotient || RC=1
+           echo; gate_stale_status || RC=1
+           echo; gate_npath || RC=1
+           echo; gate_se_vs_ci || RC=1
+           echo; gate_dvd24_scope || RC=1
+           echo; gate_p14_claims || RC=1
+           echo; gate_mi_disambig || RC=1
+           echo; gate_cell_space || RC=1
+           echo; gate_band_status || RC=1
+           echo; gate_anchor_coverage || RC=1
+           echo; gate_report_verdict || RC=1
+           echo; gate_net_brackets || RC=1
+           echo; gate_history_scope || RC=1
+           echo; gate_code_needles || RC=1
+           echo; gate_sha_prediction || RC=1
+           echo; gate_parity_figures || RC=1
+           echo; gate_file_drawer || RC=1
+           echo; gate_seed_provenance || RC=1
+           echo; gate_unrepeatable_cite || RC=1
+           echo; gate_branch_list || RC=1
+           echo; gate_index_fidelity || RC=1
+           echo; gate_sha_tuple || RC=1
+           echo; gate_log_derived_figures || RC=1
+           echo; gate_nontrivial_display || RC=1
+           echo; gate_witness_count || RC=1
+           echo; gate_baseline_arithmetic || RC=1
+           echo; gate_derived_coefficient || RC=1
+           echo; gate_cpu_vendor || RC=1
+           echo; gate_az_name_closure || RC=1
+           echo; gate_glossary_consistency || RC=1
+           echo; gate_identifying_set_arity || RC=1
+           echo; gate_stdlib_claims || RC=1
+           echo; gate_lean_header_verbatim || RC=1
+           echo; gate_evidence_type_vocabulary || RC=1
+           echo; gate_theorem_vs_slice || RC=1
+           echo; gate_chronology_access || RC=1
+           echo; gate_layer_profile || RC=1
+           echo; gate_arrivals_sync || RC=1
+           echo; gate_scorecard_repro || RC=1
+           echo; gate_scorecard_attribution || RC=1
+           echo; gate_summary_scope || RC=1
+           echo; gate_boundary_scope || RC=1
+           echo; gate_merge_semantics || RC=1
+           echo; gate_rec_scope || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|claims-repro|source-scope|summary-scope|boundary-scope|merge-semantics|rec-scope|all}"; exit 2 ;;
 esac
 
 echo
@@ -10738,12 +17999,30 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18, 19, 20, 21, 22 (both legs), 23. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 25 (LEG 1 ONLY), 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39 (all four legs), 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59 (see the carve-out below), 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
+  # GATE 18's CARVE-OUT, made explicit 2026-09-02 (Codex v2 charge 4). Naming 18 as hard
+  # without this line over-attested: its adjudicated-open sites are real DEFECTS and they
+  # exit 0 by design, so "hard gate 18 passed" read as "no alias-reach defects" when it
+  # means "no UNADJUDICATED ones". The backlog is not hidden — it prints as [OPEN] with a
+  # count on every run — but a green banner must not imply it is empty.
+  echo "                   GATE 18 IS HARD FOR UNADJUDICATED DEFECTS ONLY. Its [OPEN] rows"
+  echo "                   are adjudicated-open DEFECTS that do NOT set this exit code; a"
+  echo "                   green verdict means no NEW alias-reach defect, not none at all."
+  echo "                   The [OPEN] set is ratcheted (it cannot grow without a budget"
+  echo "                   change in this file), so it can no longer absorb a new [FAIL]."
+  # GATE 59's CARVE-OUT, same shape as GATE 18's (2026-09-02): its adjudicated-open sites are
+  # listed in documentation/DOC_GATE_BASELINE_ARITHMETIC_OPEN.tsv, print as [OPEN], and do not
+  # set the exit code; an allowance that matches nothing FAILS, so a row cannot outlive its fix.
+  echo "                   GATE 59 IS HARD FOR UNADJUDICATED DEFECTS ONLY. Its [OPEN] rows"
+  echo "                   (documentation/DOC_GATE_BASELINE_ARITHMETIC_OPEN.tsv) are real"
+  echo "                   arithmetic defects awaiting a prose-lane fix; a green verdict"
+  echo "                   means no NEW one, not none at all."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
   # The one-liner this replaces ("run it separately") named neither what was uncovered nor
-  # the command, so an all-green run read as attesting example/report.pdf when it attested
+  # the command, so an all-green run read as attesting example/report.pdf (removed
+  # 2026-09-04) when it attested
   # nothing about it. DECIDED AGAINST folding GATE 8 into `all`, on measured numbers taken
   # that day: `all` = 17 s, `generated` = 67 s fresh regeneration (107-135 s on prior
   # recorded runs) — a 4-6x multiplier on the suite every blocking pre-push hook run and
@@ -10753,19 +18032,30 @@ elif [ "$MODE" = all ]; then
   # when the pushed range touches roae.py or example/ (fail-closed when it has no base to
   # diff against), which is also the only way a hand-edited artifact committed with
   # `git commit --no-verify` can be on its way out.
-  # GATES 24 AND 25 ARE EXCLUDED TOO, and until 2026-08-11 this banner named only GATE 8's
-  # exclusion — so a green `all` read as covering two gates it has never run. Both sit out by
-  # the CAUTION each header states (observe it silent across a full corpus first), not by
-  # cost, which is why they are named separately from GATE 8 rather than folded into its line.
-  # Derived from the dispatch arm above, which is the only list: `all` calls neither
-  # gate_value_domains nor gate_repro_reach.
-  echo "                   GATES 24 ('value-domains') and 25 ('repro-reach') are NOT in 'all'"
-  echo "                   either — by caution, per their own headers. This verdict attests"
-  echo "                   nothing about them; run them by name. GATE 25's LEG 2 is"
-  echo "                   REPORT-ONLY even then, and says so in its own banner."
+  # GATE 24 IS EXCLUDED, and until 2026-08-11 this banner named only GATE 8's exclusion — so a
+  # green `all` read as covering gates it has never run. It sits out by the CAUTION its header
+  # states (observe it silent across a full corpus first), not by cost, which is why it is named
+  # separately from GATE 8 rather than folded into its line.
+  # GATE 25 WAS PROMOTED INTO `all` ON 2026-09-02 and is named in the hard list above; it is
+  # LEG 1 ONLY, so its report-only half needs a line here for the same reason GATE 17's LEG B
+  # and GATE 18's carve-out do. Both statements are derived from the dispatch arm above, which
+  # is the only list: `all` calls gate_repro_reach and does NOT call gate_value_domains.
+  echo "                   GATE 24 ('value-domains') is NOT in 'all' — by caution, per its own"
+  echo "                   header. This verdict attests nothing about it; run it by name."
+  echo "                   GATE 25 ('repro-reach') IS in 'all' since 2026-09-02, but its LEG 1"
+  echo "                   ONLY — a documented reproduction command must resolve to a real"
+  echo "                   flag. Its LEG 2 ([note] lines on figures with no re-derivation"
+  echo "                   path) is REPORT-ONLY and is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is NOT in 'all' — by cost, not oversight."
-  echo "                   This verdict attests NOTHING about the example/ artifacts"
-  echo "                   (report.txt, report.md, README.md, report.html, report.pdf):"
+  echo "                   This verdict attests NOTHING about the 11 tracked example/"
+  echo "                   artifacts — the four reports (report.txt/.md/.html, README.md;"
+  echo "                   report.pdf was the twelfth until 2026-09-04, when it was removed"
+  echo "                   for embedding the DejaVu font programs, taking GATE 8 LEG 5 and"
+  echo "                   report.html's only DIGIT check with it — restored the same day by"
+  echo "                   reshipping example/ under --seed 20260904, which made legs 1-4"
+  echo "                   BYTE-EXACT) AND, since 2026-09-02,"
+  echo "                   hexagrams.{csv,json,svg}, wave.dot, wave.dot.png, wave.dot.svg"
+  echo "                   and wave.mid (LEG 7, byte-exact):"
   echo "                       bash scripts/doc_gates.sh generated   # checks them; ~67-135 s, 3 roae.py runs"
   echo "                   (Enforced at pre-commit when roae.py/example/ is staged, and at"
   echo "                   pre-push when the pushed range touches roae.py or example/.)"

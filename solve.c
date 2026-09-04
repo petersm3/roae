@@ -3,20 +3,37 @@
  * Developed with AI assistance (Claude, Anthropic)
  *
  * Constraint solver for the King Wen sequence — multi-threaded C implementation.
- * Enumerates all orderings of 32 hexagram pairs satisfying 5 constraints + complement
- * distance, then compares each valid ordering to the historical King Wen sequence.
+ * Enumerates orderings of 32 hexagram pairs satisfying 5 constraints + complement distance
+ * WITHIN A NODE BUDGET, then compares each valid ordering to the historical King Wen sequence.
+ *
+ * 🔴 CORRECTED 2026-08-28 (Q-353). This read "Enumerates ALL orderings". No run has ever done
+ * that: every published enumeration is budgeted per cell, so its record count is a LOWER BOUND
+ * over a reproducible slice — SOLUTIONS_FORMAT.md and SEARCH_SPACE_SIZE.md both say so, and the
+ * space is ~10^38. The unqualified "all" was corrected the same day in SOLUTIONS_FORMAT.md,
+ * BRANCHES_EXPLAINED.md and SOLVE.md, and this file — the one the sentence describes — was
+ * missed. Found by the effort-none Codex run (L06, corroborated by L23).
  *
  * ARCHITECTURE OVERVIEW
  * =====================
  * The King Wen sequence is 64 hexagrams (6-bit integers, 0-63). It naturally groups
- * into 32 consecutive pairs. This solver finds all orderings of those 32 pairs that
- * satisfy a set of mathematical constraints derived from the original sequence.
+ * into 32 consecutive pairs. This solver enumerates orderings of those 32 pairs --
+ * WITHIN A NODE BUDGET, so any run's record count is a LOWER BOUND over a
+ * reproducible slice -- that satisfy a set of mathematical constraints derived from
+ * the original sequence.
+ *
+ * 🔴 CORRECTED 2026-09-02 (operator-authorised, comment-only). This read "finds all
+ * orderings", which is the registered retracted phrasing
+ * (documentation/RETRACTED_PHRASES.tsv) and the SAME unqualified claim the header
+ * correction above withdraws. That correction fixed the file summary and missed this
+ * restatement fifteen lines below it -- in the very paragraph its own text says was
+ * missed. Found 2026-09-02 by sweeping the 128 tracked text files that sit in no
+ * needle scan: solve.c is outside GATE 3's corpus, so no gate could have caught it.
  *
  * The search is a depth-32 backtracking tree. At each depth, we try placing one of
  * the remaining unused pairs (in either orientation) at the next position. Pruning:
  *   C1: Pair structure — only the 32 pairs from KW are used (not arbitrary pairings)
  *   C2: No 5-line Hamming transitions between consecutive hexagrams
- *   C4: Position 1 is always Creative/Receptive (hexagrams 63, 0) — provably forced
+ *   C4: Position 1 is always hexagram 1 / hexagram 2 (all-yang 63, all-yin 0) — provably forced
  *   C5: Difference distribution — the multiset of Hamming distances between all 63
  *       consecutive hexagrams must exactly match King Wen's {1:2, 2:20, 3:13, 4:19, 6:9}
  *       This is tracked via a "budget" array decremented at each placement.
@@ -27,7 +44,7 @@
  * THREADING MODEL
  * ===============
  * Normal mode: enumerates ~3,030 depth-2 sub-branches (each fixing positions 0-3:
- * the forced Creative/Receptive at position 1, then a chosen pair+orient at
+ * the forced hexagram 1 / hexagram 2 at position 1, then a chosen pair+orient at
  * position 2 and another at position 3). Sub-branches are distributed round-robin
  * across N threads. Replaces an older "56-branch mode" that suffered from the
  * tail problem (a few large branches monopolizing single cores while the rest of
@@ -39,8 +56,18 @@
  * SOLUTION STORAGE
  * ================
  * Each thread has a full-key hash table (open addressing, linear probing) storing
- * canonical pair orderings. "Canonical" means within each pair, the smaller hexagram
- * value comes first — this collapses orientation variants into one entry.
+ * canonical pair orderings. "Canonical" means ONE ENTRY PER PAIR-ORDERING REGARDLESS OF
+ * ORIENTATION: the hash/dedup key masks the orientation bit (see "orient bit masked out"
+ * below), so the two orientations of a pair collapse to one entry.
+ *
+ * 🔴 CORRECTED 2026-08-28 (Q-349). This read: *"Canonical means within each pair, the smaller
+ * hexagram value comes first."* That is false in both halves. The pair table is built from King
+ * Wen's own sequence — pairs[p] = (KW[2p], KW[2p+1]) at :1543 — so pairs[0] is (63, 0), storing
+ * the LARGER value first; and every one of the 10.5 B canonical records carries byte 0 = 0x00,
+ * i.e. orient 0, whose sequence begins 63 then 0. Nothing anywhere orders a pair by magnitude.
+ * The collapse is done by MASKING the orientation bit, not by choosing an order within the pair.
+ * Found by the effort-none Codex run (A02 + R03) during the Q-332 triage — the one live finding
+ * in ten transcripts — and verified here against the shipped pair table and a real solutions.bin.
  * Each record is 32 bytes (packed): one byte per position, encoding pair index
  * (5 bits) and orientation (1 bit). Hash and dedup compare pair identity only
  * (orient bit masked out). Full sequence recoverable from any record.
@@ -184,7 +211,7 @@
  *         3-subset disproof, all 4-subsets, redundancy, mutual information,
  *         per-branch cascade configs, null-model, orbits.
  *       Reproducible source for every numerical claim in HISTORY.md and
- *       SOLVE-SUMMARY.md.
+ *       SOLVE_SUMMARY.md.
  *
  *   ./solve --merge
  *       Combine sub_*.bin files into solutions.bin (used after enumeration
@@ -276,7 +303,7 @@
  *
  * Companion docs (one directory up, in roae/):
  *   HISTORY.md         project narrative, missteps, "what advanced understanding"
- *   SOLVE-SUMMARY.md   plain-language explanation of the constraints + findings
+ *   SOLVE_SUMMARY.md   plain-language explanation of the constraints + findings
  *   SPECIFICATION.md   formal definitions of C1-C5
  *   enumeration/LEADERBOARD.md   per-branch / per-sub-branch enumeration progress
  */
@@ -391,8 +418,8 @@ static void __attribute__((constructor)) check_stack_ulimit(void) {
 
 /* ---------- King Wen sequence: 64 hexagrams as 6-bit integers ---------- */
 /* Each value 0-63 encodes a hexagram's six lines as bits (0=yin, 1=yang).
- * Index 0 = hexagram #1 (Creative, 111111 = 63), index 1 = hexagram #2
- * (Receptive, 000000 = 0), etc. in the traditional King Wen ordering. */
+ * Index 0 = hexagram #1 (111111 = 63), index 1 = hexagram #2
+ * (000000 = 0), etc. in the traditional King Wen ordering. */
 static const int KW[64] = {
     63,  0, 17, 34, 23, 58,  2, 16,
     55, 59,  7, 56, 61, 47,  4,  8,
@@ -769,6 +796,19 @@ static int sol_read_header_mem(const unsigned char *hdr, uint64_t *out_records) 
         return -1;
     uint32_t version = sol_unpack_u32_le(&hdr[4]);
     if (version != SOL_FORMAT_VERSION) return -1;
+    /* 🔴 Q-350 (2026-08-28): bytes 16-31 are "MUST be zero" in SOLUTIONS_FORMAT.md and
+     * NOTHING checked them. Measured: header[20]=0x5A on an otherwise byte-correct artifact
+     * still printed "VERIFY PASS: all 13320 records satisfy C1-C5". A reserved field nothing
+     * validates is not reserved -- it is 16 bytes of undetected drift that a future format
+     * extension would silently inherit. Checked in ALL THREE readers, because guarding one
+     * entry point and leaving its two siblings open is the defect this project keeps finding.
+     */
+    for (int rz = 16; rz < SOL_HEADER_SIZE; rz++)
+        if (hdr[rz] != 0) {
+            fprintf(stderr, "ERROR: header reserved byte %d is 0x%02X, must be zero "
+                            "(SOLUTIONS_FORMAT.md)\n", rz, hdr[rz]);
+            return -1;
+        }
     *out_records = sol_unpack_u64_le(&hdr[8]);
     return 0;
 }
@@ -783,6 +823,19 @@ static int sol_read_header(FILE *f, uint64_t *out_records) {
         return -1;
     uint32_t version = sol_unpack_u32_le(&hdr[4]);
     if (version != SOL_FORMAT_VERSION) return -1;
+    /* 🔴 Q-350 (2026-08-28): bytes 16-31 are "MUST be zero" in SOLUTIONS_FORMAT.md and
+     * NOTHING checked them. Measured: header[20]=0x5A on an otherwise byte-correct artifact
+     * still printed "VERIFY PASS: all 13320 records satisfy C1-C5". A reserved field nothing
+     * validates is not reserved -- it is 16 bytes of undetected drift that a future format
+     * extension would silently inherit. Checked in ALL THREE readers, because guarding one
+     * entry point and leaving its two siblings open is the defect this project keeps finding.
+     */
+    for (int rz = 16; rz < SOL_HEADER_SIZE; rz++)
+        if (hdr[rz] != 0) {
+            fprintf(stderr, "ERROR: header reserved byte %d is 0x%02X, must be zero "
+                            "(SOLUTIONS_FORMAT.md)\n", rz, hdr[rz]);
+            return -1;
+        }
     *out_records = sol_unpack_u64_le(&hdr[8]);
     return 0;
 }
@@ -797,6 +850,19 @@ static int sol_read_header_gz(gzFile f, uint64_t *out_records) {
         return -1;
     uint32_t version = sol_unpack_u32_le(&hdr[4]);
     if (version != SOL_FORMAT_VERSION) return -1;
+    /* 🔴 Q-350 (2026-08-28): bytes 16-31 are "MUST be zero" in SOLUTIONS_FORMAT.md and
+     * NOTHING checked them. Measured: header[20]=0x5A on an otherwise byte-correct artifact
+     * still printed "VERIFY PASS: all 13320 records satisfy C1-C5". A reserved field nothing
+     * validates is not reserved -- it is 16 bytes of undetected drift that a future format
+     * extension would silently inherit. Checked in ALL THREE readers, because guarding one
+     * entry point and leaving its two siblings open is the defect this project keeps finding.
+     */
+    for (int rz = 16; rz < SOL_HEADER_SIZE; rz++)
+        if (hdr[rz] != 0) {
+            fprintf(stderr, "ERROR: header reserved byte %d is 0x%02X, must be zero "
+                            "(SOLUTIONS_FORMAT.md)\n", rz, hdr[rz]);
+            return -1;
+        }
     *out_records = sol_unpack_u64_le(&hdr[8]);
     return 0;
 }
@@ -1170,7 +1236,26 @@ static gzFile gzw_open_temp(const char *path) { return gzw_open_lvl(path, gz_mer
 /* Finish the gz stream, close (gzclose flushes + closes the fd), then fsync the file
  * for durability — honoring #108b batching (skip per-file fsync when syncfs batching
  * is active). Reopen by path because gzclose owns/closes the underlying fd.
- * Returns 0 on success, -1 on any error. */
+ * Returns 0 on success, -1 on any error.
+ *
+ * #167 REGRESSION NOTE — durability-order coupling with dfs_state_write/_v2:
+ * a sub-branch's .bin shard is made durable HERE (via flush_sub_solutions[_d3]),
+ * and its .dfs_state sidecar afterward via maybe_fsync_fd. The #167 invariant —
+ * a .dfs_state must never be durable while its .bin shard is not, else an
+ * eviction-resume trusts the checkpoint and silently drops the cell's entire
+ * pre-checkpoint solution set — is enforced by PROGRAM order (the checkpoint
+ * write sits strictly after the shard flush in the worker finalization; see
+ * the "#167 eviction-resume fix" comment there). That program order is only a
+ * DURABLE order because both write paths gate their per-file fsync on the SAME
+ * predicate, fsync_batch_active(): either both fsync per-write (legacy), or
+ * both defer to the same periodic syncfs batch (#108b), which preserves the
+ * write order within a batch window on the journaled fs. Do NOT let a future
+ * edit diverge the two predicates (e.g. shard fsync batched while .dfs_state
+ * fsyncs per-write, or an inverted/asymmetric condition): the sidecar could
+ * then become durable BEFORE its shard, reintroducing the #167 crash window.
+ * The resume-side #167 shard-absent guard would downgrade that to redone work
+ * (discard resume, fresh walk) rather than lost solutions — but that guard is
+ * defense-in-depth, not license to diverge. Keep the predicates identical. */
 static int gzw_close_durable(gzFile gf, const char *path) {
     if (gzclose(gf) != Z_OK) return -1;
     if (fsync_batch_active()) return 0;   /* periodic syncfs handles durability */
@@ -1277,8 +1362,36 @@ static int gz_mmap_open(const char *path, unsigned char **out_base,
             }
         }
         if (n < 0) { fprintf(stderr, "ERROR: gz decompress of %s failed\n", path); fclose(tf); gzclose(gf); remove(tmp); return -1; }
-        if (fflush(tf) != 0 || fclose(tf) != 0) { fprintf(stderr, "ERROR: closing decompress temp %s failed\n", tmp); gzclose(gf); remove(tmp); return -1; }
-        gzclose(gf);
+        /* Q-409 (adjudicator-found, V2 batch 17, 2026-08-30): tf was never
+           fclose'd, so stdio's buffered tail (logical size modulo the stdio
+           block) never reached the temp file — the mapping was SHORT and
+           --validate/--analyze false-rejected EVERY real gz artifact whose
+           decompressed size is not a block multiple (measured: solve's own
+           106,080-byte gz merge output failed its own --validate). Fail-closed,
+           so no false accept — but flush+close, checked, before mapping. */
+        if (fclose(tf) != 0) {
+            fprintf(stderr, "ERROR: flush/close of decompress temp %s failed: %s\n",
+                    tmp, strerror(errno));
+            gzclose(gf); remove(tmp); return -1;
+        }
+        /* 🔴 Q-367 (Codex R12b): `n < 0` alone is not a completeness test. zlib reports a TRUNCATED
+           stream through gzeof()/gzerror() and through gzclose()'s return -- not by making gzread()
+           return a negative. So a truncated shard decompressed to a SHORT temp file and this
+           returned success. The correct pattern already exists a few dozen lines above in this same
+           file (clean EOF + CRC/length check); this is the sibling site that was left behind. */
+        {
+            int zerr = 0;
+            (void)gzerror(gf, &zerr);
+            int clean_eof = gzeof(gf) && zerr == Z_OK;
+            int zrc = gzclose(gf);
+            if (!clean_eof || zrc != Z_OK) {
+                fprintf(stderr,
+                    "ERROR: gz stream %s did not end cleanly (eof=%d zerr=%d gzclose=%d).\n"
+                    "       Refusing to map a possibly TRUNCATED decompression (Q-367).\n",
+                    path, gzeof(gf), zerr, zrc);
+                remove(tmp); return -1;
+            }
+        }
         map_path = tmp;
         if (out_tmp_sz) snprintf(out_tmp, out_tmp_sz, "%s", tmp);
     }
@@ -1396,6 +1509,19 @@ static long long canonical_psb_for_label(const char *label) {
     for (const struct canonical_recipe *r = CANONICAL_RECIPES; r->label; r++)
         if (strcmp(r->label, label) == 0) return r->psb;
     return -1;
+}
+
+/* Q-345. Print the recipe table's labels, optionally only those that carry a published PSB.
+ * BUILT FROM THE TABLE, because the hardcoded "known scales: …" literal was maintained by hand
+ * in three places and drifted: it advertised d2-10T to --validate-launcher-config, which cannot
+ * validate it (psb==0, d2 mechanics do not use a published PSB). Q-324 corrected the docs and
+ * Q-345 found the code underneath still wrong. A usage line derived from the table cannot say
+ * the table holds something it does not. */
+static void print_known_scales(FILE *f, int psb_only) {
+    fprintf(f, "known scales%s:", psb_only ? " with a published PSB" : "");
+    for (const struct canonical_recipe *r = CANONICAL_RECIPES; r->label; r++)
+        if (!psb_only || r->psb > 0) fprintf(f, " %s", r->label);
+    fprintf(f, "\n");
 }
 
 /* SOLVE_PER_SUB_BRANCH_LIMIT (2026-04-29). When set, overrides the
@@ -1528,7 +1654,8 @@ _Static_assert(sizeof(DFSCheckpointState_v2) <= 2048, "DFSCheckpointState_v2 too
 /* ---------- Init functions ---------- */
 
 /* Pairing = the canonical reverse-priority rule (rev, else comp for palindromes), i.e. constraint C1.
- * ATTRIBUTION: pairing is classical (Yu Fan, 220-265 AD; Cook 2006 formalization); Radisic 2026
+ * ATTRIBUTION: pairing is classical (Kong Yingda, Tang, 574-648, the explicit 非覆即变 formulation;
+ * lineage via Yu Fan, 164-233 AD; Cook 2006 formalization); Radisic 2026
  * (arXiv:2601.07175, Lean-verified) proved it is the UNIQUE Hamming-cost-minimizing comp/rev matching
  * on {0,1}^6 (cost 120) and the unique weight-preserving optimum under the full Klein group. */
 static void init_pairs(void) {
@@ -1724,6 +1851,8 @@ static long long current_per_branch_budget = 0;
  * thread file split is only for write-side mutex elimination (task #106). */
 static void load_sub_checkpoint_file(FILE *f) {
     char line[512];
+    /* Q-368: count checkpoint lines rejected for out-of-range indices. See the validation below. */
+    int ckpt_rejected = 0;
     while (fgets(line, sizeof(line), f)) {
         if (!strstr(line, "Sub-branch")) continue;
         /* Skip-on-resume logic (3-way status taxonomy):
@@ -1767,6 +1896,26 @@ static void load_sub_checkpoint_file(FILE *f) {
                              &p1v, &o1v, &p2v, &o2v);
         }
         if (matched == 4 || matched == 6) {
+            /* 🔴 Q-368: VALIDATE BEFORE MASKING. completed_sub_key() folds these integers with
+               ((p1 & 31) << 7) | ((o1 & 1) << 6) | ((p2 & 31) << 1) | (o2 & 1). Without a range
+               check, an out-of-range value does not fail -- it MASKS into a DIFFERENT, VALID key:
+               p1=35 becomes 3, and p1=-1 becomes 31. The resume then marks a sub-branch complete
+               that was never walked, PHASE_B skips it, and the run reports success with solutions
+               missing. That is the same class as the T3a SIGTERM-then-resume defect the comment
+               above completed_sub_key() already documents -- the failure mode was known here and
+               the inputs were still trusted.
+
+               FAIL-SAFE, NOT FAIL-STOP, and deliberately so: a rejected line sets NO bitmap bit and
+               is NOT recorded, so its sub-branch is simply RE-WALKED. Re-walking costs time and is
+               always correct; wrongly skipping loses solutions silently. Aborting instead would be
+               a regression -- a checkpoint's final line is routinely half-written when a run is
+               SIGTERMed, which is precisely when resume matters most. It is still LOUD: the count
+               is reported below. */
+            int bad = (p1v < 0 || p1v > 31) || (o1v < 0 || o1v > 1) ||
+                      (p2v < 0 || p2v > 31) || (o2v < 0 || o2v > 1);
+            if (matched == 6)
+                bad = bad || (p3v < 0 || p3v > 31) || (o3v < 0 || o3v > 1);
+            if (bad) { ckpt_rejected++; continue; }
             if (n_completed_subs >= MAX_COMPLETED_SUBS) break;
             completed_sub_branches[n_completed_subs][0] = p1v;
             completed_sub_branches[n_completed_subs][1] = o1v;
@@ -1783,6 +1932,13 @@ static void load_sub_checkpoint_file(FILE *f) {
                 completed_sub_bitmap[key >> 3] |= (unsigned char)(1 << (key & 7));
             }
         }
+    }
+    if (ckpt_rejected > 0) {
+        fprintf(stderr,
+            "WARNING: %d checkpoint line(s) had out-of-range pair/orient indices and were IGNORED.\n"
+            "         Those sub-branches are NOT marked complete and WILL BE RE-WALKED (fail-safe).\n"
+            "         A truncated final line is normal after SIGTERM; many such lines suggest a\n"
+            "         corrupted checkpoint.txt (see Q-368).\n", ckpt_rejected);
     }
 }
 
@@ -3166,8 +3322,17 @@ static int do_verify_shard_manifest(const char *manifest_path,
     { char buf[4096]; while (fgets(buf, sizeof(buf), mf)) total++; }
     fclose(mf);
     if (total == 0) {
+        /* 🔴 Q-367 (Codex R12b): a zero-entry manifest used to return 0 == PASS. That is exactly
+           what an INTERRUPTED SIDECAR WRITE leaves behind, so the one state most likely to mean
+           "the manifest is broken" was the state that verified clean. A verifier must be able to be
+           FALSE when its target is absent; with nothing to check, "all checks passed" is a claim
+           about nothing. Reported loudly and returned as an error. */
+        fprintf(stderr,
+            "ERROR: shard manifest '%s' has ZERO entries.\n"
+            "       This is what an interrupted sidecar write leaves. Refusing to report PASS on an\n"
+            "       empty manifest -- there is nothing here to verify (Q-367).\n", manifest_path);
         if (out_total) *out_total = 0;
-        return 0;
+        return 22;
     }
     /* Parallel verify (#116, 2026-05-29). Each xargs worker receives one
      * manifest line (TSV: fname \t size \t sha) and emits ONE typed
@@ -3197,6 +3362,17 @@ static int do_verify_shard_manifest(const char *manifest_path,
              "fi; "
              "magic=$(dd if=\"$fname\" bs=1 count=2 2>/dev/null | od -An -tx1 | tr -d \" \\n\"); "
              "if [ \"$magic\" = \"1f8b\" ]; then "
+             /* 🔴 Q-367: verify the CONTAINER before trusting the decompressed bytes. `gzip -dc |
+                sha` swallows gzip's status, so a shard whose CRC32 trailer is corrupt hashes its
+                (still-correct) logical bytes and PASSES, and the damage is only discovered when
+                something later fails to read it. `gzip -t` checks the CRC directly.
+                NOTE: `set -o pipefail` is NOT usable here -- the xargs worker is `sh -c`, and in
+                dash pipefail is unsupported, so the command substitution fails and a GOOD shard
+                reports MISSING. (Measured: that is exactly what happened on the first cut of this
+                fix.) #197 could use pipefail only because it spawns `bash -c` explicitly. */
+             "  if ! gzip -t \"$fname\" 2>/dev/null; then "
+             "    printf \"DIVERGED\\t%%s\\tgz-container-corrupt\\t%%s\\n\" \"$fname\" \"$sha\"; exit 0; "
+             "  fi; "
              "  actual_sz=$(gzip -dc \"$fname\" 2>/dev/null | wc -c); "
              "  got=$(gzip -dc \"$fname\" 2>/dev/null | %s | cut -d\" \" -f1); "
              "else "
@@ -3208,6 +3384,13 @@ static int do_verify_shard_manifest(const char *manifest_path,
              "fi; "
              "if [ \"$actual_sz\" -lt \"$sz\" ]; then "
              "  printf \"SHRUNK\\t%%s\\t%%s\\t%%s\\n\" \"$fname\" \"$actual_sz\" \"$sz\"; exit 0; "
+             "fi; "
+             /* 🔴 Q-367: the size test fired only on SHRINKAGE, so a shard with COMPLETE RECORDS
+                APPENDED passed -- and the merger globs and reads the enlarged file, so the extra
+                records enter the merged result. Reported as DIVERGED rather than SHRUNK because
+                that is what it is: the shard no longer matches the manifest entry. */
+             "if [ \"$actual_sz\" -gt \"$sz\" ]; then "
+             "  printf \"DIVERGED\\t%%s\\tgrew-to-%%s-bytes-manifest-says-%%s\\t%%s\\n\" \"$fname\" \"$actual_sz\" \"$sz\" \"$sha\"; exit 0; "
              "fi; "
              "if [ \"$got\" != \"$sha\" ]; then "
              "  printf \"DIVERGED\\t%%s\\t%%s\\t%%s\\n\" \"$fname\" \"$got\" \"$sha\"; "
@@ -3241,7 +3424,75 @@ static int do_verify_shard_manifest(const char *manifest_path,
             diverged++;
         }
     }
-    pclose(p);
+    /* 🔴 Q-367 (#4): the verifier consumes MANIFEST LINES ONLY and never enumerates the directory,
+       while the merge step reads whatever shards are present. So a stale or extra `sub_*.bin` that
+       the manifest does not name passed verification by being invisible to it, and then entered the
+       merged result. Detect it here.
+
+       Cheap path first: compare the directory count to the manifest count. Only on a mismatch do we
+       pay for per-name matching, because a campaign can hold thousands of shards and this runs at
+       merge time. This does NOT redefine the manifest -- it reports files the manifest does not
+       cover, which is exactly the gap that made them invisible. */
+    {
+        int dir_shards = 0;
+        DIR *sd = opendir(".");
+        if (sd) {
+            struct dirent *de;
+            while ((de = readdir(sd)) != NULL) {
+                const char *n = de->d_name; size_t ln = strlen(n);
+                if (ln < 8 || strncmp(n, "sub_", 4) != 0) continue;
+                if (strcmp(n + ln - 4, ".bin") == 0 || (ln > 7 && strcmp(n + ln - 7, ".bin.gz") == 0))
+                    dir_shards++;
+            }
+            closedir(sd);
+        }
+        if (dir_shards > total) {
+            fprintf(stderr,
+                "ERROR: %d shard file(s) on disk but only %d named in the manifest (Q-367).\n"
+                "       The merge step reads what is PRESENT, so unlisted shards would enter the\n"
+                "       merged result without ever being verified. Naming them:\n",
+                dir_shards, total);
+            sd = opendir(".");
+            if (sd) {
+                struct dirent *de;
+                while ((de = readdir(sd)) != NULL) {
+                    const char *n = de->d_name; size_t ln = strlen(n);
+                    if (ln < 8 || strncmp(n, "sub_", 4) != 0) continue;
+                    if (!(strcmp(n + ln - 4, ".bin") == 0 || (ln > 7 && strcmp(n + ln - 7, ".bin.gz") == 0)))
+                        continue;
+                    FILE *mf2 = fopen(manifest_path, "r");
+                    int found = 0;
+                    if (mf2) {
+                        char lb[4096];
+                        while (fgets(lb, sizeof(lb), mf2)) {
+                            char *tab = strchr(lb, '\t');
+                            if (!tab) continue;
+                            *tab = 0;
+                            if (strcmp(lb, n) == 0) { found = 1; break; }
+                        }
+                        fclose(mf2);
+                    }
+                    if (!found) fprintf(stderr, "         UNLISTED: %s\n", n);
+                }
+                closedir(sd);
+            }
+            if (out_total) *out_total = total;
+            pclose(p);
+            return 22;
+        }
+    }
+    /* 🔴 Q-367: the pipeline status was DISCARDED. If xargs/sh never ran, the parent read zero
+       diagnostic lines and reported missing=shrunk=diverged=0 -- i.e. a verifier that could not run
+       reported PASS. Same shape as #197, which captured pclose for exactly this reason. */
+    int vrc = pclose(p);
+    if (vrc != 0) {
+        fprintf(stderr,
+            "ERROR: the parallel manifest verify pipeline exited %d. Its diagnostics are NOT\n"
+            "       trustworthy, so this is reported as a FAILURE rather than as a clean verify\n"
+            "       (Q-367): zero findings from a verifier that did not run is not a pass.\n", vrc);
+        if (out_total) *out_total = total;
+        return 22;
+    }
     if (out_total) *out_total = total;
     if (out_missing) *out_missing = missing;
     if (out_shrunk) *out_shrunk = shrunk;
@@ -3276,17 +3527,25 @@ static int do_verify_shard_manifest(const char *manifest_path,
  * was the #163 eviction-resume false-abort (exit 22). A truly fresh start has no
  * .dfs_state and keeps the fatal verify (where byte-identity IS expected).
  * Read-only directory scan; sha-neutral. */
-static int resuming_in_progress(void) {
+/* 🔴 Q-367 (#5): this returned a BOOLEAN on the FIRST `.dfs_state` found, so a single resuming
+   shard downgraded the manifest check to advisory for ALL shards -- including ones that are not
+   resuming, whose divergence would be real corruption rather than legitimate advance. The #164
+   trade-off is sound (a resuming shard MUST be allowed to move past its snapshot) but its scope was
+   the whole run. Returning the COUNT lets the caller say how broad the downgrade actually is, and
+   shout when it is covering more shards than are resuming. Per-shard classification would be the
+   complete fix; it needs diagnostics this path does not carry, so it is recorded rather than
+   claimed. */
+static int resuming_shard_count(void) {
     DIR *d = opendir(".");
     if (!d) return 0;
     struct dirent *e;
-    int found = 0;
+    int n_dfs = 0;
     while ((e = readdir(d)) != NULL) {
         size_t n = strlen(e->d_name);
-        if (n >= 10 && strcmp(e->d_name + n - 10, ".dfs_state") == 0) { found = 1; break; }
+        if (n >= 10 && strcmp(e->d_name + n - 10, ".dfs_state") == 0) n_dfs++;
     }
     closedir(d);
-    return found;
+    return n_dfs;
 }
 
 /* ---------- Resume-shape contract sidecar (2026-07-17 gate-failure hardening) ----------
@@ -3329,7 +3588,7 @@ static int resume_contract_check_and_stamp(int n_threads, int depth,
                                            long long node_limit_now,
                                            long long per_sub_limit_now) {
     const char *fname = "resume_contract.txt";
-    int frontier = resuming_in_progress();
+    int frontier = resuming_shard_count() > 0;   /* main renamed the #164 probe (Q-367) */
     FILE *f = fopen(fname, "r");
     if (f) {
         int st_threads = -1, st_depth = -1;
@@ -3458,15 +3717,25 @@ static int auto_verify_shard_manifest_if_exists(void) {
      * the .budget sidecar + Outlier-#5 re-walk, and — authoritatively — the
      * merge-time sha-gate against the canonical sha. A fresh manifest is
      * re-emitted right after promotion, so the snapshot is brought current. */
-    if (resuming_in_progress()) {
+    int n_resuming = resuming_shard_count();
+    if (n_resuming > 0) {
+        int n_failed = missing + shrunk + diverged;
         fprintf(stderr,
             "[hardening] auto-verify-manifest ADVISORY on resume/extension "
-            "(%d total: %d missing, %d shrunk, %d diverged) — expected when shards "
-            "legitimately advanced past the prior snapshot; NOT fatal (#164). Final "
-            "correctness is enforced by the merge-time sha-gate; a fresh manifest is "
+            "(%d total: %d missing, %d shrunk, %d diverged; %d shard(s) carry a .dfs_state) — "
+            "expected when shards legitimately advanced past the prior snapshot; NOT fatal (#164). "
+            "Final correctness is enforced by the merge-time sha-gate; a fresh manifest is "
             "re-emitted after promotion. Override with SOLVE_SKIP_AUTO_MANIFEST=1 to "
             "skip this check entirely.\n",
-            total, missing, shrunk, diverged);
+            total, missing, shrunk, diverged, n_resuming);
+        if (n_failed > n_resuming) {
+            fprintf(stderr,
+                "[hardening] 🔴 SCOPE WARNING (Q-367): %d shard(s) failed the manifest check but only "
+                "%d are resuming. The #164 downgrade is therefore covering %d shard(s) that are NOT "
+                "resuming, whose divergence is NOT explained by legitimate advance. Inspect those "
+                "before trusting the merge; the sha-gate remains the authoritative control.\n",
+                n_failed, n_resuming, n_failed - n_resuming);
+        }
         return 0;
     }
     fprintf(stderr,
@@ -4398,7 +4667,7 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
  *               a transition of that distance is used. Enforces C5 (exact match of
  *               KW's difference distribution). This is the key pruning mechanism —
  *               most branches are killed by budget exhaustion, not by C2 or C3.
- *   step      — current pair position (0-31). Step 0 is pre-filled (Creative/Receptive).
+ *   step      — current pair position (0-31). Step 0 is pre-filled (hexagram 1 / hexagram 2).
  *
  * The budget array makes this much faster than checking the distribution at the end:
  * invalid branches are pruned at depth 2-5 instead of depth 32. */
@@ -4929,7 +5198,19 @@ typedef struct {
      * accumulator gives the DERIVED N_gs path a propagated 95% CI (§5.2); max_w_c3
      * is the top single-probe canonical-leaf weight for the skew/ESS audit. */
     double sumsq_rc4s; uint64_t hits_rc4s; double max_w_c3;
+    /* Q-388 W/m(k) canonical-class estimator (SOLVE_KNUTH_FIBER=1): per-probe sums of
+     * W/m at all depth-32 leaves (-> records at the C1nC2nC4nC5 layer) and at C3-valid
+     * leaves (-> records at the C1-C5 layer), squared twins for the probe-level SE, and
+     * cross-products with the corresponding W sums for the delta-method SE of the mean
+     * fiber ratio N/R. fib_bad counts leaves whose computed fiber is < 1 — impossible
+     * (the leaf's own orientation vector is a fiber member), so nonzero = the DP is
+     * broken and the run's fiber output is void (reported loudly, never silently). */
+    double sum_fib, sq_fib, sum_fib_c3, sq_fib_c3, x_leaf_fib, x_c3_fib;
+    double fib_min, fib_max; uint64_t fib_bad;
     double sum_rc1, sum_rc2, sum_rc5;   /* weighted canonical-leaf mass satisfying each rule */
+    double sq_rc1, sq_rc2, sq_rc5, sq_rc1c_s2, sq_rc1c_s32, sq_rc1c_adj, sq_rm1s, sq_rm1k,
+           sq_rm2k, sq_rm2s, sq_mj, sq_rc3, sq_rc3w, sq_rc4k, sq_rc4b, sq_rc4c, sq_dv1,
+           sq_dv2, sq_par, sq_wrap[7], sq_reg[31]; /* squared-weight twins: delta-method SE (Q-374) */
     /* R-C1c (R6, Cook 2006 anchor + McKenna & McKenna 1975 circular frame): circular
      * anchor-adjacency indicator — the alternating pair A2={21,42} occupies pair slot 2 or
      * slot 32 (slot 1 is the C4-pinned pure pair). sum_rc1c_s32 == sum_rc1 by construction
@@ -4987,17 +5268,20 @@ typedef struct {
     double *f4p_hist;                     /* SOLVE_KNUTH_SCORE_F4P=1: [13*512] weighted value histogram per
                                            * F4' functional (heap-allocated only when active; NULL otherwise) */
     double f4p_sum[13];                   /* weighted sum of each functional's value over canonical leaves */
+    double f4p_sq_below[13], f4p_sq_at[13], f4p_sq_above[13]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double f4p_below[13], f4p_at[13], f4p_above[13];  /* weighted mass <KW / ==KW / >KW per functional */
     int f4p_min[13], f4p_max[13];         /* min/max functional value seen across canonical leaves */
     double *dav_hist;                     /* SOLVE_KNUTH_SCORE_DAV=1: [9*64] weighted value histogram per
                                            * Davis-2012 candidate (heap-allocated only when active) */
     double dav_sum[9];                    /* weighted sum of each candidate's value over canonical leaves */
+    double dav_sq_below[9], dav_sq_at[9], dav_sq_above[9]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double dav_below[9], dav_at[9], dav_above[9];  /* weighted mass <KW / ==KW / >KW per candidate
                                            * (booleans: at-mass with kw=1 == mass-of-TRUE) */
     int dav_min[9], dav_max[9];           /* min/max candidate value seen across canonical leaves */
     double *dav2_hist;                    /* SOLVE_KNUTH_SCORE_DAV2=1: [2*64] weighted value histogram per
                                            * Davis-2012 wave-2 candidate (heap-allocated only when active) */
     double dav2_sum[2];                   /* weighted sum of each wave-2 candidate's value over canonical leaves */
+    double dav2_sq_below[2], dav2_sq_at[2], dav2_sq_above[2]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double dav2_below[2], dav2_at[2], dav2_above[2];  /* weighted mass <KW / ==KW / >KW per wave-2 candidate */
     int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */
     /* SOLVE_KNUTH_SCORE_DB1=1 (Drasny "Rule of Ten" D-B1, Null B): weighted
@@ -5006,12 +5290,14 @@ typedef struct {
      * Estimator-only, sha-neutral (never on the enum/selftest path). */
     double db1_hist[33];
     double db1_sum, db1_below, db1_at, db1_above;
+    double db1_sq_below, db1_sq_at, db1_sq_above; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int db1_min, db1_max;
     double *f5_hist;                      /* SOLVE_KNUTH_SCORE_F5=1: [11*64] weighted value histogram per
                                            * F5 orientation-layer functional (heap-allocated only when active).
                                            * Leaves are orientation-BEARING (walk enumerates orientation
                                            * branches pre-dedup) — required by F5 preregistration §4. */
     double f5_sum[11];                    /* weighted sum of each functional's value over canonical leaves */
+    double f5_sq_below[11], f5_sq_at[11], f5_sq_above[11]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double f5_below[11], f5_at[11], f5_above[11];  /* weighted mass <KW / ==KW / >KW per functional */
     int f5_min[11], f5_max[11];           /* min/max functional value seen across canonical leaves */
     double *f6_hist;                      /* SOLVE_KNUTH_SCORE_F6=1: [7*64] weighted value histogram per
@@ -5020,6 +5306,7 @@ typedef struct {
                                            * orientation-bearing pre-dedup (needed by #6-7; #1-5 are
                                            * orientation-blind — frozen spec FT5). */
     double f6_sum[7];                     /* weighted sum of each functional's value over canonical leaves */
+    double f6_sq_below[7], f6_sq_at[7], f6_sq_above[7]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double f6_below[7], f6_at[7], f6_above[7];  /* weighted mass <KW / ==KW / >KW per functional */
     int f6_min[7], f6_max[7];             /* min/max functional value seen across canonical leaves */
     double *perm_hist;                    /* SOLVE_KNUTH_SCORE_PERM=1: [13*512] weighted value histogram per
@@ -5028,8 +5315,10 @@ typedef struct {
                                            * required by R3 prereg §2 (a single within-pair flip changes the
                                            * cycle structure / flips the sign). */
     double perm_sum[13];                  /* weighted sum of each functional's value over canonical leaves */
+    double perm_sq_below[13], perm_sq_at[13], perm_sq_above[13]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double perm_below[13], perm_at[13], perm_above[13];  /* weighted mass <KW / ==KW / >KW per functional */
     int perm_min[13], perm_max[13];       /* min/max functional value seen across canonical leaves */
+    double perm_tmatch_sq[2]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double perm_tmatch[2];                /* report-only template-match mass (full cycle type == KW's;
                                            * [bot,top]; data-like descriptive, no verdict — R3 prereg §4) */
     double *f11_hist;                     /* SOLVE_KNUTH_F11_HIST=1 (requires SOLVE_KNUTH_SCORE=1): joint
@@ -5054,10 +5343,63 @@ typedef struct {
                                            * histogram, index depth*65 + live_children (0..64). Heap-
                                            * allocated only when active. R5 §8 Stage B1. */
     double *depth_visit;                  /* [33] unweighted probe-visit count per depth (diagnostic). */
+    double h2_sum_w;                      /* SOLVE_KNUTH_H2=1 (H2 near-precursor edit-ball mass; requires
+                                           * the triple-strict walk): Σ W over grand-strict (GS) leaves —
+                                           * the same mass as sum_c3 under the strict prunes. */
+    double h2_sum_wf_p, h2_sum_wf_c;      /* Σ W·f(G) where f(G) = Σ_{S∈B3(G)∩V} 1/c(S) with the
+                                           * overlap-dedup weight c(S) = |B3(S)∩GS|; _p uses
+                                           * V = C1∩C2∩C4∩C5 (flagship population), _c additionally
+                                           * requires C3 ≤ 776 (canonical C1–C5 population). */
+    double h2_sum_wnv_p, h2_sum_wnv_c;    /* Σ W·|B3(G)∩V| WITHOUT the 1/c dedup (naive union-bound
+                                           * numerator) — the overlap-correction diagnostic. */
+    uint64_t h2_leaves;                   /* GS leaves evaluated. */
+    uint64_t h2_ck_ok, h2_ck_bad;         /* pruned-vs-brute c(S) cross-check tallies (deterministic
+                                           * 1/64 leaf subsample; bad MUST be 0) + per-leaf strictness/
+                                           * validity two-implementation asserts folded into bad. */
 } KnuthArg;
 
 static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x^=x<<17; *s=x; return x; }
 
+/* ===== Q-389 Purdom (1978) partial-backtracking estimator + Q-388 W/m(k) canonical-
+ * class (orientation-fiber) estimator — estimator-only, sha-neutral (knuth path; never
+ * exercised by --selftest). Design provenance: Codex L17 asked for the Purdom estimator
+ * (D7 ruling I-1(b), 2026-08-28); Codex A02 stated the W/m(k) canonical-class estimator
+ * (D7 ruling I-5); A1_ORIENTATION_FIBER_MEASUREMENT.md (2026-08-01) §6.1 specifies the
+ * fiber port and its KW gate. Attribution: Purdom, "Tree size by partial backtracking",
+ * SIAM J. Comput. 7(2), 1978; Knuth 1975 is its single-path special case.
+ *
+ * SOLVE_KNUTH_PURDOM_W=<w> (w>=2): at each node with d live children within the first
+ * SOLVE_KNUTH_PURDOM_DEPTH free levels (default 7), descend into s=min(d,w) DISTINCT
+ * uniform-random children, each with weight W*(d/s); below the cutoff, single-path
+ * Knuth (s=1). Unbiasedness (induction on subtree height): E[est(v)] = 1 + (d/s)*
+ * E[sum over the s sampled children] = 1 + (d/s)*(s/d)*sum_i E[est(c_i)] = |subtree(v)|,
+ * for ANY (w, cutoff) — the sample-path space changes (multi-child partial backtracking),
+ * not merely the importance weights, which is what makes it a second estimator
+ * DERIVATION, not a reweighting of Knuth's. Scope (per D7 I-1(a)): this buys
+ * ESTIMATOR-derivation independence only — it shares the walk code, prune predicates
+ * and pair tables, so it does NOT discharge the operator-accepted shared-oracle floor.
+ * Refused in combination with the scoring/strict-walk instruments (loud error at parse).
+ *
+ * SOLVE_KNUTH_FIBER=1: at each depth-32 leaf compute m = |orientation fiber of the
+ * leaf's pair ordering| (EXACT transfer DP, not a sample) and contribute W/m. Since
+ * sum over the fiber members of 1/m = 1 per pair-order class, E[sum W/m over leaves]
+ * = #records (canonical pair-order classes with a nonempty fiber) — the orientation-
+ * DEDUPLICATED count whose "~4x"-derived 3.3e37 figure was withdrawn 2026-08-24.
+ * C3 is constant on a fiber (C3 = 16 + 8*G, lean/C3Decomposition.lean; A1 §1.4), so
+ * the C3-filtered accumulator estimates R(C1-C5) with no C3 term in the DP.
+ * Gate: the KW pair ordering's fiber must equal 1,720,320 = 3*5*7*2^14 (TR-1 §7) at
+ * init, else fatal. SOLVE_KNUTH_FIBER_PERM="p0,p1,...,p31" computes one fiber and
+ * exits (cross-check hook vs verify.py fiber_count, incl. fiber-0 controls).
+ * SOLVE_KNUTH_FIBER_XCHECK=<n> prints the first n leaves' (perm, m) for the same
+ * cross-check on real walk leaves. */
+static int knuth_purdom_w = 0;       /* SOLVE_KNUTH_PURDOM_W: 0 = off; >=2 = branching width */
+static int knuth_purdom_depth = 7;   /* SOLVE_KNUTH_PURDOM_DEPTH: free levels with multi-child descent */
+static int knuth_fiber = 0;          /* SOLVE_KNUTH_FIBER=1: W/m(k) canonical-class estimator */
+static int knuth_fiber_xcheck = 0;   /* SOLVE_KNUTH_FIBER_XCHECK=<n>: print first n (perm, m) leaves */
+static int fib_B[7];                 /* residual between-pair budget per distance class */
+static int fib_stride[7];            /* mixed-radix stride per class (active tables) */
+static int fib_ncode = 0;            /* product of (fib_B[d]+1); 1 in unbounded (RELAX_C5) mode */
+static int fib_unbounded = 0;        /* RELAX_C5: only d==5 forbidden, no budget tracking */
 static int knuth_pin_c67 = 0;
 static unsigned knuth_pin_mask = 0;  /* SOLVE_KNUTH_PIN_SLOTS="3,4,20,21": pin listed slots to KW's pairs
                                       * (orientation free). Generalizes SOLVE_KNUTH_C67 (== slots 24-27).
@@ -5470,7 +5812,21 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
         }
         ind[23] = (nc == 4 && okc && oki);
     }
-    /* 24: s6 — K4-orbit structure: within-orbit pairs; size-4 orbits entered via rev */
+    /* 24: s6 — K4-orbit structure: within-orbit pairs; size-4 orbits entered via rev.
+     * ATTRIBUTION: the Klein four-group orbit decomposition of the 64 hexagrams under
+     * {id, rev, comp, rev∘comp} is PRIOR ART, and far older than the modern citations
+     * this comment carried until 2026-08-16. WU CHENG 吳澄 (1249-1333), 《易纂言外翼》
+     * 卷一〈卦對第二〉, gives the COMPLETE decomposition of all 64 — 「卦畫奇偶正對，二篇
+     * 共二十對」, i.e. 12 orbits of size 4 plus 8 of size 2 — with his three classes
+     * matching the three stabiliser types exactly, and 「反易取正對」 IS the composition
+     * of the two operations. Parts were reached independently by Lai Zhide c.1600
+     * (both operations tabulated across all 64, never composed), Jiao Xun c.1813 and
+     * Cui Shu c.1800. In the modern literature: Zhang 1994 in the Chinese
+     * group-theoretic work, within the (Z/2)^6 framing of Ouyang 1992; Radisic 2026
+     * names it as the Klein four-group and verifies results in Lean 4.
+     * See documentation/CITATIONS.md#wucheng and #kongyingda.
+     * This rule MEASURES that structure against King Wen; it does not originate it.
+     * (Comment-only edit — no change to compiled output or to any canonical sha.) */
     {
         int within = 1, s4rev = 1;
         for (int k = 0; k < 32; k++){
@@ -5541,7 +5897,7 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
     }
 
     for (int i = 0; i < 31; i++)
-        if (ind[i]) a->sum_reg[i] += W;
+        if (ind[i]) { a->sum_reg[i] += W; a->sq_reg[i] += W*W; }
 }
 
 /* ===================== F4' ordering-layer functionals (SOLVE_KNUTH_SCORE_F4P) =====================
@@ -5744,6 +6100,9 @@ static void score_f4p(const int seq[64], double W, KnuthArg *a){
         if      (x < f4p_kw[k]) a->f4p_below[k] += W;
         else if (x == f4p_kw[k]) a->f4p_at[k]   += W;
         else                     a->f4p_above[k] += W;
+        if      (x < f4p_kw[k]) a->f4p_sq_below[k] += W*W;
+        else if (x == f4p_kw[k]) a->f4p_sq_at[k]    += W*W;
+        else              a->f4p_sq_above[k] += W*W;
         if (a->f4p_hist) a->f4p_hist[k * 512 + f4p_bin(k, x)] += W;
     }
 }
@@ -5961,6 +6320,9 @@ static void score_dav(const int seq[64], double W, KnuthArg *a){
         if      (x < dav_kw[k]) a->dav_below[k] += W;
         else if (x == dav_kw[k]) a->dav_at[k]   += W;
         else                     a->dav_above[k] += W;
+        if      (x < dav_kw[k]) a->dav_sq_below[k] += W*W;
+        else if (x == dav_kw[k]) a->dav_sq_at[k]    += W*W;
+        else              a->dav_sq_above[k] += W*W;
         if (a->dav_hist){
             int b = x - dav_lo[k];
             if (b < 0) b = 0;
@@ -6059,6 +6421,9 @@ static void score_dav2(const int seq[64], double W, KnuthArg *a){
         if      (x < dav2_kw[k]) a->dav2_below[k] += W;
         else if (x == dav2_kw[k]) a->dav2_at[k]   += W;
         else                      a->dav2_above[k] += W;
+        if      (x < dav2_kw[k]) a->dav2_sq_below[k] += W*W;
+        else if (x == dav2_kw[k]) a->dav2_sq_at[k]    += W*W;
+        else              a->dav2_sq_above[k] += W*W;
         if (a->dav2_hist){
             int b = x - dav2_lo[k];
             if (b < 0) b = 0;
@@ -6213,6 +6578,9 @@ static void score_db1(const int seq[64], double W, KnuthArg *a){
     if      (x < db1_kw_x) a->db1_below += W;
     else if (x == db1_kw_x) a->db1_at   += W;
     else                    a->db1_above += W;
+    if      (x < db1_kw_x) a->db1_sq_below += W*W;
+    else if (x == db1_kw_x) a->db1_sq_at    += W*W;
+    else                    a->db1_sq_above += W*W;
     if (x >= 0 && x <= 32) a->db1_hist[x] += W;
 }
 
@@ -6412,6 +6780,9 @@ static void score_f5(const int seq[64], double W, KnuthArg *a){
         if      (x < f5_kw[k]) a->f5_below[k] += W;
         else if (x == f5_kw[k]) a->f5_at[k]   += W;
         else                    a->f5_above[k] += W;
+        if      (x < f5_kw[k]) a->f5_sq_below[k] += W*W;
+        else if (x == f5_kw[k]) a->f5_sq_at[k]    += W*W;
+        else              a->f5_sq_above[k] += W*W;
         if (a->f5_hist){
             int b = x - f5_lo[k];
             if (b < 0) b = 0;
@@ -6533,6 +6904,9 @@ static void score_f6(const int seq[64], double W, KnuthArg *a){
         if      (x < f6_kw[k]) a->f6_below[k] += W;
         else if (x == f6_kw[k]) a->f6_at[k]   += W;
         else                    a->f6_above[k] += W;
+        if      (x < f6_kw[k]) a->f6_sq_below[k] += W*W;
+        else if (x == f6_kw[k]) a->f6_sq_at[k]    += W*W;
+        else              a->f6_sq_above[k] += W*W;
         if (a->f6_hist){
             int b = x - f6_lo[k];
             if (b < 0) b = 0;
@@ -6705,10 +7079,13 @@ static void score_perm(const int seq[64], double W, KnuthArg *a){
         if      (x < perm_kw[k]) a->perm_below[k] += W;
         else if (x == perm_kw[k]) a->perm_at[k]   += W;
         else                      a->perm_above[k] += W;
+        if      (x < perm_kw[k]) a->perm_sq_below[k] += W*W;
+        else if (x == perm_kw[k]) a->perm_sq_at[k]    += W*W;
+        else              a->perm_sq_above[k] += W*W;
         if (a->perm_hist) a->perm_hist[k * 512 + perm_bin(k, x)] += W;
     }
-    if (tm[0]) a->perm_tmatch[0] += W;
-    if (tm[1]) a->perm_tmatch[1] += W;
+    if (tm[0]) { a->perm_tmatch[0] += W; a->perm_tmatch_sq[0] += W*W; }
+    if (tm[1]) { a->perm_tmatch[1] += W; a->perm_tmatch_sq[1] += W*W; }
 }
 
 /* ===================== R11 four-class Bayes: 8-axis violation vector =====================
@@ -6844,6 +7221,568 @@ static void r11_hash_add(KnuthArg *a, uint32_t key, double W){
     }
 }
 
+/* ===================== H2 near-precursor edit-ball mass (SOLVE_KNUTH_H2) =====================
+ * Measures the H2 ("near-precursor law") edit-ball mass: the fraction of the flagship
+ * population within slot-edit distance 3 of the grand-strict subspace GS (Moore 2005 parity
+ * strict ∧ Moore 1989 rhythm strict ∧ Schulz 1990 graded/gender strict, within canonical
+ * C1–C5; TR-2, N_gs = 4.50e25). Runs only under the composed triple-strict Knuth walk
+ * (SOLVE_KNUTH_MOORE_STRICT=1 + SOLVE_KNUTH_GENDER_STRICT=1): at every canonical strict
+ * leaf G ∈ GS, exactly enumerates the closed radius-3 slot-edit ball B3(G) (the sat.py
+ * near-k metric: # pair-slots whose (pair, orientation) differs; slot 0 fixed; |B3| =
+ * 1 + 31 + C(31,2)·5 + C(31,3)·29 = 132,712) and accumulates
+ *     f(G) = Σ_{S ∈ B3(G) ∩ V} 1 / c(S),   c(S) = |B3(S) ∩ GS| ≥ 1,
+ * so that Σ_{G∈GS} f(G) = |{S ∈ V : d_edit(S, GS) ≤ 3}| EXACTLY (each qualifying S is
+ * counted once: the 1/c(S) weights partition it across the GS members that cover it).
+ * Two population variants per leaf: V_p = C1∩C2∩C4∩C5 (flagship) and V_c = + C3 ≤ 776
+ * (canonical). The Knuth weight W makes Σ W·f / n_probes unbiased for Σ_G f(G); the
+ * self-normalized ratio (Σ W·f)/(Σ W) estimates E_{G~unif(GS)}[f], to be multiplied by the
+ * independently measured N_gs downstream (solve.py --h2-mass).
+ * c(S) prune (exact, not heuristic): Moore-parity compliance of a pair-slot depends only on
+ * (pair, slot) — orientation-free (line-reversal preserves popcount) and slot-local — so a
+ * strict member of B3(S) must change EVERY parity-violating slot of S; slot sets are
+ * restricted to supersets of that violation set (≤ 3, else c(S)=0 — impossible for
+ * S ∈ B3(G)). A deterministic 1/64 leaf subsample re-runs every c(S) un-pruned and any
+ * disagreement is counted in h2_ck_bad (must end 0).
+ * Estimator-only, sha-neutral (argv/env-gated; never on the enumeration path).
+ * ATTRIBUTION: rules Moore 2005 (Oracle Papers No.1), Moore 1989 (Trigrams of Han App.2),
+ * Schulz 1990 (JCP 17:3; exceptions noted by Zhu Yuansheng, 13th c.); estimator Knuth 1975;
+ * ball metric = sat.py near-k (TR-2). Measurement design + implementation developed with AI
+ * assistance (Claude — Fable 5, Anthropic). Private-hypothesis instrument: MAGNITUDE ONLY,
+ * no spec/constraint implication (see roae-private H2 doc). */
+static int knuth_h2 = 0;                 /* SOLVE_KNUTH_H2=1 */
+static FILE *knuth_h2_fp = NULL;         /* SOLVE_KNUTH_H2_DUMP=<path>: per-GS-leaf audit dump */
+static pthread_mutex_t knuth_h2_mu = PTHREAD_MUTEX_INITIALIZER;
+
+/* Grand-strict witness (SAT, 2026-07-03; TR-2 §3 / LITERATURE_RULES_POPULATION_TESTS.md
+ * §SAT-decided; same constant as reports/evidence/f11/f11_events.py) — selftest anchor. */
+static const int h2_grand_witness[64] = {
+    63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,39,33,30,
+    18,45,28,14,60,15,40,5,53,43,20,10,35,49,24,6,62,31,26,22,29,46,9,36,52,11,
+    13,44,54,27,50,19,51,12,21,42};
+
+static inline int h2_rev6(int h){
+    int r = 0;
+    for (int b = 0; b < 6; b++) r |= ((h >> b) & 1) << (5 - b);
+    return r;
+}
+
+/* C1/C4 are structural under slot edits; V-membership needs the C5 transition multiset
+ * (== kw_dist, which also enforces C2 since kw_dist[5] == 0). */
+static int h2_pop_valid(const int s[64]){
+    int cnt[7] = {0};
+    for (int i = 0; i < 63; i++){
+        int d = hamming(s[i], s[i+1]);
+        if (d == 5) return 0;
+        cnt[d]++;
+    }
+    for (int d = 0; d < 7; d++) if (cnt[d] != kw_dist[d]) return 0;
+    return 1;
+}
+
+/* Moore 2005 parity violations (semantics identical to the R-M1 leaf scorer / strict-walk
+ * prune: comp-pairs and popcount-3 pairs exempt); optionally records up to 4 violating
+ * pair-slots. KW = 2 (pair-slots 21,22 0-indexed = 22,23 1-indexed). */
+static int h2_parity_viol(const int s[64], int *slots){
+    int v = 0;
+    for (int q = 0; q < 32; q++){
+        int h = s[2*q], h2 = s[2*q+1];
+        if ((h ^ h2) == 63) continue;
+        int pc = __builtin_popcount((unsigned)h);
+        if (pc == 3) continue;
+        if ((pc > 3) != ((q + 1) & 1)){ if (slots && v < 4) slots[v] = q; v++; }
+    }
+    return v;
+}
+
+/* Moore 1989 rhythm breaks (identical to the R-M2 leaf scorer). KW = 2. */
+static int h2_rhythm_breaks(const int s[64]){
+    int prev = 0, have = 0, prev_adj = 0, br = 0;
+    for (int q = 0; q < 32; q++){
+        int h = s[2*q], h2 = s[2*q+1];
+        if ((h ^ h2) == 63){ prev_adj = 0; continue; }
+        int pc = __builtin_popcount((unsigned)h);
+        if (pc == 3){ prev_adj = 0; continue; }
+        int mb = (pc > 3) ? 0 : 1, sc = 0;
+        for (int i = 0; i < 6; i++) if (((h >> i) & 1) == mb) sc += 5 - 2*i;
+        int rf = sc > 0;
+        if (have && prev_adj && rf == prev) br++;
+        prev = rf; have = 1; prev_adj = 1;
+    }
+    return br;
+}
+
+/* Schulz 1990 gender/position-parity violations over first-occurrence inversion classes
+ * (identical to the rc4 leaf scorer; popcount {0,3,6} exempt). KW = 2 (class pos 25,26). */
+static int h2_gender_viol(const int s[64]){
+    int cls_of[64], ncls = 0, viol = 0;
+    for (int z = 0; z < 64; z++) cls_of[z] = -1;
+    for (int z = 0; z < 64; z++){
+        int h = s[z], r = h2_rev6(h);
+        int key = h < r ? h : r;
+        if (cls_of[key] < 0){
+            cls_of[key] = ++ncls;
+            int pc = __builtin_popcount((unsigned)h);
+            if (pc != 0 && pc != 3 && pc != 6 && ((pc < 3) != ((ncls & 1) == 1))) viol++;
+        }
+    }
+    return viol;
+}
+
+static int h2_strict_ok(const int s[64]){
+    return h2_parity_viol(s, NULL) == 0 && h2_rhythm_breaks(s) == 0 && h2_gender_viol(s) == 0;
+}
+
+static inline void h2_set_slot(int s[64], int slot, int p, int o){
+    s[2*slot]   = o ? pairs[p].b : pairs[p].a;
+    s[2*slot+1] = o ? pairs[p].a : pairs[p].b;
+}
+
+typedef void (*h2_cand_fn)(const int cand[64], void *ud);
+
+/* Emit every arrangement of the sorted slot set ts[0..n-1] (n in 1..3) in which ALL listed
+ * slots differ from the base: n=1 → 1 (orientation flip); n=2 → 5 (both-flip + pair-swap ×4
+ * orientations); n=3 → 29 (all-flip 1, transposition+fixed-flip 3×4, two 3-cycles ×8). */
+static void h2_emit_patterns(const int base[64], const int pr[32], const int orr[32],
+                             const int *ts, int n, h2_cand_fn fn, void *ud){
+    int cand[64];
+    if (n == 1){
+        memcpy(cand, base, sizeof(cand));
+        h2_set_slot(cand, ts[0], pr[ts[0]], !orr[ts[0]]);
+        fn(cand, ud);
+    } else if (n == 2){
+        int a = ts[0], b = ts[1];
+        memcpy(cand, base, sizeof(cand));
+        h2_set_slot(cand, a, pr[a], !orr[a]);
+        h2_set_slot(cand, b, pr[b], !orr[b]);
+        fn(cand, ud);
+        for (int o0 = 0; o0 < 2; o0++) for (int o1 = 0; o1 < 2; o1++){
+            memcpy(cand, base, sizeof(cand));
+            h2_set_slot(cand, a, pr[b], o0);
+            h2_set_slot(cand, b, pr[a], o1);
+            fn(cand, ud);
+        }
+    } else {
+        int a = ts[0], b = ts[1], c = ts[2];
+        memcpy(cand, base, sizeof(cand));
+        h2_set_slot(cand, a, pr[a], !orr[a]);
+        h2_set_slot(cand, b, pr[b], !orr[b]);
+        h2_set_slot(cand, c, pr[c], !orr[c]);
+        fn(cand, ud);
+        static const int T[3][3] = {{0,1,2},{0,2,1},{1,2,0}};   /* (swap i,j; fix k) */
+        for (int t = 0; t < 3; t++){
+            int i = ts[T[t][0]], j = ts[T[t][1]], k = ts[T[t][2]];
+            for (int o0 = 0; o0 < 2; o0++) for (int o1 = 0; o1 < 2; o1++){
+                memcpy(cand, base, sizeof(cand));
+                h2_set_slot(cand, i, pr[j], o0);
+                h2_set_slot(cand, j, pr[i], o1);
+                h2_set_slot(cand, k, pr[k], !orr[k]);
+                fn(cand, ud);
+            }
+        }
+        for (int dir = 0; dir < 2; dir++) for (int om = 0; om < 8; om++){
+            memcpy(cand, base, sizeof(cand));
+            if (dir == 0){          /* a←b, b←c, c←a */
+                h2_set_slot(cand, a, pr[b], om & 1);
+                h2_set_slot(cand, b, pr[c], (om >> 1) & 1);
+                h2_set_slot(cand, c, pr[a], (om >> 2) & 1);
+            } else {                /* a←c, b←a, c←b */
+                h2_set_slot(cand, a, pr[c], om & 1);
+                h2_set_slot(cand, b, pr[a], (om >> 1) & 1);
+                h2_set_slot(cand, c, pr[b], (om >> 2) & 1);
+            }
+            fn(cand, ud);
+        }
+    }
+}
+
+static void h2_sort_slots(int *ts, int n){
+    for (int i = 1; i < n; i++){
+        int v = ts[i], j = i;
+        while (j > 0 && ts[j-1] > v){ ts[j] = ts[j-1]; j--; }
+        ts[j] = v;
+    }
+}
+
+/* Enumerate the closed radius-3 slot-edit ball around base, restricted to slot-change sets
+ * T ⊇ req (free slots 1..31; slot 0 is fixed by canonical form). The d=0 base itself is
+ * emitted iff nreq == 0. Total candidates at nreq=0: 1 + 31 + 2,325 + 130,355 = 132,712. */
+static void h2_ball_enum(const int base[64], const int pr[32], const int orr[32],
+                         const int *req, int nreq, h2_cand_fn fn, void *ud){
+    int fr[31], nf = 0, ts[3];
+    for (int s = 1; s < 32; s++){
+        int inr = 0;
+        for (int i = 0; i < nreq; i++) if (req[i] == s) inr = 1;
+        if (!inr) fr[nf++] = s;
+    }
+    if (nreq == 0) fn(base, ud);
+    for (int n = (nreq > 1 ? nreq : 1); n <= 3; n++){
+        int extra = n - nreq;
+        if (extra < 0) continue;
+        if (extra == 0){
+            if (nreq) memcpy(ts, req, (size_t)n * sizeof(int));   /* req may be NULL when nreq==0; memcpy(_,NULL,0) is UB */
+            h2_sort_slots(ts, n);
+            h2_emit_patterns(base, pr, orr, ts, n, fn, ud);
+        } else if (extra == 1){
+            for (int i = 0; i < nf; i++){
+                if (nreq) memcpy(ts, req, (size_t)nreq * sizeof(int));   /* see above: NULL src is UB even at length 0 */
+                ts[nreq] = fr[i];
+                h2_sort_slots(ts, n);
+                h2_emit_patterns(base, pr, orr, ts, n, fn, ud);
+            }
+        } else if (extra == 2){
+            for (int i = 0; i < nf; i++) for (int j = i+1; j < nf; j++){
+                if (nreq) memcpy(ts, req, (size_t)nreq * sizeof(int));   /* see above: NULL src is UB even at length 0 */
+                ts[nreq] = fr[i]; ts[nreq+1] = fr[j];
+                h2_sort_slots(ts, n);
+                h2_emit_patterns(base, pr, orr, ts, n, fn, ud);
+            }
+        } else {  /* extra == 3 (nreq == 0) */
+            for (int i = 0; i < nf; i++) for (int j = i+1; j < nf; j++) for (int k = j+1; k < nf; k++){
+                ts[0] = fr[i]; ts[1] = fr[j]; ts[2] = fr[k];
+                h2_emit_patterns(base, pr, orr, ts, 3, fn, ud);
+            }
+        }
+    }
+}
+
+static void h2_pr_orr_of(const int s[64], int pr[32], int orr[32]){
+    for (int q = 0; q < 32; q++){
+        int p = pair_index_of(s[2*q], s[2*q+1]);
+        pr[q] = p;
+        orr[q] = (pairs[p].a == s[2*q]) ? 0 : 1;
+    }
+}
+
+typedef struct { int cnt; } H2C;
+static void h2_cscan_cb(const int cand[64], void *ud){
+    H2C *c = (H2C*)ud;
+    if (h2_parity_viol(cand, NULL)) return;      /* cheapest + most selective first */
+    if (!h2_pop_valid(cand)) return;
+    if (h2_rhythm_breaks(cand)) return;
+    if (h2_gender_viol(cand)) return;
+    if (compute_comp_dist_x64(cand) > kw_comp_dist_x64) return;
+    c->cnt++;
+}
+
+/* c(S) = |B3(S) ∩ GS|. use_prune=1 applies the exact parity-slot superset restriction;
+ * use_prune=0 scans the whole ball (cross-check path). */
+static int h2_cscan(const int s[64], int use_prune){
+    int pr[32], orr[32], pv[4];
+    h2_pr_orr_of(s, pr, orr);
+    int npv = h2_parity_viol(s, pv);
+    if (npv > 3) return 0;
+    H2C c = {0};
+    if (use_prune) h2_ball_enum(s, pr, orr, pv, npv, h2_cscan_cb, &c);
+    else           h2_ball_enum(s, pr, orr, NULL, 0, h2_cscan_cb, &c);
+    return c.cnt;
+}
+
+typedef struct {
+    int do_brute;
+    int nv_p, nv_c;
+    double f_p, f_c;
+    uint64_t err, brute_bad;
+    uint64_t n_cand;                     /* geometry check: must equal 132,712 per full scan */
+} H2F;
+
+static void h2_fscan_cb(const int cand[64], void *ud){
+    H2F *f = (H2F*)ud;
+    f->n_cand++;
+    if (!h2_pop_valid(cand)) return;
+    int cc = h2_cscan(cand, 1);
+    if (f->do_brute && h2_cscan(cand, 0) != cc) f->brute_bad++;
+    if (cc < 1){ f->err++; return; }     /* impossible: the seeding GS member covers cand */
+    f->nv_p++; f->f_p += 1.0 / (double)cc;
+    if (compute_comp_dist_x64(cand) <= kw_comp_dist_x64){ f->nv_c++; f->f_c += 1.0 / (double)cc; }
+}
+
+static void h2_eval_leaf(const int seq[64], double W, KnuthArg *a){
+    a->h2_leaves++;
+    /* two-implementation cross-check of the strict prunes + walk validity (cf. f11_gs_mismatch) */
+    if (!h2_strict_ok(seq) || !h2_pop_valid(seq) ||
+        compute_comp_dist_x64(seq) > kw_comp_dist_x64){ a->h2_ck_bad++; return; }
+    int pr[32], orr[32];
+    h2_pr_orr_of(seq, pr, orr);
+    H2F f; memset(&f, 0, sizeof(f));
+    f.do_brute = ((a->h2_leaves - 1) % 64 == 0);
+    h2_ball_enum(seq, pr, orr, NULL, 0, h2_fscan_cb, &f);
+    if (f.err || f.brute_bad || f.n_cand != 132712) a->h2_ck_bad++;
+    else if (f.do_brute) a->h2_ck_ok++;
+    a->h2_sum_w    += W;
+    a->h2_sum_wf_p += W * f.f_p;           a->h2_sum_wf_c += W * f.f_c;
+    a->h2_sum_wnv_p += W * (double)f.nv_p; a->h2_sum_wnv_c += W * (double)f.nv_c;
+    if (knuth_h2_fp){
+        pthread_mutex_lock(&knuth_h2_mu);
+        fprintf(knuth_h2_fp, "H2LEAF w=%.17e c3=%d nvp=%d nvc=%d fp=%.17e fc=%.17e ck=%d seq=",
+                W, compute_comp_dist_x64(seq), f.nv_p, f.nv_c, f.f_p, f.f_c,
+                f.do_brute ? (f.brute_bad ? -1 : 1) : 0);
+        for (int i = 0; i < 64; i++) fprintf(knuth_h2_fp, "%d%c", seq[i], i < 63 ? ',' : '\n');
+        fflush(knuth_h2_fp);
+        pthread_mutex_unlock(&knuth_h2_mu);
+    }
+}
+
+static void h2_count_cb(const int cand[64], void *ud){ (void)cand; (*(uint64_t*)ud)++; }
+
+/* Fail-loud selftest, run before any probe when SOLVE_KNUTH_H2=1: KW (2,2,2) ground truths
+ * (the authors' own published tallies — same gates as --r11-verify / f11_events.py), the
+ * grand-strict witness's strictness + C3 = 776 + slot-distance-3 from KW (TR-2 SAT results),
+ * ball cardinality 132,712, pruned == brute c(S) on the witness, and the f11_events.py
+ * exact-enumeration lower bounds (its footprint-≤3 bamboo events are a subset of the metric
+ * ball: ≥ 530 valid-canonical members, c(witness) ≥ 37 GS members, both incl. the base). */
+static void h2_selftest(void){
+    int pv[4];
+    if (h2_parity_viol(KW, pv) != 2 || pv[0] != 21 || pv[1] != 22 ||
+        h2_rhythm_breaks(KW) != 2 || h2_gender_viol(KW) != 2 ||
+        !h2_pop_valid(KW) || compute_comp_dist_x64(KW) != 776){
+        fprintf(stderr, "[h2] SELFTEST FAIL: KW ground truths\n"); exit(1);
+    }
+    const int *G = h2_grand_witness;
+    if (!h2_pop_valid(G) || !h2_strict_ok(G) || compute_comp_dist_x64(G) != 776){
+        fprintf(stderr, "[h2] SELFTEST FAIL: grand-strict witness ground truths\n"); exit(1);
+    }
+    int d = 0;
+    for (int q = 0; q < 32; q++)
+        if (G[2*q] != KW[2*q] || G[2*q+1] != KW[2*q+1]) d++;
+    if (d != 3){ fprintf(stderr, "[h2] SELFTEST FAIL: witness slot-distance %d != 3\n", d); exit(1); }
+    int pr[32], orr[32];
+    h2_pr_orr_of(G, pr, orr);
+    uint64_t nc = 0;
+    h2_ball_enum(G, pr, orr, NULL, 0, h2_count_cb, &nc);
+    if (nc != 132712){ fprintf(stderr, "[h2] SELFTEST FAIL: |B3| = %llu != 132712\n",
+                               (unsigned long long)nc); exit(1); }
+    int cw = h2_cscan(G, 1), cwb = h2_cscan(G, 0);
+    if (cw != cwb || cw < 37){
+        fprintf(stderr, "[h2] SELFTEST FAIL: c(witness) pruned=%d brute=%d (expect equal, >=37)\n",
+                cw, cwb); exit(1);
+    }
+    H2F f; memset(&f, 0, sizeof(f));
+    h2_ball_enum(G, pr, orr, NULL, 0, h2_fscan_cb, &f);
+    if (f.err || f.n_cand != 132712 || f.nv_c < 530 || f.nv_p < f.nv_c){
+        fprintf(stderr, "[h2] SELFTEST FAIL: witness ball scan (err=%llu nvp=%d nvc=%d)\n",
+                (unsigned long long)f.err, f.nv_p, f.nv_c); exit(1);
+    }
+    fprintf(stderr, "[h2] selftest OK: |B3|=132712; witness c=%d nvp=%d nvc=%d fp=%.6f fc=%.6f\n",
+            cw, f.nv_p, f.nv_c, f.f_p, f.f_c);
+}
+
+/* ============== Q-388 orientation-fiber (W/m) machinery — see the design block
+ * ============== at the knuth_purdom_w declaration above. Estimator-only, sha-neutral. */
+
+/* Build the fiber DP tables from the ACTIVE budget vector (budget0 as configured by
+ * estimate_tree_knuth: standard kw_dist or RELAX_C5; the C5_BUDGET override is refused
+ * with fiber at parse). budget0 arrives AFTER the pure-pair {63,0} within-transition
+ * decrement and BEFORE any prefix decrement (fiber+prefix is refused: a record count
+ * under an ORIENTED prefix is ambiguous between orientation conventions).
+ * Residual between-pair budget: B[d] = budget0[d] - #{within-pair distances == d over
+ * the 31 non-opening pairs}; the 31 boundary distances then draw from B. If every
+ * B[d] (d != 5) covers all 31 boundaries the budget cannot bind (RELAX_C5) and the DP
+ * drops the budget state entirely. Returns 0 on success, -1 (with stderr) if malformed. */
+static int fiber_build_tables(const int budget0[7]){
+    int within[7] = {0}, B[7];
+    int p63 = pair_index_of(63, 0);
+    for (int p = 0; p < 32; p++) if (p != p63) within[hamming(pairs[p].a, pairs[p].b)]++;
+    for (int d = 0; d < 7; d++) {
+        B[d] = (d == 5) ? 0 : budget0[d] - within[d];      /* C2: no 5-boundary ever */
+        if (B[d] < 0) { fprintf(stderr, "[fiber] residual budget for d=%d is %d < 0 — malformed\n", d, B[d]); return -1; }
+        if (B[d] > 31) B[d] = 31;                          /* only 31 boundaries exist */
+    }
+    fib_unbounded = 1;
+    for (int d = 0; d < 7; d++) if (d != 5 && B[d] < 31) fib_unbounded = 0;
+    if (fib_unbounded) {
+        fib_ncode = 1;
+        for (int d = 0; d < 7; d++) { fib_B[d] = (d == 5) ? 0 : 31; fib_stride[d] = 0; }
+        return 0;
+    }
+    int ncode = 1;
+    for (int d = 0; d < 7; d++) {
+        fib_B[d] = B[d]; fib_stride[d] = ncode; ncode *= (B[d] + 1);
+        if (ncode > 65536) { fprintf(stderr, "[fiber] budget code space %d exceeds 65536 — unsupported budget vector\n", ncode); return -1; }
+    }
+    fib_ncode = ncode;   /* standard budget: 3*9*14*8*2 = 6048 (A1 §1.5's "64 x 6,048" collapses
+                          * to 2 x 6048 here because only the slot's two faces can be the exit) */
+    return 0;
+}
+
+/* EXACT orientation-fiber size of the pair ordering carried by a completed leaf `seq`
+ * (only the FACES seq[2i], seq[2i+1] of each slot are read — the leaf's own orientation
+ * choice cannot change the answer). Forward transfer DP over the 31 boundaries: state =
+ * (exit-face choice o of the current slot, budget-consumption code). Counts are integers
+ * <= 2^31, exactly representable in double. Within-budget semantics — the identical
+ * predicate the walk enforces; with the standard budget (sum B = 31 over 31 boundaries)
+ * this coincides with verify.py fiber_count's exact-landing semantics (A1 §3.3: the
+ * landing filter is a proven redundancy there). Cross-instrument hooks:
+ * SOLVE_KNUTH_FIBER_PERM / SOLVE_KNUTH_FIBER_XCHECK, checked against verify.py. */
+static __thread double *fib_cur = NULL, *fib_nxt = NULL;
+static __thread int fib_alloc = 0;
+static double fiber_count_c(const int seq[64]){
+    const int NC = fib_ncode;
+    if (fib_alloc < 2 * NC) {
+        free(fib_cur); free(fib_nxt);
+        fib_cur = (double*)malloc((size_t)2 * NC * sizeof(double));
+        fib_nxt = (double*)malloc((size_t)2 * NC * sizeof(double));
+        if (!fib_cur || !fib_nxt) { fprintf(stderr, "[fiber] DP buffer allocation failed\n"); exit(1); }
+        fib_alloc = 2 * NC;
+    }
+    memset(fib_cur, 0, (size_t)2 * NC * sizeof(double));
+    fib_cur[0] = 1.0;   /* slot 0: o=0 (exit face seq[1] == 0, the C4-fixed opening), no budget used */
+    for (int i = 1; i < 32; i++) {
+        int f0 = seq[2*i], f1 = seq[2*i+1];              /* slot i faces: o=0 enters f0/exits f1 */
+        int e0 = seq[2*(i-1)+1], e1 = seq[2*(i-1)];      /* slot i-1 exit face per its state o */
+        memset(fib_nxt, 0, (size_t)2 * NC * sizeof(double));
+        int alive = 0;
+        for (int o = 0; o < 2; o++) {
+            int ex = o ? e1 : e0;
+            const double *src = fib_cur + (size_t)o * NC;
+            for (int on = 0; on < 2; on++) {
+                int entry = on ? f1 : f0;
+                int d = hamming(ex, entry);
+                if (d == 5 || fib_B[d] == 0) continue;
+                double *dst = fib_nxt + (size_t)on * NC;
+                if (fib_unbounded) {
+                    if (src[0] > 0) { dst[0] += src[0]; alive = 1; }
+                } else {
+                    int st = fib_stride[d], rad = fib_B[d] + 1, cap = fib_B[d];
+                    for (int code = 0; code < NC; code++) {
+                        double v = src[code];
+                        if (v > 0 && (code / st) % rad < cap) { dst[code + st] += v; alive = 1; }
+                    }
+                }
+            }
+        }
+        if (!alive) return 0.0;
+        double *t = fib_cur; fib_cur = fib_nxt; fib_nxt = t;
+    }
+    double m = 0.0;
+    for (int z = 0; z < 2 * NC; z++) m += fib_cur[z];
+    return m;
+}
+
+/* Init for a fiber run: FIRST gate the DP on King Wen's own pair ordering under the
+ * STANDARD budget — its C4-oriented fiber must equal 1,720,320 = 3*5*7*2^14 (TR-1 §7;
+ * the A1-mandated gate) — then rebuild the tables from the ACTIVE budget. A gate
+ * failure is fatal to the run: a fiber routine that cannot reproduce the known value
+ * measures nothing. */
+static int fiber_init(const int budget0[7]){
+    int std0[7]; memcpy(std0, kw_dist, sizeof(std0)); std0[hamming(63,0)]--;
+    if (fiber_build_tables(std0)) return -1;
+    double mkw = fiber_count_c(KW);
+    if (mkw != 1720320.0) {
+        fprintf(stderr, "[fiber] GATE FAILED: fiber(KW) = %.0f != 1720320 — the DP is wrong; refusing to run\n", mkw);
+        return -1;
+    }
+    fprintf(stderr, "[fiber] KW gate PASS: fiber(KW) = 1720320 = 3*5*7*2^14 (TR-1 §7)\n");
+    return fiber_build_tables(budget0);
+}
+
+/* Per-leaf bookkeeping shared by the Knuth and Purdom leaf handlers: min/max fiber
+ * observed, plus the FIBER-XCHECK trace (first n leaves' pair ordering and fiber, for
+ * the two-implementation cross-check against verify.py fiber_count). */
+static void fiber_leaf_note(KnuthArg *a, const int seq[64], double m){
+    if (a->fib_min == 0 || m < a->fib_min) a->fib_min = m;
+    if (m > a->fib_max) a->fib_max = m;
+    if (knuth_fiber_xcheck > 0 && __atomic_fetch_sub(&knuth_fiber_xcheck, 1, __ATOMIC_SEQ_CST) > 0) {
+        char buf[320]; int off = 0;
+        for (int i = 0; i < 32 && off < 300; i++)
+            off += snprintf(buf + off, (size_t)(320 - off), "%s%d", i ? "," : "", pair_of_hex(seq[2*i]));
+        fprintf(stderr, "FIBER-XCHECK perm=%s m=%.0f\n", buf, m);
+    }
+}
+
+/* ============== Q-389 Purdom (1978) partial-backtracking probe — see the design block
+ * ============== at the knuth_purdom_w declaration above. Estimator-only, sha-neutral.
+ * One probe = one recursive traversal: at a node with d live children within the first
+ * knuth_purdom_depth free levels, descend into s = min(d, w) DISTINCT uniform-random
+ * children with weight W*(d/s) each; below the cutoff s = 1 (single-path Knuth).
+ * Unbiased for any (w, cutoff) by induction on subtree height. The candidate loop is
+ * the plain C1/C2/C4/C5 prune (pins honored); the strict-walk and scoring instruments
+ * are refused with Purdom at parse, so their absence here cannot silently bias them. */
+static void purdom_recurse(KnuthArg *a, uint64_t *rng, int seq[64], pair_mask_t *used,
+                           int budget[7], int step, double W,
+                           double *node_acc, double *leaf_acc, double *c3_acc,
+                           double *fib_acc, double *fibc3_acc){
+    *node_acc += W;
+    if (step == 32) {
+        *leaf_acc += W;
+        int c3ok = (compute_comp_dist_x64(seq) <= kw_comp_dist_x64);
+        if (c3ok) *c3_acc += W;
+        if (knuth_fiber) {
+            double m = fiber_count_c(seq);
+            if (!(m >= 1.0)) a->fib_bad++;   /* impossible: the leaf's own orientation is a member */
+            else {
+                fiber_leaf_note(a, seq, m);
+                *fib_acc += W / m;
+                if (c3ok) *fibc3_acc += W / m;
+            }
+        }
+        return;
+    }
+    int prev_tail = seq[step*2 - 1];
+    int cp[64], co[64], d = 0;
+    for (int p = 0; p < 32; p++){
+        if (PAIR_MASK_TEST(*used, p)) continue;
+        if (knuth_pin_c67 && step >= 24 && step <= 27 && p != step) continue;   /* C6/C7 pins */
+        if (((knuth_pin_mask >> step) & 1u) && p != step) continue;             /* S(k) pins */
+        for (int orient = 0; orient < 2; orient++){
+            int first  = orient ? pairs[p].b : pairs[p].a;
+            int second = orient ? pairs[p].a : pairs[p].b;
+            int bd = hamming(prev_tail, first);
+            if (bd == 5) continue;                 /* C2 */
+            if (budget[bd] <= 0) continue;         /* C5 between-pair */
+            budget[bd]--;
+            int wd = hamming(first, second);
+            int live = budget[wd] > 0;             /* C5 within-pair (bd==wd safe) */
+            budget[bd]++;
+            if (!live) continue;
+            cp[d] = p; co[d] = orient; d++;
+        }
+    }
+    if (d == 0) return;
+    int s = (step - a->start_step < knuth_purdom_depth)
+            ? (d < knuth_purdom_w ? d : knuth_purdom_w) : 1;
+    /* partial Fisher-Yates: move s distinct uniform-random candidates to the front */
+    for (int j = 0; j < s; j++) {
+        int r = j + (int)(ks_next(rng) % (uint64_t)(d - j));
+        int tp = cp[j]; cp[j] = cp[r]; cp[r] = tp;
+        int to = co[j]; co[j] = co[r]; co[r] = to;
+    }
+    double Wc = W * (double)d / (double)s;
+    for (int j = 0; j < s; j++) {
+        int p = cp[j], orient = co[j];
+        int first  = orient ? pairs[p].b : pairs[p].a;
+        int second = orient ? pairs[p].a : pairs[p].b;
+        int bd = hamming(prev_tail, first), wd = hamming(first, second);
+        budget[bd]--; budget[wd]--;
+        seq[step*2] = first; seq[step*2+1] = second; PAIR_MASK_SET(*used, p);
+        purdom_recurse(a, rng, seq, used, budget, step + 1, Wc,
+                       node_acc, leaf_acc, c3_acc, fib_acc, fibc3_acc);
+        PAIR_MASK_CLR(*used, p); budget[wd]++; budget[bd]++;
+    }
+}
+
+static void *purdom_worker(void *vp){
+    KnuthArg *a = (KnuthArg*)vp;
+    uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
+    int seq[64]; pair_mask_t used; int budget[7];
+    if (a->prefix_dead) return NULL;   /* unreachable (strict modes refused with Purdom); kept for shape */
+    for (uint64_t t = 0; t < a->n_probes; t++){
+        memcpy(seq, a->seq0, sizeof(seq)); used = a->used0; memcpy(budget, a->budget0, sizeof(budget));
+        double node_acc = 0, leaf = 0, c3 = 0, fibv = 0, fibc3v = 0;
+        purdom_recurse(a, &rng, seq, &used, budget, a->start_step, 1.0,
+                       &node_acc, &leaf, &c3, &fibv, &fibc3v);
+        a->sum_leaf += leaf; a->sumsq_leaf += leaf*leaf; if (leaf > 0) a->hits_leaf++;
+        a->sum_c3   += c3;   a->sumsq_c3   += c3*c3;     if (c3 > 0)  a->hits_c3++;
+        if (c3 > a->max_w_c3) a->max_w_c3 = c3;
+        a->sum_node += node_acc; a->sumsq_node += node_acc*node_acc;
+        if (knuth_fiber) {
+            a->sum_fib += fibv;      a->sq_fib += fibv*fibv;
+            a->sum_fib_c3 += fibc3v; a->sq_fib_c3 += fibc3v*fibc3v;
+            a->x_leaf_fib += leaf*fibv; a->x_c3_fib += c3*fibc3v;
+        }
+    }
+    return NULL;
+}
+
 static void *knuth_worker(void *vp){
     KnuthArg *a = (KnuthArg*)vp;
     uint64_t rng = a->seed ? a->seed : 0x9E3779B97F4A7C15ULL;
@@ -6854,6 +7793,7 @@ static void *knuth_worker(void *vp){
         memcpy(seq, a->seq0, sizeof(seq)); used = a->used0; memcpy(budget, a->budget0, sizeof(budget));
         int step = a->start_step;
         double W = 1.0, node_acc = 0.0, leaf = 0.0, c3 = 0.0;
+        double fibv = 0.0, fibc3v = 0.0;   /* Q-388: per-probe W/m at the leaf / at a C3-valid leaf */
         int ms_prev_adj = a->ms0_adj, ms_prev_rf = a->ms0_rf;   /* strict-Moore walk state, REPLAYED
                                                                  * from the fixed prefix (R11 gate-2
                                                                  * repair; was zero-initialized, which
@@ -6878,21 +7818,24 @@ static void *knuth_worker(void *vp){
                 leaf = W;
                 if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) {
                     c3 = W;
+                    if (knuth_h2) h2_eval_leaf(seq, W, a);   /* H2 edit-ball mass: GS leaf under
+                                                              * the triple-strict walk (gated at
+                                                              * argv parse; estimator-only) */
                     if (knuth_score) {
                         int m1pass = 0, m1ok = -1, m2breaks = -1, f1 = 0, f2 = 0, f5 = 0;
                         long c3val = compute_comp_dist_x64(seq);
                         /* R-C1 (Cook 2006, "sB last"): final pair is the alternating pair {21,42} */
                         int la = seq[62], lb = seq[63];
-                        if ((la==21&&lb==42)||(la==42&&lb==21)) { a->sum_rc1 += W; f1 = 1; }
+                        if ((la==21&&lb==42)||(la==42&&lb==21)) { a->sum_rc1 += W; a->sq_rc1 += W*W; f1 = 1; }
                         /* R-C1c (R6 — Cook 2006 anchor under McKenna & McKenna 1975 circular frame):
                          * the alternating pair A2={21,42} sits in pair slot 2 or slot 32 (slot 1 =
                          * pinned pure pair; slot 32 == final pair == R-C1). Plus the descriptive
                          * A2 pair-slot histogram. Estimator-only, sha-neutral. */
                         {
                             int s2 = ((seq[2]==21&&seq[3]==42)||(seq[2]==42&&seq[3]==21));
-                            if (s2)  a->sum_rc1c_s2  += W;
-                            if (f1)  a->sum_rc1c_s32 += W;
-                            if (s2 || f1) a->sum_rc1c_adj += W;
+                            if (s2)  { a->sum_rc1c_s2  += W; a->sq_rc1c_s2  += W*W; }
+                            if (f1)  { a->sum_rc1c_s32 += W; a->sq_rc1c_s32 += W*W; }
+                            if (s2 || f1) { a->sum_rc1c_adj += W; a->sq_rc1c_adj += W*W; }
                             for (int q=0;q<32;q++){
                                 int qa=seq[2*q], qb=seq[2*q+1];
                                 if ((qa==21&&qb==42)||(qa==42&&qb==21)){ a->a2_slot[q+1] += W; break; }
@@ -6901,7 +7844,7 @@ static void *knuth_worker(void *vp){
                         /* R-C2 (Cook 2006, "seven-levels opening"): first 7 pairs cover all 7 levels */
                         unsigned lv = 0;
                         for (int q=0;q<14;q++) lv |= 1u << __builtin_popcount((unsigned)seq[q]);
-                        if ((lv & 0x7Fu) == 0x7Fu) { a->sum_rc2 += W; f2 = 1; }
+                        if ((lv & 0x7Fu) == 0x7Fu) { a->sum_rc2 += W; a->sq_rc2 += W*W; f2 = 1; }
                         /* R-C5 (Zheng Qiao ~1150 / Hu Yigui 1247 / Hacker & Moore 2003 / Cook 2006):
                          * 18 HEC in the first 30 hexagrams == exactly 3 of the 4
                          * complement-pairs (pair idx 0,13,14,30) among slots 0-14 */
@@ -6911,7 +7854,7 @@ static void *knuth_worker(void *vp){
                             for (int p=0;p<32;p++) if ((pairs[p].a==h)||(pairs[p].b==h)){ j=p; break; }
                             if (j==0||j==13||j==14||j==30) cc++;
                         }
-                        if (cc == 3) { a->sum_rc5 += W; f5 = 1; }
+                        if (cc == 3) { a->sum_rc5 += W; a->sq_rc5 += W*W; f5 = 1; }
                         /* R-M1 (Moore 2005, Oracle Papers No.1, pair-positioning rule; Dazhuan
                          * odd=yang/even=yin cosmology): for rev-pairs with popcount != 3,
                          * yang-preponderant (pc>3) must sit at ODD 1-indexed pair position,
@@ -6926,8 +7869,8 @@ static void *knuth_worker(void *vp){
                                 int odd = (q + 1) & 1;                     /* 1-indexed position parity */
                                 if ((pcq > 3) == odd) ok++;
                             }
-                            if (ok == 18) a->sum_rm1s += W;
-                            if (ok >= 16) a->sum_rm1k += W;
+                            if (ok == 18) { a->sum_rm1s += W; a->sq_rm1s += W*W; }
+                            if (ok >= 16) { a->sum_rm1k += W; a->sq_rm1k += W*W; }
                             if (ok > a->max_rm1) a->max_rm1 = ok;
                             m1pass = (ok >= 16); m1ok = ok;
                         }
@@ -6949,10 +7892,10 @@ static void *knuth_worker(void *vp){
                                 if (have && prev_adj && rf == prev) breaks++;
                                 prev = rf; have = 1; prev_adj = 1;
                             }
-                            if (breaks <= 2) a->sum_rm2k += W;
-                            if (breaks == 0) a->sum_rm2s += W;
+                            if (breaks <= 2) { a->sum_rm2k += W; a->sq_rm2k += W*W; }
+                            if (breaks == 0) { a->sum_rm2s += W; a->sq_rm2s += W*W; }
                             if (a->min_rm2 < 0 || breaks < a->min_rm2) a->min_rm2 = breaks;
-                            if (m1pass && breaks <= 2) a->sum_mj += W;
+                            if (m1pass && breaks <= 2) { a->sum_mj += W; a->sq_mj += W*W; }
                             m2breaks = breaks;
                         }
                         /* --- HEC-translation scorers (Cook 2006; conventions KW-verified 2026-07-02) --- */
@@ -6981,15 +7924,15 @@ static void *knuth_worker(void *vp){
                             static const int kwl3[10] = {7,10,12,19,24,27,30,31,33,36};
                             int exact = (nl3 == 10);
                             if (exact) for (int z=0;z<10;z++) if (l3pos[z] != kwl3[z]) { exact = 0; break; }
-                            if (exact) a->sum_rc3 += W;
+                            if (exact) { a->sum_rc3 += W; a->sq_rc3 += W*W; }
                             int spat = 0;
                             if (nl3 == 10) for (int z=0; z+5 < 10; z++) {
                                 if (l3pos[z+1]-l3pos[z]-1 == 6 && l3pos[z+2]-l3pos[z+1]-1 == 4 &&
                                     l3pos[z+3]-l3pos[z+2]-1 == 2 && l3pos[z+4]-l3pos[z+3]-1 == 2 &&
                                     l3pos[z+5]-l3pos[z+4]-1 == 0) { spat = 1; break; }
                             }
-                            if (spat) a->sum_rc3w += W;
-                            if (viol <= 2) a->sum_rc4k += W;
+                            if (spat) { a->sum_rc3w += W; a->sq_rc3w += W*W; }
+                            if (viol <= 2) { a->sum_rc4k += W; a->sq_rc4k += W*W; }
                             if (viol == 0) { a->sum_rc4s += W; a->sumsq_rc4s += W*W; a->hits_rc4s++; }
                             /* R13 R-C4-B / R-C4-C (HEC two-convention; frozen 2026-07-11 §4). No
                              * separate class-position numbering is scored: the design's
@@ -7000,8 +7943,8 @@ static void *knuth_worker(void *vp){
                              * probes are the entire two-convention instrument. */
                             {
                                 int rc4b = (viol == 0) || (viol == 2 && vp1 == vp0 + 1);
-                                if (rc4b) a->sum_rc4b += W;
-                                if (viol == 2 && vp0 == 25 && vp1 == 26) a->sum_rc4c += W;
+                                if (rc4b) { a->sum_rc4b += W; a->sq_rc4b += W*W; }
+                                if (viol == 2 && vp0 == 25 && vp1 == 26) { a->sum_rc4c += W; a->sq_rc4c += W*W; }
                                 if (knuth_rc4b_t1 && viol == 2 && vp1 == vp0 + 1) {
                                     /* T1 assert: the B1 repair swaps two GENDERED classes, so no
                                      * level-3 (neuter, exempt) position may coincide with either
@@ -7032,18 +7975,18 @@ static void *knuth_worker(void *vp){
                                         __builtin_popcount((unsigned)seq[2*q+9-z])) { pal = 0; break; }
                                 if (pal) { wins++; if (wins >= 2) break; }
                             }
-                            if (wins >= 1) a->sum_dv1 += W;
-                            if (wins >= 2) a->sum_dv2 += W;
+                            if (wins >= 1) { a->sum_dv1 += W; a->sq_dv1 += W*W; }
+                            if (wins >= 2) { a->sum_dv2 += W; a->sq_dv2 += W*W; }
                             /* --- F4-A Pareto dominance vs KW (m1 16 up, breaks 2 down, c3 776 down,
                              *     rc1/rc2/rc5 all 1) --- */
                             if (m1ok >= 16 && m2breaks >= 0 && m2breaks <= 2 && c3val <= 776 &&
                                 f1 && f2 && f5 &&
-                                (m1ok > 16 || m2breaks < 2 || c3val < 776)) a->sum_par += W;
+                                (m1ok > 16 || m2breaks < 2 || c3val < 776)) { a->sum_par += W; a->sq_par += W*W; }
                         }
                     }
                     if (knuth_score) {
                         int wd5 = hamming(seq[63], seq[0]);
-                        if (wd5 >= 0 && wd5 <= 6) a->sum_wrap[wd5] += W;
+                        if (wd5 >= 0 && wd5 <= 6) { a->sum_wrap[wd5] += W; a->sq_wrap[wd5] += W*W; }
                     }
                     if (knuth_score_reg) score_registry(seq, W, a);
                     if (knuth_score_f4p) score_f4p(seq, W, a);
@@ -7063,6 +8006,17 @@ static void *knuth_worker(void *vp){
                         for (int b2 = 0; b2 < 31; b2++)
                             if (pair_of_hex(seq[2*b2]) == b2 && pair_of_hex(seq[2*b2+2]) == b2+1)
                                 a->sum_bcond[b2] += W;
+                    }
+                }
+                if (knuth_fiber) {   /* Q-388: W/m at every leaf; the c3 accumulator reuses the
+                                      * C3 verdict just computed (c3 > 0 iff the leaf is C3-valid;
+                                      * C3 is constant on the fiber, so no C3 term in the DP). */
+                    double m = fiber_count_c(seq);
+                    if (!(m >= 1.0)) a->fib_bad++;   /* impossible: the leaf's own orientation is a member */
+                    else {
+                        fiber_leaf_note(a, seq, m);
+                        fibv = W / m;
+                        if (c3 > 0) fibc3v = fibv;
                     }
                 }
                 break;
@@ -7145,6 +8099,11 @@ static void *knuth_worker(void *vp){
         a->sum_c3   += c3;   a->sumsq_c3   += c3*c3;      if (c3>0)   a->hits_c3++;
         if (c3 > a->max_w_c3) a->max_w_c3 = c3;   /* R11 P2: top single-probe weight (skew audit) */
         a->sum_node += node_acc; a->sumsq_node += node_acc*node_acc;
+        if (knuth_fiber) {   /* Q-388 record-count accumulators + ratio cross-products */
+            a->sum_fib += fibv;      a->sq_fib += fibv*fibv;
+            a->sum_fib_c3 += fibc3v; a->sq_fib_c3 += fibc3v*fibc3v;
+            a->x_leaf_fib += leaf*fibv; a->x_c3_fib += c3*fibc3v;
+        }
     }
     return NULL;
 }
@@ -7217,6 +8176,15 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         fprintf(stderr, "[knuth] C5 BUDGET OVERRIDE ACTIVE (R6): d0=%d d1=%d d2=%d d3=%d d4=%d d6=%d "
                         "(post pure-pair decrement; estimator-only, sha-neutral)\n",
                 budget0[0], budget0[1], budget0[2], budget0[3], budget0[4], budget0[6]);
+    }
+    if (knuth_fiber) {   /* Q-388: tables from the ACTIVE budget, BEFORE any prefix decrement */
+        if (n_levels > 0) {
+            fprintf(stderr, "[fiber] SOLVE_KNUTH_FIBER=1 with a fixed oriented prefix is REFUSED: "
+                            "a record count under an oriented prefix is ambiguous between "
+                            "orientation conventions\n");
+            exit(1);   /* refusal must be loud: no estimate lines AND a nonzero exit */
+        }
+        if (fiber_init(budget0)) exit(1);   /* KW-gate failure: results would be void */
     }
     int start_step = 1;
     for (int i=0;i<n_levels;i++){
@@ -7343,23 +8311,39 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
         arg[i].seed = (knuth_seed_base ? knuth_seed_base : 0x243F6A8885A308D3ULL)
                       ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
-        pthread_create(&tid[i],NULL,knuth_worker,&arg[i]);
+        pthread_create(&tid[i], NULL, (knuth_purdom_w >= 2) ? purdom_worker : knuth_worker, &arg[i]);
     }
     double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; double sWR[7]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
     double qC4s=0, maxWc3=0; uint64_t hC4s=0;   /* R11 P2: derived-N_gs CI twin + skew audit */
+    double sF=0, qF=0, sFC=0, qFC=0, xLF=0, xCF=0, fbMin=0, fbMax=0; uint64_t fbBad=0;   /* Q-388 */
     double sC4b=0, sC4c=0; uint64_t t1chk=0, t1fail=0;   /* R13: R-C4-B/C masses + T1 assert tallies */
     double sRC1cS2=0, sRC1cS32=0, sRC1cAdj=0, sA2[33]={0};  /* R-C1c (R6) */
+    double zR1=0, zR2=0, zR5=0, zRC1cS2=0, zRC1cS32=0, zRC1cAdj=0, zM1s=0, zM1k=0, zM2k=0,
+           zM2s=0, zMJ=0, zC3=0, zC3w=0, zC4k=0, zC4b=0, zC4c=0, zD1=0, zD2=0, zPA=0,
+           zWR[7]={0}, zREG[31]={0}; /* squared-weight twins: delta-method SE (Q-374) */
     double sREG[31]={0}; int mxRS2=0, mnMT3=-1, mxD7=0, mnC1=-1;
     for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
         sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
         sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5;
+        zR1+=arg[i].sq_rc1; zR2+=arg[i].sq_rc2; zR5+=arg[i].sq_rc5;
+        zRC1cS2+=arg[i].sq_rc1c_s2; zRC1cS32+=arg[i].sq_rc1c_s32; zRC1cAdj+=arg[i].sq_rc1c_adj;
+        zM1s+=arg[i].sq_rm1s; zM1k+=arg[i].sq_rm1k; zM2k+=arg[i].sq_rm2k; zM2s+=arg[i].sq_rm2s;
+        zMJ+=arg[i].sq_mj; zC3+=arg[i].sq_rc3; zC3w+=arg[i].sq_rc3w; zC4k+=arg[i].sq_rc4k;
+        zC4b+=arg[i].sq_rc4b; zC4c+=arg[i].sq_rc4c; zD1+=arg[i].sq_dv1; zD2+=arg[i].sq_dv2;
+        zPA+=arg[i].sq_par;
+        for (int w2=0;w2<7;w2++) zWR[w2]+=arg[i].sq_wrap[w2];
+        for (int r2=0;r2<31;r2++) zREG[r2]+=arg[i].sq_reg[r2];
         sRC1cS2+=arg[i].sum_rc1c_s2; sRC1cS32+=arg[i].sum_rc1c_s32; sRC1cAdj+=arg[i].sum_rc1c_adj;
         for (int q2=1;q2<=32;q2++) sA2[q2]+=arg[i].a2_slot[q2];
         sM1s+=arg[i].sum_rm1s; sM1k+=arg[i].sum_rm1k;
         sM2k+=arg[i].sum_rm2k; sM2s+=arg[i].sum_rm2s; sMJ+=arg[i].sum_mj;
         sC3+=arg[i].sum_rc3; sC3w+=arg[i].sum_rc3w; sC4k+=arg[i].sum_rc4k; sC4s+=arg[i].sum_rc4s;
         qC4s+=arg[i].sumsq_rc4s; hC4s+=arg[i].hits_rc4s; if (arg[i].max_w_c3 > maxWc3) maxWc3 = arg[i].max_w_c3;
+        sF+=arg[i].sum_fib; qF+=arg[i].sq_fib; sFC+=arg[i].sum_fib_c3; qFC+=arg[i].sq_fib_c3;
+        xLF+=arg[i].x_leaf_fib; xCF+=arg[i].x_c3_fib; fbBad+=arg[i].fib_bad;
+        if (arg[i].fib_min > 0 && (fbMin == 0 || arg[i].fib_min < fbMin)) fbMin = arg[i].fib_min;
+        if (arg[i].fib_max > fbMax) fbMax = arg[i].fib_max;
         sC4b+=arg[i].sum_rc4b; sC4c+=arg[i].sum_rc4c;
         t1chk+=arg[i].rc4b_t1_checked; t1fail+=arg[i].rc4b_t1_fail;
         sD1+=arg[i].sum_dv1; sD2+=arg[i].sum_dv2; sPA+=arg[i].sum_par;
@@ -7373,6 +8357,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         if (arg[i].min_rm2 >= 0 && (mnM2 < 0 || arg[i].min_rm2 < mnM2)) mnM2 = arg[i].min_rm2;
         if (arg[i].max_rm1 > mxM1) mxM1 = arg[i].max_rm1; }
     double f4pS[13]={0}, f4pBel[13]={0}, f4pAt[13]={0}, f4pAbv[13]={0}, *f4pH = NULL;
+    double f4pSqB[13]={0}, f4pSqA[13]={0}, f4pSqV[13]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int f4pMin[13], f4pMax[13];
     if (knuth_score_f4p) {
         f4pH = (double*)calloc(13 * 512, sizeof(double));
@@ -7383,6 +8368,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 f4pBel[k2] += arg[i].f4p_below[k2];
                 f4pAt[k2]  += arg[i].f4p_at[k2];
                 f4pAbv[k2] += arg[i].f4p_above[k2];
+                f4pSqB[k2] += arg[i].f4p_sq_below[k2]; f4pSqA[k2] += arg[i].f4p_sq_at[k2]; f4pSqV[k2] += arg[i].f4p_sq_above[k2];
                 if (arg[i].f4p_min[k2] < f4pMin[k2]) f4pMin[k2] = arg[i].f4p_min[k2];
                 if (arg[i].f4p_max[k2] > f4pMax[k2]) f4pMax[k2] = arg[i].f4p_max[k2];
             }
@@ -7392,6 +8378,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double davS[9]={0}, davBel[9]={0}, davAt[9]={0}, davAbv[9]={0}, *davH = NULL;
+    double davSqB[9]={0}, davSqA[9]={0}, davSqV[9]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int davMin[9], davMax[9];
     if (knuth_score_dav) {
         davH = (double*)calloc(9 * 64, sizeof(double));
@@ -7402,6 +8389,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 davBel[k2] += arg[i].dav_below[k2];
                 davAt[k2]  += arg[i].dav_at[k2];
                 davAbv[k2] += arg[i].dav_above[k2];
+                davSqB[k2] += arg[i].dav_sq_below[k2]; davSqA[k2] += arg[i].dav_sq_at[k2]; davSqV[k2] += arg[i].dav_sq_above[k2];
                 if (arg[i].dav_min[k2] < davMin[k2]) davMin[k2] = arg[i].dav_min[k2];
                 if (arg[i].dav_max[k2] > davMax[k2]) davMax[k2] = arg[i].dav_max[k2];
             }
@@ -7411,6 +8399,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double dav2S[2]={0}, dav2Bel[2]={0}, dav2At[2]={0}, dav2Abv[2]={0}, *dav2H = NULL;
+    double dav2SqB[2]={0}, dav2SqA[2]={0}, dav2SqV[2]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int dav2Min[2], dav2Max[2];
     if (knuth_score_dav2) {
         dav2H = (double*)calloc(2 * 64, sizeof(double));
@@ -7421,6 +8410,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 dav2Bel[k2] += arg[i].dav2_below[k2];
                 dav2At[k2]  += arg[i].dav2_at[k2];
                 dav2Abv[k2] += arg[i].dav2_above[k2];
+                dav2SqB[k2] += arg[i].dav2_sq_below[k2]; dav2SqA[k2] += arg[i].dav2_sq_at[k2]; dav2SqV[k2] += arg[i].dav2_sq_above[k2];
                 if (arg[i].dav2_min[k2] < dav2Min[k2]) dav2Min[k2] = arg[i].dav2_min[k2];
                 if (arg[i].dav2_max[k2] > dav2Max[k2]) dav2Max[k2] = arg[i].dav2_max[k2];
             }
@@ -7430,17 +8420,20 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double db1S=0, db1Bel=0, db1At=0, db1Abv=0, db1H[33]={0};
+    double db1SqB=0, db1SqA=0, db1SqV=0; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int db1Min=INT_MAX, db1Max=INT_MIN;
     if (knuth_score_db1) {
         for (int i = 0; i < nthreads; i++){
             db1S += arg[i].db1_sum; db1Bel += arg[i].db1_below;
             db1At += arg[i].db1_at; db1Abv += arg[i].db1_above;
+            db1SqB += arg[i].db1_sq_below; db1SqA += arg[i].db1_sq_at; db1SqV += arg[i].db1_sq_above;
             if (arg[i].db1_min < db1Min) db1Min = arg[i].db1_min;
             if (arg[i].db1_max > db1Max) db1Max = arg[i].db1_max;
             for (int b2 = 0; b2 < 33; b2++) db1H[b2] += arg[i].db1_hist[b2];
         }
     }
     double f5S[11]={0}, f5Bel[11]={0}, f5At[11]={0}, f5Abv[11]={0}, *f5H = NULL;
+    double f5SqB[11]={0}, f5SqA[11]={0}, f5SqV[11]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int f5Min[11], f5Max[11];
     if (knuth_score_f5) {
         f5H = (double*)calloc(11 * 64, sizeof(double));
@@ -7451,6 +8444,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 f5Bel[k2] += arg[i].f5_below[k2];
                 f5At[k2]  += arg[i].f5_at[k2];
                 f5Abv[k2] += arg[i].f5_above[k2];
+                f5SqB[k2] += arg[i].f5_sq_below[k2]; f5SqA[k2] += arg[i].f5_sq_at[k2]; f5SqV[k2] += arg[i].f5_sq_above[k2];
                 if (arg[i].f5_min[k2] < f5Min[k2]) f5Min[k2] = arg[i].f5_min[k2];
                 if (arg[i].f5_max[k2] > f5Max[k2]) f5Max[k2] = arg[i].f5_max[k2];
             }
@@ -7460,6 +8454,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double f6S[7]={0}, f6Bel[7]={0}, f6At[7]={0}, f6Abv[7]={0}, *f6H = NULL;
+    double f6SqB[7]={0}, f6SqA[7]={0}, f6SqV[7]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     int f6Min[7], f6Max[7];
     if (knuth_score_f6) {
         f6H = (double*)calloc(7 * 64, sizeof(double));
@@ -7470,6 +8465,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 f6Bel[k2] += arg[i].f6_below[k2];
                 f6At[k2]  += arg[i].f6_at[k2];
                 f6Abv[k2] += arg[i].f6_above[k2];
+                f6SqB[k2] += arg[i].f6_sq_below[k2]; f6SqA[k2] += arg[i].f6_sq_at[k2]; f6SqV[k2] += arg[i].f6_sq_above[k2];
                 if (arg[i].f6_min[k2] < f6Min[k2]) f6Min[k2] = arg[i].f6_min[k2];
                 if (arg[i].f6_max[k2] > f6Max[k2]) f6Max[k2] = arg[i].f6_max[k2];
             }
@@ -7479,7 +8475,8 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
     }
     double permS[13]={0}, permBel[13]={0}, permAt[13]={0}, permAbv[13]={0};
-    double permTM[2]={0}, *permH = NULL;
+    double permSqB[13]={0}, permSqA[13]={0}, permSqV[13]={0}; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
+    double permTM[2]={0}, permTMsq[2]={0}, *permH = NULL;
     int permMin[13], permMax[13];
     if (knuth_score_perm) {
         permH = (double*)calloc(13 * 512, sizeof(double));
@@ -7490,17 +8487,24 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                 permBel[k2] += arg[i].perm_below[k2];
                 permAt[k2]  += arg[i].perm_at[k2];
                 permAbv[k2] += arg[i].perm_above[k2];
+                permSqB[k2] += arg[i].perm_sq_below[k2]; permSqA[k2] += arg[i].perm_sq_at[k2]; permSqV[k2] += arg[i].perm_sq_above[k2];
                 if (arg[i].perm_min[k2] < permMin[k2]) permMin[k2] = arg[i].perm_min[k2];
                 if (arg[i].perm_max[k2] > permMax[k2]) permMax[k2] = arg[i].perm_max[k2];
             }
-            permTM[0] += arg[i].perm_tmatch[0];
-            permTM[1] += arg[i].perm_tmatch[1];
+            permTM[0] += arg[i].perm_tmatch[0]; permTMsq[0] += arg[i].perm_tmatch_sq[0];
+            permTM[1] += arg[i].perm_tmatch[1]; permTMsq[1] += arg[i].perm_tmatch_sq[1];
             if (permH && arg[i].perm_hist)
                 for (int b2 = 0; b2 < 13 * 512; b2++) permH[b2] += arg[i].perm_hist[b2];
             free(arg[i].perm_hist); arg[i].perm_hist = NULL;
         }
     }
     double dN=(double)N;
+    /* Q-374: delta-method SE for a mass ratio m = A/B over iid probes, where per
+     * probe a = W*indicator and b = W (canonical-leaf weight, else 0). Because the
+     * indicator is 0/1, sum(a^2) = sum(a*b) = SqI, and Var(m) ~=
+     * [ SqI*(1-2m) + m^2*Qb ] / B^2 with Qb = sum(b^2) (the existing sumsq_c3). */
+#define KNUTH_MASS_SE(SqI, m, B, Qb) \
+    (((B) > 0) ? sqrt(fmax(0.0, (SqI)*(1.0-2.0*(m)) + (m)*(m)*(Qb)))/(B) : 0.0)
     printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
            (unsigned long long)N, nthreads, start_step, n_levels);
     /* R11 Phase-2 provenance line (§5.2): seed base, prune flags, wall time. Build sha is
@@ -7523,8 +8527,42 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     if (sC > 0)
         printf("  [diag] canonical top single-probe share : max_w=%.6e = %.4f%% of estimate mass (skew/ESS audit; lower=better)\n",
                maxWc3, 100.0 * maxWc3 / sC);
+    if (knuth_purdom_w >= 2)
+        printf("  [purdom] partial-backtracking mode: w=%d depth_cutoff=%d (Purdom 1978; Knuth = w=1 special case; Q-389)\n",
+               knuth_purdom_w, knuth_purdom_depth);
+    if (knuth_fiber) {   /* Q-388: record (canonical pair-order class) estimates + mean-fiber ratios */
+        if (fbBad > 0) {
+            printf("  [fiber] *** %llu leaves returned fiber < 1 — IMPOSSIBLE (each leaf's own "
+                   "orientation is a fiber member). The DP is broken; ALL fiber results of this "
+                   "run are VOID. ***\n", (unsigned long long)fbBad);
+        } else {
+            for (int m = 0; m < 2; m++) {
+                const char *nm = m==0 ? "records_C1C2C4C5     " : "records_canonical_C1C5";
+                double s = m==0 ? sF : sFC, q = m==0 ? qF : qFC;
+                double mean = s/dN, var = q/dN - mean*mean; if (var < 0) var = 0;
+                double se = sqrt(var/dN), rel = mean > 0 ? 100.0*se/mean : 0.0;
+                printf("  %s: est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%   (W/m estimator; records ceiling 31! = 8.2228e33)\n",
+                       nm, mean, mean-1.96*se, mean+1.96*se, rel);
+            }
+            /* mean fiber = N/R per layer, ratio-estimator SE with the covariance term:
+             * Var(A/B) ~= (Va - 2r*Cab + r^2*Vb) / (N * bbar^2), r = abar/bbar. */
+            for (int m = 0; m < 2; m++) {
+                double sA = m==0 ? sL : sC,  qA = m==0 ? qL : qC;
+                double sB = m==0 ? sF : sFC, qB = m==0 ? qF : qFC, x = m==0 ? xLF : xCF;
+                if (sB <= 0) continue;
+                double abar = sA/dN, bbar = sB/dN, r = abar/bbar;
+                double Va = qA/dN - abar*abar, Vb = qB/dN - bbar*bbar, Cab = x/dN - abar*bbar;
+                double vr = (Va - 2.0*r*Cab + r*r*Vb) / (dN * bbar * bbar); if (vr < 0) vr = 0;
+                printf("  [fiber] mean fiber N/R (%s layer) : %.6e  se=%.3e   (PROVEN floor at the exact layer: 1.334152e5 = N_exact/31!)\n",
+                       m==0 ? "C1C2C4C5" : "C1-C5", r, sqrt(vr));
+            }
+            printf("  [fiber] per-leaf fiber observed: min=%.0f max=%.0f  bad(<1)=%llu (must be 0)\n",
+                   fbMin, fbMax, (unsigned long long)fbBad);
+        }
+    }
     if (knuth_score && sC > 0) {
-        printf("  [score] R-C1 final-pair-anchor  : %.6f of canonical mass\n", sR1/sC);
+        printf("  [score] R-C1 final-pair-anchor  : %.6f of canonical mass se=%.3e\n", sR1/sC,
+               KNUTH_MASS_SE(zR1, sR1/sC, sC, qC));
         printf("  [score] R-C1c circular anchor-adjacency (R6; A2={21,42} slot2||slot32): adjacent=%.6f slot2=%.6f slot32=%.6f (McKenna 1975 frame; slot32 must reproduce R-C1=%.6f)\n",
                sRC1cAdj/sC, sRC1cS2/sC, sRC1cS32/sC, sR1/sC);
         {
@@ -7532,22 +8570,32 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             for (int q2=1;q2<=32;q2++) if (sA2[q2] > 0)
                 printf("  a2slot %d %.10e\n", q2, sA2[q2]/sC);
         }
-        printf("  [score] R-C2 first7-level-cover : %.6f of canonical mass\n", sR2/sC);
-        printf("  [score] R-C5 18:18-HEC-split    : %.6f of canonical mass\n", sR5/sC);
-        printf("  [score] R-M1 Moore-parity strict : %.6f of canonical mass (18/18; KW itself FAILS this)\n", sM1s/sC);
-        printf("  [score] R-M1 Moore-parity >=16/18: %.6f of canonical mass (KW level)\n", sM1k/sC);
+        printf("  [score] R-C2 first7-level-cover : %.6f of canonical mass se=%.3e\n", sR2/sC,
+               KNUTH_MASS_SE(zR2, sR2/sC, sC, qC));
+        printf("  [score] R-C5 18:18-HEC-split    : %.6f of canonical mass se=%.3e\n", sR5/sC,
+               KNUTH_MASS_SE(zR5, sR5/sC, sC, qC));
+        printf("  [score] R-M1 Moore-parity strict : %.6f of canonical mass (18/18; KW itself FAILS this) se=%.3e\n", sM1s/sC,
+               KNUTH_MASS_SE(zM1s, sM1s/sC, sC, qC));
+        printf("  [score] R-M1 Moore-parity >=16/18: %.6f of canonical mass (KW level) se=%.3e\n", sM1k/sC,
+               KNUTH_MASS_SE(zM1k, sM1k/sC, sC, qC));
         printf("  [score] R-M1 max compliance seen : %d of 18 (Moore-2005 precursor existence bound)\n", mxM1);
-        printf("  [score] R-M2 Moore-1989 R/F <=2 breaks: %.6f of canonical mass (KW level)\n", sM2k/sC);
-        printf("  [score] R-M2 strict 0 breaks     : %.6f of canonical mass; min breaks seen = %d (KW = 2)\n", sM2s/sC, mnM2);
-        printf("  [score] Moore joint (M1>=16 & M2<=2): %.8f of canonical mass (independence: %.8f)\n", sMJ/sC, (sM1k/sC)*(sM2k/sC));
-        printf("  [score] R-C3 level-3 positions == KW : %.8f | S-gap pattern anywhere: %.8f (Cook 2006)\n", sC3/sC, sC3w/sC);
-        printf("  [score] R-C4 gender/valence <=2 viol : %.6f | 0 viol: %.6f (Cook 2006)\n", sC4k/sC, sC4s/sC);
+        printf("  [score] R-M2 Moore-1989 R/F <=2 breaks: %.6f of canonical mass (KW level) se=%.3e\n", sM2k/sC,
+               KNUTH_MASS_SE(zM2k, sM2k/sC, sC, qC));
+        printf("  [score] R-M2 strict 0 breaks     : %.6f of canonical mass se=%.3e; min breaks seen = %d (KW = 2)\n", sM2s/sC,
+               KNUTH_MASS_SE(zM2s, sM2s/sC, sC, qC), mnM2);
+        printf("  [score] Moore joint (M1>=16 & M2<=2): %.8f of canonical mass se=%.3e (independence: %.8f)\n", sMJ/sC,
+               KNUTH_MASS_SE(zMJ, sMJ/sC, sC, qC), (sM1k/sC)*(sM2k/sC));
+        printf("  [score] R-C3 level-3 positions == KW : %.8f se=%.3e | S-gap pattern anywhere: %.8f se=%.3e (Cook 2006)\n",
+               sC3/sC, KNUTH_MASS_SE(zC3, sC3/sC, sC, qC), sC3w/sC, KNUTH_MASS_SE(zC3w, sC3w/sC, sC, qC));
+        printf("  [score] R-C4 gender/valence <=2 viol : %.6f se=%.3e | 0 viol: %.6f se=%.3e (Cook 2006)\n",
+               sC4k/sC, KNUTH_MASS_SE(zC4k, sC4k/sC, sC, qC), sC4s/sC, KNUTH_MASS_SE(qC4s, sC4s/sC, sC, qC));
         /* R13 HEC two-convention paired re-run (frozen 2026-07-11): B = Cook-faithful
          * exception form (0 viol OR exactly 2 at adjacent positions; subset of the <=2 line
          * above, one-sided); C = KW's exception locus exactly (viol==2 at {25,26}; data-like,
          * report-only). Measured on the SAME probes as the A line, so r = f_A/f_B is free of
          * cross-run estimator noise. */
-        printf("  [score] R-C4-B exception-form (0 viol OR 2 adjacent) : %.10e | R-C4-C KW locus [25,26]: %.10e (R13 two-convention; Schulz 1990/Cook 2006)\n", sC4b/sC, sC4c/sC);
+        printf("  [score] R-C4-B exception-form (0 viol OR 2 adjacent) : %.10e se=%.3e | R-C4-C KW locus [25,26]: %.10e se=%.3e (R13 two-convention; Schulz 1990/Cook 2006)\n",
+               sC4b/sC, KNUTH_MASS_SE(zC4b, sC4b/sC, sC, qC), sC4c/sC, KNUTH_MASS_SE(zC4c, sC4c/sC, sC, qC));
         if (knuth_rc4b_t1)
             printf("  [score] R-C4-B T1 assert (level-3 positions disjoint from the B1 repair pair): checked=%llu fail=%llu (expected fail=0)\n",
                    (unsigned long long)t1chk, (unsigned long long)t1fail);
@@ -7563,16 +8611,22 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             printf("  [score] R-C4 0-viol DERIVED-N_gs abs : est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%  hits=%llu\n",
                    m4, m4-1.96*se4, m4+1.96*se4, rel4, (unsigned long long)hC4s);
         }
-        printf("  [score] Davis palindrome windows >=1 : %.6f | >=2 (KW level): %.6f (Davis 2012)\n", sD1/sC, sD2/sC);
-        printf("  [score] Pareto-dominates KW          : %.8f of canonical mass (F4-A)\n", sPA/sC);
-        printf("  [score] wrap-distance mass d(s63,s0)  : d1=%.6f d3=%.6f d5=%.6f (odd-only per theorem; circular-C2 price = d5 mass)\n",
-               sWR[1]/sC, sWR[3]/sC, sWR[5]/sC);
+        printf("  [score] Davis palindrome windows >=1 : %.6f se=%.3e | >=2 (KW level): %.6f se=%.3e (Davis 2012)\n",
+               sD1/sC, KNUTH_MASS_SE(zD1, sD1/sC, sC, qC), sD2/sC, KNUTH_MASS_SE(zD2, sD2/sC, sC, qC));
+        printf("  [score] Pareto-dominates KW          : %.8f of canonical mass se=%.3e (F4-A)\n", sPA/sC,
+               KNUTH_MASS_SE(zPA, sPA/sC, sC, qC));
+        printf("  [score] wrap-distance mass d(s63,s0)  : d1=%.6f d3=%.6f d5=%.6f se=%.3e/%.3e/%.3e (odd-only per theorem; circular-C2 price = d5 mass)\n",
+               sWR[1]/sC, sWR[3]/sC, sWR[5]/sC,
+               KNUTH_MASS_SE(zWR[1], sWR[1]/sC, sC, qC),
+               KNUTH_MASS_SE(zWR[3], sWR[3]/sC, sC, qC),
+               KNUTH_MASS_SE(zWR[5], sWR[5]/sC, sC, qC));
     }
     if (knuth_score_reg && sC > 0) {
         /* CANDIDATE_REGISTRY_2026_07 rules at KW-threshold form (ground truth: solve.py reg_*;
          * attribution per rule in the score_registry comment block + CITATIONS.md). */
         for (int r2 = 0; r2 < 31; r2++)
-            printf("  [reg %02d %-7s] : %.8f of canonical mass\n", r2 + 1, reg_rule_ids[r2], sREG[r2]/sC);
+            printf("  [reg %02d %-7s] : %.8f of canonical mass se=%.3e\n", r2 + 1, reg_rule_ids[r2], sREG[r2]/sC,
+                   KNUTH_MASS_SE(zREG[r2], sREG[r2]/sC, sC, qC));
         printf("  [reg extremes] rs2 max compliant seen = %d (KW 20) | mmt3 min Gray transitions seen = %d (KW 4) | d7 max xiaoxi-in-B seen = %d (KW 8) | c1 min deviation seen = %d (KW 24)\n",
                mxRS2, mnMT3, mxD7, mnC1);
     }
@@ -7581,11 +8635,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * in the f4p comment block + CITATIONS.md; masses = fraction of canonical
          * mass, so below+at+above ~= 1 per functional). */
         for (int k2 = 0; k2 < 13; k2++)
-            printf("  [f4p %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [f4p %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, f4p_names[k2], f4pS[k2]/sC,
                    f4pMin[k2] == INT_MAX ? 0 : f4pMin[k2],
                    f4pMax[k2] == INT_MIN ? 0 : f4pMax[k2],
-                   f4p_kw[k2], f4pBel[k2]/sC, f4pAt[k2]/sC, f4pAbv[k2]/sC);
+                   f4p_kw[k2], f4pBel[k2]/sC, f4pAt[k2]/sC, f4pAbv[k2]/sC,
+                   KNUTH_MASS_SE(f4pSqB[k2], f4pBel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f4pSqA[k2], f4pAt[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f4pSqV[k2], f4pAbv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_F4P_HIST") && atoi(getenv("SOLVE_KNUTH_F4P_HIST")) == 1 && f4pH)
             for (int k2 = 0; k2 < 13; k2++)
                 for (int b2 = 0; b2 < F4P_NBINS(k2); b2++)
@@ -7600,11 +8657,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * fraction of canonical mass; boolean candidates (kw=1): at-mass
          * = mass-of-TRUE). */
         for (int k2 = 0; k2 < 9; k2++)
-            printf("  [dav %d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [dav %d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, dav_names[k2], davS[k2]/sC,
                    davMin[k2] == INT_MAX ? 0 : davMin[k2],
                    davMax[k2] == INT_MIN ? 0 : davMax[k2],
-                   dav_kw[k2], davBel[k2]/sC, davAt[k2]/sC, davAbv[k2]/sC);
+                   dav_kw[k2], davBel[k2]/sC, davAt[k2]/sC, davAbv[k2]/sC,
+                   KNUTH_MASS_SE(davSqB[k2], davBel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(davSqA[k2], davAt[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(davSqV[k2], davAbv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_DAV_HIST") && atoi(getenv("SOLVE_KNUTH_DAV_HIST")) == 1 && davH)
             for (int k2 = 0; k2 < 9; k2++)
                 for (int b2 = 0; b2 <= dav_hi[k2] - dav_lo[k2]; b2++)
@@ -7618,11 +8678,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * attribution in the dav2 comment block + CITATIONS.md; masses =
          * fraction of canonical mass). C-D5 (namedsize) operator-declined. */
         for (int k2 = 0; k2 < 2; k2++)
-            printf("  [dav2 %d %-9s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [dav2 %d %-9s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, dav2_names[k2], dav2S[k2]/sC,
                    dav2Min[k2] == INT_MAX ? 0 : dav2Min[k2],
                    dav2Max[k2] == INT_MIN ? 0 : dav2Max[k2],
-                   dav2_kw[k2], dav2Bel[k2]/sC, dav2At[k2]/sC, dav2Abv[k2]/sC);
+                   dav2_kw[k2], dav2Bel[k2]/sC, dav2At[k2]/sC, dav2Abv[k2]/sC,
+                   KNUTH_MASS_SE(dav2SqB[k2], dav2Bel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(dav2SqA[k2], dav2At[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(dav2SqV[k2], dav2Abv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_DAV2_HIST") && atoi(getenv("SOLVE_KNUTH_DAV2_HIST")) == 1 && dav2H)
             for (int k2 = 0; k2 < 2; k2++)
                 for (int b2 = 0; b2 <= dav2_hi[k2] - dav2_lo[k2]; b2++)
@@ -7638,9 +8701,13 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * --db1-verify; attribution in the DB1 comment block + CITATIONS.md.
          * The 'atinc' (at-or-above, atom-inclusive) figure is the two-sided
          * upper tail the frozen scoping's gate reads. */
-        printf("  [db1 rule-of-ten] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f atinc=%.8f\n",
+        printf("  [db1 rule-of-ten] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f atinc=%.8f se=%.3e/%.3e/%.3e/%.3e\n",
                db1S/sC, db1Min == INT_MAX ? 0 : db1Min, db1Max == INT_MIN ? 0 : db1Max,
-               db1_kw_x, db1Bel/sC, db1At/sC, db1Abv/sC, (db1At + db1Abv)/sC);
+               db1_kw_x, db1Bel/sC, db1At/sC, db1Abv/sC, (db1At + db1Abv)/sC,
+               KNUTH_MASS_SE(db1SqB, db1Bel/sC, sC, qC),
+               KNUTH_MASS_SE(db1SqA, db1At/sC, sC, qC),
+               KNUTH_MASS_SE(db1SqV, db1Abv/sC, sC, qC),
+               KNUTH_MASS_SE(db1SqA + db1SqV, (db1At + db1Abv)/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_DB1_HIST") && atoi(getenv("SOLVE_KNUTH_DB1_HIST")) == 1)
             for (int b2 = 0; b2 <= 32; b2++)
                 if (db1H[b2] > 0)
@@ -7653,11 +8720,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * fraction of canonical mass, so below+at+above ~= 1 per functional.
          * Leaves are orientation-BEARING (pre-dedup) per spec §4. */
         for (int k2 = 0; k2 < 11; k2++)
-            printf("  [f5 %02d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [f5 %02d %-12s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, f5_names[k2], f5S[k2]/sC,
                    f5Min[k2] == INT_MAX ? 0 : f5Min[k2],
                    f5Max[k2] == INT_MIN ? 0 : f5Max[k2],
-                   f5_kw[k2], f5Bel[k2]/sC, f5At[k2]/sC, f5Abv[k2]/sC);
+                   f5_kw[k2], f5Bel[k2]/sC, f5At[k2]/sC, f5Abv[k2]/sC,
+                   KNUTH_MASS_SE(f5SqB[k2], f5Bel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f5SqA[k2], f5At[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f5SqV[k2], f5Abv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_F5_HIST") && atoi(getenv("SOLVE_KNUTH_F5_HIST")) == 1 && f5H)
             for (int k2 = 0; k2 < 11; k2++)
                 for (int b2 = 0; b2 <= f5_hi[k2] - f5_lo[k2]; b2++)
@@ -7672,11 +8742,14 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * CITATIONS.md; masses = fraction of canonical mass, so
          * below+at+above ~= 1 per functional). */
         for (int k2 = 0; k2 < 7; k2++)
-            printf("  [f6 %d %-14s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [f6 %d %-14s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, f6_names[k2], f6S[k2]/sC,
                    f6Min[k2] == INT_MAX ? 0 : f6Min[k2],
                    f6Max[k2] == INT_MIN ? 0 : f6Max[k2],
-                   f6_kw[k2], f6Bel[k2]/sC, f6At[k2]/sC, f6Abv[k2]/sC);
+                   f6_kw[k2], f6Bel[k2]/sC, f6At[k2]/sC, f6Abv[k2]/sC,
+                   KNUTH_MASS_SE(f6SqB[k2], f6Bel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f6SqA[k2], f6At[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(f6SqV[k2], f6Abv[k2]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_F6_HIST") && atoi(getenv("SOLVE_KNUTH_F6_HIST")) == 1 && f6H)
             for (int k2 = 0; k2 < 7; k2++)
                 for (int b2 = 0; b2 <= f6_hi[k2] - f6_lo[k2]; b2++)
@@ -7693,13 +8766,18 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
          * below+at+above ~= 1 per functional. REPORT-ONLY family — no promotion
          * path under any outcome). Leaves are orientation-BEARING (pre-dedup). */
         for (int k2 = 0; k2 < 13; k2++)
-            printf("  [perm %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f\n",
+            printf("  [perm %02d %-13s] mean=%.6f min=%d max=%d kw=%d below=%.8f at=%.8f above=%.8f se=%.3e/%.3e/%.3e\n",
                    k2 + 1, perm_names[k2], permS[k2]/sC,
                    permMin[k2] == INT_MAX ? 0 : permMin[k2],
                    permMax[k2] == INT_MIN ? 0 : permMax[k2],
-                   perm_kw[k2], permBel[k2]/sC, permAt[k2]/sC, permAbv[k2]/sC);
-        printf("  [perm type-match] bot=%.10e top=%.10e (report-only, data-like; no p-value, no verdict)\n",
-               permTM[0]/sC, permTM[1]/sC);
+                   perm_kw[k2], permBel[k2]/sC, permAt[k2]/sC, permAbv[k2]/sC,
+                   KNUTH_MASS_SE(permSqB[k2], permBel[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(permSqA[k2], permAt[k2]/sC, sC, qC),
+                   KNUTH_MASS_SE(permSqV[k2], permAbv[k2]/sC, sC, qC));
+        printf("  [perm type-match] bot=%.10e top=%.10e se=%.3e/%.3e (report-only, data-like; no p-value, no verdict)\n",
+               permTM[0]/sC, permTM[1]/sC,
+               KNUTH_MASS_SE(permTMsq[0], permTM[0]/sC, sC, qC),
+               KNUTH_MASS_SE(permTMsq[1], permTM[1]/sC, sC, qC));
         if (getenv("SOLVE_KNUTH_PERM_HIST") && atoi(getenv("SOLVE_KNUTH_PERM_HIST")) == 1 && permH)
             for (int k2 = 0; k2 < 13; k2++)
                 for (int b2 = 0; b2 < PERM_NBINS(k2); b2++)
@@ -7797,6 +8875,25 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         for (int i = 0; i < nthreads; i++) mm += arg[i].f11_gs_mismatch;
         printf("  [f11] gender-strict leaf cross-check mismatches (must be 0): %llu\n",
                (unsigned long long)mm);
+    }
+    if (knuth_h2) {
+        double h2w = 0, h2fp = 0, h2fc = 0, h2np = 0, h2nc = 0;
+        uint64_t h2n = 0, h2ok = 0, h2bad = 0;
+        for (int i = 0; i < nthreads; i++){
+            h2w += arg[i].h2_sum_w;
+            h2fp += arg[i].h2_sum_wf_p;  h2fc += arg[i].h2_sum_wf_c;
+            h2np += arg[i].h2_sum_wnv_p; h2nc += arg[i].h2_sum_wnv_c;
+            h2n += arg[i].h2_leaves; h2ok += arg[i].h2_ck_ok; h2bad += arg[i].h2_ck_bad;
+        }
+        printf("  [h2] GS leaves evaluated=%llu  brute-ck ok=%llu BAD=%llu (must be 0)\n",
+               (unsigned long long)h2n, (unsigned long long)h2ok, (unsigned long long)h2bad);
+        printf("  [h2] sum_w=%.10e sum_wf_pop=%.10e sum_wf_can=%.10e sum_wnv_pop=%.10e sum_wnv_can=%.10e\n",
+               h2w, h2fp, h2fc, h2np, h2nc);
+        if (h2w > 0)
+            printf("  [h2] Ehat[f_pop]=%.10e Ehat[f_can]=%.10e Ehat[nv_pop]=%.10e Ehat[nv_can]=%.10e "
+                   "(self-normalized over GS mass; downstream: solve.py --h2-mass)\n",
+                   h2fp/h2w, h2fc/h2w, h2np/h2w, h2nc/h2w);
+        if (knuth_h2_fp){ fclose(knuth_h2_fp); knuth_h2_fp = NULL; }
     }
     if (knuth_bcond && sC > 0) {
         printf("  [bcond] per-boundary KW-agreement mass (fraction of canonical mass; F2 S(k) instrument;\n");
@@ -7909,7 +9006,10 @@ static int dfs_state_filename(char *buf, size_t bufsz,
 
 /* Write a DFS-state sidecar atomically (.tmp + rename). Called only when
  * dfs_checkpoint_enabled and dfs_capture_active and there's at least one
- * iter frame to save. Returns 0 on success. */
+ * iter frame to save. Returns 0 on success.
+ * Durability: fsync via maybe_fsync_fd — the SAME fsync_batch_active()
+ * predicate as the .bin shard's gzw_close_durable. Keep them coupled;
+ * see the #167 regression note at gzw_close_durable. */
 static int dfs_state_write(int p1, int o1, int p2, int o2, int p3, int o3,
                            const ThreadState *ts) {
     char fname[96], tmpname[128];
@@ -8045,7 +9145,10 @@ static void dfs_state_delete(int p1, int o1, int p2, int o2, int p3, int o3) {
 }
 
 /* v2 write: atomic write of full-stack capture. Called only when the
- * iterative path captures via dfs_v2_capture_pending. */
+ * iterative path captures via dfs_v2_capture_pending.
+ * Durability: fsync via maybe_fsync_fd — the SAME fsync_batch_active()
+ * predicate as the .bin shard's gzw_close_durable. Keep them coupled;
+ * see the #167 regression note at gzw_close_durable. */
 static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
                               const ThreadState *ts) {
     char fname[96], tmpname[128];
@@ -8377,7 +9480,7 @@ static void *thread_func_single(void *arg) {
         pair_mask_t used_mask;                       /* task #72 Phase B+D: was int[32] */
         int budget[7];
 
-        /* Position 0: Creative/Receptive */
+        /* Position 0: hexagram 1 / hexagram 2 */
         seq[0] = 63; seq[1] = 0;
         used_mask = 0;                               /* task #72 Phase B+D */
         PAIR_MASK_SET(used_mask, start_pair_idx);
@@ -9459,8 +10562,14 @@ static int sha256_of_logical(const char *path, char *out, size_t outsz) {
 /* Compare for qsort — compare pair identity only (orient bit masked out).
  * Each byte: (pair_index << 2) | (orient << 1). Mask with 0xFC. */
 /* Write sha256 file with metadata for reproducibility.
- * First line is bare sha256 (compatible with sha256sum -c).
- * Remaining lines are metadata comments. */
+ * First line is bare sha256 in `sha256sum -c` FORMAT. That is a statement about
+ * the line's SHAPE, not a promise that `sha256sum -c` will pass: the value is the
+ * LOGICAL (decompressed) sha, and since #169 the file it names is gz-framed by
+ * default, so `sha256sum -c` hashes the container and reports FAILED on a
+ * byte-correct artifact. Q-346: DEPLOYMENT.md published `sha256sum -c` as the
+ * archive verification recipe for two months on the strength of this comment.
+ * The verifying command is `gzip -dc <file> | sha256sum`, or plain sha256sum only
+ * under SOLVE_COMPRESS=0. Remaining lines are metadata comments. */
 static void write_sha256_with_metadata(const char *bin_name, const char *sha_name,
                                         long long unique_count, long long total_nodes,
                                         int n_branches_total, int branches_done) {
@@ -9486,7 +10595,8 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
     /* Rewrite with metadata */
     FILE *sf = fopen(sha_name, "w");
     if (!sf) return;
-    fprintf(sf, "%s", hash_line);  /* first line: bare hash (sha256sum -c compatible) */
+    fprintf(sf, "%s", hash_line);  /* first line: bare hash, sha256sum -c FORMAT (see above:
+                                      format-compatible, not verify-compatible under gz framing) */
 
     /* Metadata */
     char tbuf[64];
@@ -11901,7 +13011,11 @@ static void symmetry_phase3(const int candidates[][6], int n_candidates) {
 static void run_symmetry_search(int with_yield_compare) {
     init_pairs();
     printf("=== SYMMETRY SEARCH (Hamming-class-preserving σ on C1 partition) ===\n\n");
-    printf("Spec: x/roae/SYMMETRY_SEARCH_SPEC.md\n");
+    /* 🔴 CORRECTED 2026-09-03 (string only, sha-neutral). This printed the roae-private
+     * path "x/roae/SYMMETRY_SEARCH_SPEC.md" on STDOUT. Second printing site of the same
+     * defect as the --validate-canonical one; it was not charged, and was found by
+     * sweeping the class instead of fixing the named instance. */
+    printf("Spec: documentation/SYMMETRY_SEARCH.md\n");
     printf("Phase 1+2: enumerate 720 bit-permutations, filter to C1-preserving,\n");
     printf("compute σ's induced action on (pair_idx, orient) space.\n\n");
 
@@ -12113,8 +13227,8 @@ static void run_c3_min(const char *filename) {
  *
  * Computes the EXACT integer |C1 ∩ C2 ∩ C4| (no C3/C5): the number of complete
  * 64-hexagram sequences built from the 32 KW pairs (C1), with no Hamming-5
- * adjacent transition (C2), starting with the fixed pair s0=63, s1=0 (C4;
- * orientation forced by Theorem 6). Method: layered forward DP over
+ * adjacent transition (C2), starting with the fixed pair s0=63, s1=0 (C4's
+ * definitional orientation; "Theorem 6" RETRACTED). Method: layered forward DP over
  * (used-pair-mask, last-exit-hexagram) states, quotiented by the record-level
  * symmetry group S4 (order 24) from SYMMETRY_SEARCH.md / TR-5 — the 48
  * bit-position permutations commuting with rev = (0 5)(1 4)(2 3), modulo the
@@ -12915,7 +14029,7 @@ static int f1_exact_main(const char *layers_dir, const char *subset_spec) {
     } else {
         n = 31;
         for (int i = 0; i < 31; i++) pl[i] = i + 1;
-        start_exit = 0;   /* C4: s0=63, s1=0 (orientation forced, Theorem 6) -> exit 0 */
+        start_exit = 0;   /* C4: s0=63, s1=0 (definitional orientation; Thm 6 RETRACTED) -> exit 0 */
     }
     f1_ctx_init(c, n, pl, start_exit);
 
@@ -13175,6 +14289,251 @@ static void f1c5_budget_free(F1C5Budget *B) {
     free(B->rsum);
 }
 
+/* ===================== BACKLOG-2a C3 "G-channel" — exact G-histogram on the orbit DP =====================
+ *
+ * `./solve --f1-c3-hist [--f1-pairs N] [--with-c5] [--no-c2]
+ *          [--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers]`
+ *
+ * Augments the #217 layered orbit-quotient DP state with the running C3
+ * slot-gap sum G: state = (canonical-mask, last, rid, g). Background (all
+ * machine-checked, lean/C3Decomposition.lean): C3 = 16 + 8*G universally over
+ * C1-valid orderings (`c3_slot_decomposition`), where G = sum over the 12
+ * cross complement-couples of |slot(P) - slot(P')| (slot = pair position
+ * 0..31; the fixed slot-0 pair {63,0} is self-complement and contributes 0);
+ * KW has G = 95 (`kw_slot_sum_95`), so C3 <= 776 <=> G <= 95 (inclusive;
+ * 16 + 8*95 = 776). Running-G accumulates per placement at slot s: self-
+ * complement or couple-truncated pair -> unchanged; couple OPEN (partner
+ * pair not yet placed) -> g -= s; couple CLOSE -> g += s. At the full mask,
+ * running-G = final G. The 48-group maps couples to couples
+ * (`g48_couples_to_couples`), so running-G is orbit-invariant and rides the
+ * canonical-mask quotient exactly like rid; only `last` maps under
+ * canonicalization, and the partner table is the same static table in
+ * canonical coordinates. (The prefix-G g48-invariance lemma LANDED 2026-07-22
+ * as `runningG_mapP` / `runningG_orbit_invariant` in lean/PruneGInvariance.lean
+ * §9, so this is machine-checked, not bridge-carried. It is no longer promised
+ * in the design's Sec 2.5 nor pending in PruneExactness.lean.)
+ *
+ * THIS MODE IS UNCAPPED: no G-prune (`g_prune_sound`/`g_prune_exact` cover a
+ * capped variant that is NOT implemented here). The deliverable is the full
+ * exact final-layer G-HISTOGRAM — every threshold at once; the capped count
+ * |C1 & C2 & C3 & C4| (G <= 95) is a derived cumulative-sum footnote.
+ *
+ * Key packing (bytes/entry unchanged at 28 B): key32 = (gofs << 22) |
+ * (last << 16) | rid, gofs = g + F1C3_GBIAS. |running g| <= 1+2+...+31 = 496
+ * for every layer of every rung, so the global bias 496 keeps gofs in
+ * [0, 992], inside 10 bits, with the full 16-bit rid field intact. Entries
+ * are emitted in ascending (gofs, last, rid) key order per mask. Layer files
+ * reuse the #217/#221/#223 storage, checkpoint, OOC, and v2-zlib machinery
+ * verbatim, under new magics ("F1C3LAY1"/"F1C3LAY2"/"F1C3BLD1") so a C3 run
+ * and an f1c5 run can never resume from each other's layers.
+ *
+ * Base selection: default = C1 & C2 & C4 (rid disabled, R = 1 — the
+ * BACKLOG-2a target); --with-c5 adds the exact C5 boundary-budget residual
+ * (the rung-validation base: totals must reproduce the published #217 rung
+ * counts); --no-c2 drops the C2 adjacency test (C1 & C4 gate base: at
+ * full-31 the histogram must be 2^31 x the exact null G-distribution, incl.
+ * P(G<=95) = 641983711307479/7919632354008375 and E[G] = 128 exactly).
+ *
+ * Per-layer worst-case running-G bands are computed at init by the design's
+ * Sec 1.3 class-union algebra (o open / c closed couples, contiguous used
+ * slots 1..m): class-min = c - (o*m - o(o-1)/2), class-max = c(m-c) -
+ * o(o+1)/2. The full-31 table (min -164 at m=20, terminal [12, 228]) was
+ * independently re-derived twice (review 2026-07-22 + exact achievable-
+ * support DP). Every gathered g is hard-asserted inside the band (runtime
+ * bound-assert; design Sec 5 risk 4). Encoding choice: the design's
+ * open/close accumulator ("A") was kept over the monotone open-count
+ * alternative ("B" — g += open-couples per boundary): for a fixed mask
+ * B = A + o(mask)*m, a bijection per (mask,last,rid), so entry counts are
+ * encoding-invariant; A fits the 10-bit budget and carries the landed Lean
+ * proofs and the instrument parity, so proof-continuity wins.
+ *
+ * Gates (see documentation/SOLVE_C_CLI.md and the roae-private impl note):
+ * G-total identity (sum over bins = base total) vs --f1-exact-c1c2c4c5 rung
+ * counts and --f1-exact-c1c2c4 subset totals; per-bin mod-48 (full-31, EITHER
+ * base — the free 48-action preserves G, so it acts on every G-fiber);
+ * KW witness (static + incremental accumulator = 95 asserted at init; G=95
+ * bin nonzero at full-31); E[G] = 128 identity asserted in --no-c2 full-31.
+ *
+ * Sha-neutral: argv-dispatched, zero interaction with enumeration paths;
+ * the #215/#217 modes are dispatched around, not modified (their kernels are
+ * untouched; shared drivers branch on the mode pointer).
+ *
+ * Attribution: direction and the C3 = 16 + 8*G decomposition route are the
+ * operator's; design DESIGN_C3_GCHANNEL_2026_07_21.md + adversarial review
+ * REVIEW_C3_FABLE_2026_07_22.md (both Claude, Fable 5, roae-private); Lean
+ * theorems in lean/C3Decomposition.lean + PruneExactness.lean (Fable);
+ * exact null-distribution cross-targets re-derived independently (Claude,
+ * Opus 4.8, 2026-07-22). Implementation: Claude (Fable 5), 2026-07-22.
+ * Novelty: the augmented-state histogram DP is standard dynamic-programming
+ * technique; nothing here is claimed novel — corrections welcome.
+ */
+
+#define F1C3_GBIAS 496   /* gofs = g + 496 in [0, 992] for any n <= 31 (|g| <= sum of slots <= 496) */
+
+static int f1c3_comp_pair[32];   /* pair p -> its complement-couple partner pair (p itself if self-complement) */
+static int f1c3_comp_built = 0;
+
+/* Build + verify the complement-couple pairing, and run the KW witness (gate
+ * G4) two ways: the static slot-gap sum and the DP's own incremental
+ * open/close accumulator, both must give exactly 95 (kw_slot_sum_95). */
+static void f1c3_build_comp_pairs(void) {
+    if (f1c3_comp_built) return;
+    int nself = 0, ncross = 0;
+    for (int p = 0; p < 32; p++) {
+        int qa = f1_pair_of[f1_pair_a[p] ^ 63];
+        int qb = f1_pair_of[f1_pair_b[p] ^ 63];
+        F1_CHECK(qa == qb, "[f1c3] complement image of pair %d is not a single pair", p);
+        f1c3_comp_pair[p] = qa;
+    }
+    for (int p = 0; p < 32; p++) {
+        F1_CHECK(f1c3_comp_pair[f1c3_comp_pair[p]] == p,
+                 "[f1c3] couple map is not an involution at pair %d", p);
+        if (f1c3_comp_pair[p] == p) nself++; else ncross++;
+    }
+    F1_CHECK(nself == 8 && ncross == 24,
+             "[f1c3] couple census %d self / %d cross (want 8 / 24, c3_slot_decomposition)", nself, ncross);
+    F1_CHECK(f1c3_comp_pair[0] == 0, "[f1c3] anchor pair {63,0} must be self-complement");
+    int gkw = 0;
+    for (int p = 1; p < 32; p++)
+        if (f1c3_comp_pair[p] > p) gkw += f1c3_comp_pair[p] - p;
+    F1_CHECK(gkw == 95, "[f1c3] KW witness (static): slot-gap sum %d != 95", gkw);
+    int g = 0;
+    uint32_t placed = 0;
+    for (int s = 1; s < 32; s++) {   /* KW places pair s at slot s */
+        int q = f1c3_comp_pair[s];
+        if (q != s) g += ((placed >> q) & 1) ? s : -s;
+        placed |= 1u << s;
+    }
+    F1_CHECK(g == 95, "[f1c3] KW witness (incremental accumulator): running-G %d != 95", g);
+    fprintf(stderr, "[f1c3] couple self-checks PASS: 8 self / 12 couples (involution, anchor self); "
+            "KW witness G=95 (static slot-gap sum AND incremental open/close accumulator)\n");
+    f1c3_comp_built = 1;
+}
+
+typedef struct {
+    int use_c5;              /* 1: C5 boundary-budget residual active (rid live) */
+    int no_c2;               /* 1: drop the C2 adjacency test (C1&C4 gate base) */
+    int8_t cpartner[32];     /* subset index of the in-run couple partner; -1 = self-complement or truncated */
+    int ncpl, nselfp, ninert;/* in-run couples / self-complement pairs / couple-truncated pairs */
+    int glo[33], ghi[33];    /* per-layer worst-case running-G band (class-union algebra) */
+    int gw[33];              /* band widths ghi-glo+1 */
+    int gwmax;
+} F1C3Mode;
+
+static void f1c3_mode_init(F1C3Mode *gm, const F1Ctx *c, int use_c5, int no_c2) {
+    memset(gm, 0, sizeof(*gm));
+    gm->use_c5 = use_c5;
+    gm->no_c2 = no_c2;
+    f1c3_build_comp_pairs();
+    int pos[32];
+    for (int p = 0; p < 32; p++) pos[p] = -1;
+    for (int i = 0; i < c->n; i++) pos[c->pl[i]] = i;
+    for (int i = 0; i < c->n; i++) {
+        int q = f1c3_comp_pair[c->pl[i]];
+        if (q == c->pl[i]) { gm->cpartner[i] = -1; gm->nselfp++; }
+        else if (pos[q] >= 0) gm->cpartner[i] = (int8_t)pos[q];
+        else { gm->cpartner[i] = -1; gm->ninert++; }   /* partner outside the rung: inert (contributes 0) */
+    }
+    int twoc = c->n - gm->nselfp - gm->ninert;
+    F1_CHECK(twoc >= 0 && twoc % 2 == 0, "[f1c3] in-run couple members %d not even", twoc);
+    gm->ncpl = twoc / 2;
+    /* per-layer worst-case running-G band: union over classes (o open, c
+     * closed couples; s' = m - o - 2c placed self-like pairs), used slots
+     * contiguous 1..m because the DP fills slots in order. */
+    const int S = gm->nselfp + gm->ninert;
+    for (int m = 0; m <= c->n; m++) {
+        int lo = INT_MAX, hi = INT_MIN;
+        for (int o = 0; o <= gm->ncpl; o++)
+            for (int cc = 0; o + cc <= gm->ncpl; cc++) {
+                int sp = m - o - 2 * cc;
+                if (sp < 0 || sp > S) continue;
+                int cmin = cc - (o * m - o * (o - 1) / 2);   /* min closed gaps - max open-slot sum */
+                int cmax = cc * (m - cc) - o * (o + 1) / 2;  /* max closed gaps - min open-slot sum */
+                if (cmin < lo) lo = cmin;
+                if (cmax > hi) hi = cmax;
+            }
+        F1_CHECK(lo <= hi, "[f1c3] no feasible (o,c) class at layer m=%d", m);
+        F1_CHECK(lo + F1C3_GBIAS >= 0 && hi + F1C3_GBIAS <= 1023,
+                 "[f1c3] band [%d,%d] at layer %d exceeds the 10-bit gofs packing", lo, hi, m);
+        gm->glo[m] = lo;
+        gm->ghi[m] = hi;
+        gm->gw[m] = hi - lo + 1;
+        if (gm->gw[m] > gm->gwmax) gm->gwmax = gm->gw[m];
+    }
+    F1_CHECK(gm->glo[0] == 0 && gm->ghi[0] == 0, "[f1c3] layer-0 band must be {0}");
+}
+
+/* g-delta of placing pair i (subset index) at slot `slot` when the target
+ * mask is tm: 0 (self/inert), -slot (opens its couple), +slot (closes it).
+ * The partner bit of tm equals the predecessor's (partner != i). */
+static inline int f1c3_gdelta(const F1C3Mode *gm, uint32_t tm, int i, int slot) {
+    int pj = gm->cpartner[i];
+    if (pj < 0) return 0;
+    return ((tm >> pj) & 1) ? slot : -slot;
+}
+
+/* G-mode per-entry gather kernel — the #217 f1c5_gather_entries arithmetic
+ * (which is left untouched) plus the G channel. gshift = gdelta - glo_next -
+ * F1C3_GBIAS maps a stored key's gofs straight to the target layer's local
+ * g index gl; every gl is hard-asserted inside [0, gw) (band assert).
+ * Scratch layout: scr[last * (vk1*gw) + gl * vk1 + rid_local]. */
+static inline void f1c3_gather_entries(const F1C5Budget *B, const F1C3Mode *gm,
+                                       const uint32_t *keys, const F1U192 *vals, uint64_t ne,
+                                       const uint8_t *ginv, int fa, int fb,
+                                       int gshift, int gw,
+                                       const int32_t *loc1, int vk1, F1U192 *scr) {
+    const size_t lstride = (size_t)vk1 * (size_t)gw;
+    for (uint64_t e = 0; e < ne; e++) {
+        uint32_t key = keys[e];
+        int lp = ginv[(key >> 16) & 0x3fu];
+        uint32_t rid = key & 0xffffu;
+        int gl = (int)(key >> 22) + gshift;
+        F1_CHECK(gl >= 0 && gl < gw,
+                 "[f1c3] running-G outside the layer band (gl=%d gw=%d) — band algebra defect", gl, gw);
+        const F1U192 *pv = &vals[e];
+        /* two orientations of pair i: enter fa exit fb / enter fb exit fa */
+        for (int ori = 0; ori < 2; ori++) {
+            const int f = ori ? fb : fa, x = ori ? fa : fb;
+            const int cls = F1C5_CLS[__builtin_popcount(lp ^ f)];
+            if (!gm->no_c2 && cls < 0) continue;         /* C2: d=5 killed (d=0 impossible) */
+            int32_t lo = 0;
+            if (gm->use_c5) {                            /* exact C5 residual, as in #217 */
+                if (cls < 0 || B->dig[cls][rid] >= B->b0[cls]) continue;
+                lo = loc1[rid + B->rad[cls]];
+                F1_CHECK(lo >= 0, "sum-invariant violation in gather (g-mode)");
+            }
+            f1_add(&scr[(size_t)x * lstride + (size_t)gl * (size_t)vk1 + (size_t)lo], pv);
+        }
+    }
+}
+
+/* G-mode emit: scan the dense scratch in ascending KEY order — (gofs, last,
+ * rid) with gofs in the top bits — emit nonzero slots (or count when
+ * keys == NULL) and zero them, restoring the all-zero scratch invariant. */
+static uint64_t f1c3_emit_target(F1U192 *scr, int vk1, int gw, int glo_next,
+                                 const uint16_t *vlist1, uint32_t *keys, F1U192 *vals) {
+    uint64_t cnt = 0;
+    F1U192 z;
+    z.l0 = z.l1 = z.l2 = 0;
+    const size_t lstride = (size_t)vk1 * (size_t)gw;
+    for (int gl = 0; gl < gw; gl++) {
+        const uint32_t gofs = (uint32_t)(gl + glo_next + F1C3_GBIAS);
+        for (int l = 0; l < 64; l++) {
+            F1U192 *row = scr + (size_t)l * lstride + (size_t)gl * (size_t)vk1;
+            for (int v = 0; v < vk1; v++) {
+                if (f1_is_zero(&row[v])) continue;
+                if (keys) {
+                    keys[cnt] = (gofs << 22) | ((uint32_t)l << 16) | vlist1[v];
+                    vals[cnt] = row[v];
+                }
+                row[v] = z;
+                cnt++;
+            }
+        }
+    }
+    return cnt;
+}
+
 /* Deterministic first-completion DFS — EXACT port of the instrument's
  * find_b0(seed=None): pairs tried in ascending subset-index order,
  * orientations in (0,1) order where trans[i][o] = (PAIRS[p][o^1], PAIRS[p][o])
@@ -13336,8 +14695,10 @@ static void f1c5_write_layer_as(const char *dir, const char *pfx, const char *ma
 }
 
 static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *B,
-                             const F1C5Layer *L) {
-    f1c5_write_layer_as(dir, "f1c5", "F1C5LAY1", c, B, L);
+                             const F1C3Mode *gm, const F1C5Layer *L) {
+    /* G-mode (--f1-c3-hist): own magic, so cross-mode resume is impossible (main,
+     * 2026-08); kind-parameterized writer (Stage G/T ladders) from v4-query-program. */
+    f1c5_write_layer_as(dir, "f1c5", gm ? "F1C3LAY1" : "F1C5LAY1", c, B, L);
 }
 
 /* Prefix-parameterized manifest writer (Stage G, 2026-07-16): the g ladder
@@ -13346,7 +14707,7 @@ static void f1c5_write_layer(const char *dir, const F1Ctx *c, const F1C5Budget *
  * HIGHEST built layer (complete ladder <=> n); backward (g) manifests record
  * the LOWEST built layer (layers K..n present; complete ladder <=> 0). */
 static void f1c5_write_manifest_as(const char *dir, const char *pfx, const F1Ctx *c,
-                                   const F1C5Budget *B, int last_complete_k) {
+                                   const F1C5Budget *B, const F1C3Mode *gm, int last_complete_k) {
     char fin[4096], tmp[4104];
     snprintf(fin, sizeof(fin), "%s/%s_manifest.txt", dir, pfx);
     snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
@@ -13357,6 +14718,8 @@ static void f1c5_write_manifest_as(const char *dir, const char *pfx, const F1Ctx
     fprintf(f, "\npl_hash=%016llx\nb0=%d,%d,%d,%d,%d\nlast_complete_k=%d\n",
             (unsigned long long)f1_pl_hash(c),
             B->b0[0], B->b0[1], B->b0[2], B->b0[3], B->b0[4], last_complete_k);
+    if (gm)   /* G-mode marker: checked (both directions) on resume */
+        fprintf(f, "gmode=c3hist use_c5=%d no_c2=%d\n", gm->use_c5, gm->no_c2);
     if (fflush(f) != 0 || fsync(fileno(f)) != 0) f1_ckpt_io_abort("fsync", tmp);
     fclose(f);
     if (rename(tmp, fin) != 0) f1_ckpt_io_abort("rename", fin);
@@ -13364,8 +14727,8 @@ static void f1c5_write_manifest_as(const char *dir, const char *pfx, const F1Ctx
 }
 
 static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budget *B,
-                                int last_complete_k) {
-    f1c5_write_manifest_as(dir, "f1c5", c, B, last_complete_k);
+                                const F1C3Mode *gm, int last_complete_k) {
+    f1c5_write_manifest_as(dir, "f1c5", c, B, gm, last_complete_k);
 }
 
 /* Returns last_complete_k and fills *L on successful resume; -1 if no
@@ -13383,14 +14746,15 @@ static uint64_t f1c5_v2_kblk_base(uint64_t nm, uint64_t ne);   /* fwd decl (defi
  * the always-load-the-total-layer-in-full special case. f1c5_try_resume()
  * keeps the historical production signature/behavior. */
 static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
-                              const F1Ctx *c, const F1C5Budget *B, F1C5Layer *L,
-                              int index_only, int *out_is_v2) {
+                              const F1Ctx *c, const F1C5Budget *B, const F1C3Mode *gm,
+                              F1C5Layer *L, int index_only, int *out_is_v2) {
     char path[4096];
     snprintf(path, sizeof(path), "%s/%s_manifest.txt", dir, pfx);
     FILE *f = fopen(path, "r");
     if (!f) return -1;
     char line[2048];
     int n = -1, se = -1, lk = -1, mb0[5] = {-1, -1, -1, -1, -1};
+    int mg = 0, mg_c5 = -1, mg_nc2 = -1;
     unsigned long long ph = 0;
     while (fgets(line, sizeof(line), f)) {
         sscanf(line, "n=%d", &n);
@@ -13398,6 +14762,7 @@ static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
         sscanf(line, "pl_hash=%llx", &ph);
         sscanf(line, "b0=%d,%d,%d,%d,%d", &mb0[0], &mb0[1], &mb0[2], &mb0[3], &mb0[4]);
         sscanf(line, "last_complete_k=%d", &lk);
+        if (sscanf(line, "gmode=c3hist use_c5=%d no_c2=%d", &mg_c5, &mg_nc2) == 2) mg = 1;
     }
     fclose(f);
     int b0_ok = 1;
@@ -13405,6 +14770,15 @@ static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
     F1_CHECK(n == c->n && se == c->start_exit && ph == (unsigned long long)f1_pl_hash(c) && b0_ok,
              "manifest in %s does not match this run (n=%d/%d start=%d/%d) — wrong --layers-dir?",
              dir, n, c->n, se, c->start_exit);
+    /* G-mode marker must match in BOTH directions (a plain f1c5 run must never
+     * resume a c3hist dir and vice versa; layer magics enforce this again). */
+    F1_CHECK((gm != NULL) == mg &&
+             (!gm || (gm->use_c5 == mg_c5 && gm->no_c2 == mg_nc2)),
+             "manifest in %s is for %s (use_c5=%d no_c2=%d); this run is %s "
+             "(use_c5=%d no_c2=%d) — wrong dir",
+             dir, mg ? "--f1-c3-hist" : "--f1-exact-c1c2c4c5", mg_c5, mg_nc2,
+             gm ? "--f1-c3-hist" : "--f1-exact-c1c2c4c5",
+             gm ? gm->use_c5 : -1, gm ? gm->no_c2 : -1);
     F1_CHECK(lk >= 0 && lk <= c->n, "manifest last_complete_k=%d out of range", lk);
     snprintf(path, sizeof(path), "%s/%s_layer_%02d.bin", dir, pfx, lk);
     f = fopen(path, "rb");
@@ -13413,8 +14787,8 @@ static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
     if (fread(&h, sizeof(h), 1, f) != 1) f1_ckpt_io_abort("fread hdr", path);
     int hb0_ok = 1;
     for (int d = 0; d < 5; d++) if (h.b0[d] != (uint32_t)B->b0[d]) hb0_ok = 0;
-    int is_v2 = (memcmp(h.magic, f1c5_kind_magic(is_g, 1), 8) == 0 && h.version == 2);
-    int is_v1 = (memcmp(h.magic, f1c5_kind_magic(is_g, 0), 8) == 0 && h.version == 1);
+    int is_v2 = (memcmp(h.magic, gm ? "F1C3LAY2" : f1c5_kind_magic(is_g, 1), 8) == 0 && h.version == 2);
+    int is_v1 = (memcmp(h.magic, gm ? "F1C3LAY1" : f1c5_kind_magic(is_g, 0), 8) == 0 && h.version == 1);
     F1_CHECK((is_v1 || is_v2) &&
              h.n == (uint32_t)c->n && h.k == (uint32_t)lk &&
              h.start_exit == (uint32_t)c->start_exit && h.pl_hash == f1_pl_hash(c) && hb0_ok,
@@ -13481,9 +14855,10 @@ static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
     return lk;
 }
 
-static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B, F1C5Layer *L,
+static int f1c5_try_resume(const char *dir, const F1Ctx *c, const F1C5Budget *B,
+                           const F1C3Mode *gm, F1C5Layer *L,
                            int index_only, int *out_is_v2) {
-    return f1c5_try_resume_as(dir, "f1c5", 0, c, B, L, index_only, out_is_v2);
+    return f1c5_try_resume_as(dir, "f1c5", 0, c, B, gm, L, index_only, out_is_v2);
 }
 
 /* ---------- gather core ---------- */
@@ -13522,8 +14897,12 @@ static inline void f1c5_gather_entries(const F1C5Budget *B, const uint32_t *keys
 /* Pull all predecessor contributions for canonical target tm into the dense
  * per-thread scratch scr[last * vk1 + loc1[rid]], where loc1 maps a global
  * rid of prefix-sum k+1 to its layer-local index. Mirrors f1_gather_layer's
- * pull formulation plus the budget-kill (p_d < B0_d) — see module header. */
-static void f1c5_gather_target(const F1Ctx *c, const F1C5Budget *B, const F1C5Layer *prev,
+ * pull formulation plus the budget-kill (p_d < B0_d) — see module header.
+ * G-mode (gm != NULL): dispatch to the f1c3 kernel with the per-(tm, i)
+ * g-delta of the new pair landing at slot `slot` (= target popcount). */
+static void f1c5_gather_target(const F1Ctx *c, const F1C5Budget *B, const F1C3Mode *gm,
+                               int slot, int glo_next, int gw,
+                               const F1C5Layer *prev,
                                uint32_t tm, const int32_t *loc1, int vk1, F1U192 *scr) {
     uint32_t rem = tm;
     while (rem) {
@@ -13534,9 +14913,16 @@ static void f1c5_gather_target(const F1Ctx *c, const F1C5Budget *B, const F1C5La
         uint32_t cpred = f1_canon(c, pred, &g);
         int64_t pi = f1_bsearch_u32(prev->masks, prev->nm, cpred);
         if (pi < 0) continue;
-        f1c5_gather_entries(B, prev->keys + prev->off[pi], prev->vals + prev->off[pi],
-                            prev->off[pi + 1] - prev->off[pi],
-                            c->el[g].hinv, c->pa[i], c->pb[i], loc1, vk1, scr);
+        if (gm) {
+            int gshift = f1c3_gdelta(gm, tm, i, slot) - glo_next - F1C3_GBIAS;
+            f1c3_gather_entries(B, gm, prev->keys + prev->off[pi], prev->vals + prev->off[pi],
+                                prev->off[pi + 1] - prev->off[pi],
+                                c->el[g].hinv, c->pa[i], c->pb[i], gshift, gw, loc1, vk1, scr);
+        } else {
+            f1c5_gather_entries(B, prev->keys + prev->off[pi], prev->vals + prev->off[pi],
+                                prev->off[pi + 1] - prev->off[pi],
+                                c->el[g].hinv, c->pa[i], c->pb[i], loc1, vk1, scr);
+        }
     }
 }
 
@@ -14962,8 +16348,8 @@ static void f1c5_write_layer_v2_as(const char *dir, const char *pfx, const char 
 }
 
 static void f1c5_write_layer_v2(const char *dir, const F1Ctx *c, const F1C5Budget *B,
-                                F1C5Layer *L, int level) {
-    f1c5_write_layer_v2_as(dir, "f1c5", "F1C5LAY2", c, B, L, level);
+                                const F1C3Mode *gm, F1C5Layer *L, int level) {
+    f1c5_write_layer_v2_as(dir, "f1c5", gm ? "F1C3LAY2" : "F1C5LAY2", c, B, L, level);
 }
 
 /* v2 layout offsets for a layer with nm masks and ne entries: the compressed
@@ -15116,6 +16502,7 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
  * unchanged. Attribution: design + implementation by Claude (Opus), operator-
  * directed N-version checkpoint effort 2026-07-08. */
 #define F1C5_BUILD_CKPT_MAGIC "F1C5BLD1"
+#define F1C3_BUILD_CKPT_MAGIC "F1C3BLD1"   /* G-mode variant — a stale f1c5 marker can never resume a c3 layer */
 
 /* Serialize a chunk-boundary snapshot to <dir>/f1c5_build.ckpt. Order (all little-
  * endian native, matching f1c5_build_ckpt_read): magic[8], nxt_k, pl_hash,
@@ -15125,7 +16512,7 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
  * (backward) ladder builder reuses this exact machinery with pfx="g", so an
  * f and a g build can never read each other's marker even in a shared dir.
  * Production callers pass "f1c5" (marker path byte-identical to before). */
-static void f1c5_build_ckpt_write(const char *dir, const char *pfx,
+static void f1c5_build_ckpt_write(const char *dir, const char *pfx, const char *ck_magic,
                                   uint64_t nxt_k, uint64_t pl_hash,
                                   uint64_t chunk_cap, uint64_t t0_next,
                                   const uint64_t *off, const F1C5V2Out *o,
@@ -15150,7 +16537,7 @@ static void f1c5_build_ckpt_write(const char *dir, const char *pfx,
     uLong crc = crc32(0L, Z_NULL, 0);
     #define CKW(ptr, n) do { f1c5_v2out_write_all(fd, (ptr), (uint64_t)(n), tmp); \
                              crc = crc32(crc, (const Bytef *)(ptr), (uInt)(n)); } while (0)
-    CKW(F1C5_BUILD_CKPT_MAGIC, 8);
+    CKW(ck_magic, 8);
     CKW(&nxt_k, 8); CKW(&pl_hash, 8); CKW(&chunk_cap, 8); CKW(&blk, 8); CKW(&lvl, 8);
     CKW(&t0_next, 8);
     CKW(off, 8ull * (t0_next + 1));
@@ -15193,7 +16580,7 @@ static void f1c5_build_ckpt_free(F1C5BuildCkptData *d) {
  * fills *d on a valid, usable resume point; returns 0 (fresh build) otherwise,
  * unlinking a present-but-unusable marker so it can never mislead a later run.
  * ofin is the final layer path (its .kblk.tmp/.vblk.tmp sidecars are checked). */
-static int f1c5_build_ckpt_read(const char *dir, const char *pfx,
+static int f1c5_build_ckpt_read(const char *dir, const char *pfx, const char *ck_magic,
                                 const char *ofin, uint64_t nxt_k,
                                 uint64_t pl_hash, uint64_t chunk_cap,
                                 F1C5BuildCkptData *d) {
@@ -15207,7 +16594,7 @@ static int f1c5_build_ckpt_read(const char *dir, const char *pfx,
     #define CK_RD(ptr, n) do { if (ok && fread((ptr), 1, (size_t)(n), f) != (size_t)(n)) ok = 0; \
                                else if (ok) crc = crc32(crc, (const Bytef *)(ptr), (uInt)(n)); } while (0)
     char magic[8]; CK_RD(magic, 8);
-    if (ok && memcmp(magic, F1C5_BUILD_CKPT_MAGIC, 8) != 0) ok = 0;
+    if (ok && memcmp(magic, ck_magic, 8) != 0) ok = 0;
     uint64_t k = 0, ph = 0, cc = 0, blk = 0, lvl = 0;
     CK_RD(&k, 8); CK_RD(&ph, 8); CK_RD(&cc, 8); CK_RD(&blk, 8); CK_RD(&lvl, 8);
     if (ok && (k != nxt_k || ph != pl_hash || cc != chunk_cap ||
@@ -15499,12 +16886,18 @@ static void f1c5_prog_layer_end(int k, uint64_t masks, uint64_t entries,
  * renamed, nxt->keys/vals stay NULL (2026-07-05 full-scale fix; see module
  * header). Layer mass/states (== f1c5_layer_stats of the in-RAM path) are
  * accumulated at emit time into mass_out/states_out. */
-static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char *dir,
+static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const F1C3Mode *gm,
+                                 const char *dir,
                                  const F1C5Layer *cur, F1C5Layer *nxt,
                                  const int32_t *loc1, int vk1, const uint16_t *vl1,
                                  const F1C5OocCfg *cfg, F1C5OocIo *io,
                                  F1U192 *mass_out, uint64_t *states_out,
                                  int use_v2, int gzip_level) {
+    /* G-mode per-layer band parameters (1-wide no-op when gm == NULL) */
+    const int gw_next = gm ? gm->gw[nxt->k] : 1;
+    const int glo_next = gm ? gm->glo[nxt->k] : 0;
+    const int gw_cur = gm ? gm->gw[cur->k] : 1;
+    const char *ck_magic = gm ? F1C3_BUILD_CKPT_MAGIC : F1C5_BUILD_CKPT_MAGIC;
     char path[4096];
     snprintf(path, sizeof(path), "%s/f1c5_layer_%02d.bin", dir, cur->k);
     int fd = open(path, O_RDONLY);
@@ -15543,8 +16936,8 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         F1_CHECK(v2cbuf && v2ktmp && v2vtmp, "v2 read scratch alloc failed");
     }
 
-    /* chunk sizing: dense per-target scratch is 64 * vk1 F1U192 slots */
-    const uint64_t scr_per_tgt = 64ull * (uint64_t)vk1;
+    /* chunk sizing: dense per-target scratch is 64 * vk1 (* gw in G-mode) F1U192 slots */
+    const uint64_t scr_per_tgt = 64ull * (uint64_t)vk1 * (uint64_t)gw_next;
     uint64_t chunk_cap = (cfg->scratch_mb << 20) / (scr_per_tgt * sizeof(F1U192));
     if (chunk_cap < 1) chunk_cap = 1;
     if (nxt->nm && chunk_cap > nxt->nm) chunk_cap = nxt->nm;
@@ -15556,7 +16949,7 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     F1C5BuildCkptData ckpt;
     int have_ckpt = 0;
     if (use_v2) {
-        have_ckpt = f1c5_build_ckpt_read(dir, "f1c5", ofin, (uint64_t)nxt->k, f1_pl_hash(c),
+        have_ckpt = f1c5_build_ckpt_read(dir, "f1c5", ck_magic, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
                                          chunk_cap, &ckpt);
         if (have_ckpt) {
             f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
@@ -15585,10 +16978,11 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     { const char *e = getenv("SOLVE_F1_KILL_AFTER_CHUNK");
       if (e && *e) kill_after_chunk = atoll(e); }
 
-    /* read window: at least one full predecessor span (<= 64 * R entries),
-     * at most the whole previous layer */
+    /* read window: at least one full predecessor span (<= 64 * R * gw_cur
+     * entries), at most the whole previous layer */
     uint64_t buf_entries = (cfg->read_mb << 20) / entry_b;
-    if (buf_entries < 64ull * (uint64_t)B->R) buf_entries = 64ull * (uint64_t)B->R;
+    if (buf_entries < 64ull * (uint64_t)B->R * (uint64_t)gw_cur)
+        buf_entries = 64ull * (uint64_t)B->R * (uint64_t)gw_cur;
     if (buf_entries > cur->ne) buf_entries = cur->ne ? cur->ne : 1;
     const uint64_t gap_entries = (cfg->gap_kb << 10) / entry_b;
 
@@ -15698,12 +17092,21 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
             for (int64_t t = 0; t < (int64_t)tc; t++) {
                 const F1C5Req *tr = reqs + (uint64_t)t * (uint64_t)c->n;
                 F1U192 *ts = scr + (uint64_t)t * scr_per_tgt;
+                const uint32_t tm = nxt->masks[t0 + (uint64_t)t];
                 uint32_t r = rcur[t];
                 while (r < rlen[t] && tr[r].pi <= phi) {
                     uint64_t a = cur->off[tr[r].pi], b = cur->off[tr[r].pi + 1];
-                    f1c5_gather_entries(B, kbuf + (a - e0), vbuf + (a - e0), b - a,
-                                        c->el[tr[r].g].hinv, c->pa[tr[r].i], c->pb[tr[r].i],
-                                        loc1, vk1, ts);
+                    if (gm) {
+                        int gshift = f1c3_gdelta(gm, tm, tr[r].i, nxt->k)
+                                     - glo_next - F1C3_GBIAS;
+                        f1c3_gather_entries(B, gm, kbuf + (a - e0), vbuf + (a - e0), b - a,
+                                            c->el[tr[r].g].hinv, c->pa[tr[r].i], c->pb[tr[r].i],
+                                            gshift, gw_next, loc1, vk1, ts);
+                    } else {
+                        f1c5_gather_entries(B, kbuf + (a - e0), vbuf + (a - e0), b - a,
+                                            c->el[tr[r].g].hinv, c->pa[tr[r].i], c->pb[tr[r].i],
+                                            loc1, vk1, ts);
+                    }
                     r++;
                 }
                 rcur[t] = r;
@@ -15733,8 +17136,11 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
             #pragma omp for schedule(dynamic, 8) nowait
             for (int64_t t = 0; t < (int64_t)tc; t++) {
                 const uint64_t doff = nxt->off[t0 + (uint64_t)t] - cbase;
-                uint64_t got = f1c5_emit_target(scr + (uint64_t)t * scr_per_tgt, vk1, vl1,
-                                                skeys + doff, svals + doff);
+                uint64_t got = gm
+                    ? f1c3_emit_target(scr + (uint64_t)t * scr_per_tgt, vk1, gw_next, glo_next,
+                                       vl1, skeys + doff, svals + doff)
+                    : f1c5_emit_target(scr + (uint64_t)t * scr_per_tgt, vk1, vl1,
+                                       skeys + doff, svals + doff);
                 F1_CHECK(got == cnts[t], "ooc count/emit drift at target %lld",
                          (long long)(t0 + (uint64_t)t));
                 if (got) {   /* per-target stats == f1c5_layer_stats' inner loop */
@@ -15776,7 +17182,7 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                                  (uint64_t)kill_after_chunk == ci);
             const double now = omp_get_wtime();
             if (do_kill || now - last_ckpt_wt >= CKPT_INTERVAL_S) {
-                f1c5_build_ckpt_write(dir, "f1c5", (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
+                f1c5_build_ckpt_write(dir, "f1c5", ck_magic, (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
                                       t0_next, nxt->off, &v2o, &mass, states, io);
                 last_ckpt_wt = now;
                 if (do_kill) {
@@ -15803,7 +17209,8 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
      * tail-first (peak ~1x layer); v2 appends the compressed-block sidecars. */
     F1C5LayerHdr h;
     memset(&h, 0, sizeof(h));
-    memcpy(h.magic, use_v2 ? "F1C5LAY2" : "F1C5LAY1", 8);
+    memcpy(h.magic, use_v2 ? (gm ? "F1C3LAY2" : "F1C5LAY2")
+                           : (gm ? "F1C3LAY1" : "F1C5LAY1"), 8);
     h.version = use_v2 ? 2u : 1u;
     h.n = (uint32_t)c->n;
     h.k = (uint32_t)nxt->k;
@@ -15856,11 +17263,36 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
 
 /* Group-closed orbit unions by pair count. 13 and 16 are the instrument's
  * validation unions ("13" = U13 3+4+6, "16" = U16 4+6+6); the rest cover the
- * staged memory-validation ladder (17/20/26/29 are not realizable as orbit
- * sums; 21/22 added 2026-07-14 for the kc mid-n validation harness). */
+ * staged memory-validation ladder.
+ *
+ * REALIZABLE SIZES. A rung must be a union of WHOLE pair-orbits, and the orbit
+ * sizes are {3,3,3,4,6,6,6} (sum 31). So the realizable pair counts are exactly
+ *     3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31
+ * and the twelve counts 1,2,5,8,11,14,17,20,23,26,29,30 are NOT realizable at
+ * all. (An earlier revision of this comment named only 26 and 29; that was an
+ * incomplete list, not a different claim.) Note in particular that nothing
+ * lies strictly between 28 and 31: the smallest orbit is 3, so the largest
+ * proper union is 31-3 = 28. That is why the published rung ladder stops at 28.
+ *
+ * WHICH union, when several share a size. Sizes are not unique to a union --
+ * e.g. 12 = 6+6 = 3+3+6, and there are 127 distinct unions in all (2^7-1).
+ * The rows below pick ONE per size. Rows 9..28 are the historical validation
+ * unions and are load-bearing: their counts are published in TR-11 4b and must
+ * not be re-pointed at a different union of the same size. The rows added
+ * 2026-08-09 (3,4,6,7,10,12,15,21,22 -- the small sizes that had no entry)
+ * follow a stated convention: take rows in the order 3.0,3.1,3.2,4.0,6.0,6.1,6.2
+ * and greedily prefer earlier rows. They have no published counterpart, so they
+ * produce NEW exact values rather than checks against a known answer. */
 static const struct { int n; const char *spec; } f1c5_unions[] = {
+    {  3, "3.0@0" },
+    {  4, "4.0@0" },
+    {  6, "3.0,3.1@0" },
+    {  7, "3.0,4.0@0" },
     {  9, "3.0,3.1,3.2@0" },
+    { 10, "3.0,3.1,4.0@0" },
+    { 12, "3.0,3.1,6.0@0" },
     { 13, "3.0,4.0,6.2@0" },
+    { 15, "3.0,3.1,3.2,6.0@0" },
     { 16, "4.0,6.0,6.1@0" },
     { 18, "6.0,6.1,6.2@0" },
     { 19, "3.0,4.0,6.0,6.1@0" },
@@ -15903,9 +17335,13 @@ static void f1c5_stream_cold_hook(const char *dir, int k_old) {
 /* ooc_dir (#221): out-of-core mode — layer files (same format as layers_dir)
  * live in ooc_dir and the gather streams them; at most one layer in RAM.
  * resume_required: --resume-from-layers was given — hard error if there is
- * no manifest to resume from (resume is otherwise automatic, both modes). */
+ * no manifest to resume from (resume is otherwise automatic, both modes).
+ * g_hist (BACKLOG-2a): --f1-c3-hist — augment the state with the running C3
+ * slot-gap sum G and emit the exact final-layer G-histogram (uncapped; see
+ * the G-channel module header). g_use_c5 keeps the C5 residual (rung gates);
+ * g_no_c2 drops the C2 adjacency test (C1&C4 null-distribution gate base). */
 static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_dir,
-                           int resume_required) {
+                           int resume_required, int g_hist, int g_use_c5, int g_no_c2) {
     f1_binom_init();
     f1_build_group();
 
@@ -15928,17 +17364,17 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
       if (e && (strcmp(e, "v1") == 0 || strcmp(e, "1") == 0)) use_v2 = 0; }
     /* v4-compiler (2026-07-14): SOLVE_F1_KEEP_LAYERS=1 retains EVERY layer file
      * 0..n instead of rolling the two-layer window — the preserve-all-layers
-     * substrate for the --kc-* knowledge-compiler query tool (and a
-     * stream-to-cold archival source). Count and layer bytes are unchanged (the
-     * flag only suppresses the k-2 unlink); disk peak becomes the FULL ladder
-     * (full-31: ~2.5-2.7 TB v2-gz — plan a 4 TB disk), not the
-     * ~1x-largest-layer transient. Env-gated, sha-neutral. */
+     * substrate for the knowledge-compiler query tool (and a stream-to-cold
+     * archival source). Count and layer bytes are unchanged (the flag only
+     * suppresses the k-2 unlink); disk peak becomes the FULL ladder (full-31:
+     * ~2.5-2.7 TB v2-gz — plan a 4 TB disk), not the ~1x-largest-layer transient.
+     * Env-gated, sha-neutral. Ported from the v4-compiler worktree 2026-07-16. */
     int keep_layers = 0;
     { const char *e = getenv("SOLVE_F1_KEEP_LAYERS");
       if (e && atoi(e) != 0) keep_layers = 1; }
     if (keep_layers && dir)
         fprintf(stderr, "[f1c5] KEEP-LAYERS: retaining all layer files 0..n in %s "
-                "(SOLVE_F1_KEEP_LAYERS; kc query substrate)\n", dir);
+                "(SOLVE_F1_KEEP_LAYERS)\n", dir);
     int gzip_level = f1c5_ooc_gzip_level();
     if (ooc)
         fprintf(stderr, "[f1c5-ooc] layer format: %s%s\n", use_v2 ? "v2 (per-block gzip)" : "v1 (raw)",
@@ -15951,14 +17387,14 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     if (full31) {
         n = 31;
         for (int i = 0; i < 31; i++) pl[i] = i + 1;
-        start_exit = 0;   /* C4: s0=63, s1=0 (orientation forced, Theorem 6) -> exit 0 */
+        start_exit = 0;   /* C4: s0=63, s1=0 (definitional orientation; Thm 6 RETRACTED) -> exit 0 */
     } else {
         const char *spec = NULL;
         for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++)
             if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
         if (!spec) {
             fprintf(stderr, "ERROR: [f1c5] --f1-pairs %d has no group-closed orbit union; "
-                    "supported: 9,13,16,18,19,21,22,24,25,27,28,31\n", npairs);
+                    "supported: 3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31\n", npairs);
             free(c);
             return 2;
         }
@@ -15967,13 +17403,29 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     }
     f1_ctx_init(c, n, pl, start_exit);
 
+    /* BACKLOG-2a G-channel mode context (NULL = plain #217 f1c5 behavior) */
+    F1C3Mode gmode_storage;
+    const F1C3Mode *gm = NULL;
+    if (g_hist) {
+        f1c3_mode_init(&gmode_storage, c, g_use_c5, g_no_c2);
+        gm = &gmode_storage;
+    }
+
     int b0v[5];
-    f1c5_derive_b0(c, full31, b0v);
+    if (gm && !gm->use_c5) {
+        /* rid disabled: R = 1, rid = 0 everywhere, no budget-kill — the DP
+         * counts the C1 & C2 & C4 base (or C1 & C4 with --no-c2). */
+        for (int d = 0; d < 5; d++) b0v[d] = 0;
+    } else {
+        f1c5_derive_b0(c, full31, b0v);
+    }
     F1C5Budget B;
     f1c5_budget_init(&B, b0v);
-    { int tot = 0;
-      for (int d = 0; d < 5; d++) tot += b0v[d];
-      F1_CHECK(tot == n, "budget sum %d != n=%d (one boundary transition per pair)", tot, n); }
+    if (!(gm && !gm->use_c5)) {
+        int tot = 0;
+        for (int d = 0; d < 5; d++) tot += b0v[d];
+        F1_CHECK(tot == n, "budget sum %d != n=%d (one boundary transition per pair)", tot, n);
+    }
 
     /* per-prefix-sum rid tables: vlist[s] = ascending global rids with
      * rsum == s; vloc[s] = global rid -> layer-local index (-1 invalid) */
@@ -15983,6 +17435,18 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     F1_CHECK(vlist && vloc && vcnt, "rid table alloc failed");
     int vmax = 0;
     for (int s = 0; s <= n; s++) {
+        if (gm && !gm->use_c5) {
+            /* rid-free G-mode: the single rid 0 is live at every layer (the
+             * rsum stratification is a C5-budget concept and does not apply) */
+            vcnt[s] = 1;
+            if (vmax < 1) vmax = 1;
+            vlist[s] = (uint16_t *)malloc(sizeof(uint16_t));
+            vloc[s] = (int32_t *)malloc(sizeof(int32_t) * (size_t)B.R);   /* B.R == 1 */
+            F1_CHECK(vlist[s] && vloc[s], "rid table alloc failed (s=%d)", s);
+            vlist[s][0] = 0;
+            vloc[s][0] = 0;
+            continue;
+        }
         int cnt = 0;
         for (uint32_t r = 0; r < B.R; r++) if (B.rsum[r] == s) cnt++;
         vcnt[s] = cnt;
@@ -16029,13 +17493,27 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
     fprintf(stderr, "[f1c5] B0 boundary budget (d=1,2,3,4,6) = (%d,%d,%d,%d,%d) sum=%d [%s] "
             "rid_space=%u V_max=%d/layer scratch=%.2f MB/thread x %d threads\n",
             b0v[0], b0v[1], b0v[2], b0v[3], b0v[4], n,
-            full31 ? "KW-derived" : "deterministic-DFS witness",
-            B.R, vmax, 64.0 * (double)vmax * (double)sizeof(F1U192) / 1e6, T);
+            (gm && !gm->use_c5) ? "rid disabled (G-mode base)"
+                                : (full31 ? "KW-derived" : "deterministic-DFS witness"),
+            B.R, vmax, 64.0 * (double)vmax * (double)(gm ? gm->gwmax : 1)
+                       * (double)sizeof(F1U192) / 1e6, T);
+    if (gm) {
+        fprintf(stderr, "[f1c3] G-channel: base=C1&%sC4%s couples=%d self=%d truncated=%d "
+                "gofs_bias=%d gw_max=%d\n",
+                gm->no_c2 ? "" : "C2&", gm->use_c5 ? "&C5" : "",
+                gm->ncpl, gm->nselfp, gm->ninert, F1C3_GBIAS, gm->gwmax);
+        fprintf(stderr, "[f1c3] per-layer worst-case running-G bands (class-union):");
+        for (int m = 0; m <= n; m++)
+            fprintf(stderr, " %d:[%d,%d]", m, gm->glo[m], gm->ghi[m]);
+        fprintf(stderr, "\n");
+    }
 
     F1U192 *scratch = NULL;   /* in-RAM gather scratch; ooc sizes its own per chunk */
     if (!ooc) {
-        scratch = (F1U192 *)calloc((size_t)T * 64 * (size_t)vmax, sizeof(F1U192));
-        F1_CHECK(scratch != NULL, "scratch alloc failed (%d threads x 64 x %d)", T, vmax);
+        scratch = (F1U192 *)calloc((size_t)T * 64 * (size_t)vmax * (size_t)(gm ? gm->gwmax : 1),
+                                   sizeof(F1U192));
+        F1_CHECK(scratch != NULL, "scratch alloc failed (%d threads x 64 x %d x %d)",
+                 T, vmax, gm ? gm->gwmax : 1);
     }
 
     double T0 = omp_get_wtime();
@@ -16049,7 +17527,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         if (mkdir(dir, 0755) != 0 && errno != EEXIST)
             f1_ckpt_io_abort("mkdir", dir);
         int resumed_is_v2 = -1;
-        int rk = f1c5_try_resume(dir, c, &B, &cur, ooc, &resumed_is_v2);
+        int rk = f1c5_try_resume(dir, c, &B, gm, &cur, ooc, &resumed_is_v2);
         if (rk >= 0) {
             k0 = rk;
             f1c5_prog_note_resume();   /* observability: record the resume */
@@ -16087,15 +17565,16 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         F1_CHECK(cur.masks && cur.off && cur.keys && cur.vals, "layer-0 alloc failed");
         cur.off[0] = 0;
         cur.off[1] = 1;
-        cur.keys[0] = ((uint32_t)start_exit << 16);
+        /* G-mode: layer-0 state carries g = 0 -> gofs = F1C3_GBIAS in the key's top bits */
+        cur.keys[0] = (gm ? ((uint32_t)F1C3_GBIAS << 22) : 0u) | ((uint32_t)start_exit << 16);
         cur.vals[0].l0 = 1;
         if (dir) {
             /* v2 layer files only in OOC mode; the in-RAM --layers-dir path writes v1
              * for ALL layers (0..n), so layer 0 must be v1 too or the dir is mixed-
              * format and can't resume (Fable review Finding 3). */
-            if (ooc && use_v2) f1c5_write_layer_v2(dir, c, &B, &cur, gzip_level);  /* sets cur.kidx/vidx */
-            else               f1c5_write_layer(dir, c, &B, &cur);
-            f1c5_write_manifest(dir, c, &B, 0);
+            if (ooc && use_v2) f1c5_write_layer_v2(dir, c, &B, gm, &cur, gzip_level);  /* sets cur.kidx/vidx */
+            else               f1c5_write_layer(dir, c, &B, gm, &cur);
+            f1c5_write_manifest(dir, c, &B, gm, 0);
         }
         if (ooc && max_layer > 0) {   /* entries live on disk from here on (index stays in RAM) */
             free(cur.keys); free(cur.vals);
@@ -16135,23 +17614,27 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
              * inside the builder — entries never reside in RAM (2026-07-05 fix) */
             {
                 const double _sw0 = omp_get_wtime();
-                f1c5_ooc_build_layer(c, &B, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
+                f1c5_ooc_build_layer(c, &B, gm, dir, &cur, &nxt, loc1, vk1, vl1, &ooc_cfg, &io,
                                      &ooc_mass, &ooc_states, use_v2, gzip_level);
                 f1c5_sidecar_x.build_wall_s = omp_get_wtime() - _sw0;
             }
             f1c5_sidecar_emit(dir, "f1c5", c, &B, nxt.k);   /* catalog sidecar (non-fatal) */
             t2 = omp_get_wtime();
         } else {
+        const int gw1 = gm ? gm->gw[k + 1] : 1;      /* target-layer G band (1 = no channel) */
+        const int glo1 = gm ? gm->glo[k + 1] : 0;
+        const size_t sstride = (size_t)64 * (size_t)vmax * (size_t)(gm ? gm->gwmax : 1);
         /* pass 1: per-target entry counts into off[ti+1] (no entry buffers —
          * the second gather pass writes straight into the final arrays, so
          * the measured peak has no transient duplication) */
         #pragma omp parallel
         {
-            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * 64 * (size_t)vmax;
+            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * sstride;
             #pragma omp for schedule(dynamic, 16)
             for (int64_t ti = 0; ti < (int64_t)nxt.nm; ti++) {
-                f1c5_gather_target(c, &B, &cur, nxt.masks[ti], loc1, vk1, scr);
-                nxt.off[ti + 1] = f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
+                f1c5_gather_target(c, &B, gm, k + 1, glo1, gw1, &cur, nxt.masks[ti], loc1, vk1, scr);
+                nxt.off[ti + 1] = gm ? f1c3_emit_target(scr, vk1, gw1, glo1, vl1, NULL, NULL)
+                                     : f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
             }
         }
         nxt.off[0] = 0;
@@ -16165,12 +17648,15 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         /* pass 2: re-gather, emit into the final ragged arrays */
         #pragma omp parallel
         {
-            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * 64 * (size_t)vmax;
+            F1U192 *scr = scratch + (size_t)omp_get_thread_num() * sstride;
             #pragma omp for schedule(dynamic, 16)
             for (int64_t ti = 0; ti < (int64_t)nxt.nm; ti++) {
-                f1c5_gather_target(c, &B, &cur, nxt.masks[ti], loc1, vk1, scr);
-                uint64_t got = f1c5_emit_target(scr, vk1, vl1,
-                                                nxt.keys + nxt.off[ti], nxt.vals + nxt.off[ti]);
+                f1c5_gather_target(c, &B, gm, k + 1, glo1, gw1, &cur, nxt.masks[ti], loc1, vk1, scr);
+                uint64_t got = gm
+                    ? f1c3_emit_target(scr, vk1, gw1, glo1, vl1,
+                                       nxt.keys + nxt.off[ti], nxt.vals + nxt.off[ti])
+                    : f1c5_emit_target(scr, vk1, vl1,
+                                       nxt.keys + nxt.off[ti], nxt.vals + nxt.off[ti]);
                 F1_CHECK(got == nxt.off[ti + 1] - nxt.off[ti],
                          "pass-1/pass-2 count drift at target %lld", (long long)ti);
             }
@@ -16190,8 +17676,8 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         double t_ck = 0.0;
         if (dir) {
             if (!ooc)   /* ooc: the builder already wrote + renamed the layer file */
-                f1c5_write_layer(dir, c, &B, &nxt);
-            f1c5_write_manifest(dir, c, &B, k + 1);
+                f1c5_write_layer(dir, c, &B, gm, &nxt);
+            f1c5_write_manifest(dir, c, &B, gm, k + 1);
             if (!ooc && k >= 1 && !keep_layers) {   /* keep k and k+1; drop k-1 (ooc
                                                      * drops it pre-build). KEEP_LAYERS
                                                      * suppresses the drop. */
@@ -16310,7 +17796,107 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                     "scratch %.3f GB total\n", peak2 / 1e9, peak2_k,
                     (double)T * 64.0 * (double)vmax * (double)sizeof(F1U192) / 1e9);
         }
-        if (full31) {
+        if (gm) {
+            /* ---- BACKLOG-2a: the exact final-layer G-HISTOGRAM (the deliverable;
+             * the capped count is a derived cumulative footnote). ---- */
+            const char *base = gm->no_c2 ? "C1&C4"
+                             : (gm->use_c5 ? "C1&C2&C4&C5" : "C1&C2&C4");
+            F1U192 *hist = (F1U192 *)calloc(1024, sizeof(F1U192));
+            F1_CHECK(hist != NULL, "[f1c3] histogram alloc failed");
+            int gmin = INT_MAX, gmax = INT_MIN, nbins = 0;
+            for (uint64_t e = 0; e < cur.ne; e++) {
+                int gg = (int)(cur.keys[e] >> 22) - F1C3_GBIAS;
+                F1_CHECK(gg >= gm->glo[n] && gg <= gm->ghi[n],
+                         "[f1c3] final-layer G=%d outside band [%d,%d]", gg, gm->glo[n], gm->ghi[n]);
+                f1_add(&hist[cur.keys[e] >> 22], &cur.vals[e]);
+                if (gg < gmin) gmin = gg;
+                if (gg > gmax) gmax = gg;
+            }
+            if (full31)   /* C1&C2&C4(&C5) and C1&C4 are all subsets of C1&C4: support in [12, 228] */
+                F1_CHECK(gmin >= 12 && gmax <= 228,
+                         "[f1c3] full-31 G support [%d,%d] outside the proven [12,228]", gmin, gmax);
+            if (full31 && gm->no_c2)
+                /* C1&C4 support is EXACTLY [12,228] — both endpoints achievable
+                 * (exact null transfer DP, independently re-derived 2026-07-22) */
+                F1_CHECK(gmin == 12 && gmax == 228,
+                         "[f1c3] C1&C4 null support [%d,%d] != the exact [12,228]", gmin, gmax);
+            printf("F1C3 G-HISTOGRAM base=%s n=%d pairs [", base, n);
+            for (int i = 0; i < n; i++) printf("%s%d", i ? "," : "", pl[i]);
+            printf("] start_exit=%d%s\n", start_exit, gm->use_c5 ? " (C5 budget = B0)" : "");
+            printf("  (uncapped; C3 = 16 + 8*G over C1-valid orderings; C3 <= 776 <=> G <= 95)\n");
+            F1U192 wsum = {0, 0, 0}, cum95 = {0, 0, 0};
+            for (int gofs = 0; gofs < 1024; gofs++) {
+                if (f1_is_zero(&hist[gofs])) continue;
+                int gg = gofs - F1C3_GBIAS;
+                char bdec[64];
+                f1_dec(hist[gofs], bdec);
+                printf("G_HIST g=%d count=%s\n", gg, bdec);
+                nbins++;
+                if (gg >= 0) {   /* final-layer g is >= 1 per couple; negative only possible at rungs */
+                    F1U192 w = f1_mul_small(hist[gofs], (uint32_t)gg);
+                    f1_add(&wsum, &w);
+                } else {
+                    F1_CHECK(!full31, "[f1c3] negative final G at full-31 — impossible");
+                }
+                if (gg <= 95) f1_add(&cum95, &hist[gofs]);
+                if (full31) {   /* gate G3: the free 48-action preserves G, so it acts on
+                                 * every G-fiber -> each bin % 48 == 0.
+                                 *
+                                 * Was 24, and was skipped entirely when --no-c2.  Both
+                                 * limits were weaker than the space affords, and both were
+                                 * lifted 2026-08-10 on measurement: 48 | count(g) for EVERY
+                                 * bin of every instance on file — 987 bins over six runs
+                                 * spanning bases C1&C2&C4 and C1&C4 and sizes 24/25/27/28/31,
+                                 * zero exceptions.  Structurally the acting group on
+                                 * orientation-explicit sequences is the order-48 lift (rev
+                                 * flips orientation and fixes no sequence), so each G-fibre
+                                 * is a disjoint union of 48-orbits; lean/README.md had
+                                 * already noted the mod-24 gate was "simply weaker than the
+                                 * space affords".  This doubles the strength of one of the
+                                 * few checks that touches the G DISTRIBUTION rather than a
+                                 * G-independent total.
+                                 *
+                                 * DELIBERATELY still full31-only: the reduced rungs also
+                                 * measure 48 | count(g) (364/364 bins over 14 C5 rungs, plus
+                                 * the four default-base rungs above), but the free-action
+                                 * argument is least examined there and a false widening
+                                 * would ABORT a valid run.  Extending it is a separate,
+                                 * evidence-first change. */
+                    F1U192 q = hist[gofs];
+                    uint32_t r48 = f1_divmod_small(&q, 48);
+                    F1_CHECK(r48 == 0, "[f1c3] G-bin g=%d %% 48 = %u != 0 — per-fiber "
+                             "free-action divisibility violated", gg, r48);
+                }
+            }
+            char wdec[64], cdec[64];
+            f1_dec(wsum, wdec);
+            f1_dec(cum95, cdec);
+            printf("G_HIST_END bins=%d gmin=%d gmax=%d\n", nbins, gmin, gmax);
+            printf("G_HIST_TOTAL = %s\n", tdec);
+            printf("G_HIST_WSUM = %s   (sum of g*count; E[G] = WSUM/TOTAL)\n", wdec);
+            if (!gm->no_c2 && !gm->use_c5)
+                printf("G_HIST_CUM_LE_95 = %s   (= EXACT |C1 & C2 & C3 & C4|)\n", cdec);
+            else
+                printf("G_HIST_CUM_LE_95 = %s   (count at G <= 95 over base %s)\n", cdec, base);
+            if (full31) {
+                /* gate G4: KW itself has G = 95 and lies in every one of these bases,
+                 * so the G=95 bin must be populated (>= its 24-orbit when C2 is on) */
+                F1_CHECK(!f1_is_zero(&hist[95 + F1C3_GBIAS]),
+                         "[f1c3] KW-witness bin G=95 empty at full-31");
+                printf("  KW witness: G=95 bin populated"
+                       "; every bin divisible by 48 (asserted)\n");
+            }
+            if (full31 && gm->no_c2) {
+                /* C1&C4 null: E[G] = 128 exactly (linearity; independently re-derived
+                 * 2026-07-22) -> integer identity WSUM == 128 * TOTAL, hard-asserted */
+                F1U192 t128 = f1_mul_small(total, 128);
+                F1_CHECK(f1_eq(&wsum, &t128),
+                         "[f1c3] E[G] identity FAILED: WSUM != 128 * TOTAL on the C1&C4 null");
+                printf("  E[G] identity: WSUM == 128 * TOTAL (asserted; C1&C4 null, E[G]=128 exact)\n");
+            }
+            printf("F1C3 HIST: DONE (%.1fs)\n", omp_get_wtime() - T0);
+            free(hist);
+        } else if (full31) {
             /* S4 acts freely on C1-C5 solutions (fixed-pairing argument, TR-5)
              * and C5 is G-invariant (Hamming isometry) -> N divisible by 24 */
             F1U192 q = total;
@@ -16320,8 +17906,14 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             f1_dec(q, qdec);
             printf("F1C5 EXACT |C1 & C2 & C4 & C5| = %s\n", tdec);
             printf("  N / 24 (S4-orbit count) = %s\n", qdec);
-            printf("  vs estimator 1.3287e38 (+/-0.02%%): ratio = %.6f\n",
-                   f1_to_double(&total) / 1.3287e38);
+            /* 🔴 Q-366(B): this divided the C3-FREE exact |C1&C2&C4&C5| by the C3-INCLUSIVE
+               |C1-C5| flagship estimate 1.3287e38 -- two different objects -- and printed
+               ratio = 8.256576 where TR-11 section 9 publishes 0.999956. The correct comparand is
+               the C3-free Knuth estimate 1.0971e39 for the SAME object (TR11:311). verify.c pairs
+               its own object correctly, which is what makes this an error rather than a convention.
+               In-house find (solve-c-counting sweep, 2026-08-22); Codex R16 corroborated. */
+            printf("  vs estimator 1.0971e39 (C3-free, same object): ratio = %.6f\n",
+                   f1_to_double(&total) / 1.0971e39);
             printf("F1C5 EXACT: DONE (%.1fs)\n", omp_get_wtime() - T0);
         } else {
             printf("F1C5 SUBSET n=%d pairs [", n);
@@ -16940,7 +18532,7 @@ static void kc_build_layer(const KC *kc, const F1C5Layer *prev, F1C5Layer *nxt,
         for (int64_t oi = 0; oi < (int64_t)nxt->nm; oi++) {
             int64_t ti = order ? (int64_t)order[oi] : oi;
             if (gdir) kc_g_gather_target(kc, prev, nxt->masks[ti], k1, loc1, vk1, scr);
-            else      f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            else      f1c5_gather_target(&kc->c, &kc->B, NULL, k1, 0, 1, prev, nxt->masks[ti], loc1, vk1, scr);
             nxt->off[ti + 1] = f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
         }
     }
@@ -16958,7 +18550,7 @@ static void kc_build_layer(const KC *kc, const F1C5Layer *prev, F1C5Layer *nxt,
         for (int64_t oi = 0; oi < (int64_t)nxt->nm; oi++) {
             int64_t ti = order ? (int64_t)order[oi] : oi;
             if (gdir) kc_g_gather_target(kc, prev, nxt->masks[ti], k1, loc1, vk1, scr);
-            else      f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            else      f1c5_gather_target(&kc->c, &kc->B, NULL, k1, 0, 1, prev, nxt->masks[ti], loc1, vk1, scr);
             uint64_t got = f1c5_emit_target(scr, vk1, vl1,
                                             nxt->keys + nxt->off[ti], nxt->vals + nxt->off[ti]);
             F1_CHECK(got == nxt->off[ti + 1] - nxt->off[ti],
@@ -17011,7 +18603,7 @@ static void kc_build_layer_sliced(const KC *kc, const F1C5Layer *prev,
         uint64_t tot = 0;
         for (uint64_t ti = lo; ti < hi; ti++) {
             if (gdir) kc_g_gather_target(kc, prev, nxt->masks[ti], k1, loc1, vk1, scr);
-            else      f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            else      f1c5_gather_target(&kc->c, &kc->B, NULL, k1, 0, 1, prev, nxt->masks[ti], loc1, vk1, scr);
             uint64_t cnt = f1c5_emit_target(scr, vk1, vl1, NULL, NULL);
             nxt->off[ti + 1] = cnt;
             tot += cnt;
@@ -17023,7 +18615,7 @@ static void kc_build_layer_sliced(const KC *kc, const F1C5Layer *prev,
         uint64_t at = 0;
         for (uint64_t ti = lo; ti < hi; ti++) {
             if (gdir) kc_g_gather_target(kc, prev, nxt->masks[ti], k1, loc1, vk1, scr);
-            else      f1c5_gather_target(&kc->c, &kc->B, prev, nxt->masks[ti], loc1, vk1, scr);
+            else      f1c5_gather_target(&kc->c, &kc->B, NULL, k1, 0, 1, prev, nxt->masks[ti], loc1, vk1, scr);
             uint64_t got = f1c5_emit_target(scr, vk1, vl1, skeys[s] + at, svals[s] + at);
             F1_CHECK(got == nxt->off[ti + 1], "[kc] slice pass drift at target %llu",
                      (unsigned long long)ti);
@@ -17111,8 +18703,8 @@ static void kc_build(KC *kc, int verbose) {
 /* ---------- disk round-trip (compiled artifact = retained v1 layer files + manifest) ---------- */
 static void kc_write(const KC *kc, const char *dir) {
     if (mkdir(dir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", dir);
-    for (int k = 0; k <= kc->n; k++) f1c5_write_layer(dir, &kc->c, &kc->B, &kc->L[k]);
-    f1c5_write_manifest(dir, &kc->c, &kc->B, kc->n);
+    for (int k = 0; k <= kc->n; k++) f1c5_write_layer(dir, &kc->c, &kc->B, NULL, &kc->L[k]);
+    f1c5_write_manifest(dir, &kc->c, &kc->B, NULL, kc->n);
 }
 
 /* write the SAME layers in the v2 per-block-gzip production format (used by
@@ -17121,8 +18713,8 @@ static void kc_write_v2(KC *kc, const char *dir) {
     if (mkdir(dir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", dir);
     int lvl = f1c5_ooc_gzip_level();
     for (int k = 0; k <= kc->n; k++)
-        f1c5_write_layer_v2(dir, &kc->c, &kc->B, &kc->L[k], lvl);
-    f1c5_write_manifest(dir, &kc->c, &kc->B, kc->n);
+        f1c5_write_layer_v2(dir, &kc->c, &kc->B, NULL, &kc->L[k], lvl);
+    f1c5_write_manifest(dir, &kc->c, &kc->B, NULL, kc->n);
 }
 
 /* remove a kc layer dir written by kc_write/kc_write_v2 (selftest cleanup) */
@@ -19080,11 +20672,19 @@ static int kc_oocverify(int npairs, int R, const char *scratch) {
  *
  * STORED DOMAIN (deviation from "all 64 last values", documented): layer-k
  * keys are restricted to last in the elements of the mask's pairs (k >= 1;
- * the anchor at k = 0) — exactly the forward-reachable states, closed under
- * the backward recurrence, and everything the f*g identity and the O3 ranker
- * (proofs doc §K3-end/R3; consumes f*g products per descent position) ever
- * read. This keeps the g ladder the same size class as f (~2.5-2.7 TB v2-gz
- * at full-31, hedged, unmeasured until the run).
+ * the anchor at k = 0). That restriction is a SUPERSET of the forward-reachable
+ * last values, not a characterization of them: the seed layer n stores all 2n
+ * pair elements, including last values no valid prefix reaches (they meet
+ * f = 0 in every identity, harmlessly), while a forward-reachable dead end has
+ * g = 0 and is skipped — so the stored set and the forward-reachable set are
+ * incomparable. It is closed under the backward recurrence and is everything
+ * the f*g identity and the O3 ranker (proofs doc §K3-end/R3; consumes f*g
+ * products per descent position) ever read. (Wording corrected at the
+ * 2026-09-04 merge to match documentation/GT_LADDER_FORMAT.md §"Stored
+ * domains", corrected 2026-09-02, Codex V2-F38 #1; the earlier exact-
+ * characterization wording is registered in RETRACTED_PHRASES.tsv.) This keeps
+ * the g ladder the same size class as f (~2.5-2.7 TB v2-gz at full-31,
+ * hedged, unmeasured until the run).
  *
  * THE IDENTITY GATE (the mathematical self-check; --kc-g-selftest core and
  * the V3 primitive --kc-g-check). For every layer k in 0..n:
@@ -19267,7 +20867,7 @@ static void kc_g_write(KC *kc, const char *dir, int use_v2) {
         if (use_v2) f1c5_write_layer_v2_as(dir, "g", "F1C5GLY2", &kc->c, &kc->B, &kc->L[k], lvl);
         else        f1c5_write_layer_as(dir, "g", "F1C5GLY1", &kc->c, &kc->B, &kc->L[k]);
     }
-    f1c5_write_manifest_as(dir, "g", &kc->c, &kc->B, 0);
+    f1c5_write_manifest_as(dir, "g", &kc->c, &kc->B, NULL, 0);
 }
 
 /* ---------- engine-agnostic layer access (in-memory or OOC) for the identity ---------- */
@@ -19454,7 +21054,7 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
     F1C5BuildCkptData ckpt;
     int have_ckpt = 0;
     if (use_v2) {
-        have_ckpt = f1c5_build_ckpt_read(dir, pfx, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
+        have_ckpt = f1c5_build_ckpt_read(dir, pfx, F1C5_BUILD_CKPT_MAGIC, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
                                          chunk_cap, &ckpt);
         if (have_ckpt) {
             f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
@@ -19695,7 +21295,7 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                                  (uint64_t)kill_after_chunk == ci);
             const double now = omp_get_wtime();
             if (do_kill || now - last_ckpt_wt >= CKPT_INTERVAL_S) {
-                f1c5_build_ckpt_write(dir, pfx, (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
+                f1c5_build_ckpt_write(dir, pfx, F1C5_BUILD_CKPT_MAGIC, (uint64_t)nxt->k, f1_pl_hash(c), chunk_cap,
                                       t0_next, nxt->off, &v2o, &mass, states, io);
                 last_ckpt_wt = now;
                 if (do_kill) {
@@ -19776,7 +21376,7 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
     F1C5Layer cur;
     memset(&cur, 0, sizeof(cur));
     int resumed_is_v2 = -1;
-    int rk = f1c5_try_resume_as(gdir, pfx, kind, &kc->c, &kc->B, &cur, 1, &resumed_is_v2);
+    int rk = f1c5_try_resume_as(gdir, pfx, kind, &kc->c, &kc->B, NULL, &cur, 1, &resumed_is_v2);
     double T0 = omp_get_wtime();
     if (rk >= 0) {
         if (resumed_is_v2 >= 0 && resumed_is_v2 != use_v2) {
@@ -19794,7 +21394,7 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
                                            &kc->c, &kc->B, &cur, gzip_level);
         else        f1c5_write_layer_as(gdir, pfx, f1c5_kind_magic(kind, 0),
                                         &kc->c, &kc->B, &cur);
-        f1c5_write_manifest_as(gdir, pfx, &kc->c, &kc->B, n);
+        f1c5_write_manifest_as(gdir, pfx, &kc->c, &kc->B, NULL, n);
         rk = n;
         if (verbose)
             fprintf(stderr, "[kc-%s] seed layer k=%d written (%llu entries)\n",
@@ -19837,7 +21437,7 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
             }
         }
         f1c5_sidecar_emit(gdir, pfx, &kc->c, &kc->B, k);   /* catalog sidecar (non-fatal) */
-        f1c5_write_manifest_as(gdir, pfx, &kc->c, &kc->B, k);
+        f1c5_write_manifest_as(gdir, pfx, &kc->c, &kc->B, NULL, k);
         if (verbose) {
             char mdec[64];
             f1_dec(mass, mdec);
@@ -26514,7 +28114,7 @@ static void kc_t_write(KC *fkc, F1C5Layer *TL, const char *dir) {
     if (mkdir(dir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", dir);
     for (int k = fkc->n; k >= 0; k--)
         f1c5_write_layer_as(dir, "t", "F1C5TLY1", &fkc->c, &fkc->B, &TL[k]);
-    f1c5_write_manifest_as(dir, "t", &fkc->c, &fkc->B, 0);
+    f1c5_write_manifest_as(dir, "t", &fkc->c, &fkc->B, NULL, 0);
 }
 
 /* f layer masses M_k (orbit-weighted = exact #valid prefixes at depth k),
@@ -29194,7 +30794,11 @@ static int kc_extremal_selftest(void) {
 
     /* ---- K10/K11/K12: the argv surface ---- */
     {
-        char a[9000];
+        /* Sized for the worst case: three 4299-byte path arguments (fdir/gdir/jsn are
+         * 4300-byte buffers) plus the literal text. 9000 was too small for that bound
+         * and gcc reported the truncation (-Wformat-truncation=); the compile gate's
+         * warning census is exact, so the buffer is sized to the bound, not to habit. */
+        char a[3 * 4300 + 256];
         snprintf(a, sizeof(a),
                  "--kc-extremal yangcount '%s' max --kc-witness --kc-gdir '%s' --kc-json '%s'",
                  fdir, gdir, jsn);
@@ -29622,9 +31226,849 @@ static int kc_cli(int argc, char *argv[]) {
     return rc;
 }
 
+
+/* ===================== E1 F1U exact |C1 & C2| (START UNPINNED) — complement-extended mod-p orbit DP =====================
+ *
+ * `./solve --f1-exact-c1c2 --f1-mod P [--f1-start-orbit 0..5|all] [--f1-subset "L.I,L.I,..."]`
+ *
+ * Computes |C1 ∩ C2| — complete 64-hexagram sequences built from the 32 KW
+ * pairs (C1), no Hamming-5 adjacent transition (C2), START FREE (no C4 pin) —
+ * as a residue mod P.  Three distinct 63-bit prime runs + offline CRT give the
+ * exact integer (rigorous bound: |C1∩C2| <= |C1| = 32!*2^32 ~ 1.13e45 <
+ * p1*p2*p3 ~ 7.8e56), removing the last SAMPLED figure in the C2-rarity chain
+ * (SPECIFICATION.md: "~4.3% of pair-constrained orderings").
+ *
+ * Method: the #215 layered orbit-quotient gather DP (above), with three changes:
+ *   1. VIRTUAL START — the walk covers ALL 32 pairs; layer 1 is seeded with
+ *      every (pair, orientation) whose exit hexagram lies in the selected
+ *      start-orbit, weight 1.  A start-orbit is a ⟨G48, XOR-63⟩-orbit of the
+ *      64 possible first-pair exit hexagrams; there are exactly SIX (census
+ *      asserted at startup: sizes {2,12,24,8,6,12}, reps {0,1,3,7,12,13}).
+ *      Per-orbit totals N_o sum to the start-unpinned |C1∩C2|; within an
+ *      orbit every start has the same count, so N_o = |o| * N(rep).
+ *   2. COMPLEMENT-EXTENDED GROUP — the mask-quotient group is enlarged from
+ *      the 24 pair-perms of #215 to 48, lifted by the 96 hexagram maps
+ *      {position-perm commuting with rev} x {id, XOR-63}.  XOR-63 is a
+ *      Hamming isometry and maps the KW pairing to itself (verified
+ *      elementwise at startup).  The layer-1 seed vector is invariant under
+ *      the WHOLE 96-element group for every start-orbit (orbits are defined
+ *      by that same group), so DP values are constant on 48-perm mask-orbits
+ *      — the equivariance argument of #215 goes through verbatim.
+ *   3. MOD-P VALUES — counts are uint64 residues mod an odd prime P < 2^62
+ *      (primality checked at startup, deterministic Miller-Rabin).  Peak
+ *      footprint 13.1 GB (Burnside-exact: 12,300,040 + 13,058,820 canonical
+ *      masks at layers 15/16 x 516 B) — fits an 8-core/15 GB box, where the
+ *      192-bit counters of #215 would need 39 GB at the 48-perm quotient.
+ *
+ * GATHER formulation, canonicalization (strict-min over the 48 mask images,
+ * first-strict-min tie-break), stabilizer weighting (per-layer mass identity
+ * only; the full mask is G-fixed so the final total needs no correction), and
+ * the subset-mode plain-DP internal gate are EXACTLY the #215 scheme.
+ * Validation ladder (E1 run record, roae-private):
+ *   - reduced rungs vs verify.py's clean-room _count_c1c2c4 summed over free
+ *     starts (two-language, shares no code with this file);
+ *   - full-scale gate: the start-orbit-0 run must reproduce
+ *     2*|C1∩C2∩C4| = 2 * 757058601340255440651419713405330315358208 (mod P)
+ *     against the independently landed #215 exact integer.
+ *
+ * Test/probe-only env knob (never on enum paths):
+ *   SOLVE_F1U_MAX_LAYER=K — stop after layer K completes (memory/timing probe;
+ *                           partial result, exit 0)
+ *
+ * Sha-neutral: argv-dispatched, zero interaction with enumeration paths.
+ * Attribution: builds on the operator's orbit-quotient direction (#215);
+ * start-unpinning design and implementation by Claude (Fable, Anthropic),
+ * 2026-07-25 (E1 review item: exact start-unpinned C2 rarity).
+ */
+
+typedef struct {
+    uint8_t iperm[32];       /* subset-index perm (restriction of pp to the run's pairs) */
+    uint8_t hmap[64];        /* hexagram map of the designated lift */
+    uint8_t hinv[64];        /* inverse hexagram map */
+    uint32_t pt[4][256];     /* byte tables: apply iperm to a <=32-bit mask */
+    int ipid;                /* id among DISTINCT restricted iperms */
+} F1UElem;
+
+typedef struct {
+    int n;                   /* number of pairs in this run (32 = full) */
+    int pl[32];              /* pair indices (0..31; pair 0 allowed) */
+    int pa[32], pb[32];      /* pair hexagrams per subset index */
+    int start_orbit;         /* -1 = all six orbits, else 0..5 */
+    uint64_t p;              /* odd prime modulus, 2 < p < 2^62 */
+    F1UElem el[48];
+    int n_eff;               /* # distinct restricted iperms */
+} F1UCtx;
+
+typedef struct { uint8_t pp[32]; uint8_t lp[6]; uint8_t lx; int nlifts; } F1UCoset;
+
+static F1UCoset f1u_cos[48];
+static int f1u_pa[32], f1u_pb[32], f1u_pof[64];
+static int f1u_horb[64];               /* start-orbit id per exit hexagram (0..5) */
+static int f1u_orb_size[6], f1u_orb_rep[6];
+static int f1u_porb_cnt = 0, f1u_porb_len[8], f1u_porb_mem[8][32];
+static int f1u_built = 0;
+
+/* hexagram action of an extended element: position perm then optional XOR-63 */
+static inline int f1u_hact(const uint8_t *perm, int xr, int h) {
+    int r = f1_hex_act(perm, h);
+    return xr ? (r ^ 63) : r;
+}
+
+static int f1u_cos_cmp(const void *x, const void *y) {
+    return memcmp(((const F1UCoset *)x)->pp, ((const F1UCoset *)y)->pp, 32);
+}
+
+static int f1u_porb_cmp(const void *x, const void *y) {
+    int a = *(const int *)x, b = *(const int *)y;
+    if (f1u_porb_len[a] != f1u_porb_len[b]) return f1u_porb_len[a] - f1u_porb_len[b];
+    for (int i = 0; i < f1u_porb_len[a]; i++)
+        if (f1u_porb_mem[a][i] != f1u_porb_mem[b][i]) return f1u_porb_mem[a][i] - f1u_porb_mem[b][i];
+    return 0;
+}
+
+/* ---------- modular arithmetic (P < 2^62, so a+b never wraps uint64) ---------- */
+static inline uint64_t f1u_addm(uint64_t a, uint64_t b, uint64_t P) {
+    uint64_t s = a + b;
+    return s >= P ? s - P : s;
+}
+static inline uint64_t f1u_mulm(uint64_t a, uint64_t b, uint64_t P) {
+    return (uint64_t)(((unsigned __int128)a * b) % P);
+}
+static uint64_t f1u_powm(uint64_t a, uint64_t e, uint64_t P) {
+    uint64_t r = 1 % P;
+    a %= P;
+    while (e) {
+        if (e & 1) r = f1u_mulm(r, a, P);
+        a = f1u_mulm(a, a, P);
+        e >>= 1;
+    }
+    return r;
+}
+/* deterministic Miller-Rabin for n < 3.3e24 (bases 2..37) — ample for < 2^62 */
+static int f1u_is_prime(uint64_t n) {
+    if (n < 2) return 0;
+    static const uint64_t bases[12] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
+    for (int i = 0; i < 12; i++) {
+        if (n == bases[i]) return 1;
+        if (n % bases[i] == 0) return 0;
+    }
+    uint64_t d = n - 1;
+    int s = 0;
+    while (!(d & 1)) { d >>= 1; s++; }
+    for (int i = 0; i < 12; i++) {
+        uint64_t x = f1u_powm(bases[i], d, n);
+        if (x == 1 || x == n - 1) continue;
+        int ok = 0;
+        for (int r = 1; r < s; r++) {
+            x = f1u_mulm(x, x, n);
+            if (x == n - 1) { ok = 1; break; }
+        }
+        if (!ok) return 0;
+    }
+    return 1;
+}
+
+/* ---------- extended group construction (mirrors f1_build_group's rigor) ---------- */
+static void f1u_build_group(void) {
+    if (f1u_built) return;
+    for (int i = 0; i < 32; i++) { f1u_pa[i] = KW[2 * i]; f1u_pb[i] = KW[2 * i + 1]; }
+    for (int i = 0; i < 32; i++) { f1u_pof[f1u_pa[i]] = i; f1u_pof[f1u_pb[i]] = i; }
+
+    /* G96 = {perm in S6 commuting with rev} x {id, XOR-63}; lex-perm-major, xor-minor */
+    uint8_t g96p[96][6], g96x[96];
+    int n96 = 0;
+    uint8_t p[6] = {0, 1, 2, 3, 4, 5};
+    do {
+        int comm = 1;
+        for (int i = 0; i < 6 && comm; i++)
+            if (p[F1_REV[i]] != F1_REV[p[i]]) comm = 0;
+        if (comm) {
+            for (int x = 0; x < 2; x++) {
+                F1_CHECK(n96 < 96, "more than 96 extended elements");
+                memcpy(g96p[n96], p, 6);
+                g96x[n96] = (uint8_t)x;
+                n96++;
+            }
+        }
+    } while (f1_next_perm(p, 6));
+    F1_CHECK(n96 == 96, "extended group must have order 96 (got %d)", n96);
+
+    /* per-element verification: Hamming isometry (all 64x64), permutes the 32 pairs */
+    for (int gi = 0; gi < 96; gi++) {
+        int himg[64];
+        for (int h = 0; h < 64; h++) himg[h] = f1u_hact(g96p[gi], g96x[gi], h);
+        for (int a = 0; a < 64; a++)
+            for (int b = 0; b < 64; b++)
+                F1_CHECK(__builtin_popcount(himg[a] ^ himg[b]) == __builtin_popcount(a ^ b),
+                         "g96[%d] is not a Hamming isometry", gi);
+        int used[32] = {0};
+        for (int pi = 0; pi < 32; pi++) {
+            int qa = f1u_pof[himg[f1u_pa[pi]]];
+            int qb = f1u_pof[himg[f1u_pb[pi]]];
+            F1_CHECK(qa == qb, "g96[%d] does not permute the 32 pairs (pair %d split)", gi, pi);
+            F1_CHECK(!used[qa], "g96[%d]: pair image %d hit twice", gi, qa);
+            used[qa] = 1;
+        }
+    }
+
+    /* quotient to pair-perms: 48 cosets, 2 lifts each; designated lift = first
+     * in generation order (lex perm, xor 0 before 1) */
+    int nc = 0;
+    for (int gi = 0; gi < 96; gi++) {
+        uint8_t pp[32];
+        for (int pi = 0; pi < 32; pi++)
+            pp[pi] = (uint8_t)f1u_pof[f1u_hact(g96p[gi], g96x[gi], f1u_pa[pi])];
+        int found = -1;
+        for (int c = 0; c < nc; c++)
+            if (memcmp(f1u_cos[c].pp, pp, 32) == 0) { found = c; break; }
+        if (found < 0) {
+            F1_CHECK(nc < 48, "more than 48 pair-perms in the extended quotient");
+            memcpy(f1u_cos[nc].pp, pp, 32);
+            memcpy(f1u_cos[nc].lp, g96p[gi], 6);
+            f1u_cos[nc].lx = g96x[gi];
+            f1u_cos[nc].nlifts = 1;
+            nc++;
+        } else {
+            f1u_cos[found].nlifts++;
+        }
+    }
+    F1_CHECK(nc == 48, "extended quotient must have 48 pair-perms (got %d)", nc);
+    for (int c = 0; c < 48; c++)
+        F1_CHECK(f1u_cos[c].nlifts == 2, "extended kernel must be {id, rev} (2 lifts per coset)");
+    /* the identity coset's designated lift must be the identity map (xor-free) */
+    {
+        static const uint8_t idp[6] = {0, 1, 2, 3, 4, 5};
+        for (int c = 0; c < 48; c++) {
+            int is_id = 1;
+            for (int i = 0; i < 32; i++) if (f1u_cos[c].pp[i] != i) { is_id = 0; break; }
+            if (is_id)
+                F1_CHECK(memcmp(f1u_cos[c].lp, idp, 6) == 0 && f1u_cos[c].lx == 0,
+                         "identity coset's designated lift must be id (xor-free)");
+        }
+    }
+    qsort(f1u_cos, 48, sizeof(F1UCoset), f1u_cos_cmp);
+    {
+        int is_id = 1;
+        for (int i = 0; i < 32; i++) if (f1u_cos[0].pp[i] != i) { is_id = 0; break; }
+        F1_CHECK(is_id, "sorted extended quotient must start with the identity pair-perm");
+    }
+    /* closure of the 48 pair-perms */
+    for (int a = 0; a < 48; a++)
+        for (int b = 0; b < 48; b++) {
+            uint8_t comp[32];
+            for (int i = 0; i < 32; i++) comp[i] = f1u_cos[a].pp[f1u_cos[b].pp[i]];
+            int found = 0;
+            for (int c = 0; c < 48 && !found; c++)
+                if (memcmp(f1u_cos[c].pp, comp, 32) == 0) found = 1;
+            F1_CHECK(found, "extended closure fails for pair-perms %d o %d", a, b);
+        }
+
+    /* start-orbits: orbits of the 64 exit hexagrams under the 96 lifts,
+     * numbered by ascending minimum member */
+    {
+        int par[64];
+        for (int h = 0; h < 64; h++) par[h] = h;
+        for (int gi = 0; gi < 96; gi++)
+            for (int h = 0; h < 64; h++) {
+                int a = h, b = f1u_hact(g96p[gi], g96x[gi], h);
+                while (par[a] != a) a = par[a];
+                while (par[b] != b) b = par[b];
+                if (a != b) par[a < b ? b : a] = a < b ? a : b;
+            }
+        int cnt = 0;
+        for (int h = 0; h < 64; h++) f1u_horb[h] = -1;
+        for (int h = 0; h < 64; h++) {
+            int r = h;
+            while (par[r] != r) r = par[r];
+            if (f1u_horb[r] < 0) {
+                F1_CHECK(cnt < 6, "more than 6 start-orbits");
+                f1u_horb[r] = cnt;
+                f1u_orb_rep[cnt] = r;      /* min member: h ascending */
+                f1u_orb_size[cnt] = 0;
+                cnt++;
+            }
+            f1u_horb[h] = f1u_horb[r];
+            f1u_orb_size[f1u_horb[r]]++;
+        }
+        F1_CHECK(cnt == 6, "start-orbit census must have exactly 6 orbits (got %d)", cnt);
+        static const int exp_size[6] = {2, 12, 24, 8, 6, 12};
+        static const int exp_rep[6]  = {0, 1, 3, 7, 12, 13};
+        for (int o = 0; o < 6; o++) {
+            F1_CHECK(f1u_orb_size[o] == exp_size[o] && f1u_orb_rep[o] == exp_rep[o],
+                     "start-orbit %d census mismatch (size %d rep %d; expected size %d rep %d)",
+                     o, f1u_orb_size[o], f1u_orb_rep[o], exp_size[o], exp_rep[o]);
+        }
+        /* a pair's two hexagrams always share an orbit (partner = rev or XOR-63
+         * image, both in the group) — so (pair, enter) and (pair, exit)
+         * classifications coincide */
+        for (int i = 0; i < 32; i++)
+            F1_CHECK(f1u_horb[f1u_pa[i]] == f1u_horb[f1u_pb[i]],
+                     "pair %d straddles two start-orbits", i);
+    }
+
+    /* pair-orbits of ALL 32 pairs under the 48 pair-perms (union-find, then
+     * sort by (len, members)); expected census 1+3+4+6+6+12 */
+    {
+        int par[32];
+        for (int i = 0; i < 32; i++) par[i] = i;
+        for (int c = 0; c < 48; c++)
+            for (int i = 0; i < 32; i++) {
+                int a = i, b = f1u_cos[c].pp[i];
+                while (par[a] != a) a = par[a];
+                while (par[b] != b) b = par[b];
+                if (a != b) par[a < b ? b : a] = a < b ? a : b;
+            }
+        int roots[32], nroots = 0;
+        for (int i = 0; i < 32; i++) {
+            int r = i;
+            while (par[r] != r) r = par[r];
+            int seen = -1;
+            for (int j = 0; j < nroots; j++) if (roots[j] == r) { seen = j; break; }
+            if (seen < 0) { roots[nroots] = r; f1u_porb_len[nroots] = 0; seen = nroots++; }
+            f1u_porb_mem[seen][f1u_porb_len[seen]++] = i;
+        }
+        f1u_porb_cnt = nroots;
+        F1_CHECK(nroots == 6, "expected 6 pair-orbits under the extended group (got %d)", nroots);
+        int order[8];
+        for (int i = 0; i < f1u_porb_cnt; i++) order[i] = i;
+        qsort(order, f1u_porb_cnt, sizeof(int), f1u_porb_cmp);
+        int tlen[8], tmem[8][32];
+        for (int i = 0; i < f1u_porb_cnt; i++) {
+            tlen[i] = f1u_porb_len[order[i]];
+            memcpy(tmem[i], f1u_porb_mem[order[i]], sizeof(int) * 32);
+        }
+        memcpy(f1u_porb_len, tlen, sizeof(tlen));
+        memcpy(f1u_porb_mem, tmem, sizeof(tmem));
+        static const int exp_plen[6] = {1, 3, 4, 6, 6, 12};
+        for (int i = 0; i < 6; i++)
+            F1_CHECK(f1u_porb_len[i] == exp_plen[i],
+                     "pair-orbit %d size %d != expected %d", i, f1u_porb_len[i], exp_plen[i]);
+    }
+
+    fprintf(stderr, "[f1u] extended-group self-checks PASS: |G96|=96 verified elementwise "
+            "(Hamming isometry 64x64, 32-pair closure incl. XOR-63); quotient = 48 pair-perms, "
+            "closed, kernel {id,rev}\n");
+    fprintf(stderr, "[f1u] start-orbits (exit hexagram):");
+    for (int o = 0; o < 6; o++)
+        fprintf(stderr, " %d:{size %d, rep %d}", o, f1u_orb_size[o], f1u_orb_rep[o]);
+    fprintf(stderr, "\n[f1u] pair-orbits of the 32 pairs:");
+    for (int i = 0; i < f1u_porb_cnt; i++) {
+        fprintf(stderr, " %d:[", f1u_porb_len[i]);
+        for (int j = 0; j < f1u_porb_len[i]; j++)
+            fprintf(stderr, "%s%d", j ? "," : "", f1u_porb_mem[i][j]);
+        fprintf(stderr, "]");
+    }
+    fprintf(stderr, "\n");
+    f1u_built = 1;
+}
+
+/* ---------- restricted action + DP context ---------- */
+static void f1u_ctx_init(F1UCtx *c, int n, const int *pl, int start_orbit, uint64_t P) {
+    c->n = n;
+    c->start_orbit = start_orbit;
+    c->p = P;
+    int pos[32];
+    for (int i = 0; i < 32; i++) pos[i] = -1;
+    for (int i = 0; i < n; i++) {
+        F1_CHECK(pl[i] >= 0 && pl[i] <= 31 && pos[pl[i]] < 0, "bad/duplicate pair index %d", pl[i]);
+        c->pl[i] = pl[i];
+        pos[pl[i]] = i;
+        c->pa[i] = f1u_pa[pl[i]];
+        c->pb[i] = f1u_pb[pl[i]];
+    }
+    for (int e = 0; e < 48; e++) {
+        F1UElem *E = &c->el[e];
+        for (int i = 0; i < n; i++) {
+            int img = f1u_cos[e].pp[pl[i]];
+            F1_CHECK(pos[img] >= 0, "pair set not closed under the extended group "
+                     "(pair %d maps to %d, outside the subset)", pl[i], img);
+            E->iperm[i] = (uint8_t)pos[img];
+        }
+        for (int h = 0; h < 64; h++) E->hmap[h] = (uint8_t)f1u_hact(f1u_cos[e].lp, f1u_cos[e].lx, h);
+        for (int h = 0; h < 64; h++) E->hinv[E->hmap[h]] = (uint8_t)h;
+        for (int by = 0; by < 4; by++)
+            for (int v = 0; v < 256; v++) {
+                uint32_t m = 0;
+                for (int j = 0; j < 8; j++)
+                    if ((v >> j) & 1) {
+                        int i = 8 * by + j;
+                        if (i < n) m |= 1u << E->iperm[i];
+                    }
+                E->pt[by][v] = m;
+            }
+        E->ipid = e;
+        for (int e2 = 0; e2 < e; e2++)
+            if (memcmp(c->el[e2].iperm, E->iperm, (size_t)n) == 0) { E->ipid = c->el[e2].ipid; break; }
+    }
+    c->n_eff = 0;
+    for (int e = 0; e < 48; e++) if (c->el[e].ipid == e) c->n_eff++;
+    for (int i = 0; i < n; i++) F1_CHECK(c->el[0].iperm[i] == i, "el[0] must restrict to identity");
+}
+
+static inline uint32_t f1u_apply_mask(const F1UElem *e, uint32_t m) {
+    return e->pt[0][m & 0xff] | e->pt[1][(m >> 8) & 0xff] |
+           e->pt[2][(m >> 16) & 0xff] | e->pt[3][(m >> 24) & 0xff];
+}
+
+static inline uint32_t f1u_canon(const F1UCtx *c, uint32_t m, int *gout) {
+    uint32_t best = m;
+    int bg = 0;
+    for (int e = 1; e < 48; e++) {
+        uint32_t x = f1u_apply_mask(&c->el[e], m);
+        if (x < best) { best = x; bg = e; }
+    }
+    *gout = bg;
+    return best;
+}
+
+static inline int f1u_is_canonical(const F1UCtx *c, uint32_t m) {
+    for (int e = 1; e < 48; e++)
+        if (f1u_apply_mask(&c->el[e], m) < m) return 0;
+    return 1;
+}
+
+static int f1u_orbit_size(const F1UCtx *c, uint32_t m) {
+    int seen[48] = {0}, stab = 0;
+    for (int e = 0; e < 48; e++)
+        if (f1u_apply_mask(&c->el[e], m) == m && !seen[c->el[e].ipid]) {
+            seen[c->el[e].ipid] = 1;
+            stab++;
+        }
+    F1_CHECK(stab > 0 && c->n_eff % stab == 0, "orbit-stabilizer violation (n_eff=%d stab=%d)",
+             c->n_eff, stab);
+    return c->n_eff / stab;
+}
+
+/* ---------- layer storage (RAM only; runs are <~1h, no checkpointing) ---------- */
+typedef struct {
+    int k;
+    uint64_t nm;             /* # canonical masks, sorted ascending */
+    uint32_t *masks;
+    uint64_t *vals;          /* nm * 64 residues, [mask_idx*64 + last] */
+} F1ULayer;
+
+static void f1u_layer_free(F1ULayer *L) { free(L->masks); free(L->vals); L->masks = NULL; L->vals = NULL; }
+
+/* Phase A: enumerate canonical masks of popcount k1 (ascending; colex ==
+ * numeric order so per-thread ranges concatenate sorted). */
+static void f1u_enum_canonical(const F1UCtx *c, int k1, uint32_t **out, uint64_t *nout) {
+    uint64_t total = f1_binom[c->n][k1];
+    int T = omp_get_max_threads();
+    if ((uint64_t)T > total) T = (int)total;
+    uint32_t **tb = (uint32_t **)calloc((size_t)T, sizeof(uint32_t *));
+    uint64_t *tn = (uint64_t *)calloc((size_t)T, sizeof(uint64_t));
+    uint64_t *tc = (uint64_t *)calloc((size_t)T, sizeof(uint64_t));
+    F1_CHECK(tb && tn && tc, "enum alloc failed");
+    #pragma omp parallel num_threads(T)
+    {
+        int t = omp_get_thread_num();
+        uint64_t r0 = total * (uint64_t)t / (uint64_t)T;
+        uint64_t r1 = total * (uint64_t)(t + 1) / (uint64_t)T;
+        if (r0 < r1) {
+            uint32_t m = f1_unrank_colex(r0, k1, c->n);
+            for (uint64_t r = r0; r < r1; r++) {
+                if (f1u_is_canonical(c, m)) {
+                    if (tn[t] == tc[t]) {
+                        tc[t] = tc[t] ? tc[t] * 2 : 4096;
+                        tb[t] = (uint32_t *)realloc(tb[t], sizeof(uint32_t) * tc[t]);
+                        if (!tb[t]) { fprintf(stderr, "ERROR: [f1u] OOM in enum\n"); exit(74); }
+                    }
+                    tb[t][tn[t]++] = m;
+                }
+                if (r + 1 < r1) m = f1_gosper(m);
+            }
+        }
+    }
+    uint64_t nm = 0;
+    for (int t = 0; t < T; t++) nm += tn[t];
+    uint32_t *masks = (uint32_t *)malloc(sizeof(uint32_t) * (nm ? nm : 1));
+    F1_CHECK(masks != NULL, "mask alloc failed (%llu masks)", (unsigned long long)nm);
+    uint64_t off = 0;
+    for (int t = 0; t < T; t++) {
+        if (tn[t]) memcpy(masks + off, tb[t], sizeof(uint32_t) * tn[t]);
+        off += tn[t];
+        free(tb[t]);
+    }
+    free(tb); free(tn); free(tc);
+    *out = masks;
+    *nout = nm;
+}
+
+/* Phase B: gather (targets disjoint across threads; no write races). */
+static void f1u_gather_layer(const F1UCtx *c, const F1ULayer *prev, F1ULayer *out) {
+    const uint32_t *pmasks = prev->masks;
+    const uint64_t pnm = prev->nm;
+    const uint64_t *pvals = prev->vals;
+    const uint64_t P = c->p;
+    #pragma omp parallel for schedule(dynamic, 16)
+    for (int64_t ti = 0; ti < (int64_t)out->nm; ti++) {
+        uint32_t tm = out->masks[ti];
+        uint64_t *acc = out->vals + (uint64_t)ti * 64;   /* calloc'd = zero */
+        uint32_t rem = tm;
+        while (rem) {
+            int i = __builtin_ctz(rem);
+            rem &= rem - 1;
+            uint32_t pred = tm ^ (1u << i);
+            int g;
+            uint32_t cpred = f1u_canon(c, pred, &g);
+            int64_t pi = f1_bsearch_u32(pmasks, pnm, cpred);
+            if (pi < 0) continue;
+            const uint64_t *pv = pvals + (uint64_t)pi * 64;
+            const uint8_t *ginv = c->el[g].hinv;
+            const int fa = c->pa[i], fb = c->pb[i];
+            for (int l = 0; l < 64; l++) {
+                uint64_t v = pv[l];
+                if (!v) continue;
+                int lp = ginv[l];   /* stored key -> raw last at the predecessor */
+                if (__builtin_popcount(lp ^ fa) != 5) acc[fb] = f1u_addm(acc[fb], v, P);
+                if (__builtin_popcount(lp ^ fb) != 5) acc[fa] = f1u_addm(acc[fa], v, P);
+            }
+        }
+    }
+}
+
+/* stabilizer-weighted layer mass mod p (equals the plain DP layer mass) */
+static uint64_t f1u_layer_mass(const F1UCtx *c, const F1ULayer *L, uint64_t *entries_out) {
+    uint64_t mass = 0, entries = 0;
+    const uint64_t P = c->p;
+    #pragma omp parallel
+    {
+        uint64_t lm = 0, le = 0;
+        #pragma omp for schedule(dynamic, 256) nowait
+        for (int64_t i = 0; i < (int64_t)L->nm; i++) {
+            uint64_t s = 0;
+            const uint64_t *v = L->vals + (uint64_t)i * 64;
+            for (int l = 0; l < 64; l++)
+                if (v[l]) { s = f1u_addm(s, v[l], P); le++; }
+            if (s) lm = f1u_addm(lm, f1u_mulm(s, (uint64_t)f1u_orbit_size(c, L->masks[i]), P), P);
+        }
+        #pragma omp critical (f1u_mass_merge)
+        { mass = f1u_addm(mass, lm, P); entries += le; }
+    }
+    if (entries_out) *entries_out = entries;
+    return mass;
+}
+
+/* seed layer 1: every (pair, orientation) whose exit lies in the selected
+ * start-orbit, weight 1 — stored at canonical singleton masks (values are the
+ * plain-DP values at the representative, per the gather formulation) */
+static void f1u_seed_layer1(const F1UCtx *c, F1ULayer *L) {
+    L->k = 1;
+    f1u_enum_canonical(c, 1, &L->masks, &L->nm);
+    L->vals = (uint64_t *)calloc((size_t)L->nm * 64, sizeof(uint64_t));
+    F1_CHECK(L->vals != NULL, "layer-1 alloc failed");
+    for (uint64_t mi = 0; mi < L->nm; mi++) {
+        int i = __builtin_ctz(L->masks[mi]);
+        /* orientation enter pa exit pb */
+        if (c->start_orbit < 0 || f1u_horb[c->pb[i]] == c->start_orbit)
+            L->vals[mi * 64 + c->pb[i]] = f1u_addm(L->vals[mi * 64 + c->pb[i]], 1, c->p);
+        /* orientation enter pb exit pa */
+        if (c->start_orbit < 0 || f1u_horb[c->pa[i]] == c->start_orbit)
+            L->vals[mi * 64 + c->pa[i]] = f1u_addm(L->vals[mi * 64 + c->pa[i]], 1, c->p);
+    }
+}
+
+/* Plain layered forward DP mod p with the same virtual-start seed — subset-mode
+ * internal-consistency gate (n capped at 16). */
+static int f1u_plain_dp(const F1UCtx *c, uint64_t *total, uint64_t *masses /* n+1 */) {
+    int n = c->n;
+    if (n > 16) return -1;
+    const uint64_t P = c->p;
+    size_t nstate = ((size_t)1 << n) * 64;
+    uint64_t *v = (uint64_t *)calloc(nstate, sizeof(uint64_t));
+    F1_CHECK(v != NULL, "plain-DP alloc failed");
+    for (int i = 0; i < n; i++) {
+        if (c->start_orbit < 0 || f1u_horb[c->pb[i]] == c->start_orbit)
+            v[((size_t)1 << i) * 64 + c->pb[i]] = f1u_addm(v[((size_t)1 << i) * 64 + c->pb[i]], 1, P);
+        if (c->start_orbit < 0 || f1u_horb[c->pa[i]] == c->start_orbit)
+            v[((size_t)1 << i) * 64 + c->pa[i]] = f1u_addm(v[((size_t)1 << i) * 64 + c->pa[i]], 1, P);
+    }
+    masses[0] = 0;   /* virtual layer 0 carries no stored state */
+    for (int k = 1; k < n; k++) {
+        uint64_t cnt = f1_binom[n][k];
+        uint32_t m = (1u << k) - 1;
+        for (uint64_t r = 0; r < cnt; r++) {
+            uint64_t *mv = v + (size_t)m * 64;
+            for (int l = 0; l < 64; l++) {
+                uint64_t val = mv[l];
+                if (!val) continue;
+                for (int i = 0; i < n; i++) {
+                    if ((m >> i) & 1) continue;
+                    uint64_t *tv = v + (size_t)(m | (1u << i)) * 64;
+                    if (__builtin_popcount(l ^ c->pa[i]) != 5)
+                        tv[c->pb[i]] = f1u_addm(tv[c->pb[i]], val, P);
+                    if (__builtin_popcount(l ^ c->pb[i]) != 5)
+                        tv[c->pa[i]] = f1u_addm(tv[c->pa[i]], val, P);
+                }
+            }
+            if (r + 1 < cnt) m = f1_gosper(m);
+        }
+    }
+    for (int k = 1; k <= n; k++) {
+        uint64_t mass = 0;
+        uint64_t cnt1 = f1_binom[n][k];
+        uint32_t m1 = (1u << k) - 1;
+        for (uint64_t r = 0; r < cnt1; r++) {
+            uint64_t *mv = v + (size_t)m1 * 64;
+            for (int l = 0; l < 64; l++)
+                if (mv[l]) mass = f1u_addm(mass, mv[l], P);
+            if (r + 1 < cnt1) m1 = f1_gosper(m1);
+        }
+        masses[k] = mass;
+    }
+    uint64_t t = 0;
+    uint64_t *fv = v + (size_t)((1u << n) - 1) * 64;
+    for (int l = 0; l < 64; l++) if (fv[l]) t = f1u_addm(t, fv[l], P);
+    *total = t;
+    free(v);
+    return 0;
+}
+
+/* ---------- subset spec: unions of extended-group pair-orbits, "L.I,L.I,..." ---------- */
+static int f1u_parse_subset(const char *spec, int *pl, int *n_out) {
+    int n = 0;
+    const char *pp = spec;
+    int used_orb[8] = {0};
+    while (*pp) {
+        int L = -1, I = -1;
+        if (sscanf(pp, "%d.%d", &L, &I) != 2 || L < 1 || I < 0) {
+            fprintf(stderr, "ERROR: [f1u] bad subset token at '%s' (want L.I,L.I,... — "
+                    "extended-group pair-orbits by (size,index): 1.0, 3.0, 4.0, 6.0, 6.1, 12.0)\n", pp);
+            return -1;
+        }
+        int oi = -1, cnt = 0;
+        for (int o = 0; o < f1u_porb_cnt; o++)
+            if (f1u_porb_len[o] == L && cnt++ == I) { oi = o; break; }
+        if (oi < 0) {
+            fprintf(stderr, "ERROR: [f1u] no extended pair-orbit of size %d with index %d\n", L, I);
+            return -1;
+        }
+        if (used_orb[oi]) {
+            fprintf(stderr, "ERROR: [f1u] orbit %d.%d selected twice\n", L, I);
+            return -1;
+        }
+        used_orb[oi] = 1;
+        for (int j = 0; j < f1u_porb_len[oi]; j++) {
+            F1_CHECK(n < 32, "subset too large");
+            pl[n++] = f1u_porb_mem[oi][j];
+        }
+        const char *comma = strchr(pp, ',');
+        if (comma) pp = comma + 1;
+        else break;
+    }
+    if (n < 2) { fprintf(stderr, "ERROR: [f1u] subset needs at least 2 pairs\n"); return -1; }
+    /* ascending pair list (orbit members are ascending; orbits sorted by (len, members) —
+     * still sort to be canonical across arbitrary union orders) */
+    for (int i = 1; i < n; i++) {
+        int x = pl[i], j = i - 1;
+        while (j >= 0 && pl[j] > x) { pl[j + 1] = pl[j]; j--; }
+        pl[j + 1] = x;
+    }
+    *n_out = n;
+    return 0;
+}
+
+/* ---------- driver ---------- */
+static int f1u_exact_main(const char *subset_spec, const char *orbit_spec, const char *mod_spec) {
+    f1_binom_init();
+    f1u_build_group();
+
+    if (!mod_spec || !*mod_spec) {
+        fprintf(stderr, "ERROR: [f1u] --f1-mod P is required (odd prime, 2 < P < 2^62)\n");
+        return 2;
+    }
+    char *endp = NULL;
+    uint64_t P = strtoull(mod_spec, &endp, 10);
+    F1_CHECK(endp && !*endp, "--f1-mod '%s' is not a decimal integer", mod_spec);
+    F1_CHECK(P > 2 && P < (1ULL << 62) && (P & 1), "--f1-mod must be odd and in (2, 2^62)");
+    F1_CHECK(f1u_is_prime(P), "--f1-mod %llu is not prime (Miller-Rabin)", (unsigned long long)P);
+
+    int start_orbit;
+    if (!orbit_spec || strcmp(orbit_spec, "all") == 0) start_orbit = -1;
+    else {
+        F1_CHECK(strlen(orbit_spec) == 1 && orbit_spec[0] >= '0' && orbit_spec[0] <= '5',
+                 "--f1-start-orbit must be 0..5 or 'all' (got '%s')", orbit_spec);
+        start_orbit = orbit_spec[0] - '0';
+    }
+
+    F1UCtx *c = (F1UCtx *)calloc(1, sizeof(F1UCtx));
+    F1_CHECK(c != NULL, "ctx alloc failed");
+    int pl[32], n;
+    if (subset_spec) {
+        if (f1u_parse_subset(subset_spec, pl, &n) != 0) { free(c); return 2; }
+    } else {
+        n = 32;
+        for (int i = 0; i < 32; i++) pl[i] = i;
+    }
+    f1u_ctx_init(c, n, pl, start_orbit, P);
+
+    int max_layer = n;
+    {
+        const char *e = getenv("SOLVE_F1U_MAX_LAYER");
+        if (e && *e) {
+            max_layer = atoi(e);
+            if (max_layer < 1) max_layer = 1;
+            if (max_layer > n) max_layer = n;
+            fprintf(stderr, "[f1u] PROBE MODE: stopping after layer k=%d (SOLVE_F1U_MAX_LAYER)\n",
+                    max_layer);
+        }
+    }
+
+    fprintf(stderr, "[f1u] run: %s, n=%d pairs [", subset_spec ? subset_spec : "FULL-32", n);
+    for (int i = 0; i < n; i++) fprintf(stderr, "%s%d", i ? "," : "", pl[i]);
+    fprintf(stderr, "] start_orbit=%s (%d) mod=%llu n_eff=%d threads=%d\n",
+            start_orbit < 0 ? "all" : orbit_spec, start_orbit,
+            (unsigned long long)P, c->n_eff, omp_get_max_threads());
+
+    double T0 = omp_get_wtime();
+    uint64_t *omasses = (uint64_t *)calloc((size_t)n + 1, sizeof(uint64_t));
+    F1_CHECK(omasses != NULL, "masses alloc failed");
+
+    F1ULayer cur;
+    memset(&cur, 0, sizeof(cur));
+    f1u_seed_layer1(c, &cur);
+    {
+        uint64_t entries = 0;
+        omasses[1] = f1u_layer_mass(c, &cur, &entries);
+        fprintf(stderr, "[f1u] layer k= 1/%d: canonical_masks=%llu entries=%llu mass_mod_p=%llu\n",
+                n, (unsigned long long)cur.nm, (unsigned long long)entries,
+                (unsigned long long)omasses[1]);
+    }
+
+    for (int k = 1; k < max_layer; k++) {
+        double t0 = omp_get_wtime();
+        F1ULayer nxt;
+        memset(&nxt, 0, sizeof(nxt));
+        nxt.k = k + 1;
+        f1u_enum_canonical(c, k + 1, &nxt.masks, &nxt.nm);
+        double t1 = omp_get_wtime();
+        nxt.vals = (uint64_t *)calloc((size_t)nxt.nm * 64, sizeof(uint64_t));
+        F1_CHECK(nxt.vals != NULL, "layer %d value alloc failed (%llu masks x 512 B)",
+                 k + 1, (unsigned long long)nxt.nm);
+        f1u_gather_layer(c, &cur, &nxt);
+        double t2 = omp_get_wtime();
+        uint64_t entries = 0;
+        uint64_t mass = f1u_layer_mass(c, &nxt, &entries);
+        omasses[k + 1] = mass;
+        double t3 = omp_get_wtime();
+        fprintf(stderr, "[f1u] layer k=%2d/%d: canonical_masks=%llu (of C(%d,%d)=%llu) "
+                "entries=%llu bytes=%.3fGB mass_mod_p=%llu elapsed=%.2fs "
+                "(enum=%.2fs gather=%.2fs mass=%.2fs) total=%.1fs\n",
+                k + 1, n, (unsigned long long)nxt.nm, n, k + 1,
+                (unsigned long long)f1_binom[n][k + 1], (unsigned long long)entries,
+                (double)nxt.nm * (4.0 + 512.0) / 1e9, (unsigned long long)mass,
+                t3 - t0, t1 - t0, t2 - t1, t3 - t2, omp_get_wtime() - T0);
+        f1u_layer_free(&cur);
+        cur = nxt;
+    }
+
+    if (max_layer < n) {
+        fprintf(stderr, "[f1u] PROBE STOP after layer k=%d (SOLVE_F1U_MAX_LAYER). "
+                "No total computed.\n", max_layer);
+        f1u_layer_free(&cur);
+        free(omasses); free(c);
+        return 0;
+    }
+
+    /* final layer: the full mask is G-fixed (orbit size 1) */
+    uint32_t full = (n == 32) ? 0xffffffffu : ((1u << n) - 1);
+    F1_CHECK(cur.nm == 1 && cur.masks[0] == full, "final layer must be exactly the full mask");
+    uint64_t total = 0;
+    for (int l = 0; l < 64; l++)
+        if (cur.vals[l]) total = f1u_addm(total, cur.vals[l], P);
+
+    int rc = 0;
+    if (subset_spec) {
+        printf("F1U SUBSET %s: n=%d pairs [", subset_spec, n);
+        for (int i = 0; i < n; i++) printf("%s%d", i ? "," : "", pl[i]);
+        printf("] start_orbit=%s mod=%llu\n", start_orbit < 0 ? "all" : orbit_spec,
+               (unsigned long long)P);
+        printf("  orbit-quotient DP total residue = %llu\n", (unsigned long long)total);
+        uint64_t ptotal = 0;
+        uint64_t *pmasses = (uint64_t *)calloc((size_t)n + 1, sizeof(uint64_t));
+        F1_CHECK(pmasses != NULL, "plain masses alloc failed");
+        if (f1u_plain_dp(c, &ptotal, pmasses) != 0) {
+            printf("  plain layered DP: SKIPPED (n=%d > 16 memory guard)\n", n);
+            printf("F1U SUBSET VERIFY: NO-PLAIN (orbit residue above; no internal cross-check)\n");
+        } else {
+            printf("  plain layered DP total residue = %llu\n", (unsigned long long)ptotal);
+            int ok_total = (total == ptotal);
+            int ok_mass = 1;
+            for (int k = 1; k <= n; k++)
+                if (omasses[k] != pmasses[k]) ok_mass = 0;
+            printf("  totals match exactly: %s; layer-by-layer mass equality (k=1..%d): %s\n",
+                   ok_total ? "PASS" : "FAIL", n, ok_mass ? "PASS" : "FAIL");
+            printf("F1U SUBSET VERIFY: %s\n", (ok_total && ok_mass) ? "PASS" : "FAIL");
+            rc = (ok_total && ok_mass) ? 0 : 1;
+        }
+        free(pmasses);
+    }
+    printf("F1U RESULT mode=%s subset=%s start_orbit=%s mod=%llu residue=%llu\n",
+           subset_spec ? "subset" : "full",
+           subset_spec ? subset_spec : "-",
+           start_orbit < 0 ? "all" : orbit_spec,
+           (unsigned long long)P, (unsigned long long)total);
+    printf("F1U DONE (%.1fs)\n", omp_get_wtime() - T0);
+    f1u_layer_free(&cur);
+    free(omasses); free(c);
+    return rc;
+}
+
 /* ---------- Main ---------- */
 
+/* SOLVE_REGRESS_DIR is interpolated into `rm -rf ...` and handed to system(). QUOTING ALONE IS NOT
+   ENOUGH: an embedded single quote closes the quote and the remainder of the value is shell. So the
+   value is validated against an explicit safe alphabet at its source, and every destructive command
+   built from it is ALSO quoted -- belt and braces, because this is the disk-safety class.
+   Returns 1 if safe, 0 otherwise (explaining on stderr). Used at BOTH getenv sites: there are two,
+   and guarding only the first is how this defect class survives a fix. */
+static int regress_dir_safe(const char *p)
+{
+    const char *q;
+    if (!p || !*p) {
+        fprintf(stderr, "ERROR: SOLVE_REGRESS_DIR is empty; refusing to build a destructive command\n");
+        return 0;
+    }
+    for (q = p; *q; q++) {
+        if (!((*q >= 'A' && *q <= 'Z') || (*q >= 'a' && *q <= 'z') ||
+              (*q >= '0' && *q <= '9') || *q == '/' || *q == '.' ||
+              *q == '_' || *q == '-')) {
+            fprintf(stderr, "ERROR: SOLVE_REGRESS_DIR contains an unsafe character (0x%02X); "
+                            "allowed characters are A-Z a-z 0-9 / . _ -\n", (unsigned char)*q);
+            return 0;
+        }
+    }
+    return 1;
+}
+
 int main(int argc, char *argv[]) {
+    /* Q-377: handled FIRST, before the lock, the shard-manifest scan, or anything that writes.
+       Until 2026-08-28 there was NO --help handler and no unknown-argument rejection: an
+       unrecognised first argument fell through the else-if chain to the DEFAULT ACTION, so
+       `./solve --help` acquired solve.lock, ran orphaned-shard integrity checks, REWROTE
+       shard_manifest.txt in the cwd and began an unbounded enumeration. Measured live.
+       This list is deliberately NOT exhaustive -- an inline catalogue of ~100 modes would rot,
+       which is the doc-vs-reality failure this project keeps correcting. It points at the file
+       that is maintained instead. */
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        printf("solve -- ROAE enumeration / estimation / verification engine\n\n");
+        printf("Build:  gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz\n");
+        printf("Check:  ./solve --selftest      (must print the canonical sha256)\n\n");
+        printf("Common modes:\n");
+        printf("  --selftest                 canonical self-test; prints and checks the sha\n");
+        printf("  --verify <file>            verify a solutions artifact\n");
+        printf("  --validate <file>          validate an artifact's header and records\n");
+        printf("  --estimate-knuth <nodes>   Knuth tree-size estimate (whole tree or one branch)\n");
+        printf("  --list-branches            enumerate the depth-2 branch list\n");
+        printf("  --branch <p> <o> ...       run a single branch\n");
+        printf("  --merge <out> <in>...      merge shard artifacts\n\n");
+        printf("This list is NOT exhaustive and is not the source of truth.\n");
+        printf("Full CLI reference: documentation/SOLVE_C_CLI.md\n");
+        printf("With no recognised option, solve runs the DEFAULT ENUMERATION -- which is why an\n");
+        printf("unknown option is now an error rather than a silent full run.\n");
+        return 0;
+    }
+
     /* #165 deterministic eviction-injection hook (test-only; see g_kill_after_nodes). */
     { const char *e = getenv("SOLVE_KILL_AFTER_NODES"); if (e && *e) g_kill_after_nodes = atoll(e); }
     /* Candidate-registry cross-verification hook (test-only, estimator-independent):
@@ -30112,7 +32556,7 @@ int main(int argc, char *argv[]) {
         printf("[--selftest] Actual sha256:   %s\n", actual_sha);
         /* Cleanup temp dir */
         char rm_cmd[4200];
-        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf %s", tempdir_template);
+        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf '%s'", tempdir_template);
         int _rm = system(rm_cmd); (void)_rm;
         if (strcmp(actual_sha, expected_sha) == 0) {
             printf("[--selftest] PASS — sha256 matches canonical baseline\n");
@@ -30235,6 +32679,20 @@ int main(int argc, char *argv[]) {
         for (int b = 0; b < 32; b++)
             if (wasteful_by_boundary[b])
                 printf("  boundary %2d (pair %d <-> pair %d): %llu\n", b, b-1, b, wasteful_by_boundary[b]);
+        /* Q-275 (Codex R09) called all three --verify-* flags here "tabulators, not gates".
+         * Two of them assert a universal and are now gated. THIS ONE DOES NOT: a "wasteful"
+         * value-1 is an expected empirical finding, not a defect, so there is no pass
+         * condition to check -- and INVENTING one would be worse than the missing gate,
+         * because a wrong gate is silent where a missing one is merely absent. What was
+         * genuinely wrong is that a flag named --verify emitted no machine-readable verdict
+         * at all. It now emits one that states exactly what it is. */
+        if (records_total == 0) {
+            printf("RULE2=ERROR\n");
+            fprintf(stderr, "ERROR: %s contains no records; nothing was tabulated\n", vpath);
+            return 30;
+        }
+        printf("RULE2=TABULATED scanned=%llu records_with_violation=%llu ones=%llu forced=%llu wasteful=%llu\n",
+               records_total, records_with_violation, total_ones, ones_c2_forced, ones_wasteful);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--verify-9th-six") == 0) {
         /* McKenna "9th six" audit (The Invisible Landscape, Ch 9): every C1-C5
@@ -30318,6 +32776,28 @@ int main(int argc, char *argv[]) {
                 printf("  boundary %2d (between pair %d and pair %d): %llu records (%.4f%%)\n",
                        b, b-1, b, between_six_by_boundary[b],
                        100.0 * between_six_by_boundary[b] / (records_total ? records_total : 1));
+        /* Q-275 (Codex R09). This block's own header asserts that EVERY C1-C5 record carries
+         * exactly one between-pair value-6 (9 sixes: 8 within-pair plus the "synthetic" one).
+         * The open question it was written to answer is WHERE that six falls, not how many
+         * there are -- so the count is gateable and the position stays descriptive. Gating a
+         * claim the code already makes is not inventing a pass condition; if this ever fires,
+         * the firing IS the discovery. Held on 13,320 records of the committed slice. */
+        {
+            unsigned long long off_spec = 0;
+            for (int c = 0; c < 16; c++) if (c != 1) off_spec += between_six_count_dist[c];
+            if (records_total == 0) {
+                printf("NINTH_SIX=ERROR\n");
+                fprintf(stderr, "ERROR: %s contains no records; the invariant was never tested\n", vpath);
+                return 30;
+            }
+            if (off_spec) {
+                printf("NINTH_SIX=FAIL\n");
+                fprintf(stderr, "ERROR: %llu of %llu record(s) lack exactly one between-pair value-6\n",
+                        off_spec, records_total);
+                return 1;
+            }
+            printf("NINTH_SIX=PASS\n");
+        }
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--verify-wrap-parity") == 0) {
         /* McKenna wrap-around parity audit (SPECIFICATION.md Theorem "Wrap-around parity is
@@ -30394,6 +32874,24 @@ int main(int argc, char *argv[]) {
             if (wrap_dist[d])
                 printf("  d=%d : %llu records (%.6f%%)\n", d, wrap_dist[d],
                        100.0 * wrap_dist[d] / (records_total ? records_total : 1));
+        /* Q-275 (Codex R09). This printed the theorem's own expectation and then returned 0
+         * whatever the observed value was, so A VIOLATION OF THE THEOREM IT NAMES EXITED
+         * SUCCESS and no caller, script or CI could learn of it. The verdict is now an
+         * explicit KEY=value token matched with `grep -qx`, never an output shape.
+         * Zero records is an ERROR, not a vacuous pass: a check that CANNOT RUN must never
+         * report success -- that is the same defect one level up. */
+        if (records_total == 0) {
+            printf("WRAP_PARITY=ERROR\n");
+            fprintf(stderr, "ERROR: %s contains no records; the theorem was never tested\n", vpath);
+            return 30;
+        }
+        if (odd != records_total) {
+            printf("WRAP_PARITY=FAIL\n");
+            fprintf(stderr, "ERROR: theorem violated: %llu of %llu record(s) have EVEN wrap distance\n",
+                    records_total - odd, records_total);
+            return 1;
+        }
+        printf("WRAP_PARITY=PASS\n");
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--selftest-resume") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
@@ -30431,7 +32929,7 @@ int main(int argc, char *argv[]) {
         }
         char tdir_B[] = "/tmp/solve_selftest_resume_B_XXXXXX";
         if (!mkdtemp(tdir_B)) {
-            char rm[4200]; snprintf(rm, sizeof(rm), "rm -rf %s", tdir_A);
+            char rm[4200]; snprintf(rm, sizeof(rm), "rm -rf '%s'", tdir_A);
             int _rc = system(rm); (void)_rc;
             fprintf(stderr, "ERROR: mkdtemp B failed\n");
             return 10;
@@ -30505,7 +33003,7 @@ int main(int argc, char *argv[]) {
         printf("[--selftest-resume] Single-shot sha: %s\n", sha_single);
 
         char rm[4200];
-        snprintf(rm, sizeof(rm), "rm -rf %s %s", tdir_A, tdir_B);
+        snprintf(rm, sizeof(rm), "rm -rf '%s' '%s'", tdir_A, tdir_B);
         int _rc = system(rm); (void)_rc;
 
         if (sha_resume[0] != 0 && strcmp(sha_resume, sha_single) == 0) {
@@ -30933,7 +33431,7 @@ int main(int argc, char *argv[]) {
 
         /* Cleanup */
         char rm_cmd[4200];
-        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf %s", tdir);
+        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf '%s'", tdir);
         int _rm = system(rm_cmd); (void)_rm;
 
         if (match) {
@@ -30949,7 +33447,13 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "      (a) Host environment differs from canonical reference (gcc/glibc/kernel/\n");
         fprintf(stderr, "          CPU/microcode patch deltas). At %s scale this can flip sha via the\n", scale_label);
         fprintf(stderr, "          BUDGETED-cell-density mechanism documented in\n");
-        fprintf(stderr, "          x/roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md Q9-Q10. Try a higher\n");
+        /* 🔴 CORRECTED 2026-09-03 (comment/string only, sha-neutral). This printed
+         * "x/roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md" -- a roae-private path,
+         * emitted to stderr by the PUBLIC binary, so a reader hitting this error was sent
+         * to a file they cannot obtain. The mechanism is documented publicly:
+         * CANONICAL_HASHES.md "Note on the 1T-vs-11.2T drift gap" (:251) and
+         * documentation/HISTORY.md "May 27/28, 2026 UTC -- Task #110" (:4558). */
+        fprintf(stderr, "          CANONICAL_HASHES.md, \"Note on the 1T-vs-11.2T drift gap\". Try a higher\n");
         fprintf(stderr, "          scale (11.2T or 100T) which is more drift-resistant.\n");
         fprintf(stderr, "      (b) solve.c source has regressed since the anchor was set. Run --selftest\n");
         fprintf(stderr, "          to confirm binary correctness.\n");
@@ -31151,7 +33655,7 @@ int main(int argc, char *argv[]) {
          * SOLVE_THREADS overrides parallelism (default nproc). Sha-neutral; exits 0. */
         if (argc < 3) {
             fprintf(stderr, "usage: solve --estimate-knuth <N_probes> "
-                            "[<p1> <o1> [<p2> <o2> [<p3> <o3>]]]\n");
+                            "[<p1> <o1> [<p2> <o2> ... up to <p28> <o28>]]\n");
             return 1;
         }
         init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);
@@ -31162,6 +33666,23 @@ int main(int argc, char *argv[]) {
         }
         int nlev = rest / 2, lp[28] = {0}, lo[28] = {0};
         for (int i = 0; i < nlev; i++) { lp[i] = atoi(argv[3+2*i]); lo[i] = atoi(argv[4+2*i]); }
+        /* Stack preflight (2026-08-21). main's frame is ~7.23 MB and estimate_tree_knuth adds
+         * ~1.02 MB, so the common 8 MB default stack is exceeded the moment the estimator is
+         * entered -- previously a bare SIGSEGV after the banner, with no indication of cause.
+         * A cold external-reviewer pass concluded from this that the instrument was broken.
+         * Fail with an actionable message instead. Estimator path only; sha-neutral. */
+        {
+            struct rlimit _rl;
+            if (getrlimit(RLIMIT_STACK, &_rl) == 0 && _rl.rlim_cur != RLIM_INFINITY
+                && _rl.rlim_cur < 16UL * 1024 * 1024) {
+                fprintf(stderr,
+                    "solve: stack limit is %lu MB, but --estimate-knuth needs >= 16 MB\n"
+                    "       (main ~7.2 MB frame + estimator ~1.0 MB frame).\n"
+                    "       Re-run with:  ulimit -s unlimited\n",
+                    (unsigned long)(_rl.rlim_cur / (1024UL * 1024UL)));
+                return 1;
+            }
+        }
         int nthreads = 0; const char *te = getenv("SOLVE_THREADS"); if (te) nthreads = atoi(te);
         if (nthreads <= 0) nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
         if (nthreads < 1) nthreads = 1;
@@ -31200,6 +33721,23 @@ int main(int argc, char *argv[]) {
         if (getenv("SOLVE_KNUTH_SCORE") && atoi(getenv("SOLVE_KNUTH_SCORE")) == 1) {
             knuth_score = 1;
             fprintf(stderr, "[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)\n");
+        }
+        if (getenv("SOLVE_KNUTH_H2") && atoi(getenv("SOLVE_KNUTH_H2")) == 1) {
+            if (!knuth_moore_strict || !knuth_gender_strict) {
+                fprintf(stderr, "[knuth] SOLVE_KNUTH_H2=1 requires SOLVE_KNUTH_MOORE_STRICT=1 and "
+                                "SOLVE_KNUTH_GENDER_STRICT=1 (the triple-strict walk IS the GS sampler)\n");
+                return 1;
+            }
+            knuth_h2 = 1;
+            const char *dp = getenv("SOLVE_KNUTH_H2_DUMP");
+            if (dp) {
+                knuth_h2_fp = fopen(dp, "w");
+                if (!knuth_h2_fp) { perror("SOLVE_KNUTH_H2_DUMP fopen"); return 1; }
+            }
+            h2_selftest();
+            fprintf(stderr, "[knuth] H2 edit-ball scoring ACTIVE (near-precursor mass: exact radius-3 "
+                            "slot-edit ball + 1/c(S) overlap dedup + in-ball validity, per GS leaf; "
+                            "dump=%s; estimator-only, sha-neutral)\n", dp ? dp : "(none)");
         }
         if (getenv("SOLVE_RC4B_ASSERT_T1") && atoi(getenv("SOLVE_RC4B_ASSERT_T1")) == 1) {
             knuth_rc4b_t1 = 1;
@@ -31267,6 +33805,74 @@ int main(int argc, char *argv[]) {
                     td, Mroots, Kprobes, nlev);
             estimate_subtree_sampler(td, Mroots, Kprobes, nlev, lp, lo);
             return 0;
+        }
+        if (getenv("SOLVE_KNUTH_PURDOM_W")) {   /* Q-389 */
+            knuth_purdom_w = atoi(getenv("SOLVE_KNUTH_PURDOM_W"));
+            if (knuth_purdom_w < 2 || knuth_purdom_w > 64) {
+                fprintf(stderr, "[purdom] SOLVE_KNUTH_PURDOM_W must be 2..64 (got %d); "
+                                "w=1 IS the Knuth estimator — run it plain\n", knuth_purdom_w);
+                return 1;
+            }
+            if (getenv("SOLVE_KNUTH_PURDOM_DEPTH")) {
+                knuth_purdom_depth = atoi(getenv("SOLVE_KNUTH_PURDOM_DEPTH"));
+                if (knuth_purdom_depth < 1 || knuth_purdom_depth > 31) {
+                    fprintf(stderr, "[purdom] SOLVE_KNUTH_PURDOM_DEPTH must be 1..31 (got %d)\n",
+                            knuth_purdom_depth);
+                    return 1;
+                }
+            }
+            if (knuth_score || knuth_score_reg || knuth_score_f4p || knuth_score_dav ||
+                knuth_score_dav2 || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
+                knuth_score_perm || knuth_moore_strict || knuth_gender_strict || knuth_h2 ||
+                knuth_f11_hist || knuth_r11_hist || knuth_depth_profile || knuth_rc4b_t1 ||
+                knuth_bcond) {
+                fprintf(stderr, "[purdom] REFUSED: the Purdom worker implements only the core "
+                                "masses (nodes / leaves / canonical / records); combining it with "
+                                "scoring, strict-walk, histogram or boundary instruments would "
+                                "silently drop them. Run those on the Knuth worker.\n");
+                return 1;
+            }
+            fprintf(stderr, "[purdom] partial-backtracking estimator ACTIVE: w=%d depth_cutoff=%d "
+                            "(Purdom 1978, SIAM J. Comput. 7(2); unbiased for any (w,cutoff); "
+                            "Q-389 second-estimator derivation)\n",
+                    knuth_purdom_w, knuth_purdom_depth);
+        }
+        if (getenv("SOLVE_KNUTH_FIBER") && atoi(getenv("SOLVE_KNUTH_FIBER")) == 1) {   /* Q-388 */
+            if (getenv("SOLVE_KNUTH_C5_BUDGET")) {
+                fprintf(stderr, "[fiber] SOLVE_KNUTH_FIBER=1 with SOLVE_KNUTH_C5_BUDGET is REFUSED: "
+                                "the fiber DP's within-budget semantics are validated only for the "
+                                "standard and RELAX_C5 budgets\n");
+                return 1;
+            }
+            knuth_fiber = 1;
+            if (getenv("SOLVE_KNUTH_FIBER_XCHECK"))
+                knuth_fiber_xcheck = atoi(getenv("SOLVE_KNUTH_FIBER_XCHECK"));
+            fprintf(stderr, "[fiber] W/m(k) canonical-class (record) estimator ACTIVE "
+                            "(Q-388; A1 §6.1 design; KW gate enforced at init)\n");
+        }
+        if (getenv("SOLVE_KNUTH_FIBER_PERM")) {
+            /* Cross-check hook: exact fiber of ONE given pair ordering (standard budget),
+             * printed and done — verify.py fiber_count must return the same integer,
+             * including 0 for orderings with an empty fiber (the verifier-FALSE case). */
+            int perm[32], seen[32] = {0}, np2 = 0; const char *pp = getenv("SOLVE_KNUTH_FIBER_PERM");
+            while (*pp && np2 < 32) {
+                if (*pp >= '0' && *pp <= '9') {
+                    int v = (int)strtol(pp, (char**)&pp, 10);
+                    if (v < 0 || v > 31 || seen[v]) { np2 = -1; break; }
+                    seen[v] = 1; perm[np2++] = v;
+                } else pp++;
+            }
+            if (np2 != 32) { fprintf(stderr, "[fiber] FIBER_PERM: need a permutation of 0..31\n"); return 1; }
+            if (perm[0] != pair_index_of(63, 0)) {
+                fprintf(stderr, "[fiber] FIBER_PERM: slot 0 must be the pair {63,0} (C4)\n"); return 1;
+            }
+            int fseq[64];
+            for (int i = 0; i < 32; i++) { fseq[2*i] = pairs[perm[i]].a; fseq[2*i+1] = pairs[perm[i]].b; }
+            fseq[0] = 63; fseq[1] = 0;   /* C4 opening orientation */
+            int std1[7]; memcpy(std1, kw_dist, sizeof(std1)); std1[hamming(63,0)]--;
+            if (fiber_init(std1)) return 1;
+            printf("FIBER-PERM m=%.0f\n", fiber_count_c(fseq));
+            fflush(stdout); return 0;
         }
         fprintf(stderr, "[knuth] %llu probes, %d threads, %d prefix level(s)\n",
                 (unsigned long long)nprobe, nthreads, nlev);
@@ -31574,6 +34180,28 @@ int main(int argc, char *argv[]) {
         if (failures == 0) printf("RC4B VERIFY: PASS\n");
         else printf("RC4B VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
+    } else if (argc > 1 && strcmp(argv[1], "--f1-dec-selftest") == 0) {
+        /* Q-43 (Codex turn 4): f1_dec() renders every published exact count, up to
+         * ~10^39 at n=31, but the only end-to-end exercise of that path was the n=9
+         * rung total 26112 -- five digits, one limb. The multi-limb carry in
+         * f1_divmod_small() had no proof at all. That is a MISSING PROOF, which this
+         * project does not treat as passing.
+         *
+         * This mode deliberately knows NOTHING about expected output: it reads limb
+         * triples "l2 l1 l0" from stdin and prints "l2 l1 l0 <decimal>" through the
+         * REAL f1_dec(). The battery and the expectations live in the checker, so
+         * this code cannot pass by containing the answer. Sha-neutral (argv-
+         * dispatched, never on the enum path). */
+        char line[256];
+        while (fgets(line, sizeof line, stdin)) {
+            unsigned long long a, b, c;
+            if (sscanf(line, "%llu %llu %llu", &a, &b, &c) != 3) continue;
+            F1U192 v; v.l2 = (uint64_t)a; v.l1 = (uint64_t)b; v.l0 = (uint64_t)c;
+            char d[64];
+            f1_dec(v, d);
+            printf("%llu %llu %llu %s\n", a, b, c, d);
+        }
+        return 0;
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-gzip-selftest") == 0) {
         /* retool 2026-07-07: round-trip test of the v2 per-block zlib codec. */
         return f1c5_gzip_selftest();
@@ -31727,7 +34355,7 @@ int main(int argc, char *argv[]) {
                     "(resume is automatic when a matching manifest exists)\n");
             return 2;
         }
-        return f1c5_exact_main(f1c5_layers_dir, f1c5_npairs, f1c5_ooc_dir, f1c5_resume);
+        return f1c5_exact_main(f1c5_layers_dir, f1c5_npairs, f1c5_ooc_dir, f1c5_resume, 0, 0, 0);
     } else if (argc > 1 && strncmp(argv[1], "--kc-", 5) == 0) {
         /* v4-compiler: the f1c5 DP layers as a compiled knowledge structure
          * (count / rank / unrank / sample / member / enum / repr adapter).
@@ -31748,6 +34376,90 @@ int main(int argc, char *argv[]) {
         /* H6: one-command certificate re-verifier + mutation battery
          * (KC-H module header; sha-neutral, argv-dispatched). */
         return kc_verify_certificate_main(argc, argv);
+    } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2") == 0) {
+        /* E1 (2026-07-25): |C1 & C2| with the START UNPINNED, as a residue
+         * mod a 63-bit prime — three distinct-prime runs + offline CRT give
+         * the exact integer. See the module header above f1u_exact_main()
+         * for method, gates, and attribution. Sha-neutral (argv-dispatched,
+         * never on the enum path). */
+        const char *f1u_subset = NULL, *f1u_orbit = "all", *f1u_mod = NULL;
+        int f1u_argerr = 0;
+        for (int ai = 2; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--f1-subset") == 0 && ai + 1 < argc)
+                f1u_subset = argv[++ai];
+            else if (strcmp(argv[ai], "--f1-start-orbit") == 0 && ai + 1 < argc)
+                f1u_orbit = argv[++ai];
+            else if (strcmp(argv[ai], "--f1-mod") == 0 && ai + 1 < argc)
+                f1u_mod = argv[++ai];
+            else
+                f1u_argerr = 1;
+        }
+        if (f1u_argerr || !f1u_mod) {
+            fprintf(stderr, "Usage: solve --f1-exact-c1c2 --f1-mod P "
+                    "[--f1-start-orbit 0..5|all] [--f1-subset \"L.I,L.I,...\"]\n"
+                    "  P: odd prime, 2 < P < 2^62 (three distinct-prime runs + CRT = exact count)\n"
+                    "  start-orbit: one of the 6 (pair,exit) start-orbits "
+                    "(sizes 2,12,24,8,6,12; reps 0,1,3,7,12,13), default all\n"
+                    "  subset: union of extended-group pair-orbits 1.0,3.0,4.0,6.0,6.1,12.0 "
+                    "(validation rungs; plain-DP internal gate runs when n<=16)\n");
+            return 2;
+        }
+        return f1u_exact_main(f1u_subset, f1u_orbit, f1u_mod);
+    } else if (argc > 1 && strcmp(argv[1], "--f1-c3-hist") == 0) {
+        /* BACKLOG-2a: exact G-histogram (C3 = 16 + 8*G channel) on the orbit DP.
+         * Default base = C1 & C2 & C4 (rid disabled) -> the histogram's G<=95
+         * cumulative IS the exact |C1 & C2 & C3 & C4|. --with-c5 keeps the C5
+         * residual (rung-gate base, totals must match the published #217 rung
+         * counts); --no-c2 drops the C2 test (C1 & C4 null-distribution gate).
+         * UNCAPPED — no G-prune. See the G-channel module header above
+         * f1c3_build_comp_pairs() for method, gates, and attribution.
+         * Sha-neutral (argv-dispatched, never on the enum path). */
+        const char *c3_layers_dir = NULL, *c3_ooc_dir = NULL;
+        int c3_npairs = 31, c3_resume = 0, c3_with_c5 = 0, c3_no_c2 = 0, c3_argerr = 0;
+        for (int ai = 2; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--layers-dir") == 0 && ai + 1 < argc)
+                c3_layers_dir = argv[++ai];
+            else if (strcmp(argv[ai], "--f1-out-of-core") == 0 && ai + 1 < argc)
+                c3_ooc_dir = argv[++ai];
+            else if (strcmp(argv[ai], "--resume-from-layers") == 0)
+                c3_resume = 1;
+            else if (strcmp(argv[ai], "--f1-pairs") == 0 && ai + 1 < argc)
+                c3_npairs = atoi(argv[++ai]);
+            else if (strcmp(argv[ai], "--with-c5") == 0)
+                c3_with_c5 = 1;
+            else if (strcmp(argv[ai], "--no-c2") == 0)
+                c3_no_c2 = 1;
+            else
+                c3_argerr = 1;
+        }
+        if (c3_layers_dir && c3_ooc_dir) {
+            fprintf(stderr, "ERROR: --layers-dir and --f1-out-of-core are mutually exclusive "
+                    "(the out-of-core dir IS the layers dir)\n");
+            return 2;
+        }
+        if (c3_resume && !c3_layers_dir && !c3_ooc_dir) {
+            fprintf(stderr, "ERROR: --resume-from-layers requires --layers-dir DIR or "
+                    "--f1-out-of-core DIR\n");
+            return 2;
+        }
+        if (c3_with_c5 && c3_no_c2) {
+            fprintf(stderr, "ERROR: --with-c5 and --no-c2 are mutually exclusive "
+                    "(the C5 boundary budget presupposes the C2 transition classes)\n");
+            return 2;
+        }
+        if (c3_argerr) {
+            fprintf(stderr, "Usage: solve --f1-c3-hist [--f1-pairs N] [--with-c5] [--no-c2] "
+                    "[--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers]\n"
+                    "  Emits the exact final-layer G-histogram (C3 = 16 + 8*G; uncapped).\n"
+                    "  Default base C1&C2&C4: the G<=95 cumulative = exact |C1&C2&C3&C4|.\n"
+                    "  --with-c5: keep the C5 residual (rung-gate base; totals = #217 rung counts)\n"
+                    "  --no-c2:   drop the C2 adjacency test (C1&C4 null-distribution gate base)\n"
+                    "  N in {9,13,16,18,19,24,25,27,28,31} — group-closed pair-orbit unions "
+                    "(default 31 = full run)\n");
+            return 2;
+        }
+        return f1c5_exact_main(c3_layers_dir, c3_npairs, c3_ooc_dir, c3_resume,
+                               1, c3_with_c5, c3_no_c2);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
          * SOLVE_* env var's effective value, so that when a future change
@@ -31814,7 +34526,7 @@ int main(int argc, char *argv[]) {
          */
         if (argc < 3) {
             fprintf(stderr, "usage: solve --canonical-config <SCALE> [--full]\n");
-            fprintf(stderr, "known scales: 1T 5.6T 10T 11.2T 100T 560T d2-10T\n");
+            print_known_scales(stderr, 0);
             return 25;
         }
         const char *scale = argv[2];
@@ -31830,6 +34542,21 @@ int main(int argc, char *argv[]) {
                 printf("SOLVE_NODE_LIMIT=%lld\n", r->node_limit);
                 if (r->psb > 0) {
                     printf("SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", r->psb);
+                } else {
+                    /* Q-345. Say WHY the line is absent. Silence here reads as an omission or a
+                     * bug to a launcher author diffing d2-10T against 10T, and it is neither.
+                     *
+                     * 🔴 ON STDERR, NOT STDOUT, and that is not a style choice. The documented
+                     * consumer is `eval $(./solve --canonical-config 100T)` (SOLVE_C_CLI.md:284).
+                     * Unquoted command substitution word-splits, so eval sees ONE line — a '#'
+                     * comment emitted on stdout would swallow every var printed after it, which
+                     * under --full is SOLVE_DFS_ITERATIVE and SOLVE_DFS_CHECKPOINT. A note meant
+                     * to prevent confusion would have silently dropped two sha-determining vars. */
+                    fprintf(stderr, "# note: %s has no SOLVE_PER_SUB_BRANCH_LIMIT — depth-2 mechanics\n"
+                                    "#       do not use a published per-sub-branch budget. This is the\n"
+                                    "#       recipe, not a truncated one. `--validate-launcher-config`\n"
+                                    "#       therefore has nothing to validate for this scale (rc=34).\n",
+                            r->label);
                 }
                 if (full) {
                     printf("SOLVE_DFS_ITERATIVE=1\n");
@@ -31839,7 +34566,7 @@ int main(int argc, char *argv[]) {
             }
         }
         fprintf(stderr, "ERROR: unknown canonical scale '%s'\n", scale);
-        fprintf(stderr, "known scales: 1T 5.6T 10T 11.2T 100T 560T d2-10T\n");
+        print_known_scales(stderr, 0);
         fprintf(stderr, "(if you need a scale not in this list, add it to CANONICAL_HASHES.md\n");
         fprintf(stderr," recipe table + this solve.c table; do not invent PSBs.)\n");
         return 25;
@@ -31854,7 +34581,8 @@ int main(int argc, char *argv[]) {
          * Exit codes:
          *   0 = PSB matches the recipe for that scale
          *   1 = PSB does not match (sha-reproduction will fail; launcher should abort)
-         *   25 = unknown scale or bad arg count
+         *   25 = unknown scale (a typo) or bad arg count
+         *   34 = KNOWN scale, but it publishes no PSB — nothing to validate (Q-345)
          *
          * Sha-neutral by construction. */
         if (argc < 4) {
@@ -31867,6 +34595,20 @@ int main(int argc, char *argv[]) {
          * local table — consolidated 2026-06-17 so launcher-config / canonical-config /
          * validate-canonical can never drift). */
         for (const struct canonical_recipe *r = CANONICAL_RECIPES; r->label; r++) {
+            /* Q-345. A KNOWN scale that simply has no PSB to validate used to fall through this
+             * loop and land on the unknown-scale error — same message, same rc=25, as a typo.
+             * `--canonical-config d2-10T` resolves cleanly at the same moment, so the two
+             * subcommands disagreed about whether the scale exists, and the shared usage text
+             * sided with the one that said yes. A pre-flight gate that reports "unknown scale"
+             * for a real configuration fails OPEN for any caller that does not check the code. */
+            if (strcmp(r->label, scale) == 0 && r->psb <= 0) {
+                fprintf(stderr, "[--validate-launcher-config] '%s' is a KNOWN scale with no published PSB.\n", scale);
+                fprintf(stderr, "  Depth-%d mechanics do not use a per-sub-branch budget, so there is\n", r->depth);
+                fprintf(stderr, "  nothing here to validate — this is NOT a typo and NOT an unknown scale.\n");
+                fprintf(stderr, "  A launcher targeting %s must not set SOLVE_PER_SUB_BRANCH_LIMIT at all;\n", scale);
+                fprintf(stderr, "  `solve --canonical-config %s` emits its complete recipe.\n", scale);
+                return 34;
+            }
             if (strcmp(r->label, scale) == 0 && r->psb > 0) {
                 if (psb == r->psb) {
                     fprintf(stderr, "[--validate-launcher-config] PSB=%lld matches recipe for %s.\n",
@@ -31884,6 +34626,10 @@ int main(int argc, char *argv[]) {
             }
         }
         fprintf(stderr, "[--validate-launcher-config] ERROR: unknown scale '%s'\n", scale);
+        /* Only the PSB-bearing scales: this subcommand cannot act on the others, and listing
+         * them here is what sent a caller to Q-324 in the first place. */
+        fprintf(stderr, "  ");
+        print_known_scales(stderr, 1);
         return 25;
     } else if (argc > 1 && strcmp(argv[1], "--cpu-features") == 0) {
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
@@ -31928,9 +34674,12 @@ int main(int argc, char *argv[]) {
          *
          * Why: Spot D128als_v7 hosts in westus3 can hand back thermally-
          * throttled physical hosts at ~600 MHz vs the expected 2596 MHz
-         * base / 3700 MHz boost. Pairs with
-         * scripts/d128_preflight_throttle_probe.sh per
-         * `feedback_preflight_throttle_probe`. */
+         * base / 3700 MHz boost. This subcommand IS the published check;
+         * run it before any paired A/B bench. (Earlier revisions of this
+         * comment, and four documentation sites, pointed at an
+         * orchestrator-side pre-flight probe script that does not exist in
+         * this repository — nor anywhere else — so the pointer was removed
+         * 2026-08-09 rather than left dangling.) */
         long threshold_mhz = 2000;
         if (argc > 2) threshold_mhz = atol(argv[2]);
         FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
@@ -32080,14 +34829,16 @@ int main(int argc, char *argv[]) {
         if (!base_dir) {
             struct stat sst;
             base_dir = (stat("/mnt/work", &sst) == 0) ? "/mnt/work" : "/tmp";
+        } else if (!regress_dir_safe(base_dir)) {
+            return 30;
         }
         char dir_full[PATH_MAX], dir_56[PATH_MAX];
         snprintf(dir_full, sizeof(dir_full), "%s/regress_full", base_dir);
         snprintf(dir_56,   sizeof(dir_56),   "%s/regress_56",   base_dir);
         printf("[regression-test] working dirs: %s, %s\n", dir_full, dir_56);
         char cleanup1[PATH_MAX * 2 + 64], cleanup2[PATH_MAX * 2 + 64];
-        snprintf(cleanup1, sizeof(cleanup1), "rm -rf %s && mkdir -p %s", dir_full, dir_full);
-        snprintf(cleanup2, sizeof(cleanup2), "rm -rf %s && mkdir -p %s", dir_56,   dir_56);
+        snprintf(cleanup1, sizeof(cleanup1), "rm -rf '%s' && mkdir -p '%s'", dir_full, dir_full);
+        snprintf(cleanup2, sizeof(cleanup2), "rm -rf '%s' && mkdir -p '%s'", dir_56,   dir_56);
         int _r;
         _r = system(cleanup1); (void)_r;
         _r = system(cleanup2); (void)_r;
@@ -32213,7 +34964,7 @@ int main(int argc, char *argv[]) {
             printf("[regression-test] PASS — partition invariance confirmed at total budget %lld\n",
                    total_budget);
             char rmcmd[PATH_MAX * 2 + 32];
-            snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s %s", dir_full, dir_56);
+            snprintf(rmcmd, sizeof(rmcmd), "rm -rf '%s' '%s'", dir_full, dir_56);
             _r = system(rmcmd); (void)_r;
             return 0;
         } else {
@@ -32290,6 +35041,8 @@ int main(int argc, char *argv[]) {
         if (!base_dir) {
             struct stat sst;
             base_dir = (stat("/mnt/work", &sst) == 0) ? "/mnt/work" : "/tmp";
+        } else if (!regress_dir_safe(base_dir)) {
+            return 30;
         }
         char dir_full[PATH_MAX], dir_56[PATH_MAX];
         snprintf(dir_full, sizeof(dir_full), "%s/dregress_full", base_dir);
@@ -32299,7 +35052,7 @@ int main(int argc, char *argv[]) {
         char cmd[PATH_MAX * 4 + 1024];
         int _r;
         char rmm[PATH_MAX * 6 + 128];
-        snprintf(rmm, sizeof(rmm), "rm -rf %s %s && mkdir -p %s/01_layer1 %s/02_layer2 %s/01_layer1 %s/02_layer2",
+        snprintf(rmm, sizeof(rmm), "rm -rf '%s' '%s' && mkdir -p '%s/01_layer1' '%s/02_layer2' '%s/01_layer1' '%s/02_layer2'",
                  dir_full, dir_56, dir_full, dir_full, dir_56, dir_56);
         _r = system(rmm);
         if (_r != 0) { fprintf(stderr, "ERROR: cannot prepare working dirs\n"); return 50; }
@@ -32449,7 +35202,7 @@ int main(int argc, char *argv[]) {
         CAPTURE_SHA(shapath, sha_full_merged, "full_merged");
         /* Free disk before next merge: drop the full-path merged solutions.bin
          * (sha already captured) and the symlinks dir. */
-        snprintf(cmd, sizeof(cmd), "rm -rf %s/_merged_", dir_full);
+        snprintf(cmd, sizeof(cmd), "rm -rf '%s/_merged_'", dir_full);
         _r = system(cmd); (void)_r;
 
         /* ---- Phase 6: layered-merge 56-branch path ---- */
@@ -32676,6 +35429,16 @@ int main(int argc, char *argv[]) {
         }
         printf("Single-sub-branch mode: p1=%d o1=%d p2=%d o2=%d p3=%d o3=%d\n",
                sb_pair, sb_orient, ssb_pair2, ssb_orient2, ssb_pair3, ssb_orient3);
+    } else if (argc > 1 && argv[1][0] == '-') {
+        /* Q-377: a dash-prefixed argument that matched NO branch above is a typo, not a request
+           for the default full enumeration. This sits at the END of the chain on purpose: a
+           known-flag list checked at the top would be a second copy of this chain and would
+           diverge the moment a mode is added. Positional arguments (e.g. a node budget) are
+           unaffected -- only unrecognised OPTIONS are rejected. */
+        fprintf(stderr, "ERROR: unknown option '%s'\n", argv[1]);
+        fprintf(stderr, "Run '%s --help' for the common modes, or see documentation/SOLVE_C_CLI.md\n",
+                argv[0]);
+        return 2;
     }
 
     /* Preflight external-dep check for any mode that will produce a sha256.
@@ -32914,7 +35677,7 @@ int main(int argc, char *argv[]) {
      * the canonical King Wen sequence. If this fails, every downstream claim
      * is suspect — exit 50.
      *
-     * The constants (expected multiset, 776, Creative/Receptive) are
+     * The constants (expected multiset, 776, hexagram 1 / hexagram 2) are
      * duplicated from SPECIFICATION.md on purpose: self-check should fail
      * if either side drifts. */
     {
@@ -32954,9 +35717,9 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        /* (d) C4: position 0 is hexagram 63 (Creative), position 1 is 0 (Receptive) */
+        /* (d) C4: position 0 is hexagram 63 (all yang), position 1 is 0 (all yin) */
         if (KW[0] != 63 || KW[1] != 0) {
-            fprintf(stderr, "ERROR: KW self-check failed: expected Creative/Receptive at positions 0-1, got %d/%d\n", KW[0], KW[1]);
+            fprintf(stderr, "ERROR: KW self-check failed: expected hexagram 1 / hexagram 2 at positions 0-1, got %d/%d\n", KW[0], KW[1]);
             return 50;
         }
 
@@ -33029,9 +35792,15 @@ int main(int argc, char *argv[]) {
         long long n_records;
         if (shard_mode) {
             if (vsize == 0) {
-                printf("Empty shard file (0 records). Trivially passes.\n");
+                /* Q-277: this said "Trivially passes" and returned 0. It is the same defect
+                 * fixed under Q-285 on the header path — a verdict computed from zero
+                 * observations — and it survived that fix because it lives in the shard branch.
+                 * Fixing one path and not its sibling is how this class keeps recurring. */
+                fprintf(stderr, "ERROR: %s is an EMPTY shard (0 records) — nothing was verified.\n",
+                        verify_file);
+                printf("VERIFY=ERROR\n");
                 gzclose(vf);
-                return 0;
+                return 30;
             }
             if (vsize % SOL_RECORD_SIZE != 0) {
                 fprintf(stderr, "ERROR: shard file size %lld not a multiple of %d\n",
@@ -33052,6 +35821,24 @@ int main(int argc, char *argv[]) {
                 return 20;
             }
             n_records = (long long)hdr_records;
+            /* Q-277: the declared count was never compared with the physical size. This line
+             * PRINTS both numbers and nothing checked they agree, so a header declaring FEWER
+             * records than the file carries passed with the surplus never examined. Measured
+             * 2026-08-27: a 352-byte artifact carrying 10 records with a header saying 9
+             * returned VERIFY=PASS rc=0, identical to the honest file. Over-declaring was
+             * already caught by the short read at record r; UNDER-declaring was silent, which
+             * is the direction an interrupted write or a truncated copy actually produces.
+             * The invariant is exact and total: logical size == header + 32 bytes per record. */
+            long long want = (long long)SOL_HEADER_SIZE + (long long)SOL_RECORD_SIZE * n_records;
+            if (vsize != want) {
+                fprintf(stderr, "ERROR: %s framing mismatch — header declares %lld record(s), so the\n"
+                                "       file should be %lld logical bytes, but it is %lld (%+lld).\n"
+                                "       The declared count and the file disagree; nothing was verified.\n",
+                        verify_file, n_records, want, vsize, vsize - want);
+                printf("VERIFY=ERROR\n");
+                gzclose(vf);
+                return 30;
+            }
             printf("Header: magic ROAE, version %d, %lld records (%lld logical bytes)\n\n",
                    SOL_FORMAT_VERSION, n_records, vsize);
         }
@@ -33070,6 +35857,27 @@ int main(int argc, char *argv[]) {
                 return 20;
             }
 
+            /* 🔴 Q-350: bit 0 of every record byte is RESERVED and must be zero
+             * (SOLUTIONS_FORMAT.md: "byte i = (pair_index<<2) | (orient<<1); bit 0 reserved").
+             * --verify never looked. Measured: setting bit 0 on the first record byte still
+             * printed "VERIFY PASS". The decode below MASKS the bit away, so a byte-wise
+             * non-canonical artifact decodes identically and passes -- its sha differs from
+             * canonical while the verifier calls it good, which is the direction that
+             * manufactures a false "reproduced" claim. Unswept sibling of verify.py's
+             * 2026-08-01 reserved-field fix: same defect, same file pair, one side fixed. */
+            {
+                int bad_bit = -1;
+                for (int bi = 0; bi < SOL_RECORD_SIZE; bi++)
+                    if (rec[bi] & 0x01) { bad_bit = bi; break; }
+                if (bad_bit >= 0) {
+                    fprintf(stderr, "ERROR: record %lld byte %d = 0x%02X has reserved bit 0 set; "
+                                    "MUST be zero per SOLUTIONS_FORMAT.md\n",
+                            r, bad_bit, rec[bad_bit]);
+                    printf("VERIFY=ERROR\n");
+                    gzclose(vf);
+                    return 30;
+                }
+            }
             /* Decode: byte i = (pair_index << 2) | (orient << 1) */
             int seq[64];
             int used_pairs[32];
@@ -33097,9 +35905,19 @@ int main(int argc, char *argv[]) {
             }
             if (!c1_ok) fail_c1++;
 
-            /* C4: first pair is Creative/Receptive (63, 0) */
+            /* C4: first pair is hexagram 1 / hexagram 2 (63, 0) */
+            /* 🔴 Q-293 (Codex R06 run1, adjudicated by B5/Q-59). This tested the PAIR INDEX only.
+             * The orientation bit of rec[0] is decoded three lines above and was never consulted,
+             * so a record opening (0, 63) — the complement of the anchor — returned VERIFY=PASS
+             * while SPECIFICATION.md:102 ("s0 = 63 ... and s1 = 0"), lean/KingWen.lean's c4ok and
+             * verify.py all reject it. The comment above states the ORDERED rule the code did not
+             * enforce. verify.py carried the identical defect and was fixed 2026-08-01 (19c23270)
+             * — three weeks before Codex found it here — but that fix swept only verify.py.
+             * Check the DECODED head, not the orientation bit: seq[0] is exactly what the
+             * specification constrains, and it cannot be wrong about the pair table's ordering
+             * convention the way an orientation test can. */
             int pidx0 = (rec[0] >> 2) & 0x3F;
-            if (pidx0 != pair_index_of(63, 0)) fail_c4++;
+            if (pidx0 != pair_index_of(63, 0) || seq[0] != 63 || seq[1] != 0) fail_c4++;
 
             /* C2: no hamming-5 transitions */
             int c2_ok = 1;
@@ -33162,11 +35980,27 @@ int main(int argc, char *argv[]) {
         printf("King Wen found:         %s\n", kw_found_v ? "YES" : "No");
 
         int total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup;
+        /* Q-285 (Codex R12b, ranked false accept #1). The verdict below is the SUM OF OBSERVED
+         * FAILURES, and a file with no records produces no observations — so a 32-byte
+         * header-only artifact, exactly what an interrupted --encode-solutions leaves behind
+         * after it writes its placeholder header and before it seeks back to fill in the count,
+         * printed "*** VERIFY PASS: all 0 records satisfy C1-C5 ***" and returned 0.
+         * Reproduced 2026-08-27 on the shipped binary. The message carried its own disproof:
+         * "all 0 records". An empty artifact is not a verified artifact; it is an unverifiable
+         * one, and a check that cannot run must ERROR rather than pass. Same defect class as
+         * the wrap-parity and 9th-six tabulators fixed under Q-275. */
+        if (n_records == 0) {
+            printf("\n*** VERIFY ERROR: %s contains ZERO records — nothing was verified ***\n", verify_file);
+            printf("VERIFY=ERROR\n");
+            return 30;
+        }
         if (total_fail == 0) {
             printf("\n*** VERIFY PASS: all %lld records satisfy C1-C5 (incl. C3), sorted, no duplicates ***\n", n_records);
+            printf("VERIFY=PASS\n");
             return 0;
         } else {
             printf("\n*** VERIFY FAIL: %d issues found ***\n", total_fail);
+            printf("VERIFY=FAIL\n");
             return 1;
         }
     }
@@ -33384,6 +36218,7 @@ int main(int argc, char *argv[]) {
             printf("ERROR: file smaller than header\n");
             gz_mmap_close(mmap_base, full_size, gz_tmp); return 1;
         }
+        uint64_t declared_records = 0;   /* Q-367: survives the block below for the completeness check */
         {
             uint64_t hdr_records = 0;
             if (sol_read_header_mem(mmap_base, &hdr_records) != 0) {
@@ -33393,6 +36228,7 @@ int main(int argc, char *argv[]) {
             }
             printf("  Header: ROAE v%d, %llu records declared\n",
                    SOL_FORMAT_VERSION, (unsigned long long)hdr_records);
+            declared_records = hdr_records;
         }
         long file_size = full_size - SOL_HEADER_SIZE;   /* record stream size */
         long long n_solutions = file_size / SOL_RECORD_SIZE;
@@ -33404,6 +36240,25 @@ int main(int argc, char *argv[]) {
         unsigned char *vall = mmap_base + SOL_HEADER_SIZE;  /* record-stream view */
 
         long long errors = 0;
+        /* 🔴 Q-367 (Codex R12b): the declared count was READ, PRINTED, and never COMPARED. The loop
+           bounds come from the FILE SIZE, so a header declaring 1000 records followed by ONE record
+           and EOF examined one record and still printed "ALL CONSTRAINTS VERIFIED"; and a 32-byte
+           header-only file -- the state solve.py --encode-solutions writes BEFORE patching the count
+           -- verified clean with ZERO loop iterations. A verifier whose strongest statement is
+           reachable without examining anything is not a verifier. Both are errors now. */
+        if ((long long)declared_records != n_solutions) {
+            fprintf(stderr,
+                "ERROR: header declares %llu record(s) but the stream holds %lld (Q-367).\n"
+                "       Refusing to validate a record stream that contradicts its own header.\n",
+                (unsigned long long)declared_records, n_solutions);
+            errors++;
+        }
+        if (n_solutions == 0) {
+            fprintf(stderr,
+                "ERROR: zero records present -- there is nothing to validate (Q-367).\n"
+                "       'ALL CONSTRAINTS VERIFIED' must not be reachable with no records examined.\n");
+            errors++;
+        }
         int kw_found_v = 0;
         int sorted_ok = 1;
 
@@ -33460,10 +36315,13 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (c1_ok) {
-                if (sol_pidx[0] != kw_pair_index) {
+                /* 🔴 Q-293: same defect as --verify's C4, in the sibling checker. Fixing one
+                 * path and not its twin is how this class recurs — exactly what happened when
+                 * verify.py was repaired in isolation on 2026-08-01. seq[] is decoded above. */
+                if (sol_pidx[0] != kw_pair_index || seq[0] != 63 || seq[1] != 0) {
                     #pragma omp critical
-                    printf("  ERROR: solution %lld position 1 is pair %d, expected Creative/Receptive\n",
-                           s, sol_pidx[0]);
+                    printf("  ERROR: solution %lld position 1 is pair %d (decoded %d,%d), expected hexagram 1 / hexagram 2 in that ORDER\n",
+                           s, sol_pidx[0], seq[0], seq[1]);
                     local_errors++;
                 }
                 int budget_check[7] = {0};
@@ -33519,7 +36377,7 @@ int main(int argc, char *argv[]) {
     /* --- Analyze mode: post-enumeration scientific analyses on solutions.bin ---
      *
      * Single-shot reproducibility surface for all numerical claims cited in
-     * HISTORY.md and SOLVE-SUMMARY.md. Designed to scale to large datasets:
+     * HISTORY.md and SOLVE_SUMMARY.md. Designed to scale to large datasets:
      *
      *   - Memory-maps solutions.bin (no full malloc; OS pages in on demand)
      *   - Builds packed-bit boundary masks (1 bit per record per boundary,
@@ -34480,7 +37338,7 @@ int main(int argc, char *argv[]) {
          * variants). For each unique pair-ordering, count its variants and which
          * positions show orient variation across them. Compare KW's pattern to
          * the population. Resolves the "does the KW orient-coupling generalize?"
-         * question flagged in SOLVE-SUMMARY.md and INSIGHTS.md.
+         * question flagged in SOLVE_SUMMARY.md and INSIGHTS.md.
          */
         printf("[14] Orient-coupling generalization\n");
         fprintf(stderr, "[14] START\n"); fflush(stderr);
@@ -35146,9 +38004,36 @@ int main(int argc, char *argv[]) {
          * complement is an automorphism of the C1-C5 solution set:
          * every record's complement should also be in solutions.bin.
          *
-         * This section doubles as a VALIDATION CHECK: if matches < n_sols,
-         * either the solver missed valid orderings (bug) or complement
-         * doesn't preserve C3 (which would be interesting in itself).
+         * 🔴 Q-312 (2026-08-28). THIS COMMENT USED TO SAY the section "doubles as a
+         * VALIDATION CHECK: if matches < n_sols, either the solver missed valid
+         * orderings (bug) or complement doesn't preserve C3". IT CANNOT DO THAT, and
+         * had not been able to since C4 was introduced. C4 pins position 1 to the pair
+         * (63,0) in EVERY record, so every record shares byte 0. That pair is
+         * self-complementary — 63^0x3F = 0 and 0^0x3F = 63 — so complementing maps it to
+         * itself WITH orient_flip=1, and comp_rec[0] therefore differs from the universal
+         * byte 0 in exactly the orientation bit, on every record without exception. The
+         * exact-match count was thus identically 0 whatever the data held: a perfect
+         * solver and a catastrophically broken one produce the same output, which is the
+         * definition of a check that cannot fail. Its forced 0 was published as a
+         * measurement in CRITIQUE.md ("0 of the records have their complement partner in
+         * the set … a structural property"). The zero is TRUE, but it is entailed by C4
+         * alone and says nothing whatever about C3 or about closure.
+         *
+         * 🔴 AND THE SEARCH WAS UNSOUND INDEPENDENTLY OF THAT. It binary-searched `all`
+         * with memcmp, but `all` is sorted by compare_solutions, whose PRIMARY key masks
+         * the orientation bits (& 0xFC) and only tiebreaks on the full byte. Those two
+         * orders disagree — records differing in orientation at byte i and in pair
+         * identity at byte i+1 sort oppositely under them — so the search was invalid on
+         * its own array even where a match was arithmetically possible.
+         *
+         * WHAT IT DOES NOW. It determines the forcing up front and SAYS SO
+         * (COMPLEMENT_ORBIT=ANCHOR_FORCED), rather than reporting a bare 0 that reads as
+         * a finding. When the answer is forced it spends its one binary search per record
+         * on the question that is NOT forced and IS informative: does the complement's
+         * PAIR SEQUENCE occur in the set under some orientation? That search uses
+         * compare_canonical, which is exactly compare_solutions' primary key, so it is
+         * sound on this array — and unlike the count it replaces, it can come back
+         * non-zero. Cost is unchanged: one binary search per record either way.
          *
          * Memory: allocates n_sols × 32 bytes (~24 GB on the 742M dataset).
          * Together with bmask (~2.9 GB) and the mmap, total resident
@@ -35186,12 +38071,35 @@ int main(int argc, char *argv[]) {
                  * Sha-neutrality: matches count is deterministic; same KW
                  * binary search as before. Output format preserved.
                  */
+                /* Q-312: is the exact-match answer forced by the C4 anchor? Derived from
+                 * the data and the complement table, not assumed. n_sols>0 is guaranteed
+                 * here (analyze mode refuses an empty file upstream), but read defensively:
+                 * an empty set would make `all[0]` a false anchor rather than an error. */
+                int anchor_forced = 0, anchor_byte = -1, anchor_comp = -1;
+                if (n_sols > 0) {
+                    anchor_byte = all[0];
+                    int a_pi = anchor_byte >> 2, a_o = (anchor_byte >> 1) & 1;
+                    anchor_comp = (comp_pair_idx[a_pi] << 2)
+                                | ((a_o ^ comp_orient_flip[a_pi]) << 1);
+                    anchor_forced = (anchor_comp != anchor_byte);
+                }
+                printf("    COMPLEMENT_ORBIT=%s\n", n_sols <= 0 ? "NO_RECORDS"
+                                                   : anchor_forced ? "ANCHOR_FORCED" : "MEASURED");
+                if (anchor_forced) {
+                    printf("    Position-1 is pinned by C4 to byte 0x%02X in every record; its complement\n",
+                           (unsigned)anchor_byte);
+                    printf("    image is 0x%02X. No complement can satisfy C4, so the exact-match count is 0\n",
+                           (unsigned)anchor_comp);
+                    printf("    BY CONSTRUCTION and is not evidence about C3 or about closure. Reporting the\n");
+                    printf("    orientation-free question instead: is the complement's PAIR SEQUENCE present?\n");
+                }
                 printf("    Computing complements + verifying inclusion via binary search...\n");
                 time_t tc0 = time(NULL);
                 long long matches = 0;
+                long long pairseq_matches = 0;
                 long long s20_progress_step = (n_sols + 99) / 100;
                 if (s20_progress_step < 1) s20_progress_step = 1;
-                #pragma omp parallel for reduction(+:matches) schedule(static)
+                #pragma omp parallel for reduction(+:matches,pairseq_matches) schedule(static)
                 for (long long i = 0; i < n_sols; i++) {
                     const unsigned char *src = all + i * SOL_RECORD_SIZE;
                     unsigned char comp_rec[SOL_RECORD_SIZE] = {0};
@@ -35202,12 +38110,17 @@ int main(int argc, char *argv[]) {
                         int new_o  = old_o ^ comp_orient_flip[old_pi];
                         comp_rec[p] = (unsigned char)((new_pi << 2) | (new_o << 1));
                     }
-                    /* Binary search comp_rec in the already-sorted `all`. */
+                    /* Q-312: compare with the array's OWN comparator, never memcmp.
+                     * When the exact answer is forced, spend the search on the
+                     * orientation-free question, which is sound under compare_canonical
+                     * (compare_solutions' primary key) and is not forced. */
                     long long lo = 0, hi = n_sols;
                     while (lo < hi) {
                         long long mid = lo + (hi - lo) / 2;
-                        int cmp = memcmp(comp_rec, all + mid * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
-                        if (cmp == 0) { matches++; break; }
+                        const unsigned char *cand = all + mid * SOL_RECORD_SIZE;
+                        int cmp = anchor_forced ? compare_canonical(comp_rec, cand)
+                                                : compare_solutions(comp_rec, cand);
+                        if (cmp == 0) { if (anchor_forced) pairseq_matches++; else matches++; break; }
                         else if (cmp < 0) hi = mid;
                         else lo = mid + 1;
                     }
@@ -35230,13 +38143,21 @@ int main(int argc, char *argv[]) {
                 }
                 printf("    Done in %lds.\n", (long)(time(NULL) - tc0));
 
-                printf("    Records with complement in set: %lld / %lld (%.4f%%)\n",
-                       matches, n_sols, 100.0 * matches / n_sols);
-                if (matches == n_sols)
-                    printf("    *** Complement is an AUTOMORPHISM of the C1-C5 solution set ***\n");
-                else
-                    printf("    *** Complement is NOT closed: %lld records lack their complement partner ***\n",
-                           n_sols - matches);
+                if (anchor_forced) {
+                    printf("    Records whose complement PAIR SEQUENCE is in the set: %lld / %lld (%.4f%%)\n",
+                           pairseq_matches, n_sols, n_sols ? 100.0 * pairseq_matches / n_sols : 0.0);
+                    printf("    Exact-record complement matches: 0 / %lld — FORCED by C4, not measured.\n", n_sols);
+                    printf("    *** Complement is not closed, because C4 pins position-1 orientation and\n");
+                    printf("        complementing flips it. This restates C4; it is NOT a test of C3. ***\n");
+                } else {
+                    printf("    Records with complement in set: %lld / %lld (%.4f%%)\n",
+                           matches, n_sols, n_sols ? 100.0 * matches / n_sols : 0.0);
+                    if (matches == n_sols)
+                        printf("    *** Complement is an AUTOMORPHISM of the C1-C5 solution set ***\n");
+                    else
+                        printf("    *** Complement is NOT closed: %lld records lack their complement partner ***\n",
+                               n_sols - matches);
+                }
 
                 /* Check KW specifically (rec#0) */
                 unsigned char kw_comp[SOL_RECORD_SIZE] = {0};
@@ -35253,7 +38174,8 @@ int main(int argc, char *argv[]) {
                 long long kw_comp_idx = -1;
                 while (lo < hi) {
                     long long mid = lo + (hi - lo) / 2;
-                    int cmp = memcmp(kw_comp, all + mid * SOL_RECORD_SIZE, SOL_RECORD_SIZE);
+                    /* Q-312: same defect, same fix — memcmp is not this array's order. */
+                    int cmp = compare_solutions(kw_comp, all + mid * SOL_RECORD_SIZE);
                     if (cmp == 0) { found_kw_comp = 1; kw_comp_idx = mid; break; }
                     else if (cmp < 0) hi = mid;
                     else lo = mid + 1;
@@ -35312,7 +38234,7 @@ int main(int argc, char *argv[]) {
          * information here is the SHAPE of the distribution — how tightly
          * solutions cluster near the ceiling vs. spread toward low cd.
          *
-         * The "3.9th percentile" claim in SOLVE-SUMMARY.md is a DIFFERENT
+         * The "3.9th percentile" claim in SOLVE_SUMMARY.md is a DIFFERENT
          * comparison: KW vs all pair-constrained orderings (C1 only, from
          * roae.py Monte Carlo), not within C1-C5. Both are correct in their
          * respective reference populations.
@@ -35374,7 +38296,7 @@ int main(int argc, char *argv[]) {
             printf("    KW percentile within C1-C5 dataset: %.2f%%\n", kw_pct);
             printf("    NOTE: KW at %.0f%% is tautological — C3 enforces cd <= %d.\n",
                    kw_pct, kw_comp_dist_x64);
-            printf("    The '3.9th percentile' in SOLVE-SUMMARY.md compares KW against\n");
+            printf("    The '3.9th percentile' in SOLVE_SUMMARY.md compares KW against\n");
             printf("    ALL pair-constrained orderings (C1 only), not within C1-C5.\n");
             printf("    Range within C1-C5 dataset: [%d, %d]\n", cd_min, cd_max_val);
             printf("    Distribution (20-unit bins, non-zero):\n");
@@ -36051,7 +38973,15 @@ int main(int argc, char *argv[]) {
                     unique++;
                 }
             }
-            printf("  Unique: %lld (removed %lld orient duplicates)\n",
+            /* 🔴 Q-344: this said "orient duplicates", which this file's own proof sketch
+               (see the compare_canonical block above) contradicts: per-thread inserts already use
+               the canonical key, so "a thread's flushed sub_*.bin file contains at most one
+               representative per canonical class WITHIN that thread". Nothing removed here is an
+               orientation variant of a record in the same shard -- every removal is the SAME
+               canonical class independently rediscovered by a different shard. Calling that
+               "orient duplicates" re-manufactured, in every merge log, the exact conflation the
+               docs corrected in c18ea759. */
+            printf("  Unique: %lld (removed %lld cross-shard duplicate canonical classes)\n",
                    unique, total_records - unique);
 
             printf("  Writing %s...\n", outname);
@@ -36109,19 +39039,55 @@ int main(int argc, char *argv[]) {
                             "preflight should have caught this.\n");
             return 30;
         }
-        char sha_cmd[256];
-        snprintf(sha_cmd, sizeof(sha_cmd), "%s %s > %s 2>/dev/null",
-                 tool, outname, sha_name);
-        int rc = system(sha_cmd);
-        if (rc != 0) {
-            fprintf(stderr, "ERROR: sha256 computation failed (rc=%d)\n", rc);
+        /* 🔴 Q-324 (2026-08-28). THIS WROTE THE GZIP CONTAINER SHA, NOT THE CANONICAL ONE.
+         * It ran `sha256sum <outname> > solutions.sha256`, hashing the file as it sits on disk.
+         * Since #169 the default framing is gz, so on every gz-framed merge the sidecar held the
+         * sha of the COMPRESSED CONTAINER while the enumeration path's writer
+         * (write_sha256_with_metadata) used sha256_of_logical() and held the DECOMPRESSED sha.
+         * Two writers for one artifact, disagreeing whenever compression was on.
+         *
+         * Two public documents promised the logical value outright — SOLUTIONS_FORMAT.md
+         * §"File integrity" ("the SHA-256 hash of the entire LOGICAL solutions.bin byte stream …
+         * `gzip -dc solutions.bin | sha256sum`, NOT `sha256sum solutions.bin`") and
+         * CANONICAL_HASHES.md ("Either way the solutions.sha256 sidecar already holds the logical
+         * sha"). Both were false for anything this path produced.
+         *
+         * MEASURED 2026-08-28 by running the binary on two shard fixtures: the merge emitted
+         * 13,320 records and wrote sidecar `2d6411e6…`, which is exactly
+         * `sha256sum solutions.bin`, while the same bytes hash to `6ce4eea1…` under
+         * `gzip -dc | sha256sum` — the value the artifact's own solutions.meta.json carries.
+         * The damage was not confined to the sidecar: `hash_only` is parsed back out of this file
+         * and handed to sol_write_meta_json(), so solutions.meta.json inherited the wrong sha too.
+         *
+         * gzip framing is not canonical content — it varies with zlib version and level, so a
+         * container sha false-mismatches an artifact that is byte-identical where it counts. That
+         * is the direction that manufactures phantom drift, which is the expensive kind.
+         *
+         * Fixed by using the SAME helper the enumeration path uses. One artifact, one definition. */
+        (void)tool;
+        char merge_sha64[65] = {0};
+        if (sha256_of_logical(outname, merge_sha64, sizeof(merge_sha64)) != 0 || !merge_sha64[0]) {
+            fprintf(stderr, "ERROR: sha256 (logical) computation failed for %s\n", outname);
             return 30;
+        }
+        {
+            FILE *sf = fopen(sha_name, "w");
+            if (!sf) {
+                fprintf(stderr, "ERROR: cannot write %s: %s\n", sha_name, strerror(errno));
+                return 30;
+            }
+            /* First line stays in `sha256sum -c` FORMAT; the metadata block below appends.
+             * Format only — merge_sha64 is the logical sha, so `sha256sum -c` false-FAILS
+             * on the gz-framed default. See write_sha256_with_metadata (Q-346). */
+            fprintf(sf, "%s  %s\n", merge_sha64, outname);
+            fclose(sf);
         }
 
         /* Phase E.2 follow-up (re-landed 2026-05-25): append provenance
-         * metadata to solutions.sha256. The bare-hash first line stays
-         * compatible with `sha256sum -c`; subsequent lines are `#`-prefixed
-         * metadata. The c34390c0 forensic investigation would have been
+         * metadata to solutions.sha256. The bare-hash first line stays in
+         * `sha256sum -c` FORMAT (format only — it holds the logical sha, so that
+         * command false-FAILS on a gz-framed file, Q-346); subsequent lines are
+         * `#`-prefixed metadata. The c34390c0 forensic investigation would have been
          * instantly diagnosable with this metadata. */
         {
             FILE *sm = fopen(sha_name, "a");
@@ -36482,7 +39448,7 @@ int main(int argc, char *argv[]) {
                 int f1 = orient1 ? pairs[bp].b : pairs[bp].a;
                 int s1 = orient1 ? pairs[bp].a : pairs[bp].b;
 
-                int bd1 = hamming(0, f1);  /* from Receptive */
+                int bd1 = hamming(0, f1);  /* from hexagram 2 (all yin) */
                 if (bd1 == 5) continue;
                 int budget_init[7];
                 memcpy(budget_init, kw_dist, sizeof(budget_init));
@@ -36726,7 +39692,7 @@ int main(int argc, char *argv[]) {
 
                 long long total_nodes = 0;
                 /* Build the fixed prefix: positions 0-19 */
-                /* Position 0: Creative/Receptive, Position 1: branch pair */
+                /* Position 0: hexagram 1 / hexagram 2, Position 1: branch pair */
                 /* Positions 2-18: from multi_seqs[ci] */
                 /* Position 19: determined by what's left (the shift pattern places
                  * a specific pair here — but we need to figure out which) */
@@ -38265,7 +41231,7 @@ sub_enum_done:
         for (int o1 = 0; o1 < 2; o1++) {
             int f1 = o1 ? pairs[p1].b : pairs[p1].a;
             int s1 = o1 ? pairs[p1].a : pairs[p1].b;
-            int bd1 = hamming(0, f1);  /* distance from Receptive to first hex */
+            int bd1 = hamming(0, f1);  /* distance from hexagram 2 (all yin) to first hex */
             if (bd1 == 5) continue;
             int budget1[7];
             memcpy(budget1, kw_dist, sizeof(budget1));

@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.19** (2026-08-11; two stale references in v1.18's own revision row corrected — a reproduction command naming a flag that never existed, and a gating status superseded the same day — no number changed; previously v1.18, 2026-08-10, §4b's n=18 cell, blank since first publication, now carries its integer 3,211,799,156,883,456 — see Revision history).*
+*Technical report — **v1.25** (2026-09-02; §6's per-layer footprint table refilled from the completed full-31 run — the entry peak is layer 16, not 15, and the live-pair peak is 4.51 TB at k16+k17, not the retired 4.05 TB floor; two further corrections to the executive summary and §7/§8 — no count, theorem or canonical integer changed; previously v1.24, 2026-09-02, the free-checkpoint guarantee re-keyed to the manifest — see Revision history.).*
 *Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
 proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
 interpretation are argued, not verified. One caveat is structural, and it frames all the rest: the same
@@ -25,11 +25,14 @@ at a scale (10⁴¹) where nothing exact previously existed on this suite's vali
 stated ±0.01% envelope. (The estimate was published to four significant figures, so its exact deviation
 is unmeasured at that precision — bounded well within the envelope, not resolved to it; see §9's note.)
 The report closes with the extension of exactness to the next constraint — its mathematics now closed at the model level (both halves machine-checked in Lean; the no-further-collapse half additionally independently reviewed, 2026-07-21, and found **not load-bearing** for the landed integer — §10(iv)), and
-now engineered: the computation's terabyte-scale layers (measured: one layer alone exceeds 2.45 TB) are
+now engineered: the computation's terabyte-scale layers (measured: the peak layer packs to 2.34 TB, and
+the two adjacent layers the DP holds live peak together at 4.51 TB — §6) are
 streamed through disk by an out-of-core mode, so the full exact count runs on ~64 GB-RAM commodity
 hardware plus ~4 TB of disk. That run has now **completed** (2026-07-16): the exact integer is
 **1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097×10³⁹** (§9) — divisible by 24 exactly,
-and within 0.0045% of the prior statistical estimate (actual deviation 0.004441%). The final constraint (C3) is, as of this
+and **inside the prior statistical estimate's stated ±0.01% envelope** (the ~0.0044% distance to that
+estimate's rounded five-significant-figure numeral 1.0971×10³⁹ is a rounding gap, not a resolved
+estimator error — §9's note). The final constraint (C3) is, as of this
 version, no longer described as a structural obstruction: its global sum collapses to a bounded
 scalar (**C3 = 16 + 8·G**, a machine-checked identity — see §10(ii)), so a bounded-state exact
 design exists; what keeps the flagship |C1–C5| an estimate is the estimated ~15–30× (central ~19×;
@@ -53,7 +56,8 @@ The exact value validates the Knuth estimator absolutely at full scale (stated 7
 apparent deviation 5.5×10⁻⁵, which is the estimate's rounding gap rather than a resolved error — see §4) and converts [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)'s C2 ledger row from estimate to
 exact arithmetic. We state the validation stack, the exactness frontier (the C5-tracked extension's mathematics is
 **closed at the model level** — an exact dead-state-pruning theorem (machine-checked in Lean as `capping_exact`, 2026-07-20) plus the no-further-state-collapse Proposition, independently reviewed 2026-07-21 and machine-checked in Lean (`no_live_lumping`, `cap_never_merges_live`), the review also finding it **not load-bearing** for the landed integer (§10(iv))
-— and now engineered: measured per-layer footprints reach >2.45 TB for a single layer — beyond the in-RAM reach of the
+— and now engineered: measured per-layer footprints peak at 2.34 TB for a single layer and 4.51 TB for the
+two the DP holds live together (§6) — beyond the in-RAM reach of the
 machine classes this project provisioned (up to 2.75 TB RAM + 3.55 TB striped swap; larger single
 nodes exist commercially but were not economically sensible here) — and an out-of-core mode (`--f1-out-of-core`,
 2026-07-05) replaces the RAM requirement with ~4 TB of streamed layer files, validated 4/4 exactly
@@ -81,16 +85,28 @@ algebraic templates) are disjoint from the constraint-satisfying total orders co
 (2015)](../documentation/CITATIONS.md#luojianjin2015) posed, in a mathematics journal, the question of
 how many orderings the 64 hexagrams admit under the Zhouyi's structural conditions — noting the answer
 should be far smaller than 64! — as a derived open problem, without formalizing constraints or
-computing any count. To our knowledge it remained unanswered; this report's exact integers (with
-TR-4's estimates) are, we believe, the first quantitative answers to Luo's question.*
+computing any count; the size-of-the-space framing appears earlier still — Huang Shisheng 黄石声
+([1997](../documentation/CITATIONS.md#huangshisheng1997)), citing Shen Yijia 沈宜甲 and Dong Guangbi
+董光璧, invokes a matrix-form count (8!×8! = 1,625,702,400, which he mislabels as the count of
+*arbitrary* arrangements — his 「六十四卦如果任意排列」; arbitrary arrangement of 64 objects is 64!)
+as rhetorical motivation, and Chen Zhuangwei
+([2007](../documentation/CITATIONS.md#chenzhuangwei2007)) restates it with a 7!×7! refinement — but
+neither poses the enumeration question. Closed-form counts of simply-constrained hexagram-ordering
+spaces therefore predate all of this (Huang 1997 after Shen/Dong: 8!×8! matrix-form orderings; Chen
+2007: 62! with the first pair fixed, 7!×7! with Qian first) — counts of the same kind as this
+suite's own 32!·2³² C1-skeleton step; the contribution claimed here is confined to counts that no
+closed form yields. To our knowledge the enumeration question itself remained unanswered; this
+report's exact integers (with TR-4's estimates) are, we believe, the first quantitative answers to
+Luo's question.*
 
 ## Sections
 
 1. **The counting problem, and why the naive DP is infeasible.** The target is |C1∩C2∩C4|: complete
    64-hexagram sequences built from the 32 classical pairs (C1), with no Hamming-distance-5 adjacent
-   transition (C2), opening with the fixed pair (Qian, Kun) in C4's defined orientation (definitional,
-   classically attested — not forced by the other constraints; the former "Theorem 6" is retracted,
-   2026-07-26, see CLAIMS_DECIDED). C1 makes a
+   transition (C2), opening with the fixed pair (Qian, Kun) in C4's defined orientation (definitional —
+   our convention, not a classical attestation: the *Xugua* attests that the {Heaven, Earth} pair opens,
+   not the order within it (narrowed 2026-09-01); and not forced by the other constraints; the
+   former "Theorem 6" is retracted, 2026-07-26, see CLAIMS_DECIDED). C1 makes a
    pair-level formulation exact: place whole pairs with an orientation bit; C1 fixes the 32 within-pair
    distances (12×d2, 12×d4, 8×d6 — never 5), so checking C2 only at the 31 pair boundaries enforces full
    C2; C4 costs nothing in state — it pins the DP's initial condition (virtual predecessor exiting at
@@ -203,23 +219,62 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
    the memory barrier is removed by the out-of-core mode (§7); the full-scale run LANDED 2026-07-16 (§9).**
 6. **What the computation actually needs — the measured per-layer footprint profile.** The 2026-07-04/05
    full-scale attempts (an in-RAM run on a 2.75 TB-RAM M-series machine with 3.55 TB of striped swap,
-   and the out-of-core run's telemetry/manifest) replaced §5's projections with measurements. Per-layer
-   state footprint (entries × 28 B; layer k = mask popcount k of 31):
+   and the out-of-core run's telemetry/manifest) replaced §5's projections with measurements, and the
+   completed full-31 run has since supplied every layer. Per-layer state footprint as the engine lays a
+   layer out — entries × 28 B plus a 12 B per-canonical-mask index, GB = 10⁹ B; layer k = mask popcount k
+   of 31. Every row is the `layer GB` column of
+   [FULL31_EXACT_AGGREGATES.md](FULL31_EXACT_AGGREGATES.md) §1 for the same k, which that file labels
+   **engine-internal telemetry, not a property of the mathematical object** — it is how *this*
+   implementation laid the layer out, and it is quoted here for exactly that purpose (sizing a machine):
 
    | Layer k | Footprint | Provenance |
    |---|---|---|
-   | 9 | 41 GB | measured |
-   | 10 | 126.6 GB (4,522,319,129 entries) | measured |
-   | 11 | 316 GB | measured |
-   | 12 | ≈656 GB | derived (971.6 GB two-live-layer telemetry − L11's 316 GB) |
-   | 13 | 1.14 TB | measured |
-   | 14 | 1.6 TB | measured |
-   | 15 | >2.45 TB | observed-incomplete (in-RAM run retired mid-layer) |
+   | 9 | 41.19 GB (1,470,651,410 entries) | measured — completed full-31 run |
+   | 10 | 126.65 GB (4,522,319,129 entries) | measured — completed full-31 run |
+   | 11 | 316.37 GB | measured — completed full-31 run |
+   | 12 | 655.23 GB | measured — completed full-31 run (supersedes the ≈656 GB this row derived by subtracting L11 from 971.6 GB of two-live-layer telemetry) |
+   | 13 | 1.143 TB | measured — completed full-31 run |
+   | 14 | 1.698 TB | measured — completed full-31 run |
+   | 15 | 2.156 TB | measured — completed full-31 run |
+   | 16 | **2.341 TB — the peak layer** | measured — completed full-31 run |
+   | 17 | 2.168 TB | measured — completed full-31 run |
+   | 18 | 1.716 TB | measured — completed full-31 run |
 
-   Layers ≥16 shrink again (the canonical-mask count follows C(31,k)) but were never reached in RAM;
-   the out-of-core manifest will complete the profile for every layer. Two consequences. *First*, the
-   forward DP holds two adjacent layers live, so the in-RAM peak is at least L14 + L15 > 4.05 TB before
-   overheads — layer 15 alone grew past 2.45 TB, 55%+ over the combinatorial-bound estimate
+   **Reproduction** — re-derives the unit, the peak layer and the peak live pair from the tracked
+   aggregate table, in one pass, with no build:
+
+   ```
+   awk -F'|' 'NF>=10 && /^\| *[0-9]+ *\|/{k=$2+0;g=$3;e=$6;s=$8;gsub(/[ ,]/,"",g);gsub(/[ ,]/,"",e);
+     gsub(/ /,"",s);if(sprintf("%.6f",(e*28+g*12)/1e9)!=s)bad++;gb[k]=s+0;n++}
+     END{for(k=1;k<=31;k++)if(gb[k]>pk){pk=gb[k];pki=k};
+     for(k=1;k<31;k++){t=gb[k]+gb[k+1];if(t>ps){ps=t;psi=k}};
+     printf "rows=%d unit-mismatches=%d peak-layer=k%d (%.2f GB) peak-live-pair=k%d+k%d (%.2f GB) k14+k15=%.2f GB\n",
+     n,bad+0,pki,pk,psi,psi+1,ps,gb[14]+gb[15]}' reports/FULL31_EXACT_AGGREGATES.md
+   ```
+
+   prints `rows=31 unit-mismatches=0 peak-layer=k16 (2340.55 GB) peak-live-pair=k16+k17 (4508.61 GB)
+   k14+k15=3853.97 GB` — the zero mismatch count is the unit assertion (every one of the 31 published
+   `layer GB` values equals entries × 28 B + canonical_masks × 12 B to the last printed digit), and the
+   two pair figures are the ones this section publishes.
+
+   ⚠ **What this table said before, and what that number actually was.** Rows 12–14 carried a derived
+   or rounded value (≈656 GB, 1.6 TB) and the k=15 row gave a lower bound of more than 2.45 TB marked
+   *observed-incomplete*, with no rows past 15. That bound is a real measurement but **not in this
+   column's unit**: it is the *live in-RAM allocation* seen part-way through layer 15 on the retired
+   in-RAM attempt — hash-table overhead included — recorded in
+   [HISTORY.md](../documentation/HISTORY.md). A mid-layer partial cannot exceed its own completed layer
+   in packed bytes, and the completed layer packs to 2.156 TB, so the two figures were never the same
+   quantity. Two claims derived from the mislabel are withdrawn with it: that layers from 16 on shrink,
+   and that the in-RAM two-layer floor sits just above 4 TB. Both are corrected below.
+
+   **The entry peak is layer 16, not layer 15.** Canonical-mask counts are palindromic —
+   masks(k) = masks(31−k), so masks(15) = masks(16) = 13,047,760 (§9's integrity check prints that pair)
+   — while entries per mask keep growing, so k16 holds 83,585,570,784 entries against k15's
+   76,987,817,848. Footprints fall from k17 on, not from k16. Two consequences. *First*, the forward DP
+   holds two adjacent layers live, so the in-RAM peak is the largest adjacent pair —
+   **k16 + k17 = 4.51 TB packed** (2340.55 + 2168.06 GB), just above k15 + k16 at 4.50 TB. It is not
+   k14 + k15, which is 3.85 TB: an operator provisioning to the old floor would have been ~460 GB short
+   of the real peak window. Layer 15 alone ran 55%+ over its combinatorial-bound estimate
    (entries-per-state growth at full scale exceeded all models), and the in-RAM attempt was retired at
    that line under its pre-committed abort protocol. **No machine class this project provisioned sufficed**: the
    largest single-node RAM class used (2.75 TB) plus terabyte-scale swap still lost to layer 15's tail.
@@ -228,7 +283,9 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
    no such machine exists.) The in-RAM route at this scale is not merely expensive — the
    out-of-core mode was not the fallback, it was the answer. *Second*, the table is the report's answer
    to "what does this computation need": ~64 GB of RAM and ~4 TB of disk (§7), because at most two
-   adjacent layers need exist at once and neither needs to be in memory.
+   adjacent layers need exist at once and neither needs to be in memory. The 4.51 TB packed peak pair
+   above is **not** a disk requirement and does not contradict the ~4 TB figure: layer files are stored
+   v2 zlib-blocked, not packed (§9, §10(vi)), and the landed run completed on a 4 TB stripe (§9).
 7. **The out-of-core mode (`--f1-out-of-core DIR`) and the reproducibility claim.** Public commits
    01bf3ef + dbdfb0e add an out-of-core execution mode to the same DP — identical mathematics, different
    storage strategy. Design: (i) completed layers are written to DIR as the **same atomic per-layer
@@ -240,10 +297,13 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
    (bounded staging buffer; keys pwritten at their final offsets, values to a sidecar relocated at
    finalize), so **no layer's entries ever reside in RAM in full** — peak RSS is bounded by fixed
    streaming buffers plus the two live layers' 12 B/mask indexes, independent of layer size; (iv) layer
-   k−1 is dropped before building k+1, so peak disk is ≈ two adjacent layers; (v) every completed layer
-   file is a **free checkpoint**: `--resume-from-layers` does an index-only load and resumes from the
-   last complete layer — Spot-safe by construction, the same eviction discipline as the enumeration
-   campaigns. Exactness is invariant across modes: per-entry arithmetic is the shared
+   k−1 is dropped before building k+1, so peak disk is ≈ two adjacent layers; (v) every layer file
+   **recorded in the manifest** is a free checkpoint: `--resume-from-layers` does an index-only load and
+   resumes from the manifest's last recorded layer — Spot-safe by construction, the same eviction
+   discipline as the enumeration campaigns. (The layer file is renamed into place *before* the manifest
+   is updated and resume reads only the manifest, so a kill in that window rebuilds one layer; the count
+   is unaffected — see [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md) §Checkpoint and
+   resume semantics.) Exactness is invariant across modes: per-entry arithmetic is the shared
    `f1c5_gather_entries` kernel that the in-RAM path calls, so totals *and* layer files match
    byte-for-byte. Tuning knobs: `SOLVE_F1_OOC_READ_MB` / `SOLVE_F1_OOC_SCRATCH_MB` /
    `SOLVE_F1_OOC_GAP_KB`, with per-layer `[f1c5-ooc]` telemetry (bytes read/written, MB/s, RSS). **The
@@ -254,7 +314,9 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
    D64→D128, the 32-core attempt having been retired. The v1.0 landing entry lists the exec summary,
    abstract, §5, §10 and the Verification Guide as the places where in-flight language was replaced; §7
    was missed)* — replacing the multi-terabyte-RAM requirement that
-   §5's projections implied and §6's measurements confirmed no single machine can meet.
+   §5's projections implied and §6's measurements confirmed **no machine class this project
+   provisioned could meet** (2.75 TB RAM + 3.55 TB striped swap failed at layer 15; 6–24 TiB single
+   nodes exist commercially and were not tested — §6).
 8. **Out-of-core validation, and the engineering history (limitations and mitigations).** In the
    suite's tradition, the mode's credibility rests on exact cross-instrument agreement plus an honest
    account of what broke and how the fix was proven.
@@ -275,7 +337,25 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
      28 pairs = **2,155,118,806,480,613,893,163,229,118,464**.
      (Reference values from the 2026-07-04 in-RAM runs; the 28-pair in-RAM reference itself peaked at
      87.1 GB RSS — the out-of-core rung reproduced its integer within a bounded-RSS budget on a small
-     VM.) Records: the retained run outputs (published at [`evidence/f1/`](evidence/f1/)); the corresponding program-ledger entry is a private working note and is deliberately not cited as a public record.
+     VM.) **Records — stated exactly (corrected 2026-09-02).** This line used to cite
+     [`evidence/f1/`](evidence/f1/) as publishing these run outputs. It does not hold them: that
+     directory holds the |C1∩C2∩C4| headline result, its progress log and the Python prototypes (the
+     Verification Guide's separate pointer to it is the accurate one), and none of the four integers
+     above appears anywhere in it. The records are retained **privately and are not published**, and
+     are enumerated here so an auditor knows what exists: the 24-pair out-of-core session log with its
+     `f1c5_manifest.txt` (per-layer telemetry, peak RSS 13.4 GB, terminal total matching the 24-pair
+     integer digit-for-digit); the 2026-07-08 retool battery's Phase-1 lines carrying the 24/27/28-pair
+     v1-vs-v2 count-identical comparison with timings; a later 25-pair out-of-core re-run manifest and
+     progress record landing the same 25-pair integer; and a random-timing crash-fuzz log (15/15
+     direct-PID kills, resume byte-identical). **One record was not preserved.** The original ladder
+     session's raw outputs — including the 25-pair kill-and-resume log this bullet narrates — were
+     copied to a volatile `/tmp` on the orchestrator before the VM was deleted, and are gone. So the
+     25-pair integer is warranted by the later re-run's digit-for-digit match rather than by the
+     original session log, and kill-and-resume at scale by the crash-fuzz battery rather than by that
+     rung's own log. Publishing the retained records into this tree is a pending review-before-push
+     decision; until it lands **no public artifact backs these four integers**, and this line says so
+     rather than pointing at a directory that does not hold them. The corresponding program-ledger
+     entry is a private working note and is deliberately not cited as a public record.
    - *Limitation found and fixed — the full-scale OOM:* the first out-of-core build (01bf3ef) streamed
      the *gather* but accumulated the layer being *built* in realloc-grown RAM arrays. At full scale,
      layer 10 is 4,522,319,129 entries × 28 B = 126.6 GB against 64 GiB of RAM: the run was OOM-killed
@@ -422,9 +502,11 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
    G-fixed. **Update (2026-07-25) — the *instrument* half of this caveat is now closed as well.** An
    independent full-scale recomputation has been performed: `verify.c --ie-count`, a signed
    inclusion–exclusion transfer-walk over free-pair subsets (DP state `(last, budget)`, no mask) —
-   a different algorithm class sharing no code or machinery with `solve.c` (no canonical-mask
-   bookkeeping, no gather/canonicalization, no stabilizer weighting, no layer files, no
-   out-of-core streaming). Three passes modulo the three largest primes below 2⁶³ (Miller–Rabin-
+   a different algorithm class sharing no code and no state with `solve.c` (no gather-based layer
+   transfer, no layer files, no out-of-core streaming); what the two engines share is one
+   mathematical lemma, not an implementation — orbit-stabilizer weighting under the same 24-element
+   group, applied by `solve.c` to canonical masks per layer and by `verify.c` to free-pair subsets
+   in the IE outer sum. Three passes modulo the three largest primes below 2⁶³ (Miller–Rabin-
    proven at startup), CRT-combined; 93,939,712 canonical subsets per pass with Σ orbit-weights
    = 2³¹ exactly; the 24-element group used only as a subset-enumeration lemma whose premises are
    re-verified elementwise at every startup; validated beforehand on the small-n three-instrument
@@ -451,13 +533,20 @@ TR-4's estimates) are, we believe, the first quantitative answers to Luo's quest
   (N ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31}; per-layer stderr reports
   states/entries/bytes/peak). Sizes not in that set are rejected: a rung must be a union of whole
   pair-orbits, whose sizes are {3,3,3,4,6,6,6}, so 1,2,5,8,11,14,17,20,23,26,29,30 are unrealizable.
-- Independent second instrument (§10(vi)): build with `cc -O2 -o verify verify.c -lz -lpthread`
-  (the `-lz` is required — a bare `-lm`-only link fails on zlib's `uncompress`), then
+- Independent second instrument (§10(vi)): build with `cc -O2 -o verify verify.c -lz -lpthread -lm`
+  (both linkages are required: without `-lm` the link fails on `kn_ci`'s `sqrtl`, and without `-lz`
+  on zlib's `uncompress` — ⚠ `-lm` added 2026-08-21: the 2026-08-21 VERIFY.md/METHODS.md correction
+  missed this third site; caught by the execution lane, `scripts/exec_lane.sh`), then
   `./verify --ie-count` for the full-31 IE transfer-walk recomputation (see [VERIFY.md](../documentation/VERIFY.md)).
 - Full exact count on commodity hardware: `./solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR` — ~64 GB
-  RAM + ~4 TB disk at DIR; raise `SOLVE_F1_OOC_SCRATCH_MB` (e.g. 61440 on a 64 GiB box) to hold read
-  amplification near 1× (§8). Every completed layer file in DIR is a checkpoint; after any interruption,
-  re-run with `--resume-from-layers` (index-only load, resumes from the last complete layer). Per-layer
+  RAM + ~4 TB disk at DIR; raise `SOLVE_F1_OOC_SCRATCH_MB` (e.g. 16384 on a 64 GiB box) to hold read
+  amplification down (§8). ⚠ **Total RSS is ≈2.2× this value**, so 16384 MiB ≈ 35 GiB and fits; the
+  **61440** this line carried until 2026-09-03 was the **production 256-GiB D128 setting** copied into
+  the commodity recipe, and at 2.2× it asks for ~132 GiB on the 64 GiB box the sentence itself sizes.
+  On more RAM, raise it further — larger scratch means fewer, larger passes (§8's 22.8× → ~1.1×), so
+  the ~1× figure quoted there belongs to the 256-GiB host, not to this recipe. Every layer file **recorded in DIR's manifest** is a checkpoint; after any
+  interruption, re-run with `--resume-from-layers` (index-only load, resumes from the manifest's last
+  recorded layer — a layer completed after the last manifest write is rebuilt, at no cost to the count). Per-layer
   `[f1c5-ooc]` telemetry prints bytes read/written, MB/s, and RSS. Knobs: `SOLVE_F1_OOC_READ_MB` /
   `SOLVE_F1_OOC_SCRATCH_MB` / `SOLVE_F1_OOC_GAP_KB` (documentation/SOLVE_C_CLI.md).
 - Cross-mode equivalence, reader-side: run any `--f1-pairs N` subset both with and without
@@ -675,4 +764,11 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.16 | 2026-08-06 | **Under-citation + counting-unit label fixes (UNASKED-1/UNASKED-2 batch; no number changed).** (1) *Suenaga (2012) credited in the novelty note.* The note ceded the technique (Burnside/McKay) and cited Luo (2015) for the counting question, but omitted [Suenaga Takayasu (2012)](../documentation/CITATIONS.md#suenaga2012) — per CITATIONS.md §"The (Z/2)⁶ hexagram algebra … — priority ceded" the first author this project has located to start counting the arrangement space (1395 order-8 subgroups computed exactly; a ≈1.47×10¹³ template product posed but not completed). The note now cedes the idea of counting hexagram-arrangement spaces to him explicitly, with the counted-objects disjointness stated (F₂⁶ subspaces/templates vs constraint-satisfying total orders). (2) *One unhedged claim scoped.* The executive summary's "at a scale (10⁴¹) where nothing exact existed before" read as a universal about the literature — which CITATIONS qualifies (Suenaga's prior exact subgroup count) — when §4's own wording scopes the claim to this suite's validation ladder; the exec-summary sentence now carries the same scope. (3) *Orbit-count units made explicit.* §9's "orbit count N/24" and the Verification Guide's "orbit count = that ÷ 24" now say **record-level** with the ÷24 vs ÷48 (sequence-level) pointer to §2's precision note, matching METHODS' canonical-quantities row. No count, theorem, or canonical value changed — citations and unit labels only |
 | v1.17 | 2026-08-09 | **`--f1-pairs` domain completed to every realizable rung size (CLI surface only).** `solve.c`'s `f1c5_unions[]` table listed 9 of the 19 realizable pair counts; the 9 small sizes 3,4,6,7,10,12,15,21,22 had no entry and were rejected. They are now present, and the two sites in this report that enumerate the accepted N (§"the implementation exists and is committed", and the Verification Guide's C5-extension line) are updated to match, with the reason stated: a rung must be a union of WHOLE pair-orbits, whose sizes are {3,3,3,4,6,6,6}, so exactly 19 of the 31 counts are realizable and 1,2,5,8,11,14,17,20,23,26,29,30 are not — and nothing lies strictly between 28 and 31, which is why the published §4b ladder stops at 28. The historical validation unions (rows 9…28) were NOT re-pointed; several distinct unions can share a size (127 in all), and their published §4b counts are tied to the specific union. **Verified before ship:** the rebuilt binary reproduced all six previously-computed rungs — n=9/13/16/18/19/24 — bit-exact against their published values. This entry records a CLI-domain extension found while auditing the drift my own change introduced; the doc-vs-code gate does NOT catch value-domain drift (it compares flag names only), so these two sites were corrected by hand. No count, theorem, or canonical value changed |
 | v1.18 | 2026-08-10 | **§4b's n=18 cell filled — a gap closed, not a correction.** The row for the 18-pair rung `6.0,6.1,6.2@0` has read "(in-RAM reference)" since first publication: the rung was computed and validated against the in-RAM DP, but its integer was never printed. That was an editorial choice, not a reservation about the value, and it left the table's cheapest mid-size checkpoint unusable by a reader. The cell now reads **3,211,799,156,883,456**, reproduced independently on 2026-08-09 by two separate runs of the C engine at `--f1-c3-hist --with-c5 --f1-pairs 18` (~1.9 s each). **Provenance is stated rather than implied:** this integer comes from the same two-mode in-RAM/out-of-core concordance that produced every other integer in §4b, NOT from an independent external source, and it inherits that table's authorship caveat in full. `verify.py --recount-rung 18` deliberately still REPORTS the count rather than gating on it — wiring the gate requires a verified independent recount on adequate hardware, which is tracked separately; publishing the number and gating it are two different acts and only the first is done here. No existing count, theorem, or canonical value changed. *(Flag name corrected in v1.19; this row cited a `--recount-c5-rung` that never existed.)* |
-| v1.19 *(current)* | 2026-08-11 | **Two stale references in v1.18's own record corrected; no number changed.** (1) *A reproduction command that could not be run.* The row above named the flag `--recount-c5-rung`, which has never existed on any ref; the real one is `--recount-rung`. The body carried the identical error and it was fixed the same day (commit `5d04b8d6`), but the revision row was missed, so a reader following the record got an `unrecognized arguments` error. This report's banner promises that "every MEASURED result carries a reproduction command"; a command that errors does not keep that promise. (2) *The gating status moved.* v1.18 recorded that the rung "still REPORTS the count rather than gating on it" — true when written, superseded hours later by `5d04b8d6`, which wired the gate only after an independent recount on a throwaway westus2 Spot VM (n=16 packed-DP self-gate ok, B0 re-derived (0, 7, 1, 10, 0) MATCH, count 3,211,799,156,883,456 EXACT, 157 s wall / 953 MB peak RSS). §4b's body already reflected this; the record now does too, and `verify.py`'s match-table row — which still declared the integer unpublished — was corrected alongside it. Both defects were found **mechanically**, by a reproduction-command reachability check over the whole corpus, not by review: the correction pass that fixed the body prose missed the same string 70 lines below it. No count, theorem, or canonical value changed. |
+| v1.19 | 2026-08-11 | **Two stale references in v1.18's own record corrected; no number changed.** (1) *A reproduction command that could not be run.* The row above named the flag `--recount-c5-rung`, which has never existed on any ref; the real one is `--recount-rung`. The body carried the identical error and it was fixed the same day (commit `5d04b8d6`), but the revision row was missed, so a reader following the record got an `unrecognized arguments` error. This report's banner promises that "every MEASURED result carries a reproduction command"; a command that errors does not keep that promise. (2) *The gating status moved.* v1.18 recorded that the rung "still REPORTS the count rather than gating on it" — true when written, superseded hours later by `5d04b8d6`, which wired the gate only after an independent recount on a throwaway westus2 Spot VM (n=16 packed-DP self-gate ok, B0 re-derived (0, 7, 1, 10, 0) MATCH, count 3,211,799,156,883,456 EXACT, 157 s wall / 953 MB peak RSS). §4b's body already reflected this; the record now does too, and `verify.py`'s match-table row — which still declared the integer unpublished — was corrected alongside it. Both defects were found **mechanically**, by a reproduction-command reachability check over the whole corpus, not by review: the correction pass that fixed the body prose missed the same string 70 lines below it. No count, theorem, or canonical value changed. |
+| v1.20 | 2026-08-21 | **The Verification Guide's `verify.c` build line did not link (`-lm` missing) — third site of the day's `-lm` correction.** The 2026-08-21 pass that fixed VERIFY.md and METHODS.md (`0fb3b859`) corrected two of the three sites documenting the `-lm`-less verify.c build line; this report's §10(vi) Verification-Guide line was the third and was missed — ironically in a parenthetical that already discussed which libraries the link needs. Building exactly as this report documented fails with ``undefined reference to `sqrtl'`` (`kn_ci`'s Wald CI). Caught **mechanically** by the new execution lane (`scripts/exec_lane.sh`), which extracts every documented build/reproduction command generatively and executes it — on its first full run, before any curated check named this site. Same fix, same day, one more site: `-lm` appended, parenthetical corrected to name both required linkages. No count, theorem, or canonical value changed |
+| v1.21 | 2026-08-29 | **Prior-art chain at the counting-question credit extended by eighteen years (Q-127/Q-335; cession-only, applied in the 2026-08-29 CITATIONS annotated-bibliography batch).** The sentence crediting Luo (2015) with the counting question now also records the earlier size-of-the-space framing — Huang Shisheng 黄石声 (1997), citing 沈宜甲/董光璧, invoking 8!×8! = 1,625,702,400 (mislabelled by him as the count of *arbitrary* arrangements, quoted so the characterization travels with its warrant) — and Chen Zhuangwei (2007)'s 7!×7! restatement, with the scope clause that closed-form counts of simply-constrained ordering spaces predate this suite and the contribution claimed here is confined to counts no closed form yields. The Luo credit and the "first quantitative answers to Luo's question" sentence stand unchanged; arithmetic re-verified (8!² = 1,625,702,400; 7!² = 25,401,600). Two-pass provenance: informed self-hardening pass 2026-08-28 (private record), applied 2026-08-29; wording from the standing Chen Zhuangwei and 22-note adjudications. No count, theorem, or canonical value changed |
+| v1.22 | 2026-09-01 | **§1's C4 epithet narrowed from attested to definitional (the 2026-08-30 correction propagated; nothing counted changes).** §1's statement of the counting target described C4's defined orientation as carrying a classical attestation alongside its definitional status. [METHODS.md](METHODS.md) §"Constraint set" established on 2026-08-30 that the *Xugua* attests only that the {Heaven, Earth} pair opens, not the order of Heaven over Earth within it (天地 is a compound, not an ordering); the classical pedigree the record does carry is C1's pairing rule — 孔穎達《周易正義·序卦傳疏》, 二二相耦，非覆即變 — together with C4's *pair choice*, which is unaffected. The clause now reads **definitional — our convention**, with the pair choice's classical standing left intact and the "Theorem 6" retraction pointer unchanged. **No count, theorem, orbit figure, rung value, or canonical integer changed**: C4 enters the DP only as the pinned initial condition (virtual predecessor exiting at Kun) and the removal of pair 0 from the free set, which the oriented constraint does identically whatever its provenance — the epithet is prose about where the constraint came from and enters no state, no recursion, and no integer |
+| v1.23 | 2026-09-02 | **§10(vi)'s independence claim corrected: the second engine does use the quotient machinery the sentence said it did not (prose batch P67; wording only, no integer changed).** The `verify.c --ie-count` description denied any shared machinery with the primary engine and then enumerated, as machinery the recount lacked, three capabilities it in fact uses — canonical-mask bookkeeping, min-image canonicalization, and stabilizer weighting — three lines above the same paragraph's own report of "93,939,712 **canonical subsets** per pass with Σ **orbit-weights** = 2³¹ exactly", which is that machinery running. Confirmed in source: quotienting is ON by default (`verify.c:4209` parses `--ie-no-quotient` into `no_quot = 0`, `:4274` sets `C.quotient = !no_quot`); `ie_canon_orbit` (`:3844-3853`) performs a min-image canonical-representative test (`if (im < m) return 0;`) **and** counts the stabilizer, returning `geff / stab`; `:4048-4049` gates on `C->quotient` and canonicalises; `:4066` accumulates `wsum += orbit`; `:4183` fails the run unless the orbit-weights sum to 2ⁿ. So the canonicalization item was false as well as the two the review named. **The independence consequence is narrowed, not withdrawn**, because the stronger reading is not supported either: no shared code path exists, the group is derived by this file's own helpers, its premises are re-verified elementwise at every startup (`ie_verify_group`, `:3611`, called `:4344`), and the two engines quotient **different objects** — `solve.c` canonical masks per layer, `verify.c` free-pair subsets in the IE outer sum. The sentence now says the engines share **no code and no state** and share **one mathematical lemma**, orbit-stabilizer weighting under the same 24-element group. Two further sites carry the retracted wording — `verify.c`'s own mode header and its runtime banner — plus a third the review did not name; all three are outside this report's file scope and are reported. The recomputed integer, the exact MATCH, the mod-24 gate and the two-instrument label are unchanged |
+| v1.24 | 2026-09-02 | **The free-checkpoint guarantee was keyed to a layer file's durability; it is keyed to the manifest (prose batch P32, Codex V2-F37 #3; `RP-ad9d1d07`). No number changed.** §10(v) and the Verification Guide both said that a completed layer file on disk is by itself a resume point. MEASURED in `solve.c`: the layer file is renamed into place *before* `f1c5_write_manifest` runs (`:16435`, in both the in-RAM and out-of-core paths), and `f1c5_try_resume` (`:14523`-`:14557`) reads only `last_complete_k` from `f1c5_manifest.txt` and opens that layer — it never stats the directory for a durable next-layer final file, so no discovery or promotion path exists and a kill landing between the two writes rebuilds a complete, correctly named, durable layer. Both sites now key the guarantee to the manifest and state the window; the consequence is one layer of lost work, never a wrong count, so `--resume-from-layers` remains Spot-safe as claimed. Found by GATE 3 after the phrasing was registered by the batch correcting [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md), whose §Checkpoint and resume semantics is now the single statement of the contract and is linked from §10(v); the §10 use spanned a hard wrap and was invisible to line-based search. This report's version subtitle is also refreshed: it had read v1.20 since v1.21, three revisions stale. No count, theorem, orbit figure, rung value, or canonical integer changed |
+| v1.25 | 2026-09-02 | **§6's measured layer profile refilled from the completed run; three further corrections (prose batch P72; Codex V2-F02 batch-4 charges 2, 3, 4, 5; `RP-9d39b21a`, `RP-089c4de7`, `RP-8c31ba03`, `RP-bb84c16f`, `RP-bb7395cd`, `RP-754f8752`, `RP-71e86ccc`, `RP-507e823d`, `RP-1b6b1678`). No count, theorem, orbit figure, rung value or canonical integer changed.** (1) *§6.* The table stopped at k=15, gave k=12 as a subtraction and k=15 as an unbounded-above lower bound marked *observed-incomplete*, and said layers from 16 on shrink because canonical-mask counts follow C(31,k). The mask counts are palindromic — masks(15) = masks(16) = 13,047,760, which §9's own integrity check prints — so they cannot make k16 smaller, and entries keep growing: the completed run puts k16 at 83,585,570,784 entries and 2340.55 GB, the peak layer. All ten rows now come from [FULL31_EXACT_AGGREGATES.md](FULL31_EXACT_AGGREGATES.md) §1, whose `layer GB` column is exactly entries × 28 B + canonical_masks × 12 B (verified for all 31 rows), and the unit line says so. The lower bound the table carried was a real measurement in the WRONG UNIT — live in-RAM allocation part-way through layer 15 on the retired attempt, hash-table overhead included, which is why it exceeds the completed layer's 2155.82 GB packed — and is relabelled as such rather than deleted. The two claims derived from it are withdrawn: the peak adjacent live pair is k16 + k17 = 4.51 TB packed (k15 + k16 is 4.50 TB), not k14 + k15 = 3.85 TB, so an operator sizing to the old floor was ~460 GB short of the real peak window. **The adjudication that raised this charge named k15 + k16 as the peak pair; recomputed from the aggregates it is k16 + k17, and the figures published here are the recomputation, not the charge**. The future-tense promise that the out-of-core manifest *will* complete the profile is removed — it completed on 2026-07-16 and the file has sat in this directory since. Executive summary and abstract swept for the same mislabel. (2) *§8's records citation.* It named [`evidence/f1/`](evidence/f1/) as publishing the four ladder integers' run outputs; that directory holds the |C1∩C2∩C4| headline result and the prototypes and contains none of the four integers. The line now enumerates what is retained privately, states that publication is a pending review-before-push decision, and states plainly that the original ladder session's raw outputs — including the 25-pair kill-and-resume log the bullet narrates — were copied to a volatile `/tmp` before the VM was deleted and are gone. (3) *Executive summary.* A quantity v1.4 withdrew returned seven lines below its own hedge, with more precision and the word "actual": the deviation quoted there is obtained only by differencing against the estimate's ROUNDED five-significant-figure numeral, which is the rounding gap v1.4 ruled must not be presented as estimator accuracy. Restated as the envelope claim §9 carries. (4) *§7.* The reproducibility sentence still closed on the universal that v1.1's erratum retired — §6 explicitly disclaims establishing that no machine could meet the requirement, only that no class this project provisioned did — and a 2026-08-01 pass had rewritten the front of that very sentence and left the tail standing. Scoped as §6 scopes it. |
+| v1.26 *(current)* | 2026-09-03 | **§9's commodity recipe asked for ~132 GiB of RSS on the 64 GiB box it sizes** (Codex V2, `TR11:471`). `SOLVE_F1_OOC_SCRATCH_MB` example corrected **61440 → 16384**, which is what `documentation/SOLVE_C_CLI.md` already gave for the same box; the two documents now agree. Root cause: the production 256-GiB D128 setting from §8 was copied into the commodity recipe. **No integer, count or measurement changed** — the ~64 GB commodity-reproducibility claim itself was never falsified, only one copied constant. |

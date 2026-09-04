@@ -22,7 +22,7 @@ across the three canonical depths (11.2T → 100T → 560T), with a power-law fi
 - The enumeration is **strictly nested** (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations) and
   **deepening, not broadening** — growth is existing productive cells yielding more, not new cells
   opening. None of the sampled sub-branches are exhausted at 560T, so the curve is the growth of a
-  fixed-budget *slice*, not an approach to a total. This reframes the 1120T extension as a
+  fixed-budget *slice*, not an approach to a total. This reframed what a 1120T extension would have shown (that extension is **not planned**, 2026-08-01) as a
   **discriminating test of the growth asymptote**, not merely more data.
 
 See [`../documentation/HISTORY.md`](../documentation/HISTORY.md) §"3-point per-cell scaling
@@ -82,7 +82,7 @@ sample). Directly answers why some VM-off blocks are ~10 h and others ~75 min. A
 
 A rendered viewer with all six panels + these captions is committed alongside as
 [`index.html`](../runs/20260608_560T_9a968fa2/viz/index.html). Future canonical campaigns
-(1120T onward) emit the same panels from launch.
+(had the 1120T extension run — it is not planned, 2026-08-01) would emit the same panels from launch.
 
 ## Regeneration
 

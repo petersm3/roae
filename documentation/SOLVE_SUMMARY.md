@@ -1,0 +1,496 @@
+# How the King Wen Sequence Is Structured
+
+> **Authority note (legacy narrative).** This page predates the 2026-07 technical-report suite and is
+> retained as the project's plain-language narrative. Where this page and the
+> [technical reports](../reports/README.md) (or [CRITIQUE.md](CRITIQUE.md)) disagree, **the reports
+> win** — the discrepancy is a bug in this page; please report it (the same convention as
+> [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md)).
+
+A plain-language introduction to what `solve.py` and `solve.c` compute. Several of the core observations (the pair structure C1, the no-5-line-transition property C2) have been noted in prior literature — see [CITATIONS.md](CITATIONS.md) for credits. ROAE's specific contribution is threefold: **budget-exact enumeration** of solutions under the conjoined constraint system (each canonical count is exact at its node budget; the space itself is far too large to exhaust at any budget — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)), **partition-invariant reproducibility** of the canonical counts (the same byte-identical results on any hardware), and a **seven-family null-model framework** testing how the King Wen structure compares to structured and unstructured permutation families.
+
+For deeper material referenced throughout this article:
+
+- Canonical enumeration counts and their reproducibility shas: [CLAUDE.md §Canonical shas](../CLAUDE.md) and [HISTORY.md](HISTORY.md).
+- Partition invariance theorem and the cross-path validation grid: [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
+- Joint-observable distributional analysis (where King Wen sits in the 3.43B-ordering density): [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+- Methodological critique, including the null-model caveat on the "N boundaries uniquely determine King Wen" finding: [CRITIQUE.md](CRITIQUE.md).
+- Formal constraint definitions and theorems: [SPECIFICATION.md](SPECIFICATION.md).
+- Command-line reference: [SOLVE_C_CLI.md](SOLVE_C_CLI.md) (`solve.c` subcommands, env vars, exit codes), [ROAE_PY_CLI.md](ROAE_PY_CLI.md) (`roae.py` analysis sections).
+
+> **For HOW the enumeration actually works** — what a branch / sub-branch / node means, the difference between all-branch and single-branch enumeration, and the open research questions — see [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md). It's the step-by-step companion to this summary.
+
+## The puzzle
+
+Long ago — traditionally about 3,000 years, though modern scholarship debates when the ordering was fixed — someone in ancient China, or successive generations of practitioners, arranged 64 symbols (called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching))) in a specific order. This ordering is called the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence). There are more possible arrangements of 64 things than there are atoms in the universe — roughly 10^89 of them (a 1 followed by 89 zeros; the observable universe holds about 10^80 atoms). But somehow, whoever arranged them picked one specific arrangement:
+
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
+
+We wanted to know: **what rules did they follow?** And can we figure out those rules just by studying the result?
+
+## What a hexagram is
+
+Each hexagram is a stack of 6 lines. Each line is either solid (⚊ [yang](https://en.wikipedia.org/wiki/Yin_and_yang)) or broken (⚋ [yin](https://en.wikipedia.org/wiki/Yin_and_yang)) — like a 6-digit binary number with only 1s and 0s. With 6 positions and 2 choices each, there are exactly 2^6 = 64 possible hexagrams. The King Wen sequence puts all 64 in a specific order.
+
+| | ䷀ #1 | ䷄ #5 | ䷁ #2 |
+|---|:---:|:---:|:---:|
+| Line 6 (top) | ⚊ **1** | ⚋ **0** | ⚋ **0** |
+| Line 5 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Line 4 | ⚊ **1** | ⚋ **0** | ⚋ **0** |
+| Line 3 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Line 2 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Line 1 (bottom) | ⚊ **1** | ⚊ **1** | ⚋ **0** |
+| Binary | **111111** | **010111** | **000000** |
+
+To get the binary code, read the 1s and 0s from the top of the table downward. For example, ䷀ #1 is all solid lines: 111111. ䷁ #2 is all broken lines: 000000. ䷄ #5 reads 0, 1, 0, 1, 1, 1 from top to bottom, giving 010111 — a mix of solid and broken.
+
+## The rules we found
+
+We found five rules (C1–C5 in [SPECIFICATION.md](SPECIFICATION.md); four are formally independent — C2 is implied by C5), each one eliminating more of the possible arrangements. Rules 1 and 2 are known in prior literature (Rule 1 from I Ching scholarship / [Cook 2006](CITATIONS.md#cook2006); Rule 2 from [Terence & Dennis McKenna](CITATIONS.md#mckenna-mckenna1975)'s *The Invisible Landscape*, 1975); Rules 3–5 are formalized and quantified here. See [CITATIONS.md](CITATIONS.md).
+
+(A sixth "XOR rule" was identified during discovery but later proven mathematically redundant — it follows automatically from Rule 1; see [SOLVE.md](SOLVE.md) Theorem 2. It is therefore not listed below.)
+
+### Rule 1: Every hexagram has a partner
+
+The 64 hexagrams are grouped into 32 consecutive pairs. Each hexagram is paired with the one you get by flipping it upside down. (For the **8** symmetric hexagrams that look the same upside down, the partner is the one with every line toggled instead — they form the four pairs ䷀䷁ ䷚䷛ ䷜䷝ ䷼䷽.)
+
+**What this does:** Cuts the possibilities from 10^89 down to about 10^45. Still enormous, but 44 zeros gone in one step.
+
+Flip (28 pairs, partner highlighted):<br>
+䷀䷁ ䷂<mark>**䷃**</mark> ䷄<mark>**䷅**</mark> ䷆<mark>**䷇**</mark> ䷈<mark>**䷉**</mark> ䷊<mark>**䷋**</mark> ䷌<mark>**䷍**</mark> ䷎<mark>**䷏**</mark> ䷐<mark>**䷑**</mark> ䷒<mark>**䷓**</mark> ䷔<mark>**䷕**</mark> ䷖<mark>**䷗**</mark> ䷘<mark>**䷙**</mark> ䷚䷛ ䷜䷝ ䷞<mark>**䷟**</mark> ䷠<mark>**䷡**</mark> ䷢<mark>**䷣**</mark> ䷤<mark>**䷥**</mark> ䷦<mark>**䷧**</mark> ䷨<mark>**䷩**</mark> ䷪<mark>**䷫**</mark> ䷬<mark>**䷭**</mark> ䷮<mark>**䷯**</mark> ䷰<mark>**䷱**</mark> ䷲<mark>**䷳**</mark> ䷴<mark>**䷵**</mark> ䷶<mark>**䷷**</mark> ䷸<mark>**䷹**</mark> ䷺<mark>**䷻**</mark> ䷼䷽ ䷾<mark>**䷿**</mark><br>
+Pairs: 3↔4, 5↔6, 7↔8, 9↔10, 11↔12, 13↔14, 15↔16, 17↔18, 19↔20, 21↔22, 23↔24, 25↔26, 31↔32, 33↔34, 35↔36, 37↔38, 39↔40, 41↔42, 43↔44, 45↔46, 47↔48, 49↔50, 51↔52, 53↔54, 55↔56, 57↔58, 59↔60, 63↔64
+
+Inverse (4 pairs, partner highlighted):<br>
+䷀<mark>**䷁**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚<mark>**䷛**</mark> ䷜<mark>**䷝**</mark> ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼<mark>**䷽**</mark> ䷾䷿<br>
+Pairs: 1↔2, 27↔28, 29↔30, 61↔62
+
+### Rule 2: No 5-line jumps
+
+When you move from one hexagram to the next, some number of lines change (1 through 6). This is called the [Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance). In the King Wen sequence, the number 5 never appears — no two consecutive hexagrams differ by exactly 5 lines.
+
+Examples from the King Wen sequence:
+
+| Lines changed | Transition | Example |
+|:---:|---|---|
+| 1 | ䷳ #52 → ䷴ #53 | `100100` → `110100` |
+| 2 | ䷁ #2 → ䷂ #3 | `000000` → `010001` |
+| 3 | ䷅ #6 → ䷆ #7 | `111010` → `000010` |
+| 4 | ䷂ #3 → ䷃ #4 | `010001` → `100010` |
+| **5** | **(never occurs in King Wen)** | |
+| 6 | ䷀ #1 → ䷁ #2 | `111111` → `000000` |
+
+The difference wave — each character represents one transition, height proportional to lines changed (1-6):
+
+`█▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█`
+
+The tallest blocks (█) are distance 6. The shortest (▁) are distance 1. No block reaches height 5 (▅) — that transition never occurs. See [all 63 transitions](#appendix-all-63-transitions) in the appendix.
+
+**What this does:** Eliminates about 96% of the remaining arrangements.
+
+<a id="rule-3"></a>
+### Rule 3: Complements stay close — a ceiling, not a target
+
+Every hexagram has a **complement** (its "opposite") — the one where every line is flipped, solid↔broken. In King
+Wen, complements sit strikingly near each other: 9 of the 32 complement pairs are directly adjacent, and the
+average separation is only 12.1 positions (random arrangements average about 22). Summed over all 64
+hexagrams, King Wen's total complement-distance is exactly **776**.
+
+One honest subtlety, learned from the large enumerations: 776 is a **ceiling King Wen sits at, not a
+minimum it achieves**. Among the billions of valid orderings, many have their complements even closer —
+the minimum seen is 424 at the 100T canonical and 392 at the deeper 560T canonical — and roughly one
+in ten (10.11% at the 560T canonical — re-measured 2026-07-08, 1,063,580,364 of 10,525,271,997 records; was 9.91% at 100T) ties King Wen at exactly 776. So the rule
+we can actually state is "total complement-distance stays at or below 776" — a bound taken from King Wen's
+own value. (An earlier version of this page framed Rule 3 as active minimization; the enumeration
+corrected that. Scope note added 2026-07-04: the minimum was previously quoted unscoped as 424 — that
+is the 100T value; the 560T §[22] range is [392, 776].)
+
+*A reference baseline for the "one in ten" figure (exact, added 2026-07-22):* under the bare pair-slot
+null — all pair orderings with the Creative/Receptive start, with no other constraint applied and no
+enumeration budget — the exact distribution (`verify.py --check-null-g`) gives P(total ≤ 776) = 8.106231%
+and a ceiling-tie share P(total = 776 | total ≤ 776) = 7.86%. That null population is not like-for-like
+with the enumerated canonical sets (which also enforce the no-5 and difference-wave rules and are
+budget-truncated), so the baseline neither confirms nor refutes the ~10% figure. What it shows is that a
+null with no transition structure at all already produces a ceiling-tie share close to the observed ~10% —
+so the tie fraction should be read as largely generic to the pair-slot geometry, not as King-Wen-specific
+structure.
+
+**What this does:** Eliminates orderings whose complements drift farther apart than King Wen's — but leaves
+an enormous family, King Wen among them.
+
+Closest complements highlighted (distance 1 — adjacent in the sequence):<br>
+<mark>**䷀䷁**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ <mark>**䷊䷋**</mark> ䷌䷍ ䷎䷏ <mark>**䷐䷑**</mark> ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ <mark>**䷚䷛**</mark> <mark>**䷜䷝**</mark> ䷞䷟ ䷠䷡ ䷢䷣ ䷤<mark>**䷥**</mark> <mark>**䷦**</mark>䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ <mark>**䷴䷵**</mark> ䷶䷷ ䷸䷹ ䷺䷻ <mark>**䷼䷽**</mark> <mark>**䷾䷿**</mark><br>
+Pairs: 1↔2, 11↔12, 17↔18, 27↔28, 29↔30, 38↔39, 53↔54, 61↔62, 63↔64
+
+9 of 32 complement pairs sit directly next to each other. The farthest apart are ䷂ #3 and ䷱ #50 (distance 47) — but the average is only 12.1. See [all 32 complement pairs](#appendix-all-32-complement-pairs-by-distance) in the appendix.
+
+Farthest complements highlighted (䷂ #3 and ䷱ #50, 47 positions apart):<br>
+䷀䷁ <mark>**䷂**</mark>䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰<mark>**䷱**</mark> ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 3↔50
+
+### Rule 4: It starts with Heaven and Earth
+
+The sequence begins with the two most extreme hexagrams: all solid lines ䷀ Qian #1, representing Heaven, followed by all broken lines ䷁ Kun #2, representing Earth.
+
+**What this does:** Eliminates another 98%.
+
+<mark>**䷀䷁**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
+
+Pair: 1↔2
+
+### Rule 5: Specific transition counts
+
+The "jumps" between consecutive hexagrams follow a specific recipe — called the [difference wave](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero): exactly 2 jumps of size 1, 20 jumps of size 2, 13 jumps of size 3, 19 jumps of size 4, and 9 jumps of size 6. No jumps of size 0 or 5.
+
+**What this does:** After all previous rules, a backtracking enumeration (`solve.c`, 10 trillion nodes partitioned across parallel threads) finds hundreds of millions of valid orderings — an enormous reduction from 10^89, but far more than the "near-unique" result suggested by earlier [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) sampling. Canonical counts (d3 re-established 2026-05-13 on post-resume-fix code; see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)): **706,427,594** at the depth-3 partition, **286,357,503** at depth-2. The count depends on which partition strategy samples the search space; under true exhaustive enumeration both would converge.
+
+### Why there is no Rule 6 or Rule 7
+
+Two further constraints run through [SPECIFICATION.md](SPECIFICATION.md) and the technical reports —
+**C6** and **C7** — and they are deliberately not numbered as rules on this page.
+
+They are **boundary constraints**. C6 pins the pairs at pair slots 27 and 28 (hexagram positions
+53–56) to King Wen's pairs; C7 does the same at pair slots 25 and 26 (hexagram positions 49–52).
+Each locks a four-hexagram window. Crucially, they
+were not *discovered* as properties of the sequence the way Rules 1 and 2 were — they were **selected
+by search**, as the two boundaries whose pins removed the most non-King-Wen orderings from the
+enumerated set. `solve.c` still calls them "legacy adjacency constraints" for that reason.
+
+The sharpest way to see the difference is to ask what each constraint costs to state versus what it
+buys. [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) prices the whole set in bits: C6 and C7 together
+eliminate 21.3 bits' worth of orderings, and cost about 20.6 bits merely to write down, since four
+pair slots have to be named. **Net: approximately zero.** They are *data-like* — a compressed way of
+restating part of the answer, not a rule that explains it. Rule 1 buys far more than it costs, which
+is exactly why this page calls it the real finding and does not say the same of these two.
+
+They are nonetheless **logically independent** of Rules 1–5, not implied by them: adding C6 and C7
+cuts the Rule 1–5 space by a factor of 2.55×10⁶. (Contrast Rule 2, which genuinely *is* implied — by
+Rule 5's histogram — and survives in the solver only as a fast pre-filter.) Independent, then, but
+reverse-engineered from King Wen rather than derived from first principles.
+
+The same standard has already been applied to reject a candidate rule. McKenna's "minimize size-1
+jumps" observation is a real regularity — 80.03% of enumerated orderings violate it, so King Wen sits
+in a genuine minority — and it was still **not** promoted, because promoting it would have added a
+fourth constraint read off King Wen's own placements. See [MCKENNA.md](MCKENNA.md). C6 and C7 predate
+that standard and are kept because the enumeration tooling and the reports depend on them; naming
+them here without numbering them is the honest treatment.
+
+### What the rules determine — and what remains open
+
+Canonical enumerations using `solve.c` at the 10T node budget find hundreds of millions of unique orderings satisfying Rules 1-5. At the depth-3 partition (158,364 sub-branches): **706,427,594**. At depth-2 (3,030 sub-branches): **286,357,503**. Both enumerations are partial in the sense that each sub-branch hits its per-sub-branch node budget rather than completing naturally — so the true count under exhaustive enumeration is unknown and likely larger; an unbiased Monte-Carlo estimate (Knuth random-probe) now puts the total at ≈10³⁸ (≈3×10³⁷ distinct-canonical) — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical figure in the sentence just above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
+
+| Positions | Pairs observed | KW match rate | Character |
+|-----------|---------------|-------------------|-----------|
+| 1 | 1 | 100% | Fully determined |
+| 3-18 | at least 2 each | 87-99% | Highly constrained |
+| 19-20 | at least 2-4 | ~50% | Moderately constrained |
+| 21-32 | at least 7-16 each | 10-22% | Progressively free |
+| 2 | at least 16 | 0.2% | Branch-dependent |
+
+**Caveats on these rates:** The match rates are computed from a partial, non-uniform sample. Each search branch was explored to an unknown depth (none completed), so shallower solutions are overrepresented. The "at least N pairs" counts are lower bounds — a complete enumeration could reveal additional pairs at each position. The rates should be treated as indicative, not definitive.
+
+Earlier analysis based on a partial sample (438 solutions from a single search branch) claimed 23 of 32 positions were locked and that two adjacency constraints sufficed for uniqueness. The larger enumeration reveals this was an artifact of undersampling. The constraint gradient is real but much more nuanced.
+
+Among 6 billion C3-valid solutions (including orientation variants), only 0.0018% satisfy both legacy adjacency constraints (C6+C7). Note: this rate mixes orientation variants (~297 per unique ordering) with unique orderings, so the per-ordering rate would differ. These constraints significantly narrow the space, but their sufficiency for uniqueness is **refuted, not open**: TR-4 §4 measured it on 2026-07-02 and found ≈5.21×10³¹ orderings surviving C1–C7. That refutation is a headline result of this project, not an outstanding item.
+
+**What makes King Wen unique among the astronomically many valid orderings is an open question.** The C1–C5 space is estimated at ≈10³⁸ (Knuth random-probe estimate, see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)), so King Wen is one of astronomically many valid orderings — and its early appearance during enumeration is a search-setup artifact (order-invariant to the findings), not evidence of scarcity. It is equally possible that additional mathematical rules exist to be discovered, or that King Wen is simply one choice among many with no further mathematical distinction.
+
+### The millions of roads not taken
+
+The millions of alternative arrangements satisfying Rules 1-5 are not random — they share strong structural similarities with King Wen. The closest non-King-Wen solutions differ by only 2 pair positions — and those distance-2 twins occur at the front (positions 2/3 and 4/5) and middle (positions 22-25) of the sequence as well as the back, at every canonical scale checked (d3 10T, 100T, 560T §[24]). One front twin — KW with the position-2/3 pair blocks interchanged, rec#330177707 — is exactly the 560T record that survives four of the five greedy minimum boundaries (see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). *(Corrected 2026-07-04: an earlier version claimed the twins were "always in the last third (positions 26-32)" — a pre-canonical-era claim that no canonical dataset supports.)* This means:
+
+- **Position 1 is fixed by C4's definition.** The hexagram 1 / hexagram 2 pair always comes first (the pair choice is classically attested centuries before any enumeration; see the orientation bullet below for what is and is not forced).
+- **Position 2 partially constrains positions 3-19, but not deterministically.** Earlier docs claimed "for 16 of 31 branches, positions 3-19 are fully locked" (based on `--prove-cascade`). That result is correct *only within the shift-pattern subspace* (where every position is restricted to KW's pair or the previous pair) — and the canonical analyses show this subspace is a shrinking minority of valid orderings: **2.69% at d2, 0.062% at d3**. In the full canonical datasets, every reachable first-level branch admits multiple distinct pair sequences at positions 3-19; none are uniquely determined. The cascade region is heavily constrained (per-position entropy 0.3-1.9 bits at d3, well below the 5-bit maximum) but not deterministic.
+- **Freedom is concentrated in the back half but spread across the cascade too.** The canonical analyses show position 3 has the highest freedom (d3: 4.52 bits, d2: 4.05 bits, 28-31 distinct pairs observed), positions 24-31 carry 3.41-3.54 bits each at d3 (14 distinct pairs; positions 22-23 sit lower, at 1.74 and 3.15 bits — range corrected 2026-07-04 from "22-31 / 3.40-3.54"), and the "cascade region" (5-20) carries 0.48-1.85 bits each at d3 — heavily constrained but not zero. The traditional [Xugua](https://en.wikipedia.org/wiki/Ten_Wings) commentary explaining why specific hexagrams follow each other in the back half retrospectively rationalizes steps that the enumeration shows were genuine selections among available alternatives, not mathematical necessity.
+- **King Wen's complement distance is 776 (mean 12.1)** — small vs random permutations (~22), and low among orderings satisfying every other constraint (C1+C2+C4+C5) — the ledger puts that at ≈12%, and under the bare C1&C4 null the exact tail is 8.1% (`verify.py --check-null-g`). *(**Amended 2026-08-01, lens sweep:** this sentence previously read "at the 3.9th percentile (sampled) of orderings satisfying every other constraint". That figure is flagged — not supported by the population it is labelled with; see [SOLVE.md](SOLVE.md) §Rule 3.)* But within the full C1–C5 canonical set, **KW is at the ceiling, not the minimum** — at the 560T canonical (10.5B orderings, re-measured 2026-07-08) **1,063,580,364 (10.11%)** tie with KW at 776 and all are ≤776 (the ceiling); was 340M/9.91% at 100T. Rule 3 is a ceiling constraint, not a minimization. See §Rule 3 for the updated framing.
+- **The starting orientation is definitional, not forced** *(corrected 2026-07-26; an earlier version claimed it was forced — that claim is retracted)*. ䷀ #1 comes before ䷁ #2 **by C4's definition** — our convention, not a classical attestation: the *Xugua* attests that the {Heaven, Earth} pair opens, not the order within it (narrowed 2026-09-01, [SPECIFICATION.md](SPECIFICATION.md) §Constraints). ⚠ **[CORRECTED 2026-09-01 — this bullet previously added a classical attestation for the orientation as well, offering the *Xugua*'s opening as evidence that Heaven precedes Earth. It is not evidence of that: 有天地，然後萬物生焉 sequences *the pair* before the myriad things, and 天地 is a compound, not an ordering of one over the other. What the classical record does attest is C1, the pairing rule — 孔穎達《周易正義·序卦傳疏》, 二二相耦，非覆即變 — together with C4's *pair choice*, which is unaffected and remains classically attested, exactly as the position-1 bullet above already says. Until this edit the two bullets contradicted each other. The narrowing landed in [METHODS.md](../reports/METHODS.md) §"Constraint set" on 2026-08-30; this file missed the propagation. [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) already prices C4 at its full 6 bits (pair + orientation), so no ledger value moves.]** The other constraints do not force it: complementing every hexagram maps any valid arrangement to one opening (0, 63) that still satisfies C1, C2, C3 (= 776), and C5 — machine-checked in [lean/KingWen.lean](../lean/KingWen.lean).
+- **Within-pair orientation follows no simple rule, but it is not free** *(corrected — an earlier version of this line called it "a free choice at each pair"; that gloss is retracted)*. Which hexagram comes first within each pair follows no consistent single pattern — not yang count, not binary value, not trigram weight. But TR-1 §7 measured the freedom and found it **coupled, not independent**: ≈20.7 bits, not 31, with only 9 of the 31 pairs flippable individually.
+
+## What this means
+
+Five constraints, discoverable through analysis, narrow 10^89 possible arrangements to an estimated **≈1.33×10³⁸ *raw* valid orderings** (raw = orientation-explicit; [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md), a Knuth random-probe estimate, not a proven cardinality). The enumerated canonical counts (d3: 706M; d2: 286M at the 10T budget) are **budget slices** of that space in a different counting unit, not its size — the same distinction the table at the end of this document already draws. *(Corrected 2026-09-02: this sentence put the post-C1–C5 space at "hundreds of millions", which is a budgeted slice count and understates the estimated layer by ~29 orders of magnitude; see [CORRECTIONS.md](CORRECTIONS.md).)* Position 1 is fully determined. The cascade region (positions 3-20) is heavily constrained (per-position entropy 0.3-1.9 bits at d3 — far below the 5-bit maximum) but not deterministic: every first-level branch admits multiple distinct pair sequences across positions 3-19. Positions 24-31 have substantially more freedom (entropy 3.4-3.5 bits at d3; positions 22-23 are transitional at 1.7 and 3.1 bits). The rules were extracted from King Wen (confirmatory analysis, not independent prediction), but the constraint structure they reveal is genuine.
+
+Someone — or successive generations of practitioners — in ancient China (traditionally [~3,000 years ago](https://en.wikipedia.org/wiki/King_Wen_of_Zhou); the dating of the ordering's fixation is debated) arranged 64 symbols into an ordering that satisfies a set of interlocking mathematical constraints admitting an estimated **≈3×10³⁷ valid arrangements** — and note this is the *deduplicated* figure wearing a raw label: the orientation-explicit estimate is 1.33×10³⁸ — of the 10^89 possible ([SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)) — a reduction of more than 50 orders of magnitude. ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ valid-arrangements figure in the sentence just above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** Within every enumerated dataset, **a handful of boundary constraints** (specifying which pairs must be adjacent at specific positions) then single out King Wen exactly: 4 boundaries at the 10T datasets, **5 boundaries at canonical depth** (100T and 560T — the identical set `{1, 4, 21, 25, 27}` at both, isolating KW among 10.5 billion orderings) *(corrected 2026-07-04: an earlier version said "4 at 560T" — a survivor-counting error; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*; whether that holds over the full space is open (extrapolation suggests ~13–20 boundaries would be required). **The minimums are proven within the enumerated datasets** — exhaustive 3-subset testing confirms no triple suffices anywhere, and exhaustive 4-subset testing confirms no 4-set suffices at 100T/560T.
+
+**A key partition-scope finding** (2026-04-19): the *specific* boundaries that work are **partition-dependent**. What IS stable across d2 and d3: boundaries **{25, 27}** are mandatory in every working 4-set. What is NOT stable: the other 2 boundaries.
+
+- **d2 10T** (286M): 4 working 4-subsets — `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}`.
+- **d3 10T** (706M): 8 working 4-subsets — `{25, 27}` plus pairs drawn from `{1..6}` (specifically {1,3}, {1,4}, {2,3}, {2,4}, {2,5}, {3,4}, {3,5}, {3,6}).
+
+**Only {25, 27} can be cited as the stable "mandatory boundaries" result.** The broader phrasing about "one-of-{2,3} ∪ one-of-{21,22}" is a d2-specific statement — at deeper partition sampling, different early-zone boundaries become interchangeable. This is exactly the kind of partition-depth sensitivity the null-model caveat (see [CRITIQUE.md](CRITIQUE.md)) anticipates: structural claims that look specific at one partition may look different at another.
+
+## The numbers at a glance
+
+| Step | Rule | Arrangements remaining |
+|------|------|----------------------|
+| 0 | All possible orderings | 10^89 |
+| 1 | Pair structure | 10^45 |
+| 2 | No 5-line jumps | ~4% of step 1 |
+| 3 | Complements ceiling (total distance ≤776) | ~0.3% of step 1 |
+| 4 | Start with Heaven/Earth | ~0.005% of step 1 |
+| 5 | Specific transition counts | **706,427,594** (d3 10T canonical); **286,357,503** (d2 10T canonical) — budgeted 10T slices, not the layer size; the true C1–C5 layer is estimated ≈1.3×10³⁸, see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) |
+| 6 | 4 boundary constraints (5 at canonical depth) | **1 (King Wen)** — within the enumerated slice; see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) |
+
+*Counting units in this table are mixed by construction (legacy presentation, flagged 2026-08-06; the
+numbers themselves are unchanged and correct). Steps 0–1 count raw orientation-explicit arrangements
+(steps 2–4 are fractions of step 1). Step 5's budgeted counts are **orientation-deduplicated canonical
+records** — one record per canonical pair-sequence, orientation variants collapsed
+([SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Deduplication) — while its ≈1.3×10³⁸ layer estimate is
+**raw** (orientation-explicit; ≈3.3×10³⁷ after ~4× orientation-dedup —
+[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)), so the two conventions sit in one cell and should not be
+divided into each other without converting ([VERIFY.md](VERIFY.md) `--fiber-sweep` is the exact
+converter). ⚠ **[WITHDRAWN 2026-08-24 — the ≈3.3×10³⁷ orientation-dedup figure above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]***
+
+## The story continued: what deeper tools found (2026)
+
+The rules above were only the beginning. Three further instruments — a machine-checked theorem prover, a
+logic solver that can settle "does any ordering with property X exist?" questions definitively, and a
+measurement technique that samples the full space of valid orderings without enumerating it — produced a
+second wave of results, each with a full [technical report](../reports/README.md):
+
+- **Every valid ordering has 23 mathematical "twins"** (counted at the record level) — relabelings that the rules cannot tell apart.
+  King Wen is not special in this respect: the twins are a property of the rules themselves.
+  [[TR-5](../reports/TR5_SYMMETRY.md)]
+- **Some "design choices" turn out to be forced.** Eight rules — stating **seven** distinct regularities, since r3 and p1c4 turn out to be the same fact under two scholars' names (TR-1 §3(2)) — that scholars across eight
+  centuries attributed to the arranger's intent are mathematical *consequences* of the rules — any
+  valid ordering has them, chosen or not. And every valid ordering has exactly 15 alternations between
+  even-balanced and odd-balanced pairs — provably, always.
+  [[TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-6](../reports/TR6_PARITY_SKELETON.md)]
+- **The classical rules contradict each other.** A central result: the four strongest design
+  rules proposed in the literature — two by [Steve Moore](CITATIONS.md#moore1989), two traceable through [Larry Schulz](CITATIONS.md#schulz1990-motifs) back to a
+  13th-century commentator — **cannot all be satisfied by any C1∩C2∩C4∩C5-valid ordering**. King Wen keeps one of
+  them perfectly and misses the other three by two each — **not, as this previously claimed, by the smallest possible margins** ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]** Its famous "irregularities,"
+  puzzled over for centuries, are the visible seam of a forced trade-off — not damage to a
+  once-perfect-under-all-four original (none could exist), and not sloppiness. (Whether they instead
+  reflect damage to the *three*-rule-perfect precursor that does exist is a separate, open question —
+  TR-2's pre-registered two-model comparison initially favored that corruption reading over a
+  soft-preference arranger — but as of 2026-08-04 those figures are **not calibrated in the pooled
+  sense**: the M_tend self-recovery arm FAILED at 68/100 against a frozen bar of 70, so the
+  calibration gate vetoed, and as of 2026-08-07 the Bayes factor and posterior are **withdrawn as
+  claimed results** — retained as the as-computed record only. The question is weighed, not settled,
+  and no verdict is asserted. See CORRECTIONS CX-25 and CX-26.)
+  [[TR-2](../reports/TR2_THE_RULES_CONFLICT.md)]
+- **In information terms, half the sequence is explained** — nearly all of it by the pairing rule, which
+  turns out to be mathematically *optimal* among pairing rules of its kind (complement/reversal
+  matchings; [Radisic 2026](CITATIONS.md#radisic2026)). The other half is explained by nothing anyone
+  has found yet. [[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)]
+
+Each of these is reported in full: every MEASURED result carries a reproduction command, and every proof
+cited as machine-checked names its certificate or Lean theorem. That is not the same as saying all four
+are machine-verifiable, and one of them is not. The bit-ledger above is the suite's most
+judgment-dependent result — its accounting conventions are chosen, not derived, which is why TR-9 states
+a *range* (about 105–139 bits unexplained) rather than a number and publishes its conventions so a
+skeptic can re-price everything under their own. What a machine checks there is the arithmetic under a
+stated convention, never the convention.
+
+## An important caveat
+
+Applying the same methodology to random pair-constrained sequences — extract their diff distribution, complement distance, and starting pair, then test for uniqueness — also produces apparent uniqueness in 9 out of 10 cases *(**historical run; artifacts not preserved** — no command, seed, target list or per-target survivor count for it exists anywhere in the project, and no `solve.py` mode reproduces the protocol. Treat the 9-out-of-10 figure as an **unreproduced historical observation, not a measured result**; the outstanding fix is a `solve.py --extraction-null` mode. Full disclosure and provenance: [SOLVE.md](SOLVE.md) §"is the constraint framework special". Copied here 2026-09-01 — the 2026-08-30 disclosure landed at the SOLVE.md site alone and its siblings were never swept.)*. **The constraint extraction approach makes almost any sequence appear uniquely determined** — a qualitative conclusion that rests on the reasoning in the next paragraph (Rules 1 and 2 are the genuinely rare part; the extracted properties are not) and does not depend on the 9-out-of-10 count. This means the three properties that test extracts — complement distance, starting pair and transition counts (Rules 3, 4 and 5 above) — are not individually remarkable, for a reason that is deductive rather than statistical: those values are read off the target sequence, so the same extraction applied to a different pair-constrained ordering returns constraints that ordering already satisfies, and the search then narrows around *it* instead. **The mechanism is deductive; the scale is not measured.** Nothing in this project reports, for any population of orderings, what fraction the extraction drives to near-uniqueness, so “almost any” above is an inference from that mechanism plus the unreproduced historical run, not a measured frequency. *(Corrected 2026-09-02, prose batch P54, retraction `RP-944b9b41` — the retired clause stated the effect as a universal over sequences, naming no population, no scope and no measured degree. The `solve.py --extraction-null` mode disclosed at the head of this section is still the outstanding fix; until it lands the frequency is unknown. [GUIDE.md](GUIDE.md) retired the same sentence on 2026-09-01 as `INL-b7f79b5`, and that pass reached neither this site nor [SOLVE.md](SOLVE.md) §“is the constraint framework special”, both closed here.)*
+
+What IS genuinely special about King Wen is **Rules 1 and 2**: the perfect pair structure and the no-5-line-transition property. Only ~4% of pair-constrained orderings avoid 5-line transitions (ROAE's 10^9-sample pair-constrained null gives 4.29% precisely). The pair structure itself is vanishingly unlikely by chance — a random 64-permutation has probability ~10^-44 of satisfying it. Both observations are **prior knowledge** — Rule 1 is classical (*Yi Zhuan* commentary, Cook 2006) and Rule 2 is from McKenna & McKenna 1975 (*The Invisible Landscape*). ROAE's contribution is **independent computational verification** at scale, plus **null-model testing** across seven structured permutation families. Across the six **unconditional** families (2,760,021,104 permutations tested) no member satisfies even C1, so none reaches C1+C2+C3; under the seventh, **pair-constrained** family C1 holds by construction and the measured joint rate is ≈**0.305%**, so King Wen is *not* unique there. ⚠ **[CORRECTED 2026-09-01 — this read "showing no family other than KW simultaneously satisfies C1+C2+C3", which is false for the seventh family. The joint given C1 was measured 2026-08-28 at **0.305832%** over 10⁹ draws and reproduced at **0.30478%** over 10⁷ by an independently written sampler: about 3.06 million of 10⁹ pair-constrained orderings satisfy all three. The sentence also contradicted its own paragraph, which gives the 4.29% C2 | C1 rate two sentences earlier. [CRITIQUE.md](CRITIQUE.md) §Missing analyses has carried the correct scope ("across all tested **unconditional** families") since 2026-08-28; this page missed the propagation. Re-run here 2026-09-01: `python3 scripts/c2c3_joint_null.py` → `P(C2^C3|C1) = 0.30478%`, +16.7σ over the 0.27569% independence product, `C2C3_JOINT_NULL=OK`.]** See [CITATIONS.md](CITATIONS.md) and [CRITIQUE.md](CRITIQUE.md) §Missing analyses.
+
+## What we can and cannot say
+
+The analysis shows the King Wen sequence satisfies a set of interlocking mathematical constraints. It cannot show whether whoever arranged it understood those constraints explicitly or arrived at them through centuries of refinement. A simple practice — "pair each hexagram with its mirror, keep complements nearby, avoid jarring transitions" — applied consistently over generations could produce the same result as deliberate mathematical design. The sequence is the same either way; only the history differs, and the history is outside the reach of computation.
+
+## Impact and scientific implications
+
+ROAE's contribution to the study of the King Wen sequence — distinct from what was previously known — is primarily about **quantifying** how specific and KW-distinctive the combined constraint system is, and about **reproducibility** of that quantification.
+
+**What was already known** ([CITATIONS.md](CITATIONS.md)):
+
+- The pair structure (Rule 1) is ancient, discussed in *Yi Zhuan* commentary (traditionally dated 5th–3rd c. BCE, though modern dating is later), formalized in modern combinatorial terms in **[Cook 2006](CITATIONS.md#cook2006)** (*Classical Chinese Combinatorics*).
+- The no-5-line-transition property (our Rule 2 = C2) is documented in **[McKenna & McKenna 1975](CITATIONS.md#mckenna-mckenna1975)** (*The Invisible Landscape*, Chapter 9 "Order in the I Ching and Order in the World"). In the same chapter McKenna also identifies two additional design rules: a secondary "minimize transitions of value 1 except where doing so would force a value 5" rule and a "three to one ratio of even to odd transitions" rule. The 3:1 ratio is provably forced by C4+C5 per the Theorem in [SPECIFICATION.md](SPECIFICATION.md) — derived from first principles, not a separate constraint. The value-1 rule was empirically measured (`solve --verify-rule2`) and found to be a real KW-specific regularity: **80.03% of C1–C5 records violate it** at the d3 560T canonical (2026-06-15, `9a968fa2…`, 10,525,271,997 records — KW is in the 19.97% minority that obeys it). *(Figure updated 2026-08-01: this page previously quoted **83.77%** from the 2026-05-19 run on the **v2 11.2T** canonical — a lineage the project has since closed. Both figures are correct at their own depth and lineage; the 560T number is the current one, and is what [CITATIONS.md](CITATIONS.md#mckenna-mckenna1975) carries.)* but NOT promoted to a formal C-rule, because it would be reverse-engineered from KW's specific value-1 placements; see [MCKENNA.md](MCKENNA.md) for the full peer-review-defensibility analysis.
+- **Statistical properties of King Wen vs random permutations** are documented in **[Chan 2026](CITATIONS.md#chan2026)** (arXiv:2604.09234) — Monte Carlo permutation analysis against 100,000 random baselines, reporting KW's higher-than-random mean Hamming distance (3.35 at 98.2nd percentile), negative lag-1 autocorrelation of Hamming distances (3.7th percentile), within-pair vs between-pair distance asymmetry (99.2nd percentile), yang-balanced groups of four (99.8th percentile), and surprise-distribution variance. Chan's research predates ROAE; where ROAE's findings overlap with Chan's (specifically: the mean-Hamming, lag-1 autocorrelation, and within/between-pair asymmetry observations) Chan's prior art is acknowledged.
+
+**What ROAE adds:**
+
+1. **Enumeration at scale, exact at its budget.** Under the conjoined **C1–C5** constraint system, ROAE's deepest published canonical counts **10,525,271,997** distinct orderings at a 560 trillion-node partial enumeration (d3 560T; sha `9a968fa2…` — see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); the 10T d3 canonical (**706,427,594**, `b85c8871…`) remains a smaller-scale reference anchor. Each count is exact at its budget and reproducible byte-identically across hardware and region — and, to our knowledge, enumeration at this scale had not previously been carried out, only estimated or approximated; corrections welcome. *(Corrected 2026-08-01: this bullet stated the flagship contribution at the 10T figure — understating the project's own deepest result ~15× — labelled the population "C1 + C2 + C3" (legacy shorthand for C1–C5; see [METHODS.md](../reports/METHODS.md)), and asserted the prior-art claim with no hedge while the three bullets around it were hedged.)*
+
+2. **Seven-family null-model framework.** Measures how other structured permutation families compare to KW's structural properties. Main finding: zero of 2,760,021,104 permutations across six unconditional families satisfy C1 (consistent with the theoretical rate of ~10⁻⁴⁴ for random permutations). *(Total corrected 2026-09-02, prose batch P43: this read 1.86 billion, the pre-10⁹ roster total, and contradicted the corrected figure this same page carries in §"What is genuinely special" above.)* For the de Bruijn and Gray code families, 0% is also proved analytically, not just observed. To our knowledge this is the first systematic null-model test of this scope for the KW structural constraints; corrections welcome.
+
+3. **C1 does most of the structural work.** A 10⁹-sample pair-constrained null (C1 guaranteed by construction) shows that given C1, the conditional C2 hit rate jumps from 0.18% (random) to 4.29% (a ~24× multiplier; the precise ratio is computed from the unrounded bases, 23.5×, and does not reproduce from the two rounded figures shown), and C3 from 0.003% to 6.42% (a ~2,100–2,300× multiplier; the precise 2,264× is computed from the unrounded bases and does not reproduce from the rounded figures shown; the C3|C1 rate is now exact — 6.4211367496%, `verify.py --check-null-g --unpinned`, MC-consistent). This quantifies what was previously intuitive: the pair structure is doing the heavy lifting; C2 and C3 are relatively modest additional filters.
+
+4. **C3 (complement-distance ceiling of 776) as a specifically quantified constraint.** Believed ROAE-original; if prior work exists, please see [CITATIONS.md](CITATIONS.md).
+
+5. **Mawangdui and [Jing Fang](CITATIONS.md#jingfang) 8 Palaces comparison** *(corrected 2026-07-05)*. Of four tested comparison orderings (Fu Xi, King Wen, Mawangdui, Jing Fang), **King Wen and Jing Fang's 8 Palaces (arrangement traditionally attributed to Jing Fang, 77–37 BCE; scored as linearized in [Nielsen 2003](CITATIONS.md#nielsen2003)'s printed palace order) satisfy C2** (zero 5-line transitions) despite Jing Fang failing C1 and C3. The authentic **Mawangdui silk-text ordering (168 BCE) does not**: it has exactly one 5-line transition, at the octet seam where its trigram-block construction resets (#48 Jing → #51 Zhen). An earlier version of this item reported that Mawangdui also satisfied C2 and inferred a "shared classical Chinese design principle" — that was computed on an erroneous Mawangdui array and is **withdrawn** (see CITATIONS.md errata; corrected array per [Shaughnessy 2022](CITATIONS.md#shaughnessy2022), Table 11.2).
+
+6. **Latin-square C2-rate decomposition.** The 8! × 8! Latin-square row × column traversal family has a surprisingly high C2 rate (57.96%). ROAE provides an analytic decomposition that reproduces this rate exactly from first principles: only 7 of 63 transitions in a Latin-square traversal can be 5-line, and the rate is controlled by the row-permutation's Hamming profile (Hamiltonian path in the 3-cube) combined with the column-permutation's first-last XOR. See [CRITIQUE.md §Latin-square C2-rate decomposition](CRITIQUE.md).
+
+7. **Partition Invariance theorem.** A formal guarantee ([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)) that the canonical solutions.bin sha256 is byte-identical across any choice of hardware, thread count, region, merge algorithm, or enumeration path — for fixed solver + input parameters. Cross-validated across the "4 corners": {Zen 4 F64 westus2, Zen 5 D128 westus3} × {external merge, in-memory heap-sort}.
+
+**Open questions this work surfaces:** see [CRITIQUE.md §Open questions](CRITIQUE.md). In brief: Costas arrays at order 64 remain untested (infeasible at 64! candidates); Latin-square's 57.96% C2 rate invites parallel analysis of whether KW's own adjacency geometry has an analogous within/between decomposition; whether any published order-64 Costas arrays accidentally satisfy C1+C2+C3 is a concrete follow-up.
+
+For full technical details, methodology, and reproducible commands, see [SOLVE.md](SOLVE.md) and [CITATIONS.md](CITATIONS.md).
+
+<a id="appendix-all-32-complement-pairs-by-distance"></a>
+## Appendix: All 32 complement pairs by distance
+
+Visualization of [Rule 3 (Complements stay close)](#rule-3). Each line shows the King Wen sequence with one complement pair highlighted. Sorted from closest (distance 1 — adjacent) to farthest (distance 47). The mean across all 32 pairs is 12.1.
+
+Close complement pairs (distance 1-7) are always in the same half of the sequence. Far complement pairs (distance 19+) always cross the midpoint. No exceptions. (Note: some distance groups show highlights on both sides — e.g., distance 6 has four pairs, two in the first half and two in the second. Each individual pair stays in its own half.)
+
+Multi-pair distances always come in groups of 2 (e.g., 5↔35 AND 6↔36). This is because complementation maps King Wen pairs to King Wen pairs: if A and reverse(A) form a pair, then complement(A) and complement(reverse(A)) also form a pair. So both members of one pair always point to members of the same other pair, at the same distance.
+
+Distance 1 (9 pairs):<br>
+<mark>**䷀䷁**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ <mark>**䷊䷋**</mark> ䷌䷍ ䷎䷏ <mark>**䷐䷑**</mark> ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ <mark>**䷚䷛**</mark> <mark>**䷜䷝**</mark> ䷞䷟ ䷠䷡ ䷢䷣ ䷤<mark>**䷥**</mark> <mark>**䷦**</mark>䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ <mark>**䷴䷵**</mark> ䷶䷷ ䷸䷹ ䷺䷻ <mark>**䷼䷽**</mark> <mark>**䷾䷿**</mark><br>
+Pairs: 1↔2, 11↔12, 17↔18, 27↔28, 29↔30, 38↔39, 53↔54, 61↔62, 63↔64
+
+Distance 3 (1 pair):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ <mark>**䷤**</mark>䷥ ䷦<mark>**䷧**</mark> ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 37↔40
+
+Distance 4 (2 pairs):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ <mark>**䷶䷷**</mark> ䷸䷹ <mark>**䷺䷻**</mark> ䷼䷽ ䷾䷿<br>
+Pairs: 55↔59, 56↔60
+
+Distance 5 (1 pair):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈<mark>**䷉**</mark> ䷊䷋ ䷌䷍ <mark>**䷎**</mark>䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 10↔15
+
+Distance 6 (4 pairs):<br>
+䷀䷁ ䷂䷃ ䷄䷅ <mark>**䷆䷇**</mark> ䷈䷉ ䷊䷋ <mark>**䷌䷍**</mark> ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ <mark>**䷲䷳**</mark> ䷴䷵ ䷶䷷ <mark>**䷸䷹**</mark> ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pairs: 7↔13, 8↔14, 51↔57, 52↔58
+
+Distance 7 (1 pair):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ <mark>**䷈**</mark>䷉ ䷊䷋ ䷌䷍ ䷎<mark>**䷏**</mark> ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 9↔16
+
+Distance 10 (2 pairs):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ <mark>**䷞䷟**</mark> ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ <mark>**䷨䷩**</mark> ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pairs: 31↔41, 32↔42
+
+Distance 14 (2 pairs):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ <mark>**䷒䷓**</mark> ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ <mark>**䷠䷡**</mark> ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pairs: 19↔33, 20↔34
+
+Distance 19 (1 pair):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘<mark>**䷙**</mark> ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ <mark>**䷬**</mark>䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 26↔45
+
+Distance 20 (2 pairs):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ <mark>**䷖䷗**</mark> ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ <mark>**䷪䷫**</mark> ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pairs: 23↔43, 24↔44
+
+Distance 21 (1 pair):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ <mark>**䷘**</mark>䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬<mark>**䷭**</mark> ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 25↔46
+
+Distance 25 (1 pair):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔<mark>**䷕**</mark> ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ <mark>**䷮**</mark>䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 22↔47
+
+Distance 27 (1 pair):<br>
+䷀䷁ ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ <mark>**䷔**</mark>䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮<mark>**䷯**</mark> ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 21↔48
+
+Distance 30 (2 pairs):<br>
+䷀䷁ ䷂䷃ <mark>**䷄䷅**</mark> ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ <mark>**䷢䷣**</mark> ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pairs: 5↔35, 6↔36
+
+Distance 45 (1 pair):<br>
+䷀䷁ ䷂<mark>**䷃**</mark> ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ <mark>**䷰**</mark>䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 4↔49
+
+Distance 47 (1 pair):<br>
+䷀䷁ <mark>**䷂**</mark>䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰<mark>**䷱**</mark> ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿<br>
+Pair: 3↔50
+
+<a id="appendix-all-63-transitions"></a>
+## Appendix: All 63 transitions in the King Wen sequence
+
+Every consecutive hexagram transition, showing the number of lines that change
+([Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance)).
+A distance of 5 never occurs — this is [Rule 2](#rule-2-no-5-line-jumps).
+
+The difference wave as a sparkline (each character = one transition, height = lines changed):
+
+`█▂▅▅▅▃▂▅▂▅█▂▂▅▂▂█▃▅▃▂▂▂▃▅▂█▂█▃▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅▅▁█▂▂▃▅▃▂▁█▃█`
+
+**The difference wave** — the sequence of Hamming distances read left to right:
+
+`6 2 4 4 4 3 2 4 2 4 6 2 2 4 2 2 6 3 4 3 2 2 2 3 4 2 6 2 6 3 2 3 4 4 4 2 4 6 4 3 2 4 2 3 4 3 2 3 4 4 4 1 6 2 2 3 4 3 2 1 6 3 6`
+
+**Transition counts:** 1: 2, 2: 20, 3: 13, 4: 19, **5: 0 (never)**, 6: 9
+
+| # | From | To | Distance |
+|--:|------|-----|:--------:|
+| 1 | ䷀ #1 | ䷁ #2 | 6 |
+| 2 | ䷁ #2 | ䷂ #3 | 2 |
+| 3 | ䷂ #3 | ䷃ #4 | 4 |
+| 4 | ䷃ #4 | ䷄ #5 | 4 |
+| 5 | ䷄ #5 | ䷅ #6 | 4 |
+| 6 | ䷅ #6 | ䷆ #7 | 3 |
+| 7 | ䷆ #7 | ䷇ #8 | 2 |
+| 8 | ䷇ #8 | ䷈ #9 | 4 |
+| 9 | ䷈ #9 | ䷉ #10 | 2 |
+| 10 | ䷉ #10 | ䷊ #11 | 4 |
+| 11 | ䷊ #11 | ䷋ #12 | 6 |
+| 12 | ䷋ #12 | ䷌ #13 | 2 |
+| 13 | ䷌ #13 | ䷍ #14 | 2 |
+| 14 | ䷍ #14 | ䷎ #15 | 4 |
+| 15 | ䷎ #15 | ䷏ #16 | 2 |
+| 16 | ䷏ #16 | ䷐ #17 | 2 |
+| 17 | ䷐ #17 | ䷑ #18 | 6 |
+| 18 | ䷑ #18 | ䷒ #19 | 3 |
+| 19 | ䷒ #19 | ䷓ #20 | 4 |
+| 20 | ䷓ #20 | ䷔ #21 | 3 |
+| 21 | ䷔ #21 | ䷕ #22 | 2 |
+| 22 | ䷕ #22 | ䷖ #23 | 2 |
+| 23 | ䷖ #23 | ䷗ #24 | 2 |
+| 24 | ䷗ #24 | ䷘ #25 | 3 |
+| 25 | ䷘ #25 | ䷙ #26 | 4 |
+| 26 | ䷙ #26 | ䷚ #27 | 2 |
+| 27 | ䷚ #27 | ䷛ #28 | 6 |
+| 28 | ䷛ #28 | ䷜ #29 | 2 |
+| 29 | ䷜ #29 | ䷝ #30 | 6 |
+| 30 | ䷝ #30 | ䷞ #31 | 3 |
+| 31 | ䷞ #31 | ䷟ #32 | 2 |
+| 32 | ䷟ #32 | ䷠ #33 | 3 |
+| 33 | ䷠ #33 | ䷡ #34 | 4 |
+| 34 | ䷡ #34 | ䷢ #35 | 4 |
+| 35 | ䷢ #35 | ䷣ #36 | 4 |
+| 36 | ䷣ #36 | ䷤ #37 | 2 |
+| 37 | ䷤ #37 | ䷥ #38 | 4 |
+| 38 | ䷥ #38 | ䷦ #39 | 6 |
+| 39 | ䷦ #39 | ䷧ #40 | 4 |
+| 40 | ䷧ #40 | ䷨ #41 | 3 |
+| 41 | ䷨ #41 | ䷩ #42 | 2 |
+| 42 | ䷩ #42 | ䷪ #43 | 4 |
+| 43 | ䷪ #43 | ䷫ #44 | 2 |
+| 44 | ䷫ #44 | ䷬ #45 | 3 |
+| 45 | ䷬ #45 | ䷭ #46 | 4 |
+| 46 | ䷭ #46 | ䷮ #47 | 3 |
+| 47 | ䷮ #47 | ䷯ #48 | 2 |
+| 48 | ䷯ #48 | ䷰ #49 | 3 |
+| 49 | ䷰ #49 | ䷱ #50 | 4 |
+| 50 | ䷱ #50 | ䷲ #51 | 4 |
+| 51 | ䷲ #51 | ䷳ #52 | 4 |
+| 52 | ䷳ #52 | ䷴ #53 | 1 |
+| 53 | ䷴ #53 | ䷵ #54 | 6 |
+| 54 | ䷵ #54 | ䷶ #55 | 2 |
+| 55 | ䷶ #55 | ䷷ #56 | 2 |
+| 56 | ䷷ #56 | ䷸ #57 | 3 |
+| 57 | ䷸ #57 | ䷹ #58 | 4 |
+| 58 | ䷹ #58 | ䷺ #59 | 3 |
+| 59 | ䷺ #59 | ䷻ #60 | 2 |
+| 60 | ䷻ #60 | ䷼ #61 | 1 |
+| 61 | ䷼ #61 | ䷽ #62 | 6 |
+| 62 | ䷽ #62 | ䷾ #63 | 3 |
+| 63 | ䷾ #63 | ䷿ #64 | 6 |
+
+---
+
+*Revision 2026-08-01 (lens-sweep adjudication, area q-methods-tr4): three wording corrections, no number or sha changed. (i) The page title read "How the King Wen Sequence Was **Built**" — a historical-process claim this page's own §"What we can and cannot say" explicitly disowns, and the most-liftable string on the page; it now reads "**Is Structured**". (ii) The opening contribution sentence claimed "**exhaustive** enumeration", refuted 138 lines below by "both enumerations are partial … the true count under exhaustive enumeration is unknown"; it now reads "budget-exact enumeration", and the §"What ROAE adds" bullet heading is retitled to match. (iii) §"An important caveat" concluded that "Rules **3-7** are not individually remarkable" while this page defines only Rules 1-5 (C6/C7 are named once, never numbered or defined here); it now names the three properties that test actually extracts — complement distance, starting pair, transition counts (Rules 3, 4, 5).*
+
+*Revision 2026-07-22 (C3 scope-consistency sweep): the 3.9th-percentile figure is now labeled at its measured scope — orderings satisfying every constraint except C3 itself (C1+C2+C4+C5; earlier text said "C1-only") — and §Rule 3 gained an exact reference baseline for the ~10% ceiling-tie figure (`verify.py --check-null-g`: tie share 7.86% under the bare pair-slot null; a baseline, not a refutation — the populations are not like-for-like). No counts or shas changed.*
+
+*Revision 2026-08-01 (lens sweep — C3 percentile flag): the 3.9th-percentile complement-distance figure is **flagged and withdrawn from citation**. It is a statistic of the 13,296-ordering `solve.py` differential slice, whose stated range [11.75, 14.5] cannot be the range of C1+C2+C4+C5 — the strictly smaller C1–C5 canonical contains orderings at cd = 6.125 — and the suite's own ledger gives 1.3287×10³⁸ / 1.097051×10³⁹ ≈ **12%** at that scope. The 2026-07-22 scope correction above fixed the figure's *label*, not the figure. Authoritative statement of the flag, and the measurement that would settle it: [SOLVE.md](SOLVE.md) §Rule 3. No canonical count, sha, or theorem changed.*
+
+*Revision 2026-08-02 (the last surviving blanket-verifiability over-claim; registry key `RP-a823340f`): §"The story continued" closed on a one-line assertion that all four of its bullets were machine-verifiable. One of them is TR-9's bit-ledger — the result [reports/README.md](../reports/README.md) itself describes as "judgment-dependent by construction" — so the sentence was false in exactly the way the eleven report covers' banner was before `14d8751` retired it. It was stated in different words and so was invisible to the gate written for the covers; a repo-wide sweep confirms this was the last instance of the class. Replaced with the covers' own formulation — measured results carry a reproduction command, machine-checked proofs name their certificate — plus the explicit exception for the bit-ledger and TR-9's stated range. The retracted wording is now in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) so it cannot return; it is cited here by key rather than quoted, per that registry's convention. No number, count, sha or theorem changed.*
+
+*Revision 2026-08-06 (counting-unit label pass, UNASKED-2 batch): §"The numbers at a glance" gained an explicit units note — the funnel table mixes raw orientation-explicit arrangement counts (steps 0–1), fractions (steps 2–4), and orientation-deduplicated canonical-record counts (step 5's budgeted figures) against a raw layer estimate in the same cell. The note flags the legacy presentation and points at [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Deduplication, [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md), and the exact record↔sequence converter ([VERIFY.md](VERIFY.md) `--fiber-sweep`). No number changed — the defect was unstated units, not wrong values.*
+
+*Revision 2026-08-20 (C6/C7 defined, prompted by an operator question): this page cited "both legacy adjacency constraints (C6+C7)" and their 0.0018% satisfaction rate while never defining, numbering, or locating C6 and C7 anywhere on the page — a gap its own 2026-08-01 revision note had already recorded. A new §"Why there is no Rule 6 or Rule 7" defines them as boundary constraints (C6 pins pairs 27–28, C7 pairs 25–26), states that they were selected by search rather than discovered, and gives the reason they are not promoted into the Rule 1–5 ladder: [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) prices them at 21.3 bits bought against ~20.6 bits to state — data-like and net ≈ 0 — while noting they are still logically independent of Rules 1–5 (×2.55×10⁶ cut). No count, sha, or theorem changed.*
+
+*Revision 2026-08-21 (pre-review self-hardening pass): the new C6/C7 section said "sequence positions 27 and 28 / 25 and 26" — ambiguous between pair slots and hexagram positions (README states the same constraints as hexagram positions 53–56 / 49–52). It now says "pair slots" and gives both unit systems. No count, sha, or theorem changed.*
+
+*Revision 2026-09-03 (hardening lane, Q-330 rider): the pairing paragraph read "For 4 symmetric hexagrams that look the same upside down" and then listed **eight** glyphs. There are 8 hexagrams that are their own 180° rotation — the 6-bit palindromes 0, 12, 18, 30, 33, 45, 51, 63 (`solve.py`'s own comment says 8) — and they form **4** complement-fallback pairs, which is where the 4 came from. The sentence contradicted its own list. Count corrected, the pairing restated; no rule and no figure changes. `solve.py`'s three matching comments already said 8 and were not touched. Charged by Codex T04.*

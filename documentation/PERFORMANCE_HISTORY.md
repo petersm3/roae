@@ -2,7 +2,23 @@
 
 Empirical log of every perf-relevant change to `solve.c`: improvements AND regressions, with hypothesis, methodology, paired-bench numbers, sha gate, and ship decision. The narrative for the project's "how did solve.c get from v1 to where it is today" presentation lives here.
 
-This log is **append-only**. Entries are chronological. Older entries are not edited even when later understanding contradicts the original interpretation — re-evaluations append a new entry referencing the older one.
+This log is **append-only**. Older entries are not rewritten to make them correct when later understanding
+contradicts the original interpretation — re-evaluations append a new entry referencing the older one, and the
+superseded passage carries a dated `⚠ Correction` marker pointing at it. Those markers, this header, and the
+occasional relabelling of a figure whose own table contradicts it are the only in-place edits the contract
+permits; every one of them is dated and states what it changed and why, so the original reading stays
+recoverable. A silent edit is a contract violation.
+
+Entries are **approximately, not strictly, chronological**. They are ordered by when they were written, and one
+entry is knowingly out of date order: `2026-05-16 — task #68` sits ahead of `2026-05-11 — task #70` because #68
+opens the v2 prune ladder that #70 refines. Read the date in each header, not the file position.
+
+> **Access boundary.** Entries cite per-change writeups, bench scripts, and raw bench data in
+> `roae-private`, the project's private staging repository, which is not publicly accessible. Those
+> citations are provenance pointers, not evidence a reader can fetch: a perf figure whose only cited
+> support is a `roae-private` file is operator-attested (disclosable to an auditor, not checkable
+> from this repository alone). The sha gates named in entries are the public leg — they are
+> reproducible from this repository per [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 
 ## Why this exists
 
@@ -53,7 +69,61 @@ Required fields: hypothesis, methodology, enum_wall, sha-gate, decision. Optiona
 
 ## Standard bench harness
 
-The standardized paired-bench script lives at `scripts/perf_bench.sh`. It captures the schema fields above, runs on a single fresh D128als_v7 Spot in westus3, page-cache flushes between paired runs, and emits a JSON line that pastes directly into a new entry. Any new perf entry should be produced by `perf_bench.sh` or document why it deviates from the standard methodology.
+The standardized paired-bench script lives at `scripts/perf_bench.sh`. It captures the schema fields above,
+provisions a fresh Spot VM in westus3, runs a pure-CPU preflight throttle probe, flushes the page cache between
+paired runs (both verified and both gating — a run without `HEALTHY` and `CONFIRMED` verdicts cannot certify
+itself), takes `sha` and `records` over the decompressed stream, and emits a JSON line that pastes directly
+into a new entry. Any new perf entry should be produced by `perf_bench.sh` or document why
+it deviates from the standard methodology.
+
+**What the harness actually does — corrected 2026-08-30.** The paragraph above previously said the script "runs
+on a single fresh D128als_v7 Spot in westus3, page-cache flushes between paired runs". Checked against the
+script at this commit, that overstates it on three counts, and the JSON it emits is not self-certifying:
+
+- **The SKU is per scale, not fixed.** 1B runs on `Standard_D8als_v7`; 1T and 11.2T run on
+  `Standard_D128als_v7` (`scripts/perf_bench.sh:60-62`). Per-scale SKU selection is fine — but it means a bench
+  is comparable only to another bench at the same scale, and no entry below should be read as pairing numbers
+  across scales.
+- **The page-cache flush is now verified, and was not before 2026-09-02.** *(Fixed 2026-09-02, code lane.)*
+  The flush used to end `|| true` with the JSON emitting `"page_cache_flushed": true` as an unconditional
+  literal — a bench that never flushed shipped certified-looking JSON. The script now reports what it
+  observed: each build emits a whole-line verdict token
+  (`PERFBENCH_PAGE_CACHE_FLUSHED_{N,U}=CONFIRMED|FAILED|UNVERIFIED`), the JSON carries
+  `"page_cache_flushed"` as that status plus a per-build `page_cache_flush_detail`, and a run whose flush
+  is not `CONFIRMED` for **both** builds sets `"methodology_valid": false`, prints a red banner, emits
+  `PERF_BENCH_METHODOLOGY=VIOLATED` and exits 3. Absence of a token — an aborted or unreachable run —
+  reads as `UNVERIFIED`, not as a pass. **`page_cache_flushed: true` in any entry dated before 2026-09-02
+  still asserts nothing**, because those entries were produced by the unconditional-literal version; do not
+  read them as evidence the cache was cold.
+- ~~**There is no preflight throttle probe or pure-CPU burn-in in the script**~~ **Landed 2026-09-02** *(code lane;
+  this bullet previously said the script carried only a comment referring to the rule)*. After the build and
+  **before any bench**, the script runs `yes > /dev/null` on every core for `--burn-seconds` (default 60,
+  floor 30), samples per-core MHz at the *end* of the burn, and requires the minimum to be
+  `>= --throttle-min-mhz` (default 3664, the AVX-512 definitive-bench precedent for D128als_v7; the default
+  applies at every `--scale`, including the D8als_v7 1B smoke, unless overridden). The 2026-05-18 entry below
+  (§"Important methodological finding — `/proc/cpuinfo` MHz under solve.c load is NOT a throttle indicator")
+  is why the burn is pure-CPU and precedes the workload. The verdict is a whole-line token,
+  `PERFBENCH_THROTTLE_PROBE=HEALTHY|THROTTLED|UNVERIFIED`, with a `PERFBENCH_THROTTLE_DETAIL=` line carrying
+  min/avg/max MHz, sample count and threshold; anything but `HEALTHY` — a throttled host, an unreadable MHz
+  source, a burn shorter than the floor, or no token at all — tears the VM down before the bench, emits
+  `PERF_BENCH_METHODOLOGY=VIOLATED` and exits 5. The JSON carries `"throttle_probe"` and
+  `"throttle_probe_detail"`, and `"methodology_valid"` now requires `HEALTHY` as well as both flushes
+  `CONFIRMED`. **Entries dated before 2026-09-02 still carry no throttle evidence from the harness** — only
+  those whose operator ran the burn separately and recorded it in the entry do, and several below did.
+- **`sha` and `records` are logical since 2026-09-02, and were container-level before.** `solutions.bin` is
+  gz-framed by default (SOLUTIONS_FORMAT.md §"On-disk framing"), and the script used to run
+  `sha256sum solutions.bin` — the sha of the compressed *container*, which varies with zlib version and level
+  and is the substance of every documented phantom-drift false alarm — and to derive `records` from the
+  container size, a fictional count. It now sniffs the gzip magic and takes both over the decompressed stream
+  (`gzip -dc solutions.bin | sha256sum`, the convention of every anchor in CANONICAL_HASHES.md), reports the
+  container sha separately as `container_sha`, prints a `framing` field (`gzip` / `raw` / `absent`), and a
+  failed decompression yields `sha=DECOMPRESS-FAILED` rather than a hash of partial bytes. **A harness `sha`
+  in any entry dated before 2026-09-02 is a container sha and is not comparable to any anchor.**
+
+All three halves of the 2026-08-30 correction — the flush verdict, the throttle probe, and the logical sha —
+landed 2026-09-02. This paragraph previously read "the preflight throttle burn has not"; that is no longer
+true of the script, and it remains true of every entry produced before that date, which is why this section
+stays: no entry below is to be read as certifying conditions the harness did not check *at the time it ran*.
 
 ## Process gate
 
@@ -81,6 +151,19 @@ Convert the DFS hot-loop's "remaining pair pool" from `int used[32]` linear-scan
 ### Result
 - Per-thread node rate before (commit `61db6be`, pre-#72): 263 M/sec
 - Per-thread node rate after (commit `2cf8771`, ships): 286 M/sec
+
+> **⚠ Correction (2026-08-30):** the two node rates above are **aggregate** rates across **128 threads**, not
+> per-thread rates, and the bench was a **90-second timed run**, not the "paired 1B-node bench, single-thread"
+> measurement described under Methodology above. The same 263 / 286 M/sec appear in `HISTORY.md` §"Measured speedup: 1.09× over v1" explicitly labelled "Aggregate
+> node-rate at 90s", measured under `SOLVE_THREADS=128 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=11200000000000` on
+> D128als_v7 Spot. The labels are irreconcilable and the aggregate reading is the correct one: read as
+> per-thread, 128 × 263 M/sec = 33.7 B nodes/sec would finish the 11.2T canonical in ~5.5 minutes, which no run
+> record in this project supports; read as aggregate it is ~2.05 M/sec/thread and ~11.8 h at 11.2T, which the
+> run records do support. **The 1.09× ratio and the +8.7% below are unaffected** — the defect is in the units,
+> not in the comparison, and both figures were taken the same way. Later entries that cite "+8.7% per-thread"
+> for #72 (the summary table, the 1T retrospective, the keep-it recommendation) inherit the wrong label but
+> quote the correct percentage. See the 2026-08-30 re-evaluation entry at the end of this file.
+
 - Ratio: **1.09×** (at low end of audit's 1.1–1.5× prediction)
 - output sha: unchanged (sha-preserving)
 
@@ -182,11 +265,20 @@ Sharpen #67's predicate: `partial_cd + 2 × count_of_unfinished_complement_pairs
   | v1 + C5 (#68) | 228,990 (+68.6%) | `47dac6cb…` |
   | v1 + C5 + #67 | 234,252 (+72.5%) | `98b8c0ef…` |
   | **v1 + C5 + #67 + #70** | **235,083 (+73.1%)** | `56487ab5…` ← current v2 selftest |
-- **#70 marginal contribution at 100M: +831 records over #67 alone (+0.35%)**
+- **#70 marginal contribution at 100M: +831 records over v1+C5+#67 (+0.35%)**
 
-### Delta vs baseline (#67 alone, same 100M budget)
-- records/budget: **+0.35%** marginal at 100M
+### Delta vs baseline (v1 + C5 + #67, same 100M budget)
+- records/budget: **+0.35%** marginal at 100M, measured on top of the full v1+C5+#67 stack
 - sha forked again: `98b8c0ef…` → `56487ab5…`
+
+> **⚠ Correction (2026-08-30):** the three lines above originally named the baseline "#67 alone". Relabelled in
+> place as a disclosed correction, because the ladder table directly above makes the arithmetic explicit:
+> 235,083 − 234,252 = 831 is (v1+C5+#67+#70) − (v1+C5+#67), i.e. **#70 measured on top of C5**, not on top of
+> #67 by itself. Recomputed here: 831 / 234,252 = 0.355%. The configuration the old label described —
+> `v1+#67+#70`, #70 *without* C5 — appears nowhere in this entry or anywhere else in this log: **it was never
+> run.** Do not bank +0.35% as #70's standalone contribution; it is a marginal gain on top of an already-pruned
+> stack, and marginal gains on a prune ladder do not carry over to a different stack. See the 2026-08-30
+> re-evaluation entry at the end of this file.
 
 ### Sha gate
 - result: PASS via L_v1 ⊆ L_v2 (0 v1-missing records in v2+#67+#70 output)
@@ -218,7 +310,20 @@ Link-Time Optimization enables cross-translation-unit inlining and dead-code eli
 - sha: no change (pure compiler optimization)
 
 ### Sha gate
-- result: PASS by definition (compiler optimization, no semantic change)
+- result: PASS (measured — output sha byte-identical between the no-LTO and LTO builds, as recorded under
+  Result above; the scale and exact bench parameters were not recorded — see Notes)
+
+> **⚠ Correction (2026-08-30):** this line originally recorded the gate as passing *by definition*, on the rationale that a compiler
+> optimization makes no semantic change. **That rationale is withdrawn**; the line now cites the measured
+> equality it should always have cited. Budgeted shas in this solver are demonstrably sensitive to non-semantic
+> layers: `CANONICAL_HASHES.md` §"100B and sub-canonical reference shas" records commit `d683794` — a diff that
+> is 100% resume-gated assertions plus new subcommand handlers, none of it reachable from the fresh-enum DFS
+> path — flipping the 100B sha, and concludes "You cannot predict from source-reading whether a commit will flip
+> 100B sha — only empirically"; `HISTORY.md` §"Task #110" records the 1T anchor drift as host-environment-level
+> and budgeted-cell-density-sensitive. **The +2.53% and the byte-identical sha stand exactly as measured** — only
+> the epistemics are corrected. Every optimization-flag change measured in this log to date has in fact
+> preserved the sha; that is an empirical record, not a definitional guarantee, and it is why a sha gate is run
+> rather than reasoned. See the 2026-08-30 re-evaluation entry at the end of this file.
 
 ### Notes
 Modest but free win. Added to the canonical build recipe: `gcc -O3 -flto -pthread -fopenmp -march=native`. Backfilled from operator memory entry `feedback_canonical_pipeline_pattern`; exact bench parameters not recorded in HISTORY.md.
@@ -239,6 +344,14 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 - **Phase 1a REVERT (commit `b26cd9b`)**: post-bench disassembly under canonical build flags (`-O3 -march=native`) revealed gcc 13.3 already auto-vectorizes `compute_comp_dist_x64` to AVX-512: 5× `vmovdqa32`, 4× `vpermd`, 4× `vpabsd`, 4× `vpsubd`, 7× `vpaddd`. The "scalar" code was already SIMD'd by the compiler. The hand-written dispatch added overhead (loss of inlining + per-call dispatcher branch) with no algorithmic gain.
 - **v8 retry definitive bench (commit `0783d52`)**: 5 paired interleaved trials of `solve_avx2` (`-mno-avx512f -mno-avx512bw -mno-avx512vpopcntdq`) vs `solve_avx512` (`-march=native`, autovec emits AVX-512) at 1T enum-only, D128 healthy host (preflight probe confirmed min 3664 MHz under 60s 128-thread burn — no throttle).
 
+> **⚠ Correction (2026-08-30):** the three commits this entry rests on — `cd4e61c`, `b26cd9b`, `0783d52` — are **not present in the shipped
+> repository**: `git cat-file -t` fails on each with "Not a valid object name". Per the Access boundary at the
+> top of this file, everything below sourced from those commit bodies is therefore **operator-attested**:
+> disclosable to an auditor from the private staging record, not checkable by a reader of the public repository.
+> "Verified from commits … bodies" describes how the operator verified these figures, not a check a reader can
+> repeat here. The v8 retry's paired timings and the null result itself are unaffected by this — only their
+> public checkability is.
+
 ### Result (verified from commits `b26cd9b` and `0783d52` bodies)
 - **Phase 1a dispatch**: 2.7% **SLOWER** than baseline scalar (loss-of-inlining + dispatcher overhead)
 - **v8 retry 1T paired bench**: AVX2 mean 433.0s, AVX-512 mean 434.6s → **0.9963× ≈ statistically zero**
@@ -258,7 +371,24 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 
 **ARM implication (refutes the original SVE2-parity-required framing)**: with AVX-512 confirmed as ~zero contributor, the SIMD-width gap between x86 (512-bit) and ARM Neoverse (NEON 128-bit / SVE2 256-bit) is NOT a performance concern for this workload. ARM-vs-x86 reduces to scalar IPC + branch prediction + memory subsystem. NEON-only pilot is sufficient; SVE2 parity is not required. #83 (ARM pilot) scope reduced accordingly.
 
-**Stale references corrected**: HISTORY.md April 2026 plan section now carries a `[REFUTED 2026-05-16]` callout against the 1.4–2.0× projection. Task #82 ("HARDWARE_CPU_COMPARISON.md doesn't exist") was marked stale because the AVX-512 numbers actually live across commits `b26cd9b` and `0783d52` rather than the conjectured doc.
+**Stale references corrected**: HISTORY.md April 2026 plan section now carries a `[REFUTED 2026-05-16]` callout against the 1.4–2.0× projection.
+
+> **⚠ Correction (2026-08-30):** **that callout is not there.** Checked at this commit: `grep -n "REFUTED 2026-05-16" documentation/HISTORY.md`
+> returns exactly one line — `HISTORY.md:3310` — and that line is this same *claim* that the callout is "already
+> in place", not a callout. The unqualified 1.4–2.0× projections still stand unmarked at `HISTORY.md:1510-1514`
+> ("Speedup ceiling revised upward to **1.4–2.0× total runtime**") and at `HISTORY.md:2610` ("Plan expects
+> 1.4-2.0× per the implementation doc"). Searching for the bare token "REFUTED" near both sites finds nothing
+> either. This is the failure mode of a document asserting a marker it never supplied — a reader who trusts the
+> sentence above never goes looking.
+>
+> **✅ RESOLVED 2026-09-02 (prose batch P64).** Both callouts now exist. The line numbers had drifted —
+> the figures are at `HISTORY.md:1521` and `:2628`, not `:1510-1514` and `:2610` — and were located by
+> content rather than by number. A third occurrence sits inside the refutation narrative itself and
+> correctly needs no callout. **The correction above is left standing, not rewritten:** it was true when
+> written, and deleting it would erase the 3.5-month interval during which this file asserted a marker
+> that did not exist. That interval is the finding. Adding the two callouts edits `HISTORY.md` and is tracked outside this
+> document; **until they land, treat the sentence above as not yet true.** The null result it points at is
+> sound — it is the cross-reference that is missing. See the 2026-08-30 re-evaluation entry at the end of this file. Task #82 ("HARDWARE_CPU_COMPARISON.md doesn't exist") was marked stale because the AVX-512 numbers actually live across commits `b26cd9b` and `0783d52` rather than the conjectured doc.
 
 Cost of the bench: ~$10 (preflight + 5 paired trials on D128 Standard on-demand, ~80 min total).
 Archive: `canonical-archive/20260516_modern_v1_1T_AVX512_quant_ENUM_ONLY_RETRY_3258f4c/`.
@@ -326,6 +456,17 @@ With v2 prune stack (#67 + #68 + #70 + #72) shipped and #71 reverted, re-run the
 ### Notes
 This is the cumulative-v2 anchor. Per-prune contribution to the +4.83% isn't isolated by this run — it's the bundled effect. The +4.83% at 11.2T is much smaller than the +104% at 100B observed for #68 alone — diminishing returns at scale, predicted in the v2 design docs and confirmed empirically. v2 advantage at 100T+ is expected to be ~1-2% (well below the v1 baseline difference at small scales).
 
+> **⚠ Correction (2026-08-30):** **that expectation was measured and falsified.** The v2 100T canonical
+> (`cc4a5377199f0710c99406c6e82e44f311ef34b2e53b152d67f5d0fcd2ace091`, 3,663,580,914 records) came in at
+> **+231,181,617 records = +6.74%** over v1 100T's 3,432,399,297 — recomputed here: 231,181,617 / 3,432,399,297
+> = 6.735%. See `CANONICAL_HASHES.md` §"v2 lineage — CLOSED 2026-05-24" (v2 100T details) and `HISTORY.md`'s v2
+> 100T result, which says outright that the figure is "much larger than the '~1-2% diminishing returns'
+> extrapolation … had predicted. The v2 prune stack retains substantive uplift at 100T depth, not saturation."
+> The measured scaling is +4.83% at 11.2T → **+6.74% at 100T**: the advantage **grew** with depth, it did not
+> decay. `CANONICAL_HASHES.md` was corrected at the time; this log was not, until now — which is exactly the gap
+> the append-only contract's re-evaluation rule exists to close. **The +4.83% at 11.2T and the +104% at 100B
+> above are measured and stand**; only the forward extrapolation was wrong. See the 2026-08-30 re-evaluation entry at the end of this file.
+
 Detailed writeup in `roae-private/V2_11_2T_LESSONS_LEARNED_2026_05_17.md` and HISTORY.md.
 
 ---
@@ -342,7 +483,7 @@ gcc's `-fprofile-generate` / `-fprofile-use` enables hot-path-specific code-layo
 ### Methodology
 - Paired bench (Build N control vs Build U PGO-use) at three commit reference points:
   - 1B-node smoke test (D8als_v7 Spot westus3, --branch 25 1, depth-3, iterative, 8 threads) — captured in `/tmp/pgo_pilot_results/`
-  - 1T enum-only (D128als_v7 Spot westus3, --branch 24 0, depth-3, iterative, 128 threads, page-cache flush between paired runs, SOLVE_SKIP_AUTOMERGE=1) — **COMPLETE**; final accounting in "Result — 1T enum-only (D128als_v7), final accounting" below. ⚠ Build C's output sha was LOST (its merge failed twice on a 64 GB OS disk), so the sha-equality claim at 1T rests on the 1B smoke test, not on this run.
+  - 1T enum-only (D128als_v7 Spot westus3, --branch 24 0, depth-3, iterative, 128 threads, page-cache flush between paired runs, SOLVE_SKIP_AUTOMERGE=1) — completed; final accounting under "Result — 1T enum-only (D128als_v7), final accounting" below
 - Build N: `-O3 -flto -pthread -fopenmp -march=native`
 - Build U: `... -fprofile-use=$PROFDIR -fprofile-correction` (profile data from selftest + 200M-node `--branch 25 1`)
 - Page-cache flushed between paired 1T runs via `sync && echo 3 | sudo tee /proc/sys/vm/drop_caches`
@@ -596,7 +737,15 @@ The v2 prune stack (#67 mid-walk C3, #68 C5 feasibility, #70 C3 optimistic-compl
 
 ### Per-prune attribution — three findings
 
-1. **#68 (C5 feasibility) is the workhorse — 24-27× more impactful than #67 across all scales.** Same ranking at every scale; consistent across 1000× budget variation.
+1. **#68 (C5 feasibility) is the workhorse — ≈14-37× more impactful than #67 depending on scale (24-27× at
+   1B-10B).** Dominant at every scale; same ranking at every scale, consistent across 1000× budget variation.
+
+   > **⚠ Correction (2026-08-30):** this finding originally read "24-27× … across all scales", which the table directly above it
+   > contradicts. Recomputed from that table: 68.6/1.86 = **36.9×** (100M), 80.4/3.36 = **23.9×** (1B),
+   > 90.2/3.39 = **26.6×** (10B), 104.4/7.22 = **14.5×** (100B) — a ≈14.5-36.9× spread, more than 2.5× wide,
+   > with only the two middle scales falling inside 24-27×. The range is relabelled in place as a disclosed
+   > correction because a claim its own table refutes cannot be left standing as the reader's takeaway.
+   > **"Same ranking at every scale" was and remains true**, and the table itself is untouched. See the 2026-08-30 re-evaluation entry at the end of this file.
 2. **#67 (mid-walk C3) is 86-95% redundant with #68.** Canonical-set intersection analysis at 1B and 10B:
    - At 1B: C3 adds 20,399 records, of which 17,575 (86%) are also added by C5 alone. C3 uniquely contributes 2,824 records.
    - At 10B: C3 adds 89,743 records, of which 85,373 (95%) are also added by C5 alone. C3 uniquely contributes 4,370 records.
@@ -619,7 +768,31 @@ Multiple variants reproduced previously-registered shas, validating methodology:
 ### Why the gap grows sub-canonical, then collapses
 
 - v2's record-count advantage over v1 GROWS with budget at sub-canonical scales (+73% at 100M → +122% at 100B), then COLLAPSES to +4.83% at 11.2T canonical.
-- Interpretation: at unlimited budget, v1 enumerates all records reachable under its (weaker) predicate. v2 enumerates the strictly larger set reachable under its (tighter) predicate. The +4.83% at canonical is v2's "real" solution-set expansion. At budget-limited scales, v1 has only explored a fraction of its predicate's space, so v2's tighter prune yields proportionally MORE records by freeing budget earlier — a transient advantage that dominates until budget approaches predicate-exhaustion.
+- Interpretation: both v1's and v2's prune predicates are **sound** — neither drops a valid leaf — so both
+  search the same tree of valid orderings and reach the same set at the limit: **v1(∞) = v2(∞) = v3(∞)** = the
+  complete set of C1-C5 canonical orderings. What differs is **rate of convergence per node**: v2's more
+  aggressive dead-branch pruning reaches records in fewer node visits. Every column in the table above,
+  including the 11.2T "canonical" one, is a **budgeted** slice of that one shared limit set, so +4.83% at 11.2T
+  is the budgeted-slice delta at 11.2T — not a larger solution space. At sub-canonical budgets v1 has explored a
+  much smaller fraction of the shared tree, so v2's earlier budget-freeing yields proportionally MORE records;
+  the gap narrows as budgets grow because both lineages converge on the same limit.
+
+  > **⚠ Correction (2026-08-30):** this bullet originally reversed the repository's own semantics: it read the unlimited-budget regime as v1
+  > and v2 exhausting *different* predicates, and called the 11.2T +4.83% v2's "real" extra solutions. That is
+  > wrong on three counts and is contradicted by `CANONICAL_HASHES.md` §"v2 lineage — CLOSED 2026-05-24":
+  > "v2's 'extra' records are NOT mathematically unreachable to v1 or v3 … At the limit,
+  > v1(∞) = v2(∞) = v3(∞) = the complete set of all C1-C5 canonical orderings." (i) v2's additions come from
+  > **sound prunes** (#68/#67/#70, per this entry's own ladder), and a sound *tighter* prune cannot enlarge the
+  > exhaustion-limit set — it can only reach the same set sooner; (ii) the 11.2T "canonical" is itself BUDGETED
+  > in every cell (`CANONICAL_HASHES.md` §"100B and sub-canonical reference shas": every realistic scale, 100B
+  > through 560T, hits BUDGETED per cell), so +4.83% is the same finite-budget convergence-rate effect the
+  > original text assigned to the unlimited-budget regime; (iii) this entry's own sha gate verifies record-set
+  > **inclusion** — zero v1 records absent from v2 — which is a convergence-rate result, not a difference in what
+  > either lineage accepts. Rewritten in place as a disclosed correction: left standing, it would have a reader
+  > choose a lineage on a "larger solution space" premise the project's canonical doc explicitly denies.
+  > **The measured table above is untouched** — only its interpretation was wrong. Read the "crossover budget"
+  > bullet below in the same corrected light: there is no change of regime, only a gap that narrows as both
+  > lineages converge. See the 2026-08-30 re-evaluation entry at the end of this file.
 - The crossover budget (where v2's advantage drops from the sub-canonical regime into the unlimited-budget regime) sits between 100B and 11.2T. We did not measure intermediate points — would have required 1T+ benches, blocked by single-threaded in-memory merge bottleneck at 70M+ records.
 
 ### Implications for next prune candidates
@@ -896,7 +1069,19 @@ v1 1T: 5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52
 v3 1T: 5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52
 ```
 
-**Byte-identical match.** Second empirical sha-preservation data point after Phase 11 Build A's 11.2T `0c0fe37c…` match. PGO not applying is irrelevant to sha — sha is determined by prune predicates, not optimizer branch hints.
+**Byte-identical match.** Second empirical sha-preservation data point after Phase 11 Build A's 11.2T
+`0c0fe37c…` match. PGO not applying did not change the sha here — the v1 and v3 1T shas printed above are
+byte-identical. Every optimization-flag change measured in this log to date has preserved the sha; that is an
+empirical record, not a guarantee that optimizer decisions cannot reach the sha.
+
+> **⚠ Correction (2026-08-30):** this sentence originally read "sha is determined by prune predicates, not optimizer branch hints", which is
+> an unsupportable universal in a solver whose canonical runs are BUDGETED in every cell. `CANONICAL_HASHES.md`
+> §"100B and sub-canonical reference shas" documents a DFS-neutral commit (`d683794`) flipping the 100B sha via
+> exactly this route — compiler layout perturbing OpenMP scheduling — and states the rule: "You cannot predict
+> from source-reading whether a commit will flip 100B sha — only empirically." Reworded to the measured claim.
+> **The byte-identical 1T match above stands as measured**, and it remains a genuine sha-preservation data
+> point; what is withdrawn is the reasoning that made such a gate look unnecessary. See also the 2026-05-13 LTO
+> entry's correction marker, and see the 2026-08-30 re-evaluation entry at the end of this file.
 
 ### PGO did NOT operate — direct evidence
 
@@ -917,6 +1102,16 @@ Under `-flto`, the GCC LTO recompile step embeds the output binary's basename in
 Three-part hardening landed to make this class of bug structurally impossible:
 
 1. **`scripts/build_pgo.sh`** — canonical PGO build helper. Builds both passes to the SAME output name (renames after Pass 1), so the `.gcda` lookup key matches. Asserts `.gcda` file count > 0 between passes. Adds `-Werror=missing-profile` on Pass 2.
+
+   > **⚠ Correction (2026-08-30):** **as of 2026-08-30 this helper can no longer build `solve.c`.** Both of its link lines — Pass 1 at
+   > `scripts/build_pgo.sh:77-78` and Pass 2 at `:128-130` — end in `-lm` with no `-lz`, but `solve.c:317` has
+   > included `<zlib.h>` since #169, and its own comment there says "link with `-lz`" (`DEVELOPMENT.md` marks
+   > `-lz` mandatory in the canonical recipe too). Running the script's exact Pass-1 command against `solve.c`
+   > at this commit fails at link: rc=1, undefined references to `gzclose`, `gzfread` and friends. The
+   > `-Werror=missing-profile` safety described above is real and remains the right design — the helper simply
+   > was not kept in step with `solve.c`'s dependencies. Adding `-lz` to both link lines edits
+   > `scripts/build_pgo.sh` and is tracked outside this document; **until it lands, this entry is not a working
+   > reusable PGO recipe.** See the 2026-08-30 re-evaluation entry at the end of this file.
 2. **`scripts/perf_bench.sh`** — same discipline applied inline (runs over SSH so can't easily source the helper).
 3. **`documentation/DEVELOPMENT.md`** — PGO bullet now points at `scripts/build_pgo.sh` as the build invariant.
 
@@ -1155,6 +1350,21 @@ The +9.2% headline is retracted as a forward-looking claim. The records-per-doll
 - Unmodified c72eada's 1T sha: `74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327` (IDENTICAL — #108 confirmed sha-equivalent to current main HEAD at 1T)
 - Note on anchor drift: this `74d39760…` is NOT the 2026-05-24 v3 BRANCH 1T anchor `5a0f0bc24eb9…`. The drift was introduced by one or more of the 7 hardening commits between `9f10f05` (v3 reset) and `c72eada` (current main HEAD), via the same LTO-layout mechanism #99 100B bisect identified for `d683794`. #108 is innocent of this drift; the drift is in `c72eada` itself. See `project_1T_anchor_drifted_c72eada` (private memory) + `V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md` (private docs).
 
+  > **⚠ Correction (2026-08-30):** **the attribution in the bullet above was refuted by the project's own follow-up and is withdrawn.** Task
+  > #108's drift investigation, recorded in `HISTORY.md` §"May 27/28, 2026 UTC — Task #110 Tier 1
+  > canonical-determinism hardening" (and in private memory `project_1T_anchor_drifted_c72eada`), established
+  > that the 1T drift `5a0f0bc2…` → `74d39760…` is **host-environment-level** — gcc/glibc/kernel patch
+  > versions, ASLR seed, CPU microcode revision — **not source-level**. Two specific legs of the bullet above
+  > are dead: **the 7 hardening commits between `9f10f05` and `c72eada` were empirically exonerated**, and
+  > **LTO was empirically ruled out as the mechanism** (`-fno-lto` reproduced `74d39760…` exactly, and
+  > byte-identical source re-drifted across host-days). The drift is BUDGETED-cell-density-sensitive: it fires
+  > at 1T's 6.3M nodes/cell and is absorbed at 11.2T's 70.7M, where anchor `0c0fe37c…` reproduced
+  > byte-identically on `c72eada`+#108. Because the mechanism cannot be eliminated at compile time, #110 shipped
+  > operational drift management instead — a host-fingerprint sidecar plus `./solve --validate-canonical`.
+  > **What still stands:** the bundle's 1T sha is identical to unmodified `c72eada`'s, so #108 really is
+  > sha-equivalent at 1T, and this `74d39760…` really is not the v3 BRANCH anchor. What is withdrawn is *why*.
+  > See the 2026-08-30 re-evaluation entry at the end of this file.
+
 ### Delta vs baseline
 - Per-thread CPU-on-DFS at canonical scale: **~+170%** (35% → 95%)
 - 1T enum wall: **3430s → 1679s** = **2.04× faster** (matches the hypothesis prediction)
@@ -1217,6 +1427,14 @@ unset, which it always is in production.
 - selftest `403f7202…` PASS (stock == fixed). Canonical-scale gate = 11.2T eviction-resume → `0c0fe37c`
   **IN PROGRESS** (Phase 1 of the 560T diagnosis campaign).
 
+> **⚠ Status re-evaluation (2026-08-30):** the canonical gate marked IN PROGRESS above has since **completed, PASS**. `HISTORY.md` §"June 22-23, 2026 —
+> 560T re-run launched on the fixed solver (eviction-resume bug)" records the #167 fix's canonical-scale
+> validation ahead of that relaunch: 11.2T single- and multi-eviction reproductions of `0c0fe37c`, a 1T launcher
+> smoke, and an **eviction-injected 11.2T dress rehearsal that reproduced `0c0fe37c` byte-for-byte through 2 real
+> Spot evictions on the production engine**. The "WIP entry" framing in the Notes below is therefore stale for
+> the sha gate. The formal `perf_bench.sh` paired timing that the entry also defers was **not** verified as
+> having run by this 2026-08-30 pass — treat it as still outstanding.
+
 ### Notes
 WIP entry — pushed as work-in-progress per operator direction. Formal `perf_bench.sh` paired benchmark + the
 11.2T canonical sign-off are the remaining gates; this entry will be finalized when they complete. Full detail:
@@ -1237,6 +1455,11 @@ eviction-resilient — **without changing the computed count** (the DP is determ
 
 ### Methodology
 - Workload: f1c5 exact count at n=24/27/28 (byte-identical v1-raw vs v2-gzip) + the live n=31 canonical run.
+
+> **⚠ Status re-evaluation (2026-08-30):** the "live n=31 canonical run" referenced here and again under Result **completed on 2026-07-16**. See
+> `runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md` — "Completed run 2026-07-16 (landed ~06:18 UTC)" — the
+> reproducibility record for the flagship exact count reported in TR-11 §9. Read "live" in this entry as "in
+> flight at the time of writing", not as a currently-running job.
 - Hardware: D16/D64als_v7 Spot westus3.
 - Build: `gcc -O3 -g -march=native -flto -pthread -fopenmp`; merged solve.c.
 - gzip level A/B: single-instance real-scale, n=27 layer 11 (~789 MB) at levels 1 / 6 / 9.
@@ -1257,7 +1480,115 @@ eviction-resilient — **without changing the computed count** (the DP is determ
 - Merge with main's `--c3-dist`: **non-overlapping** solve.c regions, auto-merged clean.
 
 ### Notes
+*Naming note (added 2026-07-22): "gzip" throughout this entry — the branch name, the env names, and the
+level A/B — is project shorthand. The v2 layer codec is per-block RFC-1950 **zlib** (`compress2`/
+`uncompress`), not gzip-framed `.gz`; see documentation/F1C5_LAYER_FORMAT.md. Identifiers keep their
+historical names; measurements are unaffected.*
 New env/CLI surface (see SOLVE_C_CLI.md): `SOLVE_F1_OOC_FORMAT=v2`, `SOLVE_F1_OOC_GZIP_LEVEL` (default 6),
 `SOLVE_F1_OOC_SCRATCH_MB`, `SOLVE_F1_OOC_READ_MB`, `SOLVE_F1_CKPT_SEC` (default 300 s), `--resume-from-layers`.
 Full validation + measurement detail: `roae-private/RETOOL_DESIGN_2026_07_07.md`,
 `OVERNIGHT_SUMMARY_2026_07_08.md`.
+
+---
+
+## 2026-08-30 — re-evaluation: eleven corrections to earlier entries (no code change, no new measurement)
+
+**Category**: re-evaluation (append-only correction entry — see the contract at the top of this file)
+**Sha impact**: none — no code, build recipe, or canonical artifact changes here
+**Decision**: corrections landed as dated `⚠ Correction` markers against the entries below; two script defects
+and one cross-document gap are recorded here but must be fixed in their own files
+
+### Why this entry exists
+
+A review of this log against `CANONICAL_HASHES.md`, `HISTORY.md`, and the shipped scripts found eleven defects,
+and **five of them share one shape**: a claim in this log was corrected elsewhere in the repository at the time
+and the correction was never propagated back here. `CANONICAL_HASHES.md` and `HISTORY.md` are living documents
+that get edited when understanding changes; this log is append-only, so it only stays true if someone appends.
+Nobody did. That is the failure mode this entry closes, and it is the reason the append-only contract carries a
+re-evaluation rule at all: **a log whose corrections live only in other files is not a record of what was known
+when — it is a record of what was believed once, presented as current.**
+
+Every correction is marked at its own site, so a reader who lands mid-file sees the marker without needing this
+entry. Nothing measured was changed. Where a figure was relabelled in place — three of the eleven — the marker
+says so explicitly and states what the original text read.
+
+### The eleven, by entry
+
+| # | Entry | What was wrong | What is true |
+|---|---|---|---|
+| 1 | 2026-05-10 #72 (bitset) | The 263 / 286 M/sec pair published as a single-thread, one-worker measurement | Those are **aggregate** rates over **128 threads** from a **90-s timed bench** (`HISTORY.md` labels the same numbers "Aggregate node-rate at 90s" under `SOLVE_THREADS=128`). The **1.09× ratio and +8.7% are unaffected** |
+| 2 | 2026-05-11 #70 (C3 optimistic bound) | Baseline labelled "#67 alone" | The 831-record delta is over **v1+C5+#67**. A `v1+#67+#70` run does not exist anywhere in this log |
+| 3 | 2026-05-13 LTO | Sha gate recorded as passing *by definition* | Reworded to the **measured** byte-identical result. Sha gates in this solver settle only empirically |
+| 4 | 2026-05-16 #46 (AVX-512 null) | "verified from commits `cd4e61c`/`b26cd9b`/`0783d52`" | Those objects are **absent from the shipped repo** (`git cat-file -t` fails on each) → the figures are operator-attested, per this file's Access boundary |
+| 5 | 2026-05-16 #46 (AVX-512 null) | "HISTORY.md … now carries a `[REFUTED 2026-05-16]` callout" | **The callout is not there.** The one match in `HISTORY.md` is that sentence's twin claiming it is "already in place"; the 1.4–2.0× projections stand unmarked at `HISTORY.md:1510-1514` and `:2610`. **✅ Discharged 2026-09-02 (P64): both callouts written, at the drifted lines `:1521` / `:2628`; the third site in `DEVELOPMENT.md:586` marked the same day.** |
+| 6 | 2026-05-17 v2 11.2T anchor | A "~1-2%" v2 advantage projected for 100T+ | Measured **+6.74%** at 100T (+231,181,617 records). The advantage **grew** with depth: +4.83% at 11.2T → +6.74% at 100T |
+| 7 | 2026-05-18 per-prune ladder | #68 called 24-27× more impactful than #67 at every scale | **≈14.5-36.9×** across the four scales in its own table; 24-27× holds only at 1B-10B. The *ranking* claim stands |
+| 8 | 2026-05-18 per-prune ladder | Unlimited budget framed as v1 and v2 exhausting different predicates; +4.83% called v2's "real" extra solutions | Both prune sets are sound: **v1(∞) = v2(∞) = v3(∞)**. +4.83% is a **budgeted-slice** delta at 11.2T — a convergence-rate effect, not a larger solution space |
+| 9 | 2026-05-24 PGO retraction | "sha is determined by prune predicates, not optimizer branch hints" | An unsupportable universal: a 100%-DFS-neutral commit (`d683794`) flips the 100B sha. The byte-identical 1T match itself stands |
+| 10 | 2026-05-27 #106/#108 | 1T anchor drift attributed to the 7 hardening commits, via an LTO-layout mechanism | Task #108 found the drift **host-environment-level**; the 7 commits were **exonerated** and **LTO empirically ruled out** (`-fno-lto` reproduced `74d39760…` exactly). #108's sha-equivalence at 1T is unaffected |
+| 11 | 2026-06-21 #167 / 2026-07-09 #223 | Two statuses left stale: #167's canonical gate unresolved, #223's n=31 run described as still running | #167's 11.2T eviction-resume gate **PASSED** before the June 22-23 560T relaunch; #223's n=31 run **completed 2026-07-16** |
+
+Corrections 1, 5, 6, 9 and 10 are the propagation-failure class: each was already right in `CANONICAL_HASHES.md`
+or `HISTORY.md` (or, for 5, was *supposed* to be) while this log kept the superseded reading.
+
+### Arithmetic checks, so a reader need not take these on trust
+
+- **#70 baseline (2):** `235,083 − 234,252 = 831`; `831 / 234,252 = 0.355%` — matches the entry's +0.35%, and the
+  minuend/subtrahend are the table's `v1+C5+#67+#70` and `v1+C5+#67` rows.
+- **100T uplift (6):** `3,663,580,914 − 3,432,399,297 = 231,181,617`; `231,181,617 / 3,432,399,297 = 6.735%`.
+- **#68 vs #67 range (7):** from the ladder table's own percentages — `68.6/1.86 = 36.9×` (100M),
+  `80.4/3.36 = 23.9×` (1B), `90.2/3.39 = 26.6×` (10B), `104.4/7.22 = 14.5×` (100B).
+- **Per-thread plausibility (1):** at 128 threads, `128 × 263 M/sec = 33.7 B nodes/sec` would exhaust the 11.2T
+  budget in ~5.5 minutes; read as aggregate the same figure is ~2.05 M/sec/thread and ~11.8 h at 11.2T, which
+  is what the run records show.
+
+### Three defects this entry can only record, not fix
+
+They live in other files and must be fixed there; each is marked at its site above so a reader is warned in the
+meantime.
+
+1. **`scripts/build_pgo.sh` cannot build `solve.c`.** Both link lines (`:77-78` Pass 1, `:128-130` Pass 2) end
+   in `-lm` with no `-lz`, while `solve.c:317` has included `<zlib.h>` since #169. Running the script's exact
+   Pass-1 command against `solve.c` at this commit fails at link (rc=1, undefined `gzclose`/`gzfread`/…). The
+   2026-05-24 entry advertises this script as the canonical reusable PGO recipe; it is not one until `-lz`
+   lands, and a repo self-check should assert its Pass-1 link against HEAD `solve.c`.
+2. **`scripts/perf_bench.sh` can certify a run whose stated conditions did not hold.** The page-cache flush ends
+   `|| true` (`:176`) so a failed flush proceeds, while the JSON emits `"page_cache_flushed": true` as an
+   unconditional literal (`:254`) — a bench that never flushed ships certified-looking JSON. The script also has
+   no preflight throttle burn, though this log's own 2026-05-18 methodological finding makes that burn
+   mandatory. The field must carry the flush's real status, and the burn must run or the JSON must say
+   `throttle_probe: absent`. The "Standard bench harness" section at the top of this file has been corrected to
+   describe what the script does rather than what it was said to do.
+   **➤ [UPDATE 2026-09-02] The flush half is FIXED.** The field now carries `CONFIRMED` / `FAILED` /
+   `UNVERIFIED` from a whole-line verdict token emitted by each build, a non-`CONFIRMED` result sets
+   `"methodology_valid": false` and exits 3, and a run that produced no token at all reads `UNVERIFIED`
+   rather than passing. Red-tested by running the harness on a host with no passwordless sudo: the
+   pre-fix script emitted `"page_cache_flushed": true` and exit 0; the fixed script emits
+   `UNVERIFIED (no-passwordless-sudo)` and exit 3. ~~**The throttle-burn half is still open.**~~
+   **➤ [UPDATE 2026-09-02, later the same day] The throttle-burn half landed too** — a pure-CPU burn on every
+   core before the bench, `PERFBENCH_THROTTLE_PROBE=HEALTHY|THROTTLED|UNVERIFIED`, teardown and exit 5 on
+   anything but `HEALTHY`; and `sha`/`records` moved from the container to the decompressed stream. See
+   §"Standard bench harness" above.
+3. **The `[REFUTED 2026-05-16]` callouts promised for `HISTORY.md:1510-1514` and `:2610` do not exist** and need
+   to be written, alongside a check that any sentence asserting a marker is "already in place" resolves to an
+   actual marker at the named location.
+
+### Notes
+
+**Scope.** No measurement in this log was re-run for this entry and no figure was recomputed from raw data —
+every check above is arithmetic against numbers already published here, or a comparison against
+`CANONICAL_HASHES.md` / `HISTORY.md` / the shipped scripts at this commit. Where those documents disagreed with
+this one, the corroborated reading won; where a claim could not be checked from the public repository
+(correction 4), it is now labelled operator-attested rather than silently trusted.
+
+**In-place edits made, and why they are not contract violations.** Three figures were relabelled at their sites
+(corrections 2, 7, 8) rather than only marked, because each was contradicted by a table printed immediately
+above it — leaving the wrong label standing would have handed a reader a number its own evidence refutes. Each
+carries a marker stating the original wording. Two front-matter sections were edited directly (the append-only
+contract, which did not match practice, and the bench-harness description, which did not match the script);
+neither is a dated entry. Everything else is annotation.
+
+**One header claim was corrected, not just annotated:** this file previously asserted "Entries are
+chronological". They are not — `2026-05-16 — task #68` precedes `2026-05-11 — task #70`. Exactly one entry is
+out of date order, and the header now says so and explains why, rather than asserting an invariant the file does
+not hold.

@@ -22,15 +22,26 @@
   note there on record-level vs orientation-resolved counts.
 
   Structure:
-  (a) finite facts about G48/G24. Most are now checked by kernel `decide` (fully
-      trusted; F-52 2026-07-19) — the small/medium enumerations reduce in the
-      kernel in seconds. Seven heavy ones stay on `native_decide` (extended trust
-      base, see lean/README.md's trust-base note) because kernel `decide` on them
-      exceeds a whnf-heartbeat / kernel-memory budget: applyPerm_inj,
-      applyPerm_isometry, applyPerm_range_perm, applyPerm_pcomp, pcomp_closure
-      (each ranges over ≥ 48·64² or 48² permutation pairs), plus pcomp_inv and
-      pcomp_left_cancel (∃-witness / 48³ search). These remain the repo style for
-      the largest finite facts;
+  (a) finite facts about G48/G24 — ALL kernel-checked since 2026-07-27 (zero
+      native_decide in this file; `#print axioms` reports only standard axioms,
+      ⊆ [propext, Classical.choice, Quot.sound] — no compiler trust).
+      History: most were kernel `decide` from F-52 (2026-07-19); the seven heavy
+      ones (applyPerm_inj, applyPerm_isometry, applyPerm_range_perm,
+      applyPerm_pcomp, pcomp_closure, pcomp_inv, pcomp_left_cancel) stayed on
+      `native_decide` until the 2026-07-27 K-migration. Five of the seven now go
+      through by direct `decide +kernel` (measured 41–72 s each on D16).
+      applyPerm_isometry — whose ∀-bounded form is kernel-MEMORY-infeasible
+      directly (the nested bounded-quantifier Decidable instances exceed
+      24–29 GB) — is proved from a Bool `List.all` companion
+      (`applyPerm_isometry_bool`, kernel `decide` in bounded memory — the same
+      computation shape as KingWen.lean's sigma_kw_valid_48) plus a short
+      structural bridge. applyPerm_pcomp — whose 48·48·64 obligation OOMs the
+      kernel even in Bool `List.all` shape, and which therefore remained this
+      file's one `native_decide` until 2026-07-31 — is now proved STRUCTURALLY
+      (§3a): the group-action law needs no enumeration over (p,q) pairs at all,
+      only the 48·64·6 bit-relocation fact `applyPerm_bit` (kernel `decide`,
+      ~24 s / 2.8 GB) plus list/fold reasoning. All stated ∀-forms are
+      unchanged and kernel-only;
   (b) structural invariance proofs: each constraint C1/C2/C3/C4/C5 is preserved by
       every σ ∈ G48 on EVERY permutation of the 64 hexagrams (not just King Wen);
   (c) the record-level action (relabel pair keys) and its compatibility with
@@ -182,7 +193,9 @@ def SolRec (Q : List Nat → Bool) (r : List Nat) : Prop :=
 /-- well-formed pair key: two 6-bit digits in canonical (sorted) order. -/
 def WFkey (k : Nat) : Prop := k < 4096 ∧ k / 64 ≤ k % 64
 
-/- ------- §2 finite group facts (native_decide; extended trust base) ------- -/
+/- ------- §2 finite group facts (kernel `decide` since 2026-07-27; the two
+   memory-infeasible ∀-forms go through Bool `List.all` companions — see the
+   header note (a). Nothing in this section trusts the compiler.) ------- -/
 
 theorem G48_length : G48.length = 48 := by decide
 
@@ -200,11 +213,22 @@ theorem applyPerm_lt64 : ∀ p ∈ G48, ∀ h < 64, applyPerm p h < 64 := by dec
 
 theorem applyPerm_inj :
     ∀ p ∈ G48, ∀ a < 64, ∀ b < 64, (applyPerm p a = applyPerm p b ↔ a = b) := by
-  native_decide
+  decide +kernel
+
+/-- Bool companion of `applyPerm_isometry`: the same fact as a `List.all` fold,
+    the one shape whose kernel evaluation stays in bounded memory (direct kernel
+    `decide` on the ∀-bounded form needs > 29 GB — see the §2 header note). -/
+theorem applyPerm_isometry_bool :
+    (G48.all fun p => (List.range 64).all fun a => (List.range 64).all fun b =>
+      ham (applyPerm p a) (applyPerm p b) == ham a b) = true := by
+  decide +kernel
 
 theorem applyPerm_isometry :
     ∀ p ∈ G48, ∀ a < 64, ∀ b < 64, ham (applyPerm p a) (applyPerm p b) = ham a b := by
-  native_decide
+  have hb := applyPerm_isometry_bool
+  simp only [List.all_eq_true, beq_iff_eq] at hb
+  intro p hp a ha b hbb
+  exact hb p hp a (List.mem_range.mpr ha) b (List.mem_range.mpr hbb)
 
 theorem applyPerm_fix_0_63 : ∀ p ∈ G48, applyPerm p 0 = 0 ∧ applyPerm p 63 = 63 := by
   decide
@@ -219,23 +243,23 @@ theorem applyPerm_comp63 :
 
 theorem applyPerm_range_perm :
     ∀ p ∈ G48, ((List.range 64).map (applyPerm p)).isPerm (List.range 64) = true := by
-  native_decide
+  decide +kernel
 
-theorem pcomp_closure : ∀ p ∈ G48, ∀ q ∈ G48, pcomp p q ∈ G48 := by native_decide
+theorem pcomp_closure : ∀ p ∈ G48, ∀ q ∈ G48, pcomp p q ∈ G48 := by decide +kernel
 
-theorem applyPerm_pcomp :
-    ∀ p ∈ G48, ∀ q ∈ G48, ∀ h < 64,
-      applyPerm (pcomp p q) h = applyPerm p (applyPerm q h) := by
-  native_decide
+/- `applyPerm_pcomp_bool` / `applyPerm_pcomp` — this file's last `native_decide`
+   until 2026-07-31 (the 48·48·64 obligation OOMs kernel `decide` at >29 GB even
+   in Bool `List.all` shape) — are now proved structurally in §3a below, after
+   the list utilities they depend on (`getD_map`, `sum_perm`). -/
 
 theorem applyPerm_idp : ∀ h < 64, applyPerm idp h = h := by decide
 
 theorem pcomp_inv : ∀ p ∈ G48, ∃ q ∈ G48, pcomp q p = idp ∧ pcomp p q = idp := by
-  native_decide
+  decide +kernel
 
 theorem pcomp_left_cancel :
     ∀ a ∈ G48, ∀ p ∈ G48, ∀ q ∈ G48, pcomp a p = pcomp a q → p = q := by
-  native_decide
+  decide +kernel
 
 theorem pcomp_inv_rho :
     ∀ a ∈ G48, ∀ b ∈ G48, pcomp a b = idp → pcomp a (pcomp b rho) = rho := by
@@ -373,6 +397,97 @@ theorem countP_mem_eq_length {O R : List (List Nat)} (hOnd : O.Nodup)
       cases List.mem_cons.mp (hsub x hx) with
       | inl h => exact absurd (h ▸ hx) ha
       | inr h => exact h
+
+/- ------- §3a applyPerm_pcomp, structurally (replaces this file's last
+   native_decide, 2026-07-31). The composition law is a group-action identity:
+   with m := applyPerm q h, both sides equal the length-6 sum
+   Σ_i bit_i(h)·2^(p[q[i]]) — the left by definition of pcomp (getD_map), the
+   right because q relocates bit k of h to bit position q[k] of m
+   (`applyPerm_bit`, the only finite check needed: 48·64·6 cases, kernel
+   `decide`) and q permutes the index list [0..5], so Σ_j bit_j(m)·2^(p[j]) is
+   the same sum reindexed (`map_getD_range` + `sum_perm`). No enumeration over
+   (p,q) pairs occurs; p needs no hypotheses at all. ------- -/
+
+/-- Bool companion of `applyPerm_bit` (kernel `decide`, 48·64·6 = 18432 cases,
+    ~24 s / 2.8 GB peak on D4): applying q sends bit k of h to bit position q[k]. -/
+theorem applyPerm_bit_bool :
+    (G48.all fun q => (List.range 64).all fun h => (List.range 6).all fun k =>
+      applyPerm q h / 2^(q.getD k 0) % 2 == h / 2^k % 2) = true := by
+  decide +kernel
+
+theorem applyPerm_bit :
+    ∀ q ∈ G48, ∀ h < 64, ∀ k < 6,
+      applyPerm q h / 2^(q.getD k 0) % 2 = h / 2^k % 2 := by
+  have hb := applyPerm_bit_bool
+  simp only [List.all_eq_true, beq_iff_eq] at hb
+  intro q hq h hh k hk
+  exact hb q hq h (List.mem_range.mpr hh) k (List.mem_range.mpr hk)
+
+theorem G48_length6 : ∀ q ∈ G48, q.length = 6 := by decide
+
+theorem G48_isPerm_idp : (G48.all fun q => q.isPerm idp) = true := by decide
+
+/-- reindexing a map over `range l.length` through `getD` is a map over `l`. -/
+theorem map_getD_range (F : Nat → Nat) :
+    ∀ (q : List Nat), (List.range q.length).map (fun i => F (q.getD i 0)) = q.map F := by
+  intro q
+  induction q with
+  | nil => rfl
+  | cons a t ih =>
+    rw [List.length_cons, List.range_succ_eq_map, List.map_cons, List.map_map]
+    exact congrArg (F a :: ·) (by rw [← ih]; exact List.map_congr_left fun i _ => rfl)
+
+/-- STRUCTURAL composition law: `applyPerm` is an action along `pcomp`. No
+    hypotheses on p are needed; q ∈ G48 is used only for q.length = 6, q being
+    an index permutation of [0..5], and the bit-relocation fact `applyPerm_bit`. -/
+theorem applyPerm_pcomp_struct (p q : List Nat) (hq : q ∈ G48) (h : Nat) (hh : h < 64) :
+    applyPerm (pcomp p q) h = applyPerm p (applyPerm q h) := by
+  have hq6 : q.length = 6 := G48_length6 q hq
+  have hqperm : q.Perm idp := List.isPerm_iff.mp (by
+    have hb := G48_isPerm_idp
+    simp only [List.all_eq_true] at hb
+    exact hb q hq)
+  show ((List.range 6).map fun i => h / 2^i % 2 * 2^((pcomp p q).getD i 0)).foldl (·+·) 0
+     = ((List.range 6).map fun j => applyPerm q h / 2^j % 2 * 2^(p.getD j 0)).foldl (·+·) 0
+  rw [← List.sum_eq_foldl_nat, ← List.sum_eq_foldl_nat]
+  have step1 : ((List.range 6).map fun i => h / 2^i % 2 * 2^((pcomp p q).getD i 0))
+      = (List.range 6).map fun i =>
+          (fun j => applyPerm q h / 2^j % 2 * 2^(p.getD j 0)) (q.getD i 0) := by
+    apply List.map_congr_left
+    intro i hi
+    have hi6 : i < 6 := List.mem_range.mp hi
+    have hilen : i < q.length := by omega
+    show h / 2^i % 2 * 2^((q.map fun j => p.getD j 0).getD i 0)
+       = applyPerm q h / 2^(q.getD i 0) % 2 * 2^(p.getD (q.getD i 0) 0)
+    rw [getD_map (fun j => p.getD j 0) hilen 0 0,
+        applyPerm_bit q hq h hh i hi6]
+  have step2 : ((List.range 6).map fun i =>
+      (fun j => applyPerm q h / 2^j % 2 * 2^(p.getD j 0)) (q.getD i 0))
+      = q.map (fun j => applyPerm q h / 2^j % 2 * 2^(p.getD j 0)) := by
+    have hm := map_getD_range (fun j => applyPerm q h / 2^j % 2 * 2^(p.getD j 0)) q
+    rw [hq6] at hm
+    exact hm
+  rw [step1, step2]
+  have hidp : List.range 6 = idp := rfl
+  rw [hidp]
+  exact sum_perm (hqperm.map _)
+
+/-- Bool companion of `applyPerm_pcomp` — DERIVED from the structural law
+    (this was the file's one remaining `native_decide` until 2026-07-31). -/
+theorem applyPerm_pcomp_bool :
+    (G48.all fun p => G48.all fun q => (List.range 64).all fun h =>
+      applyPerm (pcomp p q) h == applyPerm p (applyPerm q h)) = true := by
+  simp only [List.all_eq_true, beq_iff_eq]
+  intro p _ q hq h hh
+  exact applyPerm_pcomp_struct p q hq h (List.mem_range.mp hh)
+
+theorem applyPerm_pcomp :
+    ∀ p ∈ G48, ∀ q ∈ G48, ∀ h < 64,
+      applyPerm (pcomp p q) h = applyPerm p (applyPerm q h) := by
+  have hb := applyPerm_pcomp_bool
+  simp only [List.all_eq_true, beq_iff_eq] at hb
+  intro p hp q hq h hh
+  exact hb p hp q hq h (List.mem_range.mpr hh)
 
 /- ------------------ §4 constraint invariance under G48 (structural) ------------------ -/
 
@@ -937,3 +1052,12 @@ theorem kw_solution_record : SolRec validC15 (pairKey KW) :=
   ⟨KW, ⟨List.isPerm_iff.mp (by decide), by decide⟩, rfl⟩
 
 end Automorphism
+
+#print axioms Automorphism.applyPerm_bit_bool
+#print axioms Automorphism.applyPerm_pcomp_bool
+#print axioms Automorphism.applyPerm_pcomp
+#print axioms Automorphism.twenty_four_dvd_count
+#print axioms Automorphism.twenty_four_dvd_solution_count
+#print axioms Automorphism.twenty_four_dvd_c1c2c4_count
+#print axioms Automorphism.twenty_four_dvd_c1c2c4c5_count
+#print axioms Automorphism.kw_solution_record

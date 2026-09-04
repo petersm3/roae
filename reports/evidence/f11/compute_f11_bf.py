@@ -11,7 +11,7 @@
 # within the Moore-joint walk), available from two independent runs (C primary, B cross),
 # which disagree by ~3.5x (rare-cell weighted-estimator noise); BOTH are carried through
 # the sensitivity table. Ingredient 9 ((v1,v2,0) plane from C2) is absent; the 'aug' Z
-# uses the RUN B plane + the N_gs cell only. All disclosed in F11_BAYES_RESULTS.md.
+# uses the RUN B plane + the N_gs cell only. All disclosed in RESULTS.md.
 #
 # Strictest-reading choices (frozen-doc ambiguity -> conservative for the favored model):
 #  - conditioning denominator D extends the geometric tail k>6 with validity fraction
@@ -21,11 +21,11 @@
 #
 # Developed with AI assistance (Claude, Anthropic). Model/rule attribution: Moore 1989/2005,
 # Schulz 1990 (exception: Zhu Yuansheng 13th c.), Rutt 1996 mechanism via Hacker & Moore 2003.
-import json, math, os, re
+import json, math, os, re, sys
 
 D = os.path.dirname(os.path.abspath(__file__))
 
-# ---------- declared prior grids (see F11_BAYES_RESULTS.md section 0) ----------
+# ---------- declared prior grids (see RESULTS.md section 0) ----------
 PC_GRID = [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9]          # geometric(p_c), k >= 0, uniform prior
 LAM_GRID = [0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0]         # Gibbs strength, uniform prior
 V_KW = 6                                                  # 2+2+2, asserted in f11_events.py
@@ -151,10 +151,34 @@ def L_corr(p, variant, conditioned, n_gs):
         den += (1.0 - p) ** (KMAX + 1) * vf(KMAX, variant)   # tail: sum_{k>KMAX} geom = (1-p)^(KMAX+1)
     return num / (n_gs * den)
 
+# ---------- v1.12 re-measurement path (OPT-IN: `--ngs-measured`) ----------
+# The frozen record above DERIVES N_gs (header note). It was later measured DIRECTLY in the
+# r11 bundle (../r11/, four independent equal-probe seeds, 2026-07-13), and TR-2 v1.12
+# restated the headline under that value. Before this flag existed the v1.12 figures had
+# methods prose but no single-command reproduction, while this script's own README promised
+# one; the flag closes that gap. It changes NOTHING on the default path: the frozen
+# 2026-07-04 output is byte-identical with the flag absent, and these files are not even
+# opened. Same integration, same grids, same strictest-reading choices — only n_gs moves.
+R11_SEEDS = ("seed1_1001.out", "seed2_2003.out", "seed3_3011.out", "seed4_4013.out")
+R11_NGS_RE = re.compile(r"R-C4 0-viol DERIVED-N_gs abs\s*:\s*est=([0-9.eE+-]+)")
+
+def ngs_measured():
+    """Pooled N_gs from ../r11/: unweighted mean of the four equal-probe seeds."""
+    vals = []
+    for fn in R11_SEEDS:
+        with open(os.path.join(D, "..", "r11", fn)) as fh:
+            m = R11_NGS_RE.search(fh.read())
+        assert m, "no 'R-C4 0-viol DERIVED-N_gs abs' scoreboard line in ../r11/%s" % fn
+        vals.append(float(m.group(1)))
+    assert len(vals) == len(R11_SEEDS), "seed count changed"
+    pooled = sum(vals) / len(vals)
+    assert pooled > N_GS_C, "measured N_gs no longer exceeds the derived primary — check ../r11/"
+    return pooled, vals
+
 # ---------- marginal likelihoods + BF ----------
-def report():
+def report(sources=None):
     rows = []
-    for gs_src, n_gs in (("C", N_GS_C), ("B", N_GS_B)):
+    for gs_src, n_gs in (sources or (("C", N_GS_C), ("B", N_GS_B))):
         for zvar in ("hist", "aug", "bridge"):
             lt, filled = tend_table(zvar, n_gs)
             ml_tend = sum(lt.values()) / len(lt)
@@ -196,3 +220,16 @@ if __name__ == "__main__":
     for p in PC_GRID:
         lc = L_corr(p, "U", True, N_GS_C)
         print("%7g  " % p + "  ".join("%8.2g" % (lc / lt[l]) for l in LAM_GRID))
+
+    # OPT-IN v1.12 path. Absent this flag nothing above or below changes.
+    if "--ngs-measured" in sys.argv[1:]:
+        n_gs_m, seed_vals = ngs_measured()
+        print("\n== v1.12 re-measurement path (--ngs-measured) ==")
+        print("N_gs(measured, ../r11/ pooled over %d seeds)=%.4e   seeds: %s"
+              % (len(seed_vals), n_gs_m, " ".join("%.6e" % v for v in seed_vals)))
+        print("rescale vs derived primary: N_gs(C)/N_gs(measured) = %.4f" % (N_GS_C / n_gs_m))
+        print(hdr % ("gs", "Z", "loc", "cond", "L(corr)", "L(tend)", "BF", "log10BF"))
+        for r in report(sources=(("M", n_gs_m),)):
+            print(hdr % (r["gs"], r["z"], r["var"], r["cond"],
+                         "%.4e" % r["mlc"], "%.4e" % r["mlt"],
+                         "%.4g" % r["bf"], "%.2f" % math.log10(r["bf"])))
