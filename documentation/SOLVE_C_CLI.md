@@ -307,23 +307,36 @@ external monitor, task #55), full disk SMART/fsck
 Exit codes are two, but the outcomes are three — read them with that in
 mind:
 
-- **0**, printed as `RESULT: all in-process gates PASS.`
+- **0**, printed as `RESULT: all in-process gates PASS.` — emitted **only when all three gates
+  actually RAN** (see below).
 - the first failing gate's exit code (**24** / **29** / **31**), printed
   as `RESULT: FAIL - first failing gate exit N. Do NOT launch.`
-- a gate that **could not run** is reported as `PASS (rc=0)` like any
-  other and folded into exit **0**. Each of the three gates returns 0
-  unconditionally when `node_limit` is sub-canonical (< 1T:
-  solve.c:3618 / 3730 / 3960), when its `SOLVE_SKIP_*` override is set,
-  and when the check itself is unavailable (`statvfs` fails,
-  solve.c:3626; the probe cannot create files or threads, solve.c:3758;
-  `/proc/self/exe` is unreadable, solve.c:3969).
+- **2** for a refused argument, or for a run in which any gate was **SKIPPED**.
 
-There is no **SKIPPED** verdict and no count of gates actually executed,
-so **exit 0 does not on its own attest that all three gates ran** —
-`./solve --preflight 560T` prints three `-> PASS (rc=0)` lines and exits
-0 having checked nothing. Read the per-gate lines, not just the exit
-code. Reporting SKIPPED distinctly is an open code change against the
-`--preflight` dispatcher (solve.c:18654).
+> ✅ **SKIPPED is now a distinct verdict, and a bad argument is refused (landed 2026-09-04,
+> Codex v2 `solve.c:18678`).** This section previously described two defects as open; both are
+> closed and the description below is what the code now does.
+>
+> **The argument is parsed strictly.** It is a node **count**, not a scale label: `560T` and
+> `560Q` are *not* parsed. They used to be silently truncated by `atoll` to 560 and 0
+> respectively, which turned a typo into a green light for a budget nobody asked about. Any
+> trailing character now gives `PREFLIGHT=REFUSED-BAD-ARG` and exit 2. Pass
+> `560000000000000`.
+>
+> **Skipped gates are counted and named.** Each of the three gates returns 0 unconditionally when
+> `node_limit` is sub-canonical (< 1T), which is indistinguishable from a pass — so
+> `./solve --preflight 560` used to print `RESULT: all in-process gates PASS` having executed
+> **nothing**. The dispatcher now applies that same threshold itself, prints
+> `-> SKIPPED (sub-canonical: ...)` per gate, and emits whole-line `PREFLIGHT_GATES_RAN=<n>` and
+> `PREFLIGHT_GATES_SKIPPED=<n>` tokens. When anything was skipped the verdict is
+> `RESULT: N gate(s) SKIPPED — this preflight attests NOTHING at this budget` with exit 2, and
+> the all-PASS line is not printed at all.
+>
+> **Still read the per-gate lines.** A gate can also decline for reasons the dispatcher cannot
+> see — its `SOLVE_SKIP_*` override, or the check being unavailable (`statvfs` fails; the probe
+> cannot create files or threads; `/proc/self/exe` is unreadable). Those still report as
+> `PASS (rc=0)`; each prints its own loud `SKIPPED` line to stderr. Gates:
+> `tests.py::TestSolveCliHardeningTokens`, both legs red-tested against the pre-fix binary.
 
 ### --disk-precheck
 
@@ -460,6 +473,47 @@ disjoint substreams, which this is not.
 - `N_probes = 0` → **exact deterministic** subtree count instead of estimation
   (only tractable for a deep prefix; used to validate the estimator against
   ground truth — matches to <1 % at prefix depths 22/24/26).
+
+> ✅ **Output-honesty fixes landed 2026-09-04** (Codex v2 `solve.c:8073`, `:8136`,
+> `:8137/:8093/:8149`, `:8341`, `:8343`). All are estimator-only and sha-neutral.
+>
+> **`CI=UNAVAILABLE` and `STARVATION` replace two CIs that were never meaningful.** Every
+> interval now uses the **sample** variance (divisor `N-1`, not `N`) — the old intervals were
+> biased narrow, worst exactly where it matters. At `N < 2` the variance is undefined and the
+> code used to print an interval anyway: at `N=1` a zero-width `95%CI=[x, x]` with
+> `relerr=0.00%`, which reads as infinite precision rather than as no information. It now prints
+> `CI=UNAVAILABLE (N<2 probes)`. And **`est=0` with `0` hits is a sampling artifact, not a
+> bound** — it now prints `STARVATION (0 hits in N probes)` and no interval, because none is
+> meaningful. Measured at `N=2`: `relerr` moves 28.06 % → 39.68 % on `tree_nodes` (the honest,
+> wider interval) and the two leaf layers switch from `95%CI=[0,0]` to `STARVATION`. The fiber
+> layers had **no hit counters at all** and now have them. All three emission sites go through
+> one helper, because three sites drifted apart once and would again.
+>
+> **The reported probe count is now the count that RAN.** `pthread_create`'s return was
+> discarded, and the denominator was built from the *planned* quota, so a worker that never
+> launched still contributed its full share while running nothing — a silently biased number at
+> exit 0 (measured 2× low under a create-failing preload). Both `pthread_create` and
+> `pthread_join` are checked (`ESTIMATOR=ABORTED-WORKER-LAUNCH`, exit 70), the denominator comes
+> from a worker-side executed-probe counter, and a `KNUTH-PROBES planned=<n> executed=<n>` line
+> plus a whole-line `KNUTH_PROBES=EXECUTED-EQ-PLANNED` token is printed. A shortfall is fatal.
+> The one legitimate zero — a strict-dead prefix, where no probe *should* run — is named
+> `KNUTH_PROBES=SKIPPED-DEAD-PREFIX` rather than lumped in with a failure.
+>
+> ⚠ **Exact mode (`N_probes = 0`) does NOT support the strict walk predicates, and now says so.**
+> `exact_count()` prunes on C1/C2/C5 only — it has no Moore-parity, Moore-rhythm or
+> Schulz-gender predicate. Two consequences, both now fixed. It **ignored its own dead-prefix
+> guard**: with a strict flag set and a prefix that violates it, the code printed
+> `STRICT-PREFIX DEAD … reporting zero estimates` and then printed *non-zero counts* directly
+> beneath — worse, it spent unbounded time enumerating a subtree it had just proven empty
+> (measured 2026-09-04: the pre-fix binary did not finish an 11-level dead prefix in 120 s; the
+> fixed one returns zeros instantly with `EXACT_COUNT=DEAD-PREFIX`). And on a *live* prefix it
+> silently counted the **unrestricted** subtree while strict flags were active, so the
+> "validation anchor" validated a different tree than the estimator was sampling. That
+> combination is now **refused** — `EXACT_COUNT=REFUSED-STRICT-UNSUPPORTED`, exit 2 — rather
+> than implemented, because duplicating the worker's predicate logic in a second place is how
+> the R11 gate-2 defect arose. Unset the strict flags, or use the sampling estimator, which does
+> implement them. **Supported matrix:** exact mode ⟂ strict flags (refused); sampling mode ×
+> strict flags (supported); either mode × a plain prefix (supported).
 
 Sha-neutral: argv-dispatched, reuses (copies) the `backtrack()` prune predicates,
 never touches the enumeration/merge path (`--selftest` unchanged). No shard data.

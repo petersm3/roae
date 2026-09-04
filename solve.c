@@ -5260,6 +5260,12 @@ typedef struct {
      * sums instead of estimating an unreachable subtree as if valid. Estimator-only, sha-neutral. */
     int ms0_adj, ms0_rf, prefix_dead;
     uint64_t n_probes, seed;
+    /* 🔴 Codex v2 `solve.c:8137/:8093/:8149`, 2026-09-04. `N` was accumulated from n_probes,
+       the PLANNED quota, so a worker that never launched still contributed its full share to
+       the denominator and the estimate came out silently biased (measured: a 2x-low estimate
+       at rc 0). n_executed is incremented by the worker itself, once per completed probe, and
+       is the ONLY thing the denominator may be built from. */
+    uint64_t n_executed;
     double sum_leaf, sumsq_leaf, sum_c3, sumsq_c3, sum_node, sumsq_node;
     uint64_t hits_leaf, hits_c3;
     /* R11 Phase-2 (2026-07-11) estimator-only instruments (sha-neutral: knuth path,
@@ -5275,6 +5281,9 @@ typedef struct {
      * (the leaf's own orientation vector is a fiber member), so nonzero = the DP is
      * broken and the run's fiber output is void (reported loudly, never silently). */
     double sum_fib, sq_fib, sum_fib_c3, sq_fib_c3, x_leaf_fib, x_c3_fib;
+    uint64_t hits_fib, hits_fib_c3;   /* Codex v2 `solve.c:8341` (iii): the fiber layers had NO
+                                         hit counters, so a zero-hit fiber run printed est=0 with
+                                         a CI as if it were a measurement rather than starvation. */
     double fib_min, fib_max; uint64_t fib_bad;
     double sum_rc1, sum_rc2, sum_rc5;   /* weighted canonical-leaf mass satisfying each rule */
     double sq_rc1, sq_rc2, sq_rc5, sq_rc1c_s2, sq_rc1c_s32, sq_rc1c_adj, sq_rm1s, sq_rm1k,
@@ -7840,13 +7849,14 @@ static void *purdom_worker(void *vp){
         double node_acc = 0, leaf = 0, c3 = 0, fibv = 0, fibc3v = 0;
         purdom_recurse(a, &rng, seq, &used, budget, a->start_step, 1.0,
                        &node_acc, &leaf, &c3, &fibv, &fibc3v);
+        a->n_executed++;
         a->sum_leaf += leaf; a->sumsq_leaf += leaf*leaf; if (leaf > 0) a->hits_leaf++;
         a->sum_c3   += c3;   a->sumsq_c3   += c3*c3;     if (c3 > 0)  a->hits_c3++;
         if (c3 > a->max_w_c3) a->max_w_c3 = c3;
         a->sum_node += node_acc; a->sumsq_node += node_acc*node_acc;
         if (knuth_fiber) {
-            a->sum_fib += fibv;      a->sq_fib += fibv*fibv;
-            a->sum_fib_c3 += fibc3v; a->sq_fib_c3 += fibc3v*fibc3v;
+            a->sum_fib += fibv;      a->sq_fib += fibv*fibv;      if (fibv > 0) a->hits_fib++;
+            a->sum_fib_c3 += fibc3v; a->sq_fib_c3 += fibc3v*fibc3v; if (fibc3v > 0) a->hits_fib_c3++;
             a->x_leaf_fib += leaf*fibv; a->x_c3_fib += c3*fibc3v;
         }
     }
@@ -7860,6 +7870,7 @@ static void *knuth_worker(void *vp){
     if (a->prefix_dead) return NULL;   /* strict-invalid prefix: strict subtree count is exactly 0
                                         * (all sums stay 0 -> est=0, CI=[0,0]). R11 gate-2 repair. */
     for (uint64_t t=0; t<a->n_probes; t++){
+        a->n_executed++;
         memcpy(seq, a->seq0, sizeof(seq)); used = a->used0; memcpy(budget, a->budget0, sizeof(budget));
         int step = a->start_step;
         double W = 1.0, node_acc = 0.0, leaf = 0.0, c3 = 0.0;
@@ -8170,8 +8181,8 @@ static void *knuth_worker(void *vp){
         if (c3 > a->max_w_c3) a->max_w_c3 = c3;   /* R11 P2: top single-probe weight (skew audit) */
         a->sum_node += node_acc; a->sumsq_node += node_acc*node_acc;
         if (knuth_fiber) {   /* Q-388 record-count accumulators + ratio cross-products */
-            a->sum_fib += fibv;      a->sq_fib += fibv*fibv;
-            a->sum_fib_c3 += fibc3v; a->sq_fib_c3 += fibc3v*fibc3v;
+            a->sum_fib += fibv;      a->sq_fib += fibv*fibv;      if (fibv > 0) a->hits_fib++;
+            a->sum_fib_c3 += fibc3v; a->sq_fib_c3 += fibc3v*fibc3v; if (fibc3v > 0) a->hits_fib_c3++;
             a->x_leaf_fib += leaf*fibv; a->x_c3_fib += c3*fibc3v;
         }
     }
@@ -8209,6 +8220,42 @@ static void exact_count(int seq[64], pair_mask_t used, int budget[7], int step,
             PAIR_MASK_CLR(used,p); budget[wd]++; budget[bd]++;
         }
     }
+}
+
+/* 🔴 Codex v2 `solve.c:8341` + `solve.c:8343` (ONE fix closes both, per the adjudication's own
+   cross-note). Every 95%%CI line in the estimator shared three defects:
+
+     (i)   the variance used the population divisor N, not the sample divisor N-1, so every
+           interval was biased narrow -- worst exactly where it matters, at small N;
+     (ii)  at N<2 the variance is UNDEFINED, and the code printed an interval anyway (a
+           zero-width CI at N=1, which reads as infinite precision rather than no information);
+     (iii) est=0 was printed with a CI as though it were a measurement, when 0 hits in N probes
+           is a SAMPLING ARTIFACT -- the estimator saw nothing, which is not the same as having
+           measured nothing to be there. The fiber layers had no hit counters at all.
+
+   Emitting through one helper is the point: three sites drifted apart once and would again. */
+static void knuth_emit_ci(const char *label, double sum, double sumsq,
+                          uint64_t n, uint64_t hits, const char *suffix) {
+    double dn = (double)n;
+    double mean = (n > 0) ? sum / dn : 0.0;
+    if (n < 2) {
+        printf("  %s : est=%.6e  CI=UNAVAILABLE (N<2 probes; the sample variance is undefined)%s\n",
+               label, mean, suffix ? suffix : "");
+        return;
+    }
+    /* Sample variance: E[x^2] - E[x]^2 scaled by n/(n-1), i.e. the unbiased estimator. */
+    double var = (sumsq - dn * mean * mean) / (dn - 1.0);
+    if (var < 0) var = 0;
+    double se = sqrt(var / dn), rel = mean > 0 ? 100.0 * se / mean : 0.0;
+    if (hits == 0) {
+        printf("  %s : est=%.6e  STARVATION (0 hits in %llu probes; est=0 is a sampling artifact, "
+               "NOT a bound -- no CI is reported because none is meaningful)%s\n",
+               label, mean, (unsigned long long)n, suffix ? suffix : "");
+        return;
+    }
+    printf("  %s : est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%  hitrate=%.3g%s\n",
+           label, mean, mean - 1.96 * se, mean + 1.96 * se, rel, (double)hits / dn,
+           suffix ? suffix : "");
 }
 
 static void estimate_tree_knuth(uint64_t n_total, int nthreads,
@@ -8319,6 +8366,48 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                             "estimates (R11 gate-2 repair)\n");
     }
     if (n_total == 0){  /* n=0 => exact deterministic subtree count (validation anchor) */
+        /* 🔴 Codex v2 `solve.c:8073` (two adjudication rows, same mechanism), fixed 2026-09-04.
+           exact_count() applies the C1/C2/C5 prune ONLY -- it has no Moore-parity, Moore-rhythm or
+           Schulz-gender predicate. Two consequences, both measured in the adjudication:
+
+             (a) It ignored its own dead-prefix guard. With a strict flag set and a FAIL-HIGH
+                 prefix, the code printed "STRICT-PREFIX DEAD ... reporting zero estimates" and
+                 then printed NONZERO counts immediately below it (measured 1169/88/8, and
+                 22228/1296 on the other fixture) -- the banner and the numbers contradicting each
+                 other in the same output.
+             (b) Even on a LIVE prefix it silently counted the UNRESTRICTED subtree while strict
+                 flags were active, so the "exact validation anchor" validated a different tree
+                 than the estimator was sampling.
+
+           (a) is honoured: prefix_dead now returns the zeros the banner promises. (b) is REFUSED
+           rather than implemented -- adding strict predicates to exact_count would duplicate the
+           worker's candidate logic in a second place, which is how the R11 gate-2 defect arose in
+           the first place. Refusing an unsupported combination at the boundary is this file's
+           existing house style (the Purdom block refuses every strict/scoring combo the same way). */
+        if (prefix_dead) {
+            printf("EXACT-COUNT start_step=%d prefix_levels=%d\n", start_step, n_levels);
+            printf("  tree_nodes            : 0\n");
+            printf("  leaves_C1C2C4C5       : 0\n");
+            printf("  leaves_canonical_C1C5 : 0\n");
+            printf("EXACT_COUNT=DEAD-PREFIX (the fixed prefix violates an active strict predicate; "
+                   "the strict subtree count under it is exactly 0)\n");
+            fflush(stdout); return;
+        }
+        if (knuth_moore_strict || knuth_gender_strict) {
+            fprintf(stderr,
+                "REFUSED: exact mode (--estimate-knuth 0) cannot apply the strict walk predicates.\n"
+                "         exact_count() prunes on C1/C2/C5 only -- it has no Moore-parity,\n"
+                "         Moore-rhythm or Schulz-gender predicate -- so it would report the\n"
+                "         UNRESTRICTED subtree count while a strict flag is set, silently\n"
+                "         answering a different question than the one asked.\n"
+                "         Unset SOLVE_KNUTH_MOORE_STRICT / SOLVE_KNUTH_GENDER_STRICT, or use the\n"
+                "         sampling estimator (n > 0), which does implement them.\n"
+                "EXACT_COUNT=REFUSED-STRICT-UNSUPPORTED\n");
+            /* Loud refusal: no counts AND a nonzero exit, matching the knuth_fiber refusal a few
+               dozen lines above. A refusal that exits 0 is indistinguishable to a supervisor from
+               a run that succeeded, which is the failure mode this whole batch is about. */
+            exit(2);
+        }
         int seq[64]; memcpy(seq,seq0,sizeof(seq)); pair_mask_t used=used0; int budget[7]; memcpy(budget,budget0,sizeof(budget));
         double nodes=0, leaves=0, c3=0;
         exact_count(seq, used, budget, start_step, &nodes, &leaves, &c3);
@@ -8390,20 +8479,49 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         }
         arg[i].seed = (knuth_seed_base ? knuth_seed_base : 0x243F6A8885A308D3ULL)
                       ^ ((uint64_t)(i+1)*0x9E3779B97F4A7C15ULL);
-        pthread_create(&tid[i], NULL, (knuth_purdom_w >= 2) ? purdom_worker : knuth_worker, &arg[i]);
+        /* 🔴 Codex v2 `solve.c:8136`, 2026-09-04. The return was DISCARDED. A failed launch left
+           that worker's quota in the denominator with none of its probes run, so the estimator
+           printed a confidently-wrong number at rc 0 -- measured 2x low under a create-failing
+           preload. The enumeration path already aborts on a failed pthread_create; the estimator
+           is now consistent with it. Aborting rather than reassigning the quota is deliberate: a
+           silently-biased statistic is worse than no statistic. */
+        int _pc = pthread_create(&tid[i], NULL,
+                                 (knuth_purdom_w >= 2) ? purdom_worker : knuth_worker, &arg[i]);
+        if (_pc != 0) {
+            fprintf(stderr,
+                "FATAL: estimator worker %d of %d failed to launch (pthread_create: %s).\n"
+                "       Its %llu probes would stay in the denominator while never running, so every\n"
+                "       estimate and CI below would be biased low by roughly that share. Refusing\n"
+                "       to print a number rather than printing a wrong one.\n"
+                "ESTIMATOR=ABORTED-WORKER-LAUNCH\n",
+                i, nthreads, strerror(_pc), (unsigned long long)arg[i].n_probes);
+            for (int j = 0; j < i; j++) pthread_join(tid[j], NULL);
+            exit(70);
+        }
     }
     double sL=0,qL=0,sC=0,qC=0,sN=0,qN=0; double sR1=0, sR2=0, sR5=0, sM1s=0, sM1k=0, sM2k=0, sM2s=0, sMJ=0, sC3=0, sC3w=0, sC4k=0, sC4s=0, sD1=0, sD2=0, sPA=0; double sBC[31]={0}; double sWR[7]={0}; int mxM1=0, mnM2=-1; uint64_t hL=0,hC=0,N=0;
     double qC4s=0, maxWc3=0; uint64_t hC4s=0;   /* R11 P2: derived-N_gs CI twin + skew audit */
     double sF=0, qF=0, sFC=0, qFC=0, xLF=0, xCF=0, fbMin=0, fbMax=0; uint64_t fbBad=0;   /* Q-388 */
+    uint64_t hFib=0, hFibC3=0;   /* Codex v2 solve.c:8341 (iii): fiber-layer hit counters */
     double sC4b=0, sC4c=0; uint64_t t1chk=0, t1fail=0;   /* R13: R-C4-B/C masses + T1 assert tallies */
     double sRC1cS2=0, sRC1cS32=0, sRC1cAdj=0, sA2[33]={0};  /* R-C1c (R6) */
     double zR1=0, zR2=0, zR5=0, zRC1cS2=0, zRC1cS32=0, zRC1cAdj=0, zM1s=0, zM1k=0, zM2k=0,
            zM2s=0, zMJ=0, zC3=0, zC3w=0, zC4k=0, zC4b=0, zC4c=0, zD1=0, zD2=0, zPA=0,
            zWR[7]={0}, zREG[31]={0}; /* squared-weight twins: delta-method SE (Q-374) */
     double sREG[31]={0}; int mxRS2=0, mnMT3=-1, mxD7=0, mnC1=-1;
-    for (int i=0;i<nthreads;i++){ pthread_join(tid[i],NULL);
+    uint64_t N_planned = 0, N_executed = 0;
+    for (int i=0;i<nthreads;i++){
+        int _pj = pthread_join(tid[i],NULL);
+        if (_pj != 0) {
+            fprintf(stderr, "FATAL: pthread_join on estimator worker %d failed (%s); its probe\n"
+                            "       contribution cannot be established.\nESTIMATOR=ABORTED-WORKER-JOIN\n",
+                    i, strerror(_pj));
+            exit(70);
+        }
+        N_planned += arg[i].n_probes; N_executed += arg[i].n_executed;
         sL+=arg[i].sum_leaf; qL+=arg[i].sumsq_leaf; sC+=arg[i].sum_c3; qC+=arg[i].sumsq_c3;
-        sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3; N+=arg[i].n_probes;
+        sN+=arg[i].sum_node; qN+=arg[i].sumsq_node; hL+=arg[i].hits_leaf; hC+=arg[i].hits_c3;
+        N+=arg[i].n_executed;   /* EXECUTED, never the planned quota (Codex v2 solve.c:8137) */
         sR1+=arg[i].sum_rc1; sR2+=arg[i].sum_rc2; sR5+=arg[i].sum_rc5;
         zR1+=arg[i].sq_rc1; zR2+=arg[i].sq_rc2; zR5+=arg[i].sq_rc5;
         zRC1cS2+=arg[i].sq_rc1c_s2; zRC1cS32+=arg[i].sq_rc1c_s32; zRC1cAdj+=arg[i].sq_rc1c_adj;
@@ -8420,6 +8538,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         sC3+=arg[i].sum_rc3; sC3w+=arg[i].sum_rc3w; sC4k+=arg[i].sum_rc4k; sC4s+=arg[i].sum_rc4s;
         qC4s+=arg[i].sumsq_rc4s; hC4s+=arg[i].hits_rc4s; if (arg[i].max_w_c3 > maxWc3) maxWc3 = arg[i].max_w_c3;
         sF+=arg[i].sum_fib; qF+=arg[i].sq_fib; sFC+=arg[i].sum_fib_c3; qFC+=arg[i].sq_fib_c3;
+        hFib+=arg[i].hits_fib; hFibC3+=arg[i].hits_fib_c3;
         xLF+=arg[i].x_leaf_fib; xCF+=arg[i].x_c3_fib; fbBad+=arg[i].fib_bad;
         if (arg[i].fib_min > 0 && (fbMin == 0 || arg[i].fib_min < fbMin)) fbMin = arg[i].fib_min;
         if (arg[i].fib_max > fbMax) fbMax = arg[i].fib_max;
@@ -8584,6 +8703,26 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
      * [ SqI*(1-2m) + m^2*Qb ] / B^2 with Qb = sum(b^2) (the existing sumsq_c3). */
 #define KNUTH_MASS_SE(SqI, m, B, Qb) \
     (((B) > 0) ? sqrt(fmax(0.0, (SqI)*(1.0-2.0*(m)) + (m)*(m)*(Qb)))/(B) : 0.0)
+    /* 🔴 Codex v2 `solve.c:8137/:8093/:8149`, 2026-09-04. The reported probe count was the
+       PLANNED quota and nothing established that those probes ran. Both numbers are printed now,
+       and a shortfall is FATAL rather than cosmetic: the denominator would be right but the
+       numerator short, so every estimate below would be biased low by the missing share. The one
+       legitimate zero is a strict-dead prefix, where no probe SHOULD run and est=0 is the correct
+       answer (R11 gate-2); that case is named rather than lumped in with a failure. */
+    printf("KNUTH-PROBES planned=%llu executed=%llu\n",
+           (unsigned long long)N_planned, (unsigned long long)N_executed);
+    if (prefix_dead) {
+        printf("KNUTH_PROBES=SKIPPED-DEAD-PREFIX\n");
+    } else if (N_executed != N_planned) {
+        fprintf(stderr,
+            "FATAL: estimator executed %llu of %llu planned probes. The shortfall biases every\n"
+            "       estimate below low by roughly the missing share, so no number is printed.\n"
+            "KNUTH_PROBES=EXECUTED-NE-PLANNED\n",
+            (unsigned long long)N_executed, (unsigned long long)N_planned);
+        exit(70);
+    } else {
+        printf("KNUTH_PROBES=EXECUTED-EQ-PLANNED\n");
+    }
     printf("KNUTH-ESTIMATE probes=%llu threads=%d start_step=%d prefix_levels=%d\n",
            (unsigned long long)N, nthreads, start_step, n_levels);
     /* R11 Phase-2 provenance line (§5.2): seed base, prune flags, wall time. Build sha is
@@ -8595,10 +8734,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     for (int m=0;m<3;m++){
         const char *nm = m==0?"tree_nodes           " : m==1?"leaves_C1C2C4C5      " : "leaves_canonical_C1C5";
         double s = m==0?sN:m==1?sL:sC, q = m==0?qN:m==1?qL:qC; uint64_t h = m==0?N:m==1?hL:hC;
-        double mean = s/dN, var = q/dN - mean*mean; if (var<0) var=0;
-        double se = sqrt(var/dN), rel = mean>0 ? 100.0*se/mean : 0.0;
-        printf("  %s : est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%  hitrate=%.3g\n",
-               nm, mean, mean-1.96*se, mean+1.96*se, rel, (double)h/dN);
+        knuth_emit_ci(nm, s, q, N, h, NULL);
     }
     /* R11 P2 skew audit (§5.2): the single heaviest probe's share of the canonical-leaf
      * estimate. A large share means the estimate rides on one rare heavy path (low ESS,
@@ -8618,10 +8754,9 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             for (int m = 0; m < 2; m++) {
                 const char *nm = m==0 ? "records_C1C2C4C5     " : "records_canonical_C1C5";
                 double s = m==0 ? sF : sFC, q = m==0 ? qF : qFC;
-                double mean = s/dN, var = q/dN - mean*mean; if (var < 0) var = 0;
-                double se = sqrt(var/dN), rel = mean > 0 ? 100.0*se/mean : 0.0;
-                printf("  %s: est=%.6e  95%%CI=[%.4e, %.4e]  relerr=%.2f%%   (W/m estimator; records ceiling 31! = 8.2228e33)\n",
-                       nm, mean, mean-1.96*se, mean+1.96*se, rel);
+                uint64_t hf = m==0 ? hFib : hFibC3;
+                knuth_emit_ci(nm, s, q, N, hf,
+                              "   (W/m estimator; records ceiling 31! = 8.2228e33)");
             }
             /* mean fiber = N/R per layer, ratio-estimator SE with the covariance term:
              * Var(A/B) ~= (Va - 2r*Cab + r^2*Vb) / (N * bbar^2), r = abar/bbar. */

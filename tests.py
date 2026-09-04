@@ -4240,5 +4240,101 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
                         " | ".join(seen[-8:]))
 
 
+class TestKnuthEstimatorOutputHonesty(unittest.TestCase):
+    """The estimator output-honesty harness (Codex v2 solve.c:8073/:8136/:8137/:8341/:8343).
+
+    These assert what the estimator is ALLOWED TO CLAIM, not what it computes. Each row was
+    measured red on the pre-fix binary; the pre-fix behaviour is named per test. Tokens are
+    matched whole-line.
+
+    --estimate-knuth needs >= 16 MB of stack and refuses below that, so every run here raises
+    RLIMIT_STACK in the child rather than assuming the harness inherited a large one -- otherwise
+    these tests would pass vacuously on the refusal message, which is exactly the failure mode the
+    suite exists to catch."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="knuthhonesty_")
+        cls.sbin = os.path.join(cls.tmp, "solve_knuth")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, args, env=None, timeout=300):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        def _raise_stack():
+            import resource
+            resource.setrlimit(resource.RLIMIT_STACK,
+                               (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+        e = dict(os.environ)
+        if env:
+            e.update(env)
+        r = subprocess.run([self.sbin] + args, capture_output=True, text=True,
+                           cwd=self.tmp, env=e, timeout=timeout, preexec_fn=_raise_stack)
+        lines = [" ".join(l.split()) for l in (r.stdout + "\n" + r.stderr).splitlines()]
+        self.assertFalse(any("stack limit is" in l for l in lines),
+                         "the child refused on stack size, so this assertion would be vacuous")
+        return r, lines
+
+    def test_single_probe_reports_no_confidence_interval(self):
+        # Pre-fix: printed 95%CI=[x, x] relerr=0.00% -- a zero-width interval reading as
+        # infinite precision, from one probe.
+        _, lines = self._run(["--estimate-knuth", "1"])
+        ci = [l for l in lines if l.startswith("tree_nodes :")]
+        self.assertTrue(ci, "no tree_nodes line; got: " + " | ".join(lines[-6:]))
+        self.assertIn("CI=UNAVAILABLE", ci[0])
+        self.assertNotIn("95%CI", ci[0])
+
+    def test_zero_hit_layers_report_starvation_not_a_bound(self):
+        # Pre-fix: est=0 with 95%CI=[0,0] on layers that recorded zero hits, presenting a
+        # sampling artifact as a measured bound.
+        _, lines = self._run(["--estimate-knuth", "2"])
+        leaf = [l for l in lines if l.startswith("leaves_C1C2C4C5 :")]
+        self.assertTrue(leaf, "no leaves_C1C2C4C5 line; got: " + " | ".join(lines[-6:]))
+        self.assertIn("STARVATION", leaf[0])
+        self.assertNotIn("95%CI", leaf[0])
+
+    def test_probe_count_is_the_count_that_ran(self):
+        # Pre-fix: the reported probe count was the PLANNED quota and nothing established
+        # that those probes executed.
+        _, lines = self._run(["--estimate-knuth", "64"])
+        self.assertIn("KNUTH_PROBES=EXECUTED-EQ-PLANNED", lines)
+        self.assertTrue(any(l.startswith("KNUTH-PROBES planned=64 executed=64") for l in lines),
+                        "planned/executed line missing or unequal: " +
+                        " | ".join(l for l in lines if "KNUTH-PROBES" in l))
+
+    def test_exact_mode_honours_its_own_dead_prefix_banner(self):
+        # Pre-fix: printed "STRICT-PREFIX DEAD ... reporting zero estimates" and then NON-ZERO
+        # counts beneath it -- and spent unbounded time enumerating a subtree it had just proven
+        # empty (measured 2026-09-04: no completion in 120 s at 11 prefix levels).
+        r, lines = self._run(["--estimate-knuth", "0",
+                              "3", "0", "5", "0", "7", "0", "9", "0"],
+                             env={"SOLVE_KNUTH_MOORE_STRICT": "1"}, timeout=120)
+        self.assertTrue(any(l.startswith("EXACT_COUNT=DEAD-PREFIX") for l in lines),
+                        "expected the DEAD-PREFIX token; got: " + " | ".join(lines[-8:]))
+        for layer in ("tree_nodes", "leaves_C1C2C4C5", "leaves_canonical_C1C5"):
+            row = [l for l in lines if l.startswith(layer + " :")]
+            self.assertTrue(row, layer + " line missing")
+            self.assertEqual(row[0].split(":")[1].strip(), "0",
+                             layer + " must be 0 under a dead prefix, not " + row[0])
+
+    def test_exact_mode_refuses_strict_flags_it_cannot_apply(self):
+        # exact_count() prunes on C1/C2/C5 only. Pre-fix it silently counted the UNRESTRICTED
+        # subtree while a strict flag was set, answering a different question than the one asked.
+        r, lines = self._run(["--estimate-knuth", "0", "3", "0", "5", "0", "7", "0"],
+                             env={"SOLVE_KNUTH_MOORE_STRICT": "1"}, timeout=120)
+        self.assertIn("EXACT_COUNT=REFUSED-STRICT-UNSUPPORTED", lines)
+        self.assertNotEqual(r.returncode, 0, "a refusal must exit non-zero")
+        self.assertFalse(any(l.startswith("tree_nodes :") for l in lines),
+                         "a refusal must print no counts")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
