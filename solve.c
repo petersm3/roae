@@ -33,7 +33,10 @@
  * the remaining unused pairs (in either orientation) at the next position. Pruning:
  *   C1: Pair structure — only the 32 pairs from KW are used (not arbitrary pairings)
  *   C2: No 5-line Hamming transitions between consecutive hexagrams
- *   C4: Position 1 is always hexagram 1 / hexagram 2 (all-yang 63, all-yin 0) — provably forced
+ *   C4: Position 1 is pinned to hexagram 1 / hexagram 2 (all-yang 63, all-yin 0) **by
+ *       definition** (oriented C4). NOT forced by the other constraints — complementation
+ *       is an exact symmetry of C1∩C2∩C3∩C5 (Lean `orientation_not_forced`; the former
+ *       "Theorem 6" was RETRACTED 2026-07-26, see documentation/SPECIFICATION.md).
  *   C5: Difference distribution — the multiset of Hamming distances between all 63
  *       consecutive hexagrams must exactly match King Wen's {1:2, 2:20, 3:13, 4:19, 6:9}
  *       This is tracked via a "budget" array decremented at each placement.
@@ -44,7 +47,7 @@
  * THREADING MODEL
  * ===============
  * Normal mode: enumerates ~3,030 depth-2 sub-branches (each fixing positions 0-3:
- * the forced hexagram 1 / hexagram 2 at position 1, then a chosen pair+orient at
+ * the pinned hexagram 1 / hexagram 2 at position 1, then a chosen pair+orient at
  * position 2 and another at position 3). Sub-branches are distributed round-robin
  * across N threads. Replaces an older "56-branch mode" that suffered from the
  * tail problem (a few large branches monopolizing single cores while the rest of
@@ -102,7 +105,7 @@
  *
  * Key analytics:
  *   - Position match rates: what fraction of solutions have the same pair as KW
- *     at each of the 32 positions. Position 1 is always 100% (forced by C4).
+ *     at each of the 32 positions. Position 1 is always 100% (pinned by C4, by definition).
  *   - Edit distance: number of pair positions differing from KW (0 = identical)
  *   - Generalized adjacency: for each of the 31 pair boundaries, how often do
  *     both adjacent pairs match KW. Answers "how many boundary constraints needed
@@ -659,10 +662,16 @@ static int pair_index_of(int x, int y) {
  *
  * King Wen's total is 776, i.e. mean 12.125 per complement-pair. This is the
  * C3 ceiling: valid solutions must have total <= 776. KW sits at the
- * boundary by construction (the threshold is KW's own value), and is in
- * the 3.9th percentile of complement distance among all C1+C2+C4+C5
- * solutions (i.e. KW actively minimizes this — a genuine signal that is
- * not circular, since C3 is the ceiling, not the exact equality).
+ * boundary BY CONSTRUCTION — the threshold IS KW's own value, so "KW satisfies
+ * C3" is definitional and carries no signal.
+ *
+ * 🔴 CORRECTED (CX-13, 2026-08-01): this comment previously read that KW is "in the
+ * 3.9th percentile of complement distance among all C1+C2+C4+C5 solutions (i.e. KW
+ * actively minimizes this — a genuine signal)". That percentile is WITHDRAWN: it was a
+ * statistic of a 13,296-ordering differential slice, not of the C1+C2+C4+C5 population.
+ * The C1+C2+C4+C5 ledger ratio puts KW near 12%, and the exact C1∩C4 tail is 8.1%
+ * (reproduce: `verify.py --check-null-g`). The load-bearing quantity here is the VALUE
+ * 776, not any percentile.
  *
  * Note: SPECIFICATION.md contains a documentation error stating |C| = 60.
  * That number would correspond to excluding the 4 rev-palindromic hexagrams
@@ -5366,7 +5375,8 @@ static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x
  * (D7 ruling I-1(b), 2026-08-28); Codex A02 stated the W/m(k) canonical-class estimator
  * (D7 ruling I-5); A1_ORIENTATION_FIBER_MEASUREMENT.md (2026-08-01) §6.1 specifies the
  * fiber port and its KW gate. Attribution: Purdom, "Tree size by partial backtracking",
- * SIAM J. Comput. 7(2), 1978; Knuth 1975 is its single-path special case.
+ * SIAM J. Comput. 7(4), 1978, 481-491; DOI 10.1137/0207038 (see documentation/CITATIONS.md);
+ * Knuth 1975 is its single-path special case.
  *
  * SOLVE_KNUTH_PURDOM_W=<w> (w>=2): at each node with d live children within the first
  * SOLVE_KNUTH_PURDOM_DEPTH free levels (default 7), descend into s=min(d,w) DISTINCT
@@ -8255,7 +8265,16 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("EXACT-COUNT start_step=%d prefix_levels=%d\n", start_step, n_levels);
         printf("  tree_nodes            : %.0f\n", nodes);
         printf("  leaves_C1C2C4C5       : %.0f\n", leaves);
+        /* 🔴 GLOSS REQUIRED (Codex v2 `solve.c:8339`, 2026-09-04). The token name is NOT
+         * renamed on purpose: ~15 archived evidence .out files cite it verbatim and a
+         * rename would orphan them. "canonical" here means "passed the C1-C5 filter",
+         * NOT "canonical representative of an orientation class" — these are RAW
+         * ORIENTED leaves, not deduped classes. LEAVES_CANONICAL_GLOSS=present asserts
+         * this gloss survives refactors (tests.py); do not drop it. */
         printf("  leaves_canonical_C1C5 : %.0f\n", c3);
+        printf("  LEAVES_CANONICAL_GLOSS=present\n");
+        printf("    (raw ORIENTED leaves passing the C1-C5 filter; NOT deduped orientation\n");
+        printf("     classes -- see the records_* lines for deduped counts)\n");
         fflush(stdout); return;
     }
     if (nthreads<1) nthreads=1; if (nthreads>256) nthreads=256;
@@ -12266,12 +12285,20 @@ static void run_null_random(uint64_t n_trials) {
 
 /* ---------- Random 6-bit Gray code sampling ----------
  *
- * The 6-bit Gray code family (Hamiltonian cycles in the 6-cube Q_6) has
- * ~10^22 members — exhaustive enumeration is infeasible. But a random
- * walk-based sampler can efficiently generate many distinct Gray codes,
- * letting us bound the conditional C3 rate (C1 and C2 are analytically
- * fixed for all Gray codes: C1 = 0% by the Hamming-disjoint argument,
- * C2 = 100% trivially by construction).
+ * 🔴 SCOPED 2026-09-04 (Codex v2 `solve.c:12133`; CRITIQUE.md:60, HISTORY.md:409).
+ * What this sampler actually produces is a NON-UNIFORM sample of OPEN HAMILTONIAN
+ * PATHS in Q_6 — `gray_random_walk` stops when all 64 vertices are visited and never
+ * checks that seq[63] is Hamming-adjacent to seq[0], so CYCLE CLOSURE IS NOT ENFORCED.
+ * Gray codes are Hamiltonian CYCLES. Every figure this mode reports therefore bounds
+ * the rate under THIS SAMPLER'S INDUCED DISTRIBUTION OVER PATHS ONLY — it is not a
+ * bound over the uniform ~10^22 Hamiltonian-CYCLE (true Gray code) family, and the
+ * two differ both in support and in measure. The "Gray code" naming below is retained
+ * only because it is load-bearing in archived evidence filenames.
+ *
+ * The path family is large enough that exhaustive enumeration is infeasible, so the
+ * walk sampler bounds the conditional C3 rate under that induced distribution. C1 and
+ * C2 are analytically fixed for any Hamming-1-adjacent traversal, cycle or path:
+ * C1 = 0% by the Hamming-disjoint argument, C2 = 100% trivially by construction.
  *
  * Sampling strategy: start at a random vertex of Q_6, repeatedly move
  * to a uniformly-random unvisited neighbor (Hamming-1 bit-flip). When
@@ -12315,7 +12342,10 @@ static void run_null_gray_random(uint64_t n_trials) {
     printf("# Null-model: random 6-bit Gray codes (Hamiltonian walks in Q_6)\n\n");
     printf("Sampling %llu random Gray-code permutations via unvisited-neighbor walks.\n",
            (unsigned long long)n_trials);
-    printf("Non-uniform sampler; bounds conditional C3 rate over the ~10^22 Gray code family.\n");
+    printf("GRAY_SCOPE=INDUCED\n");
+    printf("Non-uniform sampler over OPEN Hamiltonian PATHS in Q_6 (cycle closure NOT\n");
+    printf("enforced). Rates below bound this sampler's induced distribution ONLY -- NOT\n");
+    printf("the uniform ~10^22 Hamiltonian-cycle (Gray code) family.\n");
     printf("C1 = 0 by analytic proof (Hamming-1 adjacency disjoint from C1); verified as sanity.\n");
     printf("C2 = always 0 five-line transitions (trivially by construction); verified.\n\n");
 
@@ -12373,6 +12403,8 @@ static void run_null_gray_random(uint64_t n_trials) {
     if (n_c3 == 0) {
         double upper_95 = 3.0 / (double)n_trials;  /* rule of three */
         printf("  95%% upper bound on C3 rate (Rule of Three): %.3e\n", upper_95);
+        printf("    ^ bounds the rate under THIS SAMPLER'S induced distribution over open\n");
+        printf("      Hamiltonian paths only; NOT over the uniform ~10^22 Gray code family.\n");
     }
 }
 
@@ -12569,9 +12601,12 @@ static void run_null_pair_constrained(uint64_t n_trials) {
            c3_min, c3_max, (double)c3_sum / n_trials);
     printf("\nInterpretation: given that C1 holds, how often does a random valid\n");
     printf("pair-ordering also satisfy the adjacency and complement constraints?\n");
-    printf("Solve.c's canonical enumeration at 10T (d3: 706M orderings) and 100T\n");
-    printf("measures this exhaustively under the C1+C2+C3 filter; this Monte-Carlo\n");
-    printf("sample gives the *unconditional* rate over uniformly random pair-perms.\n");
+    printf("Solve.c's canonical enumerations at 10T (d3: 706M orderings) and 100T are\n");
+    printf("NODE-BUDGETED C1-C5 slices: their record counts are LOWER BOUNDS over a\n");
+    printf("reproducible slice, not exhaustive populations (documentation/CRITIQUE.md,\n");
+    printf("documentation/SOLUTIONS_FORMAT.md). They therefore cannot validate this\n");
+    printf("mode's unconditional rate. The conditional rates above stand on their own\n");
+    printf("Monte-Carlo terms over uniformly random pair-perms.\n");
 }
 
 /* ---------- C3-min: find minimum complement distance in solutions.bin ----------
@@ -12579,10 +12614,16 @@ static void run_null_pair_constrained(uint64_t n_trials) {
  * Addresses Open Question #11 / #7 Phase A Day 1 MVP. Reads every record
  * in solutions.bin, decodes the 64-hexagram sequence, computes the total
  * complement distance (= sum over all 64 v of |pos[v] - pos[v^63]|), and
- * reports the minimum observed. King Wen's value is 776. If the minimum
- * is 776, KW is THE C3-minimum under C1+C2. If less, KW is not the
- * minimum — we have a natural axiom set ("minimum C3 under C1+C2") that
- * does NOT uniquely pick out KW.
+ * reports the minimum observed. King Wen's value is 776.
+ *
+ * 🔴 SCOPED 2026-09-04 (Codex v2 `solve.c:12991`). This comment previously read that a
+ * minimum of 776 makes KW "THE C3-minimum under C1+C2" and a candidate natural axiom.
+ * It does not. solutions.bin is a NODE-BUDGETED C1-C5 slice, so the minimum over the
+ * file is a LOWER BOUND fact about the file and says nothing about the C1+C2
+ * population. The two directions are ASYMMETRIC: a value BELOW 776 found here is a
+ * genuine counterexample (a witness in a subset is a witness in the population), but
+ * a minimum EQUAL to 776 establishes no axiom, because the records that could refute
+ * it were never enumerated.
  */
 
 /* --yield-report: per-sub-branch yield-clustering analysis of a solve.c
@@ -13100,7 +13141,16 @@ static void run_c3_min(const char *filename) {
     long long n_records = (long long)hdr_records;
     printf("# C3-min analysis: %s\n", filename);
     printf("Records: %lld\n", n_records);
-    printf("KW C3 (reference): 776\n\n");
+    printf("KW C3 (reference): 776\n");
+    /* 🔴 SCOPED 2026-09-04 (Codex v2 `solve.c:12991`). Every verdict this mode prints is
+     * relative to the RECORDS IN THIS FILE. A solutions.bin is a NODE-BUDGETED C1-C5
+     * slice, so "the minimum over this file" is not "the minimum under C1+C2" and an
+     * extremum being unique here does not make it unique in any population. */
+    printf("C3MIN_SCOPE=FILE\n");
+    printf("CAVEAT: all verdicts below range over the %lld records of this file ONLY.\n", n_records);
+    printf("        solutions.bin is a node-budgeted C1-C5 slice (a LOWER BOUND over a\n");
+    printf("        reproducible slice), NOT the C1+C2 population -- so a minimum,\n");
+    printf("        maximum or uniqueness here is a property of the FILE, not a theorem.\n\n");
 
     unsigned char rec[SOL_RECORD_SIZE];
     int min_c3 = 100000;
@@ -13177,20 +13227,22 @@ static void run_c3_min(const char *filename) {
     }
     printf("\nInterpretation:\n");
     if (min_c3 == 776 && kw_c3_observed == 776) {
-        printf("  KW IS at the C3-minimum under C1+C2. %lld record(s) tie at C3=776.\n",
-               count_at_min);
+        printf("  KW is at the minimum C3 among the %lld records of this file.\n", n_records);
+        printf("  %lld record(s) in this file tie at C3=776.\n", count_at_min);
         if (count_at_min == 1) {
-            printf("  KW is the UNIQUE C3-minimum — 'minimum C3 under C1+C2' is a\n");
-            printf("  candidate natural axiom that picks out KW uniquely (Phase A progress).\n");
+            printf("  KW is the unique C3-minimum IN THIS FILE. That is a fact about the\n");
+            printf("  file, not about C1+C2: the file is a budgeted slice, so no record\n");
+            printf("  outside it has been examined and no axiom is established here.\n");
         } else {
-            printf("  KW is one of %lld C3-minimum records. Minimization is necessary but\n",
+            printf("  KW is one of %lld C3-minimum records in this file, so minimization\n",
                    count_at_min);
-            printf("  not sufficient to uniquely derive KW from first principles.\n");
+            printf("  does not single KW out even within this slice.\n");
         }
     } else if (min_c3 < 776) {
-        printf("  Minimum C3 (%d) is LESS than KW (776) — KW is NOT the C3-minimum.\n", min_c3);
-        printf("  Some other C1+C2 ordering places complements even closer than KW.\n");
-        printf("  Axiom 'minimize C3' alone cannot derive KW.\n");
+        printf("  Minimum C3 (%d) is LESS than KW (776) — KW is not the C3-minimum of\n", min_c3);
+        printf("  this file. Some other record here places complements closer than KW.\n");
+        printf("  This direction DOES generalise: a counterexample in a subset is a\n");
+        printf("  counterexample in the population, so 'minimize C3' alone cannot derive KW.\n");
     }
     printf("\n  Bottom 10 C3 values observed (bucket, count):\n");
     int reported = 0;
@@ -13209,9 +13261,9 @@ static void run_c3_min(const char *filename) {
         }
     }
     /* Summary for Open Question #7 derivability analysis */
-    printf("\n  Summary (Open Question #7 Phase A):\n");
+    printf("\n  Summary (Open Question #7 Phase A) — all rows FILE-relative:\n");
     if (kw_c3_observed == min_c3 && count_at_min == 1) {
-        printf("    ✓ 'minimize C3' uniquely picks KW.\n");
+        printf("    ~ 'minimize C3' picks KW alone among this file's %lld records.\n", n_records);
     } else if (kw_c3_observed == min_c3) {
         printf("    ✗ 'minimize C3' picks %lld records (including KW). Not unique.\n", count_at_min);
     } else {
@@ -13219,7 +13271,9 @@ static void run_c3_min(const char *filename) {
                min_c3, kw_c3_observed, count_at_min);
     }
     if (kw_c3_observed == max_c3_observed && count_at_max == 1) {
-        printf("    ✓ 'maximize C3' uniquely picks KW! Strong Phase A positive result.\n");
+        printf("    ~ 'maximize C3' picks KW alone among this file's %lld records. This is\n", n_records);
+        printf("      expected and near-tautological: C3 is the ceiling and KW's own value\n");
+        printf("      776 IS that ceiling, so KW cannot be exceeded by construction.\n");
     } else if (kw_c3_observed == max_c3_observed) {
         printf("    ~ 'maximize C3' picks %lld records (including KW). Not unique.\n", count_at_max);
     } else {
@@ -34740,7 +34794,7 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
             fprintf(stderr, "[purdom] partial-backtracking estimator ACTIVE: w=%d depth_cutoff=%d "
-                            "(Purdom 1978, SIAM J. Comput. 7(2); unbiased for any (w,cutoff); "
+                            "(Purdom 1978, SIAM J. Comput. 7(4), 481-491; unbiased for any (w,cutoff); "
                             "Q-389 second-estimator derivation)\n",
                     knuth_purdom_w, knuth_purdom_depth);
         }
@@ -39155,10 +39209,14 @@ int main(int argc, char *argv[]) {
          * information here is the SHAPE of the distribution — how tightly
          * solutions cluster near the ceiling vs. spread toward low cd.
          *
-         * The "3.9th percentile" claim in SOLVE_SUMMARY.md is a DIFFERENT
-         * comparison: KW vs all pair-constrained orderings (C1 only, from
-         * roae.py Monte Carlo), not within C1-C5. Both are correct in their
-         * respective reference populations.
+         * 🔴 The "3.9th percentile" figure is WITHDRAWN (CORRECTIONS.md CX-13,
+         * 2026-08-01). This comment previously described it as a valid DIFFERENT
+         * comparison ("KW vs all pair-constrained orderings, C1 only") and called
+         * both figures correct in their reference populations. That defence does not
+         * hold: the figure was a statistic of a 13,296-ordering differential slice,
+         * not of the C1 population it named. The C1+C2+C4+C5 ledger ratio puts KW
+         * near 12%, and the exact C1-intersect-C4 tail is 8.1% (verify.py
+         * --check-null-g). Only the tautology note below is retained.
          */
         printf("[22] Complement-distance distribution (hex-level, same metric as C3)\n");
         fprintf(stderr, "[22] START\n"); fflush(stderr);
@@ -39217,8 +39275,11 @@ int main(int argc, char *argv[]) {
             printf("    KW percentile within C1-C5 dataset: %.2f%%\n", kw_pct);
             printf("    NOTE: KW at %.0f%% is tautological — C3 enforces cd <= %d.\n",
                    kw_pct, kw_comp_dist_x64);
-            printf("    The '3.9th percentile' in SOLVE_SUMMARY.md compares KW against\n");
-            printf("    ALL pair-constrained orderings (C1 only), not within C1-C5.\n");
+            printf("    The formerly-published '3.9th percentile' is WITHDRAWN (CORRECTIONS.md\n");
+            printf("    CX-13, 2026-08-01): it was a statistic of a 13,296-ordering differential\n");
+            printf("    slice, not of any C1-constrained population. The C1+C2+C4+C5 ledger ratio\n");
+            printf("    puts KW near 12%%, and the exact C1-intersect-C4 tail is 8.1%%\n");
+            printf("    (reproduce: verify.py --check-null-g).\n");
             printf("    Range within C1-C5 dataset: [%d, %d]\n", cd_min, cd_max_val);
             printf("    Distribution (20-unit bins, non-zero):\n");
             for (int base = (cd_min / 20) * 20; base <= cd_max_val; base += 20) {
