@@ -6072,14 +6072,359 @@ it hashed an empty stream to `e3b0c442…` = sha256("") by running `gzip -dc` ag
 un-gzipped file — which is recorded with the private evidence. The engine's own
 `solutions.sha256` corroborates the hashes independently of that harness.
 
+## 2026-08-08/08-30: The month the project spent subtracting — a cession chain, a publication freeze, and a class of checks that report clean without having looked
+
+**This entry closes a hole.** For a month this file jumped from 2026-08-08 straight to 2026-08-30,
+and the currency check that was supposed to notice measured only the *newest* narrated date against
+the newest commit — so it went green over twenty-two days and a hundred and twenty commits. The
+check now walks consecutive headings and trips on interior gaps; the section below is what was
+missing. It is written from the private working record and from re-read diffs, not from commit
+subjects, because a narrative assembled from commit titles is exactly how a wrong label survives.
+
+Two things dominate the month, and neither is a result. The first is **attribution**: a chain of
+cessions that moved this project's central structural observation back seven centuries and retired
+the impossibility argument it had thought was its own. The second is **a defect class** — checks
+that pass without having looked at anything — found twenty-three times, seven of them in our own
+gate suite.
+
+### Gates for classes, not instances
+
+The first week was spent making the repository survive a stranger reading it, on the finding that
+several defects were **class** defects the existing gates structurally could not see.
+
+Five public branches contradicted `main` and no instrument could see it, because every gate ran
+against the working tree only. [GATE 19](../scripts/doc_gates.sh) and
+[BRANCH_REGISTRY.tsv](BRANCH_REGISTRY.tsv) answer that now, and registering it turned up seven
+commits that existed on exactly one machine. Four more gates followed across 08-09 → 08-11:
+publication-state markers, `## DRAFT` left in a shipped document, backticked script paths that must
+resolve to real files, and documented value sets checked against the literal domain in the code.
+The last of the four mattered more than the rest and did not look like it at the time: **a
+documented reproduction command must be runnable.**
+
+A clean-room Knuth prober landed in `verify.c` as a second instrument on the 5.21×10³¹ estimate,
+pre-registered before it ran. The n = 18 rung was filled in TR-11 §4b and independently reproduced
+by the DP in `verify.py` — recorded as *a gap closed, not a correction*, because nothing published
+had been wrong.
+
+### A measurement that later caught a stale figure
+
+The g-ladder for layers 16–31 was measured at **3,829.1 GiB**, mirrored **7,658.2 GiB**, cross-checked
+against `df`. A first attempt that calibrated bytes-per-entry from a single layer came out **738 GiB
+short** and was discarded rather than reconciled — the right instinct, since a calibration that
+disagrees with a direct measurement by 20% is not a calibration.
+
+The consequence surfaced two weeks later. That measurement superseded a `~2.6 TB` design figure from
+July, and the tier table was never updated. It was caught only when the operator asked a question
+that happened to expose it. **A number that supersedes another number does not propagate itself.**
+
+### Nineteen review documents, and the gate that was decorative
+
+A single day, 08-13, produced nineteen review documents under operator direction. Calling them
+design reviews would be wrong: most are *audits* of code and of the published corpus, and only three
+are design specifications. **Nine of the nineteen were re-read for this entry; the other ten are not
+characterised here** — an unread document is not evidence, and the count is not the finding.
+
+- 🔴 **A dual-anchor `--selftest` gate was decorative on most launcher paths.** The in-binary gate
+  fails closed on every branch audited. The *launcher-side* check wrapped around it — grepping the
+  binary's own output for the anchor string — is structurally unable to fail, because the binary
+  prints its expected sha **unconditionally, before running the child**. The grep matches whether
+  the test passed or failed. Canonical *enumeration* artifacts were protected anyway by an
+  independent return-code-checked backstop compiled into the binary and armed at ≥ 1T nodes; the
+  non-enumeration production paths had no such backstop.
+- **Every "machine-checked" claim in the public corpus was audited, and none was unbacked.** All 92
+  distinct Lean theorem names cited anywhere in the public tree exist in the file named. Six defects
+  were found — an overstated index line, three sites missing a transcription caveat, one citation
+  naming no theorem, and one use of "machine-checked" for a shell doc-gate. **None changed a number,
+  a theorem, or a verdict.**
+- **The prune predicates match their theorems**, with the bridge gaps exactly where the Lean files
+  themselves place them. The finding runs the other way: **two Lean files prove predicates that no C
+  code implements**, and no public artifact said so.
+- The launcher re-audit was **tiered, and says so** — 114 launchers against 10 incident classes, deep
+  reads on the active set and grep-level coverage on closed campaigns, concluding "residual risk, not
+  certified clean" in its own words. A tiered audit that reports itself as exhaustive is worse than
+  no audit.
+
+⚠ These verdicts live in private review notes and **no public reproduction command exists for any of
+them.** This section records what was reviewed and found; it is not a published result.
+
+### 🔴 The cession wave — the deepest attribution work this project has done
+
+These are the most consequential entries of the month precisely because they **subtract** from the
+project's claims.
+
+**The K₄ orbit decomposition of the 64 hexagrams was ceded to the classical tradition.** First to
+**吳澄 (c. 1300)** — recorded at the time as *"the deepest cession this project makes"* — and then,
+**the same day**, superseded again to **朱元昇 (by 1270)** as the earliest. `solve.c`'s own
+attribution comment, which had been modern-only, was corrected to match. On `main`, the
+"novel contribution" claim was withdrawn outright.
+
+**The cession is a chain of three, and every step was independently re-derived rather than
+accepted.** 崔述 (c. 1800) → 吳澄 (c. 1300) → 朱元昇 (by 1270). The private records say so in their
+own words — *"I re-derived it, I did not take the agent's word"*; *"MATHEMATICALLY VALIDATED, not
+taken on trust"* — and the chain was tested against near-misses rather than only against its own
+candidates: 來知德 and 俞琰 **fail** a test that 朱元昇 passes. 崔述 is not merely superseded; he is an
+**independent rediscoverer of a subset** — 6 of the 20 orbits, on 16 of the 64 — at a time when
+吳澄's text had been lost since the Ming and only recently reconstructed, and with his own testimony
+that the joint use was novel in his day.
+
+⚠ **We had already cited 吳澄 — for the wrong chapter.** The man was in the bibliography; the passage
+that anticipates us was not. A name in a citation list is not coverage of that name's work.
+
+沈有鼎 1936 was cited directly from the source, with two sharpenings: his six groups **are** the K₄
+orbits, and his brevity is a **venue artifact** — explicitly not to be read as an undeveloped idea.
+焦循 and 來知德 were cited and the cession lists widened to the classical lineage; Xing Wen 2021 was
+added and a 崔述 reference corrected. Three overclaims were scoped down, a sampled figure was replaced
+with an exact count, and the rival group was credited to the tradition that supplied it. Reproduction
+shipped **alongside** the claims rather than after them: code was published for three classical claims
+that had none, and `--check-kw-pair-adjacency` was added so an adjacency assertion could be executed
+instead of read. All of this is in [CITATIONS.md](CITATIONS.md).
+
+### 🛑 A publication freeze, and the claim that did not survive
+
+**Our impossibility argument was not novel.** It is the field's settled position since 2004–05 —
+陳仁仁 2005, 謝金良 2004, 王振復 2004.
+
+**Exactly one claim survives:** counting the *orderings* of the 64 that respect the orbits, under a
+stated convention. A later sweep of the Song literature re-confirmed it untouched.
+
+🛑 **A publication freeze was declared on 2026-08-16 and, at the time of writing, is still in force:**
+no capstone, no paper, and no merge to `main` that asserts novelty, until 王俊龍 and 管小思 are read.
+The recorded concern is **not any single cession — it is the rate and the method**, and the working
+frame moved from *"establish novelty"* to *"establish exactly what is left."*
+
+**The mathematics is untouched by any of it**, and that distinction is the reason the freeze is
+survivable rather than fatal. Nothing above changes a count, a sha, or a theorem. What changed is who
+gets credit for the structure, and how much of what we said was ours actually is.
+
+### The sweep's other verdicts — including two of our own premises refuted
+
+The 08-16 literature sweep was not neutral breadth, and listing what was searched would misrepresent
+it. Two passes refuted premises of **ours**; one surfaced the closest prior-art title the project has
+seen; two came back clean for the surviving claim.
+
+- **A clean negative.** No modern group-theoretic reading of 崔述 exists under any title searched, and
+  「克萊因四元群」 (Klein four-group) has **zero** intersection with 易 in the index searched.
+- 🔴 **One of our own conclusions refuted.** A July sweep had recorded the 卦序-mathematics literature
+  as "effectively covered". It was not: 32 distinct titles came back, including a sustained
+  multi-paper programme on the mathematical regularity of the received sequence, a 1995 paper on the
+  *topological group structure* of the hexagram symbols, and a 2021 paper applying *lattice theory*
+  to it. The sharpest is **張清宇 2000,《錯綜不變組和散卦卦序結構》,《哲學研究》** — 「錯綜不變組」 is our
+  orbit concept, named, in a top-tier philosophy journal, in 2000. Read on 08-24, it defines the
+  orbit, partitions all 64 into the same 20 groups, derives ordering rules, and **counts no
+  orderings** — which would leave the surviving claim standing. **That verdict was deliberately
+  routed and not rendered**, and is not adjudicated here.
+- **A search designed against our own surviving claim came back empty.** Every sharp formal term
+  returned zero: exhaustive enumeration, traversal, constraint, Hamiltonian path, graph theory, orbit,
+  equivalence class, invariant, automorphism.
+- 🔴 **房振三 2005 — our reading of him was wrong and is withdrawn.** We had recorded that the symbol
+  form-classes track the two copyists' hands, and had built a third, codicological hypothesis on that.
+  He says close to the opposite: the form-classes are **shared** across both hands, and what tracks
+  the hands is execution and usage discipline. The hypothesis went, and a second misreading went with
+  it.
+- **謝向榮 2005 — read in full, and the closest published work to our own that exists.** Four of our
+  claims about it were wrong; the load-bearing one survived and came out stronger than we could
+  previously show.
+- **李尚信 1999 and 2002, read at 400 dpi from page images, and the audits refuted one of our
+  premises.** For 1999, the *membership* of the six-group split is an inherited skeleton and what is
+  in his own voice is the formalisation and the adjacency rationale — neither purely his own principle
+  nor purely restatement. For 2002 we had recorded that a page was missing from the PDF; **it was not
+  missing**, and the article was complete all along. And the correction runs against us: the
+  quadruple pairing is **李's own**, not our inference, and with the additional page he holds all four
+  焦循 quadruples plus three more, citing 焦循 nowhere.
+- ⚠ **One headline had to be pulled forward and killed.** A symbol-literature sweep recorded the K₄
+  orbit partition as claimed by no one. That was scoped to one strand of the literature and was
+  **overtaken the same day** by the 吳澄 → 朱元昇 cession above, which is precisely that partition. It
+  must not be carried forward, and it is recorded here so that it cannot be.
+- **A source-holdings audit, triggered by our own error.** A local directory was read as data loss, a
+  source reported gone, and re-purchase recommended — when the material had been moved to cold storage
+  two weeks earlier with a manifest already beside it. The gap was that nothing in the working tree
+  reflected the move, so "obtained" was unverifiable from inside the repository.
+
+### Two correct rules that interacted badly
+
+`--put-md5` was specified so that every future *download* of an archived artifact would be
+auto-validated on arrival. Rehydration was then banned as a verification route on cost grounds. Each
+rule is right on its own; together they removed the download, and with it the purpose. What remains
+is a **missing middle link**: disk bytes → sha256 registry ✅, blob `Content-MD5` ✅ (73 of 73 on the
+Stage F set), but **disk bytes → md5 ❌**. The stored Content-MD5 is self-consistent but *unanchored* —
+"whatever the upload tool computed", with nothing to check it against — and a sha256 registry cannot
+close the gap, because they are different hash functions.
+
+### Nobody had ever executed a published reproduction command
+
+[`scripts/exec_lane.sh`](../scripts/exec_lane.sh) landed together with **six defects it found on its
+first runs**, and the finding behind it is the uncomfortable one: **no review pass and no repository
+gate had ever executed a published reproduction command.** Four named blind spots followed from that
+— no execution lane at all; doc-versus-code auditing that covered flags but never build lines; a
+counted-number sweep that was list-driven and so could only check numbers already on the list; and
+report-only gate legs that were never invoked.
+
+It found real things immediately. The documented `verify.c` build line **was missing `-lm` and did not
+link**. The published estimator commands need a stack requirement that had never been stated. The
+hardware envelope was not written where a replicator would read it, and a short stack failed quietly
+instead of loudly. All three are fixed, and the last one now fails loudly.
+
+The same stretch shipped `verify.py --check-t5-c3`, which independently recomputes C3 for all 10⁶ T5
+records, disclosed the constraint freeze with its precise scope, added an orbit-column gate that
+catches what a sum-to-N check cannot, and — in a commit that declared its own branch under GATE 19 —
+recorded *"which I violated by pushing it"*.
+
+### The hardening stretch: a gate found blind by the gate after it
+
+A week of gate-building that kept teaching one lesson: **a gate can be independent, correct, and still
+blind, because coverage is a property of the test values, not of the instrument's independence.** Of
+four gates landed across two days, **two were found blind by the gate that followed them**, and a
+third closed a hole the gate before it had named in its own commit message.
+
+[FULL31_EXACT_AGGREGATES.md](../reports/FULL31_EXACT_AGGREGATES.md) published the per-layer aggregate
+of the exact build — 31 rows, terminal row the already-published |C1∩C2∩C4∩C5| = 1.097051×10³⁹. The
+rung *totals* had been independently recounted since July; the **intermediate layers had never been
+checked by anything**, so `verify.py --recount-rung-layers` was written to gate the published table
+against a plain budgeted DP with no symmetry quotient. All 22 layer masses at n = 9 and n = 13 agree,
+and twelve of them had no prior cross-check.
+
+**Then that gate was found blind.** The decimal renderer produces every exact count this project
+publishes, and its only end-to-end exercise was the n = 9 rung total **26112** — five digits, one
+limb. The largest mass at n = 13 is 2.1×10¹², still inside a single 64-bit limb, while the published
+headline integer sits in limb 2. A full-range gate followed: 113 renderings out to 58 digits. Drop the
+carry into limb 1 and 26112 still renders perfectly while the headline integer becomes a plausible
+38-digit number wrong by a factor of about 14.
+
+**The self-consistency trap was measured rather than argued.** Reverse the limb declaration order —
+one line, engine still internally correct — and `solve` writes bytes that are garbage to any outside
+reader. It then resumes from those files and reports 26112, correct: writer and reader cancel the
+defect exactly. `verify.py --f1u192-binary-roundtrip` reads the same bytes in Python and gets
+8.885×10⁴². This matters because the layer files are retained as the published query substrate, and an
+outside reader is the entire reason they are kept. ⚠ The first version of that gate read the raw
+layout while production writes per-block zlib; a third arm was added at n = 16 because no rung at
+n ≤ 13 reaches the 65,536-entry block size at all — the final n = 9 layer is 6 entries and the widest
+at n = 13 is 11,102 — so no earlier arm had ever crossed a block boundary. And the commit that added
+it states the limit plainly, against its own story: a block-seam off-by-one is **already loud inside
+the engine**, which hard-fails on the inflated size. The multi-block arm supplies an outside witness
+for that path; it does not catch something the engine misses.
+
+**An object-level integer had been published on the engine's word alone.** A Burnside count over the
+24-element pair-permutation quotient, derived from the 48 commuting bit-permutations rather than read
+out of `solve.c`, reproduces all 31 values. Burnside over *half* the group gives 26,067,040 where the
+full group gives 13,047,760, so the agreement is a real coincidence of two derivations rather than an
+arithmetic tautology.
+
+**And a published sentence was retracted.** The artifact had said *"no instrument in this repository
+can recount full-31 independently"*, justified by the layered DP's RAM ceiling past n ≈ 19. But
+`verify.c` Route B is signed inclusion–exclusion with DP state `(last, budget vector)` — 64 × ≤ 413
+slots, **under 1 MB per thread and no disk at full 31** — and it already ships `--ie-spec full31@0`
+and `--ie-probe`. A universal claim had been drawn from one method's limit without auditing the other
+instrument in the same repository.
+
+### A price that exists, and an authorisation that does not
+
+The retraction was replaced by a price rather than by a run, and the price is quoted here with the
+hedges the pricing note attaches to it.
+
+**The 93,939,712 canonical subsets are neither an extrapolation nor new** — the probe counts them
+exactly, and the figure is a long-published constant of this project (TR-11 §3). Only the *timing* is
+sampled: 200 samples per popcount class, measured on a 2-core box. The extrapolation from that timing
+is 239.4 core-hours per prime pass. ⚠ **The pricing note explicitly instructs the reader not to quote
+the single-figure wall estimate**: at 128 threads the walk DP contends for memory bandwidth, and the
+honest planning figure is a **6–17 hour window**, over which at least one Spot eviction is likely.
+Recorded Spot rates put the compute at **roughly $6–15** leaning high, before setup, disk and eviction
+overhead — inside the standing approval gate but above the self-execute floor, so it is an operator
+decision. **The price exists; the authorisation does not, and the run has not been made.**
+
+The probe's canonicity scan does corroborate the Burnside count on the classes it prints — the
+93,939,712 total, the k = 15/16 peak at 13,047,760, and the k = 23–31 tail — giving three agreeing
+derivations. Noted for completeness, because it bounds how much that agreement is worth: the probe
+prints a hardcoded expected total beside the one it computes, so the expectation ships inside the same
+binary.
+
+**A monitoring defect, found live.** During a Spot eviction the campaign heartbeat read
+`building_k=31` — the last layer, the reading most likely to be taken for "nearly done" — while every
+other field degraded honestly to `?`. One inline expression collapsed *"the probe never returned"*
+into *"the manifest says no layer is complete yet"*: the unknowable state rendered as the knowable,
+reassuring one. The script's own comments had warned about that field, by name, and the code did it
+anyway. The fix carries a seven-row truth table, shown to fail on 4 of 7 rows against the expression
+it replaced.
+
+### The second cross-model review: a check that reports clean without having looked
+
+A first external review had read 87 targets and yielded four findings that survived contact with the
+tree. The second was scoped wider — 111 targets, maximum reasoning effort, pinned to one published sha
+— and it did not behave like its predecessor. (An earlier 71-target run was found to have executed at
+the CLI's default reasoning effort rather than the intended one; it was not invalidated, but it was
+re-run as a controlled A/B and the original preserved.)
+
+**252 charges adjudicated: 240 accepted, 2 rejected, 7 already closed, and 3 accepted with the charge
+itself corrected.** Four Criticals, three of them proven by construction rather than argued. The
+sharpest: a documented "fresh run" cleanup left 2,201 files behind, so a directory inheriting one stale
+checkpoint printed `*** SEARCH COMPLETE ***`, exited 0, and wrote **157,960 of 199,637 solutions —
+20.9% silently missing behind a self-consistent sha.** Its guardrail did fire, loudly, rc=22 — and
+then named the override that bypasses it, in the same breath.
+
+**The class underneath it is the finding of the month.** Twenty-three instances of one shape: *a check
+that reports clean without having looked.* Seven were in our own gate suite, and six of those seven
+survived every test that planted bad input, then fell immediately when their **extractor** was stubbed
+to `exit 1`. One printed "OK to launch" before a real VM creation while a numeric comparison silently
+errored. **Break the producer, not the input** — that is the single most useful testing lesson of the
+campaign, and every fail-open repair since has been red-tested that way.
+
+**What it did not find.** No published number was wrong. Six successive batches derived, on different
+grounds each time, that nothing published could have come through a defective path; the canonicals are
+fenced by independent from-scratch byte-identical replication. One batch broke that run with exactly
+one exposure — a de-circularized spectral headline resting on a spectrum that structurally excludes the
+Nyquist bin — and the next established that the same surface carries three distinct defects. That
+recompute was running as the draft of this entry was written.
+
+**And it kept finding our own corrections.** Repeatedly the reviewers were right about a claim that a
+*previous* correction had already fixed everywhere except the one site nobody swept — a correction
+ledger outpacing its own body, diagnosed independently against four separate documents. Twice the tree
+was found to be *stronger* than it claimed: all 21 SAT certificates had been re-verified in July with
+a formally verified checker, and the replacement text was drafted in August and never landed.
+
+🔴 **The instrument was the problem more often than the corpus.** The extraction tooling under-counted
+by 80% across three successive format failures, and the strongest single reviewer in the whole corpus
+— 5 of 5 behavioural charges confirmed by execution — was invisible for the entire review until the
+last of those fixes. Seven whole-file targets produced no report at all while the queue read `DONE`,
+because `DONE` meant the tick had *run* them. A guard caught it, wrote 136 lines into a log, and
+nobody read the log.
+
+### Fixing it
+
+The review pinned every finding to one published sha, so nothing could be fixed while reviewers held
+worktrees against it. That constraint expired the moment collection finished, and the fixing began the
+same day — gates first, because they guard everything else. Seven fail-open checks were repaired, each
+red-tested by breaking its producer.
+
+The one that mattered most guarded money: a pre-launch check whose numeric comparison errored silently
+on a malformed argument, so the shell treated the failed test as false and printed "OK to launch"
+immediately before a real VM creation. Using the repaired check for a genuine launch then exposed a
+second defect underneath it — the cloud API had begun returning quota values as *quoted strings*, so
+the parser matched nothing and would have reported "0 free" while 122 of 130 vCPU were in fact
+available. **The morning's fix is what surfaced it**, because the repaired gate refused to report a
+number it had not obtained, and the refusal was the signal.
+
+**Attribution, and what this entry is not.** The engineering, the measurements and the corrections
+above are this lane's (Claude, Opus 5) under operator direction; the 08-13 audit block and the
+literature adjudications were a separate model pass (Fable), and the two cross-model reviews were an
+external reviewer (Codex). Reviewers are **acknowledged, never credited as authors**. The cessions are
+the substance of this entry and they run one way: 朱元昇, 吳澄, 崔述, 沈有鼎, 焦循, 來知德, 俞琰,
+張清宇, 陳仁仁, 謝金良, 王振復, 房振三, 謝向榮 and 李尚信 have priority over readings this project had
+treated as its own, and [CITATIONS.md](CITATIONS.md) is where each is recorded with its evidence. Many
+of the findings above rest on private review notes with **no public reproduction command**, and those
+are marked as such in place rather than dressed up as results. Corrections are welcome; several of the
+items here are corrections of us by people who were not looking for us.
+
 ## 2026-08-30/09-02: A merge every gate accepts, and a prose sweep whose refusals were the point
 
-> **Gap in this record, stated rather than glossed.** This entry resumes at **2026-08-30**. The span
-> **2026-08-08 → 2026-08-30** is *not* narrated in this file: a draft covering it exists in the
-> private staging repo and has not been ported. The jump from the previous section to this one is a
-> hole in the record, not a quiet period — and because the currency check measures the newest
-> narrated date against the newest commit, landing this entry turns that check green while the hole
-> remains. It is recorded here so the green is not read as continuity.
+> **The gap this entry once declared is now closed, and the declaration is kept.** As published on
+> 2026-09-02 this section carried a note saying that **2026-08-08 → 2026-08-30** was *not* narrated —
+> a hole in the record rather than a quiet period — and warning that landing this entry would turn
+> the currency check green while the hole remained. That is exactly what happened. The check was
+> blind to interior gaps by construction; it was rebuilt to walk consecutive headings, it then
+> reported the hole, and the preceding section — **2026-08-08/08-30**, immediately above — narrates
+> it. The original note is preserved in substance here because a finding that survives only
+> in the text of the thing it describes is one edit from being lost — and because the sequence is
+> the lesson: the prose flagged what the instrument could not see, and the instrument was the thing
+> that had to change.
 
 ### The canonical sha attests the enumeration path, and only that
 
@@ -6203,9 +6548,66 @@ constrain the values collectively, and a rank consumes them individually. The on
 exhaustive entry-level verification, and it was **declined**; this note is published in its place,
 with an instruction to revisit if any claim comes to depend on a specific rank.
 
+### Four gates that were green and wrong, and the one that was green over this very hole
+
+A batch of six new documentation gates was built in this window. **Red-testing found four of the six
+green and wrong, and none of the four reached a commit.** They are recorded here as the method
+working, not as escapes — a list that contains only the failures teaches the wrong lesson.
+
+The sharpest asked whether a sentence *mentions* a particular figure. The sentence names two
+figures, so swapping which of them it called the divisor left the gate green: **it passed its own
+red test**, satisfied by proximity rather than by the claim. A second could not match its own
+motivating defect, because the needle's character class excluded the dots in the live subject; it
+would have shipped as a regression guard against something it could not see. A third was greedy on
+the wrong side and produced false findings on *correct* prose — the shape that gets allowlisted into
+silence, which is worse than a miss. A fourth tested its quotation exemption at the wrong end of the
+match, so the ledger's own narration of a retraction read as an assertion of it, and the gate went
+red on the file that records the fix.
+
+Three of the four would have been permanently green, and therefore invisible. The differentiator was
+not review; it was constructing the defect first and watching the gate fail. All six shipped gates
+now carry a population floor, so an emptied subject is an **error** rather than a pass.
+
+🔴 **And the currency check on this very file was one of them.** It compared the newest narrated date
+to the newest commit — the *tip* of the narrative and nothing else — so it was blind to interior
+holes by construction. It went green the moment this entry landed, over the 22-day, 120-commit hole
+the note at the top of this section describes. That caveat survived only in the prose of the thing it
+described, which is one edit from being lost. The check now walks consecutive dated headings and
+trips on any interior span over threshold **that contains commits** — an idle fortnight needs no
+entry, and a gate that demands one gets trained away inside a month. It prints an explicit
+`HISTORY_GAP=CURRENT|TRIPPED` token instead of a banner. The hole above is therefore *reported*, not
+closed, and the check stays red until it is narrated.
+
+### The storage record corrected itself, and the field nobody re-read was the wrong one
+
+Stage F's integrity manifest recorded its blobs as archived. Asked directly whether that was so, we
+queried the account instead of re-reading the manifest: **all 72 data blobs were Cool** — explicitly
+tiered, not inferred, with no rehydration in progress and no Archive period anywhere in their
+history. Their creation, modification and tier-change timestamps were identical, so they had been
+*written* Cool and never moved. The claim had been wrong the day it was written.
+
+The instrument was red-tested rather than trusted on one query: the same query against the Stage G
+prefix returns 77 Archive and 1 Cool, exactly as *that* manifest states. So the Stage F answer was
+not a query artifact.
+
+**The shape of the error is the point.** Every hard number on that manifest line — byte counts,
+digests, blob count — verified exactly. The one field that was asserted rather than measured was the
+one that was wrong, and a dependent analysis had inherited it and doubled its estimated rehydration
+scope. Stage F was subsequently archived for real, on the Stage G convention: data at Archive, one
+README kept Cool carrying the full inventory, so the archive stays describable and verifiable
+**without rehydrating anything**. Verified after the operation rather than assumed — 72 Archive + 1
+Cool, byte counts identical to the pre-move figure, `Content-MD5` present on all 72 and unchanged by
+the move. ⚠ The Cool 30-day minimum was met **by one day**; a day earlier and the move would have
+incurred an early-deletion charge on 3.29 TB. Recorded because the margin was luck rather than
+planning.
+
 **Attribution, and the usual caution.** The measurements above — the two-ref `rm -rf` census, the
 rotation reproduction, and the certificate replay — are this lane's (Claude, Opus 5) under operator
 direction, and each is reproducible from this repository with the command printed beside it. The
+gate red-tests and the blob-tier census are also this lane's, but they run against a build tree and a
+storage account that are **not** part of this repository, so they are reported as findings on our own
+instruments rather than as results a reader can re-run here; the corrected manifest they produced is
+what ships. The
 independent merge re-derivation was a separate model pass (Fable); the review findings the prose
 sweep worked through were raised by an external reviewer (Codex V2). Reviewers are **acknowledged,
 never credited as authors**. None of the above is offered as novel outside this project's own

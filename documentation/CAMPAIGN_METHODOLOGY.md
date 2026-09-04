@@ -675,7 +675,9 @@ drops away. Empirically:
 - **11.2 T canonical: host-stable across our current host class.** Seven
   independent witnesses (Build A May 14, Build B May 14, cold-storage
   re-checksum May 15, v3 sha-equivalence May 24, c72eada+#108 witness May
-  27, t62 dress May 28, and the Tier-1 post-hardening dress May 31) all
+  27, t62 dress May 28, and the Tier-1 post-hardening dress May 31 — "Tier-1" being the
+  *determinism-hardening* level, not a campaign budget and not the
+  warm/Archive **storage** tiers this document uses elsewhere) all
   produce the same sha on D128als_v7 Spot westus3. See the 11.2T row in
   [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 - **100 T canonical: host-stable.** Re-validated May 30 on the current

@@ -91,3 +91,7 @@ reports/TR9_PRICING_THE_CONSTRAINTS.md	94 bits to spare	banked dominance survivi
 documentation/CORRECTIONS.md	102.7	and its low corner consumed the withdrawn	meta-mention	the correction ledger's own entry must quote the endpoint it retires; CORRECTIONS.md is append-only (GATE 10b) so this quotation is permanent.
 documentation/CORRECTIONS.md	102.7	With the supported endpoint it is	meta-mention	the same ledger entry showing the arithmetic that produced the retired corner, 127.3 + (-4) + (-20.6) = 102.7, beside its replacement.
 documentation/CRITIQUE.md	p ≈ 0.13	corrected 2026-09-01: this read	meta-mention	The 2026-09-01 in-place correction states the withdrawn value in the act of withdrawing it; the sentence is the record of what changed and cannot omit it.
+reports/TR5_SYMMETRY.md	relerr 0.130	That 0.130 has no derivation on file	meta-mention	TR-5 §3(iii) must quote the withdrawn wording in the sentence that withdraws it.
+documentation/SYMMETRY_SEARCH.md	relerr 0.130	The 0.130 has no derivation on file	meta-mention	Sibling site of the TR-5 withdrawal; same requirement to quote what it retires.
+documentation/CORRECTIONS.md	relerr 0.130	published a *"noise floor (median relerr 0.130)"*	meta-mention	The 2026-09-03 ledger entry's BEFORE line: an append-only ledger must quote the figure to record its withdrawal.
+documentation/CORRECTIONS.md	relerr 0.130	The needle is content-anchored	meta-mention	Same 2026-09-03 entry, Registry key paragraph: naming the needle is how a reader joins the ledger entry to RF-4e81ce69, so the entry must repeat it.

@@ -154,7 +154,10 @@ first record of each canonical class — is invariant to input order
 partitions), invocation grouping (T5), and merge hierarchy / dedup
 placement (T4), and characterizes the output's content exactly (T2).
 See [`lean/README.md`](../lean/README.md) §Tier 3 for the theorem
-list.
+list. (**"Tier 3" there is a Lean *proof-strength* tier** — the third rung of the Lean program,
+after §Tier 2 and §Tier 2b — and is unrelated to the "Tier 1 hardening" that appears in the witness
+table below, which is a *determinism-hardening level*. The "two-tier comparator" just above is
+ordinary English for a comparator with two keys and is a third, unnumbered use.)
 
 **Scope of the machine-checked result — read carefully.** What is
 machine-proven is the abstract merge **model**. The connection between
@@ -343,7 +346,7 @@ inherits — see the paragraph below the table.
 | Scale | First witness | Independent re-derivations | Evidence type |
 |---|---|---|---|
 | 5.6 T | 2026-04-30 | `--double-regression-test` + `--merge-layers` of 56 `--branch p1 o1` reconstruction layers | **Partition-path** — direct sha-equality across 4 partition paths |
-| 11.2 T | 2026-04-30 / 2026-05-01 | Build A + Build B (different physical D64als_v7 hosts) + ARM Cobalt + v3 lineage + Tier 1 hardening — the witness list of record is [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 11.2T"; this document does not restate its count | **Host/ISA + build** — direct sha-equality across host class, source commit and ISA. Not a partition witness: none of these runs varies the partition |
+| 11.2 T | 2026-04-30 / 2026-05-01 | Build A + Build B (different physical D64als_v7 hosts) + ARM Cobalt + v3 lineage + Tier 1 *determinism-hardening* (not a Lean proof tier, and not a campaign budget) — the witness list of record is [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 11.2T"; this document does not restate its count | **Host/ISA + build** — direct sha-equality across host class, source commit and ISA. Not a partition witness: none of these runs varies the partition |
 | 100 T | 2026-04-19/20 (full-enum), then T9+d 2026-05-10 (62-branch-loop reconstruction) | T9+d's `solve --branch` × 62 + `solve --merge` execution path reproduced the canonical `915abf30…` of the full-enum path | **Execution-mode** — direct sha-equality between full-enum and 62-branch reconstruction + merge |
 | **560 T** | **2026-06-08; re-run 2026-06-30** | `solve --verify` PASS on all 10,525,271,997 records + `verify.py` re-verify, **and** a from-scratch re-run (2026-06-30, eviction-resume-fixed binary, different eviction pattern) reproduced `9a968fa2` exactly | **Re-run determinism** (from-scratch re-run reproducing the canonical sha over the **same** d3 partition) + **inherited** — partition invariance from the 5.6 T and 100 T direct witnesses on the same `solve.c` lineage |
 

@@ -199,7 +199,7 @@ box.
   → `[2, 4, 6]` — every within-pair Hamming distance is even and nonzero, never 1, so no *fully smooth*
   ordering (all adjacent pairs at distance 1) can realize this pairing. Machine-checked form: `within_pair_even_nonzero` in
   `lean/KingWen.lean` (kernel `decide` since the 2026-07-27 migration; the evenness half also stands alone as `within_even`;
-  `lean lean/KingWen.lean`, exit 0). Runs in <1 s.
+  `cd lean && lean KingWen.lean`, exit 0 — from inside `lean/`, so the pinned 4.31.0 toolchain is the one that runs; from the repo root elan uses its default instead, measured 2026-09-03). Runs in <1 s.
 - **Pair-rarity — exact (§2, null (b) — the pair-only space):** the pair-only null is small enough to
   solve exactly, so this figure need not be sampled at all. `pair_null_gender_le2_exact` returns the exact
   rational probability that a uniformly random C1-preserving ordering matches KW's Schulz-gender compliance

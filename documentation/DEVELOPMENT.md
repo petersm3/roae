@@ -65,8 +65,13 @@ sudo apt-get install -y build-essential zlib1g-dev
   are imported nowhere in `solve.py`, `verify.py`, `roae.py`, `sat.py` or `tests.py`.
   The warning is retired; the only remaining mentions of those two names in the repo
   are this paragraph and the import-blocking test method described above.)
-- **Lean 4** (only for `lean/`) — via [elan](https://github.com/leanprover/elan), pinned to the
-  version the reports name as tested: `elan default leanprover/lean4:v4.31.0`. Memory matters:
+- **Lean 4** (only for `lean/`) — via [elan](https://github.com/leanprover/elan). The pin is
+  `lean/lean-toolchain` (`leanprover/lean4:v4.31.0`), and elan honours it only when `lean` is run
+  from inside `lean/` (it resolves the toolchain from the working directory upward, not from the
+  input file's path — measured 2026-09-03), so run modules as `cd lean && lean <Module>.lean`.
+  `elan default leanprover/lean4:v4.31.0` is a convenience for running from elsewhere, not the pin;
+  `reports/certificates/verify_all.sh` §4 runs from `lean/` and prints the kernel it used as
+  `LEAN_ID=`. Memory matters:
   the heaviest files need ~10 GB free RAM to verify (an 8 GB host cannot check
   `lean/Automorphism.lean` or `lean/KingWen.lean`) — see the measured per-file wall/RSS table in
   [lean/README.md](../lean/README.md) §"Verify yourself" before running the Lean suite. *(These
@@ -76,7 +81,7 @@ sudo apt-get install -y build-essential zlib1g-dev
 
 Verified from a fresh clone on 2026-08-04: `--selftest` printed
 `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, `python3 tests.py` ran 64 tests
-OK (1 skipped), and `lean lean/KingWen.lean` exited 0 with no output. (The harness has since grown:
+OK (1 skipped), and `lean lean/KingWen.lean` exited 0 with no output — as recorded; NOTE 2026-09-03: run from the repo root, that command lets elan pick its *default* toolchain rather than `lean/lean-toolchain`, so the record attests a check under that host's default Lean, not specifically 4.31.0; the command to use is `cd lean && lean KingWen.lean`, and `verify_all.sh` §4 now prints the kernel it used as `LEAN_ID=`. (The harness has since grown:
 as of 2026-09-02 it holds 133 tests — count re-verified by a local `python3 tests.py` run reporting
 `Ran 133 tests in 95.920s … OK`; (the previous figures — 67 on 2026-08-06, 76 on 2026-08-21 (`Ran 76 tests in 24.329s … OK`), 77 on 2026-09-01, and 128 then 129 earlier on 2026-09-02 — were each correct when recorded and
 drifted as tests were added — corrected 2026-08-21 after a cold reviewer pass flagged it, and again 2026-09-02 by re-measurement); the fresh-clone figures above are preserved as recorded on their date.)
@@ -471,7 +476,7 @@ Use 4-equivalence inside a single VM, then cross-build verify across VMs.
 
 #### Container-pinned toolchain (target state for any future deeper canonical; not used by 560T)
 
-The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. For any future deeper canonical, container pinning remains the **target state** (the 1120T extension this was written for is **not planned** as of 2026-08-01) but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
+The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. (**"Tier 1" and "Tier 2.1" in this subsection are *determinism-hardening levels*** — rungs of the Task #110 hardening programme in [HISTORY.md](HISTORY.md) — and are unrelated to the campaign-scale "Tier 1" of [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md), to the Lean proof tiers of [`lean/README.md`](../lean/README.md), and to the Hot/Cool/Archive **storage** tiers used later in this file.) For any future deeper canonical, container pinning remains the **target state** (the 1120T extension this was written for is **not planned** as of 2026-08-01) but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
 
 - An explicit gcc version (e.g., `gcc-13.2.0-23ubuntu4` — pinned by apt version pin or by base-image digest)
 - An explicit glibc version (frozen with the base image)

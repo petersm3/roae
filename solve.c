@@ -12855,7 +12855,11 @@ static void symmetry_phase3(const int candidates[][6], int n_candidates) {
 static void run_symmetry_search(int with_yield_compare) {
     init_pairs();
     printf("=== SYMMETRY SEARCH (Hamming-class-preserving σ on C1 partition) ===\n\n");
-    printf("Spec: x/roae/SYMMETRY_SEARCH_SPEC.md\n");
+    /* 🔴 CORRECTED 2026-09-03 (string only, sha-neutral). This printed the roae-private
+     * path "x/roae/SYMMETRY_SEARCH_SPEC.md" on STDOUT. Second printing site of the same
+     * defect as the --validate-canonical one; it was not charged, and was found by
+     * sweeping the class instead of fixing the named instance. */
+    printf("Spec: documentation/SYMMETRY_SEARCH.md\n");
     printf("Phase 1+2: enumerate 720 bit-permutations, filter to C1-preserving,\n");
     printf("compute σ's induced action on (pair_idx, orient) space.\n\n");
 
@@ -18654,7 +18658,13 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "      (a) Host environment differs from canonical reference (gcc/glibc/kernel/\n");
         fprintf(stderr, "          CPU/microcode patch deltas). At %s scale this can flip sha via the\n", scale_label);
         fprintf(stderr, "          BUDGETED-cell-density mechanism documented in\n");
-        fprintf(stderr, "          x/roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md Q9-Q10. Try a higher\n");
+        /* 🔴 CORRECTED 2026-09-03 (comment/string only, sha-neutral). This printed
+         * "x/roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md" -- a roae-private path,
+         * emitted to stderr by the PUBLIC binary, so a reader hitting this error was sent
+         * to a file they cannot obtain. The mechanism is documented publicly:
+         * CANONICAL_HASHES.md "Note on the 1T-vs-11.2T drift gap" (:251) and
+         * documentation/HISTORY.md "May 27/28, 2026 UTC -- Task #110" (:4558). */
+        fprintf(stderr, "          CANONICAL_HASHES.md, \"Note on the 1T-vs-11.2T drift gap\". Try a higher\n");
         fprintf(stderr, "          scale (11.2T or 100T) which is more drift-resistant.\n");
         fprintf(stderr, "      (b) solve.c source has regressed since the anchor was set. Run --selftest\n");
         fprintf(stderr, "          to confirm binary correctness.\n");

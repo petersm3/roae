@@ -129,7 +129,15 @@ encodes the pair at position `i` of the sequence:
 
 - **pair_index** (bits 7-2): index into the pair table (0-31)
 - **orient** (bit 1): 0 = natural order (a, b), 1 = reversed (b, a)
-- **bit 0**: unused, always 0
+- **bit 0**: reserved — **MUST be zero; reject a record with it set.** ⚠ **[NORMATIVE
+  STRENGTH ALIGNED 2026-09-03 — this read "unused, always 0", which describes the writer and
+  says nothing to a reader. Both shipped readers already REJECT a nonzero bit 0 (`verify.py`
+  rc=1, "Format errors: 1 (records with reserved bit 0 set)"; `./solve --verify` rc=30), and
+  [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) §"Step 3. Decode one record to a 64-hexagram
+  sequence" has said "MUST be zero — validate" since 2026-09-01. This file is the normative
+  format spec and was the weakest statement of the three. The header's own reserved field
+  (§"File header (32 bytes)", bytes 16–31) already said MUST. Charged by Codex T04 as a writer-versus-reader
+  split, tracked as Q-330(3).]**
 
 To decode byte `i`:
 

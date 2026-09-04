@@ -154,46 +154,6 @@ allow	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	scoped in the opening t
 # ---- open rows: ADJUDICATED-OPEN DEFECTS - alias rows owned by task #146 ----
 # ---- (corpus-wide propagation of the two rulings), Zheng Qiao attribution ----
 # ---- rows owned by task #157. Fixing a line = delete its row here. ----
-open	documentation/CITATIONS.md	C1+C2+C3	once the full C1+C2+C3 canonical is enumerated	Legacy alias for the C1-C5 canonical with no path to the ruling; fix (say C1-C5 or link METHODS §"Legacy shorthand") owned by #146.
-open	documentation/CITATIONS.md	C1+C2+C3	narrows 10^89 orderings to ~700 million	The campaign's headline instance: the SAME FILE records the ruling at item 3 and this line, 438 lines earlier, still carries the uncorrected form. #146.
-open	documentation/CITATIONS.md	C1+C2+C3	is true in ROAE's frame	"C1+C2+C3-satisfying orderings" naming the canonical population inside a frame-comparison example claim; the literal three-predicate population would be a SUPERSET of the canonical, so the naming matters here. #146.
-open	documentation/CRITIQUE.md	C1+C2+C3	NOT against the C1+C2+C3 canonical	Legacy population naming; no path to the ruling. #146.
 open	documentation/CRITIQUE.md	C1+C2+C3	Simultaneous C1+C2+C3 satisfaction	DUAL-SENSE LINE: first use is literal (families vs the three predicates - must survive the fix), second use ("706M orderings under C1+C2+C3") is the legacy alias. Fix ONLY the second, then replace this row with an `allow literal` row anchored on the first. #146.
-open	documentation/CRITIQUE.md	C1+C2+C3	706M distinct orderings at d3 10T under	Legacy alias: the 706M count is the C1-C5 canonical count. #146.
-open	documentation/CRITIQUE.md	C1+C2+C3	C3-optimal among	Legacy alias ("among C1+C2+C3 solutions" = the canonical records). #146.
-open	documentation/CRITIQUE.md	C1+C2+C3	Within C1+C2+C3, KW is at the C3-maximum	Legacy population naming. #146.
-open	documentation/CRITIQUE.md	C1+C2+C3	per the C3-ceiling correction	Legacy population naming inside the lens-sweep scope paragraph. #146.
-open	documentation/GUIDE.md	C1+C2+C3	at the complement-distance *maximum*	Legacy population naming; GUIDE.md nowhere links the METHODS note (one of the four files the 2026-08 review named as having no path to it). #146.
-open	documentation/MCKENNA.md	C1+C2+C3	the picture inverts	Legacy population naming. #146.
-open	documentation/MCKENNA.md	C1+C2+C3	no random 6-bit Gray code achieves	Legacy population naming. #146.
-open	documentation/PROJECT_OVERVIEW.md	C1+C2+C3	the picture inverts	Legacy population naming. #146.
-open	documentation/PROJECT_OVERVIEW.md	C1+C2+C3	enumeration at 560 trillion node budget	"established by full C1+C2+C3 enumeration" - the 560T canonical is the C1-C5 population; also "full" sits next to a budgeted run. #146.
-open	documentation/SOLVE.md	C1+C2+C3	the intersection C1+C2+C3 that solve.c enumerates	The flatly false form: solve.c does NOT enumerate that intersection (it applies C1-C5; the three-predicate intersection is a strict superset). The strongest single instance. #146.
-open	documentation/SOLVE.md	C1+C2+C3	~340M orderings tie	Legacy population naming ("the C1+C2+C3 canonical"). #146.
-open	documentation/SOLVE.md	C1+C2+C3	the correct C1+C2+C3 framing	Legacy population naming. #146.
-open	documentation/SOLVE.md	C1+C2+C3	false relative to the C1+C2+C3 canonical	Legacy population naming. #146.
-open	documentation/SOLVE.md	C1+C2+C3	at exactly 776	Legacy population naming ("full C1+C2+C3 canonical", "C1+C2+C3-scoped framing"). #146.
-open	documentation/SOLVE.md	C1+C2+C3	not appropriate against the C1+C2+C3 canonical	Legacy population naming. #146.
-open	documentation/SOLVE.md	C1+C2+C3	(776; ~10% of enumerated orderings tie there)	Legacy population naming. #146.
-open	documentation/SOLVE.md	C1+C2+C3	706,427,594 orderings satisfying	Legacy alias: the count is the C1-C5 canonical count, described as satisfying only three constraints. #146.
-open	documentation/SOLVE_SUMMARY.md	C1+C2+C3	within the full C1+C2+C3 canonical set	Legacy population naming. #146.
-open	documentation/SPECIFICATION.md	C1+C2+C3	C3 ceiling = 12.125 exactly	Legacy population naming ("At the C1+C2+C3 canonical scope") in the formal spec. #146.
-open	documentation/SPECIFICATION.md	C1+C2+C3	about 1 in 10 tie at 12.125	Legacy population naming in the spec's circularity note. #146.
-open	enumeration/LEADERBOARD.md	C1+C2+C3	the C3-minimum under	Legacy population naming ("under C1+C2+C3" = the canonical). #146.
-open	documentation/CANONICAL_HASHES.md	the exhaustive enumeration	cannot state the total count	Names the budgeted runs "the exhaustive enumeration" in the same sentence that says every sub-branch is BUDGETED. #146.
-open	documentation/CITATIONS.md	the exhaustive enumeration	the exhaustive enumeration under the conjunction	Same line as the C1+C2+C3 instance above - both rulings unapplied on one line, in the file that records both rulings. #146.
-open	documentation/CRITIQUE.md	the exhaustive enumeration	observes empirically	"what the exhaustive enumeration observes empirically" - names the actual budgeted runs. #146.
-open	documentation/PROJECT_OVERVIEW.md	the exhaustive enumeration	cannot report the total number	Names the budgeted runs exhaustive while explaining they are budgeted. #146.
-open	documentation/SEARCH_SPACE_SIZE.md	the exhaustive enumeration	could only bound from below	Names the budgeted runs exhaustive - in the document whose whole point is that exhaustion is infeasible. #146.
-open	documentation/SEARCH_SPACE_SIZE.md	the exhaustive enumeration	are **budgeted**: each of the 158,364	Says both in one sentence: "The exhaustive enumerations (solve.c) are budgeted ... no cell is ever exhausted". The self-contradiction the review campaign flagged verbatim. #146.
-open	enumeration/LEADERBOARD.md	the exhaustive enumeration	cannot state an exact total	Names the budgeted runs exhaustive inside the BUDGETED-none-EXHAUSTED sentence. #146.
-open	reports/TR4_SIZE_OF_THE_SPACE.md	the exhaustive enumeration	are *budgeted*: each of 158,364	"The exhaustive enumerations are budgeted" - same self-contradiction as SEARCH_SPACE_SIZE.md:9, in the TR that measures the un-budgeted size. #146.
-open	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	begins with Zheng Qiao (~1150)	Executive summary dates the 'eight centuries' from the disavowed credit - the referee's headline instance. #157.
-open	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	across eight centuries of literature	Abstract: the lineage 'from Zheng Qiao (~1150) ... ' opens with the disavowed credit (name wraps to the (~1150) on the next line). #157.
-open	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	18:18 two-part class split (Zheng Qiao ~1150	Rule-table row credits the split to the disavowed name; the corrected credit is Zhang Xingcheng + Zhu Xi. #157.
-open	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	**Zheng Qiao (~1150)** and **Hu Yigui (1247)**	Section 4's bolded credit line for the 18:18 split - the fullest restatement of the dead credit. #157.
-open	documentation/LITERATURE_RULES_POPULATION_TESTS.md	Zheng Qiao	18:18 two-part class split (Zheng Qiao ~1150	Same rule-table row as TR-1:114, in the population-tests doc. #157.
-open	documentation/PROJECT_OVERVIEW.md	Zheng Qiao	classically attested — Zheng Qiao ~1150	'classically attested - Zheng Qiao ~1150' states the dead credit as the attestation. #157.
-open	documentation/SOLVE_C_CLI.md	Zheng Qiao	R-C5 18:18 split (Zheng Qiao ~1150	SOLVE_KNUTH_SCORE env-var row carries the dead credit in the R-C5 parenthetical. #157.
 open	documentation/CRITIQUE.md	Zheng Qiao	Zheng Qiao/Hu Yigui trigram clustering	A DIFFERENT claim (trigram clustering, not the 18:18 split) - but the bibliography's only remaining Zheng Qiao content is the correction itself, so this credit has no bibliographic anchor. #157: either source it independently (then re-adjudicate as `allow other-contribution`) or amend - the F4' registration is FROZEN, so the fix path is its own dated-amendment clause.
 allow	documentation/SOLVE_PY_CLI.md	C1+C2+C3	c constraints: C1+C2+C3(pb)	literal	QUOTED IN ORDER TO RETRACT IT. This is the .cnf emitter's OWN header string, reproduced verbatim so a reader recognises it in the artifact; the sentence it sits in says it "overstates the file's contents" and that the sole occurrence of C3 in kw.cnf is that comment. Measured 2026-08-31 (batch P06): --sat-c3 pb writes C3 only to the .opb sidecar. Remove this row when the emitter header is fixed.

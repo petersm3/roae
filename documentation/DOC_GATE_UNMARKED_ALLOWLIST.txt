@@ -16,10 +16,45 @@
 # DOC_GATE_STATUS_ALLOWLIST.txt, aligned deliberately: two allowlists disagreeing about
 # their own format is how the next entry gets written in the wrong one.
 #
-# THIS FILE IS INTENTIONALLY EMPTY OF ENTRIES. At the time 5b landed (2026-08-02) it
-# reported ZERO findings against the live corpus, with the noise floor MEASURED and printed
-# every run: 64 of 127 registry-value occurrences carry no status token at all, and 0 of
-# those sit in a mixed table. Two structural exemptions are in the gate rather than here,
+# THIS FILE IS EMPTY OF ENTRIES, AND THAT IS NO LONGER THE SAME STATEMENT IT WAS. At the time
+# 5b landed (2026-08-02) it reported ZERO findings against the live corpus, with the noise floor
+# MEASURED and printed every run: 64 of 127 registry-value occurrences carried no status token at
+# all, and 0 of those sat in a mixed table.
+#
+# 🔴 RE-MEASURED 2026-09-03 (Q-164 lane): that is STALE, and it was stale in the direction that
+# flatters the file. The census read **93 of 194** unmarked with **1** of those in a mixed table:
+# `reports/METHODS.md:71` — quantity 1.3287, no status marker, inside the table at :68-79 whose
+# siblings at 70/72/73/74 all carry one. So this file was empty NOT because the corpus was clean
+# but because nobody had adjudicated the one live finding. Emptiness for the right reason and
+# emptiness for the wrong reason look identical from here; that is the whole reason the sentence
+# above needed re-measuring rather than re-reading.
+#
+# 🟢 ADJUDICATED AND FIXED 2026-09-03 (fixtures/ledger-hygiene lane), by labelling the cell
+# rather than by adding an entry here — the line is the WITHDRAWN row for ≈3.3×10³⁷, and the
+# 1.3287 in it is the SURVIVING figure named in the retraction's own last sentence, so the honest
+# repair is to give that figure its status: "The raw 1.3287×10³⁸ **estimate** above is unaffected
+# and stands." Measured before and after in the same mode, `bash scripts/doc_gates.sh status`:
+#     before   [WARN] reports/METHODS.md:71 ... 93 of 194 ... 1 of those are in a MIXED table
+#     after    [ok] no unmarked canonical quantity sits in a table whose siblings are marked
+#              92 of 194 ... 0 of those are in a MIXED table
+# One occurrence left the unmarked census (93 -> 92) and the reported class went 1 -> 0, so the
+# word landed on the occurrence it was aimed at and not merely somewhere on the line. GATE 5's
+# conflict test is unmoved: METHODS registers 1.3287 as 'estimate', so an estimate token on the
+# same line is the agreeing side, and no new [WARN] appeared anywhere in the mode's output.
+#
+# SO THIS FILE IS EMPTY FOR THE RIGHT REASON TODAY, AND THAT IS STILL NOT SELF-EVIDENT FROM
+# HERE. What now separates it from a dead registry is not this comment but the SELF-SEEDING
+# FIXTURE PAIR in scripts/doc_gates.sh's --selftest region (labels "GATE 5b (5b-i) ..." and
+# "GATE 5b (5b-ii) ..."), which seeds its own table and its own entry on every run. That pair is
+# self-seeding on purpose: a fixture whose precondition is an outstanding defect cannot survive
+# the corpus being fixed, which is exactly what just happened to the only candidate this file had.
+#
+# 🟢 THE ALLOWLIST IS NOW SHOWN LOAD-BEARING, measured 2026-09-03 by seeding a table with a
+# marked sibling and TWO unmarked twins, then allow-rowing exactly ONE of them: the allow-rowed
+# twin's [WARN] vanished and printed "exemption live", the other twin still WARNed, and the
+# mixed-table census moved 3 -> 2, all in the SAME run. The gate is therefore demonstrably
+# DISCRIMINATING between the two, not merely quiet. The fixture that encodes this is a patch to
+# scripts/doc_gates.sh handed on in LANE_SWEEP_2026_09_03.md (that file is another lane's). Two structural exemptions are in the gate rather than here,
 # because they are properties of the corpus and not judgments about particular sentences:
 #   - a column whose TABLE HEADER carries the status word (TR-4's "Exact value" / "Prior
 #     Knuth estimate" columns, SEARCH_SPACE_SIZE's "estimate" / "95% CI" columns);

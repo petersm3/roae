@@ -813,7 +813,11 @@ solve --r11-verify [SEQ]
 ```
 
 Two-language gate for the **R11 frozen 8-axis violation bundle** — the g1..g6
-tier-1 (T1) axes plus the g7, g8 tier-2 (T2) axes. Without an argument, computes each
+tier-1 (T1) axes plus the g7, g8 tier-2 (T2) axes. (**"tier-1/tier-2" here is the
+*scoring-axis class* — T1 = principled rules stated ahead of the data, T2 = data-like rules — and
+is unrelated to the campaign "Tier 1" of the 11.2T canonical in the wall-clock table below, or to
+the "Tier 1 determinism-hardening" of `SOLVE_SKIP_HOST_FINGERPRINT`. The archived evidence files
+`dav_tier1.out`, `f5_tier1.out` and `perm_tier1.out` all carry *this* sense.) Without an argument, computes each
 on the King Wen sequence and asserts the frozen KW expected vector `2,2,2,0,0,0,0,0`.
 With a 64-int `SEQ` argument, instead prints the 8 values for cross-language /
 corpus-control gating. This is the KW-reproduction gate for the `SOLVE_KNUTH_R11_HIST`
@@ -2025,7 +2029,7 @@ with `SOLVE_DFS_CHECKPOINT=1`:
 | Subcommand / scale | Wall | Notes |
 |---|---|---|
 | `--selftest` | ~5 sec | Runs on 4 threads internally |
-| `solve 0 128` at d3 11.2T | ~2.1 h | Tier 1 canonical |
+| `solve 0 128` at d3 11.2T | ~2.1 h | Tier 1 canonical (campaign-scale tier — see [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md); not the `tier-1` scoring axes above) |
 | `solve 0 128` at d3 100T | ~11-19 h | 100T canonical; varies with sub-branch yield distribution |
 | `solve 0 128` at d3 560T | ~7.1 days (171.5 h incl. eviction defers) | 560T canonical — completed 2026-06, re-verified 2026-06-30 (`9a968fa2…`, 10.525 B records) |
 | `--branch p o 0 128` at d3 100T | ~12-15 min | One first-level branch |

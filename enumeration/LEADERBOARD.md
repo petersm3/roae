@@ -167,7 +167,7 @@ interacts very differently with different position-2 pairs.
   **706,427,594** at d3 (sha `b85c8871…`) and **286,357,503** at d2. These are lower bounds at
   a fixed budget: every sub-branch hits its per-sub-branch node budget rather than completing
   naturally. An unbiased Monte-Carlo estimate now puts the total number of C1–C5-satisfying
-  orderings at **≈10³⁸** (≈3×10³⁷ distinct-canonical) — see [`../documentation/SEARCH_SPACE_SIZE.md`](../documentation/SEARCH_SPACE_SIZE.md); no canonical scale is exhaustive. ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
+  orderings at **≈10³⁸** (≈3×10³⁷ distinct-canonical) — see [`../documentation/SEARCH_SPACE_SIZE.md`](../documentation/SEARCH_SPACE_SIZE.md); no canonical scale is exhaustive. ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical figure on this line exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 - **Whether the 4-boundary uniqueness result holds at larger scale, and which specific
   boundaries.** Four boundary constraints are the empirical minimum at both d2 and d3 —
   all 4,495 three-subsets fail at each. **What is partition-stable**: boundaries **{25, 27}**

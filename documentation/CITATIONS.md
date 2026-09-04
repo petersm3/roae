@@ -106,7 +106,7 @@ as such throughout the suite; C2 ⊂ C5 (the multiset contains no 5s) is disclos
 
 The framing of C1–C5 as a specific *joint* constraint system is ROAE-specific. Individual constraints appear in prior work; the conjunction, the budgeted enumeration under the conjunction, and the 4-boundary / pair-stability analysis are ROAE-original.
 
-*Corrected 2026-08-07 (CX-30).* This sentence previously read "…a specific system that **narrows 10^89 orderings to ~700 million**". That is wrong by roughly **29 orders of magnitude**, and in the direction that most flatters the project. 10^89 ≈ 64! is right for the unconstrained space, but C1–C5 does **not** narrow it to ~700 million: the C1–C5 space is **estimated at 1.33×10³⁸** orientation-explicit, ≈3.3×10³⁷ after orientation-dedup ([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md); a Knuth random-probe estimate, not a proven cardinality). ⚠ **[WITHDRAWN 2026-08-24 — this figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** Figures in the hundreds of millions to low billions are **enumerated record counts from budgeted slices** — what the solver actually wrote to disk under a per-cell budget — not the size of the constrained space. The two are not comparable quantities, and conflating them inverts this project's central finding, which is that C1–C5 leaves a space far too large to enumerate. The "~700 million" figure itself appeared nowhere else in the corpus and had no supporting source.
+*Corrected 2026-08-07 (CX-30).* This sentence previously read "…a specific system that **narrows 10^89 orderings to ~700 million**". That is wrong by roughly **29 orders of magnitude**, and in the direction that most flatters the project. 10^89 ≈ 64! is right for the unconstrained space, but C1–C5 does **not** narrow it to ~700 million: the C1–C5 space is **estimated at 1.33×10³⁸** orientation-explicit, ≈3.3×10³⁷ after orientation-dedup ([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md); a Knuth random-probe estimate, not a proven cardinality). ⚠ **[WITHDRAWN 2026-08-24 — the ≈3.3×10³⁷ distinct-canonical figure on this line exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** Figures in the hundreds of millions to low billions are **enumerated record counts from budgeted slices** — what the solver actually wrote to disk under a per-cell budget — not the size of the constrained space. The two are not comparable quantities, and conflating them inverts this project's central finding, which is that C1–C5 leaves a space far too large to enumerate. The "~700 million" figure itself appeared nowhere else in the corpus and had no supporting source.
 
 ### Fu Xi ordering, binary representation
 
@@ -1031,19 +1031,39 @@ and [曹红军 et al. 1995](#caohongjun1995) (§the (Z/2)⁶ algebra), [李尚�
   论《周易》古经卦序构造的数学原理——先天六十四卦到今本卦序的幻方推演. *Zhouyi yanjiu* 周易研究
   2019(2): 5–13. ⭐ The most consequential paper of the round. Builds an **order-8 magic square**
   from the 先天 ordinals of the 64, requiring 非覆即变 pairs vertically adjacent and complements
-  adjacent where possible; iterative renumbering produces nine magic squares and nine diagrams
-  before cycling, and the **fifth**, expanded horizontally, is the received 上經 30 / 下經 34. He
-  calls this 「目前所知的今本卦序最简单的构造原则」. **He states non-uniqueness himself, twice**
-  (推演路径…有很多种; 推演所得的卦序**并不唯一**) — in context the multiplicity is his own nine
-  candidate squares plus path multiplicity, resolved by a non-mathematical criterion (幻方五
-  恰居于正中, read as 尚中). Intersections: 非覆即变 is exactly C1; 「互补数尽可能上下相邻」 is
-  C3's content stated as an *extremal* principle rather than a threshold; the magic-square model
-  has no counterpart in this project. **He never counts orderings** (verified against the full
-  text; the sole 穷尽 hit concerns exhausting derivation starting points). His stated
+  adjacent where possible; iterative renumbering along the shortest of his several derivation paths
+  produces nine magic squares and nine diagrams before cycling, and the **fifth**, expanded
+  horizontally, is the received 上經 30 / 下經 34. He calls this 「目前所知的今本卦序最简单的构造原则」. **He states non-uniqueness himself, twice**
+  (推演路径…有很多种; 推演所得的卦序**并不唯一**) — in context the multiplicity is the nine
+  candidate squares of his shortest path plus path multiplicity, resolved by a non-mathematical
+  criterion (幻方五 恰居于正中, read as 尚中). **Nine is the period of that one walk, not a count of
+  anything**: he says other walks from the same start have periods 「多于九个」, and his §四 exhibits a
+  second starting square (「B 型幻方一」) meeting the same three features — 幻和 260, 非覆即变 pairs
+  vertically adjacent, complements adjacent where possible with every column four 变卦 pairs — whose
+  shortest walk has period **fifteen**, with the received order at position eight; he prefers 幻方一
+  only because nine is shorter (「更胜一筹」). Intersections: 非覆即变 is exactly C1; 「互补数尽可能上下
+  相邻」 states C3's content as an *extremal* principle rather than a threshold — **but only of his
+  first square**. His renumbering step gives every hexagram the number 65 − n of its 非覆即变 partner,
+  so from the second square onward the 互补 half of 「非覆即变且互为补数」 is entailed by the 非覆即变
+  half and carries no independent bitwise content: the principle is stage-1 scaffolding, and his
+  construction places **no complement-proximity constraint on its output sequence**. C3's threshold
+  therefore gains no derivation from this model and remains an extraction — which narrows the
+  intersection with C3 rather than widening it, and sharpens rather than weakens the prior-negative
+  credit below. (The entailment is checkable from his own 迭代 and 拓扑 steps. A fuller measurement of
+  the complement-proximity range his model can attain is held in `roae-private`; no figure from it is
+  stated here, because its gate script is not published — see the standing rule that no figure ships
+  ahead of its reproduction command.) The magic-square model has no counterpart in this project.
+  **He never counts orderings** (verified against the full text; the sole 穷尽 hit concerns
+  exhausting derivation starting points). His stated
   non-uniqueness is credited as a prior negative in the
   [#uniqueness-conjecture](#uniqueness-conjecture) note — a qualitative statement, in his own
-  words. [Li Shangxin's](#li2007) reply in the same issue (2019(2): 14–15, read first-hand)
-  attaches a question mark to his own earlier determination claim and widens the non-uniqueness.
+  words. [Li Shangxin's](#li2007) reply in the same issue (2019(2): 14–15, cont. 26, read
+  first-hand) attaches a question mark to his own earlier determination claim; suggests, without
+  carrying it out, that other base orderings (e.g. 《乾坤凿度》's 古文八卦) might derive the same
+  sequence; and replaces 孙利's 尚中 selection rule with a screening by 象数规律 and 思想意蕴 — a
+  second non-mathematical selection step, not a count. His remark is **input-side** (other premises
+  might reach the same sequence) where 孙利's non-uniqueness is output-side (one premise reaches many
+  sequences), so it does not widen the sequence multiplicity.
   [read in full 2026-08; adjudicated 2026-08-27]
 
 <a id="chenzhuangwei2007"></a>
@@ -1339,8 +1359,9 @@ within his framework (his 2000 sequel proposes a completion); and [Suenaga (2012
 reported finding no rule that fixes the King Wen sequence. [Sun Li 孙利 (2019)](#suli2019)
 (《周易研究》 2019(2): 5–13, with Zhang Pei 张沛) states the same under-determination from the
 constructive direction *(appended 2026-08-29)*: his magic-square derivation of the received
-sequence "is not unique" (推演所得的卦序并不唯一) — the iteration yields nine candidate squares,
-each expanding to a sequence — and his selection of the received one rests on an explicitly
+sequence "is not unique" (推演所得的卦序并不唯一) — the iteration yields nine candidate squares
+along his shortest path (he notes longer paths, and a second admissible starting square with
+fifteen), each expanding to a sequence — and his selection of the received one rests on an explicitly
 non-mathematical criterion (its central position, read as 尚中); Li Shangxin 李尚信 (2019, same
 issue, 14–15), replying, attached a question mark to his own earlier claim that his principles
 derive the sequence (「似乎就有必要打上一个问号了」). All of these are qualitative/speculative

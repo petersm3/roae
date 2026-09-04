@@ -144,7 +144,7 @@ C1–C5-valid ordering shares. Computed directly from solve.py's King Wen sequen
 - Theorem statement, lemmas, arrangement count: [documentation/PARITY_ALTERNATION.md](../documentation/PARITY_ALTERNATION.md) (lemma claims and KW's
   count verifiable in seconds from SPECIFICATION.md / solve.py; the arrangement count is the elementary
   compositions identity Σ_start C(15, blocks_E−1)·C(15, blocks_O−1); no enumeration data needed)
-- Lean general theorem: `lean lean/KingWen.lean` (silence = all theorems check; Lean 4, tested 4.31.0) —
+- Lean general theorem: `cd lean && lean KingWen.lean` (silence = all theorems check; Lean 4, tested 4.31.0 — run from inside `lean/` so elan honours `lean/lean-toolchain`; from the repo root it uses its default toolchain instead, measured 2026-09-03) —
   `alternations_15_general`, `wrap_parity_general`, plus the finite lemmas
 - SAT UNSAT both sides: `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf` (and alt-ge-16);
   drat-trim verification record: [documentation/LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §SAT-decided

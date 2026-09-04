@@ -203,7 +203,12 @@ symmetric group for the King Wen constraint system; corrections welcome via
    ambient orbits with the productive subset, not complete orbits**, and 199 ambient orbits contain no
    productive cell at all. The within-orbit coefficient of variation of the per-cell Knuth size estimates
    (10⁵ probes/cell) is **0.112 (median)** — indistinguishable from the estimator's own noise floor
-   (median relerr 0.130) and 6× below the population CV (0.72). True per-cell counts are orbit-equal within
+   and 6× below the population CV (0.72). ⚠ **[NOISE-FLOOR FIGURE WITHDRAWN 2026-09-03 (sibling of the
+   same withdrawal in [TR-5](../reports/TR5_SYMMETRY.md) §3(iii) v2.15) — this read "the estimator's own
+   noise floor (median relerr 0.130)". The 0.130 has no derivation on file and does not recompute: the
+   archived per-cell table's own median `relerr` is **0.1192**. Which quantity 0.130 was computed over is
+   not recorded, so it is withdrawn rather than restated as 0.1192. The comparison is unaffected — 0.112
+   lies below the noise floor at either value.]** True per-cell counts are orbit-equal within
    measurement resolution **on the productive 41.2% of cells** (65,281 of 158,364); the other 93,083 cells
    were not measured. *(Scope corrected 2026-09-02, prose batch P33, `RP-a5c2bc8c` / `RP-78ce5960`: the heading and the closing
    sentence generalised a productive-subset measurement to the whole space. The **ambient** cell space is
@@ -297,8 +302,16 @@ commands above are fully public and self-contained, and the **ambient** G-orbit 
 not public: the **productive-cell list** (derived from the 560T shard manifest) and the **per-cell estimate
 table** (~65K estimator calls, hours-scale private working data). The 4,183 orbit-class count and the
 0.112 median CV rest on those two, and a replicator regenerating the estimates must expect
-thread-count-dependent scatter on each cell, so a re-derived CV should be compared against a published
-tolerance rather than to the third decimal.
+thread-count-dependent scatter on each cell, so a re-derived CV should be read against the estimator's
+own median per-cell `relerr` at the same probe count rather than to the third decimal. ⚠ **[CORRECTED
+2026-09-03 — this said to compare "against a published tolerance". No tolerance for this statistic has
+ever been published: measured on the flattened text, that was this file's only `toleranc*` token, and
+the referent exists in neither repository, so the instruction pointed a replicator at nothing. The
+comparison basis named above is one that does exist and is stated with it: the archived 10⁵-probe
+table's median `relerr` is **0.1192** (measured 2026-09-03), against a within-orbit CV median of
+**0.1118**. A gate on a numeric tolerance is deferred and its blockers are recorded — deriving one
+would need the ~65K estimator calls re-run at several thread counts, which is an operator spend
+decision, not a wording fix.]**
 
 **Ambient G-orbits of the depth-3 cell space** (<1 s, pure python, run from the repo root — verified
 output: `158364 depth-3 cells; 4382 ambient G-orbits, sizes {6: 14, 12: 270, 24: 1736, 48: 2362}`).

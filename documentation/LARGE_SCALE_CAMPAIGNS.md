@@ -62,10 +62,18 @@ Before sizing anything, answer these questions:
    numbering recorded in [HISTORY.md](HISTORY.md) — the "Tier 1 — 11.2T
    canonical" entry and the tier table that follows it: Tier 1 = the 11.2T
    canonical, Tier 5 = the (22, 0) asymmetric extension, Tier 9+ = the
-   production-scale spot checks. It is unrelated to the proof-strength
-   tiers in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) and the
-   determinism-hardening tiers in [DEVELOPMENT.md](DEVELOPMENT.md) and
-   [CANONICAL_HASHES.md](CANONICAL_HASHES.md), which reuse the word.)
+   production-scale spot checks. It also covers this guide's test
+   rungs Tier 2c and Tier 9a/9b/9c, which are the same series. It is unrelated
+   to **five** other senses that reuse the word: the Lean **proof-strength**
+   tiers in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) and
+   [`lean/README.md`](../lean/README.md); the **determinism-hardening** tiers in
+   [DEVELOPMENT.md](DEVELOPMENT.md) and [CANONICAL_HASHES.md](CANONICAL_HASHES.md);
+   the **scoring-axis** `tier-1`/`tier-2` of [CRITIQUE.md](CRITIQUE.md) and
+   [SOLVE_C_CLI.md](SOLVE_C_CLI.md); the Azure Hot/Cool/Archive and
+   Standard/Premium **storage** tiers used throughout
+   [DEPLOYMENT.md](DEPLOYMENT.md) and later in this file; and the reduced-rung
+   **"Tier-2 scope"** of [VERIFY.md](VERIFY.md). ⚠ *(This parenthesis named only
+   two other senses until 2026-09-03; the corpus carries eight public ones.)*)
 
    | Per-cell budget | Approximate solutions | Notes |
    |---|---|---|

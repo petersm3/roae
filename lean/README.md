@@ -274,7 +274,12 @@ machine-checkable suite: the enumerator selftest, the two-language gates, all 22
 certificates (regenerating the CNF and replaying the proofs — **no SAT solver required**), the C3
 positional witnesses, and then a `lean` run over **every module in this directory** (its Lean phase
 is literally `for f in lean/*.lean`, so it picks up new files automatically — nothing here has to be
-listed by hand). It `cd`s to the repo root itself, so it can be invoked from anywhere:
+listed by hand). It `cd`s to the repo root itself, so it can be invoked from anywhere. Since
+2026-09-03 its Lean phase runs each module from *inside* `lean/` (which is what makes elan honour
+`lean-toolchain`; from the repo root elan uses its default toolchain instead — measured with a
+planted 4.30.0 default: 12 modules "passed" under the wrong kernel and two failed on `rw`
+elaboration differences) and prints the kernel it used as a whole-line `LEAN_ID=<pin>/<lean --version>`
+token plus `LEAN_PIN_MATCH=PASS|FAIL`; a mismatch fails every module line rather than skipping:
 
 ```bash
 bash reports/certificates/verify_all.sh

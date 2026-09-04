@@ -132,7 +132,7 @@ gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
 It must print `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`. A different digest
 is a finding — please report it. This recipe was executed end to end from a fresh clone on
 2026-08-04 and passed, together with `python3 tests.py` (64 tests at that date; 76 as of 2026-08-28) and `lean lean/KingWen.lean`
-(silent, i.e. all theorems check); before that date it had never actually been run, which is itself
+(silent, i.e. all theorems check — as recorded; NOTE 2026-09-03: that command was run from the repo root, where elan selects its *default* toolchain rather than `lean/lean-toolchain`, so this record attests a kernel check under the host's default Lean of that day, not specifically 4.31.0. Use `cd lean && lean KingWen.lean`; `verify_all.sh` §4 now runs from `lean/` and prints the kernel it used as `LEAN_ID=`); before that date it had never actually been run, which is itself
 the kind of gap this disclosure exists to surface.
 
 **Where to start.** Four doors, by reader:

@@ -7958,3 +7958,224 @@ operator direction. Corrections welcome.
 **Attribution.** The tie-breaking defect is Codex v2 L17 #1's. The path-maximum and codon items were
 found by the code-fix lane (Claude) under operator direction; the 347 bound and its witness were
 re-derived independently by the parent before the change was accepted. Corrections welcome.
+
+## 2026-09-03 — the schema-gap entry counted one spelling of its own field, and one of the shas it did not count is wrong (corrections-ledger lane, PROSE_LANE_FOLLOWUPS items 352 / 378 / 380 / 381)
+
+The 2026-09-02 prose-batch-B2 entry above, item 5, measured how many `### CX-` entries carry the
+`Commits` field its own schema promises, found **5 of 35**, and declined a bulk retrofit on the
+ground that a manufactured sha is worse than a visible blank. **The decline was right and stands.**
+The count was not. This entry corrects the count, supplies the anchors the decline left open, and
+records one published sha that is wrong — which is the decline's own thesis, demonstrated.
+
+Nothing is edited above. This file is append-only; the superseded sentence stays where it is.
+
+### 1. It is 14 of 35, not 5 of 35 — nine entries spell the field in the singular
+
+- **Class:** C3 · **Documents:** this file, the 2026-09-02 prose-batch-B2 entry, item 5.
+- **BEFORE:** "**35** `### CX-` entries exist and **5** carry a `**Commits:**` field — CX-03, CX-04,
+  CX-10, CX-11 and CX-13. Thirty do not."
+- **NOW:** 35 entries exist; **14** carry the field, and **21** lack it. The five named are the ones
+  spelling it `**Commits:**`. Nine more spell it `**Commit:**`, singular: **CX-01, CX-02, CX-05,
+  CX-06, CX-07, CX-08, CX-09, CX-12, CX-15.**
+- **How it was found.** The B2 measurement matched the plural spelling only. Re-run over both:
+
+  ```
+  awk '/^#/{if($0~/^### CX-/){split($0,a," ");id=a[2]}else{id=""};next}
+       /\*\*Commits?:\*\*/{if(id!="")print id}' documentation/CORRECTIONS.md | sort -u | wc -l
+  ```
+
+  → `14`; the same expression with `Commits:` fixed → `5`. Note the `id=""` reset at every heading:
+  without it the expression returns **6**, wrongly crediting CX-35 with a field belonging to a later
+  dated section. Both wrong answers are recorded so neither is re-derived as a discovery.
+- **Three of the fourteen are prose pointers, not shas** (CX-02, CX-06, CX-07 name a document and a
+  date rather than a commit), so the count of entries carrying an actual commit id is **11 of 35**.
+  Either figure supersedes 5.
+- **What this changes and what it does not.** The gap is a third smaller than published, and any
+  checker keyed on the plural spelling is blind to nine entries. No claim, figure, sha or verdict
+  anywhere in this file or in any report is affected.
+
+### 2. CX-08's published commit does not touch the document it is cited for
+
+- **Class:** C3 · **Documents:** this file, **CX-08** and its `Commit` bullet.
+- **BEFORE:** CX-08 anchors its correction to `fde5852`, glossed "(v1.14)". CX-08's `Documents` field
+  is TR-1 (v1.14) and its abstract.
+- **NOW:** the v1.14 change landed in **`9225098f`**. `fde5852` is a real commit but not this one.
+- **Measured, not inferred.** `fde5852` resolves (`git cat-file -e`) to a **2026-07-26** commit,
+  "Wave-1 hardening fixes: 3-loop audit packet", six days after CX-08's own 2026-07-20 date. It
+  touches 23 files and **none of them is TR-1**:
+  `git show --stat --format= --name-only fde5852 | grep -c 'TR1_EIGHT_CENTURIES'` → `0`. TR-1 existed
+  at that commit (`git ls-tree --name-only fde5852 reports/` lists it), so this is a wrong anchor and
+  not a path that had yet to appear.
+- **The true anchor.** `9225098f` (commit date 2026-07-21) is the only commit that adds TR-1's
+  `| v1.14 | 2026-07-20 |` revision row, and that row is where the §5 restatement — the wording
+  registered as `RP-b3fac207`, cited by key and not restated here — is recorded. The row's own date,
+  2026-07-20, is CX-08's date.
+- **CX-08's second sha is correct** and is not disturbed: `486aed2` (2026-08-01) does touch TR-1
+  (`grep -c` → 1), matching its gloss about the surviving abstract instance.
+- **Why this belongs in this file rather than in a fix to CX-08.** CX-08 is committed and this file
+  is append-only, the invariant CX-29 and CX-35 record. The superseding statement above is the whole
+  of the correction.
+- **This is the B2 decline's own argument, met in the wild.** That entry refused a bulk retrofit
+  because "a blank is visibly missing and a wrong sha is not". One wrong sha was already published,
+  and it took a per-entry verification pass — not a gate — to see it.
+
+### 3. The 21 blanks are now all resolved, and none was guessed
+
+Every id below was produced by `git log` / `git show` in the resolving session, verified to exist
+with `git cat-file -e <sha>^{commit}`, and verified to touch the entry's own `Documents` target with
+`git show --stat --name-only`. **No sha was copied from any document.** Where the commit that
+*recorded* an entry also *landed* its change, that is stated rather than hidden — for the entries
+written contemporaneously with their fix, the two genuinely coincide.
+
+| entry | change commit | date | how it was established |
+|---|---|---|---|
+| CX-14 | `7556d38c` | 2026-07-04 | subject names the 100T count; its diff carries that count 54 times |
+| CX-16 | `7f596d0a` | 2026-08-02 | record = change; diff touches `documentation/SOLVE_SUMMARY.md` |
+| CX-17 | `7f596d0a` | 2026-08-02 | record = change; diff touches `reports/README.md` |
+| CX-18 | `0345f2ce` | 2026-08-02 | record = change; subject names the duplicated v1.21 rows |
+| CX-19 | `2f54b920` | 2026-08-02 | subject is verbatim the entry heading; record commit `dc9eaff2` touches this file only |
+| CX-20 | `5b33e14c` | 2026-08-02 | record = change; diff touches `reports/TR2_THE_RULES_CONFLICT.md` |
+| CX-21 | `9b11bcd5` | 2026-08-02 | record = change; first commit repo-wide to introduce the entry's figure keys |
+| CX-22 | `316c6581` | 2026-08-02 | subject names the self-refuting spec sentence; diff touches `documentation/SPECIFICATION.md` |
+| CX-23 | `8f2f292c` | 2026-08-02 | subject names the five author-statement fixes; diff touches `MCKENNA.md` and `HISTORY.md` |
+| CX-24 | `fff39f58` | 2026-08-02 | record = change; the entry's Document is this file |
+| CX-25 | `66eefd64` | 2026-08-04 | record = change; diff touches `reports/TR2_THE_RULES_CONFLICT.md` |
+| CX-26 | `09c276fc` | 2026-08-07 | record = change; diff touches `reports/TR2_THE_RULES_CONFLICT.md` |
+| CX-27 | `09c276fc` | 2026-08-07 | record = change; diff touches `reports/TR8_REORDERING_REVISITED.md` |
+| CX-28 | `09c276fc` | 2026-08-07 | record = change; diff touches `README.md` |
+| CX-29 | `f463605b` | 2026-08-07 | record = change; the entry's Document is this file |
+| CX-30 | `f463605b` | 2026-08-07 | record = change; diff touches `documentation/CITATIONS.md` |
+| CX-31 | `f463605b` | 2026-08-07 | record = change; diff touches `reports/README.md` |
+| CX-32 | `f463605b` | 2026-08-07 | record = change; diff touches `DOC_GATE_FIGURE_LEDGER_OPEN.txt`, the entry's named target |
+| CX-33 | `ddca1eb8` | 2026-08-07 | record = change; diff touches `lean/README.md` |
+| CX-34 | `af12a678` | 2026-08-08 | record = change; subject names the retraction |
+| CX-35 | `c1113a2a` | 2026-08-08 | record = change; the entry's sole Document is this file |
+
+**Twenty-one of twenty-one, zero unresolved.** The B2 entry's table of *record* commits stands
+unchanged and was re-verified in the same pass: all 17 distinct ids in it exist, 15 touch this file,
+and the two that do not (`c77fed9c`, `7556d38c`) are the two *change* anchors, which by definition
+land elsewhere. That table has no defect.
+
+⚠ **One divergence left standing rather than overwritten.** CX-15's published anchor is `dbba77d`,
+annotated "(reverted)". The commit whose subject states CX-15's correction outright is `bdbd710d`,
+its same-day neighbour. Both exist and both are part of the same campaign; the entry's own choice is
+not second-guessed, and this note is the forward pointer for a reader who expected the regeneration.
+
+### What did not move
+
+No count, sha, certificate, theorem, verdict or published figure outside this file changes. Three
+sibling backlog items were re-measured in the same pass and needed nothing: the MDL 144.4→143.7
+cascade and the TR-1/2/3/9 v1.5 scope corrections are both already recorded (2026-09-02 prose batch
+B2, items 1 and 2), and the `--verify-wrap-parity` false theorem is recorded with its registry key
+in the 2026-09-02 prose-batch-B3 entry above. A fourth asked for a classifier change in
+`CORRECTIONS_INVENTORY.tsv`; that file is generated, its C1 class deliberately requires a hard
+retraction verb, and an audit for the misfiling it predicted returned zero rows.
+
+**Attribution.** Found and measured by the corrections-ledger lane (Claude) under operator
+direction, working the `PROSE_LANE_FOLLOWUPS` queue. The wrong-sha item exists because the
+2026-09-02 entry argued, correctly, that this class of error is invisible; it named the failure mode
+before an instance of it was found. Corrections welcome.
+
+## 2026-09-03 — this ledger still asserted a figure the corpus had withdrawn
+
+**The defect is in this file.** The 2026-09-02 entry above, under *"WHAT DID NOT MOVE"*, states:
+
+> The CV figures (0.112 median within-orbit, **0.130 median relerr**, 0.72 population) and the 4,183
+> are unchanged.
+
+That was true when written and is not true now. On 2026-09-03 the **0.130** was **withdrawn as a
+published figure** at both of its live sites — `reports/TR5_SYMMETRY.md:124-128` and
+`documentation/SYMMETRY_SEARCH.md:208-209` — leaving this ledger, whose job is to record what the
+corpus says, asserting a number the corpus no longer publishes. This file is append-only, so the
+sentence above stands and this entry is its forward pointer.
+
+**BEFORE.** TR-5 §3(iii) described its per-cell estimate table as unarchived and its aggregation as
+unwritten, and published a *"noise floor (median relerr 0.130)"*.
+
+**AFTER.** Both halves of that were wrong, in opposite directions:
+
+- **The data was archived all along.** `data_preserved/knuth195_percell_100000.csv.gz` **in the
+  project's private working data** holds **65,281 cells × 10⁵ probes**, and the "second missing input" the same
+  sentence named — the productive-cell list — **is its first six columns**. A ~45-line aggregation
+  (`roae-private/scripts/orbit_cv_aggregate.py`) runs over it in about **six seconds** and reproduces
+  `ORBIT_CLASSES_MET=4183`, `WITHIN_ORBIT_CV_MEDIAN=0.1118`, `POP_CV=0.7202` — **all three published
+  figures, exactly.**
+- **The 0.130 does not reproduce.** The archived table's own median `relerr` is **0.1192**. Three
+  figures matching exactly identify the table beyond reasonable doubt, so what has no derivation on
+  file is the **0.130**.
+
+**Why withdrawn rather than corrected to 0.1192.** Which quantity 0.130 was computed over is not
+recorded anywhere. Substituting a differently-derived number would republish an unsourced figure with
+a new value — the same defect wearing a correction's clothes. The honest state is that the noise floor
+is unrecorded, and both sites now say so.
+
+⚠ **No inference moves.** 0.112 lies below the noise floor at **either** value, and §3(iii)'s claim is
+the ordering, not the margin. No count, sha, certificate, theorem, verdict or scope changes.
+
+**Registry key.** Registered in `documentation/RETRACTED_FIGURES.tsv` as **`RF-4e81ce69`**, needle
+`relerr 0.130`. The needle is content-anchored and deliberately **not** the bare digits: `0.130` is a
+substring of the unrelated adjacency fraction `0.130472` at `reports/TR7_CIRCULAR_READING.md:318`, so
+a digits-only needle would have been a permanent false positive. Three allowlist rows in
+`documentation/DOC_GATE_FIGURE_ALLOWLIST.txt` cover the legitimate narrations (this entry, TR-5,
+`SYMMETRY_SEARCH.md`); GATE 3b grants no automatic exemption by design.
+
+🔴 **This also settles a private doubt the other way.** A 2026-08-13 note recorded suspicion of the
+per-cell table *because* its median relerr disagreed with the published 0.130. The recompute exonerates
+the table and convicts the figure.
+
+**Attribution.** Measured by the wave-4 TR/orbit lane (Claude) under operator direction; this ledger
+entry appended by the parent session on finding the contradiction it left behind. Corrections welcome.
+
+## 2026-09-03 — two claims that asserted more than their mechanism supports
+
+Both were raised by the Codex review passes (A05 → Q-325; T04 → Q-330), measured and corrected by the
+METHODS/FORMAT lane, and appended here by the parent session because that lane could not write this
+file. **No count, sha, certificate, theorem, verdict or published figure changes in either.**
+Reviewers are acknowledged, not credited as authors.
+
+### 1. `documentation/GT_LADDER_FORMAT.md` — "n+1 **independent** exact identities"
+
+**BEFORE.** §"The cross-ladder identities" described the f·t node identity as giving `n+1`
+**independent** exact identities per ladder.
+
+**AFTER.** The count is right and the identities are exact; ***independent* invited an evidential
+reading they do not support.** They are satisfied by **any** transition DAG from which f, g and t
+were built consistently, so passing them cannot settle whether that relation is the right one — they
+constrain the **files**, not the shared transition relation. The document already flagged its own
+endpoint degeneracies two lines above, which is the same fact stated narrowly. Now "`n+1` per-layer
+exact identities", explicitly scoped as integrity checks, with the superseded reading preserved in a
+dated marker.
+
+⚠ Its sibling limb — `reports/METHODS.md`'s "accumulated exactly" — was **already fixed** by an
+earlier lane and found only by a prior-art check; the row had stayed open because the second limb sat
+outside that lane's files.
+
+### 2. `reports/TR4_SIZE_OF_THE_SPACE.md` — one label corrected, one evidence gap stated
+
+**(i) Label.** TR-4 called the 1.3287×10³⁸ C1–C5 estimate *"raw canonical orderings"* (abstract) and
+*"canonical C1–C5 raw"* (§Sections item 3). `SOLUTIONS_FORMAT.md` §Deduplication reserves
+**canonical** for the orientation-**deduplicated** object, and `SEARCH_SPACE_SIZE.md:43` heads the
+same figure *"C1–C5 orderings, RAW (orientation-explicit)"* — so *"raw canonical"* asserted **both
+objects of one number**, the collision that produced the 2026-08-24 withdrawal one line later in the
+same abstract. Now *"raw C1–C5 orderings"* and *"C1–C5 raw (orientation-explicit)"*. A corpus-wide
+sweep of `1.3287` finds no other live site.
+
+🔴 **The bare label on the 16,504 / 16,422 ORIENTED leaf counts (§Sections item 2) and the two
+`leaves_canonical_C1C5` transcript lines (item 4) are deliberately NOT touched.** They are among the
+ten sites this ledger already defers pending the `solve.c`
+`leaves_canonical_C1C5 → leaves_oriented_C1C5` rename, and the transcript lines are verbatim program
+output. The discriminator applied per site: **the deferred ten attach the label to *counts*; what was
+corrected here attaches it to a *magnitude*.**
+
+**(ii) Evidence gap.** The 2026-07-05 update publishes N(6), N(7) and N(8). Measured 2026-09-03:
+`reports/evidence/sk/sk5_7_rounds.out` stops at round 6 and `sk8_round.out` carries round 8, so
+**N(7) = 7.695×10¹⁷ ships with no public artifact** — and **two** published numbers rest on it, not
+one: the k=7 and k=8 per-boundary bit gains (7.93 and 6.14) are both computed from it. Stated inline
+rather than withdrawn, because the round-7 PICK is recoverable from `sk8_round.out`'s pin list and
+nothing else in the report depends on the value.
+
+### What did not move
+
+No figure changes in either. A third, smaller correction — `documentation/SOLVE_SUMMARY.md`'s "4
+symmetric hexagrams" contradicting its own eight-glyph list, corrected to 8 forming 4
+complement-fallback pairs — is recorded in that file's own revision line, which is its convention.

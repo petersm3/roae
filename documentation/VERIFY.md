@@ -508,7 +508,10 @@ the 2026-07-25 full-scale MATCH: TR-11 §10(vi).
   instrument half; the items below are the (retained) corroboration that pre-dated it.
 
 Tier-2 scope was intentional (per TR-11, the full 31-pair count is out of scope
-here). The full-scale exact count
+here). **"Tier-2" here means the reduced-rung scope — the <=28-pair rungs where two independent
+engines can both run — and nothing else on this page or elsewhere in the repo defines it. It is
+not the campaign "Tier 2", not a Lean proof tier, and not a `tier-2` scoring axis; the term is kept
+because the corroboration bullets below already use it.** The full-scale exact count
 |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 (TR-11 §9)
 does **not** rest on this instrument. Its corroboration chain is:
 

@@ -130,6 +130,79 @@ name exists in the private repository today**, so that citation is unresolved an
 rather than escrowed. Adding hashes for the six above is an operator action (`sha256sum` on files the
 operator already holds) and has not been done; until it is, this page covers ten files and says so.
 
+> ⚠ **Superseded 2026-09-04, annotated rather than rewritten.** The operator authorized it and all
+> six are now escrowed — see §"The six, escrowed 2026-09-04". This page now covers **sixteen**
+> files. The sentence above stands as published; the table above it stands unaltered and remains
+> the correct record of what was *not* escrowed between 2026-09-02 and 2026-09-04.
+
+## The six, escrowed 2026-09-04 — and why each carries a FREEZE digest
+
+Added 2026-09-04 on operator authorization. The six files itemized in the section above now have
+hashes. **Nothing above this section is altered**; that table and its ten rows stand exactly as
+published.
+
+🔴 **These rows are built differently from the ten above, and the difference is the point.** The ten
+escrow *the file's state on 2026-08-22*. These six escrow **the state at the commit that froze the
+file**, named and dated, so the digest attests the thing a pre-registration is supposed to attest.
+Where the file has changed since, the current digest is published **alongside** it, with what changed.
+
+| file (in `roae-private`) | freeze commit | frozen | sha256 **at freeze** | bytes | current state |
+|---|---|---|---|--:|---|
+| `F4PRIME_PREREGISTRATION.md` | `1041283a` | 2026-07-04 | `13d2722b961241a13040d80c2af24bed8d802952cdb1aad6578c4a90bc46d017` | 3,619 | **identical** |
+| `F5_ORIENTATION_PREREGISTRATION_2026_07_FROZEN.md` | `30ae65a8` | 2026-07-05 | `af622f1ad9312e38441facf8a5e2b3ffe6ac6632b1f271f4c3ba0eb6070b76bf` | 24,010 | **differs — 2 lines** |
+| `F6_BOOKS_PREREGISTRATION_2026_07_FROZEN.md` | `6917467f` | 2026-07-05 | `e35744b6bb91a15dea3ff6a07f6d8946ca88cfd9c4f74c5a09bbc1dfd20c6420` | 12,870 | **identical** |
+| `R3_PERMUTATION_OBSERVABLE_PREREG_2026_07_09.md` | `1c2d8fcb` | 2026-07-10 | `7104e6546309bf89592eb04d82209c41a7c4342e6f3d48b246fb5e27fdfb0564` | 23,745 | **identical** |
+| `R8_DAVIS_PREREG_2026_07_10.md` | `25444f5f` | 2026-07-10 | `9d788f479b12ffdcff6ea91febea773badbe77c2ced033fedf694ff8331ec762` | 26,717 | **differs — erratum** |
+| `F11_BAYES_PREREGISTRATION_2026_07.md` | `0e153637` | 2026-07-04 | `4e2eb0a2d5cfed76ee1e60fae7ae677b584f2e3d18de849b266f015c1869093e` | 2,635 | **identical** |
+
+**Four of the six are byte-identical today to their freeze commit**, so for those the freeze digest
+and the current digest are the same value and one hash checks both states.
+
+**The two that differ, with the difference stated rather than summarised:**
+
+- **`F5_ORIENTATION…FROZEN.md`** — current sha256
+  `d7149328df9b8bf54b6203512ccb208a0765814c34b2511f23bf41b0f15f5f7f`, **24,010 bytes, unchanged in
+  length**. The entire diff from the freeze is **two lines**, both `SOLVE-SUMMARY` → `SOLVE_SUMMARY`,
+  from the 2026-07-16 commit that applied that public filename rename across 39 files. **No content,
+  no observable, no threshold and no family size changed.**
+- **`R8_DAVIS_PREREG_2026_07_10.md`** — current sha256
+  `a58ca29275d9c3ca627f5c32f6368072d8cce1fc852c1cadc83b11f285623d5e`, **32,344 bytes**. The diff is
+  **74 added lines** under a single heading, `### Erratum (2026-07-12, recorded at the wave-2
+  landing)`, correcting §3.3/§3.1's "C2-compliant" to C1 (pair-structured). **It is an erratum, dated
+  in place and disclosed at the landing — not a result.**
+
+🔴 **What was checked before publishing, and what it found.** Each of the six was tested for the
+defect recorded against two of the ten above — a result appended to the file after its freeze, which
+makes the escrowed digest attest a document containing its own outcome. **None of the six has one.**
+The two changes are a cosmetic rename and a dated erratum. That check is the reason these rows name a
+freeze commit at all: publishing a single current-state digest for `R8` would have escrowed a
+post-erratum file as though it were the frozen one, and for `F5` would have escrowed a state that
+postdates the freeze by eleven days for no reason a reader could see.
+
+**What these six establish, stated as narrowly as the ten above are:** anyone later given one of these
+files can hash it and check it against the freeze value, and — because the freeze **commit** is named
+— the private history can be shown to produce that exact digest at that exact commit. **This still
+does not convert freeze timing for an outside reader**, who cannot see the private repository; it
+converts *content identity at a named commit* from attested to checkable, and it makes any later
+change to the file visible as a hash mismatch rather than invisible.
+
+## Rule adopted 2026-09-04 — a result may never be appended to a pre-registration
+
+Two of the ten rows above escrow a digest that covers the commit which appended the file's own result
+(`PREREG_KNUTH_CLEANROOM_2026_08_08.md`, `PREREG_REPR_COST_VS_T_2026_08_18.md`). Both are disclosed
+in §"The escrowed hash is the file's state on 2026-08-22" and both now also carry a freeze-commit
+digest, so nothing is misrepresented. The defect is structural, not clerical:
+
+> **A pre-registration file is closed at its freeze. A result belongs in a separate RESULTS artifact
+> that cites the pre-registration; it is never appended to it.**
+
+**And the enforcing corollary, which is what makes the rule hold without depending on discipline:**
+
+> **Escrow the FREEZE-COMMIT digest, not the file's current state.** Then appending anything —
+> a result, an erratum, a rename — cannot corrupt the escrow. It becomes a visible mismatch instead.
+
+The six rows above are the first written under both. The ten above them are annotated, not rewritten.
+
 ## Why publish hashes rather than the files
 
 The files reference operator-held infrastructure and, in some cases, quote in-copyright material.
@@ -181,6 +254,23 @@ in redacted form and does not. For the eight, this page is the public, checkable
 it makes checkable is content identity from 2026-08-22 onward, not freeze timing.*
 
 ## Amendment log
+
+### 2026-09-04 — the six named as not-escrowed are escrowed, and a rule is adopted
+
+1. **Six rows added** in §"The six, escrowed 2026-09-04". They carry a **freeze-commit** digest, not a
+   current-state digest, and where the file has changed since, the current digest is published beside it
+   with the diff characterised. Every one of the six freeze digests was independently recomputed from the
+   named commit and checked against this page before publication: **6/6**.
+2. **Nothing above was altered.** The ten rows, their hashes, byte counts and dates are as published on
+   2026-08-22. The closing sentence of §"Pre-registrations that are NOT escrowed here" is **annotated**
+   with a superseded-note; its table stands and remains the correct record of the 2026-09-02 → 2026-09-04
+   state.
+3. **A rule was adopted** — §"Rule adopted 2026-09-04": a result is never appended to a pre-registration,
+   and escrow takes the freeze-commit digest so that appending cannot corrupt the escrow.
+4. **Checked before publishing:** each of the six was tested for the defect recorded against two of the
+   ten (a digest covering the commit that appended the file's own result). **None of the six has one.**
+   Two differ from their freeze state — one by a two-line cosmetic filename rename, one by a dated
+   erratum — and both differences are stated in full rather than summarised.
 
 **2026-08-22 — published.** The ten rows, their hashes, byte counts and dates. Single commit; no
 edit until the entry below.

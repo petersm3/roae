@@ -292,9 +292,18 @@ telescopes by `M_k` per layer): for **every** `k` in `0..n`,
                                                       =  (# search-tree nodes at depth ≥ k)
 
 At `k = n` it degenerates to `M_n`; at `k = 0` to
-`t(root) = Σ_{j=0..n} M_j`. These are `n+1` independent exact identities per
-ladder; for t the geometry (masks, offsets, keys) must additionally mirror f
-**byte-exactly** at every layer.
+`t(root) = Σ_{j=0..n} M_j`. These are `n+1` per-layer exact identities per
+ladder — one per layer, each reading that layer's own bytes. Read them as
+**integrity checks: they constrain the FILES, not the shared
+transition relation.** They hold for any transition DAG from which f, g and t
+were built consistently, so passing them cannot settle whether that relation is
+the right one; and the two endpoints degenerate, as noted just above. ⚠
+**[SCOPED 2026-09-03 — this read "`n+1` independent exact identities per
+ladder". The count is right and the identities are exact; the word
+*independent* invited an evidential reading these checks do not support, since
+they are satisfied by any consistent transition DAG. Raised by Codex A05,
+tracked as Q-325(2).]** For t the geometry (masks, offsets, keys) must
+additionally mirror f **byte-exactly** at every layer.
 
 ## Invariants a reader can check
 

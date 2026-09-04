@@ -558,10 +558,68 @@ fi
 
 echo "== 4. Lean kernel check (every lean/*.lean file) =="
 # $LEAN resolved and probed in section 0 (plain `lean`, else the elan fallback).
-for f in lean/*.lean; do
-  if [ "$HAVE_LEAN" = "0" ]; then skip "$f" "needs lean (elan)"; continue; fi
-  check "$f" "\"$LEAN\" \"$f\""
-done
+# 🔴 RUN FROM INSIDE lean/, AND NAME THE KERNEL (B11a, 2026-09-03; Codex V2-14 #2). Until today this
+# loop ran `"$LEAN" lean/<Module>.lean` from the REPO ROOT. elan's `lean` proxy chooses the toolchain
+# by walking UP from the WORKING DIRECTORY to the nearest `lean-toolchain`; the input file's own
+# directory is never consulted, and the only pin in this repository is `lean/lean-toolchain`. So from
+# the root the pin was dead: every module was checked under whatever `elan default` happened to be,
+# and the run recorded no `lean --version`, so the attestation named no kernel. PLANT-TESTED on
+# c293-satcert 2026-09-03: with `elan default leanprover/lean4:v4.30.0` and the pin still v4.31.0,
+# `lean --version` from the root answered 4.30.0, from lean/ it answered 4.31.0, and this loop as it
+# stood reported 12 PASS + 2 FAIL while `pgrep` showed `…/leanprover--lean4---v4.30.0/bin/lean` doing
+# the checking: the twelve PASS lines named no kernel, and the two FAILs (RecordConvention,
+# TrigramTheorems: `rw` pattern-not-found, a 4.30->4.31 elaboration difference; both pass under the
+# pin) were blamed on the proofs. Same shape as the drat-trim leg before DRAT_TRIM_ID= existed: a
+# PASS is evidence only about the binary that produced it, and this one did not say which. Two legs
+# now, each on its own:
+#   (1) every module runs as `(cd lean && "$LEAN" <Module>.lean)` — a subshell, so this script's own
+#       cwd is untouched — which is what makes elan honour lean/lean-toolchain, and is the command
+#       documentation/CLAIM_TO_ARTIFACT.md row 13 already advertises;
+#   (2) the kernel is IDENTIFIED before any module runs, from the same cwd the modules use:
+#       `LEAN_ID=<pin>/<lean --version>` is one whole line (consume it with grep -qx, like
+#       DRAT_TRIM_ID=), and its version MUST agree with the pin (LEAN_PIN_MATCH=PASS|FAIL). A
+#       disagreement — $LEAN naming a toolchain's bin/lean directly and so bypassing elan, a proxy
+#       that resolved elsewhere, a pin nobody installed, an unreadable pin file — is a counted FAIL
+#       that ALSO fails every module line: never a SKIP, never a pass. A run that cannot see its
+#       target must not report green (the class this file exists to close; see the header).
+# The module count is a floor for the same reason as sections 5 and 6: an unmatched glob fails on
+# its own, but a directory that quietly lost modules must not pass either. 14 on `main` since
+# SatEncodingFidelity.lean (2026-08-31); override with LEAN_FILES_MIN on a branch that has fewer.
+LEAN_PIN_FILE=lean/lean-toolchain
+LEAN_FILES_MIN=${LEAN_FILES_MIN:-14}
+if [ "$HAVE_LEAN" = "0" ]; then
+  echo "LEAN_ID=ABSENT"        | tee -a "$LOG"
+  echo "LEAN_PIN_MATCH=ABSENT" | tee -a "$LOG"
+  for f in lean/*.lean; do skip "$f" "needs lean (elan)"; done
+else
+  LEAN_PIN=$(head -n 1 "$LEAN_PIN_FILE" 2>/dev/null | tr -d '[:space:]')
+  [ -n "$LEAN_PIN" ] || LEAN_PIN=UNREADABLE        # never blank: an empty token reads as a pass
+  # Captured, not piped (class-B note above); from INSIDE lean/, the cwd the module checks use.
+  LEAN_VER=$(cd lean && "$LEAN" --version 2>&1); LEAN_VER_RC=$?
+  [ -n "$LEAN_VER" ] || LEAN_VER=NO_OUTPUT
+  # pin `leanprover/lean4:v4.31.0` -> `4.31.0`; `lean --version` prints `Lean (version 4.31.0, …)`.
+  _pin_ver=${LEAN_PIN##*:}; _pin_ver=${_pin_ver#v}
+  LEAN_PIN_MATCH=FAIL
+  if [ "$LEAN_VER_RC" -eq 0 ] && [ "$LEAN_PIN" != UNREADABLE ]; then
+    case $LEAN_VER in *"(version $_pin_ver,"*) LEAN_PIN_MATCH=PASS ;; esac
+  fi
+  echo "LEAN_ID=$LEAN_PIN/$LEAN_VER"            | tee -a "$LOG"
+  echo "LEAN_PATH=$(command -v "$LEAN")"        | tee -a "$LOG"
+  echo "LEAN_PIN_MATCH=$LEAN_PIN_MATCH"         | tee -a "$LOG"
+  check "lean kernel identity matches $LEAN_PIN_FILE ($LEAN_PIN)" \
+    "[ \"\$LEAN_PIN_MATCH\" = PASS ] || { printf 'pin: %s\\nran: %s (rc %s)\\n' \"\$LEAN_PIN\" \"\$LEAN_VER\" \"\$LEAN_VER_RC\"; false; }"
+  _n=0
+  for f in lean/*.lean; do
+    _n=$((_n + 1))
+    if [ "$LEAN_PIN_MATCH" != PASS ]; then
+      check "$f" "echo 'NOT RUN: kernel identity did not match $LEAN_PIN_FILE (LEAN_PIN_MATCH=$LEAN_PIN_MATCH); a proof checked by an unidentified kernel is not evidence'; false"
+      continue
+    fi
+    check "$f" "(cd lean && \"$LEAN\" \"${f#lean/}\")"
+  done
+  echo "LEAN_FILES=$_n" | tee -a "$LOG"
+  check "lean module count >= $LEAN_FILES_MIN (found $_n)" "[ $_n -ge $LEAN_FILES_MIN ]"
+fi
 
 echo "== 5. Python regression harness (python3 tests.py) =="
 # ADDED 2026-09-02 (backlog F2, from README P11). Until today the repo's advertised one-command

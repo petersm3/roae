@@ -51,7 +51,7 @@ We found five rules (C1–C5 in [SPECIFICATION.md](SPECIFICATION.md); four are f
 
 ### Rule 1: Every hexagram has a partner
 
-The 64 hexagrams are grouped into 32 consecutive pairs. Each hexagram is paired with the one you get by flipping it upside down. (For 4 symmetric hexagrams that look the same upside down — ䷀䷁ ䷚䷛ ䷜䷝ ䷼䷽ — the partner is the one with every line toggled instead.)
+The 64 hexagrams are grouped into 32 consecutive pairs. Each hexagram is paired with the one you get by flipping it upside down. (For the **8** symmetric hexagrams that look the same upside down, the partner is the one with every line toggled instead — they form the four pairs ䷀䷁ ䷚䷛ ䷜䷝ ䷼䷽.)
 
 **What this does:** Cuts the possibilities from 10^89 down to about 10^45. Still enormous, but 44 zeros gone in one step.
 
@@ -492,3 +492,5 @@ The difference wave as a sparkline (each character = one transition, height = li
 *Revision 2026-08-20 (C6/C7 defined, prompted by an operator question): this page cited "both legacy adjacency constraints (C6+C7)" and their 0.0018% satisfaction rate while never defining, numbering, or locating C6 and C7 anywhere on the page — a gap its own 2026-08-01 revision note had already recorded. A new §"Why there is no Rule 6 or Rule 7" defines them as boundary constraints (C6 pins pairs 27–28, C7 pairs 25–26), states that they were selected by search rather than discovered, and gives the reason they are not promoted into the Rule 1–5 ladder: [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) prices them at 21.3 bits bought against ~20.6 bits to state — data-like and net ≈ 0 — while noting they are still logically independent of Rules 1–5 (×2.55×10⁶ cut). No count, sha, or theorem changed.*
 
 *Revision 2026-08-21 (pre-review self-hardening pass): the new C6/C7 section said "sequence positions 27 and 28 / 25 and 26" — ambiguous between pair slots and hexagram positions (README states the same constraints as hexagram positions 53–56 / 49–52). It now says "pair slots" and gives both unit systems. No count, sha, or theorem changed.*
+
+*Revision 2026-09-03 (hardening lane, Q-330 rider): the pairing paragraph read "For 4 symmetric hexagrams that look the same upside down" and then listed **eight** glyphs. There are 8 hexagrams that are their own 180° rotation — the 6-bit palindromes 0, 12, 18, 30, 33, 45, 51, 63 (`solve.py`'s own comment says 8) — and they form **4** complement-fallback pairs, which is where the 4 came from. The sentence contradicted its own list. Count corrected, the pairing restated; no rule and no figure changes. `solve.py`'s three matching comments already said 8 and were not touched. Charged by Codex T04.*

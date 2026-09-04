@@ -133,7 +133,7 @@ McKenna's interpretive frame, not an attested property of the received artifact.
 ## Verification Guide
 - Wrap-parity theorem, statement + proof: documentation/SPECIFICATION.md §Theorem (Wrap-around parity is
   odd)
-- Lean general form: `lean lean/KingWen.lean` (Lean 4, tested 4.31.0; silence = all theorems check) —
+- Lean general form: `cd lean && lean KingWen.lean` (Lean 4, tested 4.31.0 — run from inside `lean/` so elan honours `lean/lean-toolchain`; from the repo root it uses its default toolchain instead, measured 2026-09-03; silence = all theorems check) —
   `wrap_parity_general`, supporting lemmas `transitions_sum_parity`, `sum_parity_odd_count`,
   `odd_count_partition`; see lean/README.md §Tier 2
 - 560T wrap measurement (91.83% d3 / 8.17% d1 / zero d5): `./solve --verify-wrap-parity` against the d3
