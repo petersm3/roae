@@ -4138,5 +4138,107 @@ class TestSatLane12(unittest.TestCase):
                     self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), sha, target)
 
 
+class TestSolveCliHardeningTokens(unittest.TestCase):
+    """Whole-line KEY=value gates for the Codex v2 solve.c CLI/validator fixes landed 2026-09-04.
+
+    Every assertion below was RED on the pre-fix binary and the pre-fix return codes are recorded
+    per test, measured rather than asserted from the adjudication text. Each token is matched
+    WHOLE-LINE (the harness rule: never by output shape), so a reworded sentence that happens to
+    contain the substring cannot satisfy a gate.
+
+    The binary is built from the tracked solve.c at -O1 into a temp dir; ROAE_TESTS_SOLVE_SRC
+    overrides the source for mutation runs only, and nothing in the harness sets it. A build
+    failure is a test FAILURE, never a skip -- a gate that cannot run must not read as one that
+    passed."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="clihard_")
+        cls.sbin = os.path.join(cls.tmp, "solve_clihard")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, args, cwd=None):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        r = subprocess.run([self.sbin] + args, capture_output=True, text=True,
+                           cwd=cwd or self.tmp, timeout=600)
+        return r
+
+    def _lines(self, r):
+        return [" ".join(l.split()) for l in (r.stdout + "\n" + r.stderr).splitlines()]
+
+    # ---- solve.c:17514 -- --merge consumed and silently discarded its arguments (pre-fix rc 0)
+    def test_merge_refuses_arguments_it_cannot_honour(self):
+        r = self._run(["--merge", "/data/solutions.bin"])
+        self.assertNotEqual(r.returncode, 0,
+                            "--merge with a path argument must refuse, not silently ignore it")
+        self.assertIn("MERGE_ARGS=REFUSED", self._lines(r))
+
+    def test_bare_merge_still_runs(self):
+        # Control: the refusal must be scoped to EXTRA arguments. A bare --merge in an empty
+        # directory must still reach the merge and report that it found no shards.
+        d = tempfile.mkdtemp(dir=self.tmp)
+        r = self._run(["--merge"], cwd=d)
+        self.assertNotIn("MERGE_ARGS=REFUSED", self._lines(r))
+        self.assertTrue(any("No sub_*.bin files found" in l for l in self._lines(r)),
+                        "bare --merge should reach the shard scan; got: " +
+                        "\n".join(self._lines(r))[-500:])
+
+    # ---- solve.c:18678 -- atoll truncated the budget, and skipped gates read as passing gates
+    def test_preflight_refuses_a_non_numeric_budget(self):
+        # Pre-fix: atoll("560Q") == 560, and the command printed "all in-process gates PASS" rc 0.
+        r = self._run(["--preflight", "560Q"])
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("PREFLIGHT=REFUSED-BAD-ARG", self._lines(r))
+
+    def test_preflight_reports_skipped_gates_as_skipped_not_passed(self):
+        # Pre-fix: all three gates return 0 below 1e12 nodes, indistinguishable from PASS, so
+        # `--preflight 560` attested a clean bill of health having executed nothing.
+        r = self._run(["--preflight", "560"])
+        lines = self._lines(r)
+        self.assertIn("PREFLIGHT_GATES_SKIPPED=3", lines)
+        self.assertIn("PREFLIGHT_GATES_RAN=0", lines)
+        self.assertFalse(any("all in-process gates PASS" in l for l in lines),
+                         "a preflight that ran nothing must not claim all gates passed")
+
+    # ---- solve.c:18508 -- an uppercase sha was accepted, echoed uppercase, compared lowercase
+    def test_validate_canonical_normalises_the_sha_case(self):
+        upper = "403F7202A33A9337B781F4EE17E497D5C0773C2656E16FA0DB87EECCD6F3332E"
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        pr = subprocess.Popen([self.sbin, "--validate-canonical", upper, "1T"],
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                              text=True, cwd=self.tmp)
+        try:
+            # The echo precedes the enum spawn; read only until the token, then kill.
+            seen, echo = [], None
+            for _ in range(400):
+                line = pr.stdout.readline()
+                if not line:
+                    break
+                seen.append(line.strip())
+                if line.strip() == "EXPECTED_SHA_ECHO=lowercase":
+                    echo = True
+                    break
+                if line.startswith("[--validate-canonical] Expected sha:"):
+                    self.assertNotIn(upper, line,
+                                     "the uppercase input was echoed back verbatim")
+        finally:
+            pr.kill()
+            pr.wait(timeout=60)
+            if pr.stdout:
+                pr.stdout.close()
+        self.assertTrue(echo, "EXPECTED_SHA_ECHO=lowercase not emitted; saw: " +
+                        " | ".join(seen[-8:]))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

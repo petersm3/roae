@@ -646,8 +646,21 @@ valid `ROAE` header and aborts on bad magic or unknown version.
 > cross-record duplicates *are* enforced (the sorted-order loop increments
 > `errors` at `solve.c:21359`); the same fixtures, deliberately unsorted or
 > carrying an adjacent duplicate, both exit **1**. So treat the KW line as a
-> banner and check it by eye. Folding it into the exit code is an open code
-> change. *(Added 2026-09-01.)*
+> banner and check it by eye.
+>
+> **`--expect-kw` closes the open change, opt-in (added 2026-09-04).** Both checkers now accept
+> `--expect-kw`, mirroring `verify.py --expect-kw`: with it, King Wen's absence is folded into the
+> verdict and the run exits non-zero; without it, behaviour is exactly as described above. Both
+> print a whole-line `KW_REQUIRED=YES|NO` token so a log says which contract was in force. It is
+> **not** the default, and must not become one: the "expect exactly one canonical KW record per
+> file" rule was retracted 2026-09-02 (registry `RP-60347080`) because a shard or a budgeted slice
+> legitimately lacks the record, and `tests.py`'s `TestSolveVerifyKingWenScope` pins the
+> reported-not-enforced default with a mutation test that goes red on exactly that change.
+>
+> `--validate`'s runtime banner also used to list "King Wen presence" among the things it
+> *checks*, which contradicted this note; corrected 2026-09-04 (Codex v2 `solve.c:21051/:21439`).
+> The behaviour was always deliberate — the promise was the defect. *(Added 2026-09-01;
+> extended 2026-09-04.)*
 
 **Not a superset of `--verify`.** `--verify` already checks sort
 order and duplicates (and reports King Wen presence — see the note

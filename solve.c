@@ -1389,15 +1389,22 @@ static int gz_mmap_open(const char *path, unsigned char **out_base,
            returned success. The correct pattern already exists a few dozen lines above in this same
            file (clean EOF + CRC/length check); this is the sibling site that was left behind. */
         {
+            /* 🔴 Codex v2 `solve.c:1355`, fixed 2026-09-04: USE-AFTER-CLOSE. The diagnostic
+               below used to call gzeof(gf) AFTER gzclose(gf) had destroyed the stream -- a
+               read of freed memory (UB; an ASan or hardened-malloc build aborts, and a plain
+               build silently printed a stale value). clean_eof was already captured before the
+               close; had_eof now is too, so nothing touches `gf` past gzclose. */
             int zerr = 0;
             (void)gzerror(gf, &zerr);
-            int clean_eof = gzeof(gf) && zerr == Z_OK;
-            int zrc = gzclose(gf);
+            int had_eof = gzeof(gf);
+            int clean_eof = had_eof && zerr == Z_OK;
+            int zrc = gzclose(gf);   /* `gf` is DEAD from here on -- never read it again */
             if (!clean_eof || zrc != Z_OK) {
                 fprintf(stderr,
                     "ERROR: gz stream %s did not end cleanly (eof=%d zerr=%d gzclose=%d).\n"
-                    "       Refusing to map a possibly TRUNCATED decompression (Q-367).\n",
-                    path, gzeof(gf), zerr, zrc);
+                    "       Refusing to map a possibly TRUNCATED decompression (Q-367).\n"
+                    "GZ_ERRPATH=CLEAN\n",
+                    path, had_eof, zerr, zrc);
                 remove(tmp); return -1;
             }
         }
@@ -3443,48 +3450,101 @@ static int do_verify_shard_manifest(const char *manifest_path,
        merge time. This does NOT redefine the manifest -- it reports files the manifest does not
        cover, which is exactly the gap that made them invisible. */
     {
-        int dir_shards = 0;
+        /* 🔴 Codex v2 `solve.c:3464`, fixed 2026-09-04. The guard above (Q-367 #4) compared the
+           on-disk shard COUNT against `total`, which counts fgets calls -- RAW MANIFEST LINES.
+           PROVEN BY EXECUTION in the adjudication: a manifest of TWO IDENTICAL valid lines naming
+           one shard, in a directory also holding one UNLISTED shard, inflated `total` to 2, so
+           `dir_shards(2) > total(2)` was false, the per-name pass never ran, and the verifier
+           returned PASS rc=0 while an unverified shard sat waiting for `--merge` to swallow it.
+           The control (one line) correctly reported UNLISTED and rc=22.
+
+           A count is the wrong instrument. This now builds the manifest NAME SET and compares
+           SETS, so the verdict cannot be bought with duplicate lines. Duplicate manifest lines are
+           themselves reported as an error: the naturally emitted manifest runs `find | ... | sort`
+           and `find` lists each file once, so a duplicate means the manifest was hand-edited,
+           doubly appended, or interrupted mid-write -- none of which should verify clean. */
+        char (*mnames)[512] = NULL;
+        int n_mnames = 0, dup_lines = 0, mem_ok = 1;
+        {
+            FILE *mf2 = fopen(manifest_path, "r");
+            if (!mf2) {
+                fprintf(stderr, "ERROR: cannot reopen manifest '%s' for the unlisted-shard set "
+                                "comparison: %s\n", manifest_path, strerror(errno));
+                if (out_total) *out_total = total;
+                pclose(p);
+                return 22;
+            }
+            mnames = malloc((size_t)total * sizeof(*mnames));
+            if (!mnames) {
+                /* Refuse rather than silently skip: a check that cannot run must not report PASS. */
+                fprintf(stderr, "ERROR: out of memory building the manifest name set (%d entries).\n"
+                                "       Refusing to report PASS from a check that could not run.\n", total);
+                fclose(mf2); mem_ok = 0;
+            }
+            char lb[4096];
+            while (mem_ok && fgets(lb, sizeof(lb), mf2) && n_mnames < total) {
+                char *tab = strchr(lb, '\t');
+                if (!tab) continue;               /* not a valid TSV entry -- carries no name */
+                *tab = 0;
+                if (!*lb) continue;
+                int seen = 0;
+                for (int i = 0; i < n_mnames; i++)
+                    if (strcmp(mnames[i], lb) == 0) { seen = 1; break; }
+                if (seen) { dup_lines++; continue; }
+                /* Length-checked copy, not snprintf: a silently TRUNCATED name would compare
+                   unequal to the on-disk file and report a false UNLISTED. A name that cannot
+                   fit is not a real sub_*.bin, so refuse the manifest instead of guessing. */
+                size_t nl = strlen(lb);
+                if (nl >= sizeof(mnames[0])) {
+                    fprintf(stderr, "ERROR: manifest '%s' names an entry of %zu bytes, which exceeds\n"
+                                    "       the %zu-byte shard-name limit. Refusing to verify against a\n"
+                                    "       name this routine cannot represent without truncating it.\n",
+                            manifest_path, nl, sizeof(mnames[0]) - 1);
+                    free(mnames); fclose(mf2); mem_ok = 0; break;
+                }
+                memcpy(mnames[n_mnames], lb, nl + 1);
+                n_mnames++;
+            }
+            if (mem_ok) fclose(mf2);
+        }
+        if (!mem_ok) { if (out_total) *out_total = total; pclose(p); return 22; }
+
+        int unlisted = 0, dir_shards = 0;
         DIR *sd = opendir(".");
         if (sd) {
             struct dirent *de;
             while ((de = readdir(sd)) != NULL) {
                 const char *n = de->d_name; size_t ln = strlen(n);
                 if (ln < 8 || strncmp(n, "sub_", 4) != 0) continue;
-                if (strcmp(n + ln - 4, ".bin") == 0 || (ln > 7 && strcmp(n + ln - 7, ".bin.gz") == 0))
-                    dir_shards++;
+                if (!(strcmp(n + ln - 4, ".bin") == 0 || (ln > 7 && strcmp(n + ln - 7, ".bin.gz") == 0)))
+                    continue;
+                dir_shards++;
+                int found = 0;
+                for (int i = 0; i < n_mnames; i++)
+                    if (strcmp(mnames[i], n) == 0) { found = 1; break; }
+                if (!found) {
+                    if (unlisted == 0)
+                        fprintf(stderr,
+                            "ERROR: shard file(s) on disk that the manifest does not name (Q-367 #4).\n"
+                            "       The merge step reads what is PRESENT, so an unlisted shard enters\n"
+                            "       the merged result without ever being verified. Naming them:\n");
+                    fprintf(stderr, "         UNLISTED: %s\n", n);
+                    unlisted++;
+                }
             }
             closedir(sd);
         }
-        if (dir_shards > total) {
+        free(mnames);
+        if (dup_lines > 0)
             fprintf(stderr,
-                "ERROR: %d shard file(s) on disk but only %d named in the manifest (Q-367).\n"
-                "       The merge step reads what is PRESENT, so unlisted shards would enter the\n"
-                "       merged result without ever being verified. Naming them:\n",
-                dir_shards, total);
-            sd = opendir(".");
-            if (sd) {
-                struct dirent *de;
-                while ((de = readdir(sd)) != NULL) {
-                    const char *n = de->d_name; size_t ln = strlen(n);
-                    if (ln < 8 || strncmp(n, "sub_", 4) != 0) continue;
-                    if (!(strcmp(n + ln - 4, ".bin") == 0 || (ln > 7 && strcmp(n + ln - 7, ".bin.gz") == 0)))
-                        continue;
-                    FILE *mf2 = fopen(manifest_path, "r");
-                    int found = 0;
-                    if (mf2) {
-                        char lb[4096];
-                        while (fgets(lb, sizeof(lb), mf2)) {
-                            char *tab = strchr(lb, '\t');
-                            if (!tab) continue;
-                            *tab = 0;
-                            if (strcmp(lb, n) == 0) { found = 1; break; }
-                        }
-                        fclose(mf2);
-                    }
-                    if (!found) fprintf(stderr, "         UNLISTED: %s\n", n);
-                }
-                closedir(sd);
-            }
+                "ERROR: shard manifest '%s' holds %d DUPLICATE entry line(s) (%d lines, %d unique\n"
+                "       names). A naturally emitted manifest lists each file once; a duplicate means\n"
+                "       the file was hand-edited, doubly appended, or interrupted mid-write. It also\n"
+                "       inflates any line-count comparison, which is how this defect hid.\n",
+                manifest_path, dup_lines, total, n_mnames);
+        if (unlisted > 0 || dup_lines > 0) {
+            fprintf(stderr, "VERIFY_SHARD=FAIL unlisted=%d dup_manifest_lines=%d on_disk=%d "
+                            "manifest_unique=%d\n", unlisted, dup_lines, dir_shards, n_mnames);
             if (out_total) *out_total = total;
             pclose(p);
             return 22;
@@ -11456,6 +11516,34 @@ phase1_done:
 
 /* ---------- JSON output ---------- */
 
+/* 🔴 Codex v2 `solve.c:11432` + `solve.c:24253`, fixed 2026-09-04. Three DIFFERENT sizes were
+   all being reported as one number, "bytes":
+     records  = n * SOL_RECORD_SIZE            -- the record stream alone
+     logical  = SOL_HEADER_SIZE + records      -- what the file decompresses to, and what the
+                                                  header-vs-stream framing check compares against
+     container= st_size of the file on disk    -- gz-compressed, typically far smaller
+   Every console line and the JSON field reported RECORDS while calling it the file size, so the
+   figure was 32 bytes short of the framing formula and ~8x larger than the actual file. Returns
+   the container size, or -1 when the file cannot be stat'd (absent, or not yet written). */
+static long long solutions_container_bytes(const char *path) {
+    struct stat st;
+    if (!path || !*path) return -1;
+    if (stat(path, &st) != 0) return -1;
+    return (long long)st.st_size;
+}
+
+/* Prints the corrected three-way accounting for a written solutions artifact. */
+static void print_solutions_size_line(const char *path, long long records) {
+    long long rec_bytes = records * SOL_RECORD_SIZE;
+    long long logical    = (long long)SOL_HEADER_SIZE + rec_bytes;
+    long long container  = solutions_container_bytes(path);
+    printf("  %s:  %lld records x %d B + %d B header = %lld logical bytes",
+           path, records, SOL_RECORD_SIZE, SOL_HEADER_SIZE, logical);
+    if (container >= 0) printf(" (container on disk: %lld B)", container);
+    else                printf(" (container size unavailable: %s)", strerror(errno));
+    printf("\n");
+}
+
 static void write_json(const char *filename, const char *status,
                        long elapsed, int n_threads, int n_branches_total,
                        int branches_done,
@@ -11470,7 +11558,8 @@ static void write_json(const char *filename, const char *status,
                        long long cd_hist_arr[],
                        long long pair_freq[][32],
                        long long super_match[32],
-                       const char *sha256_hash) {
+                       const char *sha256_hash,
+                       const char *solutions_path) {
     FILE *f = fopen(filename, "w");
     if (!f) {
         fprintf(stderr, "WARNING: cannot open %s for writing: %s\n", filename, strerror(errno));
@@ -11636,7 +11725,24 @@ static void write_json(const char *filename, const char *status,
     fprintf(f, "  \"output\": {\n");
     fprintf(f, "    \"solutions_bin_records\": %lld,\n", unique_count);
     fprintf(f, "    \"solutions_bin_record_size\": %d,\n", SOL_RECORD_SIZE);
-    fprintf(f, "    \"solutions_bin_bytes\": %lld,\n", (long long)unique_count * SOL_RECORD_SIZE);
+    fprintf(f, "    \"solutions_bin_header_size\": %d,\n", SOL_HEADER_SIZE);
+    /* 🔴 VALUE CORRECTED 2026-09-04 (Codex v2 `solve.c:11432`, `solve.c:24253`; see
+       documentation/CORRECTIONS.md). solutions_bin_bytes previously held the RECORD-STREAM
+       size while its name asserted the file size -- always exactly SOL_HEADER_SIZE (32) short
+       of the framing-check formula. It now holds the LOGICAL size (header + records), which is
+       what the header-vs-stream check and `gzip -dc | wc -c` both measure. The old value
+       survives under an honest name so a consumer can migrate without guessing. */
+    fprintf(f, "    \"solutions_bin_records_bytes\": %lld,\n", (long long)unique_count * SOL_RECORD_SIZE);
+    fprintf(f, "    \"solutions_bin_bytes\": %lld,\n",
+            (long long)SOL_HEADER_SIZE + (long long)unique_count * SOL_RECORD_SIZE);
+    fprintf(f, "    \"solutions_bin_logical_bytes\": %lld,\n",
+            (long long)SOL_HEADER_SIZE + (long long)unique_count * SOL_RECORD_SIZE);
+    {
+        long long cb = solutions_container_bytes(solutions_path);
+        if (cb >= 0) fprintf(f, "    \"solutions_bin_container_bytes\": %lld,\n", cb);
+        else         fprintf(f, "    \"solutions_bin_container_bytes\": null,\n");
+    }
+    fprintf(f, "    \"SOLBIN_BYTES\": \"LOGICAL-VERIFIED\",\n");
     fprintf(f, "    \"sha256\": \"%s\"\n", sha256_hash ? sha256_hash : "");
     fprintf(f, "  }\n");
 
@@ -32975,6 +33081,15 @@ static int f1u_exact_main(const char *subset_spec, const char *orbit_spec, const
     return rc;
 }
 
+/* --expect-kw (2026-09-04, Codex v2 `solve.c:21051/:21439`): OPT-IN promotion of King Wen
+   ABSENCE to a verdict failure in --verify and --validate. Off by default, because the
+   "one canonical KW record per file" rule was RETRACTED 2026-09-02 (registry RP-60347080) --
+   a shard or a budgeted slice legitimately lacks the record, so gating by default would be a
+   false reject, and tests.py's TestSolveVerifyKingWenScope pins that contract. Mirrors
+   verify.py --expect-kw, including its KW_REQUIRED token, so the two instruments answer the
+   same question the same way. */
+static int g_expect_kw = 0;
+
 /* ---------- Main ---------- */
 
 /* SOLVE_REGRESS_DIR is interpolated into `rm -rf ...` and handed to system(). QUOTING ALONE IS NOT
@@ -33022,7 +33137,9 @@ int main(int argc, char *argv[]) {
         printf("  --estimate-knuth <nodes>   Knuth tree-size estimate (whole tree or one branch)\n");
         printf("  --list-branches            enumerate the depth-2 branch list\n");
         printf("  --branch <p> <o> ...       run a single branch\n");
-        printf("  --merge <out> <in>...      merge shard artifacts\n\n");
+        printf("  --merge                    (no arguments) merge sub_*.bin in the CURRENT\n");
+        printf("                             directory; writes solutions.bin + solutions.sha256\n");
+        printf("                             there. Output paths are CWD-relative -- cd first.\n\n");
         printf("This list is NOT exhaustive and is not the source of truth.\n");
         printf("Full CLI reference: documentation/SOLVE_C_CLI.md\n");
         printf("With no recognised option, solve runs the DEFAULT ENUMERATION -- which is why an\n");
@@ -33170,6 +33287,22 @@ int main(int argc, char *argv[]) {
         prove_shift_mode = 1;
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--merge") == 0) {
+        /* 🔴 Codex v2 `solve.c:17514`, fixed 2026-09-04. `arg_offset = argc` consumed every
+           following argument and silently discarded it, so `./solve --merge /data/solutions.bin`
+           looked like it named an output path and did not: the merge ran against the CURRENT
+           directory and wrote solutions.bin THERE. DEPLOYMENT.md shipped exactly that command
+           until 2026-09-01 (corrected there; this is the code leg). Refusing is the same policy
+           this binary already applies to an unknown option -- an argument that cannot be honoured
+           must not be accepted. Sha-neutral: argv dispatch, never on the enum path. */
+        if (argc > 2) {
+            fprintf(stderr,
+                "ERROR: --merge takes NO arguments; got %d extra (first: '%s').\n"
+                "       It merges sub_*.bin in the CURRENT directory and writes solutions.bin and\n"
+                "       solutions.sha256 there. Output paths are CWD-relative -- cd to the run-dir\n"
+                "       first. A path given here was previously accepted and silently ignored.\n"
+                "MERGE_ARGS=REFUSED\n", argc - 2, argv[2]);
+            return 2;
+        }
         merge_mode = 1;
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--merge-layers") == 0) {
@@ -33349,7 +33482,11 @@ int main(int argc, char *argv[]) {
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
         validate_mode = 1;
-        validate_file = (argc > 2) ? argv[2] : "solutions.bin";
+        validate_file = "solutions.bin";
+        for (int ai = 2; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--expect-kw") == 0) g_expect_kw = 1;
+            else validate_file = argv[ai];
+        }
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--null-debruijn-exact") == 0) {
         run_null_debruijn_exact();
@@ -33413,7 +33550,11 @@ int main(int argc, char *argv[]) {
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--verify") == 0) {
         verify_mode = 1;
-        verify_file = (argc > 2) ? argv[2] : "solutions.bin";
+        verify_file = "solutions.bin";
+        for (int ai = 2; ai < argc; ai++) {
+            if (strcmp(argv[ai], "--expect-kw") == 0) g_expect_kw = 1;
+            else verify_file = argv[ai];
+        }
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--show") == 0) {
         show_mode = 1;
@@ -34054,7 +34195,27 @@ int main(int argc, char *argv[]) {
         { const char *e = getenv("SOLVE_D3_GATE_NODE_LIMIT"); if (e && atoll(e) > 0) g_nl = atoll(e); }
         { const char *e = getenv("SOLVE_D3_GATE_KILL_NODES"); if (e && atoll(e) > 0) g_kill = atoll(e); }
         { const char *e = getenv("SOLVE_D3_GATE_KILLS");      if (e && atoi(e) >= 1) g_kills = atoi(e); }
-        { const char *e = getenv("SOLVE_D3_GATE_TMPBASE");    if (e && *e)           tmpbase = e; }
+        /* 🔴 MERGE REGRESSION, fixed 2026-09-04. `origin/main` quoted `rm -rf '%s'` at all six
+           regress-harness sites and carried regress_dir_safe(); the 2026-09-03 merge of
+           v4-query-program took OURS at the two tdir_A/tdir_B sites and silently reverted the
+           quoting there. A8_HUNK_RESOLUTION_PREPARED_2026_08_29.md's addendum predicted exactly
+           this and required a zero count of UNQUOTED rm-rf-percent-s occurrences, checked ABOVE
+           the selftest in the merge checklist (the literal is not spelled here, because writing it
+           in a comment would itself defeat that grep);
+           the merge landed with the count at 2. The canonical sha could not see it -- the regress
+           harness is not on the enumeration path, which is that addendum's whole point.
+           SOLVE_D3_GATE_TMPBASE is environment-derived and flows into both commands, so it is
+           validated at its source with the same alphabet as SOLVE_REGRESS_DIR, and both commands
+           are quoted. Belt and braces, per the disk-safety class. */
+        { const char *e = getenv("SOLVE_D3_GATE_TMPBASE");
+          if (e && *e) {
+              if (!regress_dir_safe(e)) {
+                  fprintf(stderr, "ERROR: SOLVE_D3_GATE_TMPBASE is interpolated into `rm -rf` and "
+                                  "handed to system(); refusing this value.\n");
+                  return 2;
+              }
+              tmpbase = e;
+          } }
 
         char tdir_A[4200], tdir_B[4200];
         snprintf(tdir_A, sizeof(tdir_A), "%s/solve_d3gate_A_XXXXXX", tmpbase);
@@ -34064,7 +34225,7 @@ int main(int argc, char *argv[]) {
             return 10;
         }
         if (!mkdtemp(tdir_B)) {
-            char rm0[4300]; snprintf(rm0, sizeof(rm0), "rm -rf %s", tdir_A);
+            char rm0[4300]; snprintf(rm0, sizeof(rm0), "rm -rf '%s'", tdir_A);
             int _rc0 = system(rm0); (void)_rc0;
             fprintf(stderr, "ERROR: mkdtemp B failed under %s\n", tmpbase);
             return 10;
@@ -34227,7 +34388,7 @@ int main(int argc, char *argv[]) {
 
         if (strcmp(sha_A, sha_B) == 0) {
             char rm[8600];
-            snprintf(rm, sizeof(rm), "rm -rf %s %s", tdir_A, tdir_B);
+            snprintf(rm, sizeof(rm), "rm -rf '%s' '%s'", tdir_A, tdir_B);
             int _rc = system(rm); (void)_rc;
             printf("[--selftest-resume-d3] PASS — depth-3 hard-kill/resume produces "
                    "byte-identical merged output at the pinned shape\n");
@@ -34274,19 +34435,31 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "  <scale> in {1T, 11.2T, 100T}\n");
             return 2;
         }
-        const char *expected_sha = argv[2];
+        static char expected_sha_buf[65];
         const char *scale_arg = argv[3];
-        if (strlen(expected_sha) != 64) {
-            fprintf(stderr, "[--validate-canonical] ERROR: expected sha must be 64 hex chars; got %zu\n", strlen(expected_sha));
+        if (strlen(argv[2]) != 64) {
+            fprintf(stderr, "[--validate-canonical] ERROR: expected sha must be 64 hex chars; got %zu\n", strlen(argv[2]));
             return 2;
         }
         /* Validate hex */
-        for (const char *p = expected_sha; *p; p++) {
+        for (const char *p = argv[2]; *p; p++) {
             if (!((*p >= '0' && *p <= '9') || (*p >= 'a' && *p <= 'f') || (*p >= 'A' && *p <= 'F'))) {
                 fprintf(stderr, "[--validate-canonical] ERROR: expected sha contains non-hex char\n");
                 return 2;
             }
         }
+        /* 🔴 Codex v2 `solve.c:18508`, fixed 2026-09-04. Uppercase hex was ACCEPTED by the
+           validator above and then compared with strcmp against a lowercase sha256sum output, so
+           a CORRECT sha typed or pasted in uppercase reported a canonical MISMATCH -- the most
+           alarming failure this tool can produce, from a purely cosmetic input difference. The
+           echo printed the uppercase form too, so the operator's own eyes confirmed the wrong
+           story. Normalised in place, once, before both the echo and the compare. */
+        for (int i = 0; i < 64; i++) {
+            char c = argv[2][i];
+            expected_sha_buf[i] = (c >= 'A' && c <= 'F') ? (char)(c - 'A' + 'a') : c;
+        }
+        expected_sha_buf[64] = '\0';
+        const char *expected_sha = expected_sha_buf;
         long long scale_nodes = 0;
         const char *scale_label = NULL;
         if (strcmp(scale_arg, "1T") == 0 || strcmp(scale_arg, "1") == 0) {
@@ -34315,7 +34488,8 @@ int main(int argc, char *argv[]) {
             return 10;
         }
         printf("[--validate-canonical] Scale: %s (%lld nodes)\n", scale_label, scale_nodes);
-        printf("[--validate-canonical] Expected sha: %s\n", expected_sha);
+        printf("[--validate-canonical] Expected sha: %s (input is case-normalized)\n", expected_sha);
+        printf("EXPECTED_SHA_ECHO=lowercase\n"); fflush(stdout);
         printf("[--validate-canonical] Temp dir: %s\n", tdir);
         printf("[--validate-canonical] Running canonical enum (this will take a while)...\n");
         fflush(stdout);
@@ -34435,27 +34609,78 @@ int main(int argc, char *argv[]) {
          * Usage: ./solve --preflight [node_limit]   (default 560T)
          * Run it FROM the campaign run-dir — the gates check the cwd.
          * Exit 0 if all pass; else the first failing gate's exit code. */
-        long long nl = (argc > 2) ? atoll(argv[2]) : 560000000000000LL;
+        /* 🔴 Codex v2 `solve.c:18678`, fixed 2026-09-04 -- TWO defects, one of which made this
+           command attest something it had not checked.
+
+           (a) `atoll` stops at the first non-digit and cannot report failure, so
+               `--preflight 560Q` silently became 560 and `--preflight banana` silently became 0.
+               A typo'd budget produced a confident green light for a budget nobody asked about.
+               Now strtoll with an endptr-must-be-NUL check, refusing on any trailing character.
+
+           (b) All three gates return 0 -- INDISTINGUISHABLE FROM PASS -- when node_limit is below
+               the canonical 1e12 threshold (`if (node_limit < 1000000000000LL) return 0;` at the
+               head of each). So `--preflight 560` ran nothing whatsoever and printed
+               "RESULT: all in-process gates PASS". Combined with (a), `--preflight 560T` mistyped
+               as `--preflight 560` attested a clean bill of health for a 560-TRILLION-node
+               campaign having executed zero checks. A gate that cannot run must never read as a
+               gate that passed. SKIPPED is now a distinct outcome, counted and reported, and the
+               all-PASS line is emitted ONLY when all three actually RAN. */
+        long long nl = 560000000000000LL;
+        if (argc > 2) {
+            errno = 0;
+            char *endp = NULL;
+            long long v = strtoll(argv[2], &endp, 10);
+            if (errno != 0 || endp == argv[2] || (endp && *endp != '\0') || v <= 0) {
+                fprintf(stderr,
+                    "ERROR: --preflight node_limit must be a positive decimal integer of node\n"
+                    "       COUNT (e.g. 560000000000000 for 560T); got '%s'. Suffixes like 'T'\n"
+                    "       and 'Q' are NOT parsed -- they were previously truncated silently,\n"
+                    "       which turned a typo into a green light for the wrong budget.\n"
+                    "PREFLIGHT=REFUSED-BAD-ARG\n", argv[2]);
+                return 2;
+            }
+            nl = v;
+        }
+        /* Same threshold the three gates apply internally; kept in one place so the report cannot
+           disagree with what the gates actually did. */
+        const long long PREFLIGHT_CANONICAL_MIN = 1000000000000LL;
+        int sub_canonical = (nl < PREFLIGHT_CANONICAL_MIN);
         printf("[--preflight] in-process gate check for NODE_LIMIT=%lld\n", nl);
         printf("[--preflight] checks the CURRENT directory — run from the campaign run-dir\n");
         printf("[--preflight] does NOT cover: VM/eviction/cost (#55 monitor), disk SMART/fsck\n");
         printf("              (disk_health_precheck.sh), or disk identity (--disk-precheck)\n\n");
-        int first_fail = 0, rc;
-        printf("[--preflight] (1/3) auto-selftest (canonical sha 403f7202...)\n"); fflush(stdout);
-        rc = auto_selftest_check(nl);
-        printf("[--preflight]   -> %s (rc=%d)\n\n", rc ? "FAIL" : "PASS", rc); fflush(stdout);
-        if (rc && !first_fail) first_fail = rc;
-        printf("[--preflight] (2/3) disk-space projection\n"); fflush(stdout);
-        rc = disk_space_pre_check(nl);
-        printf("[--preflight]   -> %s (rc=%d)\n\n", rc ? "FAIL" : "PASS", rc); fflush(stdout);
-        if (rc && !first_fail) first_fail = rc;
-        printf("[--preflight] (3/3) disk-IOPS probe\n"); fflush(stdout);
-        rc = disk_iops_pre_check(nl);
-        printf("[--preflight]   -> %s (rc=%d)\n\n", rc ? "FAIL" : "PASS", rc); fflush(stdout);
-        if (rc && !first_fail) first_fail = rc;
+        int first_fail = 0, rc, skipped = 0, ran = 0;
+        const char *gate_name[3] = { "auto-selftest (canonical sha 403f7202...)",
+                                     "disk-space projection",
+                                     "disk-IOPS probe" };
+        for (int g = 0; g < 3; g++) {
+            printf("[--preflight] (%d/3) %s\n", g + 1, gate_name[g]); fflush(stdout);
+            if (sub_canonical) {
+                printf("[--preflight]   -> SKIPPED (sub-canonical: NODE_LIMIT %lld < %lld)\n\n",
+                       nl, PREFLIGHT_CANONICAL_MIN);
+                fflush(stdout);
+                skipped++;
+                continue;
+            }
+            rc = (g == 0) ? auto_selftest_check(nl)
+               : (g == 1) ? disk_space_pre_check(nl)
+                          : disk_iops_pre_check(nl);
+            printf("[--preflight]   -> %s (rc=%d)\n\n", rc ? "FAIL" : "PASS", rc); fflush(stdout);
+            ran++;
+            if (rc && !first_fail) first_fail = rc;
+        }
+        printf("PREFLIGHT_GATES_RAN=%d\n", ran);
+        printf("PREFLIGHT_GATES_SKIPPED=%d\n", skipped);
         if (first_fail) {
             printf("[--preflight] RESULT: FAIL - first failing gate exit %d. Do NOT launch.\n", first_fail);
             return first_fail;
+        }
+        if (skipped > 0) {
+            printf("[--preflight] RESULT: %d gate(s) SKIPPED — this preflight attests NOTHING at\n"
+                   "              this budget. The gates only run at canonical scale (>= %lld\n"
+                   "              nodes). If you meant 560T, pass 560000000000000.\n",
+                   skipped, PREFLIGHT_CANONICAL_MIN);
+            return 2;
         }
         printf("[--preflight] RESULT: all in-process gates PASS.\n");
         printf("[--preflight] Still confirm externally: --disk-precheck identity, "
@@ -36954,7 +37179,28 @@ int main(int argc, char *argv[]) {
         printf("Duplicate records:      %d\n", fail_dup);
         printf("King Wen found:         %s\n", kw_found_v ? "YES" : "No");
 
-        int total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup;
+        /* 🔴 Codex v2 `solve.c:21051/:21439`, disposed 2026-09-04 — the charge is REAL but its
+           PRESCRIBED fix ("add !kw_found_v to total_fail") is OVERTAKEN and must not be applied.
+           The adjudication predates 2026-09-02, when the rule "expect exactly one canonical KW
+           record per file" was RETRACTED (registry RP-60347080): a shard or a budgeted slice
+           legitimately lacks the record, so gating on absence would be a false reject, and
+           tests.py's TestSolveVerifyKingWenScope pins the reported-not-enforced contract with a
+           mutation test that goes red on exactly the change the row asked for.
+
+           What survived the retraction is the row's OTHER prescription, and it is the honest one:
+           the tool must not PROMISE a check it does not perform. `--verify` never claimed to;
+           `--validate`'s banner did, and that wording is corrected below. For operators who do
+           want the assertion on a complete canonical, `--expect-kw` now provides it explicitly,
+           mirroring verify.py's flag of the same name -- opt-in, never the default. */
+        int fail_kw = 0;
+        if (g_expect_kw && !kw_found_v) {
+            fprintf(stderr,
+                "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", verify_file);
+            fail_kw = 1;
+        }
+        printf("KW_REQUIRED=%s\n", g_expect_kw ? "YES" : "NO");
+
+        int total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup + fail_kw;
         /* Q-285 (Codex R12b, ranked false accept #1). The verdict below is the SUM OF OBSERVED
          * FAILURES, and a file with no records produces no observations — so a 32-byte
          * header-only artifact, exactly what an interrupted --encode-solutions leaves behind
@@ -37176,7 +37422,16 @@ int main(int argc, char *argv[]) {
         printf("\nValidating %s...\n", validate_file);
         printf("  Record format: %d bytes packed (pair_index<<2 | orient<<1 per position)\n",
                SOL_RECORD_SIZE);
-        printf("  Checking: C1-C5, C3, sorted order, no duplicates, King Wen presence.\n\n");
+        printf("  Checking: C1-C5, C3, sorted order, no duplicates.\n");
+        /* 🔴 Codex v2 `solve.c:21051/:21439`, 2026-09-04: this line used to list "King Wen
+           presence" among the things being CHECKED, while the result was only printed. The
+           PROMISE, not the behaviour, was the defect -- the behaviour is deliberate
+           (RP-60347080, retracted 2026-09-02). SOLVE_C_CLI.md:638 already said "reported, not
+           enforced"; the runtime banner said otherwise, and the banner is what an operator
+           actually reads. */
+        printf("  King Wen presence: REPORTED, not enforced (a shard or budgeted slice may\n");
+        printf("    legitimately lack it; pass --expect-kw to require it on a complete\n");
+        printf("    canonical artifact).\n\n");
 
         /* #169: gz-aware mmap. mmap cannot read a gz container, so gz_mmap_open
          * decompresses a gz solutions.bin to a temp and mmaps that; a raw file
@@ -37209,12 +37464,22 @@ int main(int argc, char *argv[]) {
         long long n_solutions = file_size / SOL_RECORD_SIZE;
         printf("  File size: %ld logical bytes (%d header + %ld records), %lld solutions\n",
                full_size, SOL_HEADER_SIZE, file_size, n_solutions);
-        if (file_size % SOL_RECORD_SIZE != 0)
-            printf("  WARNING: record stream %ld bytes not a multiple of %d\n",
-                   file_size, SOL_RECORD_SIZE);
+        long trailing_bytes = file_size % SOL_RECORD_SIZE;
         unsigned char *vall = mmap_base + SOL_HEADER_SIZE;  /* record-stream view */
 
         long long errors = 0;
+        /* 🔴 Codex v2 `solve.c:21442`, fixed 2026-09-04. A record stream whose length is not a
+           whole number of records was a WARNING here, while --verify's twin framing check
+           (solve.c, Q-277) treats the same condition as an ERROR and returns 30. So the same
+           truncated-or-appended artifact failed one scanner and passed the other. Promoted to an
+           error, counted into `errors`, so the verdict line and the exit status both move. */
+        if (trailing_bytes != 0) {
+            fprintf(stderr,
+                "ERROR: trailing %ld byte(s) are not a whole record -- %s is truncated or has\n"
+                "       appended data (record stream %ld bytes, not a multiple of %d).\n",
+                trailing_bytes, validate_file, file_size, SOL_RECORD_SIZE);
+            errors++;
+        }
         /* 🔴 Q-367 (Codex R12b): the declared count was READ, PRINTED, and never COMPARED. The loop
            bounds come from the FILE SIZE, so a header declaring 1000 records followed by ONE record
            and EOF examined one record and still printed "ALL CONSTRAINTS VERIFIED"; and a 32-byte
@@ -37267,6 +37532,20 @@ int main(int argc, char *argv[]) {
             int local_errors = 0;
             int c1_ok = 1;
             for (int i = 0; i < 32; i++) {
+                /* 🔴 Codex v2 `solve.c:21365`, fixed 2026-09-04 (SIBLING SWEEP of Q-350). Bit 0
+                   of every record byte is RESERVED and must be zero (SOLUTIONS_FORMAT.md:
+                   "byte i = (pair_index<<2) | (orient<<1); bit 0 reserved"). Q-350 landed this
+                   check in --verify and NOT in --validate, so the identical tampering that
+                   --verify rejects passed --validate with rc 0. The decode below MASKS bit 0
+                   away, so a byte-wise non-canonical artifact decodes identically, verifies
+                   clean, and carries a DIFFERENT sha than the canonical -- which is precisely
+                   the disagreement a validator exists to catch. Both scanners now check it. */
+                if (rec[i] & 1) {
+                    #pragma omp critical
+                    printf("  ERROR: solution %lld byte %d has RESERVED bit 0 set (0x%02x); "
+                           "the record is not canonical\n", s, i, rec[i]);
+                    c1_ok = 0; local_errors++; break;
+                }
                 int pidx = rec[i] >> 2;
                 int orient = (rec[i] >> 1) & 1;
                 if (pidx < 0 || pidx >= 32) {
@@ -37341,6 +37620,14 @@ int main(int argc, char *argv[]) {
         printf("  Solutions checked:  %lld\n", n_solutions);
         printf("  Sorted order:      %s\n", sorted_ok ? "OK" : "FAILED");
         printf("  King Wen present:  %s\n", kw_found_v ? "YES" : "No");
+        /* See the disposition note in --verify: absence is NOT an error (RP-60347080, retracted
+           2026-09-02), but it becomes one under the explicit --expect-kw opt-in. */
+        if (g_expect_kw && !kw_found_v) {
+            fprintf(stderr,
+                "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", validate_file);
+            errors++;
+        }
+        printf("KW_REQUIRED=%s\n", g_expect_kw ? "YES" : "NO");
         printf("  Errors found:      %lld\n", errors);
         if (errors == 0)
             printf("  Result: ALL CONSTRAINTS VERIFIED\n");
@@ -40161,7 +40448,7 @@ int main(int argc, char *argv[]) {
         printf("  Input files:     %d\n", n_files);
         printf("  Total records:   %lld\n", total_records);
         printf("  Unique solutions: %lld\n", unique);
-        printf("  Output:          %s (%lld bytes)\n", outname, unique * SOL_RECORD_SIZE);
+        print_solutions_size_line(outname, unique);
         printf("  sha256:          %s\n", hash);
 
         /* In-process post-merge --validate spawn DISABLED 2026-05-08 (task #84).
@@ -42098,7 +42385,7 @@ sub_enum_done:
         printf("\n");
 
         printf("--- Output files ---\n");
-        printf("  %s:  %lld unique x %d bytes = %lld bytes\n", bin_name, unique_count, SOL_RECORD_SIZE, (long long)unique_count * SOL_RECORD_SIZE);
+        print_solutions_size_line(bin_name, unique_count);
         printf("  %s:  %s", sha_name, hash);
         printf("  %s:  machine-readable results\n\n", json_name);
 
@@ -42127,7 +42414,7 @@ sub_enum_done:
                    total_nodes, total_sol, total_c3, unique_count, kw_found, total_hash_collisions,
                    pos_match, edit_hist, all_top, final_top_count,
                    c6_sat, c7_sat, c6c7_sat, per_boundary, adj_hist, cd_hist,
-                   pair_freq_m, super_match, hash_only);
+                   pair_freq_m, super_match, hash_only, bin_name);
         printf("JSON results written to %s\n", json_name);
         return 0;
     }
@@ -43291,8 +43578,7 @@ sub_enum_done:
     printf("\n");
 
     printf("--- Output files ---\n");
-    printf("  solutions.bin:      %lld unique solutions x %d bytes = %lld bytes\n",
-           unique_count, SOL_RECORD_SIZE, (long long)unique_count * SOL_RECORD_SIZE);
+    print_solutions_size_line("solutions.bin", unique_count);
     printf("  solutions.sha256:   %s", hash);
     printf("  solve_results.json: machine-readable results\n");
     printf("\n");
@@ -43303,7 +43589,7 @@ sub_enum_done:
                kw_found, total_hash_collisions,
                pos_match, edit_hist, all_top, final_top_count,
                c6_sat, c7_sat, c6c7_sat, per_boundary, adj_hist, cd_hist,
-               pair_freq_m, super_match, hash_only);
+               pair_freq_m, super_match, hash_only, "solutions.bin");
     printf("JSON results written to solve_results.json\n");
 
     return 0;

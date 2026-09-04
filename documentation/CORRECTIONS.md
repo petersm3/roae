@@ -8431,3 +8431,40 @@ already suspected the figure. The ceiling argument came from re-deriving what th
 acknowledged rather than credited as an author) is the same reviewer the original wording described
 as "an external cross-model review"; the restoration adds nothing and withdraws nothing. It exists so
 the ledger's own invariant holds across the merged history.
+
+## 2026-09-04 — `solutions_bin_bytes` never held the number its name promised
+
+**`solve_results.json`'s `output.solutions_bin_bytes` reported the RECORD-STREAM size while its
+name asserted the file size.** The value was `records × 32`, so it sat **exactly 32 bytes — one
+`SOL_HEADER_SIZE` — short** of the header-inclusive figure that solve's own header-vs-stream framing
+check compares against, and it was also nowhere near the size of the file on disk, which is
+gz-compressed. Three distinct quantities were all being printed as "bytes":
+
+| quantity | what it is | measured on a real merge |
+|---|---|---|
+| records | `n × 32`, the record stream alone | 67,744 B |
+| logical | `32 + n × 32`, what `gzip -dc \| wc -c` returns | 67,776 B |
+| container | `stat` of the artifact on disk | 8,374 B |
+
+The old field and three console lines reported **67,744** — a number that matches neither the file
+nor the framing formula. It was off by 32 against the check that governs correctness, and by ~8×
+against the file the operator can see.
+
+**Corrected, and the old value kept under an honest name.** `solutions_bin_bytes` now holds the
+**logical** size; `solutions_bin_records_bytes` carries the former value so any consumer can migrate
+without guessing which quantity it had been reading; `solutions_bin_logical_bytes` is an explicit
+alias; `solutions_bin_container_bytes` is the real on-disk size (`null` when the artifact cannot be
+stat'd, never a fabricated 0); `solutions_bin_header_size` makes the arithmetic checkable from the
+JSON alone. The three console sites — branch mode, normal mode, and standalone `--merge` — now print
+all three quantities on one line through a single helper, so they cannot drift apart again.
+
+**Value changed deliberately, not silently.** `documentation/LARGE_SCALE_CAMPAIGNS.md:625` names
+`solutions_bin_bytes` in the campaign `metadata.json` schema; that is pseudocode rather than
+executing code, and it was checked before the value was moved. Any archived `solve_results.json`
+predating this entry carries the record-stream size under the old name.
+
+**Verified against reality rather than against the formula:** on a real 2,117-record gz merge the
+new line reads `67776 logical bytes (container on disk: 8374 B)`, and independently
+`gzip -dc solutions.bin | wc -c` = 67,776 and `stat -c%s` = 8,374.
+
+Found by Codex (v2 `solve.c:11432`, `solve.c:24253`); corrected by Claude.
