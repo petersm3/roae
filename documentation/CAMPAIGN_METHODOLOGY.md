@@ -1,20 +1,35 @@
 # Large-scale canonical campaigns: methodology and reproducibility
 
-> **WORK IN PROGRESS** — published 2026-05-31 ahead of the 560T canonical
-> campaign (#49). This document will eventually **replace**
-> [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md) as the canonical
-> public reference for how this project's enumeration campaigns are
-> structured and reproduced. During the transition, both documents
-> coexist; the older one remains authoritative for operational topics
-> (sizing, cost estimation, branch-distribution patterns, the worked
-> 56 × 10 T example) until the relevant content is ported here.
+> **Scope.** First published 2026-05-31 ahead of the 560T canonical campaign
+> (#49); §7 has since been populated with that campaign's actuals. This
+> document is the **entry point** for campaign methodology — new readers
+> start here. [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md) is the
+> **operations reference** and is retained: the two are complementary, not
+> a replacement pair, and neither is awaiting deletion. §10 sets out which
+> document owns what, and names the material that exists only in the older
+> file. For anything operational — sizing, per-thread rates, orchestrator
+> pseudocode, branch distribution, merge mechanics, gotchas, and the
+> scale-honesty disclosure — read that file. Its cost and wall tables are
+> **pre-560 T forecasts**: the one campaign that tested them ran ~2.1× the
+> mid wall estimate and ~9× the merge estimate (171.5 h enum + 18 h 42 m
+> merge, §7 here), and that file's own §14 worked example now carries those
+> actuals beside its plan. Take sizing *patterns* from there; take measured
+> numbers from §7.
 >
-> **Section 7 (worked example)** is populated with the completed 560T campaign actuals — the conceptual sections (1–6, 8) are intended
-> to be readable and useful as-is; the worked example will be filled in
-> once the campaign produces its actual sha, record count, wall time,
-> cost, and eviction count. The PORT-TODO checklist at the end of this
-> document tracks the remaining cleanup needed before
-> `LARGE_SCALE_CAMPAIGNS.md` is retired.
+> ⚠ **[CORRECTED 2026-09-01 — this boxed note contradicted itself and the
+> document's own §10.** Within one paragraph it said §7 "**is populated**
+> with the completed 560T campaign actuals" and then that the worked example
+> "**will be filled in** once the campaign produces its actual sha, record
+> count, wall time, cost, and eviction count" — both, about the same section.
+> It also said this document "will eventually **replace**"
+> `LARGE_SCALE_CAMPAIGNS.md` and that the older file was awaiting retirement,
+> which §10 (rewritten 2026-08-08) had already settled the other way: the
+> replacement premise "**was false**", the documents are "**complementary**",
+> and the older one "**is not awaiting deletion**". Finally it pointed the
+> reader at "the PORT-TODO checklist at the end of this document" —
+> `git grep PORT-TODO` over the whole tree returned exactly one hit, that
+> reference itself. There was no such checklist; §11 is "Open items" and
+> carries prose. The pointer is deleted rather than repaired.]**
 
 ---
 
@@ -30,7 +45,23 @@ It is aimed at three audiences:
 1. **A third party who wants to reproduce one of our canonicals from scratch**
    on independent hardware, and confirm byte-identical output.
 2. **A third party who wants to extend our deepest canonical to a deeper
-   budget** without our cooperation, given only the artifacts we publish.
+   budget.** Read this as an aim the document is written toward, not a
+   capability it currently discharges: **the incremental extension recipe in
+   §4 is not runnable from published artifacts alone.** It consumes the
+   parent campaign's `shards.tar.gz`, `dfs_state.tar.gz` and `budget.tar.gz`,
+   and those live only in operator-held storage
+   ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Access boundary names the
+   locations and states plainly that they are not public URLs). So audience 2
+   needs **either** operator-supplied checkpoints — the archive is
+   sha-manifested and is retained so it can be re-attested or shared on
+   request, but no public request procedure or transfer-rate expectation has
+   been published — **or** a full re-run of the
+   parent campaign at the deeper budget — the latter is fully specified here
+   and needs nothing private, but it is exactly the work the extension
+   methodology exists to avoid. *(Added 2026-09-01: this item previously read
+   "without our cooperation, given only the artifacts we publish", which the
+   access boundary does not support. Verification needs nothing private;
+   incremental extension does.)*
 3. **Future maintainers of this project** who need to understand why the
    campaign pipeline looks the way it does — what's structural, what's
    operational, what's correctness-load-bearing, and what's a hygiene choice.
@@ -47,9 +78,12 @@ format, see [SOLVE.md](SOLVE.md) and
 [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md). For the reproducibility-
 parameter registry (canonical shas, record counts, exact env vars), see
 [CANONICAL_HASHES.md](CANONICAL_HASHES.md). For specific past campaigns'
-operational details, see [HISTORY.md](HISTORY.md). (Note: the historical
-`LARGE_SCALE_CAMPAIGNS.md` is being retired and merged into this document
-as of the 560 T campaign port — see the boxed note at the top.)
+operational details, see [HISTORY.md](HISTORY.md). (Note:
+`LARGE_SCALE_CAMPAIGNS.md` is **retained** as the operations reference and is
+not being retired — see §10 and the boxed note at the top. *Corrected
+2026-09-01; this read "is being retired and merged into this document as of
+the 560 T campaign port", contradicting §10's 2026-08-08 finding that the
+replacement premise was false.*)
 
 ---
 
@@ -64,7 +98,9 @@ enumerator at a specific search budget that:
    meaningful);
 3. **Is deduplicated** (each record appears once);
 4. **Is reproducible byte-identically** on independent hardware in the same
-   region/microcode class, given the same source commit and search budget;
+   region/microcode class, given the same **source commit, partition depth,
+   global node limit and per-sub-branch limit** — the full sha-determining
+   tuple, set out with its evidence under "Why budget matters" below;
 5. **Has a published sha256** in [CANONICAL_HASHES.md](CANONICAL_HASHES.md)
    that any third party can verify by recomputing it on their own host.
 
@@ -74,20 +110,74 @@ a bug to investigate, not as a new finding. See "Sha stability vs host
 environment" at the end of this document for the empirically-documented
 limits of that.
 
+⚠ **[CORRECTED 2026-09-02 (prose batch P70) — item 4 named only the source
+commit and the search budget, dropping partition depth from a stated
+reproducibility contract.** It is the same defect the 2026-09-01 pass fixed
+at "Why budget matters" below, where the tuple is now four elements and
+carries its own correction marker; that pass did not sweep this second site,
+and the charge that raised it (Codex V2-F22 #5) named both. The consequence
+is the one §8 step 4 warns about: `SOLVE_DEPTH` is sha-determining, omitting
+it does not error because the code default is `2`, and a reader who plans a
+reproduction from this list alone would enumerate the d2 partition and never
+match a d3 sha. `CANONICAL_HASHES.md` §"Reproducibility parameters" publishes
+distinct d3 and d2 canonicals at the same 10 T node limit, which is only
+possible if depth is in the tuple. The retired wording is registered in
+[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in
+[CORRECTIONS.md](CORRECTIONS.md) as `RP-60bf9367`.]**
+
 ### Why budget matters
 
-The full canonical solution space at the lowest credible "exhaust everything"
-budget is ≥4,900 T nodes — beyond practical compute. Every realistic
-canonical is therefore **budget-limited**: each of the 158,364 depth-3 cells
+The lowest credible "exhaust everything" budget is
+**≥4.9 × 10¹⁸ nodes (≈4,900,000 T)** — beyond practical compute by a wide
+margin. The derivation is two published factors: the one depth-3 cell whose
+tree size has been measured needs **≥31 × 10¹² nodes**, and a uniform per-cell
+budget must be at least as large as the *largest* cell, so
+**158,364 × 31 × 10¹² = 4.909 × 10¹⁸**. Against that, the deepest canonical to
+date (560 T) is `4.909 × 10¹⁸ / 560 × 10¹² =` **~8,767× short** of exhaustion.
+See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"100B and sub-canonical
+reference shas" item 1 for the probe that produced the ≥31 × 10¹² input, the
+command that re-addresses that cell, and the one comparability assumption the
+bound rests on.
+
+⚠ **[CORRECTED 2026-09-01 — this read "≥4,900 T nodes", understating the
+exhaustion threshold by a factor of ~1,002.** The error is a misplaced unit in
+a two-factor product whose factors are both published: `158,364 × 31 × 10¹²`
+is `4.909 × 10¹⁸`, which is ~4,900,000 T, not 4,900 T. At the figure as
+published, the 560 T canonical read as **8.75×** short of exhausting the
+space; correctly it is **~8,767×** short, and the difference is the difference
+between "a few more campaigns away" and "unreachable at any planned scale."
+`CANONICAL_HASHES.md` carried the same figure and is corrected in the same
+pass. The corrected value is the one the underlying single-cell probe recorded
+all along.]**
+
+Every realistic canonical is therefore **budget-limited**: each of the 158,364 depth-3 cells
 is given the same per-cell node budget, and the DFS for that cell stops when
 the budget is reached. The set of records emitted for a cell depends on which
 parts of its search tree fit in that budget.
 
-This makes the canonical sha **a function of (source code, search budget)** —
-two campaigns at the same budget on the same source should produce the same
-sha; campaigns at different budgets should not (the larger campaign will
+This makes the canonical sha **a function of (source code, partition depth,
+global node limit, per-sub-branch limit)** — the same tuple enumerated by
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility parameters",
+which publishes one row per canonical with `SOLVE_DEPTH`, `SOLVE_NODE_LIMIT`
+and `SOLVE_PER_SUB_BRANCH_LIMIT` set out separately. All four must match:
+two campaigns agreeing on every element should produce the same
+sha; campaigns differing in the budget elements should not (the larger campaign will
 include a superset of records up to the smaller campaign's per-cell boundary,
 plus more records that the smaller didn't have budget to find).
+
+⚠ **[CORRECTED 2026-09-01 — this read "a function of (source code, search
+budget)", which is not the sha-determining tuple and is contradicted by this
+document's own §8.** §8 states that `SOLVE_DEPTH` is "**sha-determining and
+must be copied from the canonical's row**", that omitting it does **not**
+error because the code default is `2` (confirmed in `solve.c`: the default is
+2 and nothing warns unless a non-default is set), and that a run which omits
+it "silently enumerates the d2 partition and can never reproduce a d3 sha".
+`CANONICAL_HASHES.md` publishes distinct d3 and d2 canonicals at the same 10 T
+budget — only possible if partition depth is in the tuple. "Search budget" is
+also two parameters, not one: `SOLVE_NODE_LIMIT` and
+`SOLVE_PER_SUB_BRANCH_LIMIT` are set independently, and
+`CANONICAL_HASHES.md` §Reproducibility parameters warns that raising the
+former alone leaves the frontier — and therefore the sha — unchanged.]**
 
 ---
 
@@ -140,14 +230,49 @@ those runs are not canonical and are not entered into `CANONICAL_HASHES.md`.
 >   sha for the new canonical; and the invariant that the new canonical contains **every** parent record
 >   as a per-cell prefix (verified by an ordered-subset diff).
 >
-> **Pre-publish TODO (operator review):** the concrete recipe below still names specific cloud SKUs,
-> regions, and storage paths — genericize those to host-agnostic terms before publishing (this is a
-> public doc). The operational, cloud-specific runbook is maintained privately and is not part of the
-> public record.
+> **Decision (2026-08-08): the SKU, region and microcode identifiers below are RETAINED
+> deliberately.** This paragraph previously carried a live "Pre-publish TODO (operator review) —
+> genericize those to host-agnostic terms before publishing" inside an already-published document.
+> That instruction was reviewed and **rejected as wrong**, not left undone.
+>
+> Two findings. (1) *Nothing here is sensitive.* An audit found 11 such references, all public
+> product and region names (`D128als_v7`, `westus2`/`westus3`, AMD EPYC 9V74 / Bergamo Zen 4c),
+> and there are no public IP addresses, subscription or tenant IDs, keys, endpoints, or credentials
+> anywhere in the public corpus. The only IP-shaped strings in the tree are the Azure IMDS
+> link-local address and RFC1918 example ranges — all non-secret. Measured at `3ef705c9`
+> (2026-09-03) over every tracked file, excluding the correction notes and registries that quote
+> these literals as narration, with
+> `git ls-files -z | xargs -0 grep -noP '(?<![\w.])(\d{1,3}\.){3}\d{1,3}(?![\w.])' | grep -vE '^documentation/(CAMPAIGN_METHODOLOGY\.md|CORRECTIONS\.md|CORRECTIONS_INVENTORY\.tsv|RETRACTED_PHRASES\.tsv):'`
+> (one output line per occurrence, `file:line:literal`):
+> **seven occurrences on six lines in five files** — `solve.c` and
+> `scripts/capture_build_manifest.sh` each query `169.254.169.254` (IMDS) once;
+> `scripts/perf_bench.sh` names `10.0.0.0/16` and `10.0.0.0/24` in an `az network vnet create`
+> example; `documentation/DEPLOYMENT.md` names `10.0.0.0/24` twice on one line in the same kind of
+> example; and `documentation/DEVELOPMENT.md` names `10.0.0.0/16` once (added 2026-09-02, after the
+> 2026-09-01 count below). The lookbehind/lookahead exclude Lean projection chains such as
+> `h5.1.1.1.1`, which are not addresses. *(Corrected 2026-09-01: this asserted a
+> repo-wide scan found **zero** IP-shaped strings. Re-running that scan over `*.md`, `*.sh`, `*.c`
+> and `*.py` returned five. The surrounding no-credentials claim is unaffected — link-local
+> and RFC1918 literals disclose nothing — but the scan result as stated was false, and an assertion
+> about a scan should be produced by that scan. Re-measured 2026-09-03: the 2026-09-01 list said
+> `DEPLOYMENT.md` named `10.0.0.0/16`; it never has — that literal is `perf_bench.sh`'s — and one
+> site had been added since, so the count and the command that produces it are restated above.)* (2) *They are load-bearing.* §6
+> and §7 argue that a canonical sha reproduces byte-identically **on a specific host class** —
+> that is the whole content of the sha-stability-vs-host-fragility result. "A large cloud VM"
+> would make those claims uncheckable. Genericizing would damage the reproducibility argument it
+> was meant to protect.
+>
+> The operational, cloud-specific runbook (credentials, resource names, launch scripts) is
+> maintained privately and remains out of the public record. That boundary is unchanged.
 
 A canonical produced at budget *B* per cell **enables a canonical at any
 budget *B′* > B without redoing the original work**. This is the most
-important property of the campaign methodology.
+important property of the campaign methodology. *(Scope, 2026-09-03: that
+is the property of the method. The shipped enumerator realises it only for
+cells that emitted a shard — its `#167` resume guard re-walks every
+zero-yield cell from scratch, 58.8 % of a 560 T parent; §7 rule 9 states the
+arithmetic and the open code fix. The saving is real for the other 41.2 %
+and the bytes come out the same either way.)*
 
 ### Why this works: prefix-determinism per cell
 
@@ -197,6 +322,12 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 3. **Build the C enumerator from the source campaign's git ref** (recorded in
    the archive's `build.sha` / provenance sidecars) — or a sha-equivalent
    descendant verifiable via `./solve --validate-canonical <source-sha> <source-scale>`.
+   ⚠ **[SCOPED 2026-08-28 — `--validate-canonical` accepts `<scale>` only in `{1T, 11.2T, 100T}`;
+   its own usage line says so, and it refuses anything else. This recipe is titled for extending
+   **560T** to higher scales, so following it literally at the source scale it is written for
+   **fails**. Verified by running the shipped binary. Until the scale list is extended, verify a
+   560T-lineage build by the deeper canonical's recorded sha in
+   [CANONICAL_HASHES.md](CANONICAL_HASHES.md) rather than through this flag. Tracked as Q-324.]**
 4. **Launch the extension enum** with:
    - `SOLVE_NODE_LIMIT=<new_scale_total_nodes>`
    - `SOLVE_PER_SUB_BRANCH_LIMIT=<new_per_cell_budget>` (strictly greater
@@ -208,7 +339,21 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 
    The enumerator picks up each cell from its `.dfs_state` checkpoint and
    walks forward to the new per-cell budget, appending only the additional
-   records to each `sub_<cell>.bin`.
+   records to each `sub_<cell>.bin` — **for the cells that have a shard.**
+   ⚠ **[SCOPED 2026-09-03 — as written this described every cell, and at
+   the shipped `solve.c` it is true only of the 65,281 cells (41.2 %) whose
+   source walk found ≥ 1 solution.** A zero-yield cell writes no
+   `sub_<cell>.bin` (the flush returns before creating a file), and the
+   resume-side `#167` guard discards any checkpoint whose shard is absent
+   and walks that cell fresh from node 0 — so the 93,083 zero-yield cells
+   (58.8 %) of a 560 T parent are **not** resumed; they are re-walked in full
+   before the new budget range is reached. The output is still correct (the
+   fresh walk is deterministic and reaches the same records), but the
+   delta-only cost story this sentence implied is not: see §7 rule 9 for
+   the node arithmetic (≈329 T of repeated work at 560 T → 1120 T) and the
+   code fix that is still open. Demonstrated by execution during the
+   2026-08-30 review: a two-stage d2 extension fired the guard exactly once
+   per checkpoint-without-shard cell, 1,933 of 1,933.]**
 
 > **Note on `SOLVE_SKIP_IOPS_CHECK=1` and the I/O pre-check behavior.**
 >
@@ -254,10 +399,49 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
    produce the new `solutions.bin` at the higher scale.
 6. **Verify** with `./solve --verify` (C verifier) AND `python verify.py`
    (independent Python re-verifier) on the new `solutions.bin`. Both must
-   PASS to declare the new canonical valid.
-7. **Record** the new canonical's sha256 in
+   PASS — but **passing both is necessary, not sufficient, to declare the new
+   canonical valid.** Both are forward passes over the artifact, and
+   [VERIFY.md](VERIFY.md) says so of the artifact validator in its own words:
+   *"**Does NOT check completeness** — that no valid solution is missing is
+   the enumeration's claim, attested by the canonical sha; a forward pass
+   cannot establish it."* An untouched byte-for-byte copy of the **parent**
+   canonical passes both, because the parent passed both. So structural PASS
+   cannot distinguish a correct extension from a no-op.
+7. **Establish that the extension did work at all.** This step did not exist
+   before 2026-09-01, and its absence is what let all three published
+   gates — `solve --verify`, `verify.py`, and the lineage check below — go
+   green on a no-op. At minimum, assert both of:
+   - `records(new) > records(src)` — a strict increase in record count. An
+     extension that walked further and found nothing new is possible in
+     principle but is a *finding* to be reported, not a silent pass.
+   - a **per-cell coverage count** against the 158,364 `.dfs_state`
+     inventory: every cell must carry a checkpoint whose recorded node
+     boundary is the new per-cell budget, not the parent's. A cell still
+     sitting at the parent boundary was not extended.
+   - `sha256(new) ≠ sha256(parent)` — implied by the strict count increase
+     (a different record set cannot sort to the same bytes, §6) but cheaper
+     to check directly, since both shas are one `gzip -dc | sha256sum` away.
+     An equal sha means nothing happened. *(Added 2026-09-03.)*
+
+   Note that raising `SOLVE_NODE_LIMIT` alone does **not** move the frontier —
+   see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Reproducibility parameters
+   "EXTENSION WARNING", which is the mechanism by which an extension run can
+   produce a byte-identical parent artifact while its metadata records a
+   larger budget. That is precisely the no-op these two assertions catch.
+8. **Record** the new canonical's sha256 in
    [CANONICAL_HASHES.md](CANONICAL_HASHES.md). The new canonical has no prior
    anchor (it's a new scale measurement), so the sha is recorded, not gated.
+
+⚠ **[CORRECTED 2026-09-01 — the acceptance criteria published here certified a
+no-op.** Old step 6 read "Both must PASS to declare the new canonical valid"
+and old step 7 recorded the sha ungated. Neither verifier checks completeness,
+by VERIFY.md's own statement of scope, so neither can tell a correct extended
+artifact from an untouched copy of its parent. The lineage check below
+compounded it: it computes `src - new`, which is **empty for an identical
+copy**, and duly prints `SUBSET OK`. Three published gates, all green, on a
+run that did nothing. The strict-increase and per-cell-coverage assertions
+above are the missing leg; they are stated as required criteria, and are
+**not yet implemented as tooling.**]**
 
 The new canonical contains every record from the source canonical
 **byte-identically as a prefix per cell**, plus the additional records
@@ -270,13 +454,105 @@ To prove that the extended canonical is correctly an extension of the source
 source `solutions.bin` records must appear as an ordered subset of the new
 `solutions.bin` records:
 
+> **CORRECTED 2026-08-01 — the recipe previously published here was NOT EXECUTABLE.**
+> It ran `sort -u` / `comm` / `diff` directly on `solutions.bin`. That file has **no line
+> structure**: it is a 32-byte header followed by fixed 32-byte records whose bytes are
+> `(pair_index<<2)|(orient<<1)`, and **`0x0A` — newline — is a legal record byte** (pair 2,
+> orient 1), as is `0x00`. The text tools therefore split records at arbitrary interior
+> offsets and treat the header as data, so the check could produce a spurious verdict in
+> either direction. It was also stated as an *unordered subset* test while the invariant
+> claimed above it is a *per-cell prefix* property — weaker than advertised even had it run.
+> Since this was the only published proof that an extended canonical extends its parent,
+> and the catalog's lineage citation inherits it, the record-aware method is given instead.
+
+> ⚠ **[CORRECTED AGAIN 2026-09-01 — the 2026-08-01 replacement repeated the defect its own
+> correction note had just diagnosed, and added two more.** (i) It asserted `blob[:4] == b'ROAE'`
+> on a **raw** read, but since #169 `solutions.bin` is written **gzip-framed by default**
+> ([SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §"On-disk framing"), and the extension recipe above
+> ships `solutions.bin.gz` — so it raised `bad magic` on the exact artifact it was written for.
+> (ii) It did `f.read()` into a Python `set`, materializing the 336,808,703,936-byte parent on the
+> 256 GB box §7 prescribes; a `set` of 10.5 billion `bytes` objects is several times worse again.
+> (iii) The note directly above says the old check "was also stated as an *unordered subset* test
+> while the invariant claimed above it is a *per-cell prefix* property — weaker than advertised
+> even had it run" — and the replacement was `{body[i:i+R] for i in …}`, an unordered set with no
+> cell identity. It reproduced the exact weakness it had identified one paragraph earlier.]**
+
 ```bash
-# Diff: every record in the source must appear in the new canonical.
-sort -u source_solutions.bin > /tmp/src.sorted
-sort -u new_solutions.bin > /tmp/new.sorted
-diff <(sort /tmp/src.sorted) <(comm -12 /tmp/src.sorted /tmp/new.sorted)
-# (empty diff = every source record is also in the new canonical)
+# Lineage check: every SOURCE record present in NEW, and NEW strictly larger.
+# Streaming merge-walk over two sorted, deduplicated record streams: O(1) memory,
+# one sequential pass each. Record-aware (never text lines), and sniffs the gzip
+# framing that `solve` has written by default since #169.
+python3 - "$SRC/solutions.bin" "$NEW/solutions.bin" <<'PYEOF'
+import gzip, sys
+H, R = 32, 32                                # header bytes, record bytes (SOLUTIONS_FORMAT.md)
+MASK = bytes(b & 0xFC for b in range(256))   # orient bits cleared -> primary sort key
+
+def opener(path):
+    with open(path, 'rb') as probe:
+        magic = probe.read(2)
+    return gzip.open(path, 'rb') if magic == b'\x1f\x8b' else open(path, 'rb')
+
+def records(path):
+    """Yield 32-byte records from the LOGICAL (decompressed) stream."""
+    with opener(path) as f:
+        head = f.read(H)
+        if head[:4] != b'ROAE':
+            sys.exit(f"{path}: bad magic {head[:4]!r} - not a solutions.bin")
+        while True:
+            rec = f.read(R)
+            if not rec:
+                return
+            if len(rec) != R:
+                sys.exit(f"{path}: trailing {len(rec)} bytes - not a multiple of {R}")
+            yield rec
+
+def key(rec):        # compare_solutions order: pair identity first, then full bytes
+    return (rec.translate(MASK), rec)
+
+src, new = records(sys.argv[1]), records(sys.argv[2])
+s, n = next(src, None), next(new, None)
+n_src = n_new = missing = 0
+while s is not None:
+    if n is None or key(n) > key(s):          # new stream walked past a source record
+        missing += 1; n_src += 1; s = next(src, None); continue
+    if key(n) < key(s):                       # a record new to this budget
+        n_new += 1; n = next(new, None); continue
+    n_src += 1; n_new += 1                    # equal: source record present
+    s, n = next(src, None), next(new, None)
+while n is not None:
+    n_new += 1; n = next(new, None)
+print(f"source records : {n_src:,}")
+print(f"new records    : {n_new:,}")
+print(f"source \\ new   : {missing:,}")
+if missing:
+    print("*** NOT A SUPERSET - the new canonical is missing source records ***"); sys.exit(1)
+if n_new <= n_src:
+    print(f"*** NO EXTENSION - new record count {n_new:,} does not exceed source {n_src:,} ***"); sys.exit(1)
+print("SUPERSET OK, and strictly larger")
+PYEOF
 ```
+
+The merge-walk is valid because both files are sorted by `compare_solutions` and deduplicated
+([SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §"Sort order"), so a two-pointer scan decides the
+subset question exactly. The `n_new <= n_src` exit is the strict-increase assertion from step 7 of
+the recipe: **it is what stops an untouched copy of the parent from passing.** Executed 2026-09-01
+against four fixtures — a true extension (rc 0), an identical copy of the parent (rc 1,
+`NO EXTENSION`), a file missing parent records (rc 1, `NOT A SUPERSET`), and mixed raw/gzip
+framing across the pair (read correctly).
+
+**What this establishes, and what it does not.** It is a **set-subset plus strict-growth** test.
+It is *not* the per-cell prefix property, and that property is **not observable from any published
+artifact**: the merged `solutions.bin` is in `compare_solutions` order, which is not DFS emission
+order, and the per-cell shards are written by iterating the solution hash table slot by slot
+(`flush_sub_solutions_d3` in `solve.c`), so they are in hash-slot order and are not in DFS order
+either. Prefix-determinism per cell is the *mechanism* §4 relies on; the subset-plus-growth
+property above is the strongest consequence of it that the artifacts can be made to witness. Say
+that rather than claiming the stronger check.
+
+*At canonical scale this Python form is a reference implementation, not an operational tool —
+10.5 billion records per stream is far beyond what a Python loop will finish in reasonable wall
+time. Use it on fixtures and sub-canonical artifacts to establish the method, and implement the
+same two-pointer walk in the C path for a real 560 T-scale lineage attestation.*
 
 This is a **partition-invariance witness** at a different scale — see
 [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
@@ -399,7 +675,9 @@ drops away. Empirically:
 - **11.2 T canonical: host-stable across our current host class.** Seven
   independent witnesses (Build A May 14, Build B May 14, cold-storage
   re-checksum May 15, v3 sha-equivalence May 24, c72eada+#108 witness May
-  27, t62 dress May 28, and the Tier-1 post-hardening dress May 31) all
+  27, t62 dress May 28, and the Tier-1 post-hardening dress May 31 — "Tier-1" being the
+  *determinism-hardening* level, not a campaign budget and not the
+  warm/Archive **storage** tiers this document uses elsewhere) all
   produce the same sha on D128als_v7 Spot westus3. See the 11.2T row in
   [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 - **100 T canonical: host-stable.** Re-validated May 30 on the current
@@ -410,20 +688,64 @@ For extension specifically: **extension byte-faithfulness depends on the
 extension host being in the same sha-stability class as the source host**.
 Within "D128als_v7 Spot westus3 with current Azure microcode" (as of
 2026-05-31), 11.2 T+ scales are sha-stable; extension works byte-identically.
-Across host classes (e.g., x86 vs ARM Cobalt), sha-stability has been
-demonstrated transitively via independent re-verification, not byte-identical
-direct reproduction (see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) "ARM
-Cobalt witness").
+Across host classes, sha-stability has been demonstrated **by direct
+byte-identical reproduction**: the ARM Cobalt witness (2026-05-21, Neoverse-N2,
+gcc 13.3.0 `-mcpu=native`, ARM binary `e5cfc6cd…`) reproduced the 11.2 T
+canonical `0c0fe37c…` **byte-identically** — see
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Cross-build + cross-architecture
+witnesses", whose row for that run records exactly that, and the v2 11.2 T
+details, which repeat it.
+
+⚠ **[CORRECTED 2026-09-01 — this read "sha-stability has been demonstrated
+transitively via independent re-verification, not byte-identical direct
+reproduction", citing the ARM Cobalt witness.** The row it cites says the
+opposite, in one word: `0c0fe37c…` **byte-identical — cross-architecture
+witness**. The document was misdescribing its own strongest evidence in the
+direction that weakened it.]**
 
 What this means for a third-party reproducer:
 
 - Reproducing a canonical sha on **the same Azure SKU class in the same
   region** is the strongest expectation — should be byte-identical at 11.2 T
   and above.
-- Reproducing a canonical sha on **a different cloud provider or
-  on-premises** may produce a different sha at the same record-set; the
-  appropriate check then is structural verification (`solve --verify` +
-  `verify.py`), not byte-identical sha equality.
+- **A differing sha means a differing record set. Investigate it; do not
+  accept it.** The header carries "only deterministic-from-input fields. No
+  timestamps, git hashes, hostnames" and the sha "is a pure function of the
+  enumeration inputs" ([SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md)
+  §Reproducibility), and `compare_solutions` is a total order so the post-sort
+  byte layout is fixed by the record set alone (§"Sort order"). A fixed record
+  set therefore forces a fixed sha, and the contrapositive is the useful form:
+  if the sha differs, the records differ. That is a real, documented
+  phenomenon — host-environment-level drift (gcc/glibc/kernel patch versions,
+  ASLR seed, microcode revision) changes *which* records a budgeted walk
+  reaches, and `CANONICAL_HASHES.md`'s 1 T drift row measures the difference
+  as 12,000 records. It is a finding to characterize, not a tolerance to
+  grant.
+- Structural verification (`solve --verify` + `verify.py`) on the differing
+  artifact tells you the records it *does* contain are valid. It cannot tell
+  you which records are missing — neither instrument checks completeness
+  ([VERIFY.md](VERIFY.md)) — so it is a useful next step in the
+  investigation, **not a substitute verdict**.
+- **Also compare the record count**, which is the cheapest completeness
+  signal available and needs no re-enumeration. The canonical file layout is
+  a 32-byte header followed by fixed 32-byte records, so the count is
+  `(filesize − 32) ÷ 32` — for the 560 T canonical,
+  `(336,808,703,936 − 32) ÷ 32 = 10,525,271,997`, the count published for
+  that scale in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). A **differing**
+  count proves the record sets differ and tells you by how much. A
+  **matching** count does not prove the sets are equal — two different sets
+  can be the same size — but it separates "the walk reached a different
+  frontier" from "the walk stopped short", and that is the first fork in the
+  investigation §1 asks you to open.
+
+⚠ **[CORRECTED 2026-09-01 — the second bullet previously read: reproducing on
+a different provider or on-premises "may produce a different sha at the same
+record-set; the appropriate check then is structural verification … not
+byte-identical sha equality".** That instructs a reproducer to accept a sha
+mismatch, and its premise — that the same record set can yield a different sha
+— is contradicted by the format specification quoted above. What actually
+varies across host classes is the record set, which is a substantive result
+worth chasing, and the old wording routed the reader away from chasing it.]**
 
 ---
 
@@ -443,7 +765,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | **Final sha256** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** |
 | Records | **10,525,271,997** unique canonical solutions |
 | Bytes | **336,808,703,936** on disk (32-byte header + records × 32; record-bytes = 336,808,703,904) |
-| Pre-dedup raw records | **43,876,464,466** (4.17× dedup ratio) |
+| Pre-merge shard records (per-sub-branch canonical) | **43,876,464,466** (4.17× cross-sub-branch rediscovery ratio — NOT an orientation-dedup ratio) ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c:39-61` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch, so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** |
 | Final shard count | **65,281** cells with non-empty shards (41.2 % yield) |
 | Cells with zero solutions | 93,083 (58.8 %) — fully scanned, budget exhausted, no records emitted |
 | `.dfs_state` checkpoint count | 158,364 (100 % of cells scanned) |
@@ -451,10 +773,10 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | Merge wall | **18 h 42 m** (single external chunked-sort pass, 250+ sort chunks) |
 | `solve --verify` | PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates, King Wen sequence found |
 | `verify.py --jobs 16` | PASS (2026-06-09) — independent Python re-verify of all 10,525,271,997 records; see CANONICAL_HASHES.md witness table |
-| Total realized cost | recorded in HISTORY.md campaign ledger (projection was $150–185; actual varied with eviction-defer wall-time) |
+| Total realized cost | **not published.** The pre-launch projection was $150–185; the realized total varied with eviction-defer wall-time and no itemized ledger has been published for it. ⚠ **[CORRECTED 2026-09-01 — this read "recorded in HISTORY.md campaign ledger". It is not: the 560 T entry in HISTORY.md records launch, wall, records, sha, dedup ratio, verify status and eviction count, and no cost total; that file's cost totals stop at earlier, smaller campaigns. The cross-reference pointed at a ledger that does not exist, and a `$360` 560 T total elsewhere in this document was anchored to it — see §7 rule 9, where both are withdrawn.]** ⚠ **[AMENDED 2026-09-01, later the same day — "not published" is right about the public corpus but was read here as "not known", and that is wrong. A realized total **was measured** at campaign closeout and is recorded in the project's private closeout analysis (`petersm3/roae-private:560T_FINAL_ANALYSIS.md`, the "Cost (realized)" row, stated against the $400 hard cap). So this is a **publication** gap, not a measurement gap. The figure is deliberately not restated here: a cost total carries no reproduction command, and §7 rule 9 has set the bar for putting one in this document at an **itemized** ledger — VM hours by SKU, disk-months, closeout — which the private one-line total does not supply. Withdrawing it as an estimation anchor (rule 9) and knowing it was measured are both true at once.]** |
 | Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:34, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the westus3 D128als_v7 Spot pool. |
 | Throttled-host re-provisions | 0 (no host returned throttled state) |
-| Cold archive | `solver-data:/canonical-archive/20260608_560T_9a968fa2/` (gzip warm mirror) + `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/` (cold blob); uncompressed working copy at `solver-data:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |
+| Cold archive | `solver-data:/canonical-archive/20260608_560T_9a968fa2/` (gzip warm mirror) + `canonical-archive/20260608_560T_9a968fa2/` (cold blob); uncompressed working copy at `solver-data:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |
 | Post-merge SPOF discovered + remediated | Per §4.1: the merge supervisor does NOT auto-copy solutions.bin to solver-data; explicit copy was added mid-campaign before teardown. solver-data resized 2 TB → 4 TB online to fit uncompressed + gzip-mirror artifacts. |
 
 ### Operations design choices made for this campaign
@@ -584,9 +906,17 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
   ≥ 1 solution; cells whose 3.5 B-node budget fully exhausts but
   finds 0 solutions (C3/C5 prunes deeply enough to rule out valid King
   Wen orderings) leave a `.dfs_state` checkpoint but no `.bin`. In the
-  2026-06 560T campaign, **63.6 % of fully-scanned cells produced zero
-  solutions** — so the `.bin` count is roughly **0.37× the scanned-cells
-  count**. Reporting `.bin` count as "cells closed" or "cells complete"
+  2026-06 560T campaign, **58.8 % of fully-scanned cells produced zero
+  solutions** — so the `.bin` count is roughly **0.41× the scanned-cells
+  count**. ⚠ **[CORRECTED 2026-09-01 — this read "63.6 %" and "0.37×",
+  labelled "empirically established mid-run". It was a mid-run snapshot, and
+  the campaign's own finals in §7 of this document supersede it: 65,281
+  non-empty shards (**41.22 %**) against 93,083 zero-solution cells
+  (**58.78 %**) over 158,364 scanned. Applying the published 0.37 rule to the
+  final 65,281 shards estimates 176,435 scanned cells — **111.4 % of the
+  entire campaign**, an impossible progress reading, and progress reporting is
+  exactly the use prescribed just above. The correct coefficient is
+  65,281 / 158,364 = 0.4122.]** Reporting `.bin` count as "cells closed" or "cells complete"
   is misleading. The `.bin` count is the right shard inventory for
   **merge-stage planning** (how many files the merger consumes), but
   not for campaign-progress reporting.
@@ -611,8 +941,8 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 
 The 560T close-out cascade (warm copy → cold archive → analyze → blob upload)
 took ~2 days of operator-attended babysitting because of a chain of small
-failures that each required hand-correction. The next extension (1120T or
-deeper) must not repeat these patterns. Each rule below ships with the
+failures that each required hand-correction. Any future extension (the 1120T step is not planned as of 2026-08-01; this recipe is retained so a
+later operator can extend at any scale) must not repeat these patterns. Each rule below ships with the
 specific symptom that motivated it.
 
 1. **Separate VMs per disk source for post-merge workloads.**
@@ -634,7 +964,7 @@ specific symptom that motivated it.
    `AuthorizationPermissionMismatch` against 354,220 files. Root cause:
    `az storage container generate-sas --as-user` produces a user-delegation
    SAS bound to the caller's AD identity, which does not have
-   `Storage Blob Data Contributor` on the `roaecanonical2026` account
+   `Storage Blob Data Contributor` on the cold-archive storage account
    (open task #87). Account-key SAS via
    `az storage account keys list` + `az storage container generate-sas
    --account-key <key>` worked first try.
@@ -707,16 +1037,38 @@ specific symptom that motivated it.
    attempts at three VM sizes): D32 (64 GB RAM, holds 19% of 336 GB
    `solutions.bin` in page cache) projected 3 h total wall — every
    re-pass-over-records section hits disk at ~450 MB/s Premium SSD
-   bandwidth ≈ 22 min per pass. D64 (128 GB, 38% cache) was where the
+   bandwidth ≈ **12.5 min per pass** (336,808,703,936 B ÷ 450 MB/s = 748 s).
+   ⚠ **[CORRECTED 2026-09-01 — this read "≈ 22 min per pass" here and again
+   six lines below. The two published factors give 12.5 min, not 22. The same
+   figure appears in `documentation/HISTORY.md` (2026-06-10/11 analyze-sizing
+   entry) and is **not** corrected there by this pass — reported, not
+   edited. ⚠ **[FOLLOW-UP CLOSED 2026-09-02 (prose batch P70) — the HISTORY.md
+   site named above is now corrected, and its withdrawn cost comparison with
+   it; that entry carries its own marker and the two retired forms are
+   registered as `RP-a8eb3931` and `RP-dd27f0bf`. The handoff sentence above
+   is preserved as the record of how the site was carried forward rather than
+   lost.]**]** D64 (128 GB, 38% cache) was where the
    original §[10] code ran for 24h+ without finishing — but that was a
    pre-rewrite issue, not a sizing issue per se. **D128 (256 GB, 76%
-   cache)** finished a full --analyze on the 560T canonical in ~1.5 h
-   with the post-#141/#142/#143 rewrites. The cache fraction matters
+   cache)** finished a full --analyze on the 560T canonical in
+   **3 h 47 m (13,631 s, measured)** with the post-#141/#142/#143 rewrites —
+   `analyze_v3_560T.log`, the run recorded in
+   [HISTORY.md](HISTORY.md) §"560T `--analyze` scientific findings", and cited
+   independently at the same 13,631 s by
+   [PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md) and
+   [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).
+   ⚠ **[CORRECTED 2026-09-01 — this read "finished a full --analyze on the
+   560T canonical in ~1.5 h", stating a **projection** as an accomplished
+   fact. HISTORY.md's pre-run entry is explicit that ~1.5 h was
+   "**Projected** total wall on D128"; the run itself took 13,631 s, 2.5× the
+   projection. Everything downstream of it in this rule — the cost figure and
+   the 1120T forecast — was re-derived from 13,631 s in the same pass.]**
+   The cache fraction matters
    more than core count because multiple sections (§[10] tile-by-records,
    §[11] hash-set dedup, §[12] null-model, §[13]a/b orbit, §[16] bug-
    impact, §[20] complement-orbit, §[22] complement-distance, §[24] NN
    catalog) each do one full pass over `n_sols` records via mmap.
-   Without the cache, each is independently ~22 min disk-bound.
+   Without the cache, each is independently ~12.5 min disk-bound.
    With a 76% cache after the first [stream] pass, subsequent sections
    are largely cache-resident and finish in seconds-to-minutes.
    Compute ceiling: analyze saturates at ~5-10 effective cores regardless
@@ -724,36 +1076,100 @@ specific symptom that motivated it.
    sections (§[10], §[20], §[22]). So a D128 spends compute mostly idle,
    but the extra RAM is what's actually doing the work.
    **Rule:** size analyze VM at **D128als_v7 Standard** for 560T+ canonicals.
-   Cost: ~$5/hr × 1.5 h = ~$7.50 per analyze run. Down-sizing to D64
-   ($2.50/hr × ~3-4 h ≈ $10) or D32 ($1.30/hr × ~3 h ≈ $4) saves nothing
-   net once wall time is accounted for, and D32 hits a "this won't fit"
-   regime once the file exceeds ~5× cache size. For 1120T extension
+   Cost: ~$5/hr × 3 h 47 m = **~$18.93 per analyze run**, measured, not
+   projected. Down-sizing to D64 or D32 still saves nothing net once wall
+   time is accounted for, and D32 hits a "this won't fit" regime once the
+   file exceeds ~5× cache size. For 1120T extension
    (file ~540 GB projected): D128's 256 GB cache still fits 47% of the
    file — analyze remains feasible there.
    §[10]/§[11]/§[20] are now algorithmic-rewrite-bound rather than core-
-   count-bound (see rule 14). After the rewrites, expected --analyze
-   wall: ~1.5 h at 10.5 B records (560T) on D128, ~3-5 h at 18 B records
-   (1120T) on D128.
+   count-bound (see rule 14). Measured --analyze wall after the rewrites:
+   **13,631 s (3 h 47 m) at 10.5 B records (560T) on D128.** Scaling that
+   base linearly by record count, 1120T at ~18 B records projects to
+   **≥6.5 h** (13,631 s × 18 / 10.525 = 23,311 s) — and ≥ is the right
+   relation, because D128's cache fraction falls from 76 % to 47 % on the
+   larger file, so the disk-bound sections get worse than linearly. Budget
+   ~$33 and up for a 1120T analyze run.
+   ⚠ **[CORRECTED 2026-09-01 — the cost read "~$5/hr × 1.5 h = ~$7.50" and
+   the forecast read "~1.5 h at 10.5 B records (560T) … ~3-5 h at 18 B records
+   (1120T)". Both descended from the ~1.5 h projection corrected above. At the
+   measured 13,631 s the 560 T run cost ~$18.93, 2.5× what was published, and
+   the 1120T forecast — which was **below** the true 560 T wall — is replaced
+   by a re-derivation from the measured base. The D64/D32 comparison figures
+   were struck rather than rescaled: they were projections against a
+   projection, and no measured wall exists for either SKU at 560 T.]**
 
-9. **Extension cost is NOT 2× the source's cost; it's incremental.**
-   Initial 1120T-extension cost estimate was $690 (anchored to "2× 560T's
-   $360 total"). Real estimate after working through cell-exhaustion
-   dynamics is **~$390 incremental** ($90 enum + $120 merge + $80 disk +
-   $100 close-out). Reason: cells that exhausted at source budget do zero
-   additional work in the extension. Only cells that hit the per-cell
-   budget cap continue from their `.dfs_state` checkpoints.
-   **Rule:** extension cost = source compute × (fraction of cells that
-   hit per-cell cap) + scaled merge + scaled disk. For 560T → 1120T,
-   that fraction was empirically ~41-50 %. Document this in the
-   cost-estimation section of any pre-launch operator-review doc.
+9. **Extension saves the parent's already-walked nodes — it does not skip
+   cells. There is no published 560T cost total to anchor an estimate to.**
+   The cost model previously published here rested on two things that are not
+   so, and both are withdrawn rather than rescaled.
+   **(a) No cell exhausts, so no cell is skipped.** At every realistic
+   canonical scale *every* cell hits BUDGETED
+   ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"100B and sub-canonical
+   reference shas" item 1), and §7 of this document records the 560 T
+   campaign's own confirmation: **158,364 `.dfs_state` checkpoints, 100 % of
+   cells scanned**, none EXHAUSTED. So the cap-hit fraction is **100 %**, not
+   41-50 %. Every cell continues into an extension. What extension actually
+   buys is that the parent's nodes are not re-walked — a 560T → 1120T
+   extension would walk the *additional* 560 T nodes, i.e. roughly the **same
+   enum compute as the source campaign**, not half of it. (No such extension
+   has been run; 560 T remains the deepest canonical.)
+   **(b) No `$360` anchor exists in the public corpus.** `grep -rn '\$360'`
+   over `documentation/`, `reports/` and the root markdown returns exactly one
+   hit — the sentence this note replaces. The 560 T campaign entry in
+   HISTORY.md records launch, wall, records, sha, verify status
+   and eviction count, and **no cost total** *(2026-09-02, prose lane: this list read
+   "…sha, dedup ratio, verify status…"; measured, that HISTORY entry records no ratio of
+   any kind — the pre-merge shard total and its 4.17× factor live in this file's own 560 T
+   table above, relabelled 2026-08-28 as cross-sub-branch rediscovery of canonical keys,
+   not an orientation-dedup ratio)*; the file's cost totals stop at
+   earlier, smaller campaigns. The `$690 = 2 × $360` anchor and the `~$390
+   incremental` figure derived from it therefore both rested on a number the
+   corpus never published, and the `~$390` additionally assumed the 41-50 %
+   model that (a) refutes. **No cost estimate for a 1120T extension is stated
+   here until an itemized 560 T ledger — VM hours by SKU, disk-months,
+   closeout — is published.**
+   ⚠ **Additional hazard, latent, affecting any extension launched today.**
+   `solve.c`'s `#167` resume guard discards a cell's checkpoint whenever its
+   `.dfs_state` is present but its `.bin` shard is absent, and walks that cell
+   **fresh from zero**. But `flush_sub_solutions_d3` returns before creating
+   any file when a cell found no solutions — so a zero-yield cell legitimately
+   has no `.bin`, and §7 records **93,083** such cells out of 158,364 at
+   560 T. Every one of them would discard its checkpoint on resume:
+   93,083 × 3,536,157,207 = **329,156,121,299,181 nodes (58.8 % of the entire
+   560 T campaign) silently re-walked**, on top of the new work. The guard was
+   written for damaged or legacy archives and its own comment calls it
+   "critical for the 1120T extension"; it fires on legitimately-empty cells.
+   **This is a code defect, not a documentation one, and it is not fixed.**
+   Any extension cost or wall estimate must either assume the redo or wait for
+   the guard to be made yield-aware.
+   ⚠ **[CORRECTED 2026-09-01 — replaces "Extension cost is NOT 2× the source's
+   cost; it's incremental … Real estimate … **~$390 incremental** … For
+   560T → 1120T, that fraction was empirically ~41-50 %."** The 41-50 % was
+   the campaign's *non-empty-shard yield* (41.22 %, stated in §7), reused
+   ~300 lines later as if it were the cap-hit fraction; the two are unrelated
+   and the cap-hit fraction is 100 %. The dollar figures are withdrawn for
+   want of a ledger, per (b).]**
 
-10. **Extension wall time is NOT 2× either; it's incremental.**
-    Initial 1120T wall estimate was 14 days enum (anchored to "2× 560T's
-    7 days"). Real estimate is ~3-5 days enum (60% of source enum at most,
-    since only ~50 % of cells continue past their source budget).
-    **Rule:** never describe "extension to scale X" as "extension wall ≈
-    source wall × (X / source budget)". The relationship is
-    sublinear because of cell exhaustion at source budget.
+10. **Extension wall time ≈ the wall for the *added* budget — not 2×, and not
+    sublinear from cell exhaustion.**
+    A 560T → 1120T extension resumes every cell from its checkpoint and walks
+    the additional 560 T nodes, so the enum wall is about **one source enum's
+    worth (~7 days)**, not 14 and not the 3-5 days previously stated. The
+    saving over a from-scratch 1120 T run is real — the parent's 560 T of
+    nodes are not re-walked — but it is a saving of one source campaign, not
+    a fraction of one.
+    **Rule:** describe "extension to scale X" as "the wall to walk (X − source
+    budget) nodes", not as a multiple of the source wall, and not as sublinear.
+    ⚠ **[CORRECTED 2026-09-01 — this read "Real estimate is ~3-5 days enum
+    (60% of source enum at most, since only ~50 % of cells continue past their
+    source budget)" and attributed the sublinearity to "cell exhaustion at
+    source budget". **No cell exhausts at 560 T** — §7 records 158,364
+    `.dfs_state` checkpoints, 100 % of cells scanned and budgeted — so 100 %
+    of cells continue, and the mechanism claimed for the sublinearity does not
+    exist. Same defective model as rule 9, which carries the full
+    correction. Note also that the `#167` redo hazard described in rule 9
+    would add ~329 T nodes of repeated work to this wall until it is fixed.]**
 
 11. **Cold archive completeness — split into two categories.**
     Original 560T cold archive shipped without `EXTENSION_RECIPE.txt`,
@@ -887,10 +1303,17 @@ a third party can reproduce any canonical as follows:
    [DEVELOPMENT.md](DEVELOPMENT.md)).
 4. Run the canonical at the scale's published per-cell budget:
    ```bash
+   SOLVE_DEPTH=<published_DEPTH> \
    SOLVE_NODE_LIMIT=<published_NL> SOLVE_PER_SUB_BRANCH_LIMIT=<published_PSB> \
    SOLVE_THREADS=<your_thread_count> SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 \
      ./solve 0 <your_thread_count>
    ```
+   `SOLVE_DEPTH` is **sha-determining and must be copied from the canonical's row**
+   ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility parameters"): every d3
+   canonical (1T / 5.6T / 10T / 11.2T / 100T / 560T) needs `SOLVE_DEPTH=3`. Omitting it does
+   **not** error — the code default is `2` (solve.c, "Default 2 for byte-identical behavior with
+   the canonical 10T baseline"), so the run silently enumerates the d2 partition and can never
+   reproduce a d3 sha. Nothing flags the mismatch until the sha compare in step 6.
 5. Merge the resulting shards: `SOLVE_MERGE_MODE=external ./solve --merge`.
    The merge is **sha-invariant to `SOLVE_MERGE_THREADS`**: serial (default `=1`) and parallel
    (`>1`) both produce the byte-identical canonical — validated at 1T and, on 2026-07-01, at **560T**
@@ -898,13 +1321,22 @@ a third party can reproduce any canonical as follows:
    all sorted chunks at once (a 1 GB-chunk 560T merge makes ~1,308); `solve` auto-raises `RLIMIT_NOFILE`
    at merge start so this can't hit "Too many open files" (override via `SOLVE_MERGE_NOFILE` /
    `SOLVE_SKIP_NOFILE_RAISE`; see SOLVE_C_CLI.md).
-6. Compute `sha256sum solutions.bin` and compare to the published sha.
+6. Compute `gzip -dc solutions.bin | sha256sum` and compare to the published sha. (Since #169
+   `solutions.bin` is written **gzip-framed by default**; every canonical sha is computed on the
+   DECOMPRESSED stream, so a plain `sha256sum solutions.bin` hashes the container and yields a
+   false mismatch. Under `SOLVE_COMPRESS=0` the file is raw and plain `sha256sum` is correct. The
+   `solutions.sha256` sidecar already carries the logical sha either way.)
 
 On a host in the same SKU class as the original campaign (D128als_v7 Spot
 westus3 for our 11.2T+ canonicals), the sha should match byte-identically.
 On a different host class, structural verification (`solve --verify` +
-`verify.py`) should PASS even if the sha differs — that's a confirmation
-that the *enumeration is correct*, not that the bytes are identical.
+`verify.py`) should PASS even if the sha differs — but read that carefully:
+it confirms the records the artifact *contains* are valid. It says nothing
+about records it is *missing*, because neither instrument checks completeness
+([VERIFY.md](VERIFY.md)). A differing sha is a differing record set (§6), so
+treat it as a result to characterize, not as a pass. *(Scoped 2026-09-01: this
+read "that's a confirmation that the enumeration is correct", which overstates
+what a forward pass can establish.)*
 
 ---
 
@@ -922,48 +1354,45 @@ that the *enumeration is correct*, not that the bytes are identical.
 
 ---
 
-## DRAFT TODO before porting to public
+## 10. Relationship to `LARGE_SCALE_CAMPAIGNS.md`
 
-### Port-as-replacement of `LARGE_SCALE_CAMPAIGNS.md` (operator 2026-05-31)
+*Rewritten 2026-08-08. This section previously read "## DRAFT TODO before porting to public" and
+carried ~16 unchecked checklist items, inside an already-published document. Two things were wrong
+with that. First, a live pre-publish checklist in a public doc tells a reader the document is not
+finished being published — and the reader is right. Second, its central premise was false.*
 
-This document REPLACES `documentation/LARGE_SCALE_CAMPAIGNS.md`; that file's
-1100 lines are subsumed here during the port. Concrete merge plan:
+**The premise that was false.** The old plan asserted this document "REPLACES
+`documentation/LARGE_SCALE_CAMPAIGNS.md`" and that that file's 1,100 lines were "subsumed here
+during the port," ending with "delete `LARGE_SCALE_CAMPAIGNS.md`." A section-by-section comparison
+on 2026-08-08 found no such subsumption. The two documents are **complementary**:
 
-- [ ] Port section 5 of `LARGE_SCALE_CAMPAIGNS.md` (pre-flight validation
-      checklist) → fold into a new appendix or extend section 8 of this doc
-      (third-party reproduction). Includes the 8-check pre-flight gate now
-      in `LAUNCH_560T_CAMPAIGN.sh` as the operational version.
-- [ ] Port section 6 (campaign architecture) → fold into section 5 of this
-      doc (operations choices) + section 7 (worked example).
-- [ ] Port section 7 (branch distribution) → fold into section 5 of this doc.
-- [ ] Port section 8 (eviction recovery) → standalone subsection within
-      section 5 of this doc; key content: 75-min/M-F-defer policy,
-      DFS-checkpoint resume, IOPS-skip mitigation.
-- [ ] Port section 9 (merge VM sizing + disk-based alternative for extreme
-      scale) → fold into section 5 of this doc.
-- [ ] Port section 11 (side-metadata: what to capture beyond solutions.bin)
-      → strengthen section 4 of this doc (extension preservation requirements).
-- [ ] Port section 12 (reproducibility checklist) → strengthen section 8 of
-      this doc (third-party reproduction).
-- [ ] Port section 13 (honest uncertainties) → fold into section 6 of this
-      doc (sha stability vs host fragility) AND a new "uncertainties /
-      what we don't know" section.
-- [ ] Port section 14 (worked example: 56 × 10 T at 2 × D64 spot) → keep
-      as a second worked example in section 7, alongside the 560 T entry.
-- [ ] After all ports: delete `documentation/LARGE_SCALE_CAMPAIGNS.md`
-      with a single redirect commit pointing readers to this doc.
+| | owns |
+|---|---|
+| **CAMPAIGN_METHODOLOGY.md** (this doc) | *Correctness* — what "canonical" means, per-cell uniform budget, extension, what must be preserved, sha stability vs host fragility, third-party reproduction |
+| **[LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md)** | *Operations* — sizing and per-thread rates, campaign architecture pseudocode, branch distribution, disk-based external merge, common gotchas |
 
-### 560 T-specific TBDs
+Material that exists **only** in `LARGE_SCALE_CAMPAIGNS.md`, with no counterpart here: §2 sizing
+(the phrase "per-thread rate" occurs 8× there and 0× here), §6 runner/orchestrator pseudocode,
+§9b/9c external and tiered merge, §13a gotchas, and — the one that mattered most in deciding not to
+delete — **§13.0 "Scale honesty," the disclosure that `solve.c` is not empirically validated above
+the 100T pilot.** Deleting the file per the old plan would have removed a candid limitation
+statement from the public record. It is retained.
 
-- [ ] Fill in TBD numbers from completed 560 T campaign (section 7)
-- [ ] Final sha + record count + cost match what `CANONICAL_HASHES.md` ends up showing
-- [ ] Verify the EXTENSION_RECIPE.txt text described in section 3 matches what the
-      archive supervisor actually generates (added in commit 800a8df)
+**Status of that file:** deprecated as the *entry point* (new readers start here), retained as the
+operations reference. It is not awaiting deletion.
 
-### Pre-publish review
+## 11. Open items
 
-- [ ] Confirm all cross-references to other public docs resolve
-- [ ] Operator review of tone/framing for the "third party reproducer" sections
-- [ ] Final pre-publish: have a third-party-style reviewer read it cold; check
-      whether sections 3 + 4 + 8 are actually sufficient to extend OR reproduce
-      without operator handholding
+Tracked honestly rather than as a checklist, because a checkbox in a published document reads as an
+obligation the document itself has not met:
+
+- **560 T campaign numbers.** §7's worked example carries figures from the completed campaign. The
+  authoritative sha and record count are in
+  [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 560T" (`9a968fa2…`, 10,525,271,997 records,
+  CANONICAL-verified 2026-06-30); where this document and that registry ever disagree, **the
+  registry wins**.
+- **`EXTENSION_RECIPE.txt`.** §3 describes the recipe the archive supervisor emits. The described
+  text has not been diffed against actual supervisor output since commit `800a8df`.
+- **Cold-read check.** Whether §§3, 4 and 8 suffice for a third party to extend or reproduce
+  *without* author assistance has not been tested on an actual outside reader. §9 states the
+  document's own scope limits.

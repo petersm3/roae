@@ -1,0 +1,9 @@
+# Q1(c) — labelled ESTIMATE with binomial CI. Space: C15 rank is NOT exactly computable.
+rank_O3_anchor	13056
+requested_M	200
+drawn_M	200
+realised_M_in_rank_prefix	105
+p_hat_C15_given_rank_lt_anchor	0.20000000
+wilson95_lo	0.13469907
+wilson95_hi	0.28647737
+label	ESTIMATE +- binomial CI at the REALISED M (never the requested M)

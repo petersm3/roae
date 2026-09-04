@@ -1,0 +1,15 @@
+GATE --check-arrangement-selftest rc=0
+GATE --kc-selftest rc=0
+GATE --kc-o3-selftest rc=0
+GATE --kc-g-selftest rc=0
+GATE --kc-t-selftest rc=0
+GATE --kc-cert-selftest rc=0
+GATE --kc-ladder-selftest rc=0
+GATE --kc-ar2-selftest rc=0
+GATE --kc-oracle-selftest rc=0
+GATE --kc-scan-selftest rc=0
+GATE --f1c5-gzip-selftest rc=0
+GATE --kc-enum-desc-selftest rc=0 token=KC_ENUM_DESC_SELFTEST=PASS
+GATE --kc-profile-selftest rc=0 token=KC_PROFILE_SELFTEST=PASS
+GATE --kc-layers-selftest rc=0 token=KC_LAYERS_SELFTEST=PASS
+GATE --kc-extremal-selftest rc=0 token=KC_EXTREMAL_SELFTEST=PASS

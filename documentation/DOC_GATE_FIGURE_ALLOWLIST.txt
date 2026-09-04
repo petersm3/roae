@@ -1,0 +1,97 @@
+# DOC_GATE_FIGURE_ALLOWLIST.txt - GATE 3b (scripts/doc_gates.sh retract-figures)
+#
+# GATE 3b has NO automatic exemption. Not a filename allow-column, not a changelog-row
+# rule. Every legitimate occurrence of a registered retracted FIGURE is one explicit row
+# here, and anything not listed is a [FAIL]. That is deliberate and it is measured: a
+# changelog exemption would have hidden this gate’s first live finding, TR-2 v1.12’s
+# "2.0σ", which sat inside a revision row and had been superseded for a day.
+#
+# CONTENT-ANCHORED, NOT LINE-ANCHORED (GATE 5’s A8 lesson). The anchor is a fixed
+# substring that must appear on the SAME LINE as the figure. Line numbers drift on every
+# insertion above them; a sentence fragment does not. An anchor that stops matching is
+# re-printed as [note] every run - the drift audit - so a row can never quietly go dead.
+#
+# LIMIT, stated so it is not rediscovered the hard way: the anchor must be on the FIGURE’S
+# OWN LINE. Where a supersession clause is in the same paragraph but on the next line
+# (TR-9’s draft-stage note), the row says so in its reason column.
+#
+# Format, TAB-separated, 5 fields:
+#   file <TAB> figure <TAB> same-line anchor <TAB> class <TAB> why
+#
+# CLASSES
+#   meta-mention  the text quotes the figure in the act of recording its correction.
+#                 Legitimate; flagging it would punish the fix.
+#   historical    a dated record that was TRUE when written and was later overtaken.
+#                 Legitimate; rewriting it would falsify the record.
+#   literal       (2026-08-07, with the reports/evidence/ non-markdown corpus extension;
+#                 the name is GATE 18's, same meaning) the characters coincide with a
+#                 registered figure but denote a DIFFERENT quantity — e.g. a histogram
+#                 bin row in a machine-output log. Legitimate; the retracted figure is
+#                 not being restated, the string is a fixed-string collision. Neither
+#                 sibling class fits: it narrates no correction, and it was never
+#                 "overtaken" — it is still true.
+#   anything else is printed as [OPEN] every run: a live restatement that has been
+#                 admitted only so a NEW one fails the build. There are none today.
+documentation/CORRECTIONS.md	marginal 4.6	- **BEFORE:** the paragraph stated	meta-mention	CX-19 BEFORE line: the ledger must quote the superseded pair to record what changed.
+documentation/CORRECTIONS.md	net +1.6	- **BEFORE:** the paragraph stated	meta-mention	CX-19 BEFORE line: the ledger must quote the superseded pair to record what changed.
+documentation/CORRECTIONS.md	marginal 4.6	had restated both C2 figures	meta-mention	CX-19 names the v1.7 restatement in the same breath: "marginal 4.6 -> 4.5".
+documentation/CORRECTIONS.md	net +1.6	had restated both C2 figures	meta-mention	CX-19 names the v1.7 restatement in the same breath: "net +1.6 -> = 0".
+documentation/CORRECTIONS.md	≈10×	inside retraction narrations	meta-mention	CX-19 how-it-was-found: lists this hit as a meta-mention, in the act of classifying it.
+documentation/CORRECTIONS.md	1.4σ	recording the "1.4σ above" fix	meta-mention	CX-19 how-it-was-found: cites the PHASE2_README fix by the figure that was fixed.
+documentation/DESCRIPTION_LENGTH.md	marginal 4.6	→ 4.5, C6+C7 marginal	meta-mention	The correction itself, stated as old -> new on one line.
+reports/METHODS.md	≈10×	not enough for the withdrawn	meta-mention	METHODS records the withdrawal; the word "withdrawn" governs the figure.
+reports/METHODS.md	~52×	figure for that same rarity circulated in draft	meta-mention	METHODS records the ~52x figure in order to DECLINE it (d73-margin).
+reports/METHODS.md	~52×	withdrew from ranking** — so ~52× is not publishable	meta-mention	Same paragraph, stating why it is not publishable on this ledger.
+reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	≈10×	margin is withdrawn	meta-mention	TR-10 v1.8 second pass: the row that performs the withdrawal.
+reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	net +1.6	the retraction had not propagated here	meta-mention	TR-11 v1.14: the row that propagates TR-9 v1.7 into TR-11 SS4.
+reports/TR2_THE_RULES_CONFLICT.md	19 total	fully archived in certificates/	historical	TR-2 v1.8 (2026-07-04). 19 was TRUE when written; the directory later grew 19->20->21 (TR-5 v2.1 records the intermediate step). Not a retraction - a count that moved. v1.19 corrected SSExtension, which restated 19 as CURRENT.
+reports/TR2_THE_RULES_CONFLICT.md	2.0σ	the middle figure was superseded by v1.19 below	meta-mention	TR-2 v1.12, annotated by unit drain-3 (CX-20) with the supersession clause this gate demanded. This is the occurrence GATE 3b found in anger.
+reports/TR2_THE_RULES_CONFLICT.md	1.4σ	not reconstructible from the stated errors	meta-mention	TR-2 v1.19: the row that withdrew the figure.
+reports/TR2_THE_RULES_CONFLICT.md	2.0σ	not reconstructible from the stated errors	meta-mention	TR-2 v1.19 (ii): the row that corrected 2.0 to 1.9.
+reports/TR2_THE_RULES_CONFLICT.md	19 total	not reconstructible from the stated errors	meta-mention	TR-2 v1.19 (iii): the row that corrected 19 to 21.
+reports/TR2_THE_RULES_CONFLICT.md	1.4σ	the retracted 1.4 came from dividing	meta-mention	TR-2 v1.23: restores the comparison at 0.57 sigma and says where 1.4 came from.
+reports/TR2_THE_RULES_CONFLICT.md	2.0σ	retracted-figure sweep, unit drain-3	meta-mention	TR-2 v1.24: the row recording this gate’s first live finding.
+reports/TR8_REORDERING_REVISITED.md	~5,500×	the correct factor is	meta-mention	TR-8 v1.9: the row that corrected it to ~500x.
+reports/TR8_REORDERING_REVISITED.md	~52×	is **not** used: rank 10 requires nine	meta-mention	TR-8 SSExec: names the figure in order to decline it, with the reason.
+reports/TR8_REORDERING_REVISITED.md	~52×	figure that circulated for this rarity is recorded and	meta-mention	TR-8 v1.11: "recorded and **declined**".
+reports/TR9_PRICING_THE_CONSTRAINTS.md	marginal 4.6	mirrors the public DESCRIPTION_LENGTH.md correction	meta-mention	TR-9 draft-stage note, first line. The supersession clause added by v1.20 is in the SAME PARAGRAPH but on the following lines, so the same-line anchor rule cannot see it - stated here rather than left to a reader to rediscover.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	net +1.6	mirrors the public DESCRIPTION_LENGTH.md correction	meta-mention	Same paragraph and same caveat as the row above.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	marginal 4.6	(break-even, sign-convention-dependent). This dated note	meta-mention	TR-9 v1.20 supersession clause: states old -> new on one line.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	net +1.6	(break-even, sign-convention-dependent). This dated note	meta-mention	TR-9 v1.20 supersession clause: states old -> new on one line.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	+125	is correct and the "+125" is corrected	meta-mention	TR-9 v1.16: the row that corrected it to +127.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	1.4σ	retracted-figure sweep, unit drain-2	meta-mention	TR-9 v1.20 lists the drain-2 sweep’s meta-mention hits by name.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	≈10×	retracted-figure sweep, unit drain-2	meta-mention	TR-9 v1.20, same enumeration of the sweep’s meta-mention hits.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	marginal 4.6	retracted-figure sweep, unit drain-2	meta-mention	TR-9 v1.20: the row that performed the supersession.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	net +1.6	retracted-figure sweep, unit drain-2	meta-mention	TR-9 v1.20: the row that performed the supersession.
+reports/evidence/r11/PHASE2_README.md	1.4σ	This sentence read	meta-mention	The corrected sentence’s own "read X until <date>" note - the artifact TR-2 v1.23 fixed.
+reports/evidence/r11/PHASE2_README.md	1.4σ	and at 0.57σ alike	meta-mention	Same note, stating that the qualitative reading is unchanged at either value.
+reports/evidence/r11/README.md	1.4σ	this figure read 1.4σ until	meta-mention	Evidence-bundle index carrying the same dated supersession note.
+documentation/CORRECTIONS.md	2.0σ	with no marker. **v1.19** (2026-08-01) recorded	meta-mention	CX-20 BEFORE line: the ledger must quote the superseded figure to record what changed.
+documentation/CORRECTIONS.md	2.0σ	reads as sitting *at* the gate and 1.9σ as inside it	meta-mention	CX-20: states why the 0.1 sigma distance is not cosmetic, quoting both values side by side.
+documentation/DESCRIPTION_LENGTH.md	marginal 21.2	marginal 21.2 → 21.3. No conclusion moves	meta-mention	The 2026-07-10 correction note itself, stating old -> new on one line.
+documentation/CORRECTIONS.md	palnbr 16	non-flagged values did move	meta-mention	CX-07: the ledger must quote the superseded value to record what changed.
+reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	palnbr 16	Non-flagged Mawangdui values shifted	meta-mention	TR-10 v1.2: the revision row that performed the supersession.
+documentation/CORRECTIONS.md	1.4σ	both appear inside CX-19's *How it was found*	meta-mention	CX-21 names this figure as a MEASURED example of a text-presence gate false clear: it occurs in this file only as a meta-mention, and is not recorded. Quoting it is the evidence for keying on RF- instead.
+documentation/CORRECTIONS.md	≈10×	both appear inside CX-19's *How it was found*	meta-mention	Same line, same argument as the 1.4σ row above: quoted by CX-21 to show that occurring in this file is not the same as being recorded in it.
+documentation/CORRECTIONS.md	2.0σ	RF-8d74e1c4	meta-mention	CX-21's key table. The cell states where the retraction IS recorded (CX-20); the figure is named because a content-addressed key has to be readable next to the figure it addresses.
+documentation/CORRECTIONS.md	marginal 4.6	RF-df361ebc	meta-mention	CX-21's key table, pointing at CX-19.
+documentation/CORRECTIONS.md	net +1.6	RF-c1721127	meta-mention	CX-21's key table, pointing at CX-19.
+documentation/CORRECTIONS.md	palnbr 16	RF-1813e230	meta-mention	CX-21's key table, pointing at CX-07.
+reports/METHODS.md	~52×	look-elsewhere factor for TR-8 was examined and	meta-mention	METHODS review-record paragraph: names the figure in order to record that it was DECLINED (d73-margin), stating the supported floor of >=~10x.
+reports/evidence/dav_tier1.out	palnbr 16	4.1690976127e-04	literal	Population histogram bin row P(palnbr=16) in the archived tier-1 run, NOT the retracted Mawangdui corpus-control value (16 -> 13, TR-10 v1.2): a fixed-string collision, adjudicated at the 2026-08-07 evidence-corpus extension, where it was the ONLY hit across 54 non-md evidence files. The anchor is the bin's own population mass, unique in the file.
+documentation/DESCRIPTION_LENGTH.md	102.7	undocumented corner picks) restated as the full envelope	meta-mention	DESCRIPTION_LENGTH.md's own revision note for the v1.22 mirror must quote the figure it recorded adopting.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	102.7	was published as	meta-mention	§4's dated correction marker states what the low corner read until 2026-09-02; a correction that cannot name the figure it replaces records nothing.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	102.7	net-savings endpoints were undocumented corner picks	meta-mention	the v1.22 revision row, which recorded ADOPTING this corner. Revision rows are an audit trail and are never rewritten.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	102.7	savings-envelope low corner moves	meta-mention	the v1.24 revision row, which records the 102.7 -> 107.2 correction and must name both endpoints.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	−0.6 to −4	from v1.7 (2026-07-10)	meta-mention	§2 footnote 7 quotes the withdrawn cell verbatim in order to show what it read and why the arithmetic never supported it.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	−0.6 to −4	net bracket is corrected	meta-mention	the v1.24 revision row, which records the correction and must name the bracket it replaces.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	94 bits to spare	entering it gives	meta-mention	§5(f)'s narrowing marker quotes the withdrawn margin in order to say that it is withdrawn.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	94 bits to spare	dominance survives with	meta-mention	the v1.22 revision row, which recorded ADOPTING the margin. Revision rows are an audit trail and are never rewritten.
+reports/TR9_PRICING_THE_CONSTRAINTS.md	94 bits to spare	banked dominance surviving	meta-mention	the v1.24 revision row, which records the withdrawal and must name what was withdrawn.
+documentation/CORRECTIONS.md	102.7	and its low corner consumed the withdrawn	meta-mention	the correction ledger's own entry must quote the endpoint it retires; CORRECTIONS.md is append-only (GATE 10b) so this quotation is permanent.
+documentation/CORRECTIONS.md	102.7	With the supported endpoint it is	meta-mention	the same ledger entry showing the arithmetic that produced the retired corner, 127.3 + (-4) + (-20.6) = 102.7, beside its replacement.
+documentation/CRITIQUE.md	p ≈ 0.13	corrected 2026-09-01: this read	meta-mention	The 2026-09-01 in-place correction states the withdrawn value in the act of withdrawing it; the sentence is the record of what changed and cannot omit it.
+reports/TR5_SYMMETRY.md	relerr 0.130	That 0.130 has no derivation on file	meta-mention	TR-5 §3(iii) must quote the withdrawn wording in the sentence that withdraws it.
+documentation/SYMMETRY_SEARCH.md	relerr 0.130	The 0.130 has no derivation on file	meta-mention	Sibling site of the TR-5 withdrawal; same requirement to quote what it retires.
+documentation/CORRECTIONS.md	relerr 0.130	published a *"noise floor (median relerr 0.130)"*	meta-mention	The 2026-09-03 ledger entry's BEFORE line: an append-only ledger must quote the figure to record its withdrawal.
+documentation/CORRECTIONS.md	relerr 0.130	The needle is content-anchored	meta-mention	Same 2026-09-03 entry, Registry key paragraph: naming the needle is how a reader joins the ledger entry to RF-4e81ce69, so the entry must repeat it.

@@ -1,0 +1,22 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+order=O3	object=WALK	space=C1C2C4C5-SUPERSPACE
+#o3-trace	step=1	pair=11	entry=1	exit=32	orient=1	alts=12	mass_below=9472	f=1	g=2368	g_parent=26112	p=2368/26112	bits=3.462972
+#o3-trace	step=2	pair=7	entry=8	exit=4	orient=1	alts=9	mass_below=2720	f=2	g=456	g_parent=2368	p=456/2368	bits=2.376563
+#o3-trace	step=3	pair=3	entry=2	exit=16	orient=0	alts=7	mass_below=0	f=8	g=160	g_parent=456	p=160/456	bits=1.510962
+#o3-trace	step=4	pair=21	entry=31	exit=62	orient=0	alts=5	mass_below=768	f=40	g=32	g_parent=160	p=32/160	bits=2.321928
+#o3-trace	step=5	pair=4	entry=55	exit=59	orient=0	alts=4	mass_below=0	f=80	g=8	g_parent=32	p=8/32	bits=2.000000
+#o3-trace	step=6	pair=6	entry=61	exit=47	orient=0	alts=2	mass_below=0	f=320	g=4	g_parent=8	p=4/8	bits=1.000000
+#o3-trace	step=7	pair=14	entry=45	exit=18	orient=1	alts=1	mass_below=0	f=640	g=4	g_parent=4	p=4/4	bits=0.000000
+#o3-trace	step=8	pair=13	entry=33	exit=30	orient=0	alts=4	mass_below=0	f=1728	g=1	g_parent=4	p=1/4	bits=2.000000
+#o3-trace	step=9	pair=30	entry=12	exit=51	orient=1	alts=1	mass_below=0	f=4736	g=1	g_parent=1	p=1/1	bits=0.000000
+#o3-trace-summary	n=9	N=26112	g(s_0)=N VERIFIED	g(s_n)=1 VERIFIED	flow_identities=9/9	sum_bits=14.672425	log2N=14.672425	product(p_i)=1/N EXACT (telescoping + per-step flow identities)
+rank3	13056
+class	m=128	orient_idx=96	class_first_rank3=12960	(records are orientation-masked classes; repr(k) = the O3-least member = rank class_first_rank3; SUPERSPACE m — see module header)
+[kc-o3-bracket] r-1=13055	1,32,4,8,16,2,62,31,59,55,47,61,45,18,30,33,12,51
+[kc-o3-bracket] r  =13056	1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51
+[kc-o3-bracket] r+1=13057	1,32,8,4,2,16,31,62,55,59,61,47,45,18,30,33,12,51
+[kc-o3-bracket] O3(w[r-1]) < O3(w[r]): STRICT OK (first divergence: slot 2 (orient tiebreak 0 vs 1; SAME class))
+[kc-o3-bracket] O3(w[r]) < O3(w[r+1]): STRICT OK (first divergence: slot 8 (orient tiebreak 0 vs 1; SAME class))
+[kc-o3-bracket] rank3 roundtrips + strict order: CERTIFICATE PASS
+#provenance	engine=solve.c/kc-o3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)

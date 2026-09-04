@@ -1,10 +1,10 @@
 # Enumeration Leaderboard
 
-> Canonical sha256 hashes, record counts, and reproducibility parameters are listed in [`CANONICAL_HASHES.md`](../documentation/CANONICAL_HASHES.md). The deepest published partial enumeration is the **d3 560T canonical** (established 2026-06-08): **10,525,271,997 orderings** (`9a968fa2…`, current main lineage at git `2b01b15`). **As of 2026-06-30 the 560T canonical is CANONICAL-verified** — it was SUSPECT from 2026-06-21 (a proven eviction-resume determinism bug + 5 Spot evictions on the pre-fix solver), but a from-scratch re-run on the fixed solver reproduced `9a968fa2` byte-for-byte (identical sha and 10,525,271,997-record count, across 7 fresh evictions that all resumed cleanly), so the original run was complete and the count above stands. See [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §d3 560T. The d3 100T canonical at 3,432,399,297 orderings (`915abf30…`) is the next-deepest and remains an active reference anchor for cross-scale stability checks. The v2 100T row (3,663,580,914 orderings, `cc4a5377…`, +6.74 % over v1 100T) is frozen as historical record — see CANONICAL_HASHES.md §"Historical (frozen lineages)". The d3 10T and d2 10T canonicals remain at fully-validated reference counts and serve as drift-detection anchors at smaller scales. Older figures (742M hash-bug, 31.6M filename-collision bug) appear only as historical context. The difference between d2 and d3 counts is a partition-strategy effect, not a constraint difference. The 100T : 10T ratio of 4.86× (v1) and the **560T : 100T ratio of 3.07×** (v1, current main) both reflect diminishing returns in the search tree (linear node budget yields sublinear new-orderings) — the 3-point fit across 11.2 T → 100 T → 560 T gives an empirical power-law exponent α ≈ 0.67 (3-point log-log fit; pairwise legs 0.69 and 0.65). The 2026-06-14 three-point per-cell analysis confirms the trajectory is **strictly nested** — 11.2T ⊆ 100T ⊆ 560T with **0 monotonicity violations** under pair-identity keying (records 759,608,573 → 3,432,399,297 → 10,525,271,997; pair-identity cells yielding 9,799 → 10,062 → 10,618) — and that growth is **deepening of existing productive cells, not new regions** (cells first appearing at a larger scale contribute only ~0.2% then ~0.5% of that scale's records). Every sampled sub-branch remains **BUDGETED (none EXHAUSTED)** at 560T, so the exhaustive enumeration cannot state an exact total — but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts the total at **≈10³⁸** (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B is ≈1 part in 10²⁷ of the space and exhaustion is infeasible at any budget (see [`SEARCH_SPACE_SIZE.md`](../documentation/SEARCH_SPACE_SIZE.md)). Each canonical scale is a reproducible *slice* at a fixed budget, and the 1120T extension is a discriminating test of the asymptote. (Orientation-specific keying shows spurious "violations" — an artifact of orientation-collapse dedup, not real non-monotonicity.)
+> Canonical sha256 hashes, record counts, and reproducibility parameters are listed in [`CANONICAL_HASHES.md`](../documentation/CANONICAL_HASHES.md). The deepest published partial enumeration is the **d3 560T canonical** (established 2026-06-08): **10,525,271,997 orderings** (`9a968fa2…`, current main lineage at git `2b01b15`). **As of 2026-06-30 the 560T canonical is CANONICAL-verified** — it was SUSPECT from 2026-06-21 (a proven eviction-resume determinism bug + 5 Spot evictions on the pre-fix solver), but a from-scratch re-run on the fixed solver reproduced `9a968fa2` byte-for-byte (identical sha and 10,525,271,997-record count, across 7 fresh evictions that all resumed cleanly), so the original run was complete and the count above stands. See [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §d3 560T. The d3 100T canonical at 3,432,399,297 orderings (`915abf30…`) is the next-deepest and remains an active reference anchor for cross-scale stability checks. The v2 100T row (3,663,580,914 orderings, `cc4a5377…`, +6.74 % over v1 100T) is frozen as historical record — see CANONICAL_HASHES.md §"Historical (frozen lineages)". The d3 10T and d2 10T canonicals remain at fully-validated reference counts and serve as drift-detection anchors at smaller scales. Older figures (742M hash-bug, 31.6M filename-collision bug) appear only as historical context. The difference between d2 and d3 counts is a partition-strategy effect, not a constraint difference. The 100T : 10T ratio of 4.86× (v1) and the **560T : 100T ratio of 3.07×** (v1, current main) both reflect diminishing returns in the search tree (linear node budget yields sublinear new-orderings) — the 3-point fit across 11.2 T → 100 T → 560 T gives an empirical power-law exponent α ≈ 0.67 (3-point log-log fit; pairwise legs 0.69 and 0.65). The 2026-06-14 three-point per-cell analysis confirms the trajectory is **strictly nested** — 11.2T ⊆ 100T ⊆ 560T with **0 monotonicity violations** under pair-identity keying (records 759,608,573 → 3,432,399,297 → 10,525,271,997; pair-identity cells yielding 9,799 → 10,062 → 10,618) — and that growth is **deepening of existing productive cells, not new regions** (cells first appearing at a larger scale contribute only ~0.2% then ~0.5% of that scale's records). Every sampled sub-branch remains **BUDGETED (none EXHAUSTED)** at 560T, so the budgeted enumeration cannot state an exact total — but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts the total at **≈10³⁸** (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B is ≈1 part in 10²⁷ of the space and exhaustion is infeasible at any budget (see [`SEARCH_SPACE_SIZE.md`](../documentation/SEARCH_SPACE_SIZE.md)). ⚠ **[TWO FIGURES WITHDRAWN 2026-08-24, both in the sentence just above. (1) The ≈3×10³⁷ distinct-canonical figure is WITHDRAWN — it exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; the ≈10³⁸ raw total is not affected. (2) The distinct-vs-distinct pairing behind "≈1 part in 10²⁷" is WITHDRAWN; stated raw-against-raw it is ≈1 part in 3.03×10²⁷. See documentation/CORRECTIONS.md]** ⚠ **[BOUND, NOT EQUALITY — 2026-09-02, prose lane, propagating TR-4 v1.24: the numerator 43,876,464,466 counts per-sub-branch canonical keys, a lower bound on raw oriented leaves (CORRECTIONS.md 2026-08-28), so the coverage is **at least** 1 part in 3.03×10²⁷, not ≈; the infeasibility conclusion is unaffected.]** Each canonical scale is a reproducible *slice* at a fixed budget. A 1120T extension would have been a discriminating test of the asymptote; it is **not planned** (2026-08-01), so **560T is the deepest canonical this project will publish**. (Orientation-specific keying shows spurious "violations" — an artifact of orientation-collapse dedup, not real non-monotonicity.)
 >
-> **Novel finding from 100T [`--c3-min`](../documentation/SOLVE_C_CLI.md#--c3-min) analysis (2026-04-20; 560T re-affirmed 2026-06-11):** KW is **not** the C3-minimum under C1+C2+C3. At 100T: minimum complement distance = **424** (221 records); KW sits at C3 = 776 (ceiling of the constraint). At 560T (3.07× the scale), KW's position at the C3 = 776 *ceiling* is reaffirmed. The simple axiom "minimize C3" does not derive KW — this is a confirmed negative result for Open Question #7 Phase A across both scales.
+> **Novel finding from 100T [`--c3-min`](../documentation/SOLVE_C_CLI.md#--c3-min) analysis (2026-04-20; 560T re-affirmed 2026-06-11):** KW is **not** the C3-minimum under C1–C5. At 100T: minimum complement distance = **424** (221 records); KW sits at C3 = 776 (ceiling of the constraint). At 560T (3.07× the scale), KW's position at the C3 = 776 *ceiling* is reaffirmed. The simple axiom "minimize C3" does not derive KW — this is a confirmed negative result for Open Question #7 Phase A across both scales.
 >
-> **Second novel finding (2026-04-20 100T baseline; updated 2026-06-11 with full 560T [`--analyze`](../documentation/SOLVE_C_CLI.md#--analyze); corrected 2026-07-04):** the **boundary-minimum is monotone non-decreasing in scale: 4 → 5 → 5 across 10T → 100T → 560T**. At d2 10T and d3 10T, 4-boundary subsets uniquely identify KW. At d3 100T, NO 4-subset worked; greedy-optimal was a 5-set **{1, 4, 21, 25, 27}**. At d3 560T (current deepest), **the greedy minimum stays 5 with the identical set {4, 27, 25, 21, 1}** (boundary 4 alone eliminates 99.999% of non-KW; 27 → 481 survivors; 25 → 14; 21 → 1; boundary 1 eliminates the last impostor, rec#330177707 — KW with the position-2/3 pair blocks swapped). The working-4-subset count (§[8]) drops to **0** at 560T, vs 4 at 742M and 8 at 11.2T — at canonical depth no 4-tuple of boundaries jointly reduces survivors to ≤ 1, consistent with the greedy minimum of 5. *(Cross-era caveats, added 2026-07-04: the "8" is log-verified at d3 10T, and the 11.2T attribution awaits confirmation from the archived 11.2T analyze log; the 742M "4" was computed under the pre-format-v1 "survivors ≤ 4" convention — 4 orientation variants per ordering — vs the canonical-era "≤ 1", so the series is directionally sound but not convention-identical.)* *(The 2026-06-11 version of this note reported "drops back to 4 at 560T, non-monotone" — a survivor-counting error that stopped at 1 remaining non-KW survivor instead of 0; see [BOUNDARY_MINIMUM.md](../documentation/BOUNDARY_MINIMUM.md).)* Boundaries {25, 27} remain in the greedy minimum across every partition tested. §[9] result: `{25, 27}` is one of the most informationally-independent boundary pairs (ratio 0.007) — explaining WHY they keep appearing. §[10] top pairwise MI at 560T: pos 12 ↔ 13 = 1.3417 bits (cascade-region 11–20 dominates the top-10). §[18] boundary 4 alone yields 45.14 bits of conditional-entropy information gain (of 77.81 bits total baseline) — half of total entropy. See [SOLVE-SUMMARY.md](../documentation/SOLVE-SUMMARY.md) §"560T canonical results" + [HISTORY.md](../documentation/HISTORY.md) "June 10-11, 2026" entry for the full §[1]–§[28] dump.
+> **Second novel finding (2026-04-20 100T baseline; updated 2026-06-11 with full 560T [`--analyze`](../documentation/SOLVE_C_CLI.md#--analyze); corrected 2026-07-04):** the **boundary-minimum is monotone non-decreasing in scale: 4 → 5 → 5 across 10T → 100T → 560T**. At d2 10T and d3 10T, 4-boundary subsets uniquely identify KW. At d3 100T, NO 4-subset worked; greedy-optimal was a 5-set **{1, 4, 21, 25, 27}**. At d3 560T (current deepest), **the greedy minimum stays 5 with the identical set {4, 27, 25, 21, 1}** (boundary 4 alone eliminates 99.999% of non-KW; 27 → 481 survivors; 25 → 14; 21 → 1; boundary 1 eliminates the last impostor, rec#330177707 — KW with the position-2/3 pair blocks swapped). The working-4-subset count (§[8]) drops to **0** at 560T, vs 4 at 742M and 8 at 11.2T — at canonical depth no 4-tuple of boundaries jointly reduces survivors to ≤ 1, consistent with the greedy minimum of 5. *(Cross-era caveats, added 2026-07-04: the "8" is log-verified at d3 10T, and the 11.2T attribution awaits confirmation from the archived 11.2T analyze log; the 742M "4" was computed under the pre-format-v1 "survivors ≤ 4" convention — 4 orientation variants per ordering — vs the canonical-era "≤ 1", so the series is directionally sound but not convention-identical.)* *(The 2026-06-11 version of this note reported "drops back to 4 at 560T, non-monotone" — a survivor-counting error that stopped at 1 remaining non-KW survivor instead of 0; see [BOUNDARY_MINIMUM.md](../documentation/BOUNDARY_MINIMUM.md).)* Boundaries {25, 27} remain in the greedy minimum across every partition tested. §[9] result: `{25, 27}` is one of the most informationally-independent boundary pairs (ratio 0.007) — explaining WHY they keep appearing. §[10] top pairwise MI at 560T: pos 12 ↔ 13 = 1.3417 bits (cascade-region 11–20 dominates the top-10). §[18] boundary 4 alone yields 45.14 bits of conditional-entropy information gain (of 77.81 bits total baseline) — half of total entropy. See [PROJECT_OVERVIEW.md](../documentation/PROJECT_OVERVIEW.md) §"560T canonical results" + [HISTORY.md](../documentation/HISTORY.md) "June 10-11, 2026" entry for the full §[1]–§[28] dump.
 >
 > **Single-branch deep-walk pilot (2026-04-29):** `22_0_30_1_20_0` at d3 100T per-task-cap = 40 G:
 > **664,086,250 canonical orderings** in this *single* depth-3 sub-branch (sha `52c8d308257d3b75041d0743b4b02a37360fe6567fec7c1c07ed49d8d22a29b9`, 20.0 GB). Distinct from the d3 100T full-canonical (`915abf30…`, 3.43 B across all 158,364 branches) — this is *one* branch with a higher per-cell budget. The 100T canonical's per-branch budget reported `22_0_30_1_20_0` as a "yield-16 laggard"; this pilot with 100T concentrated on the single branch found ~50,000,000× more solutions, demonstrating the canonical's per-branch yield labels are scope-bounded by per-branch budget rather than branch yield. 0 of 2,380 walked (p4, o4, p5, o5) cells naturally exhausted under the 40 G per-cell cap. See HISTORY.md §April 28-29 for full details.
@@ -13,7 +13,9 @@
 
 ## What this is
 
-About 3,000 years ago, someone in ancient China arranged 64 symbols called
+Long ago — traditionally about 3,000 years, though the dating of the ordering's
+fixation is debated — someone in ancient China, or successive generations of
+practitioners, arranged 64 symbols called
 [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching)) in a specific order —
 the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence).
 There are more possible arrangements than atoms in the universe (about 10^89).
@@ -22,7 +24,7 @@ arrangements satisfy them all. This project is cataloging every valid arrangemen
 to understand what makes the historical one special — or whether it is simply
 one choice among many.
 
-For the rules themselves, see [SOLVE-SUMMARY.md](../documentation/SOLVE-SUMMARY.md).
+For the rules themselves, see [SOLVE_SUMMARY.md](../documentation/SOLVE_SUMMARY.md).
 For formal definitions, see [SPECIFICATION.md](../documentation/SPECIFICATION.md).
 
 ---
@@ -32,7 +34,7 @@ For formal definitions, see [SPECIFICATION.md](../documentation/SPECIFICATION.md
 ## How constrained is each position?
 
 The King Wen sequence arranges 32 hexagram pairs in order. Position 1 (the opening
-pair) is mathematically forced — it must be ䷀ The Creative / ䷁ The Receptive.
+pair) is mathematically forced — it must be ䷀ #1 / ䷁ #2.
 But how free are the remaining 31 positions? The table below shows what the
 enumeration has found so far.
 
@@ -92,7 +94,7 @@ freedom in the first half but considerable freedom in the second half.
 ## How close are the nearest alternatives?
 
 The closest valid orderings differ from King Wen by just **2 pair positions** —
-always in the last third of the sequence (positions 26-32). The top 20 nearest
+*(Position claim retracted — an earlier version said "always in the last third (positions 26-32)"; no canonical dataset supports it. Distance-2 twins occur at the front and middle at every canonical scale.)* The top 20 nearest
 alternatives all differ at exactly 2 positions. No valid ordering differs by just 1.
 
 The edit distance distribution (number of pair positions differing from King Wen):
@@ -113,7 +115,7 @@ Most valid orderings look **nothing like** King Wen. King Wen is not
 ## Which pairs can appear at position 2?
 
 Position 2 is the first "free" position — 16 different pairs can validly follow
-Creative/Receptive. King Wen's choice (䷂䷃ #3 Difficulty / #4 Folly) appears in only
+hexagram 1 / hexagram 2. King Wen's choice (䷂䷃ #3 / #4) appears in only
 0.2% of valid orderings. Some choices at position 2 produce millions of downstream
 valid orderings; others produce zero.
 
@@ -156,7 +158,7 @@ valid orderings; others produce zero.
 **Key insight:** Nearly half the possible position-2 choices lead to dead branches —
 no valid orderings exist (or at least none have been found). The viable choices vary
 enormously in how many valid orderings they produce, from hundreds of thousands to
-millions. The [complement distance constraint](../documentation/SOLVE-SUMMARY.md#rule-3)
+millions. The [complement distance constraint](../documentation/SOLVE_SUMMARY.md#rule-3)
 interacts very differently with different position-2 pairs.
 
 ## What remains unknown
@@ -165,9 +167,7 @@ interacts very differently with different position-2 pairs.
   **706,427,594** at d3 (sha `b85c8871…`) and **286,357,503** at d2. These are lower bounds at
   a fixed budget: every sub-branch hits its per-sub-branch node budget rather than completing
   naturally. An unbiased Monte-Carlo estimate now puts the total number of C1–C5-satisfying
-  orderings at **≈10³⁸** (≈3×10³⁷ distinct-canonical) — see
-  [`../documentation/SEARCH_SPACE_SIZE.md`](../documentation/SEARCH_SPACE_SIZE.md); no canonical
-  scale is exhaustive.
+  orderings at **≈10³⁸** (≈3×10³⁷ distinct-canonical) — see [`../documentation/SEARCH_SPACE_SIZE.md`](../documentation/SEARCH_SPACE_SIZE.md); no canonical scale is exhaustive. ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical figure on this line exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 - **Whether the 4-boundary uniqueness result holds at larger scale, and which specific
   boundaries.** Four boundary constraints are the empirical minimum at both d2 and d3 —
   all 4,495 three-subsets fail at each. **What is partition-stable**: boundaries **{25, 27}**
@@ -218,7 +218,7 @@ is never lost.
 | Term | Meaning |
 |------|---------|
 | **Valid ordering** | An arrangement of all 64 hexagrams satisfying constraints [C1-C5](../documentation/SPECIFICATION.md#constraints) |
-| **C3-valid solution** | A complete sequence passing all 5 constraints. "C3-valid" because C3 ([complement distance](../documentation/SOLVE-SUMMARY.md#rule-3)) is the last constraint checked. Multiple C3-valid solutions can represent the same valid ordering (different within-pair orientations) |
+| **C3-valid solution** | A complete sequence passing all 5 constraints. "C3-valid" because C3 ([complement distance](../documentation/SOLVE_SUMMARY.md#rule-3)) is the last constraint checked. Multiple C3-valid solutions can represent the same valid ordering (different within-pair orientations) |
 | **Stored** | Unique valid orderings saved to the hash table (orientation collapsed) |
 | **Nodes** | Individual states explored by the search algorithm |
 | **Estimated dead** | Produced zero valid orderings in partial exploration. Likely dead, but not proven until fully explored |
@@ -308,7 +308,7 @@ Older figures (742M hash-table-bug, 31.6M filename-collision-bug) superseded. Se
 ## Branch details
 
 <a id="branch-1-0"></a>
-### ䷂䷃ #3 Difficulty at the Beginning / #4 Youthful Folly — King Wen's branch
+### ䷂䷃ #3 / #4 — King Wen's branch
 
 **Pair 1, orient 0** — Partial — at least 189,134 unique orderings found (lower bound).
 
@@ -327,7 +327,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-1-1"></a>
-### ䷃䷂ #4 Youthful Folly / #3 Difficulty at the Beginning
+### ䷃䷂ #4 / #3
 
 **Pair 1, orient 1** — Partial — at least 195,654 unique orderings found (lower bound).
 
@@ -344,7 +344,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-2-0"></a>
-### ䷄䷅ #5 Waiting / #6 Conflict
+### ䷄䷅ #5 / #6
 
 **Pair 2, orient 0** — Partial — at least 194,687 unique orderings found (lower bound).
 
@@ -361,7 +361,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-2-1"></a>
-### ䷅䷄ #6 Conflict / #5 Waiting
+### ䷅䷄ #6 / #5
 
 **Pair 2, orient 1** — Partial — at least 197,738 unique orderings found (lower bound).
 
@@ -378,7 +378,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-3-0"></a>
-### ䷆䷇ #7 The Army / #8 Holding Together
+### ䷆䷇ #7 / #8
 
 **Pair 3, orient 0** — Partial — at least 197,814 unique orderings found (lower bound).
 
@@ -395,7 +395,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-3-1"></a>
-### ䷇䷆ #8 Holding Together / #7 The Army
+### ䷇䷆ #8 / #7
 
 **Pair 3, orient 1** — Partial — at least 233,660 unique orderings found (lower bound).
 
@@ -412,7 +412,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-5-0"></a>
-### ䷊䷋ #11 Peace / #12 Standstill
+### ䷊䷋ #11 / #12
 
 **Pair 5, orient 0** — Partial — at least 1,659,462 unique orderings found (lower bound).
 
@@ -429,7 +429,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-5-1"></a>
-### ䷋䷊ #12 Standstill / #11 Peace
+### ䷋䷊ #12 / #11
 
 **Pair 5, orient 1** — Partial — at least 1,659,462 unique orderings found (lower bound).
 
@@ -446,7 +446,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-7-0"></a>
-### ䷎䷏ #15 Modesty / #16 Enthusiasm
+### ䷎䷏ #15 / #16
 
 **Pair 7, orient 0** — Partial — at least 443,216 unique orderings found (lower bound).
 
@@ -463,7 +463,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-7-1"></a>
-### ䷏䷎ #16 Enthusiasm / #15 Modesty
+### ䷏䷎ #16 / #15
 
 **Pair 7, orient 1** — Partial — at least 443,216 unique orderings found (lower bound).
 
@@ -480,7 +480,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-8-0"></a>
-### ䷐䷑ #17 Following / #18 Work on What Has Been Spoiled
+### ䷐䷑ #17 / #18
 
 **Pair 8, orient 0** — Partial — at least 670,407 unique orderings found (lower bound).
 
@@ -497,7 +497,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-8-1"></a>
-### ䷑䷐ #18 Work on What Has Been Spoiled / #17 Following
+### ䷑䷐ #18 / #17
 
 **Pair 8, orient 1** — Partial — at least 681,675 unique orderings found (lower bound).
 
@@ -514,7 +514,7 @@ This is the subtree containing the actual historical King Wen sequence.
 </details>
 
 <a id="branch-9-0"></a>
-### ䷒䷓ #19 Approach / #20 Contemplation
+### ䷒䷓ #19 / #20
 
 **Pair 9, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -533,7 +533,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-9-1"></a>
-### ䷓䷒ #20 Contemplation / #19 Approach
+### ䷓䷒ #20 / #19
 
 **Pair 9, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -552,7 +552,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-10-0"></a>
-### ䷔䷕ #21 Biting Through / #22 Grace
+### ䷔䷕ #21 / #22
 
 **Pair 10, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -571,7 +571,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-10-1"></a>
-### ䷕䷔ #22 Grace / #21 Biting Through
+### ䷕䷔ #22 / #21
 
 **Pair 10, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -590,7 +590,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-11-0"></a>
-### ䷖䷗ #23 Splitting Apart / #24 Return
+### ䷖䷗ #23 / #24
 
 **Pair 11, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -609,7 +609,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-11-1"></a>
-### ䷗䷖ #24 Return / #23 Splitting Apart
+### ䷗䷖ #24 / #23
 
 **Pair 11, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -628,7 +628,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-12-0"></a>
-### ䷘䷙ #25 Innocence / #26 The Taming Power of the Great
+### ䷘䷙ #25 / #26
 
 **Pair 12, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -647,7 +647,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-12-1"></a>
-### ䷙䷘ #26 The Taming Power of the Great / #25 Innocence
+### ䷙䷘ #26 / #25
 
 **Pair 12, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -666,7 +666,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-13-0"></a>
-### ䷚䷛ #27 Corners of the Mouth / #28 Preponderance of the Great
+### ䷚䷛ #27 / #28
 
 **Pair 13, orient 0** — Partial — at least 2,239,707 unique orderings found (lower bound).
 
@@ -683,7 +683,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-13-1"></a>
-### ䷛䷚ #28 Preponderance of the Great / #27 Corners of the Mouth
+### ䷛䷚ #28 / #27
 
 **Pair 13, orient 1** — Partial — at least 2,239,707 unique orderings found (lower bound).
 
@@ -700,7 +700,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-14-0"></a>
-### ䷜䷝ #29 The Abysmal / #30 The Clinging
+### ䷜䷝ #29 / #30
 
 **Pair 14, orient 0** — Partial — at least 2,225,037 unique orderings found (lower bound).
 
@@ -717,7 +717,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-14-1"></a>
-### ䷝䷜ #30 The Clinging / #29 The Abysmal
+### ䷝䷜ #30 / #29
 
 **Pair 14, orient 1** — Partial — at least 2,225,037 unique orderings found (lower bound).
 
@@ -734,7 +734,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-15-0"></a>
-### ䷞䷟ #31 Influence / #32 Duration
+### ䷞䷟ #31 / #32
 
 **Pair 15, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -753,7 +753,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-15-1"></a>
-### ䷟䷞ #32 Duration / #31 Influence
+### ䷟䷞ #32 / #31
 
 **Pair 15, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -772,7 +772,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-16-0"></a>
-### ䷠䷡ #33 Retreat / #34 The Power of the Great
+### ䷠䷡ #33 / #34
 
 **Pair 16, orient 0** — Partial — at least 1,194,709 unique orderings found (lower bound).
 
@@ -789,7 +789,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-16-1"></a>
-### ䷡䷠ #34 The Power of the Great / #33 Retreat
+### ䷡䷠ #34 / #33
 
 **Pair 16, orient 1** — Partial — at least 1,194,709 unique orderings found (lower bound).
 
@@ -806,7 +806,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-17-0"></a>
-### ䷢䷣ #35 Progress / #36 Darkening of the Light
+### ䷢䷣ #35 / #36
 
 **Pair 17, orient 0** — Overflow — hash table full. At least 4,194,304 unique orderings; true count higher.
 
@@ -826,7 +826,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 </details>
 
 <a id="branch-17-1"></a>
-### ䷣䷢ #36 Darkening of the Light / #35 Progress
+### ䷣䷢ #36 / #35
 
 **Pair 17, orient 1** — Overflow — hash table full. At least 4,194,304 unique orderings; true count higher.
 
@@ -846,7 +846,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 </details>
 
 <a id="branch-18-0"></a>
-### ䷤䷥ #37 The Family / #38 Opposition
+### ䷤䷥ #37 / #38
 
 **Pair 18, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -865,7 +865,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-18-1"></a>
-### ䷥䷤ #38 Opposition / #37 The Family
+### ䷥䷤ #38 / #37
 
 **Pair 18, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -884,7 +884,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-19-0"></a>
-### ䷦䷧ #39 Obstruction / #40 Deliverance
+### ䷦䷧ #39 / #40
 
 **Pair 19, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -903,7 +903,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-19-1"></a>
-### ䷧䷦ #40 Deliverance / #39 Obstruction
+### ䷧䷦ #40 / #39
 
 **Pair 19, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -922,7 +922,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-20-0"></a>
-### ䷨䷩ #41 Decrease / #42 Increase
+### ䷨䷩ #41 / #42
 
 **Pair 20, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -941,7 +941,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-20-1"></a>
-### ䷩䷨ #42 Increase / #41 Decrease
+### ䷩䷨ #42 / #41
 
 **Pair 20, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -960,7 +960,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-22-0"></a>
-### ䷬䷭ #45 Gathering Together / #46 Pushing Upward
+### ䷬䷭ #45 / #46
 
 **Pair 22, orient 0** — Partial — at least 3,733,761 unique orderings found (lower bound).
 
@@ -977,7 +977,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-22-1"></a>
-### ䷭䷬ #46 Pushing Upward / #45 Gathering Together
+### ䷭䷬ #46 / #45
 
 **Pair 22, orient 1** — Partial — at least 3,663,111 unique orderings found (lower bound).
 
@@ -994,7 +994,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-23-0"></a>
-### ䷮䷯ #47 Oppression / #48 The Well
+### ䷮䷯ #47 / #48
 
 **Pair 23, orient 0** — Partial — at least 1,248,692 unique orderings found (lower bound).
 
@@ -1011,7 +1011,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-23-1"></a>
-### ䷯䷮ #48 The Well / #47 Oppression
+### ䷯䷮ #48 / #47
 
 **Pair 23, orient 1** — Partial — at least 1,248,692 unique orderings found (lower bound).
 
@@ -1028,7 +1028,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-24-0"></a>
-### ䷰䷱ #49 Revolution / #50 The Cauldron
+### ䷰䷱ #49 / #50
 
 **Pair 24, orient 0** — Overflow — hash table full. At least 4,194,304 unique orderings; true count higher.
 
@@ -1048,7 +1048,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 </details>
 
 <a id="branch-24-1"></a>
-### ䷱䷰ #50 The Cauldron / #49 Revolution
+### ䷱䷰ #50 / #49
 
 **Pair 24, orient 1** — Overflow — hash table full. At least 4,194,304 unique orderings; true count higher.
 
@@ -1068,7 +1068,7 @@ Needs `SOLVE_HASH_LOG2=24` for complete enumeration.
 </details>
 
 <a id="branch-25-0"></a>
-### ䷲䷳ #51 The Arousing / #52 Keeping Still
+### ䷲䷳ #51 / #52
 
 **Pair 25, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1087,7 +1087,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-25-1"></a>
-### ䷳䷲ #52 Keeping Still / #51 The Arousing
+### ䷳䷲ #52 / #51
 
 **Pair 25, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1106,7 +1106,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-26-0"></a>
-### ䷴䷵ #53 Development / #54 The Marrying Maiden
+### ䷴䷵ #53 / #54
 
 **Pair 26, orient 0** — Partial — at least 217,562 unique orderings found (lower bound).
 
@@ -1123,7 +1123,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-26-1"></a>
-### ䷵䷴ #54 The Marrying Maiden / #53 Development
+### ䷵䷴ #54 / #53
 
 **Pair 26, orient 1** — Partial — at least 217,562 unique orderings found (lower bound).
 
@@ -1140,7 +1140,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-27-0"></a>
-### ䷶䷷ #55 Abundance / #56 The Wanderer
+### ䷶䷷ #55 / #56
 
 **Pair 27, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1159,7 +1159,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-27-1"></a>
-### ䷷䷶ #56 The Wanderer / #55 Abundance
+### ䷷䷶ #56 / #55
 
 **Pair 27, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1178,7 +1178,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-28-0"></a>
-### ䷸䷹ #57 The Gentle / #58 The Joyous
+### ䷸䷹ #57 / #58
 
 **Pair 28, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1197,7 +1197,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-28-1"></a>
-### ䷹䷸ #58 The Joyous / #57 The Gentle
+### ䷹䷸ #58 / #57
 
 **Pair 28, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1216,7 +1216,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-29-0"></a>
-### ䷺䷻ #59 Dispersion / #60 Limitation
+### ䷺䷻ #59 / #60
 
 **Pair 29, orient 0** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1235,7 +1235,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-29-1"></a>
-### ䷻䷺ #60 Limitation / #59 Dispersion
+### ䷻䷺ #60 / #59
 
 **Pair 29, orient 1** — Estimated dead — no valid orderings found in partial exploration. Not proven.
 
@@ -1254,7 +1254,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-30-0"></a>
-### ䷼䷽ #61 Inner Truth / #62 Preponderance of the Small
+### ䷼䷽ #61 / #62
 
 **Pair 30, orient 0** — Partial — at least 4,149,791 unique orderings found (lower bound).
 
@@ -1271,7 +1271,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-30-1"></a>
-### ䷽䷼ #62 Preponderance of the Small / #61 Inner Truth
+### ䷽䷼ #62 / #61
 
 **Pair 30, orient 1** — Partial — at least 3,408,244 unique orderings found (lower bound).
 
@@ -1288,7 +1288,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-31-0"></a>
-### ䷾䷿ #63 After Completion / #64 Before Completion
+### ䷾䷿ #63 / #64
 
 **Pair 31, orient 0** — Partial — at least 155,326 unique orderings found (lower bound).
 
@@ -1305,7 +1305,7 @@ Every explored path in this subtree violated the complement distance constraint.
 </details>
 
 <a id="branch-31-1"></a>
-### ䷿䷾ #64 Before Completion / #63 After Completion
+### ䷿䷾ #64 / #63
 
 **Pair 31, orient 1** — Partial — at least 155,315 unique orderings found (lower bound).
 
@@ -1324,7 +1324,7 @@ Every explored path in this subtree violated the complement distance constraint.
 ## Running the solver
 
 ```bash
-gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz    # Compile (-lz: #169 native gzip; -lm: math)
+gcc -O3 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz    # Compile (-lz: #169 native gzip; -lm: math; -DGIT_HASH: sha-neutral provenance stamp, else the run records git_hash "unknown")
 ./solve --list-branches              # Show all branches
 SOLVE_THREADS=64 ./solve --branch 24 0 0  # Run one branch
 ./solve --merge                       # Combine sub-branch results

@@ -1,0 +1,61 @@
+# DOC_GATE_SECREF_ALLOWLIST.txt - GATE 4b (scripts/doc_gates.sh)
+#
+# EVERY LINE BELOW IS AN OPEN DEFECT, NOT AN EXEMPTION. GATE 4b re-prints each one as
+# [OPEN] on every run, with its reason, precisely so this file cannot become a place
+# where broken cross-references go to be forgotten. The allowlist exists only so that a
+# NEW dangling section reference fails the build immediately instead of being buried in
+# a list of pre-existing ones.
+#
+# A ROW THAT NO LONGER CORRESPONDS TO A LIVE FINDING IS A HARD FAILURE (item B1,
+# 2026-08-02). GATE 4b compares the rows it actually consulted against the rows in this
+# file and goes red on any row that exempted nothing. An exemption with no finding under
+# it is a silent licence for the next reference that reuses the same (source, target,
+# section) triple, so retiring a row is not bookkeeping - it is part of fixing the defect.
+#
+# Format, TAB-separated, 4 fields, no line numbers (line numbers drift - cf. the GATE 5
+# allowlist note):
+#   source.md <TAB> target.md <TAB> section text as written <TAB> why it is here
+#
+# ------------------------------------------------------------------------------------
+# HISTORY OF THIS FILE - 22 rows on 2026-08-01, 3 today. Recorded because "the allowlist
+# shrank" is a claim that should carry its evidence.
+#
+# The 19 non-meta rows all read "correct target not yet decided - OPEN". Item B1 decided
+# every one, and NOT ONE needed an editorial judgment - each was a determinable fact:
+#
+#   * 12 rows: the target existed and the GATE's model of an anchor was too narrow. This
+#     repo names a block with a line-leading `**Bold label**` as well as with a `##`
+#     heading - `**Global observable ledger (...)**` at reports/METHODS.md:165 is cited
+#     from five files, `**Stop-flag resolution (v1.12, ...)**` at TR-2:412 from four.
+#     Rewriting twelve citations to name the enclosing heading instead would have made
+#     each point at a whole section rather than the paragraph meant, so the corpus was
+#     right and the gate was wrong. GATE 4b now resolves both forms and PRINTS every
+#     bold-anchor resolution, because bold labels outnumber headings and the substring
+#     rule has more room to go wrong on that leg.
+#   * 4 rows: SOLVE_SUMMARY.md S"560T canonical results". Not an editorial call either -
+#     `git log -S` puts that heading in documentation/SOLVE-SUMMARY.md until de3422b
+#     (2026-07-03, "SOLVE-SUMMARY lay-reader revision"), whose own message says the
+#     research-log middle was "relocated verbatim to PROJECT_OVERVIEW". The section is
+#     alive at documentation/PROJECT_OVERVIEW.md:107; four pointers were left behind by
+#     that move and now name the file that holds it.
+#   * 3 rows: stale or imprecise citation text, unambiguous target - DEVELOPMENT.md
+#     S"10T d3 canonical" -> S"Reproduce from scratch"; HISTORY.md S"April 29-30" and
+#     S"April 30, 2026" -> S"April 29, 2026", the one heading carrying that retrospective
+#     (the only "April 30" heading is the 11.2T campaign, a different run); CITATIONS.md
+#     S"(Z/2)6 framing - priority ceded" -> S"(Z/2)6 hexagram algebra ... priority ceded".
+#
+# Two references no run had ever adjudicated were surfaced by the same commit, both
+# invisible for mechanical rather than editorial reasons, and both dead:
+# PARTITION_STABILITY_BOUNDARIES.md:83 (path written in backticks, which the extractor's
+# \s* could not cross) and SYMMETRY_SEARCH.md:275 (reference split by a hard wrap, which
+# the line-at-a-time scan could not see). Both are fixed; neither is allowlisted.
+# ------------------------------------------------------------------------------------
+#
+# ONE kind of entry now lives here: meta-mentions - prose that QUOTES a dead pointer in
+# the act of recording its correction (a revision-history row, a "(Corrected ...)" note).
+# The string is SUPPOSED to be dead; flagging it would punish the correction. Do NOT add
+# a genuinely dangling reference to this class. Fix it - and if it cannot be fixed, the
+# reason field must name the decision that is missing and who owes it, not say "OPEN".
+reports/METHODS.md	documentation/CRITIQUE.md	Q1	meta-mention: quotes the retired pointer while recording its correction; not a live reference
+reports/TR8_REORDERING_REVISITED.md	documentation/CRITIQUE.md	Q1	meta-mention: quotes the retired pointer while recording its correction; not a live reference
+reports/TR9_PRICING_THE_CONSTRAINTS.md	documentation/CRITIQUE.md	Q1	meta-mention: quotes the retired pointer while recording its correction; not a live reference

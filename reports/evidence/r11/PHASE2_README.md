@@ -1,11 +1,37 @@
 # R11 Phase-2 — N_gs re-measurement battery (stop-flag resolution evidence)
 
+> **Reproduce:** `ulimit -s unlimited; bash r11_phase2_battery.sh`
+> (calibration leg: `python3 r11_calibration.py --phase <gates|draws|pcomplete|hits|score|report>`).
+> ⚠ **Scope, stated plainly (2026-08-21, execution-lane findings):** (1) `--phase` is required —
+> the bare calibration command errors with a usage message; (2) the battery's estimator legs need
+> a stack limit of at least 16 MB (`ulimit -s 16384` suffices; the `unlimited` in the Reproduce line above
+> is one sufficient setting, not the requirement — narrowed 2026-09-02, prose batch P37) — under the
+> default 8 MB stack `--estimate-knuth` refuses to start;
+> (3) **the battery script is the archived CAMPAIGN DRIVER, not a repo-relative reproduction**:
+> it hardcodes the campaign VM's layout (`/home/solver/r11p2/…`, `nohup` self-supervision, `sudo
+> shutdown` self-halt) and exits immediately on a host without that layout. Reproducing the
+> battery means re-creating that VM environment; the from-the-repo record is the archived outputs
+> beside it — `battery.log`,
+> `calibration_report.txt`, `derived_ci.out`, `exact_audit.tsv`, `gates.json`, `hits.json`.
+
 This bundle is the measurement that closes the N_gs stop-flag (TR-2 v1.10 → v1.12) and
 re-affirms the corruption-vs-tendency verdict. It re-measures the triple-strict
 (rule-perfect) population size N_gs directly, four times with independent seeds, and runs
 the three pre-registered convergence cross-checks. See
 [../../TR2_THE_RULES_CONFLICT.md](../../TR2_THE_RULES_CONFLICT.md) §"Stop-flag resolution"
 for the narrative and [README.md](README.md) for the bundle index.
+
+**Calibration veto (2026-08-03; note added 2026-08-06 —
+[CORRECTIONS CX-25](../../../documentation/CORRECTIONS.md)).** The verdict this bundle re-affirms
+has since lost its calibration support: the two-model pair (M_corr vs M_tend) failed its own
+pre-registered confusability gate — Half B (M_tend self-recovery) **FAILED at 68/100** against a
+bar frozen at 70 (Half A passed 93/100). The published BF and ≈0.9998 posterior are **no longer
+calibrated in the pooled sense**; the numbers are unchanged and not withdrawn — what is withdrawn
+is their *calibration support*. The N_gs measurement in this bundle is unaffected as a measurement.
+See [../f11halfb/](../f11halfb/) and [TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result".
+*(Superseded 2026-08-07 — [CORRECTIONS CX-26](../../../documentation/CORRECTIONS.md): the BF and
+posterior are now **withdrawn as claimed results**, retained only as the as-computed record; this
+bundle's measurements still stand as measurements.)*
 
 ## Primary measurement — four independent direct seeds
 
@@ -89,10 +115,28 @@ the **15 of 56 branches** whose fixed prefix violates a strict predicate and poo
 ## Honest residuals
 
 The direct estimator's CI rests on ~300 effective samples pooled, so its far tails are not
-guaranteed — hence the conservative error convention. The pooled value 4.50×10²⁵ is 1.4σ
-above the single Phase-1 run it re-checks (5.00×10²⁵ from `r11_ngs.out`) — consistent. No
-value across the conservative CI moves any of the 24 pre-committed BF configurations below
-the "strong" band; the flip threshold is ≈ 52× the measured value.
+guaranteed — hence the conservative error convention. The pooled value 4.50×10²⁵ is **0.57σ
+below** the single Phase-1 run it re-checks (5.00×10²⁵ ± 16.7%, from `r11_ngs.out`) —
+consistent. No value across the conservative CI moves any of the 24 pre-committed BF
+configurations below the "strong" band; the flip threshold is ≈ 52× the measured value.
+
+**σ convention in this file, stated explicitly (corrected 2026-08-02).** Every σ quoted here is
+|Δ| ⁄ √(SE₁² + SE₂²), using the *adopted* conservative CLT SE of the pooled value (2.77×10²⁴)
+and the other quantity's own stated SE. That formula reproduces all three gate figures in the
+table above to the digit — gate 1 max pairwise **1.06**, gate 2 **0.12**, gate 3 **1.92** — which
+is why it is the house convention rather than an assumption. Applied to the Phase-1 comparison it
+gives |5.003 − 4.503| ⁄ √(0.277² + 0.833²) = **0.57σ**.
+
+This sentence read "**1.4σ above**" until 2026-08-02. Two defects, both now fixed: (a) the
+direction was inverted — 4.50×10²⁵ is *below* 5.00×10²⁵; (b) 1.4 is |Δ| divided by the raw
+between-seed **SD** (0.359×10²⁵ — the scatter of the individual seeds, stated two sections above
+only as the input to SE = SD/√4), with the Phase-1 run's own ±16.7% omitted entirely. The SD is
+neither of the two error conventions this file declares, and it is the *larger* divisor's
+opposite: using it overstated the disagreement. Nothing depends on the figure in either
+direction — the comparison is "consistent" at 1.4σ and at 0.57σ alike — and no Bayes factor,
+gate verdict, count, or sha changes. TR-2 v1.19 removed the σ from its own copy of this sentence
+on the ground that it was "not reconstructible from the stated errors"; it *is* reconstructible,
+as shown above, and TR-2 v1.23 restores it under this convention.
 
 ## Provenance
 

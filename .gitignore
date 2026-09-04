@@ -5,7 +5,6 @@ hexagrams.json
 hexagrams.svg
 report.html
 report.md
-report.pdf
 report.txt
 wave.dot
 wave.dot.png
@@ -13,7 +12,14 @@ wave.dot.svg
 wave.mid
 # Compiled binary
 solve
-# Large binary outputs (sha256 is the reproducibility anchor, not the bytes)
+# Large binary outputs (sha256 is the reproducibility anchor, not the bytes).
+# This one is DELIBERATE: `solutions.bin` is never committed (CLAUDE.md
+# §"Never commit to this repo"), and nothing below re-includes it under
+# enumeration/ or runs/. For where a canonical's bytes are archived, see
+# documentation/CANONICAL_HASHES.md. A future canonical run directory's
+# solutions.bin will therefore be skipped by `git add <dir>`; that is the
+# intended behaviour, and the run's solutions.sha256 (re-included below) is
+# what carries reproducibility.
 *.bin
 *.bin.gz
 # Repo-root leftovers from local single-branch / interrupted runs
@@ -31,3 +37,42 @@ solutions.sha256
 shard_manifest.txt
 checkpoint_t0.txt
 solve.binary.snapshot
+
+# ---------------------------------------------------------------------------
+# Re-inclusions (negations). Every rule above is written for the REGENERABLE
+# working copy that a local run drops in the repo root; the same bare filenames
+# are also the names of the PUBLISHED, committed records under enumeration/,
+# runs/, and example/. Without these negations 24 tracked files were
+# simultaneously ignored, and a future run directory's records would have been
+# silently skipped by `git add <dir>`.
+#
+# SCOPE LIMIT: the negations are per-FILENAME, not per-directory, and are listed
+# explicitly below — read them, do not infer coverage from this comment. Any
+# filename not named in a negation stays ignored, including inside
+# enumeration/, runs/ and example/.
+#
+# The invariant to check is mechanical, not narrative:
+#     git ls-files -i -c --exclude-standard      # must be empty
+# If a future record type is added and does not appear in `git status`, it needs
+# its own negation. That is the failure this block exists to prevent, and the
+# command above is the only reliable way to detect it.
+# ---------------------------------------------------------------------------
+
+# Protects the reproducibility anchor: the sha256 of each canonical run's
+# solutions.bin. The bytes are not committed, so this file IS the anchor
+# (documentation/CANONICAL_HASHES.md) and must never be ignorable.
+# `**` so future and nested run directories are covered, not just today's.
+!/enumeration/solutions.sha256
+!/runs/**/solutions.sha256
+
+# Protects the per-run provenance records that the run READMEs and
+# CANONICAL_HASHES.md cite: solver parameters, record counts, host fingerprint.
+!/runs/**/solutions.meta.json
+!/enumeration/solve_results.json
+!/runs/**/solve_results.json
+
+# Protects the committed sample output of the analysis pipeline, which
+# README.md links as "example output" and example/README.md documents.
+!/example/hexagrams.*
+!/example/report.*
+!/example/wave.*

@@ -1,0 +1,52 @@
+# Registered retracted FIGURES that are NOT YET recorded in CORRECTIONS.md.
+# Consumed by scripts/doc_gates.sh (GATE 11, figures pass — `doc_gates.sh ledger-figures`).
+#
+# THESE ROWS ARE OPEN DEFECTS, NOT EXEMPTIONS. Same contract as
+# DOC_GATE_SECREF_ALLOWLIST.txt: every row is re-printed as [OPEN] on every run, with a
+# count, so the set can never quietly become invisible. A row here means "we know this
+# figure was retracted and we have not yet written the ledger entry" — it does not mean the
+# figure is fine.
+#
+# WHY THE FILE EXISTS AT ALL. GATE 11 has proven since it was written that every row of
+# RETRACTED_PHRASES.tsv reaches CORRECTIONS.md. RETRACTED_FIGURES.tsv had no such partner,
+# so a figure could be registered, gated by GATE 3b, and never recorded — the quieter half
+# of the failure GATE 11 exists for (round-5 item A5). Writing the SEVEN missing ledger
+# entries is an adjudication, not a gate change: each one is a published correction that has
+# to be classified C1/C2/C3 and written by hand. Shipping the gate WITHOUT that adjudication
+# and with the backlog listed here is strictly better than shipping neither: a figure
+# registered from today on FAILS unless it is either recorded or deliberately listed below.
+#   COUNT CORRECTED 2026-08-02 (ledger unit, round-5 close). This paragraph shipped saying
+#   "the ELEVEN missing ledger entries". Eleven is the size of RETRACTED_FIGURES.tsv, not the
+#   size of the backlog: four of those rows ARE recorded (CX-20, CX-19 twice, CX-07), the gate
+#   prints "4 recorded, 7 open", and this file holds SEVEN rows. The number was carried over
+#   from the deferral note that framed the work as "adjudicating every registry row", and it
+#   overstated the remaining work by 57%. RETRACTED_FIGURES.tsv item 4 already said SEVEN, so
+#   the two files disagreed with each other from the day both were written.
+#
+# WHAT THE GATE KEYS ON, and why it is not the figure string. `1.4σ` and `≈10×` both OCCUR
+# in CORRECTIONS.md — inside CX-19's "How it was found" paragraph, as examples of
+# meta-mentions found elsewhere in the corpus. Neither is recorded as a correction. A gate
+# that looked for the figure TEXT would have cleared both. So the gate looks for the
+# content-addressed key `RF-<first 8 hex of sha256(figure)>`, exactly as GATE 11's phrases
+# pass looks for `RP-<...>`, and a key is written into the ledger only by someone recording
+# the entry.
+#
+# TO CLOSE A ROW: write the CORRECTIONS.md entry (append-only), cite its `RF-` key there,
+# and DELETE the row here. The gate prints a [note] if a row below matches a figure that is
+# already keyed in the ledger, so a stale row cannot sit here unnoticed.
+#
+# FORMAT (tab-separated, 2 columns):
+#   <figure, byte-identical to its RETRACTED_FIGURES.tsv row>\t<what still has to be adjudicated>
+#
+#
+# BACKLOG CLOSED 2026-08-07. All seven rows were adjudicated and recorded in
+# CORRECTIONS.md as CX-32 — six as corrections (C1 x2, C2 x2, C3 x2) and one,
+# `~52×` / RF-a79d9a6e, EXCLUDED under the C4 declined-change rule, with the
+# exclusion itself stated in the entry rather than left as silence. The rows are
+# deleted here because this file's own contract is that the backlog count shrinks
+# honestly; leaving recorded rows in place would inflate it.
+#
+# The file is retained, empty, because it is the mechanism: a figure registered
+# from today on FAILS the ledger-figures gate unless it is either recorded in
+# CORRECTIONS.md or deliberately listed below. An empty backlog is the goal state,
+# not a reason to delete the guard.

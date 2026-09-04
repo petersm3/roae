@@ -4,6 +4,40 @@ The reproducibility anchor for ROAE is the sha256 of `solutions.bin`, not the fi
 
 A mismatch means a bug was introduced (in the solver, the build toolchain, or the runtime environment), not that a new result was found.
 
+> **The word "Tier" on this page carries two unrelated senses; read the noun beside it.**
+> **"Tier 1 / Tier-1 hardening"** is the *determinism-hardening level* (the host-fingerprint
+> sidecar and the build-pinning work of Task #110 — see [HISTORY.md](HISTORY.md)); it qualifies a
+> *witness row*, never a budget. **"Cool tier" / "warm tier" / "Archive tier"** is Azure storage
+> class and says only where bytes are retained. Neither is the campaign-scale "Tier 1" of
+> [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md) (= the 11.2T canonical), the Lean
+> proof-strength tiers of [`lean/README.md`](../lean/README.md), or the `tier-1` scoring axes of
+> [CRITIQUE.md](CRITIQUE.md). A misread here is expensive because these rows carry sha claims, so
+> the sense is spelled out at each use below rather than assumed.
+
+> **Access boundary.** This registry cites two kinds of non-public material, and neither is required
+> to verify a canonical. (1) Files in `petersm3/roae-private` (incident writeups, audits, launcher
+> scripts) — a private staging repository; those citations are provenance for *how* a value was
+> established or a defect resolved, and are operator-attested: disclosable to an auditor, not
+> fetchable by a reader. (2) Archive locations of the form `solver-data-westus3:/…` (operator-held
+> warm disk mirror) and `canonical-archive/…` (operator-held cold blob storage) — these name where
+> the artifact *bytes* are retained, not public URLs. The public verification path for every
+> canonical is the one this document already states: the published sha256 plus the reproduction
+> recipe (solver commit, `SOLVE_NODE_LIMIT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, partition depth). A
+> reader who re-derives and matches the sha needs nothing private; the archived bytes exist so the
+> operator can re-attest without re-deriving.
+>
+> **Extension is not on that public path, and this note previously did not say so** (added
+> 2026-09-01). *Verifying* a canonical needs nothing private — that is the claim above and it is
+> unchanged. *Extending* one to a deeper budget does: the recipe in
+> [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §"Concrete extension recipe" consumes
+> `shards.tar.gz`, `dfs_state.tar.gz` and `budget.tar.gz` from exactly the operator-held
+> `solver-data-westus3:/…` and `canonical-archive/…` locations named above, and those are storage
+> locations rather than public URLs. A third party who wants a deeper canonical without operator
+> cooperation must therefore re-run the parent campaign from scratch at the deeper budget — which is
+> sound and fully specified here, but is not the incremental path the extension methodology
+> describes. The distinction between "not required to verify" and "required to extend" is one this
+> boundary note did not previously draw.
+
 ## Quick reference (deepest first)
 
 | Scale | sha256 (prefix) | Records | Status | Solver lineage |
@@ -15,10 +49,17 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 | d3 5.6T | `f66920c1…` | 467,484,167 | Active drift anchor | v1 (modern) |
 | d2 10T | `a09280fb…` | 286,357,503 | Active d2-partition reference | v1 |
 | d3 1T (main) | `74d39760…` | 134,027,160 | Active build-state anchor | c72eada+#108 lineage |
-| d3 1T (v3 BRANCH) | `5a0f0bc2…` | 134,039,081 | Historical | v1 / v3 BRANCH `8b1658b` |
+| d3 1T (v3 BRANCH) | `5a0f0bc2…` | 134,039,081 | **Historical — DOES NOT reproduce on current `main`; not a replication target** | v1 / v3 BRANCH `8b1658b` |
 | Selftest | `403f7202…` | 135,780 | Active build gate | v1 |
 
 For each canonical, "Active" means the published sha reproduces byte-identically on current `main` HEAD (the v3 lineage, sha-equivalent to v1 at all canonical scales tested). "Drift anchor" means the canonical is no longer the deepest published, but its sha is still used to detect build-toolchain drift at that scale. The d3 560T row is the project's deepest enumeration; it was **SUSPECT** from 2026-06-21 (a proven eviction-resume defect on the pre-fix solver), and resolved to **CANONICAL-verified** on 2026-06-30 when a from-scratch re-run on the fixed solver reproduced `9a968fa2` byte-for-byte (see §d3 560T).
+
+**If you are replicating and want one anchor, start with d3 11.2T (`0c0fe37c…`).** It is the
+most-witnessed canonical in the project — eight independent build/host paths, including a cross-architecture
+ARM Neoverse-N2 rebuild and both solver lineages (§d3 11.2T). Do **not** start at the smallest published
+number: the 1T scale is more sensitive to compiler-layout drift than the 11.2T+ scales (§d3 1T), and one of
+the two 1T rows (`5a0f0bc2…`, the v3 BRANCH anchor) is **known not to reproduce on current `main`** — a
+replicator who picks it first will get a genuine mismatch that means nothing about the current code.
 
 The full reproducibility-parameters table (env vars per canonical) is at [§Reproducibility parameters](#reproducibility-parameters) below.
 
@@ -45,7 +86,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 > final merge is a projection onto that set, provably invariant to thread count, machine, branch-partition order,
 > **and eviction/resume provided the resume is correct.** Only two things can change the sha: a genuinely *lost*
 > unique solution or a *fabricated* one. The byte-match rules out both. A pre-merge shard comparison quantifies it:
-> both runs found solutions in the **same 65,281 cells**, and the old run's raw pre-dedup total (43,880,306,393)
+> both runs found solutions in the **same 65,281 cells**, and the old run's pre-merge shard total ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c:39-61` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch, so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** (43,880,306,393)
 > exceeded the new run's (43,876,464,466) by exactly **+3,841,927 records (0.009%)** — all duplicates the dedup
 > erased. So the old run's 5 evictions caused **over-emission, not loss or fabrication**. This also demonstrates
 > the #188 fix's eviction-resume determinism **at the deepest (560T) scale**, complementing the 11.2T proof.
@@ -61,9 +102,9 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 - **Established:** 2026-06-08 by the 560T canonical campaign
 - **King Wen found:** YES
 
-**Campaign details:** D128als_v7 Spot westus3 enum, 4 TB Premium SSD for shards, 171.5 h wall time across 5 weekday Spot evictions (all in a tight 07:12-07:49 PT window — see [HISTORY.md](HISTORY.md) "June 1-8, 2026" entry). 158,364/158,364 cells scanned (100%), 65,281 cells produced solutions (41.2% yield). Merge: D16als_v7 Standard, external chunked-sort on Premium scratch, 18 h 42 m wall. 43.88 B raw pre-dedup records → 10.525 B unique canonical (4.17× dedup ratio).
+**Campaign details:** D128als_v7 Spot westus3 enum, 4 TB Premium SSD for shards, 171.5 h wall time across 5 weekday Spot evictions (all in a tight 07:12-07:49 PT window — see [HISTORY.md](HISTORY.md) "June 1-8, 2026" entry). 158,364/158,364 cells scanned (100%), 65,281 cells produced solutions (41.2% yield). Merge: D16als_v7 Standard, external chunked-sort on Premium scratch, 18 h 42 m wall. 43.88 B pre-merge shard records (per-sub-branch canonical) → 10.525 B unique canonical (4.17× cross-sub-branch rediscovery ratio — NOT an orientation-dedup ratio) ⚠ **[LABEL CORRECTED 2026-08-28 — this clause previously called the pre-merge total a count of raw records and its ratio a deduplication ratio. `solve.c:39-61` hashes and dedups on pair identity with the orient bit masked, and CLEARS each thread's table after every sub-branch, so a shard record is a per-sub-branch CANONICAL key rather than a raw oriented leaf. The record total is therefore a LOWER BOUND on raw leaves visited, and the ratio measures cross-sub-branch rediscovery under the depth-3 partition, not orientation multiplicity. Both values are unchanged, and the old-vs-new run comparison above is unaffected because it compares two totals of the same kind. The reasoning is set out at [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7 ("Worked example — the 560 T canonical campaign"), whose pre-merge shard-record row carries the same marker.]**
 
-**Power-law fit (3-point across 11.2T → 100T → 560T):** records ∝ T^α with α ≈ 0.67 (3-point log-log fit; pairwise legs 0.69 and 0.65). 1120T extension projection ≈ 16.7 B records. The 2026-06-14 three-point per-cell analysis confirms the record sets are **strictly nested** under pair-identity keying (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations; cells yielding 9,799 → 10,062 → 10,618) and grow by **deepening** of existing productive cells (cells first appearing at a larger scale add only ~0.2% → ~0.5% of records); every sampled sub-branch is BUDGETED, none EXHAUSTED, so the exhaustive enumeration cannot state the total count of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate now puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), meaning even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space. See [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) and [HISTORY.md](HISTORY.md) §"3-point per-cell scaling trajectory".
+**Power-law fit (3-point across 11.2T → 100T → 560T):** records ∝ T^α with α ≈ 0.67 (3-point log-log fit; pairwise legs 0.69 and 0.65). 1120T extension projection ≈ 16.7 B records — a **projection that will not be measured**: the 1120T extension is not planned (2026-08-01). The 2026-06-14 three-point per-cell analysis confirms the record sets are **strictly nested** under pair-identity keying (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations; cells yielding 9,799 → 10,062 → 10,618) and grow by **deepening** of existing productive cells (cells first appearing at a larger scale add only ~0.2% → ~0.5% of records — under pair-identity keying, the granularity at which the canonical dedups; under enumeration-cell keying the picture inverts, with 60.4% of 560T's records from cells empty at 11.2T — see [HISTORY.md](HISTORY.md)'s June-11 #126 entry; both keyings are stated there); every sampled sub-branch is BUDGETED, none EXHAUSTED, so the budgeted enumeration cannot state the total count of C1–C5-satisfying orderings — but an unbiased Monte-Carlo estimate now puts it at **≈10³⁸** (≈3×10³⁷ distinct-canonical), meaning even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space. See [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) and [HISTORY.md](HISTORY.md) §"3-point per-cell scaling trajectory". ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical figure on this line exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 
 **Verification witnesses:**
 
@@ -77,9 +118,9 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 **Archive triple-storage:**
 - `solver-data-westus3:/canonical-archive/20260608_560T_9a968fa2/` — gzip warm mirror (original campaign)
-- `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/` — cold blob (original campaign, Cool tier)
+- `canonical-archive/20260608_560T_9a968fa2/` — cold blob (original campaign, Cool tier)
 - `solver-data-westus3:/canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — gzip warm mirror (2026-06-30 re-run; solutions.bin.gz + shards.tar.gz + checkpoints, byte-identical canonical)
-- `roaecanonical2026/canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — cold blob (2026-06-30 re-run; round-trip-verified `9a968fa2`, extendable shards+checkpoints retained per the 11.2T+ cold-shards rule)
+- `canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — cold blob (2026-06-30 re-run; round-trip-verified `9a968fa2`, extendable shards+checkpoints retained per the 11.2T+ cold-shards rule)
 
 ---
 
@@ -89,7 +130,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 - **Records:** 3,432,399,297 (= 3.43240 × 10⁹)
 - **File size:** 109,836,777,536 bytes
 - **Solver:** v1 (modern); v3 sha-preserves on v1 at this scale
-- **Established:** 2026-04-29 by post-`f42f2ae` code
+- **Established:** 2026-04-20 by the original 100T campaign (solver commit `edccb16`; run archive [`runs/20260419_100T_d3_d128westus3/`](../runs/20260419_100T_d3_d128westus3/)); bytes destroyed 2026-05-06, re-derived byte-identically 2026-05-09/10 on modern code — see Recovery history below. *(Corrected 2026-07-26: this row previously said "2026-04-29 by post-`f42f2ae` code" — wrong on both date and lineage; the run completed 2026-04-20 00:45 UTC and `f42f2ae` is the May-6 stack-buffer fix, which postdates it. The 04-29 date most plausibly bled in from the Apr-29/30 5.6T timeline.)*
 - **Status:** Active drift anchor + partition-invariance anchor
 
 **Recovery history:** original bytes destroyed 2026-05-06 by the `solver-data-westus3` mkfs -F incident. Re-derived 2026-05-09/10 via two independent paths.
@@ -105,9 +146,9 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 **Note:** v1 100T was NOT cross-built on two different physical hosts in the deliberate Build A + Build B pattern that v1 11.2T and v2 11.2T use; the May 9-10 re-derivations were forced by the wipe-incident recovery, with T9+d incidentally serving as the partition-invariance witness.
 
-**Archive disposition (current state, 2026-06-12):**
+**Archive disposition (current state, 2026-07-17):**
 - **Bytes preserved on warm tier:** `solver-data-westus3:/canonical_100T/solutions.bin` (109,836,777,536 bytes; sha-verified 2026-06-12). Originate from T9+c.1 recovery May 8-9.
-- **Cold blob:** NOT uploaded. The forward-looking archive path `canonical-archive/20260530_100T_revalidation_4e15885/` referenced in earlier doc revisions is empty in actual cold blob state. A fresh v3 100T re-derive is completed 2026-06-13; consumed by the 3-point trajectory analysis (HISTORY.md 2026-06-14); archived per Canonical Archive Spec v1/13 specifically to upload a complete archive (solutions.bin.gz + per-cell shards) to cold blob.
+- **Cold blob:** `canonical-archive/20260619_100T_915abf30/` — uploaded 2026-06-19 from the fresh v3 100T re-derive (completed 2026-06-13; consumed by the 3-point trajectory analysis, HISTORY.md 2026-06-14), spec-v1 complete (solutions.bin.gz + sha sidecars + shards.tar + manifest + DONE marker; ~94 GiB). Presence re-verified live 2026-07-17 (blob present at Cool tier, 12,586,020,198 bytes) and by the cold-archive audit index of the same date. A second cold copy, `20260614_100T_v3_rederive_915abf30/` (same decompressed sha), is a known byte-redundant duplicate. *(Historical note: earlier revisions of this section said "NOT uploaded" and referenced `canonical-archive/20260530_100T_revalidation_4e15885/`, which was never populated — accurate as of 2026-06-12, superseded by the 2026-06-19 upload.)*
 
 **Record-count correction 2026-07-04 (reverses the erroneous 2026-05-30 note that previously stood here):** the canonical 100T record count is **3,432,399,297**. The 2026-05-30 revision "corrected" the original 3,432,399,297 to 3,432,399,298 by dividing the file size (109,836,777,536 bytes) by 32 — but that quotient **includes the 32-byte file header**. Correct arithmetic: (109,836,777,536 − 32) / 32 = 3,432,399,297, which matches every primary source: `--analyze` §[1] (`records: 3432399297` / `32 header + 109836777504 records`) and §[28], the solver-written `solutions.meta.json` (`"record_count": 3432399297`), and the independent verifier (`VERIFY PASS: all 3432399297 records satisfy C1-C5`). The original 2026-05-12 provenance count was right all along. **The sha256 anchors are UNAFFECTED — only this derived count field was wrong.** The v2/v1 100T delta is consequently +231,181,**617** records (+6.74%). Convention rule going forward: record counts come only from `solutions.meta.json` / analyze §[1] / verify output — never from raw file-size division; if size arithmetic is used as a cross-check, it is (size − 32) / 32.
 
@@ -132,6 +173,14 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 | 2026-05-27 (#108 witness) | c72eada + #108 + #108b (commit `6e853fc`), binary sha `1ce20ff3…` | D128als_v7 Spot westus3, enum 7810s, manual external-merge + 100GB tmpfs scratch | `0c0fe37c…` byte-identical — demonstrates the 1T drift on c72eada (`5a0f0bc2…` → `74d39760…`) does NOT propagate to 11.2T (per-cell budget at 11.2T is 11× larger than at 1T, enough buffer that record-set is stable) |
 | 2026-05-31 (Tier 1 witness) | git `7ca55e8` (= c72eada + #108 + Tier 1 `b579c1e` + #113/#107-retool/#48/#115b) | D128als_v7 Spot westus3, 128 threads, enum ~145 min, D16als_v7 Standard merge 96 min | `0c0fe37c…` byte-identical — first empirical confirmation that Tier 1 hardening is sha-neutral at 11.2T |
 | 2026-05-21 (ARM Cobalt) | v3+v3.1 ARM binary `e5cfc6cd…` | D96ps_v6 + D32ps_v6 Cobalt Neoverse-N2, gcc 13.3.0 `-mcpu=native` | `0c0fe37c…` byte-identical — cross-architecture witness |
+| 2026-05-04 (recovery cascade) | v1 modern, post-#45 **patched** binary | fresh full-enum, 2026-05-04 04:21Z | `0c0fe37c…` byte-identical — **the eighth path this heading counts**; the run is recorded in [HISTORY.md](HISTORY.md) §"8-path equivalence at 11.2T proven" and under its "May 4 – May 5, 2026 PDT" entry. ⚠ **[ROW ADDED 2026-09-02 — the heading above has said eight since it was written and this table listed seven, so the registry's own count was not computable from the registry (Codex review V2-F43 #8, ACCEPTED). The missing path is this one, located in the public record by prose batch P43 when the same eight-vs-seven discrepancy was adjudicated in HISTORY.md's method-indexed roster; the fix there was to restore the row rather than renumber the heading down, and the same holds here. It qualifies as a separate build/host path under the criterion stated below: a distinct binary (post-#45 patch) not shared with any other row.]** |
+
+**Independence criterion, and how the count is obtained.** A row above is a separate path only if it differs from every other row in at least one of: source commit, build flags, physical host, CPU architecture, or merge path. No definition was stated here before 2026-09-02, so a reader could not tell what was being counted. **The heading's number is the data-row count of the table above and nothing else** — the two restatements of it elsewhere in this document (§Quick reference, §Validation status) must equal it, and [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) deliberately states no number of its own, naming this table as the witness list of record. Reproduce the count from the file itself:
+
+```
+awk '/^\*\*Cross-build \+ cross-architecture witnesses/,/^\*\*Independence criterion/' \
+    documentation/CANONICAL_HASHES.md | grep -c '^| 2026'      # -> 8
+```
 
 **Archives:**
 - `canonical-archive/20260514_modern_v1_11.2T_buildA/` + `…buildB/`
@@ -140,7 +189,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 
 **Tier 1 incident note:** the 2026-05-31 dress rehearsal supervisor surfaced a phantom drift report from a typo'd hardcoded anchor sha; resolved by independent empirical sha256 against archived bytes — see `petersm3/roae-private:PHANTOM_DRIFT_RESOLUTION_2026_05_31.md`.
 
-A fresh v3 re-derive is completed 2026-06-13; consumed by the 3-point trajectory analysis (HISTORY.md 2026-06-14); archived per Canonical Archive Spec v1/13 to add a 9th witness + preserve per-cell shards for the 3-point trajectory analysis.
+A fresh v3 re-derive completed 2026-06-13 and was consumed by the 3-point trajectory analysis ([HISTORY.md](HISTORY.md) 2026-06-14); its per-cell shards were archived per Canonical Archive Spec v1/13 for that analysis. ⚠ **[CORRECTED 2026-09-02 — this sentence also said the run was archived in order to add a further witness beyond the eight above. That claim is withdrawn; the retired form is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-8c9b7bd3`. **It was never a result — it was an intention.** Written 2026-06-13 while the run was in flight — the original sentence said the re-derive *was in flight* and named the further witness as its **purpose**, in the infinitive — it was closed to the past tense by a 2026-07-04 consistency sweep on the evidence that the trajectory analysis had consumed the run. That is evidence the run COMPLETED; it is not evidence its sha matched, and the two are different claims. **No sha attestation for this run is published anywhere in the tracked corpus**, and it has no entry in the Archives list above either — checked in both directions before this was written. It is therefore not counted among the eight, and the three counts this section carried for one campaign (a heading of eight, a table of seven, a trailing ninth) are now one. If the run's sha and host tuple are published later, it becomes a table row and the count moves with the table. Found by Codex reviews V2-F25 #12 and V2-F43 #8; V2-F25 #12's prescription — renumber the heading down to seven — is **declined** on the same evidence that declined it in HISTORY.md: the eighth path is real and locatable, and renumbering would delete it from the public record.]**
 
 ---
 
@@ -207,7 +256,7 @@ Depth-2 enumeration's smaller sub-branch count (3030 vs depth-3's 158,364) makes
 
 **Drift-isolation runs:** reproduced byte-identically by unmodified `c72eada` (drift-isolation control) AND by `c72eada + #108 + #108b` bundle AND by `c72eada + #108 + #108b + SOLVE_FSYNC_BATCH_SIZE=16` — all three runs produce the same sha, confirming #108's mutex elimination and #108b's batched-fsync option are sha-neutral at canonical scale.
 
-Differs from the `5a0f0bc2…` v3-BRANCH-lineage 1T anchor (12,000 records fewer; LTO compiler-layout effects from hardening commits between `9f10f05` (v3 reset) and `c72eada`, NOT a correctness change).
+Differs from the `5a0f0bc2…` v3-BRANCH-lineage 1T anchor (12,000 records fewer). ⚠ **[CORRECTED 2026-08-30 — this read "LTO compiler-layout effects from hardening commits between `9f10f05` (v3 reset) and `c72eada`". That is the May-25 diagnosis, and it was **superseded on May 27** and is retracted here.** The settled Task-#108 result (Q4–Q10) is that the drift is **host-environment-level** — gcc/glibc/kernel patch versions, ASLR seed, CPU microcode revision — **not source-level**: the 7 hardening commits were **empirically exonerated** and **LTO was empirically ruled out** as the mechanism. See [HISTORY.md](HISTORY.md) §"May 27/28, 2026 UTC — Task #110 Tier 1 canonical-determinism hardening shipped + 1T sha-gate PASSED" and [TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) §"Scope of the reproducibility claim" → *The toolchain qualifier*. **Still NOT a correctness change**, and the anchor **re-derives byte-identically on a matching host**. A reproducer chasing the retracted cause would vary the wrong control variable — source and build flags instead of host and toolchain.]**
 
 **Note on the 1T-vs-11.2T drift gap:** the c72eada drift at 1T (`5a0f0bc2…` → `74d39760…`) does NOT propagate to 11.2T (where both lineages produce `0c0fe37c…` byte-identically). Mechanism: BUDGETED-cell-density-sensitive — at 11.2T per-cell budget (70.7M nodes) is 11× larger than at 1T (6.3M nodes), enough buffer that record-set is stable across the 7 hardening commits' source-level changes. The 1T scale is more host-fragile and more sensitive to compiler-layout effects than the 11.2T+ canonical scales.
 
@@ -223,9 +272,9 @@ Differs from the `5a0f0bc2…` v3-BRANCH-lineage 1T anchor (12,000 records fewer
 - **Records:** 134,039,081 (= 1.34039 × 10⁸)
 - **Solver:** v1 (modern) and v3 BRANCH `8b1658b` (both produce this sha byte-identically)
 - **Established:** 2026-05-24 as a byproduct of the v1-vs-v3 paired speedup bench on Standard D128als_v7 westus3
-- **Status:** Historical anchor for v3 BRANCH state (May 2026)
+- **Status:** Historical anchor for v3 BRANCH state (May 2026). **Not a replication target — this sha does not reproduce on current `main` HEAD; see the note directly below.**
 
-**NO LONGER REPRODUCIBLE on current main HEAD `c72eada` or later** due to LTO compiler-layout drift from the 7 hardening commits between `9f10f05` (v3 reset) and `c72eada` (same mechanism as #99 100B-bisect's `d683794` sha-flip; see `petersm3/roae-private:V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md`).
+**NOT REPRODUCIBLE on current main HEAD `c72eada` or later from a differently-provisioned host** — the drift is **host-environment-level** (gcc/glibc/kernel patch versions, ASLR seed, CPU microcode revision), **not source-level**, and it **re-derives byte-identically on a matching host**. ⚠ **[CORRECTED 2026-08-30 — this row read "due to LTO compiler-layout drift from the 7 hardening commits between `9f10f05` (v3 reset) and `c72eada` (same mechanism as #99 100B-bisect's `d683794` sha-flip)". That was the May-25 working diagnosis; Task #108's Q4–Q10 investigation, closed May 27, **empirically exonerated** those 7 commits and **empirically ruled out LTO** as the mechanism. The registry is the first document a reproducer consults, and it was directing them at a refuted cause. See [HISTORY.md](HISTORY.md) §"May 27/28, 2026 UTC — Task #110 Tier 1 canonical-determinism hardening shipped + 1T sha-gate PASSED", [TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) §"Scope of the reproducibility claim", and `petersm3/roae-private:TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md`. The separate #99 100B-bisect speculation in §"100B and sub-canonical reference shas" is left standing — it is hedged there as a *likely* mechanism at a scale HISTORY does not supersede. See also `petersm3/roae-private:V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md` for the commit inventory, whose facts are unaffected.]** **NOT a correctness change.**
 
 **Archive:** `canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9 solutions.bin.gz 475 MB) + managed disk `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`.
 
@@ -254,7 +303,13 @@ Frozen by operator directive 2026-05-24 (`feedback_v2_closed_2026_05_24`). v2's 
 
 **v2 11.2T details:** established 2026-05-17. +36,748,712 records (+4.83%) vs v1 11.2T. Deterministic across two independent runs. Triple-storage archived: `solver-data-westus3:/20260516_v2bundled_11.2T_buildA_9d00c48/` + `canonical-archive/20260516_v2bundled_11.2T_buildA_9d00c48/` + claude `/tmp` fallback. solutions.bin.gz `4f1cd8b3…`. **Cross-architecture witness (2026-05-21):** ARM Cobalt Neoverse-N2 (D96ps_v6 + D32ps_v6, gcc 13.3.0 `-mcpu=native`, ARM binary sha `e5cfc6cd…`) produces byte-identical sha. G2 proof artifacts at `solver-data-westus3:/20260520_v2bundled_11.2T_armB_9d00c48_attempt2/`.
 
-**v2 100T details:** established 2026-05-23 (campaign `20260521_v2_100T_buildA`). Phase 1 enum ~40h across 3 Spot evictions on D128als_v7 westus3; 61,550 shards, 481 GB raw. Phase 3 merge: Standard D32als_v7 + 1.5 TB Premium SSD scratch, external chunked-sort. +231,181,617 records (+6.74%) vs v1 100T. `solve --verify` PASS. Binary sha `6fdb10da…`. Dual-storage: `solver-data-westus3:/20260521_v2_100T_buildA/final/` + `canonical-archive/20260521_v2_100T_buildA/`. No Build B cross-build (v2 100T was a comparison baseline, not load-bearing). v2 100T shards deleted from managed disk post-archive (~481 GB freed). solutions.bin.gz size 13,462,264,289 bytes (sha `f6b554ea…`, ~9.35× compression).
+**v2 100T details:** established 2026-05-23 (campaign `20260521_v2_100T_buildA`). Phase 1 enum ~40h across 3 Spot evictions on D128als_v7 westus3; 61,550 shards, 481 GB raw. Phase 3 merge: Standard D32als_v7 + 1.5 TB Premium SSD scratch, external chunked-sort. +231,181,617 records (+6.74%) vs v1 100T. `solve --verify` PASS. Binary sha `6fdb10da…`. Dual-storage: `solver-data-westus3:/20260521_v2_100T_buildA/final/` + `canonical-archive/20260521_v2_100T_buildA/`. No Build B cross-build (v2 100T was a comparison baseline, not load-bearing). v2 100T shards deleted from managed disk post-archive (~481 GB freed). solutions.bin.gz size 13,462,264,289 bytes (sha `f6b554ea…`, **8.708× compression**). ⚠ **[CORRECTED 2026-09-02 — the compression ratio published here was ~7% too high; the retired form is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-9788f906`. **The mechanism was a unit mismatch, and it is exactly reconstructible:** 13,462,264,289 bytes is 12.54 **GiB**, while the logical artifact is 117 **GB** decimal — dividing the one by the other reproduces the retired figure to three digits. Both operands are published, so the true ratio is derivable on this page without any archive access: per the §Format size convention the logical size is `3,663,580,914 × 32 + 32 = 117,234,589,280` bytes, and `117,234,589,280 / 13,462,264,289 = 8.708`. Reproduce with:
+
+```
+python3 -c 'print(round((3663580914*32+32)/13462264289, 3))'   # -> 8.708
+```
+
+No sha256, record count, file size or archive location changes — this is a derived field only. The direction matters for the one thing the figure is used for: storage or transfer planning at the retired ratio under-allocates compressed capacity by ~7%. The sibling site at [HISTORY.md](HISTORY.md)'s 2026-05-23 v2 100T entry carried the same figure and is corrected in the same pass (the charge named one site; there were two). Found by Codex review V2-F25 #11; measured, reconstructed and landed here.]**
 
 **Lineage notes (corrected 2026-05-25):** The 2026-05-21 merge `3128942` was a v2-bundled merge that brought the v2 prune stack into `main`. v3 BRANCH `origin/v3` (`8b1658b` based on `2cf8771` May 10 pre-v2-prune) is the clean v3-design code — v1 prune set + #72 bitset + v3.1 orphan-promotion, no v2 prune tax. **On 2026-05-25 (afternoon), `main`'s `solve.c` was reset to v3 BRANCH's `solve.c`** so future `main`-based canonicals reproduce v1's sha family at every tested scale. The doc history on `main` (v2 100T canonical, paired bench, PGO retraction, [McKenna](CITATIONS.md#mckenna-mckenna1975) audit, etc.) is preserved as project record. Pre-reset state preserved at tags `v2-merged-2026-05-21` and `v2-with-v3.1-attempt-2026-05-25`.
 
@@ -266,9 +321,34 @@ Frozen by operator directive 2026-05-24 (`feedback_v2_closed_2026_05_24`). v2's 
 
 This section exists because of the 2026-05-25 100B drift bisect (six-enum study on D32 Spot bisect-100b; full report at `petersm3/roae-private:100B_DRIFT_BISECT_RESULTS_2026_05_25.md`). Three findings make sub-1T scales unsuitable as cross-build verification gates:
 
-1. **All realistic canonical scales are BUDGETED at the per-sub-branch level** (per `petersm3/roae-private` memory `project_single_branch_exhaustion`, exhausting the smallest cell needs ≥31T nodes; 158,364 cells means total budget for true EXHAUSTED is ≥4,900T, infeasible). At 100B (per-cell 631K), 1T (6.3M), 11.2T (70.7M), 100T (631M), 560T (3.5B), every cell hits BUDGETED. Per solve.c:244-253 docstring, the SET of records found at BUDGETED is sensitive to DFS prune order; any DFS-affecting code change can flip which records are found before per-cell budget exhausts.
+1. **All realistic canonical scales are BUDGETED at the per-sub-branch level.** Under the uniform per-cell budget every canonical uses, a run can only report EXHAUSTED if the per-cell budget is at least as large as the *largest* cell's search tree — so a measured lower bound on any *one* cell is a lower bound on the per-cell budget, and multiplying by the cell count bounds the total. The one cell measured directly needs **≥31 × 10¹² nodes** (provenance below), so the total budget for a true EXHAUSTED d3 run is **≥ 158,364 × 31 × 10¹² = 4.909 × 10¹⁸ nodes ≈ 4,900,000 T** — infeasible. ⚠ **[CORRECTED 2026-09-01 — this read "exhausting the smallest cell needs ≥31T nodes; 158,364 cells means total budget for true EXHAUSTED is ≥4,900T", printing the wrong product directly beside the two factors it is the product of. `158,364 × 31 × 10¹² = 4.909 × 10¹⁸` — that is ~4,900,000 T, not 4,900 T, and the published threshold understated exhaustion by a factor of ~1,002. The consequence is not cosmetic: at ≥4,900 T the deepest canonical (560 T) reads as 8.75× short of exhaustion, when in fact `4.909 × 10¹⁸ / 560 × 10¹² =` **8,767× short**. The corrected value is the one the source probe itself recorded. [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §"Why budget matters" carried the same understated figure and is corrected in the same pass. The phrase "the smallest cell" is corrected too — the probe measured *a* cell drawn from the smallest first-level *branch*; it never established that any cell is the partition's minimum, and the product above does not need it to, because uniform budgeting keys off the largest cell, not the smallest.]** At 100B (per-cell 631K), 1T (6.3M), 11.2T (70.7M), 100T (631M), 560T (3.5B), every cell hits BUDGETED. Per solve.c's `PARTITION-INVARIANCE UNDER EXHAUSTIVE RUNS` docstring (locate by section title; solve.c:246-263 as of 2026-08-09), the SET of records found before BUDGETED depends on the per-sub-branch budget — change the partition, and so the budget denominator, and the record set and sha change with it. The stronger claim — that a change to the *prune set* also changes which records are found before per-cell budget exhausts — is **not** made by that docstring; the in-document evidence for it is §*v2 lineage — CLOSED 2026-05-24* above, where v2's prune stack produces strictly more records than v1 at the same node budget.
+
+   **Provenance of the ≥31 × 10¹² input — single-cell exhaustion probe, 2026-05-17.** Stated here so
+   the product above is auditable from published material rather than resting on a private citation.
+   A depth-3 cell was picked from `B[25,1]` — the smallest first-level branch in the v2 11.2T
+   canonical, 23,076 records — and specifically one that had hit BUDGETED there having found 0
+   solutions, i.e. a *candidate* for being cheap to exhaust. It is addressable directly:
+
+   ```bash
+   ./solve --sub-branch 25 1 1 0 3 1     # B[25,1] → (p3=1, o3=0) → (p4=3, o4=1)
+   ```
+
+   Run on a v2-bundled build (`1b32270`, same prune lineage as the v2 11.2T canonical commit
+   `9d00c48`) with 8 threads, at `SOLVE_NODE_LIMIT` = 1B, then 10B, then 100B. **All three rungs
+   returned BUDGETED**, with identical task statistics: the cell decomposes into **2,488** depth-5
+   parallel work tasks; the 8 threads each claimed one at startup and, after 12.5 × 10⁹ nodes apiece
+   at the 100B rung, **not one had finished its single task**; the remaining 2,480 tasks were never
+   started; 0 C3 leaves stored and 0 solutions found at every rung. **Taking the 2,480 untouched
+   tasks to be comparable in size to the 8 sampled** — they share the depth-5 prefix structure —
+   gives cell tree size ≥ 2,488 × 12.5 × 10⁹ ≈ **31 × 10¹² nodes**. That comparability step is the
+   one soft link in the chain, and it is load-bearing: without it the strictly-measured floor is only
+   the 8 sampled tasks, > 100 × 10⁹ nodes. **No upper bound was obtained** — none of the 8 sampled
+   tasks completed, so the true size may be far larger, and the bound is specific to that build's
+   prune set (stronger prunes shrink the same tree). Full writeup:
+   `petersm3/roae-private:SINGLE_CELL_PROBE_RESULT_2026_05_17.md` (operator-attested, per the access
+   boundary above; every number quoted here is reproducible from the command shown).
 2. **Even DFS-neutral code changes can flip sub-canonical sha.** The bisect found commit `d683794` (Phase E.2 + defense-in-depth, May 15) flips 100B sha from `61d2caa5…` (pre-d683794) to `30b52336…` (post-d683794). d683794's diff is 100% resume-gated assertions + new subcommand handlers; none reaches the fresh-enum DFS path. The likely mechanism is LTO compiler-layout effects from added (unreachable-at-runtime) code subtly changing OpenMP thread scheduling or branch-prediction timing. **You cannot predict from source-reading whether a commit will flip 100B sha — only empirically.**
-3. **Imperfect-resume during long-running generation contaminates the sha.** The May-15 100B archive `f1709ab09486ba…` does not reproduce from its own baseline commit `3258f4c` on a clean re-run; same pattern as deprecated `c34390c0` (5.6T) and `f7b8c4fb` (10T).
+3. **~~Imperfect-resume during long-running generation contaminates the sha.~~ CORRECTED 2026-08-08 — this item was FALSE and is retracted; see [CORRECTIONS.md](CORRECTIONS.md) CX-34.** It read: *"The May-15 100B archive `f1709ab09486ba…` does not reproduce from its own baseline commit `3258f4c` on a clean re-run; same pattern as deprecated `c34390c0` (5.6T) and `f7b8c4fb` (10T)."* **It does reproduce.** `f1709ab0…` was regenerated from `3258f4c` — the very commit named here — and from three further code states across two lineages, all at 12,386,121 records (see §Reinstated below and `HISTORY.md`'s 2026-05-16 re-derivation, which recorded a byte-identical match at the time). The 2026-05-25 non-reproduction ran a **different decomposition** (`SOLVE_DEPTH=3`, `SOLVE_PER_SUB_BRANCH_LIMIT=631545`, ~158K shallow sub-branches, 27,664,734 records) from the engine's auto-divide (3,030 sub-branches × 33,003,300). A configuration difference, not contamination. **The sibling deprecations `c34390c0` and `f7b8c4fb` are NOT affected** — each cites a record-count delta against a named reproducible replacement, and both stand.
 
 **Recommendation:** do not use sub-1T scales as a cross-build sha gate. Use `solve --selftest` for smoke tests, and 1T/11.2T+ canonicals for canonical-grade verification.
 
@@ -289,13 +369,25 @@ Both shas are **build-recipe + commit specific**. solutions.bin size = 885,271,5
 |---|---|---:|---|---|
 | d3 5.6T | `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` | 467,483,137 | Irreproducible from any extant git commit per the 2026-05-12 bisect investigation. All v1 code from cdd8575 (Apr 30) through 2cf8771 (May 10) on either DFS path produces `f66920c1…` with 467,484,167 records (+1,030 vs this canonical). The +1,030 delta most likely reflects records lost via imperfect resume after the documented Spot eviction at 90% during the Apr 29-30 run. Pre-resume-fix code (pre `1d4dc6e`/`c3ad271`/`d11bc0d`/`c3d3ad6`) is more interruption-vulnerable. See [HISTORY.md](HISTORY.md). | `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` |
 | d3 10T | `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` | 706,422,987 | Generated 2026-04-18 by pre-everything code (predates all the resume bug fixes 1d4dc6e/c3ad271/d11bc0d/c3d3ad6, and predates iterative DFS + checkpoint correctness work). Cascade Phase B re-derivation 2026-05-13 on modern code produces `b85c8871…` with 706,427,594 records — +4,607 records vs this canonical. Like the c34390c0 delta, the records in f7b8c4fb are all valid C1-C5 canonical orderings; this canonical is incomplete by 4,607 records likely lost via imperfect resume during interruptions on pre-resume-fix code. | `b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc` |
-| d3 100B | `f1709ab09486ba912ec5683a4c96211ff31d52b671e898b1b6e3421cc00aa9db` | (not recorded) | Generated 2026-05-15 on v1 commit `3258f4c` as a cold-archive reference. Irreproducible from `3258f4c` re-run 2026-05-25 (six-enum bisect on D32 Spot bisect-100b; clean fresh build produces `30b52336…`, not `f1709ab0…`). Same imperfect-resume artifact pattern as `c34390c0`/`f7b8c4fb`. Deprecated 2026-05-25. NB: 100B is no longer recommended as a cross-build verification gate — see §"100B and sub-canonical reference shas (code-specific)" above for why. | (none — 100B is intrinsically code-specific) |
+
+**Reinstated 2026-08-08 — the `d3 100B` sha `f1709ab0…` was previously listed above as deprecated.**
+That deprecation is **retracted**; see [CORRECTIONS.md](CORRECTIONS.md) CX-34. The bytes reproduce
+exactly from four code states across two lineages (v1 `3258f4c`, v1 `a2ead96`, v4 `b0221a31`,
+v4 `a0542067`), all at **12,386,121 records**, all `f1709ab09486ba912ec5683a4c96211ff31d52b671e898b1b6e3421cc00aa9db`
+over the 396,355,904-byte file (32-byte header + 12,386,121 × 32-byte records). It is a valid but
+**configuration-specific** reference, produced by the engine auto-divide (**3,030 sub-branches ×
+33,003,300 nodes**, `SOLVE_NODE_LIMIT=100000000000`, default depth). A different decomposition
+(`SOLVE_DEPTH=3`, `SOLVE_PER_SUB_BRANCH_LIMIT=631545`, ~158K sub-branches) yields `30b52336…` with
+27,664,734 records; both are correct at their own configuration. **100B remains unsuitable as a
+cross-build verification gate** — see §"100B and sub-canonical reference shas (code-specific)" for why.
 
 ## Reproducibility parameters
 
-Each canonical is fully reproduced by the env-var set below. `SOLVE_DEPTH` is the per-thread DFS depth; `SOLVE_NODE_LIMIT` is the global budget; `SOLVE_PER_SUB_BRANCH_LIMIT` is the per-cell budget. Thread count must be 128 for byte-identical reproduction at the depth-3 canonicals (the merge dedup step is order-stable so other counts produce the same sha if the enumeration completes, but eviction-recovery and resume paths assume 128).
+Each canonical is fully reproduced by the env-var set below. `SOLVE_DEPTH` is the per-thread DFS depth; `SOLVE_PER_SUB_BRANCH_LIMIT` is the per-cell budget — the **only** budget the DFS actually enforces; `SOLVE_NODE_LIMIT` is the nominal global budget, from which the per-cell budget is derived by auto-divide *when no explicit PSB is given* (see §"Sha-determining vs operational env vars" below — with an explicit PSB, which every depth-3 recipe here supplies, `SOLVE_NODE_LIMIT` does not affect the output). Thread count must be 128 for byte-identical reproduction at the depth-3 canonicals (the merge dedup step is order-stable so other counts produce the same sha if the enumeration completes, but eviction-recovery and resume paths assume 128).
 
 > **For any new re-derive launcher, copy the `SOLVE_PER_SUB_BRANCH_LIMIT` value verbatim from this table.** Do not re-derive from a `floor(NL / 158,364)` formula — the published values are the empirical PSBs that produced the canonical shas. See `petersm3/roae-private:LESSONS_LEARNED_2026_06_12_PSB_MATH_ERROR.md` for the incident that motivates this rule.
+>
+> ⚠ **This rule is for RE-DERIVING an existing canonical, not for EXTENDING one.** An extension that copies the parent PSB verbatim reproduces the parent's frontier byte-for-byte no matter what `SOLVE_NODE_LIMIT` it is given — see the **EXTENSION WARNING** in §"Sha-determining vs operational env vars" below.
 >
 > **Programmatic access (2026-06-13):** the same recipe lives in `solve.c` and is reachable via:
 > ```
@@ -303,7 +395,7 @@ Each canonical is fully reproduced by the env-var set below. `SOLVE_DEPTH` is th
 > solve --canonical-config 100T --full     # also emit canonical DFS_ITERATIVE + DFS_CHECKPOINT
 > solve --validate-launcher-config 100T <PSB>   # exit 0 if PSB matches recipe, 1 if not
 > ```
-> Known scales: `1T 5.6T 10T 11.2T 100T 560T d2-10T`. Launchers should call `--validate-launcher-config` as a pre-flight gate before any compute is spent — see how `petersm3/roae-private:scripts/campaign_*_rederive/LAUNCH_*.sh` use it. Output deliberately omits `SOLVE_THREADS` because thread count is not sha-determining and depends on caller hardware.
+> Known scales: `1T 5.6T 10T 11.2T 100T 560T`. ⚠ **[CORRECTED 2026-08-28 — this list also named `d2-10T`, which THIS COMMAND rejects — `solve --validate-launcher-config d2-10T <PSB>` returns **rc=25 'unknown scale'** for any PSB, while all six scales above return 0/1 (i.e. recognised, then judged). Verified by running the shipped binary across all seven. The command's own usage text lists it too and is equally wrong. A pre-flight gate that reports 'unknown scale' where a doc promises support fails OPEN for the caller who does not check the exit code — which is the whole point of a pre-flight. ⚠ **[FURTHER CORRECTED 2026-08-28 — the wording above first said the command "does NOT know" the scale, implying d2-10T is not a real configuration. **It is.** `solve --canonical-config d2-10T` resolves it cleanly (rc=0, emitting `SOLVE_DEPTH=2` and `SOLVE_NODE_LIMIT=10000000000000`), so the scale is genuine and only THIS validator refuses it — a `psb`-related fall-through at `solve.c:1397` / `:18858-76`, which is the untouched root cause. Removing the entry from this list treats the symptom. Found by the D2 lens-1 executed review; tracked as Q-345.]** ⚠ **[Q-345 FIXED 2026-08-29 — the root cause is gone. `--validate-launcher-config` now distinguishes the three cases: a known scale with a published PSB is judged (rc 0/1); a known scale with NO published PSB returns the new **rc=34** with a message saying so and pointing at `--canonical-config`; only a genuine typo returns rc=25, and its stderr now lists the PSB-bearing scales **generated from the recipe table** rather than from a hand-maintained literal — the literal is what drifted here in the first place. `--canonical-config` additionally explains on **stderr** why `d2-10T` emits no PSB line (stderr, not stdout, because the documented consumer is `eval $(./solve --canonical-config …)` and word-splitting would let a stdout `#` comment swallow every variable printed after it — measured: under `--full` it drops `SOLVE_DFS_ITERATIVE` and `SOLVE_DFS_CHECKPOINT`). So `d2-10T` is a real, config-only scale: reproducible via `--canonical-config`, and correctly not validatable for a PSB it does not have.]** Tracked as Q-324.]** Launchers should call `--validate-launcher-config` as a pre-flight gate before any compute is spent — see how `petersm3/roae-private:scripts/campaign_*_rederive/LAUNCH_*.sh` use it. Output deliberately omits `SOLVE_THREADS` because thread count is not sha-determining and depends on caller hardware.
 
 | Canonical | Env vars |
 |---|---|
@@ -322,39 +414,81 @@ For the full `solve.c` command-line reference (every subcommand, env var, and ex
 
 ### Sha-determining vs operational env vars
 
-Only `SOLVE_DEPTH`, `SOLVE_NODE_LIMIT`, and `SOLVE_PER_SUB_BRANCH_LIMIT` are **sha-determining** — change them and the resulting `solutions.bin` sha changes. The other variables shown above are **operational** — they affect runtime / scheduling / safety gates but produce byte-identical canonical output:
+`SOLVE_DEPTH` and `SOLVE_PER_SUB_BRANCH_LIMIT` are **sha-determining** — change either and the resulting `solutions.bin` sha changes. `SOLVE_NODE_LIMIT` is sha-determining **only when `SOLVE_PER_SUB_BRANCH_LIMIT` is unset**: it is then the auto-divide numerator (`per_branch_node_limit = SOLVE_NODE_LIMIT / total_branches`) and so fixes the walk. The `d2 10T` row is the one recipe in the table above in that state; **every depth-3 canonical above supplies an explicit PSB, and for those `SOLVE_NODE_LIMIT` does not determine the sha.**
+
+⚠ **[CORRECTED 2026-08-30 — this section read "Only `SOLVE_DEPTH`, `SOLVE_NODE_LIMIT`, and `SOLVE_PER_SUB_BRANCH_LIMIT` are sha-determining — change them and the resulting `solutions.bin` sha changes." That is false for `SOLVE_NODE_LIMIT` under every published depth-3 recipe here, and this section exists precisely to tell an operator which knobs matter.** Two independent grounds, both established rather than argued. **(a) Source:** the explicit-PSB path assigns `per_branch_node_limit = per_sub_branch_override` directly, overwriting the `node_limit / divisor` auto-divide value; and DFS termination tests **only** the per-branch budget (`per_branch_node_limit > 0 && ts->branch_nodes >= per_branch_node_limit`). There is no global `nodes >= node_limit` stop anywhere in the walk. **(b) Execution, re-run 2026-08-30 on a scratch build outside the repo tree** (`gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz`), two runs differing only in `SOLVE_NODE_LIMIT`:
+> ```
+> SOLVE_THREADS=2 SOLVE_DEPTH=2 SOLVE_PER_SUB_BRANCH_LIMIT=50000 \
+>   SOLVE_NODE_LIMIT=200000000 ./solve 0 2      # run A
+> SOLVE_THREADS=2 SOLVE_DEPTH=2 SOLVE_PER_SUB_BRANCH_LIMIT=50000 \
+>   SOLVE_NODE_LIMIT=400000000 ./solve 0 2      # run B
+> ```
+> Both emit a **byte-identical** `solutions.bin`: file sha256 `b5364c14b50f9e0b8b5ae96ed65b5c1ac35ac82775095b76d8e6883de1c69a58`, and the run's own `solutions.sha256` line reports `63f386032be7101e84e57f0b87b66c0ba1cb551c849bd6934190ec8f2926317e` in both. A 2× change in the variable this section called sha-determining changes nothing.
+>
+> **What `SOLVE_NODE_LIMIT` still does when a PSB is set** — it is not inert, it is simply not sha-determining: (i) it drives the pre-flight and safety gates, all thresholded at 1T — disk-space and fsync-IOPS pre-checks, the auto-selftest, host-fingerprint capture, and the sub-canonical refusal below 1T (which an explicit PSB is itself one of the two documented suppressors for); (ii) at `SOLVE_NODE_LIMIT >= 1T` it turns on `SOLVE_DFS_ITERATIVE` and `SOLVE_DFS_CHECKPOINT` as canonical-scale defaults unless they are set explicitly — every recipe above sets both explicitly, so that path is inert for them; (iii) it is recorded in the run metadata (`node_limit` in the provenance JSON and the shard-manifest header), which is what makes the failure mode below possible. Reported alongside this correction and **not** fixed here: the auto-divide progress line prints the override value inside the auto-divide arithmetic — `Per-sub-branch node limit: 50000 (400000000 / 3030 total-sub-branches)` — which reads as though 400000000/3030 = 50000. That is a `solve.c` output defect, not a doc defect.]**
+
+⚠ **EXTENSION WARNING (2026-08-30).** The consequence of the above is prospective, and it is the reason this correction is not cosmetic. **An extension run MUST raise `SOLVE_PER_SUB_BRANCH_LIMIT`** — raising `SOLVE_NODE_LIMIT` alone does nothing. A "560T → larger" extension that copies the parent's `SOLVE_PER_SUB_BRANCH_LIMIT=3536157207` walks the **identical frontier** and produces the **identical `solutions.bin`**, while its metadata records the larger `SOLVE_NODE_LIMIT` — so it can be reported as a larger-budget run on the strength of a metadata field, and the sha that attests completion would not change to contradict it. Either raise the PSB, or unset it and accept auto-divide (understanding `SOLVE_CONCENTRATE_BUDGET` semantics on a resumed tree). This qualifies, and does not replace, the "copy the PSB value verbatim" rule in §Reproducibility parameters above: **copy verbatim to re-derive an existing canonical; never copy verbatim to extend one.**
+
+The other variables shown above are **operational** — they affect runtime / scheduling / safety gates but produce byte-identical canonical output:
 
 - `SOLVE_DFS_ITERATIVE=1` + `SOLVE_DFS_CHECKPOINT=1` — enable the iterative-DFS code path with on-disk checkpointing. Required for the multi-trillion-node depth-3 canonicals because the recursive path would blow the stack and there's no resume otherwise; sha-equivalent to the recursive path at scales that fit in memory.
 - `SOLVE_THREADS=128` — parallelism degree. Sha-equivalent across `SOLVE_THREADS` values because the merge dedup step is order-stable (also reproduced at `SOLVE_THREADS=64` for the d3 10T canonical).
 - `SOLVE_SKIP_AUTOMERGE=1` — skips the post-enum auto-merge step; needed when using the canonical pipeline pattern (separate Standard VM for merge).
-- `SOLVE_SKIP_IOPS_CHECK=1` — skips the fsync-throughput pre-flight gate; needed for archival disks that fall below the 1000 fsync/sec threshold (HDD canonical-archive Premium).
+- `SOLVE_SKIP_IOPS_CHECK=1` — skips the fsync-throughput pre-flight gate (exit 31). Skip it, or prefer `SOLVE_ALLOW_SLOW_IOPS=1` (probe runs and logs, launch proceeds), when a durable archival disk cannot clear the gate's *aggregate* floor — see the correction below for what that floor actually is.
+
+  ⚠ **[CORRECTED 2026-09-02 — this bullet named a fixed single-thread fsync/sec floor as the gate's criterion. No such floor exists in the shipped binary.** It was the task-#107 design of 2026-05-27 and was retooled away two days later by task #115, *because it was mis-calibrated*: single-thread fsync is latency-bound and no network-attached managed disk reaches that rate, so the gate fired on every durable-disk canonical run and forced a manual override. `solve.c`'s own retool comment records the measurements that killed it — HDD 134/sec, Premium P40 218/sec, single-threaded. The retired figure is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-c410da42`.
+
+  **What the gate is instead — a RATIO, not a rate.** It runs a concurrent probe over `min(threads,32)` workers to measure the aggregate fsync throughput the enum will actually see, then projects `expected_fsyncs = SOLVE_NODE_LIMIT / 1.4e7 / SOLVE_FSYNC_BATCH_SIZE` against `est_wall = SOLVE_NODE_LIMIT / (threads × 1e7)` and refuses when `fsync_wait / est_wall > 0.25`.
+
+  **The floor is derivable, and `SOLVE_NODE_LIMIT` cancels out of it.** Solving `fsync_wait / est_wall ≤ 0.25` for the aggregate rate gives `agg ≥ threads / (1.4 × SOLVE_FSYNC_BATCH_SIZE × 0.25)` fsync/sec, so the floor scales with thread count and batch size and is **independent of the node budget**:
+
+  ```
+  python3 -c 'import sys; t,b=int(sys.argv[1]),int(sys.argv[2]); print(round(t/(1.4*b*0.25),1))' 128 1   # -> 365.7
+  ```
+
+  That is **≈366 aggregate fsync/sec at the canonical 128 threads with batch 1**, not the four-digit single-thread rate this bullet published. **The error was fail-open for the reader**, which is why it is corrected rather than merely restated: a host measuring 500 aggregate fsync/sec passes the real gate at 128 threads, and this bullet told its operator to disable the gate — losing exactly the protection the gate exists for. [SOLVE_C_CLI.md](SOLVE_C_CLI.md)'s exit-code 31 row already documented the ratio form correctly, and a whitespace-flattened corpus sweep for the retired figure found this to be its **last live site**; the two other occurrences ([HISTORY.md](HISTORY.md)'s #115 entry and that exit-31 row) both narrate it as superseded, which is correct. **Deliberately NOT changed: `solve.c`** — the code is right and has been since 2026-05-29; this was a documentation defect only. Found by Codex review V2-F25 #10; the floor formula and its node-budget independence are derived and landed here.]**
+
 - `SOLVE_ALLOW_BUILD_MISMATCH=1` (**NOT in the recipe above** — historical campaign command lines included it as defense against rebuild-induced binary drift across VM teardown-recreate cycles; the current canonical launchers handle this by deleting stale `build.sha` post-rebuild instead, so the override is no longer required and shipping without it surfaces unexpected binary changes loudly). See [DEVELOPMENT.md](DEVELOPMENT.md#buildsha-invariant-outlier-4) for the build.sha invariant guard this flag overrides.
 
 ### PSB-formula caveat
 
-The published `SOLVE_PER_SUB_BRANCH_LIMIT` values above are NOT all exactly `floor(SOLVE_NODE_LIMIT / 158,364)`:
+The published `SOLVE_PER_SUB_BRANCH_LIMIT` values above are NOT all exactly `floor(SOLVE_NODE_LIMIT / 158,364)` — and where they do coincide, the coincidence is arithmetic luck, not a property of the formula:
 
-| Scale | Recipe PSB | `floor(NL/158,364)` | Off by |
-|---|---:|---:|---:|
-| 5.6T | 35,361,598 | 35,361,598 | 0 |
-| 100T | 631,456,644 | 631,456,644 | 0 |
-| 560T | 3,536,157,207 | 3,536,157,207 | 0 |
-| 11.2T | 70,723,196 | 70,723,144 | +52 |
-| 10T | 63,146,557 | 63,146,544 | +13 |
-| 1T | 6,315,458 | 6,315,272 | +186 |
+| Scale | `SOLVE_NODE_LIMIT` | Recipe PSB | `floor(NL/158,364)` | Off by |
+|---|---:|---:|---:|---:|
+| 1T | 1000000000000 | 6,315,458 | 6,314,566 | +892 |
+| 5.6T | 5600000000000 | 35,361,598 | 35,361,572 | +26 |
+| 10T | 10000000000000 | 63,146,557 | 63,145,664 | +893 |
+| 11.2T | 11200000000000 | 70,723,196 | 70,723,144 | +52 |
+| 100T | 100000000000000 | 631,456,644 | 631,456,644 | 0 |
+| 560T | 560000000000000 | 3,536,157,207 | 3,536,157,207 | 0 |
 
-The 11.2T / 10T / 1T published PSBs are the empirically-correct values — they're what the original enum runs used to produce the published canonical shas byte-identically across many independent witnesses. The original solve.c may have used a slightly different per-cell-budget computation (perhaps including per-thread checkpoint overhead, or a different rounding mode), or those rows may be documentation typos that have been faithfully reproduced across builds because everyone uses the published recipe. Either way: **use the published value**.
+Every cell of that table — formula column and off-by column, all six rows — is reproduced by this one command (`NL`, `PSB` and the scale label are the only inputs; both computed columns are derived):
+
+```
+for p in 1T:1000000000000:6315458 5.6T:5600000000000:35361598 10T:10000000000000:63146557 11.2T:11200000000000:70723196 100T:100000000000000:631456644 560T:560000000000000:3536157207; do IFS=: read -r s nl psb <<<"$p"; f=$((nl/158364)); printf '%-6s %12d %12d %+d\n' "$s" "$psb" "$f" "$((psb-f))"; done
+```
+
+⚠ **[CORRECTED 2026-09-01 — the `floor(NL/158,364)` column was wrong in three of six rows, and the off-by column wrong in the same three. It read 5.6T `35,361,598` / off by `0`, 10T `63,146,544` / off by `+13`, and 1T `6,315,272` / off by `+186`; the correct floors are `35,361,572`, `63,145,664` and `6,314,566`, off by `+26`, `+893` and `+892`. The 100T, 560T and 11.2T rows were already right and are unchanged. Each corrected value was derived twice independently — shell integer division (the command above) and a bracketing multiplication confirming `158,364 × floor ≤ NL < 158,364 × (floor+1)` — and the two agree on all six rows.**
+>
+> **Why this mattered more than the digits.** No canonical is at risk: no sha, record count or file size depends on this table, and every published PSB in §Reproducibility parameters is unchanged. The error also pointed the safe way — the real divergence is *larger* than what was printed, which strengthens rather than weakens this section's conclusion, and that is very likely why it survived so long. But the 5.6T row asserted the formula agrees **exactly**, and that is the one failure mode a caveat cannot have. A reader who trusted it was told the shortcut is safe at one scale where it is in fact off by 26 nodes per cell — a different per-cell budget, therefore a different walk, therefore a different sha. A caveat that mis-states its own arithmetic is worse than no caveat, because it converts "do not use this formula" into "the formula is fine here."
+>
+> **The two exact rows are not an exception to the rule.** 100T and 560T do land exactly on `floor(NL/158,364)`; that is now the only claim of agreement this table makes, and it is verified above. It is not a licence to use the formula at those scales. The formula misses at four of the six published scales, including 11.2T which sits between the two exact ones, so exactness at 100T and 560T predicts nothing about any other scale — including any future one. **Derive nothing from this column. Copy the recipe PSB.**]**
+
+The 1T / 5.6T / 10T / 11.2T published PSBs are the empirically-correct values — they're what the original enum runs used to produce the published canonical shas byte-identically across many independent witnesses. The original solve.c may have used a slightly different per-cell-budget computation (perhaps including per-thread checkpoint overhead, or a different rounding mode), or those rows may be documentation typos that have been faithfully reproduced across builds because everyone uses the published recipe. Either way: **use the published value**.
 
 ## Solver version
 
 **v3** is the canonical-producing lineage on `main` HEAD as of 2026-05-25 (post-reset). v3 = v1 prune set + `-flto` + #72 bitset + v3.1 orphan-promotion patch. v3 sha-preserves on v1 byte-identically at every tested scale. The current `main` HEAD reproduces every Active canonical above. Specific commits that established each canonical are recorded in [HISTORY.md](HISTORY.md). v3 binary builds on stock toolchain — no patched glibc, no jemalloc, no PGO (the 2026-05-24 paired-bench re-run confirmed PGO did not replicate the predicted speedup):
 
 ```
-# Minimum to reproduce canonical sha:
-gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
+# Minimum to reproduce canonical sha (the -DGIT_HASH stamp is sha-neutral — measured 2026-09-02:
+# selftest 403f7202… with and without it — and is what makes the run's solutions.meta.json /
+# solutions.provenance.json record the commit instead of the literal "unknown"):
+gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz
 
 # Recommended (sha-preserving, with LTO — Phase 1c validated 2026-05-15 on D64 Zen 4):
-gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm -lz
+gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz
 ```
 
 Both commands produce the canonical selftest sha `403f7202…` and reproduce every canonical above byte-identically. `-flto` (link-time optimization) reduces binary size ~1-2% and produces a ~2% wall-time speedup at 100B-node canonical-correlation scale on AMD Zen 4 with tight run-to-run variance (stddev 0.11% across 4 trials). Drop it if your toolchain doesn't support LTO.
@@ -366,14 +500,25 @@ Both commands produce the canonical selftest sha `403f7202…` and reproduce eve
 ## How to verify a `solutions.bin`
 
 ```
-sha256sum solutions.bin
+gzip -dc solutions.bin | sha256sum
 # Compare to the row above.
+# Since #169 solutions.bin is gzip-framed by default and every canonical sha is computed on the
+# DECOMPRESSED stream, so plain `sha256sum solutions.bin` hashes the container and false-mismatches.
+# Under SOLVE_COMPRESS=0 the file is raw and plain `sha256sum solutions.bin` is the right command.
+# Either way the solutions.sha256 sidecar already holds the logical sha — TRUE SINCE 2026-08-28,
+# AND NOT BEFORE ON ONE PATH. solve.c had two sidecar writers: the enumeration path used
+# sha256_of_logical(), but standalone `--merge` shelled out `sha256sum <file>`, so under the
+# default gz framing it recorded the CONTAINER sha (and solutions.meta.json inherited it, being
+# parsed back out of the sidecar). If a sidecar was written by a standalone `--merge` before
+# 2026-08-28, verify it with `gzip -dc solutions.bin | sha256sum` before trusting a mismatch:
+# a container sha false-mismatches an artifact that is byte-identical where it counts.
+# Fixed + gated by scripts/sidecar_sha_gate.sh; see CORRECTIONS.md 2026-08-28.
 ```
 
 For independent constraint-spec verification (slower than sha but cross-checks the binary's enumeration logic):
 
-- C-side: `solve --verify solutions.bin` — checks every record satisfies C1+C2+C3 per [SPECIFICATION.md](SPECIFICATION.md).
-- Python-side: `python3 verify.py --jobs N solutions.bin` — independent re-implementation. The `--jobs` flag parallelizes; `--jobs 128` matches the canonical's enumeration parallelism but any value works for verification.
+- C-side: `solve --verify solutions.bin` — checks every record satisfies C1–C5, plus sorted-order and dedup, per [SPECIFICATION.md](SPECIFICATION.md). ⚠ **King Wen's presence is printed, not enforced, by `--verify`** (measured 2026-09-02: the King Wen record deleted from an artifact and the header count patched → `King Wen found: No` … `VERIFY=PASS`, rc 0). Read that line by eye; folding it into the verdict (`--expect-kw`) is a prepared `solve.c` change held behind the solve.c change gate. *(Corrected 2026-09-02 — this line previously listed "KW-present" among the checks.)*
+- Python-side: `python3 verify.py --jobs N --expect-kw solutions.bin` — independent re-implementation. `--expect-kw` makes King Wen's absence a FAIL (rc 1), which on a complete canonical it must be; without it the verifier reports `KW_PRESENT=NO` and certifies the records only. The `--jobs` flag parallelizes; `--jobs 128` matches the canonical's enumeration parallelism but any value works for verification.
 
 Both verifiers operate without reference to the canonical sha; they validate the file against the constraint specification directly.
 
@@ -382,11 +527,14 @@ Both verifiers operate without reference to the canonical sha; they validate the
 ```
 git clone https://github.com/petersm3/roae
 cd roae
-gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
+# pin the source: check out the commit named in the canonical's row above before building
+gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz
+./solve --print-config | grep git_hash   # must NOT say "unknown" — that is the provenance stamp the run writes
 ./solve --selftest                    # must print sha 403f7202
 ulimit -s unlimited                   # required at large scales
 <env vars from the table above> ./solve 0 128
-sha256sum solutions.bin               # must match the canonical row
+gzip -dc solutions.bin | sha256sum    # must match the canonical row (gz-framed by default since #169;
+                                      # plain sha256sum hashes the container, not the canonical stream)
 ```
 
 The smallest validation reproduces in seconds (selftest). The d3 10T canonical reproduces in approximately 60-90 minutes on a 128-vCPU machine. The d3 100T reproduces in approximately 11-19 hours. Lower thread counts work; the wall time scales roughly linearly with `1/threads` for d3 enumeration.
@@ -397,7 +545,7 @@ The smallest validation reproduces in seconds (selftest). The d3 10T canonical r
 
 **Size convention (applies to every entry above):** the **File size** field is always the on-disk size *including* the 32-byte header; the record count is `(size − 32) / 32`. A merge/`--analyze` log line that reports "records × 32" (record-bytes only) is 32 bytes short of the on-disk size — that fence-post is the source of the 2026-06-14 false-corruption alarm and the 2026-07-04 100T count re-correction.
 
-Records are deduplicated at merge time by canonical form (orient-bit-masked); the reported record count equals the number of distinct canonical orderings the enumeration discovered within its budget. The full mathematical search space is much larger than any partial enumeration here (estimated at ≈3×10³⁷ distinct-canonical orderings — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)); canonicals at higher node budgets reveal more of it but cannot approach exhaustion.
+Records are deduplicated at merge time by canonical form (orient-bit-masked); the reported record count equals the number of distinct canonical orderings the enumeration discovered within its budget. The full mathematical search space is much larger than any partial enumeration here (estimated at ≈3×10³⁷ distinct-canonical orderings — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)); canonicals at higher node budgets reveal more of it but cannot approach exhaustion. ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical figure on this line exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
 
 ## Validation status
 

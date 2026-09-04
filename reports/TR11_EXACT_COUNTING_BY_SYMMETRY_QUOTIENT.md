@@ -1,0 +1,774 @@
+# TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
+*Technical report — **v1.25** (2026-09-02; §6's per-layer footprint table refilled from the completed full-31 run — the entry peak is layer 16, not 15, and the live-pair peak is 4.51 TB at k16+k17, not the retired 4.05 TB floor; two further corrections to the executive summary and §7/§8 — no count, theorem or canonical integer changed; previously v1.24, 2026-09-02, the free-checkpoint guarantee re-keyed to the manifest — see Revision history.).*
+*Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
+proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
+interpretation are argued, not verified. One caveat is structural, and it frames all the rest: the same
+author wrote the claims, the software that checks them, and this report that grades the check.
+Verification here is independent in mechanism, never in authorship; no independent party has yet
+audited or reproduced any of it (METHODS.md §"Authorship independence").*
+
+Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
+
+## Executive summary
+
+Almost every large number in this project is one of two kinds: an exact count from an exhaustive
+enumeration (which can only ever cover a slice of the space), or a statistical estimate with an error
+bar. This report documents the instrument that produced the suite's first number of a third kind: an
+**exact count at full scale**. The number of hexagram orderings that keep the classical pairing, start
+with the traditional first pair, and avoid the forbidden "distance-5" adjacency is **exactly
+757,058,601,340,255,440,651,419,713,405,330,315,358,208** — a 42-digit integer, computed to the last
+digit in about four minutes. The computation is only feasible because of the symmetry theorem of
+[TR-5](TR5_SYMMETRY.md): the space's 24-fold symmetry shrinks the computation ~23× — small enough to fit
+in memory — and the theorem then predicts, and the result confirms, that the integer is divisible by 24
+exactly. The same run gave the project's statistical estimator its first full-scale check against ground truth
+at a scale (10⁴¹) where nothing exact previously existed on this suite's validation ladder: the exact value falls **inside** the estimate's
+stated ±0.01% envelope. (The estimate was published to four significant figures, so its exact deviation
+is unmeasured at that precision — bounded well within the envelope, not resolved to it; see §9's note.)
+The report closes with the extension of exactness to the next constraint — its mathematics now closed at the model level (both halves machine-checked in Lean; the no-further-collapse half additionally independently reviewed, 2026-07-21, and found **not load-bearing** for the landed integer — §10(iv)), and
+now engineered: the computation's terabyte-scale layers (measured: the peak layer packs to 2.34 TB, and
+the two adjacent layers the DP holds live peak together at 4.51 TB — §6) are
+streamed through disk by an out-of-core mode, so the full exact count runs on ~64 GB-RAM commodity
+hardware plus ~4 TB of disk. That run has now **completed** (2026-07-16): the exact integer is
+**1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097×10³⁹** (§9) — divisible by 24 exactly,
+and **inside the prior statistical estimate's stated ±0.01% envelope** (the ~0.0044% distance to that
+estimate's rounded five-significant-figure numeral 1.0971×10³⁹ is a rounding gap, not a resolved
+estimator error — §9's note). The final constraint (C3) is, as of this
+version, no longer described as a structural obstruction: its global sum collapses to a bounded
+scalar (**C3 = 16 + 8·G**, a machine-checked identity — see §10(ii)), so a bounded-state exact
+design exists; what keeps the flagship |C1–C5| an estimate is the estimated ~15–30× (central ~19×;
+provisional and, on current evidence, more likely low than high — §10(ii)) cost of carrying that
+channel alongside C5's state, not missing mathematics.
+
+## Abstract
+
+We document the symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4`) that computed the exact
+cardinality **|C1∩C2∩C4| = 757,058,601,340,255,440,651,419,713,405,330,315,358,208 ≈ 7.5706×10⁴¹**
+(log₂ = 139.12 bits; orientation-explicit sequences; 2026-07-04, 259 s wall on 64 cores) — to our
+knowledge the project's first exact full-scale constrained count, and the third counting modality in the
+suite alongside exhaustive enumeration (exact lower bounds; [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md)) and
+Knuth estimation (unbiased ±CI; [TR-4](TR4_SIZE_OF_THE_SPACE.md)). The naive pair-level DP is
+memory-infeasible (6.66×10¹⁰ states; 149–447 GB peak even layered). TR-5's free-action theorem makes it
+feasible: the record-level symmetry group S₄ (order 24) acts on the DP state space, DP values are
+constant on orbits, and storing only canonical masks collapses 2³¹ masks to 93,939,712 (22.86×) — peak
+memory drops into the tens of GB. The theorem simultaneously supplies an arithmetic gate: the action on
+complete sequences is free, so the count must be ≡ 0 (mod 24); it is, exactly, on a 42-digit integer.
+The exact value validates the Knuth estimator absolutely at full scale (stated 7.571×10⁴¹ ±0.01%;
+apparent deviation 5.5×10⁻⁵, which is the estimate's rounding gap rather than a resolved error — see §4) and converts [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)'s C2 ledger row from estimate to
+exact arithmetic. We state the validation stack, the exactness frontier (the C5-tracked extension's mathematics is
+**closed at the model level** — an exact dead-state-pruning theorem (machine-checked in Lean as `capping_exact`, 2026-07-20) plus the no-further-state-collapse Proposition, independently reviewed 2026-07-21 and machine-checked in Lean (`no_live_lumping`, `cap_never_merges_live`), the review also finding it **not load-bearing** for the landed integer (§10(iv))
+— and now engineered: measured per-layer footprints peak at 2.34 TB for a single layer and 4.51 TB for the
+two the DP holds live together (§6) — beyond the in-RAM reach of the
+machine classes this project provisioned (up to 2.75 TB RAM + 3.55 TB striped swap; larger single
+nodes exist commercially but were not economically sensible here) — and an out-of-core mode (`--f1-out-of-core`,
+2026-07-05) replaces the RAM requirement with ~4 TB of streamed layer files, validated 4/4 exactly
+against the in-RAM path on independent hardware; the full-scale count **landed 2026-07-16 at
+1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**, divisible by 24 exactly and
+0.999956× the Knuth estimate), and the honest limits (the flagship 1.3287×10³⁸ remains an estimate;
+C3's global sum — formerly stated here as an open obstruction — collapses to the bounded scalar
+identity C3 = 16 + 8·G, leaving an estimated ~15–30× (central ~19×; provisional and, on current
+evidence, more likely low than high) cost barrier rather than a
+structural one; §10(ii)).
+
+*Novelty status: symmetry-quotiented counting is classical methodology (Burnside/orbit counting;
+canonical-representative and isomorph-free generation techniques in the tradition of McKay); no novelty
+is claimed for the technique. The contribution documented here is its instantiation for the King Wen
+constraint system and the exactness tier it adds to this suite. We are not aware of a prior exact count
+of this quantity; corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md). Nor is the
+*idea* of counting hexagram-arrangement spaces claimed: [Suenaga Takayasu
+(2012)](../documentation/CITATIONS.md#suenaga2012) — the sharpest prior counting framework this project
+has located — independently developed the (Z/2)⁶ machinery and began counting arrangement templates,
+computing the number of order-8 subgroups of F₂⁶ exactly (1395) and posing, though not completing, a
+≈1.47×10¹³ product count for eight-palace-style templates; his counted objects (F₂⁶ subspaces,
+algebraic templates) are disjoint from the constraint-satisfying total orders counted here
+(CITATIONS.md §"The (Z/2)⁶ hexagram algebra … — priority ceded"). The counting
+**question** itself has prior art: [Luo Jianjin
+(2015)](../documentation/CITATIONS.md#luojianjin2015) posed, in a mathematics journal, the question of
+how many orderings the 64 hexagrams admit under the Zhouyi's structural conditions — noting the answer
+should be far smaller than 64! — as a derived open problem, without formalizing constraints or
+computing any count; the size-of-the-space framing appears earlier still — Huang Shisheng 黄石声
+([1997](../documentation/CITATIONS.md#huangshisheng1997)), citing Shen Yijia 沈宜甲 and Dong Guangbi
+董光璧, invokes a matrix-form count (8!×8! = 1,625,702,400, which he mislabels as the count of
+*arbitrary* arrangements — his 「六十四卦如果任意排列」; arbitrary arrangement of 64 objects is 64!)
+as rhetorical motivation, and Chen Zhuangwei
+([2007](../documentation/CITATIONS.md#chenzhuangwei2007)) restates it with a 7!×7! refinement — but
+neither poses the enumeration question. Closed-form counts of simply-constrained hexagram-ordering
+spaces therefore predate all of this (Huang 1997 after Shen/Dong: 8!×8! matrix-form orderings; Chen
+2007: 62! with the first pair fixed, 7!×7! with Qian first) — counts of the same kind as this
+suite's own 32!·2³² C1-skeleton step; the contribution claimed here is confined to counts that no
+closed form yields. To our knowledge the enumeration question itself remained unanswered; this
+report's exact integers (with TR-4's estimates) are, we believe, the first quantitative answers to
+Luo's question.*
+
+## Sections
+
+1. **The counting problem, and why the naive DP is infeasible.** The target is |C1∩C2∩C4|: complete
+   64-hexagram sequences built from the 32 classical pairs (C1), with no Hamming-distance-5 adjacent
+   transition (C2), opening with the fixed pair (Qian, Kun) in C4's defined orientation (definitional —
+   our convention, not a classical attestation: the *Xugua* attests that the {Heaven, Earth} pair opens,
+   not the order within it (narrowed 2026-09-01); and not forced by the other constraints; the
+   former "Theorem 6" is retracted, 2026-07-26, see CLAIMS_DECIDED). C1 makes a
+   pair-level formulation exact: place whole pairs with an orientation bit; C1 fixes the 32 within-pair
+   distances (12×d2, 12×d4, 8×d6 — never 5), so checking C2 only at the 31 pair boundaries enforces full
+   C2; C4 costs nothing in state — it pins the DP's initial condition (virtual predecessor exiting at
+   Kun) and removes pair 0 from the free set. The exact recursion is a bitmask DP over states
+   (used-pair-mask, last-exit-hexagram): 31·2³¹ + 1 = 66,571,993,089 states and ≈2.0×10¹² edge
+   evaluations. Ops are cheap (~hours in C); **memory binds**: values reach ~7.6×10⁴¹ > 2¹²⁸, so ~150-bit
+   integers are required, and even the best layered variant (layer = mask popcount, two live layers,
+   dense combinatorial ranking) peaks at 1.86×10¹⁰ entries — 447 GB at 24 B/value single-pass, or 149 GB
+   at 8 B/value × 3 CRT passes. This is what killed the route when first formulated (the "F1 no-go");
+   the recursion itself was validated 3/3 against brute-force enumeration on reduced 8-pair instances.
+2. **The free-action theorem → the 24× collapse.** TR-5 proves the C1–C5-preserving symmetry group: 48
+   bit-position permutations (the centralizer of `rev` in S₆), acting at record level as **S₄ (order
+   24)**, and — the load-bearing part — acting **freely** on complete valid sequences: no non-identity
+   element fixes any solution, so every orbit has exactly 24 members and any symmetry-closed count is
+   exactly 24 × (orbit count). One precision note (added 2026-07-30): "orbit count" here is the count
+   of **record-level** orbits — the S₄ action and its freeness live at the record (canonical
+   pair-ordering) level, while N counts **orientation-explicit sequences**. At the sequence level the
+   acting group is the order-48 lift (its central element `rev` flips within-pair orientation, so it
+   fixes no orientation-explicit sequence; TR-5 §3(i) exhibits the 48 distinct raw sequences on KW's
+   orbit), sequence-level orbits have size 48, and consequently **48 | N** — verified for both landed
+   exact counts (both are ≡ 0 mod 48, i.e. N/24 is even) — with N/24 equal to **2× the number of
+   sequence-level orbits**, not the sequence-orbit count itself. The mod-24 gate below is therefore a
+   strictly weaker check than the space affords; the arithmetic and every published figure are
+   unaffected. Two distinct consequences power this report. *Feasibility:* the group is
+   a Hamming isometry that permutes the 32 pairs (pair 0 fixed setwise), so it acts on DP states and DP
+   values are constant on orbits — the computation may store one representative per orbit. *Arithmetic
+   gate:* the count N must satisfy N ≡ 0 (mod 24) — a zero-compute integrity check any reader can apply,
+   and one that (per the cross-suite observation) already certifies that every published *budgeted*
+   canonical is not symmetry-closed (e.g. 10,525,271,997 ≡ 21 mod 24). One caution the implementation
+   must respect: the action on complete sequences is free, but the action on *masks/prefixes* is **not**
+   — prefix stabilizers exist and require standard orbit-DP bookkeeping. **That bookkeeping is now
+   machine-checked at the model level** (2026-07-21): the transfer theorem **never assumes freeness**, so
+   the non-free mask action costs nothing — no orbit weight ever enters a DP *value* — and the per-layer
+   stabilizer weighting is exact orbit–stabilizer, proved division-free as `multiplicity × |stab| = |G|`
+   (`orbit_transfer_exact`, `orbit_stabilizer_mult`, `stabilizer_weighted_mass` in `lean/PruneExactness.lean`
+   §OrbitTransfer, **in `lean/` (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch)**; core Lean 4, 0 `sorry`, kernel-`decide`).
+   **Scope:** this is a model-level result. DP-reachability facts are hypotheses and the bridge to the C
+   implementation remains prose plus the runtime gates — exactly the discipline `capping_exact` follows.
+   It does **not** verify `solve.c`, and it does not bear on §10(vi)'s instrument question.
+3. **The layered orbit-DP over canonical masks.** The implementation (`solve --f1-exact-c1c2c4`,
+   argv-dispatched and sha-neutral — zero interaction with enumeration paths) proceeds layer by layer in
+   mask popcount k = 0..31, storing only **canonical masks** (minimum image over the 24 pair-permutations):
+   93,939,712 canonical masks in place of 2³¹ = 2,147,483,648 (22.86×); state entries collapse from
+   6.66×10¹⁰ to 2.91×10⁹, with the two-live-layer peak (k = 16, 17) at ~8.1×10⁸ entries — tens of GB
+   instead of hundreds. Exactness is carried by a **gather formulation**: the stored value at a canonical
+   mask is the *exact plain-DP forward value* at that representative — each new-layer canonical mask
+   pulls from its canonicalized predecessors, mapping the stored `last` hexagram through the inverse
+   group element; no weights ever enter the values. Stabilizer weights (orbit size = **|G|/|stab|**, implemented as `n_eff/|stab|` where `n_eff` is the run's effective group order — *symbol corrected 2026-08-01 from* `n/|stab|`: throughout this report `n` is the PAIR COUNT (31), so as written it read as division by 31. The correct weight is group-order over stabilizer, matching `f1_orbit_size` in solve.c, `geff/|stab|` in verify.c, `24/|stab|` in F1C5_LAYER_FORMAT.md and `|G_run|/|stab(cm)|` in GT_LADDER_FORMAT.md; this §3 sentence was the one place the report body DEFINES the weight, and v1.7's own revision entry already states it correctly) appear
+   only in a per-layer total-mass identity checked against the plain DP in subset mode; the full mask is
+   G-fixed (orbit size 1), so the final total needs no correction. Counts are hand-rolled add-only
+   **192-bit unsigned integers** (the magnitude exceeds 2¹²⁷; the no-third-party-dependencies rule
+   excludes GMP), run in a single pass — no CRT needed at this layer (the 8 B × 3-CRT-pass design remains
+   the sizing basis for the larger C5-tracked extension, §5). Each completed layer checkpoints
+   atomically (tmp + rename + fsync, with a manifest); a re-run with the same `--layers-dir` resumes
+   from the last complete layer — the same eviction-safe discipline as the enumeration campaigns. The
+   full run: **259 s wall on 64 cores**, final integer printed exactly.
+4. **The validation stack.** Layered, in the suite's two-language tradition:
+   - *Recursion ground truth:* the pair-level recursion validated 3/3 against brute-force enumeration
+     on 8-pair reduced instances (both Kun- and Qian-seeded).
+   - *Orbit machinery ground truth:* the Python orbit-DP prototype validated 3/3 exactly (big-integer
+     equality plus per-layer mass identities) against the plain recursion on group-closed pair-orbit
+     unions — U1 (9 pairs: 63,366,144), U2 (12 pairs: 1,961,990,553,600 = 12!·2¹², a union with no
+     internal d=5 prunes — a known-closed-form check), U3 (13 pairs: 39,239,811,072,000).
+   - *C port gates:* the C implementation mirrors the prototype's group construction, canonicalization,
+     gather formulation, and stabilizer handling exactly; in `--f1-subset` mode a plain layered DP runs
+     alongside and both the totals and every layer mass must match exactly (printed PASS/FAIL). All
+     gates green at commit; standard selftest anchor unchanged (sha-neutrality).
+   - *Reduced-instance oracle discipline:* as everywhere in the suite, nothing ran at full scale before
+     exact agreement on reduced instances against an independent oracle (brute force, then plain DP) —
+     the same gate pattern specified for any future orbit-reduced enumeration lineage.
+   - *The arithmetic gate on ground truth:* the run **aborts** unless N ≡ 0 (mod 24); the result is
+     divisible exactly — remainder zero on a 42-digit integer — confirming the free-action theorem's
+     signature on ground truth (orbit count N/24 = 31,544,108,389,177,310,027,142,488,058,555,429,806,592).
+   - *Absolute estimator calibration:* the pre-existing Knuth estimate of the same quantity (7.571×10⁴¹,
+     stated ±0.01%) is confirmed to contain the exact value inside its envelope — the estimator's first
+     validation against full-scale ground truth (previously nothing exact existed above brute-force scale
+     on TR-4's ladder). The apparent 5.5×10⁻⁵ gap is the distance from the exact value to the estimate's
+     own four-significant-figure rounding, not a measurement of the estimator's error, which is unresolved
+     at the published precision but bounded well within ±0.01%. This upgrades TR-9's C2 ledger
+     row from estimate to exact arithmetic (C2's marginal 4.54 bits and its net — restated ≈ 0 / break-even in TR-9 v1.7, superseding the earlier +1.6 — now rest on an exact
+     numerator).
+5. **The exactness frontier: C5, the irreducibility theorem, and the staged program.** The next layer,
+   |C1∩C2∩C4∩C5| (C5 = KW's transition-distance multiset), adds a residual-budget dimension to the
+   state. Since C1 fixes the within-pair distances, C5 reduces to a budget on the 31 boundary
+   transitions, B0 = (2, 8, 13, 7, 1) over d = (1,2,3,4,6) — 6,048 budget vectors rather than the naive
+   whole-walk 176,400, and a sum invariant (Σr = remaining transitions) makes each vector live in
+   exactly one layer (≤413 coexist). Two results close the mathematics (working notes: FH-1):
+   *capping the residual at the per-class achievable range is proven **exact** dead-state pruning*
+   (states outside the box count zero on both sides), and — the negative that matters — a **complete
+   characterization of future-equivalence**: two distinct residuals at the same state are
+   future-equivalent **iff both are dead**. There is *no residual lumping available among live states*;
+   the minimal exact storage of any **residual-lumping** forward scheme is the live set itself. (Narrowed
+   on independent review, 2026-07-21: what is proven is that no residual equivalence-classing at a fixed
+   state can merge live states — not an information-theoretic storage bound over *every* conceivable
+   forward encoding, which value-deduplication or algebraic compression would sit outside.) Measured on group-closed
+   reduced unions, realistic (KW-like, balanced) budgets collapse only 1.2–1.4× at the wide layers —
+   the hoped-for 10–50× collapse is refuted. Projection at 31 pairs: peak two-live-layer storage
+   **≈1.2–2.0 TB** (12 B/entry under 3×64-bit CRT passes; theoretical perfect-pruning floor ≈1.0–1.4 TB),
+   with edge ops ~10¹³ per pass — beyond the memory of the hardware classes used to date. The
+   implementation exists and is committed (`solve --f1-exact-c1c2c4c5`, with `--f1-pairs N` selecting
+   group-closed pair-orbit unions, N ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31} — the
+   complete set of realizable sizes, since a rung is a union of whole pair-orbits of sizes
+   {3,3,3,4,6,6,6}) and mirrors an exactly-validated
+   Python instrument; the staged measurement program — reduced-pair runs of increasing size to measure
+   the true peak-memory curve before any full-scale attempt — ran on 2026-07-04/05 and produced the
+   measured profile of §6. (Projection caveat, as originally stated: the stored-fraction band 0.30–0.50
+   was extrapolated from n = 16–18 unions and n = 31 could sit outside it. **The caveat fired**:
+   entries-per-state growth at full scale exceeded the models — layer 15 alone ran 55%+ over its
+   combinatorial-bound estimate; the realized footprints are §6's table.) **Status: mathematics closed at the model level — the dead-state-pruning exactness theorem is machine-checked in Lean (`capping_exact`, `lean/PruneExactness.lean` in `lean/` (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 sorry, 2026-07-20 — the DP-reachability premises are hypotheses in the Lean statement and the bridge to the C implementation is carried by prose + the runtime gates, per that file's header), and the companion no-further-collapse Proposition has been independently reviewed (2026-07-21, found sound) and machine-checked (`no_live_lumping`, `cap_never_merges_live`, same file) — the review also finding it not load-bearing for the landed integer (§10(iv));
+   the memory barrier is removed by the out-of-core mode (§7); the full-scale run LANDED 2026-07-16 (§9).**
+6. **What the computation actually needs — the measured per-layer footprint profile.** The 2026-07-04/05
+   full-scale attempts (an in-RAM run on a 2.75 TB-RAM M-series machine with 3.55 TB of striped swap,
+   and the out-of-core run's telemetry/manifest) replaced §5's projections with measurements, and the
+   completed full-31 run has since supplied every layer. Per-layer state footprint as the engine lays a
+   layer out — entries × 28 B plus a 12 B per-canonical-mask index, GB = 10⁹ B; layer k = mask popcount k
+   of 31. Every row is the `layer GB` column of
+   [FULL31_EXACT_AGGREGATES.md](FULL31_EXACT_AGGREGATES.md) §1 for the same k, which that file labels
+   **engine-internal telemetry, not a property of the mathematical object** — it is how *this*
+   implementation laid the layer out, and it is quoted here for exactly that purpose (sizing a machine):
+
+   | Layer k | Footprint | Provenance |
+   |---|---|---|
+   | 9 | 41.19 GB (1,470,651,410 entries) | measured — completed full-31 run |
+   | 10 | 126.65 GB (4,522,319,129 entries) | measured — completed full-31 run |
+   | 11 | 316.37 GB | measured — completed full-31 run |
+   | 12 | 655.23 GB | measured — completed full-31 run (supersedes the ≈656 GB this row derived by subtracting L11 from 971.6 GB of two-live-layer telemetry) |
+   | 13 | 1.143 TB | measured — completed full-31 run |
+   | 14 | 1.698 TB | measured — completed full-31 run |
+   | 15 | 2.156 TB | measured — completed full-31 run |
+   | 16 | **2.341 TB — the peak layer** | measured — completed full-31 run |
+   | 17 | 2.168 TB | measured — completed full-31 run |
+   | 18 | 1.716 TB | measured — completed full-31 run |
+
+   **Reproduction** — re-derives the unit, the peak layer and the peak live pair from the tracked
+   aggregate table, in one pass, with no build:
+
+   ```
+   awk -F'|' 'NF>=10 && /^\| *[0-9]+ *\|/{k=$2+0;g=$3;e=$6;s=$8;gsub(/[ ,]/,"",g);gsub(/[ ,]/,"",e);
+     gsub(/ /,"",s);if(sprintf("%.6f",(e*28+g*12)/1e9)!=s)bad++;gb[k]=s+0;n++}
+     END{for(k=1;k<=31;k++)if(gb[k]>pk){pk=gb[k];pki=k};
+     for(k=1;k<31;k++){t=gb[k]+gb[k+1];if(t>ps){ps=t;psi=k}};
+     printf "rows=%d unit-mismatches=%d peak-layer=k%d (%.2f GB) peak-live-pair=k%d+k%d (%.2f GB) k14+k15=%.2f GB\n",
+     n,bad+0,pki,pk,psi,psi+1,ps,gb[14]+gb[15]}' reports/FULL31_EXACT_AGGREGATES.md
+   ```
+
+   prints `rows=31 unit-mismatches=0 peak-layer=k16 (2340.55 GB) peak-live-pair=k16+k17 (4508.61 GB)
+   k14+k15=3853.97 GB` — the zero mismatch count is the unit assertion (every one of the 31 published
+   `layer GB` values equals entries × 28 B + canonical_masks × 12 B to the last printed digit), and the
+   two pair figures are the ones this section publishes.
+
+   ⚠ **What this table said before, and what that number actually was.** Rows 12–14 carried a derived
+   or rounded value (≈656 GB, 1.6 TB) and the k=15 row gave a lower bound of more than 2.45 TB marked
+   *observed-incomplete*, with no rows past 15. That bound is a real measurement but **not in this
+   column's unit**: it is the *live in-RAM allocation* seen part-way through layer 15 on the retired
+   in-RAM attempt — hash-table overhead included — recorded in
+   [HISTORY.md](../documentation/HISTORY.md). A mid-layer partial cannot exceed its own completed layer
+   in packed bytes, and the completed layer packs to 2.156 TB, so the two figures were never the same
+   quantity. Two claims derived from the mislabel are withdrawn with it: that layers from 16 on shrink,
+   and that the in-RAM two-layer floor sits just above 4 TB. Both are corrected below.
+
+   **The entry peak is layer 16, not layer 15.** Canonical-mask counts are palindromic —
+   masks(k) = masks(31−k), so masks(15) = masks(16) = 13,047,760 (§9's integrity check prints that pair)
+   — while entries per mask keep growing, so k16 holds 83,585,570,784 entries against k15's
+   76,987,817,848. Footprints fall from k17 on, not from k16. Two consequences. *First*, the forward DP
+   holds two adjacent layers live, so the in-RAM peak is the largest adjacent pair —
+   **k16 + k17 = 4.51 TB packed** (2340.55 + 2168.06 GB), just above k15 + k16 at 4.50 TB. It is not
+   k14 + k15, which is 3.85 TB: an operator provisioning to the old floor would have been ~460 GB short
+   of the real peak window. Layer 15 alone ran 55%+ over its combinatorial-bound estimate
+   (entries-per-state growth at full scale exceeded all models), and the in-RAM attempt was retired at
+   that line under its pre-committed abort protocol. **No machine class this project provisioned sufficed**: the
+   largest single-node RAM class used (2.75 TB) plus terabyte-scale swap still lost to layer 15's tail.
+   (Larger single nodes — 6-24 TiB — exist commercially; what is established here is that the
+   multi-terabyte route was empirically dead at the price points this project could justify, not that
+   no such machine exists.) The in-RAM route at this scale is not merely expensive — the
+   out-of-core mode was not the fallback, it was the answer. *Second*, the table is the report's answer
+   to "what does this computation need": ~64 GB of RAM and ~4 TB of disk (§7), because at most two
+   adjacent layers need exist at once and neither needs to be in memory. The 4.51 TB packed peak pair
+   above is **not** a disk requirement and does not contradict the ~4 TB figure: layer files are stored
+   v2 zlib-blocked, not packed (§9, §10(vi)), and the landed run completed on a 4 TB stripe (§9).
+7. **The out-of-core mode (`--f1-out-of-core DIR`) and the reproducibility claim.** Public commits
+   01bf3ef + dbdfb0e add an out-of-core execution mode to the same DP — identical mathematics, different
+   storage strategy. Design: (i) completed layers are written to DIR as the **same atomic per-layer
+   checkpoint files** `--layers-dir` uses (tmp + rename + fsync + manifest; the two modes' layer files
+   are **byte-identical**, itself a cross-mode gate) and freed from RAM; (ii) the next layer's gather
+   **streams** the previous layer's file via bucketed, position-sorted, coalesced sequential reads
+   (chunked targets, multi-MB windows, adjacent spans merged below a gap threshold — no per-entry random
+   file access); (iii) the layer being *built* is **chunk-streamed back to disk** as it is emitted
+   (bounded staging buffer; keys pwritten at their final offsets, values to a sidecar relocated at
+   finalize), so **no layer's entries ever reside in RAM in full** — peak RSS is bounded by fixed
+   streaming buffers plus the two live layers' 12 B/mask indexes, independent of layer size; (iv) layer
+   k−1 is dropped before building k+1, so peak disk is ≈ two adjacent layers; (v) every layer file
+   **recorded in the manifest** is a free checkpoint: `--resume-from-layers` does an index-only load and
+   resumes from the manifest's last recorded layer — Spot-safe by construction, the same eviction
+   discipline as the enumeration campaigns. (The layer file is renamed into place *before* the manifest
+   is updated and resume reads only the manifest, so a kill in that window rebuilds one layer; the count
+   is unaffected — see [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md) §Checkpoint and
+   resume semantics.) Exactness is invariant across modes: per-entry arithmetic is the shared
+   `f1c5_gather_entries` kernel that the in-RAM path calls, so totals *and* layer files match
+   byte-for-byte. Tuning knobs: `SOLVE_F1_OOC_READ_MB` / `SOLVE_F1_OOC_SCRATCH_MB` /
+   `SOLVE_F1_OOC_GAP_KB`, with per-layer `[f1c5-ooc]` telemetry (bytes read/written, MB/s, RSS). **The
+   reproducibility claim this establishes**: the full exact |C1∩C2∩C4∩C5| count runs end-to-end on
+   commodity hardware — **~64 GB of RAM plus ~4 TB of disk** *(status corrected 2026-08-01: this read
+   "the in-flight full-scale run uses a 32-core/64 GiB VM with a 4 TB scratch stripe". The run is not in
+   flight — it **landed 2026-07-16**, and per §9 the landing run was a from-scratch relaunch on a
+   D64→D128, the 32-core attempt having been retired. The v1.0 landing entry lists the exec summary,
+   abstract, §5, §10 and the Verification Guide as the places where in-flight language was replaced; §7
+   was missed)* — replacing the multi-terabyte-RAM requirement that
+   §5's projections implied and §6's measurements confirmed **no machine class this project
+   provisioned could meet** (2.75 TB RAM + 3.55 TB striped swap failed at layer 15; 6–24 TiB single
+   nodes exist commercially and were not tested — §6).
+8. **Out-of-core validation, and the engineering history (limitations and mitigations).** In the
+   suite's tradition, the mode's credibility rests on exact cross-instrument agreement plus an honest
+   account of what broke and how the fix was proven.
+   - *Commit-time cross-mode gates:* out-of-core totals equal in-RAM totals at 13 pairs
+     (2,063,395,607,040), 16 pairs (267,765,117,419,520), and 19 pairs (63,244,766,587,981,824), with
+     layer files and manifests byte-identical across modes, per-layer states/entries/mass lines
+     field-identical, and a deliberately stressed small-buffer configuration (multi-chunk, hundreds of
+     windows per layer) still identical; `kill -9` mid-run at 16 pairs → `--resume-from-layers` →
+     identical total and byte-identical layer files; `--selftest` sha unchanged (sha-neutral,
+     argv-dispatched, zero interaction with enumeration paths).
+   - *The Spot validation ladder (4/4 exact):* on independently provisioned Spot hardware in a
+     different region from the full-scale run (~$1.10 total), the out-of-core mode reproduced the
+     recorded in-RAM values **digit-for-digit** at four group-closed subset sizes, including one rung
+     deliberately killed mid-run and completed through `--resume-from-layers`:
+     24 pairs = **7,477,248,378,538,061,907,099,648**;
+     25 pairs = **83,855,263,774,549,546,015,506,432**;
+     27 pairs = **61,666,352,085,618,532,666,071,318,528**;
+     28 pairs = **2,155,118,806,480,613,893,163,229,118,464**.
+     (Reference values from the 2026-07-04 in-RAM runs; the 28-pair in-RAM reference itself peaked at
+     87.1 GB RSS — the out-of-core rung reproduced its integer within a bounded-RSS budget on a small
+     VM.) **Records — stated exactly (corrected 2026-09-02).** This line used to cite
+     [`evidence/f1/`](evidence/f1/) as publishing these run outputs. It does not hold them: that
+     directory holds the |C1∩C2∩C4| headline result, its progress log and the Python prototypes (the
+     Verification Guide's separate pointer to it is the accurate one), and none of the four integers
+     above appears anywhere in it. The records are retained **privately and are not published**, and
+     are enumerated here so an auditor knows what exists: the 24-pair out-of-core session log with its
+     `f1c5_manifest.txt` (per-layer telemetry, peak RSS 13.4 GB, terminal total matching the 24-pair
+     integer digit-for-digit); the 2026-07-08 retool battery's Phase-1 lines carrying the 24/27/28-pair
+     v1-vs-v2 count-identical comparison with timings; a later 25-pair out-of-core re-run manifest and
+     progress record landing the same 25-pair integer; and a random-timing crash-fuzz log (15/15
+     direct-PID kills, resume byte-identical). **One record was not preserved.** The original ladder
+     session's raw outputs — including the 25-pair kill-and-resume log this bullet narrates — were
+     copied to a volatile `/tmp` on the orchestrator before the VM was deleted, and are gone. So the
+     25-pair integer is warranted by the later re-run's digit-for-digit match rather than by the
+     original session log, and kill-and-resume at scale by the crash-fuzz battery rather than by that
+     rung's own log. Publishing the retained records into this tree is a pending review-before-push
+     decision; until it lands **no public artifact backs these four integers**, and this line says so
+     rather than pointing at a directory that does not hold them. The corresponding program-ledger
+     entry is a private working note and is deliberately not cited as a public record.
+   - *Limitation found and fixed — the full-scale OOM:* the first out-of-core build (01bf3ef) streamed
+     the *gather* but accumulated the layer being *built* in realloc-grown RAM arrays. At full scale,
+     layer 10 is 4,522,319,129 entries × 28 B = 126.6 GB against 64 GiB of RAM: the run was OOM-killed
+     ~155 s into the layer-10 build at MaxRSS 61.6 GiB. Detection was itself non-trivial: GNU time
+     appends a trailing "Exit status: 0" field even for signal deaths, so the kill initially read as a
+     silent clean exit; the true cause was read directly off the still-running VM ("Command terminated
+     by signal 9"). Before the fix was designed, a 32-bit-overflow hypothesis was ruled out by auditing
+     every entry-count/offset/window variable (by eye and via `gcc -Wconversion -Wsign-conversion`):
+     all 64-bit. The mitigation (dbdfb0e) is the chunk-streamed emission of §7(iii), with the
+     OOM-prone growth path deleted entirely; the proof was run **at the breaking layer**: rebuilding
+     full-scale layer 10 post-fix held RSS **flat at 1.48 GB** where the pre-fix build died at 61.6 GiB.
+   - *Limitation measured and tuned — read amplification:* the windowed gather re-reads the predecessor
+     layer once per streaming pass; at the initial scratch budget the full-scale gather amplified reads
+     **22.8×** across 494K windows. Raising `SOLVE_F1_OOC_SCRATCH_MB` to 61440 (fewer, larger passes)
+     cut amplification to **~1.1×**. This is a throughput property only — window count and buffer sizes
+     cannot affect the totals (same kernel, byte-identical layer files), a fact the stressed-buffer
+     gate above checks directly.
+9. **The full-scale exact count — LANDED (2026-07-16).** The full-31 run completed on 2026-07-16 on the
+   retooled solver (v2 zlib-blocked layers — per-block RFC-1950 zlib, not gzip-framed `.gz`, despite
+   the "gzip" shorthand in some tool names; see
+   [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md) — + intra-layer checkpointing, merged to `main` 2026-07-09 commit
+   `14db3f5`; D128als_v7 Spot, westus3, 4 TB disk (the run's first ~3 hours were on a D64 before a same-disk
+   migration to the D128 — layer-checkpoint resume is shape-independent by design, and the migration
+   preceded every layer that reached the final artifact's retained state) — the earlier c228/c231/c235 attempts were retired and
+   this was a from-scratch re-run launched 2026-07-09, ~7 days wall spanning 12 Spot evictions, every one
+   auto-recovered from the last complete layer checkpoint with no lost work). The result:
+   **|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**
+   (log₂ ≈ 129.7 bits; orientation-explicit sequences, C4's pair pinned). Free-action gate:
+   **N mod 24 = 0** exactly (the run hard-aborts otherwise; a reader can re-derive it in one line), with
+   **record-level** orbit count **N/24 = 45,710,469,949,549,241,251,504,669,632,357,466,112** (24 is the
+   record-level divisor; at the orientation-explicit sequence level orbits have size 48 and N/24 is 2×
+   the sequence-orbit count — §2's precision note). Ratio to the pre-existing
+   Knuth estimate (1.0971×10³⁹): **0.999956** — the exact value again falls inside the estimate's stated
+   ±0.01% envelope, a second full-scale validation (after §4's C2 anchor) at the 10³⁹ scale where nothing
+   exact previously (the 0.0044% figure is the estimate's five-sig-fig rounding gap, not a resolved error)
+   existed. Per-layer canonical-mask integrity: every printed layer matched the Burnside palindrome
+   masks(k) = masks(31−k) — terminal tail k23..k31 = 369,823 · 128,414 · 38,262 · 9,707 · 2,087 · 378 ·
+   56 · 7 · 1; peak k15 = k16 = 13,047,760 — and the six palindrome pairs recoverable from the retained
+   run log (k10..k21 through k15..k16) all hold exactly. The retained `run.out` (final eviction-resume
+   session) carries only prints k10..k31 — the k0..k9 prints scrolled out on resume — but the full
+   32-layer table reconstructs by the palindrome (k0..k9 = mirror of k22..k31) and **its total is
+   confirmed independently: Σ masks(k) over k = 0..31 = 93,939,712, exactly the known canonical-mask
+   count (§3)** — so the reconstructed k0..k9 values are pinned, not merely assumed (and those layers were
+   also integrity-checked live during the campaign). **This integer passed operator review
+   (2026-07-16) and is published with this report; the downstream ledgers ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md),
+   [TR-4](TR4_SIZE_OF_THE_SPACE.md), and their documentation mirrors) now carry it as exact.**
+10. **Honest limits — what stays estimated, and why.** (i) The flagship **1.3287×10³⁸ (|C1–C5|) remains
+   a statistical estimate**, exactly as TR-4 states; this report does not change its status. (ii)
+   **Corrected in this version (v1.5): C3 is a cost barrier, not a structural obstruction.** Through
+   v1.4 this item read "C3 is a further, open obstruction … no feasible exact design for it is in
+   hand." That was inaccurate. C3's global positional-distance sum between complement partners —
+   Σ_v |pos(v) − pos(v̄)| over all 64 hexagrams, v̄ = v ⊕ 63 — **collapses to a bounded scalar**.
+   Complement commutes with reversal, so it maps C1-pairs to C1-pairs: 8 of the 32 pairs are
+   complement-closed (each contributes exactly 2 — its two members are adjacent, and the sum runs
+   over all 64 hexagrams, so each such pair counts twice), and the remaining 24 pairs split into 12
+   complement-**couples** {P, P′}; each couple's four hexagram-level distances collapse to
+   8·|slot(P) − slot(P′)| — independent of both pairs' orientations (the orientation bits cancel).
+   Hence the identity **C3 = 16 + 8·G**, where **G = Σ over the 12 couples of |slot(P) − slot(P′)|**
+   (slot = the pair's index 0–31 in the pair order — exactly the DP's layer trajectory). G is bounded
+   — G ∈ [12, 228] with C4's (Qian, Kun) pair, itself complement-closed, pinned at slot 0 — the
+   constraint threshold translates exactly (**C3 ≤ 776 ⟺ G ≤ 95**), and King Wen sits **on the
+   boundary** (G = 95). Verification status, stated precisely: the identity is a **machine-checked
+   theorem, universal over every C1-valid ordering** — `c3_slot_decomposition` in this repo's
+   [`lean/C3Decomposition.lean`](../lean/C3Decomposition.lean) (core Lean 4, 0 `sorry`, 2026-07-04,
+   originally proved as the soundness core of `sat.py`'s C3 CNF encoding), with King Wen's G = 95
+   also Lean-checked (`kw_slot_sum_95`); it was numerically re-confirmed 2026-07-21 by two
+   independent implementations on thousands of random C1 orderings (3,000 + 2,000, exact agreement)
+   plus an independent reproduction. G is additionally invariant under TR-5's 48-element group —
+   each element maps the 12 couples to couples — machine-checked exhaustively over all 48 elements,
+   both numerically and in Lean (`g48_couples_to_couples` + `g48_couple_image`, same file, kernel
+   `decide` over the full group, 2026-07-21), so §§2–3's symmetry quotient carries over to a
+   G-channel unchanged. The identity itself has been in this repo since 2026-07-04; what is new on 2026-07-21
+   is the recognition that it dissolves the exact-counting obstruction this section previously
+   asserted (identity and its counting consequence by Claude, this project; outside this project we
+   are not aware of a prior statement of the identity, or of any bounded-invariant collapse of the
+   complement-position-distance sum over King-Wen-type orderings — it may well be known, and
+   corrections are welcome via [CITATIONS.md](../documentation/CITATIONS.md)). The consequence: a
+   bounded-state exact design for C3 **does exist** — carry the running G (a channel ~96 wide under
+   the C3 ≤ 776, i.e. G ≤ 95, filter) alongside the (mask, last, residual) state on the same
+   symmetry-quotient DP. What remains is **cost, not design**: carrying the G-distribution alongside
+   C5's budget vectors multiplies the DP footprint an estimated ~15–30× with the G-channel capped
+   to its achievable range (central ~19×) — order 28–57 TB of streamed layers and weeks of wall
+   time. **Those multiplier and footprint figures should be read as provisional and, on current
+   evidence, more likely low than high** — reduced-scale instrument measurements taken 2026-07-22
+   landed at the top of the ratio spread from which they were extrapolated, and an independent exact
+   computation of the per-layer achievable G-band widths came out well above the widths the
+   extrapolation assumed. Both point the same way. They will be restated once full-scale instrument
+   runs land. **The compute cost is not quoted as a figure (v1.10).** Earlier versions carried a specific
+   cost band; it is withdrawn, because the footprint multiplier and the wall-time both derive from
+   the same entry-count scaling, so their uncertainties are **correlated** — the plausible joint
+   corner is more than an order of magnitude above the band's midpoint, which makes any single range
+   read as a ceiling when it is not one. The honest statement is qualitative: **an exact-C3 run at
+   full scale is computationally expensive and its cost is not bounded above until cheap
+   reduced-scale instrument re-runs land**, and any attempt would gate go/no-go on those runs first.
+   It is outside this project's budget — so the flagship |C1–C5|
+   **remains a statistical estimate**, now for stated economic rather than structural reasons. Two
+   things do become affordable: an exact **|C1∩C2∩C3∩C4|** rung (C3 without C5), at roughly the
+   landed C5 run's scale; and **E[C3] over any ensemble this DP computes is free by linearity of
+   expectation** (E[C3] = 16 + 8·E[G] — a single scalar accumulator, no distribution carried). The
+   C5-layer count (formerly estimator-based at 1.0971×10³⁹) is now **computed exactly** (§9, landed
+   2026-07-16, 1.097051×10³⁹) and is carried as exact downstream; everything below it (the C3 layer
+   and the flagship) stays estimator-based.
+   (iii) The absolute calibration point is a single full-scale anchor; it is strong evidence the stated
+   envelopes are honest, not a proof that other estimates are exact. (iv) **The FH-1 §2 proofs have now been
+   independently reviewed (2026-07-21) and found sound**, and the no-further-collapse Proposition and its
+   capping corollary are additionally **machine-checked in Lean** (`no_live_lumping`,
+   `cap_never_merges_live`, `lean/PruneExactness.lean` in `lean/` (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 `sorry`) —
+   with the DP-reachability facts carried as hypotheses and the bridge to the C implementation still
+   carried by prose + the runtime gates, exactly as for `capping_exact`. Two results of that review are
+   recorded here rather than buried: one statement is **narrowed** — "no further collapse" rules out
+   residual equivalence-classing among live states, not every conceivable storage encoding (§5, amended);
+   and the Proposition is **not load-bearing for the landed integer** — the production DP merges no live
+   states at all (residuals are injectively packed), so the count's correctness rests on the
+   already-machine-checked capping-exactness alone, and a hole in the Proposition could only ever have
+   cost a memory optimization, never a digit. (The companion caveat in earlier drafts —
+   that §5's memory projections were estimates, not measurements — is discharged: §6 replaced them with
+   measurements, which exceeded the projected band; the caveat's firing is itself documented in §5/§6.)
+   (v) The exact count is orientation-explicit with C4's pair pinned, matching the ledger's raw
+   convention (baseline 64!, C1+C4 layer 31!·2³¹); comparisons against orientation-deduplicated record
+   counts must divide conventions carefully. (vi) The identical-integer two-memory-strategy validation
+   (§8) currently extends to 28 pairs; at full 31 the in-RAM path is infeasible (§6), so the full-31
+   integer will initially rest on a single instrument — the out-of-core mode — supported by the mod-24
+   gate, the 4/4 ladder equivalence, and identical layer files at every validated scale, not on an
+   independent full-scale recomputation. **Precision note (2026-07-21):** where this report says
+   "byte-identical layer files" across modes (§7, §8, here), that was established when **both** modes
+   wrote the v1 raw format, and it remains true of those validation runs. It is **not** a description of
+   current defaults: since the 2026-07-07 retool the out-of-core path defaults to the **v2** blocked
+   format (`SOLVE_F1_OOC_FORMAT=v1` restores v1) while the in-RAM path writes v1, so the two modes'
+   files today are **content-identical but byte-different** (different magic `F1C5LAY2`/`F1C5LAY1`,
+   version byte, and header block-size field). The evidentiary value is unchanged — the counts are
+   format-invariant, which is the property the ladder actually tests — but a reader reproducing this
+   should set `SOLVE_F1_OOC_FORMAT=v1` to obtain byte-identity, or compare content rather than bytes.
+   The on-disk formats are specified in
+   [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md). **Update (2026-07-21) — the *mathematical* half of this caveat is
+   now closed, at zero compute; the *instrument* half is not.** The orbit-transfer argument (the gather
+   formulation with its inverse-element `last` mapping, computing exact plain-DP values at canonical
+   representatives, together with the stabilizer-weighted mass identity that the runtime gate checks) is
+   machine-checked in Lean at the **model level** — `orbit_transfer_exact`, `orbit_stabilizer_mult`,
+   `stabilizer_weighted_mass`, `lean/PruneExactness.lean` §OrbitTransfer, **in `lean/`** (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 `sorry`. **This does not verify the implementation.** Reachability facts remain hypotheses;
+   the bridge to `solve.c` is still carried by prose, the runtime gates, and the n ≤ 28 plain-vs-quotient
+   agreement — specifically it is not machine-checked that `f1_gather_layer`/`f1c5_gather_entries`
+   implement that recursion, that the concrete 24 pair-permutations satisfy the hypothesis set, that
+   `f1_canon`'s min-image canonicalization is orbit-constant, or that the C5 residual coordinate is
+   G-fixed. **Update (2026-07-25) — the *instrument* half of this caveat is now closed as well.** An
+   independent full-scale recomputation has been performed: `verify.c --ie-count`, a signed
+   inclusion–exclusion transfer-walk over free-pair subsets (DP state `(last, budget)`, no mask) —
+   a different algorithm class sharing no code and no state with `solve.c` (no gather-based layer
+   transfer, no layer files, no out-of-core streaming); what the two engines share is one
+   mathematical lemma, not an implementation — orbit-stabilizer weighting under the same 24-element
+   group, applied by `solve.c` to canonical masks per layer and by `verify.c` to free-pair subsets
+   in the IE outer sum. Three passes modulo the three largest primes below 2⁶³ (Miller–Rabin-
+   proven at startup), CRT-combined; 93,939,712 canonical subsets per pass with Σ orbit-weights
+   = 2³¹ exactly; the 24-element group used only as a subset-enumeration lemma whose premises are
+   re-verified elementwise at every startup; validated beforehand on the small-n three-instrument
+   ladder (5/5 exact, quotient = no-quotient, negative controls fire). **The recomputed integer
+   equals the published count exactly, and N ≡ 0 (mod 24) holds.** What (vi) now asserts: the
+   full-31 integer is **two-instrument**; the honest residual is that both instruments are
+   project-authored — no third-party recomputation exists. (The companion count \|C1∩C2∩C4\| is
+   likewise **two-instrument** as of 2026-07-25 — recomputed at full scale by
+   `verify.c --ie-count --ie-no-budget`, exact MATCH, mod-24 gated; see METHODS.md's
+   canonical-quantities table. An earlier version of this parenthetical said it "remains
+   single-instrument pending its own IE pass" — stale label, aligned 2026-07-26.)
+
+## Verification Guide
+
+- Exact count (full run): `./solve --f1-exact-c1c2c4` — ~4 minutes on 64 cores; prints the exact
+  integer, N/24, and the ratio to the Knuth estimate; hard-aborts unless N ≡ 0 (mod 24). Spot-safe
+  resume: add `--layers-dir DIR`. Timing probe: `SOLVE_F1_MAX_LAYER=K` (partial, no total).
+- Divisibility gate, reader-side: reduce 757,058,601,340,255,440,651,419,713,405,330,315,358,208
+  mod 24 (one line in any big-integer language; = 0).
+- Internal cross-check gates: `./solve --f1-exact-c1c2c4 --f1-subset U1` (also U2, U3, or generic
+  `"L.I,L.I,...[@START]"`) — runs the orbit-DP and a plain layered DP side by side; totals and
+  per-layer masses must print PASS.
+- C5-tracked extension + staged memory measurement: `./solve --f1-exact-c1c2c4c5 --f1-pairs N`
+  (N ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31}; per-layer stderr reports
+  states/entries/bytes/peak). Sizes not in that set are rejected: a rung must be a union of whole
+  pair-orbits, whose sizes are {3,3,3,4,6,6,6}, so 1,2,5,8,11,14,17,20,23,26,29,30 are unrealizable.
+- Independent second instrument (§10(vi)): build with `cc -O2 -o verify verify.c -lz -lpthread -lm`
+  (both linkages are required: without `-lm` the link fails on `kn_ci`'s `sqrtl`, and without `-lz`
+  on zlib's `uncompress` — ⚠ `-lm` added 2026-08-21: the 2026-08-21 VERIFY.md/METHODS.md correction
+  missed this third site; caught by the execution lane, `scripts/exec_lane.sh`), then
+  `./verify --ie-count` for the full-31 IE transfer-walk recomputation (see [VERIFY.md](../documentation/VERIFY.md)).
+- Full exact count on commodity hardware: `./solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR` — ~64 GB
+  RAM + ~4 TB disk at DIR; raise `SOLVE_F1_OOC_SCRATCH_MB` (e.g. 16384 on a 64 GiB box) to hold read
+  amplification down (§8). ⚠ **Total RSS is ≈2.2× this value**, so 16384 MiB ≈ 35 GiB and fits; the
+  **61440** this line carried until 2026-09-03 was the **production 256-GiB D128 setting** copied into
+  the commodity recipe, and at 2.2× it asks for ~132 GiB on the 64 GiB box the sentence itself sizes.
+  On more RAM, raise it further — larger scratch means fewer, larger passes (§8's 22.8× → ~1.1×), so
+  the ~1× figure quoted there belongs to the 256-GiB host, not to this recipe. Every layer file **recorded in DIR's manifest** is a checkpoint; after any
+  interruption, re-run with `--resume-from-layers` (index-only load, resumes from the manifest's last
+  recorded layer — a layer completed after the last manifest write is rebuilt, at no cost to the count). Per-layer
+  `[f1c5-ooc]` telemetry prints bytes read/written, MB/s, and RSS. Knobs: `SOLVE_F1_OOC_READ_MB` /
+  `SOLVE_F1_OOC_SCRATCH_MB` / `SOLVE_F1_OOC_GAP_KB` (documentation/SOLVE_C_CLI.md).
+- Cross-mode equivalence, reader-side: run any `--f1-pairs N` subset both with and without
+  `--f1-out-of-core` — totals must match exactly, and with `SOLVE_F1_OOC_FORMAT=v1` the layer files
+  must be byte-identical (`sha256sum` them; under the current v2 out-of-core default the files are
+  content-identical but byte-different — compare content with `--f1c5-verify-layer`, per §10(vi)'s
+  precision note); §8's ladder integers (24/25/27/28 pairs) are the recorded reference values.
+- Divisibility gate on the full-31 count, reader-side: reduce
+  1,097,051,278,789,181,790,036,112,071,176,579,186,688 mod 24 (one line in any big-integer language;
+  = 0; record-level orbit count = that ÷ 24 = 45,710,469,949,549,241,251,504,669,632,357,466,112 — the
+  ÷24 is the record-level divisor; sequence-level orbits have size 48, per §2's precision note).
+- Free-action theorem and group: [TR-5](TR5_SYMMETRY.md) (proof, Lean kernel checks, tree isomorphism);
+  documentation/SYMMETRY_SEARCH.md.
+- Estimator calibration and exactness notes: documentation/SEARCH_SPACE_SIZE.md §"Absolute validation
+  against an exact count"; documentation/DESCRIPTION_LENGTH.md (ledger row + exactness note).
+- Working notes and prototypes — **published 2026-08-14** at
+  [`reports/evidence/f1/`](evidence/f1/), discharging the relocation this line previously marked "TBD":
+  `F1_PHASE3_RECONSTRUCTION.md` (recursion + state math), `F1_ORBIT_QUOTIENT_2026_07.md` (quotient design +
+  prototype validation), `FH1_RESIDUAL_DOMINANCE.md` (capping exactness + irreducibility + projections),
+  and the Python prototypes (`f1_phase1/2/3.py`, `f1_orbit_dp.py`, `fh1_residual_instrument.py`,
+  `f3_rung_b0_cleanroom.py`) with the exact-count result `f1_exact.out` and its run log
+  `f1_exact.progress.log`.
+- Independence-ladder rung ([METHODS.md](METHODS.md)): rung 3 (instrument stack, two-language
+  cross-validated), with the mod-24 gate itself sitting at rung 1 (reader arithmetic, no project code).
+
+### Reproducing the reduced-rung counts (independently recomputable)
+
+The full-scale exact counts are validated against a ladder of **reduced instances**: the same DP
+restricted to a subset of King Wen's 31 free pairs. For each reduced instance to be independently
+recomputable, three things must be public: (1) the pairing itself (which hexagrams form each pair), (2)
+the symmetry group that defines the "group-closed" subsets, and (3) the exact pair membership of each
+rung with its expected count. All three are below; a reader can rebuild each instance and recompute its
+count with any big-integer DP — no project code required. (The subset-spec grammar these tables use is
+the same one `solve.c` accepts via `--f1-subset` / `--f1-pairs`; the C5 ladder specs are its public
+`f1c5_unions[]` table.)
+
+**1. The 32 King Wen pairs (index → hexagram values).**
+Hexagrams are 6-bit integers, bit 0 = bottom line ([OEIS A102241](https://oeis.org/A102241) convention).
+Pair `i` is `(KW[2i], KW[2i+1])`. Pair 0 = {Qian(63), Kun(0)} is fixed by C4 and by the whole group; the
+31 **free** pairs are indices 1–31.
+
+| pair | (a, b) | pair | (a, b) | pair | (a, b) | pair | (a, b) |
+|---|---|---|---|---|---|---|---|
+| 0 | (63, 0) | 8 | (25, 38) | 16 | (60, 15) | 24 | (29, 46) |
+| 1 | (17, 34) | 9 | (3, 48) | 17 | (40, 5) | 25 | (9, 36) |
+| 2 | (23, 58) | 10 | (41, 37) | 18 | (53, 43) | 26 | (52, 11) |
+| 3 | (2, 16) | 11 | (32, 1) | 19 | (20, 10) | 27 | (13, 44) |
+| 4 | (55, 59) | 12 | (57, 39) | 20 | (35, 49) | 28 | (54, 27) |
+| 5 | (7, 56) | 13 | (33, 30) | 21 | (31, 62) | 29 | (50, 19) |
+| 6 | (61, 47) | 14 | (18, 45) | 22 | (24, 6) | 30 | (51, 12) |
+| 7 | (4, 8) | 15 | (28, 14) | 23 | (26, 22) | 31 | (21, 42) |
+
+**2. The symmetry group (defines "group-closed").**
+Let reversal be the bit-position permutation `rev = (0 5)(1 4)(2 3)` (top↔bottom line flip). Acting on a
+6-bit hexagram `h`, a position-permutation `g ∈ S₆` sends bit `i` of `h` to position `g(i)`. The relevant
+group is
+
+- **G = C_{S₆}(rev)**, the centralizer of `rev` in `S₆` — the 48 position-permutations that commute with
+  reversal (isomorphic to the octahedral group B₃ ≅ Z₂ ≀ S₃). Every `g ∈ G` is a Hamming isometry, fixes
+  {0, 63} setwise, and permutes the 32-pair set. This is exactly the C1–C5 automorphism group proved in
+  [TR-5](TR5_SYMMETRY.md).
+- Its action **on pairs** factors through the kernel {id, rev} (both fix every pair setwise), giving a
+  group of **24 distinct pair-permutations ≅ S₄** acting on the 31 free pairs (pair 0 fixed). A subset of
+  pairs is **group-closed** iff it is a union of orbits under these 24 pair-permutations.
+
+A reader reconstructs the 24 pair-permutations directly: enumerate the 48 `g ∈ S₆` commuting with `rev`,
+map each to its induced permutation of the 32 pairs, and dedup (kernel {id, rev}).
+
+**3. The pair-orbit partition of the 31 free pairs.**
+Under the 24 pair-permutations the 31 free pairs split into **7 orbits** (sizes 3, 3, 3, 4, 6, 6, 6). The
+label `L.I` = the `I`-th orbit (0-based) of size `L`, in sorted order — the same grammar `--f1-subset`
+accepts:
+
+| label | size | pair indices |
+|---|---|---|
+| `3.0` | 3 | {3, 7, 11} |
+| `3.1` | 3 | {4, 6, 21} |
+| `3.2` | 3 | {13, 14, 30} |
+| `4.0` | 4 | {5, 8, 26, 31} |
+| `6.0` | 6 | {1, 9, 17, 19, 22, 25} |
+| `6.1` | 6 | {2, 12, 16, 18, 24, 28} |
+| `6.2` | 6 | {10, 15, 20, 23, 27, 29} |
+
+Every reduced rung below is a union of whole rows of this table (hence group-closed). `@START` records
+the DP's fixed exit hexagram (Kun = 0 or Qian = 63); it must be a G-fixed value.
+
+**4a. The C1∩C2∩C4 validation unions (orbit-quotient prototype).**
+Counts are `|C1 ∩ C2 ∩ C4|` restricted to the union (no C5 tracking):
+
+| name | orbit spec | pairs | pair indices | expected exact count |
+|---|---|---|---|---|
+| U1 | `3.0,3.1,3.2@0` | 9 | {3,4,6,7,11,13,14,21,30} | 63,366,144 |
+| U2 | `6.0,6.1@0` | 12 | {1,2,9,12,16,17,18,19,22,24,25,28} | 1,961,990,553,600 (= 12!·2¹²) |
+| U3 | `3.0,4.0,6.2@63` | 13 | {3,5,7,8,10,11,15,20,23,26,27,29,31} | 39,239,811,072,000 |
+
+**4b. The C1∩C2∩C4∩C5 out-of-core ladder (`solve.c` `f1c5_unions`).**
+Counts are `|C1 ∩ C2 ∩ C4 ∩ C5|` restricted to the union, all with `@0` (Kun exit). These are the rungs
+the out-of-core mode reproduced digit-for-digit against the in-RAM DP (§8):
+
+| pairs | orbit spec | pair list **in spec order** (order is load-bearing — see below) | target `B0` = (d1,d2,d3,d4,d6) | expected exact count |
+|---|---|---|---|---|
+| 9  | `3.0,3.1,3.2@0`        | 3,7,11, 4,6,21, 13,14,30 | (2,5,0,2,0) | 26,112 |
+| 13 | `3.0,4.0,6.2@0`        | 3,7,11, 5,8,26,31, 10,15,20,23,27,29 | (1,6,0,6,0) | 2,063,395,607,040 |
+| 16 | `4.0,6.0,6.1@0`        | 5,8,26,31, 1,9,17,19,22,25, 2,12,16,18,24,28 | (1,8,1,6,0) | 267,765,117,419,520 |
+| 18 | `6.0,6.1,6.2@0`        | 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (0,7,1,10,0) | 3,211,799,156,883,456 |
+| 19 | `3.0,4.0,6.0,6.1@0`    | 3,7,11, 5,8,26,31, 1,9,17,19,22,25, 2,12,16,18,24,28 | (2,11,0,6,0) | 63,244,766,587,981,824 |
+| 24 | `3.0,3.1,6.0,6.1,6.2@0`| 3,7,11, 4,6,21, 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (1,10,2,11,0) | 7,477,248,378,538,061,907,099,648 |
+| 25 | `3.0,4.0,6.0,6.1,6.2@0`| 3,7,11, 5,8,26,31, 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (2,11,1,11,0) | 83,855,263,774,549,546,015,506,432 |
+| 27 | `3.0,3.1,3.2,6.0,6.1,6.2@0` | 3,7,11, 4,6,21, 13,14,30, 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (2,12,1,12,0) | 61,666,352,085,618,532,666,071,318,528 |
+| 28 | `3.0,3.1,4.0,6.0,6.1,6.2@0` | 3,7,11, 4,6,21, 5,8,26,31, 1,9,17,19,22,25, 2,12,16,18,24,28, 10,15,20,23,27,29 | (2,12,1,13,0) | 2,155,118,806,480,613,893,163,229,118,464 |
+
+**The pair ORDER is part of the instance definition, and the target `B0` is what C5 means on a reduced
+rung.** Earlier revisions of this table published each rung as an ascending index *set* and told the
+reader to keep final states whose boundary multiset was a *sub-multiset* of King Wen's `{1:2, 2:8, 3:13,
+4:7, 6:1}`. Both were insufficient, and a reader following them would not have reproduced these counts
+(defect found and corrected 2026-07-20, adversarial-review item F-3):
+
+- **Order.** A rung's pair list is the concatenation of its orbit rows **in the order the spec names
+  them**, each row ascending internally — e.g. `3.0,3.1,3.2` is `3,7,11, 4,6,21, 13,14,30`, **not** the
+  sorted set `{3,4,6,7,11,13,14,21,30}`. Order matters because `B0` is defined by a *first-completion*
+  DFS (below) that scans pairs in subset-index order: reorder the list and the witness it finds — hence
+  the budget — changes. Concretely, the sorted order yields `B0 = (2,2,2,3,0)` for the n=9 rung against
+  the correct `(2,5,0,2,0)`.
+- **Target, not ceiling.** On a reduced rung the C5 analogue is not KW's budget nor any sub-multiset of
+  it: it is the rung's own `B0`, and a completed walk must match it **exactly**. At full 31 the budget
+  used is KW's own boundary multiset `(2,8,13,7,1)` — which is why the sub-multiset defect above was
+  invisible at full scale.
+  **Correction (2026-07-21).** An earlier revision of this bullet claimed that at full 31 the
+  first-completion DFS of Step 1 and KW's boundary multiset *coincide*. **They do not.** Two independent
+  implementations of the Step-1 recipe — `verify.py`'s (Python) and `verify.c`'s (C) — both return
+  the witness `(2,7,13,8,1)` on the full-31 instance, against KW's `(2,8,13,7,1)`. The Step-1 recipe does
+  reproduce `B0` correctly on the **reduced** rungs (`verify.py --recount` checks n = 9/13/16 exactly), so
+  the error was specific to the full-31 coincidence claim, and the honest statement is: **at full 31 the
+  budget is *defined* as KW's boundary multiset, not derived via Step 1.** **No published number is
+  affected** — the engine uses KW's multiset, which is what every count rests on; the defect was in the
+  documented derivation, not in the computation. (Found by the independent instruments themselves, the
+  same way F-3 was.)
+
+(Note the n=13 rung differs between 4a and 4b: the C1∩C2∩C4 prototype's U3 uses exit `@63`, while the C5
+ladder's 13-pair rung uses `@0` — they are different reduced instances, listed with their own counts. The
+n=18 cell read "(in-RAM reference)" through v1.17 — validated against the in-RAM DP but with no
+separately-printed target. Its integer is now published (v1.18); the omission was editorial, not a
+reservation about the value. Its provenance is the same two-mode in-RAM/out-of-core concordance
+that produced every other integer in this table, not an independent external source — but it is now
+additionally **gated by `verify.py --recount-rung 18`**, whose plain budgeted packed-state DP shares
+no code with `solve.c` and reproduced 3,211,799,156,883,456 exactly on 2026-08-10 (n=16 self-gate ok,
+B0 re-derived MATCH, 157 s, 953 MB).
+n=9's 26,112 is the in-RAM DP's printed total, published here so the smallest rung is checkable by
+hand. A pre-emptive footnote for OEIS-checkers: 26,112 also occurs as a term of
+[OEIS A014483](https://oeis.org/A014483), an unrelated sequence — the coincidence carries no meaning and
+is noted only to spare the reader a false lead.)
+
+**5. How to recompute a rung independently.**
+For a chosen rung take its **ordered** pair list `P` (spec order, per the table above) and exit
+`START ∈ {0, 63}`. Write `d(x,y) = popcount(x ⊕ y)` and map each boundary distance to its class index in
+`(1,2,3,4,6)`; distance 5 is forbidden by C2 and distance 0 cannot occur between distinct hexagrams.
+
+*Step 1 — derive the rung's budget `B0` (deterministic first-completion DFS).* Search for the FIRST
+complete C2-respecting walk over `P`, trying unplaced pairs in ascending position within `P` and, for
+each, the two orientations in the order `o = 0` then `o = 1`, where `o = 0` **enters `b` and exits `a`**
+and `o = 1` enters `a` and exits `b` for a pair listed `(a, b)` in the 32-pair table. Start from `last =
+START`. `B0` is the class multiset of that first witness. (The witness itself is an arbitrary-but-fixed
+convention; only its multiset is used, and it is achievable by construction. The published `B0` column
+lets you check this step before trusting the rest.)
+
+*Step 2 — the layered DP.* State = (subset of `P` already placed, `last` = exit hexagram of the most
+recent pair, `p` = the running class-usage vector). Initialize `{(∅, START, 0): 1}`. A transition places
+an unplaced pair in one orientation with boundary distance `d`, and is allowed iff `d ≠ 5` **and**
+`p_class(d) < B0_class(d)` — the budget cap. The answer is the total mass on states whose subset is all
+of `P` **and whose `p` equals `B0` exactly**.
+
+Two consequences worth stating, because getting either wrong silently changes the number: the final
+multiset must **equal** `B0`, not merely be dominated by it or by King Wen's `{1:2, 2:8, 3:13, 4:7, 6:1}`;
+and by the sum invariant (`Σ_d p_d = k` at layer `k`) every full-subset state automatically carries
+`p = B0`, so with the cap in place the equality filter is a no-op — but only with the cap in place.
+
+Any big-integer DP reproduces the counts above; no symmetry quotient is needed to *verify* a rung (the
+quotient only accelerates the full-31 run). This recipe was re-derived from this text alone, in a
+clean-room implementation that shares no code with `solve.c`, and reproduces the engine's `B0` on all
+nine rungs and the published counts at n = 9, n = 13 and n = 16 exactly (2026-07-20).
+
+## Attribution
+
+Direction, the orbit-quotient idea, and the FH-1 residual-dominance conjecture (including the capping
+idea) are the operator's; the phase-3 recursion reconstruction, the sum-invariant/dead-state theory, the
+Python instruments, and the solve.c implementation are by Claude (Fable 5), 2026-07-04. The out-of-core
+program (§§6–9) follows the same split: direction and the reproducibility-first commitment are the
+operator's; the streaming design, the OOM diagnosis, and the implementation (public commits 01bf3ef +
+dbdfb0e) are by Claude (Fable 5), 2026-07-05. The underlying theorem is TR-5's. Technique-level prior
+art is classical (see Novelty status above); out-of-core layered DP / external-memory streaming is
+likewise classical systems methodology — no novelty is claimed for it.
+
+## Revision history
+| Version | Date | Changes |
+|---|---|---|
+| v1.0-draft | 2026-07-04 | Initial draft for operator review (not published; not to be cited) |
+| v1.0-draft | 2026-07-05 | #221 fold-in: out-of-core mode (§7, commits 01bf3ef + dbdfb0e) + commodity-hardware reproducibility claim; 4/4 Spot validation ladder incl. kill+resume (§8); OOM/amplification engineering history as limitations-and-mitigations (§8); measured per-layer footprint table L9–L15 (§6); full-31 placeholders [COUNT]/[DIV24]/[RATIO] (§9, c228 in flight). Status unchanged: draft, operator review gates publication |
+| v1.0-draft | 2026-07-16 | **Full-31 count LANDED** (2026-07-16, D128als_v7 Spot westus3, ~7 days / 12 auto-recovered evictions): §9 filled with the exact value **1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**, N mod 24 = 0 exactly (orbit count N/24 = 45,710,469,949,549,241,251,504,669,632,357,466,112), ratio 0.999956 vs the 1.0971×10³⁹ Knuth estimate; tail-layer Burnside-palindrome integrity (6/6 recoverable pairs) + k0–k9-logging caveat recorded; in-flight/placeholder language in exec summary, abstract, §5, §10, and Verification Guide replaced with the landed value. **Landing data-fill by Claude (Opus 4.8); report body authored by Claude (Fable 5) per Attribution. Status: draft, HELD for operator review before publication — do not cite.** |
+| v1.0 | 2026-07-16 | **First public release.** Operator review completed and publication approved ("do not cite" lifted); relocated from roae-private staging to public `reports/`; §9/§10 staged-for-review status language replaced with published status. No numbers change |
+| v1.1 | 2026-07-17 | **Erratum (operator-approved):** §abstract/§6's "no single purchasable machine" universal narrowed to the honest measured scope (the machine classes this project provisioned — up to 2.75 TB + 3.55 TB swap — failed; 6–24 TiB single nodes exist commercially and were not tested); §9 discloses the run's first ~3 h ran on a D64 before the same-disk migration to the D128 (layer-checkpoint resume is shape-independent). Neither change affects any number or verification gate. |
+| v1.2 | 2026-07-20 | **Reduced-rung reproducibility defect fixed (adversarial-review item F-3).** §4b published each rung as an ascending index *set* and §5 told the reader to retain final states whose boundary multiset was a *sub-multiset* of King Wen's `{1:2, 2:8, 3:13, 4:7, 6:1}`. Neither is the instance the engine solves: the pair list is ordered (orbit rows in spec order), and the C5 analogue on a reduced rung is that rung's own first-completion budget `B0`, matched **exactly**. A reader following the old text would not have reproduced the published counts (the sorted order alone gives `B0 = (2,2,2,3,0)` instead of `(2,5,0,2,0)` at n=9). §4b now publishes the spec-order pair list and the `B0` target for all nine rungs, §5 states the DFS convention and the exact-match rule, and n=9's total (26,112) is published so the smallest rung is hand-checkable. Verified by a clean-room reimplementation written from this text alone, sharing no code with `solve.c`: it reproduces the engine's `B0` on all nine rungs and the published counts at n=9, 13, 16. No count, theorem, or canonical value changed — the defect was in the published recipe, not in the computation |
+| v1.3 | 2026-07-20 | **"Mathematics closed" softened, with one half now machine-checked (adversarial-review F-21).** The §5 status line and the abstract no longer say the C5 extension's mathematics is *closed*. Current state, stated precisely: the dead-state-pruning exactness theorem **is** now machine-checked in Lean (`capping_exact`, `lean/PruneExactness.lean` in `lean/` (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 sorry, 2026-07-20 — this is finding F-53 landing), while the companion no-further-collapse argument remains prose-proven and gate-validated but not independently reviewed (§10(iv)). The executive summary's "mathematically solved" is likewise qualified. No count, theorem statement, or canonical value changed |
+| v1.4 | 2026-07-21 | **Estimator-calibration language corrected (F-20 probe).** A direct check showed the published "deviations" of the Knuth estimate from the two exact anchors (5.5×10⁻⁵ and 4.4×10⁻⁵) are exactly `(rounded estimate − exact)/exact` — the distance from each exact value to the estimate's own 4–5 significant-figure rounding, both positive only because both exact values round up. They are **not** measurements of the estimator's error, and the full-precision estimator output was never recorded. The exec summary, §4/§9 notes now state what is actually established — the exact value falls inside the estimator's stated ±0.01% envelope (a genuine validation) — and no longer claim a measured "accurate to 0.0055%/0.0044%", which overstated a rounding gap as a resolved error. Mirrors the hedge already carried in TR-4 v1.11 (F-14) and DESCRIPTION_LENGTH. No count, theorem, or envelope changed |
+| v1.5 | 2026-07-21 | **C3-obstruction status corrected (§10(ii); exec summary + abstract mirrors).** The statement that C3 "poses an open structural obstruction" with "no feasible exact design in hand" is withdrawn: the C3 sum satisfies the bounded-scalar identity **C3 = 16 + 8·G** (G = the complement-couple slot-gap sum; G ∈ [12, 228]; C3 ≤ 776 ⟺ G ≤ 95; King Wen on the boundary at G = 95), G is invariant under TR-5's 48-group (machine-checked over all 48 elements, numerically and in Lean — `g48_couples_to_couples`, same file, added this version), and a bounded-state exact design therefore exists — the remaining barrier is footprint cost (~35–60× the C5 DP; est. 40–190 TB), not structure. The identity is a machine-checked Lean theorem already in this repo since 2026-07-04 (`lean/C3Decomposition.lean`, `c3_slot_decomposition`, universal over C1-valid orderings, from the SAT C3-encoding work); the 2026-07-21 contribution — by Claude, this project — is the recognition of its exact-counting consequence, the G48-invariance check, cross-implementation numeric re-verification (thousands of random C1 orderings), and the cost sizing. No external prior statement of the identity is known to us; it may be known — corrections welcome via CITATIONS.md. No count, theorem, or canonical value changed |
+| v1.6 | 2026-07-21 | **§10(iv) closed: the FH-1 §2 / no-further-collapse proofs independently reviewed and machine-checked.** An independent review (2026-07-21) found the Proposition sound, and it plus its capping corollary are now Lean-checked (`no_live_lumping`, `cap_never_merges_live`, `lean/PruneExactness.lean` in `lean/` (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 `sorry`, reachability facts as hypotheses; C-bridge still prose+runtime-gates as for `capping_exact`). Two review results are recorded rather than buried: (a) **§5 narrowed** — "no further collapse" rules out residual equivalence-classing among live states, NOT an information-theoretic bound over every conceivable forward encoding, so "minimal storage of any forward scheme" now reads "any **residual-lumping** forward scheme"; and (b) the Proposition is **not load-bearing for the landed integer** — the production DP merges no live states, so correctness rests on the already-checked capping-exactness alone and a hole could only have cost a memory optimization, never a digit. Review + formalization by Claude (Fable 5); independent recompile/verification by Claude (Opus 4.8). No count, theorem statement, or canonical value changed |
+| v1.7 | 2026-07-21 | **§10(vi)'s mathematical half closed (instrument half unchanged); §2 orbit-DP bookkeeping now machine-checked.** The orbit-transfer argument — the gather formulation with its inverse-element `last` mapping computing exact plain-DP values at canonical representatives, plus the stabilizer-weighted mass identity behind the runtime gate — is machine-checked in Lean at the **model level**: `orbit_transfer_exact`, `orbit_stabilizer_mult`, `stabilizer_weighted_mass` (`lean/PruneExactness.lean` §OrbitTransfer, **in `lean/`** (vendored 2026-08-01; originated on the `v4-canonical` branch), core Lean 4, 0 `sorry`, kernel-`decide` throughout). Two points recorded explicitly rather than implied: the transfer theorem **never assumes freeness**, which is exactly why §2's non-free *mask* action is harmless (no orbit weight enters a value); and orbit–stabilizer is proved **division-free** (`multiplicity × |stab| = |G|`), so the implementation's `n_eff/|stab|` weight is correct *precisely when stabilizers are non-trivial*. **Scope guarded:** this does NOT verify `solve.c` — reachability facts stay hypotheses and the C bridge stays prose + runtime gates + the n ≤ 28 agreement (four named residuals listed in §10(vi)) — and it does not touch the instrument question: the full-31 integer still rests on a single instrument with no independent full-scale recomputation. Formalization by Claude (Fable 5); independent recompile/verification (exit 0, 0 sorry/axiom/admit, no `native_decide`) by Claude (Opus 4.8). No count, theorem statement, or canonical value changed |
+| v1.8 | 2026-07-21 | **§5 correction: the full-31 `B0`-coincidence claim was FALSE.** §5 asserted that at full 31 the Step-1 first-completion DFS and King Wen's boundary multiset *coincide*. They do not: two independent implementations of the Step-1 recipe — `verify.py`'s (Python) and the new `verify.c`'s (C) — both return `(2,7,13,8,1)` on the full-31 instance, against KW's `(2,8,13,7,1)` (which is also what the engine's manifest carries). Step 1 *does* reproduce `B0` correctly on the reduced rungs (`--recount` checks n=9/13/16 exactly), so the error was confined to the full-31 coincidence sentence; the honest statement is that at full 31 the budget is **defined** as KW's boundary multiset rather than derived via Step 1. **No count, theorem, or canonical value is affected** — the engine uses KW's multiset, which is what every published number rests on; the defect was in the documented derivation only. Found the same way F-3 was: by an independent instrument failing to reproduce a published recipe. Also lands `verify.c` (independent plain, non-quotient per-layer mass check against the engine's reported masses at full 31 — agrees k=1..N within memory reach) and `verify.py --check-certificate` (artifact/manifest/digest check for a completed run). Both by Claude (Opus 4.8) |
+| v1.9 | 2026-07-22 | **Consistency sweep — stale self-references synchronized with v1.5–v1.8 (no new results).** The abstract and executive summary still described superseded states: (a) the C5 extension's mathematics as "believed complete … not independently reviewed" — stale since v1.6/v1.7; both now state that the no-further-collapse Proposition is independently reviewed, machine-checked in Lean (`no_live_lumping`, `cap_never_merges_live`), and not load-bearing for the landed integer, matching §10(iv); §5's status line likewise updated. (b) The C3 carry-cost sizing (~35–60×; 40–190 TB) in the abstract, executive summary, and §10(ii) replaced by the corrected capped-channel sizing from the 2026-07-21 design pass: ~15–30× (central ~19×), ≈28–57 TB, plus a specific compute-cost band (**withdrawn in v1.10** in favour of a qualitative statement — see that row) — stated as hedged ranges, not points, since this sizing has already been revised once. (c) The Verification Guide's cross-mode byte-identity instruction now carries §10(vi)'s v1/v2 format caveat (`SOLVE_F1_OOC_FORMAT=v1` for byte-identity; the v2 default is content-identical, byte-different — compare via `--f1c5-verify-layer`), which the guide had contradicted since the 2026-07-07 retool. (d) §9's "gzip'd layers" corrected to the accurate "v2 zlib-blocked layers" — the f1c5 layer codec is RFC-1950 zlib (`compress2`), not gzip-framed `.gz`, per [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md); tool/env identifiers (`--f1c5-gzip-selftest`, `SOLVE_F1_OOC_GZIP_LEVEL`) keep their historical names. No count, theorem, or canonical value changed |
+| v1.10 | 2026-07-22 | **§10(ii) exact-C3 compute-cost figures WITHDRAWN; replaced by a qualitative statement (adversarial-review finding + operator direction).** A review pass on the C3 exact-counting program found that the cost band introduced in v1.9 was quoted unconditioned when it is not a true ceiling: the footprint multiplier (spread ~8–51×) and the wall-time band (2–10 weeks) both derive from the same entry-count scaling, so their uncertainties are **correlated**, and the plausible joint corner sits more than an order of magnitude above the band's midpoint. Rather than restate a wider band — which would invite the same misreading — this report no longer quotes a cost figure for a full-scale exact-C3 run at all. §10(ii) now says only that such a run is **computationally expensive, not bounded above until cheap reduced-scale instrument re-runs land**, with go/no-go gated on those runs. Dollar figures in the v1.9 row are redacted to match. This strengthens, not weakens, the report's conclusion that the flagship \|C1–C5\| remains a statistical estimate for economic reasons. Review by Claude (Fable 5); independent verification and cost-figure withdrawal by Claude (Opus 4.8), 2026-07-22. No count, theorem, or canonical value changed Additionally, the ~15–30× multiplier and 28–57 TB footprint figures (introduced v1.9) are now marked **provisional and more likely low than high**: reduced-scale instrument measurements on 2026-07-22 landed at the top of the ratio spread they were extrapolated from, and an independent exact computation of the per-layer achievable G-band widths came out well above the assumed widths — two lines of evidence agreeing. They are left in place, flagged, rather than replaced by a differently-precise guess. |
+| v1.11 | 2026-07-25 | **§10(vi)'s instrument half closed: independent full-scale recomputation lands.** `verify.c --ie-count` (inclusion–exclusion transfer-walk; different algorithm class, no shared code with solve.c) recomputed \|C1∩C2∩C4∩C5\| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 at full 31 pairs — exact MATCH with §9's published integer; mod-24 gate holds; three Miller–Rabin-proven 63-bit prime passes CRT-combined; 93,939,712 canonical subsets/pass with exact 2³¹ orbit-weight tiling; group lemma re-verified elementwise at startup; pre-validated 5/5 on the small-n three-instrument ladder with negative controls. The count (and its /24 orbit count) is now two-instrument; \|C1∩C2∩C4\| remains single-instrument pending its own IE pass; residual: both instruments are project-authored. Engine design, implementation, validation, and run supervision by Claude (Fable 5); run on Spot D128 (2 evictions survived via chunk-checkpoint resume). No count, theorem, or canonical value changed — a caveat is retired, not a number |
+| v1.12 | 2026-07-26 | **Stale verification-status label aligned (round-2 audit, completeness loop 4e G9).** §10(vi)'s closing parenthetical still said \|C1∩C2∩C4\| "remains single-instrument pending its own IE pass" — that pass landed 2026-07-25 (`verify.c --ie-count --ie-no-budget`, exact MATCH at full scale, mod-24 gated) and METHODS.md already recorded the count as two-instrument. The parenthetical now matches. Header version line updated. No number changed |
+| v1.13 | 2026-07-30 | **Orbit-vs-sequence precision + prior-art cite (novelty-gate audits #11/#19).** (1) §2's free-action paragraph conflated the record-level free S₄ action with the sequence-level count: N counts orientation-explicit sequences, on which the acting group is the order-48 lift (rev flips orientation and fixes no sequence), so sequence-level orbits have size 48, 48 \| N (verified for both landed exact counts; N/24 is even), and N/24 = 2× the sequence-orbit count. A clarifying note is added; every published figure and the mod-24 gate are unaffected (the gate is simply weaker than the space affords). (2) The novelty-status note now cites Luo Jianjin (2015), who posed the enumeration question in a mathematics journal (unformalized, unanswered) — this report's integers are, we believe, its first quantitative answers. (3) §5's reduced-rung note gains a pre-emptive footnote that 26,112 coincides with a term of the unrelated OEIS A014483. No count, theorem, or canonical value changed |
+| v1.14 | 2026-08-01 | **Retraction propagation + provenance refresh (2026-08-01 in-house calibration review).** (i) §4 still asserted TR-9's C2 "net +1.6"; TR-9 v1.7 (2026-07-10) restated that net as **≈ 0 (break-even, sign-convention-dependent)** and the live TR-9/DESCRIPTION_LENGTH ledgers carry ≈ 0 — the retraction had not propagated here across three subsequent TR-11 revisions. Text now cites the ≈ 0 restatement. (ii) The seven pointers locating `PruneExactness.lean` "on the public `v4-canonical` branch" are refreshed: those files were **vendored into `lean/` on 2026-08-01**, so the tag now ships the proofs it cites. No count, theorem, or exactness claim changed |
+| v1.15 | 2026-08-01 | **Correction to v1.14's own record — an asserted propagation that had not happened.** v1.14 stated that "the **seven** pointers locating `PruneExactness.lean` 'on the public `v4-canonical` branch' are refreshed". Only **five** were: §10(vi)'s live body text still located the file on that branch, which the 2026-08-01 vendoring made factually wrong on the very tag the entry was written to fix. Now refreshed. **This is the same defect class v1.14 was correcting** (a ledger entry recording an intention as an accomplishment) — logged rather than quietly amended, because a correction ledger that cannot be trusted is worse than none. Caught by the 2026-08-01 fix-diff re-verification pass. No count, theorem, or exactness claim changed |
+| v1.16 | 2026-08-06 | **Under-citation + counting-unit label fixes (UNASKED-1/UNASKED-2 batch; no number changed).** (1) *Suenaga (2012) credited in the novelty note.* The note ceded the technique (Burnside/McKay) and cited Luo (2015) for the counting question, but omitted [Suenaga Takayasu (2012)](../documentation/CITATIONS.md#suenaga2012) — per CITATIONS.md §"The (Z/2)⁶ hexagram algebra … — priority ceded" the first author this project has located to start counting the arrangement space (1395 order-8 subgroups computed exactly; a ≈1.47×10¹³ template product posed but not completed). The note now cedes the idea of counting hexagram-arrangement spaces to him explicitly, with the counted-objects disjointness stated (F₂⁶ subspaces/templates vs constraint-satisfying total orders). (2) *One unhedged claim scoped.* The executive summary's "at a scale (10⁴¹) where nothing exact existed before" read as a universal about the literature — which CITATIONS qualifies (Suenaga's prior exact subgroup count) — when §4's own wording scopes the claim to this suite's validation ladder; the exec-summary sentence now carries the same scope. (3) *Orbit-count units made explicit.* §9's "orbit count N/24" and the Verification Guide's "orbit count = that ÷ 24" now say **record-level** with the ÷24 vs ÷48 (sequence-level) pointer to §2's precision note, matching METHODS' canonical-quantities row. No count, theorem, or canonical value changed — citations and unit labels only |
+| v1.17 | 2026-08-09 | **`--f1-pairs` domain completed to every realizable rung size (CLI surface only).** `solve.c`'s `f1c5_unions[]` table listed 9 of the 19 realizable pair counts; the 9 small sizes 3,4,6,7,10,12,15,21,22 had no entry and were rejected. They are now present, and the two sites in this report that enumerate the accepted N (§"the implementation exists and is committed", and the Verification Guide's C5-extension line) are updated to match, with the reason stated: a rung must be a union of WHOLE pair-orbits, whose sizes are {3,3,3,4,6,6,6}, so exactly 19 of the 31 counts are realizable and 1,2,5,8,11,14,17,20,23,26,29,30 are not — and nothing lies strictly between 28 and 31, which is why the published §4b ladder stops at 28. The historical validation unions (rows 9…28) were NOT re-pointed; several distinct unions can share a size (127 in all), and their published §4b counts are tied to the specific union. **Verified before ship:** the rebuilt binary reproduced all six previously-computed rungs — n=9/13/16/18/19/24 — bit-exact against their published values. This entry records a CLI-domain extension found while auditing the drift my own change introduced; the doc-vs-code gate does NOT catch value-domain drift (it compares flag names only), so these two sites were corrected by hand. No count, theorem, or canonical value changed |
+| v1.18 | 2026-08-10 | **§4b's n=18 cell filled — a gap closed, not a correction.** The row for the 18-pair rung `6.0,6.1,6.2@0` has read "(in-RAM reference)" since first publication: the rung was computed and validated against the in-RAM DP, but its integer was never printed. That was an editorial choice, not a reservation about the value, and it left the table's cheapest mid-size checkpoint unusable by a reader. The cell now reads **3,211,799,156,883,456**, reproduced independently on 2026-08-09 by two separate runs of the C engine at `--f1-c3-hist --with-c5 --f1-pairs 18` (~1.9 s each). **Provenance is stated rather than implied:** this integer comes from the same two-mode in-RAM/out-of-core concordance that produced every other integer in §4b, NOT from an independent external source, and it inherits that table's authorship caveat in full. `verify.py --recount-rung 18` deliberately still REPORTS the count rather than gating on it — wiring the gate requires a verified independent recount on adequate hardware, which is tracked separately; publishing the number and gating it are two different acts and only the first is done here. No existing count, theorem, or canonical value changed. *(Flag name corrected in v1.19; this row cited a `--recount-c5-rung` that never existed.)* |
+| v1.19 | 2026-08-11 | **Two stale references in v1.18's own record corrected; no number changed.** (1) *A reproduction command that could not be run.* The row above named the flag `--recount-c5-rung`, which has never existed on any ref; the real one is `--recount-rung`. The body carried the identical error and it was fixed the same day (commit `5d04b8d6`), but the revision row was missed, so a reader following the record got an `unrecognized arguments` error. This report's banner promises that "every MEASURED result carries a reproduction command"; a command that errors does not keep that promise. (2) *The gating status moved.* v1.18 recorded that the rung "still REPORTS the count rather than gating on it" — true when written, superseded hours later by `5d04b8d6`, which wired the gate only after an independent recount on a throwaway westus2 Spot VM (n=16 packed-DP self-gate ok, B0 re-derived (0, 7, 1, 10, 0) MATCH, count 3,211,799,156,883,456 EXACT, 157 s wall / 953 MB peak RSS). §4b's body already reflected this; the record now does too, and `verify.py`'s match-table row — which still declared the integer unpublished — was corrected alongside it. Both defects were found **mechanically**, by a reproduction-command reachability check over the whole corpus, not by review: the correction pass that fixed the body prose missed the same string 70 lines below it. No count, theorem, or canonical value changed. |
+| v1.20 | 2026-08-21 | **The Verification Guide's `verify.c` build line did not link (`-lm` missing) — third site of the day's `-lm` correction.** The 2026-08-21 pass that fixed VERIFY.md and METHODS.md (`0fb3b859`) corrected two of the three sites documenting the `-lm`-less verify.c build line; this report's §10(vi) Verification-Guide line was the third and was missed — ironically in a parenthetical that already discussed which libraries the link needs. Building exactly as this report documented fails with ``undefined reference to `sqrtl'`` (`kn_ci`'s Wald CI). Caught **mechanically** by the new execution lane (`scripts/exec_lane.sh`), which extracts every documented build/reproduction command generatively and executes it — on its first full run, before any curated check named this site. Same fix, same day, one more site: `-lm` appended, parenthetical corrected to name both required linkages. No count, theorem, or canonical value changed |
+| v1.21 | 2026-08-29 | **Prior-art chain at the counting-question credit extended by eighteen years (Q-127/Q-335; cession-only, applied in the 2026-08-29 CITATIONS annotated-bibliography batch).** The sentence crediting Luo (2015) with the counting question now also records the earlier size-of-the-space framing — Huang Shisheng 黄石声 (1997), citing 沈宜甲/董光璧, invoking 8!×8! = 1,625,702,400 (mislabelled by him as the count of *arbitrary* arrangements, quoted so the characterization travels with its warrant) — and Chen Zhuangwei (2007)'s 7!×7! restatement, with the scope clause that closed-form counts of simply-constrained ordering spaces predate this suite and the contribution claimed here is confined to counts no closed form yields. The Luo credit and the "first quantitative answers to Luo's question" sentence stand unchanged; arithmetic re-verified (8!² = 1,625,702,400; 7!² = 25,401,600). Two-pass provenance: informed self-hardening pass 2026-08-28 (private record), applied 2026-08-29; wording from the standing Chen Zhuangwei and 22-note adjudications. No count, theorem, or canonical value changed |
+| v1.22 | 2026-09-01 | **§1's C4 epithet narrowed from attested to definitional (the 2026-08-30 correction propagated; nothing counted changes).** §1's statement of the counting target described C4's defined orientation as carrying a classical attestation alongside its definitional status. [METHODS.md](METHODS.md) §"Constraint set" established on 2026-08-30 that the *Xugua* attests only that the {Heaven, Earth} pair opens, not the order of Heaven over Earth within it (天地 is a compound, not an ordering); the classical pedigree the record does carry is C1's pairing rule — 孔穎達《周易正義·序卦傳疏》, 二二相耦，非覆即變 — together with C4's *pair choice*, which is unaffected. The clause now reads **definitional — our convention**, with the pair choice's classical standing left intact and the "Theorem 6" retraction pointer unchanged. **No count, theorem, orbit figure, rung value, or canonical integer changed**: C4 enters the DP only as the pinned initial condition (virtual predecessor exiting at Kun) and the removal of pair 0 from the free set, which the oriented constraint does identically whatever its provenance — the epithet is prose about where the constraint came from and enters no state, no recursion, and no integer |
+| v1.23 | 2026-09-02 | **§10(vi)'s independence claim corrected: the second engine does use the quotient machinery the sentence said it did not (prose batch P67; wording only, no integer changed).** The `verify.c --ie-count` description denied any shared machinery with the primary engine and then enumerated, as machinery the recount lacked, three capabilities it in fact uses — canonical-mask bookkeeping, min-image canonicalization, and stabilizer weighting — three lines above the same paragraph's own report of "93,939,712 **canonical subsets** per pass with Σ **orbit-weights** = 2³¹ exactly", which is that machinery running. Confirmed in source: quotienting is ON by default (`verify.c:4209` parses `--ie-no-quotient` into `no_quot = 0`, `:4274` sets `C.quotient = !no_quot`); `ie_canon_orbit` (`:3844-3853`) performs a min-image canonical-representative test (`if (im < m) return 0;`) **and** counts the stabilizer, returning `geff / stab`; `:4048-4049` gates on `C->quotient` and canonicalises; `:4066` accumulates `wsum += orbit`; `:4183` fails the run unless the orbit-weights sum to 2ⁿ. So the canonicalization item was false as well as the two the review named. **The independence consequence is narrowed, not withdrawn**, because the stronger reading is not supported either: no shared code path exists, the group is derived by this file's own helpers, its premises are re-verified elementwise at every startup (`ie_verify_group`, `:3611`, called `:4344`), and the two engines quotient **different objects** — `solve.c` canonical masks per layer, `verify.c` free-pair subsets in the IE outer sum. The sentence now says the engines share **no code and no state** and share **one mathematical lemma**, orbit-stabilizer weighting under the same 24-element group. Two further sites carry the retracted wording — `verify.c`'s own mode header and its runtime banner — plus a third the review did not name; all three are outside this report's file scope and are reported. The recomputed integer, the exact MATCH, the mod-24 gate and the two-instrument label are unchanged |
+| v1.24 | 2026-09-02 | **The free-checkpoint guarantee was keyed to a layer file's durability; it is keyed to the manifest (prose batch P32, Codex V2-F37 #3; `RP-ad9d1d07`). No number changed.** §10(v) and the Verification Guide both said that a completed layer file on disk is by itself a resume point. MEASURED in `solve.c`: the layer file is renamed into place *before* `f1c5_write_manifest` runs (`:16435`, in both the in-RAM and out-of-core paths), and `f1c5_try_resume` (`:14523`-`:14557`) reads only `last_complete_k` from `f1c5_manifest.txt` and opens that layer — it never stats the directory for a durable next-layer final file, so no discovery or promotion path exists and a kill landing between the two writes rebuilds a complete, correctly named, durable layer. Both sites now key the guarantee to the manifest and state the window; the consequence is one layer of lost work, never a wrong count, so `--resume-from-layers` remains Spot-safe as claimed. Found by GATE 3 after the phrasing was registered by the batch correcting [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md), whose §Checkpoint and resume semantics is now the single statement of the contract and is linked from §10(v); the §10 use spanned a hard wrap and was invisible to line-based search. This report's version subtitle is also refreshed: it had read v1.20 since v1.21, three revisions stale. No count, theorem, orbit figure, rung value, or canonical integer changed |
+| v1.25 | 2026-09-02 | **§6's measured layer profile refilled from the completed run; three further corrections (prose batch P72; Codex V2-F02 batch-4 charges 2, 3, 4, 5; `RP-9d39b21a`, `RP-089c4de7`, `RP-8c31ba03`, `RP-bb84c16f`, `RP-bb7395cd`, `RP-754f8752`, `RP-71e86ccc`, `RP-507e823d`, `RP-1b6b1678`). No count, theorem, orbit figure, rung value or canonical integer changed.** (1) *§6.* The table stopped at k=15, gave k=12 as a subtraction and k=15 as an unbounded-above lower bound marked *observed-incomplete*, and said layers from 16 on shrink because canonical-mask counts follow C(31,k). The mask counts are palindromic — masks(15) = masks(16) = 13,047,760, which §9's own integrity check prints — so they cannot make k16 smaller, and entries keep growing: the completed run puts k16 at 83,585,570,784 entries and 2340.55 GB, the peak layer. All ten rows now come from [FULL31_EXACT_AGGREGATES.md](FULL31_EXACT_AGGREGATES.md) §1, whose `layer GB` column is exactly entries × 28 B + canonical_masks × 12 B (verified for all 31 rows), and the unit line says so. The lower bound the table carried was a real measurement in the WRONG UNIT — live in-RAM allocation part-way through layer 15 on the retired attempt, hash-table overhead included, which is why it exceeds the completed layer's 2155.82 GB packed — and is relabelled as such rather than deleted. The two claims derived from it are withdrawn: the peak adjacent live pair is k16 + k17 = 4.51 TB packed (k15 + k16 is 4.50 TB), not k14 + k15 = 3.85 TB, so an operator sizing to the old floor was ~460 GB short of the real peak window. **The adjudication that raised this charge named k15 + k16 as the peak pair; recomputed from the aggregates it is k16 + k17, and the figures published here are the recomputation, not the charge**. The future-tense promise that the out-of-core manifest *will* complete the profile is removed — it completed on 2026-07-16 and the file has sat in this directory since. Executive summary and abstract swept for the same mislabel. (2) *§8's records citation.* It named [`evidence/f1/`](evidence/f1/) as publishing the four ladder integers' run outputs; that directory holds the |C1∩C2∩C4| headline result and the prototypes and contains none of the four integers. The line now enumerates what is retained privately, states that publication is a pending review-before-push decision, and states plainly that the original ladder session's raw outputs — including the 25-pair kill-and-resume log the bullet narrates — were copied to a volatile `/tmp` before the VM was deleted and are gone. (3) *Executive summary.* A quantity v1.4 withdrew returned seven lines below its own hedge, with more precision and the word "actual": the deviation quoted there is obtained only by differencing against the estimate's ROUNDED five-significant-figure numeral, which is the rounding gap v1.4 ruled must not be presented as estimator accuracy. Restated as the envelope claim §9 carries. (4) *§7.* The reproducibility sentence still closed on the universal that v1.1's erratum retired — §6 explicitly disclaims establishing that no machine could meet the requirement, only that no class this project provisioned did — and a 2026-08-01 pass had rewritten the front of that very sentence and left the tail standing. Scoped as §6 scopes it. |
+| v1.26 *(current)* | 2026-09-03 | **§9's commodity recipe asked for ~132 GiB of RSS on the 64 GiB box it sizes** (Codex V2, `TR11:471`). `SOLVE_F1_OOC_SCRATCH_MB` example corrected **61440 → 16384**, which is what `documentation/SOLVE_C_CLI.md` already gave for the same box; the two documents now agree. Root cause: the production 256-GiB D128 setting from §8 was copied into the commodity recipe. **No integer, count or measurement changed** — the ~64 GB commodity-reproducibility claim itself was never falsified, only one copied constant. |

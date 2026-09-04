@@ -1,0 +1,15 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-t] f total (walks)   = 26112
+[kc-t] t(root) (tree nodes) = 229861
+[kc-t] layer k= 0: sum orbit*f*t = 229861 (expect nodes-at-depth>=0 = 229861) OK
+[kc-t] layer k= 1: sum orbit*f*t = 229860 (expect nodes-at-depth>=1 = 229860) OK
+[kc-t] layer k= 2: sum orbit*f*t = 229848 (expect nodes-at-depth>=2 = 229848) OK
+[kc-t] layer k= 3: sum orbit*f*t = 229752 (expect nodes-at-depth>=3 = 229752) OK
+[kc-t] layer k= 4: sum orbit*f*t = 229092 (expect nodes-at-depth>=4 = 229092) OK
+[kc-t] layer k= 5: sum orbit*f*t = 225468 (expect nodes-at-depth>=5 = 225468) OK
+[kc-t] layer k= 6: sum orbit*f*t = 211512 (expect nodes-at-depth>=6 = 211512) OK
+[kc-t] layer k= 7: sum orbit*f*t = 174624 (expect nodes-at-depth>=7 = 174624) OK
+[kc-t] layer k= 8: sum orbit*f*t = 106272 (expect nodes-at-depth>=8 = 106272) OK
+[kc-t] layer k= 9: sum orbit*f*t = 26112 (expect nodes-at-depth>=9 = 26112) OK
+KC-T CHECK n=9 PASS (sum orbit*f*t == nodes-at-depth>=k at every layer 0..n) (0 failing layers)

@@ -1,0 +1,18 @@
+# Null-model: pair-constrained random permutations
+
+Sampling 1000000 random pair-position permutations with random orientations.
+C1 is guaranteed by construction; measures conditional C2/C3 rates.
+
+Results (n = 1000000, wall time <T>s):
+  C1 verified (sanity):          1000000 / 1000000  (100.0000%)
+  C2 | C1 (no 5-line transitions, given C1):  42824 / 1000000  (4.282400%)
+  C3 | C1 (comp distance <= 776, given C1):    64573 / 1000000  (6.457300%)
+
+  5-line transitions: range [0, 14]
+  C3 comp distance:   range [288, 1848], mean 1071.9
+
+Interpretation: given that C1 holds, how often does a random valid
+pair-ordering also satisfy the adjacency and complement constraints?
+Solve.c's canonical enumeration at 10T (d3: 706M orderings) and 100T
+measures this exhaustively under the C1+C2+C3 filter; this Monte-Carlo
+sample gives the *unconditional* rate over uniformly random pair-perms.

@@ -1,0 +1,12 @@
+# Q4(a,c) C3 census — ESTIMATE over SUPER, space=C1C2C4C5-SUPERSPACE
+# walk-functional units (cd_true = 2*(walk_cd+1)); threshold used T=31
+requested_M	20000
+realised_M	20000
+cd	count	fraction
+23	1769	0.088450
+31	3500	0.175000
+39	14731	0.736550
+p_hat_cd_le_T	0.26345000
+wilson95_lo	0.25739088
+wilson95_hi	0.26959998
+label	ESTIMATE-with-CI (exact C15 count is OPEN)

@@ -1,0 +1,33 @@
+#	PUBLIC BRANCH REGISTRY — every branch published on the remote, and what it is.
+#
+#	WHY THIS FILE EXISTS. Corrections land on `main`. They do NOT land on feature branches,
+#	which are frozen at the commit where work stopped. On 2026-08-08 all five non-main public
+#	branches were found to carry a sentence retracted on main by CX-30 — a figure wrong by
+#	~29 orders of magnitude, in the direction that flatters the project — and none of them
+#	contains `documentation/CORRECTIONS.md` at all, because that file postdates them. A reader
+#	who opens a branch therefore sees a withdrawn claim with no way to learn it was withdrawn.
+#
+#	No gate could see this: `doc_gates.sh` reads the working tree, and its one use of
+#	`origin/main` is a COMMIT RANGE (origin/main..HEAD), never another branch's CONTENT.
+#	GATE 19 closes that hole by enforcing THIS file — every published branch must be declared.
+#
+#	The declaration is the fix. Backporting 35 corrections into unmaintained feature branches
+#	is the wrong shape of work, and one of these branches is pinned by a live campaign, so
+#	rewriting it would put running compute at risk to correct prose.
+#
+#	status: authoritative | snapshot | merged
+#	  authoritative — the published corpus. Corrections land here. Cite this.
+#	  snapshot      — frozen working branch. MAY CONTAIN CLAIMS SINCE CORRECTED ON MAIN.
+#	                  Not a publication. Do not cite.
+#	  merged        — its tip is an ANCESTOR of main, so main already carries its content and
+#	                  the branch is redundant. Declared here because this file records what is
+#	                  PUBLISHED, not what is unmerged: the ref still exists on the remote and a
+#	                  reader can still open it. The row retires when the ref is deleted, and
+#	                  deletion is gated on tag-before-delete.
+#
+#	branch	status	frozen-at	note
+main	authoritative	-	The published corpus. All corrections (CORRECTIONS.md, CX-01..) land here.
+v4-query-program	snapshot	2026-08-22	TR-12 query program build-out: --kc-enum-desc, --kc-profile, --kc-extremal, --kc-layers/--kc-scan-merge, scripts/tr12_repro.sh, the atlas consumer and viz/viz_kc_*.md. Branched off v4-compiler, so it inherits that snapshot's staleness AND lacks CORRECTIONS.md — read main for any claim. UNREVIEWED: pushed for durability before its code review.
+v4-compiler	snapshot	2026-07-21	v4 engine lineage. PINNED BY A LIVE CAMPAIGN — do not rewrite. [2026-08-29: audited as a strict ancestor of v4-query-program and stageg-telemetry, so it holds ZERO unique work and is delete-safe by content — HELD anyway while the campaign pin is live; retires after Stage T. Do not re-open the content question.] Merges at task #31.
+stageg-telemetry	snapshot	2026-08-07	Stage G telemetry (task #119), awaiting review + the 100B VM gate.
+orbit-port-188-candidate	snapshot	2026-08-08	CANDIDATE, EXPLICITLY NOT LANDED (task #188). The x36 orbit-reduction engine port; it carries a checkpoint-format bump and a DFS default change, so landing it IS the task-#31 decision. Published 2026-08-08 for DURABILITY ONLY — it existed on one machine with no remote copy. Publishing is not landing.

@@ -2,7 +2,17 @@
 
 An honest narrative of how the enumeration analysis evolved — including missteps, corrections, and the iterative process of discovery. Written for anyone curious about how computational research actually works, as opposed to the clean narrative of published results.
 
-For the mathematical rules, see [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md). For formal definitions, see [SPECIFICATION.md](SPECIFICATION.md). For the full technical analysis, see [SOLVE.md](SOLVE.md). For enumeration progress, see [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md).
+For the mathematical rules, see [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md). For formal definitions, see [SPECIFICATION.md](SPECIFICATION.md). For the full technical analysis, see [SOLVE.md](SOLVE.md). For enumeration progress, see [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md).
+
+This file is the *narrative*: what happened, in order, and why. Its companion [CORRECTIONS.md](CORRECTIONS.md) is the *record*: every claim this project published and later changed, one entry each, with what was claimed before, what is claimed now, how it was found, and the commit. Corrections appear in both — here in the flow of the day they happened, there in a single append-only list that is machine-checked for completeness against [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv).
+
+> **Access boundary.** This narrative cites many files in `roae-private`, the project's private
+> staging repository, which is not publicly accessible. Those citations are provenance pointers —
+> they record where a piece of working evidence was written down and when — not evidence a reader
+> can fetch. A statement whose only cited support is a `roae-private` file is operator-attested: it
+> can be disclosed to an auditor, but it cannot be checked from this repository alone. The claims
+> this project asks a reader to *accept* (canonical shas, record counts, theorems, published
+> findings) carry their public support in the technical documents, not in this narrative.
 
 ## Prelude — Before April 10, 2026
 
@@ -12,16 +22,16 @@ The project began as a mathematical analysis of the [King Wen sequence](https://
 
 **Key discoveries during this phase:**
 - **Trigram name swap bug:** Gen/Xun/Dui were cyclically swapped in the original code. Fixed by correcting the trigram_names dict.
-- **Complement distance direction:** Originally claimed King Wen "maximizes" complement distance. Discovered this was a circular filtering artifact — KW actually *minimizes* (3.9th percentile). Corrected across all documentation.
+- **Complement distance direction:** Originally claimed King Wen "maximizes" complement distance. Discovered this was a circular filtering artifact — KW is actually low, at the 3.9th percentile. Corrected across all documentation. *(**The 3.9th-percentile figure was itself flagged 2026-08-01** — not supported by the population it is labelled with; the direction of this 2026-04 correction stands, the magnitude does not. See SOLVE.md §Rule 3.)* *(Scope note added 2026-07-22: the 3.9% is measured over orderings satisfying every other constraint — C1+C2+C4+C5 — and is a lowest-4% placement, not a minimization; see SOLVE.md §Rule 3.)*
 - **XOR regularity is a theorem, not a finding:** The 7 unique XOR products in KW's pairs are a mathematical consequence of ANY reverse/inverse pairing of 6-bit values, not a property of King Wen specifically. Proved and documented.
-- **Null model test:** Applying the same constraint-extraction methodology to random pair-constrained sequences produces apparent uniqueness in 9 out of 10 cases. This means the constraint framework makes almost any sequence appear uniquely determined — a critical methodological caveat.
+- **Null model test:** Applying the same constraint-extraction methodology to random pair-constrained sequences produces apparent uniqueness in 9 out of 10 cases. This means the constraint framework makes almost any sequence appear uniquely determined — a critical methodological caveat. *(Annotation 2026-09-01: the count in this bullet is a faithful record of the Prelude-phase result and is left as written. Its evidentiary standing has since narrowed — the 2026-08-30 disclosure at [SOLVE.md](SOLVE.md) §"is the constraint framework special" establishes that this run’s artifacts were not preserved: no command, seed, target list or per-target survivor count survives anywhere in the project, and no `solve.py` mode reproduces the protocol. Read the count as an unreproduced historical observation, not a measured result. The caveat itself is unaffected; it rests on the reasoning that the pair structure and the no-5 property are the genuinely rare part, not on the count.)*
 - **"97%/3%" framing was misleading.** Replaced with more honest descriptions of what the data actually showed.
 
 **[solve.py](../solve.py) — the first constraint solver.** A Python backtracking solver was built to test whether the mathematical constraints could reconstruct King Wen from scratch. It found 438 valid orderings from a partial search (limited by Python's speed). Based on this small sample, several claims were made that would later be invalidated by larger-scale enumeration.
 
 **Six rounds of scientific review.** The documentation was iteratively attacked from mathematical and scientific perspectives — testing every claim for rigor, checking null models, correcting statistical framing, and adding appropriate caveats. This adversarial review process caught the complement distance error, the XOR theorem, and the null model caveat.
 
-**Documentation suite.** [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) (plain-language), [SOLVE.md](SOLVE.md) (technical), [SPECIFICATION.md](SPECIFICATION.md) (formal), [CRITIQUE.md](CRITIQUE.md) (known limitations), [MCKENNA.md](MCKENNA.md) (relationship to [Timewave Zero theory](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero)), and [GUIDE.md](GUIDE.md) (newcomer introduction) were all written during this phase.
+**Documentation suite.** [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) (plain-language), [SOLVE.md](SOLVE.md) (technical), [SPECIFICATION.md](SPECIFICATION.md) (formal), [CRITIQUE.md](CRITIQUE.md) (known limitations), [MCKENNA.md](MCKENNA.md) (relationship to [Timewave Zero theory](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero)), and [GUIDE.md](GUIDE.md) (newcomer introduction) were all written during this phase.
 
 ## April 10, 2026
 
@@ -182,7 +192,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 | Boundary redundancy structure in 742M | Pairwise joint-survivor counts across all 465 boundary-pairs (2026-04-15) | Boundaries 15-19 are fully redundant: `joint(b1, b2) / min(survivors)` = 1.000 for every pair within the cascade-region {15,16,17,18,19}. Knowing one of these implies all the others. By contrast, boundaries 26 and 27 are highly *independent* of the cascade region (ratios ~0.007-0.010 with boundaries 3-8). This explains why the minimum 4-set picks {2, 21, 25, 27}: 2 catches position-2's high-entropy choice, 21 catches the cascade-end transition, 25 and 27 contribute *independent* information not implied by the others. |
 | Position 2 determines positions 3-19 (16 branches) | Proved by budget via [`--prove-cascade`](../solve.c) | Proved for pairs 1-18; disproven for others |
 | Cascade NOT deterministic for 12 branches | `--prove-cascade` full C3 proof found valid alternatives | Branch 24: all 17 configs valid; varies by branch |
-| Shift pattern (2 options at positions 3-19) | Analysis of 31.6M solutions | Observed universally; driven by C3 not budget |
+| Shift pattern (2 options at positions 3-19) | Analysis of 31.6M solutions | **Superseded — see the two "shift pattern" / "cascade determinism" rows above.** *(Status corrected 2026-09-02, Codex V2-F12 #2, prose batch P43: this read "Observed universally; driven by C3 not budget".)* The 31.6M dataset was undersampled by the file-collision bug. On the corrected 742M, only **2.926%** conform — 21,709,157 fully shift-conforming against 720,334,146 with at least one exception, 742,043,303 total ([`enumeration/analyze_c_742M.txt`](../enumeration/analyze_c_742M.txt) §[5]) — so "universally" was an artifact of the dataset named in this row's own Evidence column. Not driven by C3 either: the 2-option restriction is `--prove-cascade`'s own 2-candidate enumeration, per the cascade-determinism row above. |
 | Self-complementary branches always live | Constructive proof (7 examples verified against [C1-C5](SPECIFICATION.md#constraints)) | Proved |
 | XOR=100001 branches always dead | 10T enumeration observation | Empirical (not formally proved) |
 | Super-pair constraint at position 20 | Per-position analysis | Observed |
@@ -221,7 +231,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 **OpenMP also added to `--validate` and `--prove-cascade`.** Predicted ~10s `--validate` on 742M (was ~2 min). `--prove-cascade` Phase 1 outer loop now parallelized across 31 branches with per-branch result buffer for ordered output (output is identical to the pre-parallel version; only the wall time changes).
 
-**Documentation rewrite.** `solve.c` top-of-file comment updated to reflect the 3030-sub-branch architecture (the older "56-branch" description was stale), bug-history section, all current run modes including `--analyze`, build flags including `-fopenmp -march=native`, OpenMP licensing note. New `DEPLOYMENT.md` captures architecture + lessons + Azure spot-VM provisioning instructions in an appendix. `HISTORY.md`, `SOLVE-SUMMARY.md`, and `LEADERBOARD.md` all updated with the corrected 742M numbers and the {25, 27} truly-mandatory finding. Methodological rule established: any "proven" claim must be either universal or explicitly scoped (e.g., "proven for the 742M dataset"); applied throughout.
+**Documentation rewrite.** `solve.c` top-of-file comment updated to reflect the 3030-sub-branch architecture (the older "56-branch" description was stale), bug-history section, all current run modes including `--analyze`, build flags including `-fopenmp -march=native`, OpenMP licensing note. New `DEPLOYMENT.md` captures architecture + lessons + Azure spot-VM provisioning instructions in an appendix. `HISTORY.md`, `SOLVE_SUMMARY.md`, and `LEADERBOARD.md` all updated with the corrected 742M numbers and the {25, 27} truly-mandatory finding. Methodological rule established: any "proven" claim must be either universal or explicitly scoped (e.g., "proven for the 742M dataset"); applied throughout.
 
 **Pushed to GitHub.** 4 commits: solve.c (bug fix + --analyze + parallelization + doc), DEPLOYMENT.md, doc updates, run artifacts.
 
@@ -235,7 +245,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 - **[19] Identity-level equivalence of 4 working 4-sets.** All four leave exactly the same 4 records (KW orient variants, zero non-KW). Rigorous confirmation of what was previously only probabilistically inferred.
 - **[20] Complement-orbit analysis.** Bitwise complement (h → h^0x3F) maps pairs to pairs, preserving C1/C2/C5. Tested whether complement is an automorphism of the C1-C5 solution set. Result: **0 of 742M records have their complement in the dataset.** Complement is NOT closed — C3 (complement distance) breaks under the map. KW's complement has pair-sequence `[0 24 17 6 7 5 3 4 8 16 23 21 22 13 14 20 9 2 19 18 15 11 12 10 1 28 26 29 25 27 30 31]`, not in the dataset. The solution space is fundamentally asymmetric under bitwise complement.
 - **[21] Full per-position pair frequency table.** 32×32 baseline for 100T comparison. Confirms cascade structure: positions 4-20 have exactly 3 distinct pairs each; positions 22-31 have 14 each.
-- **[22] Complement-distance distribution (hex-level, same metric as C3).** KW at 100th percentile within C1-C5 is tautological (C3 enforces cd ≤ KW). The 3.9th percentile claim in SOLVE-SUMMARY.md is correct — it measures KW against ALL pair-constrained orderings (C1 only). Distribution is strongly right-skewed: 32.5% of C1-C5 solutions are in the top bin (760-779 out of range [448, 776]).
+- **[22] Complement-distance distribution (hex-level, same metric as C3).** KW at 100th percentile within C1-C5 is tautological (C3 enforces cd ≤ KW). The 3.9th percentile claim in SOLVE_SUMMARY.md is correct — it measures KW against ALL pair-constrained orderings (C1 only). *(Correction 2026-07-22: the parenthetical scope in the preceding sentence is wrong — the 3.9% figure's measured population is C1+C2+C4+C5, the solve.py differential sample; the exact C1&C4-null tail is 8.106% (`verify.py --check-null-g`), so no C1-only scope supports 3.9%. The tautology point stands.)* *(**Flagged 2026-08-01**: the 3.9% figure is not supported by the C1+C2+C4+C5 population either — see SOLVE.md §Rule 3.)* Distribution is strongly right-skewed: 32.5% of C1-C5 solutions are in the top bin (760-779 out of range [448, 776]).
 - **[23] {25, 27}-only survivor characterization.** 37,356 total survivors (37,352 non-KW), replacing the old buggy "1,055." Positions 1, 25-28 are locked (5 of 32). Positions 4-20 still have exactly 3 distinct pairs each in this subspace.
 - **[24] KW nearest-neighbor catalog.** 44 solutions at edit distance 2 (the minimum); 6 at distance 3. All dist-2 neighbors are single pair-swaps in the free region (positions 21-32), except 2 records that swap pairs 1↔2 at positions 2-3. Consistent with the earlier pair-swap analysis.
 
@@ -243,7 +253,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 
 **Two-phase deployment pattern documented.** DEPLOYMENT.md now describes separating enumeration (core-dense F-series) from merge (RAM-dense E/M-series) to cut costs. Saves ~50% at 100T, becomes architecturally necessary at 1000T.
 
-**Documentation updates.** SOLVE.md boundary section rewritten with corrected 742M numbers, {25, 27} mandatory finding, shift-pattern rescoping, and new structured-family characterization. SOLVE-SUMMARY.md: added conditional-entropy reframing, orient-collapsed robustness, rigorous 4-set equivalence, structured-family description. CRITIQUE.md and MCKENNA.md: hyperlinked Latin square references. GUIDE.md: added ䷄ Waiting #5 to Hamming distance example.
+**Documentation updates.** SOLVE.md boundary section rewritten with corrected 742M numbers, {25, 27} mandatory finding, shift-pattern rescoping, and new structured-family characterization. SOLVE_SUMMARY.md: added conditional-entropy reframing, orient-collapsed robustness, rigorous 4-set equivalence, structured-family description. CRITIQUE.md and MCKENNA.md: hyperlinked Latin square references. GUIDE.md: added ䷄ #5 to Hamming distance example.
 
 ## April 16-17, 2026
 
@@ -300,7 +310,7 @@ Selftest PASS at commit d4c6355 (sha `76ada31e...`). No enumeration semantics ch
 - **Reproducibility footgun removed from selftest.** The selftest harness previously passed `60` as a wall-clock safety net. Under load or on slower VMs, that limit fired mid-enumeration, interrupting whatever sub-branches happened to be running — producing non-deterministic sha mismatches in an otherwise correct solver. Now uses node-limit only. Related: the solver prints a startup WARNING if both `SOLVE_NODE_LIMIT` and a wall-clock time_limit are set simultaneously, and a new `REPRODUCIBILITY RULE OF THUMB` block at the top of solve.c documents why canonical runs must use node-limit exclusively.
 - **Documentation corrections.**
   - **SPECIFICATION.md §Complement distance** had `|C| = 60` — a documentation error. The correct divisor is 64: `comp(h) = h` requires `63 = 0` and is never true, so all 64 hexagrams contribute to the sum, giving `776 / 64 = 12.125` as the mean complement-pair distance.
-  - **Null-model caveat elevated** from a single paragraph in `CRITIQUE.md:136` to lead notes in `README.md` and `SOLVE-SUMMARY.md`. The honest framing: C1+C2+C3 are robust findings; the "4 boundaries uniquely determine KW" result is a property of the constraint-extraction methodology (which produces apparent uniqueness for 9/10 random pair-constrained sequences), not evidence of KW specialness beyond the robust findings.
+  - **Null-model caveat elevated** from a single paragraph in `CRITIQUE.md:136` to lead notes in `README.md` and `SOLVE_SUMMARY.md`. The honest framing: C1+C2+C3 are robust findings; the "4 boundaries uniquely determine KW" result is a property of the constraint-extraction methodology (which produces apparent uniqueness for 9/10 random pair-constrained sequences), not evidence of KW specialness beyond the robust findings. *(Annotation 2026-09-01: the parenthetical count in this entry records the framing the 2026-04-18 pass actually adopted and is left as written — rewriting it would credit that pass with a disclosure it did not hold. Since 2026-08-30 the count carries one: the run’s artifacts were not preserved, no reproduction command or seed survives, and no `solve.py` mode implements the protocol, so it is an unreproduced historical observation rather than a measured result — see [SOLVE.md](SOLVE.md) §"is the constraint framework special". The elevation described here, and the honest framing it adopted, are unaffected.)*
   - **"{25, 27} mandatory"** reformulated: the minimum structure is `{25, 27} ∪ one-of-{2, 3} ∪ one-of-{21, 22}` — two mandatory + two interchangeable slots, yielding exactly 2 × 2 = 4 working quadruples. Old phrasing was true but elided the interchangeability.
 
 Selftest PASS at commit 446b42e (sha `403f7202a33a9337...`, v1 format). Zero `-Wall -Wextra` warnings.
@@ -396,7 +406,7 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 - `--null-historical`: point-tests Fu Xi (natural binary), King Wen, Mawangdui silk-text, [Jing Fang](CITATIONS.md#jingfang) 8 Palaces. Original claim: three of four (KW, Mawangdui, Jing Fang) satisfy C2 exactly, suggesting a shared classical design principle. **[CORRECTED 2026-07-05: the Mawangdui array used was erroneous. The authentic Mawangdui order ([Shaughnessy 2022](CITATIONS.md#shaughnessy2022), Table 11.2) has exactly one 5-line transition, at its Kan→Zhen octet seam — so C2 is satisfied by KW and Jing Fang only (2 of 4), and the shared-design-principle inference is withdrawn. See CITATIONS.md errata.]**
 - `--null-random`: 10^9 uniformly random 64-permutations via [Fisher-Yates](CITATIONS.md#fisher-yates1938) + [xorshift64](CITATIONS.md#marsaglia2003). 0/10^9 satisfy C1 (consistent with the theoretical rate of ~10^-44), 0.1828% satisfy C2, 0.002836% satisfy C3.
 - `--null-pair-constrained`: 10^9 pair-permutations with random 2-choice orientations (C1 baked in). Measures conditional rates: C2 | C1 = 4.29% (23.5× the unconditional rate) and C3 | C1 = 6.42% (2,264× unconditional). Shows that C1 alone does most of the structural work KW relies on.
-- `--null-gray-random`: biased sampler for 6-bit Gray codes via random Hamiltonian walks in Q_6; bounds the C3 rate over the ~10^22 Gray code family tighter than the 256-orbit alone.
+- `--null-gray-random`: biased sampler for 6-bit Gray codes via random Hamiltonian walks in Q_6; bounds the C3 rate **under its own induced distribution** ⚠ **[SCOPED 2026-08-28 — read "over the ~10^22 Gray code family". A biased sampler with uncontrolled likelihood ratios bounds only the distribution it induces; attributing the bound to the uniform family is the over-reach corrected at CRITIQUE.md:60 the same day.]**, tighter than the 256-orbit alone.
 
 **CITATIONS.md** was created to distinguish prior-literature findings from ROAE-original contributions. Key credits:
 
@@ -404,11 +414,17 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 - C2 (no-5-line-transitions): **[Terence & Dennis McKenna](CITATIONS.md#mckenna-mckenna1975), *The Invisible Landscape*** (Seabury Press, 1975). Earliest documented public reference per web search; the 1971 Amazonian experience described there is pre-publication but no pre-1975 lectures are indexed.
 - C3 (complement-distance ceiling of 776): no prior citation found; believed ROAE-original, with the standing disclaimer that PR-based updates to CITATIONS.md are welcome.
 
-**Doc audit for citation integrity.** At the user's direction, SOLVE.md, SOLVE-SUMMARY.md, CRITIQUE.md, README.md, and CLAUDE.md were updated to soften "we discovered" language where prior literature exists, and to cross-reference CITATIONS.md. Softened 2026-04-19 in commit `5de0676`.
+**Doc audit for citation integrity.** At the user's direction, SOLVE.md, SOLVE_SUMMARY.md, CRITIQUE.md, README.md, and CLAUDE.md were updated to soften "we discovered" language where prior literature exists, and to cross-reference CITATIONS.md. Softened 2026-04-19 in commit `5de0676`.
 
-**New analytical results consolidated in CRITIQUE.md.** (a) C1 impossibility proofs for de Bruijn B(2, 6) (period-4 contradiction) and all 6-bit Gray codes (Hamming-disjoint). (b) Latin-square C2-rate decomposition with exact reproduction of the empirical 57.96%. (c) King Wen's own adjacency decomposition: 32 within-pair transitions (Hamming 2/4/6 by C1 construction) + 31 between-pair transitions, with the 14:2 odd-transition concentration and zero Hamming-5 matching the prior-documented 3:1 even:odd ratio (McKenna 1975 / Cook 2006). (d) Open Questions section with 11 falsifiable follow-ups.
+**New analytical results consolidated in CRITIQUE.md.** (a) C1 impossibility proofs for de Bruijn B(2, 6) (period-4 contradiction) and all 6-bit Gray codes (Hamming-disjoint). (b) Latin-square C2-rate decomposition with exact reproduction of the empirical 57.96%. (c) King Wen's own adjacency decomposition: 32 within-pair transitions (Hamming 2/4/6 by C1 construction) + 31 between-pair transitions, with the 14:2 odd-transition concentration *(as written at the time; corrected 2026-07-02 — 14:2 is the CIRCULAR reading, the linear between-pair figure is 13:2, see TR-6 §2)* and zero Hamming-5 matching the prior-documented 3:1 even:odd ratio (McKenna 1975 / Cook 2006). (d) Open Questions section with 11 falsifiable follow-ups.
 
-**Aggregate across this batch:** 1.86 billion permutations tested across seven structured and unstructured families. Zero satisfy C1 in any. The conjunction C1 ∧ C2 ∧ C3 is uniquely satisfied by King Wen across every tested family. McKenna's "no-5-line-transitions" observation reframed as a likely shared classical design principle across multiple ancient Chinese orderings — not a KW-unique accident.
+**Aggregate across this batch:** 1.86 billion permutations tested across seven structured and unstructured families. Zero satisfy C1 in any *(scope note 2026-07-26: zero-of-1.86B is across the **six unconditional** families; the seventh, pair-constrained family satisfies C1 by construction — see [CRITIQUE.md](CRITIQUE.md)'s family table)*. ⚠ **[CORRECTED 2026-09-02** (Codex V2-F12 #1, prose batch P43) **— two claims that stood in this paragraph are withdrawn, and the aggregate above is annotated rather than rewritten.**
+
+**(i) The 1.86 billion is kept as the 2026-04-19 figure, and it no longer sums the roster printed fifteen to twenty lines above.** Those family lines were later amended in place — `--null-random` went 10⁸ → 10⁹ — and the aggregate was not. The six unconditional families total **2,760,021,104** today: de Bruijn 134,217,728 + Gray orbit 256 + random Gray walks 10⁵ + Latin row×column 1,625,702,400 + lexicographic 720 + random 64-permutations 10⁹. On that same roster with the random row at 10⁸ the total was 1,860,021,104, which is the figure this paragraph rounds. The four `--null-historical` point-tests are not a family and are excluded from both totals; the Latin column×row pass re-traverses the same 8!×8! population as a direction-invariance check and is not double-counted. The current total is carried at [SOLVE.md](SOLVE.md) §"Null model: is the constraint framework special?" and in [GUIDE.md](GUIDE.md)'s aggregate paragraph, both corrected 2026-08-30; the same correction reached neither this page nor three others, which is why the roster arithmetic is spelled out here.
+
+**(ii) The uniqueness claim is withdrawn.** It said the conjunction C1 ∧ C2 ∧ C3 picks out King Wen in all seven families. It holds for the six unconditional ones only — and there it holds vacuously, because C1 is 0% in each, so nothing in them reaches the conjunction at all. In the seventh, pair-constrained family C1 holds by construction and the joint rate is ≈**0.305%**: about **3.06 million of 10⁹** pair-constrained orderings satisfy C2 ∧ C3 as well, so King Wen is not alone there. Measured 2026-08-28 at 0.305832% over 10⁹ draws and reproduced at 0.30478% over 10⁷ by an independently written sampler; re-run 2026-09-02, `python3 scripts/c2c3_joint_null.py` → `P(C2^C3|C1) = 0.30478%`, +16.7σ over the 0.27569% independence product, `C2C3_JOINT_NULL=OK`. See [CORRECTIONS.md](CORRECTIONS.md) 2026-08-28 and [CRITIQUE.md](CRITIQUE.md) §Missing analyses.
+
+**(iii) The shared-classical-design-principle inference is withdrawn**, as it already was fifteen lines above at the `--null-historical` entry on 2026-07-05. The Mawangdui array in use until then was erroneous; the authentic order ([Shaughnessy 2022](CITATIONS.md#shaughnessy2022), Table 11.2) has exactly one 5-line transition at its Kan→Zhen octet seam, so C2 is satisfied by King Wen and Jing Fang only — 2 of 4, not 3 of 4. The 2026-07-05 correction landed at that entry and never travelled the fifteen lines to this paragraph.**]**
 
 ## April 20, 2026 early morning — 100T d3 canonical lands
 
@@ -442,9 +458,9 @@ With the 100T d3 enumeration running on D128 westus3 (Zen 5), attention shifted 
 
 Key findings:
 - **0 of 32 EXHAUSTED.** All BUDGETED. 1T wasn't enough to exhaust any low-yield branch.
-- **8 distinct yield values across 32 branches, strong clustering** — every prefix class lands on exactly one of 959, 1599, 33372, 34981, 663369, 1110543, 2679422, or 3212005. Orientation-symmetry dominates in this low-yield subset.
+- **8 distinct yield values across 32 branches, strong clustering** — every prefix class lands on exactly one of 960, 1600, 33373, 34982, 663370, 1110544, 2679423, or 3212006. Orientation-symmetry dominates in this low-yield subset. *(Corrected 2026-08-14: each of these eight values was previously stated one lower — 959, 1599, 33372, 34981, 663369, 1110543, 2679422, 3212005. The recon analysis derived yields from shard file size as `(size − 32 byte header) / 32`, applying `solutions.bin`'s 32-byte `ROAE` header convention to `sub_*.bin` shards, which carry no header. The solver writes shards as bare record streams — `flush_sub_solutions_d3` emits records only, and the shard reader reads from offset 0 — so the count is `file_size / 32` with no subtraction. Confirmed three ways: (i) the solver's own per-shard `meta.json`, where `file_size_bytes / 32 = solutions_canonical` exactly, remainder 0; (ii) [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §"Reading the file", which already documents `sub_*.bin` as a **headerless** shard, and `solve --verify` on a real shard, which reports `Shard mode (no header)` and counts `file_size / 32`; (iii) **decisively, a direct decode of six actual 1T shard files** performed during the April 2026 Campaign C follow-up: 35,537,408 bytes = **1,110,544** × 32 exactly — the corrected value — where the subtracting formula yields 1,110,543, the value this list previously carried. That decode flagged the discrepancy at the time and attributed it to transcription; the correction was never propagated back to this list until now. The 1T figure of 960 quoted under "Growth rate" below was, and remains, correct; this correction removes a long-standing internal contradiction between that line and this one.)*
 - **Yield-at-100T was a poor proxy for tree size.** Branches with identical 100T yield = 24 grew anywhere 67× to 133,833× at 1T.
-- **Cross-prefix yield equivalence**: 6 branches with DIFFERENT (p1, p2, p3) all yield 1,110,543 — worth investigating (pair-relabeling symmetry candidate).
+- **Cross-prefix yield equivalence**: 6 branches with DIFFERENT (p1, p2, p3) all yield 1,110,544 — worth investigating (pair-relabeling symmetry candidate). *(Corrected 2026-08-14 from 1,110,543; see the header-convention note above. The equivalence finding itself is unaffected — all six branches still share one value.)*
 - The `./solve --yield-report` subcommand (new subcommand added to solve.c for per-sub-branch yield-clustering analysis) confirms 16.3% of multi-variant prefix groups in 100T are perfectly orientation-symmetric. 380 groups have all 2³=8 orientation variants with identical counts.
 
 **Spot eviction rate in westus2 (empirical, 2026-04-20):** 3 evictions in ~7 hours of running time on D32als_v7 spot (~0.43 evictions/hour). 1T campaigns on spot NOT reliably completable; ≤ 500B budgets might be. All recoveries via `az vm start` succeeded within 1 hour. Documented in `roae-private/SPOT_EVICTION_LOG.md`. See §Missteps for the pivot to on-demand that followed.
@@ -462,6 +478,8 @@ Key findings:
 **Computational pipeline executed on 3,432,399,297-record 100T d3 canonical** using Python scripts in `scripts/` (compute_stats, p2_marginals, p2_bivariate, p2_joint_density): per-record 10-dim observable-statistics vector (edit_dist_kw, c3_total, c6_c7_count, position_2_pair, mean/max transition hamming, fft_dominant_freq, fft_peak_amplitude, shift_conformant_count, first_position_deviation); per-chunk parquet directory output (3,433 files); streaming-histogram marginals + hexbin bivariate heatmaps + sklearn KDE on 7 informative dimensions with bootstrap 1000× CI. Ran in 66 min on D16als_v7.
 
 **Headline result: KW sits at 0.000% in the joint observable-density distribution, bootstrap 95% CI [0.000%, 0.000%].** KW's log-density under the sample-fit KDE is −128,260 while the entire 100K sample spans log-density [−10.11, −2.98]. The extremity is driven by simultaneous 95th+ percentile values across four independent structural dimensions (c3_total, c6_c7_count, shift_conformant_count, first_position_deviation), not any single dimension — a typical canonical ordering does not concentrate extremes that way.
+
+*(Withdrawal note, 2026-07-26: this joint-KDE result was **withdrawn as evidence** — a circularity audit found five of the seven KDE dimensions KW-referencing (the four "driver" dimensions named above are tautological, KW-extracted, or extreme by population construction), so the extremity was the predicted signature of scoring KW against its own template. The de-circularized re-run on the two KW-independent FFT dimensions places KW at ≈ the 30th percentile of joint density — distributionally unremarkable. This entry is retained as the record of the error; see [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) §"Joint density — de-circularized re-analysis".)*
 
 **Theorem of invariant transition-Hamming distribution (new):** every C1-C5 valid ordering has the identical multiset of 63 consecutive-hexagram Hamming distances `{1:2, 2:20, 3:13, 4:19, 6:9}`, proven directly from C5's budget-constraint formulation. Corollary: any real-valued statistic of that multiset (mean, median, max, variance, etc.) is constant across all 3.43B valid orderings. This retroactively identifies two of the originally-proposed observable dimensions (`mean_transition_hamming` = 3.3492 always, `max_transition_hamming` = 6 always) as structurally invariant — zero discriminative information.
 
@@ -618,7 +636,7 @@ Three distinct threads of work landed across ~6 hours.
 - 10T P1-parallel: 16,431,733 sols (Pass 1)
 - Yield ratio 3.35× for 10× budget → **α ≈ 0.52 (sub-linear)**
 
-Sub-linear means the branch is approaching exhaustion, not running away from it. Tree size estimate for yield-16 laggards drops from **10^16+** to **10^14–10^15**. Exhaustion feasible at **100T–1000T on Azure D64 spot ($5–$50)**, not 10,000T on Mac Mini ($3,600 + 11 months). The MAC_MINI_10000T_FEASIBILITY.md premise is deprecated. Full correction in [`roae-private/PASS1_FINDINGS.md`](../../../roae-private/PASS1_FINDINGS.md) Addendum B and [`roae-private/DEPTH_PROFILE_CALIBRATION.md`](../../../roae-private/DEPTH_PROFILE_CALIBRATION.md).
+Sub-linear means the branch is approaching exhaustion, not running away from it. Tree size estimate for yield-16 laggards drops from **10^16+** to **10^14–10^15**. Exhaustion feasible at **100T–1000T on Azure D64 spot ($5–$50)**, not 10,000T on Mac Mini ($3,600 + 11 months). The MAC_MINI_10000T_FEASIBILITY.md premise is deprecated. Full correction in `roae-private/PASS1_FINDINGS.md` (private staging repo) Addendum B and `roae-private/DEPTH_PROFILE_CALIBRATION.md` (private staging repo).
 
 **2. solve.c observability + durability additions** (commits `b9ff72d`, `e591e1c`, `e9c151d`, `f73c3ed`; selftest sha unchanged; zero impact on scientific output):
 
@@ -687,7 +705,7 @@ Linear-probe degradation after ~9.3M records: probe distance exploded from O(60)
 
 **Post-mortem preserved** in forensic checkpoint dir `roae-private/ckpt_pre_repro_20260424_142240/` (3.8 GB retained for any future regression investigation) plus `ckpt_hang_repro.sh` harness.
 
-**Trajectory-match finding** ([`TRAJECTORY_MATCH_PASS1_VS_CURRENT.md`](../../../roae-private/TRAJECTORY_MATCH_PASS1_VS_CURRENT.md)): the fresh run's progress-line counters re-derive Pass 1's 10T trajectory to within 0.2% at matched node budgets (1e10 through 1e13). The solver is effectively deterministic on this branch. All within-run data below 10T is a re-derivation, not new science; the regime above 10T is new.
+**Trajectory-match finding** (`TRAJECTORY_MATCH_PASS1_VS_CURRENT.md` (private staging repo)): the fresh run's progress-line counters re-derive Pass 1's 10T trajectory to under 1% at every matched node budget from 1e11 through 1e13, after a startup transient (33.1% at 1e10, 2.7% at 3e10). The solver is effectively deterministic on this branch at progress-line granularity. ⚠ **[CORRECTED 2026-09-02 (prose batch P64) — this sentence claimed a five-times-tighter envelope, and started the range one decade lower, than the comparison table in [`PASS1_TRAJECTORY_DETERMINISM.md`](PASS1_TRAJECTORY_DETERMINISM.md) supports. That report's headline was corrected on 2026-09-01; this site did not receive the correction, so the retired figure stayed live here for a day. The corrected envelope is the one the report's own seven-row table gives: the five rows from 1e11 onward deviate by at most 0.8%, while the 1e10 row misses the old claim by 165×. Registered as `RP-17381934`; ledger entry in [CORRECTIONS.md](CORRECTIONS.md).]** All within-run data below 10T is a re-derivation, not new science; the regime above 10T is new.
 
 **Sunk cost.** ~$6 of avoidable spend across the zombie-runtime window (~$0.24/hr × 20 idle hours) plus ~$0.20 for the debugging VM work. Forensic preserves + fix validated; fresh run on track to finish within budget.
 
@@ -710,7 +728,7 @@ Pipeline for the experiment: feed to `ganak`, `d4`, or `sharpSAT-TD` for exact m
 - `--stratified-by-position-2-pair CHUNKS_DIR OUT_MD` (`--stratified-exhaustive`): per-stratum KDE reanalysis conditioning on which pair occupies positions 2-3. Tests whether `position_2_pair` is part of the discriminative signal.
 - `--joint-permutation-test CHUNKS_DIR OUT_MD`: always-exhaustive. Per-dim |z|-extremity ≥ |z_KW| counts + [Bonferroni](CITATIONS.md#bonferroni1936)-adjusted p-values, plus a joint extremity distribution (for each record, count how many dims it ties or beats KW on; cumulative over the full 3.43B canonical population).
 
-Full spec: [`roae-private/DISTRIBUTIONAL_V2_SPEC.md`](../../../roae-private/DISTRIBUTIONAL_V2_SPEC.md). Launcher: [`roae-private/launch_b2_exhaustive_d64.sh`](../../../roae-private/launch_b2_exhaustive_d64.sh) running at time of writing on D64als_v7 spot (westus3), ~$2-3 / ~4 hr.
+Full spec: `roae-private/DISTRIBUTIONAL_V2_SPEC.md` (private staging repo). Launcher: `roae-private/launch_b2_exhaustive_d64.sh` (private staging repo) running at time of writing on D64als_v7 spot (westus3), ~$2-3 / ~4 hr.
 
 ## April 25, 2026 early morning — B2 exhaustive analysis launched, α trajectory logging resumed
 
@@ -727,12 +745,12 @@ B2 exhaustive analysis running on `b2-exhaustive-westus3` (D64als_v7 Spot, 256 G
 - Phase 4 (bijection sampling) not needed — no σ survived Phase 3.
 - Negative result is paper-citable. Constraint set is rigid against bit-position permutations.
 
-Full writeup: [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md). Working analysis + iterative spec: [`roae-private/SYMMETRY_SEARCH_SPEC.md`](https://github.com/petersm3/roae-private/blob/main/roae/SYMMETRY_SEARCH_SPEC.md) and [`SYMMETRY_SEARCH_FINDINGS.md`](https://github.com/petersm3/roae-private/blob/main/roae/SYMMETRY_SEARCH_FINDINGS.md).
+Full writeup: [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md). Working analysis + iterative spec: `SYMMETRY_SEARCH_SPEC.md` and `SYMMETRY_SEARCH_FINDINGS.md` in the private staging repo (not publicly accessible).
 
 **Findings directory promoted** (`roae/findings/`): three previously-staging findings curated into the public repo as paper-citable scientific anchors:
 
 - [`SYMMETRY_SEARCH.md`](SYMMETRY_SEARCH.md) — the negative result above.
-- [`PASS1_TRAJECTORY_DETERMINISM.md`](PASS1_TRAJECTORY_DETERMINISM.md) — solver re-derives Pass 1's progress trajectory to <0.2% across 10¹⁰ → 10¹³ nodes when re-run on the same branch with matched solver commit + threads. Reproducibility methodology / free correctness check.
+- [`PASS1_TRAJECTORY_DETERMINISM.md`](PASS1_TRAJECTORY_DETERMINISM.md) — solver re-derives Pass 1's progress trajectory to under 1% across 10¹¹ → 10¹³ nodes (33% at 10¹⁰, a startup transient) when re-run on the same branch with matched solver commit + threads. Reproducibility methodology / free correctness check. ⚠ **[CORRECTED 2026-09-02 (prose batch P64) — the same 2026-09-01 correction as the entry above; this index line carried the retired envelope in a second shape. Registered as `RP-501fb35a`; ledger entry in [CORRECTIONS.md](CORRECTIONS.md).]**
 - [`PARTITION_STABILITY_BOUNDARIES.md`](PARTITION_STABILITY_BOUNDARIES.md) — boundaries {25, 27} are mandatory in every minimum-boundary set identifying KW across all three canonicals tested (d2 10T, d3 10T, d3 100T). Most stable structural property of King Wen measured.
 
 Convention: working notes stay in `petersm3/roae-private`; findings polished and stable enough for external citation move to `roae/findings/`.
@@ -775,8 +793,8 @@ that exhaustive is unreachable):
   high-entropy back half of the sequence.** They are *fence-posts*, not
   workhorses — they catch fewer records than boundary 4, but their work is
   irreplaceable: no combination of other boundaries kills the families they
-  catch.
-- This bridges to the per-position Shannon entropy table in `SOLVE-SUMMARY.md`
+  catch. ⚠ **[SCOPE CORRECTED 2026-09-02 (prose lane, `RP-4e9124e6`; the same universal was retired at PROJECT_OVERVIEW.md under `RP-212288d7`, prose batch P68) — as an unscoped universal this is false, and no enumeration is needed to see it: a boundary N pins the pairs at positions N and N+1 (SOLVE.md's definition), so boundaries 24 and 26 together entail boundary 25, and 26 and 28 entail 27; every record satisfying {1, 4, 21, 24, 26, 28} satisfies {1, 4, 21, 25, 27}, which leaves zero non-KW survivors at 560T, so a six-boundary set containing neither keystone identifies King Wen. What was measured, and survives, is the 4-boundary statement as SOLVE.md's mandatory-{25,27} finding states it — among 4-boundary sets at the tested depths, none lacking 25 and 27 isolates KW — and the exact single-boundary statement that only boundary 25 pins positions {25, 26} and only 27 pins {27, 28}. The cardinality-5 question is open: two boundaries pin at most four positions, and the only two-boundary set pinning {25, 26, 27, 28} is {25, 27} itself.]**
+- This bridges to the per-position Shannon entropy table in `SOLVE_SUMMARY.md`
   (positions 22–31 carry 3.4–3.7 bits each, the high-entropy back half) — the
   keystones are the minimum local fixings that collapse that back-half freedom
   to KW's specific choice.
@@ -792,7 +810,7 @@ attached. Future re-runs should pull dumps via blob storage or chunked-with-
 verification to avoid the cap.
 
 **Working writeup:** `roae-private/KEYSTONE_FINDING_2026_04_25.md` + raw data at
-`roae-private/keystone_results_20260425T1300Z/` (report + 5 verified dumps).
+`roae-private/results/keystone_results_20260425T1300Z/` (report + 5 verified dumps).
 Implementation: `solve.py:keystone_analysis()` (labeling bug in the dict that
 mapped mask 27/29 → drop label was caught and fixed post-run; counts in the
 report are unaffected because they're computed from `_KEYSTONE_BDRYS_1IDX`
@@ -814,7 +832,7 @@ dropped the originating tool calls from working memory. Cost of incident #4:
 are loaded-in-context, not machine-enforced; documented policies compete with
 contextual precedent in Claude's decision process; deterministic blocks do
 not"). What had been deferred was the *enforcement* — the Azure Policy DENY
-recommendation in [`roae-private/SOLVER_D3_POSTMORTEM.md`](https://github.com/petersm3/roae-private/blob/main/roae/SOLVER_D3_POSTMORTEM.md)
+recommendation in `SOLVER_D3_POSTMORTEM.md` (private staging repo, not publicly accessible)
 was the right answer but required operator admin action. Three more months
 (reading: three more incidents) of "we'll get to it" elapsed.
 
@@ -909,7 +927,7 @@ deep partial walks, not the wide sweep the framing implied.
 **Operator decision.** Given the projection (~$290 remaining spend on
 a known-misshapen run vs ~$11 spent on a corrected mechanism), the
 operator chose path #4 from the reassessment doc
-([`roae-private/1000T_RUN_REASSESSMENT_2026_04_28.md`](https://github.com/petersm3/roae-private/blob/main/roae/1000T_RUN_REASSESSMENT_2026_04_28.md)):
+(`1000T_RUN_REASSESSMENT_2026_04_28.md`, private staging repo, not publicly accessible):
 stop the current run, add per-task budget enforcement to `solve.c`,
 run a 100T pilot with the new cap to get full task-space coverage,
 then decide on a deeper 1000T run informed by real per-task data.
@@ -943,7 +961,7 @@ run was preserved in two places:
   87 × `sub_flush_chunk_*.bin` (14 GB partial deduplicated solutions),
   64 × `sub_ckpt_wrk*.bin` (8.5 GB resumable worker state). Restartable
   via `az vm start -g rg-claude -n deep-calib-westus3`.
-- **In `roae-private/1000T_partial_results_2026_04_28/`:** forensic summary
+- **In `roae-private/results/1000T_partial_results_2026_04_28/`:** forensic summary
   + sha256 manifests for the 87+64 binary artifacts (for integrity
   tracking even if the VM disk is later lost).
 
@@ -1149,7 +1167,7 @@ followed.
    diverges between full-enum (uniform 158,364) and `--branch` (varies
    per first-level grouping). The override forces both to walk each
    depth-3 sub-branch with identical per-sub-branch budgets, fixing the
-   2026-04-29 regression-test design flaw documented in `roae-private/regression_test_results_2026_04_29/RESULTS.md`.
+   2026-04-29 regression-test design flaw documented in `roae-private/validation/regression_test_results_2026_04_29/RESULTS.md`.
 
 2. **`--merge-layers <root>` mode.** Layered enumeration: each run lives
    in its own subdirectory ("layer") under a root. Layers compose: a
@@ -1189,10 +1207,10 @@ supposedly been fixed by deallocating it. Yet here it was again, running.
 `az vm deallocate -g RG-CLAUDE -n deep-calib-westus3` succeeded at
 14:17:00 UTC ("VM deallocated" verified). At 14:21:51 UTC — five
 minutes later — the Azure Activity Log showed the VM being started
-again, by `mrpeterson2@gmail.com` from IP `20.59.33.134`. The user
+again, by `mrpeterson2@gmail.com` from IP `<orchestrator-public-IP>`. The user
 confirmed they had not done this manually.
 
-Cross-checking, IP `20.59.33.134` is the public IP of the `claude`
+Cross-checking, IP `<orchestrator-public-IP>` is the public IP of the `claude`
 orchestrator VM itself. So whatever started deep-calib was a script or
 process running on `claude`, authenticating as the same user identity.
 The Azure CLI app-id (`04b07795-…`) on the activity-log entry confirmed
@@ -1393,7 +1411,7 @@ days to resolve:
   Full post-mortem in
   `petersm3/roae-private:CONCERNS_1_2_3_RESOLUTION_2026_05_02.md`.
 
-**8-path equivalence at 11.2T proven (as of May 2, 2026 evening PDT / 2026-05-02 ~22:30 UTC):**
+**8-path equivalence at 11.2T proven** — seven paths as of May 2, 2026 evening PDT / 2026-05-02 ~22:30 UTC; the eighth, the recovery cascade, landed 2026-05-04 04:21Z:
 
 | Path | Method | Sha |
 |---|---|---|
@@ -1404,6 +1422,9 @@ days to resolve:
 | Tier 4 | ARM Cobalt cross-arch | `0c0fe37c…` |
 | Tier 7a | Recursive DFS (no `SOLVE_DFS_ITERATIVE`) | `0c0fe37c…` (manual merge after auto-merge sanity-gate trip) |
 | Tier 7b canonical/64 | 11.2T at 64 threads | `0c0fe37c…` |
+| recovery cascade (post-#45 patch) | Patched-binary 11.2T fresh full-enum, 2026-05-04 04:21Z | `0c0fe37c…` |
+
+*(Eighth row added 2026-09-02, Codex V2-F12 #3, prose batch P43. The heading has said eight since it was written and the table listed seven; the missing path is the recovery-cascade re-enumeration recorded below under "May 4 – May 5, 2026 PDT" — "Patched binary 11.2T fresh full-enum reproduced sha=`0c0fe37c…` byte-identically with the Tier 1 canonical (May 4 04:21Z)" — and named alongside the 8-path validation in the loss inventory further down. The reviewer's prescribed fix was to renumber the heading to seven; that would have deleted a real validation path from the public record, so it was declined. The heading's contemporaneous May-2 timestamp is now split from the count, because path eight post-dates it by two days. Tier 7c (multi-stage chain) is deliberately NOT a ninth row: it was still running when the campaign's validation-path roster was fixed at eight, and that roster is what the heading counts.)*
 
 **Tier 7b small-scale at 4/32/64/128 threads:** all produce the
 same sha (`e43f2905…`) at 200M-node scale. Thread-count invariance
@@ -1424,8 +1445,10 @@ single-branch deeper-budget exhaustion runs.
   VM is normal.
 - The "C3 threshold = 12.125 ≤" is reverse-engineered from KW;
   the defensible scientific claim is the percentile statement
-  (3.9th percentile of C1+C2-satisfying orderings), not the
+  (3.9th percentile of C1+C2-satisfying orderings — figure flagged 2026-08-01, see SOLVE.md §Rule 3), not the
   numerical threshold (added to `SOLVE.md` Rule 3 note).
+  *(Scope corrected 2026-07-22: the 3.9% is measured at the
+  C1+C2+C4+C5 scope, not C1+C2 — see SOLVE.md §Rule 3.)*
 
 **Live operational state during the campaign** is in
 `petersm3/roae-private:CURRENT_PLAN.md` (private operator log). Key
@@ -1469,7 +1492,7 @@ gating step per operator direction so the AVX-512 retool lands
 on a truly-fixed heap rather than the dead-free workaround;
 estimated cost ~$15-40 on D64 spot, eng ~1-2 weeks). The
 recovery cascade (private repo:
-`560t_scripts/t7c_p3_recovery.sh`) is armed to validate the
+`roae-private/campaigns/560t_scripts/t7c_p3_recovery.sh`) is armed to validate the
 patch by running a fresh 11.2T full enum on the patched binary
 and verifying sha == `0c0fe37c…`. Crucially, every Tier 9 test
 that emitted a sha PASSED with byte-identical match to its
@@ -1501,13 +1524,22 @@ pre-560T gating.* Operator direction across two decisions on
   gate: byte-identical canonical sha on both scalar and AVX-512
   paths at 11.2T. Plan in private
   `AVX512_IMPLEMENTATION_PLAN_2026_05_03.md`.
+  ⚠ **[REFUTED 2026-05-16 — the 1.4–2.0× ceiling projected in this bullet was measured and did
+  not survive: the definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected), and #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits. The measurement and its commits are narrated in the May 18, 2026 PDT entry, item 3. This callout added 2026-09-02 (prose batch P64); it was owed and
+  had not been written.]**
 - **CPU optimization bundle** post-AVX-512: LTO + jemalloc
   (`LD_PRELOAD` runtime-only, no source change, BSD-2-Clause
   license posture preserved) + huge pages + PGO + NUMA-local
   allocation (raw kernel syscalls preferred over libnuma to
   keep solve.c license-clean) + conditional hash-table tuning
   if profile justifies. Composes with AVX-512 for **~2-3×
-  combined total speedup** in the mid case. Plan in private
+  combined total speedup** in the mid case.
+  ⚠ **[SCOPED 2026-09-02 (prose batch P64) — this composite multiplies the AVX-512 factor refuted
+  above, so its premise does not hold as written. What the composite actually comes to was never
+  re-measured after the refutation, and no figure is substituted here: the bundle's other factors
+  were measured separately and moved in both directions (LTO +2.06% full-mean at D64; PGO *slower*
+  than baseline at D64, later recorded at +6.5% on a different workload). Flagged rather than
+  repaired, per the standing caution against banking undirected multiplicative composites.]** Plan in private
   `FUTURE_PERFORMANCE_OPTIONS_2026_05_03.md` §5; license posture
   detailed in §5f. Recommendation: jemalloc tested *first*, even
   before AVX-512, both for the heap-stability bonus (the
@@ -1775,10 +1807,17 @@ KW. Edits across SOLVE.md Rule 3, CRITIQUE.md complement-distance
 bullet, SPECIFICATION.md C3 definition + methodological-
 limitations section, and DEVELOPMENT.md (added a stack-`ulimit`
 subsection covering the production-vs-ASan threshold). Public
-commit `463c4b4`.
+commit `463c4b4`. *(Scope corrected 2026-07-22: the 3.9%'s
+measured population is C1+C2+C4+C5 — every constraint except C3
+itself — not "Rules 1-2"/C1+C2, where the project's own figures
+are ~7-8%; the 2026-05-05 two-scopes point otherwise stands. See
+SOLVE.md §Rule 3.)* *(Flagged 2026-08-01: the 3.9% figure is not
+supported by the C1+C2+C4+C5 population either — the ledger gives
+≈12% at that scope. The two-scopes point still stands; the
+magnitude does not. See SOLVE.md §Rule 3.)*
 
-**SOLVE-SUMMARY trimmed to introductory-article tone.** Three
-blockquote front-matter blocks at the top of SOLVE-SUMMARY.md
+**SOLVE_SUMMARY trimmed to introductory-article tone.** Three
+blockquote front-matter blocks at the top of SOLVE_SUMMARY.md
 duplicated material that already lives in CLAUDE.md (canonical
 shas), PARTITION_INVARIANCE.md (cross-path validation grid),
 CRITIQUE.md (null-model caveat), and DISTRIBUTIONAL_ANALYSIS.md
@@ -1864,7 +1903,7 @@ LUN order. **It did not.** On this VM, LUN 0 mapped to nvme0n3
 `mkfs.ext4 -F /dev/nvme0n3` against what was actually the
 canonical disk. The `-F` flag bypassed mkfs's "refuse to format
 existing filesystem" safety check. Original UUID
-`3620ba16-3c88-414e-b3ff-1b33deaef2ac` (label "solver-data") was
+`<disk-UUID-redacted>` (label "solver-data") was
 overwritten with fresh UUID `d63bb25c…` and an empty ext4. No
 snapshots existed.
 
@@ -2065,12 +2104,12 @@ The campaign exposed these because it stress-tested execution paths the original
 
 ### Outcomes
 
-**T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to Azure Blob Archive tier (`roaecanonical2026/canonical-archive/t9c1/`). Warm copy of solutions.bin (110 GB) preserved on solver-data-westus3. D16 deallocated.
+**T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to Azure Blob Archive tier (`canonical-archive/t9c1/`). Warm copy of solutions.bin (110 GB) preserved on solver-data-westus3. D16 deallocated.
 
 **T9+d — COMPLETED 2026-05-10 06:07:50 UTC.** Phase 5 (62-branch enum) on D64als_v7 Spot, 2 Spot evictions recovered cleanly. Phase 5→6 migration to D16als_v7 Regular at 17:27 UTC May 9, deploying the #84-patched solve binary and streaming verify.py. Phase 6 (`solve --merge`) wall time 8h 20min; **the patched solve --merge exited cleanly at 01:57 UTC May 10 — no hang**, validating the #84 fix at full 100T scale. Phase 6 produced byte-identical solutions.bin: sha256 = `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`. Phase 7 sha check PASS — **partition invariance theorem empirically confirmed at 100T scale** (T9+d's per-branch-loop execution path produces byte-identical bytes to T9+c.1's full-enum path). Phase 8 `solve --verify` PASS. Phase 9 `verify.py --jobs 128` migrated to D128als_v7 Regular for parallelism — completed 06:07 UTC; verify result: all 3,432,399,297 records satisfy C1-C5 + sorted + no duplicates + KW present. D128 deleted post-archive. t9d-data-westus3 disk preserved Unattached pending operator deletion decision.
 
 **The canonical 100T solutions.bin is now FULLY RECOVERED** with two independent witnesses:
-- **T9+c.1 (full-enum path)** — produces 915abf30 byte-identically. Warm copy on solver-data-westus3, cold backup in `roaecanonical2026/canonical-archive/t9c1/`.
+- **T9+c.1 (full-enum path)** — produces 915abf30 byte-identically. Warm copy on solver-data-westus3, cold backup in `canonical-archive/t9c1/`.
 - **T9+d (per-branch path, partition-invariance witness)** — also produces 915abf30 byte-identically. Operational logs + metadata in `petersm3/roae-private:canonical_runs/20260509_100T_t9d_partition_invariance/`. solutions.bin not separately archived (byte-identical to T9+c.1's; redundant).
 
 The v1 closure work (#51 + #44) is now unblocked. CANONICAL_HASHES.md updated with the partition-invariance attestation; the registry confirms this canonical's bytes are reproducible across both execution strategies.
@@ -2087,7 +2126,7 @@ The T9+d run surfaced five MORE issues beyond the three already documented (`sol
 
 4. **Deallocated VMs still consume vCPU quota in Azure.** Provisioning the D128 for phase 9 hit `QuotaExceeded`: Current Limit 130, Current Usage 16, Required 144. The 16 came from `v1-recovery-d16-westus3` (T9+c.1's D16) that was deallocated days earlier — Azure deallocation stops compute billing but **does not release the vCPU quota allocation**. **Lesson:** when freeing quota for new provisioning, deallocated VMs must be DELETED (with disk preservation by detach-before-delete) to release their core count. Memory and operator-discipline rules updated to require an explicit "free quota" pre-flight before any large VM provisioning.
 
-5. **NSG allow-rule had a stale Google IP** (66.249.184.35) instead of the orchestrator's actual outbound public IP (20.59.33.134). Probably a copy-paste mistake when the rule was originally configured. SSH had been working all session via the cross-region Azure-internal `AllowVnetInBound` path, masking the issue. Discovered + fixed 2026-05-09. **Lesson:** NSG rules with explicit IPs are prone to silent staleness if the orchestrator's outbound IP changes; either use service tags (`AzureCloud`, `VirtualNetwork`) where appropriate, or audit explicit-IP allow-rules quarterly against `curl ipv4.icanhazip.com` from the actual orchestrator.
+5. **NSG allow-rule had a stale Google IP** (<stale-IP>) instead of the orchestrator's actual outbound public IP (<orchestrator-public-IP>). Probably a copy-paste mistake when the rule was originally configured. SSH had been working all session via the cross-region Azure-internal `AllowVnetInBound` path, masking the issue. Discovered + fixed 2026-05-09. **Lesson:** NSG rules with explicit IPs are prone to silent staleness if the orchestrator's outbound IP changes; either use service tags (`AzureCloud`, `VirtualNetwork`) where appropriate, or audit explicit-IP allow-rules quarterly against `curl ipv4.icanhazip.com` from the actual orchestrator.
 
 Combined with the earlier three (#84, verify.py memory model, pruned-branch handling), this campaign produced **eight discrete bug fixes / hardening updates** to the v1 lineage and operational tooling. v2 design notes for each are tracked in their respective tasks.
 
@@ -2258,6 +2297,22 @@ D128als_v7 Spot in westus3, 14:22–20:14 UTC, four enumerations:
 | v2 1T | post-#72 + #67 `133e296` | same as v1 1T | `c247b9f9…` | 138,520,400 |
 | v2 5.6T | post-#72 + #67 `133e296` | same as v1 5.6T | `467025fe…` | 486,001,027 |
 
+**The three truncated shas in this table are narrative run identifiers, not verifiable anchors
+(noted 2026-08-09).** `e31ef86a…`, `c247b9f9…` and `467025fe…` appear here — and in §"Files
+preserved" below — **only in truncated form, and no 64-hex expansion of any of the three exists
+anywhere in this repository or its git history.** A cloner therefore receives 32 bits of each and
+**cannot expand or check them**; they are deliberately not expanded here, because guessing or
+reconstructing an expansion would be worse than the gap. Only the v1 5.6T sha
+`f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` is published in full. None of the
+three is a canonical value, and none is registered in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) —
+the canonical-sha invariant does not run on them. The underlying `solutions.bin` files are recorded
+in §"Files preserved" below as held on the `v1v2-compare-scratch` 256 GB StandardSSD managed disk
+(unattached, not yet archived to cold storage as of that date); that is this document's 2026-05-12 record of where
+they were put, not a re-verified statement of present-day disk state. **Scope:** what this note
+fixes is the citation, not the gap — the record-count and superset findings below are unaffected,
+but they remain independently uncheckable from the published tree until (and unless) a full sha or
+the artifact itself is republished.
+
 v2 vs v1 canonical-level diffs (mask `byte & 0xFC`, sort, `comm`) confirmed `L_v1 ⊆ L_v2` at both scales: 1T (v1-only=0, v2-extras=4,478,834, +3.34%), 5.6T (v1-only=0, v2-extras=18,516,859, +3.96%). This validates the #67 superset property in production.
 
 But the v1 5.6T sha `f66920c1…` does NOT match the CANONICAL_HASHES.md anchor `c34390c0…`. The v1 5.6T record count is 467,484,167 vs canonical 467,483,137 — exactly **+1,030 records** (+0.00022%). At selftest scale (100M nodes) the same binary produces canonical baseline `403f7202…`. The divergence is scale-emergent: visible at 5.6T, invisible at 100M.
@@ -2346,7 +2401,7 @@ It does change:
 
 Three independent 5.6T runs archived (gzip -9, sha256, metadata.txt, run.log, merge.log) to two locations:
 
-- **Cold storage (Azure Blob `roaecanonical2026/canonical-archive/`, Archive tier, westus3):**
+- **Cold storage (Azure Blob `canonical-archive/`, Archive tier, westus3):**
   - `20260512_recursive_5.6T/` — post-#72 recursive path; sha `f66920c1…`
   - `20260512_1267a8e_5.6T/` — pre-f42f2ae bisect; sha `f66920c1…`
   - `20260512_cdd8575_5.6T/` — pre-1d4dc6e bisect endpoint; sha `f66920c1…` (proves irreproducibility)
@@ -2354,7 +2409,7 @@ Three independent 5.6T runs archived (gzip -9, sha256, metadata.txt, run.log, me
 
 The original `v1v2-compare-scratch` 256 GB StandardSSD managed disk (Unattached, preserved) holds the original v1_1T (`e31ef86a…`), v2_1T (`c247b9f9…`), v2_5.6T (`467025fe…`) solutions.bin files (not yet archived to cold storage — candidates for follow-up archival before disk decommission).
 
-Operator-facing detail and recommended cascade actions: [`petersm3/roae-private:CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md`](https://github.com/petersm3/roae-private/blob/main/roae/CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md) (private staging repo).
+Operator-facing detail and recommended cascade actions: `CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md` (private staging repo, not publicly accessible).
 
 ### What's next
 
@@ -2389,7 +2444,7 @@ Following the c34390c0 finding above and the audit pass that closed on 2026-05-1
 The original `f42f2ae` stack-OOB hypothesis from the 2026-05-12 investigation is now considered an **incidental coincident bug, not the cause** of the c34390c0/f7b8c4fb undercounts. Three findings updated the model:
 
 1. **Phase B (Phase B-2 from yesterday)** empirically showed that pre-f42f2ae binary `1267a8e` at d3 5.6T canonical params produces `f66920c10…` byte-identically to post-fix code — the OOB doesn't change canonical output at canonical params.
-2. **Code review** of the f42f2ae fix site (CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md §"Code review — every candidate commit ruled out") established that the OOB happens AFTER threads finish writing shards and BEFORE the merge step. The merge reads shards from disk; OOB in stats-collection memory shouldn't affect merged solutions.bin.
+2. **Code review** of the f42f2ae fix site (roae-private/CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md §"Code review — every candidate commit ruled out") established that the OOB happens AFTER threads finish writing shards and BEFORE the merge step. The merge reads shards from disk; OOB in stats-collection memory shouldn't affect merged solutions.bin.
 3. **Cascade outcome pattern** is inconsistent with OOB causing undercount:
    - d3 11.2T was generated May 1 (with the OOB present per code analysis) and modern matches. If OOB caused undercount, 11.2T would also differ.
    - d2 10T was generated 2026-04-18 (with the OOB present) and modern matches. Same logic.
@@ -2399,7 +2454,7 @@ The better-fitting hypothesis: **the +1030 and +4607 deltas reflect records lost
 
 - `c34390c0` (Apr 29-30): documented Spot eviction at 90%, then 8 "missing branches" were re-run and merged in. If any of those 8 branches' resume state was imperfect, ~1030 records could be silently lost.
 - `f7b8c4fb` (Apr 18): predates all resume fixes (`1d4dc6e`, `c3ad271`, `d11bc0d`, `c3d3ad6` were all April 30 - May 2). Any interruption during the Apr 18 run on broken resume code would undercount.
-- `0c0fe37c` (May 1): generated under the iterative+checkpoint code state (`1d4dc6e` Apr 30), and its 7-path validation explicitly exercised resume modes (Tier 2c was 56-branch resume). Those validation runs are what CAUGHT resume bugs `c3d3ad6` + `db27d00`. By the time `0c0fe37c` was finalized, resume code was correct.
+- `0c0fe37c` (May 1): generated under the iterative+checkpoint code state (`1d4dc6e` Apr 30), and its 8-path validation explicitly exercised resume modes (Tier 2c was 56-branch resume). Those validation runs are what CAUGHT resume bugs `c3d3ad6` + `db27d00`. By the time `0c0fe37c` was finalized, resume code was correct.
 - `a09280fb` (depth-2 Apr 18): depth-2 enumeration has only ~3,030 sub-branches (vs depth-3's 158k), each completing in seconds. Far less interruption-prone. Even pre-fix code completes d2 cleanly.
 
 This pattern means **modern code's "fixed" output is what was always intended; the historical undercounts are the bug**. The records modern code finds within the same budget are valid C1-C5 canonical orderings that the older runs missed.
@@ -2407,7 +2462,7 @@ This pattern means **modern code's "fixed" output is what was always intended; t
 ### Methodology lessons (added 2026-05-14)
 
 - **Run completion matters more than code version.** A canonical generated by stable code that ran to clean completion (e.g., `0c0fe37c`, `a09280fb`) reproduces on modern code. A canonical generated by interrupted-and-imperfectly-resumed runs (e.g., `c34390c0`, `f7b8c4fb`) does not.
-- **The budget axis is misleading.** d3 10T (Apr 18) differs from modern by 4607; d3 11.2T (May 1) matches modern exactly. Only 1.2T apart in budget but 13 days apart in code stability and 7-path validation discipline.
+- **The budget axis is misleading.** d3 10T (Apr 18) differs from modern by 4607; d3 11.2T (May 1) matches modern exactly. Only 1.2T apart in budget but 13 days apart in code stability and 8-path validation discipline.
 - **Cross-build with date separation is what catches resume-bug-class issues.** A single-day 4-equivalence test on one binary cannot catch resume-mode imperfections that only surface on interrupted runs. The current SOP — two independent builds on different days/hosts — is the right durable check.
 - **`SOLVE_THREADS` is empirically order-stable.** Cascade Build A and B used `SOLVE_THREADS=64` due to westus3 D128 Spot capacity issues, yet produced byte-identical shas to the canonical `SOLVE_THREADS=128` for both d3 11.2T and d2 10T. Confirms the merge-dedup-order-stable property in CANONICAL_HASHES.md.
 
@@ -2436,7 +2491,7 @@ This pattern means **modern code's "fixed" output is what was always intended; t
 
 ### Thursday 2026-05-14 morning — post-Build B teardown and mechanism-validation plan
 
-After the overnight Build B 11.2T completion (item 1 above) and archive, all remaining Build B compute resources were torn down: the `d3-11-2T-buildb-westus3` and `merge-d64-westus3` VMs were deleted along with their two OS disks, the two scratch SSDs (`d3-11.2T-buildb-scratch`, `d3-11.2T-scratch`), the two NICs, and the two public IPs. Three additional stale NIC + Public IP pairs from earlier sessions (`legacy-upload-westus2`, `merge-d32-westus3`, `shrink-tmp-westus3`) were also deleted. The Azure resource group now contains only the long-lived items: the `claude` orchestrator VM (D2as_v6, westus2), its OS disk (Premium SSD P4, 32 GB), `solver-data-westus3` (Standard HDD, 256 GB), and the `roaecanonical2026` storage account (canonical-archive container, 70 blobs, 34.4 GB across Cool + Archive tiers). Total monthly run-rate: ~$76 (~$55 claude VM + ~$19 disks + ~$0.20 cold storage).
+After the overnight Build B 11.2T completion (item 1 above) and archive, all remaining Build B compute resources were torn down: the `d3-11-2T-buildb-westus3` and `merge-d64-westus3` VMs were deleted along with their two OS disks, the two scratch SSDs (`d3-11.2T-buildb-scratch`, `d3-11.2T-scratch`), the two NICs, and the two public IPs. Three additional stale NIC + Public IP pairs from earlier sessions (`legacy-upload-westus2`, `merge-d32-westus3`, `shrink-tmp-westus3`) were also deleted. The Azure resource group now contains only the long-lived items: the `claude` orchestrator VM (D2as_v6, westus2), its OS disk (Premium SSD P4, 32 GB), `solver-data-westus3` (Standard HDD, 256 GB), and the cold-archive storage account (canonical-archive container, 70 blobs, 34.4 GB across Cool + Archive tiers). Total monthly run-rate: ~$76 (~$55 claude VM + ~$19 disks + ~$0.20 cold storage).
 
 The resume-bug hypothesis (this section's "Hypothesis update" above) is currently the best circumstantial fit for the c34390c0 and f7b8c4fb deltas, but it has not yet been demonstrated as a mechanism. The next planned work (operator-approved 2026-05-14 Thu) is a two-part validation:
 
@@ -2477,7 +2532,7 @@ Either path is consistent with the +1,030 record `c34390c0` and +4,607 record `f
 
 The Phase E.2 demonstration that pre-`c3ad271` code had *two* distinct resume-path bugs (not just one) motivated a structural follow-up: define and start implementing five defense-in-depth measures so any future resume-class regression is caught before it reaches a canonical. Full design + status table in [DEVELOPMENT.md §"Resume-path defense in depth"](DEVELOPMENT.md). Summary:
 
-1. **SIGTERM-then-resume in selftest** (`solve --selftest-resume`) — **DONE 2026-05-14**. New subcommand runs PHASE_A 50M → PHASE_B 200M asymmetric extension vs single-shot 200M baseline; compares the two `solutions.bin` shas. Verified PASS on current main (both shas = `e43f2905…`, matching the reference value from the `c3ad271` commit body's own validation). Wall: 3 min on 2 ARM cores at 4 threads. Recommended cadence: daily / pre-merge CI rather than every-push pre-commit until the scale is tuned smaller.
+1. **SIGTERM-then-resume in selftest** (`solve --selftest-resume`) — **DONE 2026-05-14**. New subcommand runs PHASE_A 50M → PHASE_B 200M asymmetric extension vs single-shot 200M baseline; compares the two `solutions.bin` shas. Verified PASS on current main (both shas = `e43f2905…`, matching the reference value from the `c3ad271` commit body's own validation). Wall: 3 min on 2 ARM cores at 4 threads. Recommended cadence: daily / pre-merge CI rather than every-push pre-commit until the scale is tuned smaller. ⚠ **[LABEL CORRECTED 2026-09-02 (prose lane; Codex V2-F15 #5 class — the DEVELOPMENT.md sibling was corrected earlier) — `--selftest-resume` sends **no signal**. Measured at the subcommand's implementation in `solve.c`: three `system()` invocations (a 50M-node PHASE_A, a 200M-node resume in the same directory, a single-shot 200M baseline) and a sha comparison, with no `kill()` or `raise()` on that path. It exercises the *budget-extension* resume — stop at a smaller budget, continue to a larger one — not an interrupted-process resume, so it is evidence about checkpoint continuation, not about SIGTERM or eviction recovery; the signal-interrupt case is the separate Tier-3 T3a test that `solve.c`'s comments describe. "SIGTERM-then-resume" as a name for this subcommand is withdrawn; the result and both shas stand.]**
 2. **Build provenance + resume history in `.sha256` metadata** — **DONE 2026-05-14**. Both the `--merge` finalize path (solve.c:~10300) and the main-enum sha-write path (solve.c:~3597 via `write_sha256_with_metadata`) now append `# Date`, `# Build`, `# Unique orderings`, `# SOLVE_NODE_LIMIT`, `# SOLVE_DFS_ITERATIVE`, `# SOLVE_DFS_CHECKPOINT`, optional `# SOLVE_PER_SUB_BRANCH_LIMIT`, and `# SOLVE_RESUME_HISTORY` to `solutions.sha256`. Operator sets `SOLVE_RESUME_HISTORY` env var before any restart-after-eviction to record context; the field reads `(none — clean single-shot run)` for non-resumed runs. Verified emit on a 100M test run with injected `SOLVE_RESUME_HISTORY` value.
 3. **Resume-state invariant assertions in solve.c** — DONE (2026-05-14). The `backtrack` function's DFS-state resume entry now asserts `dfs_resume_partition_prefix_len > 0` (must be set by `load_sub_checkpoint`) and that consumed `(pair_idx, orient)` frames are in valid `[0,31] × [0,1]` range. Violations trigger `_exit(21)` with diagnostic rather than producing a silently-corrupted output. The c34390c0-class silent failure mode is now loud. Selftest sha `403f7202` preserved (assertions only fire when `dfs_resume_active=1`, which selftest doesn't exercise).
 4. **Canonical merges off Spot priority** — DONE (codified 2026-05-14 as standing policy in DEVELOPMENT.md). Enum can be Spot (eviction-resilient via checkpoint); merge must be Standard (eviction-fragile single-threaded write phase). $1 cost delta on a 60-min merge vs the risk of corrupting a canonical artifact. Operator pre-flight gate: `az vm show --query priority -o tsv` before any `solve --merge` invocation.
@@ -2557,7 +2612,9 @@ Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, is
 |---|---|---|---|---|---|
 | Baseline | 101.16 / 101.24 / 109.38 / 100.94 | 103.18 ± 3.58 | 3.47% | — | (101.11s clean) |
 | LTO | 100.98 / 100.99 / 101.21 / 101.19 | **101.09 ± 0.11** | **0.11%** | +2.06% | +0.06% |
-| PGO | 100.08 / 117.10 / 101.06 / 109.09 | 106.83 ± 6.88 | 6.44% | **−3.42% (slower)** | −2.28% |
+| PGO | 100.08 / 117.10 / 101.06 / 109.09 | 106.83 ± 6.88 | 6.44% | **−3.42% (slower)** | −2.22% |
+
+*(PGO trimmed-mean figure **recomputed 2026-08-09** from this table's own cells — it was printed as −2.28%. Trimmed means are 303.34/3 = 101.113 s baseline and 310.23/3 = 103.410 s PGO; 101.113/103.410 − 1 = **−2.22%**, using the same baseline/optimized − 1 convention that reproduces the full-means column exactly. **Scope of this recomputation:** the other thirteen derived cells were re-checked and all reproduce as printed — baseline 103.18 s and 101.11 s trimmed, LTO 101.09 s / +2.06% / +0.06%, PGO 106.83 s / −3.42%, and the three ± σ and three σ% cells (population σ). No trial time was changed, and the qualitative reading — PGO slower than baseline at D64 — is unaffected.)*
 
 **Key findings at canonical-correlation scale:**
 
@@ -2568,7 +2625,7 @@ Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, is
 **Phase 1 status updated 2026-05-15:**
 - **LTO (#47 partial): RECOMMEND SHIP to v1 main.** Sha-preserved, marginal-but-clean speedup, zero risk. Just add `-flto` to the canonical gcc invocation.
 - **PGO (#47 partial): DEFER pending re-profiling investigation.** Don't ship the current profile-at-100M binary.
-- **AVX-512 (#46): STILL THE HIGH-VALUE PHASE 1 ITEM.** Plan expects 1.4-2.0× per the implementation doc. Implementation hasn't started; needs 3-5 days engineering. Recommended next concrete operator-authorized work session.
+- **AVX-512 (#46): STILL THE HIGH-VALUE PHASE 1 ITEM.** Plan expects 1.4-2.0× per the implementation doc. Implementation hasn't started; needs 3-5 days engineering. Recommended next concrete operator-authorized work session. ⚠ **[REFUTED 2026-05-16 — the 1.4-2.0× expectation this status row carries did not survive measurement: the definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected), and #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits. The measurement and its commits are narrated in the May 18, 2026 PDT entry, item 3. The row is preserved as the status recorded on 2026-05-15; it was superseded the next day. This callout added 2026-09-02 (prose batch P64); it was owed and had not been written.]**
 - **Huge pages + NUMA (#47 remainder): not yet measured.** Need to be benchmarked but not blocking.
 
 **Compute cost:** $0.50/hr × ~50 min D64 Spot uptime = ~$0.42. RG + VM + vnet + NIC + PIP all deleted post-benchmark.
@@ -2589,13 +2646,13 @@ All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modele
 
 **Next steps (as of 2026-04-22):**
 
-✅ **P1 COMPLETE** (commits `8a31025` + `201d706` + `cca1a40`) — parallel `--sub-branch` at depth-5 granularity with per-CCD counters + intra-sub-branch checkpointing. Validated end-to-end on Pass 1 real work (2 × 10T runs × 3 hrs each, ~6 VM-hours cumulative; zero correctness issues). Scaling data: [`roae-private/P1_SCALING_MEASUREMENTS.md`](../../../roae-private/P1_SCALING_MEASUREMENTS.md). Cost-optimum config: D64 K=8 N=8 packing at $0.008/branch at 50B budget.
+✅ **P1 COMPLETE** (commits `8a31025` + `201d706` + `cca1a40`) — parallel `--sub-branch` at depth-5 granularity with per-CCD counters + intra-sub-branch checkpointing. Validated end-to-end on Pass 1 real work (2 × 10T runs × 3 hrs each, ~6 VM-hours cumulative; zero correctness issues). Scaling data: `roae-private/P1_SCALING_MEASUREMENTS.md` (private staging repo). Cost-optimum config: D64 K=8 N=8 packing at $0.008/branch at 50B budget.
 
 ✅ **Campaign A Pass 1 CLOSED** (this dated section above) — yield-16 laggards at 10T both BUDGETED with 16.4M canonical solutions each. Super-linear growth (1,700× from 1T→10T) rules out exhaustion-via-budget for this class. **Not pursuing Pass 2/3/4 on A.**
 
-1. **Campaign C — cross-prefix-equivalence on 6 branches at yield 1,110,543 (free).** Analysis of existing 100T shards on `solver-data-westus3`, no new compute, ~15 min operator time. Potentially surfaces a pair-relabeling symmetry if the shards are byte-identical modulo canonical re-labeling. **Most interesting remaining single-branch scientific question; recommended next.**
-2. ~~**Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.**~~ **CLOSED 2026-04-23** — 4 variants at 1T all BUDGETED, yields 4.79M–4.89M (2.0% spread); consistent with orientation symmetry but not proof. One orientation per prefix triple now treated as sufficient for yield-lower-bound campaigns. See [`roae-private/PASSB_FINDINGS.md`](../../../roae-private/PASSB_FINDINGS.md).
-3. ~~**Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.**~~ **CLOSED 2026-04-23** — 10 branches at 1T span yields 7.0M–19.5M (2.8× spread), all BUDGETED, growth 6,319×–17,476× from 100T-aggregate-share. "Yield=1,116" was a budget artifact, not a structural class. α = 0.72–0.77 across these branches. See [`roae-private/PASSD_FINDINGS.md`](../../../roae-private/PASSD_FINDINGS.md).
+1. **Campaign C — cross-prefix-equivalence on 6 branches at yield 1,110,544 (free).** Analysis of existing 100T shards on `solver-data-westus3`, no new compute, ~15 min operator time. Potentially surfaces a pair-relabeling symmetry if the shards are byte-identical modulo canonical re-labeling. **Most interesting remaining single-branch scientific question; recommended next.**
+2. ~~**Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.**~~ **CLOSED 2026-04-23** — 4 variants at 1T all BUDGETED, yields 4.79M–4.89M (2.0% spread); consistent with orientation symmetry but not proof. One orientation per prefix triple now treated as sufficient for yield-lower-bound campaigns. See `roae-private/PASSB_FINDINGS.md` (private staging repo).
+3. ~~**Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.**~~ **CLOSED 2026-04-23** — 10 branches at 1T span yields 7.0M–19.5M (2.8× spread), all BUDGETED, growth 6,319×–17,476× from 100T-aggregate-share. "Yield=1,116" was a budget artifact, not a structural class. α = 0.72–0.77 across these branches. See `roae-private/PASSD_FINDINGS.md` (private staging repo).
 4. **P3 — SAT #counting weekend experiment** (ganak / d4 / sharpSAT-TD). Encode C1-C5 as CNF, hand to modern model-counter, see whether a closed-form exact count for the full C1-C5 ordering count is attainable. Low cost (~$5), high variance on outcome.
 5. **Distributional-analysis v2 follow-ups**: schema drops the two C5-invariant dimensions (mean/max transition hamming); denser KDE on 1M+ anchor points; stratified analysis conditional on `position_2_pair`; formal joint-hypothesis testing with Bonferroni / permutation.
 6. **Technical paper / preprint drafting** — `roae-private/PAPER_OUTLINE.md` is the skeleton; P2 completion satisfied the key data-dependency. Ready to draft sections 1–5 now.
@@ -3151,7 +3208,7 @@ inner `"` chars as quote terminators and the awk script came out as
 `print /dev/ $1` (unquoted), producing `DEV=0nvme0n2` instead of
 `/dev/nvme0n2`. Trap fired correctly — **and this time the trap
 preserved the enum VM** (the fix from earlier in the saga). The enum
-VM at 20.106.96.126 stayed alive with all 57,521 shards intact.
+VM at <vm-public-IP> stayed alive with all 57,521 shards intact.
 
 Per the runbook, this was the recovery path:
 1. SSH to alive enum VM, verify shards
@@ -3400,8 +3457,7 @@ on `v2-bundled`:
   + companion docs in SOLVE_C_CLI.md and LARGE_SCALE_CAMPAIGNS.md
 
 Both are diagnostic-only (no enumeration; sha-preserving), and
-both are companions to
-`scripts/d128_preflight_throttle_probe.sh` — required by the
+both support the `--cpu-freq` pre-flight probe — required by the
 "D128 paired-bench preflight throttle probe" operator-memory rule
 established 2026-05-16 after a D128als_v7 host handed back ~600 MHz
 cores instead of the expected 2596/3700 MHz. The
@@ -3810,13 +3866,13 @@ After the wrap-around parity theorem was derived earlier in the session (see The
 
 **McKenna's 1971 Monte Carlo.** Chapter 9 also reports an early-1970s Monte Carlo: "More than 1.2 million hexagram sequences were randomly generated by computer ... 805 were found to have the properties of a three to one ratio of even to odd transitions, no transitions of value five, and the type of closure described previously" — a hit rate of 0.07% (1 in 1,769). ROAE's `solve.c --null-pair-constrained` (10⁹ samples) measures 4.29% for C2|C1 alone; McKenna's stricter filter (adding 3:1 + closure) is correctly tighter. Both consistent.
 
-**Closure / position-summing claim.** McKenna describes a graphical symmetry of the difference wave under 180° rotation, plus a claim that "the hexagrams opposite each other are such that the numbers of their positions in the King Wen sequence when summed are always equal to sixty-four." The literal hexagram-complement pairing interpretation does NOT hold empirically (verified). The graphical-symmetry interpretation is partially captured by ROAE's `--palindromes` analysis; not promoted to a new constraint.
+**Closure / position-summing claim.** McKenna describes a graphical symmetry of the difference wave under 180° rotation, plus a claim that "the hexagrams opposite each other are such that the numbers of their positions in the King Wen sequence when summed are always equal to sixty-four." The literal hexagram-complement pairing interpretation does NOT hold empirically (verified). The graphical-symmetry interpretation is partially captured by ROAE's `--palindromes` analysis; not promoted to a new constraint. **[SUPERSEDED 2026-09-02** — the `--palindromes` mapping recorded here is wrong: `--palindromes` tests mirror symmetry within a window, while Figure 18B's congruence under 180° rotation is point symmetry. The predicate is formalised nowhere in this repository, so the closure property is an untested conjecture. This entry is left as the record of what was decided on 2026-05-19; see [MCKENNA.md](MCKENNA.md) and [CORRECTIONS.md](CORRECTIONS.md).**]
 
 **Action items going forward.**
 
 - McKenna's Rule 2 as a candidate constraint (potential "C8") — pending K-pilot to measure violation rate at canonical scale. Implementation sketch: add `solve --verify-rule2` subcommand iterating each between-pair boundary and checking that value-1 transitions occur only at C2-forced positions. Cost ~$0.05 to run on the v2 11.2T canonical.
 
-**Files updated** in this batch: `documentation/CITATIONS.md`, `documentation/SPECIFICATION.md`, `documentation/MCKENNA.md`, `documentation/SOLVE-SUMMARY.md`, this `documentation/HISTORY.md`.
+**Files updated** in this batch: `documentation/CITATIONS.md`, `documentation/SPECIFICATION.md`, `documentation/MCKENNA.md`, `documentation/SOLVE_SUMMARY.md`, this `documentation/HISTORY.md`.
 
 ## May 19, 2026 UTC — McKenna Rule 2 + 9th-six K-pilots run on v2 11.2T canonical
 
@@ -3836,7 +3892,7 @@ The two new subcommands documented in `documentation/SOLVE_C_CLI.md` under `--ve
 
 After the K-pilot data landed (`solve --verify-rule2` and `--verify-9th-six` on the v2 11.2T canonical, 796,357,285 records), an operator-review decision was made: **neither McKenna's Rule 2 nor the 9th-six positional regularity will be promoted to formal C-rules in SPECIFICATION.md.**
 
-**Rule 2 (value-1 positional)**: 83.77% of canonical records violate the strict form. The data confirms KW is in a specific minority (16.23%), but the rule itself is reverse-engineered from KW's specific value-1 placements. Adding it would join the C3/C6/C7 family of constraints derived from the answer rather than from first principles — worsening the methodological concern already flagged in CRITIQUE.md ("the 5 rules were extracted from KW and then verified against KW"). No independent corroboration in the published literature (Cook 2006 does not discuss it). The "minimize X except where forces Y" framing is a stylistic preference about which orderings are "elegant," not a hard combinatorial constraint.
+**Rule 2 (value-1 positional)**: 83.77% of canonical records violate the strict form. The data confirms KW is in a specific minority (16.23%), but the rule itself is reverse-engineered from KW's specific value-1 placements. Adding it would join the C3/C6/C7 family of constraints derived from the answer rather than from first principles — worsening the methodological concern already flagged in CRITIQUE.md ("the 5 rules were extracted from KW and then verified against KW"). We have located no independent corroboration (checked: Cook 2006, which does not discuss it). The "minimize X except where forces Y" framing is a stylistic preference about which orderings are "elegant," not a hard combinatorial constraint.
 
 **9th-six positional**: 100% of canonical records have exactly 1 between-pair value-6 transition (count structurally forced), but the boundary position varies — only 21.5% at KW's boundary 19, while 49.9% land at boundary 20 and 17.5% at boundary 21. Calling "boundary 19" a constraint would be choosing one of the most-common positions and labeling it as canonical — textbook post-hoc constraint extraction. The sub-observation that the position is NEVER at boundaries 0-18 may be derivable as a theorem from C1+C2+C5; that would be a legitimate addition to the Theorems section (not a new C-rule) if proven in future work. *(Annotation 2026-07-11: the "never at boundaries 0-18" conjecture is **refuted and retired**. The d3 560T canonical run of 2026-06-15 (`9a968fa2…`, 10,525,271,997 records) measures **boundary 4 = 11.4%** of records — squarely inside 0-18 — with the modal boundary 20 at 26.9% and boundary 19 at 21.5%. The 11.2T-era "never at 0-18" was an artifact of the shallower v2 slice, not a structural truth, so no theorem exists to prove; it is a dead conjecture, not an open one. The decline-for-promotion decision itself stands unchanged. Authoritative figures: [MCKENNA.md](MCKENNA.md) §"9th six".)*
 
@@ -3844,7 +3900,7 @@ After the K-pilot data landed (`solve --verify-rule2` and `--verify-9th-six` on 
 
 **What was retained as diagnostic tools**: `solve --verify-rule2` and `solve --verify-9th-six` remain in solve.c as post-enumeration analysis subcommands. They're useful for future research but do not enforce constraints in the enumeration code path. Sha-preserving.
 
-**Public-doc updates from this decision**: `documentation/MCKENNA.md` (Rule 2 framing changed from "NEW candidate" to "Declined for promotion" with full peer-review rationale), `documentation/CITATIONS.md` (Rule 2 attribution clarified as empirical observation, not promoted), `documentation/SOLVE-SUMMARY.md` (same), this HISTORY.md entry.
+**Public-doc updates from this decision**: `documentation/MCKENNA.md` (Rule 2 framing changed from "NEW candidate" to "Declined for promotion" with full peer-review rationale), `documentation/CITATIONS.md` (Rule 2 attribution clarified as empirical observation, not promoted), `documentation/SOLVE_SUMMARY.md` (same), this HISTORY.md entry.
 
 **Private-doc updates**: `roae-private/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md` decision sections updated to "NOT PROMOTED" with full reasoning.
 
@@ -3900,7 +3956,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 
 1. **G3 selftest on v2-bundled HEAD `25c7d4d`** PASS: expected/actual `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` byte-identical. (The selftest sha advanced from `56487ab5…` at 9d00c48 to `403f7202…` at HEAD because the post-9d00c48 McKenna diagnostic subcommands `--verify-rule2` and `--verify-9th-six` added new code paths the selftest exercises. The canonical-output sha `2cc966e4…` is unchanged — only the selftest-output sha moved.)
 
-2. **Merged `v2-bundled → main`** via merge commit (commit `3128942`). Fast-forward was not possible because main had 7 docs-only commits from 2026-05-15 (LTO recommendation + Phase 1c measurements) that landed after v2-bundled branched off; the `ort` strategy auto-resolved with no conflicts. 16 files changed, 3,238 insertions, 22 deletions. New on main: `documentation/PERFORMANCE_HISTORY.md`, `scripts/perf_bench.sh`. Updated: `solve.c` (+531 lines), `documentation/HISTORY.md` (+1262 lines), MCKENNA.md, CITATIONS.md, SPECIFICATION.md, CANONICAL_HASHES.md, SOLVE-SUMMARY.md, SOLVE_C_CLI.md, DEPLOYMENT.md, DEVELOPMENT.md, CLAUDE.md, LARGE_SCALE_CAMPAIGNS.md, roae.py, scripts/pre_push_compile_gate.sh.
+2. **Merged `v2-bundled → main`** via merge commit (commit `3128942`). Fast-forward was not possible because main had 7 docs-only commits from 2026-05-15 (LTO recommendation + Phase 1c measurements) that landed after v2-bundled branched off; the `ort` strategy auto-resolved with no conflicts. 16 files changed, 3,238 insertions, 22 deletions. New on main: `documentation/PERFORMANCE_HISTORY.md`, `scripts/perf_bench.sh`. Updated: `solve.c` (+531 lines), `documentation/HISTORY.md` (+1262 lines), MCKENNA.md, CITATIONS.md, SPECIFICATION.md, CANONICAL_HASHES.md, SOLVE_SUMMARY.md, SOLVE_C_CLI.md, DEPLOYMENT.md, DEVELOPMENT.md, CLAUDE.md, LARGE_SCALE_CAMPAIGNS.md, roae.py, scripts/pre_push_compile_gate.sh.
 
 3. **Tags placed** to preserve lineage:
    - `v2-pre-merge` -> `25c7d4d57c7dcb927ba5af713255394d89c01f76` (the v2-bundled tip immediately before merge)
@@ -3943,7 +3999,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 - Standard D32als_v7 (32 vCPU, 64 GB RAM — D32als_v7 is the AMD low-memory variant; 256 GB peak-RSS in-memory merge mode not viable at 100T scale on 64 GB).
 - 1.5 TB Premium SSD scratch (shards rsync'd HDD → SSD as a separate pre-step due to HDD's catastrophic seek penalty on the multi-way merge access pattern).
 - `solve --merge` autonomously chose external chunked-sort mode (chunk-sort 117 chunks × 128M records each, then multi-way merge of those chunks).
-- Output: `15,035,483,184` raw records → `3,663,580,914` unique canonical orderings.
+- Output: `15,035,483,184` raw records → `3,663,580,914` unique canonical orderings. ⚠ **[LABEL CORRECTED 2026-09-02 (prose lane; sibling of the 2026-08-28 correction to the 560T figure 43,876,464,466) — "raw records" is the same mislabel, and the producer is now identified: this is `solve --merge`'s input total over the 61,550 shards (481 GB ÷ 32 B per record = 15.03 B, matching the figure to three digits), and a shard record is a per-sub-branch **canonical** key, not a raw oriented leaf — each thread's table masks the orient bits and is flushed after every sub-branch (`solve.c`'s header comment, present since commits `9569c4cf`/`9fb3cad2` of 2026-04-11/12, i.e. before this campaign's `6fdb10da…` build; the 2026-05-10 entry above records the lex-smallest-representative rule). So 15,035,483,184 counts cross-sub-branch rediscovery of canonical keys — 15,035,483,184 ÷ 3,663,580,914 = 4.10×, the rediscovery factor, not an orientation-dedup ratio — and as a count of raw oriented leaves it is a lower bound, never the quantity itself. The merge log is in neither repository; the identification rests on the two measurements just stated. No count, sha or verdict moves. See CORRECTIONS.md 2026-08-28.]**
 - **Mid-run lesson** (`roae-private/MERGE_OPTIMIZATION_LESSON_2026_05_23.md`): for v3 100T (Phase 12) and 560T, use E48s_v5 (48 vCPU, 384 GB RAM) + `SOLVE_MERGE_MODE=memory` direct from HDD source. Expected ~5-6× speedup + ~$5 cheaper vs SSD-scratch + external chunked-sort.
 
 **Result:**
@@ -3955,8 +4011,8 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 
 **Phase 4 archive** (2026-05-23 20:33 → ~23:45 UTC):
 - Managed-disk copy verified byte-identical (sha256 recompute on `solver-data-westus3:/20260521_v2_100T_buildA/final/solutions.bin` matched `cc4a5377…`).
-- gzip -9 of solutions.bin: 117 GB → 12.54 GB (`f6b554ea…`, 9.35× compression — slightly better than the 8× v2 11.2T precedent; ~1.5h wall single-threaded gzip on the D32 merge VM).
-- Cold-archive upload to `roaecanonical2026/canonical-archive/20260521_v2_100T_buildA/`: solutions.bin.gz + solutions.sha256 + solutions.bin.gz.sha256 + RUN_METADATA.txt + SHARDS_MANIFEST.txt + merge.log + solve binary + CAMPAIGN_SUMMARY.md.
+- gzip -9 of solutions.bin: 117,234,589,280 B → 13,462,264,289 B (`f6b554ea…`, **8.708× compression** — marginally better than the ~8× v2 11.2T precedent; ~1.5h wall single-threaded gzip on the D32 merge VM). ⚠ **[CORRECTED 2026-09-02, prose batch P47 sibling sweep — this line published a compression ratio ~7% too high and was the SECOND live site of it; the charge (Codex V2-F25 #11) named only the registry. The retired form is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-9788f906`. The two sizes were written as "117 GB" and "12.54 GB", mixing a decimal-GB numerator with a binary-GiB denominator — 13,462,264,289 B is 12.54 GiB, not 12.54 GB — and that quotient is where the retired figure came from. Both are restated in bytes above so the ratio is checkable as written: `(3,663,580,914 × 32 + 32) / 13,462,264,289 = 8.708`. No sha, record count or archive location changes. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Historical (frozen lineages)" for the registry-side correction and its reproduction command.]**
+- Cold-archive upload to `canonical-archive/20260521_v2_100T_buildA/`: solutions.bin.gz + solutions.sha256 + solutions.bin.gz.sha256 + RUN_METADATA.txt + SHARDS_MANIFEST.txt + merge.log + solve binary + CAMPAIGN_SUMMARY.md.
 - **No Build B cross-build** — v2 100T is a comparison baseline against v1 (and a reference point for the v3 100T Phase 12 bench), not a load-bearing canonical for 560T extension.
 - **v2 shards deleted from managed disk** per operator directive 2026-05-23 (~481 GB freed). The v3 100T campaign (Phase 12) WILL preserve shards.
 - Merge VM (`v2-100t-merge`) + 1.5 TB Premium SSD scratch deleted post-archive. Solver-data managed disk preserved (NEVER deleted).
@@ -4016,7 +4072,7 @@ actual (v3+v3.1 Build A):    0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8
 
 **Merge ran in 200 GB tmpfs** as a workaround for `solve.c:10709`'s disk-check heuristic, which demanded 178 GB of free disk for the 11.2T merge but couldn't be satisfied on the 30 GB OS disk of the enum VM. Pattern: mount 200 GB tmpfs, symlink all 56,874 sub-shards into it via `find ... -print0 | xargs -0 ln -st`, copy the solve binary in, run `--merge` from the tmpfs cwd. Single-threaded sort/dedup of 2.99 B pre-dedup records (→ 759.6 M unique) finished in ~50 min using 89 GB heap.
 
-**Witness-only archive** (no solutions.bin re-upload per operator directive — same sha as v1 11.2T means the bytes are already in the cold archive): `roaecanonical2026/canonical-archive/20260524_v3_buildA_11.2T_8b1658b/` contains solve binary, sha sidecar, merge.log, enum.log.gz (full + tail), metadata.json, campaign_scripts.tar.gz, and WITNESS.md cross-referencing the v1 11.2T archive. ~485 KB total. Local mirror in `/home/claude/staging/`.
+**Witness-only archive** (no solutions.bin re-upload per operator directive — same sha as v1 11.2T means the bytes are already in the cold archive): `canonical-archive/20260524_v3_buildA_11.2T_8b1658b/` contains solve binary, sha sidecar, merge.log, enum.log.gz (full + tail), metadata.json, campaign_scripts.tar.gz, and WITNESS.md cross-referencing the v1 11.2T archive. ~485 KB total. Local mirror in `/home/claude/staging/`.
 
 **Build B (same-SKU x86 cross-build) SKIPPED** per operator directive 2026-05-24: two D128als_v7 westus3 Spot instances differ only in physical-host selection — that witness isn't strong enough to justify ~$5-10 + ~5h wall.
 
@@ -4050,7 +4106,7 @@ Under `-flto`, GCC keys the `.gcda` profile data lookup on the **output binary's
 Before this bench, the cold archive's smallest scale was 100B; it jumped to 5.6T+ for the d3 lineage. The bench's rep-1 merge (on the v1 side) and the post-bench tmpfs re-merge (on the v3 side) both produced the same 4,289,250,624-byte solutions.bin with sha `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`. 134,039,081 unique canonical orderings.
 
 Archived to:
-- Cold: `roaecanonical2026/canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9, 475 MB, 8.62× compression)
+- Cold: `canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9, 475 MB, 8.62× compression)
 - Managed disk: `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`
 - Local mirror: `/home/claude/staging/`
 
@@ -4099,7 +4155,7 @@ The load-bearing safety is `-Werror=missing-profile`: any future change that bre
 
 ### Other observations / housekeeping
 
-- **`solver-data-westus3` UUID has changed** since the 2026-05-06 wipe + recovery. The original UUID `3620ba16-…` (referenced in `roae-private/safe_disk_setup.sh`'s example comment) is stale; current is `c9a9eba9-45eb-4600-b582-2344583f79cc`. Verified by UUID + label "solverdata" cross-check + marker-directory presence before any write to the disk during the 1T archive copy.
+- **`solver-data-westus3` UUID has changed** since the 2026-05-06 wipe + recovery. The original UUID `3620ba16-…` (referenced in `roae-private/safe_disk_setup.sh`'s example comment) is stale; current is `<disk-UUID-redacted>`. Verified by UUID + label "solverdata" cross-check + marker-directory presence before any write to the disk during the 1T archive copy.
 - **Two VMs deallocated** at end of session: `v1-v3-bench` (Standard, bench done) and `fast-skip-95` (Spot, task #95 done). OS disks preserved per operator's "deallocate not delete" directive; managed disks untouched.
 - **No Phase 12 yet** — v3 100T full bench against `915abf30…` is queued but not pre-authorized for autonomous launch.
 
@@ -4265,7 +4321,7 @@ D32als_v7 Spot in westus3 (`bisect-100b` VM). Six builds tested at `SOLVE_NODE_L
 
 Three findings, in order of impact:
 
-**1. `f1709ab09486ba…` is an imperfect-resume artifact.** Re-running its own baseline commit `3258f4c` today on a fresh enum produced `30b52336…`, not `f1709ab0…`. Same pattern as deprecated `c34390c0` (5.6T) and `f7b8c4fb` (10T): the canonical was bound to a specific interrupted wall-clock state, not to the source-commit alone. Deprecated in this doc.
+**1. `f1709ab09486ba…` does not reproduce at this bisect's configuration.** *(Heading corrected 2026-08-08 — it read "is an imperfect-resume" + "artifact"; that reading is RETRACTED, see [CORRECTIONS.md](CORRECTIONS.md) CX-34.)* Re-running its own baseline commit `3258f4c` today on a fresh enum produced `30b52336…`, not `f1709ab0…`. Same pattern as deprecated `c34390c0` (5.6T) and `f7b8c4fb` (10T): the canonical was bound to a specific interrupted wall-clock state, not to the source-commit alone. Deprecated in this doc. **[SUPERSEDED 2026-08-08: the deprecation is retracted. `f1709ab0…` reproduces exactly from four code states across two lineages, all at 12,386,121 records. This bisect ran `SOLVE_DEPTH=3` with a hand-set `SOLVE_PER_SUB_BRANCH_LIMIT=631545` (~158K shallow sub-branches, 27,664,734 records) rather than the engine auto-divide (3,030 sub-branches × 33,003,300, 12,386,121 records) — a configuration difference, not corruption. See [CORRECTIONS.md](CORRECTIONS.md) CX-34.]**
 
 **2. The 100B sha flips at one commit: `d683794` (Phase E.2 + defense-in-depth).** This was unexpected and important. d683794's full diff is 100% resume-gated assertions plus new subcommand handlers (`--selftest-resume`, `--emit-shard-manifest`, `--verify-shard-manifest`) — no DFS code change. Yet 100B sha empirically flips. The most likely mechanism is LTO compiler-layout effects: added (unreachable-at-runtime) code subtly changes binary layout, which propagates to OpenMP thread scheduling or branch-prediction timing inside the parallel DFS. **The takeaway: at sub-canonical scale, source-reading is insufficient to predict whether a commit will flip the sha — only empirical testing settles it.** See CANONICAL_HASHES.md "100B and sub-canonical reference shas" section for the operational consequence (don't use sub-1T as cross-build gates).
 
@@ -4614,7 +4670,7 @@ now recorded in `canonical-host-fingerprint.json` under `disk_iops`, so
 every canonical run carries its own measured IOPS as provenance.
 
 **At-rest compression (task #48).** Canonical artifacts are now compressed
-at rest via `scripts/gzip_canonical_artifacts.sh`: per-file, parallelized
+at rest via `roae-private/scripts/gzip_canonical_artifacts.sh`: per-file, parallelized
 with `xargs -P`, using stock `gzip` (never `pigz` or other variants), at
 level 9 by default but overridable. Medium/large artifacts (binaries) are
 always compressed; small text files are left readable for `less`
@@ -4720,7 +4776,7 @@ A two-pass dress rehearsal of the full 560T canonical pipeline (enum → merge �
 1. `dress_rehearsal_full.sh` had a literal `$2.40` parsed by bash as `$2`+`.40` under `set -u`, fatal at line 38 (commit `b8d1f05`, escaped).
 2. The D128als_v7 Spot quota in westus3 is **128 cores, not 1 VM** — a parallel D32 Spot side-experiment plus the dress D128 would exceed the 128-core LowPriority cap. Pre-check baked into both the public `LAUNCH_560T_CAMPAIGN.sh` and the dress enum supervisor (commit `b8d1f05`).
 3. The #107/#115 IOPS gate fires on every relaunch because the post-restart probe runs cold-cache. For a 5-day 560T campaign with ~5–10 expected evictions, this would deadlock at the *first* eviction. Mitigation: `SOLVE_SKIP_IOPS_CHECK=1` in `launch_enum`'s env, since the first-launch gate already validated the disk and the disk doesn't change between resumes. **This is a bypass, not a fix** — the underlying probe-design issue (cold-cache noise on first I/O after `az vm start`) remains for post-560T work. (Commits `86276eb` and `6d6539f`.)
-4. `phase_b_merge_supervise.sh` and `phase_b_recover_and_archive_supervise.sh` were `(TEMPLATE)` skeletons, not implementations. Both contained a `log "(TEMPLATE) az vm create ..."` placeholder where the actual VM provisioning + disk attach should have been; both expected the VM and disks to already exist when the supervisor ran. The 100T re-validation had used a separate, fully-implemented `scripts/campaign_100T_reval/phase_b_merge_supervise.sh`; the 560T versions were partial copies that had never been end-to-end exercised. Had the 560T main run reached the merge stage after ~5 days of enum, both stages would have failed in <1 second. Ported the working VM-creation + disk-attach pattern from the 100T supervisor; switched to directory-scratch on the Premium (sufficient at both 11.2T and 560T scales, no separate scratch disk needed); added an `EXPECTED_SHA` env-var-gated mode so the same script can either record-the-new-sha (560T main, no prior anchor) or sha-equality-gate (dress rehearsal, against the canonical anchor). (Commit `62dc54d`.)
+4. `phase_b_merge_supervise.sh` and `phase_b_recover_and_archive_supervise.sh` were `(TEMPLATE)` skeletons, not implementations. Both contained a `log "(TEMPLATE) az vm create ..."` placeholder where the actual VM provisioning + disk attach should have been; both expected the VM and disks to already exist when the supervisor ran. The 100T re-validation had used a separate, fully-implemented `roae-private/scripts/campaign_100T_reval/phase_b_merge_supervise.sh`; the 560T versions were partial copies that had never been end-to-end exercised. Had the 560T main run reached the merge stage after ~5 days of enum, both stages would have failed in <1 second. Ported the working VM-creation + disk-attach pattern from the 100T supervisor; switched to directory-scratch on the Premium (sufficient at both 11.2T and 560T scales, no separate scratch disk needed); added an `EXPECTED_SHA` env-var-gated mode so the same script can either record-the-new-sha (560T main, no prior anchor) or sha-equality-gate (dress rehearsal, against the canonical anchor). (Commit `62dc54d`.)
 5. `phase_b_merge_supervise.sh` had a duplicate hardcoded `VM=c560-merge` line *before* the env-var-overridable `VM=${VM:-c560-merge}` line. First assignment wins, so callers' `VM=dress-merge-11-2T` env overrides were silently ignored. On the first dress-resume attempt this briefly provisioned a real `c560-merge` VM with the 560T main run's reserved name; torn down within ~1 minute, cost ~$0.01. (Commit `76f428e`.)
 
 **Dress rehearsal v2 stages 2 + 3 (2026-05-31 07:24 → 11:00 UTC, ≈$5).** With the supervisors fixed, merge ran on a D16als_v7 Standard (merge is uncheckpointable; Spot eviction would lose work mid external-sort) with directory-scratch on the dress-premium (96 min wall). The merged `solutions.bin` was 24,307,474,368 bytes (= 759,608,574 records by `bytes / 32`) and sha256-hashed to **`0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7`** — byte-identical to the 11.2T canonical anchor. `solve --verify` PASS on all 759,608,573 records (the off-by-one between `bytes / 32` and the verify report is the same documentation-derived bookkeeping artifact as the 2026-05-30 100T off-by-one). `verify.py --jobs 16` independent two-language verify also PASS. Stage 3 archived to `solver-data:/canonical-archive/20260531_dress_rehearsal_11_2T_7ca55e8/` on a D4als_v7 Spot (73 min, $0.06), including `shards.tar.gz` + `dfs_state.tar.gz` + `budget.tar.gz` per the firm 11.2T+ archive directive. **This is the first empirical confirmation that Tier 1 hardening (shipped 2026-05-28) is sha-neutral at canonical scale on the current main lineage** — the 2026-05-28 entry's "11.2T anchor remains drift-robust" claim was, at the time of writing, a transitive inference from the 2026-05-27 c72eada+#108 witness; it is now empirically verified at the head of the current main, `7ca55e8`.
@@ -4737,13 +4793,13 @@ Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` 
 
 The 560 T canonical campaign launched 2026-06-01 00:03 UTC on a D128als_v7 Spot in westus3 with a 4 TB Premium SSD attached for shards (`SOLVE_PER_SUB_BRANCH_LIMIT=3,536,157,207` per cell × 158,364 cells = 560 T total node budget). Enumeration reached natural completion at 2026-06-08 03:34 UTC after 171.5 h of wall time, having scanned 100 % of cells (every `sub_<cell>.dfs_state` file present) and recorded solutions for 65,281 cells (41.2 % yield; ~58.8 % of cells produced zero solutions within budget). The supervisor handed off to the merge stage automatically — torn down the enum VM (Premium + solver-data detached and preserved), spun up a D16als_v7 Standard merge VM, re-attached both disks, ran selftest + throttle probe, launched `solve --merge`. Merge ran 18 h 42 m and produced **`solutions.bin`** with sha256 `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`, **10,525,271,997 unique canonical solutions** (336,808,703,936 bytes on disk = 32-byte header + records × 32; the merge log's 336,808,703,904 is record-bytes only — the same header fence-post the 100T 2026-07-04 correction warns about), with a 4.17× dedup ratio against the 43.88 B pre-dedup raw records. `solve --verify` PASSED clean — all records satisfy C1-C5, sorted, no duplicates, **King Wen found: YES**. (Tier 1c `verify.py` two-language re-verify still in flight at time of writing.)
 
-**Spot eviction pattern, 5-for-5 weekday with 0 weekend evictions.** The 560 T enum ran across five weekdays Mon-Fri 2026-06-01 → 06-05 and the full weekend 06-06 / 06-07. Spot reclamation occurred once per weekday, all five times in a 37-minute morning window 07:12-07:49 PT (Mon 07:12, Tue 07:28, Wed 07:25, Thu 07:42, Fri 07:49 PT). The weekend ran 0/2 evictions — strong empirical evidence that the eviction-generating mechanism in westus3's D128als_v7 Spot pool is **M-F scheduled reclamation**, not stochastic. This launch-window heuristic is now documented in [CAMPAIGN_METHODOLOGY.md §7](CAMPAIGN_METHODOLOGY.md). Per-eviction recovery used the PT-aware deferral policy (M-F 06:00-18:00 PT evictions defer to 18:01 PT same day; off-hours / weekend use 75-minute flat wait) which kept the campaign's eviction-recovery flow out of the M-F-daytime risk window in every case.
+**Spot eviction pattern, 5-for-5 weekday with 0 weekend evictions.** The 560 T enum ran across five weekdays Mon-Fri 2026-06-01 → 06-05 and the full weekend 06-06 / 06-07. Spot reclamation occurred once per weekday, all five times in a 37-minute morning window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:33, Thu 07:42, Fri 07:49 PT; Tue/Wed corrected 2026-08-01 from 07:28/07:25 to match the per-eviction table in CAMPAIGN_METHODOLOGY §7, TR-3's timeline figure, and viz/report_figures.py — 14:39:00Z/14:33:42Z). The weekend ran 0/2 evictions — strong empirical evidence that the eviction-generating mechanism in westus3's D128als_v7 Spot pool is **M-F scheduled reclamation**, not stochastic. This launch-window heuristic is now documented in [CAMPAIGN_METHODOLOGY.md §7](CAMPAIGN_METHODOLOGY.md). Per-eviction recovery used the PT-aware deferral policy (M-F 06:00-18:00 PT evictions defer to 18:01 PT same day; off-hours / weekend use 75-minute flat wait) which kept the campaign's eviction-recovery flow out of the M-F-daytime risk window in every case.
 
 **Post-merge SPOF discovery and remediation.** During the post-verify phase 2026-06-08, while `verify.py` was still running, the operator flagged that no plan existed for copying `solutions.bin` to solver-data before the supervisor's `teardown_vm` fired. A reading of `phase_b_merge_supervise.sh` confirmed: the supervisor copies only LOGS, sidecars (sha256, provenance.json), and the gzipped merge log; **it does NOT copy `solutions.bin`, shards, or `.dfs_state` checkpoints from Premium SSD to solver-data**. After teardown, the canonical exists only on the detached Premium SSD — a single point of failure, especially because Premium is by standing pattern the project's "transient external-merge scratch" (i.e., the kind of disk a future operator on muscle memory might delete). Remediation in flight:
 
 1. Explicit data copy from Premium → solver-data launched while verify.py was still running (read-only on source, no interference).
 2. solver-data disk resized 2 TB → 4 TB online (the uncompressed 560 T artifacts at ~1.6 TB plus a gzipped warm-tier mirror at ~800 GB don't fit in the prior 2 TB envelope). Per the standing rule, resize is allowed; delete is not.
-3. Cold-blob upload to roaecanonical2026 (the durable offsite tier) + warm canonical-archive mirror at `/mnt/solver-data/canonical-archive/20260608_560T_9a968fa2/` follow the established 100T pattern.
+3. Cold-blob upload to the cold-archive storage account (the durable offsite tier) + warm canonical-archive mirror at `/mnt/solver-data/canonical-archive/20260608_560T_9a968fa2/` follow the established 100T pattern.
 
 The structural fix for future campaigns is to bake the explicit copy step into `phase_b_merge_supervise.sh` so it runs before `teardown_vm` unconditionally — see [CAMPAIGN_METHODOLOGY.md §4.1](CAMPAIGN_METHODOLOGY.md) for the post-merge artifact-preservation rule. This is the third canonical campaign (11.2 T, 100 T, 560 T) where the gap existed but was caught manually each time; the supervisor-level fix is the durable answer.
 
@@ -4765,7 +4821,9 @@ All three were validated via a paired test on the 11.2T canonical (796 M records
 
 **Universal --analyze observability**: stderr progress markers were added to every n_sols-iterating loop in --analyze (#144 + #146, commits `b1a51ed` and `c0ec4c3`), plus `[N] START` / `[N] DONE` markers on every section header (#145, commit `a330548`). Macros `ANALYZE_EMIT_PROGRESS` and `ANALYZE_PROGRESS_STEP` at the top of `solve.c` provide a single point-of-control: stderr-only (stdout untouched, sha-neutral), master-thread-only inside OpenMP regions, throttled per-1% of `n_sols`. `omp_in_parallel()` × `omp_get_num_threads()` correction was needed for sections inside `#pragma omp for` (master's local `i` covers only 1/T of the work under static scheduling); without that, §[10] displayed "1% ETA=5h" when actual progress was ~32%. Combined with the algorithmic rewrites, an operator watching the analyze log via `tail -f` now sees: section transitions in real time (`[N] START` / `[N] DONE`), within-section progress every 1 % (`[label] record I/T (P%) elapsed=Es ETA=Es`), and the entire run completes in a sane wall time at canonical scale.
 
-**Empirical analyze VM sizing at 560T**: D32 Standard with 64 GB RAM holds only 19 % of the 336 GB `solutions.bin` in page cache — every sub-section reading the records hits disk at ~450 MB/s Premium SSD bandwidth, costing ~22 min per pass. Projected total wall on D32: ~3 h. D128 Standard with 256 GB RAM holds 76 % of the file in cache; only the first [stream] pass is fully disk-bound, subsequent sections are mostly cache-resident. Projected total wall on D128: **~1.5 h** with the same code. **For 560T+ analyze the right floor is D128 (or D96 if quota constrains)**, not D32 as the methodology had earlier recommended based on incomplete data; the bottleneck for canonical-scale analyze is **page-cache fraction of the file**, not core count (analyze saturates at ~5-10 cores regardless of VM size). Cost calculation: D128 Standard $5/h × 1.5h = $7.50 vs D32 Standard $1.30/h × 3h = $3.90 — D128 costs marginally more but finishes ~1.5 h sooner and avoids the "1120T won't fit" regime that an undersized box would hit.
+**Empirical analyze VM sizing at 560T**: D32 Standard with 64 GB RAM holds only 19 % of the 336 GB `solutions.bin` in page cache — every sub-section reading the records hits disk at ~450 MB/s Premium SSD bandwidth, which over a 336,808,703,936-byte file is **≈ 12.5 min per pass** (336,808,703,936 ÷ 450 × 10⁶ = 748 s). Projected total wall on D32: ~3 h. D128 Standard with 256 GB RAM holds 76 % of the file in cache; only the first [stream] pass is fully disk-bound, subsequent sections are mostly cache-resident. Projected total wall on D128: **~1.5 h** with the same code. **For 560T+ analyze the right floor is D128 (or D96 if quota constrains)**, not D32 as the methodology had earlier recommended based on incomplete data; the bottleneck for canonical-scale analyze is **page-cache fraction of the file**, not core count (analyze saturates at ~5-10 cores regardless of VM size). SKU cost comparison: **withdrawn — see the correction immediately below.**
+
+⚠ **[CORRECTED 2026-09-02 (prose batch P70; Codex V2-F22 #7) — two numbers in this entry are corrected, and the two wall *projections* are deliberately left standing.** (1) **The per-pass disk time did not follow from the bandwidth stated beside it.** The entry gave both factors — a 336 GB file and ~450 MB/s — and then printed a per-pass figure ~76 % larger than their quotient; 336,808,703,936 ÷ 450 × 10⁶ is 748 s, i.e. ≈ 12.5 min, and the published figure instead implied ~255 MB/s. Corrected in place above. The dependent "~3 h on D32" is **not** re-derived, because it was built on the erroneous per-pass figure and no D32 analyze run at 560 T was ever executed to check it against. (2) **The SKU cost comparison is withdrawn, not rescaled.** It multiplied an hourly rate by the D128 *projection* and concluded D128 "finishes sooner" than D32 for marginally more money — a conclusion the measurement refutes at the numerator: the post-rewrite D128 run took **13,631 s (3 h 47 m)**, recorded eight lines below in this same entry, so the true D128 figure at the stated $5/h rate is **~$18.93**, ~2.5× what was published, and the D32 side of the comparison has no measured wall at all. **What is preserved and why:** "Projected total wall on D128: ~1.5 h" stays exactly as written. It is a correctly-labelled projection of that date, and it is the primary evidence [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) rule 8 cites when showing that the same figure was later restated there as an accomplished fact; deleting it would break that citation. **Provenance of this fix:** the 2026-09-01 pass that corrected rule 8 in `CAMPAIGN_METHODOLOGY.md` found this site, said so in its own marker, and explicitly left it — "reported, not edited". This closes that handoff. Both retired forms are registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-a8eb3931` and `RP-dd27f0bf`. No sha, record count, or scientific finding in this entry is affected — the §[6]–§[8] results below came from the real 3 h 47 m run.]**
 
 The §[10]/§[11]/§[20] rewrites collapse to a single architectural pattern: **at canonical scale, the only sustainable per-section design is one pass over `n_sols` records doing all per-record work inline**. Any anti-pattern (outer iteration over pairs/subsets/positions with inner full `n_sols` scan; allocate-then-sort a `n_sols`-sized buffer) becomes infeasible at 560T+ either by wall-time or by RAM. Documented as CAMPAIGN_METHODOLOGY §7 rule 14 (added in same session) so the next operator extending --analyze functionality starts with the right pattern. The §[10]+§[11]+§[20] rewrites + sizing fix together unblock the 1120T extension's analyze step from "infeasible" to **~3-5 h on D128**.
 
@@ -4773,13 +4831,13 @@ Six solve.c commits, all selftest-sha-preserving: `8ac5e8f` (§[10] + progress m
 
 ### 560T `--analyze` scientific findings (D128 run, 2026-06-11)
 
-The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + `roaecanonical2026/canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`):
+The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaigns/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + `canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`):
 
 - **§[1] file metadata**: 10,525,271,997 records, 336.81 GB
 - **§[2] per-position Shannon entropy**: pos 1 H = 0.000 (1 distinct pair — forced); pos 2 H = 4.272 (28 distinct pairs)
 - **§[6] greedy minimum-boundary search for KW**: **5 boundaries, set {4, 27, 25, 21, 1} applied in order** — identical to 100T. Step 1: boundary 4 alone reduces 10.5 B non-KW down to 51,404 (99.999% elimination). Step 2: → 481. Step 3: → 14. Step 4: → 1 (a non-KW impostor, rec#330177707 — KW with the position-2/3 pair blocks swapped). Step 5: boundary 1 → 0. *(Corrected 2026-07-04: this entry originally read "4 boundaries, set {4, 27, 25, 21} … Step 4: → 1 (KW)" — the step-4 survivor was mislabeled as KW; it is a non-KW record, and the log's step 5 eliminates it. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
 - **§[7] exhaustive 3-subset disproof**: tested all C(31,3)=4,495 triples. Best 3-set {4, 25, 27} leaves 15 survivors. Triples reaching ≤1: **0**. No 3-subset isolates KW at 560T (minimum ≥ 4)
-- **§[8] all 4-subsets reducing survivors to ≤1: 0** — significant scale-dependent shift from 742M (4 sets), 11.2T (8 sets); at 560T no 4-tuple of boundaries reduces survivors to ≤1, consistent with the §[6] greedy minimum of 5. **Methodological consequence: "4-set uniquely identifies KW" was a scale-bounded empirical observation; at canonical depth the minimum is 5** *(corrected 2026-07-04)*
+- **§[8] all 4-subsets reducing survivors to ≤1: 0** — significant scale-dependent shift from 742M (4 sets — under the pre-format-v1 "survivors ≤ 4" convention, not the canonical-era "≤ 1"; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) §Result table), 11.2T (8 sets); at 560T no 4-tuple of boundaries reduces survivors to ≤1, consistent with the §[6] greedy minimum of 5. **Methodological consequence: "4-set uniquely identifies KW" was a scale-bounded empirical observation; at canonical depth the minimum is 5** *(corrected 2026-07-04)*
 - **§[9] boundary redundancy**: top-INDEPENDENT pairs include `{6,26}` (ratio 0.007), `{12,26}`, `{25,27}` (ratio 0.007) — quantifying why 25 + 27 appear in every minimum set across all canonicals
 - **§[10] pairwise mutual information** (~365 s on D128 with new tile-by-records algorithm; OLD code 24h+ infeasible): top pair **pos 12 ↔ pos 13 = 1.3417 bits**, followed by 19↔20 = 1.2977, 17↔18 = 1.2422, 13↔14 = 1.2360. Cascade-region positions 11–20 own the entire top-10. Mandatory boundaries 25, 27 do NOT appear in the top-20 MI pairs — confirming structural independence from the cascade-region MI cluster
 - **§[18] per-boundary conditional entropy**: baseline H = **77.81 bits** (sum_p H(pair at p)). Boundary 4 has the highest info gain at **45.14 bits** (over half the total entropy). Boundaries 25, 27 info gain: 10.73, 10.63 bits — mid-pack. The high-information boundaries are *not* the mandatory ones; mandatoriness is structural (specific to which non-KW orderings each boundary eliminates), not information-theoretic
@@ -4798,7 +4856,7 @@ The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560
 
 *(Table caveats, added 2026-07-04 primary-evidence sweep: no 11.2T analyze log is locally available, so the 11.2T column is pending archive confirmation. Its "1.40 (pos 20↔21)" MI entry exactly matches the **d3 10T** log's top pair (1.3948, 20↔21) — possibly a dataset mislabel. "Records 800 M" is ambiguous between v1 11.2T (759,608,573) and v2 11.2T (796,357,285). The 742M §[8] figure of 4 was computed under the pre-format-v1 "survivors ≤ 4" convention (that format stored 4 orientation variants per ordering), whereas canonical-era §[8] uses "≤ 1" — the cross-era series is directionally sound but not convention-identical. The §[8] = 8 value is log-verified at **d3 10T**; whether 11.2T is also 8 awaits the archived 11.2T analyze output.)*
 
-The **§[8] collapse from 4 → 8 → 0** is the headline structural change at 560T. The "{2,21,25,27}-style 4-set uniquely identifies KW" claim was scale-bounded: it held when the canonical solution set was small enough that those 4 boundaries' eliminations covered every non-KW record. At 560T (as at 100T) no 4-tuple of boundaries reduces survivors to ≤ 1; the minimum identifying set has 5 boundaries. The downstream cascade — SOLVE-SUMMARY.md, CRITIQUE.md, LEADERBOARD.md — was updated 2026-06-11. *(Corrected 2026-07-04: this paragraph originally claimed the "ordered greedy application still works" at 4 boundaries — a survivor-counting artifact; boundary intersection is commutative, so no ordering of a failing 4-set can succeed. The 560T greedy minimum is 5, identical set to 100T. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
+The **§[8] collapse from 4 → 8 → 0** is the headline structural change at 560T. The "{2,21,25,27}-style 4-set uniquely identifies KW" claim was scale-bounded: it held when the canonical solution set was small enough that those 4 boundaries' eliminations covered every non-KW record. At 560T (as at 100T) no 4-tuple of boundaries reduces survivors to ≤ 1; the minimum identifying set has 5 boundaries. The downstream cascade — SOLVE_SUMMARY.md, CRITIQUE.md, LEADERBOARD.md — was updated 2026-06-11. *(Corrected 2026-07-04: this paragraph originally claimed the "ordered greedy application still works" at 4 boundaries — a survivor-counting artifact; boundary intersection is commutative, so no ordering of a failing 4-set can succeed. The 560T greedy minimum is 5, identical set to 100T. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*
 
 ## June 11-12, 2026 — 560T closeout completion + per-cell scaling insight + 100T v3 re-derive
 
@@ -4836,7 +4894,7 @@ Two doc-shape changes landed today:
 
 1. **`findings/` → `documentation/` consolidation.** The three previously-staging findings docs (PARTITION_STABILITY_BOUNDARIES, SYMMETRY_SEARCH, PASS1_TRAJECTORY_DETERMINISM) were moved to `documentation/`, alongside a fourth new finding (`BOUNDARY_MINIMUM_NON_MONOTONE.md`; renamed `BOUNDARY_MINIMUM.md` on 2026-07-04 when the "4 → 5 → 4 non-monotone" headline was found to be a survivor-counting error — the corrected trajectory is monotone 4 → 5 → 5) documenting the greedy-ordered minimum trajectory across d3 10T → 100T → 560T. The motivation: a pre-Fable-review repo-wide MD sweep caught that the original `findings/` directory was being skipped by the partial `documentation/`-only review pass (#147). Consolidating into one tree eliminates the second-tier hierarchy that was easy to miss. A redirect stub remains at `findings/README.md` for incoming external links (then physically deleted 2026-06-11 PT evening after the redirect transition was confirmed). Commit: `bbf5348` consolidation; later commit deleting the stub.
 
-2. **CANONICAL_HASHES.md 100T disposition correction.** The doc's `d3 100T` row claimed the #114 re-validation bytes were archived at `canonical-archive/20260530_100T_revalidation_4e15885/`. Verification via blob list against `roaecanonical2026/canonical-archive/` returned 0 entries for that prefix. The text was corrected to "sha-PASS verdict stands as the authoritative record; the bytes themselves are not currently available." Commit: `7a3c0d5`.
+2. **CANONICAL_HASHES.md 100T disposition correction.** The doc's `d3 100T` row claimed the #114 re-validation bytes were archived at `canonical-archive/20260530_100T_revalidation_4e15885/`. Verification via blob list against `canonical-archive/` returned 0 entries for that prefix. The text was corrected to "sha-PASS verdict stands as the authoritative record; the bytes themselves are not currently available." Commit: `7a3c0d5`.
 
 ### Other 560T-derived hardening
 
@@ -4939,10 +4997,18 @@ position 1 forced to Creative/Receptive; canonical = pair-identity-deduped (orie
   representative per scale, not real non-monotonicity. Masking orientation removes all of them.)
 - **Sublinear growth.** ×50 per-cell budget (11.2T→560T) yields ×13.86 records (×4.52 then ×3.07).
   The valid-ordering space is sparse: only ~6–7% of the 158,364 depth-3 prefixes yield any
-  solutions, and that productive set is small and stable.
+  solutions, and that productive set is small and stable. *(Correction 2026-07-26: the "~6–7% of
+  158,364" figure mixed two cell notions — 10,618 is the yielding **pair-identity**-cell count (the
+  coarser keying of this entry's own table), while the 158,364 denominator counts **enumeration
+  prefixes**, of which 65,281 = **41.2%** yield — see the campaign closeout figures above. Neither 6%
+  nor 7% is a correct yield at either granularity.)*
 - **Deepening, not broadening.** Cells newly appearing at the larger scale contribute only ~0.2%
   (→100T) and ~0.5% (→560T) of that scale's records; growth is existing productive cells yielding
-  deeper, not new regions opening.
+  deeper, not new regions opening. *(Reconciling note 2026-07-26: this holds under **pair-identity**
+  keying — the granularity at which the canonical dedups, hence the headline. Under
+  enumeration-cell/orientation keying the picture inverts: 60.4% of 560T's records come from cells
+  that yielded nothing at 11.2T — see the June-11 #126 entry above. Both are true; they measure
+  different cell notions.)*
 - **Not yet saturated.** Every sampled sub-branch is `BUDGETED`, none `EXHAUSTED`, at 560T ⇒ **the
   total number of C1–C5-satisfying orderings is not yet known**; each canonical scale is a
   reproducible *slice* at a fixed budget, and 560T deepens 100T rather than completing it. This
@@ -5057,7 +5123,7 @@ evicted cell re-walking and re-emitting) is deduped away; re-ordering is re-sort
 **fabricated** unique solution can change the sha — the byte-match rules out both, for both runs.
 
 A **pre-merge shard comparison** makes this concrete rather than merely argued: the two runs produced solutions in
-the **identical set of 65,281 cells**, and the old run's raw pre-dedup total was **43,880,306,393 records vs the
+the **identical set of 65,281 cells**, and the old run's pre-merge shard total ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c:39-61` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch, so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** was **43,880,306,393 records vs the
 new run's 43,876,464,466 — the old run over-emitted exactly +3,841,927 records (0.009%)**, every one a *duplicate*
 that the canonical dedup erased (had any been an invalid ordering, it would have survived dedup and moved the sha).
 So the original run's 5 evictions produced **localized over-emission, not loss and not fabrication** — the exact
@@ -5089,11 +5155,11 @@ size. It touches no solution data and needs no mounted disk — pure compute.
 
 Validated first against exact subtree counts (`--estimate-knuth 0`, deterministic): agreement to **<1%** at every
 prefix depth, and an independent cross-check where the 56 per-branch estimates summed to within <1% of the
-whole-tree estimate. The result: **≈1.3×10³⁸ raw C1–C5 orderings (≈3×10³⁷ distinct-canonical after
-orientation-dedup)**, with the 56 first-level branches all comparably enormous (~2×10³⁶, spread only ~2.7× — no
-small or near-exhaustible branch). This reframes everything: the deepest published canonical (560T, 1.05×10¹⁰
+whole-tree estimate ⚠ **[the 56-branch cross-sum is SCOPED OUT of the validation claim 2026-08-27 (TR-4 v1.22): its per-branch values were never archived, so it cannot be offered as evidence. Kept here as the dated record of what was run, not as a live claim; removed from TR-4 §Sections and SEARCH_SPACE_SIZE.md by prose batch P34 on 2026-09-02. The prefix-depth ladder agreement is unaffected; see documentation/CORRECTIONS.md]**. The result: **≈1.3×10³⁸ raw C1–C5 orderings (≈3×10³⁷ distinct-canonical after
+orientation-dedup)**, with the 56 first-level branches all comparably enormous (~2×10³⁶ raw ⚠ **[LABEL CORRECTED 2026-08-28 — raw, not canonical; see documentation/CORRECTIONS.md]**, spread only ~2.7× — no
+small or near-exhaustible branch). ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical (orientation-dedup) figure in the sentence just above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; the ≈1.3×10³⁸ raw estimate is not affected; see documentation/CORRECTIONS.md]** This reframes everything: the deepest published canonical (560T, 1.05×10¹⁰
 records) has enumerated **≈1 part in 10²⁷** of the space; exhaustion, of the space or of any single branch, is off
-by 24+ orders of magnitude and infeasible at any budget that could ever be funded.
+by 24+ orders of magnitude and infeasible at any budget that could ever be funded. ⚠ **[the distinct-vs-distinct pairing is WITHDRAWN; stated raw-against-raw it is ≈1 part in 3.03×10²⁷ — see documentation/CORRECTIONS.md]** ⚠ **[BOUND, NOT EQUALITY — 2026-09-02, prose lane, propagating TR-4 v1.24: the numerator 43,876,464,466 counts per-sub-branch canonical keys, a lower bound on raw oriented leaves (CORRECTIONS.md 2026-08-28), so the raw-against-raw coverage is **at least** 1 part in 3.03×10²⁷ (43,876,464,466 ÷ 1.3287×10³⁸ = 3.30×10⁻²⁸; the estimate's own 95% CI moves the denominator only across 3.027–3.029×10²⁷), not ≈. The infeasibility conclusion is unaffected.]**
 
 Two corrections fell out. A prior crude "product-of-per-level-averages" estimate had put the tree at 10¹⁴–10¹⁵
 nodes — a **~20-order-of-magnitude undercount**, exactly the downward bias that unbiased random-probe sampling
@@ -5152,8 +5218,8 @@ statements for this and the symmetry group added to SPECIFICATION.md. Prune adop
 canonical shas (lineage decision, gated); the published canonicals are unaffected.
 
 **Same day, machine-checked formalization lands (`lean/KingWen.lean`).** The finite core of the
-project's theorem base is now kernel-verified in Lean 4 (core only, no mathlib, all claims via
-native_decide): Theorem 1, XOR universality (both directions), the parity-alternation lemmas, King
+project's theorem base is now machine-checked in Lean 4 (core only, no mathlib; all claims via
+`native_decide` — extended trust base, Lean's compiler in addition to its kernel): Theorem 1, XOR universality (both directions), the parity-alternation lemmas, King
 Wen's own constraint facts (C1/C4/C5, C3 = 776 exactly, no five-line transition, 15 alternations),
 and the finite component of the symmetry theorem — including the biconditional that a bit permutation
 maps KW to a valid sequence **iff** it commutes with reversal (all 720 checked), and the collapse to
@@ -5242,7 +5308,7 @@ carries a dated correction note; solve.c §[7]'s over-claiming print was reworde
 survives unchanged: {25, 27} mandatoriness, boundary 4's 99.999% single-step elimination, §[7]'s
 minimum ≥ 4 everywhere, §[8] = 0 at 100T/560T, all canonical shas and record counts.
 
-## 2026-07-04/05: The exact-count program — from "needs a 5 TB machine" to a kernel-checked count on 128 GB
+## 2026-07-04/05: The exact-count program — from "needs a 5 TB machine" to a machine-gated exact count on 128 GB
 
 The full-31 exact count |C1∩C2∩C4∩C5| ran as a two-path race. PATH A (in-RAM, symmetry-quotient
 layered DP with C5-residual tracking, `--f1-exact-c1c2c4c5`): validated on a subset ladder
@@ -5264,12 +5330,18 @@ knobs), a mid-flight stripe migration at a layer boundary when measured layer si
 the layer-14 checkpoint), and a final move to Standard hardware. Peak memory: **128 GB** — a ~35×
 reduction against the in-RAM requirement, which is the reproducibility point: the exact count needs
 a big disk and patience, not exotic hardware. The DP's measured peak is layer 13 (40.8 B entries);
-C5 pruning overtakes binomial growth past the middle. Exact result: [COUNT — PENDING, do not cite; lands with this
-section's next revision; gates: ÷24 exactness + Knuth-estimator cross-check].
+C5 pruning overtakes binomial growth past the middle. Exact result (**resolved 2026-07-25**; this entry recorded it as pending until then):
+**|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688** ≈ 1.097051×10³⁹,
+raw orientation-explicit with C4 pinned. Both stated gates passed — ÷24 exactness, and the
+Knuth-estimator cross-check — and it is **two-instrument**: independently recomputed at full scale
+by `verify.c`'s inclusion–exclusion transfer-walk engine, a different algorithm class, exact MATCH.
+See [reports/METHODS.md](../reports/METHODS.md) §"Canonical quantities".
 
 The ÷24 gate itself was upgraded mid-campaign: the symmetry theorem's sequence-level layer
 (invariance, record-level freeness, orbit counting) was formalized in `lean/Automorphism.lean`
-(#222) — `twenty_four_dvd_solution_count` is kernel-checked for both constraint systems, so the
+(#222) — `twenty_four_dvd_solution_count` is machine-checked for both constraint systems
+(`native_decide`, the extended trust base — Lean's compiler in addition to the kernel; label
+corrected 2026-07-26, this entry previously said "kernel-checked"), so the
 count's primary sanity gate rests on machine-verified mathematics.
 
 ## 2026-07-05: The literature program's measurement day — two notables from eight centuries, and a corpus-gate erratum
@@ -5277,7 +5349,11 @@ count's primary sanity gate rests on machine-verified mathematics.
 The orientation layer got its pre-registered battery (F5, frozen→measured→published in ~5 hours):
 7 literature functionals null, 3 forced, and one notable — **[Van den Berghe](CITATIONS.md#vandenberghe1999)'s nuclear-rule
 agreement (29/30) is the exact maximum of King Wen's 1,720,320-vector orientation fiber**
-(12/1,720,320, exact enumeration; corpus-clean; his noted exception proven *forced*). A second
+(12/1,720,320, exact enumeration; corpus-clean; his noted exception proven *forced*). *(Scope
+corrected 2026-07-26: that fiber is the **C4-oriented** fiber — the vectors keeping the defined
+(63, 0) opening. On the pair-only-C4 fiber, 2,703,360 vectors, 30/30 IS attained by exactly 2
+reversed-opening vectors, so the exception is forced by the classical opening orientation, not by
+pair geometry; see TR-1 §7 v1.16 and the "Theorem 6" retraction in CLAIMS_DECIDED.)* A second
 battery (F6) measured the two candidates surfaced by the [Nielsen](CITATIONS.md#nielsen2003) audit: bagong palace-alignment
 null across the board, but **[Wu Deng's](CITATIONS.md#wudeng) (1249–1333) weft-block profile is population-atypical**
 (p = 1.1×10⁻³, gauge-robust) — the second notable, and the older by six centuries. Both are framed
@@ -5343,12 +5419,14 @@ self-contained technical reports rather than paper drafts.
 The out-of-core count path (#221, 2026-07-04/05) was retooled into a production engine (#223) for the
 multi-day full-31 run:
 
-- **Per-block gzip layer format (v2).** Layer files are written as independently-gzipped blocks at a
+- **Per-block compressed layer format (v2).** Layer files are written as independently-compressed
+  zlib blocks (RFC-1950 via `compress2` — "gzip" in the associated tool/env names is project
+  shorthand; the codec is zlib, see [F1C5_LAYER_FORMAT.md](F1C5_LAYER_FORMAT.md)) at a
   selectable level (default 6; a direct measurement retired the tempting level-9 default — L9 ran ~2× slower
   for only ~3% smaller output at this data's entropy). Compression cuts the on-disk layer footprint that
   dominates a disk-streamed count.
 - **Intra-layer checkpointing.** `--resume-from-layers` previously resumed only at layer boundaries; the
-  retool adds a mid-layer checkpoint (CRC32-marked marker record, pinned gzip level, ~300 s cadence via
+  retool adds a mid-layer checkpoint (CRC32-marked marker record, pinned compression level, ~300 s cadence via
   `SOLVE_F1_CKPT_SEC`) so a run interrupted *inside* a multi-hour layer resumes from the last committed chunk
   rather than restarting the layer. Validated across a deliberate machine swap: a layer resumed at its exact
   interrupted chunk and completed identically.
@@ -5359,9 +5437,13 @@ Opus-verified; the marker-CRC and pinned-level hardening came out of that review
 self-test canonical sha (`403f7202…`) is unchanged, so the retool is behavior-preserving for the enumerator.
 
 With the engine in place, the production count launched and is **in flight** — a symmetry-quotient
-out-of-core DP over the 31 free pairs, streaming layers from a large disk. The exact integer
-|C1∩C2∩C4∩C5| lands in this record when the run completes (PENDING — do not cite until then; gates: divisibility-by-24, which is kernel-checked
-mathematics per #222, plus a Knuth-estimator cross-check).
+out-of-core DP over the 31 free pairs, streaming layers from a large disk. The exact integer landed **2026-07-25**:
+**|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688**. Both gates passed —
+divisibility-by-24, machine-checked mathematics per #222 (`native_decide`, extended trust base;
+label corrected 2026-07-26 from "kernel-checked"), plus the Knuth-estimator cross-check — and the
+value was subsequently made **two-instrument** by an independent `verify.c` IE transfer-walk recount
+at full scale (exact MATCH). *(This paragraph read "PENDING — do not cite" until 2026-08-25, while
+METHODS.md already published the value as exact.)*
 
 ## 2026-07-09: Documentation consolidation and a prior-art round-out
 
@@ -5468,7 +5550,7 @@ language ("incoherence = design error, not a finding"). Neither correction touch
 controls: FC-1 and FC-3 reference no matched-null quantity.
 
 The five off-home family predicates applied to King Wen (J1, M1, M3, M4, B1 — all expected-fail, all
-failed) are logged conservatively on the global observable ledger (~83 → ~88). The Jing Fang and
+failed) are logged conservatively on the global observable ledger (~83 → ~88; *annotation 2026-07-26: the ledger was subsequently recounted and frozen at exactly **91** = 28 + 58 + 5 — see [reports/METHODS.md](../reports/METHODS.md) §"Global observable ledger"; the running "~83/~88" figures in this dated entry are superseded*). The Jing Fang and
 Mawangdui orderings are classical Chinese artifacts, not project inventions; sources are credited in
 [CRITIQUE.md](CRITIQUE.md) §"Corpus control II" ([Shaughnessy 2022](CITATIONS.md#shaughnessy2022);
 [Schulz & Cunningham 1990](CITATIONS.md#schulz-cunningham1990); the standard palace construction; with
@@ -5479,6 +5561,19 @@ sinological corrections are invited and reopen the frozen design via dated amend
 [CRITIQUE.md](CRITIQUE.md) §"Corpus control II"; evidence: `reports/evidence/r7/r7_run_20260712.log`.
 
 ## 2026-07-13: The N_gs stop-flag — fired by the book, closed by the book
+
+> **[VETOED — the Bayes-factor verdict below is not live. Added 2026-08-09.]** The "re-affirmed"
+> verdict recorded in this entry rests on a calibration that has since failed and on figures that
+> have since been withdrawn. On **2026-08-04** the two-model pair's confusability gate **vetoed** —
+> M_tend self-recovery 68/100 against a bar frozen at 70 ([CORRECTIONS.md](CORRECTIONS.md) CX-25) —
+> and on **2026-08-07** the Bayes factor (≈5.2×10³ variant U / ≈6.3×10³ variant A) and the ≈0.9998
+> posterior were **withdrawn as claimed results** ([CORRECTIONS.md](CORRECTIONS.md) CX-26); they are
+> retained as the as-computed record only, and no verdict on their strength is asserted.
+> **Scope of the veto:** it reaches the *verdict*, not the *measurement*. The direct N_gs =
+> 4.50×10²⁵ (±6.1% as measured below; CX-26 rounds it to ±6%) and the closure of the stop-flag as
+> mis-derived stand as measured (CX-26 §"What did not move"); nothing in CX-25 or CX-26 reaches the
+> three convergence gates below. Read this entry as the dated record of how the
+> flag was closed, not as a live evidential claim.
 
 On 2026-07-11 the four-class extension's first ingredient run measured N_gs — the size of the
 triple-strict (rule-perfect) population, the single weakest ingredient of the TR-2 v1.7
@@ -5515,10 +5610,1006 @@ the direct count exceeds the derived value the v1.7 computation used), still an 
 above the "strong" band in every one of the 24 pre-committed configurations, with the flip threshold
 ≈ 52× away. Notably the direct measurement excludes the smaller derived endpoint (1.03×10²⁵) — the
 value that most flattered corruption — vindicating in direction the v1.7 strictest-reading choice of
-the larger endpoint. The verdict is **re-affirmed**, not strengthened: the headline number went down
+the larger endpoint. The verdict is **re-affirmed** *(as of this 2026-07-13 record only — that
+re-affirmation is VETOED and the figures withdrawn; see the note at the head of this entry,
+[CORRECTIONS.md](CORRECTIONS.md) CX-25 / CX-26)*, not strengthened: the headline number went down
 by ×0.79; what improved is the evidential footing, from a derived ingredient with unpropagated error
 to a directly measured one with stated error. The flag was closed as *mis-derived*, not as "we were
 wrong." Landed as TR-2 v1.12 (docs-only, sha-neutral); evidence in
 [`reports/evidence/r11/`](../reports/evidence/r11/) (`PHASE2_README.md` + the seed/gate outputs). The
 full four-class comparison remains a separate, unpublished private freeze under the operator's
 resolve-first decision; no four-class verdict exists. Developed with AI assistance (Claude, Anthropic).
+
+## 2026-07-09/16: The exact count lands — twelve evictions, zero lost work, and a 40-digit integer
+
+The full-31 production count — launched 2026-07-09 on the #223-retooled engine (see the 2026-07-08/09
+entry) — ran seven days on a D128als_v7 Spot in westus3 with a 4 TB scratch disk and landed 2026-07-16
+~06:18 UTC:
+
+**|C1 ∩ C2 ∩ C4 ∩ C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688** (≈ 1.097051 × 10³⁹,
+log₂ ≈ 129.7 bits; orientation-explicit sequences, C4's opening pair pinned).
+
+Every pre-committed verification gate passes. **N mod 24 = 0 exactly** — the
+[TR-5](../reports/TR5_SYMMETRY.md) free-action theorem's divisibility gate, predicted before the run and
+re-derivable by any reader with a big-integer library (the orbit count is N/24 =
+45,710,469,949,549,241,251,504,669,632,357,466,112). The ratio to the Knuth estimate is **0.999956** — the
+estimator's second absolute calibration against ground truth (after the 10⁴¹ validation in TR-11), this
+time at 10³⁹, accurate to 0.0044% *(as recorded at the time; per the later TR-11 v1.4 correction the
+0.0044% is the estimate's five-sig-fig rounding gap, not a resolved estimator error — what is established
+is that the exact value falls inside the stated ±0.01% envelope)*. And the full 32-layer Burnside palindrome holds: masks(k) = masks(31−k)
+across every recoverable pair, 93,939,712 canonical masks in total, peaking at k = 15/16 with 13,047,760
+each. The operational story is as much the record as the number: **twelve Spot evictions over the seven
+days, every one auto-recovered** from the layer/intra-layer checkpoints with no lost work — the #223
+retool doing precisely what it was built for — while the counting process itself held peak RSS near
+~13 MB, the out-of-core design keeping the terabyte-scale layers on disk throughout.
+
+[TR-11 — Exact Counting by Symmetry Quotient](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+**published the same day** as v1.0 (`438eb24`, operator review completed): the orbit-DP instrument, the
+validation ladder, the 7.5706×10⁴¹ four-minute precursor count, the landed full-31 number, and a
+reproducibility record at
+[`runs/20260716_f1c5_c1c2c4c5_d128westus3/`](../runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md)
+(machine-readable result + gates, per-layer curve, run manifest, preserve-shas — any reader can reproduce
+the count on ~64 GB RAM + ~4 TB of disk). The estimate→exact flips cascaded surgically:
+[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)'s C5-layer ledger row,
+[TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md), [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md), and
+[DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) now carry the exact value where they previously carried the
+estimate — while **the C1–C5 flagship 1.3287×10³⁸ remains an estimate and C3 remains the open
+obstruction**, stated in every flipped location. *(Superseded 2026-07-21: the C3 "structural
+obstruction" status was withdrawn — the C3 sum collapses to the bounded scalar identity
+C3 = 16 + 8·G, a machine-checked repo theorem since 2026-07-04 (`lean/C3Decomposition.lean`,
+`c3_slot_decomposition`), so what remains is a cost barrier, not a structural one; the flagship
+still remains an estimate. See TR-11 §10(ii), v1.5.)*
+
+In the same landing window, `sat.py`'s certified model counting was hardened out of an adversarial
+R2-delta review (`cc3663c`): `--certify-count` now **refuses count-unsafe targets** (`--with-c3`/
+`--c3-max` and near-k — the C3 X-variables are one-directional and bare Sinz registers are undetermined,
+so a certified CNF model count would not equal the orderings count) and requires the checker's
+FULL-PROOF SUCCESS line in the proof-check output before declaring a certified count — defense-in-depth
+against ever publishing a "certified" number the certificate doesn't actually carry.
+
+Attribution, as stated in the TR and the run record: direction and the orbit-quotient idea are the
+operator's; the recursion reconstruction, out-of-core streaming design, and implementation are by Claude
+(Fable 5); the count-landing data-fill by Claude (Opus 4.8). The underlying symmetry theorem is TR-5's;
+the technique itself (Burnside/orbit counting, canonical-representative generation, external-memory
+layered DP) is classical — no novelty is claimed for it.
+
+## 2026-07-18/21: An adversarial pass over the whole corpus — a completeness theorem, a vetoed verdict, and fifty-five findings
+
+Two things filled this window: one new result, and a systematic self-audit of everything around it.
+
+**The result (2026-07-18): symmetry completeness.** [TR-5](../reports/TR5_SYMMETRY.md) v2.0 extends the
+order-48 symmetry group's maximality from the hyperoctahedral group Aut(Q₆) all the way to **every one of
+the 64! relabelings of the hexagram set** — no permutation outside the 48 preserves the C1–C5 predicate
+family, and C1+C2+C4 alone force membership. The finite funnel (C4 pins 0 and 63; C2 forces membership in
+the distance-5 graph's automorphism group; fixing 0 and commuting with the pairing collapse it to the 48)
+is verified exhaustively by a new machine gate (`solve.py --symmetry-completeness`, gates SC-1…SC-8), and
+its rigidity kernel is now decided **UNSAT with an archived, drat-trim-verified certificate** — closing a
+leg that v2.0 had advertised as "pending a solver-equipped worker."
+
+**The audit (2026-07-18 → 07-21): an adversarial review of all twelve technical reports.** Independently
+of the mathematics, the entire report suite — language, conclusions, supporting code, and shared
+methodology — was put through a fresh scientific and mathematical adversarial review, producing a catalog
+of **fifty-five findings** across three severity tiers. All but three (which wait on the still-private
+TR-12 draft) are now remediated and public; the substantive findings were each re-checked by an
+independent review before shipping, author never reviewing their own fix.
+
+The most consequential outcome is a **negative** one, and it is published as such. Finding F-43 asked
+whether the [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) corruption result — strong under a two-model
+comparison — survives a wider four-class comparison that adds the two rivals a skeptic reaches for first:
+a greedy/local builder and a rules-are-coincidence null. Before computing any King-Wen-facing number, the
+frozen design required a synthetic-draw calibration to confirm the four classes are even distinguishable.
+**That calibration ran, and it failed:** the greedy-builder class ranks itself first in only 67 of 100
+draws against a pre-registered threshold of 70 (and 67/67/45/25 across four sensitivity variants — see the
+correction at TR-2 v1.23, which publishes the same grid for the three *passing* classes as well and shows
+that `corrA` duplicates the primary result and that the `histZ` column measures M_D's normalizer rather
+than the other classes; the unconfounded readings are 67/67/45 and the veto is unchanged), so the
+classes are not reliably separable at this sample size. Per the design's own veto, **no four-class Bayes
+factor, posterior, or verdict is computed** — the gate was frozen before the data existed, it fired, and
+we abide by it. The two-model result stands with its scope now stated adjacent to every figure; the
+greedy-local and epiphenomenal rivals remain open, not defeated. It is a genuine limit of the inference
+on a 64-element sequence, reproducible from the published instrument.
+
+The rest of the arc hardened what was already there. The Knuth estimator was **calibrated against exact
+ground truth** at the two layers now known exactly (both inside the stated ±0.01% envelope, with half the
+error budget unused — the C3 layer remains the one uncalibrated quantity). The reduced-rung validation
+ladder in [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) was found **not reproducible
+from what had been published** — the pair ordering is load-bearing and the C5 rule is equality with a
+per-rung budget, not a sub-multiset — and was corrected, then proven sufficient by a clean-room
+reimplementation sharing no code with `solve.c`. The [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) and
+[TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) section bodies, previously outlines, were written out.
+An independent second-instrument recount was added to `verify.py`. Dozens of framing corrections tightened
+scope and hedging: the C5 exact count tagged single-instrument, the pairing-optimality dependency on an
+unrefereed preprint disclosed (with the dominance conclusion shown robust to it regardless), rarity
+figures reframed as specification rather than design where the underlying rules are King-Wen-fitted, and a
+factual error corrected — a claim that six rule-violations were co-located proved wrong on direct
+computation and replaced with their exact positions, now emitted by `solve.py --r11-verify` so a reader
+reproduces them from shipped code. A wave-2 pre-registration that had rested on a *private*-repository
+timestamp — unverifiable to any external reviewer — was **re-anchored entirely on the public record**,
+its guarantee re-grounded in a public design commit, denominator-invariant null results, and the
+circularity firewall, with nothing private left load-bearing.
+
+Attribution: the review, the fixes, and the independent verification passes were run by Claude (Opus 4.8
+and Fable 5) under operator direction; the completeness theorem is TR-5's, its machine gates by Claude
+(Fable 5). Every remediation preserves the canonical selftest sha `403f7202…` — nothing in this arc
+touched the enumeration.
+
+## 2026-07-22/31: The results ledger for the second-instrument window — an exact null law, a third exact count, two Lean corollaries, and the C3 floor
+
+*(Ported 2026-09-02 from a staging draft written 2026-07-26 and left unported for five weeks. It is
+placed here, ahead of the entry that follows, because the two describe the same eleven days from
+different sides: the next entry is that window's **process** record — the second-instrument program,
+the two retractions, the audit of the auditor — and this one is its **results** record. They are
+deliberately not merged, and neither restates the other.)*
+
+**One correction to the neighbouring entry's framing, recorded here rather than by editing it.** The
+entry that follows opens "eleven days that produced almost no new results." That is true of the
+*headline* quantities — the C1–C5 flagship did not move, no count on the front page changed — and it
+is not true of the corpus. Five results landed in this window — every one of them still standing and
+publicly checkable — together with one deliberate withdrawal. They are listed below because a history
+that narrates only the corrections a window produced, and not the mathematics, is not a history of the
+window.
+
+**The exact C1∩C4 null G-law, machine-checked by the kernel (2026-07-24, `d130a206`).** The reference
+baseline for every C3 statement — the distribution of the couple slot-distance sum G over the 31!
+equally-weighted C1∩C4 pair-orders, with no C2/C5 conditioning and no budget truncation — moved from
+*computed* to *proven*. `lean/C3Decomposition.lean`'s final section evaluates the 31-layer DP inside
+the Lean kernel (`decide +kernel`, no `native_decide`) and carries the full histogram over
+G ∈ [12, 228] as a literal, with total mass 31! (`null_total`), closed-form endpoint counts, the mean
+E[G] = 128 exactly and hence E[C3] = 1040 (`null_mean_128`, `null_c3_mean_1040`), and the tail
+P(G ≤ 95) = 641983711307479/7919632354008375 exact and in lowest terms (`null_p_le_95`,
+`null_p_le_95_lowest_terms`) — the 8.106% that CRITIQUE.md and SOLVE.md cite at C1∩C4 scope. The
+recurrence itself is validated in-kernel against brute-force enumeration at small sizes, so the DP is
+not taken on trust either. Reproduce: `lean C3Decomposition.lean` (~2 min; see
+[lean/README.md](../lean/README.md) §"The C1∩C4 null G-law"), or the numeric route
+`python3 verify.py --check-null-g`. Scope, stated because it is narrow: this is the C1∩C4 null, not
+the canonical population.
+
+**A third exact count, and a genuinely different second instrument for it (2026-07-25/26,
+`5cadf619` then `b4b59888`).** |C1∩C2∩C4∩C5∩C6∩C7| — the C6/C7-pinned layer with C3 dropped —
+became **exact** at
+516,880,238,445,773,965,371,923,491,676,160 (≈5.16880×10³²) via an inclusion–exclusion pinned-step
+recount, and then **two-instrument** when a direct layered exact-cover mask DP ("Route D") — no
+inclusion–exclusion, no subset-sum signs, no symmetry quotient, sharing only the problem spec —
+reproduced the same integer to the digit. In the same batch |C1∩C2∩C4| was independently recomputed
+at full scale (`1de24f9c`) and flipped single- to two-instrument. Reproduce, after
+`gcc -O3 -pthread -o verify verify.c -lm -lz`: ⚠ **[CORRECTED 2026-09-02 — this line read `-lm` without `-lz` and could not link: measured `rc=1` with **50 undefined references** to zlib symbols (`uncompress`, `gt_next`). `verify.c` is one of the two independent verifiers, so the published command left a reader unable to build the instrument the reproduction depends on. Found by the exec-lane sweep; the sibling at `reports/TR4_SIZE_OF_THE_SPACE.md` is corrected in the same change. With `-lz` the same command returns rc=0.]**
+`./verify --ie-count --ie-spec full31@0 --ie-pin-c6c7 --ie-no-quotient` (Route B) and
+`./verify --dp-count --dp-spec full31@0 --dp-pin-c6c7` (Route D); `./verify --ie-count --ie-no-budget`
+for |C1∩C2∩C4|. Route D was small-n validated 44/44 including three-way against brute force before it
+was allowed to score anything. The value's standing use is as the **only** calibration anchor on the
+C6/C7-pinned estimator path — the path that carries the ≈5.21×10³¹ estimate that refutes C1–C7 uniqueness — and
+it lands inside that estimator's prior 5.18×10³² ±0.25% interval, about 0.22% below the point
+estimate ([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4, [METHODS.md](../reports/METHODS.md)).
+
+**Radisic's C1 optimality, re-derived in this repository (2026-07-26, `e28fc5f4`).** That the
+comp/rev pairing rule C1 is the unique Hamming-cost-minimizing matching had rested on an external
+unrefereed preprint. Radisic's artifact was rebuilt and audited, and the theorem was then re-proved
+from scratch in the repo's own Lean as `lean/HammingOptimalMatching.lean` —
+`partner_is_unique_minimum` quantifying over *all* comp/rev pairings, plus the full-K₄ relaxation
+scope guard that keeps the claim inside the class it is true in. The dependency is downgraded from
+external to independently-verified-and-machine-checked across TR-9, SPECIFICATION, CITATIONS,
+CLAIMS_DECIDED and DESCRIPTION_LENGTH. **Result credit remains Radisic's** (arXiv:2601.07175); what is
+ours is the independent re-derivation, and any error of adaptation. Reproduce:
+`lean HammingOptimalMatching.lean`.
+
+**The equivariance ceiling (2026-07-26, `e28fc5f4`; trust base tightened 2026-07-27).** A corollary of
+the free-action symmetry, and the sharpest thing this project can say about generators that claim to
+produce King Wen: any generator whose scoring factors through a G-invariant bit-structural vocabulary
+— Hamming distance, popcount, complement, reversal, the distinguished values 0/63, slot indices, and
+aggregates of these — assigns King Wen's record and each of its 23 record-level twins the same mass,
+so it can place at most **1/24** of its output distribution on King Wen and can never single it out
+(`equivariance_ceiling`, `no_unique_kw_concentration` in `lean/KingWen.lean`). The orbit length reuses
+the existing `twins_24_records` verbatim, so this is a corollary of the free-action theorem rather
+than a re-proof of it, and the chain became kernel-only on 2026-07-27. Reproduce: `lean KingWen.lean`.
+Two scope statements travel with it and are not optional: it says nothing about generators using
+non-invariant vocabulary — lexicographic label conventions or KW-derived constants break the ceiling
+by construction, which is the point — and **the mathematics is the standard invariance/orbit
+argument**; only the King-Wen instantiation and its machine-check are new here.
+
+**The C3 floor is exactly 112, and the enumerated minima were budget artifacts.** The published
+minima — 424 at the 100T canonical, 392 at the deeper 560T — were always scope-labelled as minima
+*seen at those depths*, and they are: the constraint-space floor is far lower. A SAT witness attains
+C3 = 112 with all twelve complement-couples adjacent (G = 12), published as a verified row in
+[reports/certificates/c3_positional_witnesses.txt](../reports/certificates/c3_positional_witnesses.txt)
+(2026-07-24, `1e6b3816`) and rechecked through `verify.py`'s independent functions by
+`reports/certificates/verify_all.sh` §3b. The matching lower bound needs no search certificate at all: the scalar identity
+C3 = 16 + 8·G (`c3_slot_decomposition`, kernel-checked since 2026-07-04, `409d05dd`) plus the
+structural fact that each of the twelve cross couples occupies two *distinct* slots gives G ≥ 12 and
+so C3 ≥ 112 for every C1-valid ordering — `c3slot_ge_12` and `c3_ge_112`, dated 2026-07-27 in
+`lean/C3Decomposition.lean` and first pushed 2026-07-31 in `c5b39d61`. Reproduce:
+`lean C3Decomposition.lean`. This sharpens rather than overturns the standing result that King Wen
+does not minimize complement distance — KW sits at the C3 **ceiling** (776, G = 95), the opposite
+extreme from a floor of 112. Nothing was retracted; the floor is the exact, permanently checkable
+number the depth-limited minima were standing in for. **One residual gap, recorded because it is
+ours:** unlike every other doc-cited theorem in that file, `c3slot_ge_12` and `c3_ge_112` carry no
+`#print axioms` directive, so their trust base is inferred from the proof text — which uses only
+`slot_ne`, list induction and `omega`, with no `decide` and no `native_decide` — rather than attested
+by the file's own axiom-audit block. The directive should be added.
+
+**And one cost figure withdrawn rather than widened (2026-07-22, `4059fd5d`).** [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+v1.10 removed its compute-cost band for a full-scale exact-C3 run entirely. The v1.9 band's footprint
+multiplier and wall-time band both derive from the same entry-count scaling, so their uncertainties
+are correlated and the plausible joint corner sits more than an order of magnitude above the
+midpoint — a band that had already been revised once. Restating it wider would have invited the same
+misreading, so §10(ii) now says only that such a run is computationally expensive and **not bounded
+above** until cheap reduced-scale instrument re-runs land. What this window established about C3 is
+therefore a *cost* barrier, not a structural one — the structural-obstruction framing had been
+withdrawn the day before in TR-11 v1.5 (`f8b14284`) when the identity C3 = 16 + 8·G was published —
+and any narration of the C3 program as "closed" that leans on a specific core-year or dollar figure
+is leaning on a number this report deliberately does not publish.
+
+Attribution: the null G-law was authored by Claude (Fable 5) and independently recompiled and verified
+by Claude (Opus 4.8); the Route D engine, the Radisic re-derivation, the equivariance ceiling, and the
+cost-figure withdrawal by Claude (Opus 4.8), the withdrawal on a Fable 5 review finding — all under
+operator direction. Result credit for the C1 optimality theorem is Radisic's; the orbit/invariance
+argument behind the ceiling is classical. Corrections invited.
+
+## 2026-07-22/08-01: Second instruments, two retractions, and the audit that audited the auditor
+
+Eleven days that produced almost no new results and a great deal of new confidence. The through-line:
+every load-bearing claim acquired a second, independent way of being checked — and where that second
+instrument disagreed with the record, the record was corrected, not the instrument.
+
+**The two-instrument program (07-23 → 07-26).** `verify.c` grew from a per-layer mass checker into a
+full second engine. `--check-layers` re-derives the orbit-weighted mass from the on-disk layer bytes at
+every layer; `--check-g-ladder` and `--check-t-ladder` verify the g and t ladders against the published
+`GT_LADDER_FORMAT.md` — written spec-first, before the reader — enforcing the f·g cut identity and the
+f·t node identity independently of the engine that produced them. Then `--ie-count` recomputed
+|C1∩C2∩C4∩C5| by classical signed inclusion–exclusion over subsets of the 31 free pairs: a completely
+different method, exact match. That closed the instrument half of the caveat TR-11 §10(vi) had carried
+since the count landed — the 39-digit integer no longer rests on one engine. Several figures were
+upgraded from sampled to exact in the same window: C2's unpinned rarity to **4.29341%**, and C3 given C1
+to **6.4211367496%**.
+
+**A theorem was false (2026-07-26).** SPECIFICATION.md had carried, as "Theorem 6", the claim that C1,
+C4 and C5 force the orientation of the opening pair — that s₀ = 63 is derived rather than chosen. It is
+not true. Complementing every hexagram of King Wen (x ↦ x ⊕ 63) yields a sequence that opens (0, 63) and
+satisfies C1, C2, C5, and C3 at exactly 776; only the *oriented* form of C4 excludes it. Worse, the
+claim's empirical support had been circular all along: the enumerator hardcodes `seq[0] = 63`, so no
+reversed-orientation ordering could ever have surfaced in any enumeration, at any depth. The retraction
+landed together with the true statement it replaces — the **Complement Z₂ symmetry theorem**, machine-checked
+in Lean with a kernel-only trust base — and the orientation is now documented for what it is: definitional,
+classically attested in the *Xugua*, and mathematically free. *(Annotation 2026-09-01: the middle
+descriptor of those three is superseded, and this entry is left standing because it correctly records
+what the corpus adopted on 2026-07-26, not because that reading survived. A narrowing landed 2026-08-30
+in [METHODS.md](../reports/METHODS.md) §"Constraint set": the Xugua attests that the {Heaven, Earth}
+pair opens, not the order of Heaven over Earth within it — 天地 is a compound — so C4's orientation is
+definitional and mathematically free, but ours by convention rather than a classical inheritance. The
+Theorem 6 retraction narrated above is untouched by that narrowing.)* The same batch withdrew a circular
+joint-KDE headline. Neither correction moved a count, a sha, or the enumeration.
+
+**Automorphism.lean's last `native_decide` (2026-07-31).** `lean/Automorphism.lean`'s `applyPerm_pcomp_bool` had resisted
+a kernel proof — the 48·48·64 decision procedure exhausted memory — so it had shipped with a documented
+compiler-trust disclosure. It was replaced by a structural group-action argument that the kernel checks
+directly. The DIV-24 and ceiling results now stand on `[propext, Classical.choice, Quot.sound]` alone.
+
+**The prior-art sweep closed (2026-07-30).** Every channel — CNKI, reference-mining, a Japanese-author
+sweep, Western and OEIS — returned no missed enumeration, ceiling, or formalization prior art. The
+sharpest framework located is Ouyang (1992) on the (Z/2)⁶ structure and its subgroups; the sharpest
+counting is Suenaga (2012). Ouyang's earlier (≤1986) work explicitly *denies* that the King Wen sequence
+has mathematical structure — a position he himself reversed by 1990 (see CITATIONS.md#ouyang1992, where his
+group-theoretic treatment is the earliest and fullest we have found). It is cited as intellectual
+history, not as his standing view: that even a sophisticated algebraist first judged the ordering
+problem empty is evidence about the field's expectations, not about Ouyang's conclusions.
+
+**The review that found what two reviews had missed (2026-07-31 → 08-01).** Two full adversarial passes
+— one informed, one fresh-eyes — cleared the corpus. A third pass, same models, **different charge**,
+found roughly twenty real defects, including a retracted scope still live on the front page. The
+difference was not capability; it was the instruction. "Review these claims and give a verdict" produces
+satisficing: a reviewer that has a verdict and two findings stops. "Find errors, recompute every number
+that appears more than once, quote the offending text" produced about five times the findings from the
+same models. Two structural lessons were paid for here and are now standing rules. First: **a correction
+ledger's claim that something was propagated is a hypothesis, not evidence** — the worst defect of the
+cycle hid behind a revision entry asserting the propagation was already done, which reviewers read and
+believed, so the honesty apparatus became a source of false assurance. Revision entries must now record
+what was *verified*, not what was intended. Second: **fixes introduce defects** — a re-verification pass
+over the fix diff itself found nine more, two of them fresh instances of the very "asserted propagation
+that didn't happen" pattern that had just been diagnosed. Three of the gates in `scripts/doc_gates.sh`
+exist because process discipline had already proven insufficient: cross-file numeric consistency,
+CLI-flag drift, and a registry of retracted phrasings that fails the build if one is still live anywhere.
+
+**Two of the project's own claims retracted (2026-08-01).** The "hard information-theoretic floor
+k ≥ 13" was withdrawn and relabelled an observed-rate extrapolation. Its divisor was the maximum
+*unconditional* single-boundary information gain, but the same section reports a conditional gain of
+11.10 bits at step 3 — the premise was falsified by the data printed beside it, and the corrected
+arithmetic gives 12, not 13. More fundamentally, no necessity bound follows from the argument at all: it
+would require a supremum over all conditioning contexts, and no pigeonhole rescue is available because
+only King Wen's own cell need be a singleton. Separately, the 91-observable Bonferroni ledger was found
+to contain two offsetting errors — a Davis family double-count (⇒ 82 distinct) and an omitted books
+family (⇒ 89). The bar stays at the strictest of the three, now with its scope disclosed and a published
+counting rule; the three candidates span under 11% and **no published verdict differs between them**.
+
+**The verifier itself had drifted (2026-08-01).** The last item is the one that best characterizes the
+window. `verify.py` — the independent second opinion, the instrument the whole reproducibility story
+leans on — was audited against SPECIFICATION.md line by line, and its C4 check was found to test only
+half the constraint: the pair index, never the orientation. Which means that from 2026-07-26 onward,
+when the retraction established that complementation is an exact symmetry of C1∩C2∩C3∩C5, the verifier
+would have printed `VERIFY PASS` on a record encoding comp(King Wen). No other check in the file could
+have caught it. The predicate had been silently relying on the enumerator's hardcoded orientation — the
+one assumption an independent verifier is not entitled to make, since catching enumerator bugs is its
+entire purpose. Three further gaps came with it: the reference tables were self-verifying (all derived
+from the same King Wen literal they were checking against), and two reserved fields were unenforced. No
+canonical artifact was ever affected — `solve.c` pins the orientation and the dedup rule keeps the
+lexicographically smallest orient variant — so this was a latent false-PASS, not a false result. It was
+found independently twice, by two probes given no knowledge of each other, which is the cross-model
+control the review protocol asks for and the reason it is now written down.
+
+Attribution: reviews, fixes, and independent verification by Claude (Opus 4.8, Opus 5, and Fable 5) under
+operator direction. Every change in this window preserves the canonical selftest sha `403f7202…` —
+nothing here touched the enumeration.
+
+## 2026-08-02/07: The gates turn on themselves — a hardening campaign that kept catching its own fixes
+
+*(Written on 2026-08-08, after the operator asked whether this file was current and it was not — six
+days had gone unnarrated, which is itself an instance of the failure this window is about.)*
+
+Six days, fifty-nine commits, and no new mathematics. This window was spent almost entirely on the
+machinery that checks the corpus — and the recurring finding was that the machinery's own repair
+notes were unreliable.
+
+**The pattern, stated plainly.** A gate would be fixed. A note beside the fix would say it had been
+applied. A later pass would measure the note and find it false. This happened five times in six
+days, which is where it stopped being individually interesting and became the finding:
+
+- The round-16 consumer-list fix "had been applied" — it was applied at **one of three sites**.
+- GATE 14's header still said four legs, and round 15's own note claimed that had been fixed.
+- A drain pass asserted GATE 9 reduced a tally "without saying so." GATE 9 does say so; the claim
+  was simply false, and a later pass on the same batch caught it.
+- One fix shipped a present-tense claim about the very line it had just changed.
+- A rewrite of a retired self-test case was landed and **reverted by the very next commit**.
+
+Four of those five were caught by re-measuring rather than by reading; the fifth, the revert, leaves
+no recorded rationale either way. The lesson the campaign kept re-learning — the same one the
+correction ledger was built on — is that **a note saying "this was propagated" is a claim, not
+evidence.**
+
+**What was built.** [CORRECTIONS.md](CORRECTIONS.md) — the append-only record of every published
+claim later changed — dates from the start of this window, together with the figures registry, the
+completeness check that every registered row is actually recorded, and the append-only guarantee
+that no committed ledger line can be quietly removed. (The registry of retracted *phrasings* that
+those gates police had landed the day before, and is narrated in the previous entry.) By the end of
+the window `doc_gates.sh` was wired into **pre-push as blocking** — prompted by a measurement, not a
+tidiness impulse: a 218-commit replay found **twelve commits that had shipped failing trees, four of
+them pushed.** The gates had existed and ran at no publish point. GATE 18 was added, mechanising the
+campaign's central lesson: a ruled alias or superseded attribution restated with no path back to its
+ruling.
+
+**Authorship, stated more precisely than before.** A disclosure pass concluded that **algorithmic
+independence is not authorship independence** — two engines agreeing does not make the agreement
+independent of the person who directed both. The review record, the file drawer, the
+pre-registration, and a checkable invitation to falsify were completed and published. The Half A/B
+confusability evidence was published **together with its own reproducibility defect**, rather than
+after it was fixed.
+
+**The Lean corpus reached zero `native_decide`.** Two tranches of structural reproofs landed on
+2026-08-07 — first `PartitionInvariance` and `PruneGInvariance`, then `SymmetryCompleteness` and
+`TrigramTheorems`. Every finite lemma that had rested on Lean's compiler now rests on its kernel
+alone. The disclosure describing that limitation was, on re-reading the revisions that carried it,
+accurate throughout; what changed is that the limitation no longer exists.
+
+**An eighteen-lens red team, and a verdict that was not flattering.** On 2026-08-06 an adversarial
+pass ran across the whole corpus — thirteen pre-written lenses plus five generated in response to
+what the first thirteen found. Its verdict was **reject**: the mathematics is over-defended and the
+*meaning* is undefended. It named specific claims to withdraw rather than qualify. On 2026-08-07
+those withdrawals and rescopes landed under operator authorization, along with four ledger entries
+opened on findings the project had not previously admitted — all four recorded the same day as
+CX-29 through CX-32:
+
+- this ledger's own published git history had been rewritten to restore its append-only guarantee,
+  with nothing on the record saying so (CX-29) — an entry that flagged its own weakest sentence as
+  unconfirmed, and was corrected the next day by CX-35 when that sentence was measured and found
+  wrong in the project's favour: the rewrite never reached the public remote at all;
+- a novelty claim **understated the constrained space by roughly 29 orders of magnitude — in the
+  direction that flattered the project** (CX-30);
+- a citation-pinning contract described two mechanisms and neither existed (CX-31);
+- **seven** retracted figures were registered and gated but never recorded in the ledger (CX-32).
+
+What remains open is narrower than the list: the successor sweep CX-29 implies — a classifier for
+every non-fast-forward move of the published line — is queued and has not been run.
+
+CX-32 is worth one more sentence, because it is this window's best exhibit. Its own first draft
+quoted all seven retracted figures verbatim, and GATE 3b failed it — **the identical mistake CX-23
+had made, caught by the same gate, four hours after that history was written down.** Two different
+authors, the same error, the same automatic catch.
+
+**And one defect that was nearly published.** A merge landed cleanly through the documentation gates
+and the test suite, and still carried six new compiler warnings against a zero-warning baseline —
+because neither of those checks reads compiler output. The pre-push compile gate caught it. The bug:
+a command string built into a fixed buffer could be silently truncated, so a self-test could report
+PASS for a test that never ran. The fix routes every such construction through a truncation check
+that aborts rather than running something else.
+
+Nothing in this window touched the enumeration; the canonical selftest sha `403f7202…` was
+re-verified unchanged after that fix.
+
+Attribution: review, measurement, and fixes by Claude (Opus 5 and Fable 5) under operator direction.
+This entry was itself adversarially reviewed before publication, which found four false statements in
+its first draft — the commit count, the status of the four ledger entries, the direction of the
+29-order claim, and a figure count overstated by six orders of magnitude. All four are corrected
+above.
+
+## 2026-08-08: A deprecation retracted — the archive was right, the comparison was not
+
+A gate run for an unrelated change produced a sha this repository had published as corrupt.
+
+The 100B canonical `f1709ab09486ba…` had been listed since 2026-05-25 among the **Deprecated
+canonicals**, on the reading that it was an incomplete file left behind by an interrupted run.
+On 2026-08-07 a byte-identity check for the telemetry patch — a test about something else
+entirely — produced exactly those bytes from a clean build. Extending the check on 2026-08-08
+to the v1 lineage reproduced them again, from `3258f4c` and `a2ead96`: **four independent code
+states across two lineages, every run clean and uninterrupted, all at 12,386,121 records, all
+`f1709ab0…`.** A truncated file does not do that.
+
+**What actually happened in May.** The bisect that deprecated it pinned its six enums to
+`SOLVE_DEPTH=3` with a hand-set `SOLVE_PER_SUB_BRANCH_LIMIT=631545` — roughly 100e9 divided by
+158,364 *cells* — decomposing the search into ~158K shallow sub-branches. The archived reference
+had been produced by the engine's own auto-divide: 3,030 sub-branches of 33,003,300 nodes. Both
+spend exactly 100B nodes. Broader-and-shallower reaches 27,664,734 distinct records; deeper
+reaches 12,386,121. Two correct answers to two different questions, compared as though they were
+answers to one. The bisect had even written down the governing principle — that in a BUDGETED
+enumeration the record *set* depends on which sub-branches reach BUDGETED status — and applied
+it to the code differences it was hunting while not applying it to its own configuration.
+
+**Two chances to catch it, both unused, and that is the part worth keeping.** First: this very
+file already contained a re-derivation recording `f1709ab0…` reproducing *byte-identically* from
+`3258f4c` at 12,386,121 records, `solve --verify` PASS. It sat roughly 1,500 lines from the
+paragraph calling the same sha an artifact, and nothing forced the two to be read together.
+Second: the deprecated row listed the record count as "(not recorded)" — but `solutions.bin`
+opens with a 32-byte header whose bytes 8–15 are the record count, *inside the hashed stream*.
+The number was in the disputed file the whole time, one command away. Either check would have
+turned a two-and-a-half-month-old published error into a five-minute one.
+
+The correction is [CORRECTIONS.md](CORRECTIONS.md) CX-34. The sibling deprecations `c34390c0`
+(5.6T) and `f7b8c4fb` (10T) were re-examined and **stand** — each records an explicit
+record-count delta against a *named, reproducible replacement*, which is genuinely resume-shaped
+evidence, and neither rests on the comparison that failed here. `f1709ab0…` is reinstated as a
+valid but **configuration-specific** reference; 100B remains unsuitable as a cross-build gate,
+exactly as it already was.
+
+Attribution: measurement, diagnosis, and correction by Claude (Opus 5) under operator direction.
+The verification harness used for the v1 half printed a false "matches NONE" verdict of its own —
+it hashed an empty stream to `e3b0c442…` = sha256("") by running `gzip -dc` against an
+un-gzipped file — which is recorded with the private evidence. The engine's own
+`solutions.sha256` corroborates the hashes independently of that harness.
+
+## 2026-08-08/08-30: The month the project spent subtracting — a cession chain, a publication freeze, and a class of checks that report clean without having looked
+
+**This entry closes a hole.** For a month this file jumped from 2026-08-08 straight to 2026-08-30,
+and the currency check that was supposed to notice measured only the *newest* narrated date against
+the newest commit — so it went green over twenty-two days and a hundred and twenty commits. The
+check now walks consecutive headings and trips on interior gaps; the section below is what was
+missing. It is written from the private working record and from re-read diffs, not from commit
+subjects, because a narrative assembled from commit titles is exactly how a wrong label survives.
+
+Two things dominate the month, and neither is a result. The first is **attribution**: a chain of
+cessions that moved this project's central structural observation back seven centuries and retired
+the impossibility argument it had thought was its own. The second is **a defect class** — checks
+that pass without having looked at anything — found twenty-three times, seven of them in our own
+gate suite.
+
+### Gates for classes, not instances
+
+The first week was spent making the repository survive a stranger reading it, on the finding that
+several defects were **class** defects the existing gates structurally could not see.
+
+Five public branches contradicted `main` and no instrument could see it, because every gate ran
+against the working tree only. [GATE 19](../scripts/doc_gates.sh) and
+[BRANCH_REGISTRY.tsv](BRANCH_REGISTRY.tsv) answer that now, and registering it turned up seven
+commits that existed on exactly one machine. Four more gates followed across 08-09 → 08-11:
+publication-state markers, `## DRAFT` left in a shipped document, backticked script paths that must
+resolve to real files, and documented value sets checked against the literal domain in the code.
+The last of the four mattered more than the rest and did not look like it at the time: **a
+documented reproduction command must be runnable.**
+
+A clean-room Knuth prober landed in `verify.c` as a second instrument on the 5.21×10³¹ estimate,
+pre-registered before it ran. The n = 18 rung was filled in TR-11 §4b and independently reproduced
+by the DP in `verify.py` — recorded as *a gap closed, not a correction*, because nothing published
+had been wrong.
+
+### A measurement that later caught a stale figure
+
+The g-ladder for layers 16–31 was measured at **3,829.1 GiB**, mirrored **7,658.2 GiB**, cross-checked
+against `df`. A first attempt that calibrated bytes-per-entry from a single layer came out **738 GiB
+short** and was discarded rather than reconciled — the right instinct, since a calibration that
+disagrees with a direct measurement by 20% is not a calibration.
+
+The consequence surfaced two weeks later. That measurement superseded a `~2.6 TB` design figure from
+July, and the tier table was never updated. It was caught only when the operator asked a question
+that happened to expose it. **A number that supersedes another number does not propagate itself.**
+
+### Nineteen review documents, and the gate that was decorative
+
+A single day, 08-13, produced nineteen review documents under operator direction. Calling them
+design reviews would be wrong: most are *audits* of code and of the published corpus, and only three
+are design specifications. **Nine of the nineteen were re-read for this entry; the other ten are not
+characterised here** — an unread document is not evidence, and the count is not the finding.
+
+- 🔴 **A dual-anchor `--selftest` gate was decorative on most launcher paths.** The in-binary gate
+  fails closed on every branch audited. The *launcher-side* check wrapped around it — grepping the
+  binary's own output for the anchor string — is structurally unable to fail, because the binary
+  prints its expected sha **unconditionally, before running the child**. The grep matches whether
+  the test passed or failed. Canonical *enumeration* artifacts were protected anyway by an
+  independent return-code-checked backstop compiled into the binary and armed at ≥ 1T nodes; the
+  non-enumeration production paths had no such backstop.
+- **Every "machine-checked" claim in the public corpus was audited, and none was unbacked.** All 92
+  distinct Lean theorem names cited anywhere in the public tree exist in the file named. Six defects
+  were found — an overstated index line, three sites missing a transcription caveat, one citation
+  naming no theorem, and one use of "machine-checked" for a shell doc-gate. **None changed a number,
+  a theorem, or a verdict.**
+- **The prune predicates match their theorems**, with the bridge gaps exactly where the Lean files
+  themselves place them. The finding runs the other way: **two Lean files prove predicates that no C
+  code implements**, and no public artifact said so.
+- The launcher re-audit was **tiered, and says so** — 114 launchers against 10 incident classes, deep
+  reads on the active set and grep-level coverage on closed campaigns, concluding "residual risk, not
+  certified clean" in its own words. A tiered audit that reports itself as exhaustive is worse than
+  no audit.
+
+⚠ These verdicts live in private review notes and **no public reproduction command exists for any of
+them.** This section records what was reviewed and found; it is not a published result.
+
+### 🔴 The cession wave — the deepest attribution work this project has done
+
+These are the most consequential entries of the month precisely because they **subtract** from the
+project's claims.
+
+**The K₄ orbit decomposition of the 64 hexagrams was ceded to the classical tradition.** First to
+**吳澄 (c. 1300)** — recorded at the time as *"the deepest cession this project makes"* — and then,
+**the same day**, superseded again to **朱元昇 (by 1270)** as the earliest. `solve.c`'s own
+attribution comment, which had been modern-only, was corrected to match. On `main`, the
+"novel contribution" claim was withdrawn outright.
+
+**The cession is a chain of three, and every step was independently re-derived rather than
+accepted.** 崔述 (c. 1800) → 吳澄 (c. 1300) → 朱元昇 (by 1270). The private records say so in their
+own words — *"I re-derived it, I did not take the agent's word"*; *"MATHEMATICALLY VALIDATED, not
+taken on trust"* — and the chain was tested against near-misses rather than only against its own
+candidates: 來知德 and 俞琰 **fail** a test that 朱元昇 passes. 崔述 is not merely superseded; he is an
+**independent rediscoverer of a subset** — 6 of the 20 orbits, on 16 of the 64 — at a time when
+吳澄's text had been lost since the Ming and only recently reconstructed, and with his own testimony
+that the joint use was novel in his day.
+
+⚠ **We had already cited 吳澄 — for the wrong chapter.** The man was in the bibliography; the passage
+that anticipates us was not. A name in a citation list is not coverage of that name's work.
+
+沈有鼎 1936 was cited directly from the source, with two sharpenings: his six groups **are** the K₄
+orbits, and his brevity is a **venue artifact** — explicitly not to be read as an undeveloped idea.
+焦循 and 來知德 were cited and the cession lists widened to the classical lineage; Xing Wen 2021 was
+added and a 崔述 reference corrected. Three overclaims were scoped down, a sampled figure was replaced
+with an exact count, and the rival group was credited to the tradition that supplied it. Reproduction
+shipped **alongside** the claims rather than after them: code was published for three classical claims
+that had none, and `--check-kw-pair-adjacency` was added so an adjacency assertion could be executed
+instead of read. All of this is in [CITATIONS.md](CITATIONS.md).
+
+### 🛑 A publication freeze, and the claim that did not survive
+
+**Our impossibility argument was not novel.** It is the field's settled position since 2004–05 —
+陳仁仁 2005, 謝金良 2004, 王振復 2004.
+
+**Exactly one claim survives:** counting the *orderings* of the 64 that respect the orbits, under a
+stated convention. A later sweep of the Song literature re-confirmed it untouched.
+
+🛑 **A publication freeze was declared on 2026-08-16 and, at the time of writing, is still in force:**
+no capstone, no paper, and no merge to `main` that asserts novelty, until 王俊龍 and 管小思 are read.
+The recorded concern is **not any single cession — it is the rate and the method**, and the working
+frame moved from *"establish novelty"* to *"establish exactly what is left."*
+
+**The mathematics is untouched by any of it**, and that distinction is the reason the freeze is
+survivable rather than fatal. Nothing above changes a count, a sha, or a theorem. What changed is who
+gets credit for the structure, and how much of what we said was ours actually is.
+
+### The sweep's other verdicts — including two of our own premises refuted
+
+The 08-16 literature sweep was not neutral breadth, and listing what was searched would misrepresent
+it. Two passes refuted premises of **ours**; one surfaced the closest prior-art title the project has
+seen; two came back clean for the surviving claim.
+
+- **A clean negative.** No modern group-theoretic reading of 崔述 exists under any title searched, and
+  「克萊因四元群」 (Klein four-group) has **zero** intersection with 易 in the index searched.
+- 🔴 **One of our own conclusions refuted.** A July sweep had recorded the 卦序-mathematics literature
+  as "effectively covered". It was not: 32 distinct titles came back, including a sustained
+  multi-paper programme on the mathematical regularity of the received sequence, a 1995 paper on the
+  *topological group structure* of the hexagram symbols, and a 2021 paper applying *lattice theory*
+  to it. The sharpest is **張清宇 2000,《錯綜不變組和散卦卦序結構》,《哲學研究》** — 「錯綜不變組」 is our
+  orbit concept, named, in a top-tier philosophy journal, in 2000. Read on 08-24, it defines the
+  orbit, partitions all 64 into the same 20 groups, derives ordering rules, and **counts no
+  orderings** — which would leave the surviving claim standing. **That verdict was deliberately
+  routed and not rendered**, and is not adjudicated here.
+- **A search designed against our own surviving claim came back empty.** Every sharp formal term
+  returned zero: exhaustive enumeration, traversal, constraint, Hamiltonian path, graph theory, orbit,
+  equivalence class, invariant, automorphism.
+- 🔴 **房振三 2005 — our reading of him was wrong and is withdrawn.** We had recorded that the symbol
+  form-classes track the two copyists' hands, and had built a third, codicological hypothesis on that.
+  He says close to the opposite: the form-classes are **shared** across both hands, and what tracks
+  the hands is execution and usage discipline. The hypothesis went, and a second misreading went with
+  it.
+- **謝向榮 2005 — read in full, and the closest published work to our own that exists.** Four of our
+  claims about it were wrong; the load-bearing one survived and came out stronger than we could
+  previously show.
+- **李尚信 1999 and 2002, read at 400 dpi from page images, and the audits refuted one of our
+  premises.** For 1999, the *membership* of the six-group split is an inherited skeleton and what is
+  in his own voice is the formalisation and the adjacency rationale — neither purely his own principle
+  nor purely restatement. For 2002 we had recorded that a page was missing from the PDF; **it was not
+  missing**, and the article was complete all along. And the correction runs against us: the
+  quadruple pairing is **李's own**, not our inference, and with the additional page he holds all four
+  焦循 quadruples plus three more, citing 焦循 nowhere.
+- ⚠ **One headline had to be pulled forward and killed.** A symbol-literature sweep recorded the K₄
+  orbit partition as claimed by no one. That was scoped to one strand of the literature and was
+  **overtaken the same day** by the 吳澄 → 朱元昇 cession above, which is precisely that partition. It
+  must not be carried forward, and it is recorded here so that it cannot be.
+- **A source-holdings audit, triggered by our own error.** A local directory was read as data loss, a
+  source reported gone, and re-purchase recommended — when the material had been moved to cold storage
+  two weeks earlier with a manifest already beside it. The gap was that nothing in the working tree
+  reflected the move, so "obtained" was unverifiable from inside the repository.
+
+### Two correct rules that interacted badly
+
+`--put-md5` was specified so that every future *download* of an archived artifact would be
+auto-validated on arrival. Rehydration was then banned as a verification route on cost grounds. Each
+rule is right on its own; together they removed the download, and with it the purpose. What remains
+is a **missing middle link**: disk bytes → sha256 registry ✅, blob `Content-MD5` ✅ (73 of 73 on the
+Stage F set), but **disk bytes → md5 ❌**. The stored Content-MD5 is self-consistent but *unanchored* —
+"whatever the upload tool computed", with nothing to check it against — and a sha256 registry cannot
+close the gap, because they are different hash functions.
+
+### Nobody had ever executed a published reproduction command
+
+[`scripts/exec_lane.sh`](../scripts/exec_lane.sh) landed together with **six defects it found on its
+first runs**, and the finding behind it is the uncomfortable one: **no review pass and no repository
+gate had ever executed a published reproduction command.** Four named blind spots followed from that
+— no execution lane at all; doc-versus-code auditing that covered flags but never build lines; a
+counted-number sweep that was list-driven and so could only check numbers already on the list; and
+report-only gate legs that were never invoked.
+
+It found real things immediately. The documented `verify.c` build line **was missing `-lm` and did not
+link**. The published estimator commands need a stack requirement that had never been stated. The
+hardware envelope was not written where a replicator would read it, and a short stack failed quietly
+instead of loudly. All three are fixed, and the last one now fails loudly.
+
+The same stretch shipped `verify.py --check-t5-c3`, which independently recomputes C3 for all 10⁶ T5
+records, disclosed the constraint freeze with its precise scope, added an orbit-column gate that
+catches what a sum-to-N check cannot, and — in a commit that declared its own branch under GATE 19 —
+recorded *"which I violated by pushing it"*.
+
+### The hardening stretch: a gate found blind by the gate after it
+
+A week of gate-building that kept teaching one lesson: **a gate can be independent, correct, and still
+blind, because coverage is a property of the test values, not of the instrument's independence.** Of
+four gates landed across two days, **two were found blind by the gate that followed them**, and a
+third closed a hole the gate before it had named in its own commit message.
+
+[FULL31_EXACT_AGGREGATES.md](../reports/FULL31_EXACT_AGGREGATES.md) published the per-layer aggregate
+of the exact build — 31 rows, terminal row the already-published |C1∩C2∩C4∩C5| = 1.097051×10³⁹. The
+rung *totals* had been independently recounted since July; the **intermediate layers had never been
+checked by anything**, so `verify.py --recount-rung-layers` was written to gate the published table
+against a plain budgeted DP with no symmetry quotient. All 22 layer masses at n = 9 and n = 13 agree,
+and twelve of them had no prior cross-check.
+
+**Then that gate was found blind.** The decimal renderer produces every exact count this project
+publishes, and its only end-to-end exercise was the n = 9 rung total **26112** — five digits, one
+limb. The largest mass at n = 13 is 2.1×10¹², still inside a single 64-bit limb, while the published
+headline integer sits in limb 2. A full-range gate followed: 113 renderings out to 58 digits. Drop the
+carry into limb 1 and 26112 still renders perfectly while the headline integer becomes a plausible
+38-digit number wrong by a factor of about 14.
+
+**The self-consistency trap was measured rather than argued.** Reverse the limb declaration order —
+one line, engine still internally correct — and `solve` writes bytes that are garbage to any outside
+reader. It then resumes from those files and reports 26112, correct: writer and reader cancel the
+defect exactly. `verify.py --f1u192-binary-roundtrip` reads the same bytes in Python and gets
+8.885×10⁴². This matters because the layer files are retained as the published query substrate, and an
+outside reader is the entire reason they are kept. ⚠ The first version of that gate read the raw
+layout while production writes per-block zlib; a third arm was added at n = 16 because no rung at
+n ≤ 13 reaches the 65,536-entry block size at all — the final n = 9 layer is 6 entries and the widest
+at n = 13 is 11,102 — so no earlier arm had ever crossed a block boundary. And the commit that added
+it states the limit plainly, against its own story: a block-seam off-by-one is **already loud inside
+the engine**, which hard-fails on the inflated size. The multi-block arm supplies an outside witness
+for that path; it does not catch something the engine misses.
+
+**An object-level integer had been published on the engine's word alone.** A Burnside count over the
+24-element pair-permutation quotient, derived from the 48 commuting bit-permutations rather than read
+out of `solve.c`, reproduces all 31 values. Burnside over *half* the group gives 26,067,040 where the
+full group gives 13,047,760, so the agreement is a real coincidence of two derivations rather than an
+arithmetic tautology.
+
+**And a published sentence was retracted.** The artifact had said *"no instrument in this repository
+can recount full-31 independently"*, justified by the layered DP's RAM ceiling past n ≈ 19. But
+`verify.c` Route B is signed inclusion–exclusion with DP state `(last, budget vector)` — 64 × ≤ 413
+slots, **under 1 MB per thread and no disk at full 31** — and it already ships `--ie-spec full31@0`
+and `--ie-probe`. A universal claim had been drawn from one method's limit without auditing the other
+instrument in the same repository.
+
+### A price that exists, and an authorisation that does not
+
+The retraction was replaced by a price rather than by a run, and the price is quoted here with the
+hedges the pricing note attaches to it.
+
+**The 93,939,712 canonical subsets are neither an extrapolation nor new** — the probe counts them
+exactly, and the figure is a long-published constant of this project (TR-11 §3). Only the *timing* is
+sampled: 200 samples per popcount class, measured on a 2-core box. The extrapolation from that timing
+is 239.4 core-hours per prime pass. ⚠ **The pricing note explicitly instructs the reader not to quote
+the single-figure wall estimate**: at 128 threads the walk DP contends for memory bandwidth, and the
+honest planning figure is a **6–17 hour window**, over which at least one Spot eviction is likely.
+Recorded Spot rates put the compute at **roughly $6–15** leaning high, before setup, disk and eviction
+overhead — inside the standing approval gate but above the self-execute floor, so it is an operator
+decision. **The price exists; the authorisation does not, and the run has not been made.**
+
+The probe's canonicity scan does corroborate the Burnside count on the classes it prints — the
+93,939,712 total, the k = 15/16 peak at 13,047,760, and the k = 23–31 tail — giving three agreeing
+derivations. Noted for completeness, because it bounds how much that agreement is worth: the probe
+prints a hardcoded expected total beside the one it computes, so the expectation ships inside the same
+binary.
+
+**A monitoring defect, found live.** During a Spot eviction the campaign heartbeat read
+`building_k=31` — the last layer, the reading most likely to be taken for "nearly done" — while every
+other field degraded honestly to `?`. One inline expression collapsed *"the probe never returned"*
+into *"the manifest says no layer is complete yet"*: the unknowable state rendered as the knowable,
+reassuring one. The script's own comments had warned about that field, by name, and the code did it
+anyway. The fix carries a seven-row truth table, shown to fail on 4 of 7 rows against the expression
+it replaced.
+
+### The second cross-model review: a check that reports clean without having looked
+
+A first external review had read 87 targets and yielded four findings that survived contact with the
+tree. The second was scoped wider — 111 targets, maximum reasoning effort, pinned to one published sha
+— and it did not behave like its predecessor. (An earlier 71-target run was found to have executed at
+the CLI's default reasoning effort rather than the intended one; it was not invalidated, but it was
+re-run as a controlled A/B and the original preserved.)
+
+**252 charges adjudicated: 240 accepted, 2 rejected, 7 already closed, and 3 accepted with the charge
+itself corrected.** Four Criticals, three of them proven by construction rather than argued. The
+sharpest: a documented "fresh run" cleanup left 2,201 files behind, so a directory inheriting one stale
+checkpoint printed `*** SEARCH COMPLETE ***`, exited 0, and wrote **157,960 of 199,637 solutions —
+20.9% silently missing behind a self-consistent sha.** Its guardrail did fire, loudly, rc=22 — and
+then named the override that bypasses it, in the same breath.
+
+**The class underneath it is the finding of the month.** Twenty-three instances of one shape: *a check
+that reports clean without having looked.* Seven were in our own gate suite, and six of those seven
+survived every test that planted bad input, then fell immediately when their **extractor** was stubbed
+to `exit 1`. One printed "OK to launch" before a real VM creation while a numeric comparison silently
+errored. **Break the producer, not the input** — that is the single most useful testing lesson of the
+campaign, and every fail-open repair since has been red-tested that way.
+
+**What it did not find.** No published number was wrong. Six successive batches derived, on different
+grounds each time, that nothing published could have come through a defective path; the canonicals are
+fenced by independent from-scratch byte-identical replication. One batch broke that run with exactly
+one exposure — a de-circularized spectral headline resting on a spectrum that structurally excludes the
+Nyquist bin — and the next established that the same surface carries three distinct defects. That
+recompute was running as the draft of this entry was written.
+
+**And it kept finding our own corrections.** Repeatedly the reviewers were right about a claim that a
+*previous* correction had already fixed everywhere except the one site nobody swept — a correction
+ledger outpacing its own body, diagnosed independently against four separate documents. Twice the tree
+was found to be *stronger* than it claimed: all 21 SAT certificates had been re-verified in July with
+a formally verified checker, and the replacement text was drafted in August and never landed.
+
+🔴 **The instrument was the problem more often than the corpus.** The extraction tooling under-counted
+by 80% across three successive format failures, and the strongest single reviewer in the whole corpus
+— 5 of 5 behavioural charges confirmed by execution — was invisible for the entire review until the
+last of those fixes. Seven whole-file targets produced no report at all while the queue read `DONE`,
+because `DONE` meant the tick had *run* them. A guard caught it, wrote 136 lines into a log, and
+nobody read the log.
+
+### Fixing it
+
+The review pinned every finding to one published sha, so nothing could be fixed while reviewers held
+worktrees against it. That constraint expired the moment collection finished, and the fixing began the
+same day — gates first, because they guard everything else. Seven fail-open checks were repaired, each
+red-tested by breaking its producer.
+
+The one that mattered most guarded money: a pre-launch check whose numeric comparison errored silently
+on a malformed argument, so the shell treated the failed test as false and printed "OK to launch"
+immediately before a real VM creation. Using the repaired check for a genuine launch then exposed a
+second defect underneath it — the cloud API had begun returning quota values as *quoted strings*, so
+the parser matched nothing and would have reported "0 free" while 122 of 130 vCPU were in fact
+available. **The morning's fix is what surfaced it**, because the repaired gate refused to report a
+number it had not obtained, and the refusal was the signal.
+
+**Attribution, and what this entry is not.** The engineering, the measurements and the corrections
+above are this lane's (Claude, Opus 5) under operator direction; the 08-13 audit block and the
+literature adjudications were a separate model pass (Fable), and the two cross-model reviews were an
+external reviewer (Codex). Reviewers are **acknowledged, never credited as authors**. The cessions are
+the substance of this entry and they run one way: 朱元昇, 吳澄, 崔述, 沈有鼎, 焦循, 來知德, 俞琰,
+張清宇, 陳仁仁, 謝金良, 王振復, 房振三, 謝向榮 and 李尚信 have priority over readings this project had
+treated as its own, and [CITATIONS.md](CITATIONS.md) is where each is recorded with its evidence. Many
+of the findings above rest on private review notes with **no public reproduction command**, and those
+are marked as such in place rather than dressed up as results. Corrections are welcome; several of the
+items here are corrections of us by people who were not looking for us.
+
+## 2026-08-30/09-02: A merge every gate accepts, and a prose sweep whose refusals were the point
+
+> **The gap this entry once declared is now closed, and the declaration is kept.** As published on
+> 2026-09-02 this section carried a note saying that **2026-08-08 → 2026-08-30** was *not* narrated —
+> a hole in the record rather than a quiet period — and warning that landing this entry would turn
+> the currency check green while the hole remained. That is exactly what happened. The check was
+> blind to interior gaps by construction; it was rebuilt to walk consecutive headings, it then
+> reported the hole, and the preceding section — **2026-08-08/08-30**, immediately above — narrates
+> it. The original note is preserved in substance here because a finding that survives only
+> in the text of the thing it describes is one edit from being lost — and because the sequence is
+> the lesson: the prose flagged what the instrument could not see, and the instrument was the thing
+> that had to change.
+
+### The canonical sha attests the enumeration path, and only that
+
+The `v4-query-program` → `main` merge for `solve.c` had been prepared in August with per-hunk
+dispositions. On 2026-09-02 it was **re-derived independently**, by a second model pass that was not
+permitted to read the prepared answer until it had written its own. The two agreed on **all twenty**
+marked conflict hunks — and the independent pass then found **four conflicts git does not mark**,
+because only one side had touched those lines.
+
+The sharpest of the four is measurable on published refs, so it is measured here rather than
+asserted. `main` hardened a class of destructive commands, writing every `rm -rf` format string with
+its argument quoted, behind a helper whose own comment says quoting alone is not sufficient. The
+branch forked before that fix:
+
+```
+$ for r in main archive/v4-query-program-20260829; do \
+    printf '%-34s  unquoted: %2d   quoted: %2d\n' "$r" \
+      "$(git grep -o -F '"rm -rf %s' $r -- solve.c | wc -l)" \
+      "$(git grep -o -F "\"rm -rf '%s'" $r -- solve.c | wc -l)"; done
+main                                unquoted:  0   quoted:  9
+archive/v4-query-program-20260829   unquoted: 11   quoted:  2
+```
+
+The resolution was then built and run, and its `--selftest` reproduced the baseline sha
+`403f7202…` exactly — while the same file still carried unquoted sites, at the positions the
+resolution had taken from the branch rather than from `main`.
+
+🔴 **So a fix present on `main` can be reverted by a merge that every gate in this project accepts.**
+The canonical sha attests the *enumeration path*; the regress harness, comments, and dispatch
+branches that return early all lie outside what it can see. **"The canonical sha is unchanged" is
+necessary and not sufficient** — and that is now demonstrated on a real artifact rather than argued
+from first principles. Nothing was merged: the merge sits behind a five-condition master gate, and
+at the time of writing none of the five is met.
+
+### A long prose sweep, and what it was actually for
+
+A run of prose batches worked through the accepted findings of the second external review (Codex
+V2). The number worth recording is not how many batches ran but the **refusal rate**: a substantial
+minority refused their charge outright, or refused half of a prescribed census, and the refusals
+held up on re-examination. Among them —
+
+- a prescribed fix that would have made a **true sentence false** — two sites assert a
+  three-predicate null model, and relabelling them to the five-constraint population would have
+  broken them;
+- a charge quoting a version of a file **that no longer existed**, whose live text already recorded
+  the very provenance the charge wanted added;
+- a charge whose own **diagnostic test was false**: it offered a marker for telling stale text from
+  corrected, and all four sites bearing the "stale" marker carried the corrected wording;
+- a census of twelve sites in twelve files where **none** were live;
+- an absence claim — that a literature figure had no in-repo reproducer — **refuted by executing the
+  reproducer**, in a document about reproducibility.
+
+**The technique that found the most was mechanical.** GATE 3 flattens whitespace before matching,
+precisely because a defective phrase spanning a hard line wrap is invisible to a line-based `grep`.
+Several batches found live sites only by searching the flattened corpus — including one retraction
+that had reached four of five files and was missing from the fifth *solely* because of a line break.
+This is a claim about our search, not about the corpus: a fixed-string gate attests that the
+registered strings are absent, never that the retracted claim is.
+
+### Findings the sweep produced
+
+- **Pair-slot rotation is not a symmetry of the constraint system, and C3 alone is what breaks it.**
+  The circular transition multiset is preserved exactly under rotation, so C1, circular C2 and C5
+  survive it; C3, which is absolute-position, does not. Reproducible with no build
+  ([CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md), "Symmetry under closure"):
+
+  ```
+  $ python3 -c "import verify as v; c=v.c3_of_ordering; r=lambda k:[(s+k)%32 for s in range(32)]; print(c(r(0)), c(r(4)), c(r(16)), sum(c(r(k))>776 for k in range(1,32)))"
+  776 888 1240 21
+  ```
+
+  C3(KW) = 776, rotate-4 = 888, rotate-16 = 1240, and **21 of the 31** non-identity rotations exceed
+  the 776 ceiling.
+- **An oriented leaf count had been published as a canonical one.** The exact-count engine iterates
+  both orientations, so a counter printed as a canonical leaf total is an *oriented* count — while
+  the same document reserved "canonical" for post-dedup sequences. The page contradicted itself.
+- **A pre-registration escrow disclosed less than it should have.** Three of its ten rows were
+  amended after their freeze commit, which the page never said. What did survive scrutiny is the
+  part that matters most: `git log --follow` on the escrow page returns a single commit, all ten
+  escrowed digests re-verify against the operator-held files, and not one published hash, byte count
+  or date was altered by the correction.
+- **The `--check-repr` oracle was sold as fails-closed and is blind to C3**, in both reference
+  verifiers. No published result is exposed — every registered canonical passes by the records path,
+  which does check C3 — but two review instruments carried a latent false-PASS.
+- **A software attribution was wrong, and is withdrawn rather than replaced.** Substituting a
+  corrected characterisation would mean describing a source that is not in the tracked corpus, so
+  the claim was removed instead.
+
+Each of these is recorded with its evidence, and with the reviewer who raised it acknowledged, in
+[CORRECTIONS.md](CORRECTIONS.md).
+
+### Certificates, and an encoder that emitted clauses nothing read
+
+The fourth two-rule core's certificate shipped, taking the archive from 21 to 22, and all 22 now
+verify under the formally verified checker. [CLAIM_TO_ARTIFACT.md](CLAIM_TO_ARTIFACT.md) row 12
+records the replay: `bash reports/certificates/verify_all.sh` → **22/22 `PASS cert`, zero FAIL,
+executed 2026-09-02 on the shipped tree**. Two hazards are recorded on that row and beside it because
+each can manufacture a false PASS: the checker exits 0 on failure as well as on success, and its
+default heap and stack exceed an 8 GB host.
+
+`--sat-c3 adder` was emitting the pseudo-Boolean mode's full auxiliary scaffolding — the 262,144
+`pair[v][i][j]` variables and their 786,432 definitional linking clauses — and then producing no
+adder network at all, its own metadata marking the mode deferred/superseded. The scaffolding is
+removed; `adder` is now byte-identical to `none`, and its clause sha **moved, intentionally**, which
+[SOLVE_PY_CLI.md](SOLVE_PY_CLI.md) says outright so the move is not read as a regression. No
+model-count proof was needed: the linking is a full Tseitin AND-definition, so removing a defined
+variable together with its definition cannot change the projected count.
+
+### A limit on the ranking, published rather than left implicit
+
+The full-31 ranking's total order — the comparator that makes a rank mean anything — existed only in
+a source comment and is now on the page. An independent reader written from the format specification
+alone agrees with the engine on all 26,112 walks at n = 9
+([FULL31_EXACT_AGGREGATES.md](../reports/FULL31_EXACT_AGGREGATES.md)).
+
+🔴 **What that does not fix is now stated too.** Every published check on the `f` ladder is a
+**linear functional** of the layer's values ([GT_LADDER_FORMAT.md](GT_LADDER_FORMAT.md)), so a
+perturbation orthogonal to the continuation counts satisfies every mass and cut identity exactly
+while changing individual ranks. The gates are not weak; they are the **wrong shape** — they
+constrain the values collectively, and a rank consumes them individually. The only pin we know of is
+exhaustive entry-level verification, and it was **declined**; this note is published in its place,
+with an instruction to revisit if any claim comes to depend on a specific rank.
+
+### Four gates that were green and wrong, and the one that was green over this very hole
+
+A batch of six new documentation gates was built in this window. **Red-testing found four of the six
+green and wrong, and none of the four reached a commit.** They are recorded here as the method
+working, not as escapes — a list that contains only the failures teaches the wrong lesson.
+
+The sharpest asked whether a sentence *mentions* a particular figure. The sentence names two
+figures, so swapping which of them it called the divisor left the gate green: **it passed its own
+red test**, satisfied by proximity rather than by the claim. A second could not match its own
+motivating defect, because the needle's character class excluded the dots in the live subject; it
+would have shipped as a regression guard against something it could not see. A third was greedy on
+the wrong side and produced false findings on *correct* prose — the shape that gets allowlisted into
+silence, which is worse than a miss. A fourth tested its quotation exemption at the wrong end of the
+match, so the ledger's own narration of a retraction read as an assertion of it, and the gate went
+red on the file that records the fix.
+
+Three of the four would have been permanently green, and therefore invisible. The differentiator was
+not review; it was constructing the defect first and watching the gate fail. All six shipped gates
+now carry a population floor, so an emptied subject is an **error** rather than a pass.
+
+🔴 **And the currency check on this very file was one of them.** It compared the newest narrated date
+to the newest commit — the *tip* of the narrative and nothing else — so it was blind to interior
+holes by construction. It went green the moment this entry landed, over the 22-day, 120-commit hole
+the note at the top of this section describes. That caveat survived only in the prose of the thing it
+described, which is one edit from being lost. The check now walks consecutive dated headings and
+trips on any interior span over threshold **that contains commits** — an idle fortnight needs no
+entry, and a gate that demands one gets trained away inside a month. It prints an explicit
+`HISTORY_GAP=CURRENT|TRIPPED` token instead of a banner. The hole above is therefore *reported*, not
+closed, and the check stays red until it is narrated.
+
+### The storage record corrected itself, and the field nobody re-read was the wrong one
+
+Stage F's integrity manifest recorded its blobs as archived. Asked directly whether that was so, we
+queried the account instead of re-reading the manifest: **all 72 data blobs were Cool** — explicitly
+tiered, not inferred, with no rehydration in progress and no Archive period anywhere in their
+history. Their creation, modification and tier-change timestamps were identical, so they had been
+*written* Cool and never moved. The claim had been wrong the day it was written.
+
+The instrument was red-tested rather than trusted on one query: the same query against the Stage G
+prefix returns 77 Archive and 1 Cool, exactly as *that* manifest states. So the Stage F answer was
+not a query artifact.
+
+**The shape of the error is the point.** Every hard number on that manifest line — byte counts,
+digests, blob count — verified exactly. The one field that was asserted rather than measured was the
+one that was wrong, and a dependent analysis had inherited it and doubled its estimated rehydration
+scope. Stage F was subsequently archived for real, on the Stage G convention: data at Archive, one
+README kept Cool carrying the full inventory, so the archive stays describable and verifiable
+**without rehydrating anything**. Verified after the operation rather than assumed — 72 Archive + 1
+Cool, byte counts identical to the pre-move figure, `Content-MD5` present on all 72 and unchanged by
+the move. ⚠ The Cool 30-day minimum was met **by one day**; a day earlier and the move would have
+incurred an early-deletion charge on 3.29 TB. Recorded because the margin was luck rather than
+planning.
+
+**Attribution, and the usual caution.** The measurements above — the two-ref `rm -rf` census, the
+rotation reproduction, and the certificate replay — are this lane's (Claude, Opus 5) under operator
+direction, and each is reproducible from this repository with the command printed beside it. The
+gate red-tests and the blob-tier census are also this lane's, but they run against a build tree and a
+storage account that are **not** part of this repository, so they are reported as findings on our own
+instruments rather than as results a reader can re-run here; the corrected manifest they produced is
+what ships. The
+independent merge re-derivation was a separate model pass (Fable); the review findings the prose
+sweep worked through were raised by an external reviewer (Codex V2). Reviewers are **acknowledged,
+never credited as authors**. None of the above is offered as novel outside this project's own
+record, and corrections are welcome — the refusal rate reported here is itself a measurement of our
+charge sheets, not a claim about anyone else's.

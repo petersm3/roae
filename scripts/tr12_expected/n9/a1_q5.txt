@@ -1,0 +1,279 @@
+functional	class	expectation	py_ref	note
+dclass:1	edge-additive	invariant/C5-CONSTANT	solve.py:_dist_multiset	count of boundary-distance-class-1 transitions; C5-forced == b0[d=1]
+dclass:2	edge-additive	invariant/C5-CONSTANT	solve.py:_dist_multiset	count of boundary-distance-class-2 transitions; C5-forced == b0[d=2]
+dclass:3	edge-additive	invariant/C5-CONSTANT	solve.py:_dist_multiset	count of boundary-distance-class-3 transitions; C5-forced == b0[d=3]
+dclass:4	edge-additive	invariant/C5-CONSTANT	solve.py:_dist_multiset	count of boundary-distance-class-4 transitions; C5-forced == b0[d=4]
+dclass:6	edge-additive	invariant/C5-CONSTANT	solve.py:_dist_multiset	count of boundary-distance-class-6 transitions; C5-forced == b0[d=6]
+linechanges	edge-additive	invariant/C5-CONSTANT	solve.py:_boundary_distances	SUM popcount(last^entry) (Q5 --lines); C5-forced == SUM_c b0[c]*dval[c]
+graycode	edge-additive (alias of dclass:1)	invariant/C5-CONSTANT	solve.py:_dist_multiset	count of Hamming-distance-1 boundaries; alias, exercises the alias path
+yangcount	edge-additive	invariant/VARIES	solve.py:_yang_count	SUM popcount(exit) over the n placements; the row that exercises the DP
+entryyang	edge-additive	invariant/VARIES	solve.py:_yang_count	SUM popcount(entry); exact complement of yangcount (free cross-check)
+posyang0	edge-additive	NON-INVARIANT (negative control)	n/a - never publishable	bit 0 of exit; MUST trip KC_EXTREMAL_INVARIANT=no. Control only.
+#provenance	engine=solve.c/kc-extremal	mode=list	git=<GIT>	source_sha=<SRC>
+KC_EXTREMAL_LIST=OK
+### dclass:1 max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:1	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=2	constant_on_space=yes	opposite_extreme=2
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=2	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:1	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:1 max rc=0
+### dclass:1 min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:1	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=2	constant_on_space=yes	opposite_extreme=2
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=2	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:1	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:1 min rc=0
+### dclass:2 max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:2	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=5	constant_on_space=yes	opposite_extreme=5
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=5	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:2	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:2 max rc=0
+### dclass:2 min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:2	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=5	constant_on_space=yes	opposite_extreme=5
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=5	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:2	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:2 min rc=0
+### dclass:3 max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:3	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=0	constant_on_space=yes	opposite_extreme=0
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=0	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:3 max rc=0
+### dclass:3 min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:3	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=0	constant_on_space=yes	opposite_extreme=0
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=0	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:3 min rc=0
+### dclass:4 max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:4	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=2	constant_on_space=yes	opposite_extreme=2
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=2	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:4	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:4 max rc=0
+### dclass:4 min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:4	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=2	constant_on_space=yes	opposite_extreme=2
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=2	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:4	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:4 min rc=0
+### dclass:6 max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:6	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=0	constant_on_space=yes	opposite_extreme=0
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=0	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:6	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:6 max rc=0
+### dclass:6 min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=dclass:6	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=0	constant_on_space=yes	opposite_extreme=0
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=0	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=dclass:6	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### dclass:6 min rc=0
+### linechanges max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=linechanges	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=20	constant_on_space=yes	opposite_extreme=20
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=20	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=linechanges	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### linechanges max rc=0
+### linechanges min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=linechanges	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=20	constant_on_space=yes	opposite_extreme=20
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=20	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=linechanges	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### linechanges min rc=0
+### graycode max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=graycode	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive (alias of dclass:1)
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=2	constant_on_space=yes	opposite_extreme=2
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=2	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=graycode	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### graycode max rc=0
+### graycode min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=graycode	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive (alias of dclass:1)
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=2	constant_on_space=yes	opposite_extreme=2
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,1,32,59,55,47,61,62,31,30,33,45,18,12,51
+witness_value=2	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=graycode	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### graycode min rc=0
+### yangcount max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=yangcount	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=30	constant_on_space=no	opposite_extreme=24
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,55,59,47,61,62,31,1,32,33,30,18,45,12,51
+witness_value=30	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=yangcount	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### yangcount max rc=0
+### yangcount min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=yangcount	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=24	constant_on_space=no	opposite_extreme=30
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=30,33,1,32,16,2,8,4,55,59,62,31,47,61,45,18,51,12
+witness_value=24	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=yangcount	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### yangcount min rc=0
+### entryyang max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=entryyang	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=30	constant_on_space=no	opposite_extreme=24
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=30,33,1,32,16,2,8,4,55,59,62,31,47,61,45,18,51,12
+witness_value=30	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=entryyang	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### entryyang max rc=0
+### entryyang min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+functional=entryyang	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=yes
+extreme_value=24	constant_on_space=no	opposite_extreme=30
+KC_EXTREMAL_NULL_VS_G=CONSISTENT
+witness=16,2,8,4,55,59,47,61,62,31,1,32,33,30,18,45,12,51
+witness_value=24	witness_member=MEMBER
+KC_EXTREMAL_WITNESS=VERIFIED
+#provenance	engine=solve.c/kc-extremal	func=entryyang	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	scope=in-memory-v1(n<=22)	semantics=certificate-not-proof
+KC_EXTREMAL=OK
+### entryyang min rc=0
+### posyang0 max
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+ERROR: [kc-extremal] 'posyang0' is NOT invariant under the orbit-quotient frame
+       map el[1].hmap: weight(1, last=0, entry=16, exit=2) = 0 but the
+       mapped edge weighs 1. The compiled ladders are an ORBIT QUOTIENT, so
+       a DP over them would return the extremum over ORBITS -- a value no raw
+       walk need attain. REFUSING to run the DP (TR-12 Q5 caveat 1); a
+       non-invariant functional needs the plain unquotiented DP, which is
+       memory-infeasible at full-31 and is DEFERRED.
+functional=posyang0	direction=max	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=no
+#invariance-counterexample	g=1	step=1	last=0	entry=16	exit=2	w=0	w_mapped=1
+#provenance	engine=solve.c/kc-extremal	func=posyang0	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	space=C1C2C4C5-SUPERSPACE	semantics=certificate-not-proof
+KC_EXTREMAL=FAIL
+### posyang0 max rc=1
+### posyang0 min
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+ERROR: [kc-extremal] 'posyang0' is NOT invariant under the orbit-quotient frame
+       map el[1].hmap: weight(1, last=0, entry=16, exit=2) = 0 but the
+       mapped edge weighs 1. The compiled ladders are an ORBIT QUOTIENT, so
+       a DP over them would return the extremum over ORBITS -- a value no raw
+       walk need attain. REFUSING to run the DP (TR-12 Q5 caveat 1); a
+       non-invariant functional needs the plain unquotiented DP, which is
+       memory-infeasible at full-31 and is DEFERRED.
+functional=posyang0	direction=min	order=NATIVE	object=WALK	space=C1C2C4C5-SUPERSPACE	n=9	class=edge-additive
+KC_EXTREMAL_INVARIANT=no
+#invariance-counterexample	g=1	step=1	last=0	entry=16	exit=2	w=0	w_mapped=1
+#provenance	engine=solve.c/kc-extremal	func=posyang0	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	space=C1C2C4C5-SUPERSPACE	semantics=certificate-not-proof
+KC_EXTREMAL=FAIL
+### posyang0 min rc=1

@@ -1,0 +1,25 @@
+# XA-24 — the (mod 24) divisibility gate, kernel-backed (twenty_four_dvd_solution_count)
+quantity	value	mod24
+N_total	26112	0
+layer0_flow	26112	0
+layer1_flow	26112	0
+layer2_flow	26112	0
+layer3_flow	26112	0
+layer4_flow	26112	0
+layer5_flow	26112	0
+layer6_flow	26112	0
+layer7_flow	26112	0
+layer8_flow	26112	0
+branch0_solutions	2368	16	(reported, not gated)
+branch1_solutions	2368	16	(reported, not gated)
+branch2_solutions	2368	16	(reported, not gated)
+branch3_solutions	2368	16	(reported, not gated)
+branch4_solutions	2368	16	(reported, not gated)
+branch5_solutions	2368	16	(reported, not gated)
+branch6_solutions	896	8	(reported, not gated)
+branch7_solutions	3072	0	(reported, not gated)
+branch8_solutions	896	8	(reported, not gated)
+branch9_solutions	3072	0	(reported, not gated)
+branch10_solutions	3072	0	(reported, not gated)
+branch11_solutions	896	8	(reported, not gated)
+MOD24_FAILS	0

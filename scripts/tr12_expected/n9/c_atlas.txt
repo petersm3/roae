@@ -1,0 +1,10 @@
+atlas_N_total	26112
+ladder_N_total	26112
+gate_per_layer_flow_eq_N	true
+gate_raw_marginal_sums_eq_N	true
+gate_branch_masses_sum_eq_N	true
+gate_fails	0
+branches	12
+layers	9
+branches_with_t_source_not_t_ladder	0
+ATLAS_FAILS	0

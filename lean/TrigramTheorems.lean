@@ -4,7 +4,8 @@
   TrigramTheorems.lean — machine-checked trigram-level structure of the ROAE
   constraint system (2026-07-11).
 
-  *** COMPILES CLEAN on Lean 4.31.0 (2026-07-11, x86_64 linux, core only —
+  *** COMPILES CLEAN on Lean 4.31.0 (2026-07-11; re-verified 2026-08-07 on
+  *** the kernel-only revision, x86_64 linux, core only —
   *** no mathlib, no lake project): `lean TrigramTheorems.lean` exits 0
   *** with zero errors/warnings; zero `sorry`, zero `axiom`, zero `admit`.
   *** The pinned toolchain is recorded in this directory's `lean-toolchain`
@@ -19,8 +20,23 @@
 
   Core Lean 4 only (no mathlib, no lake). Standalone: definitions restated
   verbatim from KingWen.lean / Automorphism.lean, per the repo's established
-  one-file-per-theorem-suite pattern. Finite facts use decide/native_decide
-  (extended trust base — see lean/README.md's trust-base note); sequence-level
+  one-file-per-theorem-suite pattern.
+
+  Trust base (updated 2026-08-07, per the standing native_decide → decide
+  migration policy in lean/README.md): kernel-only end to end — ZERO
+  native_decide anywhere in this file. History: on 2026-07-27 the
+  pairdist_count_* / TG-1 count / selfcomp_pair lemmas migrated
+  native_decide → kernel `decide`, making the TG-2 lead theorems and the
+  TG-1 counts kernel-only; on 2026-08-07 the remaining §4a–§6 finite facts
+  (the TG-3/TG-4/TG-5 subgroup facts and the §6 sanity instances) migrated
+  native_decide → `decide +kernel` (kernel-evaluated, no compiler trust),
+  and the one obligation too large for either enumeration route — §4c's
+  blockPreserving_iff_blockwise, whose direct 720-permutation kernel
+  enumeration was measured at ~11.5 GB peak RSS and rejected as a hardware
+  bar — is now proved structurally (destructured permutation, closed
+  bit-scatter form, carry bounds + omega on the concretized branches
+  forward; explicit single-bit counterexamples reverse). Statements are
+  unchanged from the native_decide revision, verbatim. Sequence-level
   theorems are structural proofs over EVERY valid ordering, in the style of
   alternations_15_general / switches_30_general.
 
@@ -63,8 +79,17 @@
     reversal, and trigram swap: that group, and its 14-orbit ("families of
     derivation") decomposition of the 64 hexagrams, is Hershock 1991
     (J. Chinese Philosophy 18:3) — a DIFFERENT group acting on a DIFFERENT
-    object, machine-verified separately by this project, and any statement
-    about trigram OPERATIONS on hexagrams must cite Hershock. TG-3's result
+    object, machine-verified separately by this project. Any statement about
+    the 14-family decomposition, or about his circular reordering built from
+    complement, reversal, trigram swap and the nuclear ("linking") map, must
+    cite Hershock. Trigram OPERATIONS on hexagrams as such are older and are
+    NOT his: ⟨comp, rev⟩ and ⟨rev, swap⟩ are Wu Cheng's (13th c.) and
+    ⟨comp, swap⟩ Jiao Xun's (18th c.) — verify.py --check-classical-groups —
+    and the two groups are related by more than vocabulary: they share the
+    order-4 subgroup ⟨rev, swap⟩, every element of which is a line-position
+    permutation in G₁₂; complement is not a line permutation, and that is
+    what puts Hershock's group outside the S₆ framing (corrected 2026-09-02;
+    Codex V2-F54 #6). TG-3's result
     — exactly 12 of the 48 line-position symmetries respect the trigram
     bipartition, ≅ S₃ × C₂, collapsing to S₃ (order 6) at record level —
     has no located external prior art (the constraint system itself is
@@ -272,12 +297,12 @@ theorem symmetric_iff_trigram :
 /-- TG-1.4: exactly 8 symmetric hexagrams. -/
 theorem symmetric_count_8 :
     ((List.range 64).filter fun h => rev6 h == h).length = 8 := by
-  native_decide
+  decide
 
 /-- TG-1.4: exactly 8 anti-symmetric hexagrams (rev6 h = comp6 h; registry R3). -/
 theorem antisymmetric_count_8 :
     ((List.range 64).filter fun h => rev6 h == h ^^^ 63).length = 8 := by
-  native_decide
+  decide
 
 /-- TG-1.4: the symmetric and anti-symmetric classes are disjoint. -/
 theorem sym_antisym_disjoint :
@@ -287,7 +312,7 @@ theorem sym_antisym_disjoint :
 /-- TG-1.5: the doubled-trigram ("pure") hexagrams are exactly {9t : t < 8}. -/
 theorem pure_hexagrams_explicit :
     (List.range 64).filter pureHex = [0, 9, 18, 27, 36, 45, 54, 63] := by
-  native_decide
+  decide
 
 /-- TG-1.5: the pure class is closed under the canonical partner map. -/
 theorem pure_closed_partner :
@@ -478,19 +503,19 @@ theorem within_double (l : List Nat) (hperm : l.Perm (List.range 64))
     48 = 24+24 over hexagrams, i.e. multiset {2:12, 4:12, 6:8} over the 32
     pairs (each pair counted twice below, once per member). -/
 theorem pairdist_count_0 : ((List.range 64).countP fun h => ham h (partner h) == 0) = 0 := by
-  native_decide
+  decide
 theorem pairdist_count_1 : ((List.range 64).countP fun h => ham h (partner h) == 1) = 0 := by
-  native_decide
+  decide
 theorem pairdist_count_2 : ((List.range 64).countP fun h => ham h (partner h) == 2) = 24 := by
-  native_decide
+  decide
 theorem pairdist_count_3 : ((List.range 64).countP fun h => ham h (partner h) == 3) = 0 := by
-  native_decide
+  decide
 theorem pairdist_count_4 : ((List.range 64).countP fun h => ham h (partner h) == 4) = 24 := by
-  native_decide
+  decide
 theorem pairdist_count_5 : ((List.range 64).countP fun h => ham h (partner h) == 5) = 0 := by
-  native_decide
+  decide
 theorem pairdist_count_6 : ((List.range 64).countP fun h => ham h (partner h) == 6) = 16 := by
-  native_decide
+  decide
 
 /-- the within-pair distance is invariant under swapping the pair's orientation
     (ham is symmetric; partner is an involution). -/
@@ -547,7 +572,7 @@ theorem selfcomp_pair_iff :
 
 theorem selfcomp_pair_count :
     ((List.range 64).countP fun h => partner h == h ^^^ 63) = 16 := by
-  native_decide
+  decide
 
 /- --- §3b the within-pair multiset (TG-2 prop 1, previously prose-only) --- -/
 
@@ -897,46 +922,152 @@ def perms3 : List (List Nat) := perms [0, 1, 2]
 def mirrorDouble (q : List Nat) : List Nat :=
   q ++ (q.reverse.map fun x => 5 - x)
 
-/- --- §4a the finite subgroup facts (native_decide) --- -/
+/- ------------------ machinery (adapted from PruneGInvariance §0b) ------------------ -/
 
-theorem G48_length : G48.length = 48 := by native_decide
+theorem mem_inserts_perm {x : Nat} : ∀ {l q : List Nat}, q ∈ inserts x l → q.Perm (x :: l)
+  | [], q, hq => by
+      simp only [inserts, List.mem_cons, List.not_mem_nil, or_false] at hq
+      subst hq; exact List.Perm.refl _
+  | y :: ys, q, hq => by
+      simp only [inserts, List.mem_cons, List.mem_map] at hq
+      rcases hq with rfl | ⟨q', hq', rfl⟩
+      · exact List.Perm.refl _
+      · exact (List.Perm.cons y (mem_inserts_perm hq')).trans (List.Perm.swap x y ys)
 
-theorem G24_length : G24.length = 24 := by native_decide
+theorem mem_perms_perm : ∀ {l q : List Nat}, q ∈ perms l → q.Perm l
+  | [], q, hq => by
+      simp only [perms, List.mem_cons, List.not_mem_nil, or_false] at hq
+      subst hq; exact List.Perm.refl _
+  | x :: xs, q, hq => by
+      simp only [perms, List.mem_flatMap] at hq
+      obtain ⟨r, hr, hq2⟩ := hq
+      exact (mem_inserts_perm hq2).trans (List.Perm.cons x (mem_perms_perm hr))
+
+theorem foldl_add_eq_sum : ∀ (l : List Nat) (a : Nat), l.foldl (·+·) a = a + l.sum
+  | [], a => by simp
+  | x :: xs, a => by
+      rw [List.foldl_cons, foldl_add_eq_sum xs (a + x), List.sum_cons]
+      omega
+
+def bitsum : List Nat → Nat → Nat
+  | [], _ => 0
+  | x :: xs, n => n % 2 * 2^x + bitsum xs (n / 2)
+
+theorem range_map_bits (q : List Nat) : ∀ n : Nat,
+    ((List.range q.length).map fun i => n / 2^i % 2 * 2^(q.getD i 0)).sum = bitsum q n := by
+  induction q with
+  | nil => intro n; rfl
+  | cons x xs ih =>
+      intro n
+      rw [List.length_cons, List.range_succ_eq_map, List.map_cons, List.map_map, List.sum_cons]
+      have hhead : n / 2^0 % 2 * 2^((x :: xs).getD 0 0) = n % 2 * 2^x := by
+        simp
+      have htail : ((List.range xs.length).map
+          ((fun i => n / 2^i % 2 * 2^((x :: xs).getD i 0)) ∘ Nat.succ)).sum
+          = bitsum xs (n / 2) := by
+        rw [← ih (n / 2)]
+        apply congrArg
+        apply List.map_congr_left
+        intro i _
+        simp only [Function.comp, Nat.succ_eq_add_one, List.getD_cons_succ]
+        have hdiv : n / 2 ^ (i + 1) = n / 2 / 2 ^ i := by
+          rw [Nat.div_div_eq_div_mul, ← Nat.pow_succ']
+        rw [hdiv]
+      rw [hhead, htail]
+      rfl
+
+theorem applyPerm_eq_bitsum (p : List Nat) (hlen : p.length = 6) (n : Nat) :
+    applyPerm p n = bitsum p n := by
+  unfold applyPerm
+  rw [foldl_add_eq_sum, Nat.zero_add, ← hlen, range_map_bits]
+
+/- ------------------ the closed 6-entry form ------------------ -/
+
+/-- applyPerm on a destructured permutation, in bitsum's exact nesting. -/
+theorem applyPerm6 (a0 a1 a2 a3 a4 a5 x : Nat) :
+    applyPerm [a0, a1, a2, a3, a4, a5] x =
+      x % 2 * 2^a0 + (x/2 % 2 * 2^a1 + (x/2/2 % 2 * 2^a2 +
+        (x/2/2/2 % 2 * 2^a3 + (x/2/2/2/2 % 2 * 2^a4 +
+          (x/2/2/2/2/2 % 2 * 2^a5 + 0))))) := by
+  rw [applyPerm_eq_bitsum _ rfl]
+  rfl
+
+/-- ... regrouped into the (lower-block sources) + (upper-block sources) split. -/
+theorem applyPerm6_split (a0 a1 a2 a3 a4 a5 x : Nat) :
+    applyPerm [a0, a1, a2, a3, a4, a5] x =
+      (x % 2 * 2^a0 + x/2 % 2 * 2^a1 + x/4 % 2 * 2^a2) +
+      (x/8 % 2 * 2^a3 + x/16 % 2 * 2^a4 + x/32 % 2 * 2^a5) := by
+  rw [applyPerm6]
+  rw [show x/2/2 = x/4 from by omega]
+  rw [show x/4/2 = x/8 from by omega]
+  rw [show x/8/2 = x/16 from by omega]
+  rw [show x/16/2 = x/32 from by omega]
+  simp only [Nat.add_zero, Nat.add_assoc]
+
+/-- three distinct sub-3 scatter positions carry three bits into a value < 8. -/
+theorem lowsum_le7 {e0 e1 e2 u v w : Nat} (h0 : e0 < 3) (h1 : e1 < 3) (h2 : e2 < 3)
+    (d01 : e0 ≠ e1) (d02 : e0 ≠ e2) (d12 : e1 ≠ e2)
+    (hu : u ≤ 1) (hv : v ≤ 1) (hw : w ≤ 1) :
+    u * 2^e0 + v * 2^e1 + w * 2^e2 ≤ 7 := by
+  have he0 : e0 = 0 ∨ e0 = 1 ∨ e0 = 2 := by omega
+  have he1 : e1 = 0 ∨ e1 = 1 ∨ e1 = 2 := by omega
+  have he2 : e2 = 0 ∨ e2 = 1 ∨ e2 = 2 := by omega
+  rcases he0 with rfl | rfl | rfl <;> rcases he1 with rfl | rfl | rfl <;>
+    rcases he2 with rfl | rfl | rfl <;>
+    simp only [show (2:Nat)^0 = 1 from rfl, show (2:Nat)^1 = 2 from rfl,
+      show (2:Nat)^2 = 4 from rfl] at * <;> omega
+
+/- ------------------ THE THEOREM, original statement ------------------ -/
+
+/-- Boolean unfold of blockPreserving on a destructured list. -/
+theorem blockPreserving6 (a0 a1 a2 a3 a4 a5 : Nat) :
+    blockPreserving [a0, a1, a2, a3, a4, a5] = true ↔
+      ((a0 < 3 ∧ a1 < 3 ∧ a2 < 3) ∨ (3 ≤ a0 ∧ 3 ≤ a1 ∧ 3 ≤ a2)) := by
+  show (([a0,a1,a2].all fun x => decide (x < 3)) ||
+        ([a0,a1,a2].all fun x => decide (3 ≤ x))) = true ↔ _
+  simp only [List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true,
+    Bool.or_eq_true, decide_eq_true_eq]
+
+/- --- §4a the finite subgroup facts (decide +kernel) --- -/
+
+theorem G48_length : G48.length = 48 := by decide +kernel
+
+theorem G24_length : G24.length = 24 := by decide +kernel
 
 /-- TG-3 headline count: exactly 12 of the 48 constraint symmetries respect
     the trigram bipartition. -/
-theorem G12_length : G12.length = 12 := by native_decide
+theorem G12_length : G12.length = 12 := by decide +kernel
 
 /-- record level: the 12 collapse to exactly 6 coset representatives — the
     record-level trigram-compatible symmetry group is S₃ (order 6). -/
-theorem G6_length : G6.length = 6 := by native_decide
+theorem G6_length : G6.length = 6 := by decide +kernel
 
 theorem G12_sub_G48 : ∀ p ∈ G12, p ∈ G48 := fun _ hp => (List.mem_filter.mp hp).1
 
-theorem idp_mem_G12 : idp ∈ G12 := by native_decide
+theorem idp_mem_G12 : idp ∈ G12 := by decide +kernel
 
 /-- rho (bit reversal) is trigram-compatible — it SWAPS the two blocks. -/
-theorem rho_mem_G12 : rho ∈ G12 := by native_decide
+theorem rho_mem_G12 : rho ∈ G12 := by decide +kernel
 
 /-- G12 is closed under composition (with idp and inverses below, a genuine
     subgroup of G48). -/
-theorem G12_closed_pcomp : ∀ p ∈ G12, ∀ q ∈ G12, pcomp p q ∈ G12 := by native_decide
+theorem G12_closed_pcomp : ∀ p ∈ G12, ∀ q ∈ G12, pcomp p q ∈ G12 := by decide +kernel
 
 theorem G12_closed_inv : ∀ p ∈ G12, ∃ q ∈ G12, pcomp q p = idp ∧ pcomp p q = idp := by
-  native_decide
+  decide +kernel
 
 /-- rho is central in G48 (G48 IS the centralizer of reversal, so this is the
     expected bookkeeping fact, kernel-checked). -/
-theorem rho_central_G48 : ∀ p ∈ G48, pcomp p rho = pcomp rho p := by native_decide
+theorem rho_central_G48 : ∀ p ∈ G48, pcomp p rho = pcomp rho p := by decide +kernel
 
 /- --- §4b structure: G12 ≅ S₃ × C₂, record level S₃ --- -/
 
 /-- every 3-permutation embeds into the record-level representatives G6. -/
-theorem mirrorDouble_mem_G6 : ∀ q ∈ perms3, mirrorDouble q ∈ G6 := by native_decide
+theorem mirrorDouble_mem_G6 : ∀ q ∈ perms3, mirrorDouble q ∈ G6 := by decide +kernel
 
 /-- ... and its rho-coset partner lies in G12. -/
 theorem mirrorDouble_rho_mem_G12 : ∀ q ∈ perms3, pcomp (mirrorDouble q) rho ∈ G12 := by
-  native_decide
+  decide +kernel
 
 /-- COVERING: every element of G12 is mirrorDouble q or (mirrorDouble q)·rho
     for some 3-permutation q. With the 12 listed images distinct
@@ -946,38 +1077,39 @@ theorem G12_decomposition_covers :
     (G12.all fun p =>
       ((perms3.map mirrorDouble).contains p ||
        (perms3.map fun q => pcomp (mirrorDouble q) rho).contains p)) = true := by
-  native_decide
+  decide +kernel
 
 theorem G12_decomposition_nodup :
     ((perms3.map mirrorDouble) ++ (perms3.map fun q => pcomp (mirrorDouble q) rho)).Nodup := by
-  native_decide
+  decide +kernel
 
 /-- mirrorDouble is a group homomorphism S₃ → G48 (composition-compatible;
     with injectivity below, an isomorphism onto its image G6). -/
 theorem mirrorDouble_hom :
     ∀ q1 ∈ perms3, ∀ q2 ∈ perms3,
       pcomp (mirrorDouble q1) (mirrorDouble q2) = mirrorDouble (pcomp q1 q2) := by
-  native_decide
+  decide +kernel
 
 theorem mirrorDouble_inj :
     ∀ q1 ∈ perms3, ∀ q2 ∈ perms3, mirrorDouble q1 = mirrorDouble q2 → q1 = q2 := by
-  native_decide
+  decide +kernel
 
 /-- the record-level representatives are EXACTLY the mirrorDouble image:
     G6 = mirrorDouble(S₃) (with mirrorDouble_mem_G6, both inclusions). -/
 theorem G6_eq_mirrorDouble_image :
-    (G6.all fun p => (perms3.map mirrorDouble).contains p) = true := by native_decide
+    (G6.all fun p => (perms3.map mirrorDouble).contains p) = true := by decide +kernel
 
 /-- G6 sits inside Automorphism.lean's record-level G24 (so "6 of the 24
     record-level symmetries are trigram-compatible" is well-posed)... -/
-theorem G6_sub_G24 : ∀ p ∈ G6, p ∈ G24 := by native_decide
+theorem G6_sub_G24 : ∀ p ∈ G6, p ∈ G24 := by decide +kernel
 
 /-- ... and conversely G6 exhausts the trigram-compatible part of G24. -/
 theorem G24_blockPreserving_sub_G6 : ∀ p ∈ G24, blockPreserving p = true → p ∈ G6 := by
-  native_decide
+  decide +kernel
 
 /- --- §4c the characterization: bipartition-preservation = blockwise action --- -/
 
+set_option maxHeartbeats 2000000 in
 /-- CHARACTERIZATION over all 720 line permutations: σ preserves the trigram
     bipartition iff the upper trigram of σ·h is a function of ONE trigram of
     h alone (the upper one if blocks are fixed, the lower one if swapped).
@@ -991,7 +1123,147 @@ theorem blockPreserving_iff_blockwise :
             upperT (applyPerm p a) = upperT (applyPerm p b)) ∨
          (∀ a, a < 64 → ∀ b, b < 64 → lowerT a = lowerT b →
             upperT (applyPerm p a) = upperT (applyPerm p b)))) := by
-  native_decide
+  intro p hp
+  have hperm : p.Perm idp := mem_perms_perm hp
+  have hlen : p.length = 6 := hperm.length_eq
+  have hnd : p.Nodup := hperm.nodup_iff.mpr (by decide)
+  have hmem : ∀ j ∈ p, j < 6 := by
+    intro j hj
+    have : j ∈ idp := hperm.mem_iff.mp hj
+    simp only [idp, List.mem_cons, List.not_mem_nil, or_false] at this
+    omega
+  -- destructure p into its six entries
+  match p, hlen, hnd, hmem with
+  | [a0, a1, a2, a3, a4, a5], _, hnd, hmem =>
+  -- bounds
+  have b0 : a0 < 6 := hmem a0 (by simp)
+  have b1 : a1 < 6 := hmem a1 (by simp)
+  have b2 : a2 < 6 := hmem a2 (by simp)
+  have b3 : a3 < 6 := hmem a3 (by simp)
+  have b4 : a4 < 6 := hmem a4 (by simp)
+  have b5 : a5 < 6 := hmem a5 (by simp)
+  -- pairwise distinctness, peeled into omega-friendly conjunctions of ≠
+  obtain ⟨hm0, hnd⟩ := List.nodup_cons.mp hnd
+  obtain ⟨hm1, hnd⟩ := List.nodup_cons.mp hnd
+  obtain ⟨hm2, hnd⟩ := List.nodup_cons.mp hnd
+  obtain ⟨hm3, hnd⟩ := List.nodup_cons.mp hnd
+  obtain ⟨hm4, _⟩ := List.nodup_cons.mp hnd
+  simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hm0 hm1 hm2 hm3 hm4
+  constructor
+  · -- forward: block preservation ⇒ blockwise action
+    intro hbp
+    have hbp' : (a0 < 3 ∧ a1 < 3 ∧ a2 < 3) ∨ (3 ≤ a0 ∧ 3 ≤ a1 ∧ 3 ≤ a2) :=
+      (blockPreserving6 a0 a1 a2 a3 a4 a5).mp hbp
+    rcases hbp' with ⟨h0, h1, h2⟩ | ⟨h0, h1, h2⟩
+    · -- blocks fixed: {a0,a1,a2} = {0,1,2}, so {a3,a4,a5} = {3,4,5};
+      -- the upper trigram of σ·x is a function of x's upper trigram
+      left
+      intro a _ b _ hab
+      rw [applyPerm6_split, applyPerm6_split]
+      have hLa : a % 2 * 2^a0 + a/2 % 2 * 2^a1 + a/4 % 2 * 2^a2 ≤ 7 :=
+        lowsum_le7 h0 h1 h2 (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
+      have hLb : b % 2 * 2^a0 + b/2 % 2 * 2^a1 + b/4 % 2 * 2^a2 ≤ 7 :=
+        lowsum_le7 h0 h1 h2 (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
+      obtain ⟨La, hga⟩ : ∃ L, a % 2 * 2^a0 + a/2 % 2 * 2^a1 + a/4 % 2 * 2^a2 = L := ⟨_, rfl⟩
+      obtain ⟨Lb, hgb⟩ : ∃ L, b % 2 * 2^a0 + b/2 % 2 * 2^a1 + b/4 % 2 * 2^a2 = L := ⟨_, rfl⟩
+      rw [hga] at hLa ⊢
+      rw [hgb] at hLb ⊢
+      clear hga hgb
+      simp only [upperT] at hab ⊢
+      have hb3 : a/8 % 2 = b/8 % 2 := by omega
+      have hb4 : a/16 % 2 = b/16 % 2 := by omega
+      have hb5 : a/32 % 2 = b/32 % 2 := by omega
+      rw [hb3, hb4, hb5]
+      have e3 : a3 = 3 ∨ a3 = 4 ∨ a3 = 5 := by omega
+      have e4 : a4 = 3 ∨ a4 = 4 ∨ a4 = 5 := by omega
+      have e5 : a5 = 3 ∨ a5 = 4 ∨ a5 = 5 := by omega
+      rcases e3 with rfl | rfl | rfl <;> rcases e4 with rfl | rfl | rfl <;>
+        rcases e5 with rfl | rfl | rfl <;>
+        simp only [show (2:Nat)^3 = 8 from rfl, show (2:Nat)^4 = 16 from rfl,
+          show (2:Nat)^5 = 32 from rfl] <;> omega
+    · -- blocks swapped: {a0,a1,a2} = {3,4,5}, so {a3,a4,a5} = {0,1,2};
+      -- the upper trigram of σ·x is a function of x's lower trigram
+      right
+      intro a _ b _ hab
+      rw [applyPerm6_split, applyPerm6_split]
+      have g3 : a3 < 3 := by omega
+      have g4 : a4 < 3 := by omega
+      have g5 : a5 < 3 := by omega
+      have hHa : a/8 % 2 * 2^a3 + a/16 % 2 * 2^a4 + a/32 % 2 * 2^a5 ≤ 7 :=
+        lowsum_le7 g3 g4 g5 (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
+      have hHb : b/8 % 2 * 2^a3 + b/16 % 2 * 2^a4 + b/32 % 2 * 2^a5 ≤ 7 :=
+        lowsum_le7 g3 g4 g5 (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
+      obtain ⟨Ha, hga⟩ : ∃ L, a/8 % 2 * 2^a3 + a/16 % 2 * 2^a4 + a/32 % 2 * 2^a5 = L := ⟨_, rfl⟩
+      obtain ⟨Hb, hgb⟩ : ∃ L, b/8 % 2 * 2^a3 + b/16 % 2 * 2^a4 + b/32 % 2 * 2^a5 = L := ⟨_, rfl⟩
+      rw [hga] at hHa ⊢
+      rw [hgb] at hHb ⊢
+      clear hga hgb
+      simp only [upperT, lowerT] at hab ⊢
+      have hb0 : a % 2 = b % 2 := by omega
+      have hb1 : a/2 % 2 = b/2 % 2 := by omega
+      have hb2 : a/4 % 2 = b/4 % 2 := by omega
+      rw [hb0, hb1, hb2]
+      have e0 : a0 = 3 ∨ a0 = 4 ∨ a0 = 5 := by omega
+      have e1 : a1 = 3 ∨ a1 = 4 ∨ a1 = 5 := by omega
+      have e2 : a2 = 3 ∨ a2 = 4 ∨ a2 = 5 := by omega
+      rcases e0 with rfl | rfl | rfl <;> rcases e1 with rfl | rfl | rfl <;>
+        rcases e2 with rfl | rfl | rfl <;>
+        simp only [show (2:Nat)^3 = 8 from rfl, show (2:Nat)^4 = 16 from rfl,
+          show (2:Nat)^5 = 32 from rfl] <;> omega
+  · -- reverse: blockwise action ⇒ block preservation (contrapositive with
+    -- explicit single-bit counterexamples)
+    intro hc
+    rcases Bool.eq_false_or_eq_true (blockPreserving [a0, a1, a2, a3, a4, a5]) with hT | hF
+    · exact hT
+    exfalso
+    have hno : ¬((a0 < 3 ∧ a1 < 3 ∧ a2 < 3) ∨ (3 ≤ a0 ∧ 3 ≤ a1 ∧ 3 ≤ a2)) := by
+      intro hyes
+      have ht := (blockPreserving6 a0 a1 a2 a3 a4 a5).mpr hyes
+      rw [ht] at hF
+      exact Bool.noConfusion hF
+    -- the closed image of zero
+    have hz : applyPerm [a0, a1, a2, a3, a4, a5] 0 = 0 := by
+      rw [applyPerm6_split]; simp
+    -- a low source bit crossing up, and a low target position left uncovered
+    have hi : 3 ≤ a0 ∨ 3 ≤ a1 ∨ 3 ≤ a2 := by omega
+    rcases hc with hC1 | hC2
+    · -- kill COND1 with a = 0, b = the crossing low bit
+      rcases hi with hcr | hcr | hcr
+      · have hinst := hC1 0 (by omega) 1 (by omega) (by simp [upperT])
+        rw [hz, applyPerm6_split] at hinst
+        simp only [upperT] at hinst
+        have e : a0 = 3 ∨ a0 = 4 ∨ a0 = 5 := by omega
+        rcases e with rfl | rfl | rfl <;> simp at hinst
+      · have hinst := hC1 0 (by omega) 2 (by omega) (by simp [upperT])
+        rw [hz, applyPerm6_split] at hinst
+        simp only [upperT] at hinst
+        have e : a1 = 3 ∨ a1 = 4 ∨ a1 = 5 := by omega
+        rcases e with rfl | rfl | rfl <;> simp at hinst
+      · have hinst := hC1 0 (by omega) 4 (by omega) (by simp [upperT])
+        rw [hz, applyPerm6_split] at hinst
+        simp only [upperT] at hinst
+        have e : a2 = 3 ∨ a2 = 4 ∨ a2 = 5 := by omega
+        rcases e with rfl | rfl | rfl <;> simp at hinst
+    · -- kill COND2 with a = 0, b = an upper source bit that stays upper
+      -- (exists: if all of a3,a4,a5 were < 3 they would exhaust {0,1,2},
+      --  leaving no room for the low entry among a0,a1,a2)
+      have hk : 3 ≤ a3 ∨ 3 ≤ a4 ∨ 3 ≤ a5 := by omega
+      rcases hk with hcr | hcr | hcr
+      · have hinst := hC2 0 (by omega) 8 (by omega) (by simp [lowerT])
+        rw [hz, applyPerm6_split] at hinst
+        simp only [upperT] at hinst
+        have e : a3 = 3 ∨ a3 = 4 ∨ a3 = 5 := by omega
+        rcases e with rfl | rfl | rfl <;> simp at hinst
+      · have hinst := hC2 0 (by omega) 16 (by omega) (by simp [lowerT])
+        rw [hz, applyPerm6_split] at hinst
+        simp only [upperT] at hinst
+        have e : a4 = 3 ∨ a4 = 4 ∨ a4 = 5 := by omega
+        rcases e with rfl | rfl | rfl <;> simp at hinst
+      · have hinst := hC2 0 (by omega) 32 (by omega) (by simp [lowerT])
+        rw [hz, applyPerm6_split] at hinst
+        simp only [upperT] at hinst
+        have e : a5 = 3 ∨ a5 = 4 ∨ a5 = 5 := by omega
+        rcases e with rfl | rfl | rfl <;> simp at hinst
 
 /- --- §4d S₃-invariance of the trigram change-count functionals --- -/
 
@@ -1001,12 +1273,12 @@ theorem blockPreserving_iff_blockwise :
 theorem G6_upperT_iff :
     ∀ p ∈ G6, ∀ a, a < 64 → ∀ b, b < 64 →
       ((upperT (applyPerm p a) == upperT (applyPerm p b)) = (upperT a == upperT b)) := by
-  native_decide
+  decide +kernel
 
 theorem G6_lowerT_iff :
     ∀ p ∈ G6, ∀ a, a < 64 → ∀ b, b < 64 →
       ((lowerT (applyPerm p a) == lowerT (applyPerm p b)) = (lowerT a == lowerT b)) := by
-  native_decide
+  decide +kernel
 
 /-- S₃-INVARIANCE (structural, every sequence): the upper-trigram change
     count is invariant under every record-level trigram-compatible symmetry.
@@ -1053,18 +1325,18 @@ theorem lChange_mapP (p : List Nat) (hp : p ∈ G6) {l : List Nat}
     is NOT trigram-compatible). -/
 def sigmaW : List Nat := [0, 1, 3, 2, 4, 5]
 
-theorem sigmaW_mem_G24 : sigmaW ∈ G24 := by native_decide
+theorem sigmaW_mem_G24 : sigmaW ∈ G24 := by decide +kernel
 
 theorem sigmaW_not_blockPreserving : blockPreserving sigmaW = false := by decide
 
-theorem uChange_KW : uChange KW = 59 := by native_decide
+theorem uChange_KW : uChange KW = 59 := by decide +kernel
 
-theorem lChange_KW : lChange KW = 58 := by native_decide
+theorem lChange_KW : lChange KW = 58 := by decide +kernel
 
-theorem uChange_KW_sigmaW : uChange (KW.map (applyPerm sigmaW)) = 62 := by native_decide
+theorem uChange_KW_sigmaW : uChange (KW.map (applyPerm sigmaW)) = 62 := by decide +kernel
 
 theorem sigmaW_image_valid : validC15 (KW.map (applyPerm sigmaW)) = true := by
-  native_decide
+  decide +kernel
 
 /-- THE METHODOLOGICAL COROLLARY: trigram-defined functionals are NOT
     invariant on the 24-element record orbits of TR-5 — there is a
@@ -1111,14 +1383,14 @@ theorem nuc_partner_descent :
 
 /-- TG-4.4: image-size chain 64 → 16. -/
 theorem nuc_image_16 : ((List.range 64).map nuc).eraseDups.length = 16 := by
-  native_decide
+  decide +kernel
 
 /-- TG-4.4: image-size chain 64 → 16 → 4, with the classical terminal set
     {000000, 111111, 010101, 101010} = {0, 63, 21, 42} (the F5/VdB terminal
     set hardcoded in solve.c's f5_vdb_term; first-occurrence order shown). -/
 theorem nuc_nuc_image_terminal :
     ((List.range 64).map fun h => nuc (nuc h)).eraseDups = [0, 21, 42, 63] := by
-  native_decide
+  decide +kernel
 
 /-- the terminal set is nuc-closed: 0 and 63 are fixed; 21 ↔ 42 swap. -/
 theorem nuc_terminal_closed : nuc 0 = 0 ∧ nuc 63 = 63 ∧ nuc 21 = 42 ∧ nuc 42 = 21 := by
@@ -1133,12 +1405,12 @@ theorem nuc_terminal_closed : nuc 0 = 0 ∧ nuc 63 = 63 ∧ nuc 21 = 42 ∧ nuc 
 theorem pure_partner_bool : ∀ h, h < 64 → pureHex (partner h) = pureHex h := by
   decide
 
-theorem pure_count_range : ((List.range 64).countP pureHex) = 8 := by native_decide
+theorem pure_count_range : ((List.range 64).countP pureHex) = 8 := by decide +kernel
 
 theorem trigram_balance_range :
     ∀ t, t < 8 → ((List.range 64).countP fun h => upperT h == t) = 8 ∧
                  ((List.range 64).countP fun h => lowerT h == t) = 8 := by
-  native_decide
+  decide +kernel
 
 /-- TG-5.1 (VACUITY GUARD — trigram balance is ordering-invariant): in ANY
     permutation of the 64 hexagrams — King Wen or otherwise — each of the 8
@@ -1180,12 +1452,12 @@ theorem pure_pairslot_count (l : List Nat) (hperm : l.Perm (List.range 64))
   have h8 := pure_count_range
   omega
 
-/- ────────── §6 sanity instances at King Wen (native_decide) ──────────
+/- ────────── §6 sanity instances at King Wen (decide +kernel) ──────────
    Guards against silently-vacuous general statements: each sequence-level
    theorem above is exercised on the concrete KW list. -/
 
 /-- KW satisfies the hypotheses used above. -/
-example : validC15 KW = true := by native_decide
+example : validC15 KW = true := by decide +kernel
 
 /-- KW's boundary multiset instantiates the budget theorem. -/
 example :
@@ -1194,26 +1466,74 @@ example :
     ((List.range 31).countP fun k => ftr KW (2*k+1) == 3) = 13 ∧
     ((List.range 31).countP fun k => ftr KW (2*k+1) == 4) = 7 ∧
     ((List.range 31).countP fun k => ftr KW (2*k+1) == 6) = 1 := by
-  native_decide
+  decide +kernel
 
 /-- KW's unique 9th-six boundary is k = 18 (pairs #37-38 → #39-40, hexagrams
     53,43 → 20,10), and the pangtong-successor identities hold there:
     20 = comp 43 and 10 = comp 53. -/
 example : ftr KW 37 = 6 ∧ KW.getD 38 0 = KW.getD 37 0 ^^^ 63 ∧
-    KW.getD 39 0 = KW.getD 36 0 ^^^ 63 := by native_decide
+    KW.getD 39 0 = KW.getD 36 0 ^^^ 63 := by decide +kernel
 
 /-- KW's pure pair-slots are exactly {0, 14, 25, 28} (King Wen #1-2, #29-30,
     #51-52, #57-58). -/
 example : (List.range 32).filter (fun i => pureHex (KW.getD (2*i) 0)) =
-    [0, 14, 25, 28] := by native_decide
+    [0, 14, 25, 28] := by decide +kernel
 
 /-- a nontrivial G6 element (mirrorDouble of the swap (0 1)) preserves KW's
     trigram change counts, instantiating uChange_mapP/lChange_mapP. -/
 example : uChange (KW.map (applyPerm (mirrorDouble [1, 0, 2]))) = 59 ∧
-    lChange (KW.map (applyPerm (mirrorDouble [1, 0, 2]))) = 58 := by native_decide
+    lChange (KW.map (applyPerm (mirrorDouble [1, 0, 2]))) = 58 := by decide +kernel
 
 /-- ... and mirrorDouble [1,0,2] = [1,0,2,3,5,4] really is the mirrored
     doubling (lower swap (0 1) pairs with upper swap (4 5), NOT (3 4)). -/
 example : mirrorDouble [1, 0, 2] = [1, 0, 2, 3, 5, 4] := by decide
 
 end Trigram
+
+/-! ### Axiom audit (added 2026-08-01; expectation updated 2026-08-07)
+Emits the trust base for every theorem in this file that is CITED BY NAME in the
+public documentation, so the suite's `#print axioms` claims are OBSERVED rather than
+statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
+`[propext]` alone for the finite facts — Lean's standard axioms only. Any
+`Lean.ofReduceBool` here means a `native_decide` (compiler trust) has crept back
+in and the docs must say so; since 2026-08-07 this file carries none. -/
+#print axioms Trigram.rev6_trigram_factor
+#print axioms Trigram.comp6_trigram_componentwise
+#print axioms Trigram.ham_trigram_split
+#print axioms Trigram.symmetric_iff_trigram
+#print axioms Trigram.symmetric_count_8
+#print axioms Trigram.antisymmetric_count_8
+#print axioms Trigram.pure_hexagrams_explicit
+#print axioms Trigram.pure_pairs_explicit
+#print axioms Trigram.within_double
+#print axioms Trigram.pairdist_count_0
+#print axioms Trigram.selfcomp_pair_count
+#print axioms Trigram.within_multiset_general
+#print axioms Trigram.boundary_budget_general
+#print axioms Trigram.ninth_six_trigram
+#print axioms Trigram.single_line_carry
+#print axioms Trigram.c2_trigram_reading
+#print axioms Trigram.pangtong_successor
+#print axioms Trigram.flanking_exclusion
+#print axioms Trigram.G12_length
+#print axioms Trigram.G6_length
+#print axioms Trigram.rho_central_G48
+#print axioms Trigram.G12_decomposition_covers
+#print axioms Trigram.mirrorDouble_hom
+#print axioms Trigram.G6_eq_mirrorDouble_image
+#print axioms Trigram.blockPreserving_iff_blockwise
+#print axioms Trigram.uChange_mapP
+#print axioms Trigram.lChange_mapP
+#print axioms Trigram.trigram_functional_not_orbit_invariant
+#print axioms Trigram.nuc_comm_rev
+#print axioms Trigram.nuc_comm_comp
+#print axioms Trigram.nuc_partner_descent
+#print axioms Trigram.nuc_image_16
+#print axioms Trigram.nuc_nuc_image_terminal
+#print axioms Trigram.nuc_terminal_closed
+#print axioms Trigram.pure_partner_bool
+#print axioms Trigram.pure_count_range
+#print axioms Trigram.trigram_balance_range
+#print axioms Trigram.trigram_balance_invariant
+#print axioms Trigram.pure_pairslot_couple
+#print axioms Trigram.pure_pairslot_count

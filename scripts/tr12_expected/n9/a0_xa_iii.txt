@@ -1,0 +1,70 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-t-cert] node-convention certificate (n=9 exhaustive; n=13 spot)
+[kc-t-cert] n=9: t(root)=229861 brute_dfs_nodes=229861 walks=26112  EQUAL
+[kc-t-cert] n=9: per-depth counter == f layer masses (all k), sum == nodes  PASS
+[kc-t-cert] n=9: EXHAUSTIVE per-state t == brute subtree nodes (950 states)  PASS
+[kc-t-cert] n=9: per-branch t == brute subtree; 1 + sum == t(root) (12 branches)  PASS
+[kc-t-cert] n=13: t(root)=5163044120623 sum-of-f-layer-masses=5163044120623  EQUAL
+[kc-t-cert] n=13: depth-limited brute node counts == f masses (depths 0..6)  PASS
+[kc-t-cert] n=13: 1 + sum of branch t == t(root) (6 branches)  PASS
+[kc-t-cert] certificate written: <ART>/xa_node_convention.json
+[kc-t-cert] VERDICT: PASS (0 gate failures)
+{
+  "type": "roae-kc-t-node-convention-certificate",
+  "version": 1,
+  "purpose": "XA(iii)/W0-D t-unit convention pin (TR12 s3/s8 item 4): pins what the t-ladder counts and verifies it byte-exactly against the independent brute DFS at n=9, with n=13 spot totals",
+  "convention": {
+    "unit": "valid oriented prefix = one search-tree node of the pruned DFS over the C1C2C4C5 SUPERSPACE",
+    "recurrence": "t(s) = 1 + sum over valid oriented placements c of t(s.c); t = 1 at depth n",
+    "root_counted": true,
+    "orientation_branching": "joint/explicit: one child edge = one (pair, orientation) placement; NO separate orientation-only node level",
+    "pair_branching": "no pair-only intermediate node",
+    "leaf": "full walks (depth n) count 1 node each",
+    "dead_ends_counted": true,
+    "space": "C1C2C4C5-SUPERSPACE (no C3 filter)",
+    "reference_dfs": "kc_brute_rec (solve.c): nodes = one increment per recursive visit; per-state subtrees counted by the SAME code path",
+    "solve_node_limit_mapping": "NOT CLAIMED HERE - the W0-D worker run (WAVE0_RUNBOOK item w0d) pins the mapping to the production enumerator's SOLVE_NODE_LIMIT counter (orientation explicitness, d3 cell splitting, C3-prune visit accounting) using this instrument"
+  },
+  "n9": {
+    "N_walks": 26112,
+    "t_root": 229861,
+    "brute_dfs_nodes": 229861,
+    "nodes_by_depth": [1, 12, 96, 660, 3624, 13956, 36888, 68352, 80160, 26112],
+    "states_cross_checked_exhaustively": 950,
+    "branches": [
+      {"global_pair": 3, "entry": 16, "exit": 2, "t": 16282, "brute_subtree_nodes": 16282},
+      {"global_pair": 3, "entry": 2, "exit": 16, "t": 16282, "brute_subtree_nodes": 16282},
+      {"global_pair": 7, "entry": 8, "exit": 4, "t": 16282, "brute_subtree_nodes": 16282},
+      {"global_pair": 7, "entry": 4, "exit": 8, "t": 16282, "brute_subtree_nodes": 16282},
+      {"global_pair": 11, "entry": 1, "exit": 32, "t": 16282, "brute_subtree_nodes": 16282},
+      {"global_pair": 11, "entry": 32, "exit": 1, "t": 16282, "brute_subtree_nodes": 16282},
+      {"global_pair": 13, "entry": 30, "exit": 33, "t": 11067, "brute_subtree_nodes": 11067},
+      {"global_pair": 13, "entry": 33, "exit": 30, "t": 32989, "brute_subtree_nodes": 32989},
+      {"global_pair": 14, "entry": 45, "exit": 18, "t": 11067, "brute_subtree_nodes": 11067},
+      {"global_pair": 14, "entry": 18, "exit": 45, "t": 32989, "brute_subtree_nodes": 32989},
+      {"global_pair": 30, "entry": 12, "exit": 51, "t": 32989, "brute_subtree_nodes": 32989},
+      {"global_pair": 30, "entry": 51, "exit": 12, "t": 11067, "brute_subtree_nodes": 11067}
+    ]
+  },
+  "n13": {
+    "N_walks": "2063395607040",
+    "t_root": "5163044120623",
+    "sum_f_layer_masses": "5163044120623",
+    "brute_depth_cap": 6,
+    "brute_cap_rule": "largest cap with cumulative visits <= 2e8",
+    "nodes_by_depth_to_cap": [1, 6, 144, 3096, 60480, 1063296, 16616448],
+    "branches": [
+      {"global_pair": 3, "entry": 16, "exit": 2, "t": "860507353437"},
+      {"global_pair": 3, "entry": 2, "exit": 16, "t": "860507353437"},
+      {"global_pair": 7, "entry": 8, "exit": 4, "t": "860507353437"},
+      {"global_pair": 7, "entry": 4, "exit": 8, "t": "860507353437"},
+      {"global_pair": 11, "entry": 1, "exit": 32, "t": "860507353437"},
+      {"global_pair": 11, "entry": 32, "exit": 1, "t": "860507353437"}
+    ]
+  },
+  "gates": {"n9_t_root_eq_brute_nodes": true, "n9_depth_counter_eq_f_masses": true, "n9_exhaustive_per_state": true, "n9_branches": true, "n13_t_root_eq_sum_masses": true, "n13_depth_limited_brute": true, "n13_branches": true, "fails": 0},
+  "engine_git": "<GIT>",
+  "engine_source_sha": "<SRC>",
+  "semantics": "certificate, not proof"
+}

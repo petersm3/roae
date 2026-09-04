@@ -1,0 +1,18 @@
+[knuth] RNG SEED OVERRIDE ACTIVE: base=0x0000000000000005 (R11 Phase-2 independent-seed replicate; estimator-only, sha-neutral)
+[knuth] Davis-2012 composite scoring ACTIVE (9 candidates, CRITIQUE.md Davis registration; ground truth solve.py dav_*)
+[knuth] 10000000 probes, 2 threads, 0 prefix level(s)
+KNUTH-ESTIMATE probes=10000000 threads=2 start_step=1 prefix_levels=0
+KNUTH-PROVENANCE seed_base=0x0000000000000005 moore_strict=0 gender_strict=0 score=0 r11_hist=0 wall_s=68
+  tree_nodes            : est=2.088080e+40  95%CI=[2.0847e+40, 2.0915e+40]  relerr=0.08%  hitrate=1
+  leaves_C1C2C4C5       : est=1.093618e+39  95%CI=[1.0844e+39, 1.1029e+39]  relerr=0.43%  hitrate=0.0144
+  leaves_canonical_C1C5 : est=1.318601e+38  95%CI=[1.2865e+38, 1.3507e+38]  relerr=1.24%  hitrate=0.0018
+  [diag] canonical top single-probe share : max_w=1.058076e+42 = 0.0802% of estimate mass (skew/ESS audit; lower=better)
+  [dav 1 termruns    ] mean=5.181150 min=1 max=6 kw=3 below=0.00127852 at=0.02305600 above=0.97566548 se=3.516e-04/1.748e-03/1.782e-03
+  [dav 2 compmirror  ] mean=0.010838 min=0 max=2 kw=1 below=0.98916910 at=0.01082372 above=0.00000718 se=1.227e-03/1.227e-03/7.184e-06
+  [dav 3 trigarray   ] mean=0.000546 min=0 max=1 kw=1 below=0.99945445 at=0.00054555 above=0.00000000 se=1.903e-04/1.903e-04/0.000e+00
+  [dav 4 parallel3040] mean=0.000000 min=0 max=0 kw=1 below=1.00000000 at=0.00000000 above=0.00000000 se=0.000e+00/0.000e+00/0.000e+00
+  [dav 5 palnbr      ] mean=4.935439 min=0 max=16 kw=10 below=0.92030075 at=0.05731932 above=0.02237992 se=3.264e-03/2.805e-03/1.769e-03
+  [dav 6 rotinv      ] mean=0.000006 min=0 max=1 kw=1 below=0.99999441 at=0.00000559 above=0.00000000 se=5.588e-06/5.588e-06/0.000e+00
+  [dav 7 pureplace   ] mean=0.005594 min=0 max=1 kw=1 below=0.99440607 at=0.00559393 above=0.00000000 se=8.250e-04/8.250e-04/0.000e+00
+  [dav 8 eccplace    ] mean=0.000000 min=0 max=0 kw=1 below=1.00000000 at=0.00000000 above=0.00000000 se=0.000e+00/0.000e+00/0.000e+00
+  [dav 9 asymhalf    ] mean=7.371890 min=0 max=16 kw=4 below=0.04843084 at=0.14510128 above=0.80646788 se=2.586e-03/4.254e-03/4.785e-03

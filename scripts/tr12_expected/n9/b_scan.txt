@@ -1,0 +1,60 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-scan] layer 00 -> 01: transition mass 26112
+[kc-scan] layer 01 -> 02: transition mass 26112
+[kc-scan] layer 02 -> 03: transition mass 26112
+[kc-scan] layer 03 -> 04: transition mass 26112
+[kc-scan] layer 04 -> 05: transition mass 26112
+[kc-scan] layer 05 -> 06: transition mass 26112
+[kc-scan] layer 06 -> 07: transition mass 26112
+[kc-scan] layer 07 -> 08: transition mass 26112
+[kc-scan] layer 08 -> 09: transition mass 26112
+[kc-scan] atlas written: <ART>/atlas.json
+KC_SCAN_TIDENTITY=VERIFIED
+[kc-scan] VERDICT: PASS (0 gate failures)
+KC_SCAN=OK
+### atlas
+{
+  "type": "roae-kc-scan-atlas",
+  "version": 1,
+  "n": 9,
+  "N_total": "26112",
+  "fdir": "<FDIR>",
+  "gdir": "<GDIR>",
+  "tdir": "<TDIR>",
+  "pl_hash": "b5270954d483baaf",
+  "space": "C1C2C4C5-SUPERSPACE",
+  "frames": {"flow": "RAW-exact (distance class is G-invariant)", "marginals_quotient": "CANONICAL-QUOTIENT (orbit-weighted; pair labels are quotient-frame, NOT raw identities)", "marginals_raw": "RAW (explicit G-expansion)"},
+  "layers": [
+    {"k": 0, "flow": "26112", "by_class": {"d1": "14208", "d2": "9216", "d3": "0", "d4": "2688", "d6": "0"}, "marginal_quotient": {"q0": "4736", "q1": "4736", "q2": "4736", "q6": "3968", "q7": "3968", "q8": "3968"}, "marginal_raw": {"pair3": "4736", "pair7": "4736", "pair11": "4736", "pair13": "3968", "pair14": "3968", "pair30": "3968"}},
+    {"k": 1, "flow": "26112", "by_class": {"d1": "5952", "d2": "15552", "d3": "0", "d4": "4608", "d6": "0"}, "marginal_quotient": {"q1": "5472", "q2": "6816", "q3": "1344", "q4": "576", "q5": "5952", "q7": "2976", "q8": "2976"}, "marginal_raw": {"pair3": "4096", "pair4": "2624", "pair6": "2624", "pair7": "4096", "pair11": "4096", "pair13": "1984", "pair14": "1984", "pair21": "2624", "pair30": "1984"}},
+    {"k": 2, "flow": "26112", "by_class": {"d1": "5952", "d2": "15264", "d3": "0", "d4": "4896", "d6": "0"}, "marginal_quotient": {"q0": "2688", "q1": "1344", "q2": "9312", "q3": "2352", "q4": "5424", "q5": "4992"}, "marginal_raw": {"pair3": "4448", "pair4": "4256", "pair6": "4256", "pair7": "4448", "pair11": "4448", "pair21": "4256"}},
+    {"k": 3, "flow": "26112", "by_class": {"d1": "0", "d2": "15168", "d3": "0", "d4": "10944", "d6": "0"}, "marginal_quotient": {"q0": "1200", "q1": "4272", "q2": "3456", "q3": "2560", "q4": "5248", "q5": "9376"}, "marginal_raw": {"pair3": "2976", "pair4": "5728", "pair6": "5728", "pair7": "2976", "pair11": "2976", "pair21": "5728"}},
+    {"k": 4, "flow": "26112", "by_class": {"d1": "0", "d2": "18528", "d3": "0", "d4": "7584", "d6": "0"}, "marginal_quotient": {"q0": "1872", "q1": "6144", "q2": "5808", "q3": "288", "q4": "4128", "q5": "7872"}, "marginal_raw": {"pair3": "4608", "pair4": "4096", "pair6": "4096", "pair7": "4608", "pair11": "4608", "pair21": "4096"}},
+    {"k": 5, "flow": "26112", "by_class": {"d1": "0", "d2": "18528", "d3": "0", "d4": "7584", "d6": "0"}, "marginal_quotient": {"q0": "1824", "q1": "2304", "q2": "8640", "q3": "1200", "q4": "2544", "q5": "9600"}, "marginal_raw": {"pair3": "4256", "pair4": "4448", "pair6": "4448", "pair7": "4256", "pair11": "4256", "pair21": "4448"}},
+    {"k": 6, "flow": "26112", "by_class": {"d1": "14208", "d2": "8640", "d3": "0", "d4": "3264", "d6": "0"}, "marginal_quotient": {"q1": "1632", "q2": "1344", "q4": "4608", "q5": "4320", "q6": "4736", "q7": "4736", "q8": "4736"}, "marginal_raw": {"pair3": "992", "pair4": "2976", "pair6": "2976", "pair7": "992", "pair11": "992", "pair13": "4736", "pair14": "4736", "pair21": "2976", "pair30": "4736"}},
+    {"k": 7, "flow": "26112", "by_class": {"d1": "5952", "d2": "14688", "d3": "0", "d4": "5472", "d6": "0"}, "marginal_quotient": {"q3": "5952", "q7": "10080", "q8": "10080"}, "marginal_raw": {"pair4": "1984", "pair6": "1984", "pair13": "6720", "pair14": "6720", "pair21": "1984", "pair30": "6720"}},
+    {"k": 8, "flow": "26112", "by_class": {"d1": "5952", "d2": "14976", "d3": "0", "d4": "5184", "d6": "0"}, "marginal_quotient": {"q8": "26112"}, "marginal_raw": {"pair13": "8704", "pair14": "8704", "pair30": "8704"}}
+  ],
+  "branch_atlas": [
+    {"global_pair": 3, "entry": 16, "exit": 2, "solutions": "2368", "prefixes_t_units": "16282", "t_source": "t-ladder", "walks": 2368},
+    {"global_pair": 3, "entry": 2, "exit": 16, "solutions": "2368", "prefixes_t_units": "16282", "t_source": "t-ladder", "walks": 2368},
+    {"global_pair": 7, "entry": 8, "exit": 4, "solutions": "2368", "prefixes_t_units": "16282", "t_source": "t-ladder", "walks": 2368},
+    {"global_pair": 7, "entry": 4, "exit": 8, "solutions": "2368", "prefixes_t_units": "16282", "t_source": "t-ladder", "walks": 2368},
+    {"global_pair": 11, "entry": 1, "exit": 32, "solutions": "2368", "prefixes_t_units": "16282", "t_source": "t-ladder", "walks": 2368},
+    {"global_pair": 11, "entry": 32, "exit": 1, "solutions": "2368", "prefixes_t_units": "16282", "t_source": "t-ladder", "walks": 2368},
+    {"global_pair": 13, "entry": 30, "exit": 33, "solutions": "896", "prefixes_t_units": "11067", "t_source": "t-ladder", "walks": 896},
+    {"global_pair": 13, "entry": 33, "exit": 30, "solutions": "3072", "prefixes_t_units": "32989", "t_source": "t-ladder", "walks": 3072},
+    {"global_pair": 14, "entry": 45, "exit": 18, "solutions": "896", "prefixes_t_units": "11067", "t_source": "t-ladder", "walks": 896},
+    {"global_pair": 14, "entry": 18, "exit": 45, "solutions": "3072", "prefixes_t_units": "32989", "t_source": "t-ladder", "walks": 3072},
+    {"global_pair": 30, "entry": 12, "exit": 51, "solutions": "3072", "prefixes_t_units": "32989", "t_source": "t-ladder", "walks": 3072},
+    {"global_pair": 30, "entry": 51, "exit": 12, "solutions": "896", "prefixes_t_units": "11067", "t_source": "t-ladder", "walks": 896}
+  ],
+  "fmass": ["1", "12", "96", "660", "3624", "13956", "36888", "68352", "80160", "26112"],
+  "t_root_t_units": "229861",
+  "t_units_note": "t(s) = 1 + sum_c t(s.c): pruned-DFS search-tree size in VALID-PREFIX units; the mapping to SOLVE_NODE_LIMIT node-counter semantics is the separate XA(iii) convention certificate (--kc-t-cert / W0-D) — NOT claimed here",
+  "gates": {"per_layer_flow_eq_N": true, "raw_marginal_sums_eq_N": true, "branch_masses_sum_eq_N": true, "t_root_eq_f_layer_sum": true, "fails": 0},
+  "engine_git": "<GIT>",
+  "engine_source_sha": "<SRC>",
+  "semantics": "certificate, not proof"
+}

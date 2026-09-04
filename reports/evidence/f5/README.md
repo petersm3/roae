@@ -7,7 +7,7 @@ Raw outputs and the exact-fiber instrument behind [TR-1](../../TR1_EIGHT_CENTURI
 
 | File | What it is |
 |---|---|
-| `f5_modec_fiber.py` | Mode C (dispositive): exact enumeration of the full 1,720,320-vector orientation fiber of King Wen's pair sequence + exact scoring of all 11 frozen functionals |
+| `f5_modec_fiber.py` | Mode C (dispositive): exact enumeration of the full 1,720,320-vector **C4-oriented** orientation fiber of King Wen's pair sequence (slot-0 orientation fixed per the frozen spec §3) + exact scoring of all 11 frozen functionals. *Scope note 2026-07-26: the pair-only-C4 fiber (both slot-0 orientations) is 2,703,360 vectors; see TR-1 §7 v1.16 for the re-check* |
 | `f5_modec_fiber.out` | Archived Mode C output: exact histograms, two-sided p-values, structure gates, convention control |
 | `f5_ground_truth.py` | Independent pure-Python implementation of the 11 functionals (two-language gate vs the `solve.c` scorer; #11 delegates to `solve.py vdb_nucorient`, the single implementation) |
 | `f5_tier1.out` | Mode U (unconditional population): 2×10⁹ weighted Knuth probes, per-functional below/at/above masses + full `f5_hist` histograms (Spot D64, 2026-07-05) |
@@ -18,6 +18,8 @@ Raw outputs and the exact-fiber instrument behind [TR-1](../../TR1_EIGHT_CENTURI
 
 All commands below were exercised on 2026-07-05 before publication; the Mode C rerun
 reproduced `f5_modec_fiber.out` **byte-identically** (~11 s, needs numpy).
+
+⚠ **Every `--estimate-knuth` command in this document requires a stack limit of at least 16 MB** — `ulimit -s 16384` suffices, and `ulimit -s unlimited` is one way to satisfy it, not the requirement itself. Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)* *(Narrowed 2026-09-02, Codex V2-F08 #4, prose batch P37: `ulimit -s unlimited` is a **sufficient** setting that had been published as a **necessary** one — and one that a host or container with a hard stack cap cannot even apply, so the published requirement was a false blocker there. `solve.c`'s `--estimate-knuth` preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB". EXECUTED under TR-9 v1.24 on a locally built binary: `ulimit -s 8192` refuses and exits 1, `ulimit -s 16384` runs the estimator to completion. `solve.c`'s own remedy line still prescribes only `unlimited` and is queued to offer both. This is the sibling propagation of the narrowing TR-9 made on 2026-09-02 and reported but did not sweep.)*
 
 ```bash
 # KW ground-truth gates (repo root):

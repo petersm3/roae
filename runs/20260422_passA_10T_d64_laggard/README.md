@@ -41,6 +41,19 @@ Verification recipe:
 # Attach solver-data-westus3 to any VM, then:
 cd /data/archive/passA_10T_d64_laggard/22_0_30_1_20_0
 sha256sum -c sub_22_0_30_1_20_0.sha256  # (after copying .sha256 from this repo)
+#
+# This plain form is correct FOR THIS RUN because it predates #169 (d8671550,
+# 2026-06-17): both archived shards are raw, headerless bytes, confirmed by the
+# sidecars' own arithmetic — 525,815,456 = 16,431,733 x 32 and
+# 525,864,544 = 16,433,267 x 32, exact, with no framing overhead. So the sha256
+# sidecar (which since #169 holds the LOGICAL, decompressed sha) and the on-disk
+# bytes coincide here.
+#
+# Do NOT carry this recipe to a post-#169 archive. Shards are gz-framed by
+# default now, and `sha256sum -c` would hash the gzip container and report
+# FAILED on a byte-correct artifact. There the command is:
+#     gzip -dc sub_<branch>.bin | sha256sum   # compare to line 1 of the .sha256
+# See documentation/SOLUTIONS_FORMAT.md §"On-disk framing".
 ```
 
 ## Compute summary
@@ -59,4 +72,4 @@ Pass 2 (100T × this pair) is **NOT recommended** — growth rate says it still 
 Better path forward for the single-branch exhaustion thread:
 - **Take 10T yields (16.4M per branch) as a very tight lower bound** on the true C1-C5-valid count from each prefix. This is a publishable result in itself.
 - **Abandon the "exhaust a specific branch" approach** for this low-100T-yield class. The trees are too large.
-- **Shift focus to Campaigns C (cross-prefix-equivalence, free) + B (orientation-symmetry, cheap)** per `x/roae/SINGLE_BRANCH_NEXT_STEPS.md`.
+- **Shift focus to Campaigns C (cross-prefix-equivalence, free) + B (orientation-symmetry, cheap)** per `roae-private/SINGLE_BRANCH_NEXT_STEPS.md` (private repo).

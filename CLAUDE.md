@@ -8,10 +8,21 @@ invariants, not content.
 ## Project
 
 ROAE = a mathematical analysis of the King Wen sequence (I Ching). Core
-deliverable is `solve.c` — a multi-threaded C enumerator that finds all
-orderings of 64 hexagrams satisfying constraints C1-C5, plus the
-scientific record documenting what those enumerations reveal about
-King Wen's uniqueness vs. combinatorial structure.
+deliverable is `solve.c` — a multi-threaded C enumerator that searches for
+orderings of 64 hexagrams satisfying constraints C1-C5 **within a per-cell
+node budget** — plus the scientific record documenting what those
+enumerations reveal about King Wen's uniqueness vs. combinatorial structure.
+
+⚠ **It does not exhaust that space, and no run ever has.** Every published
+enumeration is budgeted per cell, so what it produces is an
+exactly-reproducible **slice** and its record count is a **LOWER BOUND** on
+the C1–C5 population — an absence *inside a slice* is not an absence in
+C1–C5. (Corrected 2026-08-28, Q-353; this sentence was missed by that sweep
+and repaired 2026-09-02. The retired wording is registered in
+[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
+[CORRECTIONS.md](documentation/CORRECTIONS.md); the corrected statement of
+what an enumeration artifact contains is
+[SOLUTIONS_FORMAT.md](documentation/SOLUTIONS_FORMAT.md).)
 
 ## Authoritative sources
 
@@ -20,7 +31,7 @@ King Wen's uniqueness vs. combinatorial structure.
 | Python regression harness (one command: `python3 tests.py`) | [tests.py](tests.py) |
 | **Technical report suite (findings in depth, living-versioned)** | [reports/README.md](reports/README.md) (+ METHODS.md, certificates/) |
 | Detailed findings narrative (former front page) | [PROJECT_OVERVIEW.md](documentation/PROJECT_OVERVIEW.md) |
-| Public scientific record (what holds, what doesn't) | [SOLVE.md](documentation/SOLVE.md), [SOLVE-SUMMARY.md](documentation/SOLVE-SUMMARY.md), [CRITIQUE.md](documentation/CRITIQUE.md) |
+| Public scientific record (what holds, what doesn't) | [SOLVE.md](documentation/SOLVE.md), [SOLVE_SUMMARY.md](documentation/SOLVE_SUMMARY.md), [CRITIQUE.md](documentation/CRITIQUE.md) |
 | Stable paper-citable findings | [PARTITION_STABILITY_BOUNDARIES.md](documentation/PARTITION_STABILITY_BOUNDARIES.md), [BOUNDARY_MINIMUM.md](documentation/BOUNDARY_MINIMUM.md), [SYMMETRY_SEARCH.md](documentation/SYMMETRY_SEARCH.md), [PASS1_TRAJECTORY_DETERMINISM.md](documentation/PASS1_TRAJECTORY_DETERMINISM.md) (consolidated from `findings/` 2026-06-11; boundary doc renamed 2026-07-04) |
 | Plain-language explainer of branches, sub-branches, nodes, enumeration | [BRANCHES_EXPLAINED.md](documentation/BRANCHES_EXPLAINED.md) |
 | Distributional analysis of KW's position in the observable-space joint distribution | [DISTRIBUTIONAL_ANALYSIS.md](documentation/DISTRIBUTIONAL_ANALYSIS.md) |
@@ -43,7 +54,7 @@ King Wen's uniqueness vs. combinatorial structure.
 | **`sat.py` SAT/certificate-layer CLI** (CNF emit, witness, C3 encoding) | [SAT_CLI.md](documentation/SAT_CLI.md) |
 | Azure deployment / SKU sizing | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) |
 | Visualization tooling + how-to-read | [viz/README.md](viz/README.md) |
-| **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_PLAN.md` (**private repo, `petersm3/roae-private`** — not in this repo) |
+| **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_STATE.md` — short, current, read this one (**private repo, `petersm3/roae-private`** — not in this repo). `CURRENT_PLAN.md` beside it is ~416 KB of append-only history: provenance only, never orientation |
 | Operator memory (user preferences, feedback rules, infra notes) | `~/.claude/projects/*/memory/MEMORY.md` |
 
 ## Canonical shas — INVARIANT
@@ -55,8 +66,12 @@ hashes — with reproducibility parameters, record counts, and validation
 status per canonical — lives in [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md).
 
 Partition invariance (see [PARTITION_INVARIANCE.md](documentation/PARTITION_INVARIANCE.md))
-guarantees these are reproducible across hardware, region, merge
-algorithm, and enumeration vs. independent-shard-merge paths. If you
+proves these are reproducible across hardware, region, merge
+algorithm, and enumeration vs. independent-shard-merge paths — but the
+proof is about the **model** of the computation; the bridge from that
+model to the shipped binary is carried by the runtime gates
+(`--selftest`, the canonical-scale sha gates, two-language cross-checks),
+not by the proof itself (TR-3 §Scope). If you
 produce a mismatching sha, stop and investigate — don't silently
 "update" the canonical.
 
@@ -98,9 +113,17 @@ positives on whitespace / comment-only edits.
 
 **Current standing policy (2026-04-29, supersedes the prior split rule):**
 
-> **All VMs other than the 2-core 8GB `claude` orchestrator MUST be Spot priority.** No exceptions for merge VMs, no exceptions for "brief inspection" VMs, no exceptions for analysis VMs. If a workload genuinely cannot tolerate eviction, design for checkpoint/resume, or escalate to the operator before launching.
+> **Every VM other than the 2-core 8GB `claude` orchestrator must be provisioned deliberately: **enumeration on Spot**, and **merge or any workload that cannot checkpoint on Regular/Standard, right-sized**. No VM of any priority may be created or started without a teardown plan stated in the same breath. If a workload genuinely cannot tolerate eviction, do not put it on Spot — design for checkpoint/resume or provision Regular, and say which.** ⚠ **[CORRECTED 2026-08-29 — this read "All VMs … MUST be Spot priority. No exceptions for merge VMs, no exceptions for 'brief inspection' VMs, no exceptions for analysis VMs." Measured on the live subscription: five of seven non-orchestrator VMs are `Regular`, so the rule was never followed, and it contradicted `documentation/DEPLOYMENT.md`'s STANDING split policy. See documentation/CORRECTIONS.md]**
 
-This supersedes the 2026-04-20 split policy (enumeration=Spot, merge=on-demand). The split policy was correct in theory (eviction-fragile workloads should be Regular) but in practice the on-demand merge VMs accumulated forgotten-VM cost at the same rate as the prior overspend events — so the rule is now blanket Spot-only.
+⚠ **[CORRECTED 2026-08-29 — this said the blanket-Spot rule "supersedes the 2026-04-20 split policy (enumeration=Spot, merge=on-demand)". It does not, and PRACTICE HAS NEVER FOLLOWED IT: measured on the live subscription, five of the seven non-orchestrator VMs are `Regular` and only the enumeration VM is Spot. `documentation/DEPLOYMENT.md` still presents the split policy as STANDING with no supersession note, so the two documents contradicted each other and the one claiming priority was the one practice ignored. See documentation/CORRECTIONS.md]**
+
+**The operative rule, as actually practised:**
+
+- **Enumeration → Spot.** Eviction-resilient via sub-branch checkpoints, and roughly an 85% discount.
+- **Merge, and any workload that cannot checkpoint → Regular/Standard, RIGHT-SIZED.** A mid-merge eviction costs a full re-run, and paying for 128 cores to run a single-threaded heap-sort is ~4× over-spend.
+- **The `claude` orchestrator stays Regular.**
+
+**The cost concern behind the blanket rule was real but aimed at the wrong target.** What accumulated cost was *forgotten* VMs, not Regular *pricing*. So the requirement is: **pair every VM create or start with a teardown plan in the same breath**, and stand it down when the job ends. That is what prevents the overspend; blanket-Spot only made the rule unfollowable, which is why it was not followed.
 
 Spot pricing references (D-als-v7 family, westus3):
 - D128als_v7: ~$5.146/hr on-demand → ~$0.95/hr Spot (~85% discount)
@@ -114,25 +137,48 @@ Spot pricing references (D-als-v7 family, westus3):
 az vm show -g <rg> -n <vm> --query priority -o tsv
 ```
 
-- Output `Spot` → OK to launch.
-- Output empty / `null` / `Regular` → STOP. Either recreate the VM with `--priority Spot --eviction-policy Deallocate --max-price -1`, or escalate to the operator. Do NOT proceed with a workload on a Regular-priority VM.
+**The answer depends on whether the workload can resume from a checkpoint.**
 
-**Creation command template (only allowed form for new VMs other than `claude`):**
+- **Enumeration / checkpointable work** — output `Spot` → OK to launch. Output empty / `null` /
+  `Regular` → **STOP.** Either recreate with `--priority Spot --eviction-policy Deallocate
+  --max-price -1`, or escalate. An eviction here costs a resume, not a re-run.
+- **Merge, or any UNCHECKPOINTABLE work** — `Regular` / Standard, **right-sized**, is the
+  REQUIRED type, not a violation. An eviction here loses the whole run. Pair it with a teardown
+  plan in the same breath, because the real hazard for Standard is not its rate but being
+  forgotten.
+
+Live example (2026-08-30): `c292-codex` ran the Codex review sweep as **Regular D4als_v7** — correct,
+because a Codex review cannot resume from a checkpoint and a Spot eviction loses the run outright. It
+was paired with a teardown tick that deallocated it automatically at 111/111.
+
+**Creation command templates — pick by checkpointability, and pair BOTH with a teardown plan:**
 ```
+# enumeration / checkpointable — the default
 az vm create ... --priority Spot --eviction-policy Deallocate --max-price -1
+
+# merge / uncheckpointable — right-size it, and say how it dies before you create it
+az vm create ... --size <right-sized>          # Regular; no --priority flag
 ```
 
 Failure modes this rule prevents:
-- 2026-04-19: d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. Overspend on enumeration: ~$48-73.
-- 2026-04-26 → 2026-04-29: deep-calib-westus3 was recreated as Regular D64als_v7 (intentionally, to avoid eviction during a calibration run) and then forgotten across multiple sessions. Idle Regular billing for ~3 days, kept alive by orphan monitor scripts. Estimated cost: ~$70-100.
+- 2026-04-19: d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. The run billed at on-demand rather than Spot rates for its full duration.
+- 2026-04-26 → 2026-04-29: deep-calib-westus3 was recreated as Regular D64als_v7 (intentionally, to avoid eviction during a calibration run) and then forgotten across multiple sessions. Idle Regular billing for ~3 days, kept alive by orphan monitor scripts.
 
-The new rule also implicitly supersedes the merge-VM-on-demand guidance previously in this section: even merge VMs are now Spot. If a merge gets evicted mid-run, restart it; the marginal cost of a re-run is much smaller than the systemic cost of forgotten Regular VMs.
+⚠ **[CORRECTED 2026-08-30]** This paragraph previously read: *"even merge VMs are now Spot. If a
+merge gets evicted mid-run, restart it; the marginal cost of a re-run is much smaller than the
+systemic cost of forgotten Regular VMs."* **That is withdrawn.** Blanket-Spot made the rule
+unfollowable for uncheckpointable work, which is why it was not followed — and an unfollowable rule
+is worse than none, because its existence suppresses the workable one. The operative split is above:
+enumeration → Spot, merge/uncheckpointable → Regular/Standard right-sized **with a teardown plan**.
+
+The systemic cost of forgotten Regular VMs is real, and the answer to it is the teardown plan, not
+banning the VM type that some workloads require.
 
 ## Cost control — SKU family restrictions (STRICT)
 
 **Standing rule (repeated by user 2026-04-19 and 2026-04-20):**
 
-- **NEVER provision F-series (Falsv6, Fadsv6, etc.) VMs for any purpose.** F-series was retired from this project on 2026-04-19 when the D-als-v7 Turin family landed. Despite the retirement, F64als_v6 was accidentally spun up AT LEAST THREE TIMES (2026-04-19 06:09, 2026-04-20 ~00:32 — from solver-d3 recreations after deletions). Each cost ~$3-25 in avoidable spend before being caught.
+- **NEVER provision F-series (Falsv6, Fadsv6, etc.) VMs for any purpose.** F-series was retired from this project on 2026-04-19 when the D-als-v7 Turin family landed. Despite the retirement, F64als_v6 was accidentally spun up AT LEAST THREE TIMES (2026-04-19 06:09, 2026-04-20 ~00:32 — from solver-d3 recreations after deletions). Each incurred avoidable spend before being caught.
 - **Use D-als-v7 family exclusively**: D2als_v7 (analysis), D4als_v7 (data inspection), D16als_v7 (merge), D32als_v7 (merge / single-branch), D64als_v7 (parallel single-branch future), D128als_v7 (full enumeration).
 - **Right-size by workload**. Don't use F64 or D128 for a 10-minute data-mount task. Use D2 or D4.
 
@@ -141,8 +187,8 @@ The new rule also implicitly supersedes the merge-VM-on-demand guidance previous
 ## Session-lifecycle VM discipline (STRICT, applies to any `az vm create`)
 
 **Problem addressed:** "mount a disk briefly for inspection" has repeatedly
-left VMs running long after the inspection ended. Each cleanup gap costs
-$3-25 and accumulates across sessions.
+left VMs running long after the inspection ended. Each cleanup gap has a
+real billing cost and accumulates across sessions.
 
 **Rules, applied to every Claude-initiated VM:**
 
@@ -182,10 +228,10 @@ $3-25 and accumulates across sessions.
 
 **Past incidents this rule exists to prevent (see HISTORY.md §Missteps):**
 
-- 2026-04-19 06:09 → 2026-04-20 14:11: solver-d3 F64als_v6 spot ran for ~32 hrs unnoticed, ~$25 spend
-- 2026-04-20 18:59 → 2026-04-21 04:35: solver-d3 F64als_v6 spot ran for ~9.5 hrs before operator caught it, ~$7.50 spend
+- 2026-04-19 06:09 → 2026-04-20 14:11: solver-d3 F64als_v6 spot ran for ~32 hrs unnoticed
+- 2026-04-20 18:59 → 2026-04-21 04:35: solver-d3 F64als_v6 spot ran for ~9.5 hrs before operator caught it
 - campaign-westus2 OS disk orphaned for several hours after VM delete until user noticed
-- 2026-04-26 → 2026-04-29: deep-calib-westus3 (recreated as Regular D64als_v7) was kept alive by 3 orphan bash scripts left running on the `claude` orchestrator from sessions ending Apr 25-26 (`deep_calib_monitor.sh`, `deep_calib_milestone_watcher.sh`, `alpha_log_updater_loop.sh` — plus 2 stale `monitor_canonical.sh` from Apr 17). The monitor's auto-restart-on-eviction logic kept undoing manual `az vm deallocate` commands. The 2026-04-28 ~$70 idle-VM incident was fixed by deallocating, but the monitor kept resurrecting the VM until 2026-04-29 14:30 when the orphan scripts were SIGKILL'd and the VM (along with `campaign-westus3` and `stats-westus3`) was deleted entirely. Estimated total cost of the resurrection cycle: ~$70-100 over 3 days.
+- 2026-04-26 → 2026-04-29: deep-calib-westus3 (recreated as Regular D64als_v7) was kept alive by 3 orphan bash scripts left running on the `claude` orchestrator from sessions ending Apr 25-26 (`deep_calib_monitor.sh`, `deep_calib_milestone_watcher.sh`, `alpha_log_updater_loop.sh` — plus 2 stale `monitor_canonical.sh` from Apr 17). The monitor's auto-restart-on-eviction logic kept undoing manual `az vm deallocate` commands. The 2026-04-28 idle-VM incident was fixed by deallocating, but the monitor kept resurrecting the VM until 2026-04-29 14:30 when the orphan scripts were SIGKILL'd and the VM (along with `campaign-westus3` and `stats-westus3`) was deleted entirely. The resurrection cycle ran ~3 days.
 
 ## Never do without explicit user approval
 
@@ -264,11 +310,37 @@ provisioning scripts should source it.
 
 ## Single C source file — `solve.c` — no new `.c` files
 
-**Standing rule (2026-04-21):** All C code on this
-project lives in `solve.c`. All Python lives in `solve.py`. The only
-exception to the Python rule is `viz/visualize.py` (PCA plots — separate
-because its dependency footprint is heavy and it's run independently).
-No new `.c` or `.py` files elsewhere, not even for analysis tools.
+**Standing rule (2026-04-21):** All C code on this project lives in
+`solve.c` and all Python in `solve.py`, **except for the approved separates
+enumerated below**. No new `.c` or `.py` file outside that list, not even
+for analysis tools — adding one is an operator decision, not an
+implementation detail.
+
+**The approved separates — this is the complete list, and `git ls-files
+'*.py' '*.c'` must not exceed it.** Dates are *first-tracked* dates,
+measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
+
+- **`solve.c`, `solve.py`** — the two core files the rule is about.
+- **`sat.py`** (2026-07-02, operator-approved) — SAT/certificate layer; see
+  the paragraph below.
+- **`verify.py`** (first tracked 2026-04-17), **`verify.c`** (2026-07-22) —
+  the INDEPENDENCE exception, operator-approved 2026-07-21; see below.
+- **`roae.py`** (first tracked 2025-07-11, predating this rule) — the
+  analysis CLI, with its own reference in
+  [ROAE_PY_CLI.md](documentation/ROAE_PY_CLI.md).
+- **`tests.py`** (2026-07-04) — the regression harness. It has to be able to
+  fail on `solve.py`, so it cannot live inside it.
+- **`viz/visualize.py`** (2026-04-20), **`viz/growth_curve.py`**
+  (2026-06-15), **`viz/report_figures.py`** (2026-07-04) — the `viz/`
+  directory-scoped exception: heavy plotting dependencies, run independently.
+- **`scripts/c2c3_joint_null.py`** (2026-08-28) — the published reproducer
+  for the C2∧C3 joint null, shipped deliberately because "a published figure
+  whose only reproduction path was a private script would not be reproducible
+  at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
+  `solve.py` would destroy the independence it was created to supply.
+- **`reports/evidence/**/*.py`** (11 files under `f1/`, `f5/`, `f11/`,
+  `r11/`) — evidence instruments shipped and frozen alongside the results
+  they produced.
 
 - Need a tool to parse an enumeration log? Add it as a subcommand in
   `solve.c` (e.g., `./solve --yield-report`), not a separate `analyze_yields.c`.
@@ -278,15 +350,58 @@ No new `.c` or `.py` files elsewhere, not even for analysis tools.
   `scripts/compute_stats.py` or similar.
 - Shell, markdown, binaries outside the two consolidated files are fine.
 
+⚠ This block previously described the rule as admitting exactly one Python
+exception. That was false when written against the tree: **20 `.py` and 2
+`.c` files are tracked**, sixteen of the Python files covered by no clause of
+the rule, and four of those sixteen are named elsewhere in this very file. An
+agent obeying the old wording literally would have consolidated files that
+exist precisely to be separate. Corrected 2026-09-02; the retired wording is
+registered in
+[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
+[CORRECTIONS.md](documentation/CORRECTIONS.md).
+
 Why: single source of truth, one compile target, one test matrix, no
 dependency sprawl. The canonical source files are `solve.c` (enumeration,
 sha-anchored), `solve.py` (analysis + ground truth), and `sat.py` (SAT/
 certificate layer, operator-approved 2026-07-02; imports solve.py and must
 contain NO hand-written constraint semantics — see its header). They stay
-that way; SAT work goes in `sat.py`, not new files. The two directory-scoped
-exceptions, each a separate-toolchain component: `viz/` (visualize.py — heavy
-plotting deps) and `lean/` (KingWen.lean — the Lean 4 machine-checked theorem
-file + README; all formal-verification work goes in that one file).
+that way; SAT work goes in `sat.py`, not new files.
+
+**The INDEPENDENCE exception — `verify.py` and `verify.c` (operator-approved
+2026-07-21).** Independent verifiers are the one category that *cannot* live in
+the file they verify: a second opinion compiled into `solve.c`, sharing its
+helpers and constants, is not a second opinion. So there is exactly **one
+independent verifier per language**, and all future verification work goes
+INTO them, never into new files:
+- `verify.py` — independent Python verifier (records, `--recount`,
+  `--check-certificate`). Imports nothing from solve.c/solve.py/roae.py/sat.py.
+- `verify.c` — independent C verifier (plain non-quotient per-layer mass check).
+  Same discipline: no solve.c header, no shared table, no copied constant.
+
+This is a NARROW exception justified by purpose, not a general licence. It was
+established after `verify_layers.c` was created and pushed without approval
+(2026-07-21) — the same failure as `analyze_yields.c` in 2026-04-21. If you need
+more C verification, extend `verify.c`; do not add a third file. The two directory-scoped
+exceptions, each a separate-toolchain component: `viz/` (**three plotting
+scripts, not one** — `visualize.py`, `growth_curve.py`, `report_figures.py`;
+heavy plotting deps, listed individually above) and `lean/` (**a per-module directory, not one file** — the Lean 4 machine-checked theorem
+modules + README; every file is inventoried in `lean/README.md` and checked independently by
+`reports/certificates/verify_all.sh`. The one-file wording here was written 2026-07-03 when `lean/`
+held exactly one file; the second and third landed 2026-07-04 and it is now fourteen
+(`PruneReprFC.lean`, the repr(k) prune-safety theorem, landed 2026-08-15, took it to
+thirteen; `SatEncodingFidelity.lean` landed 2026-08-31 and took it to fourteen —
+`git ls-files 'lean/*.lean' | wc -l`, agreeing with `lean/README.md`). Per-module is
+the RIGHT structure for Lean and is not to be consolidated: compile cost is PER FILE. The landed
+kernel-`decide` `PruneGInvariance.lean` peaks at ~3.9 GB (an earlier revision of this sentence
+said "near 10.6 GB" — that WAS a real measurement, kept here for provenance, but of the REJECTED
+one-liner migration route, the direct 48×64×64 kernel enumeration of `applyPerm_isometry`; the
+shipped route proves the isometry structurally, and the 10.6 GB figure applies to nothing in the
+tree). The merge rationale as previously stated was also wrong in mechanism: merging files would
+NOT multiply peak memory — peak is set by the single most expensive `decide` obligation wherever
+it lives — but it WOULD force every verification run to pay the worst module's wall-time and
+memory cost and would destroy cheap partial verification (half the files check in ~1 s at
+<0.7 GB precisely because they are separate; measured table in lean/README.md §"Verify
+yourself"). Do not split a file further without a measured reason either).
 
 Past violations:
 - 2026-04-21: `analyze_yields.c` created as a separate file; user directive
@@ -310,8 +425,16 @@ Past violations:
 ## In-flight state
 
 For "what am I currently doing / what's running / what's next," read
-**`~/github/roae-private/CURRENT_PLAN.md`** first. That doc is refreshed as
-operational state changes; this CLAUDE.md is stable.
+**`~/github/roae-private/CURRENT_STATE.md`** first — a short (~150-line)
+current-state file: live campaign, supervisor pids, open operator decisions,
+active hazards. It is rewritten in place as state changes; this CLAUDE.md is
+stable.
+
+**Do NOT read `CURRENT_PLAN.md` to orient.** It is the append-only history
+behind that file and is now ~416 KB — reading it whole costs ~100k tokens and
+its lead block only duplicates `CURRENT_STATE.md`. Consult it for provenance
+(why a past decision was made), never for current state, and read it by
+targeted `grep`/offset rather than whole.
 
 Also check scheduled wake-ups (the runtime fires these automatically
 when 100T/analysis/validation jobs hit milestones — the wake prompt
@@ -320,7 +443,7 @@ itself contains the decision tree).
 ## Bi-region architecture
 
 - Orchestrator: `claude` VM (D2as_v6) in **westus2**.
-- Compute: D128als_v7 in **westus3** (as of 2026-04-19 pivot). **Spot** for enumeration workloads (eviction-resilient); on-demand for merge phases (eviction-fragile). See §Cost control above for the mandatory pre-launch verification gate. Note: the specific 100T d3 run on 2026-04-19/20 was inadvertently provisioned as on-demand by an earlier autonomous session; this is corrected-forward by the verification gate now documented here.
+- Compute: D128als_v7 in **westus3** (as of 2026-04-19 pivot). **Spot for enumeration and any other checkpointable work; Regular/Standard, right-sized, with a teardown plan stated in the same breath, for merge and any workload that cannot checkpoint** — per §"Cost control — VM purchase type" above. ⚠ This line previously claimed that a blanket Spot-for-everything policy superseded the enumeration=Spot / merge=on-demand split; **that supersession was withdrawn 2026-08-29/30** and the split is the operative rule, so the section this line cites as its authority is the same section that retracts the old wording. See §Cost control above for the mandatory pre-launch verification gate. Note: the specific 100T d3 run on 2026-04-19/20 was inadvertently provisioned as on-demand by an earlier autonomous session; this is corrected-forward by the verification gate now documented here.
 - F64als_v6 westus2 is **retired**. New large-scale enumeration uses
   Dalsv7 westus3 exclusively.
 - Managed disks are region-locked — cross-region needs snapshot+copy.

@@ -39,25 +39,10 @@ binary_hexagrams = [
     0b110110, 0b011011, 0b110010, 0b010011, 0b110011, 0b001100, 0b010101, 0b101010,
 ]
 
-# English names (Wilhelm/Baynes translation)
-hexagram_names = [
-    "The Creative", "The Receptive", "Difficulty at the Beginning", "Youthful Folly",
-    "Waiting", "Conflict", "The Army", "Holding Together",
-    "Small Taming", "Treading", "Peace", "Standstill",
-    "Fellowship", "Great Possession", "Modesty", "Enthusiasm",
-    "Following", "Work on the Decayed", "Approach", "Contemplation",
-    "Biting Through", "Grace", "Splitting Apart", "Return",
-    "Innocence", "Great Taming", "Nourishment", "Great Preponderance",
-    "The Abysmal", "The Clinging", "Influence", "Duration",
-    "Retreat", "Great Power", "Progress", "Darkening of the Light",
-    "The Family", "Opposition", "Obstruction", "Deliverance",
-    "Decrease", "Increase", "Breakthrough", "Coming to Meet",
-    "Gathering Together", "Pushing Upward", "Oppression", "The Well",
-    "Revolution", "The Cauldron", "The Arousing", "Keeping Still",
-    "Development", "The Marrying Maiden", "Abundance", "The Wanderer",
-    "The Gentle", "The Joyous", "Dispersion", "Limitation",
-    "Inner Truth", "Small Preponderance", "After Completion", "Before Completion",
-]
+# Hexagram labels are DERIVED from the two trigrams, not translated. 2026-08-27: this held the
+# 64 Wilhelm/Baynes English titles, a Princeton University Press translation under copyright.
+# Nothing in this project depends on a hexagram's English name. Defined below, after
+# upper_trigram/lower_trigram.
 
 # --- Utility functions ---
 
@@ -73,12 +58,19 @@ def bit_diff(a, b):
     return bin(a ^ b).count("1")
 
 # The 32 canonical pairs: each hexagram paired with its reverse (or inverse
-# for the 4 symmetric hexagrams). This pairing is unique and deterministic.
+# for the 8 symmetric hexagrams -- the 6-bit palindromes 0,12,18,30,33,45,51,63,
+# which the complement fallback joins into 4 pairs). This pairing is unique and
+# deterministic. (Q-330 / Codex T04, 2026-09-03: this comment, the --pairs and
+# --rules banners and has_pair_structure_c1's docstring all gave the PAIR
+# count, 4, where the hexagram count, 8, belonged.)
 def build_pairs():
     """Build the 32 canonical reverse/inverse pairs from the 64 hexagrams.
 
     ATTRIBUTION: the pair structure is classical — described by Yu Fan (164-233 AD; fandui/pangtong,
-    preserved via Li Dingzuo's Zhouyi jijie), formalized combinatorially by Cook 2006. See CITATIONS.md."""
+    preserved via Li Dingzuo's Zhouyi jijie), given its explicit 非覆即变 formulation by Kong Yingda
+    (Tang, 574-648), and formalized combinatorially by Cook 2006. Radisic 2026 (arXiv:2601.07175,
+    Lean-verified) proved it is the unique Hamming-cost-minimizing comp/rev matching on {0,1}^6.
+    See CITATIONS.md."""
     used = set()
     pairs = []
     for v in range(64):
@@ -140,6 +132,1100 @@ def rc4_violations(seq):
             viol += 1
             vpos.append(ncls)
     return viol, vpos
+
+
+def pair_null_gender_distribution_exact():
+    """Exact rational distribution of rc4_violations over the pair-only (C1) null.
+
+    The pair-only null (TR-8 §2, null (b)) draws a uniformly random C1-preserving ordering: a uniform
+    permutation of the 32 traditional pairs into the 32 pair-slots, with an independent fair orientation
+    coin per pair. This function returns the EXACT distribution of the Schulz gender/parity violation
+    count (`rc4_violations`) over that null as a dict {violation_count: Fraction probability} — the exact
+    companion to sampling the same quantity, retiring the finite-sample estimate.
+
+    It is exact (not sampled) because C1's pairing aligns with rc4_violations' inversion classes: each of
+    the 28 reversal pairs {h, rev(h)} is ONE inversion class (gender fixed by popcount, which reversal
+    preserves), and each of the 4 palindrome-complement pairs {h, comp(h)} is TWO consecutive classes
+    (both members palindromic), so class-position `ncls` is just the cumulative class count — a
+    deterministic function of the slot arrangement. The violation count therefore depends only on how the
+    gendered single-classes (male/female/exempt) and the two-class palindrome blocks interleave, which a
+    DP over the item multiset (position parity x remaining counts, orientation coin on palindrome blocks)
+    evaluates exactly. Verified two ways: an independent DP reproduces the value 47/445740, and the model
+    agrees with `rc4_violations` on every one of 10^5 random draws (0 mismatches). See TR-8 §2.
+
+    ATTRIBUTION: Schulz gender rule as in `rc4_violations` (Schulz 1990; Zhu Yuansheng 13th c.); the
+    exactness collapse is ours (TR-12 exactness pass, 2026-07-21)."""
+    from fractions import Fraction
+
+    def rev6(h):
+        r = 0
+        for b in range(6):
+            r |= ((h >> b) & 1) << (5 - b)
+        return r
+
+    def gender(w):  # matches rc4_violations: pc<3 male, pc>3 female, {0,3,6} exempt
+        if w in (0, 3, 6):
+            return None
+        return 'M' if w < 3 else 'F'
+
+    # classify the 32 traditional pairs into single-class (reversal) and two-class (palindrome) items
+    singles = []          # gender of each one-class reversal pair
+    blocks = []           # (gender, gender) for each two-class palindrome pair, in (h, comp(h)) order
+    for a, b in king_wen_pairs():
+        if rev6(a) == a:                                  # palindrome-complement pair -> two classes
+            blocks.append((gender(bin(a).count("1")), gender(bin(b).count("1"))))
+        else:                                             # reversal pair -> one class
+            singles.append(gender(bin(a).count("1")))     # rev preserves popcount, so a and b share it
+
+    # DP over remaining (singles-by-gender, blocks) tracking exact probability mass per violation count
+    from collections import defaultdict
+    counts = {'M': singles.count('M'), 'F': singles.count('F'), None: singles.count(None)}
+    n_items = len(singles) + len(blocks)
+    # state = (m_left, f_left, n_left, tuple of remaining block-index sorted signature) -> {viol: Fraction}
+    # blocks are few (4); represent remaining blocks as a sorted tuple of their gender-pairs
+    _bkey = lambda t: tuple('_' if g is None else g for g in t)  # None-safe ordering
+    start = (counts['M'], counts['F'], counts[None], tuple(sorted(blocks, key=_bkey)))
+    cur = {start: {0: Fraction(1)}}
+    tot_singles = counts['M'] + counts['F'] + counts[None]
+    for _ in range(n_items):
+        nxt = defaultdict(lambda: defaultdict(Fraction))
+        for (ml, fl, nl, brem), vd in cur.items():
+            rem = ml + fl + nl + len(brem)
+            placed_classes = (tot_singles - ml - fl - nl) + 2 * (len(blocks) - len(brem))
+            nextpos = placed_classes + 1
+            odd = (nextpos % 2 == 1)
+            opts = []
+            if ml:
+                opts.append(((ml - 1, fl, nl, brem), (0 if odd else 1), Fraction(ml, rem)))
+            if fl:
+                opts.append(((ml, fl - 1, nl, brem), (1 if odd else 0), Fraction(fl, rem)))
+            if nl:
+                opts.append(((ml, fl, nl - 1, brem), 0, Fraction(nl, rem)))
+            seen_block = set()
+            for i, blk in enumerate(brem):
+                if blk in seen_block:
+                    continue
+                seen_block.add(blk)
+                mult = brem.count(blk)
+                nb = list(brem)
+                nb.remove(blk)
+                nb = tuple(nb)
+                for order in (blk, (blk[1], blk[0])):          # orientation coin: 1/2 each
+                    dv = 0
+                    for off, g in enumerate(order):
+                        p = nextpos + off
+                        if g == 'M' and p % 2 == 0:
+                            dv += 1
+                        if g == 'F' and p % 2 == 1:
+                            dv += 1
+                    opts.append(((ml, fl, nl, nb), dv, Fraction(mult, rem) * Fraction(1, 2)))
+            for ns, dv, w in opts:
+                for v, pr in vd.items():
+                    nxt[ns][v + dv] += pr * w
+        cur = {k: dict(v) for k, v in nxt.items()}
+    if not (len(cur) == 1):
+        raise AssertionError('guard failed: len(cur) == 1')
+    final = list(cur.values())[0]
+    if not (sum(final.values()) == 1):
+        raise AssertionError('guard failed: sum(final.values()) == 1')
+    return dict(sorted(final.items()))
+
+
+def pair_null_gender_le2_exact():
+    """Exact P(rc4_violations <= 2) over the pair-only (C1) null: Fraction(47, 445740) = 1.054426e-4.
+
+    King Wen sits at exactly 2 gender/parity violations (`rc4_violations(king_wen_sequence)[0] == 2`), so
+    this is the exact probability that a uniformly random C1-preserving ordering matches KW's Schulz-gender
+    compliance level or better. Exact companion to TR-8 §2's sampler; see
+    `pair_null_gender_distribution_exact`."""
+    from fractions import Fraction
+    dist = pair_null_gender_distribution_exact()
+    return sum((p for v, p in dist.items() if v <= 2), Fraction(0))
+
+
+# --- TR-8 dof-matched KW-fitting-predicate sampler (task #170 / J1) ---------------------
+#
+# WHAT THIS IS. TR-8's executive summary once carried a "dof-matched" median rarity that had no
+# artifact, no command, no code path, no seed and no probe count anywhere in the repo. It is
+# WITHDRAWN (documentation/CORRECTIONS.md CX-27, 2026-08-07) pending exactly the instrument
+# below — TR-8's own words: "a solve.py sampler over the ~16-clause KW-fitting predicate space,
+# published with its seed and probe count, reporting the median rarity with a CI."
+#
+# WHAT THIS IS NOT. It is the INSTRUMENT, not a result. It measures nothing until it is run, and
+# a recorded run is gated on a FROZEN pre-registration (roae-private
+# PREREG_TR8_DOF_MATCHED_SAMPLER_*; §5(a)-(b) of that document). Nothing here reinstates the
+# withdrawn figure: that registration pre-commits that the withdrawn number is never reinstated
+# by this instrument — it is either replaced by a new, artifact-backed measurement, or it stays
+# withdrawn. Output written by this code is a measurement only when its seed root, probe count
+# and admitted bank are published alongside it, which is what the header this sampler writes is
+# for.
+#
+# ATTRIBUTION. The two literature rules the clause bank is built around are not ours: the
+# gender/position-parity motif is Schulz 1990 (exception first noticed by Zhu Yuansheng, 13th c.)
+# and the line-parity skeleton is Moore 2005 / Zhu Yuansheng; see documentation/CITATIONS.md and
+# the attribution notes at rc4_violations() and f4p_par_switch(). The predicate FAMILIES here are
+# a modeling choice made in the pre-registration, not a literature finding.
+
+# Lookup tables for the sampler hot path. Values only — every one is derived from
+# binary_hexagrams / reverse_6bit above, none is a new constant.
+_TR8_PC = [bin(h).count("1") for h in range(64)]
+_TR8_REV = [reverse_6bit(h) for h in range(64)]
+_TR8_CKEY = [min(h, _TR8_REV[h]) for h in range(64)]
+# Schulz gender label of a hexagram's inversion class: 0 = exempt (popcount 0, 3 or 6),
+# 1 = male (popcount < 3), 2 = female (popcount > 3). Matches rc4_violations()'s rule; the
+# label is well defined per class because reversal preserves popcount.
+_TR8_GENDER = [0 if _TR8_PC[h] in (0, 3, 6) else (1 if _TR8_PC[h] < 3 else 2)
+               for h in range(64)]
+_TR8_UPTRI = [(h >> 3) & 0b111 for h in range(64)]
+_TR8_LOTRI = [h & 0b111 for h in range(64)]
+# Yin/yang-majority class of the LOWER trigram: 1 if >= 2 of its 3 lines are yang.
+_TR8_LOMAJ = [1 if _TR8_PC[h & 0b111] >= 2 else 0 for h in range(64)]
+
+# Family instance counts, in bank order. The total is B_raw and is asserted, not assumed.
+_TR8_FAMILY_SIZES = (("A", 36), ("B", 64), ("C", 32), ("D", 63), ("E", 32),
+                     ("F", 15), ("G", 8), ("H", 64), ("I", 5))
+TR8_B_RAW = sum(n for _f, n in _TR8_FAMILY_SIZES)          # 319
+
+# Family I's five global statistics, in bank order.
+_TR8_GLOBAL_NAMES = ("shared_trigram_adjacencies", "par_switch",
+                     "dist_autocorr_lag1", "five_line_transitions",
+                     "distinct_within_pair_xor")
+
+_TR8_KW_FEATURES_CACHE = None
+_TR8_R_KW_CACHE = None
+
+
+def tr8_r_kw():
+    """King Wen's comparator rarity as a float: pair_null_gender_le2_exact() = 47/445740.
+
+    Cached because the exact Fraction DP behind it costs several seconds per call and the
+    sampler needs the same constant in two places; the closed form itself is unchanged and is
+    still what is quoted in the run header (as the exact rational, not this float)."""
+    global _TR8_R_KW_CACHE
+    if _TR8_R_KW_CACHE is None:
+        _TR8_R_KW_CACHE = float(pair_null_gender_le2_exact())
+    return _TR8_R_KW_CACHE
+
+
+def pair_null_draw(rng, pairs=None):
+    """One uniform draw from the pair-only (C1) null: the TR-8 §2 null (b) ordering.
+
+    A uniformly random permutation of the 32 traditional pairs into the 32 pair-slots, with an
+    independent fair orientation coin per pair; |space| = 32!*2^32 ~ 1.1e45. This is the same
+    null `pair_null_gender_distribution_exact()` models in closed form and the same one TR-8
+    §Commands samples inline — the orientation coin is written in TR-8's own idiom
+    (`(b, a) if rng.random() < 0.5 else (a, b)`) so the two agree draw for draw. That identity is
+    the sampler's null-model calibration gate (H-b): over this null, the rate of
+    `rc4_violations(seq)[0] <= 2` must reproduce `pair_null_gender_le2_exact()` = 47/445740."""
+    pl = list(king_wen_pairs() if pairs is None else pairs)
+    rng.shuffle(pl)
+    seq = []
+    for a, b in pl:
+        if rng.random() < 0.5:
+            seq.append(b)
+            seq.append(a)
+        else:
+            seq.append(a)
+            seq.append(b)
+    return seq
+
+
+def _tr8_features(seq):
+    """Raw feature vectors of one 64-hexagram ordering, in clause-bank family order.
+
+    Returns (gender, parity, pairdist, seamparity, orient, yangsign, blockmass, lomaj, glob).
+    Pure function of `seq`; no King Wen reference enters here — the comparison to King Wen is
+    tr8_clause_values()'s job, so this stays reusable and testable on its own."""
+    PC = _TR8_PC
+    d = [PC[seq[i] ^ seq[i + 1]] for i in range(63)]
+
+    # A — gender label of the inversion class at each of the 36 class positions, in
+    # first-appearance order (the rc4_violations station walk).
+    seen = set()
+    gender = []
+    for h in seq:
+        k = _TR8_CKEY[h]
+        if k in seen:
+            continue
+        seen.add(k)
+        gender.append(_TR8_GENDER[h])
+
+    parity = [PC[h] & 1 for h in seq]                              # B
+    pairdist = [d[2 * s] for s in range(32)]                       # C
+    seampar = [x & 1 for x in d]                                   # D
+    orient = [1 if PC[seq[2 * s]] <= PC[seq[2 * s + 1]] else 0     # E
+              for s in range(32)]
+
+    yangsign = []                                                  # F
+    run = 0
+    for i in range(60):
+        run += PC[seq[i]]
+        if (i + 1) % 4 == 0:
+            v = run - 3 * (i + 1)
+            yangsign.append((v > 0) - (v < 0))
+
+    blockmass = [sum(PC[seq[8 * b + t]] for t in range(8)) for b in range(8)]   # G
+    lomaj = [_TR8_LOMAJ[h] for h in seq]                                        # H
+
+    glob = [                                                                    # I
+        sum(1 for i in range(63)
+            if _TR8_UPTRI[seq[i]] == _TR8_UPTRI[seq[i + 1]]
+            or _TR8_LOTRI[seq[i]] == _TR8_LOTRI[seq[i + 1]]),
+        sum(1 for i in range(62) if seampar[i] != seampar[i + 1]),
+        sum(d[i] * d[i + 1] for i in range(62)),
+        sum(1 for x in d if x == 5),
+        len({seq[2 * s] ^ seq[2 * s + 1] for s in range(32)}),
+    ]
+    return (gender, parity, pairdist, seampar, orient, yangsign, blockmass, lomaj, glob)
+
+
+def tr8_kw_features():
+    """The King Wen feature vectors every clause is instantiated at (computed, never hardcoded)."""
+    global _TR8_KW_FEATURES_CACHE
+    if _TR8_KW_FEATURES_CACHE is None:
+        _TR8_KW_FEATURES_CACHE = _tr8_features(list(binary_hexagrams))
+    return _TR8_KW_FEATURES_CACHE
+
+
+def tr8_clause_bank():
+    """The raw clause-template bank: B_raw descriptors, in the canonical bank order.
+
+    Each entry is (family, instance_index, comparator, description). `instance_index` is 1-based
+    within its family, matching the pre-registration's index letters (i, j, s, t, p, b).
+    Comparators: "eq" = the feature equals King Wen's value at this instance; "ge" = the feature
+    is on the same side of King Wen's value as King Wen is (>=), which King Wen satisfies with
+    equality. No template references a hexagram's IDENTITY at a position — such a clause would
+    have marginal 1/64 and would drive the answer by construction."""
+    kw = tr8_kw_features()
+    gender, parity, pairdist, seampar, orient, yangsign, blockmass, lomaj, glob = kw
+    lab = {0: "exempt", 1: "male", 2: "female"}
+    bank = []
+    for i in range(36):
+        bank.append(("A", i + 1, "eq",
+                     "gender label at inversion-class position %d == %s"
+                     % (i + 1, lab[gender[i]])))
+    for j in range(64):
+        bank.append(("B", j + 1, "eq",
+                     "popcount parity at position %d == %d" % (j + 1, parity[j])))
+    for s in range(32):
+        bank.append(("C", s + 1, "eq",
+                     "within-pair Hamming distance at slot %d == %d" % (s + 1, pairdist[s])))
+    for t in range(63):
+        bank.append(("D", t + 1, "eq",
+                     "parity of seam distance %d == %d" % (t + 1, seampar[t])))
+    for s in range(32):
+        bank.append(("E", s + 1, "eq",
+                     "orientation relation (earlier popcount <= later) at slot %d == %d"
+                     % (s + 1, orient[s])))
+    for p in range(15):
+        bank.append(("F", 4 * (p + 1), "eq",
+                     "sign of running yang balance at position %d == %d"
+                     % (4 * (p + 1), yangsign[p])))
+    for b in range(8):
+        bank.append(("G", b + 1, "ge",
+                     "yang mass of block %d >= %d" % (b + 1, blockmass[b])))
+    for j in range(64):
+        bank.append(("H", j + 1, "eq",
+                     "lower-trigram yang-majority class at position %d == %d"
+                     % (j + 1, lomaj[j])))
+    for g in range(5):
+        bank.append(("I", g + 1, "ge",
+                     "%s >= %d" % (_TR8_GLOBAL_NAMES[g], glob[g])))
+    if len(bank) != TR8_B_RAW:
+        raise AssertionError("clause bank is %d instances, expected B_raw = %d"
+                             % (len(bank), TR8_B_RAW))
+    return bank
+
+
+def tr8_clause_values(seq, kw=None):
+    """Evaluate every raw clause template on one ordering -> list of B_raw 0/1 ints.
+
+    Bank order is the order of tr8_clause_bank(). King Wen evaluates to all ones by construction
+    (sanity gate H-a) — each clause was instantiated at King Wen's own value."""
+    if kw is None:
+        kw = tr8_kw_features()
+    f = _tr8_features(seq)
+    v = []
+    for idx in (0, 1, 2, 3, 4, 5):           # families A, B, C, D, E, F — equality
+        a, b = f[idx], kw[idx]
+        v.extend([1 if a[i] == b[i] else 0 for i in range(len(b))])
+    a, b = f[6], kw[6]                       # family G — same side as KW (>=)
+    v.extend([1 if a[i] >= b[i] else 0 for i in range(len(b))])
+    a, b = f[7], kw[7]                       # family H — equality
+    v.extend([1 if a[i] == b[i] else 0 for i in range(len(b))])
+    a, b = f[8], kw[8]                       # family I — same side as KW (>=)
+    v.extend([1 if a[i] >= b[i] else 0 for i in range(len(b))])
+    return v
+
+
+def tr8_seed(root, purpose):
+    """Seed derivation, frozen convention: uint64 = first 8 bytes, big-endian, of
+    sha256("<root>/<purpose>"). Every seed the sampler uses is a pure function of the seed ROOT
+    and a fixed purpose string, so the whole run is reconstructible from one published token."""
+    import hashlib
+    return int.from_bytes(
+        hashlib.sha256(("%s/%s" % (root, purpose)).encode("utf-8")).digest()[:8], "big")
+
+
+# The DEFAULT seed root tracks the pre-registration DRAFT's namespace token
+# (PREREG_TR8_DOF_MATCHED_SAMPLER_DRAFT_20260811 §3.7). It is a default, not a freeze: if the
+# registration is frozen with a different namespace, pass --tr8-dof-seed explicitly. Whatever is
+# used is echoed verbatim in the run header, which is the artifact TR-8 asks for.
+TR8_DEFAULT_SEED_ROOT = "ROAE-TR8-DOFMATCH-2026-08-11"
+TR8_DEFAULT_K_LADDER = (8, 12, 16, 20, 24)
+TR8_ADMISSION_BAND = (0.25, 0.75)
+
+
+def tr8_bank_admit(n_draws, seed, band=TR8_ADMISSION_BAND):
+    """Measure every raw template's marginal on a dedicated calibration pool and apply the band.
+
+    Returns (bank, marginals, admitted_indices, hits). The band is stated WITHOUT reference to
+    King Wen's own rarity, deliberately: a band tuned so that K clauses multiply out to KW's
+    rarity would make "King Wen is typical" true by construction. Templates that are vacuous
+    (marginal 1.0) or near-impossible under this null are dropped here, and the drop is data —
+    e.g. the distinct-within-pair-XOR clause is CONSTANT over the pair-only null, because the
+    null permutes the same 32 pairs, so it is admitted by no run."""
+    bank = tr8_clause_bank()
+    kw = tr8_kw_features()
+    pairs = king_wen_pairs()
+    rng = random.Random(seed)
+    hits = [0] * len(bank)
+    for _ in range(n_draws):
+        v = tr8_clause_values(pair_null_draw(rng, pairs), kw)
+        for i in range(len(v)):
+            if v[i]:
+                hits[i] += 1
+    marg = [h / n_draws for h in hits]
+    lo, hi = band
+    admitted = [i for i in range(len(bank)) if lo <= marg[i] <= hi]
+    return bank, marg, admitted, hits
+
+
+def tr8_predicate_ensemble(seed, n_pred, k, n_admitted):
+    """The K-clause predicate ensemble at one complexity order: n_pred conjunctions of K distinct
+    admitted clauses, drawn uniformly without replacement, each returned in sorted-index order.
+    A pure function of its seed and the admitted-bank size."""
+    if k > n_admitted:
+        raise ValueError("K = %d exceeds the admitted bank size %d" % (k, n_admitted))
+    rng = random.Random(seed)
+    return [tuple(sorted(rng.sample(range(n_admitted), k))) for _ in range(n_pred)]
+
+
+def _tr8_popcount(x):
+    return x.bit_count() if hasattr(x, "bit_count") else bin(x).count("1")
+
+
+def tr8_pool_shard(seed, n_draws, admitted, ensembles, block=4096):
+    """Run one pool shard: draw `n_draws` pair-only-null orderings, build one bit-column per
+    admitted clause, and return (hits_per_predicate_per_K, hb_hits).
+
+    `hits` counts, per predicate, the draws satisfying ALL K of its clauses — computed as a
+    bitwise AND of the K columns followed by one popcount, so the per-predicate cost is a handful
+    of C-speed big-integer operations rather than a Python loop over the pool.
+
+    `hb_hits` is the sanity-gate-H-b counter: draws with `rc4_violations(seq)[0] <= 2`, scored by
+    the UNMODIFIED rc4_violations() — the exact quantity pair_null_gender_le2_exact() computes in
+    closed form. It costs a second pass over the draw and is deliberately not optimised away: it
+    is the only evidence that the pool is the same null TR-8's comparator was computed over."""
+    kw = tr8_kw_features()
+    pairs = king_wen_pairs()
+    rng = random.Random(seed)
+    nb = len(admitted)
+    acc = [0] * nb
+    parts = [[] for _ in range(nb)]
+    nbytes = block // 8
+    filled = 0
+    hb_hits = 0
+    for _ in range(n_draws):
+        seq = pair_null_draw(rng, pairs)
+        if rc4_violations(seq)[0] <= 2:
+            hb_hits += 1
+        v = tr8_clause_values(seq, kw)
+        for c, ai in enumerate(admitted):
+            acc[c] = (acc[c] << 1) | v[ai]
+        filled += 1
+        if filled == block:
+            for c in range(nb):
+                parts[c].append(acc[c].to_bytes(nbytes, "big"))
+                acc[c] = 0
+            filled = 0
+    if filled:
+        pad = block - filled
+        for c in range(nb):
+            parts[c].append((acc[c] << pad).to_bytes(nbytes, "big"))
+    # Bits past n_draws are zero, so they can never be counted as a hit.
+    cols = [int.from_bytes(b"".join(parts[c]), "big") for c in range(nb)]
+    del parts, acc
+    hits = {}
+    for k in sorted(ensembles):
+        row = []
+        for pred in ensembles[k]:
+            m = cols[pred[0]]
+            for c in pred[1:]:
+                m &= cols[c]
+                if not m:
+                    break
+            row.append(_tr8_popcount(m))
+        hits[k] = row
+    return hits, hb_hits
+
+
+# --- statistics -------------------------------------------------------------------------
+
+def _tr8_log_binom_coeffs(n):
+    from math import lgamma
+    ln = lgamma(n + 1)
+    return [ln - lgamma(k + 1) - lgamma(n - k + 1) for k in range(n + 1)]
+
+
+def _tr8_binom_tail(lc, n, p, lo, hi):
+    """sum_{k=lo..hi} C(n,k) p^k (1-p)^(n-k), with lc = _tr8_log_binom_coeffs(n)."""
+    from math import exp, log, log1p, fsum
+    if lo > hi:
+        return 0.0
+    if p <= 0.0:
+        return 1.0 if lo == 0 else 0.0
+    if p >= 1.0:
+        return 1.0 if hi == n else 0.0
+    la, lb = log(p), log1p(-p)
+    return fsum(exp(lc[k] + k * la + (n - k) * lb) for k in range(lo, hi + 1))
+
+
+def tr8_clopper_pearson(x, n, alpha=0.05, iters=200):
+    """Exact (Clopper-Pearson) two-sided CI for a binomial proportion, stdlib only.
+
+    Solved by bisection on the exact binomial tail rather than by a beta quantile, so it needs no
+    third-party special functions. Returns (lo, hi)."""
+    if n <= 0:
+        return (0.0, 1.0)
+    lc = _tr8_log_binom_coeffs(n)
+    a = alpha / 2.0
+    if x == 0:
+        lo = 0.0
+    else:
+        p0, p1 = 0.0, 1.0
+        for _ in range(iters):
+            mid = (p0 + p1) / 2.0
+            if _tr8_binom_tail(lc, n, mid, x, n) > a:
+                p1 = mid
+            else:
+                p0 = mid
+        lo = (p0 + p1) / 2.0
+    if x == n:
+        hi = 1.0
+    else:
+        p0, p1 = 0.0, 1.0
+        for _ in range(iters):
+            mid = (p0 + p1) / 2.0
+            if _tr8_binom_tail(lc, n, mid, 0, x) < a:
+                p1 = mid
+            else:
+                p0 = mid
+        hi = (p0 + p1) / 2.0
+    return (lo, hi)
+
+
+def tr8_median_ci_ranks(n, alpha=0.05):
+    """Distribution-free order-statistic CI ranks for the median (1-based, inclusive).
+
+    L = the largest rank r with P(Binom(n, 1/2) <= r - 1) <= alpha/2;
+    U = the smallest rank r with P(Binom(n, 1/2) <= r - 1) >= 1 - alpha/2.
+    Computed exactly in integers from n — never hardcoded. Returns (L, U), or (None, None) when
+    n is too small for a two-sided interval to exist."""
+    from math import comb
+    if n < 1:
+        return (None, None)
+    total = 1 << n
+    lo_thr = alpha / 2.0
+    hi_thr = 1.0 - alpha / 2.0
+    cum = 0
+    L = U = None
+    for r in range(1, n + 1):
+        cum += comb(n, r - 1)          # cum == P(Binom <= r-1) * 2^n
+        if cum / total <= lo_thr:
+            L = r
+        if U is None and cum / total >= hi_thr:
+            U = r
+    if L is None or U is None or L > U:
+        return (None, None)
+    return (L, U)
+
+
+def _tr8_quantile(sorted_vals, q):
+    """Nearest-rank quantile of an already-sorted list (no interpolation, so a censored value
+    stays exactly 0.0 and is reported as censored rather than smeared by an average)."""
+    n = len(sorted_vals)
+    if n == 0:
+        return None
+    import math
+    idx = max(0, min(n - 1, int(math.ceil(q * n)) - 1))
+    return sorted_vals[idx]
+
+
+def tr8_statistics(hits_by_k, n_pool, n_pred_by_k, alpha=0.05):
+    """Turn per-predicate hit counts into the pre-registered statistics.
+
+    PRIMARY  F_hat(K) = fraction of predicates with r_hat <= r_KW, Clopper-Pearson CI. It is
+             primary because it is immune to censoring: a predicate with zero hits is CERTAINLY
+             rarer than r_KW, so it counts correctly even though its rarity is only known as
+             "< 1/N_pool".
+    SECONDARY m_hat(K) = median rarity with a distribution-free order-statistic CI. CX-27 names
+             the median specifically, so it ships regardless — but it is reportable only while
+             fewer than half the predicates are censored, and this function says so rather than
+             printing a number that is really a bound."""
+    r_kw = tr8_r_kw()
+    out = {"r_kw": r_kw, "n_pool": n_pool, "alpha": alpha, "by_k": {}}
+    for k in sorted(hits_by_k):
+        h = hits_by_k[k]
+        n_pred = n_pred_by_k[k]
+        if len(h) != n_pred:
+            raise AssertionError("K=%d: %d hit rows for %d predicates" % (k, len(h), n_pred))
+        r = sorted(x / n_pool for x in h)
+        n_cens = sum(1 for x in h if x == 0)
+        x = sum(1 for v in r if v <= r_kw)
+        f_hat = x / n_pred
+        f_lo, f_hi = tr8_clopper_pearson(x, n_pred, alpha)
+        L, U = tr8_median_ci_ranks(n_pred, alpha)
+        if n_pred % 2:
+            med = r[n_pred // 2]
+        else:
+            med = (r[n_pred // 2 - 1] + r[n_pred // 2]) / 2.0
+        med_cens = (n_cens * 2 >= n_pred)
+        m_lo = r[L - 1] if L else None
+        m_hi = r[U - 1] if U else None
+        out["by_k"][k] = {
+            "n_pred": n_pred,
+            "f_hat": f_hat, "f_hat_x": x, "f_ci": [f_lo, f_hi],
+            "median": med, "median_censored": med_cens,
+            "median_ci": [m_lo, m_hi], "median_ci_ranks": [L, U],
+            "censored_fraction": n_cens / n_pred,
+            "deciles": [_tr8_quantile(r, q / 10.0) for q in range(1, 10)],
+            "min": r[0], "max": r[-1],
+        }
+    return out
+
+
+def tr8_verdict(stats, k_head=16):
+    """The frozen decision rule (pre-registration §3.5), applied at the headline K.
+
+    BULK / TAIL-EXTREME / COMMON / INCONCLUSIVE. A verdict is only meaningful under a FROZEN
+    registration; this function computes it, it does not authorize publishing it."""
+    d = stats["by_k"].get(k_head)
+    if d is None:
+        return ("INCONCLUSIVE", "K=%d not in the ladder" % k_head)
+    lo, hi = d["f_ci"]
+    if d["median_censored"]:
+        return ("INCONCLUSIVE", "the median is censored at 1/N_pool")
+    if lo >= 0.05 and hi <= 0.95:
+        return ("BULK", "CI(F_hat) is inside [0.05, 0.95]")
+    if hi < 0.05:
+        return ("TAIL-EXTREME", "CI(F_hat) lies entirely below 0.05")
+    if lo > 0.95:
+        return ("COMMON", "CI(F_hat) lies entirely above 0.95")
+    return ("INCONCLUSIVE", "CI(F_hat) straddles a bar")
+
+
+# --- driver -----------------------------------------------------------------------------
+
+def _tr8_sha256_file(path):
+    import hashlib
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return None
+
+
+def _tr8_header(seed_root, pool, n_pool, n_shards, n_pred, klist, calib_draws, band,
+                bank, marg, admitted):
+    """The DETERMINISTIC run header: identical inputs give a byte-identical file.
+
+    Wall time, host and interpreter version are deliberately NOT here — they go to env.json — so
+    that "same seed => same header" is a testable property rather than a slogan. TR-8's
+    requirement is "published with its seed and probe count"; this file is what satisfies it."""
+    import hashlib
+    seeds = {"bank-calibration": tr8_seed(seed_root, "bank-calibration"),
+             "timing-probe": tr8_seed(seed_root, "timing-probe")}
+    for i in range(n_shards):
+        seeds["pool-%s/shard-%d" % (pool, i)] = tr8_seed(seed_root, "pool-%s/shard-%d" % (pool, i))
+    for k in klist:
+        seeds["predicates/K-%d" % k] = tr8_seed(seed_root, "predicates/K-%d" % k)
+    bank_digest = hashlib.sha256(
+        "\n".join("%s%d|%s|%s|%.6f" % (bank[i][0], bank[i][1], bank[i][2], bank[i][3], marg[i])
+                  for i in admitted).encode("utf-8")).hexdigest()
+    fam = {}
+    for i in admitted:
+        fam[bank[i][0]] = fam.get(bank[i][0], 0) + 1
+    return {
+        "instrument": "solve.py --tr8-dof-sampler",
+        "prereg": "roae-private PREREG_TR8_DOF_MATCHED_SAMPLER (must be FROZEN before a "
+                  "recorded run; this header does not assert that it is)",
+        "seed_root": seed_root,
+        "seeds": seeds,
+        "pool": pool,
+        "n_pool": n_pool,
+        "n_shards": n_shards,
+        "n_pred": n_pred,
+        "k_ladder": list(klist),
+        "calibration_draws": calib_draws,
+        "admission_band": list(band),
+        "b_raw": len(bank),
+        "b_admitted": len(admitted),
+        "admitted_family_counts": fam,
+        "admitted_bank_sha256": bank_digest,
+        "solve_py_sha256": _tr8_sha256_file(__file__),
+        "r_kw": "47/445740",
+    }
+
+
+def _tr8_geomean(vals):
+    import math
+    vals = [v for v in vals if v > 0]
+    if not vals:
+        return 0.0
+    return math.exp(sum(math.log(v) for v in vals) / len(vals))
+
+
+def tr8_emit_bank(seed_root=TR8_DEFAULT_SEED_ROOT, calib_draws=100000,
+                  band=TR8_ADMISSION_BAND, out_dir=None):
+    """Measure and print the admitted clause bank. Terminal command.
+
+    This is the pre-registration's bank-freeze step: its output is what gets pasted into the
+    registration as a dated annotation BEFORE any rarity is computed. After that, instances may
+    be DROPPED (dated, with a reason) but none may be added."""
+    seed = tr8_seed(seed_root, "bank-calibration")
+    t0 = time.time()
+    bank, marg, admitted, hits = tr8_bank_admit(calib_draws, seed, band)
+    kwv = tr8_clause_values(list(binary_hexagrams))
+    ha = all(kwv)
+    print("TR-8 dof-matched sampler — admitted clause bank")
+    print("  seed root       : %s" % seed_root)
+    print("  calibration seed: %d  (sha256('%s/bank-calibration')[:8], big-endian)"
+          % (seed, seed_root))
+    print("  probe count     : %d calibration draws" % calib_draws)
+    print("  admission band  : [%.2f, %.2f]" % band)
+    print("  B_raw           : %d" % len(bank))
+    print("  B_admitted      : %d" % len(admitted))
+    print("  H-a (KW satisfies every raw template): %s" % ("PASS" if ha else "FAIL"))
+    fam = {}
+    for i in admitted:
+        fam[bank[i][0]] = fam.get(bank[i][0], 0) + 1
+    print("  admitted by family: %s"
+          % ", ".join("%s=%d/%d" % (f, fam.get(f, 0), n) for f, n in _TR8_FAMILY_SIZES))
+    print("  geometric-mean admitted marginal: %.6f" % _tr8_geomean([marg[i] for i in admitted]))
+    print()
+    print("  %-6s %-9s %s" % ("clause", "marginal", "template (instantiated at King Wen)"))
+    for i in admitted:
+        f, idx, cmp_, desc = bank[i]
+        print("  %-6s %-9.5f %s" % ("%s%d" % (f, idx), marg[i], desc))
+    dropped = [i for i in range(len(bank)) if i not in set(admitted)]
+    print()
+    print("  %d template(s) dropped by the band (marginal outside [%.2f, %.2f]):"
+          % (len(dropped), band[0], band[1]))
+    for f, _n in _TR8_FAMILY_SIZES:
+        ds = [i for i in dropped if bank[i][0] == f]
+        if ds:
+            print("    family %s: %d dropped, marginals %.5f .. %.5f"
+                  % (f, len(ds), min(marg[i] for i in ds), max(marg[i] for i in ds)))
+    print()
+    print("  wall %.1f s" % (time.time() - t0))
+    if out_dir:
+        import json
+        os.makedirs(out_dir, exist_ok=True)
+        with open(os.path.join(out_dir, "bank.json"), "w", encoding="utf-8") as f:
+            json.dump({"seed_root": seed_root, "calibration_seed": seed,
+                       "calibration_draws": calib_draws, "band": list(band),
+                       "b_raw": len(bank), "b_admitted": len(admitted),
+                       "h_a_kw_satisfies_all": ha,
+                       "bank": [{"family": bank[i][0], "index": bank[i][1],
+                                 "comparator": bank[i][2], "template": bank[i][3],
+                                 "marginal": marg[i], "hits": hits[i],
+                                 "admitted": i in set(admitted)}
+                                for i in range(len(bank))]}, f, indent=1, sort_keys=True)
+        print("  wrote %s" % os.path.join(out_dir, "bank.json"))
+    return 0 if ha else 1
+
+
+def tr8_dof_sampler(out_dir, seed_root=TR8_DEFAULT_SEED_ROOT, pool="A",
+                    n_pool=10000000, n_pred=1000, klist=TR8_DEFAULT_K_LADDER,
+                    shard=None, n_shards=8, calib_draws=100000,
+                    band=TR8_ADMISSION_BAND, quiet=False):
+    """Run the dof-matched sampler. Terminal command.
+
+    With no --tr8-dof-shard the whole pool is run in this process, shard by shard in index order,
+    and the statistics are computed. With --tr8-dof-shard I only shard I runs and its per-
+    predicate hit counts are written for a later --tr8-dof-merge; hits are ADDITIVE across shards
+    because every shard evaluates the same predicate ensemble, so the merge is exact and not an
+    approximation of the single-process run (asserted by --tr8-dof-selftest)."""
+    import json
+    if n_shards < 1 or n_pool < n_shards or n_pool % n_shards:
+        raise ValueError("n_pool (%d) must be a positive multiple of n_shards (%d) — the "
+                         "pre-registration fixes equal-size shards" % (n_pool, n_shards))
+    if shard is not None and not (0 <= shard < n_shards):
+        raise ValueError("shard %d is outside 0..%d" % (shard, n_shards - 1))
+    if pool not in ("A", "B", "calib"):
+        raise ValueError("pool must be A, B or calib")
+    os.makedirs(out_dir, exist_ok=True)
+    t0 = time.time()
+
+    bank, marg, admitted, _bh = tr8_bank_admit(calib_draws,
+                                               tr8_seed(seed_root, "bank-calibration"), band)
+    kwv = tr8_clause_values(list(binary_hexagrams))
+    if not all(kwv):
+        bad = [i for i, x in enumerate(kwv) if not x]
+        raise AssertionError("H-a FAILED: King Wen does not satisfy clause(s) %s — this is a "
+                             "first-order implementation finding, not a result" % bad[:8])
+    header = _tr8_header(seed_root, pool, n_pool, n_shards, n_pred, klist, calib_draws,
+                         band, bank, marg, admitted)
+    ensembles = {k: tr8_predicate_ensemble(header["seeds"]["predicates/K-%d" % k],
+                                           n_pred, k, len(admitted)) for k in klist}
+
+    shards = range(n_shards) if shard is None else [shard]
+    per_shard = n_pool // n_shards
+    hits = {k: [0] * n_pred for k in klist}
+    hb = 0
+    drawn = 0
+    for i in shards:
+        if not quiet:
+            print("  shard %d/%d: %d draws ..." % (i, n_shards, per_shard), flush=True)
+        s_hits, s_hb = tr8_pool_shard(header["seeds"]["pool-%s/shard-%d" % (pool, i)],
+                                      per_shard, admitted, ensembles)
+        for k in klist:
+            row = s_hits[k]
+            tgt = hits[k]
+            for j in range(n_pred):
+                tgt[j] += row[j]
+        hb += s_hb
+        drawn += per_shard
+
+    # SHARD-SAFE WRITES. The shards are meant to run CONCURRENTLY into one directory, so only
+    # shard 0 writes the two files they would all write identically (header.json, bank.json) —
+    # eight processes writing the same path at once is a torn file waiting to happen, and the
+    # merge would then be reading whatever survived. env.json is per-shard for the same reason.
+    # Nothing is lost: --tr8-dof-merge refuses a pool that is missing shard 0 anyway.
+    env_name = "env.json" if shard is None else "env_shard_%d.json" % shard
+    with open(os.path.join(out_dir, env_name), "w", encoding="utf-8") as f:
+        json.dump({"wall_seconds": round(time.time() - t0, 3),
+                   "python": sys.version.split()[0],
+                   "host": os.uname().nodename if hasattr(os, "uname") else "?",
+                   "shards_run": list(shards)}, f, indent=1, sort_keys=True)
+    if shard is None or shard == 0:
+        with open(os.path.join(out_dir, "header.json"), "w", encoding="utf-8") as f:
+            json.dump(header, f, indent=1, sort_keys=True)
+        tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted)
+
+    if shard is not None:
+        path = os.path.join(out_dir, "shard_%s_%d.json" % (pool, shard))
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"header": header, "shard": shard, "draws": per_shard,
+                       "hb_hits": hb,
+                       "hits": {str(k): hits[k] for k in klist}}, f, sort_keys=True)
+        if not quiet:
+            print("  wrote %s (statistics need --tr8-dof-merge %s)" % (path, out_dir))
+        return 0
+
+    return _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted,
+                       bank, quiet)
+
+
+def tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted):
+    import json
+    adm = set(admitted)
+    with open(os.path.join(out_dir, "bank.json"), "w", encoding="utf-8") as f:
+        json.dump({"seed_root": seed_root, "calibration_draws": calib_draws,
+                   "band": list(band), "b_raw": len(bank), "b_admitted": len(admitted),
+                   "bank": [{"family": bank[i][0], "index": bank[i][1],
+                             "comparator": bank[i][2], "template": bank[i][3],
+                             "marginal": marg[i], "admitted": i in adm}
+                            for i in range(len(bank))]}, f, indent=1, sort_keys=True)
+
+
+def tr8_dof_merge(out_dir, quiet=False):
+    """Sum the per-shard hit files in OUT_DIR and compute the statistics. Terminal command.
+
+    Refuses to merge shards whose headers disagree (different seed root, pool, bank or ladder) and
+    refuses a merge that is missing a shard — a partial pool is a different pool, and silently
+    reporting one would be the exact failure this project's canonical gates exist to prevent."""
+    import json
+    files = sorted(n for n in os.listdir(out_dir)
+                   if n.startswith("shard_") and n.endswith(".json"))
+    if not files:
+        raise SystemExit("no shard_*.json in %s" % out_dir)
+    header = None
+    hits = None
+    hb = 0
+    drawn = 0
+    seen = set()
+    for name in files:
+        with open(os.path.join(out_dir, name), encoding="utf-8") as f:
+            d = json.load(f)
+        if header is None:
+            header = d["header"]
+            hits = {int(k): [0] * len(v) for k, v in d["hits"].items()}
+        elif d["header"] != header:
+            raise SystemExit("%s carries a different run header — refusing to merge" % name)
+        if d["shard"] in seen:
+            raise SystemExit("shard %d appears twice — refusing to merge" % d["shard"])
+        seen.add(d["shard"])
+        for k, row in d["hits"].items():
+            tgt = hits[int(k)]
+            for j in range(len(row)):
+                tgt[j] += row[j]
+        hb += d["hb_hits"]
+        drawn += d["draws"]
+    missing = sorted(set(range(header["n_shards"])) - seen)
+    if missing:
+        raise SystemExit("shard(s) %s missing from %s — refusing to merge a partial pool"
+                         % (missing, out_dir))
+    with open(os.path.join(out_dir, "bank.json"), encoding="utf-8") as f:
+        bj = json.load(f)
+    bank = [(e["family"], e["index"], e["comparator"], e["template"]) for e in bj["bank"]]
+    marg = [e["marginal"] for e in bj["bank"]]
+    admitted = [i for i, e in enumerate(bj["bank"]) if e["admitted"]]
+    return _tr8_finish(out_dir, header, hits, hb, drawn, header["k_ladder"],
+                       header["n_pred"], marg, admitted, bank, quiet)
+
+
+def _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted, bank, quiet):
+    """Compute, write and print the statistics + the sanity gates."""
+    import json
+    from fractions import Fraction
+    stats = tr8_statistics(hits, drawn, {k: n_pred for k in klist})
+    p_exact = tr8_r_kw()
+    exp_hb = p_exact * drawn
+    # H-b: the pool's own rate of rc4_violations <= 2 against the exact closed form. Poisson
+    # error at the pool size; the frozen tolerance is |observed - expected| <= 5*sigma + 3 --
+    # five Poisson sigma PLUS a 3-count integer-continuity floor -- and is stated, not tuned
+    # after the fact. At small pool sizes this gate is weak by construction and says so.
+    # (Corrected 2026-09-02, code batch C3: this comment and the h_b_note below both read
+    # "5 sigma", two lines above the "+ 3.0" they were describing. SOLVE_PY_CLI.md has
+    # carried the full band since it was written; only the code understated it.)
+    import math
+    sigma = math.sqrt(exp_hb) if exp_hb > 0 else 0.0
+    hb_ok = abs(hb - exp_hb) <= 5.0 * sigma + 3.0
+    verdict, why = tr8_verdict(stats)
+    # H-a is EVALUATED here, not asserted from elsewhere: --tr8-dof-merge reaches this function
+    # without going through the sampler's own pre-run check, and a gate reported as PASS on a
+    # path that never ran it is a false attestation.
+    kwv = tr8_clause_values(list(binary_hexagrams))
+    ha_ok = all(kwv)
+    if not ha_ok:
+        verdict, why = "INCONCLUSIVE", "sanity gate H-a (KW satisfies every clause) FAILED"
+    gates = {"h_a_kw_satisfies_every_predicate": ha_ok,
+             "h_b_null_calibration": hb_ok,
+             "h_b_observed": hb, "h_b_expected": exp_hb,
+             "h_b_sigma": sigma,
+             "h_b_note": "band |observed-expected| <= 5*sigma + 3 (Poisson sigma "
+                         "plus a 3-count integer-continuity floor) on "
+                         "P(rc4_violations<=2) = %s" % Fraction(47, 445740)}
+    if not hb_ok:
+        verdict, why = "INCONCLUSIVE", "sanity gate H-b (null calibration) FAILED"
+    res = {"header": header, "gates": gates, "statistics": stats,
+           "verdict": verdict, "verdict_reason": why,
+           "geometric_mean_admitted_marginal": _tr8_geomean([marg[i] for i in admitted]),
+           "draws_used": drawn}
+    with open(os.path.join(out_dir, "results.json"), "w", encoding="utf-8") as f:
+        json.dump(res, f, indent=1, sort_keys=True)
+    lines = _tr8_results_md(res, bank, admitted, marg)
+    with open(os.path.join(out_dir, "RESULTS.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    if not quiet:
+        print("\n".join(lines))
+        print()
+        print("  wrote %s" % os.path.join(out_dir, "results.json"))
+    return 0 if (hb_ok and ha_ok) else 1
+
+
+def _tr8_results_md(res, bank, admitted, marg):
+    import math
+    h = res["header"]
+    s = res["statistics"]
+    L = []
+    L.append("# TR-8 dof-matched KW-fitting-predicate sampler — run output")
+    L.append("")
+    L.append("Instrument: `solve.py --tr8-dof-sampler`. This file is a RUN RECORD, not a")
+    L.append("publication: a number here is citable only under a FROZEN pre-registration, and")
+    L.append("the withdrawn TR-8 median is never reinstated by it (CORRECTIONS.md CX-27).")
+    L.append("")
+    L.append("## Seed and probe count (what TR-8 requires published alongside the number)")
+    L.append("")
+    L.append("| parameter | value |")
+    L.append("|---|---|")
+    L.append("| seed root | `%s` |" % h["seed_root"])
+    L.append("| pool | %s |" % h["pool"])
+    L.append("| probe count (N_pool) | %d draws (%d shards x %d) |"
+             % (res["draws_used"], h["n_shards"], h["n_pool"] // h["n_shards"]))
+    L.append("| predicates per K (N_pred) | %d |" % h["n_pred"])
+    L.append("| K ladder | %s |" % ", ".join(str(k) for k in h["k_ladder"]))
+    L.append("| calibration draws | %d |" % h["calibration_draws"])
+    L.append("| admission band | [%.2f, %.2f] |" % tuple(h["admission_band"]))
+    L.append("| B_raw / B_admitted | %d / %d |" % (h["b_raw"], h["b_admitted"]))
+    L.append("| admitted-bank sha256 | `%s` |" % h["admitted_bank_sha256"])
+    L.append("| geometric-mean admitted marginal | %.6f |"
+             % res["geometric_mean_admitted_marginal"])
+    L.append("| r_KW (exact) | %s = %.6e |" % (h["r_kw"], s["r_kw"]))
+    L.append("")
+    L.append("Every seed is `uint64(sha256(\"<seed root>/<purpose>\")[:8], big-endian)`:")
+    L.append("")
+    L.append("| purpose | seed |")
+    L.append("|---|---|")
+    for k in sorted(h["seeds"]):
+        L.append("| `%s` | %d |" % (k, h["seeds"][k]))
+    L.append("")
+    L.append("## Sanity gates")
+    L.append("")
+    g = res["gates"]
+    L.append("- **H-a** (King Wen satisfies every drawn predicate by construction): **%s**"
+             % ("PASS" if g["h_a_kw_satisfies_every_predicate"] else "FAIL"))
+    L.append("- **H-b** (the pool reproduces the exact pair-null gender rate): **%s** — "
+             "observed %d, expected %.2f, sigma %.2f"
+             % ("PASS" if g["h_b_null_calibration"] else "FAIL",
+                g["h_b_observed"], g["h_b_expected"], g["h_b_sigma"]))
+    L.append("")
+    L.append("## Statistics")
+    L.append("")
+    L.append("`F_hat` = fraction of drawn predicates at least as rare as King Wen "
+             "(PRIMARY; censoring-immune). `m_hat` = median rarity (SECONDARY).")
+    L.append("")
+    L.append("| K | F_hat | 95% CP CI | m_hat | 95% order-stat CI | censored |")
+    L.append("|---|---|---|---|---|---|")
+    for k in sorted(s["by_k"]):
+        d = s["by_k"][k]
+        floor = 1.0 / s["n_pool"]
+        cell = lambda v: ("< %.3e" % floor) if not v else "%.4e" % v
+        med = ("< %.3e (CENSORED)" % floor) if d["median_censored"] else cell(d["median"])
+        ci = "n/a" if d["median_ci"][0] is None else \
+            ("[%s, %s]" % (cell(d["median_ci"][0]), cell(d["median_ci"][1])))
+        L.append("| %d | %.4f | [%.4f, %.4f] | %s | %s | %.1f%% |"
+                 % (k, d["f_hat"], d["f_ci"][0], d["f_ci"][1], med, ci,
+                    100.0 * d["censored_fraction"]))
+    L.append("")
+    L.append("Deciles of the rarity distribution (log10; `cens` = below the 1/N_pool floor):")
+    L.append("")
+    L.append("| K | " + " | ".join("d%d" % q for q in range(1, 10)) + " |")
+    L.append("|---|" + "---|" * 9)
+    for k in sorted(s["by_k"]):
+        cells = []
+        for v in s["by_k"][k]["deciles"]:
+            cells.append("cens" if not v else "%.2f" % math.log10(v))
+        L.append("| %d | " % k + " | ".join(cells) + " |")
+    L.append("")
+    L.append("**Verdict (pre-registered rule, headline K = 16): %s** — %s"
+             % (res["verdict"], res["verdict_reason"]))
+    L.append("")
+    L.append("## Admitted clause bank")
+    L.append("")
+    L.append("| clause | marginal | template (instantiated at King Wen's own value) |")
+    L.append("|---|---|---|")
+    for i in admitted:
+        L.append("| %s%d | %.5f | %s | " % (bank[i][0], bank[i][1], marg[i], bank[i][3]))
+    return L
+
+
+def tr8_dof_selftest(seed_root="TR8-SELFTEST-THROWAWAY", quiet=False):
+    """The four self-test obligations of the pre-registration's §4.4, at local scale.
+
+    This is a SELF-TEST of the instrument. Its numbers are not a measurement of anything and its
+    seed root is a throwaway that is deliberately not the frozen one."""
+    import json
+    fails = []
+
+    def gate(name, ok, detail=""):
+        print("  [%s] %s%s" % ("ok" if ok else "FAIL", name, (" — " + detail) if detail else ""))
+        if not ok:
+            fails.append(name)
+
+    print("TR-8 dof-matched sampler — self-test (seed root %r; NOT a measurement)" % seed_root)
+
+    # (4) bank integrity, first because everything else is built on it.
+    bank = tr8_clause_bank()
+    gate("bank: B_raw == %d and family counts match the frozen table" % TR8_B_RAW,
+         len(bank) == TR8_B_RAW
+         and all(sum(1 for e in bank if e[0] == f) == n for f, n in _TR8_FAMILY_SIZES))
+
+    # (2) H-a: King Wen satisfies every raw template, hence every predicate drawn from any subset.
+    kwv = tr8_clause_values(list(binary_hexagrams))
+    gate("H-a: King Wen satisfies all %d raw templates" % TR8_B_RAW, all(kwv),
+         "" if all(kwv) else "failing indices %s" % [i for i, x in enumerate(kwv) if not x][:8])
+
+    # (1) H-b: pair_null_draw reproduces the exact pair-null gender rate, scored by the
+    #     UNMODIFIED rc4_violations, and its full violation distribution matches the closed form.
+    n = 20000
+    rng = random.Random(tr8_seed(seed_root, "hb"))
+    pairs = king_wen_pairs()
+    obs = {}
+    for _ in range(n):
+        v = rc4_violations(pair_null_draw(rng, pairs))[0]
+        obs[v] = obs.get(v, 0) + 1
+    exact = pair_null_gender_distribution_exact()
+    worst = 0.0
+    for v, p in exact.items():
+        e = float(p) * n
+        if e < 25:
+            continue                      # normal approximation is not trustworthy below this
+        z = abs(obs.get(v, 0) - e) / (e ** 0.5)
+        worst = max(worst, z)
+    gate("H-b: violation distribution matches pair_null_gender_distribution_exact "
+         "(%d draws, worst |z| = %.2f < 5)" % (n, worst), worst < 5.0)
+    seqs_ok = True
+    rng2 = random.Random(7)
+    for _ in range(200):
+        s = pair_null_draw(rng2, pairs)
+        if sorted(s) != list(range(64)):
+            seqs_ok = False
+            break
+        for i in range(32):
+            a, b = s[2 * i], s[2 * i + 1]
+            if (a, b) not in pairs and (b, a) not in pairs:
+                seqs_ok = False
+    gate("H-b: every draw is a permutation of 0..63 that preserves the 32 traditional pairs",
+         seqs_ok)
+
+    # (3) determinism + shard/merge equivalence, on a tiny pool.
+    import tempfile
+    kl = (4, 8)
+    with tempfile.TemporaryDirectory() as td:
+        a = os.path.join(td, "a")
+        b = os.path.join(td, "b")
+        tr8_dof_sampler(a, seed_root=seed_root, pool="A", n_pool=2048, n_pred=40,
+                        klist=kl, n_shards=2, calib_draws=3000, quiet=True)
+        tr8_dof_sampler(b, seed_root=seed_root, pool="A", n_pool=2048, n_pred=40,
+                        klist=kl, n_shards=2, calib_draws=3000, quiet=True)
+        ha = open(os.path.join(a, "header.json"), "rb").read()
+        hb_ = open(os.path.join(b, "header.json"), "rb").read()
+        gate("determinism: identical seed root gives a byte-identical header.json", ha == hb_)
+        ra = json.load(open(os.path.join(a, "results.json"), encoding="utf-8"))
+        rb = json.load(open(os.path.join(b, "results.json"), encoding="utf-8"))
+        gate("determinism: identical seed root gives identical statistics",
+             ra["statistics"] == rb["statistics"])
+        c = os.path.join(td, "c")
+        for i in range(2):
+            tr8_dof_sampler(c, seed_root=seed_root, pool="A", n_pool=2048, n_pred=40,
+                            klist=kl, n_shards=2, shard=i, calib_draws=3000, quiet=True)
+        tr8_dof_merge(c, quiet=True)
+        rc = json.load(open(os.path.join(c, "results.json"), encoding="utf-8"))
+        gate("shard/merge: per-shard runs merged equal the single-process run",
+             rc["statistics"] == ra["statistics"])
+        gate("bank: every admitted marginal is inside the band",
+             all(TR8_ADMISSION_BAND[0] <= e["marginal"] <= TR8_ADMISSION_BAND[1]
+                 for e in json.load(open(os.path.join(a, "bank.json"),
+                                         encoding="utf-8"))["bank"] if e["admitted"]))
+
+    # Estimator smoke: the CP interval must bracket its point estimate and the median ranks
+    # must straddle the middle.
+    lo, hi = tr8_clopper_pearson(500, 1000)
+    gate("Clopper-Pearson brackets the point estimate at 500/1000 (%.4f, %.4f)" % (lo, hi),
+         lo < 0.5 < hi and hi - lo < 0.08)
+    L, U = tr8_median_ci_ranks(1000)
+    gate("median CI ranks straddle the middle at N_pred=1000 (L=%s, U=%s)" % (L, U),
+         L is not None and L < 500 < U)
+
+    print()
+    if fails:
+        print("TR8 DOF SELFTEST: %d CHECK(S) FAILED — %s" % (len(fails), "; ".join(fails)))
+        return 1
+    print("TR8 DOF SELFTEST: all checks passed. This is an instrument test, NOT a measurement.")
+    return 0
 
 
 def has_no_five(seq):
@@ -377,8 +1463,8 @@ def print_constraint_narrowing(pairs, seed=None, trials=100000, verbose=True):
     print(f"Sequences satisfying: {n3:,}/{trials:,} ({pct3:.2f}%)")
     print()
 
-    # Level 4: + starts with Creative/Receptive pair
-    print("--- Level 4: + Starts with The Creative / The Receptive ---")
+    # Level 4: + starts with hexagram 1 / hexagram 2 pair
+    print("--- Level 4: + Starts with hexagram 1 / hexagram 2 ---")
     c4 = {
         "no_five": lambda seq: has_no_five(seq),
         "comp_dist": lambda seq: mean_complement_distance(seq) <= kw_comp_dist,
@@ -431,7 +1517,7 @@ def print_constraint_narrowing(pairs, seed=None, trials=100000, verbose=True):
     print(f"{'1':<8} {'+ No 5-line transitions':<45} {n1:>12,} {f'{pct1:.2f}%':>8}")
     print(f"{'2':<8} {'+ Complement distance <= King Wen':<45} {n2:>12,} {f'{pct2:.2f}%':>8}")
     print(f"{'3':<8} {'+ XOR products within 7 values':<45} {n3:>12,} {f'{pct3:.2f}%':>8}")
-    print(f"{'4':<8} {'+ Starts with Creative/Receptive':<45} {n4:>12,} {f'{pct4:.2f}%':>8}")
+    print(f"{'4':<8} {'+ Starts with hexagram 1 / hexagram 2':<45} {n4:>12,} {f'{pct4:.2f}%':>8}")
     print(f"{'5':<8} {'+ Exact difference distribution':<45} {n5:>12,} {f'{pct5:.2f}%':>8}")
     print()
 
@@ -463,8 +1549,10 @@ def print_pair_info(pairs):
     print("=" * 70)
     print()
     print("The 64 hexagrams form 32 unique pairs. Each hexagram is paired with")
-    print("its 180-degree rotation (reverse). For the 4 symmetric hexagrams that")
-    print("equal their own reverse, the complement (inverse) is used instead.")
+    n_sym = sum(1 for v in range(64) if reverse_6bit(v) == v)
+    print(f"its 180-degree rotation (reverse). For the {n_sym} symmetric hexagrams that")
+    print(f"equal their own reverse (the 6-bit palindromes), the complement (inverse)")
+    print(f"is used instead, joining them into {n_sym // 2} complement pairs.")
     print()
 
     kw_pairs = king_wen_pairs()
@@ -490,17 +1578,31 @@ def print_pair_info(pairs):
     print(f"XOR values: {', '.join(bin(x)[2:].zfill(6) for x in sorted(kw_xor))}")
 
 def print_rules():
-    """Print the discovered rules as a generative recipe."""
+    """Print the discovered rules as a rule-set.
+
+    NOT a "generative recipe": CX-02 (2026-04-11) retracted that framing — the rules do not
+    determine the sequence. Millions of orderings satisfy the pair constraints.
+    """
+    # The banner used to read "GENERATIVE RECIPE" / "To reconstruct the King Wen sequence,
+    # satisfy these rules simultaneously" — the framing CX-02 retracted on 2026-04-11 and the
+    # docstring above withdraws. It kept printing at run time until 2026-09-02, unreachable by
+    # any registry row (GATE 3 scans *.md and reports/evidence/, not this file's stdout).
+    # Same class as solve.c:19. The text below states what the rules are: constraints King
+    # Wen satisfies, which do not determine it.
     print("=" * 70)
-    print("GENERATIVE RECIPE (discovered constraints)")
+    print("DISCOVERED CONSTRAINTS (the rule-set King Wen satisfies)")
     print("=" * 70)
     print()
-    print("To reconstruct the King Wen sequence, satisfy these rules simultaneously:")
+    print("King Wen satisfies all of the rules below simultaneously. They do NOT")
+    print("determine the sequence: millions of orderings satisfy the pair constraints")
+    print("(the 'generative recipe' framing was retracted 2026-04-11, CX-02).")
     print()
     print("Rule 1: PAIR STRUCTURE")
     print("  Group all 64 hexagrams into 32 consecutive pairs. Each pair must be")
-    print("  a hexagram and its 180-degree rotation (reverse), or for the 4")
-    print("  symmetric hexagrams, its bitwise complement (inverse).")
+    n_sym = sum(1 for v in range(64) if reverse_6bit(v) == v)
+    print(f"  a hexagram and its 180-degree rotation (reverse), or for the {n_sym}")
+    print(f"  symmetric hexagrams (6-bit palindromes, forming {n_sym // 2} complement")
+    print("  pairs), its bitwise complement (inverse).")
     print()
     print("Rule 2: NO 5-LINE TRANSITIONS")
     print("  No two consecutive hexagrams may differ by exactly 5 lines.")
@@ -519,7 +1621,7 @@ def print_rules():
         print(f"    {bin(x)[2:].zfill(6)} ({x})")
     print()
     print("Rule 5: STARTING PAIR")
-    print("  The sequence begins with The Creative (111111) / The Receptive (000000).")
+    print("  The sequence begins with hexagram 1 (111111) / hexagram 2 (000000).")
     print()
     print("Rule 6: DIFFERENCE WAVE DISTRIBUTION")
     kw_diffs = [bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63)]
@@ -530,15 +1632,30 @@ def print_rules():
     for d in sorted(dist):
         print(f"    {d}-line transitions: {dist[d]}")
     print()
-    print("OPEN QUESTION: Are these rules sufficient to uniquely determine the")
-    print("King Wen sequence, or do additional rules remain undiscovered?")
-    print("The --narrow analysis attempts to answer this.")
+    # This closing paragraph was the banner's second retracted framing: it posed "are these
+    # rules sufficient to uniquely determine King Wen?" as OPEN after CX-02 had answered it.
+    print("ANSWERED (not open): these rules do NOT uniquely determine the King Wen")
+    print("sequence — millions of orderings satisfy the pair constraints alone")
+    print("(CX-02, 2026-04-11). What remains open is which further structure, if any,")
+    print("the sequence carries beyond these constraints; --narrow measures that.")
 
 def upper_trigram(val):
     return (val >> 3) & 0b111
 
 def lower_trigram(val):
     return val & 0b111
+
+# The eight standard trigram glosses -- ordinary English words for the natural images, not a
+# translator's rendering of the hexagram titles. upper x lower = 64 distinct pairs, so the label
+# below identifies each hexagram uniquely. solve.py stays self-contained: no import from roae.py.
+trigram_gloss = {
+    0b111: "Heaven", 0b000: "Earth",   0b001: "Thunder", 0b010: "Water",
+    0b100: "Mountain", 0b110: "Wind",  0b101: "Fire",    0b011: "Lake",
+}
+hexagram_names = [
+    "%s over %s" % (trigram_gloss[upper_trigram(b)], trigram_gloss[lower_trigram(b)])
+    for b in binary_hexagrams
+]
 
 TRIGRAM_NAMES = {
     0b000: "Kun",  0b001: "Zhen", 0b010: "Kan",  0b011: "Dui",
@@ -904,7 +2021,7 @@ def print_enumerate(max_nodes=10_000_000, time_limit=60):
     # King Wen complement distance (Rule 3)
     kw_comp_dist = mean_complement_distance(binary_hexagrams)
 
-    # Rule 5: first pair must be Creative/Receptive
+    # Rule 5: first pair must be hexagram 1 / hexagram 2
     first_pair_idx = None
     for i, (a, b) in enumerate(kw_pairs):
         if (a == 0b111111 and b == 0b000000) or (b == 0b111111 and a == 0b000000):
@@ -967,7 +2084,7 @@ def print_enumerate(max_nodes=10_000_000, time_limit=60):
                     exhausted[0] = False
                     return
 
-    # Start with Rule 5: Creative/Receptive first
+    # Start with Rule 5: hexagram 1 / hexagram 2 first
     if first_pair_idx is not None:
         init_budget = dict(kw_dist)
         # Account for the within-pair diff of first pair
@@ -1312,7 +2429,7 @@ def print_constraint_residuals():
         # Rule 3: complement distance
         if mean_complement_distance(seq) > kw_comp_dist:
             continue
-        # Rule 5: starts with Creative/Receptive
+        # Rule 5: starts with hexagram 1 / hexagram 2
         if seq[0] != 0b111111 or seq[1] != 0b000000:
             continue
 
@@ -1418,7 +2535,9 @@ def print_info_content():
     print()
 
     # Information removed by each constraint
-    print("--- Information removed by each constraint ---")
+    print("--- Information removed by each constraint (HISTORICAL ESTIMATE) ---")
+    print("    Rates below are 2026-era estimates and the Rule 6 step is an")
+    print("    explicit guess; the measured verdict is at the end of this report.")
     print()
 
     # Rule 1: Pair structure
@@ -1457,15 +2576,32 @@ def print_info_content():
     print(f"  Remaining: ~{remaining_6:.1f} bits")
 
     print()
-    print(f"Total bits removed by known rules: ~{total_bits - remaining_6:.1f} of {total_bits:.1f}")
-    print(f"Remaining unknown information: ~{max(0, remaining_6):.1f} bits")
+    print(f"Ladder total (SUPERSEDED — see below): ~{total_bits - remaining_6:.1f} of "
+          f"{total_bits:.1f} bits removed, ~{max(0, remaining_6):.1f} remaining")
+
+    # SUPERSEDED LADDER, KEPT AS HISTORY. The rates above are 2026-era estimates
+    # and the Rule 6 step is an explicit guess ("est. ~1 in 50,000"), so the
+    # ladder's totals -- 176.3 removed / 119.7 remaining -- match no currently
+    # published scope and understate the measured C1-C5 population by ~100x.
+    # SOLVE.md ("Information content") retired them on 2026-08-30 and recorded
+    # that this command still printed them; until 2026-09-02 (code batch C3) it
+    # did, as its headline answer. The measured verdict below is DERIVED from
+    # H2_N_CAN, the same constant the rest of this file uses, so it cannot drift
+    # away from the ledger it cites.
+    bits_can = math.log2(H2_N_CAN)
+    bits_c67 = math.log2(5.21e31)          # C1-C7, refuted-uniqueness count
     print()
-    if remaining_6 > 0:
-        print(f"This means ~2^{remaining_6:.0f} = ~{2**remaining_6:.0f} sequences likely satisfy")
-        print(f"all known rules. The missing local rule must encode ~{remaining_6:.0f} additional bits.")
-    else:
-        print("The known rules may be sufficient to uniquely determine King Wen.")
-        print("(Estimate is rough — actual count requires enumeration.)")
+    print("--- MEASURED (this is the answer; the ladder above is history) ---")
+    print()
+    print(f"The measured C1-C5 population is {H2_N_CAN:.4e} = 2^{bits_can:.1f}, so the")
+    print(f"constraints remove ~{total_bits - bits_can:.1f} of the {total_bits:.1f} bits and "
+          f"~{bits_can:.1f} remain.")
+    print("Any rule that would pin King Wen down from C1-C5 has to encode that many")
+    print(f"additional bits. Adding the C6/C7 adjacency pins leaves ~5.21e31 = "
+          f"2^{bits_c67:.1f},")
+    print(f"so ~{bits_c67:.1f} bits remain even then (uniqueness refuted 2026-07-02).")
+    print()
+    print("Authority: TR9_PRICING_THE_CONSTRAINTS.md, 'The measured ledger'.")
 
 def compute_features(seq):
     """Compute a comprehensive feature vector for a sequence."""
@@ -1592,11 +2728,34 @@ def compute_features(seq):
         "total_path": total_path,
     }
 
-def print_differential_analysis(max_nodes=10_000_000, time_limit=300):
-    """Generate solutions, compute features, find what makes King Wen unique."""
+def print_differential_analysis(max_nodes=10_000_000, time_limit=300, apply_c3=False):
+    """Generate solutions, compute features, find what makes King Wen unique.
+
+    SCOPE SWITCH (added 2026-07-22 — reproducibility fix, see below).
+
+    ``apply_c3=False`` (DEFAULT): the collected population satisfies **C1+C2+C4+C5
+    only — C3 is NOT applied**. This is the scope the published "King Wen's
+    complement distance is at the 3.9th percentile" figure was measured on, and it
+    is the scope every doc now labels (documentation/SPECIFICATION.md and
+    siblings, corrected 2026-07-22).
+
+    ``apply_c3=True``: additionally filters the leaf to ``cd(seq) <= cd(KW)`` — i.e.
+    C3 as well. **Within that population King Wen is at the ceiling BY
+    CONSTRUCTION**, so any "King Wen is extremal / maximal in complement distance"
+    result from this mode is a tautology, not a finding. Kept because it is what
+    the code did between an undated change and 2026-07-22.
+
+    WHY THIS EXISTS: the leaf filter had been applying C3 unconditionally, so
+    re-running ``--differential`` reproduced the ceiling artifact rather than the
+    published 3.9th-percentile figure — a published number its own generating tool
+    could no longer reproduce. Found 2026-07-22 during the C3 scope-consistency
+    sweep. The default restores the documented scope.
+    """
     print("=" * 70)
     print("DIFFERENTIAL ANALYSIS")
     print("=" * 70)
+    print()
+    print(f"SCOPE: population = {'C1+C2+C3+C4+C5 (C3 APPLIED — KW is at the ceiling BY CONSTRUCTION; extremality in complement distance is a tautology here)' if apply_c3 else 'C1+C2+C4+C5 (C3 NOT applied — the published 3.9th-percentile scope)'}")
     print()
     print("Step 1: Generate solutions satisfying all 6 rules.")
     print("Step 2: De-duplicate by pair ordering.")
@@ -1643,7 +2802,9 @@ def print_differential_analysis(max_nodes=10_000_000, time_limit=300):
         step = len(seq) // 2
 
         if step == n:
-            if mean_complement_distance(seq) <= kw_comp_dist:
+            # C3 is applied ONLY when explicitly requested. Default is the
+            # documented C1+C2+C4+C5 scope; see this function's docstring.
+            if (not apply_c3) or mean_complement_distance(seq) <= kw_comp_dist:
                 solutions.append(list(seq))
             return
 
@@ -1988,15 +3149,27 @@ def print_rule7_test(max_nodes=100_000_000, time_limit=3600):
 
     if r7ab_unique:
         if len(r7ab_unique) == 1 and r7ab_unique[0] == binary_hexagrams:
-            print("*** KING WEN IS THE UNIQUE SOLUTION UNDER RULES 1-7 ***")
+            # CX-02 (2026-04-11) retracted the "complete generative recipe" claim: the recipe
+            # does NOT determine the sequence, and the figure that supported it was an artifact of
+            # a 438-solution sample from a single search branch. This banner was still emitting the
+            # retracted wording at runtime -- so the correction lived in CORRECTIONS.md while the
+            # program kept telling users the opposite. Worse, it is printed from a BUDGETED search
+            # (see this function's max_nodes/time_limit): "unique" here can only ever mean "unique
+            # among what this run enumerated", which is precisely the too-small-sample shape CX-02
+            # was written about. Scoped accordingly; the old text also said "RULES 1-7" and then
+            # "all 8 constraints" three lines apart.
+            print("*** KING WEN IS THE ONLY SURVIVOR IN THIS SEARCH UNDER RULES 1-7 ***")
             print()
-            print("The generative recipe is complete. The King Wen sequence is the")
-            print("only ordering of 64 hexagrams satisfying all 8 constraints:")
+            print("SCOPE: this enumeration is BUDGETED (see --help for the node/time limits), so")
+            print("this says King Wen is the only ordering *this run reached* that satisfies the")
+            print("8 listed conditions. It is NOT a uniqueness proof, and it does not show that a")
+            print("recipe determines the sequence -- see documentation/CORRECTIONS.md CX-02.")
+            print("The 8 conditions (Rules 1-7, with Rule 7 split into 7a/7b):")
             print("  1. Pair structure (reverse/inverse)")
             print("  2. No 5-line transitions")
             print("  3. Complement distance <= 12.125")
             print("  4. XOR products within 7 values (redundant)")
-            print("  5. Starts with Creative/Receptive")
+            print("  5. Starts with hexagram 1 / hexagram 2")
             print("  6. Exact difference wave distribution")
             print("  7a. Complement distance = 12.125 (maximum)")
             print("  7b. Mean line autocorrelation = -0.115 (maximum)")
@@ -2054,7 +3227,7 @@ def generate_rule7a_solutions(max_nodes=30_000_000, time_limit=120):
         kw_dist[d] = kw_dist.get(d, 0) + 1
     kw_comp_dist = mean_complement_distance(binary_hexagrams)
 
-    first_pair_idx = 0  # Creative/Receptive
+    first_pair_idx = 0  # hexagram 1 / hexagram 2
     pair_options = [[(a, b), (b, a)] for a, b in kw_pairs]
 
     solutions = []
@@ -2426,15 +3599,15 @@ def print_reconstruct():
         return count
 
     # Step-by-step reconstruction
-    seq = [0b111111, 0b000000]  # C4: start with Creative/Receptive
-    used = {0}  # pair 0 (Creative/Receptive)
+    seq = [0b111111, 0b000000]  # C4: start with hexagram 1 / hexagram 2
+    used = {0}  # pair 0 (hexagram 1 / hexagram 2)
     budget = dict(kw_dist)
     budget[bit_diff(0b111111, 0b000000)] -= 1  # within-pair transition consumed
 
     print(f"{'Step':>4} {'Pair':>5} {'Choices':>8} {'Forced?':>8} Hexagrams")
     print(f"{'----':>4} {'-----':>5} {'-------':>8} {'-------':>8} ---------")
     print(f"{'1':>4} {'1':>5} {'—':>8} {'start':>8} "
-          f"䷀ The Creative / ䷁ The Receptive")
+          f"䷀ hexagram 1 / ䷁ hexagram 2")
 
     all_forced = True
     reconstructed = list(seq)
@@ -2545,20 +3718,37 @@ def print_reconstruct():
     print()
     if reconstructed == kw_seq:
         print("✓ Reconstruction matches King Wen exactly.")
+        print("  (TRUE BY CONSTRUCTION, not a derivation: this mode replays King")
+        print("   Wen's own choice at every step — the routine's own comment reads")
+        print("   'Pick King Wen's actual choice' — so it can never surface a rival.)")
     else:
         print("✗ Reconstruction does NOT match King Wen.")
 
+    # SCOPE OF THE CLOSING VERDICT. Until 2026-09-02 the else-branch below
+    # printed "The specification's uniqueness holds globally" — a claim REFUTED
+    # on 2026-07-02, and printed to users on a default `--reconstruct` run for
+    # every day since. SOLVE.md question 4 carried a standing "a correction to
+    # solve.py is pending" note in its place; that note is retired in the same
+    # merge. The replacement states the scope the tree actually publishes
+    # (SPECIFICATION.md §Constraints and §"Constructive algorithm",
+    # BOUNDARY_MINIMUM.md §[6]–§[8]).
+    print()
     if all_forced:
-        print("✓ Every step had exactly 1 valid choice — the sequence is fully determined.")
+        print("✓ Every step had exactly 1 valid choice — along King Wen's own path.")
         print()
-        print("The constructive algorithm in SPECIFICATION.md is verified:")
-        print("constraints C1-C7 admit exactly one valid path at every step.")
+        print("Scope: that is a property of THIS replay, not a uniqueness result.")
+        print("C1-C7 alone do NOT single out King Wen: 14 non-KW records survive")
+        print("C6+C7+boundary-4 at 560T, and full-space uniqueness of C1-C7 was")
+        print("REFUTED 2026-07-02 (~5.21e31 survivors). See BOUNDARY_MINIMUM.md.")
     else:
-        non_forced = sum(1 for _ in [] )  # placeholder
-        print(f"Some steps had multiple valid choices — constraints C1-C7 alone")
-        print(f"do not force a unique path at every step without lookahead.")
-        print(f"The specification's uniqueness holds globally but the greedy")
-        print(f"constructive algorithm may require backtracking at some steps.")
+        print("Some steps had multiple valid choices — constraints C1-C7 alone")
+        print("do not force a unique path at every step without lookahead.")
+        print("Nor do they force one globally: full-space uniqueness of C1-C7 was")
+        print("REFUTED 2026-07-02 (~5.21e31 survivors), and even within the")
+        print("enumerated datasets 14 non-KW records survive C6+C7+boundary-4 at")
+        print("560T. Dataset-uniqueness needs C1-C5 PLUS the five greedy boundary")
+        print("constraints {4, 27, 25, 21, 1} — SPECIFICATION.md, 'Constructive")
+        print("algorithm'; evidence in BOUNDARY_MINIMUM.md [6]-[8].")
 
 # --- Null model: structured permutations from de Bruijn B(2, 6) ---
 
@@ -2604,7 +3794,8 @@ def debruijn_to_hexagram_permutation(binary_seq, n=6):
 
 def has_pair_structure_c1(seq):
     """C1: every consecutive pair (seq[2i], seq[2i+1]) is either
-    reverse-pair (bit-reversal) or — for the 4 symmetric hexagrams —
+    reverse-pair (bit-reversal) or — for the 8 symmetric hexagrams (the
+    6-bit palindromes, which the complement fallback joins into 4 pairs) —
     bitwise complement of each other."""
     symmetric = {v for v in range(64) if reverse_6bit(v) == v}
     for i in range(32):
@@ -2655,7 +3846,8 @@ def print_null_debruijn(trials=5000, seed=None):
 
     kw_seq = [v for pair in king_wen_pairs() for v in pair]
     kw_c3 = total_complement_distance_c3(kw_seq)
-    assert kw_c3 == 776, f"KW C3 total is {kw_c3}, expected 776"
+    if not (kw_c3 == 776):
+        raise AssertionError(f"KW C3 total is {kw_c3}, expected 776")
 
     print("# Null-model comparison: de Bruijn B(2, 6) permutations")
     print()
@@ -2962,12 +4154,34 @@ def _p2_parquet_schema():
 
 def p2_compute_stats(solutions_bin, out_dir, workers=None,
                      chunk_size=_P2_CHUNK_RECORDS_DEFAULT, max_records=None):
-    """Handler for --compute-stats. See scripts/compute_stats.py history."""
+    """Handler for --compute-stats. See scripts/compute_stats.py history.
+
+    Returns 0 on `COMPUTE_STATS=PASS`, 1 on `COMPUTE_STATS=FAIL`; the dispatch
+    site passes that to sys.exit. Codex V2-F60 #2 (2026-09-03), MEASURED
+    before the fix: a header declaring 10 records over a 9-record body printed
+    `DONE 3 files, 9 rows` and exited 0 -- the declared and written counts were
+    printed six lines apart and never compared; and a second, shorter run into
+    a populated out_dir left the earlier chunks in place, so every downstream
+    `glob(chunk_*.parquet)` (twelve sites) read a MIXED population as one.
+    """
+    import glob
     import multiprocessing as mp
     import os
     import time
     import pyarrow.parquet as pq
 
+    # A populated out_dir is refused outright rather than cleared: the reader
+    # has to be TOLD that stale chunks were about to be mixed in. No force
+    # switch -- an empty directory is one `rm -rf` away and the refusal names
+    # the count it saw.
+    stale = sorted(glob.glob(os.path.join(out_dir, "chunk_*.parquet")))
+    if stale:
+        print(f"COMPUTE_STATS=FAIL out_dir {out_dir} already holds "
+              f"{len(stale)} chunk_*.parquet ({os.path.basename(stale[0])} .. "
+              f"{os.path.basename(stale[-1])}); a shorter run would leave them "
+              f"for every downstream glob to read as one population -- "
+              f"use an empty directory", flush=True)
+        return 1
     os.makedirs(out_dir, exist_ok=True)
     if workers is None:
         workers = os.cpu_count() or 4
@@ -2981,13 +4195,21 @@ def p2_compute_stats(solutions_bin, out_dir, workers=None,
 
 def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
                            chunk_size, max_records, schema):
+    import json
     import multiprocessing as mp
     import os
     import time
     with open(solutions_bin, "rb") as f:
         total_records, version = _p2_read_header(f)
+    declared_records = total_records
     if max_records:
         total_records = min(total_records, max_records)
+    if total_records == 0:
+        # A zero-record run would drain an empty pool and report PASS over
+        # nothing. A check that cannot run must ERROR, never PASS.
+        print(f"COMPUTE_STATS=FAIL {solutions_bin} declares 0 records "
+              f"(max_records={max_records}); nothing to compute", flush=True)
+        return 1
 
     print(f"[compute-stats] v{version} solutions.bin, {total_records:,} rows, "
           f"{workers} workers, {chunk_size:,}/chunk, out={out_dir}", flush=True)
@@ -3023,7 +4245,37 @@ def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
                       f"ETA {eta/60:.1f}m", flush=True)
     total_elapsed = time.time() - t0
     print(f"[compute-stats] DONE {chunks_done} files, {seen:,} rows, "
-          f"{total_elapsed:.1f}s ({seen/total_elapsed/1e6:.2f}M/s)", flush=True)
+          f"{total_elapsed:.1f}s ({seen/max(total_elapsed, 1e-9)/1e6:.2f}M/s)",
+          flush=True)
+    # The workers round a short read DOWN to whole records (see
+    # _p2_worker_chunk), so a body shorter than the header declares yields
+    # fewer rows than tasks were issued for. Equality, not a tolerance: the
+    # header is the contract and the body either honours it or the artifact
+    # is torn.
+    if seen != total_records or chunks_done != len(tasks):
+        print(f"COMPUTE_STATS=FAIL declared {total_records:,} records but wrote "
+              f"{seen:,} rows in {chunks_done}/{len(tasks)} chunks "
+              f"(body shorter than header -- torn or truncated artifact)",
+              flush=True)
+        return 1
+    # Producer sidecar: the record count the chunks were computed from, so a
+    # consumer (--uniform-marginals) can test the population's COMPLETENESS
+    # against something that is not derived from the chunks themselves.
+    sidecar = os.path.join(out_dir, "compute_stats.json")
+    with open(sidecar, "w") as sf:
+        json.dump({
+            "tool": "solve.py --compute-stats",
+            "solutions_bin": os.path.abspath(solutions_bin),
+            "declared_records": declared_records,
+            "max_records": max_records,
+            "rows_written": seen,
+            "chunks": chunks_done,
+            "chunk_size": chunk_size,
+        }, sf, indent=2)
+        sf.write("\n")
+    print(f"COMPUTE_STATS=PASS {seen:,} rows in {chunks_done} chunks "
+          f"(sidecar {sidecar})", flush=True)
+    return 0
 
 
 def _p2_percentile_from_hist(counts, values, target, total):
@@ -3051,6 +4303,11 @@ _P2_FLOAT_COLS = [
 
 def p2_marginals(chunks_dir, out_md):
     """Handler for --marginals."""
+    import glob as _lane_glob
+    if not _lane_glob.glob(f"{chunks_dir}/chunk_*.parquet"):
+        print(f"ERROR: no chunk_*.parquet files found in {chunks_dir} -- this input is produced "
+              f"by --compute-stats, not shipped in the repository", flush=True)
+        sys.exit(2)
     import glob
     import numpy as np
     import pyarrow.parquet as pq
@@ -3139,6 +4396,213 @@ def p2_marginals(chunks_dir, out_md):
     with open(out_md, "w") as f:
         f.writelines(L)
     print(f"[marginals] wrote {out_md}", flush=True)
+
+
+# ---- T5 uniform-scoped marginals -------------------------------------------
+# WHY THIS IS A SEPARATE FUNCTION AND NOT A FLAG ON p2_marginals.
+# `_P2_INT_COLS` carries FIXED bin ranges taken from the C1-C5 ENUMERATED canonical
+# (C3 satisfied). The T5 mega-sample is drawn exact-uniform from C1 & C2 & C4 & C5
+# WITHOUT C3 -- the knowledge compiler's native population -- so it legitimately holds
+# values outside those ranges (measured: c3_total spans 352..1648 against declared
+# 424..776). Running p2_marginals over it throws, because `np.bincount(arr - lo)` sees
+# a negative index.
+#
+# The fix is NOT to widen `_P2_INT_COLS`. Those constants define what every already
+# published marginal MEANS; widening them would silently re-scope tables nobody
+# re-ran. So the uniform population gets its own summariser with bins derived from
+# the data, and the enumerated ranges are carried alongside as a DECLARED column so
+# the scope gap is visible in the output instead of hidden by it.
+#
+# Exactness: two passes over every chunk, no sampling, no subsetting (the project
+# does not subsample). Memory: one chunk at a time, never concatenated -- peak is
+# ~50k rows x 10 cols, which is why this is safe on the 2-core orchestrator where an
+# all-rows-at-once pass previously OOM'd.
+
+_T5_INT_COLS = ["edit_dist_kw", "c3_total", "c6_c7_count", "position_2_pair",
+                "max_transition_hamming", "fft_dominant_freq",
+                "shift_conformant_count", "first_position_deviation"]
+_T5_FLOAT_COLS = ["mean_transition_hamming", "fft_peak_amplitude"]
+
+
+def _t5_kw_and_declared():
+    """KW reference values + declared enumerated ranges, sourced from the existing
+    tables rather than re-typed, so the two scopes cannot drift apart."""
+    kw, declared = {}, {}
+    for name, lo, hi, kwv in _P2_INT_COLS:
+        kw[name] = kwv
+        declared[name] = (lo, hi)
+    for name, lo, hi, kwv in _P2_FLOAT_COLS:
+        kw[name] = kwv
+        declared[name] = (lo, hi)
+    kw["position_2_pair"] = 1          # matches p2_marginals' own KW marker
+    return kw, declared
+
+
+def t5_uniform_marginals(chunks_dir, out_md):
+    """Handler for --uniform-marginals. Returns 0 on `UNIFORM_MARGINALS=PASS`,
+    1 otherwise; the dispatch site passes that to sys.exit.
+
+    Two named checks feed the verdict (Codex V2-F60 #6, 2026-09-03):
+
+    * `UNIFORM_MARGINALS_MUTATION` -- the per-column `histogram sum == row
+      count` test. Bins are derived from the data in pass 1 and the counts are
+      taken over the SAME files in pass 2, so this can only fail when the chunk
+      set changes between the passes (a value outside pass-1's support falls
+      off the `[:size]` slice). It is a mid-run mutation detector, and was
+      mislabelled a "coverage gate" until 2026-09-03.
+    * `UNIFORM_MARGINALS_COVERAGE` -- the population's COMPLETENESS, which no
+      quantity derived from the chunks themselves can test: the parquet row
+      total must equal the record count the PRODUCER (`--compute-stats`)
+      recorded in `compute_stats.json` beside the chunks. Without that
+      sidecar the check cannot run and the verdict is FAIL (`UNVERIFIED`),
+      never PASS.
+
+    MEASURED before the fix: an empty directory printed `UNIFORM_MARGINALS=FAIL`
+    and exited 0, because the dispatch discarded the return value.
+    """
+    import glob
+    import json
+    import os
+    import numpy as np
+    import pyarrow.parquet as pq
+
+    files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    if not files:
+        print(f"UNIFORM_MARGINALS=FAIL no chunk_*.parquet in {chunks_dir}", flush=True)
+        return 1
+    kw, declared = _t5_kw_and_declared()
+    print(f"[uniform-marginals] {len(files)} chunks in {chunks_dir}", flush=True)
+
+    # ---- pass 1: observed support + moments (no bins assumed) ----
+    lo = {n: None for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    hi = {n: None for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    ssum = {n: 0.0 for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    ssq = {n: 0.0 for n in _T5_INT_COLS + _T5_FLOAT_COLS}
+    total = 0
+    for f in files:
+        t = pq.read_table(f)
+        total += t.num_rows
+        for n in _T5_INT_COLS + _T5_FLOAT_COLS:
+            a = t.column(n).to_numpy().astype(np.float64)
+            amin, amax = float(a.min()), float(a.max())
+            lo[n] = amin if lo[n] is None else min(lo[n], amin)
+            hi[n] = amax if hi[n] is None else max(hi[n], amax)
+            ssum[n] += float(a.sum())
+            ssq[n] += float((a ** 2).sum())
+    print(f"[uniform-marginals] pass 1: {total:,} rows, support measured", flush=True)
+    if total == 0:
+        print(f"UNIFORM_MARGINALS=FAIL {len(files)} chunk files hold 0 rows in "
+              f"{chunks_dir}; nothing to measure", flush=True)
+        return 1
+
+    # ---- coverage: row total vs the producer's recorded record count ----
+    sidecar = os.path.join(chunks_dir, "compute_stats.json")
+    coverage_note = ""
+    if os.path.exists(sidecar):
+        with open(sidecar) as sf:
+            meta = json.load(sf)
+        expected = int(meta.get("rows_written", -1))
+        chunks_expected = int(meta.get("chunks", -1))
+        if expected == total and chunks_expected == len(files):
+            coverage = "PASS"
+            coverage_note = (f"{total:,} rows in {len(files)} chunks == producer "
+                             f"sidecar ({os.path.basename(meta.get('solutions_bin', '?'))}, "
+                             f"declared {meta.get('declared_records')}, "
+                             f"max_records {meta.get('max_records')})")
+        else:
+            coverage = "FAIL"
+            coverage_note = (f"rows {total:,} in {len(files)} chunks vs producer "
+                             f"sidecar rows_written {expected:,} in {chunks_expected} "
+                             f"chunks -- incomplete or mixed population")
+    else:
+        coverage = "UNVERIFIED"
+        coverage_note = (f"no compute_stats.json beside the chunks; the row total "
+                         f"cannot be tested against anything not derived from the "
+                         f"chunks themselves -- regenerate with --compute-stats")
+    print(f"UNIFORM_MARGINALS_COVERAGE={coverage} {coverage_note}", flush=True)
+
+    # ---- pass 2: histograms on the OBSERVED support ----
+    NF = 10000
+    ihist = {n: np.zeros(int(hi[n] - lo[n]) + 1, dtype=np.int64) for n in _T5_INT_COLS}
+    fhist = {n: np.zeros(NF, dtype=np.int64) for n in _T5_FLOAT_COLS}
+    for f in files:
+        t = pq.read_table(f)
+        for n in _T5_INT_COLS:
+            a = t.column(n).to_numpy().astype(np.int64) - int(lo[n])
+            ihist[n] += np.bincount(a, minlength=ihist[n].size)[:ihist[n].size]
+        for n in _T5_FLOAT_COLS:
+            a = t.column(n).to_numpy().astype(np.float64)
+            span = (hi[n] - lo[n]) or 1.0
+            b = np.clip(((a - lo[n]) / span * (NF - 1)).astype(np.int32), 0, NF - 1)
+            fhist[n] += np.bincount(b, minlength=NF)[:NF]
+
+    # ---- mid-run mutation check: histogram sums vs the pass-1 row count ----
+    # NOT a coverage test (see the docstring): both sides come from the same
+    # files, so only a chunk set that changed between the passes can fail it.
+    bad = [n for n in _T5_INT_COLS if int(ihist[n].sum()) != total]
+    bad += [n for n in _T5_FLOAT_COLS if int(fhist[n].sum()) != total]
+    mutation = "PASS" if not bad else "FAIL"
+    print(f"UNIFORM_MARGINALS_MUTATION={mutation}"
+          + ("" if not bad else f" mismatched: {', '.join(bad)}"), flush=True)
+
+    L = []
+    L.append("# T5 uniform-scoped marginals\n\n")
+    L.append(f"**Population:** exact-uniform draws from **C1 & C2 & C4 & C5 (NO C3)** — the "
+             f"knowledge compiler's native population.\n\n")
+    L.append(f"**Rows:** {total:,} (exact; no sampling)\n\n")
+    L.append("Bins are derived from the observed data. The **Declared** column is the "
+             "`_P2_INT_COLS` / `_P2_FLOAT_COLS` range used by `--marginals`, which is scoped to "
+             "the **C1–C5 enumerated** set (C3 satisfied). Where Observed exceeds Declared, the "
+             "enumerated bins cannot represent this population — that gap is the finding, and "
+             "the declared ranges were deliberately NOT widened to close it.\n\n")
+    L.append("| Dim | Observed | Declared (enumerated) | Outside declared | Mean | Std | KW | KW %-ile |\n")
+    L.append("|---|---|---|---|---|---|---|---|\n")
+    for n in _T5_INT_COLS:
+        h = ihist[n]
+        vals = np.arange(int(lo[n]), int(hi[n]) + 1, dtype=np.int64)
+        pct, n_less, n_eq = _p2_percentile_from_hist(h, vals, kw[n], total)
+        dlo, dhi = declared.get(n, (None, None))
+        if dlo is None:
+            dcell, outside = "n/a", "n/a"
+        else:
+            m = (vals < dlo) | (vals > dhi)
+            noc = int(h[m].sum())
+            dcell = f"{dlo:g} … {dhi:g}"
+            outside = f"**{noc:,}** ({100.0*noc/total:.3f}%)" if noc else "0"
+        mean = ssum[n] / total
+        var = ssq[n] / total - mean ** 2
+        L.append(f"| `{n}` | {int(lo[n])} … {int(hi[n])} | {dcell} | {outside} | "
+                 f"{mean:.3f} | {(var ** 0.5) if var > 0 else 0.0:.3f} | "
+                 f"**{kw[n]:g}** | **{pct:.4f}%** |\n")
+    for n in _T5_FLOAT_COLS:
+        h = fhist[n]
+        span = (hi[n] - lo[n]) or 1.0
+        kb = int(np.clip((kw[n] - lo[n]) / span * (NF - 1), 0, NF - 1))
+        n_less, n_at = int(h[:kb].sum()), int(h[kb])
+        pct = (n_less + n_at / 2.0) / total * 100
+        dlo, dhi = declared[n]
+        L.append(f"| `{n}` | {lo[n]:.4f} … {hi[n]:.4f} | {dlo:g} … {dhi:g} | "
+                 f"{'0' if lo[n] >= dlo and hi[n] <= dhi else '**support exceeds declared**'} | "
+                 f"{ssum[n]/total:.4f} | "
+                 f"{max(ssq[n]/total - (ssum[n]/total) ** 2, 0.0) ** 0.5:.4f} | "
+                 f"**~{kw[n]:g}** | **~{pct:.4f}%** |\n")
+    ok = (mutation == "PASS" and coverage == "PASS")
+    verdict = "UNIFORM_MARGINALS=PASS" if ok else "UNIFORM_MARGINALS=FAIL"
+    L.append(f"\n**Mid-run mutation check** (per column, histogram sum == pass-1 row "
+             f"count; fails only if the chunk set changed between the two passes): "
+             f"`UNIFORM_MARGINALS_MUTATION={mutation}`"
+             + ("" if not bad else f" — mismatched: {', '.join(bad)}") + "\n\n")
+    L.append(f"**Coverage check** (parquet row total == the producer's recorded record "
+             f"count in `compute_stats.json`): `UNIFORM_MARGINALS_COVERAGE={coverage}` — "
+             f"{coverage_note}\n\n")
+    L.append(f"**Verdict:** `{verdict}`"
+             + ("" if ok else " (PASS requires both checks to pass; UNVERIFIED is not a pass)")
+             + "\n")
+    with open(out_md, "w") as fh:
+        fh.writelines(L)
+    print(f"[uniform-marginals] wrote {out_md}", flush=True)
+    print(verdict, flush=True)
+    return 0 if ok else 1
 
 
 _P2_BIVARIATE_PAIRS = [
@@ -3486,6 +4950,11 @@ def p2_joint_density_v2(chunks_dir, out_md, samples_per_chunk=30,
     Adds (a) runtime variance-check that auto-drops constant dims,
     (b) configurable bandwidth selection (silverman / cv).
     """
+    import glob as _lane_glob
+    if not _lane_glob.glob(f"{chunks_dir}/chunk_*.parquet"):
+        print(f"ERROR: no chunk_*.parquet files found in {chunks_dir} -- this input is produced "
+              f"by --compute-stats, not shipped in the repository", flush=True)
+        sys.exit(2)
     import glob
     import numpy as np
     import pyarrow.parquet as pq
@@ -3701,6 +5170,15 @@ def p2_stratified_p2pair(chunks_dir, out_md, samples_per_chunk=30,
         # EXHAUSTIVE per-stratum scoring. Native engine if available
         # (one subprocess per stratum, mask filters chunks to that p2 value).
         results = []
+        # Codex V2-F60 #4 (2026-09-03): these two dicts were bound ONLY in the
+        # sklearn arm below, while the report writer reads
+        # sum(stratum_counts.values()) for every exhaustive run -- so the
+        # native arm always crashed with UnboundLocalError AFTER the scoring
+        # pass and AFTER open(out_md, "w") had truncated the previous report.
+        # Bound here for both arms; the native arm fills them from the counts
+        # _p2_strat_native_count already returns.
+        stratum_counts = {s: 0 for s in strata}
+        stratum_below = {s: 0 for s in strata}
         if native_solve_binary:
             print(f"[v2-strat] EXHAUSTIVE via native scorer", flush=True)
             kw_bw = (lambda mdl: ((mdl['fit_n'] * (mdl['fit_n'] + 2) / 4.0) ** (-1.0/(mdl['fit_n'] + 4))) if mdl else None)
@@ -3735,6 +5213,8 @@ def p2_stratified_p2pair(chunks_dir, out_md, samples_per_chunk=30,
                 n_below, n_total = _p2_strat_native_count(
                     native_solve_binary, sub_fit_std, bw_s, mdl["kw_score"],
                     chunks_dir, full_cols, mdl["mu"], mdl["sigma"], stratum_value=s)
+                stratum_counts[s] = int(n_total)
+                stratum_below[s] = int(n_below)
                 pct = n_below / n_total * 100.0 if n_total else float("nan")
                 is_kw = (s == kw_p2)
                 note = f"fit_n={mdl['fit_n']} (native)" + (" [KW STRATUM]" if is_kw else "")
@@ -3744,8 +5224,6 @@ def p2_stratified_p2pair(chunks_dir, out_md, samples_per_chunk=30,
             print(f"[v2-strat] EXHAUSTIVE scoring pass over all {n_chunks} chunks (sklearn)",
                   flush=True)
             files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
-            stratum_counts = {s: 0 for s in strata}
-            stratum_below = {s: 0 for s in strata}
             for fi, f in enumerate(files):
                 t = pq.read_table(f, columns=cols)
                 full = np.column_stack([t.column(c).to_numpy() for c in cols]).astype(np.float64)
@@ -3988,7 +5466,8 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
                 "adder" (DIMACS adder network — deferred/superseded: emits a
                 status sidecar entry only; C3 is native in sat.py's pair-slot
                 model, the certification path).
-    include_c4: force x[0][0] and x[1][partner(0)] = 1.
+    include_c4: force x[0][63] and x[1][partner(63)] = 1 — i.e. SPECIFICATION.md
+                C4's ORIENTED form, Qian(63) first then Kun(0).
     include_c5: KW's Hamming-distribution cardinality constraints —
                 deferred/superseded likewise (status sidecar entry only;
                 native in sat.py's pair-slot model). Both deferred encoders
@@ -4036,9 +5515,17 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
 
     # --- C4: start with hexagram 0 at position 0 (Qian/Kun convention via partner) ---
     if include_c4:
-        clauses.append([_sat_var(0, 0)])  # unit clause: position 0 = hexagram 0
-        # x[1][partner[0]] follows from C1 implications + one-hot, but assert directly:
-        clauses.append([_sat_var(1, partner[0])])
+        # SPECIFICATION.md C4 is ORIENTED: s0 = 63 (Qian, all-yang, hexagram 1) and
+        # s1 = 0 (Kun). Until 2026-08-01 this pinned hexagram 0 at position 0 — i.e.
+        # Kun first, the COMPLEMENT of the spec — while the help text called it "the
+        # Qian/Kun convention". Harmless in this encoder's own scope (it emits C1 n C2,
+        # under which complementation x -> x^63 is an exact symmetry, so the two
+        # orientations are isomorphic and satisfiability is unchanged), and no published
+        # result depends on it: the certification path is sat.py's pair-slot model, which
+        # has no --sat-c4. Corrected anyway, because a flag that names C4 should encode C4.
+        clauses.append([_sat_var(0, 63)])          # unit clause: position 0 = Qian (63)
+        # x[1][partner[63]] follows from C1 implications + one-hot, but assert directly:
+        clauses.append([_sat_var(1, partner[63])])  # partner(63) = 0 = Kun
 
     # --- C3: pseudo-boolean linear constraint  ∑ |pos(v) - pos(c̄(v))| <= 776 ---
     #
@@ -4056,7 +5543,7 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
     pair_aux_offset = n_vars  # aux vars start here (1-indexed)
     pair_var_count = 0
 
-    if include_c3 in ("pb", "adder"):
+    if include_c3 == "pb":
         # complement function: ~v in 6 bits = v XOR 0x3F
         comp = [v ^ 0b111111 for v in range(64)]
         # aux var index: pair[v][i][j] -> pair_aux_offset + 1 + (v*64 + i)*64 + j
@@ -4098,28 +5585,28 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
                 "n_link_clauses": len(pair_aux_clauses),
                 "opb_terms": opb_terms,  # will be emitted to .opb
             })
-        elif include_c3 == "adder":
-            # DEFERRED / SUPERSEDED (operator decision 2026-07-10). C3 is
-            # native (Sinz sequential counters) in sat.py's pair-slot model —
-            # the only certification-path model. A DIMACS adder summing
-            # network in THIS legacy position-hexagram x[i][p] encoder would
-            # be large and probably not faster in practice than PB; implement
-            # it only if a future variable-pairing analysis needs the x[i][p]
-            # model specifically (an instance the pair-slot model can't
-            # express, e.g. relaxing the fixed pairing). Not dead — deferred.
-            pb_constraints.append({
-                "form": "abs_sum_complement_distance",
-                "bound": 776,
-                "n_aux_vars": pair_var_count,
-                "n_link_clauses": len(pair_aux_clauses),
-                "status": "deferred_superseded_by_pairslot_model",
-                "note": "C3 is native (Sinz) in sat.py's pair-slot model (the "
-                        "certification path). Build the x[i][p] adder network "
-                        "only if a variable-pairing analysis ever needs this "
-                        "model; effort if built: binary adder summing network "
-                        "over per-pair distances — large, and likely not "
-                        "faster than the PB route.",
-            })
+    elif include_c3 == "adder":
+        # DEFERRED / SUPERSEDED (operator decision 2026-07-10). C3 is
+        # native (Sinz sequential counters) in sat.py's pair-slot model —
+        # the only certification-path model. A DIMACS adder summing
+        # network in THIS legacy position-hexagram x[i][p] encoder would
+        # be large and probably not faster in practice than PB; implement
+        # it only if a future variable-pairing analysis needs the x[i][p]
+        # model specifically (an instance the pair-slot model can't
+        # express, e.g. relaxing the fixed pairing). Not dead — deferred.
+        pb_constraints.append({
+            "form": "abs_sum_complement_distance",
+            "bound": 776,
+            "n_aux_vars": 0,
+            "n_link_clauses": 0,
+            "status": "deferred_superseded_by_pairslot_model",
+            "note": "C3 is native (Sinz) in sat.py's pair-slot model (the "
+                    "certification path). Build the x[i][p] adder network "
+                    "only if a variable-pairing analysis ever needs this "
+                    "model; effort if built: binary adder summing network "
+                    "over per-pair distances — large, and likely not "
+                    "faster than the PB route.",
+        })
     # include_c3 == "none" -> no C3 emitted
 
     # --- C5: KW's exact Hamming distribution ---
@@ -4150,11 +5637,26 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
     with open(out_path, "w") as f:
         f.write(f"c roae P3 SAT encoding — King Wen sequence\n")
         f.write(f"c generated {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n")
-        f.write(f"c constraints: C1+C2"
-                + (f"+C3({include_c3})" if include_c3 != "none" else "")
-                + ("+C4" if include_c4 else "")
-                + ("+C5" if include_c5 else "")
-                + "\n")
+        # The DIMACS header names what is IN THIS FILE, not what was REQUESTED.
+        # Until 2026-09-02 it echoed the flags: --sat-c3=pb produced
+        # "c constraints: C1+C2+C3(pb)" although the C3 bound is written only to
+        # the .opb sidecar, and --sat-c5 produced "+C5" although C5 emits no
+        # clause at all here (deferred/superseded — see the sidecar note above).
+        # A pure-#SAT counter pointed at this file therefore counted C1nC2(nC4)
+        # while the header told it otherwise. SOLVE_PY_CLI.md carried a standing
+        # "do not trust the .cnf's own comment header" warning in place of this
+        # fix; that warning is retired in the same merge.
+        in_file = ["C1", "C2"] + (["C4"] if include_c4 else [])
+        f.write("c constraints: " + "+".join(in_file) + "\n")
+        if include_c3 == "pb":
+            f.write("c NOT in this file: C3 — the bound is written only to the "
+                    "parallel .opb; give that to a PB-capable solver\n")
+        elif include_c3 == "adder":
+            f.write("c NOT in this file: C3 — the adder encoder is deferred/"
+                    "superseded and emits no clause; a status sidecar only\n")
+        if include_c5:
+            f.write("c NOT in this file: C5 — deferred/superseded, native in "
+                    "sat.py's pair-slot model; a status sidecar only\n")
         f.write(f"c vars are x[i][p] = 1 iff position i (0-63) holds hexagram p (0-63), 1-indexed\n")
         f.write(f"p cnf {n_vars} {n_clauses}\n")
         for cl in clauses:
@@ -4377,8 +5879,15 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
                     f"file body {data_size} not a multiple of 32 (corrupt)")
             record_count_actual = data_size // 32
             if record_count_actual != record_count_hdr:
-                print(f"WARN: header says {record_count_hdr} records but "
-                      f"file has {record_count_actual} (using actual)")
+                # Was a WARN that carried on "using actual" (2026-09-03,
+                # sibling of Codex V2-F60 #2): a header/body mismatch is a
+                # torn artifact and no report over it is a report.
+                raise ValueError(
+                    f"{path}: header says {record_count_hdr} records but the "
+                    f"body holds {record_count_actual} (torn or truncated "
+                    f"artifact; refusing to bucket it)")
+            if record_count_actual == 0:
+                raise ValueError(f"{path}: zero records -- nothing to bucket")
             buckets = defaultdict(int)
             CHUNK = 1 << 20  # 1M records per chunk = 32 MB
             while True:
@@ -4461,8 +5970,15 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         return budget_default
 
     # ----- Build report rows -----
+    # Codex V2-F60 #5 (2026-09-03): iterating the CURRENT buckets alone meant a
+    # branch present in the baseline and absent now was never reached -- its
+    # records surfaced only in the TOTAL delta, blamed on no branch, and the
+    # manifest sanity check below (which derives from `rows`) excluded it
+    # from numerator and denominator alike. Iterate the union.
     rows = []
-    for key, count in sorted(buckets.items()):
+    all_keys = set(buckets) | set(baseline_buckets or {})
+    for key in sorted(all_keys):
+        count = buckets.get(key, 0)
         row = {"key": key, "count": count}
         row["pct"] = (100.0 * count / total) if total else 0.0
         if baseline_buckets is not None:
@@ -4489,6 +6005,9 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         print(f"Baseline: {baseline_bin}")
     print(f"Total records: {total:,}")
     print(f"Distinct buckets with non-zero count: {len(buckets):,}")
+    if baseline_buckets is not None:
+        lost = sum(1 for r in rows if r['count'] == 0 and r['baseline_count'])
+        print(f"Baseline buckets with ZERO records now (lost branches): {lost:,}")
     print()
 
     # Header
@@ -4552,15 +6071,22 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         print(f"  CV:      {cv:.3f}  ({'high' if cv > 0.5 else 'moderate' if cv > 0.2 else 'low'} variation)")
 
     # Sanity check vs manifest (extended branches should differ from baseline)
+    sanity_rc = 0
     if baseline_buckets is not None and manifest_data:
         ext_changed = sum(1 for r in rows if r.get('extended') and r['delta'] != 0)
         ext_total = sum(1 for r in rows if r.get('extended'))
         non_ext_changed = sum(1 for r in rows if not r.get('extended') and r['delta'] != 0)
         non_ext_total = sum(1 for r in rows if not r.get('extended'))
+        # 0/0 is not a PASS: a manifest whose overrides match no bucket (or a
+        # report with no default-budget bucket at all) has checked nothing.
+        ext_ok = ext_total > 0 and ext_changed == ext_total
+        non_ext_ok = non_ext_total > 0 and non_ext_changed == 0
+        sanity_rc = 0 if (ext_ok and non_ext_ok) else 1
         print()
         print(f"Sanity check vs manifest:")
-        print(f"  extended-budget buckets with non-zero delta: {ext_changed}/{ext_total} {'PASS' if ext_changed == ext_total else 'FAIL — expected all extended buckets to differ'}")
-        print(f"  default-budget buckets with zero delta:      {non_ext_total - non_ext_changed}/{non_ext_total} {'PASS' if non_ext_changed == 0 else 'FAIL — expected all default-budget buckets identical to baseline'}")
+        print(f"  extended-budget buckets with non-zero delta: {ext_changed}/{ext_total} {'PASS' if ext_ok else ('FAIL — no extended-budget bucket matched the manifest (nothing checked)' if ext_total == 0 else 'FAIL — expected all extended buckets to differ')}")
+        print(f"  default-budget buckets with zero delta:      {non_ext_total - non_ext_changed}/{non_ext_total} {'PASS' if non_ext_ok else ('FAIL — no default-budget bucket in the report (nothing checked)' if non_ext_total == 0 else 'FAIL — expected all default-budget buckets identical to baseline')}")
+        print(f"BRANCH_YIELD_SANITY={'PASS' if sanity_rc == 0 else 'FAIL'}")
 
     # CSV output -----------------------------------------------------------
     if out_csv:
@@ -4621,6 +6147,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         with open(out_json, "w") as f:
             json.dump(report, f, indent=2)
         print(f"JSON written to {out_json}")
+    return sanity_rc
 
 
 def keystone_analysis(solutions_bin, out_md, dump_dir=None,
@@ -4685,6 +6212,11 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
         30: ("drop-1",  "All matched except boundary 1 — boundary 1 uniquely kills these"),
     }
     interesting_records = {m: [] for m in INTERESTING}
+    # Codex V2-F60 #7 (2026-09-03): the cap used to be tested against
+    # len(interesting_records[m]) -- the number of per-chunk ARRAYS appended,
+    # not records -- so two chunks of >=10,000 matches retained 19,999 against
+    # a documented cap of 10,000 (measured: 19 for 2x10 at dump_limit=10).
+    n_dumped = {m: 0 for m in INTERESTING}
 
     if dump_dir is not None:
         os.makedirs(dump_dir, exist_ok=True)
@@ -4716,14 +6248,15 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
 
             # capture interesting records up to dump_limit per mask
             for m in INTERESTING:
-                if len(interesting_records[m]) >= dump_limit:
+                if n_dumped[m] >= dump_limit:
                     continue
                 idxs = np.where(mask == m)[0]
-                room = dump_limit - len(interesting_records[m])
+                room = dump_limit - n_dumped[m]
                 if len(idxs) > room:
                     idxs = idxs[:room]
                 if len(idxs) > 0:
                     interesting_records[m].append(records[idxs].copy())
+                    n_dumped[m] += len(idxs)
 
             offset += n * _P2_RECORD_SIZE
             remaining -= n
@@ -4739,8 +6272,16 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
                 last_log = now
 
     elapsed = time.time() - t0
+    # Sibling of Codex V2-F60 #2 (2026-09-03): a short read was trimmed to
+    # whole records and the loop broke out, then DONE printed with `seen`
+    # below the header's count and the report was written as if complete.
+    if seen != total_records or total_records == 0:
+        print(f"KEYSTONE_ANALYSIS=FAIL declared {total_records:,} records but "
+              f"read {seen:,} (torn/truncated artifact or zero records); "
+              f"no report written", flush=True)
+        raise SystemExit(1)
     print(f"[keystone] DONE {seen:,} records in {elapsed:.1f}s "
-          f"({seen/elapsed/1e6:.2f}M/s)", flush=True)
+          f"({seen/max(elapsed, 1e-9)/1e6:.2f}M/s)", flush=True)
 
     # Write dumps
     dump_paths = {}
@@ -4884,6 +6425,16 @@ def extended_selftest(solve_binary):
 
     def _run(env_extra, dir_, args_=("0", "4")):
         env = os.environ.copy()
+        # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
+        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:20627) refuses to start
+        # without this override and the whole selftest dies at subtest 1. The gate exists
+        # because a sub-1T sha is CODE-SPECIFIC and therefore not a cross-build anchor -- but
+        # these subtests compare shas THREE WAYS AGAINST EACH OTHER on one build (recursive vs
+        # iterative vs iterative+v2), never against a published anchor, so code-specific is
+        # precisely what they want. The gate's own comment records that it is sha-preserving:
+        # "gate only blocks startup, never alters DFS". Set before env_extra so a subtest that
+        # deliberately exercises the gate can still override it.
+        env["SOLVE_ALLOW_SUB_CANONICAL"] = "1"
         env.update(env_extra)
         log = os.path.join(dir_, "run.log")
         with open(log, "w") as lf:
@@ -5724,7 +7275,26 @@ def reg_p1c4(seq):
     (see reg_r3). The 8 hexagrams with bitrev6(h) == complement6(h) form exactly
     4 adjacent KW pairs, each satisfying the inversion criterion (partner ==
     bitrev6(h)) with no palindromic member — i.e. they land among the 28
-    inversion pairs, not the 4 complement pairs. Returns bool."""
+    inversion pairs, not the 4 complement pairs.
+
+    NOTE (measured 2026-08-02, not reasoned): as a PREDICATE OVER ORDERINGS this
+    is not merely the same hexagram class as reg_r3 — it is the same function.
+    Both were evaluated on 60,320 orderings (all 8! = 40,320 placements of the 8
+    anti-symmetric hexagrams into adjacent pair slots, which is exhaustive over
+    the region where either can be True, plus 20,000 random full orderings whose
+    |anti| ranged 0..4): they agree on every one, True on the same 384. Dropping
+    the third conjunct above ("no palindromic member") changes nothing on that
+    space, as does dropping reg_r3's HD-6 conjunct; only `len(...) == 4` and
+    `bitrev6(a) == b` are load-bearing, and those two are common to both. So the
+    ATTRIBUTION line's "same hexagram class" understates it and reg_r3's
+    "Radisic adds the HD 6 characterization" is not true of the implemented
+    predicate — the HD-6 clause is implied by the shared filter and discriminates
+    no ordering. This does NOT retract either attribution (both authors stated
+    what they stated), and it does not make either row non-constant on C1; it
+    means the two rows are one ordering fact under two citations. Bears on the
+    published count of EIGHT proven C1 constants
+    (documentation/CLAIMS_DECIDED.md, TR-1 §3) — an operator call, not changed
+    here. Returns bool."""
     kw_pairs = [(seq[2 * k], seq[2 * k + 1]) for k in range(32)]
     dual = [(a, b) for a, b in kw_pairs
             if reverse_6bit(a) == _reg_comp6(a) and reverse_6bit(b) == _reg_comp6(b)]
@@ -5819,12 +7389,27 @@ def reg_d4(seq):
 def reg_d7(seq):
     """D7 — Sovereign (xiaoxi/bigua) hexagrams occupy the group-B pair slots.
 
-    ATTRIBUTION: Drasny (i-ching.hu); sovereign identification also Schulz &
-    Cunningham 1990 / Schulz 1990 JCP 17 (see reg_rs1). The 12 xiaoxi hexagrams
-    are the monotone yang-accumulators (1<<k)-1 and their complements. Counts
-    how many occupy Drasny's group-B slots — KW pairs #19-20, #23-24, #33-34,
-    #43-44 (0-based slots 18,19,22,23,32,33,42,43); the other 4 xiaoxi live in
-    groups F (#1-2) and A (#11-12). KW expected 8. Returns count."""
+    ATTRIBUTION — SPLIT (narrowed 2026-08-02). Drasny (i-ching.hu; 'The Regular
+    Grouping of the Hexagrams before the Yi Jing') and Schulz & Cunningham 1990 /
+    Schulz 1990 JCP 17 (see reg_rs1) are credited for the *identification* of the
+    12 xiaoxi: the monotone yang-accumulators (1<<k)-1 and their complements.
+    That is a claim about hexagram bit-patterns, constant on every ordering.
+    The *positional* predicate below — a count over eight fixed slots — is this
+    suite's own formalization and is credited as such; Drasny's group B is
+    defined by hexagram structure, not by King Wen slot indices. Schulz's
+    separate xiaoxi *placement* rule is the 1/13/25 trisection (reg_rs1) — a
+    distinct row, NOT classified by this docstring; it needs its own dof count.
+
+    CLASSIFICATION: DATA-LIKE — 8 borrowed degrees of freedom. b_slots below is
+    verifiably a subset of King Wen's own twelve xiaoxi slots
+    (0,1,10,11,18,19,22,23,32,33,42,43), omitting only pairs #1-2 and #11-12, so
+    KW's 8 is guaranteed by construction, and 8 is this functional's range
+    ceiling (a count over 8 slots), not a located population maximum. Shifting
+    the same window by 1..5 drops KW to 4,0,1,2,1. See reports/METHODS.md
+    §"Data-like vs principled" and TR-1 §3 headline 3.
+
+    Counts how many xiaoxi occupy slots 18,19,22,23,32,33,42,43 — KW pairs
+    #19-20, #23-24, #33-34, #43-44. KW expected 8. Returns count."""
     xiaoxi = {(1 << k) - 1 for k in range(1, 7)}
     xiaoxi |= {_reg_comp6(h) for h in xiaoxi}
     b_slots = (18, 19, 22, 23, 32, 33, 42, 43)
@@ -5890,8 +7475,15 @@ def reg_r3(seq):
     each paired by reversal-equals-complement with intra-pair HD 6.
 
     ATTRIBUTION: Radisic 2026 arXiv:2601.07175 (Theorem 3.3, Lean 4 verified);
-    same class as Schulz 1982's dual pairs (reg_p1c4) — Radisic adds the HD 6
-    characterization. Returns bool."""
+    same class as Schulz 1982's dual pairs (reg_p1c4).
+
+    NOTE (measured 2026-08-02): this docstring previously said "Radisic adds the
+    HD 6 characterization", which is true of the THEOREM but not of this
+    predicate — the HD-6 conjunct below is implied by the filter above
+    (bitrev6(a) == comp6(a) and b == bitrev6(a) forces bit_diff(a, b) == 6), so
+    dropping it flips no ordering. reg_r3 and reg_p1c4 were measured identical on
+    all 60,320 orderings tested; see the NOTE on reg_p1c4 for the space and the
+    conjunct-by-conjunct result. Returns bool."""
     kw_pairs = [(seq[2 * k], seq[2 * k + 1]) for k in range(32)]
     anti = [(a, b) for a, b in kw_pairs
             if reverse_6bit(a) == _reg_comp6(a) and reverse_6bit(b) == _reg_comp6(b)]
@@ -6072,7 +7664,7 @@ def f4p_palspan(seq):
 def f4p_comp_adj(seq):
     """7. Complement pair-couples at adjacent pair positions (counted once per
     couple). Axis: Davis 2012 / C3 adjacency form. KW value 1 (the 38/39 couple;
-    SOLVE-SUMMARY's "9 adjacent complements" counts within-pair complements,
+    SOLVE_SUMMARY's "9 adjacent complements" counts within-pair complements,
     which are pair-structure facts, not ordering-layer facts)."""
     ppos = {}
     for i in range(32):
@@ -6595,6 +8187,49 @@ def r11_axes(seq):
     return [g1, g2, g3, g4, g5, g6, g7, g8]
 
 
+def r11_violation_positions(seq):
+    """Where `seq` violates the three graded Tier-1 rules — the position-level
+    companion to r11_axes (which returns only counts). Shares r11_axes's g1/g2
+    logic verbatim and reuses rc4_violations for g3, so the counts implied here
+    match r11_axes exactly. Returns a dict:
+      parity -> failing pair-slots (1-based)                     [Moore 2005]
+      rhythm -> (prev_pair, this_pair) adjacent-pair breaks (1-based) [Moore 1989]
+      gender -> inversion-class positions (1-based)              [Schulz 1990]
+    NOTE the coordinate systems differ: parity/rhythm index pair-slots (1..32);
+    gender indexes inversion-class positions (1..36). King Wen ==
+    {parity:[22,23], rhythm:[(7,8),(22,23)], gender:[25,26]}."""
+    parity = []
+    for q in range(32):
+        h, h2 = seq[2 * q], seq[2 * q + 1]
+        if (h ^ h2) == 63:
+            continue
+        pcq = bin(h).count("1")
+        if pcq == 3:
+            continue
+        odd = (q + 1) & 1
+        if (1 if pcq > 3 else 0) != odd:
+            parity.append(q + 1)
+    rhythm = []
+    prev, have, prev_adj, prev_q = 0, False, False, None
+    for q in range(32):
+        h, h2 = seq[2 * q], seq[2 * q + 1]
+        if (h ^ h2) == 63:
+            prev_adj = False
+            continue
+        pcq = bin(h).count("1")
+        if pcq == 3:
+            prev_adj = False
+            continue
+        mb = 0 if pcq > 3 else 1
+        sc = sum(5 - 2 * i for i in range(6) if ((h >> i) & 1) == mb)
+        rf = 1 if sc > 0 else 0
+        if have and prev_adj and rf == prev:
+            rhythm.append((prev_q + 1, q + 1))
+        prev, have, prev_adj, prev_q = rf, True, True, q
+    gender = list(rc4_violations(seq)[1])
+    return {"parity": parity, "rhythm": rhythm, "gender": gender}
+
+
 def r11_verify(seq_arg=None):
     """Two-language ground-truth gate for the R11 8-axis bundle. No argument:
     recompute on King Wen and assert == (2,2,2,0,0,0,0,0). With a 64-int SEQ:
@@ -6618,6 +8253,9 @@ def r11_verify(seq_arg=None):
             print(f"{nm}: {v} FAIL (expected {exp})")
             fails += 1
     print("R11 VERIFY:", "PASS" if fails == 0 else f"{fails} FAILURES")
+    pos = r11_violation_positions(seq)
+    print("  violation positions — parity(pair-slots)=%s  rhythm(adjacent-pairs)=%s  "
+          "gender(inversion-class-pos)=%s" % (pos["parity"], pos["rhythm"], pos["gender"]))
     return 1 if fails else 0
 
 
@@ -6912,6 +8550,397 @@ def r11_builder_verify():
             fails += 1
     print("R11 BUILDER VERIFY:", "PASS" if fails == 0 else f"{fails} FAILURES")
     return 1 if fails else 0
+
+
+# ---------------------------------------------------------------------------
+# H2 near-precursor edit-ball mass (roae-private HYPOTHESIS_C6 §3 H2 / §5.2)
+#
+# Companion/ground-truth layer for solve.c's SOLVE_KNUTH_H2 instrument, which
+# measures m = |{S in POP : d_edit(S, GS) <= 3}| / |POP| — the fraction of the
+# flagship C1∩C2∩C4∩C5 population within slot-edit distance 3 of the
+# grand-strict subspace GS (Moore 2005 parity strict ∧ Moore 1989 rhythm
+# strict ∧ Schulz 1990 gender strict, within canonical C1–C5; TR-2,
+# N_gs = 4.50e25 ±6% direct). Metric = sat.py's near-k slot-edit distance
+# (# pair-slots whose (pair, orientation) differs; slot 0 fixed): the closed
+# radius-3 ball has exactly 1 + 31 + C(31,2)·5 + C(31,3)·29 = 132,712 members.
+# Identity used by both languages (exact, no double counting):
+#   |{S in V : d(S,GS)<=3}| = Σ_{G in GS} f(G),
+#   f(G) = Σ_{S in B3(G) ∩ V} 1/c(S),  c(S) = |B3(S) ∩ GS| >= 1,
+# because each qualifying S distributes its unit mass across the GS members
+# covering it (the move metric is symmetric). The triple-strict Knuth walk
+# supplies (W, G) samples; E_{G~unif(GS)}[f] is estimated self-normalized as
+# Σ W·f / Σ W, then m = N_gs · E[f] / N_pop with the independently measured
+# N_gs. Two population variants: _p = C1∩C2∩C4∩C5 (flagship, EXACT
+# denominator, TR-11); _c = + C3<=776 (canonical C1–C5, estimate denominator).
+#
+# --h2-verify: independent Python recomputation of dumped leaves (scorers =
+#   this file's r11_axes g1/g2/g3 machinery; enumeration structurally distinct
+#   from solve.c's). --h2-mass: pooled estimate + stratified bootstrap CI +
+#   seed spread + N_gs uncertainty; prints m and bits = -log2(m).
+#
+# CIRCULARITY STATUS (do not launder): H2 is a PRIVATE hypothesis classified
+# SEMI-FITTED (C3/C5-class, MDL-net-negative) — its rule bundle is
+# literature-extracted-from-KW and its tolerance 3 is KW's own repair
+# distance. This instrument produces a MAGNITUDE ONLY; nothing here promotes
+# H2, changes any spec/constraint, or touches any canonical sha.
+# ATTRIBUTION: rules Moore 2005 / Moore 1989 / Schulz 1990 (exceptions noted
+# by Zhu Yuansheng, 13th c.); estimator Knuth 1975; ball metric = TR-2's
+# near-k. Developed with AI assistance (Claude — Fable 5, Anthropic).
+# ---------------------------------------------------------------------------
+
+# Flagship |C1∩C2∩C4∩C5| — EXACT, two-instrument (TR-11 §9; verify.c --ie-count match).
+H2_N_POP = 1097051278789181790036112071176579186688
+# Canonical |C1–C5| (with C3<=776) — estimate ±0.02% (95%), SEARCH_SPACE_SIZE.md.
+H2_N_CAN = 1.3287e38
+# |GS| — direct 4-seed pooled measurement, ±6.1% conservative 95% CI (TR-2 v1.12).
+H2_N_GS, H2_N_GS_LO, H2_N_GS_HI = 4.50e25, 3.96e25, 5.05e25
+H2_BALL = 132712  # 1 + 31 + C(31,2)*5 + C(31,3)*29
+
+H2_GRAND_WITNESS = [63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,
+                    57,39,33,30,18,45,28,14,60,15,40,5,53,43,20,10,35,49,24,6,62,31,
+                    26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42]
+
+
+def h2_comp_dist_x64(seq):
+    """C3 total (x64 convention: sum over all 64 hexagrams of |pos(h)-pos(h^63)|).
+    KW = 776 = the C3 ceiling."""
+    pos = {v: i for i, v in enumerate(seq)}
+    return sum(abs(pos[v] - pos[v ^ 63]) for v in range(64))
+
+
+def h2_pop_valid(seq, tot=None):
+    """V-membership beyond the structural C1/C4: the C5 transition multiset must
+    equal KW's (which also enforces C2 — the multiset contains no 5s)."""
+    if tot is None:
+        tot = h2_kw_multiset()
+    from collections import Counter
+    return Counter(bit_diff(seq[i], seq[i + 1]) for i in range(63)) == tot
+
+
+_H2_TOT = None
+def h2_kw_multiset():
+    global _H2_TOT
+    if _H2_TOT is None:
+        from collections import Counter
+        _H2_TOT = Counter(bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1])
+                          for i in range(63))
+    return _H2_TOT
+
+
+def h2_strict_ok(seq):
+    """Grand-strict rule bundle == r11 axes g1,g2,g3 all zero."""
+    g = r11_axes(seq)
+    return g[0] == 0 and g[1] == 0 and g[2] == 0
+
+
+def _h2_pairs():
+    ps = [(binary_hexagrams[2 * i], binary_hexagrams[2 * i + 1]) for i in range(32)]
+    idx = {}
+    for i, (a, b) in enumerate(ps):
+        idx[(a, b)] = (i, 0)
+        idx[(b, a)] = (i, 1)
+    return ps, idx
+
+
+def h2_to_slots(seq):
+    """seq -> (pr, orr): pair index and orientation per pair-slot."""
+    ps, idx = _h2_pairs()
+    pr, orr = [0] * 32, [0] * 32
+    for s in range(32):
+        i, o = idx[(seq[2 * s], seq[2 * s + 1])]
+        pr[s], orr[s] = i, o
+    return pr, orr
+
+
+def h2_build(pr, orr, ts=(), assign=()):
+    """Build a sequence from (pr, orr) with slots ts reassigned per assign
+    [(pair, orient), ...]."""
+    ps, _ = _h2_pairs()
+    pr2, orr2 = list(pr), list(orr)
+    for s, (p, o) in zip(ts, assign):
+        pr2[s], orr2[s] = p, o
+    seq = []
+    for s in range(32):
+        a, b = ps[pr2[s]]
+        seq += [b, a] if orr2[s] else [a, b]
+    return seq
+
+
+def h2_ball_assignments(pr, orr, ts):
+    """All assignments of the sorted slot tuple ts in which EVERY listed slot
+    differs from (pr, orr). Yields lists of (pair, orient) parallel to ts.
+    Counts: |ts|=1 -> 1, 2 -> 5, 3 -> 29."""
+    from itertools import permutations, product
+    n = len(ts)
+    cur = [(pr[s], orr[s]) for s in ts]
+    pset = [pr[s] for s in ts]
+    for perm in permutations(range(n)):
+        newp = [pset[perm[i]] for i in range(n)]
+        for ors in product((0, 1), repeat=n):
+            asg = list(zip(newp, ors))
+            if all(asg[i] != cur[i] for i in range(n)):
+                yield asg
+
+
+def h2_parity_slots(seq):
+    """0-indexed pair-slots violating the Moore 2005 parity rule (comp-pairs and
+    popcount-3 pairs exempt). KW -> [21, 22]."""
+    out = []
+    for q in range(32):
+        h, h2 = seq[2 * q], seq[2 * q + 1]
+        if (h ^ h2) == 63:
+            continue
+        pc = bin(h).count("1")
+        if pc == 3:
+            continue
+        if (1 if pc > 3 else 0) != ((q + 1) & 1):
+            out.append(q)
+    return out
+
+
+_H2_COMPL = None
+def h2_parity_table():
+    """compliant[p][q]: pair p at 0-indexed slot q satisfies/exempts the parity
+    rule. Orientation-free (line reversal preserves popcount) and slot-local —
+    the basis of the exact c(S) enumeration restriction."""
+    global _H2_COMPL
+    if _H2_COMPL is None:
+        ps, _ = _h2_pairs()
+        _H2_COMPL = [[False] * 32 for _ in range(32)]
+        for p, (a, b) in enumerate(ps):
+            pc = bin(a).count("1")
+            exempt = ((a ^ b) == 63) or pc == 3
+            for q in range(32):
+                _H2_COMPL[p][q] = exempt or ((1 if pc > 3 else 0) == ((q + 1) & 1))
+    return _H2_COMPL
+
+
+def h2_cscan(seq):
+    """c(S) = |B3(S) ∩ GS|. Exact: enumerates only slot sets covering S's
+    parity-violating slots (a strict ball member must repair every one; unchanged
+    slots keep their compliance), with candidate parity decided by table lookup
+    on the <=3 reassigned slots before any full check."""
+    from itertools import combinations
+    pr, orr = h2_to_slots(seq)
+    pv = h2_parity_slots(seq)
+    if len(pv) > 3:
+        return 0
+    compl = h2_parity_table()
+    tot = h2_kw_multiset()
+    cnt = 0
+    if not pv and h2_pop_valid(seq, tot) and h2_strict_ok(seq) \
+            and h2_comp_dist_x64(seq) <= 776:
+        cnt += 1                                    # d=0: S itself
+    free = [s for s in range(1, 32) if s not in pv]
+    for extra in range(0, 3 - len(pv) + 1):
+        n = len(pv) + extra
+        if n == 0:
+            continue
+        for add in combinations(free, extra):
+            ts = tuple(sorted(pv + list(add)))
+            for asg in h2_ball_assignments(pr, orr, ts):
+                if not all(compl[p][s] for (p, _o), s in zip(asg, ts)):
+                    continue                        # parity (exact, O(3))
+                cand = h2_build(pr, orr, ts, asg)
+                if not h2_pop_valid(cand, tot):
+                    continue
+                if not h2_strict_ok(cand):
+                    continue
+                if h2_comp_dist_x64(cand) > 776:
+                    continue
+                cnt += 1
+    return cnt
+
+
+def h2_eval_leaf(seq):
+    """Python twin of solve.c h2_eval_leaf: exact radius-3 ball scan around a GS
+    member. Returns dict(nvp, nvc, fp, fc, ncand)."""
+    from itertools import combinations
+    pr, orr = h2_to_slots(seq)
+    tot = h2_kw_multiset()
+    nvp = nvc = 0
+    fp = fc = 0.0
+    ncand = 0
+
+    def consider(cand):
+        nonlocal nvp, nvc, fp, fc, ncand
+        ncand += 1
+        if not h2_pop_valid(cand, tot):
+            return
+        c = h2_cscan(cand)
+        if c < 1:
+            raise AssertionError("h2: c(S)=0 for an in-ball member (impossible)")
+        nvp += 1
+        fp += 1.0 / c
+        if h2_comp_dist_x64(cand) <= 776:
+            nvc += 1
+            fc += 1.0 / c
+    consider(h2_build(pr, orr))
+    for n in (1, 2, 3):
+        for ts in combinations(range(1, 32), n):
+            for asg in h2_ball_assignments(pr, orr, ts):
+                consider(h2_build(pr, orr, ts, asg))
+    if not (ncand == H2_BALL):
+        raise AssertionError(f"ball size {ncand} != {H2_BALL}")
+    return {"nvp": nvp, "nvc": nvc, "fp": fp, "fc": fc, "ncand": ncand}
+
+
+def h2_parse_dump(path):
+    """Parse a SOLVE_KNUTH_H2_DUMP file -> list of leaf dicts."""
+    out = []
+    with open(path) as fh:
+        for ln in fh:
+            if not ln.startswith("H2LEAF "):
+                continue
+            d = {}
+            for tok in ln.split():
+                if tok == "H2LEAF":
+                    continue
+                k, v = tok.split("=", 1)
+                if k == "seq":
+                    d[k] = [int(x) for x in v.split(",")]
+                elif k in ("w", "fp", "fc"):
+                    d[k] = float(v)
+                else:
+                    d[k] = int(v)
+            out.append(d)
+    return out
+
+
+def h2_verify(dump_path, n_check=2, seed=20260726):
+    """Independent Python recomputation of n_check leaves from a dump (plus KW /
+    witness ground-truth gates). Exit-code style return: 0 pass, 1 fail."""
+    import random
+    fails = 0
+    # ground-truth gates (authors' own KW tallies; TR-2 witness facts)
+    kw = list(binary_hexagrams)
+    if r11_axes(kw)[:3] != [2, 2, 2] or h2_comp_dist_x64(kw) != 776 \
+            or not h2_pop_valid(kw):
+        print("h2-verify: KW ground truth FAIL")
+        return 1
+    G = H2_GRAND_WITNESS
+    if not (h2_pop_valid(G) and h2_strict_ok(G) and h2_comp_dist_x64(G) == 776):
+        print("h2-verify: grand witness ground truth FAIL")
+        return 1
+    d = sum(1 for q in range(32) if G[2*q:2*q+2] != kw[2*q:2*q+2])
+    if d != 3:
+        print(f"h2-verify: witness slot-distance {d} != 3 FAIL")
+        return 1
+    leaves = h2_parse_dump(dump_path)
+    # 🔴 FAIL-OPEN, found by the v2 CODE review and reproduced: `min(n_check, len(leaves))` made an
+    # EMPTY dump sample zero leaves, run zero comparisons, and still print "H2 VERIFY: PASS" with
+    # exit 0. Measured before this guard: `--h2-verify /dev/null` -> "0 leaves; checking 2 ...
+    # H2 VERIFY: PASS". A verifier must be FALSE when its target is absent. The sibling --h2-mass
+    # already aborts on an empty dump; this is that guard, ported.
+    if len(leaves) < n_check:
+        print(f"h2-verify: {dump_path}: {len(leaves)} leaf/leaves, need at least {n_check} — "
+              f"REFUSING. An empty or short dump cannot verify anything; this is not a pass.")
+        print("H2 VERIFY: FAIL (insufficient leaves)")
+        return 1
+    print(f"h2-verify: {dump_path}: {len(leaves)} leaves; checking {n_check} "
+          f"(seed {seed}) + ground-truth gates OK")
+    rng = random.Random(seed)
+    for lf in rng.sample(leaves, n_check):
+        seq = lf["seq"]
+        if not (h2_pop_valid(seq) and h2_strict_ok(seq)
+                and h2_comp_dist_x64(seq) == lf["c3"] and lf["c3"] <= 776):
+            print("h2-verify: leaf membership FAIL")
+            fails += 1
+            continue
+        r = h2_eval_leaf(seq)
+        ok = (r["nvp"] == lf["nvp"] and r["nvc"] == lf["nvc"]
+              and abs(r["fp"] - lf["fp"]) <= 1e-9 * max(1.0, lf["fp"])
+              and abs(r["fc"] - lf["fc"]) <= 1e-9 * max(1.0, lf["fc"]))
+        print(f"  leaf c3={lf['c3']}: C(nvp={lf['nvp']},nvc={lf['nvc']},"
+              f"fp={lf['fp']:.6f},fc={lf['fc']:.6f}) vs "
+              f"Py(nvp={r['nvp']},nvc={r['nvc']},fp={r['fp']:.6f},"
+              f"fc={r['fc']:.6f}) -> {'MATCH' if ok else 'MISMATCH'}")
+        if not ok:
+            fails += 1
+    print("H2 VERIFY:", "PASS" if fails == 0 else f"{fails} FAILURES")
+    return 1 if fails else 0
+
+
+def h2_mass(dump_paths, boot=20000, seed=20260726):
+    """Final H2 mass estimate from one dump per independent-seed run.
+    Self-normalized ratio E[f] = Σ W·f / Σ W pooled across runs; stratified
+    bootstrap (leaves resampled within runs) + per-run seed spread; N_gs
+    uncertainty folded in quadrature (lognormal). Prints m and bits."""
+    import math, random
+    runs = [h2_parse_dump(p) for p in dump_paths]
+    for p, r in zip(dump_paths, runs):
+        if not r:
+            print(f"h2-mass: {p}: no leaves — aborting")
+            return 1
+        bad = sum(1 for lf in r if lf.get("ck", 0) < 0)
+        if bad:
+            print(f"h2-mass: {p}: {bad} FAILED brute cross-checks — aborting")
+            return 1
+    allv = [lf for r in runs for lf in r]
+    sw = sum(lf["w"] for lf in allv)
+    sw2 = sum(lf["w"] ** 2 for lf in allv)
+    ess = sw * sw / sw2 if sw2 > 0 else 0.0
+    n = len(allv)
+
+    def ratios(rows):
+        w = sum(lf["w"] for lf in rows)
+        if w <= 0:
+            return None
+        return (sum(lf["w"] * lf["fp"] for lf in rows) / w,
+                sum(lf["w"] * lf["fc"] for lf in rows) / w,
+                sum(lf["w"] * lf["nvp"] for lf in rows) / w,
+                sum(lf["w"] * lf["nvc"] for lf in rows) / w)
+
+    rp, rc, rnp, rnc = ratios(allv)
+    print(f"h2-mass: {len(runs)} runs, {n} GS leaves, sum_w={sw:.4e}, ESS={ess:.1f}")
+    print(f"  per-run E[f_pop]: " + " ".join(f"{ratios(r)[0]:.4f}" for r in runs))
+    print(f"  pooled E[f_pop]={rp:.4f} E[f_can]={rc:.4f} "
+          f"E[nv_pop]={rnp:.1f} E[nv_can]={rnc:.1f}")
+    print(f"  corrections vs naive |B3|={H2_BALL}: validity x{H2_BALL/rnp:.2f} "
+          f"(pop), overlap x{rnp/rp:.2f} (pop); combined x{H2_BALL/rp:.2f}")
+    # stratified bootstrap over leaves within runs
+    rng = random.Random(seed)
+    bs_p, bs_c = [], []
+    for _ in range(boot):
+        rows = []
+        for r in runs:
+            rows += [r[rng.randrange(len(r))] for _ in range(len(r))]
+        rr = ratios(rows)
+        if rr:
+            bs_p.append(rr[0])
+            bs_c.append(rr[1])
+    bs_p.sort()
+    bs_c.sort()
+
+    def pct(a, q):
+        return a[min(len(a) - 1, max(0, int(q * len(a))))]
+
+    lo_p, hi_p = pct(bs_p, 0.025), pct(bs_p, 0.975)
+    lo_c, hi_c = pct(bs_c, 0.025), pct(bs_c, 0.975)
+    print(f"  bootstrap 95% CI E[f_pop]=[{lo_p:.4f},{hi_p:.4f}] "
+          f"E[f_can]=[{lo_c:.4f},{hi_c:.4f}] (B={boot}, stratified)")
+    # fold N_gs uncertainty (relative, approx lognormal) into the ratio CI
+    for name, ratio, lo, hi, npop, exact in (
+            ("POP=C1∩C2∩C4∩C5 (flagship, exact denominator)", rp, lo_p, hi_p,
+             float(H2_N_POP), True),
+            ("POP=C1–C5 canonical (C3<=776; denominator ±0.02%)", rc, lo_c, hi_c,
+             H2_N_CAN, False)):
+        m = H2_N_GS * ratio / npop
+        # combine (in log space, quadrature): bootstrap CI half-widths + N_gs CI
+        s_boot = (math.log(hi / lo) / 2 / 1.96) if lo > 0 else float("inf")
+        s_ngs = math.log(H2_N_GS_HI / H2_N_GS_LO) / 2 / 1.96
+        s_tot = math.sqrt(s_boot ** 2 + s_ngs ** 2)
+        m_lo, m_hi = m * math.exp(-1.96 * s_tot), m * math.exp(1.96 * s_tot)
+        naive = H2_N_GS * H2_BALL / npop
+        print(f"  [{name}]")
+        print(f"    m = {m:.4e}   95% CI [{m_lo:.4e}, {m_hi:.4e}]")
+        print(f"    bits = -log2(m) = {-math.log2(m):.2f}   "
+              f"CI [{-math.log2(m_hi):.2f}, {-math.log2(m_lo):.2f}]")
+        print(f"    (naive uncorrected N_gs·|B3|/N = {naive:.4e} = "
+              f"{-math.log2(naive):.2f} bits)")
+    print("  NOTE: magnitude only — H2 remains a private SEMI-FITTED hypothesis "
+          "(C3/C5-class, MDL-net-negative); no promotion, no spec change.")
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -7415,7 +9444,8 @@ def db1_null_a_distribution(condition_c4=False):
                 for x, ways in poly.items():
                     np_[x + match] = np_.get(x + match, 0) + ways * w
         states = new
-    assert len(states) == 1           # all groups consumed -> single empty state
+    if not (len(states) == 1):   # all groups consumed -> single empty state
+        raise AssertionError('guard failed: len(states) == 1')
     return next(iter(states.values()))
 
 
@@ -8008,8 +10038,8 @@ def books_g_t7():
     over all 64x64 ordered pairs. Worked example (per the Hacker 2002
     annotation): H5 <-> H63 mediated by H7. CONVENTION DERIVED: his H-numbers
     are King Wen numbers and lines encode yang(solid)=1 / yin(broken)=0;
-    under those conventions KW5 (Waiting, Qian-under-Kan) XOR KW63 (After
-    Completion, Li-under-Kan) = 6-bit 000010 = KW7 (The Army) exactly. The
+    under those conventions KW5 (Qian-under-Kan) XOR KW63
+    (Li-under-Kan) = 6-bit 000010 = KW7 exactly. The
     example is invariant to line-ORDER convention (rev6 of all three
     preserves it) but pins the POLARITY: under yin=1 the mediating pattern
     decodes to KW13, so Goldenberg's example requires yang=1."""
@@ -8028,6 +10058,9 @@ def books_g_t7():
 # table as KW numbers, palace head -> (origin, generations 1-5, roaming
 # soul, returning soul). Transcribed in roae-private/books/
 # nielsen_companion/VISION_TRANSCRIPTIONS_2026_07_05.md page_0591.
+# Key order = the printed column order (Yang Palaces Qian|Zhen|Kan|Gen, then
+# Yin Palaces Kun|Xun|Li|Dui); read by nothing here, pinned by
+# tests.py::TestJingFang.
 _BOOKS_NIELSEN_T2 = {
     0b111: (1, 44, 33, 12, 20, 23, 35, 14),    # Qian palace
     0b001: (51, 16, 40, 32, 46, 48, 28, 17),   # Zhen palace
@@ -8046,8 +10079,15 @@ def books_jf1():
     1-5 = cumulatively flip lines 1..5; roaming soul = flip line 4 of the
     5th generation; returning soul = restore the lower trigram) reproduces
     Nielsen's authoritative Table 2 in ALL 64 cells, and agrees with ROAE's
-    existing generator (_f4p_jf_palace / roae.py --trigrams / solve.c
-    --null-historical). Re-exposes the 2026-07-05 corpus-gate check.
+    existing _f4p_jf_palace generator (the roae.py --trigrams and solve.c
+    --null-historical copies are compared in tests.py::TestJingFang, not
+    here). Re-exposes the 2026-07-05 corpus-gate check.
+    SCOPE (2026-08-01): the 64-cell check subscripts _BOOKS_NIELSEN_T2 by
+    trigram KEY, so it attests palace MEMBERSHIP and within-palace stage order
+    and is silent on the ORDER of the eight palaces. `heads` below is the same
+    literal the generators use, so this check cannot corroborate it; the palace
+    order is anchored separately, against Nielsen's printed column order and
+    the Shuogua family scheme, in tests.py::TestJingFang.
     ATTRIBUTION: Jing Fang (77-37 BCE), *Ba gong gua* arrangement; table via
     Nielsen 2003 pp. 1-4 (Table 2, p. 3, after Hui Dong 1697-1758). Surfaced
     by roae-private/books/nielsen_companion/AUDIT.md par.3 +
@@ -8062,6 +10102,7 @@ def books_jf1():
         out.append((out[6] & 0b111000) | t)       # returning soul: lower = t
         return out
 
+    # Palace order; anchored in tests.py::TestJingFang, not here (see SCOPE).
     heads = (0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011)
     match = sum(1 for t in heads
                 if tuple(kwn[h] for h in palace(t)) == _BOOKS_NIELSEN_T2[t])
@@ -8696,9 +10737,13 @@ def _r7_fuxi():
 def _r7_jingfang():
     """Jing Fang Eight Palaces (c. 77-37 BCE) generator -- palace-orbit
     representation. Verbatim copy of roae.py print_trigrams / solve.c
-    --null-historical construction (three-language cross-check). Palace order
-    Qian,Zhen,Kan,Gen,Kun,Xun,Li,Dui; within each palace the eight world
-    stages W_0..W_7 (see _r7_W)."""
+    --null-historical construction: three copies of one palace-order literal,
+    NOT three independent derivations, so their agreement is evidence of
+    copying and not of correctness. tests.py::TestJingFang anchors that order
+    against Nielsen 2003 Table 2 and compares the three literals mechanically
+    (it does not compare the three surrounding constructions).
+    Palace order Qian,Zhen,Kan,Gen,Kun,Xun,Li,Dui; within each
+    palace the eight world stages W_0..W_7 (see _r7_W)."""
     jf = []
     for t in (0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011):
         jf += _r7_W(t)
@@ -9694,6 +11739,1349 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     return 0
 
 
+# ===========================================================================
+# ATLAS CONSUMER — the reader of `solve --kc-scan` atlas JSON (TR-12 query
+# program: Q3, Q6, XA, and the V1/V2/V5 figure inputs).
+#
+# Developed with AI assistance (Claude, Anthropic).
+#
+# The atlas (`"type": "roae-kc-scan-atlas"`) is written ONCE by `--kc-scan`
+# at the end of a single streaming join of the f- and g-ladders.  This block
+# is the only consumer of that file: it re-shapes it into the tab-separated
+# evidence tables the TR-12 queries and the V-family figures read, and it
+# gates every table it writes.
+#
+# PRECISION CONTRACT (load-bearing — read before editing).  Every count in
+# the atlas is a DECIMAL STRING carrying up to a 192-bit value.  They are
+# parsed with `int()` and only ever with `int()`; `_atlas_int` refuses a
+# JSON float outright, and `json.load` is given `parse_float=Decimal` so a
+# float literal anywhere in the file can never reach an arithmetic path.
+# Masses are re-emitted from the exact integer, never from a float; the
+# `p`/`p_cond`/`share` columns are correctly-rounded renderings of an exact
+# `Fraction` and are DISPLAY ONLY — never the quoted value.
+#
+# Authorities: TR12_QUERY_PROGRAM_2026_07_17.md (roae-private) sections 1-3,
+# QUERY_INVENTORY.md, and the five viz/viz_kc_*.md figure docs, which pin
+# the column names and order of every table written here.  n=9 gate:
+# `--atlas-selftest` (see `atlas_selftest`), verdict `ATLAS_CONSUMER=PASS`.
+# ===========================================================================
+
+_ATLAS_TYPE = "roae-kc-scan-atlas"
+_ATLAS_CLASSES = (1, 2, 3, 4, 6)          # boundary distance classes; d=0 impossible, d=5 killed by C2
+_ATLAS_PAIRS = 32                         # global pair index space (pair 0 is C4-pinned)
+_ATLAS_ORBIT = 24                         # |G/kernel| — the free order-24 action (TR-5)
+
+# test-only fault injector; set by --atlas-fault.  Named faults deliberately
+# corrupt exactly one emitted column so the n=9 gate can be SHOWN to fail
+# (QUERY_BUILD_BRIEF invariant 3).  Never set on a production run.
+_ATLAS_FAULT = None
+
+
+def _atlas_fault(name):
+    return _ATLAS_FAULT == name
+
+
+class AtlasError(Exception):
+    """Refuse to emit rather than publish a number we cannot vouch for."""
+
+
+def _atlas_int(v, where):
+    """Parse an atlas count.  Decimal strings only (192-bit); floats refused."""
+    if isinstance(v, bool):
+        raise AtlasError("%s: boolean where a count was expected" % where)
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str):
+        s = v.strip()
+        if s and (s.lstrip("-")).isdigit():
+            return int(s)
+        raise AtlasError("%s: %r is not a decimal integer string" % (where, v))
+    raise AtlasError(
+        "%s: %r is a non-integer JSON literal (type %s). Counts must be decimal "
+        "strings or JSON integers -- refusing to publish a rounded count."
+        % (where, v, type(v).__name__))
+
+
+_ATLAS_SIG = 17          # significant decimal digits published for a derived ratio
+
+
+def _atlas_ratio(num, den):
+    """Exact rational.  Returns a Fraction -- deliberately NOT a float.
+
+    This used to return float(Fraction(num, den)).  binary64 carries only ~15.95
+    significant decimal digits, so a ratio of n=31-scale counts lost everything
+    below 2**-53 BEFORE it reached the formatter, and "%.17g" then printed two
+    digits that reconstruct the rounded double rather than the rational.  The
+    VALUE was never wrong by more than a double's rounding; the PRECISION CLAIM
+    was.  Keeping the exact Fraction lets _atlas_f render digits that are
+    actually supported.  (External review, 2026-08-23.)
+    """
+    from fractions import Fraction
+    if den == 0:
+        return float("nan")
+    return Fraction(int(num), int(den))
+
+
+def _atlas_f(x):
+    """Render a ratio with _ATLAS_SIG CORRECT significant digits.
+
+    A Fraction is divided in decimal at exactly that precision and never passes
+    through a float.  Anything else (a nan from a zero denominator) keeps the
+    old float path, which is all it was ever good for.
+    """
+    from fractions import Fraction
+    if isinstance(x, Fraction):
+        import decimal
+        with decimal.localcontext() as ctx:
+            ctx.prec = _ATLAS_SIG
+            d = decimal.Decimal(x.numerator) / decimal.Decimal(x.denominator)
+        return format(d, ".%dg" % _ATLAS_SIG)
+    return "%.*g" % (_ATLAS_SIG, x)
+
+
+def atlas_load(path):
+    """Load an atlas JSON, refusing float literals anywhere in the file."""
+    import decimal
+    import json as _json
+    with open(path) as fh:
+        A = _json.load(fh, parse_float=decimal.Decimal)
+    if A.get("type") != _ATLAS_TYPE:
+        raise AtlasError("%s: not a %s document (type=%r)" % (path, _ATLAS_TYPE, A.get("type")))
+    for req in ("n", "N_total", "layers", "branch_atlas"):
+        if req not in A:
+            raise AtlasError("%s: atlas is missing required field %r" % (path, req))
+    n = A["n"]
+    if not isinstance(n, int) or n < 1:
+        raise AtlasError("%s: bad n %r" % (path, n))
+    if len(A["layers"]) != n:
+        raise AtlasError("%s: %d layers for n=%d" % (path, len(A["layers"]), n))
+    return A
+
+
+def _atlas_kw_overlay(n):
+    """King Wen's own path, or the honest 'absent' placeholders at reduced n.
+
+    KW exists only in the full-31 world; at n<31 the overlay columns are -1
+    rather than a guess.  `binary_hexagrams` (this module) is the single
+    source of truth for the sequence.
+    """
+    kw_d = [-1] * n
+    kw_w = [-1] * n
+    kw_pair = [-1] * n
+    if n == 31:
+        K = binary_hexagrams
+        pc = lambda x: bin(x).count("1")
+        kw_d = [pc(K[2 * k + 1] ^ K[2 * k + 2]) for k in range(31)]
+        kw_w = [pc(K[2 * k + 2] ^ K[2 * k + 3]) for k in range(31)]
+        kw_pair = [k + 1 for k in range(31)]
+    return kw_d, kw_w, kw_pair
+
+
+def _atlas_layer_class(L, d, k):
+    return _atlas_int(L["by_class"]["d%d" % d], "layers[%d].by_class.d%d" % (k, d))
+
+
+def _atlas_write(path, header, rows):
+    with open(path, "w") as fh:
+        fh.write("\t".join(header) + "\n")
+        for r in rows:
+            fh.write("\t".join(str(c) for c in r) + "\n")
+    return path
+
+
+# --------------------------------------------------------------------------
+# V1 -- the positional-marginal field (viz/viz_kc_field.md)
+# --------------------------------------------------------------------------
+def atlas_emit_v1(A, outdir):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    if "marginal_raw" not in A["layers"][0]:
+        raise AtlasError(
+            "atlas carries no RAW marginals -- re-run --kc-scan with --kc-raw "
+            "(marginal_quotient must NOT be plotted as the positional field)")
+    _, _, kw_pair = _atlas_kw_overlay(n)
+    rows = []
+    for L in A["layers"]:
+        k = L["k"]
+        for p in range(_ATLAS_PAIRS):
+            m = _atlas_int(L["marginal_raw"].get("pair%d" % p, "0"),
+                           "layers[%d].marginal_raw.pair%d" % (k, p))
+            if _atlas_fault("v1-drop-pair") and k == 0 and m > 0:
+                m = 0          # test-only: breaks the column-sum == N gate
+            rows.append((k, k + 2, p, m, _atlas_f(_atlas_ratio(m, N)),
+                         1 if kw_pair[k] == p else 0))
+    return _atlas_write(os.path.join(outdir, "v1_field.tsv"),
+                        ["k", "slot", "pair", "mass", "p", "kw"], rows)
+
+
+# --------------------------------------------------------------------------
+# V2 -- the mass river + the branch panel (viz/viz_kc_river.md)
+# --------------------------------------------------------------------------
+def atlas_emit_v2(A, outdir):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    kw_d, _, _ = _atlas_kw_overlay(n)
+    rows = []
+    for L in A["layers"]:
+        k = L["k"]
+        for d in _ATLAS_CLASSES:
+            m = _atlas_layer_class(L, d, k)
+            if _atlas_fault("v2-class-swap") and k == 0 and d in (1, 2):
+                m = _atlas_layer_class(L, 3 - d, k)   # test-only: swaps d1 <-> d2
+            rows.append((k, d, m, _atlas_f(_atlas_ratio(m, N)), kw_d[k]))
+    river = _atlas_write(os.path.join(outdir, "v2_river.tsv"),
+                         ["k", "d", "mass", "p", "kw_d"], rows)
+    branches = _atlas_write(os.path.join(outdir, "v2_branches.tsv"),
+                            ["branch", "pair", "entry", "exit", "d", "solutions",
+                             "share", "prefixes_t_units", "t_source", "kw"],
+                            _atlas_branch_rows(A, N, n, wide=False))
+    return river, branches
+
+
+def _atlas_branch_rows(A, N, n, wide):
+    """Shared branch table.  `wide` adds the XA columns (walks, t-units gate)."""
+    K = binary_hexagrams
+    rows = []
+    for i, b in enumerate(A["branch_atlas"]):
+        sol = _atlas_int(b["solutions"], "branch_atlas[%d].solutions" % i)
+        if wide and _atlas_fault("xa-drop-branch") and i == len(A["branch_atlas"]) - 1:
+            continue                                   # test-only: breaks sum == N
+        entry = b["entry"]
+        d = bin(entry).count("1")                      # C4 pins the start exit to hexagram 0
+        t = b.get("prefixes_t_units", "PENDING_T_LADDER")
+        if not isinstance(t, str):
+            t = str(_atlas_int(t, "branch_atlas[%d].prefixes_t_units" % i))
+        kw = 1 if (n == 31 and b["global_pair"] == 1 and entry == K[2]) else 0
+        row = [i, b["global_pair"], entry, b["exit"], d, sol,
+               _atlas_f(_atlas_ratio(sol, N)), t, b.get("t_source", "direct-recursion")]
+        if wide:
+            w = b.get("walks", None)
+            row.append("" if w is None else _atlas_int(w, "branch_atlas[%d].walks" % i))
+        row.append(kw)
+        rows.append(tuple(row))
+    return rows
+
+
+# --------------------------------------------------------------------------
+# V5 -- the transition grammar (viz/viz_kc_grammar.md)
+# --------------------------------------------------------------------------
+def atlas_emit_v5(A, outdir):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    kw_d, kw_w, _ = _atlas_kw_overlay(n)
+    rows = []
+    for L in A["layers"]:
+        k = L["k"]
+        flow = _atlas_int(L["flow"], "layers[%d].flow" % k)
+        if flow != N:
+            raise AtlasError("layers[%d].flow != N_total -- gate failure, do not plot" % k)
+        for d in _ATLAS_CLASSES:
+            m = _atlas_layer_class(L, d, k)
+            # w = -1: the (distance x within-pair) cross-tab is NOT emitted by
+            # the scan (QUERY_INVENTORY 3.1).  The placeholder is honest; the
+            # second dimension is absent, not guessed.
+            rows.append((k, d, -1, m, _atlas_f(_atlas_ratio(m, flow)), kw_d[k], kw_w[k]))
+    return _atlas_write(os.path.join(outdir, "v5_grammar.tsv"),
+                        ["k", "d", "w", "mass", "p_cond", "kw_d", "kw_w"], rows)
+
+
+# --------------------------------------------------------------------------
+# Q6 -- density extremes (TR-12 section 1 Q6; REDUCED form per QUERY_INVENTORY 3.1:
+# the atlas carries per-layer per-distance-class mass, not per-(state,choice)
+# mass.  This table must never be published as the spec's per-choice table.)
+# --------------------------------------------------------------------------
+def atlas_emit_q6(A, outdir, trace=None):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    kw_d, _, _ = _atlas_kw_overlay(n)
+    mass_rows, ext_rows = [], []
+    for L in A["layers"]:
+        k = L["k"]
+        by = {d: _atlas_layer_class(L, d, k) for d in _ATLAS_CLASSES}
+        hi = max(by, key=lambda d: (by[d], -d))
+        nz = [d for d in _ATLAS_CLASSES if by[d] > 0]
+        lo = min(nz, key=lambda d: (by[d], d)) if nz else -1
+        for d in _ATLAS_CLASSES:
+            mass_rows.append((k, k + 2, d, by[d], _atlas_f(_atlas_ratio(by[d], N)),
+                              1 if d == hi else 0, 1 if d == lo else 0))
+        kw_mb, kw_pct = -1, -1.0
+        if trace is not None and k < len(trace):
+            kw_mb = trace[k]["mass_below"]
+            kw_pct = _atlas_ratio(kw_mb, N)
+        ext_rows.append((k, k + 2, hi, by[hi], lo, by[lo] if lo >= 0 else 0,
+                         _atlas_f(_atlas_ratio(by[hi], by[lo]) if lo >= 0 else float("nan")),
+                         kw_d[k], kw_mb, _atlas_f(kw_pct)))
+    a = _atlas_write(os.path.join(outdir, "q6_layer_mass.tsv"),
+                     ["k", "slot", "d", "mass", "p", "is_argmax", "is_argmin_nonzero"],
+                     mass_rows)
+    b = _atlas_write(os.path.join(outdir, "q6_layer_extremes.tsv"),
+                     ["k", "slot", "argmax_d", "argmax_mass", "argmin_nonzero_d",
+                      "argmin_mass", "ratio", "kw_d", "kw_mass_below", "kw_pct"],
+                     ext_rows)
+    return a, b
+
+
+# --------------------------------------------------------------------------
+# Q10(a) -- the orbit census + the mod-24 integrity gate (XA-24)
+#
+# SCOPE, stated because it is easy to over-claim: the order-24 action is free
+# on SOLUTIONS (TR-5), so N and every per-layer FLOW are divisible by 24.  It
+# does NOT permute a fixed first placement, so per-branch and per-pair counts
+# are NOT expected to be divisible by 24 and are not gated here.
+# --------------------------------------------------------------------------
+def atlas_emit_q10a(A, outdir):
+    N = _atlas_int(A["N_total"], "N_total")
+    rows = [("global", -1, N, N // _ATLAS_ORBIT, 1 if N % _ATLAS_ORBIT == 0 else 0)]
+    for L in A["layers"]:
+        k = L["k"]
+        flow = _atlas_int(L["flow"], "layers[%d].flow" % k)
+        if _atlas_fault("q10-mod24") and k == 0:
+            flow += 1                                  # test-only: breaks the mod-24 gate
+        rows.append(("layer", k, flow, flow // _ATLAS_ORBIT,
+                     1 if flow % _ATLAS_ORBIT == 0 else 0))
+    return _atlas_write(os.path.join(outdir, "q10_orbit_census.tsv"),
+                        ["scope", "k", "flow", "orbits", "mod24_ok"], rows)
+
+
+# --------------------------------------------------------------------------
+# XA -- the exhaustion atlas (TR-12 section 3): branch table + verdict
+# --------------------------------------------------------------------------
+def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    rows = _atlas_branch_rows(A, N, n, wide=True)
+    tsv = _atlas_write(os.path.join(outdir, "xa_branches.tsv"),
+                       ["branch", "pair", "entry", "exit", "d", "solutions", "share",
+                        "prefixes_t_units", "t_source", "walks", "kw"], rows)
+    md = os.path.join(outdir, "xa_verdict.md")
+    sol_sum = sum(r[5] for r in rows)
+    t_have = all(str(r[7]).lstrip("-").isdigit() for r in rows)
+    t_sum = sum(int(r[7]) for r in rows) if t_have else None
+    t_root = _atlas_int(A["t_root_t_units"], "t_root_t_units") if "t_root_t_units" in A else None
+    if t_root is not None and not isinstance(A["t_root_t_units"], (str, int)):
+        t_root = None
+    with open(md, "w") as fh:
+        fh.write("# XA -- the exhaustion atlas (n=%d)\n\n" % n)
+        fh.write("Source: `%s` (`%s`), space `%s`.\n" % (
+            os.path.basename(atlas_path or "atlas.json"), A.get("type"), A.get("space")))
+        fh.write("Semantics: %s. Every count below is exact.\n\n" % A.get("semantics", "certificate, not proof"))
+        fh.write("## Gates\n\n")
+        fh.write("| gate | expected | got | verdict |\n|---|---|---|---|\n")
+        fh.write("| `sum_b solutions(b) == N` | %d | %d | %s |\n" %
+                 (N, sol_sum, "PASS" if sol_sum == N else "FAIL"))
+        if t_have and t_root is not None:
+            fh.write("| `1 + sum_b prefixes_t_units(b) == t(root)` | %d | %d | %s |\n" %
+                     (t_root, 1 + t_sum, "PASS" if 1 + t_sum == t_root else "FAIL"))
+        else:
+            fh.write("| `1 + sum_b prefixes_t_units(b) == t(root)` | - | - | "
+                     "PENDING:--kc-t-build (re-run --kc-scan with --kc-tdir) |\n")
+        fh.write("| `N mod 24 == 0` (XA-24, free order-24 action, TR-5) | 0 | %d | %s |\n" %
+                 (N % _ATLAS_ORBIT, "PASS" if N % _ATLAS_ORBIT == 0 else "FAIL"))
+        bad = [L["k"] for L in A["layers"]
+               if _atlas_int(L["flow"], "flow") % _ATLAS_ORBIT != 0]
+        fh.write("| every layer flow mod 24 == 0 (XA-24) | none | %s | %s |\n\n" %
+                 (bad if bad else "none", "PASS" if not bad else "FAIL"))
+        fh.write("The t-unit accounting convention (a t-unit is one valid oriented prefix; the\n"
+                 "empty prefix counts; dead ends count) is certified separately and exhaustively\n"
+                 "at n=9 by `solve --kc-t-cert` (TR-12 XA(iii) / `tr12/xa_node_convention.json`).\n"
+                 "This consumer does NOT re-derive it and does not claim it.\n\n")
+        if t_have:
+            lo = min(rows, key=lambda r: int(r[7]))
+            hi = max(rows, key=lambda r: int(r[7]))
+            fh.write("## Branch extremes (t-units = pruned-DFS nodes)\n\n")
+            fh.write("- cheapest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
+                     "%s solutions\n" % (lo[0], lo[1], lo[2], lo[3], lo[7], lo[5]))
+            fh.write("- costliest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
+                     "%s solutions\n\n" % (hi[0], hi[1], hi[2], hi[3], hi[7], hi[5]))
+        fh.write("## Exhaustibility (XA-c/d)\n\n")
+        if not t_have:
+            fh.write("**PENDING** -- no t-ladder in this atlas, so there is no node cost to price.\n")
+            verdict = "PENDING:--kc-t-build"
+        elif cost is None or cost.get("nodes_per_sec") is None or cost.get("usd_per_hour") is None \
+                or cost.get("budget_usd") is None:
+            fh.write("**PENDING** -- the exhaustion wall/$ call needs three operator-supplied\n"
+                     "anchors that this consumer will not invent: `--xa-nodes-per-sec`\n"
+                     "(from the R-1 pilot artifacts), `--xa-usd-per-hour`, and `--xa-budget-usd`.\n"
+                     "The t-unit column above is exact and stands on its own.\n")
+            verdict = "PENDING:xa-throughput-anchors"
+        else:
+            rate = cost["nodes_per_sec"] / (cost["hedge"] * cost["work_factor"])
+            fh.write("Anchors (operator-supplied, echoed for the certificate): "
+                     "nodes/sec = %g, hedge = x%g, work factor = x%g, $/hour = %g, "
+                     "budget = $%g. Effective rate = %g nodes/sec. Note: %s\n\n"
+                     % (cost["nodes_per_sec"], cost["hedge"], cost["work_factor"],
+                        cost["usd_per_hour"], cost["budget_usd"], rate,
+                        cost.get("note", "(no anchor note supplied)")))
+            fh.write("Branches ascending by node cost; `cost/budget` is the exact shortfall\n"
+                     "factor when the row reads INFEASIBLE.\n\n")
+            fh.write("| branch | pair | t-units | wall (h) | $ | verdict | cost/budget |\n")
+            fh.write("|---|---|---|---|---|---|---|\n")
+            cheapest_ok = None
+            for r in sorted(rows, key=lambda r: int(r[7])):
+                nodes = int(r[7])
+                hours = nodes / rate / 3600.0
+                usd = hours * cost["usd_per_hour"]
+                ok = usd <= cost["budget_usd"]
+                short = usd / cost["budget_usd"] if cost["budget_usd"] else float("inf")
+                if cheapest_ok is None:
+                    cheapest_ok = ok
+                fh.write("| %d | %d | %s | %.4g | %.4g | %s | %.4g |\n" %
+                         (r[0], r[1], r[7], hours, usd,
+                          "EXHAUSTIBLE" if ok else "INFEASIBLE", short))
+            fh.write("\nCall: the argmin branch is **%s** at the stated ceiling.\n"
+                     % ("EXHAUSTIBLE" if cheapest_ok else "INFEASIBLE"))
+            verdict = "PASS"
+    return tsv, md, verdict
+
+
+# --------------------------------------------------------------------------
+# Q3 -- KW's rarity profile, from `--kc-o3-rank ... --kc-trace` (viz_kc_shells.md)
+#
+# The trace is the ENGINE's own attestation.  Section 3.2 of QUERY_INVENTORY
+# requires the reader to redo the product check independently: that is
+# `atlas_q3_reader_check`, whose verdict ships as TR12_Q3_READER, separate
+# from TR12_Q3.  The engine does not grade its own homework.
+# --------------------------------------------------------------------------
+_Q3_KEEP = ["step", "pair", "entry", "exit", "orient", "alts", "mass_below",
+            "f", "g", "g_parent"]
+# columns the richer `--kc-profile --kc-tsv` emitter adds; carried through when
+# present (they are what V4's optional min/max alternatives band needs).
+_Q3_EXTRA = ["dclass", "g_alt_min", "g_alt_max", "choice_rank"]
+
+
+def atlas_parse_q3_trace(path):
+    """Accept EITHER Q3 source and normalise to one row dict per step.
+
+      (a) `--kc-o3-rank ... --kc-trace` text  -- '#o3-trace' key=value lines;
+      (b) `--kc-profile ... --kc-tsv FILE`    -- a provenance line, then a
+          header row, then one row per step (exact p_num/p_den columns).
+
+    Source (b) has no `mass_below` column (that is an O3-rank quantity); it is
+    filled with -1 rather than invented, and the extra profile columns ride
+    along.  Every integer goes through `int()`; no column is ever floated.
+    """
+    steps = []
+    with open(path) as fh:
+        lines = fh.read().splitlines()
+    if any(l.startswith("#o3-trace\t") for l in lines):
+        for line in lines:
+            if not line.startswith("#o3-trace\t"):
+                continue                       # skips #o3-trace-summary and provenance
+            d = dict(x.split("=", 1) for x in line.split("\t")[1:])
+            num, den = d["p"].split("/")
+            rec = {c: _atlas_int(d[c], "trace.%s" % c) for c in _Q3_KEEP}
+            rec["p_num"] = _atlas_int(num, "trace.p_num")
+            rec["p_den"] = _atlas_int(den, "trace.p_den")
+            rec["bits"] = d["bits"]
+            steps.append(rec)
+    else:
+        head = None
+        for line in lines:
+            cols = line.split("\t")
+            if head is None:
+                if "p_num" in cols and "p_den" in cols and "step" in cols:
+                    head = cols
+                continue                       # provenance / banner lines
+            if len(cols) != len(head):
+                continue
+            d = dict(zip(head, cols))
+            rec = {c: (_atlas_int(d[c], "profile.%s" % c) if c in d else -1)
+                   for c in _Q3_KEEP}
+            rec["p_num"] = _atlas_int(d["p_num"], "profile.p_num")
+            rec["p_den"] = _atlas_int(d["p_den"], "profile.p_den")
+            rec["bits"] = d.get("bits", "")
+            for c in _Q3_EXTRA:
+                if c in d:
+                    rec[c] = _atlas_int(d[c], "profile.%s" % c)
+            steps.append(rec)
+    if not steps:
+        raise AtlasError("%s: no Q3 rows -- expected `--kc-o3-rank ... --kc-trace` text "
+                         "or a `--kc-profile ... --kc-tsv` table" % path)
+    return steps
+
+
+def atlas_emit_q3(steps, outdir, n):
+    extra = [c for c in _Q3_EXTRA if c in steps[0]]
+    rows = []
+    for s in steps:
+        den = s["p_den"] * (2 if _atlas_fault("q3-perturb") and s["step"] == 1 else 1)
+        rows.append(tuple([s[c] for c in _Q3_KEEP] +
+                          [s["p_num"], den,
+                           _atlas_f(_atlas_ratio(s["p_num"], den)), s["bits"]] +
+                          [s[c] for c in extra]))
+    name = "q3_profile_kw.tsv" if n == 31 else "q3_profile.tsv"
+    return _atlas_write(os.path.join(outdir, name),
+                        _Q3_KEEP + ["p_num", "p_den", "p", "bits"] + extra, rows)
+
+
+def atlas_q3_reader_check(tsv_path, N):
+    """Reader-side, big-integer: prod(p_num/p_den) == 1/N, exactly.
+
+    Recomputed from the WRITTEN TSV (not from the in-memory trace) so the
+    check covers the emitter as well as the engine.
+    """
+    from fractions import Fraction
+    rows = _atlas_read_tsv(tsv_path)
+    prod = Fraction(1, 1)
+    fails = []
+    prev_g = None
+    for r in rows:
+        prod *= Fraction(int(r["p_num"]), int(r["p_den"]))
+        if prev_g is not None and int(r["g_parent"]) != prev_g:
+            fails.append("step %s: g_parent != previous g" % r["step"])
+        prev_g = int(r["g"])
+    if prod != Fraction(1, N):
+        fails.append("prod(p_i) = %s, expected 1/%d" % (prod, N))
+    if rows and int(rows[0]["g_parent"]) != N:
+        fails.append("g(s_0) != N")
+    if rows and int(rows[-1]["g"]) != 1:
+        fails.append("g(s_n) != 1")
+    return fails
+
+
+def _atlas_read_tsv(path):
+    with open(path) as fh:
+        head = fh.readline().rstrip("\n").split("\t")
+        return [dict(zip(head, line.rstrip("\n").split("\t"))) for line in fh if line.strip()]
+
+
+# --------------------------------------------------------------------------
+# The driver
+# --------------------------------------------------------------------------
+_ATLAS_SELECTORS = ("q3", "q6", "v1", "v2", "v5", "xa", "q10a")
+
+
+def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=None,
+                  cost=None, quiet=False):
+    """Read a --kc-scan atlas; write the TR-12 evidence TSVs; emit verdicts."""
+    A = atlas_load(atlas_path)
+    N = _atlas_int(A["N_total"], "N_total")
+    n = A["n"]
+    sel = set(select) if select else set(_ATLAS_SELECTORS)
+    bad = sel - set(_ATLAS_SELECTORS)
+    if bad:
+        raise AtlasError("unknown --atlas-select value(s): %s (known: %s)"
+                         % (",".join(sorted(bad)), ",".join(_ATLAS_SELECTORS)))
+    scandir = os.path.join(outdir, "scan")
+    os.makedirs(scandir, exist_ok=True)
+    written, verdicts = [], {}
+
+    trace = None
+    if q3_trace:
+        trace = atlas_parse_q3_trace(q3_trace)
+        if len(trace) != n:
+            raise AtlasError(
+                "%s: Q3 source has %d steps but the atlas has n=%d. If this file is a whole "
+                "run log it may hold more than one trace -- pass a file with exactly one."
+                % (q3_trace, len(trace), n))
+    if "q3" in sel:
+        if trace is None:
+            verdicts["TR12_Q3"] = "SKIP:no-trace(--atlas-q3-trace)"
+            verdicts["TR12_Q3_READER"] = "SKIP:no-trace(--atlas-q3-trace)"
+        else:
+            p = atlas_emit_q3(trace, outdir, n)
+            written.append(p)
+            fails = atlas_q3_reader_check(p, N)
+            verdicts["TR12_Q3"] = "PASS"
+            verdicts["TR12_Q3_READER"] = "PASS" if not fails else "FAIL"
+            if fails and not quiet:
+                for f in fails:
+                    print("[atlas] Q3 reader check: %s" % f)
+    if "v1" in sel:
+        written.append(atlas_emit_v1(A, scandir)); verdicts["TR12_V1"] = "PASS"
+    if "v2" in sel:
+        written.extend(atlas_emit_v2(A, scandir)); verdicts["TR12_V2"] = "PASS"
+    if "v5" in sel:
+        written.append(atlas_emit_v5(A, scandir)); verdicts["TR12_V5"] = "PASS"
+    if "q6" in sel:
+        written.extend(atlas_emit_q6(A, scandir, trace=trace)); verdicts["TR12_Q6"] = "PASS"
+    if "q10a" in sel:
+        written.append(atlas_emit_q10a(A, outdir)); verdicts["TR12_Q10A"] = "PASS"
+    if "xa" in sel:
+        tsv, md, xv = atlas_emit_xa(A, outdir, cost=cost, atlas_path=atlas_path)
+        written.extend([tsv, md])
+        verdicts["TR12_XA_A"] = "PASS"
+        verdicts["TR12_XA_B"] = "PASS" if "t_root_t_units" in A else "PENDING:--kc-t-build"
+        verdicts["TR12_XA_CD"] = xv
+        verdicts["TR12_XA_MOD24"] = "PASS" if N % _ATLAS_ORBIT == 0 else "FAIL"
+
+    if verdicts_path is None:
+        verdicts_path = os.path.join(outdir, "VERDICTS.txt")
+    _atlas_write_verdicts(verdicts_path, verdicts)
+    if not quiet:
+        for p in written:
+            print("[atlas] wrote %s" % p)
+        for k in sorted(verdicts):
+            print("%s=%s" % (k, verdicts[k]))
+    return {"atlas": A, "written": written, "verdicts": verdicts,
+            "outdir": outdir, "scandir": scandir, "N": N, "n": n}
+
+
+# A-3 (verified 2026-08-22) -- the ONLY full-31 check against PUBLISHED numbers.
+#
+# TR-7 §T2ii: for each eligible (odd) pair the wrap distance is a function of the
+# PAIR ALONE, orientation-free, classifying the 16 eligible pairs 10:3:3 into
+# d = 3, 1, 5 closers.  With slot 0 forced by C4 the start is fixed, so the wrap
+# distance of a solution is determined by its CLOSING pair -- and the closing-pair
+# distribution is exactly the final layer of the raw positional-marginal field.
+# Aggregating that layer by wrap class therefore recomputes quantities that were
+# published from an entirely different instrument (the Knuth estimator).
+#
+# WHAT WAS VERIFIED, AND WHERE (do not overstate this):
+#   * orientation-freedom  -- MEASURED at n=9 over all 26,112 walks: across the 30
+#     (start, closing-pair) combinations, the two orientations of the closing pair
+#     NEVER disagree on wrap distance.  0 disagreements.  This is T2ii's non-trivial half.
+#   * marginal == brute positional distribution -- already gated by
+#     `--kc-scan-selftest` ("RAW positional marginals (G-expansion) == brute, all slots").
+#   * start fixed by C4 -- a PUBLISHED property of the full-31 system.  It does NOT hold
+#     at n=9: the reduced rung has 12 distinct first hexagrams (measured).  So this gate
+#     CANNOT be exercised at reduced n, and any n<31 call must SKIP rather than pass.
+#
+# Every gate otherwise in this program is internal arithmetic, which can pass while the
+# G-expansion mis-assigns pair identities.  This one cannot: it is checked against numbers
+# printed in TR-7 before the scan existed.
+_A3_REFERENCES = {                      # TR7_CIRCULAR_READING.md v2.0 / v1.9
+    "wrap_d3_mass":  0.652,             # |C_circ| = 0.652*N_lin + 0.175*...
+    "wrap_other":    0.175,
+    "slot32_mass":   0.0785,            # measured R-C1 gate; 0.0784 eligibility lower bound
+    "rc1c_adjacent": 0.1305,            # circular anchor adjacency, 13.05% of C1-C5 mass
+}
+
+def atlas_a3_wrap_class_map():
+    """The 10:3:3 wrap-class map of TR-7 §T2ii, DERIVED rather than transcribed.
+
+    C4 fixes slot 0, so every solution's wrap edge runs from its closing exit back to
+    the anchor entry KW#1 = 0b111111 = 63.  Hence
+
+        wrap distance d(h) = popcount(h ^ 63) = 6 - popcount(h)
+
+    A pair {a, b} is ORIENTATION-FREE exactly when popcount(a) == popcount(b), and
+    ELIGIBLE when the resulting d is odd.  Verified against solve.py's own
+    binary_hexagrams, 2026-08-22:
+
+        32 pairs -> 28 orientation-free -> 16 eligible
+        d=3: 10   d=1: 3   d=5: 3          == TR-7's published 10 : 3 : 3
+
+    and the 10 at d=3 split 4 both-reverse-and-antipalindromic + 6 reverse-only,
+    which is exactly TR-7's "the 4 antipalindromic pairs ... plus the 6 popcount-3
+    reverse-pairs".  Returns {pair_index: d} over the eligible pairs only.
+    """
+    bh = binary_hexagrams
+    anchor = bh[0]
+    out = {}
+    for j in range(len(bh) // 2):
+        a, b = bh[2 * j], bh[2 * j + 1]
+        da, db = bin(a ^ anchor).count("1"), bin(b ^ anchor).count("1")
+        if da == db and da % 2 == 1:
+            out[j] = da
+    return out
+
+
+# A-3 (verified 2026-08-22) -- the ONLY full-31 check against PUBLISHED numbers.
+# Every other gate in this program is internal arithmetic, which can pass while the
+# G-expansion mis-assigns pair identities.  This one is checked against figures printed
+# in TR-7 before the scan existed.
+#
+# WHAT WAS VERIFIED, AND WHERE (do not overstate this):
+#   * orientation-freedom -- MEASURED at n=9 over all 26,112 walks: across the 30
+#     (start, closing-pair) combinations the two orientations NEVER disagree on wrap
+#     distance.  That is T2ii's non-trivial half.
+#   * the 10:3:3 class map -- DERIVED above from binary_hexagrams, matching TR-7.
+#   * final-layer marginal == closing-pair distribution -- MEASURED at n=9 against the
+#     raw enumeration (three closers, 8,704 each), and gated by --kc-scan-selftest.
+#   * start fixed by C4 -- a PUBLISHED property of the full-31 system.  It does NOT hold
+#     at n=9, which has 12 distinct first hexagrams (measured), so any n<31 call SKIPS.
+_A3_REFERENCES = {                      # TR7_CIRCULAR_READING.md v2.0 / v1.9
+    3: 0.652,                           # |C_circ| = 0.652*N_lin + 0.175*...
+    1: 0.175,
+    5: 0.174,
+}
+_A3_SLOT32 = 0.0785                     # measured R-C1 gate; 0.0784 eligibility lower bound
+#
+# 🔴 KNOWN BLIND SPOT, stated because an undocumented one is worse than none.
+# TR-7 publishes d1 = 0.175 and d5 = 0.174 -- they differ by 0.001, while the references
+# themselves are 3-decimal figures and so carry +/-0.0005 of their own. Any tolerance wide
+# enough to accept legitimate rounding is therefore ALSO wide enough to accept d1 and d5
+# being SWAPPED. Demonstrated 2026-08-22 on a synthetic n=31 atlas: swapping the d1 and d5
+# masses PASSES.
+#   What this check DOES catch, hard: any error touching d3, which carries 65.2% of the
+#   mass, and any mass on a pair that is not an eligible closer at all.
+#   What it does NOT catch: a d1<->d5 relabel. Separating those needs a second published
+#   anchor at finer precision -- the R-C1c slot-32 mass (7.85%) and the A2 slot histogram
+#   are the candidates, and neither is wired here.
+
+
+_A2_PAIR = 31                # {Jiji, Weiji} = KW#63/64 = codes {21, 42}, the UNIQUE
+                             # strictly-alternating pair (max run length 1) -- verified
+                             # structurally against binary_hexagrams, not assumed.
+                             # A1 = pair 0 = {Qian, Kun} = {63, 0}, the unique run-6 pair,
+                             # which C4 forces into slot 0.
+_A2_SLOT_REFS = {            # TR7_CIRCULAR_READING.md v2.0, measured; also Cook 2006's
+    "slot32": 0.0785,        # final-pair anchor at 7.84% -- a DOUBLE anchor on this cell
+    "slot2":  0.0520,
+    "rc1c":   0.1305,        # their sum: circular anchor adjacency
+}
+
+
+def atlas_a2_slot_check(atlas, tol=2e-3):
+    """R-C1c: A2's slot histogram, read straight off the raw positional-marginal field.
+
+    Stronger than the class-level A-3 check in the way that matters: it is a PER-PAIR
+    comparison against published numbers, so it catches a mislabel of one pair, which a
+    class aggregate averages away.  A2 sits in the d=3 class carrying 7.84% against a
+    6.52% class average, so a swap of A2 with any other d=3 pair moves this cell by
+    ~1.3 percentage points while leaving the d3 class total untouched.
+
+    ⚠ It does NOT close A-3's d1/d5 blind spot -- A2 is in d=3, so a d1<->d5 relabel
+    never touches it.  Stated because I queued it believing it would.
+    """
+    n = atlas.get("n")
+    if n != 31:
+        return ("SKIP:n=%s" % n, "A2's published slot histogram is a full-31 measurement")
+    layers = atlas.get("layers") or []
+    if len(layers) < 2:
+        return ("SKIP:no-layers", "atlas carries too few layers")
+    key = "pair%d" % _A2_PAIR
+    N = int(atlas["N_total"])
+    def frac(layer):
+        mr = layer.get("marginal_raw") or {}
+        if key not in mr:
+            return None
+        return int(mr[key]) / float(N)
+    f32, f2 = frac(layers[-1]), frac(layers[1])
+    if f32 is None or f2 is None:
+        return ("SKIP:no-raw", "marginal_raw absent -- was --kc-raw passed? (see A-1)")
+    devs = {"slot32": abs(f32 - _A2_SLOT_REFS["slot32"]),
+            "slot2":  abs(f2  - _A2_SLOT_REFS["slot2"]),
+            "rc1c":   abs(f32 + f2 - _A2_SLOT_REFS["rc1c"])}
+    worst = max(devs.values())
+    detail = ("A2 slot32=%.4f (pub %.4f, also Cook's final-pair anchor 0.0784) "
+              "slot2=%.4f (pub %.4f) R-C1c=%.4f (pub %.4f); max deviation %.4f (tol %.4f)"
+              % (f32, _A2_SLOT_REFS["slot32"], f2, _A2_SLOT_REFS["slot2"],
+                 f32 + f2, _A2_SLOT_REFS["rc1c"], worst, tol))
+    return (("PASS" if worst <= tol else "FAIL"), detail)
+
+
+def atlas_a3_external_check(atlas, tol=2e-3):
+    """A-3: aggregate the final-layer raw marginal by TR-7 wrap class and compare against
+    numbers PUBLISHED from a different instrument.  Returns (status, detail)."""
+    n = atlas.get("n")
+    if n != 31:
+        return ("SKIP:n=%s" % n,
+                "C4 fixes slot 0 only at full-31; at n=9 there are 12 distinct starts "
+                "(measured), so the closing pair does not determine the wrap distance")
+    layers = atlas.get("layers") or []
+    if not layers:
+        return ("SKIP:no-layers", "atlas carries no layers")
+    last = (layers[-1].get("marginal_raw") or {})
+    if not last:
+        return ("SKIP:no-raw", "marginal_raw absent -- was --kc-raw passed? (see A-1)")
+    N = int(atlas["N_total"])
+    got = {int(k[4:]): int(v) for k, v in last.items()}
+    total = sum(got.values())
+    if total != N:
+        return ("FAIL", "final-layer raw marginal sums to %d, not N=%d" % (total, N))
+    cmap = atlas_a3_wrap_class_map()
+    unmapped = sorted(p for p, v in got.items() if v and p not in cmap)
+    if unmapped:
+        return ("FAIL", "pairs with nonzero closing mass that are NOT eligible closers "
+                        "under TR-7 T2ii: %s" % unmapped)
+    mass = {}
+    for p, v in got.items():
+        mass[cmap[p]] = mass.get(cmap[p], 0) + v
+    frac = {d: mass.get(d, 0) / float(N) for d in (3, 1, 5)}
+    devs = {d: abs(frac[d] - _A3_REFERENCES[d]) for d in (3, 1, 5)}
+    realized = sorted(p for p in cmap if got.get(p, 0) > 0)
+    detail = ("wrap masses d3=%.4f d1=%.4f d5=%.4f vs published %.3f/%.3f/%.3f; "
+              "max deviation %.4f (tol %.4f); %d of %d eligible pairs realized as closers"
+              % (frac[3], frac[1], frac[5], _A3_REFERENCES[3], _A3_REFERENCES[1],
+                 _A3_REFERENCES[5], max(devs.values()), tol, len(realized), len(cmap)))
+    detail += " | BLIND SPOT: d1/d5 are 0.001 apart at 3-decimal published precision, so this " \
+              "check cannot detect a d1<->d5 relabel (demonstrated). It catches d3 errors and " \
+              "ineligible closers."
+    return (("PASS" if max(devs.values()) <= tol else "FAIL"), detail)
+
+def atlas_orbit_columns(atlas):
+    """A-5 (2026-08-22): the RAW positional-marginal field has ONE COLUMN PER
+    PAIR-ORBIT, not one per pair.
+
+    SUPER is G-closed, so two pairs in the same orbit are exchanged by a group
+    element that maps solutions to solutions -- their positional marginals are
+    therefore EQUAL at every layer, exactly, not approximately.  The published
+    orbit sizes are {3,3,3,4,6,6,6} (SOLVE_C_CLI.md, "A rung must be a union of
+    WHOLE pair-orbits"), so a full-31 field carries at most SEVEN distinct
+    columns, and any rung carries one per whole orbit in its union.
+
+    Re-derived before being wired as a gate, because the sweep that proposed it
+    flagged it as derived-not-verified and a wrong gate is worse than none:
+        n=9   9 pairs -> 3 distinct columns, group sizes [3, 3, 3]
+        n=13  13 pairs -> 3 distinct columns, group sizes [3, 4, 6]
+    Both are unions of whole published orbits.  This is a cheap EXACT check on
+    the G-expansion, which is the step that can silently mis-assign pair
+    identities while every internal sum-to-N gate still passes.
+
+    Returns (n_columns, sorted_group_sizes, ok, detail).
+    """
+    ORBIT_SIZES = (3, 3, 3, 4, 6, 6, 6)          # published; sums to 31
+    layers = atlas.get("layers") or []
+    raw = [{k: int(v) for k, v in (L.get("marginal_raw") or {}).items()}
+           for L in layers]
+    pairs = sorted({p for r in raw for p in r}, key=lambda t: int(t[4:]))
+    if not pairs:
+        return (0, [], None, "marginal_raw not emitted (--kc-raw absent?)")
+    col = {p: tuple(r.get(p, 0) for r in raw) for p in pairs}
+    groups = {}
+    for p in pairs:
+        groups.setdefault(col[p], []).append(p)
+    sizes = sorted(len(v) for v in groups.values())
+    # every group size must be a published orbit size, and they must tile the rung
+    pool = list(ORBIT_SIZES)
+    ok = True
+    for sz in sizes:
+        if sz in pool:
+            pool.remove(sz)
+        else:
+            ok = False
+    if sum(sizes) != len(pairs):
+        ok = False
+    detail = "%d pair(s) -> %d column(s), group sizes %s" % (
+        len(pairs), len(groups), sizes)
+    return (len(groups), sizes, ok, detail)
+
+
+def _atlas_write_verdicts(path, verdicts):
+    """One KEY=value line per row; an existing key is replaced, not duplicated."""
+    keep = []
+    if os.path.exists(path):
+        with open(path) as fh:
+            keep = [l.rstrip("\n") for l in fh
+                    if l.split("=", 1)[0].strip() not in verdicts and l.strip()]
+    with open(path, "w") as fh:
+        for l in keep:
+            fh.write(l + "\n")
+        for k in sorted(verdicts):
+            fh.write("%s=%s\n" % (k, verdicts[k]))
+
+
+# --------------------------------------------------------------------------
+# The n=9 gate (QUERY_BUILD_BRIEF invariant 3)
+#
+# Brute force means brute force: every emitted table is re-derived from the
+# EXPLICIT ENUMERATION of the reduced world (`solve --kc-enum FDIR`, one walk
+# per line) and diffed against the TSV read back off disk -- not against the
+# in-memory atlas.  The atlas is thereby checked too, but the subject under
+# test is this consumer.  Shown able to fail: see --atlas-fault.
+# --------------------------------------------------------------------------
+def _atlas_brute_recount(walks_path, n):
+    import collections
+    K = binary_hexagrams
+    pair_of = {}
+    for j in range(_ATLAS_PAIRS):
+        pair_of[K[2 * j]] = j
+        pair_of[K[2 * j + 1]] = j
+    flow = collections.Counter()
+    byclass = collections.defaultdict(collections.Counter)
+    marg = collections.defaultdict(collections.Counter)
+    branch = collections.Counter()
+    total = 0
+    with open(walks_path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("["):
+                continue
+            w = [int(x) for x in line.split(",")]
+            if len(w) != 2 * n:
+                raise AtlasError("%s: walk of %d hexagrams, expected %d"
+                                 % (walks_path, len(w), 2 * n))
+            total += 1
+            prev = 0                        # C4 pins the anchor pair's exit to hexagram 0
+            for k in range(n):
+                e, x = w[2 * k], w[2 * k + 1]
+                flow[k] += 1
+                byclass[k][bin(prev ^ e).count("1")] += 1
+                marg[k][pair_of[e]] += 1
+                prev = x
+            branch[(pair_of[w[0]], w[0], w[1])] += 1
+    return {"N": total, "flow": flow, "byclass": byclass, "marg": marg, "branch": branch}
+
+
+def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
+    """n=9 brute-force gate over the whole consumer.  Emits ATLAS_CONSUMER=."""
+    import shutil
+    import tempfile
+    from fractions import Fraction
+    results = []
+
+    def gate(name, ok, detail=""):
+        results.append((name, bool(ok), detail))
+        print("[atlas-consumer] %-62s %s%s" % (name, "PASS" if ok else "FAIL",
+                                               ("  " + detail) if detail and not ok else ""))
+
+    A = atlas_load(atlas_path)
+    n, N = A["n"], _atlas_int(A["N_total"], "N_total")
+    if n > 13:
+        print("[atlas-consumer] refusing: brute force is a reduced-n gate (n=%d > 13)" % n)
+        print("ATLAS_CONSUMER=SKIP:n-too-large")
+        return 1
+    out = keep or tempfile.mkdtemp(prefix="atlas_selftest_")
+    try:
+        R = atlas_queries(atlas_path, out, q3_trace=q3_trace, quiet=True)
+        scan = R["scandir"]
+        v1 = _atlas_read_tsv(os.path.join(scan, "v1_field.tsv"))
+        v2 = _atlas_read_tsv(os.path.join(scan, "v2_river.tsv"))
+        v2b = _atlas_read_tsv(os.path.join(scan, "v2_branches.tsv"))
+        v5 = _atlas_read_tsv(os.path.join(scan, "v5_grammar.tsv"))
+        q6 = _atlas_read_tsv(os.path.join(scan, "q6_layer_mass.tsv"))
+        xa = _atlas_read_tsv(os.path.join(out, "xa_branches.tsv"))
+        q10 = _atlas_read_tsv(os.path.join(out, "q10_orbit_census.tsv"))
+
+        # ---- structural: no float ever reached a mass column -------------
+        ok = all(("." not in r["mass"] and "e" not in r["mass"].lower())
+                 for r in v1 + v2 + v5 + q6)
+        gate("no mass column carries a float literal (192-bit integrity)", ok)
+
+        # ---- totals: every table sums to N_total exactly ------------------
+        col = {}
+        for r in v1:
+            col[r["k"]] = col.get(r["k"], 0) + int(r["mass"])
+        gate("V1: every layer's pair marginals sum to N_total",
+             all(v == N for v in col.values()) and len(col) == n,
+             str(sorted(set(col.values()))))
+        row = {}
+        for r in v1:
+            row[r["pair"]] = row.get(r["pair"], 0) + int(r["mass"])
+        used = {p: m for p, m in row.items() if m}
+        gate("V1: every placed pair's row sums to N_total (each walk places it once)",
+             all(v == N for v in used.values()) and len(used) == n)
+        gate("V1: the C4-pinned pair 0 row is identically zero", row.get("0", 0) == 0)
+        rk = {}
+        for r in v2:
+            rk[r["k"]] = rk.get(r["k"], 0) + int(r["mass"])
+        gate("V2: every layer's distance-class masses sum to N_total",
+             all(v == N for v in rk.values()) and len(rk) == n)
+        gk = {}
+        for r in v5:
+            gk[r["k"]] = gk.get(r["k"], 0) + int(r["mass"])
+        gate("V5: p_cond is a distribution -- class masses sum to the layer flow",
+             all(v == N for v in gk.values()) and len(gk) == n)
+        qk = {}
+        for r in q6:
+            qk[r["k"]] = qk.get(r["k"], 0) + int(r["mass"])
+        gate("Q6: every layer's class masses sum to N_total",
+             all(v == N for v in qk.values()) and len(qk) == n)
+        gate("XA: sum_b solutions(b) == N_total",
+             sum(int(r["solutions"]) for r in xa) == N,
+             "%d vs %d" % (sum(int(r["solutions"]) for r in xa), N))
+        gate("V2 branch panel and XA branch table agree on solutions",
+             [r["solutions"] for r in v2b] == [r["solutions"] for r in xa])
+
+        # ---- per-layer flows match the atlas ------------------------------
+        af = {L["k"]: _atlas_int(L["flow"], "flow") for L in A["layers"]}
+        gate("per-layer flow in every table == atlas layers[k].flow",
+             all(rk[str(k)] == f for k, f in af.items()) and
+             all(gk[str(k)] == f for k, f in af.items()) and
+             all(qk[str(k)] == f for k, f in af.items()) and
+             all(col[str(k)] == f for k, f in af.items()))
+
+        # ---- t-units ------------------------------------------------------
+        if all(r["prefixes_t_units"].isdigit() for r in xa) and "t_root_t_units" in A:
+            troot = _atlas_int(A["t_root_t_units"], "t_root_t_units")
+            tsum = sum(int(r["prefixes_t_units"]) for r in xa)
+            gate("XA: 1 + sum_b prefixes_t_units(b) == t(root)", 1 + tsum == troot,
+                 "%d vs %d" % (1 + tsum, troot))
+        else:
+            gate("XA: t-units present (--kc-tdir)", False, "no t-ladder in this atlas")
+
+        # ---- mod 24 -------------------------------------------------------
+        gate("Q10a/XA-24: N_total and every layer flow divisible by 24",
+             all(r["mod24_ok"] == "1" for r in q10) and
+             all(int(r["flow"]) == int(r["orbits"]) * _ATLAS_ORBIT for r in q10))
+
+        # ---- layer 0 vs the branch table (independent of the DP path) -----
+        l0 = {}
+        for r in xa:
+            d = bin(int(r["entry"])).count("1")
+            l0[d] = l0.get(d, 0) + int(r["solutions"])
+        a0 = {d: _atlas_layer_class(A["layers"][0], d, 0) for d in _ATLAS_CLASSES}
+        gate("layer-0 class masses == branch table aggregated by popcount(entry)",
+             all(l0.get(d, 0) == a0[d] for d in _ATLAS_CLASSES), str(l0))
+
+        # ---- the brute-force recount --------------------------------------
+        if walks_path is None:
+            print("[atlas-consumer] %-62s %s" %
+                  ("BRUTE FORCE: explicit n=%d enumeration (--atlas-walks)" % n,
+                   "MISSING -- run `solve --kc-enum FDIR > walks.txt`"))
+        else:
+            B = _atlas_brute_recount(walks_path, n)
+            gate("brute force: enumerated walk count == N_total", B["N"] == N,
+                 "%d vs %d" % (B["N"], N))
+            ok = all(B["flow"][k] == int(rk[str(k)]) for k in range(n))
+            gate("brute force: per-layer flow == emitted flow", ok)
+            ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in v2)
+            gate("brute force: V2 river cell-by-cell", ok)
+            ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in v5)
+            gate("brute force: V5 grammar cell-by-cell", ok)
+            ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in q6)
+            gate("brute force: Q6 layer-mass cell-by-cell", ok)
+            ok = all(B["marg"][int(r["k"])][int(r["pair"])] == int(r["mass"]) for r in v1)
+            gate("brute force: V1 field cell-by-cell (32 pairs x %d layers)" % n, ok)
+            ok = all(B["branch"][(int(r["pair"]), int(r["entry"]), int(r["exit"]))]
+                     == int(r["solutions"]) for r in xa)
+            gate("brute force: XA branch solutions cell-by-cell", ok)
+            gate("brute force: branch table covers every enumerated branch",
+                 len(xa) == len(B["branch"]),
+                 "%d rows vs %d enumerated branches" % (len(xa), len(B["branch"])))
+
+        # ---- Q3 ------------------------------------------------------------
+        if q3_trace:
+            p = os.path.join(out, "q3_profile_kw.tsv" if n == 31 else "q3_profile.tsv")
+            gate("Q3: reader-side prod(p_i) == 1/N in exact big-int rationals",
+                 not atlas_q3_reader_check(p, N))
+            gate("Q3: verdict tokens emitted",
+                 R["verdicts"].get("TR12_Q3") == "PASS")
+        else:
+            print("[atlas-consumer] %-62s %s" % ("Q3 leg (--atlas-q3-trace)", "SKIP"))
+
+        ncol, sizes, ok_orb, detail = atlas_orbit_columns(A)
+        if ok_orb is None:
+            print("[atlas-consumer] %-62s %s" % ("A-5 orbit-columns", "SKIP: " + detail))
+        else:
+            gate("A-5: one raw marginal column per WHOLE pair-orbit (%s)" % detail, ok_orb)
+
+        fails = [nm for nm, ok, _ in results if not ok]
+        print("[atlas-consumer] %d gate(s) run, %d failure(s)" % (len(results), len(fails)))
+        if fails:
+            verdict = "FAIL"                     # a failure outranks a missing leg
+        elif walks_path is None:
+            verdict = "SKIP:no-brute-force-walks"   # never PASS without the recount
+        else:
+            verdict = "PASS"
+        print("ATLAS_CONSUMER=%s" % verdict)
+        return 0 if verdict == "PASS" else 1
+    finally:
+        if keep is None:
+            shutil.rmtree(out, ignore_errors=True)
+
+
+def symmetry_completeness():
+    """TR-5 v-next: the order-48 constraint-symmetry group is COMPLETE in Sym(H).
+
+    Machine-checkable converse of SYMMETRY_SEARCH.md's theorem: among ALL 64!
+    permutations sigma of the hexagram set H = {0..63} (not merely the 720
+    bit-position permutations, nor the order-46,080 hyperoctahedral group),
+    exactly the 48 elements of G = C_S6(rev) preserve the C1-C5 predicate
+    family — and only C1, C2, C4 are needed for the converse:
+
+      Sym(H) --[C2 => 5-graph automorphism; witness family W2]--> Aut(G5) (46,080)
+             --[C4 => fixes 0; psi-conjugation collapse]--> 720 bit-position perms
+             --[C1 => commutes with partner]--> G (48).
+
+    Every finite step is verified EXHAUSTIVELY here (no sampling):
+      [SC-1] psi(x) = x if popcount(x) even else x^63 is an involution and a
+             graph isomorphism G5 -> Q6 (G5 adjacency: Hamming distance 5;
+             Q6: distance 1) — all 2016 unordered pairs.
+      [SC-2] psi commutes with every one of the 720 bit-position permutations.
+      [SC-3] Q6 lemma: every distance-2 pair has EXACTLY two common neighbors.
+      [SC-4] Rigidity: a Q6-automorphism fixing 0 and its 6 neighbors pointwise
+             is forced, vertex by vertex in weight order (via SC-3), to the
+             identity => any automorphism fixing 0 is determined by its
+             restriction to N(0) => |Aut(Q6)| <= 64*720; the explicit
+             (xor-translation, bit-permutation) family realizes 46,080
+             distinct automorphisms => equality; Aut(G5) = psi.Aut(Q6).psi.
+      [SC-5] Every member of the explicit psi-conjugated family preserves all
+             192 G5 edges (edge-count bijection argument closes non-edges).
+      [SC-6] fix-0 filter: psi.(t,pi).psi fixes 0 iff t=0, and psi.pi.psi = pi
+             — so the fix-0 survivors are EXACTLY the 720 position perms
+             (which also all fix 63).
+      [SC-7] partner-commuting filter on the 720: exactly 48 survivors,
+             identical to C_S6(rev) — the banked group G.
+      [SC-8] Witness family W2: for every unordered pair {a,b} with
+             d(a,b) != 5 (1824 pairs), an explicit full 64-permutation with
+             (a,b) adjacent and NO distance-5 adjacency anywhere — each
+             verified. These are the C2-necessity gadgets of the prose proof
+             (C1/C4 witnesses are trivial and also checked).
+
+    Prose proof + honest scope: documentation/SYMMETRY_SEARCH.md (completeness
+    section) and reports/TR5_SYMMETRY.md. SAT/DRAT certificate of the SC-4
+    rigidity kernel: sat.py --rigidity-cnf. SCOPE: this decides PER-PREDICATE
+    preservation (each of C1..C5 preserved as a property of all sequences);
+    solution-SET automorphisms are discussed, not decided, in the prose — the
+    full solution set is not enumerated.
+
+    Exit 0 = all checks PASS (theorem's finite content verified); 1 = failure.
+    ATTRIBUTION: developed with AI assistance (Claude, Anthropic), 2026-07-18.
+    """
+    from itertools import permutations
+
+    H = list(range(64))
+    pc = [bin(x).count("1") for x in range(64)]
+
+    def d(a, b):
+        return pc[a ^ b]
+
+    def partner(h):
+        r = reverse_6bit(h)
+        return r if r != h else h ^ 63
+
+    def psi(x):
+        return x if pc[x] % 2 == 0 else x ^ 63
+
+    def apply_pi(p, h):
+        return sum(((h >> b) & 1) << i for i, b in enumerate(p))
+
+    fails = 0
+
+    def gate(name, ok):
+        nonlocal fails
+        print(f"[{name}] {'PASS' if ok else 'FAIL'}")
+        if not ok:
+            fails += 1
+
+    # SC-1: psi involution + G5 ~ Q6 isomorphism (exhaustive)
+    ok = all(psi(psi(x)) == x for x in H) and all(
+        (d(a, b) == 5) == (d(psi(a), psi(b)) == 1)
+        for a in H for b in H if a < b)
+    gate("SC-1 psi involution + G5~Q6 isomorphism (2016 pairs)", ok)
+
+    # SC-2: psi commutes with all 720 position perms (exhaustive)
+    perms6 = list(permutations(range(6)))
+    ok = all(psi(apply_pi(p, x)) == apply_pi(p, psi(x))
+             for p in perms6 for x in H)
+    gate("SC-2 psi commutes with all 720 position perms", ok)
+
+    # SC-3: two-common-neighbor lemma on Q6 (exhaustive)
+    ok = True
+    for y in H:
+        for z in H:
+            if y < z and d(y, z) == 2:
+                if sum(1 for a in H if d(a, y) == 1 and d(a, z) == 1) != 2:
+                    ok = False
+    gate("SC-3 Q6 distance-2 pairs have exactly 2 common neighbors", ok)
+
+    # SC-4: rigidity by weight-induction (forced identity)
+    sigma = {0: 0}
+    for i in range(6):
+        sigma[1 << i] = 1 << i
+    ok = True
+    for w in range(2, 7):
+        for x in H:
+            if pc[x] != w:
+                continue
+            bits = [i for i in range(6) if (x >> i) & 1]
+            y = x & ~(1 << bits[0])
+            z = x & ~(1 << bits[1])
+            m = y & z
+            cn = [a for a in H
+                  if d(a, sigma[y]) == 1 and d(a, sigma[z]) == 1 and a != sigma[m]]
+            if len(cn) != 1:
+                ok = False
+                break
+            sigma[x] = cn[0]
+    ok = ok and all(sigma[x] == x for x in H)
+    gate("SC-4 rigidity: identity-anchored extension forced to identity", ok)
+
+    # SC-5: the explicit psi-conjugated family = 46,080 distinct G5-automorphisms
+    edges = [(a, b) for a in H for b in H if a < b and d(a, b) == 5]
+    fam = set()
+    ok = True
+    for t in range(64):
+        for p in perms6:
+            sig = tuple(psi(apply_pi(p, psi(x)) ^ t) for x in H)
+            fam.add(sig)
+            if not all(d(sig[a], sig[b]) == 5 for a, b in edges):
+                ok = False
+    ok = ok and len(fam) == 46080
+    gate("SC-5 explicit family: 46,080 distinct maps, all preserve G5 (192 edges each)", ok)
+
+    # SC-6: fix-0 collapse to the 720 position perms
+    fix0 = {s for s in fam if s[0] == 0}
+    posperms = {tuple(apply_pi(p, x) for x in H) for p in perms6}
+    ok = fix0 == posperms and all(s[63] == 63 for s in fix0)
+    gate("SC-6 fix-0 survivors == the 720 position perms (63 fixed too)", ok)
+
+    # SC-7: partner-commuting filter -> exactly the 48 of C_S6(rev)
+    commuters = [p for p in perms6
+                 if all(apply_pi(p, partner(h)) == partner(apply_pi(p, h))
+                        for h in H)]
+    revp = (5, 4, 3, 2, 1, 0)
+
+    def compose(p, q):
+        return tuple(p[q[i]] for i in range(6))
+
+    centralizer = [p for p in perms6 if compose(p, revp) == compose(revp, p)]
+    ok = len(commuters) == 48 and sorted(commuters) == sorted(centralizer)
+    gate("SC-7 partner-commuters among 720 == 48 == C_S6(rev)", ok)
+
+    # SC-8: witness families (C2 necessity gadgets + trivial C1/C4)
+    def build_w2(a, b):
+        seq = [a, b]
+        rem = set(H) - {a, b}
+        while rem:
+            cand = sorted(x for x in rem if d(seq[-1], x) != 5)
+            if not cand:
+                return None
+            seq.append(cand[0])
+            rem.discard(cand[0])
+        return seq
+
+    ok = True
+    n_w2 = 0
+    for a in H:
+        for b in H:
+            if a < b and d(a, b) != 5:
+                s = build_w2(a, b)
+                if (s is None or sorted(s) != H
+                        or any(d(s[i], s[i + 1]) == 5 for i in range(63))):
+                    ok = False
+                else:
+                    n_w2 += 1
+    s = [63, 0] + [h for h in H if h not in (63, 0)]
+    ok = ok and s[0] == 63 and s[1] == 0 and sorted(s) == H
+    gate(f"SC-8 witness families: W2 x {n_w2} (expect 1824) + C1/C4", ok and n_w2 == 1824)
+
+    print()
+    if fails == 0:
+        print("SYMMETRY COMPLETENESS: all finite content VERIFIED.")
+        print("Theorem: among all 64! hexagram relabelings, exactly the 48 elements of")
+        print("G = C_S6(rev) preserve the C1-C5 predicate family (C1+C2+C4 suffice for")
+        print("the converse; the forward direction is banked in SYMMETRY_SEARCH.md + Lean).")
+    else:
+        print(f"SYMMETRY COMPLETENESS: {fails} CHECK(S) FAILED — theorem NOT certified.")
+    return 0 if fails == 0 else 1
+
+
+def t3_encode_solutions(out_bin, input_paths):
+    """Handler for --encode-solutions: text `record` lines -> solutions.bin v1.
+
+    Input: T3 mega-sample stream files (plain text or .gz). Only lines whose
+    first tab-separated field is exactly `record` are consumed; their third
+    field is a comma-separated full 64-hexagram ordering. Draw/rank lines and
+    `#provenance` trailers are skipped.
+
+    Output: an UNCOMPRESSED v1 solutions.bin (32-byte ROAE header + N x 32-byte
+    records) per documentation/SOLUTIONS_FORMAT.md, readable by
+    p2_compute_stats. Record byte i = (pair_index << 2) | (orient << 1) with
+    bit 0 always 0; pair_index indexes the KW-consecutive pair table
+    (KW[2i], KW[2i+1]) -- the SAME table as verify.py's PAIRS and this file's
+    _p2_kw_arrays(), and deliberately NOT build_pairs()'s value-ascending
+    table, which is a different indexing.
+
+    ROUND-TRIP GATE (mandatory): after writing, the file's header is parsed
+    with verify.py's parse_header and EVERY record is decoded with verify.py's
+    own decode(); the recovered 64-hexagram ordering must equal the input line
+    exactly. Emits `ENCODE_ROUNDTRIP=PASS` or `ENCODE_ROUNDTRIP=FAIL` on its
+    own line (grep -qx matchable) and returns non-zero on any failure.
+    """
+    import gzip
+    import os
+    import struct
+    import sys
+
+    _, pairs_a, pairs_b = _p2_kw_arrays()
+    pair_code = {}
+    for idx in range(32):
+        a, b = int(pairs_a[idx]), int(pairs_b[idx])
+        pair_code[(a, b)] = (idx << 2)        # orient 0: (a, b) as in KW
+        pair_code[(b, a)] = (idx << 2) | 2    # orient 1: swapped
+
+    def record_lines(path):
+        opener = gzip.open if path.endswith(".gz") else open
+        with opener(path, "rt") as fh:
+            for lineno, line in enumerate(fh, 1):
+                fields = line.rstrip("\n").split("\t")
+                if fields[0] != "record":
+                    continue
+                if len(fields) != 3:
+                    raise ValueError("%s:%d: record line has %d tab fields, expected 3"
+                                     % (path, lineno, len(fields)))
+                try:
+                    seq = [int(t) for t in fields[2].split(",")]
+                except ValueError:
+                    raise ValueError("%s:%d: non-integer token in ordering" % (path, lineno))
+                # T3 stream `record` lines omit the C4-forced slot-0 start:
+                # pair 0 = (63, 0), orientation fixed (verify.py check_c1_c5
+                # requires seq[0]==63, seq[1]==0; "slot 0 forced" in
+                # lean/RecordConvention.lean). A 62-value line is the 62
+                # remaining positions; prepend the forced start. A 64-value
+                # line must carry it explicitly.
+                if len(seq) == 62:
+                    seq = [63, 0] + seq
+                elif len(seq) == 64:
+                    if seq[0] != 63 or seq[1] != 0:
+                        raise ValueError("%s:%d: 64-value ordering does not start 63,0"
+                                         % (path, lineno))
+                else:
+                    raise ValueError("%s:%d: ordering has %d values, expected 62 or 64"
+                                     % (path, lineno, len(seq)))
+                if sorted(seq) != list(range(64)):
+                    raise ValueError("%s:%d: ordering is not a permutation of 0..63"
+                                     % (path, lineno))
+                yield path, lineno, seq
+
+    try:
+        # ---- pass 1: encode ----
+        n_records = 0
+        with open(out_bin, "wb") as out:
+            out.write(b"ROAE" + struct.pack("<I", 1)
+                      + struct.pack("<Q", 0) + b"\x00" * 16)
+            for path in input_paths:
+                for src, lineno, seq in record_lines(path):
+                    rec = bytearray(32)
+                    slots_used = set()
+                    for i in range(32):
+                        code = pair_code.get((seq[2 * i], seq[2 * i + 1]))
+                        if code is None:
+                            raise ValueError("%s:%d: slot %d: (%d,%d) is not a canonical pair"
+                                             % (src, lineno, i, seq[2 * i], seq[2 * i + 1]))
+                        pidx = code >> 2
+                        if pidx in slots_used:
+                            raise ValueError("%s:%d: pair index %d appears twice"
+                                             % (src, lineno, pidx))
+                        slots_used.add(pidx)
+                        rec[i] = code
+                    out.write(rec)
+                    n_records += 1
+            out.seek(8)
+            out.write(struct.pack("<Q", n_records))
+
+        # ---- pass 2: round-trip gate via verify.py's OWN reader ----
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) or ".")
+        import verify as _verify
+        mismatches = 0
+        checked = 0
+        with open(out_bin, "rb") as f:
+            declared = _verify.parse_header(f.read(_verify.SOL_HEADER_SIZE))
+            if declared != n_records:
+                raise ValueError("header record_count %d != records written %d"
+                                 % (declared, n_records))
+            for path in input_paths:
+                for src, lineno, seq in record_lines(path):
+                    rec = f.read(32)
+                    if len(rec) < 32:
+                        raise ValueError("binary ended early at input %s:%d" % (src, lineno))
+                    dec_seq, _pairs_used, _key0 = _verify.decode(rec)
+                    if dec_seq != seq:
+                        mismatches += 1
+                        if mismatches <= 5:
+                            print("[encode-solutions] MISMATCH %s:%d\n  input:   %r\n  decoded: %r"
+                                  % (src, lineno, seq, dec_seq))
+                    checked += 1
+            if f.read(1):
+                raise ValueError("binary has trailing bytes beyond %d records" % n_records)
+    except (ValueError, OSError) as e:
+        print("[encode-solutions] ERROR: %s" % e)
+        print("ENCODE_ROUNDTRIP=FAIL")
+        return 2
+
+    print("[encode-solutions] out=%s records=%d header_count=%d roundtrip_checked=%d mismatches=%d"
+          % (out_bin, n_records, declared, checked, mismatches))
+    if mismatches or checked != n_records or n_records == 0:
+        print("ENCODE_ROUNDTRIP=FAIL")
+        return 2
+    print("ENCODE_ROUNDTRIP=PASS")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -9703,7 +13091,7 @@ def main():
     parser.add_argument("--pairs", action="store_true",
                         help="Show the 32 canonical pairs with XOR products")
     parser.add_argument("--rules", action="store_true",
-                        help="Print the discovered generative recipe")
+                        help="Print the discovered rule-set (NOT a generative recipe — see CX-02)")
     parser.add_argument("--narrow", action="store_true",
                         help="Run constraint narrowing analysis")
     parser.add_argument("--graph", action="store_true",
@@ -9729,7 +13117,13 @@ def main():
     parser.add_argument("--deep", action="store_true",
                         help="Run all deep analyses (enumerate + trigram + lines + neighborhoods + residuals + info)")
     parser.add_argument("--differential", action="store_true",
-                        help="Differential analysis: find features where King Wen is extremal among solutions")
+                        help="Differential analysis: find features where King Wen is extremal among solutions. "
+                             "Population is C1+C2+C4+C5 (C3 NOT applied) — the scope of the published "
+                             "3.9th-percentile figure. Add --differential-apply-c3 for the C3-filtered variant.")
+    parser.add_argument("--differential-apply-c3", action="store_true",
+                        help="Apply C3 to the --differential population as well. NOTE: King Wen is at the C3 "
+                             "ceiling by construction in that population, so complement-distance extremality "
+                             "there is a tautology, not a finding.")
     parser.add_argument("--rule7", action="store_true",
                         help="Test Rule 7 candidates: filter by extremal complement distance and line autocorrelation")
     parser.add_argument("--fingerprint", action="store_true",
@@ -9738,10 +13132,21 @@ def main():
                         help="Reconstruct King Wen step by step, verifying uniqueness at each step")
     parser.add_argument("--null-debruijn", action="store_true",
                         help="Null-model comparison: test C1-C3 against sampled de Bruijn B(2,6) permutations (addresses CRITIQUE.md structured-permutation gap)")
+    parser.add_argument("--encode-solutions", nargs="+", metavar="PATH",
+                        help="Encode text `record` lines into a v1 solutions.bin: "
+                             "first PATH is the OUTPUT .bin, remaining PATHs are input "
+                             "T3 stream files (.out or .out.gz). Round-trips every "
+                             "record through verify.py's decoder and emits "
+                             "ENCODE_ROUNDTRIP=PASS/FAIL. See t3_encode_solutions().")
     parser.add_argument("--compute-stats", nargs=2, metavar=("SOLUTIONS_BIN", "OUT_DIR"),
                         help="P2: Stream solutions.bin and emit per-chunk parquet files of observable stats")
     parser.add_argument("--marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
                         help="P2: Per-dimension marginal percentiles with KW's position marked")
+    parser.add_argument("--uniform-marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
+                        help="T5: marginals for an exact-uniform C1&C2&C4&C5 (NO C3) sample. "
+                             "Bins are derived from the data, not from --marginals' "
+                             "enumerated-scope _P2_INT_COLS ranges, which cannot represent this "
+                             "population. Emits UNIFORM_MARGINALS=PASS/FAIL.")
     parser.add_argument("--bivariate", nargs=2, metavar=("CHUNKS_DIR", "OUT_DIR"),
                         help="P2: Hexbin heatmaps for 5 observable pairs with KW marked")
     parser.add_argument("--joint-density", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
@@ -9767,11 +13172,48 @@ def main():
                              "'adder' is deferred/superseded by sat.py's pair-slot model "
                              "(emits a status sidecar entry only; see SOLVE_PY_CLI.md)")
     parser.add_argument("--sat-c4", action="store_true",
-                        help="P3 sat-encode: force position 0 = hexagram 0 (Qian/Kun convention)")
+                        help="P3 sat-encode: force C4 in its oriented form — position 0 = Qian (hexagram 63), position 1 = Kun (0)")
     parser.add_argument("--sat-c5", action="store_true",
                         help="P3 sat-encode: C5 cardinality constraints — deferred/superseded "
                              "by sat.py's pair-slot model (emits a status sidecar entry only; "
                              "see SOLVE_PY_CLI.md)")
+    # TR-8 dof-matched KW-fitting-predicate sampler (task #170 / J1). Seed root and probe
+    # count are parameters and are echoed verbatim into the run header, because TR-8's fix
+    # spec requires the number to be published WITH its seed and probe count.
+    parser.add_argument("--tr8-dof-sampler", metavar="OUT_DIR",
+                        help="TR-8: run the dof-matched KW-fitting-predicate sampler; write "
+                             "header.json/bank.json/results.json/RESULTS.md to OUT_DIR "
+                             "(terminal command). A recorded run is gated on a FROZEN "
+                             "pre-registration; see SOLVE_PY_CLI.md")
+    parser.add_argument("--tr8-dof-emit-bank", action="store_true",
+                        help="TR-8 sampler: measure and print the admitted clause bank + "
+                             "marginals, then exit (the pre-registration's bank-freeze step)")
+    parser.add_argument("--tr8-dof-merge", metavar="OUT_DIR",
+                        help="TR-8 sampler: merge the per-shard hit files in OUT_DIR and "
+                             "compute the statistics (terminal command)")
+    parser.add_argument("--tr8-dof-selftest", action="store_true",
+                        help="TR-8 sampler: run the four instrument self-tests (bank integrity, "
+                             "H-a, H-b null calibration, determinism + shard/merge equivalence)")
+    parser.add_argument("--tr8-dof-seed", metavar="ROOT", default=TR8_DEFAULT_SEED_ROOT,
+                        help="TR-8 sampler: seed ROOT string; every seed is "
+                             "uint64(sha256('ROOT/<purpose>')[:8], big-endian). Echoed verbatim "
+                             "in the run header (default: the pre-registration namespace)")
+    parser.add_argument("--tr8-dof-pool", choices=("A", "B", "calib"), default="A",
+                        help="TR-8 sampler: which seed family the pool draws from (default: A)")
+    parser.add_argument("--tr8-dof-pool-draws", type=int, default=10000000,
+                        help="TR-8 sampler: N_pool, total pair-only-null draws (default: 10000000)")
+    parser.add_argument("--tr8-dof-predicates", type=int, default=1000,
+                        help="TR-8 sampler: N_pred, predicates drawn per K (default: 1000)")
+    parser.add_argument("--tr8-dof-k", metavar="LIST", default="8,12,16,20,24",
+                        help="TR-8 sampler: comma-separated K ladder (default: 8,12,16,20,24)")
+    parser.add_argument("--tr8-dof-shards", type=int, default=8,
+                        help="TR-8 sampler: number of equal-size pool shards (default: 8)")
+    parser.add_argument("--tr8-dof-shard", type=int, default=None,
+                        help="TR-8 sampler: run ONLY this shard index and write its hit file "
+                             "for a later --tr8-dof-merge (default: run every shard in-process)")
+    parser.add_argument("--tr8-dof-calib-draws", type=int, default=100000,
+                        help="TR-8 sampler: draws in the dedicated bank-calibration pool "
+                             "(default: 100000)")
     parser.add_argument("--compare-depth-profile", nargs=2, metavar=("RUN_A_LOG", "RUN_B_LOG"),
                         help="Tree-walk validator (#48): compare DEPTH_PROFILE node counts from two run "
                              "logs (produced with SOLVE_DEPTH_PROFILE=1; .gz accepted). PASS if total "
@@ -9804,6 +13246,17 @@ def main():
                              "(g1..g6 T1 + g7,g8 T2) on KW (expected "
                              "2,2,2,0,0,0,0,0); with a 64-int SEQ print the 8 "
                              "values (ordering matches solve.c --r11-verify SEQ)")
+    parser.add_argument("--h2-verify", nargs="+", metavar="ARG",
+                        help="H2 (private hypothesis instrument): independently "
+                             "recompute N dumped GS leaves' exact radius-3 "
+                             "edit-ball tallies (nvp/nvc/fp/fc) against solve.c's "
+                             "SOLVE_KNUTH_H2 dump. Args: DUMPFILE [N=2]")
+    parser.add_argument("--h2-mass", nargs="+", metavar="DUMP",
+                        help="H2 (private hypothesis instrument): pooled "
+                             "near-precursor edit-ball mass m + bits from one "
+                             "SOLVE_KNUTH_H2 dump per independent-seed run "
+                             "(self-normalized ratio, stratified bootstrap, "
+                             "N_gs uncertainty folded; magnitude only)")
     parser.add_argument("--rc4b-verify", nargs="?", const="", default=None,
                         metavar="SEQ",
                         help="R13: verify the HEC two-convention parity "
@@ -9856,6 +13309,10 @@ def main():
                              "two-language SPEC gate for solve.c --db1-verify")
     parser.add_argument("--vdb-verify", action="store_true",
                         help="verify the 8 Van den Berghe (c.1998-2005) structural candidates on KW")
+    parser.add_argument("--symmetry-completeness", action="store_true",
+                        help="TR-5 v-next: exhaustively certify that the order-48 "
+                             "symmetry group is complete over ALL 64! hexagram "
+                             "relabelings (SC-1..SC-8 gates; exit 0 = certified)")
     parser.add_argument("--books-verify", action="store_true",
                         help="verify the machine-checkable structural claims "
                              "from the audited books (Wu Deng via Nielsen "
@@ -9934,11 +13391,82 @@ def main():
                         help="Number of random samples (default: 100000)")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducible results")
+    # --- atlas consumer (TR-12 query program: Q3/Q6/XA + V1/V2/V5 inputs) ---
+    parser.add_argument("--atlas-queries", metavar="ATLAS_JSON",
+                        help="TR-12: read a `solve --kc-scan` atlas JSON and emit the query "
+                             "and figure TSVs (Q3, Q6, XA, V1/V2/V5 inputs) into --atlas-out")
+    parser.add_argument("--atlas-out", metavar="DIR", default=None,
+                        help="output root for --atlas-queries (default: the atlas's own directory)")
+    parser.add_argument("--atlas-select", metavar="LIST", default=None,
+                        help="comma list of q3,q6,v1,v2,v5,xa,q10a (default: all)")
+    parser.add_argument("--atlas-q3-trace", metavar="FILE", default=None,
+                        help="`solve --kc-o3-rank F G WALK --kc-trace` output; supplies Q3/V4 "
+                             "and KW's per-layer percentile column in Q6")
+    parser.add_argument("--atlas-verdicts", metavar="FILE", default=None,
+                        help="KEY=value verdict file to write (default: <out>/VERDICTS.txt)")
+    parser.add_argument("--atlas-selftest", metavar="ATLAS_JSON",
+                        help="reduced-n (n<=13) brute-force gate over the whole consumer; "
+                             "emits ATLAS_CONSUMER=PASS|FAIL")
+    parser.add_argument("--atlas-walks", metavar="FILE", default=None,
+                        help="--atlas-selftest: explicit enumeration `solve --kc-enum FDIR` "
+                             "(one walk per line) for the brute-force recount")
+    parser.add_argument("--atlas-keep", metavar="DIR", default=None,
+                        help="--atlas-selftest: keep the emitted tables in DIR instead of a tempdir")
+    parser.add_argument("--atlas-fault", metavar="NAME", default=None,
+                        choices=("v1-drop-pair", "v2-class-swap", "xa-drop-branch",
+                                 "q3-perturb", "q10-mod24"),
+                        help="TEST ONLY: deliberately corrupt one emitted column so the n=9 gate "
+                             "can be shown able to fail (build-brief invariant 3). Never on a run.")
+    parser.add_argument("--xa-nodes-per-sec", type=float, default=None,
+                        help="XA-c/d: measured DFS throughput anchor (R-1 pilot artifacts)")
+    parser.add_argument("--xa-usd-per-hour", type=float, default=None,
+                        help="XA-c/d: worker price anchor")
+    parser.add_argument("--xa-budget-usd", type=float, default=None,
+                        help="XA-c/d: the $ ceiling the EXHAUSTIBLE/INFEASIBLE call is made against")
+    parser.add_argument("--xa-hedge", type=float, default=2.0,
+                        help="XA-c/d: throughput hedge factor for scale (TR-12 section 3: x2)")
+    parser.add_argument("--xa-work-factor", type=float, default=1.0,
+                        help="XA-c/d: engine work factor to divide the rate by (default 1.0 = none; "
+                             "the R-1 36.14x is an inter-engine factor, supply it deliberately)")
+    parser.add_argument("--xa-anchor-note", metavar="TEXT", default=None,
+                        help="XA-c/d: provenance string for the anchors, echoed into xa_verdict.md")
     parser.add_argument("--verbose", action="store_true",
                         help="Print progress during search")
 
     args = parser.parse_args()
 
+    if args.atlas_fault:
+        global _ATLAS_FAULT
+        _ATLAS_FAULT = args.atlas_fault
+        print("[atlas] FAULT INJECTION ACTIVE: %s (test-only)" % args.atlas_fault)
+
+    if args.atlas_selftest:
+        sys.exit(atlas_selftest(args.atlas_selftest,
+                                walks_path=args.atlas_walks,
+                                q3_trace=args.atlas_q3_trace,
+                                keep=args.atlas_keep))
+
+    if args.atlas_queries:
+        out = args.atlas_out or (os.path.dirname(os.path.abspath(args.atlas_queries)) or ".")
+        os.makedirs(out, exist_ok=True)
+        sel = [s.strip() for s in args.atlas_select.split(",")] if args.atlas_select else None
+        cost = {"nodes_per_sec": args.xa_nodes_per_sec,
+                "usd_per_hour": args.xa_usd_per_hour,
+                "budget_usd": args.xa_budget_usd,
+                "hedge": args.xa_hedge,
+                "work_factor": args.xa_work_factor,
+                "note": args.xa_anchor_note or "(no anchor note supplied)"}
+        try:
+            atlas_queries(args.atlas_queries, out, select=sel,
+                          q3_trace=args.atlas_q3_trace,
+                          verdicts_path=args.atlas_verdicts, cost=cost)
+        except AtlasError as e:
+            print("ERROR: [atlas] %s" % e, file=sys.stderr)
+            sys.exit(2)
+        sys.exit(0)
+
+    if args.symmetry_completeness:
+        sys.exit(symmetry_completeness())
     if args.books_verify:
         sys.exit(books_verify())
     if args.trigram_verify:
@@ -9961,6 +13489,11 @@ def main():
 
     if args.r11_verify is not None:
         sys.exit(r11_verify(args.r11_verify if args.r11_verify else None))
+    if args.h2_verify:
+        n_chk = int(args.h2_verify[1]) if len(args.h2_verify) > 1 else 2
+        sys.exit(h2_verify(args.h2_verify[0], n_chk))
+    if args.h2_mass:
+        sys.exit(h2_mass(args.h2_mass))
 
     if args.rc4b_verify is not None:
         sys.exit(rc4b_verify(args.rc4b_verify if args.rc4b_verify else None))
@@ -9994,70 +13527,106 @@ def main():
                                        args.compare_depth_profile[1],
                                        threshold=args.compare_depth_profile_threshold))
 
+    # 2026-09-03 (Codex V2-F60 #6 and its class): every handler below used to
+    # be called BARE, so a returned failure status never reached the shell --
+    # measured: `--uniform-marginals <empty-dir>` printed FAIL and exited 0.
+    # Handlers that return None still exit 0 under sys.exit(None).
     if args.branch_yield_report:
-        branch_yield_report(
+        sys.exit(branch_yield_report(
             args.branch_yield_report,
             baseline_bin=args.branch_yield_baseline,
             manifest=args.branch_yield_manifest,
             depth=args.branch_yield_depth,
             out_csv=args.branch_yield_csv,
             out_json=args.branch_yield_json,
-        )
+        ))
         return
 
     if args.keystone_analysis:
         keystone_analysis(args.keystone_analysis[0],
                           args.keystone_analysis[1],
                           dump_dir=args.keystone_dump_dir,
-                          dump_limit=args.keystone_dump_limit)
+                          dump_limit=args.keystone_dump_limit)  # returns (counts, paths); failure raises SystemExit(1)
         return
 
+    if args.encode_solutions:
+        if len(args.encode_solutions) < 2:
+            parser.error("--encode-solutions needs OUT_BIN plus at least one input file")
+        sys.exit(t3_encode_solutions(args.encode_solutions[0],
+                                     args.encode_solutions[1:]))
+
     if args.compute_stats:
-        p2_compute_stats(args.compute_stats[0], args.compute_stats[1],
+        sys.exit(p2_compute_stats(args.compute_stats[0], args.compute_stats[1],
                          workers=args.compute_stats_workers,
                          chunk_size=args.compute_stats_chunk_size,
-                         max_records=args.compute_stats_max_records)
+                         max_records=args.compute_stats_max_records))
         return
     if args.marginals:
-        p2_marginals(args.marginals[0], args.marginals[1])
+        sys.exit(p2_marginals(args.marginals[0], args.marginals[1]))
+        return
+    if args.uniform_marginals:
+        sys.exit(t5_uniform_marginals(args.uniform_marginals[0], args.uniform_marginals[1]))
         return
     if args.bivariate:
-        p2_bivariate(args.bivariate[0], args.bivariate[1])
+        sys.exit(p2_bivariate(args.bivariate[0], args.bivariate[1]))
         return
     if args.joint_density:
-        p2_joint_density(args.joint_density[0], args.joint_density[1],
+        sys.exit(p2_joint_density(args.joint_density[0], args.joint_density[1],
                          samples_per_chunk=args.joint_density_samples_per_chunk,
-                         bootstrap_n=args.joint_density_bootstrap_n)
+                         bootstrap_n=args.joint_density_bootstrap_n))
         return
 
     if args.joint_density_v2:
-        p2_joint_density_v2(args.joint_density_v2[0], args.joint_density_v2[1],
+        sys.exit(p2_joint_density_v2(args.joint_density_v2[0], args.joint_density_v2[1],
                             samples_per_chunk=args.joint_density_samples_per_chunk,
                             bandwidth_method=args.joint_density_bandwidth,
                             exhaustive=args.joint_density_exhaustive,
                             native_solve_binary=args.native_solve_binary,
-                            bootstrap_n=args.joint_density_bootstrap_n)
+                            bootstrap_n=args.joint_density_bootstrap_n))
         return
 
     if args.stratified_by_position_2_pair:
-        p2_stratified_p2pair(args.stratified_by_position_2_pair[0],
+        sys.exit(p2_stratified_p2pair(args.stratified_by_position_2_pair[0],
                              args.stratified_by_position_2_pair[1],
                              samples_per_chunk=args.joint_density_samples_per_chunk,
                              exhaustive=args.stratified_exhaustive,
-                             native_solve_binary=args.native_solve_binary)
+                             native_solve_binary=args.native_solve_binary))
         return
 
     if args.joint_permutation_test:
-        p2_joint_permutation_test(args.joint_permutation_test[0],
+        sys.exit(p2_joint_permutation_test(args.joint_permutation_test[0],
                                   args.joint_permutation_test[1],
-                                  samples_per_chunk=args.joint_density_samples_per_chunk)
+                                  samples_per_chunk=args.joint_density_samples_per_chunk))
         return
 
+    if args.tr8_dof_selftest:
+        sys.exit(tr8_dof_selftest())
+
+    if args.tr8_dof_emit_bank:
+        sys.exit(tr8_emit_bank(seed_root=args.tr8_dof_seed,
+                               calib_draws=args.tr8_dof_calib_draws,
+                               out_dir=args.tr8_dof_sampler))
+
+    if args.tr8_dof_merge:
+        sys.exit(tr8_dof_merge(args.tr8_dof_merge))
+
+    if args.tr8_dof_sampler:
+        klist = tuple(int(x) for x in args.tr8_dof_k.split(",") if x.strip())
+        sys.exit(tr8_dof_sampler(args.tr8_dof_sampler,
+                                 seed_root=args.tr8_dof_seed,
+                                 pool=args.tr8_dof_pool,
+                                 n_pool=args.tr8_dof_pool_draws,
+                                 n_pred=args.tr8_dof_predicates,
+                                 klist=klist,
+                                 shard=args.tr8_dof_shard,
+                                 n_shards=args.tr8_dof_shards,
+                                 calib_draws=args.tr8_dof_calib_draws))
+
     if args.sat_encode:
-        p3_sat_encode(args.sat_encode,
+        sys.exit(p3_sat_encode(args.sat_encode,
                       include_c3=args.sat_c3,
                       include_c4=args.sat_c4,
-                      include_c5=args.sat_c5)
+                      include_c5=args.sat_c5))
         return
 
     if args.local:
@@ -10134,7 +13703,8 @@ def main():
 
     if args.differential:
         print_differential_analysis(max_nodes=args.max_nodes,
-                                    time_limit=args.time_limit)
+                                    time_limit=args.time_limit,
+                                    apply_c3=args.differential_apply_c3)
         print()
 
     if args.rule7:

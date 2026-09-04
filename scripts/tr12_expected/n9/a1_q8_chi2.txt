@@ -1,0 +1,29 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc] layer k= 1/13: canonical_masks=3 entries=2 bytes=0.000100 MB cumulative=0.000148 MB
+[kc] layer k= 2/13: canonical_masks=11 entries=16 bytes=0.000588 MB cumulative=0.000736 MB
+[kc] layer k= 3/13: canonical_masks=31 entries=158 bytes=0.004804 MB cumulative=0.005540 MB
+[kc] layer k= 4/13: canonical_masks=64 entries=946 bytes=0.027264 MB cumulative=0.032804 MB
+[kc] layer k= 5/13: canonical_masks=102 entries=3312 bytes=0.093968 MB cumulative=0.126772 MB
+[kc] layer k= 6/13: canonical_masks=132 entries=7358 bytes=0.207616 MB cumulative=0.334388 MB
+[kc] layer k= 7/13: canonical_masks=132 entries=11102 bytes=0.312448 MB cumulative=0.646836 MB
+[kc] layer k= 8/13: canonical_masks=102 entries=8868 bytes=0.249536 MB cumulative=0.896372 MB
+[kc] layer k= 9/13: canonical_masks=64 entries=5440 bytes=0.153096 MB cumulative=1.049468 MB
+[kc] layer k=10/13: canonical_masks=31 entries=2368 bytes=0.066684 MB cumulative=1.116152 MB
+[kc] layer k=11/13: canonical_masks=11 entries=720 bytes=0.020300 MB cumulative=1.136452 MB
+[kc] layer k=12/13: canonical_masks=3 entries=144 bytes=0.004076 MB cumulative=1.140528 MB
+[kc] layer k=13/13: canonical_masks=1 entries=26 bytes=0.000748 MB cumulative=1.141276 MB
+[kc] build: n=13 layers=0..13 total_bytes=1.141276 MB count=2063395607040 elapsed=<T>s
+[kc-midn] n=13: exhaustive build + gate suite (R=4000 roundtrips, M=20000 samples)
+[kc-selftest] M2 rank/unrank/member roundtrips (incl. rank 0, N-1) PASS
+[kc-selftest] M2b rank order == reverse-exit-lex walk order        PASS
+[kc-selftest] M2c unrank(N) rejected (range check)                 PASS
+[kc-midn] n=13: 4002 roundtrips in <T>s (<T> us/unrank+rank)
+[kc-selftest] M3 mutation coherence (validator == membership, ranks sane) PASS
+[kc-midn] n=13: mutants exercised: 786 valid (member+rank), 3214 invalid (rejected)
+[kc-selftest] M4 sampling: all samples are members                 PASS
+[kc-selftest] M4b sampling: chi-square uniform over rank buckets   PASS
+[kc-midn] n=13: 20000 samples, chi2=12.20 (15 dof, crit 37.70)
+[kc-selftest] M5 largest layer (k=7) order-invariant (bytes)       PASS
+[kc-selftest] M5b largest layer (k=7) 3-slice-merged == whole      PASS
+KC-MIDN n=13 count=2063395607040 layers_raw_mb=1.141 build_s=<T> peak_rss_mb=<RSS> roundtrips=4002 chi2_samples=20000 result=PASS

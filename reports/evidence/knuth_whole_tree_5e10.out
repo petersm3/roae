@@ -1,0 +1,6 @@
+KNUTH-ESTIMATE probes=50000000000 threads=32 start_step=1 prefix_levels=0
+KNUTH-PROVENANCE seed_base=0x243f6a8885a308d3 moore_strict=0 gender_strict=0 score=0 r11_hist=0 wall_s=18230
+  tree_nodes            : est=2.087502e+40  95%CI=[2.0875e+40, 2.0876e+40]  relerr=0.00%  hitrate=1
+  leaves_C1C2C4C5       : est=1.097088e+39  95%CI=[1.0970e+39, 1.0972e+39]  relerr=0.01%  hitrate=0.0144
+  leaves_canonical_C1C5 : est=1.328729e+38  95%CI=[1.3283e+38, 1.3292e+38]  relerr=0.02%  hitrate=0.0018
+  [diag] canonical top single-probe share : max_w=1.550616e+42 = 0.0000% of estimate mass (skew/ESS audit; lower=better)

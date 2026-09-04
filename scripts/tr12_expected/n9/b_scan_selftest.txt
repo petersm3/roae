@@ -1,0 +1,59 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_00.json (k=0, 1 entries, chain=genesis)
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_01.json (k=1, 4 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_02.json (k=2, 19 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_03.json (k=3, 58 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_04.json (k=4, 139 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_05.json (k=5, 244 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_06.json (k=6, 271 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_07.json (k=7, 160 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_08.json (k=8, 48 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/f/f1c5_layer_stats_09.json (k=9, 6 entries, chain=linked)
+[kc-g] layer k= 8/9: canonical_masks=3 entries=34 bytes=0.000996 MB cumulative=0.001520 MB
+[kc-g] layer k= 7/9: canonical_masks=9 entries=110 bytes=0.003196 MB cumulative=0.004716 MB
+[kc-g] layer k= 6/9: canonical_masks=20 entries=276 bytes=0.007976 MB cumulative=0.012692 MB
+[kc-g] layer k= 5/9: canonical_masks=27 entries=566 bytes=0.016180 MB cumulative=0.028872 MB
+[kc-g] layer k= 4/9: canonical_masks=27 entries=716 bytes=0.020380 MB cumulative=0.049252 MB
+[kc-g] layer k= 3/9: canonical_masks=20 entries=496 bytes=0.014136 MB cumulative=0.063388 MB
+[kc-g] layer k= 2/9: canonical_masks=9 entries=168 bytes=0.004820 MB cumulative=0.068208 MB
+[kc-g] layer k= 1/9: canonical_masks=3 entries=18 bytes=0.000548 MB cumulative=0.068756 MB
+[kc-g] layer k= 0/9: canonical_masks=1 entries=1 bytes=0.000048 MB cumulative=0.068804 MB
+[kc-g] build: n=9 layers=9..0 total_bytes=0.068804 MB g(0)=26112 elapsed=<T>s
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_09.json (k=9, 18 entries, chain=genesis)
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_08.json (k=8, 34 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_07.json (k=7, 110 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_06.json (k=6, 276 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_05.json (k=5, 566 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_04.json (k=4, 716 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_03.json (k=3, 496 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_02.json (k=2, 168 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_01.json (k=1, 18 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>/g/g_layer_stats_00.json (k=0, 1 entries, chain=linked)
+[kc-scan-selftest] atlas extractor vs exhaustive brute force (n=9)
+KC-G BUILD n=9 dir=<SELFTEST_TMP>/g g0=26112 layers=0.068804 MB elapsed=<T>s
+[kc-scan-selftest] g ladder build                                               PASS
+[kc-scan-selftest] scan core runs (raw expansion ON)                            PASS
+[kc-scan-selftest] scan internal ==N gates all PASS                             PASS
+[kc-scan-selftest] t-units computed at n=9                                      PASS
+[kc-scan-selftest] per-layer distance-class masses == brute (all layers)        PASS
+[kc-scan-selftest] RAW positional marginals (G-expansion) == brute (all slots)  PASS
+[kc-scan-selftest] branch atlas solutions == brute first-placement census       PASS
+[kc-scan-selftest] quotient marginal column sums == N (all layers)              PASS
+[kc-scan] layer 00 -> 01: transition mass 26112
+[kc-scan] layer 01 -> 02: transition mass 26112
+[kc-scan] layer 02 -> 03: transition mass 26112
+[kc-scan] layer 03 -> 04: transition mass 26112
+[kc-scan] layer 04 -> 05: transition mass 26112
+[kc-scan] layer 05 -> 06: transition mass 26112
+[kc-scan] layer 06 -> 07: transition mass 26112
+[kc-scan] layer 07 -> 08: transition mass 26112
+[kc-scan] layer 08 -> 09: transition mass 26112
+[kc-scan] atlas written: <SELFTEST_TMP>/atlas.json
+KC_SCAN_TIDENTITY=SKIPPED
+[kc-scan] WARNING: no --kc-tdir - the arithmetic identity (t(root) == sum of f layer masses) was NOT run. It is the only value-level check on fmass[k] for k < n. This is a STRICTLY WEAKER attestation; pass --kc-tdir for a production atlas.
+[kc-scan] VERDICT: PASS (0 gate failures)
+KC_SCAN=OK
+[kc-scan-selftest] --kc-scan end-to-end (JSON written, gates PASS)              PASS
+[kc-scan-selftest] atlas JSON spot-check (N_total field)                        PASS
+[kc-scan-selftest] PASS (0 failures)

@@ -6,15 +6,15 @@ A plain-language introduction to the King Wen sequence and what this program doe
 
 ## What is the King Wen sequence?
 
-The [I Ching](https://en.wikipedia.org/wiki/I_Ching) (Book of Changes) is one of the oldest texts in Chinese civilization, dating back over 3,000 years. At its core are 64 symbols called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching)) — each is a stack of six lines, where each line is either solid ([yang](https://en.wikipedia.org/wiki/Yin_and_yang)) or broken ([yin](https://en.wikipedia.org/wiki/Yin_and_yang)). With two possibilities per line and six lines, there are exactly 2^6 = 64 possible hexagrams.
+The [I Ching](https://en.wikipedia.org/wiki/I_Ching) (Book of Changes) is one of the oldest texts in Chinese civilization — traditionally dated back over 3,000 years; modern scholarship places the core text's compilation in the late Western Zhou, around the 9th century BCE. At its core are 64 symbols called [hexagrams](https://en.wikipedia.org/wiki/Hexagram_(I_Ching)) — each is a stack of six lines, where each line is either solid ([yang](https://en.wikipedia.org/wiki/Yin_and_yang)) or broken ([yin](https://en.wikipedia.org/wiki/Yin_and_yang)). With two possibilities per line and six lines, there are exactly 2^6 = 64 possible hexagrams.
 
 The [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence) is the traditional ordering of these 64 hexagrams. It is not the only possible ordering — there are 64! (approximately 10^89) ways to arrange 64 objects — but it is the one that has been used for millennia and is traditionally attributed to [King Wen of Zhou](https://en.wikipedia.org/wiki/King_Wen_of_Zhou) (~1000 BCE), though modern scholarship is divided on the exact origin.
 
-The ordering is not alphabetical, not sorted by number of solid lines, and not random. It appears to follow rules, but those rules were never written down. This program tries to figure out what those rules are.
+The ordering is not alphabetical, not sorted by number of solid lines, and not random. It appears to follow rules, but **no surviving *ancient* source transmits them as a construction**. The classical [Xugua](../reports/METHODS.md) commentary — one of the Ten Wings — does explain the succession, but in semantic and moral terms, not as a rule you could compute with. *Modern* scholars have proposed combinatorial derivations — most prominently [Cook (2006)](CITATIONS.md#cook2006), a 656-page monograph titled *Derivation of the Book of Changes Hexagram Sequence*; see [CITATIONS.md](CITATIONS.md). This program does something narrower: it tests which computable rules the sequence actually satisfies, and how much those rules pin down. ⚠ [CORRECTED 2026-08-28 — this read "those rules were never written down", which this repository's own methodology contradicts: METHODS.md cites the Xugua as the classical attestation for C4's orientation, and 14 files reference it. See documentation/CORRECTIONS.md] ⚠ [CORRECTED 2026-08-30 — the 2026-08-28 replacement made the same claim without the *ancient* scoping, i.e. as a statement about every surviving source, which erases the modern derivation programs this repository itself discusses (CITATIONS.md §Cook 2006 and CITATIONS.md's derivation-claims section). Scoped to *ancient* sources and the modern programs named. Whether Cook's derivation succeeds is a separate question this repository does not adjudicate here.]
 
 ## Why should I care?
 
-The King Wen sequence is one of the oldest known objects exhibiting strong combinatorial structure. However it came to be, the result obeys mathematical regularities — pairing, complementation, transition constraints — that were fixed roughly 2,500 years before the formal study of combinatorics began in Europe. The sequence predates Euler, Pascal, and even Euclid.
+The King Wen sequence is one of the oldest known objects exhibiting strong combinatorial structure. However it came to be, the result obeys mathematical regularities — pairing, complementation, transition constraints — that were fixed, under any dating, many centuries before the European combinatorial tradition of Pascal and Euler.
 
 This doesn't mean the creators thought of it as "mathematics." They may have understood the structure through divination practice, cosmological principles, or aesthetic intuition. But the result is a permutation of 64 objects that satisfies constraints which are vanishingly unlikely by chance. Understanding what those constraints are — and which apparent patterns are real versus illusory — is the point of this program.
 
@@ -40,6 +40,12 @@ python3 roae.py --cast           # Simulate a traditional I Ching reading
 
 For the full command-line reference (all 28 analysis sections, interactive modes, modifiers, and export formats), see [ROAE_PY_CLI.md](ROAE_PY_CLI.md).
 
+**Hardware:** everything above is laptop-scale — stdlib Python, seconds to a couple of minutes, no
+special memory. Two things in this repo are *not*: the full verification suite needs **≥ 12 GB RAM**
+(the Lean kernel checks peak near 9.6 GB — see [VERIFY.md](VERIFY.md) §"Hardware you need"), and
+`solve --estimate-knuth` needs a stack limit of at least 16 MB (`ulimit -s 16384` suffices; `ulimit -s unlimited` also works). Large-scale enumeration is a different world
+again — a 128-core VM and a Premium SSD, per [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md).
+
 ### What --cast looks like
 
 The `--cast` flag simulates a traditional [three-coin method](https://en.wikipedia.org/wiki/I_Ching_divination) reading. Three coins are tossed six times to build a hexagram line by line:
@@ -52,18 +58,18 @@ The `--cast` flag simulates a traditional [three-coin method](https://en.wikiped
   Line 5: coins=2+3+3=8  ---   --- young yin
   Line 6: coins=3+3+3=9  ----o---- old yang (changing)
 
-  Primary hexagram: 30 ䷝ The Clinging
+  Primary hexagram: 30 ䷝ Fire over Fire
   Changing lines: 1, 4, 6
-  Relating hexagram: 15 ䷎ Modesty
+  Relating hexagram: 15 ䷎ Earth over Mountain
 ```
 
-"Changing" lines (marked with `o` or `x`) transform to produce a second hexagram. In traditional practice, the primary hexagram describes the current situation and the relating hexagram shows its trajectory. Each run produces a different result (unless you use `--seed`).
+"Changing" lines (marked with `o` or `x`) transform to produce a second hexagram. In traditional practice, the primary hexagram describes the current situation and the relating hexagram shows its trajectory. Each run produces a different result — unless you pass `--seed`, which does make a casting reproducible: `python3 roae.py --cast --seed 42` is byte-identical run to run, and a different seed gives a different casting. ⚠ [HISTORY — 2026-08-30 this page was corrected to say that `--seed` did *not* work on the `--cast` path, which was true and measured: `--cast` returned from the dispatch ladder before the global-seed assignment, so the seed was parsed and never installed, and four seeded runs gave four distinct castings. The dispatch order was fixed on 2026-09-02 (code batch C2) and the behaviour re-measured; the gate `CAST_SEED_DETERMINISTIC=1` in `tests.py` now holds it, and it was verified red against the pre-fix file. This paragraph is restored to the reproducible reading.]
 
 ## What a hexagram looks like
 
 Each line is either solid (⚊ yang, 1) or broken (⚋ yin, 0):
 
-| | ䷀ The Creative #1 | ䷄ Waiting #5 | ䷁ The Receptive #2 |
+| | ䷀ #1 | ䷄ #5 | ䷁ #2 |
 |---|:---:|:---:|:---:|
 | Line 6 (top) | ⚊ **1** | ⚋ **0** | ⚋ **0** |
 | Line 5 | ⚊ **1** | ⚊ **1** | ⚋ **0** |
@@ -73,7 +79,7 @@ Each line is either solid (⚊ yang, 1) or broken (⚋ yin, 0):
 | Line 1 (bottom) | ⚊ **1** | ⚊ **1** | ⚋ **0** |
 | Binary | **111111** | **010111** | **000000** |
 
-To get the binary code, read the 1s and 0s from the top of the table downward. For example, ䷀ The Creative #1 is all solid lines: 111111. ䷁ The Receptive #2 is all broken lines: 000000. ䷄ Waiting #5 reads 0, 1, 0, 1, 1, 1 from top to bottom, giving 010111 — a mix of solid and broken.
+To get the binary code, read the 1s and 0s from the top of the table downward. For example, ䷀ #1 is all solid lines: 111111. ䷁ #2 is all broken lines: 000000. ䷄ #5 reads 0, 1, 0, 1, 1, 1 from top to bottom, giving 010111 — a mix of solid and broken.
 
 Each hexagram is also split into two halves called **trigrams** — the bottom three lines (lower trigram) and the top three lines (upper trigram). There are 8 possible trigrams:
 
@@ -90,6 +96,22 @@ Each hexagram is also split into two halves called **trigrams** — the bottom t
 
 With 8 possible trigrams in each position, there are 8 x 8 = 64 possible hexagrams.
 
+### Why you will not find hexagram names here
+
+This corpus ships **no hexagram names** — no 卦名, no romanisation of them, and no English
+titles. Where a name would normally appear you get the position number, the Unicode glyph, the
+six bits, and a **structural** description built from the two trigrams: hexagram 1 is
+`Heaven over Heaven`, not "The Creative". The *trigram* names (Qian, Kun, Li, Dui …) do appear,
+because they name the eight three-line figures the description is assembled from — they are not
+hexagram titles.
+
+That is deliberate and it is a limitation, not a feature. Translated titles carry the translator's
+copyright, so a Wilhelm-derived set was removed on 2026-08-27 and public-domain 卦名 were never
+substituted in its place. The cost is real and worth stating plainly: it makes the output harder to
+read for anyone who knows the sequence by name, harder to teach from, and harder to join against
+other datasets. **If you need names, you must supply them yourself** — the `position` column in
+`example/hexagrams.csv` is a stable 1–64 key to join on.
+
 ## Key concepts
 
 ### [Hamming distance](https://en.wikipedia.org/wiki/Hamming_distance)
@@ -97,13 +119,15 @@ With 8 possible trigrams in each position, there are 8 x 8 = 64 possible hexagra
 The "distance" between two hexagrams is the number of lines that differ. For example:
 
 ```
-Hexagram 1 (The Creative):  ䷀  111111  (all solid)
-Hexagram 5 (Waiting):       ䷄  010111  (mixed)
-Hexagram 2 (The Receptive): ䷁  000000  (all broken)
+Hexagram 1:  ䷀  111111  (all solid)
+Hexagram 5:       ䷄  010111  (mixed)
+Hexagram 2: ䷁  000000  (all broken)
 
 Distance between #1 and #2: 6 (every line is different)
-Distance between #1 and #5: 3 (three lines differ)
+Distance between #1 and #5: 2 (two lines differ)
 ```
+
+*(Corrected 2026-08-30: the #1-vs-#5 line read "3 (three lines differ)". 111111 XOR 010111 = 101000, popcount 2; `roae.bit_diff(0b111111, 0b010111)` returns 2. The displayed binary values are the project's own encodings — `binary_hexagrams[4] = 23 = 0b010111`.)*
 
 When you go from one hexagram to the next in the King Wen sequence, some number of lines change (1 through 6). This number is the **Hamming distance**, and the sequence of these distances is called the **difference wave** — it's the core "signal" the program analyzes.
 
@@ -134,6 +158,7 @@ The program runs 28 different analyses. Even with purely random data, you'd expe
 
 Terms used in the program output:
 
+- **"C1+C2+C3" (legacy shorthand)** — In older project text and `solve.c`'s console strings, historical naming for the **C1–C5** canonical population, not a narrower constraint set; see [METHODS.md](../reports/METHODS.md) §"Legacy shorthand".
 - **Bonferroni correction** — A method for adjusting significance thresholds when running multiple tests. Divides the significance level (0.05) by the number of tests (28), giving a stricter threshold of 0.0018.
 - **Cohen's d** — A measure of effect size. Values of 0.2, 0.5, and 0.8 are conventionally considered small, medium, and large effects. Reported alongside percentiles to show how far King Wen deviates from random, not just whether it deviates.
 - **DFT / FFT** — Discrete Fourier Transform. Decomposes the difference wave into frequency components to check for hidden periodicity (repeating patterns at regular intervals).
@@ -149,7 +174,7 @@ Terms used in the program output:
 
 This section checks each of the 32 consecutive pairs and classifies them as reverse, inverse, or neither. The key result: all 32 are one or the other. The program tests how often this happens by chance — the answer is effectively never (0 out of 10,000 random permutations).
 
-**What it means:** In the sequence, every hexagram sits next to its mirror image or its opposite, without exception — a property zero of 10,000 random permutations reproduce. This is the strongest finding in the entire program.
+**What it means:** In the sequence, every hexagram sits next to its mirror image or its complement, without exception — a property zero of 10,000 random permutations reproduce. This is the strongest finding in the entire program.
 
 ### --wave (First order of difference)
 
@@ -177,17 +202,17 @@ Entropy measures disorder. High entropy means the difference values are spread e
 
 ### --complements (Complement distance)
 
-Each hexagram has a complement — the hexagram you get by toggling every line. This section measures how far apart each hexagram and its complement are in the sequence. King Wen places complements significantly closer together than random (0th percentile vs all orderings, 3.9th percentile vs pair-constrained orderings).
+Each hexagram has a complement — the hexagram you get by toggling every line. This section measures how far apart each hexagram and its complement are in the sequence. King Wen places complements significantly closer together than random (0th percentile vs all orderings — the figure this section itself computes). Under the exact pair-constrained (C1&C4) null the tail is 8.1% (`verify.py --check-null-g`); the separately measured 3.9th-percentile figure is at the stricter all-other-constraints scope (C1+C2+C4+C5, from the solve.py differential sample — scope label corrected 2026-07-22). *(**Flagged 2026-08-01, lens sweep** — the 3.9th-percentile figure is not supported by the population it is labelled with; the suite's own ledger gives ≈12% at this scope. Do not cite it: see [SOLVE.md](SOLVE.md) §Rule 3.)*
 
-**What it means:** The sequence keeps opposites unusually close. However, the [constraint solver's null model test](SOLVE-SUMMARY.md#an-important-caveat) shows that complement distance, starting pair, and diff distribution narrow *any* sequence to near-uniqueness — so this property, while real, is less distinctive than the pair structure and no-5 property.
+**What it means:** The sequence keeps opposites unusually close. However, complement distance, starting pair, and diff distribution narrow *many* pair-constrained sequences to near-uniqueness, not King Wen alone — so this property, while real, is less distinctive than the pair structure and no-5 property. That holds because C3–C5 are values extracted from King Wen itself, so the same extraction applied to another sequence yields constraints that pick out *that* sequence; the [constraint solver's null model test](SOLVE_SUMMARY.md#an-important-caveat) pointed the same way. *(Corrected 2026-09-01: this sentence asserted the effect universally and reported that test as settled. The run's artifacts were not preserved and no `solve.py` mode implements its protocol, so it is an **unreproduced historical observation, not a measured result** — see [SOLVE.md](SOLVE.md) §"is the constraint framework special". The conclusion is **not** withdrawn: the extraction reasoning above is independent of that run.)*
 
 ## Summary of findings
 
 | Finding | Strength | Survives correction? |
 |---------|----------|---------------------|
 | Perfect pair structure (all 32 pairs) | Very strong | Yes |
-| Complement distance (0th / 3.9th percentile) | Moderate (see [caveat](SOLVE-SUMMARY.md#an-important-caveat)) | Yes |
-| XOR algebraic regularity (7 products) | Theorem (universal) | N/A — true for any pairing |
+| Complement distance (0th %-ile unconstrained; 8.1% exact C1&C4 null; 3.9th %-ile at C1+C2+C4+C5 — **flagged, see [SOLVE.md](SOLVE.md) §Rule 3**) | Moderate (see [caveat](SOLVE_SUMMARY.md#an-important-caveat)) | **Depends on the null.** Unconstrained: yes (0th %-ile, clears p < 0.0018). C1&C4 conditioned: **no** (8.1%, fails even uncorrected 0.05). C1+C2+C4+C5: unresolved (≈12% by the suite's ledger; the 3.9% figure is flagged, do not cite) *(corrected 2026-08-30: this cell read an unqualified "Yes", which graded only the unconstrained scope while spanning all three)* |
+| XOR algebraic regularity (7 products) | Theorem (universal **within C1**) | N/A — true for any **reverse/inverse** pairing, not any pairing at all *(corrected 2026-08-30: the unqualified "any pairing" is false — the perfect matching (0,1), (2,3), …, (62,63) uses every hexagram once and yields the single product 000001, which is not among the 7. That matching is not a reverse/inverse pairing, so it is outside the theorem's scope rather than a counterexample to it; see [SPECIFICATION.md](SPECIFICATION.md) §Theorem (XOR universality) and [SOLVE.md](SOLVE.md) §Theorem 2)* |
 | No 5-line transitions (~1 in 550) | Moderate | Marginal |
 | Entropy (≈12th percentile) | Weak | No |
 | No detectable periodicity | Null result | N/A |
@@ -198,15 +223,15 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 | Recurrence rate (72nd percentile) | Not significant | No |
 | Neighborhood clustering (12th percentile) | Not significant | No |
 
-The pair structure is genuinely extraordinary — zero of 1.86 billion permutations tested across 6 structured and unstructured null-model families satisfy C1 (see [CRITIQUE.md](CRITIQUE.md) for details). Complement distance is also genuinely unusual — even random 6-bit Gray codes (explicitly optimized for adjacency) cannot beat KW's 776 total complement distance (minimum observed across 10⁵ random Gray codes: 832). The no-5-line-transition property is real and **shared with Jing Fang 8 Palaces** (2 of 4 tested ancient orderings satisfy it; corrected 2026-07-05 — the authentic Mawangdui order has exactly one 5-line transition at a trigram-octet seam, per Shaughnessy 2022 Table 11.2; an earlier erroneous array scored zero and the former "3 of 4 / classical design principle" claim is withdrawn). The genuinely King-Wen-specific properties are the combination (C1 + C2 + C3 together) and the specific C3 threshold of 776.
+The pair structure is genuinely extraordinary — zero of ~2.76 billion permutations tested across 6 structured and unstructured null-model families satisfy C1 (see [CRITIQUE.md](CRITIQUE.md) for details). Complement distance is also uncommon, though far less extreme (roughly the lowest 8-12% depending on the reference population — 8.1% exact under the bare pair-constrained C1&C4 null, and ≈12% by the ledger at the all-other-constraints C1+C2+C4+C5 scope; the long-published "3.9% sampled" figure at that scope is **flagged 2026-08-01**, see [SOLVE.md](SOLVE.md) §Rule 3 — either way not in the same class as C1's 0-in-2.76B); notably, none of 10⁵ sampled random 6-bit Gray codes (explicitly optimized for adjacency) reached KW's 776 total complement distance or lower — a **sampler-scoped rate bound** (≤ 3×10⁻⁵ on that sampler's rate; the sampler is non-uniform and 10⁵ covers ~10⁻¹⁷ of the ~10²² Gray codes). The minimum observed, 832, is a sample statistic, not a family bound: it shows the family minimum is ≤ 832 and does not exclude a Gray code with C3 ≤ 776. *(Corrected 2026-08-30: this asserted a family-level minimum — that no random Gray code improves on 776 — which the 2026-08-28 correction at [CRITIQUE.md](CRITIQUE.md) §Known limitations withdrew in favour of the rate bound.)* The no-5-line-transition property is real and **shared with Jing Fang 8 Palaces** (read as one 64-term sequence in its transmitted palace order; 2 of 4 tested comparison orderings satisfy it; corrected 2026-07-05 — the authentic Mawangdui order has exactly one 5-line transition at a trigram-octet seam, per Shaughnessy 2022 Table 11.2; an earlier erroneous array scored zero and the former "3 of 4 / classical design principle" claim is withdrawn). The genuinely King-Wen-specific property is the combination (C1 + C2 + C3 together); C3's threshold of 776 is KW's own extracted value, so its "specificity" is definitional rather than a finding (wording corrected 2026-07-22). *(Aggregate corrected 2026-08-30: this paragraph carried the pre-upgrade roster total, stale since the random family went 10⁸ → 10⁹. The six unconditional families in [CRITIQUE.md](CRITIQUE.md)'s table now total 134,217,728 de Bruijn + 1,625,702,400 Latin-square + 10⁹ random + 720 lexicographic + 256 Gray-orbit + 10⁵ random-Gray = 2,760,021,104. The dated aggregate in [HISTORY.md](HISTORY.md) is a correct record of the then-current roster and stays.)*
 
-The constraint solver (`solve.c`) goes further: 5 rules narrow 10^89 possibilities to billions of valid orderings. Canonical counts:
+The constraint solver (`solve.c`) goes further: 5 rules narrow 10^89 possibilities to an estimated ≈1.33×10³⁸ valid orderings (the counts below are *budget slices* of that space, not the space itself). Canonical counts:
 - **d3 560T partition: 10,525,271,997** (sha `9a968fa2…`, 2026-06-08, CANONICAL-verified 2026-06-30, **current deepest**)
 - **d3 100T partition: 3,432,399,297** (sha `915abf30…`, 2026-04-20)
-- **d3 10T partition: 706,422,987** (sha `f7b8c4fb…`)
+- **d3 10T partition: 706,427,594** (sha `b85c8871…`, re-established 2026-05-13; the earlier `f7b8c4fb…`/706,422,987 is deprecated — pre-resume-fix undercount, see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated)
 - **d2 10T partition: 286,357,503** (sha `a09280fb…`)
 
-Only Position 1 is universally locked. The number of boundary constraints needed to uniquely identify KW is **4 at d2/d3 10T and 5 at both d3 100T and d3 560T** — monotone non-decreasing with scale, with the identical greedy set `{1, 4, 21, 25, 27}` at both canonical scales *(corrected 2026-07-04: an earlier version said "4 again at 560T, non-monotone" — a survivor-counting error; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*. The working-4-set count is scale-bounded (8 at 11.2T, 4 at 742M, 0 at 100T/560T) — at canonical depth no 4-tuple of boundaries jointly identifies KW. Boundaries **{25, 27} remain in every greedy minimum at all four partitions tested** — the single most stable structural finding. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) and [SOLVE.md](SOLVE.md) §Boundary analysis for the full story.
+Only Position 1 is universally locked. The number of boundary constraints needed to uniquely identify KW is **4 at d2/d3 10T and 5 at both d3 100T and d3 560T** — monotone non-decreasing with scale, with the identical greedy set `{1, 4, 21, 25, 27}` at both canonical scales *(corrected 2026-07-04: an earlier version said "4 again at 560T, non-monotone" — a survivor-counting error; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*. The working-4-set count is scale-bounded (8 at d3 10T, log-verified; an 8 is also attributed to 11.2T but that attribution is **pending confirmation** from the archived 11.2T analyze log — its top-MI entry matches the d3 10T log exactly, so a dataset mislabel is not excluded; 4 at 742M, historical-only and **not comparable** — it was computed under the pre-format-v1 "survivors ≤ 4" predicate, not the canonical-era "≤ 1"; 0 at 100T/560T) — at canonical depth no 4-tuple of boundaries jointly identifies KW. Boundaries **{25, 27} remain in every greedy minimum at all four partitions tested** — the single most stable structural finding. See [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) (the authority for the result table above) and [SOLVE.md](SOLVE.md) §Boundary analysis for the full story. *(Corrected 2026-08-30: the working-4-set series read "8 at 11.2T, 4 at 742M, 0 at 100T/560T", presenting an unconfirmed attribution and a non-comparable legacy point as one measured series while omitting the solidly measured d3 10T point.)*
 
 ## Frequently asked questions
 
@@ -216,7 +241,7 @@ It shows the *ordering* of the hexagrams satisfies strict mathematical constrain
 
 **What about Timewave Zero?**
 
-Terence McKenna believed the difference wave encoded a fractal pattern mapping onto human history. This program computes the same difference wave McKenna used but does not implement his fractal expansion step. The program's findings challenge several of McKenna's specific claims — see [MCKENNA.md](MCKENNA.md) for details.
+Terence McKenna believed the difference wave encoded a fractal pattern mapping onto human history. This program computes the difference wave over the sequence's 63 **linear** transitions and does not implement his fractal expansion step. Note the scope difference: McKenna's reported 3:1 even:odd ratio is over the 64-transition **circular** wave, which also counts the wrap from #64 back to #1 (Hamming distance 3, odd). The linear command therefore yields 15 odd of 63 = **23.8%**, not McKenna's 16 of 64 = **25.0%** — see [MCKENNA.md](MCKENNA.md), where the odd wrap is proved a theorem and the 25/75 split is confirmed in its circular reading. *(Corrected 2026-08-30: this claimed the program reproduces the wave McKenna worked from, conflating the linear and circular scopes; the distinction MCKENNA.md carries had not been propagated here.)* The program's findings challenge several of McKenna's specific claims — see [MCKENNA.md](MCKENNA.md) for details.
 
 **Why does 5 never appear in the difference wave?**
 
@@ -224,20 +249,20 @@ Because of the pair structure. Within each reverse or inverse pair, the Hamming 
 
 **What is the single most important finding?**
 
-The perfect pair structure. Every one of the 32 consecutive pairs is either a reverse or an inverse — no exceptions. Zero out of 10,000 random permutations achieved this. It's the one finding that is both statistically extraordinary and not explained by any simpler property.
+The perfect pair structure. Every one of the 32 consecutive pairs is either a reverse or an inverse — no exceptions. Zero out of 10,000 random permutations achieved this. It is statistically extraordinary. The partner *scheme* does have a first-principles characterization: the observed comp/rev matching is the unique Hamming-cost-minimizing matching on {0,1}⁶ ([SPECIFICATION.md](SPECIFICATION.md) §C1; [Radisic 2026](CITATIONS.md#radisic2026), Lean-verified, re-checked in-repo at [lean/HammingOptimalMatching.lean](../lean/HammingOptimalMatching.lean)) — that theorem says nothing about King Wen and derives which hexagrams pair with which. What no simpler property explains is the other half: that the sequence places those partners *consecutively*, all 32 times. *(Corrected 2026-08-30: this read "not explained by any simpler property" without qualification, withholding the published optimality characterization from the reader weighing the figure.)*
 
 **Is the complement distance finding new?**
 
-The program finds that King Wen places complementary hexagrams closer together than random (0th percentile against unconstrained random orderings; 3.9th against the pair-constrained null). It appears to be a genuine structural regularity not widely discussed in prior analyses — with one important scope note: within the fully constrained C1+C2+C3 population, KW sits at the complement-distance *maximum* (most valid orderings place complements closer; see [SOLVE.md](SOLVE.md)).
+The program finds that King Wen places complementary hexagrams closer together than random (0th percentile against unconstrained random orderings; 8.1% under the exact pair-constrained C1&C4 null, `verify.py --check-null-g`; 3.9th percentile — sampled, and **flagged 2026-08-01**: see [SOLVE.md](SOLVE.md) §Rule 3, the ledger gives ≈12% at that scope — at the stricter C1+C2+C4+C5 scope). It appears to be a genuine structural regularity not widely discussed in prior analyses — with one important scope note: within the fully constrained C1–C5 population, KW sits at the complement-distance *maximum* (most valid orderings place complements closer; see [SOLVE.md](SOLVE.md)).
 
 **Can I trust the percentiles?**
 
-The percentiles are Monte Carlo estimates based on 10,000-100,000 random permutations. With `--seed`, they are reproducible. They are precise enough to distinguish "clearly significant" from "clearly not significant" but should not be interpreted to decimal-point precision — a result at the 12th percentile and one at the 14th percentile are functionally the same.
+The percentiles are Monte Carlo estimates based on 5,000-100,000 random permutations, depending on the analysis: most use 10,000 or 100,000, but the pair-constrained path-length comparison and the Markov/concentration and trigram-MI modes use 5,000 (`roae.py`, `pair_trials = 5000` and `trials = 5000`; `--markov --seed 42` prints "2087/5000"). *(Corrected 2026-08-30: this stated a 10,000-trial floor, which is false for those three shipped modes.)* With `--seed`, they are reproducible. They are precise enough to distinguish "clearly significant" from "clearly not significant" but should not be interpreted to decimal-point precision — a result at the 12th percentile and one at the 14th percentile are functionally the same.
 
 ## Where to go deeper
 
-- [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) — Plain-language summary of how the King Wen sequence was built (start here)
-- [SOLVE.md](SOLVE.md) — Full technical details: the constraint solver and generative recipe (`solve.py`)
+- [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) — Plain-language summary of how the King Wen sequence is structured (start here)
+- [SOLVE.md](SOLVE.md) — Full technical details: the constraint solver and the rule-set (`solve.py`)
 - [MCKENNA.md](MCKENNA.md) — How these findings relate to Terence McKenna's Timewave Zero theory, what holds up and what doesn't
 - [CRITIQUE.md](CRITIQUE.md) — Known limitations of the program's statistical methodology
 - [Example output](../example/README.md) — Full program output with all 28 analyses
@@ -246,3 +271,7 @@ The percentiles are Monte Carlo estimates based on 10,000-100,000 random permuta
 ---
 
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
+
+*Revision 2026-07-22 (C3 scope-consistency sweep): the 3.9th-percentile complement-distance figure was previously labeled "vs pair-constrained orderings"; its measured scope is C1+C2+C4+C5 (every constraint except C3 itself), and the exact pair-constrained (C1&C4) null tail is 8.1% (`verify.py --check-null-g`). "Genuinely unusual" was softened to "uncommon" for C3 (lowest 4-8% is moderate rarity, not C1-class), and "the specific C3 threshold of 776" was removed from the King-Wen-specific list (definitional — the threshold is KW's own extracted value). No counts or shas changed.*
+
+*Revision 2026-08-01 (lens sweep — C3 percentile flag): the 3.9th-percentile complement-distance figure is **flagged and withdrawn from citation**. It is a statistic of the 13,296-ordering `solve.py` differential slice, whose stated range [11.75, 14.5] cannot be the range of C1+C2+C4+C5 — the strictly smaller C1–C5 canonical contains orderings at cd = 6.125 — and the suite's own ledger gives 1.3287×10³⁸ / 1.097051×10³⁹ ≈ **12%** at that scope. The 2026-07-22 scope correction above fixed the figure's *label*, not the figure. Authoritative statement of the flag, and the measurement that would settle it: [SOLVE.md](SOLVE.md) §Rule 3. No canonical count, sha, or theorem changed.*

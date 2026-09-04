@@ -1,13 +1,73 @@
 cff-version: 1.2.0
 title: "Received Order Analysis Engine (ROAE)"
-message: "If you use this software, please cite it as below."
+message: "If you use this software, please cite it as below, naming the state you actually read.
+  This citation resolves to the repository's default branch, `main` — the published corpus, and the
+  only branch corrections land on. Add the commit sha you read, and for a technical report that
+  report's version: 'TR-2 v1.24, commit abc1234'. No commit, version or release date is stamped in
+  this file; the reasoning is recorded in its comments."
 type: software
 authors:
   - family-names: Peterson
     given-names: Matthew
     orcid: "https://orcid.org/0000-0003-4422-4463"
-date-released: "2026-04-08"
+#
+# ---------------------------------------------------------------------------------------------
+# WHY THIS FILE STAMPS NO `commit`, `version` OR `date-released` — read before adding one back.
+# Recorded 2026-09-01, because the previous change to these fields was undone by drift precisely
+# because its rationale was never written down.
+# ---------------------------------------------------------------------------------------------
+#
+# What this file is: the source for GitHub's "Cite this repository" button and for reference
+# managers, which consume it WITHOUT a human in the loop. Whatever it points at is where citers are
+# sent, unread — so it must point somewhere that still contains the work being cited.
+#
+# What it now says is what the prose says: README.md §"Which branch to read" instructs `cite main`,
+# reports/README.md §"Living documents" instructs that citations `name a version and a commit`, and
+# reports/METHODS.md §"Environment (version pinning)" rules that the repository is pinned by
+# `commit sha` (correction CX-31, 2026-08-07, replacing "pin to the release tag"). Exactness is the
+# sha the citer read — the one thing a static file cannot know, and the thing this file kept
+# getting wrong.
+#
+# Two frozen alternatives were considered on 2026-09-01 and BOTH WERE REJECTED ON MEASUREMENT:
+#
+#   * commit `9169b0e532393fb82edca99cd0b5c419a8a56f7e` — stamped here from 2026-08-08 (80878ee7)
+#     until 2026-09-01. By 2026-09-01 it was 643 commits behind `main`
+#     (`git rev-list --count 9169b0e5..origin/main`), and its tree contains NO
+#     reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md, NO
+#     reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md, NO documentation/CORRECTIONS.md, and not
+#     even reports/README.md — `git cat-file -e 9169b0e5:<path>` fails on all four. A reader
+#     following the citation button to check a TR-10 claim found no TR-10; one looking for the
+#     corrections ledger found no ledger.
+#
+#   * the release tag `reports-v1.0` (2026-07-03, the suite's first public release) — it resolves to
+#     the SAME commit, `9169b0e5`, so it carries exactly the same four holes. `git tag` shows no
+#     later suite-version tag was ever cut, so there is no tag that does contain the eleven-report
+#     suite; CX-31 had already retired tag-pinning for that reason.
+#
+# The pin was not merely overtaken — it was wrong the day it was written: `9169b0e5` was already
+# 495 commits behind the commit that stamped it (`git rev-list --count 9169b0e5..80878ee7`), and
+# TR-10, TR-11 and CORRECTIONS.md all existed in 80878ee7's own tree.
+#
+# Why no repo-wide `version` or `date-released` either: the corpus is continuously published and
+# living-versioned PER REPORT (reports/README.md §"Living documents: the versioning policy"), so no
+# single string describes the whole of it. `version: "reports-v1.0"` with
+# `date-released: "2026-07-03"` labelled a living, repeatedly-corrected corpus with a July snapshot
+# — the same misdirection as the pin, in the two fields a reference manager renders most prominently.
+#
+# The failure mode to avoid, stated plainly because it has already happened once here: until
+# 2026-08-08 this file carried no version at all and `date-released: 2026-04-08`, three months
+# BEFORE the suite was first published. That was correctly flagged — and the repair ADDED the pin
+# above. A commit field being PRESENT is not evidence that it is RIGHT. If a frozen ref is ever
+# stamped here again, verify it first and record the verification:
+#
+#   for f in reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md \
+#            reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md \
+#            documentation/CORRECTIONS.md reports/README.md; do
+#     git cat-file -e "<ref>:$f" 2>/dev/null || echo "ABSENT in <ref>: $f"
+#   done
+#
 url: "https://github.com/petersm3/roae"
+repository-code: "https://github.com/petersm3/roae"
 license: Unlicense
 keywords:
   - King Wen sequence

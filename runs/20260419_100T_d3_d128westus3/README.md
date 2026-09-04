@@ -20,7 +20,7 @@ the 100T sha depends only on solver + inputs, not subsequent doc edits).
 - **Solutions.bin size**: 109,836,777,536 bytes (102.3 GB)
 - **Pre-dedup records processed**: 13,832,832,979
 - **Merge chunks produced**: 60,533 (external merge via P40 Premium SSD scratch)
-- **Distinct from 10T sha** `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` because 100T has a different `SOLVE_NODE_LIMIT` parameter. Both are valid canonical references at their respective budgets (per [PARTITION_INVARIANCE.md](../../documentation/PARTITION_INVARIANCE.md), sha is a function of solver + inputs).
+- **Distinct from 10T sha** `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` because 100T has a different `SOLVE_NODE_LIMIT` parameter. **DEPRECATION NOTE (added 2026-08-01):** that 10T d3 sha, and the 706,422,987 count derived from it, were **deprecated 2026-05-13** as a pre-resume-fix *undercount* (incomplete by 4,607 records lost via imperfect resume); the current 10T d3 canonical is `b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc` / 706,427,594 records — see [CANONICAL_HASHES.md](../../documentation/CANONICAL_HASHES.md) §Deprecated. Every 10T figure in this file (including the ~4.86x ratio below) is computed from the deprecated undercount and is left as-published for the historical record. The 100T sha, count and analysis in this file are unaffected. Both were valid canonical references at their respective budgets at archive time (per [PARTITION_INVARIANCE.md](../../documentation/PARTITION_INVARIANCE.md), sha is a function of solver + inputs).
 
 ## Relationship to 10T canonical
 
@@ -62,21 +62,24 @@ Projected at launch (2026-04-19 08:00 UTC): enum ~11h (**actual 11h 22m 07s ✓ 
 | `solutions.sha256` | 80 B | sha256 digest (primary integrity check) |
 | `solutions.meta.json` | ~710 B | format version, record count, generator, timestamp |
 | `enum_output.log.gz` | ~MB | compressed enumeration stdout |
-| `external_merge.log.gz` | ~KB | compressed external-merge stdout with chunk progression |
+| ~~`external_merge.log.gz`~~ | - | **NOT PRESENT** (corrected 2026-08-01): this file was never produced or committed. The external-merge stdout, including the `ALL CONSTRAINTS VERIFIED` line, is inside `enum_output.log.gz`. |
 | `README.md` | this file | run narrative + placeholders filled in |
 
 ## What's NOT in this directory (and why)
 
-`solutions.bin` (actual 102.3 GB at 100T depth — exceeded the 30-65 GB estimate) is NOT archived here. It lives on the `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS). The sha is the reproducibility anchor; regenerating the bytes is a 13-hour / ~$30 compute task if ever needed (partition invariance guarantees byte-identical reproduction).
+`solutions.bin` (actual 102.3 GB at 100T depth — exceeded the 30-65 GB estimate) is NOT archived here. It lives on the `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS). The sha is the reproducibility anchor; regenerating the bytes is a ~17-hour / ~$30 compute task if ever needed (measured 16h 47m 45s enum+merge; see Timings) (partition invariance guarantees byte-identical reproduction).
 
 ## How to re-obtain `solutions.bin`
 
-Option 1 — re-enumerate from scratch (~$30, ~13 hrs on D128 spot):
+Option 1 - re-enumerate from scratch (~$30; budget **~17 h** on D128 spot, per this run's own measured Timings table above: 11h 22m enum + 5h 26m merge = 16h 47m 45s. The "~13 hrs" this line previously carried was the pre-run projection, not the measurement):
 ```
 ssh solver@<a D128als_v7 westus3 VM with 1.5 TB disk>
 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=100000000000000 SOLVE_THREADS=128 ./solve 0
 SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch ./solve --merge
-sha256sum solutions.bin  # must equal [[TBD from solutions.sha256]]
+gzip -dc solutions.bin | sha256sum  # must equal 915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5
+                                    # (this run predates #169 and wrote a RAW solutions.bin, for which plain
+                                    #  `sha256sum solutions.bin` is correct; a re-derivation on current solve.c
+                                    #  gets a gz-framed file, hence the gzip -dc form)
 ```
 
 Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directly.
@@ -85,9 +88,21 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 
 - `./solve --merge` internal post-validation: **PASS** ("ALL CONSTRAINTS VERIFIED" in merge log; 0 errors)
 - King Wen present: YES (in merge-stage validation)
-- All records C1-C5 valid: YES (0 errors across all 3,432,399,297 records)
+- All records C1-C5 valid: YES (0 errors across all 3,432,399,297 records) — see the C3 note below
 - Sort order + dedup: OK (no duplicates, strict sort order)
 - Independent `--verify` pass: **PASS** — *"VERIFY PASS: all 3432399297 records satisfy C1-C5, sorted, no duplicates"*, KW present. See `verify_output.log` in this directory.
+- **C3 scope note (added 2026-08-01).** The archived `verify_output.log` was produced by the
+  2026-04-19 binary, which checked **C1, C2, C4, C5 only** — its results block has no `C3 failures`
+  line. The per-constraint C3 check was added to `--verify` on 2026-05-05 (commit `1267a8e`,
+  "solve.c: add C3 complement-distance check to --verify"), 16 days after this run, and the current
+  summary string reads `satisfy C1-C5 (incl. C3)` (solve.c:19522) — a different string from the one
+  quoted above. So the quoted `--verify` line, and the "All records C1-C5 valid" bullet above,
+  rest on four conjuncts, not five, **as far as `verify_output.log` is concerned**.
+  C3 is nevertheless verified for this artifact, by a different instrument in this same directory:
+  `c3_min_output.log` walks all 3,432,399,297 records and reports `Maximum C3 observed: 776`, i.e.
+  no record exceeds the C3 ceiling. No published count or sha changes; only the provenance pointer
+  for the C3 conjunct does. Re-running `--verify` with a current binary would fold C3 back into the
+  single log.
 - `--analyze` output: **COMPLETE** (wall 4156s = 69m 16s). Headline findings:
   - **5-boundary minimum at 100T d3** (SUPERSEDES earlier "4-boundary minimum" finding from d2/d3 10T). Section [8] exhaustive test: 0 working 4-subsets. Greedy-optimal 5-set: **{1, 4, 21, 25, 27}**. Boundaries {25, 27} still mandatory (present in the 5-set).
   - **Shift-pattern conformance: 2,635,756 / 3.43B = 0.077%** (vs 0.062% at d3 10T and 2.69% at d2 10T). Trajectory: d2 → d3 10T → d3 100T is not monotonically decreasing — 100T slight increase over 10T suggests some rare shift-conforming orderings surface only at deeper budget.
@@ -99,7 +114,7 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 
 ## Visualization
 
-- 8 files in `viz/` (4 PNG + 4 SVG): `viz_edit_distance`, `viz_complement_dist`, `viz_position2_cluster`, `viz_adjacency`. Locally archived but NOT committed per standing user directive.
+- 8 files in `viz/` (4 PNG + 4 SVG): `viz_edit_distance`, `viz_complement_dist`, `viz_position2_cluster`, `viz_adjacency`. **Correction 2026-08-01: all 8 ARE committed** (`git ls-files viz/` lists them, and `viz/README.md` says so); the "NOT committed" clause here was stale.
 - Generated 2026-04-20 on d128-westus3 after MERGEDONE.
 - **Sampling methodology (fully deterministic, seed=42):**
   - Uniformly-random 1M-record subsample from the 3.43B canonical via one-pass vectorized reservoir sampling (Algorithm R) — produces identical output on every re-run with the same file + seed.

@@ -17,12 +17,22 @@ Figures produced (PNG + SVG, written to CWD — run from reports/figures/):
                                   (TR-1 §5 / TR-2; the conflict theorem's trade-off)
   fig_tr3_campaign_timeline     — first 560T run timeline with the 5 Spot-eviction marks
                                   (CAMPAIGN_METHODOLOGY.md eviction table)
+  fig_tr12_kc_field             — V1 positional-marginal field   (viz/viz_kc_field.md)
+  fig_tr12_kc_river             — V2 mass river + branch panel   (viz/viz_kc_river.md)
+  fig_tr12_kc_spectrum          — V3 rank spectrum               (viz/viz_kc_spectrum.md)
+  fig_tr12_kc_shells            — V4 King Wen's shells           (viz/viz_kc_shells.md)
+  fig_tr12_kc_grammar           — V5 transition grammar          (viz/viz_kc_grammar.md)
+
+The five TR-12 figures are TSV-in/figure-out over the tables written by
+`python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` — no analysis
+logic lives here. Each is skipped with a message if its TSV is absent.
 
 Requires: matplotlib, numpy (external — not a dependency of roae.py / solve.c).
 
 Usage:
-    cd reports/figures/ && python3 ../../viz/report_figures.py
+    cd reports/figures/ && python3 ../../viz/report_figures.py [TR12_ARTIFACT_ROOT]
 """
+import math
 import os
 import sys
 from datetime import datetime, timedelta
@@ -94,8 +104,28 @@ def fig_tr4_boundary_information():
     #   k=1: 7.49e-4 (9.95e34 survivors); k=2: 9.39e-7 (1.25e32);
     #   k=3: 4.27e-10 (5.68e28); k=4: 6.34e-13 (8.42e25).
     # Full-space size 1.3287e38 (TR-4 §3); greedy per-boundary cut ~1e3; weakest-boundary
-    # bracket (k=5-8) still cut x15-17 per boundary; extrapolated uniqueness at ~13-14
-    # boundaries (wide error; prior structural estimate 15-20).
+    # bracket (k=5-8) reported at x15-17 per boundary but ILLUSTRATIVE, not measured — its
+    # chain outputs are not archived and it is not reproducible from published material
+    # (restated 2026-09-02, TR-4 v1.25); extrapolated uniqueness at ~15-20
+    # boundaries (current; supersedes an earlier ~13-14 estimate; heuristic floor k>=12).
+    # NOTE 2026-08-01: the former "hard"-floor-of-13 wording was WITHDRAWN (the exact
+    # retracted string is deliberately not repeated here — doc_gates.sh GATE 6 scans this
+    # file for registered retracted phrasings and cannot distinguish narration from
+    # assertion). The divisor 10.38 is only the
+    # unconditional maximum gain, and the same data shows 11.10 at step 3, giving 12; and no
+    # necessity bound follows from the argument at all (TR-4 v1.15). The old wording was still
+    # RENDERED in the committed SVG, where matplotlib had turned it into glyph paths — invisible
+    # to the markdown retraction gate. Regenerate the figure after changing this text.
+    # NOTE 2026-08-06: the title's parenthetical formerly asserted that 4 boundaries uniquely
+    # identify KW in the 560T slice — the claim CORRECTIONS.md CX-06 (2026-07-04) retracted:
+    # the 4-count was a survivor-counting error (the count stopped at 1 remaining non-KW
+    # survivor, rec#330177707, KW with positions 2-3 pair-swapped); the 560T slice-identifying
+    # set has FIVE boundaries, {4, 27, 25, 21, 1}, identical at 100T and 560T. The corrected
+    # title matches TR-4 v1.7.1: the first 4 of the 5 (the ones S(k) measures here) still
+    # admit ~8.4e25 full-space orderings. The stale wording survived 33 days in the rendered
+    # PNG/SVG because it is not a registered string in RETRACTED_PHRASES.tsv, so GATE 6's
+    # generator scan had nothing to match. (This comment narrates; it does not restate the
+    # retracted claim as fact.)
     k = np.array([1, 2, 3, 4])
     S = np.array([7.49e-4, 9.39e-7, 4.27e-10, 6.34e-13])
     survivors = ["9.95×10³⁴", "1.25×10³²", "5.68×10²⁸", "8.42×10²⁵"]
@@ -108,7 +138,7 @@ def fig_tr4_boundary_information():
     # measured greedy points
     ax.plot(k, S, "-", color="#1f77b4", lw=1.5, alpha=0.7, zorder=4)
     ax.scatter(k, S, s=90, color="#d32f2f", zorder=5,
-               label="measured S(k), greedy 560T identifying order {4, 27, 25, 21}")
+               label="measured S(k), greedy 560T identifying order {4, 27, 25, 21, 1}")
     for ki, Si, sv in zip(k, S, survivors):
         ax.annotate(f"S({ki}) = {Si:.2e}\n{sv} survivors", (ki, Si),
                     textcoords="offset points", xytext=(10, 4), fontsize=9)
@@ -118,19 +148,22 @@ def fig_tr4_boundary_information():
     ax.plot(k_ext, S[-1] * (1e-3) ** (k_ext - 4), "--", color="#1f77b4", lw=1.3, alpha=0.8,
             label="extrapolation at the ~×10³/boundary greedy cut (NOT measured)")
 
-    # weakest-remaining-boundary bracket: k=5-8 still cut x15-17 per boundary
+    # weakest-remaining-boundary bracket: k=5-8 reported at x15-17 per boundary.
+    # ILLUSTRATIVE, not measured: the only archived S(k) outputs (reports/evidence/sk/)
+    # are greedy chains, so these two literals are the one thing on this figure with no
+    # file under reports/evidence/ behind it. Labelled as such since 2026-09-02.
     k_br = np.arange(4, 9)
     ax.fill_between(k_br, S[-1] * (1 / 17.0) ** (k_br - 4), S[-1] * (1 / 15.0) ** (k_br - 4),
                     color="#e8a33d", alpha=0.35,
-                    label="weakest-remaining-boundary bracket, ×15–17/boundary (measured, k = 5–8)")
+                    label="weakest-remaining-boundary bracket, ×15–17/boundary (illustrative, k = 5–8)")
 
     # the uniqueness level and the extrapolated-uniqueness band
     ax.axhline(S_unique, color="#388e3c", lw=1.3, ls="-.")
     ax.text(0.7, S_unique * 3, "uniqueness: S(k) = 1/1.3287×10³⁸ (one surviving ordering)",
             fontsize=9, color="#2e7d32", va="bottom")
-    ax.axvspan(13, 20, color="#388e3c", alpha=0.12)
-    ax.text(16.5, 1e-8, "extrapolated full-space\nuniqueness range:\n~13–14 boundaries (wide error;\n"
-                        "prior structural estimate 15–20)",
+    ax.axvspan(15, 20, color="#388e3c", alpha=0.12)
+    ax.text(16.5, 1e-8, "extrapolated full-space\nuniqueness range:\n~15–20 boundaries (current;\n"
+                        "supersedes earlier ~13–14 est.;\nheuristic floor k ≥ 12)",
             fontsize=9, color="#2e7d32", ha="center")
 
     ax.set_xlim(0.5, 20.5)
@@ -139,8 +172,8 @@ def fig_tr4_boundary_information():
     ax.set_xlabel("k = number of King Wen boundary constraints imposed", fontsize=12)
     ax.set_ylabel("S(k) = fraction of the full C1–C5 population agreeing with KW (log scale)", fontsize=11)
     ax.set_title("The boundary-information curve S(k) — slice-uniqueness vs space-uniqueness\n"
-                 "(the 4 boundaries that uniquely identify KW in the 560T slice still admit ≈8.4×10²⁵ "
-                 "full-space orderings)", fontsize=12)
+                 "(the first 4 of the 5 boundaries that identify KW in the 560T slice still admit "
+                 "≈8.4×10²⁵ full-space orderings)", fontsize=12)
     ax.grid(True, which="both", ls=":", alpha=0.4)
     ax.legend(fontsize=9, loc="lower left")
     ax.set_facecolor("#f8f8f8")
@@ -194,10 +227,15 @@ def fig_tr1_rules_tradeoff():
     ax.set_title("THE CONFLICT THEOREM's trade-off: the four rules cannot all be satisfied\n"
                  "(jointly UNSAT under C1+C2+C4+C5, drat-trim-verified) — any ordering must choose",
                  fontsize=12)
-    ax.text(1.7, -0.95,
-            "KW keeps the trigram configuration exactly and misses the other three by the minimal "
-            "measured margins;\nthe 3-edit grand precursor perfects those three and breaks the trigram "
-            "configuration. Both cannot be had.",
+    # The superlative ("the minimal measured margins") was WITHDRAWN 2026-08-28: f11_runA.out
+    # carries `f11_hist 1 1 0` (4.13e-09) and `f11_hist 2 1 1` (2.93e-08), both nonzero and
+    # componentwise no worse than KW's `2 2 2`, and that histogram is not CC-N4-conditioned, so
+    # no extremal check exists. The prose and captions were corrected then and on 2026-09-01;
+    # this rendered string was the last live copy (fixed 2026-09-02, prose batch P73).
+    ax.text(1.7, -1.0,
+            "KW keeps the trigram configuration exactly and misses the other three by two each\n"
+            "(no extremal check excludes a smaller miss); the 3-edit grand precursor perfects\n"
+            "those three and breaks the trigram configuration. Both cannot be had.",
             ha="center", va="center", fontsize=9, color="#555555")
     ax.grid(True, axis="x", ls=":", alpha=0.4)
     ax.legend(fontsize=9, loc="upper right")
@@ -277,8 +315,281 @@ def fig_tr3_campaign_timeline():
     save(fig, "fig_tr3_campaign_timeline")
 
 
+
+
+# ===========================================================================
+# TR-12 — the V-family figures (V1..V5)
+#
+# TSV in, figure out.  These functions read the evidence tables written by
+#   python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR
+# (the atlas consumer) and do NOTHING else: no re-derivation, no filtering,
+# no arithmetic beyond the axis transforms matplotlib needs.  Every analytic
+# quantity — masses, probabilities, the King Wen overlay columns — is
+# computed in solve.py and gated there (`--atlas-selftest`, ATLAS_CONSUMER).
+# Column names and order are pinned by viz/viz_kc_*.md.
+#
+# The mass columns are 192-bit decimal strings and are deliberately NOT read
+# here; the float `p` / `p_cond` / `share` columns exist for the axes.
+# ===========================================================================
+
+def _read_tsv(path):
+    """Tiny tab-separated reader -> list of dicts.  No type coercion."""
+    with open(path) as fh:
+        head = fh.readline().rstrip("\n").split("\t")
+        return [dict(zip(head, line.rstrip("\n").split("\t")))
+                for line in fh if line.strip()]
+
+
+def _log10_bigint(s):
+    """log10 of an exact decimal-integer STRING, for a log axis.
+
+    The 192-bit counts overflow float64 at full-31, so the exponent comes from
+    the digit count and only the leading digits are floated.  Axis placement
+    only -- the exact value is the TSV column, never this.
+    """
+    s = s.strip()
+    head = s[:15]
+    return (len(s) - 1) + math.log10(float(head) / 10 ** (len(head) - 1))
+
+
+def _missing(path, what, how="python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR"):
+    print(f"SKIP {what}: {path} not found (produce it with `{how}`)")
+    return False
+
+
+# --- V1 -- the positional-marginal field (viz/viz_kc_field.md) -------------
+def fig_tr12_kc_field(tsv):
+    if not os.path.exists(tsv):
+        return _missing(tsv, "V1 field")
+    rows = _read_tsv(tsv)
+    ks = sorted({int(r["k"]) for r in rows})
+    ps = sorted({int(r["pair"]) for r in rows})
+    M = np.zeros((len(ps), len(ks)))
+    kw = []
+    for r in rows:
+        i, j = ps.index(int(r["pair"])), ks.index(int(r["k"]))
+        M[i, j] = float(r["p"])
+        if r["kw"] == "1":
+            kw.append((i, j))
+    fig, ax = plt.subplots(figsize=(13, 8), dpi=150)
+    im = ax.imshow(M, aspect="auto", origin="lower", cmap="magma",
+                   interpolation="nearest")
+    for i, j in kw:
+        ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False,
+                                   edgecolor="#4fc3f7", lw=1.6))
+    ax.set_xticks(range(len(ks)))
+    ax.set_xticklabels([str(k + 2) for k in ks], fontsize=7)
+    ax.set_yticks(range(0, len(ps), 2))
+    ax.set_yticklabels([str(ps[i]) for i in range(0, len(ps), 2)], fontsize=7)
+    ax.set_xlabel("pair-slot (layer k fills slot k+2)", fontsize=10)
+    ax.set_ylabel("global pair index", fontsize=10)
+    ax.set_title("V1 — positional-marginal field P(pair j at slot k), exact over "
+                 "C1C2C4C5-SUPERSPACE\nblue cells: King Wen's own placements "
+                 "(diagonal by construction — the value, not the shape, is the content)",
+                 fontsize=11)
+    fig.colorbar(im, ax=ax, label="P(pair at slot) — column sums = 1")
+    fig.tight_layout()
+    save(fig, "fig_tr12_kc_field")
+    return True
+
+
+# --- V2 -- the mass river + branch panel (viz/viz_kc_river.md) -------------
+def fig_tr12_kc_river(river_tsv, branches_tsv):
+    if not os.path.exists(river_tsv):
+        return _missing(river_tsv, "V2 river")
+    rows = _read_tsv(river_tsv)
+    ks = sorted({int(r["k"]) for r in rows})
+    ds = sorted({int(r["d"]) for r in rows})
+    band = {d: [0.0] * len(ks) for d in ds}
+    kw_d = [None] * len(ks)
+    for r in rows:
+        band[int(r["d"])][ks.index(int(r["k"]))] = float(r["p"])
+        kw_d[ks.index(int(r["k"]))] = int(r["kw_d"])
+    have_b = os.path.exists(branches_tsv)
+    fig, axes = plt.subplots(2 if have_b else 1, 1, figsize=(13, 9 if have_b else 5),
+                             dpi=150, gridspec_kw={"height_ratios": [3, 2]} if have_b else None)
+    ax = axes[0] if have_b else axes
+    colors = ["#1f77b4", "#66bb6a", "#e8a33d", "#d32f2f", "#8e24aa", "#00838f"]
+    ax.stackplot(ks, *[band[d] for d in ds],
+                 labels=[f"d = {d}" for d in ds], colors=colors[:len(ds)], alpha=0.9)
+    if any(v is not None and v >= 0 for v in kw_d):
+        y = []
+        for j, k in enumerate(ks):
+            acc = 0.0
+            for d in ds:
+                if d == kw_d[j]:
+                    y.append(acc + band[d][j] / 2.0)
+                    break
+                acc += band[d][j]
+            else:
+                y.append(np.nan)
+        ax.step(ks, y, where="mid", color="white", lw=2.0, zorder=6)
+        ax.step(ks, y, where="mid", color="#111111", lw=1.0, zorder=7,
+                label="King Wen's own class")
+    ax.set_xlim(min(ks), max(ks))
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("layer k (fills pair-slot k+2)", fontsize=10)
+    ax.set_ylabel("share of C1C2C4C5-SUPERSPACE", fontsize=10)
+    ax.set_title("V2 — mass river: exact per-layer boundary-distance class mass "
+                 "(band AREAS are fixed by the C1+C5 theorem; only the shape across k "
+                 "is informative)", fontsize=11)
+    ax.legend(fontsize=8.5, loc="upper right", ncol=len(ds) + 1)
+    if have_b:
+        br = _read_tsv(branches_tsv)
+        br = sorted(br, key=lambda r: float(r["share"]), reverse=True)
+        ax2 = axes[1]
+        x = range(len(br))
+        ax2.bar(x, [float(r["share"]) for r in br], color="#1f77b4",
+                label="solutions(b) / N")
+        ax2.set_xticks(list(x))
+        ax2.set_xticklabels([f"{r['pair']}:{r['entry']}" for r in br],
+                            fontsize=6, rotation=90)
+        ax2.set_ylabel("branch share of N", fontsize=9)
+        ax2.set_xlabel("branch (pair : entry hexagram), sorted by mass", fontsize=9)
+        tvals = [r["prefixes_t_units"] for r in br]
+        if all(t.isdigit() for t in tvals):
+            ax3 = ax2.twinx()
+            ax3.plot(list(x), [_log10_bigint(t) for t in tvals],
+                     color="#d32f2f", marker="o", ms=3, lw=1.2,
+                     label="log10 prefixes_t_units")
+            ax3.set_ylabel("log10 exhaustion cost (t-units)", fontsize=9, color="#d32f2f")
+            ax3.tick_params(axis="y", labelcolor="#d32f2f")
+        ax2.set_title("branch panel — solution mass (bars) vs exhaustion cost "
+                      "(line); a small-but-expensive branch is the atlas's point",
+                      fontsize=10)
+    fig.tight_layout()
+    save(fig, "fig_tr12_kc_river")
+    return True
+
+
+# --- V5 -- the transition grammar (viz/viz_kc_grammar.md) ------------------
+def fig_tr12_kc_grammar(tsv):
+    if not os.path.exists(tsv):
+        return _missing(tsv, "V5 grammar")
+    rows = _read_tsv(tsv)
+    ks = sorted({int(r["k"]) for r in rows})
+    cls = sorted({(int(r["d"]), int(r["w"])) for r in rows})
+    M = np.zeros((len(cls), len(ks)))
+    marks = []
+    for r in rows:
+        i, j = cls.index((int(r["d"]), int(r["w"]))), ks.index(int(r["k"]))
+        M[i, j] = float(r["p_cond"])
+        if int(r["kw_d"]) == int(r["d"]) and int(r["kw_w"]) == int(r["w"]):
+            marks.append((i, j))
+    fig, ax = plt.subplots(figsize=(13, 3.6 + 0.25 * len(cls)), dpi=150)
+    im = ax.imshow(M, aspect="auto", origin="lower", cmap="viridis",
+                   interpolation="nearest")
+    for i, j in marks:
+        ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False,
+                                   edgecolor="#ffffff", lw=1.8))
+    ax.set_yticks(range(len(cls)))
+    ax.set_yticklabels([f"d={d}" + ("" if w < 0 else f", w={w}") for d, w in cls], fontsize=8)
+    ax.set_xticks(range(len(ks)))
+    ax.set_xticklabels([str(k) for k in ks], fontsize=7)
+    ax.set_xlabel("layer k", fontsize=10)
+    ax.set_title("V5 — transition grammar P(class | layer k), exact over "
+                 "C1C2C4C5-SUPERSPACE\nread DOWN each column (every column sums to 1); "
+                 "white outline = King Wen's own class",
+                 fontsize=11)
+    fig.colorbar(im, ax=ax, label="P(class | layer k)")
+    fig.tight_layout()
+    save(fig, "fig_tr12_kc_grammar")
+    return True
+
+
+# --- V4 -- King Wen's neighbourhood shells (viz/viz_kc_shells.md) ----------
+def fig_tr12_kc_shells(tsv):
+    if not os.path.exists(tsv):
+        return _missing(tsv, "V4 shells")
+    rows = _read_tsv(tsv)
+    steps = [int(r["step"]) for r in rows]
+    # g is a 192-bit decimal string: plotted on a log axis via its digit count,
+    # never by float()-ing the exact value.
+    logg = [_log10_bigint(r["g"]) for r in rows]
+    bits = [float(r["bits"]) for r in rows]
+    alts = [int(r["alts"]) for r in rows]
+    fig, (ax, ax2) = plt.subplots(2, 1, figsize=(12, 8), dpi=150, sharex=True,
+                                  gridspec_kw={"height_ratios": [3, 2]})
+    # optional band: min/max g over the ALTERNATIVES at each step, present only
+    # when the TSV came from `--kc-profile` (viz_kc_shells.md, the optional band)
+    if "g_alt_min" in rows[0] and "g_alt_max" in rows[0]:
+        ax.fill_between(steps,
+                        [_log10_bigint(r["g_alt_min"]) for r in rows],
+                        [_log10_bigint(r["g_alt_max"]) for r in rows],
+                        color="#1f77b4", alpha=0.18, step="mid",
+                        label="min/max g over the admissible alternatives")
+        ax.legend(fontsize=8.5, loc="upper right")
+    ax.step(steps, logg, where="mid", color="#1f77b4", lw=2.0, marker="o", ms=4)
+    for s, y, a in zip(steps, logg, alts):
+        ax.annotate(str(a), (s, y), textcoords="offset points", xytext=(0, 7),
+                    ha="center", fontsize=6.5, color="#555555")
+    ax.set_ylabel("log10 g(prefix) — completions remaining", fontsize=10)
+    ax.set_title("V4 — neighbourhood shells: exact completions remaining after each "
+                 "placement (annotation = # admissible alternatives)", fontsize=11)
+    ax.grid(True, ls=":", alpha=0.4)
+    ax2.bar(steps, bits, color="#e8a33d")
+    ax2.set_ylabel("−log2 p_i (bits)", fontsize=10)
+    ax2.set_xlabel("step (free placement i)", fontsize=10)
+    ax2.grid(True, axis="y", ls=":", alpha=0.4)
+    ax2.set_title("the surprise spectrum — the bars sum to log2 N (EW-1)", fontsize=10)
+    fig.tight_layout()
+    save(fig, "fig_tr12_kc_shells")
+    return True
+
+
+# --- V3 -- the rank spectrum (viz/viz_kc_spectrum.md) ----------------------
+def fig_tr12_kc_spectrum(tsv):
+    if not os.path.exists(tsv):
+        # V3 does NOT ride the atlas: its rows come from a rank grid
+        # (--kc-unrank / PENDING --kc-unrank-grid) joined to the frozen
+        # --compute-stats battery.  See viz/viz_kc_spectrum.md.
+        return _missing(tsv, "V3 spectrum",
+                        how="a rank grid joined to python3 solve.py --compute-stats; "
+                            "see viz/viz_kc_spectrum.md")
+    rows = _read_tsv(tsv)
+    skip = {"i", "rank", "x", "order", "walk"}
+    obs = [c for c in rows[0] if c not in skip]
+    orders = sorted({r["order"] for r in rows})
+    if len(orders) > 1:
+        print(f"SKIP V3 spectrum: {tsv} mixes orders {orders} — one TSV per order "
+              f"(viz_kc_spectrum.md); a mixed panel is a labelling error")
+        return False
+    x = [float(r["x"]) for r in rows]
+    ncol = 3
+    nrow = (len(obs) + ncol - 1) // ncol
+    fig, axes = plt.subplots(nrow, ncol, figsize=(13, 2.6 * nrow), dpi=150, squeeze=False)
+    for idx, name in enumerate(obs):
+        a = axes[idx // ncol][idx % ncol]
+        a.plot(x, [float(r[name]) for r in rows], ".", ms=2, color="#1f77b4")
+        a.set_title(name, fontsize=9)
+        a.grid(True, ls=":", alpha=0.4)
+        a.tick_params(labelsize=7)
+    for idx in range(len(obs), nrow * ncol):
+        axes[idx // ncol][idx % ncol].axis("off")
+    fig.suptitle(f"V3 — rank spectrum in {orders[0]} order: observable drift across the "
+                 f"index (x = rank / N)", fontsize=12)
+    fig.tight_layout()
+    save(fig, "fig_tr12_kc_spectrum")
+    return True
+
+
+def tr12_figures(root="tr12"):
+    """Render V1..V5 from the atlas-consumer TSVs rooted at `root`."""
+    scan = os.path.join(root, "scan")
+    fig_tr12_kc_field(os.path.join(scan, "v1_field.tsv"))
+    fig_tr12_kc_river(os.path.join(scan, "v2_river.tsv"),
+                      os.path.join(scan, "v2_branches.tsv"))
+    fig_tr12_kc_grammar(os.path.join(scan, "v5_grammar.tsv"))
+    q3 = os.path.join(root, "q3_profile_kw.tsv")
+    fig_tr12_kc_shells(q3 if os.path.exists(q3) else os.path.join(root, "q3_profile.tsv"))
+    fig_tr12_kc_spectrum(os.path.join(root, "spectrum", "v3_spectrum.tsv"))
+
+
 if __name__ == "__main__":
     fig_tr6_parity_alternations()
     fig_tr4_boundary_information()
     fig_tr1_rules_tradeoff()
     fig_tr3_campaign_timeline()
+    # TR-12 V1..V5: rendered from the atlas-consumer TSVs when they are present.
+    # Root defaults to ./tr12 (the TR-12 artifact root); override with argv[1].
+    tr12_figures(sys.argv[1] if len(sys.argv) > 1 else "tr12")

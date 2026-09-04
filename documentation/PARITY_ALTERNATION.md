@@ -3,10 +3,41 @@
 **Result (Theorem, 2026-07-02):** In every sequence satisfying C1–C5, the 32 pairs — each of which is
 *parity-homogeneous* (both members share popcount parity) — form exactly 16 even-parity and 16 odd-parity
 pairs, and the pair ordering exhibits **exactly 15 parity-class alternations** across its 31 pair boundaries.
-This is forced by the constraint system, not a King Wen choice; KW satisfies it necessarily (verified: KW's
-alternation count is 15). The theorem generalizes the wrap-around-parity theorem ([SPECIFICATION.md](SPECIFICATION.md)), which is
+This is forced by C1+C5 rather than chosen; KW satisfies it necessarily (verified: KW's
+alternation count is 15). ⚠ **Scope of "forced" (added 2026-09-02, Codex V2-F08 #1, prose batch P37):**
+C5 is itself a regularity **read off King Wen** — [reports/METHODS.md](../reports/METHODS.md) grades it
+"Extracted from KW (confirmatory, not predictive)" — so "forced" here is relative to KW-derived
+constraints, **not** to an unconstrained arranger. This is the same conditional-forcing correction
+[TR-7](../reports/TR7_CIRCULAR_READING.md) §3 made on 2026-07-20 (revision v2.1, adversarial-review
+F-14a); the prior phrasing smuggled the KW-derived constraints in as premise. The theorem generalizes the wrap-around-parity theorem ([SPECIFICATION.md](SPECIFICATION.md)), which is
 recovered as its total-parity corollary, and it supplies the "novel structural theorem" that the earlier
 C5-tightening investigation concluded would be required for any further provable pruning.
+
+**Reproduce the theorem's figures below:** `python3 verify.py --check-parity-alternation`
+(added 2026-08-16). It re-derives the 63 transition distances and their multiset
+`{1:2, 2:20, 3:13, 4:19, 6:9}` from the King Wen table, confirms the 15 odd transitions,
+confirms that a pair's parity class is **well defined** (rather than assuming Lemma 1)
+and that the 32 pairs split **16/16**, measures King Wen's own alternation count, and
+counts the 15-change arrangements **twice by routes that share no code** — a dynamic
+program over (position, evens used, last class, changes), checked against the closed
+form `2·C(15,7)² = 82,818,450` that follows from 15 changes meaning 16 alternating runs.
+Verdict `PARITY_ALTERNATION=PASS`, reads no files, runs in about a second.
+*It attests the FIGURES. The theorem is a proof and is not re-proven by it.*
+⚠ **Two figures on this page are outside that command's 18-line output** and have their own
+reproducers, named here so that neither is read as covered by `PARITY_ALTERNATION=PASS`. The
+48-element relabeling group in §Consequences item 4 is checked by
+`python3 solve.py --symmetry-completeness` (leg SC-7, ~4 s). Moore's 16/18 King Wen compliance
+in §Novelty status is a literature figure, and it is reproduced in this repository by
+`python3 -c "import solve; print(18 - len(solve.h2_parity_slots(list(solve.binary_hexagrams))))"`
+→ `16` (the same non-exempt slot count and the same two violating slots that
+`reports/evidence/r11/r11_calibration.py` asserts as its KW gate).
+*(Corrected 2026-09-02, Codex V2-F42 #2 and #3, prose batch P42: the promise above read as
+covering every figure on the page, and the lemma cited in the well-definedness clause was the
+wrong one — well-definedness is this document's Lemma 1; Lemma 3 is the transition-parity
+result. The retired phrasings are registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv)
+as RP-dc836305, RP-1734cf96 and RP-2857f455. Both defects were live a second time in
+[VERIFY.md](VERIFY.md)'s row for this command — the promise there is worded differently and no
+needle on this page's wording would have reached it — and both are fixed in the same pass.)*
 
 ## Statement and proof
 
@@ -43,10 +74,24 @@ the linear sequence's endpoint popcounts differ in parity ⇒ odd wrap distance,
    deficit (a two-sided interval check: with e even and o odd pairs left and current end class known, the
    achievable alternation range is computable in constant time). The prune is *exact* (derived from the
    theorem, no false negatives) and fires from the earliest placements.
-3. **Sha-lineage caveat.** An exact prune preserves the full solution set but changes node-visit ordering
-   and counts, so per-cell **budgeted** canonical outputs — and therefore canonical shas — would change.
-   Adopting the prune in production enumeration is a lineage decision (as with the v2 prune bundle), gated
-   and exploration-track first. Nothing in the published canonicals is affected by the theorem itself.
+3. **Sha-lineage caveat.** An exact prune preserves the full solution set, but wherever it *fires* it
+   changes node-visit ordering and counts, so per-cell **budgeted** canonical outputs — and therefore
+   canonical shas — **can** change, at budgets deep enough for the prune to fire. Whether a given prune
+   moves a given sha is an empirical question per prune-set and per budget, not a corollary of exactness.
+   Both outcomes are on the record for the one prune bundle that has been measured, the v2 bundle: it did
+   **not** move the 100B reference sha ([HISTORY.md](HISTORY.md) — at that per-cell budget of 631K nodes
+   the prunes never fire, so the output is identical to the pre-prune code; that sha is in any case
+   code-specific and not canonical-grade, [CANONICAL_HASHES.md](CANONICAL_HASHES.md)), and it *did* move
+   the 11.2T canonical, where per-cell budget is 70.7M and v1's `0c0fe37c…` and v2's `2cc966e4…` differ.
+   ⚠ For the prune described in item 2 the question is **open, not answered**: no implementation of it
+   exists — `solve.c` contains no parity-class-alternation prune in any form — so its sha effect has never
+   been tried at any published budget. Adopting the prune in production enumeration is a lineage decision
+   (as with the v2 prune bundle), gated and exploration-track first. Nothing in the published canonicals
+   is affected by the theorem itself. *(Corrected 2026-09-02, Codex V2-F42 #1, prose batch P42: this item
+   stated the sha change as certain for an unwritten prune; the retired phrasing is registered as
+   RP-8717d434 in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv). The sibling analysis at
+   [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md) §"Status decision" already carried the correct
+   filter-versus-prune form and was left as it stands.)*
 4. **Structure insight.** Combined with the symmetry theorem ([SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md)), the solution space now has
    two proven skeletons: a 48-element relabeling group and a rigid 15-alternation parity profile. Both are
    properties of the *constraint system*; KW inherits them rather than choosing them.

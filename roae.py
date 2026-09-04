@@ -9,8 +9,10 @@ import argparse
 import cmath
 import json
 import math
+import os
 import random
 import sys
+import time
 import unicodedata
 
 # Global seed for reproducible results. When set via --seed, each analysis
@@ -29,6 +31,21 @@ def _reseed(salt):
     """
     if _global_seed is not None:
         random.seed(_global_seed + salt)
+
+# SEED PROVENANCE, emitted INTO the report artifacts (2026-09-04). example/ is
+# now shipped as one FIXED seeded draw rather than a fresh unseeded sample every
+# time, so every number in it is one specific draw and a reader holding the file
+# has to be able to tell that from the file alone. The line is generated, never
+# hand-written: example/README.md is a byte-copy of example/report.md and
+# doc_gates.sh GATE 8 enforces that byte-identity, so a hand-added provenance
+# note in the artifact would BE the hand-edit the gate exists to refuse.
+# Unseeded runs print nothing, which is the honest signal that the figures moved.
+def _seed_note():
+    """One-line seed provenance, or None when the run drew unseeded."""
+    if _global_seed is None:
+        return None
+    return ("Seeded run: --seed %d. The randomized sections are one fixed draw "
+            "under this seed, not a fresh sample." % _global_seed)
 
 # Reverse the bit order of a 6-bit value, equivalent to flipping a hexagram
 # upside down (180-degree rotation). Each hexagram has 6 lines (bits), so
@@ -83,26 +100,13 @@ binary_hexagrams = [
     0b110011, 0b001100, 0b010101, 0b101010,  # ䷼ ䷽ ䷾ ䷿
 ]
 
-# English names in King Wen order (Wilhelm/Baynes translation)
-# https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes
-hexagram_names = [
-    "The Creative", "The Receptive", "Difficulty at the Beginning", "Youthful Folly",
-    "Waiting", "Conflict", "The Army", "Holding Together",
-    "Small Taming", "Treading", "Peace", "Standstill",
-    "Fellowship", "Great Possession", "Modesty", "Enthusiasm",
-    "Following", "Work on the Decayed", "Approach", "Contemplation",
-    "Biting Through", "Grace", "Splitting Apart", "Return",
-    "Innocence", "Great Taming", "Nourishment", "Great Preponderance",
-    "The Abysmal", "The Clinging", "Influence", "Duration",
-    "Retreat", "Great Power", "Progress", "Darkening of the Light",
-    "The Family", "Opposition", "Obstruction", "Deliverance",
-    "Decrease", "Increase", "Breakthrough", "Coming to Meet",
-    "Gathering Together", "Pushing Upward", "Oppression", "The Well",
-    "Revolution", "The Cauldron", "The Arousing", "Keeping Still",
-    "Development", "The Marrying Maiden", "Abundance", "The Wanderer",
-    "The Gentle", "The Joyous", "Dispersion", "Limitation",
-    "Inner Truth", "Small Preponderance", "After Completion", "Before Completion",
-]
+# Hexagram labels are DERIVED from the two trigrams, not translated.
+# 2026-08-27: this held the 64 Wilhelm/Baynes English titles, a Princeton University Press
+# translation under copyright. They were decorative -- no result in this project depends on a
+# hexagram's English name -- so they are gone rather than replaced with another translation.
+# The label below is our own description of the structure, composed from the eight standard
+# trigram glosses already in `trigram_names`; upper x lower = 64 distinct pairs, so it
+# identifies each hexagram uniquely. Defined after upper_trigram/lower_trigram, below.
 
 # The 8 trigrams (3-bit components), keyed by their binary value.
 # Each hexagram is composed of an upper trigram (bits 3–5) and a lower trigram (bits 0–2).
@@ -170,6 +174,13 @@ def upper_trigram(val):
 
 def lower_trigram(val):
     return val & 0b111
+
+# See the note above the trigram table: derived, not translated. Composed once at import so every
+# consumer (--table, --json, --csv, --html, --markdown) reads the same list the old array fed.
+hexagram_names = [
+    "%s over %s" % (trigram_names[upper_trigram(b)][2], trigram_names[lower_trigram(b)][2])
+    for b in binary_hexagrams
+]
 
 # Extract the nuclear (inner) hexagram: formed by lines 2-3-4 (lower nuclear
 # trigram) and lines 3-4-5 (upper nuclear trigram), where lines are numbered
@@ -246,6 +257,9 @@ def print_header():
     print("of the King Wen sequence including")
     print("observations by Terence McKenna")
     # https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero
+    _note = _seed_note()
+    if _note:
+        print(_note)
     print("---")
 
 def print_table(use_color=False):
@@ -257,8 +271,13 @@ def print_table(use_color=False):
     print("There are 8 possible trigrams (Heaven, Earth, Thunder, Water, Mountain, Wind,")
     print("Fire, Lake), giving 8x8 = 64 possible hexagrams.")
     print("---")
-    print("Pos | Hex | Binary | Upper          | Lower          | Name")
-    print("----|-----|--------|----------------|----------------|----")
+    # The Hex column is SIX display cells, not five: U+4DC0-U+4DFF are East Asian
+    # Wide and occupy two cells while len() counts one. display_width()/pad() were
+    # written for exactly this in 58a38dbc (2026-04-06) and then never called --
+    # dead code for five months, while the rows hardcoded three spaces against a
+    # five-cell header. Header and separator now match the rows at six.
+    print("Pos | Hex  | Binary | Upper          | Lower          | Name")
+    print("----|------|--------|----------------|----------------|----")
     for i in range(64):
         b = binary_hexagrams[i]
         upper = upper_trigram(b)
@@ -266,7 +285,7 @@ def print_table(use_color=False):
         bits = colorize_binary(b, use_color) if use_color else bin(b)[2:].zfill(6)
         _, up, um = trigram_names[upper]
         _, lp, lm = trigram_names[lower]
-        print(f"{i+1:02}  | {unicode_hexagrams[i]}   | {bits} | "
+        print(f"{i+1:02}  | {pad(unicode_hexagrams[i], 4)} | {bits} | "
               f"{up:<5}{um:<9} | {lp:<5}{lm:<9} | "
               f"{hexagram_names[i]}")
 
@@ -359,7 +378,8 @@ def print_wave(order=1, wrap=False):
     spark_line = "".join(SPARK[d] for d in diffs)
     print(f"\nSpark line: {spark_line}")
 
-    # Wald-Wolfowitz runs test for randomness of the wave
+    # Wald-Wolfowitz runs test for randomness of the wave (Wald & Wolfowitz 1940,
+    # Ann. Math. Statist. 11(2): 147-162 — see documentation/CITATIONS.md#wald-wolfowitz1940)
     median_d = sorted(diffs)[len(diffs) // 2]
     binary_seq = [1 if d > median_d else 0 for d in diffs if d != median_d]
     n1 = sum(binary_seq)
@@ -526,8 +546,12 @@ def print_trigrams():
 
     print("\n--- Nuclear trigram structure ---")
     print("Nuclear hexagram = lines 2-4 (lower nuclear) + 3-5 (upper nuclear). Classical fact")
-    print("(commentary tradition): iterating the nuclear map sends all 64 hexagrams to 16, then to")
-    print("the 4 fixed points 63, 0, and the two alternators 21(010101b rendering varies), 42.")
+    print("(commentary tradition): iterating the nuclear map sends all 64 hexagrams to 16, then")
+    print("to a 4-element terminal attractor {0, 21, 42, 63}. CORRECTED 2026-08-01: an earlier")
+    print("version called these '4 fixed points', which is false and self-contradicting -- it")
+    print("then called two of them 'alternators'. There are exactly TWO fixed points, 0 and 63;")
+    print("21 and 42 form a 2-cycle (nuclear(21) = 42, nuclear(42) = 21). The 16/4/4 counts below")
+    print("are unaffected.")
     def _nuclear(h):
         lo = (h >> 1) & 7
         hi = (h >> 2) & 7
@@ -544,7 +568,9 @@ def print_trigrams():
     print("Spearman rank correlation between KW positions and Jing Fang's palace ordering")
     print("(the trigram-generated classical alternative; ordering as in solve.c --null-historical).")
     # Jing Fang 8 Palaces generator (c. 77-37 BCE); port of solve.c --null-historical's
-    # construction (two-language cross-check). Palace order Qian->Zhen->Kan->Gen->Kun->Xun->Li->Dui;
+    # construction -- a copy of the same palace-order literal, not an independent
+    # derivation; tests.py::TestJingFang compares the two literals and anchors the order
+    # against Nielsen 2003 Table 2. Palace order Qian->Zhen->Kan->Gen->Kun->Xun->Li->Dui;
     # per palace: origin, worlds 1-5, wandering soul, returning soul.
     jf = []
     for t in (0b111, 0b001, 0b010, 0b100, 0b000, 0b110, 0b101, 0b011):
@@ -552,7 +578,8 @@ def print_trigrams():
                (t << 3) | (t ^ 0b111), ((t ^ 0b001) << 3) | (t ^ 0b111),
                ((t ^ 0b011) << 3) | (t ^ 0b111), ((t ^ 0b010) << 3) | (t ^ 0b111),
                ((t ^ 0b010) << 3) | t]
-    assert len(set(jf)) == 64, "Jing Fang generator must produce all 64 hexagrams"
+    if not (len(set(jf)) == 64):
+        raise AssertionError("Jing Fang generator must produce all 64 hexagrams")
     r_jf = {h: i for i, h in enumerate(jf)}
     n = 64.0
     d2 = sum((pos[h] - r_jf[h]) ** 2 for h in range(64))
@@ -717,8 +744,8 @@ def print_complements():
     print("---")
     print("Complement distance analysis")
     print("Every hexagram has an 'opposite' (complement) formed by toggling all 6 lines")
-    print("(solid becomes broken, broken becomes solid). For example, The Creative (all")
-    print("solid) and The Receptive (all broken) are complements. This section finds where")
+    print("(solid becomes broken, broken becomes solid). For example, hexagram 1 (all")
+    print("solid) and hexagram 2 (all broken) are complements. This section finds where")
     print("each hexagram's complement sits in the King Wen sequence and how far apart they")
     print("are. If complements sit nearer each other than a null model predicts, opposition")
     print("is an organizing feature of the sequence's structure; if farther, complements")
@@ -765,10 +792,10 @@ def print_complements():
     print(f"King Wen percentile vs random: {percentile:.1f}%")
     if percentile <= 5:
         print("Complements are significantly closer together than chance would predict:")
-        print("the ordering keeps opposites unusually near one another.")
+        print("the ordering keeps complements unusually near one another.")
     elif percentile >= 95:
         print("Complements are significantly farther apart than chance would predict:")
-        print("the ordering separates opposites into distant structural sections.")
+        print("the ordering separates complements into distant structural sections.")
     else:
         print("Complement distances are within the range expected by chance;")
         print("no strong evidence that opposition alone shapes placement.")
@@ -1181,6 +1208,7 @@ def print_entropy():
     print(f"Max random entropy observed: {random_entropies[-1]:.4f} bits")
     print(f"King Wen percentile: {percentile:.1f}% (lower = more structured)")
     # Effect size: Cohen's d — how many standard deviations from the random mean?
+    # (Cohen 1988, Statistical Power Analysis, 2nd ed. — see documentation/CITATIONS.md#cohen1988)
     std_random = (sum((e - mean_random)**2 for e in random_entropies) / len(random_entropies))**0.5
     if std_random > 0:
         cohens_d = (kw_entropy - mean_random) / std_random
@@ -1245,6 +1273,57 @@ def print_entropy():
     for n in range(7):
         print(f"  {n}     {kw_tally[n]:>9}       {avg_tally[n]:>14.1f}")
 
+# 63 x 6 = 378 is IMPOSSIBLE, not merely unattained, and the published figure was
+# 378 until 2026-09-03 (Codex v2 F61 #4). A distance-6 edge joins v only to its
+# complement v ^ 0b111111, so EVERY vertex has exactly ONE distance-6 neighbour; the
+# distance-6 edges of a Hamiltonian path therefore form a matching and number at most
+# 32 of the 63 edges, leaving at least 31 edges at distance <= 5. Hence the maximum is
+# at most 32*6 + 31*5 = 347 -- and 347 is ATTAINED, so this is the exact bound: take
+# the 5-bit Gray sequence g_i = i ^ (i >> 1) for i = 0..31 and emit g_0, ~g_0, g_1,
+# ~g_1, ..., which visits all 64 hexagrams exactly once with distance histogram
+# {6: 32, 5: 31}. print_self_test() re-proves attainment rather than pinning 347 as a
+# literal. King Wen's 211 is 60.8% of 347, not the 55.8% of 378 published before.
+MAX_PATH = 32 * 6 + 31 * 5  # = 347
+
+def max_path_witness():
+    """The interleaved 5-bit-Gray ordering that attains MAX_PATH.
+
+    Returned as a witness so the self-test can re-derive attainment instead of
+    trusting the constant: a bound with no construction behind it is a literal."""
+    seq = []
+    for i in range(32):
+        g = i ^ (i >> 1)
+        seq.append(g)
+        seq.append(g ^ 0b111111)
+    return seq
+
+def greedy_nn_total(start_value=None):
+    """Greedy nearest-neighbour walk over the 64 hexagrams, with a FROZEN,
+    ORDERING-INDEPENDENT tie rule.
+
+    Until 2026-09-03 this loop ran `for j in range(64)` and updated on a strict
+    `d < best_dist`, so the candidate index WAS the King Wen position and every
+    distance tie was resolved by the very ordering the baseline exists to control for
+    (Codex v2 L17 #1). Measured from the same start vertex, the three natural policies
+    give: King Wen position 75, reverse King Wen position 68, hexagram value 63. The
+    shipped policy was the LARGEST of the three, i.e. the one that most flattered King
+    Wen (211/75 = 2.81x against 211/63 = 3.35x). Ties are now broken on the hexagram's
+    own 6-bit value, which no ordering of the sequence can influence. The walk is now
+    expressed over VALUES rather than sequence positions, so binary_hexagrams is read
+    once, for the start vertex, and cannot re-enter through the candidate loop."""
+    if start_value is None:
+        start_value = binary_hexagrams[0]
+    remaining = set(range(64)) - {start_value}
+    path = [start_value]
+    total = 0
+    while remaining:
+        current = path[-1]
+        nxt = min(remaining, key=lambda v: (bit_diff(current, v), v))
+        total += bit_diff(current, nxt)
+        remaining.discard(nxt)
+        path.append(nxt)
+    return total, path
+
 def print_path():
     """Analyze the King Wen sequence as a path through a graph where nodes are
     hexagrams and edge weights are Hamming distances. Compare its total path
@@ -1257,8 +1336,11 @@ def print_path():
     print("visits all 64 cities. Is it a short, efficient route (nearby hexagrams placed")
     print("next to each other), or a long, wandering one? We compare its total distance")
     print("against random routes and a greedy 'always go to the nearest unvisited city'")
-    print("algorithm. This reveals whether the King Wen ordering was optimized for smooth")
-    print("transitions or had other priorities.")
+    print("algorithm whose ties are broken on the hexagram's own 6-bit value, so that the")
+    print("baseline cannot borrow the very ordering it is a control for (breaking ties on")
+    print("sequence position instead would report 75 rather than 63). This is a descriptive")
+    print("comparison of path lengths; it is not a test of whether the King Wen ordering")
+    print("was optimized for smooth transitions.")
     print("---")
 
     diffs = compute_diffs(wrap=False)
@@ -1279,27 +1361,10 @@ def print_path():
     below = sum(1 for t in random_totals if t < kw_total)
     percentile = below / len(random_totals) * 100
 
-    # Greedy nearest-neighbor heuristic: always go to the closest unvisited hexagram
-    visited = [False] * 64
-    greedy_path = [0]  # Start at hexagram 1
-    visited[0] = True
-    greedy_total = 0
-    for _ in range(63):
-        current = greedy_path[-1]
-        best_dist = 7
-        best_next = -1
-        for j in range(64):
-            if not visited[j]:
-                d = bit_diff(binary_hexagrams[current], binary_hexagrams[j])
-                if d < best_dist:
-                    best_dist = d
-                    best_next = j
-        greedy_path.append(best_next)
-        visited[best_next] = True
-        greedy_total += best_dist
+    greedy_total, _greedy_path = greedy_nn_total()
 
     print(f"King Wen total path length:  {kw_total} (sum of all line changes)")
-    print(f"Greedy nearest-neighbor:     {greedy_total}")
+    print(f"Greedy nearest-neighbor:     {greedy_total} (ties broken on hexagram value)")
     print(f"Mean random path length:     {mean_random:.1f}")
     print(f"Min random observed:         {min(random_totals)}")
     print(f"Max random observed:         {max(random_totals)}")
@@ -1311,8 +1376,8 @@ def print_path():
     # Theoretical bounds
     print(f"\n--- Theoretical bounds ---")
     print(f"Minimum possible (63 transitions of 1): 63")
-    print(f"Maximum possible (63 transitions of 6): 378")
-    print(f"King Wen uses {kw_total/378*100:.1f}% of maximum path length")
+    print(f"Maximum possible (32 complement steps of 6 + 31 of ≤5): {MAX_PATH}")
+    print(f"King Wen uses {kw_total/MAX_PATH*100:.1f}% of maximum path length")
 
     # Pair-constrained comparison: the right null model
     # Generate random orderings that preserve the pair structure (pairs stay adjacent)
@@ -1604,7 +1669,17 @@ def print_graycode():
     print("path length against appropriate null models, see --path.")
 
 def print_symmetry():
-    """Analyze the XOR group structure of the King Wen sequence."""
+    """Analyze the XOR group structure of the King Wen sequence.
+
+    ATTRIBUTION: reading the 64 hexagrams as the elementary abelian group (Z/2)^6
+    under XOR, and analysing the King Wen divisions as its subgroups and cosets,
+    is PRIOR ART, not this project's contribution. The earliest and fullest
+    development located is Ouyang Weicheng (欧阳维诚) 1992, which sets out the
+    (Z/2)^6 structure together with the subgroup/coset analysis; Suenaga 2012
+    carries the associated counting. See documentation/CITATIONS.md. What is new
+    here is the completed C1-C7 enumeration, the ceiling result, and the Lean
+    formalization — not the group-theoretic framing this function prints.
+    """
     print("---")
     print("Symmetry group analysis (XOR algebra)")
     print("The 64 hexagrams form a mathematical group under XOR: combining any two hexagrams")
@@ -1616,10 +1691,10 @@ def print_symmetry():
     print("---")
 
     # Check which XOR subgroups exist among the 64 hexagrams
-    # The identity element under XOR is 0b000000 (The Receptive, hexagram 2)
+    # The identity element under XOR is 0b000000 (hexagram 2, all broken)
 
 
-    print("XOR identity element: 0b000000 (hexagram 2, The Receptive)")
+    print("XOR identity element: 0b000000 (hexagram 2, all broken)")
     print()
 
     # Self-inverse elements: hexagrams where XOR with themselves = identity (all of them!)
@@ -1754,8 +1829,36 @@ def print_sequences():
     print(f"Zero 0-line transitions: King Wen={kw['tally'][0]}, "
           f"Fu Xi={fx['tally'][0]}, Mawangdui={mw['tally'][0]}")
 
-def print_constraints():
-    """Estimate how many orderings satisfy the known King Wen constraints."""
+# --- PUBLISHED FIGURES, NOT TUNING KNOBS (C4, 2026-09-02) ------------------
+# print_constraints() ran two hard-coded trial counts and took no argument, so
+# `--trials` was silently ignored by `--constraints`.  The obvious repair —
+# wiring `trials=args.trials` at the call site — would have moved the DEFAULT
+# run from 10,000 permutations to 100,000 and, with it, the rule-of-three bound
+# "less than 1 in 3,333" (= 10000/3), with NOTHING red anywhere.  Both figures
+# are published: eight sites quote the trial count and four quote the bound,
+# across documentation/GUIDE.md, documentation/MCKENNA.md and
+# documentation/PROJECT_OVERVIEW.md, and documentation/ROAE_PY_CLI.md states
+# outright that "passing --trials alongside --constraints has no effect on its
+# output".
+#
+# So the counts are named here and the function is parameterised, while the
+# call site deliberately passes NOTHING — the documented behaviour is kept, and
+# the silent-ignore shape is gone.  `tests.py TestConstraintsTrialCountsPinned`
+# makes the coupling mechanical: it reads the trial count and the bound out of
+# the program's OWN output and requires every corpus site to agree, so wiring
+# --trials in later is still allowed but is no longer silent — it goes red at
+# the pages it would otherwise have invalidated.
+CONSTRAINTS_TRIALS = 10000          # unconstrained permutations (--constraints)
+CONSTRAINTS_COND_TRIALS = 100000    # pair-constrained permutations (same mode)
+
+
+def print_constraints(trials=CONSTRAINTS_TRIALS,
+                      cond_trials=CONSTRAINTS_COND_TRIALS):
+    """Estimate how many orderings satisfy the known King Wen constraints.
+
+    `trials` and `cond_trials` are published figures (see the note above the
+    module constants); the CLI does NOT bind `--trials` to either of them, by
+    design and by documentation."""
     _reseed(6)
     print("---")
     print("Constraint satisfaction analysis")
@@ -1767,7 +1870,6 @@ def print_constraints():
     print("random permutations against each constraint individually and combined.")
     print("---")
 
-    trials = 10000
     values = list(binary_hexagrams)
     count_pairs_ok = 0
     count_no_five = 0
@@ -1846,7 +1948,6 @@ def print_constraints():
         paired.add(v)
         paired.add(partner)
 
-    cond_trials = 100000
     cond_no_five = 0
     for _ in range(cond_trials):
         # Generate a random pair-constrained ordering:
@@ -2168,7 +2269,7 @@ def print_help_sections():
         ("--trigrams", "Trigram frequency, transitions, and 8x8 transition matrices"),
         ("--nuclear", "Nuclear hexagram chains — hidden inner hexagram derivations"),
         ("--lines", "Line change positional analysis — which lines change most often"),
-        ("--complements", "Complement distance — where each hexagram's opposite sits"),
+        ("--complements", "Complement distance — where each hexagram's complement sits"),
         ("--palindromes", "Palindrome search in the difference wave"),
         ("--canons", "Upper Canon (1-30) vs. Lower Canon (31-64) statistical comparison"),
         ("--hamming", "Full 64x64 Hamming distance matrix"),
@@ -2197,12 +2298,13 @@ def print_help_sections():
         ("--cast", "Simulate an I Ching reading (three-coin method)"),
         ("--explain N", "Walk through transition N step by step (1-63)"),
         ("--self-test", "Run mathematical invariant checks"),
+        ("--grammar-search", "U2: MDL-charged search for constraints beyond C1-C5"),
         ("", ""),
         ("--json", "Export hexagram data (writes hexagrams.json)"),
         ("--csv", "Export hexagram data (writes hexagrams.csv)"),
         ("--dot", "Export Graphviz graph (writes wave.dot, + .png/.svg if Graphviz installed)"),
         ("--svg", "Export hexagram line diagrams (writes hexagrams.svg)"),
-        ("--html", "Export HTML report (writes report.html, + .pdf if wkhtmltopdf installed)"),
+        ("--html", "Export HTML report (writes report.html)"),
         ("--markdown", "Export Markdown report (writes report.md)"),
         ("--midi", "Export difference wave (writes wave.mid)"),
     ]
@@ -2320,11 +2422,104 @@ def print_self_test():
     comp_ok = all((b ^ 0b111111) ^ 0b111111 == b for b in range(64))
     check("XOR complement is self-inverse", comp_ok)
 
+    # --- Path-length bounds and the greedy baseline (Codex v2 F61 #4 / L17 #1,
+    # landed 2026-09-03). RE-DERIVED, NOT PINNED: a bare `MAX_PATH == 347` would
+    # pass just as contentedly if the reasoning behind it were wrong, which is how
+    # 378 survived. Each half of the bound is recomputed and the witness that
+    # attains it is rebuilt and re-checked from scratch. ---
+    check("path: MAX_PATH = 32*6 + 31*5 = 347", MAX_PATH == 32 * 6 + 31 * 5 == 347)
+    check("path: every vertex has exactly ONE distance-6 neighbour",
+          all(sum(1 for w in range(64) if bit_diff(v, w) == 6) == 1 for v in range(64)))
+    _w = max_path_witness()
+    check("path: max-bound witness is a permutation of 0..63",
+          sorted(_w) == list(range(64)))
+    check("path: max-bound witness attains MAX_PATH exactly",
+          sum(bit_diff(_w[k], _w[k + 1]) for k in range(63)) == MAX_PATH)
+    _g6 = [k ^ (k >> 1) for k in range(64)]
+    check("path: 6-bit Gray code attains the minimum of 63",
+          sorted(_g6) == list(range(64))
+          and sum(bit_diff(_g6[k], _g6[k + 1]) for k in range(63)) == 63)
+    check("path: greedy nearest-neighbour total = 63 (value tie rule)",
+          greedy_nn_total()[0] == 63)
+    # The leak this replaced was invisible to any check that only pinned the number:
+    # 75 was a stable, reproducible constant. What makes it visible is asking whether
+    # the answer MOVES when the sequence does. Two deterministic re-orderings, same
+    # start vertex; the pre-2026-09-03 index-order loop fails this.
+    _saved = binary_hexagrams[:]
+    _indep = True
+    try:
+        for _perm in (list(reversed(_saved)), _saved[17:] + _saved[:17]):
+            binary_hexagrams[:] = _perm
+            if greedy_nn_total(_saved[0])[0] != 63:
+                _indep = False
+    finally:
+        binary_hexagrams[:] = _saved
+    check("path: greedy total is invariant under re-ordering the sequence", _indep)
+
+    # --- Codon degeneracy neighbourhood (Codex v2 L17 #2, landed 2026-09-03). ---
+    _cp, _ctot, _cbp, _cbt = codon_degeneracy()
+    check("codons: single-base neighbourhood is 64*3*3 = 576 directed moves",
+          _ctot == 64 * 3 * 3 == 576)
+    check("codons: single-base moves preserving the amino acid = 138", _cp == 138)
+    check("codons: bit-flip subset is 64*6 = 384 moves, 100 preserved",
+          _cbt == 64 * 6 == 384 and _cbp == 100)
+    check("codons: the bit-flip subset omits 192 of the 576 moves",
+          _ctot - _cbt == 192)
+    _cua, _cuc = 0b010010, 0b010001
+    check("codons: CUA/CUC is synonymous and NOT a single bit flip",
+          val_to_codon(_cua) == "CUA" and val_to_codon(_cuc) == "CUC"
+          and codon_table[val_to_codon(_cua)] == codon_table[val_to_codon(_cuc)] == "Leu"
+          and bit_diff(_cua, _cuc) == 2)
+
+    # --- Pre-registered H1/H3 evaluator pins (--prereg-h1h3; frozen spec
+    # 2026-07-26). These pin the evaluators to independently-verified
+    # values — they are correctness constants, NEVER thresholds. ---
+    pc = _GS_PC
+    s = binary_hexagrams
+    kw_a, kw_p, kw_q, kw_par = _ph_stats(list(s))
+    check("prereg: A(KW) = 648 (= f4p dist_autocorr kw)", kw_a == 648)
+    check("prereg: P(KW) = 5", kw_p == 5)
+    check("prereg: Q(KW) = 2", kw_q == 2)
+    check("prereg: parity shadow holds on KW", kw_par)
+    d6 = set(j for j in range(1, 33) if pc[s[2*j-2] ^ s[2*j-1]] == 6)
+    check("prereg: D6(KW) = {1,6,9,14,15,27,31,32}",
+          d6 == {1, 6, 9, 14, 15, 27, 31, 32})
+    m1 = set(j for j in range(1, 32) if pc[s[2*j-1] ^ s[2*j]] == 1)
+    check("prereg: M1(KW) = {26,30}", m1 == {26, 30})
+    check("prereg: T2 closed-form cut floor((211^2-827)/63) = 693",
+          (211 * 211 - 827) // 63 == 693)
+    wp, bd = {}, {}
+    for i in range(63):
+        d = pc[s[i] ^ s[i+1]]
+        h = wp if i % 2 == 0 else bd
+        h[d] = h.get(d, 0) + 1
+    check("prereg: within-pair distance multiset {2:12,4:12,6:8}",
+          wp == {2: 12, 4: 12, 6: 8})
+    check("prereg: boundary distance multiset {1:2,2:8,3:13,4:7,6:1}",
+          bd == {1: 2, 2: 8, 3: 13, 4: 7, 6: 1})
+    # _ph_median frozen rules on toy histograms (both parities, ties).
+    check("prereg: median 'le' odd n", _ph_median({1: 1, 2: 1, 3: 1}, "le") == 2)
+    check("prereg: median 'le' even n (lower median)",
+          _ph_median({1: 1, 2: 1, 3: 1, 4: 1}, "le") == 2)
+    check("prereg: median 'le' ties", _ph_median({5: 9, 7: 1}, "le") == 5)
+    check("prereg: median 'ge' odd n", _ph_median({1: 1, 2: 1, 3: 1}, "ge") == 2)
+    check("prereg: median 'ge' even n (upper median)",
+          _ph_median({1: 1, 2: 1, 3: 1, 4: 1}, "ge") == 3)
+    check("prereg: median 'ge' ties", _ph_median({5: 9, 7: 1}, "ge") == 5)
+    check("prereg: median 'le' vs 'ge' single bin",
+          _ph_median({4: 10}, "le") == 4 and _ph_median({4: 10}, "ge") == 4)
+
     print(f"\n  {passed} passed, {failed} failed, {passed + failed} total")
     if failed == 0:
         print("  All checks passed.")
     else:
         print("  WARNING: some checks failed — data may be corrupted.")
+    # 🔴 FAIL-OPEN, found by the v2 CODE review and reproduced in-process: this printed
+    # "28 passed, 9 failed" and then returned None, main() called it bare and returned, and the
+    # process exited 0. The self-test of the public-facing tool could not be used as a CI gate --
+    # a caller checking the exit status saw success while the tool was telling a human it had
+    # failed. Return the failure count so the caller can exit non-zero.
+    return failed
 
 def print_windowed_entropy():
     """Compute Shannon entropy over a sliding window of the difference wave."""
@@ -2725,17 +2920,29 @@ def print_parity():
     print(f"The spec's C1-C7 do not constrain the wrap-around s_63 -> s_0. So if")
     print(f"McKenna's exact 25/75 reflects a real constraint on the sequence rather")
     print(f"than a numerical coincidence, it would imply a new constraint:")
-    print(f"  C8 (weak):   hamming(s_63, s_0) is odd  (admits {{1, 3, 5}}; C2 may extend to 64th)")
+    print(f"  C8 (weak):   hamming(s_63, s_0) is odd  (admits {{1, 3, 5}}; it narrows to")
+    print(f"               {{1, 3}} only if C2 is ALSO extended to the wrap, which C1-C7 do not)")
     print(f"  C8 (strict): hamming(s_63, s_0) = {wrap_d}  (King Wen's exact value)")
     print()
-    print(f"Restrictiveness: the prior for wrap-around distance among {{1,2,3,4,6}} (5 forbidden")
-    print(f"by C2 if extended, 0 impossible for a permutation) is uniform → P(odd) ≈ 40%, so")
-    print(f"the weak form eliminates ~60% of completions; the strict form eliminates ~80%.")
+    print(f"CORRECTED 2026-08-01. This block previously called the weak form restrictive,")
+    print(f"estimating P(odd) from a uniform prior and concluding it eliminated ~60% of")
+    print(f"completions. That was wrong, and it contradicted this repository's own proven")
+    print(f"theorem (SPECIFICATION.md, 'Wrap-around parity is odd').")
     print()
-    print(f"Whether C8 is a real constraint or a numerical coincidence is empirical: a Monte")
-    print(f"Carlo sample of sequences satisfying C1-C7 would tell us how non-uniform the")
-    print(f"wrap-around distribution actually is among King Wen-eligible orderings. Today")
-    print(f"this is NOT in the formal spec — it remains an observation, not a constraint.")
+    print(f"The weak form eliminates NOTHING: odd wrap-around parity is FORCED by C5, not")
+    print(f"probable under it. Proof: popcount(x^y) = popcount(x) + popcount(y) (mod 2), so")
+    print(f"summing over the 63 transitions telescopes -- every interior hexagram appears in")
+    print(f"exactly two transitions and cancels -- leaving")
+    print(f"  sum of the 63 transition distances = popcount(s_0) + popcount(s_63)   (mod 2).")
+    print(f"C5 fixes that multiset as {{1:2, 2:20, 3:13, 4:19, 6:9}}, whose sum is 211, odd.")
+    print(f"Hence hamming(s_63, s_0) = popcount(s_63 ^ s_0) is odd for EVERY C5-satisfying")
+    print(f"sequence. P(odd) = 1, not the 0.40 previously printed here.")
+    print()
+    print(f"So the question is deductive, not empirical, and no Monte Carlo is needed. Only")
+    print(f"the STRICT form carries information: constraining the wrap to d = 3 filters")
+    print(f"~8.2% of canonical orderings (measured at the 560T canonical), not ~80%.")
+    print(f"Neither form is in the formal spec: the weak one is a theorem and adds nothing,")
+    print(f"and the strict one is King Wen's own value, hence data-like by construction.")
 
 def print_neighborhoods():
     """Show Hamming distance neighborhoods for each hexagram."""
@@ -3060,6 +3267,73 @@ def print_explain(position):
     print(f"\n  Result: transition {pos} changes {diff} of 6 lines.")
     print(f"  This contributes '{diff}' to the difference wave. {'*' * diff}")
 
+# Standard genetic code: map 6-bit values to codons
+# Encoding: each pair of bits maps to a base
+# Using the convention: 00=U, 01=C, 10=A, 11=G
+bases = {0b00: 'U', 0b01: 'C', 0b10: 'A', 0b11: 'G'}
+
+# Standard codon table (codon -> amino acid)
+codon_table = {
+    "UUU": "Phe", "UUC": "Phe", "UUA": "Leu", "UUG": "Leu",
+    "UCU": "Ser", "UCC": "Ser", "UCA": "Ser", "UCG": "Ser",
+    "UAU": "Tyr", "UAC": "Tyr", "UAA": "Stop", "UAG": "Stop",
+    "UGU": "Cys", "UGC": "Cys", "UGA": "Stop", "UGG": "Trp",
+    "CUU": "Leu", "CUC": "Leu", "CUA": "Leu", "CUG": "Leu",
+    "CCU": "Pro", "CCC": "Pro", "CCA": "Pro", "CCG": "Pro",
+    "CAU": "His", "CAC": "His", "CAA": "Gln", "CAG": "Gln",
+    "CGU": "Arg", "CGC": "Arg", "CGA": "Arg", "CGG": "Arg",
+    "AUU": "Ile", "AUC": "Ile", "AUA": "Ile", "AUG": "Met",
+    "ACU": "Thr", "ACC": "Thr", "ACA": "Thr", "ACG": "Thr",
+    "AAU": "Asn", "AAC": "Asn", "AAA": "Lys", "AAG": "Lys",
+    "AGU": "Ser", "AGC": "Ser", "AGA": "Arg", "AGG": "Arg",
+    "GUU": "Val", "GUC": "Val", "GUA": "Val", "GUG": "Val",
+    "GCU": "Ala", "GCC": "Ala", "GCA": "Ala", "GCG": "Ala",
+    "GAU": "Asp", "GAC": "Asp", "GAA": "Glu", "GAG": "Glu",
+    "GGU": "Gly", "GGC": "Gly", "GGA": "Gly", "GGG": "Gly",
+}
+
+def val_to_codon(val):
+    """Convert a 6-bit value to a 3-base codon."""
+    b1 = bases[(val >> 4) & 0b11]
+    b2 = bases[(val >> 2) & 0b11]
+    b3 = bases[val & 0b11]
+    return b1 + b2 + b3
+
+def codon_degeneracy():
+    """Amino-acid preservation under the TWO different neighbourhoods, counted.
+
+    Until 2026-09-03 this analysis flipped one bit at a time and published the
+    result as the genetic code's degeneracy (Codex v2 L17 #2). That transfers the
+    wrong relation. Under 00=U, 01=C, 10=A, 11=G a nucleotide has THREE single-base
+    substitutions but only TWO one-bit neighbours, so the bit-flip graph sees
+    64 * 6 = 384 directed moves and silently drops 192 of the biological graph's
+    64 * 3 * 3 = 576. The dropped moves are not a neutral sample: CUA -> CUC is
+    synonymous (both Leu) and is invisible to a bit flip because A = 0b10 and
+    C = 0b01 differ in two mapped bits. Measured over the table above, the omission
+    INFLATES the figure -- the bit-flip subset reads 100/384 = 26.0% where the full
+    single-base graph reads 138/576 = 24.0%.
+
+    Returns (preserved, total, bitflip_preserved, bitflip_total)."""
+    preserved = total = bf_preserved = bf_total = 0
+    for val in range(64):
+        aa = codon_table.get(val_to_codon(val), "?")
+        for pos in range(3):
+            shift = (2 - pos) * 2
+            cur = (val >> shift) & 0b11
+            for base in range(4):
+                if base == cur:
+                    continue
+                nb = (val & ~(0b11 << shift)) | (base << shift)
+                total += 1
+                if aa == codon_table.get(val_to_codon(nb), "?"):
+                    preserved += 1
+        for bit in range(6):
+            nb = val ^ (1 << bit)
+            bf_total += 1
+            if aa == codon_table.get(val_to_codon(nb), "?"):
+                bf_preserved += 1
+    return preserved, total, bf_preserved, bf_total
+
 def print_codons():
     """Map the 64 hexagrams to the 64 DNA codons and compare structures.
     https://en.wikipedia.org/wiki/Genetic_code
@@ -3078,40 +3352,10 @@ def print_codons():
     print("This analysis is illustrative, not evidence of a biological connection.")
     print("---")
 
-    # Standard genetic code: map 6-bit values to codons
-    # Encoding: each pair of bits maps to a base
-    # Using the convention: 00=U, 01=C, 10=A, 11=G
-    bases = {0b00: 'U', 0b01: 'C', 0b10: 'A', 0b11: 'G'}
 
-    # Standard codon table (codon -> amino acid)
-    codon_table = {
-        "UUU": "Phe", "UUC": "Phe", "UUA": "Leu", "UUG": "Leu",
-        "UCU": "Ser", "UCC": "Ser", "UCA": "Ser", "UCG": "Ser",
-        "UAU": "Tyr", "UAC": "Tyr", "UAA": "Stop", "UAG": "Stop",
-        "UGU": "Cys", "UGC": "Cys", "UGA": "Stop", "UGG": "Trp",
-        "CUU": "Leu", "CUC": "Leu", "CUA": "Leu", "CUG": "Leu",
-        "CCU": "Pro", "CCC": "Pro", "CCA": "Pro", "CCG": "Pro",
-        "CAU": "His", "CAC": "His", "CAA": "Gln", "CAG": "Gln",
-        "CGU": "Arg", "CGC": "Arg", "CGA": "Arg", "CGG": "Arg",
-        "AUU": "Ile", "AUC": "Ile", "AUA": "Ile", "AUG": "Met",
-        "ACU": "Thr", "ACC": "Thr", "ACA": "Thr", "ACG": "Thr",
-        "AAU": "Asn", "AAC": "Asn", "AAA": "Lys", "AAG": "Lys",
-        "AGU": "Ser", "AGC": "Ser", "AGA": "Arg", "AGG": "Arg",
-        "GUU": "Val", "GUC": "Val", "GUA": "Val", "GUG": "Val",
-        "GCU": "Ala", "GCC": "Ala", "GCA": "Ala", "GCG": "Ala",
-        "GAU": "Asp", "GAC": "Asp", "GAA": "Glu", "GAG": "Glu",
-        "GGU": "Gly", "GGC": "Gly", "GGA": "Gly", "GGG": "Gly",
-    }
-
-    def val_to_codon(val):
-        """Convert a 6-bit value to a 3-base codon."""
-        b1 = bases[(val >> 4) & 0b11]
-        b2 = bases[(val >> 2) & 0b11]
-        b3 = bases[val & 0b11]
-        return b1 + b2 + b3
-
-    print("Pos | Hex | Binary | Codon | Amino Acid | Name")
-    print("----|-----|--------|-------|------------|----")
+    # Same six-cell Hex column as the trigram table above.
+    print("Pos | Hex  | Binary | Codon | Amino Acid | Name")
+    print("----|------|--------|-------|------------|----")
     amino_acids = []
     for i in range(64):
         b = binary_hexagrams[i]
@@ -3119,7 +3363,7 @@ def print_codons():
         codon = val_to_codon(b)
         aa = codon_table.get(codon, "?")
         amino_acids.append(aa)
-        print(f"{i+1:02}  | {unicode_hexagrams[i]}   | {bits} | {codon:<5} | {aa:<10} | {hexagram_names[i]}")
+        print(f"{i+1:02}  | {pad(unicode_hexagrams[i], 4)} | {bits} | {codon:<5} | {aa:<10} | {hexagram_names[i]}")
 
     # How many unique amino acids does the King Wen sequence map to?
     unique_aa = set(amino_acids)
@@ -3130,23 +3374,21 @@ def print_codons():
     # preserve the amino acid (degeneracy). Is this true for single-line hexagram changes?
     print(f"\n--- Degeneracy comparison ---")
     print("In DNA, many single-base changes preserve the amino acid (the code is 'degenerate').")
-    print("Do single-line hexagram changes preserve the mapped amino acid?")
+    print("A base has THREE possible substitutions, but a hexagram line has only one flip, and")
+    print("under this bit-to-base convention a flipped bit reaches only two of the three. The")
+    print("line graph is therefore not the mutation graph, and the two are reported separately:")
+    print("the full single-base neighbourhood first, then the single-line subset of it.")
 
-    preserved = 0
-    total_neighbors = 0
-    for i in range(64):
-        for bit in range(6):
-            neighbor = binary_hexagrams[i] ^ (1 << bit)
-            codon_a = val_to_codon(binary_hexagrams[i])
-            codon_b = val_to_codon(neighbor)
-            aa_a = codon_table.get(codon_a, "?")
-            aa_b = codon_table.get(codon_b, "?")
-            total_neighbors += 1
-            if aa_a == aa_b:
-                preserved += 1
+    preserved, total_neighbors, bf_preserved, bf_total = codon_degeneracy()
 
-    print(f"Single-line changes that preserve amino acid: {preserved}/{total_neighbors} "
+    print(f"Single-base changes that preserve amino acid: {preserved}/{total_neighbors} "
           f"({preserved/total_neighbors*100:.1f}%)")
+    print(f"Single-LINE changes (one flipped bit) that preserve it: "
+          f"{bf_preserved}/{bf_total} ({bf_preserved/bf_total*100:.1f}%)")
+    print("The second figure is the higher of the two, and it is not a subsample: a flipped")
+    print("bit reaches two of a base's three substitutions, so it omits 192 of the 576 moves")
+    print("by a rule the encoding fixes, not by chance. Read it as the degeneracy of an")
+    print("encoding-selected two-thirds of mutation types, never as the genetic code's.")
 
 def export_midi(filename="wave.mid"):
     """Export the difference wave as a MIDI file."""
@@ -3237,9 +3479,19 @@ def export_svg(filename="hexagrams.svg"):
     total_h = margin + rows * (hex_h + label_h + 15)
 
     lines = []
+    # ACCESSIBILITY (2026-09-03, Codex V2-L22). The export was 577 <rect> and 64 <text> with zero
+    # <title>, <desc>, role= or aria-*: a reader using a screen reader got 64 numbers and glyphs and
+    # no line content at all, which is the entire information in the diagram. No published claim was
+    # false — ROAE_PY_CLI promised only "line-diagrams" — so this is an addition, not a correction.
     lines.append(f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="{total_h}"'
-                 f' font-family="monospace" font-size="9">')
-    lines.append(f'<rect width="100%" height="100%" fill="white"/>')
+                 f' font-family="monospace" font-size="9"'
+                 f' role="img" aria-labelledby="svg-title svg-desc">')
+    lines.append('<title id="svg-title">The 64 hexagrams as line diagrams, in King Wen order</title>')
+    lines.append('<desc id="svg-desc">Eight rows of eight. Each hexagram is six horizontal lines read '
+                 'bottom to top: a solid line is yang, a line broken in the middle is yin. Every '
+                 'hexagram carries its own text alternative giving its King Wen number and its six '
+                 'lines in bottom-to-top order.</desc>')
+    lines.append(f'<rect width="100%" height="100%" fill="white" aria-hidden="true"/>')
 
     for i in range(64):
         col = i % cols
@@ -3248,6 +3500,15 @@ def export_svg(filename="hexagrams.svg"):
         y = margin + row * (hex_h + label_h + 15)
 
         b = binary_hexagrams[i]
+
+        # One group per hexagram, carrying the text alternative. Lines are named bottom-to-top,
+        # which is how hexagrams are read — the drawing order below is top-to-bottom, so this is
+        # derived from the bits rather than from the emission order.
+        _btt = ["yang" if (b >> k) & 1 else "yin" for k in range(6)]
+        lines.append(f'  <g role="img" aria-label="Hexagram {i+1}, {unicode_hexagrams[i]}; '
+                     f'lines bottom to top: {", ".join(_btt)}">')
+        lines.append(f'    <title>Hexagram {i+1} {unicode_hexagrams[i]} — '
+                     f'{", ".join(_btt)} (bottom to top)</title>')
 
         # Label
         lines.append(f'  <text x="{x + hex_w//2}" y="{y - 3}" text-anchor="middle">'
@@ -3266,6 +3527,8 @@ def export_svg(filename="hexagrams.svg"):
                              f' fill="black"/>')
                 lines.append(f'  <rect x="{x + seg_w + gap * 2}" y="{ly}" width="{seg_w}"'
                              f' height="{line_h}" fill="black"/>')
+
+        lines.append('  </g>')
 
     lines.append('</svg>')
     with open(filename, "w") as f:
@@ -3294,12 +3557,23 @@ def export_html(filename="report.html"):
            "border: 1px solid #d1d9e0; border-radius: 6px; }")
     _print("  h1 { padding-bottom: 8px; border-bottom: 1px solid #d1d9e0; }")
     _print("  h2 { padding-bottom: 6px; border-bottom: 1px solid #d1d9e0; margin-top: 24px; }")
-    _print("  .hex { display: inline-block; width: 1ch; overflow: hidden; }")
+    # TWO cells, not one. U+4DC0-U+4DFF are East Asian Wide and the plain-text
+    # tables budget six display cells for the Hex column on that basis. This rule
+    # clamped the glyph to 1ch, so HTML (and, until 2026-09-04, the PDF rendered
+    # from it) needed a FIVE-cell column while txt/md needed six -- the two families
+    # silently disagreed, and fixing one broke the other. Matching the rule to the
+    # text geometry keeps a single layout across the artifacts, which since the PDF
+    # was dropped are THREE: txt, md and html. (overflow:hidden retained so an
+    # unusual font cannot widen the cell and re-introduce the drift.)
+    _print("  .hex { display: inline-block; width: 2ch; overflow: hidden; }")
     _print("  .section { margin-bottom: 16px; }")
     _print("</style>")
     _print("</head><body>")
     _print("<h1>Received Order Analysis Engine (ROAE)</h1>")
     _print("<p>Analysis of the King Wen sequence including observations by Terence McKenna</p>")
+    _note = _seed_note()
+    if _note:
+        _print("<p>%s</p>" % _note)
 
     # Capture each section's output — titles match the print functions
     sections = [
@@ -3336,8 +3610,9 @@ def export_html(filename="report.html"):
     import re
     def fix_hexagram_spacing(text):
         """In terminal output, hexagram chars (U+4DC0-4DFF) are double-width,
-        so they're followed by extra padding spaces. In HTML/PDF, wrap each
-        hexagram in a fixed-width span to ensure consistent alignment."""
+        so they're followed by extra padding spaces. In HTML, wrap each
+        hexagram in a fixed-width span to ensure consistent alignment. (This said
+        "HTML/PDF" until 2026-09-04; export_html no longer renders a PDF.)"""
         def replace_hex(m):
             return f'<span class="hex">{m.group(1)}</span>{m.group(2)}'
         return re.sub(r'([\u4DC0-\u4DFF])( +)', replace_hex, text)
@@ -3355,18 +3630,22 @@ def export_html(filename="report.html"):
     _print("</body></html>")
     out.close()
     print(f"HTML report written to {filename}")
-    # Try to also generate a PDF if wkhtmltopdf is installed
-    import subprocess
-    pdf_filename = filename.rsplit(".", 1)[0] + ".pdf"
-    try:
-        result = subprocess.run(
-            ["wkhtmltopdf", "--quiet", filename, pdf_filename],
-            capture_output=True, text=True
-        )
-        if result.returncode == 0:
-            print(f"PDF written to {pdf_filename}")
-    except FileNotFoundError:
-        pass  # wkhtmltopdf not installed; skip PDF generation
+    # 🔴 PDF GENERATION REMOVED 2026-09-04 (operator decision). This shelled out to wkhtmltopdf,
+    # which EMBEDS the fonts it renders with -- measured on the shipped example/report.pdf:
+    # DejaVuSans, DejaVuSans-Bold and DejaVuSansMono, all `emb yes sub no`, i.e. the complete
+    # unsubsetted font programs inside a tracked file. That made the repository a redistributor of
+    # font software under the Bitstream Vera terms, whose grant is conditioned on the notice
+    # travelling with any copy of the typefaces -- the only obligation this otherwise
+    # public-domain project carried.
+    # Measured alternatives, all rejected: Symbola is licence-free and covers all 64 hexagram
+    # glyphs but is NOT monospaced (135 distinct advance widths in its first 399 glyphs) and every
+    # <pre> block in the report is column-aligned, so it would misalign 1,400 lines of numeric
+    # output; naming Courier or the generic `monospace` does not avoid embedding, because
+    # wkhtmltopdf resolves through fontconfig and embedded DejaVuSansMono anyway; and no
+    # obligation-free monospace face exists on the reference host (Liberation and Noto are OFL,
+    # Nimbus is AGPL-with-exception, DejaVu is Bitstream Vera).
+    # report.html is unaffected: it NAMES font families in CSS, which is a reference and not
+    # redistribution. Anyone wanting a PDF can still make one from it with a single command.
 
 def export_markdown(filename="report.md"):
     """Generate a Markdown report with all analyses."""
@@ -3489,6 +3768,10 @@ def export_markdown(filename="report.md"):
     _print("Analysis of the King Wen sequence including observations by "
            "[Terence McKenna](../documentation/CITATIONS.md#mckenna-mckenna1975).")
     _print("")
+    _note = _seed_note()
+    if _note:
+        _print("*%s*" % _note)
+        _print("")
 
     for title, func in sections:
         f = io.StringIO()
@@ -3555,7 +3838,13 @@ def export_json(filename="hexagrams.json"):
     """Export all hexagram data as JSON for use in other tools."""
     data = {
         "description": "King Wen sequence hexagram data",
-        "source": "https://en.wikipedia.org/wiki/King_Wen_sequence",
+        # The SEQUENCE (positions and line patterns) follows the Wikipedia King Wen article.
+        # The `name` field is NOT from there: it is derived here from the two trigrams. Saying
+        # "source: Wikipedia" for the whole object claimed provenance the name field never had --
+        # and until 2026-08-27 that field carried a copyrighted translation while this line
+        # attributed it to Wikipedia. Name what came from where.
+        "sequence_source": "https://en.wikipedia.org/wiki/King_Wen_sequence",
+        "label_source": "derived from the two trigrams; not a translation",
         "hexagrams": []
     }
     for i in range(64):
@@ -3601,6 +3890,1296 @@ def export_csv(filename="hexagrams.csv"):
             name = hexagram_names[i].replace(",", ";")  # escape commas in names
             f.write(f"{i+1},{unicode_hexagrams[i]},{bits},{b},{name},{up},{um},{lp},{lm},{nuc_pos}\n")
     print(f"CSV written to {filename}")
+
+# ============================================================================
+# U2 grammar search (--grammar-search)
+# Developed with AI assistance (Claude/Fable, Anthropic).
+#
+# A circularity-safe, MDL-charged search for candidate structural constraints
+# that the King Wen sequence satisfies but that are NOT implied by the
+# published constraint set (C1-C5). The search enumerates every predicate of a
+# fixed, PRE-REGISTERED grammar of KW-independent structural terminals (depth
+# <= 2), then tests each against the uniform C1^C2^C4^C5 reference population:
+#
+#   1. KW satisfies the predicate?          (necessary; else discard)
+#   2. Rarity f in the reference population (bits-explained = -log2 f)
+#   3. Not implied by / common under C1-C5? (probe-trivial classes absorb these)
+#   4. MDL-net-positive?                    bits-explained > L(C) (statement cost)
+#   5. Selection charge log2(#distinct predicates tested) reported separately
+#      and added to the bar for any would-be survivor.
+#
+# CIRCULARITY FIREWALL: every grammar terminal is structural and KW-independent.
+# Constants appear only as COMPLETE structural families (full codomains, full
+# residue classes): 0, 63, popcount range 0..6 and its derived sum/delta ranges
+# 0..12 / -6..6, mod-k residues for k in {2,3,4,6,8}. No value is ever read off
+# the King Wen sequence into the grammar: no fitted thresholds, no position
+# pins, no KW-specific constants. KW itself is read at exactly two points:
+# (a) the necessary "KW satisfies C" bit, and (b) the C5 transition-multiset
+# that DEFINES the reference population (the declared conditioning, not a
+# grammar terminal). Numeric count thresholds are excluded because for every
+# (gate, atom) cell the member "count == KW's observed count" is KW-satisfied
+# by construction — the family would add one guaranteed-satisfied candidate
+# per cell (pure selection noise) with no realistic chance of clearing its MDL
+# + selection bar; count comparisons remain, as they are relational only.
+#
+# MDL statement cost L(C) = sum over grammar production choice points of
+# log2(#alternatives). Unordered atom pairs are charged as ordered (a
+# deliberate ~1-bit overprice, erring against candidates). The result of a run
+# is scoped to this grammar and depth: "no survivor within this declared
+# grammar at depth <= 2" — never a universal completeness claim.
+#
+# The probe set (signature dedup) and the rarity sample are drawn from
+# DISJOINT seed streams; the selection charge is computed from the number of
+# distinct predicate classes measured in the same run at the frozen probe
+# size. Sampling is exact rejection: uniform over C1^C4 orderings (31
+# free pair slots x 2^31 orientations, first pair pinned 63,0), accepted iff
+# the transition multiset equals C5's (which implies C2).
+# ============================================================================
+
+_GS_PC = [bin(x).count("1") for x in range(64)]
+
+def _gs_rev3(t):
+    """Reverse the bit order of a 3-bit value (trigram flip)."""
+    return ((t & 1) << 2) | (t & 2) | ((t >> 2) & 1)
+
+def _gs_t_atoms():
+    """T-domain atoms: predicates on a transition (a,b) = (s_t, s_{t+1})."""
+    atoms = []  # (label, spec)
+    for op in ("==", "<=", ">="):
+        for c in range(7):
+            atoms.append((f"d{op}{c}", ("d", op, c)))
+    # d mod k restricted to k in {2,3}: for d in 0..6, d mod 8 = d (identity,
+    # duplicates the equality family) and d mod 4 / d mod 6 classes are unions
+    # of at most two equality atoms (d2-expressible); pre-registered restriction.
+    for k in (2, 3):
+        for r in range(k):
+            atoms.append((f"d%{k}=={r}", ("dmod", k, r)))
+    atoms.append(("b==comp(a)", ("comp",)))
+    atoms.append(("b==rev(a)", ("rev",)))
+    for op in ("==", "<=", ">="):
+        for c in range(13):
+            atoms.append((f"pcsum{op}{c}", ("pcsum", op, c)))
+    for op in ("==", "<=", ">="):
+        for c in range(-6, 7):
+            atoms.append((f"dpc{op}{c}", ("dpc", op, c)))
+    # Trigram-link family: the COMPLETE 2 (channel of b) x 2 (channel of a)
+    # x 3 (relation: equality, 3-bit complement, 3-bit reversal) = 12 members.
+    for lbl, kind in (
+            ("lt(b)==ut(a)", "lu"), ("lt(b)==lt(a)", "ll"),
+            ("ut(b)==ut(a)", "uu"), ("ut(b)==lt(a)", "ul"),
+            ("ut(b)==c3(ut(a))", "ucu"), ("lt(b)==c3(lt(a))", "lcl"),
+            ("ut(b)==c3(lt(a))", "ucl"), ("lt(b)==c3(ut(a))", "lcu"),
+            ("ut(b)==r3(ut(a))", "uru"), ("lt(b)==r3(lt(a))", "lrl"),
+            ("ut(b)==r3(lt(a))", "url"), ("lt(b)==r3(ut(a))", "lru")):
+        atoms.append((lbl, ("tri", kind)))
+    return atoms
+
+def _gs_p_atoms():
+    """P-domain atoms: predicates on a single position (s_i, i)."""
+    atoms = []
+    for op in ("==", "<=", ">="):
+        for c in range(7):
+            atoms.append((f"pc{op}{c}", ("pc", op, c)))
+    for r in range(2):
+        atoms.append((f"pc%2=={r}", ("pcmod", 2, r)))
+    atoms.append(("ut==lt", ("plu", "eq")))
+    atoms.append(("ut==c3(lt)", ("plu", "c")))
+    atoms.append(("ut==r3(lt)", ("plu", "r")))
+    atoms.append(("s==0", ("sval", 0)))
+    atoms.append(("s==63", ("sval", 63)))
+    atoms.append(("s==rev(s)", ("spal",)))
+    # Position-coupled popcount: full mod-k family, k in {2,3,4,6,8} (the same
+    # k-set as the gates).
+    for k in (2, 3, 4, 6, 8):
+        for r in range(k):
+            atoms.append((f"(pc+i)%{k}=={r}", ("pci", k, r)))
+    return atoms
+
+def _gs_cmpv(x, op, c):
+    return x == c if op == "==" else (x <= c if op == "<=" else x >= c)
+
+def _gs_eval_t_atom(spec, a, b):
+    k = spec[0]
+    if k == "d":    return _gs_cmpv(_GS_PC[a ^ b], spec[1], spec[2])
+    if k == "dmod": return _GS_PC[a ^ b] % spec[1] == spec[2]
+    if k == "comp": return b == (a ^ 63)
+    if k == "rev":  return b == reverse_6bit(a)
+    if k == "pcsum": return _gs_cmpv(_GS_PC[a] + _GS_PC[b], spec[1], spec[2])
+    if k == "dpc":  return _gs_cmpv(_GS_PC[b] - _GS_PC[a], spec[1], spec[2])
+    if k == "tri":
+        la, ua, lb, ub = a & 7, a >> 3, b & 7, b >> 3
+        return {"lu": lb == ua, "ll": lb == la, "uu": ub == ua, "ul": ub == la,
+                "ucu": ub == (ua ^ 7), "lcl": lb == (la ^ 7),
+                "ucl": ub == (la ^ 7), "lcu": lb == (ua ^ 7),
+                "uru": ub == _gs_rev3(ua), "lrl": lb == _gs_rev3(la),
+                "url": ub == _gs_rev3(la), "lru": lb == _gs_rev3(ua)}[spec[1]]
+
+def _gs_eval_p_atom(spec, s, i):
+    k = spec[0]
+    if k == "pc":    return _gs_cmpv(_GS_PC[s], spec[1], spec[2])
+    if k == "pcmod": return _GS_PC[s] % spec[1] == spec[2]
+    if k == "plu":
+        l, u = s & 7, s >> 3
+        return u == l if spec[1] == "eq" else (u == (l ^ 7) if spec[1] == "c"
+                                               else u == _gs_rev3(l))
+    if k == "sval":  return s == spec[1]
+    if k == "spal":  return s == reverse_6bit(s)
+    if k == "pci":   return (_GS_PC[s] + i) % spec[1] == spec[2]
+
+def _gs_build_gates(nidx, is_t):
+    """Structural index-subset gates (bitmask per gate)."""
+    gates = [("ALL", (1 << nidx) - 1)]
+    if is_t:
+        gates.append(("WITHIN", sum(1 << t for t in range(nidx) if t % 2 == 0)))
+        gates.append(("BOUNDARY", sum(1 << t for t in range(nidx) if t % 2 == 1)))
+        ks = (3, 4, 6, 8)
+    else:
+        ks = (2, 3, 4, 6, 8)
+    for k in ks:
+        for r in range(k):
+            gates.append((f"i%{k}=={r}",
+                          sum(1 << i for i in range(nidx) if i % k == r)))
+    return gates
+
+_GS_QUANTS = ("ALL", "EXISTS", "NONE", "CNT_EVEN", "CNT_ODD")
+_GS_D2_QUANTS = ("ALL", "EXISTS", "NONE")
+
+# Shared state for forked worker processes (populated by run_grammar_search
+# before any Pool is created; workers inherit it via fork).
+_GS = {}
+
+def _gs_one_sample(rng):
+    """Draw one uniform C1^C4 ordering accepted on the exact C5 multiset
+    (which implies C2). Returns (sequence, #trials)."""
+    # Local copy: keeps every batch a pure function of its own seed (the
+    # shared list must never be mutated across checkpointable batches).
+    others, target, pc = list(_GS["others"]), _GS["target"], _GS_PC
+    trials = 0
+    while True:
+        trials += 1
+        rng.shuffle(others)
+        seq = [63, 0]
+        counts = [0] * 7
+        counts[6] = 1            # within-pair 63->0 transition
+        ok = True
+        last = 0
+        for a, b in others:
+            if rng.random() < 0.5:
+                a, b = b, a
+            d = pc[last ^ a]
+            counts[d] += 1
+            if counts[d] > target[d]:
+                ok = False
+                break
+            w = pc[a ^ b]
+            counts[w] += 1
+            if counts[w] > target[w]:
+                ok = False
+                break
+            seq.append(a)
+            seq.append(b)
+            last = b
+        if ok and counts == target:
+            return seq, trials
+
+def _gs_seq_masks(seq):
+    """Per-sequence atom bitmasks: one 63-bit mask per T-atom (transitions),
+    one 64-bit mask per P-atom (positions)."""
+    tm = []
+    pairs = [(seq[t], seq[t + 1]) for t in range(63)]
+    for _, spec in _GS["t_atoms"]:
+        m = 0
+        for t, (a, b) in enumerate(pairs):
+            if _gs_eval_t_atom(spec, a, b):
+                m |= 1 << t
+        tm.append(m)
+    pm = []
+    for _, spec in _GS["p_atoms"]:
+        m = 0
+        for i in range(64):
+            if _gs_eval_p_atom(spec, seq[i], i):
+                m |= 1 << i
+        pm.append(m)
+    return tm, pm
+
+def _gs_gen_candidates():
+    """Enumerate every candidate of the declared grammar at depth <= 2.
+    Tuple forms:
+      ("d1",  dom, qi, gi, ai)             single atom under quantifier+gate
+      ("cmp", dom, gi, a1, a2)             count comparison, a1 < a2
+      ("bool",dom, qi, gi, conn, a1, a2)   two-atom &,|,-> (a1<a2 for &,|)
+    """
+    cands = []
+    T_ATOMS, P_ATOMS = _GS["t_atoms"], _GS["p_atoms"]
+    T_GATES, P_GATES = _GS["t_gates"], _GS["p_gates"]
+    d2_tgates = _GS["d2_tgates"]
+    d2_pgates = _GS["d2_pgates"]
+    for dom, atoms, gates in (("T", T_ATOMS, T_GATES), ("P", P_ATOMS, P_GATES)):
+        for qi in range(len(_GS_QUANTS)):
+            for gi in range(len(gates)):
+                for ai in range(len(atoms)):
+                    cands.append(("d1", dom, qi, gi, ai))
+    for dom, atoms in (("T", T_ATOMS), ("P", P_ATOMS)):
+        gset = d2_tgates if dom == "T" else d2_pgates
+        n = len(atoms)
+        for gi in gset:
+            for a1 in range(n):
+                for a2 in range(a1 + 1, n):
+                    cands.append(("cmp", dom, gi, a1, a2))
+    for dom, atoms in (("T", T_ATOMS), ("P", P_ATOMS)):
+        gset = d2_tgates if dom == "T" else d2_pgates
+        n = len(atoms)
+        for qname in _GS_D2_QUANTS:
+            qi = _GS_QUANTS.index(qname)
+            for gi in gset:
+                for a1 in range(n):
+                    for a2 in range(a1 + 1, n):
+                        cands.append(("bool", dom, qi, gi, "&", a1, a2))
+                        cands.append(("bool", dom, qi, gi, "|", a1, a2))
+                for a1 in range(n):
+                    for a2 in range(n):
+                        if a1 != a2:
+                            cands.append(("bool", dom, qi, gi, "->", a1, a2))
+    return cands
+
+def _gs_cand_L(c):
+    """MDL statement cost L(C) in bits: sum of log2(#alternatives) over the
+    grammar's production choice points. Unordered pairs charged as ordered
+    (deliberate overprice, errs against candidates)."""
+    base = math.log2(3) + math.log2(2)  # form choice + domain choice
+    na = len(_GS["t_atoms"]) if c[1] == "T" else len(_GS["p_atoms"])
+    if c[0] == "d1":
+        return base + math.log2(len(_GS_QUANTS)) + math.log2(24) + math.log2(na)
+    if c[0] == "cmp":
+        return base + math.log2(3) + 2 * math.log2(na)
+    return (base + math.log2(len(_GS_D2_QUANTS)) + math.log2(3) + math.log2(3)
+            + 2 * math.log2(na))
+
+def _gs_eval_cand(c, tm, pm):
+    masks = tm if c[1] == "T" else pm
+    gates = _GS["t_gates"] if c[1] == "T" else _GS["p_gates"]
+    if c[0] == "d1":
+        _, _, qi, gi, ai = c
+        g = gates[gi][1]
+        m = masks[ai] & g
+    elif c[0] == "cmp":
+        _, _, gi, a1, a2 = c
+        g = gates[gi][1]
+        return (masks[a1] & g).bit_count() == (masks[a2] & g).bit_count()
+    else:
+        _, _, qi, gi, conn, a1, a2 = c
+        g = gates[gi][1]
+        m1, m2 = masks[a1], masks[a2]
+        m = (m1 & m2 if conn == "&" else (m1 | m2 if conn == "|"
+                                          else (~m1 | m2))) & g
+    q = _GS_QUANTS[qi]
+    if q == "ALL":    return m == gates[gi][1]
+    if q == "EXISTS": return m != 0
+    if q == "NONE":   return m == 0
+    if q == "CNT_EVEN": return m.bit_count() % 2 == 0
+    return m.bit_count() % 2 == 1
+
+def _gs_pretty(c):
+    atoms = _GS["t_atoms"] if c[1] == "T" else _GS["p_atoms"]
+    gates = _GS["t_gates"] if c[1] == "T" else _GS["p_gates"]
+    if c[0] == "d1":
+        return f"{_GS_QUANTS[c[2]]}[{c[1]}:{gates[c[3]][0]}] {atoms[c[4]][0]}"
+    if c[0] == "cmp":
+        return (f"#[{c[1]}:{gates[c[2]][0]}]({atoms[c[3]][0]}) == "
+                f"#({atoms[c[4]][0]})")
+    return (f"{_GS_QUANTS[c[2]]}[{c[1]}:{gates[c[3]][0]}] "
+            f"({atoms[c[5]][0]} {c[4]} {atoms[c[6]][0]})")
+
+def _gs_probe_worker(args):
+    seed, want = args
+    rng = random.Random(seed)
+    out, trials = [], 0
+    t0 = time.time()
+    for _ in range(want):
+        seq, tr = _gs_one_sample(rng)
+        out.append(seq)
+        trials += tr
+    return out, trials, time.time() - t0
+
+def _gs_sig_worker(rng_):
+    """Signature dedup over a candidate index range, using the probe masks."""
+    lo, hi = rng_
+    tm0, pm0 = _GS["probe_tm"][0], _GS["probe_pm"][0]  # KW
+    nprobe = len(_GS["probe_tm"]) - 1
+    out = []
+    for idx in range(lo, hi):
+        c = _GS["cands"][idx]
+        kw = _gs_eval_cand(c, tm0, pm0)
+        sig = 0
+        for s in range(1, nprobe + 1):
+            if _gs_eval_cand(c, _GS["probe_tm"][s], _GS["probe_pm"][s]):
+                sig |= 1 << s
+        out.append((idx, kw, sig))
+    return out
+
+def _gs_rarity_batch(args):
+    """Generate `want` fresh samples (disjoint seed stream) and count hits for
+    every rarity-tested candidate. One checkpointable unit of work."""
+    batch_idx, seed, want = args
+    rng = random.Random(seed)
+    cands = _GS["rcands"]
+    hits = [0] * len(cands)
+    trials = 0
+    t0 = time.time()
+    for j in range(want):
+        seq, tr = _gs_one_sample(rng)
+        trials += tr
+        if j == 0:  # per-batch sanity: C4 pin + C2 (no distance-5 transition)
+            if not (seq[0] == 63 and seq[1] == 0):
+                raise AssertionError('guard failed: seq[0] == 63 and seq[1] == 0')
+            if not (all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))):
+                raise AssertionError('guard failed: all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))')
+        tm, pm = _gs_seq_masks(seq)
+        for ci, c in enumerate(cands):
+            if _gs_eval_cand(c, tm, pm):
+                hits[ci] += 1
+    return batch_idx, want, trials, hits, time.time() - t0
+
+def _gs_wilson_lower(hits, n, z=1.645):
+    """One-sided 95% Wilson score lower bound for a binomial proportion."""
+    if n == 0:
+        return 0.0
+    p = hits / n
+    z2 = z * z
+    denom = 1 + z2 / n
+    center = p + z2 / (2 * n)
+    rad = z * math.sqrt(p * (1 - p) / n + z2 / (4 * n * n))
+    return max(0.0, (center - rad) / denom)
+
+def _gs_setup_population():
+    """Populate _GS["others"] / _GS["target"] — the uniform C1^C2^C4^C5
+    reference-population definition (the declared conditioning, not a grammar
+    terminal). Shared verbatim by run_grammar_search (U2) and run_prereg_h1h3
+    (pure code motion from run_grammar_search, 2026-07-26; U2 output verified
+    byte-identical across the move)."""
+    pairs = [(binary_hexagrams[2 * i], binary_hexagrams[2 * i + 1])
+             for i in range(32)]
+    others = []
+    for p in pairs:
+        if set(p) != {0, 63}:
+            others.append(p)
+    if not (len(others) == 31):
+        raise AssertionError('guard failed: len(others) == 31')
+    _GS["others"] = others
+    kw_diffs = [_GS_PC[binary_hexagrams[i] ^ binary_hexagrams[i + 1]]
+                for i in range(63)]
+    target = [0] * 7
+    for d in kw_diffs:
+        target[d] += 1
+    # C5's transition multiset (matches the published constraint definition).
+    if not (target == [0, 2, 20, 13, 19, 0, 9]):
+        raise AssertionError(target)
+    _GS["target"] = target
+
+
+# ---------------------------------------------------------------------------
+# SEED-STREAM DISJOINTNESS GUARD (added 2026-09-02, batch C2).
+#
+# Four sampling streams are derived from one base seed by fixed offsets:
+#
+#     U2 probe       seed +   100 + w      w = 0 .. workers-1
+#     U2 rarity      seed + 10000 + b      b = 0 .. batches-1
+#     prereg thr     seed + 20000 + b      b = 0 .. batches-1
+#     prereg eval    seed + 30000 + b      b = 0 .. batches-1
+#
+# The offsets are 10,000 apart and the batch index is added on top, so the
+# streams are disjoint only while the index stays inside that gap. Nothing
+# enforced it: --gs-batches was unbounded. EXHIBITED at --gs-batches 20000 with
+# --seed 42, threshold batch 10005 and evaluation batch 5 are the SAME stream --
+#
+#     42 + 20000 + 10005  ==  42 + 30000 + 5  ==  30047
+#
+# so the pre-registered evaluation stream would silently re-draw samples the
+# threshold stream had already used to set the very thresholds it is evaluated
+# against. That is a circularity, not a slowdown, and it produces no error and
+# no visible symptom -- the run completes and reports verdicts.
+#
+# THE BOUND IS DELIBERATELY ONE BELOW THE TIGHT ONE. batches == 10000 is
+# provably safe (the largest index is 9999, strictly inside the 10,000 gap), but
+# a guard sitting exactly on the boundary it protects has no margin for a future
+# off-by-one in the job-splitting loop. 10000 is refused, and the message says
+# why, so nobody "fixes" it back by one.
+#
+# The workers leg is the sibling, swept with it: the probe offset is only 100,
+# so w >= 9900 collides with the rarity stream. It has never been reached in
+# practice -- workers defaults to the CPU count -- which is exactly the kind of
+# unenforced invariant this project keeps finding after the fact.
+#
+# Gated by tests.py SEED_STREAMS_DISJOINT=1, which exhibits the arithmetic
+# collision itself and not merely the constant.
+# ---------------------------------------------------------------------------
+_SEED_STREAM_OFFSETS = {"probe": 100, "rarity": 10000,
+                        "prereg_threshold": 20000, "prereg_eval": 30000}
+_SEED_STREAM_GAP = 10000
+
+
+def _guard_seed_stream_disjointness(batches, workers):
+    """Refuse a batch/worker count that would make two seed streams overlap.
+
+    Raises SystemExit(2) rather than returning a flag: this runs before any
+    sampling, and a caller that ignored a return value would produce a report
+    that looks exactly like a valid one. Not an `assert` -- guards must survive
+    `python3 -O` (tests.py TestNoBareAsserts pins that convention).
+    """
+    if batches is None or batches < 1:
+        raise SystemExit(f"roae.py: --gs-batches must be >= 1, got {batches!r}")
+    if workers is None or workers < 1:
+        raise SystemExit(f"roae.py: --gs-workers must be >= 1, got {workers!r}")
+    if batches >= _SEED_STREAM_GAP:
+        head = (f"roae.py: --gs-batches {batches} refused for seed-stream "
+                f"disjointness (limit {_SEED_STREAM_GAP - 1}).\n"
+                f"  Streams are seed+100+w, seed+10000+b, seed+20000+b, "
+                f"seed+30000+b; the offsets are {_SEED_STREAM_GAP} apart.\n")
+        if batches > _SEED_STREAM_GAP:
+            # A collision genuinely EXISTS at this batch count; name one, and
+            # name one that is really in range. Index _SEED_STREAM_GAP is the
+            # first colliding threshold batch and it exists iff batches > gap.
+            why = (f"  Threshold batch {_SEED_STREAM_GAP} and evaluation "
+                   f"batch 0 are the same stream "
+                   f"({_SEED_STREAM_OFFSETS['prereg_threshold']}+"
+                   f"{_SEED_STREAM_GAP} == "
+                   f"{_SEED_STREAM_OFFSETS['prereg_eval']}+0), so the "
+                   f"pre-registered evaluation would re-draw the samples that "
+                   f"set its own thresholds.")
+        else:
+            # batches == gap is provably safe (max index gap-1). Say exactly
+            # that rather than inventing a collision that is not there.
+            why = (f"  batches == {_SEED_STREAM_GAP} has no collision (the "
+                   f"largest index is {_SEED_STREAM_GAP - 1}); it is refused "
+                   f"only so the guard does not sit on the boundary it "
+                   f"protects.")
+        raise SystemExit(head + why + "\n  Raise the OFFSETS if you need more "
+                         "batches; do not raise this limit alone.")
+    if workers >= _SEED_STREAM_GAP - _SEED_STREAM_OFFSETS["probe"]:
+        raise SystemExit(
+            f"roae.py: --gs-workers {workers} would break seed-stream "
+            f"disjointness (limit "
+            f"{_SEED_STREAM_GAP - _SEED_STREAM_OFFSETS['probe'] - 1}).\n"
+            f"  The probe stream is seed+100+w and the rarity stream is "
+            f"seed+10000+b, so w >= "
+            f"{_SEED_STREAM_GAP - _SEED_STREAM_OFFSETS['probe']} collides.")
+
+
+def run_grammar_search(nsamp, nprobe, workers, batches, seed,
+                       json_path, ckpt_path):
+    """U2 grammar search over the declared depth<=2 grammar (see the section
+    banner above for the design and the circularity firewall)."""
+    _guard_seed_stream_disjointness(batches, workers)
+    from multiprocessing import Pool
+    report = {}
+    print("U2 grammar search (--grammar-search)")
+    print(f"  pre-registered: nsamp={nsamp} nprobe={nprobe} seed={seed} "
+          f"workers={workers} batches={batches}")
+
+    # ---- frozen grammar ----
+    _GS["t_atoms"] = _gs_t_atoms()
+    _GS["p_atoms"] = _gs_p_atoms()
+    _GS["t_gates"] = _gs_build_gates(63, True)
+    _GS["p_gates"] = _gs_build_gates(64, False)
+    _GS["d2_tgates"] = (0, 1, 2)  # ALL, WITHIN, BOUNDARY
+    p_glbl = [g[0] for g in _GS["p_gates"]]
+    _GS["d2_pgates"] = tuple(p_glbl.index(x)
+                             for x in ("ALL", "i%2==0", "i%2==1"))
+    nt, np_ = len(_GS["t_atoms"]), len(_GS["p_atoms"])
+    if not (nt == 118 and np_ == 52):   # frozen sizes
+        raise AssertionError((nt, np_))
+    if not (len(_GS["t_gates"]) == 24 and len(_GS["p_gates"]) == 24):
+        raise AssertionError('guard failed: len(_GS["t_gates"]) == 24 and len(_GS["p_gates"]) == 24')
+
+    # ---- population definition (the declared conditioning, not a terminal) ----
+    _gs_setup_population()
+
+    # ---- Phase A: probe samples (seed stream: seed+100+w) ----
+    t0 = time.time()
+    per = (nprobe + workers - 1) // workers
+    jobs = []
+    left = nprobe
+    for w in range(workers):
+        want = min(per, left)
+        if want <= 0:
+            break
+        jobs.append((seed + 100 + w, want))
+        left -= want
+    with Pool(workers) as pool:
+        res = pool.map(_gs_probe_worker, jobs)
+    probe = [s for r in res for s in r[0]][:nprobe]
+    trials = sum(r[1] for r in res)
+    cpu_a = sum(r[2] for r in res)
+    wall_a = time.time() - t0
+    print(f"[A] {len(probe)} probe samples, accept=1/{trials / len(probe):.0f}, "
+          f"wall={wall_a:.1f}s, {cpu_a / len(probe) * 1000:.1f} cpu-ms/sample")
+    report["probe_sample"] = dict(
+        n=len(probe), trials=trials, wall_s=round(wall_a, 1),
+        cpu_ms_per_sample=round(cpu_a / len(probe) * 1000, 2))
+
+    # ---- Phase B: masks for KW + probe; candidate enumeration ----
+    t0 = time.time()
+    probe_tm, probe_pm = [], []
+    for s in [list(binary_hexagrams)] + probe:
+        tm, pm = _gs_seq_masks(s)
+        probe_tm.append(tm)
+        probe_pm.append(pm)
+    _GS["probe_tm"], _GS["probe_pm"] = probe_tm, probe_pm
+    _GS["cands"] = _gs_gen_candidates()
+    n_syn = len(_GS["cands"])
+    by_form = {}
+    for c in _GS["cands"]:
+        by_form[c[0]] = by_form.get(c[0], 0) + 1
+    print(f"[B] masks in {time.time() - t0:.1f}s; syntactic candidates d<=2: "
+          f"{n_syn} by form: {by_form} (NT={nt}, NP={np_})")
+    report["grammar"] = dict(t_atoms=nt, p_atoms=np_, t_gates=24, p_gates=24,
+                             quantifiers=list(_GS_QUANTS))
+    report["syntactic"] = dict(total=n_syn, **by_form)
+
+    # ---- Phase C: signature dedup on the probe set ----
+    t0 = time.time()
+    chunk = 4000
+    ranges = [(i, min(i + chunk, n_syn)) for i in range(0, n_syn, chunk)]
+    best = {}          # (kw, sig) -> candidate idx of min-L representative
+    kw_true_syn = 0
+    with Pool(workers) as pool:
+        for out in pool.imap_unordered(_gs_sig_worker, ranges):
+            for idx, kw, sig in out:
+                if kw:
+                    kw_true_syn += 1
+                key = (kw, sig)
+                if (key not in best
+                        or _gs_cand_L(_GS["cands"][idx])
+                        < _gs_cand_L(_GS["cands"][best[key]])):
+                    best[key] = idx
+    wall_c = time.time() - t0
+    n_dist = len(best)
+    sel = math.log2(n_dist)  # selection charge, pinned to THIS run's measure
+    full = (1 << (nprobe + 1)) - 2  # bits 1..nprobe set
+    kwsat = [(k, i) for k, i in best.items() if k[0]]
+    trivial = [(k, i) for k, i in kwsat if k[1] == full]
+    nontriv = [(k, i) for k, i in kwsat if k[1] != full]
+    print(f"[C] dedup {wall_c:.1f}s: distinct={n_dist} "
+          f"({n_dist / n_syn * 100:.1f}%), KW-sat syntactic={kw_true_syn}, "
+          f"KW-sat distinct={len(kwsat)}, probe-trivial={len(trivial)}, "
+          f"to-rarity={len(nontriv)}")
+    print(f"[C] selection charge log2(distinct) = {sel:.2f} bits "
+          f"(pinned to this run, probe={nprobe})")
+    report["dedup"] = dict(distinct=n_dist, kw_sat_syntactic=kw_true_syn,
+                           kw_sat_distinct=len(kwsat),
+                           probe_trivial=len(trivial),
+                           to_rarity=len(nontriv), wall_s=round(wall_c, 1),
+                           selection_bits=round(sel, 2))
+
+    # ---- Phase D: rarity on a DISJOINT sample stream (seed+10000+batch) ----
+    ridx = [i for _, i in nontriv]
+    _GS["rcands"] = [_GS["cands"][i] for i in ridx]
+    per_batch = (nsamp + batches - 1) // batches
+    jobs = []
+    left = nsamp
+    for b in range(batches):
+        want = min(per_batch, left)
+        if want <= 0:
+            break
+        jobs.append((b, seed + 10000 + b, want))
+        left -= want
+    jobs_by_batch = [(b, w) for b, _sd, w in jobs]
+    done = {}          # batch_idx -> (n, hits)
+    # 🔴 A CHECKPOINT ROW MUST CARRY THE IDENTITY OF THE RUN THAT PRODUCED IT.
+    # Until 2026-09-03 the only field validated on load was `ncand`, while each batch draws from
+    # `seed + 10000 + b`. So a resume under a DIFFERENT --seed silently reused rows computed on a
+    # different stream whenever the candidate count happened to match, and the report then described
+    # a single-seed run that never happened. Same for a changed --nsamp/--gs-batches, which move
+    # `want` and the batch partition. Every field that selects the sample is now written and checked.
+    _ck_ident = dict(seed=seed, ncand=len(ridx), batches=len(jobs), nsamp=nsamp)
+    if ckpt_path and os.path.exists(ckpt_path):
+        rejected = {}
+        with open(ckpt_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    rejected["unparsable row"] = rejected.get("unparsable row", 0) + 1
+                    continue
+                # A row written before this fix has no `seed`; it cannot be shown to belong to this
+                # run, so it is refused rather than trusted. Silently accepting it is the defect.
+                bad = [k for k, v in _ck_ident.items() if rec.get(k) != v]
+                want_b = dict(jobs_by_batch).get(rec.get("batch"))
+                if want_b is not None and rec.get("want") != want_b:
+                    bad.append("want")
+                if bad:
+                    key = ",".join(sorted(bad))
+                    rejected[key] = rejected.get(key, 0) + 1
+                    continue
+                done[rec["batch"]] = (rec["n"], rec["hits"])
+        for key, cnt in sorted(rejected.items()):
+            print(f"[D] checkpoint: IGNORED {cnt} row(s) — mismatched {key} "
+                  f"(rows from a different run are not reusable)")
+        if done:
+            print(f"[D] checkpoint: {len(done)} batches already complete")
+    todo = [j for j in jobs if j[0] not in done]
+    t0 = time.time()
+    ck = open(ckpt_path, "a") if ckpt_path else None
+    nb_done = len(done)
+    with Pool(workers) as pool:
+        for batch_idx, n_b, trials_b, hits_b, cpu_b in \
+                pool.imap_unordered(_gs_rarity_batch, todo):
+            done[batch_idx] = (n_b, hits_b)
+            nb_done += 1
+            if ck:
+                ck.write(json.dumps(dict(batch=batch_idx, n=n_b,
+                                         trials=trials_b, ncand=len(ridx),
+                                         seed=seed, batches=len(jobs), nsamp=nsamp,
+                                         want=dict(jobs_by_batch).get(batch_idx),
+                                         hits=hits_b)) + "\n")
+                ck.flush()
+            if nb_done % 10 == 0 or nb_done == len(jobs):
+                el = time.time() - t0
+                print(f"[D] {nb_done}/{len(jobs)} batches, "
+                      f"{el / 60:.1f} min elapsed", flush=True)
+    if ck:
+        ck.close()
+    n_eff = sum(n for n, _ in done.values())
+    hits = [0] * len(ridx)
+    for n_b, h_b in done.values():
+        for j, h in enumerate(h_b):
+            hits[j] += h
+    wall_d = time.time() - t0
+    print(f"[D] rarity: {len(ridx)} candidates x {n_eff} samples, "
+          f"wall={wall_d / 60:.1f} min")
+    report["rarity"] = dict(cands=len(ridx), nsamp=n_eff,
+                            wall_s=round(wall_d, 1))
+
+    # ---- Phase E: MDL ledger, survivors, detection floor ----
+    res_bits = math.log2(n_eff)
+    floors = {}
+    for c in _GS["cands"]:
+        key = f"{c[0]}-{c[1]}"
+        L = _gs_cand_L(c)
+        if key not in floors or L < floors[key]:
+            floors[key] = L
+    min_L = min(floors.values())
+    print(f"[E] resolution at n={n_eff}: {res_bits:.1f} bits; "
+          f"L(C) floor by form: "
+          + ", ".join(f"{k}={v:.1f}" for k, v in sorted(floors.items())))
+    print(f"[E] DETECTION FLOOR: a survivor needs bits-explained > L(C) + "
+          f"selection >= {min_L + sel:.1f} bits (cheapest form) — i.e. "
+          f"population frequency below ~2^-{min_L + sel:.0f}. Direct "
+          f"sampling resolves {res_bits:.1f} bits; anything between is "
+          f"reportable only via the zero-hit escalation path.")
+    survivors, zero_hit, killed = [], [], 0
+    scored = []
+    for j, idx in enumerate(ridx):
+        c = _GS["cands"][idx]
+        L = _gs_cand_L(c)
+        h = hits[j]
+        if h == 0:
+            zero_hit.append((idx, L))
+            continue
+        be = -math.log2(h / n_eff)
+        scored.append((be - L, be, L, h, idx))
+        if be > L:
+            survivors.append((idx, L, be, h))
+        else:
+            killed += 1
+    zero_hit.sort(key=lambda x: x[1])
+    scored.sort(reverse=True)
+    print(f"[E] killed by observed hits: {killed}; "
+          f"MDL-net-positive (pre-selection): {len(survivors)}; "
+          f"zero-hit shortlist: {len(zero_hit)}")
+    for idx, L, be, h in survivors[:20]:
+        print(f"    SURVIVOR? L={L:.1f} be={be:.1f} hits={h}/{n_eff}: "
+              f"{_gs_pretty(_GS['cands'][idx])}")
+    for idx, L in zero_hit[:25]:
+        print(f"    ZERO-HIT L={L:.1f}: {_gs_pretty(_GS['cands'][idx])}")
+    print("[R] closest approaches (bits-explained - L(C), pre-selection):")
+    for mg, be, L, h, idx in scored[:15]:
+        print(f"    margin={mg:+.1f} be={be:.1f} L={L:.1f} hits={h}/{n_eff}: "
+              f"{_gs_pretty(_GS['cands'][idx])}")
+    rarest = min((s for s in scored), key=lambda s: s[3], default=None)
+    wilson = None
+    if rarest is not None:
+        wilson = _gs_wilson_lower(rarest[3], n_eff)
+        print(f"[R] rarest resolved candidate: {rarest[3]}/{n_eff} hits; "
+              f"one-sided 95% Wilson lower bound f >= {wilson:.3g} "
+              f"(<= {-math.log2(wilson):.1f} bits)")
+    report["mdl"] = dict(
+        resolution_bits=round(res_bits, 1),
+        L_floor_by_form={k: round(v, 2) for k, v in sorted(floors.items())},
+        detection_floor_bits=round(min_L + sel, 1),
+        killed_by_hits=killed, survivors=len(survivors),
+        zero_hit=len(zero_hit),
+        survivor_list=[(round(L, 1), round(be, 1), h,
+                        _gs_pretty(_GS["cands"][i]))
+                       for i, L, be, h in survivors[:50]],
+        zero_hit_list=[(round(L, 1), _gs_pretty(_GS["cands"][i]))
+                       for i, L in zero_hit[:50]])
+    report["closest"] = [(round(mg, 2), round(be, 2), round(L, 2), h,
+                          _gs_pretty(_GS["cands"][i]))
+                         for mg, be, L, h, i in scored[:15]]
+    if wilson is not None:
+        report["rarest"] = dict(hits=rarest[3], n=n_eff,
+                                wilson_lower_f=wilson,
+                                wilson_bits=round(-math.log2(wilson), 2))
+
+    # rarity histogram (floor of -log2 f) for the record
+    hist = {}
+    for j in range(len(ridx)):
+        h = hits[j]
+        band = "zero-hit" if h == 0 else str(int(-math.log2(h / n_eff)))
+        hist[band] = hist.get(band, 0) + 1
+    report["rarity_hist_negl2f_floor"] = dict(
+        sorted(hist.items(),
+               key=lambda kv: 999 if kv[0] == "zero-hit" else int(kv[0])))
+    print(f"[H] -log2(f) floor histogram: {report['rarity_hist_negl2f_floor']}")
+
+    # sanity: C2 as a grammar sentence must hold on KW and all probe samples
+    t_lbls = [a[0] for a in _GS["t_atoms"]]
+    c2c = ("d1", "T", _GS_QUANTS.index("NONE"), 0, t_lbls.index("d==5"))
+    if not (_gs_eval_cand(c2c, probe_tm[0], probe_pm[0])):
+        raise AssertionError('guard failed: _gs_eval_cand(c2c, probe_tm[0], probe_pm[0])')
+    if not (all(_gs_eval_cand(c2c, probe_tm[s], probe_pm[s])
+               for s in range(1, min(51, nprobe + 1)))):
+        raise AssertionError('guard failed: all(_gs_eval_cand(c2c, probe_tm[s], probe_pm[s]) for s in range(1, min(51, nprobe + 1)))')
+    print("[S] sanity: NONE[T:ALL] d==5 (C2) true on KW + probe: OK")
+
+    verdict = ("NULL — no survivor within the declared grammar at depth <= 2"
+               if not survivors and not zero_hit else
+               "ATTENTION — survivor or zero-hit shortlist present; "
+               "run the circularity audit before any claim")
+    print(f"[V] {verdict}")
+    report["verdict"] = verdict
+    report["preregistration"] = dict(
+        nsamp=nsamp, nprobe=nprobe, seed=seed,
+        probe_seed_stream=f"seed+100+w (w=0..{workers - 1})",
+        rarity_seed_stream=f"seed+10000+b (b=0..{len(jobs) - 1})",
+        selection_charge="log2(distinct classes at frozen probe size)",
+        depth="d<=2; d=3 only if a d<=2 candidate survives the MDL prefilter")
+    if json_path:
+        with open(json_path, "w") as f:
+            json.dump(report, f, indent=1)
+        print(f"[W] report written to {json_path}")
+
+
+# ============================================================================
+# Pre-registered H1/H3 test (--prereg-h1h3)
+# Developed with AI assistance (Claude/Fable, Anthropic).
+#
+# K = 4 pre-declared predicates over the same uniform C1^C2^C4^C5 reference
+# population as the U2 grammar search (same sampler, _gs_one_sample; same
+# population definition, _gs_setup_population). Frozen spec (authoritative;
+# this code implements it verbatim): the pre-registration document of
+# 2026-07-26. Everything below — functionals, threshold rules, seed streams,
+# L(C) menus, the log2(K)=2.00 selection charge, the cross-check gate, and the
+# pre-registered prediction that ALL FOUR tests FAIL their bars — was frozen
+# before this code was written.
+#
+# Notation (1-indexed pair slots j; transitions i = 0..62; d_i = popcount of
+# the i-th transition):
+#   A(S)  = sum_{i=0..61} d_i * d_{i+1}        (lag-1 product sum, = F4'
+#           dist_autocorr; H1's functional)
+#   D6(S) = { j in 1..32 : within-pair distance of slot j == 6 }   (|D6| = 8,
+#           forced — a constant of the population)
+#   M1(S) = { j in 1..31 : boundary after slot j has d == 1 }      (|M1| = 2,
+#           forced)
+#   P(S)  = #{ j in D6 : j in {1,32} or (j-1) in D6 or (j+1) in D6 }
+#   Q(S)  = #{ j in M1 : j in D6 or (j+1) in D6 }
+#
+# The four tests and their frozen threshold rules:
+#   T1 H1-median:    A(S) <= med*(A), med*(A) = lower sample median from the
+#                    threshold stream ONLY (KW held out).
+#   T2 H1-perm-sign: A(S) <= 693 = floor((S1^2 - S2)/63), S1 = 211, S2 = 827
+#                    — a closed-form constant of C5's declared multiset.
+#   T3 H3-P:         P(S) >= med*(P), med*(P) = upper sample median ("ge"
+#                    rule) from the threshold stream ONLY.
+#   T4 H3-Q:         Q(S) = 2 (universal cushion form; no numeric threshold).
+#
+# CIRCULARITY FIREWALL (KW hold-out, structural): the threshold stream
+# (seed+20000+b) is sampled and med*(A)/med*(P) are computed, printed, and
+# persisted BEFORE any code path below evaluates a functional on the KW
+# array. KW-FUNCTIONAL evaluation enters exactly twice, both after that
+# freeze point: (i) the KW-satisfaction bits, (ii) the at-KW masses — which
+# are reported as C3-class DATA (descriptive, priced-as-data), never as a
+# test. The boundary is functional evaluation, NOT contact: the reference
+# population is built from KW before the thresholds are drawn
+# (_gs_setup_population reads binary_hexagrams for the 31 C1 pair units and
+# the C5 transition multiset, and is called first in run_prereg_h1h3) —
+# disclosed, deliberate conditioning on C1 & C5, priced as such. The
+# evaluation stream (seed+30000+b) is disjoint from the threshold stream and
+# from U2's streams (+100+w probe, +10000+b rarity) at the same base seed
+# ONLY while batches < 10000, the gap between the two offsets: --gs-batches
+# 20000 makes threshold batch 10000+k and evaluation batch k seed-identical.
+# BOUNDED 2026-09-02 (batch C2): _guard_seed_stream_disjointness() now refuses
+# batches >= 10000 (and workers >= 9900, the probe/rarity sibling) before any
+# sampling starts. This comment read "--gs-batches is currently unbounded" and
+# said "Bound it before raising it"; it is bounded, and raising the LIMIT alone
+# would restore the defect -- raise the OFFSETS.
+#
+# Accounting (frozen): L(C) per test from the declared coarse menus
+# (T1 7.58, T2 7.58, T3 9.17, T4 8.06 bits — breakdown in the spec §4.1),
+# selection charge log2(K) = log2(4) = 2.00 bits. A test passes iff KW
+# satisfies its predicate AND bits-explained = -log2 f_eval > L(C) + 2.00.
+# Pre-registered prediction: 4/4 FAIL (an expected, legitimate null).
+#
+# Validity gate (spec §3.5): the evaluation stream's mass(A <= 648) must
+# reproduce the independently-measured F4' dist_autocorr figure 0.04789
+# within +-0.005 (Knuth importance-weighted estimator, f4p_tier1.out row 10).
+# On failure: hard stop, no verdicts.
+# ============================================================================
+
+# The parity shadow ("no two odd-d transitions adjacent") is a theorem of the
+# system (TR-6/TR-7) with provable population mass 1 — asserted per batch as a
+# sampler-correctness detector only; deliberately NOT charged in K.
+
+def _ph_stats(seq):
+    """One pass over a population member: returns (A, P, Q, parity_ok) per
+    the frozen definitions above. Integer arithmetic only."""
+    pc = _GS_PC
+    d = [pc[seq[i] ^ seq[i + 1]] for i in range(63)]
+    A = 0
+    for i in range(62):
+        A += d[i] * d[i + 1]
+    # D6: within-pair transition of slot j is transition index 2j-2 (even i).
+    d6 = [False] * 34            # 1..32 used; sentinels at 0 and 33
+    for j in range(1, 33):
+        if d[2 * j - 2] == 6:
+            d6[j] = True
+    P = 0
+    for j in range(1, 33):
+        if d6[j] and (j == 1 or j == 32 or d6[j - 1] or d6[j + 1]):
+            P += 1
+    # M1: boundary after slot j is transition index 2j-1 (odd i), j in 1..31.
+    Q = 0
+    for j in range(1, 32):
+        if d[2 * j - 1] == 1 and (d6[j] or d6[j + 1]):
+            Q += 1
+    parity_ok = not any(d[i] % 2 == 1 and d[i + 1] % 2 == 1
+                        for i in range(62))
+    return A, P, Q, parity_ok
+
+def _ph_batch(args):
+    """Sample `want` fresh population members from one seed stream and return
+    per-batch histograms of A, P, Q. One checkpointable unit of work, shared
+    by the threshold and evaluation streams (they differ only in seed_off).
+    Returns (batch_idx, want, trials, histA, histP, histQ, parity_viol, wall).
+    """
+    batch_idx, seed_base, seed_off, want = args
+    rng = random.Random(seed_base + seed_off + batch_idx)
+    hist_a, hist_p, hist_q = {}, {}, {}
+    parity_viol = 0
+    trials = 0
+    t0 = time.time()
+    for j in range(want):
+        seq, tr = _gs_one_sample(rng)
+        trials += tr
+        if j == 0:  # per-batch sanity: C4 pin + C2 (no distance-5 transition)
+            if not (seq[0] == 63 and seq[1] == 0):
+                raise AssertionError('guard failed: seq[0] == 63 and seq[1] == 0')
+            if not (all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))):
+                raise AssertionError('guard failed: all(_GS_PC[seq[i] ^ seq[i + 1]] != 5 for i in range(63))')
+        a, p, q, ok = _ph_stats(seq)
+        if not ok:
+            parity_viol += 1
+        hist_a[a] = hist_a.get(a, 0) + 1
+        hist_p[p] = hist_p.get(p, 0) + 1
+        hist_q[q] = hist_q.get(q, 0) + 1
+    return (batch_idx, want, trials, hist_a, hist_p, hist_q, parity_viol,
+            time.time() - t0)
+
+def _ph_median(hist, mode):
+    """Frozen median rules of the spec (§3.2) on an integer histogram.
+    mode "le": smallest integer tau with F(X <= tau) >= 1/2   (for T1's A).
+    mode "ge": largest integer tau with F(X >= tau) >= 1/2    (for T3's P).
+    """
+    n = sum(hist.values())
+    if not (n > 0 and mode in ("le", "ge")):
+        raise AssertionError('guard failed: n > 0 and mode in ("le", "ge")')
+    if mode == "le":
+        cum = 0
+        for v in sorted(hist):
+            cum += hist[v]
+            if 2 * cum >= n:
+                return v
+    else:
+        cum = 0
+        for v in sorted(hist, reverse=True):
+            cum += hist[v]
+            if 2 * cum >= n:
+                return v
+    raise AssertionError("unreachable: histogram exhausted")
+
+def _ph_run_stream(label, seed, seed_off, ntotal, workers, batches,
+                   ckpt_path, phase_tag):
+    """Run one seed stream (threshold or evaluation) through _ph_batch with
+    the Phase-D JSONL checkpoint pattern. Returns (histA, histP, histQ,
+    n_eff, trials, parity_viol)."""
+    from multiprocessing import Pool
+    per_batch = (ntotal + batches - 1) // batches
+    jobs = []
+    left = ntotal
+    for b in range(batches):
+        want = min(per_batch, left)
+        if want <= 0:
+            break
+        jobs.append((b, seed, seed_off, want))
+        left -= want
+    done = {}  # batch_idx -> record dict
+    if ckpt_path and os.path.exists(ckpt_path):
+        with open(ckpt_path) as f:
+            for line in f:
+                rec = json.loads(line)
+                if rec.get("phase") == phase_tag and rec.get("seed") == seed:
+                    done[rec["batch"]] = rec
+        if done:
+            print(f"[{label}] checkpoint: {len(done)} batches already "
+                  f"complete")
+    todo = [j for j in jobs if j[0] not in done]
+    t0 = time.time()
+    ck = open(ckpt_path, "a") if ckpt_path else None
+    nb_done = len(done)
+    with Pool(workers) as pool:
+        for (batch_idx, n_b, trials_b, ha, hp, hq, pv, cpu_b) in \
+                pool.imap_unordered(_ph_batch, todo):
+            rec = dict(phase=phase_tag, seed=seed, batch=batch_idx, n=n_b,
+                       trials=trials_b, parity_viol=pv, hist_a=ha,
+                       hist_p=hp, hist_q=hq)
+            done[batch_idx] = rec
+            nb_done += 1
+            if ck:
+                ck.write(json.dumps(rec) + "\n")
+                ck.flush()
+            if nb_done % 10 == 0 or nb_done == len(jobs):
+                el = time.time() - t0
+                print(f"[{label}] {nb_done}/{len(jobs)} batches, "
+                      f"{el / 60:.1f} min elapsed", flush=True)
+    if ck:
+        ck.close()
+    hist_a, hist_p, hist_q = {}, {}, {}
+    n_eff = trials = parity_viol = 0
+    for rec in done.values():
+        n_eff += rec["n"]
+        trials += rec["trials"]
+        parity_viol += rec["parity_viol"]
+        for hist, key in ((hist_a, "hist_a"), (hist_p, "hist_p"),
+                          (hist_q, "hist_q")):
+            for k, v in rec[key].items():
+                k = int(k)  # JSON round-trip stringifies integer keys
+                hist[k] = hist.get(k, 0) + v
+    if not (n_eff == ntotal):
+        raise AssertionError((n_eff, ntotal))
+    # Parity shadow is a theorem (mass 1): any violation = sampler bug.
+    if not (parity_viol == 0):
+        raise AssertionError(f"parity-shadow violation: sampler defect")
+    return hist_a, hist_p, hist_q, n_eff, trials, parity_viol
+
+def _ph_mass(hist, pred):
+    """Fraction of histogram mass on values satisfying pred."""
+    n = sum(hist.values())
+    return sum(c for v, c in hist.items() if pred(v)) / n
+
+def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
+                    json_path, ckpt_path):
+    """Pre-registered H1/H3 K=4 test (see the section banner above; the
+    frozen 2026-07-26 pre-registration document is authoritative)."""
+    _guard_seed_stream_disjointness(batches, workers)
+    report = {}
+    print("Pre-registered H1/H3 test (--prereg-h1h3), K=4")
+    print(f"  frozen params: n_eval={n_eval} n_thr={n_thr} seed={seed} "
+          f"workers={workers} batches={batches}")
+    print("  seed streams: threshold=seed+20000+b, evaluation=seed+30000+b "
+          "(disjoint from each other and from U2's +100/+10000)")
+    _gs_setup_population()
+
+    # Frozen accounting (spec §4.1/§4.2; menu breakdowns live in the spec —
+    # T1 = 2.58+2.00+1.00+2.00, T2 same, T3 = 2.58+1.58+2.00+1.00+2.00,
+    # T4 = 2.58+2.32+1.58+1.58; charge = log2(K=4) = 2.00).
+    L = {"T1": 7.58, "T2": 7.58, "T3": 9.17, "T4": 8.06}
+    SEL = 2.00
+    T2_CUT = 693  # floor((211^2 - 827)/63), closed form from C5's multiset
+    if not ((211 * 211 - 827) // 63 == T2_CUT):
+        raise AssertionError('guard failed: (211 * 211 - 827) // 63 == T2_CUT')
+
+    # ---- Phase T: threshold stream — completes BEFORE any KW evaluation ----
+    t0 = time.time()
+    tha, thp, thq, n_t, trials_t, _ = _ph_run_stream(
+        "T", seed, 20000, n_thr, workers, batches, ckpt_path, "thr")
+    med_a = _ph_median(tha, "le")
+    med_p = _ph_median(thp, "ge")
+    wall_t = time.time() - t0
+    print(f"[T] threshold stream: n={n_t}, accept=1/{trials_t / n_t:.0f}, "
+          f"wall={wall_t / 60:.1f} min")
+    print(f"[T] FROZEN THRESHOLDS (KW held out): med*(A)={med_a} (T1: "
+          f"A<=med*), med*(P)={med_p} (T3: P>=med*); T2 cut {T2_CUT} "
+          f"(closed form); T4 universal (Q=2)")
+    report["thresholds"] = dict(med_a=med_a, med_p=med_p, t2_cut=T2_CUT,
+                                n_thr=n_t, derived_from="threshold stream "
+                                "seed+20000+b only; KW held out")
+    report["threshold_stream"] = dict(
+        n=n_t, trials=trials_t, wall_s=round(wall_t, 1),
+        hist_a={str(k): v for k, v in sorted(tha.items())},
+        hist_p={str(k): v for k, v in sorted(thp.items())},
+        hist_q={str(k): v for k, v in sorted(thq.items())})
+    if json_path:  # persist the freeze point before KW is touched
+        with open(json_path, "w") as f:
+            json.dump(report, f, indent=1)
+
+    # ---- Phase V: FIRST KW read (structurally after the threshold freeze) --
+    kw_a, kw_p, kw_q, kw_par = _ph_stats(list(binary_hexagrams))
+    # Evaluator-correctness pins (frozen constants, NOT thresholds).
+    if not ((kw_a, kw_p, kw_q, kw_par) == (648, 5, 2, True)):
+        raise AssertionError((kw_a, kw_p, kw_q, kw_par))
+    kw_sat = {"T1": kw_a <= med_a, "T2": kw_a <= T2_CUT,
+              "T3": kw_p >= med_p, "T4": kw_q == 2}
+    print(f"[V] KW values: A=648 P=5 Q=2 (pinned); satisfaction: "
+          + ", ".join(f"{t}={'YES' if s else 'NO'}"
+                      for t, s in kw_sat.items()))
+    report["kw"] = dict(A=kw_a, P=kw_p, Q=kw_q,
+                        satisfies={t: bool(s) for t, s in kw_sat.items()})
+
+    # ---- Phase E: evaluation stream ----
+    t0 = time.time()
+    eha, ehp, ehq, n_e, trials_e, _ = _ph_run_stream(
+        "E", seed, 30000, n_eval, workers, batches, ckpt_path, "eval")
+    wall_e = time.time() - t0
+    print(f"[E] evaluation stream: n={n_e}, accept=1/{trials_e / n_e:.0f}, "
+          f"wall={wall_e / 60:.1f} min")
+    report["eval_stream"] = dict(
+        n=n_e, trials=trials_e, wall_s=round(wall_e, 1),
+        hist_a={str(k): v for k, v in sorted(eha.items())},
+        hist_p={str(k): v for k, v in sorted(ehp.items())},
+        hist_q={str(k): v for k, v in sorted(ehq.items())})
+
+    # ---- Cross-check gate (spec §3.5) — validity precondition, not a test --
+    p_le_648 = _ph_mass(eha, lambda v: v <= 648)
+    gate_ok = abs(p_le_648 - 0.04789) <= 0.005
+    print(f"[G] cross-check gate vs F4' dist_autocorr: sampled "
+          f"mass(A<=648)={p_le_648:.5f} vs 0.04789 +- 0.005 -> "
+          f"{'PASS' if gate_ok else 'FAIL'}")
+    report["crosscheck_gate"] = dict(mass_a_le_648=p_le_648,
+                                     expected=0.04789, tol=0.005,
+                                     ok=bool(gate_ok))
+    if not gate_ok:
+        report["verdict"] = ("GATE FAIL — population/sampler mismatch vs "
+                             "the F4' instrument; NO verdicts issued")
+        if json_path:
+            with open(json_path, "w") as f:
+                json.dump(report, f, indent=1)
+        print("[G] HARD STOP: no verdicts; investigate the population/"
+              "sampler discrepancy (spec §3.5 / §8).")
+        sys.exit(3)
+
+    # ---- Phase L: per-test frequencies, ledger, verdicts ----
+    freq = {"T1": _ph_mass(eha, lambda v: v <= med_a),
+            "T2": _ph_mass(eha, lambda v: v <= T2_CUT),
+            "T3": _ph_mass(ehp, lambda v: v >= med_p),
+            "T4": _ph_mass(ehq, lambda v: v == 2)}
+    names = {"T1": f"H1-median  A<={med_a}",
+             "T2": f"H1-perm-sign  A<={T2_CUT}",
+             "T3": f"H3-P  P>={med_p}",
+             "T4": "H3-Q  Q=2 (universal)"}
+    print(f"[L] per-test ledger (bar = L(C) + selection log2(4) = "
+          f"L(C) + {SEL:.2f}; n_eval = {n_e}):")
+    report["tests"] = {}
+    all_fail = True
+    for t in ("T1", "T2", "T3", "T4"):
+        hits = round(freq[t] * n_e)
+        if hits == 0:
+            # Zero-hit path (spec §4.3): report Wilson bound and stop there.
+            be = float("inf")
+            be_str = f">= {math.log2(n_e):.1f} (0 hits; Wilson)"
+        else:
+            be = -math.log2(freq[t])
+            be_str = f"{be:.3f}"
+        # One-sided 95% Wilson interval for f -> interval for bits-explained.
+        f_lo = _gs_wilson_lower(hits, n_e)
+        f_hi = 1.0 - _gs_wilson_lower(n_e - hits, n_e)
+        be_lo = -math.log2(f_hi) if f_hi > 0 else float("inf")
+        be_hi = -math.log2(f_lo) if f_lo > 0 else float("inf")
+        bar = L[t] + SEL
+        passed = bool(kw_sat[t]) and hits > 0 and be > bar
+        if passed:
+            all_fail = False
+        verdict = ("PASS — NO CLAIM: adversarial re-audit required (spec §8)"
+                   if passed else
+                   ("FAIL (KW-unsatisfied, 0 bits)" if not kw_sat[t]
+                    else "FAIL"))
+        print(f"    {t} {names[t]:28s} KW-sat={'Y' if kw_sat[t] else 'N'} "
+              f"f={freq[t]:.5f} ({hits}/{n_e}) be={be_str} bits "
+              f"[Wilson 95pct: {be_lo:.2f}..{be_hi:.2f}] "
+              f"L={L[t]:.2f} bar={bar:.2f} -> {verdict}")
+        report["tests"][t] = dict(
+            name=names[t], kw_satisfies=bool(kw_sat[t]), f_eval=freq[t],
+            hits=hits, n=n_e,
+            bits_explained=(None if hits == 0 else round(be, 3)),
+            wilson_bits_lo=round(be_lo, 3),
+            wilson_bits_hi=(None if f_lo == 0 else round(be_hi, 3)),
+            L_bits=L[t], selection_bits=SEL, bar_bits=round(bar, 2),
+            verdict=verdict)
+
+    # ---- at-KW masses: C3-class, priced as DATA — explicitly NOT tests ----
+    at_kw = dict(
+        mass_a_le_648=_ph_mass(eha, lambda v: v <= 648),
+        mass_a_lt_648=_ph_mass(eha, lambda v: v < 648),
+        mass_p_ge_5=_ph_mass(ehp, lambda v: v >= 5),
+        mass_q_eq_2=_ph_mass(ehq, lambda v: v == 2))
+    print("[K] at-KW one-sided masses (C3-class, priced as data, NOT tests; "
+          "thresholds here are KW's own values):")
+    for k, v in at_kw.items():
+        bits = -math.log2(v) if v > 0 else float("inf")
+        print(f"    {k} = {v:.5f} ({bits:.2f} bits as data)")
+    report["at_kw_c3_class_data"] = dict(
+        note="descriptive DESCRIPTION_LENGTH-ledger quantities at KW's own "
+             "values; C3-class (priced as data), never a test",
+        **{k: round(v, 6) for k, v in at_kw.items()})
+
+    # ---- final verdict vs the pre-registered prediction ----
+    verdict = ("NULL — all 4 pre-registered tests FAIL their bars (the "
+               "pre-registered predicted outcome)" if all_fail else
+               "ATTENTION — at least one test passed its bar; NO CLAIM: "
+               "adversarial circularity re-audit required before anything "
+               "else (spec §8)")
+    print(f"[V] {verdict}")
+    print(f"[V] pre-registered prediction was 4/4 FAIL -> "
+          f"{'HELD' if all_fail else 'NOT HELD'}")
+    report["verdict"] = verdict
+    report["prediction_4of4_fail_held"] = bool(all_fail)
+    report["preregistration"] = dict(
+        n_eval=n_eval, n_thr=n_thr, seed=seed, K=4,
+        selection_bits=SEL,
+        thr_seed_stream="seed+20000+b",
+        eval_seed_stream="seed+30000+b",
+        spec="PREREG_H1_H3_TEST_2026_07_26 (frozen before implementation)")
+    if json_path:
+        with open(json_path, "w") as f:
+            json.dump(report, f, indent=1)
+        print(f"[W] report written to {json_path}")
+
+
+
+def run_verify():
+    """--verify: roae.py's self-check gate.
+
+    WHY THIS EXISTS (added 2026-08-01). solve.py ships five self-verify gates
+    (--registry-verify with 31 checks, --f4p-verify, --books-verify,
+    --trigram-verify, --perm-verify), every one of them wired into tests.py.
+    roae.py shipped 29 analysis sections and NONE — its only regression cover was
+    three trivial helper tests. Every published figure this file computes rested
+    on code with no gate under it. (29 is the repo's published count, agreed by
+    four independent sites: main()'s `all_sections` dispatch list, main()'s own
+    "This report runs 29 sections" banner, ROAE_PY_CLI.md §ANALYSIS SECTIONS, and
+    README.md's Quick start. The first draft of this docstring said 37, matching
+    none of them — corrected 2026-08-01 on same-day re-review.)
+
+    The first check is the one that matters most: roae.py carries its OWN copy of
+    the King Wen table. It agrees with solve.py's today — verified 2026-08-01 —
+    but nothing enforced that. Had either drifted, every roae analysis would have
+    silently diverged from every solve.py analysis and no test would have noticed.
+    That is the unguarded-invariant class this project keeps finding; this closes
+    it for this file.
+
+    Ground truths only — no sampling, no RNG. Reads exactly one file: the
+    solve.py sitting NEXT TO this one, resolved from __file__, so the gate gives
+    the same verdict from any working directory. If that sibling is missing or
+    unreadable the cross-file check FAILS (it does not skip) and the exit code is
+    1. Nothing is written. Exit 0 = all pass.
+    """
+    import importlib.util as _ilu, sys as _sys, os as _os
+    checks, failures = [], []
+
+    def ck(name, ok, detail=""):
+        checks.append((name, ok, detail))
+        if not ok:
+            failures.append(f"{name}: {detail}")
+
+    # 1. CROSS-FILE TABLE IDENTITY — the load-bearing one.
+    #
+    # solve.py is resolved as roae.py's SIBLING, not CWD-relative. It was
+    # CWD-relative until 2026-09-02, and MEASURED from `/` this gate printed
+    # "[FAIL] KW table identical to solve.py's <- could not load solve.py:
+    # ... '/solve.py'" and exited 1 with nothing actually wrong: a FALSE
+    # NEGATIVE that made the gate unusable from any directory but one, and
+    # unusable from CI that cds elsewhere.
+    #
+    # Fail-closed behaviour is DELIBERATELY preserved. If the sibling solve.py
+    # is genuinely absent or unreadable, this still records a FAILURE and
+    # run_verify() still exits 1 -- an unreadable input is an ERROR, never a
+    # silent pass and never a vacuous zero. The change is WHERE it looks, not
+    # WHETHER it fails when it cannot look.
+    try:
+        _here = _os.path.dirname(_os.path.abspath(__file__))
+        _solve_path = _os.path.join(_here, "solve.py")
+        _spec = _ilu.spec_from_file_location("_solve_for_verify", _solve_path)
+        if _spec is None or _spec.loader is None:
+            raise ImportError(f"no import spec for {_solve_path}")
+        _sv = _ilu.module_from_spec(_spec)
+        _argv, _sys.argv = _sys.argv, ["solve.py"]
+        try:
+            _spec.loader.exec_module(_sv)
+        finally:
+            _sys.argv = _argv
+        ck("KW table identical to solve.py's",
+           list(binary_hexagrams) == list(_sv.binary_hexagrams),
+           "roae.py and solve.py disagree on the King Wen sequence")
+    except Exception as e:                                    # pragma: no cover
+        ck("KW table identical to solve.py's", False, f"could not load solve.py: {e}")
+
+    # 2. the table is a permutation of the 64 hexagrams
+    ck("binary_hexagrams is a permutation of 0..63",
+       sorted(binary_hexagrams) == list(range(64)), "not a permutation")
+
+    # 3. position index agrees with the table it indexes
+    ck("binary_to_kw_position inverts binary_hexagrams",
+       all(binary_to_kw_position(h) == i + 1 for i, h in enumerate(binary_hexagrams)),
+       "position lookup and table disagree")
+
+    # 4. rev6 is an involution
+    ck("reverse_6bit is an involution on 0..63",
+       all(reverse_6bit(reverse_6bit(h)) == h for h in range(64)), "not involutive")
+
+    # 5. trigram split reconstructs the hexagram
+    ck("(upper<<3)|lower reconstructs every hexagram",
+       all((upper_trigram(h) << 3) | lower_trigram(h) == h for h in range(64)),
+       "trigram split is not a bijection onto the hexagram")
+
+    # 6. bit_diff is a metric-ish: symmetric, zero iff equal
+    ck("bit_diff symmetric and zero iff equal",
+       all(bit_diff(a, b) == bit_diff(b, a) and (bit_diff(a, b) == 0) == (a == b)
+           for a in range(0, 64, 7) for b in range(64)), "bit_diff misbehaves")
+
+    # 7. KW's transition multiset is SPECIFICATION.md C5 (63 transitions)
+    from collections import Counter as _C
+    _d = _C(bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63))
+    ck("KW difference wave == SPECIFICATION C5 {1:2,2:20,3:13,4:19,6:9}",
+       dict(_d) == {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}, f"got {dict(_d)}")
+
+    # 8. C4 in its ORIENTED form (the conjunct dropped elsewhere in this repo, twice)
+    ck("C4 oriented: s0 = 63 (Qian) and s1 = 0 (Kun)",
+       binary_hexagrams[0] == 63 and binary_hexagrams[1] == 0,
+       f"opens {binary_hexagrams[:2]}")
+
+    # 9. display tables are complete
+    ck("hexagram_names has 64 entries", len(hexagram_names) == 64, str(len(hexagram_names)))
+    ck("unicode_hexagrams has 64 entries", len(unicode_hexagrams) == 64, str(len(unicode_hexagrams)))
+
+    # 10. Mawangdui control array is a permutation
+    ck("mawangdui_kw_indices is a permutation of 0..63",
+       sorted(mawangdui_kw_indices) == list(range(64)), "not a permutation")
+
+    print("=" * 66)
+    print("roae.py --verify : ground-truth self-check")
+    print("=" * 66)
+    for name, ok, detail in checks:
+        print(f"  [{'ok ' if ok else 'FAIL'}] {name}" + ("" if ok else f"  <- {detail}"))
+    print("=" * 66)
+    if failures:
+        print(f"ROAE VERIFY: {len(failures)} FAILURE(S)")
+        return 1
+    print(f"ROAE VERIFY: ALL {len(checks)} CHECKS PASS")
+    return 0
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -3665,6 +5244,8 @@ def main():
                         help="Recurrence plot of the difference wave")
     parser.add_argument("--codons", action="store_true",
                         help="DNA codon mapping comparison")
+    parser.add_argument("--verify", action="store_true",
+                        help="Ground-truth self-check (table identity vs solve.py, permutation/involution/trigram invariants, KW C5 multiset, oriented C4). No sampling. Exit 0 = all pass.")
     parser.add_argument("--all", action="store_true",
                         help="Run all analysis sections (default if no flags given)")
     parser.add_argument("--quick", action="store_true",
@@ -3672,6 +5253,37 @@ def main():
                              "trigrams, canons, graycode, stats)")
 
     # Interactive / special modes
+    parser.add_argument("--grammar-search", action="store_true",
+                        help="U2: circularity-safe, MDL-charged search over a "
+                             "pre-registered grammar of KW-independent "
+                             "structural predicates (depth <= 2) for candidate "
+                             "constraints beyond C1-C5 (see the section banner "
+                             "in the source for the full design)")
+    parser.add_argument("--gs-samples", type=int, default=1000000,
+                        help="grammar search: rarity sample size (default 1000000)")
+    parser.add_argument("--gs-probe", type=int, default=256,
+                        help="grammar search: probe-set size for signature dedup "
+                             "(default 256; disjoint from the rarity sample)")
+    parser.add_argument("--gs-workers", type=int, default=0,
+                        help="grammar search: worker processes (default: all cores)")
+    parser.add_argument("--gs-batches", type=int, default=100,
+                        help="grammar search: checkpointable rarity batches (default 100)")
+    parser.add_argument("--gs-json", type=str, default="u2_report.json",
+                        help="grammar search: JSON report path")
+    parser.add_argument("--gs-checkpoint", type=str, default="u2_checkpoint.jsonl",
+                        help="grammar search: rarity checkpoint path (JSONL; "
+                             "completed batches skipped on re-run — only ncand "
+                             "is validated, so delete this file when changing "
+                             "--seed/--gs-samples/--gs-batches)")
+    parser.add_argument("--prereg-h1h3", action="store_true",
+                        help="pre-registered H1/H3 K=4 test against the "
+                             "C1^C2^C4^C5 reference population (frozen "
+                             "2026-07-26 spec; reuses --gs-samples as N_eval, "
+                             "--gs-workers, --gs-batches, --gs-json, "
+                             "--gs-checkpoint, --seed)")
+    parser.add_argument("--ph-thr-samples", type=int, default=100000,
+                        help="prereg-h1h3: threshold-derivation stream sample "
+                             "size (default 100000; KW held out)")
     parser.add_argument("--self-test", action="store_true",
                         help="Run mathematical invariant checks")
     parser.add_argument("--lookup", type=str, default=None,
@@ -3707,7 +5319,7 @@ def main():
     parser.add_argument("--svg", action="store_true",
                         help="Export hexagram line diagrams (writes hexagrams.svg)")
     parser.add_argument("--html", action="store_true",
-                        help="Export HTML report (writes report.html, + .pdf if wkhtmltopdf installed)")
+                        help="Export HTML report (writes report.html)")
     parser.add_argument("--markdown", action="store_true",
                         help="Export Markdown report (writes report.md)")
     parser.add_argument("--midi", action="store_true",
@@ -3719,12 +5331,62 @@ def main():
 
     args = parser.parse_args()
 
+    # Set the global seed BEFORE the early-dispatch ladder below, not after it.
+    #
+    # This assignment used to sit further down, past every `return`-ing mode.
+    # `--cast` is one of those modes, and print_casting() opens with _reseed(9),
+    # which is a NO-OP while _global_seed is still None -- so `roae.py --cast
+    # --seed 42` drew from the unseeded global RNG and produced a different
+    # reading every run. MEASURED 2026-09-02 before this change: three
+    # invocations of `--cast --seed 42`, three distinct output sha256s. The
+    # controls were already reproducible (`--seed 42` alone, `--entropy --seed
+    # 42`), which is precisely why the defect survived -- it lived in dispatch
+    # ORDER, not in the seeding mechanism.
+    #
+    # Hoisting is behaviour-neutral for every other early mode: _reseed() is
+    # called only from the print_* section functions, and none of --verify,
+    # --help-sections, --self-test, --grammar-search, --prereg-h1h3, --lookup,
+    # --compare or --explain reaches one. --grammar-search and --prereg-h1h3
+    # take their seed as an explicit argument and are unaffected either way.
+    #
+    # Gated by tests.py CAST_SEED_DETERMINISTIC=1 (matched with an exact-line
+    # assertion). That gate was red against the pre-hoist file.
+    global _global_seed
+    if args.seed is not None:
+        _global_seed = args.seed
+
     # Special modes that bypass normal output
+    if args.verify:
+        import sys as _s
+        _s.exit(run_verify())
     if args.help_sections:
         print_help_sections()
         return
     if args.self_test:
-        print_self_test()
+        # exit non-zero when checks fail, so `roae.py --self-test` can gate CI
+        return 1 if print_self_test() else 0
+    if args.grammar_search:
+        run_grammar_search(
+            nsamp=args.gs_samples, nprobe=args.gs_probe,
+            workers=args.gs_workers or (os.cpu_count() or 1),
+            batches=args.gs_batches,
+            seed=args.seed if args.seed is not None else 20260726,
+            json_path=args.gs_json, ckpt_path=args.gs_checkpoint)
+        return
+    if args.prereg_h1h3:
+        # Never clobber U2 artifacts: substitute prereg-specific paths when
+        # the shared flags still hold their U2 defaults.
+        ph_json = ("prereg_h1h3_report.json"
+                   if args.gs_json == "u2_report.json" else args.gs_json)
+        ph_ckpt = ("prereg_h1h3_ckpt.jsonl"
+                   if args.gs_checkpoint == "u2_checkpoint.jsonl"
+                   else args.gs_checkpoint)
+        run_prereg_h1h3(
+            n_eval=args.gs_samples, n_thr=args.ph_thr_samples,
+            workers=args.gs_workers or (os.cpu_count() or 1),
+            batches=args.gs_batches,
+            seed=args.seed if args.seed is not None else 20260726,
+            json_path=ph_json, ckpt_path=ph_ckpt)
         return
     if args.lookup:
         print_header()
@@ -3742,11 +5404,6 @@ def main():
         print_header()
         print_explain(args.explain)
         return
-    # Set global seed before any analysis runs (including exports)
-    global _global_seed
-    if args.seed is not None:
-        _global_seed = args.seed
-
     if args.json:
         export_json()
         return
@@ -3816,9 +5473,16 @@ def main():
     if run_all:
         print("\n---")
         print("Note on multiple comparisons")
-        print("This report runs 28 analyses. When testing many properties, some will")
-        print("appear 'unusual' by chance alone. A result at the 5% level (p<0.05)")
-        print("is expected ~1.4 times out of 28 tests even for a purely random sequence.")
+        print("This report runs 29 sections: 28 analyses — most with null-model")
+        print("comparisons, but several descriptive-only, and CRITIQUE.md names which are")
+        print("which (the trigram transition matrices, windowed entropy and the Gray-code")
+        print("comparison among them) — plus --parity, which is theorem-backed:")
+        print("deductive, so it carries no p-value and sits outside this accounting.")
+        print("The Bonferroni arithmetic below is over the frozen ledger of 28 exploratory")
+        print("observables, which is a count of sections, not of surviving null tests.")
+        print("When testing many properties, some will appear 'unusual' by chance alone.")
+        print("A result at the 5% level (p<0.05) is expected ~1.4 times out of 28 tests")
+        print("even for a purely random sequence.")
         print("A Bonferroni-corrected significance threshold for 28 tests is")
         print("p < 0.05/28 = 0.0018. Only findings below this threshold can be considered")
         print("significant after correction. The pair structure (p < 0.0001) survives.")
@@ -3828,4 +5492,7 @@ def main():
         print("---")
 
 if __name__ == "__main__":
-    main()
+    # main() returns None on every path except --self-test, and sys.exit(None) is exit 0, so this
+    # changes no existing exit status. It exists so --self-test's failure count can reach the shell:
+    # before this, main() was called bare and a failing self-test still exited 0.
+    sys.exit(main())

@@ -1,0 +1,21 @@
+### O3 unrank r=0
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+order=O3	object=WALK	space=C1C2C4C5-SUPERSPACE
+2,16,55,59,61,47,31,62,4,8,32,1,33,30,18,45,12,51
+class	m=64	orient_idx=0	class_first_rank3=0
+#provenance	engine=solve.c/kc-o3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)
+### O3 unrank r=26111
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+order=O3	object=WALK	space=C1C2C4C5-SUPERSPACE
+12,51,18,45,47,61,1,32,8,4,16,2,59,55,62,31,30,33
+class	m=64	orient_idx=63	class_first_rank3=26048
+#provenance	engine=solve.c/kc-o3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)
+### O3 unrank r=13056
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+order=O3	object=WALK	space=C1C2C4C5-SUPERSPACE
+1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51
+class	m=128	orient_idx=96	class_first_rank3=12960
+#provenance	engine=solve.c/kc-o3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=9	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)

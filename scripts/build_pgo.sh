@@ -75,7 +75,7 @@ cd "$BUILD_DIR"
 # basename in the .gcda file path).
 echo "[$(date -u +%FT%TZ)] PGO Pass 1: instrumented build"
 gcc $CFLAGS_BASE -fprofile-generate="$PROFILE_DIR" \
-    -o "${OUTPUT}" "$SOURCE_FILE" -lm
+    -o "${OUTPUT}" "$SOURCE_FILE" -lm -lz
 mv "${OUTPUT}" "$INSTR_BIN"
 
 if [ ! -x "$INSTR_BIN" ]; then
@@ -127,7 +127,7 @@ echo "  PGO Pass 1: $GCDA_COUNT .gcda files in $PROFILE_DIR"
 echo "[$(date -u +%FT%TZ)] PGO Pass 2: optimized build (with -Werror=missing-profile)"
 gcc $CFLAGS_BASE -fprofile-use="$PROFILE_DIR" -fprofile-correction \
     -Werror=missing-profile \
-    -o "${OUTPUT}" "$SOURCE_FILE" -lm
+    -o "${OUTPUT}" "$SOURCE_FILE" -lm -lz
 
 if [ ! -x "$BUILD_DIR/${OUTPUT}" ]; then
     echo "ERROR: Pass 2 build did not produce $FINAL_BIN" >&2

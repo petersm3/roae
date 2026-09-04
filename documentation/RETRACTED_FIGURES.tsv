@@ -1,0 +1,135 @@
+# Registry of RETRACTED FIGURES — consumed by scripts/doc_gates.sh (GATE 3b).
+#
+# WHY THIS IS A SEPARATE REGISTRY FROM RETRACTED_PHRASES.tsv
+#   GATE 3 catches a retracted PHRASE. GATE 1 compares integers of >=12 digits. Neither can
+#   see a retracted STATISTIC — "1.4σ", "~5,500×", "≈10×" — which is why the surviving
+#   "1.4σ above" in reports/evidence/r11/PHASE2_README.md needed a human reading (TR-2 v1.23)
+#   and why TR-9's draft-stage note kept "C2 net +1.6" through five revisions (TR-9 v1.20).
+#   Both were found by a one-off manual sweep. This file makes that sweep permanent.
+#
+# THE EXEMPTION PROBLEM, STATED IN ADVANCE (it is the whole design constraint)
+#   A retracted figure is quoted MORE often after its retraction than before: every revision
+#   row, every corrections-ledger entry and every "this sentence read X until <date>" note
+#   must repeat it in order to record what changed. A naive registry fires on the fix itself.
+#   GATE 3 exempts by FILENAME and additionally lets a changelog row narrate the old wording;
+#   neither is enough here — the legitimate quotations are in BODY PARAGRAPHS of the same
+#   files that also carry live prose, and (measured 2026-08-02) a blanket changelog exemption
+#   would have hidden the live defect this gate found on its first run, TR-2 v1.12's "2.0σ",
+#   which sat inside a revision row.
+#   So GATE 3b has NO automatic exemption of any kind. Every legitimate occurrence is an
+#   explicit, content-anchored row in documentation/DOC_GATE_FIGURE_ALLOWLIST.txt, in the
+#   shape GATE 4b uses. Anything not allowlisted is a [FAIL].
+#
+# FORMAT (tab-separated, 2 columns):
+#   <retracted figure, as a FIXED string>	<what superseded it, and where that is recorded>
+#
+# BEFORE CHOOSING ONE, RUN THE CENSUS RULE. It is written once, in the header of
+# documentation/RETRACTED_PHRASES.tsv ("THE CENSUS RULE", 2026-09-02): six spellings a census
+# must grep beyond the registered wording, and five tests for when no single needle can cover a
+# claim. It applies to figures unchanged — A1 (the abbreviated value) was found ON a figure.
+#
+# CHOOSING THE STRING. Make it as narrow as the corpus allows and no narrower. "+1.6" alone
+# matches the most places, including live ledger cells; "net +1.6" matches strictly fewer, all
+# of them narrations; "C2 net +1.6" matches fewest and MISSES TR-11 v1.14's `C2 "net +1.6"`,
+# where a quote mark falls inside the span. The registry holds the middle form.
+# NO LIVE MATCH COUNT IS STATED, AND THAT IS A CORRECTION (round 12 drain-3, item `R11`). The
+# two superseded ones are quoted in this sentence in order to name what drifted, so the
+# paragraph does contain digits and is not claiming otherwise: it shipped "matches twelve
+# places" and "matches six", and both had risen with the corpus while the narrowest form stayed
+# put — the numbers were wrong and the conclusion they support was not. What is load-bearing is
+# the strict ORDERING, which is a property of the substrings themselves and cannot drift.
+# Re-derive any of them with
+#   git grep -oF -- '<form>' -- '*.md' | wc -l
+# Emphasis markers are not
+# normalised away, so a figure that is sometimes bolded mid-span ("1.4σ **above**") must be
+# registered on the part that is never marked up ("1.4σ").
+#
+# ADD A ROW EVERY TIME A PUBLISHED NUMBER IS RESTATED, not only when a claim is withdrawn.
+#
+# WHAT GATE 3b CANNOT SEE — stated here rather than left to be rediscovered, because a gate's
+# green banner is read as coverage and these are the places it is not:
+#   1. IT DISCOVERS NOTHING. The registry is hand-seeded. A figure retracted and never
+#      registered is invisible, and the gate cannot tell an empty registry from a clean corpus.
+#      The first nine rows were seeded by walking every `| vN.N |` revision row in reports/ for
+#      a quoted numeral and reading each one; that pass is repeatable but it is not automatic.
+#      UNDER-SEEDING CONFIRMED 2026-08-02 (item A7). A sweep of BODY prose — supersession verbs
+#      and `old → new` numeric arrows outside revision rows, across reports/ and documentation/
+#      — found two figures the revision-row pass had missed, and they are now rows 10 and 11:
+#        `marginal 21.2` — restated to 21.3 in DESCRIPTION_LENGTH.md's own correction note. Its
+#           SENTENCE-SIBLING `marginal 4.6` was already registered and this was not, which is
+#           what a value-by-value seeding of revision rows looks like from the outside.
+#        `palnbr 16`     — restated to 13 by TR-10 v1.2's Mawangdui erratum.
+#      Both fired GATE 3b on registration and are now allowlisted narrations. The body sweep is
+#      no more automatic than the revision-row one, so this remains a bound on what has been
+#      LOOKED at, never a claim that the corpus is clean.
+#   2. FIXED STRINGS ONLY. A re-rounded or re-notated restatement does not match: "2.0σ" is
+#      registered, "2σ" and "2.00σ" are not, and "2σ" occurs legitimately in TR-2 as the name of
+#      the pre-committed gate — so tightening this one would need the meta-mention machinery
+#      before it could be safe.
+#      MEASURED 2026-08-02 (round-5 item A6), so the decision is against data rather than
+#      against the hypothetical. Seven transformation families were generated for all eleven
+#      registered figures and matched as fixed strings across `git ls-files '*.md'`: add or
+#      strip a trailing zero; strip the group separator; strip a leading ~ or ≈; σ→sigma;
+#      ×→x and ×→times; insert a space before the unit; truncate the decimal.
+#        (a) NO ESCAPE EXISTS TODAY. Every variant that is not also a substring of the
+#            registered form scores ZERO: 1.40σ, 2.00σ, ~5500×, ~5,500x, ≈10x, ~52x,
+#            marginal 4.60, net +1.60, marginal 21.20 — 0 occurrences each.
+#        (b) NAIVE WIDENING IS UNUSABLE. The three variants that do hit are the ones that
+#            drop a qualifier: "2σ" 16 occurrences, "10×" 37, "52×" 11 — and reading them,
+#            the overwhelming majority are unrelated ("52× fewer sub-branches", "10× the
+#            price", TR-2's pre-committed 2σ gate). A widening on those three would fire
+#            ~60 times to catch nothing.
+#      WHAT THAT SWEEP CANNOT SEE, since a clear is weaker than a failure: it enumerates
+#      SEVEN hand-chosen families. A restatement that rounds to a different precision
+#      (1.4σ → 1.35σ), spells the number in words, or splits it across markup is outside
+#      every one of them. The result is "no escape in these families", not "no escape".
+#   3. THE ANCHOR IS SAME-LINE. Where a supersession clause is in the same paragraph but on the
+#      next line (TR-9's draft-stage note), the allowlist row has to say so in prose.
+#   4. LEDGER-COMPLETENESS: HALF-CLOSED 2026-08-02 (item A5). This line used to read "there
+#      is no equivalent for this registry; a figure can be registered here and never recorded
+#      in the ledger". GATE 11 now runs a FIGURES pass over this file
+#      (`scripts/doc_gates.sh ledger-figures`), keyed on RF-<first 8 hex of sha256(figure)>
+#      exactly as the phrases pass is keyed on RP-. A figure registered from today on FAILS
+#      unless it is either recorded in CORRECTIONS.md or listed, with a reason, in
+#      documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt.
+#      WHAT IS STILL OPEN: the adjudication. Four of the eleven are recorded (CX-20, CX-19
+#      twice, CX-07; their keys are indexed in CX-21); the other SEVEN have no ledger entry
+#      and sit on the open list, printed as [OPEN] with a count on every run. An [OPEN] row
+#      is an open defect, not an exemption.
+#      WHY THE KEY IS NOT THE FIGURE TEXT, measured: six of the eleven figures OCCUR in
+#      CORRECTIONS.md and only four are RECORDED there — "1.4σ" and "≈10×" appear inside
+#      CX-19's "How it was found" paragraph as examples of meta-mentions found elsewhere. A
+#      text-presence check would have cleared two unrecorded retractions.
+#   5. MARKDOWN ONLY — NO LONGER, and the heading is kept so the correction is visible
+#      (2026-08-07, gate-blind-spot closure #2): the corpus is `git ls-files '*.md'` PLUS
+#      every non-markdown file under reports/evidence/ (54 files, 5.7 MB at extension time).
+#      The TRs quote those measurement outputs, and this registry's own motivating "1.4σ"
+#      was caught only because it happened to sit in an evidence .md — the same figure one
+#      directory over in a .out file was invisible. Measured at extension: exactly one hit,
+#      dav_tier1.out's "dav_hist palnbr 16" histogram bin row — a fixed-string collision
+#      with the retracted Mawangdui value, not a restatement — allowlisted under the new
+#      `literal` class. Figures rendered into images are GATE 6's problem.
+#      CORRECTED 2026-08-02 (item A8): this line used to end "…and are ungated entirely for
+#      statistics". That is no longer true — GATE 6 now runs a SECOND pass over the tracked
+#      figure generators using THIS registry, so a retracted statistic annotated onto a plot
+#      fails the gate. What remains true, and is the real residual: GATE 6 greps what
+#      PRODUCES the image, never the image, so a figure hand-edited in an SVG editor or
+#      committed without its generator is still invisible. Baseline when the pass shipped:
+#      9 registered figures x 3 tracked generators = 0 hits.
+
+1.4σ	TR-2 v1.19 (2026-08-01) withdrew it as unreconstructible; v1.23 (2026-08-02) restored the comparison as 0.57σ BELOW under the file's stated convention |Δ|/sqrt(SE1²+SE2²). 1.4 came from dividing by the raw between-seed SD and omitting the Phase-1 run's own ±16.7%.
+2.0σ	TR-2 v1.19: the convergence-gate summary quoted the derived-CI cross-path gate as 2.0σ while the body reported 1.9σ; v1.23's convention reproduces it as 1.92. Against a pre-committed 2σ gate the retracted value read as sitting AT the gate rather than inside it.
+19 total	TR-2 v1.19: §Extension said the certificate directory holds "19 total"; it holds 21 (certificates/README; TR-5 v2.1 records the intermediate 19→20 step).
+~5,500×	TR-8 v1.9 (2026-08-01): the look-elsewhere aside overstated the factor by 10×. Correct is ~500× (0.05 / 1.054e-4 = 474).
+≈10×	TR-10 v1.8 (2026-08-01, second pass): the BH margin for trigarray is WITHDRAWN — the extra ledger values were registry masses outside the 91-observable roster plus two zero-sampled-mass entries. The verdict is unchanged; only the margin is gone.
+~52×	TR-8 v1.11 / METHODS §"Statistics conventions" (2026-08-02): recorded and DECLINED. It is BH at rank i = 10, and rank 10 requires the nine registry masses METHODS withdrew from ranking on 2026-08-01. The supported statement is a floor, ≥~10×.
+marginal 4.6	TR-9 v1.7 (2026-07-10) restated the C2 marginal as 4.5 from unrounded operands; DESCRIPTION_LENGTH.md carries the same correction.
+net +1.6	TR-9 v1.7 (2026-07-10) restated the C2 net as ≈ 0 (break-even, sign-convention-dependent). It survived in TR-11 §4 until v1.14 and in TR-9's own draft-stage note until v1.20.
++125	TR-9 v1.16 (2026-08-01): §5(a) quoted the comp∘rev-admitted low end as both "~+127" and "+125"; 146.3 − 19.0 = 127.3, so +127 is correct.
+marginal 21.2	DESCRIPTION_LENGTH.md (2026-07-10 unrounded-operand pass) restated the C6+C7 marginal as 21.3; TR-9 §2 and DESCRIPTION_LENGTH's live ledger both carry 21.3. Seeded 2026-08-02 by item A7's BODY sweep, not by the revision-row pass: its sentence-sibling "marginal 4.6" was registered and it was not, which is what a value-by-value seeding of revision rows looks like from the outside.
+palnbr 16	TR-10 v1.2 (2026-07-05, Mawangdui corpus-control erratum) recomputed the non-flagged Davis predicates on the corrected Shaughnessy array: palnbr 16 -> 13. TR-10 §3's live value is 13. No TR-10 verdict moved. Seeded 2026-08-02 by item A7's body sweep.
+94 bits to spare	TR-9 v1.24 (2026-09-02, Codex V2-F11 #1, prose batch P31): the margin §5(f) banked after subtracting a 19.0-bit extended-family charge and a 32.9-bit selection charge from C1's 146.3. WITHDRAWN because a subtraction is a margin only if what is subtracted is a maximum, and 32.9 = log2 C(91,7) is not: the 91 is a ledger of TESTS PERFORMED, while the meta-selection charge is denominated in candidate CONSTRAINT FAMILIES, whose denominator METHODS.md §"The file drawer" records as unpublished and calls a different quantity. It is not maximal on its own denominator either - METHODS.md §"Global observable ledger" recorded 2026-08-30 that entering the omitted H1/H3 family gives 95, and log2 C(95,7) = 33.4 > 32.9. The 32.9 figure itself is NOT retracted; it survives relabelled as conditional. Registered on the four-word margin phrase rather than on "32.9", which is still live and correct.
+102.7	TR-9 v1.24 (2026-09-02, Codex V2-F11 #3, prose batch P31): the low corner of §4's net-savings envelope, published as 102.7-148.3 bits from v1.22 (2026-08-06). It was built as 127.3 + (-4) + (-20.6), and the -4 is the C2 net endpoint the same batch withdrew (RF-e2b24ea8) as unreachable from any published statement cost. Substituting the supported +0.5 gives 127.3 + 0.5 - 20.6 = 107.2, and 107.2/296.0 = 36.2%, so the published percentage floor moves 35% -> 36%. The high corner 148.3 and the C5-retaining 142.0 are unchanged; the envelope narrows from below only, and no measurement or verdict moves. CLOSED 2026-09-02 by prose batch P40 (Codex V2-F35 #3): the sibling site in documentation/DESCRIPTION_LENGTH.md now publishes 107.2-148.3 bits = 36-50% with the corner arithmetic on the page, and its class `open` allowlist row is deleted. No live site remains.
+−0.6 to −4	TR-9 v1.24 (2026-09-02, Codex V2-F11 #3 / V2-F35 #3, prose batch P31): the negative half of C2's published net bracket, "≈ 0 (+2.0 selection-only; -0.6 to -4 under explicit-grammar codings)", carried from v1.7 (2026-07-10). Net is defined at TR-9 §1 as compression minus statement cost. C2's compression is log2 23.325025987... = 4.5438 bits; the declared per-distance-ban family is 6 members, log2 6 = 2.585, giving +1.96 (the published +2.0, correct); the largest statement cost stated anywhere in the corpus is the sensitivity table's 4, giving +0.54. Reaching -0.6 needs a 5.14-bit cost and -4 an 8.54-bit cost, and NO explicit-grammar coding producing either is published or privately recorded (prior_art_check.sh 'C2 grammar statement cost derivation' -> PRIOR_ART=NONE). The mechanical cause was that the bracket's lower endpoint was the maximum COST, sign-flipped. Corrected to +0.5 to +2.0. The verdict does not move: C2 is break-even to marginally explanatory either way. CLOSED 2026-09-02 by prose batch P40 (Codex V2-F35 #3): the two sibling sites in documentation/DESCRIPTION_LENGTH.md - the C2 ledger row and the 2026-07-10 refinement note - now publish +0.5 to +2.0, the sign-is-a-coding-convention inference the note drew from the negative endpoint is withdrawn with them, and both class `open` allowlist rows are deleted. No live site remains.
+p ≈ 0.13	Withdrawn 2026-09-01 and registered 2026-09-02 (backlog item 55, prose batch B3): the two-sided p reported for the closest call of the 13 FROZEN R3 permutation-cycle functionals (perm_ncyc_bot, KW = 7) in documentation/CRITIQUE.md's pre-registered permutation-cycle section. Cited by key as RF-22697c24, not restated. SUPERSEDED BY 0.30386238, which is the family's own frozen convention -- two-sided ATOM-INCLUSIVE, p = min(1, 2*min(P(X <= kw), P(X >= kw))) -- applied to reports/evidence/perm_tier1.out line 7 (below = 0.84806881, at = 0.08840103, above = 0.06353016), giving 2 * (0.08840103 + 0.06353016). The withdrawn value is 2 * the strictly-above mass alone and so EXCLUDES the equality atom, which carries 8.84% of the mass; no atom-respecting convention reproduces it (mid-p would give 0.2155). Recorded at documentation/CRITIQUE.md, corrected in place 2026-09-01. THE NULL VERDICT IS UNCHANGED: both values sit far above the 0.05/13 = 3.8e-3 Bonferroni gate, this axis is report-only with no promotion path, and no downstream figure moves. The one legitimate restatement is allowlisted content-anchored in documentation/DOC_GATE_FIGURE_ALLOWLIST.txt rather than exempted by file, per this registry's no-automatic-exemption design.
+relerr 0.130	TR-5 v2.15 (2026-09-03) withdrew the orbit-CV noise floor: the archived 65,281-cell per-cell table (roae-private data_preserved, sha bdf34be6) has median relerr 0.1192, and three other published figures from the same table (4183 orbit classes, 0.1118 within-orbit CV, 0.7202 population CV) reproduce EXACTLY, so the table is identified and the 0.130 is the figure with no derivation on file. WITHDRAWN rather than corrected to 0.1192 because the quantity it was computed over is unrecorded; substituting a differently-derived number would republish an unsourced figure with a new value. No inference moves - 0.112 is below the floor at either value. Needle is content-anchored on "relerr 0.130" and NOT on the bare digits, because "0.130" is a substring of the unrelated adjacency fraction 0.130472 at TR7_CIRCULAR_READING.md:318.

@@ -3,6 +3,13 @@
 Notes for anyone picking up this project — human or AI — who wants to reproduce
 the results, extend the analysis, or continue the engineering work.
 
+> **Access boundary.** This document cites operational files in `roae-private`, the project's
+> private staging repository (runbooks, audits, bench protocols, design specs). It is not publicly
+> accessible: those citations are provenance pointers, not material a reader can fetch, and a
+> procedure or finding whose only cited support is a `roae-private` file is operator-attested.
+> Everything needed to *build, test, and reproduce* the published results is in this repository;
+> the private files carry operational detail (cloud runbooks, incident forensics) beyond that.
+
 This is a *conventions* document, not a *reference*. Concrete technical details
 live in:
 
@@ -10,7 +17,7 @@ live in:
   history, build flags, environment variables.
 - [HISTORY.md](HISTORY.md) — day-by-day project narrative, including missteps
   and the forensic trail that led to each correction.
-- [SOLVE-SUMMARY.md](SOLVE-SUMMARY.md) — plain-language findings.
+- [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) — plain-language findings.
 - [SPECIFICATION.md](SPECIFICATION.md) — formal constraint definitions.
 - [CRITIQUE.md](CRITIQUE.md) — limitations, statistical caveats.
 - [DEPLOYMENT.md](DEPLOYMENT.md) — cloud-VM deployment architecture + lessons.
@@ -21,6 +28,67 @@ live in:
 - [ROAE_PY_CLI.md](ROAE_PY_CLI.md) — full `roae.py` analysis-CLI reference.
 
 ---
+
+## Build prerequisites
+
+Measured on a clean Ubuntu 24.04 host, 2026-08-04, while executing the published reproduction
+recipe end to end for the first time. The build line links `-lz` and `-fopenmp`, but no document
+in this repository named the packages those need — a fresh machine failed at step one with
+nothing here to explain why. That gap is what this section closes.
+
+```
+sudo apt-get install -y build-essential zlib1g-dev
+```
+
+- **`build-essential`** — `gcc` and the C toolchain (verified with gcc 13.3.0).
+- **`zlib1g-dev`** — `zlib.h`. `solve.c` uses zlib natively for the per-block-gzip layer format;
+  without the headers the compile fails at the first `#include <zlib.h>`.
+- **OpenMP** — ships with gcc as `libgomp` on Debian/Ubuntu; no separate package.
+- **`python3`** — for `tests.py`, `solve.py`, `roae.py`, `verify.py`. Stdlib only for the core
+  solve / verify / test paths: `python3 tests.py`, `python3 roae.py`, `sat.py --emit-cnf`, and
+  `verify.py`'s default and `--recount` legs need no third-party module (re-confirmed 2026-08-30
+  by running them with numpy/pyarrow/pandas/scipy/sklearn/matplotlib blocked at import — 77 tests
+  OK, 1 skipped). The **P2 population post-processing modes are not stdlib**: `solve.py
+  --compute-stats`, `--marginals`, `--joint-density`, `--joint-density-v2`, `--bivariate`, and
+  `verify.py --check-t5-c3` import numpy and pyarrow (plus scikit-learn for the KDE modes and
+  matplotlib for `--bivariate`). On a machine with only the standard library installed, `--compute-stats` fails at once with
+  `ModuleNotFoundError: No module named 'pyarrow'`. If you intend to run P2:
+
+  ```
+  pip install numpy pyarrow scikit-learn matplotlib
+  ```
+
+  *(This note used to warn that the deps row in [SOLVE_PY_CLI.md](SOLVE_PY_CLI.md)
+  named `pandas/pyarrow/scipy`. That row was corrected in `98e4a81f` and now reads
+  `numpy`/`pyarrow` for P2, `matplotlib` for `--bivariate`, `scikit-learn` for the
+  KDE modes — matching the list above. Re-verified 2026-09-02: `pandas` and `scipy`
+  are imported nowhere in `solve.py`, `verify.py`, `roae.py`, `sat.py` or `tests.py`.
+  The warning is retired; the only remaining mentions of those two names in the repo
+  are this paragraph and the import-blocking test method described above.)
+- **Lean 4** (only for `lean/`) — via [elan](https://github.com/leanprover/elan). The pin is
+  `lean/lean-toolchain` (`leanprover/lean4:v4.31.0`), and elan honours it only when `lean` is run
+  from inside `lean/` (it resolves the toolchain from the working directory upward, not from the
+  input file's path — measured 2026-09-03), so run modules as `cd lean && lean <Module>.lean`.
+  `elan default leanprover/lean4:v4.31.0` is a convenience for running from elsewhere, not the pin;
+  `reports/certificates/verify_all.sh` §4 runs from `lean/` and prints the kernel it used as
+  `LEAN_ID=`. Memory matters:
+  the heaviest files need ~10 GB free RAM to verify (an 8 GB host cannot check
+  `lean/Automorphism.lean` or `lean/KingWen.lean`) — see the measured per-file wall/RSS table in
+  [lean/README.md](../lean/README.md) §"Verify yourself" before running the Lean suite. *(These
+  figures were re-confirmed against measurement 2026-08-07 after the final `native_decide` →
+  kernel migration tranche: the two newly-migrated files peak below the pre-existing ceiling, so
+  the requirement did not move.)*
+
+Verified from a fresh clone on 2026-08-04: `--selftest` printed
+`403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, `python3 tests.py` ran 64 tests
+OK (1 skipped), and `lean lean/KingWen.lean` exited 0 with no output — as recorded; NOTE 2026-09-03: run from the repo root, that command lets elan pick its *default* toolchain rather than `lean/lean-toolchain`, so the record attests a check under that host's default Lean, not specifically 4.31.0; the command to use is `cd lean && lean KingWen.lean`, and `verify_all.sh` §4 now prints the kernel it used as `LEAN_ID=`. (The harness has since grown:
+as of 2026-09-02 it holds 133 tests — count re-verified by a local `python3 tests.py` run reporting
+`Ran 133 tests in 95.920s … OK`; (the previous figures — 67 on 2026-08-06, 76 on 2026-08-21 (`Ran 76 tests in 24.329s … OK`), 77 on 2026-09-01, and 128 then 129 earlier on 2026-09-02 — were each correct when recorded and
+drifted as tests were added — corrected 2026-08-21 after a cold reviewer pass flagged it, and again 2026-09-02 by re-measurement); the fresh-clone figures above are preserved as recorded on their date.)
+
+Note that `documentation/REBUILD_FROM_SPEC.md` §Prerequisites is deliberately silent on all of the
+above and should stay that way — it describes writing an independent verifier in *any* language,
+and naming a C toolchain there would narrow it.
 
 ## Project conventions
 
@@ -71,9 +139,17 @@ enumerated space. When citing quantitative results, note the enumeration depth
   holds committed solver work (sub_*.bin files, solutions.bin). Between runs,
   VMs come and go; the data disk stays. On cleanup, delete the VM and its
   orphan OS disk, preserve the data disk.
-- **sha256 files are committed but solutions.bin is excluded.** The 23.7 GB
-  solutions.bin lives on the managed disk, not in the git repo. `enumeration/
-  solutions.sha256` lets anyone verify their own reproduction.
+- **sha256 files are committed but solutions.bin is excluded.** The multi-GB
+  `solutions.bin` files live on the managed disk, not in the git repo. The
+  authoritative registry of *live* reproduction shas is
+  [CANONICAL_HASHES.md](CANONICAL_HASHES.md); per-run sidecars live at
+  `runs/<date>_<scale>_<depth>_<runtag>/solutions.sha256`. Two committed
+  sha files are **not** reproduction references: `enumeration/solutions.sha256`
+  holds the invalidated 742M-era `aa141517…` (audit trail only — see
+  §"Reproduce from scratch"), and every `runs/*10T_d3*/solutions.sha256`
+  still records the deprecated `f7b8c4fb…`, superseded 2026-05-13 by
+  `b85c8871…` (706,427,594 records, +4,607). Check any sha against
+  CANONICAL_HASHES.md before treating it as a target.
 - **Analysis outputs (text, small) are committed.** `enumeration/
   analyze_c_742M.txt`, `analyze_section14_742M.txt`, etc. serve as
   reproducibility references.
@@ -87,10 +163,67 @@ affecting per-thread rate must append an entry to
 at the top of that file.
 
 Standardized paired-bench harness lives at `scripts/perf_bench.sh`. It runs
-control vs treatment on a single fresh D128als_v7 Spot in westus3, flushes the
-page cache between paired runs, captures enum-only wall (merge wall separately,
-not part of the speedup metric), and emits a JSON block that pastes directly
-into a new entry. Multi-scale: 1B / 1T / 11.2T selectable via `--scale`.
+control vs treatment on a single fresh Spot VM in westus3, runs a pure-CPU
+preflight throttle probe on every core **and refuses to bench a host that does
+not read `HEALTHY`** (teardown, exit 5), flushes the page cache between paired
+runs **and verifies that the flush happened**, captures enum-only wall (merge
+wall separately, not part of the speedup metric), takes `sha` and `records`
+over the **decompressed** stream, and emits a JSON block that pastes directly
+into a new entry. Multi-scale: 1B / 1T
+/ 11.2T selectable via `--scale` — note the SKU is chosen **per scale**
+(`Standard_D8als_v7` for 1B, `Standard_D128als_v7` for 1T and 11.2T,
+`scripts/perf_bench.sh` `case "$SCALE"`), so a bench is comparable only to
+another bench at the same scale. *(This paragraph previously said "a single
+fresh D128als_v7 Spot" without qualification; corrected 2026-09-02 to match the
+script and `PERFORMANCE_HISTORY.md` §"Standard bench harness".)*
+
+> **Known harness defects — all cleared as of 2026-09-02.** The notes are kept
+> because the paragraphs above them once told operators to install zlib by hand
+> and to recompute the sha themselves, and both instructions are now wrong.
+> Item 4 records the probe the 2026-08-30 audit found missing.
+>
+> 1. ~~**The provisioned VM cannot build.**~~ **CLEARED** — the install line now
+>    reads `build-essential zlib1g-dev`, so the bench VM builds `solve.c`
+>    (`#include <zlib.h>` at `solve.c:317`) without a manual step. Fixed
+>    `bb0b7430`; this note is kept because the paragraph above it told operators
+>    to install zlib by hand and that instruction is now wrong.
+> 2. ~~**The JSON certifies a page-cache flush that may not have happened.**~~
+>    **CLEARED 2026-09-02** — `"page_cache_flushed"` was an unconditional literal
+>    `true` while the flush itself ended `|| true`. Each build now emits a
+>    whole-line verdict token
+>    (`PERFBENCH_PAGE_CACHE_FLUSHED_{N,U}=CONFIRMED|FAILED|UNVERIFIED`), the JSON
+>    reports that status plus a detail string, and anything other than
+>    `CONFIRMED` on both builds sets `"methodology_valid": false`, emits
+>    `PERF_BENCH_METHODOLOGY=VIOLATED` and exits 3. A missing token reads
+>    `UNVERIFIED`, not pass. Gate a caller with
+>    `perf_bench.sh ... | grep -qx PERF_BENCH_METHODOLOGY=OK`.
+> 3. ~~**STILL OPEN — its `sha` and `records` fields are container-level, not logical.**~~
+>    **CLEARED 2026-09-02** — the script used to run `sha256sum solutions.bin`
+>    and derive `records=(BYTES-32)/32` from the on-disk size; under the #169
+>    gz-framed default (`SOLVE_COMPRESS` defaults ON) those were the sha of the
+>    *compressed container* and a fictional record count, while every canonical
+>    sha in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) is taken on the
+>    **decompressed** stream. It now sniffs the gzip magic and hashes and counts
+>    over `gzip -dc solutions.bin` (`framing=gzip`), or the file itself when it
+>    is raw (`framing=raw`); the container sha is still emitted, labelled
+>    `container_sha`, and a failed decompression reports `sha=DECOMPRESS-FAILED`.
+>    A harness `sha` in any entry dated before 2026-09-02 is a container sha and
+>    is not comparable to an anchor.
+> 4. **Preflight throttle probe — added 2026-09-02** (the 2026-08-30 audit found
+>    the script carried only a comment referring to the rule). After the build
+>    and before any bench: `yes > /dev/null` on every core for `--burn-seconds`
+>    (default 60, floor 30), per-core MHz sampled at the end of the burn, minimum
+>    must be `>= --throttle-min-mhz` (default 3664, the D128als_v7 precedent,
+>    applied at every scale unless overridden). Verdict token
+>    `PERFBENCH_THROTTLE_PROBE=HEALTHY|THROTTLED|UNVERIFIED` plus a
+>    `PERFBENCH_THROTTLE_DETAIL=` line; anything but `HEALTHY` (including a
+>    missing token or a burn under the floor) tears the VM down before the
+>    bench, emits `PERF_BENCH_METHODOLOGY=VIOLATED` and exits 5. The JSON carries
+>    `throttle_probe` / `throttle_probe_detail`, and `methodology_valid` requires
+>    `HEALTHY` as well as both flushes `CONFIRMED`.
+>
+> The entry that PERFORMANCE_HISTORY.md identifies as the first produced by this
+> harness (2026-05-18, task #78) predates #169 and is unaffected.
 
 Why this matters: the project narrative — "v1 → v2 → v2+PGO speedup over time,
 which changes mattered, which regressed" — is a presentation deliverable. Each
@@ -101,6 +234,174 @@ chart cannot be reconstructed honestly later.
 The log captures regressions too: see the `#71 C2 lookahead` entry for the
 canonical "instructive loss" example. Failed experiments are first-class
 records, not omissions.
+
+### Git hooks — opt-in, and they must be installed by hand
+
+Hooks live in `.git/hooks`, which git does not track, so **cloning this repo
+does not install them — and no commit can change that.** Git refuses by
+design to auto-run code shipped in a clone, so one manual activation step
+per clone is irreducible; the honest framing is a single documented command,
+not a pretense of self-activation. This is that command (no `chmod` needed —
+the symlink targets are tracked with their exec bit):
+
+```sh
+ln -sf ../../scripts/pre_push_gate.sh .git/hooks/pre-push && ln -sf ../../scripts/pre_commit_gate.sh .git/hooks/pre-commit
+```
+
+Each hook is a **dispatcher** script under `scripts/` that runs every gate
+belonging to that hook point — install the dispatcher, never a single gate
+directly, because a bare symlink to one gate silently disables the others
+(this section documented exactly that bare-symlink install for `pre-commit`
+until 2026-08-06, while the working checkout ran a dispatcher that existed
+only as an untracked file; both defects are fixed by the tracked
+dispatchers).
+
+Why symlinks rather than `git config core.hooksPath hooks`: `.git/hooks` is
+in the repo's *common* git dir, so the symlinked hooks also fire for commits
+made from every linked worktree (`git worktree add` checkouts, which this
+project uses for pinned campaign trees). A relative `core.hooksPath`
+resolves against each worktree's own root and would silently run **no hooks
+at all** in any worktree whose checkout predates a tracked `hooks/`
+directory. Do not "upgrade" to `core.hooksPath` without re-deriving that
+trade-off.
+
+| hook | dispatcher runs | blocks on |
+|---|---|---|
+| `pre-push` | for **each pushed sha**, in a temporary detached worktree of that sha: the pushed tree's own `doc_gates.sh all` (~12–20 s), then its `pre_push_compile_gate.sh` (~56 s), and — when `needs_generated()` says the pushed range touches `roae.py`/`example/`, or the base cannot be determined — `doc_gates.sh generated` (~67 s). All three always run, findings aggregate; worktree add+remove ≈0.5 s; deletion pushes gate nothing | any hard doc gate red (the blocking set is the PASS banner in `doc_gates.sh`; its report-only gates print `[WARN]`/`[note]` without blocking), or `solve.c` missing/empty, gcc non-zero, `--selftest` not producing sha `403f7202…`, or a pushed tree with **no gate scripts at all** (deliberate pushes of pre-gate history use `--no-verify`, visibly) |
+| `pre-commit` | `pre_commit_registry_gate.sh` (WARN-only; full 6-gate scan when a registry/ledger file is staged, the two cheap retraction scans when any `reports/*.md`, `documentation/*.md` or `README.md` is staged), then `pre_commit_generated_gate.sh` (blocking) | a commit touching `roae.py` or any `example/` artifact whose `doc_gates.sh generated` check fails |
+
+**Pre-commit rc contract (2026-09-02, route C6).** The dispatcher reads **three** verdicts from
+`pre_commit_registry_gate.sh`, not two: rc `0` = CLEAN or NOT-APPLICABLE, rc `1` = FINDINGS, rc `2` =
+COULD-NOT-RUN; anything else (127 = the gate script is missing or unexecutable, ≥128 = signal) is
+classified as "could not look", never defaulted to findings. Each gate also prints one whole-line
+token at column 0 for `grep -qx` — `PRECOMMIT_REGISTRY=CLEAN | FINDINGS | COULD-NOT-RUN |
+NOT-APPLICABLE | REFUSED-DIRTY` and `PRECOMMIT_GENERATED=CLEAN | FINDINGS | COULD-NOT-RUN` — and the
+verdict is that token, never inferred from the shape of the text above it. The WARN-only disposition of
+the registry gate is unchanged; the contract exists so that "the gate found nothing" and "the gate never
+ran" are distinguishable downstream. They were not on 2026-09-02, when a mid-edit `doc_gates.sh` made
+every leg return 2 and the dispatcher reported it as findings over a commit staging the two files those
+gates exist to police.
+
+**The pre-push hook gates the committed trees being published, not the
+working tree** (task #150). The 218-commit replay (task #149) found 12
+commits whose committed trees failed their own gates — four pushed, red in
+public for ~2.5 days — every one invisible to a working-tree hook because
+the defect was fixed (or not yet present) in uncommitted edits. The hook
+therefore replays each pushed sha in a throwaway detached worktree, removed
+on every exit path including failure and interrupt. A fix that exists only
+as an uncommitted edit does **not** clear the push gate: commit it first.
+
+*Corrected 2026-08-08 (adversarial sweep).* This paragraph described `doc_gates.sh
+generated` as *"deliberately **not** in the pre-push dispatcher"* with the residual
+`--no-verify` hole *"accepted"*. **Both statements were superseded the day after they
+were written and are no longer true.** Since `3f480689` (2026-08-07) the pre-push
+dispatcher carries a **third, blocking, fail-closed leg**: `needs_generated()`
+(`scripts/pre_push_gate.sh:125-132`) decides per-sha whether the pushed range touches
+`roae.py` or `example/`, and if so runs `doc_gates.sh generated` in the pushed sha's
+own worktree (`:219-228`). It is **required on four paths, not merely "when there is a
+base"** — base empty, base all-zeros, base commit absent locally, or the diff erroring
+— so the fail-closed direction is preserved when the range cannot be determined.
+Cost is **~67 s measured 2026-08-07** (the ~107 s figure above is the 2026-08-06
+measurement and is superseded).
+
+**Why this went stale, since it is the instructive part:** the commit that ADDED the
+two-leg dispatcher also authored this paragraph, and the commit that added the third
+leg touched four files — none of them this one. A doc that describes a mechanism is
+not updated by the commit that changes the mechanism unless something forces it. A
+case-insensitive search of this file for `needs_generated`, `third leg`, `GATE 8` or
+`67 s` returned **zero** before this correction.
+
+The pre-push hook and the pre-commit **generated** gate fail **closed**: a
+false stop costs one retry, a false pass ships a compile error or a
+hand-edited artifact into the published record. The pre-commit **registry**
+gate is the deliberate exception — WARN-only, blocking nothing; §"Gate
+verdicts" below says why, and what its exit status does and does not mean. Neither has
+a private `SKIP=1` escape hatch, because an env-var bypass is how a gate
+quietly stops running — `git push --no-verify` / `git commit --no-verify`
+already exist and leave the decision visible in shell history.
+
+The pre-commit gate exists because hand-editing generated output has happened
+**three times** (`example/report.html` at `dbba77d` was caught by the operator,
+not by a gate). `doc_gates.sh` could always detect it; nothing forced it to
+run. **Read its header before trusting it** — but the caveat this paragraph
+carried is now closed. It read: for `report.txt`, `report.md` and `README.md`
+the underlying gate compares non-numeric lines only, because `roae.py` seeds
+nothing by default, so a hand-edited *digit* in `example/report.txt` is caught
+by nothing; closing that hole means shipping `example/` generated with
+`--seed`, which changes published artifacts and is an operator decision. **That
+decision was taken on 2026-09-04.** `example/` is regenerated and shipped under
+`--seed 20260904`, GATE 8 regenerates under the same seed, and all eleven
+tracked artifacts are compared **byte-exact, digits included** — see
+[ROAE_PY_CLI.md §REPRODUCING `example/` BYTE-FOR-BYTE](ROAE_PY_CLI.md#reproducing-example-byte-for-byte).
+The price is that every number in `example/` is now one fixed draw rather than
+a fresh sample; no claim depends on those figures, and the reports print the
+seed into themselves so a reader can tell.
+
+#### Gate verdicts: three states, not two (reworked 2026-09-02, `0414d072`)
+
+A crashed gate and a gate with findings are different answers, and until
+2026-09-02 the pre-commit dispatcher printed the second when it had received
+the first. Reproduced on unmodified HEAD: another unit was mid-edit on
+`scripts/doc_gates.sh`, `bash` could not parse it, all six registry legs
+returned 2, and the hook announced `registry gate reported findings (rc=1) -
+WARN ONLY, commit proceeds` — on a commit staging `RETRACTED_PHRASES.tsv` and
+`CORRECTIONS.md`, the two files GATE 3 and GATE 11 exist to police. Nothing
+had been checked. The states now have separate words and separate statuses.
+
+**Read the verdict from the token, never from the shape of the text.** Every
+terminal path of both pre-commit gates prints a whole-line `KEY=value` token
+at column 0, so `grep -qx` is the correct reader:
+
+| token | values |
+|---|---|
+| `PRECOMMIT_REGISTRY=` | `CLEAN` · `FINDINGS` · `COULD-NOT-RUN` · `NOT-APPLICABLE` · `REFUSED-DIRTY` |
+| `PRECOMMIT_GENERATED=` | `CLEAN` · `FINDINGS` · `COULD-NOT-RUN` |
+
+**Return codes are NOT uniform across the two gates, and the difference is
+deliberate.** `pre_commit_registry_gate.sh` implements the three-state
+contract declared in its own header — `0` = CLEAN **or** NOT-APPLICABLE, `1`
+= FINDINGS, `2` = COULD-NOT-RUN, with `REFUSED-DIRTY` (index and working tree
+disagree on a watched path, so the gates would inspect bytes the commit does
+not contain) also exiting `2`, because that is "not measured", not "found
+something". `pre_commit_generated_gate.sh` does **not** carry a `2`: it is a
+blocking gate, so CLEAN exits `0` and *everything else* — FINDINGS,
+missing `doc_gates.sh`, unparseable `doc_gates.sh`, an inner gate that
+exited neither 0 nor 1 — exits `1`. Its token still separates the three
+states even though its status does not. If you are scripting on the
+generated gate, `grep -qx 'PRECOMMIT_GENERATED=COULD-NOT-RUN'` is the only
+way to tell a crash from a finding; the exit status cannot.
+
+`pre_commit_gate.sh` is the dispatcher and does no checking of its own. It
+classifies the registry gate's status (`0` silent, `1` "reported FINDINGS",
+**anything else** — 2, 126/127 from exec, ≥128 from a signal — the loud
+"COULD NOT RUN … it reported NOTHING") and then `exec`s the generated gate,
+whose status becomes the hook's.
+
+🔴 **WARN-ONLY IS UNCHANGED. This rework did not make anything block.** The
+registry gate still cannot refuse a commit — not on FINDINGS and not on
+COULD-NOT-RUN — per operator ruling O-redfloor: a hook that refuses a red
+commit also stops a unit committing to protect its work from another unit's
+`git checkout -- .`, which has destroyed uncommitted work four times. What
+changed is *classification*: "I could not look" now has its own words and its
+own exit status, so the two states are no longer indistinguishable
+downstream. A COULD-NOT-RUN commit proceeds — and must not be recorded as
+gated. Re-run `bash scripts/pre_commit_registry_gate.sh` once `bash -n
+scripts/doc_gates.sh` is quiet, and read *that* result.
+
+Both gates run `bash -n scripts/doc_gates.sh` **before** dispatch, which is
+the check the failure above needed and did not have: a file that does not
+parse cannot have an opinion, and asking it for one costs six subshells that
+all return 2 and read as six failing gates. Measured 2026-09-02: 11 ms,
+against ~4.4 s for the six registry legs and ~62 s for the generated gate.
+
+The same class was swept through `pre_push_gate.sh` in the same commit — its
+branch-registry leg, its `doc_gates.sh all` leg and its conditional
+`doc_gates.sh generated` leg each now distinguish "exited neither 0 nor 1"
+from "found something" in their message text. **The pre-push hook emits no
+`PREPUSH_*` token and its return codes did not change**: every one of those
+legs was blocking before and is blocking after, so only the wording moved.
+Do not write a `grep -qx` reader against the pre-push hook expecting one.
+
 
 ### Build reproducibility — toolchain manifest and cross-build verification
 
@@ -142,17 +443,25 @@ echo "=== os image ==="
 
 The manifest is captured once at build time and embedded in the same `metadata.txt` shipped with `solutions.bin.gz` to cold storage.
 
-#### Drop `-march=native` for canonical builds
+#### Use `-march=x86-64-v3` for canonical builds — for PORTABILITY, not because the sha changes
 
-`-march=native` emits CPU-specific instructions tuned to the build host. A binary built on Zen 4 may differ from one built on Zen 5 even
-with identical source. Replace with a fixed baseline:
+**The output sha is architecture- and flag-invariant.** The enumeration is deterministic integer
+arithmetic; instruction selection does not change the records or their byte layout. This is
+established empirically, not assumed: the 11.2T canonical is byte-identical between the x86
+`-march=native` build and an **ARM Neoverse-N2 `-mcpu=native`** build (CANONICAL_HASHES §"cross-architecture
+witness"), and the selftest sha `403f7202…` is identical across `-O2`, `-O3 -march=native`,
+`-O3 -march=x86-64-v3`, and `-O3 -flto` (verified 2026-08-01 on AMD EPYC). So the documented recipes **tested to date** all reproduce the canonical sha. Evidence: one same-host
+flag matrix plus one cross-architecture rebuild — two independent witnesses, not an exhaustive
+guarantee over every compiler version and host.
 
-- `-march=x86-64-v3` — AVX2 baseline. Works on every Intel Haswell+ / AMD Excavator+. Ubiquitous since 2013. **Default for canonical builds.**
-- `-march=x86-64-v4` — AVX-512 baseline. Use if AVX-512 is empirically a measurable speedup AND you're willing to lock yourself to
-  Skylake-X / Zen 4+ silicon.
+The reason to prefer a fixed baseline for the *canonical* build is **portability of the binary**, not
+reproducibility of the output: a `-march=native` binary emits host-specific instructions and may fail to
+*run* (SIGILL) on an older CPU — which matters when someone else rebuilds/re-runs to reproduce. Pick:
 
-Performance impact of dropping `-march=native` to `-march=x86-64-v3`: typically 5–15% slower for HPC-ish workloads. Acceptable for the
-reproducibility guarantee. (Internal performance tuning runs can still use `-march=native`; the rule is only for canonical builds.)
+- `-march=x86-64-v3` — AVX2 baseline. Runs on every Intel Haswell+ / AMD Excavator+ (ubiquitous since 2013). **Recommended canonical default.**
+- `-march=x86-64-v4` — AVX-512 baseline. Use only if AVX-512 is a measured speedup AND you accept locking to Skylake-X / Zen 4+ silicon.
+
+Performance impact of `-march=x86-64-v3` vs `-march=native`: typically 5–15% slower for HPC-ish workloads — acceptable for a portable canonical build. `-march=native` remains fine for internal tuning runs and reproduces the same sha; it just may not run everywhere.
 
 #### Cross-build regression gate
 
@@ -172,18 +481,25 @@ The intra-day 4-equivalence test (full-enum L1, deterministic re-run L2, `--merg
 reconstruction) remains useful but is **insufficient on its own** — it proves intra-day binary determinism, not cross-build reproducibility.
 Use 4-equivalence inside a single VM, then cross-build verify across VMs.
 
-#### Container-pinned toolchain (target state for 1120T+ canonicals; not used by 560T)
+#### Container-pinned toolchain (target state for any future deeper canonical; not used by 560T)
 
-The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. For the 1120T extension and any post-2026-Q3 canonical, container pinning remains the **target state** but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
+The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. (**"Tier 1" and "Tier 2.1" in this subsection are *determinism-hardening levels*** — rungs of the Task #110 hardening programme in [HISTORY.md](HISTORY.md) — and are unrelated to the campaign-scale "Tier 1" of [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md), to the Lean proof tiers of [`lean/README.md`](../lean/README.md), and to the Hot/Cool/Archive **storage** tiers used later in this file.) For any future deeper canonical, container pinning remains the **target state** (the 1120T extension this was written for is **not planned** as of 2026-08-01) but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
 
 - An explicit gcc version (e.g., `gcc-13.2.0-23ubuntu4` — pinned by apt version pin or by base-image digest)
 - An explicit glibc version (frozen with the base image)
 - An explicit libgomp version
 - A fixed `-march=` baseline
+- **`SOURCE_DATE_EPOCH`, and the rest of the deterministic flag set above** ⚠ **[ADDED 2026-09-03
+  (Codex V2-F15 #16) — the four ingredients above are NOT sufficient for the claim that follows.
+  Pinning the compiler, libc, libgomp and `-march=` still leaves `__DATE__`/`__TIME__` baked into
+  `.rodata`, so two builds in the same container differ. `SOURCE_DATE_EPOCH`, `-fno-record-gcc-switches`,
+  `-ffile-prefix-map` and `-fdebug-prefix-map` are what make the binary reproducible, and the container
+  pins the toolchain those flags are applied by.]**
 
-Build `solve.c` inside the container; the same container + same source → bit-identical binary on any host. Publish the container image digest alongside `CANONICAL_HASHES.md`. This is the gold standard for scientific reproducibility (used by Nature/Cell/CodeOcean submissions, Bitcoin Core, Debian package builds).
+Build `solve.c` inside the container **with the deterministic flag set**; the same container + same
+source + the same `SOURCE_DATE_EPOCH` → bit-identical binary on any host. Publish the container image digest alongside `CANONICAL_HASHES.md`. This is the gold standard for scientific reproducibility (used by Nature/Cell/CodeOcean submissions, Bitcoin Core, Debian package builds).
 
-Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Status: deferred pending operator authorization; if shipped, the 1120T pre-launch checklist gains a "build container image digest" gate.
+Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Status: deferred pending operator authorization; if shipped, a future deeper canonical's pre-launch checklist gains a "build container image digest" gate.
 
 #### Canonical pipeline runbook (added 2026-05-17, post-#81 v2 saga)
 
@@ -207,15 +523,18 @@ The c34390c0 / f7b8c4fb undercount investigation (Phase B re-derivation + Phase 
 
 | # | Item | Status | Where |
 |---|---|---|---|
-| 1 | SIGTERM-then-resume cycle in selftest | **DONE** 2026-05-14 (verified PASS on post-fix code) | `solve.c` `--selftest-resume` subcommand |
+| 1 | Checkpoint-resume equivalence in selftest (**no signal sent** — see 1b) | **DONE** 2026-05-14 (verified PASS on post-fix code) | `solve.c` `--selftest-resume` subcommand |
+| 1b | SIGTERM-mid-walk eviction-resume invariance | **DONE** (subtest 8 of 9) | `solve.py --extended-selftest <solve-binary>` subtest 8 (`proc.terminate()` mid `--branch` walk, then resume) |
 | 2 | Build provenance + resume history in `.sha256` metadata | **DONE** 2026-05-14 (verified emits all fields) | `solve.c` — auto-merge sha-write site + `write_sha256_with_metadata` + `SOLVE_RESUME_HISTORY` env var |
 | 3 | Resume-state invariant assertions | **DONE** 2026-05-14 | `solve.c` — DFS resume entry in `backtrack` |
 | 4 | Canonical merges off Spot priority | **DONE** (standing operational policy, codified here 2026-05-14) | this doc + operational practice |
 | 5 | Differential per-sub-branch checksum during resume | **DONE** 2026-05-14 (4/4 test cases PASS) | `solve.c` `--emit-shard-manifest` + `--verify-shard-manifest` subcommands |
 
-#### Item 1: SIGTERM-then-resume in selftest (`--selftest-resume`) — DONE
+#### Item 1: checkpoint-resume equivalence in selftest (`--selftest-resume`) — DONE
 
 **Goal:** convert the c34390c0-class failure mode from "discovered weeks later via cross-build" to "caught at CI time before any canonical work."
+
+**Scope — read this before relying on it.** `--selftest-resume` sends **no signal**. PHASE_A exits normally at its node limit and PHASE_B resumes from the checkpoint it left behind; `grep -nE 'kill|SIGTERM|signal' ` over the subcommand's whole range in solve.c returns nothing. What it proves is *checkpoint-resume equivalence*, not interruption safety. Signal interruption is a materially different path — an eviction can land mid-write, between a shard's `.bin` flush and its `.dfs_state` write, which is why the write-order invariant exists at all. The SIGTERM exercise lives in Python: `python3 solve.py --extended-selftest ./solve`, subtest 8 of 9 ("eviction-resume invariance (SIGTERM mid-walk)"), which `proc.terminate()`s a `--branch` walk mid-flight, resumes it, and requires the resumed sha to equal the clean-run sha. **Any change touching signal handling or checkpoint write ordering must run both gates**, not just the C one.
 
 **Implementation:** subcommand `./solve --selftest-resume` (solve.c, near the existing `--selftest` block). Three `system()` invocations: (1) PHASE_A `SOLVE_NODE_LIMIT=50000000` in a tempdir, (2) PHASE_B `SOLVE_NODE_LIMIT=200000000` in the same tempdir (resumes from PHASE_A's checkpoint), (3) single-shot `SOLVE_NODE_LIMIT=200000000` in a fresh tempdir. All four runs use `SOLVE_THREADS=4 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1`. Compares the two solutions.bin shas. Match → PASS; mismatch → FAIL with diagnostic citing Phase E.2.
 
@@ -227,7 +546,7 @@ The c34390c0 / f7b8c4fb undercount investigation (Phase B re-derivation + Phase 
 
 #### Item 2: Build provenance + resume history in `.sha256` metadata
 
-**What changed 2026-05-14:** `write_sha256_with_metadata` (solve.c:~3537) now records `SOLVE_DFS_ITERATIVE`, `SOLVE_DFS_CHECKPOINT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, and a `SOLVE_RESUME_HISTORY` line populated from the env var of the same name. Existing fields (date, build, git hash, record count, node count, branches done, `SOLVE_NODE_LIMIT`, time limit, threads) are preserved.
+**What changed 2026-05-14:** `write_sha256_with_metadata` (in solve.c — locate by name, `grep -n write_sha256_with_metadata solve.c`; defined at ~line 9718 as of 2026-08-09, cited here as ~3537 before the function moved) now records `SOLVE_DFS_ITERATIVE`, `SOLVE_DFS_CHECKPOINT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, and a `SOLVE_RESUME_HISTORY` line populated from the env var of the same name. Existing fields (date, build, git hash, record count, node count, branches done, `SOLVE_NODE_LIMIT`, time limit, threads) are preserved.
 
 **Operator responsibility:** when restarting a canonical run after Spot eviction or any other interruption, set `SOLVE_RESUME_HISTORY` before the restart. The value is free-form text — recommended format: a comma-separated list of resume events with UTC timestamps and trigger. Examples:
 
@@ -287,19 +606,24 @@ Violation → `_exit(21)` with diagnostic to stderr (distinct from existing exit
 
 **Implementation:** two subcommands in solve.c:
 - `./solve --emit-shard-manifest [path]` — scans `sub_*.bin` in CWD, computes sha256 + size per shard, writes a tab-separated manifest (default `shard_manifest.txt`): `<filename>\t<size>\t<sha256_hex>` per line.
-- `./solve --verify-shard-manifest [path]` — reads the manifest and, for each entry, asserts: (1) shard exists, (2) current size ≥ stored size (legitimate resume only grows shards), (3) sha256 of the first `<stored_size>` bytes matches the stored sha256 (catches mid-write corruption + bug-2-class cross-ref divergence). Any failure → `_exit(22)` with diagnostic.
+- `./solve --verify-shard-manifest [path]` — reads the manifest and, for each entry, asserts: (1) shard exists, (2) current size **equals** stored size ⚠ **[CORRECTED 2026-09-03 — this read "current size ≥ stored size (legitimate resume only grows shards)", which is now the OPPOSITE of the shipped verifier (Codex V2-F15 #7 / V2-L05 #3). Since the Q-367 fix, growth is classified `DIVERGED` unconditionally — `solve.c` prints `DIVERGED <shard> grew-to-<n>-bytes-manifest-says-<m>` and exits 22. That is deliberate: a silent append was a false-accept, because the merger globs the enlarged file and the extra records enter the merged result.]**, (3) sha256 of the first `<stored_size>` bytes matches the stored sha256 (catches mid-write corruption + bug-2-class cross-ref divergence). Any failure → `_exit(22)` with diagnostic.
 
 **Workflow for resume-protected canonical runs:**
 1. After PHASE_A enum completes: `solve --emit-shard-manifest shards.manifest`
 2. (Optional Spot eviction + reallocation. Or asymmetric-extension PHASE_B at higher budget.)
-3. Before PHASE_B merge: `solve --verify-shard-manifest shards.manifest`. Aborts loudly if any shard was silently modified by the resume path.
+3. Before PHASE_B merge: `solve --verify-shard-manifest shards.manifest`. Aborts loudly if any shard was modified since the manifest was emitted.
+   🔴 **After an INTENTIONAL asymmetric extension (step 2), RE-EMIT the manifest before verifying** —
+   `solve --emit-shard-manifest`. Growth is `DIVERGED` by design since Q-367, so verifying an extended
+   shard set against the pre-extension manifest fails by construction. Without this step an operator
+   either discards legitimately extended shards as corrupt, or bypasses the integrity gate to get past
+   it — and the bypass is the dangerous one.
 
 **Verified 2026-05-14, four test cases:**
 
 | Case | Action | Result |
 |---|---|---|
 | Positive | No corruption | PASS — 1097 entries, 0 missing/shrunk/diverged |
-| Negative 1 | Append bytes to a shard (legitimate "resume extended this shard" pattern) | PASS — append accepted (size grew, original content unchanged) |
+| Negative 1 | Append bytes to a shard | **FAIL — append rejected**, `DIVERGED … grew-to-N-bytes-manifest-says-M`, exit 22 ⚠ **[the 2026-05-14 run recorded "PASS — append accepted"; Q-367 reversed this deliberately, because the merger reads the enlarged file and the appended records would enter the merged result. Re-verified 2026-09-03.]** |
 | Negative 2 | Truncate a shard to 10 bytes | FAIL — `1 shrunk` detected, exit 22 |
 | Negative 3 | Modify the first 4 bytes of a shard | FAIL — `1 diverged` detected, exit 22, diagnostic prints both shas |
 
@@ -320,7 +644,7 @@ Run both; both must pass. The first catches any corruption of PHASE_A's recorded
 
 ### Phase 1 speedup benchmarking methodology (2026-05-15)
 
-Each Phase 1 sha-preserver gets two gates: (a) **sha preservation** at canonical params (the existing plan), and (b) **quantified speedup** vs the v1 baseline (operator request 2026-05-15). Sha preservation is binary (PASS/FAIL); speedup is a measured ratio with confidence interval.
+Each Phase 1 sha-preserver gets two gates: (a) **sha preservation** at canonical params (the existing plan), and (b) **quantified speedup** vs the v1 baseline (operator request 2026-05-15). Sha preservation is binary (PASS/FAIL); speedup is a measured ratio reported against a **noise floor** (coefficient of variation, below) — not a confidence interval: no distributional quantile is computed and no interval is placed on the ratio itself.
 
 #### Benchmark protocol — codified in `v2_bench_d64.sh` (private repo)
 
@@ -332,12 +656,21 @@ The full protocol lives in the private operational repo at `petersm3/roae-privat
 | Trials | 4 per binary minimum (raised from 3 on 2026-05-15 — three trials had insufficient resolution to distinguish a cold-cache outlier from real variance); raise to 6-8 if speedup is suspected close to noise floor |
 | Warmup | 1 discarded run per binary at 1/10 the trial budget |
 | **Pre-flight: CPU throttling** | **MANDATORY.** Read `cpu MHz` from `/proc/cpuinfo`; abort if below `MIN_FREQ_MHZ` (default 2000). AMD Genoa healthy baseline is 3000-3700 MHz; throttled Spot hosts run at ~600 MHz (observed 3× during v1 Phase B in westus3 May 13-14). Re-checked before every trial — Spot evictions / co-tenant pressure can throttle mid-run. |
-| **Pre-flight: no stale processes** | **MANDATORY.** `pgrep -af "solve\|bench"` must return empty (excluding the bench script itself + systemd-resolved). Stale orphan processes from prior work consume cores and bias the benchmark. (Lesson 2026-05-15 — see HISTORY.md §"Methodology lesson learned (and contamination correction)".) |
+| **Pre-flight: no stale processes** | **MANDATORY.** `pgrep -af "solve\|bench"` must return empty (excluding the bench script itself + systemd-resolved). Stale orphan processes from prior work consume cores and bias the benchmark. (Lesson 2026-05-15 — see HISTORY.md §"Methodology lesson learned … (and contamination correction)".) |
 | **Between trials of same binary** | `sync; echo 3 > /proc/sys/vm/drop_caches` (needs sudo) + `sleep ${COOLDOWN_SEC}` (default 60s). Clears page cache and lets thermal/frequency state settle to a comparable starting point for each trial. |
 | **Between binaries** | Operator-driven: **reboot the VM** between binaries (`sudo reboot`; ~60-90 sec to SSH-ready). Each binary's 4-trial sequence then starts from full cold-state, so cross-binary comparison is fair. The bench script handles per-trial state within one binary; reboot orchestration is operator-managed (or could be wrapped by a higher-level script). |
 | **Host fingerprint** | Captured per run: kernel, CPU model, microcode, core count, AVX-512 feature presence, binary sha + size, run params, CPU MHz at start. Written as `# ` comments at the top of the output TSV. Lets retrospective analysis correlate weird numbers with the specific physical Spot host. |
 | Metric | wall time from `/usr/bin/time -f "%e"`; speedup = `mean(baseline_time) / mean(optimized_time)` |
-| Reporting | TSV with per-trial wall time + cpu_freq_mhz at trial start; mean ± stddev computed offline. Confidence interval = `stddev / mean`; speedup ratios within that floor reported as "within noise" rather than as a positive result. |
+| Reporting | TSV with per-trial wall time + cpu_freq_mhz at trial start; mean ± stddev computed offline. **Noise floor = coefficient of variation (CoV) = `stddev / mean`** — a relative-dispersion statistic, carrying no distributional quantile and placing no interval on the speedup ratio (see the caveat above the table); speedup ratios within that floor reported as "within noise" rather than as a positive result. |
+
+> **The public harness cannot produce this number.** `scripts/perf_bench.sh` calls its
+> `run_enum_only` exactly once per binary — one control run and one treatment run, no trial
+> loop — so it yields no within-binary variance and therefore no noise floor at all. Its
+> paired results are **screening-grade**: use them to decide whether a change is worth
+> benching properly. Before a [PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md) entry claims a
+> quantified speedup, run the 4-trial protocol above (`v2_bench_d64.sh`, private repo) and
+> report the CoV alongside the ratio; an entry produced by `perf_bench.sh` alone must say so
+> and must not quote a dispersion figure.
 
 #### Phase 1 scale tiering on D64als_v7 64-thread
 
@@ -372,7 +705,7 @@ sudo reboot
 
 #### Per-Phase-1 task — what gets measured
 
-- **#46 AVX-512:** baseline scalar vs AVX-512-enabled. Speedup expected 1.4–2.0× per the implementation plan; will validate empirically. Development + selftest-scale benchmarks happen on `claude` directly (full AVX-512 stack supported). Canonical-scale speedup measurement on D64als_v7 Spot in westus3 ($1.50, 1.5h). Scalar-fallback cross-arch validation on Cobalt ARM (Dpsv6) — that's the "did the fallback regress when we added the AVX-512 path?" check, not the speedup measurement.
+- **#46 AVX-512:** baseline scalar vs AVX-512-enabled. Speedup expected 1.4–2.0× per the implementation plan; will validate empirically. ⚠ **[REFUTED 2026-05-16 — it was validated empirically, and the expectation did not survive. The definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected); #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits, so the scalar baseline was never scalar. The task description above is preserved as written; the AVX-512 host guidance earlier in this section remains accurate as a statement about instruction support, but no longer implies pending speedup work. This callout added 2026-09-02; it was the last of the three 1.4–2.0× sites left unmarked after prose batch P64 marked the two in HISTORY.md.]** Development + selftest-scale benchmarks happen on `claude` directly (full AVX-512 stack supported). Canonical-scale speedup measurement on D64als_v7 Spot in westus3 ($1.50, 1.5h). Scalar-fallback cross-arch validation on Cobalt ARM (Dpsv6) — that's the "did the fallback regress when we added the AVX-512 path?" check, not the speedup measurement.
 - **#47 LTO:** baseline `-O3 -march=native` vs `-O3 -flto -march=native`. Speedup expected 0–5% (LTO mostly helps cross-translation-unit optimization; single-file project gets modest gains from extra dead-code elimination + cross-function inlining beyond `-O3`'s defaults). On claude.
 - **#47 PGO (profile-guided optimization):** baseline `-O3` vs `-O3 -fprofile-generate` → run profile workload → `-O3 -fprofile-use`. Speedup expected 5–15%. On claude. **Build invariant (added 2026-05-24 after the silent no-PGO incident):** use `scripts/build_pgo.sh` for all PGO builds. Under `-flto`, GCC keys the `.gcda` lookup on the output binary's name; if Pass 1 and Pass 2 use different output names (e.g., `solve_inst` vs `solve_U`), Pass 2 silently misses the profile data and falls back to no-PGO with a one-line warning. The helper enforces three rules: (1) same output name in both passes (rename after), (2) `-Werror=missing-profile` on Pass 2 so any future regression fails the build loud, (3) assert `.gcda` count > 0 between passes. Past incident: the v1-vs-v3 paired bench 2026-05-24 measured only +4.38% v3 advantage (vs predicted +9.2%) because PGO silently didn't apply. See `roae-private/V1_V3_PAIRED_BENCH_RESULTS_2026_05_24.md`.
 - **#47 huge pages + NUMA:** runtime-environment changes (transparent huge pages, NUMA pinning); benchmarked on the host where they actually apply (D-series VM with NUMA-aware OS).
@@ -407,7 +740,7 @@ For pure-pruning v2 (skips only doomed subtrees, preserves DFS order), set-match
 
 #### Recommended approach: opt-in leaf-rate logger in both binaries
 
-Add an opt-in env var `SOLVE_LEAF_RATE_LOG_INTERVAL_NODES` (default `0` = disabled, sha-preserving) to both v1 and v2 solve.c. When set to a positive integer N, the existing `update_progress()` callsite at solve.c:~2560 also appends one line to `leaf_rate.log`:
+Add an opt-in env var `SOLVE_LEAF_RATE_LOG_INTERVAL_NODES` (default `0` = disabled, sha-preserving) to both v1 and v2 solve.c. When set to a positive integer N, the existing `update_progress()` callsite (solve.c — the single callsite, in the rate-limited thread-0 branch of the sub-branch completion path; ~line 8926 as of 2026-08-09, `grep -n update_progress solve.c`; cited here as ~2560, which in the 2026-05-15 tree was the *definition* — the single callsite there was solve.c:2813, unconditional on every sub-branch completion, and that is the cadence still assumed below) also appends one line to `leaf_rate.log`:
 
 ```
 <elapsed_seconds>\t<total_nodes_walked>\t<sub_branches_done>\t<solutions_c3_so_far>\t<UTC_timestamp>
@@ -427,7 +760,7 @@ Reads both logs, builds two interpolation curves `leaf_count_v1(nodes)` and `lea
 
 **Measures:** count-matching K from instrumented v1 and v2 runs at the same scale. With pure-pruning v2 (no DFS-order change), this is also the set-matching K because v2's coverage is a strict superset of v1's at the same budget.
 
-**Doesn't measure (without further instrumentation):** set-matching K when v2 changes DFS order. For that, v2 would need to emit per-record timestamps (`solutions.bin` companion: `solutions.timestamps.bin`, one int64 per record = node count at which v2 first produced this record). Lookup each v1 canonical record in v2's timestamp map, take the max — that's the set-matching B′. This is heavier instrumentation (~30 GB sidecar at 11.2T scale) but exact.
+**Doesn't measure (without further instrumentation):** set-matching K when v2 changes DFS order. For that, v2 would need to emit per-record timestamps (`solutions.bin` companion: `solutions.timestamps.bin`, one int64 per record = node count at which v2 first produced this record). Lookup each v1 canonical record in v2's timestamp map, take the max — that's the set-matching B′. This is heavier instrumentation but exact. Sidecar size = `records × 8 B`: at the v1 11.2T record count this section already uses above (759,608,573) that is **6.08 GB (5.66 GiB)**, not the ~30 GB an earlier revision of this line asserted. The v2 count at the same budget is unknown until v2 exists — size it from v2's own measured count when the time comes, and note that ~30 GB would require ~3.75 billion records, roughly 4.9× v1's.
 
 #### Sequencing
 
@@ -469,8 +802,16 @@ checkpoint resume continues writing into the same layer dir. Same scope,
 same budget, same data continuation. New layer only when the operator
 intentionally chooses a new `(scope, budget)` pair.
 
-**Merge:** `solve --merge-layers <run_root>` walks the layer subdirs in
-sort order; for each sub-branch tuple, the LAST layer to contain a shard
+**Merge:** `solve --merge-layers <run_root>` — 🔴 **`<run_root>` MUST BE AN
+ABSOLUTE PATH.** The winners are installed as symlinks whose target is built as
+`<layer_path>/<shard>` (`solve.c`, the `--merge-layers` walk), so a *relative*
+run_root yields targets that resolve relative to `_merged_/` — **100% of the
+winner symlinks dangle**, and the run then aborts on the first override with
+`ERROR: symlink … File exists` (exit 20), because a dangling `dst` makes the
+`access(dst, F_OK)` override check false so the `unlink` never happens. Measured
+2026-09-03 (Codex V2-F15 #10); `solve.c` does not `realpath()` the layer root, so
+this is a live constraint on the caller, not a historical note. Given an absolute
+run_root it walks the layer subdirs in sort order; for each sub-branch tuple, the LAST layer to contain a shard
 wins. Winners are symlinked into `<run_root>/_merged_/`, the standard
 merge runs in that dir, and produces `<run_root>/_merged_/solutions.bin`
 plus a `MANIFEST.txt` recording each shard's source layer. The result is
@@ -488,13 +829,46 @@ shards), this is non-destructive.
 
 ### Storage strategy: parallel redundancy and long-term archival
 
-> **Status: OPTIONAL / ASPIRATIONAL — not currently in use.**
-> The entire Azure Blob Archive flow below is a designed-but-undeployed
-> backup tier. We are not confident enough in the current `solutions.bin`
-> outputs to archive them, and no automated process has been chosen for
-> the upload/sha-verify pipeline. The working copy on the `solver-data`
-> managed disk is currently the only redundancy tier. Treat this section
-> as a reference for a future archival workflow, not current policy.
+> **Status: DEPLOYED — this is current policy, not a proposal.**
+> Cold-blob archival has been in production since the June–July 2026
+> campaign. [CANONICAL_HASHES.md](CANONICAL_HASHES.md), not this section, is
+> the authority on what exists. Every active-lineage canonical scale has
+> `canonical-archive/…` entries there — d3 560T holds a warm gzip mirror plus a
+> cold blob for the original campaign **and** for the byte-identical 2026-06-30
+> re-run; d3 100T a cold blob whose presence was re-verified live 2026-07-17
+> (plus a known byte-redundant duplicate); d3 11.2T a build-A/build-B pair, a
+> witness-only v3 upload and the 2026-05-31 dress rehearsal; d3 10T, d3 5.6T
+> and d2 10T a build-A/build-B pair each. Read the counts off that file rather
+> than from here: it also lists the CLOSED v2-lineage archives and one path
+> (`canonical-archive/20260530_100T_revalidation_4e15885/`) that its own note
+> records as never populated, so a raw grep over-counts. Uploads run from **one** implementation —
+> `roae-private/scripts/lib/archive_canonical_lib.sh` in the private operator repo
+> (`~/github/roae-private/`, not committed here). Do not write a second
+> uploader; a divergent second path is how an archive stops matching its
+> catalogue. The flow written out below is the **original 2026-04 design**,
+> kept because its folder taxonomy and tier economics are still the ones in
+> use — read it as the design record, and read CANONICAL_HASHES.md for state.
+
+⚠ **[CORRECTED 2026-09-02 — the banner above previously carried a status of
+OPTIONAL / ASPIRATIONAL, described the Azure Blob Archive flow as a backup tier
+that had been designed but never stood up, and stated categorically that the
+working copy on the `solver-data` managed disk was the project's sole
+redundancy tier. Both statements were the exact inverse of the catalogue by the
+time anyone was likely to read them, and the cost of believing them is the
+reason this is a correction rather than a silent edit: an operator responding to
+an incident would have declared recoverable data lost, or re-paid to archive
+what was already archived. The retired phrasings are registered in
+[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in
+[CORRECTIONS.md](CORRECTIONS.md) as `RP-456ed634` (the undeployed-status phrasing) and
+`RP-2e39a795` (the sole-redundancy-tier phrasing). Origin is
+stale-ledger residue, not a wrong measurement: the archival campaign ran June–
+July 2026 and never swept this May-era section — the same shape as the
+`needs_generated` staleness recorded under §"Git hooks". Found by Codex review
+V2-F15 #9. Note that one site of this defect was already repaired: the
+historical paragraph further down carries a *Superseded:* note added by an
+earlier pass, which fixed the sentence "No run has yet been archived" and left
+the banner — that sentence has zero matches corpus-wide today while the banner
+survived, which is why this correction exists at all.]**
 
 The managed disk is the *working* copy of large artifacts, not the *durable*
 copy. Two things would motivate a separate backup tier:
@@ -536,27 +910,34 @@ sha256 referenced in committed docs):
 4. Once verified: the managed disk remains authoritative for active work;
    the blob is the durable backup.
 
-The 10T canonical run (`aa1415174c...b719b`, 23.7 GB) was the original
-candidate, but that sha is now known to be an undercount (see HISTORY.md Day
-8). No run has yet been archived. A future canonical 10T (once the d3 and d2
-reference shas land) would be the first candidate. At Archive-tier pricing
-(~$0.00099/GB/month) a 10T backup would be ~$0.02/month — essentially free
-insurance, once we are confident in the output.
+*(Historical, 2026-04:* the 10T run `aa1415174c...b719b` (23.7 GB) was the
+original archive candidate, but that sha is a hash-table-bug-era undercount —
+see HISTORY.md Day 8 and SPECIFICATION.md §"Partial enumeration". *Superseded:*
+runs at every canonical scale have since been archived to cold blob storage;
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) lists the `canonical-archive/…`
+container path for each.) At Archive-tier pricing (~$0.00099/GB/month) a 10T
+backup is ~$0.02/month — essentially free insurance.
 
 **Validation-first approach for major solver refactors.** When significant
 enumeration-path refactoring occurs (e.g., the Option B depth-3 work-unit
 rewrite for 100T), re-run the 10T enumeration with the new solve.c *before*
-archiving and *before* deploying 100T. If the retooled solve.c produces the
-same `solutions.bin` sha256 (`aa1415174c...b719b`), that proves the refactor
-did not alter enumeration semantics. Only after this sha-identity check
-passes should the 10T output be archived and the 100T run deployed. The
-refactor might touch infrastructure (checkpointing granularity, work-unit
-partitioning) without changing the enumeration output; the sha-identity
-check distinguishes these cases.
+archiving and *before* deploying 100T. The acceptance target is the **current**
+10T d3 anchor from [CANONICAL_HASHES.md](CANONICAL_HASHES.md) —
+`b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc`,
+706,427,594 records — **not** the deprecated `aa1415174c…` or `f7b8c4fb…`
+shas that older revisions of this section named; reproducing either of those
+would mean the refactor reproduced a known-bad artifact. If the retooled
+solve.c produces the anchor sha, that proves the refactor did not alter
+enumeration semantics. Only after this sha-identity check passes should the
+10T output be archived and the 100T run deployed. The refactor might touch
+infrastructure (checkpointing granularity, work-unit partitioning) without
+changing the enumeration output; the sha-identity check distinguishes these
+cases.
 
 **Archive folder taxonomy.** For auditability and retrieval:
 - Folder name: `<run-name>_<YYYYMMDD>_<sha8>/` where `sha8` is the first 8 hex
-  chars of solutions.bin's sha256. Example: `10T_20260414_aa141517/`.
+  chars of solutions.bin's sha256. Example: `10T_20260513_b85c8871/` (the live
+  10T d3 anchor; see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
 - The sha8 in the folder name self-describes the run identity without opening
   blobs. Multiple runs with identical sha8 (deterministic re-validation) are
   distinguishable by date.
@@ -568,11 +949,24 @@ check distinguishes these cases.
 1. Ensure the parallel backup above exists and has been sha-verified.
 2. Optionally download a local copy to operator-controlled hardware (external
    SSD, home server) as a third tier of redundancy. Cost: one-time transfer.
-3. **Delete the managed disk** (only after both blob backup and, if chosen,
-   local backup are verified). Drops ongoing storage cost from
-   ~$0.04/GB/month to ~$0.001/GB/month. For 260 GB over 6 months this is
-   ~$64 saved.
-4. Delete all VMs. Full idle state.
+3. **Do NOT delete the managed disk.** ⚠ **[CORRECTED 2026-09-02 — this step
+   read "**Delete the managed disk** (only after both blob backup and, if
+   chosen, local backup are verified)", justified by dropping storage cost
+   from ~$0.04/GB/month to ~$0.001/GB/month, ~$64 over 6 months for 260 GB.
+   That instruction contradicts the standing operator rule this repo states
+   three times elsewhere — [DEPLOYMENT.md](DEPLOYMENT.md) §"Teardown" ("never
+   delete data disks"), its retrospective ("Managed disks preserved = the win
+   condition for every class of failure"), and its teardown script comments
+   ("Never delete `solver-data`"). It was harmless while this section was
+   labelled aspirational and became executable the moment the banner above was
+   corrected to DEPLOYED, so it is corrected in the same pass. Found while
+   verifying the banner, not by the review that filed the banner.]** Shrink the
+   idle footprint by *resizing* the data disk down to what the retained
+   artifacts need, or by detaching it; the disk itself is preserved. Every
+   recovery this project has had — eviction, truncation, regex bug — was saved
+   by `solver-data` outliving a VM.
+4. Delete all VMs (their OS disks contain nothing campaign-related). Full idle
+   state, data disk retained and unattached.
 
 **Rehydration procedure (resuming work):**
 
@@ -661,13 +1055,18 @@ Two more fire on the merge path:
 | Stack raise | `setrlimit(RLIMIT_STACK, RLIM_INFINITY)` at `--merge` | 28 | `SOLVE_SKIP_STACK_RAISE=1` |
 | Auto-verify-solutions | Runs `solve --verify solutions.bin` after `--merge` completes | 30 | `SOLVE_SKIP_AUTO_VERIFY=1` |
 
+Not in either table above, but armed on the same dispatch: the **disk-IOPS pre-flight** (task #107, retooled #115) — a concurrent fsync-rate probe that refuses to start (exit 31) when projected fsync-wait exceeds 25% of estimated enum wall. Escapes: `SOLVE_SKIP_IOPS_CHECK=1` (skip the probe) or `SOLVE_ALLOW_SLOW_IOPS=1` (probe, then proceed anyway). See [SOLVE_C_CLI.md](SOLVE_C_CLI.md) exit 31 — and the eviction-resume rule immediately below.
+
 `SOLVE_DFS_ITERATIVE=1` and `SOLVE_DFS_CHECKPOINT=1` also default to ON at canonical scale (`SOLVE_NODE_LIMIT >= 1T`) since 2026-05-26 — the operator does not need to set these explicitly for any 11.2T+ run.
 
-For 560T specifically: do NOT set any of the skip-* escapes. The whole point of these gates is to catch silent failures on the ~$50 single-shot 3.5-day enum where forensic recovery cost exceeds the gate-implementation cost by 100×.
+For 560T specifically, the rule is **launch-phase-dependent**:
+
+- **First launch:** set none of the skip-\* escapes. The whole point of these gates is to catch silent failures on the ~$50 single-shot 3.5-day enum where forensic recovery cost exceeds the gate-implementation cost by 100×.
+- **Every eviction-resume / post-`az vm start` relaunch:** set `SOLVE_SKIP_IOPS_CHECK=1`, and nothing else. The #107/#115 IOPS pre-flight (exit 31) probes fsync rate against cold caches after a restart and mis-fires: the 11.2T dress rehearsal's resumed solve measured 223 fsync/s and exited 31 (HISTORY.md, dress-rehearsal bug 3). Over a 5-day campaign with ~5–10 expected evictions, leaving it armed deadlocks at the *first* eviction, so `SOLVE_SKIP_IOPS_CHECK=1` was baked into the real 560T `launch_enum` env (commits `86276eb`, `6d6539f`). This matches [SOLVE_C_CLI.md](SOLVE_C_CLI.md)'s ENVIRONMENT entry: "Recommended on every eviction-resume / post-`az vm start` launch (cold caches give noisy readings; the first-launch gate is authoritative)." The disk does not change between resumes, so the first-launch probe remains the authoritative measurement — this is a bypass of a known-noisy re-probe, not a relaxation of the gate. **All other gates stay armed on resume.**
 
 ### build.sha invariant (Outlier #4)
 
-The `build.sha` file in the run directory holds `sha256(/proc/self/exe)` from the first solve invocation that ran there. Every subsequent invocation re-computes its own `/proc/self/exe` sha and compares — on mismatch, exit 26 with a "build provenance mismatch" error. Purpose: prevent resuming a checkpointed enumeration across two different binaries. The on-disk `.dfs_state` checkpoint encodes search-tree state computed by binary X's prune-stack logic; a different binary Y interpreting that resumed state can produce wrong-but-deterministic canonical bytes — a sha that looks valid but doesn't match any reference and is hard to bisect.
+The `build.sha` file in the run directory holds `sha256(/proc/self/exe)` from the first solve invocation that ran there. Every subsequent invocation re-computes its own `/proc/self/exe` sha and compares — on a mismatch **between two well-formed 64-hex shas**, exit 26 with a "build provenance mismatch" error. That qualifier is load-bearing; see "When the guard does NOT fire" below. Purpose: prevent resuming a checkpointed enumeration across two different binaries. The on-disk `.dfs_state` checkpoint encodes search-tree state computed by binary X's prune-stack logic; a different binary Y interpreting that resumed state can produce wrong-but-deterministic canonical bytes — a sha that looks valid but doesn't match any reference and is hard to bisect.
 
 **When the guard fires in practice:**
 
@@ -675,6 +1074,16 @@ The `build.sha` file in the run directory holds `sha256(/proc/self/exe)` from th
 2. **Fresh VM rebuild** (campaign failure-recovery deleted the OS disk; new provision rebuilds solve) — the rebuilt binary has a different sha than `build.sha` on the persistent Premium SSD. The canonical launchers handle this by preserving the stale `build.sha` as `parent_build.sha.<timestamp>` for archival, then deleting it so the new binary writes fresh. No override needed in the launcher's env.
 3. **Cross-campaign extension** (e.g., 1120T binary touching 560T's RUN_DIR) — same hygiene step in the launcher's `build()` preserves the parent campaign's `build.sha` and lets the new binary write fresh.
 4. **Mid-campaign manual rebuild** (operator ssh's into the enum VM and rebuilds solve directly, bypassing `build()`) — guard correctly fires. Operator must explicitly delete `build.sha` (audited decision) or set `SOLVE_ALLOW_BUILD_MISMATCH=1` for one invocation (audited decision).
+
+**When the guard does NOT fire — fail-open modes (verified by execution 2026-08-30):**
+
+The guard's comparison branch is entered only when the on-disk `build.sha` parses as exactly one 64-character token. Three states bypass it, all returning 0 (proceed):
+
+1. **Malformed / truncated / partially-written `build.sha`** — **and this state also destroys the evidence.** `fscanf` yields `rn != 1` or a length ≠ 64, control falls through to the "First run (or unreadable prior)" path, and the file is *overwritten* with the current binary's sha. Reproduced here: a run directory seeded with `build.sha` containing `deadbeef-truncated-not-a-sha`, then a `SOLVE_NODE_LIMIT=2000000` dispatch → the log prints `[hardening] build.sha CREATED (binary sha 9992e1f1 (transient red-test value, not in-tree))`, exit code carries no guard signal, and the prior content is gone. The strictest case the guard exists for — an abnormal run directory — is the one it converts into silent acceptance plus evidence replacement. `build.sha` *is* written tmp+rename, so this needs an out-of-band cause (a full disk, a manual edit, an interrupted recovery) — which is precisely the population the guard is for.
+2. **`popen` of the sha tool fails** — warns, SKIPPED, proceeds.
+3. **No sha256 tool on `PATH`** — the guard itself warns and proceeds, but on the enum / merge / `--branch` dispatch paths this branch is **unreachable**: an earlier preflight (`require_sha256_tool`) already exits **10** with an install-coreutils message. Verified by running with an emptied `PATH`: rc 10, `build.sha` untouched. The fail-open is real in the function but not reachable where canonical work happens.
+
+**Operator consequence:** a clean exit is *not* evidence that the build-provenance guard compared anything. Before resuming a canonical run in an existing directory, confirm the log line reads `[hardening] build.sha PASS (binary sha … matches prior run)`. A `build.sha CREATED` line in a directory you believe is a resume means the guard found no usable prior — stop and inspect rather than proceeding. **Pending code fix:** malformed-but-present `build.sha` should hard-error (exit 26) and leave the file untouched instead of overwriting it.
 
 **Why solve binaries vary across rebuilds:** `solve.c` embeds `__DATE__`/`__TIME__` macros in diagnostic strings (~6 sites). Every fresh `gcc` invocation stamps a different build time → different binary sha — even from byte-identical source. `glibc`/`libgomp` patches between rebuilds add further divergence. The `build.sha` invariant is therefore host-fragile by construction; it's a strict cross-binary guard, not a cross-source-version guard. A future improvement is `-DSOURCE_SHA=…` deterministic builds that strip the timestamp dependency.
 
@@ -694,7 +1103,7 @@ For full schema + design rationale see `roae-private/METADATA_EQUIVALENCE_DESIGN
 
 ### Compile
 
-- Build flags: `gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz` (minimum to reproduce canonical sha); `gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm -lz` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15). The `-lz` (zlib) link flag is required since #169 (native-gzip live compression); it is the only build change and is sha-neutral (gzip is a non-sha-determining storage layer).
+- Build flags: `gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz` (minimum to reproduce canonical sha; the `-DGIT_HASH` stamp is sha-neutral — measured 2026-09-02 — and without it every artifact the run writes records `"git_hash": "unknown"`); `gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15). The `-lz` (zlib) link flag is required since #169 (native-gzip live compression); it is the only build change and is sha-neutral (gzip is a non-sha-determining storage layer).
 - `-fopenmp` parallelizes the `--analyze` hot loops. Without it, pragmas are
   no-ops and everything still compiles + runs single-threaded. `libgomp`
   (gcc's OpenMP runtime) ships with gcc under the GCC Runtime Library
@@ -710,9 +1119,10 @@ For canonical-grade reproducibility, use the **deterministic recipe**:
 SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct -- solve.c) \
 gcc -O3 -g -march=native -flto -pthread -fopenmp \
     -fno-record-gcc-switches \
-    -Wl,--build-id=sha256 \
+    -Wl,--build-id=sha1 \
     -ffile-prefix-map="$(pwd)=." \
     -fdebug-prefix-map="$(pwd)=." \
+    -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" \
     -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" \
     solve.c -lm -lz -o solve
 ```
@@ -723,11 +1133,11 @@ Compared to the bare `-O3 -flto -pthread -fopenmp -march=native`, these flags ad
 |---|---|---|
 | `SOURCE_DATE_EPOCH=<unix-ts>` | Pins `__DATE__` and `__TIME__` to a deterministic value | Eliminates the `.rodata` cosmetic non-determinism documented in `roae-private/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md` Q10 |
 | `-fno-record-gcc-switches` | Removes embedded build command line from `.GCC.command_line` section | Builds without referencing the build directory |
-| `-Wl,--build-id=sha256` | Derives the ELF build-id deterministically from binary content (instead of random hash) | Two builds of same source on same host produce identical build-ids |
+| `-Wl,--build-id=sha1` | Derives the ELF build-id deterministically from binary content (instead of random hash). ⚠ **[CORRECTED 2026-09-03 — this recipe said `sha256`, which GNU ld does not accept: it emits `warning: unrecognized --build-id style ignored` and the binary ends up with **NO build-id at all**, so the row's own guarantee was unverifiable. Measured on the stock toolchain (Codex V2-F15 #16). `sha1` is accepted, reproducible across rebuilds, and content-derived — a changed source gives a different id.]** | Two builds of same source on same host produce identical build-ids |
 | `-ffile-prefix-map="$(pwd)=."` | Strips the absolute build path from any embedded references | Same source compiled in different directories produces identical binary |
 | `-fdebug-prefix-map="$(pwd)=."` | Same for debug info (DWARF section) | Debug builds across hosts have identical DWARF paths |
 
-**Result**: two builds of the same source on the same host produce **byte-identical binaries** (the same `.text`, same `.rodata`, same build-id). The empirical Q10 finding showed that without these flags, two builds had byte-identical `.text` but differing `.rodata` and build-id — cosmetic but messy. The deterministic recipe eliminates the mess.
+**Result**: two builds of the same source on the same host produce **byte-identical binaries** (the same `.text`, same `.rodata`, same build-id — the last of these only since the `sha1` correction above; under the previously documented `sha256` the flag was ignored and there was no build-id to compare). The empirical Q10 finding showed that without these flags, two builds had byte-identical `.text` but differing `.rodata` and build-id — cosmetic but messy. The deterministic recipe eliminates the mess.
 
 **Caveat — cross-host reproducibility**: even with this recipe, builds across different physical hosts (different gcc patch, glibc patch, kernel, CPU revision) can produce DIFFERENT binaries — and may produce different canonical sha at BUDGETED-cell-density-sensitive scales like 1T. See the structured `validation_history` block in `CANONICAL_HASHES.md` and the `feedback_canonical_sha_drift_management` memory for the operational discipline.
 
@@ -735,19 +1145,53 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
 
 ### Solver
 
-- **Independent verifier**: `roae/verify.py` is a ~160-line pure-Python
-  implementation of the verifier recipe in
-  [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md). Reads any format-v1
+- **Independent verifier**: `verify.py` (repo root) is a pure-Python implementation
+  (stdlib-only on every verification leg, except the `--check-t5-c3`
+  analytics leg, which imports numpy/pyarrow — see Build prerequisites) of the verifier recipe in
+  [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) (originally ~160 lines; it has
+  since grown the independent re-counting and artifact-check surfaces —
+  `--recount`, `--check-certificate` — documented in [VERIFY.md](VERIFY.md),
+  alongside the C-side sibling `verify.c`). Reads any format-v1
   `solutions.bin`, reconstructs each 64-hexagram sequence, and checks
   **C1 (pair structure), C2 (no 5-line transitions), C3 (complement
   distance ≤ 776, added 2026-04-19), C4 (starts with
   Creative/Receptive), C5 (exact distance distribution)** plus sort
   order and dedup. No shared code with solve.c — genuine second opinion.
   Usage: `python3 verify.py [--jobs N] /path/to/solutions.bin`. Exit 0
-  on PASS, 1 on constraint failures, 2 on header/format errors. Runs in
-  ~1-5 minutes on a 10T solutions.bin (single-thread); ~3 hours on a
-  100T solutions.bin with `--jobs 16` (CPU-bound at ~19k records/sec
-  per Python worker after the 2026-05-08 streaming-reads patch).
+  on PASS, 1 on constraint failures, 2 on header/format errors. `--jobs`
+  defaults to 1, so the default invocation is the single-thread arm.
+  Wall time scales with record count at ~19k records/sec per Python worker
+  (CPU-bound, post-2026-05-08 streaming-reads patch), which puts the current
+  10T d3 file (706,427,594 records) at **~10 h single-threaded** and ~40 min
+  at `--jobs 16`, and the 100T file (3,432,399,297 records) at ~3 h at
+  `--jobs 16`. Treat 19k as a projection, not a floor: the 560T campaign
+  measured roughly a 3× shortfall against it — see
+  [DEPLOYMENT.md](DEPLOYMENT.md) §"Memory-budget validation for chunk-based
+  parallel verifiers" for the measured rates and the disk-contention caveat,
+  and budget from a rate you measured on your own hardware.
+
+  ⚠ **[CORRECTED 2026-09-02 — this passage previously advertised a
+  single-threaded run of one to five minutes on the 10T solutions.bin, in the
+  same sentence as the ~19k records/sec rate that contradicts it. The two are inconsistent by
+  more than two orders of magnitude, and the arithmetic needed to see it is
+  entirely inside the sentence: 706,427,594 / 19,000 = 37,180 s = 10.3 h. The
+  sentence's own 100T arm was already right (3,432,399,297 / (16 × 19,000) =
+  11,291 s = 3.1 h), which is what identifies the 10T arm as the defect rather
+  than the rate. [HISTORY.md](HISTORY.md) §"May 4 - May 5, 2026 PDT" measured
+  it: the single-threaded run took ~10 h on the 759M-record file before an
+  eviction killed it at ~95%, and the same file finished in ~6 min at
+  `--jobs 128` — 16.5k records/sec/worker, corroborating the rate and
+  refuting the claim. (The adjudication cited HISTORY.md:1590-1593 for this;
+  the passage is at ~:1604-1632 today. Locate by content.) Likely origin: the figure described the
+  original ~160-line spot-check verifier, before `--recount` and the
+  artifact-check surfaces grew the per-record work — but the sentence sits in
+  the CURRENT tool description with no era stated, and an era defence needs
+  the era on the page. Operational cost of the retired figure: a contributor
+  who schedules a 5-minute timeout kills a healthy verifier and reports a
+  hang. The retired phrasing is registered in
+  [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in
+  [CORRECTIONS.md](CORRECTIONS.md) as `RP-e0ad193f`. Found by Codex review
+  V2-F15 #14.]**
 
 - **Independent completeness reference** (added 2026-05-28):
   `python3 verify.py --enumerate-reference NPAIRS` (2 ≤ NPAIRS ≤ 9).
@@ -786,7 +1230,7 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
     structure, or merge code. Use as a build smoke-test.
   - `python3 solve.py --extended-selftest <path-to-solve-binary>`
     (~10 min on 4 threads, added 2026-04-30): a CI-grade regression
-    suite that drives the supplied binary through three subtests +
+    suite that drives the supplied binary through nine subtests +
     a cross-check:
       1. Single-shot 3-way @ 100M nodes (recursive vs iterative vs
          iterative+v2). Catches regressions in the iterative DFS,
@@ -808,9 +1252,24 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
   filled up mid-write. The solver's sha256 still matched the truncated file
   (sha was computed post-write from what landed on disk). Every `fwrite`,
   `fopen`, `fclose`, `fflush`, `fsync`, `rename`, `fseek`, `ftell`, and
-  `fread` now has its return checked at every call site (enumeration flush,
+  `fread` has its return checked in the paths named here (enumeration flush,
   external-sort chunks, both merge paths). Short reads are hard errors, not
-  warnings. Post-write `stat()` verifies size at every file write.
+  warnings. Post-write `stat()` verifies size at those writes.
+  ⚠ **[SCOPED 2026-09-03 — this read "at every call site" and "at every file
+  write", and that universal is FALSE (Codex V2-F15 #3). The checkpoint
+  METADATA writers are the exception and they are resume-critical: the
+  `sub_ckpt_meta.txt` writer calls `fprintf`, `fflush`, `fsync`, `fclose` and
+  `rename` with **none** of them checked, so a failed flush still lets the
+  `rename` install a possibly-truncated meta OVER the good one. The
+  `sub_ckpt_depth<tid>.txt` and `sub_ckpt_task_done.txt` writers repeat the
+  pattern. These files restore `shared_nodes` (budget state) and the
+  completed-task frontier on resume, so a bad one is not cosmetic. The worker
+  snapshot writer immediately above them DOES check (`if (fflush(wf) != 0 ||
+  fsync(fileno(wf)) != 0)`) and aborts the checkpoint — which is what makes the
+  omission a gap rather than a convention. The fix (check the flush and SKIP the
+  rename on failure — a stale-but-consistent meta is recoverable, an
+  installed-truncated one is not) is a `solve.c` change and is HELD behind the
+  five-condition MASTER GATE; this note is the honest statement until then.]**
 - **Preflight disk space**: `free_disk >= estimated_output × 1.5`. At 10T the
   sub_*.bin shards total ~23 GB AND the final solutions.bin is ~24 GB —
   together they exceed a naive 32 GB disk.
@@ -865,17 +1324,35 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
   [DEPLOYMENT.md §Two-phase deployment](DEPLOYMENT.md#two-phase-deployment-enumeration-vm-vs-merge-vm)
   for the full pattern, cost table, and orchestration requirements.
 - **`--analyze` has shared state with lifetime boundaries that bite new
-  sections.** `bmask[]` (~2.9 GB per-boundary match bitmaps) is allocated
-  before section [3] and freed at the end of analyze_mode. Any new section
+  sections.** `bmask[]` (31 packed per-boundary match bitmaps, **`31 × ceil(N/64) × 8 B`**
+  for `N` records — the solver prints the figure at startup: `[masks] Allocating 31
+  packed bitmaps (… GB total)`) is allocated before section [3] and freed at the end of
+  analyze_mode. Any new section
   that reads `bmask[]` must be inserted before the free, OR rebuild it
   internally via a fresh streaming pass. A prior edit freed `bmask[]` between
   sections [13] and [14] to make room for [14]'s ~24 GB sort buffer on
   tight-RAM VMs; adding sections [16]-[19] after [15] then silently
   use-after-freed that memory and segfaulted mid-run (output truncated at
-  [17]'s header). Fix: keep `bmask[]` alive to the end; the combined working
-  set (~27 GB) fits on any VM with ≥ 32 GB RAM, and the F32als_v6 we use
-  has 64 GB. Verify with `free -g` remotely during a full run if ever moving
-  this boundary. The same pattern may arise with other shared buffers —
+  [17]'s header). Fix: keep `bmask[]` alive to the end. **Size the VM per record
+  count, not from a fixed number** — `bmask[]` is linear in `N`:
+
+  | Dataset | Records | `bmask[]` = `31 × ceil(N/64) × 8 B` | With [14]'s ~24 GB sort buffer | Minimum practical VM RAM |
+  |---|---|---|---|---|
+  | 11.2T v1 | 759,608,573 | 2.94 GB | ~27 GB | 32 GB |
+  | 10T d3 (`b85c8871…`) | 706,427,594 | 2.74 GB | ~27 GB | 32 GB |
+  | 560T d3 (`9a968fa2…`, current deepest canonical) | 10,525,271,997 | **40.8 GB** | **≥ 65 GB** | ≥ 96 GB |
+
+  The `bmask[]` column is exact (the formula is the allocation). The fourth column is a
+  **lower bound**: it adds the ~24 GB sort buffer this passage measured at the 742M/759M
+  scale, which has not been re-measured at 10.5B records and is likely larger there; the
+  mmap'd input adds page-cache pressure on top. Measure before provisioning, and read the
+  solver's own `[masks] Allocating 31 packed bitmaps (… GB total)` startup line.
+
+  The single fixed "~27 GB / 32 GB minimum" figure that stood here applies **only** at
+  the 742M/759M-era record counts it was written about; at the 560T canonical the bitmaps alone
+  exceed a 32 GB box. The F32als_v6 used for the smaller runs has 64 GB, which is not
+  enough for 560T `--analyze`. Verify with `free -g` remotely during a full run if ever
+  moving this boundary. The same pattern may arise with other shared buffers —
   whenever the solver code has a comment asserting a memory constraint,
   verify with `free -g` rather than trust the comment.
 
@@ -1105,14 +1582,26 @@ env var is active.
 **Workaround without the env var**: if you want concentration semantics
 under the default reproducible path, compute the target total manually:
 
+🔴 **[CORRECTED 2026-09-03 — the recipe that stood here was wrong by its own
+arithmetic (Codex V2-F15 #2), and it under-budgeted every remaining branch.** It
+set `SOLVE_NODE_LIMIT = TARGET_PER_BRANCH × REMAINING_SUB_BRANCHES`. But the
+default (non-`CONCENTRATE`) path divides `SOLVE_NODE_LIMIT` by the **full**
+partition — `n_all_subs + n_skipped_subs` — never by the remaining count. So each
+remaining branch actually received `TARGET × REMAINING/TOTAL`: at half
+completion, **half** the intended depth, while the text below promised "same
+effective per-sub-branch depth". Scaling the numerator by `remaining` cannot
+work under a total-divisor.]**
+
+Use the per-sub-branch control directly, which is what it is for:
+
 ```bash
-TARGET_PER_BRANCH=$(( 10000000000000 / TOTAL_SUB_BRANCHES ))
-SCALED_TOTAL=$(( TARGET_PER_BRANCH * REMAINING_SUB_BRANCHES ))
-SOLVE_NODE_LIMIT=$SCALED_TOTAL ./solve 0
+SOLVE_PER_SUB_BRANCH_LIMIT=$TARGET_PER_BRANCH ./solve 0
 ```
 
-Same effective per-sub-branch depth on remaining, full reproducibility
-of the pass.
+or simply **re-supply the ORIGINAL total budget** unchanged — under a
+total-divisor the per-branch depth is already what you wanted, and completed
+branches cost nothing to re-skip. Either gives the same effective per-sub-branch
+depth on the remaining branches with full reproducibility of the pass.
 
 ### `--sub-branch` CLI mode (targeted depth-3 sub-branch exhaustion)
 
@@ -1133,10 +1622,16 @@ Unlike `--branch` (which runs ALL sub-branches of a first-level branch),
 `--sub-branch` targets exactly one. It bypasses checkpoint.txt loading so
 that a fresh run is a fresh run — no accidental resume from stale state.
 
-Pair this mode with small parallel VMs (D2als_v7 or D4als_v7 spot, one
-per sub-branch). The workload is single-threaded inside a sub-branch, so
-D128 is 99% wasted. See `DSERIES_ROI_REPORT.md` (outside repo) for SKU
-sizing rationale.
+Sizing. ⚠ **[CORRECTED 2026-09-03 — this paragraph described the pre-P1 engine
+(Codex V2-F15 #15). It read "the workload is single-threaded inside a sub-branch,
+so D128 is 99% wasted" and advised pairing with D2/D4; that has not been true
+since P1.]** `--sub-branch` **auto-parallelizes across intra-branch tasks whenever
+`SOLVE_THREADS > 1`** (`solve.c`, "P1 parallel-sub-branch: auto-enable when
+SOLVE_THREADS > 1"); set `SOLVE_SUB_BRANCH_PARALLELISM=single` to opt out, which
+is the regression-mode path. So size the VM **from measured scaling on your own
+workload**, not from a single-thread assumption — the old advice would leave a
+parallel run on two cores. See `DSERIES_ROI_REPORT.md` (outside repo) for SKU
+sizing rationale, and note it predates P1 on this same point.
 
 Validation guarantee: if you later exhaust a sub-branch via `--sub-branch`
 AND separately compute a full `--merge`'d canonical from independent
@@ -1163,7 +1658,7 @@ typical inputs (validated bit-identical on a 500-point synthetic test).
 Makes exhaustive distributional analysis on the 100T canonical (3.43B
 records) tractable in ~2 hours on D64 (vs ~9 days pure-Python).
 
-See [`roae-private/DISTRIBUTIONAL_V2_SPEC.md`](../../../roae-private/DISTRIBUTIONAL_V2_SPEC.md)
+See `roae-private/DISTRIBUTIONAL_V2_SPEC.md` (private staging repo)
 for the analysis pipeline + Python integration.
 
 ### `solve.py --sat-encode` (DIMACS / OPB encoder for #SAT model counting)
@@ -1183,7 +1678,7 @@ Produces:
 - `kw.cnf.meta.json` — variable/clause counts, sha256 of clauses for
   reproducibility
 
-See [`roae-private/SAT_EXPERIMENT_SPEC.md`](../../../roae-private/SAT_EXPERIMENT_SPEC.md)
+See `roae-private/SAT_EXPERIMENT_SPEC.md` (private staging repo)
 for the experimental protocol and validation strategy.
 
 ### Infrastructure
@@ -1203,13 +1698,50 @@ for the experimental protocol and validation strategy.
 ### Solver-VM network topology: private IP only
 
 Solver VMs live on the shared `claude-vnet/default` subnet alongside the
-orchestrator (`claude` VM at `$ORCH_IP`). Each new solver VM is created with
-a private IP (e.g., the next free private IP on the subnet) and **no public IP, no NSG rule**. The
-orchestrator SSHes to the private IP directly.
+orchestrator (`claude` VM at `$ORCH_IP`). Each new solver VM created by
+`monitor_canonical.sh` gets a private IP (the next free private IP on the
+subnet) and **no public IP and no NSG rule**. The orchestrator SSHes to the
+private IP directly.
 
-**Why:** zero external attack surface (no port 22 reachable from the
-internet), no public-IP cost (~$0.005/hr per VM), simpler resource
-inventory.
+**Why:** no port 22 reachable from the internet, no public-IP cost
+(~$0.005/hr per VM), simpler resource inventory.
+
+**Documented exception — `scripts/perf_bench.sh` (the standardized paired
+benchmark harness).** This one endorsed script does **not** follow the rule,
+on every invocation and not only from a laptop. It provisions a *fresh
+resource group of its own* with its own `vnet`/`subnet` at `10.0.0.0/16`
+(`perf_bench.sh:104-105`) rather than joining `claude-vnet`, so no private
+path from the orchestrator exists at all, and then creates the VM with
+`--public-ip-sku Standard --nsg-rule SSH` (`:110`) and connects with
+`StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` (`:118-119`).
+Read honestly, that is: port 22 open to the internet with no source-IP
+restriction, plus an accepted first-connection MITM window on every run.
+Mitigations, such as they are — key-only auth (`--ssh-key-values`), a Spot VM
+that exists for the length of one bench, and no secret on the box beyond
+public repo source and bench output. The residual is real, not zero. The
+teardown that closes the window is `az group delete` (`:88-92`), called
+explicitly at three sites (`:123`, `:195`, `:336`) with **no `trap`** — so an
+interrupted or crashed run leaves the public-IP VM standing until someone
+removes the resource group by hand, and `--keep-vm` suppresses teardown by
+design. Check for orphans after any bench that did not print `TEARDOWN`.
+
+⚠ **[CORRECTED 2026-09-02 — this section previously asserted, as an
+unconditional property of solver VMs, that they present no external attack
+surface whatsoever, with the only caveat being an analyst running from a
+laptop off the vnet. The claim was
+contradicted by a script shipped in this repo and endorsed by the performance
+methodology section above, taking the public path unconditionally — including
+when run from the orchestrator. The retired phrasings are registered in
+[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in
+[CORRECTIONS.md](CORRECTIONS.md) as `RP-5e7da3fc`. Found by
+Codex review V2-L21 #2, filed High and adjudicated Medium on threat model: the
+exposure is key-auth-only port 22 on a transient Spot VM holding public source,
+so it is a posture contradiction rather than a credential or data-secrecy
+stake. The preferred repair is in `perf_bench.sh`, not here — put the NIC on
+`claude-vnet/default` with no public IP when the run originates on the
+orchestrator, keeping an explicit `--public` flag for the off-vnet case. That
+is a change to `scripts/`, which this pass does not own; the exception is
+documented rather than closed, and the script change is left open.]**
 
 **How `monitor_canonical.sh` does it:**
 - `az network nic create --vnet-name claude-vnet --subnet default`
@@ -1272,42 +1804,90 @@ then.
    ```
 
 2. **Run a canonical enumeration.** On a machine with ≥64 cores and ≥64 GB
-   free disk (128 cores and 1.5 TB for 100T):
+   free disk (128 cores and 1.5 TB for 100T). Use the exact parameter row from
+   [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Reproducibility parameters:
    ```
-   SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=10000000000000 ./solve 0    # 10T d3 canonical
+   SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=10000000000000 \
+   SOLVE_PER_SUB_BRANCH_LIMIT=63146557 \
+   SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 \
+   SOLVE_THREADS=128 ./solve 0    # 10T d3 canonical (SOLVE_THREADS=64 gives the same sha)
    ```
+   `SOLVE_PER_SUB_BRANCH_LIMIT=63146557` is required: it is the empirical
+   per-cell budget the canonical was generated under. If left unset, solve
+   auto-divides `node_limit/158364` = 63,145,664, which is 893 nodes per
+   cell below the recipe value and produces a valid but different,
+   non-canonical sha — see the recipe-table
+   comment in solve.c and CANONICAL_HASHES.md §Reproducibility parameters.
+
+   ⚠ **[CORRECTED 2026-09-02 — this gave the auto-divide as 63,146,544 and
+   the shortfall as 13 nodes per cell. Both digits were wrong:
+   `10000000000000 / 158364 = 63145664`, so the shortfall is 893 —
+   `python3 -c 'print(10**13 // 158364, 63146557 - 10**13 // 158364)'`.
+   Nothing about the instruction changes: 63146557 is still the required
+   value and is still not derivable from the formula. The same wrong floor
+   was published in the [CANONICAL_HASHES.md](CANONICAL_HASHES.md)
+   §"PSB-formula caveat" table and corrected there on 2026-09-01; this site
+   and [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md) did not receive that
+   fix. No sha, record count or file size depends on either figure. See
+   [CORRECTIONS.md](CORRECTIONS.md).]**
+
    Pass `0` as the wall-clock argument for the reproducibility rule — each
    sub-branch runs to its full per-branch node budget, producing byte-identical
    output regardless of thread count or hardware. Empirical timing: 10T d3
    completes in ~83 min on D128als_v7 (Zen 5) or ~5 h on F64als_v6 (Zen 4).
-   Produces 158,364 `sub_*.bin` shards, a merged `solutions.bin` (~22.6 GB),
-   and `solutions.sha256`.
+   Walks all 158,364 depth-3 cells but produces **~56K** `sub_*.bin` shards, not
+   158,364: a cell that yields zero solutions writes no shard. The archived 10T d3
+   run produced 56,404 shard files (HISTORY.md, 2026-04-17: "the remainder had 0
+   solutions"); the 11.2T rehearsal produced 56,874. Expect `find . -name 'sub_*.bin'
+   | wc -l` in the tens of thousands, and do not treat a count below 158,364 as a
+   failure. Then a merged `solutions.bin` (~22.6 GB) and `solutions.sha256`.
 
 3. **Verify the output.** The expected sha is the current canonical, not
    any legacy file in `enumeration/`:
    ```
-   sha256sum solutions.bin
-   # must equal f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e  (10T d3)
+   gzip -dc solutions.bin | sha256sum
+   # (gz-framed by default since #169; every canonical sha is on the DECOMPRESSED stream, so plain
+   #  `sha256sum solutions.bin` hashes the container. Under SOLVE_COMPRESS=0 plain sha256sum is correct.)
+   # must equal b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc  (10T d3, 706,427,594 records)
    # or        a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2  (10T d2)
+   # (the older f7b8c4fb… 10T d3 sha is DEPRECATED — pre-resume-fix undercount;
+   #  see CANONICAL_HASHES.md §Deprecated)
    ./solve --validate solutions.bin            # ALL CONSTRAINTS VERIFIED
    ```
 
 4. **Reproduce the scientific analyses.**
    ```
    ./solve --analyze solutions.bin > analyze_output.txt
-   zcat runs/20260418_10T_d3_fresh/analyze_output.log.gz > expected.txt
-   diff analyze_output.txt expected.txt        # headers/timings differ, numbers don't
    ```
+   **There is no archived analyze reference for the current `b85c8871…` canonical.**
+   Every `analyze_output.log.gz` under `runs/` was produced from an earlier dataset —
+   `runs/20260418_10T_d3_fresh/` is the **deprecated** `f7b8c4fb…` file (4,607 records
+   fewer), not the canonical you just built. Diffing against it is a structural
+   cross-check only, and it *will* report numeric differences:
+   ```
+   zcat runs/20260418_10T_d3_fresh/analyze_output.log.gz > expected.txt
+   diff analyze_output.txt expected.txt
+   ```
+   **Discriminator — how to read that diff.** Expected (not a regression): the header
+   block, timings, and every count-dependent line — total record count (706,427,594 vs
+   706,422,987) and the per-section counts, percentages, and histogram bins derived from
+   it. A regression: any *structural* difference — a section missing or reordered, a
+   constraint reported as violated, a categorical result (which boundaries match, which
+   symmetry classes appear) that changes. If you see only count-dependent drift in the
+   direction of +4,607 records, the reproduction is good. The authoritative pass/fail for
+   step 4 is step 3's sha, not this diff.
 
 5. **Cross-check downstream doc claims** against `analyze_output.txt`. Every
-   numerical claim in HISTORY.md / SOLVE-SUMMARY.md / CRITIQUE.md / LEADERBOARD.md
+   numerical claim in HISTORY.md / SOLVE_SUMMARY.md / CRITIQUE.md / LEADERBOARD.md
    has a corresponding section in the analyze output.
 
-The canonical archival artifacts live under `runs/<date>_<scale>_<depth>_<runtag>/`
-(e.g., `runs/20260418_10T_d3_fresh/` for the 10T d3 canonical). Each
+Per-run archival artifacts live under `runs/<date>_<scale>_<depth>_<runtag>/`. Each
 per-run directory contains `solutions.sha256`, `solutions.meta.json`, compressed
-enum + merge logs, and a compressed `analyze_output.log.gz` — these are the
-reference against which reproduction is checked.
+enum + merge logs, and a compressed `analyze_output.log.gz`. Treat these as a
+**historical record of the run that produced them**, not automatically as the current
+reproduction target: `runs/20260418_10T_d3_fresh/`, `…_d3_v1/`, and
+`…_10T_d3_d128westus3/` all carry the deprecated `f7b8c4fb…` sha. The authoritative
+list of live shas is [CANONICAL_HASHES.md](CANONICAL_HASHES.md); check there first.
 
 The older `enumeration/solutions.sha256` and `enumeration/analyze_c_742M.txt`
 files hold the invalidated 742M-era sha and analyze outputs (see HISTORY.md
@@ -1364,11 +1944,21 @@ possibly M-series VM for analysis step. Queued, not scoped.
 
 Beyond the current committed state, the following work is known to be useful
 but not yet done. A fresh session wanting to continue the project should
-consider these in rough priority order. This section was last refreshed
-2026-04-19; see [HISTORY.md](HISTORY.md) "Current state" for the canonical
-up-to-date status.
+consider these in rough priority order. Much of this section is a dated
+snapshot (largely written 2026-04-19; the stalest items carry in-place
+status notes below). For up-to-date status see [HISTORY.md](HISTORY.md)
+(the dated narrative — it has no single "current state" section; read the
+most recent dated entries), [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md),
+and the private operational log named in CLAUDE.md §"In-flight state".
 
-### Operational (in-flight or near-term)
+### Operational (historical snapshot, 2026-04-19 — no longer in flight)
+
+*(Status note, 2026-08-06: the two items below are kept as a dated record
+of what was pending when this list was written. The 100T d3 run completed
+2026-04-20, and d3 560T has been the deepest canonical since 2026-06-08 —
+see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) and
+[enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md). The present
+tense in these two items is the 2026-04-19 framing, not current state.)*
 
 1. **100T d3 enumeration on D128als_v7 westus3.** Launched 2026-04-19
    ~08:00 UTC; at the time of this doc refresh, enumeration is in flight.
@@ -1391,23 +1981,73 @@ up-to-date status.
 Tracked in detail in `LONG_TERM_PLAN.md` (project-local staging in
 `~/github/roae-private/`, not committed to this repo). Highlights:
 
-3. **Formal proof of forced-orientation (Theorem 6).** `SPECIFICATION.md`
-   cites the theorem with a prose proof reference. Level 1: tighten the
-   prose to publication-grade. Level 2: machine-check in Lean or Rocq.
+3. **~~Formal proof of forced-orientation (Theorem 6)~~ — CLOSED BY
+   RETRACTION (2026-07-26).** The claim was false (complementation is an
+   exact symmetry of C1∩C2∩C3∩C5; only oriented C4 breaks it). The true
+   replacement statement — the Complement Z₂ symmetry theorem — is
+   machine-checked in `lean/KingWen.lean`; C4's orientation is
+   definitional — this project's convention, not a classical
+   attestation — needing no theorem. ⚠ **[CORRECTED 2026-09-02 — the
+   parenthetical here credited the *Xugua* with attesting the
+   orientation, written as a hyphenated short form that every earlier
+   sweep of this retraction grepped past. The *Xugua* attests that the
+   {Heaven, Earth} pair opens, not the order of Heaven over Earth
+   within it — 天地 is a compound, not an ordering. What the classical
+   record does attest is C1's pairing rule (孔穎達《周易正義·序卦傳疏》,
+   二二相耦，非覆即變) together with C4's *pair choice*, which is
+   unaffected. Narrowed in [METHODS.md](../reports/METHODS.md)
+   §"Constraint set" on 2026-08-30; this file missed the propagation.
+   The Theorem 6 retraction this item records is untouched — it rests
+   on the complementation symmetry, machine-checked in Lean, not on any
+   attestation.]** See SPECIFICATION.md §Theorems and CLAIMS_DECIDED's
+   corrections ledger.
 4. **Bootstrap confidence intervals** on percentile claims (complement
-   distance at 3.9th percentile, shift pattern percentages on the current
+   distance at 3.9th percentile — a figure flagged 2026-08-01, see
+   SOLVE.md §Rule 3 — shift pattern percentages on the current
    canonical datasets, per-position entropies). Report `X% [Y%, Z%]`
    instead of point estimates.
-5. **Null-model comparison against structured permutations** (de Bruijn
-   sequences, Costas arrays). Currently CRITIQUE.md compares only to
-   random permutations and to pair-constrained random permutations —
-   structured-permutation nulls are absent.
-6. **Partition-stability re-check on 100T data.** The 4-boundary
-   structure `{25, 27} ∪ one-of-{2,3} ∪ one-of-{21,22}` is established on
-   the d3 10T canonical; the mandatory-{25, 27} sub-claim is partition-
-   stable (holds on both d2 and d3 10T). A 100T dataset will either
-   confirm the full 4-boundary structure or refine it — partition
-   dependence is expected for the 2 non-stable boundaries.
+5. **~~Null-model comparison against structured permutations~~ — DONE
+   (2026-04-19; this entry corrected 2026-08-06).** Seven null-model
+   families are now tested (de Bruijn exact, Gray-code, Latin-square,
+   lexicographic, historical, random, pair-constrained) — see
+   [CRITIQUE.md](CRITIQUE.md) §"Missing analyses". The claim formerly
+   here — that CRITIQUE.md compared only to random and pair-constrained
+   permutations — was stale. Costas arrays specifically were not among
+   the seven families and remain unexplored.
+6. **~~Partition-stability re-check on 100T data.~~ — DONE (measured at
+   100T and again at 560T; this entry corrected 2026-09-02).** The outcome
+   was *refine*, and sharply: the greedy-ordered minimum boundary-set size
+   rose from **4 at d3 10T to 5 at d3 100T and stays 5 at d3 560T**, and the
+   count of working unordered 4-subsets collapsed **8 → 0 → 0** over the
+   same three scales. No 4-set identifies King Wen beyond 10T, so the
+   4-boundary framing is scale-bounded, not a live hypothesis. The
+   mandatory-{25, 27} sub-claim survived every scale and partition tested and
+   is the one durable part. Full table, method and scope note in
+   [PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md);
+   the 560T survivor-count correction is in
+   [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).
+
+   ⚠ **[CORRECTED 2026-09-02 — two defects in one item, one of them not in
+   the charge that found it. (1) The item was written in the future tense
+   ("A 100T dataset will either confirm the full 4-boundary structure or
+   refine it"), which reads as an open measurement and invites a researcher
+   to re-spend the compute or to cite the 4-boundary structure as live. The
+   measurement completed in 2026-07 and the July completion never swept this
+   list — the same stale-ledger residue as the archival banner above; found
+   by Codex review V2-F15 #18. (2) **The item attributed the wrong family to
+   the wrong partition.** It named `{25, 27} ∪ one-of-{2,3} ∪
+   one-of-{21,22}` as established on the **d3** 10T canonical. That shorthand
+   is the **d2** 10T family — exactly 2 × 2 = 4 sets, and exactly what
+   §[8] reports for d2. The d3 10T family is **8** explicitly enumerated
+   sets, none of which involve boundaries 21 or 22. Every other site in the
+   corpus scopes the shorthand to d2 correctly — CRITIQUE.md:3 and :108,
+   SOLVE.md:389 and :603, SOLVE_SUMMARY.md:218, LEADERBOARD.md:178-181 — and
+   this was the last remaining site carrying the d3 attribution. Found by
+   grepping the retired value rather than the charge's named defect. This
+   second half is not registered as a retracted phrase: the string is a
+   correct statement about d2 at six other sites, so a needle narrow enough
+   to catch this one would have to encode the surrounding attribution, and a
+   needle wide enough to be robust would fire on six honest sentences.]**
 7. **Connection to known combinatorial structures** (block designs, error-
    correcting codes, group actions). Would elevate empirical findings
    to mathematical connections. Exploratory notes in `INSIGHTS.md` and
@@ -1425,8 +2065,10 @@ noting so a future session understands the scope they were declined from:
 
 All three are discussed in `SCIENTIFIC_REVIEW.md` (project-local).
 
-See [HISTORY.md](HISTORY.md) "Current state" for the latest status, and the
-missteps table for worked examples of how the project self-corrects. Items
+See [HISTORY.md](HISTORY.md) for the latest dated status (its most recent
+entries; there is no single "current state" section), and its §"Missteps
+and corrections" table for worked examples of how the project
+self-corrects. Items
 that were previously in this list and are now complete:
 
 - Hash-table silent-drop fix → commit `585880f` (auto-resizing hash table, zero silent drops).
