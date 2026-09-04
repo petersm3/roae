@@ -11845,6 +11845,257 @@ gate_scratch_examples() {
 }
 
 # ---------------------------------------------------------------------------
+# GATE 84 — every SOLVE_* environment variable the engine reads is documented
+# (`env-surface`).
+#
+# 🔴 WHY. GATE 2 (`cli`) compares the set of FLAG names in the code against the set documented, and
+# it works — it is what caught `--kc-g-check-layer` and `--kc-g-status` existing in solve.c and in no
+# documentation. But `getenv` is a second CLI surface and NOTHING checked it. Measured 2026-09-04:
+# solve.c reads 122 distinct SOLVE_* variables and FIVE appeared in zero documentation files —
+# SOLVE_KC_CACHE_MB, SOLVE_KC_G_HEARTBEAT_SEC, SOLVE_KC_G_STOP_AT_K, SOLVE_KC_T_STOP_AT_K and
+# SOLVE_KC_SCRATCH. Two of those change what a long ladder build DOES (a probe that stops it early,
+# leaving an incomplete ladder) and one sets the block-cache size, so this is not a cosmetic gap.
+#
+# The sharpest illustration is that the gap bit the same day it was found. A paragraph added to
+# SOLVE_C_CLI.md that morning described the heartbeat as "off by default"; the code defaults it to
+# 300 seconds and treats <= 0 as the disable. The flag-presence gate could never have seen that,
+# because there is no flag — and no reader would have found the variable to check it against.
+#
+# WHAT THIS DOES NOT DO, stated so the green is not read as more than it is: it checks PRESENCE of
+# the name in documentation, not the ACCURACY of the description beside it. Accuracy is Q-410 and is
+# not mechanically decidable in general. Presence is decidable, so presence is what is enforced.
+#
+# THE REVERSE DIRECTION IS DELIBERATELY NOT CHECKED. Documented-but-unread looks like the natural
+# other half and measures badly: prose legitimately writes wildcards (`SOLVE_F1_*`, `SOLVE_KNUTH_*`)
+# and cross-references filenames (`SOLVE_PY_CLI`), all of which a name-extractor reads as phantom
+# variables. Measured, all four hits in that direction were artifacts of the extractor and none was
+# a real defect. A gate whose findings are usually noise gets ignored, then removed.
+# ---------------------------------------------------------------------------
+gate_env_surface() {
+  echo "== GATE 84: every SOLVE_* env var the engine reads is documented =="
+  python3 - <<'ENVPY' || return 1
+import re, os, sys
+try:
+    src = open('solve.c', encoding='utf-8', errors='surrogateescape').read()
+except OSError as e:
+    print("  [FAIL] cannot read solve.c (%s) — NOTHING was checked." % e.strerror)
+    print("     An unreadable engine is not an engine with no env vars; refusing to report OK.")
+    sys.exit(1)
+names = sorted(set(re.findall(r'getenv\("(SOLVE_[A-Z0-9_]+)"\)', src)))
+if not names:
+    print("  [FAIL] extracted ZERO SOLVE_* getenv sites from solve.c.")
+    print("     That means the matcher stopped matching, not that the engine reads no environment.")
+    sys.exit(1)
+docs = ""
+missing_dir = True
+for root, _dirs, files in os.walk('documentation'):
+    missing_dir = False
+    for fn in files:
+        if fn.endswith('.md'):
+            try:
+                docs += open(os.path.join(root, fn), encoding='utf-8', errors='surrogateescape').read()
+            except OSError:
+                print("  [FAIL] could not read documentation/%s — refusing to report OK from a"
+                      " corpus this gate could not fully read." % fn)
+                sys.exit(1)
+if missing_dir or not docs:
+    print("  [FAIL] the documentation/ corpus is missing or empty — NOTHING was checked.")
+    sys.exit(1)
+# ANCHORED, not a plain substring test. Caught by the red test 2026-09-04: renaming the documented
+# `SOLVE_KC_SCRATCH` to `SOLVE_KC_SCRATCHPAD_RENAMED` left the gate GREEN, because the original name
+# is a PREFIX of the new one and `n in docs` was still true. A documented variable that merely starts
+# with the same letters is not the documented variable, so the name must not be followed by another
+# name character.
+undoc = [n for n in names if not re.search(n + r'(?![A-Z0-9_])', docs)]
+for n in undoc:
+    line = src[:src.index('getenv("%s")' % n)].count(chr(10)) + 1
+    print("  [FAIL] %s is read at solve.c:%d and appears in no documentation/*.md" % (n, line))
+if undoc:
+    print("  [FAIL] %d of %d SOLVE_* variable(s) undocumented" % (len(undoc), len(names)))
+    sys.exit(1)
+print("  [ok]   all %d SOLVE_* variables read by solve.c appear in documentation/" % len(names))
+ENVPY
+}
+
+# ---------------------------------------------------------------------------
+# GATE 83 — the dispatcher, the usage banner and the gate functions agree
+# (`dispatch-alignment`).
+#
+# 🔴 WHY. Measured 2026-09-04: `claims-repro` and `source-scope` were advertised in this script's own
+# usage banner and had NO dispatcher case, while `scorecard-repro` and `scorecard-attribution` had
+# cases and appeared nowhere in the banner. Both pairs entered in the SAME commit, 3515441c — the
+# usage entry and the `case` arm were written with different names on the same day, so those two
+# gates have NEVER been reachable under the names this script tells you to use.
+#
+# It fails in the safe direction — an unknown name exits 2 with the banner, so nobody got a silent
+# pass — and that is exactly why it survived: a caller who typed `claims-repro` saw a usage error and
+# assumed a typo on their side. What it cost is discoverability. Two working gates were invisible to
+# anyone reading the banner, which is the only inventory most callers ever consult.
+#
+# The check is a three-way bijection and entirely decidable, so there is no reason to trust care:
+#   (1) every dispatcher case name appears in the usage banner,
+#   (2) every usage name has a dispatcher case,
+#   (3) every gate_* function defined is actually invoked somewhere.
+# (3) is the one that catches a gate quietly dropped from `all` during a refactor — a gate that is
+# defined, documented and never run reads as coverage and is not.
+#
+# ⚠ IT WAS ALMOST FILED WITH TWO FALSE FINDINGS, recorded because the class recurs. A first pass
+# reported `gate_appendonly_head` as "defined but never invoked": the matcher required a single space
+# in `gate_x || RC=1` and the dispatcher aligns its arms with several. A second reported an
+# advertised-but-missing name as a SILENT PASS: that rc had been read from a pipeline ending in
+# `head`, so it was head's status, not the script's. Measured directly it is 2. Both were caught by
+# re-measuring rather than by review, which is the only thing that reliably catches them.
+# ---------------------------------------------------------------------------
+gate_dispatch_alignment() {
+  echo "== GATE 83: dispatcher, usage banner and gate functions agree =="
+  python3 - "$0" <<'DISPATCH_PY' || return 1
+import re, sys
+src = open(sys.argv[1], encoding='utf-8', errors='surrogateescape').read()
+# Anchor on the DISPATCHER'S DEFAULT ARM, not on the banner text alone. Measured 2026-09-04: this
+# gate's own source quotes the banner in order to find it, that quotation sits ~6,000 lines EARLIER
+# in the file than the banner itself, and a plain search for the banner text therefore found THIS
+# FUNCTION and parsed its Python as the list of gate names -- 92 spurious "missing from the usage
+# banner" findings on a file that had four real ones. A checker that matches itself is the same
+# self-reference class this file already records elsewhere; the fix is to key on a string the
+# checker does not contain.
+# BUILT FROM PIECES ON PURPOSE. Writing the anchor as one literal puts that literal in this file,
+# ~6,000 lines ahead of the real banner, and the search finds THIS FUNCTION instead -- which is
+# exactly what happened twice while writing this gate (92 then 96 spurious findings). Concatenating
+# two fragments means the full string never occurs in the source, so the only place it can match is
+# the dispatcher arm it is meant to find. A checker must not be spellable inside itself.
+ANCHOR = '*) echo "usage: $' + '0 {'
+try:
+    i = src.index(ANCHOR); j = src.index('}', i + len(ANCHOR))
+except ValueError:
+    print("  [FAIL] could not locate the usage banner's dispatcher arm — nothing to compare.")
+    print("     A banner this gate cannot read is not a banner that agrees; refusing to report OK.")
+    sys.exit(1)
+listed = [x.strip() for x in re.split(r'[|\s"\\]+', src[i+len(ANCHOR):j]) if x.strip()]
+cases  = set(re.findall(r'^\s*([a-z0-9-]+)\)\s+gate_\w+\s+\|\|\s+RC=1\s*;;', src, re.M))
+fns    = set(re.findall(r'^(gate_\w+)\(\)\s*\{', src, re.M))
+used   = set(re.findall(r'(gate_\w+)\s+\|\|\s+(?:RC|rc)=1', src))
+bad = 0
+if not cases or not fns:
+    print("  [FAIL] parsed %d dispatcher case(s) and %d gate function(s) — a zero here means the"
+          % (len(cases), len(fns)))
+    print("     patterns stopped matching, not that the file is empty. A broken check, not a pass.")
+    sys.exit(1)
+for n in sorted(set(listed) - cases - {'all'}):
+    print("  [FAIL] usage advertises '%s' but no dispatcher case runs it" % n); bad += 1
+for n in sorted(cases - set(listed)):
+    print("  [FAIL] dispatcher case '%s' is missing from the usage banner (undiscoverable)" % n); bad += 1
+for n in sorted(fns - used):
+    print("  [FAIL] %s() is defined but never invoked — defined, documented and never run" % n); bad += 1
+for n in sorted({x for x in listed if listed.count(x) > 1}):
+    print("  [FAIL] usage lists '%s' more than once" % n); bad += 1
+if bad:
+    print("  [FAIL] %d dispatch/usage disagreement(s)" % bad); sys.exit(1)
+print("  [ok]   %d usage names, %d dispatcher cases, %d gate functions — all three agree"
+      % (len(set(listed)) - 1, len(cases), len(fns)))
+DISPATCH_PY
+}
+
+# ---------------------------------------------------------------------------
+# GATE 82 — no published figure may be fed from the QUOTIENT marginal frame
+# (`quotient-frame-isolation`).
+#
+# 🔴 WHY. The atlas publishes each layer's marginals in TWO frames, canonical-quotient and raw. The
+# engine's own gate checks only that each frame's layer TOTAL equals N, and a total is blind to mass
+# moved between pairs, so a quotient distribution can be wrong in every cell and still pass. The
+# cross-frame oracle (`verify.py --check-atlas-orbit-frames`) closes part of this, but it compares
+# ORBIT AGGREGATES: it catches mass moved ACROSS orbits and, by its own stated limit, NOT mass moved
+# WITHIN one. So a quotient cell can be wrong with no instrument able to say so.
+#
+# Closing that properly needs an independent reimplementation of the canonical-quotient labelling —
+# real mathematical software, not a script. Before paying for it, Q-57 asked the cheap question
+# first: does any PUBLISHED figure actually read quotient cells? Measured 2026-09-04, none does, and
+# the reason is stronger than a convention:
+#
+#   THE TWO FRAMES USE DISJOINT KEY NAMESPACES. A quotient cell is "q<N>"; a raw cell is "pair<N>".
+#   V1, the positional-marginal field, is fed by `grep -o '"marginal_raw": {[^}]*}'` and extracts
+#   '"pair[0-9]*"', so it is STRUCTURALLY incapable of reading a quotient cell — not merely
+#   instructed not to. V5 and Q6 do match '"marginal_quotient"', but only as a LINE SELECTOR to pick
+#   out layer objects; they then read `flow` and `by_class.dN`, each of which occurs exactly once per
+#   layer line, so their greedy `.*` extractors are unambiguous.
+#
+# That measurement is a snapshot, and a snapshot is what this gate turns into a standing fact. The
+# exposure is bounded only while V1's feeder stays `marginal_raw` and no figure extractor learns to
+# read a "q<N>" key. Both are one careless edit away, and the failure would be silent: a contaminated
+# field plots without complaint.
+#
+# NOTE ON SCOPE, because the gate must not be read as more than it is: this bounds the EXPOSURE, it
+# does not verify the quotient frame. The within-orbit gap is real and stays open. What is asserted
+# is only that nothing published depends on it.
+# ---------------------------------------------------------------------------
+gate_quotient_frame_isolation() {
+  echo "== GATE 82: no published figure is fed from the quotient marginal frame =="
+  local rc=0 f="scripts/tr12_repro.sh"
+  if [ ! -r "$f" ]; then
+    echo "  [FAIL] $f is unreadable — cannot check the figure feeders."
+    echo "     An unreadable driver is not an absent risk; refusing to report OK."
+    return 1
+  fi
+
+  # (1) V1's feeder must be the RAW frame. Look at the block, not the whole file: the header comment
+  #     claiming RAW is not evidence, the `done < <(...)` line that actually feeds the loop is.
+  local v1_feed
+  v1_feed=$(awk '/row_begin c_v1/{i=1} i&&/done < </{print; exit}' "$f")
+  if [ -z "$v1_feed" ]; then
+    echo "  [FAIL] could not locate V1's feeder line in $f (block renamed or restructured?)"
+    rc=1
+  elif printf '%s' "$v1_feed" | grep -q 'marginal_raw'; then
+    echo "  [ok]   V1 positional-marginal field is fed from marginal_raw"
+  else
+    echo "  [FAIL] V1's feeder is NOT marginal_raw:"
+    echo "           $(printf '%s' "$v1_feed" | sed 's/^ *//')"
+    echo "     V1 is the positional-marginal FIGURE. Fed from the quotient frame it would plot cells"
+    echo "     that no instrument can check within an orbit (Q-57), and it would look correct."
+    rc=1
+  fi
+
+  # (2) No figure extractor may read a quotient CELL key. The namespaces are disjoint — "q<N>" is
+  #     quotient, "pair<N>" is raw — so this is a decidable check rather than a judgement call.
+  local qcell
+  qcell=$(grep -n "grep -o[^|]*\"q\[0-9\]" "$f" 2>/dev/null)
+  if [ -n "$qcell" ]; then
+    echo "  [FAIL] a figure extractor reads quotient cell keys (\"q<N>\"):"
+    printf '%s\n' "$qcell" | sed 's/^/           /'
+    rc=1
+  else
+    echo "  [ok]   no figure extractor reads a \"q<N>\" quotient cell key"
+  fi
+
+  # (3) The three standing prohibitions must still be present. They are how a future reader learns
+  #     the rule at the point of use; deleting one is how the rule gets forgotten.
+  # Written out one literal at a time, deliberately. A loop over "file:text" pairs would put the
+  # assertion strings behind a variable, and GATE 16 caveat (k) is explicit that an assertion it
+  # cannot read as a whole string literal is a FAIL — correctly, since a substring it cannot resolve
+  # is a substring it cannot check for preflight collisions. Three lines of repetition is the price
+  # of an auditable assertion, and it is worth paying. (Measured 2026-09-04: the loop form also
+  # collided on the variable name `text`, putting 109 unrelated `$text` sites across this file under
+  # the rule — the collision that caveat names, observed.)
+  local missing=0
+  if [ ! -r solve.py ]; then
+    echo "  [FAIL] solve.py unreadable — cannot confirm its prohibition survives"; missing=1
+  elif ! grep -qF 'marginal_quotient must NOT be plotted' solve.py; then
+    echo "  [FAIL] solve.py no longer carries its prohibition"; missing=1
+  fi
+  if [ ! -r viz/viz_kc_grammar.md ]; then
+    echo "  [FAIL] viz/viz_kc_grammar.md unreadable — cannot confirm its prohibition survives"; missing=1
+  elif ! grep -qF 'Do not plot the quotient marginals' viz/viz_kc_grammar.md; then
+    echo "  [FAIL] viz/viz_kc_grammar.md no longer carries its prohibition"; missing=1
+  fi
+  if [ ! -r viz/viz_kc_field.md ]; then
+    echo "  [FAIL] viz/viz_kc_field.md unreadable — cannot confirm its prohibition survives"; missing=1
+  elif ! grep -qF 'be plotted as this field' viz/viz_kc_field.md; then
+    echo "  [FAIL] viz/viz_kc_field.md no longer carries its prohibition"; missing=1
+  fi
+  [ "$missing" -eq 0 ] && echo "  [ok]   all three in-tree prohibitions still present"
+  [ "$missing" -ne 0 ] && rc=1
+  return $rc
+}
+
+# ---------------------------------------------------------------------------
 # GATE 81 — registered CONTENT invariants still hold (`tree-invariants`).
 #
 # WHY (measured 2026-09-04): the v4-query-program merge REVERTED a landed security fix and it sat on
@@ -17945,6 +18196,9 @@ case "$MODE" in
   alias-reach) gate_alias_reach || RC=1 ;;
   scratch-examples) gate_scratch_examples || RC=1 ;;
   tree-invariants) gate_tree_invariants || RC=1 ;;
+  quotient-frame-isolation) gate_quotient_frame_isolation || RC=1 ;;
+  dispatch-alignment) gate_dispatch_alignment || RC=1 ;;
+  env-surface) gate_env_surface || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -17967,6 +18221,9 @@ case "$MODE" in
            echo; gate_tracked_ignored || RC=1
            echo; gate_scratch_examples || RC=1
            echo; gate_tree_invariants || RC=1
+           echo; gate_quotient_frame_isolation || RC=1
+           echo; gate_dispatch_alignment || RC=1
+           echo; gate_env_surface || RC=1
            echo; gate_canonical_ceiling || RC=1
            echo; gate_withdrawn_markers || RC=1
            echo; gate_framing_era || RC=1
@@ -18020,7 +18277,7 @@ case "$MODE" in
            echo; gate_boundary_scope || RC=1
            echo; gate_merge_semantics || RC=1
            echo; gate_rec_scope || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|claims-repro|source-scope|summary-scope|boundary-scope|merge-semantics|rec-scope|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|all}"; exit 2 ;;
 esac
 
 echo

@@ -2913,9 +2913,18 @@ long build:
 
 A layer's rate is the sum over its segments, so process downtime drops out — that is the point of
 emitting seconds alongside bytes rather than only at layer completion, and it is what separates a
-slow layer from an interrupted one. The heartbeat interval is off by default; see
-`kc_g_heartbeat_sec()`. Background and the falsifiable proofs: `roae-private/`
+slow layer from an interrupted one. Background and the falsifiable proofs: `roae-private/`
 `STAGET_PER_SEGMENT_INSTRUMENTED.md`.
+
+**Environment.** These are read by the ladder builders and were previously undocumented:
+
+| variable | default | effect |
+|---|---|---|
+| `SOLVE_KC_G_HEARTBEAT_SEC` | `300` | Seconds between `[kc-*-hb]` heartbeats. `<= 0`, or unparsable, disables both the heartbeat and the pass-boundary announcements. stderr-only and sha-neutral. |
+| `SOLVE_KC_CACHE_MB` | `2048` | LRU block-cache size for the out-of-core layer reader, when `--kc-cache-mb` is not given. A value `<= 0` falls back to the default rather than disabling the cache. |
+| `SOLVE_KC_G_STOP_AT_K` | `0` | Probe hook: stop the **g** ladder build after reaching layer `k`. Clamped to `[0, n]`. A ladder stopped this way is INCOMPLETE and says so on stderr. |
+| `SOLVE_KC_T_STOP_AT_K` | `0` | The same hook for the **t** ladder build. |
+| `SOLVE_KC_SCRATCH` | `/tmp` | Base directory under which the `kc` selftests `mkdtemp` their scratch dir. |
 
 #### `--kc-g-check`
 
