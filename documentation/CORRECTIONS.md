@@ -8503,3 +8503,48 @@ Found when the operator asked whether the prior-art chain was sound; adjudicated
 text by Claude (private record `FABLE_HUANG_1997_CHARACTERISATION_VERDICT.md`). The 2026-08-27
 adjudication that drafted the withdrawn wording had the second sentence in front of it and read it as
 an add-on rather than as the definition of the space.
+
+## 2026-09-04 — two paper titles were described as sitting "directly on the ordering-count question"; one of them never mentions the received order at all
+
+**`documentation/KING_WEN_PROVENANCE.md` and `documentation/CITATIONS.md` said that the 2026-07-30
+prior-art sweep closed with two papers unread "whose titles sit directly on the ordering-count
+question" — 王俊龍 (2002) and 管小思 (2004).** Both papers have now been read end-to-end from the
+primary sources, the second twice: a first pass in 2026-08, and a re-read from page images on
+2026-09-04. The characterisation was wrong for 管小思 and imprecise for 王俊龍.
+
+**管小思 2004.** The phrase carried into our text — "a structural mathematical model of the hexagrams'
+sequence" — is the journal's own English rendering of 「易卦」的序結構數學模型. The 序結構 in the body is
+an *order-structure* in the game-theoretic sense: a dominance relation among eight behavioural states
+mapped onto the 八卦, of which the author himself observes 「均不具有代数序结构中的传递性关系」. The paper
+does not mention the received hexagram sequence anywhere. His 1995 companion paper's only sentence on
+the received order restates 孔穎達's 非覆即變 pairing, and its 「文王圖」 is the eight-trigram
+Later-Heaven circle, not a diagram of the 64-sequence. We inherited an English title and described it
+as a position on a question its author never poses.
+
+**王俊龍.** The trilogy is a curve-fit of the *received order's indices* rather than a treatment of
+the ordering question, which the entry already said; two further imprecisions are corrected with it.
+His 2010 paper concerns trigram number systems and does not treat the 64-sequence, and his 2014 paper
+is generative rather than back-fitting — it proposes a 卦變 procedure, reports that it reproduces 60 of
+64 positions with 隨/蠱/漸/歸妹 underivable, and concludes 「事实上不存在这样的演卦程序」. That is a
+constructive-direction prior negative, and the entry now credits it as one.
+
+**A record that overstated its own thoroughness.** Both papers were tagged "read in full 2026-08".
+Four of the eight pages of 王俊龍 2002 and two of 2010 carry no text layer, and every earlier "full"
+read had covered only the pages that did. The six image-only pages were read on 2026-09-04 from page
+renders. No verdict moved — but "read in full" was not true when written, and the entries now say
+which pages were read when.
+
+**What did not move.** No count, theorem or canonical value. Both authors remain reviewed-and-negative
+on the enumeration question, which is what the prior-art chain rests on; the corrections make that
+finding rest on the papers' contents instead of on their titles. One item is still unobtained —
+王俊龍 2007 in 劉大鈞 ed. 《大易集釋》, pp. 812–836 — and is recorded as such rather than assumed
+harmless.
+
+**A name that belonged to nobody.** The 2026-08-16 publication freeze names 關曉思. No such author
+exists on either paper: both first pages give 管小思 (1995: 上海鐵道學院基礎部; 2004: 同濟大學應用數學系).
+The romanisation collision is the reason the author was unfindable until August 2026, and it is
+recorded here so that the freeze's own text is not mistaken for a third scholar.
+
+Adjudicated from the primary sources by Fable, 2026-09-04 (private record
+`FABLE_Q111_FREEZE_READING_2026_09_04.md`); corrections applied by Claude. Found when the operator
+asked why a reading condition on papers already in hand was being carried as a decision for them.

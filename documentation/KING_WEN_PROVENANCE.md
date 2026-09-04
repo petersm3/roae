@@ -167,9 +167,13 @@ are,"** not "they classify and we count."
 enumeration and counting channels — [HISTORY.md](HISTORY.md), §"The prior-art sweep closed", records
 CNKI, reference-mining, a Japanese-author sweep, Western and OEIS returning "no missed enumeration,
 ceiling, or formalization prior art" — and it closed on that finding **incorrectly**. Two papers whose
-titles sit directly on the ordering-count question — 王俊龍 on 「the mathematical regularity of the
-order of the hexagrams in the received version」 and 管小思 on 「the structural mathematical model of
-the hexagrams' sequence」 — were unread when it closed.
+titles *appeared* to sit on the ordering-count question — 王俊龍 on 「the mathematical regularity of
+the order of the hexagrams in the received version」 (2002) and 管小思 on what the journal's own
+English title calls 「the structural mathematical model of the hexagrams' sequence」 (2004) — were
+unread when it closed. On reading (2026-08; re-read from page images 2026-09-04), the second title's
+序結構 is an *order-structure* — a dominance relation among eight behavioural states mapped to the
+trigrams — and that paper does not mention the received sequence at all; the first is a curve-fit of
+the received order's indices. Neither poses a counting question.
 
 **⚠ Updated 2026-08-28 and 2026-08-29.** A search designed for the ordering-count question was run
 on 2026-08-16, and both named papers have since been read, along with every other obtainable paper

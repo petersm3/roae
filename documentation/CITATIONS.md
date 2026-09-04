@@ -676,8 +676,9 @@ enumerates that space, or proves a ceiling on it.
   result. ⚠ Updated 2026-08-28 and 2026-08-29 — the limits recorded here have since been
   discharged.** A prior-art search designed for the ordering-count question was run on 2026-08-16;
   the two papers named here as unread — 王俊龍 on the mathematical regularity of the received
-  hexagram order, and 管小思 on a structural mathematical model of the hexagram sequence — have
-  both been read, as has every other obtainable paper by either author, and **the adjudication of
+  hexagram order, and 管小思 on what its journal's English title renders as a "structural
+  mathematical model of the hexagrams' sequence" (序結構: an order-structure among eight behavioural
+  states; the paper never mentions the received order) — have both been read, as has every other obtainable paper by either author, and **the adjudication of
   the full 2026-08 acquisition round is now published in this file** (2026-08-29): see
   §"[The 2026-08 prior-art acquisition round](#acquisition-2026-08)". The sentence above still
   means exactly what it says — a statement about those five classical authors — and must not be
@@ -979,11 +980,21 @@ Recorded here to document the survey's breadth.*
 - **Ke Zineng 柯资能** (2001). *Zhouyi yanjiu* 周易研究 2001(3): 79–91. The Fuxi (先天) order as a binary
   ordinal (Peano-style) system; concerns 先天, not King Wen.
 <a id="wangjunlong2002"></a>
-- **Wang Junlong 王俊龙** (2002–2005 trilogy; 2010; 2014). Numerological constructions that presuppose
-  the received King Wen order (back-fitting rather than deriving it). *(All five obtainable papers
-  read in full 2026-08; the 2002–2005 trilogy adjudicated against full texts 2026-08-27 — none
-  counts orderings. One item remains unobtainable: the 2007 chapter in 劉大鈞 ed. 大易集釋,
-  pp. 812–836.)*
+- **Wang Junlong 王俊龙** (2002–2005 trilogy; 2010; 2014). The 2002–2005 trilogy fits closed-form
+  index formulas (Fibonacci, geometric, periodic) to the positions of hexagram classes in the fixed
+  received order, and in 2003 applies the inclusion–exclusion principle (容斥原理) to tally hexagrams
+  by trigram content within it — counting hexagrams, never orderings. 2010 concerns symmetric-ternary
+  and complex encodings of the eight trigrams and does not treat the 64-sequence. 2014 proposes a
+  generative 卦變 procedure (「大衍程序」 plus a 相錯 supplement) that reproduces 60 of the 64
+  positions and reports that 隨/蠱/漸/歸妹 cannot be derived by either, concluding that no single
+  procedure generates the whole order (「事实上不存在这样的演卦程序」) — a constructive-direction
+  prior negative in the same family as [孫利 2019](#suli2019) and 李尚信's 2019 reply in the same
+  issue (see [Li Shangxin](#li2007)). *(All five obtainable papers read in full — 2002 and 2010
+  completed from page images on 2026-09-04, their earlier "full" reads having covered only the
+  text-layer pages; the 2002–2005 trilogy adjudicated against full texts 2026-08-27; verdict
+  unchanged, none counts orderings. One item remains unobtainable: the 2007 chapter in 劉大鈞 ed.
+  大易集釋, pp. 812–836, which by its title and the author's own 2005 forward reference extends the
+  trilogy's method to the 雜卦.)*
 <a id="wuguokai2012"></a>
 - **Wu Guokai 吴国凯** (2012). *Yangming xuekan* 阳明学刊 6: 193–226. A formula fitting the Jing Fang
   eight-palace (京房八宫) order, within Ouyang (1992)'s coset framing.
@@ -1119,13 +1130,19 @@ and [曹红军 et al. 1995](#caohongjun1995) (§the (Z/2)⁶ algebra), [李尚�
   「易卦」的序結構數學模型在對策理論中的應用. *Zhouyi yanjiu* 周易研究 2004(1): 61–74. *(This
   project's records long carried a misspelling of his name, which is why the author was
   unfindable until August 2026 — see [CORRECTIONS.md](CORRECTIONS.md).)* The 1995 paper is the mathematical
-  foundation of his programme; its only counting-vocabulary hit is a state classification. The
+  foundation of his programme; its only counting-vocabulary hit is a state classification. Its single
+  sentence about the received order is 孔穎達's 非覆即變 pairing restated as a control-system
+  rationale (「《周易》排卦的次序总是在一切可能的情况下将互相颠倒的两卦排在一起」), and its 「文王圖」
+  is the eight-trigram Later-Heaven circle, not a diagram of the 64-sequence. The
   2004 paper is **not mathematics of the sequence**: a systems/TCM correspondence framework
   mapping behavioural state-triples onto 八卦, deriving eight tactical postures, and labelling the
-  三十六計 with hexagram names — zero counting-vocabulary hits, the cleanest negative in the
+  三十六計 with hexagram names — its 序結構 is the author's own dominance order among those eight
+  states, which he notes 「均不具有代数序结构中的传递性关系」; zero counting-vocabulary hits, the
+  cleanest negative in the
   corpus (responsible editor: 李尚信). **Neither paper counts orderings or treats the received
   order as a combinatorial object** — reviewed-and-negative, confirmed at content level from
-  fresh text extractions. [read in full 2026-08; adjudicated 2026-08-27]
+  fresh text extractions. [read in full 2026-08; adjudicated 2026-08-27; both papers re-read from
+  page images 2026-09-04, characterisation of the 2004 title corrected, verdict unchanged]
 
 <a id="shiningzhong2011"></a>
 - **Shi Ningzhong 史寧中** (2011). "Cong bagua dao liushisi gua" 從八卦到六十四卦. *Zhexue
