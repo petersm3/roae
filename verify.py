@@ -1127,9 +1127,67 @@ def check_kw_pair_adjacency():
     # using them would test the invariance against itself.
     SHANGBO_OBSERVED_PAIRS = [(5, 6), (7, 8), (15, 16), (17, 18), (25, 26),
                               (31, 32), (39, 40), (47, 48), (55, 56)]
+    # The OBSERVED SYMBOL VALUES, by King Wen number, transcribed from the per-slip
+    # 考釋 for slips 28-58 (Pu Maozuo 2003). Until 2026-09-03 this routine held only
+    # the NUMBER pairs above and no symbol value existed anywhere in the file, so
+    # SHANGBO_TESTABLE_PAIRS was a len() of a hand-written list and the exit status
+    # turned solely on King Wen adjacency: a mistranscribed or genuinely DISAGREEING
+    # symbol left the output byte-identical (Codex V2-F58 #7 / batch 10 row 5).
+    #   'red_square' -- Pu reports a red square present at head and/or hexagram-final
+    #   'black_L_faded_red' -- slip 49 (艮): 「上爻辭末有符號𠃊，中紅褪」, the ONLY
+    #                          non-red observed symbol in the rostered range
+    #   'lost'       -- slip 58 (未濟 首簡): 「卦象、符號殘缺」, observed AS absent
+    # Appendix 2's reconstructed entries are excluded on purpose: Pu fills gaps there
+    # by the invariance principle itself, so using them would test the claim against
+    # its own output. Slips 1-27 are NOT yet transcribed, which is why most pairs
+    # below resolve to 'unobserved' rather than to a value.
+    SHANGBO_OBSERVED_SYMBOL = {
+        32: 'red_square',        # 恆   slip 29 tail
+        33: 'red_square',        # 遯   slips 30 head, 31 tail
+        38: 'red_square',        # 睽   slips 32 head, 34 tail
+        39: 'red_square',        # 蹇   slips 35 head, 36 tail
+        40: 'red_square',        # 解   slip 37 head
+        43: 'red_square',        # 夬   slip 39 tail
+        44: 'red_square',        # 姤   slips 40 head, 41 tail
+        45: 'red_square',        # 萃   slip 42 head
+        47: 'red_square',        # 困   slip 43 tail
+        48: 'red_square',        # 井   slips 44 head, 46 tail
+        49: 'red_square',        # 革   slip 47 head
+        52: 'black_L_faded_red', # 艮   slips 48 head, 49 tail (𠃊, 中紅褪)
+        53: 'red_square',        # 漸   slip 50 head
+        55: 'red_square',        # 豐   slip 52 tail
+        56: 'red_square',        # 旅   slip 53 head
+        59: 'red_square',        # 渙   slips 54 head, 55 tail
+        62: 'red_square',        # 小過 slip 56 tail
+        63: 'red_square',        # 既濟 slip 57 tail
+        64: 'lost',              # 未濟 slip 58 首簡 -- 「卦象、符號殘缺」
+    }
+    # A pair is TESTABLE only when BOTH members carry an observed value. 'lost' is an
+    # observation OF ABSENCE and cannot be compared, so it does not make a pair testable.
+    def _sym(h):
+        v = SHANGBO_OBSERVED_SYMBOL.get(h)
+        return v if v not in (None, 'lost') else None
+    testable = [(a, b) for (a, b) in SHANGBO_OBSERVED_PAIRS
+                if _sym(a) is not None and _sym(b) is not None]
+    agreements    = [(a, b) for (a, b) in testable if _sym(a) == _sym(b)]
+    disagreements = [(a, b) for (a, b) in testable if _sym(a) != _sym(b)]
     discriminating = [(a, b) for (a, b) in SHANGBO_OBSERVED_PAIRS
                       if abs(a - b) != 1 or (a - 1) // 2 != (b - 1) // 2]
-    print("SHANGBO_TESTABLE_PAIRS=%d" % len(SHANGBO_OBSERVED_PAIRS))
+    # 🔴 CORRECTED 2026-09-03: this printed 9, a len() of the pair list, and was quoted
+    # publicly as "9 testable pairs / 9 agreements / 0 disagreements". Only THREE pairs
+    # have both symbols in the observed record -- (39,40) 蹇+解, (47,48) 困+井,
+    # (55,56) 豐+旅. The other six lie in slips 1-27, which the roster has not reached,
+    # and (31,32) is half-observed (恆 yes, 咸 no). The figure was never wrong about the
+    # DIRECTION of the result; it was wrong about how much evidence stands behind it.
+    print("SHANGBO_PAIRS_CLAIMED=%d" % len(SHANGBO_OBSERVED_PAIRS))
+    print("SHANGBO_TESTABLE_PAIRS=%d" % len(testable))
+    print("SHANGBO_AGREEMENTS=%d" % len(agreements))
+    print("SHANGBO_DISAGREEMENTS=%d" % len(disagreements))
+    print("SHANGBO_UNOBSERVED_PAIRS=%d"
+          % (len(SHANGBO_OBSERVED_PAIRS) - len(testable)))
+    print("SHANGBO_SYMBOL_TEST=%s"
+          % ("PASS" if testable and not disagreements else
+             "VACUOUS" if not testable else "FAIL"))
     print("SHANGBO_DISCRIMINATING_PAIRS=%d" % len(discriminating))
     print("KW_PAIR_ADJACENCY=DONE")
     print("SCOPE=this_shows_the_shangbo_symbol_data_CANNOT_distinguish_"

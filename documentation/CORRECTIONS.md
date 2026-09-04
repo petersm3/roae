@@ -8308,3 +8308,40 @@ see it. And `example/wave.dot.png` / `example/wave.dot.svg` are rendered by the 
 `dot` binary, so their bytes depend on the installed renderer (2.43.0 here) as well as on `roae.py`;
 a renderer upgrade will turn LEG 7 red without any hand-edit, and the fix then is to regenerate and
 commit, not to skip.
+
+## 2026-09-03 — the Shanghai Museum symbol test counted nine pairs and read zero symbols
+
+**Corrected figure: "9 testable pairs, 9 agreements, 0 disagreements" → "3 testable pairs,
+3 agreements, 0 disagreements".** Live at `documentation/CITATIONS.md` (#pu2003) and
+`documentation/VERIFY.md`'s row for `verify.py --check-kw-pair-adjacency`; both now carry the
+corrected figure and a pointer here.
+
+**What was wrong.** `verify.py` held nine King Wen **number** pairs — (5,6), (7,8), (15,16),
+(17,18), (25,26), (31,32), (39,40), (47,48), (55,56) — and **no symbol value existed anywhere in
+the file**. `SHANGBO_TESTABLE_PAIRS=9` was a `len()` of that hand-written list, and the routine's
+exit status turned solely on King Wen adjacency. **A mistranscribed symbol, or a genuinely
+disagreeing one, would have left the output byte-identical.** A command published as the
+reproduction path for a symbol claim was not reading a symbol. Found by Codex V2-F58 #7 against the
+code, corroborating an independent charge (batch 10 row 5) raised against the prose.
+
+**What is true instead.** The observed symbols are now embedded from Pu Maozuo's per-slip 釋文考釋
+(slips 28–58) and compared, and a pair counts as testable only when **both** members carry an
+observed value. Three pairs qualify — **(39,40) 蹇·解, (47,48) 困·井, (55,56) 豐·旅** — and all
+three agree. The other six lie in **slips 1–27, which have not been transcribed**; (31,32) is
+half-observed (恆 yes, 咸 no). 未濟 (64) is recorded as `lost` — 「卦象、符號殘缺」 — which is an
+observation *of absence* and cannot make a pair testable.
+
+**What did NOT change, stated so the correction is not read as more than it is.** The direction of
+the result is unaffected: zero disagreements before, zero after. Nothing in this repository derives
+a count, bound or theorem from these symbols. The **non-discriminating** conclusion is likewise
+untouched and is the load-bearing one — `SHANGBO_DISCRIMINATING_PAIRS=0` both before and after,
+because King Wen seats every hexagram beside its own partner, so "the symbol respects reversal" and
+"the symbol is constant on contiguous King Wen blocks" predict identically on every available
+observation. **The error was in how much evidence was claimed, not in what it showed.**
+
+**The gate that stops the class.** The comparison is now real, and it is shown able to fail: flipping
+one embedded symbol (井 48, `red_square` → `black_L_faded_red`) moves the output to
+`SHANGBO_AGREEMENTS=2 SHANGBO_DISAGREEMENTS=1 SHANGBO_SYMBOL_TEST=FAIL`, verified 2026-09-03 with the
+file restored byte-identical afterwards. Appendix 2's reconstructed entries remain excluded on
+purpose: Pu fills those gaps *by the invariance principle itself*, so including them would test the
+claim against its own output.

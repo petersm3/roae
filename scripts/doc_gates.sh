@@ -11756,6 +11756,87 @@ PYTOK
 # of defaulting. Empty output plus a non-zero exit is indistinguishable from
 # "nothing found" unless the exit status is inspected, so it is — a checker
 # that finds nothing must never report [ok].
+# ---------------------------------------------------------------------------
+# GATE 79 — a documented memory-knob EXAMPLE must fit the box the sentence sizes.
+#
+# WHY THIS EXISTS (measured, Codex V2 `TR11:471`, fixed 2026-09-03). TR-11's commodity
+# recipe read `raise SOLVE_F1_OOC_SCRATCH_MB (e.g. 61440 on a 64 GiB box)`. The solver's
+# own documented model, stated in three places, is that TOTAL RSS is ~2.2x that value.
+# 2.2 x 60 GiB = 132 GiB, on the 64 GiB box the same sentence sizes. Even the bare floor,
+# scratch + staging, is 130 GiB before read windows. The recipe OOMs by its own
+# documentation, and a resume repeats the OOM until someone edits the env var.
+#
+# Root cause was not a typo: 61440 is the PRODUCTION 256-GiB D128 setting from TR-11 section 8,
+# copied into the commodity recipe. Both numbers are correct for their own host, which is
+# exactly why prose review did not catch it -- the value is defensible in isolation and
+# wrong only against the box named beside it. Nothing in the corpus compared the two.
+#
+# TWO LEGS, because one instance had two independent defects:
+#   1. ARITHMETIC  -- 2.2 x N MiB must be <= the Y GiB the same phrase names.
+#   2. CROSS-DOC   -- two documents giving an example for the SAME box size must agree.
+#      TR-11 said 61440 where SOLVE_C_CLI.md said 16384 for the identical 64 GiB box, and
+#      the disagreement itself was the tell. A reader following either document alone
+#      cannot see it.
+#
+# SCANNER, NOT REGISTRY, and deliberately so: the pattern is narrow enough
+# ("e.g. N on a Y GiB box") that a false positive would have to be prose that means
+# precisely this and is wrong anyway. The RSS multiplier is pinned in one place below;
+# if solve.c's staging model changes, this constant must move with it.
+RSS_MULTIPLIER_TENTHS=22   # 2.2x, from SOLVE_C_CLI.md's env table and solve.c's block comment
+gate_scratch_examples() {
+  echo "== GATE 79: documented memory-knob examples fit the box they name =="
+  local hits n bad=0 f ln val box need
+  # A file: prefixed grep over TRACKED markdown only -- an untracked scratch note must not
+  # gate a push, and an unreadable corpus must ERROR rather than report a clean bill.
+  if ! hits=$(git ls-files '*.md' 2>/dev/null | xargs -r grep -noE "e\.g\.,? \*{0,2}[0-9]{3,6}\*{0,2} on a [0-9]+ ?GiB box" 2>/dev/null); then
+    : # grep exits 1 when there are no matches; that is not an error here
+  fi
+  n=$(printf '%s' "$hits" | grep -c . || true)
+  if [ "${n:-0}" -eq 0 ]; then
+    echo "  [FAIL] zero sites matched the example pattern across tracked *.md."
+    echo "         This gate has never legitimately measured zero -- the corpus carries at least"
+    echo "         two such examples. Zero means the pattern or the file list broke, and a check"
+    echo "         that cannot see its target must not report OK."
+    return 1
+  fi
+  # LEG 1 -- arithmetic
+  local -a boxes=() vals=() srcs=()
+  while IFS= read -r h; do
+    [ -n "$h" ] || continue
+    f=${h%%:*}; ln=$(printf '%s' "$h" | cut -d: -f2)
+    # 🔴 STRIP THE file:line: PREFIX BEFORE EXTRACTING THE NUMBER. The first cut of this leg
+    # ran the digit regex over the whole grep -n line, so it captured the LINE NUMBER as the
+    # example value and reported "SOLVE_C_CLI.md:1779 says 1779". Caught on the first real run
+    # rather than by reading, which is the only reason it is not in the corpus now.
+    local body; body=$(printf '%s' "$h" | cut -d: -f3-)
+    val=$(printf '%s' "$body" | grep -oE "[0-9]{3,6}" | head -1)
+    box=$(printf '%s' "$body" | grep -oE "on a [0-9]+ ?GiB" | grep -oE "[0-9]+")
+    [ -n "$val" ] && [ -n "$box" ] || continue
+    need=$(( val * RSS_MULTIPLIER_TENTHS / 10 ))          # MiB of RSS the model predicts
+    if [ "$need" -gt $(( box * 1024 )) ]; then
+      echo "  [FAIL] $f:$ln — example $val MiB on a $box GiB box needs ~$(( need / 1024 )) GiB RSS"
+      echo "         at the documented ${RSS_MULTIPLIER_TENTHS}/10x multiplier. The recipe OOMs by its own model."
+      bad=1
+    fi
+    boxes+=("$box"); vals+=("$val"); srcs+=("$f:$ln")
+  done <<< "$hits"
+  # LEG 2 -- cross-document agreement for the same box size
+  local i j
+  for (( i=0; i<${#boxes[@]}; i++ )); do
+    for (( j=i+1; j<${#boxes[@]}; j++ )); do
+      if [ "${boxes[$i]}" = "${boxes[$j]}" ] && [ "${vals[$i]}" != "${vals[$j]}" ]; then
+        echo "  [FAIL] two documents disagree for the same ${boxes[$i]} GiB box:"
+        echo "         ${srcs[$i]} says ${vals[$i]}; ${srcs[$j]} says ${vals[$j]}."
+        echo "         A reader following either alone cannot see the disagreement."
+        bad=1
+      fi
+    done
+  done
+  [ "$bad" -ne 0 ] && return 1
+  echo "  [ok] $n documented example(s) fit their named box at ${RSS_MULTIPLIER_TENTHS}/10x RSS, and agree across documents"
+  return 0
+}
+
 gate_tracked_ignored() {
   echo "== GATE 23: no tracked file is also ignored =="
   local out rc n
@@ -17678,6 +17759,7 @@ case "$MODE" in
   collisions) gate_preflight_collisions || RC=1 ;;
   scoreboard) gate_scoreboard_verdicts || RC=1 ;;
   alias-reach) gate_alias_reach || RC=1 ;;
+  scratch-examples) gate_scratch_examples || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -17698,6 +17780,7 @@ case "$MODE" in
            echo; gate_script_paths || RC=1
            echo; gate_hex_prefix || RC=1
            echo; gate_tracked_ignored || RC=1
+           echo; gate_scratch_examples || RC=1
            echo; gate_canonical_ceiling || RC=1
            echo; gate_withdrawn_markers || RC=1
            echo; gate_framing_era || RC=1

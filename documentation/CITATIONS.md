@@ -814,7 +814,7 @@ enumerates that space, or proves a ceiling on it.
   text"). The manuscript therefore supplies **no independent second ordering**.
   His invariance claim survives its first non-circular test — checked against only the symbols his
   per-slip 釋文考釋 reports as physically observed, excluding every entry 附錄二 reconstructs *from*
-  the invariance: **9 testable pairs, 9 agreements, 0 disagreements**. That agreement is nonetheless
+  the invariance: **3 testable pairs, 3 agreements, 0 disagreements** (corrected 2026-09-03 from "9 testable pairs, 9 agreements" — see [CORRECTIONS.md](CORRECTIONS.md); the verifier held nine *number* pairs but no symbol value, and only three pairs have **both** symbols in the transcribed record: (39,40) 蹇·解, (47,48) 困·井, (55,56) 豐·旅. The other six lie in slips 1–27, not yet transcribed). That agreement is nonetheless
   **non-discriminating**, because King Wen seats every hexagram beside its own partner, so
   "respects reversal" and "constant on contiguous King Wen blocks" predict identically on every
   available observation. Reproduce with `python3 verify.py --check-kw-pair-adjacency` (reads no
