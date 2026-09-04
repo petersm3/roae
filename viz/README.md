@@ -20,6 +20,18 @@ enumeration-derived visuals come in two families:
 The two pages cross-link each other; start with whichever question you have. This README is the index
 and does not re-explain individual plots.
 
+### Planned, not yet drawn (accepted 2026-09-04, Q-308 — both zero-dollar)
+
+| Page | What it covers | Status |
+|---|---|---|
+| **[viz_scale.md](viz_scale.md)** | **The scale figure** — `N` as one horizontal line on the existing growth curve, ~29 decades above the deepest measured canonical. Carries the enumeration-is-not-a-route negative, the compiler's justification, and the narrative document's N4 overclaim gate in a single image. Every constant already published; no computation, no ladder read, no VM. | PLAN ROW |
+| **[viz_narrative.md](viz_narrative.md)** | **The narrative document's two figures** — §1 the object, §§4–5 the f·g mechanism. Filed as plan rows *before* drafting, because a narrative document with no planned figures does not end up with none, it ends up with improvised ones. | PLAN ROWS |
+
+Both pages are **specifications, not renderings**. They exist so that the caption and the job of each
+figure are fixed before anyone draws it — which for the scale figure is the whole risk, since it puts
+a budgeted slice and a compiled superspace on one axis and a careless caption would invite exactly the
+conflation it was drawn to prevent.
+
 ## The V-family — compiled-superspace figures (`viz_kc_*.md`)
 
 A separate family with a **different data source and a different scope**. The pages above visualize
