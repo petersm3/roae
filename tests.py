@@ -4610,6 +4610,75 @@ class TestExtractionNull(unittest.TestCase):
                       "King Wen's own difference-wave multiset never appeared in 1000 draws")
 
 
+class TestTr12FixtureRatiosAreRoundedNotTruncated(unittest.TestCase):
+    """Every 9-place ratio in the committed n=9 TR-12 fixtures is the correctly ROUNDED
+    value of its own two integer columns (Q-316 item 3, 2026-09-04).
+
+    `bc` truncates at `scale`; it does not round.  `scale=9; 2720/26112` is 0.104166666
+    where the 9-place value is 0.104166667, and that wrong digit was COMMITTED into
+    `scripts/tr12_expected/n9/c_q6.txt` -- into the fixture set that gates the whole
+    reproduction battery, so the battery was enforcing the defect rather than catching it.
+    Codex A03 named the two cells in `c_q6`; the identical expression at the V5 site had put
+    EIGHT more into `c_v5.txt`, which nothing had looked at.  **Ten wrong last digits.**
+
+    This test is a SECOND IMPLEMENTATION, not a re-run: exact `fractions.Fraction` in Python
+    against shell `bc`, and it recomputes each ratio from the file's OWN mass and flow columns
+    rather than from anything the driver emitted.  It would have caught all ten on the day they
+    landed, and it fails if a future edit reintroduces truncation at either site or in a new one.
+
+    Shown able to fail, 2026-09-04: restoring the two pre-fix `c_q6` digits fails with
+    `c_q6.txt k=1: shipped 0.104166666, exact 9-place 0.104166667`; restoring the eight `c_v5`
+    digits fails naming each."""
+
+    DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "tr12_expected", "n9")
+
+    @staticmethod
+    def _round9(num, den):
+        from fractions import Fraction
+        if num == 0:
+            return "0"
+        # half-up at the ninth place, in exact integer arithmetic -- never a float
+        scaled = Fraction(num * 10 ** 9, den)
+        q = (2 * scaled.numerator + scaled.denominator) // (2 * scaled.denominator)
+        return f"{q // 10 ** 9}.{q % 10 ** 9:09d}"
+
+    def _cells(self):
+        """(file, label, numerator, denominator, shipped) for every ratio cell."""
+        out = []
+        q6 = os.path.join(self.DIR, "c_q6.txt")
+        for line in open(q6):
+            f = line.rstrip("\n").split("\t")
+            if len(f) == 9 and f[0].isdigit() and f[7] not in ("NA", ""):
+                out.append((os.path.basename(q6), f"k={f[0]}", int(f[7]), int(f[1]), f[8]))
+        v5 = os.path.join(self.DIR, "c_v5.txt")
+        flow = {}
+        for line in open(q6):
+            f = line.rstrip("\n").split("\t")
+            if len(f) == 9 and f[0].isdigit():
+                flow[f[0]] = int(f[1])
+        for line in open(v5):
+            f = line.rstrip("\n").split("\t")
+            if len(f) == 4 and f[0].isdigit():
+                out.append((os.path.basename(v5), f"k={f[0]} {f[1]}", int(f[2]), flow[f[0]], f[3]))
+        return out
+
+    def test_the_population_is_not_empty(self):
+        # A parser that silently matched nothing would make the next test vacuously green,
+        # which is the failure mode this project keeps finding in its own gates.
+        self.assertGreaterEqual(len(self._cells()), 50,
+                                "the fixture parser found almost no ratio cells -- it stopped "
+                                "matching, which is a broken test, not a passing one")
+
+    def test_every_committed_ratio_is_the_rounded_value_of_its_own_columns(self):
+        bad = []
+        for fname, label, num, den, shipped in self._cells():
+            want = self._round9(num, den)
+            if shipped != want:
+                bad.append(f"{fname} {label}: shipped {shipped}, exact 9-place {want} "
+                           f"({num}/{den})")
+        self.assertEqual(bad, [], "bc truncation has returned:\n  " + "\n  ".join(bad))
+
+
 class TestSection14OrientCouplingIsDeadOnDedupedInput(unittest.TestCase):
     """`--analyze` section 14 is DEAD on every artifact the pipeline writes (Q-322).
 

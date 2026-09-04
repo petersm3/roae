@@ -311,6 +311,29 @@ group(){ say ""; say "=== $* ==="; }
 # convenience: run a solve subcommand into $RAW, return its rc
 S(){ "$SOLVE" "$@" >>"$RAW" 2>&1; }
 
+# ratio9 NUM DEN -> NUM/DEN as a 9-place decimal, ROUNDED HALF-UP, in exact integer arithmetic.
+#
+# 🔴 Q-316 item (3), fixed 2026-09-04. `bc` TRUNCATES at `scale`; it does not round. `scale=9;
+# 2720/26112` yields 0.104166666 where the correct 9-place value is 0.104166667, and the wrong
+# digit was COMMITTED into scripts/tr12_expected/n9/c_q6.txt -- i.e. into the fixture set that
+# gates this whole battery, so the battery was enforcing the defect rather than catching it.
+# Q-316 named the two c_q6 cells; the same expression at the V5 site had put EIGHT more into
+# c_v5.txt, which nothing had looked at. Ten wrong last digits in the published fixtures.
+#
+# WHY THE ARITHMETIC IS WHAT IT IS. These numerators are 192-bit at full-31, so awk's `%.9f`
+# (a double) is not an option -- that trades a truncation for a silent precision loss at scale.
+# bc stays, but the rounding is done in INTEGERS before any fractional division:
+#     floor(n/d * 1e9 + 1/2)  ==  (2*n*1e9 + d) / (2*d)     with bc's scale=0 integer division
+# exact for every magnitude bc can hold, and half-up by construction.
+# A zero numerator still prints a bare `0`, which is the shape the fixtures already carry.
+ratio9(){  # ratio9 NUM DEN
+    local n="$1" d="$2" r
+    [ -n "$n" ] && [ -n "$d" ] || { printf 'NA'; return; }
+    [ "$(echo "$d == 0" | bc 2>/dev/null)" = 1 ] && { printf 'NA'; return; }
+    r=$(echo "(2*$n*1000000000 + $d) / (2*$d)" | bc) || { printf 'NA'; return; }
+    echo "scale=9; $r/1000000000" | bc | sed 's/^\./0./'
+}
+
 # ================================================================================================
 # RUN HEADER
 # ================================================================================================
@@ -1096,7 +1119,7 @@ else
           d6=$(printf '%s' "$line" | sed -n 's/.*"d6": "\([0-9]*\)".*/\1/p')
           mb=$(awk -F'\t' -v k="$((i+1))" '$1==k{print $2}' "$WORK/mb.tsv"); mb=${mb:-NA}
           if [ "$mb" = "NA" ] || [ -z "$fl" ]; then pc=NA
-          else pc=$(echo "scale=9; $mb / $fl" | bc | sed 's/^\./0./'); fi
+          else pc=$(ratio9 "$mb" "$fl"); fi
           printf '%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$i" "$fl" "$d1" "$d2" "$d3" "$d4" "$d6" "$mb" "$pc"
           i=$((i+1))
       done < <(grep '"marginal_quotient"' "$ATLAS")
@@ -1149,7 +1172,7 @@ else
           fl=$(printf '%s' "$line" | sed -n 's/.*"flow": "\([0-9]*\)".*/\1/p')
           for c in d1 d2 d3 d4 d6; do
               m=$(printf '%s' "$line" | sed -n "s/.*\"$c\": \"\([0-9]*\)\".*/\1/p")
-              p=$(echo "scale=9; $m / $fl" | bc | sed 's/^\./0./')
+              p=$(ratio9 "$m" "$fl")
               printf '%d\t%s\t%s\t%s\n' "$i" "$c" "$m" "$p"
           done
           i=$((i+1))
