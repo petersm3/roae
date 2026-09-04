@@ -25,7 +25,13 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "SIZE_GATE=ERROR not in a git repo"; exit 2; }
 
-LIMIT=${LIMIT:-1048576}                       # 1 MiB
+# 1.25 MiB. RAISED from 1 MiB 2026-09-04 on the operator's instruction ("if it's easier, just
+# increase gate to 1.25 mb"), in step with roae-private's postwindow_commit.sh so the two halves of
+# one rule cannot drift. NOTE, measured the same day: neither gate ever applied to an already-tracked
+# file -- this one scopes to `--diff-filter=A` and the private one to `git ls-files --others`. The
+# row that prompted the raise (Q-412) assumed a growing tracked file was about to be refused; it was
+# not, and could not be.
+LIMIT=${LIMIT:-1310720}
 ALLOW=${ALLOW:-scripts/oversize_approved.tsv} # path<TAB>who approved<TAB>date<TAB>why
 
 # ONLY files being added for the first time. `git diff --cached --diff-filter=A` is the whole point:
