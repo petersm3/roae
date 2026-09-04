@@ -79,7 +79,7 @@ Not every column here carries the same weight, and saying so is the point of thi
 | `C(31,k)` | arithmetic. |
 | `states`, `entries`, `V_k`, `layer GB` | **engine-internal telemetry, not independently reproduced.** They describe how *this* implementation laid the layer out. A different correct implementation may legitimately differ. Do not cite them as properties of the mathematical object. |
 
-## 2. The gate: independent per-layer recount at n=9 and n=13
+## 2. The gate: independent per-layer recount at n=9, n=13 and n=16
 
 `mass` is a claim about the object, so it is checked by an instrument that shares no code with
 the engine. `verify.py` recomputes the layer masses with a plain layered (mask, last, budget) DP
@@ -90,28 +90,33 @@ read from a table.
 ```
 ./solve --f1-exact-c1c2c4c5 --f1-pairs 9      # engine
 python3 verify.py --recount-rung-layers 9     # independent recount + gate
+./solve --f1-exact-c1c2c4c5 --f1-pairs 16     # engine, n=16 rung  (0.3 s)
+python3 verify.py --recount-rung-layers 16    # independent recount + gate (~90 s, ~1 GB)
 python3 verify.py --recount-orbit-widths 31   # Burnside gate on canonical_masks (all 31 layers)
 ```
 
-| k | n=9 mass | | k | n=13 mass |
-|---|---|---|---|---|
-| 1 | 12 | | 1 | 6 |
-| 2 | 96 | | 2 | 144 |
-| 3 | 660 | | 3 | 3,096 |
-| 4 | 3,624 | | 4 | 60,480 |
-| 5 | 13,956 | | 5 | 1,063,296 |
-| 6 | 36,888 | | 6 | 16,616,448 |
-| 7 | 68,352 | | 7 | 227,208,960 |
-| 8 | 80,160 | | 8 | 2,625,811,488 |
-| 9 | 26,112 | | 9 | 24,294,300,960 |
-| | | | 10 | 167,936,990,976 |
-| | | | 11 | 788,262,374,016 |
-| | | | 12 | 2,116,284,083,712 |
-| | | | 13 | 2,063,395,607,040 |
+| k | n=9 mass | | k | n=13 mass | | k | n=16 mass |
+|---|---|---|---|---|---|---|---|
+| 1 | 12 | | 1 | 6 | | 1 | 32 |
+| 2 | 96 | | 2 | 144 | | 2 | 744 |
+| 3 | 660 | | 3 | 3,096 | | 3 | 16,128 |
+| 4 | 3,624 | | 4 | 60,480 | | 4 | 320,544 |
+| 5 | 13,956 | | 5 | 1,063,296 | | 5 | 5,780,352 |
+| 6 | 36,888 | | 6 | 16,616,448 | | 6 | 93,501,696 |
+| 7 | 68,352 | | 7 | 227,208,960 | | 7 | 1,337,651,328 |
+| 8 | 80,160 | | 8 | 2,625,811,488 | | 8 | 16,631,067,264 |
+| 9 | 26,112 | | 9 | 24,294,300,960 | | 9 | 175,502,319,360 |
+| | | | 10 | 167,936,990,976 | | 10 | 1,523,286,766,080 |
+| | | | 11 | 788,262,374,016 | | 11 | 10,437,485,346,816 |
+| | | | 12 | 2,116,284,083,712 | | 12 | 53,525,742,494,208 |
+| | | | 13 | 2,063,395,607,040 | | 13 | 191,967,897,249,792 |
+| | | | | | | 14 | 443,905,568,151,552 |
+| | | | | | | 15 | 591,219,207,880,704 |
+| | | | | | | 16 | 267,765,117,419,520 |
 
-All 22 layer masses agree exactly. The terminal rows (26,112 and 2,063,395,607,040) are the
-rung totals already published in TR-11 §4b; the twelve **intermediate** rows had never been
-cross-checked against anything before this artifact.
+All 38 layer masses agree exactly (9 + 13 + 16). The terminal rows (26,112, 2,063,395,607,040
+and 267,765,117,419,520) are the rung totals already published in TR-11 §4b; the twenty-seven
+**intermediate** rows had never been cross-checked against anything before this artifact.
 
 **The gate has been shown able to fail.** Weakening the budget cap from `p >= B0` to `p > B0` —
 a one-character off-by-one of exactly the kind that is otherwise silent — leaves k=1 *identical*
@@ -120,9 +125,10 @@ Two things follow. A gate that checked only the **first** layer would pass that 
 that checked only the **total** would catch it, but would not tell you the divergence begins at
 k=2. Per-layer checking is strictly stronger than either.
 
-**What the gate does not cover.** n=9 and n=13 are 29% and 42% of the ladder's depth and a
-vanishing fraction of its width. Agreement at two rungs is evidence that the *method* is right,
-not proof that layer 24 of the full-31 build is.
+**What the gate does not cover.** n=9, n=13 and n=16 are 29%, 42% and 52% of the ladder's depth
+and a vanishing fraction of its width. Agreement at three rungs is evidence that the *method* is
+right, not proof that layer 24 of the full-31 build is. The n=16 rung is the deepest the plain DP
+reaches in-process on a 2-core host (measured ~90 s, ~0.95 GB peak); n=18/19 are worker-sized.
 
 ⚠ **A correction to an earlier version of this sentence.** It read *"no instrument in this
 repository can recount full-31 independently"*, justified by the plain DP's peak live-state count

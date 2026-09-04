@@ -17376,13 +17376,28 @@ gate_layer_profile() {
   out=$(python3 - "$T" "$A" <<'PY'
 import re, io, sys
 T,A=sys.argv[1],sys.argv[2]
-agg={}
+# SCOPE THE PARSE TO SECTION 1 (Q-265, 2026-09-04). The first cut matched ANY >=7-cell
+# pipe row anywhere in A. That was safe only while section 2's rung table was five cells
+# wide; the moment the n=16 column landed it became EIGHT cells, its k column collided
+# with section 1's, and because section 2 comes later it OVERWROTE the real footprints --
+# k=9 was read as "9.00 GB / 24,294,300,960 entries", i.e. the n=13 layer-9 MASS parsed
+# as an entry count. Two [FAIL]s produced by a correct edit to a different table. The
+# identical defect and the identical remedy are already recorded in verify.py's
+# _published_rung_layers(), which scopes ITS parse to "## 2." for the mirror-image reason.
+# A parser keyed on row SHAPE and not on SECTION is a latent false verdict in both
+# directions; this one now fails loud when section 1 is absent rather than judging
+# whatever else in the file happens to be eight cells wide.
+agg={}; in_s1=False; saw_s1=False
 for line in io.open(A,encoding="utf-8").read().split("\n"):
+    if line.startswith("## "):
+        in_s1=line.startswith("## 1."); saw_s1=saw_s1 or in_s1; continue
+    if not in_s1: continue
     c=[x.strip() for x in line.strip().strip("|").split("|")]
     if len(c)>=7 and re.fullmatch(r"\d+",c[0]):
         try: agg[int(c[0])]=(float(c[6].replace(",","")),int(c[4].replace(",","")))
         except ValueError: pass
-if len(agg)<20: print("ERROR\t%s has %d parseable '| k | … | entries | V_k | layer GB |' rows (need 20+)"%(A,len(agg))); sys.exit(0)
+if not saw_s1: print("ERROR\t%s has no '## 1.' section -- the layer table could not be located, so NOTHING was judged"%A); sys.exit(0)
+if len(agg)<20: print("ERROR\t%s section 1 has %d parseable '| k | … | entries | V_k | layer GB |' rows (need 20+)"%(A,len(agg))); sys.exit(0)
 lines=io.open(T,encoding="utf-8").read().split("\n")
 hi=None
 for i,l in enumerate(lines):
