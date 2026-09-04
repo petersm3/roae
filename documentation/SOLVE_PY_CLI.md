@@ -399,7 +399,13 @@ figures read, and they gate every table they write.
 ```
 --atlas-queries ATLAS_JSON   Read the atlas; write the query/figure TSVs.
 --atlas-out DIR              Output root (default: the atlas's own directory).
---atlas-select LIST          Comma list of q3,q6,v1,v2,v5,xa,q10a (default: all).
+--atlas-select LIST          Comma list of q3,q6,v1,v2,v5,xa,q10a,a2,a3 (default: all).
+                             `a2`/`a3` are the EXTERNAL checks: the atlas's final-layer raw
+                             marginal against numbers published in TR-7 before the scan
+                             existed (`TR12_A2_SLOT`, `TR12_A3_EXTERNAL`). Both need
+                             full-31 -- they rest on C4 fixing slot 0 -- and emit
+                             `SKIP:n=<n>` below it, never a PASS. Added 2026-09-04: they
+                             existed but had no call site and were not selectable.
 --atlas-q3-trace FILE        The Q3 source. EITHER `solve --kc-o3-rank F G WALK
                              --kc-trace` text OR a `solve --kc-profile F G WALK
                              --kc-tsv FILE` table (auto-detected). Supplies Q3/V4

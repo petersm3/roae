@@ -4610,6 +4610,111 @@ class TestExtractionNull(unittest.TestCase):
                       "King Wen's own difference-wave multiset never appeared in 1000 draws")
 
 
+class TestAtlasExternalChecksAreReachableAndCanFail(unittest.TestCase):
+    """The ONLY full-31 checks against PUBLISHED numbers now have a call site, and both
+    are shown able to FAIL (Q-320 item 4 / Codex R07+R10, 2026-09-04).
+
+    `atlas_a2_slot_check` and `atlas_a3_external_check` were defined, documented, and
+    called from NOWHERE -- zero call sites outside their own `def` lines, and absent from
+    `_ATLAS_SELECTORS`, so no `--atlas-select` value could reach them either.  Every other
+    gate in the atlas consumer is internal arithmetic, which passes happily while the
+    G-expansion mis-assigns pair identities; these two compare against figures printed in
+    TR-7 *before the scan existed*.  An external check that nothing runs is not a weaker
+    check, it is no check -- and it emitted no verdict, so its absence was silent.
+
+    Both rest on C4 fixing slot 0, a full-31 property, so on any real artifact this repo can
+    build cheaply they SKIP.  A test that only ever observes a SKIP proves nothing, so the
+    fixtures here are SYNTHETIC n=31 atlases: one built to the published fractions, and
+    perturbations that each break exactly one thing the check claims to catch."""
+
+    D3 = [5, 8, 10, 15, 20, 23, 26, 27, 29, 31]
+    D1 = [4, 6, 21]
+    D5 = [3, 7, 11]
+    N = 1000000
+
+    def _atlas(self, pert=None, slot2=52000, slot32=78500):
+        """An n=31-shaped atlas whose final-layer raw marginal sits on TR-7's published
+        wrap-class fractions (0.652 / 0.175 / 0.174) and whose A2 cell sits on the
+        published slot anchors (0.0785 at slot 32, 0.0520 at slot 2, summing to R-C1c
+        0.1305).  The class membership is not hardcoded here -- it is asserted against
+        solve.atlas_a3_wrap_class_map(), which derives it from binary_hexagrams."""
+        last = {"pair31": slot32}
+        others = [p for p in self.D3 if p != 31]
+        q, r = divmod(652000 - slot32, len(others))
+        for i, p in enumerate(others):
+            last["pair%d" % p] = q + (1 if i < r else 0)
+        for grp, tot in ((self.D1, 175000), (self.D5, 173000)):
+            q, r = divmod(tot, len(grp))
+            for i, p in enumerate(grp):
+                last["pair%d" % p] = q + (1 if i < r else 0)
+        for k, v in (pert or {}).items():
+            last[k] = last.get(k, 0) + v
+        return {"n": 31, "N_total": str(self.N),
+                "layers": [{"k": 0},
+                           {"k": 1, "marginal_raw": {"pair31": str(slot2)}},
+                           {"k": 30, "marginal_raw": {k: str(v) for k, v in last.items()}}]}
+
+    def test_the_fixtures_class_map_is_the_derived_one_not_a_copy(self):
+        S = _load("solve")
+        cmap = S.atlas_a3_wrap_class_map()
+        got = {}
+        for p, d in cmap.items():
+            got.setdefault(d, []).append(p)
+        self.assertEqual(sorted(got[3]), sorted(self.D3))
+        self.assertEqual(sorted(got[1]), sorted(self.D1))
+        self.assertEqual(sorted(got[5]), sorted(self.D5))
+
+    def test_both_checks_are_reachable_through_the_selector_tuple(self):
+        S = _load("solve")
+        self.assertIn("a2", S._ATLAS_SELECTORS)
+        self.assertIn("a3", S._ATLAS_SELECTORS)
+
+    def test_a3_references_is_bound_once(self):
+        # It was defined TWICE with different key types and different values; the second
+        # silently won and the first was unreachable. A grep is the only way to see it,
+        # because at runtime the shadowing is invisible.
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "solve.py")) as fh:
+            src = fh.read()
+        self.assertEqual(len(re.findall(r"^_A3_REFERENCES\s*=", src, re.M)), 1)
+
+    def test_the_published_fixture_passes_both(self):
+        S = _load("solve")
+        A = self._atlas()
+        self.assertEqual(S.atlas_a3_external_check(A)[0], "PASS")
+        self.assertEqual(S.atlas_a2_slot_check(A)[0], "PASS")
+
+    def test_a3_fails_when_class_mass_moves(self):
+        S = _load("solve")
+        st, detail = S.atlas_a3_external_check(
+            self._atlas(pert={"pair5": -20000, "pair4": 20000}))
+        self.assertEqual(st, "FAIL", detail)
+
+    def test_a3_fails_on_a_closer_that_is_not_eligible(self):
+        S = _load("solve")
+        st, detail = S.atlas_a3_external_check(
+            self._atlas(pert={"pair0": 5000, "pair5": -5000}))
+        self.assertEqual(st, "FAIL")
+        self.assertIn("NOT eligible closers", detail)
+
+    def test_a2_fails_when_the_per_pair_anchor_moves(self):
+        # The point of A2 over A3: a swap of A2 with another d=3 pair leaves the d3 CLASS
+        # total untouched, so A3 cannot see it and A2 must.
+        S = _load("solve")
+        st, detail = S.atlas_a2_slot_check(self._atlas(slot32=60000))
+        self.assertEqual(st, "FAIL", detail)
+        self.assertEqual(S.atlas_a3_external_check(self._atlas(slot32=60000))[0], "PASS",
+                         "A3 was expected to be BLIND to a within-d3 move; if it now sees "
+                         "it, the comment claiming A2 is the stronger per-pair check is stale")
+
+    def test_below_full_31_both_skip_loudly_and_never_pass(self):
+        S = _load("solve")
+        for fn in (S.atlas_a2_slot_check, S.atlas_a3_external_check):
+            st, why = fn({"n": 9})
+            self.assertTrue(st.startswith("SKIP:"), st)
+            self.assertNotEqual(st, "PASS")
+            self.assertTrue(why)
+
+
 class TestTr12FixtureRatiosAreRoundedNotTruncated(unittest.TestCase):
     """Every 9-place ratio in the committed n=9 TR-12 fixtures is the correctly ROUNDED
     value of its own two integer columns (Q-316 item 3, 2026-09-04).

@@ -12248,7 +12248,15 @@ def _atlas_read_tsv(path):
 # --------------------------------------------------------------------------
 # The driver
 # --------------------------------------------------------------------------
-_ATLAS_SELECTORS = ("q3", "q6", "v1", "v2", "v5", "xa", "q10a")
+# 🔴 "a2" AND "a3" WERE MISSING HERE, AND THEY ARE THE ONLY FULL-31 CHECKS AGAINST PUBLISHED
+# NUMBERS (Codex R07/R10 via Q-320 item 4; wired 2026-09-04). `atlas_a2_slot_check` and
+# `atlas_a3_external_check` were defined, documented and *never called from anywhere*: zero
+# call sites outside their own `def` lines, and absent from this tuple, so no `--atlas-select`
+# value could reach them either. Every other gate in this program is internal arithmetic, which
+# passes happily while the G-expansion mis-assigns pair identities; these two are checked
+# against figures printed in TR-7 before the scan existed. An external check that nothing runs
+# is not a weaker check, it is no check -- and it emitted no verdict, so its absence was silent.
+_ATLAS_SELECTORS = ("q3", "q6", "v1", "v2", "v5", "xa", "q10a", "a2", "a3")
 
 
 def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=None,
@@ -12305,6 +12313,22 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
         verdicts["TR12_XA_CD"] = xv
         verdicts["TR12_XA_MOD24"] = "PASS" if N % _ATLAS_ORBIT == 0 else "FAIL"
 
+    # The two EXTERNAL checks. They report SKIP:n=<n> below full-31 -- deliberately loud, and
+    # never a PASS -- because both rest on C4 fixing slot 0, which is a full-31 property: the
+    # n=9 rung has 12 distinct first hexagrams (measured), so the closing pair does not
+    # determine the wrap distance there. A visible SKIP is the point; the old state was that
+    # nothing was emitted at all.
+    if "a2" in sel:
+        st, detail = atlas_a2_slot_check(A)
+        verdicts["TR12_A2_SLOT"] = st
+        if not quiet:
+            print("[atlas] A2 slot check: %s -- %s" % (st, detail))
+    if "a3" in sel:
+        st, detail = atlas_a3_external_check(A)
+        verdicts["TR12_A3_EXTERNAL"] = st
+        if not quiet:
+            print("[atlas] A3 external check: %s -- %s" % (st, detail))
+
     if verdicts_path is None:
         verdicts_path = os.path.join(outdir, "VERDICTS.txt")
     _atlas_write_verdicts(verdicts_path, verdicts)
@@ -12340,12 +12364,15 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
 # Every gate otherwise in this program is internal arithmetic, which can pass while the
 # G-expansion mis-assigns pair identities.  This one cannot: it is checked against numbers
 # printed in TR-7 before the scan existed.
-_A3_REFERENCES = {                      # TR7_CIRCULAR_READING.md v2.0 / v1.9
-    "wrap_d3_mass":  0.652,             # |C_circ| = 0.652*N_lin + 0.175*...
-    "wrap_other":    0.175,
-    "slot32_mass":   0.0785,            # measured R-C1 gate; 0.0784 eligibility lower bound
-    "rc1c_adjacent": 0.1305,            # circular anchor adjacency, 13.05% of C1-C5 mass
-}
+# 🔴 A SECOND `_A3_REFERENCES` USED TO SIT HERE AND WAS SILENTLY DEAD (Codex R07/N04 via
+# Q-320 item 4; removed 2026-09-04). It was string-keyed --- "wrap_d3_mass", "wrap_other",
+# "slot32_mass", "rc1c_adjacent" --- and the INT-keyed definition ~50 lines below rebound the
+# same name at import time, so this one never reached a single reader. Two dictionaries with
+# the same name, different key TYPES and different values, and Python's last-write-wins made
+# the disagreement unobservable. Its two live values now have exactly one home each:
+# `_A3_SLOT32` / `_A2_SLOT_REFS` for the slot anchors, and the int-keyed `_A3_REFERENCES` for
+# the wrap-class fractions. The prose above is kept because it is the derivation; only the
+# unreachable binding is gone.
 
 def atlas_a3_wrap_class_map():
     """The 10:3:3 wrap-class map of TR-7 §T2ii, DERIVED rather than transcribed.
