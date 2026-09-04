@@ -11,6 +11,7 @@ per-tool gates (--registry-verify, --f4p-verify) by running them all plus
 helper-level checks in a single pass. Stdlib only."""
 
 import subprocess, sys, unittest, importlib.util, itertools
+import gzip  # gz-framing equivalence fixture (V2-F48 #4)
 import os, random, re, shutil, struct, tempfile, hashlib
 
 def _load(name):
@@ -1535,6 +1536,13 @@ class TestCheckArtifactControls(unittest.TestCase):
             fh.write(blob)
         return path
 
+    def _gz_of(self, path):
+        """gzip an existing artifact beside itself and return the .gz path."""
+        gz = path + ".gz"
+        with open(path, "rb") as src, gzip.open(gz, "wb") as dst:
+            dst.write(src.read())
+        return gz
+
     def _both(self, path, mode="--check-artifact"):
         """Run the fixture through both instruments. Returns (rc, token_set) per
         side; the token set is the set of whole verdict lines."""
@@ -1565,6 +1573,38 @@ class TestCheckArtifactControls(unittest.TestCase):
                          f"{py[1] ^ c[1]}")
 
     # ---- negative controls: each was ACCEPTED before the fix ----
+
+    def test_gz_framing_changes_no_verdict_token(self):
+        """V2-F48 #4: the same artifact, raw and gz-framed, must verify identically.
+
+        The framing is a TRANSPORT detail — `verify.py` states the contract in
+        `--check-artifact`'s geometry check ("measured on the logical (post-gunzip)
+        stream, so a .gz artifact is checked on its contents, not its compressed
+        size"), and `solve` has written `solutions.bin` gzip-framed by default since
+        #169 WITHOUT changing the filename. So the two forms are the same artifact by
+        every definition that matters, and any instrument that disagreed about them
+        would be reading the container instead of the contents.
+
+        This asserts more than the charge asked for. The charge names `RECORDS=`;
+        this compares the WHOLE verdict-token set and the exit code, on BOTH
+        instruments, because a count that survives while some other token flips is
+        not the property anyone actually wants.
+
+        MEASURED 2026-09-04 before writing it: the contract already HOLDS
+        (`RECORDS=1 ARTIFACT=PASS` from verify.py and verify.c on both forms), so
+        this is a regression test, not a fix — recorded plainly so nobody reads it
+        as a bug that was found."""
+        raw = self._artifact("gzsame.bin", [bytes.fromhex(self.KWREC_HEX)])
+        gz = self._gz_of(raw)
+        py_raw, c_raw = self._both(raw, "--check-artifact")
+        py_gz, c_gz = self._both(gz, "--check-artifact")
+        self.assertIn("RECORDS=1", py_raw[1], "the raw fixture itself did not verify")
+        self.assertEqual(py_raw, py_gz,
+                         "verify.py gave a different verdict for the gz-framed copy of "
+                         "the same artifact; the framing is transport, not content")
+        self.assertEqual(c_raw, c_gz,
+                         "verify.c gave a different verdict for the gz-framed copy of "
+                         "the same artifact; the framing is transport, not content")
 
     def test_ctl_c3_artifact_is_rejected(self):
         # RED BEFORE: ARTIFACT=PASS rc 0 from both, on a record with cd=1080.
