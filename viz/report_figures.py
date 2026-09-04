@@ -653,6 +653,15 @@ def fig_tr12_kc_grammar(tsv):
     for r in rows:
         r["_crank"] = str(_cr[(int(r["d"]), int(r["w"]))])
     _check_grid(rows, ("k", "_crank"), tsv)
+    # 🔴 Q-316 item (4).  The `w` (new-pair category) axis is PENDING -- viz_kc_grammar.md
+    # marks it so, and the emitter writes the honest placeholder w=-1 on every row.  The
+    # King Wen overlay matched on (kw_d == d AND kw_w == w), and at full-31 kw_w is a real
+    # within-pair distance in {2,4,6}, so `kw_w == -1` is FALSE on every row and the outline
+    # the caption promised COULD NEVER BE DRAWN.  A caption describing a mark the figure
+    # cannot contain is worse than no caption: the reader concludes King Wen's class is
+    # absent from the plot.  When the axis is absent the rows ARE the classes, so the match
+    # is on d alone, and the caption below says which of the two happened.
+    reduced = all(int(r["w"]) < 0 for r in rows)
     ks = sorted({int(r["k"]) for r in rows})
     cls = sorted({(int(r["d"]), int(r["w"])) for r in rows})
     M = np.zeros((len(cls), len(ks)))
@@ -660,7 +669,7 @@ def fig_tr12_kc_grammar(tsv):
     for r in rows:
         i, j = cls.index((int(r["d"]), int(r["w"]))), ks.index(int(r["k"]))
         M[i, j] = float(r["p_cond"])
-        if int(r["kw_d"]) == int(r["d"]) and int(r["kw_w"]) == int(r["w"]):
+        if int(r["kw_d"]) == int(r["d"]) and (reduced or int(r["kw_w"]) == int(r["w"])):
             marks.append((i, j))
     fig, ax = plt.subplots(figsize=(13, 3.6 + 0.25 * len(cls)), dpi=150)
     im = ax.imshow(M, aspect="auto", origin="lower", cmap="viridis",
@@ -673,9 +682,15 @@ def fig_tr12_kc_grammar(tsv):
     ax.set_xticks(range(len(ks)))
     ax.set_xticklabels([str(k) for k in ks], fontsize=7)
     ax.set_xlabel("layer k", fontsize=10)
+    _kwnote = ("white outline = King Wen's own DISTANCE class (the new-pair-category axis "
+               "is PENDING, so a row is a class)" if reduced else
+               "white outline = King Wen's own (distance, category) class")
+    if not marks:
+        _kwnote = ("no King Wen overlay in this table — kw_d carries no layer that matches "
+                   "a plotted class (n != 31?)")
     ax.set_title("V5 — transition grammar P(class | layer k), exact over "
                  "C1C2C4C5-SUPERSPACE\nread DOWN each column (every column sums to 1); "
-                 "white outline = King Wen's own class",
+                 + _kwnote,
                  fontsize=11)
     fig.colorbar(im, ax=ax, label="P(class | layer k)")
     fig.tight_layout()

@@ -12200,7 +12200,58 @@ def atlas_parse_q3_trace(path):
     return steps
 
 
-def atlas_emit_q3(steps, outdir, n):
+def atlas_q3_trace_is_king_wen(steps):
+    """Row-for-row: is this trace King Wen's OWN full-31 walk?  -> (bool, reason).
+
+    🔴 Q-316 item (1) / Codex A03.  The emitter below used to pick the filename
+    `q3_profile_kw.tsv` on `n == 31` ALONE.  n is a property of the UNIVERSE, not of
+    the walk, so ANY valid full-31 trace -- there are 1.097e39 of them -- was published
+    under a name asserting it was King Wen's, and every downstream reader
+    (`viz/report_figures.py`, the V4 shells figure, the TR-12 evidence bundle) took the
+    name at its word.  The reader-side gate could not catch it either: `prod(p_i) == 1/N`
+    is a WALK-GENERIC telescoping identity that every valid walk satisfies.
+
+    The test is against `binary_hexagrams`, the module's single source of truth for the
+    sequence, and it is exact: step i places pair i entered at bh[2i] and exited at
+    bh[2i+1], for all 31 free placements.  No tolerance, no sampling, no hardcoded table.
+    """
+    bh = binary_hexagrams
+    want = len(bh) // 2 - 1
+    if len(steps) != want:
+        return (False, "trace has %d steps; King Wen's full-31 walk has %d free placements"
+                       % (len(steps), want))
+    for i, srow in enumerate(steps, start=1):
+        if int(srow["step"]) != i:
+            return (False, "row %d reads step=%s -- the trace is not in placement order"
+                           % (i, srow["step"]))
+        if int(srow["pair"]) != i:
+            return (False, "step %d places pair %s; King Wen places pair %d"
+                           % (i, srow["pair"], i))
+        e, x = int(srow["entry"]), int(srow["exit"])
+        if (e, x) != (bh[2 * i], bh[2 * i + 1]):
+            return (False, "step %d orients pair %d as (%d,%d); King Wen has (%d,%d)"
+                           % (i, i, e, x, bh[2 * i], bh[2 * i + 1]))
+    return (True, "row-for-row match against binary_hexagrams over all %d free placements"
+                  % want)
+
+
+def atlas_q3_name(steps, n):
+    """The Q3 filename, and the KW verdict that justifies it.  -> (name, status, reason).
+
+    `q3_profile_kw.tsv` is claimed ONLY when the walk has been checked to be King Wen's.
+    Below full-31 the question is not posed: the reduced rungs are a different universe
+    and carry no King Wen walk, so the answer is SKIP, never PASS and never a `_kw` name.
+    """
+    if n != 31:
+        return ("q3_profile.tsv", "SKIP:n=%s" % n,
+                "the reduced n=%s universe carries no King Wen walk to compare against" % n)
+    is_kw, why = atlas_q3_trace_is_king_wen(steps)
+    if is_kw:
+        return ("q3_profile_kw.tsv", "PASS", why)
+    return ("q3_profile.tsv", "NOT-KW", why)
+
+
+def atlas_emit_q3(steps, outdir, n, A=None, quiet=False):
     extra = [c for c in _Q3_EXTRA if c in steps[0]]
     rows = []
     for s in steps:
@@ -12209,9 +12260,25 @@ def atlas_emit_q3(steps, outdir, n):
                           [s["p_num"], den,
                            _atlas_f(_atlas_ratio(s["p_num"], den)), s["bits"]] +
                           [s[c] for c in extra]))
-    name = "q3_profile_kw.tsv" if n == 31 else "q3_profile.tsv"
-    return _atlas_write(os.path.join(outdir, name),
+    name, status, why = atlas_q3_name(steps, n)
+    if status == "NOT-KW" and not quiet:
+        print("[atlas] Q3: this full-31 trace is NOT King Wen's walk -- %s. Writing %s, "
+              "not q3_profile_kw.tsv." % (why, name))
+    path = _atlas_write(os.path.join(outdir, name),
                         _Q3_KEEP + ["p_num", "p_den", "p", "bits"] + extra, rows)
+    # PROVENANCE SIDECAR, not a header line: `_atlas_read_tsv` and viz's reader both take
+    # line 1 as the header, so a leading `#` comment would break every consumer. A sidecar
+    # binds the table to the atlas it was cut against -- Q-316 item (1)'s second half.
+    if A is not None:
+        with open(path + ".provenance.txt", "w") as fh:
+            fh.write("q3_table=%s\n" % os.path.basename(path))
+            fh.write("q3_is_king_wen=%s\n" % status)
+            fh.write("q3_reason=%s\n" % why)
+            fh.write("atlas_n=%s\n" % A.get("n"))
+            fh.write("atlas_N_total=%s\n" % A.get("N_total"))
+            fh.write("atlas_space=%s\n" % A.get("space"))
+            fh.write("atlas_pl_hash=%s\n" % A.get("pl_hash"))
+    return path, status, why
 
 
 def atlas_q3_reader_check(tsv_path, N):
@@ -12229,6 +12296,16 @@ def atlas_q3_reader_check(tsv_path, N):
         prod *= Fraction(int(r["p_num"]), int(r["p_den"]))
         if prev_g is not None and int(r["g_parent"]) != prev_g:
             fails.append("step %s: g_parent != previous g" % r["step"])
+        # 🔴 NON-INCREASING, NOT STRICTLY DECREASING (Q-316 item 4, 2026-09-04).
+        # `viz/viz_kc_shells.md` names this leg as one of the reader-side checks and
+        # it was not here -- the doc described a gate the code did not run. It is
+        # stated as non-increasing on purpose: this repository's OWN committed trace
+        # `scripts/tr12_expected/n9/a2_q3_profile.txt` is FLAT at steps 6->7 and 8->9
+        # (g = 4, 4 and 1, 1), because a forced placement has p_i = 1 and shrinks
+        # nothing. A `>` here would gate correctly; a `>=` would fail the artifact.
+        if prev_g is not None and int(r["g"]) > prev_g:
+            fails.append("step %s: g grew from %d to %s -- the shells are nested, "
+                         "so their sizes cannot increase" % (r["step"], prev_g, r["g"]))
         prev_g = int(r["g"])
     if prod != Fraction(1, N):
         fails.append("prod(p_i) = %s, expected 1/%d" % (prod, N))
@@ -12285,24 +12362,42 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
     if "q3" in sel:
         if trace is None:
             verdicts["TR12_Q3"] = "SKIP:no-trace(--atlas-q3-trace)"
+            verdicts["TR12_Q3_KW"] = "SKIP:no-trace(--atlas-q3-trace)"
             verdicts["TR12_Q3_READER"] = "SKIP:no-trace(--atlas-q3-trace)"
         else:
-            p = atlas_emit_q3(trace, outdir, n)
+            p, kwst, kwwhy = atlas_emit_q3(trace, outdir, n, A=A, quiet=quiet)
             written.append(p)
+            if A is not None and os.path.exists(p + ".provenance.txt"):
+                written.append(p + ".provenance.txt")
             fails = atlas_q3_reader_check(p, N)
             verdicts["TR12_Q3"] = "PASS"
+            verdicts["TR12_Q3_KW"] = kwst
             verdicts["TR12_Q3_READER"] = "PASS" if not fails else "FAIL"
+            if not quiet:
+                print("[atlas] Q3 King Wen check: %s -- %s" % (kwst, kwwhy))
             if fails and not quiet:
                 for f in fails:
                     print("[atlas] Q3 reader check: %s" % f)
     if "v1" in sel:
         written.append(atlas_emit_v1(A, scandir)); verdicts["TR12_V1"] = "PASS"
+    # 🔴 QUALIFIED, NOT BARE (Q-316 item 2 / Codex A03, 2026-09-04). These three shipped
+    # `PASS` while their own spec pages mark the FULL query PENDING, so a reader grepping
+    # the verdict file saw a completed deliverable where a reduced one had been produced.
+    # A bare PASS is a claim about the QUERY; these are claims about a REDUCTION of it, and
+    # the token now says which reduction. The `PASS:` prefix is kept so an existing
+    # "did it fail?" reader still reads them as non-failures.
+    #   V2 -- viz_kc_river.md row (c): the branch-class river is PENDING and is not a flag.
+    #   V5 -- viz_kc_grammar.md: the new-pair-category axis is PENDING, so every row is w=-1.
+    #   Q6 -- the atlas carries per-layer per-DISTANCE-CLASS mass, not per-(state,choice).
     if "v2" in sel:
-        written.extend(atlas_emit_v2(A, scandir)); verdicts["TR12_V2"] = "PASS"
+        written.extend(atlas_emit_v2(A, scandir))
+        verdicts["TR12_V2"] = "PASS:REDUCED-NO-BRANCH-CLASS-RIVER"
     if "v5" in sel:
-        written.append(atlas_emit_v5(A, scandir)); verdicts["TR12_V5"] = "PASS"
+        written.append(atlas_emit_v5(A, scandir))
+        verdicts["TR12_V5"] = "PASS:REDUCED-NO-CROSSTAB"
     if "q6" in sel:
-        written.extend(atlas_emit_q6(A, scandir, trace=trace)); verdicts["TR12_Q6"] = "PASS"
+        written.extend(atlas_emit_q6(A, scandir, trace=trace))
+        verdicts["TR12_Q6"] = "PASS:REDUCED-DISTANCE-CLASS"
     if "q10a" in sel:
         written.append(atlas_emit_q10a(A, outdir)); verdicts["TR12_Q10A"] = "PASS"
     if "xa" in sel:
@@ -12761,7 +12856,7 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
 
         # ---- Q3 ------------------------------------------------------------
         if q3_trace:
-            p = os.path.join(out, "q3_profile_kw.tsv" if n == 31 else "q3_profile.tsv")
+            p = os.path.join(out, atlas_q3_name(atlas_parse_q3_trace(q3_trace), n)[0])
             gate("Q3: reader-side prod(p_i) == 1/N in exact big-int rationals",
                  not atlas_q3_reader_check(p, N))
             gate("Q3: verdict tokens emitted",

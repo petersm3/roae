@@ -448,13 +448,29 @@ figures read, and they gate every table they write.
 | `<out>/xa_verdict.md` | **XA-c/d**, XA-24 | the gate table, the branch extremes, and the exhaustibility call. |
 | `<out>/VERDICTS.txt` | the harness | one `KEY=value` line per row; an existing key is replaced, not duplicated. |
 
-Verdict tokens emitted: `TR12_Q3`, `TR12_Q3_READER`, `TR12_Q6`, `TR12_V1`,
-`TR12_V2`, `TR12_V5`, `TR12_XA_A`, `TR12_XA_B`, `TR12_XA_CD`,
-`TR12_XA_MOD24`, `TR12_Q10A` — matched with `grep -qx`, never by output
-shape. `TR12_Q3_READER` is deliberately separate from `TR12_Q3`: the
-engine's trace asserts `Π p_i = 1/N` itself, and this consumer recomputes
-that product independently in exact big-integer rationals from the written
-TSV. The engine does not grade its own homework.
+Verdict tokens emitted: `TR12_Q3`, `TR12_Q3_KW`, `TR12_Q3_READER`, `TR12_Q6`,
+`TR12_V1`, `TR12_V2`, `TR12_V5`, `TR12_XA_A`, `TR12_XA_B`, `TR12_XA_CD`,
+`TR12_XA_MOD24`, `TR12_Q10A`, `TR12_A2_SLOT`, `TR12_A3_EXTERNAL` — matched
+with `grep -qx`, never by output shape. `TR12_Q3_READER` is deliberately
+separate from `TR12_Q3`: the engine's trace asserts `Π p_i = 1/N` itself, and
+this consumer recomputes that product independently in exact big-integer
+rationals from the written TSV. The engine does not grade its own homework.
+
+**Three of these carry QUALIFIED values, and the qualification is the point**
+(added 2026-09-04):
+
+| token | values | why it is not a bare `PASS` |
+|---|---|---|
+| `TR12_Q3_KW` | `PASS` · `NOT-KW` · `SKIP:n=<n>` | The Q3 table is written as `q3_profile_kw.tsv` **only** when the trace has been checked row-for-row against `binary_hexagrams`. Naming was previously decided by `n == 31` alone — a property of the *universe*, not of the *walk* — so any valid full-31 walk was published under King Wen's name, and `TR12_Q3_READER`'s `Π p_i = 1/N` could not tell the difference because every valid walk satisfies it. A non-King-Wen trace now writes `q3_profile.tsv`, says so on stdout, and a sidecar `<table>.provenance.txt` binds the table to the atlas's `n`, `N_total`, `space` and `pl_hash`. |
+| `TR12_Q6` | `PASS:REDUCED-DISTANCE-CLASS` | The atlas carries per-layer per-**distance-class** mass, not the spec's per-`(state, choice)` extremes. |
+| `TR12_V5` | `PASS:REDUCED-NO-CROSSTAB` | The new-pair-category axis is PENDING, so every row is emitted with the honest placeholder `w = -1`. |
+| `TR12_V2` | `PASS:REDUCED-NO-BRANCH-CLASS-RIVER` | `viz/viz_kc_river.md` row (c), the branch-class river, is PENDING and is not a flag. |
+
+A bare `PASS` is a claim about the **query**; these are claims about a
+**reduction** of it, and the token now says which reduction. The `PASS:` prefix
+is kept so a reader asking only "did anything fail?" still reads them as
+non-failures. `TR12_A2_SLOT` and `TR12_A3_EXTERNAL` report `SKIP:n=<n>` below
+full-31 and never `PASS` — see `--atlas-select` above.
 
 ### Precision contract
 

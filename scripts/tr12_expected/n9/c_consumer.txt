@@ -24,9 +24,11 @@
 [atlas-consumer] A-5: one raw marginal column per WHOLE pair-orbit (9 pair(s) -> 3 column(s), group sizes [3, 3, 3]) PASS
 [atlas-consumer] 24 gate(s) run, 0 failure(s)
 ATLAS_CONSUMER=PASS
+[atlas] Q3 King Wen check: SKIP:n=9 -- the reduced n=9 universe carries no King Wen walk to compare against
 [atlas] A2 slot check: SKIP:n=9 -- A2's published slot histogram is a full-31 measurement
 [atlas] A3 external check: SKIP:n=9 -- C4 fixes slot 0 only at full-31; at n=9 there are 12 distinct starts (measured), so the closing pair does not determine the wrap distance
 [atlas] wrote <ART>/consumer/q3_profile.tsv
+[atlas] wrote <ART>/consumer/q3_profile.tsv.provenance.txt
 [atlas] wrote <ART>/consumer/scan/v1_field.tsv
 [atlas] wrote <ART>/consumer/scan/v2_river.tsv
 [atlas] wrote <ART>/consumer/scan/v2_branches.tsv
@@ -40,11 +42,12 @@ TR12_A2_SLOT=SKIP:n=9
 TR12_A3_EXTERNAL=SKIP:n=9
 TR12_Q10A=PASS
 TR12_Q3=PASS
+TR12_Q3_KW=SKIP:n=9
 TR12_Q3_READER=PASS
-TR12_Q6=PASS
+TR12_Q6=PASS:REDUCED-DISTANCE-CLASS
 TR12_V1=PASS
-TR12_V2=PASS
-TR12_V5=PASS
+TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER
+TR12_V5=PASS:REDUCED-NO-CROSSTAB
 TR12_XA_A=PASS
 TR12_XA_B=PASS
 TR12_XA_CD=PENDING:xa-throughput-anchors

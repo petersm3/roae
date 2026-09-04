@@ -2,8 +2,11 @@
 
 **The rarity profile of King Wen, drawn.** Fix King Wen's first *i* pair placements; count — exactly
 — how many members of the whole superspace still agree with it. That count is the *i*-th shell. The
-figure plots the 32 shells on a log axis as they fall from the entire space to the single ordering,
-together with the surprisal each individual choice contributes. It is TR-12's Q3 table as a picture.
+figure plots the **31 post-placement shells** on a log axis as they fall from the entire space to the
+single ordering, together with the surprisal each individual choice contributes. It is TR-12's Q3
+table as a picture. *(Corrected 2026-09-04, Q-316 item 4: this read "the 32 shells". There are 32
+shells counting `Shell_0 = SUPER`, but the TSV has one row per free PLACEMENT — 31 at full-31 — and
+`Shell_0` appears only as step 1's `g_parent`. `fig_tr12_kc_shells` plots the rows.)*
 
 ← Back to [README.md](README.md) (index) · V-family: [V1 field](viz_kc_field.md) ·
 [V2 river](viz_kc_river.md) · [V3 spectrum](viz_kc_spectrum.md) · **V4** ·
@@ -35,9 +38,24 @@ Shell_i = { w ∈ SUPER : w agrees with King Wen on free placements 1 … i }
 |Shell_i| = g(s_i)
 ```
 
-so `Shell_0 = SUPER` (`g(s_0) = N`), the shells are strictly nested and decreasing, and
-`Shell_31 = {King Wen}` (`g(s_31) = 1`). The main panel plots `g(s_i)` against `i` on a **log₂
-axis** — a monotone descent from `log₂N` bits to 0.
+so `Shell_0 = SUPER` (`g(s_0) = N`) and `Shell_31 = {King Wen}` (`g(s_31) = 1`). The shells are
+strictly **nested**, and their sizes are **non-increasing** — *not* strictly decreasing.
+
+⚠ **Corrected 2026-09-04 (Q-316 item 4), and this repository's own committed trace is the
+counterexample.** `scripts/tr12_expected/n9/a2_q3_profile.txt` reads
+`g = 26112, 2368, 456, 160, 32, 8, 4, 4, 1, 1` — **flat from step 6 to 7 and from step 8 to 9**.
+A step whose placement is forced contributes `p_i = 1` and `bits_i = 0`, and the shell does not
+shrink; that is a real feature of the walk, not a defect, and "strictly decreasing" would have made
+the artifact contradict the text. The reader-side check below is `non-increasing` for the same
+reason — and that leg was **added to `atlas_q3_reader_check` in the same change**, because this
+table had been naming a gate the code did not run. It is `>` and not `>=` deliberately: a `>=`
+test fails the fixture quoted above, which is the red-test for it.
+
+The main panel plots `g(s_i)` against `i` on a **log₁₀** axis — `fig_tr12_kc_shells` uses
+`_log10_bigint` and labels the axis `log10 g(prefix)`, because the exact `g` is a 192-bit integer
+that does not survive `float()`. *(This paragraph said **log₂** and no plotter has ever used it.)*
+The **log₂** quantity is the SURPRISAL in the lower panel: `bits_i = −log₂ p_i`, whose bars sum to
+`log₂N`.
 
 **The per-step conditional and its surprisal.**
 
@@ -202,7 +220,7 @@ out; **no analysis logic in `viz/`**.
 | n=9 exhaustive rank/unrank + trace battery | `solve --kc-o3-selftest` |
 | f·g cut identity at every layer | `solve --kc-g-check FDIR GDIR` |
 | **reader-side:** `Π (p_num/p_den) == 1/N` in big integers | `python3 -c` over the TSV |
-| **reader-side:** `g` strictly decreasing, `g[31] == 1`, `g_parent[i] == g[i−1]` | `awk` over the TSV |
+| **reader-side:** `g` **non-increasing**, `g[31] == 1`, `g_parent[i] == g[i−1]` | `solve.py::atlas_q3_reader_check` over the written TSV (`TR12_Q3_READER`) |
 
 ## Where the files live
 

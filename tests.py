@@ -4610,6 +4610,111 @@ class TestExtractionNull(unittest.TestCase):
                       "King Wen's own difference-wave multiset never appeared in 1000 draws")
 
 
+class TestQ3IsOnlyNamedKingWenWhenItIsKingWen(unittest.TestCase):
+    """A full-31 trace is published as `q3_profile_kw.tsv` only after a row-for-row check
+    against `binary_hexagrams` (Q-316 item 1 / Codex A03, 2026-09-04).
+
+    The emitter used to choose that filename on `n == 31` ALONE.  n is a property of the
+    UNIVERSE, not of the walk, so any one of the 1.097e39 valid full-31 walks was published
+    under a name asserting it was King Wen's — and every downstream reader takes the name at
+    its word.  The reader-side gate could not catch it: `prod(p_i) == 1/N` is a walk-generic
+    telescoping identity that EVERY valid walk satisfies, which is exactly why a name is not
+    evidence."""
+
+    def _kw_steps(self, n=31):
+        S = _load("solve")
+        bh = S.binary_hexagrams
+        return [{"step": i, "pair": i, "entry": bh[2 * i], "exit": bh[2 * i + 1]}
+                for i in range(1, len(bh) // 2)]
+
+    def test_king_wens_own_walk_is_recognised_and_earns_the_kw_name(self):
+        S = _load("solve")
+        ok, why = S.atlas_q3_trace_is_king_wen(self._kw_steps())
+        self.assertTrue(ok, why)
+        self.assertEqual(S.atlas_q3_name(self._kw_steps(), 31)[0], "q3_profile_kw.tsv")
+        self.assertEqual(S.atlas_q3_name(self._kw_steps(), 31)[1], "PASS")
+
+    def test_a_reordered_walk_does_not_get_the_kw_name(self):
+        S = _load("solve")
+        steps = self._kw_steps()
+        steps[4]["pair"], steps[5]["pair"] = steps[5]["pair"], steps[4]["pair"]
+        ok, why = S.atlas_q3_trace_is_king_wen(steps)
+        self.assertFalse(ok)
+        self.assertIn("places pair", why)
+        name, status, _ = S.atlas_q3_name(steps, 31)
+        self.assertEqual(name, "q3_profile.tsv")
+        self.assertEqual(status, "NOT-KW")
+
+    def test_a_reoriented_pair_does_not_get_the_kw_name(self):
+        # The subtle one: same pairs, same order, one pair entered from the other end.
+        S = _load("solve")
+        steps = self._kw_steps()
+        steps[9]["entry"], steps[9]["exit"] = steps[9]["exit"], steps[9]["entry"]
+        ok, why = S.atlas_q3_trace_is_king_wen(steps)
+        self.assertFalse(ok)
+        self.assertIn("orients pair", why)
+        self.assertEqual(S.atlas_q3_name(steps, 31)[0], "q3_profile.tsv")
+
+    def test_a_short_trace_does_not_get_the_kw_name(self):
+        S = _load("solve")
+        ok, why = S.atlas_q3_trace_is_king_wen(self._kw_steps()[:-1])
+        self.assertFalse(ok)
+        self.assertIn("free placements", why)
+
+    def test_below_full_31_the_question_is_skipped_never_passed(self):
+        S = _load("solve")
+        name, status, why = S.atlas_q3_name(self._kw_steps(), 9)
+        self.assertEqual(name, "q3_profile.tsv")
+        self.assertEqual(status, "SKIP:n=9")
+        self.assertNotEqual(status, "PASS")
+        self.assertIn("no King Wen walk", why)
+
+
+class TestQ3ReaderCheckShellsAreNonIncreasing(unittest.TestCase):
+    """`atlas_q3_reader_check` gates the shell sizes, and it gates them as NON-INCREASING
+    (Q-316 item 4, 2026-09-04).
+
+    `viz/viz_kc_shells.md` listed this among the reader-side checks while the function did
+    not perform it -- a documented gate with no code behind it. The distinction that matters
+    is `>` versus `>=`: the shells are nested so `g` can never grow, but a forced placement
+    has `p_i = 1` and shrinks nothing, so equality is legal and this repository's own
+    committed n=9 trace is flat twice. A strict test would have made the artifact the
+    counterexample to its own gate."""
+
+    def _tsv(self, gs, N):
+        import tempfile, os
+        fd, path = tempfile.mkstemp(suffix=".tsv"); os.close(fd)
+        with open(path, "w") as fh:
+            fh.write("step\tg\tg_parent\tp_num\tp_den\n")
+            parent = N
+            for i, g in enumerate(gs, start=1):
+                fh.write("%d\t%d\t%d\t%d\t%d\n" % (i, g, parent, g, parent))
+                parent = g
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_the_committed_n9_trace_is_flat_twice_and_still_passes(self):
+        S = _load("solve")
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "scripts", "tr12_expected", "n9", "a2_q3_profile.txt")
+        rows = S.atlas_parse_q3_trace(path)
+        gs = [int(r["g"]) for r in rows]
+        self.assertEqual(gs, [2368, 456, 160, 32, 8, 4, 4, 1, 1])
+        self.assertTrue(any(a == b for a, b in zip(gs, gs[1:])),
+                        "the fixture that motivates 'non-increasing' is no longer flat")
+        self.assertEqual(S.atlas_q3_reader_check(self._tsv(gs, 26112), 26112), [])
+
+    def test_a_shell_that_grows_is_caught(self):
+        S = _load("solve")
+        fails = S.atlas_q3_reader_check(self._tsv([8, 16, 1], 32), 32)
+        self.assertTrue(any("g grew" in f for f in fails), fails)
+
+    def test_the_gate_is_not_strict_a_flat_pair_alone_is_not_a_failure(self):
+        S = _load("solve")
+        fails = S.atlas_q3_reader_check(self._tsv([8, 8, 1], 8 * 8), 8 * 8)
+        self.assertFalse([f for f in fails if "g grew" in f], fails)
+
+
 class TestAtlasExternalChecksAreReachableAndCanFail(unittest.TestCase):
     """The ONLY full-31 checks against PUBLISHED numbers now have a call site, and both
     are shown able to FAIL (Q-320 item 4 / Codex R07+R10, 2026-09-04).
