@@ -964,11 +964,20 @@ pair), confirm the non-zero exit, restore, and confirm zero. The n=9 universe ma
 
 ### Every published EXACT count — the command that produces it
 
+**Every count in this section is `|C1∩C2∩C4∩C5|`** — the flagship population, at `n` pairs. Saying so
+is not decoration. **C3 is NOT among the constraints counted**, and neither are C6 and C7; the KC is
+an exact compiler for this intersection and for no larger one, and a reader who takes an unqualified
+"exact count" for a count of the full constraint set has been misled by the omission. The C3
+conditional remains sampled by design (`DESCRIPTION_LENGTH.md`), and `|C1–C5|` and `|C1–C7|` are
+published elsewhere as **validated estimates, not exact counts** (`CITATIONS.md`). The same
+qualification is carried at `CLAIM_TO_ARTIFACT.md:30`, `CITATIONS.md:346` and `:964`,
+`CLAIMS_DECIDED.md:12` and `DESCRIPTION_LENGTH.md:77`; it was missing here alone.
+
 **No exact count is published in this project without the command that reproduces it.** Three of the
 four are reproducible on any laptop in under a second; the fourth is not, and that is stated rather
 than hidden.
 
-| n | exact count | reproduce | build | count |
+| n | exact `\|C1∩C2∩C4∩C5\|` | reproduce | build | count |
 |--:|---|---|--:|--:|
 | 9 | `26112` | `solve --kc-build D --f1-pairs 9 && solve --kc-count D` | 170 ms | 9 ms |
 | 13 | `2063395607040` | `solve --kc-build D --f1-pairs 13 && solve --kc-count D` | 352 ms | 9 ms |
