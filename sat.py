@@ -1748,8 +1748,8 @@ def _read_model_lits(path):
 # certified-knowledge-compilation toolchain's cpog-gen + cpog-check
 # (https://github.com/rebryant/cpog; Bryant/Nawrocki/Avigad, SAT 2023) on
 # PATH. NOTHING else in sat.py needs them: if they are absent, the subcommand
-# exits gracefully with an install message (same idiom as roae.py's optional
-# wkhtmltopdf PDF step) and every other subcommand is unaffected — mirroring
+# exits gracefully with an install message (the same graceful-absence idiom as
+# roae.py's optional Graphviz `dot` step) and every other subcommand is unaffected — mirroring
 # how kissat is an external requirement of --witness only.
 #
 # Pipeline (all artifacts under one work dir):
@@ -1780,7 +1780,7 @@ _CERTIFY_TOOLS_MSG = (
 
 def _run_tool(argv):
     """Run one external certificate-toolchain binary. Graceful-absence idiom
-    (roae.py wkhtmltopdf): a missing binary exits with a clear install
+    (roae.py Graphviz `dot`): a missing binary exits with a clear install
     message instead of an unhandled FileNotFoundError traceback."""
     try:
         return subprocess.run(argv, capture_output=True, text=True)
@@ -2103,7 +2103,7 @@ if __name__ == "__main__":
             try:
                 r = subprocess.run(["kissat", "-q", f.name], capture_output=True, text=True)
             except FileNotFoundError:
-                # graceful-absence idiom (roae.py wkhtmltopdf): external solver
+                # graceful-absence idiom (roae.py Graphviz `dot`): external solver
                 # missing is a clear install message, not a traceback
                 os.unlink(f.name)
                 raise SystemExit(

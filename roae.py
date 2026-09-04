@@ -32,6 +32,21 @@ def _reseed(salt):
     if _global_seed is not None:
         random.seed(_global_seed + salt)
 
+# SEED PROVENANCE, emitted INTO the report artifacts (2026-09-04). example/ is
+# now shipped as one FIXED seeded draw rather than a fresh unseeded sample every
+# time, so every number in it is one specific draw and a reader holding the file
+# has to be able to tell that from the file alone. The line is generated, never
+# hand-written: example/README.md is a byte-copy of example/report.md and
+# doc_gates.sh GATE 8 enforces that byte-identity, so a hand-added provenance
+# note in the artifact would BE the hand-edit the gate exists to refuse.
+# Unseeded runs print nothing, which is the honest signal that the figures moved.
+def _seed_note():
+    """One-line seed provenance, or None when the run drew unseeded."""
+    if _global_seed is None:
+        return None
+    return ("Seeded run: --seed %d. The randomized sections are one fixed draw "
+            "under this seed, not a fresh sample." % _global_seed)
+
 # Reverse the bit order of a 6-bit value, equivalent to flipping a hexagram
 # upside down (180-degree rotation). Each hexagram has 6 lines (bits), so
 # reversing maps bit 0 to bit 5, bit 1 to bit 4, etc.
@@ -242,6 +257,9 @@ def print_header():
     print("of the King Wen sequence including")
     print("observations by Terence McKenna")
     # https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero
+    _note = _seed_note()
+    if _note:
+        print(_note)
     print("---")
 
 def print_table(use_color=False):
@@ -2286,7 +2304,7 @@ def print_help_sections():
         ("--csv", "Export hexagram data (writes hexagrams.csv)"),
         ("--dot", "Export Graphviz graph (writes wave.dot, + .png/.svg if Graphviz installed)"),
         ("--svg", "Export hexagram line diagrams (writes hexagrams.svg)"),
-        ("--html", "Export HTML report (writes report.html, + .pdf if wkhtmltopdf installed)"),
+        ("--html", "Export HTML report (writes report.html)"),
         ("--markdown", "Export Markdown report (writes report.md)"),
         ("--midi", "Export difference wave (writes wave.mid)"),
     ]
@@ -3541,17 +3559,21 @@ def export_html(filename="report.html"):
     _print("  h2 { padding-bottom: 6px; border-bottom: 1px solid #d1d9e0; margin-top: 24px; }")
     # TWO cells, not one. U+4DC0-U+4DFF are East Asian Wide and the plain-text
     # tables budget six display cells for the Hex column on that basis. This rule
-    # clamped the glyph to 1ch, so HTML and PDF needed a FIVE-cell column while
-    # txt/md needed six -- the two families silently disagreed, and fixing one
-    # broke the other. Matching the rule to the text geometry keeps a single
-    # layout across all four artifacts. (overflow:hidden retained so an unusual
-    # font cannot widen the cell and re-introduce the drift.)
+    # clamped the glyph to 1ch, so HTML (and, until 2026-09-04, the PDF rendered
+    # from it) needed a FIVE-cell column while txt/md needed six -- the two families
+    # silently disagreed, and fixing one broke the other. Matching the rule to the
+    # text geometry keeps a single layout across the artifacts, which since the PDF
+    # was dropped are THREE: txt, md and html. (overflow:hidden retained so an
+    # unusual font cannot widen the cell and re-introduce the drift.)
     _print("  .hex { display: inline-block; width: 2ch; overflow: hidden; }")
     _print("  .section { margin-bottom: 16px; }")
     _print("</style>")
     _print("</head><body>")
     _print("<h1>Received Order Analysis Engine (ROAE)</h1>")
     _print("<p>Analysis of the King Wen sequence including observations by Terence McKenna</p>")
+    _note = _seed_note()
+    if _note:
+        _print("<p>%s</p>" % _note)
 
     # Capture each section's output — titles match the print functions
     sections = [
@@ -3588,8 +3610,9 @@ def export_html(filename="report.html"):
     import re
     def fix_hexagram_spacing(text):
         """In terminal output, hexagram chars (U+4DC0-4DFF) are double-width,
-        so they're followed by extra padding spaces. In HTML/PDF, wrap each
-        hexagram in a fixed-width span to ensure consistent alignment."""
+        so they're followed by extra padding spaces. In HTML, wrap each
+        hexagram in a fixed-width span to ensure consistent alignment. (This said
+        "HTML/PDF" until 2026-09-04; export_html no longer renders a PDF.)"""
         def replace_hex(m):
             return f'<span class="hex">{m.group(1)}</span>{m.group(2)}'
         return re.sub(r'([\u4DC0-\u4DFF])( +)', replace_hex, text)
@@ -3607,18 +3630,22 @@ def export_html(filename="report.html"):
     _print("</body></html>")
     out.close()
     print(f"HTML report written to {filename}")
-    # Try to also generate a PDF if wkhtmltopdf is installed
-    import subprocess
-    pdf_filename = filename.rsplit(".", 1)[0] + ".pdf"
-    try:
-        result = subprocess.run(
-            ["wkhtmltopdf", "--quiet", filename, pdf_filename],
-            capture_output=True, text=True
-        )
-        if result.returncode == 0:
-            print(f"PDF written to {pdf_filename}")
-    except FileNotFoundError:
-        pass  # wkhtmltopdf not installed; skip PDF generation
+    # 🔴 PDF GENERATION REMOVED 2026-09-04 (operator decision). This shelled out to wkhtmltopdf,
+    # which EMBEDS the fonts it renders with -- measured on the shipped example/report.pdf:
+    # DejaVuSans, DejaVuSans-Bold and DejaVuSansMono, all `emb yes sub no`, i.e. the complete
+    # unsubsetted font programs inside a tracked file. That made the repository a redistributor of
+    # font software under the Bitstream Vera terms, whose grant is conditioned on the notice
+    # travelling with any copy of the typefaces -- the only obligation this otherwise
+    # public-domain project carried.
+    # Measured alternatives, all rejected: Symbola is licence-free and covers all 64 hexagram
+    # glyphs but is NOT monospaced (135 distinct advance widths in its first 399 glyphs) and every
+    # <pre> block in the report is column-aligned, so it would misalign 1,400 lines of numeric
+    # output; naming Courier or the generic `monospace` does not avoid embedding, because
+    # wkhtmltopdf resolves through fontconfig and embedded DejaVuSansMono anyway; and no
+    # obligation-free monospace face exists on the reference host (Liberation and Noto are OFL,
+    # Nimbus is AGPL-with-exception, DejaVu is Bitstream Vera).
+    # report.html is unaffected: it NAMES font families in CSS, which is a reference and not
+    # redistribution. Anyone wanting a PDF can still make one from it with a single command.
 
 def export_markdown(filename="report.md"):
     """Generate a Markdown report with all analyses."""
@@ -3741,6 +3768,10 @@ def export_markdown(filename="report.md"):
     _print("Analysis of the King Wen sequence including observations by "
            "[Terence McKenna](../documentation/CITATIONS.md#mckenna-mckenna1975).")
     _print("")
+    _note = _seed_note()
+    if _note:
+        _print("*%s*" % _note)
+        _print("")
 
     for title, func in sections:
         f = io.StringIO()
@@ -5288,7 +5319,7 @@ def main():
     parser.add_argument("--svg", action="store_true",
                         help="Export hexagram line diagrams (writes hexagrams.svg)")
     parser.add_argument("--html", action="store_true",
-                        help="Export HTML report (writes report.html, + .pdf if wkhtmltopdf installed)")
+                        help="Export HTML report (writes report.html)")
     parser.add_argument("--markdown", action="store_true",
                         help="Export Markdown report (writes report.md)")
     parser.add_argument("--midi", action="store_true",

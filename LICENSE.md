@@ -22,19 +22,3 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <https://unlicense.org>
-
----
-
-## Scope
-
-⚠ **The Unlicense above is software-scoped** — its text dedicates *"this software"* to the public
-domain. This repository also contains prose, data tables, generated artifacts, and some third-party
-material that the Unlicense does **not** cover.
-
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). In particular
-`example/report.pdf` **embeds the DejaVu font programs** (measured with `pdffonts`: embedded, not
-subsetted), which remain under their own licence.
-
-**The project-authored prose and data tables carry no explicit dedication yet.** That is a decision
-for the copyright holder and is recorded as open rather than assumed — a reuser cannot currently tell
-from this repository what terms apply to them.

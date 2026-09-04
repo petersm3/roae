@@ -323,12 +323,19 @@ already exist and leave the decision visible in shell history.
 The pre-commit gate exists because hand-editing generated output has happened
 **three times** (`example/report.html` at `dbba77d` was caught by the operator,
 not by a gate). `doc_gates.sh` could always detect it; nothing forced it to
-run. **Read its header before trusting it** — for `report.txt`, `report.md` and
-`README.md` the underlying gate compares non-numeric lines only, because
-`roae.py` seeds nothing by default, so a hand-edited *digit* in
-`example/report.txt` is still caught by nothing. Closing that hole means
-shipping `example/` generated with `--seed`; that changes published artifacts
-and is an operator decision.
+run. **Read its header before trusting it** — but the caveat this paragraph
+carried is now closed. It read: for `report.txt`, `report.md` and `README.md`
+the underlying gate compares non-numeric lines only, because `roae.py` seeds
+nothing by default, so a hand-edited *digit* in `example/report.txt` is caught
+by nothing; closing that hole means shipping `example/` generated with
+`--seed`, which changes published artifacts and is an operator decision. **That
+decision was taken on 2026-09-04.** `example/` is regenerated and shipped under
+`--seed 20260904`, GATE 8 regenerates under the same seed, and all eleven
+tracked artifacts are compared **byte-exact, digits included** — see
+[ROAE_PY_CLI.md §REPRODUCING `example/` BYTE-FOR-BYTE](ROAE_PY_CLI.md#reproducing-example-byte-for-byte).
+The price is that every number in `example/` is now one fixed draw rather than
+a fresh sample; no claim depends on those figures, and the reports print the
+seed into themselves so a reader can tell.
 
 #### Gate verdicts: three states, not two (reworked 2026-09-02, `0414d072`)
 

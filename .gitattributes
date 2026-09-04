@@ -46,13 +46,28 @@
 # this is the failure that would hide all the others.
 *.sh text eol=lf
 
-# Binaries: never examined for text, never eol-converted. These four extensions
-# are exactly the 72 binary blobs currently tracked
-# (48 .gz, 22 .png, 1 .pdf, 1 .mid).
+# Binaries: never examined for text, never eol-converted. THREE of these four
+# extensions cover live tracked blobs; `*.pdf` no longer does.
+# RE-MEASURED 2026-09-04 (`git ls-files` x `grep -qI .`, not read off this comment):
+# 74 binary blobs tracked — 51 .gz, 22 .png, 1 .mid, and ZERO .pdf. The tally this
+# line used to carry (72: 48 .gz, 22 .png, 1 .pdf, 1 .mid) was stale in TWO ways by
+# the time it was corrected: the .gz set had grown by three without anyone touching
+# this file, and example/report.pdf — the only .pdf ever tracked — was removed on
+# 2026-09-04 because it embedded the complete unsubsetted DejaVu font programs
+# (`pdffonts`: emb yes, sub no), which made this repository a redistributor of font
+# software under the Bitstream Vera terms. See roae.py's export_html.
+# A DATED MEASUREMENT, not a live invariant: nothing checks these numbers, so read
+# them as "what was measured on that date" and re-run the census before relying on
+# them.
 *.gz  -text
 *.png -text
-*.pdf -text
 *.mid -text
+
+# Forward guard only, since 2026-09-04. `*.pdf` protects no tracked file — the one
+# tracked PDF was removed that day (see above) and roae.py no longer produces one —
+# but a PDF added later must not be examined for text or eol-converted. Same standing
+# as the `*.bin` row below, and kept for the same reason.
+*.pdf -text
 
 # Forward guard only. `*.bin` is matched by an ignore rule in .gitignore
 # (solutions.bin is never committed; its sha256 is the anchor), so this row

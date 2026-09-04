@@ -54,7 +54,7 @@ The default action (no flags) runs all 29 analyses. With a single
 core subset for fast iteration.
 
 Output is human-readable text by default; alternative output formats
-(JSON, CSV, SVG, HTML, PDF, MIDI, Graphviz DOT) are available via
+(JSON, CSV, SVG, HTML, MIDI, Graphviz DOT) are available via
 output-format flags.
 
 **Twelve of the 29 sections draw random numbers**, not the three that an
@@ -389,7 +389,7 @@ this page until 2026-09-02.**]**
 --json             Export hexagram data to hexagrams.json
 --csv              Export hexagram data to hexagrams.csv
 --svg              Export hexagram line-diagrams to hexagrams.svg
---html             Export an HTML report to report.html (and report.pdf if wkhtmltopdf installed)
+--html             Export an HTML report to report.html
 --markdown         Export a Markdown report to report.md
 --midi             Export the difference wave as a MIDI file (wave.mid)
 --dot              Export Graphviz DOT graph to wave.dot (+ wave.dot.png / wave.dot.svg if Graphviz installed)
@@ -414,9 +414,17 @@ of them with an export flag writes no file. See EXAMPLES.
 
 Optional packages enable richer output:
 
-- **`wkhtmltopdf`** — for `--html` → PDF rendering. It is the only PDF
-  backend `roae.py` invokes; if it is absent the PDF step is skipped
-  silently and the run still succeeds.
+- **PDF: none, and none is invoked.** `--html` wrote `report.html` and then
+  shelled out to `wkhtmltopdf` to render `report.pdf` until 2026-09-04, when
+  that step was removed: wkhtmltopdf embeds the complete unsubsetted font
+  programs it renders with (measured on the artifact that shipped —
+  `pdffonts` reported `DejaVuSans`, `DejaVuSans-Bold` and `DejaVuSansMono`,
+  all `emb yes sub no`), which made a public-domain repository a
+  redistributor of font software under the Bitstream Vera terms. `roae.py`
+  now invokes no PDF backend at all and writes no PDF. `report.html` is
+  unaffected — naming a font family in CSS is a reference, not
+  redistribution — and anyone who wants a PDF can render one from it
+  locally, where no obligation travels.
 - **`graphviz` (system package)** — for `--dot` → PNG/SVG rendering.
 - **MIDI playback** — `--midi` produces `wave.mid` which can be played
   by any MIDI-capable audio system.
@@ -475,11 +483,11 @@ exports never run, and the `--table` analysis is never printed. (This
 example previously appeared here claiming all three files; it does not
 produce them.)
 
-**Generate full HTML/PDF report:**
+**Generate the full HTML report:**
 
 ```
 python3 roae.py --html
-# writes: report.html (and report.pdf if wkhtmltopdf available)
+# writes: report.html   (no PDF — see DEPENDENCIES)
 ```
 
 `--html` renders 28 of the 29 analysis sections — the `--hamming`
@@ -521,8 +529,9 @@ and JSONL checkpoint unconditionally whenever the mode is run:
 - `hexagrams.json` (`--json`)
 - `hexagrams.csv` (`--csv`)
 - `hexagrams.svg` (`--svg`)
-- `report.html` (`--html`); also `report.pdf`, but only if the external
-  `wkhtmltopdf` binary is installed — otherwise the PDF is silently skipped
+- `report.html` (`--html`) — and nothing else. Until 2026-09-04 this flag
+  also wrote `report.pdf` via `wkhtmltopdf`; that step was removed (see
+  DEPENDENCIES) and no PDF is produced under any configuration
 - `report.md` (`--markdown`)
 - `wave.mid` (`--midi`)
 - `wave.dot` (`--dot`); also `wave.dot.png` / `wave.dot.svg`, but only
@@ -591,6 +600,69 @@ it is the one section that builds a private `random.Random` instead
   Python versions / platforms; the qualitative findings (rankings,
   percentile placements) are stable.
 
+### REPRODUCING `example/` BYTE-FOR-BYTE
+
+<a id="reproducing-example-byte-for-byte"></a>
+
+**The eleven tracked artifacts under `example/` are shipped as one fixed
+seeded draw**, regenerated 2026-09-04 under `--seed 20260904`. Before that
+date they were an *unseeded* draw: every Monte Carlo figure in them was a
+fresh sample, and re-running `roae.py` reproduced the prose but never the
+numbers.
+
+**The seed, and why that value.** `20260904` is the ISO calendar date of
+the regeneration pass. It follows the one seed convention `roae.py`
+already has — `--prereg-h1h3` defaults to `20260726`, its pre-registration
+freeze date. It was written down before the first seeded run, so it is not
+a value selected for the figures it produces, and **no search over seeds
+was performed**. If you want a different draw, pass a different `--seed`;
+nothing in the analysis privileges this one.
+
+**What that does and does not change.** No *claim* anywhere in this
+repository depends on a figure in `example/` — it is an output sample, not
+evidence. What changes is the status of the numbers in it: they are now
+**one specific draw, frozen**, rather than a fresh sample per run. Read
+them as an illustration of the output format, never as converged values.
+The three report artifacts say so themselves: `roae.py` prints a
+`Seeded run: --seed 20260904` line into `report.txt`, `report.md` (hence
+`README.md`) and `report.html`, and prints nothing there when the run was
+unseeded.
+
+**The recipe.** Run every export from inside `example/` except `--all`,
+which is the only one that writes to stdout — `--markdown`, `--html` and
+the data exports open their own files in the working directory:
+
+```
+python3 roae.py --all --seed 20260904 > example/report.txt
+( cd example && python3 ../roae.py --markdown --seed 20260904 )
+cp example/report.md example/README.md
+( cd example && python3 ../roae.py --html --seed 20260904 )
+for f in csv json svg dot midi; do
+  ( cd example && python3 ../roae.py --$f --seed 20260904 )
+done
+```
+
+`scripts/doc_gates.sh generated` (GATE 8) regenerates under the same seed
+and compares all eleven artifacts **byte-exact**, digits included. It was
+digit-stripped until 2026-09-04, because an unseeded generator made a byte
+comparison fail on correct artifacts every time.
+
+**What is and is not seed-dependent, measured rather than assumed.** Two
+independent generations at `--seed 20260904` were byte-identical on all
+eleven artifacts. A third at a different seed differed on all four report
+artifacts (`report.txt`, `report.md`, `README.md`, `report.html`) and on
+**none** of the other seven — `hexagrams.{csv,json,svg}`, `wave.dot`,
+`wave.dot.png`, `wave.dot.svg`, `wave.mid` are closed-form functions of
+the 64-hexagram table and carry no random draws at all. The seed is passed
+to them in the recipe above only so that one command covers every artifact.
+
+**Caveats.** `wave.dot.png` and `wave.dot.svg` are rendered by the
+external Graphviz `dot` binary, so their bytes depend on the installed
+renderer as well as on `roae.py`; they reproduce byte-for-byte on the
+same `dot` (2.43.0 here) and may not across a renderer upgrade.
+Floating-point output may vary in the last decimal across Python versions
+and platforms, as noted above.
+
 ## SCIENTIFIC SCOPE — what roae.py is and isn't
 
 **roae.py characterizes the King Wen sequence** — what does it look
@@ -609,12 +681,14 @@ The two tools are complementary:
 | **Output** | Statistics about KW (29 analyses, optional reports) | Enumeration artifacts: `solutions.bin` (millions of valid orderings), sha256 anchors, statistics across the solution set |
 | **Scale** | Single sequence, prints instantly | Hundreds of millions of orderings; canonical runs take hours on D128 |
 | **Determinism** | 16 sections are closed-form; 12 are randomized and reproducible under `--seed`; `--trigrams` samples a null under an internally pinned seed and ignores `--seed`. See REPRODUCIBILITY | Fully — given fixed solver + inputs, the **decompressed** `solutions.bin` stream is byte-identical (partition invariance). The gzip container is not canonical: raw `sha256sum solutions.bin` hashes the framing, which varies with zlib version and compression level. Verify via the `solutions.sha256` sidecar or `gzip -dc solutions.bin \| sha256sum` (see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)); the raw file is byte-identical only under `SOLVE_COMPRESS=0` |
-| **Dependencies** | `roae.py` itself: Python 3 stdlib only. PDF and PNG/SVG side-outputs additionally invoke the external `wkhtmltopdf` / `dot` binaries when present, and are silently skipped when absent. (This row covers `roae.py` only — `solve.py`'s P2 analysis modes are **not** stdlib; see [DEVELOPMENT.md](DEVELOPMENT.md).) | `gcc` with OpenMP, `zlib` (`zlib1g-dev` — `solve.c` includes `<zlib.h>` unconditionally), `libm` (`-lm`), `pthread`, `sha256sum`; canonical build line in [DEVELOPMENT.md](DEVELOPMENT.md) |
+| **Dependencies** | `roae.py` itself: Python 3 stdlib only. The PNG/SVG side-outputs additionally invoke the external `dot` binary when present, and are silently skipped when absent. (There is no PDF side-output: the `wkhtmltopdf` step was removed 2026-09-04 — see DEPENDENCIES.) (This row covers `roae.py` only — `solve.py`'s P2 analysis modes are **not** stdlib; see [DEVELOPMENT.md](DEVELOPMENT.md).) | `gcc` with OpenMP, `zlib` (`zlib1g-dev` — `solve.c` includes `<zlib.h>` unconditionally), `libm` (`-lm`), `pthread`, `sha256sum`; canonical build line in [DEVELOPMENT.md](DEVELOPMENT.md) |
 | **Audience** | Anyone curious about KW's internal structure | Researchers evaluating uniqueness against C1-C5 |
 
 The example output bundle in `example/` is what you get from running
 `python3 roae.py` with various output formats enabled. See
-[example/README.md](../example/README.md).
+[example/README.md](../example/README.md), and
+[REPRODUCING `example/` BYTE-FOR-BYTE](#reproducing-example-byte-for-byte)
+below for the seed it is shipped under.
 
 ## SEE ALSO
 
@@ -677,7 +751,9 @@ Recent material changes (full record in [HISTORY.md](HISTORY.md)):
   this page documents begins at `37065808` (2026-04-06, "Add hexagram
   names, trigram analysis, spark lines, Monte Carlo, and CLI flags");
   output formats (HTML, PDF, MIDI, Graphviz) expanded over the weeks
-  following. The 29th section, `--parity`, was added 2026-05-19
+  following (the PDF export was removed again on 2026-09-04 — see
+  DEPENDENCIES; this line records what the buildout added, not what
+  `roae.py` writes today). The 29th section, `--parity`, was added 2026-05-19
   (`7d84ffe5`)
 - 2026-04 (early) the initial six-round adversarial scientific review
   surfaced the trigram name swap bug (fixed 2026-04-07, `dc489e8c`),

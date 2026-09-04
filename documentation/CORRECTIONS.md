@@ -8179,3 +8179,132 @@ nothing else in the report depends on the value.
 No figure changes in either. A third, smaller correction — `documentation/SOLVE_SUMMARY.md`'s "4
 symmetric hexagrams" contradicting its own eight-glyph list, corrected to 8 forming 4
 complement-fallback pairs — is recorded in that file's own revision line, which is its convention.
+
+## 2026-09-04 — `example/report.pdf` withdrawn, and what the withdrawal cost
+
+**Operator decision.** The artifact is withdrawn from the repository; `roae.py`'s `export_html` no
+longer invokes any PDF backend; `THIRD_PARTY_NOTICES.md` — which existed solely to carry one notice —
+is deleted; and `LICENSE.md` is the unmodified Unlicense, linking to nothing.
+
+**What was wrong was not the report's content — it was the container.** wkhtmltopdf embeds the fonts
+it renders with, and `pdffonts` on the shipped artifact reported `DejaVuSans`, `DejaVuSans-Bold` and
+`DejaVuSansMono`, every one **`emb yes sub no`** — the *complete unsubsetted font programs*, not
+subsets. That made this repository a redistributor of font software under the Bitstream Vera terms,
+whose grant is conditioned on the notice travelling with any copy. It was the **only** third-party
+obligation an otherwise public-domain project carried, and it was carried without intending to.
+
+`example/report.html` is unaffected: it *names* font families in CSS, which is a reference and not
+redistribution, and a PDF can still be rendered from it locally, where no obligation travels.
+
+**Considered and rejected — measured, not argued.** Symbola is licence-free and covers all 64 hexagram
+glyphs but is **not monospaced** (135 distinct advance widths in its first 399 glyphs), and all 28
+`<pre>` blocks in the report are column-aligned across ~1,400 lines, so it would misalign every one.
+Naming `Courier` or the generic `monospace` does **not** avoid embedding — wkhtmltopdf resolves
+through fontconfig and embedded `DejaVuSansMono` anyway (tested). And no obligation-free monospace
+face exists on the reference host: Liberation and Noto are OFL, Nimbus is AGPL-with-exception, DejaVu
+is Bitstream Vera.
+
+### 🔴 What the withdrawal COST
+
+*Stated because a correction that reports only what it removed is the over-attestation this file
+exists to catch.*
+
+**GATE 8 LEG 5** compared the PDF against the shipped HTML as multisets of lines **with digits
+intact**, and it was the **only** leg comparing `example/report.html` digit-for-digit. It could be
+strict where legs 1–4 cannot, because it compared two artifacts of a single `--html` invocation
+rather than a shipped artifact against a fresh unseeded run.
+
+LEG 5 and its fire-proofs retire with the artifact, so **a hand-edited number in
+`example/report.html` is now caught by nothing** — the `dbba77d` class, open again. **Measured
+2026-09-04, not inferred:** one digit changed in `example/report.html` (`8x8 = 64` → `65`) leaves
+`doc_gates.sh generated` at **rc 0, PASS**.
+
+**What is NOT lost:** the deletion-is-not-a-`[skip]` property lives in `require_tracked`, which every
+leg calls — measured the same day, `rm example/report.html` gives **rc 1** and
+`[FAIL] … tracked in git but missing from the working tree`. And removing the PDF removed the suite's
+**only tool-absence `[skip]`** (`pdftotext`), so no gate now degrades to a skip when a tool is absent.
+
+**The close for the digit hole is already named in the gate:** ship `example/` generated with
+`--seed`, after which every leg can be byte-exact. That changes published artifacts and is an
+**operator decision**, not a gate edit — recorded here as owed, not done.
+
+**Forward pointer for an earlier entry.** `documentation/CORRECTIONS.md:6161` states, in the present
+tense, that *"`wkhtmltopdf` and `dot` are invoked through `subprocess` and skipped when absent"*. That
+was true when written and is now half true: **`dot` still is; `wkhtmltopdf` is not invoked at all.**
+This file is append-only, so that sentence stands as published and this is its correction.
+
+Swept the same day, so the class is closed rather than the instance: four sites in `sat.py` (×3) and
+`tests.py` cited *"the `roae.py` wkhtmltopdf idiom"* as a **live** pattern to mirror for
+graceful-absence handling of an external binary. The idiom is unchanged and still correct — it simply
+no longer had an example, since the step it named was the one removed. All four now cite `roae.py`'s
+**Graphviz `dot`** step, which still exists and behaves identically. The remaining `wkhtmltopdf`
+mentions in the corpus are **historical narration explaining the removal** and are deliberately kept:
+deleting them would erase the record of why the artifact went.
+
+## 2026-09-04 — `example/` is reshipped as one fixed seeded draw, and the digit hole is closed
+
+**This entry discharges the "recorded here as owed, not done" line in the entry above.** That entry
+recorded a coverage hole it had just opened: with `example/report.pdf` withdrawn, GATE 8 LEG 5 went
+with it, and LEG 5 was the only leg comparing `example/report.html` digit-for-digit. **Measured, not
+inferred:** one digit changed in `example/report.html` (`8x8 = 64` → `65`) left
+`doc_gates.sh generated` at **rc 0, PASS**. `example/report.txt` had never been covered for digits at
+all. The close the gate had named for itself — ship `example/` generated with `--seed` — was an
+operator decision about published artifacts. **The decision was taken the same day and is executed
+here.**
+
+**What changed.** All eleven tracked artifacts under `example/` were regenerated under
+**`--seed 20260904`** and reshipped. `roae.py` now prints a one-line seed-provenance note into
+`report.txt`, `report.md` (hence `README.md`) and `report.html`, and prints nothing there when a run
+is unseeded. `scripts/doc_gates.sh` GATE 8 regenerates under the same seed and compares all eleven
+artifacts **byte-exact, digits included**; legs 1–4 were a digit-stripped line diff until now.
+
+**No claim changes. No figure was corrected, retracted, or restated.** Nothing in this repository —
+no theorem, no bound, no canonical count, no published result — depends on any number in `example/`.
+It is an output sample demonstrating what `roae.py` prints, not evidence. The `--seed` flag has
+existed throughout (`roae.py`); what changed is which draw is shipped, not what the tool computes.
+Every non-random figure in the bundle is unchanged, because the closed-form sections are functions of
+the King Wen sequence alone: `hexagrams.csv`, `hexagrams.json`, `hexagrams.svg`, `wave.dot`,
+`wave.dot.png`, `wave.dot.svg` and `wave.mid` are **byte-identical across seeds** (measured), and
+only the four report artifacts moved.
+
+**🔴 What DID change, and it is the reason this entry exists.** The Monte Carlo figures printed in
+`example/report.txt`, `example/report.md`, `example/README.md` and `example/report.html` are now
+**one specific draw, frozen** — not a fresh sample per run. Every such figure in the bundle moved to
+its value under seed `20260904`, and any figure quoted from a pre-2026-09-04 copy of those files is a
+different draw of the same estimator. **Read them as an illustration of the output format, never as
+converged values.** The bundle now says so in its own text: each of the three report artifacts opens
+with `Seeded run: --seed 20260904. The randomized sections are one fixed draw under this seed, not a
+fresh sample.`
+
+**Why `20260904` and not something else.** It is the ISO calendar date of the regeneration pass,
+following the only seed convention `roae.py` already had (`--prereg-h1h3` defaults to `20260726`, its
+pre-registration freeze date). It was **written down before the first seeded run**, so it cannot have
+been chosen for the figures it produces, and **no search over seeds was performed**. It encodes
+nothing about the sequence or about any result. A different seed gives an equally valid draw.
+
+**Two documents in this repository quote figures from `example/report.txt`** — `MCKENNA.md` (the
+`--fft` white-noise floor `0.1741`, the magnitude `0.4266` at frequency 24, the `2.45×` ratio and the
+`Frequencies above 2x noise floor: 1/31` line; and the `--mutual-info` transition MI `0.0078` bits at
+the 7th percentile against a random-permutation mean of `0.0200`) and the two
+`RETRACTED_PHRASES.tsv` rows that record those corrections. **Those figures were quoted from an
+unseeded draw and the shipped report is now a different draw**, so a reader re-checking them against
+the current `example/report.txt` may find different numbers. **The corrections they support are
+unaffected** — each one turns on a qualitative fact (there *is* a bin above the ad-hoc 2× threshold;
+King Wen sits *below* the random mean on transition MI; the report itself names Fisher's g or
+Bonferroni as what a real verdict would need), and none turns on a particular decimal. Re-checking
+those two documents against the reshipped draw is queued as prose-lane work and is **not** done here.
+
+**What the tightening bought, stated as coverage rather than as effort.** A hand-edited number in any
+of the four report artifacts now fires. Before today it fired in **none** of them for `report.txt`
+and `report.html`, and only via the copy check (LEG 6) for the `README.md`/`report.md` pair. Red
+test, run per leg with the artifact restored from a byte-verified backup between each: the identical
+`8x8 = 64` → `65` injection gives **rc 1** and
+`[FAIL] <artifact> differs BYTE-FOR-BYTE from a fresh roae.py … --seed 20260904` on all four, and the
+gate returns to **rc 0 with twelve `[ok]` and zero `[FAIL]`** once restored.
+
+**What is still not covered, stated rather than implied.** A defect introduced into `roae.py` itself
+and then propagated into the artifacts is consistent by construction, and no regeneration gate can
+see it. And `example/wave.dot.png` / `example/wave.dot.svg` are rendered by the external Graphviz
+`dot` binary, so their bytes depend on the installed renderer (2.43.0 here) as well as on `roae.py`;
+a renderer upgrade will turn LEG 7 red without any hand-edit, and the fix then is to regenerate and
+commit, not to skip.

@@ -80,8 +80,8 @@
 #
 # THE `generated` LEG IS CONDITIONAL (2026-08-07, gate-blind-spot closure #1;
 # it was previously absent entirely). `doc_gates.sh generated` costs ~67 s
-# measured 2026-08-07 (~107 s on the 2026-08-06 measurement — three unseeded
-# roae.py runs either way, ≥4x the ~17 s the rest of the doc gates take), so
+# measured 2026-08-07 (~107 s on the 2026-08-06 measurement — three roae.py
+# runs either way, unseeded then, seeded since 2026-09-04, ≥4x the ~17 s the rest of the doc gates take), so
 # running it on EVERY push would roughly double this hook for artifacts most
 # pushes cannot have touched — and a hook that slow is a hook that gets
 # bypassed with --no-verify, which uncovers everything. It also cannot be
@@ -99,10 +99,18 @@
 # proven untouched, and a wrongly-run leg costs ~67 s once while a
 # wrongly-skipped one ships an unchecked artifact. Common markdown-only
 # pushes pay one `git diff --name-only` (~ms).
-#   Residual, restated at gate level not hook level: for report.txt/.md and
-# README.md the generated gate compares NON-NUMERIC lines only (roae.py is
-# unseeded), so a hand-edited digit in those three is caught by nothing —
-# see pre_commit_generated_gate.sh's header.
+#   THAT RESIDUAL IS CLOSED (2026-09-04, later the same day it widened). It read:
+# for report.txt/.md, README.md and — since 2026-09-04 — report.html, the
+# generated gate compares NON-NUMERIC lines only (roae.py is unseeded), so a
+# hand-edited digit in those FOUR is caught by nothing; report.html joined the
+# list when example/report.pdf was removed for embedding the complete
+# unsubsetted DejaVu font programs, that PDF having been GATE 8 LEG 5, the only
+# leg comparing report.html digit-for-digit. example/ was then regenerated and
+# reshipped under `--seed 20260904`, GATE 8 regenerates under the same seed, and
+# all ELEVEN tracked example/ artifacts are compared BYTE-EXACT, digits
+# included. No file in this hook's scope is digit-blind any more.
+#   The cost figures above are unchanged in kind: still three roae.py runs, now
+# SEEDED rather than unseeded. See pre_commit_generated_gate.sh's header.
 #
 # NO PRIVATE BYPASS (same contract as both underlying gates): there is
 # deliberately no SKIP env var. `git push --no-verify` already exists and

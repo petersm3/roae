@@ -490,7 +490,7 @@ class TestGates(unittest.TestCase):
     def test_certify_count_absent_tools(self):
         # sat.py --certify-count depends on OPTIONAL external binaries
         # (d4/cpog-gen/cpog-check). With them absent it must exit gracefully
-        # with the clear install message (roae.py wkhtmltopdf idiom), never a
+        # with the clear install message (roae.py Graphviz `dot` idiom), never a
         # traceback. PATH is scrubbed to an empty dir so this gate holds even
         # on hosts that DO have the tools installed. The present-tools path is
         # RUN-validated during the R2-c cross-check campaign (see sat.py's

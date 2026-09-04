@@ -33,14 +33,19 @@
 # exists, is standard, and is visible in the operator's own command line.
 #
 # WHAT IT DOES *NOT* COVER — read scripts/doc_gates.sh around gate_generated
-# before trusting this. The `generated` gate compares NON-NUMERIC lines only for
+# before trusting this. THIS PARAGRAPH'S CAVEAT IS CLOSED, and the closed form is
+# kept rather than deleted because the hole was real for thirteen months. It read:
+# the `generated` gate compares NON-NUMERIC lines only for
 # report.txt/report.md/README.md, because roae.py seeds nothing by default
-# (roae.py:22) and Monte-Carlo figures differ every run. A hand-edited DIGIT in
-# example/report.txt is therefore still caught by nothing — measured, and
-# documented at doc_gates.sh's "ITEM A2" comment. This hook forces the gate we
-# have to run; it does not widen it. Closing that hole means shipping example/
-# with `--seed` so the comparison can be byte-exact, which changes published
-# artifacts and is an operator decision, not a gate edit.
+# (roae.py:22) and Monte-Carlo figures differ every run, so a hand-edited DIGIT in
+# example/report.txt is caught by nothing — measured, and documented at
+# doc_gates.sh's "ITEM A2" comment; closing it means shipping example/ with
+# `--seed` so the comparison can be byte-exact, which changes published artifacts
+# and is an operator decision, not a gate edit. THAT DECISION WAS TAKEN
+# 2026-09-04: example/ is regenerated and shipped under `--seed 20260904`, GATE 8
+# regenerates under the same seed, and all ELEVEN tracked artifacts are compared
+# BYTE-EXACT, digits included. This hook still only FORCES the gate to run; what
+# widened is the gate, not the hook.
 set -u
 
 REPO_ROOT="$(git rev-parse --show-toplevel)" || exit 1
@@ -149,10 +154,19 @@ if [ "$_dgrc" -eq 0 ]; then
   # looked at it, and printed PASSED. Measured (rc=0). GATE 8 LEG 7 now compares the
   # seven data artifacts BYTE-EXACT, digits included, and this text describes what is
   # actually checked rather than what was intended.
-  echo "  SCOPE: GATE 8 compares report.txt/report.md/README.md (NON-NUMERIC lines only —"
-  echo "  roae.py is unseeded, so a hand-edited DIGIT in those three is caught by nothing),"
-  echo "  report.html/report.pdf, and — byte-exact, digits included — hexagrams.{csv,json,svg},"
-  echo "  wave.dot, wave.dot.png, wave.dot.svg and wave.mid."
+  # WIDENED 2026-09-04 from three files to FOUR, then from NON-NUMERIC to BYTE-EXACT later
+  # the same day. example/report.pdf was removed that morning (it embedded the complete
+  # unsubsetted DejaVu font programs) and it was GATE 8 LEG 5 — the only leg that compared
+  # report.html DIGIT-FOR-DIGIT — so for a few hours all four report artifacts were
+  # digit-blind. That afternoon example/ was regenerated and reshipped under
+  # `--seed 20260904`, GATE 8 regenerates under the same seed, and legs 1-4 are now byte
+  # comparisons. There is no digit-blind file left in this gate's scope, and this text says
+  # so rather than leaving the earlier caveat to be read as still live.
+  echo "  SCOPE: GATE 8 compares ALL ELEVEN tracked example/ artifacts BYTE-EXACT, digits"
+  echo "  included: report.txt/report.md/README.md/report.html against a fresh roae.py run"
+  echo "  at --seed 20260904 (the seed example/ is shipped under, printed into the reports"
+  echo "  themselves), README.md against report.md, and hexagrams.{csv,json,svg}, wave.dot,"
+  echo "  wave.dot.png, wave.dot.svg and wave.mid against their own exports."
   echo "PRECOMMIT_GENERATED=CLEAN"
   exit 0
 fi
@@ -160,10 +174,13 @@ fi
 echo
 echo "pre-commit: BLOCKED — the generated-artifact gate failed."
 echo "  Fix the SOURCE (roae.py) and regenerate; never edit the artifact by hand."
-echo "    python3 roae.py --all > example/report.txt"
-echo "    ( cd example && python3 ../roae.py --markdown )"
+echo "  PASS THE SEED: example/ is shipped as one fixed draw under --seed 20260904, and an"
+echo "  unseeded regeneration will differ on every Monte Carlo figure."
+echo "    python3 roae.py --all --seed 20260904 > example/report.txt"
+echo "    ( cd example && python3 ../roae.py --markdown --seed 20260904 )"
 echo "    cp example/report.md example/README.md"
-echo "    ( cd example && python3 ../roae.py --html )"
+echo "    ( cd example && python3 ../roae.py --html --seed 20260904 )"
+echo "    for f in csv json svg dot midi; do ( cd example && python3 ../roae.py --\$f --seed 20260904 ); done"
 echo "  If you are certain this is wrong, 'git commit --no-verify' bypasses it"
 echo "  and leaves that decision visible in your shell history."
 echo "PRECOMMIT_GENERATED=FINDINGS"

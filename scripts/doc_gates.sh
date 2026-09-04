@@ -211,12 +211,36 @@ fi
 # ITEM A1 (2026-08-02) — WHAT EVERY GATE DOES WITH A MISSING INPUT.
 #
 # EVERY LEG OF GATE 8 used to `[skip]` a deleted git-tracked artifact, so `rm example/report.pdf`
-# passed in silence. (This sentence read "GATE 8's five legs" until round 15 drain-3. SIX exist,
-# and they are named rather than counted because a bare multiplicity is not checkable by a
+# passed in silence. (This sentence read "GATE 8's five legs" until round 15 drain-3, then six,
+# and the legs are named rather than counted because a bare multiplicity is not checkable by a
 # reader against the code and a named list is: legs 1-4 are `_cmp` on example/report.txt,
-# report.md, README.md and report.html; LEG 5 is report.pdf by multiset; LEG 6 is README.md as
-# a byte-identical copy. LEG 6 arrived with item A2 on the SAME DAY this sentence was written
-# and the tally never moved with it. De-numbered, not bumped.)
+# report.md, README.md and report.html; LEG 6 is README.md as a byte-identical copy of
+# report.md; LEG 7 is the seven non-report artifacts under example/, byte-exact. LEG 6 arrived
+# with item A2 on the SAME DAY this sentence was written and the tally never moved with it;
+# LEG 7 landed 2026-09-02 and it did not move either. De-numbered, not bumped.
+#   LEG 5 IS RETIRED, 2026-09-04. It compared example/report.pdf against example/report.html
+#   by multiset. The PDF was deleted from the repository that day because wkhtmltopdf embedded
+#   the COMPLETE UNSUBSETTED DejaVu font programs in it (`pdffonts`: DejaVuSans,
+#   DejaVuSans-Bold, DejaVuSansMono, all `emb yes sub no`), which made a public-domain
+#   repository a redistributor of font software under the Bitstream Vera terms; roae.py's
+#   export_html no longer shells out to wkhtmltopdf, so no PDF is produced to compare.
+#   THE NUMBER 5 IS NOT REUSED: leg numbers here are identifiers that fire-proof labels and
+#   this header both cite, and renumbering 6 and 7 down would silently repoint every one of
+#   those citations at a different check. A gap in the numbering is the cheaper signal.
+#   WHAT THE RETIREMENT COST, stated because a removal that only says what it deleted is the
+#   over-attestation this file exists to refuse: LEG 5 was the ONLY leg that compared
+#   example/report.html DIGIT-FOR-DIGIT. It could be strict where legs 1-4 then could not,
+#   because it compared two artifacts of ONE `--html` invocation rather than a shipped
+#   artifact against a fresh UNSEEDED run. report.html therefore joined report.txt and
+#   report.md as digit-blind, and a hand-edited number in it was caught by nothing -- the
+#   dbba77d class returning, measured on the live tree (`8x8 = 64` -> `65`, rc 0, PASS).
+#   AND WHAT CLOSED IT, THE SAME DAY: the fix named under Q2 at LEG 5's old site was an
+#   operator decision about published artifacts, and the operator took it. example/ was
+#   regenerated and reshipped under `--seed 20260904`; legs 1-4 are BYTE-EXACT against a
+#   same-seed regeneration; self-test CASE 6 is reinstated on the identical mutation, now
+#   asserting leg 4 rather than the deleted leg 5. The cost paragraph is left standing rather
+#   than deleted because the hole was real while it lasted, and because the close is the
+#   evidence that this file's habit of writing gaps down is what got them fixed.)
 # That was fixed and proven on 2026-08-02; the same question was then asked
 # of GATES 2, 3, 3b, 6, 10a, 10b and 11, and every one of them had the same shape. MEASURED,
 # not reasoned: with `documentation/CORRECTIONS.md` deleted from the working tree,
@@ -244,12 +268,17 @@ fi
 #       GATE 1: it reads a missing file as empty SILENTLY, so it is the consumer for which
 #       nobody would have thought to write a per-gate test.
 #
-# WHAT THIS STILL CANNOT SEE, stated rather than implied: absence of a TOOL. `pdftotext`
-# absence remains a `[skip]` (poppler is not part of the toolchain this repo requires);
-# `python3` and `sha256sum` absence are now FAILs because each voids a whole gate, but neither
+# WHAT THIS STILL CANNOT SEE, stated rather than implied: absence of a TOOL.
+# `python3` and `sha256sum` absence are FAILs because each voids a whole gate, but neither
 # carries a mutation fire-proof — hiding one tool from `$PATH` without also hiding `git`,
 # `grep` and `cut` cannot be done cleanly, so those two legs are asserted by reading, not by
 # running. That is a weaker warrant than every other leg here and is recorded as such.
+#   THE ONE TOOL-ABSENCE `[skip]` THIS PARAGRAPH USED TO NAME IS GONE, and it went in the
+#   direction the paragraph wanted: it read "`pdftotext` absence remains a `[skip]` (poppler
+#   is not part of the toolchain this repo requires)", and the only caller of pdftotext was
+#   GATE 8 LEG 5, retired 2026-09-04 with example/report.pdf. No gate now degrades to a
+#   `[skip]` on a missing tool. That is a narrowing of this caveat, NOT a widening of
+#   coverage — LEG 5's checking went with it; see the gate's own header for what it cost.
 #
 # require_tracked <path> [remedy-line]
 #   rc 0 = present; rc 1 = absent and NOT tracked (a legitimate skip, printed); rc 2 = tracked
@@ -415,10 +444,17 @@ require_final_newline() {
 # number is copied out of any of them into this paragraph — that is the point of item R3,
 # and copying them here is the one way this block goes stale in silence. Each site is named
 # by the sentence it lives in; run the command beside it if you want the value.
-#   GATE 6's WHY header, "N of the repo's M image assets"  — git ls-files | grep -iE
-#       '\.(svg|png|pdf)$', then grep -c '<text' over the SVGs. Every figure in the
-#       sentence re-derives, INCLUDING the two the round-12 sample did not check: the
-#       <text> and <use> counts it quotes for fig_tr4_boundary_information.svg.
+#   GATE 6's WHY header, the unscannable-asset description  — `git ls-files '*.svg'
+#       '*.png'` (the gate's OWN population), then grep -c '<text' over the SVGs. The
+#       <text> and <use> counts it quotes for fig_tr4_boundary_information.svg
+#       re-derive. CORRECTED 2026-09-04 TWICE OVER: this recipe used to say
+#       `grep -iE '\.(svg|png|pdf)$'`, which is NOT what the gate counts — it included
+#       example/report.pdf and so returned 40 where `$nimg` was 39, and the header's
+#       quoted "N of M" was taken from the recipe rather than from the gate. That PDF was
+#       removed from the repository on 2026-09-04 (embedded DejaVu font programs), so the
+#       two populations would now agree by accident; the recipe is corrected anyway,
+#       because agreeing by accident is how the disagreement went unnoticed. The header
+#       no longer quotes a tally at all.
 #   GATE 12's SCOPE paragraph, the per-TR `## Revision history` census  — grep -c over
 #       git ls-files 'reports/TR*.md' plus the documentation/ negative.
 #   GATE 9's Q2 answer, the banner-block line counts against MAXBLK/MAXIDX  — re-derive
@@ -2029,9 +2065,16 @@ gate_figures() {
   # WHY: on 2026-08-01 a withdrawn claim ("hard floor k >= 13") was found RENDERED in a
   # published figure, having survived every gate. matplotlib converts text to glyph
   # paths, so fig_tr4_boundary_information.svg holds 0 <text> elements and 920 <use>
-  # refs — the sentence is visible to a reader and invisible to grep. 38 of the repo's
-  # 40 image assets are in that state (15 matplotlib SVGs incl. the PCA plots, plus
-  # every PNG). We cannot grep the output, so we grep what PRODUCES it: the annotation
+  # refs — the sentence is visible to a reader and invisible to grep. Most of the repo's
+  # image assets are in that state (the matplotlib SVGs incl. the PCA plots, plus every
+  # PNG). NO TALLY IS QUOTED HERE, and that is a correction: this sentence said "38 of
+  # the repo's 40", a pair that was BOTH wrong by 2026-09-04 — the live [info] line this
+  # gate prints on every run said 37 unscannable of 39, and the 40 counted
+  # example/report.pdf, which is not in this gate's population (`git ls-files '*.svg'
+  # '*.png'`) and was removed from the repository that day for embedding the complete
+  # unsubsetted DejaVu font programs. LEG 3's [info] line below is the authority; it is
+  # computed from `$nimg` every run and a comment restating it can only be right by
+  # accident. We cannot grep the output, so we grep what PRODUCES it: the annotation
   # strings in the figure generators. Keeping generator text and figure in sync is the
   # generators' documented obligation.
   #
@@ -4870,10 +4913,15 @@ G5BPY
   #   <evidence-ERE> must match a line of GATE 8's output.
   # ITEM A5: [FAIL], not [SKIP] — see the moved-anchor note at the head of the harness. This
   # one matters most of the helpers:
-  # all four of its cases anchor on shipped prose in example/ ('terminal attractor', the
-  # "organizing feature" sentence, report.pdf's existence), and example/ is REGENERATED
+  # every one of its cases anchors on shipped content in example/ ('terminal attractor', the
+  # "organizing feature" sentence, one byte of wave.mid), and example/ is REGENERATED
   # output, so a legitimate roae.py change moves those anchors without anyone editing a
   # fire-proof. GATE 8 is also the gate whose hand-taken proof already went stale once.
+  # (The anchor list said "all four of its cases" and named report.pdf's existence until
+  # 2026-09-04, when CASES 3 and 4 were retired with GATE 8 LEG 5 and the artifact they
+  # mutated. The count is not restated: `callers=N` on this helper's row in
+  # documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt is the machine-read authority, and
+  # GATE 15 LEG 3 re-derives it every run.)
   assert_gen_fires() {
     local label="$1" want="$2" mut="$3" out rc
     python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
@@ -4899,8 +4947,13 @@ G5BPY
   # shape of the 2026-08-01 demonstration: remove the nuclear-attractor line from
   # example/report.txt. 0 added / 1 missing is the whole point — a `comm -13`-only gate
   # scores 0 added and reports [ok].
+  # RE-ANCHORED 2026-09-04, when legs 1-4 became byte-exact under the shipped seed. The
+  # VERDICT line no longer carries the normalised counts — `cmp` decides now — so the ERE is
+  # moved onto the digit-stripped DIAGNOSTIC line, which still prints those counts and is
+  # still the thing that distinguishes a deletion from an addition. The both-directions
+  # property this case exists for is therefore still asserted, on the same numbers.
   assert_gen_fires "GATE 8 deletion from a shipped artifact" \
-'example/report\.txt vs roae\.py --all: 0 added, 1 missing' \
+'example/report\.txt digit-stripped: 0 added, 1 missing' \
 "p='example/report.txt'
 L=open(p,encoding='utf-8').read().split(chr(10))
 h=[i for i,x in enumerate(L) if 'terminal attractor' in x]
@@ -4913,90 +4966,109 @@ open(p,'w',encoding='utf-8').write(chr(10).join(L))"
   # UNCONDITIONALLY (print_complements' static preamble), so the case cannot be flaked by
   # a Monte Carlo verdict landing in a different branch.
   assert_gen_fires "GATE 8 one-word substitution in a shipped artifact" \
-'example/README\.md vs roae\.py --markdown: 1 added, 1 missing' \
+'example/README\.md digit-stripped: 1 added, 1 missing' \
 "p='example/README.md'
 a=\"is an organizing feature of the sequence's structure\"
 s=open(p,encoding='utf-8').read()
 assert s.count(a)==1, 'anchor moved'
 open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organising'),1))"
 
-  # CASE 3 — the PDF leg (item A2), which has no other proof. Mutating report.html trips
-  # leg 4 as well, so the assertion targets leg 5's OWN verdict line: proof that the
-  # pdftotext/tag-strip comparison ran and disagreed, not merely that the gate went red
-  # for some earlier reason.
-  assert_gen_fires "GATE 8 PDF no longer renders the shipped HTML" \
-'example/report\.pdf vs example/report\.html: 1 line\(s\) only in the PDF, 1 only in the HTML' \
-"p='example/report.html'
-a=\"is an organizing feature of the sequence's structure\"
-s=open(p,encoding='utf-8').read()
-assert s.count(a)==1, 'anchor moved'
-open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organising'),1))"
+  # CASES 3 AND 4 — RETIRED 2026-09-04, WITH GATE 8 LEG 5 AND THE ARTIFACT THEY MUTATED.
+  # Both were fire-proofs for the PDF leg: CASE 3 mutated example/report.html and asserted
+  # LEG 5's OWN verdict line (so that a red gate could not be scored by leg 4 firing for its
+  # own reason), and CASE 4 deleted example/report.pdf outright, which is the case that
+  # PROVED a deleted tracked artifact FAILS rather than [skip]s — `rm example/report.pdf`
+  # passing in silence is the defect this whole harness section was built around.
+  #
+  # THE DELETION-IS-NOT-A-SKIP PROPERTY IS NOT LOST WITH THEM, and this is the one thing a
+  # reader must be able to check rather than take on trust. It never lived in CASE 4: it
+  # lives in `require_tracked` at the head of this file, which GATE 8's `_present` calls for
+  # EVERY leg, and in the corpus-wide `preflight_tracked_docs`. Both are still asserted here
+  # — see the "PREFLIGHT (A1) a tracked .md deleted blinds every DOCS-iterating gate"
+  # assertion, which fires on exactly this shape. What CASE 4 added on top was one END-TO-END
+  # demonstration on a real tracked artifact, and that demonstration was written against a
+  # file that no longer exists: example/report.pdf was removed on 2026-09-04 because
+  # wkhtmltopdf embedded the complete unsubsetted DejaVu font programs in it.
+  #
+  # WHY NOT RE-POINT CASE 4 AT ANOTHER example/ ARTIFACT instead of retiring it. Considered
+  # and rejected: `_selftest_revert` restores the tree with git, so a case that DELETES a
+  # tracked file is only safe for a file the revert provably restores, and every candidate
+  # (report.txt/.md/.html, README.md, the LEG 7 seven) is already covered by a case that
+  # MUTATES it — a deletion adds a second path into the same `require_tracked` call. The
+  # honest statement is that the end-to-end demonstration is gone and the implementation it
+  # demonstrated is still asserted, not that nothing changed.
 
-  # CASE 4 — a DELETED shipped artifact. Found by Phase-4'ing this batch and asking what
-  # every leg does when its input is not there: all five used to [skip] on `! -f`, so
-  # `rm example/report.pdf` passed in silence. Absence is the strongest mismatch there is.
-  assert_gen_fires "GATE 8 shipped artifact deleted outright" \
-'example/report\.pdf is tracked in git but missing from the working tree' \
-"import os
-assert os.path.exists('example/report.pdf'), 'anchor moved'
-os.remove('example/report.pdf')"
-
-  # CASE 5 — the NEGATIVE control the other four do not provide, and the one that pins
-  # the 2026-08-02 false FAIL. Cases 1-4 all prove GATE 8 goes RED; none proves it stays
-  # GREEN when the generator legitimately prints a different Monte Carlo figure, which is
-  # the single thing the digit-stripping exists to tolerate. It did not tolerate a figure
-  # that crosses 1000: roae.py:1400 formats with `{ratio:,}`, the normaliser stripped
-  # digits but not the separator, and `doc_gates.sh generated` reported
+  # CASE 5 — THE NEGATIVE CONTROL, REBUILT 2026-09-04 WHEN ITS OLD SUBJECT CEASED TO EXIST.
+  #
+  # WHAT IT USED TO BE, and why it is not that any more. Until today legs 1-4 stripped digits,
+  # and this case existed to pin the 2026-08-02 false FAIL: roae.py:1400 formats with
+  # `{ratio:,}`, the normaliser stripped digits but not the group separator, and
+  # `doc_gates.sh generated` printed
   #   +added   > Approximately in random orderings share this property.
   #   -missing > Approximately in , random orderings share this property.
-  # on artifacts that were correct. This case mutates the REGENERATED REFERENCE (not the
-  # shipped artifact) to carry a grouped figure and asserts the gate stays green AND still
-  # prints the html leg's own [ok] line — an rc-only assertion would be satisfied by the
-  # leg skipping. FIRE-PROOF: run against the pre-fix normaliser this case FAILS; see the
-  # round-4 handover for the transcript.
+  # on artifacts that were CORRECT. The case injected a comma-grouped figure into the
+  # REGENERATED REFERENCE and asserted the gate stayed GREEN. That assertion is now FALSE BY
+  # DESIGN: example/ ships under `--seed $ROAE_EXAMPLE_SEED`, the reference is regenerated
+  # under the same seed, and a changed figure in either side is exactly what legs 1-4 must now
+  # go red on. Keeping the old case would have asserted the opposite of the new contract.
+  # THE NORMALISER IS STILL THERE and still fixed — it prints the digit-stripped diagnostic
+  # counts that CASES 1 and 2 assert on — so the round-4 defect remains covered, one level
+  # down, by the two cases that read those counts.
+  #
+  # WHAT IT IS NOW, and why the gate still needs one. Every other GATE 8 case proves the gate
+  # goes RED. None of them can tell a working gate from one that is red on everything —
+  # and byte-exactness is precisely the change that could make a gate red on a correct tree
+  # (a seed mismatch between the shipped artifacts and the regeneration would do it, silently,
+  # and every firing case would still pass). So the control runs GATE 8 on the UNMUTATED tree
+  # and requires rc 0 AND each of the four byte-exact [ok] lines by name. Naming them
+  # individually is the load-bearing part: an rc-only assertion is satisfied by a leg that
+  # skipped, which is the `[skip]`-is-not-a-pass shape this whole gate was rebuilt around.
+  #
+  # assert_gen_clean <label> <ere> [<ere> ...]
   assert_gen_clean() {
-    local label="$1" want="$2" mut="$3" out rc
-    if [ ! -s "$GEN_CACHE/report.html" ]; then
-      echo "  [FAIL] $label — no regenerated reference to mutate"; PASS=1; return
-    fi
-    cp "$GEN_CACHE/report.html" "$GEN_CACHE/report.html.orig"
-    if ! GEN_CACHE="$GEN_CACHE" python3 -c "$mut"; then
-      echo "  [FAIL] $label — could not inject (anchor moved)"; PASS=1
-      mv "$GEN_CACHE/report.html.orig" "$GEN_CACHE/report.html"; return
-    fi
+    local label="$1"; shift
+    local out rc want
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
-    mv "$GEN_CACHE/report.html.orig" "$GEN_CACHE/report.html"
-    if [ "$rc" -ne 0 ] || ! printf '%s\n' "$out" | grep -Eq -- "$want"; then
-      echo "  [FAIL] $label — GATE 8 did not stay green on a legitimate figure change (rc=$rc)"
-      echo "         expected rc 0 and a line matching: $want"
-      printf '%s\n' "$out" | grep -E '\[FAIL\]|\+added|-missing' | head -4 | sed 's/^/           got > /'
+    if [ "$rc" -ne 0 ]; then
+      echo "  [FAIL] $label — GATE 8 is RED on the UNMUTATED tree (rc=$rc). Every firing case"
+      echo "         in this harness would still pass; this is the only one that can see it."
+      printf '%s\n' "$out" | grep -E '\[FAIL\]' | head -4 | sed 's/^/           got > /'
       PASS=1; return
     fi
-    echo "  [ok]   $label — GATE 8 stays green, and says so: $want"
+    for want in "$@"; do
+      if ! printf '%s\n' "$out" | grep -Eq -- "$want"; then
+        echo "  [FAIL] $label — GATE 8 exited 0 but never printed the byte-exact verdict for one"
+        echo "         of its legs, so that leg did not compare anything."
+        echo "         expected a line matching: $want"
+        PASS=1; return
+      fi
+    done
+    echo "  [ok]   $label — GATE 8 is green on the shipped tree and all four report legs"
+    echo "         reported BYTE-IDENTICAL rather than skipping"
   }
 
-  assert_gen_clean "GATE 8 comma-grouped Monte Carlo figure is not a difference" \
-'example/report\.html agrees with roae\.py --html on every NON-NUMERIC line' \
-'import os, re
-p = os.path.join(os.environ["GEN_CACHE"], "report.html")
-s = open(p, encoding="utf-8").read()
-pat = re.compile(r"Approximately 1 in (\d[\d,]*) random orderings share this property\.")
-m = pat.search(s)
-assert m, "anchor moved"
-assert m.group(1) != "1,046", "reference already carries the injected value"
-open(p, "w", encoding="utf-8").write(
-    pat.sub("Approximately 1 in 1,046 random orderings share this property.", s, count=1))'
+  assert_gen_clean "GATE 8 stays green on the shipped tree, byte-exact and not skipped" \
+'\[ok\] +example/report\.txt is BYTE-IDENTICAL to a fresh roae\.py --all --seed [0-9]+' \
+'\[ok\] +example/report\.md is BYTE-IDENTICAL to a fresh roae\.py --markdown --seed [0-9]+' \
+'\[ok\] +example/README\.md is BYTE-IDENTICAL to a fresh roae\.py --markdown --seed [0-9]+' \
+'\[ok\] +example/report\.html is BYTE-IDENTICAL to a fresh roae\.py --html --seed [0-9]+'
 
-  # CASES 6 and 7 — THE DIGIT LEGS (item A2 residual, 2026-08-02).
+  # CASES 6 and 7 — THE DIGIT LEGS (item A2 residual, 2026-08-02). CASE 6 IS RETIRED, see
+  # below; everything this paragraph says about "these two" is now carried by CASE 7 alone,
+  # and the leg-5 half of it is history rather than a description of the harness.
   #
-  # These two assert something the other cases cannot: that the new leg is the ONLY thing
-  # that sees the defect. Every case above is satisfied by ANY leg going red, so a case that
-  # merely proved "GATE 8 fires" would still be green if legs 5/6 were deleted tomorrow and
-  # some other leg fired for its own reason. Each of these therefore asserts TWO lines: the
-  # new leg's own verdict, AND the digit-blind leg's [ok] on the same file — the second is
-  # what proves the coverage is new. That is the shape GATE 8's own history argues for: its
-  # first fire-proof was taken by hand, was satisfied by an exit code, and a one-directional
-  # comparison shipped behind it.
+  # These assert something the other cases cannot: that the firing is PER FILE rather than a
+  # gate that went red across the board. Every case above is satisfied by ANY leg going red,
+  # so a case that merely proved "GATE 8 fires" would still be green if a leg were deleted
+  # tomorrow and some other leg fired for its own reason. Each of these therefore asserts TWO
+  # lines: the named leg's own verdict, AND a NAMED SIBLING's [ok] in the same run.
+  # RE-POINTED 2026-09-04: the sibling used to be "the digit-BLIND leg's [ok] on the SAME
+  # file", which proved the coverage was NEW. With legs 1-4 byte-exact there is no digit-blind
+  # leg left, so the sibling is now a DIFFERENT FILE the mutation does not touch — which
+  # proves per-file discrimination instead. That is a different property, weaker in one
+  # direction and stronger in another, and it is named rather than swapped in silently.
+  # That is the shape GATE 8's own history argues for: its first fire-proof was taken by hand,
+  # was satisfied by an exit code, and a one-directional comparison shipped behind it.
   #
   # THE MUTATION IS ONE DIGIT in a line roae.py prints unconditionally (the static preamble),
   # so no Monte Carlo branch can flake it, and 64 -> 65 keeps the line's length and every
@@ -5029,23 +5101,54 @@ open(p, "w", encoding="utf-8").write(
     echo "  [ok]   $label — only the digit leg sees it: \"$want\" while \"$alsowant\""
   }
 
-  # CASE 6 — a hand-edited digit in example/report.html. This is the dbba77d class: that
-  # file was hand-patched once already and was caught by the operator, not by a gate.
-  assert_gen_fires_only "GATE 8 hand-edited DIGIT in report.html (leg 5 only)" \
-'example/report\.pdf vs example/report\.html: the PROSE agrees and the NUMBERS do not' \
-'\[ok\] +example/report\.html agrees with roae\.py --html on every NON-NUMERIC line' \
+  # CASE 6 — REINSTATED 2026-09-04, LATER THE SAME DAY IT WAS RETIRED, BY A DIFFERENT LEG.
+  #
+  # WHAT IT WAS AND WHAT KILLED IT: it mutated one digit in example/report.html and asserted
+  # that GATE 8 LEG 5 caught it while the digit-BLIND leg 4 still reported [ok] on the same
+  # file. LEG 5 compared report.pdf against report.html with digits intact, and it went with
+  # example/report.pdf when that artifact was deleted for embedding the complete unsubsetted
+  # DejaVu font programs. For a few hours the dbba77d class — a hand-edited number in
+  # example/report.html, the file that WAS hand-patched once and was caught by the operator
+  # rather than by a gate — was covered by nothing, and this file said so.
+  #
+  # WHAT BRINGS IT BACK is the close that the retirement note itself named: example/ is now
+  # generated under `--seed $ROAE_EXAMPLE_SEED`, so leg 4 compares report.html BYTE-EXACT
+  # against a reference generated under the same seed and sees the digit directly. The
+  # coverage returns through the PRIMARY comparison rather than through a second artifact of
+  # the same invocation, which is strictly better: it needs no PDF, no second renderer, and no
+  # font programs on the machine that runs the gate.
+  #
+  # THE MUTATION IS THE ONE THAT WAS MEASURED TO PASS. On the live tree on 2026-09-04, before
+  # the seed landed, `8x8 = 64` -> `65` in example/report.html left `doc_gates.sh generated` at
+  # rc 0 and PASS. It is one digit in a line roae.py prints UNCONDITIONALLY (print_table's
+  # static preamble), so no Monte Carlo branch can flake it, and it changes no non-digit
+  # character — which is exactly why the pre-seed digit-stripped leg could not see it.
+  #
+  # THIS CASE IS assert_gen_fires, NOT assert_gen_fires_only: with legs 1-4 byte-exact there is
+  # no longer a digit-BLIND sibling leg on report.html for a "the OTHER leg stayed green"
+  # clause to name. The per-file discrimination that clause used to buy is asserted by CASE 7
+  # (README.md mutated, report.md still [ok]) and by CASE 8 (csv mutated, json still [ok]).
+  assert_gen_fires "GATE 8 hand-edited DIGIT in report.html (the dbba77d class, leg 4 byte-exact)" \
+'example/report\.html differs BYTE-FOR-BYTE from a fresh roae\.py --html' \
 "p='example/report.html'
 a='giving 8x8 = 64 possible hexagrams'
 s=open(p,encoding='utf-8').read()
 assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
 open(p,'w',encoding='utf-8').write(s.replace(a,'giving 8x8 = 65 possible hexagrams',1))"
 
-  # CASE 7 — a hand-edited digit in example/README.md, which legs 2 and 3 compare against
-  # the generator separately and digit-blind, so before leg 6 the two shipped copies could
-  # disagree on every number in the corpus and the gate printed [ok] twice.
-  assert_gen_fires_only "GATE 8 hand-edited DIGIT in README.md (leg 6 only)" \
+  # CASE 7 — a hand-edited digit in example/README.md. Before leg 6 the two shipped copies
+  # could disagree on every number in the corpus and the gate printed [ok] twice; leg 6 closed
+  # that by comparing them to each other byte-exact.
+  # RE-POINTED 2026-09-04. The sibling clause used to name leg 3's digit-BLIND [ok] on the same
+  # file, which is what proved leg 6 was the only thing that saw the digit. Legs 1-4 are
+  # byte-exact now, so leg 3 sees it too and that [ok] no longer exists; the clause is
+  # re-pointed at example/report.md, the file the mutation did NOT touch. It proves a
+  # different and still necessary thing: that the comparison is PER FILE and the gate did not
+  # simply go red across the board. The label keeps its identity minus the stale "(leg 6
+  # only)", which stopped being true today.
+  assert_gen_fires_only "GATE 8 hand-edited DIGIT in README.md (leg 6, per-file)" \
 'example/README\.md is not byte-identical to example/report\.md' \
-'\[ok\] +example/README\.md agrees with roae\.py --markdown on every NON-NUMERIC line' \
+'\[ok\] +example/report\.md is BYTE-IDENTICAL to a fresh roae\.py --markdown --seed [0-9]+' \
 "p='example/README.md'
 a='giving 8x8 = 64 possible hexagrams'
 s=open(p,encoding='utf-8').read()
@@ -5073,10 +5176,12 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'giving 8x8 = 65 possible hexagra
   # comparison is per-artifact. The sibling asserted is hexagrams.json — the nearest neighbour,
   # written by the same export path in the same generator run.
   #
-  # THE INJECTION IS A SINGLE DIGIT, deliberately: legs 1-4 strip digits (roae.py's Monte
-  # Carlo output moves every run), and LEG 7's whole reason to exist is that these seven carry
-  # no Monte Carlo output and so can be compared byte-exact. A digit is therefore the mutation
-  # that fires LEG 7 and would fire nothing else in this gate.
+  # THE INJECTION IS A SINGLE DIGIT, deliberately: legs 1-4 stripped digits when this case was
+  # written (roae.py's Monte Carlo output moved every run), and LEG 7's whole reason to exist
+  # was that these seven carry no Monte Carlo output and so can be compared byte-exact. Legs
+  # 1-4 are byte-exact too since 2026-09-04, so a digit is no longer a mutation ONLY LEG 7
+  # could see — but it is still a mutation only LEG 7 sees IN THESE SEVEN FILES, which is
+  # what the case asserts, and the sibling clause below is what proves it per-artifact.
   assert_gen_fires_only "GATE 8 LEG 7 hand-edited DIGIT in example/hexagrams.csv (byte-exact leg, per-artifact)" \
 'example/hexagrams\.csv differs BYTE-FOR-BYTE from a fresh roae\.py --csv' \
 '\[ok\] +example/hexagrams\.json is BYTE-IDENTICAL to a fresh roae\.py --json' \
@@ -6638,6 +6743,12 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
   #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
   #            5b (output), 6 x3 (2 phrase + 1 FIGURE, item A8), 7 x2,
   #            8 x7 — the four assert_gen_fires legs, the assert_gen_clean NEGATIVE
+  #            control (rebuilt 2026-09-04; it was x6 for part of that day, between LEG 5's
+  #            retirement taking two assert_gen_fires callers and the seeded reshipping
+  #            adding one back, and this line said x7 throughout that window — which is
+  #            exactly the rot the "not a hand count" sentence below claims immunity from,
+  #            and it is recorded rather than quietly corrected, because the immunity is
+  #            real for the THREE FIELDS and not for this prose that sums them),
   #            control, and the TWO assert_gen_fires_only legs the one-directional-comparison
   #            fix added. This entry read "8 x5 (4 fire + 1 NEGATIVE control)" until round 14
   #            (item R14): the two gen_fires_only legs use a THIRD helper in the same GATE 8
@@ -7133,32 +7244,73 @@ fi
 # links resolve and the numbers are self-consistent. The defect is only visible
 # by RE-RUNNING THE GENERATOR.
 #
-# Comparison is DIGIT-STRIPPED. roae.py seeds nothing by default, so Monte Carlo
-# figures legitimately change every run; a byte-diff would fail always and the
-# gate would be turned off within a day. Stripping digits compares the PROSE and
-# the structure, which is where hand-edits live. Numeric drift is gate 1's job.
+# Comparison is BYTE-EXACT since 2026-09-04, on all eleven tracked example/ artifacts.
+# It was DIGIT-STRIPPED for the four report artifacts until then, and the reason was real:
+# roae.py seeded nothing by default, so its Monte Carlo figures legitimately changed every
+# run and a byte-diff would have failed always — a gate that goes red on correct artifacts
+# is a gate that gets switched off. THE PREMISE IS GONE, not the reasoning. example/ is now
+# regenerated and shipped under `--seed $ROAE_EXAMPLE_SEED` (declared once, just above
+# gate_generated), and every regeneration in this gate passes the same seed, so the shipped
+# artifact and the fresh run agree byte for byte on a correct tree. The digit-stripped
+# comparison survives as a DIAGNOSTIC that classifies a failure (numeric-only vs prose), not
+# as the verdict.
 #
-# COVERAGE, stated exactly (extended 2026-08-02, item A2). Until then the gate covered
-# report.txt, report.md and README.md only — example/report.html and example/report.pdf
-# were shipped generator-derived artifacts with NO generator-match check of any kind,
-# and report.html is the file that was hand-patched in dbba77d. Both are now covered,
-# by two DIFFERENT strategies, because a PDF cannot be line-diffed:
+# WHAT THAT BOUGHT, in one sentence, because this is the whole point of the change: a
+# hand-edited NUMBER in example/report.txt, report.md, README.md or report.html now fires.
+# Before it, report.txt and report.html were covered by NOTHING — measured on the live tree
+# the same morning, `8x8 = 64` -> `65` in example/report.html left `doc_gates.sh generated`
+# at rc 0, PASS — and the README/report.md pair was covered by leg 6 alone.
 #
-#   report.html  -> compared against a fresh `roae.py --html` (like-for-like, same as
-#                   the other three: digit-stripped line diff, both directions).
-#   report.pdf   -> compared against the SHIPPED example/report.html, by extracting the
-#                   PDF's text with pdftotext and the HTML's text by tag-stripping, then
-#                   comparing the two as MULTISETS of digit-stripped lines.
+# WHAT IT COSTS, stated because the seed is not free: every number in example/ is now ONE
+# FIXED DRAW rather than a fresh sample per run. No CLAIM depends on those figures (they are
+# an example bundle, not evidence), but a reader must not read a frozen draw as a converged
+# value. roae.py prints the seed INTO the three report artifacts for exactly that reason, and
+# documentation/CORRECTIONS.md carries the entry.
 #
-# The PDF leg deliberately does NOT regenerate. wkhtmltopdf(report.html) is the ONLY
-# route by which report.pdf is produced (roae.py's export_html shells out to it), so
-# "the PDF's text equals the shipped HTML's text" is exactly the derivation invariant,
-# and checking it against the shipped HTML costs nothing and is deterministic. The
-# chain closes: generator -> html (leg 4) -> pdf (leg 5). Regenerating a PDF and
-# diffing it would instead compare two renderings whose page breaks move whenever a
-# Monte Carlo figure changes width — a gate that fails for reasons nobody can act on.
-# MEASURED before shipping: on the artifacts as committed the two bags differ by
-# exactly ZERO lines once <title>/<style>/<script> are stripped.
+# COVERAGE, stated exactly (extended 2026-08-02, item A2; narrowed 2026-09-04 by LEG 5's
+# retirement; widened to byte-exact the same day by the seed). Until
+# 2026-08-02 the gate covered report.txt, report.md and README.md only — example/report.html
+# and example/report.pdf were shipped generator-derived artifacts with NO generator-match
+# check of any kind, and report.html is the file that was hand-patched in dbba77d. Item A2
+# covered both, by two DIFFERENT strategies, because a PDF cannot be line-diffed:
+#
+#   report.html  -> compared against a fresh `roae.py --html --seed $ROAE_EXAMPLE_SEED`
+#                   (like-for-like, same as the other three: BYTE-EXACT since 2026-09-04,
+#                   digit-stripped line diff in both directions before that).  LIVE.
+#   report.pdf   -> LEG 5, RETIRED 2026-09-04 with the artifact itself. It compared the
+#                   PDF against the SHIPPED example/report.html, by extracting the PDF's
+#                   text with pdftotext and the HTML's text by tag-stripping, then
+#                   comparing the two as MULTISETS of lines WITH DIGITS INTACT.
+#
+# WHY IT IS GONE AND WHAT WENT WITH IT. example/report.pdf was deleted from the repository
+# on 2026-09-04: wkhtmltopdf embeds the fonts it renders with, and `pdffonts` on the shipped
+# artifact reported DejaVuSans, DejaVuSans-Bold and DejaVuSansMono, all `emb yes sub no` —
+# the complete unsubsetted font programs, inside a tracked file, in a repository that is
+# otherwise public domain. That made the project a redistributor of font software under the
+# Bitstream Vera terms, whose grant is conditioned on the notice travelling with any copy.
+# roae.py's export_html no longer shells out to wkhtmltopdf, so nothing produces a PDF to
+# compare. The leg's ARGUMENT was sound and is recorded because it is the argument any
+# replacement would have to reproduce: wkhtmltopdf(report.html) was the ONLY route by which
+# report.pdf was produced, inside ONE `--html` invocation, so "the PDF's text equals the
+# shipped HTML's text" was exactly the derivation invariant — deterministic, costing no
+# regeneration, and strict about DIGITS where legs 1-4 cannot be. (Regenerating a PDF and
+# diffing it would instead have compared two renderings whose page breaks move whenever a
+# Monte Carlo figure changes width — a gate that fails for reasons nobody can act on.)
+# MEASURED at the time it shipped: on the artifacts as committed the two bags differed by
+# exactly ZERO lines once <title>/<style>/<script> were stripped.
+#
+# 🔴 THE COST OF LEG 5's RETIREMENT, AND ITS CLOSE — BOTH ON THE SAME DAY, AND THE COST IS
+# LEFT WRITTEN because a hole that was real for a few hours is not made unreal by having been
+# closed. LEG 5 was the ONLY check that compared example/report.html digit-for-digit; when it
+# went, report.html became digit-blind like report.txt and report.md and a hand-edited NUMBER
+# in it was caught by nothing — the dbba77d class, uncovered again, and MEASURED as such
+# (`8x8 = 64` -> `65`, `doc_gates.sh generated` rc 0, PASS). The close is the one this note
+# named as an operator decision: example/ was regenerated and reshipped under
+# `--seed $ROAE_EXAMPLE_SEED` that afternoon, and legs 1-4 are byte-exact against a
+# same-seed regeneration. The coverage came back through the PRIMARY comparison rather than
+# through a second artifact of the same invocation, which needs no PDF, no second renderer,
+# and no embedded font programs on the machine running the gate. Digit coverage across the
+# four report artifacts is now ALL FOUR, each against its own generator.
 #
 # Cost: three roae.py runs (~45 s each, measured 2026-08-02 at 31 MB peak RSS), so this
 # is NOT part of `all`. Run it before publishing. See DOC_GATES_GEN_CACHE below for how
@@ -7170,17 +7322,29 @@ fi
 # can run several mutation cases for one regeneration; it is opt-in precisely because a
 # silently-reused stale cache would be a false clear, and it self-invalidates on the only
 # input that can change the answer — roae.py's own sha256.
+# THE SEED example/ IS SHIPPED UNDER (2026-09-04). It is declared ONCE, here, and every
+# regeneration below passes it, because a gate that regenerated under a different seed than
+# the artifacts were published under would be red on a correct tree — the exact failure mode
+# ("a gate that goes red at random on correct artifacts is a gate that gets switched off")
+# this file already records for the digit-stripping. The value is the ISO date of the
+# regeneration pass, chosen and written down BEFORE the first seeded run so it cannot have
+# been picked for the figures it produces; it is published in documentation/ROAE_PY_CLI.md
+# and printed INTO the report artifacts by roae.py's _seed_note(), so a reader holding
+# example/report.md can read the seed off the file itself.
+ROAE_EXAMPLE_SEED=20260904
+
 gate_generated() {
-  echo "== GATE 8: generated artifacts match their generator =="
+  echo "== GATE 8: generated artifacts match their generator (seed $ROAE_EXAMPLE_SEED) =="
   # Compare LIKE FOR LIKE. The first draft diffed every artifact against `--all`
   # stdout, so the markdown files failed on their own headers -- a gate that
   # flags correct files gets switched off, which is the mistake ops_gates GATE 4
   # made the same day. Each artifact is now compared against the invocation that
   # actually produces it.
   #
-  # Digit-stripped: roae.py seeds nothing by default, so Monte Carlo figures
-  # legitimately change every run. Stripping digits compares PROSE and structure,
-  # which is where hand-edits live. Numeric drift is gate 1's business.
+  # BYTE-EXACT since 2026-09-04. This read "Digit-stripped: roae.py seeds nothing by default,
+  # so Monte Carlo figures legitimately change every run" — true until example/ was reshipped
+  # under `--seed $ROAE_EXAMPLE_SEED` and this gate started regenerating under the same seed.
+  # Digit-stripping survives only as the failure classifier inside `_cmp`.
   local tmp rc=0 owned=0 cur_sha
   # ITEM A1 (tool half). This was a [skip], and roae.py IS python3 — without it the gate
   # regenerates nothing and compares nothing, while `generated` still exits 0. GATES 3b and 5
@@ -7192,6 +7356,12 @@ gate_generated() {
     echo "         and nothing was compared. This is not a skip."
     return 1; }
   cur_sha=$(sha256sum roae.py 2>/dev/null | cut -d' ' -f1)
+  # THE CACHE KEY CARRIES THE SEED AS WELL AS THE GENERATOR (2026-09-04). Before example/ was
+  # seeded the only input that could change the reference was roae.py itself. It is not any
+  # more: the same roae.py under a different --seed produces a DIFFERENT correct reference, so
+  # a key on the sha alone would let a cache built at one seed clear a comparison at another —
+  # a false clear of exactly the kind the sha key was introduced to prevent.
+  local gen_key="${cur_sha}:seed=${ROAE_EXAMPLE_SEED}"
 
   if [ -n "${DOC_GATES_GEN_CACHE:-}" ]; then
     tmp="$DOC_GATES_GEN_CACHE"; mkdir -p "$tmp" || return 1
@@ -7204,8 +7374,8 @@ gate_generated() {
   # suite exists to stop — so the key is the generator's own sha256, the only input that
   # can change what the reference should be.
   if [ -s "$tmp/fresh.txt" ] && [ -s "$tmp/report.md" ] && [ -s "$tmp/report.html" ] \
-     && [ -n "$cur_sha" ] && [ "$(cat "$tmp/.roae_sha" 2>/dev/null)" = "$cur_sha" ]; then
-    echo "  reusing regeneration cache $tmp (roae.py sha256 $(printf '%.12s' "$cur_sha")… unchanged)"
+     && [ -n "$cur_sha" ] && [ "$(cat "$tmp/.roae_sha" 2>/dev/null)" = "$gen_key" ]; then
+    echo "  reusing regeneration cache $tmp (roae.py sha256 $(printf '%.12s' "$cur_sha")… and seed $ROAE_EXAMPLE_SEED unchanged)"
   else
     # `--markdown` and `--html` are run WITHOUT `--all` and from inside $tmp, because that
     # is what the generator actually does: roae.py's main() short-circuits on args.markdown
@@ -7214,9 +7384,9 @@ gate_generated() {
     # example/ once already; the gate should not model it. (Function names, not line
     # numbers, on purpose — a recorded line number is the thing that drifts, cf. the
     # GATE 5 allowlist.)
-    echo "  regenerating (3 runs, ~45s each, unseeded): --all to stdout, then --markdown and --html into a temp dir"
+    echo "  regenerating (3 runs, ~45s each, --seed $ROAE_EXAMPLE_SEED): --all to stdout, then --markdown and --html into a temp dir"
     rm -f "$tmp/.roae_sha"
-    if ! timeout 300 python3 roae.py --all > "$tmp/fresh.txt" 2>/dev/null; then
+    if ! timeout 300 python3 roae.py --all --seed "$ROAE_EXAMPLE_SEED" > "$tmp/fresh.txt" 2>/dev/null; then
       echo "  [FAIL] the generator itself did not run cleanly"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
     # Codex v2 / fail-open class: these two runs had their exit status DISCARDED,
@@ -7224,21 +7394,80 @@ gate_generated() {
     # report.md, and the "[skip] --markdown produced no report.md" arm below
     # returned 0 -- so a dead generator produced a PASS. Measured by stubbing
     # python3 to exit 1. Check both.
-    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown >/dev/null 2>&1 ); then
+    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); then
       echo "  [FAIL] the generator did not run cleanly for --markdown"
       [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
-    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --html >/dev/null 2>&1 ); then
+    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --html --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); then
       echo "  [FAIL] the generator did not run cleanly for --html"
       [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
-    [ -n "$cur_sha" ] && printf '%s\n' "$cur_sha" > "$tmp/.roae_sha"
+    [ -n "$cur_sha" ] && printf '%s\n' "$gen_key" > "$tmp/.roae_sha"
   fi
   # A missing artifact is NOT a skip. The generator was just run and checked, so an
   # absent report.md means the gate cannot see its target -- which must be an error,
   # never a pass. This arm returned 0 and was the second half of the same fail-open.
   [ -f "$tmp/report.md" ] || { echo "  [FAIL] --markdown produced no report.md — cannot compare what was not generated"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1; }
 
+  # ITEM A2 (2026-08-02) — THE TWO QUESTIONS, ANSWERED BY RUNNING THE NORMALISER.
+  # REWRITTEN 2026-09-04: the normaliser no longer decides any verdict, so Q1/Q2 are now
+  # questions about a DIAGNOSTIC, and the answers that mattered are recorded as history
+  # rather than as live caveats. What they were is kept, because the round-4 defect they
+  # document is a live hazard for anyone who reaches for digit-stripping again.
+  #
+  # Q1. WHAT LEGITIMATE VARIATION DID IT ERASE? Every numeric difference, by design. roae.py
+  #     seeded nothing by default (`_global_seed`, roae.py:22 — a `--seed` flag existed but
+  #     the shipped artifacts were not produced with it), so Monte Carlo figures differed
+  #     every run and a byte comparison would have failed always. THAT IS NO LONGER TRUE OF
+  #     THIS GATE: example/ ships under `--seed $ROAE_EXAMPLE_SEED` and the regeneration above
+  #     passes the same seed, so there is no legitimate numeric variation left to tolerate.
+  #
+  # Q2. WHAT ILLEGITIMATE VARIATION DID IT LET THROUGH? A HAND-EDITED NUMBER, and it was
+  #     MEASURED twice, a month apart, on two different files:
+  #       2026-08-02, example/report.txt: `111111` -> `911111`, rc 0, and the gate printed
+  #         "[ok] example/report.txt matches roae.py --all exactly (digit-stripped, ...)"
+  #       2026-09-04, example/report.html: `8x8 = 64` -> `65`, `doc_gates.sh generated` rc 0,
+  #         PASS — taken AFTER LEG 5's retirement removed the only digit check on that file.
+  #     GATE 1 covered neither: it iterates $DOCS = `git ls-files '*.md'`, and neither
+  #     report.txt nor report.html is markdown. BOTH ARE NOW CAUGHT by the byte-exact
+  #     comparison, and the second is CASE 6 in the self-test harness — the same mutation,
+  #     wired in, so it cannot silently stop being caught.
+  #
+  # AN ATTEMPTED FIX THAT FAILED, recorded so it is not rebuilt — and it is worth MORE now
+  # than when it was written, because it is the route somebody would try if the seed were
+  # ever removed. Sample the generator TWICE and treat a line identical in both samples as
+  # deterministic, requiring the artifact to match those lines with digits intact. IT
+  # PRODUCES FALSE FAILS ON CORRECT ARTIFACTS. Measured: `Min pair-constrained observed:`
+  # (roae.py:1355, `min(pair_totals)` over `random.random()` draws) read 192 in two
+  # consecutive runs and 189 in the shipped artifact; three further samples gave 193, 190,
+  # 192. A min over a narrow discrete range repeats often, so two agreeing samples are not
+  # evidence of determinism, and no number of samples turns that into a sound inference. The
+  # leg was written, run against the CORRECT artifacts, seen to fire, and reverted. It is only
+  # because the negative control ran that this was caught before shipping. THE SEED IS THE
+  # SOUND VERSION OF THE SAME IDEA: it does not INFER determinism, it IMPOSES it.
+  #
+  # WHAT CLOSED Q2 FOR EVERY LEG (2026-09-04) is the operator decision this note asked for:
+  # ship example/ generated with `--seed`. It was taken, example/ was regenerated under
+  # `--seed $ROAE_EXAMPLE_SEED`, and legs 1-4 are byte-exact. PROVEN BEFORE SWITCHING IT ON,
+  # by running rather than by reasoning: two independent same-seed generations into scratch
+  # directories were `cmp`-clean on all ELEVEN tracked example/ artifacts; a third generation
+  # at a DIFFERENT seed differed on all FOUR report artifacts (and on none of the other
+  # seven, which are closed-form) — the negative control without which byte-exactness could
+  # have been an artefact of the seed never reaching the randomness at all.
+  #
+  # WHAT REMAINS UNCOVERED, kept in the place that used to list a longer set: an identical
+  # hand-edit applied to BOTH example/report.md and example/README.md was invisible to leg 6,
+  # which compares them only to each other. It is NOT invisible to legs 2 and 3, which now
+  # compare each of them byte-exact against the generator, so that hole — named here since
+  # 2026-08-02 — is closed too. What is left is the ordinary limit of every regeneration gate:
+  # a defect introduced into roae.py ITSELF and then propagated into the artifacts is
+  # consistent by construction and this gate cannot see it.
+  #
+  # THE DIGIT-STRIPPED NORMALISER IS RETAINED as a failure classifier only. `0 added,
+  # 0 missing` after a byte mismatch means the prose is identical and only digits moved (a
+  # hand-edit, or a regeneration under the wrong seed); non-zero counts mean the generator
+  # changed. The GROUP-SEPARATOR fix below is load-bearing for that classifier and stays.
+  #
   # THE GROUP SEPARATOR IS PART OF THE NUMBER (fixed 2026-08-02, round 4).
   # The first version stripped [0-9] and nothing else, so roae.py's `f"{ratio:,}"`
   # (roae.py:1400) left a bare comma behind whenever a Monte Carlo figure landed at
@@ -7247,62 +7476,10 @@ gate_generated() {
   #               -> "Approximately in random orderings share this property."
   #     generator "Approximately 1 in 1,046 random orderings share this property."
   #               -> "Approximately in , random orderings share this property."
-  # That is a FALSE FAIL — it fired in anger on `doc_gates.sh generated` this round and
-  # is the exact pair of lines the gate printed as +added/-missing. A gate that goes red
-  # at random on correct artifacts is a gate that gets switched off, which is the same
-  # failure mode the digit-stripping was introduced to avoid; it was simply not carried
-  # through to the separator. Digit-adjacent commas are collapsed FIRST (the /g scan
-  # handles multi-group values: 1,234,567 -> 1234567), then digits are stripped. Commas
-  # that are not between two digits — ordinary prose punctuation — are untouched, so no
-  # sensitivity to hand-edited prose is given up.
-  # ITEM A2 (2026-08-02) — THE TWO QUESTIONS, ANSWERED BY RUNNING THE NORMALISER.
-  #
-  # Q1. WHAT LEGITIMATE VARIATION DOES THIS ERASE? Every numeric difference, by design.
-  #     roae.py seeds nothing by default (`_global_seed`, roae.py:22 — a `--seed` flag
-  #     exists but the shipped artifacts were not produced with it), so Monte Carlo figures
-  #     differ every run and a byte comparison would fail always.
-  #
-  # Q2. WHAT ILLEGITIMATE VARIATION DOES IT LET THROUGH? A HAND-EDITED NUMBER. MEASURED,
-  #     with a clean tree: corrupting `111111` to `911111` in example/report.txt and running
-  #     `doc_gates.sh generated` gives rc 0 and prints
-  #       "[ok] example/report.txt matches roae.py --all exactly (digit-stripped, both directions)"
-  #     GATE 1 does not cover it either — GATE 1 iterates $DOCS = `git ls-files '*.md'`, and
-  #     report.txt is not markdown. So for a corrupted digit in report.txt there is currently
-  #     NO gate at all, and this one says "exactly" while missing it. That word is doing more
-  #     work than the comparison behind it.
-  #
-  # AN ATTEMPTED FIX THAT FAILED, recorded so it is not rebuilt. Sample the generator TWICE
-  # and treat a line identical in both samples as deterministic, requiring the artifact to
-  # match those lines with digits intact. IT PRODUCES FALSE FAILS ON CORRECT ARTIFACTS, which
-  # is round 4's `9084589` defect reached by a different route. Measured: `Min pair-constrained
-  # observed:` (roae.py:1355, `min(pair_totals)` over `random.random()` draws) read 192 in two
-  # consecutive runs and 189 in the shipped artifact; three further samples gave 193, 190, 192.
-  # A min over a narrow discrete range repeats often, so two agreeing samples are not evidence
-  # of determinism, and no number of samples turns that into a sound inference. The leg was
-  # written, run against the CORRECT artifacts, seen to fire, and reverted. It is only because
-  # the negative control ran that this was caught before shipping.
-  #
-  # WHAT WOULD ACTUALLY CLOSE Q2 FOR EVERY LEG is not a normalisation change: ship example/
-  # generated with `--seed`, after which the comparison can be byte-exact and the whole
-  # question disappears. That changes published artifacts, so it is an operator decision,
-  # not a gate edit.
-  #
-  # WHAT WAS CLOSED WITHOUT IT (item A2 residual, 2026-08-02) — legs 5 and 6 below. The
-  # reason legs 1-4 must strip digits is that they compare a shipped artifact against a
-  # FRESH generator run. Two of the shipped artifacts are not in that relationship with
-  # anything: report.pdf is rendered from report.html inside ONE `--html` invocation, and
-  # README.md is a `cp` of report.md. Those two pairs agree digit-for-digit by
-  # construction, so they are now compared with digits INTACT — leg 5 by multiset, leg 6
-  # byte-exact. A hand-edited digit in report.html, report.pdf or README.md now fires;
-  # before 2026-08-02 none of them did, and example/report.html had already been
-  # hand-patched once (dbba77d, caught by the operator, not by a gate).
-  #
-  # THE HOLE THAT REMAINS, stated so the two new legs are not read as closing it:
-  # example/report.txt is the output of a SEPARATE `--all` run and has no shipped partner,
-  # so its digits are still compared by nothing — the measurement under Q2 above stands
-  # exactly as written. The same is true of a hand-edit applied identically to BOTH
-  # report.md and README.md. Digit coverage after this change is 4 artifacts of 5, and one
-  # of those 4 (report.md) is covered only against its own copy.
+  # That was a FALSE FAIL and it fired in anger on `doc_gates.sh generated`. Digit-adjacent
+  # commas are collapsed FIRST (the /g scan handles multi-group values: 1,234,567 -> 1234567),
+  # then digits are stripped. Commas that are not between two digits — ordinary prose
+  # punctuation — are untouched, so no sensitivity to hand-edited prose is given up.
   _norm() { sed -E 's/([0-9]),([0-9])/\1\2/g; s/[0-9]//g; s/[[:space:]]+/ /g' "$1" | grep -v '^ *$' | sort; }
   # BOTH DIRECTIONS. The first version compared one way only (`comm -13`: lines the
   # ARTIFACT has that the generator does not), so a pure DELETION from a shipped
@@ -7313,41 +7490,75 @@ gate_generated() {
   # A MISSING shipped artifact is a FAILURE, not a skip (2026-08-02). Every leg below used
   # to `[skip]` on `! -f`, so `rm example/report.pdf` passed the gate in silence — the same
   # false-clear shape as the one-directional comparison, and reached the same way: by asking
-  # what the gate does when its input is not there. Absence is only a skip for an artifact
-  # git does not track; for a tracked one it is the strongest possible mismatch.
+  # what the gate does when its input is not there. (That artifact was itself removed on
+  # 2026-09-04, and the rule is unchanged: it is `require_tracked`, keyed on what git tracks,
+  # so it applies to whatever the legs below name TODAY. The sentence names report.pdf
+  # because that is the file the defect was found on, not because the rule is about it.)
+  # Absence is only a skip for an artifact git does not track; for a tracked one it is the
+  # strongest possible mismatch.
   # Hoisted to the top of the file as `require_tracked` (item A1, 2026-08-02) once the same
   # shape was found in GATES 2, 3, 3b, 6, 10a, 10b and 11. One implementation, so a future
   # correction to the rule cannot land in six places and miss the seventh.
   _present() {   # <path>
     require_tracked "$1" "A shipped artifact that is absent is not a passing artifact — regenerate it."
   }
+  # BYTE-EXACT SINCE 2026-09-04, AND THAT IS THE WHOLE POINT OF SEEDING example/.
+  # Legs 1-4 stripped digits for as long as example/ was an UNSEEDED draw: roae.py re-sampled
+  # its Monte Carlo figures every run, so a byte comparison would have been red on a correct
+  # tree every time and the gate would have been switched off within a day. example/ is now
+  # generated under --seed $ROAE_EXAMPLE_SEED, the regeneration above passes the same seed,
+  # and the two are therefore equal BYTE FOR BYTE on a correct tree -- measured, not assumed,
+  # before this was switched on (two independent seeded runs into scratch directories,
+  # `cmp` clean on all eleven tracked example/ artifacts; a third run at a DIFFERENT seed
+  # differed on all four report artifacts, which is what says the seed reaches the randomness
+  # rather than the outputs merely being constant).
+  #
+  # WHAT THIS CLOSES, named because it is the defect the gate was built for: a hand-edited
+  # NUMBER in example/report.txt, report.md, README.md or report.html. Until this change that
+  # was caught by NOTHING for report.txt and report.html (measured on the live tree the same
+  # day: `8x8 = 64` -> `65` in example/report.html left `doc_gates.sh generated` at rc 0,
+  # PASS), and by leg 6 alone for the README/report.md pair. That is the dbba77d class, and it
+  # is now caught four times over by the primary comparison itself.
+  #
+  # THE DIGIT-STRIPPED COMPARISON IS KEPT, DEMOTED TO A DIAGNOSTIC. It no longer decides the
+  # verdict, but it is what tells a maintainer WHICH failure they have: `0 added, 0 missing`
+  # after a byte mismatch means the prose is identical and only digits moved -- a hand-edited
+  # number, or a regeneration under the wrong seed -- while non-zero counts mean the generator
+  # itself changed. Deleting it would have thrown away the only cheap classifier this gate has.
   _cmp() {   # <artifact> <reference> <label>
     _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
+    if cmp -s "$1" "$2"; then
+      echo "  [ok]   $1 is BYTE-IDENTICAL to a fresh $3 --seed $ROAE_EXAMPLE_SEED (digits included)"
+      return 0
+    fi
     local extra missing
     extra=$(comm -13 <(_norm "$2") <(_norm "$1") | wc -l)
     missing=$(comm -23 <(_norm "$2") <(_norm "$1") | wc -l)
+    echo "  [FAIL] $1 differs BYTE-FOR-BYTE from a fresh $3 --seed $ROAE_EXAMPLE_SEED -- hand-edited?"
+    echo "         $1 digit-stripped: $extra added, $missing missing"
     if [ "$extra" -eq 0 ] && [ "$missing" -eq 0 ]; then
-      # NOT "matches exactly" (item A2, 2026-08-02). It said that for years while ignoring
-      # every digit in both files, so a corrupted number was reported as an exact match. The
-      # verdict now states its own scope: this comparison is silent about numbers.
-      echo "  [ok]   $1 agrees with $3 on every NON-NUMERIC line (both directions; digits not compared)"
+      echo "         The prose agrees in BOTH directions, so the difference is NUMERIC ONLY:"
+      echo "         a hand-edited number, or a regeneration under a seed other than"
+      echo "         $ROAE_EXAMPLE_SEED. Digits were not compared here before 2026-09-04."
     else
-      echo "  [FAIL] $1 vs $3: $extra added, $missing missing (normalised lines) -- hand-edited?"
       comm -13 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           +added   > /'
       comm -23 <(_norm "$2") <(_norm "$1") | head -3 | sed 's/^/           -missing > /'
-      echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact."
-      echo "         CAUTION (recipe corrected 2026-08-01): only --all writes to stdout."
-      echo "         --markdown and --html OPEN THEIR OWN FILES in the cwd (roae.py's"
-      echo "         export_markdown / export_html) and print only a status line, so"
-      echo "         'roae.py --markdown > f' writes 'Markdown report written to"
-      echo "         report.md' INTO f and leaves the real report at the repo root."
-      echo "         Run them from example/ instead:"
-      echo "           python3 roae.py --all > example/report.txt"
-      echo "           ( cd example && python3 ../roae.py --markdown )   # writes example/report.md"
-      echo "           cp example/report.md example/README.md"
-      echo "           ( cd example && python3 ../roae.py --html )       # writes report.html + report.pdf"
-      return 1
     fi
+    diff "$2" "$1" | head -6 | sed 's/^/           /'
+    echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact."
+    echo "         CAUTION (recipe corrected 2026-08-01): only --all writes to stdout."
+    echo "         --markdown and --html OPEN THEIR OWN FILES in the cwd (roae.py's"
+    echo "         export_markdown / export_html) and print only a status line, so"
+    echo "         'roae.py --markdown > f' writes 'Markdown report written to"
+    echo "         report.md' INTO f and leaves the real report at the repo root."
+    echo "         Run them from example/ instead, AND PASS THE SEED -- an unseeded"
+    echo "         regeneration will differ from the shipped artifacts on every"
+    echo "         Monte Carlo figure and this gate will stay red:"
+    echo "           python3 roae.py --all --seed $ROAE_EXAMPLE_SEED > example/report.txt"
+    echo "           ( cd example && python3 ../roae.py --markdown --seed $ROAE_EXAMPLE_SEED )"
+    echo "           cp example/report.md example/README.md"
+    echo "           ( cd example && python3 ../roae.py --html --seed $ROAE_EXAMPLE_SEED )"
+    return 1
   }
   _cmp example/report.txt  "$tmp/fresh.txt"   "roae.py --all"      || rc=1
   _cmp example/report.md   "$tmp/report.md"   "roae.py --markdown" || rc=1
@@ -7366,121 +7577,68 @@ gate_generated() {
     rc=1
   fi
 
-  # LEG 5 — example/report.pdf is the wkhtmltopdf rendering of example/report.html.
-  # No regeneration: see the header. Multiset (not sorted-diff) comparison, because
-  # pdftotext reflows page-by-page and the ORDER of identical lines carries no
-  # information here; what a hand-edit changes is WHICH lines exist.
+  # LEG 5 — RETIRED 2026-09-04, WITH example/report.pdf ITSELF.
   #
-  # DIGITS ARE COMPARED HERE, and legs 5 and 6 are the ONLY legs in this gate that compare
-  # them (item A2, 2026-08-02). Legs 1-4 compare a shipped artifact against a FRESH
-  # generator run, and roae.py seeds nothing by default, so their Monte Carlo figures
-  # legitimately differ and every digit must be stripped. Legs 5 and 6 compare two SHIPPED
-  # artifacts that come out of ONE generator invocation — `roae.py --html` writes
-  # report.html and then renders report.pdf from it — so their digits agree BY CONSTRUCTION
-  # and a difference is a hand-edit. That asymmetry is the whole reason these two legs can
-  # be strict where the others cannot.
+  # It compared example/report.pdf against example/report.html as MULTISETS of lines with
+  # DIGITS INTACT, extracting the PDF's text with `pdftotext -layout` and the HTML's by
+  # tag-stripping. It could be strict about digits — the only leg of this gate that was,
+  # for report.html — because the two artifacts came out of ONE `roae.py --html`
+  # invocation (export_html wrote the HTML and then shelled out to wkhtmltopdf to render
+  # the PDF from it), so they agreed digit-for-digit BY CONSTRUCTION and any difference
+  # was a hand-edit.
   #
-  # MEASURED BEFORE SWITCHING IT ON, on the shipped pair (2026-08-02):
-  #   digits stripped : 0 pdf-only, 0 html-only, 1424 normalised lines
-  #   digits INTACT   : 0 pdf-only, 0 html-only, 1428 normalised lines
-  # Not reasoned — run. The 4-line difference in the totals is lines made up ENTIRELY of
-  # digits, which the digit-stripped bag drops as empty: those four lines were previously
-  # not compared at all, in either direction.
+  # WHY THE ARTIFACT WENT. wkhtmltopdf embeds the font programs it renders with. `pdffonts`
+  # on the shipped example/report.pdf reported DejaVuSans, DejaVuSans-Bold and
+  # DejaVuSansMono, every one `emb yes sub no` — the complete unsubsetted programs, not
+  # subsets. A tracked file containing them makes this repository a redistributor of font
+  # software under the Bitstream Vera terms, whose grant is conditioned on the notice
+  # travelling with any copy, and that was the ONLY third-party obligation an otherwise
+  # public-domain (Unlicense) project carried. Measured and rejected before the removal:
+  # Symbola is licence-free and covers all 64 hexagram glyphs but is not monospaced (135
+  # distinct advance widths in its first 399 glyphs) against 28 column-aligned <pre> blocks
+  # totalling ~1,400 lines; naming Courier or generic `monospace` does not avoid embedding,
+  # because wkhtmltopdf resolves through fontconfig and embedded DejaVuSansMono anyway
+  # (tested); and no obligation-free monospace face exists on the reference host. So the
+  # PDF was dropped rather than re-rendered, and roae.py's export_html no longer invokes
+  # any PDF backend.
   #
-  # THE FALSE-FAIL RISK, and why it is not the round-4 `9084589` shape. pdftotext -layout
-  # decides line breaks from rendered text width, so in principle a longer number could
-  # reflow a line and produce a difference that is not a hand-edit. If that happens the
-  # PROSE moves across lines too, so the digit-STRIPPED comparison disagrees as well —
-  # which is why a failure here recomputes the stripped bags and says which of the two
-  # cases it is. A digits-only disagreement cannot be a reflow.
-  _cmp_pdf() {   # <pdf> <html>
-    _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
-    _present "$2"; case $? in 1) return 0;; 2) return 1;; esac
-    command -v pdftotext >/dev/null 2>&1 || { echo "  [skip] no pdftotext — $1 not checked"; return 0; }
-    python3 - "$1" "$2" <<'PY'
-import collections, html, re, subprocess, sys, tempfile, os
-pdf, htm = sys.argv[1], sys.argv[2]
-with tempfile.TemporaryDirectory() as d:
-    txt = os.path.join(d, 'p.txt')
-    _pt = subprocess.run(['pdftotext', '-layout', pdf, txt], capture_output=True)
-    if _pt.returncode != 0:
-        # Codex N10: this was `sys.exit(0)` -- a SKIP -- so replacing the shipped PDF with
-        # unreadable garbage PASSED the gate that decides whether we may publish.
-        # The distinction the old code missed: tool ABSENCE is environmental and is still a
-        # skip (checked above with `command -v pdftotext`); a tool that RUNS and cannot read
-        # the file is REPOSITORY STATE and is a failure. Codex made exactly that separation
-        # elsewhere in N10 and it is the right one.
-        # Demonstrated 2026-08-27: 4 KB of /dev/urandom in place of example/report.pdf gives
-        # returncode=1 here, and the gate passed.
-        print(f"  [FAIL] pdftotext could not read {pdf} -- the shipped PDF is unreadable")
-        _err = _pt.stderr.decode('utf-8', 'replace').strip().replace(chr(10), ' ')
-        print(f"         pdftotext: {_err[:200]}")
-        sys.exit(1)
-    pdftext = open(txt, encoding='utf-8', errors='replace').read()
-h = open(htm, encoding='utf-8', errors='replace').read()
-for tag in ('style', 'script', 'title'):     # <title> duplicates the <h1>; not body text
-    h = re.sub(r'(?s)<%s\b.*?</%s>' % (tag, tag), '', h)
-# `</?[A-Za-z!]` and NOT `<[^>]+>`: roae.py emits unescaped "<->" inside <pre>, and the
-# permissive pattern eats it — which silently made 69 lines look mismatched while the
-# artifacts were in fact identical (measured 2026-08-02 while designing this leg).
-h = html.unescape(re.sub(r'</?[A-Za-z!][^>]*>', '', h))
-def bag(t, keep_digits):
-    c = collections.Counter()
-    for ln in t.splitlines():
-        # Group separators are collapsed in BOTH modes, so "1,046" and "1046" are the same
-        # number to this leg. wkhtmltopdf does not reformat numbers, but pdftotext -layout
-        # can pad with spaces, and the separator rule is the one _norm above already uses —
-        # keeping the contract single rather than double is deliberate (round 4's false FAIL
-        # came from two legs disagreeing about what "the same line" means).
-        ln = re.sub(r'(?<=[0-9]),(?=[0-9])', '', ln)
-        if not keep_digits:
-            ln = re.sub(r'[0-9]', '', ln)
-        ln = re.sub(r'\s+', ' ', ln).strip()
-        if ln: c[ln] += 1
-    return c
-P, H = bag(pdftext, True), bag(h, True)
-only_p, only_h = P - H, H - P
-if not only_p and not only_h:
-    print(f"  [ok]   {pdf} is the rendering of {htm} "
-          f"({sum(H.values())} normalised lines, both directions, DIGITS INCLUDED)")
-    sys.exit(0)
-# Which kind of difference is it? Recomputed, not guessed: if the digit-stripped bags
-# agree, every differing line differs ONLY in its numbers, and a pdftotext reflow cannot
-# produce that (a reflow moves prose too). Saying which case it is costs one more pass
-# over data already in memory, and is the difference between "regenerate" and "someone
-# edited a number".
-sp, sh = bag(pdftext, False), bag(h, False)
-if not (sp - sh) and not (sh - sp):
-    print(f"  [FAIL] {pdf} vs {htm}: the PROSE agrees and the NUMBERS do not — "
-          f"{sum(only_p.values())} line(s) only in the PDF, {sum(only_h.values())} only in the HTML")
-    print("         A digits-only difference between these two cannot come from PDF reflow.")
-else:
-    print(f"  [FAIL] {pdf} vs {htm}: {sum(only_p.values())} line(s) only in the PDF, "
-          f"{sum(only_h.values())} only in the HTML")
-for x, n in list(only_p.items())[:3]: print(f"           +pdf-only  ({n}) > {x[:100]}")
-for x, n in list(only_h.items())[:3]: print(f"           -html-only ({n}) > {x[:100]}")
-print("         The PDF's ONLY production route is wkhtmltopdf(report.html) via roae.py's")
-print("         export_html, so a difference means one of the two was edited by hand.")
-print("         Fix roae.py, then: ( cd example && python3 ../roae.py --html )")
-sys.exit(1)
-PY
-  }
-  _cmp_pdf example/report.pdf example/report.html || rc=1
+  # 🔴 WHAT THIS LEG'S ABSENCE MEANT FOR THIS GATE'S VERDICT, kept in the past tense with the
+  # hole it names, because a gap that was real for part of a day is not made unreal by being
+  # closed later the same day: for a few hours example/report.html was compared by leg 4 ONLY,
+  # which stripped digits, so a hand-edited NUMBER in it was caught by nothing. That is the
+  # dbba77d class — the defect this leg was built for — and it was open again, MEASURED as
+  # such (`8x8 = 64` -> `65`, rc 0, PASS). Its fire-proof (self-test CASE 6) was retired with
+  # it, and the retirement was written at both sites rather than at one.
+  #
+  # WHAT CLOSED IT, the same afternoon and exactly as Q2 above predicted: example/ was
+  # regenerated and reshipped under `--seed $ROAE_EXAMPLE_SEED`, legs 1-4 became byte-exact,
+  # and no same-invocation partner is needed at all. CASE 6 is REINSTATED on the same
+  # mutation, now asserting leg 4's byte-exact verdict instead of this leg's multiset one.
+  # Rendering a PDF at gate time and comparing THAT would not have closed it — it
+  # reintroduces the embedded font programs into the machine that runs the gate for no
+  # coverage the seed does not give more cheaply, and it is the two-renderings comparison the
+  # header rejects. The seed was the cheaper close and it is the one that was taken.
+  #
+  # THE NUMBER 5 IS LEFT UNUSED. Legs 6 and 7 keep their names; see the ITEM A1 note at the
+  # head of this file for why a gap beats a renumbering.
 
   # LEG 6 — example/README.md is a COPY of example/report.md (item A2, 2026-08-02).
   #
-  # Legs 2 and 3 compare each of them, separately and digit-stripped, against a fresh
-  # `--markdown` run. Neither compares them TO EACH OTHER, so until now the two shipped
-  # files could disagree on every number in the corpus and this gate said [ok] twice.
-  # The production route is a copy — the gate's own remediation text says
-  # `cp example/report.md example/README.md` — so the pair can be compared BYTE-EXACT,
-  # which is stronger than anything legs 1-4 can do. MEASURED before switching it on:
-  # `cmp example/report.md example/README.md` is byte-identical on the shipped tree.
+  # Legs 2 and 3 compare each of them, separately, against a fresh `--markdown` run —
+  # digit-stripped when this leg landed, byte-exact since 2026-09-04. Neither compares them TO
+  # EACH OTHER, so before this leg the two shipped files could disagree on every number in the
+  # corpus and this gate said [ok] twice. The production route is a copy — the gate's own
+  # remediation text says `cp example/report.md example/README.md` — so the pair can be
+  # compared BYTE-EXACT. MEASURED before switching it on: `cmp example/report.md
+  # example/README.md` is byte-identical on the shipped tree.
   #
-  # WHAT THIS STILL CANNOT SEE: an identical hand-edit applied to BOTH files. That is a
-  # real hole and it is not closable from here — it would have to be caught by legs 2 and
-  # 3, which are digit-blind. So a hand-edited number surviving in both copies is caught
-  # by nothing.
+  # WHAT THIS LEG STILL CANNOT SEE, AND WHY THAT NO LONGER LEAVES A HOLE: an identical
+  # hand-edit applied to BOTH files is invisible HERE, because this leg only asks whether the
+  # two agree with each other. Until 2026-09-04 that was a real uncovered hole, since the only
+  # other legs looking at these files were digit-blind. It is not one now: legs 2 and 3
+  # compare each file byte-exact against the generator, so an edit present in both fires
+  # twice over there. This leg's remaining value is that it names the DEFECT precisely — the
+  # copy diverged from its original — rather than reporting two independent mismatches.
   _cmp_copy() {   # <copy> <original>
     _present "$1"; case $? in 1) return 0;; 2) return 1;; esac
     _present "$2"; case $? in 1) return 0;; 2) return 1;; esac
@@ -7491,7 +7649,7 @@ PY
     echo "  [FAIL] $1 is not byte-identical to $2, but its only production route is a copy"
     diff "$2" "$1" | head -6 | sed 's/^/           /'
     echo "         Regenerate the original and re-copy; never edit either one by hand:"
-    echo "           ( cd example && python3 ../roae.py --markdown )"
+    echo "           ( cd example && python3 ../roae.py --markdown --seed $ROAE_EXAMPLE_SEED )"
     echo "           cp example/report.md example/README.md"
     return 1
   }
@@ -7507,19 +7665,25 @@ PY
   # hole in its own PASS message and shipped anyway. MEASURED 2026-09-02 in a scratch clone:
   # `sed -i '4s/$/,XCORRUPTX/' example/hexagrams.csv && git add` then the hook -> rc=0.
   #
-  # WHY BYTE-EXACT AND NOT DIGIT-STRIPPED. Legs 1-4 strip digits because roae.py seeds
+  # WHY BYTE-EXACT AND NOT DIGIT-STRIPPED. (Written 2026-09-02, when this was the ONLY
+  # byte-exact comparison in the gate. Legs 1-4 joined it on 2026-09-04 once example/ was
+  # reshipped under a seed; the argument below is what they then reproduced for the reports.)
+  # Legs 1-4 stripped digits because roae.py seeded
   # nothing and its Monte Carlo figures move every run. These seven carry NO Monte Carlo
   # output at all — they are pure functions of the 64-hexagram table (export_csv,
   # export_json, export_svg, print_graphviz, export_midi). MEASURED before switching this
   # on: all seven regenerate byte-identical on this host, so the comparison that catches a
-  # hand-edited DIGIT — the hole legs 1-3 cannot close — is available here and is used.
+  # hand-edited DIGIT — the hole legs 1-3 could not close at the time — is available here and
+  # is used. Their route to the same strictness was the seed, not a different comparison.
   #
   # THE TWO RENDERED FILES. wave.dot.png and wave.dot.svg are graphviz renderings of
   # wave.dot, so their bytes depend on the installed `dot`, not only on roae.py. A renderer
   # upgrade will therefore turn this leg red WITHOUT any hand-edit. That is not a false
   # positive to be suppressed: it is the gate correctly reporting that the shipped artifacts
   # no longer match what this repo's toolchain produces, and the fix is to regenerate and
-  # commit them (`cd example && python3 ../roae.py --dot`). Stated here so a future
+  # commit them (`cd example && python3 ../roae.py --dot --seed $ROAE_EXAMPLE_SEED`; the seed
+  # changes nothing in these seven -- MEASURED across two seeds, all seven byte-identical --
+  # and is passed only so one recipe covers every artifact). Stated here so a future
   # maintainer reaches for the regeneration rather than for a skip.
   #
   # AND `dot` ABSENT IS A FAIL, NOT A SKIP — the A1 rule this file already applies to
@@ -7534,7 +7698,7 @@ PY
     # is one more thing that can go stale and clear the gate falsely, and it buys nothing.
     local _flag
     for _flag in csv json svg dot midi; do
-      if ! ( cd "$dtmp" && timeout 300 python3 "$OLDPWD/roae.py" "--$_flag" >/dev/null 2>&1 ); then
+      if ! ( cd "$dtmp" && timeout 300 python3 "$OLDPWD/roae.py" "--$_flag" --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); then
         echo "  [FAIL] the generator did not run cleanly for --$_flag"
         rc=1
       fi
@@ -7558,7 +7722,7 @@ PY
         diff "$2" "$1" | head -6 | sed 's/^/           /'
       fi
       echo "         Fix the SOURCE (roae.py) and regenerate; never edit the artifact:"
-      echo "           ( cd example && python3 ../roae.py $3 )"
+      echo "           ( cd example && python3 ../roae.py $3 --seed $ROAE_EXAMPLE_SEED )"
       return 1
     }
     _cmp_exact example/hexagrams.csv  "$dtmp/hexagrams.csv"  --csv   || rc=1
@@ -11343,6 +11507,8 @@ gate_script_paths() {
       echo "narrating the 2026-04-21 consolidation into solve.py (file deliberately removed)";;
     scripts/d128_preflight_throttle_probe.sh)
       echo "retraction text naming the phantom in order to withdraw it (2026-08-09)";;
+    example/report.pdf)
+      echo "CORRECTIONS.md's 2026-09-04 withdrawal entry naming the artifact it withdraws; the ledger is append-only so the text cannot be rewritten, and a withdrawal that could not name its own subject would be unreadable";;
     roae/findings/)
       echo "dated HISTORY narration of the pre-2026-06 findings/ layout (consolidation recorded at HISTORY.md ~:4875)";;
     runs/20260420_singlebranch1T_d32westus3/)
@@ -14848,7 +15014,8 @@ PY
 # four lines below the docstring that withdraws it; retired the same day, uncommitted).
 #
 # CORPUS: every tracked file that is not *.md, not under reports/evidence/ (GATE 3's half), and
-# is text (`grep -I`, so .gz/.png/.pdf/.mid are skipped BY CONTENT, not by a directory), minus
+# is text (`grep -I`, so .gz/.png/.mid are skipped BY CONTENT, not by a directory — .pdf was
+# in this list until 2026-09-04, when the repository's only tracked PDF was removed), minus
 # exactly THREE files named here and printed on every run, each of which holds withdrawn wording
 # BY CONSTRUCTION: documentation/RETRACTED_PHRASES.tsv (the registry — every needle is in it),
 # documentation/DOC_GATE_CODE_NEEDLE_ALLOW.tsv (this gate's allow table — same reason), and
@@ -17652,7 +17819,8 @@ elif [ "$MODE" = all ]; then
   echo "                   means no NEW one, not none at all."
   # GATE 8's exclusion made LOUD AND SPECIFIC, 2026-08-07 (gate-blind-spot closure #1).
   # The one-liner this replaces ("run it separately") named neither what was uncovered nor
-  # the command, so an all-green run read as attesting example/report.pdf when it attested
+  # the command, so an all-green run read as attesting example/report.pdf (removed
+  # 2026-09-04) when it attested
   # nothing about it. DECIDED AGAINST folding GATE 8 into `all`, on measured numbers taken
   # that day: `all` = 17 s, `generated` = 67 s fresh regeneration (107-135 s on prior
   # recorded runs) — a 4-6x multiplier on the suite every blocking pre-push hook run and
@@ -17677,10 +17845,15 @@ elif [ "$MODE" = all ]; then
   echo "                   flag. Its LEG 2 ([note] lines on figures with no re-derivation"
   echo "                   path) is REPORT-ONLY and is NOT covered by this verdict."
   echo "                   GATE 8 ('generated') is NOT in 'all' — by cost, not oversight."
-  echo "                   This verdict attests NOTHING about the 12 tracked example/"
-  echo "                   artifacts — the five reports (report.txt/.md/.html/.pdf, README.md)"
-  echo "                   AND, since 2026-09-02, hexagrams.{csv,json,svg}, wave.dot,"
-  echo "                   wave.dot.png, wave.dot.svg and wave.mid (LEG 7, byte-exact):"
+  echo "                   This verdict attests NOTHING about the 11 tracked example/"
+  echo "                   artifacts — the four reports (report.txt/.md/.html, README.md;"
+  echo "                   report.pdf was the twelfth until 2026-09-04, when it was removed"
+  echo "                   for embedding the DejaVu font programs, taking GATE 8 LEG 5 and"
+  echo "                   report.html's only DIGIT check with it — restored the same day by"
+  echo "                   reshipping example/ under --seed 20260904, which made legs 1-4"
+  echo "                   BYTE-EXACT) AND, since 2026-09-02,"
+  echo "                   hexagrams.{csv,json,svg}, wave.dot, wave.dot.png, wave.dot.svg"
+  echo "                   and wave.mid (LEG 7, byte-exact):"
   echo "                       bash scripts/doc_gates.sh generated   # checks them; ~67-135 s, 3 roae.py runs"
   echo "                   (Enforced at pre-commit when roae.py/example/ is staged, and at"
   echo "                   pre-push when the pushed range touches roae.py or example/.)"
