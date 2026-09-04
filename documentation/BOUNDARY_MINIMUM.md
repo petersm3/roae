@@ -69,7 +69,18 @@ The cumulative-survivor curve for d3 560T's greedy set is striking: boundary 4 A
 
 ## Reproducibility
 
+> ⚠ **`solutions.bin` is NOT shipped, at any scale.** It is the canonical enumeration output, and it
+> is large: the **v2 100T** artifact is `3,663,580,914 × 32 + 32 = 117,234,589,280` bytes
+> (`CORRECTIONS.md` §"A compression ratio assembled from a decimal numerator and a binary
+> denominator"), 13,462,264,289 bytes gzipped. It is untracked here (`git ls-files` returns nothing for it;
+> a working copy on a developer's disk is not a published artifact). **A reader cannot run the command
+> below as written.** What a reader *can* do is read the pre-computed logs listed underneath, which do
+> ship for d2 10T, d3 10T and d3 100T, or produce their own `solutions.bin` at a scale they can afford
+> and run `--analyze` against that. The command is recorded so the derivation is checkable and so
+> anyone reproducing at their own scale runs the same thing; it is not a recipe you can paste.
+
 ```bash
+# Requires a solutions.bin you produced yourself — see the warning above.
 ./solve --analyze solutions.bin > analyze_output.log
 # Output includes:
 #   §[6] greedy minimum-boundary search → greedy minimum (Measure A; runs to 0 non-KW survivors)
