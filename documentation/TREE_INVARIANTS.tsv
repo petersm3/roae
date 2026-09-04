@@ -1,0 +1,27 @@
+# TREE INVARIANTS — content facts that must stay true, checked on every commit.
+#
+# 🔴 WHY THIS FILE EXISTS. On 2026-09-04 the v4-query-program merge REVERTED a landed security fix
+# and nothing noticed for three hours of public exposure. `origin/main` had quoted `rm -rf '%s'` at
+# all six regress sites in solve.c; the merge took OURS at the two tdir_A/tdir_B hunks and the
+# unquoted form came back. SOLVE_D3_GATE_TMPBASE is env-derived and feeds both. Measured across the
+# lineage: 6dac6a85 (main before the merge) 0, a19682b2 (the merge) 2, main today 0.
+#
+# TWO INDEPENDENT ANALYSES SAID IT DID NOT HAPPEN. The merge resolver read the diff against both
+# parents and reported "nothing of either side is missing"; a second lane measured "ZERO of 205
+# branch-touched paths reverted a main-side correction". Both were looking at PATHS. `solve.c` is a
+# branch-touched path either way, so a path-level check cannot see a line-level reversion inside it.
+#
+# A fix is a CONTENT fact, so the check has to be a content fact too. That is all this file is: a
+# registry of things that must remain true of the tree, independent of how the tree got there —
+# merge, revert, rebase, or a careless edit. A merge cannot argue with a grep.
+#
+# Enforced by scripts/doc_gates.sh GATE 81 (`tree-invariants`).
+#
+# FORMAT: pattern<TAB>max<TAB>paths<TAB>why (max is an inclusive ceiling on matching LINES)
+# The pattern is an ERE passed to grep -E. Keep it narrow enough that a legitimate refactor does not
+# trip it, and specific enough that the defect cannot come back wearing a different name.
+#
+# ⚠ ADDING A ROW IS A COMMITMENT. A ceiling raised to make a red gate green is the defect winning;
+# raise it only with the measurement and the reason, in the same commit, exactly as the compile
+# gate's warning baseline is a census rather than a budget.
+rm -rf %s	0	solve.c	Unquoted shell interpolation into `rm -rf`. Every path here derives from SOLVE_D3_GATE_TMPBASE, an ENV VAR, so an unquoted `%s` is a shell-injection and word-splitting hazard in a command that deletes recursively. main quoted all six sites; the 2026-09-04 merge reverted two and nothing caught it. The quoted form `rm -rf '%s'` does not match this pattern.

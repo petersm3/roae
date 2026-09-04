@@ -11844,6 +11844,50 @@ gate_scratch_examples() {
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# GATE 81 — registered CONTENT invariants still hold (`tree-invariants`).
+#
+# WHY (measured 2026-09-04): the v4-query-program merge REVERTED a landed security fix and it sat on
+# public main for ~3 hours. main had quoted `rm -rf '%s'` at all six regress sites in solve.c; the
+# merge took OURS at two hunks and the unquoted form returned. Two independent post-merge analyses
+# reported no such reversion, because both compared PATHS and solve.c is a changed path either way.
+#
+# A fix is a fact about CONTENT, so the check must be about content. This gate asserts registered
+# facts directly against the tree and does not care how the tree got there. A merge cannot argue
+# with a grep.
+gate_tree_invariants() {
+  echo "== GATE 81: registered content invariants still hold =="
+  local REG=documentation/TREE_INVARIANTS.tsv bad=0 n=0
+  if [ ! -r "$REG" ]; then
+    echo "  [FAIL] $REG is unreadable — an unread invariant registry is NOT an empty one."
+    return 1
+  fi
+  while IFS=$'\t' read -r pat max paths why; do
+    case "${pat:-}" in ''|\#*) continue;; esac
+    [ -n "${max:-}" ] && [ -n "${paths:-}" ] || { echo "  [FAIL] malformed row: ${pat:0:40}"; bad=1; continue; }
+    n=$((n+1))
+    local got
+    got=$(git ls-files -- $paths 2>/dev/null | xargs -r grep -cE -- "$pat" 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
+    case "${got:-}" in ''|*[!0-9]*) echo "  [FAIL] invariant '${pat:0:40}': could not count over '$paths'"; bad=1; continue;; esac
+    if [ "$got" -gt "$max" ]; then
+      echo "  [FAIL] invariant VIOLATED: '$pat' appears $got time(s) in $paths, ceiling $max"
+      echo "         $why"
+      echo "         🔴 Do NOT raise the ceiling to clear this. The ceiling is a census, not a budget."
+      bad=1
+    else
+      echo "  [ok]   '$pat' — $got of at most $max in $paths"
+    fi
+  done < "$REG"
+  # A registry that matched nothing is a gate that checks nothing. Say so rather than pass.
+  if [ "$n" -eq 0 ]; then
+    echo "  [FAIL] $REG declares zero invariants — this gate checked NOTHING."
+    return 1
+  fi
+  [ "$bad" -eq 0 ] || return 1
+  echo "  [ok] $n registered invariant(s) hold"
+  return 0
+}
+
 gate_tracked_ignored() {
   echo "== GATE 23: no tracked file is also ignored =="
   local out rc n
@@ -17900,6 +17944,7 @@ case "$MODE" in
   scoreboard) gate_scoreboard_verdicts || RC=1 ;;
   alias-reach) gate_alias_reach || RC=1 ;;
   scratch-examples) gate_scratch_examples || RC=1 ;;
+  tree-invariants) gate_tree_invariants || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -17921,6 +17966,7 @@ case "$MODE" in
            echo; gate_hex_prefix || RC=1
            echo; gate_tracked_ignored || RC=1
            echo; gate_scratch_examples || RC=1
+           echo; gate_tree_invariants || RC=1
            echo; gate_canonical_ceiling || RC=1
            echo; gate_withdrawn_markers || RC=1
            echo; gate_framing_era || RC=1
