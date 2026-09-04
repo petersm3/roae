@@ -11845,6 +11845,101 @@ gate_scratch_examples() {
 }
 
 # ---------------------------------------------------------------------------
+# GATE 86 — a published pre-registration must have its digest on the escrow page
+# (`prereg-escrow`).
+#
+# 🔴 WHY. documentation/PREREGISTRATION_ESCROW.md publishes the sha256 of frozen pre-registration
+# files so that, if one is ever disclosed, a reader can hash it and check it. The failure this closes
+# is a file being disclosed WITHOUT that happening — shipped in the public tree while the page says
+# nothing about its actual content.
+#
+# It is not hypothetical. reports/evidence/f11halfb/PREREGISTRATION_EXTENDED.md has been public since
+# 2026-08-04, EIGHTEEN DAYS BEFORE the escrow page was published, and it does NOT verify against its
+# escrowed row: 3,986 bytes hashing to 1dedbda1… against the escrowed 3,965 / 09d711c3…. That is
+# legitimate — the two copies are the same 81-line document differing in exactly one line, where a
+# name identifying operator-held infrastructure was replaced before publication, and the escrowed
+# digest is of the unredacted private original. It is legitimate BECAUSE the page says so. Nothing
+# made it say so, and nothing would have noticed had it not.
+#
+# THE RULE, and it is decidable rather than a judgement: every tracked public pre-registration file's
+# sha256 must appear somewhere on the escrow page. Two ways satisfy it, which is the point —
+#   * it equals an escrowed table row: published unredacted, and it verifies; or
+#   * the page publishes the file's TRUE digest in its disclosure prose: published redacted or
+#     outside the table, with the reader told exactly what they can and cannot check.
+# Both are honest. What fails is a public pre-registration whose real digest appears nowhere, which
+# is the only case where a reader hashing the file learns nothing.
+#
+# Measured at the time of writing: four tracked public pre-registrations, all four covered — two
+# verifying against rows (VMATCHED 37ee9eee…, H1_H3 ab09648c…) and two disclosed with their true
+# digests (EXTENDED 1dedbda1…, f11/PREREGISTRATION 51b78890…).
+#
+# This is leg (c) of the three the adjudication specified, the one recorded as having teeth. Leg (a)
+# (freeze-timing conversions must state a date direction) and leg (b) (the page must not claim a
+# complete population) were both fixed in PROSE on 2026-09-02 and the six files leg (b) named were
+# escrowed on 2026-09-04, so their red tests no longer reproduce; only this leg needed enforcement.
+# ---------------------------------------------------------------------------
+gate_prereg_escrow() {
+  echo "== GATE 86: every published pre-registration's digest is on the escrow page =="
+  python3 - <<'PREREGPY' || return 1
+import hashlib, subprocess, sys, re
+PAGE = 'documentation/PREREGISTRATION_ESCROW.md'
+try:
+    page = open(PAGE, encoding='utf-8', errors='surrogateescape').read()
+except OSError as e:
+    print("  [FAIL] cannot read %s (%s) — NOTHING was checked." % (PAGE, e.strerror))
+    print("     An unreadable escrow page is not an escrow page with nothing to hide.")
+    sys.exit(1)
+# TABLE-ROW digests and PROSE digests are different facts and must not be conflated: a file that
+# VERIFIES against its escrowed row and one that is DISCLOSED as not verifying are opposite
+# outcomes, and the escrow page marks them with a check and a cross. An earlier draft of this gate
+# labelled every covered file "verifies against a row" because it matched against every 64-hex
+# string on the page, which would have printed the exact opposite of what the page says about
+# PREREGISTRATION_EXTENDED.md. Rows are parsed from the table only.
+rows = set()
+for _ln in page.split(chr(10)):
+    if _ln.startswith('|'):
+        rows.update(re.findall(r'\b[0-9a-f]{64}\b', _ln))
+allhex = re.findall(r'\b[0-9a-f]{64}\b', page)
+if len(rows) < 5 or len(allhex) < 5:
+    print("  [FAIL] only %d table-row and %d total sha256 value(s) on the escrow page."
+          % (len(rows), len(allhex)))
+    print("     That means the page was gutted or the matcher stopped matching; either way this")
+    print("     gate is measuring nothing and must not report OK.")
+    sys.exit(1)
+try:
+    tracked = subprocess.run(['git','ls-files'], capture_output=True, text=True,
+                             check=True).stdout.split('\n')
+except Exception as e:
+    print("  [FAIL] could not enumerate tracked files (%s) — NOTHING was checked." % e)
+    sys.exit(1)
+cands = [f for f in tracked
+         if f and re.search(r'(^|/)PREREG', f, re.I) and not f.endswith('PREREGISTRATION_ESCROW.md')]
+if not cands:
+    print("  [FAIL] found ZERO tracked pre-registration files.")
+    print("     The repository ships several; a zero here is a broken matcher, not a clean tree.")
+    sys.exit(1)
+bad = 0
+for f in sorted(cands):
+    try:
+        d = hashlib.sha256(open(f,'rb').read()).hexdigest()
+    except OSError as e:
+        print("  [FAIL] %s is tracked but unreadable (%s)" % (f, e.strerror)); bad += 1; continue
+    if d in page:
+        kind = "VERIFIES against its escrowed row" if d in rows else "disclosed in prose (does not verify — by design)"
+        print("  [ok]   %s  %s… %s" % (f, d[:12], kind))
+    else:
+        print("  [FAIL] %s hashes to %s and that digest appears NOWHERE on the escrow page." % (f, d))
+        print("     A published pre-registration whose real digest is unpublished is one a reader")
+        print("     can hash and learn nothing from. Either it must verify against its escrowed row,")
+        print("     or the page must publish this digest and say why it differs.")
+        bad += 1
+if bad:
+    print("  [FAIL] %d published pre-registration(s) undisclosed" % bad); sys.exit(1)
+print("  [ok]   %d published pre-registration(s), every digest accounted for on the escrow page" % len(cands))
+PREREGPY
+}
+
+# ---------------------------------------------------------------------------
 # GATE 85 — a completion STATUS may not read as a completeness CLAIM
 # (`completion-semantics`).
 #
@@ -18258,6 +18353,7 @@ case "$MODE" in
   dispatch-alignment) gate_dispatch_alignment || RC=1 ;;
   env-surface) gate_env_surface || RC=1 ;;
   completion-semantics) gate_completion_semantics || RC=1 ;;
+  prereg-escrow) gate_prereg_escrow || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -18284,6 +18380,7 @@ case "$MODE" in
            echo; gate_dispatch_alignment || RC=1
            echo; gate_env_surface || RC=1
            echo; gate_completion_semantics || RC=1
+           echo; gate_prereg_escrow || RC=1
            echo; gate_canonical_ceiling || RC=1
            echo; gate_withdrawn_markers || RC=1
            echo; gate_framing_era || RC=1
@@ -18337,7 +18434,7 @@ case "$MODE" in
            echo; gate_boundary_scope || RC=1
            echo; gate_merge_semantics || RC=1
            echo; gate_rec_scope || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|prereg-escrow|all}"; exit 2 ;;
 esac
 
 echo
