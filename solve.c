@@ -5464,6 +5464,13 @@ static inline uint64_t ks_next(uint64_t *s){ uint64_t x=*s; x^=x<<13; x^=x>>7; x
  * sum over the fiber members of 1/m = 1 per pair-order class, E[sum W/m over leaves]
  * = #records (canonical pair-order classes with a nonempty fiber) — the orientation-
  * DEDUPLICATED count whose "~4x"-derived 3.3e37 figure was withdrawn 2026-08-24.
+ *
+ * 🔴 SCOPED 2026-09-04 (Codex v2 `solve.c:5205`): that identity holds for the
+ * UNRESTRICTED walk ONLY, and the combination is now REFUSED at parse with the strict
+ * flags. A strict walk reaches only a subset S(P) of the fiber F(P) while m still counts
+ * |F(P)|, so the per-class contribution is |S(P)|/|F(P)| < 1 and records_* undercounts
+ * strict classes systematically (witness: 3,840/2,064,384 = 5/2688, a 537.6x per-class
+ * undercount). Refused with SOLVE_KNUTH_MOORE_STRICT / _GENDER_STRICT / _H2.
  * C3 is constant on a fiber (C3 = 16 + 8*G, lean/C3Decomposition.lean; A1 §1.4), so
  * the C3-filtered accumulator estimates R(C1-C5) with no C3 term in the DP.
  * Gate: the KW pair ordering's fiber must equal 1,720,320 = 3*5*7*2^14 (TR-1 §7) at
@@ -9508,7 +9515,32 @@ static int dfs_state_load_prior_shard(int p1, int o1, int p2, int o2, int p3, in
         }
     }
     pthread_mutex_unlock(&ts->ht_mutex);
-    gzclose(f);
+    /* 🔴 Codex v2 `solve.c:9056` (V2-L05 #1, Critical), fixed 2026-09-04. The read loop above
+       ends on ANY short read, and `n < 0` is not how zlib reports a truncated stream -- it
+       reports it through gzeof()/gzerror() and through gzclose()'s return. So a shard whose gz
+       container was truncated loaded FEWER records and this returned 0 = success, and the walk
+       proceeded to "resume" from a hash table missing solutions the shard's own .dfs_state says
+       exist. Because the walk WINDOW may not re-cover them, they are silently dropped from the
+       merged artifact. Fail CLOSED: the operator must restore the shard or delete BOTH sidecars,
+       and that decision must not be made for them by a silent walk-fresh. Same clean-EOF pattern
+       as gz_mmap_open (Q-367) and gz_test. */
+    int zerr = 0;
+    (void)gzerror(f, &zerr);
+    int had_eof = gzeof(f);
+    int clean_eof = had_eof && zerr == Z_OK;
+    int zrc = gzclose(f);   /* `f` is DEAD from here on -- never read it again */
+    if (!clean_eof || zrc != Z_OK) {
+        fprintf(stderr,
+            "FATAL: prior shard %s did not end cleanly (eof=%d zerr=%d gzclose=%d) after loading\n"
+            "       %lld record(s). The gz container is TRUNCATED or CORRUPT, so an unknown number\n"
+            "       of solutions this shard's .dfs_state attests are missing from the resume state.\n"
+            "       Refusing to walk fresh: the walk window may not re-cover them, and they would\n"
+            "       be silently absent from the merged artifact. Restore the shard from backup, or\n"
+            "       delete BOTH %s and its .dfs_state to redo this sub-branch from scratch.\n"
+            "TRUNC_SHARD_RESUME=REFUSED\n",
+            fname, had_eof, zerr, zrc, loaded, fname);
+        return -1;
+    }
     fprintf(stderr, "[dfs-checkpoint] LOADED %s into hash table (%lld records)\n",
             fname, loaded);
     return 0;
@@ -9813,8 +9845,17 @@ static void *thread_func_single(void *arg) {
             }
             if (ts->dfs_resume_active || ts->dfs_v2_resume_active) {
                 /* Load prior shard contents into hash table so the flush at
-                 * end-of-walk produces a single-shot-equivalent merged shard. */
-                (void)dfs_state_load_prior_shard(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+                 * end-of-walk produces a single-shot-equivalent merged shard.
+                 * 🔴 Codex v2 `solve.c:9056`: the rc was DISCARDED with a (void) cast, so even
+                 * the alloc-failure FATAL the loader already printed did not stop the run. A
+                 * negative rc means the resume state is known-incomplete; continuing would write
+                 * a shard that silently omits records. */
+                if (dfs_state_load_prior_shard(p1, o1, p2, o2, p3_arg, o3_arg, ts) < 0) {
+                    fprintf(stderr,
+                        "FATAL: cannot establish the resume state for this sub-branch; aborting\n"
+                        "       rather than producing a shard that silently omits records.\n");
+                    exit(32);
+                }
             }
         }
 
@@ -10784,7 +10825,21 @@ static int sha256_of_logical(const char *path, char *out, size_t outsz) {
  * archive verification recipe for two months on the strength of this comment.
  * The verifying command is `gzip -dc <file> | sha256sum`, or plain sha256sum only
  * under SOLVE_COMPRESS=0. Remaining lines are metadata comments. */
-static void write_sha256_with_metadata(const char *bin_name, const char *sha_name,
+/* 🔴 Codex v2 `solve.c:10395-10461/:27118-:27381`, fixed 2026-09-04. This helper was `void`.
+   Every failure -- a missing sha tool, a failed hash, a failed fopen, and every unchecked
+   fprintf/fclose -- printed at most an ERROR and returned, and the caller then downgraded an
+   absent or empty sidecar to a WARNING and still exited 0. REPRODUCED in the adjudication by
+   pre-creating solutions_1_0.sha256 as a DIRECTORY: the run completed, printed only
+   "WARNING: ... is empty", showed a BLANK hash in its report, and exited 0 with the REQUIRED
+   reproducibility sidecar never written. A warning in a 300-line log is not an exit status;
+   supervisors and verify_all branch on rc.
+
+   Returns 0 on success, non-zero on failure. fclose is checked because that is where a full
+   disk actually surfaces: the fprintf's succeed into the stdio buffer and the flush is what
+   fails, which produces a TRUNCATED sidecar at exit 0. ferror() is checked once before the
+   close rather than after each fprintf -- stdio latches the error, so one test covers them all
+   without twenty branches that could each be forgotten. */
+static int write_sha256_with_metadata(const char *bin_name, const char *sha_name,
                                         long long unique_count, long long total_nodes,
                                         int n_branches_total, int branches_done) {
     /* Compute sha256. sha256_tool() was preflighted at startup — if we get
@@ -10794,21 +10849,24 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
     if (!tool) {
         fprintf(stderr, "ERROR: sha256 tool missing at write_sha256_with_metadata; "
                         "preflight should have caught this.\n");
-        return;
+        return 1;
     }
     /* #169: hash the LOGICAL (decompressed) content so the canonical sha is
      * unchanged whether bin_name is stored gz or raw. */
     char hash_only64[65] = {0};
     if (sha256_of_logical(bin_name, hash_only64, sizeof(hash_only64)) != 0) {
         fprintf(stderr, "ERROR: sha256 (logical) computation failed for %s\n", bin_name);
-        return;
+        return 1;
     }
     char hash_line[256] = {0};
     snprintf(hash_line, sizeof(hash_line), "%s  %s\n", hash_only64, bin_name);
 
     /* Rewrite with metadata */
     FILE *sf = fopen(sha_name, "w");
-    if (!sf) return;
+    if (!sf) {
+        fprintf(stderr, "ERROR: cannot open %s for writing: %s\n", sha_name, strerror(errno));
+        return 1;
+    }
     fprintf(sf, "%s", hash_line);  /* first line: bare hash, sha256sum -c FORMAT (see above:
                                       format-compatible, not verify-compatible under gz framing) */
 
@@ -10850,7 +10908,20 @@ static void write_sha256_with_metadata(const char *bin_name, const char *sha_nam
             fprintf(sf, "# SOLVE_RESUME_HISTORY: (none - clean single-shot run)\n");
         }
     }
-    fclose(sf);
+    /* stdio latches write errors, so one ferror() before the close covers every fprintf above. */
+    if (ferror(sf)) {
+        fprintf(stderr, "ERROR: write error while producing %s (the sidecar is incomplete)\n",
+                sha_name);
+        fclose(sf);
+        return 1;
+    }
+    if (fclose(sf) != 0) {
+        fprintf(stderr, "ERROR: flush/close of %s failed: %s (the sidecar may be TRUNCATED -- this\n"
+                        "       is how a full disk presents, after every fprintf appeared to "
+                        "succeed)\n", sha_name, strerror(errno));
+        return 1;
+    }
+    return 0;
 }
 
 /* Compare for qsort — compare pair identity first (orient bit masked out),
@@ -35163,6 +35234,37 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "[fiber] SOLVE_KNUTH_FIBER=1 with SOLVE_KNUTH_C5_BUDGET is REFUSED: "
                                 "the fiber DP's within-budget semantics are validated only for the "
                                 "standard and RELAX_C5 budgets\n");
+                printf("FIBER_MODE=REFUSED-C5-BUDGET\n");
+                return 1;
+            }
+            /* 🔴 Codex v2 `solve.c:5205`, fixed 2026-09-04. The W/m estimator is unbiased for the
+               RECORD count because sum over a pair-order class's fiber members of 1/m equals
+               EXACTLY 1 -- but only when the walk can reach EVERY fiber member. A strict walk
+               prunes orientation candidates in-walk (Moore parity/rhythm, Schulz gender), so it
+               reaches only a SUBSET S(P) of the fiber F(P) while m still counts the unrestricted
+               |F(P)|: the per-class contribution becomes |S(P)|/|F(P)| < 1 and every records_*
+               figure undercounts strict classes as N->infinity. The shipped-witness arithmetic in
+               the adjudication makes the scale concrete: 3,840/2,064,384 = 5/2688, a 537.6x
+               per-class undercount. This combination previously RAN WITH NO REFUSAL (measured).
+               No W/m output is published or archived from a strict run -- Q-388's landed 3.36e31
+               was unrestricted -- so this is a latent estimand trap, not a wrong published number.
+               Refused here, mirroring the Purdom block's policy for the same class of problem;
+               the honest alternatives are an unrestricted FIBER run or a strict-subfiber DP,
+               which does not exist. */
+            if (knuth_moore_strict || knuth_gender_strict || knuth_h2) {
+                fprintf(stderr,
+                    "REFUSED: SOLVE_KNUTH_FIBER=1 with a strict/scoring walk "
+                    "(MOORE_STRICT=%d GENDER_STRICT=%d H2=%d).\n"
+                    "         Strict walks PRUNE orientation members, but m counts the "
+                    "UNRESTRICTED fiber, so\n"
+                    "         sum(1/m) over the reachable members is < 1 per pair-order class and "
+                    "records_* would\n"
+                    "         systematically UNDERCOUNT strict classes rather than converge to "
+                    "them.\n"
+                    "         Run FIBER unrestricted, or implement a strict-subfiber DP (none "
+                    "exists today).\n",
+                    knuth_moore_strict, knuth_gender_strict, knuth_h2);
+                printf("FIBER_MODE=REFUSED-STRICT-WALK\n");
                 return 1;
             }
             knuth_fiber = 1;
@@ -35170,6 +35272,7 @@ int main(int argc, char *argv[]) {
                 knuth_fiber_xcheck = atoi(getenv("SOLVE_KNUTH_FIBER_XCHECK"));
             fprintf(stderr, "[fiber] W/m(k) canonical-class (record) estimator ACTIVE "
                             "(Q-388; A1 §6.1 design; KW gate enforced at init)\n");
+            printf("FIBER_MODE=ACTIVE-UNRESTRICTED\n");
         }
         if (getenv("SOLVE_KNUTH_FIBER_PERM")) {
             /* Cross-check hook: exact fiber of ONE given pair ordering (standard budget),
@@ -38734,8 +38837,18 @@ int main(int argc, char *argv[]) {
          * Group all solutions by pair-index sequence (collapse within-pair orient
          * variants). For each unique pair-ordering, count its variants and which
          * positions show orient variation across them. Compare KW's pattern to
-         * the population. Resolves the "does the KW orient-coupling generalize?"
+         * the population. Addresses the "does the KW orient-coupling generalize?"
          * question flagged in SOLVE_SUMMARY.md and INSIGHTS.md.
+         *
+         * 🔴 SCOPED 2026-09-04 (Codex v2 `solve.c:22414`). Two claims were unconditional and
+         * are not. (1) "Resolves" holds only for a NON-DEDUPED input. This section derives its
+         * whole signal from group SIZES, and an orientation-deduped artifact has every group at
+         * size 1 by construction -- so on such an input the section reports a uniform absence of
+         * coupling that is an artifact of the input, not a property of the population. That case
+         * is DETECTED and named below rather than silently reported as a result. (2) The
+         * 4-variant subfamily header asserted "KW is in this class" as a constant; it is a
+         * MEASUREMENT (kw_group), and on a deduped or filtered input KW's group is not 4. The
+         * header is now conditional on the measured value.
          */
         printf("[14] Orient-coupling generalization\n");
         fprintf(stderr, "[14] START\n"); fflush(stderr);
@@ -38907,11 +39020,31 @@ int main(int argc, char *argv[]) {
             printf("     KW's group: %lld variants; varying-orient positions: ", kw_group);
             for (int p = 0; p < 32; p++) if (kw_varies[p]) printf("%d ", p + 1);
             printf("\n");
+            /* Degeneracy detector: every group of size 1 means the input carries no orientation
+               variants at all, so every "no coupling" reading below is about the FILE. */
+            if (max_group <= 1) {
+                printf("     ORIENT_COUPLING=DEGENERATE-DEDUPED-INPUT\n");
+                printf("     🔴 Every pair-ordering group in this file has exactly ONE variant, so\n");
+                printf("        there is no orientation variation to measure and the per-position\n");
+                printf("        and subfamily figures below are properties of the INPUT, not of the\n");
+                printf("        constraint system. This is what an orientation-DEDUPED artifact\n");
+                printf("        looks like. To ask this question, regenerate the variants (the\n");
+                printf("        orientation fiber of each pair ordering) and re-run section 14 on\n");
+                printf("        the orientation-explicit records.\n");
+            } else {
+                printf("     ORIENT_COUPLING=MEASURABLE (largest group %lld variants)\n", max_group);
+            }
             printf("     Largest group: %lld variants (pair-ordering at sorted index %lld)\n",
                    max_group, max_group_idx);
 
             /* 4-variant subfamily report */
-            printf("\n     --- 4-variant subfamily (KW is in this class) ---\n");
+            /* Conditional: class membership is asserted only when it was MEASURED. */
+            if (kw_group == 4)
+                printf("\n     --- 4-variant subfamily (KW is in this class: measured kw_group=4) ---\n");
+            else
+                printf("\n     --- 4-variant subfamily (KW is NOT in this class here: measured\n"
+                       "         kw_group=%lld, not 4 — the rows below describe the 4-variant\n"
+                       "         groups of THIS file and say nothing about KW) ---\n", kw_group);
             printf("     Total 4-variant pair-orderings: %lld\n", groups4_total);
             printf("     4-variant groups with exactly KW's varying-position set {2,3,28,29,30}: %lld\n",
                    groups4_with_kw_pattern);
@@ -40484,7 +40617,16 @@ int main(int argc, char *argv[]) {
              * Format only — merge_sha64 is the logical sha, so `sha256sum -c` false-FAILS
              * on the gz-framed default. See write_sha256_with_metadata (Q-346). */
             fprintf(sf, "%s  %s\n", merge_sha64, outname);
-            fclose(sf);
+            /* 🔴 Codex v2 `solve.c:10395-10461/:27118-:27381`, fixed 2026-09-04. The initial
+               fopen was already checked here (rc 30); the residual unchecked surface was the
+               fprintf and the fclose -- an ENOSPC at FLUSH produces a truncated sidecar while
+               every call above appeared to succeed, and the merge exited 0. */
+            if (ferror(sf) || fclose(sf) != 0) {
+                fprintf(stderr, "ERROR: writing %s failed: %s (the sidecar is incomplete or\n"
+                                "       TRUNCATED -- this is how a full disk presents)\n"
+                                "SIDECAR=WRITE-FAILED\n", sha_name, strerror(errno));
+                return 30;
+            }
         }
 
         /* Phase E.2 follow-up (re-landed 2026-05-25): append provenance
@@ -40514,7 +40656,17 @@ int main(int argc, char *argv[]) {
                     fprintf(sm, "# SOLVE_RESUME_HISTORY: %s\n", rh);
                 else
                     fprintf(sm, "# SOLVE_RESUME_HISTORY: (none - clean single-shot run)\n");
-                fclose(sm);
+                if (ferror(sm) || fclose(sm) != 0) {
+                    fprintf(stderr, "ERROR: appending provenance metadata to %s failed: %s\n"
+                                    "SIDECAR=WRITE-FAILED\n", sha_name, strerror(errno));
+                    return 30;
+                }
+            } else {
+                /* Previously silent: the bare-hash line existed, so the sidecar looked fine
+                   while carrying no provenance at all. */
+                fprintf(stderr, "ERROR: cannot reopen %s to append provenance metadata: %s\n"
+                                "SIDECAR=WRITE-FAILED\n", sha_name, strerror(errno));
+                return 30;
             }
         }
 
@@ -42383,9 +42535,16 @@ sub_enum_done:
         free(all_solutions);
 
         printf("Computing sha256...\n"); fflush(stdout);
-        write_sha256_with_metadata(bin_name, sha_name,
-                                    unique_count, total_nodes,
-                                    n_sub, branches_done);
+        if (write_sha256_with_metadata(bin_name, sha_name,
+                                       unique_count, total_nodes,
+                                       n_sub, branches_done) != 0) {
+            fprintf(stderr,
+                "FATAL: the required reproducibility sidecar %s was not written.\n"
+                "       The run's records exist but are unattested, so this exits non-zero rather\n"
+                "       than reporting success with a blank hash (Codex v2 solve.c:10395).\n"
+                "SIDECAR=WRITE-FAILED\n", sha_name);
+            return 31;
+        }
 
         char hash[130] = {0};
         FILE *hf = fopen(sha_name, "r");
@@ -43465,9 +43624,16 @@ sub_enum_done:
     printf("Computing sha256...\n");
     fflush(stdout);
     total_done_final = branches_done + n_completed_subs;
-    write_sha256_with_metadata("solutions.bin", "solutions.sha256",
-                                unique_count, total_nodes,
-                                total_branches, total_done_final);
+    if (write_sha256_with_metadata("solutions.bin", "solutions.sha256",
+                                   unique_count, total_nodes,
+                                   total_branches, total_done_final) != 0) {
+        fprintf(stderr,
+            "FATAL: the required reproducibility sidecar solutions.sha256 was not written.\n"
+            "       The run's records exist but are unattested, so this exits non-zero rather\n"
+            "       than reporting success with a blank hash (Codex v2 solve.c:10395).\n"
+            "SIDECAR=WRITE-FAILED\n");
+        return 31;
+    }
 
     FILE *hf = fopen("solutions.sha256", "r");
     if (!hf) {

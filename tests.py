@@ -4325,6 +4325,27 @@ class TestKnuthEstimatorOutputHonesty(unittest.TestCase):
             self.assertEqual(row[0].split(":")[1].strip(), "0",
                              layer + " must be 0 under a dead prefix, not " + row[0])
 
+    def test_fiber_refuses_a_strict_walk_it_cannot_weight(self):
+        # The W/m estimator is unbiased only because sum(1/m) over a class's fiber is EXACTLY 1,
+        # which requires the walk to reach every fiber member. A strict walk reaches a subset
+        # S(P) while m still counts |F(P)|, so each class contributes |S(P)|/|F(P)| < 1 (witness:
+        # 3840/2064384 = 5/2688, a 537.6x per-class undercount). Pre-fix this combination RAN
+        # with no refusal and printed records_* lines.
+        r, lines = self._run(["--estimate-knuth", "50"],
+                             env={"SOLVE_KNUTH_FIBER": "1",
+                                  "SOLVE_KNUTH_MOORE_STRICT": "1"}, timeout=180)
+        self.assertIn("FIBER_MODE=REFUSED-STRICT-WALK", lines)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(any(l.startswith("records_") for l in lines),
+                         "a refused FIBER run must print no records_* estimate")
+
+    def test_unrestricted_fiber_is_still_accepted(self):
+        # Control: the refusal must be scoped to strict walks, not to FIBER itself.
+        _, lines = self._run(["--estimate-knuth", "50"],
+                             env={"SOLVE_KNUTH_FIBER": "1"}, timeout=180)
+        self.assertIn("FIBER_MODE=ACTIVE-UNRESTRICTED", lines)
+        self.assertNotIn("FIBER_MODE=REFUSED-STRICT-WALK", lines)
+
     def test_exact_mode_refuses_strict_flags_it_cannot_apply(self):
         # exact_count() prunes on C1/C2/C5 only. Pre-fix it silently counted the UNRESTRICTED
         # subtree while a strict flag was set, answering a different question than the one asked.
@@ -4334,6 +4355,57 @@ class TestKnuthEstimatorOutputHonesty(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0, "a refusal must exit non-zero")
         self.assertFalse(any(l.startswith("tree_nodes :") for l in lines),
                          "a refusal must print no counts")
+
+
+class TestRequiredSidecarIsAttested(unittest.TestCase):
+    """A required reproducibility sidecar that could not be written must not exit 0.
+
+    Codex v2 solve.c:10395-10461/:27118-:27381. write_sha256_with_metadata() was void: a failed
+    fopen, a failed hash, and every unchecked fprintf/fclose returned quietly, and the caller
+    downgraded an absent or empty sidecar to a WARNING. Reproduced by pre-creating the sidecar
+    path as a DIRECTORY, which needs no ENOSPC: pre-fix the run completed, printed a BLANK hash
+    in its own report, and exited 0 with the sidecar never written (measured 2026-09-04, rc 0);
+    post-fix it exits 31 with SIDECAR=WRITE-FAILED. The control shows the same command writing a
+    real sidecar and exiting 0, so the gate measures the failure path and not the build."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="sidecar_")
+        cls.sbin = os.path.join(cls.tmp, "solve_sidecar")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _branch(self, block_sidecar):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        d = tempfile.mkdtemp(dir=self.tmp)
+        if block_sidecar:
+            os.mkdir(os.path.join(d, "solutions_1_0.sha256"))
+        r = subprocess.run([self.sbin, "--branch", "1", "0", "6", "2"],
+                           capture_output=True, text=True, cwd=d, timeout=900)
+        return r, d, [" ".join(l.split()) for l in (r.stdout + "\n" + r.stderr).splitlines()]
+
+    def test_a_sidecar_that_cannot_be_written_is_fatal(self):
+        r, _, lines = self._branch(block_sidecar=True)
+        self.assertIn("SIDECAR=WRITE-FAILED", lines)
+        self.assertNotEqual(r.returncode, 0,
+                            "an unwritable REQUIRED sidecar must not exit 0")
+
+    def test_the_normal_path_still_writes_a_sidecar_and_exits_zero(self):
+        r, d, _ = self._branch(block_sidecar=False)
+        self.assertEqual(r.returncode, 0, r.stderr[-400:])
+        sc = os.path.join(d, "solutions_1_0.sha256")
+        self.assertTrue(os.path.isfile(sc), "sidecar not written on the clean path")
+        with open(sc) as fh:
+            first = fh.readline().split()
+        self.assertEqual(len(first[0]), 64, "sidecar first line is not a 64-hex sha: " + str(first))
 
 
 if __name__ == "__main__":
