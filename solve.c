@@ -21905,6 +21905,101 @@ static void kc_t_seed_from_f(KC *fdom, F1C5Layer *T) {
  * with a UTC stamp so an unstamped supervisor log still carries absolute
  * time. masks_done is the committed-chunk base (the in-flight chunk is not
  * counted — an honest lower bound); entries_out likewise. */
+/* ==========================================================================
+ * SEGMENT COUNTERS for the Stage-G / Stage-T ladder builders (Q-31 + Q-244).
+ *
+ * 🔴 WHY. `F1C5OocIo io; memset(&io, 0, sizeof(io));` is declared INSIDE the
+ * per-layer loop of kc_g_build_ladder, so `io->bytes_written` restarts at zero
+ * at every layer boundary. The `[kc-*-hb]` heartbeat and the per-layer
+ * completion line both print that field, so neither carries a run-wide byte
+ * counter, and the Stage-T launch log's only byte-valued column was `used=NNNGB`
+ * — a df GAUGE of disk occupancy, which fell 10 times across 1,591 samples with
+ * a largest drop of 486 GB during finalize/compaction. A reader watching `used`
+ * go 1716 -> 1262 could reasonably conclude 454 GB of work had been lost. That
+ * is the whole of Q-31: with no monotone counter, recovery behaviour is
+ * unfalsifiable after the fact.
+ *
+ * Q-244 is the same missing emission seen from the other side. Per-layer totals
+ * cannot separate a SLOW layer from an INTERRUPTED one: k=17 took 85.70 wall
+ * hours against 3.84 hours of engine elapsed — 96% of its wall was not spent
+ * computing — and it had five intra-layer resumes to k=19's and k=18's one
+ * each. Every wall-derived column is confounded the same way. Emitting bytes
+ * and seconds SINCE THIS PROCESS STARTED makes a layer rate the sum over its
+ * segments, and downtime drops out by construction.
+ *
+ * WHAT MONOTONE MEANS HERE, precisely, because the word is doing real work: the
+ * counter never decreases WITHIN one process. A restart begins a new segment
+ * with `seg_s` back near zero and a fresh `SEGMENT_START` line, which is an
+ * unambiguous boundary rather than a mid-run drop — the reader can tell the two
+ * apart, which is exactly what `used=` denied them.
+ *
+ * IT CHECKS ITSELF, because a counter merely ASSERTED to be monotone is the
+ * class of claim this project keeps finding false. Every observation compares
+ * against the last one emitted and counts violations; a non-zero `mono_viol` is
+ * printed on the line rather than clamped away, because silently repairing the
+ * symptom would destroy the evidence that the accounting is wrong.
+ *
+ * SHA-NEUTRAL: accumulators plus stderr text. It reads `io` and writes no file
+ * the run consumes, touches no count, no layer byte, and no control flow.
+ * ==========================================================================*/
+typedef struct {
+    int      active;
+    double   t0;            /* omp_get_wtime() when this segment began */
+    char     started_utc[40];
+    uint64_t base_w, base_r;    /* folded totals from layers already finished */
+    uint64_t last_w;            /* last value emitted, for the monotone self-check */
+    uint64_t mono_viol;         /* MUST stay 0; printed, never clamped */
+} KcSegCtr;
+static KcSegCtr g_kcseg;
+
+/* Begin a segment. Called once per builder entry, so "this process" is honest
+ * even if one process were ever to build two ladders in sequence. */
+static void kc_seg_begin(const char *pfx) {
+    memset(&g_kcseg, 0, sizeof(g_kcseg));
+    g_kcseg.active = 1;
+    g_kcseg.t0 = omp_get_wtime();
+    { time_t tt = time(NULL); struct tm tmb;
+      strftime(g_kcseg.started_utc, sizeof(g_kcseg.started_utc),
+               "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&tt, &tmb)); }
+    fprintf(stderr, "[kc-%s-seg] SEGMENT_START utc=%s seg_bytes_w=0 seg_sec=0\n",
+            pfx, g_kcseg.started_utc);
+    fflush(stderr);
+}
+
+/* Run-wide bytes written so far in this segment: everything folded from
+ * completed layers, plus what the layer in flight has written. Monotone because
+ * base only grows and io->bytes_written only grows within a layer. */
+static uint64_t kc_seg_w(const F1C5OocIo *io) {
+    return g_kcseg.base_w + (io ? io->bytes_written : 0);
+}
+static uint64_t kc_seg_r(const F1C5OocIo *io) {
+    return g_kcseg.base_r + (io ? io->bytes_read : 0);
+}
+static double kc_seg_sec(void) {
+    if (!g_kcseg.active) return 0.0;
+    double d = omp_get_wtime() - g_kcseg.t0;
+    return d > 0 ? d : 0.0;
+}
+
+/* Observe-and-check. Returns the monotone byte count and records any decrease
+ * instead of hiding it. */
+static uint64_t kc_seg_observe(const F1C5OocIo *io) {
+    uint64_t w = kc_seg_w(io);
+    if (w < g_kcseg.last_w) g_kcseg.mono_viol++;
+    else g_kcseg.last_w = w;
+    return g_kcseg.last_w;
+}
+
+/* Fold a finished layer into the segment base, so the next layer's reset of
+ * `io` cannot take the run-wide counter backwards. Call once per layer, after
+ * the layer is complete, whether or not it was adopted (an adopted layer wrote
+ * nothing in this process and correctly folds zero). */
+static void kc_seg_fold_layer(const F1C5OocIo *io) {
+    if (!io) return;
+    g_kcseg.base_w += io->bytes_written;
+    g_kcseg.base_r += io->bytes_read;
+}
+
 static void kc_g_hb_maybe(const char *pfx, int k, int n, int npass,
                           uint64_t masks_done, uint64_t masks_total,
                           uint64_t entries_out, const F1C5OocIo *io,
@@ -21916,15 +22011,23 @@ static void kc_g_hb_maybe(const char *pfx, int k, int n, int npass,
     time_t tt = time(NULL);
     struct tm tmb;
     strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&tt, &tmb));
+    /* Q-31/Q-244: seg_bytes_w is the MONOTONE run-wide counter (bytes, not GB —
+     * a rounded GB cannot be differenced), seg_sec its matching process clock.
+     * read=/write= stay per-layer: they are what the layer table consumes, and
+     * silently redefining an existing column would be worse than adding one. */
+    uint64_t segw = kc_seg_observe(io);
     fprintf(stderr, "[kc-%s-hb] %s layer k=%d/%d pass=1/%d masks=%llu/%llu "
             "(%.2f%%) entries_out=%llu read=%.1fGB write=%.1fGB windows=%llu "
-            "elapsed=%.0fs\n",
+            "elapsed=%.0fs seg_bytes_w=%llu seg_bytes_r=%llu seg_sec=%.0f "
+            "mono_viol=%llu\n",
             pfx, ts, k, n, npass,
             (unsigned long long)masks_done, (unsigned long long)masks_total,
             masks_total ? 100.0 * (double)masks_done / (double)masks_total : 100.0,
             (unsigned long long)entries_out,
             (double)io->bytes_read / 1e9, (double)io->bytes_written / 1e9,
-            (unsigned long long)io->windows, now - lt0);
+            (unsigned long long)io->windows, now - lt0,
+            (unsigned long long)segw, (unsigned long long)kc_seg_r(io),
+            kc_seg_sec(), (unsigned long long)g_kcseg.mono_viol);
     fflush(stderr);
     *last_hb = now;
 }
@@ -22363,6 +22466,7 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
                           int use_v2, int gzip_level, int stop_at_k, int verbose,
                           const char *pfx, int kind, KC *fdom) {
     const int n = kc->n;
+    kc_seg_begin(pfx);   /* Q-31/Q-244: start this process's monotone byte clock */
     if (mkdir(gdir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", gdir);
     F1C5Layer cur;
     memset(&cur, 0, sizeof(cur));
@@ -22480,6 +22584,20 @@ static int kc_g_build_ooc(KC *kc, const char *gdir, const F1C5OocCfg *cfg,
                     (double)io.bytes_read / 1e9, (double)io.bytes_written / 1e9,
                     (unsigned long long)io.windows, rss_peak);
         }
+        /* Q-244: bytes and seconds SINCE THIS PROCESS STARTED, on the same line
+         * a reader already parses. A layer rate is then the sum over its
+         * segments and downtime drops out, which is what separates a slow layer
+         * from an interrupted one — k=17's 85.70 wall hours against 3.84 hours
+         * of engine elapsed read as a 5x speedup on a LARGER layer without it. */
+        fprintf(stderr, "[kc-%s-seg] layer k=%2d/%d SEGMENT seg_bytes_w=%llu "
+                "seg_bytes_r=%llu seg_sec=%.1f layer_bytes_w=%llu layer_sec=%.2f "
+                "adopted=%d mono_viol=%llu\n",
+                pfx, k, n, (unsigned long long)kc_seg_observe(&io),
+                (unsigned long long)kc_seg_r(&io), kc_seg_sec(),
+                (unsigned long long)io.bytes_written, omp_get_wtime() - t0,
+                adopted ? 1 : 0, (unsigned long long)g_kcseg.mono_viol);
+        fflush(stderr);
+        kc_seg_fold_layer(&io);   /* io is re-zeroed next iteration; fold first */
         f1c5_layer_free(&cur);
         cur = nxt;   /* entries live on disk; index (+v2 seek index) in RAM */
     }

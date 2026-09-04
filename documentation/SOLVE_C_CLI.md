@@ -2887,6 +2887,36 @@ Usage: solve --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc] GDIR: the g-ladder di
 ```
 *Grammar reproduced from `solve.c:28753`.*
 
+**Progress output on stderr (this builder also serves `--kc-t-build`; `pfx` is `g` or `t`).** Two
+line kinds carry byte and time accounting, and the distinction between them matters when reading a
+long build:
+
+```
+[kc-g-seg] SEGMENT_START utc=... seg_bytes_w=0 seg_sec=0
+[kc-g-hb]  <utc> layer k=.. pass=1/N masks=../.. (..%) entries_out=.. read=..GB write=..GB
+           windows=.. elapsed=..s seg_bytes_w=.. seg_bytes_r=.. seg_sec=.. mono_viol=..
+[kc-g-seg] layer k=../N SEGMENT seg_bytes_w=.. seg_bytes_r=.. seg_sec=.. layer_bytes_w=..
+           layer_sec=.. adopted=0|1 mono_viol=..
+```
+
+* `read=` / `write=` are **per layer** and reset at each layer boundary — `F1C5OocIo io` is declared
+  inside the per-layer loop. They are what the layer table consumes; do not difference them across a
+  boundary.
+* `seg_bytes_w` / `seg_bytes_r` / `seg_sec` are **cumulative since this process started**, in raw
+  bytes and seconds. `seg_bytes_w` is monotone: it never decreases within one process, so a fall is
+  never a legitimate reading. A restart begins a new segment with a fresh `SEGMENT_START` line and
+  `seg_sec` back near zero — an explicit boundary, not a mid-run drop.
+* `mono_viol` counts readings that went backwards anyway. It must be `0`. It is printed rather than
+  clamped, because silently repairing the symptom would destroy the evidence of an accounting bug.
+* `adopted=1` marks a layer already complete on disk and skipped, which correctly contributes zero
+  bytes to the segment.
+
+A layer's rate is the sum over its segments, so process downtime drops out — that is the point of
+emitting seconds alongside bytes rather than only at layer completion, and it is what separates a
+slow layer from an interrupted one. The heartbeat interval is off by default; see
+`kc_g_heartbeat_sec()`. Background and the falsifiable proofs: `roae-private/`
+`STAGET_PER_SEGMENT_INSTRUMENTED.md`.
+
 #### `--kc-g-check`
 
 ```
