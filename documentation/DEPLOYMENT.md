@@ -76,6 +76,23 @@ launcher should scan for the partitionless ext4 volume rather than hardcoding
 
 ## Completion and archival
 
+> ⚠ **What `SEARCH_COMPLETE` asserts, and what it does not.** It is emitted whenever the run reached
+> its own end **without hitting the wall-clock timeout** — in `solve.c` it is simply the `else` branch
+> of `if (global_timed_out)`, at both emission sites. It is a **lifecycle** status: *this process
+> finished normally*. It is **NOT** a claim that the search space was exhausted.
+>
+> That distinction matters because **every enumeration this project publishes is budgeted**: each
+> cell stops at its node allowance rather than completing, so a budgeted run leaves an unexplored DFS
+> suffix under every truncated sub-branch **and still reports `SEARCH_COMPLETE`**. A reader keying on
+> the name alone would conclude exhaustion that no run has ever demonstrated. The record count of the
+> resulting `solutions.bin` is a **lower bound**, never the cardinality of the space — see
+> [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md), whose own unscoped completeness sentence was corrected
+> on 2026-08-28 for exactly this reason.
+>
+> The token itself is deliberately **not** renamed: monitors and supervisors match it as a literal,
+> and a completion-detection regex mismatch has already cost this project a run (§Lessons item 4, and
+> `HISTORY.md`). The name is a compatibility surface; this paragraph is the semantics.
+
 - Completion detection depends on the mode. In **single-VM mode** (bundled
   merge) the solver writes `solve_results.json` with a `SEARCH_COMPLETE` status
   field, and solver exit plus that file is the signal. In **split enum/merge

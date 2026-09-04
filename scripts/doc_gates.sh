@@ -11845,6 +11845,64 @@ gate_scratch_examples() {
 }
 
 # ---------------------------------------------------------------------------
+# GATE 85 — a completion STATUS may not read as a completeness CLAIM
+# (`completion-semantics`).
+#
+# 🔴 WHY. `SEARCH_COMPLETE` is emitted by solve.c at both of its sites as nothing more than the
+# `else` branch of `if (global_timed_out)`. It means "this process reached its own end without
+# hitting the wall clock". It has never meant "the search space was exhausted" — and since EVERY
+# enumeration this project publishes is budgeted, with each cell stopping at its node allowance, a
+# run that leaves an unexplored DFS suffix under every truncated sub-branch still reports
+# SEARCH_COMPLETE. The name asserts more than the program knows.
+#
+# The sibling defect in the same corpus was already corrected on 2026-08-28: SOLUTIONS_FORMAT.md
+# said the file "contains every unique pair ordering … that satisfies constraints C1-C5", with no
+# budget qualifier anywhere in it — an unscoped completeness claim the rest of the corpus
+# contradicts. Both are the same error wearing different clothes, which is why one gate covers both.
+#
+# THE TOKEN IS DELIBERATELY NOT RENAMED and this gate must never be read as asking for that.
+# Monitors match it as a literal, and a completion-detection regex mismatch has already cost this
+# project a run (HISTORY.md: the monitor grepped "SEARCH COMPLETE", the solver writes
+# "SEARCH_COMPLETE"). The name is a compatibility surface; the prose is the semantics, and the prose
+# is what this gate keeps in place.
+# ---------------------------------------------------------------------------
+gate_completion_semantics() {
+  echo "== GATE 85: a completion status does not read as a completeness claim =="
+  local rc=0
+  if [ ! -r documentation/DEPLOYMENT.md ]; then
+    echo "  [FAIL] documentation/DEPLOYMENT.md unreadable — cannot confirm the disambiguation"
+    rc=1
+  elif ! grep -qF 'search space was exhausted' documentation/DEPLOYMENT.md; then
+    echo "  [FAIL] DEPLOYMENT.md no longer says what SEARCH_COMPLETE does NOT assert."
+    echo "     The token is emitted as the else-branch of a wall-clock timeout test. Without the"
+    echo "     qualifier a reader takes a budgeted run for an exhaustive one."
+    rc=1
+  else
+    echo "  [ok]   DEPLOYMENT.md states that SEARCH_COMPLETE is not a claim of exhaustion"
+  fi
+  # 🔴 MATCH THE PROSE AS RENDERED, NOT AS REMEMBERED. Both of the checks below failed on their
+  # first run against a file that says exactly the right thing: "within its node budget" is WRAPPED
+  # across two source lines, and "lower bound" is written "**lower bound**". A line-oriented grep for
+  # a remembered literal reports a correct document as defective — the same mistake GATE 82 leg 3
+  # made an hour earlier against a bolded sentence. So the text is normalised first: whitespace
+  # collapsed to single spaces and emphasis markers stripped.
+  local _sf; _sf=$(tr -s '[:space:]' ' ' < documentation/SOLUTIONS_FORMAT.md 2>/dev/null | tr -d '*')
+  if [ ! -r documentation/SOLUTIONS_FORMAT.md ]; then
+    echo "  [FAIL] documentation/SOLUTIONS_FORMAT.md unreadable — cannot confirm the budget scope"
+    rc=1
+  elif ! printf '%s' "$_sf" | grep -qF 'within its node budget'; then
+    echo "  [FAIL] SOLUTIONS_FORMAT.md lost its budget qualifier — the 2026-08-28 correction."
+    rc=1
+  elif ! printf '%s' "$_sf" | grep -qF 'lower bound'; then
+    echo "  [FAIL] SOLUTIONS_FORMAT.md no longer calls the record count a lower bound."
+    rc=1
+  else
+    echo "  [ok]   SOLUTIONS_FORMAT.md scopes the file to its node budget and calls the count a lower bound"
+  fi
+  return $rc
+}
+
+# ---------------------------------------------------------------------------
 # GATE 84 — every SOLVE_* environment variable the engine reads is documented
 # (`env-surface`).
 #
@@ -18199,6 +18257,7 @@ case "$MODE" in
   quotient-frame-isolation) gate_quotient_frame_isolation || RC=1 ;;
   dispatch-alignment) gate_dispatch_alignment || RC=1 ;;
   env-surface) gate_env_surface || RC=1 ;;
+  completion-semantics) gate_completion_semantics || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -18224,6 +18283,7 @@ case "$MODE" in
            echo; gate_quotient_frame_isolation || RC=1
            echo; gate_dispatch_alignment || RC=1
            echo; gate_env_surface || RC=1
+           echo; gate_completion_semantics || RC=1
            echo; gate_canonical_ceiling || RC=1
            echo; gate_withdrawn_markers || RC=1
            echo; gate_framing_era || RC=1
@@ -18277,7 +18337,7 @@ case "$MODE" in
            echo; gate_boundary_scope || RC=1
            echo; gate_merge_semantics || RC=1
            echo; gate_rec_scope || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|all}"; exit 2 ;;
 esac
 
 echo
