@@ -15815,6 +15815,21 @@ for f in files:
     for p in re.split(r"\n\s*\n",t):
         if "CORRECTED" in p: continue
         flat=" ".join(p.replace("*","").split())
+        # 🔴 THE PARAGRAPH MUST ACTUALLY BE ABOUT A SHA. Added 2026-09-04 after this gate blocked a
+        # push by firing on documentation/PREREG_H1_H3_TEST_2026_07_26.md:108 — a sentence about a
+        # STATISTICAL THRESHOLD being "a deterministic function of (a) the sampled reference
+        # population with KW held out, or (b) a closed-form constant of C5's declared multiset".
+        # That names 0 of 4 sha inputs because it is not about the sha; it merely shares the phrase.
+        # The gate's population was "every `function of (...)` in every tracked .md", not "every
+        # claim about what determines a sha", and the two are not the same set.
+        # It mattered beyond noise: the file is an ESCROWED pre-registration whose sha IS its
+        # identity, so it cannot be edited to satisfy a prose gate without destroying the thing the
+        # escrow exists to prove. A gate that can only be satisfied by invalidating its subject is
+        # not a gate. The legitimate population (e.g. CAMPAIGN_METHODOLOGY.md:158, "the canonical
+        # sha **a function of (source code, partition depth, ...)") all name a sha in the same
+        # paragraph, so requiring that is a narrowing, not a weakening.
+        if not re.search(r"\bsha\b|\bsha256\b|\bhash(es|ed)?\b|canonical sha", p, re.I):
+            continue
         for mm in re.finditer(r"function of \(([^)]*)\)",flat):
             pre=flat[max(0,mm.start()-60):mm.start()].lower()
             if "this read" in pre or "previously read" in pre: continue
