@@ -690,15 +690,15 @@ strict-ascending sort order, and King Wen presence. Unlike
 valid `ROAE` header and aborts on bad magic or unknown version.
 
 > ⚠️ **King Wen presence is reported, not enforced — in *both* checkers.**
-> `kw_found_v` is printed (`solve.c:21451` for `--validate`, `:21063` for
+> `kw_found_v` is printed (`solve.c:37978` for `--validate`, `:37536` for
 > `--verify`) and is folded into neither verdict: `--validate` returns
-> `errors > 0 ? 1 : 0` (`solve.c:21456`) and `--verify`'s `total_fail`
-> (`solve.c:21065`) sums C1-C5, decode, sort and dup only. Measured on this
+> `errors > 0 ? 1 : 0` (`solve.c:37992`) and `--verify`'s `total_fail`
+> (`solve.c:37559`) sums C1-C5, decode, sort and dup only. Measured on this
 > tree: an artifact with the King Wen record deleted and its header count
 > patched prints `King Wen present:  No` and `ALL CONSTRAINTS VERIFIED`,
 > exiting **0** — and `--verify` on the same file also exits 0. Sort order and
 > cross-record duplicates *are* enforced (the sorted-order loop increments
-> `errors` at `solve.c:21359`); the same fixtures, deliberately unsorted or
+> `errors` at `solve.c:37872`); the same fixtures, deliberately unsorted or
 > carrying an adjacent duplicate, both exit **1**. So treat the KW line as a
 > banner and check it by eye.
 >
@@ -710,6 +710,14 @@ valid `ROAE` header and aborts on bad magic or unknown version.
 > file" rule was retracted 2026-09-02 (registry `RP-60347080`) because a shard or a budgeted slice
 > legitimately lacks the record, and `tests.py`'s `TestSolveVerifyKingWenScope` pins the
 > reported-not-enforced default with a mutation test that goes red on exactly that change.
+>
+> ⓘ **Line citations in this box were re-measured 2026-09-04 and five were stale** — they read
+> `:21451`, `:21063`, `:21456`, `:21065`, `:21359`, which now land in unrelated KC walk and RNG
+> code (`:21451` is a `memcmp`, `:21359` a `kc_splitmix64` call). `solve.c` grew by roughly 16,500
+> lines between the citation and this reading. The claims themselves were all still true; only the
+> coordinates had moved. The two `solve.c:21051/:21439` references below are NOT tree coordinates
+> and were left alone: they are the Codex adjudication's own identifiers for the finding, used the
+> same way in the engine comment at `solve.c:37538`.
 >
 > `--validate`'s runtime banner also used to list "King Wen presence" among the things it
 > *checks*, which contradicted this note; corrected 2026-09-04 (Codex v2 `solve.c:21051/:21439`).
