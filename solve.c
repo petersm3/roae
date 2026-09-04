@@ -350,7 +350,12 @@
 #endif
 /* SOURCE_SHA — deterministic build identifier replacing __DATE__/__TIME__ (those make the
  * binary non-reproducible). Pass -DSOURCE_SHA="\"<sha256 of solve.c>\"" at build for a real
- * value; defaults to "unknown". Informational only — never parsed/compared. (#154) */
+ * value; defaults to "unknown". (#154)
+ * NOT informational: --kc-scan-merge COMPARES it (leg 2, engine identity). A well-formed
+ * 64-hex SOURCE_SHA equal on both sides is the SOURCE-BOUND identity that lets chunks from a
+ * rebuild of the same source merge; under the "unknown" default the merge falls back to the
+ * run-time digest of the executable (EXE-BOUND, kc_h_exe_sha), and "unknown" == "unknown"
+ * is never a match (G2 F1, 2026-09-04). */
 #ifndef SOURCE_SHA
 #define SOURCE_SHA "unknown"
 #endif
@@ -22077,6 +22082,69 @@ static int kc_h_sha_wellformed(const char *s) {
     return 1;
 }
 
+/* G2 F1 (2026-09-04): sha256 of the RUNNING executable, derived at run time so engine
+ * identity can never be omitted at build (the documented build line passes neither
+ * -DGIT_HASH nor -DSOURCE_SHA, leaving both "unknown", and "unknown" == "unknown" let
+ * chunks from two DIFFERENT binaries merge into a wrong atlas). Streams /proc/self/exe
+ * through sha256_tool() exactly like f1c5_layer_sha_hex. "unavailable" on any failure,
+ * which kc_h_sha_wellformed rejects, so a sentinel can never satisfy an equality (K-2).
+ * Cached per process. */
+static const char *kc_h_exe_sha(void) {
+    static char cached[65];
+    static int done = 0;
+    if (done) return cached;
+    done = 1;
+    strcpy(cached, "unavailable");
+    char exe[4096];
+    const ssize_t sl = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
+    if (sl <= 0) return cached;
+    exe[sl] = '\0';
+    const char *tool = sha256_tool();
+    if (!tool) return cached;
+    FILE *in = fopen(exe, "rb");
+    if (!in) return cached;
+    char tmp[128], cmd[192];
+    snprintf(tmp, sizeof(tmp), "/tmp/solve_exesha_%d", (int)getpid());
+    snprintf(cmd, sizeof(cmd), "%s > %s", tool, tmp);
+    FILE *p = popen(cmd, "w");
+    if (!p) { fclose(in); return cached; }
+    unsigned char buf[65536];
+    size_t got;
+    int wbad = 0;
+    while ((got = fread(buf, 1, sizeof(buf), in)) > 0)
+        if (fwrite(buf, 1, got, p) != got) { wbad = 1; break; }
+    const int rbad = ferror(in);
+    fclose(in);
+    const int prc = pclose(p);
+    if (wbad || rbad || prc != 0) { unlink(tmp); return cached; }
+    char hex[65] = {0};
+    FILE *tf = fopen(tmp, "r");
+    if (tf) {
+        char line[256] = {0};
+        if (fgets(line, sizeof(line), tf)) {
+            int i = 0;
+            while (i < 64 && line[i] && line[i] != ' ' && line[i] != '\t' && line[i] != '\n') {
+                hex[i] = line[i]; i++;
+            }
+            hex[i] = '\0';
+        }
+        fclose(tf);
+    }
+    unlink(tmp);
+    if (kc_h_sha_wellformed(hex)) memcpy(cached, hex, 65);
+    return cached;
+}
+
+/* G2 F3 (2026-09-04): remove a REGULAR file at path if one exists. 0 = absent or removed,
+ * -1 (errno set) = exists and could not be removed. Non-regular paths (/dev/null, a fifo)
+ * are left alone - they cannot be a stale atlas. */
+static int kc_h_unlink_regular(const char *path) {
+    struct stat st;
+    if (stat(path, &st) != 0) return (errno == ENOENT || errno == ENOTDIR) ? 0 : -1;
+    if (!S_ISREG(st.st_mode)) return 0;
+    return unlink(path) == 0 ? 0 : -1;
+}
+
 /* stream one solutions container through the full check battery.
  * Returns 0 if the stream was processed (defects TALLIED in st), -1 on
  * IO/format errors that prevent processing (st->io_error/header_bad). */
@@ -24370,13 +24438,22 @@ static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC 
                                  const char *fdir, const char *gdir, const char *tdir,
                                  int want_raw, int k_lo, int k_hi, double elapsed) {
     if (!sha256_tool()) { require_sha256_tool(); return -1; }
+    /* G2 F1: run-time engine identity, never omittable at build. Refuse to write a chunk
+     * that would carry none - the merge would (rightly) reject it later anyway. */
+    const char *exe_sha = kc_h_exe_sha();
+    if (!kc_h_sha_wellformed(exe_sha)) {
+        fprintf(stderr, "ERROR: [kc-scan] cannot digest the running executable "
+                "(/proc/self/exe) - the chunk would carry no engine identity\n");
+        return -1;
+    }
     FILE *f = fopen(outp, "w");
     if (!f) {
         fprintf(stderr, "ERROR: [kc-scan] cannot write %s\n", outp);
         return -1;
     }
     char t[64], esc[2048], b0s[128];
-    fprintf(f, "{\n  \"type\": \"roae-kc-scan-chunk\",\n  \"version\": 1,\n");
+    /* chunk schema 2 (2026-09-04): + g_layer_sha_* (F2) + engine_exe_sha (F1) */
+    fprintf(f, "{\n  \"type\": \"roae-kc-scan-chunk\",\n  \"version\": 2,\n");
     fprintf(f, "  \"n\": %d,\n  \"k_lo\": %d,\n  \"k_hi\": %d,\n", T->n, k_lo, k_hi);
     fprintf(f, "  \"range\": \"HALF-OPEN [k_lo, k_hi) over transition layers k in [0, n)\",\n");
     f1_dec(fkc->total, t);
@@ -24406,6 +24483,22 @@ static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC 
         }
         fprintf(f, "  \"f_layer_sha_%02d\": \"%s\",\n", k, hex);
     }
+    /* leg-3 binding, g side (G2 F2, 2026-09-04): transition layer k reads g layer k+1
+     * (kc_glookup(gkc, k + 1, ...) in kc_h_scan_layers), so bind the same exact
+     * decompressed-stream digest of g layers k_lo+1 .. k_hi. Before this a chunk bound
+     * gdir as a PATH STRING only, and g content swapped under an unchanged path merged
+     * KC_SCAN_MERGE=OK into a wrong atlas. The t ladder is never read by the layer pass
+     * (tail-only; the merge recomputes it whole), so there is nothing of t to bind here. */
+    for (int k = k_lo + 1; k <= k_hi; k++) {
+        char lpath[4400], hex[65];
+        snprintf(lpath, sizeof(lpath), "%s/g_layer_%02d.bin", gdir, k);
+        if (f1c5_layer_sha_hex(lpath, hex, NULL, NULL, NULL) != 0) {
+            fprintf(stderr, "ERROR: [kc-scan] cannot digest %s\n", lpath);
+            fclose(f);
+            return -1;
+        }
+        fprintf(f, "  \"g_layer_sha_%02d\": \"%s\",\n", k, hex);
+    }
     for (int k = k_lo; k < k_hi; k++) {
         f1_dec(T->fmass[k], t);
         fprintf(f, "  \"fmass_%02d\": \"%s\",\n", k, t);
@@ -24419,6 +24512,7 @@ static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC 
     fprintf(f, "  \"gate_fails\": %d,\n", T->gate_fails);
     fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
             GIT_HASH, SOURCE_SHA);
+    fprintf(f, "  \"engine_exe_sha\": \"%s\",\n", exe_sha);
     fprintf(f, "  \"elapsed_sec\": %.3f,\n", elapsed);
     fprintf(f, "  \"semantics\": \"PARTIAL atlas chunk - NOT an atlas; assemble with "
             "--kc-scan-merge, which proves coverage and re-runs every gate\"\n}\n");
@@ -24529,7 +24623,7 @@ static int kc_scan_main(int argc, char *argv[]) {
                 "  --kc-layers A B: CHUNK mode. Scan only transition layers in the\n"
                 "  HALF-OPEN range [A, B) subset of [0, n) and write OUT as a partial\n"
                 "  'roae-kc-scan-chunk' (NOT an atlas): the per-layer accumulators for\n"
-                "  that range only, plus the identity + f-layer-digest bindings the\n"
+                "  that range only, plus the identity + f/g-layer-digest bindings the\n"
                 "  merge checks. Tail work (branch atlas, fmass[n], t) is skipped.\n"
                 "  Assemble with --kc-scan-merge, which PROVES coverage. Chunks are\n"
                 "  independent processes -> an evicted Spot chunk is simply re-run.\n"
@@ -24693,11 +24787,16 @@ static int kc_scan_main(int argc, char *argv[]) {
  *  leg 2  identity binding: every chunk must agree exactly with every other
  *         chunk AND with the ladders this process just opened on
  *         n / N_total / pl_hash / start_exit / b0 / want_raw / fdir / gdir /
- *         engine_git / engine_source_sha. Disagreement is a hard abort.
+ *         engine_git. Disagreement is a hard abort. ENGINE identity (G2 F1,
+ *         2026-09-04) is SOURCE-BOUND (well-formed -DSOURCE_SHA equal on both
+ *         sides) or else EXE-BOUND (run-time sha256 of the executable equal on
+ *         both sides); a defaulted "unknown" never matches anything.
  *  leg 3  ladder-bytes binding, RE-CHECKED here: for every k, recompute
- *         f1c5_layer_sha_hex on the f layer and require it to equal the digest
- *         the chunk recorded. This makes "all chunks read the same ladder" a
- *         checked statement, and catches a ladder mutated between chunk runs.
+ *         f1c5_layer_sha_hex on the f layer k AND on the g layer k+1 (the two
+ *         layers the transition pass actually read) and require each to equal
+ *         the digest the chunk recorded. This makes "all chunks read the same
+ *         ladders" a checked statement, and catches a ladder mutated between
+ *         chunk runs (G2 F2, 2026-09-04: g was bound by path string only).
  *  leg 4  the per-layer flow[k] == N gate is an intra-layer completeness
  *         proof; the merge RE-RUNS every gate on the assembled table (via
  *         kc_h_scan_tail) rather than trusting the chunks' gate_fails.
@@ -24748,9 +24847,12 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                 "  BYTE-IDENTICAL to a whole-run --kc-scan atlas over the same ladders.\n"
                 "  Chunk submission order is irrelevant (rows are placed by k).\n"
                 "  Coverage is PROVEN, not assumed: every layer exactly once, identity\n"
-                "  and f-layer-digest bindings re-checked, every gate re-run, and (with\n"
+                "  and f/g-layer-digest bindings re-checked, every gate re-run, and (with\n"
                 "  --kc-tdir) the cross-chunk t(root) == sum of f layer masses identity.\n"
-                "  Any failure -> loud verdict + exit 1/2. Exit 0/1/2.\n");
+                "  Engine identity: SOURCE-BOUND (-DSOURCE_SHA equal on both sides) or\n"
+                "  EXE-BOUND (same executable bytes); a defaulted 'unknown' never matches.\n"
+                "  A pre-existing OUT.json is REMOVED on entry: after any non-OK exit no\n"
+                "  atlas exists at OUT. Any failure -> loud verdict + exit 1/2. Exit 0/1/2.\n");
         return 2;
     }
     const char *fdir = argv[2], *gdir = argv[3], *outp = argv[4], *tdir = NULL;
@@ -24777,6 +24879,23 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     }
     if (nchunk == 0) {
         fprintf(stderr, "ERROR: [kc-scan-merge] no chunk files given\n");
+        printf("KC_SCAN_MERGE=FAIL\n");
+        return 2;
+    }
+    /* G2 F3 (2026-09-04): OUT must mean "THIS invocation's complete output". Before this
+     * a pre-existing OUT survived every non-OK exit (coverage FAIL rc=1, identity/ladder/
+     * parse ABORT rc=2) byte- and mtime-identical, and a consumer that tests for the file
+     * read the PREVIOUS run's atlas as current. Remove it now, so the PROGRAM - not the
+     * caller - guarantees that a failed merge leaves no atlas behind. */
+    for (int ci = 0; ci < nchunk; ci++)
+        if (strcmp(chunks[ci], outp) == 0) {
+            fprintf(stderr, "ERROR: [kc-scan-merge] OUT %s names a chunk file\n", outp);
+            printf("KC_SCAN_MERGE=FAIL\n");
+            return 2;
+        }
+    if (kc_h_unlink_regular(outp) != 0) {
+        fprintf(stderr, "ERROR: [kc-scan-merge] cannot remove pre-existing %s: %s\n",
+                outp, strerror(errno));
         printf("KC_SCAN_MERGE=FAIL\n");
         return 2;
     }
@@ -24825,6 +24944,14 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     int *fseen = (int *)calloc((size_t)n, sizeof(int));
     F1_CHECK(seen && fseen, "[kc-scan-merge] alloc");
     int identity_bad = 0, ladder_bad = 0, parse_bad = 0;
+    /* G2 F1: this process's own engine identity, once */
+    const char *my_exe = kc_h_exe_sha();
+    int engine_bad = 0, engine_src_used = 0;
+    /* G2 F2: g layer digests, recomputed once per layer and cached (a layer can be bound
+     * by several chunks at once only through a coverage DUPLICATE, but the cache is cheap) */
+    char *gcache = (char *)calloc((size_t)n + 1, 65);
+    int *ghave = (int *)calloc((size_t)n + 1, sizeof(int));
+    F1_CHECK(gcache && ghave, "[kc-scan-merge] alloc");
 
     for (int ci = 0; ci < nchunk && !identity_bad && !ladder_bad && !parse_bad; ci++) {
         FILE *cf = fopen(chunks[ci], "r");
@@ -24853,14 +24980,41 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     } } while (0)
 
         KC_MERGE_ID("type", "roae-kc-scan-chunk");
-        KC_MERGE_ID("version", "1");
+        KC_MERGE_ID("version", "2");
         KC_MERGE_ID("N_total", want_N);
         KC_MERGE_ID("pl_hash", want_pl);
         KC_MERGE_ID("b0", want_b0);
         KC_MERGE_ID("fdir", want_fdir);
         KC_MERGE_ID("gdir", want_gdir);
         KC_MERGE_ID("engine_git", GIT_HASH);
-        KC_MERGE_ID("engine_source_sha", SOURCE_SHA);
+        /* leg 2, engine identity (G2 F1, 2026-09-04). The line this replaces was
+         *     KC_MERGE_ID("engine_source_sha", SOURCE_SHA);
+         * which under the documented build compared "unknown" with "unknown" and let
+         * chunks from two DIFFERENT binaries merge into a wrong, fully-gated atlas.
+         * Now a chunk merges only if it is SOURCE-BOUND (both sides carry a well-formed
+         * -DSOURCE_SHA and they agree) or EXE-BOUND (both sides' run-time executable
+         * digests are well-formed and agree). Two well-formed source digests that differ
+         * abort regardless (never weaker than before). A sentinel never matches. */
+        {
+            char csrc[128], cexe[128];
+            if (kc_h_field(buf, "engine_source_sha", csrc, sizeof(csrc)) != 0) strcpy(csrc, "<absent>");
+            if (kc_h_field(buf, "engine_exe_sha", cexe, sizeof(cexe)) != 0) strcpy(cexe, "<absent>");
+            const int src_both = kc_h_sha_wellformed(SOURCE_SHA) && kc_h_sha_wellformed(csrc);
+            const int src_ok = src_both && strcmp(csrc, SOURCE_SHA) == 0;
+            const int exe_ok = kc_h_sha_wellformed(my_exe) && kc_h_sha_wellformed(cexe) &&
+                               strcmp(cexe, my_exe) == 0;
+            if ((src_both && !src_ok) || (!src_ok && !exe_ok)) {
+                fprintf(stderr, "ERROR: [kc-scan-merge] %s: engine identity mismatch: "
+                        "engine_source_sha chunk=\"%s\" merger=\"%s\"; engine_exe_sha "
+                        "chunk=\"%s\" merger=\"%s\" - chunks from another build, or from a "
+                        "build that cannot be identified, never merge\n",
+                        chunks[ci], csrc, SOURCE_SHA, cexe, my_exe);
+                identity_bad = 1;
+                engine_bad = 1;
+            } else if (!exe_ok) {
+                engine_src_used = 1;   /* same source, different executable bytes */
+            }
+        }
         {
             char e[32];
             snprintf(e, sizeof(e), "%d", n);
@@ -24902,6 +25056,30 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                         hex);
                 ladder_bad = 1;
                 break;
+            }
+            /* leg 3, g side (G2 F2): transition layer k read g layer k+1; recompute its
+             * digest (once per layer) and bind it to the chunk exactly like the f layer. */
+            {
+                const int j = k + 1;
+                char *gh = gcache + (size_t)j * 65;
+                if (!ghave[j]) {
+                    snprintf(lpath, sizeof(lpath), "%s/g_layer_%02d.bin", gdir, j);
+                    if (f1c5_layer_sha_hex(lpath, gh, NULL, NULL, NULL) != 0) {
+                        fprintf(stderr, "ERROR: [kc-scan-merge] cannot digest %s\n", lpath);
+                        ladder_bad = 1;
+                        break;
+                    }
+                    ghave[j] = 1;
+                }
+                snprintf(key, sizeof(key), "g_layer_sha_%02d", j);
+                if (kc_h_field(buf, key, v, sizeof(v)) != 0 || strcmp(v, gh) != 0) {
+                    fprintf(stderr, "ERROR: [kc-scan-merge] %s: g layer %02d digest mismatch "
+                            "(chunk=%s ladder=%s) - the chunks did not all read THIS g ladder\n",
+                            chunks[ci], j,
+                            kc_h_field(buf, key, v, sizeof(v)) == 0 ? v : "<absent>", gh);
+                    ladder_bad = 1;
+                    break;
+                }
             }
             /* leg 1 — coverage counters */
             seen[k]++;
@@ -24954,9 +25132,11 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     if (identity_bad || ladder_bad || parse_bad) {
         printf("KC_SCAN_MERGE_COVERAGE=ABORTED\n");
         printf("KC_SCAN_MERGE_IDENTITY=%s\n", identity_bad ? "MISMATCH" : "OK");
+        printf("KC_SCAN_MERGE_ENGINE=%s\n", engine_bad ? "MISMATCH" : "NOT-REACHED");
         printf("KC_SCAN_MERGE_LADDER=%s\n", ladder_bad ? "MISMATCH" : "OK");
         printf("KC_SCAN_MERGE=FAIL\n");
     } else {
+        printf("KC_SCAN_MERGE_ENGINE=%s\n", engine_src_used ? "SOURCE-BOUND" : "EXE-BOUND");
         /* leg 1 — coverage, exactly once */
         int gaps = 0, dups = 0;
         for (int k = 0; k < n; k++) {
@@ -24970,7 +25150,8 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                 if (seen[k] != 1)
                     printf("[kc-scan-merge]   k=%d covered %d time(s)%s\n", k, seen[k],
                            seen[k] == 0 ? " (GAP)" : " (DUPLICATE)");
-            printf("[kc-scan-merge] no atlas written\n");
+            printf("[kc-scan-merge] no atlas written (a pre-existing %s was removed on entry)\n",
+                   outp);
             printf("KC_SCAN_MERGE_COVERAGE=INCOMPLETE\n");
             printf("KC_SCAN_MERGE_TIDENTITY=%s\n", tkc ? "NOT-REACHED" : "SKIPPED");
             printf("KC_SCAN_MERGE=FAIL\n");
@@ -24991,17 +25172,29 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                 printf("KC_SCAN_MERGE=FAIL\n");
             } else {
                 kc_h_scan_write_atlas(f, &T, fkc, fdir, gdir, tdir, want_raw);
-                fclose(f);
-                printf("[kc-scan-merge] atlas written: %s (%d chunk%s, %d layer%s)\n",
-                       outp, nchunk, nchunk == 1 ? "" : "s", n, n == 1 ? "" : "s");
-                printf("[kc-scan-merge] VERDICT: %s (%d gate failure%s)\n",
-                       T.gate_fails ? "FAIL" : "PASS", T.gate_fails,
-                       T.gate_fails == 1 ? "" : "s");
-                printf("KC_SCAN_MERGE=%s\n", T.gate_fails ? "FAIL" : "OK");
-                rc = T.gate_fails ? 1 : 0;
+                /* G2 F3 sibling (the KC04 #3 class): a short write is a FAILED merge and
+                 * must not leave a truncated file behind that a consumer could open. */
+                int wbad = ferror(f);
+                if (fclose(f) != 0) wbad = 1;
+                if (wbad) {
+                    fprintf(stderr, "ERROR: [kc-scan-merge] write to %s failed: %s\n",
+                            outp, strerror(errno));
+                    kc_h_unlink_regular(outp);
+                    printf("KC_SCAN_MERGE=FAIL\n");
+                } else {
+                    printf("[kc-scan-merge] atlas written: %s (%d chunk%s, %d layer%s)\n",
+                           outp, nchunk, nchunk == 1 ? "" : "s", n, n == 1 ? "" : "s");
+                    printf("[kc-scan-merge] VERDICT: %s (%d gate failure%s)\n",
+                           T.gate_fails ? "FAIL" : "PASS", T.gate_fails,
+                           T.gate_fails == 1 ? "" : "s");
+                    printf("KC_SCAN_MERGE=%s\n", T.gate_fails ? "FAIL" : "OK");
+                    rc = T.gate_fails ? 1 : 0;
+                }
             }
         }
     }
+    free(gcache);
+    free(ghave);
     free(seen);
     free(fseen);
     kc_scan_free(&T);
@@ -27557,6 +27750,17 @@ static int kc_h_bytes_identical(const char *a, const char *b) {
 
 static int kc_h_exists(const char *p) { struct stat st; return stat(p, &st) == 0; }
 
+/* G2 F3 (2026-09-04): plant a DECOY at OUT (a copy of a valid atlas) so a "NO atlas file
+ * left" gate tests that the PROGRAM removes a pre-existing output on a failed merge.
+ * Before this the negative legs unlink()ed OUT themselves, on a fresh path that had never
+ * been written, so the gate could not distinguish "the merge left no file" from "nothing
+ * was ever there". */
+static void kc_h_plant_decoy(const char *out, const char *src) {
+    char cmd[9000];
+    snprintf(cmd, sizeof(cmd), "cp '%s' '%s'", src, out);
+    kc_h_sh(cmd);
+}
+
 static int kc_layers_selftest(void) {
     int fails = 0;
     printf("[kc-layers-selftest] chunked --kc-layers scan + --kc-scan-merge (n=9)\n");
@@ -27689,7 +27893,9 @@ static int kc_layers_selftest(void) {
         snprintf_a("--kc-scan '%s' '%s' '%s' --kc-layers 4 9", fdir, gdir, gaps);
         kc_h_self_run(a, log);
         snprintf(out, sizeof(out), "%s/gap.json", dir);
-        unlink(out);
+        kc_h_plant_decoy(out, whole);
+        KC_LAYERS_GATE("L5 decoy atlas planted at OUT before the merge (test is armed)",
+                       kc_h_exists(out));
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, c1, gaps, tdir);
         const int rc = kc_h_self_run(a, log);
@@ -27698,14 +27904,16 @@ static int kc_layers_selftest(void) {
                        kc_h_log_line(log, "KC_SCAN_MERGE_COVERAGE=INCOMPLETE"));
         KC_LAYERS_GATE("L5 gap: names the missing layer k=3", kc_h_log_sub(log, "k=3 covered 0"));
         KC_LAYERS_GATE("L5 gap: KC_SCAN_MERGE=FAIL", kc_h_log_line(log, "KC_SCAN_MERGE=FAIL"));
-        KC_LAYERS_GATE("L5 gap: NO atlas file written", !kc_h_exists(out));
+        KC_LAYERS_GATE("L5 gap: NO atlas file left (pre-existing decoy REMOVED)", !kc_h_exists(out));
     }
 
     /* --- L5b: the missing-middle-chunk case (an evicted chunk never re-run) --- */
     {
         char out[4300];
         snprintf(out, sizeof(out), "%s/missing.json", dir);
-        unlink(out);
+        kc_h_plant_decoy(out, whole);
+        KC_LAYERS_GATE("L5b decoy atlas planted at OUT before the merge (test is armed)",
+                       kc_h_exists(out));
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, c1, c3, tdir);
         const int rc = kc_h_self_run(a, log);
@@ -27715,7 +27923,7 @@ static int kc_layers_selftest(void) {
                        kc_h_log_sub(log, "k=3 covered 0") &&
                        kc_h_log_sub(log, "k=4 covered 0") &&
                        kc_h_log_sub(log, "k=5 covered 0"));
-        KC_LAYERS_GATE("L5b missing middle chunk: NO atlas file written", !kc_h_exists(out));
+        KC_LAYERS_GATE("L5b missing middle chunk: NO atlas file left (decoy REMOVED)", !kc_h_exists(out));
     }
 
     /* --- L6: an OVERLAP (double-count) must be rejected --- */
@@ -27728,7 +27936,9 @@ static int kc_layers_selftest(void) {
         snprintf_a("--kc-scan '%s' '%s' '%s' --kc-layers 3 9", fdir, gdir, o2);
         kc_h_self_run(a, log);
         snprintf(out, sizeof(out), "%s/overlap.json", dir);
-        unlink(out);
+        kc_h_plant_decoy(out, whole);
+        KC_LAYERS_GATE("L6 decoy atlas planted at OUT before the merge (test is armed)",
+                       kc_h_exists(out));
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, o1, o2, tdir);
         const int rc = kc_h_self_run(a, log);
@@ -27736,7 +27946,7 @@ static int kc_layers_selftest(void) {
                        rc == 1 && kc_h_log_line(log, "KC_SCAN_MERGE_COVERAGE=INCOMPLETE"));
         KC_LAYERS_GATE("L6 overlap: names the double-counted layer k=3",
                        kc_h_log_sub(log, "k=3 covered 2 time(s)"));
-        KC_LAYERS_GATE("L6 overlap: NO atlas file written", !kc_h_exists(out));
+        KC_LAYERS_GATE("L6 overlap: NO atlas file left (decoy REMOVED)", !kc_h_exists(out));
     }
 
     /* --- L7: leg 2 - a chunk from a different context must hard-abort --- */
@@ -27750,14 +27960,16 @@ static int kc_layers_selftest(void) {
         kc_h_sh(cmd);
         free(cmd);
         snprintf(out, sizeof(out), "%s/badid.json", dir);
-        unlink(out);
+        kc_h_plant_decoy(out, whole);
+        KC_LAYERS_GATE("L7 decoy atlas planted at OUT before the merge (test is armed)",
+                       kc_h_exists(out));
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, c1, bad, c3, tdir);
         const int rc = kc_h_self_run(a, log);
         KC_LAYERS_GATE("L7 mixed identity (pl_hash): hard abort, exit 2", rc == 2);
         KC_LAYERS_GATE("L7 mixed identity: KC_SCAN_MERGE_IDENTITY=MISMATCH",
                        kc_h_log_line(log, "KC_SCAN_MERGE_IDENTITY=MISMATCH"));
-        KC_LAYERS_GATE("L7 mixed identity: KC_SCAN_MERGE=FAIL + NO atlas written",
+        KC_LAYERS_GATE("L7 mixed identity: KC_SCAN_MERGE=FAIL + NO atlas left (decoy REMOVED)",
                        kc_h_log_line(log, "KC_SCAN_MERGE=FAIL") && !kc_h_exists(out));
     }
 
@@ -27773,14 +27985,16 @@ static int kc_layers_selftest(void) {
         kc_h_sh(cmd);
         free(cmd);
         snprintf(out, sizeof(out), "%s/badsha.json", dir);
-        unlink(out);
+        kc_h_plant_decoy(out, whole);
+        KC_LAYERS_GATE("L8 decoy atlas planted at OUT before the merge (test is armed)",
+                       kc_h_exists(out));
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, bad, c2, c3, tdir);
         const int rc = kc_h_self_run(a, log);
         KC_LAYERS_GATE("L8 stale/other ladder (f layer digest): hard abort, exit 2", rc == 2);
         KC_LAYERS_GATE("L8 stale ladder: KC_SCAN_MERGE_LADDER=MISMATCH",
                        kc_h_log_line(log, "KC_SCAN_MERGE_LADDER=MISMATCH"));
-        KC_LAYERS_GATE("L8 stale ladder: KC_SCAN_MERGE=FAIL + NO atlas written",
+        KC_LAYERS_GATE("L8 stale ladder: KC_SCAN_MERGE=FAIL + NO atlas left (decoy REMOVED)",
                        kc_h_log_line(log, "KC_SCAN_MERGE=FAIL") && !kc_h_exists(out));
     }
 
@@ -27807,6 +28021,110 @@ static int kc_layers_selftest(void) {
                        kc_h_log_line(log, "KC_SCAN_MERGE=FAIL"));
         KC_LAYERS_GATE("L9 tampered flow: merged atlas is NOT byte-identical",
                        !kc_h_bytes_identical(whole, out));
+    }
+
+    /* --- L13: leg 2 engine identity (G2 F1) - "unknown" == "unknown" is NOT a match --- */
+    {
+        char bad[4300], out[4300];
+        char *cmd = (char *)malloc(KC_LAY_ABUF);
+        F1_CHECK(cmd != NULL, "[kc-layers-selftest] alloc");
+        /* L13a: a chunk from a DIFFERENT executable: engine_exe_sha edited to another
+         * well-formed digest, and engine_source_sha to another well-formed digest too, so
+         * the leg discriminates under BOTH the documented build (source "unknown" on both
+         * sides - exactly the F1 scenario) and a -DSOURCE_SHA build. */
+        snprintf(bad, sizeof(bad), "%s/bad_exe.json", dir);
+        snprintf(cmd, KC_LAY_ABUF,
+                 "cp '%s' '%s' && sed -i -e 's/\"engine_exe_sha\": \"[0-9a-f]*\"/"
+                 "\"engine_exe_sha\": \"%s\"/' -e 's/\"engine_source_sha\": \"[^\"]*\"/"
+                 "\"engine_source_sha\": \"%s\"/' '%s'", c2, bad,
+                 "1111111111111111111111111111111111111111111111111111111111111111",
+                 "2222222222222222222222222222222222222222222222222222222222222222", bad);
+        kc_h_sh(cmd);
+        snprintf(out, sizeof(out), "%s/badexe.json", dir);
+        kc_h_plant_decoy(out, whole);
+        snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
+                 fdir, gdir, out, c1, bad, c3, tdir);
+        int rc = kc_h_self_run(a, log);
+        KC_LAYERS_GATE("L13a chunk from another executable: hard abort, exit 2", rc == 2);
+        KC_LAYERS_GATE("L13a: KC_SCAN_MERGE_IDENTITY=MISMATCH + KC_SCAN_MERGE_ENGINE=MISMATCH",
+                       kc_h_log_line(log, "KC_SCAN_MERGE_IDENTITY=MISMATCH") &&
+                       kc_h_log_line(log, "KC_SCAN_MERGE_ENGINE=MISMATCH"));
+        KC_LAYERS_GATE("L13a: KC_SCAN_MERGE=FAIL + NO atlas left (decoy REMOVED)",
+                       kc_h_log_line(log, "KC_SCAN_MERGE=FAIL") && !kc_h_exists(out));
+        /* L13b: a chunk with NO engine_exe_sha at all and a defaulted source sha (the
+         * pre-2026-09-04 chunk shape under the documented build): no identity, no merge. */
+        snprintf(cmd, KC_LAY_ABUF,
+                 "cp '%s' '%s' && sed -i -e '/\"engine_exe_sha\"/d' -e 's/\"engine_source_sha\": "
+                 "\"[^\"]*\"/\"engine_source_sha\": \"unknown\"/' '%s'", c2, bad, bad);
+        kc_h_sh(cmd);
+        kc_h_plant_decoy(out, whole);
+        rc = kc_h_self_run(a, log);
+        KC_LAYERS_GATE("L13b chunk with no engine identity at all: exit 2 + ENGINE=MISMATCH + no atlas",
+                       rc == 2 && kc_h_log_line(log, "KC_SCAN_MERGE_ENGINE=MISMATCH") &&
+                       !kc_h_exists(out));
+        /* L13c: the positive token - same executable on both sides is EXE-BOUND */
+        snprintf(out, sizeof(out), "%s/engine_ok.json", dir);
+        snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
+                 fdir, gdir, out, c1, c2, c3, tdir);
+        rc = kc_h_self_run(a, log);
+        KC_LAYERS_GATE("L13c same-executable merge: exit 0 + KC_SCAN_MERGE_ENGINE=EXE-BOUND",
+                       rc == 0 && kc_h_log_line(log, "KC_SCAN_MERGE_ENGINE=EXE-BOUND"));
+        free(cmd);
+    }
+
+    /* --- L14: leg 3, g side (G2 F2) - a chunk binds the g layers it actually read --- */
+    {
+        char bad[4300], out[4300], gbak[4300], glay[4400];
+        char *cmd = (char *)malloc(KC_LAY_ABUF);
+        F1_CHECK(cmd != NULL, "[kc-layers-selftest] alloc");
+        /* L14a: the recorded g digest edited (the L8 pattern, for g). c2 = [3,6) read g 4,5,6. */
+        snprintf(bad, sizeof(bad), "%s/bad_gsha.json", dir);
+        snprintf(cmd, KC_LAY_ABUF, "cp '%s' '%s' && sed -i 's/\"g_layer_sha_04\": \"[0-9a-f]*\"/"
+                 "\"g_layer_sha_04\": \"%s\"/' '%s'", c2, bad,
+                 "0000000000000000000000000000000000000000000000000000000000000000", bad);
+        kc_h_sh(cmd);
+        snprintf(out, sizeof(out), "%s/badgsha.json", dir);
+        kc_h_plant_decoy(out, whole);
+        snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
+                 fdir, gdir, out, c1, bad, c3, tdir);
+        int rc = kc_h_self_run(a, log);
+        KC_LAYERS_GATE("L14a chunk bound to other g bytes (digest edited): exit 2 + LADDER=MISMATCH",
+                       rc == 2 && kc_h_log_line(log, "KC_SCAN_MERGE_LADDER=MISMATCH"));
+        KC_LAYERS_GATE("L14a: names the g layer + KC_SCAN_MERGE=FAIL + NO atlas left",
+                       kc_h_log_sub(log, "g layer 04 digest mismatch") &&
+                       kc_h_log_line(log, "KC_SCAN_MERGE=FAIL") && !kc_h_exists(out));
+        /* L14b: the REAL hazard - g BYTES change under an UNCHANGED path between chunk
+         * production and merge. Flip the last byte of g_layer_04.bin in place (v1 layers are
+         * raw, so the decompressed-stream digest moves), merge the untouched chunks, restore. */
+        snprintf(gbak, sizeof(gbak), "%s/g_bak", dir);
+        snprintf(glay, sizeof(glay), "%s/g_layer_04.bin", gdir);
+        snprintf(cmd, KC_LAY_ABUF, "cp -a '%s' '%s'", gdir, gbak);
+        kc_h_sh(cmd);
+        int flipped = 0;
+        {
+            FILE *gf = fopen(glay, "r+b");
+            if (gf && fseek(gf, -1, SEEK_END) == 0) {
+                const int b = fgetc(gf);
+                if (b != EOF && fseek(gf, -1, SEEK_CUR) == 0 && fputc(b ^ 1, gf) != EOF) flipped = 1;
+            }
+            if (gf) fclose(gf);
+        }
+        KC_LAYERS_GATE("L14b g_layer_04.bin last byte flipped IN PLACE (path unchanged)", flipped);
+        snprintf(out, sizeof(out), "%s/gmut.json", dir);
+        kc_h_plant_decoy(out, whole);
+        snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
+                 fdir, gdir, out, c1, c2, c3, tdir);
+        rc = kc_h_self_run(a, log);
+        KC_LAYERS_GATE("L14b g bytes changed under the same path: exit 2 + LADDER=MISMATCH",
+                       rc == 2 && kc_h_log_line(log, "KC_SCAN_MERGE_LADDER=MISMATCH"));
+        KC_LAYERS_GATE("L14b: names g layer 04 + NO atlas left (decoy REMOVED)",
+                       kc_h_log_sub(log, "g layer 04 digest mismatch") && !kc_h_exists(out));
+        snprintf(cmd, KC_LAY_ABUF, "rm -rf '%s' && mv '%s' '%s'", gdir, gbak, gdir);
+        kc_h_sh(cmd);
+        rc = kc_h_self_run(a, log);
+        KC_LAYERS_GATE("L14b g ladder restored: the same merge is exit 0 + byte-identical again",
+                       rc == 0 && kc_h_bytes_identical(whole, out));
+        free(cmd);
     }
 
     /* --- L12: a merge without --kc-tdir is a strictly WEAKER attestation --- */
