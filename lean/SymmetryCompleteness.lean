@@ -541,7 +541,11 @@ statically inferred. Expected: `[propext]` alone for the `decide +kernel` finite
 facts, `[propext, Quot.sound]` for the structural psi_comm_perms — Lean's standard
 axioms only. Any `Lean.ofReduceBool` here means a `native_decide` (compiler trust)
 has crept back in and the docs must say so; since 2026-08-07 this file carries
-none. -/
+none.
+(On leanprover/lean4:v4.31.0 a `native_decide` proof instead surfaces under `#print axioms` as an
+auxiliary axiom named `<decl>._native.native_decide.ax_*`, NOT as `Lean.ofReduceBool` — measured
+2026-09-04. So the ABSENCE of `Lean.ofReduceBool` is not a sufficient tell; the sound check is the
+ALLOWLIST: any axiom token outside [propext, Classical.choice, Quot.sound] fails the audit.) -/
 #print axioms SymmetryCompleteness.psi_involution
 #print axioms SymmetryCompleteness.psi_g5_iso
 #print axioms SymmetryCompleteness.psi_comm_perms

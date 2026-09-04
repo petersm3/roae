@@ -1382,6 +1382,10 @@ end SatEncodingFidelity
   a subset of [propext, Classical.choice, Quot.sound] — kernel-only, no
   `Lean.ofReduceBool` (which would indicate a load-bearing `native_decide`;
   there is none in this file).
+  (On leanprover/lean4:v4.31.0 a `native_decide` proof instead surfaces under `#print axioms` as an
+  auxiliary axiom named `<decl>._native.native_decide.ax_*`, NOT as `Lean.ofReduceBool` — measured
+  2026-09-04. So the ABSENCE of `Lean.ofReduceBool` is not a sufficient tell; the sound check is the
+  ALLOWLIST: any axiom token outside [propext, Classical.choice, Quot.sound] fails the audit.)
 -/
 #print axioms SatEncodingFidelity.model_soundness
 #print axioms SatEncodingFidelity.model_determinism

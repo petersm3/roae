@@ -1125,7 +1125,11 @@ Emits the trust base for every theorem in this file that is CITED BY NAME in the
 public documentation, so the suite's `#print axioms` claims are OBSERVED rather than
 statically inferred. Expected: `[propext, Classical.choice, Quot.sound]`, or
 `[propext]` alone for the finite facts. Any `Lean.ofReduceBool` here means a
-`native_decide` (compiler trust) is load-bearing and the docs must say so. -/
+`native_decide` (compiler trust) is load-bearing and the docs must say so.
+(On leanprover/lean4:v4.31.0 a `native_decide` proof instead surfaces under `#print axioms` as an
+auxiliary axiom named `<decl>._native.native_decide.ax_*`, NOT as `Lean.ofReduceBool` — measured
+2026-09-04. So the ABSENCE of `Lean.ofReduceBool` is not a sufficient tell; the sound check is the
+ALLOWLIST: any axiom token outside [propext, Classical.choice, Quot.sound] fails the audit.) -/
 #print axioms PartitionInvariance.merge_perm
 #print axioms PartitionInvariance.merge_spec
 #print axioms PartitionInvariance.merge_map_merge_flatten

@@ -158,7 +158,11 @@ file header). So the DIV-24 gate, the equivariance
 ceiling, the Theorem A trio, the TG-2 boundary-budget family, and the eight literature-rule
 constants are kernel-only end to end (`#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]`
 — Lean's standard axioms; the compiler-trust axiom `Lean.ofReduceBool` no longer appears in any of
-these chains, and the finite facts report `[propext]` alone). After that migration,
+these chains, and the finite facts report `[propext]` alone). ⚠ **The tell is the allowlist, not the
+absence of one name (measured 2026-09-04 on the pinned 4.31.0): a `native_decide` proof surfaces under
+`#print axioms` as an auxiliary axiom `<decl>._native.native_decide.ax_*`, NOT as `Lean.ofReduceBool`, so
+"0 `ofReduceBool`" alone proves nothing — any token outside `[propext, Classical.choice, Quot.sound]` fails.**
+After that migration,
 `native_decide` remained only in: `TrigramTheorems.lean` §4a–§6 (the TG-3/TG-4/TG-5 finite
 subgroup facts and the §6 sanity instances at King Wen — the TG-2 lead theorems themselves are
 kernel-only) and `SymmetryCompleteness.lean` (SC1–SC4/SC7 — the T7 completeness kernels).
