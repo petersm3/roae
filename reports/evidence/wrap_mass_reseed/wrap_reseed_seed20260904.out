@@ -1,0 +1,58 @@
+[knuth] RNG SEED OVERRIDE ACTIVE: base=0x0000000001352828 (R11 Phase-2 independent-seed replicate; estimator-only, sha-neutral)
+[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)
+[knuth] 20000000000 probes, 128 threads, 0 prefix level(s)
+KNUTH-ESTIMATE probes=20000000000 threads=128 start_step=1 prefix_levels=0
+KNUTH-PROVENANCE seed_base=0x0000000001352828 moore_strict=0 gender_strict=0 score=1 r11_hist=0 wall_s=2159
+  tree_nodes            : est=2.087515e+40  95%CI=[2.0874e+40, 2.0876e+40]  relerr=0.00%  hitrate=1
+  leaves_C1C2C4C5       : est=1.097330e+39  95%CI=[1.0971e+39, 1.0975e+39]  relerr=0.01%  hitrate=0.0144
+  leaves_canonical_C1C5 : est=1.329037e+38  95%CI=[1.3283e+38, 1.3298e+38]  relerr=0.03%  hitrate=0.0018
+  [diag] canonical top single-probe share : max_w=1.463042e+42 = 0.0001% of estimate mass (skew/ESS audit; lower=better)
+  [score] R-C1 final-pair-anchor  : 0.078420 of canonical mass se=7.128e-05
+  [score] R-C1c circular anchor-adjacency (R6; A2={21,42} slot2||slot32): adjacent=0.130294 slot2=0.051874 slot32=0.078420 (McKenna 1975 frame; slot32 must reproduce R-C1=0.078420)
+  [score] R-C1c A2 pair-slot histogram (report-only; fraction of canonical mass, slots 1-32):
+  a2slot 2 5.1873897794e-02
+  a2slot 3 3.8288997945e-02
+  a2slot 4 3.4959412205e-02
+  a2slot 5 3.3309126239e-02
+  a2slot 6 3.2027503378e-02
+  a2slot 7 3.1103503400e-02
+  a2slot 8 3.0104100566e-02
+  a2slot 9 2.9275308081e-02
+  a2slot 10 2.8773943767e-02
+  a2slot 11 2.8137526366e-02
+  a2slot 12 2.7793955075e-02
+  a2slot 13 2.7479951728e-02
+  a2slot 14 2.7279925307e-02
+  a2slot 15 2.7097677211e-02
+  a2slot 16 2.7048072113e-02
+  a2slot 17 2.6930095022e-02
+  a2slot 18 2.6994916884e-02
+  a2slot 19 2.7056462399e-02
+  a2slot 20 2.7268972514e-02
+  a2slot 21 2.7449410756e-02
+  a2slot 22 2.7756959931e-02
+  a2slot 23 2.8180051910e-02
+  a2slot 24 2.8601123980e-02
+  a2slot 25 2.9328699150e-02
+  a2slot 26 2.9938451361e-02
+  a2slot 27 3.1018153139e-02
+  a2slot 28 3.2063515363e-02
+  a2slot 29 3.3020962782e-02
+  a2slot 30 3.3644198482e-02
+  a2slot 31 3.7774782041e-02
+  a2slot 32 7.8420343112e-02
+  [score] R-C2 first7-level-cover : 0.120481 of canonical mass se=8.798e-05
+  [score] R-C5 18:18-HEC-split    : 0.364223 of canonical mass se=1.343e-04
+  [score] R-M1 Moore-parity strict : 0.000004 of canonical mass (18/18; KW itself FAILS this) se=5.412e-07
+  [score] R-M1 Moore-parity >=16/18: 0.000735 of canonical mass (KW level) se=7.511e-06
+  [score] R-M1 max compliance seen : 18 of 18 (Moore-2005 precursor existence bound)
+  [score] R-M2 Moore-1989 R/F <=2 breaks: 0.038451 of canonical mass (KW level) se=5.500e-05
+  [score] R-M2 strict 0 breaks     : 0.000629 of canonical mass se=7.293e-06; min breaks seen = 0 (KW = 2)
+  [score] Moore joint (M1>=16 & M2<=2): 0.00002109 of canonical mass se=1.320e-06 (independence: 0.00002827)
+  [score] R-C3 level-3 positions == KW : 0.00000001 se=7.371e-09 | S-gap pattern anywhere: 0.00011349 se=3.057e-06 (Cook 2006)
+  [score] R-C4 gender/valence <=2 viol : 0.000085 se=2.608e-06 | 0 viol: 0.000001 se=3.143e-07 (Cook 2006)
+  [score] R-C4-B exception-form (0 viol OR 2 adjacent) : 9.3746520208e-06 se=8.921e-07 | R-C4-C KW locus [25,26]: 4.5972773820e-07 se=1.839e-07 (R13 two-convention; Schulz 1990/Cook 2006)
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=6.957660e+31  95%CI=[-1.2305e+31, 1.5146e+32]  relerr=60.04%  hits=13
+  [score] Davis palindrome windows >=1 : 0.504684 se=1.394e-04 | >=2 (KW level): 0.142370 se=9.830e-05 (Davis 2012)
+  [score] Pareto-dominates KW          : 0.00000002 of canonical mass se=1.888e-08 (F4-A)
+  [score] wrap-distance mass d(s63,s0)  : d1=0.174533 d3=0.651502 d5=0.173966 se=1.092e-04/1.354e-04/1.091e-04 (odd-only per theorem; circular-C2 price = d5 mass)

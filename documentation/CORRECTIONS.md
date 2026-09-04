@@ -8345,3 +8345,38 @@ one embedded symbol (井 48, `red_square` → `black_L_faded_red`) moves the out
 file restored byte-identical afterwards. Appendix 2's reconstructed entries remain excluded on
 purpose: Pu fills those gaps *by the invariance principle itself*, so including them would test the
 claim against its own output.
+
+## 2026-09-04 — the wrap-distance masses now carry an uncertainty, and the old pair could never have supplied one
+
+**TR-7 published d=1: 17.5%, d=3: 65.2%, d=5: 17.4% with no ± at all**, and said so in four places
+rather than hiding it. The reason was not an oversight in the reporting; it was a defect in the
+evidence. The two archived artifacts (`evidence/r6/rc1c_primary.out` at 64 threads,
+`evidence/f11/f11_runA.out` at 32) both ran on the fixed base seed `0x243F6A8885A308D3`, neither
+carries a `SEED OVERRIDE` line, and the estimator seeds worker *i* as
+`base ^ ((i+1)·0x9E3779B97F4A7C15)` — **by thread index alone**. So the 32-thread and 64-thread runs
+replay the same first 312.5×10⁶ draws on each of threads 0–31: **10×10⁹ of each run's 20×10⁹ probes
+are literally the same probes.** Their 0.05-percentage-point agreement was arithmetic, not evidence,
+and no standard error can be extracted from it.
+
+**Measured 2026-09-04: d=1 `17.4647 ± 0.0077`, d=3 `65.1504 ± 0.0096`, d=5 `17.3849 ± 0.0077`
+percentage points**, pooled over two replicates that differ **only** in `SOLVE_KNUTH_SEED`
+(`20260904` → base `0x…2828`, `20260905` → base `0x…2829`; same binary, same 2×10¹⁰ probes, same 128
+threads). Every worker seed differs, so these are genuine independent draws, and the between-replicate
+gaps — **1.48σ / 0.02σ / 1.51σ** — are a real run-to-run scatter. Artifacts, seeds, the reproduction
+command, the stack requirement and the build provenance: `reports/evidence/wrap_mass_reseed/`.
+
+**No published point mass changes.** 17.4647 / 65.1504 / 17.3849 round to the 17.5 / 65.2 / 17.4
+already published, so this entry ADDS an uncertainty rather than correcting a figure. What changes is
+that a reader can now tell how well those masses are resolved.
+
+**A second replicate was needed, and finding out why is worth recording.** `doc_gates.sh`'s
+`gate_seed_provenance` builds its seed map by extracting `SEED OVERRIDE ACTIVE: base=` from each
+evidence file — **a file without that line contributes nothing**. The archived pair carries no such
+line, so a single reseeded run would have published the ± while leaving the "independent" claim
+still failing that gate. The marginal cost of the second replicate was ~$0.60.
+
+🔴 **A SIBLING SITE IS CORRECTED WITH IT.** `documentation/CIRCULAR_KING_WEN.md` published the same
+three masses with **no disclosure whatsoever** — not even the "no ± is published" warning TR-7 carried
+in four places. A reader arriving there saw three bare percentages and nothing telling them the
+uncertainty was unmeasured. It now carries the ± and cites the same artifacts. **The defect was never
+that TR-7 under-disclosed; it was that its honesty did not propagate to the document beside it.**

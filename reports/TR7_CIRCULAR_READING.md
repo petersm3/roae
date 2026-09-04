@@ -33,7 +33,7 @@ alternations, and the first and last hexagrams of any valid linear ordering lie 
 popcount-parity classes. Finally, the circular form of C2 ("no 5-line transition anywhere on the cycle")
 is a *genuine* extra constraint: valid linear orderings with a 5-line wrap exist (SAT-decided, explicit
 witness) even though exactly zero appear among the 10,525,271,997 records of the deepest canonical slice;
-the full-space wrap-distance masses are measured at d=1: 17.5%, d=3: 65.2%, d=5: 17.4% (2×10¹⁰
+the full-space wrap-distance masses are measured at d=1: **17.4647 ± 0.0077**, d=3: **65.1504 ± 0.0096**, d=5: **17.3849 ± 0.0077** pp (2×10¹⁰
 weighted-Knuth probes.
 
 ⚠ **[REPRODUCTION COMMAND ADDED 2026-09-03 — these masses were MEASURED and no runnable command
@@ -97,7 +97,19 @@ McKenna's interpretive frame, not an attested property of the received artifact.
    does not measure full-space rarity — and the full-space wrap-distance masses are now MEASURED (2×10¹⁰
    weighted-Knuth probes, 2026-07-03; estimator per METHODS.md; mass ratios are
    heavy-tail dominated — small probe budgets will not resolve them):
-   **d=1: 17.5%, d=3: 65.2%, d=5: 17.4%**. Uncertainty: **none is published for these masses.** The
+   **d=1: 17.5%, d=3: 65.2%, d=5: 17.4%**.
+
+   ✅ **UNCERTAINTY NOW PUBLISHED, 2026-09-04 — d=1 `17.4647 ± 0.0077`, d=3 `65.1504 ± 0.0096`,
+   d=5 `17.3849 ± 0.0077` percentage points**, pooled over **two replicates that differ only in
+   `SOLVE_KNUTH_SEED`** (`20260904` → base `0x…2828`, `20260905` → base `0x…2829`; same binary, same
+   2×10¹⁰ probes, same 128 threads). Every worker seed differs, so these are genuine independent
+   draws and the between-replicate gaps — **1.48σ / 0.02σ / 1.51σ** — are a real run-to-run scatter
+   rather than an arithmetic identity. Artifacts and the exact reproduction command:
+   [`evidence/wrap_mass_reseed/`](evidence/wrap_mass_reseed/). The point masses are unchanged to the
+   precision published above; what was missing was the ±, and it is no longer missing.
+   **The paragraph below records why the earlier pair could not supply it, and is kept in full:** it
+   is the reasoning that made this measurement necessary, and the defect it describes is a live
+   hazard for any future replicate that forgets to set a seed. The
    archived artifacts (2026-07) predate the estimator's per-class `se=` field, which landed 2026-08-28
    ([METHODS.md](METHODS.md) §"Statistics conventions"), so they carry point masses only. And the
    2×10¹⁰-probe v2.0 r6 run ([`evidence/r6/rc1c_primary.out`](evidence/r6/rc1c_primary.out),
@@ -145,8 +157,12 @@ McKenna's interpretive frame, not an attested property of the received artifact.
   [documentation/CIRCULAR_KING_WEN.md](../documentation/CIRCULAR_KING_WEN.md), C1–C5-valid, wrap d = 5
 - Full-space wrap masses: `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (2×10¹⁰ probes,
   the budget behind the published 17.5/65.2/17.4% figures; the scorer has printed per-class `se=`
-  since 2026-08-28, but the archived artifacts predate the field and **no ± is published for these
-  masses** — the r6 rerun is a partially overlapping replicate, not an independence check (§5)
+  since 2026-08-28; the archived artifacts predate the field, so the ± comes instead from
+  **two fresh seed-distinct replicates** — `SOLVE_KNUTH_SEED=20260904` and `=20260905`,
+  [`evidence/wrap_mass_reseed/`](evidence/wrap_mass_reseed/) — giving
+  **17.4647 ± 0.0077 / 65.1504 ± 0.0096 / 17.3849 ± 0.0077** pp. The r6 rerun remains a partially
+  overlapping replicate and is NOT an independence check (§5), which is exactly why it could not
+  supply this
   — and mass *ratios* are heavy-tail dominated, so small budgets (~10⁵ probes) will NOT
   reproduce them; this is an hours-scale run on many-core hardware. Method self-validation in
   [documentation/SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md))
