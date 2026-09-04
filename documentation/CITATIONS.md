@@ -1847,7 +1847,15 @@ Waley, A. (1933). The Book of Changes. *Bulletin of the Museum of Far Eastern An
 <a id="wilhelm-baynes1967"></a>
 Wilhelm, R. (1967). *The I Ching or Book of Changes* (C. F. Baynes, Trans.; 3rd ed.). Princeton
 University Press.
-  Hexagram names used throughout. [read, data]
+  🔴 **CORRECTED 2026-09-04 — this entry said "Hexagram names used throughout" and that was FALSE.**
+  A full sweep of every tracked `.md`/`.py`/`.c`/`.csv`/`.json`/`.txt` finds **zero** affirmative uses of a
+  Wilhelm–Baynes hexagram title. The single textual hit is `documentation/GUIDE.md:104`, which mentions
+  "The Creative" **only to say the project does not use it**: *"hexagram 1 is `Heaven over Heaven`, not
+  'The Creative'"*. The shipped data (`example/hexagrams.csv`, `.json`) carries a structural description
+  built from the two trigrams, plus trigram pinyin (Qian, Kun, Li, Dui …), which name the eight
+  three-line figures and are not hexagram titles. Nothing in this repository derives from, quotes, or
+  reproduces this translation. Retained as a standard bibliographic reference for the work itself.
+  [read, no data]
 
 ### Classical sources
 

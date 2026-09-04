@@ -4030,6 +4030,138 @@ def twins_bisect(path):
     print("TWINS_BISECT=DONE")
     return 0
 
+def orbit_cv(table):
+    """--orbit-cv TABLE: TR-5 §3(iii) / SYMMETRY_SEARCH.md orbit-CV aggregation,
+    recomputed from the archived 65,281-cell Knuth per-cell estimate table
+    (columns p1 o1 p2 o2 p3 o3 tree_nodes leaves_c1c2c4c5 leaves_canonical relerr,
+    10^5 probes per cell; sha256 bdf34be6... as archived 2026-07-10).
+    Orbits are taken under the 48 bit-permutations g with g(KW) C1-C5-valid
+    (_sigma_valid_perms), acting on a depth-3 cell (p1,o1,p2,o2,p3,o3) by
+    mapping each (pair, orientation) slot through g.  The tool asserts that
+    this set equals the centraliser of the reverse permutation in S6 (the
+    group the 2026-07 measurement used), so the orbit relation is the same.
+    Published figures (TR-5 v2.15 §3(iii)): 4,183 orbit classes met, median
+    within-orbit CV 0.112 and population CV 0.72 of leaves_canonical.  Gated
+    here at the 4-dp values the archived table yields, 4183 / 0.1118 / 0.7202.
+    The table's median relerr (0.1192) is printed but NOT gated: the '0.130
+    noise floor' it once stood beside was withdrawn (RF-4e81ce69) because the
+    quantity it measured is unrecorded.  ~6 s in CPython.  Does NOT read
+    solutions.bin.  Prints ORBIT_CV=PASS only when every gate matched."""
+    import itertools, statistics as st
+    from collections import defaultdict
+    rc = 0
+    def gate(name, got, want):
+        nonlocal rc
+        ok = (got == want)
+        if not ok:
+            rc = 1
+        print(f"[{' MATCH' if ok else '*FAIL*'}] {name}: recomputed {got!r}  published {want!r}")
+    HEADER = "p1 o1 p2 o2 p3 o3 tree_nodes leaves_c1c2c4c5 leaves_canonical relerr"
+    rows = {}
+    try:
+        opener = gzip.open if table.endswith(".gz") else open
+        with opener(table, "rt", encoding="utf-8") as fh:
+            hdr = " ".join(fh.readline().split())
+            if hdr != HEADER:
+                print(f"[*FAIL*] header mismatch: got {hdr!r}, want {HEADER!r}")
+                print("ORBIT_CV=FAIL")
+                return 1
+            trailer = None
+            for n, line in enumerate(fh, 2):
+                p = line.split()
+                if not p:
+                    continue
+                if line.startswith("[percell] DONE "):
+                    # the generator's completion stamp: "[percell] DONE <rows> rows <utc>". Its
+                    # absence means a truncated table, so it is required, not skipped.
+                    if trailer is not None:
+                        print(f"[*FAIL*] {table}:{n}: second DONE trailer")
+                        print("ORBIT_CV=FAIL")
+                        return 1
+                    trailer = int(p[2])
+                    continue
+                if trailer is not None:
+                    print(f"[*FAIL*] {table}:{n}: data after the DONE trailer")
+                    print("ORBIT_CV=FAIL")
+                    return 1
+                if len(p) != 10:
+                    print(f"[*FAIL*] {table}:{n}: {len(p)} columns, want 10")
+                    print("ORBIT_CV=FAIL")
+                    return 1
+                cell = tuple(int(x) for x in p[:6])
+                if cell in rows:
+                    print(f"[*FAIL*] {table}:{n}: duplicate cell {cell}")
+                    print("ORBIT_CV=FAIL")
+                    return 1
+                rows[cell] = (float(p[6]), float(p[7]), float(p[8]),
+                              float(p[9].rstrip("%")) / 100.0)
+    except (OSError, EOFError, ValueError) as e:
+        print(f"[*FAIL*] cannot read {table}: {e}")
+        print("ORBIT_CV=FAIL")
+        return 1
+    if trailer is None:
+        print(f"[*FAIL*] {table}: no '[percell] DONE <n> rows' trailer — the table is truncated")
+        print("ORBIT_CV=FAIL")
+        return 1
+    print(f"ORBIT_TABLE_ROWS={len(rows)}")
+    gate("rows == the table's own DONE trailer count", len(rows), trailer)
+    gate("archived per-cell table rows", len(rows), 65281)
+    G = [tuple(g) for g in _sigma_valid_perms()]
+    REV = (5, 4, 3, 2, 1, 0)
+    cent = {p for p in itertools.permutations(range(6))
+            if all(p[REV[i]] == REV[p[i]] for i in range(6))}
+    gate("orbit group order", len(G), 48)
+    gate("valid sigma == centraliser of reverse in S6", set(G) == cent, True)
+    print(f"ORBIT_GROUP={len(G)}")
+    # (pair, orient) -> (pair', orient') under each g
+    maps = []
+    for g in G:
+        m = {}
+        for P in range(32):
+            a, b = PAIRS[P]
+            a2, b2 = _apply_bitperm(g, a), _apply_bitperm(g, b)
+            Q = _PAIR_INDEX[frozenset((a2, b2))]
+            same = ((a2, b2) == PAIRS[Q])
+            m[(P, 0)] = (Q, 0 if same else 1)
+            m[(P, 1)] = (Q, 1 if same else 0)
+        maps.append(m)
+    def act(m, c):
+        x, y, z = m[(c[0], c[1])], m[(c[2], c[3])], m[(c[4], c[5])]
+        return (x[0], x[1], y[0], y[1], z[0], z[1])
+    rep = {}
+    for c in rows:
+        if c in rep:
+            continue
+        orb = {act(m, c) for m in maps}
+        r = min(orb)
+        for x in orb:
+            if x in rows:
+                rep[x] = r
+        rep[c] = r
+    orbs = defaultdict(list)
+    for c in rows:
+        orbs[rep[c]].append(c)
+    print(f"ORBIT_CLASSES_MET={len(orbs)}")
+    gate("orbit classes met by productive cells", len(orbs), 4183)
+    sizes = [len(v) for v in orbs.values()]
+    print(f"ORBIT_MEAN_PRODUCTIVE_PER_CLASS={st.fmean(sizes):.2f}")
+    def cv(v):
+        m = st.fmean(v)
+        return (st.pstdev(v) / m) if m else float("nan")
+    for name, idx in (("tree_nodes", 0), ("leaves_c1c2c4c5", 1), ("leaves_canonical", 2)):
+        vals = [rows[c][idx] for c in rows]
+        within = [cv([rows[c][idx] for c in mem]) for mem in orbs.values() if len(mem) > 1]
+        pop, med = cv(vals), st.median(within)
+        print(f"ORBIT_{name.upper()}_POP_CV={pop:.4f}")
+        print(f"ORBIT_{name.upper()}_WITHIN_CV_MEDIAN={med:.4f}")
+        if name == "leaves_canonical":
+            gate("leaves_canonical population CV (published 0.72)", f"{pop:.4f}", "0.7202")
+            gate("leaves_canonical median within-orbit CV (published 0.112)", f"{med:.4f}", "0.1118")
+    rel = st.median(rows[c][3] for c in rows)
+    print(f"ORBIT_RELERR_MEDIAN={rel:.4f}   (not gated: the published 0.130 was withdrawn, RF-4e81ce69)")
+    print(f"ORBIT_CV={'PASS' if rc == 0 else 'FAIL'}")
+    return rc
+
 def sigma_isomorphism_all48(limit=None):
     """--sigma-isomorphism-all48 [--sigma-limit N]: for EVERY valid sigma, walk
     the exact C1-C5 tree below the 22-pair image prefix and gate it against the
@@ -5892,6 +6024,12 @@ def main():
     parser.add_argument('--sigma-limit', type=int, metavar='N', default=None,
                         help='With --sigma-isomorphism-all48: run only the first N sigma (smoke test). '
                              'Never yields PASS; the verdict token reads PARTIAL.')
+    parser.add_argument('--orbit-cv', metavar='TABLE', default=None,
+                        help='TR-5 §3(iii): recompute the orbit-CV statistics (4,183 classes, within-orbit '
+                             'CV 0.112, population CV 0.72) from the archived 65,281-cell Knuth per-cell '
+                             'estimate table (whitespace columns, .gz or plain). ~6 s. Gated at the 4-dp '
+                             'values 4183 / 0.1118 / 0.7202; prints ORBIT_CV=PASS only when all match. '
+                             'Does NOT read solutions.bin.')
     parser.add_argument('--recount-finite', action='store_true',
                         help='Independently recompute the finite record-mode + wrap/parity tallies: '
                              'TR-5\'s 48-of-720 validity classification / 24 records / 23 twins '
@@ -6118,6 +6256,9 @@ def main():
 
     if args.sigma_isomorphism_all48:
         sys.exit(sigma_isomorphism_all48(args.sigma_limit))
+
+    if args.orbit_cv is not None:
+        sys.exit(orbit_cv(args.orbit_cv))
 
     if args.recount_fiber:
         sys.exit(recount_fiber())

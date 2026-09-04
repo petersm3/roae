@@ -17661,6 +17661,123 @@ PY
   return 0
 }
 
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# GATE 80 — a `rec#` literal qualified across datasets must be attached to the dataset it indexes
+# (`rec-scope`).
+#
+# QUEUED AS: PROSE_LANE_FOLLOWUPS.md "GATE (proposed, not built) — cross-scale rec# identifiers"
+# (prose batch P39, Codex V2-F31). A `rec#` is a position in ONE dataset's sort order and does not
+# survive a change of dataset: the same ordering — KW with the position-2/3 pair blocks swapped —
+# is rec#330177707 at d3 560T, rec#104178045 at d3 100T and rec#21262918 at d3 10T (MEASURED by
+# P39: rec#330177707 has zero occurrences in runs/20260419_100T_d3_d128westus3/analyze_output.log.gz).
+# P39 registered the two literal defect sentences as RP-c79db9ce / RP-926ac304; those needles catch
+# those two strings and nothing else, and the class needs a PREDICATE.
+#
+# THE PREDICATE, per SENTENCE (hard-wrapped paragraphs are flattened first, so a line-based grep is
+# not what runs here). A sentence is JUDGED when it carries a multi-dataset qualifier — "at both
+# canonical scales", "at every tested depth", "at every scale", "across scales", "in all four
+# datasets" and the like (QUAL below) — AND at least one `rec#<digits>` literal. In a judged
+# sentence EVERY literal must be ATTACHED to a scale token (560T, 100T, 10T, 11.2T, 5.6T, 742M …):
+#   (a) directly after it: `rec#N at 560T`, `rec#N in the 560T canonical's own sort order`,
+#       `rec#N at d3 100T` — a preposition and at most one article/depth word between; or
+#   (b) directly before it: `the 560T record rec#N`, `at 560T: rec#N` — a scale token within 30
+#       chars of the literal with no `,` `;` `(` `)` in between. That last clause is what keeps
+#       "(100T and 560T), the survivor is rec#N" — the defect itself — from passing on proximity
+#       alone, and it was the first thing a 48-char proximity window got wrong.
+# A literal that is unattached is a HIT: it is being read across datasets.
+#
+# QUOTED QUALIFIERS ARE MENTIONS, NOT USES. Correction narration — CORRECTIONS.md's BEFORE
+# paragraphs, BOUNDARY_MINIMUM.md's own revision note — writes `was qualified as holding "at every
+# tested depth"`. Double-quoted spans ("…", “…”) are removed from the sentence BEFORE the qualifier
+# search, so a narrated qualifier does not put its sentence in the population. That is an exemption
+# by CONSTRUCTION (the quotation marks), not by file or directory, and removing the quotation marks
+# is one of the mutants below: the sentence then becomes a use, and fires.
+#
+# POPULATION, printed and floored: >= 10 `rec#` literals corpus-wide and >= 2 judged sentences,
+# else FAIL. A rewrite that deletes every cross-scale sentence, or every rec# literal, must not
+# produce a quiet green.
+#
+# MEASURED BEFORE LANDING (2026-09-04, disposable shared clone, never the shared worktree):
+#   live main 2a929ea3  -> 1 HIT: documentation/SOLVE.md:329 — "identical greedy order at both
+#     canonical scales (… boundary 1 kills the last impostor, rec#330177707)" — a third live site
+#     of the P39 class that the two registered needles could not reach; rc 1
+#   live main with SOLVE.md:329 attached ("rec#330177707 at 560T")  -> 0 hits, rc 0
+#   pre-P39 tree (`42620c77^`)  -> HITs on BOUNDARY_MINIMUM.md's headline ("at every tested depth")
+#     and §What this implies ("at both canonical scales") plus SOLVE.md:329, rc 1
+#   mutation: BOUNDARY_MINIMUM.md:58 "at 560T" deleted after the literal  -> HIT rc 1
+#   mutation: BOUNDARY_MINIMUM.md:97 quotation marks removed from the narrated qualifier -> HIT rc 1
+#   mutation: CLAIMS_DECIDED.md:42 sixty chars of filler between the literal and "560T" -> HIT rc 1
+#   mutation: "(100T and 560T), the survivor is rec#330177707" planted -> HIT rc 1 (proximity alone
+#     would have passed it)
+#   mutation: qualifier reworded "across the three scales" -> still judged, HIT rc 1
+#   mutation: every rec# literal removed from the corpus -> population FAIL rc 1, not green
+#   correct NON-firing: a sentence with a literal and no qualifier stays green
+gate_rec_scope() {
+  echo "== GATE 80: a rec# literal qualified across datasets is attached to the dataset it indexes =="
+  local out
+  out=$(python3 - <<'PY'
+import re, io, sys, subprocess
+QUAL=re.compile(r"\b(?:at|in|across)\s+(?:both|every|each|all)(?:\s+(?:of|the|four|three|two|tested|canonical|published|partition))*\s+(?:scales?|depths?|canonicals?|datasets?|budgets?)\b"
+                r"|\bacross\s+(?:(?:the|all|four|three|two|tested|canonical|published)\s+)*(?:scales|depths|datasets|canonicals|budgets)\b"
+                r"|\bat\s+every\s+(?:tested\s+)?(?:depth|scale|budget)\b"
+                r"|\bscale-invariant\b|\bdataset-invariant\b", re.I)
+REC=re.compile(r"rec#\d+")
+SCALE=r"(?:\d+(?:\.\d+)?\s?T|742M|31\.6M)"
+AFTER=re.compile(r"rec#\d+\)?,?\s+(?:at|in|of|from|for)\s+(?:the\s+)?(?:d[23]\s+)?"+SCALE+r"\b", re.I)
+BEFORE=re.compile(SCALE+r"(?:'s)?[^,;()]{0,30}rec#\d+", re.I)
+QUOTED=re.compile(r'"[^"\n]{1,160}"|“[^”\n]{1,160}”')
+try:
+    files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True,check=True).stdout.split("\n")
+except Exception as e:
+    print("ERROR\tgit ls-files failed — the corpus could not be enumerated: %s"%e); raise SystemExit
+files=[f for f in files if f.strip()]
+if not files: print("ERROR\tzero tracked *.md — vacuous, treated as failure."); raise SystemExit
+nfiles=nlit=njudged=0
+for f in files:
+    try: t=io.open(f,encoding="utf-8",errors="replace").read()
+    except OSError: continue
+    nfiles+=1
+    nlit+=len(REC.findall(t))
+    pos=0
+    for para in re.split(r"\n[ \t]*\n", t):
+        start=t.count("\n",0,pos)+1; pos+=len(para)+2
+        if "rec#" not in para: continue
+        flat=" ".join(re.sub(r"[*`]","",para).split())
+        for sent in re.split(r"(?<=[.!?])\s+(?=[A-Z(\[\"“*])", flat):
+            lits=REC.findall(sent)
+            if not lits: continue
+            unquoted=QUOTED.sub(" ",sent)
+            q=QUAL.search(unquoted)
+            if not q: continue
+            njudged+=1
+            attached=set()
+            for m in AFTER.finditer(unquoted): attached.add(REC.search(m.group()).group())
+            for m in BEFORE.finditer(unquoted): attached.add(REC.findall(m.group())[-1])
+            for lit in dict.fromkeys(REC.findall(unquoted)):
+                if lit not in attached:
+                    k=para.find(lit); line=start+(para[:k].count("\n") if k>=0 else 0)
+                    print("HIT\t%s:%d\t%s is qualified %r but attached to no dataset — a rec# is a position in ONE dataset's sort order: %s"
+                          %(f,line,lit,q.group(),sent[:150]))
+print("POP\t%d\t%d\t%d"%(nfiles,nlit,njudged))
+PY
+) || { echo "  [FAIL] GATE 80 scanner failed — NOTHING was checked."; return 1; }
+  local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$err" ]; then echo "  [FAIL] GATE 80 could not judge its corpus: $err"; return 1; fi
+  local pf pl pj
+  IFS=$'\t' read -r pf pl pj < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
+  if ! printf '%s\n' "${pl:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 80 printed no population census — the scan did not complete."; return 1; fi
+  if [ "$pl" -lt 10 ]; then echo "  [FAIL] GATE 80 found only $pl rec# literal(s) across $pf files (floor 10) — the identifier idiom left the corpus; nothing judged."; return 1; fi
+  if [ "$pj" -lt 2 ]; then echo "  [FAIL] GATE 80 judged only $pj cross-scale sentence(s) carrying a rec# literal (floor 2) — the population collapsed; a quiet green is not evidence."; return 1; fi
+  local rc=0 tag where msg
+  while IFS=$'\t' read -r tag where msg; do
+    [ "$tag" = HIT ] || continue
+    echo "  [FAIL] $where: $msg"; rc=1
+  done < <(printf '%s\n' "$out")
+  if [ "$rc" -ne 0 ]; then echo "         Name the dataset the index belongs to (\"rec#N at 560T\") or drop the literal; the ORDERING is what holds across scales, the rec# is not."; return 1; fi
+  echo "  [ok] GATE 80: $pl rec# literal(s) in $pf files; $pj cross-scale sentence(s) judged, every literal attached to its dataset"
+  return 0
+}
+
 case "$MODE" in
   author-directives) gate_author_directives || RC=1 ;;
   npath) gate_npath || RC=1 ;;
@@ -17702,6 +17819,7 @@ case "$MODE" in
   summary-scope) gate_summary_scope || RC=1 ;;
   boundary-scope) gate_boundary_scope || RC=1 ;;
   merge-semantics) gate_merge_semantics || RC=1 ;;
+  rec-scope) gate_rec_scope || RC=1 ;;
   p14-claims) gate_p14_claims || RC=1 ;;
   dvd24-scope) gate_dvd24_scope || RC=1 ;;
   se-vs-ci) gate_se_vs_ci || RC=1 ;;
@@ -17832,8 +17950,9 @@ case "$MODE" in
            echo; gate_scorecard_attribution || RC=1
            echo; gate_summary_scope || RC=1
            echo; gate_boundary_scope || RC=1
-           echo; gate_merge_semantics || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|claims-repro|source-scope|summary-scope|boundary-scope|merge-semantics|all}"; exit 2 ;;
+           echo; gate_merge_semantics || RC=1
+           echo; gate_rec_scope || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|claims-repro|source-scope|summary-scope|boundary-scope|merge-semantics|rec-scope|all}"; exit 2 ;;
 esac
 
 echo

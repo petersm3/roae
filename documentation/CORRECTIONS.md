@@ -8380,3 +8380,29 @@ three masses with **no disclosure whatsoever** — not even the "no ± is publis
 in four places. A reader arriving there saw three bare percentages and nothing telling them the
 uncertainty was unmeasured. It now carries the ± and cites the same artifacts. **The defect was never
 that TR-7 under-disclosed; it was that its honesty did not propagate to the document beside it.**
+
+## 2026-09-04 — a citation claimed a dependency this repository does not have
+
+**`documentation/CITATIONS.md`'s `wilhelm-baynes1967` entry read "Hexagram names used throughout."
+That was false**, and it mattered in two directions at once: it overstated what the corpus depends
+on, and it made an in-copyright printed translation look load-bearing when nothing here uses it.
+
+**Swept, not sampled:** every tracked `.md`, `.py`, `.c`, `.csv`, `.json` and `.txt` was searched for
+Wilhelm–Baynes hexagram titles. **Zero affirmative uses.** The one textual hit is
+`documentation/GUIDE.md:104`, and it appears there *only to deny the usage* — *"hexagram 1 is
+`Heaven over Heaven`, not 'The Creative'"* — beside an explicit statement of the convention the
+project does use. The shipped data carries a **structural description assembled from the two
+trigrams**, the position number, the Unicode glyph and the six bits, plus **trigram** pinyin (Qian,
+Kun, Li, Dui …), which name the eight three-line figures and are not hexagram titles.
+
+**Consequences, both of which reduce exposure rather than create it.** The entry is now marked
+`[read, no data]` and describes the actual relationship. And `CITED_NOT_HELD_AUDIT.md` listed this
+work as *"the one genuine read-not-held entry ... a standard reference used for hexagram names
+only"* — the read-not-held concern is therefore **narrower than recorded**: no published figure,
+table or name in this repository rests on a source nobody can re-check.
+
+**Nothing was substituted and nothing was reworded to achieve this.** The corpus was already clean;
+what was wrong was the description of it. That is worth stating plainly, because the backlog row
+this closes framed the question as a choice between substituting public-domain 卦名 and declaring the
+corpus name-free — and the measured answer is that the corpus has been name-free all along and one
+citation said otherwise.
