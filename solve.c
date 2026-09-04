@@ -37554,6 +37554,12 @@ int main(int argc, char *argv[]) {
                 "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", verify_file);
             fail_kw = 1;
         }
+        /* Mirror verify.py's PAIR exactly (verify.py:6717-6718 prints KW_PRESENT then
+         * KW_REQUIRED adjacently). KW_PRESENT is the machine-readable sibling of the
+         * "King Wen found:" prose line above: presence is a FACT about the artifact,
+         * KW_REQUIRED is the CONTRACT that was in force. A log carrying only the second
+         * cannot answer "was King Wen there?" without re-reading prose. */
+        printf("KW_PRESENT=%s\n", kw_found_v ? "YES" : "NO");
         printf("KW_REQUIRED=%s\n", g_expect_kw ? "YES" : "NO");
 
         int total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup + fail_kw;
@@ -37983,6 +37989,12 @@ int main(int argc, char *argv[]) {
                 "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", validate_file);
             errors++;
         }
+        /* Mirror verify.py's PAIR exactly (verify.py:6717-6718 prints KW_PRESENT then
+         * KW_REQUIRED adjacently). KW_PRESENT is the machine-readable sibling of the
+         * "King Wen found:" prose line above: presence is a FACT about the artifact,
+         * KW_REQUIRED is the CONTRACT that was in force. A log carrying only the second
+         * cannot answer "was King Wen there?" without re-reading prose. */
+        printf("KW_PRESENT=%s\n", kw_found_v ? "YES" : "NO");
         printf("KW_REQUIRED=%s\n", g_expect_kw ? "YES" : "NO");
         printf("  Errors found:      %lld\n", errors);
         if (errors == 0)

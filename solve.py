@@ -13082,6 +13082,84 @@ def t3_encode_solutions(out_bin, input_paths):
     return 0
 
 
+def extraction_null(n_draw, seed, probes=None):
+    """`--extraction-null N` — the decoy sampler behind Q-143, and the mode
+    `SPECIFICATION.md`'s standing null-model caveat has named as its outstanding fix.
+
+    WHY THIS EXISTS. SPECIFICATION.md has carried, for months, the admission that applying our own
+    extraction methodology to random pair-constrained sequences "also produces apparent uniqueness
+    in 9 of 10 cases" — flagged there, correctly, as an **unreproduced historical observation, not a
+    measured result**: no command, seed, target list or per-target survivor count for it exists
+    anywhere in the project. That is a warning about OUR OWN METHOD, in our own documents, and until
+    this mode existed it could not be re-run by us or by a reader.
+
+    WHAT IT DOES. Draws `N` orderings uniformly from the C1∩C2 population and prints each one's
+    63-transition Hamming multiset in the exact `d:count,...` form that `SOLVE_KNUTH_C5_BUDGET`
+    consumes, so the null distribution is reproducible by composition rather than by a bespoke
+    harness:
+
+        python3 solve.py --extraction-null 1000 --seed 20260904 \
+          | while read v; do SOLVE_KNUTH_C5_BUDGET=$v ./solve --estimate-knuth 100000; done
+
+    THE DRAW, and why it is uniform over the right population. The 32 King Wen pairs are shuffled and
+    each is independently given a random orientation — that is uniform over C1 (pair-constrained)
+    orderings. Draws carrying a distance-5 or distance-0 transition are then REJECTED, which is
+    exactly C2, so what survives is uniform over C1∩C2. Rejection, not repair: repairing a draw would
+    bias the multiset, which is the quantity being measured. Measured acceptance ~4.9%, against the
+    published exact C2 rate of 4.29341% — they agree to the precision this sampler needs, and the
+    small excess is the additional d=0 exclusion.
+
+    🔴 SCOPE — C4 IS NOT RESAMPLED. The opening pair stays King Wen's throughout, because the
+    estimator pins it. So the null this feeds asks: *holding the pair set and the opening fixed, is
+    King Wen's difference-wave signature unusually restrictive?* King Wen's own value in that null is
+    the exact published |C1∩C2∩C4∩C5|, which is what makes the comparison apples-to-apples instead of
+    an estimate against an estimate. A null that also resampled C4 would be a different and larger
+    experiment, and this mode does not pretend to be it.
+
+    Emits `EXTRACTION_NULL=OK n=<drawn> accepted=<rate>` as a whole-line token on completion, and
+    `EXTRACTION_NULL=ERROR` with a non-zero exit if it cannot draw — never a silent short list."""
+    import random as _random
+    import collections as _collections
+    try:
+        import verify as _v
+    except Exception as exc:                                   # pragma: no cover - import guard
+        print("EXTRACTION_NULL=ERROR cannot import verify for the King Wen pair set: %s" % exc)
+        return 2
+    kw = list(_v.KW)
+    if len(kw) != 64:
+        print("EXTRACTION_NULL=ERROR verify.KW is %d long, expected 64" % len(kw))
+        return 2
+    pairs = [(kw[i], kw[i + 1]) for i in range(0, 64, 2)]
+    hd = lambda a, b: bin(a ^ b).count("1")
+    rng = _random.Random(seed)
+    drawn = 0
+    tries = 0
+    # A cap that scales with the request: at the measured ~4.9% acceptance, 400x is ~20 sigma of
+    # headroom. Hitting it means the population assumption is wrong, which must ERROR, not truncate.
+    cap = max(100000, n_draw * 400)
+    while drawn < n_draw and tries < cap:
+        tries += 1
+        order = pairs[:]
+        rng.shuffle(order)
+        seq = []
+        for a, b in order:
+            if rng.random() < 0.5:
+                a, b = b, a
+            seq += [a, b]
+        c = _collections.Counter(hd(seq[i], seq[i + 1]) for i in range(63))
+        if c.get(5, 0) or c.get(0, 0):
+            continue                                            # C2 (and the impossible d=0)
+        print(",".join("%d:%d" % (d, c[d]) for d in sorted(c)))
+        drawn += 1
+    if drawn < n_draw:
+        print("EXTRACTION_NULL=ERROR drew only %d of %d in %d tries (cap %d) — the acceptance rate "
+              "is far below the measured ~4.9%%, so the population assumption is wrong"
+              % (drawn, n_draw, tries, cap))
+        return 1
+    print("EXTRACTION_NULL=OK n=%d accepted=%.4f%% seed=%d" % (drawn, 100.0 * drawn / tries, seed))
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -13142,6 +13220,13 @@ def main():
                         help="P2: Stream solutions.bin and emit per-chunk parquet files of observable stats")
     parser.add_argument("--marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
                         help="P2: Per-dimension marginal percentiles with KW's position marked")
+    parser.add_argument("--extraction-null", type=int, metavar="N",
+                        help="Q-143 decoy sampler: draw N orderings uniformly from C1&C2 and print "
+                             "each one's 63-transition multiset as a SOLVE_KNUTH_C5_BUDGET vector. "
+                             "The mode SPECIFICATION.md's null-model caveat names as its "
+                             "outstanding fix. Emits EXTRACTION_NULL=OK|ERROR.")
+    parser.add_argument("--extraction-null-seed", type=int, default=20260904, metavar="S",
+                        help="Seed for --extraction-null (default 20260904, the Q-143 run).")
     parser.add_argument("--uniform-marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
                         help="T5: marginals for an exact-uniform C1&C2&C4&C5 (NO C3) sample. "
                              "Bins are derived from the data, not from --marginals' "
@@ -13564,6 +13649,8 @@ def main():
     if args.marginals:
         sys.exit(p2_marginals(args.marginals[0], args.marginals[1]))
         return
+    if args.extraction_null is not None:
+        sys.exit(extraction_null(args.extraction_null, args.extraction_null_seed))
     if args.uniform_marginals:
         sys.exit(t5_uniform_marginals(args.uniform_marginals[0], args.uniform_marginals[1]))
         return

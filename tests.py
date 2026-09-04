@@ -3612,6 +3612,27 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
         # The default contract also announces ITSELF, so a log says which one was in force.
         self.assertIn("KW_REQUIRED=NO", lines)
 
+    def test_kw_presence_is_a_machine_readable_token_in_both_modes(self):
+        """KW_PRESENT mirrors verify.py:6717 exactly, and pairs with KW_REQUIRED.
+
+        Presence is a FACT about the artifact; KW_REQUIRED is the CONTRACT in force. A log carrying
+        only the second cannot answer "was King Wen actually there?" without re-parsing the prose
+        line -- which is gating on output shape, the failure this project has already paid for once.
+        verify.py prints the two adjacently; the C binary now does too, so the two instruments answer
+        the same question in the same vocabulary."""
+        rc, lines = self._verify(self._artifact("kwp_yes.bin", [self._encode(self.V.KW)]))
+        self.assertEqual(rc, 0)
+        self.assertIn("KW_PRESENT=YES", lines)
+        rc, lines = self._verify(self._artifact("kwp_no.bin", [self._valid_non_kw_record()]))
+        self.assertEqual(rc, 0)
+        self.assertIn("KW_PRESENT=NO", lines)
+        self.assertNotIn("KW_PRESENT=YES", lines)
+
+    def test_validate_also_reports_kw_presence(self):
+        rc, lines = self._validate(self._artifact("kwp_val.bin", [self._encode(self.V.KW)]))
+        self.assertEqual(rc, 0)
+        self.assertIn("KW_PRESENT=YES", lines)
+
     # ---- --expect-kw: the opt-in half of the same contract (item 1566) -------------------
     # The explicit-verdict rule asks for whole-line tokens, `grep -qx`, never output shape.
     # assertIn against self._verify's LINE LIST is exactly that: membership in a list of
@@ -4527,6 +4548,66 @@ class TestRequiredSidecarIsAttested(unittest.TestCase):
         with open(sc) as fh:
             first = fh.readline().split()
         self.assertEqual(len(first[0]), 64, "sidecar first line is not a 64-hex sha: " + str(first))
+
+
+class TestExtractionNull(unittest.TestCase):
+    """`solve.py --extraction-null` — the Q-143 decoy sampler, and the mode SPECIFICATION.md's
+    null-model caveat names as its outstanding fix.
+
+    The caveat has stood for months as an UNREPRODUCED historical observation ("9 of 10 cases") with
+    no command, seed or target list anywhere in the project. These tests pin the properties that make
+    a published percentile checkable by a stranger: the draw is DETERMINISTIC under its seed, the
+    seed actually matters, and every emitted vector really is a C1&C2 difference-wave multiset."""
+
+    def _run(self, n, seed=None):
+        cmd = [sys.executable, "solve.py", "--extraction-null", str(n)]
+        if seed is not None:
+            cmd += ["--extraction-null-seed", str(seed)]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        lines = r.stdout.splitlines()
+        vecs = [l for l in lines if l and not l.startswith("EXTRACTION_NULL=")]
+        return r.returncode, vecs, lines
+
+    def test_emits_a_whole_line_verdict_token(self):
+        rc, vecs, lines = self._run(5)
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(vecs), 5)
+        self.assertTrue(any(l.startswith("EXTRACTION_NULL=OK ") for l in lines),
+                        "no whole-line EXTRACTION_NULL=OK token")
+
+    def test_the_draw_is_deterministic_under_its_seed(self):
+        # Without this a published percentile is not checkable by anyone, which is the whole
+        # complaint SPECIFICATION.md's caveat records against the original 9-in-10 observation.
+        _, a, _ = self._run(40, seed=20260904)
+        _, b, _ = self._run(40, seed=20260904)
+        self.assertEqual(a, b, "same seed produced a different draw")
+
+    def test_the_seed_actually_changes_the_draw(self):
+        # A "seeded" sampler that ignores its seed is reproducible and useless.
+        _, a, _ = self._run(40, seed=20260904)
+        _, b, _ = self._run(40, seed=1)
+        self.assertNotEqual(a, b, "changing the seed did not change the draw")
+
+    def test_every_vector_is_a_valid_C1C2_difference_wave(self):
+        rc, vecs, _ = self._run(60)
+        self.assertEqual(rc, 0)
+        for v in vecs:
+            counts = {}
+            for part in v.split(","):
+                d, c = part.split(":")
+                counts[int(d)] = int(c)
+            self.assertEqual(sum(counts.values()), 63,
+                             f"{v!r} does not describe 63 transitions")
+            self.assertEqual(counts.get(5, 0), 0, f"{v!r} carries a distance-5 transition (breaks C2)")
+            self.assertEqual(counts.get(0, 0), 0, f"{v!r} carries a distance-0 transition")
+            self.assertTrue(all(0 <= d <= 6 for d in counts), f"{v!r} has an out-of-range distance")
+
+    def test_king_wens_own_multiset_is_drawable(self):
+        # Not a formality: it is the self-consistency anchor of the whole control. If KW's own
+        # signature could never be drawn, the null would not contain the object it is a null for.
+        _, vecs, _ = self._run(1000, seed=20260904)
+        self.assertIn("1:2,2:20,3:13,4:19,6:9", vecs,
+                      "King Wen's own difference-wave multiset never appeared in 1000 draws")
 
 
 if __name__ == "__main__":
