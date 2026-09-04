@@ -11921,6 +11921,87 @@ gate_viz_shape() {
   return 0
 }
 
+# GATE 88 — the approved-separates census: `git ls-files '*.py' '*.c'` may not exceed the list
+# CLAUDE.md enumerates, AND the counts CLAUDE.md states about that list must be true.
+#
+# 🔴 WHY BOTH LEGS. The standing rule is that all C lives in solve.c and all Python in solve.py,
+# "except for the approved separates enumerated below", and adding a file outside that list is an
+# operator decision. Nothing enforced it. Codex raised this as V2-F56 #3.
+#
+# 🔴 THE ROW SAT BLOCKED ON A COST THAT BELONGED TO A DIFFERENT ROW. Its blocker cell read
+# "hours-scale many-core Spot run, NOT approved by this note" -- character-for-character the blocker
+# of backlog row 102, the wrap-mass reseed, a genuine 2x10^10-probe estimator job. A `git ls-files`
+# set-containment test cannot share a cost profile with that, and the adjudication that raised the
+# charge said "Zero compute." in its own remediation column. Measured on this orchestrator: 0.09 s
+# wall, 0.05 core-seconds, 5.5 MB peak -- about one eighteenth of an average gate here, and 0.07% of
+# a full run. A cost inherited from the wrong instrument is this project's recorded failure; this one
+# was inherited from the wrong ROW.
+#
+# LEG 2 exists because LEG 1 cannot catch what actually rotted. Subset-containment tests the GLOB,
+# and on 2026-09-04 the glob was right while the human count beside it was stale by one file and one
+# whole directory -- CLAUDE.md said "11 files under f1/, f5/, f11/, r11/" when the tree held 12 across
+# five directories. Leg 1 passed then and would pass now. So leg 2 asserts the STATED count and the
+# STATED directory list against the filesystem, which is the only part a reader actually relies on.
+gate_separates_census() {
+  echo "== GATE 88: approved-separates census (CLAUDE.md vs git ls-files) =="
+  local rc=0 md=CLAUDE.md
+  [ -r "$md" ] || { echo "  [FAIL] $md unreadable"; return 1; }
+
+  # LEG 1 -- containment. Every tracked .py/.c must be named by the list, either literally or by the
+  # one glob the list sanctions (reports/evidence/**/*.py).
+  local census; census=$(git ls-files '*.py' '*.c' 2>/dev/null)
+  local n; n=$(printf '%s\n' "$census" | grep -c .)
+  # 🔴 VERIFIER-CLOSURE GUARD. An empty census would make every containment test vacuously true, so
+  # a gate that could not see the tree would report the tree conformant. Absence of files is not
+  # evidence of conformance; it is evidence the measurement failed.
+  if [ "${n:-0}" -lt 10 ]; then
+    echo "  [FAIL] census floor: git ls-files returned $n source file(s) — refusing to pass vacuously"
+    return 1
+  fi
+  local f miss=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in reports/evidence/*/*.py) continue;; esac      # the sanctioned glob
+    if ! grep -qF -- "\`$f\`" "$md"; then
+      echo "  [FAIL] tracked source '$f' is NOT named in $md's approved-separates list"
+      echo "         Adding a .py/.c outside that list is an operator decision, not an implementation detail."
+      miss=$((miss+1))
+    fi
+  done <<EOF
+$census
+EOF
+  [ "$miss" -eq 0 ] && echo "  [ok] all $n tracked .py/.c named by the list (or under the sanctioned reports/evidence glob)"
+  [ "$miss" -gt 0 ] && rc=1
+
+  # LEG 2 -- the stated numbers. CLAUDE.md asserts a COUNT and a DIRECTORY LIST for the glob.
+  local ev_n ev_dirs stated_n
+  ev_n=$(git ls-files 'reports/evidence/**/*.py' 2>/dev/null | grep -c .)
+  ev_dirs=$(git ls-files 'reports/evidence/**/*.py' 2>/dev/null \
+            | sed 's#reports/evidence/\([^/]*\)/.*#\1#' | sort -u)
+  # The bullet reads: - **`reports/evidence/**/*.py`** (**N** files under `a/`, `b/` ... )
+  stated_n=$(grep -oE '\*\*`reports/evidence/\*\*/\*\.py`\*\* \(\*\*[0-9]+\*\*' "$md" \
+             | grep -oE '[0-9]+' | head -1)
+  if [ -z "$stated_n" ]; then
+    echo "  [FAIL] could not find the stated evidence-file COUNT in $md — the bullet's shape changed"
+    rc=1
+  elif [ "$stated_n" != "$ev_n" ]; then
+    echo "  [FAIL] $md states $stated_n evidence .py file(s); the tree has $ev_n"
+    rc=1
+  else
+    echo "  [ok] stated evidence count $stated_n matches the tree"
+  fi
+  local d
+  for d in $ev_dirs; do
+    if ! grep -qF -- "\`$d/\`" "$md"; then
+      echo "  [FAIL] evidence directory '$d/' holds tracked .py but is NOT named in $md's bullet"
+      echo "         This is the half that rotted on 2026-09-04: the glob was right, the prose was not."
+      rc=1
+    fi
+  done
+  [ "$rc" -eq 0 ] && echo "  [ok] every evidence directory holding tracked .py is named in $md"
+  return $rc
+}
+
 gate_prereg_escrow() {
   echo "== GATE 86: every published pre-registration's digest is on the escrow page =="
   python3 - <<'PREREGPY' || return 1
@@ -18413,6 +18494,7 @@ case "$MODE" in
   completion-semantics) gate_completion_semantics || RC=1 ;;
   prereg-escrow) gate_prereg_escrow || RC=1 ;;
   viz-shape) gate_viz_shape || RC=1 ;;
+  separates-census) gate_separates_census || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -18440,6 +18522,7 @@ case "$MODE" in
            echo; gate_env_surface || RC=1
            echo; gate_completion_semantics || RC=1
            echo; gate_prereg_escrow || RC=1
+           echo; gate_separates_census || RC=1
            echo; gate_viz_shape || RC=1
            echo; gate_canonical_ceiling || RC=1
            echo; gate_withdrawn_markers || RC=1
@@ -18494,7 +18577,7 @@ case "$MODE" in
            echo; gate_boundary_scope || RC=1
            echo; gate_merge_semantics || RC=1
            echo; gate_rec_scope || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|prereg-escrow|viz-shape|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|all}"; exit 2 ;;
 esac
 
 echo
