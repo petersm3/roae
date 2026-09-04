@@ -586,7 +586,11 @@ echo "== 4. Lean kernel check (every lean/*.lean file) =="
 # its own, but a directory that quietly lost modules must not pass either. 14 on `main` since
 # SatEncodingFidelity.lean (2026-08-31); override with LEAN_FILES_MIN on a branch that has fewer.
 LEAN_PIN_FILE=lean/lean-toolchain
-LEAN_FILES_MIN=${LEAN_FILES_MIN:-14}
+# 14 -> 15 on 2026-09-04: `CompilerCorrectness.lean` arrived on `main` with the v4-query-program
+# merge (a19682b2). Raised rather than left at 14 for the same reason the compile gate's warning
+# baseline is a census and not a budget: a floor pinned BELOW reality still passes while a file
+# is silently removed, which is precisely what the floor exists to catch.
+LEAN_FILES_MIN=${LEAN_FILES_MIN:-15}
 if [ "$HAVE_LEAN" = "0" ]; then
   echo "LEAN_ID=ABSENT"        | tee -a "$LOG"
   echo "LEAN_PIN_MATCH=ABSENT" | tee -a "$LOG"

@@ -189,7 +189,7 @@ destructuring the permutation to a closed bit-scatter form (carry bounds + `omeg
 concretized branches forward; explicit single-bit counterexamples reverse), reporting
 `[propext, Classical.choice, Quot.sound]`. Every other former `native_decide` site in those two
 files migrated to `decide +kernel` (kernel-evaluated, no compiler trust). **Zero `native_decide`
-now remains anywhere in the fourteen files: every theorem in this directory is checked by Lean's
+now remains anywhere in the fifteen files: every theorem in this directory is checked by Lean's
 kernel alone, with `#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]` — Lean's standard
 axioms — suite-wide.** (Thirteen files since 2026-08-15: `PruneReprFC.lean` landed kernel-only —
 zero `native_decide`, its in-file `#print axioms` directives execute on every build and report
@@ -215,7 +215,7 @@ dated at its own claim site below). They were **not** produced by the in-file `#
 directives you will find in the `.lean` sources: those were added on 2026-08-01 (`d3d6772`)
 with bare names for constants declared inside `namespace` blocks, so — **as of the 2026-08-07 scan,
 when this directory held twelve files; `PruneReprFC.lean` landed 2026-08-15 and
-`SatEncodingFidelity.lean` on 2026-08-31, so there are now **fourteen** — six of twelve files —
+`SatEncodingFidelity.lean` on 2026-08-31, so there are now **fifteen** — six of twelve files —
 `TrigramTheorems`, `C3Decomposition`, `PruneExactness`, `PartitionInvariance`,
 `SymmetryCompleteness`, `PruneGInvariance` — failed with "Unknown constant" and the ~89
 directives **never executed**. `03c2a05` (2026-08-02) qualified every name; the re-run that
@@ -288,16 +288,19 @@ bash reports/certificates/verify_all.sh
 ```
 
 Scope, stated precisely: "every module in this directory" is every `lean/*.lean` file on the branch
-you have checked out — **fourteen** on `main` since `SatEncodingFidelity.lean` (2026-08-31). It is **not** a claim about every Lean file in the
-project: the file lean/CompilerCorrectness.lean (deliberately unbackticked — it does not exist on
-this branch) lives only on the `v4-query-program` branch and is verified separately there.
+you have checked out — **fifteen** on `main` since `CompilerCorrectness.lean` arrived with the `v4-query-program` merge
+(`a19682b2`, 2026-09-04; fourteen from `SatEncodingFidelity.lean`, 2026-08-31, until then). It is
+**not** a claim about every Lean file in the project. ⚠ **[CORRECTED 2026-09-04 — this read
+"fourteen" and said of `lean/CompilerCorrectness.lean` that "it does not exist on this branch" and
+"lives only on the `v4-query-program` branch". Both became false the moment that branch merged into
+`main` the same day. `git ls-files 'lean/*.lean' | wc -l` now returns 15 and the file is tracked here.]**
 
 **Then, for one module or to debug a failure**, run files individually. This is where the per-file
 timings and the memory guidance live, and it is the right path when a suite run reports a FAIL or a
 RESOURCE error and you want to reproduce just that file. (The list below is a *selection* — it names
-ten of the fourteen modules; `PruneExactness.lean`, `PruneGInvariance.lean` and
+ten of the fifteen modules; `PruneExactness.lean`, `PruneGInvariance.lean` and
 `RecordConvention.lean` and `SatEncodingFidelity.lean` are checked by the suite above but have never been listed here. Each file is
-standalone, so `lean <AnyFile>.lean` works for all fourteen.)
+standalone, so `lean <AnyFile>.lean` works for all fifteen.)
 
 ```bash
 # install elan (Lean version manager); the pinned toolchain is in ./lean-toolchain

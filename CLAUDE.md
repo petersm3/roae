@@ -400,9 +400,9 @@ scripts, not one** — `visualize.py`, `growth_curve.py`, `report_figures.py`;
 heavy plotting deps, listed individually above) and `lean/` (**a per-module directory, not one file** — the Lean 4 machine-checked theorem
 modules + README; every file is inventoried in `lean/README.md` and checked independently by
 `reports/certificates/verify_all.sh`. The one-file wording here was written 2026-07-03 when `lean/`
-held exactly one file; the second and third landed 2026-07-04 and it is now fourteen
+held exactly one file; the second and third landed 2026-07-04 and it is now fifteen
 (`PruneReprFC.lean`, the repr(k) prune-safety theorem, landed 2026-08-15, took it to
-thirteen; `SatEncodingFidelity.lean` landed 2026-08-31 and took it to fourteen —
+thirteen; `SatEncodingFidelity.lean` landed 2026-08-31 and took it to fourteen; `CompilerCorrectness.lean` arrived on `main` with the `v4-query-program` merge `a19682b2` on 2026-09-04 and takes it to fifteen —
 `git ls-files 'lean/*.lean' | wc -l`, agreeing with `lean/README.md`). Per-module is
 the RIGHT structure for Lean and is not to be consolidated: compile cost is PER FILE. The landed
 kernel-`decide` `PruneGInvariance.lean` peaks at ~3.9 GB (an earlier revision of this sentence
