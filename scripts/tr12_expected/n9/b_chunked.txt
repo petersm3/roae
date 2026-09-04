@@ -23,6 +23,7 @@ KC_SCAN_CHUNK=OK
 [f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
 [kc-scan-merge] <WORK>/chunk0.json: layers [0,4)
 [kc-scan-merge] <WORK>/chunk1.json: layers [4,9)
+KC_SCAN_MERGE_ENGINE=EXE-BOUND
 KC_SCAN_MERGE_COVERAGE=COMPLETE
 KC_SCAN_MERGE_TIDENTITY=VERIFIED
 [kc-scan-merge] atlas written: <WORK>/merged.json (2 chunks, 9 layers)

@@ -13,6 +13,9 @@ Results (n = 1000000, wall time <T>s):
 
 Interpretation: given that C1 holds, how often does a random valid
 pair-ordering also satisfy the adjacency and complement constraints?
-Solve.c's canonical enumeration at 10T (d3: 706M orderings) and 100T
-measures this exhaustively under the C1+C2+C3 filter; this Monte-Carlo
-sample gives the *unconditional* rate over uniformly random pair-perms.
+Solve.c's canonical enumerations at 10T (d3: 706M orderings) and 100T are
+NODE-BUDGETED C1-C5 slices: their record counts are LOWER BOUNDS over a
+reproducible slice, not exhaustive populations (documentation/CRITIQUE.md,
+documentation/SOLUTIONS_FORMAT.md). They therefore cannot validate this
+mode's unconditional rate. The conditional rates above stand on their own
+Monte-Carlo terms over uniformly random pair-perms.

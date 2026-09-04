@@ -40,6 +40,7 @@ KC-G BUILD n=9 dir=<SELFTEST_TMP>/g g0=26112 layers=0.068804 MB elapsed=<T>s
 [kc-scan-selftest] RAW positional marginals (G-expansion) == brute (all slots)  PASS
 [kc-scan-selftest] branch atlas solutions == brute first-placement census       PASS
 [kc-scan-selftest] quotient marginal column sums == N (all layers)              PASS
+[kc-scan-selftest] NEGATIVE N1: corrupted extractor mass IS caught by brute     PASS
 [kc-scan] layer 00 -> 01: transition mass 26112
 [kc-scan] layer 01 -> 02: transition mass 26112
 [kc-scan] layer 02 -> 03: transition mass 26112
@@ -56,4 +57,38 @@ KC_SCAN_TIDENTITY=SKIPPED
 KC_SCAN=OK
 [kc-scan-selftest] --kc-scan end-to-end (JSON written, gates PASS)              PASS
 [kc-scan-selftest] atlas JSON spot-check (N_total field)                        PASS
+[kc-scan-selftest] NEGATIVE N2: flip one f-layer value byte                     PASS
+[kc-scan] layer 00 -> 01: transition mass 26112
+[kc-scan] layer 01 -> 02: transition mass 26112
+[kc-scan] layer 02 -> 03: transition mass 26112
+[kc-scan] layer 03 -> 04: transition mass 26112
+[kc-scan] layer 04 -> 05: transition mass 26112
+[kc-scan] layer 05 -> 06: transition mass 26112
+[kc-scan] layer 06 -> 07: transition mass 26112
+[kc-scan] layer 07 -> 08: transition mass 26112
+[kc-scan] layer 08 -> 09: transition mass 26112
+[kc-scan] GATE FAIL: t-recursion prefix total != f-ladder layer masses
+[kc-scan] atlas written: <SELFTEST_TMP>/atlas.json
+KC_SCAN_TIDENTITY=SKIPPED
+[kc-scan] WARNING: no --kc-tdir - the arithmetic identity (t(root) == sum of f layer masses) was NOT run. It is the only value-level check on fmass[k] for k < n. This is a STRICTLY WEAKER attestation; pass --kc-tdir for a production atlas.
+[kc-scan] VERDICT: FAIL (1 gate failure)
+KC_SCAN=FAIL
+[kc-scan-selftest] NEGATIVE N2: corrupted-ladder scan FAILS closed              PASS
+[kc-scan-selftest] NEGATIVE N2: restore the byte                                PASS
+[kc-scan] layer 00 -> 01: transition mass 26112
+[kc-scan] layer 01 -> 02: transition mass 26112
+[kc-scan] layer 02 -> 03: transition mass 26112
+[kc-scan] layer 03 -> 04: transition mass 26112
+[kc-scan] layer 04 -> 05: transition mass 26112
+[kc-scan] layer 05 -> 06: transition mass 26112
+[kc-scan] layer 06 -> 07: transition mass 26112
+[kc-scan] layer 07 -> 08: transition mass 26112
+[kc-scan] layer 08 -> 09: transition mass 26112
+[kc-scan] atlas written: <SELFTEST_TMP>/atlas.json
+KC_SCAN_TIDENTITY=SKIPPED
+[kc-scan] WARNING: no --kc-tdir - the arithmetic identity (t(root) == sum of f layer masses) was NOT run. It is the only value-level check on fmass[k] for k < n. This is a STRICTLY WEAKER attestation; pass --kc-tdir for a production atlas.
+[kc-scan] VERDICT: PASS (0 gate failures)
+KC_SCAN=OK
+[kc-scan-selftest] NEGATIVE N2: restored ladder scans PASS again                PASS
 [kc-scan-selftest] PASS (0 failures)
+KC_SCAN_SELFTEST=PASS
