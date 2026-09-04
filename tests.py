@@ -3444,8 +3444,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
     record that is not King Wen returns VERIFY=PASS, rc 0, with `King Wen found: No` on
     its own line. That is deliberate. A shard or a budgeted slice legitimately lacks the
     record — the rule requiring one per file was retracted on 2026-09-02 (registry key
-    RP-60347080) — and solve.c has no --expect-kw; verify.py's flag is the only
-    instrument that promotes absence to a failure. A test asserting rc != 0 here would
+    RP-60347080). A test asserting rc != 0 here would
     assert the shipped behaviour is wrong. This one pins what ships, and the C4 control
     shows the same verdict path DOES go red on a real constraint failure, so the PASS on
     the King-Wen-less fixture is a scoped PASS and not a verifier that passes everything.
@@ -3456,9 +3455,20 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
     a two-record artifact holding both is a duplicate-records FAIL — measured — which is
     why "the King Wen record deleted" is modelled as the one-record file.
 
-    solve.c is behind the MASTER GATE and is not edited; the binary is built from the
-    tracked source at -O1 (4.5 s measured on the 2-core orchestrator) into a temp dir. A
-    build failure is a test FAILURE, not a skip.
+    CORRECTED 2026-09-04, twice, because this docstring's own premises expired under it.
+    (1) It said "solve.c has no --expect-kw; verify.py's flag is the only instrument that
+    promotes absence to a failure". solve.c GAINED --expect-kw on 2026-09-04 (g_expect_kw,
+    folded into the verdict at solve.c:37552 for --verify and :37981 for --validate), so
+    both instruments now answer the question and the tests below pin BOTH halves: the
+    default is still reported-not-enforced, and --expect-kw makes absence fatal.
+    (2) It said "solve.c is behind the MASTER GATE and is not edited". That gate is Q-77,
+    the merge of main into v4-query-program; the merge landed (a19682b2 is an ancestor of
+    origin/main) and Q-77 is closed. Neither correction changes what this class ASSERTS —
+    the shipped default is unchanged — only why it asserts it, which is the part a future
+    reader would otherwise trust.
+
+    The binary is built from the tracked source at -O1 (4.5 s measured on the 2-core
+    orchestrator) into a temp dir. A build failure is a test FAILURE, not a skip.
 
     MUTATION, measured 2026-09-02: a scratch copy of solve.c with `+ (kw_found_v ? 0 : 1)`
     added to total_fail, built via ROAE_TESTS_SOLVE_SRC, returns VERIFY=FAIL rc 1 on the
@@ -3498,13 +3508,22 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
             fh.write(blob)
         return path
 
-    def _verify(self, path):
+    def _verify(self, path, *flags):
         """(rc, lines): every stdout line with \\r stripped and runs of whitespace
         collapsed, so `King Wen found:         No` is matched WHOLE as
-        `King Wen found: No` and the verdict token is matched whole, never by shape."""
+        `King Wen found: No` and the verdict token is matched whole, never by shape.
+
+        *flags are passed through to the binary (used for --expect-kw)."""
         if not self.build_ok:
             self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
-        r = subprocess.run([self.sbin, "--verify", path], capture_output=True, text=True)
+        r = subprocess.run([self.sbin, "--verify", *flags, path], capture_output=True, text=True)
+        return r.returncode, [" ".join(l.split()) for l in r.stdout.splitlines()]
+
+    def _validate(self, path, *flags):
+        """Same normalisation as _verify, for the --validate subcommand."""
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was validated: " + self.build_err)
+        r = subprocess.run([self.sbin, "--validate", *flags, path], capture_output=True, text=True)
         return r.returncode, [" ".join(l.split()) for l in r.stdout.splitlines()]
 
     def _valid_non_kw_record(self):
@@ -3550,6 +3569,68 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
                       "RP-60347080 that retracted the per-file requirement; do not edit "
                       "the test alone.")
         self.assertNotIn("VERIFY=FAIL", lines)
+        # The default contract also announces ITSELF, so a log says which one was in force.
+        self.assertIn("KW_REQUIRED=NO", lines)
+
+    # ---- --expect-kw: the opt-in half of the same contract (item 1566) -------------------
+    # The explicit-verdict rule asks for whole-line tokens, `grep -qx`, never output shape.
+    # assertIn against self._verify's LINE LIST is exactly that: membership in a list of
+    # whole lines, not a substring search over the blob.
+
+    def test_expect_kw_promotes_absence_to_a_whole_line_verify_fail(self):
+        # THE NEGATIVE. Same King-Wen-less artifact that PASSES by default must FAIL under
+        # --expect-kw, and must say so with the token, not with prose. This is the half that
+        # could not be written until 2026-09-04: before that solve.c had no such flag, and
+        # this class's docstring said so.
+        rc, lines = self._verify(
+            self._artifact("nokw_expect.bin", [self._valid_non_kw_record()]), "--expect-kw")
+        self.assertNotEqual(rc, 0, "--expect-kw did not make King Wen's absence fatal")
+        self.assertIn("VERIFY=FAIL", lines,
+                      "--expect-kw must fold KW absence into the verdict TOKEN. If it now "
+                      "only warns, that is a contract change: revise solve.c's --expect-kw "
+                      "note and verify.py's flag of the same name together, not this test.")
+        self.assertNotIn("VERIFY=PASS", lines)
+        self.assertIn("KW_REQUIRED=YES", lines)
+        self.assertIn("King Wen found: No", lines)
+
+    def test_expect_kw_on_the_king_wen_artifact_still_passes(self):
+        # THE POSITIVE CONTROL, and it is what stops the test above from being satisfied by a
+        # flag that simply fails everything: the SAME flag on an artifact that DOES hold King
+        # Wen must still return the PASS token and rc 0.
+        rc, lines = self._verify(
+            self._artifact("kw_expect.bin", [self._encode(self.V.KW)]), "--expect-kw")
+        self.assertEqual(rc, 0)
+        self.assertIn("VERIFY=PASS", lines)
+        self.assertIn("KW_REQUIRED=YES", lines)
+        self.assertIn("King Wen found: YES", lines)
+
+    # ---- --validate: the same contract, and until 2026-09-04 it had NO verdict token ----
+
+    def test_validate_emits_a_whole_line_verdict_token(self):
+        # --verify has emitted VERIFY=PASS|FAIL since it was written; --validate emitted only
+        # the prose "Result: ALL CONSTRAINTS VERIFIED". A harness gating on that is gating on
+        # output SHAPE — the failure that cost this project a run when a monitor grepped
+        # "SEARCH COMPLETE" against a solver writing "SEARCH_COMPLETE" (HISTORY.md).
+        rc, lines = self._validate(self._artifact("kw_val.bin", [self._encode(self.V.KW)]))
+        self.assertEqual(rc, 0)
+        self.assertIn("VALIDATE=PASS", lines)
+        # The human-readable line is KEPT, not replaced: both audiences are served.
+        self.assertIn("Result: ALL CONSTRAINTS VERIFIED", lines)
+
+    def test_validate_expect_kw_fails_with_the_token(self):
+        rc, lines = self._validate(
+            self._artifact("nokw_val.bin", [self._valid_non_kw_record()]), "--expect-kw")
+        self.assertNotEqual(rc, 0)
+        self.assertIn("VALIDATE=FAIL", lines)
+        self.assertNotIn("VALIDATE=PASS", lines)
+        self.assertIn("KW_REQUIRED=YES", lines)
+
+    def test_validate_default_does_not_gate_on_king_wen(self):
+        # The default half of the same contract, pinned for --validate as it is for --verify.
+        rc, lines = self._validate(self._artifact("nokw_val2.bin", [self._valid_non_kw_record()]))
+        self.assertEqual(rc, 0)
+        self.assertIn("VALIDATE=PASS", lines)
+        self.assertIn("KW_REQUIRED=NO", lines)
         self.assertEqual(rc, 0)
 
     def test_constraint_failure_does_gate_the_verdict(self):

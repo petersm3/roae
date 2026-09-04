@@ -35,7 +35,7 @@ solve --verify [solutions.bin]                          # constraint check on so
 solve --merge                                           # combine sub_*.bin shards in CWD
 solve --merge-layers <root>                             # merge across layered enumerations
 solve --analyze [solutions.bin]                         # statistics across solution set
-solve --validate [solutions.bin]                        # C1-C5 + sort + dedup enforced; KW presence reported only
+solve --validate [solutions.bin] [--expect-kw]          # C1-C5 + sort + dedup enforced; KW reported (fatal under --expect-kw); VALIDATE=PASS|FAIL
 solve --show [N] [--mode M] [--format F] [--from FILE]  # visual sample of records
 solve --branch <p1> <o1> [time_limit] [threads]         # single first-level branch
 solve --sub-branch <p1> <o1> <p2> <o2> <p3> <o3> [time_limit] [threads]
@@ -705,6 +705,14 @@ valid `ROAE` header and aborts on bad magic or unknown version.
 > **`--expect-kw` closes the open change, opt-in (added 2026-09-04).** Both checkers now accept
 > `--expect-kw`, mirroring `verify.py --expect-kw`: with it, King Wen's absence is folded into the
 > verdict and the run exits non-zero; without it, behaviour is exactly as described above. Both
+> **`--validate` now emits `VALIDATE=PASS|FAIL` too (added 2026-09-04).** Until then it had **no
+> `KEY=value` verdict token at all** — only the prose `Result: ALL CONSTRAINTS VERIFIED`, which a
+> harness could gate on only by matching output *shape*. That is the failure that cost this project a
+> run once already, when a monitor grepped `"SEARCH COMPLETE"` against a solver writing
+> `"SEARCH_COMPLETE"` (`HISTORY.md`). Both prose lines are unchanged and kept for human readers;
+> `grep -qx VALIDATE=PASS` is now the machine-readable sibling. `--verify` has emitted
+> `VERIFY=PASS|FAIL` since it was written.
+>
 > print a whole-line `KW_REQUIRED=YES|NO` token so a log says which contract was in force. It is
 > **not** the default, and must not become one: the "expect exactly one canonical KW record per
 > file" rule was retracted 2026-09-02 (registry `RP-60347080`) because a shard or a budgeted slice

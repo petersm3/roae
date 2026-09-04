@@ -37989,6 +37989,15 @@ int main(int argc, char *argv[]) {
             printf("  Result: ALL CONSTRAINTS VERIFIED\n");
         else
             printf("  Result: VALIDATION FAILED\n");
+        /* 🔴 Item 1566 / the explicit-verdict rule: --verify has emitted a whole-line
+         * VERIFY=PASS|FAIL token since it was written, and --validate had NO KEY=value
+         * verdict at all — only the prose line above. A harness gating on that prose is
+         * gating on output SHAPE, which this project has already been bitten by: a monitor
+         * grepped "SEARCH COMPLETE" while the solver wrote "SEARCH_COMPLETE" and the
+         * mismatch cost a run (HISTORY.md). The prose lines are KEPT for humans and are
+         * unchanged; this adds the machine-readable sibling so a caller can
+         * `grep -qx VALIDATE=PASS` instead of matching a sentence that may be reworded. */
+        printf("VALIDATE=%s\n", errors > 0 ? "FAIL" : "PASS");
         return errors > 0 ? 1 : 0;
     }
 
