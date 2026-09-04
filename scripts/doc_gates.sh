@@ -147,6 +147,7 @@
 #   scripts/doc_gates.sh evidence-type-vocabulary # GATE 67: PARTITION_INVARIANCE.md evidence types from a closed vocabulary; 'every scale' needs every row direct
 #   scripts/doc_gates.sh theorem-vs-slice # GATE 68: SPECIFICATION.md's '(d=1 vs d=3)' wrap enumeration names d=5 or scopes itself to the slice
 #   scripts/doc_gates.sh chronology-access # GATE 69: a CITATIONS.md 'could not have read' clause never rests on a year inside the author's life-range
+#   scripts/doc_gates.sh viz-shape        # GATE 87: viz/report_figures.py --selftest -- the TR-12 TSV shape guards fire
 #   scripts/doc_gates.sh layer-profile    # GATE 70: TR-11's per-layer footprint table equals FULL31_EXACT_AGGREGATES.md's layer GB at printed precision
 #   scripts/doc_gates.sh boundary-scope   # GATE 75: a mandatoriness claim over boundary SETS is scoped to the subset size actually exhausted (C(31,4)), not to depth
 #   scripts/doc_gates.sh merge-semantics  # GATE 76: prose may not deny a merge capability solve.c's env surface (SOLVE_MERGE_MODE/CHUNK_GB) provides
@@ -11878,6 +11879,48 @@ gate_scratch_examples() {
 # complete population) were both fixed in PROSE on 2026-09-02 and the six files leg (b) named were
 # escrowed on 2026-09-04, so their red tests no longer reproduce; only this leg needed enforcement.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# GATE 87 — the TR-12 figure generator's shape guards are shown able to FAIL
+# (`viz-shape`).
+#
+# WHY. Q-307 (D6 review 2026-08-27, VIZ_PROGRAM_DESIGN_REVIEW_2026_08_27.md sec.6): the V1..V5
+# generators read their TSVs with `dict(zip(header, fields))` and did no shape check at all, so a
+# TRUNCATED v1_field.tsv rendered a perfectly plausible heat map over a smaller grid -- no error, no
+# clue, and an output that LOOKS like evidence. viz/report_figures.py now refuses an incomplete,
+# duplicated, torn or column-short table and stamps each TR-12 figure with the sha256 of the TSV it
+# came from.
+#
+# WHY A GATE AND NOT A ONE-OFF CHECK. A shape assertion that has never been shown to refuse anything
+# is indistinguishable from no assertion, and the guards live in a file no test imports (matplotlib
+# and numpy are external and are not dependencies of roae.py or solve.c, so tests.py cannot reach
+# them). The generator therefore carries its own `--selftest`: eight synthetic-table arms, four
+# provenance arms and two constant-observable arms, each asserting a VERDICT rather than an output
+# shape. MUTATION-TESTED before landing: defanging the completeness test, the field-count test and
+# the constant-observable rule each turned the selftest RED.
+#
+# The absent-matplotlib arm SKIPS rather than passing quietly, and says so on its own line: viz/ is
+# an optional surface and a reviewer without matplotlib is not a defect, but a silent green would be.
+gate_viz_shape() {
+  echo "== GATE 87: viz/report_figures.py's TSV shape guards are shown able to fail =="
+  local G=viz/report_figures.py
+  require_tracked "$G" "The TR-12 figure generator IS this gate; with it gone, nothing is checked."
+  case $? in 1) return 0;; 2) return 1;; esac
+  if ! python3 -c 'import matplotlib, numpy' >/dev/null 2>&1; then
+    echo "  [skip] matplotlib/numpy absent — viz/ is an optional external surface, not part of the"
+    echo "         core toolchain. NOTHING was checked here; this is a skip, not a pass."
+    return 0
+  fi
+  local out rc
+  out=$(python3 "$G" --selftest 2>&1); rc=$?
+  if ! printf '%s\n' "$out" | grep -qx 'VIZ_SHAPE_SELFTEST=PASS'; then
+    printf '%s\n' "$out" | sed 's/^/     /'
+    echo "  [FAIL] $G --selftest did not print VIZ_SHAPE_SELFTEST=PASS (rc $rc)"
+    return 1
+  fi
+  echo "  [ok]   $G --selftest: $(printf '%s\n' "$out" | grep -c '^  \[ok\]') arm(s) green, VIZ_SHAPE_SELFTEST=PASS"
+  return 0
+}
+
 gate_prereg_escrow() {
   echo "== GATE 86: every published pre-registration's digest is on the escrow page =="
   python3 - <<'PREREGPY' || return 1
@@ -18369,6 +18412,7 @@ case "$MODE" in
   env-surface) gate_env_surface || RC=1 ;;
   completion-semantics) gate_completion_semantics || RC=1 ;;
   prereg-escrow) gate_prereg_escrow || RC=1 ;;
+  viz-shape) gate_viz_shape || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
@@ -18396,6 +18440,7 @@ case "$MODE" in
            echo; gate_env_surface || RC=1
            echo; gate_completion_semantics || RC=1
            echo; gate_prereg_escrow || RC=1
+           echo; gate_viz_shape || RC=1
            echo; gate_canonical_ceiling || RC=1
            echo; gate_withdrawn_markers || RC=1
            echo; gate_framing_era || RC=1
@@ -18449,7 +18494,7 @@ case "$MODE" in
            echo; gate_boundary_scope || RC=1
            echo; gate_merge_semantics || RC=1
            echo; gate_rec_scope || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|prereg-escrow|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|prereg-escrow|viz-shape|all}"; exit 2 ;;
 esac
 
 echo

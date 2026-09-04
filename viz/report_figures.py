@@ -48,7 +48,28 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from solve import binary_hexagrams  # noqa: E402
 
 
-def save(fig, stem):
+def save(fig, stem, provenance=None):
+    """Write PNG + SVG, stamping the PROVENANCE footer into the figure margin.
+
+    Q-307 (2026-08-27 D6 review, filed 2026-09-04): nothing bound a rendered
+    figure to the TSV it was rendered from.  A reader holding the PNG had no way
+    to tell WHICH v1_field.tsv produced it, and a re-render from a different
+    table was indistinguishable from the original.  The footer carries the
+    source basename and the first 12 hex of its sha256, which is enough to
+    settle that question and short enough not to intrude on the plot.
+
+    It is deliberately TIMESTAMP-FREE: a clock in the footer would make every
+    re-render a different file and destroy byte-comparability, which is the
+    property the atlas half of TR-12 exists to have.  Same input bytes in, same
+    figure out.
+
+    The footer is also the thing GATE 6 polices: that gate greps the GENERATOR's
+    annotation strings because matplotlib renders text to glyph paths and the
+    rendered figure is unreadable to grep.  Text that reaches a figure only
+    through this function is text GATE 6 can see."""
+    if provenance:
+        fig.text(0.995, 0.004, provenance, ha="right", va="bottom",
+                 fontsize=5.0, color="#8a8a8a", family="monospace")
     fig.savefig(f"{stem}.png", dpi=150, bbox_inches="tight")
     fig.savefig(f"{stem}.svg", bbox_inches="tight")
     plt.close(fig)
@@ -332,12 +353,136 @@ def fig_tr3_campaign_timeline():
 # here; the float `p` / `p_cond` / `share` columns exist for the axes.
 # ===========================================================================
 
-def _read_tsv(path):
-    """Tiny tab-separated reader -> list of dicts.  No type coercion."""
+class TsvShapeError(Exception):
+    """A source TSV is not the shape its own spec says it is.
+
+    Q-307.  Three distinct old behaviours, and the FIRST is the one that matters:
+
+      - A table that lost whole rows -- the ordinary shape of a truncated write --
+        was not detectably wrong at all.  Every row it kept was well formed, so
+        `_read_tsv` returned happily and the generator drew a perfectly plausible
+        figure over a smaller grid.  No error, no clue, and the output LOOKS like
+        evidence.  That is the worst failure mode a figure generator has, and it
+        is what `_check_grid` now refuses.
+      - A row with EXTRA tabs was silently truncated to the header's width, because
+        the reader was `dict(zip(head, fields))` and zip() stops at the shorter
+        argument.  Silent, and wrong.
+      - A row torn mid-write did raise -- but as a `KeyError` from deep inside the
+        plotting code, hundreds of lines from the cause and naming a column rather
+        than a file.  Loud, but pointing at the wrong place.
+
+    All three are now one named error that names the file, the line and the reason."""
+
+
+def _read_tsv(path, required=()):
+    """Tab-separated reader -> list of dicts.  No type coercion, but STRICT shape.
+
+    Raises TsvShapeError on: an empty file, a missing header, a duplicated header
+    column, any data row whose field count differs from the header's, or a
+    missing `required` column.  `required` is the column list the format's own
+    spec document (viz/viz_kc_*.md) states -- structure, not analysis."""
     with open(path) as fh:
-        head = fh.readline().rstrip("\n").split("\t")
-        return [dict(zip(head, line.rstrip("\n").split("\t")))
-                for line in fh if line.strip()]
+        first = fh.readline()
+        if not first:
+            raise TsvShapeError(f"{path}: file is empty -- 0 bytes, no header")
+        head = first.rstrip("\n").split("\t")
+        if len(set(head)) != len(head):
+            dup = sorted({c for c in head if head.count(c) > 1})
+            raise TsvShapeError(f"{path}: header repeats column(s) {dup}")
+        missing = [c for c in required if c not in head]
+        if missing:
+            raise TsvShapeError(f"{path}: header is missing required column(s) "
+                                f"{missing}; header = {head}")
+        rows = []
+        for lineno, line in enumerate(fh, start=2):
+            if not line.strip():
+                continue
+            f = line.rstrip("\n").split("\t")
+            if len(f) != len(head):
+                raise TsvShapeError(
+                    f"{path}:{lineno}: {len(f)} field(s) against a {len(head)}-column "
+                    f"header -- the table is torn or mis-delimited, not merely short")
+            rows.append(dict(zip(head, f)))
+    if not rows:
+        raise TsvShapeError(f"{path}: header only, 0 data rows")
+    return rows
+
+
+def _check_grid(rows, cols, path):
+    """Assert the tidy table is a COMPLETE, DUPLICATE-FREE grid over `cols`.
+
+    Q-307's first fix.  Derived from the TSV's own index ranges -- nothing here
+    knows 992 or 155 or 31, and nothing here is told what full-31 looks like, so
+    the check works unchanged at every rung.  Three properties, each of which a
+    truncated or double-appended table violates:
+
+      (a) every index column parses as an integer;
+      (b) the observed index tuples are EXACTLY the cartesian product of the
+          per-column value sets -- so a table that lost rows from the middle, or
+          lost the tail of its last layer, is caught, and a duplicate row is
+          caught in the same test (product size == row count);
+      (c) each index column's values form a CONTIGUOUS integer run -- so a table
+          truncated at a clean layer boundary, which is still rectangular, is
+          caught by the hole it leaves in `k`.
+
+    (c) does not catch a truncation that removes the HIGHEST layers and nothing
+    else; that is stated here rather than papered over, and is why the footer in
+    save() carries the source sha256 -- the two together say what the figure was
+    made from even when the shape alone cannot."""
+    import itertools
+    vals = {}
+    for c in cols:
+        v = []
+        for r in rows:
+            try:
+                v.append(int(r[c]))
+            except (KeyError, ValueError):
+                raise TsvShapeError(f"{path}: column {c!r} is not an integer index "
+                                    f"in every row (offending value {r.get(c)!r})")
+        vals[c] = v
+    seen = list(zip(*[vals[c] for c in cols]))
+    sets = [sorted(set(vals[c])) for c in cols]
+    want = 1
+    for sv in sets:
+        want *= len(sv)
+    if len(seen) != want or len(set(seen)) != len(seen):
+        dup = len(seen) - len(set(seen))
+        raise TsvShapeError(
+            f"{path}: {len(seen)} row(s) over index {cols} whose observed ranges "
+            f"{[f'{c}:{sets[i][0]}..{sets[i][-1]}({len(sets[i])})' for i, c in enumerate(cols)]} "
+            f"require exactly {want}"
+            + (f"; {dup} duplicate index tuple(s)" if dup else "")
+            + " -- the table is incomplete (truncated write?) or double-appended")
+    if set(seen) != set(itertools.product(*sets)):
+        raise TsvShapeError(f"{path}: index {cols} is not a complete grid over its "
+                            f"own observed ranges -- {want - len(set(seen))} cell(s) absent")
+    for i, c in enumerate(cols):
+        sv = sets[i]
+        if sv != list(range(sv[0], sv[0] + len(sv))):
+            hole = sorted(set(range(sv[0], sv[-1] + 1)) - set(sv))
+            raise TsvShapeError(f"{path}: index column {c!r} is not contiguous -- "
+                                f"missing {hole[:8]}{'...' if len(hole) > 8 else ''}")
+    return sets
+
+
+def _prov(*paths):
+    """Provenance string for the figure margin: basename@sha256[:12] per source.
+
+    No timestamp, no hostname, no absolute path -- see save().  A source that is
+    absent renders as `<name>@ABSENT`, which is information rather than a crash,
+    because an optional panel legitimately may not be there."""
+    import hashlib
+    out = []
+    for p in paths:
+        if p is None:
+            continue
+        b = os.path.basename(p)
+        if not os.path.exists(p):
+            out.append(f"{b}@ABSENT")
+            continue
+        h = hashlib.sha256(open(p, "rb").read()).hexdigest()[:12]
+        out.append(f"{b}@{h}")
+    return "source: " + "  ".join(out) + "   (viz/report_figures.py)"
 
 
 def _log10_bigint(s):
@@ -357,13 +502,36 @@ def _missing(path, what, how="python3 solve.py --atlas-queries ATLAS.json --atla
     return False
 
 
+def _shape_guarded(label):
+    """Turn a TsvShapeError into a LOUD refusal instead of a plausible figure.
+
+    Q-307.  The defect this closes is not that the reader crashed -- it is that
+    it did not.  A generator that renders whatever it was given cannot tell a
+    reader that the table was short, so the refusal has to be the visible event:
+    the figure is NOT written, `FIGURE_SHAPE=FAIL` names the file and the reason,
+    and the caller gets False.  Distinct from the `SKIP` path, which means the
+    TSV is absent and is a legitimate state."""
+    def deco(fn):
+        def wrapped(*a, **kw):
+            try:
+                return fn(*a, **kw)
+            except TsvShapeError as e:
+                print(f"FIGURE_SHAPE=FAIL {label}: {e}")
+                return False
+        wrapped.__name__ = fn.__name__
+        wrapped.__doc__ = fn.__doc__
+        return wrapped
+    return deco
+
+
 # --- V1 -- the positional-marginal field (viz/viz_kc_field.md) -------------
+@_shape_guarded("V1 field")
 def fig_tr12_kc_field(tsv):
     if not os.path.exists(tsv):
         return _missing(tsv, "V1 field")
-    rows = _read_tsv(tsv)
-    ks = sorted({int(r["k"]) for r in rows})
-    ps = sorted({int(r["pair"]) for r in rows})
+    # required columns and the (k, pair) grid are viz/viz_kc_field.md's own spec
+    rows = _read_tsv(tsv, required=("k", "pair", "p", "kw"))
+    ks, ps = _check_grid(rows, ("k", "pair"), tsv)
     M = np.zeros((len(ps), len(ks)))
     kw = []
     for r in rows:
@@ -389,15 +557,24 @@ def fig_tr12_kc_field(tsv):
                  fontsize=11)
     fig.colorbar(im, ax=ax, label="P(pair at slot) — column sums = 1")
     fig.tight_layout()
-    save(fig, "fig_tr12_kc_field")
+    save(fig, "fig_tr12_kc_field", _prov(tsv))
     return True
 
 
 # --- V2 -- the mass river + branch panel (viz/viz_kc_river.md) -------------
+@_shape_guarded("V2 river")
 def fig_tr12_kc_river(river_tsv, branches_tsv):
     if not os.path.exists(river_tsv):
         return _missing(river_tsv, "V2 river")
-    rows = _read_tsv(river_tsv)
+    # viz/viz_kc_river.md: tidy (k, d) grid.  d runs over {1,2,3,4,6}, which is
+    # NOT contiguous, so the grid check is applied on the row index rather than
+    # on d's absolute values -- see the remap below, which is why d is passed as
+    # its own rank and not as its label.
+    rows = _read_tsv(river_tsv, required=("k", "d", "p", "kw_d"))
+    _dr = {v: i for i, v in enumerate(sorted({int(r["d"]) for r in rows}))}
+    for r in rows:
+        r["_drank"] = str(_dr[int(r["d"])])
+    _check_grid(rows, ("k", "_drank"), river_tsv)
     ks = sorted({int(r["k"]) for r in rows})
     ds = sorted({int(r["d"]) for r in rows})
     band = {d: [0.0] * len(ks) for d in ds}
@@ -435,7 +612,9 @@ def fig_tr12_kc_river(river_tsv, branches_tsv):
                  "is informative)", fontsize=11)
     ax.legend(fontsize=8.5, loc="upper right", ncol=len(ds) + 1)
     if have_b:
-        br = _read_tsv(branches_tsv)
+        br = _read_tsv(branches_tsv,
+                       required=("branch", "pair", "entry", "share", "prefixes_t_units"))
+        _check_grid(br, ("branch",), branches_tsv)   # one contiguous row per branch
         br = sorted(br, key=lambda r: float(r["share"]), reverse=True)
         ax2 = axes[1]
         x = range(len(br))
@@ -458,15 +637,22 @@ def fig_tr12_kc_river(river_tsv, branches_tsv):
                       "(line); a small-but-expensive branch is the atlas's point",
                       fontsize=10)
     fig.tight_layout()
-    save(fig, "fig_tr12_kc_river")
+    save(fig, "fig_tr12_kc_river", _prov(river_tsv, branches_tsv))
     return True
 
 
 # --- V5 -- the transition grammar (viz/viz_kc_grammar.md) ------------------
+@_shape_guarded("V5 grammar")
 def fig_tr12_kc_grammar(tsv):
     if not os.path.exists(tsv):
         return _missing(tsv, "V5 grammar")
-    rows = _read_tsv(tsv)
+    # viz/viz_kc_grammar.md: tidy (k, class) grid, class = (d, w).  d and w are
+    # both non-contiguous label sets, so the grid is checked on the CLASS RANK.
+    rows = _read_tsv(tsv, required=("k", "d", "w", "p_cond", "kw_d", "kw_w"))
+    _cr = {v: i for i, v in enumerate(sorted({(int(r["d"]), int(r["w"])) for r in rows}))}
+    for r in rows:
+        r["_crank"] = str(_cr[(int(r["d"]), int(r["w"]))])
+    _check_grid(rows, ("k", "_crank"), tsv)
     ks = sorted({int(r["k"]) for r in rows})
     cls = sorted({(int(r["d"]), int(r["w"])) for r in rows})
     M = np.zeros((len(cls), len(ks)))
@@ -493,15 +679,18 @@ def fig_tr12_kc_grammar(tsv):
                  fontsize=11)
     fig.colorbar(im, ax=ax, label="P(class | layer k)")
     fig.tight_layout()
-    save(fig, "fig_tr12_kc_grammar")
+    save(fig, "fig_tr12_kc_grammar", _prov(tsv))
     return True
 
 
 # --- V4 -- King Wen's neighbourhood shells (viz/viz_kc_shells.md) ----------
+@_shape_guarded("V4 shells")
 def fig_tr12_kc_shells(tsv):
     if not os.path.exists(tsv):
         return _missing(tsv, "V4 shells")
-    rows = _read_tsv(tsv)
+    # viz/viz_kc_shells.md: one row per free placement, `step` a contiguous run
+    rows = _read_tsv(tsv, required=("step", "g", "bits", "alts"))
+    _check_grid(rows, ("step",), tsv)
     steps = [int(r["step"]) for r in rows]
     # g is a 192-bit decimal string: plotted on a log axis via its digit count,
     # never by float()-ing the exact value.
@@ -533,11 +722,12 @@ def fig_tr12_kc_shells(tsv):
     ax2.grid(True, axis="y", ls=":", alpha=0.4)
     ax2.set_title("the surprise spectrum — the bars sum to log2 N (EW-1)", fontsize=10)
     fig.tight_layout()
-    save(fig, "fig_tr12_kc_shells")
+    save(fig, "fig_tr12_kc_shells", _prov(tsv))
     return True
 
 
 # --- V3 -- the rank spectrum (viz/viz_kc_spectrum.md) ----------------------
+@_shape_guarded("V3 spectrum")
 def fig_tr12_kc_spectrum(tsv):
     if not os.path.exists(tsv):
         # V3 does NOT ride the atlas: its rows come from a rank grid
@@ -546,13 +736,33 @@ def fig_tr12_kc_spectrum(tsv):
         return _missing(tsv, "V3 spectrum",
                         how="a rank grid joined to python3 solve.py --compute-stats; "
                             "see viz/viz_kc_spectrum.md")
-    rows = _read_tsv(tsv)
+    # viz/viz_kc_spectrum.md: `order` is mandatory and never dropped; `i` is the
+    # contiguous grid index.
+    rows = _read_tsv(tsv, required=("i", "rank", "x", "order"))
+    _check_grid(rows, ("i",), tsv)
     skip = {"i", "rank", "x", "order", "walk"}
     obs = [c for c in rows[0] if c not in skip]
     orders = sorted({r["order"] for r in rows})
     if len(orders) > 1:
         print(f"SKIP V3 spectrum: {tsv} mixes orders {orders} — one TSV per order "
               f"(viz_kc_spectrum.md); a mixed panel is a labelling error")
+        return False
+    # viz_kc_spectrum.md rule 1, verbatim: "An observable with one value carries
+    # no spectrum; drop it or label it CONSTANT rather than plotting a flat line."
+    # A flat panel for a C5-forced observable such as `linechanges` reads as
+    # evidence that the rank index is arbitrary, when it is only evidence that the
+    # observable is constant on the whole space -- the exact misreading that page
+    # is written to prevent.  Constant columns are therefore DROPPED and named.
+    const = [c for c in obs if len({r[c] for r in rows}) == 1]
+    if const:
+        print(f"V3 spectrum: dropped CONSTANT observable(s) "
+              f"{', '.join(f'{c}={rows[0][c]}' for c in const)} "
+              f"(viz_kc_spectrum.md rule 1 -- a flat panel would be read as a "
+              f"statement about the rank index, and it is not one)")
+        obs = [c for c in obs if c not in const]
+    if not obs:
+        print(f"SKIP V3 spectrum: {tsv} carries no VARYING observable "
+              f"({len(const)} constant column(s)) -- nothing to plot")
         return False
     x = [float(r["x"]) for r in rows]
     ncol = 3
@@ -567,9 +777,11 @@ def fig_tr12_kc_spectrum(tsv):
     for idx in range(len(obs), nrow * ncol):
         axes[idx // ncol][idx % ncol].axis("off")
     fig.suptitle(f"V3 — rank spectrum in {orders[0]} order: observable drift across the "
-                 f"index (x = rank / N)", fontsize=12)
+                 f"index (x = rank / N)"
+                 + (f"   [{len(const)} constant observable(s) dropped]" if const else ""),
+                 fontsize=12)
     fig.tight_layout()
-    save(fig, "fig_tr12_kc_spectrum")
+    save(fig, "fig_tr12_kc_spectrum", _prov(tsv))
     return True
 
 
@@ -585,7 +797,108 @@ def tr12_figures(root="tr12"):
     fig_tr12_kc_spectrum(os.path.join(root, "spectrum", "v3_spectrum.tsv"))
 
 
+def _selftest():
+    """`python3 viz/report_figures.py --selftest` -- prove the Q-307 guards FIRE.
+
+    A shape check that has never been shown to refuse anything is indistinguishable
+    from no shape check.  Every arm below builds a synthetic TSV in a temp dir,
+    renders into that dir, and asserts the verdict; the GREEN arm proves the guards
+    do not fire on a well-formed table, which is the half that keeps this from
+    becoming the always-fails check the project has had to delete before.
+
+    Emits VIZ_SHAPE_SELFTEST=PASS or =FAIL.  Gate on that whole line, never on
+    output shape."""
+    import tempfile, itertools, io as _io, contextlib
+    KS, PS = range(0, 6), range(0, 4)
+
+    def field_rows(pairs):
+        out = ["k\tslot\tpair\tmass\tp\tkw"]
+        for k, j in pairs:
+            out.append(f"{k}\t{k+2}\t{j}\t1000\t{1.0/len(PS):.6f}\t{1 if j == k else 0}")
+        return "\n".join(out) + "\n"
+
+    full = list(itertools.product(KS, PS))
+    cases = []            # (name, tsv text, want_ok, want_substr)
+    cases.append(("GREEN complete 6x4 grid", field_rows(full), True, "Saved"))
+    cases.append(("RED  truncated write (last 3 cells lost)",
+                  field_rows(full[:-3]), False, "the table is incomplete"))
+    cases.append(("RED  duplicated append",
+                  field_rows(full + full[:2]), False, "duplicate index tuple"))
+    cases.append(("RED  torn final line",
+                  field_rows(full)[:-14], False, "torn or mis-delimited"))
+    cases.append(("RED  required column absent",
+                  field_rows(full).replace("\tkw\n", "\tkwx\n", 1),
+                  False, "missing required column"))
+    cases.append(("RED  hole punched in k (rectangular but not contiguous)",
+                  field_rows([c for c in full if c[0] != 3]), False, "not contiguous"))
+    cases.append(("RED  header only", "k\tslot\tpair\tmass\tp\tkw\n",
+                  False, "0 data rows"))
+    cases.append(("RED  empty file", "", False, "file is empty"))
+
+    fails = []
+    d = tempfile.mkdtemp(prefix="viz_selftest_")
+    cwd = os.getcwd()
+    try:
+        os.chdir(d)
+        for name, text, want_ok, want in cases:
+            open("t.tsv", "w").write(text)
+            buf = _io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                got_ok = fig_tr12_kc_field("t.tsv")
+            out = buf.getvalue()
+            ok = (bool(got_ok) == want_ok) and (want in out)
+            print(f"  [{'ok' if ok else 'FAIL'}] {name}")
+            if not ok:
+                fails.append(name)
+                print(f"        returned {got_ok!r}, wanted {want_ok!r}; "
+                      f"looked for {want!r} in:\n        {out.strip()[:400]}")
+        # PROVENANCE: the footer must be a FUNCTION OF THE BYTES, and must not
+        # move when the bytes do not.  A stamp that is constant across sources
+        # binds nothing; a stamp that changes on a re-read of the same file
+        # destroys byte-comparability.  Both directions are checked.
+        open("a.tsv", "w").write(field_rows(full))
+        open("b.tsv", "w").write(field_rows(full).replace("\t1000\t", "\t1001\t", 1))
+        pa, pa2, pb = _prov("a.tsv"), _prov("a.tsv"), _prov("b.tsv")
+        for cond, name in ((pa == pa2, "provenance is stable across re-reads"),
+                           (pa != pb, "provenance moves when one byte moves"),
+                           ("ABSENT" in _prov("nope.tsv"), "absent source says ABSENT"),
+                           (":" not in pa.split("@")[1][:12], "stamp is a bare hex digest")):
+            print(f"  [{'ok' if cond else 'FAIL'}] {name}")
+            if not cond:
+                fails.append(name)
+        # V3 CONSTANT-OBSERVABLE arm (viz_kc_spectrum.md rule 1).
+        head = "i\trank\tx\torder\twalk\tvarying\tlinechanges"
+        rowsv = [f"{i}\t{i*7}\t{i/8.0}\tO3\t0,1\t{i}\t20" for i in range(8)]
+        open("v3.tsv", "w").write(head + "\n" + "\n".join(rowsv) + "\n")
+        buf = _io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            r = fig_tr12_kc_spectrum("v3.tsv")
+        out = buf.getvalue()
+        cond = bool(r) and "dropped CONSTANT observable(s) linechanges=20" in out
+        print(f"  [{'ok' if cond else 'FAIL'}] V3 drops a constant observable and names it")
+        if not cond:
+            fails.append("V3 constant drop")
+            print(f"        {out.strip()[:400]}")
+        rowsc = [f"{i}\t{i*7}\t{i/8.0}\tO3\t0,1\t20\t20" for i in range(8)]
+        open("v3c.tsv", "w").write(head + "\n" + "\n".join(rowsc) + "\n")
+        buf = _io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            r = fig_tr12_kc_spectrum("v3c.tsv")
+        out = buf.getvalue()
+        cond = (r is False) and "no VARYING observable" in out
+        print(f"  [{'ok' if cond else 'FAIL'}] V3 refuses a table with nothing but constants")
+        if not cond:
+            fails.append("V3 all-constant refusal")
+            print(f"        {out.strip()[:400]}")
+    finally:
+        os.chdir(cwd)
+    print(f"VIZ_SHAPE_SELFTEST={'FAIL' if fails else 'PASS'}")
+    return 1 if fails else 0
+
+
 if __name__ == "__main__":
+    if "--selftest" in sys.argv[1:]:
+        sys.exit(_selftest())
     fig_tr6_parity_alternations()
     fig_tr4_boundary_information()
     fig_tr1_rules_tradeoff()

@@ -87,6 +87,27 @@ committed alongside the figure and the plotting step performs no analysis.
   `cd reports/figures/ && python3 ../../viz/report_figures.py <tr12-artifact-root>`; each V figure
   is skipped with a message when its TSV is absent.
 
+  **A TSV that is present but INCOMPLETE is refused, not drawn** (Q-307). Until 2026-09-04 the
+  reader did no shape check, so a truncated `v1_field.tsv` rendered a perfectly plausible heat map
+  over a smaller grid — no error, no clue, and an output that looks like evidence. Each V figure now
+  asserts that its tidy table is a complete, duplicate-free, contiguous grid over the index columns
+  its own spec page names (`k`×`pair`, `k`×class, `step`, `branch`, `i`), that every data row has the
+  header's field count, and that the spec's required columns are present; a violation prints
+  `FIGURE_SHAPE=FAIL` naming the file, the line and the reason, and writes no figure. The shape is
+  derived from the table's OWN observed ranges, so nothing here knows what full-31 looks like and
+  the check works unchanged at every rung. V3 additionally drops constant observable columns and
+  names them, per [`viz_kc_spectrum.md`](viz_kc_spectrum.md) rule 1 — a flat `linechanges` panel is
+  a statement about the observable, never about the rank index.
+
+  **Every TR-12 figure carries a provenance footer** — `source: <tsv>@<sha256[:12]>` in the margin —
+  so a rendered PNG can be tied back to the exact table it came from. It is deliberately
+  timestamp-free: same bytes in, same figure out. The four non-TR-12 figures are unstamped and remain
+  byte-identical to the committed PNGs.
+
+  Both are gated: `bash scripts/doc_gates.sh viz-shape` runs `python3 viz/report_figures.py
+  --selftest` (14 arms: eight synthetic malformed tables, four provenance arms, two constant-column
+  arms) and requires `VIZ_SHAPE_SELFTEST=PASS`.
+
 Figures are archived per-run under `runs/<run-id>/viz/`; never inline figures into `viz/` itself.
 
 ## Regenerating from a fresh solutions.bin
