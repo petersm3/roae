@@ -4610,5 +4610,85 @@ class TestExtractionNull(unittest.TestCase):
                       "King Wen's own difference-wave multiset never appeared in 1000 draws")
 
 
+class TestSection14OrientCouplingIsDeadOnDedupedInput(unittest.TestCase):
+    """`--analyze` section 14 is DEAD on every artifact the pipeline writes (Q-322).
+
+    Codex A02's section-14 remainder: the section groups records by pair-index
+    sequence to measure orient-coupling, but the format stores ONE record per
+    unique pair-sequence with orient variants collapsed, so every group has size
+    one and the analytics can never fire.  Section 14 already carried a runtime
+    degeneracy detector; what it did NOT say is that the degeneracy is a property
+    of the FORMAT rather than of the file in hand, which is the difference between
+    "this input happens to be deduped" and "no input this program produces is
+    anything else".  That sentence is now in the code and this test keeps it true.
+
+    The marker must be a MEASUREMENT WITH TWO POSSIBLE VALUES, not a constant --
+    a detector that can only print one string attests nothing.  So both arms are
+    exercised: the deduped shape (which is what the pipeline emits) and a
+    hand-built orientation-EXPLICIT file (which no shipped command produces).
+
+    Fixtures are synthetic 32-byte-per-record ROAE v1 files: byte i is
+    `(pair << 2) | (orient << 1)`.  Two records suffice, and the whole class runs
+    in about a second on top of the build."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="s14dead_")
+        cls.sbin = os.path.join(cls.tmp, "solve_s14")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @staticmethod
+    def _rec(perm, orients):
+        return bytes(((p << 2) | (o << 1)) for p, o in zip(perm, orients))
+
+    def _analyze(self, name, records):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was analysed: " + self.build_err)
+        path = os.path.join(self.tmp, name)
+        with open(path, "wb") as fh:
+            fh.write(b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", len(records))
+                     + b"\0" * 16 + b"".join(records))
+        r = subprocess.run([self.sbin, "--analyze", path], capture_output=True, text=True)
+        return r.returncode, [" ".join(l.split()) for l in r.stdout.splitlines()]
+
+    def test_one_record_per_pair_sequence_is_reported_degenerate_and_named_as_format(self):
+        base = list(range(32))
+        swapped = base[:5] + [base[6], base[5]] + base[7:]
+        rc, lines = self._analyze("distinct.bin", [self._rec(base, [0] * 32),
+                                                   self._rec(swapped, [0] * 32)])
+        self.assertEqual(rc, 0)
+        self.assertIn("ORIENT_COUPLING=DEGENERATE-DEDUPED-INPUT", lines)
+        self.assertFalse([l for l in lines if l.startswith("ORIENT_COUPLING=MEASURABLE")],
+                         "both verdicts printed at once")
+        # The RULING, not merely the observation: the arm must say the ground is the
+        # format.  Without this the section still reads as "this file happens to be
+        # deduped", which is the sentence Q-322 was filed against.
+        self.assertTrue(any("AND THAT IS THE FORMAT, NOT THIS FILE" in l for l in lines),
+                        "the degenerate arm no longer states that the format, not the "
+                        "file, is why these analytics are dead")
+        self.assertTrue(any("DEAD on all of them" in l for l in lines))
+
+    def test_an_orientation_explicit_file_still_measures_and_says_so(self):
+        # The other direction.  No shipped command writes this file; it exists to
+        # prove the detector is a measurement and not a hardcoded string.
+        base = list(range(32))
+        rc, lines = self._analyze("orient.bin", [
+            self._rec(base, [0] * 32),
+            self._rec(base, [0, 0, 0, 0, 0, 1] + [0] * 26)])
+        self.assertEqual(rc, 0)
+        self.assertIn("ORIENT_COUPLING=MEASURABLE (largest group 2 variants)", lines)
+        self.assertNotIn("ORIENT_COUPLING=DEGENERATE-DEDUPED-INPUT", lines)
+        self.assertFalse(any("AND THAT IS THE FORMAT, NOT THIS FILE" in l for l in lines),
+                         "the DEAD ruling leaked into the arm where the analytics are live")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -38976,8 +38976,29 @@ int main(int argc, char *argv[]) {
          * Group all solutions by pair-index sequence (collapse within-pair orient
          * variants). For each unique pair-ordering, count its variants and which
          * positions show orient variation across them. Compare KW's pattern to
-         * the population. Addresses the "does the KW orient-coupling generalize?"
-         * question flagged in SOLVE_SUMMARY.md and INSIGHTS.md.
+         * the population.
+         *
+         * 🔴 RULED DEAD ON EVERY PIPELINE ARTIFACT — 2026-09-04 (Q-322; Codex A02
+         * section-14 remainder). This section CANNOT answer the "does the KW
+         * orient-coupling generalize?" question on anything this program writes,
+         * and the earlier header said it addressed that question without saying so.
+         * The ground is the FORMAT, not the particular file: every .bin the pipeline
+         * emits is canonically deduped — `"dedup_semantics": "canonical — one record
+         * per unique pair-sequence; orient variants collapsed"` is written into
+         * solutions.meta.json by this same source, and the merge dedup compares with
+         * the orient bit masked (0xFC, "only pair identity matters"). One record per
+         * pair-sequence means EVERY group here has size 1, so `max_group <= 1` and the
+         * DEGENERATE arm below is the only reachable arm. Measured, not argued: the
+         * canonical --selftest artifact (102,516 records) prints
+         * ORIENT_COUPLING=DEGENERATE-DEDUPED-INPUT.
+         *
+         * KEPT RATHER THAN DELETED, deliberately. The code is correct; it is its INPUT
+         * that carries no orientation variation. Hand it an orientation-EXPLICIT file
+         * — which no shipped command produces — and it measures what it says it
+         * measures: a two-record fixture differing only in one orientation bit prints
+         * ORIENT_COUPLING=MEASURABLE (largest group 2 variants). Both directions are
+         * gated in tests.py (TestSection14OrientCouplingIsDeadOnDedupedInput), so the
+         * marker is a measurement with two possible values and not a constant.
          *
          * 🔴 SCOPED 2026-09-04 (Codex v2 `solve.c:22414`). Two claims were unconditional and
          * are not. (1) "Resolves" holds only for a NON-DEDUPED input. This section derives its
@@ -39167,9 +39188,16 @@ int main(int argc, char *argv[]) {
                 printf("        there is no orientation variation to measure and the per-position\n");
                 printf("        and subfamily figures below are properties of the INPUT, not of the\n");
                 printf("        constraint system. This is what an orientation-DEDUPED artifact\n");
-                printf("        looks like. To ask this question, regenerate the variants (the\n");
-                printf("        orientation fiber of each pair ordering) and re-run section 14 on\n");
-                printf("        the orientation-explicit records.\n");
+                printf("        looks like.\n");
+                printf("        AND THAT IS THE FORMAT, NOT THIS FILE (Q-322): every .bin this\n");
+                printf("        program writes is canonically deduped -- one record per unique\n");
+                printf("        pair-sequence, orient variants collapsed (see dedup_semantics in\n");
+                printf("        solutions.meta.json) -- so this arm is the only reachable arm for\n");
+                printf("        any pipeline artifact, and these analytics are DEAD on all of them.\n");
+                printf("        To ask this question, regenerate the variants (the orientation\n");
+                printf("        fiber of each pair ordering) and re-run section 14 on the\n");
+                printf("        orientation-explicit records. No shipped command produces such a\n");
+                printf("        file today.\n");
             } else {
                 printf("     ORIENT_COUPLING=MEASURABLE (largest group %lld variants)\n", max_group);
             }
