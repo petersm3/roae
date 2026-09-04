@@ -6613,3 +6613,76 @@ sweep worked through were raised by an external reviewer (Codex V2). Reviewers a
 never credited as authors**. None of the above is offered as novel outside this project's own
 record, and corrections are welcome — the refusal rate reported here is itself a measurement of our
 charge sheets, not a claim about anyone else's.
+
+## 2026-09-04 — five public branches become one: the v4 merge, and why four refs were deleted
+
+**`main` went from `6dac6a85` to `f5a63e27` across two true merges, and the public repository went
+from five branches to one.** This entry exists because deleting a branch is the one operation that
+can lose work silently, and a reader who finds a citation to a ref that no longer exists deserves to
+learn here where it went rather than infer it.
+
+### What merged
+
+**`v4-query-program` → `a19682b2`.** Six weeks of divergence and ~11,440 lines of knowledge-compiler
+surface: 60 commits, 70 files, 24,425 insertions, **zero deletions**. Resolved as one `--no-ff`
+merge rather than a squash or a rebase, deliberately — see below, because that choice is what made
+the deletions safe. 42 files conflicted and `solve.c` carried 20 hunks, but the shape mattered more
+than the count: **17 of them totalled 188 lines**, while the three large ones (13,855 lines) were
+*disjoint additions at the same insertion point* — 11,346 lines of branch-only KC code beside 643
+lines of main-only `f1u_build_group` — which is bulk, not difficulty. The genuine design collision
+was **six** writer/manifest/resume/checkpoint functions where main's `F1C3Mode *gm` G-mode meets the
+branch's f/g/t prefix parameterisation. Resolved so both coexist: under `gm==NULL` and under G-mode
+the production bytes are **main's**, while the g and t ladders are the branch's. Taking either side
+wholesale would have compiled, run, and been quietly wrong.
+
+**`stageg-telemetry` → `f5a63e27`.** Three commits — Stage-G build telemetry (#119),
+finalize-durability for the Stage-F builder, the post-finalize marker/adopt path. Two `solve.c`
+conflicts, the same shape and the same resolution: keep the branch's added functionality, adopt
+main's newer signatures.
+
+### The gate that decided both, and the one place it does not reach
+
+The acceptance rule is that **the canonical `--selftest` sha must not move; a changed sha is a failed
+merge, not a new result.** It did not move: `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`
+before and after, rebuilt independently rather than taken on report.
+
+🔴 **But that sha does not cover the Stage-G build path**, where `stageg-telemetry`'s hunks live —
+`--selftest` computes the C1–C5 enumeration. Saying "the sha is unchanged" would have been true and
+misleading. The gates that *do* cover it were run instead: `--kc-g-selftest` PASS (0 failures),
+including `GA9 probe-stop + resume == straight-through (byte)`, which exercises exactly the
+finalize-durability path those hunks touch, and `GB1 n=13 g(0) = 2,063,395,607,040`; plus
+`--kc-layers-selftest` PASS. The retraction gate went **15 findings → 0**, which is the merge's own
+proof that the branch's stale prose was superseded rather than carried.
+
+### Why deleting four refs lost nothing
+
+**Preserving CODE is not preserving the BUILD-PIN COMMIT**, and that distinction nearly cost three
+canonicals. Before these merges, the pins `453e1bf5`, `befd4e1b` (**Stage G canonical**) and
+`317dda34` (**Stage T canonical**) were **not reachable from `main`** — they existed only on the
+branches slated for deletion. A squash or rebase would have orphaned those shas and left every
+canonical that pins them unrebuildable. **A true `--no-ff` merge keeps them reachable**, and after
+the merges all four pins resolve from `main`. That is the technical condition under which deletion
+is permitted at all.
+
+Three refs were deleted because their content **is** `main` — `v4-query-program`, `v4-compiler`
+(which the first merge made an ancestor), and `stageg-telemetry`. Each is additionally pinned by a
+pushed tag, so `git branch <name> <tag>` restores it exactly.
+
+**`orbit-port-188-candidate` was deleted WITHOUT being merged**, and that is the case a tag exists
+for: `archive/orbit-port-188-candidate-20260824` pins `fb19a66b` precisely. It is not merged because
+it is **not mergeable as-is** — its own commit `e7c63d83` is titled *"CANDIDATE (do not land)"* and
+states *"NOT FOR MERGE: bumps `DFS_STATE_VERSION_V2` 2→3 unconditionally and enables the v2 prune
+stack by default."* That is a checkpoint-format break plus an enumeration behaviour change, and its
+history re-mints a pass-2 anchor (`7ab25a43`). **Landing it would move `403f7202`**, the anchor this
+entire project rests on, so it is a deliberate promotion decision (#31) that remains undecided.
+Deleting the label does not decide it. It stops an unlandable experiment from reading as live work,
+and `documentation/BRANCH_REGISTRY.tsv` now records where to find it.
+
+### What the merges surfaced that was not about merging
+
+Three defects the branches had been carrying, each caught by a gate refusing to pass rather than by
+review: two CLI flags (`--kc-g-check-layer`, `--kc-g-status`) that existed in `solve.c` and in no
+documentation; a `[-Wformat-truncation=]` in the new `--kc-g-status` ledger reader that was silently
+shortening any ledger line over 512 bytes in its status output; and a `[-Wstringop-truncation]` whose
+fix eliminated its whole class, so the class was removed from the warning baseline in the same commit
+— a stale baseline entry keeps a slot open for a future regression to pass unnoticed.

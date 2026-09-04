@@ -63,4 +63,24 @@ case "$RRC" in
      echo "[pre-commit]    but do not record this commit as gated. Re-run once the box is quiet:"
      echo "[pre-commit]        bash scripts/pre_commit_registry_gate.sh" ;;
 esac
+# 🔴 SIZE GATE — added 2026-09-04 because the standing >=1 MB rule was enforced NOWHERE here.
+# Measured that day: no size check existed in this dispatcher, pre_commit_registry_gate.sh,
+# pre_commit_generated_gate.sh or pre_push_gate.sh, and `oversize_approved.tsv` lived only in
+# roae-private, read only by that repo's postwindow committer. HARDENING_BACKLOG Q-210 asserted the
+# public tree "has its own separate guard" — it did not. A rule everyone believes is enforced, and
+# which is enforced nowhere, is worse than one known to be manual: nobody checks, because everybody
+# assumes something already did.
+#
+# BLOCKING, not warn-only, and deliberately unlike the registry gate above. That one warns because a
+# registry finding is a judgement call about content. This one is arithmetic about a file the
+# operator has said must not be added without their word, and letting it through means the commit
+# has already happened by the time anyone reads a warning.
+bash "$SDIR/pre_commit_size_gate.sh"; SZRC=$?
+if [ "$SZRC" -ne 0 ]; then
+  echo "[pre-commit] 🔴 BLOCKED by the size gate (rc=$SZRC). Nothing was committed."
+  echo "[pre-commit]    Get the operator's OK and record it in scripts/oversize_approved.tsv,"
+  echo "[pre-commit]    or gzip -9 the file, or gitignore it. Do not raise the threshold."
+  exit "$SZRC"
+fi
+
 exec bash "$SDIR/pre_commit_generated_gate.sh"

@@ -212,9 +212,11 @@ grammar is **frozen in code, and its freeze is self-attested**: the
 sizes (118 transition atoms, 52 position atoms, 24 gates per domain) are
 asserted at startup by `roae.py` itself (`roae.py`, the guard above
 Phase A), which constrains the grammar only against the same file that
-defines it. Unlike `--prereg-h1h3` below, **no external escrow artifact
-exists for this grammar** — it has no row in
-[PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md), so an outside
+defines it. Unlike `--prereg-h1h3` below — whose spec is both escrowed
+by hash and, since 2026-09-04, published in full as
+[`PREREG_H1_H3_TEST_2026_07_26.md`](PREREG_H1_H3_TEST_2026_07_26.md) —
+**no external escrow artifact exists for this grammar**: it has no row
+in [PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md), so an outside
 reader cannot check that the grammar predates any particular run. Each
 KW-satisfied candidate then runs through a five-phase pipeline:
 
@@ -294,18 +296,48 @@ pre-registered prediction that all four tests FAIL their bars (an
 expected, legitimate null).
 
 **Scope of "the frozen spec" (read before relying on it).** The spec
-file is not published. It is escrowed by hash as
-`PREREG_H1_H3_TEST_2026_07_26.md` in
-[PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md), whose own text
-states the limits of what that establishes: the hash makes the file's
-*content* checkable **if it is ever disclosed unredacted**, and it does
-not establish correctness, does not establish that the freeze preceded
-the measurement, and — for this row specifically — was published
-2026-08-22 against a file first committed 2026-07-28, i.e. after the
-date the filename carries. The escrow page's "first committed" column
-is, in its own words, a claim rather than a proof. So "verbatim" here
-means *this code implements that document*, an operator attestation you
-cannot currently check; only the code below it is public.
+file **is published**, as
+[`PREREG_H1_H3_TEST_2026_07_26.md`](PREREG_H1_H3_TEST_2026_07_26.md)
+(disclosed 2026-09-04, operator decision), and it is escrowed by hash in
+[PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md).
+
+**What you can now check for yourself**, which before 2026-09-04 you
+could not:
+
+```bash
+sha256sum documentation/PREREG_H1_H3_TEST_2026_07_26.md
+# ab09648ce5adc8bcd86255e23fc8eb58004730e7a2998b69469df130c7da3687
+wc -c < documentation/PREREG_H1_H3_TEST_2026_07_26.md
+# 29896
+```
+
+Both are the values
+[PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md) published on
+**2026-08-22**, before the file was disclosed. So the document you are
+reading is byte-identical to the escrowed one, and "implements the
+frozen spec verbatim" is now a claim you can audit against the spec
+itself instead of an operator attestation you have to take on trust.
+That conversion — attested to checkable — is the whole of what the
+publication buys.
+
+**What it still does not establish**, in the escrow page's own words: it
+does not establish that the spec is *correct*, and it does not establish
+that the freeze preceded the measurement. For this row the hash was
+published 2026-08-22 against a file first committed 2026-07-28, i.e.
+after the date the filename carries, and the escrow page's "first
+committed" column is a claim rather than a proof. Escrow converts freeze
+*timing* only when the hash is published **before** the run, which for
+this row it was not.
+
+⚠ **Two sentences inside the published file are no longer true of it,
+and are deliberately left unedited.** Its front matter reads *"STAGED /
+HELD — roae-private only"* and its §8 decision tree says *"No public
+change"*. Both were true of the file when it was frozen on 2026-07-26.
+They are part of the escrowed bytes, so correcting them would change the
+sha above and destroy exactly the property this publication exists to
+create. Read them as of the freeze date, not as of today; the disclosure
+decision is recorded here and in [CORRECTIONS.md](CORRECTIONS.md), never
+inside the frozen file.
 
 Circularity firewall (KW hold-out): the threshold stream (seed+20000+b,
 `--ph-thr-samples` samples) is sampled and the medians med\*(A) /

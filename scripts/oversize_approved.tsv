@@ -1,0 +1,10 @@
+# path<TAB>approved-by<TAB>date<TAB>the operator's words
+#
+# Files >= 1 MiB that the operator has explicitly OK'd for first-time tracking, per the standing
+# rule ("ANY file >=1 MB needs OK before `git add`"). scripts/pre_commit_size_gate.sh reads column 1.
+#
+# A row here is a RECORD OF AN APPROVAL, not a way to get past the gate. If you are adding a row
+# because the gate refused you, stop: the row needs the operator's actual words in column 4.
+#
+# `solve.c` is NOT listed — it is exempt in the gate itself by operator ruling 2026-08-06.
+reports/evidence/knuth195_percell_100000.csv.gz	operator	2026-09-04	"4. ok" — asked whether to publish the per-cell table given it cannot be brought under 1 MiB losslessly (measured gzip -9 floor 1,112,677 B)

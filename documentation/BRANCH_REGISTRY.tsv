@@ -15,7 +15,7 @@
 #	is the wrong shape of work, and one of these branches is pinned by a live campaign, so
 #	rewriting it would put running compute at risk to correct prose.
 #
-#	status: authoritative | snapshot | merged
+#	status: authoritative | snapshot | merged | retired
 #	  authoritative — the published corpus. Corrections land here. Cite this.
 #	  snapshot      — frozen working branch. MAY CONTAIN CLAIMS SINCE CORRECTED ON MAIN.
 #	                  Not a publication. Do not cite.
@@ -24,10 +24,15 @@
 #	                  PUBLISHED, not what is unmerged: the ref still exists on the remote and a
 #	                  reader can still open it. The row retires when the ref is deleted, and
 #	                  deletion is gated on tag-before-delete.
+#	  retired       — the ref is DELETED from the remote. The row stays because this file is how a
+#	                  reader learns where the work went: column 4 names the tag that still pins the
+#	                  exact commit, so `git branch <name> <tag>` restores it byte-for-byte. A row
+#	                  removed instead of retired would leave a reader who has a citation to that
+#	                  branch with nothing at all.
 #
 #	branch	status	frozen-at	note
 main	authoritative	-	The published corpus. All corrections (CORRECTIONS.md, CX-01..) land here.
-v4-query-program	snapshot	2026-08-22	TR-12 query program build-out: --kc-enum-desc, --kc-profile, --kc-extremal, --kc-layers/--kc-scan-merge, scripts/tr12_repro.sh, the atlas consumer and viz/viz_kc_*.md. Branched off v4-compiler, so it inherits that snapshot's staleness AND lacks CORRECTIONS.md — read main for any claim. UNREVIEWED: pushed for durability before its code review.
-v4-compiler	snapshot	2026-07-21	v4 engine lineage. PINNED BY A LIVE CAMPAIGN — do not rewrite. [2026-08-29: audited as a strict ancestor of v4-query-program and stageg-telemetry, so it holds ZERO unique work and is delete-safe by content — HELD anyway while the campaign pin is live; retires after Stage T. Do not re-open the content question.] Merges at task #31.
-stageg-telemetry	snapshot	2026-08-07	Stage G telemetry (task #119), awaiting review + the 100B VM gate.
-orbit-port-188-candidate	snapshot	2026-08-08	CANDIDATE, EXPLICITLY NOT LANDED (task #188). The x36 orbit-reduction engine port; it carries a checkpoint-format bump and a DFS default change, so landing it IS the task-#31 decision. Published 2026-08-08 for DURABILITY ONLY — it existed on one machine with no remote copy. Publishing is not landing.
+v4-query-program	retired	2026-08-22	RETIRED 2026-09-04 — merged into main (a19682b2, true --no-ff merge) and the ref deleted. Preserved at tag merged/v4-query-program-20260904; pre-merge state at premerge/v4-query-program-20260903. Its content IS main.
+v4-compiler	retired	2026-07-21	RETIRED 2026-09-04 — became an ancestor of main via the v4-query-program merge, then the ref was deleted. Preserved at archive/v4-compiler-20260824 and snapshot/v4-compiler-20260731. The live campaign pin 453e1bf is now REACHABLE FROM MAIN, which is what made deletion safe.
+stageg-telemetry	retired	2026-08-07	RETIRED 2026-09-04 — merged into main (f5a63e27) and the ref deleted. Pre-merge state preserved at archive/stageg-telemetry-20260824; the merged head IS main.
+orbit-port-188-candidate	retired	2026-08-08	RETIRED 2026-09-04 — the ref was deleted WITHOUT merging, which is why it carries a tag rather than an ancestry claim. Preserved at archive/orbit-port-188-candidate-20260824, which pins fb19a66bbd33 exactly; `git branch orbit-port-188-candidate archive/orbit-port-188-candidate-20260824` restores it byte-for-byte. NOT MERGED AND NOT MERGEABLE AS-IS: its own commit e7c63d83 is titled "CANDIDATE (do not land)" and states "NOT FOR MERGE: bumps DFS_STATE_VERSION_V2 2->3 unconditionally and enables the v2 prune stack by default" — a checkpoint-format break plus an enumeration behaviour change, and its history re-mints a pass-2 anchor (7ab25a43). Landing it would move the canonical sha 403f7202, so it is the operator's #31 promotion decision, undecided. Deleting the label does not decide it; it only stops an unlandable experiment reading as live work.

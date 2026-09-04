@@ -338,9 +338,22 @@ measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
   whose only reproduction path was a private script would not be reproducible
   at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
   `solve.py` would destroy the independence it was created to supply.
-- **`reports/evidence/**/*.py`** (11 files under `f1/`, `f5/`, `f11/`,
-  `r11/`) — evidence instruments shipped and frozen alongside the results
-  they produced.
+- **`reports/evidence/**/*.py`** (**14** files under `f1/`, `f5/`, `f11/`,
+  `r11/` and `q374_se_replicates/`) — evidence instruments shipped and frozen
+  alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
+  "11 files under `f1/`, `f5/`, `f11/`, `r11/`" and BOTH halves were stale.**
+  Measured at the time of the correction, `git ls-files 'reports/evidence/**/*.py'`
+  returned **12**, not 11, and the twelfth —
+  `reports/evidence/q374_se_replicates/analyze.py` (first tracked 2026-09-03) —
+  sits in a fifth directory this bullet did not name. The 2026-09-04 landing of
+  `f5/f5_pair_only_fiber.py` and `f5/f5_pair_only_verify30.py` (the follow-up
+  commit TR-1 §7 promised on 2026-07-26) takes it to 14. The prohibition this
+  bullet expresses was never violated: the licensing clause is the **glob**
+  `reports/evidence/**/*.py`, which covered `q374_se_replicates/analyze.py` all
+  along — what drifted was the parenthetical inventory beside it, which is
+  exactly the failure mode a filesystem-wired gate exists to catch and a
+  string-keyed one cannot. Verify with
+  `git ls-files 'reports/evidence/**/*.py' | wc -l`.]*
 
 - Need a tool to parse an enumeration log? Add it as a subcommand in
   `solve.c` (e.g., `./solve --yield-report`), not a separate `analyze_yields.c`.

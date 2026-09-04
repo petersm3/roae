@@ -11184,7 +11184,14 @@ gate_branch_registry() {
   # registry's own header ALSO declares the set, so the two are cross-checked and a drift
   # between them is itself a failure: widening the vocabulary now takes a deliberate edit in
   # both places.
-  local G19_VOCAB="authoritative snapshot merged" _g19hdr _g19bad
+  # `retired` added 2026-09-04, deliberately and in BOTH places, because this gate refuses a
+  # vocabulary widened in only one — a rule a gate reads from its own subject could otherwise be
+  # widened by editing the subject. It earned its keep the same day: it caught exactly that.
+  # WHY the status is needed: four public branches were deleted on 2026-09-04 (three merged into
+  # main, one — orbit-port-188-candidate — tag-preserved without merging). Their rows STAY, because
+  # this file is how a reader holding a citation to a deleted ref learns where it went: column 4
+  # names the tag that still pins the commit. Removing the rows would leave that reader nothing.
+  local G19_VOCAB="authoritative snapshot merged retired" _g19hdr _g19bad
   _g19hdr=$(grep -m1 -oE 'status: [a-z]+( \| [a-z]+)*' "$REG" | sed 's/^status: //; s/ *| */ /g')
   if [ "$_g19hdr" != "$G19_VOCAB" ]; then
     echo "  [FAIL] $REG's own header declares the status vocabulary as"

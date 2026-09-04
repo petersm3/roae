@@ -1,0 +1,37 @@
+== F5 re-check: pair-only-C4 fiber (both slot-0 orientations) ==
+forward  (o0=0, C4-oriented) fiber size = 1720320
+reversed (o0=1, opens (0,63)) fiber size = 983040
+pair-only-C4 fiber total = 2703360
+audit witness bits 0x3e000001 in fiber: True
+KW-in-fiber score gate PASS: [np.int32(15), np.int32(10), np.int32(10), np.int32(2), np.int32(7), np.int32(17), np.int32(13), np.int32(23), np.int32(18), np.int32(4), np.int32(29)]
+400-sample cross-implementation + C5 + C3=776 gate PASS (incl. 200 slot-0-reversed samples)
+witness opens (0, 63); C3 = 776
+
+== Pair-only-C4 fiber exact results (N = 2,703,360) vs published C4-oriented fiber (N = 1,720,320) ==
+functional       kw min max         P<=kw         P>=kw   two-sided p support
+correct_lead     15   2  20  9.857511e-01  4.585405e-02  9.170810e-02      19
+rising           10   1  17  7.554199e-01  4.093084e-01  8.186168e-01      17
+rf_alt           10   1  16  8.372307e-01  3.225497e-01  6.450994e-01      16
+gender_lead       2   1   4  4.909091e-01  8.303030e-01  9.818182e-01       4
+mirror_order      7   1  11  8.024384e-01  4.136600e-01  8.273201e-01      11
+lex_dev          17   6  28  6.097471e-01  5.416940e-01  1.000000e+00      23
+orient_alt       13   6  26  1.733872e-01  9.111750e-01  3.467744e-01      21
+greedy_entry     23  23  24  6.363636e-01  1.000000e+00  1.000000e+00       2
+bpd_six_pos      18  18  18  1.000000e+00  1.000000e+00  1.000000e+00       1  FORCED-ON-FIBER
+bpd_one_span      4   4   4  1.000000e+00  1.000000e+00  1.000000e+00       1  FORCED-ON-FIBER
+vdb_nuc          29   1  30  9.999993e-01  1.109730e-05  2.219460e-05      30
+
+== vdb_nuc detail ==
+full fiber:  max = 30, min = 1
+full fiber:  #vectors with X >= 28: 220  (P = 8.138021e-05)
+full fiber:  #vectors with X >= 29: 30  (P = 1.109730e-05)
+full fiber:  #vectors with X >= 30: 2  (P = 7.398201e-07)
+forward part:  max = 29, #>=29 = 12
+reversed part: max = 30, #>=29 = 18
+one-sided P(X >= 29) full fiber = 30/2703360 = 1.109730e-05 (published C4-oriented: 12/1,720,320 = 6.9754e-06)
+two-sided p at KW=29: 2.219460e-05 (published 1.3951e-05)
+
+== rows 8-10 on the reversed part (published: constant on C4-oriented fiber) ==
+greedy_entry    forward support [np.int32(23)], reversed support [np.int32(24)]
+bpd_six_pos     forward support [np.int32(18)], reversed support [np.int32(18)]
+bpd_one_span    forward support [np.int32(4)], reversed support [np.int32(4)]
