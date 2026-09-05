@@ -8930,3 +8930,86 @@ its reproduction command; it asserts nothing new.
 Found by sibling sweep from the scan-wall correction above
 (`petersm3/roae-private:ATLAS_SCOPING_2026_09_05.md` §1.1, `STAGEF_INTEGRITY_MANIFEST_2026_08_02.md`).
 Applied and this text by Claude (Opus 5), 2026-09-05.
+
+## 2026-09-05 — the decoy sampler's acceptance rate was published as "~4.9%"; the sampler prints 4.349%, and the explanation offered for the excess was impossible. Landed with the decoy-control narrowings, which retract nothing
+
+**What was wrong.** `documentation/SOLVE_PY_CLI.md` §`--extraction-null` and the `solve.py` docstring of
+the same mode (three sites in one function) gave the C1∩C2 rejection sampler's measured acceptance as
+"~4.9%", and the docstring explained the excess over the exact C2 rate of 4.29341 % as "the additional
+d=0 exclusion". The shipped sampler at its default seed prints `EXTRACTION_NULL=OK n=1000
+accepted=4.3490% seed=20260904` — 0.4σ from the exact rate, where 4.9 % would sit ≈4σ above it. The
+explanation was wrong twice over: an extra rejection cannot raise an acceptance rate, and a distance-0
+transition between two distinct hexagrams is impossible, so that clause rejects nothing. The docstring's
+composed command also named a flag the mode does not read (`--seed`; the mode reads
+`--extraction-null-seed`) and piped the completion token into the estimator loop.
+
+**What it says now.** 4.349 % at the stated seed, the correct flag, the token filtered, and the thread
+count pinned (`SOLVE_THREADS=2`, which is load-bearing because Knuth seeds are per-thread). Nothing
+rested on the figure: the sampler's output stream is unchanged by this edit, and the 2026-09-04 decoy
+multisets reproduce from it byte-for-byte.
+
+**What landed with it, and why that is narrowing and not correction.** The same change publishes the
+decoy control's cardinality result — [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) v1.28,
+[TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) v1.29, `SEARCH_SPACE_SIZE.md`, and the four null-model-caveat
+sites in `SPECIFICATION.md`, `SOLVE.md`, `SOLVE_SUMMARY.md` and `PROJECT_OVERVIEW.md`: King Wen's exact
+|C1∩C2∩C4∩C5| sits at the 65th percentile of 1,000 random C1∩C2 targets each counted under its own
+extracted multiset (command, thread count and raw output at TR-9 §Verification Guide and
+`reports/evidence/decoy/`). **No published number changes and nothing is retracted.** TR-9 already priced
+C5 as description and C3 as circular; TR-4 §6 already said King Wen is "not special by being rare or hard
+to find". What moves is scope, in the narrowing direction only: one executive-summary phrase that read
+the residual as evidence of unexplained *structure* now says *information*; TR-9 §4 states which reading
+the control measured — the 129.7-bit C5 row, not the C3-inclusive 126.6, whose 3.0-bit C3 cut has no
+decoy measurement; TR-4's boundary count is labelled as pricing any member of the extracted space, with
+a denominator that is King Wen's own rate; and the four sites that still called `solve.py
+--extraction-null` "the outstanding fix" now say it landed (2026-09-04) and ran its cardinality tier —
+while saying, at each site, that the **uniqueness-rate** tier behind the historical "9 of 10" has not
+run and that figure stays an unreproduced observation. A reader should not take this entry for a
+retraction: the one figure corrected is a sampler statistic on which no result rests.
+
+**What did not move.** Every ledger value and residual endpoint in TR-9 (105.4, 126.6, 129.7, 139.1);
+TR-4's counts, intervals and boundary projections; the C1/C2 statements (matched by construction); the
+C3 rarity figures (untested by this control); every TR-1/TR-10 functional verdict.
+
+**Why under the publication freeze.** The 2026-08-16 freeze bars assertions of novelty. This change
+asserts none: it reports a control in which King Wen is unremarkable.
+
+Found in the Fable-lane adjudication of the 2026-09-04 decoy result
+(`petersm3/roae-private:FABLE_DECOY_FAIL_ADJUDICATION_2026_09_05.md` §2.4), which reproduced the sampler
+stream and its acceptance token by execution; the thread pin was settled the same way (rows of the
+archived file re-run at `SOLVE_THREADS=2` and `=1`). Applied and this text by Claude (Fable 5.1),
+2026-09-05.
+
+## 2026-09-05 — the same page that published the f-ladder's measured size still described it as "~2.6 TB" ninety lines above it; the correction had been scoped to a table row rather than to the file
+
+**What was wrong.** Earlier on 2026-09-05 the f-ladder size row in
+[VERIFY.md](VERIFY.md) was corrected from "~3.1 TB" to the measured
+**3,293,894,951,830 B ≈ 3.29 TB** (entry above). That correction changed one table row. The same file's
+prose, at the paragraph explaining that the n=31 count is not laptop-reproducible, went on describing
+the input as "a ~2.6 TB retained-layer ladder" — the **pre-measurement design estimate**, 21 % below the
+measured value, and
+now in direct contradiction with a measured figure published in the same document. A reader comparing
+the two would have had no way to tell which the project stood behind.
+
+**What it says now.** "a **3.29 TB** retained-layer ladder", with the reproduction command named, a
+pointer to the sizing row, and the previous wording and its date recorded in place.
+
+**What did not move.** No count, theorem, canonical value or published result. The paragraph's actual
+claim — that reproducing the n=31 count means rebuilding the ladder — is unaffected by the ladder's
+size, and the four laptop-checkable alternatives it offers are unchanged.
+
+**Why under the publication freeze.** A measured value replaces an estimate of the same quantity within
+a single page, removing an internal contradiction. It asserts nothing new.
+
+**Why this is worth an entry of its own.** The defect is not the number, it is the *scope of the
+previous correction*: a sweep keyed on the stale value's **occurrence** fixed the row it was looking at
+and left the same value in the prose of the same file. That is the public half of a pattern found the
+same day across the private corpus — six recorded instances of a size figure being corrected where a
+reader would look for it and left standing everywhere else. The generalisable rule, and the one applied
+here, is that a figure correction is scoped to **every occurrence in every file**, verified by grep
+after the edit, not to the site that was reported.
+
+Found by the unsourced-number census sweep
+(`petersm3/roae-private:UNSOURCED_NUMBERS_CLOSED_2026_09_05.md` §2), which enumerated all remaining
+`2.6 TB` occurrences across both trees rather than only the reported ones; the measured value is
+`petersm3/roae-private:STAGEF_INTEGRITY_MANIFEST_2026_08_02.md:7`. Applied and this text by Claude
+(Opus 5), 2026-09-05.

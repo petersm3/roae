@@ -13535,16 +13535,24 @@ def extraction_null(n_draw, seed, probes=None):
     consumes, so the null distribution is reproducible by composition rather than by a bespoke
     harness:
 
-        python3 solve.py --extraction-null 1000 --seed 20260904 \
-          | while read v; do SOLVE_KNUTH_C5_BUDGET=$v ./solve --estimate-knuth 100000; done
+        python3 solve.py --extraction-null 1000 --extraction-null-seed 20260904 \
+          | grep -v '^EXTRACTION_NULL' \
+          | while read v; do SOLVE_THREADS=2 SOLVE_KNUTH_C5_BUDGET=$v ./solve --estimate-knuth 100000; done
+
+    SOLVE_THREADS is load-bearing for digit-level reproduction (Knuth seeds are per-thread): the
+    2026-09-04 run used 2 threads. Another thread count reproduces the percentile only to within
+    the estimator's ~4% per-decoy error. (Command corrected 2026-09-05: it named `--seed`, which
+    this mode does not read, and piped the completion token into the estimator loop.)
 
     THE DRAW, and why it is uniform over the right population. The 32 King Wen pairs are shuffled and
     each is independently given a random orientation — that is uniform over C1 (pair-constrained)
     orderings. Draws carrying a distance-5 or distance-0 transition are then REJECTED, which is
     exactly C2, so what survives is uniform over C1∩C2. Rejection, not repair: repairing a draw would
-    bias the multiset, which is the quantity being measured. Measured acceptance ~4.9%, against the
-    published exact C2 rate of 4.29341% — they agree to the precision this sampler needs, and the
-    small excess is the additional d=0 exclusion.
+    bias the multiset, which is the quantity being measured. Measured acceptance 4.349% at the default
+    seed (`EXTRACTION_NULL=OK n=1000 accepted=4.3490% seed=20260904`), 0.4 sigma from the published
+    exact C2 rate of 4.29341%. (Corrected 2026-09-05: this read "~4.9%" and explained the excess as
+    "the additional d=0 exclusion" — wrong twice over: an extra rejection cannot raise an acceptance
+    rate, and d=0 between two distinct hexagrams is impossible, so that clause rejects nothing.)
 
     🔴 SCOPE — C4 IS NOT RESAMPLED. The opening pair stays King Wen's throughout, because the
     estimator pins it. So the null this feeds asks: *holding the pair set and the opening fixed, is
@@ -13571,7 +13579,7 @@ def extraction_null(n_draw, seed, probes=None):
     rng = _random.Random(seed)
     drawn = 0
     tries = 0
-    # A cap that scales with the request: at the measured ~4.9% acceptance, 400x is ~20 sigma of
+    # A cap that scales with the request: at the measured ~4.3% acceptance, 400x is ~20 sigma of
     # headroom. Hitting it means the population assumption is wrong, which must ERROR, not truncate.
     cap = max(100000, n_draw * 400)
     while drawn < n_draw and tries < cap:
@@ -13590,7 +13598,7 @@ def extraction_null(n_draw, seed, probes=None):
         drawn += 1
     if drawn < n_draw:
         print("EXTRACTION_NULL=ERROR drew only %d of %d in %d tries (cap %d) — the acceptance rate "
-              "is far below the measured ~4.9%%, so the population assumption is wrong"
+              "is far below the measured ~4.3%%, so the population assumption is wrong"
               % (drawn, n_draw, tries, cap))
         return 1
     print("EXTRACTION_NULL=OK n=%d accepted=%.4f%% seed=%d" % (drawn, 100.0 * drawn / tries, seed))
