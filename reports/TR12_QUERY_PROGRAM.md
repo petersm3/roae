@@ -209,6 +209,29 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
 - **Definitions.** (a) CEILING census: μ = P_{C15}(C3 = 776) — fraction of C15 solutions AT KW's
   sharpness. (b) C3-MIN: min{C3(w) : w ∈ SUPER} with argmin witness (note C3-min over SUPER =
   over C15 automatically since min ≤ 776). (c) The C3 distribution over SUPER (histogram).
+🔴 **Q4b(b) IS ALREADY ANSWERED IN THIS REPOSITORY, and this section posed it as open until
+2026-09-05.** `min{C3(w) : w ∈ SUPER} = **112**`, with a public witness. The lower bound `G ≥ 12` is
+structural — 12 complement couples in pairwise-distinct slots, by counting — and
+[`reports/certificates/c3_positional_witnesses.txt`](../reports/certificates/c3_positional_witnesses.txt)
+(committed 2026-07-24 under the title *"C3 positional SAT/DRAT certs (TR-12 Q4b)"*) carries a
+verified ordering **achieving** it: `G=12 C3=112` with its 64-hexagram sequence. A structural bound
+met by an exhibited witness closes the bracket at its floor, so **no bisection, no UNSAT leg and no
+DRAT certificate are required** for the minimum. The same tree already says so in two other places —
+[`documentation/CLAIMS_DECIDED.md`](../documentation/CLAIMS_DECIDED.md) and
+[`reports/certificates/README.md`](../reports/certificates/README.md) (*"G = 12 is the structural
+floor … and it is achieved"*).
+
+Reproduce, from published artifacts only:
+```
+./solve --check-arrangement "$(sed -n 's/^SEQ=//p' reports/certificates/c3_positional_witnesses.txt | head -1 | tr -s ' ' ,)"
+#   -> C3 complement distance: HOLD (value 112, ceiling 776);  verdict SUPER: IN
+```
+**What remains genuinely open is only the SAT *machinery*** — `sat.py`'s bisection driver, `kissat`
+and `drat-trim` are still absent, so the `PENDING:sat-c3min-driver` token below is accurate about the
+*tooling* and was misleading about the *question*. Found 2026-09-05 by a Fable adjudication of the
+QSET external review, which the external review itself missed; see
+[`documentation/CORRECTIONS.md`](../documentation/CORRECTIONS.md).
+
   **Exact versions of (a)/(c) are not shipped** — no instrument in this program counts
   C3-conditioned (§0), and the run that would has been priced and declined on cost, not ruled
   out structurally (§9); published as estimates-with-CI.

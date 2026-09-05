@@ -9110,3 +9110,57 @@ under the standing sha-neutral `solve.c` authorization. The **t** figure is labe
 rather than measured, because it is: it comes from the completed build's layer table, and this entry
 does not upgrade it to a measurement it has not had. Measured, applied and this text by Claude
 (Opus 5), 2026-09-05.
+
+## 2026-09-05 — TR-12 and QUERY_INVENTORY posed Q4b's minimum as an open question that this repository had already answered, with a published witness, since 2026-07-24
+
+**The correction.** `min{C3(w) : w ∈ SUPER} = **112**`, exactly, with a public witness. TR-12 §Q4
+and [QUERY_INVENTORY.md](QUERY_INVENTORY.md)'s Q4b row described it as unanswered, to be settled by a
+SAT bisection over `G ∈ [12, 47]` that has never been written. Both are corrected in place; the
+original wording is kept under a marker rather than deleted.
+
+**Why the question is closed.** The lower bound `G ≥ 12` is **structural** — twelve complement
+couples in pairwise-distinct slots force it, by counting — and
+[`reports/certificates/c3_positional_witnesses.txt`](../reports/certificates/c3_positional_witnesses.txt)
+carries an ordering that **achieves** it: `G=12 C3=112`, with its 64-hexagram sequence. A structural
+bound met by an exhibited witness closes the bracket at its floor. **No bisection, no UNSAT leg and
+no DRAT certificate are needed for the minimum.**
+
+**It was not hidden.** That certificate was committed on **2026-07-24**, under the commit title
+*"C3 positional SAT/DRAT certs (**TR-12 Q4b**)"* — it names the very row it answers.
+[`CLAIMS_DECIDED.md`](CLAIMS_DECIDED.md) and
+[`reports/certificates/README.md`](../reports/certificates/README.md) both state the result
+(*"G = 12 is the structural floor … and it is achieved"*). **Three published files answered the
+question while two others asked it, for six weeks.**
+
+**Re-verified two ways before this entry was written**, from committed blobs only:
+
+```
+./solve --check-arrangement "$(sed -n 's/^SEQ=//p' reports/certificates/c3_positional_witnesses.txt | head -1 | tr -s ' ' ,)"
+#   C3 complement distance:  HOLD (value 112, ceiling 776)
+#   first violation:         NONE
+#   verdict SUPER (C1&C2&C4&C5):  IN
+```
+and the committed `reports/certificates/verify_all.sh` §3b block, which re-checks all 42 witnesses
+independently (permutation, C1, C2, C3/G, C4, C5) and exits 0.
+
+**What is still open, and was conflated with the question:** the SAT *machinery*. `sat.py`'s
+bisection driver does not exist, and neither `kissat` nor `drat-trim` is installed. The
+`PENDING:sat-c3min-driver` token is therefore accurate about the **tooling** and was misleading about
+the **question**. The distinction is now stated at both sites.
+
+**How it was found, and by what it was missed.** An external Codex review (QSET, 2026-09-05) was
+pointed at exactly this class of defect — *"a question the repository already determines"* — and
+**explicitly cleared Q4b**. The Fable adjudication of that review caught it. Two earlier internal
+passes missed it as well: a 2026-08-29 query-set audit and a 2026-09-05 fresh-eyes pre-publication
+review, the latter of which cited the number 112 only as a solver refusal threshold and did not
+connect it to the row. **A prior-art check for the certificate returns 59 hits — the certificate, its
+README, and Codex v2 transcripts that re-verified the same witness — and not one connects it to
+Q4b's row.** The lesson is not that a search was missing; it is that the search that mattered was
+never run against the *question*, only against the artifact.
+
+**Consequence beyond these two files, recorded here because it is the reason this was caught today:**
+Q4b was one of four questions staged for a class-A pre-registration freeze. Freezing it would have
+published, under a third-party timestamp, a claim to have **not yet answered** something this
+repository answers in three places — refutable by one search, and unretractable once stamped. The row
+is removed from that set; the freeze proceeds with three. Applied and this text by Claude (Opus 5),
+2026-09-05, on a Fable adjudication of the QSET review.
