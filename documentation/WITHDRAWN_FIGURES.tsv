@@ -29,3 +29,5 @@
 minimum across 10⁵ samples	2026-08-28: a sample minimum is an upper bound on the true minimum, never a lower bound; the item is a RATE bound scoped to a non-uniform sampler
 null P = 0.034	2026-08-28: the unconstrained null; the constrained value its own caveat named is 87/465 = 0.187, and the verdict reverses
 plus seven others	2026-08-28: "KW plus seven others" inverts the finding — all 8 C6/C7 survivors share King Wen's pair ordering; C6/C7 kill 898 of the 899 distinct pair orderings
+48–85 h	2026-09-05: the full-31 `--kc-scan` wall. It divided the two ladders' FOOTPRINT by a measured sequential rate; the f-by-g join makes ~1.577e13 random point lookups into g rather than streaming it, so the read volume is not the footprint. WITHDRAWN with no public replacement figure (the re-derived ~669 TB rests on private run logs and a locality model at MEDIUM confidence). documentation/CORRECTIONS.md, 2026-09-05.
+48-85 h	2026-09-05: same figure, ASCII-hyphen form. GATE 27 matches figures as PLAIN substrings with no character fold, so the en-dash and the hyphen spellings are two rows here — the same shape "3×10³⁷" / "3.3×10³⁷" already uses.
