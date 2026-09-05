@@ -11830,6 +11830,8 @@ def _atlas_f(x):
     old float path, which is all it was ever good for.
     """
     from fractions import Fraction
+    if _atlas_fault("ratio-zero"):
+        return "0"     # test-only (Q-422): every derived ratio reads 0 while every integer is right
     if isinstance(x, Fraction):
         import decimal
         with decimal.localcontext() as ctx:
@@ -11837,6 +11839,60 @@ def _atlas_f(x):
             d = decimal.Decimal(x.numerator) / decimal.Decimal(x.denominator)
         return format(d, ".%dg" % _ATLAS_SIG)
     return "%.*g" % (_ATLAS_SIG, x)
+
+
+def _atlas_ratio_text_ok(text, num, den):
+    """Is `text` the correctly-rounded _ATLAS_SIG-digit rendering of num/den (num, den >= 0)?
+
+    The recount's oracle for a DERIVED column (Q-422; Codex MQ1 section 2c, MQ1A finding 2).
+    Until 2026-09-05 the brute-force legs of atlas_selftest compared the integer columns only,
+    so a formatter that returned "0" for every ratio passed all 24 gates, left the committed
+    n=9 golden byte-identical, and V1 -- which plots float(r["p"]) -- drew zeros.  This
+    function is what those legs now call on every derived cell.  It is pure integer long
+    division against the digits parsed back out of the TSV cell: it shares no code with
+    _atlas_f (Fraction -> decimal) and never calls it, so a formatter that emits "0",
+    truncates, or rounds through a binary64 is rejected here rather than reproduced here.
+    (It mirrors the oracle in tests.py TestAtlasRatioPrecision, which guards the formatter in
+    isolation; this one guards the CELL, i.e. the wiring from the recounted integer to the
+    published number.  The duplication is deliberate: the test oracle must not depend on
+    solve.py's own checker.)
+    """
+    import re
+    sig = _ATLAS_SIG
+    if den == 0:
+        return text == "nan"
+    if num < 0 or den < 0:
+        return False
+    if not re.match(r"^[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?$", text):
+        return False
+    mant, _, ex = text.replace("E", "e").partition("e")
+    ex = int(ex) if ex else 0
+    ip, _, fp = mant.partition(".")
+    digs = (ip + fp).lstrip("0")
+    if num == 0:
+        return digs.strip("0") == ""
+    if ip.strip("0"):
+        e = len(ip.lstrip("0")) - 1 + ex
+    else:
+        e = ex - (len(fp) - len(fp.lstrip("0"))) - 1
+    digs = digs.rstrip("0")
+    if len(digs) > sig:
+        return False        # more digits than the contract prints is not the contract's rendering
+    got = int((digs + "0" * sig)[:sig])
+    n_, d_, e0 = num, den, 0
+    while n_ >= d_ * 10:
+        d_ *= 10
+        e0 += 1
+    while n_ < d_:
+        n_ *= 10
+        e0 -= 1
+    q, r = divmod(n_ * 10 ** (sig - 1), d_)
+    if 2 * r > d_ or (2 * r == d_ and q & 1):
+        q += 1
+        if q >= 10 ** sig:
+            q //= 10
+            e0 += 1
+    return (got, e) == (q, e0)
 
 
 def atlas_load(path):
@@ -13047,6 +13103,68 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                  len(xa) == len(B["branch"]),
                  "%d rows vs %d enumerated branches" % (len(xa), len(B["branch"])))
 
+            # ---- Q-422: the DERIVED columns, re-rendered from the recount ------
+            # Everything above compares integers.  Until 2026-09-05 nothing below existed, so
+            # a formatter emitting "0" for every ratio passed every gate (Codex MQ1 section 2c /
+            # MQ1A finding 2).  Each cell is checked by _atlas_ratio_text_ok -- integer long
+            # division from the RECOUNTED numerator and denominator, never via _atlas_f -- so
+            # the wiring at every emit site (which numerator, which denominator, which column)
+            # is gated, not just the formatter.  Shown able to fail: --atlas-fault ratio-zero
+            # and scripts/q422_ratio_columns_gate.sh.
+            def _first(bad):
+                return "%d bad cell(s); first %s" % (len(bad), bad[0]) if bad else ""
+            bad = [("v1", r["k"], r["pair"], r["p"]) for r in v1
+                   if not _atlas_ratio_text_ok(
+                       r["p"], B["marg"][int(r["k"])][int(r["pair"])], B["N"])]
+            gate("brute force: V1 p == marginal/N to %d correct digits (the column V1 plots)"
+                 % _ATLAS_SIG, not bad, _first(bad))
+            bad = ([("v2", r["k"], r["d"], r["p"]) for r in v2
+                    if not _atlas_ratio_text_ok(
+                        r["p"], B["byclass"][int(r["k"])][int(r["d"])], B["N"])] +
+                   [("v5", r["k"], r["d"], r["p_cond"]) for r in v5
+                    if not _atlas_ratio_text_ok(
+                        r["p_cond"], B["byclass"][int(r["k"])][int(r["d"])],
+                        B["flow"][int(r["k"])])] +
+                   [("q6", r["k"], r["d"], r["p"]) for r in q6
+                    if not _atlas_ratio_text_ok(
+                        r["p"], B["byclass"][int(r["k"])][int(r["d"])], B["N"])])
+            gate("brute force: V2 p, V5 p_cond, Q6 p re-rendered from the recount",
+                 not bad, _first(bad))
+            q6x = _atlas_read_tsv(os.path.join(scan, "q6_layer_extremes.tsv"))
+            bad = []
+            for r in q6x:
+                k = int(r["k"])
+                by = {d: B["byclass"][k][d] for d in _ATLAS_CLASSES}
+                hi = max(by, key=lambda d: (by[d], -d))
+                nz = [d for d in _ATLAS_CLASSES if by[d] > 0]
+                lo = min(nz, key=lambda d: (by[d], d)) if nz else -1
+                ok = (int(r["argmax_d"]) == hi and int(r["argmax_mass"]) == by[hi] and
+                      int(r["argmin_nonzero_d"]) == lo and
+                      int(r["argmin_mass"]) == (by[lo] if lo >= 0 else 0) and
+                      _atlas_ratio_text_ok(r["ratio"], by[hi], by[lo] if lo >= 0 else 0))
+                if int(r["kw_d"]) < 0:        # reduced n: KW absent -> the placeholders must say so
+                    ok = ok and (r["kw_class_mass"] == "-1" and Fraction(r["kw_p"]) == -1 and
+                                 Fraction(r["kw_class_pct"]) == -1)
+                else:                         # full-31 only; unreachable while n <= 13 here
+                    km = by[int(r["kw_d"])]
+                    ok = ok and (int(r["kw_class_mass"]) == km and
+                                 _atlas_ratio_text_ok(r["kw_p"], km, B["N"]) and
+                                 _atlas_ratio_text_ok(r["kw_class_pct"],
+                                                      sum(v for v in by.values() if v <= km),
+                                                      B["N"]))
+                if not ok:
+                    bad.append(("q6x", k, r["argmax_d"], r["ratio"], r["kw_p"]))
+            gate("brute force: Q6 extremes (argmax/argmin/ratio/kw_p/kw_class_pct) from the recount",
+                 not bad, _first(bad))
+            bad = [(nm, r["branch"], r["share"]) for nm, tbl in (("xa", xa), ("v2b", v2b))
+                   for r in tbl
+                   if not _atlas_ratio_text_ok(
+                       r["share"],
+                       B["branch"].get((int(r["pair"]), int(r["entry"]), int(r["exit"])), 0),
+                       B["N"])]
+            gate("brute force: XA and V2-branch share == solutions/N re-rendered from the recount",
+                 not bad, _first(bad))
+
         # ---- Q3 ------------------------------------------------------------
         if q3_trace:
             p = os.path.join(out, atlas_q3_name(atlas_parse_q3_trace(q3_trace), n)[0])
@@ -13054,6 +13172,10 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                  not atlas_q3_reader_check(p, N))
             gate("Q3: verdict tokens emitted",
                  R["verdicts"].get("TR12_Q3") == "PASS")
+            bad = [(r["step"], r["p_num"], r["p_den"], r["p"]) for r in _atlas_read_tsv(p)
+                   if not _atlas_ratio_text_ok(r["p"], int(r["p_num"]), int(r["p_den"]))]
+            gate("Q3: p column == p_num/p_den to %d correct digits (Q-422)" % _ATLAS_SIG,
+                 not bad, "%d bad row(s); first %s" % (len(bad), bad[0]) if bad else "")
         else:
             print("[atlas-consumer] %-62s %s" % ("Q3 leg (--atlas-q3-trace)", "SKIP"))
 
@@ -13814,7 +13936,7 @@ def main():
                         help="--atlas-selftest: keep the emitted tables in DIR instead of a tempdir")
     parser.add_argument("--atlas-fault", metavar="NAME", default=None,
                         choices=("v1-drop-pair", "v2-class-swap", "xa-drop-branch",
-                                 "q3-perturb", "q10-mod24"),
+                                 "q3-perturb", "q10-mod24", "ratio-zero"),
                         help="TEST ONLY: deliberately corrupt one emitted column so the n=9 gate "
                              "can be shown able to fail (build-brief invariant 3). Never on a run.")
     parser.add_argument("--xa-nodes-per-sec", type=_ExactAnchor, default=None,

@@ -1,6 +1,6 @@
-# Pinned skip/pending rows of the n=9 battery. SEEDED 2026-09-05 from the 2026-09-04 evidence run
-# (57 rows / 12 skips, same --n9 mode); the next scripts/tr12_repro_gate.sh --stamp on a quiet box
-# confirms or corrects it. A run whose skip set differs from this list FAILS the gate.
+# Pinned skip/pending rows of the n=9 battery, recorded by scripts/tr12_repro_gate.sh --stamp.
+# A run whose skip set differs from this list FAILS the gate (see the gate header). Re-stamp
+# in the SAME commit as any change that legitimately adds or removes a skip.
 TR12_EW_GOV=SKIP:doc-only
 TR12_LS_AUDIT=SKIP:doc-only
 TR12_LS_CITE=SKIP:doc-only
@@ -11,6 +11,7 @@ TR12_Q4B=PENDING:sat-c3min-driver
 TR12_Q4_GEXACT=SKIP:doc-only
 TR12_Q7=SKIP:leg-TR12_Q7_RANKS
 TR12_Q7_RANKS=SKIP:reduced-universe
+TR12_Q7_WITNESSES=PENDING:kissat
 TR12_Q9=SKIP:doc-only
 TR12_V3=SKIP:leg-TR12_V3_FIG
 TR12_V3_FIG=PENDING:viz-v3-spectrum

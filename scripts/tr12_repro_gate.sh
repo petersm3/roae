@@ -154,6 +154,13 @@ if ! bash ./scripts/q3_reader_exactness_gate.sh; then
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
+# Q-422 (Codex MQ1 §2c / MQ1A finding 2): the consumer's derived columns -- the ones V1 plots --
+# must be gated by the brute-force recount and shown able to fail. Reuses the binary built above.
+if ! Q422_SOLVE="$WORK/solve" bash ./scripts/q422_ratio_columns_gate.sh; then
+  echo "  [FAIL] scripts/q422_ratio_columns_gate.sh did not PASS: the derived-ratio columns are no longer gated by the recount, or a mutant survived (see message above)"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
 # D5-02 / D5-03 / D5-04 / D5-08 legs (2026-09-05, roae-private D5_QUERY_PROGRAM_REVIEW_2026_09_04.md).
 # Four rows would have emitted PASS at full-31 for a computation other than the one their prose
 # names: a1_q8_chi2 (an n=13 self-test in place of the gallery chi-square), a0_ls_w0 (a C2|C1 / C3|C1

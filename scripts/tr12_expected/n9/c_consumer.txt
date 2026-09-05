@@ -19,10 +19,15 @@
 [atlas-consumer] brute force: V1 field cell-by-cell (32 pairs x 9 layers)       PASS
 [atlas-consumer] brute force: XA branch solutions cell-by-cell                  PASS
 [atlas-consumer] brute force: branch table covers every enumerated branch       PASS
+[atlas-consumer] brute force: V1 p == marginal/N to 17 correct digits (the column V1 plots) PASS
+[atlas-consumer] brute force: V2 p, V5 p_cond, Q6 p re-rendered from the recount PASS
+[atlas-consumer] brute force: Q6 extremes (argmax/argmin/ratio/kw_p/kw_class_pct) from the recount PASS
+[atlas-consumer] brute force: XA and V2-branch share == solutions/N re-rendered from the recount PASS
 [atlas-consumer] Q3: reader-side prod(p_i) == 1/N in exact big-int rationals    PASS
 [atlas-consumer] Q3: verdict tokens emitted                                     PASS
+[atlas-consumer] Q3: p column == p_num/p_den to 17 correct digits (Q-422)       PASS
 [atlas-consumer] A-5: one raw marginal column per WHOLE pair-orbit (9 pair(s) -> 3 column(s), group sizes [3, 3, 3]) PASS
-[atlas-consumer] 24 gate(s) run, 0 failure(s)
+[atlas-consumer] 29 gate(s) run, 0 failure(s)
 ATLAS_CONSUMER=PASS
 [atlas] Q3 King Wen check: SKIP:n=9 -- the reduced n=9 universe carries no King Wen walk to compare against
 [atlas] A2 slot check: SKIP:n=9 -- A2's published slot histogram is a full-31 measurement

@@ -433,7 +433,11 @@ figures read, and they gate every table they write.
 --atlas-fault NAME           TEST ONLY. Deliberately corrupt one emitted column so
                              the gate can be shown able to fail. One of
                              v1-drop-pair, v2-class-swap, xa-drop-branch,
-                             q3-perturb, q10-mod24. Never on a real run.
+                             q3-perturb, q10-mod24, ratio-zero. Never on a real
+                             run. `ratio-zero` (added 2026-09-05, Q-422) makes
+                             the formatter emit 0 for every derived ratio while
+                             every integer column stays right; the other five
+                             corrupt an integer column.
 --xa-nodes-per-sec F         XA-c/d: measured DFS throughput anchor.
 --xa-usd-per-hour F          XA-c/d: worker price anchor.
 --xa-budget-usd F            XA-c/d: the ceiling the EXHAUSTIBLE/INFEASIBLE call
@@ -517,7 +521,13 @@ value. They are parsed with `int()` and only with `int()`; a JSON float
 literal anywhere in the atlas is refused with a diagnostic rather than
 rounded, and the `mass` columns are written from the exact integer. The
 `p` / `p_cond` / `share` columns are correctly-rounded renderings of an
-exact `Fraction` and are **display only** — never the quoted value.
+exact `Fraction` and are **display only** — never the quoted value. Since
+2026-09-05 that rendering is itself gated: the n=9 brute-force legs below
+re-render every derived cell from the recounted integers by integer long
+division (`_atlas_ratio_text_ok`, which never calls the formatter) and
+compare digit strings. Before that date the sentence above was checked by a
+unit test of the formatter in isolation (`tests.py TestAtlasRatioPrecision`)
+and by nothing in the battery.
 
 ### What it will not do
 
@@ -547,32 +557,48 @@ $B/solve --kc-t-build $B/f $B/t
 $B/solve --kc-scan    $B/f $B/g $B/atlas.json --kc-tdir $B/t
 $B/solve --kc-enum    $B/f | grep -v '^\[' > $B/walks.txt        # 26,112 walks
 python3 solve.py --atlas-selftest $B/atlas.json --atlas-walks $B/walks.txt
-# ... 21 gates (23 with --atlas-q3-trace); expect: ATLAS_CONSUMER=PASS
+# ... 26 gates (29 with --atlas-q3-trace); expect: ATLAS_CONSUMER=PASS
 ```
 
 Every emitted table is re-derived from that **explicit enumeration** and
 diffed against the TSV read back off disk — not against the in-memory atlas.
-Adding `--atlas-fault v2-class-swap` (or any of the other four faults) makes
+Adding `--atlas-fault v2-class-swap` (or any of the other five faults) makes
 the gate print `ATLAS_CONSUMER=FAIL` and exit 1; the class-swap fault is
 caught **only** by the brute-force leg, which is the point of having one.
 
-🔴 **WHAT "diffed" COVERS, EXACTLY** (corrected 2026-09-04; this paragraph
-said "diffed **cell by cell**" without qualification, and that was false —
-Codex review MQ1 §2c, adjudicated in `CODEX_MQ1_ADJUDICATION.md`). The
-brute-force legs compare the **exact integer** columns and only those:
-`mass` in `v1_field.tsv` / `v2_river.tsv` / `v5_grammar.tsv` /
-`q6_extremes.tsv`, `solutions` in `xa_branches.tsv`, and the per-layer
-`flow`. The **derived float** columns — `p`, `p_cond`, `share`, the Q6
-`ratio`, `kw_p`, `kw_class_pct` (until 2026-09-05: `kw_pct`) — are re-derived by nothing and compared against nothing.
-That is not academic: **V1 plots `float(r["p"])`**, so Codex set every
-plotted probability to zero and the consumer still reported 24 gates and 0
-failures. The integers are the substance and they are genuinely gated
-against an independent enumeration; the columns a reader actually sees in
-V1 are not. Strengthening the existing legs to recompute the float columns
-from the brute-forced integers is **owed** and is not done here: it cannot
-be landed without re-golding `scripts/tr12_expected/n9/`, and a golden
-regenerated to match a change is the circularity §1 of the same review is
-about.
+🔴 **WHAT "diffed" COVERS, EXACTLY.** This paragraph said "diffed **cell by
+cell**" without qualification, and **that was false as written until
+2026-09-05** (Codex review MQ1 §2c and MQ1A finding 2, adjudicated in
+`CODEX_MQ1_ADJUDICATION.md` / `CODEX_MQ1A_ADJUDICATION.md`; corrected in
+prose 2026-09-04, in code 2026-09-05 as Q-422). Until then the brute-force
+legs compared the **exact integer** columns and only those — `mass`,
+`solutions`, the per-layer `flow` — and the **derived** columns `p`,
+`p_cond`, `share`, the Q6 `ratio` / `kw_p` / `kw_class_pct` and the Q3 `p`
+were re-derived by nothing and compared against nothing. That was not
+academic: **V1 plots `float(r["p"])`**, and a formatter returning `"0"`
+zeroed every plotted probability while all 24 gates passed,
+`tr12_repro.sh --n9` reported `TR12_REPRO=PASS`, and the committed golden
+stayed byte-identical (measured at `76e5d680`).
+
+What is checked **now**, by the five gates added 2026-09-05: every derived
+cell in `v1_field.tsv`, `v2_river.tsv`, `v2_branches.tsv`,
+`v5_grammar.tsv`, `q6_layer_mass.tsv`, `q6_layer_extremes.tsv`,
+`xa_branches.tsv` and the Q3 profile is re-rendered **from the recounted
+integers** (numerator and denominator both taken from the enumeration, so
+the wiring at each emit site is gated, not just the formatter) by integer
+long division at 17 significant digits and compared as a digit string; the
+Q6 `argmax`/`argmin` integers are recomputed the same way, and at reduced
+n the King Wen placeholders must read `-1`. The oracle shares no code with
+`_atlas_f`. `--atlas-fault ratio-zero` turns exactly those five gates red
+and no others; `scripts/q422_ratio_columns_gate.sh` (wired into
+`scripts/tr12_repro_gate.sh`) pins that, kills six mutants including
+`_atlas_f → "0"` itself, and refuses to pass against a tree without the
+oracle. **Still not covered:** the `kw_p` / `kw_class_pct` recomputation
+for a present King Wen walk runs only at full-31, where `--atlas-selftest`
+refuses (`n > 13`) — that branch is exercised by no reduced-n leg. The
+re-golding this required was additive (five `PASS` lines and the gate
+count in `c_consumer.txt`; no pinned number changed), which is the case
+§1's circularity concern does not cover.
 
 ### Rendering the figures
 
