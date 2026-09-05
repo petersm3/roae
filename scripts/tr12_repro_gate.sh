@@ -52,6 +52,59 @@ fingerprint(){
 
 FP=$(fingerprint)
 
+# 🔴 THE PINNED SKIP SET (2026-09-05 fail-open class sweep, S-06). tr12_repro.sh emits
+# TR12_REPRO=PASS whenever no executed row FAILED — rows that SKIP or report PENDING do not
+# count against it, and it says so beside the token (TR12_REPRO_COMPLETE=NO). Several skips are
+# keyed on capability discovery: `PENDING:--kc-profile — this binary does not accept it`,
+# `SKIP:no-profile-tsv` (three rows ride Q3's TSV), `SKIP:python3-unavailable`. So a regression that
+# DROPS a flag from solve.c, or a Q3 leg that silently stops writing its TSV, turns rows that used
+# to run into skips — and this gate, which until today grepped only TR12_REPRO=PASS, still said
+# TR12_REPRO_GATE=PASS. The battery's contract is fine (it reports completeness); the CONSUMER
+# has to hold it to the set of skips it was stamped with. Mechanism: --stamp records every
+# `TR12_<ROW>=SKIP:…|PENDING:…` line into $SKIPPIN; a run FAILS on any skip not in the pin (a row
+# that used to run now skips) AND on any pinned skip that vanished (a row now runs — progress, but
+# the pin must move with it, same discipline as the fingerprint stamp). No pin file = FAIL: an
+# unpinned skip set is exactly the state this leg exists to refuse.
+#   SEED (2026-09-05): $SKIPPIN was seeded from the 2026-09-04 evidence run (roae-private
+#   evidence_q257_2026_09_04/VERDICTS.txt, 57 rows / 12 skips, same --n9 mode) because the box
+#   refused the battery during the sweep. The next `--stamp` on a quiet box confirms or corrects
+#   it; if the seed is wrong the gate fails LOUDLY with the diff, which is the safe side.
+#   `--selftest-skip-pin` exercises the comparison on synthetic files, no battery needed.
+SKIPPIN=scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt
+observed_skips(){ # $1 = VERDICTS.txt -> sorted TOKEN=VALUE lines, one per skipped/pending row
+  grep -E '^TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*$' "$1" 2>/dev/null | grep -v '_REASON=' | sort -u
+}
+skip_pin_compare(){ # $1 = VERDICTS.txt  $2 = pin file ; prints findings; rc 0 same / 1 differs / 2 cannot
+  local v="$1" pin="$2" obs exp new gone
+  [ -r "$v" ]   || { echo "  [FAIL] skip pin: VERDICTS file unreadable: $v"; return 2; }
+  [ -r "$pin" ] || { echo "  [FAIL] skip pin: no pinned skip set at $pin — run scripts/tr12_repro_gate.sh --stamp on a quiet box; an UNPINNED skip set cannot be certified"; return 2; }
+  obs=$(observed_skips "$v"); exp=$(grep -vE '^[[:space:]]*(#|$)' "$pin" | sort -u)
+  [ -n "$exp" ] || { echo "  [FAIL] skip pin: $pin has zero rows — an empty pin certifies nothing; re-stamp"; return 2; }
+  new=$(comm -23 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp"))
+  gone=$(comm -13 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp"))
+  if [ -z "$new" ] && [ -z "$gone" ]; then
+    echo "  [ok] skip set matches the pin ($(printf '%s\n' "$exp" | grep -c .) pinned skip/pending rows)"; return 0
+  fi
+  [ -n "$new" ]  && { echo "  [FAIL] rows that used to RUN now SKIP (a capability or input silently went away):"; printf '%s\n' "$new"  | sed 's/^/           /'; }
+  [ -n "$gone" ] && { echo "  [FAIL] pinned skips that no longer occur (rows now run — re-stamp so the pin moves with them):"; printf '%s\n' "$gone" | sed 's/^/           /'; }
+  return 1
+}
+if [ "$MODE" = "--selftest-skip-pin" ]; then
+  T=$(mktemp -d); trap 'rm -rf "$T"' EXIT; f=0
+  printf 'TR12_A=PASS\nTR12_B=SKIP:doc-only\nTR12_C=PENDING:--kc-x\nTR12_C_REASON=PENDING:--kc-x long text\nTR12_REPRO=PASS\n' > "$T/v"
+  printf '# pin\nTR12_B=SKIP:doc-only\nTR12_C=PENDING:--kc-x\n' > "$T/pin"
+  skip_pin_compare "$T/v" "$T/pin" >/dev/null; r=$?; [ "$r" -eq 0 ] && echo "  [ok] identical set -> 0" || { echo "  [FAIL] identical set -> $r"; f=1; }
+  printf 'TR12_A=SKIP:no-profile-tsv\nTR12_B=SKIP:doc-only\nTR12_C=PENDING:--kc-x\nTR12_REPRO=PASS\n' > "$T/v2"
+  o=$(skip_pin_compare "$T/v2" "$T/pin"); r=$?; [ "$r" -eq 1 ] && grep -q 'TR12_A=SKIP:no-profile-tsv' <<<"$o" && echo "  [ok] a NEW skip -> 1, named" || { echo "  [FAIL] new skip -> $r"; f=1; }
+  printf 'TR12_A=PASS\nTR12_B=SKIP:doc-only\nTR12_C=PASS\nTR12_REPRO=PASS\n' > "$T/v3"
+  o=$(skip_pin_compare "$T/v3" "$T/pin"); r=$?; [ "$r" -eq 1 ] && grep -q 'TR12_C=PENDING:--kc-x' <<<"$o" && echo "  [ok] a VANISHED skip -> 1, named" || { echo "  [FAIL] vanished skip -> $r"; f=1; }
+  skip_pin_compare "$T/v" "$T/nopin" >/dev/null; r=$?; [ "$r" -eq 2 ] && echo "  [ok] missing pin -> 2" || { echo "  [FAIL] missing pin -> $r"; f=1; }
+  : > "$T/empty"; skip_pin_compare "$T/v" "$T/empty" >/dev/null; r=$?; [ "$r" -eq 2 ] && echo "  [ok] empty pin -> 2" || { echo "  [FAIL] empty pin -> $r"; f=1; }
+  skip_pin_compare "$T/absent" "$T/pin" >/dev/null; r=$?; [ "$r" -eq 2 ] && echo "  [ok] missing VERDICTS -> 2" || { echo "  [FAIL] missing VERDICTS -> $r"; f=1; }
+  n=$(grep -cvE '^[[:space:]]*(#|$)' "$SKIPPIN" 2>/dev/null); [ "${n:-0}" -ge 1 ] && echo "  [ok] live pin $SKIPPIN has $n rows" || { echo "  [FAIL] live pin unreadable or empty"; f=1; }
+  [ "$f" -eq 0 ] && { echo "TR12_SKIP_PIN_SELFTEST=PASS"; exit 0; } || { echo "TR12_SKIP_PIN_SELFTEST=FAIL"; exit 1; }
+fi
+
 if [ "$MODE" = "--check" ]; then
   if [ ! -f "$STAMP" ]; then
     echo "TR12_REPRO_GATE_CURRENT=UNKNOWN (no stamp — run scripts/tr12_repro_gate.sh --stamp)"; exit 1
@@ -133,6 +186,18 @@ fi
 if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
   sed -n 's/^rows=/  /p' "$WORK/repro.log" | tail -1
   echo "  [ok] TR12_REPRO=PASS"
+  grep -E '^TR12_REPRO_(ROWS|SKIPPED|COMPLETE)=' "$WORK/out/VERDICTS.txt" | sed 's/^/  /'
+  if [ "$MODE" = "--stamp" ]; then
+    { echo "# Pinned skip/pending rows of the n=9 battery, recorded by scripts/tr12_repro_gate.sh --stamp."
+      echo "# A run whose skip set differs from this list FAILS the gate (see the gate header). Re-stamp"
+      echo "# in the SAME commit as any change that legitimately adds or removes a skip."
+      observed_skips "$WORK/out/VERDICTS.txt"
+    } > "$SKIPPIN"
+    echo "  [ok] pinned $(observed_skips "$WORK/out/VERDICTS.txt" | grep -c .) skip/pending rows into $SKIPPIN"
+  elif ! skip_pin_compare "$WORK/out/VERDICTS.txt" "$SKIPPIN"; then
+    echo "  [FAIL] the battery PASSED its executed rows, but its SKIP set is not the pinned one (above)"
+    echo "TR12_REPRO_GATE=FAIL"; exit 1
+  fi
   if [ "$MODE" = "--stamp" ]; then
     { echo "# Recorded by scripts/tr12_repro_gate.sh --stamp. Proves the committed tree REPRODUCED,"
       echo "# not merely that it was committed. Re-stamp in the SAME commit as any solve.c,"

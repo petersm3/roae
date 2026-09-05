@@ -1,0 +1,3 @@
+# scripts/failopen_closure_allow.tsv — exemptions for scripts/failopen_closure_gate.sh. TAB-separated: name  class  reason.
+# A row here says the script's OK token legitimately does not depend on the tree. Rows that exempt nothing FAIL the gate.
+c2c3_joint_null.py	timeout	Monte-Carlo joint-null computation with no repo input: its 10M default draws cannot finish inside the harness timeout, and its OK is a computed result, not a check of the tree

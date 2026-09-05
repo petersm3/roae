@@ -325,6 +325,17 @@ case "${1:-}" in
 esac
 
 sweep > "$OUT.new" || { echo "sweep failed"; rm -f "$OUT.new"; exit 1; }
+# 🔴 POPULATION FLOOR (2026-09-05 fail-open class sweep). `src_markdown` runs `git grep … 2>/dev/null`
+# and `src_git` runs `git log … 2>/dev/null`; when either cannot run, the sweep is EMPTY and this
+# script used to print "wrote 0 candidates", overwrite the published inventory with a header-only
+# file, and exit 0. An inventory of a corpus that has carried hundreds of correction sites since
+# 2026-07 is never legitimately empty: refuse to overwrite, and say why.
+NROWS=$(awk 'NR>1' "$OUT.new" | grep -c .)
+if [ "${NROWS:-0}" -lt 50 ]; then
+  echo "CORRECTIONS_INVENTORY=ERROR population-collapsed rows=$NROWS (floor 50) — $OUT NOT overwritten"
+  echo "  git grep / git log produced (almost) nothing; this is an unreadable corpus, not a clean one."
+  rm -f "$OUT.new"; exit 2
+fi
 mv "$OUT.new" "$OUT"
 awk -F'\t' 'NR>1 { c[$3]++; n++ } END {
   printf "wrote %d candidates\n", n

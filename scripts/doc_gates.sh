@@ -284,6 +284,19 @@ fi
 # require_tracked <path> [remedy-line]
 #   rc 0 = present; rc 1 = absent and NOT tracked (a legitimate skip, printed); rc 2 = tracked
 #   but absent (a FAIL, printed). Callers must map rc 2 onto their own failure variable.
+# 🔴 THE RESIDUAL HOLE, closed 2026-09-05 (fail-open class sweep, S-01). "Not tracked" was read as
+# "never shipped", but a COMMITTED rename or `git rm` also leaves the path untracked — and from
+# that commit on, every gate anchored to the old name printed `[skip]` and `DOC GATES: PASS`,
+# forever. Measured before the fix in a scratch clone: `git mv documentation/CITATIONS.md
+# documentation/CITATIONS_v2.md && git commit`, then `doc_gates.sh chronology-access` -> [skip] +
+# rc 0. That is the anchor-moved fail-open, at one helper with ~46 call sites. The distinction
+# that matters is HISTORY, not the index: a path that has ever been committed and is now gone
+# was retired or renamed, and the gate that names it must be retargeted or retired WITH it.
+# `git log -- <path>` answers that in one call; a path with no history at all (a fresh fixture
+# tree, a skeleton) is still a legitimate skip.
+#   KNOWN LIMITATION: a shallow clone (`--depth N`) truncates history, so a path deleted before
+#   the shallow boundary reads as never-tracked and skips. Fresh full clones and the working
+#   clones this project runs are not shallow; `git rev-parse --is-shallow-repository` tells.
 require_tracked() {
   [ -f "$1" ] && return 0
   if git ls-files --error-unmatch -- "$1" >/dev/null 2>&1; then
@@ -291,7 +304,15 @@ require_tracked() {
     echo "         ${2:-A gate whose input is absent has checked nothing. Absence of a tracked input is the strongest possible mismatch, not a reason to skip.}"
     return 2
   fi
-  echo "  [skip] $1 absent (not tracked, so nothing shipped is being checked)"
+  local _last
+  _last=$(git log -1 --format='%h %ad' --date=short -- "$1" 2>/dev/null)
+  if [ -n "$_last" ]; then
+    echo "  [FAIL] $1 is absent AND untracked, but it HAS history (last touched $_last): it was"
+    echo "         renamed or removed in a commit. The gate that names it has been checking nothing"
+    echo "         since. Retarget the gate to the new path, or retire the gate in the same commit."
+    return 2
+  fi
+  echo "  [skip] $1 absent (never tracked in this clone's history, so nothing shipped is being checked)"
   return 1
 }
 
