@@ -534,7 +534,7 @@ The c34390c0 / f7b8c4fb undercount investigation (Phase B re-derivation + Phase 
 
 **`--selftest-resume` cannot see whether the `#167` zero-yield guard fired, and it passes either way.**
 Measured on both binaries: the pre-fix and post-fix builds BOTH return PASS with the *same* solutions
-sha `b3862357…`, and `--selftest-resume-d3` is blind the same way (both PASS, `c37e3ea6…`). Two
+sha `b3862357fbde42e7743e219508ede16099b8934ebdf6cbcfc7dd051f8eca4072`, and `--selftest-resume-d3` is blind the same way (both PASS, `c37e3ea6cfc80816de187dfd0361c1ab2890d0f3f5d47e262b1f7ec23b67dd85`). Two
 independent causes, and neither is incidental:
 
 * the three child runs log to `phase_?.log` **inside their tmpdirs**, and the driver `rm -rf`s both
