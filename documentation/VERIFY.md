@@ -1136,7 +1136,12 @@ exactness discipline. Errors are Claude's; corrections invited.*
 *Added 2026-08-22 on branch `v4-query-program`. TR-12 §R step 6 / §8 item 13.*
 
 Everything above is a list of commands a reproducer runs by hand. This is the same list as a
-driver: it runs **every** TR-12 query against named ladder directories, diffs each output against a
+driver: it runs **every query row of the TR-12 query set that has a commanded instrument** against
+named ladder directories ⚠ (*narrowed 2026-09-05, QSET finding 1: this read "**every** TR-12 query".
+It is not every one — TR-12 §10's capstone additions A–G carry MUST language and have no inventory
+row, and 13 of the inventory's rows are pinned as SKIP or PENDING. The battery's own
+`_EXPECTED_SKIPS.txt` names them, and `documentation/QUERY_INVENTORY.md` §7 discloses the §10
+exclusion; the overclaim was here, not in either of those*), diffs each output against a
 committed expected-output block, and **exits non-zero on any mismatch**. Shell only — it adds no
 `.c` and no `.py` file, and calls `solve`, coreutils, `awk`, `sed` and `bc`.
 

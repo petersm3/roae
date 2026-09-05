@@ -106,7 +106,7 @@ The battery is the existing, frozen `solve.py --compute-stats` set — **`_P2_IN
 | Observable | Range | King Wen |
 |---|---|---|
 | `edit_dist_kw` | 0…32 | 0 |
-| `c3_total` | 424…776 | 776 |
+| `c3_total` | ⚠ **see the note below — the old `424…776` was wrong in both directions** | 776 |
 | `c6_c7_count` | 0…2 | 2 |
 | `max_transition_hamming` | 1…6 | 6 |
 | `fft_dominant_freq` | 1…31 | 16 |
@@ -118,6 +118,17 @@ The battery is the existing, frozen `solve.py --compute-stats` set — **`_P2_IN
 Note `c3_total` is an *observable* here, not a filter: the compiled space is C1 ∩ C2 ∩ C4 ∩ C5, so
 grid points may and will carry C3 values above King Wen's 776. That is a property of the space, not
 a defect.
+
+🔴 **The `424…776` range this table carried until 2026-09-05 contradicted that note, and was wrong at
+both ends (QSET finding 8).** A reader is told to check every observable against its range, and this
+range would have flagged correct data. Upward: the note itself says values above 776 are expected,
+so 776 cannot be the ceiling. Downward: 424 is the minimum seen in one *enumerated slice*, not a
+bound on SUPER — the published structural floor is **C3 = 112** at `G = 12`
+([`reports/certificates/c3_positional_witnesses.txt`](../reports/certificates/c3_positional_witnesses.txt)),
+and `solve.py`'s own T5 SUPER sample spans **352…1648**. **No hard range is asserted in its place:**
+the true supremum over SUPER is not published, and substituting a second guessed interval would
+repeat the defect. Treat `c3_total` as unbounded-above for acceptance purposes and check it against
+`C3 = 16 + 8·G` instead, which is exact and kernel-checked.
 
 ## Input TSV
 

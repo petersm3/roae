@@ -180,8 +180,12 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   prints the 31-row table for ANY walk — KW is just the first customer).
 - **Stage:** post-G. **Cost:** ≈ $1–5.
 - **Output:** `tr12/q3_profile_kw.tsv` (31 rows: choice, #alternatives, g of each alternative,
-  p_i, −log₂ p_i) + the product self-check line. C15 companion: sampled per-step C3-pass
-  corrections (rejection sampling), labeled ESTIMATE.
+  p_i, −log₂ p_i) + the product self-check line. C15 companion: ⚠ **WITHDRAWN
+  2026-09-05 (QSET finding 2).** This promised "sampled per-step C3-pass corrections (rejection
+  sampling), labeled ESTIMATE" — a named deliverable **with no instrument**. The battery commands
+  only the SUPER trace, and `--kc-profile` *refuses* `--kc-c3-max`
+  (`documentation/SOLVE_C_CLI.md`), so no commanded path produces it. Withdrawn rather than left as
+  a promise the program cannot keep.
 - **Cross-check:** Π p_i = 1/N (reader-side big-int); Σ over alternatives of g = g(parent) at
   every step; DFS subtree counts at n ≤ 13. Feeds V4 (shells figure) and EW-1 (surprise ledger).
 
@@ -207,7 +211,13 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   which is SPECIFICATION's 100T minimum, not the 560T one — 392 at 560T per SPECIFICATION §C3,
   SOLVE_SUMMARY §[22], SOLVE.md, CLAIMS_DECIDED, PROJECT_OVERVIEW, CITATIONS.)*]**
 - **Definitions.** (a) CEILING census: μ = P_{C15}(C3 = 776) — fraction of C15 solutions AT KW's
-  sharpness. (b) C3-MIN: min{C3(w) : w ∈ SUPER} with argmin witness (note C3-min over SUPER =
+  sharpness. ⚠ **Space-label correction, 2026-09-05 (QSET finding 6): μ is defined here over
+  C15 and the executable contract computes it over SUPER** (`documentation/QUERY_INVENTORY.md`
+  row Q4a/c, `--kc-sample` draws over all of SUPER). The two are different estimands and the
+  8.26 exclusion factor separates them. **The shipped quantity is the SUPER one**; a C15-scoped μ
+  would need the C3-conditioned draws this program does not command. Whichever ships must carry its
+  own label, per §0's space discipline — the mismatch is recorded rather than silently resolved,
+  because which one the report wants is a scope decision, not a typo. (b) C3-MIN: min{C3(w) : w ∈ SUPER} with argmin witness (note C3-min over SUPER =
   over C15 automatically since min ≤ 776). (c) The C3 distribution over SUPER (histogram).
 🔴 **Q4b(b) IS ALREADY ANSWERED IN THIS REPOSITORY, and this section posed it as open until
 2026-09-05.** `min{C3(w) : w ∈ SUPER} = **112**`, with a public witness. The lower bound `G ≥ 12` is
@@ -299,7 +309,12 @@ QSET external review, which the external review itself missed; see
 - **Mechanism:** **TO-BUILD** `--kc-extremal FUNC DIR` (per-functional min/max sweep + witness
   reconstruction; separate subcommand, sha-neutral). **Shortlist proposed** (operator picks):
   max/min `--yinyang` cumulative-balance excursion; max/min `--markov` self-transition count;
-  max KW-boundary-match count (how close any solution's transition skeleton gets to KW's);
+  ⚠ ~~max KW-boundary-match count~~ **STRUCK 2026-09-05 (QSET finding 3,
+  a circularity catch): the maximum is 31 and King Wen is the witness, BY CONSTRUCTION** — King Wen
+  is a member of SUPER, so "how close does any solution get to King Wen's transition skeleton" is
+  maximised at King Wen itself. It measures the labelling, not the space. The non-trivial form is
+  already listed in this section as the edit-distance-to-KW extremal (nearest SUPER *neighbour*),
+  and is DEFERRED on sizing;
   min/max `--lines` imbalance. **Stage:** post-F (f layers suffice for forward sweeps).
   **Cost:** ≈ $40–80 per functional [ESTIMATED].
 - **Output/verification:** extreme value + explicit witness walk + certificate; witness re-checked
@@ -512,6 +527,10 @@ execution ticket; classes verified against `solve.py` definitions):
   (~300 effective samples). The three component rules are POS + ADJ + ST-POS ⇒ a composed
   extended-state DP is feasible-in-principle; sizing gate first. An exact N_gs (or exact
   SUPER-numerator + sampled C3 correction) makes the corruption-model Bayes denominator exact —
+  ⚠ **overstated, corrected 2026-09-05 (QSET finding 9): an exact SUPER numerator multiplied by a
+  SAMPLED C3 acceptance rate is an ESTIMATE, not an exact count.** Only the first form (a count
+  computed within C15) would be exact; the second tightens the estimate and does not remove its CI.
+  The same conflation appears in the two sentences above and is withdrawn with this one —
   **touches a published verdict ⇒ lands only as a TR-2 version bump, operator-gated**, with the
   BF sensitivity re-run.
 - **(d) CIRCULARITY-AUDIT GATE (mandatory):** every literature-derived functional passes the
@@ -553,8 +572,18 @@ well-bounded null as a publishable finding.
   looking**: (i) surprise CONCENTRATION at specific steps marks where any undiscovered simple
   constraint must live (a rule that "explains" KW must absorb bits where KW spends them);
   (ii) near-uniform typicality (spectrum ≈ the entropy profile of a uniform random member —
-  computed as the comparison band from Q8's gallery) is the strongest boundable evidence that NO
-  further simple positional constraint exists. Both outcomes are findings. Explicit connection
+  computed as the comparison band from Q8's gallery) is boundable evidence that NO
+  further simple positional constraint exists. Both outcomes are findings.
+  ⚠ **The contract is narrowed, 2026-09-05 (QSET finding 12).** As written, (ii) named no constraint
+  CLASS and no statistical POWER, and the outcome vocabulary had no "the instrument could not
+  decide" branch — so every result mapped to a finding and nothing could come out empty. That is
+  unfalsifiable in the only way that matters. **Narrowed to:** the class is *simple positional
+  constraints expressible as a per-step function of the prefix state*, and no claim is made about
+  constraints outside it; the band is the Q8 gallery's 1st/99th percentiles on `top1_share`,
+  two-sided, evaluated **once**; and the outcome vocabulary is **three**, not two —
+  `localized-constraint-candidate`, `typicality-bound`, and `anti-concentration` — with a fourth,
+  **`undecided`**, when KW falls inside the band but the band is too wide to exclude anything.
+  A pre-registered instrument must be allowed to return nothing. Explicit connection
   to TR-9: the **105.4–139.1** unexplained bits (public TR-9 v1.24 §2/§5 — 105.4 = log₂|C1–C7|,
   the most conservative reading, keeping every cut; 139.1 = log₂|C1∩C2∩C4|, the residual against
   the claimed-explanatory layers alone) live in a different ledger (296.0-bit baseline); this

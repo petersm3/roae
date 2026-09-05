@@ -207,8 +207,15 @@ Outputs follow the TR pattern: `runs/<run-id>/viz/viz_kc_field.{png,svg}`, mirro
   has no `--kc-c3-max` axis. Every caption must carry the space label
   `C1C2C4C5-SUPERSPACE`; "the space of valid King Wen orderings" is the wrong label for this figure.
 - **No joint statement.** Marginals do not multiply. A King Wen diagonal sitting in high-mass cells
-  at every slot says nothing about how much mass the *combination* has — that quantity is
-  `1/N`, and its step-by-step decomposition is [V4](viz_kc_shells.md), not this figure.
+  at every slot says nothing about how much mass the *combination* has. ⚠ **That quantity is NOT
+  `1/N`, and this bullet said it was until 2026-09-05 (QSET finding 7).** The cells of this figure
+  are defined **orientation-free** (see the definition above), so the mass they jointly select is
+  King Wen's whole **orientation fiber**, not the single oriented walk. The fiber is
+  **1,720,320** walks — `python3 verify.py --recount-fiber` re-derives it from King Wen's own pair
+  sequence and prints `C4-oriented fiber (opening 63,0) published 1,720,320 ours 1,720,320 MATCH`
+  — so the joint mass is `1,720,320 / N`, off by that factor from what this bullet claimed.
+  `1/N` is the mass of one **oriented** walk, which is what [V4](viz_kc_shells.md) decomposes and
+  what V4's `Π p_i = 1/N` gate correctly checks; it is not this figure's quantity.
 - **The diagonal is not evidence.** Pair indices are King Wen's own; a diagonal overlay is forced by
   the labelling. Do not describe it as structure.
 - **No claim about the quotient marginals.** `marginal_quotient` in the atlas is orbit-weighted in
