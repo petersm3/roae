@@ -11536,6 +11536,8 @@ gate_script_paths() {
       echo "narrating the 2026-04-21 consolidation into solve.py (file deliberately removed)";;
     scripts/d128_preflight_throttle_probe.sh)
       echo "retraction text naming the phantom in order to withdraw it (2026-08-09)";;
+    scripts/atlas_queries.py)
+      echo "QUERY_INVENTORY.md narrating a planned path that was never created: the atlas consumer landed inside solve.py (git grep -n \"def atlas_queries\" -- solve.py), and the file names the wrong path in order to correct it. Same shape as the d128 row above -- a correction that cannot name its own subject is unreadable";;
     example/report.pdf)
       echo "CORRECTIONS.md's 2026-09-04 withdrawal entry naming the artifact it withdraws; the ledger is append-only so the text cannot be rewritten, and a withdrawal that could not name its own subject would be unreadable";;
     roae/findings/)
@@ -12837,7 +12839,13 @@ NARRATION = {
 # WHAT IT STILL CANNOT SEE, stated rather than implied: 52 sites carry a `--flag` after a token
 # this walk refuses (bracketed optionals `[--sat-c4]`, `|`-alternation lists, shell operators).
 # Those are UNDER-coverage, not false clears — the same trade GATE 25's header already makes.
-HEAD_RE = re.compile(r'(?:python3?\s+)?(?:\./)?'
+# The left boundary is load-bearing: without it the bare alternatives `solve`/`verify` match
+# the TAIL of a longer token, so a prose list of flags such as
+# `--kc-ladder-verify --kc-midn` parsed as the command `verify --kc-midn` and reported five
+# real solve.c flags as "not a flag of verify.c" (found 2026-09-05 when QUERY_INVENTORY.md
+# landed). `/` is deliberately NOT in the class, so `scripts/solve.py --flag` still matches.
+HEAD_RE = re.compile(r'(?<![-A-Za-z0-9_.])'
+                     r'(?:python3?\s+)?(?:\./)?'
                      r'(verify\.py|solve\.py|sat\.py|roae\.py|solve|verify)\s+'
                      r'(?=--[a-z0-9])')
 FLAGTOK = re.compile(r'^--[a-z0-9][a-z0-9-]*$')
