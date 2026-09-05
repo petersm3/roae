@@ -1157,6 +1157,24 @@ blocks at all is a `FAIL`, not a vacuous pass.
 re-derives it from the emitted `p_num`/`p_den` columns instead, as three exact integer identities
 (`p_den₁ = N`, `p_denᵢ = p_numᵢ₋₁`, `p_numₙ = 1`), and reports `TR12_Q3_READER` separately.
 
+🔴 **CORRECTED 2026-09-05 — until this date the row was NOT exact at full-31, and this paragraph
+was false as written.** The identities were decided by awk `!=` over two fields, which awk
+evaluates *numerically* through a binary64 whenever both operands look numeric. Below 2^53 — every
+n=9 run the battery has ever made, N = 26,112 — that is integer equality. At n=31, N ≈ 1.1×10³⁹,
+it is a 53-bit equality: a second-row `p_den` and `g_parent` raised by 1, or by 10²⁰, left the exit
+status and the entire row transcript unchanged (`reader_telescoping OK`, `... EXACT`,
+`READER_FAILS 0`). Found by Codex review MQ1A finding 3 (executed against the repository's own awk
+programme), reproduced here with GNU Awk 5.2.1. The row now forces string comparison of the columns
+and refuses any column that is not a canonical decimal integer — a string comparison of canonical
+decimals *is* integer equality — and prints `EXACT` only when all identities hold. The pass-path
+transcript is byte-identical, so the n=9 goldens did not move.
+`scripts/q3_reader_exactness_gate.sh` (`Q3_READER_EXACT_GATE=PASS|FAIL`) pins it: seven legs at
+full-31 magnitude including the +1 and +10²⁰ cases, five mutants including the original defect, and
+it FAILS when pointed at the pre-fix row or at a file lacking the row. Note that the *consumer's*
+`TR12_Q3_READER` (`solve.py::atlas_q3_reader_check`, exact `Fraction` arithmetic over the
+`--kc-o3-rank` trace) was never affected; the shell row reads the *other* instrument
+(`--kc-profile --kc-tsv`), and the token you grep out of `VERDICTS.txt` is the shell row's.
+
 **The n < 31 anchor is a stand-in and is labelled as one.** Q1/Q1b/Q1c/Q3/EW-1/V4 are all "…of
 KW", and KW exists only at n = 31. In a reduced universe the driver uses `unrank_O3(⌊N/2⌋)` and
 prints `anchor_label=O3-MIDPOINT(...)` in the artifact. Nothing from a reduced run is ever reported

@@ -12616,6 +12616,25 @@ def atlas_a3_wrap_class_map():
 #     raw enumeration (three closers, 8,704 each), and gated by --kc-scan-selftest.
 #   * start fixed by C4 -- a PUBLISHED property of the full-31 system.  It does NOT hold
 #     at n=9, which has 12 distinct first hexagrams (measured), so any n<31 call SKIPS.
+# 🔴 POPULATION, stated on every A-2 / A-3 verdict (Codex MQ1A finding 4, 2026-09-05; PROVISIONAL
+# there and PROVISIONAL here).  The atlas fractions below divide by N_total = |SUPER| =
+# |C1 ∩ C2 ∩ C4 ∩ C5| -- C3 is NOT applied to the compiled space (viz/viz_kc_field.md).  The
+# published references they are compared against are `[score]` lines of the Knuth estimator
+# (reports/evidence/r6/rc1c_primary.out), and that instrument accumulates the wrap histogram and
+# the A2 slot histogram INSIDE `compute_comp_dist_x64(seq) <= kw_comp_dist_x64` (the C3 test) and
+# divides by the C3-passing mass `sC`.  So the references are P(· | C1..C5) and the atlas measures
+# P(· | SUPER).  C3 keeps ~12.1% of SUPER (C3_CONDITIONAL_VS_NULL_LAW: exact |SUPER| 1.097e39 vs
+# Knuth |C1-C5| 1.329e38), and it is already known NOT to be independent of the C2/C4/C5 structure
+# (1.49x enrichment for low transition-sum).  Whether the wrap-class and slot laws move by more than
+# the 0.002 tolerance under that conditioning is UNMEASURED: no full-31 atlas exists, and until one
+# does, PASS here means "consistent with the C3-conditioned law at 0.002", not "the same question
+# answered twice".  The first full-31 atlas decides it -- compare its SUPER fractions against the
+# references and record the gap either way.
+_ATLAS_POPULATION_NOTE = (" | POPULATION: atlas fractions are over SUPER (C1*C2*C4*C5, C3 not "
+                          "applied); the published references are fractions of C3-passing "
+                          "(C1-C5) mass. Agreement corroborates only if the law is C3-insensitive "
+                          "at tol, which is UNMEASURED until the first full-31 atlas (MQ1A #4).")
+
 _A3_REFERENCES = {                      # TR7_CIRCULAR_READING.md v2.0 / v1.9
     3: 0.652,                           # |C_circ| = 0.652*N_lin + 0.175*...
     1: 0.175,
@@ -12702,6 +12721,7 @@ def atlas_a2_slot_check(atlas, tol=2e-3):
               "slot2=%.4f (pub %.4f) R-C1c=%.4f (pub %.4f); max deviation %.4f (tol %.4f)"
               % (f32, _A2_SLOT_REFS["slot32"], f2, _A2_SLOT_REFS["slot2"],
                  f32 + f2, _A2_SLOT_REFS["rc1c"], worst, tol))
+    detail += _ATLAS_POPULATION_NOTE
     return (("PASS" if worst <= tol else "FAIL"), detail)
 
 
@@ -12742,6 +12762,7 @@ def atlas_a3_external_check(atlas, tol=2e-3):
     detail += " | BLIND SPOT: d1/d5 are 0.001 apart at 3-decimal published precision, so this " \
               "check cannot detect a d1<->d5 relabel (demonstrated). It catches d3 errors and " \
               "ineligible closers."
+    detail += _ATLAS_POPULATION_NOTE
     return (("PASS" if max(devs.values()) <= tol else "FAIL"), detail)
 
 def atlas_orbit_columns(atlas):

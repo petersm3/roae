@@ -755,25 +755,43 @@ fi
 #            — three exact integer identities, no big-int arithmetic library needed, decided here
 #            by string comparison over the emitted columns.  This does not read the engine's own
 #            summary line at all; it is checked against the columns.
+#
+#            🔴 STRING equality is FORCED, not assumed (2026-09-05, Codex MQ1A finding 3).  awk
+#            compares two FIELDS -- or a field and a -v variable -- NUMERICALLY whenever both look
+#            numeric, and it does so through a binary64.  Above 2^53 that is a 53-bit equality: at
+#            full-31, N ~ 1.1e39, `p_den[2]` and `p_num[1]` can differ by 10^20 and still compare
+#            equal, so the three identities below were exact only where the battery has run
+#            (n=9, N=26112) and NOT at the one size where they matter.  Astra's executed case:
+#            +1 and +1e20 on the second row, exit status and transcript unchanged.  Appending ""
+#            makes every operand a string; a string comparison of CANONICAL decimals is integer
+#            equality, and the canonical-form guard is what makes that sound (two %g-rounded
+#            columns would otherwise be equal strings for unequal integers).  The pass-path
+#            transcript is byte-identical to before, so scripts/tr12_expected/n9 is untouched.
+#            Pinned by scripts/q3_reader_exactness_gate.sh (mutants, closure).
 if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
     row_begin a2_q3_reader
     (
       awk -F'\t' -v N="$N_TOTAL" -v NP="$N_PAIRS" '
+        function canon(s){ return (s ~ /^(0|[1-9][0-9]*)$/) }
         $1 ~ /^[0-9]+$/ {
-            step[++k]=$1; pn[k]=$11; pd[k]=$12; g[k]=$9; gp[k]=$10
+            step[++k]=$1; pn[k]=$11 ""; pd[k]=$12 ""; g[k]=$9 ""; gp[k]=$10 ""
         }
         END{
             fails=0
+            NS = N ""
             printf "reader_steps\t%d\n", k
             if (k != NP+0) { printf "READER_FAIL\tstep count %d != n %d\n", k, NP; fails++ }
-            if (pd[1] != N) { printf "READER_FAIL\tp_den[1]=%s != N=%s\n", pd[1], N; fails++ }
+            if (!canon(NS)) { printf "READER_FAIL\tN=%s is not a canonical decimal integer\n", NS; fails++ }
+            for (i=1;i<=k;i++) if (!canon(g[i]) || !canon(gp[i]) || !canon(pn[i]) || !canon(pd[i])) { printf "READER_FAIL\tstep %d: non-canonical integer column (g,g_parent,p_num,p_den)=(%s,%s,%s,%s)\n", i,g[i],gp[i],pn[i],pd[i]; fails++ }
+            if (pd[1] != NS) { printf "READER_FAIL\tp_den[1]=%s != N=%s\n", pd[1], NS; fails++ }
             else printf "reader_p_den_1_eq_N\tOK (%s)\n", pd[1]
             for (i=2;i<=k;i++) if (pd[i] != pn[i-1]) { printf "READER_FAIL\tp_den[%d]=%s != p_num[%d]=%s\n", i, pd[i], i-1, pn[i-1]; fails++ }
             if (fails==0) printf "reader_telescoping\tOK (%d links)\n", k-1
             if (pn[k] != "1") { printf "READER_FAIL\tp_num[%d]=%s != 1\n", k, pn[k]; fails++ }
             else printf "reader_p_num_n_eq_1\tOK\n"
             for (i=1;i<=k;i++) { if (g[i]!=pn[i] || gp[i]!=pd[i]) { printf "READER_FAIL\tstep %d: (g,g_parent)=(%s,%s) != (p_num,p_den)=(%s,%s)\n", i,g[i],gp[i],pn[i],pd[i]; fails++ } }
-            printf "reader_product_p_i\t1/%s EXACT (telescoping, re-derived by the reader from the columns)\n", N
+            if (fails==0) printf "reader_product_p_i\t1/%s EXACT (telescoping, re-derived by the reader from the columns)\n", NS
+            else printf "reader_product_p_i\tNOT ESTABLISHED (%d identity failure(s) above)\n", fails
             printf "READER_FAILS\t%d\n", fails
             exit (fails?1:0)
         }' "$ARTDIR/q3_profile_exact.tsv"

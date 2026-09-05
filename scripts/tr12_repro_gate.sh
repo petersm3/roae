@@ -93,6 +93,26 @@ if ! bash ./scripts/d5_01_q1c_skip_gate.sh; then
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
+# MQ1A-3 leg (2026-09-05). Same reasoning: the a2_q3_reader row is exact at n=9 (N < 2^53) and was
+# a 53-bit comparison at full-31, so an n=9 battery can never see that defect. The reader's own
+# full-31-magnitude red/green gate runs here instead (0.2 s). Fails the whole gate.
+if ! bash ./scripts/q3_reader_exactness_gate.sh; then
+  echo "  [FAIL] the a2_q3_reader exact-identity row can no longer fail at full-31 magnitude (see message above)"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
+# Sibling sweep (2026-09-05, MQ1A adjudication): the two other full-31-only verdict gates already in
+# the tree were wired into NOTHING -- each could be run by hand and was run by nobody. Same class,
+# same remedy; 1.1 s and 0.3 s.
+if ! bash ./scripts/a2_slot_verdict_gate.sh | grep -qx 'A2_SLOT_VERDICT=OK'; then
+  echo "  [FAIL] the A2 slot / verdict-exit gate (MQ1 §2a/§2d) did not report OK"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+if ! bash ./scripts/xa_exact_verdict_gate.sh | grep -qx 'XA_EXACT_VERDICT=OK'; then
+  echo "  [FAIL] the XA exact-verdict gate (MQ1 §4) did not report OK"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
 if ! ./scripts/tr12_repro.sh --n9 --solve "$WORK/solve" --out "$WORK/out" >"$WORK/repro.log" 2>&1; then
   :   # non-zero exit is expected on FAIL; the token below is the authority
 fi
