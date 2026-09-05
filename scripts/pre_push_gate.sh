@@ -138,12 +138,29 @@ needs_generated() {
   [ -n "$changed" ]
 }
 
+# ---- does this pushed sha need the #167 resume leg? -----------------------
+# $1 = pushed sha, $2 = remote sha ('' or all-zeros when there is no base).
+# Returns 0 (leg required) when solve.c differs between base and pushed sha,
+# and on every path where that cannot be established — same fail-closed rule
+# as needs_generated, and for a sharper reason: the gate exists because
+# `--selftest-resume` is BLIND to the #167 defect in both directions, so a
+# solve.c change that skips this leg is exactly the regression it prevents.
+# Fixed pathspec only, no patterns.
+needs_resume167() {
+  local base="$2" changed
+  [ -n "$base" ] && [ "$base" != "$Z40" ] || return 0
+  git cat-file -e "$base^{commit}" 2>/dev/null || return 0
+  changed=$(git diff --name-only "$base" "$1" -- solve.c 2>/dev/null) || return 0
+  [ -n "$changed" ]
+}
+
 # ---- collect the shas being published -------------------------------------
 # GENSHAS ⊆ SHAS: the pushed shas whose range touches the generated-artifact
 # surface (or has no provable base). A sha pushed via two refs needs the leg
 # if EITHER ref's range does.
 SHAS=""
 GENSHAS=""
+R167SHAS=""
 NEWREFS=""
 if [ -t 0 ]; then
   SHAS=$(git rev-parse HEAD) || exit 1
@@ -152,6 +169,7 @@ if [ -t 0 ]; then
   # when it exists, otherwise fail-closed into the leg.
   UPSTREAM=$(git rev-parse '@{u}' 2>/dev/null || true)
   if needs_generated "$SHAS" "$UPSTREAM"; then GENSHAS=$SHAS; fi
+  if needs_resume167 "$SHAS" "$UPSTREAM"; then R167SHAS=$SHAS; fi
 else
   while read -r lref lsha rref rsha; do
     [ -n "${lsha:-}" ] || continue
@@ -231,6 +249,9 @@ else
       *" $lsha "*) ;;                       # same sha via another ref: gate once
       *) SHAS="$SHAS $lsha" ;;
     esac
+    if needs_resume167 "$lsha" "${rsha:-}"; then
+      case " $R167SHAS " in *" $lsha "*) ;; *) R167SHAS="$R167SHAS $lsha";; esac
+    fi
     if needs_generated "$lsha" "${rsha:-}"; then
       case " $GENSHAS " in
         *" $lsha "*) ;;
@@ -240,6 +261,7 @@ else
   done
 fi
 SHAS=${SHAS# }
+R167SHAS=${R167SHAS# }
 NEWREFS=${NEWREFS# }
 # ---- DECLARATION LEG: unconditional, and it runs BEFORE the content legs -------
 # Codex v2 charge 5, RESIDUAL (2026-09-02). This leg used to live INSIDE the
@@ -376,6 +398,44 @@ for sha in $SHAS; do
   if [ -f "$WT/scripts/pre_push_compile_gate.sh" ]; then
     ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
         bash scripts/pre_push_compile_gate.sh ) || SHARC=1
+    # ---- CONDITIONAL #167 zero-yield resume leg (2026-09-05, PROSE_LANE_FOLLOWUPS row 542).
+    # Runs ONLY when the pushed range touches solve.c. `--selftest-resume` — the standing
+    # acceptance test for the resume path — is BLIND to this defect in BOTH directions: the fixed
+    # and pre-fix binaries pass it byte-identically, because the guard's stderr is deleted with the
+    # tempdirs and the sha comparator measures output while the fix changes WORK. So the resume
+    # path had an acceptance test that could not fail on it, and this gate is the one that can.
+    # It had ZERO INVOKERS until this leg existed; a gate nothing runs is not a gate, which is
+    # this project's dominant failure class and precisely what row 542 exists to close.
+    # COST is why it is conditional, not unconditional: measured 188 s on the 2-core orchestrator
+    # (~32 s at 4 threads on a VM) because it runs real enumerations. Unconditional, that is the
+    # slow-hook-gets-bypassed failure the `generated` leg's header already argues against, and
+    # markdown-only pushes — most pushes — cannot touch the resume path at all.
+    case " $R167SHAS " in
+      *" $sha "*)
+        if [ -f "$WT/scripts/selftest_resume_167_gate.sh" ]; then
+          echo
+          echo "pre-push: pushed range touches solve.c — running the #167 zero-yield resume gate"
+          echo "          (~32 s on a VM, ~188 s on the 2-core orchestrator: real enumerations)"
+          _r167=0
+          ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE bash -c '
+              gcc -O2 -pthread -fopenmp -o ./solve_167 solve.c -lm -lz 2>/dev/null || exit 44
+              bash scripts/selftest_resume_167_gate.sh --solve ./solve_167' ); _r167=$?
+          if [ "$_r167" -eq 44 ]; then
+            echo "pre-push: 🔴 COULD NOT RUN — solve.c in pushed sha $short did not build for the"
+            echo "         #167 gate. The compile gate above is the authority on WHY; this leg"
+            echo "         reports only that it could not check, which is not a pass."
+            SHARC=1
+          elif [ "$_r167" -ne 0 ]; then
+            echo "pre-push: FAIL — #167 zero-yield resume gate rc=$_r167 on pushed sha $short."
+            SHARC=1
+          fi
+        else
+          echo "pre-push: FAIL — pushed sha $short touches solve.c but has no"
+          echo "  scripts/selftest_resume_167_gate.sh. Deleting the gate that covers the resume"
+          echo "  path is the regression it exists to prevent; --no-verify is the visible bypass."
+          SHARC=1
+        fi ;;
+    esac
   else
     echo "pre-push: FAIL — pushed sha $short has no scripts/pre_push_compile_gate.sh."
     echo "  Same rule as above: blocked, and --no-verify is the visible bypass."
