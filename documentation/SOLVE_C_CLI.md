@@ -1668,8 +1668,22 @@ walk's own path, labelled `order=NATIVE-WALK-PATH`, `object=WALK`,
 **uniform measure on SUPER**, and `g` counts SUPER completions.
 
 **`--kc-c3-max` is refused, not ignored** (exit **2**). A C3-conditioned
-profile is not computable (the C3 counting obstruction); Q3's C15 companion is
-a *sampled* rejection correction and rides `--kc-sample`.
+profile is not computable **from these ladders**, which carry no C3 channel;
+Q3's C15 companion is a *sampled* rejection correction and rides
+`--kc-sample`. ⚠ **[CORRECTED 2026-09-05 — this read "is not computable (the
+C3 counting obstruction)". That states an instrument limit as a limit in
+principle, and it cites a framing this project has withdrawn:
+[TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(ii) v1.5
+(2026-07-21) replaced "open structural obstruction … no feasible exact design
+in hand" with "the remaining barrier is footprint cost, not structure", on the
+machine-checked identity C3 = 16 + 8·G
+([`lean/C3Decomposition.lean`](../lean/C3Decomposition.lean),
+`c3_slot_decomposition`), which lets a DP carry C3 as a bounded scalar. What
+is true of this mode is narrower and its effect is unchanged: the g-ladder it
+reads carries no C3 channel, so it refuses the flag rather than answering
+approximately. The bounded-state instrument that does carry C3 is a different
+one — `--f1-c3-hist --with-c5`, documented above — and a full-31 run of it was
+priced and declined on cost, never ruled out as impossible.]**
 
 **Exactness.** `p_k` ships as the exact rational `p_num/p_den`; nothing is
 verified through the floating-point `bits` column. The product self-check is

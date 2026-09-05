@@ -845,9 +845,18 @@ its order**, which no per-flag reference states.*
 
 **Constraint scope.** Every quantity below is computed over **SUPER = C1∩C2∩C4∩C5**, the frozen
 v4 constraint set that the knowledge compiler compiles. **C15** (C1–C5, i.e. C3 applied) is a
-*membership gate*, not a counting space: exact C3-conditioned counting is an open obstruction, so
+*membership gate*, not a counting space: **no instrument in this program counts C3-conditioned**, so
 C15-scoped results are estimates-with-CI, witnesses, or filtered enumerations — **never exact
-counts**. Any output that mixes the two without a space label is a defect, not a result.
+counts**. ⚠ **[CORRECTED 2026-09-05 — this read "exact C3-conditioned counting is an open
+obstruction", which is a claim about what is *possible* and is one this project withdrew.
+[TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(ii) v1.5 (2026-07-21) retired
+the structural framing in favour of "the remaining barrier is footprint cost, not structure", on
+the machine-checked identity C3 = 16 + 8·G
+([`lean/C3Decomposition.lean`](../lean/C3Decomposition.lean), `c3_slot_decomposition`); a
+bounded-state exact design therefore exists, `--f1-c3-hist --with-c5` is it, and a full-31 run was
+priced and declined on cost. What bounds THIS battery is unchanged: the f/g/t ladders carry no C3
+channel, `--kc-c3-max` is refused by the profile mode, and so nothing here returns an exact
+C15 count.]** Any output that mixes the two without a space label is a defect, not a result.
 
 **Units gate.** True C3 ≤ 776 ⟺ the walk functional `--kc-c3-max 387` at full 31 pairs
 (`cd_true = 2·(walk_cd+1)`). Pass **387**, never 776. Passing 776 silently doubles the ceiling.

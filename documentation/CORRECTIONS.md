@@ -9013,3 +9013,55 @@ Found by the unsourced-number census sweep
 `2.6 TB` occurrences across both trees rather than only the reported ones; the measured value is
 `petersm3/roae-private:STAGEF_INTEGRITY_MANIFEST_2026_08_02.md:7`. Applied and this text by Claude
 (Opus 5), 2026-09-05.
+
+## 2026-09-05 — two reference pages told a reader a C3-conditioned count was impossible, four days after this project withdrew that claim from the report they cited
+
+**What was wrong.** Two pages stated a limit on what *can be computed*, when the limit they were
+describing is a property of one instrument. [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §`--kc-profile` read
+"A C3-conditioned profile is not computable (the C3 counting obstruction)"; [VERIFY.md](VERIFY.md)
+§"TR-12 query program" read "exact C3-conditioned counting is an open obstruction". Both name a
+framing this project **retired**: [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+§10(ii) **v1.5, 2026-07-21** withdrew "open structural obstruction … no feasible exact design in
+hand" and replaced it with *"the remaining barrier is footprint **cost**, not structure"*, because
+C3 collapses to the bounded scalar identity **C3 = 16 + 8·G** — a machine-checked theorem in this
+repository since 2026-07-04 ([`lean/C3Decomposition.lean`](../lean/C3Decomposition.lean),
+`c3_slot_decomposition`) — which a DP can carry. The bounded-state instrument is built and
+documented here: `--f1-c3-hist --with-c5`.
+
+This is a correction we owed in the direction that costs us something. An unscoped "not
+computable" reads as a mathematical barrier, and a mathematical barrier is a more flattering
+reason for an absent number than "we decided not to pay for it." The absent number is absent for
+the second reason: a full-31 C3-conditioned run was priced and permanently declined on cost.
+
+**What it says now.** Each site states the instrument limit, which is narrower and unchanged in
+effect. SOLVE_C_CLI: "A C3-conditioned profile is not computable **from these ladders**, which
+carry no C3 channel" — so `--kc-c3-max` is refused rather than answered approximately. VERIFY:
+"**no instrument in this program counts C3-conditioned**", so C15-scoped results stay
+estimates-with-CI, witnesses or filtered enumerations, never exact counts. Both carry the
+previous wording, its date, and the TR-11 v1.5 pointer in place.
+
+**No cost figure replaces the withdrawn capability claim, and that is deliberate.** TR-11 **v1.10,
+2026-07-22** withdrew its own §10(ii) compute-cost figures for this run — the footprint multiplier
+and the wall-time band derive from the same entry-count scaling, so their uncertainties are
+correlated and the band was never a ceiling — and
+[CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7 rule 9 sets this project's bar for putting a
+cost total into a published document at an **itemized** ledger: VM hours by SKU, disk-months,
+closeout. Neither page quotes a price, and neither should be read as withholding one it has.
+
+**What did not move.** No count, theorem, canonical value, or published result. `|C15|` remains
+the TR-4 estimate 1.3287×10³⁸. `--kc-c3-max` still exits 2 from the profile mode; the f/g/t
+ladders still carry no C3 channel; every C15-scoped quantity in the TR-12 battery is labelled
+exactly as it was. The correction changes the *reason given*, not the reach of any instrument.
+
+**Why under the publication freeze.** The freeze bars assertions of novelty. This asserts none and
+runs the other way: it withdraws a claim that a computation is impossible, replacing it with the
+narrower and less favourable statement that we did not buy it.
+
+Found in the 2026-09-05 public-anchor pass over the TR-12 draft, which was tracing each of that
+document's internal-note citations to a public counterpart and found the corpus split on this one
+(`petersm3/roae-private:TR12_ANCHORS_AND_DECISIONS_2026_09_05.md` §2). The same pass amended the
+project's four private H3b specification sites, which pinned `rank(KW)` "in the C1–C5 space
+(C3 ON)" while the charter, freeze-checklist row E3 and capstone B-3 pinned the superspace walk
+rank: the superspace form is what the program computes and what ships, the C1–C5 rank ships as a
+labelled estimate, and the reason for the estimate is recorded there as cost rather than as
+impossibility. Applied and this text by Claude (Opus 5), 2026-09-05.
