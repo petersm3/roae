@@ -995,7 +995,9 @@ no obligation to satisfy it, so it is evidence rather than a restatement. All fo
 
 ⚠ **The n=31 count is NOT laptop-reproducible, and the honest statement is that reproducing it means
 rebuilding the ladder.** `--kc-count` itself is a 10-second manifest-and-total read, but its input is
-a ~2.6 TB retained-layer ladder produced by the Stage F campaign over weeks of cloud compute. What a
+a **3.29 TB** retained-layer ladder produced by the Stage F campaign over weeks of cloud compute (the
+measured size, `du -sb $FDIR`; see the f-ladder row in the sizing table below — this sentence read
+"~2.6 TB" until 2026-09-05, a pre-measurement design estimate). What a
 reader CAN do without that:
 - **Run the identical code path at n=9/13/16** (above) — same builder, same reader, same arithmetic;
 - **check `N mod 24 == 0`** (one line, no data);
