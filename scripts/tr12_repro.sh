@@ -441,10 +441,64 @@ else
       "python3+solve.py unavailable — the 3 historical arrangements (_r7_mawangdui/_r7_fuxi/_r7_jingfang) could not be materialised"
 fi
 
-# ---- A0.4  LS-w0: TR-8's pair-only null (C1-only space, near closed form, no ladder) ----------
-row_begin a0_ls_w0
-( "$SOLVE" --null-pair-constrained 1000000 ) >>"$RAW" 2>&1; rc=$?
-row_end TR12_LS_W0 $rc
+# ---- A0.3c Q7 leg 3: the SAT witnesses (TR-1/TR-2's moore-strict / grand-strict).  D5-04 (2026-09-05).
+#            TR-12 section Q7 promised "the SAT witnesses are IN C15 ... they get ranks (post-O3) -- the
+#            only non-KW named sequences in this report with serial numbers", and QUERY_INVENTORY row Q7
+#            commands `python3 sat.py --witness moore-strict|grand-strict` followed by --check-arrangement.
+#            This driver never invoked sat.py, so a2_q7_ranks iterated only q7_kw / q7_<historical>.json
+#            -- of which only KW is IN -- and at full-31 the "ranks of IN members" leg would have reduced
+#            to rank_O3(KW) = 0 while TR12_Q7 read PASS. The witnesses need kissat on PATH
+#            (QUERY_INVENTORY section 3.4); and even with it the row is unbuilt, because a solver-chosen
+#            witness has no reproducibility contract (which IN sequence kissat returns is build-dependent,
+#            so there is no expected block to diff until the witness bytes are pinned). Named skip,
+#            aggregated into TR12_Q7 below: the parent can never read PASS without this leg. -----------
+if command -v kissat >/dev/null 2>&1; then
+    row_skip a0_q7_witnesses TR12_Q7_WITNESSES "PENDING:q7-witness-row" \
+      "kissat is on PATH but the witness row is unbuilt: a solver-chosen witness has no reproducibility contract (which IN sequence kissat returns is build-dependent), so there is no expected block to diff until the witness bytes are pinned"
+else
+    row_skip a0_q7_witnesses TR12_Q7_WITNESSES "PENDING:kissat" \
+      "PENDING:kissat — sat.py --witness moore-strict|grand-strict needs kissat on PATH (absent; QUERY_INVENTORY §3.4). No SAT witness is materialised, so no non-KW IN sequence reaches a2_q7_ranks and no witness serial number is produced"
+fi
+
+# ---- A0.4  LS-w0: TR-8's pair-only null, EXACT.  D5-03 (2026-09-05).  TR-12 section 4(a)(5) names
+#            "TR-8's pair-only null (10^-4 from 10^5 seeded samples)" -- that is P(rc4_violations <= 2 | C1),
+#            made exact in TR-8 v1.6 (reports/TR8_REORDERING_REVISITED.md, 2026-07-21):
+#            solve.pair_null_gender_le2_exact() = 47/445740 = 1.054426e-4, two-way verified there.
+#            Until this date the row ran `--null-pair-constrained 1000000`, whose output is the C2|C1 and
+#            C3|C1 conditional pass rates over random pair-permutations -- a different null quantity --
+#            so TR12_LS_W0=PASS attested a computation other than the one the prose names. The MC is
+#            kept below under its own name (a0_ls_w0_mc) and labelled as what it is. No ladder; both
+#            rows are 64-hexagram objects and n-independent, which is what Group A0 is for. ------------
+if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
+   && PYTHONPATH="$REPO_ROOT" python3 -c 'import solve' >/dev/null 2>&1; then
+    row_begin a0_ls_w0
+    ( cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" python3 -c '
+import solve
+v = solve.pair_null_gender_le2_exact()
+kw = solve.rc4_violations(solve.binary_hexagrams)[0]
+print("# LS-w0 -- TR-8 pair-only (C1) null, EXACT: P(rc4_violations <= 2) over uniformly random")
+print("# C1-preserving orderings (TR-8 v1.6, 2026-07-21; two-way verified there). No ladder; n-independent.")
+print("quantity\tP(rc4_violations <= 2 | C1)")
+print("pair_null_gender_le2_exact\t%d/%d" % (v.numerator, v.denominator))
+print("decimal\t%.6e" % float(v))
+print("kw_rc4_violations\t%d" % kw)
+print("event_is_kw_level\t%s" % ("YES" if kw == 2 else "NO"))
+' ) >>"$RAW" 2>&1; rc=$?
+    row_end TR12_LS_W0 $rc
+else
+    row_skip a0_ls_w0 TR12_LS_W0 "SKIP:python3-unavailable" \
+      "python3+solve.py unavailable — pair_null_gender_le2_exact() could not be evaluated"
+fi
+
+# ---- A0.4b the C2|C1 / C3|C1 conditional Monte-Carlo.  NOT the TR-8 pair-null (D5-03): it measures
+#            how often a random C1-preserving pair-ordering also passes C2 / C3, at 10^6 draws under the
+#            engine's fixed seed. Kept as its own row because it is reproducible and already cited
+#            (documentation/HISTORY.md, at 10^9); labelled so nobody reads TR12_LS_W0 off it again. -----
+row_begin a0_ls_w0_mc
+( echo "# NOT the TR-8 pair-only null (that is row a0_ls_w0 / TR12_LS_W0). This is the C2|C1 and C3|C1"
+  echo "# conditional pass-rate Monte-Carlo over random pair-permutations, 10^6 draws, engine seed."
+  "$SOLVE" --null-pair-constrained 1000000 ) >>"$RAW" 2>&1; rc=$?
+row_end TR12_LS_W0_COND_MC $rc
 
 # ---- A0.5  Q4(b): SAT C3-min bisection.  PENDING, and its whole toolchain is absent. ----------
 {
@@ -590,13 +644,64 @@ row_begin a1_q8_member
 ) >>"$RAW" 2>&1; rc=$?
 row_end TR12_Q8_MEMBER $rc
 
-# ---- A1.2c the chi-square uniformity plumbing gate (its own reduced universe, n=13) -----------
+# ---- A1.2c Q8 the chi-square uniformity gate OVER THE GALLERY.  D5-02 (2026-09-05).  TR-12 section
+#            Q8, QUERY_INVENTORY row Q8 and WAVE1_RUNBOOK W1-1 all promise a chi-square over 16 rank
+#            buckets of the gallery draws; until this date this row ran `--kc-midn 13 --kc-chi2-samples
+#            20000` -- the engine's n=13 sampler self-test on a universe it builds in-process -- whose
+#            PASS attests nothing about the draws in q8_super.tsv. This is the pre-registered statistic
+#            (PREREG_F_CATALOG_T1_T4 section 4): bucket = floor(16*rank/N) in EXACT integer arithmetic
+#            (bc: ranks are 192-bit decimal strings at full-31, and a double bucketing is a 53-bit
+#            bucketing -- the two ranks N/16-1 and N/16 straddle a bucket edge exactly and a binary64
+#            puts both in bucket 1), 15 dof, bar chi2 < 37.70. chi2 = (16*S - k^2)/k with S the sum of
+#            squared bucket counts; the verdict is decided in integers (100*(16S-k^2) < 3770*k), never
+#            through a float. The gallery chi2 was computed once before, launcher-side on 2026-08-07
+#            (20.22 over the 1000 full-31 draws); this row is the battery's own reproduction of that
+#            statistic. Under the prereg's publish-regardless rule chi2 >= 37.70 is a FINDING; for a
+#            REPRODUCTION battery a non-uniform exact-uniform sampler is an instrument defect, so the
+#            row exits 1 on it. Pinned by scripts/d5_02_q8_chi2_gallery_gate.sh. -----------------------
 row_begin a1_q8_chi2
-( "$SOLVE" --kc-midn 13 --kc-chi2-samples 20000 ) >>"$RAW" 2>&1; rc=$?
+(
+  awk -F'\t' '$1 ~ /^[0-9]+$/ && $2 ~ /^cd=/ {print $1}' "$ARTDIR/q8_super.tsv" > "$WORK/q8.ranks"
+  k=$(grep -c . "$WORK/q8.ranks")
+  echo "# Q8 chi-square uniformity over the GALLERY ranks: 16 equal rank buckets, 15 dof (PREREG_F_CATALOG_T1_T4 §4)"
+  echo "bucket_rule	floor(16*rank/N), exact integer arithmetic (bc)"
+  echo "gallery_draws	$k"
+  echo "requested_k	$Q8K"
+  [ "$k" -gt 0 ] || { echo "Q8_CHI2_FAIL	no draw lines in q8_super.tsv"; exit 1; }
+  # one bc process for every bucket index; bc's / at scale=0 is integer division, i.e. floor for r >= 0
+  awk -v N="$N_TOTAL" '{print "(16*" $1 ")/" N}' "$WORK/q8.ranks" | BC_LINE_LENGTH=0 bc > "$WORK/q8.buckets"
+  awk '{ b=$1+0; if ($1 !~ /^[0-9]+$/ || b<0 || b>15) bad++; else h[b]++ }
+       END{ if (bad) { printf "BAD\t%d\n", bad; exit 1 }
+            for (b=0;b<16;b++) { c=h[b]+0; printf "%d\t%d\n", b, c; S+=c*c }
+            printf "S\t%d\n", S }' "$WORK/q8.buckets" > "$WORK/q8.hist" \
+    || { echo "Q8_CHI2_FAIL	$(awk '$1=="BAD"{print $2}' "$WORK/q8.hist") rank(s) outside [0,N) (bucket index not in 0..15)"; exit 1; }
+  echo "bucket	count"; awk '$1!="S"' "$WORK/q8.hist"
+  S=$(awk '$1=="S"{print $2}' "$WORK/q8.hist")
+  NUM=$(echo "16*$S - $k*$k" | bc)
+  echo "sum_sq_counts	$S"
+  echo "chi2_exact	$NUM/$k"
+  # 3-place decimal, rounded half-up in integers (the ratio9 construction), never a float
+  R=$(echo "(2*$NUM*1000 + $k) / (2*$k)" | bc)
+  echo "chi2	$(echo "scale=3; $R/1000" | bc | sed 's/^\./0./')"
+  echo "chi2_crit	37.70 (chi-square 15 dof, 99.9%; the pre-registered bar)"
+  if [ "$(echo "100*$NUM < 3770*$k" | bc)" = 1 ]; then echo "Q8_CHI2_GALLERY	PASS"; exit 0; fi
+  echo "Q8_CHI2_GALLERY	FINDING (chi2 >= 37.70: the exact-uniform sampler is not uniform over the gallery ranks)"
+  exit 1
+) >>"$RAW" 2>&1; rc=$?
+cp "$RAW" "$ARTDIR/q8_chi2.txt"
 row_end TR12_Q8_CHI2 $rc
 
+# ---- A1.2d the engine's sampler self-test on its OWN n=13 universe -- plumbing, separately named
+#            (D5-02). It exercises rank/unrank/member/sample on a 2.06e12-walk universe the engine builds
+#            in-process, with its own chi-square over 20000 of ITS draws. It says nothing about the
+#            gallery above and must never again be read as Q8's uniformity gate. ----------------------
+row_begin a1_q8_midn13
+( "$SOLVE" --kc-midn 13 --kc-chi2-samples 20000 ) >>"$RAW" 2>&1; rc=$?
+row_end TR12_Q8_MIDN13 $rc
+
 # ---- A1.3  Q4(a,c) the C3 census — histogram of the walk-functional cd over exact-uniform draws.
-#            ESTIMATE with CI; the exact C15 count is OPEN (C3 counting obstruction). ----------
+#            ESTIMATE with CI; the exact C15 count is priced and declined (~$3-5K; the C3 counting
+#            obstruction itself was dissolved 2026-07-21, lean/C3Decomposition.lean) -- D5-16. ----
 row_begin a1_q4ac
 (
   "$SOLVE" --kc-sample "$FDIR" "$Q4ACM" "$SEED" 2>/dev/null > "$WORK/q4.raw" || exit 1
@@ -860,6 +965,8 @@ if [ "$N_PAIRS" -ge 31 ]; then
     row_begin a2_q7_ranks
     (
       erc=0
+      echo "# inputs: every q7_*.json written by the Q7 legs above. D5-04: until TR12_Q7_WITNESSES lands, the"
+      echo "# only IN input is KW (the historical arrangements are OUT), and rank_O3(KW) = 0 is a labeling theorem."
       for j in "$ARTDIR"/q7_*.json; do
           [ -f "$j" ] || continue
           v=$(sed -n 's/.*"verdict_super": "\([^"]*\)".*/\1/p' "$j" | head -1)
@@ -1108,38 +1215,98 @@ else
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_XA_MOD24 $rc
 
-    # ---- C.5 Q10(a): the orbit census — distinct 24-orbits per layer ----------------------------
+    # ---- C.5 Q10(a): RE-SPECIFIED 2026-09-04 (Q-394 section 5; landed here 2026-09-05 as D5-08). ----
+    #      As first written this row printed layer_flow/24 for every layer as an "orbit census" -- but
+    #      the atlas gate per_layer_flow_eq_N forces flow == N, so the "census" was N/24 printed n times
+    #      (n=9: 1088 x 9) -- and the promised "KW's orbit's rank" had no commanded source (the o3-cert's
+    #      own line: class-rank NOT computed) and is 0 under KW-derived labels anyway. Now:
+    #        (i)   N/24 stated ONCE, as the identity it is (the free order-24 action on solutions);
+    #        (ii)  the mod-24 gate on every layer flow (kept; kernel-backed);
+    #        (iii) the census CONTENT: the per-layer STATE census by G-orbit-size class and the branching
+    #              histogram, transcribed from the f-ladder sidecars f1c5_layer_stats_XX.json that
+    #              --kc-build already wrote (orbit_size_census = [orbit_size, n_masks, n_entries] triples;
+    #              branching.hist = [children, n_states] pairs; sidecar schema v2). Read, not computed:
+    #              this is a transcription of Stage F's own sidecars (D5-15). A missing or unparseable
+    #              sidecar FAILS the row, and the last layer's mass_total must equal N (the f-ladder's own
+    #              count agreeing with --kc-count), so a transcription cannot silently skip a layer;
+    #        (iv)  the KW-orbit-rank leg is DROPPED: uncommanded, and vacuous under KW-derived labels.
+    #      Pinned by scripts/d5_08_q6_q10a_shell_gate.sh.
     row_begin c_q10a
     (
-      echo "# Q10(a) orbit census — EXACT. distinct 24-orbits = layer walk-mass / 24."
-      echo "global_anchor_N_div_24	$N_DIV24"
-      echo -e "k\tflow\torbits\tflow_mod_24"
+      echo "# Q10(a) — (i) the N/24 identity, stated once; (ii) the per-layer mod-24 gate; (iii) the per-layer"
+      echo "# STATE census by G-orbit-size class + branching histogram, transcribed from the f-ladder sidecars."
+      echo "# (iv) KW-orbit-rank: DROPPED (no commanded source; 0 under KW-derived labels). Q-394 §5 / D5-08."
+      echo "N_div_24	$N_DIV24	# = N/24, the number of free 24-orbits of SOLUTIONS; identical at every layer because every layer's flow == N (gated in c_atlas)"
+      echo "## per-layer flow mod-24 gate (atlas layers[k].flow)"
+      echo -e "k\tflow\tflow_mod_24"
       fails=0; i=0
       while read -r fl; do
-          m=$(echo "$fl % 24" | bc); o=$(echo "$fl / 24" | bc)
-          printf '%d\t%s\t%s\t%s\n' "$i" "$fl" "$o" "$m"
+          m=$(echo "$fl % 24" | bc)
+          printf '%d\t%s\t%s\n' "$i" "$fl" "$m"
           [ "$m" = "0" ] || fails=1
           i=$((i+1))
       done < <(grep -o '"flow": "[0-9]*"' "$ATLAS" | sed 's/.*"\([0-9]*\)"$/\1/')
       echo "Q10A_LAYER_MOD24_FAILS	$fails"
-      exit $fails
+      echo "## per-layer state census, transcribed from f1c5_layer_stats_XX.json (frame: canonical quotient, orbit-unweighted; mass_total = f-prefix mass)"
+      echo -e "k\tn_masks\tn_entries\tmass_total\torbit_size_census[size,n_masks,n_entries]\tbranching_hist[children,n_states]"
+      k=0; miss=0; last_mt=""
+      while [ "$k" -le "$N_PAIRS" ]; do
+          sc=$(printf '%s/f1c5_layer_stats_%02d.json' "$FDIR" "$k")
+          if [ ! -s "$sc" ]; then printf '%d\tMISSING-SIDECAR\n' "$k"; miss=$((miss+1)); k=$((k+1)); continue; fi
+          # every field read here is a top-level scalar or array on its own line in the v2 sidecar
+          nm=$(sed -n 's/^  "n_masks": \([0-9]*\),*$/\1/p' "$sc" | head -1)
+          ne=$(sed -n 's/^  "n_entries": \([0-9]*\),*$/\1/p' "$sc" | head -1)
+          mt=$(sed -n 's/^  "mass_total": "\([0-9]*\)",*$/\1/p' "$sc" | head -1)
+          oc=$(sed -n 's/^  "orbit_size_census": \(\[.*\]\),*$/\1/p' "$sc" | head -1)
+          bh=$(grep -o '"branching": {[^}]*}' "$sc" | sed -n 's/.*"hist": \(\[.*\]\)}.*/\1/p' | head -1)
+          if [ -z "$nm" ] || [ -z "$ne" ] || [ -z "$mt" ] || [ -z "$oc" ] || [ -z "$bh" ]; then
+              printf '%d\tUNPARSED-SIDECAR\n' "$k"; miss=$((miss+1)); k=$((k+1)); continue
+          fi
+          printf '%d\t%s\t%s\t%s\t%s\t%s\n' "$k" "$nm" "$ne" "$mt" "$oc" "$bh"
+          [ "$k" -eq "$N_PAIRS" ] && last_mt="$mt"
+          k=$((k+1))
+      done
+      echo "Q10A_SIDECARS_MISSING	$miss"
+      if [ "$last_mt" = "$N_TOTAL" ]; then echo "Q10A_LAST_LAYER_MASS_EQ_N	YES ($last_mt)"
+      else echo "Q10A_LAST_LAYER_MASS_EQ_N	NO (sidecar k=$N_PAIRS mass_total='$last_mt', N=$N_TOTAL)"; fails=1; fi
+      exit $(( (fails || miss) ? 1 : 0 ))
     ) >>"$RAW" 2>&1; rc=$?
     cp "$RAW" "$ARTDIR/q10_orbit_census.tsv"
     row_end TR12_Q10A $rc
 
-    # ---- C.6 Q6 (REDUCED FORM, QUERY_INVENTORY §3.1) -------------------------------------------
+    # ---- C.6 Q6 (REDUCED FORM, QUERY_INVENTORY §3.1) + the anchor's per-layer class statistics -----
     #      The atlas carries per-layer per-DISTANCE-CLASS mass, not per-(state,choice) mass.  The
     #      spec's per-choice argmax/argmin needs a new emitter.  This ships the reduced table and
     #      SAYS SO in the artifact; it is never presented as the spec's table.
+    #
+    #      D5-08 (2026-09-05; Q-394 section 3 / Codex A09 f3 / Q-48). Until this date the last two
+    #      columns were anchor_mass_below / anchor_percentile, read from the --kc-trace mass_below
+    #      column. mass_below is the O3 rank-block contribution at that step (n=9 k=1: 2720, beside a
+    #      g_parent of 2368 -- it is not bounded by anything a percentile is bounded by), and at full-31
+    #      it is identically 0 for KW by the labeling theorem. Replaced by the two statistics Q-394
+    #      defines, computed for the anchor walk from the atlas by_class masses and the anchor's own
+    #      transition class per step (the dclass column of --kc-profile --kc-tsv; O3-independent):
+    #        anchor_class_mass_k = m_k(d_k)             the mass of the anchor's class at layer k
+    #        anchor_p_k          = m_k(d_k) / N         P(a uniform SUPER walk takes the anchor's class at k)
+    #        anchor_class_pct_k  = sum_{d : m_k(d) <= m_k(d_k)} m_k(d) / N
+    #                              the share of walks whose step-k class is no heavier than the anchor's
+    #                              (== 1 when the anchor's class is the layer argmax)
+    #      Both are defined for every walk and need no Q3 join. The consumer (solve.py atlas_emit_q6)
+    #      emits the same two for KW at n=31 and -1 below it; this leg computes them for the reduced-n
+    #      anchor as well, so the fixture is live at n=9 -- Q-394 section 3 pre-registered the n=9 values
+    #      (anchor classes 1,2,2,4,2,2,1,4,2; anchor_p .544118 ...; anchor_class_pct 1 1 1 .419118 1 1 1
+    #      .209559 1), and c_q6.txt carries them. Pinned by scripts/d5_08_q6_q10a_shell_gate.sh.
     row_begin c_q6
     (
       echo "# Q6 — REDUCED FORM (QUERY_INVENTORY §3.1): per-layer per-DISTANCE-CLASS mass."
       echo "# The spec's per-(state,choice) argmax/argmin is NOT served by this atlas schema."
       echo "# §9 already rules the per-layer argmin 'loneliest corridor' figure fodder, not a headline."
-      echo -e "k\tflow\td1\td2\td3\td4\td6\tanchor_mass_below\tanchor_percentile"
-      awk -F'\t' '$1=="#o3-trace"{ delete v; for(i=2;i<=NF;i++){ split($i,a,"="); v[a[1]]=a[2] }
-                                   print v["step"] "\t" v["mass_below"] }' "$ARTDIR/q3_profile.tsv" > "$WORK/mb.tsv" 2>/dev/null || true
-      i=0
+      echo "# anchor_* (Q-394 §3): the anchor's transition class d_k at layer k (profile dclass, step k+1), its class"
+      echo "# mass m_k(d_k), anchor_p = m_k(d_k)/N, anchor_class_pct = sum_{d: m_k(d) <= m_k(d_k)} m_k(d)/N. Label-free."
+      echo -e "k\tflow\td1\td2\td3\td4\td6\tanchor_d\tanchor_class_mass\tanchor_p\tanchor_class_pct"
+      # the anchor's class per step from --kc-profile --kc-tsv (column 6 = dclass); step s = layer s-1
+      awk -F'\t' '$1 ~ /^[0-9]+$/ { print $1-1 "\t" $6 }' "$ARTDIR/q3_profile_exact.tsv" > "$WORK/q6_ad.tsv" 2>/dev/null || true
+      i=0; fails=0
       while read -r line; do
           fl=$(printf '%s' "$line" | sed -n 's/.*"flow": "\([0-9]*\)".*/\1/p')
           d1=$(printf '%s' "$line" | sed -n 's/.*"d1": "\([0-9]*\)".*/\1/p')
@@ -1147,12 +1314,25 @@ else
           d3=$(printf '%s' "$line" | sed -n 's/.*"d3": "\([0-9]*\)".*/\1/p')
           d4=$(printf '%s' "$line" | sed -n 's/.*"d4": "\([0-9]*\)".*/\1/p')
           d6=$(printf '%s' "$line" | sed -n 's/.*"d6": "\([0-9]*\)".*/\1/p')
-          mb=$(awk -F'\t' -v k="$((i+1))" '$1==k{print $2}' "$WORK/mb.tsv"); mb=${mb:-NA}
-          if [ "$mb" = "NA" ] || [ -z "$fl" ]; then pc=NA
-          else pc=$(ratio9 "$mb" "$fl"); fi
-          printf '%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$i" "$fl" "$d1" "$d2" "$d3" "$d4" "$d6" "$mb" "$pc"
+          ad=$(awk -F'\t' -v k="$i" '$1==k{print $2}' "$WORK/q6_ad.tsv"); ad=${ad:-NA}
+          am=NA; ap=NA; pc=NA
+          if [ "$ad" != "NA" ] && [ -n "$fl" ]; then
+              case "$ad" in 1) am=$d1 ;; 2) am=$d2 ;; 3) am=$d3 ;; 4) am=$d4 ;; 6) am=$d6 ;; *) am="" ;; esac
+              if [ -z "$am" ]; then
+                  echo "Q6_FAIL	layer $i: anchor class '$ad' is not one of the atlas classes {1,2,3,4,6}"; am=NA; fails=1
+              else
+                  ap=$(ratio9 "$am" "$N_TOTAL")
+                  le=0
+                  for m in "$d1" "$d2" "$d3" "$d4" "$d6"; do
+                      [ "$(echo "$m <= $am" | bc)" = 1 ] && le=$(echo "$le + $m" | bc)
+                  done
+                  pc=$(ratio9 "$le" "$N_TOTAL")
+              fi
+          fi
+          printf '%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$i" "$fl" "$d1" "$d2" "$d3" "$d4" "$d6" "$ad" "$am" "$ap" "$pc"
           i=$((i+1))
       done < <(grep '"marginal_quotient"' "$ATLAS")
+      exit $fails
     ) >>"$RAW" 2>&1; rc=$?
     cp "$RAW" "$ARTDIR/q6_layer_mass.tsv"
     row_end TR12_Q6 $rc
@@ -1292,8 +1472,8 @@ agg(){
     TOKSTATE[$parent]="$st"; TOKORDER+=("$parent")
 }
 
-agg TR12_Q7 TR12_Q7_KW TR12_Q7_HIST TR12_Q7_RANKS
-agg TR12_Q8 TR12_Q8_SUPER TR12_Q8_C15 TR12_Q8_MEMBER TR12_Q8_CHI2
+agg TR12_Q7 TR12_Q7_KW TR12_Q7_HIST TR12_Q7_WITNESSES TR12_Q7_RANKS   # D5-04: the witness leg is a NAMED skip; the parent never reads PASS without it
+agg TR12_Q8 TR12_Q8_SUPER TR12_Q8_C15 TR12_Q8_MEMBER TR12_Q8_CHI2 TR12_Q8_MIDN13   # D5-02: CHI2 is the GALLERY statistic; MIDN13 is the engine self-test
 agg TR12_XA_A TR12_XA_AB
 agg TR12_XA_B TR12_XA_AB
 agg TR12_V1 TR12_V1_TSV TR12_VIZ

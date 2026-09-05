@@ -101,6 +101,20 @@ if ! bash ./scripts/q3_reader_exactness_gate.sh; then
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
+# D5-02 / D5-03 / D5-04 / D5-08 legs (2026-09-05, roae-private D5_QUERY_PROGRAM_REVIEW_2026_09_04.md).
+# Four rows would have emitted PASS at full-31 for a computation other than the one their prose
+# names: a1_q8_chi2 (an n=13 self-test in place of the gallery chi-square), a0_ls_w0 (a C2|C1 / C3|C1
+# Monte-Carlo in place of TR-8's exact pair-only null), TR12_Q7 (PASS with the SAT-witness leg
+# uncommanded) and the c_q6 / c_q10a shell legs (the pre-Q-394 spec). Each fix carries its own
+# red/green gate with mutants and a closure check; each is wired here so the n=9 pre-push run
+# protects the full-31 run. Any one of them failing fails the whole gate.
+for leg in d5_02_q8_chi2_gallery_gate d5_03_ls_w0_exact_gate d5_04_q7_witnesses_gate d5_08_q6_q10a_shell_gate; do
+  if ! bash "./scripts/$leg.sh"; then
+    echo "  [FAIL] scripts/$leg.sh did not PASS (see message above)"
+    echo "TR12_REPRO_GATE=FAIL"; exit 1
+  fi
+done
+
 # Sibling sweep (2026-09-05, MQ1A adjudication): the two other full-31-only verdict gates already in
 # the tree were wired into NOTHING -- each could be run by hand and was run by nobody. Same class,
 # same remedy; 1.1 s and 0.3 s.

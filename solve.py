@@ -12004,19 +12004,29 @@ def atlas_emit_q6(A, outdir, trace=None):
         for d in _ATLAS_CLASSES:
             mass_rows.append((k, k + 2, d, by[d], _atlas_f(_atlas_ratio(by[d], N)),
                               1 if d == hi else 0, 1 if d == lo else 0))
-        kw_mb, kw_pct = -1, -1.0
-        if trace is not None and k < len(trace):
-            kw_mb = trace[k]["mass_below"]
-            kw_pct = _atlas_ratio(kw_mb, N)
+        # Q-394 item 3 (Codex A09 f3 / Q-48 defect A; landed 2026-09-05 as D5-08): `mass_below` is
+        # an O3 rank-block contribution, not a percentile numerator (committed n9: 2720 beside a
+        # g_parent of 2368), and it is identically 0 at full-31 under KW-derived labels. Two DEFINED,
+        # KW-free statistics replace it: kw_p = mass of KW's class at layer k / N (the V2 overlay,
+        # exact), and kw_class_pct = sum of the masses of every class no heavier than KW's class / N
+        # (a class-percentile in [0,1], defined for every walk; == 1 when KW's class is the argmax).
+        # The shell leg (scripts/tr12_repro.sh row c_q6) computes the same two for the battery's
+        # anchor walk, so the two implementations are comparable at n=31, where the anchor is KW.
+        if kw_d[k] < 0:                       # reduced n: KW absent -> honest -1 placeholders
+            kw_m, kw_p, kw_class_pct = -1, -1.0, -1.0
+        else:
+            kw_m = by[kw_d[k]]
+            kw_p = _atlas_ratio(kw_m, N)
+            kw_class_pct = _atlas_ratio(sum(v for v in by.values() if v <= kw_m), N)
         ext_rows.append((k, k + 2, hi, by[hi], lo, by[lo] if lo >= 0 else 0,
                          _atlas_f(_atlas_ratio(by[hi], by[lo]) if lo >= 0 else float("nan")),
-                         kw_d[k], kw_mb, _atlas_f(kw_pct)))
+                         kw_d[k], kw_m, _atlas_f(kw_p), _atlas_f(kw_class_pct)))
     a = _atlas_write(os.path.join(outdir, "q6_layer_mass.tsv"),
                      ["k", "slot", "d", "mass", "p", "is_argmax", "is_argmin_nonzero"],
                      mass_rows)
     b = _atlas_write(os.path.join(outdir, "q6_layer_extremes.tsv"),
                      ["k", "slot", "argmax_d", "argmax_mass", "argmin_nonzero_d",
-                      "argmin_mass", "ratio", "kw_d", "kw_mass_below", "kw_pct"],
+                      "argmin_mass", "ratio", "kw_d", "kw_class_mass", "kw_p", "kw_class_pct"],
                      ext_rows)
     return a, b
 
@@ -13791,7 +13801,7 @@ def main():
                         help="comma list of q3,q6,v1,v2,v5,xa,q10a (default: all)")
     parser.add_argument("--atlas-q3-trace", metavar="FILE", default=None,
                         help="`solve --kc-o3-rank F G WALK --kc-trace` output; supplies Q3/V4 "
-                             "and KW's per-layer percentile column in Q6")
+                             "(Q6's KW columns no longer read it -- Q-394 item 3)")
     parser.add_argument("--atlas-verdicts", metavar="FILE", default=None,
                         help="KEY=value verdict file to write (default: <out>/VERDICTS.txt)")
     parser.add_argument("--atlas-selftest", metavar="ATLAS_JSON",

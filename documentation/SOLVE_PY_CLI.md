@@ -453,7 +453,7 @@ figures read, and they gate every table they write.
 | `<out>/scan/v2_branches.tsv` | **V2** panel (b) | `branch pair entry exit d solutions share prefixes_t_units t_source kw`. |
 | `<out>/scan/v5_grammar.tsv` | **V5** | `k d w mass p_cond kw_d kw_w` — `w = -1` where the (distance × within-pair) cross-tab is not emitted by the scan. |
 | `<out>/scan/q6_layer_mass.tsv` | **Q6** | `k slot d mass p is_argmax is_argmin_nonzero`. |
-| `<out>/scan/q6_layer_extremes.tsv` | **Q6** | per-layer argmax / argmin-nonzero, their ratio, and King Wen's own class + percentile (the last two only with `--atlas-q3-trace`). |
+| `<out>/scan/q6_layer_extremes.tsv` | **Q6** | per-layer argmax / argmin-nonzero, their ratio, and King Wen's own class `kw_d`, its class mass `kw_class_mass`, `kw_p = m_k(d_KW)/N` and `kw_class_pct = Σ_{d: m_k(d) ≤ m_k(d_KW)} m_k(d)/N` (−1 below n=31, where KW is absent). ⚠ **Corrected 2026-09-05 (Q-394 item 3 / Codex A09 f3):** until then the last two columns were `kw_mass_below` / `kw_pct`, read from the `--kc-trace` `mass_below` column — an O3 rank-block contribution, not a percentile numerator (n=9 k=1: 2720 beside a `g_parent` of 2368), and identically 0 for KW at full-31 under KW-derived labels. The KW columns no longer read `--atlas-q3-trace`. The shell leg `scripts/tr12_repro.sh` row `c_q6` computes the same two statistics for the battery's anchor walk (`anchor_p`, `anchor_class_pct`), so the two implementations are comparable at n=31. |
 | `<out>/q3_profile_kw.tsv` (`q3_profile.tsv` at n ≠ 31) | **Q3**, **V4**, EW-1 | `step pair entry exit orient alts mass_below f g g_parent p_num p_den p bits`, plus `dclass g_alt_min g_alt_max choice_rank` when the source was `--kc-profile --kc-tsv` (those four are V4's optional alternatives band). `mass_below` is an O3-rank quantity: it reads `-1`, not a guess, when the source was `--kc-profile`. |
 | `<out>/q10_orbit_census.tsv` | **Q10(a)**, XA-24 | `scope k flow orbits mod24_ok`. |
 | `<out>/xa_branches.tsv` | **XA-a/b** | the branch table plus the `walks` column. |
@@ -563,7 +563,7 @@ brute-force legs compare the **exact integer** columns and only those:
 `mass` in `v1_field.tsv` / `v2_river.tsv` / `v5_grammar.tsv` /
 `q6_extremes.tsv`, `solutions` in `xa_branches.tsv`, and the per-layer
 `flow`. The **derived float** columns — `p`, `p_cond`, `share`, the Q6
-`ratio`, `kw_pct` — are re-derived by nothing and compared against nothing.
+`ratio`, `kw_p`, `kw_class_pct` (until 2026-09-05: `kw_pct`) — are re-derived by nothing and compared against nothing.
 That is not academic: **V1 plots `float(r["p"])`**, so Codex set every
 plotted probability to zero and the consumer still reported 24 gates and 0
 failures. The integers are the substance and they are genuinely gated

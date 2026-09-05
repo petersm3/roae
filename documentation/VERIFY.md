@@ -1175,6 +1175,33 @@ it FAILS when pointed at the pre-fix row or at a file lacking the row. Note that
 `--kc-o3-rank` trace) was never affected; the shell row reads the *other* instrument
 (`--kc-profile --kc-tsv`), and the token you grep out of `VERDICTS.txt` is the shell row's.
 
+🔴 **CORRECTED 2026-09-05 — four rows attested a computation other than the one their prose
+names (roae-private `D5_QUERY_PROGRAM_REVIEW_2026_09_04.md`, D5-02/-03/-04/-08).** None of them
+could be seen at n=9, because each was either n-independent or only wrong at full-31.
+*Q8 (`a1_q8_chi2`, `TR12_Q8_CHI2`)*: the row ran `--kc-midn 13 --kc-chi2-samples 20000`, the
+engine's n=13 sampler self-test, while TR-12 §Q8 promises a chi-square over 16 rank buckets of the
+gallery draws; it now computes exactly that from the `rank` column of `q8_super.tsv` — bucket
+`⌊16·rank/N⌋` in `bc` integer arithmetic (a binary64 bucketing is a 53-bit bucketing at N ≈ 1.1×10³⁹),
+`chi² = (16·S − k²)/k`, bar 37.70 decided in integers — and the self-test survives as its own row
+`a1_q8_midn13` (`TR12_Q8_MIDN13`). Against the 1,000 full-31 draws of 2026-08-07 the row reproduces
+the launcher-side figure exactly: buckets `[71,55,64,59,75,58,53,74,51,49,64,60,58,81,60,68]`,
+chi² = 20.224. *LS-w0 (`a0_ls_w0`, `TR12_LS_W0`)*: the row ran `--null-pair-constrained 1000000`
+(C2|C1 and C3|C1 conditional rates) while TR-12 §4(a)(5) names TR-8's pair-only null, which TR-8
+v1.6 made exact — `solve.pair_null_gender_le2_exact()` = 47/445740; the row now evaluates that call
+and the Monte-Carlo survives, labelled, as `a0_ls_w0_mc` (`TR12_LS_W0_COND_MC`). *Q7*: TR-12 §Q7
+promised serial numbers for the SAT witnesses, but nothing in the battery invokes `sat.py`, so at
+full-31 the "ranks of IN members" leg would have been `rank_O3(KW) = 0` alone with `TR12_Q7=PASS`;
+the witness leg is now a named skip `a0_q7_witnesses` (`TR12_Q7_WITNESSES=PENDING:kissat`) and a leg
+of `TR12_Q7`, so the parent reads `SKIP` — **no non-KW sequence receives a serial number in this
+battery**, and that sentence of TR-12 is withdrawn until the witness row exists. *Q6 / Q10a shell
+legs*: `c_q6` now reports the anchor's per-layer class statistics `anchor_p` and `anchor_class_pct`
+(Q-394 §3) instead of the `mass_below` "percentile", and `c_q10a` transcribes the per-layer state
+census from the f-ladder sidecars (Q-394 §5) instead of printing N/24 once per layer. Rows: 57 → 60
+(45 → 47 pass, 12 → 13 skip; the new skip is the witness leg). Each fix is pinned by its own gate —
+`scripts/d5_02_q8_chi2_gallery_gate.sh`, `d5_03_ls_w0_exact_gate.sh`, `d5_04_q7_witnesses_gate.sh`,
+`d5_08_q6_q10a_shell_gate.sh` — with mutants, a red test against the pre-fix row and a closure check,
+all wired into `scripts/tr12_repro_gate.sh`.
+
 **The n < 31 anchor is a stand-in and is labelled as one.** Q1/Q1b/Q1c/Q3/EW-1/V4 are all "…of
 KW", and KW exists only at n = 31. In a reduced universe the driver uses `unrank_O3(⌊N/2⌋)` and
 prints `anchor_label=O3-MIDPOINT(...)` in the artifact. Nothing from a reduced run is ever reported

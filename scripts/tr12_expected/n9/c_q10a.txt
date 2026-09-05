@@ -1,13 +1,30 @@
-# Q10(a) orbit census — EXACT. distinct 24-orbits = layer walk-mass / 24.
-global_anchor_N_div_24	1088
-k	flow	orbits	flow_mod_24
-0	26112	1088	0
-1	26112	1088	0
-2	26112	1088	0
-3	26112	1088	0
-4	26112	1088	0
-5	26112	1088	0
-6	26112	1088	0
-7	26112	1088	0
-8	26112	1088	0
+# Q10(a) — (i) the N/24 identity, stated once; (ii) the per-layer mod-24 gate; (iii) the per-layer
+# STATE census by G-orbit-size class + branching histogram, transcribed from the f-ladder sidecars.
+# (iv) KW-orbit-rank: DROPPED (no commanded source; 0 under KW-derived labels). Q-394 §5 / D5-08.
+N_div_24	1088	# = N/24, the number of free 24-orbits of SOLUTIONS; identical at every layer because every layer's flow == N (gated in c_atlas)
+## per-layer flow mod-24 gate (atlas layers[k].flow)
+k	flow	flow_mod_24
+0	26112	0
+1	26112	0
+2	26112	0
+3	26112	0
+4	26112	0
+5	26112	0
+6	26112	0
+7	26112	0
+8	26112	0
 Q10A_LAYER_MOD24_FAILS	0
+## per-layer state census, transcribed from f1c5_layer_stats_XX.json (frame: canonical quotient, orbit-unweighted; mass_total = f-prefix mass)
+k	n_masks	n_entries	mass_total	orbit_size_census[size,n_masks,n_entries]	branching_hist[children,n_states]
+0	1	1	1	[[1,1,1]]	[[12,1]]
+1	3	4	4	[[3,3,4]]	[[6,2],[10,2]]
+2	9	19	28	[[3,6,17],[6,3,2]]	[[3,2],[4,5],[8,6],[9,6]]
+3	20	58	212	[[1,3,15],[3,7,15],[6,10,28]]	[[2,11],[3,8],[4,7],[5,2],[6,14],[7,4],[8,8],[9,4]]
+4	27	139	894	[[3,12,72],[6,15,67]]	[[0,6],[1,10],[2,23],[3,20],[4,20],[5,16],[6,20],[7,12],[8,8],[9,4]]
+5	27	244	3580	[[3,12,120],[6,15,124]]	[[0,37],[1,38],[2,49],[3,28],[4,34],[5,26],[6,18],[7,12],[8,2]]
+6	20	271	12784	[[1,3,54],[3,7,82],[6,10,135]]	[[0,82],[1,52],[2,52],[3,26],[4,27],[5,28],[6,4]]
+7	9	160	18272	[[3,6,108],[6,3,52]]	[[0,72],[1,33],[2,42],[3,8],[4,5]]
+8	3	48	26720	[[3,3,48]]	[[0,38],[1,10]]
+9	1	6	26112	[[1,1,6]]	[[0,6]]
+Q10A_SIDECARS_MISSING	0
+Q10A_LAST_LAYER_MASS_EQ_N	YES (26112)
