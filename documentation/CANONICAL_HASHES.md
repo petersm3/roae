@@ -48,8 +48,8 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 | d3 10T | `b85c8871…` | 706,427,594 | Active drift anchor | v1 (modern) |
 | d3 5.6T | `f66920c1…` | 467,484,167 | Active drift anchor | v1 (modern) |
 | d2 10T | `a09280fb…` | 286,357,503 | Active d2-partition reference | v1 |
-| d3 1T (main) | `74d39760…` | 134,027,160 | Active build-state anchor | c72eada+#108 lineage |
-| d3 1T (v3 BRANCH) | `5a0f0bc2…` | 134,039,081 | **Historical — DOES NOT reproduce on current `main`; not a replication target** | v1 / v3 BRANCH `8b1658b` |
+| d3 1T | `5a0f0bc2…` | 134,039,081 | **Active** — the published recipe (`SOLVE_PER_SUB_BRANCH_LIMIT=6315458`); reproduced on current `main` 2026-05-30, 2026-07-01 and 2026-09-04 (×2); archived. ⚠ Relabelled 2026-09-04 — see §d3 1T | v1 / v3 BRANCH `8b1658b` / current `main` |
+| d3 1T (auto-divide budget) | `74d39760…` | 134,027,160 | Reference only — what the solver produces when the per-cell budget is **auto-divided** (6,314,566 = ⌊10¹²/158,364⌋) instead of set to the published 6,315,458; reproduced on current `main` 2026-09-04 by setting `SOLVE_PER_SUB_BRANCH_LIMIT=6314566` explicitly. Not a gate target; never archived. See §d3 1T | c72eada+#108 lineage (auto-divide) |
 | Selftest | `403f7202…` | 135,780 | Active build gate | v1 |
 
 For each canonical, "Active" means the published sha reproduces byte-identically on current `main` HEAD (the v3 lineage, sha-equivalent to v1 at all canonical scales tested). "Drift anchor" means the canonical is no longer the deepest published, but its sha is still used to detect build-toolchain drift at that scale. The d3 560T row is the project's deepest enumeration; it was **SUSPECT** from 2026-06-21 (a proven eviction-resume defect on the pre-fix solver), and resolved to **CANONICAL-verified** on 2026-06-30 when a from-scratch re-run on the fixed solver reproduced `9a968fa2` byte-for-byte (see §d3 560T).
@@ -57,9 +57,19 @@ For each canonical, "Active" means the published sha reproduces byte-identically
 **If you are replicating and want one anchor, start with d3 11.2T (`0c0fe37c…`).** It is the
 most-witnessed canonical in the project — eight independent build/host paths, including a cross-architecture
 ARM Neoverse-N2 rebuild and both solver lineages (§d3 11.2T). Do **not** start at the smallest published
-number: the 1T scale is more sensitive to compiler-layout drift than the 11.2T+ scales (§d3 1T), and one of
-the two 1T rows (`5a0f0bc2…`, the v3 BRANCH anchor) is **known not to reproduce on current `main`** — a
-replicator who picks it first will get a genuine mismatch that means nothing about the current code.
+number without reading §d3 1T first: **the two 1T rows are two per-cell budgets, not two lineages.** If you
+start at 1T, use the published recipe verbatim (`SOLVE_PER_SUB_BRANCH_LIMIT=6315458`) and expect
+`5a0f0bc2…`; the second 1T row, `74d39760…`, is what the solver produces when the budget is left to
+auto-divide, and it is listed so that a replicator who omits the budget recognises the value rather than
+reporting a mismatch (§d3 1T).
+
+⚠ **[CORRECTED 2026-09-04 — this paragraph said the 1T scale is "more sensitive to compiler-layout drift"
+than the 11.2T+ scales and that `5a0f0bc2…` was known not to reproduce on current `main`. Both were wrong.
+The two 1T rows differ by their per-cell budget, and `5a0f0bc2…` is the value current `main` produces under
+the published recipe — measured on 2026-09-04, and produced on current `main` twice before that (2026-05-30,
+2026-07-01). This is the **second** correction of this fact; the first, on 2026-08-30, replaced one unmeasured
+cause with another. See §d3 1T and [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two
+per-cell budgets".]**
 
 The full reproducibility-parameters table (env vars per canonical) is at [§Reproducibility parameters](#reproducibility-parameters) below.
 
@@ -170,7 +180,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 | 2026-05-14 (Build A) | v1 modern (post-fix `a2ead96`) | Spot D64als_v7 westus3 host α | `0c0fe37c…` byte-identical |
 | 2026-05-14 (Build B) | v1 modern (post-fix `a2ead96`), split enum/merge | Spot D64 host β (enum 3.9h) + Standard D64 (merge 62min) | `0c0fe37c…` byte-identical |
 | 2026-05-24 (Phase 11 Build A) | v3+v3.1 (commit `8b1658b`, LTO + PGO + bitset + orphan-promotion) | Spot D128als_v7 westus3 | `0c0fe37c…` byte-identical — confirms v3 sha-preserves on v1 |
-| 2026-05-27 (#108 witness) | c72eada + #108 + #108b (commit `6e853fc`), binary sha `1ce20ff3…` | D128als_v7 Spot westus3, enum 7810s, manual external-merge + 100GB tmpfs scratch | `0c0fe37c…` byte-identical — demonstrates the 1T drift on c72eada (`5a0f0bc2…` → `74d39760…`) does NOT propagate to 11.2T (per-cell budget at 11.2T is 11× larger than at 1T, enough buffer that record-set is stable) |
+| 2026-05-27 (#108 witness) | c72eada + #108 + #108b (commit `6e853fc`), binary sha `1ce20ff3…` | D128als_v7 Spot westus3, enum 7810s, manual external-merge + 100GB tmpfs scratch | `0c0fe37c…` byte-identical — demonstrates the 1T drift on c72eada (`5a0f0bc2…` → `74d39760…`) does NOT propagate to 11.2T (per-cell budget at 11.2T is 11× larger than at 1T, enough buffer that record-set is stable) ⚠ **[CORRECTED 2026-09-04 — there was no 1T drift to propagate: the 1T pair is two per-cell budgets (§d3 1T). This 11.2T witness set the published 70,723,196 explicitly, as did every other 11.2T witness, which is why 11.2T never showed a pair.]** |
 | 2026-05-31 (Tier 1 witness) | git `7ca55e8` (= c72eada + #108 + Tier 1 `b579c1e` + #113/#107-retool/#48/#115b) | D128als_v7 Spot westus3, 128 threads, enum ~145 min, D16als_v7 Standard merge 96 min | `0c0fe37c…` byte-identical — first empirical confirmation that Tier 1 hardening is sha-neutral at 11.2T |
 | 2026-05-21 (ARM Cobalt) | v3+v3.1 ARM binary `e5cfc6cd…` | D96ps_v6 + D32ps_v6 Cobalt Neoverse-N2, gcc 13.3.0 `-mcpu=native` | `0c0fe37c…` byte-identical — cross-architecture witness |
 | 2026-05-04 (recovery cascade) | v1 modern, post-#45 **patched** binary | fresh full-enum, 2026-05-04 04:21Z | `0c0fe37c…` byte-identical — **the eighth path this heading counts**; the run is recorded in [HISTORY.md](HISTORY.md) §"8-path equivalence at 11.2T proven" and under its "May 4 – May 5, 2026 PDT" entry. ⚠ **[ROW ADDED 2026-09-02 — the heading above has said eight since it was written and this table listed seven, so the registry's own count was not computable from the registry (Codex review V2-F43 #8, ACCEPTED). The missing path is this one, located in the public record by prose batch P43 when the same eight-vs-seven discrepancy was adjudicated in HISTORY.md's method-indexed roster; the fix there was to restore the row rather than renumber the heading down, and the same holds here. It qualifies as a separate build/host path under the criterion stated below: a distinct binary (post-#45 patch) not shared with any other row.]** |
@@ -245,36 +255,87 @@ Depth-2 enumeration's smaller sub-branch count (3030 vs depth-3's 158,364) makes
 
 ---
 
-### d3 1T (current main HEAD `c72eada`+ lineage)
+### d3 1T — auto-divided budget (`74d39760…`)
 
 - **sha256:** `74d3976061e015a3120d1ae11992f8662c97b59059ac69c61a5bff5edf146327`
 - **Records:** 134,027,160 (= 1.34027 × 10⁸)
 - **File size:** 4,288,869,152 bytes
 - **Solver:** c72eada (post-#108 bundle, commit `6e853fc`)
 - **Established:** 2026-05-27 during #108 validation
-- **Status:** Active drift-detection anchor on current main lineage
+- **Per-cell budget:** 6,314,566 — the solver's auto-divide value ⌊10¹²/158,364⌋, **not** the published recipe's 6,315,458
+- **Status:** Reference value, reproducible on current `main` by setting `SOLVE_PER_SUB_BRANCH_LIMIT=6314566` explicitly (measured 2026-09-04). **Not a gate target** — the published-recipe anchor is `5a0f0bc2…`, §d3 1T — published recipe. ⚠ Relabelled 2026-09-04; this row read "Active drift-detection anchor on current main lineage".
 
 **Drift-isolation runs:** reproduced byte-identically by unmodified `c72eada` (drift-isolation control) AND by `c72eada + #108 + #108b` bundle AND by `c72eada + #108 + #108b + SOLVE_FSYNC_BATCH_SIZE=16` — all three runs produce the same sha, confirming #108's mutex elimination and #108b's batched-fsync option are sha-neutral at canonical scale.
 
 Differs from the `5a0f0bc2…` v3-BRANCH-lineage 1T anchor (12,000 records fewer). ⚠ **[CORRECTED 2026-08-30 — this read "LTO compiler-layout effects from hardening commits between `9f10f05` (v3 reset) and `c72eada`". That is the May-25 diagnosis, and it was **superseded on May 27** and is retracted here.** The settled Task-#108 result (Q4–Q10) is that the drift is **host-environment-level** — gcc/glibc/kernel patch versions, ASLR seed, CPU microcode revision — **not source-level**: the 7 hardening commits were **empirically exonerated** and **LTO was empirically ruled out** as the mechanism. See [HISTORY.md](HISTORY.md) §"May 27/28, 2026 UTC — Task #110 Tier 1 canonical-determinism hardening shipped + 1T sha-gate PASSED" and [TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) §"Scope of the reproducibility claim" → *The toolchain qualifier*. **Still NOT a correctness change**, and the anchor **re-derives byte-identically on a matching host**. A reproducer chasing the retracted cause would vary the wrong control variable — source and build flags instead of host and toolchain.]**
 
+> ⚠ **[CORRECTED 2026-09-04 — second correction of this paragraph.** The 2026-08-30 bracket above withdrew the
+> LTO/hardening-commit attribution and put "host-environment-level" in its place. That replacement was also
+> unmeasured: it never compared the two runs' per-cell budgets, which both provenance files recorded. The
+> 2026-05-24 run that established `5a0f0bc2…` set `SOLVE_PER_SUB_BRANCH_LIMIT=6315458` (the published recipe);
+> every run that produced `74d39760…` — including the drift-isolation control, the `-fno-lto` build, and the
+> byte-identical-source bisect leg — left the budget to auto-divide, ⌊10¹²/158,364⌋ = 6,314,566, 892 nodes per
+> cell less. On 2026-09-04 one binary built from unmodified `main` `82f96b6b` produced `5a0f0bc2…` at 6,315,458
+> and `74d39760…` at 6,314,566, on the same host, in the same hour, with the per-cell budget as the only
+> variable. The record delta is exactly 11,921 records = 381,472 bytes / 32 — the marginal yield of 892 extra
+> nodes across 158,364 cells. The 2026-08-30 sentence "re-derives byte-identically on a matching host" is
+> withdrawn as evidence of host sensitivity: no run in the record with the published budget has ever produced
+> this value, and no run with the auto-divided budget has ever produced the other. **Why this is not new:** the
+> same derived-vs-published divergence was found, diagnosed correctly, and fixed at 11.2T on 2026-06-17 —
+> `solve.c`'s `CANONICAL_RECIPES` table and `--validate-canonical` now inject the published budget rather than
+> deriving it (public commit `d8671550`; the public record of the same defect is [CORRECTIONS.md](CORRECTIONS.md)
+> §"2026-09-02 — a wrong division published in three files" and [BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md);
+> operator-attested detail in `petersm3/roae-private:INCIDENT_2026_06_17_11_2T_PSB_MISMATCH.md`). The identical
+> mechanism at 1T was labelled host drift for three months. The Codex V2-F25 #3 review of 2026-09-02 proposed
+> this confound and was ruled refuted; that ruling is withdrawn. See [CORRECTIONS.md](CORRECTIONS.md)
+> §"2026-09-04 — the 1T anchor pair was two per-cell budgets".]**
+
 **Note on the 1T-vs-11.2T drift gap:** the c72eada drift at 1T (`5a0f0bc2…` → `74d39760…`) does NOT propagate to 11.2T (where both lineages produce `0c0fe37c…` byte-identically). Mechanism: BUDGETED-cell-density-sensitive — at 11.2T per-cell budget (70.7M nodes) is 11× larger than at 1T (6.3M nodes), enough buffer that record-set is stable across the 7 hardening commits' source-level changes. The 1T scale is more host-fragile and more sensitive to compiler-layout effects than the 11.2T+ canonical scales.
+
+> ⚠ **[CORRECTED 2026-09-04 — the "gap" this note explains does not exist.** 11.2T never showed a pair because
+> every 11.2T witness set the published budget explicitly; 1T showed a pair because its witnesses split between
+> the published budget (6,315,458) and the auto-divided one (6,314,566). The "BUDGETED-cell-density" mechanism
+> and the "more host-fragile" characterisation are withdrawn as explanations of the 1T pair. This note is kept
+> in place, under this bracket, because `solve.c`'s `--validate-canonical` FAIL text pointed a reader here until
+> 2026-09-04; that pointer has been removed (see [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §`--validate-canonical`).]**
 
 **Three measurements** (2026-05-27): drift control 1679s/1693s wall; pristine c72eada 3430s wall.
 
-**Not archived to cold storage** (validation-only run).
+**Not archived to cold storage** (validation-only run; the 2026-09-04 explicit-budget artifact is retained on the run host for the record-set subset test — `74d39760…`'s records are predicted to be a strict subset of `5a0f0bc2…`'s, untested).
 
 ---
 
-### d3 1T (v3 BRANCH lineage @ `8b1658b`)
+### d3 1T — published recipe (`5a0f0bc2…`)
 
 - **sha256:** `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`
 - **Records:** 134,039,081 (= 1.34039 × 10⁸)
 - **Solver:** v1 (modern) and v3 BRANCH `8b1658b` (both produce this sha byte-identically)
 - **Established:** 2026-05-24 as a byproduct of the v1-vs-v3 paired speedup bench on Standard D128als_v7 westus3
-- **Status:** Historical anchor for v3 BRANCH state (May 2026). **Not a replication target — this sha does not reproduce on current `main` HEAD; see the note directly below.**
+- **Per-cell budget:** 6,315,458 — the published recipe's `SOLVE_PER_SUB_BRANCH_LIMIT` (§Reproducibility parameters), set explicitly on every run that produced this value
+- **Status:** **Active.** This is what current `main` produces under the published recipe. Witnesses: 2026-05-24 v1 `a2ead96` and v3 BRANCH `8b1658b` (Standard D128als_v7, 128 threads); 2026-05-30 `main` `7ca55e8` (Spot D32als_v7, 32 threads); 2026-07-01 `main` post-#196 (Spot D128); 2026-09-04 `main` `82f96b6b` twice (Spot D128 — once with an uncommitted working-tree change, once from unmodified HEAD). Verify with `gzip -dc solutions.bin | sha256sum`, never `sha256sum solutions.bin` (that hashes the gz container). ⚠ Relabelled 2026-09-04; this row read "Historical anchor for v3 BRANCH state (May 2026). Not a replication target".
+- **How a replicator gets the other 1T value instead:** omit `SOLVE_PER_SUB_BRANCH_LIMIT` and the solver auto-divides to 6,314,566 → `74d39760…` (§d3 1T — auto-divided budget). The shipped `./solve --validate-canonical <sha> 1T` injects the published budget from `CANONICAL_RECIPES` (since the 2026-06-17 fix, public commit `d8671550`) and therefore validates against **this** row.
+- **Sourcing this anchor in a script** (do not hardcode a literal; the quick-reference cell holds only an 8-nibble prefix, so read the full value from this entry):
+
+```
+ANCHOR_1T=$(awk '/^### d3 1T . published recipe/{f=1} f&&/^- \*\*sha256:\*\*/{gsub(/[^0-9a-f]/,"",$0); print; exit}' \
+              documentation/CANONICAL_HASHES.md)
+[ ${#ANCHOR_1T} -eq 64 ] || { echo "ANCHOR_1T_SOURCE=FAIL"; exit 1; }   # failure must be loud
+./solve --validate-canonical "$ANCHOR_1T" 1T
+```
 
 **NOT REPRODUCIBLE on current main HEAD `c72eada` or later from a differently-provisioned host** — the drift is **host-environment-level** (gcc/glibc/kernel patch versions, ASLR seed, CPU microcode revision), **not source-level**, and it **re-derives byte-identically on a matching host**. ⚠ **[CORRECTED 2026-08-30 — this row read "due to LTO compiler-layout drift from the 7 hardening commits between `9f10f05` (v3 reset) and `c72eada` (same mechanism as #99 100B-bisect's `d683794` sha-flip)". That was the May-25 working diagnosis; Task #108's Q4–Q10 investigation, closed May 27, **empirically exonerated** those 7 commits and **empirically ruled out LTO** as the mechanism. The registry is the first document a reproducer consults, and it was directing them at a refuted cause. See [HISTORY.md](HISTORY.md) §"May 27/28, 2026 UTC — Task #110 Tier 1 canonical-determinism hardening shipped + 1T sha-gate PASSED", [TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) §"Scope of the reproducibility claim", and `petersm3/roae-private:TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md`. The separate #99 100B-bisect speculation in §"100B and sub-canonical reference shas" is left standing — it is hedged there as a *likely* mechanism at a scale HISTORY does not supersede. See also `petersm3/roae-private:V3_RESET_LOST_COMMITS_AUDIT_2026_05_27.md` for the commit inventory, whose facts are unaffected.]** **NOT a correctness change.**
+
+> ⚠ **[CORRECTED 2026-09-04 — this paragraph, already corrected once on 2026-08-30 for its *mechanism*, was
+> wrong in its *fact*.** The sha it says is not reproducible on current `main` was reproduced on current `main`
+> on 2026-05-30 (`7ca55e8`, Spot D32, 32 threads), 2026-07-01 (post-#196, Spot D128) and twice on 2026-09-04
+> (`82f96b6b`, Spot D128) — each time under the published recipe `SOLVE_PER_SUB_BRANCH_LIMIT=6315458`. Each of
+> the first three results was recorded at the time as "host-level drift" rather than read as a refutation
+> ([HISTORY.md](HISTORY.md) §"May 30-31, 2026 UTC — 560T pipeline dress rehearsal", and the 2026-07-01 run log). The two 1T
+> rows differ by per-cell budget, not by host — see the sibling entry under §d3 1T — auto-divided budget. The
+> 2026-08-30 bracket's "differently-provisioned host … re-derives byte-identically on a matching host" is
+> withdrawn with it, and the row's earlier status wording, quoted here so the retraction is legible, was
+> "**Historical — DOES NOT reproduce on current `main`; not a replication target**". Second correction of this
+> fact; [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two per-cell budgets".]**
 
 **Archive:** `canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9 solutions.bin.gz 475 MB) + managed disk `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`.
 

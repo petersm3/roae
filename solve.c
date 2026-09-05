@@ -1071,6 +1071,11 @@ typedef struct {
      * if a v2 .dfs_state file exists. The iterative main loop pre-populates
      * its stack and seq/used/budget arrays from these before starting. */
     int dfs_v2_resume_active;
+    /* Q-414: set from the resumed sidecar's reserved2[0] flag and prior_solutions_found.
+     * Only a sidecar written by a binary carrying the attestation flag may be trusted to
+     * mean "this cell genuinely produced zero solutions". */
+    int dfs_resume_yield_attested;
+    long long dfs_resume_prior_solutions;
     int dfs_v2_resume_sp;
     DFSStackFrame_v2 dfs_v2_resume_frames[34];
     int8_t dfs_v2_resume_seq[64];
@@ -1192,7 +1197,9 @@ static inline int maybe_fsync_fd(int fd) {
 /* ===================== #169 native-gzip large-file I/O shim =====================
  * gzip is a NON-sha-determining storage layer: every sha (canonical solutions.bin
  * + the shard manifest) is computed on DECOMPRESSED bytes, so the published anchors
- * (403f7202/74d39760/0c0fe37c/915abf30) are unchanged. Filenames stay the same
+ * (403f7202/5a0f0bc2/0c0fe37c/915abf30/9a968fa2) are unchanged. (1T is the published-recipe
+ * anchor 5a0f0bc2; the auto-divided-budget value 74d39760 is a reference, not a gate target —
+ * CANONICAL_HASHES.md "d3 1T", corrected 2026-09-04.) Filenames stay the same
  * (sub_*.bin / solutions.bin hold gz content); readers auto-detect raw vs gz.
  *   SOLVE_GZIP_LEVEL — 1..9, default 9 (archives-always-gzip9). Sha-neutral at any level.
  *   SOLVE_COMPRESS   — default ON; =0 writes TRANSPARENT (raw, no gz wrapper) bytes,
@@ -1509,7 +1516,10 @@ static long long per_branch_node_limit = 0;  /* node_limit / n_branches, set at 
  * Consumed by BOTH --canonical-config (prints them) and --validate-canonical (injects them).
  * Before the 2026-06-17 fix, --validate-canonical DERIVED the PSB from NODE_LIMIT, which
  * diverges from these empirical values at 11.2T+ and produced a wrong (non-canonical) sha
- * (measured 2184bdd8 vs 11.2T anchor 0c0fe37c). psb==0 means "omit" (d2 mechanics differ). */
+ * (measured 2184bdd8 vs 11.2T anchor 0c0fe37c). psb==0 means "omit" (d2 mechanics differ).
+ * 2026-09-04: the SAME divergence had been live at 1T since 2026-05-27 and was labelled host
+ * drift for three months. 1T published 6315458 -> 5a0f0bc2; derived 6314566 -> 74d39760.
+ * See CANONICAL_HASHES.md "d3 1T". */
 struct canonical_recipe { const char *label; int depth; long long node_limit; long long psb; };
 static const struct canonical_recipe CANONICAL_RECIPES[] = {
     { "1T",     3,         1000000000000LL,       6315458LL },
@@ -1637,6 +1647,24 @@ _Static_assert(sizeof(DFSCheckpointState_v1) <= 1024, "DFSCheckpointState_v1 too
  * arrays. Resume reconstructs the exact DFS state at the moment of budget
  * exhaustion and continues from there. */
 #define DFS_STATE_VERSION_V2 2u
+
+/* reserved2[0] is a FLAGS byte. Bit 0 asserts that prior_solutions_found holds the cell's
+ * PRE-FLUSH solution count and is therefore meaningful.
+ *
+ * 🔴 WHY A FLAG AND NOT A VERSION BUMP (Q-414, 2026-09-04). `d7e6a1c0` moved dfs_state_write*
+ * to run AFTER flush_sub_solutions*, which zeroes ts->solution_count, so every sidecar written
+ * since carries prior_solutions_found == 0 REGARDLESS of yield — measured over 3,030 real
+ * sidecars, the set of distinct values is {0}. A reader cannot tell "found nothing" from "the
+ * field is meaningless here", which is why the prescribed one-line #167 fix (exempt cells whose
+ * checkpoint attests zero) would have fired on 100%% of cells and disabled the guard entirely.
+ * The flag makes the attestation explicit, so a 0 is trusted only from a writer that meant it.
+ * A version bump was rejected: the v4-canonical lineage already uses format_version 3 for a
+ * DIFFERENT layout, so bumping here would alias two incompatible formats under one number, and
+ * an old binary reading a bumped sidecar would re-walk every cell. reserved2 is zero on every
+ * existing sidecar, unread by both readers, and explicitly excluded by the Gate-A checkpoint
+ * comparator, so old readers see no change at all. sizeof, magic and format_version are
+ * unchanged by design. */
+#define DFS_V2_FLAG_YIELD_ATTESTED 0x01u
 
 /* DFSStackFrame_v2 is forward-defined near the Pair typedef so ThreadState
  * can hold an array of them. */
@@ -9232,7 +9260,7 @@ static int dfs_state_filename(char *buf, size_t bufsz,
  * predicate as the .bin shard's gzw_close_durable. Keep them coupled;
  * see the #167 regression note at gzw_close_durable. */
 static int dfs_state_write(int p1, int o1, int p2, int o2, int p3, int o3,
-                           const ThreadState *ts) {
+                           const ThreadState *ts, long long yield_at_flush) {
     char fname[96], tmpname[128];
     if (dfs_state_filename(fname, sizeof(fname), p1, o1, p2, o2, p3, o3)) return -1;
     snprintf(tmpname, sizeof(tmpname), "%s.tmp", fname);
@@ -9260,7 +9288,10 @@ static int dfs_state_write(int p1, int o1, int p2, int o2, int p3, int o3,
      * count matches single-shot. See the corresponding comment in
      * backtrack_iterative's v2 capture path. */
     st.prior_nodes_walked = (ts->branch_nodes > 0) ? ts->branch_nodes - 1 : 0;
-    st.prior_solutions_found = ts->solution_count;
+    /* Q-414: the PRE-flush count. ts->solution_count is already 0 here — the flush zeroed it.
+     * v1 sets no attestation flag: v1 has no reserved flags byte, so v1 sidecars keep today's
+     * conservative discard-and-re-walk behaviour and nothing about them changes. */
+    st.prior_solutions_found = yield_at_flush;
 
     FILE *f = fopen(tmpname, "wb");
     if (!f) {
@@ -9371,7 +9402,7 @@ static void dfs_state_delete(int p1, int o1, int p2, int o2, int p3, int o3) {
  * predicate as the .bin shard's gzw_close_durable. Keep them coupled;
  * see the #167 regression note at gzw_close_durable. */
 static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
-                              const ThreadState *ts) {
+                              const ThreadState *ts, long long yield_at_flush) {
     char fname[96], tmpname[128];
     if (dfs_state_filename(fname, sizeof(fname), p1, o1, p2, o2, p3, o3)) return -1;
     snprintf(tmpname, sizeof(tmpname), "%s.tmp", fname);
@@ -9400,7 +9431,9 @@ static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
     /* Roll back the captured frame's ENTER counter increment — see comment
      * at backtrack_iterative's v2 capture site for the off-by-one rationale. */
     st.prior_nodes_walked = (ts->branch_nodes > 0) ? ts->branch_nodes - 1 : 0;
-    st.prior_solutions_found = ts->solution_count;
+    /* Q-414: the PRE-flush count, and the flag that says so. ts->solution_count is 0 by now. */
+    st.prior_solutions_found = yield_at_flush;
+    st.reserved2[0] = (uint8_t)DFS_V2_FLAG_YIELD_ATTESTED;
 
     FILE *f = fopen(tmpname, "wb");
     if (!f) return -1;
@@ -9447,6 +9480,10 @@ static int dfs_state_read_v2(int p1, int o1, int p2, int o2, int p3, int o3,
     for (int i = 0; i < 32; i++) if (st.used[i]) PAIR_MASK_SET(ts->dfs_v2_resume_used, i);
     memcpy(ts->dfs_v2_resume_budget, st.budget, 7);
     ts->dfs_resume_prior_nodes = st.prior_nodes_walked;
+    /* Q-414: carry the attestation forward. A 0 here means "genuinely zero yield" ONLY when the
+     * writer set the flag; on every pre-fix sidecar the flag is clear and the 0 means nothing. */
+    ts->dfs_resume_yield_attested = (st.reserved2[0] & DFS_V2_FLAG_YIELD_ATTESTED) ? 1 : 0;
+    ts->dfs_resume_prior_solutions = st.prior_solutions_found;
     fprintf(stderr, "[dfs-v2] READ  %s (sp=%d, prior nodes=%lld)\n",
             fname, (int)st.sp, (long long)st.prior_nodes_walked);
     return 0;
@@ -9789,6 +9826,8 @@ static void *thread_func_single(void *arg) {
         ts->dfs_resume_prior_nodes = 0;
         ts->dfs_v2_capture_pending = 0;
         ts->dfs_v2_resume_active = 0;
+        ts->dfs_resume_yield_attested = 0;
+        ts->dfs_resume_prior_solutions = 0;
         if (dfs_checkpoint_enabled) {
             int p3_arg = (sb->pair3 >= 0) ? sb->pair3 : -1;
             int o3_arg = (sb->pair3 >= 0) ? sb->orient3 : -1;
@@ -9831,11 +9870,39 @@ static void *thread_func_single(void *arg) {
                 else
                     snprintf(binchk, sizeof(binchk), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
                 if (access(binchk, F_OK) != 0) {
-                    fprintf(stderr, "[#167-guard] %s: .dfs_state present but shard ABSENT — "
-                            "discarding resume, walking cell fresh\n", binchk);
-                    ts->dfs_v2_resume_active = 0;
-                    ts->dfs_resume_active = 0;
-                    ts->dfs_resume_prior_nodes = 0;
+                    /* Q-414: "shard absent" has TWO causes and they are indistinguishable from
+                     * the filesystem. A cell that completed its budget and found NOTHING also has
+                     * no shard — flush_sub_solutions[_d3] returns at its first line when
+                     * solution_count == 0 without creating a file. Discarding those is pure waste:
+                     * measured at depth-2 on a 2-core box, 1,961 of 3,030 cells (64.7%) were
+                     * zero-yield, the guard fired on exactly those and on nothing else, and
+                     * 12,940,639 nodes were re-walked from zero — reproducing by observation the
+                     * 58.8% figure previously only projected for the 560 T archive.
+                     *
+                     * Resume ONLY on a positive attestation from the writer: the flag says the
+                     * count is meaningful, and the count says the cell was empty. An unflagged
+                     * sidecar (every v1, and every v2 written before this fix) still discards,
+                     * so the damaged 560 T archive keeps exactly today's behaviour. Inferring
+                     * zero-yield from a bare 0 would disable the guard on 100% of cells. */
+                    if (ts->dfs_v2_resume_active && ts->dfs_resume_yield_attested
+                        && ts->dfs_resume_prior_solutions == 0) {
+                        fprintf(stderr, "[#167-guard] %s: shard absent, checkpoint ATTESTS zero "
+                                "yield — resuming\n", binchk);
+                    } else {
+                        if (ts->dfs_resume_yield_attested) {
+                            /* Flagged, non-zero, shard gone: this is REAL loss, not an artifact,
+                             * and the count says how much. Say so — it is now diagnosable. */
+                            fprintf(stderr, "[#167-guard] %s: .dfs_state ATTESTS %lld solution(s) "
+                                    "but shard ABSENT — discarding resume, walking cell fresh\n",
+                                    binchk, ts->dfs_resume_prior_solutions);
+                        } else {
+                            fprintf(stderr, "[#167-guard] %s: .dfs_state present but shard ABSENT — "
+                                    "discarding resume, walking cell fresh\n", binchk);
+                        }
+                        ts->dfs_v2_resume_active = 0;
+                        ts->dfs_resume_active = 0;
+                        ts->dfs_resume_prior_nodes = 0;
+                    }
                 }
             }
             if (ts->dfs_v2_resume_active) {
@@ -9919,7 +9986,7 @@ static void *thread_func_single(void *arg) {
         /* Capture solution_count BEFORE flush_sub_solutions zeroes it —
          * the checkpoint line's "solutions" field should record the actual
          * count, not the post-flush zero. */
-        int sub_solutions = ts->solution_count;
+        long long sub_solutions = ts->solution_count;
 
         /* Always flush hash table to file after each sub-branch, then clear.
          * Per-thread output — no mutex needed. */
@@ -9968,17 +10035,18 @@ static void *thread_func_single(void *arg) {
          * If budget was exhausted, persist the captured DFS state (for a future
          * budget-increase extension); if the cell completed naturally, delete any
          * stale sidecar so a future resume won't re-walk a finished branch.
-         * (prior_solutions_found in the sidecar is written-but-never-read, so the
+         * (prior_solutions_found in the sidecar was written-but-never-read until Q-414, 2026-09-04;
+         * it now carries the PRE-flush count and reserved2[0] bit 0 attests that it does, so the
          * flush above having zeroed ts->solution_count is harmless.) */
         if (dfs_checkpoint_enabled) {
             int p3_arg = (sb->pair3 >= 0) ? sb->pair3 : -1;
             int o3_arg = (sb->pair3 >= 0) ? sb->orient3 : -1;
             if (ts->dfs_v2_capture_pending) {
                 /* Iterative path captured full DFS state — write v2. */
-                (void)dfs_state_write_v2(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+                (void)dfs_state_write_v2(p1, o1, p2, o2, p3_arg, o3_arg, ts, sub_solutions);
             } else if (ts->dfs_capture_active && ts->dfs_iter_top > 0) {
                 /* Recursive path captured iter-only state — write v1. */
-                (void)dfs_state_write(p1, o1, p2, o2, p3_arg, o3_arg, ts);
+                (void)dfs_state_write(p1, o1, p2, o2, p3_arg, o3_arg, ts, sub_solutions);
             } else {
                 /* Naturally completed (or interrupted before any frame captured)
                  * — remove any stale sidecar from a prior partial run. */
@@ -9995,13 +10063,13 @@ static void *thread_func_single(void *arg) {
             if (ckpt) {
                 if (sb->pair3 >= 0) {
                     fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
-                            "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
+                            "%lld nodes, %lld C3-valid, %lld solutions, %lds elapsed, budget %lld\n",
                             sb_status, ts->thread_id, p1, o1, p2, o2, sb->pair3, sb->orient3,
                             sub_nodes, sub_c3, sub_solutions, elapsed,
                             per_branch_node_limit);
                 } else {
                     fprintf(ckpt, "Sub-branch %s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): "
-                            "%lld nodes, %lld C3-valid, %d solutions, %lds elapsed, budget %lld\n",
+                            "%lld nodes, %lld C3-valid, %lld solutions, %lds elapsed, budget %lld\n",
                             sb_status, ts->thread_id, p1, o1, p2, o2,
                             sub_nodes, sub_c3, sub_solutions, elapsed,
                             per_branch_node_limit);
@@ -10033,7 +10101,7 @@ static void *thread_func_single(void *arg) {
         /* Use sub_solutions (captured before flush) rather than ts->solution_count
          * (which flush_sub_solutions already zeroed). */
         fprintf(stderr, "  *** Sub-branch %d/%d %s (pair1 %d orient1 %d pair2 %d orient2 %d): "
-                "%lldB nodes, %lldM C3, %d solutions, %lds ***\n",
+                "%lldB nodes, %lldM C3, %lld solutions, %lds ***\n",
                 done, total_branches, sb_status, p1, o1, p2, o2,
                 sub_nodes / 1000000000LL, sub_c3 / 1000000LL,
                 sub_solutions, elapsed);
@@ -14591,8 +14659,12 @@ static int f1_exact_main(const char *layers_dir, const char *subset_spec) {
  * PURPOSE of the staged reduced-pair runs is measuring peak memory: each
  * layer's stderr line reports canonical_masks, states, entries, bytes, and
  * the running two-live-layer peak. --f1-pairs N selects a group-closed
- * pair-orbit union (N in {9,13,16,18,19,24,25,27,28,31}; 13 and 16 are the
- * instrument's validation unions). Layer storage is ragged-sparse: sorted
+ * pair-orbit union (N in {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31};
+ * 13 and 16 are the instrument's validation unions -- the set was stale here
+ * until 2026-09-04, omitting 3,4,6,7,10,12,15,21,22, all of which f1c5_unions[]
+ * accepts. A COMMENT cannot be printed from the table, so this literal is
+ * enforced by GATE 24 instead: every `N in {...}` set in solve.c must equal the
+ * code domain). Layer storage is ragged-sparse: sorted
  * canonical masks, per-mask offsets, (last,rid)-keyed 192-bit values
  * (28 B/entry + 12 B/mask). Gather is two-pass (count, then fill) so no
  * transient per-thread buffers inflate the measured peak.
@@ -18128,6 +18200,67 @@ static const struct { int n; const char *spec; } f1c5_unions[] = {
     { 28, "3.0,3.1,4.0,6.0,6.1,6.2@0" },
 };
 
+/* THE ACCEPTED `--f1-pairs` DOMAIN IS PRINTED FROM THE TABLE ABOVE, NEVER TYPED.
+ *
+ * 🔴 Until 2026-09-04 there were THREE hand-typed copies of this domain and TWO of them were
+ * stale, in the same way and by the same seven values:
+ *
+ *     f1c5_exact_main()      3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31   (correct)
+ *     kc_g_resolve_pairs()               9,13,      16,18,19,21,22,24,25,27,28,31  (stale)
+ *     kc_resolve_pairs()                 9,13,      16,18,19,21,22                 (stale)
+ *
+ * Both stale copies omit 3,4,6,7,10,12,15 — values every one of the three sites RESOLVES
+ * THROUGH THIS SAME TABLE and therefore accepts. Measured, not inferred: `--kc-build
+ * --f1-pairs {3,4,6,7,10,12,15}` all build, while the diagnostic tells the operator to use
+ * something else. The kc_resolve_pairs copy is the one a `--kc-build` user actually reaches.
+ *
+ * PROVENANCE. Codex review A8R (item 3) found the kc_g one, adjudicated in
+ * CODEX_A8R_ADJUDICATION.md. The kc_resolve_pairs one was found by SWEEPING THE SIBLINGS
+ * while repairing it — fix the class, not the instance — and is the reason this is a printer
+ * and not two corrected string literals. A copy that cannot drift beats a copy that is
+ * currently right. A8R's own framing needs one correction: it said a user handed
+ * `--f1-pairs 10` "is told 10 is unsupported", and that is not reachable — 10 IS in the
+ * table, so the lookup succeeds and the diagnostic never fires. The real defect is narrower
+ * and still real: an operator who asks for a genuinely unsupported n is handed a list that
+ * omits seven sizes that would have worked.
+ *
+ * The canonical sha could never have caught any of this: a diagnostic string is not on the
+ * enumeration path. Neither could GATE 24, whose check was a SINGULAR `re.search` for the
+ * literal — it matched the first (correct) copy and stopped, so a disagreeing second copy was
+ * invisible BY CONSTRUCTION, and the gate was also excluded from `all`. Both were fixed in
+ * the same pass; see gate_value_domains in scripts/doc_gates.sh.
+ *
+ * `cap` <= 0 means no ceiling; kc_resolve_pairs passes KC_MEM_MAX_PAIRS because its in-memory
+ * build genuinely stops there. `with_full31` is the caller's own special case: 31 is not a
+ * table row, and the two sites that admit it do so in a branch BEFORE the lookup. No newline
+ * is written — each caller owns its own message tail. */
+static void f1c5_fprint_npairs_domain(FILE *out, int cap, int with_full31) {
+    int first = 1;
+    for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++) {
+        if (cap > 0 && f1c5_unions[u].n > cap) continue;
+        fprintf(out, "%s%d", first ? "" : ",", f1c5_unions[u].n);
+        first = 0;
+    }
+    if (with_full31) fprintf(out, "%s31", first ? "" : ",");
+}
+
+/* The full "unsupported npairs" diagnostic, in ONE place. The two sites that share this exact
+ * wording call it rather than repeating the string; kc_resolve_pairs has a genuinely different
+ * message (it names the in-memory ceiling) and keeps its own prefix. Written this way so that a
+ * census of the list-prefix literal returns ONE -- the number of PLACES this project states this
+ * domain in prose, which is the quantity that went wrong.
+ *
+ * (The census command is deliberately NOT quoted in this comment. The first draft of it was, and
+ * the comment then matched its own search and made the count 2 -- the same self-referential trap
+ * that a documentation/CITATIONS.md census fell into on the same day. A check that counts its own
+ * report is measuring the report.) */
+static void f1c5_fprint_unsupported_npairs(FILE *out, const char *tag, int npairs) {
+    fprintf(out, "ERROR: [%s] --f1-pairs %d has no group-closed orbit union; supported: ",
+            tag, npairs);
+    f1c5_fprint_npairs_domain(out, 0, 1);
+    fputc('\n', out);
+}
+
 /* ---------- stream-to-cold hook (sha-neutral operational hook) ----------
  * If SOLVE_F1_STREAM_COLD_CMD is set, run it on an about-to-be-deleted finalized
  * layer file BEFORE the rolling-window unlink — so a layer can be streamed to
@@ -18217,8 +18350,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++)
             if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
         if (!spec) {
-            fprintf(stderr, "ERROR: [f1c5] --f1-pairs %d has no group-closed orbit union; "
-                    "supported: 3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31\n", npairs);
+            f1c5_fprint_unsupported_npairs(stderr, "f1c5", npairs);
             free(c);
             return 2;
         }
@@ -19186,8 +19318,9 @@ static int kc_resolve_pairs(int npairs, int *pl, int *n_out, int *start_out) {
         if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
     if (!spec || npairs > KC_MEM_MAX_PAIRS) {
         fprintf(stderr, "ERROR: [kc] --f1-pairs %d unsupported here "
-                "(orbit-realizable n <= %d: 9, 13, 16, 18, 19, 21, 22)\n",
-                npairs, KC_MEM_MAX_PAIRS);
+                "(orbit-realizable n <= %d: ", npairs, KC_MEM_MAX_PAIRS);
+        f1c5_fprint_npairs_domain(stderr, KC_MEM_MAX_PAIRS, 0);
+        fprintf(stderr, ")\n");
         return -1;
     }
     if (f1_parse_subset(spec, pl, n_out, start_out) != 0) return -1;
@@ -21676,15 +21809,14 @@ static int kc_g_resolve_pairs(int npairs, int *pl, int *n_out, int *start_out) {
     if (npairs == 31) {
         for (int i = 0; i < 31; i++) pl[i] = i + 1;
         *n_out = 31;
-        *start_out = 0;   /* C4: s0=63, s1=0 -> anchor exit 0 (Theorem 6) */
+        *start_out = 0;   /* C4: s0=63, s1=0 (definitional orientation; Thm 6 RETRACTED) -> exit 0 */
         return 0;
     }
     const char *spec = NULL;
     for (size_t u = 0; u < sizeof(f1c5_unions) / sizeof(f1c5_unions[0]); u++)
         if (f1c5_unions[u].n == npairs) { spec = f1c5_unions[u].spec; break; }
     if (!spec) {
-        fprintf(stderr, "ERROR: [kc-g] --f1-pairs %d has no group-closed orbit union; "
-                "supported: 9,13,16,18,19,21,22,24,25,27,28,31\n", npairs);
+        f1c5_fprint_unsupported_npairs(stderr, "kc-g", npairs);
         return -1;
     }
     if (f1_parse_subset(spec, pl, n_out, start_out) != 0) return -1;
@@ -24577,7 +24709,7 @@ static void kc_h_arr_check(const int *s, KcArrRes *r) {
     for (int v = 0; v < 64; v++) cd += labs((long)pos[v] - (long)pos[v ^ 63]);
     r->c3_value = (int)cd;
     r->c3 = (cd <= 776);
-    /* C4: s0 = 63 (Creative), s1 = 0 (Receptive) */
+    /* C4: s0 = 63 (all-yang, KW hexagram 1), s1 = 0 (all-yin, KW hexagram 2) */
     r->c4 = (s[0] == 63 && s[1] == 0);
     /* C5: distance multiset == KW's */
     r->c5 = (memcmp(r->dist, kwd, sizeof(kwd)) == 0);
@@ -34741,16 +34873,19 @@ int main(int argc, char *argv[]) {
          *      a reference fingerprint is present in $SOLVE_REFERENCE_FINGERPRINT)
          *
          * Why: cheap pre-flight gate before $100+ canonical campaigns.
-         * 11.2T gate at $5/5h catches host-environment drift that would
-         * invalidate a 560T campaign at $200+/5days. See
+         * 11.2T gate at $5/5h catches a wrong build or a wrong per-cell budget
+         * before it would invalidate a 560T campaign at $200+/5days. See
          * x/roae/TASK_110_CANONICAL_DETERMINISM_HARDENING_ROADMAP_2026_05_27.md.
          *
          * Scale recommendations:
-         *   - 1T:    fast (~30 min), drift-sensitive — catches host-env
-         *            drift cheapest, but reference sha is host-specific.
-         *   - 11.2T: slower (~5h), drift-robust — recommended for
-         *            pre-560T validation. Reference reproducible across
-         *            host-env variants we've tested.
+         *   - 1T:    fast (~30 min) — the cheapest check that a build
+         *            reproduces a published anchor. Its reference sha is NOT
+         *            host-specific (corrected 2026-09-04): the two published 1T
+         *            values are two per-cell budgets, and this tool injects the
+         *            published one, so it validates against 5a0f0bc2.
+         *   - 11.2T: slower (~5h) — recommended for pre-560T validation.
+         *            Eight independent build/host paths reproduce it
+         *            byte-identically, including an ARM Neoverse-N2 rebuild.
          *   - 100T:  overkill for routine; reserve for "the campaign
          *            costs $200+ so I'll pay $15 to be sure."
          */
@@ -34822,7 +34957,15 @@ int main(int argc, char *argv[]) {
          * CANONICAL_RECIPES table — NOT the NODE_LIMIT-derived value. Deriving (the prior
          * behavior) diverges from the empirical PSB at 11.2T+ and produced a wrong sha
          * (11.2T measured 2184bdd8 vs anchor 0c0fe37c; derived 70723144 ≠ published 70723196).
-         * The canonical launchers + CANONICAL_HASHES.md both set this explicit PSB. */
+         * The canonical launchers + CANONICAL_HASHES.md both set this explicit PSB.
+         *
+         * 2026-09-04: the SAME derived-vs-published divergence existed at 1T from the start.
+         * The row the registry called the "Active" 1T anchor, 74d39760, was only ever produced
+         * by the derived budget 6314566; the published-recipe value is 5a0f0bc2 (6315458).
+         * So this fix CHANGED WHICH 1T VALUE THIS TOOL CAN PRODUCE, and from 2026-06-17 to
+         * 2026-09-04 the project's gate scripts still named 74d39760 as the expected 1T sha —
+         * a gate that could not pass. Gate scripts must take the expected sha from the
+         * registry (CANONICAL_HASHES.md "d3 1T - published recipe"), never from a literal. */
         long long canon_psb = canonical_psb_for_label(scale_label);
         if (canon_psb <= 0) {
             fprintf(stderr, "[--validate-canonical] ERROR: no published PSB for scale '%s' in CANONICAL_RECIPES\n", scale_label);
@@ -34859,7 +35002,8 @@ int main(int argc, char *argv[]) {
          * gzip-compressed (SOLVE_COMPRESS default on); sha256_of_logical() decompresses by magic
          * byte (file_is_gzip) so the sha is computed on LOGICAL content and matches the canonical
          * anchor. Hashing the gz container directly was a FALSE MISMATCH the 1T gz ladder caught
-         * (gzA measured the container sha f5dfe17f instead of 74d39760). DFS-neutral: validation
+         * (gzA measured the container sha f5dfe17f instead of the 74d39760 that pre-fix run
+ * expected — the expected value of THAT run, not the published-recipe 1T anchor 5a0f0bc2). DFS-neutral: validation
          * path only, never touches the enum — the enum output sha is unchanged. (tool null-guard
          * above stays as the early "sha256 tool available?" check.) */
         char sol_path[4096];
@@ -34895,29 +35039,37 @@ int main(int argc, char *argv[]) {
 
         if (match) {
             printf("\n[--validate-canonical] PASS — %s sha matches expected anchor.\n", scale_label);
-            printf("                       Host environment is within drift-tolerance for this scale.\n");
+            printf("                       Expected sha reproduced at the published per-cell budget.\n");
             printf("                       Safe to launch larger canonical campaigns.\n");
             return 0;
         }
         fprintf(stderr, "\n[--validate-canonical] FAIL — sha mismatch.\n");
         fprintf(stderr, "    Expected: %s\n", expected_sha);
         fprintf(stderr, "    Got:      %s\n", actual_sha);
-        fprintf(stderr, "    Possible causes:\n");
-        fprintf(stderr, "      (a) Host environment differs from canonical reference (gcc/glibc/kernel/\n");
-        fprintf(stderr, "          CPU/microcode patch deltas). At %s scale this can flip sha via the\n", scale_label);
-        fprintf(stderr, "          BUDGETED-cell-density mechanism documented in\n");
+        fprintf(stderr, "    Possible causes, most likely first:\n");
         /* 🔴 CORRECTED 2026-09-03 (comment/string only, sha-neutral). This printed
          * "x/roae/TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md" -- a roae-private path,
          * emitted to stderr by the PUBLIC binary, so a reader hitting this error was sent
-         * to a file they cannot obtain. The mechanism is documented publicly:
-         * CANONICAL_HASHES.md "Note on the 1T-vs-11.2T drift gap" (:251) and
-         * documentation/HISTORY.md "May 27/28, 2026 UTC -- Task #110" (:4558). */
-        fprintf(stderr, "          CANONICAL_HASHES.md, \"Note on the 1T-vs-11.2T drift gap\". Try a higher\n");
-        fprintf(stderr, "          scale (11.2T or 100T) which is more drift-resistant.\n");
+         * to a file they cannot obtain.
+         * 🔴 CORRECTED AGAIN 2026-09-04. The replacement pointer sent the reader to
+         * CANONICAL_HASHES.md's "Note on the 1T-vs-11.2T drift gap" -- a note RETRACTED on
+         * 2026-09-04, because the 1T pair it explains is two per-cell budgets, not a host
+         * effect (CANONICAL_HASHES.md "d3 1T"; CORRECTIONS.md 2026-09-04). The old cause
+         * ordering also led with host environment, which is what let three real mismatches
+         * be waved through as drift; host environment is now cause (c) and is labelled a
+         * finding to characterise rather than a tolerance. "Try a higher scale which is more
+         * drift-resistant" is deleted with the premise it rested on. */
+        fprintf(stderr, "      (a) The expected sha is stale, or is the wrong row for this recipe.\n");
+        fprintf(stderr, "          CANONICAL_HASHES.md lists the published-recipe anchor per scale.\n");
+        fprintf(stderr, "          At 1T that is the row marked Active; the auto-divided-budget 1T\n");
+        fprintf(stderr, "          value is NOT what this tool produces -- it injects the published\n");
+        fprintf(stderr, "          per-cell budget (printed above), never a derived one.\n");
         fprintf(stderr, "      (b) solve.c source has regressed since the anchor was set. Run --selftest\n");
         fprintf(stderr, "          to confirm binary correctness.\n");
-        fprintf(stderr, "      (c) The expected sha is stale (canonical re-anchored on a different\n");
-        fprintf(stderr, "          binary). Check CANONICAL_HASHES.md for the current anchor.\n");
+        fprintf(stderr, "      (c) Host/toolchain outside the documented class (gcc/glibc/kernel/CPU/\n");
+        fprintf(stderr, "          microcode; fingerprint above). No such drift is on this project's\n");
+        fprintf(stderr, "          record as of 2026-09-04 -- treat it as a finding to characterise,\n");
+        fprintf(stderr, "          not as a tolerance to grant.\n");
         return 33;
     } else if (argc > 1 && strcmp(argv[1], "--preflight") == 0) {
         /* In-process pre-flight aggregator (task #63/#64 follow-up, 2026-05-28).
@@ -35903,7 +36055,10 @@ int main(int argc, char *argv[]) {
         if (f1c5_argerr) {
             fprintf(stderr, "Usage: solve --f1-exact-c1c2c4c5 [--f1-pairs N] "
                     "[--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers]\n"
-                    "  N in {9,13,16,18,19,24,25,27,28,31} — group-closed pair-orbit unions "
+                    "  N in {");
+            f1c5_fprint_npairs_domain(stderr, 0, 1);   /* printed, never typed -- see the
+                                                        * printer's header for why */
+            fprintf(stderr, "} — group-closed pair-orbit unions "
                     "(default 31 = full run, KW budget)\n"
                     "  --f1-out-of-core DIR (#221): at most one layer in RAM; layer k streams "
                     "from DIR via bucketed sequential reads\n"
@@ -36010,7 +36165,9 @@ int main(int argc, char *argv[]) {
                     "  Default base C1&C2&C4: the G<=95 cumulative = exact |C1&C2&C3&C4|.\n"
                     "  --with-c5: keep the C5 residual (rung-gate base; totals = #217 rung counts)\n"
                     "  --no-c2:   drop the C2 adjacency test (C1&C4 null-distribution gate base)\n"
-                    "  N in {9,13,16,18,19,24,25,27,28,31} — group-closed pair-orbit unions "
+                    "  N in {");
+            f1c5_fprint_npairs_domain(stderr, 0, 1);
+            fprintf(stderr, "} — group-closed pair-orbit unions "
                     "(default 31 = full run)\n");
             return 2;
         }

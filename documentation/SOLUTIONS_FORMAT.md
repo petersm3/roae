@@ -68,10 +68,16 @@ sets it — `SOLVE_NODE_LIMIT` does not affect the output at all
 only through auto-divide, i.e. when no explicit per-sub-branch limit is given.]** and is
 reproducible across runs,
 machines, and years **within the tested toolchain class documented in
-[DEVELOPMENT.md](DEVELOPMENT.md)** — that scope is not decoration: a
-host-level drift event is on the record ([TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md)),
+[DEVELOPMENT.md](DEVELOPMENT.md)** — that scope is not decoration:
+byte-exactness has been demonstrated only *within* that class
+([TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) §"Scope of the reproducibility claim"),
 and the 100B anchors are build-recipe specific
-([CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
+([CANONICAL_HASHES.md](CANONICAL_HASHES.md)). ⚠ **[CORRECTED 2026-09-04 —
+this read "a host-level drift event is on the record ([TR-3])". The 1T event
+TR-3 cited was a per-cell-budget difference, not a host-level one, and TR-3's
+citation is withdrawn; the scope qualifier stands as a statement of tested
+scope. See [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair
+was two per-cell budgets".]**
 
 ⚠ **[CORRECTED 2026-09-01 — the sentence above wrote the hash as a
 function of the file `solutions.bin` rather than of that file's logical

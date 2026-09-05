@@ -131,8 +131,16 @@ a defect.
 | `order` | `O3` \| `REL` | which total order the rank refers to — **mandatory, never dropped** |
 | `walk` | string | `entry,exit,…` (62 integers at full-31), the unranked walk |
 | `edit_dist_kw` … `fft_peak_amplitude` | int / float | one column per battery observable, in the table order above |
+| `kw_<observable>` | int / float, **optional** | King Wen's value for that observable, constant down the grid — drawn as the horizontal reference line, never plotted as a panel of its own |
 
 One TSV per order; a spectrum mixing O3 and REL rows in one panel is a labelling error.
+
+The `kw_*` columns are optional **and they are the only way a reference line gets drawn**.
+`viz/` holds no analysis, so the renderer will not look King Wen's value up: a panel whose
+`kw_<observable>` column is absent is drawn with no reference line, and the figure's subtitle says
+how many panels carry one. A `kw_*` column that is *not* constant down the grid is refused as a
+labelling error rather than averaged. The King Wen column of the observable table above is the
+source those values are emitted from.
 
 ## Generation
 
@@ -156,8 +164,10 @@ check every point against `--kc-o3-rank` round-tripping. The n=9 world has no Ki
 covers the grid emitter's rank arithmetic and walk correctness, which is where the risk is.
 
 **TSV → figure:** `viz/report_figures.py` (`fig_tr12_kc_spectrum`) — small-multiples line/scatter of
-each observable against `x`, King Wen's value drawn as a horizontal reference line where the
-observable has one. TSV in, figure out; **no analysis logic in `viz/`**.
+each observable against `x`, King Wen's value drawn as a horizontal reference line **for each
+observable whose `kw_<observable>` column the TSV supplies** (see the schema below). Where that
+column is absent the panel has no reference line: the renderer will not invent one, because there is
+**no analysis logic in `viz/`**. TSV in, figure out.
 
 ## How to read it
 

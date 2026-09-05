@@ -165,6 +165,17 @@ explicit.
    cost is **underived** in the same sense as fn⁶'s ~20.6: no computation producing it is on record
    (`prior_art_check.sh 'Schulz rule text statement cost 10-15 bits derivation'` → `PRIOR_ART=NONE`). It is retained,
    so labelled, because the row's verdict is insensitive to it across the whole bracket.
+
+   > **Access boundary — `prior_art_check.sh`.** The two `PRIOR_ART=NONE` verdicts above support an
+   > *absence* claim, and **an outside reader cannot reproduce either.** The script is
+   > `roae-private/scripts/prior_art_check.sh` and its stated surface is only half public: the
+   > `roae *.md` leg and this repository's `git log -S` are fetchable and re-searchable with any
+   > grep; the `roae-private *.md, *.tsv, codex_transcripts/` legs are in a private staging
+   > repository that is **not publicly accessible**, and that half is operator-attested. The private
+   > half can only weaken a negative (by holding a derivation we then failed to report), never
+   > strengthen it, and both cells here are already labelled *underived* with verdicts stated as
+   > insensitive across the whole bracket — so nothing in this ledger rests on it. Fuller statement:
+   > [DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) §"Access boundary".
 3. **Reading the ledger, row by row.** **C1** is where nearly all the explanation lives: 146.3 bits of
    compression, and its statement cost collapsed in 2026 — Radisic (arXiv:2601.07175 — an unrefereed
    preprint; the ledger leans on the machine verification, not on refereeing — his Lean 4 + Mathlib

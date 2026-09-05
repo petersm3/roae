@@ -756,7 +756,11 @@ def fig_tr12_kc_spectrum(tsv):
     rows = _read_tsv(tsv, required=("i", "rank", "x", "order"))
     _check_grid(rows, ("i",), tsv)
     skip = {"i", "rank", "x", "order", "walk"}
-    obs = [c for c in rows[0] if c not in skip]
+    # `kw_<observable>` carries King Wen's value for that observable and is a
+    # REFERENCE LINE, not a panel of its own.  viz/ holds no analysis: the value
+    # arrives in the TSV from the emitter, and where the column is absent the
+    # panel simply has no reference line -- it is never invented here.
+    obs = [c for c in rows[0] if c not in skip and not c.startswith("kw_")]
     orders = sorted({r["order"] for r in rows})
     if len(orders) > 1:
         print(f"SKIP V3 spectrum: {tsv} mixes orders {orders} — one TSV per order "
@@ -783,16 +787,32 @@ def fig_tr12_kc_spectrum(tsv):
     ncol = 3
     nrow = (len(obs) + ncol - 1) // ncol
     fig, axes = plt.subplots(nrow, ncol, figsize=(13, 2.6 * nrow), dpi=150, squeeze=False)
+    marked = 0
     for idx, name in enumerate(obs):
         a = axes[idx // ncol][idx % ncol]
         a.plot(x, [float(r[name]) for r in rows], ".", ms=2, color="#1f77b4")
-        a.set_title(name, fontsize=9)
+        # viz_kc_spectrum.md: King Wen's value for the observable, drawn as a
+        # horizontal reference line WHERE THE TSV SUPPLIES ONE (`kw_<name>`).
+        ref = "kw_" + name
+        if ref in rows[0]:
+            vals = {r[ref] for r in rows}
+            if len(vals) != 1:
+                print(f"SKIP V3 spectrum: {tsv} column {ref} is King Wen's value for "
+                      f"{name} and must be constant down the grid; got {len(vals)} "
+                      f"distinct values -- that is a labelling error, not a spectrum")
+                return False
+            a.axhline(float(vals.pop()), color="#d62728", ls="--", lw=1.0)
+            marked += 1
+        a.set_title(name + (" (— King Wen)" if ref in rows[0] else ""), fontsize=9)
         a.grid(True, ls=":", alpha=0.4)
         a.tick_params(labelsize=7)
     for idx in range(len(obs), nrow * ncol):
         axes[idx // ncol][idx % ncol].axis("off")
     fig.suptitle(f"V3 — rank spectrum in {orders[0]} order: observable drift across the "
                  f"index (x = rank / N)"
+                 + (f"   [{marked}/{len(obs)} panel(s) carry King Wen's value as a dashed "
+                    f"reference line]" if marked else
+                    "   [no kw_* reference values in this TSV — no King Wen line drawn]")
                  + (f"   [{len(const)} constant observable(s) dropped]" if const else ""),
                  fontsize=12)
     fig.tight_layout()

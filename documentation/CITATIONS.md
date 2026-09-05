@@ -733,6 +733,35 @@ enumerates that space, or proves a ceiling on it.
   recorded here, which arrived incidentally. A disclosed gap remains: 張行成《易通變》卷三–四十 appears
   undigitised everywhere and is formally unchecked.)*
 
+<a id="yuyan"></a>
+- **Yu Yan 俞琰** (1258–1314). *Zhouyi jishuo* 《周易集說》, 周易上下經說; *Du Yi juyao* 《讀易舉要》 卷三–四.
+  文淵閣四庫全書本. Composition date of the passages cited **not determined** — he revised his *Yi* works
+  across c. 1284–1310s, and the only dating we hold is [Xie Xiangrong 2005](#xiexiangrong2005)'s label
+  「宋俞琰(1258–1314)」; it does not affect priority, since 朱元昇 precedes him on everything he states.
+  **Cited for one passage, held in print as quoted by Xie (2005, p. 19) from 上下經說:** 「卦有對體，有覆體。
+  何謂覆體？屯倒轉為蒙、需倒轉為訟之類是也。何謂對體？乾、坤、坎、離、頤、大過、中孚、小過相對而不可覆者是也。餘皆一卦倒轉
+  為兩卦。故上經卦三十，約之則十八；下經卦三十四，約之亦十八。」 — both line operations named (對體 = complement, 覆體 =
+  reversal), the exact eight non-reversible hexagrams, and the 18 + 18 count of figures per canon. All three
+  were checked against this repository's own bit operations on 2026-08-20: the eight are KW {1, 2, 27, 28, 29,
+  30, 61, 62}; the upper canon's 30 hexagrams condense to 18 figures and the lower's 34 to 18, exactly.
+  **What he does not do — and this is why he is cited, not ceded to.** The two relations sit side by side and
+  are never composed: 「反體覆體皆原於先天圖卦位之相對」 (周易集說, transcribed 2026-08-16 from two online
+  transcriptions — ctext and 維基文庫 — in one pass, not re-inspected) grounds both in 先天圖 position; there is
+  no quadruple, no orbit, and no count of arrangements. He fails the composition test that
+  [朱元昇](#zhuyuansheng) passes (see [HISTORY.md](HISTORY.md), 2026-08-16/29 entry). Nothing he states is his
+  first: the eight-list is [孔穎達](#kongyingda)'s (648), the 18 : 18 count belongs to the 張行成/朱熹 lineage
+  ([Shao Yong](#shaoyong) for the 8 + 28 = 36 count), and the joint decomposition to
+  [朱元昇](#zhuyuansheng)/[吳澄](#wucheng). He does precede this project on the restatement of all three, which
+  is the priority [HISTORY.md](HISTORY.md) records. Two further data points, both second-hand: 讀易舉要 卷四 on
+  頤大過互乾坤 / 中孚小過互大坎 reads 互 as nuclear trigrams, not reversal (cited by Li Shangxin 1999, his ref [13];
+  an earlier reading of it here as 互覆 was corrected on audit), and 讀易舉要 卷三 rejects the 革 = 49 / 大衍
+  correspondence 「此皆傅會耳，聖人作《易》果如是乎？」 (per [Li Shangxin 2000](#lishangxin2000), p. 58). Counts
+  nothing. *(Added 2026-09-05. Flagged on 2026-08-16 as "orbit-adjacent classical prior art we do not currently
+  cite anywhere", re-flagged 2026-08-20, named in HISTORY.md from 2026-08-29 — and without an entry here until
+  this date.)* [NOT obtained as a text; the 上下經說 passage held in print via 謝向榮 2005 p. 19 and verified
+  arithmetically 2026-08-20; 周易集說 read once online 2026-08-16, NOT in full; 讀易舉要 卷三–四 known through
+  李尚信 1999/2000 only]
+
 <a id="cuishu"></a>
 - **Cui Shu 崔述** (1740–1816). "Yi gua ci tu shuo" 〈易卦次圖說〉, in *Yi gua tu shuo* 《易卦圖說》
   (one of three essays therein); in 《崔東壁先生遺書》 / 《崔東壁遺書》. Editions: 陳履和 東陽 printing,
@@ -793,6 +822,111 @@ enumerates that space, or proves a ceiling on it.
   「上經何以三十卦也？下經何以三十四卦也？」 and the grouping by line operations is its core. Our earlier
   note giving an "1817 woodblock" is corrected to the 1824 colophon.)* [read from the print 2026-08-16]
 
+<a id="ma2001"></a>
+- **Ma Chengyuan 馬承源** (ed.) (2001). *Shanghai bowuguan cang Zhanguo Chu zhushu (yi)* 《上海博物館藏戰國楚竹書
+  （一）》 [Warring States Chu bamboo manuscripts in the Shanghai Museum, vol. 1]. Shanghai: Shanghai Guji
+  Chubanshe, Nov 2001 (2001年11月第1版, 第1次印刷). ISBN 7-5325-3014-0. Contents: 序 (陳燮君), 前言 (馬承源), 凡例,
+  colour plates, and 釋文考釋 for 孔子詩論 (馬承源), 緇衣 (陳佩芬, pp. 169–214), 性情論 (濮茅左, pp. 215–301).
+  Cited for its **凡例** — the series' editorial conventions, published once, here, and never restated (vol 2,
+  Dec 2002, carries no 序, 前言 or 凡例; none is recorded for vol 3). Four items bear on the manuscript-symbol
+  literature. **Item 二:** every slip is published as a 3.65× enlarged 彩色圖版 — colour plates are house practice
+  from 2001, so an absence of red on a vol 1 or vol 2 plate is an absence in the printed artefact, not a print
+  limitation. **Item 七:** the 釋文 reproduces 「重文符、合文符、墨釘、墨節、墨鈎等墨標符」 as they stand — 墨釘 is the
+  series' own category for ink-blob marks, so [Kondō 2005](#kondo2005)'s 「所謂的墨釘符號」 for the 周易's head and
+  tail marks invokes a house category, not an outside one; every term in that vocabulary is 墨- (black), and red is
+  not anticipated by it even though the 序 in the same volume already mentions 紅. **Item 六:** securely restored
+  characters are set inside black rectangles — a restoration marker that any tally of "black boxes" in a 釋文 must
+  exclude. **Item 十:** 「本書分別邀請不同的作者注釋，個別文字…未作統一」 — non-uniformity between annotators is explicit,
+  so one editor's apparatus can be his own inside the house frame. The 前言 gives the acquisition history (Hong Kong,
+  1994; 1,200+ slips; 「執筆者有十餘人」) and an AMS date printed only as 「戰國晚期」, with no number.
+  **Scope of our reading:** the front matter in full from photographs (序 4 pp., 前言 4 pp., 凡例 2 pp., 目錄, 版權頁),
+  one colour plate (a 排序圖版 of 孔子詩論), and pp. 169–176 and 215–220 (see [Chen Peifen 2001](#chenpeifen2001),
+  [Pu 2001](#pu2001)); the plates were paged by the operator for red pigment, not measured. Cited for these pages
+  and for the conventions only. *(Added 2026-09-05.)* [front matter read in full from photographs 2026-09-04/05;
+  plates spot-checked by eye, not measured; the volume's 釋文考釋 NOT read beyond the pages named]
+
+<a id="chenxiejun2001"></a>
+- **Chen Xiejun 陳燮君** (2001). "Xu" 序 [Preface]. In [Ma Chengyuan (ed.), 上博（一）](#ma2001), 序 pp. 1–4
+  (separately paginated), Nov 2001.
+  A museum director's preface surveying the collection. Its paragraph on the 周易 (p. 2) is **the earliest dated
+  print statement in our record of the red/black apparatus and of its interpretation**: 「竹簡中所出現的紅、黑六種標號，
+  爲歷史文獻中首見。這些標號反映了陰陽轉換、互爲因果的易學理論」 — six forms, a first-in-the-record claim, and the
+  陰陽 reading, two years before [Pu 2003](#pu2003) 附錄二. The same paragraph gives 58 slips, ~1,800 characters, 44 cm,
+  three cords and 「三十五卦」 (the 2003 count is 34; the discrepancy is not resolved here), and attributes 恆先 to the
+  周易's scribe (「書體和《周易》相同，當爲同一人所書」).
+  **Three things this entry carries together, and they must not be separated.** *(i) Earliest in our record, not
+  established as earliest published.* [Chen Renren 2005](#chenrenren2005)'s footnotes name pre-publication items we
+  do not hold — 廖名春, *Zhouyi yanjiu* 2000(3), written from the two exhibited slips 豫 and 大畜 (which carry a black
+  block and a bare 匚, not the six forms), and 文匯報 reportage of 1999-01-05/06, 1999-01-14 and 2000-08-16 (施宣圓,
+  front page). The 1997–1999 items on the CUHK 睽 fragment cannot carry it: that fragment is mid-hexagram text, where
+  no symbol sits. *(ii) Not an independent witness.* 濮茅左 was already the 周易's editor in 2001 — his own 說明 in
+  this volume (p. 218) cites the 周易's hand, and 陳佩芬 (p. 174) cites a 周易 graph — so the 序's figures and reading
+  are the team's working results printed under the director's name. Treat 序 2001 and 濮 2003 as **one source
+  printed twice**: the interpretive frame first, the argument second. For a circularity audit that order matters —
+  the reading was public before the evidence for it was — but it is not a priority trophy for anyone. *(iii) The
+  same-hand line is downstream.* [Pu 2001](#pu2001), p. 218, attributes 性情論, 周易 and 恆先 to one hand; the 序
+  repeats the narrower pair and adds no method. Cite this entry for any dating of the interpretation or any
+  frame-before-argument statement; never as a second attestation of 濮. *(Added 2026-09-05.)*
+  [序 read in full from photographs 2026-09-04; the 1999–2000 items NOT obtained]
+
+<a id="pu2001"></a>
+- **Pu Maozuo 濮茅左** (2001). "Xingqing lun: shiwen kaoshi" 性情論 釋文考釋. In [上博（一）](#ma2001), pp. 215–301
+  (說明 pp. 217–219; 考釋 from p. 220).
+  The same editor's treatment of an ordinary text two years before the 周易, cited as **the baseline for what his
+  2003 apparatus adds**. The 說明 gives the census (1,256 characters, 重文 13, 合文 2, 40 slips + 5 fragments, ~57 cm),
+  a hand judgement (「書體工整、嚴謹，字距劃一」), a layout argument that slips 1, 40 and 41 were recopied in a second
+  pass, and one paragraph on the marks (p. 219): 「本篇墨標有三種：一、墨釘六十三個，這些墨釘功能相當於我們今天的句讀；二、
+  墨節六個，墨節用以標示章節、段落…；三、墨鈎一個，墨鈎下留白，表示整篇文章結束。但總體而言，使用界線還不是十分規範，句讀符也
+  時有脫漏」 — three house kinds, instance counts, one punctuational function each, an irregularity judgement. The
+  釋文 (p. 220) sets each 墨釘 as a silent black ■; the 考釋 does not mention them. Against this baseline, and against
+  [Pu 2002](#pu2002), his 2003 周易 說明 adds colour, composition from primitives, a glyph key, coined 首符/尾符, a
+  per-unit format, a novelty claim for the symbols, the 彩版爲準 disclaimer, a symbols appendix, a structural
+  hypothesis and per-symbol prose, and drops the counts and the irregularity judgement. What that licenses is one
+  sentence — the 周易 apparatus was unusual to its own editor; it is not evidence that his reading of it is right.
+  **Also the primary source of the same-hand attribution.** p. 218: 「屬此類書體的還有上海博物館所藏竹書《周易》、《恆先》，
+  當爲同一人書寫」 — a 書體-class judgement with no stated method, repeated in narrower form by the 序
+  ([Chen Xiejun 2001](#chenxiejun2001)), made routinely in this series ([Chen Peifen 2001](#chenpeifen2001) says the
+  same of 緇衣), and contradicted for the 周易 by [Fang Zhensan 2005](#fangzhensan2005)'s two hands. Not to be used as
+  a premise.
+  **Scope of our reading:** the 說明 (pp. 217–219) in full and the first 考釋 page (p. 220), from photographs;
+  pp. 221–301 not read. *(Added 2026-09-05.)* [說明 read in full 2026-09-05; 考釋 p. 220 only; pp. 221–301 NOT read]
+
+<a id="chenpeifen2001"></a>
+- **Chen Peifen 陳佩芬** (2001). "Ziyi: shiwen kaoshi" 緇衣 釋文考釋. In [上博（一）](#ma2001), pp. 169–214 (說明
+  pp. 171–173).
+  Cited as **the ordinary unit-marking baseline of the same volume, by a second editor.** Her marks paragraph
+  (p. 171): 「分章符，《緇衣》篇簡文均以「子曰」爲各章起首，在最末一字下設一墨釘，示該章結束，緊接下章簡文。本篇共有二十三章，
+  均有相同的分章符號」, with 重文符 and 合文符 as short strokes at the lower right. So: 23 chapter units, each closed by
+  a black 墨釘 with no 留白 after it, one hand (「由一人書寫，字體風格完全一致」), typeset as a silent black ■ (pp. 174,
+  176). Two consequences. The black ■ in a 釋文 of this series is house convention from 2001, used by both vol 1
+  editors and by her again in 2002 (昔者君老, 上博（二）p. 246), so a black ■ in the vol 3 周易 釋文 is not itself
+  evidence of anything unusual — what is new there is the red glyph and the 匚 composite. And 墨釘 is polysemous
+  inside the volume: her 墨釘 is a chapter closer, [Pu 2001](#pu2001)'s 墨釘 is 句讀 and his 墨節 the chapter mark — the
+  凡例's item 十 non-uniformity at the level of vocabulary, which is why [Kondō 2005](#kondo2005)'s 「所謂的墨釘符號」
+  names a shape-class, not a function. (In this volume 墨鈎 is the end-of-text mark; her chapter closer is not one.)
+  She also cites a 上博 周易 graph on p. 174 (「上博簡《周易》篇作『𢈘』」) — the 周易 was being read closely by the team
+  in Nov 2001.
+  **Scope of our reading:** the 說明 (pp. 171–173) and the first 考釋 pages (pp. 174–176), from photographs; the rest
+  of the chapter — including whether the final slip carries a 篇尾 mark — not read. *(Added 2026-09-05.)*
+  [說明 and pp. 174–176 read in full 2026-09-05; pp. 177–214 NOT read]
+
+<a id="pu2002"></a>
+- **Pu Maozuo 濮茅左** (2002). "Min zhi fumu: shiwen kaoshi" 民之父母 釋文考釋. In Ma Chengyuan 馬承源 (ed.),
+  *Shanghai bowuguan cang Zhanguo Chu zhushu (er)* 《上海博物館藏戰國楚竹書（二）》 [vol. 2]. Shanghai: Shanghai Guji
+  Chubanshe, Dec 2002; from p. 149 (說明 pp. 151–153).
+  **The midpoint between [Pu 2001](#pu2001) and [Pu 2003](#pu2003)**, read as the falsifier of the "reaction"
+  reading of his 2003 apparatus: had this 說明 already carried the 2003 moves, that apparatus would be an editor's
+  method maturing, not a response to the 周易. It does not carry them. The 說明 keeps the 2001 frame — census
+  (14 slips, 397 characters, 重文 3, 合文 6), cord and margin metrics, a hand description (「書寫端正，運筆頗具特色，橫多
+  露鋒…」), a scribal-error note (slip 11), a four-way comparison with 禮記·孔子閒居 and 孔子家語·論禮 — and describes
+  the text's one mark in the house term: 「篇尾有墨鈎，墨鈎下全部留白」 (p. 151). Nine of the eleven 2003 moves have no
+  counterpart; one — a dedicated 附錄 — is present as a device (「參見本篇《附錄》」, p. 152, on the 「五起」 order, a
+  textual subject), so the 2003 symbols appendix is a house device turned to a new subject; one — per-slip 考釋
+  prose — is unchecked (p. 154 not photographed). His novelty rhetoric is habitual here too (「秦『焚書』之前…原序」), so
+  what is new in 2003 is its object, not the register. No same-hand claim is made or repeated for this text.
+  **Scope of our reading:** the 說明 (pp. 151–153) in full from photographs; the 考釋 and the 附錄 not held.
+  *(Added 2026-09-05.)* [說明 read in full 2026-09-05; 考釋 and 附錄 NOT held]
+
 <a id="pu2003"></a>
 - **Ma Chengyuan 馬承源** (ed.), **Pu Maozuo 濮茅左** (transcription and commentary) (2003).
   *Shanghai bowuguan cang Zhanguo Chu zhushu (san)* 《上海博物館藏戰國楚竹書（三）》
@@ -800,7 +934,14 @@ enumerates that space, or proves a ceiling on it.
   Chubanshe. ISBN 7-5325-3637-8.
   Publishes the **earliest known *Zhouyi* manuscript** (c. 300 BCE): 58 bamboo slips covering 34 of
   the 64 hexagrams. Its distinctive feature is a set of red and black symbols at the head and tail
-  of each hexagram unit — Pu's terms 首符 / 尾符, six forms, three simple and three nested. In
+  of each hexagram unit — Pu's terms 首符 / 尾符 — which he counts as six forms (p. 251, 「其形式有六種」;
+  說明 p. 134: 红■, 黑■ and a bare 黑匚, and three composites of block, small block and bracket in the
+  two pigments). **That count is a classification choice, not a settled fact of the manuscript:**
+  [Li Shangxin 2004](#lishangxin2004) reaches seven, reading one faded exemplar as a distinct form, and
+  [Fang Zhensan 2005](#fangzhensan2005) eight (两类八种), with the only complete 64-row table; Fang also
+  showed that the 58 slips are in two hands (13 + 45), so the symbol data come from two copies. *(Count
+  attributed and the competing counts added 2026-09-05 — this sentence formerly gave Pu's six as if it
+  were settled; see [CORRECTIONS.md](CORRECTIONS.md), 2026-09-05.)* In
   附錄二 (pp. 251–260) he argues the symbol class is **invariant under 綜 (reversal)** and gives a
   24 + 4 + 4 partition of the 64 into reversal pairs, complement pairs, and pairs that are both.
   **Two cessions and one limit, all of which bear on ROAE.** *(i)* The pair partition is not new to
@@ -812,10 +953,17 @@ enumerates that space, or proves a ceiling on it.
   philosophical (對立統一), not algebraic. *(iii)* **The published slip order is editorial, not
   evidence** — p. 135: 「又楚竹書《周易》尚不完整，**本篇卦序排列也暫按今本**」 ("since the Chu bamboo
   *Zhouyi* is incomplete, this volume's hexagram arrangement also provisionally follows the received
-  text"). The manuscript therefore supplies **no independent second ordering**.
+  text"). The manuscript therefore supplies **no independent second ordering**. Pu's proposed different
+  sequence was rejected in print within months by [Li Shangxin 2004](#lishangxin2004) — the symbol classes
+  sit inside the received 上/下篇, and Pu's own transitions follow the received order — and later by
+  [He Zeheng 2009](#hezeheng2009); the survey of the field ([Chen Renren 2005](#chenrenren2005), p. 26)
+  records Pu as the only proponent of a different order. *(Sentence added 2026-09-05.)*
   His invariance claim survives its first non-circular test — checked against only the symbols his
   per-slip 釋文考釋 reports as physically observed, excluding every entry 附錄二 reconstructs *from*
-  the invariance: **3 testable pairs, 3 agreements, 0 disagreements** (corrected 2026-09-03 from "9 testable pairs, 9 agreements" — see [CORRECTIONS.md](CORRECTIONS.md); the verifier held nine *number* pairs but no symbol value, and only three pairs have **both** symbols in the transcribed record: (39,40) 蹇·解, (47,48) 困·井, (55,56) 豐·旅. The other six lie in slips 1–27, not yet transcribed). That agreement is nonetheless
+  the invariance: **3 testable pairs, 3 agreements, 0 disagreements** (corrected 2026-09-03 from "9 testable pairs, 9 agreements" — see [CORRECTIONS.md](CORRECTIONS.md); the verifier held nine *number* pairs but no symbol value, and only three pairs have **both** symbols in the transcribed record: (39,40) 蹇·解, (47,48) 困·井, (55,56) 豐·旅. The other six lie in slips 1–27, not yet transcribed). The exclusion itself restates an objection
+  [王振復](#wangzhenfu2004) raised in December 2004 — that Pu's same-symbol conclusion was reached by
+  hypothesising the missing symbols — known to us only through [Chen Renren 2005](#chenrenren2005), p. 25;
+  his text is not held *(credit added 2026-09-05)*. That agreement is nonetheless
   **non-discriminating**, because King Wen seats every hexagram beside its own partner, so
   "respects reversal" and "constant on contiguous King Wen blocks" predict identically on every
   available observation. Reproduce with `python3 verify.py --check-kw-pair-adjacency` (reads no
@@ -823,6 +971,161 @@ enumerates that space, or proves a ceiling on it.
   See [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md). *(Added 2026-08-16 — volume obtained and
   read; the repo previously carried no citation to any excavated *Zhouyi* manuscript other than
   Mawangdui.)* [analyzed 2026-08-16]
+
+<a id="lishangxin2004"></a>
+- **Li Shangxin 李尚信** (2004). "Chu zhushu «Zhouyi» zhong de teshu fuhao yu guaxu wenti" 楚竹书《周易》中的特殊
+  符号与卦序问题 [The special symbols in the Chu bamboo *Zhouyi* and the question of the hexagram sequence].
+  *Zhouyi yanjiu* 周易研究 2004(3) 总65: 21–27 (文章编号 1003-3882(2004)03-0021-07; 收稿 2004-05-17). Reprinted,
+  retitled 楚竹书《周易》红黑符号与卦序问题, as ch. 3 of [Li 2008](#li2008) (so identified by Chen Renren 2013).
+  **The original publication of the argument that the manuscript's symbols point to the received order** — thesis
+  (§五): 「楚竹书卦序无疑是一个与今本卦序有关的卦序，而且极可能就是今本卦序」 — with five objections to [Pu's](#pu2003)
+  different sequence (pp. 24–25: the classes cluster inside the received 上/下篇 rather than scattering; Pu must move
+  his A-class to make the scheme work; his 阴阳变化 theory is implemented only by that move; the transition mechanics
+  fail at 颐; Pu keeps using the received order — 「这不是偶然的巧合」). Three things cited by this project's
+  manuscript-symbol notes, all from the page images. **(1) Delimiting is the floor, not the dispute** (p. 23):
+  「这些符号不只是用来标示一卦卦文的开始和结束，如果仅仅为了这一目的，有没有必要运用这么多种复杂的符号，而最多只需要两种就
+  够了」 — the marks' delimiting function is taken as given and the question is what the plurality of forms adds; the
+  paper is therefore not a witness for a "punctuation versus structure" dichotomy, which no author in this literature
+  holds. **(2) The form count is a classification choice.** He reaches **seven** forms against Pu's six by reading the
+  颐 head (slip 24, from the enlarged photograph at Pu 2003 p. 36) as a small black ■ overlaid on a large red ■ and the
+  颐 tail as the same form with the red fully faded; the seventh class rests on that one photo reading. His starting
+  point is that 「一般朱色更易色褪」, so Pu's readings are systematically uncertain; the fading *observations* (蒙, 师, 艮
+  tails) are Pu's own 考释 annotations, the fading-based *reclassifications* are his, and further instances are
+  [謝向榮 2005](#xiexiangrong2005)'s. **(3) Slip 49 (艮 tail) read red by size** (p. 23): bare 匚 are written small, enclosing 匚 large; 艮's
+  is large, 「故其中间当套有红色的「■」」 — a size regularity, not a pigment observation; his 图一 typesets the tail as
+  enclosing-red without marking the fade. His own count from 图一: 14 hexagrams with head = tail (excluding faded
+  cases), four differing 「如果将无妄亦算上」 — the reconstructed 艮 is inside the 14. Reads the symbols as a
+  developmental-stage narrative over the received order under three assignment principles (reversal partners share a
+  symbol; a self-reverse hexagram shares with its complement; the reversal pair's complement pair differs), and
+  argues the 非覆即变 idea is already present in the Warring-States artifact (p. 23) — an argument on the same
+  disputed evidence, not an attestation. Counts nothing. *(Added 2026-09-05.)* [read in full from 400 dpi page
+  images 2026-08-20; thesis re-verified against the extracted text 2026-09-03]
+
+<a id="jiangguanghui2004"></a>
+- **Jiang Guanghui 姜廣輝** (2004). "Shangbo cang Chu zhushu «Zhouyi» zhong teshu fuhao de yiyi" 上博藏楚竹書《周易》
+  中特殊符號的意義 [The meaning of the special symbols in the Shanghai Museum Chu bamboo *Zhouyi*]. 簡帛研究網,
+  2004-05-16 (so cited by [Chen Renren 2005](#chenrenren2005); 05-17 in [Wu Yong 2013](#wuyong2013)); also *Zhongguo
+  sixiangshi yanjiu tongxun* 中國思想史研究通訊 2 (June 2004): 15–17 (so cited by [He Zeheng 2009](#hezeheng2009),
+  fn. 4). **NOT HELD.** Known through 陳仁仁 2005 (p. 24), 何澤恆 2009 (p. 90), 吳勇 2013, and two sentences
+  transcribed on 2026-08-16 from a web mirror that was not preserved.
+  As reported: **the symbols are not part of the text** — 「它們並不是《周易》原有的，而是筮者爲了便於翻檢加上去的」
+  (陳仁仁's paraphrase) — finding-aids added by a diviner, 「就像今人在辭書中貼A、B、C、D一類標籤一樣」, and the editor
+  「將它們過多地聯繫到一起，可能把這些特殊符號的意義複雜化了」 (both from the mirror). He is reported to divide the
+  received order into seven segments by the symbols, with a caveat about the order of the upper segments that
+  陳仁仁's paraphrase renders inconsistently (「下經」 where the argument needs 「上經」) — not quotable without the
+  original. The earliest of the 2004–05 readings on which the marks' function is ordinary, and the published
+  position that they are a later user's aids rather than a designed structure. Cite as reported until obtained; do
+  not quote the segment structure. *(Added 2026-09-05.)* [NOT obtained; secondary via 陳仁仁 2005, 何澤恆 2009,
+  吳勇 2013; two sentences from an unpreserved mirror, 2026-08-16]
+
+<a id="wangzhenfu2004"></a>
+- **Wang Zhenfu 王振復** (2004). Remarks on 濮茅左's symbol argument at the 山東大學出土文獻學術研討會 (December 2004).
+  **NOT HELD — no text, title or proceedings volume obtained; known only through [Chen Renren 2005](#chenrenren2005),
+  p. 25, whose paraphrase is the sole source of everything here.** As reported: Pu's conclusion that paired hexagrams
+  share head and tail symbols is reached 「通过对一些残失符号作出假设」 — by hypothesising the symbols that are missing —
+  and carries 「有将周易思想现代化之嫌」; and on his own identifications 匚 does not occur only twice, so it cannot prove
+  a two-part division. Named in [HISTORY.md](HISTORY.md) (2026-08-16/29 entry) as having priority over this
+  project's impossibility argument and over its exclusion of the 附錄二 reconstructions from `verify.py`'s test.
+  The priority is his; the wording is 陳仁仁's; nothing here may be quoted as his own words. *(Added 2026-09-05 —
+  the HISTORY.md entry that names him had, until this date, no entry here to point to.)* [NOT obtained; secondary
+  via 陳仁仁 2005 p. 25 only]
+
+<a id="xiejinliang2004"></a>
+- **Xie Jinliang 謝金良** (2004). Remarks on the manuscript's symbols at the same 山東大學出土文獻學術研討會 (December
+  2004). **NOT HELD — no text, title or proceedings volume obtained; known only through
+  [Chen Renren 2005](#chenrenren2005), p. 25.** As reported: he proposed several possible combinations of the symbols
+  and the questions each raises, but had to concede that, the manuscript being incomplete, the surviving symbols
+  「排列构不成有机的系统，即使似乎有规律可寻，但却很难知其然再知其所以然」 — form no organic system, and where a
+  regularity seems visible its reason cannot be known. Named in [HISTORY.md](HISTORY.md) (2026-08-16/29 entry) as
+  having priority over this project's impossibility argument. The priority is his; the wording is 陳仁仁's; nothing
+  here may be quoted as his own words. *(Added 2026-09-05 — the HISTORY.md entry that names him had, until this
+  date, no entry here to point to.)* [NOT obtained; secondary via 陳仁仁 2005 p. 25 only]
+
+<a id="chenrenren2005"></a>
+- **Chen Renren 陈仁仁** (2005). "Shanghai bowuguan cang Zhanguo Chu zhushu «Zhouyi» yanjiu zongshu" 上海博物馆藏
+  战国楚竹书《周易》研究综述 [A survey of research on the Shanghai Museum Warring States Chu bamboo *Zhouyi*].
+  *Zhouyi yanjiu* 周易研究 2005(2) 总70: 16–27 (文章编号 1003-3882(2005)02-0016-12; 收稿 2005-03-07; managing
+  editor for the piece: [Li Shangxin](#li2008), one of the three sequence positions it adjudicates).
+  The field survey to early 2005 (≈50 papers). **Records that the circularity objection to [Pu's](#pu2003) symbol
+  argument was raised in December 2004, before any of this project's work, by scholars whose texts we do not
+  hold**: [王振复](#wangzhenfu2004) (at the 山东大学出土文献学术研讨会, 2004-12) — Pu's conclusion that paired
+  hexagrams share head/tail symbols is reached 「通过对一些残失符号作出假设」, by hypothesising the missing symbols,
+  and on his own identifications 匚 does not occur only twice, so it cannot prove a two-part division (p. 25); and
+  [谢金良](#xiejinliang2004) (same conference) — the surviving symbols 「排列构不成有机的系统」 (p. 25). The
+  survey's own verdict: 由于楚竹书《周易》的不完整以及符号的模糊，我们似乎很难确证其卦序，包括如何分篇的问题等，都只能作
+  某种推测 (p. 25); of the three published reconstructions (Pu; 姜广辉; Li Shangxin) Pu's is the only different
+  sequence and 「卦序问题总是一种推测」 (p. 26). Also reports 李尚信's three symbol-assignment principles (p. 24,
+  from [Li 2004](#lishangxin2004)) and [姜广辉](#jiangguanghui2004)'s reading of the symbols as later
+  finding-aids (p. 24). **Cited here as the only source we hold for 王振复 2004 and 谢金良 2004**; the project's
+  exclusion of the 附錄二 reconstructions from `verify.py`'s test restates 王振复's objection, and is credited to
+  him through this paraphrase until the 2004 conference volume is obtained. *(Added 2026-09-05. Read privately
+  2026-08-16 and 2026-08-20; named in HISTORY.md from 2026-08-29; not cited here until now.)* [read in full
+  2026-08-20 (visual); the four passages quoted here re-verified against the PDF's text layer 2026-09-05; the
+  王振复 / 谢金良 originals NOT obtained]
+
+<a id="fangzhensan2005"></a>
+- **Fang Zhensan 房振三** (2005). "Zhushu «Zhouyi» caise fuhao chutan" 竹书《周易》彩色符号初探 [A preliminary study
+  of the coloured symbols of the bamboo *Zhouyi*]. *Zhouyi yanjiu* 周易研究 2005(4) 总72: 22–24 (文章编号
+  1003-3882(2005)04-0022-03; 收稿 2005-05-20; managing editor 李尚信, whose seven-form count the paper rejects).
+  Three pages that changed the evidential frame. **The 58 slips are in two hands** — 13 slips (第一类: 露锋行笔,
+  结体宽散; slips 1, 5, 8, 20–27, 37, 49) and 45 (第二类: 藏锋行笔, 结体整饬), on stroke evidence and on doublets (利,
+  涉, 不, 初 written differently on different slips) — so the manuscript is two copies and their symbol data
+  「不能再糅合在一起分析」 (p. 24). That contradicts the same-hand attribution of [Pu 2001](#pu2001) as stated and is
+  the basis of [He Zeheng 2009](#hezeheng2009) §五 and of Shaughnessy 2022 p. 444. **Eight forms** (两类八种, A–H:
+  红块 · 黑块 · 黑半框 · 红块上置小黑块 · 黑半框内红块填实 · 红半框内置小黑块 · 黑半框内置小红块 · 红块上置小黑半框),
+  lettered in order of first appearance 「为印刷和称引方便」, against Pu's six and Li's seven; and **a complete 64-row
+  首符/尾符 table** (p. 23) with ★ for hexagrams lying at least partly on hand-1 slips and ※ for a damaged or missing
+  symbol — the only complete, letter-coded, damage-flagged dataset in the literature (30 rows marked; his prose F-
+  and G-tallies do not match the table, and two 第一类 are printed where 第二类 is meant — recorded privately). What he
+  says the hands show: the form-classes are the same on both (「这些符号的形式虽与第[二]类符号相同，但其具体的形状却有
+  别」); what differs is execution (hand-1 symbols 荒率, 信笔由之) and usage — in hand 1 「同卦异符是常见现象」, head/tail
+  usage 并不严格, 无妄's first slip simply carries no symbol, and he 「颇疑」 the 蒙 and 师 tails never had one, against
+  Pu's 朱色褪. Within the 45-slip copy he reads the classes as 卦名分组 markers, hedged 「似可」, clustering on runs of
+  the received order (#5–8, #14–18, #32/33/38, #39–48, #49–56, #59/63) — the block reading this project's
+  [KING_WEN_PROVENANCE.md §6](KING_WEN_PROVENANCE.md) argument already covers. His closing position: pre-Qin
+  coloured-symbol practice was 不止一个系统, and every question tied to 今本卦序 「都有重新思考的必要，说详另文」.
+  ⚠ **One reading of his table is this project's, not his**: that classes C and D occur only on ★ rows and F and H
+  only on non-★ rows, and that every 同卦异符 case (Pu's 大畜, 咸, 颐; his 艮) lies in hand 1 while hand-2 hexagrams
+  have head = tail 11 of 11 — a tabulation we made from his p. 23 and his 13-slip list, not a sentence he wrote.
+  Cited for the hands, the eight forms and the table; his symbol evidence is the published volume, not autopsy of
+  the slips. Counts nothing. *(Added 2026-09-05. Named in HISTORY.md from 2026-08-29 — where an earlier
+  misreading of him is withdrawn — without an entry here until this date.)* [read in full 2026-08-16; table
+  transcribed twice independently, cell-identical, 2026-08-20; frame re-verified from the PDF's first page
+  2026-09-03]
+
+<a id="xiexiangrong2005"></a>
+- **Xie Xiangrong 謝向榮** (2005). "Shilun Chu zhushu «Zhouyi» hong-hei fuhao dui guaxu yu xiangshu de tonghe
+  yiyi" 試論楚竹書《周易》紅黑符號對卦序與象數的統合意義 [On the integrative significance of the red and black
+  symbols of the Chu bamboo *Zhouyi* for the hexagram sequence and image-number theory]. *Zhouyi yanjiu*
+  周易研究 2005(4) 總72: 10–21 (收稿 2005-05-06; the same issue as [Fang Zhensan 2005](#fangzhensan2005),
+  pp. 22–24). References [1]–[10] on p. 21; [11]–[32] continue on p. 32 (「上接第21頁」), recovered separately.
+  **The closest published work to this project's own symbol notes, and it pre-empts three things we had
+  treated as ours.** *(1)* He asserts the Warring-States attestation of the pairing rule outright — 結語:
+  「至少說明了"非覆即變"的思想，以及上下篇錯綜排序而各得十八卦形的原則，在戰國中後期已經形成」 — after
+  [Li Shangxin 2004](#lishangxin2004) (p. 23) had said the same. This project declines that claim because the
+  evidence cannot discriminate ([KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md)); it must also be said that the
+  claim would not be ours if it could. *(2)* He has **both degenerate classes, all eight, correctly separated**
+  (p. 17): 「四組具有互錯關係的不易卦（乾坤、頤大過、坎離、中孚小過）」 and 「四組同時互為相覆和相錯關係的特殊對應卦…
+  泰否、隨蠱、漸歸妹、既濟未濟」 — the categories credited in his 按-notes to [濮茅左](#pu2003) — and treats the
+  remaining 二十四組 (48 hexagrams) as the rest, observing that a hexagram's 相覆 partner and its 對卦 carry the
+  same symbol. That is the quadruple structure described in words on the artefact; no group language, no
+  orbit count. *(3)* **Colour fading as a systematic misreading hazard**: he argues that several published
+  symbol readings are artefacts of faded red (紅塊色褪 at the 漸 head, 旅 head, 需 tail, 艮 tail, among
+  others), endorsing and extending [Li Shangxin 2004](#lishangxin2004)'s argument — the fading reading and the
+  seventh form are Li's (p. 13: 「他[李尚信]懷疑頤卦的首尾符應該是…紅色方塊已然色褪」), the further instances and
+  reassignments are Xie's. This project's later instrumental measurement of the plates puts a number on an
+  argument that was in print in 2005; the measurement is new, the argument is not. He also maps
+  [Shao Yong](#shaoyong)'s 8 + 28 = 36 onto the received pair structure with 18 figures per canon, and
+  quotes [Yu Yan](#yuyan)'s 上下經說 verbatim (p. 19). **What he cites, checked on audit:** [吳澄](#wucheng)
+  twice (pp. 16, 18), both to 《易纂言外翼》 p. 5, the 〈卦統第一〉 純卦/合統 material; [崔述](#cuishu)'s 純/交
+  definitions (p. 18); 邵雍, 俞琰, 朱元昇, 王夫之, 朱熹, 韓康伯. **〈卦對第二〉, 二十對, 正對 and 平對 appear
+  nowhere in pp. 10–21**, so the cession of the orbit decomposition to 吳澄's 〈卦對第二〉 recorded in this file
+  is not pre-empted by him. He classifies, tabulates and interprets; **he does not count arrangements** — no
+  enumeration, bound, constraint system or orderings-of-the-64 statement anywhere. *(Added 2026-09-05. Read
+  2026-08-16 and named in HISTORY.md from 2026-08-29; cited in this file only in passing until this date.)*
+  [read in full 2026-08-16, audited the same day with four claims of that read corrected; key passages
+  (結語, the eight, the fading instances, the 俞琰 quotation) re-verified from the PDF's simplified-character
+  text layer 2026-09-05; journal p. 32 held via the following article]
 
 <a id="kondo2005"></a>
 - **Kondō Hiroyuki 近藤浩之** (2005). "Shanhai hakubutsukan zō Sengoku So chikusho *Shūeki* no
@@ -844,9 +1147,89 @@ enumerates that space, or proves a ceiling on it.
   four-element relation 「互為錯綜卦」. Kondō's significance is narrower and specific: he is the
   scholar who came closest to an orbit quotient **of the manuscript symbols** and consciously
   declined it.
+  **On the base function of the marks (added 2026-09-05).** §五 reads both marks as ordinary scribal punctuation
+  with a colour code laid over it: 「首先不應該忘了這兩處符號是所謂的墨釘符號」; the head mark's purpose 「是爲了區別卦辭和
+  卦名」; the tail mark 「起到墨釘的最一般的作用，表示段落的終結」, and in the 周易 additionally 「依據二色三層構造的圖案，來
+  表示那個卦所屬之宮」. 墨釘 is the series' own category ([上博（一）凡例 七](#ma2001)). His classification (【A】–【H】)
+  is made 「僅限於可以確認的符號」 from the 彩色圖版, independently of Pu's table, and reads the slip-48 艮 head and the
+  slip-49 tail both as 【Ｈ】(内紅、中空、外黑). This is the earliest held statement in print that the base function is
+  ordinary ([Jiang Guanghui 2004](#jiangguanghui2004), earlier, is held second-hand only). Consequence for this
+  project: "ordinary punctuation" and "dedicated apparatus" are not rival readings in this literature — they are floor
+  and superstructure — and any statement here that the marks are a structural apparatus must say so.
   *(Added 2026-08-16. Corrections welcome: this is a statement about our literature search, not a
-  novelty guarantee.)* [analyzed via the Chinese translation 2026-08-16; Japanese original not
-  obtained]
+  novelty guarantee.)* [analyzed via the Chinese translation 2026-08-16; read in full via the Chinese
+  translation 2026-09-04; Japanese original not obtained]
+
+<a id="sun-li2008"></a>
+- **Sun Weilong 孫偉龍 and Li Shoukui 李守奎** (2008). "Shangbo jian biaoshi fuhao wu ti" 上博簡標識符號五題 [Five
+  questions on the marking symbols of the Shanghai Museum slips]. 簡帛網 (武漢大學簡帛研究中心), posted 2008-10-14
+  (received 2008-10-10; 定稿 2007-11-01), `http://www.bsm.org.cn/?chujian/5088.html`. Grew out of the authors'
+  《上海博物館藏戰國楚竹書（1–5）文字編》 symbol inventory (國家社科基金 04BYY014).
+  **The corpus-wide caution that fixes how much a text-specific apparatus can prove.** Surveying the symbols of all
+  35 texts of vols 1–6 (their division; the editors' count would be 38, three editor-split pairs being merged), they
+  conclude: 「各篇標識符號的使用差別很大，雖有一定的「規律」，但這些「規律」僅限於同一種筆跡書寫的篇章內，在楚簡範圍內並不
+  具備規律的普適性。同一功能的標識符號，在不同篇目中用形體不同的符號來表示…同一種符號在不同的篇章中又可以表示不同的
+  內容」 — symbol conventions hold within one hand and vary between texts as the rule. For this project that is the
+  published reason a 周易-specific apparatus is the expected case, and so is consistent with a structural function
+  and equally with a scribe's own convention; uniqueness within the corpus does not discriminate. Ten functional
+  categories (卦畫 and 卦首尾標識符號 among them — 周易-only by construction, since the 周易 is the only 卦 text in
+  vols 1–6, so not independent confirmation of anything); 篇尾符 present in 23 (fn. 17: 22) of 35 texts and 章節符 in
+  10 of 35 — counts by presence, shape and position, with **no colour dimension**, so a control for shape and
+  frequency only and none for red/black. The one hexagram-mark passage (§五.3): the slip-48 艮 head mark is
+  「黑框內填朱」 (red interior — the source of the reading is unstated) and, because 艮 must be read twice (「艮。艮其背」),
+  「爲卦首符號兼表重文」 — a head mark doing ditto duty; the earliest such reading we can find, flagged by them as one
+  example (「因例證不多…尚可進一步討論」). Also: the ditto mark under 貞 on slip 53 is judged a scribal error, and the
+  咎 on slip 54 a supplied graph without a supplement mark. The preserved copy has lost every glyph image, so no
+  shape claim can be taken from it. Counts nothing about orderings. *(Added 2026-09-05.)* [read in full 2026-09-04
+  from the preserved HTML; glyph images lost]
+
+<a id="hezeheng2009"></a>
+- **He Zeheng 何澤恆** [journal romanisation Ho Chak-Hang] (2009). "Lun Shangbo Chu zhushu «Zhouyi» de yixue fuhao
+  yu guaxu — Pu zhu «Chu zhushu ‹Zhouyi› yanjiu» duhou" 論上博楚竹書《周易》的易學符號與卦序——濮著《楚竹書〈周易〉研究》讀後
+  [A discussion of the order of the hexagrams and symbols of the Shanghai Museum Chu bamboo manuscript of the
+  *Book of Changes* — a reflection on Pu Maozuo's *Research on the Chu Bamboo Manuscript of the Book of Changes*].
+  *Taida Zhongwen xuebao* 臺大中文學報 30 (June 2009): 69–94. Presented Nov 2007; received 2009-02-15.
+  **The principal published critique of [Pu's](#pu2003) alternative sequence, the nearest published predecessor of
+  this project's non-discrimination argument, and the source of the "private convention" reading of the marks.**
+  On the marks' nature (p. 90): 「這些符號是否如姜廣輝先生所推想，乃劃分「卦區」，以方便識別和翻查，今亦難爲論定。竊疑此等
+  符號殆出私訂，並非一般通行應用的符號」 — a copyist's private convention, not a current system; for this project, the
+  second published reason (with [Sun and Li 2008](#sun-li2008)) that a 周易-specific apparatus is what a scribe's own
+  convention looks like. Reads the slips 「逐卦將釋文與原影彩印圖版對讀」 (p. 75); accepts [Fang 2005](#fangzhensan2005)'s
+  two hands (p. 85, fn. 31, citing p. 22), subdivides the 13 slips into seven groups (pp. 86–87) while doubting the
+  "two 抄本" framing (鄙意以爲尚可商榷, p. 86), and finds that seven of his nine symbol anomalies fall on those 13
+  slips (「這不是有點巧合嗎？」, p. 89). On 艮: p. 83 — the head is 〔黑方紅丁〕 and the tail 〔黑方〕, 「若不硬是認定它是本來
+  內有紅丁而褪了色，也就不知如何爲說了」; p. 88 — slip 48 belongs to the 45-slip hand while slip 49 「字體懸殊，無疑別出一手」;
+  p. 89 — 《艮》尾符（簡四十九）：〔黑方〕, 「卻未見紅丁」. fn. 25 (p. 80): Pu's 「朱色褪」 readings of the 蒙 and 師 tails
+  are, on the plates, 缺寫未見, the same situation as 無妄's absent head, 「不應作兩種不同標準的鑑別」. On the sequence
+  (§三, pp. 78–81; §七, p. 92): Pu's different-sequence claim needs three assumptions — 非覆即變 pairing, 陰陽轉化
+  semantics, 諸簡一體 (one hand, one convention) — and the first 「實即源於今本之序，決不足以論定別有卦序」; only 需訟 and
+  謙豫 have all four head/tail symbols verifiable on the plates (p. 80), a stricter criterion than this project's;
+  treating the anomalies as copyist error, the 丁-forms fall in the received 上經 and the nested forms in the 下經
+  (咸–睽 8, 蹇–井 10, 革–未濟 16; p. 90), so 「簡本的卦序與今本相同的可能性恐怕還大一些」; conclusion 尚難推定先秦《周易》另有
+  與今本不同的卦序. Shaughnessy (2022, p. 444) calls it the most reasonable published analysis. **Distinct from, and
+  earlier than, [KING_WEN_PROVENANCE.md §6](KING_WEN_PROVENANCE.md):** He argues the pairing premise cannot yield a
+  sequence; this project adds that the observed symbol agreement cannot separate reversal-invariance from
+  block-constancy. Credited as the prior statement of the circularity, not of the block/reversal point. *(Added
+  2026-09-05; on our shelf, unread into the public record, when §6 shipped on 2026-08-16.)* [read in full from page
+  images 2026-09-03; symbol passages pp. 73–93 re-read 2026-09-04; the held PDF's text layer is empty]
+
+<a id="wuyong2013"></a>
+- **Wu Yong 吳勇** (2013). "Lun Chu zhushu «Zhouyi» zhi teshu fuhao" 论楚竹书《周易》之特殊符号 [On the special
+  symbols of the Chu bamboo *Zhouyi*]. *Huazhong xueshu* 华中学术 8: 63–72.
+  **A fourth reading of the marks' function, and a denial that they are special at all:** 「本文进一步认为，这些符号
+  并不特殊，其实就是分卷符号」 — volume-division marks, after Pu's 阴阳消长, [Li's](#lishangxin2004) 阴阳和合 and
+  [Jiang's](#jiangguanghui2004) finding-aids; for this project one more reading on which the base function is
+  ordinary. On 艮: accepts the head as 匚套以红■ (with 恒, 遁, 睽) and doubts Pu's tail — 「濮先生说艮卦「尾符为黑匚套以红■
+  （中红褪）」，实际中红完全看不出来，可能其实艮卦尾符就是黑匚吧」 — from the plates, overriding Pu on the same evidence.
+  Two further things cited here. (i) A third observational count: of the 30 hexagrams with any surviving symbol only
+  **19** have both head and tail intact, 「仅占四分之一多点」 of the 64 (p. 64). (ii) **An explicit statement of the
+  circularity**, applied to himself and to both predecessors: 「我以上的推测，仍然不得不建立在今本卦序的基础上…前提必须是楚
+  竹书《周易》确实是按照今本卦序来排列的，否则一切推测都不能成立」, noting that Pu's different-sequence reconstruction
+  「往往又不自觉地建立在今本卦序的基础上」 (p. 71). Cites 濮 2006, Li 2008 and 姜广辉 2004. Counts nothing. **Not read in
+  full:** the head, the §一 symbol table and its 说明, the 匚 and 艮 passages, the function argument and the
+  conclusion were read from the extracted text (about half the paper); the rest was not. *(Added 2026-09-05.)*
+  [read in part from the extracted text 2026-09-03 and 2026-09-04 — head, symbol table, 匚/艮/function passages,
+  conclusion; NOT read end to end]
 
 <a id="lishangxin2000"></a>
 - **Li Shangxin 李尚信** (2000). "Yinyang pingheng hubu yu biantong pei sishi" (陰陽平衡互補與變通配四時). *Zhouyi yanjiu* 周易研究 2000(3) 总45期: 51–60 **+ p.73**. Read in full 2026-08-20 (`FABLE_LI_SHANGXIN_2000_AUDIT_20260820.md`, roae-private — a private reading-audit note, not publicly accessible; the bibliographic facts stated here are checkable against the published article itself). Completes his 1999→2002 arc. ⚠ The 文章编号 suffix `-0051-10` counts only ten pages, so **p.73 — which carries the tail of the appended Q&A and the entire five-item reference list — is easily missed**. His arithmetic (the 当位 parity rule with exactly two exceptions, the A/B 28–20 yang mirror, the 13/25 tripartition) was independently recomputed and holds.
@@ -1873,14 +2256,74 @@ Waley, A. (1933). The Book of Changes. *Bulletin of the Museum of Far Eastern An
 Wilhelm, R. (1967). *The I Ching or Book of Changes* (C. F. Baynes, Trans.; 3rd ed.). Princeton
 University Press.
   🔴 **CORRECTED 2026-09-04 — this entry said "Hexagram names used throughout" and that was FALSE.**
-  A full sweep of every tracked `.md`/`.py`/`.c`/`.csv`/`.json`/`.txt` finds **zero** affirmative uses of a
-  Wilhelm–Baynes hexagram title. The single textual hit is `documentation/GUIDE.md:104`, which mentions
-  "The Creative" **only to say the project does not use it**: *"hexagram 1 is `Heaven over Heaven`, not
-  'The Creative'"*. The shipped data (`example/hexagrams.csv`, `.json`) carries a structural description
-  built from the two trigrams, plus trigram pinyin (Qian, Kun, Li, Dui …), which name the eight
-  three-line figures and are not hexagram titles. Nothing in this repository derives from, quotes, or
-  reproduces this translation. Retained as a standard bibliographic reference for the work itself.
-  [read, no data]
+  The **shipped data** (`example/hexagrams.csv`, `.json`) carries a structural description built from the
+  two trigrams, plus trigram pinyin (Qian, Kun, Li, Dui …), which name the eight three-line figures and
+  are not hexagram titles. No shipped artifact reproduces this translation. `documentation/GUIDE.md:104`
+  mentions "The Creative" **only to say the project does not use it**: *"hexagram 1 is `Heaven over
+  Heaven`, not 'The Creative'"*.
+
+  🔴 **NARROWED THE SAME DAY — one sentence of that correction claimed more than it measured, and the
+  distinction matters because this is a licensing-adjacent claim.** The sentence read: *"A full sweep of
+  every tracked `.md`/`.py`/`.c`/`.csv`/`.json`/`.txt` finds **zero** affirmative uses of a
+  Wilhelm–Baynes hexagram title. The single textual hit is `documentation/GUIDE.md:104` …"*. Both halves
+  are too strong for the search that was actually run.
+
+  **The distinctive full titles are genuinely absent, and that is the load-bearing fact.** Re-measured
+  independently today, and it agrees with the operator-closed licensing ruling (see
+  `LICENSING_AUDIT_BEFORE_DISTRIBUTION.md`, `TRANSLATED_NAMES_RULING=REMOVED-AND-CLOSED`, and the
+  remediation commits `bf47eb9e` / `34933bed` / `81ab33e9` of 2026-08-27):
+
+  ```
+  $ for t in "The Receptive" "Difficulty at the Beginning" "Youthful Folly" \
+             "Waiting (Nourishment)" "The Taming Power" "The Creative"; do
+      printf '%-30s %s\n' "$t" \
+        "$(git grep -n -F "$t" -- '*' | grep -vc '^documentation/CITATIONS.md:')"; done
+  The Receptive                  0
+  Difficulty at the Beginning    0
+  Youthful Folly                 0
+  Waiting (Nourishment)          0
+  The Taming Power               0
+  The Creative                   2      # documentation/GUIDE.md:104 and documentation/CORRECTIONS.md:8393,
+                                        # both of which DECLINE it
+  ```
+
+  (The `grep -v` on this file is not cosmetic: this entry now quotes all six strings, so without it the
+  command matches its own text and cannot return zero. A census that counts its own report is the
+  verifier-closure defect in miniature.)
+
+  **What the sweep missed is SHORTENED renderings, in two tracked files.** Those six search strings are
+  full titles; the tree also carries abbreviated forms of the same translation, which none of them match:
+
+  ```
+  documentation/SOLVE.md:409          Gradual Development→Marrying Maiden … Abundance→Wanderer
+  enumeration/analysis_minimum_constraints.txt:62   Pair 26: Development / Marrying Maiden
+  enumeration/analysis_minimum_constraints.txt:63   Pair 27: Abundance / Wanderer
+  enumeration/analysis_minimum_constraints.txt:67   Pair 1:  Difficulty / Folly
+  ```
+
+  *Marrying Maiden* is the distinctive Wilhelm–Baynes rendering of hexagram 54 (Legge gives *Kwei Mei*),
+  and the analysis log names four pairs this way beside two others written as "hexagram 41 / hexagram 42"
+  — so one committed file uses both vocabularies. Separately, the bare compound *Creative/Receptive*
+  appears 20 times across 11 tracked files, including `documentation/SPECIFICATION.md` at C4; a twelfth
+  site, `solve.c`'s C4 comment, was the last one in compiled code and was removed 2026-09-04 (Codex
+  review A8R item 5).
+
+  ```
+  $ git grep -nE 'Creative|Receptive' -- '*.md' '*.py' '*.c' '*.csv' '*.json' '*.txt' \
+      | grep -v 'CITATIONS.md:\|GUIDE.md:104:\|CORRECTIONS.md:8393:' | wc -l
+  20                       # across 11 files
+  ```
+
+  **This does NOT reopen the ruling, and nothing here is adjudicated.** Whether an abbreviated rendering
+  or a bare compound label falls inside a translation's rights is exactly the question the operator has
+  already answered for the full titles, and extending that answer is theirs to make, not a lane's. What
+  is corrected here is only the *measurement*: "zero, and here is the single exception" is the kind of
+  precision that invites reliance, and the search behind it did not cover the shortened forms. The
+  right-strength statement is: **no shipped artifact reproduces this translation, no hexagram-title
+  dataset derived from it is distributed, and the distinctive full titles measure zero — while some
+  prose and one analysis log still use abbreviated renderings as reading aids.**
+
+  Retained as a standard bibliographic reference for the work itself. [read, no data]
 
 ### Classical sources
 

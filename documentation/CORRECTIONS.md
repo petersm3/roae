@@ -8548,3 +8548,172 @@ recorded here so that the freeze's own text is not mistaken for a third scholar.
 Adjudicated from the primary sources by Fable, 2026-09-04 (private record
 `FABLE_Q111_FREEZE_READING_2026_09_04.md`); corrections applied by Claude. Found when the operator
 asked why a reading condition on papers already in hand was being carried as a decision for them.
+
+## 2026-09-04 — the 1T anchor pair was two per-cell budgets, and the correction that said otherwise was itself uncorrected for three months
+
+**What was published.** [CANONICAL_HASHES.md](CANONICAL_HASHES.md) carried two depth-3 1T values —
+`74d39760…` (134,027,160 records), labelled *Active*, and `5a0f0bc2…` (134,039,081), labelled *Historical*
+and marked as one that does not reproduce on current `main` — and explained the difference as a
+host-environment effect: the same source producing different artifacts on differently-provisioned hosts,
+absorbed at 11.2T by a cell-density argument. That explanation was propagated to
+[HISTORY.md](HISTORY.md) §"May 27/28, 2026 UTC — Task #110 Tier 1 canonical-determinism hardening",
+[PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md) §"2026-05-27 — task #106/#108",
+[CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §"6. Sha stability vs host-environment fragility",
+[SOLVE_C_CLI.md](SOLVE_C_CLI.md), [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md), the `--validate-canonical`
+failure text inside `solve.c`, and [TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) §"Scope of the
+reproducibility claim", where it was the sole evidence for that report's toolchain qualifier.
+
+**This is the second correction of that fact, and the first one was wrong too.** On 2026-08-30 (registered
+2026-09-02 as `RP-3bbdabe5` / `RP-b2782ac4` / `RP-a9fbf7b7`; [PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md)
+correction-ledger row 10) the project withdrew the May-25 attribution of the pair to LTO layout effects from
+seven hardening commits, and replaced it with a host-environment mechanism. **The replacement was not
+measured either.** The two runs' provenance files had recorded their per-cell budgets since 2026-05-27 —
+`final_budget_distribution {"6314566": 51578}` for every run that produced `74d39760…`, and
+`SOLVE_PER_SUB_BRANCH_LIMIT=6315458` on the 2026-05-24 command line that produced `5a0f0bc2…` — and neither
+the May-27 investigation nor the August-30 correction compared them. Nothing below is a discovery; it is the
+comparison that both earlier passes skipped.
+
+**What is true.** The two values are two points on the budget axis of one solver. `5a0f0bc2…` is what the
+published recipe (`SOLVE_PER_SUB_BRANCH_LIMIT=6315458`) produces; `74d39760…` is what the solver produces
+when the budget is left to auto-divide (`⌊10¹²/158,364⌋ = 6,314,566`, 892 nodes per cell less). On 2026-09-04
+one binary, built from unmodified `main` `82f96b6b`, on one Spot D128als_v7 host, in one hour, produced
+`5a0f0bc2…` at 6,315,458 and `74d39760…` at 6,314,566 — with the per-cell budget as the only variable, and
+with the second arm's sha and record count both written down as predictions before it ran. Each was confirmed
+on the **decompressed** stream (`gzip -dc solutions.bin | sha256sum`; `sha256sum solutions.bin` hashes the gz
+container and matches nothing in this registry). The record delta is 11,921 = 381,472 bytes / 32. Across
+fifteen prior recorded 1T runs — four VMs, D32/D64/D128, 32/64/128 threads, `-flto`/`-fno-lto`, `-O2`/`-O3`,
+gz and raw shards, 2026-05-24 to 2026-07-01 — the sha is a function of the budget alone with no exception,
+and none of those runs had controlled for it. The status cell registered as `RP-bd45ad0e` was false when it
+was written on 2026-05-27: current `main` produced `5a0f0bc2…` on 2026-05-30, 2026-07-01 and twice on
+2026-09-04, and each of the first three results was annotated as host drift rather than read as the
+refutation it was — the sharpest instance being the sentence registered as `RP-866e56c9`.
+
+**The same defect had already been found and fixed, three months earlier, one scale up.** On 2026-06-17
+`--validate-canonical` was found to *derive* the per-cell budget from `SOLVE_NODE_LIMIT` instead of injecting
+the published one, producing a non-canonical 11.2T artifact (`2184bdd8`, a 52-node gap against
+`0c0fe37c…`). The fix moved every published budget into `solve.c`'s `CANONICAL_RECIPES` table and made the
+validator inject it — public commit `d8671550`; the public record of the same arithmetic is this ledger's
+§"2026-09-02 — a wrong division published in three files" and
+[BRANCHES_EXPLAINED.md](BRANCHES_EXPLAINED.md); operator-attested detail in
+`petersm3/roae-private:INCIDENT_2026_06_17_11_2T_PSB_MISMATCH.md`. That mechanism is **closed**, and the
+anchor table now points at the fix so that a reader does not have to find it inside a function body. The
+identical mechanism at 1T stayed labelled host drift.
+
+**A gate that could not pass, and that is still open.** Since that 2026-06-17 fix the shipped validator
+injects 6,315,458 for `1T` and therefore cannot produce `74d39760…`, while the project's own gate scripts
+went on naming `74d39760…` as the expected 1T value. No 1T sha-bearing run exists in the record between
+2026-07-02 and 2026-09-04, and 109 commits touching `solve.c` — 106 of them non-merge
+(`git log d8671550..HEAD -- solve.c`, measured at `82f96b6b`) — landed in that window without a passing 1T
+gate; the three mismatches that were observed were each absorbed by an escape clause reading them as
+environmental. Separately, and stated separately on purpose: the 2026-09-04 control run establishes
+retroactively that current `main` reproduces the 2026-05-24 value, so across those commits the 1T enumeration
+output is unchanged. That is reassurance about the output. The process failure is not dismissed by it, and it
+is not closed by this entry. The catalogue is corrected here first; gate scripts are to source the 1T anchor
+from the registry row rather than carry a literal, and the sourcing command is published with the anchor.
+
+**What is withdrawn.** The host-environment mechanism as the explanation of the 1T pair; the
+non-reproduction status of `5a0f0bc2…` (`RP-bd45ad0e`); the 1T fragility characterisation and the
+1T-vs-11.2T gap note's mechanism (`RP-2c38c0f7`, `RP-8066ba31`, `RP-c729df39`); the premise of HISTORY's Task
+#110 entry (`RP-f0d4c175`) and its reading of the first refutation as a confirmation (`RP-866e56c9`); and the
+1T pair as TR-3's evidence for its toolchain qualifier (`RP-93cc9003`). The qualifier itself is **kept**, as a
+statement of tested scope: byte-exactness has been demonstrated within the documented toolchain class and has
+not been tested outside it. No other host-level event is on the record — the 100B `d683794` flip of
+correction-ledger row 9 is commit-level and budget-controlled on both legs, and stands. This ledger's own
+earlier entry — §"2026-08-28 — two shipped-identity errors: a false reproducibility contrast, and a ratio
+computed against the wrong object", in the *Rider* paragraph that scoped
+[SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md)'s reproducibility sentence — cited "an actual host-level drift
+event" as one of its three reasons. That citation is superseded by this entry; per this file's contract both
+stay, and the two other reasons it gave (different hosts may produce different binaries; the 100B anchors are
+build-recipe specific) are unaffected.
+
+**What did not move.** Every canonical sha, record count and archive. The 11.2T, 100T and 560T witnesses,
+including the eight-path 11.2T census and its ARM Neoverse-N2 cross-architecture rebuild. The #108
+sha-equivalence result — both of its runs used the same auto-divided budget, so it compared like with like.
+The 100B sub-canonical findings. The correctness of either 1T artifact: both are valid, sorted,
+C1–C5-complete enumerations under their own budgets, and neither is a regression of the other.
+
+**What is not established.** That no host-level drift has ever occurred anywhere in this project — only that
+the one event cited for it was not one. That `74d39760…`'s record set is a strict subset of `5a0f0bc2…`'s,
+which the project's own per-cell-budget nesting result predicts and which nothing has yet tested.
+
+**Credit and provenance.** Codex review V2-F25 #3 (2026-09-02) proposed the per-cell-budget confound for
+exactly this pair and was ruled REFUTED by this project's own adjudication, on the strength of a private
+sentence that was itself the uncontrolled comparison; that ruling is withdrawn and the finding is re-ruled
+true with credit. Found again independently on 2026-09-04, when a fresh D128 run of unmodified `main` under
+the published recipe returned `5a0f0bc2…` and the operator asked why the registry called that a
+non-reproduction. Archaeology by Fable (`petersm3/roae-private:ANCHOR_1T_DISCREPANCY_2026_09_04.md`); the two
+controlled runs and this text by Claude.
+
+## 2026-09-05 — a HISTORY entry said fourteen scholars were recorded in CITATIONS.md with their evidence; six of them had no entry
+
+**`documentation/HISTORY.md`, in the 2026-08-16/29 entry's closing paragraph ("Attribution, and what this
+entry is not"), lists fourteen scholars who "have priority over readings this project had treated as its
+own" and says that `CITATIONS.md` "is where each is recorded with its evidence".** For six of the
+fourteen that was false from the day the sentence reached `main` (`3515441c`, 2026-09-04) until today.
+Five — 陳仁仁, 謝金良, 王振復, 房振三 and 俞琰 — had zero hits in `CITATIONS.md` at that HEAD in either
+character set; the sixth, 謝向榮, was named twice in passing inside other entries and had no entry of his
+own. The same HISTORY entry withdraws a misreading of 房振三 2005, calls 謝向榮 2005 "the closest published
+work to our own that exists", and cedes the impossibility argument to 陳仁仁 2005, 謝金良 2004 and
+王振復 2004 — so the file pointed readers at a record of the cessions that did not exist. This is the
+class of defect the 2026-09-04 `prior_art_check.sh` finding described: a public pointer to something the
+reader cannot reach. The draft that found it (`FABLE_CITATIONS_OWED_DRAFT_2026_09_05.md` §0.2) reported
+four names, because it checked only the four it had reason to suspect; a census of all fourteen at
+landing found the other two.
+
+**How it is made true, per name — and why an entry, not a softer sentence.** The sentence in HISTORY.md
+is left exactly as committed (the file is append-only) and the record it promises is created:
+- **房振三 2005** — a full entry (`#fangzhensan2005`), read in full 2026-08-16 and with the 64-row table
+  transcribed twice; it records the two hands, the eight forms, and the fact that one reading of his table
+  is this project's and not his.
+- **陳仁仁 2005** — a full entry (`#chenrenren2005`), read in full 2026-08-20; the four passages quoted
+  were re-verified against the PDF's text layer today.
+- **王振復 2004 and 謝金良 2004** — entries (`#wangzhenfu2004`, `#xiejinliang2004`) that say in their first
+  bold sentence that the texts are **NOT HELD**: no title, no proceedings volume, nothing but 陳仁仁 2005's
+  paraphrase on p. 25. Each states that the priority is the scholar's and the wording is 陳仁仁's, and that
+  nothing in the entry may be quoted as the scholar's own words. The alternative — rewording the HISTORY
+  sentence to promise less — was rejected because the cession is real and a reader is owed the evidence
+  for it, however thin; an entry that says "we hold only a paraphrase" is the evidence, and an entry that
+  implied more would be the 管小思 / 王俊龍 defect of 2026-09-04 again.
+- **謝向榮 2005** — a full entry (`#xiexiangrong2005`), read in full 2026-08-16 and audited the same day;
+  key passages re-verified from the PDF's text layer today. It states first the three things he
+  pre-empts: the Warring-States attestation of the pairing rule, both degenerate classes, and the
+  colour-fading argument.
+- **俞琰** — an entry (`#yuyan`) scoped to the one passage held in print (as quoted by 謝向榮 2005, p. 19)
+  and verified arithmetically on 2026-08-20; it says that the text was not obtained, that 周易集說 was read
+  once online and not in full, and that nothing he states is ceded to him — he is cited as a predecessor
+  of this project's restatements, which is the only priority HISTORY.md records for him.
+
+**What did not move.** The cessions themselves, the withdrawal of the 房振三 misreading, and every other
+name in the list (each of the other eight already had an entry). No count, theorem or canonical value.
+
+**Why under the publication freeze.** The 2026-08-16 freeze bars assertions of novelty. These entries cede
+ground and record prior work; none asserts novelty.
+
+Found by Fable while drafting the citation entries owed by the BRACKETS revision (private record
+`petersm3/roae-private:FABLE_CITATIONS_OWED_DRAFT_2026_09_05.md` §0.2); entries landed and this text by
+Fable, 2026-09-05 (`petersm3/roae-private:FABLE_CITATIONS_LANDED_2026_09_05.md`).
+
+## 2026-09-05 — a symbol-form count was published as settled; the literature gives six, seven and eight
+
+**`documentation/CITATIONS.md` `#pu2003` described the manuscript's red and black head/tail marks as
+"six forms, three simple and three nested", without attribution and as if the count were a fact of the
+manuscript.** Six is 濮茅左's count (2003, p. 251, 「其形式有六種」; the inventory at 說明 p. 134). 李尚信
+(2004, p. 23) reaches seven by reading a faded exemplar of 颐 as a distinct form; 房振三 (2005, p. 22)
+reaches eight (两类八种) and publishes the only complete 64-row table. The counts are not rival measurements
+of one quantity: Pu's forms are individuated largely by the red component, which is the pigment that fades,
+so whether an ambiguous exemplar is a further form is a classification choice. The sentence was written on
+2026-08-16 (`35844cc9`) from the volume alone; both competing counts were read in full on 2026-08-16 and
+2026-08-20 and recorded privately, and the public sentence was never revised. The retired wording is
+registered as RP-f050b3c8 (`documentation/RETRACTED_PHRASES.tsv`); the corrected sentence attributes the
+six to Pu, names the seven and the eight with their anchors (`#lishangxin2004`, `#fangzhensan2005`), and
+adds that the 58 slips are in two hands (13 + 45), so the symbol data come from two copies.
+
+**What did not move.** Pu's own inventory (his six are correctly described); the invariance test and its
+3-pair figure; the non-discrimination argument; no count, theorem or canonical value.
+
+**Why under the publication freeze.** The correction narrows a claim and credits two authors; it asserts
+nothing new.
+
+Found by Fable in the trigger register of the citation drafts (private record
+`petersm3/roae-private:FABLE_CITATIONS_OWED_DRAFT_2026_09_05.md` §3, rows E6/E7); corrected and this text
+by Fable, 2026-09-05.

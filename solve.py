@@ -12039,8 +12039,52 @@ def atlas_emit_q10a(A, outdir):
             flow += 1                                  # test-only: breaks the mod-24 gate
         rows.append(("layer", k, flow, flow // _ATLAS_ORBIT,
                      1 if flow % _ATLAS_ORBIT == 0 else 0))
-    return _atlas_write(os.path.join(outdir, "q10_orbit_census.tsv"),
+    path = _atlas_write(os.path.join(outdir, "q10_orbit_census.tsv"),
                         ["scope", "k", "flow", "orbits", "mod24_ok"], rows)
+    # 🔴 THE VERDICT IS READ OFF THE TABLE, NOT ASSERTED (Codex MQ1 §2c/§2d, 2026-09-04).
+    # `verdicts["TR12_Q10A"]` was the literal string "PASS" in atlas_queries, so this table
+    # could emit `mod24_ok = 0` on every row and the consumer still reported Q10a PASS --
+    # `--atlas-fault q10-mod24` does exactly that, and the fault it exists to demonstrate was
+    # invisible in the very token it should have flipped. A verdict that cannot be FAIL is not
+    # a verdict. Scope, deliberately: this gates the GLOBAL count and the PER-LAYER flows,
+    # which the free order-24 action makes divisible; per-branch and per-pair counts are NOT
+    # expected to be divisible and are not in this table.
+    bad = [r for r in rows if r[4] != 1]
+    if not bad:
+        return path, "PASS"
+    return path, ("FAIL:mod24(%s)"
+                  % ",".join("global" if r[0] == "global" else "k%d" % r[1] for r in bad[:8]))
+
+
+# --------------------------------------------------------------------------
+# XA cost anchors.  The EXHAUSTIBLE/INFEASIBLE call is a SCIENTIFIC VERDICT, so
+# it is decided in exact rational arithmetic, never in binary64.  `nodes` is an
+# exact 192-bit integer; a float round trip through it loses ~1e-19 relative,
+# which is small but MORE than enough to flip `usd <= budget` at the boundary
+# (Codex review MQ1 section 4: 2**192-1 nodes at rate 1 returns EXHAUSTIBLE
+# while the exact cost EXCEEDS the budget by 1.5e36 dollars).
+#
+# `_ExactAnchor` is a float subclass -- every existing `%g` display site keeps
+# working unchanged -- that also remembers the operator's TYPED DECIMAL as a
+# Fraction, so `--xa-usd-per-hour 0.1` is priced as 1/10 and not as
+# 3602879701896397/36028797018963968.
+# --------------------------------------------------------------------------
+class _ExactAnchor(float):
+    """A CLI float that also carries the operator's typed decimal exactly."""
+    __slots__ = ("exact",)
+
+    def __new__(cls, text):
+        from fractions import Fraction
+        v = float.__new__(cls, text)
+        v.exact = Fraction(text)
+        return v
+
+
+def _xa_exact(v):
+    """The exact rational value of an XA anchor (typed decimal if we have it)."""
+    from fractions import Fraction
+    e = getattr(v, "exact", None)
+    return e if isinstance(e, Fraction) else Fraction(v)
 
 
 # --------------------------------------------------------------------------
@@ -12055,6 +12099,12 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
                         "prefixes_t_units", "t_source", "walks", "kw"], rows)
     md = os.path.join(outdir, "xa_verdict.md")
     sol_sum = sum(r[5] for r in rows)
+    # `gates` carries the SAME comparisons the markdown table prints, so the verdict tokens and
+    # the published table cannot disagree. They could before (Codex MQ1 §2d): atlas_queries set
+    # TR12_XA_A to the literal "PASS" and TR12_XA_B to "PASS if the field is present", while the
+    # table beside them was free to print FAIL. Codex perturbed a branch to 26,113 against
+    # N = 26,112; the table said FAIL and the token said PASS.
+    gates = {}
     t_have = all(str(r[7]).lstrip("-").isdigit() for r in rows)
     t_sum = sum(int(r[7]) for r in rows) if t_have else None
     t_root = _atlas_int(A["t_root_t_units"], "t_root_t_units") if "t_root_t_units" in A else None
@@ -12067,18 +12117,27 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
         fh.write("Semantics: %s. Every count below is exact.\n\n" % A.get("semantics", "certificate, not proof"))
         fh.write("## Gates\n\n")
         fh.write("| gate | expected | got | verdict |\n|---|---|---|---|\n")
+        gates["a"] = "PASS" if sol_sum == N else "FAIL:sum_b(%d)!=N(%d)" % (sol_sum, N)
         fh.write("| `sum_b solutions(b) == N` | %d | %d | %s |\n" %
                  (N, sol_sum, "PASS" if sol_sum == N else "FAIL"))
         if t_have and t_root is not None:
+            gates["b"] = ("PASS" if 1 + t_sum == t_root
+                          else "FAIL:1+sum_t(%d)!=t_root(%d)" % (1 + t_sum, t_root))
             fh.write("| `1 + sum_b prefixes_t_units(b) == t(root)` | %d | %d | %s |\n" %
                      (t_root, 1 + t_sum, "PASS" if 1 + t_sum == t_root else "FAIL"))
         else:
+            gates["b"] = "PENDING:--kc-t-build"
             fh.write("| `1 + sum_b prefixes_t_units(b) == t(root)` | - | - | "
                      "PENDING:--kc-t-build (re-run --kc-scan with --kc-tdir) |\n")
         fh.write("| `N mod 24 == 0` (XA-24, free order-24 action, TR-5) | 0 | %d | %s |\n" %
                  (N % _ATLAS_ORBIT, "PASS" if N % _ATLAS_ORBIT == 0 else "FAIL"))
         bad = [L["k"] for L in A["layers"]
                if _atlas_int(L["flow"], "flow") % _ATLAS_ORBIT != 0]
+        # TR12_XA_MOD24 used to be `N % 24 == 0` ALONE, so the per-layer half of XA-24 was
+        # printed in this table and carried by no token at all.
+        gates["mod24"] = ("PASS" if (N % _ATLAS_ORBIT == 0 and not bad)
+                          else "FAIL:N%%24=%d,layers=%s"
+                               % (N % _ATLAS_ORBIT, ",".join("k%d" % k for k in bad[:8]) or "none"))
         fh.write("| every layer flow mod 24 == 0 (XA-24) | none | %s | %s |\n\n" %
                  (bad if bad else "none", "PASS" if not bad else "FAIL"))
         fh.write("The t-unit accounting convention (a t-unit is one valid oriented prefix; the\n"
@@ -12105,7 +12164,20 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
                      "The t-unit column above is exact and stands on its own.\n")
             verdict = "PENDING:xa-throughput-anchors"
         else:
-            rate = cost["nodes_per_sec"] / (cost["hedge"] * cost["work_factor"])
+            from fractions import Fraction
+            # EXACT anchors: every quantity below is a rational, so the verdict
+            # is decided without a single binary64 rounding.  The %g/%.4g
+            # numerals in the table are DISPLAY ONLY (see the note we emit).
+            x_nps = _xa_exact(cost["nodes_per_sec"])
+            x_uph = _xa_exact(cost["usd_per_hour"])
+            x_bud = _xa_exact(cost["budget_usd"])
+            x_den = _xa_exact(cost["hedge"]) * _xa_exact(cost["work_factor"])
+            if x_den == 0 or x_nps == 0:
+                raise AtlasError("XA: nodes/sec, hedge and work factor must all be non-zero "
+                                 "(got %s / (%s * %s))" % (cost["nodes_per_sec"],
+                                                           cost["hedge"], cost["work_factor"]))
+            x_rate = x_nps / x_den                     # exact effective nodes/sec
+            rate = float(x_rate)                       # display only
             fh.write("Anchors (operator-supplied, echoed for the certificate): "
                      "nodes/sec = %g, hedge = x%g, work factor = x%g, $/hour = %g, "
                      "budget = $%g. Effective rate = %g nodes/sec. Note: %s\n\n"
@@ -12113,25 +12185,32 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
                         cost["usd_per_hour"], cost["budget_usd"], rate,
                         cost.get("note", "(no anchor note supplied)")))
             fh.write("Branches ascending by node cost; `cost/budget` is the exact shortfall\n"
-                     "factor when the row reads INFEASIBLE.\n\n")
+                     "factor when the row reads INFEASIBLE.  The verdict column and the\n"
+                     "shortfall are computed in EXACT rational arithmetic from the exact\n"
+                     "192-bit t-unit counts and the operator's typed decimal anchors; the\n"
+                     "`wall (h)`, `$` and `cost/budget` NUMERALS are 4-significant-digit\n"
+                     "decimal renderings of those exact values, for reading only.  Do not\n"
+                     "re-derive a verdict from the printed numerals -- at the boundary a\n"
+                     "binary64 round trip is enough to reverse the call.\n\n")
             fh.write("| branch | pair | t-units | wall (h) | $ | verdict | cost/budget |\n")
             fh.write("|---|---|---|---|---|---|---|\n")
             cheapest_ok = None
             for r in sorted(rows, key=lambda r: int(r[7])):
-                nodes = int(r[7])
-                hours = nodes / rate / 3600.0
-                usd = hours * cost["usd_per_hour"]
-                ok = usd <= cost["budget_usd"]
-                short = usd / cost["budget_usd"] if cost["budget_usd"] else float("inf")
+                nodes = int(r[7])                      # exact 192-bit count
+                x_hours = Fraction(nodes) / x_rate / 3600
+                x_usd = x_hours * x_uph
+                ok = x_usd <= x_bud                    # EXACT verdict
+                x_short = x_usd / x_bud if x_bud else None
                 if cheapest_ok is None:
                     cheapest_ok = ok
-                fh.write("| %d | %d | %s | %.4g | %.4g | %s | %.4g |\n" %
-                         (r[0], r[1], r[7], hours, usd,
-                          "EXHAUSTIBLE" if ok else "INFEASIBLE", short))
+                fh.write("| %d | %d | %s | %.4g | %.4g | %s | %s |\n" %
+                         (r[0], r[1], r[7], float(x_hours), float(x_usd),
+                          "EXHAUSTIBLE" if ok else "INFEASIBLE",
+                          ("%.4g" % float(x_short)) if x_short is not None else "inf"))
             fh.write("\nCall: the argmin branch is **%s** at the stated ceiling.\n"
                      % ("EXHAUSTIBLE" if cheapest_ok else "INFEASIBLE"))
             verdict = "PASS"
-    return tsv, md, verdict
+    return tsv, md, verdict, gates
 
 
 # --------------------------------------------------------------------------
@@ -12333,7 +12412,7 @@ def _atlas_read_tsv(path):
 # passes happily while the G-expansion mis-assigns pair identities; these two are checked
 # against figures printed in TR-7 before the scan existed. An external check that nothing runs
 # is not a weaker check, it is no check -- and it emitted no verdict, so its absence was silent.
-_ATLAS_SELECTORS = ("q3", "q6", "v1", "v2", "v5", "xa", "q10a", "a2", "a3")
+_ATLAS_SELECTORS = ("q3", "q6", "v1", "v2", "v5", "xa", "q10a", "a2", "a3", "a5")
 
 
 def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=None,
@@ -12399,14 +12478,18 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
         written.extend(atlas_emit_q6(A, scandir, trace=trace))
         verdicts["TR12_Q6"] = "PASS:REDUCED-DISTANCE-CLASS"
     if "q10a" in sel:
-        written.append(atlas_emit_q10a(A, outdir)); verdicts["TR12_Q10A"] = "PASS"
+        p10, v10 = atlas_emit_q10a(A, outdir)
+        written.append(p10); verdicts["TR12_Q10A"] = v10
     if "xa" in sel:
-        tsv, md, xv = atlas_emit_xa(A, outdir, cost=cost, atlas_path=atlas_path)
+        tsv, md, xv, xgates = atlas_emit_xa(A, outdir, cost=cost, atlas_path=atlas_path)
         written.extend([tsv, md])
-        verdicts["TR12_XA_A"] = "PASS"
-        verdicts["TR12_XA_B"] = "PASS" if "t_root_t_units" in A else "PENDING:--kc-t-build"
+        # Every one of these is now READ OFF the table atlas_emit_xa just wrote. TR12_XA_A was
+        # the literal "PASS"; TR12_XA_B tested only that the FIELD was present, never that the
+        # identity held; TR12_XA_MOD24 covered N and not the per-layer flows (Codex MQ1 §2d).
+        verdicts["TR12_XA_A"] = xgates["a"]
+        verdicts["TR12_XA_B"] = xgates["b"]
         verdicts["TR12_XA_CD"] = xv
-        verdicts["TR12_XA_MOD24"] = "PASS" if N % _ATLAS_ORBIT == 0 else "FAIL"
+        verdicts["TR12_XA_MOD24"] = xgates["mod24"]
 
     # The two EXTERNAL checks. They report SKIP:n=<n> below full-31 -- deliberately loud, and
     # never a PASS -- because both rest on C4 fixing slot 0, which is a full-31 property: the
@@ -12423,6 +12506,26 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
         verdicts["TR12_A3_EXTERNAL"] = st
         if not quiet:
             print("[atlas] A3 external check: %s -- %s" % (st, detail))
+    # A-5, THE ORBIT-COLUMN CHECK -- WIRED HERE 2026-09-04 BECAUSE IT DID NOT RUN AT FULL-31.
+    # viz/viz_kc_field.md cites it as the field's guard ("gated, not merely asserted"), but its
+    # ONLY call site was inside atlas_selftest, which REFUSES n > 13 ("brute force is a
+    # reduced-n gate") and returns before reaching it; atlas_queries never called it at all.
+    # So the check ran at exactly the sizes where the field is NOT published and not at the one
+    # where it is (Codex MQ1 §2b, CODEX_MQ1_ADJUDICATION.md).
+    #
+    # Emitted at FULL-31 ONLY, deliberately: below 31 atlas_selftest already runs it on the
+    # brute-force path, and emitting a token at n=9 would change scripts/tr12_expected/n9/ for
+    # no coverage gain. This is the same reasoning as A2/A3 and the same deadline -- it has to
+    # exist before the first full-31 --regen, not after it.
+    if "a5" in sel and n == 31:
+        ncol, sizes, ok_orb, detail = atlas_orbit_columns(A)
+        if ok_orb is None:
+            verdicts["TR12_A5_ORBIT_COLUMNS"] = "SKIP:no-raw"
+        else:
+            verdicts["TR12_A5_ORBIT_COLUMNS"] = "PASS" if ok_orb else "FAIL:%s" % detail
+        if not quiet:
+            print("[atlas] A5 orbit-column check: %s -- %s"
+                  % (verdicts["TR12_A5_ORBIT_COLUMNS"], detail))
 
     if verdicts_path is None:
         verdicts_path = os.path.join(outdir, "VERDICTS.txt")
@@ -12561,8 +12664,26 @@ def atlas_a2_slot_check(atlas, tol=2e-3):
     if n != 31:
         return ("SKIP:n=%s" % n, "A2's published slot histogram is a full-31 measurement")
     layers = atlas.get("layers") or []
-    if len(layers) < 2:
-        return ("SKIP:no-layers", "atlas carries too few layers")
+    # THE INDEX -> SLOT MAP IS THE PUBLISHED CONVENTION, NOT A GUESS.  viz/viz_kc_field.md:34:
+    # "layer k is the transition from depth k to depth k+1 and fills pair-slot k+2".  So
+    # slot 2 is layers[0] and slot 32 is layers[30] == layers[-1].
+    #
+    # 🔴 This read `frac(layers[1])` -- pair-slot THREE -- until 2026-09-04 (Codex MQ1 §2a,
+    # adjudicated in CODEX_MQ1_ADJUDICATION.md).  The two slots are DISTINGUISHABLE in
+    # published material: TR7_CIRCULAR_READING.md reports slot 2 = 5.20% against slot 3 =
+    # 3.84%, so the off-by-one compared a real cell against the wrong reference and made the
+    # R-C1c sum slot32+slot3 rather than slot32+slot2.  It is a full-31-only path, so no
+    # published figure ever carried it -- it was repaired BEFORE the first full-31 --regen,
+    # which would have golded the wrong number as the expected one.
+    #
+    # The layer count is asserted HERE rather than trusted from atlas_load(), because that
+    # remote invariant is what makes layers[-1] slot 32 at all: a short ladder would silently
+    # re-point layers[-1] at some other slot and compare it against slot 32's reference --
+    # the same defect class in a different disguise.
+    if len(layers) != n:
+        return ("SKIP:layer-count",
+                "atlas carries %d layers for n=%s; slot 2 = layers[0] and slot 32 = "
+                "layers[-1] hold only when the ladder is complete" % (len(layers), n))
     key = "pair%d" % _A2_PAIR
     N = int(atlas["N_total"])
     def frac(layer):
@@ -12570,7 +12691,7 @@ def atlas_a2_slot_check(atlas, tol=2e-3):
         if key not in mr:
             return None
         return int(mr[key]) / float(N)
-    f32, f2 = frac(layers[-1]), frac(layers[1])
+    f32, f2 = frac(layers[-1]), frac(layers[0])
     if f32 is None or f2 is None:
         return ("SKIP:no-raw", "marginal_raw absent -- was --kc-raw passed? (see A-1)")
     devs = {"slot32": abs(f32 - _A2_SLOT_REFS["slot32"]),
@@ -12642,6 +12763,18 @@ def atlas_orbit_columns(atlas):
     the G-expansion, which is the step that can silently mis-assign pair
     identities while every internal sum-to-N gate still passes.
 
+    ⚠ WHAT IT DOES NOT CATCH, STATED (Codex MQ1 §2b, 2026-09-04). It compares the
+    MULTISET OF GROUP SIZES against the published orbit sizes. It does NOT check
+    which PAIRS are in which group. Swap two pairs drawn from two DIFFERENT orbits
+    of the SAME size -- say one from the 3:[3,7,11] orbit with one from 3:[4,6,21]
+    -- and the size multiset is unchanged, so this check's output is byte-identical
+    and it passes. The sentence above about "the step that can silently mis-assign
+    pair identities" is therefore true only of mis-assignments that BREAK an orbit's
+    column equality; an identity-preserving permutation ACROSS equal-sized orbits is
+    invisible here. Checking membership needs the orbit partition itself, which lives
+    in solve.c's group machinery (`[f1] pair-orbits of the 31 free pairs: ...`) and is
+    not re-derived on this side; wiring it is OWED, not done.
+
     Returns (n_columns, sorted_group_sizes, ok, detail).
     """
     ORBIT_SIZES = (3, 3, 3, 4, 6, 6, 6)          # published; sums to 31
@@ -12669,6 +12802,35 @@ def atlas_orbit_columns(atlas):
     detail = "%d pair(s) -> %d column(s), group sizes %s" % (
         len(pairs), len(groups), sizes)
     return (len(groups), sizes, ok, detail)
+
+
+def atlas_failed_verdicts(verdicts):
+    """The keys whose verdict is a FAILURE, sorted.  A verdict fails iff its token is
+    exactly `FAIL` or begins `FAIL:`.
+
+    `PASS`, `PASS:<reduction>`, `SKIP:<reason>` and `PENDING:<reason>` are deliberately NOT
+    failures: they are honest statements that a query did not run, and promoting them here
+    would make every reduced-n run red.  The distinction is the whole contract -- see the
+    QUALIFIED-NOT-BARE note in atlas_queries().
+    """
+    return sorted(k for k, v in verdicts.items()
+                  if isinstance(v, str) and (v == "FAIL" or v.startswith("FAIL:")))
+
+
+def atlas_verdicts_rc(verdicts):
+    """Process exit status for `--atlas-queries`: 1 if ANY verdict FAILED, else 0.
+
+    🔴 This did not exist until 2026-09-04 (Codex MQ1 §2a).  The CLI path ended in an
+    UNCONDITIONAL `sys.exit(0)`, so `[atlas] A2 slot check: FAIL` printed the word FAIL on
+    stdout and the process still returned 0.  scripts/tr12_repro.sh row `c_consumer` grades
+    this invocation on its RETURN CODE (`... --atlas-queries ... || crc=1`) and never
+    ingests the verdict tokens, so a genuine failure was invisible to the gate -- and the
+    first full-31 `--regen` would have captured that FAIL line as the EXPECTED output,
+    after which the battery could only ever have detected drift AWAY from a wrong answer.
+
+    A verdict file is a claim; an exit code is what a shell can act on.  They must agree.
+    """
+    return 1 if atlas_failed_verdicts(verdicts) else 0
 
 
 def _atlas_write_verdicts(path, verdicts):
@@ -13624,15 +13786,15 @@ def main():
                                  "q3-perturb", "q10-mod24"),
                         help="TEST ONLY: deliberately corrupt one emitted column so the n=9 gate "
                              "can be shown able to fail (build-brief invariant 3). Never on a run.")
-    parser.add_argument("--xa-nodes-per-sec", type=float, default=None,
+    parser.add_argument("--xa-nodes-per-sec", type=_ExactAnchor, default=None,
                         help="XA-c/d: measured DFS throughput anchor (R-1 pilot artifacts)")
-    parser.add_argument("--xa-usd-per-hour", type=float, default=None,
+    parser.add_argument("--xa-usd-per-hour", type=_ExactAnchor, default=None,
                         help="XA-c/d: worker price anchor")
-    parser.add_argument("--xa-budget-usd", type=float, default=None,
+    parser.add_argument("--xa-budget-usd", type=_ExactAnchor, default=None,
                         help="XA-c/d: the $ ceiling the EXHAUSTIBLE/INFEASIBLE call is made against")
-    parser.add_argument("--xa-hedge", type=float, default=2.0,
+    parser.add_argument("--xa-hedge", type=_ExactAnchor, default=_ExactAnchor("2.0"),
                         help="XA-c/d: throughput hedge factor for scale (TR-12 section 3: x2)")
-    parser.add_argument("--xa-work-factor", type=float, default=1.0,
+    parser.add_argument("--xa-work-factor", type=_ExactAnchor, default=_ExactAnchor("1.0"),
                         help="XA-c/d: engine work factor to divide the rate by (default 1.0 = none; "
                              "the R-1 36.14x is an inter-engine factor, supply it deliberately)")
     parser.add_argument("--xa-anchor-note", metavar="TEXT", default=None,
@@ -13664,13 +13826,21 @@ def main():
                 "work_factor": args.xa_work_factor,
                 "note": args.xa_anchor_note or "(no anchor note supplied)"}
         try:
-            atlas_queries(args.atlas_queries, out, select=sel,
-                          q3_trace=args.atlas_q3_trace,
-                          verdicts_path=args.atlas_verdicts, cost=cost)
+            res = atlas_queries(args.atlas_queries, out, select=sel,
+                                q3_trace=args.atlas_q3_trace,
+                                verdicts_path=args.atlas_verdicts, cost=cost)
         except AtlasError as e:
             print("ERROR: [atlas] %s" % e, file=sys.stderr)
             sys.exit(2)
-        sys.exit(0)
+        # THE EXIT CODE CARRIES THE VERDICT (Codex MQ1 sec 2a).  Formerly `sys.exit(0)`
+        # unconditionally, which made every caller that grades on rc -- including
+        # scripts/tr12_repro.sh row c_consumer -- blind to a printed FAIL.
+        failed = atlas_failed_verdicts(res["verdicts"])
+        if failed:
+            print("ERROR: [atlas] %d verdict(s) FAILED: %s"
+                  % (len(failed), " ".join("%s=%s" % (k, res["verdicts"][k]) for k in failed)),
+                  file=sys.stderr)
+        sys.exit(atlas_verdicts_rc(res["verdicts"]))
 
     if args.symmetry_completeness:
         sys.exit(symmetry_completeness())

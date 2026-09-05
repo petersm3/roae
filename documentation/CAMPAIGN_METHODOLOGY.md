@@ -666,12 +666,21 @@ moving from one Azure host to another in the same SKU class can produce a
 
 At canonical scales used by the project (11.2 T and above), the per-cell
 budget is large enough that the budget-cutoff happens at a deeper, more
-deterministic point in the search tree, and the host-environment sensitivity
-drops away. Empirically:
+deterministic point in the search tree, and a fixed *difference* in budget
+moves proportionally fewer records. Empirically:
 
-- **1 T canonical: host-fragile.** Two different Spot D128 hosts in the same
-  westus3 SKU pool can produce different 1 T shas. Documented at length in
-  [HISTORY.md](HISTORY.md).
+- **1 T canonical: budget-sensitive, not host-sensitive.** The two published
+  1 T values differ by 892 nodes of per-cell budget — the published
+  `SOLVE_PER_SUB_BRANCH_LIMIT=6315458` versus the solver's auto-divided
+  6,314,566 — and not by host. Both were reproduced from one binary on one
+  host on 2026-09-04. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 1T.
+  ⚠ **[CORRECTED 2026-09-04 — this bullet read "1 T canonical: host-fragile.
+  Two different Spot D128 hosts in the same westus3 SKU pool can produce
+  different 1 T shas", and the sentence above it said the host-environment
+  sensitivity drops away with scale. There is no host-environment
+  sensitivity in the record to drop away: see
+  [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two
+  per-cell budgets". Second correction of this fact.]**
 - **11.2 T canonical: host-stable across our current host class.** Seven
   independent witnesses (Build A May 14, Build B May 14, cold-storage
   re-checksum May 15, v3 sha-equivalence May 24, c72eada+#108 witness May
@@ -716,11 +725,16 @@ What this means for a third-party reproducer:
   byte layout is fixed by the record set alone (§"Sort order"). A fixed record
   set therefore forces a fixed sha, and the contrapositive is the useful form:
   if the sha differs, the records differ. That is a real, documented
-  phenomenon — host-environment-level drift (gcc/glibc/kernel patch versions,
-  ASLR seed, microcode revision) changes *which* records a budgeted walk
-  reaches, and `CANONICAL_HASHES.md`'s 1 T drift row measures the difference
-  as 12,000 records. It is a finding to characterize, not a tolerance to
-  grant.
+  phenomenon — a change of 892 nodes in the per-cell budget changes *which*
+  records a budgeted walk reaches, and `CANONICAL_HASHES.md`'s two 1 T rows
+  measure that difference as 11,921 records; a 52-node change at 11.2 T did
+  the same ([CORRECTIONS.md](CORRECTIONS.md) §"2026-09-02 — a wrong division
+  published in three files"). It is a finding to characterize, not a
+  tolerance to grant — and the **first thing to check on a mismatch is the
+  budget the run actually used**, recorded as `final_budget_distribution` in
+  `solutions.provenance.json`. ⚠ [2026-09-04: this passage attributed the
+  difference to host-environment-level drift and gave it as 12,000 records;
+  the mechanism is the per-cell budget and the measured figure is 11,921.]
 - Structural verification (`solve --verify` + `verify.py`) on the differing
   artifact tells you the records it *does* contain are valid. It cannot tell
   you which records are missing — neither instrument checks completeness

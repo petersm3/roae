@@ -127,6 +127,19 @@ for an independent team to re-encode them, so no rule-text length here is reprod
 published source. It is retained, so labelled, because nothing rests on it: the row's verdict holds
 across the whole band, and holds at 16.9 as well (fn⁸).
 
+> **Access boundary — `prior_art_check.sh` (fn⁷, fn⁹).** Those two footnotes cite
+> `PRIOR_ART=NONE` verdicts as support for an *absence* claim (no derivation of 5.14/8.54 bits, and
+> none of "10–15", is on record). **A reader outside the project cannot reproduce either verdict.**
+> The script itself lives at `roae-private/scripts/prior_art_check.sh`, and its stated surface
+> — `roae-private *.md, *.tsv, codex_transcripts/; roae *.md; git log --all -S on both repos` — is
+> only half public: the `roae *.md` leg and this repository's `git log` are fetchable and can be
+> re-searched with any grep, but the `roae-private` legs are in a private staging repository that is
+> **not publicly accessible**. So the public half of each negative is independently checkable and the
+> private half is **operator-attested**. This matters in only one direction: the private surface can
+> only make a negative *weaker* by containing a derivation we then failed to report, never stronger.
+> Both cells are already labelled **underived** and both verdicts are stated as holding across the
+> whole band regardless, so nothing on this page rests on the private half of the search.
+
 ## The residual — the honest thesis
 
 Knowing everything structural in this table, the sequence retains **log₂|C1–C7| = 105.4 bits** of

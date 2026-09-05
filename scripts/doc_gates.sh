@@ -12394,8 +12394,44 @@ gate_tree_invariants() {
     case "${pat:-}" in ''|\#*) continue;; esac
     [ -n "${max:-}" ] && [ -n "${paths:-}" ] || { echo "  [FAIL] malformed row: ${pat:0:40}"; bad=1; continue; }
     n=$((n+1))
+    # 🔴 THREE WAYS THIS GATE USED TO PASS WITHOUT MEASURING ANYTHING (Codex review A8R,
+    # adjudicated 2026-09-04; all three reproduced before this block was written). A gate whose
+    # ONLY job is to notice a silently reverted fix must never be satisfied by its own emptiness.
+    #
+    #   (i)  a `paths` value that selects no tracked file -> no grep runs -> got=0 -> "[ok]";
+    #   (ii) a `pattern` that is not a valid ERE -> grep exits 2, prints nothing -> got=0 -> "[ok]";
+    #   (iii) a `max` that is not a number -> `[ 0 -gt abc ]` errors and takes the ELSE branch.
+    #
+    # Each is now a FAIL, not a pass, and the [ok] line reports how many files were actually read
+    # so the reader can see the measurement rather than infer it.
+    case "$max" in ''|*[!0-9]*)
+      echo "  [FAIL] invariant '${pat:0:40}': ceiling '$max' is not a number. \`[ -gt \`"
+      echo "         errors on it and takes the OK branch, so the row would never fail."
+      bad=1; continue;;
+    esac
+    local grc=0
+    printf '' | grep -qE -- "$pat" 2>/dev/null || grc=$?
+    if [ "$grc" -gt 1 ]; then
+      echo "  [FAIL] invariant '${pat:0:40}': not a valid ERE (grep exit $grc). An uncompilable"
+      echo "         pattern counts zero matches everywhere, which reads as a held invariant."
+      bad=1; continue
+    fi
+    local files nfiles unread
+    files=$(git ls-files -- $paths 2>/dev/null)
+    if [ -z "$files" ]; then
+      echo "  [FAIL] invariant '${pat:0:40}': paths '$paths' select ZERO tracked files."
+      echo "         An invariant that examined no file is not an invariant that holds."
+      bad=1; continue
+    fi
+    nfiles=$(printf '%s\n' "$files" | wc -l | tr -d ' ')
+    unread=$(printf '%s\n' "$files" | while IFS= read -r f; do [ -r "$f" ] || printf 'x'; done | wc -c | tr -d ' ')
+    if [ "$unread" -ne 0 ]; then
+      echo "  [FAIL] invariant '${pat:0:40}': $unread of $nfiles selected file(s) unreadable."
+      echo "         An unread file is NOT a file with no matches."
+      bad=1; continue
+    fi
     local got
-    got=$(git ls-files -- $paths 2>/dev/null | xargs -r grep -cE -- "$pat" 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
+    got=$(printf '%s\n' "$files" | xargs -r grep -cE -- "$pat" 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
     case "${got:-}" in ''|*[!0-9]*) echo "  [FAIL] invariant '${pat:0:40}': could not count over '$paths'"; bad=1; continue;; esac
     if [ "$got" -gt "$max" ]; then
       echo "  [FAIL] invariant VIOLATED: '$pat' appears $got time(s) in $paths, ceiling $max"
@@ -12403,7 +12439,7 @@ gate_tree_invariants() {
       echo "         🔴 Do NOT raise the ceiling to clear this. The ceiling is a census, not a budget."
       bad=1
     else
-      echo "  [ok]   '$pat' — $got of at most $max in $paths"
+      echo "  [ok]   '$pat' — $got of at most $max across $nfiles file(s) in $paths"
     fi
   done < "$REG"
   # A registry that matched nothing is a gate that checks nothing. Say so rather than pass.
@@ -12457,10 +12493,22 @@ gate_tracked_ignored() {
 # it stops a push. Every pair checked here is therefore declared explicitly. A new
 # domain is opted IN by adding a row; nothing is inferred.
 #
-# NOT IN 'all' YET — by caution, not oversight, and the same way GATE 8 sits out by
-# cost. Run it by name (`doc_gates.sh value-domains`). Promote it into the hard set
-# only after it has been observed silent across a full corpus for a while; that
-# promotion is a deliberate decision, not a default.
+# PROMOTED INTO 'all' ON 2026-09-04, and this is the note that used to say it sat out.
+# It sat out "by caution, not oversight" from 2026-08-09, with the stated promotion
+# criterion "observed silent across a full corpus for a while". That criterion is met:
+# four weeks in-tree, silent, and re-derived twice since (Codex N10 finding 12 on
+# 2026-09-03; Codex A8R item 3 on 2026-09-04).
+#
+# 🔴 THE EXCLUSION WAS HALF OF A LIVE DEFECT, WHICH IS WHY IT ENDS NOW. A8R found two
+# `supported:` lists in solve.c that disagreed. This gate's check was a SINGULAR
+# `re.search`, so it matched the first (correct) copy and could never reach the stale one
+# — and it did not run on the default sweep, so it would not have looked either way. Both
+# halves were repaired in one pass: the check is `re.findall` over every spelling of the
+# domain, and the gate is in `all`. Fixing the string without fixing the gate would have
+# left the next divergence exactly as invisible.
+#
+# COST: measured 0.10 s. It is a pure-Python read of solve.c and two markdown files, so it
+# is not in GATE 8's excluded-by-cost class and never was.
 gate_value_domains() {
   echo "== GATE 24: documented value-domain sets match the literal domain in code =="
   python3 - <<'PY'
@@ -12500,11 +12548,45 @@ if not table:
     print("  [FAIL] f1c5_unions[] parsed to ZERO rows — vacuous, treated as failure.")
     sys.exit(1)
 
-m2 = re.search(r'"supported:\s*([0-9,]+)\\n"', src)
-if not m2:
-    print("  [FAIL] the 'supported: ...' error string was not found in solve.c.")
+# CODEX A8R ITEM 3, adjudicated 2026-09-04: THIS WAS A SINGULAR `re.search`. solve.c carried
+# SIX statements of this domain and FIVE of them were stale; a `re.search` matched the first
+# (correct) one and stopped, so every disagreeing copy was invisible BY CONSTRUCTION. A8R found
+# one of the five. The other four were found by sweeping the siblings while repairing it:
+#
+#   f1c5_exact_main() "supported:"   3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31  ok
+#   kc_g_resolve_pairs() "supported:"          9,13,   16,18,19,21,22,24,25,27,28,31      stale
+#   kc_resolve_pairs() "orbit-realizable"      9,13,   16,18,19,21,22                     stale
+#   --f1-exact-c1c2c4c5 usage "N in {}"        9,13,   16,18,19,      24,25,27,28,31      stale
+#   --f1-c3-hist usage "N in {}"               9,13,   16,18,19,      24,25,27,28,31      stale
+#   the #221 header comment "N in {}"          9,13,   16,18,19,      24,25,27,28,31      stale
+#
+# FIVE of the six are now PRINTED from f1c5_unions[] by f1c5_fprint_npairs_domain() and cannot
+# drift at all; the sixth is a comment, which cannot be printed, so it stays a literal and is
+# enforced here. The gate therefore checks BOTH halves:
+#   (i)  the printer exists and is wired to the table  -- a domain that is typed is a domain
+#        that will drift, and its absence is a FAIL, not a pass; and
+#   (ii) EVERY surviving literal set, found with re.findall in both spellings, agrees.
+#
+# LIMIT, STATED. (i) is a STRUCTURAL read of the printer's source, not an execution of it:
+# this gate does not build solve.c. It asserts the loop is over f1c5_unions[], that the
+# appended special value matches the branch parsed above, and that the cap parameter is
+# honoured. A printer that satisfies all three and still mis-formats its output would pass
+# here and fail a human reading `solve --f1-c3-hist`.
+LITERALS = []          # (label, sorted values, source snippet)
+for m2 in re.finditer(r'"supported:\s*([0-9,]+)\\n"', src):
+    LITERALS.append(('"supported: ..." string', m2.group(1)))
+for m2 in re.finditer(r"N\s*(?:∈|in)\s*\{([0-9,\s]+)\}", src):
+    LITERALS.append(('"N in {...}" set', m2.group(1)))
+for m2 in re.finditer(r"orbit-realizable n <= %?d?[^\"]*?:\s*([0-9][0-9,\s]*[0-9])\)", src):
+    LITERALS.append(('"orbit-realizable ...: " set', m2.group(1)))
+
+m4 = re.search(r"#define\s+KC_MEM_MAX_PAIRS\s+(\d+)", src)
+if not m4:
+    print("  [FAIL] KC_MEM_MAX_PAIRS was not found in solve.c. It is the one LEGITIMATE")
+    print("         narrowing of this domain (the in-memory --kc-build ceiling), so without")
+    print("         it a correct narrower list cannot be told from a stale one.")
     sys.exit(1)
-err = sorted(int(x) for x in m2.group(1).split(",") if x.strip())
+mem_cap = int(m4.group(1))
 
 # (c) the separate branch. `full<N> = (npairs == <V>)`: N is what the code CALLS the case and
 # V is what it actually admits, so a mutation of the comparison alone (Codex's exact
@@ -12525,16 +12607,58 @@ if special_name != special:
     FAIL = 1
 
 code_domain = sorted(set(table) | {special})
-if err != code_domain:
-    print("  [FAIL] solve.c disagrees with ITSELF: the error string lists")
-    print("         %s" % ",".join(map(str, err)))
-    print("         but f1c5_unions[] + the full-31 branch give")
-    print("         %s" % ",".join(map(str, code_domain)))
+capped_domain = sorted(x for x in code_domain if x <= mem_cap)
+
+# --- (i) the domain must be PRINTED from the table, not typed ---------------------------
+mp = re.search(r"static void f1c5_fprint_npairs_domain\s*\([^)]*\)\s*\{(.*?)\n\}", src, re.S)
+if not mp:
+    print("  [FAIL] f1c5_fprint_npairs_domain() was not found in solve.c, so the accepted")
+    print("         --f1-pairs domain is being TYPED at every site again. That is the exact")
+    print("         state that let five of six copies go stale. If the printer was renamed,")
+    print("         re-anchor this pattern; do not delete the check.")
+    sys.exit(1)
+body = mp.group(1)
+if "f1c5_unions" not in body:
+    print("  [FAIL] f1c5_fprint_npairs_domain() does not read f1c5_unions[] -- it prints a")
+    print("         domain from somewhere other than the table that defines it.")
     FAIL = 1
-else:
-    print("  [ok] solve.c self-consistent: table(%d) + the full-pair branch's {%d}, read from"
-          " `int full%d = (npairs == %d);`, == error string (%d values)"
-          % (len(table), special, special_name, special, len(err)))
+if "cap" not in body:
+    print("  [FAIL] f1c5_fprint_npairs_domain() ignores its `cap` argument, so --kc-build's")
+    print("         in-memory ceiling of %d would be advertised as accepted." % mem_cap)
+    FAIL = 1
+mf = re.search(r'with_full31.*?"%s(\d+)"', body, re.S)
+if not mf:
+    print("  [FAIL] f1c5_fprint_npairs_domain() has no `with_full31` literal, so the one")
+    print("         domain value that is NOT a table row is not printed at all.")
+    FAIL = 1
+elif int(mf.group(1)) != special:
+    print("  [FAIL] the printer appends %s for the full pair set but the branch admits %d."
+          % (mf.group(1), special))
+    FAIL = 1
+if not FAIL:
+    print("  [ok] the --f1-pairs domain is PRINTED from f1c5_unions[] by"
+          " f1c5_fprint_npairs_domain() (+%d, cap-aware), not typed" % special)
+
+# --- (ii) every SURVIVING literal statement of the domain must agree --------------------
+if not LITERALS:
+    print("  [note] no literal --f1-pairs domain set survives in solve.c -- every statement is")
+    print("         printed from the table. Nothing to compare; leg (i) is the whole check.")
+for label, raw in LITERALS:
+    got = sorted(int(x) for x in raw.replace(" ", "").split(",") if x.strip())
+    if got == code_domain:
+        print("  [ok] solve.c %s == f1c5_unions[] + the full-pair branch's {%d} (%d values)"
+              % (label, special, len(got)))
+    elif got == capped_domain:
+        print("  [ok] solve.c %s == the domain capped at KC_MEM_MAX_PAIRS=%d (%d values)"
+              % (label, mem_cap, len(got)))
+    else:
+        print("  [FAIL] solve.c disagrees with ITSELF: %s lists" % label)
+        print("         %s" % ",".join(map(str, got)))
+        print("         but f1c5_unions[] + the full-pair branch give")
+        print("         %s" % ",".join(map(str, code_domain)))
+        print("         (capped at KC_MEM_MAX_PAIRS=%d that would be %s)"
+              % (mem_cap, ",".join(map(str, capped_domain))))
+        FAIL = 1
 
 # --- the doc sites that publish that domain ---------------------------------
 # Declared explicitly. Each must contain the domain as a comma-separated set.
@@ -18515,6 +18639,7 @@ case "$MODE" in
            echo; gate_script_paths || RC=1
            echo; gate_hex_prefix || RC=1
            echo; gate_tracked_ignored || RC=1
+           echo; gate_value_domains || RC=1
            echo; gate_scratch_examples || RC=1
            echo; gate_tree_invariants || RC=1
            echo; gate_quotient_frame_isolation || RC=1
@@ -18657,16 +18782,19 @@ elif [ "$MODE" = all ]; then
   # when the pushed range touches roae.py or example/ (fail-closed when it has no base to
   # diff against), which is also the only way a hand-edited artifact committed with
   # `git commit --no-verify` can be on its way out.
-  # GATE 24 IS EXCLUDED, and until 2026-08-11 this banner named only GATE 8's exclusion — so a
-  # green `all` read as covering gates it has never run. It sits out by the CAUTION its header
-  # states (observe it silent across a full corpus first), not by cost, which is why it is named
-  # separately from GATE 8 rather than folded into its line.
+  # GATE 24 WAS EXCLUDED UNTIL 2026-09-04 and is now in the hard list above. Until 2026-08-11
+  # this banner named only GATE 8's exclusion — so a green `all` read as covering gates it had
+  # never run; GATE 24 was then named here, and is now named only in its promotion line below.
+  # Both statements are derived from the dispatch arm above, which is the only list.
   # GATE 25 WAS PROMOTED INTO `all` ON 2026-09-02 and is named in the hard list above; it is
   # LEG 1 ONLY, so its report-only half needs a line here for the same reason GATE 17's LEG B
   # and GATE 18's carve-out do. Both statements are derived from the dispatch arm above, which
-  # is the only list: `all` calls gate_repro_reach and does NOT call gate_value_domains.
-  echo "                   GATE 24 ('value-domains') is NOT in 'all' — by caution, per its own"
-  echo "                   header. This verdict attests nothing about it; run it by name."
+  # is the only list: `all` calls gate_repro_reach, and since 2026-09-04 gate_value_domains too.
+  echo "                   GATE 24 ('value-domains') IS in 'all' since 2026-09-04 and IS"
+  echo "                   covered by this verdict. It sat out by caution from 2026-08-09;"
+  echo "                   the exclusion was half of Codex A8R item 3 (a stale second"
+  echo "                   'supported:' list that a singular re.search could not reach in a"
+  echo "                   gate that did not run), so both halves were repaired together."
   echo "                   GATE 25 ('repro-reach') IS in 'all' since 2026-09-02, but its LEG 1"
   echo "                   ONLY — a documented reproduction command must resolve to a real"
   echo "                   flag. Its LEG 2 ([note] lines on figures with no re-derivation"

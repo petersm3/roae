@@ -45,3 +45,11 @@ modes**, so the drafter inherits a specification rather than a blank space.
 
 Full case: `roae-private/VIZ_PROGRAM_DESIGN_REVIEW_2026_08_27.md` §3.3. Operator acceptance recorded
 in `roae-private/VIZ_PLAN_ADDITIONS_ACCEPTED.md`.
+
+> **Access boundary.** Both files named above live in `petersm3/roae-private`, the project's private
+> staging repository, which is **not publicly accessible** — a reader cannot fetch them. They are
+> cited as provenance for *why* these two figure rows were adopted, and that reasoning is
+> operator-attested rather than publicly checkable. Nothing on this page depends on them: the
+> figures' jobs, inputs and failure modes are stated in full above, and each figure is checkable
+> against the published data it names. If the two rows read as under-argued, that is a gap in this
+> page, not something the private review would repair for a reader who cannot open it.

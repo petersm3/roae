@@ -399,13 +399,25 @@ figures read, and they gate every table they write.
 ```
 --atlas-queries ATLAS_JSON   Read the atlas; write the query/figure TSVs.
 --atlas-out DIR              Output root (default: the atlas's own directory).
---atlas-select LIST          Comma list of q3,q6,v1,v2,v5,xa,q10a,a2,a3 (default: all).
+--atlas-select LIST          Comma list of q3,q6,v1,v2,v5,xa,q10a,a2,a3,a5 (default: all).
+                             `a5` is the orbit-column check (`TR12_A5_ORBIT_COLUMNS`),
+                             emitted at n=31 ONLY: below full-31 `--atlas-selftest`
+                             already runs it on the brute-force path. Wired 2026-09-04 —
+                             viz/viz_kc_field.md cited it as the field's guard while its
+                             only call site sat behind `--atlas-selftest`'s `n > 13`
+                             refusal, so it ran at every size except the published one.
+                             It gates the group-SIZE multiset, not pair membership.
                              `a2`/`a3` are the EXTERNAL checks: the atlas's final-layer raw
                              marginal against numbers published in TR-7 before the scan
                              existed (`TR12_A2_SLOT`, `TR12_A3_EXTERNAL`). Both need
                              full-31 -- they rest on C4 fixing slot 0 -- and emit
                              `SKIP:n=<n>` below it, never a PASS. Added 2026-09-04: they
                              existed but had no call site and were not selectable.
+                             `a2` grades pair-slot 2 = `layers[0]` and pair-slot 32 =
+                             `layers[30]`, per viz/viz_kc_field.md's "layer k ... fills
+                             pair-slot k+2"; it read `layers[1]` (slot 3) until
+                             2026-09-04, and TR-7's 5.20% vs 3.84% makes those two
+                             distinguishable. Gated by scripts/a2_slot_verdict_gate.sh.
 --atlas-q3-trace FILE        The Q3 source. EITHER `solve --kc-o3-rank F G WALK
                              --kc-trace` text OR a `solve --kc-profile F G WALK
                              --kc-tsv FILE` table (auto-detected). Supplies Q3/V4
@@ -450,8 +462,15 @@ figures read, and they gate every table they write.
 
 Verdict tokens emitted: `TR12_Q3`, `TR12_Q3_KW`, `TR12_Q3_READER`, `TR12_Q6`,
 `TR12_V1`, `TR12_V2`, `TR12_V5`, `TR12_XA_A`, `TR12_XA_B`, `TR12_XA_CD`,
-`TR12_XA_MOD24`, `TR12_Q10A`, `TR12_A2_SLOT`, `TR12_A3_EXTERNAL` — matched
-with `grep -qx`, never by output shape. `TR12_Q3_READER` is deliberately
+`TR12_XA_MOD24`, `TR12_Q10A`, `TR12_A2_SLOT`, `TR12_A3_EXTERNAL`, and at n=31
+`TR12_A5_ORBIT_COLUMNS` — matched with `grep -qx`, never by output shape.
+🔴 **Four of these were verdicts that could not fail, until 2026-09-04** (Codex
+review MQ1 §2d): `TR12_Q10A` and `TR12_XA_A` were the literal string `PASS`,
+`TR12_XA_B` tested only that `t_root_t_units` was PRESENT rather than that its
+identity held, and `TR12_XA_MOD24` covered `N mod 24` but not the per-layer
+flows — each of the four sitting beside a `xa_verdict.md` table that was free
+to print `FAIL`. All four are now read off that table, so token and table
+cannot disagree. Pinned by `scripts/a2_slot_verdict_gate.sh` (LEG 6). `TR12_Q3_READER` is deliberately
 separate from `TR12_Q3`: the engine's trace asserts `Π p_i = 1/N` itself, and
 this consumer recomputes that product independently in exact big-integer
 rationals from the written TSV. The engine does not grade its own homework.
@@ -471,6 +490,25 @@ A bare `PASS` is a claim about the **query**; these are claims about a
 is kept so a reader asking only "did anything fail?" still reads them as
 non-failures. `TR12_A2_SLOT` and `TR12_A3_EXTERNAL` report `SKIP:n=<n>` below
 full-31 and never `PASS` — see `--atlas-select` above.
+
+### Exit-status contract
+
+`--atlas-queries` exits **1 if any verdict it wrote is a failure**, `2` on an
+`AtlasError` (a malformed or unreadable atlas), and `0` otherwise. A verdict
+is a failure iff its token is exactly `FAIL` or begins `FAIL:`; `PASS`,
+`PASS:<reduction>`, `SKIP:<reason>` and `PENDING:<reason>` are **not**
+promoted to failures — they are honest statements that a query did not run,
+and a reduced-n battery is full of them.
+
+🔴 **This path exited 0 unconditionally until 2026-09-04** (Codex review MQ1
+§2a). `[atlas] A2 slot check: FAIL` printed the word FAIL on stdout and the
+process still returned success, while `scripts/tr12_repro.sh` row `c_consumer`
+grades this invocation on its **return code** and never ingests the tokens —
+so the first full-31 `--regen` could have captured a genuine failure as the
+expected output, after which the battery could only ever have detected drift
+*away* from a wrong answer. A verdict file is a claim; an exit code is what a
+shell can act on, and the two must agree. Pinned by
+`scripts/a2_slot_verdict_gate.sh`.
 
 ### Precision contract
 
@@ -513,11 +551,28 @@ python3 solve.py --atlas-selftest $B/atlas.json --atlas-walks $B/walks.txt
 ```
 
 Every emitted table is re-derived from that **explicit enumeration** and
-diffed cell by cell against the TSV read back off disk — not against the
-in-memory atlas. Adding `--atlas-fault v2-class-swap` (or any of the other
-four faults) makes the gate print `ATLAS_CONSUMER=FAIL` and exit 1; the
-class-swap fault is caught **only** by the brute-force leg, which is the
-point of having one.
+diffed against the TSV read back off disk — not against the in-memory atlas.
+Adding `--atlas-fault v2-class-swap` (or any of the other four faults) makes
+the gate print `ATLAS_CONSUMER=FAIL` and exit 1; the class-swap fault is
+caught **only** by the brute-force leg, which is the point of having one.
+
+🔴 **WHAT "diffed" COVERS, EXACTLY** (corrected 2026-09-04; this paragraph
+said "diffed **cell by cell**" without qualification, and that was false —
+Codex review MQ1 §2c, adjudicated in `CODEX_MQ1_ADJUDICATION.md`). The
+brute-force legs compare the **exact integer** columns and only those:
+`mass` in `v1_field.tsv` / `v2_river.tsv` / `v5_grammar.tsv` /
+`q6_extremes.tsv`, `solutions` in `xa_branches.tsv`, and the per-layer
+`flow`. The **derived float** columns — `p`, `p_cond`, `share`, the Q6
+`ratio`, `kw_pct` — are re-derived by nothing and compared against nothing.
+That is not academic: **V1 plots `float(r["p"])`**, so Codex set every
+plotted probability to zero and the consumer still reported 24 gates and 0
+failures. The integers are the substance and they are genuinely gated
+against an independent enumeration; the columns a reader actually sees in
+V1 are not. Strengthening the existing legs to recompute the float columns
+from the brute-forced integers is **owed** and is not done here: it cannot
+be landed without re-golding `scripts/tr12_expected/n9/`, and a golden
+regenerated to match a change is the circularity §1 of the same review is
+about.
 
 ### Rendering the figures
 

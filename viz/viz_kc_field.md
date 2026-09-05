@@ -90,6 +90,21 @@ distinct rows is not a union of whole published orbit sizes. It catches what the
 sum-to-N gate cannot — a **sum-preserving** move of one unit between two pairs of the same orbit
 leaves every layer summing to N exactly, and the orbit check still FAILs.
 
+🔴 **Two corrections to that sentence, 2026-09-04** (Codex review MQ1 §2b):
+
+1. **It did not run at full-31 until now.** Its only call site was inside `--atlas-selftest`,
+   which refuses `n > 13` ("brute force is a reduced-n gate") and returns *before* reaching it,
+   and `--atlas-queries` never called it. So the guard this page cites ran at every size except
+   the one where the field is published. It is now emitted by `--atlas-queries` at n = 31 as
+   `TR12_A5_ORBIT_COLUMNS` (`--atlas-select a5`).
+2. **It checks group SIZES, not membership.** The multiset of equal-column group sizes must be a
+   union of whole published orbit sizes; *which* pairs sit in which group is not examined. A
+   swap of two pairs drawn from two **different orbits of the same size** leaves that multiset
+   unchanged and passes. So this is a guard against orbit-equality being *broken*, not against
+   pair identities being *permuted* among equal-sized orbits. Checking membership needs the
+   orbit partition itself, which lives in `solve.c` and is not re-derived on the consumer side;
+   it is owed.
+
 ### The King Wen overlay — and the labelling artifact it hides
 
 King Wen's own placements are marked on the field. **They lie on the main diagonal, and that is a

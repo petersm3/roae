@@ -272,9 +272,18 @@ Pre-campaign drift-detection gate (task #110). `<scale>` ∈ {`1T`,
 `11.2T`, `100T`} (alternate forms `1`, `11`, `100`). Runs a fresh
 canonical enum at the requested scale in a temp dir with the canonical
 env vars, sha256s the resulting `solutions.bin`, and compares to
-`<expected-sha256>`. The cheapest way to catch host-environment drift
-(gcc/glibc/kernel/CPU-microcode patch deltas) BEFORE committing a
-$100+ campaign. Prints the host fingerprint on mismatch.
+`<expected-sha256>`. The cheapest way to confirm a build reproduces a
+published anchor **at the published per-cell budget** BEFORE committing a
+$100+ campaign — the budget is injected from `CANONICAL_RECIPES`, never
+derived (the 2026-06-17 fix). Compare against the registry row for the
+published recipe: at 1T that is `5a0f0bc2…`, **not** `74d39760…`
+([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 1T). Prints the host
+fingerprint on mismatch. ⚠ [CORRECTED 2026-09-04 — this read "the cheapest
+way to catch host-environment drift (gcc/glibc/kernel/CPU-microcode patch
+deltas)". No host-environment drift event is on the project's record; the
+event once cited as one was a per-cell-budget difference. See
+[CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two
+per-cell budgets".]
 
 Recommended pre-560T: `solve --validate-canonical 0c0fe37c… 11.2T`
 (the drift-robust anchor). Exits **0** match / **33** mismatch /
@@ -2710,10 +2719,15 @@ External cleanup is not required but is a disk-hygiene best practice.
   **Across hardware and region the guarantee is scoped, not absolute:** it
   holds *within the tested toolchain class*
   ([SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Reproducibility;
-  [DEVELOPMENT.md](DEVELOPMENT.md):945), a host-level drift event is on the
-  record, and at 1T scale
-  [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md):604-607 notes that
-  moving between hosts *in the same SKU class* can change the sha. The
+  [DEVELOPMENT.md](DEVELOPMENT.md):945). ⚠ [CORRECTED 2026-09-04 — this read
+  "a host-level drift event is on the record, and at 1T scale
+  CAMPAIGN_METHODOLOGY.md:604-607 notes that moving between hosts *in the
+  same SKU class* can change the sha". **No host-level drift event is on the
+  record**: the 1T pair once cited as one is two per-cell budgets, measured
+  on one binary and one host 2026-09-04
+  ([CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two
+  per-cell budgets"). The scope above is a statement of what has been tested,
+  not of an observed failure.] The
   strongest expectation a third-party reproducer should hold is same SKU
   class, same region, at 11.2T and above
   ([CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md):648-651).

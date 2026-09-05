@@ -320,7 +320,10 @@ Link-Time Optimization enables cross-translation-unit inlining and dead-code eli
 > is 100% resume-gated assertions plus new subcommand handlers, none of it reachable from the fresh-enum DFS
 > path — flipping the 100B sha, and concludes "You cannot predict from source-reading whether a commit will flip
 > 100B sha — only empirically"; `HISTORY.md` §"Task #110" records the 1T anchor drift as host-environment-level
-> and budgeted-cell-density-sensitive. **The +2.53% and the byte-identical sha stand exactly as measured** — only
+> and budgeted-cell-density-sensitive. ⚠ **[2026-09-04: that HISTORY record is corrected — the 1T pair is two
+> per-cell budgets (published 6,315,458 vs auto-divided 6,314,566), measured on one binary and one host
+> 2026-09-04; see `CANONICAL_HASHES.md` §d3 1T. The 100B `d683794` flip discussed here is budget-controlled
+> and commit-level, and is unaffected: it remains this bullet's supporting example.]** **The +2.53% and the byte-identical sha stand exactly as measured** — only
 > the epistemics are corrected. Every optimization-flag change measured in this log to date has in fact
 > preserved the sha; that is an empirical record, not a definitional guarantee, and it is why a sha gate is run
 > rather than reasoned. See the 2026-08-30 re-evaluation entry at the end of this file.
@@ -1365,6 +1368,20 @@ The +9.2% headline is retracted as a forward-looking claim. The records-per-doll
   > sha-equivalent at 1T, and this `74d39760…` really is not the v3 BRANCH anchor. What is withdrawn is *why*.
   > See the 2026-08-30 re-evaluation entry at the end of this file.
 
+  > **⚠ Second correction (2026-09-04):** *the correction above is itself withdrawn in its mechanism.* It
+  > replaced "LTO layout" with "host-environment-level" without comparing the two runs' per-cell budgets, both
+  > of which had been recorded since 2026-05-27: the #108 bundle and the unmodified-`c72eada` control both ran
+  > with the budget **auto-divided** to 6,314,566 (`final_budget_distribution {"6314566": 51578}` in both
+  > provenance files), while the 2026-05-24 run that set `5a0f0bc2…` used the published
+  > `SOLVE_PER_SUB_BRANCH_LIMIT=6315458`. On 2026-09-04 one binary built from unmodified `main` `82f96b6b`
+  > reproduced each value at its own budget, on one host, in one hour — 892 nodes per cell, 11,921 records,
+  > 381,472 bytes. **What still stands from both earlier versions:** the bundle's 1T sha equals the control's,
+  > so #108 really is sha-equivalent at 1T — that comparison used the same budget on both sides and is sound.
+  > **Withdrawn:** "host-environment-level", "BUDGETED-cell-density-sensitive", and "the mechanism cannot be
+  > eliminated at compile time" as statements about the 1T pair. This is the **second** correction of this
+  > fact, not a discovery. See the 2026-09-04 re-evaluation entry at the end of this file and
+  > `CORRECTIONS.md` §"2026-09-04 — the 1T anchor pair was two per-cell budgets".
+
 ### Delta vs baseline
 - Per-thread CPU-on-DFS at canonical scale: **~+170%** (35% → 95%)
 - 1T enum wall: **3430s → 1679s** = **2.04× faster** (matches the hypothesis prediction)
@@ -1375,8 +1392,8 @@ The +9.2% headline is retracted as a forward-looking claim. The records-per-doll
 - result: PASS
 - --selftest sha `403f7202…` preserved (4 separate builds: locally + on VM, post-each-bundle-step, all 4 parts together)
 - --selftest-resume PASS on bundle (resume sha = single-shot sha = `e43f2905…`, matches historical reference)
-- 1T canonical default mode sha = `74d39760…` (matches c72eada baseline)
-- 1T canonical SOLVE_FSYNC_BATCH_SIZE=16 sha = `74d39760…` (matches; #108b batched fsync sha-neutral at canonical scale)
+- 1T canonical default mode sha = `74d39760…` (matches c72eada baseline) — ⚠ [2026-09-04: "canonical" here means the **auto-divided** per-cell budget 6,314,566, not the published recipe 6,315,458; the published-recipe 1T anchor is `5a0f0bc2…`. See the second correction above.]
+- 1T canonical SOLVE_FSYNC_BATCH_SIZE=16 sha = `74d39760…` (matches; #108b batched fsync sha-neutral at canonical scale) — ⚠ [2026-09-04: same auto-divided budget as the line above; the sha-neutrality result is unaffected, both sides used 6,314,566.]
 
 ### Notes
 This commit bundles four pieces, all sha-neutral relative to unmodified `c72eada`:
@@ -1592,3 +1609,55 @@ neither is a dated entry. Everything else is annotation.
 chronological". They are not — `2026-05-16 — task #68` precedes `2026-05-11 — task #70`. Exactly one entry is
 out of date order, and the header now says so and explains why, rather than asserting an invariant the file does
 not hold.
+
+---
+
+## 2026-09-04 — re-evaluation: correction 10 is itself corrected (no code change; two new measurements)
+
+**Category**: re-evaluation (append-only correction entry — see the contract at the top of this file)
+**Sha impact**: none — no code, build recipe, or canonical artifact changes here
+**Decision**: a second correction blockquote appended under the 2026-05-27 #106/#108 entry; the two 1T
+sha-gate lines in that entry annotated; the 100B-flip bullet in the §"2026-05-13 — LTO (build flag)" entry annotated
+
+### Why this entry exists
+
+The 2026-08-30 re-evaluation above withdrew the 1T anchor pair's attribution to LTO layout effects from the
+seven hardening commits and put **host-environment-level** in its place. That replacement was as unmeasured as
+the attribution it replaced. Neither pass compared the two runs' per-cell budgets, and both provenance files
+had recorded them since 2026-05-27. On 2026-09-04 the comparison was finally made, as a controlled experiment
+rather than an inference: one binary, built from unmodified public `main` `82f96b6b`, on one Spot D128als_v7
+host, with the per-cell budget as the only variable.
+
+| arm | `SOLVE_PER_SUB_BRANCH_LIMIT` | sha256 (decompressed stream) | Records |
+|---|---:|---|---:|
+| published recipe | 6,315,458 | `5a0f0bc2…` | 134,039,081 |
+| solver auto-divide | 6,314,566 | `74d39760…` | 134,027,160 |
+
+892 nodes per cell × 158,364 cells; 11,921 records; 381,472 bytes = 11,921 × 32. Arm 2's sha and record count
+were both *predicted in writing before the run* and matched exactly.
+
+### The twelfth, by entry
+
+| # | Entry | What was wrong | What is true |
+|---|---|---|---|
+| 12 | 2026-08-30 re-evaluation, correction row 10 | Row 10's "what is true" column — that Task #108 found the 1T pair **host-environment-level** — was as unmeasured as the attribution it replaced. Neither the 2026-05-27 investigation nor the 2026-08-30 correction compared the recorded per-cell budgets | The pair is two per-cell budgets: published 6,315,458 → `5a0f0bc2…`, auto-divided 6,314,566 → `74d39760…`, both reproduced from one binary on one host on 2026-09-04. Row 10's exoneration of the seven commits and its LTO ruling **stand** — both of those comparisons put auto-divide against auto-divide and are sound. The same derived-vs-published mechanism was found and fixed at 11.2T on 2026-06-17 (public commit `d8671550`), three months before it was recognised at 1T |
+
+**Row 10 is not edited.** It stays exactly as written; this row corrects it, and both stay — the same contract
+the 2026-08-30 entry applied to the entries it corrected.
+
+### Notes
+
+**Scope.** No measurement in this log was re-run for this entry, and no figure was recomputed, except the two
+1T arms tabulated above, which are new measurements taken for it. `CANONICAL_HASHES.md` §d3 1T is the registry
+of record for both values; `CORRECTIONS.md` §"2026-09-04 — the 1T anchor pair was two per-cell budgets" is the
+ledger entry.
+
+**What is still open.** The 1T sha gate named `74d39760…` as its expected value while the shipped
+`--validate-canonical` injected 6,315,458 and could only produce `5a0f0bc2…`, so from 2026-06-17 to 2026-09-04
+that gate could not pass; no 1T sha-bearing run exists in the record between 2026-07-02 and 2026-09-04. The
+2026-09-04 control run establishes retroactively that current `main` still reproduces the 2026-05-24 value, so
+across that window the 1T enumeration output did not change. That is reassurance about the output. It is not a
+dismissal of the process failure, which stands on its own.
+
+**Credit.** Codex review V2-F25 #3 (2026-09-02) proposed the per-cell-budget confound for exactly this pair and
+was wrongly ruled refuted by this project's own adjudication; the ruling is withdrawn.

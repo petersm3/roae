@@ -4559,6 +4559,20 @@ Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` 
 
 **Context.** The Task #108 drift investigation (Q4-Q10, see `petersm3/roae-private:TASK_108_SUMMARY_FOR_OPERATOR_2026_05_27.md`) established that 1T canonical sha drift on `c72eada` (anchor `5a0f0bc2…` → `74d39760…`) is **host-environment-level** (gcc/glibc/kernel patch versions, ASLR seed, CPU microcode revision), not source-level. The 7 hardening commits between `9f10f05` and `c72eada` were empirically exonerated. LTO was empirically ruled out as the mechanism. 11.2T anchor `0c0fe37c…` reproduced byte-identically on `c72eada+#108`, confirming the drift is BUDGETED-cell-density-sensitive (fires at 1T's 6.3M nodes/cell, absorbs at 11.2T's 70.7M).
 
+⚠ **[CORRECTED 2026-09-04 — the premise of this entry is withdrawn, for the second time.** The "drift" Task
+#108 investigated was two per-cell budgets. Every run in Q4–Q10 left the budget to auto-divide to
+⌊10¹²/158,364⌋ = 6,314,566; the 2026-05-24 run that established `5a0f0bc2…` set the published
+`SOLVE_PER_SUB_BRANCH_LIMIT=6315458`. On 2026-09-04 one binary built from unmodified `main` `82f96b6b`
+produced `5a0f0bc2…` at 6,315,458 and `74d39760…` at 6,314,566, on one host, in one hour, with the budget as
+the only variable — 892 nodes per cell, 11,921 records. **What stands:** the exoneration of the seven
+hardening commits and the LTO ruling, because both compared auto-divide with auto-divide. **What does not:**
+"host-environment-level", "BUDGETED-cell-density-sensitive", and "the drift mechanism cannot be eliminated at
+compile-time" as descriptions of this pair. The Tier-1 apparatus shipped below is still useful, but its
+motivating event was not one. The 2026-08-30 correction that first touched this entry replaced one unmeasured
+cause with another, which is why this is the **second** correction and not a discovery. See
+[CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two per-cell budgets" and
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 1T.]**
+
 Because the drift mechanism cannot be eliminated at compile-time, Task #110 introduced **operational drift management**: capture host environment as a forensic sidecar, expose a pre-flight gate that compares against a known anchor, and document the deterministic build recipe.
 
 **Shipped in `b579c1e` (2026-05-27):**
@@ -4590,7 +4604,7 @@ Wall times: A (cold-cache) 4696s; B (warm-cache same VM) 1798s — the 2.6× spe
 - Tier 2.3 — CPU affinity pinning (needs cross-host empirical validation; Spot quota=1 makes that awkward)
 - 100T re-validation on c72eada/b579c1e lineage (blocked on solver-data disk-attach authorization)
 
-**Pre-560T implications.** The 11.2T anchor remains drift-robust and is the recommended gate for any pre-560T validation. The 1T anchor is host-fragile but cheaply re-derivable via `./solve --validate-canonical` on the campaign VM. The 100T anchor (`915abf30…`) is NOT yet re-validated on the current lineage; treat as POTENTIALLY drifted until then.
+**Pre-560T implications.** The 11.2T anchor remains drift-robust and is the recommended gate for any pre-560T validation. The 1T anchor is host-fragile but cheaply re-derivable via `./solve --validate-canonical` on the campaign VM. ⚠ [2026-09-04: **not host-fragile** — see the correction under *Context* above. `./solve --validate-canonical … 1T` injects the published per-cell budget and therefore validates against `5a0f0bc2…`, the published-recipe 1T anchor, not against `74d39760…`.] The 100T anchor (`915abf30…`) is NOT yet re-validated on the current lineage; treat as POTENTIALLY drifted until then.
 
 Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved.
 
@@ -4709,7 +4723,10 @@ byte-identical to the historical canonical.** The 100T canonical is
 reproducible on the current `4e15885` main lineage (which inherits
 `c72eada` + #108 bundle + Tier-1 hardening + #113/#107-retool/#48/#115b),
 joining the 1T (`74d39760…`) and 11.2T (`0c0fe37c…`) anchors already
-confirmed.
+confirmed. ⚠ [2026-09-04: the 1T value confirmed on that lineage was the
+**auto-divided-budget** value; the published-recipe 1T anchor is
+`5a0f0bc2…`, which the same lineage produced on 2026-05-30 — see
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 1T.]
 
 **Off-by-one correction: the canonical 100T record count is 3,432,399,298,
 not 3,432,399,297.** The merged `solutions.bin` is 109,836,777,536 bytes,
@@ -4761,7 +4778,10 @@ VM was torn down before the cause could be probed. Working-tree `solve.c`
 re-run (PARENT + PATCHED on the same VM, both at 1T, compared to each
 other) — that disambiguates `#116-introduces-drift` from
 `1T-anchor-is-host-fragile` per the existing project memory on
-host-environment drift.
+host-environment drift. ⚠ [2026-09-04: that memory was wrong — the two 1T
+values are two per-cell budgets. The paired design was still the right
+experiment; when it ran (next entry) its PARENT result was the refutation,
+and it was read at the time as a confirmation.]
 
 Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved.
 
@@ -4783,7 +4803,7 @@ A two-pass dress rehearsal of the full 560T canonical pipeline (enum → merge �
 
 **Phantom 11.2T anchor-drift incident (2026-05-31 ~09:00 → ~13:30 UTC).** Stage 2's sha-gate exit code was rc=22 ("sha mismatch"), even though the produced sha matched the canonical. The cause was a hardcoded `ANCHOR_11_2T_SHA` value in the dress rehearsal scripts that does not correspond to any real artifact: `0c0fe37cdf3d92ba953b3c41a5e84d54c1f88b22e7d1e0e3e9a52deb8a3ef6c5`. Empirical sha256 of two independent archived `solutions.bin` files on solver-data both produced `0c0fe37cf449cbc6e275...` (the real canonical), and the trailing 56 hex characters of the wrong value (`df3d92ba…3ef6c5`) appear as a prefix or partial of zero known sha256 anywhere — they don't correspond to any real artifact in the codebase, on solver-data, or in cold storage. The wrong value originated 2026-05-28 in `roae-private:TASK_110_TIER1_SHIPPED_2026_05_28.md`, as the `<sha>` token in a `./solve --validate-canonical <sha> <scale>` usage example. The session writing that doc was the AI assistant working on this project (Claude Code); when the language model produced the example, it generated a 64-character hex string that began with the canonical's known abbreviated prefix `0c0fe37c…` (present in context) and continued with 56 hex characters that were **not retrieved from any source-of-truth** (`CANONICAL_HASHES.md`, a `.sha256` sidecar, or a `sha256sum` computation). The result looked like a valid sha256 — and looked correct to a casual reader, because the first 8 hex characters matched the convention used in every section header in the project — but the trailing characters were invented by the language model. This is a known LLM failure mode: hallucinating plausible-looking content (a sha-shaped token) without grounding in a retrieved value. The hallucinated string then copy-pasted from the example into the dress rehearsal scripts on 2026-05-30 and 2026-05-31, becoming a hardcoded constant in three executable files. No sha-equality gate had ever fired against the bad value until the dress rehearsal Stage 2 gate, because all earlier validation work (Tier 1 1T sha-gate, #100 11.2T sha-check, #114 100T sha-gate) sourced sha values directly from `solutions.sha256` sidecar files or `CANONICAL_HASHES.md`. The incident cost ~6 hours of investigation work (briefly declared a 560T launch blocker, drafted a 5-phase investigation plan), and was resolved when an empirical sha256 of `solver-data:/t62_dress_11p2T/solutions.bin` (an unrelated archive from the 2026-05-28 t62 dress rehearsal on 560T hardware) produced the real canonical sha. **Lesson, structural rather than procedural:** when an LLM is writing documentation, scripts, or any artifact that requires a specific real sha256 value (or any other long, opaque identifier), it must retrieve the value from a source-of-truth in the same action — not generate it inline. The retrieval action — `cat CANONICAL_HASHES.md`, `cat solutions.sha256`, `sha256sum solutions.bin` — should appear in the same session that produces the documenting artifact. A `roae-private/PHANTOM_DRIFT_RESOLUTION_2026_05_31.md` writeup records the full lifecycle and the language-model-hallucination root cause in more detail.
 
-**#116 (parallelize manifest sha256 sweep) — still NOT shipped.** A second attempt at the #116 sha-gate was made on 2026-05-30/31 with a paired-VM design (PARENT + PATCHED on the same D32als_v7 Spot at 1T scale, sha-equality-gate between them). The PATCHED side failed with bash rc=2 immediately at startup — `SOLVE_TEMP_DIR=/dev/shm/scratch_patched { time ./solve; } > log` is not valid bash (an env-var prefix is not legal before a compound `{ }`). The PARENT side ran clean and recorded the v3 BRANCH lineage 1T sha as `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52` on the test host — different from the Tier 1 anchor `74d39760…`, confirming the 1T host-environment drift class is still active on the v3 BRANCH lineage. (At 11.2T scale this drift class does not propagate — the dress rehearsal v2 at git `7ca55e8` produced the canonical `0c0fe37cf449cbc6e275...` byte-identical to the 2026-05-27 c72eada+#108 witness, consistent with the existing project memory that drift sensitivity is inversely proportional to budget-vs-tree-size ratio.) #116 remains deferred to post-560T.
+**#116 (parallelize manifest sha256 sweep) — still NOT shipped.** A second attempt at the #116 sha-gate was made on 2026-05-30/31 with a paired-VM design (PARENT + PATCHED on the same D32als_v7 Spot at 1T scale, sha-equality-gate between them). The PATCHED side failed with bash rc=2 immediately at startup — `SOLVE_TEMP_DIR=/dev/shm/scratch_patched { time ./solve; } > log` is not valid bash (an env-var prefix is not legal before a compound `{ }`). The PARENT side ran clean and recorded the v3 BRANCH lineage 1T sha as `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52` on the test host — different from the Tier 1 anchor `74d39760…`, confirming the 1T host-environment drift class is still active on the v3 BRANCH lineage. ⚠ **[CORRECTED 2026-09-04: this sentence records the first refutation of the "does not reproduce on current `main`" claim and reads it as a confirmation.** The PARENT ran `main` `7ca55e8` with the published budget — `Per-sub-branch node limit: 6315458` in its own log — and produced exactly the published-recipe 1T anchor. Nothing about a drift class was confirmed. See [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two per-cell budgets".]** (At 11.2T scale this drift class does not propagate — the dress rehearsal v2 at git `7ca55e8` produced the canonical `0c0fe37cf449cbc6e275...` byte-identical to the 2026-05-27 c72eada+#108 witness, consistent with the existing project memory that drift sensitivity is inversely proportional to budget-vs-tree-size ratio.) #116 remains deferred to post-560T.
 
 **Cost summary** for the full dress rehearsal + investigation work: dress v1 enum $5, dress v2 merge + archive $5, drift investigation D2 Spots $0.04, brief orphan VM $0.01 — ≈ **$10 total**, well under the $100 operator-authorized investigation budget. The 560T main campaign trigger remains scheduled for 7 am PT Monday 2026-06-01 (= 14:00 UTC 2026-06-01).
 
@@ -6686,3 +6706,101 @@ documentation; a `[-Wformat-truncation=]` in the new `--kc-g-status` ledger read
 shortening any ledger line over 512 bytes in its status output; and a `[-Wstringop-truncation]` whose
 fix eliminated its whole class, so the class was removed from the warning baseline in the same commit
 — a stale baseline entry keeps a slot open for a future regression to pass unnoticed.
+
+## 2026-09-04 — the 1T anchor pair resolves to two per-cell budgets; the second correction of one fact
+
+**How it started.** A fresh D128als_v7 built `solve.c` from public HEAD `82f96b6b` and ran
+`./solve --canonical-config 1T` — the project's own published recipe, `SOLVE_DEPTH=3
+SOLVE_NODE_LIMIT=1000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=6315458 SOLVE_DFS_ITERATIVE=1
+SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128`. It produced `5a0f0bc2…`, 134,039,081 records: the value
+`CANONICAL_HASHES.md` had been saying since 2026-05-27 does not reproduce on current `main`. The operator
+asked why the registry called that a non-reproduction.
+
+**The archaeology.** Fifteen 1T runs are recorded across four months, five or more host-days, three VM sizes,
+32/64/128 threads, `-flto` and `-fno-lto`, `-O2` and `-O3`, gz and raw shards. They partition perfectly by one
+launch parameter and by nothing else: **thirteen runs left the per-cell budget to auto-divide**
+(`1000000000000 / 158364 = 6,314,566`) and produced `74d39760…`; **five set the published
+`SOLVE_PER_SUB_BRANCH_LIMIT=6315458`** and produced `5a0f0bc2…`. No run breaks the partition. The two
+provenance files most often cited as evidence of drift —
+`task_108_validation_20260527T0436Z` and `task_110_sha_gate_20260528T000322Z` — both record
+`final_budget_distribution {"6314566": 51578}`, and had done so since the day they were written.
+
+**The controlled runs.** One binary, built from unmodified public HEAD `82f96b6b`, on one Spot D128als_v7 in
+one hour, with the per-cell budget as the only variable:
+
+| arm | per-cell budget | sha256 (of the decompressed stream) | Records |
+|---|---:|---|---:|
+| 1 — published recipe | 6,315,458 | `5a0f0bc2…` | 134,039,081 |
+| 2 — solver auto-divide | 6,314,566 | `74d39760…` | 134,027,160 |
+
+Arm 2's sha and record count were both written down as predictions before it ran, and both matched exactly.
+The gap is 11,921 records = 381,472 bytes / 32 — the marginal yield of 892 extra nodes per cell across
+158,364 cells. Arm 1 was verified three ways that share no implementation: the tool's own `solutions.sha256`
+sidecar, the run log, and an independent `gzip -dc solutions.bin | sha256sum`. (Under the default
+`SOLVE_COMPRESS=1`, `sha256sum solutions.bin` hashes the gz *container* — 497,236,142 bytes on this run —
+and yields a value that matches nothing in the registry. That is the same trap TR-3 already documents from
+the 2026-06-17 gz ladder.)
+
+**This project had already found this bug, at a different scale.** On 2026-06-17 `--validate-canonical` was
+found to *derive* the per-cell budget from `SOLVE_NODE_LIMIT` instead of injecting the published value,
+producing a non-canonical 11.2T artifact (`2184bdd8` against anchor `0c0fe37c…`; derived 70,723,144 versus
+published 70,723,196 — a 52-node gap). It was diagnosed correctly, fixed by moving every published budget into
+`solve.c`'s `CANONICAL_RECIPES` table, and written up. Public commit `d8671550`. The identical mechanism at 1T
+was labelled host drift and stood for three more months.
+
+**The gate that could not pass.** Since that fix, the shipped validator injects 6,315,458 for `1T` and
+therefore cannot produce `74d39760…` — while the project's gate scripts went on naming `74d39760…` as the
+expected 1T value. No 1T sha-bearing run exists in the record between 2026-07-02 and 2026-09-04, and 109
+commits touching `solve.c` — 106 of them non-merge — landed in that window without a passing 1T gate
+(`git log d8671550..HEAD -- solve.c`, measured at `82f96b6b`; add `--no-merges` for 106). The three 1T results that *were* observed
+(2026-05-30, 2026-07-01, 2026-09-04) each disagreed with the registry, and each was absorbed by an escape
+clause reading the disagreement as host drift. What arm 1 establishes retroactively is that HEAD reproduces
+the 2026-05-24 value, so across those commits the 1T enumeration output is unchanged. The process failure
+stands separately from that reassurance.
+
+**What was relabelled.** `5a0f0bc2…` is the **Active** 1T anchor — what current `main` produces under the
+published recipe, reproduced on `main` on 2026-05-30, 2026-07-01 and twice on 2026-09-04, and archived.
+`74d39760…` is the auto-divided-budget reference, reproducible by setting `SOLVE_PER_SUB_BRANCH_LIMIT=6314566`
+explicitly, not a gate target, never archived. TR-3's toolchain qualifier loses its only cited evidence and is
+restated as a statement of tested scope, backed by the eight-path 11.2T census instead.
+
+**What did not move.** Every canonical sha, record count and archive. The 11.2T, 100T and 560T witnesses. The
+#108 sha-equivalence result — both of its runs used the same auto-divided budget, so it compared like with
+like. The correctness of either 1T artifact: both are valid, sorted, C1–C5-complete enumerations under their
+own budgets, and neither is a regression of the other.
+
+**Second correction, not a discovery.** The 2026-08-30 pass had already corrected this fact once, withdrawing
+the LTO/hardening-commit attribution and substituting "host-environment-level". That substitution was also
+unmeasured, while both provenance files recorded the deciding budgets the whole time. Codex review V2-F25 #3
+proposed the budget confound on 2026-09-02 and was ruled REFUTED by this project's own adjudication on the
+strength of a private sentence that was itself the uncontrolled comparison; that ruling is withdrawn and the
+finding is re-ruled true with credit. Archaeology by Fable; the two controlled runs by Claude.
+
+## 2026-09-05 — sixteen citation entries land, and a sentence in this file pointed at six of them before they existed
+
+**What landed.** Sixteen entries in [CITATIONS.md](CITATIONS.md). Fifteen are on the Shanghai Museum 周易
+manuscript's red and black symbols and the literature on them: 馬承源 ed. 2001 (the 上博 凡例), 陳燮君 2001,
+濮茅左 2001 and 2002, 陳佩芬 2001, 李尚信 2004, 姜廣輝 2004, 王振復 2004, 謝金良 2004, 陳仁仁 2005, 房振三 2005,
+謝向榮 2005, 孫偉龍・李守奎 2008, 何澤恆 2009 and 吳勇 2013; the sixteenth is 俞琰 (1258–1314), the Song–Yuan
+predecessor of the eight-list and the 18 : 18 count. Also an amendment to 近藤浩之 2005 recording that he
+reads the marks' base function as ordinary punctuation. Eleven of the sixteen — and the 近藤 amendment —
+cut against positions this project had taken, and each says so in its first sentences. Seven are scoped to
+a single point or passage and say so in their status brackets; four (姜廣輝, 王振復, 謝金良, 俞琰) are
+**not held as texts** and are entered as reported or quoted by others, with the source named and nothing
+quoted as the author's own words beyond what that source prints.
+
+**The sentence that was false, and for how long.** The 2026-08-16/29 entry above closes by listing
+fourteen scholars with priority over this project's readings and says CITATIONS.md "is where each is
+recorded with its evidence". For six of them — 陳仁仁, 謝金良, 王振復, 房振三, 俞琰 and 謝向榮 — that was false
+from the day it reached `main` (2026-09-04) until today; the six entries now exist, the unheld ones stating
+exactly what is held (for 王振復 and 謝金良, only 陳仁仁 2005's paraphrase; for 俞琰, one passage as printed by
+謝向榮 2005). The draft that found the defect reported four names; the census at landing found six. The sentence is not reworded — this file is append-only — and the correction is
+recorded in [CORRECTIONS.md](CORRECTIONS.md) (2026-09-05). The same landing corrected `#pu2003`'s
+symbol-form count, which had been published as settled at six: six is 濮's, 李尚信 gives seven, 房振三
+eight, and the counts are classification choices over fading pigment (registered RP-f050b3c8).
+
+**What this is not.** No sequence claim moved. The 2026-08-16 publication freeze stands; every item here
+cedes ground or records prior work. Entries drafted and landed by Fable from first-hand reads recorded
+privately (`FABLE_CITATIONS_OWED_DRAFT_2026_09_05.md`, `FABLE_CITATIONS_LANDED_2026_09_05.md`); five of
+the sixteen carry or merge earlier drafts of 2026-09-03 (`Q409_CITATION_DRAFTS_2026_09_03.md`) so that one
+entry lands per paper. The text in public files is Fable's; the operator directed the landing.

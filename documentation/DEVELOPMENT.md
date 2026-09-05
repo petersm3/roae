@@ -530,6 +530,36 @@ The c34390c0 / f7b8c4fb undercount investigation (Phase B re-derivation + Phase 
 | 4 | Canonical merges off Spot priority | **DONE** (standing operational policy, codified here 2026-05-14) | this doc + operational practice |
 | 5 | Differential per-sub-branch checksum during resume | **DONE** 2026-05-14 (4/4 test cases PASS) | `solve.c` `--emit-shard-manifest` + `--verify-shard-manifest` subcommands |
 
+#### ⚠ `--selftest-resume` IS BLIND TO THE `#167` GUARD — measured 2026-09-05, use `scripts/selftest_resume_167_gate.sh`
+
+**`--selftest-resume` cannot see whether the `#167` zero-yield guard fired, and it passes either way.**
+Measured on both binaries: the pre-fix and post-fix builds BOTH return PASS with the *same* solutions
+sha `b3862357…`, and `--selftest-resume-d3` is blind the same way (both PASS, `c37e3ea6…`). Two
+independent causes, and neither is incidental:
+
+* the three child runs log to `phase_?.log` **inside their tmpdirs**, and the driver `rm -rf`s both
+  before returning — so the guard's output cannot reach the caller on any binary. On the pre-fix
+  binary the guard fires **1,933 times** in PHASE_B and every one of those lines was being deleted.
+* the sha comparison is **insensitive by construction**: discard-and-re-walk produces the single-shot
+  set by design, so the `#167` fix changes **work**, not **output**.
+
+**Use `scripts/selftest_resume_167_gate.sh`.** It counts shard-less sidecars from the FILESYSTEM
+(independent of the guard, so it does not learn its subject from the thing under test), reads the
+guard's own counts from `phase_b.log` BEFORE deletion, and computes excess work from a per-run
+quantity — never `prior_nodes_walked`, which is cumulative and reads budget−1 whether a cell resumed
+or re-walked. Verdicts `SELFTEST_RESUME_167=PASS|FAIL|VACUOUS`; **`VACUOUS` (rc 42) is the point** —
+it refuses to report success when nothing was exercised.
+
+Measured 2026-09-05, both pinned in the script header: **fixed → PASS** (`R=Z=1933, D=0,
+EXCESS=3,030`, exactly one node per resumed cell); **pre-fix → FAIL** (rc 40; `R=0, D=1933,
+EXCESS=31,897,530`, exactly 1,933 × 16,501 — every zero-yield cell re-walking its whole PHASE_A budget,
+63.8% of the 50M budget redone). **7 of 7 mutants killed**, including the two that today's
+`--selftest-resume` passes: deleting every zero-yield sidecar, and stripping the guard lines from the
+log, both return VACUOUS rather than PASS.
+
+🔴 It runs enumerations, so it is **VM-only** — it cannot be a pre-commit hook, and it is not wired
+into any suite. Run it beside `--selftest-resume` when touching the resume path.
+
 #### Item 1: checkpoint-resume equivalence in selftest (`--selftest-resume`) — DONE
 
 **Goal:** convert the c34390c0-class failure mode from "discovered weeks later via cross-build" to "caught at CI time before any canonical work."
@@ -1139,7 +1169,7 @@ Compared to the bare `-O3 -flto -pthread -fopenmp -march=native`, these flags ad
 
 **Result**: two builds of the same source on the same host produce **byte-identical binaries** (the same `.text`, same `.rodata`, same build-id — the last of these only since the `sha1` correction above; under the previously documented `sha256` the flag was ignored and there was no build-id to compare). The empirical Q10 finding showed that without these flags, two builds had byte-identical `.text` but differing `.rodata` and build-id — cosmetic but messy. The deterministic recipe eliminates the mess.
 
-**Caveat — cross-host reproducibility**: even with this recipe, builds across different physical hosts (different gcc patch, glibc patch, kernel, CPU revision) can produce DIFFERENT binaries — and may produce different canonical sha at BUDGETED-cell-density-sensitive scales like 1T. See the structured `validation_history` block in `CANONICAL_HASHES.md` and the `feedback_canonical_sha_drift_management` memory for the operational discipline.
+**Caveat — cross-host reproducibility**: even with this recipe, builds across different physical hosts (different gcc patch, glibc patch, kernel, CPU revision) can produce DIFFERENT binaries — and may in principle produce a different canonical sha. ⚠ **[CORRECTED 2026-09-04 — this read "and may produce different canonical sha at BUDGETED-cell-density-sensitive scales like 1T". The cell-density mechanism is withdrawn, and 1T is not an instance of it: the two published 1T values are two per-cell budgets (published 6,315,458 vs auto-divided 6,314,566), reproduced from one binary on one host on 2026-09-04. **No host-level drift event is on the project's record.** The caveat above is kept as a statement of what has not been tested, not of what has been observed. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 1T and [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two per-cell budgets".]** See the structured `validation_history` block in `CANONICAL_HASHES.md` and the `feedback_canonical_sha_drift_management` memory for the operational discipline.
 
 For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does not fire at higher scales per Item 4 empirical evidence 2026-05-27).
 

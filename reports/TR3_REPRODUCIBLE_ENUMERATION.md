@@ -47,30 +47,43 @@ Stated precisely, because the unqualified form would overclaim:
   anchor's entry records its solver commit and VM SKU. A per-anchor **gcc version is not recorded** —
   gcc versions appear only on the ARM cross-architecture witness rows. A reader matching "the toolchain
   class" is therefore matching a recipe and a machine type, not a pinned compiler build.
-  The qualifier is not hypothetical caution: the project observed one **host-level**
-  drift event, in which the same source produced a different artifact on a differently-provisioned host.
-  It was documented, bisected, and fenced, and it was shown to be host-environment-level, **not**
-  source-level — the affected anchor re-derives byte-identically on a matching host. That conclusion is
-  auditable from the public record rather than asserted: the seven hardening commits in the suspect
-  range were empirically exonerated, and LTO was empirically ruled out as the mechanism — building with
-  `-fno-lto` still produced the drifted 1T sha `74d39760…`, not the pre-drift anchor `5a0f0bc2…`. The
-  drift is also scale-sensitive rather than universal: on the very code state that drifted at 1T, the
-  11.2T anchor `0c0fe37c…` re-derived byte-identically. See
-  [HISTORY.md](../documentation/HISTORY.md) §"May 27/28, 2026 UTC — Task #110 Tier 1
-  canonical-determinism hardening" and
-  [PERFORMANCE_HISTORY.md](../documentation/PERFORMANCE_HISTORY.md) §"2026-05-27 — task #106/#108"
-  (the ⚠ Correction of 2026-08-30 withdrawing the earlier LTO/hardening-commit attribution).
-  Host-fingerprint sidecars and a `--validate-canonical` gate were added in response, so a reader who
-  reproduces on a different host class gets a **visible** mismatch rather than a silent one — see §2(d)
-  for what that gate does and does not tell them.
+  The qualifier is a statement of **tested scope**, not of observed fragility.
+  ⚠ **[CORRECTED 2026-09-04 — this bullet previously cited one "host-level drift event" as the qualifier's
+  evidence: the 1T pair `5a0f0bc2…` / `74d39760…`. That citation is withdrawn.** The two values were produced
+  under two different per-cell budgets — the published `SOLVE_PER_SUB_BRANCH_LIMIT=6315458` versus the
+  auto-divided ⌊10¹²/158,364⌋ = 6,314,566 — and on 2026-09-04 one binary built from unmodified `main`
+  `82f96b6b` produced each value at its own budget on one host in one hour, with the budget as the only
+  variable. The 2026-08-30 correction this report cited had itself replaced one unmeasured cause (LTO layout)
+  with another (host environment) without comparing the recorded budgets, so **this is the second correction
+  of that fact**, not a discovery. See [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §d3 1T and
+  [CORRECTIONS.md](../documentation/CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two per-cell
+  budgets".]** **The registry now records no host-level drift event.** What it records instead is a stronger
+  positive result than the qualifier implied. At 11.2T the registry lists **eight** independent build/host
+  paths for `0c0fe37c…`, all byte-identical, and one of them is a 2026-05-21 ARM Cobalt Neoverse-N2 rebuild on
+  gcc 13.3.0 — a different architecture *and* a different compiler from every other row
+  ([CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §"Cross-build + cross-architecture witnesses").
+  At 1T the recipe is byte-exact across four host-days, D32/D64/D128, 32/64/128 threads, `-O2`/`-O3`,
+  `-flto`/`-fno-lto`, gz and raw shards, and three and a half months of `solve.c` change — conditional only on
+  the per-cell budget. The honest residual is the one stated two sentences above: **no per-anchor gcc version
+  is recorded** except on the ARM rows, so this is a census of *tested paths*, not a proof of invariance, and
+  the qualifier survives because byte-exactness has not been tested outside the documented class — not because
+  it has been seen to fail inside it. The qualifier's practical content is the one §1 already states: the
+  per-cell budget is published verbatim and must never be re-derived from a formula, because a 52-node
+  difference at 11.2T and an 892-node difference at 1T each produce a valid, sorted, non-canonical artifact.
+  Host-fingerprint sidecars and a `--validate-canonical` gate remain in place; they were built to manage a
+  drift the record does not contain, and their present value is that a mismatch is **visible** and
+  diagnosable — see §2(d) for what that gate does and does not tell a reader.
 - **What the theorem covers.** Partition invariance is proved about the *model* of the computation
   (output independent of thread count, machine, merge path, and shard partition). The bridge from that
   model to the shipped binary is carried by the runtime gates — `--selftest`, the canonical-scale sha
   gates, and two-language cross-checks — not by the proof itself. The theorem is why re-derivation
   *should* be exact; the gates are why we believe the binary honours it.
 - **Practical reading.** "Anyone" means anyone with the documented toolchain class and the budget; it
-  does not mean the artifact is invariant under every compiler on every host. Where an anchor is known
-  to be host-fragile, [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) says so per anchor.
+  does not mean the artifact is invariant under every compiler on every host. No anchor is currently
+  known to be host-fragile; where two published values exist at one scale (1T),
+  [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) states which launch parameter separates
+  them. *(Corrected 2026-09-04: this read "Where an anchor is known to be host-fragile, CANONICAL_HASHES.md
+  says so per anchor" — there is no such anchor.)*
 
 ## Sections
 
@@ -152,12 +165,17 @@ SAT layer (`sat.py`), is bound to them by round-trip validation rather than bein
 semantics itself. The purpose is not redundancy for its own sake — it is that a single implementation
 cannot distinguish "the constraints are what we think" from "the code does what the code does".
 
-**(d) Host-fingerprint sidecars and `--validate-canonical`.** These were added *after* the fact, in
-response to one observed **host-level** drift event: identical source, different host, different
-artifact. The investigation established that the drift was environmental rather than in the source —
-the affected anchor re-derives byte-identically on a matching host — and the response was to make the
-condition visible rather than to relax the claim. A reader reproducing on a different toolchain class
-now receives a **visible** mismatch instead of a silent one. *Visible* is the accurate word, not
+**(d) Host-fingerprint sidecars and `--validate-canonical`.** These were added on 2026-05-27/28 in
+response to what was then read as a host-level drift event at 1T. ⚠ **[CORRECTED 2026-09-04 — that reading
+is withdrawn** (§"Scope of the reproducibility claim"; [CORRECTIONS.md](../documentation/CORRECTIONS.md)
+§"2026-09-04 — the 1T anchor pair was two per-cell budgets"): the two 1T values were produced under two
+per-cell budgets, not on two host classes.]** The tools stay, because their design is sound independently
+of their motivation: `--validate-canonical` re-runs an anchor with the **published** per-cell budget
+injected from `solve.c`'s `CANONICAL_RECIPES` table — a 2026-06-17 fix, before which the tool *derived* the
+budget and could not validate 11.2T at all — and on mismatch prints the reader's host fingerprint so the
+mismatch is at least diagnosable. A reader who gets a mismatch should check the **expected sha against the
+registry first**: the project's own 1T gate was held to a stale expected value from 2026-06-17 to
+2026-09-04 while every mismatch was absorbed as host drift. *Visible* is the accurate word, not
 *diagnosed*: `--validate-canonical` re-runs the anchor and prints the reader's own host fingerprint
 (gcc, glibc, kernel, CPU model, microcode, OS release) either way, and on mismatch adds the expected and
 measured shas plus three candidate causes — host environment, source regression, stale anchor — before
@@ -328,7 +346,9 @@ SOLVE_SKIP_AUTOMERGE=1 ./solve            # shards to disk; survives eviction vi
 # 3. verify — solutions.bin is GZIP-FRAMED under the default SOLVE_COMPRESS=1, and every
 #    canonical sha is computed on the DECOMPRESSED bytes (sha256_of_logical() in solve.c). Hashing the
 #    container instead is a false mismatch — the 1T gz ladder caught exactly that (it read
-#    the container sha f5dfe17f instead of the canonical 74d39760). Under SOLVE_COMPRESS=0
+#    the container sha f5dfe17f instead of the 74d39760 that pre-fix run expected — the expected
+#    value of THAT run, not the published-recipe 1T anchor, which is 5a0f0bc2; corrected
+#    2026-09-04, CANONICAL_HASHES.md §d3 1T). Under SOLVE_COMPRESS=0
 #    the file is raw and plain `sha256sum solutions.bin` is the right command.
 gzip -dc solutions.bin | sha256sum   # -> 9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e
 ./solve --verify           # C1-C5 + sorted + no duplicates + King Wen present (gz-aware: reads raw or gz)
@@ -362,4 +382,5 @@ parameters](../documentation/CANONICAL_HASHES.md#reproducibility-parameters).
 | v1.8 | 2026-07-31 | **Reclamation-pattern claim hedged + re-run effort figure re-attributed (novelty-gate audit #20, batch 2).** (1) "Reclamation was scheduled, not stochastic" (exec summary + §4) restated as an observed single-campaign pattern — five events in one week, weekday-morning 37-minute window — not a demonstrated provider scheduling policy; the 2026-06-30 re-run's seven evictions arrived in a different pattern (CANONICAL_HASHES §d3 560T). The launch-window policy is unchanged (it needs only the pattern). (2) §3 attributed "171.5 hours of compute" to the re-run; 171.5 h is the FIRST campaign's enumeration wall time (CANONICAL_HASHES §d3 560T) — the sentence now says the re-run repeated that workload rather than claiming its wall time. No sha, count, or verdict changed |
 | v1.9 | 2026-08-01 | **Verification Guide's sha step corrected: it hashed the wrong bytes (lens-sweep item T2-1).** Step 3 read `sha256sum solutions.bin`, but `solutions.bin` is gzip-framed under the default `SOLVE_COMPRESS=1` and every canonical sha is computed on the DECOMPRESSED stream (`solve.c:1103-1110`) — so a replicator following the published recipe verbatim would have computed the *container* sha and concluded the flagship canonical does not reproduce. This is the failure the 1T gz ladder already caught internally (container sha `f5dfe17f` read instead of canonical `74d39760`); our own 560T witnesses used `gzip -dc \| sha256sum`, which is why it never surfaced in-house. Step 3 now reads `gzip -dc solutions.bin \| sha256sum`, states the `SOLVE_COMPRESS=0` raw case, and notes `--verify` is gz-aware. The expected **336,808,703,936 bytes** is likewise the *logical* (decompressed) size — the on-disk gz is smaller — so the size cross-check is now stated against `gzip -dc \| wc -c` rather than `ls -l`. No sha, count, or verdict changed; the anchors are exactly as published |
 | v1.10 | 2026-08-06 | **Gate (a)'s trigger corrected: the selftest does not run "on every commit" (fix-landing pass).** §2's heading claimed `--selftest` runs at commit time; verified false — no pre-commit gate invokes `--selftest` (grep count zero in both commit-side gate scripts). The real trigger is the pre-push compile gate, which fires only from a clone that has installed the git hooks (installation is per-clone and opt-in, one documented command — DEVELOPMENT.md §"Git hooks"), plus the operator's standing manual practice. Heading and opening rewritten to say exactly that, with a dated correction note; the §2 body's pre-push-siting discussion was already accurate and is unchanged. METHODS.md's environment-table source column ("every commit gate") corrected in the same pass. No sha, count, or verdict changed |
-| v1.11 *(current)* | 2026-08-31 | **Eight corrections from the executed prose review (batch P09).** (1) §1's contract read "`solutions.bin` is a mathematical function of **one integer**" and called the budget "the only free parameter". `SOLVE_DEPTH` is sha-determining and **defaults to 2**, while every depth-3 canonical requires `SOLVE_DEPTH=3`; a reproducer taking §1 literally could not match a published sha. §1 now states the contract over the whole published launch configuration and names depth explicitly. (2) §1's "budget is the only free parameter" replaced with the registry's own distinction: `SOLVE_DEPTH` and `SOLVE_PER_SUB_BRANCH_LIMIT` are sha-determining, `SOLVE_NODE_LIMIT` only when no explicit per-cell budget is given. (3) §Scope's toolchain qualifier claimed gcc major-version/flag combinations are "recorded with each anchor"; they are not — the build recipe is global and gcc versions appear only on the ARM witness rows. Restated to what the registry holds. (4) §Scope and §2(d) called a `--validate-canonical` mismatch **diagnosed**; the gate prints the reader's own host fingerprint plus three candidate causes and exits 33, with no stored reference fingerprint to compare against. Restated as *visible*, with the gate's actual output described. (5) §Scope now cites the public evidence for the host-level drift finding (HISTORY.md §Task #110; PERFORMANCE_HISTORY.md §2026-05-27 task #106/#108 and its 2026-08-30 correction) so the conclusion is checkable rather than asserted. (6) §2(b) offered a 100-billion-node run as reproducing "a full canonical"; the registry classes sub-1T shas as code-specific and `solve.c` exits 25 below 1T without an explicit override. Restated as a smoke/correlation check, with canonical-grade verification starting at 1T. (7) §3's "#108 … nearly a threefold improvement in effective throughput" was the occupancy ratio, not throughput: the measured figures are wall ~2.0× (3,430 s → 1,679 s) and sub-branch throughput +43% (~28 → 40.05/s). (8) §4's "a long run launched Friday evening buys an uninterrupted weekend" downgraded from a scheduling guarantee to an observation that did not replicate in the re-run; §4's "a few thousand" on-demand figure corrected to ~$880 for the enumeration leg (under $1,000 including merge) against the report's own published rates; and two stale line pins repinned to stable anchors (`PERFORMANCE_HISTORY.md:1174-1175` → §"2026-05-27 — task #106/#108" *Notes* item 1; `solve.c:1103-1110` → `sha256_of_logical()`). Two siblings swept beyond the charged sites: §2(d) carried the same "diagnosed mismatch" wording as §Scope, and §4 credited the low checkpoint overhead to "after fsync batching" — the same default-mode attribution the 2026-08-24 correction retracted in §3, left un-propagated one section away. Knowingly left unchanged: the v1.7 and v1.9 revision rows above still restate the "function of one integer" framing and the `solve.c:1103-1110` pin, because they are the historical record of what those revisions did, not live claims. No sha, record count, or canonical anchor changed |
+| v1.11 | 2026-08-31 | **Eight corrections from the executed prose review (batch P09).** (1) §1's contract read "`solutions.bin` is a mathematical function of **one integer**" and called the budget "the only free parameter". `SOLVE_DEPTH` is sha-determining and **defaults to 2**, while every depth-3 canonical requires `SOLVE_DEPTH=3`; a reproducer taking §1 literally could not match a published sha. §1 now states the contract over the whole published launch configuration and names depth explicitly. (2) §1's "budget is the only free parameter" replaced with the registry's own distinction: `SOLVE_DEPTH` and `SOLVE_PER_SUB_BRANCH_LIMIT` are sha-determining, `SOLVE_NODE_LIMIT` only when no explicit per-cell budget is given. (3) §Scope's toolchain qualifier claimed gcc major-version/flag combinations are "recorded with each anchor"; they are not — the build recipe is global and gcc versions appear only on the ARM witness rows. Restated to what the registry holds. (4) §Scope and §2(d) called a `--validate-canonical` mismatch **diagnosed**; the gate prints the reader's own host fingerprint plus three candidate causes and exits 33, with no stored reference fingerprint to compare against. Restated as *visible*, with the gate's actual output described. (5) §Scope now cites the public evidence for the host-level drift finding (HISTORY.md §Task #110; PERFORMANCE_HISTORY.md §2026-05-27 task #106/#108 and its 2026-08-30 correction) so the conclusion is checkable rather than asserted. (6) §2(b) offered a 100-billion-node run as reproducing "a full canonical"; the registry classes sub-1T shas as code-specific and `solve.c` exits 25 below 1T without an explicit override. Restated as a smoke/correlation check, with canonical-grade verification starting at 1T. (7) §3's "#108 … nearly a threefold improvement in effective throughput" was the occupancy ratio, not throughput: the measured figures are wall ~2.0× (3,430 s → 1,679 s) and sub-branch throughput +43% (~28 → 40.05/s). (8) §4's "a long run launched Friday evening buys an uninterrupted weekend" downgraded from a scheduling guarantee to an observation that did not replicate in the re-run; §4's "a few thousand" on-demand figure corrected to ~$880 for the enumeration leg (under $1,000 including merge) against the report's own published rates; and two stale line pins repinned to stable anchors (`PERFORMANCE_HISTORY.md:1174-1175` → §"2026-05-27 — task #106/#108" *Notes* item 1; `solve.c:1103-1110` → `sha256_of_logical()`). Two siblings swept beyond the charged sites: §2(d) carried the same "diagnosed mismatch" wording as §Scope, and §4 credited the low checkpoint overhead to "after fsync batching" — the same default-mode attribution the 2026-08-24 correction retracted in §3, left un-propagated one section away. Knowingly left unchanged: the v1.7 and v1.9 revision rows above still restate the "function of one integer" framing and the `solve.c:1103-1110` pin, because they are the historical record of what those revisions did, not live claims. No sha, record count, or canonical anchor changed |
+| v1.12 *(current)* | 2026-09-04 | **The toolchain qualifier's evidence withdrawn; the qualifier kept as tested scope (second correction of the 1T anchor fact).** §Scope cited one host-level drift event as the qualifier's evidence — the 1T pair `5a0f0bc2…` / `74d39760…`. That pair is two per-cell budgets (the published 6,315,458 versus the auto-divided 6,314,566), and on 2026-09-04 one binary built from unmodified `main` `82f96b6b` produced both values on one host with the budget as the only variable. The 2026-08-30 correction this report relied on had itself substituted "host environment" for "LTO layout" without comparing the recorded budgets, so this is the second correction of the same fact. §Scope, §Practical reading and §2(d) rewritten; the qualifier is replaced by the eight-path 11.2T census (including the ARM Neoverse-N2 gcc 13.3.0 rebuild) with the honest residual that no per-anchor gcc version is recorded; the "scale-sensitive drift" clause is deleted outright because it has no referent — 11.2T re-derived because its witnesses set the published budget, 1T's did not. The §3 recipe comment no longer calls `74d39760` canonical. No sha, count or verdict changed; the 560T claims are untouched. Codex review V2-F25 #3 proposed the budget confound on 2026-09-02 and was wrongly ruled refuted |
