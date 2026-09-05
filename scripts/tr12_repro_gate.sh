@@ -83,6 +83,16 @@ if ! ( eval "${BUILD/-o solve/-o $WORK/solve}" ) >"$WORK/build.log" 2>&1; then
 fi
 echo "  [ok] published build line builds"
 
+# D5-01 leg (2026-09-05). THIS GATE ONLY EVER RUNS --n9, so it can never exercise the full-31 path
+# on its own -- and the full-31 path is precisely where a2_q1c was guaranteed to FAIL after burning
+# 3-5 h. Wiring the skip guard's own red/green gate in here is the only way an n=9 pre-push check
+# protects a full-31 run. Fails the whole gate: a broken or moved guard means the next full-31
+# battery is a scheduled 3-5 h failure.
+if ! bash ./scripts/d5_01_q1c_skip_gate.sh; then
+  echo "  [FAIL] the a2_q1c full-31 skip guard is broken or has moved (see message above)"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
 if ! ./scripts/tr12_repro.sh --n9 --solve "$WORK/solve" --out "$WORK/out" >"$WORK/repro.log" 2>&1; then
   :   # non-zero exit is expected on FAIL; the token below is the authority
 fi

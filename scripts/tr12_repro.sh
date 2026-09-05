@@ -868,40 +868,52 @@ fi
 #            post-filter arithmetic here.  The REALISED M is reported, never the requested M.
 #            Note --kc-sample --kc-c3-max returns exactly M accepted draws and does NOT report
 #            its rejection rate, so p-hat is taken from the UNFILTERED draws' cd column. --------
-row_begin a2_q1c
-(
-  RANCH=$("$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$ANCHOR" 2>/dev/null | awk -F'\t' '$1=="rank3"{print $2}')
-  if [ -z "$RANCH" ]; then echo "could not obtain rank_O3(anchor)"; exit 1; fi
-  echo "# Q1(c) — labelled ESTIMATE with binomial CI. Space: C15 rank is NOT exactly computable."
-  echo "rank_O3_anchor	$RANCH"
-  echo "requested_M	$Q1CM"
-  "$SOLVE" --kc-sample "$FDIR" "$Q1CM" "$SEED" 2>/dev/null > "$WORK/q1c.raw" || exit 1
-  : > "$WORK/q1c.ranks"
-  while IFS=$'\t' read -r _r _cd walk; do
-      case "$_r" in ''|*[!0-9]*) continue ;; esac
-      cd_v=${_cd#cd=}
-      o3=$("$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$walk" 2>/dev/null | awk -F'\t' '$1=="rank3"{print $2}')
-      [ -n "$o3" ] && printf '%s\t%s\n' "$o3" "$cd_v" >> "$WORK/q1c.ranks"
-  done < "$WORK/q1c.raw"
-  awk -F'\t' -v R="$RANCH" -v T="$C3MAX" '
-    { drawn++
-      # decimal-string compare: shorter is smaller; equal length falls back to lexicographic
-      a=$1 ""; r=R ""
-      keep = (length(a)<length(r)) || (length(a)==length(r) && a<r)
-      if (keep) { m++; if ($2+0<=T) le++ } }
-    END{
-      printf "drawn_M\t%d\n", drawn
-      printf "realised_M_in_rank_prefix\t%d\n", m
-      if (m==0) { printf "Q1C_FAIL\tno draw fell below the anchor rank; CI undefined\n"; exit 1 }
-      p=le/m; z=1.959964; d=1+z*z/m; c=(p+z*z/(2*m))/d
-      hw=z*sqrt(p*(1-p)/m + z*z/(4*m*m))/d
-      printf "p_hat_C15_given_rank_lt_anchor\t%.8f\n", p
-      printf "wilson95_lo\t%.8f\nwilson95_hi\t%.8f\n", (c-hw<0?0:c-hw), (c+hw>1?1:c+hw)
-      printf "label\tESTIMATE +- binomial CI at the REALISED M (never the requested M)\n"
-    }' "$WORK/q1c.ranks"
-) >>"$RAW" 2>&1; rc=$?
-cp "$RAW" "$ARTDIR/q1_c15_estimate.tsv"
-row_end TR12_Q1C $rc
+# D5-01 (2026-09-05): at full-31 this row is GUARANTEED TO FAIL, after burning 3-5 h first.
+# rank_O3(KW) = 0 by the labeling theorem (QUERY_REDESIGNS_Q394_2026_08_29.md section 1), so the
+# awk keep-test "a < RANCH" can never hold, m stays 0, and the row exits 1 with Q1C_FAIL --
+# taking TR12_REPRO with it. The exit is downstream of the Q1CM-draw descent loop, so the cost is
+# paid in full before the guaranteed failure. Q-394 section 2 already ruled the row
+# SKIP:merged-into-Q4AC and recorded the change as "handed over, not done"; this is the landing.
+# The n=9 leg is kept: there rank_O3(anchor) > 0 and the row is a live fixture.
+if [ "${N_PAIRS:-0}" -ge 31 ]; then
+  row_skip a2_q1c TR12_Q1C "SKIP:merged-into-Q4AC" \
+    "SKIP:merged-into-Q4AC - at n>=31 rank_O3(KW)=0 by the labeling theorem, so no draw can fall below the anchor rank and the row can only emit Q1C_FAIL; superseded by Q4(a)/(c) per Q-394 section 2. Runs normally at n<31."
+else
+  row_begin a2_q1c
+  (
+    RANCH=$("$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$ANCHOR" 2>/dev/null | awk -F'\t' '$1=="rank3"{print $2}')
+    if [ -z "$RANCH" ]; then echo "could not obtain rank_O3(anchor)"; exit 1; fi
+    echo "# Q1(c) — labelled ESTIMATE with binomial CI. Space: C15 rank is NOT exactly computable."
+    echo "rank_O3_anchor	$RANCH"
+    echo "requested_M	$Q1CM"
+    "$SOLVE" --kc-sample "$FDIR" "$Q1CM" "$SEED" 2>/dev/null > "$WORK/q1c.raw" || exit 1
+    : > "$WORK/q1c.ranks"
+    while IFS=$'\t' read -r _r _cd walk; do
+        case "$_r" in ''|*[!0-9]*) continue ;; esac
+        cd_v=${_cd#cd=}
+        o3=$("$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$walk" 2>/dev/null | awk -F'\t' '$1=="rank3"{print $2}')
+        [ -n "$o3" ] && printf '%s\t%s\n' "$o3" "$cd_v" >> "$WORK/q1c.ranks"
+    done < "$WORK/q1c.raw"
+    awk -F'\t' -v R="$RANCH" -v T="$C3MAX" '
+      { drawn++
+        # decimal-string compare: shorter is smaller; equal length falls back to lexicographic
+        a=$1 ""; r=R ""
+        keep = (length(a)<length(r)) || (length(a)==length(r) && a<r)
+        if (keep) { m++; if ($2+0<=T) le++ } }
+      END{
+        printf "drawn_M\t%d\n", drawn
+        printf "realised_M_in_rank_prefix\t%d\n", m
+        if (m==0) { printf "Q1C_FAIL\tno draw fell below the anchor rank; CI undefined\n"; exit 1 }
+        p=le/m; z=1.959964; d=1+z*z/m; c=(p+z*z/(2*m))/d
+        hw=z*sqrt(p*(1-p)/m + z*z/(4*m*m))/d
+        printf "p_hat_C15_given_rank_lt_anchor\t%.8f\n", p
+        printf "wilson95_lo\t%.8f\nwilson95_hi\t%.8f\n", (c-hw<0?0:c-hw), (c+hw>1?1:c+hw)
+        printf "label\tESTIMATE +- binomial CI at the REALISED M (never the requested M)\n"
+      }' "$WORK/q1c.ranks"
+  ) >>"$RAW" 2>&1; rc=$?
+  cp "$RAW" "$ARTDIR/q1_c15_estimate.tsv"
+  row_end TR12_Q1C $rc
+fi
 
 # ---- A2.10 the f.g cut identity at every layer.  At full-31 this is a ~24 h single-threaded
 #            FULL LADDER PASS, not a point query — it stays behind --with-gcheck. --------------
