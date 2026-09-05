@@ -1052,7 +1052,11 @@ fi
 
 # ================================================================================================
 # GROUP B — THE SCAN.  One shot, unresumable: kc_scan_main writes its atlas ONCE, at the end, so
-# an interruption at hour 47 of 48–85 yields nothing.  Everything above is already banked.
+# an interruption at ANY point before the end yields nothing.  Everything above is already banked.
+# 🔴 2026-09-05: this comment said "at hour 47 of 48-85".  That wall figure is WITHDRAWN -- it was the
+# f+g FOOTPRINT divided by a measured rate, and kc_h_scan_layers does not stream g, it makes
+# 2*(31-k) random point lookups into it per f entry at layer k.  The real wall has never been
+# measured end to end and is much longer.  documentation/CORRECTIONS.md.
 # ================================================================================================
 group "GROUP B — the scan"
 
@@ -1089,7 +1093,8 @@ else
     row_begin b_scan
     # --kc-raw is REQUIRED at n=31 or marginal_raw is not emitted and V1 dies. It is automatic at
     # n<=13; passing it always costs nothing and removes the single most expensive mistake in the
-    # program (re-running a 48–85 h unresumable pass to add a column).
+    # program (re-running the whole unresumable pass to add a column -- a wall this project no
+    # longer puts a number on; the retired "48-85 h" is withdrawn, documentation/CORRECTIONS.md).
     ( "$SOLVE" --kc-scan "$FDIR" "$GDIR" "$ATLAS" --kc-tdir "$TDIR" --kc-raw && echo "### atlas" && cat "$ATLAS" ) >>"$RAW" 2>&1; rc=$?
     [ "$rc" -eq 0 ] && SCAN_OK=1
     row_end TR12_SCAN $rc

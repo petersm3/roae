@@ -1735,10 +1735,21 @@ on `--kc-scan-merge`, each taking `VERIFIED`, `SKIPPED` or `FAILED` (`OK`/`FAIL`
 has merely checked less. Do not gate on the `VERDICT:` sentence, which cannot distinguish the two.
 
 Chunked, eviction-survivable `--kc-scan`. The full-31 atlas scan is a single
-**48–85 h unresumable pass** against a Spot MTBE of roughly **15 h**;
+unresumable pass far longer than a Spot MTBE of roughly **15 h**;
 `--kc-layers A B` splits it into independent per-layer-range processes, so an
 evicted chunk is simply re-run and completed chunks are durable. The
 granularity floor is one layer — this is not mid-layer resume.
+
+🔴 **The "48–85 h" wall this file used to give is WITHDRAWN (2026-09-05), and no
+replacement figure is published here.** That number was an *assumed* total read volume (~10.9 TB, the
+f and g ladders' combined **footprint**) divided by a measured rate. The assumption is wrong, and it
+is wrong in the direction that matters: `kc_h_scan_layers` does **not** stream the g ladder. It
+streams f sequentially and then, for **every f entry** at layer `k`, issues `2·(31−k)` **random point
+lookups** into g (`kc_glookup`), served through a fixed-size OOC block cache that at n=31 covers a
+small fraction of a single mid layer. The physical read volume is therefore very much larger than the
+ladders' size, and the wall is correspondingly longer — days-to-weeks in the chunked shape below, not
+hours. It has never been measured end to end, so this file states the mechanism and gives no number.
+See [CORRECTIONS.md](CORRECTIONS.md).
 
 **`A B` is a HALF-OPEN range `[A, B)`** over the transition layers
 `k ∈ [0, n)`. Off-by-one here is the primary bug risk, which is why the merge's

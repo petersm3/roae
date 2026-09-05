@@ -8857,3 +8857,76 @@ credits a published reading; it asserts nothing new.
 
 Adjudicated by Fable from the repost (`petersm3/roae-private:FABLE_JIANG2004_SHEN_RECIDU_2026_09_05.md`);
 applied and this text by Fable, 2026-09-05.
+
+## 2026-09-05 — the `--kc-scan` wall was published as "48–85 h"; that number divided the ladders' *footprint* by a measured rate, and the scan does not read the ladders once
+
+**`documentation/VERIFY.md` gave the full-31 `--kc-scan` wall as "~48–85 h" in four places** — the
+`--kc-raw` warning at step 3 ("a 48-85 h unresumable pass would complete, look clean, and be missing a
+named figure"), the chunked-merge paragraph at step 4 ("a single 48-85 h pass with no resume flag"),
+the observed-costs table ("full scan wall | ~48–85 h"), and the run-order paragraph ("`--kc-scan` is
+one 48–85 h pass … an interruption at hour 47 yields nothing"). **`documentation/SOLVE_C_CLI.md`
+§`--kc-layers / --kc-scan-merge` gave the same figure** ("a single **48–85 h unresumable pass**
+against a Spot MTBE of roughly **15 h**"), and **`scripts/tr12_repro.sh` carried it twice in
+comments** ("an interruption at hour 47 of 48–85 yields nothing"; "re-running a 48–85 h unresumable
+pass to add a column").
+
+**What made it move.** The figure was an assumed total read volume divided by a measured rate. The
+assumed volume was the f-ladder and g-ladder sizes **added together** — it assumed the f-by-g join
+reads each ladder once. It does not. `kc_h_scan_layers` in `solve.c` streams the f layers
+sequentially, but for **every f entry** at transition layer `k` it issues `2·(31−k)` **random point
+lookups** into the g ladder (`kc_glookup(gkc, k+1, …)`), served through a fixed-size out-of-core block
+cache whose slot count at production settings covers a small fraction of one mid layer. The physical
+read volume is therefore far larger than the ladders' footprint, and the wall is correspondingly
+longer. That much is checkable in this repository: the loop, the lookup and the cache are all in
+`solve.c`, and this entry names them rather than asking a reader to take a number on trust. The
+assumed volume was additionally stale in its f term — see the entry below.
+
+**What it says now.** Every one of the seven sites states that the wall is **not established** and
+gives **no replacement figure**, because none has been measured end to end. Each site names the
+mechanism — random point lookups into g, not a streaming read — and points here. `SOLVE_C_CLI.md` and
+`VERIFY.md` carry the full statement; `tr12_repro.sh`'s comments carry the short form. The
+conclusions the old figure was used to support are **restated without it**: the pass is still
+unresumable, still writes its atlas once at the end, is still far longer than a ~15 h Spot MTBE, and
+`--kc-layers` + `--kc-scan-merge` is still the production shape. Those conclusions were right; only
+the number under them was wrong, and it was wrong in the direction that makes them stronger.
+
+**What did not move.** No count, theorem, canonical sha or published result. The run order and its
+rationale, the `--kc-raw` and `--kc-tdir` requirements at n=31, the `KC_SCAN*` verdict tokens, the
+half-open `[A, B)` chunk semantics and the merge's coverage proof are all unchanged. The measured
+rates in the same `VERIFY.md` table — the ~128 MB/s streaming rate, the 12.5 s/row cold → 1 s/row warm
+descent cost, `--kc-g-check` being single-threaded — were measurements and stand. **No claim was
+widened:** the pass is described as longer and less tractable than before, never shorter.
+
+**Why under the publication freeze.** A published figure is withdrawn and nothing is put in its place;
+the entry asserts no new quantity.
+
+Found while re-deriving the scan's read volume from `solve.c` and the measured Stage F layer profile
+(`petersm3/roae-private:ATLAS_SCOPING_2026_09_05.md`), which traced every citation of the same assumed
+volume in the private tree to a single unsourced comment on the `TOTAL_TB` default in a private ETA
+helper; that comment has been corrected at its source. Applied and this text by Claude (Opus 5),
+2026-09-05.
+
+## 2026-09-05 — the f-ladder's published size was ~6% low, one more instance of a drift class this project already tracks
+
+**`documentation/VERIFY.md`'s observed-costs table read "f-ladder size | ~3.1 TB at full 31".** The
+measured full-31 f ladder is **3,293,894,951,830 bytes ≈ 3.29 TB**, byte-verified against the storage
+account on 2026-08-02.
+
+**What made it move.** A sibling sweep. The withdrawn `--kc-scan` wall in the entry above was built
+from an assumed read volume whose f term was a *pre-measurement* estimate, and this project has
+recorded that stale-f drift before. Checking whether the public tree carried another instance found
+this one.
+
+**What it says now.** The row gives the measured byte count and the ≈ 3.29 TB rounding, carries the
+reproduction command (`du -sb $FDIR`) so the figure is checkable rather than asserted, and records
+that it read "~3.1 TB" until 2026-09-05. The row's own caveat — "plan storage, not a claim" — is kept.
+
+**What did not move.** Nothing else in the table, and no count, theorem, canonical value or published
+result. Storage planning at ~3.1 TB versus ~3.29 TB changes no decision this project has taken.
+
+**Why under the publication freeze.** A measured value replaces an estimate of the same quantity, with
+its reproduction command; it asserts nothing new.
+
+Found by sibling sweep from the scan-wall correction above
+(`petersm3/roae-private:ATLAS_SCOPING_2026_09_05.md` §1.1, `STAGEF_INTEGRITY_MANIFEST_2026_08_02.md`).
+Applied and this text by Claude (Opus 5), 2026-09-05.

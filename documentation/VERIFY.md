@@ -1028,8 +1028,9 @@ interrupted:
    🔴 **`--kc-raw` is REQUIRED at n=31 and is not optional.** `kc_scan_main` auto-enables raw
    expansion only when `n <= 13`. Omit it at n=31 and `marginal_raw` is never written — **figure V1
    is silently absent, and the atlas still reports `gates.fails = 0`**, because the raw gate
-   degrades to the string `"not-emitted"` rather than failing. A 48-85 h unresumable pass would
-   complete, look clean, and be missing a named figure.
+   degrades to the string `"not-emitted"` rather than failing. A multi-day unresumable pass would
+   complete, look clean, and be missing a named figure. (This sentence read "a 48-85 h unresumable
+   pass" until 2026-09-05; that wall figure is withdrawn — see the note under step 4.)
    🔴 **`--kc-tdir` is REQUIRED for the same reason, and for a sharper one.** The t ladder supplies
    the *only* value-level check on `fmass[k]` for `k < n`. On a merged table each of those masses is
    **carried from one chunk and never recomputed**, so the identity `t(root) == sum_k fmass[k]` is the
@@ -1048,7 +1049,19 @@ interrupted:
    **`SKIPPED` with `OK` is the dangerous combination**: the run is sound but *strictly weaker*, and a
    wrapper testing only `KC_SCAN=OK` will not notice. A production atlas requires `VERIFIED`.
 4. **The chunked merge path — this is what a real n=31 run uses.** The scan in step 3 is a single
-   48-85 h pass with no resume flag, against a Spot MTBE of roughly 15 h, so production splits it.
+   pass with no resume flag, far longer than a Spot MTBE of roughly 15 h, so production splits it.
+
+   🔴 **The "48–85 h" wall this file used to give is WITHDRAWN (2026-09-05), and no
+   replacement figure is published here.** That number was an *assumed* total read volume (~10.9 TB, the
+   f and g ladders' combined **footprint**) divided by a measured rate. The assumption is wrong, and it
+   is wrong in the direction that matters: `kc_h_scan_layers` does **not** stream the g ladder. It
+   streams f sequentially and then, for **every f entry** at layer `k`, issues `2·(31−k)` **random point
+   lookups** into g (`kc_glookup`), served through a fixed-size OOC block cache that at n=31 covers a
+   small fraction of a single mid layer. The physical read volume is therefore very much larger than the
+   ladders' size, and the wall is correspondingly longer — days-to-weeks in the chunked shape below, not
+   hours. It has never been measured end to end, so this file states the mechanism and gives no number.
+   See [CORRECTIONS.md](CORRECTIONS.md).
+
    Both flags carry over, and **the merge is exactly where omitting `--kc-tdir` does the most damage**,
    because that is the path on which `fmass[k<n]` is carried rather than recomputed:
 
@@ -1075,11 +1088,11 @@ was doing, so reproduce them by timing your own run rather than by citing these:
 
 | quantity | observed | how to read it |
 |---|---|---|
-| f-ladder size | ~3.1 TB at full 31 | plan storage, not a claim |
+| f-ladder size | **3,293,894,951,830 B ≈ 3.29 TB** at full 31 (`du -sb $FDIR`) | plan storage, not a claim. This row read "~3.1 TB" until 2026-09-05 |
 | streaming rate | ~128 MB/s | earlier planning assumed ~2 GB/s and was wrong by ~16× |
 | descent cost | ~12.5 s/row cold → ~1 s/row warm | two-phase; a cold first query is not representative |
 | `--kc-g-check` | measurably **single-threaded** | core count buys nothing here; size the VM for I/O |
-| full scan wall | ~48–85 h, **no resume flag** as of 2026-08-22 | a preemptible instance is unlikely to survive it |
+| full scan wall | 🔴 **withdrawn 2026-09-05**; read as *unmeasured, and much longer than the ~48–85 h this row gave*. **No resume flag** in an unchunked pass; `--kc-layers` is the production shape | a preemptible instance will not survive an unchunked pass. The retired figure divided the ladders' **footprint** by a measured rate, but the f-by-g join makes random point lookups into g rather than streaming it — see [CORRECTIONS.md](CORRECTIONS.md) |
 
 The atlas JSON stores all counts as **decimal strings** (they exceed 64 bits — 192-bit values at
 full scale), not JSON numbers. Parse with an arbitrary-precision integer type; a naive JSON
@@ -1128,9 +1141,11 @@ scripts/tr12_repro.sh --help                       # every flag and environment 
 row, or a missing expected block (`TR12_REPRO=FAIL`); `2` usage or environment error.
 
 **Run order is fixed and is not a preference.** `A0` (no ladder) → `A1` (f) → `A2` (f+g) →
-`B` (the scan) → `C` (atlas-derived). `--kc-scan` is one 48–85 h pass with no resume flag that
-writes its atlas *once, at the end*, so an interruption at hour 47 yields nothing; everything cheap
-is therefore banked before it. Ordering costs zero and is the cheapest crash insurance available.
+`B` (the scan) → `C` (atlas-derived). `--kc-scan` is one long pass with no resume flag that
+writes its atlas *once, at the end*, so an interruption at any point before the end yields nothing;
+everything cheap is therefore banked before it. (This sentence said "one 48–85 h pass" until
+2026-09-05; that wall figure is withdrawn — see [CORRECTIONS.md](CORRECTIONS.md). The *argument* for
+the run order does not depend on it and is if anything stronger.) Ordering costs zero and is the cheapest crash insurance available.
 The script offers no flag to reorder it. Q3, the Q3 reader check, EW-1 and V4 are **pre-scan** —
 they need f+g and no atlas at all.
 
