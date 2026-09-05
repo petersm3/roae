@@ -18,7 +18,7 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
 - **Cook, Richard S.** (2006). *Classical Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence* (周易卦序詮解 Zhouyi Guaxu Quanjie). STEDT Monograph Series Vol. 5, University of California, Berkeley, 656 pages. ISBN 978-0944613443. [Open Library](https://openlibrary.org/isbn/9780944613443) Cook's monograph is the most rigorous academic treatment; it derives the full hexagram sequence from combinatorial principles and situates the pair structure within broader classification of binary sequences. **Preview pages (front cover, abstract, TOC, introduction, acknowledgments — 19 pages total)** available online at the author's UC Berkeley page: [linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html](https://linguistics.berkeley.edu/~rscook/images/CCCprev/CCCprev.html). The full 656-page monograph is print-only as of 2026-05; library copies via OCLC 77009740 or purchase formerly via the STEDT Web Store at lulu.com/stedt (dead link as of 2026-07-04; [archived copy](https://web.archive.org/web/20230329134852/https://www.lulu.com/stedt), snapshot 2023-03-29, verified resolving 2026-08-01) (ISBN 0-944613-44-6).
 
 <a id="kongyingda"></a>
-- **Kong Yingda 孔穎達** (574–648). *Zhouyi zhengyi* 周易正義 (in the *Shisanjing zhushu* 十三經注疏, Zhonghua Shuju edition, 1980). **The classical formulation of C1**: his subcommentary on the [Xugua](#xugua) states the received order's pairing principle — the hexagrams run two-by-two, each pair related to its partner by reversal or, where the reversal is symmetric, by complement — the Tang-dynasty source every modern statement of the pairing rule descends from or independently rediscovers. The concept has still earlier attestation lineage (Yu Fan 虞翻, 164–233, whose pangtong/fandui pair relations transmit via Li Dingzuo's *Zhouyi jijie*; and, hedged, Western-Zhou-era material per Li Xueqin 2003), but Kong Yingda's is the explicit formulation.
+- **Kong Yingda 孔穎達** (574–648). *Zhouyi zhengyi* 周易正義 (in the *Shisanjing zhushu* 十三經注疏, Zhonghua Shuju edition, 1980). **The classical formulation of C1**: his subcommentary on the [Xugua](#xugua) states the received order's pairing principle — the hexagrams run two-by-two, each pair related to its partner by reversal or, where the reversal is symmetric, by complement — the Tang-dynasty source every modern statement of the pairing rule descends from or independently rediscovers. The concept has still earlier attestation lineage (Yu Fan 虞翻, 164–233, whose pangtong/fandui pair relations transmit via Li Dingzuo's *Zhouyi jijie*; and — argued, not shown — three reversal pairs of received neighbours (#7·8, #9·10, #63·64) that [Li Xueqin 2003](#lixueqin2003) reads out of six numeral hexagrams on two late-Western-Zhou pottery paddles; those objects carry no complement pair, so only the reversal half of the rule is even arguably that old), but Kong Yingda's is the explicit formulation.
   **Measured 2026-08-16, and it sharpens what the rule is worth.** His 非覆即變 — reversal, falling
   back to complement where a hexagram is reversal-symmetric — reproduces King Wen's adjacent-pair
   structure **64/64**. Every alternative pairing rule tested scores 12–16/64, including one built from
@@ -29,6 +29,32 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
   relabelling** on the degenerate hexagrams. So the pairing rule is not *a* symmetry that happens to
   fit — it is **the** rule, against a rival the tradition supplied rather than one we constructed.
   Reproduce with `python3 verify.py --check-classical-groups`. Added 2026-07-30 (constraint-provenance audit; the repo previously carried no Kong Yingda citation anywhere). *Cited here at attribution level — the paraphrase above states the rule; the verbatim classical wording is held for a future classical-Chinese verification pass.*
+
+<a id="lixueqin2003"></a>
+- **Li Xueqin 李学勤** (2003). "Xin faxian Xi Zhou shishu de yanjiu" 新发现西周筮数的研究 [A study of the newly
+  discovered Western Zhou divination numbers]. *Zhouyi yanjiu* 周易研究 2003(5): 3–7. Reads the numeral groups on
+  two pottery paddles (陶拍) surface-collected (采集) in a 2001 survey at a Western-Zhou kiln site north of 西仁村,
+  長安, Shaanxi. The primary report is 曹玮,〈陶拍上的数字卦研究〉,《文物》2002(11): 65–71, which records that the site
+  「被现代砖厂破坏」 (had been destroyed by a modern brick works), that the date is typological, from co-collected
+  sherds — 「从而可以断定这四件陶拍的时代下限不晚于西周晚期」, a terminus, not a date for the paddles themselves —
+  and that the numerals were incised **before firing**, 「陶文都是烧制前刻上去的」: the one fact that ties the
+  numerals to the paddles' own date. Under the odd = yang / even = yin convention, with 六 and 八 both yin, the
+  groups give 師·比·小畜·履 (#7–10; the last numeral of #10 is restored — 「最末一组最下面的一字原缺，但看残损的大小
+  只能补以“一”字」) and 既濟·未濟 (#63–64): three reversal pairs, each a pair of received neighbours. Li *argues* —
+  「不难推想当时所用《周易》的卦序大同于今传本卦序」 — that a sequence broadly agreeing with the received one was in
+  use, and calls his mechanism (one genuine cast, the rest 「依《周易》续配」) a 揣想; **his abstract states the result
+  as proof (「是西周存在《周易》经文的证明」), his body does not, and this project follows the body.** Concurred on the
+  reading by 廖名春 (〈长安西仁村陶拍数字卦解读〉, same issue, pp. 8–13), who rejects 曹玮's 卦變 reading
+  (「卦变说是说不通的」) and Li's mechanism in favour of copying from a *Zhouyi*-type divination manual; accepted with
+  "perhaps" by [Shaughnessy 2022](#shaughnessy2022) (pp. 450–452); the objects' *function* — record, or divination
+  spindle — is raised as a question by Bréard & Cook 2020 (*Archive for History of Exact Sciences* 74: 313–343,
+  p. 321), who do not engage the reading. **The paddles attest reversal pairing of received neighbours; no
+  complement pair is on them (既濟/未濟 is at once the reversal and the complement of its partner, so it
+  discriminates nothing), and 非覆即變 as a rule is therefore not attested there.** Cited only for the earliest
+  *argued* end of C1's pedigree; no count in this project depends on it. *(Added 2026-09-05; until then the entry
+  above named the paper with no entry of its own to point to.)* [read in full 2026-07-28, 2026-09-03 and 2026-09-05
+  from the journal's CNKI text layer, which drops Arabic numerals; 曹玮 2002 and 廖名春 2003 read in full 2026-09-05
+  from the same kind of layer; quotations follow the journals' simplified-character text]
 
 **Status in ROAE:** ROAE independently encodes this rule as constraint C1 and uses it as the starting point of the enumeration. Not novel to ROAE.
 
@@ -130,7 +156,7 @@ worth stating: where this repo's Mawangdui array is checked, it is checked again
 error he inherited would be invisible here — and the 2026-07-05 erratum below is a reminder that this
 array has been wrong before.
 
-**Earliest attestation of the received sequence** (Shaughnessy 2022, ch. 11 — the same chapter Table 11.2 sits in). This is the concrete philology behind the repo-wide hedge that "the dating of the ordering's fixation is debated in modern scholarship": the earliest artifactual witness of the *received* hexagram sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. Mawangdui (copied before 168 BCE) attests a *different* ordering in circulation, so the received order's antiquity beyond the early Han rests on inference, not artifact.
+**Earliest attestation of the received sequence** (Shaughnessy 2022, ch. 11 — the same chapter Table 11.2 sits in). This is the concrete philology behind the repo-wide hedge that "the dating of the ordering's fixation is debated in modern scholarship": the earliest artifactual witness of the *received* hexagram sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. Mawangdui (copied before 168 BCE) attests a *different* ordering in circulation, so the received order's antiquity beyond the early Han rests on inference — on a *reading* of six numeral hexagrams on two late-Western-Zhou pottery paddles ([Li Xueqin 2003](#lixueqin2003); Shaughnessy 2022, pp. 450–452) and on the circumstantial Chu-slip evidence — not on an object that shows the arrangement.
 
 **Expanded 2026-08-16 — two earlier witnesses were missing from this summary.** The paragraph above cited ch. 11 while omitting two of the witnesses that chapter discusses: the **Shanghai Museum Chu bamboo *Zhouyi*** (c. 300 BCE — the earliest known *Zhouyi* manuscript, ~135 years before Fuyang) and the **Haihun Hou 海昏侯 *Yijing*** (mid-1st c. BCE, a received-*like* order including the 30/34 split). Neither omission was a claim, but a reader checking the cited chapter would have found an unexplained gap. **Why the earliest one does not move the attestation date:** the Chu strips preserve only 34 of 64 hexagrams and came out of the ground **unbound and disordered**, and the published arrangement is the modern editor's own, taken from the received sequence *because* the manuscript is incomplete — [Pu Maozuo 2003](#pu2003), p. 135: 「又楚竹書《周易》尚不完整，本篇卦序排列也暫按今本」. It attests the *existence* of the *Zhouyi* at that date, not its *ordering*. **The full dated record now lives in [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md)**, which also states which other orderings this project does not study and why; this entry, [the README](../README.md) and [CRITIQUE](CRITIQUE.md) all link there so the record cannot drift apart again.
 
@@ -1006,40 +1032,82 @@ enumerates that space, or proves a ceiling on it.
   中特殊符號的意義 [The meaning of the special symbols in the Shanghai Museum Chu bamboo *Zhouyi*]. 簡帛研究網,
   2004-05-16 (so cited by [Chen Renren 2005](#chenrenren2005); 05-17 in [Wu Yong 2013](#wuyong2013)); also *Zhongguo
   sixiangshi yanjiu tongxun* 中國思想史研究通訊 2 (June 2004): 15–17 (so cited by [He Zeheng 2009](#hezeheng2009),
-  fn. 4). **NOT HELD.** Known through 陳仁仁 2005 (p. 24), 何澤恆 2009 (p. 90), 吳勇 2013, and two sentences
-  transcribed on 2026-08-16 from a web mirror that was not preserved.
-  As reported: **the symbols are not part of the text** — 「它們並不是《周易》原有的，而是筮者爲了便於翻檢加上去的」
-  (陳仁仁's paraphrase) — finding-aids added by a diviner, 「就像今人在辭書中貼A、B、C、D一類標籤一樣」, and the editor
-  「將它們過多地聯繫到一起，可能把這些特殊符號的意義複雜化了」 (both from the mirror). He is reported to divide the
-  received order into seven segments by the symbols, with a caveat about the order of the upper segments that
-  陳仁仁's paraphrase renders inconsistently (「下經」 where the argument needs 「上經」) — not quotable without the
-  original. The earliest of the 2004–05 readings on which the marks' function is ordinary, and the published
-  position that they are a later user's aids rather than a designed structure. Cite as reported until obtained; do
-  not quote the segment structure. *(Added 2026-09-05.)* [NOT obtained; secondary via 陳仁仁 2005, 何澤恆 2009,
-  吳勇 2013; two sentences from an unpreserved mirror, 2026-08-16]
+  fn. 4). Read from a web repost of the 簡帛研究網 posting (simplified characters, unpaginated, one self-citation with
+  stripped text); the print is not held, so no page numbers are given and every quotation below is "as reposted".
+  **The published denial that the marks belong to the original text or encode its pairing, and the published form of
+  the "constant on contiguous blocks" reading that [KING_WEN_PROVENANCE.md §6](KING_WEN_PROVENANCE.md) shows the
+  symbol data cannot separate from reversal-invariance.** The marks are a diviner's look-up aid dividing the text
+  into about seven 「卦区」 — 「就像今人在辞书中贴A、B、C、D一类标签一样」 — 「这些符号并不是《周易》原有的，而是筮者为了翻检
+  方便加上去的」, and the editor 「将它们过多地联系到一起，可能把这些特殊符号的意义复杂化了」 with the 「二二相耦，非反即覆」
+  pairing, whose formation he thinks 「可能更早」 than the marks (no evidence for the relative dating is given beyond
+  the 汲冢 and 左傳 attestations of an early received-type text). His seven segments (乾–否, 同人–大畜, 頤–離; 咸–睽,
+  蹇–井, 革–旅, 巽–未濟) are all unions of consecutive received pairs, so his model predicts every observed pair
+  agreement without any invariance; he does not make the non-discrimination argument himself, and asserts instead
+  that the marks 「并没有太大的关系」 to the pairing. Method, in his words a 「理论模型」: assume a complete copy at
+  about 42 characters a slip and the received order (from the 汲冢 attestation), take the three 下經 segments whose
+  heads and tails survive as 「标准段」, extrapolate the rest by 「大体均分和照顾特殊」; he grades his own weak segments
+  (「证据颇嫌不足」, 「稍嫌不足」). **The 64-row reconstruction is therefore excluded here on the same rule as Pu's
+  附錄二; only the attested segments and the conclusion are cited.** His exceptions fall exactly on the complement
+  pairs (頤大過坎離 as 「两对对变卦」; 小過 marked with its neighbours' form 「因为《中孚》卦与《小过》卦是一对对变卦」),
+  so the reading still presupposes recognition of those pairs. The text as held also carries an internal slip —
+  大畜 as 「上经末卦」 and later 「《大畜》卦可能是下经的末卦」 — which Chen Renren 2005 (p. 24) transmits faithfully.
+  [He Zeheng 2009](#hezeheng2009) p. 90 on the reading: 「今亦難爲論定」. The earliest of the 2004–05 readings, by
+  posting date, on which the base function of the marks is ordinary. *(Added 2026-09-05; held second-hand via
+  陳仁仁 2005 and 何澤恆 2009 until that date, and an earlier form of this entry carried 陳仁仁's wording 「爲了便於翻檢」
+  where the text reads 「为了翻检方便」.)* [read in full from the repost 2026-09-05; print not held]
 
-<a id="wangzhenfu2004"></a>
-- **Wang Zhenfu 王振復** (2004). Remarks on 濮茅左's symbol argument at the 山東大學出土文獻學術研討會 (December 2004).
-  **NOT HELD — no text, title or proceedings volume obtained; known only through [Chen Renren 2005](#chenrenren2005),
-  p. 25, whose paraphrase is the sole source of everything here.** As reported: Pu's conclusion that paired hexagrams
-  share head and tail symbols is reached 「通过对一些残失符号作出假设」 — by hypothesising the symbols that are missing —
-  and carries 「有将周易思想现代化之嫌」; and on his own identifications 匚 does not occur only twice, so it cannot prove
-  a two-part division. Named in [HISTORY.md](HISTORY.md) (2026-08-16/29 entry) as having priority over this
-  project's impossibility argument and over its exclusion of the 附錄二 reconstructions from `verify.py`'s test.
-  The priority is his; the wording is 陳仁仁's; nothing here may be quoted as his own words. *(Added 2026-09-05 —
-  the HISTORY.md entry that names him had, until this date, no entry here to point to.)* [NOT obtained; secondary
-  via 陳仁仁 2005 p. 25 only]
+<a id="wangzhenfu2005"></a><a id="wangzhenfu2004"></a>
+- **Wang Zhenfu 王振復** (2005). "Shangbo guan cang Chu zhushu «Zhouyi» chuxi" 上博馆藏楚竹书《周易》初析 [the
+  journal's English title: A tentative analysis on *Zhouyi* copied on the Chu bamboo slips collected by Shanghai
+  Museum]. *Zhouyi yanjiu* 周易研究 2005(1) 總69: 10–16 (文章編號 1003-3882(2005)01-0010-07; 收稿 2004-11-10; 復旦
+  大學中文系). The paper [Chen Renren 2005](#chenrenren2005) (p. 25) reports as remarks at the 山東大學出土文獻學術研討會
+  of December 2004 — submitted a month before that meeting, printed February 2005; one work, cited here from its own
+  text (until 2026-09-05 this entry rested on Chen's paraphrase alone, under the year 2004). §三 (pp. 14–16) is the
+  earliest published critique of [Pu's](#pu2003) symbol argument. **Three things it has priority over, in this
+  project's own order of concession.** *(1)* **The reconstruction objection** (p. 15): to obtain the rule that
+  「对立成组」 hexagrams share a symbol, Pu 「忽视师卦竹简之实际情况，将师卦之尾符也说成是红方形的」, and likewise reads
+  the lost or undeterminable 蠱 tail (「本是残失无法判定」), 革 tail, 艮 tail and 小過 head as matching their partners
+  (Pu 2003 pp. 30, 59, 61, 68); the conclusion therefore 「可以作进一步的讨论」. `verify.py`'s exclusion of every 附錄二
+  reconstruction from the invariance test ([KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md) §6) restates this
+  objection; it was written on 2026-08-16 before his text or Chen's report of it was read, and the priority is his.
+  He does not use the words 假設 or 循環; "circular" is this project's label, not his. *(2)* **The 匚 count**
+  (p. 15): the bare black bracket 「共出现过四次」 — 大畜 tail, 咸 head, 艮 tail, 旅 head (Pu 2003 pp. 35, 38, 61,
+  65) — against 附錄二's 「只出现两次」: 「这不符合图版实际」; so it cannot be the divider between an upper and a lower
+  part, and that division is itself 「整理、考释者的一个预设」 imported from the received 上下經 (pp. 15–16). His
+  reading of the 艮 tail as bare, from the plates, is the earliest in the record (before [房振三 2005](#fangzhensan2005),
+  [何澤恆 2009](#hezeheng2009) and [吳勇 2013](#wuyong2013)); this project's own measurement of that position
+  (private record) finds no red and does not decide between his bare reading and the faded-red reading of Pu,
+  [Li 2004](#lishangxin2004) and [Xie 2005](#xiexiangrong2005). The word 褪 does not occur in the paper: his count
+  is a reading, stated without engaging the fading alternative, and rests on the two positions (艮 tail, 旅 head)
+  that those authors read the other way. *(3)* The charge that 「对立与统一」 is a modernisation — 「总有一些学者自觉
+  不自觉地将《周易》及其思想成就现代化、夸大化」; whether so mature a dialectic 「是否为楚竹书《周易》所本具，值得商榷」;
+  matching head and tail marks 「并不能证明“对立与统一”的辩证法思想」. **What it does not contain:** any argument
+  about what symbol evidence could in principle discriminate — the non-discrimination argument of
+  KING_WEN_PROVENANCE §6 is not his, and the earlier form of this entry, which credited him with priority over "this
+  project's impossibility argument", was too broad. His further limb (p. 16) — that 頤 stands between 大畜 and 咸
+  with symbols matching neither, so no 匚-to-匚 adjacency exists — presupposes the received order at exactly the
+  point Pu disputes (Pu moves 頤), and this project does not rely on it. Also gives his own 34-row head/tail table
+  (p. 14), diverging from Pu at 師, 蠱, 革, 艮, 旅 and 小過, and (§一) argues from the 一/八 numeral forms that the
+  manuscript sits with the Mawangdui text and later than 阜陽. *(Entered 2026-09-05 from Chen's paraphrase;
+  rewritten from the text the same day.)* [read in full 2026-09-05 from the CNKI text layer, in which 匚 prints as
+  巨 and Arabic numerals are dropped; pp. 10, 14, 15 and 16 verified on the page image (the 文章編號 and 收稿 date are
+  read from the image); pp. 11–13 text layer only; quotations follow the journal's simplified-character text]
 
 <a id="xiejinliang2004"></a>
-- **Xie Jinliang 謝金良** (2004). Remarks on the manuscript's symbols at the same 山東大學出土文獻學術研討會 (December
-  2004). **NOT HELD — no text, title or proceedings volume obtained; known only through
+- **Xie Jinliang 謝金良** (2004; printed 2007). "Shangbo Chu zhushu «Zhouyi» yanjiu guankui" 上博楚竹書《周易》研究
+  管窺 [A narrow view of research on the Shanghai Museum Chu bamboo *Zhouyi*]. Presented at the 山東大學出土文獻學術
+  研討會 (December 2004); printed in 劉大鈞 主編,《簡帛考論》(上海: 上海古籍出版社, 2007年5月), pp. 154–165 — title,
+  volume and pages from 謝向榮,〈楚簡《周易》論著目錄〉, *Zhouyi yanjiu* 周易研究 2008(6), item 109, read 2026-09-05;
+  until that date this entry said the paper had no title or proceedings volume, which was false. **The chapter
+  itself is NOT HELD (book-chapter loan requested); everything reported below still rests on
   [Chen Renren 2005](#chenrenren2005), p. 25.** As reported: he proposed several possible combinations of the symbols
   and the questions each raises, but had to concede that, the manuscript being incomplete, the surviving symbols
   「排列构不成有机的系统，即使似乎有规律可寻，但却很难知其然再知其所以然」 — form no organic system, and where a
   regularity seems visible its reason cannot be known. Named in [HISTORY.md](HISTORY.md) (2026-08-16/29 entry) as
   having priority over this project's impossibility argument. The priority is his; the wording is 陳仁仁's; nothing
   here may be quoted as his own words. *(Added 2026-09-05 — the HISTORY.md entry that names him had, until this
-  date, no entry here to point to.)* [NOT obtained; secondary via 陳仁仁 2005 p. 25 only]
+  date, no entry here to point to; bibliographic data corrected the same day.)* [chapter NOT obtained; secondary via
+  陳仁仁 2005 p. 25 only]
 
 <a id="chenrenren2005"></a>
 - **Chen Renren 陈仁仁** (2005). "Shanghai bowuguan cang Zhanguo Chu zhushu «Zhouyi» yanjiu zongshu" 上海博物馆藏
@@ -1047,8 +1115,9 @@ enumerates that space, or proves a ceiling on it.
   *Zhouyi yanjiu* 周易研究 2005(2) 总70: 16–27 (文章编号 1003-3882(2005)02-0016-12; 收稿 2005-03-07; managing
   editor for the piece: [Li Shangxin](#li2008), one of the three sequence positions it adjudicates).
   The field survey to early 2005 (≈50 papers). **Records that the circularity objection to [Pu's](#pu2003) symbol
-  argument was raised in December 2004, before any of this project's work, by scholars whose texts we do not
-  hold**: [王振复](#wangzhenfu2004) (at the 山东大学出土文献学术研讨会, 2004-12) — Pu's conclusion that paired
+  argument was raised in December 2004, before any of this project's work, by two scholars — one of whose texts,
+  [王振復 2005](#wangzhenfu2005), has since been obtained and is cited from its own pages; 謝金良's has not**:
+  [王振复](#wangzhenfu2005) (at the 山东大学出土文献学术研讨会, 2004-12) — Pu's conclusion that paired
   hexagrams share head/tail symbols is reached 「通过对一些残失符号作出假设」, by hypothesising the missing symbols,
   and on his own identifications 匚 does not occur only twice, so it cannot prove a two-part division (p. 25); and
   [谢金良](#xiejinliang2004) (same conference) — the surviving symbols 「排列构不成有机的系统」 (p. 25). The
@@ -1056,12 +1125,13 @@ enumerates that space, or proves a ceiling on it.
   某种推测 (p. 25); of the three published reconstructions (Pu; 姜广辉; Li Shangxin) Pu's is the only different
   sequence and 「卦序问题总是一种推测」 (p. 26). Also reports 李尚信's three symbol-assignment principles (p. 24,
   from [Li 2004](#lishangxin2004)) and [姜广辉](#jiangguanghui2004)'s reading of the symbols as later
-  finding-aids (p. 24). **Cited here as the only source we hold for 王振复 2004 and 谢金良 2004**; the project's
-  exclusion of the 附錄二 reconstructions from `verify.py`'s test restates 王振复's objection, and is credited to
-  him through this paraphrase until the 2004 conference volume is obtained. *(Added 2026-09-05. Read privately
+  finding-aids (p. 24). **Cited here as the source for 謝金良 2004 (not held) and, until 2026-09-05, for
+  王振復**; the project's exclusion of the 附錄二 reconstructions from `verify.py`'s test restates 王振复's objection,
+  credited to him through this paraphrase until his own text was obtained and, since 2026-09-05, from that text
+  ([王振復 2005](#wangzhenfu2005), p. 15). Chen's paraphrase of him was faithful. *(Added 2026-09-05. Read privately
   2026-08-16 and 2026-08-20; named in HISTORY.md from 2026-08-29; not cited here until now.)* [read in full
   2026-08-20 (visual); the four passages quoted here re-verified against the PDF's text layer 2026-09-05; the
-  王振复 / 谢金良 originals NOT obtained]
+  谢金良 original NOT obtained; 王振复's obtained and read 2026-09-05]
 
 <a id="fangzhensan2005"></a>
 - **Fang Zhensan 房振三** (2005). "Zhushu «Zhouyi» caise fuhao chutan" 竹书《周易》彩色符号初探 [A preliminary study
@@ -1153,7 +1223,7 @@ enumerates that space, or proves a ceiling on it.
   表示那個卦所屬之宮」. 墨釘 is the series' own category ([上博（一）凡例 七](#ma2001)). His classification (【A】–【H】)
   is made 「僅限於可以確認的符號」 from the 彩色圖版, independently of Pu's table, and reads the slip-48 艮 head and the
   slip-49 tail both as 【Ｈ】(内紅、中空、外黑). This is the earliest held statement in print that the base function is
-  ordinary ([Jiang Guanghui 2004](#jiangguanghui2004), earlier, is held second-hand only). Consequence for this
+  ordinary ([Jiang Guanghui 2004](#jiangguanghui2004) is earlier by posting date). Consequence for this
   project: "ordinary punctuation" and "dedicated apparatus" are not rival readings in this literature — they are floor
   and superstructure — and any statement here that the marks are a structural apparatus must say so.
   *(Added 2026-08-16. Corrections welcome: this is a statement about our literature search, not a

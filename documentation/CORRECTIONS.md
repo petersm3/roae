@@ -8717,3 +8717,143 @@ nothing new.
 Found by Fable in the trigger register of the citation drafts (private record
 `petersm3/roae-private:FABLE_CITATIONS_OWED_DRAFT_2026_09_05.md` §3, rows E6/E7); corrected and this text
 by Fable, 2026-09-05.
+
+## 2026-09-05 — a clause said the pairing rule had "hedged" Western-Zhou attestation, on a citation with no entry; the objects attest half the rule, and the hedge was a label
+
+**`documentation/CITATIONS.md` `#kongyingda` said the pairing concept "has still earlier attestation
+lineage (… and, hedged, Western-Zhou-era material per Li Xueqin 2003)".** Three things were wrong with
+the clause. It asserted that the *concept* is attested in Western-Zhou material; it gave "hedged" as a
+one-word label where the hedge's basis belonged; and it cited a work that had no bibliographic entry
+anywhere in the file, so a reader could not check it. `CITATIONS.md`'s Mawangdui note (the sentence
+ending "rests on inference, not artifact") was over-tight in the other direction — the paddles are an
+artifact, though not one that shows an arrangement — and `KING_WEN_PROVENANCE.md` §3's table of
+witnesses omitted the paddles entirely while citing the Shaughnessy chapter that discusses them.
+
+**What the primary sources say, read first-hand on 2026-09-05.** 曹瑋's report (《文物》2002(11)) records
+that the four paddles were surface-collected (采集) in a 2001 survey at a site 「被现代砖厂破坏」; that
+the date is a typological terminus from co-collected sherds (「下限不晚于西周晚期」), not a date for the
+paddles; and — the one fact that ties the numerals to that date, recorded in none of this project's
+files before today — that 「陶文都是烧制前刻上去的」, incised before firing. 李学勤 2003's *body* argues
+(「不难推想」, 「大同于今传本卦序」, 揣想) while his *abstract* claims proof (「是西周存在《周易》经文的证明」);
+the entry now says which is followed. And the six numeral hexagrams give three reversal pairs (#7·8,
+#9·10, #63·64) and **no complement pair** — 既濟/未濟 is both the reversal and the complement of its
+partner — so the 「即變」 half of 非覆即變 has no attestation on these objects at all. Both 李 and 廖名春
+nonetheless write 「非覆即变」; the public clause inherited that extrapolation.
+
+**What it says now.** The clause reads "argued, not shown — three reversal pairs of received neighbours
+(#7·8, #9·10, #63·64) that Li Xueqin 2003 reads out of six numeral hexagrams on two late-Western-Zhou
+pottery paddles; those objects carry no complement pair, so only the reversal half of the rule is even
+arguably that old". A full entry `#lixueqin2003` carries the basis: surface collection, the destroyed
+site, the typological date, pre-firing incision, the odd/even convention with 六 and 八 both yin, the
+restored numeral, the abstract/body discrepancy, 廖名春's concurring reading with a different mechanism,
+Shaughnessy 2022's "perhaps", and Bréard & Cook 2020's question about the objects' function.
+`KING_WEN_PROVENANCE.md` §3 gains a first row for the paddles, and the Mawangdui note now says the
+antiquity "rests on inference — on a *reading* of six numeral hexagrams … — not on an object that shows
+the arrangement". The retired wording is registered as RP-2285ae71 (`documentation/RETRACTED_PHRASES.tsv`).
+One drafted word was not carried into the new text: the private recommendation of 2026-09-03 described
+the paddle reading as "contested". Nobody contests the date, and Bréard & Cook question the objects'
+function, not the reading; the new wording says exactly that instead.
+
+**What did not move.** `KING_WEN_PROVENANCE.md` §2's "securely" and the Xiping Stone Classics as the
+earliest secure witness; the 2026-08-27 ruling that 李 *argues* rather than *shows*; `VERIFY.md`'s
+attribution of 非覆即變 to 孔穎達 with 虞翻 lineage, which 廖名春 2003 attributes identically; no count,
+theorem or canonical value.
+
+**Why under the publication freeze.** The change narrows a claim, supplies the basis for a hedge, and
+adds a citation; it asserts nothing new.
+
+Adjudicated by Fable from the three primary texts (private record
+`petersm3/roae-private:FABLE_C1_ANTIQUITY_ANCHOR_2026_09_05.md`; the 2026-09-03 recommendation is
+`Q409_LIXUEQIN_2003_RECOMMENDATION_2026_09_03.md`); applied and this text by Fable, 2026-09-05.
+
+## 2026-09-05 — 王振復's entry gave the wrong year, no title, and a priority broader than his paper supports; corrected from the primary the same day it was created
+
+**`documentation/CITATIONS.md` `#wangzhenfu2004`, landed earlier on 2026-09-05, said the text was "NOT
+HELD — no text, title or proceedings volume obtained", dated it 2004, and named him as "having priority
+over this project's impossibility argument and over its exclusion of the 附錄二 reconstructions".** The
+paper is 王振復,〈上博館藏楚竹書《周易》初析〉,《周易研究》2005(1): 10–16 — submitted 2004-11-10, printed
+February 2005 — and it was obtained and read in full the same day. Two of the three statements were
+therefore false when written and the third was too broad: **the non-discrimination ("impossibility")
+argument of `KING_WEN_PROVENANCE.md` §6 is nowhere in his paper.** What *is* in it, on p. 15, is the
+reconstruction objection with five named positions — Pu 「忽视师卦竹简之实际情况，将师卦之尾符也说成是
+红方形的」, and likewise the 蠱, 革, 艮 tails and the 小過 head — which is the published predecessor of
+`verify.py`'s 附錄二 exclusion, and the 匚 count (「共出现过四次」 against the edition's 「只出现两次」,
+「这不符合图版实际」). He does not use the words 假設 or 循環; "circular" is this project's label.
+
+**What it says now.** The entry is rewritten from the text under `#wangzhenfu2005` (the old anchor is
+kept as an alias so existing links resolve), with the three priorities stated in this project's order of
+concession, the impossibility-argument clause withdrawn (registered as RP-d027149c), and a limb of his
+that this project must not adopt named as such: his p. 16 argument that 頤 stands between 大畜 and 咸
+with symbols matching neither presupposes the received order at exactly the point Pu disputes.
+`#chenrenren2005` no longer says both December-2004 critics' texts are unheld, and
+`KING_WEN_PROVENANCE.md` §6 now credits the exclusion's predecessor in place and says the
+non-discrimination argument is not his. `HISTORY.md`'s 2026-09-05 sentence "for 王振復 and 謝金良, only
+陳仁仁 2005's paraphrase" was true when written and is superseded for 王振復 by this entry; that file is
+append-only and is not reworded.
+
+**What did not move.** The 附錄二 exclusion itself, which was committed on 2026-08-16 before either his
+text or Chen's report of it was read; the non-discrimination argument; this project's a\* measurement
+at slip 49, which does not decide between his bare reading and the faded-red reading and is not
+corroborated by his count; Chen Renren 2005's paraphrase, which the primary shows to have been faithful;
+no count, theorem or canonical value.
+
+**Why under the publication freeze.** The change cedes priority more precisely and withdraws an
+over-broad cession; it asserts nothing new.
+
+Adjudicated by Fable from the CNKI text layer and page images
+(`petersm3/roae-private:FABLE_WANG2005_ADJUDICATION_2026_09_05.md`); applied and this text by Fable,
+2026-09-05.
+
+## 2026-09-05 — 謝金良's entry said the paper had "no text, title or proceedings volume"; it has all three, in a bibliography this project has held since August
+
+**`documentation/CITATIONS.md` `#xiejinliang2004` said "NOT HELD — no text, title or proceedings volume
+obtained".** The paper is 謝金良,〈上博楚竹書《周易》研究管窺〉, in 劉大鈞 主編《簡帛考論》(上海古籍出版社,
+2007年5月), pp. 154–165 — item 109 of 謝向榮's 〈楚簡《周易》論著目錄〉(《周易研究》2008(6)), a bibliography
+held and read in this project before the entry was written. "No title or proceedings volume" was
+therefore false on the day it was published. It is the same defect class as the 管小思 and 王俊龍
+corrections of 2026-09-04 and the 王振復 correction above: a public statement about what exists, made
+without checking what was already held.
+
+**What it says now.** The entry carries the title, volume, publisher, date and pages, says where they
+come from, and keeps the statement that matters: the chapter itself is not held, a book-chapter loan has
+been requested, and everything reported about its content still rests on 陳仁仁 2005 p. 25. The retired
+wording is registered as RP-d2d10a6e.
+
+**What did not move.** The reported content (「排列构不成有机的系统…」) and its attribution to 陳仁仁's
+wording; the cession recorded in `HISTORY.md`; no count, theorem or canonical value.
+
+**Why under the publication freeze.** A bibliographic correction; it asserts nothing new.
+
+Found by Fable while ruling the acquisition priority of 謝向榮 2008's list
+(`petersm3/roae-private:FABLE_WANG2005_ADJUDICATION_2026_09_05.md` §6,
+`FABLE_C1_ANTIQUITY_ANCHOR_2026_09_05.md` §8); applied and this text by Fable, 2026-09-05.
+
+## 2026-09-05 — 姜廣輝 2004 was cited as NOT HELD with a second-hand quotation; the text was obtained the same day and the quotation was not his wording
+
+**`documentation/CITATIONS.md` `#jiangguanghui2004`, landed earlier on 2026-09-05, said the paper was
+"NOT HELD", quoted 「它們並不是《周易》原有的，而是筮者爲了便於翻檢加上去的」 with the label "陳仁仁's
+paraphrase", and said the segment structure was "not quotable without the original".** The text was
+obtained free the same day (a web repost of the 簡帛研究網 posting) and read in full. The labelled
+paraphrase was labelled correctly — but the wording is 陳仁仁's: 姜 writes 「这些符号并不是《周易》原有的，
+而是筮者为了翻检方便加上去的」. Two further things the second-hand entry could not say are now said
+from the text: his seven 「卦区」 are all unions of consecutive received pairs, and his method is, in his
+own words, a 「理论模型」 that assumes the received order and extrapolates from three 下經 「标准段」 by
+「大体均分和照顾特殊」, with the exceptions falling exactly on the complement pairs.
+
+**What it says now.** The entry is rewritten as held, every quotation from the repost, page numbers
+withheld because the journal print is not held, the 64-row reconstruction excluded on the same rule as
+Pu's 附錄二, and the internal slip in the text as held (大畜 as 「上经末卦」 and later 「下经的末卦」) recorded
+as his, not 陳仁仁's — which resolves a question the 2026-08-20 audit of 陳仁仁 had left open.
+`KING_WEN_PROVENANCE.md` §6 now names him as the published form of the "constant on contiguous blocks
+of the received order" reading, which that section had stated without attribution; `#kondo2005` no
+longer says he is "held second-hand only".
+
+**What did not move.** §6's non-discrimination argument, which he does not make and which does not lean
+on him; the finding that the base function of the marks is read as ordinary by the earliest writers;
+no count, theorem or canonical value.
+
+**Why under the publication freeze.** The change replaces a second-hand quotation with the primary and
+credits a published reading; it asserts nothing new.
+
+Adjudicated by Fable from the repost (`petersm3/roae-private:FABLE_JIANG2004_SHEN_RECIDU_2026_09_05.md`);
+applied and this text by Fable, 2026-09-05.

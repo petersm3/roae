@@ -49,6 +49,7 @@ fixed in 1000 BCE or 200 CE changes the historical story, not the combinatorics.
 
 | witness | date | what it actually shows |
 |---|---|---|
+| **西仁村 pottery paddles** (長安, Shaanxi) | late Western Zhou at the latest — the excavator's typological date for surface finds; the numerals were incised before firing (曹瑋 2002) | Six numeral hexagrams on two paddles, surface-collected in 2001 from a kiln site since destroyed, which — read odd = yang / even = yin, with one numeral restored — give #7·8·9·10 and #63·64: two runs consecutive in the received order, three reversal pairs, and no complement pair among them. 李学勤 (2003) *argues* they quote a sequence 大同于 the received one; Shaughnessy (2022, pp. 450–452) accepts the argument with a "perhaps"; whether the objects are a record or a divination spindle is an open question (Bréard & Cook 2020). An interpretation of six numeral hexagrams, not a text — see [CITATIONS](CITATIONS.md#lixueqin2003). It is the reason "securely" is in the sentence above. |
 | **上博 Shanghai Museum Chu slips** | ~300 BCE | The **earliest known *Zhouyi* manuscript**. Only 34 of 64 hexagrams survive, on 58 bamboo strips that **arrived unbound and disordered** — looted and purchased on the Hong Kong antiquities market in 1994, so there is no excavation record and no find-state was ever observed; the ~300 BCE date is paleographic. The original hexagram order is **not recoverable**. Its modern editor arranged the slips by the received sequence and said so explicitly, precisely because the manuscript is incomplete. |
 | **馬王堆 Mawangdui silk** | copied before 168 BCE | Complete, and a **genuinely different order**, generated exactly by a stated three-part rule: eight octets grouped by upper trigram in a fixed octet order, the lower trigrams cycling in a fixed order within each octet, with the octet's own trigram promoted to first (Shaughnessy 2022, Table 11.2 — see [CITATIONS](CITATIONS.md#shaughnessy2022)). |
 | **阜陽 Fuyang** | tomb dated 165 BCE | Fragmentary; a **partial** witness consistent with the received order. |
@@ -57,7 +58,8 @@ fixed in 1000 BCE or 200 CE changes the historical story, not the combinatorics.
 
 Sources: Shaughnessy, *The Origin and Early Development of the Zhou Changes* (Brill 2022), ch. 11,
 for the dated witnesses; 馬承源 ed. / 濮茅左 释文考释, 《上海博物館藏戰國楚竹書（三）》 (上海古籍
-2003) for the Chu manuscript.
+2003) for the Chu manuscript; 曹瑋,〈陶拍上的數字卦研究〉,《文物》2002(11) and 李学勤 2003 for the paddles
+([CITATIONS](CITATIONS.md#lixueqin2003)).
 
 **A note on the earliest item, because it is the one most likely to be raised.** It would be easy to
 present a ~300 BCE manuscript as the earliest attestation of the King Wen order. **It is not.** The
@@ -212,9 +214,15 @@ whose partner is not adjacent.
 The same command also records a **negative** result worth stating plainly: because King Wen's blocks
 and its pairing orbits coincide *by construction*, symbol evidence from the Chu manuscript **cannot
 distinguish** "the symbols respect reversal" from "the symbols are constant on contiguous blocks of
-the received order." The nine directly-observed symbol pairs are listed in `verify.py`
-(`SHANGBO_OBSERVED_PAIRS`, from 濮茅左 2003's per-slip 释文考释, pp. 136–215, excluding every entry
-附錄二 reconstructs *from* the invariance). What the command reports about them is that **0 of the 9
+the received order." That second reading is not a construct of ours: [Jiang Guanghui 2004](CITATIONS.md#jiangguanghui2004)
+reads the marks as look-up labels over seven contiguous segments of the received order, every segment
+a union of consecutive pairs, and denies that they bear on the pairing at all. The nine directly-observed
+symbol pairs are listed in `verify.py` (`SHANGBO_OBSERVED_PAIRS`, from 濮茅左 2003's per-slip 释文考释,
+pp. 136–215, excluding every entry 附錄二 reconstructs *from* the invariance). That exclusion has a
+published predecessor: [王振復 (2005, p. 15)](CITATIONS.md#wangzhenfu2005) named the five positions — the
+師, 蠱, 革 and 艮 tails and the 小過 head — at which the edition reads a lost symbol as matching its
+partner, and objected that the pairing rule was being supported by symbols it had itself supplied. The
+non-discrimination argument below is not his. What the command reports about them is that **0 of the 9
 are discriminating** — every one sits inside a single King Wen block, so the editor's reported
 agreement is equally predicted by both explanations. **The command does not check the symbols
 themselves**; it reads no symbol values and compares nothing. **This is an impossibility argument,
