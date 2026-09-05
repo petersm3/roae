@@ -9065,3 +9065,48 @@ project's four private H3b specification sites, which pinned `rank(KW)` "in the 
 rank: the superspace form is what the program computes and what ships, the C1–C5 rank ships as a
 labelled estimate, and the reason for the estimate is recorded there as cost rather than as
 impossibility. Applied and this text by Claude (Opus 5), 2026-09-05.
+
+## 2026-09-05 — the g ladder was predicted at "~2.5-2.7 TB … the same size class as f" and measures 8.27 TB; the guidance a reproducer provisions from was wrong by 3×, in `solve.c` as well as in the docs
+
+**Found by a reader's question, not by a gate.** Asked how long a query would take on a workstation
+with a 16 TB disk, this project answered with a plan to put the g ladder on a 4 TB SSD. The operator
+challenged the premise — *"doesn't g need to be on 8 tb of nvme, isn't the g catalog 7+ tb"* — and
+they were right.
+
+**The measurement.** Summing the 32 completed g-layer files gives **8,274,431,592,051 B = 8.27 TB**,
+which agrees to within 1.8 MB with the Stage G archive manifest's independent total over its 77
+blobs. Against the f ladder's measured **3,293,894,951,830 B = 3.29 TB**, g is **2.5× f**.
+Reproduce on a completed ladder with `du -sb GDIR` and `du -sb FDIR`.
+
+**What was wrong, and where.** Four sites in `solve.c` and one in
+[SOLVE_C_CLI.md](SOLVE_C_CLI.md) carried the pre-build hedge `~2.5-2.7 TB`:
+
+* the `--kc-g-build` **runtime usage string**, which told a reproducer that *"a second 4 TB disk or a
+  shared 8 TB with the f ladder both work"*. Neither works: **g alone exceeds 8 TB.** Anyone
+  provisioning from that line runs out of disk partway through a multi-day out-of-core build, which
+  is the most expensive moment at which to discover it.
+* the g-ladder design comment, which claimed the stored-domain rule *"keeps the g ladder the same
+  size class as f"*. It does not. That comment was **explicitly honest about its own status** —
+  *"hedged, unmeasured until the run"* — and the run then happened and refuted it by 3×. Nothing
+  propagated the measurement back.
+* two f-ladder comments giving `~2.5-2.7 TB`, where the measured f is 3.29 TB.
+
+**This is residue of a correction already made.** The 2026-09-05 entry above — *"the same page that
+published the f-ladder's measured size still described it as ~2.6 TB ninety lines above it"* —
+fixed the same stale figure in the documentation and was scoped to a page. It never reached
+`solve.c`, and it never prompted anyone to ask whether the *g* prediction had also been overtaken.
+Fixing the instance rather than the class is what left a wrong number in the binary's own help text
+for three weeks after the artifact that refuted it was built and archived.
+
+**Also corrected:** [`reports/TR12_QUERY_PROGRAM.md`](../reports/TR12_QUERY_PROGRAM.md), published
+earlier the same day, said *"three catalog directories on ~4 TB disk each"*. It now carries the
+measured per-ladder table (f 3.29 TB, g 8.27 TB, t ~3.1 TB projected, ~14.7 TB total) and states
+that TR-11 §7's ~4 TB commodity contract is the **f** contract, not a per-ladder one.
+
+**Nothing computed changes.** These are provisioning figures in comments, one usage string, and
+report prose. The `--kc-g-build` count is unaffected, and the canonical selftest sha is unchanged —
+measured before and after the edit, both `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`,
+under the standing sha-neutral `solve.c` authorization. The **t** figure is labelled projected
+rather than measured, because it is: it comes from the completed build's layer table, and this entry
+does not upgrade it to a measurement it has not had. Measured, applied and this text by Claude
+(Opus 5), 2026-09-05.

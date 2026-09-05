@@ -677,7 +677,23 @@ build pin in the compiler lineage, but it is **not reachable from this repositor
 report it resolved to nothing. A reproduction instruction pointing at
 nothing is worse than one pointing at a tag the reader can list, so the placeholder is named as a
 placeholder rather than dressed as a commit.)* Each command below is OOC, resumable and sha-gated.
-Let `FDIR`/`GDIR`/`TDIR` be the three catalog directories on ~4 TB disk each:
+Let `FDIR`/`GDIR`/`TDIR` be the three catalog directories. **They are not the same size, and
+the difference is load-bearing for provisioning** — measured on the completed full-31 ladders with
+`du -sb`:
+
+| ladder | measured size | provision |
+|---|---|---|
+| **f** (`FDIR`) | **3.29 TB** (3,293,894,951,830 B) | a 4 TB volume holds it, with little headroom |
+| **g** (`GDIR`) | **8.27 TB** (8,274,431,592,051 B over 32 layers) | ⚠ **≥ 10 TB.** A 4 TB volume does **not** hold it, and neither does an 8 TB volume shared with f |
+| **t** (`TDIR`) | **~3.1 TB** *(projected from the completed build's layer table; re-measure with `du -sb TDIR`)* | a 4 TB volume |
+| **total** | **~14.7 TB** | — |
+
+*(Corrected 2026-09-05. This line read "three catalog directories on ~4 TB disk each", and both
+`solve.c`'s `--kc-g-build` usage text and `documentation/SOLVE_C_CLI.md` predicted g at "~2.5-2.7 TB
+… the same size class as f", hedged and — in the source comment's own words — "unmeasured until the
+run". The run happened and the prediction was wrong by 3×. A reproducer provisioning from the old
+guidance would have run out of disk partway through a multi-day out-of-core build. All three sites
+are corrected; see `documentation/CORRECTIONS.md`.)*
 
 1. **Stage F (f-ladder):**
    ```
@@ -705,7 +721,8 @@ Let `FDIR`/`GDIR`/`TDIR` be the three catalog directories on ~4 TB disk each:
    ```
 
 Cost/time per stage, hedged [ESTIMATED]: each of F/G/T ≈ 2–7 days cloud-Spot wall, ~$60–140;
-atlas assembly ≈ $5. Commodity contract (TR-11 §7): ~64 GB RAM + ~4 TB disk per ladder. Only
+atlas assembly ≈ $5. Commodity contract (TR-11 §7): ~64 GB RAM + ~4 TB disk — that disk figure is
+TR-11's, and it is the **f**-ladder contract; **g needs ≥ 10 TB**, per the measured table above. Only
 *after* F/G/T exist do the query steps below (Tier A step 6 onward) run — in minutes, near-$0.
 
 **TIER A — full rebuild (gold standard; trusts only public source + own hardware).**
@@ -1088,4 +1105,5 @@ Ouyang 1990/1992, Zhang 1994/1998/2000, Suenaga 2012, Luo 2015 (already in CITAT
 
 | version | date | change |
 |---|---|---|
-| v1.0 *(current)* | 2026-09-05 | **First public release.** The specification body is the 2026-07-17 text by Claude (Fable 5) and is unchanged in substance. Three publication passes ran before release and are recorded here because each changed what a reader is looking at. (1) A **figure → reproduction-command audit**: every asserted figure was classified, and those with neither a public citation nor a public reproduction command were **struck rather than shipped**, each strike saying in place what was removed and why. (2) A **public-anchor pass**: citations to internal working notes were replaced by a published document, a runnable command or a code site; the one citation for which no public anchor exists is recorded as exactly that; the ladder-publication question was resolved as **per-layer SHA registries are published, the ladder data is not distributed by this project**; and the H3b specification amendment is recorded in §0. (3) A **novelty scrub under the publication freeze**, temporarily removing priority assertions; the removals are registered verbatim so the scrub is a loan, not a deletion, and their restoration is separately gated. **Cost figures:** the earlier revision of §9 quoted a dollar band and an operator price quote for the declined exact-C3 run; both are withdrawn, and the **dollar figures are redacted rather than restated**, following `TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md` v1.10 — a withdrawal that requotes a number publishes it. **Withheld:** the standing single-branch-exhaustion shortfall factor is not quoted; it has no public reproduction command, and its public anchor is a run (`documentation/HISTORY.md` §"April 22, 2026 — Campaign A Pass 1"; `runs/20260422_passA_10T_d64_laggard/`), not a figure. **Corrected at release:** four sites reused framings this document retracts elsewhere in its own text — the exact C15 count described as an "obstruction" or "not computable" when §9 records it as **priced and permanently declined on cost** (TR-11 §10(ii) v1.5 having withdrawn the structural claim), and §R.0's ladder diagram carrying both the retracted chain arrows and the corrected fan annotations under one label. No count, definition, verdict or query specification changed in any pass |
+| v1.0 | 2026-09-05 | **First public release.** The specification body is the 2026-07-17 text by Claude (Fable 5) and is unchanged in substance. Three publication passes ran before release and are recorded here because each changed what a reader is looking at. (1) A **figure → reproduction-command audit**: every asserted figure was classified, and those with neither a public citation nor a public reproduction command were **struck rather than shipped**, each strike saying in place what was removed and why. (2) A **public-anchor pass**: citations to internal working notes were replaced by a published document, a runnable command or a code site; the one citation for which no public anchor exists is recorded as exactly that; the ladder-publication question was resolved as **per-layer SHA registries are published, the ladder data is not distributed by this project**; and the H3b specification amendment is recorded in §0. (3) A **novelty scrub under the publication freeze**, temporarily removing priority assertions; the removals are registered verbatim so the scrub is a loan, not a deletion, and their restoration is separately gated. **Cost figures:** the earlier revision of §9 quoted a dollar band and an operator price quote for the declined exact-C3 run; both are withdrawn, and the **dollar figures are redacted rather than restated**, following `TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md` v1.10 — a withdrawal that requotes a number publishes it. **Withheld:** the standing single-branch-exhaustion shortfall factor is not quoted; it has no public reproduction command, and its public anchor is a run (`documentation/HISTORY.md` §"April 22, 2026 — Campaign A Pass 1"; `runs/20260422_passA_10T_d64_laggard/`), not a figure. **Corrected at release:** four sites reused framings this document retracts elsewhere in its own text — the exact C15 count described as an "obstruction" or "not computable" when §9 records it as **priced and permanently declined on cost** (TR-11 §10(ii) v1.5 having withdrawn the structural claim), and §R.0's ladder diagram carrying both the retracted chain arrows and the corrected fan annotations under one label. No count, definition, verdict or query specification changed in any pass |
+| v1.1 *(current)* | 2026-09-05 | **Ladder provisioning corrected — g is 8.27 TB, not "~4 TB like the others" (found by a reader's challenge, hours after v1.0 shipped).** §R.0's build section said "three catalog directories on ~4 TB disk each" and now carries the measured per-ladder table: f **3.29 TB**, g **8.27 TB** (2.5× f), t ~3.1 TB projected, **~14.7 TB total**. The same stale hedge — "~2.5-2.7 TB … the same size class as f" — was live in four `solve.c` sites including the `--kc-g-build` **runtime usage string**, which told a reproducer that "a second 4 TB disk or a shared 8 TB with the f ladder both work"; g alone exceeds 8 TB, so provisioning from that line ran out of disk partway through a multi-day build. All corrected, with `du -sb` as the reproduction command; `documentation/CAMPAIGN_METHODOLOGY.md`-style commodity contract wording clarified — TR-11 §7's "~64 GB RAM + ~4 TB disk" is the **f** contract, not per-ladder. The g comment had said "hedged, **unmeasured until the run**"; the run happened and nothing propagated the measurement back. See [CORRECTIONS.md](../documentation/CORRECTIONS.md). **Sha-neutral** (`403f7202…` measured before and after). No count, definition, verdict or query specification changed |

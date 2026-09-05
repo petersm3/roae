@@ -2938,7 +2938,7 @@ layer after a resume without paying for the whole pass.
 #### `--kc-g-build`
 
 ```
-Usage: solve --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc] GDIR: the g-ladder directory (g_layer_NN.bin + g_manifest.txt). Full-31 needs its own ~2.5-2.7 TB (hedged) — a second 4 TB disk or a shared 8 TB with the f ladder both work (plan §8.3; decision open). n <= 22 builds in-memory (v1); n >= 24 or --kc-g-ooc streams out-of-core (v2 default; SOLVE_F1_OOC_FORMAT=v1 override) with eviction resume 
+Usage: solve --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc] GDIR: the g-ladder directory (g_layer_NN.bin + g_manifest.txt). Full-31 needs its own 8.27 TB (MEASURED; `du -sb GDIR`). This is 2.5x the f ladder, NOT the same size class -- a 4 TB disk is not enough, and neither is an 8 TB disk shared with f. Provision >= 10 TB for GDIR alone. n <= 22 builds in-memory (v1); n >= 24 or --kc-g-ooc streams out-of-core (v2 default; SOLVE_F1_OOC_FORMAT=v1 override) with eviction resume 
 ```
 *Grammar reproduced from `solve.c:28753`.*
 

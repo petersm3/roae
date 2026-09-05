@@ -18324,7 +18324,9 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
      * substrate for the knowledge-compiler query tool (and a stream-to-cold
      * archival source). Count and layer bytes are unchanged (the flag only
      * suppresses the k-2 unlink); disk peak becomes the FULL ladder (full-31:
-     * ~2.5-2.7 TB v2-gz — plan a 4 TB disk), not the ~1x-largest-layer transient.
+     * MEASURED 3.29 TB v2-gz — plan a 4 TB disk), not the ~1x-largest-layer
+     * transient.  (Was "~2.5-2.7 TB" until 2026-09-05: that was the pre-build
+     * hedge; `du -sb FDIR` on the completed ladder reads 3,293,894,951,830 B.) 
      * Env-gated, sha-neutral. Ported from the v4-compiler worktree 2026-07-16. */
     int keep_layers = 0;
     { const char *e = getenv("SOLVE_F1_KEEP_LAYERS");
@@ -19833,7 +19835,7 @@ static int kc_load(KC *kc, const char *dir) { return kc_load_as(kc, dir, "f1c5",
  *
  * Serves every query primitive (count/rank/unrank/member/sample/enum) against
  * ON-DISK layer files — v1 raw (F1C5LAY1) or v2 per-block-gzip (F1C5LAY2, the
- * format the full-31 production run lands, ~2.5-2.7 TB) — without ever holding
+ * format the full-31 production run lands, MEASURED 3.29 TB) — without ever holding
  * a layer's entries in RAM. Resident per layer: the mask/offset index only
  * (12 B/mask + 16 B/block of v2 seek index); entry access goes through a
  * bounded LRU cache of decompressed F1C5_OOC_BLK-entry blocks (28 B/entry =>
@@ -21684,8 +21686,13 @@ static int kc_oocverify(int npairs, int R, const char *scratch) {
  * 2026-09-04 merge to match documentation/GT_LADDER_FORMAT.md §"Stored
  * domains", corrected 2026-09-02, Codex V2-F38 #1; the earlier exact-
  * characterization wording is registered in RETRACTED_PHRASES.tsv.) This keeps
- * the g ladder the same size class as f (~2.5-2.7 TB v2-gz at full-31,
- * hedged, unmeasured until the run).
+ * the g ladder in the same FORMAT as f.  It does NOT keep it in the same size
+ * class, and this comment claimed it did until 2026-09-05: it read "the same size
+ * class as f (~2.5-2.7 TB v2-gz at full-31, hedged, unmeasured until the run)".
+ * The run happened.  MEASURED at full-31, g is 8.27 TB (8,274,431,592,051 B over
+ * 32 layers) against f's 3.29 TB -- 2.5x f, and 3x the hedge.  The hedge was
+ * honest about being unmeasured and nothing propagated the measurement back to it.
+ * Reproduce with `du -sb GDIR` on a completed ladder.
  *
  * THE IDENTITY GATE (the mathematical self-check; --kc-g-selftest core and
  * the V3 primitive --kc-g-check). For every layer k in 0..n:
@@ -32372,8 +32379,9 @@ static int kc_cli(int argc, char *argv[]) {
         if (argc < 3) {
             fprintf(stderr, "Usage: solve --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc]\n"
                     "  GDIR: the g-ladder directory (g_layer_NN.bin + g_manifest.txt).\n"
-                    "  Full-31 needs its own ~2.5-2.7 TB (hedged) — a second 4 TB disk or a\n"
-                    "  shared 8 TB with the f ladder both work (plan §8.3; decision open).\n"
+                    "  Full-31 needs its own 8.27 TB (MEASURED; `du -sb GDIR`). This is 2.5x\n"
+                    "  the f ladder, NOT the same size class -- a 4 TB disk is not enough, and\n"
+                    "  neither is an 8 TB disk shared with f. Provision >= 10 TB for GDIR alone.\n"
                     "  n <= 22 builds in-memory (v1); n >= 24 or --kc-g-ooc streams\n"
                     "  out-of-core (v2 default; SOLVE_F1_OOC_FORMAT=v1 override) with\n"
                     "  eviction resume (g_manifest counts DOWN) + intra-layer checkpoints.\n");
