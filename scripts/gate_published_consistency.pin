@@ -22,3 +22,9 @@ G1=5
 G2=10
 # G3 — published disclosures that have gone stale. Shaped to fire when the artifact EXISTS.
 G3=0
+# G4 — corrections that name a propagation target which does not carry the correction id.
+#      8: CX-28 (documentation/README.md, reports/README.md, TR4) and CX-33 (SPECIFICATION,
+#      SYMMETRY_SEARCH, TRIGRAM_STRUCTURE, lean/README, METHODS). Pre-existing, found the day this
+#      gate was written. Each needs an editorial decision -- whether the correction genuinely applies
+#      to that file, or whether the Documents list overreached -- so they are pinned, not bulk-edited.
+G4=8

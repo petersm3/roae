@@ -83,6 +83,62 @@ else
 fi
 
 echo
+# ---- G4: a correction that names the files it propagated to, and did not ------------------------
+# 🔴 THE DEFECT THIS EXISTS FOR, FOUND 2026-09-06 BY A TWO-LENS REVIEW OF README.md.
+# Four of five surviving findings were ONE class: front-page bullets written 2026-07-03/26 still
+# presenting results their own sources had withdrawn -- CX-26's Bayes factor, CX-27/TR-8 v1.16's
+# "is decided", TR-7's "partially overlapping replicate, not an independent draw". Each correction
+# updated the TR and named a propagation list; README.md was not on any of those lists, so the most
+# read page in the project kept advertising withdrawn results for six weeks.
+#
+# Nobody was careless. The process HAS a propagation list and the list was incomplete, which is a
+# thing a person forgets and a script does not. So: every file a correction NAMES must carry that
+# correction's id. That is the promise the ledger makes in writing, and until now nothing checked it.
+#
+# 🔴 THIS IS THE WEAKER HALF OF THE PROBLEM AND SAYS SO. It catches a BROKEN promise, not a MISSING
+# one -- a file that should have been on the list and never was still slips through. That half is
+# not mechanically decidable (it needs "does this file repeat the withdrawn result", a semantic
+# question). Fixing the checkable half is not the same as fixing the class, and pretending otherwise
+# would be the exact defect this gate is named after.
+echo "== G4: corrections that name a propagation target which lacks the correction id =="
+G4_N=0
+if [ -r documentation/CORRECTIONS.md ]; then
+  G4_OUT=$(python3 - <<'PYG4'
+import re, os
+try: s = open("documentation/CORRECTIONS.md", errors="replace").read()
+except Exception: raise SystemExit(0)
+bad = []
+for e in re.split(r'\n(?=#{2,4} *CX-\d+)', s):
+    m = re.match(r'#{2,4} *(CX-\d+)', e)
+    if not m: continue
+    cx = m.group(1)
+    dm = re.search(r'-\s*\*\*Documents:\*\*(.*?)(?=\n-\s*\*\*)', e, re.S)
+    if not dm: continue
+    seen = set()
+    for link in re.findall(r'\]\(([^)]+)\)', dm.group(1)):
+        q = link.split('#')[0].lstrip('./')
+        if q.startswith('../'): q = q[3:]
+        elif q.endswith('.md') and not q.startswith(('reports/','documentation/','lean/')):
+            q = 'documentation/' + q
+        if q.endswith('.md') and os.path.isfile(q) and q not in seen:
+            seen.add(q)
+            if cx not in open(q, errors='replace').read():
+                bad.append(f"{cx} names {q}, which does not carry {cx}")
+for b in bad: print(b)
+PYG4
+)
+  if [ -n "$G4_OUT" ]; then
+    printf '%s\n' "$G4_OUT" | sed 's/^/   [FAIL] /'
+    G4_N=$(printf '%s\n' "$G4_OUT" | grep -c .)
+    echo "   $G4_N correction(s) naming a target that lacks the id"
+    fail=1
+  else
+    echo "   [ok]   every file a correction names carries that correction's id"
+  fi
+else
+  echo "   [FAIL] documentation/CORRECTIONS.md unreadable — cannot check propagation"; fail=1; G4_N=999
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it
@@ -100,14 +156,14 @@ if [ ! -r "$PIN" ]; then
   echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1
 fi
 # shellcheck disable=SC1090
-P_G1=$(awk -F= '/^G1=/{print $2}' "$PIN"); P_G2=$(awk -F= '/^G2=/{print $2}' "$PIN"); P_G3=$(awk -F= '/^G3=/{print $2}' "$PIN")
-for v in "$P_G1" "$P_G2" "$P_G3"; do
+P_G1=$(awk -F= '/^G1=/{print $2}' "$PIN"); P_G2=$(awk -F= '/^G2=/{print $2}' "$PIN"); P_G3=$(awk -F= '/^G3=/{print $2}' "$PIN"); P_G4=$(awk -F= '/^G4=/{print $2}' "$PIN")
+for v in "$P_G1" "$P_G2" "$P_G3" "$P_G4"; do
   case "$v" in ''|*[!0-9]*) echo "  [FAIL] pin file is malformed"; echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1;; esac
 done
 echo
 echo "== RATCHET vs $PIN =="
 ratchet=0; tighten=0
-for pair in "G1:${G1_N:-0}:$P_G1" "G2:${G2_N:-0}:$P_G2" "G3:${G3_N:-0}:$P_G3"; do
+for pair in "G1:${G1_N:-0}:$P_G1" "G2:${G2_N:-0}:$P_G2" "G3:${G3_N:-0}:$P_G3" "G4:${G4_N:-0}:$P_G4"; do
   g=${pair%%:*}; rest=${pair#*:}; now=${rest%%:*}; pin=${rest##*:}
   if [ "$now" -gt "$pin" ]; then
     echo "  [FAIL] $g rose to $now from a pinned $pin — a NEW published-consistency defect"; ratchet=1

@@ -225,7 +225,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   24** of its mass on King Wen, never more (`equivariance_ceiling`, kernel-checked in
   [lean/KingWen.lean](lean/KingWen.lean)). The bound is Curie's principle (symmetry of causes ⇒ symmetry of
   effects), not new — the contribution is the King-Wen instantiation and its machine-check. [lean/README §The equivariance ceiling](lean/README.md), [lean/KingWen.lean](lean/KingWen.lean)
-- **McKenna's "ninth six" is forced.** The 1975 observation that exactly one adjacent transition flips
+- **McKenna's "ninth six" is forced.** The 1975 observation that exactly one **between-pair** transition flips
   all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget
   is a theorem of the constraints, so the 10.5-billion-record measurement becomes a corollary. (The
   *position* of that transition remains ordering-dependent.) [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)

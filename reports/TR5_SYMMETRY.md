@@ -103,9 +103,15 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
    prefixes. *Reproduction status: the Verification Guide below publishes runnable commands for two of
    these four prefixes — the KW-following one and one σ-related one, which is also the pair encoded in
    `verify.py --recount-subtree`. The other two σ were drawn from the same 48-element G and their
-   individual invocations are published nowhere, so that half of the claim rests on a prose recipe (the
-   σ generator in [SYMMETRY_SEARCH.md](../documentation/SYMMETRY_SEARCH.md) §Reproducibility), not on a
-   shipped command. An exhaustive all-48 replacement for the sample is queued to the code lane.*
+   individual invocations are not published one by one. **The exhaustive replacement SHIPPED and
+   supersedes the sample: `python3 verify.py --sigma-isomorphism-all48`** (`verify.py:6378`) walks the
+   exact C1–C5 tree below **every one of the 48** σ image prefixes and gates each against
+   9,422,793 / 16,504, printing `SIGMA_ISOMORPHISM_ALL48=PASS` only after all 48 match. ~27 s per σ,
+   ~21.5 min for all 48 (measured 2026-09-02); deliberately not folded into `--recount-subtree`,
+   whose published runtime is ~1–2 min.
+   ⚠ **[CORRECTED 2026-09-06: this passage said the all-48 replacement "is queued to the code lane".
+   It had already shipped — its own help text names TR-5 §3(ii) — and this sentence was never swept.
+   Fourth stale absence-claim found in this report by one external reader.]**
    (iii) Productive-cells orbit test: the
    65,281 productive 560T cells meet 4,183 of the 4,382 ambient G-orbits of the 158,364-cell depth-3
    space — intersections with ambient orbits, not complete orbits, since the productive subset is not
@@ -113,8 +119,19 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
    estimates (10⁵ probes/cell) is 0.112 (median) — indistinguishable from the estimator's noise floor
    and 6× below the population CV (0.72). *Reproduction status: prose-specified only, pending a
    publication decision. No aggregation script ships, and the two inputs — the productive-cell list and
-   the per-cell estimate table — are private working data (SYMMETRY_SEARCH.md §Reproducibility), so
-   these statistics cannot be re-derived from **this repository** as published. They are not, however,
+   the per-cell estimate table — **are now public** (`reports/evidence/knuth195_percell_100000.csv.gz`,
+   landed `ad59ac0f` 2026-09-04T06:46Z), and the aggregation ships as `verify.py --orbit-cv`, so these
+   statistics **can** be re-derived from this repository:
+   `python3 verify.py --orbit-cv reports/evidence/knuth195_percell_100000.csv.gz` →
+   `ORBIT_CLASSES_MET=4183`, `ORBIT_LEAVES_CANONICAL_WITHIN_CV_MEDIAN=0.1118`,
+   `ORBIT_LEAVES_CANONICAL_POP_CV=0.7202`, `ORBIT_CV=PASS` — the full token names, so that
+   `grep -qx` finds them.
+   ⚠ **[CORRECTED 2026-09-06.** This passage said the inputs were private working data and the
+   statistics could not be re-derived. Both became false on 2026-09-04 when the table shipped —
+   **six hours after this report's last edit** (`3515441c`, 00:42Z), so it could not have known.
+   Found by an external two-lens review that read the report as a reader would. **Understating what
+   you can prove is the same defect as overstating it**, and until this was caught nothing in the
+   project watched that direction.]** They are not, however,
    unreproduced: the table is archived under its own sha, the productive-cell list is its first six
    columns, and a ~45-line aggregation over it recomputes 4,183 orbit classes, a 0.1118 median
    within-orbit CV and a 0.7202 population CV in about six seconds — reproducing all three published
@@ -202,7 +219,7 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
 - Original 2026-04-25 budgeted-yield phases: `./solve --symmetry-search [--validate-counts]` (output
   correct as budgeted-yield data)
 - Free-action corollary + Burnside closure: SYMMETRY_SEARCH.md §Corollary; [HISTORY.md](../documentation/HISTORY.md) 2026-07-03
-- Within-orbit CV of per-cell Knuth estimates (§3(iii)): **no shipped command, and the per-cell table
+- Within-orbit CV of per-cell Knuth estimates (§3(iii)): **`python3 verify.py --orbit-cv reports/evidence/knuth195_percell_100000.csv.gz`** → `ORBIT_CV=PASS`. ⚠ **[CORRECTED 2026-09-06: this bullet said "no shipped command, and the per-cell table is not public". Both are false since 2026-09-04.]** Superseded text follows for the record: **no shipped command, and the per-cell table
   is not public** — specified in prose only (SYMMETRY_SEARCH.md §Reproducibility), so not reproducible
   from this repository as published. ⚠ **[CORRECTED 2026-09-03 — this bullet said "no archived per-cell
   data", which is false and understated the evidence: the 65,281-row 10⁵-probe table is archived under
@@ -214,9 +231,16 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
 - Twins-absent bisection: SYMMETRY_SEARCH.md §Limits and scope (2026-07-02 measurement) — **a prose
   recipe, not a shipped command**: the 24 record keys follow in under a second from the snippet at
   SYMMETRY_SEARCH.md §Reproducibility and the key specified in
-  [SOLUTIONS_FORMAT.md](../documentation/SOLUTIONS_FORMAT.md) §Sort order, but no `verify.py` flag
-  performs the bisection and no result artifact is archived. A `--twins-bisect` flag is queued to the
-  code lane.
+  [SOLUTIONS_FORMAT.md](../documentation/SOLUTIONS_FORMAT.md) §Sort order. **`verify.py --twins-bisect
+  SOLUTIONS_BIN` ships** (`verify.py:6372`) and performs exactly this: it derives the 24 record keys
+  from the 48 valid σ and reports each PRESENT/ABSENT, bisecting a raw file on the primary sort key
+  (~35 reads per key on the 560T canonical) or scanning a gzip-framed one. **No result artifact is
+  archived** — that half of the limitation stands, and running the flag needs a `solutions.bin` this
+  repository does not distribute.
+  ⚠ **[CORRECTED 2026-09-06: this passage said "no `verify.py` flag performs the bisection" and that
+  the flag "is queued to the code lane". The flag shipped before this report's last edit and the
+  sentence was never swept. Found by an external reader who went looking for the command and was
+  told it did not exist.]**
 
 ## Figure: the symmetry collapse
 
@@ -268,4 +292,5 @@ the time was corrected in v2.12) a "22-pair prefix". Both are correct under diff
 | v2.12 | 2026-09-02 | **Two label/scope defects corrected in §3's empirical funnel (prose batch P33; wording and scope only, no figure changed).** (a) §3(ii)'s 16,504 was published as "canonical leaves" at both of its sites. The object is the binary's `leaves_canonical_C1C5`, which `solve.c`'s `exact_count` increments once per **oriented** C3-passing completion — the enumerator walks both orientations of every pair — so it is an ORIENTED leaf count, not the orientation-deduped record this repository elsewhere calls canonical; README.md and CORRECTIONS.md already publish it as oriented, representing **899** distinct pair orderings. Recomputed 2026-09-02 by a clean-room walk with a pair-ordering dedup (independent of both shipped instruments): KW-following and σ-related 9-free prefixes each give 9,422,793 / 690,176 / 16,504 oriented / 899 orderings, so the isomorphism holds at the pair-ordering level too. (b) §3(iii) called the orbit test "All-cells" and said the productive cells *partition into* 4,183 G-orbits. They do not: the depth-3 C2/C5-feasible space has **158,364** cells in **4,382** ambient G-orbits (recomputed 2026-09-02; all 48 σ map every feasible cell to a feasible cell, orbit sizes {6:14, 12:270, 24:1736, 48:2362}), and the 65,281 productive cells are the 41.2% subset that meets 4,183 of those orbits — the measured classes are intersections, not orbits. SEARCH_SPACE_SIZE.md already published both the 158,364 and the ~93K unproductive remainder. No count, theorem, estimate or scope of any result changed — the labels now name the objects the numbers count. Full correction and registry keys: documentation/CORRECTIONS.md |
 | v2.13 | 2026-09-02 | **Stack requirement narrowed to what the binary enforces (prose batch P37, Codex V2-F08 #4; wording only).** The `--estimate-knuth` warning published `ulimit -s unlimited` as REQUIRED. It is a **sufficient** setting, not a necessary one, and on a host or container whose hard limit forbids `unlimited` the published requirement was a false blocker. `solve.c`'s preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB"; executed under TR-9 v1.24, `ulimit -s 8192` refuses and exits 1 while `ulimit -s 16384` runs the estimator to completion. The banner now states "at least 16 MB (`ulimit -s 16384` suffices)" with `unlimited` named as one sufficient setting. This is the sibling sweep TR-9 v1.24 reported but did not perform. No figure, count, command, claim or scope changes; the 2026-09-01 tail asserting the requirement "is unchanged and remains mandatory" was true of the failure-MODE correction it belonged to and false of this one, and is rescoped rather than deleted |
 | v2.14 | 2026-09-02 | **Executive-summary scope restored, three reproduction gaps flagged, and one residual leaf mislabel cleaned (prose batch P38, Codex V2-F07 #1–#3; wording and scope only, no figure, count or theorem changed).** (a) `RP-d11cce62` / `RP-376ec746`: the summary announced the group as the complete set of *symmetries* and the twins as indistinguishable to the rules — the solution-set-automorphism reading, which is precisely what §1 leaves open ("bounded below by G and not decided above"). The body states the scope correctly at three sites and the summary dropped it at two; the summary now says **relabeling** symmetries, complete over all 64! hexagram relabelings, and names the open question explicitly. Nothing proved changes: the completeness result is stronger than a 48-element-subgroup claim, and §1's per-predicate scope is unchanged. (b) The banner's promise that every MEASURED result carries a reproduction command is not met by three of this report's results. The banner itself is **not** edited here — `scripts/doc_gates.sh` GATE 9 requires it byte-identical across every `reports/TR*.md`, so softening it is a corpus-wide change that needs all eleven reports audited first, and that sweep is queued rather than performed. Instead each gap is now flagged where the result is stated: §3(ii) publishes commands for two of its four σ-related prefixes, §3(iii)'s orbit/CV statistics are prose-specified with no script and no archived per-cell table, and §5's twins-absent bisection is a prose recipe with no shipped flag. The Verification Guide gains a row for the CV test, which it had never listed at all. (c) §3(ii)'s 16,504 was relabelled oriented in v2.12 at both body sites, but the v2.7 row 70 lines below still described the object with the retired label; it now matches the body. The bare label remains live and deliberately deferred at the ten sites documentation/CORRECTIONS.md names, pending the `solve.c` field rename |
-| v2.15 *(current)* | 2026-09-03 | **§3(iii) corrected against the archived data it said did not exist, and its noise floor withdrawn (wave-4 lane B2; no published statistic recomputed differently).** v2.14 flagged §3(iii) as prose-specified and said *"no per-cell estimate table is archived"* — the Verification Guide row said the same. That is false: the 65,281-row 10⁵-probe per-cell table is archived under its own sha in the project's private working data, its first six columns are the productive-cell list the same sentence calls a second missing input, and a ~45-line aggregation over it reproduces **4,183** orbit classes, a **0.1118** median within-orbit CV and a **0.7202** population CV in about six seconds — i.e. all three published figures, exactly. The gap is the publication of a 1.1 MB table and a `verify.py` home for the aggregation, both approvals rather than measurements, and both sites now say so. 🔴 The recompute also settled a doubt recorded privately on 2026-08-13, and settled it the other way: the table was under suspicion because its median `relerr` is 0.1192 while the report published a **0.130** noise floor. Three figures reproducing exactly identify the table; what has no derivation on file is the 0.130, which is therefore **withdrawn as a published figure** rather than corrected to 0.1192 — the quantity it was computed over is not recorded, and substituting a differently-derived number would repeat the defect. ⚠ **No inference changes:** 0.112 lies below the noise floor at either value, and the claim §3(iii) makes is the ordering. No count, theorem, certificate or scope moves |
+| v2.15 | 2026-09-03 | **§3(iii) corrected against the archived data it said did not exist, and its noise floor withdrawn (wave-4 lane B2; no published statistic recomputed differently).** v2.14 flagged §3(iii) as prose-specified and said *"no per-cell estimate table is archived"* — the Verification Guide row said the same. That is false: the 65,281-row 10⁵-probe per-cell table is archived under its own sha in the project's private working data, its first six columns are the productive-cell list the same sentence calls a second missing input, and a ~45-line aggregation over it reproduces **4,183** orbit classes, a **0.1118** median within-orbit CV and a **0.7202** population CV in about six seconds — i.e. all three published figures, exactly. The gap is the publication of a 1.1 MB table and a `verify.py` home for the aggregation, both approvals rather than measurements, and both sites now say so. 🔴 The recompute also settled a doubt recorded privately on 2026-08-13, and settled it the other way: the table was under suspicion because its median `relerr` is 0.1192 while the report published a **0.130** noise floor. Three figures reproducing exactly identify the table; what has no derivation on file is the 0.130, which is therefore **withdrawn as a published figure** rather than corrected to 0.1192 — the quantity it was computed over is not recorded, and substituting a differently-derived number would repeat the defect. ⚠ **No inference changes:** 0.112 lies below the noise floor at either value, and the claim §3(iii) makes is the ordering. No count, theorem, certificate or scope moves |
+| v2.16 *(current)* | 2026-09-06 | **Four stale absence-claims corrected — this report told readers that four shipped things did not exist.** `--sigma-isomorphism-all48`, `--twins-bisect`, `--orbit-cv` and the per-cell table (`reports/evidence/knuth195_percell_100000.csv.gz`, landed `ad59ac0f` 2026-09-04T06:46Z, **six hours after this report's previous edit** `3515441c` 00:42Z) were described as *queued*, *no shipped command*, *published nowhere* and *private working data*. All four are public. Found by an external two-lens review reading as a reader would. **Understating what you can prove is the same defect as overstating it**, and nothing in this project watched that direction. |
