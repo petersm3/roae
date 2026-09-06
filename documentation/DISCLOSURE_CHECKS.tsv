@@ -3,8 +3,10 @@
 #
 # 🔴 THE GATE FIRES WHEN THE PROOF COMMAND SUCCEEDS. That is deliberate and is the whole point: a
 # disclosure saying "no public artifact exists" becomes FALSE the moment the artifact ships, and
-# nothing was watching for that. TR-6 carried "asserted, not checkable ... no public artifact" for
-# three days after `fcd9feab` (2026-09-03) put the DRAT certificates on `main` — and
+# nothing was watching for that. TR-6 carried such a disclosure (the wording is registered as
+# RP-2805ae9c; it is NOT quoted here, because quoting a retracted string in a tracked file is how
+# it survives a retraction) for three days after `fcd9feab` (2026-09-03) put the DRAT certificates
+# on `main` — and
 # MIAH_PROSPECTIVE_AUDIT_2026_09_05.md then cited those very lines as EXEMPLARY house style, two
 # days after they became false. Found 2026-09-06 by a Codex lens-B pass, adjudicated by Fable.
 #
