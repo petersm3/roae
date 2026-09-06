@@ -1,0 +1,57 @@
+# STAGE_F_LAYERSHA — per-layer LOGICAL-CONTENT sha256, n=31. 32 rows, one per layer .bin.
+#
+#   ./solve --f1c5-layer-sha <dir-or-file>
+#
+# 🔴 THIS IS A DIFFERENT DIGEST FROM STAGE_F_SHA256.txt AND THE TWO NEVER MATCH.
+# STAGE_F_SHA256.txt hashes each file AS STORED -- file identity, for a ladder you were
+# GIVEN. This file hashes the layer's LOGICAL CONTENT, inflating the container's per-block
+# zlib -- content identity, for a ladder you REBUILT. Measured on t_layer_30.bin: 888 bytes
+# stored, 29,660 bytes of content, and two unrelated digests. Comparing across the two
+# registries fails on every layer, not one. QUERY_INVENTORY.md C-04 records that.
+#
+# WHICH ONE YOU WANT:
+#   received a disk       -> STAGE_F_SHA256.txt   (are these the same files?)
+#   rebuilt via Tier A    -> THIS FILE               (is this the same ladder?)
+# A rebuild with a different zlib produces different stored bytes for identical content, so
+# raw-file comparison would fail on a correct rebuild. This registry is what distinguishes
+# a compressor difference from wrong data, which raw-file digests structurally cannot do.
+#
+# SOURCE: not recomputed here. Each value is the own_sha256_decompressed field of that
+# layer's shipped *_layer_stats_NN.json sidecar, written INLINE at build time during the
+# finalize concat (solve.c: 'same bytes read once, no extra I/O'). Verified equal to live
+# --f1c5-layer-sha output on f/00, g/31 and t/30. It covers the 32 layer .bin files per
+# stage; sidecars and the manifest have no logical stream and appear only in the raw-file
+# registry.
+#
+a1114974b2342cfb1eb23f696ce62496cf1a09027461ab8a6ced332459db0f45  run_f/f1c5_layer_00.bin
+07378332fbbdf35a8bc2441a19136d551c9da861f2df84c315fb148771ea0812  run_f/f1c5_layer_01.bin
+c637ca57c231c5d412b4f642f7c2989c864ca2b6a6def543082225c217fb4098  run_f/f1c5_layer_02.bin
+9848b9af9bbcba03c8df4d4d1621f3b3d0222d09be7d3beab45dd38366ac21c6  run_f/f1c5_layer_03.bin
+abc2dd59fa55616ab55c3ffa1bf4f4790d17d34ccba1afda71d83c92ed76abc6  run_f/f1c5_layer_04.bin
+ac35c17fd32b52a405eb7f7de710eacaf0f9ec8e342c210076aba52b57ad7b8f  run_f/f1c5_layer_05.bin
+40010f0dd03ee14af439ce2e3421c105f6f3a184d4b8efdd2b1958615a96408a  run_f/f1c5_layer_06.bin
+8c6a86bc9327e41f2051a1e4a3bb6e61f8a708d1ac926570db1a9edf7e418918  run_f/f1c5_layer_07.bin
+90e4d3ea486dd0b48a4d609e7f99fedfbdc2382ab93284847e385d9d12dfee02  run_f/f1c5_layer_08.bin
+3c68b07c01ea039a131bcb2079605673533103bed94927c16c328b3ca08a574d  run_f/f1c5_layer_09.bin
+eb01fcd89a3be77644428d93769c1c3f915cc607b3584a09f770bcdf6b6b7fc7  run_f/f1c5_layer_10.bin
+8855ff6a1f0cea5f4fd73c593e172ffb83146826ee32b47c610c671d75d8a429  run_f/f1c5_layer_11.bin
+f1605fe2d57a8afc708ddfd8617d626fb951de88417c5b7b3930071fedabc831  run_f/f1c5_layer_12.bin
+f7a2efe7cda4c566fb54d01e854ef255ce7a95b364f9a77ff9c898bfabba4440  run_f/f1c5_layer_13.bin
+6c0a8beaf23e0343f1e02e656e046c80a282223ed02e9490b98e4d1e5b6f338d  run_f/f1c5_layer_14.bin
+f79d41ad05a1d4fae7ca41b7fd6045f5e2e971c01950d4edacebd55115d78d74  run_f/f1c5_layer_15.bin
+ea83dc25817429a49d941135d5592f5c9635b782341421ea9ed91d6631e0a57c  run_f/f1c5_layer_16.bin
+cef2682847a61ff2b419f1b3b3e1670b43618b73da3210b3d5c1c71beef6b81c  run_f/f1c5_layer_17.bin
+a23704ac21d8df47b8f16db57571046c9c31ed33b294c2c0d57c97bfd52f2c81  run_f/f1c5_layer_18.bin
+6133e330400955439e253eac63cbb93dd5c89c8ca9e36ed5b94d7aae13d3e7cd  run_f/f1c5_layer_19.bin
+ceaee99d67dca57533115c5f1458c7ebc0cce65f588f9d8b1d1bdd2c5247dfeb  run_f/f1c5_layer_20.bin
+db045c2d03c56b920e03586786f1031dada018941ff6f625c2b0f5d636949b55  run_f/f1c5_layer_21.bin
+e60384b374044ff1a1f95f69866529f22085a7e55b72a0c01ff4e9b36e87590e  run_f/f1c5_layer_22.bin
+5806dfc68379f49e33b29958ed571277e5ada38d8d52755ccd0963e416c281e8  run_f/f1c5_layer_23.bin
+2db088d723140411e3f2cf4c79d4f26ebc44d3f01991b5dec866bd2ce66091b0  run_f/f1c5_layer_24.bin
+57b562873d9ec03e876d9e0e7fc987a42c50392d208f6cc9d7dff18525b1109e  run_f/f1c5_layer_25.bin
+58712886a515d7b032977c70c7f1d8c1a43b3f75d272698a50a9bc084092ebee  run_f/f1c5_layer_26.bin
+eb94cda618923cea14abc43f2facf7bcb1ad0f0685d368ee88d7922c962a3847  run_f/f1c5_layer_27.bin
+bb9078b41ab2c4158ff98d5a432d6041138feec5632ce204832beb4a40e4994b  run_f/f1c5_layer_28.bin
+3b11c5df09e5a81a07c4ff353f4506017c534cab19e386acdabbd0d589866b06  run_f/f1c5_layer_29.bin
+a862c7909291a27046bd5ce722c71418333cb46df6b4c9dab3302ef535751bc2  run_f/f1c5_layer_30.bin
+9a71c87781851d2895465a4062b6d0df20905bd0fc93bf8b44a31b2edcf2f280  run_f/f1c5_layer_31.bin

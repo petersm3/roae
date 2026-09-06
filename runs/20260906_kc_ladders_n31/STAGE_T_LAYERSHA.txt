@@ -1,0 +1,57 @@
+# STAGE_T_LAYERSHA — per-layer LOGICAL-CONTENT sha256, n=31. 32 rows, one per layer .bin.
+#
+#   ./solve --f1c5-layer-sha <dir-or-file>
+#
+# 🔴 THIS IS A DIFFERENT DIGEST FROM STAGE_T_SHA256.txt AND THE TWO NEVER MATCH.
+# STAGE_T_SHA256.txt hashes each file AS STORED -- file identity, for a ladder you were
+# GIVEN. This file hashes the layer's LOGICAL CONTENT, inflating the container's per-block
+# zlib -- content identity, for a ladder you REBUILT. Measured on t_layer_30.bin: 888 bytes
+# stored, 29,660 bytes of content, and two unrelated digests. Comparing across the two
+# registries fails on every layer, not one. QUERY_INVENTORY.md C-04 records that.
+#
+# WHICH ONE YOU WANT:
+#   received a disk       -> STAGE_T_SHA256.txt   (are these the same files?)
+#   rebuilt via Tier A    -> THIS FILE               (is this the same ladder?)
+# A rebuild with a different zlib produces different stored bytes for identical content, so
+# raw-file comparison would fail on a correct rebuild. This registry is what distinguishes
+# a compressor difference from wrong data, which raw-file digests structurally cannot do.
+#
+# SOURCE: not recomputed here. Each value is the own_sha256_decompressed field of that
+# layer's shipped *_layer_stats_NN.json sidecar, written INLINE at build time during the
+# finalize concat (solve.c: 'same bytes read once, no extra I/O'). Verified equal to live
+# --f1c5-layer-sha output on f/00, g/31 and t/30. It covers the 32 layer .bin files per
+# stage; sidecars and the manifest have no logical stream and appear only in the raw-file
+# registry.
+#
+24909026afcf175c072330d618a8076348d6377d769b3f92fed4fbece336713f  run_t/t_layer_00.bin
+96fce498199cfe44246fd9efab944dc35ada49e2805fd421f7ec0fa1301d4dbc  run_t/t_layer_01.bin
+91aa14226d22c812a9a39b5fb7962af5f3557d74575f03cc1396a34bae7ea405  run_t/t_layer_02.bin
+a88ad5a7bf0f0dbcd78094477043b86079edbff7b11de3b7b08e57c4e8990beb  run_t/t_layer_03.bin
+c18e8a5adb6b0d520c61dc21acd51a52af9a7c39c99c68ad44dd6193eac9fdc8  run_t/t_layer_04.bin
+7ca255d0e6232c48c927e2e69ca1bdfa560839e7bc4b00dc5d8e142007d6a9c0  run_t/t_layer_05.bin
+41c3af219ab2e479917cd083de41f13447c5e0d387444894d519b9ec93417bf3  run_t/t_layer_06.bin
+f3d5438bbd84a5f308e054a35c39bbb98950e0fc21cfe1d2d74cb7d822e63223  run_t/t_layer_07.bin
+f51270f11963dc02f6be6f151d420489b1401cd68054eff63b6e03067134316e  run_t/t_layer_08.bin
+f9271bcaff5b240d502763141e3dd5206b0e26a5767c881290c87a812d2c40e5  run_t/t_layer_09.bin
+55340ebb34cad738a7eb14b088a48b032ada233356849f3b4363ec4bb5e73901  run_t/t_layer_10.bin
+b1b78ec2444c84ea924459a30ac38634e3acf51ca457780450ce8bbd517932b3  run_t/t_layer_11.bin
+c4710315e79409a862d6f05e1c8893afd419d7aac2b5a9f09b5169f44baea5fe  run_t/t_layer_12.bin
+a25540c6d6dcb32f4c30f2ea37bcc5bff01dc439199df7bb830006d357386162  run_t/t_layer_13.bin
+52d25628cdf6ddb169cf9e10281ec85c1fcee87e892ded709e949e1f7c0b18e0  run_t/t_layer_14.bin
+46799280592716e0ccee4fcf7a3b6c1278103593437e433caf3871adc990de31  run_t/t_layer_15.bin
+a75610ef677e768120022c96c50a21f21675cec6a5ad175ef78f3b79f0603ff1  run_t/t_layer_16.bin
+f49d69dd3a386c4176b010e4ebf7d5a68782d9c78487e69c5f3c1a186feee743  run_t/t_layer_17.bin
+5b9c153cd2c766909885bdfd4a13db5d888ac5b65e03561b0b5db81ee8bdc804  run_t/t_layer_18.bin
+ec13b72fd3b3b7cb6a32c591ae7db007b0f5d822833c61da959cfe36611c4291  run_t/t_layer_19.bin
+32a228617be1523f81138d403722aa17e24e1dd37c5136374cf3df26cf344985  run_t/t_layer_20.bin
+cc9ae565845975e1800d69f63212cee7c83f4bf874a1443fbcfdf5839a527563  run_t/t_layer_21.bin
+f942856ee3c25646afe0a28680bc28898d41b381ab271c560257a75f11d474c4  run_t/t_layer_22.bin
+fecf3e32e302a8f08f515c54ca880eaaf74714c87041fe87e6a2355a9af02172  run_t/t_layer_23.bin
+3df2281266fcb7a9445ce73bb641fcaa2d8943a349c37eae2899d67b25aa9bd3  run_t/t_layer_24.bin
+5f1da920cf20edfac692e7ac4360df9f8be3eb21f204465be0a2917041001379  run_t/t_layer_25.bin
+f3c81b2c7f2bf4f12b0be88de80660a9cfc748bad91ae3cb7fb3e37a5d1532df  run_t/t_layer_26.bin
+2451c8951d044da24aa19bdac40a69c8c154eed83851bbf34c5235f9541c722a  run_t/t_layer_27.bin
+63d5c1e6691fc15788792625516f52486bd02a0b41a1f7a87999ca35b7e3c4fb  run_t/t_layer_28.bin
+ff17cdbffeb141700574ed591c52a172bfeadbdd8579d7824aa3b2ba40f3327d  run_t/t_layer_29.bin
+7f62f236ae96e3ad2ded564a0e3930b8f4b7ac6e8ead5bbbd2b474f95311aaa6  run_t/t_layer_30.bin
+490be996ae4a8e8ea0508f65810ff37cddba36010b656aa1f613df07abb703fc  run_t/t_layer_31.bin

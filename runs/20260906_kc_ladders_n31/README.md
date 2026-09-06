@@ -4,13 +4,29 @@
 not distributed here and nothing in TR-12 is conditional on obtaining them. What ships is the
 *recipe plus a fingerprint* — rebuild by TR-12's Tier A, then check your bytes against these files.
 
-| file | rows | what it fingerprints |
-|---|--:|---|
-| `STAGE_F_SHA256.txt` · `STAGE_F_MD5.txt` | 65 | f ladder — membership over C1 ∩ C2 ∩ C4 ∩ C5 |
-| `STAGE_G_SHA256.txt` · `STAGE_G_MD5.txt` | 65 | g ladder — completions |
-| `STAGE_T_SHA256.txt` · `STAGE_T_MD5.txt` | 65 | t ladder — pruned-DFS subtree size |
+## Two registries, and they answer different questions
 
-**195 rows.** 32 layer `.bin` + 32 per-layer stats `.json` + 1 manifest, per stage.
+| | rows/stage | covers | check with | a match proves |
+|---|--:|---|---|---|
+| `STAGE_{F,G,T}_SHA256.txt` · `_MD5.txt` | 65 | 32 layer `.bin` + 32 stats `.json` + 1 manifest | `sha256sum -c` | the **files** are byte-identical to the archived ones |
+| `STAGE_{F,G,T}_LAYERSHA.txt` | 32 | the 32 layer `.bin` only | `./solve --f1c5-layer-sha DIR` | the **content** is identical, whatever your compressor did |
+
+**Which one you want depends on where your ladder came from:**
+
+- **Given a disk?** Raw-file. You are asking whether these are the same files.
+- **Rebuilt via TR-12 Tier A?** Logical. You are asking whether it is the same ladder — and a correct
+  rebuild whose zlib emits different bytes **fails the raw-file check**. Only the logical registry
+  distinguishes a compressor difference from wrong data.
+
+🔴 **Never cross them.** They digest different byte streams and share no values. Measured on
+`t_layer_30.bin`: 888 bytes stored → `9593fa03…`; 29,660 bytes of content → `7f62f236…`. A cross
+comparison fails on every layer, not one. `documentation/QUERY_INVENTORY.md` §C-04 records this.
+
+**The logical digests are not recomputed here.** Each is the `own_sha256_decompressed` field of that
+layer's shipped `*_layer_stats_NN.json` sidecar, written inline at build time during the finalize
+concat — `solve.c`: *"same bytes read once, no extra I/O"*. Verified equal to live
+`--f1c5-layer-sha` output on `f/00`, `g/31` and `t/30`. Sidecars and the manifest have no logical
+stream, which is why that registry has 32 rows and the raw-file one has 65.
 
 ## How to use them
 

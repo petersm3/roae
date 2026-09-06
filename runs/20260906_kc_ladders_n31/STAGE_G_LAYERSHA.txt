@@ -1,0 +1,57 @@
+# STAGE_G_LAYERSHA — per-layer LOGICAL-CONTENT sha256, n=31. 32 rows, one per layer .bin.
+#
+#   ./solve --f1c5-layer-sha <dir-or-file>
+#
+# 🔴 THIS IS A DIFFERENT DIGEST FROM STAGE_G_SHA256.txt AND THE TWO NEVER MATCH.
+# STAGE_G_SHA256.txt hashes each file AS STORED -- file identity, for a ladder you were
+# GIVEN. This file hashes the layer's LOGICAL CONTENT, inflating the container's per-block
+# zlib -- content identity, for a ladder you REBUILT. Measured on t_layer_30.bin: 888 bytes
+# stored, 29,660 bytes of content, and two unrelated digests. Comparing across the two
+# registries fails on every layer, not one. QUERY_INVENTORY.md C-04 records that.
+#
+# WHICH ONE YOU WANT:
+#   received a disk       -> STAGE_G_SHA256.txt   (are these the same files?)
+#   rebuilt via Tier A    -> THIS FILE               (is this the same ladder?)
+# A rebuild with a different zlib produces different stored bytes for identical content, so
+# raw-file comparison would fail on a correct rebuild. This registry is what distinguishes
+# a compressor difference from wrong data, which raw-file digests structurally cannot do.
+#
+# SOURCE: not recomputed here. Each value is the own_sha256_decompressed field of that
+# layer's shipped *_layer_stats_NN.json sidecar, written INLINE at build time during the
+# finalize concat (solve.c: 'same bytes read once, no extra I/O'). Verified equal to live
+# --f1c5-layer-sha output on f/00, g/31 and t/30. It covers the 32 layer .bin files per
+# stage; sidecars and the manifest have no logical stream and appear only in the raw-file
+# registry.
+#
+dcecb7b17b931d5d0c1352e277a45227a611de60d9e3672b2717eb3d7413110c  run_g/g_layer_00.bin
+15e6ed7ea1ebcc88caf61b865eb1322bfd2acc5e14b2b18c22cd4b166670b41e  run_g/g_layer_01.bin
+82bc7e84d0e5dc029c47dd3f5926972a2d386d0a0c43974df7ff4005a0bb1df6  run_g/g_layer_02.bin
+6e9bcdc367ea9a27ea4f2933d01a0d7244c47f6789c2246c2b0a05d4b7338326  run_g/g_layer_03.bin
+f4711cbd6deecd8130626c8aa93dbdb615c8b51d756852add5530e6eb1ffc611  run_g/g_layer_04.bin
+7dd6cfd865e1d9f591650180639d15066c250bd9d2a2820f99f5dea1cbb1921c  run_g/g_layer_05.bin
+fba57aa5b6841f958c25dd90e6d2d239d18067e0b2c05e8e8eaaf2a3403268b2  run_g/g_layer_06.bin
+7cefa4cc1765f844c47bacddd04928c0fb60e2d5ec71504899466b9880972b98  run_g/g_layer_07.bin
+18bb6b623bb20399457ab1b4efae7a7d952dc42cd28b81583e04f449c23ba10d  run_g/g_layer_08.bin
+5fa4c67065963d7dad8634864f984f8446a232aa5609b9697ea9e90906d54fbf  run_g/g_layer_09.bin
+2caa2a0898ceb263eca38c2456e73444d8a5d076194e2fd5b9acc900c279c7aa  run_g/g_layer_10.bin
+4dec33a9503bdd8790b4b17bd3c31827a854ed84f344715f3d169d2f321f86b7  run_g/g_layer_11.bin
+7626801118ff71d3fafe3dcfa600ad1c0b7ee50cc082559e009d8e8eb986f8b4  run_g/g_layer_12.bin
+ff00c28d174395fddbb98c9e83f0912ed5aec3444df90cf98bbe344f56abf8da  run_g/g_layer_13.bin
+f98f0fb22a37627eeec5ca9b18fdc9ac08ab2aa06aa8069723c38e5d36702a80  run_g/g_layer_14.bin
+078b3ee95c69a68dfe8986a58a15aefba8ba283e6536846da099fb1ad4ff0a28  run_g/g_layer_15.bin
+50cd64abc785b1e14ced896353d9fe45e45ac34656daa3312e9f97f067f0a856  run_g/g_layer_16.bin
+cdd36d6c3d9da3cf790a9d3b06b67b3d2b5f826e4d88df194ef0447ecd1dc9c4  run_g/g_layer_17.bin
+d96709cc24dc4d0d0f58ec470afae5c6fb198b232dae3012fc4078d116b21a34  run_g/g_layer_18.bin
+d9ed2d445f7cb9a18037987aab62070c65ea566caf7470c7cc4100f003391df5  run_g/g_layer_19.bin
+ccb7b0150237d554eed0bc4247e92f643430934947ddabb93be796e654b99d7f  run_g/g_layer_20.bin
+2e227f9d97786e69afa7fe9f5bfeb668da0a986c0a5df3e8a837452212d0e469  run_g/g_layer_21.bin
+aaabbd9b2790a5d926fee7a98ac072bc0220789de2396843032c3883a23cd77f  run_g/g_layer_22.bin
+7cb52e4e4880864a8aa63bf5a65e81f5de5ce969dbf097cf700f531df4612c60  run_g/g_layer_23.bin
+6f49e188234bc66c3004eb15f8885b55b497ba271d1c7c23a8ddb514ab222d2e  run_g/g_layer_24.bin
+4acd79fbe9cb9c6a8810e9f4341e72863e17f28e89652e5a06ebb1129c6ea745  run_g/g_layer_25.bin
+801777dd015ba6ffcb31906aaba4fbef335e88680588f0df9f536061243b40d5  run_g/g_layer_26.bin
+4ccce5674d41ba796da8b86a2cda20343a6251af235e111bad3810f403be44df  run_g/g_layer_27.bin
+61bf7f91c6dae6fb6ff99d2820edef42b6bf62913168cb5fce59ed6ce332f940  run_g/g_layer_28.bin
+9080532a8afe412052ee0c19e0acc14fcb990bea257a59c48d87cde962cafd88  run_g/g_layer_29.bin
+d0f6396f13562c8dedfcb973a763a55f32e53522dda449d86e2b1c92fbfa978d  run_g/g_layer_30.bin
+0682f5016b23ac06872fe774739a5bc190faa8d7e32dbe7c68cb31e63f3b730e  run_g/g_layer_31.bin

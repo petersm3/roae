@@ -780,20 +780,20 @@ are corrected; see `documentation/CORRECTIONS.md`.)*
    ```
    SOLVE_F1_KEEP_LAYERS=1 ./solve --f1-exact-c1c2c4c5 --f1-out-of-core FDIR
    #   resume after any interruption:  add  --resume-from-layers
-   #   verify:  ./solve --f1c5-layer-sha FDIR   (32 shas == runs/20260906_kc_ladders_n31/STAGE_F_SHA256.txt)
+   #   verify:  ./solve --f1c5-layer-sha FDIR   (32 shas == runs/20260906_kc_ladders_n31/STAGE_F_LAYERSHA.txt)
    #   the run prints total == N and hard-aborts unless N ≡ 0 (mod 24)
    ```
 2. **Stage G (g-ladder) — reads FDIR:**
    ```
    ./solve --kc-g-build GDIR --kc-g-ooc
-   #   verify shas:  32 g-layer shas == runs/20260906_kc_ladders_n31/STAGE_G_SHA256.txt
+   #   verify shas:  32 g-layer shas == runs/20260906_kc_ladders_n31/STAGE_G_LAYERSHA.txt
    #   verify identity:  ./solve --kc-g-check FDIR GDIR   (f·g cut identity prints N at EVERY layer)
    ```
 3. **Stage T (t-ladder) — reads FDIR:**
    ```
    ./solve --kc-t-build FDIR TDIR --kc-ooc --kc-cache-mb <MB>
    #   resume is AUTOMATIC (adopts an existing t_manifest.txt + t_build.ckpt)
-   #   verify shas:  t-layer shas == runs/20260906_kc_ladders_n31/STAGE_T_SHA256.txt
+   #   verify shas:  t-layer shas == runs/20260906_kc_ladders_n31/STAGE_T_LAYERSHA.txt
    #   cross-check:  t vs DFS exhaustion cost at n ≤ 13 must agree exactly
    ```
 4. **Assemble the Exhaustion Atlas (needs all three):**
@@ -829,14 +829,14 @@ TR-11's, and it is the **f**-ladder contract; **g needs ≥ 10 TB**, per the mea
    runs are the anchor]; owned workstation (16–32 cores, 64 GB, 4 TB SSD) ≈ 1–4 weeks wall,
    ~$0 marginal [ESTIMATED, unmeasured — stated as a hedge, not a promise].
 4. Verify all 32 f-layer decompressed-stream shas against the published registry
-   `runs/20260906_kc_ladders_n31/STAGE_F_SHA256.txt` via `--f1c5-layer-sha`; the run itself must print total == N and
+   `runs/20260906_kc_ladders_n31/STAGE_F_LAYERSHA.txt` via `--f1c5-layer-sha`; the run itself must print total == N and
    hard-aborts unless N ≡ 0 (mod 24).
 5. Stage G likewise: `--kc-g-build GDIR --kc-g-ooc` (+ a contract/cost of the same shape,
-   ~$60–110 cloud); verify the 32 g-layer shas `runs/20260906_kc_ladders_n31/STAGE_G_SHA256.txt`; run
+   ~$60–110 cloud); verify the 32 g-layer shas `runs/20260906_kc_ladders_n31/STAGE_G_LAYERSHA.txt`; run
    `--kc-g-check FDIR GDIR` — the f·g cut identity must print N at EVERY layer.
 5b. **Stage T likewise (REQUIRED for the Exhaustion Atlas and every per-branch number)** per
    R.0 step 3: `--kc-t-build FDIR TDIR --kc-ooc`; verify the t-layer shas
-   `runs/20260906_kc_ladders_n31/STAGE_T_SHA256.txt` and the n ≤ 13 t-vs-DFS agreement; then assemble the atlas with
+   `runs/20260906_kc_ladders_n31/STAGE_T_LAYERSHA.txt` and the n ≤ 13 t-vs-DFS agreement; then assemble the atlas with
    `--kc-scan FDIR GDIR atlas.json --kc-tdir TDIR` (internal gate Σ_b solutions(b) == N).
 6. Run each TR-12 query as ONE command and diff against the report's **expected-output block**
    ([EXPECTED-Q1]..[EXPECTED-Q9], [EXPECTED-XA], … — every published number appears in a
@@ -869,10 +869,25 @@ acquisition step.
 
 1. Have a ladder — one you built with the Tier-A commands, or one you were given. Its origin does
    not matter to this check; that is the point of a fingerprint.
-2. Verify all ~96 decompressed-stream shas (`--f1c5-layer-sha`, all three dirs f/g/t) against the
-   published registries `runs/20260906_kc_ladders_n31/STAGE_F_SHA256.txt` /
-   `runs/20260906_kc_ladders_n31/STAGE_G_SHA256.txt` /
-   `runs/20260906_kc_ladders_n31/STAGE_T_SHA256.txt`. A mismatch at layer *k* localises the divergence to that layer.
+2. Verify the layer digests against `runs/20260906_kc_ladders_n31/`. **Which registry you want
+   depends on where your ladder came from, and the two never match each other:**
+
+   | your ladder | check | registry | what a match proves |
+   |---|---|---|---|
+   | **given to you** | `sha256sum -c` | `STAGE_{F,G,T}_SHA256.txt` — 65 rows/stage | the *files* are byte-identical to the archived ones |
+   | **rebuilt via Tier A** | `./solve --f1c5-layer-sha DIR` | `STAGE_{F,G,T}_LAYERSHA.txt` — 32 rows/stage | the *content* is identical, whatever your compressor did |
+
+   **Do not cross them.** They digest different byte streams — measured on `t_layer_30.bin`: 888
+   bytes stored, 29,660 bytes of content, two unrelated digests — so a cross comparison fails on
+   every layer, not one (`documentation/QUERY_INVENTORY.md` §C-04).
+
+   The distinction is not pedantry: a correct rebuild whose zlib emits different bytes **fails the
+   raw-file check**, and only the logical registry can tell that apart from wrong data. Conversely a
+   disk you were handed should match raw-file exactly, and a logical-only match there would leave
+   file corruption undetected.
+
+   A mismatch at layer *k* localises the divergence to that layer, which is the point of a per-layer
+   registry rather than one digest per stage.
 3. Run the identical step-6 query battery + step-7 certificates (identical commands; the query
    layer is artifact-source-agnostic by construction).
 
