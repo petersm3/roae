@@ -102,12 +102,20 @@ def grade(label, want, row, call, hint):
     rc = 1
 
 
+# 🔴 NO BARE `assert` BELOW, AND THAT IS LOAD-BEARING. These are FIXTURE PRECONDITIONS: they are
+# what makes fixture A a boundary case and B and C ties. `python3 -O` (or PYTHONOPTIMIZE=1, which a
+# CI image can carry silently) STRIPS assert statements, so as asserts they would vanish and this
+# gate would grade three fixtures nobody had verified were fixtures. That is exactly how
+# verify_all.sh §3b passed while checking zero of 42 witnesses. `raise SystemExit` cannot be
+# stripped. Enforced by tests.py TestNoBareAsserts.test_heredoc_python_has_no_assert_statements.
 BUDGET = 2**100                             # exactly a double: only the code can move it
 
 # ---- FIXTURE A: exact ARITHMETIC ---------------------------------------
 NODES_A = 3600 * BUDGET + 1                 # cost = BUDGET + 1/3600, i.e. over by a hair
-assert Fraction(NODES_A, 3600) > BUDGET, "fixture A is not a boundary case"
-assert Fraction(NODES_A / 1.0 / 3600.0) <= BUDGET, "fixture A does not round back onto the budget"
+if not (Fraction(NODES_A, 3600) > BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture A is not a boundary case")
+if not (Fraction(NODES_A / 1.0 / 3600.0) <= BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture A does not round back onto the budget")
 print("  fixture A: exact cost EXCEEDS the budget by 1/3600 of a dollar -- about 1e-15 of one")
 print("             ulp, so every binary64 route rounds it back ONTO the budget.  INFEASIBLE.")
 rowA, callA, mdA = price(NODES_A, "1", "1", str(BUDGET))
@@ -117,8 +125,10 @@ grade("fixture A (exact arithmetic)", "INFEASIBLE", rowA, callA,
 
 # ---- FIXTURE B: exact $/hour ANCHOR -------------------------------------
 NODES_B = 36000 * BUDGET                    # cost is EXACTLY the budget when $/h is 1/10
-assert Fraction(NODES_B, 3600) * Fraction("0.1") == BUDGET, "fixture B is not a tie"
-assert Fraction(NODES_B, 3600) * Fraction(float(0.1)) > BUDGET, "fixture B has no gap"
+if not (Fraction(NODES_B, 3600) * Fraction("0.1") == BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture B is not a tie")
+if not (Fraction(NODES_B, 3600) * Fraction(float(0.1)) > BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture B has no gap")
 print("  fixture B: $/hour typed as 0.1 puts the cost EXACTLY on the budget; read as its")
 print("             binary64 approximation it lands 5.6e-17 above.  Honest call: EXHAUSTIBLE.")
 rowB, callB, mdB = price(NODES_B, "1", "0.1", str(BUDGET))
@@ -128,8 +138,10 @@ grade("fixture B (typed decimal $/hour anchor)", "EXHAUSTIBLE", rowB, callB,
 
 # ---- FIXTURE C: exact RATE DIVISION -------------------------------------
 NODES_C = 1200 * BUDGET                     # rate 1/3 => cost = nodes*3/3600 = BUDGET exactly
-assert Fraction(NODES_C) / Fraction(1, 3) / 3600 == BUDGET, "fixture C is not a tie"
-assert Fraction(NODES_C) / Fraction(1.0 / 3.0) / 3600 > BUDGET, "fixture C has no gap"
+if not (Fraction(NODES_C) / Fraction(1, 3) / 3600 == BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture C is not a tie")
+if not (Fraction(NODES_C) / Fraction(1.0 / 3.0) / 3600 > BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture C has no gap")
 print("  fixture C: hedge 3 makes the effective rate 1/3, which is not a double.  Exactly the")
 print("             cost is ON the budget; divided in binary64 it lands above.  EXHAUSTIBLE.")
 rowC, callC, mdC = price(NODES_C, "1", "1", str(BUDGET), hedge="3")

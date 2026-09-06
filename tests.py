@@ -4754,10 +4754,21 @@ class TestAtlasExternalChecksAreReachableAndCanFail(unittest.TestCase):
                 last["pair%d" % p] = q + (1 if i < r else 0)
         for k, v in (pert or {}).items():
             last[k] = last.get(k, 0) + v
-        return {"n": 31, "N_total": str(self.N),
-                "layers": [{"k": 0},
-                           {"k": 1, "marginal_raw": {"pair31": str(slot2)}},
-                           {"k": 30, "marginal_raw": {k: str(v) for k, v in last.items()}}]}
+        # 🔴 THIRTY-ONE layers, and slot 2 on layers[0] -- BOTH are load-bearing, and this
+        # fixture had BOTH wrong until 2026-09-06, which is why the test was red on main.
+        #   * atlas_a2_slot_check asserts `len(layers) == n` (added 075931f4, 2026-09-05) because
+        #     that invariant is what makes layers[-1] slot 32 AT ALL: a short ladder silently
+        #     re-points layers[-1] at some other slot and compares it against slot 32's reference.
+        #     A 3-layer fixture therefore SKIPped, and a test that only observes a SKIP proves
+        #     nothing -- which is the exact failure mode this class's docstring exists to prevent.
+        #   * slot 2 is layers[0], NOT layers[1]: "layer k fills pair-slot k+2"
+        #     (viz/viz_kc_field.md:34). The check read layers[1] until Codex MQ1 §2a caught it on
+        #     2026-09-04; this fixture still encoded the superseded convention, so it would have
+        #     gone on agreeing with the bug it was supposed to catch.
+        layers = [{"k": i} for i in range(31)]
+        layers[0]["marginal_raw"] = {"pair31": str(slot2)}
+        layers[30]["marginal_raw"] = {k: str(v) for k, v in last.items()}
+        return {"n": 31, "N_total": str(self.N), "layers": layers}
 
     def test_the_fixtures_class_map_is_the_derived_one_not_a_copy(self):
         S = _load("solve")
@@ -4854,18 +4865,37 @@ class TestTr12FixtureRatiosAreRoundedNotTruncated(unittest.TestCase):
 
     def _cells(self):
         """(file, label, numerator, denominator, shipped) for every ratio cell."""
+        # 🔴 c_q6.txt IS ELEVEN COLUMNS, NOT NINE, since af95a91f (2026-09-05) rewrote it to the
+        # "REDUCED FORM" its own header describes. This parser still tested `len(f) == 9`, so it
+        # matched ZERO q6 rows -- which left `flow` empty and made every c_v5.txt lookup raise
+        # KeyError, erroring both tests in this class on clean `main`. It is worth naming what the
+        # failure mode WOULD have been had v5 not blown up: a silently empty population, i.e. a
+        # green test over nothing. `test_the_population_is_not_empty` exists for exactly that and is
+        # why this surfaced as an error rather than as a vacuous pass.
+        #
+        # Columns: 1=k 2=flow 3..7=class masses d1,d2,d3,d4,d6 8=anchor_d 9=anchor_class_mass
+        #          10=anchor_p 11=anchor_class_pct   (1-based; header row skipped by isdigit)
+        # Both shipped ratios are checkable from the row's own integers, and both are checked --
+        # anchor_p = anchor_class_mass/flow, and anchor_class_pct = (sum of class masses <= the
+        # anchor's)/flow, which is the header's own definition. Verified against all 18 shipped
+        # cells before this parser was written: 18 reproduced, 0 mismatched.
         out = []
         q6 = os.path.join(self.DIR, "c_q6.txt")
-        for line in open(q6):
-            f = line.rstrip("\n").split("\t")
-            if len(f) == 9 and f[0].isdigit() and f[7] not in ("NA", ""):
-                out.append((os.path.basename(q6), f"k={f[0]}", int(f[7]), int(f[1]), f[8]))
-        v5 = os.path.join(self.DIR, "c_v5.txt")
         flow = {}
         for line in open(q6):
             f = line.rstrip("\n").split("\t")
-            if len(f) == 9 and f[0].isdigit():
-                flow[f[0]] = int(f[1])
+            if len(f) != 11 or not f[0].isdigit():
+                continue
+            flow[f[0]] = int(f[1])
+            masses = [int(x) for x in f[2:7]]
+            anchor_mass = int(f[8])
+            if f[9] not in ("NA", ""):
+                out.append((os.path.basename(q6), f"k={f[0]} anchor_p",
+                            anchor_mass, int(f[1]), f[9]))
+            if f[10] not in ("NA", ""):
+                out.append((os.path.basename(q6), f"k={f[0]} anchor_class_pct",
+                            sum(m for m in masses if m <= anchor_mass), int(f[1]), f[10]))
+        v5 = os.path.join(self.DIR, "c_v5.txt")
         for line in open(v5):
             f = line.rstrip("\n").split("\t")
             if len(f) == 4 and f[0].isdigit():
