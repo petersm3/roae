@@ -75,7 +75,8 @@ question text is public, and the results, when they exist, will cite this file's
 **Still attested, not checkable:** that no full-scale answer to these three questions existed
 privately before this file was published. The evidence for that is a private git history — the
 question text is unchanged since 2026-07-17, the structures the questions read were built later
-(dates in §3), and no full-scale value of any of the three headline statistics is recorded — but an
+(dates in §3), and no full-scale value of any of the three escrowed observables is recorded (tail
+cells of V4's curve are, and §4 reclassifies them as pre-known checks) — but an
 outside reader cannot audit a private repository. **We state the claim and its limit rather than
 dressing the limit up.** Two further exposures we cannot close are in §5.
 
@@ -154,13 +155,14 @@ recollection — against two requirements:
    it interrogates; and
 2. **unrun** — no full-scale value of its headline statistic is recorded anywhere.
 
-The split is **A = 13 pre-hoc-and-unrun, B = 4 post-hoc-but-unrun, C = 14 already answered**.
+The split is **A = 12 pre-hoc-and-unrun, B = 4 post-hoc-but-unrun, C = 15 already answered**.
 
 **Only class A can be pre-registered, and only three of the twelve are freezable as written.**
 *(Twelve, not thirteen: Q4b moved from class A to class C on 2026-09-05 when it was found to be
 already answered — so the split is A = 12, B = 4, C = 15, and 12 − 3 = **nine** held out. The counts
-read 13/4/14 until 2026-09-06, QSET-3 finding 8.)*
-Those three are escrowed by this file. The other **ten** are class A but are not freezable, for two
+read 13/4/14 until 2026-09-06, QSET-3 finding 8 — and the sentence above still read 13/4/14
+after this note was added, until QSET-4 finding 2 caught the half-applied fix.)*
+Those three are escrowed by this file. The other **nine** are class A but are not freezable, for two
 different reasons: **six** because their text is not falsifiable as it stands, and **three** because
 their text escrows an observable **this repository already determines**. A pre-registration that
 cannot fail is not one; neither is one whose answer we already hold.
@@ -219,7 +221,7 @@ a reader can check without trusting us is the third-party capture**, and it is n
 | the question text of all three rows below | **2026-07-17** |
 | Stage F — the f-ladder at n=31 | 2026-07-29 |
 | Stage G — the g-ladder at n=31 | built 2026-08-18; verified 2026-08-20 |
-| Stage T — the t-ladder at n=31 | built 2026-09-03; **gate passed 2026-09-04** (`--kc-t-check`: 32 identities checked, 0 skipped, `TLADDER_RESULT=PASS`, the root total matching an independent derivation from preserved Stage F layer masses). ⚠ *This cell read "its `--kc-t-check` gate is **still unpassed**" until the freeze day, when it passed — corrected rather than carried, since the whole point of this table is that its dates are checkable* |
+| Stage T — the t-ladder at n=31 | built 2026-09-03; **gate passed 2026-09-04** (`--kc-t-check`: 32 identities checked, 0 skipped, `TLADDER_RESULT=PASS`, the root total matching an independent derivation from preserved Stage F layer masses). ⚠ *This cell read "its `--kc-t-check` gate is **still unpassed**" in the 2026-09-05 draft — the gate had passed the day before — and then "gate passed 2026-09-05" until 2026-09-06; corrected rather than carried, because a table of attested dates that are wrong attests nothing* |
 | **the scan atlas at n=31** | **never built.** The one attempt (2026-08-20) was **deliberately stopped early, to free its VM for another job** — it was not a crash, an eviction or a failure. `--kc-scan` writes its atlas once, at the end, so that attempt produced nothing. |
 
 ### What actually has to run, per row — stated exactly
@@ -269,7 +271,7 @@ Each row gives the **question as frozen**, its **pre-registered decision rule or
 **A general rule binds all three, and it is part of the pre-registration:** all three (V4,
 XA-a, XA-b) are **descriptive** — they fix an observable and its arithmetic gates, and they
 pre-register **no hypothesis test**. *(A fourth row, Q4b, asked for an exact extremal value and its
-witness — a determinate quantity rather than a test. It was removed on the freeze day; its record is
+witness — a determinate quantity rather than a test. It was removed from the draft on 2026-09-05; its record is
 below.)* **No claim that any value is "rare",
 "extreme", "typical" or "distinguished" is pre-registered by this file**, and no row's heading or
 question text uses those words. Any such test requires its own dated pre-registration with its own
@@ -329,11 +331,15 @@ themselves are genuinely unknown **except at the shallow tail, where three of th
 published — disclosed here 2026-09-06 rather than left for a reader to grep (QSET-3 finding 1).**
 `documentation/SYMMETRY_SEARCH.md` publishes, for King Wen's own prefixes,
 **`g(s_22) = 690,176`**, **`g(s_24) = 5,624`** and **`g(s_26) = 52`** (as "C1+C2+C4+C5 leaves" at the
-9-, 7- and 5-free rungs), and any tail cell with ~10 or fewer free pairs is a sub-minute brute force
-from the committed `verify.py` — re-executed during review in 28 s. **Those three cells are therefore
+9-, 7- and 5-free rungs), and any tail cell with nine or fewer free pairs (k ≥ 22) is a sub-minute
+brute force from the committed `verify.py` — re-executed during review in 28 s. **The 10-free cell
+(k = 21) is NOT sub-minute:** it took 475 s on a 2-core host when it was brute-forced during the
+QSET-4 adjudication on 2026-09-06, and this sentence read "~10 or fewer … sub-minute" until then.
+That cell is therefore also a pre-known check; its value is held in the private review record and is
+not published. **Those three cells are therefore
 PRE-KNOWN CHECKS on the ladder descent, not escrowed results**, exactly as `t(root)` is for XA-b: a
-descent that disagrees with them is wrong. **What is escrowed is the HEAD of the curve** — the deep
-cells, where the free-pair count makes brute force infeasible and only the ladders can answer. No
+descent that disagrees with them is wrong. **What is escrowed is the HEAD of the curve, k ≤ 20** — the cells where
+brute force from `verify.py` is no longer a matter of minutes and only the ladders can answer. No
 full-31 f·g descent of any walk has ever been run.
 
 **Not an independent question, and not scan-free — but the dependency is an `open()`, not a
@@ -478,10 +484,11 @@ fact — that the total is known and fixed — is what a reader needs, and it is
 **Precondition, disclosed — and DISCHARGED 2026-09-05.** The t-ladder finished building on
 2026-09-03. This row said its **`--kc-t-check` gate has not yet passed** and that the row does not run
 before it does. ⚠ **That gate PASSED on 2026-09-04 at 06:48:28 UTC** — state-file epoch `1788504508`,
-first committed in `28d72e73` at 09-04T09:26Z. *(This document said **2026-09-05** at two sites until
+first committed in `28d72e73` at 09-04T09:26Z, in the **private** history — attested, not
+checkable, as §3's heading says. *(This document said **2026-09-05** at two sites until
 2026-09-06. The error was mine and it is the exact kind this table exists to prevent: I took the date
 from a log file's modification time — when I copied it — rather than from the run's own record. A
-wrong date in the table whose stated point is that its dates are checkable.)* The
+wrong date in the table whose whole purpose is that its attested dates be right.)* The
 sentence was stale by the time anyone read it: 32 layer identities checked, 0 skipped,
 `TLADDER_RESULT=PASS`, with the root total matching an independent derivation. The precondition is
 therefore **met**, not outstanding — recorded this way rather than silently rewritten, because a
@@ -553,9 +560,14 @@ layer loop. A reader estimating the cost of answering this pre-registration from
 get the wrong answer, and §3 is the paragraph to use instead.
 
 **5. Where the answers are genuinely unknown, and where they are partly constrained.**
- - **V4** — the `g` curve is genuinely unknown: no full-31 f·g descent of King Wen's path, or of any
-   walk, has ever been run. Its `pair` column is **not** unknown (it is `i` by the labelling) and is
-   used only as a gate, never reported — see the row.
+ - **V4** — the **head** of the `g` curve (k ≤ 20) is genuinely unknown: no full-31 f·g descent of
+   King Wen's path, or of any walk, has ever been run. **Its tail is not unknown**, and this bullet
+   said "the `g` curve is genuinely unknown" without that qualifier until 2026-09-06 (QSET-4 finding
+   1): `g(s_22)`, `g(s_24)` and `g(s_26)` are published in `documentation/SYMMETRY_SEARCH.md`, and
+   every cell with k ≥ 21 is a minutes-or-less brute force from committed `verify.py` — pre-known
+   checks on the descent, not escrowed results, as the row states. Its `pair` column is **not**
+   unknown either (it is `i` by the labelling) and is used only as a gate, never reported — see the
+   row.
  - **XA-a, XA-b** — genuinely unknown; constrained only by the gate identities above (each sums to
    `N`, or to `t(root)`), which pin the totals without pinning any cell.
    ⚠ **Two disclosures a reader can find for themselves, added 2026-09-06 rather than left to be
@@ -571,7 +583,7 @@ get the wrong answer, and §3 is the paragraph to use instead.
    would convert this row into exactly the class of defect that removed Q4b, in a document that by
    then carries a timestamp and cannot be amended. Both points were raised by an external review's
    adjudication, not found by us unprompted.
- - **Q4b** — 🔴 **REMOVED FROM THIS SET on the freeze day: nothing about it is open.** This bullet
+ - **Q4b** — 🔴 **REMOVED FROM THIS DRAFT on 2026-09-05: nothing about it is open.** This bullet
    read *"What remains open is the exact minimum and its witness"* until 2026-09-05. **It is not
    open.** The structural lower bound `C3 = 112` (`G ≥ 12`) is **met by a published witness**
    (`reports/certificates/c3_positional_witnesses.txt`, `G=12 C3=112`, committed 2026-07-24), so the

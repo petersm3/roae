@@ -81,10 +81,10 @@ sha256sum <file>          # compare to the table above
 
 ## ⚠ One published pre-registration is NOT YET FROZEN, and its digest is here in prose for that reason
 
-**`PREREG_CLASSA_QUERY_SET.md` — digest `6b83cf4e0652dfe472e37c58f0cda4831a0300260cb8862e499b8a3ceb6f5dcb`, 45,882 bytes,
-published 2026-09-06; digest updated 2026-09-06 after an external review.**
+**`PREREG_CLASSA_QUERY_SET.md` — digest `fc0e40a6eac1c2ee9f159e599be02a8c69b42bc66fbf4f777cb801702230aca7`, 47,066 bytes,
+published 2026-09-06; digest updated 2026-09-06 after a FOURTH external review pass.**
 
-*(Previous digest `6e21a148bfbb1ad57f7770f75cfdfd21f4f5c606258adec55231bc3066bfe2d9`, 41,881 bytes — superseded when the QSET-3 review's eight accepted findings were applied. This is the digest changing exactly as this entry said it would, which is why the entry exists: an escrow row that could not move would have had to be wrong here.)*
+*(Digest history, each supersession caused by an accepted external finding: `6e21a148bfbb1ad57f7770f75cfdfd21f4f5c606258adec55231bc3066bfe2d9`, 41,881 bytes → `6b83cf4e0652dfe472e37c58f0cda4831a0300260cb8862e499b8a3ceb6f5dcb`, 45,882 bytes, when the QSET-3 pass's eight findings were applied → the digest above, when QSET-4's four findings were applied. **QSET-4 attacked the QSET-3 repairs rather than the document**, and upheld all four: two of the eight repairs had been recorded as applied and were not, two left the corrected phrasing standing at a second site. Its adjudication then found three more the reviewer had missed, including an overclaim the QSET-3 repair itself introduced — that a 10-free-pair cell is a "sub-minute" brute force, disproved by executing it (475 s). This is the digest changing exactly as this entry said it would, which is why the entry exists: an escrow row that could not move would have had to be wrong here.)*
 
 **This digest is deliberately NOT in the table above, and it does not verify against an escrowed
 row, because the file it describes is not frozen.** It was published *before* its freeze so that an
