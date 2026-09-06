@@ -68,6 +68,9 @@
 #   1b. scripts/doc_gates.sh generated    — CONDITIONAL, blocking when it runs;
 #      see "THE `generated` LEG IS CONDITIONAL" below for when and why.
 #   2. scripts/pre_push_compile_gate.sh   — solve.c compile + --selftest sha.
+#   2b. scripts/gate_published_consistency.sh — RATCHET over three published-consistency classes.
+#      Blocks only when a count RISES above scripts/gate_published_consistency.pin; the token
+#      PASS-AT-PIN (no regression, known-open items stand) is accepted.
 #
 #   Both are executed FROM THE PUSHED TREE, so what is enforced is the
 #   contract that tree itself declares. A pushed sha whose tree has no
@@ -398,6 +401,36 @@ for sha in $SHAS; do
   if [ -f "$WT/scripts/pre_push_compile_gate.sh" ]; then
     ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
         bash scripts/pre_push_compile_gate.sh ) || SHARC=1
+
+      # ---- published-consistency ratchet (2026-09-06). THIS GATE HAD ZERO INVOKERS.
+      # scripts/gate_published_consistency.sh was written to close the three classes that dominated
+      # v3 lens B's surviving yield, then wired into nothing -- `grep -rn` found only the file
+      # itself. It is the same defect it exists to catch, and the same one that left _MANIFEST.txt
+      # stale for two commits: an artifact generated and never consumed is not a safeguard.
+      #
+      # It is a RATCHET, not a pass mark. 15 defects stand today, each with a written reason in
+      # scripts/gate_published_consistency.pin; this blocks only when a count RISES. PASS-AT-PIN
+      # means no regression with known-open items and is deliberately ACCEPTED -- treating it as a
+      # failure would make every push noisy and the gate would be bypassed within a week.
+      if [ -f "$WT/scripts/gate_published_consistency.sh" ]; then
+        _gpc=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+                  bash scripts/gate_published_consistency.sh 2>&1 )
+        # grep -qx, never a substring test: "PASS" is a prefix of "PASS-AT-PIN".
+        if printf '%s\n' "$_gpc" | grep -qx 'PUBLISHED_CONSISTENCY=FAIL'; then
+          echo "pre-push: published-consistency RATCHET BROKEN -- a count rose above its pin:"
+          printf '%s\n' "$_gpc" | grep -E 'rose to|no pin file|malformed' | sed 's/^/         /'
+          echo "         Fix it, or re-pin in this same commit with the reason written down."
+          SHARC=1
+        elif printf '%s\n' "$_gpc" | grep -qx 'PUBLISHED_CONSISTENCY=PASS-AT-PIN'; then
+          echo "pre-push: published consistency at pin (no regression; known-open items stand)"
+        elif printf '%s\n' "$_gpc" | grep -qx 'PUBLISHED_CONSISTENCY=PASS'; then
+          echo "pre-push: published consistency CLEAN -- tighten the pin to zero in this commit"
+        else
+          echo "pre-push: COULD NOT RUN the published-consistency gate (no verdict token emitted)."
+          echo "         A gate that cannot report is not a gate that passed."
+          SHARC=1
+        fi
+      fi
     # ---- CONDITIONAL #167 zero-yield resume leg (2026-09-05, PROSE_LANE_FOLLOWUPS row 542).
     # Runs ONLY when the pushed range touches solve.c. `--selftest-resume` — the standing
     # acceptance test for the resume path — is BLIND to this defect in BOTH directions: the fixed

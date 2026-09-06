@@ -1,0 +1,24 @@
+# Pinned counts for scripts/gate_published_consistency.sh — a RATCHET, not a pass mark.
+#
+# These are KNOWN-OPEN defects, not acceptable ones. The gate fails if a count RISES, and tells you
+# to tighten the pin if a count FALLS. The point is that a published-consistency defect can no longer
+# be introduced silently; the standing ones stay visible instead of being waved through by a gate
+# that prints FAIL on every push and is therefore read by nobody.
+#
+# Recorded 2026-09-06. Re-pin in the SAME commit as any change that legitimately moves a count.
+#
+# G1 — unfilled placeholders in published reports.
+#      5: [REPRO-TAG] x2 (a git tag minted at TR-12 publication; it cannot be filled before the
+#      freeze) and [EXPECTED-Q1|Q9|XA] x3 (filled by the n=31 battery's expected-output blocks,
+#      which do not exist until that run happens).
+G1=5
+# G2 — published --estimate-knuth commands with no thread pin.
+#      10: NOT fixable by adding a number. Measured 2026-09-06: 45 files under reports/evidence/
+#      carry a threads= header, so the counts exist, but the mapping from a PUBLISHED FIGURE to the
+#      RUN that produced it is not recorded. TR7_CIRCULAR_READING.md:158 has six candidate evidence
+#      files matching its probe count and nothing says which one produced the published figures.
+#      Adding a pin would FABRICATE provenance, which is worse than the gap. The real defect is one
+#      level up: a published command does not name the artifact it reproduces.
+G2=10
+# G3 — published disclosures that have gone stale. Shaped to fire when the artifact EXISTS.
+G3=0

@@ -20,9 +20,10 @@ fail=0
 # match against any of the repository's tags. Three lens-B findings collapsed to this one grep.
 echo "== G1: unfilled placeholders in published reports =="
 G1=$(grep -rnoE "\[(REPRO-TAG|EXPECTED-[A-Z0-9]+|STAGE-[FGT]-SHA-REGISTRY)\]" reports/ README.md 2>/dev/null || true)
+G1_N=$( [ -n "$G1" ] && echo "$G1" | grep -c . || echo 0 )
 if [ -n "$G1" ]; then
   echo "$G1" | sed 's/^/   [FAIL] /'
-  echo "   $(echo "$G1" | grep -c .) unfilled placeholder(s) in published text"
+  echo "   $G1_N unfilled placeholder(s) in published text"
   fail=1
 else
   echo "   [ok]   no unfilled placeholders"
@@ -46,8 +47,10 @@ echo "== G2: sampled-figure commands missing SOLVE_THREADS =="
 G2=$(grep -rnE '`[^`]*\./solve --estimate-knuth +[1-9][0-9]*[^`]*`' reports/ documentation/ 2>/dev/null \
      | grep -v 'SOLVE_THREADS' \
      | grep -vE '^documentation/CORRECTIONS(_INVENTORY)?\.(md|tsv):' || true)
+G2_N=$( [ -n "$G2" ] && echo "$G2" | grep -c . || echo 0 )
 if [ -n "$G2" ]; then
   echo "$G2" | cut -c1-140 | sed 's/^/   [FAIL] /'
+  echo "   $G2_N sampled-figure command(s) with no thread pin"
   fail=1
 else
   echo "   [ok]   every published --estimate-knuth command carries a thread pin"
@@ -80,5 +83,54 @@ else
 fi
 
 echo
-[ "$fail" -eq 0 ] && echo "PUBLISHED_CONSISTENCY=PASS" || echo "PUBLISHED_CONSISTENCY=FAIL"
+# ---- RATCHET ------------------------------------------------------------------------------------
+# 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
+# the day it was written, and it was wired into nothing for exactly that reason -- which made it
+# strictly worse than useless: a check that exists, cannot fail usefully, and is therefore never run.
+# (grep -rn gate_published_consistency scripts/ returned only this file, 2026-09-06.)
+#
+# So the verdict is a ratchet against pinned counts, not an absolute. A count that RISES fails: a new
+# published-consistency defect can no longer be introduced silently. A count that FALLS is announced
+# so the pin tightens in the same commit as the fix. The standing 15 stay visible in the pin file,
+# with a written reason each, instead of being waved through by an alarm everyone learned to ignore.
+G3_N="${G3_N:-0}"
+PIN="$(dirname "$0")/gate_published_consistency.pin"
+if [ ! -r "$PIN" ]; then
+  echo "  [FAIL] no pin file at $PIN — an UNPINNED ratchet certifies nothing"
+  echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1
+fi
+# shellcheck disable=SC1090
+P_G1=$(awk -F= '/^G1=/{print $2}' "$PIN"); P_G2=$(awk -F= '/^G2=/{print $2}' "$PIN"); P_G3=$(awk -F= '/^G3=/{print $2}' "$PIN")
+for v in "$P_G1" "$P_G2" "$P_G3"; do
+  case "$v" in ''|*[!0-9]*) echo "  [FAIL] pin file is malformed"; echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1;; esac
+done
+echo
+echo "== RATCHET vs $PIN =="
+ratchet=0; tighten=0
+for pair in "G1:${G1_N:-0}:$P_G1" "G2:${G2_N:-0}:$P_G2" "G3:${G3_N:-0}:$P_G3"; do
+  g=${pair%%:*}; rest=${pair#*:}; now=${rest%%:*}; pin=${rest##*:}
+  if [ "$now" -gt "$pin" ]; then
+    echo "  [FAIL] $g rose to $now from a pinned $pin — a NEW published-consistency defect"; ratchet=1
+  elif [ "$now" -lt "$pin" ]; then
+    echo "  [ok]   $g fell to $now from a pinned $pin — TIGHTEN THE PIN in this same commit"; tighten=1
+  else
+    echo "  [ok]   $g at its pinned $pin (known-open; see the pin file for why each stands)"
+  fi
+done
+[ "$tighten" -eq 1 ] && echo "  A count fell. Leaving the pin loose lets the defect come back unseen."
+echo
+# 🔴 THREE VALUES, BECAUSE TWO WOULD LIE EITHER WAY.
+#   FAIL        a count ROSE — a new defect. This is the one that must block.
+#   PASS-AT-PIN no regression, but N known-open defects stand. Saying PASS here would let 15 real
+#               defects read as clean; saying FAIL would make every push noisy and the gate ignored.
+#               Neither is honest, so the token says exactly what is true.
+#   PASS        nothing outstanding at all.
+# grep -qx the one you mean. Do not test for "PASS" as a substring: it matches PASS-AT-PIN.
+if [ "$ratchet" -ne 0 ]; then
+  echo "PUBLISHED_CONSISTENCY=FAIL"
+elif [ "$fail" -ne 0 ]; then
+  echo "PUBLISHED_CONSISTENCY=PASS-AT-PIN"
+else
+  echo "PUBLISHED_CONSISTENCY=PASS"
+fi
 exit 0
