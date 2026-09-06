@@ -1,0 +1,17 @@
+# EW-1 calibrated null — pre-stated, two-sided, run once. QUERY_INVENTORY.md §9.4.
+statistic	top1_share = max_i(bits_i) / sum_i(bits_i)
+band_source	Q8 gallery draws, one --kc-profile descent each
+gallery_walks	200
+sum_bits_min	14.672425
+sum_bits_max	14.672426
+top1_share_p01	0.210426
+top1_share_p50	0.238713
+top1_share_p99	0.331579
+top1_share_min	0.210426
+top1_share_max	0.331579
+anchor_top1_share	0.236019
+anchor_sum_bits	14.672425
+gallery_below	34
+gallery_equal	64
+empirical_two_sided_position	0.3300
+TR12_EW1_NULL	typicality-bound

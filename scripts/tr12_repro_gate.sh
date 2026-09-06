@@ -50,6 +50,54 @@ fingerprint(){
   } | sha256sum | cut -d' ' -f1
 }
 
+# ---- THE GOLDEN MANIFEST MUST DESCRIBE THE GOLDENS ---------------------------------------------
+# 🔴 UNTIL 2026-09-06 _MANIFEST.txt WAS WRITTEN BY THE BATTERY AND READ BY NOTHING.
+# tr12_repro.sh --regen emits it; no gate, script or test ever compared it to the files it names.
+# So it rotted silently: commit accc1ac7 changed c_consumer.txt without re-stamping, and the
+# manifest carried a wrong hash for that golden through two further commits. Nobody noticed,
+# because noticing required a check that did not exist.
+#
+# The fingerprint above does NOT cover this. It hashes every file under scripts/tr12_expected,
+# _MANIFEST.txt included, so it detects that the tree CHANGED -- it cannot detect that the tree is
+# internally INCONSISTENT. A manifest nothing verifies is decoration.
+#
+# Both directions are checked. A listed file that is missing or mis-hashed is the obvious failure;
+# a golden present but UNLISTED is the one that matters more, because that is how a new expected
+# block gets committed without ever entering the manifest.
+manifest_check(){
+  local md=scripts/tr12_expected/n9 mf=scripts/tr12_expected/n9/_MANIFEST.txt
+  [ -r "$mf" ] || { echo "  [FAIL] $mf missing — the golden manifest cannot be verified"; return 1; }
+  local rows=0 bad=0 h f a
+  local listed; listed=$(mktemp)
+  while read -r h f; do
+    case "$h" in ''|'#'*) continue;; esac
+    case "$h" in *[!0-9a-f]*|"") continue;; esac
+    [ ${#h} -eq 64 ] || continue
+    rows=$((rows+1)); printf '%s\n' "$f" >> "$listed"
+    if [ ! -f "$md/$f" ]; then echo "  [FAIL] manifest lists $f, which is not present"; bad=$((bad+1)); continue; fi
+    a=$(sha256sum "$md/$f" | cut -d' ' -f1)
+    [ "$a" = "$h" ] || { echo "  [FAIL] $f: manifest says ${h:0:16}…, file hashes to ${a:0:16}…"; bad=$((bad+1)); }
+  done < "$mf"
+  if [ "$rows" -eq 0 ]; then
+    echo "  [FAIL] $mf parsed to ZERO rows — an empty manifest verifies vacuously"; rm -f "$listed"; return 1
+  fi
+  # the mirror: every golden must be listed. _-prefixed files are the manifest and the skip pin.
+  local unlisted=0 g
+  for g in "$md"/*; do
+    g=$(basename "$g"); case "$g" in _*) continue;; esac
+    grep -qxF "$g" "$listed" || { echo "  [FAIL] golden $g exists but is NOT in _MANIFEST.txt"; unlisted=$((unlisted+1)); }
+  done
+  rm -f "$listed"
+  if [ "$bad" -eq 0 ] && [ "$unlisted" -eq 0 ]; then
+    echo "  [ok] golden manifest describes all $rows golden(s), and every golden is listed"
+    return 0
+  fi
+  echo "  [FAIL] golden manifest: $bad mis-hashed/absent, $unlisted unlisted"
+  echo "         Re-stamp with: ./scripts/tr12_repro.sh --n9 --regen --solve <solve> --out <dir>"
+  return 1
+}
+if ! manifest_check; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
+
 FP=$(fingerprint)
 
 # 🔴 THE PINNED SKIP SET (2026-09-05 fail-open class sweep, S-06). tr12_repro.sh emits

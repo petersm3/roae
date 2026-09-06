@@ -293,6 +293,43 @@ row_end(){  # row_end TOKEN RC
     ROW_ID=""
 }
 
+row_end_val(){ # row_end_val TOKEN RC VALUE
+    # Same golden-diff as row_end, but records VALUE instead of "PASS" when the row reproduces.
+    #
+    # 🔴 WHY THIS EXISTS. QUERY_INVENTORY.md specifies TR12_EW1_NULL=<verdict>, where the verdict
+    # is an OUTCOME NAME, not PASS/FAIL -- the whole point of a calibrated null is that its result
+    # is data. Before this helper the only way to record a data-valued token was row_skip, i.e. by
+    # declaring the row NOT RUN. A harness that can only say PASS about a row that executed cannot
+    # express a measured verdict, so it would have had to be smuggled into prose or a second token.
+    # The golden diff still guards correctness: the full band -- percentiles, anchor, position --
+    # is in the row output and is compared byte-for-byte.
+    local token="$1" rc="$2" value="$3"
+    local got="$GOTDIR/$ROW_ID.txt" exp="$EXPECTDIR/$ROW_ID.txt" status
+    norm < "$RAW" > "$got"
+    NROWS=$((NROWS+1))
+    if [ "$rc" -ne 0 ]; then
+        status="FAIL:nonzero-exit($rc)"
+    elif [ -z "$value" ]; then
+        status="FAIL:no-verdict-extracted"
+    elif [ "$REGEN" -eq 1 ]; then
+        mkdir -p "$EXPECTDIR"; cp "$got" "$exp"; status="$value"
+    elif [ ! -f "$exp" ]; then
+        status="FAIL:no-expected-block"
+    elif diff -u "$exp" "$got" > "$DIFFDIR/$ROW_ID.diff" 2>&1; then
+        rm -f "$DIFFDIR/$ROW_ID.diff"; status="$value"
+    else
+        status="FAIL:output-mismatch"
+    fi
+    case "$status" in
+        FAIL*) NFAIL=$((NFAIL+1));  FAILED+=("$ROW_ID  $token  $status")
+               printf '  [FAIL] %-22s %-24s %s\n' "$ROW_ID" "$token" "$status" | tee -a "$LOG"
+               [ -f "$DIFFDIR/$ROW_ID.diff" ] && head -40 "$DIFFDIR/$ROW_ID.diff" | tee -a "$LOG" ;;
+        *)     NPASS=$((NPASS+1));  printf '  [ok  ] %-22s %-24s %s\n' "$ROW_ID" "$token" "$status" | tee -a "$LOG" ;;
+    esac
+    tok_record "$token" "$status" "$ROW_ID"
+    ROW_ID=""
+}
+
 row_skip(){ # row_skip ROWID TOKEN VALUE REASON
     # VALUE is the SHORT machine verdict — "SKIP:<code>" or "PENDING:<flag>" — so that
     #   grep -qx 'TR12_Q4B=PENDING:sat-c3min-driver'
@@ -925,7 +962,12 @@ if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
             printf "abs_diff\t%.9f\n", d
             printf "max_surprise_step\t%s\nmax_surprise_bits\t%.6f\n", mxs, mx
             printf "concentration_top1_share\t%.6f\n", (s? mx/s : 0)
-            printf "interpretation_contract\tPRE-FIXED: concentration => where an undiscovered constraint must live; near-uniform typicality => boundable evidence that no further simple positional constraint exists. BOTH outcomes are findings.\n"
+            # 🔴 THE "BOTH OUTCOMES ARE FINDINGS" CONTRACT WAS RETIRED 2026-09-04 (QUERY_INVENTORY
+            # §9.4, Q-394 item 4) because it was non-falsifiable: concentration and near-uniformity
+            # were BOTH declared findings, so no observation could disconfirm anything. It is replaced
+            # by the three pre-stated outcomes of the calibrated null in row a2_ew1_null. This row
+            # reports the SPECTRUM; the VERDICT is emitted by that row as TR12_EW1_NULL.
+            printf "interpretation_contract\tPRE-FIXED, calibrated null (QUERY_INVENTORY.md 9.4): top1_share vs the Q8 gallery 1st/99th percentiles, two-sided, once. Outcomes localized-constraint-candidate / typicality-bound / anti-concentration. Verdict token TR12_EW1_NULL, emitted by row a2_ew1_null.\n"
             if (d > 1e-4) { printf "EW1_FAIL\tsum_bits != log2N within 1e-4\n"; exit 1 }
             printf "EW1_SUM_EQ_LOG2N\tOK\n"
         }' "$ARTDIR/q3_profile_exact.tsv"
@@ -934,6 +976,109 @@ if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
     row_end TR12_EW1 $rc
 else
     row_skip a2_ew1 TR12_EW1 "SKIP:no-profile-tsv" "rides Q3's exact-rational profile TSV, which was not produced"
+fi
+
+# ---- A2.5b EW-1 the CALIBRATED NULL.  QUERY_INVENTORY §9.4 / Q-394 item (4). -------------------
+# The contract this replaces was NON-FALSIFIABLE as written: concentration and near-uniform
+# typicality were BOTH declared findings, so no observation could have disconfirmed anything.
+# Codex A09 raised it, the audit's P3 proposed the calibrated null, §9.4 ADOPTED it 2026-09-04 --
+# in the documentation only. The battery kept printing the retired contract and emitted no verdict
+# until this row landed. That gap is why QUERY_INVENTORY promised a token the tree did not have.
+#
+# 🔴 THE THRESHOLDS ARE PRE-STATED AND THE TEST RUNS ONCE, TWO-SIDED. The statistic is
+#       top1_share = max_i(bits_i) / sum_i(bits_i)
+# for the anchor, placed against the empirical 1st/99th percentiles of the SAME statistic over the
+# Q8 gallery walks. Three outcomes, fixed before any full-31 trace existed:
+#       anchor > p99  -> localized-constraint-candidate
+#       anchor < p01  -> anti-concentration
+#       otherwise     -> typicality-bound
+# "Two-sided" is the point: a one-sided test would have made anti-concentration unreportable, which
+# is the same defect as the contract it replaces, merely narrower.
+#
+# 🔴 THE BAND IS 1,000 PROFILE RUNS AT n=31 (200 at n=9). EW-1 is listed DERIVED/no-compute in the
+# inventory; that is true of the spectrum and FALSE of this null. Priced honestly: one --kc-profile
+# descent per gallery walk.
+#
+# 🔴 q8_super.tsv WAS THE PHANTOM BAND. The original spec drew the band from a `bits` column of
+# q8_super.tsv that does not exist. The gallery supplies WALKS here, and each walk's bits come from
+# its own --kc-profile descent.
+# 🔴 A MISSING DEPENDENCY IS A SKIP; A MISSING ANSWER IS A FAILURE. The first draft of this row
+# conflated them. If the Q8 gallery was never produced — no ladder, or a1_q8 itself skipped — the
+# null has no band and never could have. That is a SKIP with a stated reason, exactly as a2_ew1
+# treats its missing profile TSV; failing there would report a defect in this row for a condition
+# upstream of it. What must never be a skip is the null RUNNING and declining to produce a verdict,
+# and that is still an exit 1 inside.
+if [ -s "$ARTDIR/q8_super.tsv" ] && [ -n "$ANCHOR" ]; then
+row_begin a2_ew1_null
+(
+  GAL="$ARTDIR/q8_super.tsv"
+
+  # draw lines only: `<rank>\tcd=..\t<walk>`. The `record  m=..` lines are extremal exemplars,
+  # not uniform draws, and including them would bias the band toward its own tail.
+  awk -F'\t' '$1 ~ /^[0-9]+$/ && $2 ~ /^cd=/ {print $3}' "$GAL" > "$WORK/ew1_walks.txt"
+  NW=$(wc -l < "$WORK/ew1_walks.txt")
+  [ "$NW" -gt 0 ] || { echo "EW1_NULL_FAIL	gallery parsed to ZERO draw walks"; exit 1; }
+
+  top1_of(){ # $1=walk -> "<top1_share>\t<sum_bits>", or "ERR"
+    "$SOLVE" --kc-profile "$FDIR" "$GDIR" "$1" 2>/dev/null | awk -F'\t' '
+      $1 ~ /^[0-9]+$/ { s += $13; if ($13+0 > mx) mx = $13+0; n++ }
+      END { if (n>0 && s>0) printf "%.9f\t%.9f\n", mx/s, s; else print "ERR\tERR" }'
+  }
+
+  : > "$WORK/ew1_top1.txt"
+  while IFS= read -r w; do top1_of "$w"; done < "$WORK/ew1_walks.txt" >> "$WORK/ew1_top1.txt"
+
+  NG=$(grep -cv '^ERR' "$WORK/ew1_top1.txt")
+  if [ "$NG" -ne "$NW" ]; then
+    echo "EW1_NULL_FAIL	$((NW-NG)) of $NW gallery profiles produced no bits — band incomplete"; exit 1
+  fi
+
+  read -r ANCHOR_T ANCHOR_S <<EOF2
+$(top1_of "$ANCHOR")
+EOF2
+  [ "$ANCHOR_T" != "ERR" ] || { echo "EW1_NULL_FAIL	anchor profile produced no bits"; exit 1; }
+
+  echo "# EW-1 calibrated null — pre-stated, two-sided, run once. QUERY_INVENTORY.md §9.4."
+  echo "statistic	top1_share = max_i(bits_i) / sum_i(bits_i)"
+  echo "band_source	Q8 gallery draws, one --kc-profile descent each"
+  echo "gallery_walks	$NG"
+
+  # 🔴 awk FUNCTIONS ARE TOP-LEVEL ONLY. Defining pct() inside END is a syntax error, and awk
+  # reports it only when the program is parsed at RUN time -- after 200 profile descents have
+  # already been spent building the band. Declared before the rules, where it belongs.
+  sort -g "$WORK/ew1_top1.txt" | awk -F'\t' -v a="$ANCHOR_T" -v as="$ANCHOR_S" -v n="$NG" '
+    # percentile: index ceil(q*n) into a 1-based sorted array, clamped. Spelled out because an
+    # off-by-one here silently moves a threshold, and a moved threshold changes a published verdict.
+    function pct(q,   i){ i=int(q*n+0.999999); if(i<1)i=1; if(i>n)i=n; return v[i] }
+    { v[NR]=$1+0; s[NR]=$2+0 }
+    END{
+      p01=pct(0.01); p50=pct(0.50); p99=pct(0.99)
+      # every walk telescopes to the same sum_bits = log2 N; a band whose walks disagree on the
+      # denominator is not measuring one statistic
+      smin=s[1]; smax=s[1]; for(i=1;i<=n;i++){ if(s[i]<smin)smin=s[i]; if(s[i]>smax)smax=s[i] }
+      printf "sum_bits_min\t%.6f\nsum_bits_max\t%.6f\n", smin, smax
+      if (smax-smin > 1e-4) { printf "EW1_NULL_FAIL\tgallery sum_bits spread %.9f exceeds 1e-4 — walks disagree on log2N\n", smax-smin; exit 1 }
+      printf "top1_share_p01\t%.6f\ntop1_share_p50\t%.6f\ntop1_share_p99\t%.6f\n", p01, p50, p99
+      printf "top1_share_min\t%.6f\ntop1_share_max\t%.6f\n", v[1], v[n]
+      printf "anchor_top1_share\t%.6f\nanchor_sum_bits\t%.6f\n", a+0, as+0
+      below=0; eq=0; for(i=1;i<=n;i++){ if(v[i]<a+0) below++; else if(v[i]==a+0) eq++ }
+      printf "gallery_below\t%d\ngallery_equal\t%d\n", below, eq
+      printf "empirical_two_sided_position\t%.4f\n", (below+eq/2)/n
+      verdict = (a+0 > p99) ? "localized-constraint-candidate" \
+              : ((a+0 < p01) ? "anti-concentration" : "typicality-bound")
+      printf "TR12_EW1_NULL\t%s\n", verdict
+    }' || exit 1
+) >>"$RAW" 2>&1; rc=$?
+cp "$RAW" "$ARTDIR/ew1_null.tsv"
+# 🔴 THE TOKEN CARRIES THE VERDICT, NOT "PASS". QUERY_INVENTORY.md specifies
+# TR12_EW1_NULL=<verdict>, so a reader greps `grep -qx 'TR12_EW1_NULL=typicality-bound'`. Recording
+# PASS here would make the token say only that the row ran — which is exactly the information a
+# calibrated null does not exist to provide. row_end_val keeps the golden diff and swaps the
+# recorded value; if the verdict cannot be extracted it records FAIL rather than an empty string.
+EW1_VERDICT=$(awk -F'\t' '$1=="TR12_EW1_NULL"{print $2; exit}' "$RAW")
+row_end_val TR12_EW1_NULL "$rc" "$EW1_VERDICT"
+else
+  row_skip a2_ew1_null TR12_EW1_NULL "SKIP:no-q8-gallery" "the calibrated null places the anchor against a band of one --kc-profile descent per Q8 gallery walk; the gallery (or the anchor) was not produced, so there is no band"
 fi
 
 # ---- A2.6  V4 the shells series g(prefix_k) vs k.  The TSV; the FIGURE is PENDING:viz. --------

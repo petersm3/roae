@@ -15,5 +15,5 @@ abs_diff	0.000000342
 max_surprise_step	1
 max_surprise_bits	3.462972
 concentration_top1_share	0.236019
-interpretation_contract	PRE-FIXED: concentration => where an undiscovered constraint must live; near-uniform typicality => boundable evidence that no further simple positional constraint exists. BOTH outcomes are findings.
+interpretation_contract	PRE-FIXED, calibrated null (QUERY_INVENTORY.md 9.4): top1_share vs the Q8 gallery 1st/99th percentiles, two-sided, once. Outcomes localized-constraint-candidate / typicality-bound / anti-concentration. Verdict token TR12_EW1_NULL, emitted by row a2_ew1_null.
 EW1_SUM_EQ_LOG2N	OK

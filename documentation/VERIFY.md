@@ -874,10 +874,29 @@ artifacts, which remain exact for their stated C1–C5 scope — of which any la
 Any machine. ~11 s to compile, ~30 s for the selftest on 2 cores. Reads no campaign data.
 
 ```bash
-gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz
+gcc -O2 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD 2>/dev/null || echo unknown)\"" -DSOURCE_SHA="\"$(sha256sum solve.c | cut -d' ' -f1)\"" -o solve solve.c -lm -lz
 ./solve --selftest
 bash scripts/pre_push_compile_gate.sh
 ```
+
+⚠ **The two `-D` flags are not decoration and this file is the reason they are here.** The
+"Reporting a number" rule below requires every published figure to carry "its command line, the
+build identity, and the tokens" — and until 2026-09-06 the build line published *in this file*
+omitted the identity, so a run built from it recorded `git_hash "unknown"` and `source_sha
+"unknown"`. The document demanded a thing its own command could not produce. That is Q-331 item (7),
+whose own wording was *"wire identity flags in before full-31 publication."*
+
+**They are sha-neutral, measured rather than assumed** (2026-09-06): builds with and without both
+flags produce the identical `--selftest` anchor
+`403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` and both report PASS. Adding them
+therefore cannot move any pinned sha in this repository. Verify it yourself rather than taking this
+sentence for it — build both ways and compare, which is the same advice this section already gives
+about never copying a sha out of a document.
+
+`git rev-parse` falls back to `unknown` outside a checkout, so the line still works from a plain
+tarball; `SOURCE_SHA` is derived from `solve.c` itself and always resolves. It is deliberately **one
+line**: `scripts/tr12_repro_gate.sh` extracts the published build with `grep -m1` and runs it
+verbatim, so a continuation would silently truncate the command the gate actually executes.
 
 **Verdict: exit status 0** from both. `--selftest` compares against a sha compiled into the binary
 itself; the gate additionally requires a clean `-Wall -Wextra` build. The query subcommands are
