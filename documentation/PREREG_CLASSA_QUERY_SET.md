@@ -229,11 +229,25 @@ a reader can check without trusting us is the third-party capture**, and it is n
 Three escrowed rows are **not** three independent measurements, and this file will not let a reader
 count them as such. There are **two independent computations behind three artifacts** (it was three behind four until Q4b was removed on 2026-09-05 — §4):
 
+🔴 **"Needs the atlas file" and "is expensive" are different claims, and this table separates them
+deliberately.** Every row below needs the atlas *file* — for V4 because `atlas_load()` is the reader
+gate's first statement, for XA-a and XA-b because `--kc-scan` is the only thing that currently
+*writes* the file their values are emitted into. **None of them needs the atlas's expensive content.**
+The escrowed observables are point lookups: ≤62 for XA-a, ≤62 for XA-b, 62 for V4.
+
+**This matters for what a reader should expect, and for what this project must not do.** The
+`--kc-scan` wall is **days, not hours** (its read volume was restated upward by ~1.5 orders of
+magnitude on 2026-09-05, and the honest wall has never been measured), and the n=31 atlas has
+**never been built**. A reader could conclude these rows are therefore unanswerable in practice.
+They are not. But the cheap routes are **deliberately not taken before the freeze** — see §5(ii).
+Answering an escrowed question before its timestamp exists is precisely the defect that removed Q4b
+from this set.
+
 | row | needs the atlas **file**? | what the escrowed observable itself costs | needs a ladder? | independent computation |
 |---|---|---|---|---|
 | **V4** | **yes, and only as a code path** — its reader-side gate leg runs `--atlas-queries`, and `atlas_queries()`'s **first statement** is `atlas_load(atlas_path)`, executed before any `--atlas-select` value is examined | the `g` curve is **31 f-ladder and 31 g-ladder point lookups** along King Wen's own path. Its frozen command reaches them through `--kc-o3-rank … --kc-trace`, a heavier instrument that maintains a frontier; `solve --kc-profile FDIR GDIR KW` computes the same curve from *point lookups alone* (`solve.c`: "no frontier, no `kc_o3_mass`, no `kc_repr_dp`") | f and g | King Wen's f·g descent along his own path |
-| **XA-a** | **yes, as the emission path** — `solutions(b)` is a `branch_atlas[]` field and `--kc-scan` writes its atlas only at the end of the whole run | **≤ 62 point lookups into g layer 1** — `kc_h_scan_tail` makes one `kc_glookup(gkc, 1, …)` per valid first placement, i.e. at most one per (pair, orientation) | f and g | the `--kc-scan` atlas |
-| **XA-b** | **yes, as the emission path**, and additionally requires `--kc-t-check` to pass | **≤ 62 point lookups into t layer 1** — one `kc_flookup(tkc, 1, …)` per branch in the same tail. Its `t(root) == Σ_k fmass[k]` cross-gate reads the **f** ladder's per-layer orbit masses and makes **no g probe at all** | f, g and t | the same `--kc-scan` atlas, read a second way |
+| **XA-a** | **yes, as the emission path** — `solutions(b)` is a `branch_atlas[]` field and `--kc-scan` writes its atlas only at the end of the whole run | **≤ 62 point lookups into g layer 1** — `kc_h_scan_tail` makes one `kc_glookup(gkc, 1, …)` per valid first placement, i.e. at most one per (pair, orientation) | f and g | the `--kc-scan` atlas — **but see §5(ii): that is the EMISSION path, not the only route.** A cheap exact route to this observable needs a **~754-byte read of one g-ladder layer**, not the full scan, and is authorised and open on the backlog. It is deliberately ordered **after** this file's third-party snapshot. ⚠ *Clarified 2026-09-06: this cell named only the scan, and a reader could reasonably conclude the days-long scan was the sole way to answer this row. It is not.* |
+| **XA-b** | **yes, as the emission path**, and additionally requires `--kc-t-check` to pass | **≤ 62 point lookups into t layer 1** — one `kc_flookup(tkc, 1, …)` per branch in the same tail. Its `t(root) == Σ_k fmass[k]` cross-gate reads the **f** ladder's per-layer orbit masses and makes **no g probe at all** | f, g and t | the same `--kc-scan` atlas, read a second way — **and the same §5(ii) caveat applies**: the escrowed observable is ≤62 point lookups into t layer 1, and `--kc-t-check`'s cross-gate has **already passed** (`IDENTITIES_CHECKED=32`, `TLADDER_RESULT=PASS`, 0 skipped, 2026-09-05). The scan is this row's emission path, not its cost. ⚠ *Clarified 2026-09-06, same reason as XA-a.* |
 
 **All three rows need the atlas file** — Q4b, the one row that did not, is removed (§4). **None of them needs the expensive part of the pass that
 produces it, and this file states the distinction rather than letting a reader infer a cost that is
