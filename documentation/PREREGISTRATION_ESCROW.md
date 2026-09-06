@@ -81,8 +81,10 @@ sha256sum <file>          # compare to the table above
 
 ## ⚠ One published pre-registration is NOT YET FROZEN, and its digest is here in prose for that reason
 
-**`PREREG_CLASSA_QUERY_SET.md` — digest `6e21a148bfbb1ad57f7770f75cfdfd21f4f5c606258adec55231bc3066bfe2d9`, 41,881 bytes,
-published 2026-09-06.**
+**`PREREG_CLASSA_QUERY_SET.md` — digest `6b83cf4e0652dfe472e37c58f0cda4831a0300260cb8862e499b8a3ceb6f5dcb`, 45,882 bytes,
+published 2026-09-06; digest updated 2026-09-06 after an external review.**
+
+*(Previous digest `6e21a148bfbb1ad57f7770f75cfdfd21f4f5c606258adec55231bc3066bfe2d9`, 41,881 bytes — superseded when the QSET-3 review's eight accepted findings were applied. This is the digest changing exactly as this entry said it would, which is why the entry exists: an escrow row that could not move would have had to be wrong here.)*
 
 **This digest is deliberately NOT in the table above, and it does not verify against an escrowed
 row, because the file it describes is not frozen.** It was published *before* its freeze so that an

@@ -114,7 +114,10 @@ All of the following is already public in this repository; nothing here is new.
 |---|---|
 | **SUPERSPACE** (`SUPER`) | the set of hexagram orderings satisfying **C1 ∧ C2 ∧ C4 ∧ C5** — every constraint except C3. Defined in `solve.c`, `solve.py`, `verify.py`, `viz/README.md`. |
 | **N** | `\|SUPER\| = 1097051278789181790036112071176579186688` (≈ 1.097 × 10³⁹). In `verify.c`, `solve.py`, `verify.py`, `reports/FULL31_EXACT_AGGREGATES.md`. |
-| **N/24** | `45710469949549241251504669632357466112` — the orbit anchor; every published count is divisible by 24 (Lean-kernel `twenty_four_dvd_*`). |
+| **N/24** | `45710469949549241251504669632357466112` — the orbit anchor. **`N` and every per-layer flow are divisible by 24** (Lean-kernel
+`twenty_four_dvd_*`, which is about the solution count). ⚠ **NOT "every published count" — this cell
+said so until 2026-09-06 (QSET-3 finding 5), and the XA-a row below refutes it in its own text:**
+per-branch counts are reported-not-gated, and the committed n=9 fixture shows residues 16, 8 and 0. |
 | **C15** | the subset of SUPER additionally satisfying C3. |
 | **C3, and G** | `C3(seq) = 16 + 8·G` universally over C1-valid orderings, by the machine-checked `c3_slot_decomposition` (`lean/C3Decomposition.lean`). `sat.py` refuses any ceiling below the **structural minimum C3 = 112** (i.e. `G ≥ 12`): the refusal is enforced in `sat.py::build()`, which computes `sbudget = (bound − 2·|self-complement pairs|) // 8` and raises `SystemExit` when `sbudget < |complement couples|`. |
 | **776 / 387** | King Wen's own C3 value (the ceiling) and the walk-functional C3 gate used by `--kc-c3-max`. **Both are King-Wen-defined**; see the circularity note in §5. |
@@ -153,7 +156,10 @@ recollection — against two requirements:
 
 The split is **A = 13 pre-hoc-and-unrun, B = 4 post-hoc-but-unrun, C = 14 already answered**.
 
-**Only class A can be pre-registered, and only three of the thirteen are freezable as written.**
+**Only class A can be pre-registered, and only three of the twelve are freezable as written.**
+*(Twelve, not thirteen: Q4b moved from class A to class C on 2026-09-05 when it was found to be
+already answered — so the split is A = 12, B = 4, C = 15, and 12 − 3 = **nine** held out. The counts
+read 13/4/14 until 2026-09-06, QSET-3 finding 8.)*
 Those three are escrowed by this file. The other **ten** are class A but are not freezable, for two
 different reasons: **six** because their text is not falsifiable as it stands, and **three** because
 their text escrows an observable **this repository already determines**. A pre-registration that
@@ -170,7 +176,7 @@ cannot fail is not one; neither is one whose answer we already hold.
 
 ### Held out because this repository already determines the answer
 
-These three were drafted for this freeze and **removed from it on the day it was frozen**, after a
+These three were drafted for this freeze and **removed from it on 2026-09-05, before publication**, after a
 fresh-eyes review of the draft against the committed public tree. Each escrows a King Wen observable
 that is a literal constant or a one-line computation in this project's own public code, and for two
 of the three **this repository already publishes that fact**. The citations below are public and can
@@ -190,8 +196,8 @@ repository in one line. Reformulations may be escrowable; **the arguments for an
 kept, and any adopted reformulation goes in a dated successor file, not in this one.**
 
 Fixes exist for several of the nine. **They are not folded in here.** If adopted they will be
-escrowed in a *dated successor file*, so that this file's three rows remain exactly what was frozen
-on 2026-09-05.
+escrowed in a *dated successor file*, so that this file's three rows remain exactly what was published
+on 2026-09-06.
 
 **Class B and class C are not pre-registered by this document and never will be.** The four class-B
 rows are publishable as *exploratory*. The **fifteen** class-C rows already have full-scale answers
@@ -199,14 +205,21 @@ rows are publishable as *exploratory*. The **fifteen** class-C rows already have
 escrow claims nothing whatsoever about them, and their values, where published, appear as results
 elsewhere and carry no timing claim.
 
-### The structure-existence dates that make "pre-hoc" checkable
+### The structure-existence dates that make "pre-hoc" ATTESTED — and what a reader can and cannot check
+
+⚠ **This heading said "checkable" until 2026-09-06 (QSET-3 finding 3), and that overclaimed.** Of the
+three question phrasings, only one is traceable to 2026-07-17 in **public** git; the other two first
+appear publicly on 2026-08-22 and 2026-09-05. All three do appear in the **private** history on
+2026-07-17, which is what §0 says and is the honest claim — but §0 calls that *attested* while this
+heading called it *checkable*, and the two are not the same word. **The only timing fact in this file
+a reader can check without trusting us is the third-party capture**, and it is named as such in §0.
 
 | structure | first existed |
 |---|---|
 | the question text of all three rows below | **2026-07-17** |
 | Stage F — the f-ladder at n=31 | 2026-07-29 |
 | Stage G — the g-ladder at n=31 | built 2026-08-18; verified 2026-08-20 |
-| Stage T — the t-ladder at n=31 | built 2026-09-03; **gate passed 2026-09-05** (`--kc-t-check`: 32 identities checked, 0 skipped, `TLADDER_RESULT=PASS`, the root total matching an independent derivation from preserved Stage F layer masses). ⚠ *This cell read "its `--kc-t-check` gate is **still unpassed**" until the freeze day, when it passed — corrected rather than carried, since the whole point of this table is that its dates are checkable* |
+| Stage T — the t-ladder at n=31 | built 2026-09-03; **gate passed 2026-09-04** (`--kc-t-check`: 32 identities checked, 0 skipped, `TLADDER_RESULT=PASS`, the root total matching an independent derivation from preserved Stage F layer masses). ⚠ *This cell read "its `--kc-t-check` gate is **still unpassed**" until the freeze day, when it passed — corrected rather than carried, since the whole point of this table is that its dates are checkable* |
 | **the scan atlas at n=31** | **never built.** The one attempt (2026-08-20) was **deliberately stopped early, to free its VM for another job** — it was not a crash, an eviction or a failure. `--kc-scan` writes its atlas once, at the end, so that attempt produced nothing. |
 
 ### What actually has to run, per row — stated exactly
@@ -225,7 +238,11 @@ produces it, and this file states the distinction rather than letting a reader i
 not there.** `--kc-scan`'s layer loop is dominated by a join that issues `2·(31−k)` g-ladder point
 lookups *per f-ladder entry* at layer `k` (`kc_h_scan_layers`, `solve.c`) — at n=31 that is the
 whole cost of the run. But that join produces `flow`, `by_class`, `marginal_raw` and
-`marginal_quotient`, and **no row frozen in this file reads any of those four fields.** XA-a and
+`marginal_quotient`, and **no row frozen in this file reads any of those four fields *as an escrowed
+observable*.** ⚠ **Narrowed 2026-09-06 (QSET-3 finding 6): `flow` IS read** — `solve.py`'s
+`atlas_emit_xa`, reached by the `xa` selector, checks every layer's `flow` for divisibility by 24, and
+§4's XA-a row already says so. The claim is about what the rows *escrow*, not about what their gates
+touch, and it now says that. XA-a and
 XA-b are served by `kc_h_scan_tail`, which runs *after* the layer loop and costs the ≤ 62 + ≤ 62
 lookups tabulated above; V4 is served by King Wen's own descent. As `--kc-scan` is coded today an
 atlas cannot be emitted without running the layer loop, so the dependency is real — but it is an
@@ -243,7 +260,7 @@ same reason.
 
 ## 4. THE THREE PRE-REGISTERED QUESTIONS
 
-*(Four until 2026-09-05. Q4b was removed on the day of the freeze — its record stands first below,
+*(Four until 2026-09-05. Q4b was removed from the draft on 2026-09-05 — its record stands first below,
 kept rather than deleted because the near-miss is worth more than a tidy file.)*
 
 Each row gives the **question as frozen**, its **pre-registered decision rule or gates**, the
@@ -308,7 +325,16 @@ narrowing. **Only the `g` curve is escrowed.**
 defined by King Wen's own pairing order — which this repository encodes as an exact test
 (`solve.py::atlas_q3_trace_is_king_wen`). **V4 plots `g`, not `pair`.** The `pair` column is used
 here only as a **gate** (`TR12_Q3_KW`, below), never reported as a finding. The `g` values
-themselves are genuinely unknown: no full-31 f·g descent of any walk has ever been run.
+themselves are genuinely unknown **except at the shallow tail, where three of them are already
+published — disclosed here 2026-09-06 rather than left for a reader to grep (QSET-3 finding 1).**
+`documentation/SYMMETRY_SEARCH.md` publishes, for King Wen's own prefixes,
+**`g(s_22) = 690,176`**, **`g(s_24) = 5,624`** and **`g(s_26) = 52`** (as "C1+C2+C4+C5 leaves" at the
+9-, 7- and 5-free rungs), and any tail cell with ~10 or fewer free pairs is a sub-minute brute force
+from the committed `verify.py` — re-executed during review in 28 s. **Those three cells are therefore
+PRE-KNOWN CHECKS on the ladder descent, not escrowed results**, exactly as `t(root)` is for XA-b: a
+descent that disagrees with them is wrong. **What is escrowed is the HEAD of the curve** — the deep
+cells, where the free-pair count makes brute force infeasible and only the ladders can answer. No
+full-31 f·g descent of any walk has ever been run.
 
 **Not an independent question, and not scan-free — but the dependency is an `open()`, not a
 computation.** V4 is King Wen's f·g descent rendered as a figure. It is escrowed as its own row
@@ -332,7 +358,8 @@ repaired).**
 | `g` **non-increasing** in `k` — *not* strictly decreasing | `atlas_q3_reader_check`, whose failure predicate is `int(r["g"]) > prev_g`, i.e. it flags **growth**. See the note below: a strict-decrease gate would fail on correct data. |
 | `g_parent[i] = g[i−1]` | `atlas_q3_reader_check` |
 | `Π_{i=1..31} p_i = 1/N` **exactly** | recomputed **reader-side** in big integers from the emitted TSV, not read from the engine's own summary line. Separate verdict `TR12_Q3_READER`. |
-| the figure regenerates byte-stably from the committed TSV, and the rendering reads **only** that TSV | `viz/report_figures.py` |
+| the **PNG** regenerates byte-stably from the committed TSV, and the rendering reads **only** that TSV | `viz/report_figures.py` |
+| ⚠ **SVG byte-stability is NOT pre-registered, and this row said it was until 2026-09-06 (QSET-3 finding 2).** Measured with matplotlib 3.11 at the defaults `report_figures.py` uses: two renders of an identical figure give **identical PNG bytes and DIFFERING SVG bytes** — an embedded `<dc:date>` and randomised element ids (`m95ace04ce0` vs `maf1f00b479`), because `save()` sets neither `metadata={'Date': None}` nor an `svg.hashsalt`. **Frozen as written, this gate would have voided a correct run**, leaving only a gate violation or an un-pre-registered repair as exits | scoped to PNG |
 
 **⚠ Why the shell gate is non-strict, stated so it cannot be misread as an oversight.** A step whose
 placement is **forced** contributes `p_i = 1` and `bits_i = 0`, and the shell does not shrink. Forced
@@ -356,7 +383,8 @@ $SOLVE --kc-o3-rank "$FDIR" "$GDIR" "$KWW" --kc-trace \
 python3 solve.py --atlas-queries "$OUT/atlas.json" --atlas-out "$OUT" \
        --atlas-select q3 --atlas-q3-trace "$OUT/v4_kw_trace.txt"
 # the consumer writes $OUT/q3_profile_kw.tsv -- a name it claims ONLY when
-# TR12_Q3_KW=PASS -- and viz/report_figures.py renders fig_tr12_v4.{png,svg}
+python3 viz/report_figures.py "$OUT"        # renders the V4 figure; see the note below
+# TR12_Q3_KW=PASS -- and viz/report_figures.py renders fig_tr12_kc_shells.{png,svg}
 # from that file. No step of this command writes that name by hand.
 ```
 Verdicts: `TR12_Q3`, `TR12_Q3_KW`, `TR12_Q3_READER`. Documented in `viz/viz_kc_shells.md`.
@@ -430,8 +458,13 @@ over the ~62 top-level branches, which has never been computed, and the gate bel
 total fixed **before** the decomposition is produced. A pre-known aggregate constraining an unknown
 decomposition is a strictly stronger gate than one where both are derived in the same pass.
 
-**The value is deliberately not quoted here.** Its only reproduction path is a multi-week t-ladder
-build, and this project does not publish a figure ahead of its reproduction command. The *epistemic*
+**The value is deliberately not quoted here.** ⚠ **This sentence said its "only" reproduction path
+was a multi-week t-ladder build. That is false, corrected 2026-09-06 (QSET-3 finding 4):** `t(root)`
+is `1 + Σ_k mass_k` over the per-layer masses already published in
+`reports/FULL31_EXACT_AGGREGATES.md`, so it is **one line of arithmetic over a public table** — the
+identity `solve.c` itself implements. The value is still not quoted, but the reason is now the honest
+one: quoting it adds nothing a reader cannot compute, and the row's claim rests on the per-branch
+decomposition rather than on the total. A rebuild of the ladder, and this project does not publish a figure ahead of its reproduction command. The *epistemic*
 fact — that the total is known and fixed — is what a reader needs, and it is stated.
 
 **Pre-registered gates.**
@@ -444,7 +477,11 @@ fact — that the total is known and fixed — is what a reader needs, and it is
 
 **Precondition, disclosed — and DISCHARGED 2026-09-05.** The t-ladder finished building on
 2026-09-03. This row said its **`--kc-t-check` gate has not yet passed** and that the row does not run
-before it does. ⚠ **That gate PASSED on 2026-09-05**, hours before this file was frozen, and the
+before it does. ⚠ **That gate PASSED on 2026-09-04 at 06:48:28 UTC** — state-file epoch `1788504508`,
+first committed in `28d72e73` at 09-04T09:26Z. *(This document said **2026-09-05** at two sites until
+2026-09-06. The error was mine and it is the exact kind this table exists to prevent: I took the date
+from a log file's modification time — when I copied it — rather than from the run's own record. A
+wrong date in the table whose stated point is that its dates are checkable.)* The
 sentence was stale by the time anyone read it: 32 layer identities checked, 0 skipped,
 `TLADDER_RESULT=PASS`, with the root total matching an independent derivation. The precondition is
 therefore **met**, not outstanding — recorded this way rather than silently rewritten, because a
@@ -543,7 +580,7 @@ get the wrong answer, and §3 is the paragraph to use instead.
    notice that a *witness at the floor* leaves nothing between them. **The gap was not in the
    evidence — every number needed was in the sentence.** See the row in §4.
 
-**6. Three rows were removed from this set on the day it was frozen**, because each escrowed a King
+**6. Three rows were removed from this draft on 2026-09-05**, because each escrowed a King
 Wen observable this repository already determines. §3 names all three, what determines each, and the
 public file that already publishes the point for two of them. They are recorded here rather than
 quietly dropped, because a reader is entitled to know that the set was seven, then four, and is three, and why.
