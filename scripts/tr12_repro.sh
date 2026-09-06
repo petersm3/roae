@@ -873,6 +873,65 @@ row_begin a2_q1
   && echo "### certificate JSON" && cat "$ARTDIR/q1_rank.json" ) >>"$RAW" 2>&1; rc=$?
 row_end TR12_Q1 $rc
 
+# ---- A2.2b Q1 THE LABELING THEOREM — the engineering gate. Q-394 item (1), QUERY_INVENTORY §9.1.
+# rank_O3(KW) is ALGEBRAICALLY FORCED to 0 at full-31: the labels ARE the KW pair table, so KW is
+# the smallest object by construction. That makes any rarity or "serial number" statement about KW
+# under O3 meaningless — a theorem about the labelling, not a fact about the sequence.
+#
+# 🔴 SO THE GATE IS AN ENGINEERING ONE, NOT A FINDING. At full-31 the three decomposition fields
+# must ALL be 0; anything else is a ranker or pair-table defect and must be caught before any
+# number is published. At n=9 the labels are NOT anchor-derived, so the same theorem predicts a
+# NON-zero triple — the committed fixture 13056/12960/96. Asserting zeros at n=9 would be asserting
+# the theorem where it does not apply.
+# Reads the certificate a2_q1 already wrote; no second --kc-o3-cert run.
+if [ -s "$ARTDIR/q1_rank.json" ] && command -v python3 >/dev/null 2>&1; then
+  row_begin a2_q1_labeling
+  ( python3 - "$ARTDIR/q1_rank.json" "$N_PAIRS" <<'PYQ1'
+import json, sys
+d = json.load(open(sys.argv[1])); n = int(sys.argv[2])
+r  = int(d["rank3"]); c = int(d["class_first_rank3"]); o = int(d["orient_idx"])
+exp = (0, 0, 0) if n >= 31 else {9: (13056, 12960, 96)}.get(n)
+print("n\t%d" % n)
+print("rank3\t%d\nclass_first_rank3\t%d\norient_idx\t%d" % (r, c, o))
+if exp is None:
+    print("Q1_LABELING_FAIL\tno pinned expectation at n=%d" % n); sys.exit(1)
+print("expected\t%d/%d/%d\t(%s)" % (exp[0], exp[1], exp[2],
+      "the labeling theorem: anchor-derived labels force rank 0" if n >= 31
+      else "n<31: labels are NOT anchor-derived, so the theorem predicts a non-zero rank"))
+if r != c + o:
+    print("Q1_LABELING_FAIL\trank3 != class_first_rank3 + orient_idx (%d != %d + %d)" % (r, c, o)); sys.exit(1)
+print("decomposition\tOK\trank3 == class_first_rank3 + orient_idx")
+if (r, c, o) != exp:
+    print("Q1_LABELING_FAIL\tgot %d/%d/%d, expected %d/%d/%d" % (r, c, o, exp[0], exp[1], exp[2])); sys.exit(1)
+print("Q1_LABELING\tOK")
+PYQ1
+  ) >>"$RAW" 2>&1; rc=$?
+  row_end TR12_Q1_LABELING $rc
+else
+  row_skip a2_q1_labeling TR12_Q1_LABELING "SKIP:no-cert-json" "rides a2_q1's --kc-o3-cert output, which was not produced"
+fi
+
+# ---- A2.2c Q1 THE LABELING THEOREM — EXECUTED, not argued. The audit's F1 objected that "a
+# verifier that cannot show rank 0 on the relabeled universe has not tested the claim", and until
+# 2026-09-06 the public tree had no such verifier: the demonstration lived in a script outside this
+# repository, which makes a published theorem unreproducible by its readers.
+# The oracle ranks ONE anchor under THREE labelings of the same order family over the fully
+# enumerated universe, and fails in BOTH directions — change the fixture triple and O3 fails;
+# change the relabeling and O3-KW9 stops being 0.
+# n>9 is refused rather than attempted: 26,112 walks at n=9, 2.06e12 at n=13.
+if [ "$N_PAIRS" -le 9 ] && command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/verify.py" ] && [ -n "$ANCHOR" ]; then
+  row_begin a2_q1_relabel
+  (
+    "$SOLVE" --kc-enum-desc "$FDIR" 2>/dev/null \
+      | grep -E '^[0-9]+(,[0-9]+)+$' > "$WORK/q1_walks.txt"
+    python3 "$REPO_ROOT/verify.py" --q1-labeling-oracle "$WORK/q1_walks.txt" --q1-anchor "$ANCHOR"
+  ) >>"$RAW" 2>&1; rc=$?
+  row_end TR12_Q1_RELABEL $rc
+else
+  row_skip a2_q1_relabel TR12_Q1_RELABEL "SKIP:universe-too-large" \
+    "the oracle ranks the anchor under three labelings over EVERY walk; that is 26,112 at n=9 and 2.06e12 at n=13 — refused, not attempted. The theorem is about the labels, so a miniature universe demonstrates it."
+fi
+
 # ---- A2.3  Q3 the 31-step rarity profile via the O3 descent trace + neighbour bracket ---------
 row_begin a2_q3
 ( "$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$ANCHOR" --kc-trace --kc-bracket ) >>"$RAW" 2>&1; rc=$?

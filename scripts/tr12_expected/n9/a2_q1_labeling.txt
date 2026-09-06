@@ -1,0 +1,7 @@
+n	9
+rank3	13056
+class_first_rank3	12960
+orient_idx	96
+expected	13056/12960/96	(n<31: labels are NOT anchor-derived, so the theorem predicts a non-zero rank)
+decomposition	OK	rank3 == class_first_rank3 + orient_idx
+Q1_LABELING	OK

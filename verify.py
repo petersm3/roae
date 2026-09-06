@@ -1706,6 +1706,121 @@ def check_atlas_orbit_frames(path):
     return 0 if bad == 0 else 1
 
 
+def q1_labeling_oracle(path, anchor):
+    """The O3 labeling theorem, executed on the n=9 universe rather than argued.
+
+    TR-12 demotes Q1's O3 rank leg from a finding to a theorem: rank_O3(KW) is
+    ALGEBRAICALLY FORCED to 0 by KW-derived labels, so no rarity or "serial
+    number" statement about KW under O3 means anything. The audit's F1 objected
+    that "a verifier that cannot show rank 0 on the relabeled universe has not
+    tested the claim" -- and until this oracle, the public tree had no such
+    verifier. The demonstration existed only as a script outside this repository,
+    which makes a published theorem unreproducible by its readers.
+
+    This ranks the SAME anchor walk under THREE labelings of the same order
+    family (pair-vector lex, then orientation lex), over the fully enumerated
+    n=9 universe:
+
+      O3     as implemented -- label = global KW pair index, orient = (exit == KW-entry)
+      O3-KW9 the full-31 situation in miniature -- label = the pair's position in
+             the ANCHOR walk, pa = the anchor's own entry. Under labels derived
+             FROM the anchor, the anchor is by construction the smallest object.
+      O3'    intrinsic, KW-free -- label = ascending binary value of the pair's
+             smaller member, orient = (entry > exit)
+
+    The gate is that all three hit their pre-registered values. It fails in BOTH
+    directions, which is the property F1 demanded: change the fixture triple and
+    the O3 row fails; change the relabeling and the O3-KW9 row stops being 0.
+
+    n>9 is refused, not attempted: this enumerates every walk, which is 26,112 at
+    n=9 and 2.06e12 at n=13. The theorem is about the labels, so a miniature
+    universe demonstrates it; a large one only costs more.
+    """
+    pair_of, pa = {}, {}
+    for pidx in range(32):
+        a, b = KW[2 * pidx], KW[2 * pidx + 1]
+        pair_of[a] = pidx; pair_of[b] = pidx; pa[pidx] = a
+
+    walks = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if line and line[0].isdigit():
+                walks.append(tuple(int(v) for v in line.split(",")))
+    if not walks:
+        print("Q1_LABELING_FAIL\tno walks parsed from %s" % path)
+        return 1
+    # 🔴 THE UNIVERSE SIZE IS PART OF THE GATE, and leaving it out made this oracle pass on a
+    # TRUNCATED enumeration. Found by red-testing 2026-09-06: `head -26111` on the walk list still
+    # produced all three correct triples, because --kc-enum-desc emits in order and truncation
+    # removes only walks ranked ABOVE the anchor -- which cannot change a rank counted from below.
+    # A rank is only meaningful relative to a COMPLETE universe, so the count is asserted first.
+    n_pairs = len(walks[0]) // 2
+    expect_walks = {9: 26112}.get(n_pairs)
+    if expect_walks is None:
+        print("Q1_LABELING_FAIL\tno pinned universe size for n=%d; this oracle enumerates every "
+              "walk and is pinned only where that is tractable" % n_pairs)
+        return 1
+    if len(walks) != expect_walks:
+        print("Q1_LABELING_FAIL\tuniverse is %d walks, expected exactly %d at n=%d -- a rank over "
+              "a truncated universe is not a rank" % (len(walks), expect_walks, n_pairs))
+        return 1
+    anchor_t = tuple(int(v) for v in anchor.split(","))
+    if anchor_t not in set(walks):
+        print("Q1_LABELING_FAIL\tanchor is not in the enumerated universe")
+        return 1
+
+    def steps(w):
+        return [(w[i], w[i + 1]) for i in range(0, len(w), 2)]
+
+    # labels derived FROM the anchor -- this is what the full-31 engine does
+    lab9 = {pair_of[e]: i + 1 for i, (e, _x) in enumerate(steps(anchor_t))}
+    pa9 = {pair_of[e]: e for e, _x in steps(anchor_t)}
+
+    def key_o3(w):
+        st = steps(w)
+        return (tuple(pair_of[e] for e, _x in st),
+                tuple(1 if x == pa[pair_of[e]] else 0 for e, x in st))
+
+    def key_kw9(w):
+        st = steps(w)
+        return (tuple(lab9[pair_of[e]] for e, _x in st),
+                tuple(1 if x == pa9[pair_of[e]] else 0 for e, x in st))
+
+    def key_o3p(w):
+        st = steps(w)
+        return (tuple(min(e, x) for e, x in st),
+                tuple(1 if e > x else 0 for e, x in st))
+
+    print("# Q1 labeling oracle -- the O3 rank of one walk under three labelings")
+    print("walks\t%d" % len(walks))
+    print("anchor\t%s" % ",".join(str(v) for v in anchor_t))
+    out = {}
+    for name, keyfn in (("O3", key_o3), ("O3-KW9", key_kw9), ("O3-prime", key_o3p)):
+        ka = keyfn(anchor_t)
+        rank = sum(1 for w in walks if keyfn(w) < ka)
+        cls = sum(1 for w in walks if keyfn(w)[0] < ka[0])
+        m = sum(1 for w in walks if keyfn(w)[0] == ka[0])
+        out[name] = (rank, m, rank - cls)
+        print("%s\trank3=%d\tm=%d\torient_idx=%d\tclass_first_rank3=%d"
+              % (name, rank, m, rank - cls, cls))
+
+    # 🔴 PRE-REGISTERED. These are the values Q-394 fixed BEFORE this oracle was public.
+    # Do not "update" them to match a changed engine -- that turns the gate into a mirror.
+    expect = {"O3": (13056, 128, 96), "O3-KW9": (0, 128, 0), "O3-prime": (2243, 128, 35)}
+    bad = 0
+    for name, exp in expect.items():
+        got = out[name]
+        if got != exp:
+            print("Q1_LABELING_FAIL\t%s expected rank3/m/orient_idx %s, got %s" % (name, exp, got))
+            bad += 1
+    if bad:
+        return 1
+    print("# rank_O3(anchor) under anchor-derived labels is 0 -- the theorem, executed.")
+    print("Q1_LABELING_ORACLE\tPASS")
+    return 0
+
+
 def q6_extremes_oracle(path):
     """Q6 extremes, reading (B) -- the INDEPENDENT n=9 oracle.
 
@@ -6459,6 +6574,12 @@ def main():
                              '3-5) rather than porting the engine shifts, and compares against '
                              'solve.c:6269 f5_nuc on all 64 hexagrams. Emits '
                              'NUCLEAR_SELFTEST=PASS|FAIL.')
+    parser.add_argument('--q1-labeling-oracle', metavar='WALKS.txt', default=None,
+                        help='the O3 labeling theorem executed on the enumerated n=9 universe: '
+                             'rank the anchor under three labelings and check the pre-registered '
+                             'triples. Needs --q1-anchor.')
+    parser.add_argument('--q1-anchor', metavar='WALK', default=None,
+                        help='the anchor walk for --q1-labeling-oracle, comma-separated')
     parser.add_argument('--q6-extremes-oracle', metavar='WALKS.txt', default=None,
                         help='Independent Q6 reading-(B) extremes oracle over a walk list '
                              '(one walk per line, comma-separated, as `solve --kc-enum-desc` '
@@ -6538,6 +6659,10 @@ def main():
     if args.nuclear_selftest:
         sys.exit(nuclear_selftest())
 
+    if args.q1_labeling_oracle is not None:
+        if not args.q1_anchor:
+            print("--q1-labeling-oracle needs --q1-anchor"); sys.exit(2)
+        sys.exit(q1_labeling_oracle(args.q1_labeling_oracle, args.q1_anchor))
     if args.q6_extremes_oracle is not None:
         sys.exit(q6_extremes_oracle(args.q6_extremes_oracle))
 
