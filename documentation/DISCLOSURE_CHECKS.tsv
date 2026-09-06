@@ -1,0 +1,17 @@
+# DISCLOSURE_CHECKS.tsv — every published "this is not checkable / no public artifact" disclosure,
+# paired with the command that PROVES it is still true.
+#
+# 🔴 THE GATE FIRES WHEN THE PROOF COMMAND SUCCEEDS. That is deliberate and is the whole point: a
+# disclosure saying "no public artifact exists" becomes FALSE the moment the artifact ships, and
+# nothing was watching for that. TR-6 carried "asserted, not checkable ... no public artifact" for
+# three days after `fcd9feab` (2026-09-03) put the DRAT certificates on `main` — and
+# MIAH_PROSPECTIVE_AUDIT_2026_09_05.md then cited those very lines as EXEMPLARY house style, two
+# days after they became false. Found 2026-09-06 by a Codex lens-B pass, adjudicated by Fable.
+#
+# Understating what you can prove is a defect of the same family as overstating it: both make the
+# published text disagree with the repository.
+#
+# file<TAB>claim-substring<TAB>artifact-exists-test (shell; exit 0 == THE ARTIFACT EXISTS == disclosure is STALE)
+reports/TR6_PARITY_SKELETON.md	no public artifact	test -f reports/certificates/alt_le_14_noY_unsat.drat.gz && test -f reports/certificates/alt_ge_16_noY_unsat.drat.gz
+reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	no public artifact	false
+reports/TR12_QUERY_PROGRAM.md	no public reproduction command	false
