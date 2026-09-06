@@ -9,14 +9,26 @@ audited or reproduced any of it (METHODS.md §"Authorship independence").*
 ⚠ **One exception to the banner's reproduction-command promise, stated here because the banner is
 shared boilerplate and is not this report's to amend** (added 2026-09-02, Codex V2-F08 #3, prose batch
 P37): the **cardinality-only subset experiment** cited in the Abstract's 2026-08-29 correction marker —
-the ordering-variable-free clause subset of each CNF shown UNSAT on its own — **has no public
-reproduction command and no public artifact.** `sat.py` exposes no subset-extraction flag;
-`reports/certificates/` holds the two *full-encoding* proofs (`alt-le-14.drat.gz`, `alt-ge-16.drat.gz`)
-and no subset CNF, subset proof or extractor; `reports/certificates/verify_all.sh` regenerates only the
-full targets. The subset run was performed and is recorded in the project's private working notes
-(2026-08-29, kissat 4.0.1 built from source, both subsets UNSAT with drat-trim-verified proofs), but a
-private note is not a reproduction command: from this repository the subset result is **asserted, not
-checkable**. Shipping the extractor and the two subset certificates is queued, not done.
+the ordering-variable-free clause subset of each CNF shown UNSAT on its own — **is now fully public
+and checkable.** ✅ **[CORRECTED 2026-09-06 — this paragraph said the subset run had "no public
+reproduction command and no public artifact" and was "asserted, not checkable … queued, not done".
+All four statements became FALSE on 2026-09-03 when commit `fcd9feab` shipped the extractor and both
+certificates, and this report was edited on 2026-09-04 without the paragraph being swept. Found by an
+external review lens, confirmed by execution.]**
+
+The extractor is a documented target suffix on the existing emitter: `python3 sat.py --emit-cnf
+alt-le-14-noY <out.cnf>` (and `alt-ge-16-noY`). Executed 2026-09-06: `NOY_KEPT_CLAUSES=11073`,
+`NOY_DROPPED_CLAUSES=228966`, **`NOY_Y_LITERALS_IN_OUTPUT=0`** — the ordering variables are gone from
+the emitted subset, which is the property the claim rests on. Both proofs ship as
+`reports/certificates/alt_le_14_noY_unsat.drat.gz` and `alt_ge_16_noY_unsat.drat.gz`, and
+`reports/certificates/verify_all.sh` **regenerates each subset CNF and re-checks the archived proof
+against it**, emitting the whole-line verdict `ALT_NOY_SUBSET_UNSAT=PASS|FAIL|NOT_RUN`.
+
+⚠ **What these certificates do and do not establish**, from `verify_all.sh`'s own note: they certify
+the SEMANTIC claim behind this report's "corroborating, not independent" verdict — that the
+alternation theorem follows from C5's cardinalities before any ordering variable is consulted. They
+do **not** certify that no ordering variable appears in the *full* proofs; the archived `alt-le-14`
+core contains 356 of them, cores being proof-relative.
 
 **What this does *not* put in doubt.** The theorem, the two published full-encoding DRAT certificates,
 and the "corroborating, not independent" verdict all stand without the subset artifact — the verdict

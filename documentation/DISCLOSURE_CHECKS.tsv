@@ -12,6 +12,12 @@
 # published text disagree with the repository.
 #
 # file<TAB>claim-substring<TAB>artifact-exists-test (shell; exit 0 == THE ARTIFACT EXISTS == disclosure is STALE)
-reports/TR6_PARITY_SKELETON.md	no public artifact	test -f reports/certificates/alt_le_14_noY_unsat.drat.gz && test -f reports/certificates/alt_ge_16_noY_unsat.drat.gz
+# TR-6's row was REMOVED 2026-09-06 after the disclosure was corrected. It moved to
+# documentation/RETRACTED_PHRASES.tsv, which is the right home once a claim is retracted rather than
+# merely stale: that registry already has the allowlist mechanism for a correction note that QUOTES
+# the retracted wording, which this gate does not and should not grow a second copy of. This gate
+# watches LIVE disclosures; that one watches retracted ones. Keeping the row here made the gate fire
+# on the correction's own quotation of the phrase it retracts -- the "gate correct data fails" class,
+# for the third time in one night.
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	no public artifact	false
 reports/TR12_QUERY_PROGRAM.md	no public reproduction command	false
