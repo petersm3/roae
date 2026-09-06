@@ -9164,3 +9164,42 @@ published, under a third-party timestamp, a claim to have **not yet answered** s
 repository answers in three places — refutable by one search, and unretractable once stamped. The row
 is removed from that set; the freeze proceeds with three. Applied and this text by Claude (Opus 5),
 2026-09-05, on a Fable adjudication of the QSET review.
+
+### CX-TR6-NOY — TR-6 understated what this repository can prove (2026-09-06)
+
+**What was wrong.** TR-6's disclosure about the cardinality-only subset experiment — the
+ordering-variable-free clause subset of each alternation CNF, shown UNSAT on its own — stated that
+the run had no public reproduction command, no public artifact, that the result was therefore not
+checkable from this repository, and that shipping the extractor and certificates remained
+outstanding. The retracted wording is registered as **RP-2805ae9c**.
+
+**Why it was wrong.** All four statements ceased to be true on **2026-09-03**, when `fcd9feab`
+shipped both the extractor and the two certificates. TR-6 was edited on 2026-09-04 without the
+paragraph being swept, so the disclosure survived three days after the thing it disclosed had been
+resolved.
+
+**How it was found.** An external review lens (Codex, lens B of the v3 programme) reported it while
+reading TR-6 as an ordinary reader would; a Fable adjudication confirmed it against the tree. It was
+then settled here by execution rather than by reading: `python3 sat.py --emit-cnf alt-le-14-noY`
+emits the subset CNF (`NOY_KEPT_CLAUSES=11073`, `NOY_DROPPED_CLAUSES=228966`,
+**`NOY_Y_LITERALS_IN_OUTPUT=0`** — the ordering variables are absent from the emitted subset, which
+is the property the claim rests on), and `reports/certificates/verify_all.sh` regenerates each
+subset CNF and re-checks the archived proof against it, emitting `ALT_NOY_SUBSET_UNSAT`.
+
+⚠ **A grep nearly reverted the correction.** Searching `sat.py` for the literal string
+`alt-le-14-noY` returns zero matches, which looked like proof that no such target existed. The
+target is **constructed** — a base name plus a `-noY` suffix — so a literal search cannot see it.
+Running the command settled in two seconds what grepping had made look false.
+
+**What it says now.** The paragraph states that the experiment is public and checkable, gives the
+emitter command with its executed output, names the two certificates and the verdict token, and
+keeps `verify_all.sh`'s own scope note: these certify the semantic claim behind TR-6's
+"corroborating, not independent" verdict, and do **not** certify that no ordering variable appears
+in the *full* proofs — the archived `alt-le-14` core contains 356 of them, cores being
+proof-relative.
+
+**The class.** Understating what this repository can prove is the same family of defect as
+overstating it: both make the published text disagree with the repository. Only the overstating
+direction was being watched. `scripts/gate_published_consistency.sh` now watches the other one, via
+`documentation/DISCLOSURE_CHECKS.tsv` — a registry of live "no public artifact" disclosures paired
+with the test that proves each still true, deliberately shaped to **fail when the artifact appears**.
