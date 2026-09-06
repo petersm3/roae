@@ -79,6 +79,34 @@ Verify any disclosed file with:
 sha256sum <file>          # compare to the table above
 ```
 
+## ⚠ One published pre-registration is NOT YET FROZEN, and its digest is here in prose for that reason
+
+**`PREREG_CLASSA_QUERY_SET.md` — digest `6e21a148bfbb1ad57f7770f75cfdfd21f4f5c606258adec55231bc3066bfe2d9`, 41,881 bytes,
+published 2026-09-06.**
+
+**This digest is deliberately NOT in the table above, and it does not verify against an escrowed
+row, because the file it describes is not frozen.** It was published *before* its freeze so that an
+external reviewer could attack it while corrections are still possible — the adjacent query
+specification had two external reviews return eighteen findings with none rejected, three of them
+questions this repository had already answered, and every one of those had been cleared by an
+internal reader first.
+
+**What that means for a reader, stated exactly:**
+
+- **The digest above will change**, and is expected to, if the review lands anything. Hash the file
+  today and you learn what is public today — nothing more. It is a *state marker*, not an
+  attestation.
+- **The freeze is the third-party timestamp**, not the publication commit. When it lands, the file
+  gets a real escrowed row in the table above, and *that* digest is the one that binds.
+- **This entry exists because a published pre-registration whose digest is unpublished is one a
+  reader can hash and learn nothing from.** That is this repository's own rule, enforced by a gate,
+  and it is the gate that caught the omission when the file was first published — the disclosure is
+  here because the check failed, not because anyone remembered.
+
+*Added 2026-09-06.*
+
+---
+
 ## The escrowed hash is the file's state on 2026-08-22, not necessarily its state at the freeze
 
 Added 2026-09-02. Seven of the ten rows have a single commit in the private history: for those, the
