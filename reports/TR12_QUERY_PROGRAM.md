@@ -148,7 +148,14 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
 
 ### Q2. Solutions #0, #N−1, #⌊N/2⌋
 - **Definition.** unrank_O3(0), unrank_O3(N−1), unrank_O3(⌊N/2⌋) in SUPER (exact). C15-scoped:
-  FIRST^C15 = the O3-least C3-passing walk; LAST^C15 = O3-greatest. A C15 *midpoint* is **not
+  FIRST^C15 = the O3-least C3-passing walk; LAST^C15 = O3-greatest. 🔴 **Two corrections, QSET-2
+  finding 3, 2026-09-06.** (a) **What the battery actually commands is REL, not O3.** The inventory's
+  Q2c/Q2d rows invoke `--kc-enum` / `--kc-enum-desc`, whose own golden provenance line reads
+  `order=REL-DESCENDING(…;NOT-O3)` and whose CLI documentation states REL "is **not** O3". No
+  filtered *O3* endpoint command exists in this tree, so the O3 definition above is not the quantity
+  the battery delivers. (b) **The O3 form is already determined:** `rank_O3(KW) = 0` is forced by the
+  KW-derived labelling (the Q1 labeling ruling), and King Wen is in C15, so **O3-`FIRST^C15` is King
+  Wen** — by construction, not by measurement. O3-`LAST^C15` remains uncommanded. A C15 *midpoint* is **not
   shipped** — it would require an exact C3-conditioned count, which was priced and permanently
   declined on cost (§9), not found to be impossible. Not claimed; the reason is stated in §9.
 - **Mechanism.** SUPER: O3 ranker unrank (post-G); REL-order analogs available post-F TODAY via
@@ -246,7 +253,12 @@ QSET external review, which the external review itself missed; see
   C3-conditioned (§0), and the run that would has been priced and declined on cost, not ruled
   out structurally (§9); published as estimates-with-CI.
 - **Mechanism.** (a)/(c): exact-uniform `--kc-sample` (post-F; M = 10⁵–10⁶ walks; evaluate
-  cd\* per walk; binomial/multinomial CIs) — an estimator upgrade over this project's own prior C3
+  cd\* per walk; ⚠ **CI claim narrowed 2026-09-06, QSET-2 finding 5 — and this is residue of a
+  correction applied only halfway on 2026-09-05.** That pass fixed the C15-vs-SUPER space label on
+  this row and left this clause untouched. The battery emits **one Wilson interval on the acceptance
+  mass** `P(cd ≤ T)`, not per-bin intervals: the histogram bins ship with counts and no CIs. Read
+  "binomial/multinomial CIs" as the **intended** design and the single Wilson interval as what is
+  delivered) — an estimator upgrade over this project's own prior C3
   histograms (previous data was enumeration-slice-scoped; this is uniform over ALL of SUPER). (b): SAT
   binary search — `sat.py` C3 encoding — **[I1 correction, C3 adversarial review 2026-07-22:
   bisect on integer G, not on cd×64 units.** By the
@@ -306,6 +318,18 @@ QSET external review, which the external review itself missed; see
   (nearest SUPER neighbor to KW) needs a ×32 matched-count state on the PLAIN DP (KW-indicators
   are not G-invariant) — sizing unknown, flagged DEFERRED; the 560T sample minimum stands as the
   interim bound.
+🔴 **TWO OF THE FUNCTIONALS THIS ROW WOULD SWEEP ARE ALREADY CLOSED — do not spend a sweep on them
+  (QSET-2 finding 1, 2026-09-06).** `--kc-extremal`'s registry carries exactly two `invariant/VARIES`
+  functionals, `yangcount` and `entryyang`, and both extrema of both are **90 and 96**, over SUPER
+  *and* over C15. The bound is two lines: of 31 free pairs, the 28 reversal pairs contribute a fixed
+  84 because popcount is reversal-invariant, and the three free self-complement pairs
+  `(12,51) (18,45) (30,33)` contribute 2 or 4 each — so the range is `[90, 96]`. **Both endpoints are
+  attained by orderings this project published on 2026-07-24**: lines 22 and 50 of
+  `reports/certificates/c3_positional_witnesses.txt` give `yangcount=96 entryyang=90` and
+  `yangcount=90 entryyang=96`, each `verdict SUPER: IN` and `C15: IN`. A `$40–80` sweep of either
+  would rediscover a published number. *(This closes the two REGISTRY functionals, not §Q5's proposed
+  shortlist — yinyang excursion, markov self-transition, `--lines` imbalance are untouched.)*
+
 - **Mechanism:** **TO-BUILD** `--kc-extremal FUNC DIR` (per-functional min/max sweep + witness
   reconstruction; separate subcommand, sha-neutral). **Shortlist proposed** (operator picks):
   max/min `--yinyang` cumulative-balance excursion; max/min `--markov` self-transition count;
@@ -367,7 +391,12 @@ QSET external review, which the external review itself missed; see
 ### Q8. Random exemplar gallery
 - **Definition.** k = 1,000 exact-uniform SUPER samples (seed pinned: `TR12-GALLERY-1`,
   documented; reproducible byte-identically) + the C3-rejection subset (≈ 1/8.26 acceptance ⇒
-  ~121 expected C15 exemplars); each sample: walk, record (`--kc-record`), REL rank, O3 rank
+  ~121 expected C15 exemplars — ⚠ see the gallery-size correction in the inventory); each sample:
+  walk, record (`--kc-record`), REL rank, ⚠ **O3 rank and functional profile are DESCOPED
+  2026-09-06 (QSET-2 finding 6): no commanded path produces either.** The battery delivers REL rank,
+  `cd`, walk and record only, and `--kc-o3-rank` exists, so "post-O3" is a stage label whose stage
+  has passed — the legs are simply uncommanded, exactly as Q1c's were and now disclosed the same way.
+  Retained for the record: O3 rank
   (post-O3), cd\*/C3 value + verdict, functional profile (solve.py batch), `#provenance`.
 - **Mechanism:** `--kc-sample DIR 1000 <seed> --kc-record` (EXISTS, post-F); chi-square
   uniformity gate on rank buckets (the `--kc-midn` gate pattern at full-31).
@@ -982,7 +1011,15 @@ surface's own selftest and the committed n = 9 expected blocks are for. This lis
   the two must never be conflated in anything published. ⚠ *Overstating a limit in the direction that
   flatters the author is a reporting error this document does not make: where a quantity is absent,
   the reason given is cost or capability — whichever is actually true.*
-- **Edit-distance-to-KW extremal (KW's nearest SUPER neighbor):** requires the plain
+- **Edit-distance-to-KW extremal (KW's nearest SUPER neighbor):** 🔴 **CLOSED, and the row's own
+  "interim bound" already equalled the answer (QSET-2 finding 2, 2026-09-06).** `edit_dist_kw` is
+  pair-slot Hamming distance, and two distinct permutations differ in at least two slots, so **2 is
+  the structural floor** for a distinct key. It is attained: the public 100 T log
+  `runs/20260419_100T_d3_d128westus3/analyze_output.log.gz` (committed 2026-04-20) prints
+  `[ 12] dist=2 rec#104178045`, and an explicit C15 witness at distance 2 was found by execution
+  during the review. Under the alternative "distinct walk" reading the minimum is **0**
+  (`python3 verify.py --check-flips` → 9 of 31 single-orientation flips remain valid). Either way
+  this needed no plain-DP sizing exercise. The original text, retained: it required the plain
   (unquotiented) DP with a ×32 channel — sizing unknown, possibly infeasible; DEFERRED with the
   560T-sample minimum as the standing bound. Flagged, not promised.
 - **Deep-tail exact counts for KW-extracted templates (ccn4-class, D-B1-class):** computable,

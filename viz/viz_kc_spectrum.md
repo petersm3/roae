@@ -111,13 +111,26 @@ The battery is the existing, frozen `solve.py --compute-stats` set — **`_P2_IN
 | `max_transition_hamming` | 1…6 | 6 |
 | `fft_dominant_freq` | 1…31 | 16 |
 | `shift_conformant_count` | 0…17 | 17 |
-| `first_position_deviation` | 1…33 | 33 |
+| `first_position_deviation` | 1…33 | 33 — ⚠ **O3-axis panel is a THEOREM, see below** |
 | `mean_transition_hamming` | 2.0…4.0 | 3.3492064 |
 | `fft_peak_amplitude` | 0.0…500.0 | 374.77 |
 
 Note `c3_total` is an *observable* here, not a filter: the compiled space is C1 ∩ C2 ∩ C4 ∩ C5, so
 grid points may and will carry C3 values above King Wen's 776. That is a property of the space, not
 a defect.
+
+🔴 **`first_position_deviation` must not be plotted as an observable on the O3 axis (QSET-2 finding
+4, 2026-09-06).** Its trend there is **forced by the order, not measured**: O3 is lexicographic on the
+pair vector with King Wen's numbering as the identity, and first-deviation-from-identity is
+**monotone non-increasing** under lex order. The argument is two lines — at a permutation's first
+departure from the identity, the chosen label must exceed the identity label, because every smaller
+label is already used — and it was brute-forced at n = 5, 6 and 7, monotone in every case. So the
+panel cannot come out flat, and a downward trend in it is a property of the axis rather than a fact
+about the population. **Hold it out of the O3 axis, or label it a theorem.** This file already warned
+that `edit_dist_kw` is "nearly tautological" on that axis; `fpd` is the stronger case and the warning
+never reached it, even though `documentation/DISTRIBUTIONAL_ANALYSIS.md` had called `fpd` tautological
+in a different context since 2026-07-26. **The shipped REL grid is unaffected** — this is an O3-axis
+defect only.
 
 🔴 **The `424…776` range this table carried until 2026-09-05 contradicted that note, and was wrong at
 both ends (QSET finding 8).** A reader is told to check every observable against its range, and this
