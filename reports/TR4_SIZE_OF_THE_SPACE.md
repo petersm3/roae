@@ -11,15 +11,18 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 ## Executive summary
 
 How special is the King Wen sequence, really? That question needs a denominator: **how many other
-arrangements satisfy the same rules?** This report measures it. The answer — about 10³⁸, a hundred
-trillion trillion trillion — settles a determinism hypothesis this suite calls the Uniqueness Conjecture
+arrangements satisfy the same rules?** This report measures it. The answer — about 10³⁸ under **C1–C5**, a hundred
+trillion trillion trillion, and about 5.21×10³¹ once the identifying **C6–C7** are added — settles a determinism hypothesis this suite calls the Uniqueness Conjecture
 (the name is ours; who held it, and in what form, is scoped honestly in
 [CITATIONS.md](../documentation/CITATIONS.md#uniqueness-conjecture)) — and which was **this project's own
 early working hypothesis**, so what follows is a negative result about our own starting position, not a
-refutation aimed at someone else's stated claim: the known rules do **not** pin down King Wen;
+refutation aimed at someone else's stated claim: **the seven rules this suite formalised** do **not**
+pin down King Wen — a narrower statement than "the known rules", since no author asserted this exact
+inventory;
 they leave an astronomical family of valid alternatives, and King Wen is one member. The report also
-measures how much *additional* information is needed to single King Wen out (roughly 13–20 carefully
-chosen adjacency facts) and explains why earlier, smaller searches wrongly suggested near-uniqueness:
+*extrapolates*, from the observed information rate, how much *additional* information **would** single
+King Wen out (roughly 13–20 carefully chosen adjacency facts — **an extrapolation, not a bound**: five
+samples along one greedy path bound no supremum, §v1.7) and explains why earlier, smaller searches wrongly suggested near-uniqueness:
 bounded search sees a biased sample. The measurement technique is validated against exact counts at
 every scale where exact counts exist.
 
@@ -93,8 +96,9 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    64!. Both are qualitative — neither formalized constraints nor computed a count; this measurement is
    the quantitative form of the position Ouyang articulated and, together with this report's ≈10³⁸
    estimate and [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)'s exact integers, is, we believe,
-   the first quantitative answer to Luo's question. Closing the remaining ≈105 bits would
-   need roughly 15–20 boundary constraints. Exact small-scope corroboration: in the KW-following 22-pair
+   the first quantitative answer to Luo's question. Closing the remaining ≈105 bits **projects to**
+   roughly 15–20 boundary constraints under the observed per-boundary cut rate (§5; an extrapolation,
+   not a bound). Exact small-scope corroboration: in the KW-following 22-pair
    prefix subtree, exact counting finds 16,504 oriented C1–C5 completions of which exactly **8** satisfy
    C6/C7 — **all eight sharing King Wen's pair ordering**. ⚠ **[CORRECTED 2026-08-28 — "plus seven others" invites a pair-ordering reading that is the OPPOSITE of what the enumeration shows. All **eight** survivors carry **King Wen's own pair ordering**; the seven "others" are orientation variants of it. The 16,504 figure is ORIENTED — it is 899 distinct pair orderings — and C6/C7 eliminate 898 of those 899, leaving King Wen's alone. Verified with the shipped binary: with the pair ordering free, C6/C7 leave 8 survivors; with every free slot additionally pinned to KW's pairs and only orientation free, the count is **also 8** (tree_nodes 1169 → 233 ⚠ **[RUN DESCRIPTION CORRECTED 2026-08-28 — first published as "tree_nodes 1169 → 233" with the words "every free slot". That run pinned slots 24–32, which leaves position 23 order-free (pins 24–31 give the identical 233, so slot 32 was a no-op); pinning all nine free steps 23–32 gives **75** nodes. The survivor count is **8** in every variant and the conclusion is unchanged — only the description of the run was wrong. Found by the D2 lens-1 executed review, which re-ran it.]** ⚠ **[REPRODUCTION COMMAND PUBLISHED 2026-08-29 (Q-395, settling Q-343) — these two figures shipped with no way to check them, while the provenance note claimed the public verification path was "re-running the published `SOLVE_KNUTH_C67` command", which was published nowhere. Both reproduce in under 10 ms with the shipped binary:
 

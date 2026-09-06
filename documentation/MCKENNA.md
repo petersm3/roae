@@ -25,7 +25,7 @@
 
 ## Where ROAE supports McKenna
 
-The sequence is genuinely unusual, and its structure is far too specific to be chance: the combined probability of satisfying both the perfect pair structure and the no-5-line property by chance is effectively zero in testing (zero of 10,000 random permutations; 95% upper bound from that sample: less than 1 in 3,333 — and the pair structure alone has analytic probability ≈10⁻⁴⁴). McKenna took that kind of structure as proof of intentional design. ROAE's measurements confirm the structure itself — and stop there: whether it arose from explicit intent or from generations of accumulated refinement is outside what computation can decide (see [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) §"What we can and cannot say").
+The sequence is genuinely unusual: **against a uniform-permutation null** the combined probability of satisfying both the perfect pair structure and the no-5-line property is effectively zero in testing (zero of 10,000 random permutations; 95% upper bound from that sample: less than 1 in 3,333 — and the pair structure alone has analytic probability ≈10⁻⁴⁴). McKenna took that kind of structure as proof of intentional design. ROAE's measurements confirm the structure itself — and stop there: whether it arose from explicit intent or from generations of accumulated refinement is outside what computation can decide (see [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) §"What we can and cannot say").
 
 ### McKenna's 25/75 odd-even split is provably a theorem
 

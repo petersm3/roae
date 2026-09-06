@@ -194,8 +194,9 @@ Headlines only — each links to its full treatment (technical reports in [repor
   assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
   jointly unsatisfiable — no C1∩C2∩C4∩C5-valid ordering can be perfect under all four. King Wen keeps one exactly and misses the others by two each ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]**, so its famous anomalies
-  are a **forced trade-off, not damage to an original that was perfect under all four** — no such
-  original could exist. (A *three*-rule-perfect precursor does exist; whether the anomalies are an
+  are **consistent with** a forced trade-off. What the incompatibility establishes is narrower than it
+  may read: it **rules out one explanation** — damage to an original that was perfect under all four —
+  because **no such original could exist.** (A *three*-rule-perfect precursor does exist; whether the anomalies are an
   arranger's trade-off or damage to that precursor is weighed, not settled, in TR-2's model
   comparison.) A 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
 - **Eight rules asserted as design are proven forced.** Each is a theorem, machine-checked in Lean 4
@@ -228,7 +229,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget
   is a theorem of the constraints, so the 10.5-billion-record measurement becomes a corollary. (The
   *position* of that transition remains ordering-dependent.) [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)
-- **The pairing is optimal.** The classical pair structure is the unique Hamming-cost-minimizing
+- **The pairing is optimal among comp/rev matchings.** The classical pair structure is the unique Hamming-cost-minimizing
   complement/reversal (comp/rev) matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) —
   preprint, machine-verified). Scope guard: comp∘rev matchings can do better — see
   [lean/HammingOptimalMatching.lean](lean/HammingOptimalMatching.lean). [CITATIONS](documentation/CITATIONS.md)
@@ -237,7 +238,9 @@ Headlines only — each links to its full treatment (technical reports in [repor
   billion enumerated records — a stark demonstration that bounded search sees a biased sample. (The
   17.4% is a 2×10¹⁰-probe sampled estimate, independently reproduced by a second archived run to within 0.05
   percentage points — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
-- **Half the sequence is explained; half by nothing known.** In bits: the classical pairing carries
+- **In bits, half the sequence's description length is accounted for by known structure; half is not.**
+  *("Accounted for", not "explained": which layers are **granted** explanatory standing is a choice made
+  below.)* The classical pairing carries
   nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
   description, not explanation; **between about 105 and 139 bits** remain open — the exact figure
   depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most

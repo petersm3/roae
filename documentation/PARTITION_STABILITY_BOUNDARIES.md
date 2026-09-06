@@ -4,7 +4,7 @@
 
 **Scope of that claim, stated once for this document.** §[7] and §[8] exhaustively test all C(31, 3) = 4,495 triples and all C(31, 4) = 31,465 quadruples, but §[6] returns **one** greedy path per dataset — deterministic, with ties broken toward the lowest boundary index (`solve.c` §Section 6, the strict `surv < best_remain` comparison in the per-step scan). The C(31, 5) = 169,911 five-subsets **have never been enumerated**, and no tied alternative greedy trajectory was enumerated either, so **no 5-subset lacking 25 or 27 has been tested**. What the searches support is therefore "{25, 27} are in the greedy representative at each of the four partitions" — not "{25, 27} are in every minimum identifying set", which is a strictly stronger statement the searches performed cannot decide. [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) §"How positions relate to one another (mutual information)" has carried the same scope note since 2026-09-01. *(Rescoped 2026-09-02: this document previously stated the claim with the word "mandatory" and without the subset-size scope; see [CORRECTIONS.md](CORRECTIONS.md).)*
 
-This is the **most stable structural property of King Wen we have measured**. The boundary count itself, and the OTHER boundaries that round out the minimum set, both vary with partition and scale; {25, 27} do not.
+Of the structural properties this project has measured across datasets, **{25, 27}'s appearance in every greedy minimum is the one that has varied least**. The boundary count itself, and the OTHER boundaries that round out the minimum set, both vary with partition and scale; {25, 27} do not.
 
 ## What "boundary" means here
 

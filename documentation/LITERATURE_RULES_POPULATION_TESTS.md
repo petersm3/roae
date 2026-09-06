@@ -1,8 +1,8 @@
 # Testing the Literature's Structural Rules at Population Scale
 
 **Result (2026-07-02):** Structural rules asserted for the King Wen sequence in prior literature — none of
-them ROAE discoveries — were formalized in the C1–C5 pair representation and measured against the *entire*
-constraint-satisfying population (≈1.33×10³⁸ orderings) by unbiased weighted-Knuth estimation
+them ROAE discoveries — were formalized in the C1–C5 pair representation and measured **against** the
+constraint-satisfying population (≈1.33×10³⁸ orderings) **by unbiased weighted-Knuth estimation**
 (`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes; the instrument reproduced the previously-published total space
 size *estimate* to 0.03%, a consistency check within the same estimator family; the absolute validation of
 the estimator is TR-11's exact anchors). *(Corrected 2026-08-01: "independently-established" was the

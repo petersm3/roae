@@ -17,7 +17,7 @@ which begins with Zhang Xingcheng 张行成 and Zhu Xi 朱熹 (both 12th c., so 
 *Yi Zhuan*; [Yu Fan](../documentation/CITATIONS.md#yufan), 3rd c. CE) — scholars have claimed the King
 Wen sequence follows hidden design rules —
 almost always by pointing at the sequence and asserting the pattern. This report does what none of that
-literature could: it **measures every claimed rule against the entire space of orderings** that satisfy
+literature could: it **measures every rule in the inventory catalogued in §2 against the space of orderings** that satisfy
 the sequence's core constraints — by unbiased weighted sampling of that space (2×10¹⁰ probes), not by
 enumerating it. The result sorts the claims into three kinds. Eight celebrated "design
 choices" are **forced** — and as of 2026-07-21 all eight are **theorems**, not sampling results (two of the eight, r3 (Radisic 2026) and p1c4 (Schulz 1982, citing Lai Zhide 1599), formalize to extensionally the **same** function of the ordering, so the eight literature rules state **seven distinct** ordering facts — one fact under two separately-published citations; both attributions stand. See TR-1 §3(2)): each is

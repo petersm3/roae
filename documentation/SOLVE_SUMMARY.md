@@ -258,8 +258,8 @@ second wave of results, each with a full [technical report](../reports/README.md
   rules proposed in the literature — two by [Steve Moore](CITATIONS.md#moore1989), two traceable through [Larry Schulz](CITATIONS.md#schulz1990-motifs) back to a
   13th-century commentator — **cannot all be satisfied by any C1∩C2∩C4∩C5-valid ordering**. King Wen keeps one of
   them perfectly and misses the other three by two each — **not, as this previously claimed, by the smallest possible margins** ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]** Its famous "irregularities,"
-  puzzled over for centuries, are the visible seam of a forced trade-off — not damage to a
-  once-perfect-under-all-four original (none could exist), and not sloppiness. (Whether they instead
+  puzzled over for centuries, are **consistent with** a forced trade-off, and **cannot** be damage to a
+  once-perfect-under-all-four original (none could exist). (Whether they instead
   reflect damage to the *three*-rule-perfect precursor that does exist is a separate, open question —
   TR-2's pre-registered two-model comparison initially favored that corruption reading over a
   soft-preference arranger — but as of 2026-08-04 those figures are **not calibrated in the pooled
