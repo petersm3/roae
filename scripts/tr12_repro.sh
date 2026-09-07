@@ -544,14 +544,31 @@ row_begin a0_ls_w0_mc
   "$SOLVE" --null-pair-constrained 1000000 ) >>"$RAW" 2>&1; rc=$?
 row_end TR12_LS_W0_COND_MC $rc
 
-# ---- A0.5  Q4(b): SAT C3-min bisection.  PENDING, and its whole toolchain is absent. ----------
+# ---- A0.5  Q4(b): ANSWERED 2026-09-05, not pending. -------------------------------------------
+# 🔴 THIS ROW ADVERTISED WORK THE PROJECT HAD ALREADY RULED UNNECESSARY. It emitted
+# PENDING:sat-c3min-driver on BOTH branches -- toolchain present or absent -- while
+# QUERY_INVENTORY 9.2 (2026-09-05) records min{C3(w) : w in SUPER} = 112, witness published
+# 2026-07-24, G >= 12 structural and achieved, and the SAT bisection therefore NOT NEEDED for the
+# minimum. A harness telling a reader a solver is required, for a question already closed, is a
+# claim the harness has no business making.
+#
+# What CAN be checked here with no solver: the certificate states its own relation, C3 = 16 + 8*G.
+# That is 42 rungs of internal consistency and catches transcription error.
+# 🔴 What it does NOT check: that each SEQ satisfies C1&C2&C4&C5 at the stated couple-distance sum.
+# That needs a validator reading a 64-int sequence, which does not exist here. So the verdict stays
+# a SKIP citing the ruling -- NOT a PASS, which would imply more checking than happened.
 {
-  miss=""
-  for t in kissat drat-trim d4 cpog-gen; do command -v "$t" >/dev/null 2>&1 || miss="$miss $t"; done
-  if [ -n "$miss" ]; then
-      row_skip a0_q4b TR12_Q4B "PENDING:sat-c3min-driver" "PENDING:sat-c3min-driver — and the toolchain is absent (missing:$miss); sat.py also invokes kissat without a proof flag, so DRAT emission is itself PENDING (QUERY_INVENTORY §3.4)"
+  _cert=reports/certificates/c3_positional_witnesses.txt
+  if [ ! -r "$_cert" ]; then
+      row_skip a0_q4b TR12_Q4B "SKIP:answered-2026-09-05" "ANSWERED (QUERY_INVENTORY 9.2): min C3 over SUPER = 112. WARNING: the witness certificate $_cert is MISSING, so even its arithmetic could not be re-checked"
   else
-      row_skip a0_q4b TR12_Q4B "PENDING:sat-c3min-driver" "PENDING:sat-c3min-driver — the bisection loop over sat.py --with-c3 --c3-max \$((16+8*G)), G in [12,47], does not exist yet (QUERY_INVENTORY §1)"
+      _bad=$(awk 'match($0,/G=[0-9]+[ \t]+C3=[0-9]+/){g=$0; sub(/.*G=/,"",g); sub(/[ \t].*/,"",g); c=$0; sub(/.*C3=/,"",c); sub(/[ \t].*/,"",c); if (c+0 != 16+8*(g+0)) n++} END{print n+0}' "$_cert")
+      _rows=$(grep -cE 'G=[0-9]+[ \t]+C3=[0-9]+' "$_cert")
+      if [ "${_bad:-1}" -ne 0 ] || [ "${_rows:-0}" -lt 40 ]; then
+          row_skip a0_q4b TR12_Q4B "SKIP:answered-2026-09-05" "ANSWERED (QUERY_INVENTORY 9.2): min C3 over SUPER = 112. 🔴 CERTIFICATE DEFECT: $_rows rows parsed, $_bad violate the file's own C3 = 16 + 8*G relation"
+      else
+          row_skip a0_q4b TR12_Q4B "SKIP:answered-2026-09-05" "ANSWERED (QUERY_INVENTORY 9.2, ruled): min{C3(w) : w in SUPER} = 112, witness G=12 C3=112 published 2026-07-24 in $_cert; G >= 12 is structural and the witness achieves it, so the bracket closes at its floor and the SAT bisection is not needed for the minimum. Certificate re-checked here against its own stated relation C3 = 16 + 8*G: $_rows rows, 0 violations. NOT a full verification -- that each SEQ satisfies C1&C2&C4&C5 at its stated G is unchecked, for want of a 64-int sequence validator"
+      fi
   fi
 }
 
