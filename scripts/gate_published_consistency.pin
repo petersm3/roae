@@ -58,3 +58,5 @@ G13=0
 G14=0
 # G15 — a DATA-LIKE registry row must not be counted as source-stated. Fixed 2026-09-07.
 G15=0
+# G16 — under EXACT, = may not carry an abbreviated magnitude. Fixed 2026-09-07.
+G16=0

@@ -440,6 +440,30 @@ else
   echo "  [FAIL] G15: cannot read $_LR or $_CA -- this leg measured NOTHING"; G15=1
 fi
 
+# ---- G16: under an EXACT label, "=" may not carry an abbreviated magnitude --------------------
+# 🔴 CTA-A4, 2026-09-07. CLAIM_TO_ARTIFACT defines EXACT as "computed to the last digit; a
+# disagreement is a defect, not noise" -- then wrote "|C1∩C2∩C4| = 7.5706×10⁴¹", asserting
+# last-digit equality for a 5-significant-figure rounding. TR-11 already had the convention right:
+# "= 757,058,601,340,255,440,651,419,713,405,330,315,358,208 ≈ 7.5706×10⁴¹". Under a label whose
+# whole point is that a mismatch is a DEFECT, the operator has to mean what it says.
+G16=0
+_CA16=${G16_DOC:-documentation/CLAIM_TO_ARTIFACT.md}
+if [ -r "$_CA16" ]; then
+  if ! grep -q 'computed to the last digit' "$_CA16" 2>/dev/null; then
+    echo "  [FAIL] G16: $_CA16 no longer defines EXACT -- this leg measured NOTHING"; G16=1
+  else
+    _hits=$(grep -cE '= [0-9]+\.[0-9]+×10' "$_CA16" 2>/dev/null || true)
+    if [ "${_hits:-0}" -gt 0 ]; then
+      echo "  [FAIL] G16: $_hits row(s) assert '=' against an abbreviated magnitude under the EXACT label"
+      G16=$_hits
+    else
+      echo "  [ok]   G16: abbreviated magnitudes use ≈; = is reserved for the full integer"
+    fi
+  fi
+else
+  echo "  [FAIL] G16: cannot read $_CA16 -- this leg measured NOTHING"; G16=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it

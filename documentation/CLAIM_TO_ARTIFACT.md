@@ -14,6 +14,7 @@ at together.**
 **How to read the Status column.**
 
 * **EXACT** — computed to the last digit; a disagreement is a defect, not noise.
+  ⚠ *Rows below therefore use `≈` for any abbreviated magnitude and reserve `=` for the full integer (corrected 2026-09-07: two rows asserted equality against a 5-significant-figure rounding under this label, which claims last-digit agreement. TR-11 already had the convention right — `= 757,058,601,340,255,440,651,419,713,405,330,315,358,208 ≈ 7.5706×10⁴¹` — and this table had not adopted it.)*
 * **CERTIFIED** — carries an independently checkable proof object (DRAT / CPOG) that a third-party
   checker replays.
 * **KERNEL** — proved in Lean 4 and checked by its kernel.
@@ -29,8 +30,8 @@ not yet reach it, and extending coverage is tracked rather than assumed.
 | # | Claim | Published in | Artifact | Reproduce | Status |
 |---|---|---|---|---|---|
 | 1 | The binary's canonical identity | `CANONICAL_HASHES.md` | `--selftest` internal digest | `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest` | EXACT — `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` |
-| 2 | \|C1∩C2∩C4\| = 7.5706×10⁴¹ | TR-11 | symmetry-quotient DP | `./solve --f1-exact-c1c2c4` | EXACT |
-| 3 | \|C1∩C2∩C4∩C5\| = 1.097051×10³⁹ | TR-11 | DP + independent IE transfer-walk | `./solve --f1-exact-c1c2c4c5` ; cross-check `./verify --ie-count` | EXACT — two algorithm classes agree |
+| 2 | \|C1∩C2∩C4\| ≈ 7.5706×10⁴¹ | TR-11 | symmetry-quotient DP | `./solve --f1-exact-c1c2c4` | EXACT |
+| 3 | \|C1∩C2∩C4∩C5\| ≈ 1.097051×10³⁹ | TR-11 | DP + independent IE transfer-walk | `./solve --f1-exact-c1c2c4c5` ; cross-check `./verify --ie-count` | EXACT — two algorithm classes agree |
 | 4 | C1–C5 space ≈1.3287×10³⁸ | TR-4 | Knuth random-probe estimator | `./solve --estimate-knuth <nodes>` | ESTIMATE — quote with its CI |
 | 5 | Exactly 15 parity-class alternations | TR-6 | `lean/KingWen.lean` `alternations_15_general` | `cd lean && lean KingWen.lean` | KERNEL — the independent leg; see row 6 |
 | 6 | ≤14 and ≥16 alternations are UNSAT | TR-6 | `alt-le-14` / `alt-ge-16` DRAT | `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf f.drat && drat-trim f.cnf f.drat` (likewise `alt-ge-16`); `verify_all.sh` replays both archived proofs | CERTIFIED — **corroborating, not independent**: refuted by C5 cardinality alone (see CORRECTIONS 2026-08-29) |
