@@ -1919,7 +1919,21 @@ static void load_sub_checkpoint_file(FILE *f) {
         if (is_budgeted) {
             char *bp = strstr(line, "budget ");
             if (bp && sscanf(bp, "budget %lld", &stored_budget) == 1) {
-                if (current_per_branch_budget > 0 && stored_budget < current_per_branch_budget) {
+                /* Q-317 (1): budget 0 means UNCAPPED, i.e. INFINITE -- not "no
+                 * constraint to compare against". The old test was
+                 *     current_per_branch_budget > 0 && stored < current
+                 * so an uncapped resume made the guard FALSE and SKIPPED every
+                 * stored BUDGETED cell, silently inheriting budget-truncated
+                 * results as if they were exhaustive. That is an UNDERCOUNT
+                 * presented as a complete enumeration -- the worst direction for
+                 * this project. Treat 0 as infinity, so any finite stored budget
+                 * is smaller and the cell is re-run. Resume-path only: a run with
+                 * no checkpoint never reaches here, so canonical shas are
+                 * unaffected (verified: --selftest still 403f7202...).
+                 */
+                long long effective_budget = (current_per_branch_budget > 0)
+                                             ? current_per_branch_budget : LLONG_MAX;
+                if (stored_budget < effective_budget) {
                     /* current budget is larger — re-run this sub-branch */
                     continue;
                 }
