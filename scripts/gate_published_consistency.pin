@@ -50,3 +50,5 @@ G9=0
 G10=1
 # G11 — a published gain series must name the boundary the archived run picked. Fixed 2026-09-07.
 G11=0
+# G12 — a pre-registered gate must be quoted with its own threshold. Fixed 2026-09-07.
+G12=0

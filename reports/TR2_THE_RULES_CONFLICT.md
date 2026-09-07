@@ -602,8 +602,14 @@ the strict prunes with fixed-prefix starts, biasing the naive branch sum upward 
 composition defect was repaired with an estimator-only, self-test-neutral fix (the build's self-test
 sha is unchanged), and the repaired run — which correctly zeroes the 15 of 56 branches whose fixed
 prefix violates a strict predicate — pools to 4.34×10²⁵, **0.12σ** from the direct value, inside its
-pre-committed 2σ gate. With all three gates green (1σ / 1.9σ / 0.12σ), the pre-registered "all three
-gates pass" criterion is literally satisfied.
+pre-committed **2σ** gate. ⚠ **The three gates do NOT share one threshold, and this passage read as
+though they did until 2026-09-07.** As pre-registered (`reports/evidence/r11/PHASE2_README.md:67–71`):
+gate 1 is a **χ² p-test** (reject at p < 0.01), not a σ gate at all; gate 2 is **within 2σ**; gate 3 is
+**within 2.5σ**. The 1.9σ figure is gate 3's, and its criterion is 2.5σ — so quoting it beside a "2σ
+gate" understates the threshold it actually had to meet. All three still pass on their own criteria
+(χ²₃ = 1.36, p ≈ 0.71; 0.12σ against 2σ; 1.9σ against 2.5σ), so the verdict is unchanged — what was
+wrong is the gate each number was measured against. With all three green, the pre-registered "all
+three gates pass" criterion is satisfied.
 
 *Resolution.* Under the directly measured N_gs, the headline Bayes factors become
 **≈ 5.2×10³ (variant U) / ≈ 6.3×10³ (variant A)** — modestly smaller than the v1.7 values, as

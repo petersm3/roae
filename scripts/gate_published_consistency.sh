@@ -342,6 +342,32 @@ else
   echo "  [FAIL] G11: cannot read $_SK or $_SS -- this leg measured NOTHING"; G11=1
 fi
 
+# ---- G12: a pre-registered gate must be quoted with ITS OWN threshold ---------------------------
+# 🔴 RF-A1, 2026-09-07. TR-2 described a result as "inside its pre-committed 2σ gate" and listed all
+# three convergence gates together as though they shared that threshold. As pre-registered
+# (reports/evidence/r11/PHASE2_README.md:67-71) gate 1 is a chi-square p-test, gate 2 is 2σ and gate
+# 3 is 2.5σ. The 1.9σ figure belongs to gate 3. Every gate still passes on its own criterion, so no
+# verdict moved -- what was wrong is the threshold each number was measured against, which is exactly
+# the kind of error a numeric check cannot see because every number involved is real.
+G12=0
+_PH=${G12_PRE:-reports/evidence/r11/PHASE2_README.md}
+_T2=${G12_DOC:-reports/TR2_THE_RULES_CONFLICT.md}
+if [ -r "$_PH" ] && [ -r "$_T2" ]; then
+  # the pre-registration names 2.5σ for gate 3; if TR-2 quotes 1.9σ it must not call it a 2σ gate
+  if grep -qE 'within 2\.5σ' "$_PH" 2>/dev/null; then
+    if grep -q '1.9σ' "$_T2" 2>/dev/null && ! grep -q 'do NOT share one threshold' "$_T2" 2>/dev/null; then
+      echo "  [FAIL] G12: TR-2 quotes 1.9σ without recording that its pre-registered gate is 2.5σ"
+      G12=1
+    else
+      echo "  [ok]   G12: the pre-registered gate thresholds are quoted with the figures they bound"
+    fi
+  else
+    echo "  [FAIL] G12: $_PH no longer states a 2.5σ criterion -- this leg measured NOTHING"; G12=1
+  fi
+else
+  echo "  [FAIL] G12: cannot read $_PH or $_T2 -- this leg measured NOTHING"; G12=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it
