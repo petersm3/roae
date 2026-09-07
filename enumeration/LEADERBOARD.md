@@ -40,41 +40,42 @@ enumeration has found so far.
 
 | Position | King Wen pair | KW match % | Pairs observed | Entropy (bits) | Character |
 |:--------:|---------------|:----------:|:--------------:|:--------------:|-----------|
-| 1 | ䷀䷁ #1 / #2 | 100.0% | 1 | 0.00 | Fully determined |
-| 2 | ䷂䷃ #3 / #4 | 0.2% | 16 | — | Branch-dependent (varies widely) |
-| 3 | ䷄䷅ #5 / #6 | 0.2% | 31 | 4.12 | Highest freedom |
-| 4 | ䷆䷇ #7 / #8 | 0.5% | 3 | 0.28 | Cascade region (heavily constrained) |
-| 5 | ䷈䷉ #9 / #10 | 0.9% | 3 | 0.54 | Cascade region |
-| 6 | ䷊䷋ #11 / #12 | 0.9% | 3 | 0.54 | Cascade region |
-| 7 | ䷌䷍ #13 / #14 | 3.4% | 3 | 0.77 | Cascade region |
-| 8 | ䷎䷏ #15 / #16 | 3.4% | 3 | 0.77 | Cascade region |
-| 9 | ䷐䷑ #17 / #18 | 4.1% | 3 | 0.87 | Cascade region |
-| 10 | ䷒䷓ #19 / #20 | 5.2% | 3 | 0.97 | Cascade region |
-| 11 | ䷔䷕ #21 / #22 | 5.2% | 3 | 0.97 | Cascade region |
-| 12 | ䷖䷗ #23 / #24 | 5.2% | 3 | 0.97 | Cascade region |
-| 13 | ䷘䷙ #25 / #26 | 5.2% | 3 | 0.97 | Cascade region |
-| 14 | ䷚䷛ #27 / #28 | 5.2% | 3 | 0.97 | Cascade region |
-| 15 | ䷜䷝ #29 / #30 | 7.3% | 3 | 1.15 | Cascade region |
-| 16 | ䷞䷟ #31 / #32 | 11.2% | 3 | 1.41 | Cascade region |
-| 17 | ䷠䷡ #33 / #34 | 11.2% | 3 | 1.41 | Cascade region |
-| 18 | ䷢䷣ #35 / #36 | 12.9% | 3 | 1.50 | Cascade region |
-| 19 | ䷤䷥ #37 / #38 | 49.4% | 3 | 1.72 | Cascade region |
-| 20 | ䷦䷧ #39 / #40 | 51.8% | 3 | 1.72 | Cascade region |
-| 21 | ䷨䷩ #41 / #42 | 16.4% | 14 | 3.45 | Progressively free |
-| 22 | ䷪䷫ #43 / #44 | 11.0% | 14 | 3.51 | Progressively free |
-| 23 | ䷬䷭ #45 / #46 | 12.5% | 14 | 3.55 | Progressively free |
-| 24 | ䷮䷯ #47 / #48 | 10.7% | 14 | 3.55 | Progressively free |
-| 25 | ䷰䷱ #49 / #50 | 5.7% | 14 | 3.58 | Progressively free |
-| 26 | ䷲䷳ #51 / #52 | 9.4% | 14 | 3.58 | Progressively free |
-| 27 | ䷴䷵ #53 / #54 | 7.7% | 14 | 3.58 | Progressively free |
-| 28 | ䷶䷷ #55 / #56 | 8.9% | 14 | 3.60 | Progressively free |
-| 29 | ䷸䷹ #57 / #58 | 11.3% | 14 | 3.62 | Progressively free |
-| 30 | ䷺䷻ #59 / #60 | 9.6% | 14 | 3.62 | Progressively free |
-| 31 | ䷼䷽ #61 / #62 | 18.4% | 14 | 3.65 | Progressively free |
-| 32 | ䷾䷿ #63 / #64 | 21.3% | 7 | 2.58 | Progressively free |
+| 1 | ䷀䷁ #1 / #2 | 100.0% | 1 | 0.0000 | Fully determined |
+| 2 | ䷂䷃ #3 / #4 | 0.2% | 28 | 3.8326 | Branch-dependent (varies widely) |
+| 3 | ䷄䷅ #5 / #6 | 0.2% | 31 | 4.1242 | Highest freedom |
+| 4 | ䷆䷇ #7 / #8 | 0.5% | 3 | 0.2803 | Cascade region (heavily constrained) |
+| 5 | ䷈䷉ #9 / #10 | 0.9% | 3 | 0.4273 | Cascade region |
+| 6 | ䷊䷋ #11 / #12 | 0.9% | 3 | 0.6047 | Cascade region |
+| 7 | ䷌䷍ #13 / #14 | 3.4% | 3 | 0.7175 | Cascade region |
+| 8 | ䷎䷏ #15 / #16 | 3.4% | 3 | 0.9173 | Cascade region |
+| 9 | ䷐䷑ #17 / #18 | 4.1% | 3 | 1.0060 | Cascade region |
+| 10 | ䷒䷓ #19 / #20 | 5.2% | 3 | 1.1099 | Cascade region |
+| 11 | ䷔䷕ #21 / #22 | 5.2% | 3 | 1.1320 | Cascade region |
+| 12 | ䷖䷗ #23 / #24 | 5.2% | 3 | 1.1328 | Cascade region |
+| 13 | ䷘䷙ #25 / #26 | 5.2% | 3 | 1.1289 | Cascade region |
+| 14 | ䷚䷛ #27 / #28 | 5.2% | 4 | 1.1201 | Cascade region |
+| 15 | ䷜䷝ #29 / #30 | 7.3% | 3 | 1.2385 | Cascade region |
+| 16 | ䷞䷟ #31 / #32 | 11.2% | 4 | 1.3373 | Cascade region |
+| 17 | ䷠䷡ #33 / #34 | 11.2% | 3 | 1.2586 | Cascade region |
+| 18 | ䷢䷣ #35 / #36 | 12.9% | 3 | 1.3102 | Cascade region |
+| 19 | ䷤䷥ #37 / #38 | 49.4% | 3 | 1.5392 | Cascade region |
+| 20 | ䷦䷧ #39 / #40 | 51.8% | 3 | 1.3786 | Cascade region |
+| 21 | ䷨䷩ #41 / #42 | 16.4% | 12 | 1.7148 | Progressively free |
+| 22 | ䷪䷫ #43 / #44 | 11.0% | 14 | 3.4777 | Progressively free |
+| 23 | ䷬䷭ #45 / #46 | 12.5% | 14 | 3.6132 | Progressively free |
+| 24 | ䷮䷯ #47 / #48 | 10.7% | 14 | 3.6354 | Progressively free |
+| 25 | ䷰䷱ #49 / #50 | 5.7% | 14 | 3.6450 | Progressively free |
+| 26 | ䷲䷳ #51 / #52 | 9.4% | 14 | 3.6313 | Progressively free |
+| 27 | ䷴䷵ #53 / #54 | 7.7% | 14 | 3.6099 | Progressively free |
+| 28 | ䷶䷷ #55 / #56 | 8.9% | 14 | 3.5905 | Progressively free |
+| 29 | ䷸䷹ #57 / #58 | 11.3% | 14 | 3.5625 | Progressively free |
+| 30 | ䷺䷻ #59 / #60 | 9.6% | 14 | 3.5456 | Progressively free |
+| 31 | ䷼䷽ #61 / #62 | 18.4% | 14 | 3.4863 | Progressively free |
+| 32 | ䷾䷿ #63 / #64 | 21.3% | 7 | 2.6639 | Progressively free |
 
 *KW match % = how often King Wen's pair appears at this position across ALL valid*
 *orderings (all branches combined). Pairs observed and entropy values in this table were*
+*🔴 **Corrected 2026-09-07.** The Pairs-observed and Entropy columns are now read directly from §[2] of `analyze_sec25fix_742M.txt`, the artifact this note already named as their source. They previously did not match it: **29 of 32 rows disagreed**, including position 2 at 16 pairs against the artifact's 28 and a blank entropy against 3.8326, and position 14 at 3 pairs against 4. The note disclosed the numbers as STALE; the sharper problem was that they did not come from the dataset they cited. ⚠ The **KW match %** column is NOT in §[2] and its provenance is separately unverified — it is left as recorded.*
 *originally computed from the bug-era 742M dataset; they have NOT been refreshed to the*
 *current canonical datasets. For up-to-date per-position entropies see the `--analyze`*
 *output archived at `runs/20260419_100T_d3_d128westus3/` (primary, 3.43B records)*

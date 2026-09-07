@@ -199,6 +199,42 @@ else
   echo "  [FAIL] G6: cannot read $_SSS -- this leg measured NOTHING"; G6=1
 fi
 
+# ---- G7: the per-position entropy table must match the artifact it cites --------------------------
+# 🔴 LB-A1, 2026-09-07. LEADERBOARD's table named analyze_sec25fix_742M.txt as its source and
+# disagreed with it in 29 of 32 rows -- position 2 published 16 pairs against 28, position 14 three
+# against four, and the entropy column differed almost everywhere. The note beside it disclosed the
+# numbers as STALE, which reads as "old but from there"; they were not from there at all. A stale
+# disclosure is not a provenance check, and only a re-read is.
+G7=0
+_A2=${G7_ART:-enumeration/analyze_sec25fix_742M.txt}
+_L2=${G7_TBL:-enumeration/LEADERBOARD.md}
+if [ -r "$_A2" ] && [ -r "$_L2" ]; then
+  _bad=$(awk '
+    FILENAME==ARGV[1] && /^\[2\]/ {inb=1; next}
+    FILENAME==ARGV[1] && inb && /^\[/ {inb=0}
+    FILENAME==ARGV[1] && inb && $1 ~ /^[0-9]+$/ {h[$1]=$2; n[$1]=$3; next}
+    # anchor to the entropy table: other tables in this file also start rows with "| N |"
+    # (the edit-distance table did, and the first version compared against those). Same trap as G5.
+    FILENAME==ARGV[2] && /Pairs observed/ {t=1}
+    FILENAME==ARGV[2] && t && /^\| *[0-9]+ *\|/ {
+      nf=split($0,c,"|");
+      # the entropy table has 7 pipe-fields; the edit-distance table later in the file has 5 and was
+      # being compared with empty columns, because the "Pairs observed" anchor stays set to EOF.
+      if (nf < 7) next;
+      p=c[2]+0; gsub(/ /,"",c[5]); gsub(/ /,"",c[6]);
+      if (p in h && (c[5]!=n[p] || (c[6]+0) - h[p] > 0.0005 || h[p] - (c[6]+0) > 0.0005)) bad++
+    }
+    END{print bad+0}' "$_A2" "$_L2")
+  if [ "${_bad:-0}" -gt 0 ]; then
+    echo "  [FAIL] G7: $_bad LEADERBOARD row(s) disagree with section [2] of $_A2"
+    G7=$_bad
+  else
+    echo "  [ok]   G7: the per-position entropy table matches section [2] of the artifact it cites"
+  fi
+else
+  echo "  [FAIL] G7: cannot read $_A2 or $_L2 -- this leg measured NOTHING"; G7=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it
