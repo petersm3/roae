@@ -873,7 +873,60 @@ gate_cli() {
   # declarations — see the extractor above for the measurement that widening is safe for the
   # two pairs that already existed.
   check_pair verify.py documentation/VERIFY.md      py
+
+  # ---- LEG: a documented flag's ARGUMENT GRAMMAR must match the one the binary prints -------
+  # Q-410. GATE 2 above compares the SET OF FLAG NAMES and it works -- it is what caught
+  # --kc-g-check-layer and --kc-g-status. But a flag can be present and its DESCRIPTION or
+  # SIGNATURE wrong, and nothing checked that. Measured 2026-09-07: --kc-oracle printed
+  # "Usage: solve --kc-oracle FDIR BIN [BIN...]" and SOLVE_C_CLI.md had NO section for it at all
+  # -- only prose mentions plus a section for the neighbouring --kc-oracle-selftest -- so GATE 2
+  # passed on the name while the grammar was undocumented. --validate-canonical documented
+  # <expected-sha256> where the binary says <expected-sha256-64-hex>, dropping the constraint.
+  #
+  # The binary's own Usage: string is the cheapest oracle available. This leg compares ARGUMENT
+  # TOKENS, not the line verbatim: measured, only 25 of 35 literal usage strings appear verbatim
+  # in the doc, and the other 10 differ by rendering alone. A verbatim rule would have shipped
+  # red at 10 sites and been ignored by the next morning -- the Q-199 defect adopted as policy.
+  if [ -r solve.c ] && [ -r documentation/SOLVE_C_CLI.md ]; then
+    _ua=$(python3 - <<'PYEOF'
+import re,sys
+src=open("solve.c",encoding="utf-8",errors="replace").read()
+doc=open("documentation/SOLVE_C_CLI.md",encoding="utf-8",errors="replace").read()
+us=sorted(set(re.findall(r'"Usage: ([^"\\]*)', src)))
+lit=[u for u in us if "%s" not in u]
+FLOOR=25
+if len(lit) < FLOOR:
+    print(f"ERROR only {len(lit)} literal usage string(s) extracted, floor {FLOOR}"); sys.exit(0)
+bad=[]
+for u in lit:
+    toks=u.split()
+    f=next((t for t in toks if t.startswith("--")), None)
+    if not f or f not in doc: continue
+    args=toks[toks.index(f)+1:]
+    missing=[a for a in args if a.strip("[]<>.") and a.strip("[]<>.") not in doc]
+    if missing: bad.append(f"{f} -> doc never shows {missing}")
+print(f"COUNT {len(lit)}")
+for b in bad: print("BAD "+b)
+PYEOF
+)
+    if printf '%s\n' "$_ua" | grep -q '^ERROR'; then
+      echo "  [FAIL] GATE 2 usage-grammar leg: $(printf '%s\n' "$_ua" | sed -n 's/^ERROR //p')"
+      echo "         The extractor is broken, so NOTHING was compared."; bad=1
+    else
+      _n=$(printf '%s\n' "$_ua" | sed -n 's/^COUNT //p')
+      _b=$(printf '%s\n' "$_ua" | grep -c '^BAD ')
+      if [ "${_b:-0}" -gt 0 ]; then
+        echo "  [FAIL] $_b flag(s) whose printed grammar the doc does not show:"
+        printf '%s\n' "$_ua" | sed -n 's/^BAD /      /p'; bad=1
+      else
+        echo "  [ok] all $_n literal Usage: grammar(s) in solve.c are reflected in SOLVE_C_CLI.md"
+      fi
+    fi
+  fi
+
   return $bad
+
+
 }
 
 # ----------------------------------------------------------------------------------

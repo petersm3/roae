@@ -81,7 +81,7 @@ solve --check-arrangement-selftest                      # its KW/historical/muta
 solve --verify-certificate CERT.json [--kc-mutate]      # H6 certificate re-verifier + non-vacuity battery
 solve --rc1c-verify [SEQ]                               # R6 circular anchor-adjacency (R-C1c) gate (KW A2={21,42})
 solve --r11-verify [SEQ]                                # R11 frozen 8-axis violation-bundle gate (KW 2,2,2,0,0,0,0,0)
-solve --validate-canonical <sha256> <scale>             # pre-campaign drift gate
+solve --validate-canonical <expected-sha256-64-hex> <scale>  # pre-campaign drift gate
 solve --estimate-knuth <N> [<p1> <o1> ...]              # Knuth random-probe tree-size estimator
 solve --knuth-dump-prefix <depth> <seed>                # dev utility: emit a random VALID deep prefix
 solve --c3-dist [solutions.bin]                         # C3 complement-distance histogram
@@ -265,7 +265,7 @@ two run dirs are kept for evidence.
 ### --validate-canonical
 
 ```
-solve --validate-canonical <expected-sha256> <scale>
+solve --validate-canonical <expected-sha256-64-hex> <scale>
 ```
 
 Pre-campaign drift-detection gate (task #110). `<scale>` ∈ {`1T`,
@@ -3023,6 +3023,26 @@ Dispatched as a subcommand at `solve.c:28769`; takes **none**.
 Usage: solve --kc-oocverify N [--kc-roundtrips R] [--kc-scratch DIR]
 ```
 *Grammar reproduced from `solve.c:28735`.*
+
+#### `--kc-oracle`
+
+```
+Usage: solve --kc-oracle FDIR BIN [BIN...] [--kc-c3-max T] [--kc-dump K]
+             [--kc-expect-count DEC] [--kc-oracle-repr]
+             [--kc-cert-out FILE] [--kc-ooc] [--kc-cache-mb MB]
+```
+H1 merge oracle: streams `solutions.bin` files (plain or gzip) against the f
+ladder in `FDIR` and checks membership (f-ladder), adjacent dedup + O3 order, and
+count conservation. The first `K` counterexamples are dumped; `--kc-cert-out`
+writes an optional JSON certificate, re-verifiable via `--verify-certificate`.
+**Exit 0 PASS / 1 FAIL**, and 2 on a usage error.
+*Grammar and description reproduced from `solve.c:25457`.*
+
+⚠ **Added 2026-09-07 (Q-410).** The flag was dispatched at `solve.c:32549` and
+printed the grammar above, and this reference had **no section for it** — only
+prose mentions and a section for the neighbouring `--kc-oracle-selftest`. GATE 2
+passed throughout, because it compares the *set of flag names* and the name does
+appear in prose. A flag can be present and its signature entirely undocumented.
 
 #### `--kc-oracle-selftest`
 
