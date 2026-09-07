@@ -154,7 +154,9 @@ valid orderings; others produce zero.
 *Counts are lower bounds from the pre-bugfix 10T run (which undercounted by ~23x due to the*
 *sub-branch filename collision bug). The relative ordering and dead-branch classification*
 *are believed correct, but absolute counts should be scaled by ~23x for the 742M dataset.*
-*"Estimated dead" means zero valid orderings were found — not proven exhaustively.*
+*"Estimated dead" means zero valid orderings were found **at position 2 in this dataset** — not proven exhaustively, and **not dead in general**.*
+
+*🔴 **Scope qualifier added 2026-09-07.** The label was unqualified and reads as globally dead. It is not: of the 12 pairs marked dead here, **11 carry positive record counts as first-level branches** in §[11] of the same artifact — pair 10 (#19/#20) has **17,091,148** records, pair 13 (#25/#26) has **35,142,401**. Only pair 21 (#41/#42) is zero in both. §[11]'s actual zero set is **{4, 6, 21}** = #7/#8, #11/#12, #41/#42 — and #7/#8 appears in the table above with 431,474 records at position 2, so the two slices disagree in both directions. They measure different things and neither is wrong; the label implied one was the other.*
 
 **Key insight:** Nearly half the possible position-2 choices lead to dead branches —
 no valid orderings exist (or at least none have been found). The viable choices vary
