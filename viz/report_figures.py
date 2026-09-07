@@ -73,7 +73,17 @@ def save(fig, stem, provenance=None):
     fig.savefig(f"{stem}.png", dpi=150, bbox_inches="tight")
     fig.savefig(f"{stem}.svg", bbox_inches="tight")
     plt.close(fig)
-    print(f"Saved {stem}.png and {stem}.svg")
+    # 🔴 Codex MQ1 §2e, 2026-09-07. This line used to print filenames ONLY, and the c_viz
+    # golden captured just those four "Saved ..." lines -- so a mutant that zeroed every
+    # ordinate re-rendered happily and golded BYTE-IDENTICALLY. A gate whose observation
+    # cannot change when the data changes is not gating the data.
+    # The fix is NOT to hash the PNG/SVG bytes: those move with the matplotlib version and
+    # would make the golden fail on an unrelated upgrade. This function already binds each
+    # figure to its SOURCE by sha256 for the footer, so the honest observation is that
+    # binding -- printed, and therefore golded. Change the data, change the source sha,
+    # diverge the golden. `src=NONE` is printed rather than hidden when a figure carries no
+    # provenance at all, because silence there is what let this through.
+    print(f"Saved {stem}.png and {stem}.svg  src={provenance or 'NONE'}")
 
 
 # ---------------------------------------------------------------------------
