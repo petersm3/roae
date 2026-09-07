@@ -3329,6 +3329,9 @@ static int do_emit_shard_manifest(const char *manifest_path) {
     if (!tool) { require_sha256_tool(); return 30; }
     int threads = manifest_thread_count();
     char cmd[8192];
+    char tmp_path[4096];
+    if (snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", manifest_path) >= (int)sizeof(tmp_path))
+        return 30;   /* Q-457: manifest path too long to build its own staging name */
     /* #169: shards may be gz or raw (filenames unchanged: sub_*.bin). The
      * manifest records the LOGICAL (decompressed) size + sha so it is
      * compression-invariant: a gz shard and its raw equivalent produce the
@@ -3351,10 +3354,41 @@ static int do_emit_shard_manifest(const char *manifest_path) {
              "  sh=$(%s \"$f\" 2>/dev/null | cut -d\" \" -f1); "
              "fi; "
              "[ -n \"$sh\" ] && printf \"%%s\\t%%s\\t%%s\\n\" \"$f\" \"$sz\" \"$sh\""
-             "' _ | LC_ALL=C sort > %s.tmp && mv %s.tmp %s",
-             threads, tool, tool, manifest_path, manifest_path, manifest_path);
+             "' _ | LC_ALL=C sort > %s",
+             threads, tool, tool, tmp_path);
     int rc = system(cmd);
-    if (rc != 0) return 30;
+    if (rc != 0) { unlink(tmp_path); return 30; }
+    /* ===== Q-457 EMPTY-MANIFEST EMITTER GUARD (do not delete; the gate patches this out) =====
+       A manifest attests "these N shards had these hashes". With ZERO shards there is nothing to
+       attest, so the correct artifact is NO manifest -- not an empty one. Previously the pipeline
+       above ran `... | sort > tmp && mv tmp manifest`: with no shards on disk `system()` returned
+       0 and a ZERO-BYTE manifest was installed. The very next launch then hit the Q-367 guard in
+       do_verify_shard_manifest() (total == 0 -> 22) and the run directory was bricked: fresh run,
+       relaunch, exit 22, every time. Below 1T no `.dfs_state` is ever written, so the #164
+       resume downgrade never armed and the trap stayed shut for the life of the directory.
+
+       The INVARIANT is enforced HERE, at the write site, not at the verifier:
+           shard_manifest.txt exists  ==>  it attests >= 1 shard.
+       Do NOT instead relax the Q-367 guard to tolerate an empty manifest "on a fresh directory".
+       At verify time a fresh directory is indistinguishable from a truncated sidecar write, so
+       that tolerance would grant PASS to the state most likely to mean the manifest is broken --
+       the verifier-closure invariant (Codex N07): a verifier must be able to be FALSE when its
+       target is absent.
+
+       On zero lines we unlink the tmp and DO NOT rename, so any pre-existing manifest is left
+       UNTOUCHED (that also closes a latent clobber path: an emit that found no shards used to
+       destroy a good manifest). Returns 23 -- distinct, and non-fatal to the caller. */
+    FILE *tf = fopen(tmp_path, "r");
+    if (!tf) return 30;
+    int emitted = 0;
+    { char lb[8192]; while (fgets(lb, sizeof(lb), tf)) emitted++; }
+    fclose(tf);
+    if (emitted == 0) { unlink(tmp_path); return 23; }
+    if (rename(tmp_path, manifest_path) != 0) {
+        fprintf(stderr, "ERROR: cannot install manifest %s: %s\n", manifest_path, strerror(errno));
+        unlink(tmp_path);
+        return 30;
+    }
     return 0;
 }
 
@@ -3868,6 +3902,15 @@ static void auto_emit_shard_manifest_default(void) {
     if (getenv("SOLVE_SKIP_AUTO_MANIFEST") && atoi(getenv("SOLVE_SKIP_AUTO_MANIFEST")) == 1) return;
     fprintf(stderr, "[hardening] auto-emit-manifest: snapshotting shard state to shard_manifest.txt\n");
     int rc = do_emit_shard_manifest("shard_manifest.txt");
+    if (rc == 23) {
+        /* Q-457: nothing to attest. NOT a failure -- see the emitter guard in
+         * do_emit_shard_manifest(). No manifest is installed and any existing one is
+         * left untouched, so the next launch finds either a manifest that attests real
+         * shards or no manifest at all -- never a zero-entry one, which the Q-367 guard
+         * (correctly) refuses to pass and which used to brick the run directory. */
+        fprintf(stderr, "[hardening] auto-emit-manifest: 0 shards on disk; no manifest emitted (nothing to attest)\n");
+        return;
+    }
     if (rc != 0) {
         fprintf(stderr, "[hardening] WARN: auto-emit-manifest failed rc=%d; next-run auto-verify will be a no-op\n", rc);
         return;
@@ -36640,6 +36683,18 @@ int main(int argc, char *argv[]) {
          * auto_emit_shard_manifest_default()). */
         const char *manifest_path = (argc > 2) ? argv[2] : "shard_manifest.txt";
         int rc = do_emit_shard_manifest(manifest_path);
+        if (rc == 23) {
+            /* Q-457: asked to attest, and there was nothing to attest. Unlike the
+             * automatic path this is a non-zero exit -- the caller explicitly requested a
+             * manifest and did not get one. No file is written and any existing manifest
+             * is left untouched. */
+            fprintf(stderr,
+                "ERROR: --emit-shard-manifest: 0 shards on disk; no manifest emitted (nothing to attest)\n"
+                "       A manifest attests \"these N shards had these hashes\"; with zero shards there is\n"
+                "       nothing to attest, and an empty manifest is indistinguishable from a truncated\n"
+                "       sidecar write (Q-367). %s left unchanged.\n", manifest_path);
+            return rc;
+        }
         if (rc != 0) {
             fprintf(stderr, "ERROR: --emit-shard-manifest failed rc=%d\n", rc);
             return rc;
