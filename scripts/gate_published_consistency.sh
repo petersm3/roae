@@ -255,6 +255,33 @@ else
   echo "  [FAIL] G8: cannot read $_L8 -- this leg measured NOTHING"; G8=1
 fi
 
+# ---- G9: a published --branch recipe must carry a budget, and --validate a real path ----------
+# 🔴 LB-A6/LB-A7, 2026-09-07. LEADERBOARD published `./solve --branch 24 0 0` with no budget: run as
+# printed it prints "No time limit - running to completion" and does not return (measured -- killed
+# at 20 s). And `--validate solutions_merged.bin` named a file --merge has NEVER written; the merge
+# output is <layer_root>/_merged_/solutions.bin (solve.c:33837, :36922). A reader who pastes the
+# block gets a hang and then a missing file. exec_lane runs commands but checks neither, so this is
+# a static leg over the published text.
+G9=0
+_G9F=${G9_FILE:-enumeration/LEADERBOARD.md}
+if [ -r "$_G9F" ]; then
+  _nb=$(grep -nE '^\s*(SOLVE_[A-Z_]+=[^ ]+ +)*\./solve --(sub-)?branch ' "$_G9F" 2>/dev/null \
+          | grep -v 'SOLVE_NODE_LIMIT\|SOLVE_PER_SUB_BRANCH_LIMIT\|REQUIRED' || true)
+  if [ -n "$_nb" ]; then
+    echo "  [FAIL] G9: a published --branch recipe carries no budget; it will not return:"
+    printf '%s\n' "$_nb" | head -3 | sed 's/^/         /'
+    G9=$((G9+1))
+  fi
+  if grep -qE '\-\-validate +solutions_merged\.bin' "$_G9F" 2>/dev/null \
+       && ! grep -qE 'never written' "$_G9F"; then
+    echo "  [FAIL] G9: --validate names solutions_merged.bin, which --merge does not write"
+    G9=$((G9+1))
+  fi
+  [ "$G9" -eq 0 ] && echo "  [ok]   G9: published --branch recipes carry a budget and --validate names a real path"
+else
+  echo "  [FAIL] G9: cannot read $_G9F -- this leg measured NOTHING"; G9=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it

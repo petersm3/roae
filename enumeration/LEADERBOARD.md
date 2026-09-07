@@ -1332,9 +1332,11 @@ Every explored path in this subtree violated the complement distance constraint.
 ```bash
 gcc -O3 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz    # Compile (-lz: #169 native gzip; -lm: math; -DGIT_HASH: sha-neutral provenance stamp, else the run records git_hash "unknown")
 ./solve --list-branches              # Show all branches
-SOLVE_THREADS=64 ./solve --branch 24 0 0  # Run one branch
-./solve --merge                       # Combine sub-branch results
-./solve --validate solutions_merged.bin  # Verify all constraints
+SOLVE_NODE_LIMIT=10000000000 SOLVE_THREADS=64 ./solve --branch 24 0 0  # Run one branch. SOLVE_NODE_LIMIT is REQUIRED:
+                                      # without a budget --branch prints "No time limit - running to completion" and does not return.
+./solve --merge                       # Combine sub-branch results -> <layer_root>/_merged_/solutions.bin
+./solve --validate _merged_/solutions.bin  # Verify all constraints. NOT "solutions_merged.bin" - that name was published
+                                      # for months and --merge has never written it (solve.c:33837, :36922).
 ```
 
 See [solve.c](../solve.c) source for full documentation.
