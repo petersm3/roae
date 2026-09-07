@@ -24,9 +24,9 @@ Implementation: `solve --estimate-knuth <probes> [prefix…]` (see [`SOLVE_C_CLI
 
 ## Validation — the estimator is correct
 
-`solve --estimate-knuth 0 <prefix>` performs an **exact** deterministic subtree count. Comparing the Monte-Carlo estimate against exact ground truth on a King-Wen-following prefix, at increasing subtree depth:
+`solve --estimate-knuth 0 <prefix>` performs an **exact** deterministic subtree count. ⚠ **The leaf columns are ORIENTATION-EXPLICIT and were headed *canonical* until 2026-09-07.** 4 / 2,232 / 16,504 are oriented leaves; the deduplicated pair-ordering counts are smaller and are **not published here, because no shipped command emits them** — publishing a figure ahead of its reproduction command is the defect this correction exists to avoid. Comparing the Monte-Carlo estimate against exact ground truth on a King-Wen-following prefix, at increasing subtree depth:
 
-| free positions | exact nodes | Knuth nodes | exact canonical | Knuth canonical |
+| free positions | exact nodes | Knuth nodes | exact leaves (orientation-explicit) | Knuth leaves |
 |---:|---:|---:|---:|---:|
 | 5 | 443 | 442.9 | 4 | 4.01 |
 | 7 | 62,256 | 62,257 | 2,232 | 2,233 |
@@ -56,7 +56,7 @@ The 56 real first-level (position-1 pair, orientation) branches, 10⁸ probes ea
 
 ## Result — per-cell distribution + budgeted yield is uncorrelated with cell size
 
-Per-cell Knuth estimate over all **65,281 productive depth-3 cells** (10⁵ probes each). Total un-budgeted canonical tree size per cell: **min 5.9×10³¹, median 8.1×10³², max 5.6×10³³** — a spread of only **94.6×** (log₁₀ span ≈ 2 orders). The productive-cell trees sum to ≈6.8×10³⁷, ~half the whole-tree raw estimate (the rest lies in the ~93K cells that produced 0 records within the 560T budget but still hold enormous un-budgeted trees).
+Per-cell Knuth estimate over all **65,281 productive depth-3 cells** (10⁵ probes each). Total un-budgeted **orientation-explicit** tree size per cell: **min 5.9×10³¹, median 8.1×10³², max 5.6×10³³**. ⚠ **These are NOT canonical counts, and were labelled as such until 2026-09-07.** A depth-3 cell fixes four pairs, so at most 28! ≈ 3.05×10²⁹ canonical pair orderings remain — the minimum above exceeds that ceiling by **194×**, and exceeds even the e·28! search-tree bound by **70×**. The figures are right for the space the estimator walks, which carries an explicit orientation bit per pair; the word *canonical* named a smaller space — a spread of only **94.6×** (log₁₀ span ≈ 2 orders). The productive-cell trees sum to ≈6.8×10³⁷, ~half the whole-tree raw estimate (the rest lies in the ~93K cells that produced 0 records within the 560T budget but still hold enormous un-budgeted trees).
 
 Cross-plotting each cell's **budgeted yield** (distinct orderings found within the 560T per-cell budget, from the campaign shard manifest) against its **total un-budgeted size** (Knuth), across all 65,281 cells:
 

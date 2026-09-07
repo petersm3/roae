@@ -166,6 +166,39 @@ else
   G5=1
 fi
 
+# ---- G6: a magnitude called "canonical" must fit the canonical ceiling ------------------------
+# 🔴 SSS-A2, 2026-09-07. SEARCH_SPACE_SIZE published per-cell tree sizes as "canonical" at min
+# 5.9e31. A depth-3 cell fixes four pairs, leaving at most 28! = 3.05e29 canonical pair orderings --
+# so the figure exceeded its own ceiling by 194x, and even the e*28! tree bound by 71x. The numbers
+# were right for the ORIENTATION-EXPLICIT space the estimator walks; the word named a smaller one.
+# A count cannot exceed the size of the set it counts, which makes this checkable without judgement.
+G6=0
+_SSS=${G6_FILE:-documentation/SEARCH_SPACE_SIZE.md}
+# 🔴 A TARGETED INVARIANT, NOT A HEURISTIC -- and that is a deliberate retreat. Three broader forms
+# were tried and each failed honestly: superscript character RANGES match nothing in ERE (multibyte);
+# sentence-splitting on '.' breaks on the decimal in "5.9x10^31"; and flagging any canonical magnitude
+# >= 10^30 false-positived on "the space is ~10^38", which is CORRECT -- the whole C1-C5 space really
+# is that size canonically. The defect is specific: a PER-CELL tree size at depth 3, where 28! =
+# 3.05e29 is the ceiling and the published minimum was 194x it. So the check is specific too.
+G6=0
+_SSS=${G6_FILE:-documentation/SEARCH_SPACE_SIZE.md}
+if [ -r "$_SSS" ]; then
+  _line=$(grep -n 'un-budgeted' "$_SSS" | grep -i 'tree size per cell' | head -1)
+  if [ -z "$_line" ]; then
+    echo "  [FAIL] G6: the per-cell tree-size sentence is gone from $_SSS -- this leg measured NOTHING"
+    G6=1
+  elif printf '%s' "$_line" | grep -qi 'orientation-explicit'; then
+    echo "  [ok]   G6: the per-cell tree-size figures are labelled orientation-explicit, not canonical"
+  else
+    echo "  [FAIL] G6: per-cell tree sizes are not labelled orientation-explicit."
+    echo "         A depth-3 cell fixes four pairs, so at most 28! = 3.05e29 CANONICAL orderings remain;"
+    echo "         the published minimum 5.9e31 is 194x that ceiling and 71x even the e*28! tree bound."
+    G6=1
+  fi
+else
+  echo "  [FAIL] G6: cannot read $_SSS -- this leg measured NOTHING"; G6=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it
