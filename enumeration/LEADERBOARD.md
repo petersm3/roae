@@ -81,7 +81,10 @@ enumeration has found so far.
 *output archived at `runs/20260419_100T_d3_d128westus3/` (primary, 3.43B records)*
 *or `runs/20260418_10T_d3_fresh/` and `20260418_10T_d2_fresh/` (10T baselines),*
 *or the `D2_D3_ANALYZE_FINDINGS.md` summary (outside the git repo). The gradient shape*
-*(pos 1 locked; pos 3-19 constrained; pos 22-31 free) holds across all three datasets;*
+*(pos 1 locked; a free region; then a constrained region; then free again) holds across all three*
+*datasets in SHAPE, but its BOUNDARIES MOVE and the old wording named fixed positions.*
+
+*🔴 **Corrected 2026-09-07 by re-reading the archived logs.** The earlier wording named a fixed position range as constrained and asserted it of all three datasets. That is false in two ways. **Position 3 is not constrained in either dataset**: H = 4.1242 over 31 pairs at 742M and 4.5234 over 31 at d3 10T, against a 5.0 maximum. And the constrained region **starts at a different position in each**: at 742M position 4 is H = 0.2803 over 3 pairs, while at d3 10T the same position is **H = 4.5029 over 31 pairs** — near-maximal, not constrained. The gradient's shape is real and reproducible; the fixed position numbers were read off one dataset and asserted of all three.*
 *specific numbers shift with partition depth. Max possible entropy = log2(32) = 5.0 bits.*
 
 **Key insight:** The sequence is not uniformly constrained. Position 1 is fully

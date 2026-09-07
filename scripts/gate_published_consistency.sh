@@ -235,6 +235,26 @@ else
   echo "  [FAIL] G7: cannot read $_A2 or $_L2 -- this leg measured NOTHING"; G7=1
 fi
 
+# ---- G8: no claim that a fixed position range is constrained "across all three datasets" --------
+# 🔴 LB-A3, 2026-09-07. LEADERBOARD asserted "pos 3-19 constrained ... holds across all three
+# datasets". Re-read from the archived logs: position 4 is H=0.2803 over 3 pairs at 742M but
+# H=4.5029 over 31 pairs at d3 10T -- near-MAXIMAL, the opposite of constrained -- and position 3 is
+# unconstrained in both. The shape is real; the fixed numbers were read off one dataset and asserted
+# of all of them. This leg refuses the phrasing, because the boundaries provably move.
+G8=0
+_L8=${G8_FILE:-enumeration/LEADERBOARD.md}
+if [ -r "$_L8" ]; then
+  if grep -qE 'pos [0-9]+-[0-9]+ constrained.{0,40}(all three|every) dataset' "$_L8"; then
+    echo "  [FAIL] G8: a FIXED position range is claimed constrained across all datasets;"
+    echo "         measured, position 4 is H=0.2803/3 pairs at 742M and H=4.5029/31 at d3 10T."
+    G8=1
+  else
+    echo "  [ok]   G8: no fixed constrained-position range is asserted across datasets"
+  fi
+else
+  echo "  [FAIL] G8: cannot read $_L8 -- this leg measured NOTHING"; G8=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it
