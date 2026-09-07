@@ -1,7 +1,7 @@
 # Q10(a) — (i) the N/24 identity, stated once; (ii) the per-layer mod-24 gate; (iii) the per-layer
 # STATE census by G-orbit-size class + branching histogram, transcribed from the f-ladder sidecars.
 # (iv) KW-orbit-rank: DROPPED (no commanded source; 0 under KW-derived labels). Q-394 §5 / D5-08.
-N_div_24	1088	# = N/24, the number of free 24-orbits of SOLUTIONS; identical at every layer because every layer's flow == N (gated in c_atlas)
+N_div_24	1088	# = N/24, the RECORD-level orbit identity. NOT the number of walk-orbits: 24 is the record-level divisor, and at the orientation-explicit sequence level orbits have size 48, so N/24 is 2x the sequence-orbit count (TR-11 sec2 precision note; measured n=9: 544 walk-orbits, N/24 = 1088). Identical at every layer because every layer flow == N (gated in c_atlas)
 ## per-layer flow mod-24 gate (atlas layers[k].flow)
 k	flow	flow_mod_24
 0	26112	0

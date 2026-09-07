@@ -7,6 +7,7 @@ TR12_LS_CITE=SKIP:doc-only
 TR12_LS_EXACT=SKIP:wave3-not-budgeted
 TR12_LS_FORCED8=SKIP:doc-only
 TR12_Q10B=PENDING:--kc-coset-census
+TR12_Q1C=SKIP:merged-into-Q4AC
 TR12_Q4B=PENDING:sat-c3min-driver
 TR12_Q4_GEXACT=SKIP:doc-only
 TR12_Q7=SKIP:leg-TR12_Q7_RANKS

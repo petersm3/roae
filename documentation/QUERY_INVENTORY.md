@@ -460,9 +460,16 @@ and read its output | SCAN-class | `KCT_CHECK=PASS` |
 > **every** layer, not one. The canonical registries are raw-file digests, as their own names say,
 > and the archive driver gates on them.
 >
-> 🔻 **FINDING (C-04): the ladder hash registry and its archive driver are internal scripts; the
-> registry files themselves are not public.** The *defect class* is nonetheless reproducible from
-> the public tree alone — see the n=13 check below, which needs no private artifact.
+> 🔻 **FINDING (C-04) — RESOLVED 2026-09-06.** When written, the ladder hash registry and its archive
+> driver were internal and the registry files were not public. **They are public now**, at
+> `runs/20260906_kc_ladders_n31/`, in BOTH attestations and for all three stages:
+> `STAGE_{F,G,T}_SHA256.txt` and `_MD5.txt` (65 rows each — raw-file digests, the registry kind) and
+> `STAGE_{F,G,T}_LAYERSHA.txt` (32 rows each — logical/decompressed content, what `--f1c5-layer-sha`
+> prints). So A1.1's *"32 shas vs the registry"* and A2.1's are now **executable as written**, provided
+> each is compared against the registry of its own kind — which is the distinction this note exists to
+> make. The n=13 check below remains valid and still needs no private artifact.
+> ⚠ Do not read the two registries against each other: they digest different byte streams and
+> disagree on every layer by construction.
 >
 > **Use `sha256sum` when comparing against a registry.** `--f1c5-layer-sha` is a *different and also
 > useful* attestation — content identity that survives a re-compression — but it is not the registry
@@ -477,10 +484,15 @@ and read its output | SCAN-class | `KCT_CHECK=PASS` |
 > the terminal layer.** The tool prints `kind=` on every line; record it, and compare it.
 >
 > 🔎 **PUBLIC ANCHOR — this one is fully reproducible with no private data.** Build the three n=13
-> ladders from the public binary and compare the two attestations directly:
+> ladders from the public binary and compare the two attestations directly.
+> ⚠ **Corrected 2026-09-07.** These lines previously read `--kc-build 13 <dir>/f`. The pair count is
+> `--f1-pairs N`, never a positional, so as published the command took `13` as the OUTPUT DIRECTORY
+> and built **n=9** into a folder named `13` — measured: `[kc] build: n=9 … count=26112`, 21 files
+> written to `./13/`. An anchor labelled *fully reproducible* has to be run before it is labelled.
 > ```
-> $SOLVE --kc-build 13 <dir>/f  &&  $SOLVE --kc-g-build 13 <dir>/f <dir>/g
-> $SOLVE --kc-t-build 13 <dir>/f <dir>/t
+> $SOLVE --kc-build   <dir>/f --f1-pairs 13
+> $SOLVE --kc-g-build <dir>/g --f1-pairs 13
+> $SOLVE --kc-t-build <dir>/f <dir>/t
 > $SOLVE --f1c5-layer-sha <dir>/g   # prints kind= and sha256(decompressed)
 > $SOLVE --f1c5-layer-sha <dir>/t
 > sha256sum <dir>/g/*.bin <dir>/t/*.bin   # the OTHER digest: sha256(raw file)

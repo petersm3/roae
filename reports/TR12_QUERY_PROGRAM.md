@@ -349,8 +349,10 @@ QSET external review, which the external review itself missed; see
 - **Definition (SUPER).** Per layer k and admissible transition class: the exact walk mass
   through each (state, choice) = f(s)·g(s∘c), G-expanded to raw pair identities (each canonical
   mask carries orbit(cm) raw masks; placed-pair identity maps through the orbit transversal).
-  Report per layer: argmax/argmin-nonzero choices by mass; KW's own path percentile per layer.
-- **Mechanism:** **TO-BUILD** `--kc-scan FDIR GDIR` — ONE streaming pass joining adjacent f- and
+  Report per layer: argmax/argmin-nonzero choices by mass; KW's own **anchor-class percentile**
+  per layer — the statistic the code computes is D5-08 `anchor_class_pct`, which is not a
+  "path percentile"; the older wording named a quantity nothing emits.
+- **Mechanism:** **TO-BUILD** `--kc-scan FDIR GDIR --kc-raw` — ONE streaming pass joining adjacent f- and
   g-layers, emitting: (i) per-layer per-choice mass table (this query), (ii) positional-marginal
   field (V1), (iii) layer mass-flow aggregates (V2), (iv) transition-grammar table (V5). One
   pass, four tables — amortized.
@@ -610,9 +612,14 @@ well-bounded null as a publishable finding.
   constraints expressible as a per-step function of the prefix state*, and no claim is made about
   constraints outside it; the band is the Q8 gallery's 1st/99th percentiles on `top1_share`,
   two-sided, evaluated **once**; and the outcome vocabulary is **three**, not two —
-  `localized-constraint-candidate`, `typicality-bound`, and `anti-concentration` — with a fourth,
-  **`undecided`**, when KW falls inside the band but the band is too wide to exclude anything.
-  A pre-registered instrument must be allowed to return nothing. Explicit connection
+  `localized-constraint-candidate`, `typicality-bound`, and `anti-concentration`.
+  A pre-registered instrument must be allowed to return nothing, and **`typicality-bound` is that
+  outcome** — it is returned precisely when KW sits inside the band.
+  ⚠ Earlier revisions of this line named a **fourth** outcome, `undecided`, for "the band is too wide
+  to exclude anything". It is removed: the governing ruling (`QUERY_INVENTORY.md` §9.4, 2026-09-04)
+  adopts **three**, the executable implements three, and no width criterion was ever defined — so the
+  fourth could not be returned by any run and named a verdict nothing could emit. If a width test is
+  ever wanted it must be defined in §9.4 and implemented **before** it is published here. Explicit connection
   to TR-9: the **105.4–139.1** unexplained bits (public TR-9 v1.24 §2/§5 — 105.4 = log₂|C1–C7|,
   the most conservative reading, keeping every cut; 139.1 = log₂|C1∩C2∩C4|, the residual against
   the claimed-explanatory layers alone) live in a different ledger (296.0-bit baseline); this
@@ -766,8 +773,8 @@ the difference is load-bearing for provisioning** — measured on the completed 
 |---|---|---|
 | **f** (`FDIR`) | **3.29 TB** (3,293,894,951,830 B) | a 4 TB volume holds it, with little headroom |
 | **g** (`GDIR`) | **8.27 TB** (8,274,431,592,051 B over 32 layers) | ⚠ **≥ 10 TB.** A 4 TB volume does **not** hold it, and neither does an 8 TB volume shared with f |
-| **t** (`TDIR`) | **~3.1 TB** *(projected from the completed build's layer table; re-measure with `du -sb TDIR`)* | a 4 TB volume |
-| **total** | **~14.7 TB** | — |
+| **t** (`TDIR`) | **3.48 TB** *(MEASURED on the completed ladder, 2026-09-06; was "~3.1 TB projected")* | a 4 TB volume |
+| **total** | **15.05 TB** *(measured; was "~14.7 TB" from the t projection)* | — |
 
 *(Corrected 2026-09-05. This line read "three catalog directories on ~4 TB disk each", and both
 `solve.c`'s `--kc-g-build` usage text and `documentation/SOLVE_C_CLI.md` predicted g at "~2.5-2.7 TB
@@ -785,7 +792,10 @@ are corrected; see `documentation/CORRECTIONS.md`.)*
    ```
 2. **Stage G (g-ladder) — reads FDIR:**
    ```
-   ./solve --kc-g-build GDIR --kc-g-ooc
+   ./solve --kc-g-build GDIR --f1-pairs 31 --kc-g-ooc
+   #   --f1-pairs 31 is REQUIRED. Without it --kc-g-build silently builds n=9 (measured:
+   #   '[kc-g] build: n=9 ... g(0)=26112'), and --kc-g-check then fails 'f/g ladder context
+   #   mismatch'. Stage F above needs no such flag: --f1-exact-c1c2c4c5 defaults to FULL-31.
    #   verify shas:  32 g-layer shas == runs/20260906_kc_ladders_n31/STAGE_G_LAYERSHA.txt
    #   verify identity:  ./solve --kc-g-check FDIR GDIR   (f·g cut identity prints N at EVERY layer)
    ```
@@ -798,7 +808,10 @@ are corrected; see `documentation/CORRECTIONS.md`.)*
    ```
 4. **Assemble the Exhaustion Atlas (needs all three):**
    ```
-   ./solve --kc-scan FDIR GDIR atlas.json --kc-tdir TDIR   # per-branch table; internal gate Σ_b solutions(b) == N
+   ./solve --kc-scan FDIR GDIR atlas.json --kc-tdir TDIR --kc-raw   # per-branch table; internal gate Σ_b solutions(b) == N
+   #   --kc-raw is REQUIRED at n=31: without it marginal_raw is not emitted and V1 dies. It is
+   #   automatic at small n, which is why the omission survives every small-n rehearsal. The
+   #   n=31 pass is UNRESUMABLE, so discovering this at the end costs a full re-scan.
    ```
 
 Cost/time per stage, hedged [ESTIMATED]: each of F/G/T ≈ 2–7 days cloud-Spot wall, ~$60–140;
@@ -831,13 +844,13 @@ TR-11's, and it is the **f**-ladder contract; **g needs ≥ 10 TB**, per the mea
 4. Verify all 32 f-layer decompressed-stream shas against the published registry
    `runs/20260906_kc_ladders_n31/STAGE_F_LAYERSHA.txt` via `--f1c5-layer-sha`; the run itself must print total == N and
    hard-aborts unless N ≡ 0 (mod 24).
-5. Stage G likewise: `--kc-g-build GDIR --kc-g-ooc` (+ a contract/cost of the same shape,
+5. Stage G likewise: `--kc-g-build GDIR --f1-pairs 31 --kc-g-ooc` (the flag is required; without it the build is n=9) (+ a contract/cost of the same shape,
    ~$60–110 cloud); verify the 32 g-layer shas `runs/20260906_kc_ladders_n31/STAGE_G_LAYERSHA.txt`; run
    `--kc-g-check FDIR GDIR` — the f·g cut identity must print N at EVERY layer.
 5b. **Stage T likewise (REQUIRED for the Exhaustion Atlas and every per-branch number)** per
    R.0 step 3: `--kc-t-build FDIR TDIR --kc-ooc`; verify the t-layer shas
    `runs/20260906_kc_ladders_n31/STAGE_T_LAYERSHA.txt` and the n ≤ 13 t-vs-DFS agreement; then assemble the atlas with
-   `--kc-scan FDIR GDIR atlas.json --kc-tdir TDIR` (internal gate Σ_b solutions(b) == N).
+   `--kc-scan FDIR GDIR atlas.json --kc-tdir TDIR --kc-raw` (internal gate Σ_b solutions(b) == N; `--kc-raw` is required at n=31).
 6. Run each TR-12 query as ONE command and diff against the report's **expected-output block**
    ([EXPECTED-Q1]..[EXPECTED-Q9], [EXPECTED-XA], … — every published number appears in a
    verbatim, diff-able block). **The driver is public and built:** `scripts/tr12_repro.sh`
@@ -951,11 +964,11 @@ surface's own selftest and the committed n = 9 expected blocks are for. This lis
 2. `--check-arrangement "h0,...,h63"` — CAP-2/Q7 wrapper (pinned check order, first-violation
    verdict, walk adapter, certificate). Small; wave 0.
    **BUILT at HEAD:** `--check-arrangement`, `--check-arrangement-selftest`.
-3. `--kc-scan FDIR GDIR OUT.json` — the f·g join pass emitting the four tables (Q6, V1, V2, V5) with
+3. `--kc-scan FDIR GDIR OUT.json --kc-raw` — the f·g join pass emitting the four tables (Q6, V1, V2, V5) with
    G-expansion + the Σ orbit·f·g = N internal gate. Wave 2.
    **BUILT at HEAD:** `--kc-scan`, `--kc-scan-selftest`, `--kc-scan-merge`.
 4. `--kc-t-build` (or a value-channel flag on `--kc-g-build`) — the tree-size ladder (XA);
-   the per-branch table is then assembled by `--kc-scan FDIR GDIR OUT.json --kc-tdir TDIR` (XA is one
+   the per-branch table is then assembled by `--kc-scan FDIR GDIR OUT.json --kc-tdir TDIR --kc-raw` (XA is one
    of `--kc-scan`'s extractors — there is no separate atlas subcommand; see F-19). Wave 2.
    **BUILT at HEAD:** `--kc-t-build`, `--kc-t-check`, `--kc-t-cert`, `--kc-t-selftest`.
 5. `--kc-profile "e,x,..."` — 31-row rarity/surprise profile for any walk (Q3/EW-1/V4);
@@ -1161,8 +1174,14 @@ query family and refines four existing items. All items below are labeled by spa
 ### Q10 (NEW). Orbit / (ℤ/2)⁶-coset census — the Ouyang-framing query
 - **Definition (SUPER, exact part).** The record-level action is free with 24-element orbits
   (TR-5; `twenty_four_dvd_*` now **kernel-only**, #32), so |SUPER|/24 and every layer count /24 are
-  exact integers. (a) **Orbit census:** per g-ladder layer, the exact number of distinct 24-orbits
-  (= layer walk-mass / 24) and KW's orbit's rank among them; a global "24 ∣ count" self-check on
+  exact integers. (a) **Orbit census:** per g-ladder layer, the exact number of distinct 24-orbits,
+  **computed by canonical-form census — NOT by dividing the layer mass by 24** — and KW's orbit's
+  rank among them. ⚠ `layer walk-mass / 24` is not an orbit count and this document said it was:
+  measured exhaustively at n=9: 432 records give **18 record-orbits** (432/24) and the 26,112 walks
+  give **544 walk-orbits**, while N/24 = **1088** is neither. TR-11 §2's precision note already states
+  why — *at the orientation-explicit sequence level orbits have size 48, so N/24 is 2× the
+  sequence-orbit count* — and 1088 = 2 × 544 exactly. 24 is the **record-level** divisor; applying it
+  to a walk-level mass counts nothing. TR-11 was right and this line did not carry its qualifier; a global "24 ∣ count" self-check on
   every layer. (b) **Coset-structured census (the Ouyang lens):** classify solution mass by position
   in the (ℤ/2)⁶ subgroup/coset lattice that Ouyang 1992 uses for the hexagram algebra — i.e. tabulate
   how walk-mass distributes across the cosets of the relevant XOR-translation subgroups, and whether
@@ -1187,7 +1206,7 @@ query family and refines four existing items. All items below are labeled by spa
 |---|---|---|
 | **Q4** (C3 census) | C3 = 16 + 8·G identity CLOSED (kernel, `C3Decomposition.lean`). Beyond the already-adopted "bisect on integer G / bracket [12,47] / mod-8 lattice" correction, publish an **EXACT** G-channel companion to the (estimated) C15 histogram: the C1∩C4 null law of G — support **[12, 228]**, **E[G] = 128** (⇒ E[C3] = 1040), **P(G ≤ 95) = 641983711307479/7919632354008375 ≈ 8.106%** — exact via the G-channel DP. One column moves estimate→exact; the C15-conditioned histogram stays labeled ESTIMATE. | Add exact-G companion table + the ceiling-is-KW-defined circularity note (already in Q4). |
 | **Q9** (reportable negatives) | (i) Add the **equivariance ceiling** (P(KW-record) ≤ 1/24 for ANY G-invariant generator; `KingWen.lean`, kernel-only) as a strong new negative — no G-invariant scoring can concentrate on KW beyond 1/24. (ii) The **8 forced literature rules** (Find 1 → `C1RuleConstants.lean`) are now PROVEN constants of the entire C1 space, so they move from Q9's "candidates for proof upgrade (LS-1)" into the theorem class. | Promote the 8 rules; add the ceiling negative with its hypothesis-class scope stated. |
-| **XA** (Exhaustion Atlas) | Add an explicit **24-divisibility integrity self-check** on every headline count — now **Lean-kernel-backed** (`twenty_four_dvd_*`, no longer native_decide, #32). Cheap, dispositive, and it hardens the whole count cascade. | Add the mod-24 gate row to XA's integrity block; cite the kernel theorem. |
+| **XA** (Exhaustion Atlas) | Add an explicit **24-divisibility integrity self-check** on every **G-closed** headline count (⚠ NOT on every count: per-branch masses are not G-closed — measured, branch 0 = 2368 ≡ 16 (mod 24) — so extending this gate as first written makes a *correct* atlas fail) — now **Lean-kernel-backed** (`twenty_four_dvd_*`, no longer native_decide, #32). Cheap, dispositive, and it hardens the whole count cascade. | Add the mod-24 gate row to XA's integrity block; cite the kernel theorem. |
 | **LS / XA framing** | Express the counting cascade in the **Gaussian-binomial / [6,3]₂ lineage** where Suenaga 2012 began it (1395 = [6,3]₂), so the Atlas visibly EXTENDS a known partial count rather than presenting a bare number. | Add the q-binomial framing note + Ouyang 1992 / Suenaga 2012 citations to LS and XA provenance. |
 
 ### Not changed (stated for the record)

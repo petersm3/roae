@@ -550,6 +550,7 @@ row_end TR12_LS_W0_COND_MC $rc
 
 # ---- A0.6  the writing-only rows.  They have no command, so this driver cannot attest them.
 #            Reported as skipped with the reason, never folded into a PASS. --------------------
+row_skip a0_q1c       TR12_Q1C       "SKIP:merged-into-Q4AC" "DESCOPED 2026-09-04 (QUERY_INVENTORY 9.2): the interval [0, rank_O3(KW)) is EMPTY at full-31, and P(C3 <= 387 | SUPER) is a column of Q4a/c at M=1e6. Emitted EXPLICITLY so the descoping is visible in VERDICTS.txt -- previously this row simply vanished, and a reader could not tell a ruled descope from a forgotten or silently-failed query"
 row_skip a0_q9        TR12_Q9        "SKIP:doc-only" "DOC-only: Q9 is certified restatement of the reportable negatives (tr12/q9_negatives.md); no executable command exists to diff"
 row_skip a0_ls_forced8 TR12_LS_FORCED8 "SKIP:doc-only" "DOC-only: citation row; and lean/C1RuleConstants.lean is NOT an ancestor of this branch (QUERY_INVENTORY §3.3) — cite by commit sha with the branch stated"
 row_skip a0_ls_cite   TR12_LS_CITE   "SKIP:doc-only" "DOC-only: the sweep cites, it does not recompute"
@@ -1445,7 +1446,7 @@ else
       echo "# Q10(a) — (i) the N/24 identity, stated once; (ii) the per-layer mod-24 gate; (iii) the per-layer"
       echo "# STATE census by G-orbit-size class + branching histogram, transcribed from the f-ladder sidecars."
       echo "# (iv) KW-orbit-rank: DROPPED (no commanded source; 0 under KW-derived labels). Q-394 §5 / D5-08."
-      echo "N_div_24	$N_DIV24	# = N/24, the number of free 24-orbits of SOLUTIONS; identical at every layer because every layer's flow == N (gated in c_atlas)"
+      echo "N_div_24	$N_DIV24	# = N/24, the RECORD-level orbit identity. NOT the number of walk-orbits: 24 is the record-level divisor, and at the orientation-explicit sequence level orbits have size 48, so N/24 is 2x the sequence-orbit count (TR-11 sec2 precision note; measured n=9: 544 walk-orbits, N/24 = 1088). Identical at every layer because every layer flow == N (gated in c_atlas)"
       echo "## per-layer flow mod-24 gate (atlas layers[k].flow)"
       echo -e "k\tflow\tflow_mod_24"
       fails=0; i=0
