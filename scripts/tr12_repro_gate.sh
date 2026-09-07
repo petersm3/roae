@@ -265,6 +265,19 @@ if ! Q314_SOLVE="$WORK/solve" bash ./scripts/q314_mod48_gate.sh; then
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
+# Q-326 items (3)/(4)/(5): three ways the --kc-* surface answered a DIFFERENT question than the
+# one asked and said nothing about it. `--kc-count DIR --kc-c3-max 387` returned the SUPERSPACE
+# count at rc=0; T = 2^32 truncated to int 0 and enumerated 0 walks instead of 26112; and
+# kc_parse_walk never checked the pairs form a permutation -- MEASURED, 11 of 28 duplicate-pair
+# vectors got back a POSITIVE multiplicity and a repr line under a #provenance trailer stamping
+# the ratified convention. Baseline reuses this gate's binary; the 4 mutants are rebuilt inside,
+# because a handed-in binary cannot carry a mutation. ~2m50s.
+if ! Q326_QS_SOLVE="$WORK/solve" bash ./scripts/q326_kc_query_surface_gate.sh; then
+  echo "  [FAIL] scripts/q326_kc_query_surface_gate.sh did not PASS: the --kc-* query surface no"
+  echo "         longer refuses options it cannot honour, or a walk that is not a permutation"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
 # Q-433 sibling: the XA-c/d pricing path refused without a W0-D mapping certificate, but the
 # refusal only tested that a PATH STRING was supplied -- the file was never opened, so
 # `--xa-node-mapping-cert /nope.json` unblocked a scientific verdict. Pure-python gate, <1s.

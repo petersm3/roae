@@ -78,6 +78,25 @@ orbit-quotient), not by disagreement.
 | Twins per solution | 23 (orbit size 24) | **proven** | orbit | [TR-5] §4 |
 | Orbit count \|C1∩C2∩C4∩C5\|/24 | 45,710,469,949,549,241,251,504,669,632,357,466,112 | **exact** (= N/24 of the two-instrument count above; the recomputed N is ≡ 0 mod 24, so the division is exact) | **record-level** orbit (S₄, order 24, free action at the canonical *pair-ordering* level; at the orientation-explicit **sequence** level the group is the order-48 lift and the divisor is 48 — [TR-5] §3(i)) | [TR-11] §9 |
 
+**Why these two remain estimates — and it is not a missing method.** The only constraint in this
+system without an exact full-scale instrument is **C3**. Every other quantity above is exact:
+`|C1∩C2∩C4|`, `|C1∩C2∩C4∩C5|`, and `|C1–C7|` **with C3 dropped** are all two-instrument. The two
+estimated rows are those same objects **with C3 applied**.
+
+An exact instrument for C3 **exists and is built**: the identity **C3 = 16 + 8·G** is a machine-checked
+Lean theorem (`lean/C3Decomposition.lean`, `c3_slot_decomposition`, kernel-`decide`, 2026-07-04), and
+it turns C3 from a global positional sum — the thing that makes it hostile to a layer DP — into a
+bounded scalar the DP can carry. `solve --f1-c3-hist --with-c5` is the run.
+
+🔴 **It was priced at roughly $3–5K (≈36 TB, weeks) and deliberately declined.** These two figures are
+therefore reported with confidence intervals **because the exact computation was costed and rejected,
+not because one is unknown.** Stating that plainly is more useful than a hedge: it tells a reader
+exactly what would change the number, and what it would take.
+
+*(The related C3 quantities that *were* affordable are exact: P(C3 ≤ 776 | C1) = 1977618313669549 /
+30798570265588125 = 6.4211367496%, and the C1∩C4 null P(G ≤ 95) = 8.106231%, both via
+`verify.py --check-null-g`.)*
+
 *All three exact full-scale quantities — \|C1∩C2∩C4\| (via `--ie-no-budget`), the C5-layer count
 \|C1∩C2∩C4∩C5\|, and its orbit count — are **two-instrument** as of 2026-07-25: independently
 recomputed at full scale by `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`;

@@ -20661,7 +20661,7 @@ static uint64_t kc_rand_below(uint64_t *st, uint64_t m) {
 typedef int (*KcWalkCb)(void *ud, const uint8_t *E);
 
 static uint64_t kc_enum_rec(const KC *kc, int k, uint32_t m, int l, uint32_t rid,
-                            uint8_t *E, int8_t *pos, int partial_cd, int c3max,
+                            uint8_t *E, int8_t *pos, int partial_cd, long long c3max,
                             int desc, KcWalkCb cb, void *ud, int *stop) {
     /* commit placement k: pair of exit l, entry = partner, positions 2(k-1), 2k-1 */
     int i = kc->pair_of_sub[l];
@@ -20698,7 +20698,14 @@ static uint64_t kc_enum_rec(const KC *kc, int k, uint32_t m, int l, uint32_t rid
     return emitted;
 }
 
-static uint64_t kc_enum(const KC *kc, int c3max, int desc, KcWalkCb cb, void *ud) {
+/* \U0001f534 Q-326 item (4), 2026-09-07. c3max was `int` here while every other consumer takes
+ * long long, and the caller CAST. T = 2^31 became INT_MIN, which reads as "no filter", so the
+ * WHOLE SUPERSPACE was enumerated -- while the label and the --kc-enum-desc trailer, computed
+ * from the un-narrowed long long, both said C3-in-path. An unfiltered enumeration certified as
+ * filtered. Not reachable below T = 2^31 and no documented T exceeds 387, so this is hardening
+ * rather than a live defect -- but it is three tokens and it removes a disagreement between
+ * --kc-enum and --kc-sample on the same documented axis. */
+static uint64_t kc_enum(const KC *kc, long long c3max, int desc, KcWalkCb cb, void *ud) {
     uint8_t E[KC_MAX_PAIRS];
     int8_t pos[64];
     memset(pos, -1, sizeof(pos));
@@ -23365,11 +23372,37 @@ static int kc_parse_walk(const KC *kc, const char *s, uint8_t *E) {
                 2 * kc->n, nv);
         return -1;
     }
+    /* \U0001f534 Q-326 item (5), 2026-09-07. This loop validated each SLOT in isolation and never
+     * checked that the pair identities form a PERMUTATION. --kc-rank and --kc-member were saved
+     * only by accident -- they go on to call kc_validate, which carries a used-pair mask -- but
+     * --kc-repr never calls kc_validate at all: it goes from here straight into kc_class_repr,
+     * whose DP is defined on slot sequences and does not care whether a pair repeats. So a
+     * 2n-hexagram vector naming one pair twice and omitting another could be handed back an m(k)
+     * and a repr(k) at rc = 0, under a #provenance trailer stamping the ratified convention --
+     * a class representative for an object that is not a walk and has no class.
+     * The check belongs HERE, in the single parse entry point all four walk-taking queries share
+     * (--kc-rank, --kc-member, --kc-repr, --kc-o3-rank), not in one caller: fixing it at the
+     * caller is fixing the instance and leaves the next caller exposed. n distinct pairs out of n
+     * IS the permutation, so this covers the omitted pair too, without a second pass.
+     * KC_MAX_PAIRS is 31, so a uint32_t mask cannot overflow. */
+    uint32_t used = 0;
     for (int k = 0; k < kc->n; k++) {
         int e = vals[2 * k], x = vals[2 * k + 1];
         if (e < 0 || e > 63 || x < 0 || x > 63 ||
             kc->pair_of_sub[x] < 0 || kc->partner[x] != e)
             return 1;   /* structurally not a walk over this pair subset */
+        int i = kc->pair_of_sub[x];
+        if ((used >> i) & 1) {
+            fprintf(stderr,
+                "ERROR: [kc] slot %d repeats pair index %d (hexagrams %d,%d). A walk places each "
+                "of the %d pairs EXACTLY ONCE, so a repeat means another pair is MISSING -- this "
+                "vector is not a walk and has no class. Rejected before any m(k)/repr(k) is "
+                "computed: the class adapter is defined on permutations, and over a multiset it "
+                "would return a representative for an object that does not exist.\n",
+                k, i, e, x, kc->n);
+            return 1;
+        }
+        used |= 1u << i;
         E[k] = (uint8_t)x;
     }
     return 0;
@@ -32613,14 +32646,77 @@ static int kc_cli(int argc, char *argv[]) {
     int npairs = 9, force_ooc = 0, cache_mb = 0, class_uniform = 0, want_record = 0;
     int emitted_record = 0;
     long long c3max = -1, limit = 0;
+    /* \U0001f534 Q-326 items (3) and (4), 2026-09-07. This loop used to ACCEPT AND IGNORE, with
+     * two silent consequences. (a) --kc-count, --kc-rank and --kc-member parsed --kc-c3-max and
+     * DROPPED it, so `--kc-count DIR --kc-c3-max 387` returned the C1&C2&C4&C5 SUPERSPACE count
+     * -- a different published number than the one asked for -- and those three set no
+     * emitted_record, so not even the #provenance trailer labelled the scope. (b) nothing
+     * rejected an unknown option, so a typo'd `--kc-c3max 387` was a silent no-op and the caller
+     * got the unfiltered answer. Options are now CONSUMED (++ai past the value, so a value can
+     * never be re-read as an option) and anything unrecognised is REFUSED, in the idiom
+     * --kc-profile and --kc-extremal already use.
+     * Item (4) rides here: --kc-c3-max is parsed with strtoll + errno + endptr rather than
+     * atoll, which returned 0 for garbage with no diagnostic -- and 0 rejects the entire tree,
+     * King Wen included. The literal placeholder `--kc-c3-max T`, copy-pasted from the usage
+     * line above, is the plausible way in. */
+    enum { KO_C3 = 1, KO_LIMIT = 2, KO_UNIFORM = 4, KO_RECORD = 8, KO_PAIRS = 16 };
+    int saw = 0;
     for (int ai = 2; ai < argc; ai++) {
-        if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) npairs = atoi(argv[ai + 1]);
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-c3-max") == 0) c3max = atoll(argv[ai + 1]);
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-limit") == 0) limit = atoll(argv[ai + 1]);
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[ai + 1]);
-        else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
-        else if (strcmp(argv[ai], "--kc-class-uniform") == 0) class_uniform = 1;
-        else if (strcmp(argv[ai], "--kc-record") == 0) want_record = 1;
+        if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) {
+            npairs = atoi(argv[++ai]); saw |= KO_PAIRS;
+        } else if (ai + 1 < argc && strcmp(argv[ai], "--kc-c3-max") == 0) {
+            const char *v = argv[++ai];
+            char *end = NULL;
+            errno = 0;
+            c3max = strtoll(v, &end, 10);
+            if (end == v || *end != '\0' || errno == ERANGE || c3max < -1) {
+                fprintf(stderr,
+                    "ERROR: [kc] --kc-c3-max '%s' is not a decimal integer >= -1 (-1 = no C3 "
+                    "filter; the CT1.6-gated walk-functional constant is 387 at full-31). "
+                    "Refused rather than silently taken as 0 -- atoll() returned 0 for garbage, "
+                    "and 0 rejects the whole tree.\n", v);
+                return 2;   /* before the kc calloc below: nothing to free */
+            }
+            saw |= KO_C3;
+        } else if (ai + 1 < argc && strcmp(argv[ai], "--kc-limit") == 0) {
+            limit = atoll(argv[++ai]); saw |= KO_LIMIT;
+        } else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) {
+            cache_mb = atoi(argv[++ai]);
+        } else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (strcmp(argv[ai], "--kc-class-uniform") == 0) { class_uniform = 1; saw |= KO_UNIFORM; }
+        else if (strcmp(argv[ai], "--kc-record") == 0) { want_record = 1; saw |= KO_RECORD; }
+        else if (argv[ai][0] == '-') {
+            fprintf(stderr, "ERROR: [kc] %s: unknown option '%s'. Accepted here: --f1-pairs N, "
+                    "--kc-c3-max T, --kc-limit M, --kc-cache-mb MB, --kc-ooc, "
+                    "--kc-class-uniform, --kc-record. An unknown option used to be SILENTLY "
+                    "IGNORED, so a typo returned the unfiltered answer.\n", cmd, argv[ai]);
+            return 2;
+        }
+    }
+    {   /* Per-command admissibility. Accept-and-ignore is a wrong answer with no error; refuse
+         * instead, computing nothing. --kc-count / --kc-rank / --kc-member accept NONE of these:
+         * a count or a rank conditioned on C3 is not what any of them computes, and the C3
+         * counting obstruction means it is not exactly computable at all -- the C15 companion is
+         * a SAMPLED correction, which is --kc-sample. */
+        int allowed = 0;
+        if (strcmp(cmd, "--kc-build") == 0)                                allowed = KO_PAIRS;
+        else if (strcmp(cmd, "--kc-unrank") == 0)                          allowed = KO_RECORD | KO_C3;
+        else if (strcmp(cmd, "--kc-repr") == 0)                            allowed = KO_C3;
+        else if (strcmp(cmd, "--kc-sample") == 0)                          allowed = KO_C3 | KO_UNIFORM | KO_RECORD;
+        else if (strcmp(cmd, "--kc-enum") == 0 ||
+                 strcmp(cmd, "--kc-enum-desc") == 0)                       allowed = KO_C3 | KO_LIMIT;
+        int bad = saw & ~allowed;
+        if (bad) {
+            fprintf(stderr, "ERROR: [kc] %s does not accept:%s%s%s%s%s\n"
+                    "       These were previously PARSED AND DISCARDED, so the command answered "
+                    "a DIFFERENT question than the one asked and said nothing about it.\n", cmd,
+                    (bad & KO_C3)      ? " --kc-c3-max" : "",
+                    (bad & KO_LIMIT)   ? " --kc-limit" : "",
+                    (bad & KO_UNIFORM) ? " --kc-class-uniform" : "",
+                    (bad & KO_RECORD)  ? " --kc-record" : "",
+                    (bad & KO_PAIRS)   ? " --f1-pairs" : "");
+            return 2;
+        }
     }
     if (argc < 3) {
         fprintf(stderr, "Usage: solve %s DIR [args] [--f1-pairs N] [--kc-c3-max T] "
@@ -32782,7 +32878,7 @@ static int kc_cli(int argc, char *argv[]) {
             return 2;
         }
         KcEnumUd ud = {kc, (uint64_t)(limit > 0 ? limit : 0), 0};
-        uint64_t emitted = kc_enum(kc, (int)c3max, desc, kc_enum_print_cb, &ud);
+        uint64_t emitted = kc_enum(kc, c3max, desc, kc_enum_print_cb, &ud);
         fprintf(stderr, "[kc] enumerated %llu walk(s)%s%s\n",
                 (unsigned long long)emitted, c3max >= 0 ? " (C3 in-path)" : "",
                 desc ? " (descending)" : "");
@@ -35289,15 +35385,65 @@ int main(int argc, char *argv[]) {
         }
         printf("[--disk-precheck] write+fsync+read: PASS\n");
 
-        /* 3. Marker file (proves the mount holds the canonical disk's contents) */
+        /* 3. Marker file. NOT an identity proof, and this leg no longer claims to be one.
+         * It printed "PASS" for a bare stat(): a zero-byte file, or a file of that name left
+         * by any other run, satisfied it -- while the comment above it asserted the marker
+         * "proves the mount holds the canonical disk's contents". A stat() cannot prove that.
+         * Disk identity is safety-critical here (a solver-data disk was destroyed by a
+         * wrong-disk operation on 2026-05-06), so a leg that READS as an attestation while
+         * performing none is precisely the wrong thing to leave in place.
+         *
+         * It now REPORTS -- size and first field, verbatim -- and warns whenever nothing was
+         * established. That is the same vocabulary leg 4 already uses for a missing expected
+         * UUID ("identity reported, not asserted"), and the same severity the absent-marker
+         * case already carried: a marker that establishes nothing and a marker that is absent
+         * are the same epistemic state. The ASSERTION is opt-in via SOLVE_DISK_MARKER_SHA,
+         * mirroring leg 4's optional expected-UUID argument, and exits with leg 4's code 5.
+         * Nothing that passes today newly hard-fails; a fresh disk with no marker stays a
+         * WARN, because provisioning one is a legitimate operation and trading a false PASS
+         * for a false FAIL is not a fix. */
         char mpath[4400];
         snprintf(mpath, sizeof(mpath), "%s/%s", mp, marker);
+        const char *want_sha = getenv("SOLVE_DISK_MARKER_SHA");
+        if (want_sha && !want_sha[0]) want_sha = NULL;
+        char mk_first[128] = {0};
+        int mk_hex = 0;
         struct stat mst;
-        if (stat(mpath, &mst) == 0) {
-            printf("[--disk-precheck] marker %s present: PASS\n", mpath);
-        } else {
-            printf("[--disk-precheck] WARN: marker %s missing (fresh disk or wrong mount?)\n", mpath);
+        if (stat(mpath, &mst) != 0) {
+            printf("[--disk-precheck] WARN: marker %s missing (fresh disk or wrong mount?) "
+                   "- IDENTITY NOT ESTABLISHED\n", mpath);
             warn = 1;
+        } else {
+            FILE *mf = fopen(mpath, "r");
+            if (mf) {
+                char mline[512] = {0};
+                if (fgets(mline, sizeof(mline), mf)) {
+                    if (sscanf(mline, "%127s", mk_first) != 1) mk_first[0] = 0;
+                }
+                fclose(mf);
+            }
+            mk_hex = (strlen(mk_first) == 64);
+            for (const char *q = mk_first; mk_hex && *q; q++)
+                if (!((*q >= '0' && *q <= '9') || (*q >= 'a' && *q <= 'f'))) mk_hex = 0;
+            printf("[--disk-precheck] marker %s: %lld bytes, first field %s\n",
+                   mpath, (long long)mst.st_size, mk_first[0] ? mk_first : "(none)");
+            if (!mk_hex) {
+                printf("[--disk-precheck] WARN: marker holds no 64-hex digest - its presence "
+                       "proves nothing about WHICH disk this is - IDENTITY NOT ESTABLISHED\n");
+                warn = 1;
+            }
+        }
+        if (want_sha) {
+            if (!mk_hex || strcmp(mk_first, want_sha) != 0) {
+                fprintf(stderr, "[--disk-precheck] MARKER MISMATCH: SOLVE_DISK_MARKER_SHA=%s, "
+                                "%s holds '%s' - NOT this disk's contents; refusing (exit 5)\n",
+                        want_sha, mpath, mk_first[0] ? mk_first : "(nothing readable)");
+                return 5;
+            }
+            printf("[--disk-precheck] marker digest matches SOLVE_DISK_MARKER_SHA: PASS\n");
+        } else {
+            printf("[--disk-precheck] NOTE: marker content is REPORTED, not asserted "
+                   "(set SOLVE_DISK_MARKER_SHA=<64hex> to make this leg an assertion)\n");
         }
 
         /* 4. Identity: filesystem UUID via findmnt (mountpoint already validated) */
@@ -36252,7 +36398,7 @@ int main(int argc, char *argv[]) {
             "SOLVE_MEMORY_FLUSH_COUNT", "SOLVE_FSYNC_BATCH_SIZE", "SOLVE_RESUME_HISTORY",
             /* merge */
             "SOLVE_MERGE_MODE", "SOLVE_MERGE_CHUNK_GB", "SOLVE_MERGE_RUN_ANALYZE",
-            "SOLVE_TEMP_DIR", "SOLVE_DISK_MARKER", "SOLVE_REGRESS_DIR",
+            "SOLVE_TEMP_DIR", "SOLVE_DISK_MARKER", "SOLVE_DISK_MARKER_SHA", "SOLVE_REGRESS_DIR",
             /* hardening gates (every one has an explicit escape) */
             "SOLVE_SKIP_AUTO_SELFTEST", "SOLVE_SKIP_DISK_CHECK", "SOLVE_SKIP_IOPS_CHECK",
             "SOLVE_ALLOW_SLOW_IOPS", "SOLVE_SKIP_HOST_FINGERPRINT", "SOLVE_SKIP_BINARY_SNAPSHOT",

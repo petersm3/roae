@@ -546,27 +546,70 @@ else
   echo "  [FAIL] G18: cannot read $_T8 -- this leg measured NOTHING"; G18=1
 fi
 
+# ---- G19: an estimate with a confidence interval must say WHY it is not exact -------------------
+# \U0001f534 Q-153, 2026-09-07. METHODS' canonical-quantities table carried C1-C5 at 1.3287e38 and
+# |C1-C7| at 5.21e31 as bare **estimate** rows with confidence intervals and no explanation. A
+# reader could reasonably infer that no exact method exists. The opposite is true: an exact
+# instrument for C3 is BUILT (the Lean theorem c3_slot_decomposition, C3 = 16 + 8*G) and the run
+# was priced at ~$3-5K and DELIBERATELY DECLINED. The intervals are there because the computation
+# was costed and rejected, not because the answer is unknown -- and saying so is the stronger
+# claim. Conflating cost with capability is the exact defect the Q-159 sweep found twice.
+#
+# The fix lived only in a DANGLING COMMIT (8dc7f348, on no branch, one `git gc` from gone) and was
+# never published; it is tagged recovered/q153-priced-and-declined. This leg is why it cannot go
+# missing again. It is deliberately shaped so no arithmetic check could substitute for it: every
+# number in those rows is correct, and what was absent was a sentence.
+G19=0
+_M=${G19_DOC:-reports/METHODS.md}
+if [ -r "$_M" ]; then
+  # grep -c, never grep -q on a pipe -- see the note in G18.
+  _est=$(grep -c '95% CI' "$_M" 2>/dev/null)
+  if [ "$_est" -eq 0 ]; then
+    echo "  [FAIL] G19: no confidence-interval row found in $_M -- this leg measured NOTHING"; G19=1
+  elif [ "$(grep -c 'costed and rejected' "$_M" 2>/dev/null)" -eq 0 ] \
+       || [ "$(grep -c 'priced at roughly' "$_M" 2>/dev/null)" -eq 0 ]; then
+    echo "  [FAIL] G19: $_M reports $_est interval-bearing estimate(s) without saying the exact"
+    echo "         computation was priced and declined -- a reader is left to infer no method exists"
+    G19=1
+  else
+    echo "  [ok]   G19: the interval-bearing estimates ($_est) say the exact run was costed and declined"
+  fi
+else
+  echo "  [FAIL] G19: cannot read $_M -- this leg measured NOTHING"; G19=1
+fi
+
 # shellcheck disable=SC1090
 P_G1=$(awk -F= '/^G1=/{print $2}' "$PIN"); P_G2=$(awk -F= '/^G2=/{print $2}' "$PIN"); P_G3=$(awk -F= '/^G3=/{print $2}' "$PIN"); P_G4=$(awk -F= '/^G4=/{print $2}' "$PIN")
 # 🔴 G5..G16 WERE ASSIGNED AND NEVER READ (found 2026-09-07). Twelve legs computed a count that
 # reached neither this ratchet nor `fail` nor the verdict: they printed [FAIL] lines while the gate
 # emitted PASS-AT-PIN and exit 0. Twelve checks that could not fail. They are pinned and compared now.
-for _g in 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do
+# \U0001f534 ONE list, three uses. Adding a leg used to mean editing THREE places in lockstep --
+# this loop, the malformed-pin validation, and the ratchet pair list below. G19 was added to the
+# first only, on 2026-09-07: P_G19 was populated, nothing compared it, and the leg printed [FAIL]
+# while the gate emitted PASS-AT-PIN. That is precisely the "assigned and never read" defect
+# recorded above for G5..G16, reproduced by the very structure that was left in place after
+# fixing it. A leg cannot now half-land: it is in all three uses or in none.
+GLEGS="5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
+for _g in $GLEGS; do
   eval "P_G${_g}=\$(awk -F= '/^G${_g}=/{print \$2}' \"$PIN\")"
 done
-for v in "$P_G1" "$P_G2" "$P_G3" "$P_G4" "$P_G5" "$P_G6" "$P_G7" "$P_G8" "$P_G9" \
-         "$P_G10" "$P_G11" "$P_G12" "$P_G13" "$P_G14" "$P_G15" "$P_G16" "$P_G17" "$P_G18"; do
-  case "$v" in ''|*[!0-9]*) echo "  [FAIL] pin file is malformed"; echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1;; esac
+for _g in 1 2 3 4 $GLEGS; do
+  eval "_v=\$P_G${_g}"
+  case "$_v" in ''|*[!0-9]*)
+    echo "  [FAIL] pin file is malformed or has no G${_g} entry"
+    echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1;; esac
 done
 echo
 echo "== RATCHET vs $PIN =="
 ratchet=0; tighten=0
-for pair in "G1:${G1_N:-0}:$P_G1" "G2:${G2_N:-0}:$P_G2" "G3:${G3_N:-0}:$P_G3" "G4:${G4_N:-0}:$P_G4" \
-            "G5:${G5:-0}:$P_G5" "G6:${G6:-0}:$P_G6" "G7:${G7:-0}:$P_G7" "G8:${G8:-0}:$P_G8" \
-            "G9:${G9:-0}:$P_G9" "G10:${G10:-0}:$P_G10" "G11:${G11:-0}:$P_G11" \
-            "G12:${G12:-0}:$P_G12" "G13:${G13:-0}:$P_G13" "G14:${G14:-0}:$P_G14" \
-            "G15:${G15:-0}:$P_G15" "G16:${G16:-0}:$P_G16" "G17:${G17:-0}:$P_G17" \
-            "G18:${G18:-0}:$P_G18"; do
+# G1..G4 carry their counts in G<n>_N; G5 onward carry them in G<n>. Built from GLEGS so the
+# ratchet cannot fall behind the legs that exist.
+_PAIRS="G1:${G1_N:-0}:$P_G1 G2:${G2_N:-0}:$P_G2 G3:${G3_N:-0}:$P_G3 G4:${G4_N:-0}:$P_G4"
+for _g in $GLEGS; do
+  eval "_now=\${G${_g}:-0}; _pin=\$P_G${_g}"
+  _PAIRS="$_PAIRS G${_g}:${_now}:${_pin}"
+done
+for pair in $_PAIRS; do
   g=${pair%%:*}; rest=${pair#*:}; now=${rest%%:*}; pin=${rest##*:}
   if [ "$now" -gt "$pin" ]; then
     echo "  [FAIL] $g rose to $now from a pinned $pin — a NEW published-consistency defect"; ratchet=1

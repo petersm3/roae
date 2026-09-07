@@ -452,11 +452,24 @@ for sha in $SHAS; do
           _r167=0
           ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE bash -c '
               gcc -O2 -pthread -fopenmp -o ./solve_167 solve.c -lm -lz 2>/dev/null || exit 44
-              bash scripts/selftest_resume_167_gate.sh --solve ./solve_167' ); _r167=$?
+              bash scripts/selftest_resume_167_gate.sh --solve ./solve_167 || exit $?
+              # \U0001f534 The marker leg of --disk-precheck printed "present: PASS" for a bare
+              # stat() under a comment claiming it "proves the mount holds the canonical
+              # disk contents". A zero-byte file satisfied it. Identity is safety-critical here
+              # (a solver-data disk was destroyed by a wrong-disk operation on 2026-05-06), so a
+              # leg that READS as an attestation while performing none is the wrong thing to
+              # ship. Reuses ./solve_167 -- the mutants are rebuilt inside the gate, because a
+              # handed-in binary cannot carry a mutation. ~33 s on top of the #167 leg.
+              DISK_PRECHECK_SOLVE=./solve_167 bash scripts/disk_precheck_marker_gate.sh || exit 45' ); _r167=$?
           if [ "$_r167" -eq 44 ]; then
             echo "pre-push: 🔴 COULD NOT RUN — solve.c in pushed sha $short did not build for the"
             echo "         #167 gate. The compile gate above is the authority on WHY; this leg"
             echo "         reports only that it could not check, which is not a pass."
+            SHARC=1
+          elif [ "$_r167" -eq 45 ]; then
+            echo "pre-push: FAIL — scripts/disk_precheck_marker_gate.sh did not PASS on pushed sha"
+            echo "         $short: the --disk-precheck marker leg no longer reports its content, or"
+            echo "         a mutant that merely REWORDED the output without testing it survived."
             SHARC=1
           elif [ "$_r167" -ne 0 ]; then
             echo "pre-push: FAIL — #167 zero-yield resume gate rc=$_r167 on pushed sha $short."
