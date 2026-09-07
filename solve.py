@@ -11991,6 +11991,11 @@ def atlas_emit_v1(A, outdir):
                            "layers[%d].marginal_raw.pair%d" % (k, p))
             if _atlas_fault("v1-drop-pair") and k == 0 and m > 0:
                 m = 0          # test-only: breaks the column-sum == N gate
+            if _atlas_fault("v1-mod16") and k == 0 and m > 0:
+                # test-only (Q-314 item 2). +8 keeps the cell divisible by 8 and breaks 16.
+                # v1-drop-pair cannot test V1-16: it sets the cell to 0, and 0 is divisible
+                # by everything.
+                m += 8
             rows.append((k, k + 2, p, m, _atlas_f(_atlas_ratio(m, N)),
                          1 if kw_pair[k] == p else 0))
     return _atlas_write(os.path.join(outdir, "v1_field.tsv"),
@@ -12011,6 +12016,16 @@ def atlas_emit_v2(A, outdir):
             m = _atlas_layer_class(L, d, k)
             if _atlas_fault("v2-class-swap") and k == 0 and d in (1, 2):
                 m = _atlas_layer_class(L, 3 - d, k)   # test-only: swaps d1 <-> d2
+            if _atlas_fault("v2-mod48") and k == 0 and d == 1 and m:
+                # test-only (Q-314 item 2). +24 keeps the cell divisible by 24 and breaks
+                # 48, so it is invisible to every existing check and visible only to V2-48.
+                # The existing v2-class-swap fault CANNOT test this: a SWAP preserves
+                # divisibility exactly.
+                # d == 1, NOT d == 0: the distance-class column takes the values 1,2,3,4,6 --
+                # there is no class 0, because F1C5_CLS maps popcount->class and popcount 0 is
+                # impossible. Targeting d == 0 made this fault a silent no-op, and the gate
+                # caught it as "V2-48 did not fire" rather than passing.
+                m += 24
             rows.append((k, d, m, _atlas_f(_atlas_ratio(m, N)), kw_d[k]))
     river = _atlas_write(os.path.join(outdir, "v2_river.tsv"),
                          ["k", "d", "mass", "p", "kw_d"], rows)
@@ -13219,6 +13234,20 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                  N % 48,
                  [r.get("k", "?") for r in q10 if int(r["flow"]) % 48][:5]))
 
+        # ---- stabiliser arithmetic (Q-314 item 2) --------------------------
+        # 48 divides every V2 distance-class cell and 16 divides every RAW V1 cell. Both were
+        # MEASURED on the committed n=9 fixture before being wired -- 45 V2 cells and 288 V1
+        # cells, zero violations -- for the same reason as XA-48: a divisibility gate that goes
+        # red on arrival should make you doubt the CLAIM, not weaken the gate.
+        gate("V2-48: every distance-class cell divisible by 48",
+             all(int(r["mass"]) % 48 == 0 for r in v2),
+             "offending (k,d): %s" % [(r.get("k"), r.get("d")) for r in v2
+                                      if int(r["mass"]) % 48][:5])
+        gate("V1-16: every RAW per-pair cell divisible by 16",
+             all(int(r["mass"]) % 16 == 0 for r in v1),
+             "offending rows: %s" % [(r.get("k"), r.get("pair")) for r in v1
+                                     if int(r["mass"]) % 16][:5])
+
         # ---- layer 0 vs the branch table (independent of the DP path) -----
         l0 = {}
         for r in xa:
@@ -14135,7 +14164,8 @@ def main():
                         help="--atlas-selftest: keep the emitted tables in DIR instead of a tempdir")
     parser.add_argument("--atlas-fault", metavar="NAME", default=None,
                         choices=("v1-drop-pair", "v2-class-swap", "xa-drop-branch",
-                                 "q3-perturb", "q10-mod24", "q10-mod48", "ratio-zero"),
+                                 "q3-perturb", "q10-mod24", "q10-mod48", "v2-mod48",
+                                 "v1-mod16", "ratio-zero"),
                         help="TEST ONLY: deliberately corrupt one emitted column so the n=9 gate "
                              "can be shown able to fail (build-brief invariant 3). Never on a run.")
     parser.add_argument("--xa-nodes-per-sec", type=_ExactAnchor, default=None,

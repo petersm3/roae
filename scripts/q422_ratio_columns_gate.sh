@@ -5,7 +5,7 @@
 # WHY. Until 2026-09-05 every "cell-by-cell" gate in solve.py::atlas_selftest compared the integer
 # columns (mass, solutions, flow) and nothing else. Replace `_atlas_f` with a function returning "0"
 # and every derived ratio in every emitted table reads 0 -- V1, which plots float(r["p"]), draws an
-# empty field -- while all 25 consumer gates print PASS, ATLAS_CONSUMER=PASS, `tr12_repro.sh --n9`
+# empty field -- while all 27 consumer gates print PASS, ATLAS_CONSUMER=PASS, `tr12_repro.sh --n9`
 # reports TR12_REPRO=PASS and the committed golden scripts/tr12_expected/n9/c_consumer.txt is
 # byte-identical (MEASURED at 76e5d680: rows=60 pass=47 fail=0). Codex MQ1 section 2c (Sol) and
 # MQ1A finding 2 (Astra) reached it independently; adjudicated in roae-private
@@ -19,7 +19,7 @@
 #   leg 1  plain                       -> rc 0, ATLAS_CONSUMER=PASS, and the selftest transcript
 #                                         byte-identical to the golden's selftest block
 #   leg 2  --atlas-fault ratio-zero    -> rc 1, ATLAS_CONSUMER=FAIL, EXACTLY the five Q-422 gates
-#                                         FAIL and the 25 pre-existing gates still PASS (the fault
+#                                         FAIL and the 27 pre-existing gates still PASS (the fault
 #                                         corrupts derived cells only; an integer gate firing would
 #                                         mean the fault is not the one described)
 #   leg 3  the cell Astra computed      -> v2_river.tsv k=0 d=1 p == 0.54411764705882353, which is
@@ -114,11 +114,11 @@ verdict(){ # verdict <dir> ; 0 iff every leg behaves; explains on stderr-of-gate
   rc=$(consumer "$d" "$WORK/keep2" --atlas-fault ratio-zero)
   [ "$rc" = 1 ] && grep -qx 'ATLAS_CONSUMER=FAIL' "$WORK/last.out" || { echo "    leg 2 (ratio-zero) rc=$rc: the consumer did not FAIL on zeroed ratios: $(grep -E '^ATLAS_CONSUMER=|error:' "$WORK/last.out" | head -1)"; return 1; }
   nf=$(grep -cE '^\[atlas-consumer\] .* FAIL( |$)' "$WORK/last.out"); np=$(grep -cE '^\[atlas-consumer\] .* PASS$' "$WORK/last.out")
-  # 🔴 THIS COUNT IS A PIN AND MUST MOVE WITH THE CONSUMER. 24 -> 25 on 2026-09-07 when Q-314
+  # 🔴 THIS COUNT IS A PIN AND MUST MOVE WITH THE CONSUMER. 24 -> 25 -> 27 on 2026-09-07 when Q-314
   # item 1 added the XA-48 gate. A hardcoded total like this is exactly the kind of number that
   # goes stale silently, so it is asserted rather than approximated: if it disagrees, either a
   # gate was added (move the pin IN THE SAME COMMIT) or one vanished (do not move it).
-  [ "$nf" = 5 ] && [ "$np" = 25 ] || { echo "    leg 2 (ratio-zero): $nf FAIL / $np PASS gate lines, expected exactly 5 / 25"; return 1; }
+  [ "$nf" = 5 ] && [ "$np" = 27 ] || { echo "    leg 2 (ratio-zero): $nf FAIL / $np PASS gate lines, expected exactly 5 / 27"; return 1; }
   grep -E '^\[atlas-consumer\] .* FAIL' "$WORK/last.out" | grep -qE 'V1 p == marginal/N' || { echo "    leg 2 (ratio-zero): the V1 p gate (the plotted column) did not fire"; return 1; }
   return 0
 }

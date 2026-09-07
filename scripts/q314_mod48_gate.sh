@@ -82,5 +82,32 @@ else
   echo "  [ok]   leg 2: the mod-24 gate did NOT fire -- the fault isolates XA-48"
 fi
 
+# ---- legs 3 and 4: item 2's stabiliser gates, each with an ISOLATING fault ------------------
+# The pre-existing faults cannot test these. v2-class-swap SWAPS two class masses, and a swap
+# preserves divisibility exactly; v1-drop-pair sets a cell to 0, and 0 is divisible by everything.
+# So each new gate needs its own fault or it ships untestable.
+line2(){ grep -m1 'V2-48' "$WORK/last.out"; }
+line1(){ grep -m1 'V1-16' "$WORK/last.out"; }
+
+rc=$(run)
+line2 | grep -q 'PASS' && echo "  [ok]   leg 3: V2-48 present and passing on the clean atlas" \
+  || { echo "  [FAIL] leg 3: V2-48 absent or failing on a clean atlas: $(line2)"; bad=1; }
+line1 | grep -q 'PASS' && echo "  [ok]   leg 4: V1-16 present and passing on the clean atlas" \
+  || { echo "  [FAIL] leg 4: V1-16 absent or failing on a clean atlas: $(line1)"; bad=1; }
+
+rc=$(run --atlas-fault v2-mod48)
+if line2 | grep -q 'FAIL'; then echo "  [ok]   leg 3: V2-48 fired on the mod-48-only class fault"
+else echo "  [FAIL] leg 3: V2-48 did not fire on +24 to a class cell: $(line2)"; bad=1; fi
+if line1 | grep -q 'FAIL'; then
+  echo "  [FAIL] leg 3: V1-16 ALSO fired -- the fault does not isolate V2-48"; bad=1
+else echo "  [ok]   leg 3: V1-16 did NOT fire -- the fault isolates V2-48"; fi
+
+rc=$(run --atlas-fault v1-mod16)
+if line1 | grep -q 'FAIL'; then echo "  [ok]   leg 4: V1-16 fired on the mod-16-only raw fault"
+else echo "  [FAIL] leg 4: V1-16 did not fire on +8 to a raw cell: $(line1)"; bad=1; fi
+if line2 | grep -q 'FAIL'; then
+  echo "  [FAIL] leg 4: V2-48 ALSO fired -- the fault does not isolate V1-16"; bad=1
+else echo "  [ok]   leg 4: V2-48 did NOT fire -- the fault isolates V1-16"; fi
+
 [ "$bad" -eq 0 ] && echo "Q314_MOD48=PASS" || echo "Q314_MOD48=FAIL"
 exit "$bad"
