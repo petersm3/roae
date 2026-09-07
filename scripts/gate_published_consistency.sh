@@ -368,6 +368,29 @@ else
   echo "  [FAIL] G12: cannot read $_PH or $_T2 -- this leg measured NOTHING"; G12=1
 fi
 
+# ---- G13: "his exception is forced" must not outrun the fiber measurement ----------------------
+# 🔴 CD-A2, 2026-09-07. CITATIONS said Van den Berghe's DECLARED exception (pair 3/4) is forced. What
+# the fiber sweep shows is weaker and more interesting: reports/evidence/f5/f5_modec_fiber.out
+# records "X >= 30: 0" against 12 vectors at X = 29, so AN exception is forced -- no vector orients
+# all 30 pairs -- but across those 12 the single miss falls at six different pairs, and only 2 miss
+# at #3/4. A general result was being read as a vindication of one author's particular choice.
+G13=0
+_FB=${G13_FIBER:-reports/evidence/f5/f5_modec_fiber.out}
+_CT=${G13_DOC:-documentation/CITATIONS.md}
+if [ -r "$_FB" ] && [ -r "$_CT" ]; then
+  if ! grep -qE 'X >= 30: 0' "$_FB" 2>/dev/null; then
+    echo "  [FAIL] G13: $_FB no longer records X >= 30: 0 -- this leg measured NOTHING"; G13=1
+  elif grep -q 'his declared exception is forced' "$_CT" 2>/dev/null; then
+    echo "  [FAIL] G13: the declared (pair 3/4) exception is published as forced; the fiber sweep"
+    echo "         forces only THAT an exception exists -- the miss falls at six different pairs."
+    G13=1
+  else
+    echo "  [ok]   G13: the forced-exception claim is stated at the scope the fiber sweep supports"
+  fi
+else
+  echo "  [FAIL] G13: cannot read $_FB or $_CT -- this leg measured NOTHING"; G13=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it

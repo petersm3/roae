@@ -2468,7 +2468,7 @@ document (icrea site, Belgium; later fourpillars.net). [Archived](https://web.ar
   the vectors keeping the received (63, 0) opening, whose orientation is definitional rather than
   classically attested (narrowed 2026-09-01; §C4 above) — (12 vectors
   attain it; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided, 1.3951×10⁻⁵ two-sided), where 30/30 is
-  unattainable — **his declared exception is forced given the received opening orientation**, making
+  unattainable — **an exception is forced given the received opening orientation** ⚠ *(corrected 2026-09-07: what is measured is that NO fiber vector orients all 30 pairs — `reports/evidence/f5/f5_modec_fiber.out` records `X >= 30: 0`, against 12 vectors at X = 29. So an exception is forced. Which pair carries it is not: across those 12 vectors the single miss falls at six different pairs, and only 2 of the 12 miss at his #3/4. The earlier wording made a general result sound like a vindication of his specific choice.)*, making
   the rule perfect up to impossibility rather than "almost perfect". On the pair-only-C4 fiber
   (2,703,360 vectors, both openings; re-checked 2026-07-26) exactly 2 vectors attain 30/30, both
   opening (0, 63) — the minimal one reverses precisely the opening pair and his own exception pair

@@ -52,3 +52,5 @@ G10=1
 G11=0
 # G12 — a pre-registered gate must be quoted with its own threshold. Fixed 2026-09-07.
 G12=0
+# G13 — the forced-exception claim vs the fiber sweep. Fixed 2026-09-07.
+G13=0
