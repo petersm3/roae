@@ -138,9 +138,9 @@ The 29 analysis sections, each invoked by a single flag:
                    Wired into tests.py.
 --all              Run all 29 analyses (default if no flags given)
 --quick            Run core subset only (table, pairs, wave, barchart, ...)
---self-test        Run mathematical-invariant data-integrity checks (37 checks).
-                   Prints a "N passed, M failed, 37 total" tally. NOTE: a failing
-                   self-test still exits 0 — see EXIT STATUS.
+--self-test        Run mathematical-invariant data-integrity checks (49 checks).
+                   Prints a "N passed, M failed, 49 total" tally. A failing self-test
+                   EXITS 1, so it CAN gate CI — see EXIT STATUS.
 --help-sections    List all available analysis sections with one-line descriptions
 ```
 
@@ -465,8 +465,8 @@ Optional packages enable richer output:
 
 | Code | Meaning |
 |---|---|
-| 0 | Success. **Also returned when `--self-test` reports failures** — the tally and a `WARNING` line are printed, but the result is not wired to the exit status, so `--self-test` cannot be used as a CI gate. Parse stdout (`N failed`), not the exit code. |
-| 1 | `--verify` ground-truth failure — including the "could not load solve.py" failure when `--verify` is run from outside the repository directory |
+| 0 | Success, including a `--self-test` run in which every check passed. |
+| 1 | `--verify` ground-truth failure — including the "could not load solve.py" failure when `--verify` is run from outside the repository directory — **and a `--self-test` run with one or more failures**. 🔴 This table said the opposite until 2026-09-07: it claimed a failing self-test still exits 0 and that `--self-test` "cannot be used as a CI gate", instructing readers to parse stdout instead. The code has carried the opposite behaviour and an explicit comment saying so — `roae.py:5366` is `return 1 if print_self_test() else 0`, above the comment "exit non-zero when checks fail, so `roae.py --self-test` can gate CI". Measured, not inferred. Use the exit code: `python3 roae.py --self-test` is a valid gate. Recorded as **CX-40**. |
 | 2 | Invalid argument or unrecognised flag (emitted by `argparse`) |
 | 3 | `--prereg-h1h3` cross-check-gate failure (hard stop, no verdicts issued) — the only `sys.exit(3)` in `roae.py` |
 

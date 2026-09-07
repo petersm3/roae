@@ -513,16 +513,49 @@ if [ ! -r "$PIN" ]; then
   echo "  [FAIL] no pin file at $PIN — an UNPINNED ratchet certifies nothing"
   echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1
 fi
+# ---- G18: a conditional margin must not be quoted as if it were unconditional --------------------
+# 🔴 RF-A2, 2026-09-07. METHODS and RETRACTED_FIGURES stated the BH margin as a supported floor,
+# "≥~10×", while TR-8 -- the report they cite -- holds that BH reading CONDITIONAL on the rarity
+# counting as a ledger member and names the ~5× Bonferroni margin "the firmer of the two". Every
+# number is real and reproduces; what was dropped is the qualifier, so no arithmetic check could
+# see it. The leg anchors on TR-8 still SAYING that, so it cannot pass by tautology if the source
+# changes underneath it.
+G18=0
+_T8=${G18_SRC:-reports/TR8_REORDERING_REVISITED.md}
+_ASSERTERS=${G18_DOCS:-"reports/METHODS.md documentation/RETRACTED_FIGURES.tsv"}
+if [ -r "$_T8" ]; then
+  if grep -q 'conditional' "$_T8" 2>/dev/null && grep -q 'the firmer' "$_T8" 2>/dev/null; then
+    for _f in $_ASSERTERS; do
+      if [ ! -r "$_f" ]; then
+        echo "  [FAIL] G18: cannot read $_f -- this leg measured NOTHING"; G18=$((G18+1)); continue
+      fi
+      # grep -c, never grep -q on a pipe: -q exits on first match and a producer dies of SIGPIPE,
+      # which under `set -o pipefail` turns a MATCH into a failed pipeline.
+      if [ "$(grep -c '≥~10×' "$_f" 2>/dev/null)" -gt 0 ] \
+         && [ "$(grep -c 'firmer of the two' "$_f" 2>/dev/null)" -eq 0 ]; then
+        echo "  [FAIL] G18: $_f quotes the ≥~10× BH floor without TR-8's conditional"
+        G18=$((G18+1))
+      fi
+    done
+    [ "$G18" -eq 0 ] && echo "  [ok]   G18: the BH floor is quoted with its conditional wherever it is asserted"
+  else
+    echo "  [FAIL] G18: $_T8 no longer states the conditional/firmer wording -- this leg measured NOTHING"
+    G18=1
+  fi
+else
+  echo "  [FAIL] G18: cannot read $_T8 -- this leg measured NOTHING"; G18=1
+fi
+
 # shellcheck disable=SC1090
 P_G1=$(awk -F= '/^G1=/{print $2}' "$PIN"); P_G2=$(awk -F= '/^G2=/{print $2}' "$PIN"); P_G3=$(awk -F= '/^G3=/{print $2}' "$PIN"); P_G4=$(awk -F= '/^G4=/{print $2}' "$PIN")
 # 🔴 G5..G16 WERE ASSIGNED AND NEVER READ (found 2026-09-07). Twelve legs computed a count that
 # reached neither this ratchet nor `fail` nor the verdict: they printed [FAIL] lines while the gate
 # emitted PASS-AT-PIN and exit 0. Twelve checks that could not fail. They are pinned and compared now.
-for _g in 5 6 7 8 9 10 11 12 13 14 15 16 17; do
+for _g in 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do
   eval "P_G${_g}=\$(awk -F= '/^G${_g}=/{print \$2}' \"$PIN\")"
 done
 for v in "$P_G1" "$P_G2" "$P_G3" "$P_G4" "$P_G5" "$P_G6" "$P_G7" "$P_G8" "$P_G9" \
-         "$P_G10" "$P_G11" "$P_G12" "$P_G13" "$P_G14" "$P_G15" "$P_G16" "$P_G17"; do
+         "$P_G10" "$P_G11" "$P_G12" "$P_G13" "$P_G14" "$P_G15" "$P_G16" "$P_G17" "$P_G18"; do
   case "$v" in ''|*[!0-9]*) echo "  [FAIL] pin file is malformed"; echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1;; esac
 done
 echo
@@ -532,7 +565,8 @@ for pair in "G1:${G1_N:-0}:$P_G1" "G2:${G2_N:-0}:$P_G2" "G3:${G3_N:-0}:$P_G3" "G
             "G5:${G5:-0}:$P_G5" "G6:${G6:-0}:$P_G6" "G7:${G7:-0}:$P_G7" "G8:${G8:-0}:$P_G8" \
             "G9:${G9:-0}:$P_G9" "G10:${G10:-0}:$P_G10" "G11:${G11:-0}:$P_G11" \
             "G12:${G12:-0}:$P_G12" "G13:${G13:-0}:$P_G13" "G14:${G14:-0}:$P_G14" \
-            "G15:${G15:-0}:$P_G15" "G16:${G16:-0}:$P_G16" "G17:${G17:-0}:$P_G17"; do
+            "G15:${G15:-0}:$P_G15" "G16:${G16:-0}:$P_G16" "G17:${G17:-0}:$P_G17" \
+            "G18:${G18:-0}:$P_G18"; do
   g=${pair%%:*}; rest=${pair#*:}; now=${rest%%:*}; pin=${rest##*:}
   if [ "$now" -gt "$pin" ]; then
     echo "  [FAIL] $g rose to $now from a pinned $pin — a NEW published-consistency defect"; ratchet=1

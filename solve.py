@@ -12630,6 +12630,18 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
             verdicts["TR12_A5_ORBIT_COLUMNS"] = "SKIP:no-raw"
         else:
             verdicts["TR12_A5_ORBIT_COLUMNS"] = "PASS" if ok_orb else "FAIL:%s" % detail
+        # 🔴 Codex MQ1 §2b, second half, wired into the ARTIFACT 2026-09-07. The check above
+        # compares only the MULTISET of equal-column group sizes, so swapping two pairs between
+        # different orbits leaves its output byte-identical -- it cannot see the thing
+        # viz_kc_field.md:88 says it gates. atlas_orbit_membership() DOES see it, but until now it
+        # was reachable only from scripts/a5_orbit_membership_gate.sh, so the emitted verdict a
+        # reader actually sees was still the weak one. A strong check that the artifact does not
+        # carry is a check the artifact does not have.
+        ok_mem, detail_mem = atlas_orbit_membership(A)
+        if ok_mem is None:
+            verdicts["TR12_A5_ORBIT_MEMBERSHIP"] = "SKIP:no-raw"
+        else:
+            verdicts["TR12_A5_ORBIT_MEMBERSHIP"] = "PASS" if ok_mem else "FAIL:%s" % detail_mem
         if not quiet:
             print("[atlas] A5 orbit-column check: %s -- %s"
                   % (verdicts["TR12_A5_ORBIT_COLUMNS"], detail))

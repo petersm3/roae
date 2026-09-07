@@ -126,7 +126,7 @@
 19 total	TR-2 v1.19: §Extension said the certificate directory holds "19 total"; it holds 21 (certificates/README; TR-5 v2.1 records the intermediate 19→20 step).
 ~5,500×	TR-8 v1.9 (2026-08-01): the look-elsewhere aside overstated the factor by 10×. Correct is ~500× (0.05 / 1.054e-4 = 474).
 ≈10×	TR-10 v1.8 (2026-08-01, second pass): the BH margin for trigarray is WITHDRAWN — the extra ledger values were registry masses outside the 91-observable roster plus two zero-sampled-mass entries. The verdict is unchanged; only the margin is gone.
-~52×	TR-8 v1.11 / METHODS §"Statistics conventions" (2026-08-02): recorded and DECLINED. It is BH at rank i = 10, and rank 10 requires the nine registry masses METHODS withdrew from ranking on 2026-08-01. The supported statement is a floor, ≥~10×.
+~52×	TR-8 v1.11 / METHODS §"Statistics conventions" (2026-08-02): recorded and DECLINED. It is BH at rank i = 10, and rank 10 requires the nine registry masses METHODS withdrew from ranking on 2026-08-01. The supported statement is a floor, ≥~10× — which is BH-derived, and which TR-8 itself holds CONDITIONAL on reading this rarity as a ledger member, naming the ~5× Bonferroni margin "the firmer of the two" (TR8_REORDERING_REVISITED.md:72). Quote the floor with that conditional attached, never bare.
 marginal 4.6	TR-9 v1.7 (2026-07-10) restated the C2 marginal as 4.5 from unrounded operands; DESCRIPTION_LENGTH.md carries the same correction.
 net +1.6	TR-9 v1.7 (2026-07-10) restated the C2 net as ≈ 0 (break-even, sign-convention-dependent). It survived in TR-11 §4 until v1.14 and in TR-9's own draft-stage note until v1.20.
 +125	TR-9 v1.16 (2026-08-01): §5(a) quoted the comp∘rev-admitted low end as both "~+127" and "+125"; 146.3 − 19.0 = 127.3, so +127 is correct.

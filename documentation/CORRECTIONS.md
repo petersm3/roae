@@ -9272,6 +9272,44 @@ GATE 3 if it reappears anywhere in the corpus.
 
 ---
 
+## CX-39 — the n=9 battery was published as "the whole correctness argument" (RP-66e8e4e0)
+
+**2026-09-07 · C3 · `scripts/tr12_expected/README.md`, `documentation/VERIFY.md`**
+
+- **BEFORE:** both files described the n=9 reduced-universe battery using the sentence
+  registered as `RP-66e8e4e0` — not quoted here — which presented the battery as settling
+  correctness outright.
+- **NOW:** both state that the battery holds **two kinds of block**. A few are graded against
+  an **independently derived** value — an exact count, or an identity recomputed by a second
+  route — and those do test correctness. Most are **stability pins**: a block captured from a
+  first run and compared byte-for-byte afterwards. A stability pin that matches proves the
+  engine still emits what it emitted before, which is a regression check. **If the first
+  capture was wrong, every later run agrees with it forever.**
+- **Why it matters:** `scripts/tr12_repro.sh --n9 --regen` both **generates and grades**, so
+  the diff is the only place the distinction is visible. That is why the standing instruction
+  is to READ the diff rather than regenerate until it goes quiet — an instruction the old
+  wording quietly undercut by implying the battery was self-sufficient.
+- **No figure or verdict changed.** What changed is the strength of the claim made *for* the
+  apparatus, which had outrun what the apparatus does.
+- **How it was found:** Codex MQ1 §1, re-derived by reading `--regen` rather than the README.
+
+## CX-40 — a documented exit status was exactly inverted, disabling a working CI gate (RP-73edb84d)
+
+**2026-09-07 · C3 · `documentation/ROAE_PY_CLI.md`**
+
+- **BEFORE:** the flag table and the EXIT STATUS table carried the wording registered as
+  `RP-73edb84d`, and told readers `--self-test` "cannot be used as a CI gate" and to parse
+  stdout (`N failed`) instead of the exit code.
+- **NOW:** a failing `--self-test` **exits 1**, and the doc says so. `roae.py:5366` is
+  `return 1 if print_self_test() else 0`, directly under the comment *"exit non-zero when
+  checks fail, so `roae.py --self-test` can gate CI"*. Measured, not inferred: a passing run
+  exits 0. The check count was wrong in the same breath — **49**, not the documented 37.
+- **Why it matters:** this is the rare documentation defect that **subtracts a working
+  capability**. The gate existed, the code was written deliberately to provide it, and the
+  documentation talked readers out of using it and into a brittle stdout scrape.
+- **How it was found:** the Q-410 CLI description-accuracy sweep, comparing every declared
+  flag against the argparse surface rather than against the prose.
+
 ## CX-38 — a lapse was published as seven times longer than it was (RP-544197de)
 
 **2026-09-07 · C3 · `documentation/CLAIM_TO_ARTIFACT.md`**

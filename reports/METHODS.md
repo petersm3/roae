@@ -340,7 +340,9 @@ which is what produced every published figure — with the divergence disclosed:
   number, [TR-8](TR8_REORDERING_REVISITED.md) §Executive summary): a per-rule rarity of 1.054×10⁻⁴ clears
   the global bar by **~5×** under Bonferroni and by **≥~10×** under BH at q = 0.05 — the BH figure is a
   floor, not a point, because only *i* ≥ 2 is supported (forced by `dav_rotinv` at 6.5×10⁻⁵ being strictly
-  smaller and inside the roster). A **~52×** figure for that same rarity circulated in draft; it is BH at
+  smaller and inside the roster). TR-8 holds that BH reading **conditional** on this rarity counting as a
+  ledger member, and on that ground names the **~5× Bonferroni margin the firmer of the two**; quote the
+  BH floor with that conditional attached rather than bare. A **~52×** figure for that same rarity circulated in draft; it is BH at
   rank *i* = 10, which requires nine strictly-smaller values, and the only nine available are the registry
   masses the narrowing above **withdrew from ranking** — so ~52× is not publishable on this ledger and TR-8
   does not carry it. The asymmetry runs deeper than size: that TR-8 rarity is itself a literature-rule
