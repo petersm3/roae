@@ -202,7 +202,14 @@ see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)) — still admit
 space-uniqueness distinction this document has always cautioned about. Extrapolating the roughly constant
 ~10³ per-boundary cut put full-space uniqueness at roughly 13–14 boundaries; the 2026-07-05 S(6)–S(8)
 measurement (TR-4 §"the marginal-gain curve bends") shows the gains decline past k=5, revising the
-projection to ~15–20 (observed-rate extrapolation ~12; see the note below — it is not a lower bound). A bracketing exploration choosing among the *weakest* remaining boundaries
+projection to ~15–20 (observed-rate extrapolation ~12; see the note below — it is not a lower bound).
+⚠ **But no number of these boundaries reaches ORIENTED uniqueness, and this projection did not say so
+until 2026-09-07.** A boundary constraint fixes pair IDENTITY; the orientation bit per pair is untouched.
+Measured with every one of the 31 pinnable steps pinned, C6/C7 on or off: **1,720,320 orientations
+survive** — the same C4-oriented fiber already published at `TR1_EIGHT_CENTURIES_MEASURED.md:333`. That
+is **log₂(1,720,320) ≈ 20.71 bits** these boundaries cannot close, so of the ≈105 bits they can reach at
+most ≈84.65. The projection is sound for the pair-ordering object and cannot be read as a route to a
+unique oriented sequence. A bracketing exploration choosing among the *weakest* remaining boundaries
 (k = 5–8) reported roughly ×15–17 per boundary, but ⚠ **that band is not reproducible from published
 material and is offered as illustration, not measurement** (restated 2026-09-02; both archived S(k)
 artifacts, `reports/evidence/sk/sk5_7_rounds.out` and `sk8_round.out`, are *greedy* chains, no

@@ -391,6 +391,31 @@ else
   echo "  [FAIL] G13: cannot read $_FB or $_CT -- this leg measured NOTHING"; G13=1
 fi
 
+# ---- G14: a boundary-count projection must not imply ORIENTED uniqueness ------------------------
+# 🔴 SSS-A1, 2026-09-07. SEARCH_SPACE_SIZE projected ~15-20 boundaries to full-space uniqueness. A
+# boundary fixes pair IDENTITY and leaves the orientation bit alone: with all 31 pinnable steps
+# pinned, 1,720,320 orientations survive -- the C4-oriented fiber already published at
+# TR1_EIGHT_CENTURIES_MEASURED.md:333, and log2 of it is 20.71 bits no boundary count can close.
+# The projection is fine for the pair-ordering object; it must not read as a route to a unique
+# oriented sequence.
+G14=0
+_S14=${G14_DOC:-documentation/SEARCH_SPACE_SIZE.md}
+_T14=${G14_TR1:-reports/TR1_EIGHT_CENTURIES_MEASURED.md}
+if [ -r "$_S14" ] && [ -r "$_T14" ]; then
+  if ! grep -q '1,720,320' "$_T14" 2>/dev/null; then
+    echo "  [FAIL] G14: TR-1 no longer publishes the 1,720,320 fiber -- this leg measured NOTHING"; G14=1
+  elif grep -qE 'projection to ~15–20|projection to ~15-20' "$_S14" 2>/dev/null \
+       && ! grep -q '31 pinnable steps pinned' "$_S14" 2>/dev/null; then
+    echo "  [FAIL] G14: a boundary-count projection is published without the oriented-fiber floor;"
+    echo "         1,720,320 orientations survive all 31 pins = 20.71 bits no boundary count closes."
+    G14=1
+  else
+    echo "  [ok]   G14: the boundary projection records the oriented-fiber floor it cannot cross"
+  fi
+else
+  echo "  [FAIL] G14: cannot read $_S14 or $_T14 -- this leg measured NOTHING"; G14=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it
