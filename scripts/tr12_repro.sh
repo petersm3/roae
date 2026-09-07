@@ -209,6 +209,13 @@ V3K="${TR12_V3_K:-$V3K_DEF}"
 # ================================================================================================
 norm(){
     local -a s=( -e "s#\\x00##g" )   # never empty: set -u would reject "${s[@]}" on an empty array
+    # 🔴 Q-92, 2026-09-07. These substitutions exist because the ATLAS embedded absolute ladder
+    # paths, so the artifact differed between hosts and the diff had to normalise them away. That
+    # normalisation is exactly why the defect survived: the battery stayed green while the artifact
+    # the query program exists to produce was not sha-comparable across machines. The atlas now
+    # emits BASENAMES and its golden asserts them literally ("fdir": "f"), so the portability is
+    # CHECKED rather than erased. The rules stay for the other paths in the raw logs -- OUT, WORK,
+    # SOLVE, REPO, and the chunk writer, which still binds merge identity on the full path.
     [ -n "$FDIR" ]      && s+=( -e "s#${FDIR}#<FDIR>#g" )
     [ -n "$GDIR" ]      && s+=( -e "s#${GDIR}#<GDIR>#g" )
     [ -n "$TDIR" ]      && s+=( -e "s#${TDIR}#<TDIR>#g" )

@@ -62,8 +62,14 @@ fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
 # grep, a moved battery), which would silently fall back to hashing CORE alone and read green.
 # So the check is on the derivation, and it fails when the derivation stops working.
 fingerprint_coverage_check(){
-  local n known_missing=""
-  n=$(derived_inputs | wc -l)
+  # 🔴 CAPTURE ONCE. This called derived_inputs FOUR times and piped each into `grep -q`, which
+  # closes the pipe on first match and SIGPIPEs the producer mid-loop. The result was an
+  # INTERMITTENT failure -- "no longer sees: solve.py" on one run, "sat.py" on the next, both while
+  # the derivation was demonstrably fine when run alone. A flaky gate is worse than no gate: it
+  # teaches people to re-run until green, which is how a real failure gets waved through.
+  local n known_missing="" _derived
+  _derived=$(derived_inputs)
+  n=$(printf '%s\n' "$_derived" | grep -c .)
   if [ "$n" -lt 5 ]; then
     echo "  [FAIL] the input derivation returned $n file(s); it found 9 on 2026-09-07."
     echo "         A derivation that stops working degrades SILENTLY to hashing the curated core,"
@@ -72,7 +78,7 @@ fingerprint_coverage_check(){
   fi
   # the battery demonstrably calls these; if the derivation cannot see them it is broken
   for f in solve.py verify.py sat.py; do
-    derived_inputs | grep -qx "$f" || known_missing="$known_missing $f"
+    printf '%s\n' "$_derived" | grep -qx "$f" || known_missing="$known_missing $f"
   done
   if [ -n "$known_missing" ]; then
     echo "  [FAIL] the derivation no longer sees:$known_missing — the battery calls these"

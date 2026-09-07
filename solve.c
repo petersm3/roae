@@ -27529,6 +27529,24 @@ static void kc_h_scan_b0_str(const KC *kc, char *out, size_t cap) {
 }
 
 /* Write one chunk file. Returns 0 ok, -1 on IO / missing sha256 tool. */
+/* Q-92: the atlas embedded ABSOLUTE ladder paths, so two CORRECT runs on different
+ * machines -- or the same machine with a different mktemp dir -- produced byte-different
+ * atlas.json and could never be compared by a plain sha256sum. Measured: fdir =
+ * "/tmp/tr12repro.M2ZJcc/f". The artifact the query program exists to produce was not
+ * byte-comparable across hosts, and tr12_repro.sh's normaliser hid it from the battery,
+ * which is exactly why it persisted.
+ *
+ * Emit the BASENAME. Chunk identity does not rest on this: --kc-scan-merge binds chunks
+ * with pl_hash, N_total, b0, engine_git AND the per-layer decompressed-stream digests --
+ * all CONTENT-bound. fdir/gdir were the only LOCATION-bound fields, and location is not
+ * provenance. */
+static const char *kc_h_dir_basename(const char *p) {
+    const char *b;
+    if (!p || !*p) return p;
+    b = strrchr(p, '/');
+    return (b && b[1]) ? b + 1 : p;
+}
+
 static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC *fkc,
                                  const char *fdir, const char *gdir, const char *tdir,
                                  int want_raw, int k_lo, int k_hi, double elapsed) {
@@ -27628,12 +27646,12 @@ static void kc_h_scan_write_atlas(FILE *f, const KcScanTab *T, const KC *fkc,
         fprintf(f, "  \"n\": %d,\n", n);
         f1_dec(fkc->total, t);
         fprintf(f, "  \"N_total\": \"%s\",\n", t);
-        kc_h_json_escape(fdir, esc, sizeof(esc));
+        kc_h_json_escape(kc_h_dir_basename(fdir), esc, sizeof(esc));
         fprintf(f, "  \"fdir\": \"%s\",\n", esc);
-        kc_h_json_escape(gdir, esc, sizeof(esc));
+        kc_h_json_escape(kc_h_dir_basename(gdir), esc, sizeof(esc));
         fprintf(f, "  \"gdir\": \"%s\",\n", esc);
         if (tdir) {
-            kc_h_json_escape(tdir, esc, sizeof(esc));
+            kc_h_json_escape(kc_h_dir_basename(tdir), esc, sizeof(esc));
             fprintf(f, "  \"tdir\": \"%s\",\n", esc);
         }
         fprintf(f, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(&fkc->c));
