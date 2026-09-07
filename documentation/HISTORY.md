@@ -6817,7 +6817,7 @@ medium being checked. It is now three files — `MANIFEST.sha256`, `MANIFEST.md5
 each in the native format of the standard checksum tool for that digest, so a recipient can check the medium with coreutils alone rather than with a script that shipped on it. (The exact invocation, and which framing era it assumes, is stated on the medium in `VERIFY.md` rather than here.) Verified by
 rebuilding the combined file from the three and diffing: 65/65 rows identical for all three stages.
 
-**`VERIFY.sh` was hardened against the ways a checker lies.** It counts first, because `sha256sum -c`
+**`VERIFY.sh` was hardened against the ways a checker lies.** It counts first, because the standard per-file checksum verifier
 reports OK for every row it finds and says nothing about a row deleted along with its file. It reads
 each file once for both digests rather than reading 15 TB twice. It looks for files that should not
 be present, since curation is a step that can be got wrong quietly. It **clones** `src/roae.bundle`
