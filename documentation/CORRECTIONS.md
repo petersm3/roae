@@ -88,6 +88,21 @@ the SHA-256 of the retracted string, as it appears in
 [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv)) rather than quoted, because quoting them here would
 reintroduce the exact strings that `scripts/doc_gates.sh retract` exists to keep out of the corpus.
 
+**Sibling search — a field added to the entry convention above, 2026-09-07, binding new
+entries only.** The line above is left exactly as published: this ledger is append-only over
+every committed version, so the convention is extended by appending, not by editing the
+sentence that states it. A fix
+record that names no search is incomplete: it says a defect was repaired without
+saying whether the same defect lives anywhere else. So an entry recording a fix
+carries one line — *the command actually run, the number of sites it returned,
+and the number repaired.* Search for **the construction, not the string that
+happened to appear**: a repair keyed to the spelling it was first seen in is the
+recurring failure this field exists to stop. **A search that finds nothing still
+discharges the requirement** — "swept, no siblings" is a result; silence is not.
+The requirement does not apply to a withdrawal or a demotion, where a claim is
+retired rather than a defect repaired, and it is **not applied retroactively**:
+the entries above predate it and are not being re-opened.
+
 ---
 
 ### CX-01 · 2026-04-09 · C1 · complement distance: direction reversed
