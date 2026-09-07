@@ -139,6 +139,33 @@ else
   echo "   [FAIL] documentation/CORRECTIONS.md unreadable — cannot check propagation"; fail=1; G4_N=999
 fi
 
+# ---- G5: a published histogram figure must come from the section it cites ----------------------
+# 🔴 LB-A4, 2026-09-07. LEADERBOARD published distance-3 = 6, drawn from section [24] -- a
+# nearest-neighbour catalog CAPPED AT THE TOP 50. The true count is in section [28], the full
+# histogram, IN THE SAME FILE, and it is 50. A cutoff was published as a count. The same note also
+# said the full distribution "has not yet been computed", which that file refutes on its own.
+# This leg re-reads the artifact and compares, so the table cannot drift from its own source again.
+G5=0
+_ART=enumeration/analyze_sec25fix_742M.txt
+_LB=enumeration/LEADERBOARD.md
+if [ -r "$_ART" ] && [ -r "$_LB" ]; then
+  for d in 0 2 3; do
+    want=$(awk -v D="$d" '/^\[28\] Edit-distance/,0 { if ($1==D && $2=="|") { gsub(",","",$3); print $3; exit } }' "$_ART")
+    # anchor to the distance table -- "| 2 |" occurs in other tables earlier in the file, and the
+    # first match anywhere was reading the wrong row (measured: distance-2 read as 34, not 44).
+    got=$(awk -v D="$d" -F'|' '/Positions different/{t=1} t && $0 ~ /^\| *'"$d"' *\|/ { gsub(/[^0-9]/,"",$3); print $3; exit }' "$_LB")
+    [ -n "$want" ] && [ -n "$got" ] || continue
+    if [ "$want" != "$got" ]; then
+      echo "  [FAIL] G5: LEADERBOARD publishes distance-$d = $got; $_ART section [28] says $want"
+      G5=$((G5+1))
+    fi
+  done
+  [ "$G5" -eq 0 ] && echo "  [ok]   G5: published distance counts match section [28] of the artifact they cite"
+else
+  echo "  [FAIL] G5: cannot read $_ART or $_LB -- this leg measured NOTHING"
+  G5=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it

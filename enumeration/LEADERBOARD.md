@@ -104,10 +104,10 @@ The edit distance distribution (number of pair positions differing from King Wen
 | 0 | 4 | King Wen itself (orient variants) |
 | 1 | 0 | No valid ordering is 1 swap from KW |
 | 2 | 44 | Closest alternatives — single pair-swaps in positions 21-32 |
-| 3 | 6 | |
-| 4+ | ~742,043,249 | Bulk of solutions |
+| 3 | **50** | *(was published as 6 — that was the §[24] top-50 catalog's cutoff, not a count)* |
+| 4+ | 742,043,205 | Bulk of solutions |
 
-**Note:** The edit-distance distribution above is from the `--analyze` section [24] nearest-neighbor catalog on the 742M dataset. Only distances 0-3 have been exactly counted; the full distribution has not yet been computed at 742M scale. (The earlier table showing counts summing to ~5.9B was from the pre-bugfix 31.6M era and is no longer valid.)
+**Note, corrected 2026-09-07:** distances 0–3 above are now the exact counts from `analyze_sec25fix_742M.txt` **§[28]**, the full edit-distance histogram. The earlier table drew them from **§[24]**, a nearest-neighbour catalog capped at the top 50 — so its distance-3 entry was a **cutoff artifact (6), not a count (50)**. ⚠ The earlier note also said the full distribution *had not been computed at 742M scale*; it had, and it sits in the very file the table cites. §[28] gives all 31 occupied distances (0, then 2–31; **distance 1 is empty**), totalling 742,043,303, with the mode at **distance 30 — 154,591,438 records, 20.83%**. (The earlier table showing counts summing to ~5.9B was from the pre-bugfix 31.6M era and is no longer valid.)
 
 Most valid orderings look **nothing like** King Wen. King Wen is not
 "typical" among valid orderings; it sits at one extreme.
