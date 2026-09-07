@@ -12905,6 +12905,84 @@ def atlas_orbit_columns(atlas):
     return (len(groups), sizes, ok, detail)
 
 
+def pair_orbit_partition():
+    """The G48 pair-orbit partition of the 31 free pairs, in King Wen pair order.
+
+    DERIVED HERE from this module's own group machinery -- `_tg_g48()` (the
+    centralizer of bit-reversal in S6) acting on `king_wen_pairs()` -- and never
+    read from solve.c's printed `[f1] pair-orbits ...` line.  Hardcoding that
+    answer would be VERIFIER CLOSURE: the checker would be handed its witness by
+    the very thing it is meant to check (Codex N07).
+
+    That the two agree is then a real cross-check rather than a tautology.  The
+    index convention matters and is easy to get wrong: solve.c indexes pairs by
+    KING WEN ORDER (`pairs[p] = (KW[2p], KW[2p+1])`, solve.c:68), so
+    `king_wen_pairs()` is the matching constructor.  `build_pairs()` indexes by
+    ascending hexagram value and yields the SAME SEVEN ORBIT SIZES with DIFFERENT
+    MEMBERS -- a relabelling that would silently produce a wrong gate.
+    """
+    kw = king_wen_pairs()
+    idx = {h: i for i, pr in enumerate(kw) for h in pr}
+    par = list(range(32))
+
+    def find(x):
+        while par[x] != x:
+            par[x] = par[par[x]]
+            x = par[x]
+        return x
+
+    for perm in _tg_g48():
+        for i, pr in enumerate(kw):
+            a, b = find(i), find(idx[_tg_apply_perm(perm, pr[0])])
+            if a != b:
+                par[a] = b
+    orb = {}
+    for i in range(1, 32):
+        orb.setdefault(find(i), []).append(i)
+    return sorted((tuple(v) for v in orb.values()), key=lambda v: (len(v), v))
+
+
+def atlas_orbit_membership(atlas):
+    """A-5 second half (Q-421 / Codex MQ1 2b): WHICH pairs share a column.
+
+    `atlas_orbit_columns()` compares the MULTISET of equal-column group sizes
+    against the published (3,3,3,4,6,6,6).  Swapping two pairs drawn from two
+    DIFFERENT orbits of the SAME size leaves that multiset -- and the whole of
+    that function's output -- byte-identical, so it passes on a field that is
+    wrong.  This checks the PARTITION instead: two pairs share a column if and
+    only if they lie in the same G48 pair-orbit.
+
+    Returns (ok, detail).
+    """
+    layers = atlas.get("layers") or []
+    raw = [{k: int(v) for k, v in (L.get("marginal_raw") or {}).items()}
+           for L in layers]
+    present = sorted({p for r in raw for p in r}, key=lambda t: int(t[4:]))
+    if not present:
+        return (None, "marginal_raw not emitted (--kc-raw absent?)")
+    col = {p: tuple(r.get(p, 0) for r in raw) for p in present}
+    orbit_of = {}
+    for oi, members in enumerate(pair_orbit_partition()):
+        for m in members:
+            orbit_of["pair%d" % m] = oi
+    unknown = [p for p in present if p not in orbit_of]
+    if unknown:
+        return (None, "pairs outside the 31 free pairs: %s" % unknown[:4])
+    bad = []
+    for i, a in enumerate(present):
+        for b in present[i + 1:]:
+            same_col = col[a] == col[b]
+            same_orb = orbit_of[a] == orbit_of[b]
+            if same_col != same_orb:
+                bad.append("%s/%s: column %s, orbit %s"
+                           % (a, b, "same" if same_col else "differ",
+                              "same" if same_orb else "differ"))
+    if bad:
+        return (False, "%d membership violation(s): %s" % (len(bad), "; ".join(bad[:3])))
+    return (True, "%d pair(s): equal-column grouping == G48 pair-orbit partition"
+                  % len(present))
+
+
 def atlas_failed_verdicts(verdicts):
     """The keys whose verdict is a FAILURE, sorted.  A verdict fails iff its token is
     exactly `FAIL` or begins `FAIL:`.
