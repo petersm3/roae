@@ -52,9 +52,22 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 PYTHONPATH="$PWD" python3 - <<'PY'
-import os, sys, tempfile
+import json, os, sys, tempfile
 from fractions import Fraction
 import solve
+
+# \U0001f534 A REAL certificate file, not a string stub. The stub used to be the literal
+# "STUB-FOR-ARITHMETIC-GATE-ONLY", which worked only while the refusal guard tested that a
+# path STRING had been supplied and never opened it. The day that guard learned to read the
+# file (Q-433), every fixture here stopped reaching the priced branch and this gate went
+# ERROR -- correctly. The lesson is the gate's own: a fixture that satisfies a check by being
+# shaped like evidence rather than by being evidence fails the moment the check gets honest.
+_CERT = os.path.join(tempfile.mkdtemp(), "node_mapping_cert.json")
+with open(_CERT, "w", encoding="utf-8") as _fh:
+    json.dump({"node_convention": {"solve_node_limit_mapping":
+               "xa_exact_verdict_gate.sh fixture: 1 t-unit == 1 SOLVE_NODE_LIMIT node. This "
+               "asserts the map ONLY so the pricing ARITHMETIC downstream can be graded; it "
+               "is not a W0-D certificate and must never be copied into a real run."}}, _fh)
 
 K = solve.binary_hexagrams
 rc = 0
@@ -77,7 +90,7 @@ def price(nodes, nps, uph, budget, hedge="1", wf="1"):
             # t-unit -> SOLVE_NODE_LIMIT refusal (B17) is a separate, upstream question and is
             # exercised by its own fixture below; a stub cert here keeps this leg measuring the
             # thing it exists to measure instead of reporting "measured NOTHING".
-            "node_mapping_cert": "STUB-FOR-ARITHMETIC-GATE-ONLY",
+            "node_mapping_cert": _CERT,
             "note":          "xa_exact_verdict_gate.sh boundary fixture"}
     with tempfile.TemporaryDirectory() as d:
         solve.atlas_emit_xa(A, d, cost=cost, atlas_path="xa_exact_verdict_gate.json")
@@ -171,7 +184,7 @@ def _run(c):
         solve.atlas_emit_xa(_A, d, cost=c, atlas_path="refusal_leg.json")
         return open(os.path.join(d, "xa_verdict.md")).read()
 _without = _run(dict(_base))
-_with    = _run(dict(_base, node_mapping_cert="STUB-FOR-GATE"))
+_with    = _run(dict(_base, node_mapping_cert=_CERT))
 _bad = []
 if "PENDING" not in _without or "W0-D" not in _without or "node_mapping_cert" in _without:
     _bad.append("no cert supplied but the emitted verdict does not name the W0-D refusal")
@@ -229,5 +242,13 @@ else:
 sys.exit(rc)
 PY
 rc=$?
-[ "$rc" -eq 0 ] || { echo "XA_EXACT_VERDICT=FAIL"; exit "$rc"; }
-echo "XA_EXACT_VERDICT=OK"
+# \U0001f534 ONE verdict token per run. The python body already prints XA_EXACT_VERDICT=ERROR
+# and exits 2 when it measured nothing; this wrapper used to add =FAIL on top, so a single run
+# emitted TWO tokens and `grep -qx` could not tell "the gate found a fault" from "the gate
+# measured nothing" -- which is the exact distinction ERROR exists to carry.
+case "$rc" in
+  0) echo "XA_EXACT_VERDICT=OK" ;;
+  2) : ;;                        # the body already emitted =ERROR
+  *) echo "XA_EXACT_VERDICT=FAIL" ;;
+esac
+exit "$rc"

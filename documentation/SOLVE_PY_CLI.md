@@ -567,14 +567,26 @@ $B/solve --kc-t-build $B/f $B/t
 $B/solve --kc-scan    $B/f $B/g $B/atlas.json --kc-tdir $B/t
 $B/solve --kc-enum    $B/f | grep -v '^\[' > $B/walks.txt        # 26,112 walks
 python3 solve.py --atlas-selftest $B/atlas.json --atlas-walks $B/walks.txt
-# ... 26 gates (29 with --atlas-q3-trace); expect: ATLAS_CONSUMER=PASS
+# ... 31 gates (34 with --atlas-q3-trace); expect: ATLAS_CONSUMER=PASS
 ```
 
 Every emitted table is re-derived from that **explicit enumeration** and
 diffed against the TSV read back off disk — not against the in-memory atlas.
-Adding `--atlas-fault v2-class-swap` (or any of the other six faults) makes
-the gate print `ATLAS_CONSUMER=FAIL` and exit 1; the class-swap fault is
-caught **only** by the brute-force leg, which is the point of having one.
+Adding `--atlas-fault v2-class-swap` (or any of the other eight faults) makes
+the gate print `ATLAS_CONSUMER=FAIL` and exit 1.
+
+🔴 **The class-swap fault used to be caught ONLY by the brute-force leg**, and
+this paragraph said so. That was a load-bearing weakness rather than a
+curiosity: brute force means explicitly enumerating every walk, which exists
+at n=9 and **cannot exist at n=31**, so the one fault that moves mass between
+distance classes was invisible in exactly the regime the published numbers come
+from. Every V1/V2/V5/Q6 gate was HORIZONTAL — it sums one layer across classes
+and compares to `N_total`, and a swap inside a layer preserves that sum.
+Two VERTICAL legs (`V2-B0`, Q-314 item 3) now sum one class DOWN the layers and
+catch it with no walks at all. MEASURED on the n=9 atlas: under
+`--atlas-fault v2-class-swap` with no `--atlas-walks`, the two `V2-B0` legs are
+the **only** failures — every pre-existing gate stays green, which is what makes
+them new coverage rather than a second opinion.
 
 🔴 **WHAT "diffed" COVERS, EXACTLY.** This paragraph said "diffed **cell by
 cell**" without qualification, and **that was false as written until

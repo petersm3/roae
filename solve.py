@@ -12017,8 +12017,13 @@ def atlas_emit_v2(A, outdir):
             if _atlas_fault("v2-class-swap") and k == 0 and d in (1, 2):
                 m = _atlas_layer_class(L, 3 - d, k)   # test-only: swaps d1 <-> d2
             if _atlas_fault("v2-mod48") and k == 0 and d == 1 and m:
-                # test-only (Q-314 item 2). +24 keeps the cell divisible by 24 and breaks
-                # 48, so it is invisible to every existing check and visible only to V2-48.
+                # test-only (Q-314 item 2). +24 keeps the cell divisible by 24 and breaks 48.
+                # MEASURED 2026-09-07, no-walks configuration: this fault trips FOUR gates -- the
+                # V2 layer-sum, the per-layer flow check, V2-48, and (since today) V2-B0 -- while
+                # V1-16 stays green. This comment used to read "invisible to every existing check
+                # and visible only to V2-48", which overstated it: +24 changes a layer total, so
+                # the horizontal V2 gate sees it too. The asymmetry the gate script actually
+                # asserts, and the only one it needs, is V2-48 fires while V1-16 does not.
                 # The existing v2-class-swap fault CANNOT test this: a SWAP preserves
                 # divisibility exactly.
                 # d == 1, NOT d == 0: the distance-class column takes the values 1,2,3,4,6 --
@@ -12201,6 +12206,68 @@ def _xa_exact(v):
     return e if isinstance(e, Fraction) else Fraction(v)
 
 
+_XA_CERT_KEY = "solve_node_limit_mapping"
+
+
+def _xa_node_mapping_cert_defect(path):
+    """None if `path` is a usable W0-D mapping certificate, else WHY it is not.
+
+    \U0001f534 Q-433 sibling, 2026-09-07. The guard below used to be
+    `cost.get("node_mapping_cert") is None` -- it tested that a PATH STRING had been
+    supplied and NEVER OPENED THE FILE. `--xa-node-mapping-cert /does/not/exist.json`
+    was therefore enough to unblock an EXHAUSTIBLE/INFEASIBLE verdict, which is weaker
+    than `test -f`: not even existence stood between a flag and a published number.
+    That is the identical class-A defect ("the artifact is present" standing in for
+    "the artifact says what we need") that the hardening backlog is draining elsewhere,
+    sitting one level down in the consumer.
+
+    NO SCHEMA IS INVENTED HERE, deliberately -- an invented key name would be a check
+    that reads FALSE forever, which is worse than none. We anchor on the ONE key this
+    repository actually emits: `solve --kc-t-cert` writes `solve_node_limit_mapping`,
+    and writes it with the value "NOT CLAIMED HERE - ...". So the instrument's own
+    output is refused BY ITS OWN DISCLAIMER, and a certificate that never mentions the
+    mapping at all is refused for not speaking to the thing it is authorising.
+    """
+    import json
+
+    if path is None:
+        return "no certificate was supplied"
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except FileNotFoundError:
+        return "the certificate path %r does not exist" % (path,)
+    except ValueError as exc:
+        return "the certificate %r is not parseable JSON (%s)" % (path, exc)
+    except OSError as exc:
+        return "the certificate %r could not be read (%s)" % (path, exc)
+
+    def find(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == _XA_CERT_KEY:
+                    return [v]
+                hit = find(v)
+                if hit:
+                    return hit
+        elif isinstance(node, list):
+            for v in node:
+                hit = find(v)
+                if hit:
+                    return hit
+        return []
+
+    hit = find(doc)
+    if not hit:
+        return ("the certificate %r never mentions %s, so it does not certify the map "
+                "it is being used to authorise" % (path, _XA_CERT_KEY))
+    if isinstance(hit[0], str) and "NOT CLAIMED HERE" in hit[0]:
+        return ("the certificate %r is the `solve --kc-t-cert` output, whose own %s field "
+                "reads \"NOT CLAIMED HERE\" -- it disclaims exactly the mapping being "
+                "relied on here" % (path, _XA_CERT_KEY))
+    return None
+
+
 # --------------------------------------------------------------------------
 # XA -- the exhaustion atlas (TR-12 section 3): branch table + verdict
 # --------------------------------------------------------------------------
@@ -12270,7 +12337,7 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
         if not t_have:
             fh.write("**PENDING** -- no t-ladder in this atlas, so there is no node cost to price.\n")
             verdict = "PENDING:--kc-t-build"
-        elif cost is None or cost.get("node_mapping_cert") is None:
+        elif cost is None or _xa_node_mapping_cert_defect(cost.get("node_mapping_cert")):
             # 🔴 REFUSE. Pricing t-units as production-DFS nodes is a SCIENTIFIC VERDICT resting on
             # a map that nothing certifies: `solve --kc-t-cert` says in its own JSON
             # "solve_node_limit_mapping: NOT CLAIMED HERE". Before this guard existed, three flags
@@ -12283,6 +12350,13 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
                      "production-DFS nodes under C3 pruning. Nothing here certifies the map, so no\n"
                      "EXHAUSTIBLE/INFEASIBLE call is made. The t-unit column above is exact and\n"
                      "stands on its own.\n")
+            # The historical no-certificate wording above is left BYTE-IDENTICAL so the pinned
+            # goldens do not move. The extra line fires only in the NEW case -- a certificate was
+            # supplied and REJECTED -- which no golden has ever exercised, because until today
+            # supplying anything at all was accepted.
+            if cost is not None and cost.get("node_mapping_cert") is not None:
+                fh.write("\nThe certificate supplied was REFUSED: %s.\n"
+                         % _xa_node_mapping_cert_defect(cost.get("node_mapping_cert")))
             verdict = "PENDING:W0-D-node-mapping"
         elif cost.get("nodes_per_sec") is None or cost.get("usd_per_hour") is None \
                 or cost.get("budget_usd") is None:
@@ -13182,6 +13256,31 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
             rk[r["k"]] = rk.get(r["k"], 0) + int(r["mass"])
         gate("V2: every layer's distance-class masses sum to N_total",
              all(v == N for v in rk.values()) and len(rk) == n)
+        # 🔴 Q-314 item (3), 2026-09-07. EVERY V2/V1/V5/Q6 gate above is HORIZONTAL: it
+        # sums one layer across distance classes and compares to N. All of them are blind to mass
+        # moving BETWEEN classes inside a layer, which is exactly what `--atlas-fault v2-class-swap`
+        # does. MEASURED: that fault leaves all 20 no-walks gates GREEN and is caught only by the
+        # brute-force legs -- and brute force cannot exist at n=31, so at full-31 the fault is
+        # invisible. These legs are VERTICAL: they sum one class DOWN the layers.
+        #
+        # B0 is DEFINED here as colsum // N, never hardcoded, and the `d` column of v2_river.tsv
+        # holds distance VALUES (_ATLAS_CLASSES = 1, 2, 3, 4, 6) rather than class indices -- so
+        # the 1..5 assumption that once made a fault a silent no-op cannot recur here: the values
+        # are read back from the emitted data instead of being re-typed.
+        colsum = {}
+        for r in v2:
+            colsum[int(r["d"])] = colsum.get(int(r["d"]), 0) + int(r["mass"])
+        gate("V2-B0: every distance class's column sums to a whole multiple of N_total",
+             bool(colsum) and all(m % N == 0 for m in colsum.values()),
+             " ".join("d=%d:rem=%d" % (d, colsum[d] % N) for d in sorted(colsum)))
+        b0 = {d: m // N for d, m in colsum.items()}
+        # MEASURED, not predicted: this leg DOES fire on v2-class-swap (sum B0 = 8, n = 9), but
+        # only DERIVATIVELY -- once a column stops being a multiple of N the floor division above
+        # truncates and the budget drops. It is not independent evidence of that fault, and it is
+        # shipped WITH the leg above, never instead of it. Its own fault is a different one: a
+        # column that IS a clean multiple of N but the wrong multiple.
+        gate("V2-B0: the C5 boundary budget sums to n (one boundary per layer, per walk)",
+             sum(b0.values()) == n, "sum B0 = %d, n = %d" % (sum(b0.values()), n))
         gk = {}
         for r in v5:
             gk[r["k"]] = gk.get(r["k"], 0) + int(r["mass"])

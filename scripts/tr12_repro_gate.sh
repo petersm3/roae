@@ -265,6 +265,15 @@ if ! Q314_SOLVE="$WORK/solve" bash ./scripts/q314_mod48_gate.sh; then
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
+# Q-433 sibling: the XA-c/d pricing path refused without a W0-D mapping certificate, but the
+# refusal only tested that a PATH STRING was supplied -- the file was never opened, so
+# `--xa-node-mapping-cert /nope.json` unblocked a scientific verdict. Pure-python gate, <1s.
+if ! bash ./scripts/q433_xa_cert_gate.sh; then
+  echo "  [FAIL] scripts/q433_xa_cert_gate.sh did not PASS: the XA node-mapping certificate is"
+  echo "         no longer validated, or a mutant that accepts any path survived"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
 # Q-326 item (1): `--kc-unrank --kc-record` printed the class representative unconditionally, but
 # kc_class_repr leaves `repr` UNWRITTEN on every m == 0 exit -- so the record line was uninitialised
 # stack, indexing partner[64] with bytes up to 255, shipped under rc = 0 with a #provenance trailer

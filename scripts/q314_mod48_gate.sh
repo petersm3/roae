@@ -112,5 +112,45 @@ if line2 | grep -q 'FAIL'; then
   echo "  [FAIL] leg 4: V2-48 ALSO fired -- the fault does not isolate V1-16"; bad=1
 else echo "  [ok]   leg 4: V2-48 did NOT fire -- the fault isolates V1-16"; fi
 
+# ---- legs 5 and 6: item 3's VERTICAL conservation, tested WITHOUT walks --------------------
+# Every other leg above runs with --atlas-walks. That is the configuration that CANNOT EXIST at
+# n=31: brute force means enumerating all 26,112 walks explicitly. So the legs below deliberately
+# run with NO walks, because that is the only configuration the full-31 numbers are produced in,
+# and it is the configuration in which v2-class-swap was previously invisible.
+nowalks(){ # same as run(), minus --atlas-walks -- transcript in $WORK/nw.out
+  python3 solve.py --atlas-selftest "$WORK/atlas.json" \
+      --atlas-q3-trace "$WORK/q3_profile.txt" "$@" > "$WORK/nw.out" 2>&1
+  echo $?
+}
+lineb0(){ grep 'V2-B0' "$WORK/nw.out"; }
+
+rc=$(nowalks)
+NB0=$(lineb0 | grep -c .)
+if [ "$NB0" != 2 ]; then
+  echo "  [FAIL] leg 5: expected 2 V2-B0 gate lines with no walks, found $NB0 -- the vertical"
+  echo "         conservation gates are absent, so nothing below measured anything"; bad=1
+elif [ "$(lineb0 | grep -c 'PASS')" != 2 ]; then
+  echo "  [FAIL] leg 5: a V2-B0 gate does not pass on the clean n=9 atlas"; lineb0 | sed 's/^/         /'; bad=1
+else
+  echo "  [ok]   leg 5: both V2-B0 gates present and passing with NO walks"
+fi
+
+rc=$(nowalks --atlas-fault v2-class-swap)
+if [ "$(lineb0 | grep -c 'FAIL')" -lt 1 ]; then
+  echo "  [FAIL] leg 6: v2-class-swap did NOT fire V2-B0 without walks -- the fault that moves"
+  echo "         mass between distance classes is still invisible at full-31 scale"; bad=1
+else
+  echo "  [ok]   leg 6: V2-B0 fired on v2-class-swap with NO walks"
+fi
+# THE ISOLATION, asserted rather than claimed: if any PRE-EXISTING gate also fires here, these
+# legs are a second opinion, not new coverage. Before they landed this run was 0 failures.
+OTHER=$(grep 'FAIL' "$WORK/nw.out" | grep -v 'V2-B0' | grep -v '^ATLAS_CONSUMER=')
+if [ -n "$OTHER" ]; then
+  echo "  [FAIL] leg 6: a pre-existing gate ALSO fired on v2-class-swap without walks, so the"
+  echo "         V2-B0 legs do not isolate the fault:"; printf '%s\n' "$OTHER" | sed 's/^/         /'; bad=1
+else
+  echo "  [ok]   leg 6: no pre-existing gate fired -- V2-B0 is the ONLY thing that sees this fault"
+fi
+
 [ "$bad" -eq 0 ] && echo "Q314_MOD48=PASS" || echo "Q314_MOD48=FAIL"
 exit "$bad"
