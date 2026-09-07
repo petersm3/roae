@@ -1,4 +1,9 @@
 # Recorded by scripts/tr12_repro_gate.sh --stamp. Proves the committed tree REPRODUCED,
-# not merely that it was committed. Re-stamp in the SAME commit as any solve.c,
-# tr12_repro.sh or expected-block change, or --check will correctly report NO.
-fingerprint=898b9ea1441041511ed33ad0d313019a9b4ae6ab4bca1416855b1fceff0d19c3
+# not merely that it was committed. Re-stamp in the SAME commit as any change to a
+# FINGERPRINTED INPUT, or --check will correctly report NO. Do not trust a hand-list
+# here -- this comment used to name "solve.c, tr12_repro.sh or expected-block" and had
+# silently gone stale: solve.py and verify.py are in CORE too, and derived_inputs() adds
+# whatever the battery references. That is the Q-94 curated-list defect reappearing in the
+# prose that documents the fix. Ask the gate instead, which derives the set:
+#     bash scripts/tr12_repro_gate.sh --check     # YES/NO, fingerprint only, seconds
+fingerprint=a5f38e3a4e36ec9c8d81508848ad277ca1846c0c991b706401e2ce1e9bae261b

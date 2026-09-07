@@ -13540,12 +13540,29 @@ def t3_encode_solutions(out_bin, input_paths):
         pair_code[(a, b)] = (idx << 2)        # orient 0: (a, b) as in KW
         pair_code[(b, a)] = (idx << 2) | 2    # orient 1: swapped
 
+    _skipped = [0]          # R12b #9 census: non-record lines legitimately skipped
+
     def record_lines(path):
         opener = gzip.open if path.endswith(".gz") else open
         with opener(path, "rt") as fh:
             for lineno, line in enumerate(fh, 1):
                 fields = line.rstrip("\n").split("\t")
                 if fields[0] != "record":
+                    # R12b #9. Skipping non-record lines is CORRECT and must stay: the stream
+                    # legitimately carries draw/rank lines and `#provenance` trailers.
+                    #
+                    # 🔴 A TAG-CORRUPTION REFUSAL WAS WRITTEN HERE AND THEN WITHDRAWN, because it
+                    # was a false-positive generator. The idea was that a line with three tab
+                    # fields whose third parses as a comma-separated ordering must be a corrupted
+                    # record. It is not: solve.c emits `printf("%s\tcd=%d\t" ...)` -- a decimal
+                    # tag, a cd= field, and the walk -- which has EXACTLY that shape and is a
+                    # legitimate line. Refusing it would have broken the tool on real
+                    # --kc-sample/--kc-unrank output. Checked by reading the emitters
+                    # (solve.c:32665, :32740 and the `%s\tcd=%d\t` form beside them), not assumed.
+                    #
+                    # What is safe, and is done, is to COUNT what the skip discards, so a changed
+                    # input shape is visible instead of silent.
+                    _skipped[0] += 1
                     continue
                 if len(fields) != 3:
                     raise ValueError("%s:%d: record line has %d tab fields, expected 3"
@@ -13600,6 +13617,13 @@ def t3_encode_solutions(out_bin, input_paths):
             out.seek(8)
             out.write(struct.pack("<Q", n_records))
 
+        # R12b #9 census, part 1 of 2: freeze what pass 1 skipped, then zero the counter so
+        # pass 2 is measured independently. Without this the two passes ACCUMULATE into one
+        # number and the census reports double -- caught because the fixture's 2 skipped lines
+        # were reported as 4.
+        _skipped_pass1 = _skipped[0]
+        _skipped[0] = 0
+
         # ---- pass 2: round-trip gate via verify.py's OWN reader ----
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) or ".")
         import verify as _verify
@@ -13631,6 +13655,22 @@ def t3_encode_solutions(out_bin, input_paths):
 
     print("[encode-solutions] out=%s records=%d header_count=%d roundtrip_checked=%d mismatches=%d"
           % (out_bin, n_records, declared, checked, mismatches))
+    # R12b #9 census. The skip count is STATED so a changed input shape is visible rather than
+    # silent. ⚠ SCOPE, said plainly: this does NOT detect a WHOLLY DELETED record line. Nothing in
+    # the file contradicts its absence -- the stream carries no record count, and no `#provenance`
+    # trailer in this repo records one -- so that case needs an EXTERNAL count which does not exist
+    # today. A check that appeared to catch it would be the same self-consistency error one level up.
+    print("RECORDS_ENCODED=%d" % n_records)
+    print("LINES_SKIPPED=%d" % _skipped[0])
+    # Part 2 of 2. The two passes read the same files at different times, so an unequal skip
+    # count means the input CHANGED underneath the round trip. This is not self-consistency:
+    # it compares two independent reads, and it is the one thing the mutual-count verdict
+    # could never see.
+    if _skipped_pass1 != _skipped[0]:
+        print("[encode-solutions] input changed between passes: pass1 skipped %d, pass2 skipped %d"
+              % (_skipped_pass1, _skipped[0]))
+        print("ENCODE_ROUNDTRIP=FAIL")
+        return 2
     if mismatches or checked != n_records or n_records == 0:
         print("ENCODE_ROUNDTRIP=FAIL")
         return 2
