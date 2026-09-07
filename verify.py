@@ -1073,11 +1073,27 @@ def check_kw_pair_adjacency():
 
       * What is ours is only the OBSERVATION that these two facts, combined,
         make the symbol evidence non-discriminating -- and the decision to
-        report that rather than the 9/9 agreement alone.
+        report that rather than the 3/3 agreement alone.
 
     Tested on the symbols Pu reports as DIRECTLY OBSERVED -- excluding every
     entry his appendix reconstructs FROM that same invariance -- his claim
-    holds: 9 testable pairs, 9 agreements, 0 disagreements.
+    holds on every pair that can be tested at all: of 9 claimed pairs,
+    3 testable, 3 agreements, 0 disagreements, 6 unobserved. The routine
+    PRINTS those four counts; do not read them from here, run the command.
+
+    🔴 CORRECTED 2026-09-03: this paragraph asserted nine testable pairs and
+    nine agreements. That nine was a len() of the hand-written NUMBER-pair list
+    below, not a count of pairs carrying two observed symbols, and no symbol
+    value existed anywhere in this file. The 3/5/1 split of the nine:
+      3 TESTABLE     (39,40) 蹇+解, (47,48) 困+井, (55,56) 豐+旅 -- both symbols observed;
+      5 UNTRANSCRIBED (5,6), (7,8), (15,16), (17,18), (25,26) -- wholly inside
+                      slips 1-27, which the roster has not reached;
+      1 HALF-OBSERVED (31,32) -- 恆 yes, 咸 no.
+    The DIRECTION of the result never moved; the amount of evidence behind it
+    did. The retracted figure is registered as RF-8dc08bb8 in
+    documentation/RETRACTED_FIGURES.tsv; see the ledger entry in
+    documentation/CORRECTIONS.md and the same correction restated at the
+    computation itself, below.
 
     That result cannot support any inference about ordering, and this check says
     why in a form a reader can run. In King Wen EVERY adjacent pair (positions
@@ -6476,8 +6492,10 @@ def main():
                              '(574-648), 非覆即变; this only lets a reader confirm it. Then draws '
                              'the consequence: the head/tail symbol data of the Shanghai Museum Chu '
                              'bamboo Zhouyi (Pu Maozuo 濮茅左 in 馬承源 ed. 2003) CANNOT distinguish '
-                             '"the symbol respects reversal" — Pu\'s claim, which holds 9/9 on his '
-                             'directly-observed symbols — from "the symbol is merely constant on '
+                             '"the symbol respects reversal" — Pu\'s claim, which holds on all '
+                             '3 of the pairs whose symbols are both observed (corrected 2026-09-03 '
+                             'from 9/9, which counted number-pairs, not observed symbols; '
+                             'RF-8dc08bb8) — from "the symbol is merely constant on '
                              'contiguous King Wen blocks", because blocks and orbits coincide by '
                              'construction of the sequence. An impossibility argument, not a '
                              'criticism of his reading, and not a failed search. Reads no files.')

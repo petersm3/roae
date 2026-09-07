@@ -9433,3 +9433,38 @@ an append-only dated narrative log held by another lane, the wording shares no r
 span with either cell corrected here, and the allow column holds one filename per row. It
 is named rather than swept so that a later census does not read these two rows' `[ok]` as
 evidence the class is gone — a needle matching nothing is not evidence the claim is gone.
+
+## CX-43 — a retracted figure was alive in the docstring of the very function that retracts it (RF-8dc08bb8)
+
+**2026-09-07 · C3 · `verify.py`, `documentation/RETRACTED_FIGURES.tsv`**
+
+- **BEFORE:** `check_kw_pair_adjacency`'s own docstring stated, in the present tense, that Pu
+  Maozuo's reversal-invariance claim held on nine testable pairs with nine agreements and no
+  disagreements — the figure registered as `RF-8dc08bb8`, cited by key and deliberately not
+  restated here. (Quoting it would put the retracted string permanently into an append-only
+  file, which is the CX-23 lesson from round 14; I wrote the quote first and GATE 3b caught it
+  before this entry was published.)
+- **NOW:** 3 testable, 3 agreements, 0 disagreements, 6 unobserved — the figures the command
+  itself prints as `SHANGBO_TESTABLE_PAIRS`, `SHANGBO_AGREEMENTS`, `SHANGBO_DISAGREEMENTS`,
+  `SHANGBO_UNOBSERVED_PAIRS`. The 3/5/1 split of the nine: **3 testable** — (39,40) 蹇+解,
+  (47,48) 困+井, (55,56) 豐+旅; **5** wholly inside the untranscribed slips 1–27 — (5,6), (7,8),
+  (15,16), (17,18), (25,26); **1 half-observed** — (31,32), 恆 yes, 咸 no.
+- **The figure was retracted on 2026-09-03, and this is four days late.** That delay is the
+  finding. The live sites in `CITATIONS.md` and `VERIFY.md` were corrected that day; the
+  docstring was not, and it sits **~97 lines above the `🔴 CORRECTED 2026-09-03` comment that
+  retracts it** — so a reader entering at the natural entry point got the retracted number with
+  no marker, from the file the correction is about.
+- **Why nothing caught it, which is the part worth keeping:** `verify.py` is outside GATE 3b's
+  corpus (`*.md` plus non-markdown under `reports/evidence/`), outside GATE 6's generator
+  population (`viz/*.py` plus tracked `.py` calling `savefig`), and GATE 47 reads
+  `RETRACTED_PHRASES.tsv` only, never the figures registry. Three gates, none of whose
+  populations include the one file that mattered. Registering the figure is what makes the class
+  mechanical instead of dependent on someone noticing.
+- **Needle choice, measured over the corpus rather than chosen for style:** the full comma
+  triple matches exactly ONE site — this ledger's own quote-to-withdraw, allowlisted as a
+  `meta-mention`. Dropping the third clause pulls in `CITATIONS.md`'s truncated quote; dropping
+  the second pulls in `VERIFY.md`'s closed historical note as well: three narrations to exempt
+  instead of one, for zero extra live catches. The bare `9` is a substring of everything.
+- **No claim moves.** The impossibility result never rested on the symbol census; it needs only
+  the King Wen numbers, which are published. `0 of the 9 are discriminating` is unchanged and
+  correct — it ranges over all nine claimed pairs, not the three testable ones.

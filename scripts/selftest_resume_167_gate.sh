@@ -130,7 +130,13 @@
 
 set -uo pipefail
 
-SOLVE_A=""; SOLVE_B=""; MUTANT="M0"; WORKDIR=""; THREADS=4
+# 🔴 THREADS was hardcoded to 4. MEASURED 2026-09-07: this box has nproc=2, so the gate ran
+# 2x oversubscribed against ITSELF -- and the compile gate's selftest, running in the same push,
+# also sets SOLVE_THREADS=4. A push that took 393 s at idle took 2880 s under load, and roughly
+# 85% of that was contention. A gate that fights itself for cores makes its own cost look like a
+# property of the work. min(4, nproc) keeps the 4 on a real VM and stops the self-contention here.
+SOLVE_A=""; SOLVE_B=""; MUTANT="M0"; WORKDIR=""
+_nproc=$(nproc 2>/dev/null || echo 4); THREADS=$(( _nproc < 4 ? _nproc : 4 ))
 NODES_A=50000000; NODES_B=200000000; KEEP=0; BATTERY=0
 
 usage() { sed -n '2,120p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }

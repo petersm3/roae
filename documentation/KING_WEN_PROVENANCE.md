@@ -216,16 +216,35 @@ and its pairing orbits coincide *by construction*, symbol evidence from the Chu 
 distinguish** "the symbols respect reversal" from "the symbols are constant on contiguous blocks of
 the received order." That second reading is not a construct of ours: [Jiang Guanghui 2004](CITATIONS.md#jiangguanghui2004)
 reads the marks as look-up labels over seven contiguous segments of the received order, every segment
-a union of consecutive pairs, and denies that they bear on the pairing at all. The nine directly-observed
+a union of consecutive pairs, and denies that they bear on the pairing at all. The nine claimed
 symbol pairs are listed in `verify.py` (`SHANGBO_OBSERVED_PAIRS`, from 濮茅左 2003's per-slip 释文考释,
-pp. 136–215, excluding every entry 附錄二 reconstructs *from* the invariance). That exclusion has a
+pp. 136–215, excluding every entry 附錄二 reconstructs *from* the invariance). *(Corrected 2026-09-07:
+this sentence called all nine of them "directly-observed". Only **three** are observed at **both**
+members — (39,40) 蹇+解, (47,48) 困+井, (55,56) 豐+旅. Five more — (5,6), (7,8), (15,16), (17,18),
+(25,26) — lie in slips 1–27, which the transcription roster has not reached, and (31,32) is
+half-observed (恆 yes, 咸 no). The nine are Pu's roster of King Wen *number* pairs; the number of them
+this repository can actually test against symbol values is three. `verify.py` prints the split as
+`SHANGBO_PAIRS_CLAIMED=9`, `SHANGBO_TESTABLE_PAIRS=3`, `SHANGBO_UNOBSERVED_PAIRS=6`.)*
+
+That exclusion of 附錄二's reconstructions has a
 published predecessor: [王振復 (2005, p. 15)](CITATIONS.md#wangzhenfu2005) named the five positions — the
 師, 蠱, 革 and 艮 tails and the 小過 head — at which the edition reads a lost symbol as matching its
 partner, and objected that the pairing rule was being supported by symbols it had itself supplied. The
 non-discrimination argument below is not his. What the command reports about them is that **0 of the 9
 are discriminating** — every one sits inside a single King Wen block, so the editor's reported
-agreement is equally predicted by both explanations. **The command does not check the symbols
-themselves**; it reads no symbol values and compares nothing. **This is an impossibility argument,
+agreement is equally predicted by both explanations. That figure ranges over all **nine** claimed
+pairs, testable or not, and the correction above does not move it: it is a contiguity computation over
+King Wen numbers alone, which are published for all nine. *(Corrected 2026-09-07: this passage
+continued "**The command does not check the symbols themselves**; it reads no symbol values and
+compares nothing." That was true when written and has been false since 2026-09-03. `verify.py` now
+carries the observed values (`SHANGBO_OBSERVED_SYMBOL`, page-cited to the per-slip 考釋), compares the
+two members of each pair, and prints `SHANGBO_AGREEMENTS=`, `SHANGBO_DISAGREEMENTS=` and the
+whole-line verdict `SHANGBO_SYMBOL_TEST=PASS|VACUOUS|FAIL`; a flipped-symbol negative control moves
+that output to `FAIL`. What the command still does **not** do is fold a symbol disagreement into its
+**exit status**, which turns solely on King Wen adjacency — deliberately, because a disagreement would
+be a finding about Pu's reading and not a defect in this repository. Callers must therefore gate on
+`grep -qx 'SHANGBO_SYMBOL_TEST=PASS'` and never on the exit status; see the
+`--check-kw-pair-adjacency` row of [VERIFY.md](VERIFY.md).)* **This is an impossibility argument,
 not a criticism of his reading.**
 
 ---
