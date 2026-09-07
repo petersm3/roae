@@ -572,7 +572,7 @@ python3 solve.py --atlas-selftest $B/atlas.json --atlas-walks $B/walks.txt
 
 Every emitted table is re-derived from that **explicit enumeration** and
 diffed against the TSV read back off disk — not against the in-memory atlas.
-Adding `--atlas-fault v2-class-swap` (or any of the other five faults) makes
+Adding `--atlas-fault v2-class-swap` (or any of the other six faults) makes
 the gate print `ATLAS_CONSUMER=FAIL` and exit 1; the class-swap fault is
 caught **only** by the brute-force leg, which is the point of having one.
 

@@ -12130,6 +12130,12 @@ def atlas_emit_q10a(A, outdir):
         flow = _atlas_int(L["flow"], "layers[%d].flow" % k)
         if _atlas_fault("q10-mod24") and k == 0:
             flow += 1                                  # test-only: breaks the mod-24 gate
+        if _atlas_fault("q10-mod48") and k == 0:
+            # test-only (Q-314 item 1). +24 keeps the flow divisible by 24 and breaks 48, so
+            # this fault is INVISIBLE to the mod-24 gate above and visible only to XA-48.
+            # A new gate that only fires on faults the old gate already catches has added
+            # nothing; this fault is the demonstration that it did.
+            flow += _ATLAS_ORBIT
         rows.append(("layer", k, flow, flow // _ATLAS_ORBIT,
                      1 if flow % _ATLAS_ORBIT == 0 else 0))
     path = _atlas_write(os.path.join(outdir, "q10_orbit_census.tsv"),
@@ -13199,6 +13205,20 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
              all(r["mod24_ok"] == "1" for r in q10) and
              all(int(r["flow"]) == int(r["orbits"]) * _ATLAS_ORBIT for r in q10))
 
+        # ---- mod 48 (Q-314 item 1) ----------------------------------------
+        # 🔴 The gate above reads a PRECOMPUTED column, `mod24_ok`, so it checks that the
+        # emitter's own arithmetic agrees with the emitter. This one re-derives from the
+        # flow values themselves and asks the stronger question: 48, not 24. The two
+        # totals were spot-verified by hand before wiring it -- 26112/48 = 544 and
+        # 2063395607040/48 = 42987408480 -- so the gate is asserting something known true,
+        # which is the only honest way to add a divisibility check: if it had gone red on
+        # arrival the correct response would have been to doubt the CLAIM, not raise it.
+        gate("XA-48: N_total and every layer flow divisible by 48 (re-derived, not a column)",
+             N % 48 == 0 and all(int(r["flow"]) % 48 == 0 for r in q10),
+             "N%%48=%d, offending layer flows: %s" % (
+                 N % 48,
+                 [r.get("k", "?") for r in q10 if int(r["flow"]) % 48][:5]))
+
         # ---- layer 0 vs the branch table (independent of the DP path) -----
         l0 = {}
         for r in xa:
@@ -14115,7 +14135,7 @@ def main():
                         help="--atlas-selftest: keep the emitted tables in DIR instead of a tempdir")
     parser.add_argument("--atlas-fault", metavar="NAME", default=None,
                         choices=("v1-drop-pair", "v2-class-swap", "xa-drop-branch",
-                                 "q3-perturb", "q10-mod24", "ratio-zero"),
+                                 "q3-perturb", "q10-mod24", "q10-mod48", "ratio-zero"),
                         help="TEST ONLY: deliberately corrupt one emitted column so the n=9 gate "
                              "can be shown able to fail (build-brief invariant 3). Never on a run.")
     parser.add_argument("--xa-nodes-per-sec", type=_ExactAnchor, default=None,

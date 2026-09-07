@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Q314_MOD48=PASS|FAIL|ERROR
+#
+# Q-314 item (1): the atlas is checked for mod-24 divisibility, but the free G48 action makes
+# the complete raw sequences divisible by 48. The shipped gate read a PRECOMPUTED `mod24_ok`
+# column -- i.e. it checked the emitter against itself -- and stopped at 24.
+#
+# THE POINT OF THIS GATE IS THE SECOND LEG, not the first. A new check that only fires on
+# faults the old check already catches has added nothing. `--atlas-fault q10-mod48` adds
+# _ATLAS_ORBIT (=24) to the layer-0 flow: still divisible by 24, no longer by 48. It is
+# INVISIBLE to the mod-24 gate and fatal to XA-48. That asymmetry is the whole claim.
+set -uo pipefail
+cd "$(dirname "$0")/.." || { echo "Q314_MOD48=ERROR cannot reach repo root"; exit 2; }
+WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
+fail(){ echo "  [ERROR] $*"; echo "Q314_MOD48=ERROR"; exit 2; }
+
+[ -f solve.c ] || fail "missing solve.c"
+BUILD=$(grep -m1 -E '^gcc .*solve\.c' documentation/VERIFY.md 2>/dev/null)
+[ -n "$BUILD" ] || fail "no published 'gcc ... solve.c' build line in documentation/VERIFY.md"
+( eval "${BUILD/-o solve/-o $WORK/solve}" ) >"$WORK/build.log" 2>&1 || fail "published build line failed"
+SOLVE="$WORK/solve"
+
+mkdir -p "$WORK/f" "$WORK/g" "$WORK/t"
+"$SOLVE" --kc-build   "$WORK/f" --f1-pairs 9 >"$WORK/bf.log" 2>&1 || fail "--kc-build failed"
+"$SOLVE" --kc-g-build "$WORK/g" --f1-pairs 9 >"$WORK/bg.log" 2>&1 || fail "--kc-g-build failed"
+"$SOLVE" --kc-t-build "$WORK/f" "$WORK/t"    >"$WORK/bt.log" 2>&1 || fail "--kc-t-build failed"
+"$SOLVE" --kc-scan "$WORK/f" "$WORK/g" "$WORK/atlas.json" --kc-tdir "$WORK/t" --kc-raw \
+    >"$WORK/scan.log" 2>&1 || fail "--kc-scan failed"
+"$SOLVE" --kc-enum "$WORK/f" 2>/dev/null | grep -v '^\[' > "$WORK/walks.txt"
+NW=$(grep -c . "$WORK/walks.txt"); [ "$NW" = 26112 ] || fail "n=9 gave $NW walks, expected 26112"
+NT=$("$SOLVE" --kc-count "$WORK/f" 2>/dev/null | sed -n 's/^KC COUNT n=9 = \([0-9]*\)$/\1/p')
+ANCHOR=$("$SOLVE" --kc-o3-unrank "$WORK/f" "$WORK/g" $((NT / 2)) 2>/dev/null | grep -E '^[0-9]+(,[0-9]+)+$' | head -1)
+[ -n "$ANCHOR" ] || fail "could not materialise the O3-midpoint anchor walk"
+"$SOLVE" --kc-o3-rank "$WORK/f" "$WORK/g" "$ANCHOR" --kc-trace --kc-bracket \
+    > "$WORK/q3_profile.txt" 2>&1 || fail "--kc-o3-rank failed"
+
+run(){ # run [extra args...] -> rc; transcript in $WORK/last.out
+  rm -rf "$WORK/keep"; mkdir -p "$WORK/keep"
+  python3 solve.py --atlas-selftest "$WORK/atlas.json" --atlas-walks "$WORK/walks.txt" \
+      --atlas-q3-trace "$WORK/q3_profile.txt" --atlas-keep "$WORK/keep" "$@" \
+      > "$WORK/last.out" 2>&1
+  echo $?
+}
+line48(){ grep -m1 'XA-48' "$WORK/last.out"; }
+
+bad=0
+# ---- leg 1: clean -- the gate must be PRESENT and PASS -------------------------------------
+rc=$(run)
+if [ "$rc" != 0 ] || ! grep -qx 'ATLAS_CONSUMER=PASS' "$WORK/last.out"; then
+  echo "  [FAIL] leg 1: clean run did not pass (rc=$rc)"; bad=1
+fi
+if ! line48 | grep -q 'PASS'; then
+  echo "  [FAIL] leg 1: the XA-48 gate is absent or not passing on a clean atlas"
+  echo "         $(line48)"; bad=1
+else
+  echo "  [ok]   leg 1: XA-48 present and passing on the clean n=9 atlas"
+fi
+
+# ---- leg 2: the fault the OLD gate cannot see ---------------------------------------------
+rc=$(run --atlas-fault q10-mod48)
+if [ "$rc" = 0 ] || ! grep -q '^ATLAS_CONSUMER=FAIL' "$WORK/last.out"; then
+  echo "  [FAIL] leg 2: +24 on the layer-0 flow did NOT fail the consumer (rc=$rc)"; bad=1
+fi
+if ! line48 | grep -q 'FAIL'; then
+  echo "  [FAIL] leg 2: XA-48 did not fire on a flow that is 24-divisible but not 48-divisible"
+  echo "         $(line48)"; bad=1
+else
+  echo "  [ok]   leg 2: XA-48 fired on the mod-48-only fault"
+fi
+# and the ASYMMETRY: the mod-24 gate must NOT have fired, or the fault proves nothing new
+if grep -q 'XA-24.*FAIL' "$WORK/last.out"; then
+  echo "  [FAIL] leg 2: the mod-24 gate ALSO fired -- this fault does not isolate XA-48,"
+  echo "         so it cannot show the new gate adds coverage"; bad=1
+else
+  echo "  [ok]   leg 2: the mod-24 gate did NOT fire -- the fault isolates XA-48"
+fi
+
+[ "$bad" -eq 0 ] && echo "Q314_MOD48=PASS" || echo "Q314_MOD48=FAIL"
+exit "$bad"
