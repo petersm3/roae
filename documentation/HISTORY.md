@@ -6804,3 +6804,87 @@ cedes ground or records prior work. Entries drafted and landed by Fable from fir
 privately (`FABLE_CITATIONS_OWED_DRAFT_2026_09_05.md`, `FABLE_CITATIONS_LANDED_2026_09_05.md`); five of
 the sixteen carry or merge earlier drafts of 2026-09-03 (`Q409_CITATION_DRAFTS_2026_09_03.md`) so that one
 entry lands per paper. The text in public files is Fable's; the operator directed the landing.
+
+## 2026-09-06 — the medium learns to check itself, and four gates that could not fail are made able to
+
+The disk-box archive was prepared for shipping, and preparing it turned into an audit of the checks
+that were supposed to guard it.
+
+**The manifests were split into formats standard tools read.** Each stage had carried one
+`MANIFEST.sha256` in a combined `<sha256>  <md5>  <path>  bytes=<n>` layout that **no standard tool
+could parse**, so a recipient could only check the medium by running a script that shipped on the
+medium being checked. It is now three files — `MANIFEST.sha256`, `MANIFEST.md5`, `MANIFEST.sizes` —
+each in its own tool's native format, so `sha256sum -c` and `md5sum -c` suffice. Verified by
+rebuilding the combined file from the three and diffing: 65/65 rows identical for all three stages.
+
+**`VERIFY.sh` was hardened against the ways a checker lies.** It counts first, because `sha256sum -c`
+reports OK for every row it finds and says nothing about a row deleted along with its file. It reads
+each file once for both digests rather than reading 15 TB twice. It looks for files that should not
+be present, since curation is a step that can be got wrong quietly. It **clones** `src/roae.bundle`
+rather than trusting `git bundle verify`, which reports "is okay" and **exits 0 on a bundle truncated
+to 40 bytes**. And it proves its own legs ran, failing if any did not report.
+
+**Four checks that existed and could not fail.** A golden manifest was written by the battery and read
+by nothing, so it rotted silently — commit `accc1ac7` changed a golden without re-stamping and the
+wrong hash rode through two further commits, because noticing required a check that did not exist. A
+published build line could not record the build identity its own document required. A regular
+expression written `` `[0-9a-f]{40}` `` matched nothing on every input, because in GNU ERE `` \` `` is
+the start-of-buffer anchor rather than an escaped backtick — it passed green and red alike. And the
+EW-1 calibrated null that `QUERY_INVENTORY` §9.4 recorded as adopted emitted its verdict token
+**nowhere in the executable tree**.
+
+**A ratchet now pins what is known-open.** `gate_published_consistency.sh` fails on an increase and
+announces a decrease, pinned at G1=5, G2=10, G3=0, G4=8 — each with a written reason. Its new G4 leg
+checks whether a correction's promises were kept, and found **eight pre-existing broken promises** on
+its first run.
+
+**Two published statements were corrected.** `README:228` said "exactly one adjacent transition flips
+all six lines". There are **nine** — eight within-pair, one between-pair — and every other site in the
+corpus carried the qualifier; a sibling sweep found this the only unqualified one. And `TR5_SYMMETRY`
+declared three shipped commands nonexistent: `--orbit-cv`, `--twins-bisect` and
+`--sigma-isomorphism-all48` are all in the tree, and `verify.py --orbit-cv` returns `ORBIT_CV=PASS`.
+**Understating what you can prove is the same defect as overstating it, and nothing was watching that
+direction.**
+
+## 2026-09-07 — thirteen defects in the query program, and three alarms that were the instruments
+
+The 80+ query program was audited against a two-lens external review before committing to a run that
+costs days. Thirteen findings would have corrupted it.
+
+**A published build command silently built the wrong universe.** `./solve --kc-g-build GDIR --kc-g-ooc`
+omits `--f1-pairs 31`; run as printed it emits `[kc-g] build: n=9 … g(0)=26112`, and the document's own
+next step then fails with `f/g ladder context mismatch`, rc=71. The root cause is sharper than a
+dropped flag: **two adjacent published commands have different defaults** — `--f1-exact-c1c2c4c5`
+defaults to FULL-31 while `--kc-g-build` defaults to n=9 — so a reader has no reason to think one needs
+a flag the other does not. A second recipe omitted `--kc-raw`, without which `marginal_raw` is never
+emitted at n=31 and V1 dies **on a pass that cannot be resumed**; the harness knew and the document did
+not. Five sites carried it, three more than the review reported.
+
+**A false identity, and the document that already had it right.** Q10(a) published "the exact number of
+distinct 24-orbits (= layer walk-mass / 24)". Measured exhaustively at n=9: 432 records give 18
+record-orbits, 26,112 walks give **544** walk-orbits, and N/24 = **1088** is neither. TR-11 §2 already
+carried the reason — at the orientation-explicit sequence level orbits have size 48, so N/24 is twice
+the sequence-orbit count, and 1088 = 2 × 544 exactly. TR-11 was right; this line had not carried its
+qualifier.
+
+**A verdict that priced one quantity as another.** `solve.py` would emit `TR12_XA_CD=PASS` with thirteen
+`EXHAUSTIBLE` rows under a heading asserting `t-units = pruned-DFS nodes` — an equality **nothing
+certifies**, five lines below a disclaimer saying so. The pricing path now refuses without a mapping
+certificate. The certificate cannot currently be produced: the production enumerator has no reduced-n
+mode, `init_pairs()` fixing all 32 pairs unconditionally. **And even with it the verdict would be
+one-sided**, since that enumerator prunes with C3 while t counts SUPER prefixes, so t-units bound nodes
+from above — EXHAUSTIBLE sound, INFEASIBLE not.
+
+**Three alarms that were the instruments, not the archive.** A 15 TB verification returned FAIL on 32
+stage-G layers for a container magic mismatch; every file had matched sha256, md5 **and** byte count,
+and `solve.c` defines `F1C5GLY2` as the g-ladder's own magic — the checker was routing G through a
+catch-all carrying F's constant. A hash reconciliation reported 195 keep-set blobs missing from the
+registry; the morning's manifest split had left its parser matching 0 of 91 rows. And a bundle-provenance
+check compared against the first 40-hex string in a README rather than the one labelled `bundle HEAD`.
+**In all three the archive was intact and the instrument was wrong**, which is the failure mode a
+verification system has to be designed against, because it looks exactly like the failure it exists to
+find.
+
+**`git bundle create` is not byte-deterministic** — two runs on one repository, same git, seconds apart,
+differ in content and length. Determinism returns with `pack.threads=1`. A frozen medium that pins a
+bundle's sha therefore cannot regenerate it; it must archive the object.
