@@ -56,3 +56,5 @@ G12=0
 G13=0
 # G14 — a boundary-count projection must record the oriented-fiber floor. Fixed 2026-09-07.
 G14=0
+# G15 — a DATA-LIKE registry row must not be counted as source-stated. Fixed 2026-09-07.
+G15=0

@@ -416,6 +416,30 @@ else
   echo "  [FAIL] G14: cannot read $_S14 or $_T14 -- this leg measured NOTHING"; G14=1
 fi
 
+# ---- G15: a DATA-LIKE registry row must not be counted as source-stated ------------------------
+# 🔴 CTA-A1, 2026-09-07. CLAIM_TO_ARTIFACT published "27 of 31 reproduce a source-stated KW value;
+# 4 are KW-measured". d7 was in the 27. Its eight slots are hard-coded from King Wen's own twelve
+# xiaoxi positions, so KW's 8/8 is guaranteed by construction -- shift the window by 1-5 and KW
+# scores 4, 0, 1, 2, 1. LITERATURE_RULES_POPULATION_TESTS.md classifies it DATA-LIKE. Counting a
+# row derived FROM King Wen as independent corroboration OF King Wen is the circularity this
+# project has a standing rule about.
+G15=0
+_LR=${G15_POP:-documentation/LITERATURE_RULES_POPULATION_TESTS.md}
+_CA=${G15_DOC:-documentation/CLAIM_TO_ARTIFACT.md}
+if [ -r "$_LR" ] && [ -r "$_CA" ]; then
+  if ! grep -q 'is DATA-LIKE' "$_LR" 2>/dev/null; then
+    echo "  [FAIL] G15: $_LR no longer classifies any row DATA-LIKE -- this leg measured NOTHING"; G15=1
+  elif grep -qE '\*\*27 of 31\*\* reproduce a source-stated' "$_CA" 2>/dev/null; then
+    echo "  [FAIL] G15: 27 of 31 counted as source-stated, but d7 is classified DATA-LIKE"
+    echo "         (its slots are King Wen's own; the split is 26 source-stated / 5 KW-derived)"
+    G15=1
+  else
+    echo "  [ok]   G15: no DATA-LIKE registry row is counted as source-stated corroboration"
+  fi
+else
+  echo "  [FAIL] G15: cannot read $_LR or $_CA -- this leg measured NOTHING"; G15=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it
