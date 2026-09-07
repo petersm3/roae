@@ -53,6 +53,7 @@ line48(){ grep -m1 'XA-48' "$WORK/last.out"; }
 bad=0
 # ---- leg 1: clean -- the gate must be PRESENT and PASS -------------------------------------
 rc=$(run)
+cp "$WORK/last.out" "$WORK/clean.out"      # reused by legs 3 and 4 instead of re-running
 if [ "$rc" != 0 ] || ! grep -qx 'ATLAS_CONSUMER=PASS' "$WORK/last.out"; then
   echo "  [FAIL] leg 1: clean run did not pass (rc=$rc)"; bad=1
 fi
@@ -89,11 +90,13 @@ fi
 line2(){ grep -m1 'V2-48' "$WORK/last.out"; }
 line1(){ grep -m1 'V1-16' "$WORK/last.out"; }
 
-rc=$(run)
-line2 | grep -q 'PASS' && echo "  [ok]   leg 3: V2-48 present and passing on the clean atlas" \
-  || { echo "  [FAIL] leg 3: V2-48 absent or failing on a clean atlas: $(line2)"; bad=1; }
-line1 | grep -q 'PASS' && echo "  [ok]   leg 4: V1-16 present and passing on the clean atlas" \
-  || { echo "  [FAIL] leg 4: V1-16 absent or failing on a clean atlas: $(line1)"; bad=1; }
+# The clean transcript was already produced by leg 1 and saved; do NOT pay for a second one.
+# This gate runs inside tr12_repro_gate.sh on every push, so each redundant consumer invocation
+# is charged to every push for the life of the gate.
+grep -q 'V2-48.*PASS' "$WORK/clean.out" && echo "  [ok]   leg 3: V2-48 present and passing on the clean atlas" \
+  || { echo "  [FAIL] leg 3: V2-48 absent or failing on a clean atlas: $(grep -m1 'V2-48' "$WORK/clean.out")"; bad=1; }
+grep -q 'V1-16.*PASS' "$WORK/clean.out" && echo "  [ok]   leg 4: V1-16 present and passing on the clean atlas" \
+  || { echo "  [FAIL] leg 4: V1-16 absent or failing on a clean atlas: $(grep -m1 'V1-16' "$WORK/clean.out")"; bad=1; }
 
 rc=$(run --atlas-fault v2-mod48)
 if line2 | grep -q 'FAIL'; then echo "  [ok]   leg 3: V2-48 fired on the mod-48-only class fault"
