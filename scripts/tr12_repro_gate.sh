@@ -43,8 +43,46 @@ MODE=${1:-run}
 # change the gate could not see. A fingerprint is only as good as its enumeration of inputs, and
 # the way that goes wrong is a new input, not a changed one. The stamp is excluded or it could
 # never be stable.
+# 🔴 Q-94, 2026-09-07: the set is DERIVED, not curated. The comment above already knew the failure
+# mode -- "the way that goes wrong is a NEW input, not a changed one" -- and then went on enumerating
+# by hand, which is the same bet that lost in August. Now the gate reads tr12_repro.sh for the repo
+# files it actually references and FAILS if any of them is outside the hashed set. A curated list
+# cannot notice its own omission; a derived one can.
+derived_inputs(){   # repo-relative files the battery references, that exist
+  grep -ohE '(scripts/|lean/|viz/)?[A-Za-z0-9_./-]+\.(c|py|sh)\b' scripts/tr12_repro.sh 2>/dev/null \
+    | sed 's|^\./||' | sort -u | while read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done
+}
+CORE="solve.c verify.py solve.py scripts/tr12_repro.sh scripts/tr12_repro_gate.sh"
+fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
+
+# 🔴 MY FIRST VERSION OF THIS CHECK WAS TAUTOLOGICAL. It asserted that every derived input was in
+# a set BUILT FROM the derived inputs -- true by construction, and therefore worthless: the exact
+# defect class this gate exists to catch, reintroduced while fixing it. Deriving the set makes
+# coverage automatic; what can still go wrong is the DERIVATION ITSELF returning nothing (a changed
+# grep, a moved battery), which would silently fall back to hashing CORE alone and read green.
+# So the check is on the derivation, and it fails when the derivation stops working.
+fingerprint_coverage_check(){
+  local n known_missing=""
+  n=$(derived_inputs | wc -l)
+  if [ "$n" -lt 5 ]; then
+    echo "  [FAIL] the input derivation returned $n file(s); it found 9 on 2026-09-07."
+    echo "         A derivation that stops working degrades SILENTLY to hashing the curated core,"
+    echo "         which is the hand-maintained list this replaced. Fix the derivation, do not pin it."
+    return 1
+  fi
+  # the battery demonstrably calls these; if the derivation cannot see them it is broken
+  for f in solve.py verify.py sat.py; do
+    derived_inputs | grep -qx "$f" || known_missing="$known_missing $f"
+  done
+  if [ -n "$known_missing" ]; then
+    echo "  [FAIL] the derivation no longer sees:$known_missing — the battery calls these"
+    return 1
+  fi
+  return 0
+}
+
 fingerprint(){
-  { sha256sum solve.c verify.py solve.py scripts/tr12_repro.sh scripts/tr12_repro_gate.sh 2>/dev/null
+  { fingerprint_files | xargs sha256sum 2>/dev/null
     find scripts/tr12_expected -type f ! -name '_GATE_STAMP.txt' -print0 2>/dev/null \
       | sort -z | xargs -0 sha256sum 2>/dev/null
   } | sha256sum | cut -d' ' -f1
@@ -98,6 +136,8 @@ manifest_check(){
 }
 if ! manifest_check; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
 
+# 🔴 INVOKE IT. A coverage check nobody calls is the defect this gate is named after.
+fingerprint_coverage_check || { echo "TR12_REPRO_GATE=ERROR"; exit 2; }
 FP=$(fingerprint)
 
 # 🔴 THE PINNED SKIP SET (2026-09-05 fail-open class sweep, S-06). tr12_repro.sh emits
@@ -161,7 +201,7 @@ if [ "$MODE" = "--check" ]; then
   if [ "$FP" = "$WANT" ]; then
     echo "TR12_REPRO_GATE_CURRENT=YES"; exit 0
   fi
-  echo "TR12_REPRO_GATE_CURRENT=NO (solve.c, verify.py, solve.py, tr12_repro.sh, this gate, or an expected block changed since the last recorded PASS)"
+  echo "TR12_REPRO_GATE_CURRENT=NO (one of the $(fingerprint_files | wc -l | tr -d ' ') DERIVED inputs, this gate, or an expected block changed since the last recorded PASS)"
   exit 1
 fi
 
