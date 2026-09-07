@@ -14,11 +14,18 @@ cd "$(dirname "$0")/.." || { echo "Q314_MOD48=ERROR cannot reach repo root"; exi
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 fail(){ echo "  [ERROR] $*"; echo "Q314_MOD48=ERROR"; exit 2; }
 
-[ -f solve.c ] || fail "missing solve.c"
-BUILD=$(grep -m1 -E '^gcc .*solve\.c' documentation/VERIFY.md 2>/dev/null)
-[ -n "$BUILD" ] || fail "no published 'gcc ... solve.c' build line in documentation/VERIFY.md"
-( eval "${BUILD/-o solve/-o $WORK/solve}" ) >"$WORK/build.log" 2>&1 || fail "published build line failed"
-SOLVE="$WORK/solve"
+# the binary: the PUBLISHED build line, or the one the caller already built (same contract as
+# scripts/q422_ratio_columns_gate.sh, so tr12_repro_gate.sh can hand us its build instead of
+# paying for a second one).
+if [ -n "${Q314_SOLVE:-}" ]; then
+  SOLVE="$Q314_SOLVE"; [ -x "$SOLVE" ] || fail "Q314_SOLVE=$SOLVE is not executable"
+else
+  [ -f solve.c ] || fail "missing solve.c"
+  BUILD=$(grep -m1 -E '^gcc .*solve\.c' documentation/VERIFY.md 2>/dev/null)
+  [ -n "$BUILD" ] || fail "no published 'gcc ... solve.c' build line in documentation/VERIFY.md"
+  ( eval "${BUILD/-o solve/-o $WORK/solve}" ) >"$WORK/build.log" 2>&1 || fail "published build line failed"
+  SOLVE="$WORK/solve"
+fi
 
 mkdir -p "$WORK/f" "$WORK/g" "$WORK/t"
 "$SOLVE" --kc-build   "$WORK/f" --f1-pairs 9 >"$WORK/bf.log" 2>&1 || fail "--kc-build failed"

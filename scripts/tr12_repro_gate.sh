@@ -255,6 +255,16 @@ if ! Q422_SOLVE="$WORK/solve" bash ./scripts/q422_ratio_columns_gate.sh; then
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
+# Q-314 item 1: 48-divisibility of N_total and every layer flow, RE-DERIVED rather than read from
+# the mod24_ok column, plus the fault that isolates it from the mod-24 gate. Wired here on the day
+# it was written -- an unwired gate is a gate that never runs, which is the same defect it exists
+# to catch (cf. bcf2a9bc, which wired a gate that had zero invokers).
+if ! Q314_SOLVE="$WORK/solve" bash ./scripts/q314_mod48_gate.sh; then
+  echo "  [FAIL] scripts/q314_mod48_gate.sh did not PASS: 48-divisibility is no longer gated, or the"
+  echo "         q10-mod48 fault no longer isolates it from the mod-24 gate"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
 # D5-02 / D5-03 / D5-04 / D5-08 legs (2026-09-05, roae-private D5_QUERY_PROGRAM_REVIEW_2026_09_04.md).
 # Four rows would have emitted PASS at full-31 for a computation other than the one their prose
 # names: a1_q8_chi2 (an n=13 self-test in place of the gallery chi-square), a0_ls_w0 (a C2|C1 / C3|C1
