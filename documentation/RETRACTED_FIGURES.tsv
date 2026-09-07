@@ -40,9 +40,13 @@
 # the strict ORDERING, which is a property of the substrings themselves and cannot drift.
 # Re-derive any of them with
 #   git grep -oF -- '<form>' -- '*.md' | wc -l
-# Emphasis markers are not
-# normalised away, so a figure that is sometimes bolded mid-span ("1.4σ **above**") must be
-# registered on the part that is never marked up ("1.4σ").
+# ⚠ STALE LIMITATION, corrected 2026-09-07. This said emphasis markers are not normalised away,
+# so a mid-span bold would escape. MEASURED with a tracked fixture containing `net **+1.6**`:
+#   [FAIL] rfa6_bold.md:1 — retracted figure "net +1.6" restated with no supersession marker
+# The gate catches it. Registering on the never-marked-up part is still good practice, but it is
+# no longer a gap. ⚠ The SVG limitation below IS still real and was tested in the same pass: a
+# tracked file containing <text>1.4σ</text> raised no failure. Advertising a limitation you no
+# longer have is the same defect as hiding one you do -- both make the text disagree with the tree.
 #
 # ADD A ROW EVERY TIME A PUBLISHED NUMBER IS RESTATED, not only when a claim is withdrawn.
 #
