@@ -51,6 +51,7 @@ python3 solve.py --sat-encode OUT.cnf [--sat-c3 pb|adder] [--sat-c4] [--sat-c5]
 python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR [--atlas-select LIST]
                  [--atlas-q3-trace TRACE.txt] [--atlas-verdicts FILE]
                  [--xa-nodes-per-sec F --xa-usd-per-hour F --xa-budget-usd F]
+                 [--xa-node-mapping-cert PATH]
 python3 solve.py --atlas-selftest ATLAS.json --atlas-walks WALKS.txt [--atlas-q3-trace TRACE.txt]
 
 # TR-8 dof-matched KW-fitting-predicate sampler
@@ -442,6 +443,15 @@ figures read, and they gate every table they write.
 --xa-usd-per-hour F          XA-c/d: worker price anchor.
 --xa-budget-usd F            XA-c/d: the ceiling the EXHAUSTIBLE/INFEASIBLE call
                              is made against.
+--xa-node-mapping-cert P     XA-c/d: path to a W0-D t-unit -> SOLVE_NODE_LIMIT
+                             mapping certificate. WITHOUT IT THE PRICING PATH
+                             REFUSES with TR12_XA_CD=PENDING:W0-D-node-mapping
+                             and emits no EXHAUSTIBLE/INFEASIBLE row. A t-unit is
+                             one valid oriented SUPER prefix; SOLVE_NODE_LIMIT
+                             counts production-DFS nodes under C3 pruning, and
+                             nothing certifies the map between them -- `solve
+                             --kc-t-cert` says so in its own JSON
+                             (solve_node_limit_mapping: NOT CLAIMED HERE).
 --xa-hedge F                 XA-c/d: throughput hedge for scale (default 2.0).
 --xa-work-factor F           XA-c/d: engine work factor to divide the rate by
                              (default 1.0 = none).
