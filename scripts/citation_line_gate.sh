@@ -72,8 +72,16 @@ cd "$(dirname "$0")/.." || { echo "CITATION_LINE_GATE=ERROR"; exit 40; }
 DOC="${CITGATE_DOC:-documentation/SOLVE_C_CLI.md}"
 SRC="${CITGATE_SRC:-solve.c}"
 # THE RATCHET. Lower only, and only in the same change that repairs a citation.
-BUDGET="${CITGATE_BUDGET:-57}"
-KNOWN_KEYS="${CITGATE_KEYS:---analyze,--cpu-features,--double-regression-test,--emit-shard-manifest,--estimate-knuth,--kde-score-stream,--merge,--merge-layers,--preflight,--print-config,--prove-cascade,--prove-self-comp,--prove-shift,--regression-test,--selftest,--selftest-resume,--show,--sub-branch,--threshold,--validate,--verify,--verify-rule2,--verify-shard-manifest,SOLVE_CKPT_INTERVAL,SOLVE_COMPRESS,SOLVE_DEPTH,SOLVE_KNUTH_FIBER_PERM,SOLVE_KNUTH_SCORE_REG,SOLVE_MEMORY_FLUSH_COUNT,SOLVE_SUB_BRANCH_PARALLELISM,SOLVE_THREADS,UNLISTED,auto_emit_shard_manifest_default,in_bytes}"
+# 🔴 PIN MOVED 57 -> 0 in the same pass that drained it (2026-09-07). A pin left at 57 after the
+# work is done is a gate that has stopped gating: it would have tolerated 57 NEW stale citations.
+# Measured after the drain: 99 citations, 97 checkable, 0 stale, 2 structurally uncheckable (their
+# sentences name only `#include <zlib.h>` and a gcc command line, neither of which yields a
+# distinctive identifier). Standing risk, stated rather than discovered later: at 0 this goes RED
+# the moment another lane shifts solve.c under those 97 citations -- which happened TWICE today,
+# once by a uniform +43. That is the intended direction, but it hard-blocks the pushing lane, so
+# the number is a deliberate choice and not an accident of when the drain finished.
+BUDGET="${CITGATE_BUDGET:-0}"
+KNOWN_KEYS="${CITGATE_KEYS:-}"
 
 _run() {
   DOC="$1" SRC="$2" BUDGET="$3" KEYS="$4" python3 - <<'PYEOF'

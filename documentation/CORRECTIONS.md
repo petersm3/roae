@@ -9369,3 +9369,67 @@ defect class this whole review exists to remove. The actual string is registered
   `documentation/CAMPAIGN_METHODOLOGY.md:788` both append "King Wen found" to a PASS
   verdict; the former contradicts its own file 458 lines later, which already carries the
   reported-not-enforced note. Those are tracked separately, not fixed here.
+
+## CX-42 — two published PASS verdicts folded King Wen into the criteria the run gated on (RP-024b9bc8, RP-81b89999)
+
+**2026-09-07 · C3 · `documentation/CANONICAL_HASHES.md`, `documentation/CAMPAIGN_METHODOLOGY.md`**
+
+- **BEFORE:** the 560 T `solve --verify` witness cell at `CANONICAL_HASHES.md:123` and the
+  campaign-actuals row at `CAMPAIGN_METHODOLOGY.md:788` each appended the King Wen
+  observation to the PASS verdict itself — the exact wordings are `RP-024b9bc8` and
+  `RP-81b89999`, not quoted here — so a reader takes King Wen's presence as a criterion the
+  run **gated on**.
+- **NOW:** each states the verdict and the observation as two things. The verdict covers
+  C1–C5, sort order and dedup; the King Wen result is recorded beside it as **reported by
+  the same run and not part of that verdict**, under a dated `CORRECTED 2026-09-07` bracket
+  that quotes the retired wording once, in place.
+- **What `--verify` actually does:** it computes `kw_found_v` and prints it (`King Wen
+  found:`, plus the machine-readable whole-line `KW_PRESENT=YES|NO`). That value reaches
+  `total_fail` **only** through `fail_kw`, which is set only under the opt-in `--expect-kw`
+  (`solve.c:37910`, summed at `:37926`). On a default `--verify`, an artifact with the King
+  Wen record deleted returns `VERIFY=PASS`, rc 0 — measured 2026-09-02.
+- **No number, sha, record count or verdict changed.** PASS was and remains PASS on the
+  constraint, sort and dedup checks, and **the observation itself stands**: King Wen is in
+  the 560 T canonical, which `CANONICAL_HASHES.md:113` records in its own field list. Only
+  the billing of that observation as a gated criterion is withdrawn.
+- **Why the binary behaves that way, since the correction reads like a weakening:** gating
+  on King Wen's absence was retracted **deliberately** (registry `RP-60347080`), because a
+  shard or a budgeted slice legitimately lacks the record and enforcing it would be a false
+  reject. `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced
+  contract with a mutation test that goes red on exactly the change these two cells implied
+  had already been made. `--expect-kw` (added 2026-09-04) is the opt-in that makes absence
+  a FAIL; it did not exist when either row's 2026-06-08 run was made.
+- **How it was found:** CX-41's own sibling search found these two sites, graded them
+  MEDIUM and recorded them as "tracked separately, not fixed here". This entry closes them.
+  `CANONICAL_HASHES.md` was the sharper of the two because it already disagreed with
+  itself — §"How to verify a `solutions.bin`" has carried the *printed, not enforced* note
+  since 2026-09-02, ~458 lines below the witness row that contradicted it.
+- **Two registry rows, not one — measured, not reasoned:** the two cells' longest common
+  span is `C1-C5 + sorted + no duplicates`, which folds to `C1-C5+sorted+no duplicates` and
+  matches **10 times across 5 tracked files** under GATE 3's own fold-and-flatten pipeline.
+  That span is the *correct* description of what `--verify` does check, so registering it
+  would have been a false retraction — PART B1 of the census rule, applied. Registering the
+  King Wen clause alone (`King Wen sequence found`) was rejected for the mirror reason: it
+  is a true observation, and a needle that bans it bans the truth rather than the
+  conflation. Each needle therefore carries the PASS verdict token, and each is allowed
+  only in the file that narrates its own retraction.
+- **The prose was fixed before the registry was, again.** Both cells were corrected in
+  place earlier today and neither wording was registered, which is precisely the gap CX-37
+  exists to name: a correction that lands in prose but never in the registry that guards it
+  leaves nothing to stop the wording returning. The rows were added the same day rather
+  than days later, but the ordering was still the wrong way round.
+- **Gated:** `RP-024b9bc8` (allowed only in `documentation/CANONICAL_HASHES.md`) and
+  `RP-81b89999` (allowed only in `documentation/CAMPAIGN_METHODOLOGY.md`) in
+  `documentation/RETRACTED_PHRASES.tsv`, so either wording fails GATE 3 anywhere else in
+  the corpus. Both needles were red-tested both ways on 2026-09-07 against the gate's own
+  matcher: each fires on its pre-edit line, taken from `git show HEAD:<path>` into a
+  scratch file outside the repository, and neither fires on the corrected text now in the
+  tree.
+
+**⚠ A third grammar of the same defect is live and is deliberately NOT registered here.**
+`documentation/HISTORY.md:325`, `:1005` and `:2780` state the same conflation as "sorted,
+no duplicates, King Wen present" for the 706M, 100B and v2 100B artifacts. `HISTORY.md` is
+an append-only dated narrative log held by another lane, the wording shares no registrable
+span with either cell corrected here, and the allow column holds one filename per row. It
+is named rather than swept so that a later census does not read these two rows' `[ok]` as
+evidence the class is gone — a needle matching nothing is not evidence the claim is gone.

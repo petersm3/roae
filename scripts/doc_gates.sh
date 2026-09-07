@@ -892,34 +892,137 @@ gate_cli() {
 import re,sys
 src=open("solve.c",encoding="utf-8",errors="replace").read()
 doc=open("documentation/SOLVE_C_CLI.md",encoding="utf-8",errors="replace").read()
-us=sorted(set(re.findall(r'"Usage: ([^"\\]*)', src)))
+
+# ---- THE EXTRACTOR ------------------------------------------------------------------------
+# Q-410 FOLLOW-UP, 2026-09-07 — THIS LEG USED TO FAIL OPEN, on its own defect class.
+# It read:   re.findall(r'"Usage: ([^"\\]*)', src)
+# `[^"\\]` stops at the first BACKSLASH, and a C usage string that documents a QUOTED operand
+# spells it \" -- so every such grammar was silently TRUNCATED at the operand the gate existed
+# to compare. MEASURED before the fix, on this tree: `--kc-member` extracted as
+# `solve --kc-member DIR ` and the "e,x,..." operand was never compared at all; `--kc-repr`
+# lost [--kc-c3-max T]; `--check-arrangement` lost "h0,h1,...,h63"|KW [--cert-out FILE]. The
+# same class-blindness applied to C ADJACENT STRING-LITERAL CONCATENATION ("Usage: ..." "..."
+# across two source lines), which `[^"\\]*` ends at the first closing quote: that truncated
+# --f1-exact-c1c2c4, --f1-exact-c1c2, --f1-exact-c1c2c4c5, --f1-c3-hist and --kc-sample.
+# TWELVE of the 35 literal grammars were truncated. The leg still printed [ok] on all of them,
+# because a truncated grammar has fewer argument tokens to find and every remaining one was
+# present -- a shorter needle in a 192 KB haystack is a WEAKER test that looks like the same
+# test. A gate written for Q-410 could not see the Q-410 defect on a third of its population.
+#
+# The fix is a real C string-literal scanner: walk the literal honouring \\-escapes, absorb any
+# adjacent literals, then unescape. MEASURED, and this is the evidence the fix worked -- the
+# count of ARGUMENT TOKENS actually compared against the document went UP:
+#     before  34 flags, 110 argument tokens compared
+#     after   34 flags, 147 argument tokens compared     (+37, +34%)
+# and `bad` stayed 0, so the wider comparison is not paid for with a red gate. ARG_FLOOR below
+# pins that number: reintroduce the truncating regex and the leg drops to 110 and FAILS LOUDLY
+# instead of quietly comparing less.
+def _lit_at(s,i):
+    """s[i] is the opening quote. Returns (raw body with escapes intact, index past the close)."""
+    j=i+1; out=[]
+    while j < len(s):
+        c=s[j]
+        if c=='\\': out.append(s[j:j+2]); j+=2; continue
+        if c=='"':  return "".join(out), j+1
+        out.append(c); j+=1
+    return "".join(out), j
+_ESC={'n':'\n','t':'\t','r':'\r','\\':'\\','"':'"',"'":"'"}
+def _unesc(b): return re.sub(r'\\(.)', lambda m:_ESC.get(m.group(1),m.group(1)), b)
+def _usages():
+    out=[]
+    for m in re.finditer(r'"Usage: ', src):
+        body,k=_lit_at(src,m.start())
+        while True:                                  # C adjacent-literal concatenation
+            m2=re.match(r'\s*"', src[k:])
+            if not m2: break
+            b2,k2=_lit_at(src, k+m2.end()-1); body+=b2; k=k2
+        # The GRAMMAR is the first physical line; the rest of the literal is prose description.
+        out.append(_unesc(body)[len("Usage: "):].split("\n")[0].strip())
+    return sorted(set(out))
+
+us=_usages()
 lit=[u for u in us if "%s" not in u]
 FLOOR=25
+ARG_FLOOR=140
 if len(lit) < FLOOR:
     print(f"ERROR only {len(lit)} literal usage string(s) extracted, floor {FLOOR}"); sys.exit(0)
-bad=[]
+
+# ---- LEG A: every argument token of a documented flag's grammar must appear in the doc -------
+bad=[]; ntok=0
+for u in lit:
+    toks=u.split()
+    f=next((t for t in toks if t.startswith("--")), None)
+    if not f or f not in doc: continue
+    args=[a for a in toks[toks.index(f)+1:] if a.strip("[]<>.")]
+    ntok+=len(args)
+    missing=[a for a in args if a.strip("[]<>.") not in doc]
+    if missing: bad.append(f"{f} -> doc never shows {missing}")
+if ntok < ARG_FLOOR:
+    print(f"ERROR only {ntok} argument token(s) compared, floor {ARG_FLOOR} -- the extractor is"
+          f" truncating grammars again (the pre-2026-09-07 fail-open); NOTHING useful was compared")
+    sys.exit(0)
+
+# ---- LEG B: the CONTIGUOUS grammar, as a RATCHET ---------------------------------------------
+# LEG A is weak in a second, independent way, and it was measured rather than argued: it asks
+# only whether each token appears SOMEWHERE in a 192 KB document. `DIR`, `FDIR`, `GDIR`,
+# `OUT.json` occur in dozens of unrelated places, so for many flags LEG A is very nearly free --
+# a flag can print a full Usage: grammar the document never shows anywhere and LEG A still says
+# [ok]. MEASURED 2026-09-07 with the repaired extractor: FIVE flags are in exactly that state.
+# It is NOT flipped on as a hard check, for the reason recorded above this function (Q-199): a
+# rule that ships red at five sites is a rule read by nobody by the next morning. It ships as a
+# RATCHET on the same pattern as GATE 18 and scripts/gate_published_consistency.pin -- the five
+# are named, and no SIXTH may be added. A count that FALLS is announced so the pin comes down in
+# the same change. The five are KNOWN-OPEN, not acceptable: each needs the document to gain a
+# grammar line, which is documentation/ lane work.
+WEAK_KNOWN={"--branch","--f1c5-sidecar-retrofit","--kc-ladder-verify","--kc-sample","--kc-scan"}
+_nd=re.sub(r'\s+',' ',doc)
+weak=[]
 for u in lit:
     toks=u.split()
     f=next((t for t in toks if t.startswith("--")), None)
     if not f or f not in doc: continue
     args=toks[toks.index(f)+1:]
-    missing=[a for a in args if a.strip("[]<>.") and a.strip("[]<>.") not in doc]
-    if missing: bad.append(f"{f} -> doc never shows {missing}")
+    if not args: continue
+    if re.sub(r'\s+',' ',f+" "+" ".join(args)).strip() not in _nd: weak.append(f)
 print(f"COUNT {len(lit)}")
+print(f"ARGS {ntok}")
 for b in bad: print("BAD "+b)
+for w in sorted(set(weak)-WEAK_KNOWN): print("WEAKNEW "+w)
+print(f"WEAK {len(weak)}")
+if len(weak) < len(WEAK_KNOWN):
+    print(f"WEAKREPIN {len(weak)} of {len(WEAK_KNOWN)}")
 PYEOF
 )
+    # `$_ua` is CAPTURED first and matched from the variable. Never `python3 ... | grep -q`:
+    # grep -q exits at the first match, the producer dies of SIGPIPE, and under `set -o pipefail`
+    # the pipeline status is 141 -- so a MATCH would read as NO MATCH and this leg would fail open
+    # a second time, in a second way.
     if printf '%s\n' "$_ua" | grep -q '^ERROR'; then
       echo "  [FAIL] GATE 2 usage-grammar leg: $(printf '%s\n' "$_ua" | sed -n 's/^ERROR //p')"
       echo "         The extractor is broken, so NOTHING was compared."; bad=1
     else
       _n=$(printf '%s\n' "$_ua" | sed -n 's/^COUNT //p')
+      _a=$(printf '%s\n' "$_ua" | sed -n 's/^ARGS //p')
       _b=$(printf '%s\n' "$_ua" | grep -c '^BAD ')
+      _wn=$(printf '%s\n' "$_ua" | grep -c '^WEAKNEW ')
+      _w=$(printf '%s\n' "$_ua" | sed -n 's/^WEAK //p')
       if [ "${_b:-0}" -gt 0 ]; then
         echo "  [FAIL] $_b flag(s) whose printed grammar the doc does not show:"
         printf '%s\n' "$_ua" | sed -n 's/^BAD /      /p'; bad=1
       else
         echo "  [ok] all $_n literal Usage: grammar(s) in solve.c are reflected in SOLVE_C_CLI.md"
+        echo "       ($_a argument tokens compared; the pre-2026-09-07 truncating extractor compared 110)"
+      fi
+      # LEG B ratchet. A SIXTH flag printing a grammar the doc never shows is a FAIL; the five
+      # standing ones stay named and visible instead of being waved through.
+      if [ "${_wn:-0}" -gt 0 ]; then
+        echo "  [FAIL] $_wn flag(s) NEWLY printing a contiguous Usage: grammar the doc never shows:"
+        printf '%s\n' "$_ua" | sed -n 's/^WEAKNEW /      /p'
+        echo "         Add the grammar line to documentation/SOLVE_C_CLI.md, or extend WEAK_KNOWN"
+        echo "         in this leg with a written reason."; bad=1
+      else
+        echo "  [ok] contiguous-grammar ratchet: ${_w:-0} known-open, none new"
+        printf '%s\n' "$_ua" | sed -n 's/^WEAKREPIN /      [repin] contiguous-grammar known-open fell to /p'
       fi
     fi
   fi
@@ -927,6 +1030,46 @@ PYEOF
   return $bad
 
 
+}
+
+# ----------------------------------------------------------------------------------
+# GATE 2c — CITATION LINE INTEGRITY (2026-09-07). documentation/SOLVE_C_CLI.md carries ~100
+# hand-maintained `solve.c:NNNNN` line citations into a 44,000-line file under continuous edit.
+# GATE 2 above checks that a flag is NAMED and (usage leg) that its GRAMMAR is shown; nothing
+# checked that a citation still POINTS AT the code it claims. MEASURED 2026-09-07: all 38
+# citations in the `--kc-*` tables had drifted, with non-uniform offsets (+3229, +3655, +4749),
+# i.e. accumulated across several restructurings — so no bulk shift could repair them and no
+# reviewer checking one could infer the rest. The implementation and its ratchet live in
+# scripts/citation_line_gate.sh (verdict token CITATION_LINE_GATE=PASS|FAIL|ERROR); this is the
+# dispatch wrapper. It is a SEPARATE SCRIPT because it must be runnable, and red-testable, on an
+# arbitrary (doc, source) pair via CITGATE_DOC / CITGATE_SRC — which is how its both-directions
+# red-test is built, and which a function reading fixed paths inside this file could not offer.
+gate_citation_lines() {
+  echo "== GATE 2c: solve.c line citations must land on the symbol they name =="
+  if [ ! -x scripts/citation_line_gate.sh ]; then
+    echo "  [FAIL] scripts/citation_line_gate.sh missing or not executable — NOTHING was measured"
+    return 1
+  fi
+  # CAPTURE, then match — and match from a HERE-STRING, which has no producer process at all.
+  # `producer | grep -q` is the trap: grep -q exits at the first match, the producer takes
+  # SIGPIPE, and under `set -o pipefail` the pipeline status is 141, so a MATCH reads as NO
+  # MATCH. That is the same fail-open shape as the truncating regex this gate family just
+  # removed, and a `printf` builtin only escapes it by accident of pipe-buffer size.
+  local _out _rc
+  _out=$(bash scripts/citation_line_gate.sh 2>&1); _rc=$?
+  sed -n '/^  \[/p' <<<"$_out"
+  if grep -qx 'CITATION_LINE_GATE=PASS' <<<"$_out"; then
+    return 0
+  fi
+  if grep -qx 'CITATION_LINE_GATE=ERROR' <<<"$_out"; then
+    echo "  [FAIL] GATE 2c measured NOTHING (ERROR verdict) — this is not agreement"
+    return 1
+  fi
+  if grep -qx 'CITATION_LINE_GATE=FAIL' <<<"$_out"; then
+    return 1
+  fi
+  echo "  [FAIL] GATE 2c produced no verdict token at all (rc=$_rc) — treated as FAIL"
+  return 1
 }
 
 # ----------------------------------------------------------------------------------
@@ -18656,6 +18799,7 @@ case "$MODE" in
   branch-registry) gate_branch_registry || RC=1 ;;
   numbers) gate_numbers || RC=1 ;;
   cli)     gate_cli     || RC=1 ;;
+  citation-lines) gate_citation_lines || RC=1 ;;
   retract) gate_retract || RC=1 ;;
   retract-figures) gate_retract_figures || RC=1 ;;
   links)   gate_links_and_secrefs || RC=1 ;;
@@ -18701,7 +18845,8 @@ case "$MODE" in
   prereg-escrow) gate_prereg_escrow || RC=1 ;;
   viz-shape) gate_viz_shape || RC=1 ;;
   separates-census) gate_separates_census || RC=1 ;;
-  all)     gate_numbers || RC=1; echo; gate_cli || RC=1; echo; gate_retract || RC=1
+  all)     gate_numbers || RC=1; echo; gate_cli || RC=1
+           echo; gate_citation_lines || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
            echo; gate_links_and_secrefs || RC=1; echo; gate_status || RC=1
            echo; gate_figures || RC=1
@@ -18784,7 +18929,7 @@ case "$MODE" in
            echo; gate_boundary_scope || RC=1
            echo; gate_merge_semantics || RC=1
            echo; gate_rec_scope || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|all}"; exit 2 ;;
 esac
 
 echo

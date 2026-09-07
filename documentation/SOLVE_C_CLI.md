@@ -144,7 +144,7 @@ exhaustive; this document is the full reference. One caveat on "full": until
 2026-09-01 five variables the binary reads had no mention here at all — the
 Purdom/fiber estimator controls `SOLVE_KNUTH_PURDOM_W`,
 `SOLVE_KNUTH_PURDOM_DEPTH`, `SOLVE_KNUTH_FIBER`, `SOLVE_KNUTH_FIBER_XCHECK`
-and `SOLVE_KNUTH_FIBER_PERM` (solve.c:19000 ff.). They are named here now, but
+and `SOLVE_KNUTH_FIBER_PERM` (solve.c:35715-35795). They are named here now, but
 they still have no row in the ENVIRONMENT tables below; read them out of
 `solve.c` directly. Every other `SOLVE_*` variable `solve.c` reads is
 documented in this file (measured 2026-09-01 by diffing every
@@ -172,7 +172,7 @@ resume after interrupt or eviction.
 - `time_limit` — wall-clock seconds; `0` means run to completion.
   Default 0.
 - `threads` — number of pthreads to use. Default `nproc`, clamped to the
-  sub-branch count and to a 256 ceiling (solve.c:26466-26443). *(Corrected
+  sub-branch count and to a 256 ceiling (`SOLVE_THREADS`, solve.c:42814-42821). *(Corrected
   2026-09-01: this line previously capped the default at 128.)*
 
 Output sha matches a canonical entry in
@@ -201,7 +201,7 @@ FAIL.
 Runs in ~5 seconds. Every commit to solve.c MUST preserve this sha;
 divergence is a regression.
 
-Exits 0 on PASS and **40** on a sha mismatch (`solve.c:18031`, "validation
+Exits 0 on PASS and **40** on a sha mismatch (`solve.c:34313-34321`, "validation
 mismatch"). *(Corrected 2026-09-01: this line previously gave 1 and the EXIT STATUS table
 gave 50 for the same failure; the binary returns neither.)*
 
@@ -221,7 +221,7 @@ path that canonical extensions (e.g. 560T → 1120T) rely on.
 > ⚠️ **It sends no signal.** All three phases are `system()` calls allowed to
 > exit normally at their node limit, each checked with `if (rc != 0) return
 > 40`; there is no `kill`, no SIGTERM, and no termination during a checkpoint
-> write anywhere in the block (solve.c:18405-18452). So it does **not** cover
+> write anywhere in the block (solve.c:34705-34741). So it does **not** cover
 > interruption or eviction recovery. The real SIGTERM-mid-walk exercise is
 > elsewhere in this tree: `solve.py` extended-selftest **subtest 8**
 > ("single-branch eviction-resume invariance"), which calls `proc.terminate()`
@@ -301,12 +301,12 @@ can check from inside its own process — auto-selftest (sha
 **without running the enum**. One command to confirm a campaign VM is
 ready. Run it FROM the campaign run-dir (the gates check the cwd).
 
-`node_limit` is a **bare node count**, not a scale token. It is parsed
-with `atoll` (solve.c:18668), which stops at the first non-digit and
-does not reject the remainder: `--preflight 560T` is taken as
-`NODE_LIMIT=560` and `--preflight 11.2T` as `11`. Pass the integer
-(`560000000000000`, `11200000000000`), or omit the argument and take the
-built-in default `560000000000000` (solve.c:18668).
+`node_limit` is a **bare node count**, not a scale token. It is parsed with
+`strtoll` under an endptr-must-be-NUL check (`--preflight`, solve.c:35298-35313),
+so any trailing character is REFUSED: `--preflight 560T` and `--preflight 11.2T`
+both print `PREFLIGHT=REFUSED-BAD-ARG` and exit **2**. Pass the integer
+(`560000000000000`, `11200000000000`), or omit the argument and take the built-in
+default `560000000000000` (`--preflight`, solve.c:35298-35313).
 
 Does NOT cover what lives outside the process: VM/eviction/cost (the
 external monitor, task #55), full disk SMART/fsck
@@ -323,8 +323,8 @@ mind:
 - **2** for a refused argument, or for a run in which any gate was **SKIPPED**.
 
 > ✅ **SKIPPED is now a distinct verdict, and a bad argument is refused (landed 2026-09-04,
-> Codex v2 `solve.c:18678`).** This section previously described two defects as open; both are
-> closed and the description below is what the code now does.
+> Codex v2 `solve.c@18678` — a finding identifier, not a line in this tree; the fix is at
+> `--preflight`, solve.c:35282-35313).** This section previously described two defects as open; both are closed and the description below is what the code now does.
 >
 > **The argument is parsed strictly.** It is a node **count**, not a scale label: `560T` and
 > `560Q` are *not* parsed. They used to be silently truncated by `atoll` to 560 and 0
@@ -375,7 +375,7 @@ solve --print-config
 
 Config introspection (2026-05-28). Dumps build provenance — `git_hash`,
 `build_source_sha`, `canonical_selftest_sha256` and an ISA pointer
-(solve.c:19554-19558) — then a **fixed, hand-maintained subset** of `SOLVE_*`
+(solve.c:36427-36432) — then a **fixed, hand-maintained subset** of `SOLVE_*`
 variables with each one's effective value (its value, or `(unset)` = built-in
 default in effect). Purpose: when a future change drifts the canonical sha,
 the config delta for the covered variables is **explicit** rather than
@@ -430,7 +430,7 @@ SOLVE_THREADS=128 ./solve 0 128
 ```
 
 `set -a` is load-bearing: `--canonical-config` emits **bare** assignments
-(`printf("SOLVE_DEPTH=%d\n", …)`, solve.c:19624) with no `export`, so a plain
+(`printf("SOLVE_DEPTH=%d\n", …)`, solve.c:36498) with no `export`, so a plain
 `eval $(…)` creates shell variables that the child `./solve` never sees.
 Measured on this tree: after `eval $(./solve --canonical-config 100T)`,
 `$SOLVE_DEPTH` is `3` in the shell but `env | grep -c '^SOLVE_'` is **0**;
@@ -483,8 +483,8 @@ disjoint substreams, which this is not.
   (only tractable for a deep prefix; used to validate the estimator against
   ground truth — matches to <1 % at prefix depths 22/24/26).
 
-> ✅ **Output-honesty fixes landed 2026-09-04** (Codex v2 `solve.c:8073`, `:8136`,
-> `:8137/:8093/:8149`, `:8341`, `:8343`). All are estimator-only and sha-neutral.
+> ✅ **Output-honesty fixes landed 2026-09-04** (Codex v2 `solve.c@8073`, `@8136`, `@8137/@8093/@8149`,
+> `@8341`, `@8343` — the adjudication's own finding identifiers, written with `@` because they are not line numbers in this tree). All are estimator-only and sha-neutral.
 >
 > **`CI=UNAVAILABLE` and `STARVATION` replace two CIs that were never meaningful.** Every
 > interval now uses the **sample** variance (divisor `N-1`, not `N`) — the old intervals were
@@ -602,10 +602,10 @@ foundation+bw+vpopcntdq triple that a **future** v2 dispatcher would require.
 
 > ⚠️ **This build has no vectorised path.** The subcommand's own header says
 > it reports capability "used by *future* AVX-512 runtime dispatch" with "no
-> behavioral change to canonical enumeration" (solve.c:19717-19726), yet on a
+> behavioral change to canonical enumeration" (solve.c:36591-36600), yet on a
 > capable host it prints a YES verdict asserting a vectorised path will be
-> selected
-> (solve.c:19745-19746). Measured on this tree: `solve.c` contains 17
+> selected (`avx512_ready`, solve.c:36618-36620). Measured on this tree:
+> `solve.c` contains 17
 > `avx512`/`AVX-512` strings and **zero** occurrences of `_mm512_*`,
 > `immintrin.h`, or `__attribute__((target(...)))` — there is no vectorised
 > path to select, so a YES here does not explain throughput. Rewording that
@@ -699,17 +699,17 @@ strict-ascending sort order, and King Wen presence. Unlike
 valid `ROAE` header and aborts on bad magic or unknown version.
 
 > ⚠️ **King Wen presence is reported, not enforced — in *both* checkers.**
-> `kw_found_v` is printed (`solve.c:38124` for `--validate`, `:37536` for
+> `kw_found_v` is printed (`solve.c:38397` for `--validate`, `:37949` for
 > `--verify`) and is folded into neither verdict: `--validate` returns
-> `errors > 0 ? 1 : 0` (`solve.c:38138`) and `--verify`'s `total_fail`
-> (`solve.c:37559`) sums C1-C5, decode, sort and dup only. Measured on this
-> tree: an artifact with the King Wen record deleted and its header count
-> patched prints `King Wen present:  No` and `ALL CONSTRAINTS VERIFIED`,
-> exiting **0** — and `--verify` on the same file also exits 0. Sort order and
-> cross-record duplicates *are* enforced (the sorted-order loop increments
-> `errors` at `solve.c:38018`); the same fixtures, deliberately unsorted or
-> carrying an adjacent duplicate, both exit **1**. So treat the KW line as a
-> banner and check it by eye.
+> `errors > 0 ? 1 : 0` and prints `VALIDATE=PASS|FAIL` (`solve.c:38425-38426`);
+> `--verify`'s `total_fail` (`solve.c:37978`) sums C1-C5, decode, sort and dup
+> only. Measured on this tree: an artifact with the King Wen record deleted
+> and its header count patched prints `King Wen present:  No` and
+> `ALL CONSTRAINTS VERIFIED`, exiting **0** — and `--verify` on the same file
+> also exits 0. Sort order and cross-record duplicates *are* enforced — the
+> sorted-order loop clears `sorted_ok` and counts the error (solve.c:38290-38291);
+> the same fixtures, deliberately unsorted or carrying an adjacent duplicate,
+> both exit **1**. So treat the KW line as a banner and check it by eye.
 >
 > **`--expect-kw` closes the open change, opt-in (added 2026-09-04).** Both checkers now accept
 > `--expect-kw`, mirroring `verify.py --expect-kw`: with it, King Wen's absence is folded into the
@@ -732,12 +732,12 @@ valid `ROAE` header and aborts on bad magic or unknown version.
 > `:21451`, `:21063`, `:21456`, `:21065`, `:21359`, which now land in unrelated KC walk and RNG
 > code (`:21451` is a `memcmp`, `:21359` a `kc_splitmix64` call). `solve.c` grew by roughly 16,500
 > lines between the citation and this reading. The claims themselves were all still true; only the
-> coordinates had moved. The two `solve.c:21058/:21439` references below are NOT tree coordinates
-> and were left alone: they are the Codex adjudication's own identifiers for the finding, used the
-> same way in the engine comment at `solve.c:37684`.
+> coordinates had moved. The two `solve.c@21051/@21439` references below are NOT tree coordinates
+> and were left alone: they are the Codex adjudication's own identifiers for the finding (written with
+> `@`, not `:`, so they cannot be read as line numbers), used the same way in the `validate_mode` engine comment at solve.c:38196-38206.
 >
 > `--validate`'s runtime banner also used to list "King Wen presence" among the things it
-> *checks*, which contradicted this note; corrected 2026-09-04 (Codex v2 `solve.c:21058/:21439`).
+> *checks*, which contradicted this note; corrected 2026-09-04 (Codex v2 `solve.c@21051/@21439` — this document wrote `:21058` for that identifier until 2026-09-07; solve.c's own copies all read `21051`).
 > The behaviour was always deliberate — the promise was the defect. *(Added 2026-09-01;
 > extended 2026-09-04.)*
 
@@ -780,10 +780,10 @@ analysis, no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) 
 > not validators; they trust the artifact more than `--verify` does.
 >
 > - **Framing is not checked.** The record count comes from the header
->   (solve.c:18071) and the read loop is bounded by it (solve.c:18088),
+>   (`hdr_records`, solve.c:34356-34361) and the read loop is bounded by it (`n_records`, solve.c:34378),
 >   with no comparison against the file's logical size. The Q-277
->   invariant — logical size == 32-byte header + 32 bytes per declared
->   record — landed in `--verify` only (solve.c:20922); the three audit
+>   invariant — logical size == 32-byte header + 32 bytes per declared record —
+>   landed in `--verify` only (`SOL_HEADER_SIZE`, solve.c:37801-37802); the three audit
 >   readers were not swept. Measured on this tree: a 96-byte artifact
 >   whose header declares 1 record but carries 2 reports `records=1`,
 >   scans only the first, and prints `RULE2=TABULATED` — likewise
@@ -791,9 +791,9 @@ analysis, no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) 
 >   silently unexamined, while `--verify` on the same file prints
 >   `VERIFY=ERROR`.
 > - **Pair indices are not bounds-checked.** A record byte decodes to
->   `pidx = (rec[i] >> 2) & 0x3F`, range 0-63 (solve.c:18101), and
->   indexes `pairs[]`, which has 32 entries (solve.c:443), with no
->   `pidx < 32` guard. Measured: a one-record artifact whose first byte
+>   `pidx = (rec[i] >> 2) & 0x3F` in the `--verify-rule2` scan loop (solve.c:34363-34394),
+>   and indexes the global `pairs`/`n_pairs` table (solve.c:470-471), which has 32
+>   entries, with no `pidx < 32` guard. Measured: a one-record artifact whose first byte
 >   is `0x80` (pidx 32) reads past the array and still prints a normal
 >   `RULE2=TABULATED` at exit 0.
 >
@@ -2010,7 +2010,7 @@ into the final solutions.bin.
 `SOLVE_TEMP_DIR` should point to a directory with at least **1.5× the sum of
 the input shard bytes** of free space — that is the quantity the pre-merge
 pre-flight actually measures (`for (i…) in_bytes += sb.st_size`, then
-`need = in_bytes * 1.5` against `statvfs`, solve.c:10875-10886), and it
+`need = in_bytes * 1.5` against `statvfs`, solve.c:11462-11471), and it
 matches the `SOLVE_SKIP_TEMP_SPACE_CHECK` row in the environment table below.
 *(Corrected 2026-09-01: this rule was previously stated against the expected
 *output* size. Input bytes exceed output bytes by the dedup ratio — several-fold at canonical
@@ -2033,9 +2033,9 @@ into `<run_root>/_merged_/` along with a `MANIFEST.txt` recording
 provenance, then runs the standard merge in that directory.
 
 > 🔴 **`<run_root>` must be an ABSOLUTE path.** The symlink target is built as
-> `<run_root>/<layer>/<shard>` with `<run_root>` taken verbatim from `argv`
-> (solve.c:17772-17781), and the link is created inside
-> `<run_root>/_merged_/`, so a relative root yields a target that resolves
+> `<run_root>/<layer>/<shard>` with `<run_root>` taken verbatim from `argv[2]`
+> into `layer_root` (solve.c:33976; the target is assembled at solve.c:34036-34037),
+> and the link is created inside `<run_root>/_merged_/`, so a relative root resolves
 > relative to `_merged_/` and is therefore dangling. Measured on this tree:
 > `solve --merge-layers runs` produced
 > `runs/_merged_/sub_10_0_5_1.bin -> runs/layer1/sub_10_0_5_1.bin`, which
@@ -2095,17 +2095,17 @@ Formats:
 - `raw` — `pair_index/orient` per byte: `0/0 1/0 2/0 …` (debugging).
 
 Record addressing is O(1) index arithmetic (header offset + index ×
-SOL_RECORD_SIZE), but the seek itself is not. `--show` uses `gzseek`
-(solve.c:21211), and on the **default** artifact — `SOLVE_COMPRESS` defaults
-to gzip, and a default-configuration run writes a `solutions.bin` beginning
-`1f 8b`, measured — a forward seek decompresses through everything it skips,
-so seek cost is O(offset): for `--mode last` on the 102 GB canonical that is
-essentially the whole file. The implementation says so itself
-(solve.c:21105-21101: *"forward seeks decompress through; this is a
-small-sample inspection tool, not a hot path"*). For true random access use
+`SOL_RECORD_SIZE`), but the seek itself is not. `--show` computes that
+offset and calls `gzseek` (`SOL_RECORD_SIZE` stride, solve.c:38116-38117),
+and on the **default** artifact — `SOLVE_COMPRESS` defaults to gzip, and a
+default-configuration run writes a `solutions.bin` beginning `1f 8b`,
+measured — a forward seek decompresses through everything it skips, so seek
+cost is O(offset): for `--mode last` on the 102 GB canonical that is
+essentially the whole file. The `show_mode` block (solve.c:38010-38015) says
+so itself: *"forward seeks decompress through; this is a small-sample
+inspection tool, not a hot path"*. For true random access use
 `SOLVE_COMPRESS=0` artifacts. *(Corrected 2026-09-01: this paragraph asserted
-O(N) and O(1) seek cost in one sentence and named the gz canonical as its
-O(1) example.)*
+O(N) and O(1) seek cost in one sentence and named the gz canonical as its O(1) example.)*
 
 Useful for visual-validating C4 (every record's first pair should
 print as `[1,2]` / `䷀䷁`) or eyeballing record structure.
@@ -2235,8 +2235,8 @@ random).
 solve --prove-cascade
 ```
 
-Cascade determinism. The binary's own banner is `PROOF: Position 2
-determines positions 3-19` (solve.c:24536): for each valid branch it
+Cascade determinism. The binary's own banner is
+`PROOF: Position 2 determines positions 3-19` (solve.c:41556): for each valid branch it
 enumerates all 2^17 = 131,072 binary paths across positions 3-19 — at each
 position the two candidates being pair *i* (KW) and pair *i-1* (shifted) —
 and checks budget feasibility of every path; the cascade is deterministic
@@ -2250,8 +2250,8 @@ solve --prove-self-comp
 ```
 
 Existence result, not a bound. The binary's own banner is
-`PROOF: All self-complementary branches produce valid orderings`
-(solve.c:24335): for each self-complementary pair at position 2 it runs a
+`PROOF: All self-complementary branches produce valid orderings` (solve.c:41355):
+for each self-complementary pair at position 2 it runs a
 bounded backtracking search and reports that at least one C1-C5-valid
 ordering exists. C3 enters only as a constraint on that walk; nothing here
 bounds self-complementary configurations by the C3 ceiling.
@@ -2264,8 +2264,8 @@ solve --prove-shift
 ```
 
 Per-position candidate count, not a distributional invariance. The binary's
-own banner is `PROOF: Positions 3-19 have exactly 2 budget-feasible
-candidates` (solve.c:24402): at each position 3-19 it tests all 30 unused
+own banner is
+`PROOF: Positions 3-19 have exactly 2 budget-feasible candidates` (solve.c:41422): at each position 3-19 it tests all 30 unused
 pairs and reports how many are budget-feasible.
 *(Corrected 2026-09-01, against the printed banner.)*
 
@@ -2278,11 +2278,11 @@ solve --regression-test [budget]        # node budget, default 5600000000000 (5.
 **Partition-invariance regression, not a recorded-sha matrix.** At a single
 budget B (argv[2], `atoll`-parsed; default 5.6T) it runs one full enumeration
 and one 56-first-level-branch reconstruction at B/56 each, merges the second,
-and compares the two **freshly produced** hashes (`strcmp(sha_full, sha_56)`,
-solve.c:20046). There is no scope list and no baseline from
+and compares the two **freshly produced** hashes
+(`strcmp(sha_full, sha_56)`, solve.c:36932). There is no scope list and no baseline from
 [CANONICAL_HASHES.md](CANONICAL_HASHES.md) anywhere in the block — the
 subcommand's own header comment states the property it checks
-(solve.c:19861-19864). Note the practical consequence: it cannot catch a
+(solve.c:36747-36764). Note the practical consequence: it cannot catch a
 common-mode regression that moves both paths identically. Exits 50 on any
 phase failure or sha mismatch.
 
@@ -2308,7 +2308,7 @@ verify the partition invariance theorem at empirical scales.
 
 Reads/writes test artifacts under a base directory taken **only** from
 `SOLVE_REGRESS_DIR`; when that is unset the default is `/mnt/work` if it
-exists, else `/tmp` (solve.c:20123-20128). The positional argument is a node
+exists, else `/tmp` (`SOLVE_REGRESS_DIR`, solve.c:37009-37012). The positional argument is a node
 **budget**, not a directory — measured, `solve --double-regression-test
 /tmp/somedir` prints `budget must be positive` and exits 2.
 *(Corrected 2026-09-01.)*
@@ -2322,21 +2322,21 @@ solve --emit-shard-manifest [manifest_path]      # default shard_manifest.txt
 Scans the **current working directory** for `sub_*.bin`, computes each
 shard's logical sha256, and writes `<filename> <size_bytes> <sha256>`
 per line. There is **no header**: the writer is a single
-`find … | xargs … printf | sort` pipeline (solve.c:3260-3273) that emits
+`LC_ALL=C find … | xargs … printf | sort` pipeline (solve.c:3344-3358) that emits
 sorted data lines and nothing else — no manifest version, no build sha, no
 emission timestamp. *(Corrected 2026-09-01; measured by running
 `--emit-shard-manifest` on a 996-shard tree and reading line 1.)*
 
 The optional argument is the manifest's **output path**, not a directory
-to walk (solve.c:19810). The scan target is hard-coded `.`
-(`find . -maxdepth 1 -name 'sub_*.bin'`, solve.c:3260), so
+to walk (`manifest_path`, solve.c:36684). The scan target is hard-coded `.`
+(`LC_ALL=C find . -maxdepth 1 -name 'sub_*.bin'`, solve.c:3345), so
 `--emit-shard-manifest /data/run42` scans the CWD and writes a *file*
 named `/data/run42` — it does not scan `/data/run42` and does not
 produce `/data/run42/shard_manifest.txt`. To manifest another directory,
 `cd` into it first.
 
 The path is interpolated **unquoted** into the emitting shell pipeline
-(solve.c:3272) and into the `wc -l` count (solve.c:19817), so a path
+(`LC_ALL=C sort > %s`, solve.c:3357) and into the `wc -l < manifest_path` count (solve.c:36703), so a path
 containing spaces or shell metacharacters is not handled as a literal
 filename: measured on this tree, `--emit-shard-manifest 'x;touch
 INJECTED_PROOF'` created a file `INJECTED_PROOF`, printed
@@ -2348,7 +2348,7 @@ Used by the auto-emit gate (default, suppressed via
 `SOLVE_SKIP_AUTO_MANIFEST=1`): solve auto-emits a `shard_manifest.txt` at
 **two** points only — promotion/startup, after `promote_orphaned_shards`,
 and clean completion. Those are the sole call sites of
-`auto_emit_shard_manifest_default()` (solve.c:26321 and solve.c:26755); it
+`auto_emit_shard_manifest_default()` (solve.c:43356 and solve.c:43799); it
 does **not** fire on each shard-flush rename, as this paragraph used to say,
 so between those two points the manifest can lag the shard set. Operator-invocable for
 explicit re-baselining. *(Corrected 2026-09-01.)*
@@ -2360,7 +2360,7 @@ solve --verify-shard-manifest [manifest_path]    # default shard_manifest.txt
 ```
 
 Reads the manifest at `manifest_path` (the argument is the manifest
-*file*, not a directory — solve.c:19835), re-computes the sha256 of
+*file*, not a directory — `manifest_path` at solve.c:36721), re-computes the sha256 of
 every shard named in it **relative to the current working directory**,
 and reports MISSING / SHRUNK / DIVERGED / EXTRA entries. Exits 22 on any anomaly. Run at every canonical-enum
 startup as the auto-verify gate — catches cross-run shard-set
@@ -2369,7 +2369,7 @@ ambiguous prior state.
 
 An unlisted shard (present in the directory but not named in the manifest)
 is **fatal**, like MISSING / SHRUNK / DIVERGED: `dir_shards > total` prints
-one `UNLISTED: <name>` line per offender and returns 22 (solve.c:3425-3457).
+one `UNLISTED: <name>` line per offender and returns 22 (solve.c:3588-3623).
 That guard is deliberate — the merge step reads what is *present*, so an
 unlisted shard would enter the merged result unverified. Measured on this
 tree: dropping one extra `sub_*.bin` into a manifested directory drove
@@ -2415,9 +2415,9 @@ Streaming Gaussian-KDE log-density evaluator for the joint-density analysis
 pipeline. **Both ends are float64 vectors, not `solutions.bin` records:**
 `--fit-file PATH` holds the fit points as raw `float64`, `n_fit × d`; stdin
 carries the **query** points, `d` float64 values per record
-(solve.c:20330-20338). Output is **one aggregate line** —
+(solve.c:37217-37232). Output is **one aggregate line** —
 `<n_below> <n_total>`, the count of queries whose log-density is at or below
-`--threshold` and the number scored (`solve.c:20448`) — not a per-record
+`--threshold` and the number scored (`solve.c:37245`) — not a per-record
 stream. Driven by `solve.py`; piping a packed 32-byte-record artifact into it
 reinterprets record bytes as IEEE doubles. Used by
 [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
@@ -2432,16 +2432,16 @@ output; both ends were wrong.)*
 
 | Variable | Default | Effect |
 |---|---|---|
-| `SOLVE_THREADS` | `nproc` (`sysconf(_SC_NPROCESSORS_ONLN)`; 8 if that fails), then clamped to the sub-branch count and to a hard ceiling of **256** | Number of pthreads for enumeration. ⚠ Row corrected 2026-09-01: this cell previously capped the default at 128. That cap lives only in `manifest_thread_count()` (solve.c:3241), a different function; the enumeration path is solve.c:26466-26443 |
+| `SOLVE_THREADS` | `nproc` (`sysconf(_SC_NPROCESSORS_ONLN)`; 8 if that fails), then clamped to the sub-branch count and to a hard ceiling of **256** | Number of pthreads for enumeration. ⚠ Row corrected 2026-09-01: this cell previously capped the default at 128. That cap lives only in `manifest_thread_count()` (solve.c:3317-3322), a different function; the enumeration path is solve.c:42814-42821 |
 | `SOLVE_DEPTH` | **2** | DFS sub-branch depth: 2 (3,030 sub-branches) or 3 (158,364 sub-branches). The **code** default is 2 ("Default 2 for byte-identical behavior with the canonical 10T baseline", solve.c) — but every d3 canonical needs an explicit `SOLVE_DEPTH=3`; it is sha-determining, so omitting it silently enumerates the d2 partition |
 | `SOLVE_NODE_LIMIT` | 0 (no limit) | Total node budget across the enumeration |
 | `SOLVE_PER_SUB_BRANCH_LIMIT` | derived | Per-sub-branch node cap; overrides auto-divide of `SOLVE_NODE_LIMIT`. Setting this also suppresses the sub-canonical hard-gate (intended for partition-invariance and within-code-state runs). |
-| `SOLVE_PER_TASK_NODE_LIMIT` | `0` (off) | Per-task cap (depth-3 sub-branch granularity for parallel `--sub-branch`). ⚠ Row corrected 2026-09-01: read "derived". `static long long per_task_node_limit = 0;` — *"0 = off (preserves prior behavior + canonical shas)"* (solve.c:1511-1515) |
+| `SOLVE_PER_TASK_NODE_LIMIT` | `0` (off) | Per-task cap (depth-3 sub-branch granularity for parallel `--sub-branch`). ⚠ Row corrected 2026-09-01: read "derived". `static long long per_task_node_limit = 0;` — *"0 = off (preserves prior behavior + canonical shas)"* (solve.c:1565) |
 | `SOLVE_DFS_ITERATIVE` | 0 (recursive); **1 if `SOLVE_NODE_LIMIT >= 1T` (canonical-scale default since 2026-05-26)** | `=1`: iterative DFS using explicit stack frames (resume-capable) |
 | `SOLVE_DFS_CHECKPOINT` | 0 (off); **1 if `SOLVE_NODE_LIMIT >= 1T` (canonical-scale default since 2026-05-26)** | `=1`: write `.dfs_state` per-sub-branch sidecar + `checkpoint.txt` for resume after interrupt or eviction. Also stamps/enforces the **resume-shape contract** (`resume_contract.txt`, 2026-07-17): resuming over a live `*.dfs_state` frontier with a different thread count or depth than the interrupted run is **FATAL (exit 34)** — kill/resume byte-reproducibility is only asserted for same build + same shape. Legacy dirs without a stamp get a WARN + stamp. |
 | `SOLVE_RESUME_SHAPE_OVERRIDE` | 0 | `=1`: downgrade a resume-shape contract violation from FATAL to a loud WARNING and proceed. Byte-reproducibility vs an uninterrupted same-shape run is **voided** for that run dir — never use on a canonical campaign. |
-| `SOLVE_CKPT_INTERVAL` | `60` (seconds) | Wall-time interval between checkpoint writes. ⚠ Row corrected 2026-09-01: read 30. `static int sub_ckpt_interval_sec = 60;` (solve.c:1101) — chosen to match Azure spot eviction notice (30-60 s) |
-| `SOLVE_TEMP_DIR` | (CWD) | Where `--merge` external sort writes `temp_sorted_*.bin` chunks; needs ~1.5× the **sum of input shard bytes** (⚠ row corrected 2026-09-01: read "output size"; solve.c:10875-10886) |
+| `SOLVE_CKPT_INTERVAL` | `60` (seconds) | Wall-time interval between checkpoint writes. ⚠ Row corrected 2026-09-01: read 30. `static int sub_ckpt_interval_sec = 60;` (solve.c:1139) — chosen to match Azure spot eviction notice (30-60 s) |
+| `SOLVE_TEMP_DIR` | (CWD) | Where `--merge` external sort writes `temp_sorted_*.bin` chunks; needs ~1.5× the **sum of input shard bytes** (⚠ row corrected 2026-09-01: read "output size"; the `in_bytes` × 1.5 pre-flight at solve.c:11462-11471) |
 | `SOLVE_MERGE_MODE` | auto | `external`: force external sort (use chunks). `memory`: force in-memory merge (fail if doesn't fit) |
 | `SOLVE_MERGE_CHUNK_GB` | 4 | Per-chunk size for external merge sort |
 | `SOLVE_COMPRESS` | 1 (gzip) | `=0`: write shards/outputs raw (uncompressed). Default writes gzip; reads auto-detect via magic bytes, so raw and gz interoperate |
@@ -2449,12 +2449,12 @@ output; both ends were wrong.)*
 | `SOLVE_MERGE_TEMP_GZIP_LEVEL` | 6 | gzip level for **transient** external-merge temp chunks only (`temp_sorted_*.bin`, `temp_merge_records.bin`) — the "knee" of the speed/ratio curve. **The final `solutions.bin` and any cold archive stay `SOLVE_GZIP_LEVEL` (9) regardless of this** — it never touches a durable artifact |
 | `SOLVE_MERGE_THREADS` | 1 (serial) | `=N`: parallelize external-merge Phase 1 (sort+gz-write of chunks) across N threads; RAM/nproc-capped. Default 1 = the validated serial path |
 | `SOLVE_SKIP_TEMP_SPACE_CHECK` | 0 | `=1`: skip the pre-merge free-space pre-flight (sum of input shard bytes ×1.5 vs `statvfs(SOLVE_TEMP_DIR)`) |
-| `SOLVE_MEMORY_FLUSH_COUNT` | unset = **off** | Global records-before-flush threshold, divided across workers (floor 1000/worker). ⚠ Row corrected 2026-09-01: read `200000000`, implying automatic flushing. The Tier-2 memory-relief flush is enabled **only** when the variable is set to a positive value (`if (env_flush && atoll(env_flush) > 0)`, solve.c:25377-25346); unset means no memory-relief flushing at all |
+| `SOLVE_MEMORY_FLUSH_COUNT` | unset = **off** | Global records-before-flush threshold, divided across workers (floor 1000/worker). ⚠ Row corrected 2026-09-01: read `200000000`, implying automatic flushing. The Tier-2 memory-relief flush is enabled **only** when the variable is set to a positive value (`if (env_flush && atoll(env_flush) > 0)`, solve.c:42397-42399); unset means no memory-relief flushing at all |
 | `SOLVE_DEPTH_PROFILE` | 0 (off) | `=1`: emit per-depth node-count histogram to log |
 | `SOLVE_CONCENTRATE_BUDGET` | unset (off) | **`=set` (any value, including `0`) — the code tests presence, not value.** On a checkpoint resume, divides `SOLVE_NODE_LIMIT` by the count of *remaining* sub-branches instead of the full partition. Sha-affecting: the output then depends on how many branches were pre-completed, so it is **not** reproducible. Do not write `SOLVE_CONCENTRATE_BUDGET=0` expecting "off" — leave it unset. *(Row corrected 2026-08-01, solve.c sweep: it previously read default `0` and described "concentrate budget on richest sub-branches", neither of which matches `solve.c`.)* |
 | `SOLVE_DEAD_LIMIT` | 0 (no limit) | Parsed into `dead_node_limit` and **never read** — the dead-sub-branch skip it names is not implemented in the current source. Setting it has no effect. *(Row corrected 2026-08-01, solve.c sweep.)* |
-| `SOLVE_SUB_BRANCH_PARALLELISM` | unset | Value domain is **`{single, force-parallel}`** only (solve.c:20501-20512): `single` forces the serial path, `force-parallel` forces the parallel path even at one worker. ⚠ Row corrected 2026-09-01: this cell previously advertised a numeric core count as the value; a number matches neither recognised string and changes nothing; worker count comes from `SOLVE_THREADS` / the positional `threads` argument, and the parallel path is taken whenever that is > 1 |
-| `SOLVE_REGRESS_DIR` | `/mnt/work` if it exists, else `/tmp` | Directory for `--regression-test` / `--double-regression-test` artifacts (solve.c:19911-19914, :20123-20128). ⚠ Row corrected 2026-09-01: previously `./` |
+| `SOLVE_SUB_BRANCH_PARALLELISM` | unset | Value domain is **`{single, force-parallel}`** only (solve.c:37387-37397): `single` forces the serial path, `force-parallel` forces the parallel path even at one worker. ⚠ Row corrected 2026-09-01: this cell previously advertised a numeric core count as the value; a number matches neither recognised string and changes nothing; worker count comes from `SOLVE_THREADS` / the positional `threads` argument, and the parallel path is taken whenever that is > 1 |
+| `SOLVE_REGRESS_DIR` | `/mnt/work` if it exists, else `/tmp` | Directory for `--regression-test` / `--double-regression-test` artifacts (solve.c:36797, :37009-37012). ⚠ Row corrected 2026-09-01: previously `./` |
 | `SOLVE_HASH_LOG2` | 24 | Hash table slots = 2^N; default 16M slots × 32 bytes = 512 MB per thread |
 | `SOLVE_RESUME_HISTORY` | (none) | Operator-supplied annotation written to `solutions.sha256` metadata. Use to record interruption/eviction context for forensic continuity. |
 | `PROVE_CONFIG_TIMEOUT` | 300 (per-config; `0` = no limit) | Per-config wall-time cap (seconds) for the `--prove-cascade` multi-config survey. Default 300 s (5-min survey); set `0` to run each config to completion. |
@@ -2462,7 +2462,8 @@ output; both ends were wrong.)*
 | `SOLVE_SKIP_AUTOMERGE` | 0 (off) | `=set` (any value): skip the automatic `--merge` at enum completion; leave shards in place. Used for split enum/merge campaigns (separate right-sized merge VM) and the #149 milestone-staging ladder. |
 | `SOLVE_FSYNC_BATCH_SIZE` | 1 | Batch N checkpoint fsyncs per flush to amortize fsync cost on fsync-bound disks (#108b). Higher = fewer fsyncs, larger replay window on crash. |
 | `SOLVE_MANIFEST_THREADS` | `SOLVE_THREADS` | Override the thread count for the parallel `shard_manifest.txt` sha256 sweep (#116). |
-| `SOLVE_DISK_MARKER` | (none) | Custom marker filename for `--disk-precheck` to test free space against (otherwise a default probe path is used). |
+| `SOLVE_DISK_MARKER` | `solutions.sha256` | Marker filename `--disk-precheck` looks for on the mount. Its presence is REPORTED, never treated as proof of disk identity; its size and first field are printed verbatim. ⚠ **[CORRECTED 2026-09-07 — this read "Custom marker filename for `--disk-precheck` to test free space against (otherwise a default probe path is used)", which was wrong twice: the default is not "(none)", and free space is never tested against the marker.]** |
+| `SOLVE_DISK_MARKER_SHA` | (none) | 64-hex digest the marker file's first field must equal. UNSET (the default): the marker leg reports only, and a missing, empty, unreadable or non-64-hex marker is a WARN. SET: a mismatch, or a marker with no readable 64-hex first field, exits **5** — the same wrong-disk code the UUID leg uses. It mirrors `--disk-precheck`'s optional third positional argument: identity is reported by default and asserted only when the operator supplies the expected value. Added 2026-09-07, because the marker leg previously printed "present: PASS" for a bare `stat()` — a zero-byte file satisfied it — under a comment claiming it "proves the mount holds the canonical disk's contents". A `stat()` cannot prove that, and a solver-data disk was destroyed by a wrong-disk operation on 2026-05-06. |
 
 ### Hardening overrides (2026-05-25/26 — every gate has an explicit escape)
 
@@ -2483,14 +2484,14 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_SKIP_NOFILE_RAISE` | 0 | `=1`: disable the `--merge` `RLIMIT_NOFILE` auto-raise (mirror of `SOLVE_SKIP_STACK_RAISE`). |
 | `SOLVE_KNUTH_C67` | 0 | `=1`: `--estimate-knuth` (both probe and exact modes) additionally enforces the spec's C6/C7 adjacency constraints (slots 24–27 pinned to KW's pairs, orientation free) — estimates \|C1–C7\| instead of \|C1–C5\|. Estimator-only; sha-neutral. Uniqueness-conjecture probe (2026-07-02). |
 | `SOLVE_KNUTH_PIN_SLOTS` | comma list of slots 1–31 | Pin listed slots to KW's pairs during Knuth walks (orientation free); generalizes `SOLVE_KNUTH_C67`. F2 S(k) boundary-information curve. Estimator-only, sha-neutral. |
-| `SOLVE_KNUTH_BOUNDARY_COND` | `0` (off; set `=1` to enable) | Per-boundary KW-agreement mass accumulators (31; the `--analyze` §[6] predicate on the estimator); conditional on the pin prefix if set. Estimator-only, sha-neutral. ⚠ Row corrected 2026-09-01: this cell read `1`. `static int knuth_bcond = 0;` (solve.c:5241) and the flag is set only by `if (getenv("SOLVE_KNUTH_BOUNDARY_COND") && atoi(...) == 1)` (solve.c:18985), so an `--estimate-knuth` run gets none of the 31 accumulators unless you set it. |
+| `SOLVE_KNUTH_BOUNDARY_COND` | `0` (off; set `=1` to enable) | Per-boundary KW-agreement mass accumulators (31; the `--analyze` §[6] predicate on the estimator); conditional on the pin prefix if set. Estimator-only, sha-neutral. ⚠ Row corrected 2026-09-01: this cell read `1`. `static int knuth_bcond = 0;` (solve.c:5418) and the flag is set only by `if (getenv("SOLVE_KNUTH_BOUNDARY_COND") && atoi(...) == 1)` (solve.c:35700), so an `--estimate-knuth` run gets none of the 31 accumulators unless you set it. |
 | `SOLVE_KNUTH_C5_BUDGET` | unset | Override the C5 transition-budget multiset for the estimator with an explicit `"d:count,d:count,…"` vector (the FULL 63-transition budget; e.g. the circular subspace `1:1,2:20,3:14,4:19,6:9`) — R6 §4, same mechanism as `SOLVE_KNUTH_RELAX_C5`. Self-gate: KW's standard linear multiset `1:2,2:20,3:13,4:19,6:9` must reproduce N_lin within CI. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SEED` | unset | `=<u64>` (0x… or decimal): override the fixed per-thread RNG seed base for the Knuth walk (R11 Phase-2 independent-seed replicate — a second seed family for CI reproducibility). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_DEPTH_PROFILE` | 0 | `=1`: emit the R5 §8 Stage-B1 per-DFS-depth W-weighted live-children (offspring) histogram — the truncated-Galton–Watson fit input. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SUBTREE_DEPTH` | unset | `=<td>`: switch `--estimate-knuth` to the R5 §8 Stage-B2 two-stage subtree sampler at prefix depth `td` (bypasses the aggregate estimator). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SUBTREE_ROOTS` | 10000 | Number of subtree roots for the Stage-B2 sampler (requires `SOLVE_KNUTH_SUBTREE_DEPTH`). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SUBTREE_PROBES` | 1000 | Probes per root for the Stage-B2 subtree sampler (requires `SOLVE_KNUTH_SUBTREE_DEPTH`). Estimator-only, sha-neutral. |
-| `SOLVE_KNUTH_SCORE_REG` | `0` (off; set `>=1` to enable) | Score all 31 registry candidate rules ([Schulz 1990](CITATIONS.md#schulz1990-motifs)/[2011](CITATIONS.md#schulz2011)/[2016](CITATIONS.md#schulz2016)/diss, [McKenna-Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), [Schöter](CITATIONS.md#schoter1998) — attribution per rule in code) per canonical leaf; ground truth: `solve.py --registry-verify`. Estimator-only, sha-neutral. ⚠ Row corrected 2026-09-01: this cell read `1`. `static int knuth_score_reg = 0;` (solve.c:5291) and the flag is set only by `if (getenv("SOLVE_KNUTH_SCORE_REG") && atoi(...) >= 1)` (solve.c:18937), so registry scoring is silent unless you set it. |
+| `SOLVE_KNUTH_SCORE_REG` | `0` (off; set `>=1` to enable) | Score all 31 registry candidate rules ([Schulz 1990](CITATIONS.md#schulz1990-motifs)/[2011](CITATIONS.md#schulz2011)/[2016](CITATIONS.md#schulz2016)/diss, [McKenna-Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), [Schöter](CITATIONS.md#schoter1998) — attribution per rule in code) per canonical leaf; ground truth: `solve.py --registry-verify`. Estimator-only, sha-neutral. ⚠ Row corrected 2026-09-01: this cell read `1`. `static int knuth_score_reg = 0;` (solve.c:5423) and the flag is set only by `if (getenv("SOLVE_KNUTH_SCORE_REG") && atoi(...) >= 1)` (solve.c:35652), so registry scoring is silent unless you set it. |
 | `SOLVE_KNUTH_SCORE_PERM` | 0 | `=1`: score the 13 FROZEN R3 permutation-cycle functionals per canonical leaf (`perm_ncyc_bot`, `perm_lcyc_bot`, `perm_ord_bot`, … `perm_desc_top`; KW = 7,33,1,1,1320,31,1,3,52,0,1,260,30). Observable axis anchor: [Ge 2026](CITATIONS.md#ge2026) (KW cycle type of the top permutation (52,10,2)). Ground truth / two-language gate: `solve.py --perm-verify`. `=2` + `SOLVE_PERM_TESTVEC`: explicit-sequence cross-verification hook. Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_PERM_HIST` | 0 | `=1` (requires `SOLVE_KNUTH_SCORE_PERM=1`): additionally emit `perm_hist <name> <value> <mass>` per-functional weighted value histograms (the two `ord` functionals are wide-binned into 512 bins, Landau bound g(64)=2,042,040). Estimator-only, sha-neutral. |
 | `SOLVE_KNUTH_SCORE` | 0 | `=1`: `--estimate-knuth` additionally reports weighted canonical-mass fractions for externally-attributed candidate rules — R-C1 final-pair anchor + R-C2 first-7 level coverage ([Cook 2006](CITATIONS.md#cook2006)), R-C5 18:18 split (Zhang Xingcheng + Zhu Xi, 12th c. / Hu Yigui 1247 / [Hacker & Moore 2003](CITATIONS.md#hacker-moore2003) / Cook 2006), R-M1 pair-positioning parity ([Moore 2005](CITATIONS.md#moore2005)). Since 2026-07-12 also reports, paired on the same probes as the R-C4 gender/parity line, the R13 two-convention masses **R-C4-B** (exception form: 0 violations OR exactly 2 at adjacent class positions; subset of the published ≤2 relaxation) and **R-C4-C** (2 violations exactly at {25,26}; data-like, report-only) — KW gate `--rc4b-verify`. See CITATIONS.md §Attributed candidate rules. Estimator-only; sha-neutral (2026-07-02). |
@@ -2574,7 +2575,7 @@ completeness and honesty, not as knobs to set.
 | 30 | Logic error (decode failed mid-record; depth mismatch; iterator stack overflow) — or auto-verify-solutions FAIL after merge (C1-C5 violation). For auto-verify case: do NOT archive solutions.bin; investigate. |
 | **31** | **Disk-IOPS pre-check failed** (task #107, retooled #115) — the projected fsync-wait would consume too large a fraction of the estimated enum wall (default cap 25%). The gate runs a **concurrent** probe (`min(threads,32)` pthreads measuring *aggregate* fsync/sec, so it adapts to the box — D64 vs D128 — and to the storage's real parallel throughput, not a single-thread number), projects expected fsyncs (`node_limit / 1.4e7 / SOLVE_FSYNC_BATCH_SIZE`) against estimated wall (`node_limit / (threads × 1e7)`), and refuses if `fsync_wait / est_wall > 0.25`. (The earlier revision gated on a raw single-thread "below 1000 fsync/sec" threshold, which mis-fired on Premium SSD — 218/sec single-thread but 2464/sec concurrent.) Canonical enum's per-shard/.budget/.dfs_state/per-thread-checkpoint fsyncs bottleneck on slow storage. The probe result is recorded in `canonical-host-fingerprint.json` under `disk_iops`. Recovery: put the run-dir on Standard/Premium SSD, OR `SOLVE_SKIP_IOPS_CHECK=1` (skip probe) / `SOLVE_ALLOW_SLOW_IOPS=1` (probe + proceed). |
 | **34** | **Resume-shape contract violation** (2026-07-17) — a live `*.dfs_state` frontier is present and `resume_contract.txt` records a different thread count or depth than this run's. Kill/resume byte-reproducibility is only asserted for same build + same shape. Recovery: rerun with the stamped `SOLVE_THREADS`/`SOLVE_DEPTH`, or `SOLVE_RESUME_SHAPE_OVERRIDE=1` (voids byte-reproducibility for that dir). |
-| 50 | **Regression-test / internal-consistency failure** — a phase failure or sha mismatch in `--regression-test` / `--double-regression-test`, or a startup King Wen self-check failure (`solve.c` has 19 `return 50` sites; e.g. :19958, :20038, :20772). ⚠ Row corrected 2026-09-01: this row previously attributed code 50 to a `--selftest` sha mismatch. `--selftest` returns **40** on sha mismatch (`solve.c:18031`), not 50. |
+| 50 | **Regression-test / internal-consistency failure** — a phase failure or sha mismatch in `--regression-test` / `--double-regression-test`, or a startup King Wen self-check failure (`solve.c` has 19 `return 50` sites; e.g. :36844, :36914, :37658). ⚠ Row corrected 2026-09-01: this row previously attributed code 50 to a `--selftest` sha mismatch. `--selftest` returns **40** on sha mismatch (`solve.c:34317-34321`), not 50. |
 
 **Subcommand-specific exit codes** (distinct from the enum-path codes above):
 - `--validate-canonical`: **33** sha mismatch, **40** enum error (in addition to 0/2/10).
@@ -2604,7 +2605,7 @@ solve 0 128
 > special builtins), so the assignments died with it and `solve` on the next line
 > inherited none. Measured on this tree, running the old block verbatim:
 > `env | grep -c '^SOLVE_'` = **0**, identical under `bash` and under `dash`. The run
-> that followed took the built-in defaults — depth **2** (`solve.c:20738`) and no node
+> that followed took the built-in defaults — depth **2** (`solve_depth`, `solve.c:1570`) and no node
 > limit — i.e. an unbounded depth-2 enumeration on the wrong lineage, with no error
 > raised. With `ulimit` moved above, the same measurement returns **6**.
 
@@ -2720,7 +2721,7 @@ solve --double-regression-test 5600000000000    # argv is a node BUDGET, not a d
   enum startup if absent. Future invocations cross-check.
 - `shard_manifest.txt` — auto-emitted at promotion/startup (after
   `promote_orphaned_shards`) and at clean completion — those two points
-  only, not after every flush (solve.c:26321, solve.c:26755) — unless
+  only, not after every flush (`auto_emit_shard_manifest_default`, solve.c:43356 and solve.c:43799) — unless
   `SOLVE_SKIP_AUTO_MANIFEST=1`.
 - `solve.binary.snapshot` — copy of the running solve binary, captured
   at canonical-enum startup (unless `SOLVE_SKIP_BINARY_SNAPSHOT=1`).
@@ -2832,8 +2833,8 @@ beyond the system zlib, which the project treats as a native library.
 build host. Measured — `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread`
 fails with 13 undefined references (`gzopen`, `gzread`, `gzseek`, `crc32`,
 `compress2`, `uncompress`, …); adding `-lz` links at rc 0. Confirmed at
-solve.c:317 (`#include <zlib.h>`) and in the binary's own printed build line,
-solve.c:17517: `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`.)*
+solve.c:330 (`#include <zlib.h>`) and in the binary's own printed build line,
+solve.c:33781: `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`.)*
 
 ## HISTORY
 
@@ -2891,22 +2892,22 @@ missing one**, so unknowns are left explicitly unknown.
 
 #### `--kc-ar2-selftest`
 
-Dispatched as a subcommand at `solve.c:32614`; takes **none**.
+Dispatched as a subcommand at `solve.c:32657`; takes **none**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-build`
 
-Dispatched as a subcommand at `solve.c:32732`; takes **see code**.
+Dispatched as a subcommand at `solve.c:32775`; takes **see code**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-cert-selftest`
 
-Dispatched as a subcommand at `solve.c:32599`; takes **none**.
+Dispatched as a subcommand at `solve.c:32642`; takes **none**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-count`
 
-Dispatched as a subcommand at `solve.c:32743`; takes **see code**.
+Dispatched as a subcommand at `solve.c:32786`; takes **see code**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-g-status`
@@ -2940,7 +2941,7 @@ layer after a resume without paying for the whole pass.
 ```
 Usage: solve --kc-g-build GDIR [--f1-pairs N] [--kc-g-ooc] GDIR: the g-ladder directory (g_layer_NN.bin + g_manifest.txt). Full-31 needs its own 8.27 TB (MEASURED; `du -sb GDIR`). This is 2.5x the f ladder, NOT the same size class -- a 4 TB disk is not enough, and neither is an 8 TB disk shared with f. Provision >= 10 TB for GDIR alone. n <= 22 builds in-memory (v1); n >= 24 or --kc-g-ooc streams out-of-core (v2 default; SOLVE_F1_OOC_FORMAT=v1 override) with eviction resume 
 ```
-*Grammar reproduced from `solve.c:32441`.*
+*Grammar reproduced from `solve.c:32484`.*
 
 **Progress output on stderr (this builder also serves `--kc-t-build`; `pfx` is `g` or `t`).** Two
 line kinds carry byte and time accounting, and the distinction between them matters when reading a
@@ -2986,16 +2987,16 @@ slow layer from an interrupted one. Background and the falsifiable proofs: `roae
 ```
 Usage: solve --kc-g-check FDIR GDIR [--kc-ooc] [--kc-cache-mb MB] FDIR: an f (forward) retained-layers dir (--kc-build or Stage F); GDIR: the matching g ladder (--kc-g-build). Verifies, for EVERY layer k, sum over canonical masks of orbit * sum f*g == N, plus g(0,root) == N — 31 independent exact identities at full-31 (V3).
 ```
-*Grammar reproduced from `solve.c:32505`.*
+*Grammar reproduced from `solve.c:32548`.*
 
 #### `--kc-g-selftest`
 
-Dispatched as a subcommand at `solve.c:32440`; takes **none**.
+Dispatched as a subcommand at `solve.c:32483`; takes **none**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-ladder-selftest`
 
-Dispatched as a subcommand at `solve.c:32597`; takes **none**.
+Dispatched as a subcommand at `solve.c:32640`; takes **none**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-member`
@@ -3003,18 +3004,18 @@ Dispatched as a subcommand at `solve.c:32597`; takes **none**.
 ```
 Usage: solve --kc-member DIR "e,x,..."
 ```
-*Grammar reproduced from `solve.c:32794`.*
+*Grammar reproduced from `solve.c:32837`.*
 
 #### `--kc-midn`
 
 ```
 Usage: solve --kc-midn N [--kc-roundtrips R] [--kc-chi2-samples M]
 ```
-*Grammar reproduced from `solve.c:32410`.*
+*Grammar reproduced from `solve.c:32453`.*
 
 #### `--kc-o3-selftest`
 
-Dispatched as a subcommand at `solve.c:32476`; takes **none**.
+Dispatched as a subcommand at `solve.c:32519`; takes **none**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-oocverify`
@@ -3022,7 +3023,7 @@ Dispatched as a subcommand at `solve.c:32476`; takes **none**.
 ```
 Usage: solve --kc-oocverify N [--kc-roundtrips R] [--kc-scratch DIR]
 ```
-*Grammar reproduced from `solve.c:32425`.*
+*Grammar reproduced from `solve.c:32468`.*
 
 #### `--kc-oracle`
 
@@ -3036,9 +3037,9 @@ ladder in `FDIR` and checks membership (f-ladder), adjacent dedup + O3 order, an
 count conservation. The first `K` counterexamples are dumped; `--kc-cert-out`
 writes an optional JSON certificate, re-verifiable via `--verify-certificate`.
 **Exit 0 PASS / 1 FAIL**, and 2 on a usage error.
-*Grammar and description reproduced from `solve.c:25507`.*
+*Grammar and description reproduced from `solve.c:25550`.*
 
-⚠ **Added 2026-09-07 (Q-410).** The flag was dispatched at `solve.c:32596` and
+⚠ **Added 2026-09-07 (Q-410).** The flag was dispatched at `solve.c:32639` and
 printed the grammar above, and this reference had **no section for it** — only
 prose mentions and a section for the neighbouring `--kc-oracle-selftest`. GATE 2
 passed throughout, because it compares the *set of flag names* and the name does
@@ -3046,7 +3047,7 @@ appear in prose. A flag can be present and its signature entirely undocumented.
 
 #### `--kc-oracle-selftest`
 
-Dispatched as a subcommand at `solve.c:32595`; takes **none**.
+Dispatched as a subcommand at `solve.c:32638`; takes **none**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-rank`
@@ -3054,28 +3055,28 @@ Dispatched as a subcommand at `solve.c:32595`; takes **none**.
 ```
 Usage: solve --kc-rank DIR "e,x,..."
 ```
-*Grammar reproduced from `solve.c:32781`.*
+*Grammar reproduced from `solve.c:32824`.*
 
 #### `--kc-repr`
 
 ```
 Usage: solve --kc-repr DIR "e,x,..." [--kc-c3-max T]
 ```
-*Grammar reproduced from `solve.c:32802`.*
+*Grammar reproduced from `solve.c:32845`.*
 
 #### `--kc-scan-selftest`
 
-Dispatched as a subcommand at `solve.c:32600`; takes **none**.
+Dispatched as a subcommand at `solve.c:32643`; takes **none**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-selftest`
 
-Dispatched as a subcommand at `solve.c:32408`; takes **none**.
+Dispatched as a subcommand at `solve.c:32451`; takes **none**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-t-build`
 
-Dispatched as a subcommand at `solve.c:32560`; takes **see code**.
+Dispatched as a subcommand at `solve.c:32603`; takes **see code**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-t-cert`
@@ -3083,16 +3084,16 @@ Dispatched as a subcommand at `solve.c:32560`; takes **see code**.
 ```
 Usage: solve --kc-t-cert OUT.json Emits the t-unit node-accounting convention certificate: pins what the t-ladder counts (valid oriented prefixes; root counted; joint pair+orientation branching; dead ends counted) and verifies it byte-exactly against the independent brute DFS at n=9 (EXHAUSTIVE, every stored state) with n=13 spot totals. The SOLVE_NODE_LIMIT mapping is NOT claimed here (W0-D worke
 ```
-*Grammar reproduced from `solve.c:32545`.*
+*Grammar reproduced from `solve.c:32588`.*
 
 #### `--kc-t-check`
 
-Dispatched as a subcommand at `solve.c:32560`; takes **see code**.
+Dispatched as a subcommand at `solve.c:32603`; takes **see code**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-t-selftest`
 
-Dispatched as a subcommand at `solve.c:32544`; takes **none**.
+Dispatched as a subcommand at `solve.c:32587`; takes **none**.
 `solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
 
 #### `--kc-unrank`
@@ -3100,23 +3101,23 @@ Dispatched as a subcommand at `solve.c:32544`; takes **none**.
 ```
 Usage: solve --kc-unrank DIR RANK [--kc-record [--kc-c3-max T]]
 ```
-*Grammar reproduced from `solve.c:32748`.*
+*Grammar reproduced from `solve.c:32791`.*
 
 ### Modifiers
 
 | flag | arity | parsed at | sets |
 |---|---|---|---|
-| `--kc-bracket` | none (boolean) | `solve.c:32498` | `o3cache` |
-| `--kc-cert-out` | 1 string | `solve.c:25527` | `cert_out` |
-| `--kc-chi2-samples` | 1 integer | `solve.c:32419` | `M` |
-| `--kc-class-uniform` | none (boolean) | `solve.c:32686` | — |
-| `--kc-dump` | 1 integer | `solve.c:25526` | `dump_max` |
-| `--kc-expect-count` | 1 string | `solve.c:25528` | `expect` |
-| `--kc-g-ooc` | none (boolean) | `solve.c:32458` | — |
-| `--kc-oracle-repr` | 1 integer | `solve.c:25523` | `cache_mb` |
-| `--kc-record` | none (boolean) | `solve.c:32687` | — |
-| `--kc-roundtrips` | 1 integer | `solve.c:32418` | `R` |
-| `--kc-scratch` | 1 string | `solve.c:32435` | `scratch` |
-| `--knuth-dump-prefix` | see code | `solve.c:35473` | — |
-| `--r11-verify` | see code | `solve.c:35976` | — |
-| `--rc1c-verify` | see code | `solve.c:35949` | — |
+| `--kc-bracket` | none (boolean) | `solve.c:32541` | `o3bracket` |
+| `--kc-cert-out` | 1 string | `solve.c:25570` | `cert_out` |
+| `--kc-chi2-samples` | 1 integer | `solve.c:32462` | `M` |
+| `--kc-class-uniform` | none (boolean) | `solve.c:32729` | `class_uniform` |
+| `--kc-dump` | 1 integer | `solve.c:25569` | `dump_max` |
+| `--kc-expect-count` | 1 string | `solve.c:25571` | `expect` |
+| `--kc-g-ooc` | none (boolean) | `solve.c:32501` | `gooc` |
+| `--kc-oracle-repr` | none (boolean) | `solve.c:25566` | `check_repr` |
+| `--kc-record` | none (boolean) | `solve.c:32730` | `want_record` |
+| `--kc-roundtrips` | 1 integer | `solve.c:32461` | `R` |
+| `--kc-scratch` | 1 string | `solve.c:32478` | `scratch` |
+| `--knuth-dump-prefix` | see code | `solve.c:35516` | — |
+| `--r11-verify` | see code | `solve.c:36019` | — |
+| `--rc1c-verify` | see code | `solve.c:35992` | — |

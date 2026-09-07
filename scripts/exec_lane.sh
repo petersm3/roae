@@ -312,17 +312,39 @@ def unbounded_branch(c):
 
     Signatures (solve.c): --branch <pair> <orient> <time_limit>
                           --sub-branch <p1> <o1> <p2> <o2> <p3> <o3> [time_limit] [threads]
+                          solve [time_limit] [threads]        <- the BARE full-enum form
     A zero time_limit means unlimited, so it is the dangerous value, not the safe one.
     This is a FAIL and never a SKIP: skipping it is the could-not-fail shape the whole
-    lane exists to refuse."""
+    lane exists to refuse.
+
+    The bare form (fixed 2026-09-07). Until now this returned False for anything without
+    `--branch`/`--sub-branch`, so `solve 0 128` -- a FULL enumeration, unbounded -- was never
+    caught. It ran, hung, was killed at the budget and landed SKIP-BUDGET: NON-gating. The
+    docstring above already stated the opposite policy, so the lane was scoring the exact
+    could-not-fail shape it exists to refuse. Measured 2026-09-07 on --list, both gating,
+    both fence-origin, both published as recipes a reader is meant to paste:
+        documentation/SOLVE_C_CLI.md:429   SOLVE_THREADS=128 ./solve 0 128
+        documentation/DEVELOPMENT.md:585   SOLVE_RESUME_HISTORY="..." ./solve 0 64
+    time_limit ALSO defaults to 0 (SOLVE_C_CLI.md:172-173, "`0` means run to completion.
+    Default 0"), so a MISSING time_limit is the same unbounded run as an explicit `0`.
+    Matched on the strip_opt output, before run_one's `./` prefixing, with leading `VAR=...`
+    assignments stripped quote-aware (the DEVELOPMENT.md value carries an `=` of its own).
+    Anchored at the start of the assignment-stripped command, and the tail may hold only the
+    two optional NUMERIC positionals -- that is what keeps subcommand forms (`solve --selftest`,
+    `solve --merge out.bin`) out, and it is why `solve 3600` (a real budget) is not flagged."""
     m = re.search(r'--sub-branch\s+(\S+\s+){5}(\S+)\s+(\S+)', c)
     if m:
         tl = m.group(3)
     else:
         m = re.search(r'--branch\s+\S+\s+\S+\s+(\S+)', c)
-        if not m:
-            return False
-        tl = m.group(1)
+        if m:
+            tl = m.group(1)
+        else:
+            pre = re.match(r'(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|\'[^\']*\'|\S*)\s+)*', c)
+            m = re.match(r'(?:\./|/)?solve(?:\s+(\d+))?(?:\s+\d+)?\s*$', c[pre.end():])
+            if not m:
+                return False
+            tl = m.group(1) or '0'      # a MISSING time_limit defaults to 0 = unbounded
     if re.search(r'\bSOLVE_[A-Z0-9_]*LIMIT\s*=', c):
         return False          # an explicit budget (SOLVE_NODE_LIMIT=...) bounds it
     return tl == '0'
@@ -758,6 +780,21 @@ $(tail -c 2000 "$ref")"; fi
     else outcome="FAIL(refusal names a prereq the source doc does NOT state)"; fi
   elif grep -qiE "failed to allocate|cannot allocate|out of memory|bad_alloc|alloc.{0,16}fail|free disk in cwd|No space left on device" <<<"$out"; then
     outcome="SKIP-RESOURCE(allocation/disk failure — host, not claim)"
+  # solve.c's disk_iops_pre_check (solve.c:4073) refuses with "ERROR: projected fsync-wait
+  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:43269).
+  # That is a HOST verdict — this box's disk is too slow — not a verdict on the documented
+  # claim, so it is a SKIP-RESOURCE exactly as an allocation failure is. Measured 2026-09-07:
+  # no branch above matched it, so `solve --preflight` (SOLVE_C_CLI.md:58/:295 — a gating row,
+  # and bare --preflight defaults to 560T so the IOPS probe really runs) fell through to the
+  # terminal `else` and was reported FAIL(rc=31): a host refusal published as a doc defect.
+  # Anchored on "projected fsync-wait", NOT on "fsync" alone -- the PASS line (solve.c:4066)
+  # also says "fsync ~x% of est enum wall ... fsync-wait vs ... est wall". SOLVE_ALLOW_SLOW_IOPS
+  # is the second anchor because `out` is only the last 4000 bytes: the ERROR's first line can
+  # fall outside that window while its override hint survives.
+  # ORDER: this sits AFTER the allocation/disk branch above, matching solve.c's own first_fail
+  # ordering -- a real out-of-space failure must still win over a slow-disk projection.
+  elif grep -qE "projected fsync-wait|SOLVE_ALLOW_SLOW_IOPS" <<<"$out"; then
+    outcome="SKIP-RESOURCE(disk-IOPS pre-check refused — host disk too slow, not claim)"
   elif grep -qiE "no such file|cannot open|cannot read|\[Errno 2\]|no .* files found" <<<"$out"; then
     # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:221)
     # says "--decode 'model.txt': no such file" -- lowercase, no "or directory" -- and was FAIL(rc=1)
@@ -825,14 +862,14 @@ done < "$INV"
 echo
 echo "== MEASURED figures in reports/TR*.md (each must resolve to a RUN/BUILD command in its window) =="
 cat "$MEAS_OUT"
-echo "== UNBOUNDED branch invocations (never executed — running one does not return) =="
+echo "== UNBOUNDED enum invocations (--branch/--sub-branch or the bare full-enum form; never executed — running one does not return) =="
 _nub=0
 while IFS=$'\t' read -r cls gat ctx cwd org src cmd; do
   [ "$cls" = "FAIL-UNBOUNDED" ] || continue
-  echo "FAIL(unbounded --branch/--sub-branch: no SOLVE_*_LIMIT and time_limit 0)  $src  $cmd"
+  echo "FAIL(unbounded run: no SOLVE_*_LIMIT and time_limit 0 — --branch/--sub-branch or bare full enum)  $src  $cmd"
   if [ "$gat" = "1" ]; then
     NF=$((NF+1))
-    FAIL_LINES="${FAIL_LINES}FAIL(unbounded branch) $src  $cmd
+    FAIL_LINES="${FAIL_LINES}FAIL(unbounded run) $src  $cmd
 "
     _nub=$((_nub+1))
   fi
