@@ -947,6 +947,7 @@ def tr8_dof_merge(out_dir, quiet=False):
     refuses a merge that is missing a shard — a partial pool is a different pool, and silently
     reporting one would be the exact failure this project's canonical gates exist to prevent."""
     import json
+    import hashlib   # R12b #8(b): the bank-digest recomputation below needs it
     files = sorted(n for n in os.listdir(out_dir)
                    if n.startswith("shard_") and n.endswith(".json"))
     if not files:
@@ -977,11 +978,37 @@ def tr8_dof_merge(out_dir, quiet=False):
     if missing:
         raise SystemExit("shard(s) %s missing from %s — refusing to merge a partial pool"
                          % (missing, out_dir))
+    # R12b #8(a): the pool was checked for expected-MINUS-seen and never for
+    # seen-MINUS-expected, so a shard whose id is outside the header's declared
+    # range merged silently. The deterministic fixture is an extra shard id 8 in an
+    # eight-shard run carrying zero draws and zero hits: it changes no statistic, it
+    # is not "missing", and it passed. A stale NONZERO extra would also have merged
+    # structurally, corrupting the counts, and only a coincidental H-b failure
+    # would have caught it.
+    extra = sorted(seen - set(range(header["n_shards"])))
+    if extra:
+        raise SystemExit("shard(s) %s are outside this run's declared range 0..%d — refusing to "
+                         "merge a pool holding shards the header does not declare (%s)"
+                         % (extra, header["n_shards"] - 1, out_dir))
     with open(os.path.join(out_dir, "bank.json"), encoding="utf-8") as f:
         bj = json.load(f)
     bank = [(e["family"], e["index"], e["comparator"], e["template"]) for e in bj["bank"]]
     marg = [e["marginal"] for e in bj["bank"]]
     admitted = [i for i, e in enumerate(bj["bank"]) if e["admitted"]]
+    # R12b #8(b): the header carries admitted_bank_sha256, and the merge loaded
+    # bank.json without ever recomputing or comparing it -- so a template or
+    # marginal could be edited in place, its shape preserved, and the merge would
+    # still exit 0 while reporting stale labels. A digest that is written and never
+    # checked is decoration. Recomputed here with the SAME expression that produced
+    # it (solve.py:753), so the two cannot drift apart silently.
+    _recomputed = hashlib.sha256(
+        "\n".join("%s%d|%s|%s|%.6f" % (bank[i][0], bank[i][1], bank[i][2], bank[i][3], marg[i])
+                   for i in admitted).encode("utf-8")).hexdigest()
+    _declared = header.get("admitted_bank_sha256")
+    if _declared and _recomputed != _declared:
+        raise SystemExit("bank.json does not match the run header: admitted_bank_sha256 declared "
+                         "%s, recomputed %s — refusing to merge against a bank that has changed "
+                         "since the shards were drawn (%s)" % (_declared, _recomputed, out_dir))
     return _tr8_finish(out_dir, header, hits, hb, drawn, header["k_ladder"],
                        header["n_pred"], marg, admitted, bank, quiet)
 
