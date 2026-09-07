@@ -406,11 +406,11 @@ Enforcing boundary 25 means: any candidate ordering must place hexagram 49→50 
 - Pair 27 = ䷴ Jian (hexagram 53, 漸) / ䷵ Gui Mei (hexagram 54, 歸妹) — a reverse pair
 - Pair 28 = ䷶ Feng (hexagram 55, 豐) / ䷷ Lu (hexagram 56, 旅) — a reverse pair
 
-Enforcing boundary 27 means: Gradual Development→Marrying Maiden in positions 53-54 AND Abundance→Wanderer in positions 55-56 — exactly as King Wen does. Locks a second 4-hexagram window two positions later.
+Enforcing boundary 27 means: Jian→Gui Mei (hexagrams 53-54, 漸→歸妹) in positions 53-54 AND Feng→Lu (hexagrams 55-56, 豐→旅) in positions 55-56 — exactly as King Wen does. Locks a second 4-hexagram window two positions later.
 
 **Together**, enforcing boundaries {25, 27} locks positions 25, 26, 27, 28 (= pairs 25-28 = the 8-hexagram sub-sequence hexagrams 49-56
 
-The mandatory-{25,27} finding says: **no matter how cleverly you choose the other 2 of your 4 boundary constraints, you cannot uniquely identify King Wen without locking the Revolution→Cauldron→Thunder→Mountain window (boundary 25) and the Gradual→Marrying-Maiden→Abundance→Wanderer window (boundary 27)** — across both d2 and d3 partition depths. Why those two windows specifically? Currently unknown. Open Question: is there a combinatorial or symmetry reason these two second-half adjacencies are irreplaceable?
+The mandatory-{25,27} finding says: **no matter how cleverly you choose the other 2 of your 4 boundary constraints, you cannot uniquely identify King Wen without locking the Ge→Ding→Zhen→Gen window (hexagrams 49-52, 革→鼎→震→艮; boundary 25) and the Jian→Gui Mei→Feng→Lu window (hexagrams 53-56, 漸→歸妹→豐→旅; boundary 27)** — across both d2 and d3 partition depths. Why those two windows specifically? Currently unknown. Open Question: is there a combinatorial or symmetry reason these two second-half adjacencies are irreplaceable?
 
 ### What the survivors after the mandatory {25, 27} boundaries look like
 

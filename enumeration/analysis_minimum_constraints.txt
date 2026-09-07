@@ -72,3 +72,25 @@ Minimum boundary constraint set (greedy):
      Eliminates 23 solutions (0 remaining after)
 
 Total time: 20.3s
+
+================================================================================
+NOTE ADDED 2026-09-07 (Q-420). NOT part of the captured output above.
+
+The table above carries shortened English hexagram renderings ("Creative/Receptive",
+"Revolution/Cauldron", "Marrying Mai", ...). They are RETAINED deliberately, and this
+note is appended rather than prepended so that no line number above shifts --
+documentation/CITATIONS.md cites lines 62, 63 and 67 of this file directly.
+
+Why retained rather than rewritten:
+  1. This file is CAPTURED STDOUT of a generator that no longer exists. The names are
+     truncated to fixed widths -- 12 characters in the selectivity table, 10 in the
+     greedy trace -- and no rewrite can reproduce that truncation, so an edit would
+     silently turn a record of what was run into a reconstruction of it.
+  2. The permission question was ruled on 2026-09-05:
+     SHORTENED_RENDERINGS_RULING=EXTENDS-OURS-NO-WB-CITED-OK.
+  3. Editing a frozen artifact to improve its wording is the wrong instinct. Its value
+     is that it is what the program printed.
+
+House style for NEW writing is hexagram number + pinyin + Chinese, e.g.
+"Jian (hexagram 53, 漸)". See documentation/SOLVE.md.
+================================================================================
