@@ -200,6 +200,24 @@ plus a `#o3-trace-summary` line asserting `g(s_0)=N VERIFIED`, `g(s_n)=1 VERIFIE
 
 ## 2. THE INVENTORY
 
+### 2.0 🔴 NOT IN SCOPE for this run — five rows, with the reason for each
+
+These will **not** produce a number in the 80+ run. They are stated here rather than left reading
+`PENDING`, which implies work in progress. Each row's reason is the one its own skip token carries in `scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt`, so this table cannot drift from the harness.
+
+| row | why it is out | cheap to reconsider? |
+|---|---|---|
+| **`TR12_Q4B`** | **ALREADY ANSWERED** — `min{C3(w) : w ∈ SUPER}` = **112**, witness `G=12 C3=112` published 2026-07-24 in `reports/certificates/c3_positional_witnesses.txt`. `G ≥ 12` is structural and the witness achieves it, so the bracket closes at its floor and the SAT bisection is **not needed for the minimum** (§Q4b, ruled 2026-09-05). The battery still emits `PENDING:sat-c3min-driver` — a harness/ruling disagreement, not a missing tool | **yes — it is done** |
+| **`TR12_V3_FIG`** | needs `spectrum/v3_spectrum.tsv`, a rank grid joined to per-walk functionals. **The rank grid IS produced** (`a1_v3` → `v3_rel_grid.tsv`); only the join is missing | **yes — a join** |
+| **`TR12_Q7_WITNESSES`** | `kissat` is not on PATH, and installing it is **not sufficient**: which satisfying sequence a solver returns is **build-dependent**, so a golden of solver-chosen bytes would pin one build's arbitrary choice. The reproducible contract is a **property** of the returned witness, not its bytes | no — needs a contract decision first |
+| **`TR12_Q10B`** | `--kc-coset-census` does not exist (`git grep -c` → **0**, re-confirmed 2026-09-05). The Ouyang coset lens is labelled **EXPLORATORY (EW-class, FRONTIER)** in TR-12 — it may show concentration or be flat, and flat is a result | no — a new subcommand |
+| **`TR12_XA_CD`** | **doubly blocked**: the R-1 throughput anchors **and** a W0-D t-unit → `SOLVE_NODE_LIMIT` mapping certificate. The latter **cannot be produced at HEAD** — the production enumerator has no reduced-n mode (`solve.c:1705–1707`) — and even after W0-D the verdict is **one-sided**, since the production DFS prunes with C3 while t counts SUPER prefixes, so t-units bound nodes from above | no |
+
+⚠ **Nothing here is a silent omission.** `solve.py` refuses to price XA-c/d without a mapping cert
+(2026-09-07), and every row above is keyed to a token in the battery's own pinned skip set, so a row cannot
+leave this list without the harness changing too.
+
+
 Legend for **ladders**: `f` = FDIR, `g` = GDIR, `t` = TDIR, `—` = none.
 Commands assume §0.1 variables. `2>&1 | tee` plumbing omitted for width; the driver adds it.
 
