@@ -174,8 +174,12 @@ interacts very differently with different position-2 pairs.
   a fixed budget: every sub-branch hits its per-sub-branch node budget rather than completing
   naturally. An unbiased Monte-Carlo estimate now puts the total number of C1–C5-satisfying
   orderings at **≈10³⁸** (≈3×10³⁷ distinct-canonical) — see [`../documentation/SEARCH_SPACE_SIZE.md`](../documentation/SEARCH_SPACE_SIZE.md); no canonical scale is exhaustive. ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical figure on this line exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]**
-- **Whether the 4-boundary uniqueness result holds at larger scale, and which specific
-  boundaries.** Four boundary constraints are the empirical minimum at both d2 and d3 —
+- **~~Whether the 4-boundary uniqueness result holds at larger scale~~ — ANSWERED, and answered in
+  this same file.** ⚠ *Listed as open until 2026-09-07. It does NOT hold: the boundary-minimum is
+  monotone non-decreasing in scale, **4 → 5 → 5** across 10T → 100T → 560T, and the working-4-subset
+  count (§[8]) **drops to 0 at 560T** — at canonical depth no 4-tuple reduces survivors to ≤ 1. That
+  is stated in this document's own second-novel-finding note. **Which specific boundaries** remains a
+  live question. Four boundary constraints are the empirical minimum at both d2 and d3 —
   all 4,495 three-subsets fail at each. **What is partition-stable**: boundaries **{25, 27}**
   are mandatory in every working 4-set at both scales. **What is partition-dependent**: the
   other 2 boundaries.
