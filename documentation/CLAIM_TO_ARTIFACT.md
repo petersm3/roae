@@ -3,7 +3,10 @@
 **What this is for.** Every headline claim in this repository should be checkable against a named
 artifact by a named command, without inferring which output supports which sentence. Until 2026-08-29
 that mapping lived only in the reader's head, and the cost was measurable: a firstness claim stood on
-`main` for four weeks after our own adjudication ruled it false, and a "smallest measured margins"
+`main` for **28 days in total, and for four of them after** our own adjudication ruled it false
+(entered `main` 2026-07-31 in `6a3feaaa`, ruled false 2026-08-24, still live 2026-08-28) ⚠ *— this
+line read "four weeks after our own adjudication" until 2026-09-07, which conflates the time on
+`main` with the time after the ruling and makes the lapse seven times worse than it was*, and a "smallest measured margins"
 superlative was published at six sites while the evidence file that refutes it sat in
 `reports/evidence/`. Both are the same failure — **a claim and its evidence that nobody had to look
 at together.**
