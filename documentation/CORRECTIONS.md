@@ -9269,3 +9269,34 @@ GATE 3 if it reappears anywhere in the corpus.
   entry exists, days after the wording itself was repaired.
 - **Gated:** `RP-bfdc19d2` in `documentation/RETRACTED_PHRASES.tsv`, so the phrasing fails
   GATE 3 if it reappears anywhere in the corpus.
+
+---
+
+## CX-38 — a lapse was published as seven times longer than it was (RP-544197de)
+
+**2026-09-07 · C3 · `documentation/CLAIM_TO_ARTIFACT.md`**
+
+- **BEFORE:** the line described how long a claim ruled false had stayed live using the
+  wording registered as `RP-544197de` — not quoted here — which measured the interval
+  from the claim's arrival on `main` rather than from the ruling against it.
+- **NOW:** **28 days in total, and four of them** after our own adjudication ruled it
+  false. Entered `main` 2026-07-31 in `6a3feaaa`, ruled false 2026-08-24, still live
+  2026-08-28. Conflating the two intervals made the lapse read as roughly **seven times
+  worse** than it was.
+- **No claim changed** — this is an arithmetic and scope fix to a self-criticism. Worth
+  recording precisely because the error ran *against* us: a project that overstates its own
+  lapses is no more accurate than one that understates them, and the same carelessness
+  produces both.
+- **How it was found:** Codex v3 lens review as CTA-A3, re-derived from the three dates.
+- **Sibling search:** `git grep -iF "four weeks"` across `origin/main` → 4 sites. One is
+  this correction's own narration in `CLAIM_TO_ARTIFACT.md` (the registry's allow-file);
+  the other three are unrelated `CORRECTIONS.md` entries about a *different* four-week
+  coexistence, correctly stated. No sibling defect.
+- **Gated:** `RP-544197de` in `documentation/RETRACTED_PHRASES.tsv`, allowed only in
+  `CLAIM_TO_ARTIFACT.md`, so the wording fails GATE 3 anywhere else.
+
+**⚠ The row that requested this named a string that was never published.** Q-438 asked for
+`four weeks after adjudication`; `git log -S` finds no such text in any commit. The
+published wording was `RP-544197de`. Registering the row's paraphrase would have created a
+registry entry that could never match anything — a gate row that cannot fire, which is the
+defect class this whole review exists to remove. The actual string is registered instead.
