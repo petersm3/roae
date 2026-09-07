@@ -6814,7 +6814,7 @@ that were supposed to guard it.
 `MANIFEST.sha256` in a combined `<sha256>  <md5>  <path>  bytes=<n>` layout that **no standard tool
 could parse**, so a recipient could only check the medium by running a script that shipped on the
 medium being checked. It is now three files — `MANIFEST.sha256`, `MANIFEST.md5`, `MANIFEST.sizes` —
-each in its own tool's native format, so `sha256sum -c` and `md5sum -c` suffice. Verified by
+each in the native format of the standard checksum tool for that digest, so a recipient can check the medium with coreutils alone rather than with a script that shipped on it. (The exact invocation, and which framing era it assumes, is stated on the medium in `VERIFY.md` rather than here.) Verified by
 rebuilding the combined file from the three and diffing: 65/65 rows identical for all three stages.
 
 **`VERIFY.sh` was hardened against the ways a checker lies.** It counts first, because `sha256sum -c`

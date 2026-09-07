@@ -9203,3 +9203,27 @@ overstating it: both make the published text disagree with the repository. Only 
 direction was being watched. `scripts/gate_published_consistency.sh` now watches the other one, via
 `documentation/DISCLOSURE_CHECKS.tsv` — a registry of live "no public artifact" disclosures paired
 with the test that proves each still true, deliberately shaped to **fail when the artifact appears**.
+
+## CX-36 — a sum of per-position marginals was published as a total entropy (RP-9e8bee78)
+
+**2026-09-07.** Three live documents described the 560T §[18] baseline as a *total* entropy and
+boundary 4's share as more than half of one. The registered retraction is **RP-9e8bee78**.
+
+**What was wrong.** The quantity is `sum_p H(pair at p)` — the SUM of per-position marginal
+entropies — which `solve.c:39757` states in as many words and which `HISTORY.md` recorded correctly
+when the figure first landed. A sum of marginals is not a joint entropy and is not bounded like one.
+
+**The measurement that settles it.** Joint entropy over the 10,525,271,997 canonical records is
+bounded by log₂(10,525,271,997) = **33.29 bits**. The published baseline of 77.81 bits is **2.34×**
+that ceiling, and boundary 4's 45.14 bits is **1.36×** it on its own. Neither can be a joint entropy.
+
+**What did NOT change.** The numbers. 77.81 and 45.14 are correct as sums of marginals, and every
+downstream statement about boundary 4 carrying the largest single information gain stands. Only the
+label moved.
+
+**Documents corrected:** `enumeration/LEADERBOARD.md`, `documentation/PROJECT_OVERVIEW.md`,
+`documentation/CRITIQUE.md`. `HISTORY.md` was already correct and, being append-only, is untouched.
+
+**Found by** the Codex v3 two-lens review (`gpt-6-astra @max`), adjudicated with independent
+re-measurement. **Gated:** RP-9e8bee78 in `documentation/RETRACTED_PHRASES.tsv`, so the wording fails
+GATE 3 if it reappears anywhere in the corpus.
