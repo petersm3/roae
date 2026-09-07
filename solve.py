@@ -12213,7 +12213,7 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
         if t_have:
             lo = min(rows, key=lambda r: int(r[7]))
             hi = max(rows, key=lambda r: int(r[7]))
-            fh.write("## Branch extremes (t-units = pruned-DFS nodes)\n\n")
+            fh.write("## Branch extremes (t-units; NOT production-DFS nodes -- the map is uncertified)\n\n")
             fh.write("- cheapest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
                      "%s solutions\n" % (lo[0], lo[1], lo[2], lo[3], lo[7], lo[5]))
             fh.write("- costliest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
@@ -12222,7 +12222,21 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
         if not t_have:
             fh.write("**PENDING** -- no t-ladder in this atlas, so there is no node cost to price.\n")
             verdict = "PENDING:--kc-t-build"
-        elif cost is None or cost.get("nodes_per_sec") is None or cost.get("usd_per_hour") is None \
+        elif cost is None or cost.get("node_mapping_cert") is None:
+            # 🔴 REFUSE. Pricing t-units as production-DFS nodes is a SCIENTIFIC VERDICT resting on
+            # a map that nothing certifies: `solve --kc-t-cert` says in its own JSON
+            # "solve_node_limit_mapping: NOT CLAIMED HERE". Before this guard existed, three flags
+            # were enough to emit EXHAUSTIBLE rows under a heading asserting the equality --
+            # measured on the n=9 atlas: TR12_XA_CD=PASS with 13 EXHAUSTIBLE rows. The disclaimer
+            # five lines above the table did not stop the number shipping.
+            fh.write("**PENDING** -- pricing t-units as production-DFS nodes needs a W0-D t-unit ->\n"
+                     "`SOLVE_NODE_LIMIT` mapping certificate, supplied with `--xa-node-mapping-cert`.\n"
+                     "A t-unit is one valid oriented SUPER prefix; `SOLVE_NODE_LIMIT` counts\n"
+                     "production-DFS nodes under C3 pruning. Nothing here certifies the map, so no\n"
+                     "EXHAUSTIBLE/INFEASIBLE call is made. The t-unit column above is exact and\n"
+                     "stands on its own.\n")
+            verdict = "PENDING:W0-D-node-mapping"
+        elif cost.get("nodes_per_sec") is None or cost.get("usd_per_hour") is None \
                 or cost.get("budget_usd") is None:
             fh.write("**PENDING** -- the exhaustion wall/$ call needs three operator-supplied\n"
                      "anchors that this consumer will not invent: `--xa-nodes-per-sec`\n"
@@ -13953,6 +13967,13 @@ def main():
                         help="XA-c/d: worker price anchor")
     parser.add_argument("--xa-budget-usd", type=_ExactAnchor, default=None,
                         help="XA-c/d: the $ ceiling the EXHAUSTIBLE/INFEASIBLE call is made against")
+    parser.add_argument("--xa-node-mapping-cert", default=None,
+                        help="XA-c/d: path to a W0-D t-unit -> SOLVE_NODE_LIMIT mapping certificate. "
+                             "WITHOUT IT THE PRICING PATH REFUSES. A t-unit is one valid oriented "
+                             "SUPER prefix; SOLVE_NODE_LIMIT counts production-DFS nodes under C3 "
+                             "pruning. Those are different quantities and nothing in this repository "
+                             "certifies the map between them (see solve --kc-t-cert, which states "
+                             "solve_node_limit_mapping: NOT CLAIMED HERE).")
     parser.add_argument("--xa-hedge", type=_ExactAnchor, default=_ExactAnchor("2.0"),
                         help="XA-c/d: throughput hedge factor for scale (TR-12 section 3: x2)")
     parser.add_argument("--xa-work-factor", type=_ExactAnchor, default=_ExactAnchor("1.0"),
@@ -13985,7 +14006,8 @@ def main():
                 "budget_usd": args.xa_budget_usd,
                 "hedge": args.xa_hedge,
                 "work_factor": args.xa_work_factor,
-                "note": args.xa_anchor_note or "(no anchor note supplied)"}
+                "note": args.xa_anchor_note or "(no anchor note supplied)",
+                "node_mapping_cert": args.xa_node_mapping_cert}
         try:
             res = atlas_queries(args.atlas_queries, out, select=sel,
                                 q3_trace=args.atlas_q3_trace,

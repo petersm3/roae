@@ -73,6 +73,11 @@ def price(nodes, nps, uph, budget, hedge="1", wf="1"):
             "budget_usd":    solve._ExactAnchor(budget),
             "hedge":         solve._ExactAnchor(hedge),
             "work_factor":   solve._ExactAnchor(wf),
+            # This gate grades the pricing ARITHMETIC, so it must reach the priced branch. The
+            # t-unit -> SOLVE_NODE_LIMIT refusal (B17) is a separate, upstream question and is
+            # exercised by its own fixture below; a stub cert here keeps this leg measuring the
+            # thing it exists to measure instead of reporting "measured NOTHING".
+            "node_mapping_cert": "STUB-FOR-ARITHMETIC-GATE-ONLY",
             "note":          "xa_exact_verdict_gate.sh boundary fixture"}
     with tempfile.TemporaryDirectory() as d:
         solve.atlas_emit_xa(A, d, cost=cost, atlas_path="xa_exact_verdict_gate.json")
@@ -148,6 +153,38 @@ rowC, callC, mdC = price(NODES_C, "1", "1", str(BUDGET), hedge="3")
 grade("fixture C (exact rate division)", "EXHAUSTIBLE", rowC, callC,
       "The effective rate is being computed in binary64 before the cost is divided by it.  "
       "Keep `x_rate` a Fraction; `rate` is the display copy.")
+
+# ---- LEG 2b: the t-unit -> SOLVE_NODE_LIMIT refusal must actually refuse ----
+# B17. Pricing t-units as production-DFS nodes is a scientific verdict resting on a map that
+# NOTHING certifies -- `solve --kc-t-cert` says so in its own JSON. Before the guard, three flags
+# produced EXHAUSTIBLE rows under a heading asserting the equality. A guard with no failing input
+# is decorative, so this leg drives BOTH directions.
+import re
+_A = {"n": 9, "N_total": "26112", "layers": [{"flow": "26112"} for _ in range(9)],
+      "branch_atlas": [{"global_pair": 1, "entry": 2, "exit": 0, "solutions": 24,
+                        "walks": 24, "prefixes_t_units": "10"}]}
+_base = {"nodes_per_sec": solve._ExactAnchor("1000000"), "usd_per_hour": solve._ExactAnchor("1"),
+         "budget_usd": solve._ExactAnchor("1000"), "hedge": solve._ExactAnchor("2.0"),
+         "work_factor": solve._ExactAnchor("1.0"), "note": "refusal leg"}
+def _run(c):
+    with tempfile.TemporaryDirectory() as d:
+        solve.atlas_emit_xa(_A, d, cost=c, atlas_path="refusal_leg.json")
+        return open(os.path.join(d, "xa_verdict.md")).read()
+_without = _run(dict(_base))
+_with    = _run(dict(_base, node_mapping_cert="STUB-FOR-GATE"))
+_bad = []
+if "PENDING" not in _without or "W0-D" not in _without or "node_mapping_cert" in _without:
+    _bad.append("no cert supplied but the emitted verdict does not name the W0-D refusal")
+if re.search(r"^\|.*EXHAUSTIBLE", _without, re.M) or re.search(r"^\|.*INFEASIBLE", _without, re.M):
+    _bad.append("no cert supplied but a priced verdict row was still emitted")
+if not (re.search(r"^\|.*EXHAUSTIBLE", _with, re.M) or re.search(r"^\|.*INFEASIBLE", _with, re.M)):
+    _bad.append("cert supplied but the priced branch was NOT reached -- the guard blocks everything")
+if "t-units = pruned-DFS nodes" in _without or "t-units = pruned-DFS nodes" in _with:
+    _bad.append("the heading still asserts t-units == pruned-DFS nodes")
+if _bad:
+    for b in _bad: print("  [FAIL] node-mapping refusal: %s" % b)
+    print("XA_EXACT_VERDICT=FAIL"); sys.exit(1)
+print("  [ok]   node-mapping refusal fires without a cert AND lifts with one (both directions)")
 
 # ---- LEG 3: the CLI must hand the anchors over as typed decimals ---------
 # The three value fixtures build `cost` directly, so a regression of the argparse

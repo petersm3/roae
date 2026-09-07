@@ -203,7 +203,10 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   `documentation/SPECIFICATION.md` §C3 states that at the C1–C5 canonical scope King Wen sits
   **at the C3 ceiling, 12.125 exactly**; that the AT-ceiling tie fraction is measured per
   enumerated set and is not a universal constant (**~9.91%** over the 3.43 B-ordering 100 T
-  canonical, **~10.11%** over the 10.5 B-ordering 560 T canonical); and that the threshold is
+  canonical, **~10.11%** over the 10.5 B-ordering 560 T canonical — ⚠ both are **560T/100T
+  traversal samples: a DFS-order PREFIX of the space, not a uniform draw**, which is why the figure
+  moved 9.91% → 10.11% as the budget grew; they are **record-level** tie shares and must not be read
+  against a **walk-level** μ without the 1/m weighting of §Q4); and that the threshold is
   King Wen's own value, *"extracted from the sequence, not derived independently."* A private
   foothold (F-MC) holds a further sample-scoped AT-ceiling tie fraction — **that sample's number
   is not quoted here** and nothing above depends on it. The nearest quantity with a public
@@ -456,14 +459,19 @@ pilot *artifacts* are not public, and re-deriving them would take a fresh paired
 not authorised — but the two anchors themselves are already published** and are quoted here rather
 than withheld: the R-1 orbit-engine work factor **36.14×** and wall ratio **19.8×** at 1 T are
 committed in the battery driver, `scripts/tr12_repro.sh:1401`, as the stated reason its `c_xa_cd`
-row skips (`SKIP:needs-r1-throughput-anchors`); read them with
-`git grep -n "needs-r1-throughput-anchors" main -- scripts/tr12_repro.sh`. What has **no** public
+row skips (`SKIP:xa-throughput-anchors`); read them with
+`git grep -n "xa-throughput-anchors" main -- scripts/tr12_repro.sh`. What has **no** public
 basis, and is therefore still not quoted, is the nodes/sec rate itself; (d) **verdict**: EXHAUSTIBLE (fits a stated $ ceiling) vs
-INFEASIBLE with the exact shortfall factor.
+INFEASIBLE. ⚠ **This call is WITHHELD and the consumer now refuses to make it.** Pricing t-units as
+production-DFS nodes assumes a t-unit → `SOLVE_NODE_LIMIT` map that **nothing certifies** —
+`--kc-t-cert` says so in its own JSON (`solve_node_limit_mapping: NOT CLAIMED HERE`). `solve.py`
+emits `TR12_XA_CD=PENDING:W0-D-node-mapping` unless `--xa-node-mapping-cert` is supplied. "Exact
+shortfall factor" is withdrawn: it would relabel a t-unit count as a node count.
 
 **Deliverables.** (i) argmin branch + the exhaustibility call; if ANY branch is genuinely
 exhaustible → spec the **provably-exhausted-region certificate**: DFS walks the branch to
-completion; ASSERT walked-prefix-count == t-derived prefix count AND emitted records byte-match
+completion; ASSERT walked-prefix-count == t-derived prefix count (⚠ **this equality IS the uncertified
+mapping**, not a consequence of it) AND emitted records byte-match
 the compiler's branch emission (O3/REL-sorted, dedup'd) — cross-engine set equality EXECUTED at a
 real scope (H2 ladder layer (i)); flagship-grade if it exists. Prior evidence says temper
 expectations: an early single-cell probe of the smallest branch returned a node count large enough
@@ -485,7 +493,15 @@ public tree at `runs/20260422_passA_10T_d64_laggard/`
 `documentation/BRANCHES_EXPLAINED.md` Part 15 §"Single-branch exhaustion". Internal planning
 notes on the same question are superseded by the atlas and are not cited here; **the exact
 shortfall factor is not quoted from any of them.** (iii)
-**MANDATORY accounting-convention pin (runs FIRST, NOW-able):** "valid prefixes" (t-units) vs
+**MANDATORY accounting-convention pin — PARTLY LANDED, and its remaining half CANNOT run at HEAD:**
+what `--kc-t-cert` certifies today is **t vs an independent brute DFS** (n=9 exhaustive, n=13 spot);
+it explicitly does **not** claim the `SOLVE_NODE_LIMIT` mapping. Completing it (W0-D) needs the
+production enumerator to run at reduced n, which it cannot: `init_pairs()` fixes all 32 KW pairs
+unconditionally (`solve.c:1705–1707`) and `--f1-pairs` reaches only the f1c5/c3/kc paths. So W0-D's
+cost is **~$1 of compute PLUS an unbudgeted change to the production enumerator** — an operator
+gate, not a $1 line item. ⚠ And even after W0-D the verdict stays **one-sided**: the production DFS
+prunes with C3 while t counts SUPER prefixes, so the ratio is per-branch, and t-units bound
+production nodes from above — EXHAUSTIBLE would be sound, INFEASIBLE would not. Original wording: "valid prefixes" (t-units) vs
 `solve.c`'s `SOLVE_NODE_LIMIT` node-counter semantics — at n ≤ 13, exhaust with the DFS
 (node counter on) AND compute t; assert the exact mapping (incl. orientation-explicitness, d3
 cell-splitting, and C3-prune visit accounting); no atlas number ships before this certificate

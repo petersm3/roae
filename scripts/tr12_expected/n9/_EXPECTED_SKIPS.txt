@@ -16,4 +16,4 @@ TR12_Q7_WITNESSES=PENDING:kissat
 TR12_Q9=SKIP:doc-only
 TR12_V3=SKIP:leg-TR12_V3_FIG
 TR12_V3_FIG=PENDING:viz-v3-spectrum
-TR12_XA_CD=SKIP:needs-r1-throughput-anchors
+TR12_XA_CD=SKIP:xa-throughput-anchors

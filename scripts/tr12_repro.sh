@@ -1156,9 +1156,17 @@ fi
 row_begin a2_q2
 (
   erc=0
+  # B7: --kc-bracket makes each probe a VERIFICATION, not just an output. It unranks r-1, r, r+1,
+  # ranks all three back, checks strict O3 order with the independent comparator, prints
+  # CERTIFICATE PASS|FAIL and returns rc=1 on any failure. At the two endpoints the "r-1: NONE" /
+  # "r+1: NONE" lines ARE the endpoint certificate, which a shell round-trip cannot produce.
+  # ⚠ SCOPE: this certifies the rank/unrank PAIR, not the ladder. Measured: with a g ladder
+  # corrupted at 3 of 12 probed offsets, --kc-g-check fails rc=70 while the bracket still
+  # certifies PASS -- rank and unrank read the same wrong g and agree with each other. The
+  # ladder-sensitive checks are a2_gcheck and a2_gsha, and Q2 completion requires those too.
   for R in 0 "$N_MINUS_1" "$N_HALF"; do
-      echo "### O3 unrank r=$R"
-      "$SOLVE" --kc-o3-unrank "$FDIR" "$GDIR" "$R" || erc=1
+      echo "### O3 unrank r=$R (two endpoints + midpoint)"
+      "$SOLVE" --kc-o3-unrank "$FDIR" "$GDIR" "$R" --kc-bracket || erc=1
   done
   exit $erc
 ) >>"$RAW" 2>&1; rc=$?
@@ -1603,7 +1611,7 @@ else
 fi
 
 # ---- the rows that remain genuinely blocked -----------------------------------------------------
-row_skip c_xa_cd  TR12_XA_CD  "SKIP:needs-r1-throughput-anchors" "needs the R-1 orbit-engine throughput anchors (36.14x work factor, 19.8x wall at 1T, nodes/sec hedged x2) — they are campaign measurements, not atlas fields, so the EXHAUSTIBLE/INFEASIBLE verdict cannot be derived from atlas.json alone"
+row_skip c_xa_cd  TR12_XA_CD  "SKIP:xa-throughput-anchors" "needs the R-1 orbit-engine throughput anchors (36.14x work factor, 19.8x wall at 1T, nodes/sec hedged x2) — they are campaign measurements, not atlas fields, so the EXHAUSTIBLE/INFEASIBLE verdict cannot be derived from atlas.json alone"
 row_skip c_q10b   TR12_Q10B   "PENDING:--kc-coset-census" "PENDING:--kc-coset-census — the (Z/2)^6 coset labelling of the transversal is not aggregated by any subcommand"
 # The atlas consumer LANDED 2026-08-22 — in solve.py, not scripts/atlas_queries.py (the single-file
 # rule: all Python lives in solve.py).  It writes the same tables this driver computes in awk+bc,
