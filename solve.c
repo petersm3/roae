@@ -32662,9 +32662,24 @@ static int kc_cli(int argc, char *argv[]) {
             if (want_record) {   /* class + repr(k) adapter (freeze §3.4) */
                 uint8_t repr[KC_MAX_PAIRS];
                 uint64_t m = kc_class_repr(kc, E, repr, c3max);
-                printf("record\tm=%llu\t", (unsigned long long)m);
-                kc_print_walk(kc, repr, stdout);
                 emitted_record = 1;
+                /* \U0001f534 Q-326 item (1), 2026-09-07. m == 0 means kc_class_repr found NO valid
+                 * orientation completion, and on EVERY one of its three m == 0 exits it leaves
+                 * repr UNWRITTEN (the p[j] < 0 early return; the DFS branch that never lands a
+                 * leaf; the `if (m > 0 && repr)` descent guard). Printing repr therefore read
+                 * uninitialized stack and indexed partner[64] with bytes up to 255 -- out of
+                 * bounds -- emitting a "record" line of garbage that DIFFERED RUN TO RUN, under
+                 * rc = 0, followed by a provenance trailer stamping it convention-conformant.
+                 * REACHABLE, not theoretical: `--kc-unrank DIR 0 --kc-record --kc-c3-max 0`
+                 * hits it at n=9 in under a second. The --kc-class sibling below has guarded
+                 * this since it was written; this path never did. Same shape, same rc. */
+                if (m == 0) {
+                    printf("record\tm=0\t(class has no valid orientation completion)\n");
+                    rc = 1;
+                } else {
+                    printf("record\tm=%llu\t", (unsigned long long)m);
+                    kc_print_walk(kc, repr, stdout);
+                }
             }
         }
     } else if (strcmp(cmd, "--kc-rank") == 0) {

@@ -265,6 +265,17 @@ if ! Q314_SOLVE="$WORK/solve" bash ./scripts/q314_mod48_gate.sh; then
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
+# Q-326 item (1): `--kc-unrank --kc-record` printed the class representative unconditionally, but
+# kc_class_repr leaves `repr` UNWRITTEN on every m == 0 exit -- so the record line was uninitialised
+# stack, indexing partner[64] with bytes up to 255, shipped under rc = 0 with a #provenance trailer
+# stamping it conformant. Reachable at n=9 in under a second via `--kc-c3-max 0`. Wired the day it
+# was written; the mutants are rebuilt here because a handed-in binary cannot carry a mutation.
+if ! Q326_SOLVE="$WORK/solve" bash ./scripts/q326_kc_unrank_m0_gate.sh; then
+  echo "  [FAIL] scripts/q326_kc_unrank_m0_gate.sh did not PASS: the m == 0 guard on the unrank"
+  echo "         record path is gone, or a mutant that still prints uninitialised repr survived"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
 # D5-02 / D5-03 / D5-04 / D5-08 legs (2026-09-05, roae-private D5_QUERY_PROGRAM_REVIEW_2026_09_04.md).
 # Four rows would have emitted PASS at full-31 for a computation other than the one their prose
 # names: a1_q8_chi2 (an n=13 self-test in place of the gallery chi-square), a0_ls_w0 (a C2|C1 / C3|C1
