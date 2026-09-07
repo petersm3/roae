@@ -304,6 +304,28 @@ def ops_deny(c):
     if re.search(r'>\s*/(proc|sys)/', c): return True
     if re.search(DEVREF, c): return True
     return re.search(OPS, c) is not None
+def unbounded_branch(c):
+    """LB-A6 (W2/Q-435). `./solve --branch 24 0 0` prints "No time limit -- running to
+    completion": a reader who pastes it never gets the shell back, and a lane that runs it
+    hangs instead of reporting. The published form must carry an explicit budget, e.g.
+    SOLVE_NODE_LIMIT=10000000000, or a nonzero time_limit.
+
+    Signatures (solve.c): --branch <pair> <orient> <time_limit>
+                          --sub-branch <p1> <o1> <p2> <o2> <p3> <o3> [time_limit] [threads]
+    A zero time_limit means unlimited, so it is the dangerous value, not the safe one.
+    This is a FAIL and never a SKIP: skipping it is the could-not-fail shape the whole
+    lane exists to refuse."""
+    m = re.search(r'--sub-branch\s+(\S+\s+){5}(\S+)\s+(\S+)', c)
+    if m:
+        tl = m.group(3)
+    else:
+        m = re.search(r'--branch\s+\S+\s+\S+\s+(\S+)', c)
+        if not m:
+            return False
+        tl = m.group(1)
+    if re.search(r'\bSOLVE_[A-Z0-9_]*LIMIT\s*=', c):
+        return False          # an explicit budget (SOLVE_NODE_LIMIT=...) bounds it
+    return tl == '0'
 def gating(f):
     if f == 'CLAUDE.md': return 0
     if f.startswith(('runs/','enumeration/')): return 0
@@ -333,6 +355,7 @@ def emit(f, ln, origin, raw, ulimit_ctx):
     cls = 'BUILD' if t in ('cc','gcc','clang','g++') else 'RUN'
     if ops_deny(c): cls = 'SKIP-OPS'
     elif placeholder(c): cls = 'SKIP-PLACEHOLDER'
+    elif unbounded_branch(c): cls = 'FAIL-UNBOUNDED'
     if cls == 'RUN':
         m2 = re.match(r'^(?:ulimit [^;]*;\s*)?(?:bash|sh)\s+(\S+)', c)
         if m2:
@@ -802,6 +825,21 @@ done < "$INV"
 echo
 echo "== MEASURED figures in reports/TR*.md (each must resolve to a RUN/BUILD command in its window) =="
 cat "$MEAS_OUT"
+echo "== UNBOUNDED branch invocations (never executed — running one does not return) =="
+_nub=0
+while IFS=$'\t' read -r cls gat ctx cwd org src cmd; do
+  [ "$cls" = "FAIL-UNBOUNDED" ] || continue
+  echo "FAIL(unbounded --branch/--sub-branch: no SOLVE_*_LIMIT and time_limit 0)  $src  $cmd"
+  if [ "$gat" = "1" ]; then
+    NF=$((NF+1))
+    FAIL_LINES="${FAIL_LINES}FAIL(unbounded branch) $src  $cmd
+"
+    _nub=$((_nub+1))
+  fi
+done < "$INV"
+echo "EXEC_LANE_UNBOUNDED=$_nub"
+echo
+
 # An unresolved MEASURED figure is a gating FAIL: the TR's own header promised the command.
 if [ "$NMEAS_UNRES" -gt 0 ]; then
   NF=$((NF+NMEAS_UNRES))
