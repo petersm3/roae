@@ -9242,3 +9242,30 @@ label moved.
 **Found by** the Codex v3 two-lens review (`gpt-6-astra @max`), adjudicated with independent
 re-measurement. **Gated:** RP-9e8bee78 in `documentation/RETRACTED_PHRASES.tsv`, so the wording fails
 GATE 3 if it reappears anywhere in the corpus.
+
+---
+
+## CX-37 — an estimator's hit rate was called comparable across a 25,000× gap (RP-bfdc19d2)
+
+**2026-09-07 · C1 · `documentation/SEARCH_SPACE_SIZE.md`**
+
+- **BEFORE:** the validation argument asserted that the C1–C7 estimate uses the same
+  machinery at hit rates that were *comparable or better* than the validated C5
+  calibration — the exact wording is `RP-bfdc19d2`, not quoted here — and offered that
+  as direct evidence the estimator is sound at that conditioning.
+- **NOW:** the sentence states the opposite of what it claimed. The C5 calibration ran at
+  a hitrate of **0.0144**; the C1–C7 estimate runs at **5.77×10⁻⁷**, a gap of roughly
+  **25,000×**. Succeeding at one hit rate is not evidence about an estimate conditioned
+  differently, which is the whole of what the original sentence was doing.
+- **No number changed.** Both figures were already published; what was wrong was the
+  comparison drawn between them.
+- **How it was found:** Codex v3 lens review as SSS-A4, re-measured against the archived
+  calibration runs rather than adjudicated on the reviewer's word.
+- **Sibling search:** `git grep -F` for the `RP-bfdc19d2` string across `origin/main` →
+  **0 sites**, and `git log -S` places its only home in `SEARCH_SPACE_SIZE.md`, where
+  commit `02c3e992` corrected the prose on 2026-09-07. **The text was fixed and the
+  registry was not**, so GATE 3 could not have stopped the wording returning. That gap —
+  a correction that lands in prose but never in the registry that guards it — is why this
+  entry exists, days after the wording itself was repaired.
+- **Gated:** `RP-bfdc19d2` in `documentation/RETRACTED_PHRASES.tsv`, so the phrasing fails
+  GATE 3 if it reappears anywhere in the corpus.
