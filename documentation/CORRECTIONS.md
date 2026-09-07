@@ -9338,3 +9338,34 @@ GATE 3 if it reappears anywhere in the corpus.
 published wording was `RP-544197de`. Registering the row's paraphrase would have created a
 registry entry that could never match anything — a gate row that cannot fire, which is the
 defect class this whole review exists to remove. The actual string is registered instead.
+
+## CX-41 — a published reproducer promised a check the binary does not perform (TR-3)
+
+**2026-09-07 · C3 · `reports/TR3_REPRODUCIBLE_ENUMERATION.md`**
+
+- **BEFORE:** the §Verification Guide recipe annotated `./solve --verify` as
+  `# C1-C5 + sorted + no duplicates + King Wen present`.
+- **NOW:** `# C1-C5 + sorted + no duplicates; King Wen REPORTED, not enforced (add
+  --expect-kw to make its absence a FAIL)`. `--verify` prints the whole-line
+  `KW_PRESENT=YES|NO` and adds `fail_kw` to its verdict **only** under `--expect-kw`.
+- **No number changed.** The enumeration, the counts and the hashes are untouched. What
+  was wrong was a promise about what the tool checks.
+- **Why the binary behaves that way, since the wording looks like a weakening:** gating on
+  King Wen's absence was RETRACTED deliberately (registry `RP-60347080`) because a shard
+  or a budgeted slice legitimately lacks the record, so enforcing it would be a false
+  reject. `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced
+  contract with a mutation test that goes red on exactly the change this row's old wording
+  implied had already been made.
+- **The sharp part:** `solve.c` states the governing principle in as many words -- *"the
+  tool must not PROMISE a check it does not perform. `--verify` never claimed to;
+  `--validate`'s banner did, and that wording is corrected below."* TR-3 was such an
+  uncorrected promise, in a published report, written after the principle was recorded.
+- **How it was found:** a sibling sweep for "a token standing in for a check that never
+  ran", the same class as CX-39/CX-40 and as the `--xa-node-mapping-cert` guard that
+  accepted a path it never opened.
+- **Sibling search:** every `--verify` / `--validate` / `--check-*` comment under
+  `reports/` and `documentation/`. TR-3 was the only strict instance. Two MEDIUM
+  verdict-conflation sites remain open -- `documentation/CANONICAL_HASHES.md:123` and
+  `documentation/CAMPAIGN_METHODOLOGY.md:788` both append "King Wen found" to a PASS
+  verdict; the former contradicts its own file 458 lines later, which already carries the
+  reported-not-enforced note. Those are tracked separately, not fixed here.
