@@ -282,6 +282,43 @@ else
   echo "  [FAIL] G9: cannot read $_G9F -- this leg measured NOTHING"; G9=1
 fi
 
+# ---- G10: a TR revision row that RE-SCOPES must reach the corrections ledger --------------------
+# 🔴 CD-A1, 2026-09-07. G4 walks the 35 "## CX-" entries, so a correction recorded ONLY in a TR's
+# revision table is outside its universe and G4 reports PASS by construction. Measured: TR-8 v1.16
+# (2026-08-30) re-scoped its Gray-code theorem -- "It does not refute their construction, and
+# versions v1.0-v1.15 of this report said that it did" -- and CLAIMS_DECIDED still graded the claim
+# REFUTED (proven) seven days later, with CITATIONS carrying the same wording in two places.
+# A revision row is where a correction is EASIEST to record and HARDEST to propagate.
+G10=0
+_ledger=documentation/CORRECTIONS.md
+if [ -r "$_ledger" ]; then
+  for _tr in reports/TR*.md; do
+    [ -r "$_tr" ] || continue
+    _id=$(basename "$_tr" | grep -oE '^TR[0-9]+')
+    _n=$(printf '%s' "$_id" | grep -oE '[0-9]+')
+    while IFS= read -r _row; do
+      _d=$(printf '%s' "$_row" | grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1)
+      [ -n "$_d" ] || continue
+      # the ledger must mention that date AND that TR somewhere
+      # 🔴 BOTH IN THE SAME ENTRY. The first version asked whether the date and the TR id each
+      # appeared ANYWHERE in the ledger; both did, in unrelated entries, so it passed on the very
+      # case it was written for -- a check that could not fail. Require one "## " block to carry both.
+      if ! awk -v d="$_d" -v n="$_n" '
+             /^## /{blk=""}
+             {blk=blk"\n"$0}
+             {if (blk ~ d && blk ~ ("TR-?" n "[^0-9]")) found=1}
+             END{exit found?0:1}' "$_ledger" 2>/dev/null; then
+        echo "  [FAIL] G10: $_id revision row dated $_d re-scopes/withdraws, with no ledger entry naming both"
+        G10=$((G10+1))
+      fi
+    done < <(grep -E '^\|.*20[0-9]{2}-[0-9]{2}-[0-9]{2}' "$_tr" 2>/dev/null \
+               | grep -iE 're-scoped|rescoped|withdrawn|retracted' || true)
+  done
+  [ "$G10" -eq 0 ] && echo "  [ok]   G10: every re-scoping TR revision row is named in the corrections ledger"
+else
+  echo "  [FAIL] G10: cannot read $_ledger -- this leg measured NOTHING"; G10=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it

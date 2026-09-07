@@ -1970,7 +1970,7 @@ ours. His weight-conservation principle is the exact-preservation strengthening 
 lemma underlying [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md); his K₄ matching analysis and our B₃
 constraint-system symmetry group are complementary results about different objects.
 
-## The 1979 reordering proposal — measured, and its construction refuted (with credit)
+## The 1979 reordering proposal — measured, and its premise re-scoped (with credit)
 
 **McKenna, Stephen E. & Mair, Victor H.** "A Reordering of the Hexagrams of the I Ching," *Philosophy East
 and West* 29:4 (October 1979), 421–441. (Distinct from McKenna & McKenna 1975.) They judged the received
@@ -2197,7 +2197,7 @@ Seabury Press.
 <a id="mckenna-mair1979"></a>
 McKenna, S. E., & Mair, V. H. (1979). A reordering of the hexagrams of the I Ching. *Philosophy East and
 West, 29*(4), 421–441. [doi:10.2307/1398813](https://doi.org/10.2307/1398813)
-  Gray-code replacement proposal; its structural-poverty premise is now measured, and its Gray-code construction refuted; first to
+  Gray-code replacement proposal; its structural-poverty premise is now measured, and its Gray-code construction **re-scoped, not refuted** (TR-8 v1.16, 2026-08-30: the parity argument does not refute their construction — their ordering is hybrid by design); first to
   test the sequence against constructed alternatives. [analyzed]
 
 <a id="moore1989"></a>

@@ -28,3 +28,23 @@ G3=0
 #      gate was written. Each needs an editorial decision -- whether the correction genuinely applies
 #      to that file, or whether the Documents list overreached -- so they are pinned, not bulk-edited.
 G4=8
+# G5 — LEADERBOARD's edit-distance table vs section [28] of the artifact it cites. Fixed 2026-09-07.
+G5=0
+# G6 — per-cell tree sizes labelled canonical above the 28! ceiling. Fixed 2026-09-07.
+G6=0
+# G7 — the per-position entropy table vs section [2] of the artifact it cites. Fixed 2026-09-07.
+G7=0
+# G8 — a fixed constrained-position range asserted across all datasets. Fixed 2026-09-07.
+G8=0
+# G9 — published --branch recipes without a budget; --validate naming a phantom path. Fixed 2026-09-07.
+G9=0
+# G10 — a TR revision row that re-scopes or withdraws, with no corrections-ledger entry naming both
+#       that TR and that date. This is the class G4 is STRUCTURALLY BLIND to: G4 walks the 35 "## CX-"
+#       entries, so a correction recorded only in a TR's revision table is outside its universe and
+#       G4 reports PASS by construction. Measured on the day this leg was written: TR-8 v1.16
+#       (2026-08-30) re-scoped its Gray-code theorem and CLAIMS_DECIDED still graded the claim
+#       REFUTED (proven) seven days later.
+#       1: TR3 v1.11 (2026-08-31), "eight corrections from the executed prose review (batch P09)".
+#       Pinned rather than bulk-edited because whether a batch of eight prose corrections warrants a
+#       ledger entry is an editorial call, not a mechanical one.
+G10=1
