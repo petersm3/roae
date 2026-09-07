@@ -18,7 +18,7 @@ Knuth (1975, *Estimating the efficiency of backtrack programs*, Math. Comp. 29).
 - At a node with `d` live children (children passing the same C1/C2/C4/C5 prune predicates used by the real `backtrack()`), set `W ← W · d` and descend to one of the `d` children chosen uniformly at random.
 - Stop at a dead end or at a completed depth-32 leaf.
 
-Then `E[Σ W over the visited path]` equals the total number of tree nodes, and `E[W at a reached depth-32 leaf]` equals the number of complete orderings; applying the C3 test at the leaf gives the **canonical (C1–C5)** count. Each probe is an *unbiased* estimator of the whole; averaging `N` independent probes reduces variance as `1/√N`. The estimator is pure compute — **it touches no solution data and needs no enumeration artifacts** — and it reuses `solve.c`'s exact prune predicates, so it samples the identical tree the enumerator walks.
+Then `E[Σ W over the visited path]` equals the total number of tree nodes, and `E[W at a reached depth-32 leaf]` equals the number of complete orderings; applying the C3 test at the leaf gives the **canonical (C1–C5)** count. Each probe is an *unbiased* estimator of the whole; averaging `N` independent probes reduces **variance as `1/N`**, hence the **standard error** as `1/√N` ⚠ *(this line said variance fell as 1/√N until 2026-09-07 — that is the SE; `solve.c:8283` computes it correctly, so only the prose was wrong. Measured across 4× probe increases: relerr 1.45 → 0.72 → 0.36 → 0.18 %, exactly halving, which is the SE behaviour)*. The estimator is pure compute — **it touches no solution data and needs no enumeration artifacts** — and it reuses `solve.c`'s exact prune predicates, so it samples the identical tree the enumerator walks.
 
 Implementation: `solve --estimate-knuth <probes> [prefix…]` (see [`SOLVE_C_CLI.md`](SOLVE_C_CLI.md)). Sha-neutral to the enumerator: the subcommand shares the prune predicates but adds no code on the enumeration path (`--selftest` unchanged).
 
@@ -82,7 +82,7 @@ A natural objection: if there are ≈10³⁸ valid orderings and King Wen is jus
 
 It is worth being fully explicit: **King Wen's early appearance is a property of how we set the search up, not a property of King Wen.** Three setup choices produce it, and a different choice on any of them could make a finite-budget search reach King Wen far more slowly — or leave its particular leaf out of the budgeted slice entirely:
 
-- **The constraints** set the ambient *density* of solutions (they shrink ~10⁸⁹ → ~10³⁸, so the constrained tree is nearly all-solutions and any traversal trips over them immediately). Because C1–C5 were reverse-engineered *from* King Wen, King Wen is a member of the solution set by construction and can never be pruned — but that guarantees *membership*, not *early arrival*.
+- **The constraints** set the ambient *density* of solutions (they shrink ~10⁸⁹ → ~10³⁸, so the constrained tree is far denser in solutions than the unconstrained one) ⚠ **— but NOT "nearly all-solutions", which this line claimed until 2026-09-07.** Measured from the exact counts in the validation table above: leaves are **0.90%** of nodes at 5 free positions, **3.59%** at 7 and **0.18%** at 9 — a small and *shrinking* fraction, so a traversal does not trip over them immediately. The density argument holds relative to 10⁸⁹, not in absolute terms. Because C1–C5 were reverse-engineered *from* King Wen, King Wen is a member of the solution set by construction and can never be pruned — but that guarantees *membership*, not *early arrival*.
 - **The decomposition** (158,364 per-cell budgets) guarantees *breadth*: every cell, King Wen's included, is serviced regardless of branch order. A single global-budget DFS could instead spend its whole budget deep in another region and never reach King Wen's prefix.
 - **The variable/value ordering** decides where King Wen's one leaf falls relative to its cell's ~3.5 B-node budgeted frontier (out of ~10³³ leaves in that cell). Under the natural ordering it lands inside and is found; an adversarial ordering could push it outside, so a same-budget run would not surface that specific leaf.
 
@@ -219,9 +219,14 @@ The estimator now has a full-scale ground-truth anchor: |C1∩C2∩C4| was compu
 [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) and [reports/TR5](../reports/TR5_SYMMETRY.md)). The Knuth estimate of the same quantity (7.571×10⁴¹, stated
 ±0.01%) contains the exact value inside its stated envelope. (The apparent 5.5×10⁻⁵ gap is the distance
 to the estimate's four-sig-fig rounding, not a measured estimator error; the true error is unresolved at
-the published precision but well within ±0.01% — mirrors TR-11 v1.4 / TR-4's hedge.) Every other
-estimate in this document uses the same machinery at comparable or better hit rates; this is direct
-evidence the stated envelopes are honest.
+the published precision but well within ±0.01% — mirrors TR-11 v1.4 / TR-4's hedge.) Every other estimate in this document uses the same
+machinery, but ⚠ **NOT at comparable hit rates, and this sentence claimed otherwise until
+2026-09-07.** Measured from the archived probes: the C5 calibration runs at
+`hitrate=0.0144` (`reports/evidence/knuth_whole_tree_5e10.out`) while the C1–C7 estimate runs at
+`hitrate=5.77e-07` (`reports/evidence/c67_probe.out`) — **about 25,000× lower**. A calibration
+succeeding at one hit rate is not evidence about an estimate conditioned differently and
+sampled four orders of magnitude more sparsely. The calibration result stands on its own; what
+it does not do is transfer.
 
 **A second full-scale anchor (2026-07-16), at the 10³⁹ scale:** |C1∩C2∩C4∩C5| was computed EXACTLY
 (1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹, via the out-of-core
@@ -242,7 +247,13 @@ see TR-11 §10(ii).)
 > the extrapolation bullet below and TR-4 v1.15/v1.16 for why the argument bounds nothing.
 
 Identifying King Wen within the C1–C5 space requires log₂(1.3287×10³⁸) = **126.6 bits**. *(Population context, 2026-09-05: that figure is the size of the extracted space, not a King Wen property — at the C5 layer a random C1∩C2 ordering's own extracted multiset leaves a space of the same size, King Wen at the 65th percentile of 1,000 decoys, [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) §2 population context; the C3 cut inside 126.6 and the per-boundary rate below remain King Wen-measured only.)* ⚠ **[SCOPE NOTE added 2026-08-28 — this prices the RAW, orientation-explicit object, which is the right one here because a boundary constraint identifies an oriented ordering. Stated over the orientation-deduplicated object the figure would be log₂(31!) = **112.66 bits** — a ceiling, since the canonical count is at most 31!. The two differ by ~14 bits, so any comparison of this number against a canonical-object count is a units error of about one and a half boundary-steps.]** The measured
-greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 11.10, 9.40, 10.13 bits
+greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 11.10, 9.40, 10.13 bits.
+⚠ **The fifth gain belongs to boundary 2, not boundary 1, and this document's chain named the wrong one
+until 2026-09-07.** The archived run records `round 5 PICK=2` and its chain as
+`pins=3,4,26,27,24,25,20,21,1,2` (`reports/evidence/sk/sk5_7_rounds.out`). Recomputed from that file's
+own candidate estimates: boundary 2 leaves 7.596231×10²² for a gain of **10.11 bits** — the published
+10.13 — while boundary 1 leaves 1.689464×10²⁴ for **5.64 bits**. The figure is right; the chain it was
+attributed to was not
 — strikingly flat (mean 10.13; corrected 2026-08-01 from "10.07", which is not the mean of the five listed gains), and the first step is the maximum **unconditional** single-boundary gain by construction (greedy picks it first) — **but NOT the maximum over all conditioning contexts: step 3 gains 11.10 bits, exceeding it. Corrected 2026-08-01; the earlier text used 10.38 as a universal per-boundary cap, which its own data falsifies**
 (greedy picks the minimum-survivor boundary). Two consequences, honestly labeled:
 

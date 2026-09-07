@@ -319,6 +319,29 @@ else
   echo "  [FAIL] G10: cannot read $_ledger -- this leg measured NOTHING"; G10=1
 fi
 
+# ---- G11: a published gain series must name the chain the archived run actually picked -----------
+# 🔴 SSS-A3, 2026-09-07. SEARCH_SPACE_SIZE published a five-step gain series ending 10.13 bits and
+# attributed it to a chain ending in boundary 1. The archived run says "round 5 PICK=2" and pins
+# ...,20,21,1,2 -- boundary 2. Recomputed from that file's own candidates, boundary 2 gives 10.11
+# bits and boundary 1 gives 5.64. The figure was right and the chain was not, which no numeric check
+# would have caught: both numbers are real, they just belong to different steps.
+G11=0
+_SK=${G11_RUN:-reports/evidence/sk/sk5_7_rounds.out}
+_SS=${G11_DOC:-documentation/SEARCH_SPACE_SIZE.md}
+if [ -r "$_SK" ] && [ -r "$_SS" ]; then
+  _pick=$(grep -oE 'round 5 PICK=[0-9]+' "$_SK" 2>/dev/null | grep -oE '[0-9]+$' | head -1)
+  if [ -z "$_pick" ]; then
+    echo "  [FAIL] G11: no 'round 5 PICK=' in $_SK -- this leg measured NOTHING"; G11=1
+  elif grep -q "round 5 \`PICK=$_pick\`\|PICK=$_pick" "$_SS" 2>/dev/null; then
+    echo "  [ok]   G11: the published gain series names the boundary the archived run picked (PICK=$_pick)"
+  else
+    echo "  [FAIL] G11: the archived run picked boundary $_pick at round 5; the document does not say so"
+    G11=1
+  fi
+else
+  echo "  [FAIL] G11: cannot read $_SK or $_SS -- this leg measured NOTHING"; G11=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it
