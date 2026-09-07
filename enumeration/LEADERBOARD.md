@@ -118,8 +118,9 @@ Most valid orderings look **nothing like** King Wen. King Wen is not
 
 ## Which pairs can appear at position 2?
 
-Position 2 is the first "free" position — 16 different pairs can validly follow
-hexagram 1 / hexagram 2. King Wen's choice (䷂䷃ #3 / #4) appears in only
+Position 2 is the first "free" position. **16 different pairs were found to follow
+hexagram 1 / hexagram 2 in this dataset at this budget** — a count of what the search
+reached, not of what the space permits; see the scope qualifier below the table. King Wen's choice (䷂䷃ #3 / #4) appears in only
 0.2% of valid orderings. Some choices at position 2 produce millions of downstream
 valid orderings; others produce zero.
 
@@ -161,10 +162,12 @@ valid orderings; others produce zero.
 
 *🔴 **Scope qualifier added 2026-09-07.** The label was unqualified and reads as globally dead. It is not: of the 12 pairs marked dead here, **11 carry positive record counts as first-level branches** in §[11] of the same artifact — pair 10 (#19/#20) has **17,091,148** records, pair 13 (#25/#26) has **35,142,401**. Only pair 21 (#41/#42) is zero in both. §[11]'s actual zero set is **{4, 6, 21}** = #7/#8, #11/#12, #41/#42 — and #7/#8 appears in the table above with 431,474 records at position 2, so the two slices disagree in both directions. They measure different things and neither is wrong; the label implied one was the other.*
 
-**Key insight:** Nearly half the possible position-2 choices lead to dead branches —
-no valid orderings exist (or at least none have been found). The viable choices vary
-enormously in how many valid orderings they produce, from hundreds of thousands to
-millions. The [complement distance constraint](../documentation/SOLVE_SUMMARY.md#rule-3)
+**Key insight, rewritten 2026-09-07 to match the qualifier directly above it.**
+Nearly half the position-2 choices produced **no valid ordering at this budget in
+this dataset**. That is a statement about the search, not about the space: §[11]
+of the same artifact gives **11 of those 12 pairs positive first-level record
+counts**, and its own zero set is `{4, 6, 21}`. The viable choices vary enormously
+in how many valid orderings they produce, from hundreds of thousands to millions. The [complement distance constraint](../documentation/SOLVE_SUMMARY.md#rule-3)
 interacts very differently with different position-2 pairs.
 
 ## What remains unknown

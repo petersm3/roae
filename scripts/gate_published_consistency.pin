@@ -60,3 +60,7 @@ G14=0
 G15=0
 # G16 — under EXACT, = may not carry an abbreviated magnitude. Fixed 2026-09-07.
 G16=0
+# G17 — LB-A2 (W1/Q-434). LEADERBOARD.md's dead-branch claims are scoped to their dataset and
+# budget, and the {4, 6, 21} zero set from §[11] is stated. Pinned at 0: this leg starts clean,
+# so any regression is a NEW defect and fails immediately rather than joining a standing backlog.
+G17=0

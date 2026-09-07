@@ -464,6 +464,39 @@ else
   echo "  [FAIL] G16: cannot read $_CA16 -- this leg measured NOTHING"; G16=1
 fi
 
+
+# ---- G17: a dead-branch claim must be scoped to its dataset and budget ------------------------
+# 🔴 LB-A2, 2026-09-07 (W1/Q-434). LEADERBOARD.md labels 12 position-2 pairs "Estimated dead" on a
+# 10T run that reached no ordering for them. §[11] of the SAME artifact gives 11 of those 12 positive
+# first-level record counts, and its own zero set is {4, 6, 21}. The two slices measure different
+# things; the unqualified label implied one was the other. GATE 53 could not see this: its universe is
+# LARGE_SCALE_CAMPAIGNS.md, and the defect lives in LEADERBOARD.md.
+G17=0
+_LB17=${G17_DOC:-enumeration/LEADERBOARD.md}
+if [ -r "$_LB17" ]; then
+  if ! grep -q 'Estimated dead' "$_LB17" 2>/dev/null; then
+    echo "  [FAIL] G17: $_LB17 no longer uses the 'Estimated dead' label -- this leg measured NOTHING"
+    G17=1
+  else
+    _g17=0
+    if ! grep -qF '{4, 6, 21}' "$_LB17" 2>/dev/null; then
+      echo "  [FAIL] G17: the 'Estimated dead' label stands with no {4, 6, 21} zero-set qualifier"
+      _g17=$((_g17+1))
+    fi
+    _unq=$(grep -cF 'choices lead to dead branches' "$_LB17" 2>/dev/null || true)
+    if [ "${_unq:-0}" -gt 0 ]; then
+      echo "  [FAIL] G17: $_unq unqualified 'choices lead to dead branches' claim(s) survive"
+      _g17=$((_g17+_unq))
+    fi
+    if [ "$_g17" -eq 0 ]; then
+      echo "  [ok]   G17: dead-branch claims are scoped, and the {4, 6, 21} zero set is stated"
+    fi
+    G17=$_g17
+  fi
+else
+  echo "  [FAIL] G17: cannot read $_LB17 -- this leg measured NOTHING"; G17=1
+fi
+
 # ---- RATCHET ------------------------------------------------------------------------------------
 # 🔴 A GATE THAT PRINTS FAIL ON EVERY RUN IS A GATE NOBODY READS. This one had 15 standing defects on
 # the day it was written, and it was wired into nothing for exactly that reason -- which made it
@@ -482,13 +515,24 @@ if [ ! -r "$PIN" ]; then
 fi
 # shellcheck disable=SC1090
 P_G1=$(awk -F= '/^G1=/{print $2}' "$PIN"); P_G2=$(awk -F= '/^G2=/{print $2}' "$PIN"); P_G3=$(awk -F= '/^G3=/{print $2}' "$PIN"); P_G4=$(awk -F= '/^G4=/{print $2}' "$PIN")
-for v in "$P_G1" "$P_G2" "$P_G3" "$P_G4"; do
+# 🔴 G5..G16 WERE ASSIGNED AND NEVER READ (found 2026-09-07). Twelve legs computed a count that
+# reached neither this ratchet nor `fail` nor the verdict: they printed [FAIL] lines while the gate
+# emitted PASS-AT-PIN and exit 0. Twelve checks that could not fail. They are pinned and compared now.
+for _g in 5 6 7 8 9 10 11 12 13 14 15 16 17; do
+  eval "P_G${_g}=\$(awk -F= '/^G${_g}=/{print \$2}' \"$PIN\")"
+done
+for v in "$P_G1" "$P_G2" "$P_G3" "$P_G4" "$P_G5" "$P_G6" "$P_G7" "$P_G8" "$P_G9" \
+         "$P_G10" "$P_G11" "$P_G12" "$P_G13" "$P_G14" "$P_G15" "$P_G16" "$P_G17"; do
   case "$v" in ''|*[!0-9]*) echo "  [FAIL] pin file is malformed"; echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1;; esac
 done
 echo
 echo "== RATCHET vs $PIN =="
 ratchet=0; tighten=0
-for pair in "G1:${G1_N:-0}:$P_G1" "G2:${G2_N:-0}:$P_G2" "G3:${G3_N:-0}:$P_G3" "G4:${G4_N:-0}:$P_G4"; do
+for pair in "G1:${G1_N:-0}:$P_G1" "G2:${G2_N:-0}:$P_G2" "G3:${G3_N:-0}:$P_G3" "G4:${G4_N:-0}:$P_G4" \
+            "G5:${G5:-0}:$P_G5" "G6:${G6:-0}:$P_G6" "G7:${G7:-0}:$P_G7" "G8:${G8:-0}:$P_G8" \
+            "G9:${G9:-0}:$P_G9" "G10:${G10:-0}:$P_G10" "G11:${G11:-0}:$P_G11" \
+            "G12:${G12:-0}:$P_G12" "G13:${G13:-0}:$P_G13" "G14:${G14:-0}:$P_G14" \
+            "G15:${G15:-0}:$P_G15" "G16:${G16:-0}:$P_G16" "G17:${G17:-0}:$P_G17"; do
   g=${pair%%:*}; rest=${pair#*:}; now=${rest%%:*}; pin=${rest##*:}
   if [ "$now" -gt "$pin" ]; then
     echo "  [FAIL] $g rose to $now from a pinned $pin — a NEW published-consistency defect"; ratchet=1
