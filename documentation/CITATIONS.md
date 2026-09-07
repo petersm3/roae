@@ -62,6 +62,19 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
 
 The observation that consecutive hexagrams in the King Wen sequence **never differ by exactly five lines** is attributed to Terence McKenna.
 
+<a id="mamingzong2023"></a>
+Ma, M. 马明宗 (2023). *Chutu wenxian yu Yixue yanjiu* 出土文献与易学研究 [A study on *Yi* based on
+newly discovered documents] [Doctoral dissertation, Zhejiang University; supervisors 曹锦炎 and
+夏含夷 (E. L. Shaughnessy)]. Ch. 伍 §三, "从楚帛书甲乙篇谈《周易》上下经的布局", pp. 288–295.
+  Proposes that the received text's unequal halves — 30 上经 / 34 下经 — are a **deliberate departure
+  from an even 32/32**: one 非覆即变 pair moved from the upper to the lower canon 「为了附和"阳胜阴"的
+  理论」, by analogy with the 楚帛书's long inverted 甲篇 / short upright 乙篇 and with the 德经-longer-
+  than-道经 layouts of the 北大简 and 马王堆 《老子》; 「《周易》上下经的篇幅的不等，实际是出于人为的有意
+  编排」 (p. 288). Ties the 坎离 / 既济未济 endings to the N–S axis of the 清华简《筮法》卦位图. A
+  philological hypothesis — no count, no constraint, no test; relevant to the 18:18 / 30:34 two-part
+  division discussed under [#hacker-moore2003](#hacker-moore2003) as a stated *reason* for the
+  asymmetry that the classical 36-unit reasoning explains only arithmetically. [ch. 伍 §三 read in
+  full from the extracted text 2026-09-03; the rest of the dissertation not read]
 - **McKenna, Terence and McKenna, Dennis** (1975). *The Invisible Landscape: Mind, Hallucinogens, and the I Ching*. Seabury Press, New York (**2nd, revised and updated edition: HarperSanFrancisco/HarperCollins, 1993, 229 pp. — this is the edition carrying Peter Meyer's appendix *The Mathematics of Timewave Zero*, pp. 211–220**; subsequent printing 1994, ISBN 0-06-250635-8 / 978-0062506351; [Open Library](https://openlibrary.org/isbn/9780062506351)). The "first-order of difference" analysis appears in **Part Two, Chapter 9 ("Order in the I Ching and Order in the World")**. McKenna explicitly states "a perfect ratio of three to one; three even integers to each odd integer" and gives the count as "fourteen threes and two ones constitute sixteen instances of an odd integer occurring out of a possible sixty-four" — confirming he was using the **circular reading** (64 transitions including the wrap-around s₆₃ → s₀, which has Hamming distance 3 in King Wen). Figure 17 (Table II, "Change in the King Wen Sequence") enumerates the full difference-wave histogram pair-by-pair. In the same chapter McKenna formalizes the sequence design under three rules: (1) absolutely exclude transitions of value 5 — the **linear** restriction of this is our **C2**, but McKenna applies it circularly (all 64 transitions including the wrap), which is strictly stronger: C1–C5-valid orderings with a 5-line wrap exist (SAT-decided 2026-07-03, explicit witness in [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md) §"New result"; reproduce with `python3 sat.py --witness wrap-d5`), and circular C2 would cut the space by ×1.21 (full-space d=5-wrap mass 17.4%, 2×10¹⁰ probes). Cf. [MCKENNA.md](MCKENNA.md) §"McKenna's 25/75 odd-even split"; (2) minimize transitions of value 1 except where doing so would force a value 5 — empirically measured at the d3 560T canonical 2026-06-15 (`9a968fa2…`, 10,525,271,997 records: 80.03% of C1-C5 records violate it; KW is in the 19.97% minority that obeys it). **NOT promoted to a formal C-rule** — it would be reverse-engineered from KW's specific value-1 placements without first-principles or independent-corroboration support; see MCKENNA.md for the peer-review-defensibility analysis; (3) maintain a three-to-one ratio of even to odd transitions (= our **Theorem on wrap-around parity**, since 3:1 circular is a consequence of C4 + C5 + the XOR parity identity).
 - *Status of earlier references:* The 1975 first edition (Seabury Press) contains the same I Ching analysis as the 1994 HarperCollins reprint; the work was reprinted, not revised. The underlying intuitions date to the McKennas' 1971 Amazonian expedition (see *True Hallucinations*, 1993, and Timewave-Zero biographical sources). No pre-1975 peer-reviewed paper or published lecture transcript on the I Ching analysis has been located via open web sources.
 - Cook (2006) also presents the 5-line absence as part of the broader combinatorial analysis; independently derived within his framework.
@@ -145,6 +158,24 @@ The framing of C1–C5 as a specific *joint* constraint system is ROAE-specific.
 
 - **Shaughnessy, Edward L.** (1996). *I Ching: The Classic of Changes* (Mawangdui Texts). Ballantine Books. ISBN 978-0345362438. [Open Library](https://openlibrary.org/isbn/9780345362438) Translation and analysis of the 168 BCE Mawangdui silk manuscripts' alternative hexagram ordering.
 - **Shaughnessy, Edward L.** (2022). *The Origin and Early Development of the Zhou Changes*. Leiden: Brill (Prognostication in History 9). Open access. **The authority for the Mawangdui ordering array used by ROAE** (p. 50 + Table 11.2: eight octets by upper trigram Qian, Gen, Kan, Zhen, Kun, Dui, Li, Xun; lower trigrams cycling Qian, Kun, Gen, Dui, Kan, Li, Zhen, Xun with the octet's own trigram promoted to first).
+<a id="luojianjin2017"></a>
+- **Luo Jianjin 罗见今** (2017). "Mawangdui boshu Zhouyi guaxu de shuxue jiangou" 马王堆帛书周易卦序的
+  数学建构 [On the mathematical structure of the hexagram order in the Mawangdui silk *Zhouyi*].
+  *Gaodeng shuxue yanjiu* 高等数学研究 [Studies in College Mathematics] 20(1): 8–12.
+  [doi:10.3969/j.issn.1008-1399.2017.01.003](https://doi.org/10.3969/j.issn.1008-1399.2017.01.003).
+  **An earlier closed-form construction of the same Mawangdui order that this project takes from
+  Shaughnessy 2022, Table 11.2.** Defines 卦位 n (1–64), 卦数 (the six-bit figure) and 卦值 m (0–63);
+  gives the Fu Xi order as F_n = 64 − n and the 太乙 order as T_n = n − 1; and builds the Mawangdui
+  8×8 方阵 from a first-column / first-row table of lower-trigram values with a 选首排列 fill — the
+  row's own trigram promoted to first, the remaining seven kept in the base order — which is the
+  three-part rule stated in prose by Shaughnessy and encoded in `solve.py` as `M1∧M3∧M4`. Suggests
+  the reconstruction may reproduce the Han designers' method. No count of orderings, no comparison
+  with the received order's constraints; consistent with, and earlier than, this project's
+  "rule-generated, no combinatorial puzzle" classification of Mawangdui in
+  [KING_WEN_PROVENANCE.md §4](KING_WEN_PROVENANCE.md). Cited for 2015 elsewhere in this file
+  ([#luojianjin2015](#luojianjin2015)). *(Added 2026-09-03.)* [read: head, definitions, both formula
+  passages, the 选首排列 construction, conclusion and references, from the extracted text
+  2026-09-03 — keyword windows, not all five pages]
 
 ⚠ **The original Chinese publication is uncited here, and has not been consulted.** The Mawangdui
 material in this repository rests on **Shaughnessy's presentation alone**. The first publication of the
@@ -600,8 +631,19 @@ enumerates that space, or proves a ceiling on it.
   1998 sequel ("Liushisi gua fangtu he Zhouyi guaxu fenxi" 六十四卦方图和周易卦序分析, *Zhexue
   yanjiu* 1998(7): 62–68, which credits Shen Youding 沈有鼎 and concedes it cannot fix the 48 散卦),
   and the *name* 错综不变组 plus a full secondary-hexagram solution arrive in 2000 ("Cuozong
-  bubianzu he sangua guaxu jiegou" 错综不变组和散卦卦序结构, *Zhexue yanjiu* 2000(12): 68–72). The
-  1994 paper has no 卦序 content; his later ordering work is rational reconstruction of the single
+  bubianzu he sangua guaxu jiegou" 错综不变组和散卦卦序结构, *Zhexue yanjiu* 2000(12): 68–72).
+  A 2011 synthesis restates the whole programme in one place — "Zhouyi guaxu jiegou fenxi" 周易卦序
+  结构分析 [An analysis of the structure of the *Zhouyi* hexagram ordering], *Bijie xueyuan xuebao*
+  毕节学院学报 [Journal of Bijie University] 29(9) 总134 (2011): 60–66 (not *Zhexue yanjiu*, as an
+  earlier private record had it): the 八宫图, the 20 错综不变组, 16 主卦 in six groups fixing the
+  skeleton, 48 散卦 in fourteen groups (错综 / 跨篇 / 跨区 / 自综) with stated ordering principles that
+  claim to fix every position, the total principle 以阳驭阴 credited to [Shen Youding](#shen1936).
+  It repeats the tally (32 错 / 28 综 / 4 错综 / 8 自综; 上篇 12 综 pairs + 6 自综, 下篇 16 + 2) that
+  grounds the canonical "16" below. Same character as the 1998/2000 work — rational reconstruction
+  of the one received order, no enumeration, no ceiling, no group on orderings. [2011 paper read in
+  part from the extracted text 2026-09-03 — header, abstract, the tally and 主卦/散卦 passages, the
+  references; not end to end]
+  The 1994 paper has no 卦序 content; his later ordering work is rational reconstruction of the single
   received sequence — no enumeration of admissible orderings, no ceiling, no group on orderings, no
   formal verification. His group action is hexagram-level (K₄, orbit size ≤ 4), distinct from TR-5's
   ordering-level S₄/B₃ action (orbit size 24/48). Canonical fact from his tables: the lower canon
@@ -1371,6 +1413,28 @@ enumerates that space, or proves a ceiling on it.
   solution space appears.** See the attribution note at
   [#uniqueness-conjecture](#uniqueness-conjecture). [analyzed first-hand 2026-08-24; principles
   extracted verbatim and adjudicated 2026-08-27]
+<a id="chenrenren2013"></a>
+- **Chen Renren 陈仁仁** (2013). "Li Shangxin guaxu yu jiegua yanjiu de chengjiu yu buzu" 李尚信
+  卦序与解卦研究的成就与不足 [On Prof. Li Shangxin's accomplishments and problems in his research on
+  the order and interpretations of the hexagrams]. *Zhouyi yanjiu* 周易研究 2013(4) 总120: 59–74
+  (文章编号 1003-3882(2013)04-0059-16).
+  A sympathetic peer review of [Li Shangxin (2008)](#li2008), opening with 李学勤's judgement that
+  the two best derivations of the received order are 沈有鼎's and Li's. **Granting all six of Li's
+  principles, Chen finds every 36-unit position fixed but the within-pair order of eleven pairs
+  undetermined** — 需讼·师比·小畜履·同人大有·谦豫·随蛊·晋明夷·家人睽·蹇解·渐归妹·丰旅 — 「无法确定耦卦内部
+  的先后之序」, and calls for further work on that 微观卦序. This is an independent, contemporaneous
+  confirmation of the hedge recorded at [#li2007](#li2007) and in the [uniqueness-conjecture
+  note](#uniqueness-conjecture): the system leaves orientations open (Chen's residual is larger
+  than the "at least four pairs" the thesis itself concedes). Chen also objects on principle to
+  deriving positions 49 (革) and 60 (节) from hexagram *names* via the Ten Wings: 「卦序应该在卦名之先，
+  应该不依卦名之义，纯依卦形的特点就可以排定卦序」 — the sequence should be derivable from hexagram
+  form alone, prior to and independent of the names — **a stated form-only principle in the 象数
+  literature, 2013, which is the methodological stance this project takes** (constraints on form,
+  never on names) and is credited here as prior. Notes that Li 2008 ch. 3 is the 2004 paper on the
+  Chu-manuscript symbols ([#lishangxin2004](#lishangxin2004)). Counts nothing; asserts no
+  constraint-determinism; precedes Li's 2019 question mark by six years (whether it prompted it is
+  not known). [read in full from the extracted text 2026-09-03; every printed numeral is OCR-lost
+  and the "eleven" is a count of the named pairs; frame verified from the PDF's first page]
 <a id="suenaga2012"></a>
 - **Suenaga Takayasu 末永高康** (2012). "Kinbon *Shūeki* no kajo o megutte" 今本『周易』の卦序をめぐって
   [On the hexagram order of the received *Zhouyi*]. *Tōyō koten-gaku kenkyū* 東洋古典學研究 34: 1–18.
