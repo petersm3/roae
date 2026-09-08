@@ -34291,7 +34291,18 @@ int main(int argc, char *argv[]) {
         snprintf(cmd, sizeof(cmd),
                  "cd %s && "
                  "for v in $(env | grep '^SOLVE_' | cut -d= -f1); do unset \"$v\"; done && "
-                 "SOLVE_THREADS=%d SOLVE_NODE_LIMIT=100000000 "
+                 /* \U0001f534 SOLVE_HASH_LOG2=20 (32 MB/thread) instead of the 2^24 default
+                  * (512 MB/thread, and MEMSET-RESIDENT -- solve.c:9712 touches every page, so it
+                  * is real RSS, not virtual). MEASURED 2026-09-08: the selftest child was carrying
+                  * ~2.1 GB at the old hardcoded 4 threads, on a 7 GB box, concurrently with a
+                  * gcc -O3 -march=native in the same gate. That is the MEMORY half of the crash;
+                  * the thread fix above is only the CPU half and halving threads only halves it.
+                  * solve.py:6619 already sets this knob for the same reason ("keep RAM use modest
+                  * on tiny VMs"); the push path simply never picked it up.
+                  * SHA-SAFE: this is the INITIAL table size, not a ceiling -- the table
+                  * auto-doubles past a 75%% load factor (see the header at the top of this file),
+                  * so it changes only how many rehashes happen, never which records are found. */
+                 "SOLVE_HASH_LOG2=20 SOLVE_THREADS=%d SOLVE_NODE_LIMIT=100000000 "
                  "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
                  "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
                  "SOLVE_SKIP_BINARY_SNAPSHOT=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
