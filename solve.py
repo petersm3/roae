@@ -11781,8 +11781,15 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
 # PRECISION CONTRACT (load-bearing — read before editing).  Every count in
 # the atlas is a DECIMAL STRING carrying up to a 192-bit value.  They are
 # parsed with `int()` and only ever with `int()`; `_atlas_int` refuses a
-# JSON float outright, and `json.load` is given `parse_float=Decimal` so a
-# float literal anywhere in the file can never reach an arithmetic path.
+# JSON float outright AND a bare JSON integer (the contract is the STRING --
+# a reader that is not Python rounds a bare integer above 2**53 without a
+# word), except at the three sites `_ATLAS_JSON_INT_SITES` names, where the
+# producer still emits a 64-bit counter with `%llu`; `json.load` is given
+# `parse_float=Decimal` so a float literal anywhere in the file can never
+# reach an arithmetic path.  `atlas_load` refuses an atlas whose producer's
+# own recomputed gates failed (`gates.fails != 0`) and one whose per-layer
+# class keys are not exactly this consumer's `_ATLAS_CLASSES` registry --
+# both were accepted silently until 2026-09-08 (Codex KCQ01 #1, KCQ04 #2).
 # Masses are re-emitted from the exact integer, never from a float; the
 # `p`/`p_cond`/`share` columns are correctly-rounded renderings of an exact
 # `Fraction` and are DISPLAY ONLY — never the quoted value.
@@ -11812,12 +11819,34 @@ class AtlasError(Exception):
     """Refuse to emit rather than publish a number we cannot vouch for."""
 
 
-def _atlas_int(v, where):
-    """Parse an atlas count.  Decimal strings only (192-bit); floats refused."""
+# The producer (solve.c, kc_h_scan emitter) writes THREE fields as bare `%llu` 64-bit
+# counters rather than decimal strings: `branch_atlas[].walks`, and -- only when no t
+# ladder was supplied -- `branch_atlas[].prefixes_t_units` and `t_root_t_units`.  Every
+# other count is a decimal string.  These are the ONLY call sites allowed to pass
+# `json_int=True`; a request to quote them at the producer is filed (Codex KCQ02 #6,
+# 2026-09-08), after which this tuple and the flag go away.  Naming them here keeps the
+# exception visible instead of letting `_atlas_int` accept an integer anywhere.
+_ATLAS_JSON_INT_SITES = ("branch_atlas[].walks", "branch_atlas[].prefixes_t_units",
+                         "t_root_t_units")
+
+
+def _atlas_int(v, where, json_int=False):
+    """Parse an atlas count.  Decimal strings only (192-bit); floats refused.
+
+    A bare JSON integer is refused too (Codex KCQ02 #6, 2026-09-08): Python would parse
+    it exactly, but the atlas contract is the decimal STRING precisely so that no other
+    reader can round it, and a loader that accepts either shape enforces nothing.  The
+    producer's three `%llu` sites (`_ATLAS_JSON_INT_SITES`) pass `json_int=True`.
+    """
     if isinstance(v, bool):
         raise AtlasError("%s: boolean where a count was expected" % where)
     if isinstance(v, int):
-        return v
+        if json_int:
+            return v
+        raise AtlasError(
+            "%s: %r is a bare JSON integer. Atlas counts are decimal STRINGS (PRECISION "
+            "CONTRACT); a bare integer is refused rather than trusted, because a reader "
+            "other than this one would round it above 2**53 without a word." % (where, v))
     if isinstance(v, str):
         s = v.strip()
         if s and (s.lstrip("-")).isdigit():
@@ -11938,7 +11967,86 @@ def atlas_load(path):
         raise AtlasError("%s: bad n %r" % (path, n))
     if len(A["layers"]) != n:
         raise AtlasError("%s: %d layers for n=%d" % (path, len(A["layers"]), n))
+    # 🔴 THE PRODUCER'S OWN VERDICT WAS NEVER READ (Codex KCQ01 #1, executed 2026-09-02,
+    # still holding at the 2026-09-08 mutant battery).  `--kc-scan-merge` recomputes every
+    # gate from the assembled table and, when one fails, prints KC_SCAN_MERGE=FAIL, exits 1
+    # -- and still writes the atlas, with `gates.fails` = the number of failed gates.  This
+    # loader took that file and every query on it stamped PASS: eight PASS tokens on an
+    # atlas whose emitter had just rejected it.  A verdict the producer wrote and the
+    # consumer ignored is not a gate on either side.
+    gates = A.get("gates")
+    if not isinstance(gates, dict) or "fails" not in gates:
+        raise AtlasError("%s: atlas carries no gates.fails -- the producer's recomputed gate "
+                         "verdict is missing, so nothing can vouch for these tables" % path)
+    fails = gates["fails"]
+    if isinstance(fails, bool) or not isinstance(fails, int):
+        raise AtlasError("%s: gates.fails=%r is not an integer" % (path, fails))
+    failed = sorted(k for k, v in gates.items() if v == "see fails")
+    if fails != 0 or failed:
+        raise AtlasError(
+            "%s: the producer's OWN recomputed gates FAILED (gates.fails=%d%s). Refusing to "
+            "publish anything from a table its emitter rejected -- re-run the scan or merge "
+            "and fix the input, do not query this file."
+            % (path, fails, (": " + ", ".join(failed)) if failed else ""))
+    # 🔴 THE CLASS REGISTRY WAS NEVER CHECKED AGAINST THE DATA (Codex KCQ04 #2, executed
+    # 2026-09-02, still holding at the 2026-09-08 mutant battery).  The producer emits one
+    # by_class key per boundary-distance class (solve.c kc_h_scan_write_layer_row, `dv[5]`);
+    # this consumer iterates its own `_ATLAS_CLASSES`.  With the registry cut to (1, 2, 4)
+    # the whole n=9 selftest -- 31 gates over the real atlas and its 26,112-walk recount --
+    # reported PASS, because d3 and d6 are identically zero at n=9 and nothing ever asked
+    # whether the two class lists were the SAME LIST.  At full-31 those classes are
+    # non-zero (b0 = (2, 8, 13, 7, 1)) and their mass would have been dropped silently.
+    # Set equality, both directions, on every layer: a key the registry does not name is
+    # mass this consumer would never read; a registry class the atlas lacks is a column
+    # it would invent from KeyError-or-zero.
+    want = frozenset("d%d" % d for d in _ATLAS_CLASSES)
+    for L in A["layers"]:
+        bc = L.get("by_class")
+        if not isinstance(bc, dict):
+            raise AtlasError("%s: layers[%r] has no by_class table" % (path, L.get("k")))
+        have = frozenset(bc)
+        if have != want:
+            raise AtlasError(
+                "%s: layers[%r].by_class carries classes {%s} but this consumer's registry "
+                "_ATLAS_CLASSES names {%s} (extra in atlas: %s; missing from atlas: %s). The "
+                "producer and the consumer disagree on WHICH distance classes exist; refusing "
+                "rather than dropping or inventing a class."
+                % (path, L.get("k"), ",".join(sorted(have)), ",".join(sorted(want)),
+                   ",".join(sorted(have - want)) or "-", ",".join(sorted(want - have)) or "-"))
+    _atlas_validate_counts(A, path)
     return A
+
+
+def _atlas_validate_counts(A, path):
+    """Every count in the atlas through `_atlas_int` AT LOAD, not lazily at first use.
+
+    Until 2026-09-08 `atlas_load` parsed nothing: `N_total` was only ever read by the query
+    that needed it, so a bare-integer `N_total` (the KCQ02 #6 probe) loaded cleanly and the
+    refusal -- if any query got that far -- was a side effect of emission, not a property of
+    the loader.  This walks the documented count fields once (n <= 31 layers, 5 classes, 32
+    pairs, the branch table) so that `atlas_load` returning means the contract held.  The
+    three `%llu` producer fields pass `json_int=True` (see `_ATLAS_JSON_INT_SITES`).
+    """
+    _atlas_int(A["N_total"], "%s: N_total" % path)
+    for L in A["layers"]:
+        k = L.get("k")
+        _atlas_int(L["flow"], "%s: layers[%r].flow" % (path, k))
+        for d, v in L["by_class"].items():
+            _atlas_int(v, "%s: layers[%r].by_class.%s" % (path, k, d))
+        for tab in ("marginal_quotient", "marginal_raw"):
+            for key, v in (L.get(tab) or {}).items():
+                _atlas_int(v, "%s: layers[%r].%s.%s" % (path, k, tab, key))
+    for i, v in enumerate(A.get("fmass") or []):
+        _atlas_int(v, "%s: fmass[%d]" % (path, i))
+    if "t_root_t_units" in A:
+        _atlas_int(A["t_root_t_units"], "%s: t_root_t_units" % path, json_int=True)
+    for i, b in enumerate(A["branch_atlas"]):
+        _atlas_int(b["solutions"], "%s: branch_atlas[%d].solutions" % (path, i))
+        t = b.get("prefixes_t_units")
+        if t is not None and not (isinstance(t, str) and not t.lstrip("-").isdigit()):
+            _atlas_int(t, "%s: branch_atlas[%d].prefixes_t_units" % (path, i), json_int=True)
+        if b.get("walks") is not None:
+            _atlas_int(b["walks"], "%s: branch_atlas[%d].walks" % (path, i), json_int=True)
 
 
 def _atlas_kw_overlay(n):
@@ -12052,14 +12160,14 @@ def _atlas_branch_rows(A, N, n, wide):
         entry = b["entry"]
         d = bin(entry).count("1")                      # C4 pins the start exit to hexagram 0
         t = b.get("prefixes_t_units", "PENDING_T_LADDER")
-        if not isinstance(t, str):
-            t = str(_atlas_int(t, "branch_atlas[%d].prefixes_t_units" % i))
+        if not isinstance(t, str):     # no t ladder: the producer writes this one as %llu
+            t = str(_atlas_int(t, "branch_atlas[%d].prefixes_t_units" % i, json_int=True))
         kw = 1 if (n == 31 and b["global_pair"] == 1 and entry == K[2]) else 0
         row = [i, b["global_pair"], entry, b["exit"], d, sol,
                _atlas_f(_atlas_ratio(sol, N)), t, b.get("t_source", "direct-recursion")]
         if wide:
-            w = b.get("walks", None)
-            row.append("" if w is None else _atlas_int(w, "branch_atlas[%d].walks" % i))
+            w = b.get("walks", None)   # producer writes `"walks": %llu` -- see _ATLAS_JSON_INT_SITES
+            row.append("" if w is None else _atlas_int(w, "branch_atlas[%d].walks" % i, json_int=True))
         row.append(kw)
         rows.append(tuple(row))
     return rows
@@ -12288,7 +12396,8 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
     gates = {}
     t_have = all(str(r[7]).lstrip("-").isdigit() for r in rows)
     t_sum = sum(int(r[7]) for r in rows) if t_have else None
-    t_root = _atlas_int(A["t_root_t_units"], "t_root_t_units") if "t_root_t_units" in A else None
+    t_root = (_atlas_int(A["t_root_t_units"], "t_root_t_units", json_int=True)   # %llu when no t ladder
+              if "t_root_t_units" in A else None)
     if t_root is not None and not isinstance(A["t_root_t_units"], (str, int)):
         t_root = None
     with open(md, "w") as fh:
@@ -12562,12 +12671,17 @@ def atlas_emit_q3(steps, outdir, n, A=None, quiet=False):
     return path, status, why
 
 
+_ATLAS_BITS_TOL = 5e-7 + 1e-9    # %.6f display half-ulp + binary64 slack; see atlas_q3_reader_check
+
+
 def atlas_q3_reader_check(tsv_path, N):
-    """Reader-side, big-integer: prod(p_num/p_den) == 1/N, exactly.
+    """Reader-side, big-integer: prod(p_num/p_den) == 1/N, exactly; and the display-only
+    `bits` column, when present, re-derived from p_num/p_den to the printed precision.
 
     Recomputed from the WRITTEN TSV (not from the in-memory trace) so the
     check covers the emitter as well as the engine.
     """
+    import math
     from fractions import Fraction
     rows = _atlas_read_tsv(tsv_path)
     prod = Fraction(1, 1)
@@ -12575,6 +12689,32 @@ def atlas_q3_reader_check(tsv_path, N):
     prev_g = None
     for r in rows:
         prod *= Fraction(int(r["p_num"]), int(r["p_den"]))
+        # 🔴 `bits` WAS THE ONE PUBLISHED COLUMN THIS READER NEVER LOOKED AT (Codex KCQ02 #4,
+        # 2026-09-02; still holding at the 2026-09-08 mutant battery: a bits cell overwritten
+        # with 0.000000 came back []).  The producer computes it as
+        # log2(double(g_parent)) - log2(double(g)) in binary64 and prints %.6f; it is
+        # display-only and the exact p_num/p_den ride beside it -- but a column that is
+        # printed is a column a reader can quote, so it is re-derived here from p_num/p_den
+        # and must agree to the displayed precision.  Tolerance = half a unit in the sixth
+        # place (5e-7, the display rounding the finding itself measured: 4.9999999874e-7 ->
+        # "0.000000" against an exact "0.000001") plus 1e-9 for the producer's binary64
+        # (worst case ~1e-13 at 192-bit magnitudes).  A missing column is not checked: it is
+        # then not published from this TSV either.
+        if r.get("bits", "") != "":
+            num, den = int(r["p_num"]), int(r["p_den"])
+            try:
+                got = float(r["bits"])
+            except ValueError:
+                fails.append("step %s: bits=%r is not a number" % (r["step"], r["bits"]))
+            else:
+                if num <= 0 or den <= 0:
+                    fails.append("step %s: p_num/p_den = %d/%d not positive" % (r["step"], num, den))
+                else:
+                    exact = math.log2(den) - math.log2(num)
+                    if not abs(got - exact) <= _ATLAS_BITS_TOL:
+                        fails.append("step %s: bits=%s but log2(p_den/p_num) = %.9f -- the "
+                                     "printed column does not follow from the exact ratio "
+                                     "beside it" % (r["step"], r["bits"], exact))
         if prev_g is not None and int(r["g_parent"]) != prev_g:
             fails.append("step %s: g_parent != previous g" % r["step"])
         # 🔴 NON-INCREASING, NOT STRICTLY DECREASING (Q-316 item 4, 2026-09-04).
@@ -13214,7 +13354,15 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
         print("[atlas-consumer] %-62s %s%s" % (name, "PASS" if ok else "FAIL",
                                                ("  " + detail) if detail and not ok else ""))
 
-    A = atlas_load(atlas_path)
+    try:
+        A = atlas_load(atlas_path)
+    except AtlasError as e:
+        # A refusal at load IS the gate's verdict, not a crash: the consumer will not run a
+        # single query on an atlas whose producer rejected it or whose class registry does
+        # not match this code's.  Named token, non-zero rc (Codex KCQ01 #1 / KCQ04 #2).
+        print("[atlas-consumer] refusing the atlas at load: %s" % e)
+        print("ATLAS_CONSUMER=FAIL:refused-at-load")
+        return 1
     n, N = A["n"], _atlas_int(A["N_total"], "N_total")
     if n > 13:
         print("[atlas-consumer] refusing: brute force is a reduced-n gate (n=%d > 13)" % n)
@@ -13307,7 +13455,7 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
 
         # ---- t-units ------------------------------------------------------
         if all(r["prefixes_t_units"].isdigit() for r in xa) and "t_root_t_units" in A:
-            troot = _atlas_int(A["t_root_t_units"], "t_root_t_units")
+            troot = _atlas_int(A["t_root_t_units"], "t_root_t_units", json_int=True)
             tsum = sum(int(r["prefixes_t_units"]) for r in xa)
             gate("XA: 1 + sum_b prefixes_t_units(b) == t(root)", 1 + tsum == troot,
                  "%d vs %d" % (1 + tsum, troot))

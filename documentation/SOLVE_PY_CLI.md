@@ -194,6 +194,30 @@ rather than checkable.
 | `--joint-density-samples-per-chunk N` | 30 | `--joint-density*`, `--stratified-*`, `--joint-permutation-test` | Samples drawn per chunk. |
 | `--joint-density-bootstrap-n N` | 1000 | `--joint-density`, `--joint-density-v2` | Bootstrap resamples for the CI on KW's percentile. |
 
+### `compute_stats.json` — the producer sidecar's keys
+
+`--compute-stats` writes `compute_stats.json` beside the parquet chunks in
+`OUT_DIR`. It exists so a consumer (`--uniform-marginals`) can test the
+chunks' completeness against something **not derived from the chunks**. Only
+two of its fields are load-bearing in that test — `rows_written` and `chunks`;
+the rest are provenance the consumer echoes but never compares.
+
+⚠ **The sidecar is written only on the success path.** A run whose workers
+produced fewer rows than the header declared prints `COMPUTE_STATS=FAIL` and
+returns before this file is opened. So the presence of `compute_stats.json`
+already attests `rows_written == min(declared_records, max_records or
+declared_records)`, and comparing those two fields to each other can never
+detect a truncated `solutions.bin` — the torn case leaves **no sidecar at
+all**, which is why the consumer reports `UNVERIFIED` rather than PASS when
+the file is missing.
+
+| Key | Invariant |
+|---|---|
+| `solutions_bin` | The absolute path of the input, resolved on the **producing host** at run time. Provenance, not a portable pointer and not an identity: no size, mtime or digest of the artifact is recorded, so a consumer cannot establish that the chunks and its own input are the same bytes — it only prints the basename back. |
+| `declared_records` | The record count read out of the `solutions.bin` **header**, before any cap is applied. It is the artifact's own claim about itself, not a count of the body; the body is separately required to match it, and a run where it does not never reaches this file. |
+| `max_records` | The `--compute-stats-max-records` argument as passed, and **`null` when the flag was not given** (its default is `None`, not 0 and not the record count). A `null` here is the normal full-population case. |
+| `rows_written` | Rows actually emitted into the parquet chunks, summed across workers as each chunk completed. Because the workers round a short read **down** to whole records, this is a count of complete 32-byte records only; a trailing partial record is silently not counted, and the equality check above is what turns that into a failure rather than a quiet undercount. Equals `declared_records` on an uncapped run — see the warning above for why that equality is not independent evidence. |
+
 ## P3 — SAT ENCODING
 
 `solve.py` can emit a DIMACS CNF of the constraint system for external
@@ -246,6 +270,23 @@ fixed pairing). Effort on record if that day comes: C5 is heavy (31
 per-boundary distance-class indicator families, each boundary touching
 64×64 (p,q) tuples, plus `exactly_k` cardinality); C3 needs a DIMACS
 adder summing network (large, and likely not faster than the PB route).
+
+### `OUT_CNF.meta.json` — what each key measures
+
+The sidecar is written on **every** `--sat-encode` run, before the run's own
+summary lines. Its keys are a record of the *request* and of the emitted
+DIMACS file; they are not a report on what the constraint system contains, and
+three of them are routinely read as if they were.
+
+| Key | Invariant |
+|---|---|
+| `out_cnf` | The `--sat-encode OUT_CNF` argument **verbatim**, exactly as typed — not absolutized and not normalized, so a relative path stays relative and is meaningful only from the directory the run was launched in. It is the path the DIMACS was written to; the sidecar itself is that path with `.meta.json` appended. |
+| `out_opb` | The companion OPB path, `out_cnf` + `.opb` — but **`null` on every run that is not `--sat-c3 pb`**. `null` here does not mean "the OPB was not requested"; it means no OPB exists, which is also the state under `--sat-c3 adder` (see the deferred-flags note above). Where it is non-null it is likewise the verbatim, un-absolutized path. |
+| `include_c3` | The `--sat-c3` argument as a **string** — `"none"`, `"pb"` or `"adder"`. ⚠ It records what was ASKED FOR, never what was encoded: `"adder"` puts no C3 into the CNF and produces no `.opb`, so `"adder"` and `"none"` describe byte-identical output. Only `"pb"` puts C3 anywhere, and even then **not in the `.cnf`** — the `.cnf` gains only the Tseitin `pair[v][i][j]` linking clauses, and the distance bound itself exists solely in the `.opb`. |
+| `include_c4` | The `--sat-c4` flag as a **boolean**. Unlike the other two `include_*` keys this one *is* faithful: `true` means two unit clauses forcing the oriented slot-0 pair are in the CNF. Note the type asymmetry — `include_c3` is a string while `include_c4` and `include_c5` are booleans, in the same object. |
+| `include_c5` | The `--sat-c5` flag as a **boolean**, and the flag is **deferred/superseded**. ⚠ `true` here means *requested*, and adds **zero** clauses and zero variables; the only trace is a `status: deferred_superseded_by_pairslot_model` entry in `pb_constraints`. A reader who takes `include_c5: true` as "this CNF constrains the Hamming distribution" is wrong; the clause-sha is identical to a run with the flag absent. |
+| `boundary_clauses_c2` | The number of **binary forbidding clauses the C2 pass appended**, counted as it appended them. It ranges over the **31 inter-pair boundaries** — the seams *between* consecutive pairs, not the 32 pairs — and adds one clause per ordered `(p, q)` with `popcount(p ^ q) == 5`. Each hexagram has exactly `C(6,5) = 6` neighbours at distance 5, so every boundary contributes `64 × 6 = 384` and the field is the **flag-independent constant `31 × 384 = 11,904`** on every invocation. It is therefore a structural self-check of the encoder, not a measurement of anything that varies: any other value means the C2 loop changed. Reproduce with `python3 -c "print(sum(1 for _ in range(31) for p in range(64) for q in range(64) if bin(p^q).count('1')==5))"`. |
+| `pb_constraints` | A list of records describing the pseudo-Boolean side of the request, **with the giant `opb_terms` coefficient list stripped** so the sidecar stays readable — the terms live only in the `.opb`. It is empty under `--sat-c3 none` with no `--sat-c5`; it holds a `form`/`bound`/`n_terms`/`n_aux_vars`/`n_link_clauses` record only under `--sat-c3 pb`; and under `--sat-c3 adder` or `--sat-c5` it holds a `status: deferred_superseded_by_pairslot_model` record that documents a constraint **absent** from the output. A non-empty `pb_constraints` is thus not evidence that any PB constraint was emitted. |
 
 ## TR-8 — DOF-MATCHED KW-FITTING-PREDICATE SAMPLER
 
@@ -359,6 +400,81 @@ is **reserved and unused**, there is no dedicated timing-probe mode, and no
 reproducibility property is claimed for a probe. To keep a probe off the
 measurement streams, give it its own `--tr8-dof-seed` root.]**
 
+### The four JSON artifacts — what each key measures
+
+A sampler run writes `header.json`, `env.json`, `bank.json` and
+`results.json`; a `--tr8-dof-shard I` run writes `env_shard_I.json` and
+`shard_<pool>_<I>.json` instead, and only shard 0 writes the header and the
+bank, because eight processes writing one path concurrently is a torn file.
+`--tr8-dof-merge` sums the shard files and writes `results.json`. The keys
+below are stated as invariants because several of them do not measure what
+their names suggest.
+
+🔴 **`bank.json` has two different schemas depending on which flag wrote it.**
+`--tr8-dof-emit-bank` writes the richer one, carrying `calibration_seed`,
+`h_a_kw_satisfies_all` and a per-instance `hits` count. A plain
+`--tr8-dof-sampler` run writes a *leaner* file at the same path with those
+three fields absent. Both carry the fields the merge needs, so a merge works
+either way — but running the sampler into a directory that already holds an
+emit-bank `bank.json` **overwrites the richer file with the leaner one**, and
+the calibration seed and the H-a verdict are then gone from the run
+directory. They remain recoverable from `header.json`'s `seeds` object and
+from `results.json`'s gates respectively.
+
+#### `header.json` — the deterministic run header
+
+| Key | Invariant |
+|---|---|
+| `seed_root` | The `--tr8-dof-seed` argument echoed **verbatim** (default: the pre-registration draft's namespace token). Every other seed in the run is a pure function of it, so this string plus the flag values reconstructs the whole run. Also echoed into `bank.json`. |
+| `n_pool` | The `--tr8-dof-pool-draws` argument: the total pair-only-null draws the run is *configured* for, and the "probe count" TR-8 requires published. It is the **plan**, not a tally — a shard run records the full `n_pool` here while drawing only `n_pool / n_shards`. The number actually drawn is `results.json`'s `draws_used`. |
+| `n_pred` | The `--tr8-dof-predicates` argument: predicates drawn **per K**, not in total. The ensemble at each K is drawn from its own `predicates/K-<K>` seed, so the K rungs are independent ensembles of this size, not nested subsets of one. |
+| `k_ladder` | The `--tr8-dof-k` list, in the order given. Every rung is measured; only K = 16 is read for the verdict. `results.json`'s `statistics.by_k` has one entry per rung. |
+| `admission_band` | The `[lo, hi]` marginal band a raw template must fall inside to be admitted (default `[0.25, 0.75]`). It is stated **without reference to King Wen's rarity**, deliberately, so admission cannot be tuned toward the comparator. The same quantity is spelled `band` — not `admission_band` — in `bank.json`; the two names are one value. |
+| `calibration_draws` | The `--tr8-dof-calib-draws` argument: draws in the **dedicated bank-calibration pool**, which has its own seed and is never merged into a measurement pool. Every marginal, and therefore admission itself, is measured at this size and not at `n_pool`. Also echoed into `bank.json`. |
+| `b_raw` | The size of the **raw** template bank — every instance the nine families generate, before the band is applied. It is a property of the templates and the King Wen values they are instantiated at, so it does not vary with the seed. Also in `bank.json`. |
+| `b_admitted` | How many of those raw instances fell inside `admission_band` **on this run's calibration pool**. It is a **measured** quantity, not a constant: a different `--tr8-dof-seed` or `--tr8-dof-calib-draws` can admit a different number. Also in `bank.json`. |
+| `admitted_family_counts` | Admitted instances per family, as a `family → count` object. 🔴 It ranges over the **admitted** list only, so **a family admitted zero times has no key at all — not a key with value 0.** Family E is in exactly that state (both readings of its ordered-popcount template are degenerate under this null), so the object is missing an `"E"` entry rather than reporting `"E": 0`, and a reader summing the values gets `b_admitted` while a reader counting the keys gets fewer than nine families. The text report from `--tr8-dof-emit-bank` does print the zeros, because it iterates the family table instead. |
+| `admitted_bank_sha256` | sha256 over one line per **admitted** instance, in admission order, each line being the family, index, comparator, template text **and that instance's calibration marginal rounded to six decimals**. Because the marginal is inside the digest, it changes whenever the calibration pool changes, even if the identical set of instances is admitted — it identifies a *measured* bank, not a set of templates. `--tr8-dof-merge` recomputes it from `bank.json` with the same expression and refuses to merge on a mismatch. ⚠ The check is skipped, silently, if the header carries no value for it. |
+| `solve_py_sha256` | sha256 of the `solve.py` source file the run loaded, read back off disk by path. ⚠ It may legitimately be **`null`**: the helper returns `None` on any `OSError` rather than failing the run, so a source file that has been moved or is unreadable at write time yields a null field instead of an abort. A null is an unproven provenance, not a proven absence. |
+| `r_kw` | King Wen's comparator rarity, the exact Schulz-gender figure over the same pair-only null. ⚠ It is emitted as a **hard-coded string literal**, not rendered from `pair_null_gender_le2_exact()`, which is what the statistics themselves use. It is a transcription for the reader; if the exact computation ever moved, this field would not follow it. `results.json`'s `statistics.r_kw` *is* computed, and is a float. |
+
+#### `bank.json` — the admitted clause bank
+
+| Key | Invariant |
+|---|---|
+| `calibration_seed` | The derived integer seed of the `bank-calibration` purpose — the same value `header.json` carries under `seeds`. ⚠ **Written only by `--tr8-dof-emit-bank`**; the sampler's own `bank.json` omits it (see the 🔴 above). |
+| `h_a_kw_satisfies_all` | Sanity gate H-a as evaluated at bank-emission time: does King Wen satisfy **every raw template**, all `b_raw` of them, *before* admission? It is not scoped to the admitted subset and has nothing to do with the drawn predicates. `false` also sets the command's exit status to 1. ⚠ Written only by `--tr8-dof-emit-bank`. |
+
+#### `env.json` / `env_shard_<I>.json` — the non-deterministic half
+
+Wall time, host and interpreter version live here rather than in the header so
+that "same seed root ⇒ byte-identical `header.json`" stays a testable property.
+
+| Key | Invariant |
+|---|---|
+| `shards_run` | The shard indices **this process** ran, written after its loop completed: the full `0 .. n_shards-1` list for a whole-pool run, and the single-element `[I]` for a `--tr8-dof-shard I` run. 🔴 It is per-process, so it never describes the pool's coverage — eight concurrent shard processes each write their own `env_shard_I.json` saying `[I]`, and no file in the directory lists the pool as a whole. Completeness is established by `--tr8-dof-merge`, which refuses both a missing shard and a shard outside the header's declared range; it is not established by reading this key. |
+
+#### `shard_<pool>_<I>.json` — one shard's contribution
+
+| Key | Invariant |
+|---|---|
+| `hb_hits` | The sanity-gate-H-b counter for **this shard only**: draws in this shard whose `rc4_violations(seq)[0] <= 2`, scored by the **unmodified** `rc4_violations` — deliberately a second pass over each draw rather than something derived from the clause columns, because it is the only evidence that the pool is the same null the comparator was computed over. It is additive across shards; the merge sums it into `results.json`'s `h_b_observed`. (It appears in the shard file, not in `env.json`.) |
+
+#### `results.json` — statistics, gates and verdict
+
+| Key | Invariant |
+|---|---|
+| `statistics.by_k` | One entry per K rung, keyed by the K value **as a decimal string** (JSON object keys are strings), each holding that rung's `f_hat`, its Clopper–Pearson interval, the median with its order-statistic interval and censoring flag, deciles, min and max. ⚠ With `sort_keys=True` the rungs land in **lexicographic**, not numeric, order — the default ladder appears as `12, 16, 20, 24, 8`. Per-rung rarities are `hits / draws_used`, so every rung shares one denominator. |
+| `draws_used` | Pool draws actually summed into the statistics, and the **denominator of every rarity in `by_k`**. For a whole-pool run it is `n_pool`; for a merge it is the sum of the shard files' own `draws`. It equals `header.n_pool` in any file that exists, because the merge refuses a pool that is missing a shard *and* refuses one holding a shard the header does not declare — so a short denominator cannot reach this field. Prefer it over `n_pool` when reasoning about the numbers, since it is the one the arithmetic used. |
+| `gates.h_a_kw_satisfies_every_predicate` | 🔴 **The name is wider than the measurement.** It is `all(...)` over King Wen's clause vector against the **raw template bank** — the identical computation `bank.json` records as `h_a_kw_satisfies_all` — and it inspects **no drawn predicate at all**. That it holds for every drawn predicate is a *consequence* (a predicate is a conjunction of bank clauses, each instantiated at the value King Wen exhibits), not something this field checked. It is re-evaluated here rather than copied, so that a `--tr8-dof-merge`, which never runs the sampler's own pre-flight check, cannot report a gate it did not execute. |
+| `gates.h_b_observed` | The H-b count over the whole measurement: draws with `rc4_violations <= 2`, summed across the shards that were merged. Same quantity as the shards' `hb_hits`, aggregated. |
+| `gates.h_b_expected` | The **expected** H-b count under the exact closed form: `pair_null_gender_le2_exact() × draws_used`. A real-valued expectation, not a rounded count, and computed from the exact fraction rather than from `header.r_kw`. |
+| `gates.h_b_sigma` | The Poisson standard deviation of that expectation, `sqrt(h_b_expected)` — a spread of the **expected** count, not a dispersion measured from the pool. ⚠ It is a **hard `0.0` when the expectation is not positive**, which is a placeholder rather than a measurement; at that point the tolerance below collapses to its `+3` floor. |
+| `gates.h_b_null_calibration` | The H-b verdict: `\|h_b_observed − h_b_expected\| <= 5 × h_b_sigma + 3`. The `+3` is an integer-continuity floor, not a fitted slack, and the whole band is frozen in the pre-registration rather than chosen after seeing the pool. ⚠ The gate is **weak by construction at small pool sizes**, where the floor is a large share of the band; at the default `n_pool` it contributes under 2%. `false` forces the verdict to `INCONCLUSIVE`. |
+| `gates.h_b_note` | A **constant explanatory string**, not a measurement — it restates the band and the exact probability for a reader of the file. ⚠ The probability inside it is a separately hard-coded fraction, not rendered from the value `h_b_expected` was computed with, so it is documentation embedded in data and carries no attestation. |
+| `verdict_reason` | The one-sentence justification for `verdict`. When both sanity gates pass it is the frozen decision rule's own sentence, read at **K = 16 only** and describing where that rung's `f_hat` confidence interval sits relative to the 0.05 and 0.95 bars. When a gate fails it is overwritten by that gate's name. 🔴 **The overwrites are ordered: H-a first, then H-b.** If both gates fail, this field names H-b and the H-a failure is invisible here — read `gates.h_a_kw_satisfies_every_predicate` for it, never this string. |
+| `geometric_mean_admitted_marginal` | The geometric mean of the **admitted** instances' calibration marginals — measured on the bank-calibration pool, not on the measurement pool, so it does not move with `n_pool`. It is a summary of how central the admitted bank is inside `admission_band`. Two edge behaviours: instances with a non-positive marginal are **dropped from the mean rather than counted**, and an empty input returns a literal `0.0` rather than null. Neither can arise while the band excludes zero, so both are defensive. |
+
 ## BRANCH-YIELD REPORTING
 
 `--branch-yield-report` reads a `solutions.bin` and reports the yield
@@ -374,6 +490,32 @@ per-sub-branch budget. (Design notes: `roae-private` BRANCH_YIELD_REPORT_DESIGN.
 | `--branch-yield-depth 1\|2\|3` | Granularity: 1 = first-level (default), 2 = depth-2, 3 = depth-3. |
 | `--branch-yield-csv OUT_CSV` | Also write the report as CSV. |
 | `--branch-yield-json OUT_JSON` | Also write the report as JSON. |
+
+### `--branch-yield-json` — what each key measures
+
+The JSON report has three parts: `input` (the arguments as given), `summary`
+(three whole-file totals) and `buckets` (one object per partition prefix).
+
+🔴 **`summary.buckets_count` is not the length of the `buckets` array**, and
+the two differ exactly when a branch was lost. `buckets_count` counts the
+distinct prefixes observed in the **current** `solutions.bin` only — the
+bucket map is a `defaultdict` populated as records stream past, so a prefix
+with no records is never created and never counted. The `buckets` array, by
+contrast, iterates the **union** of the current and baseline prefixes, so that
+a branch present in the baseline and absent now still gets a row rather than
+vanishing into the total delta. With `--branch-yield-baseline`,
+`len(buckets) - summary.buckets_count` is therefore precisely the number of
+**lost branches**, the same figure the text report prints as "Baseline buckets
+with ZERO records now". Without a baseline the two coincide. Neither is a
+count of *possible* prefixes.
+
+| Key | Invariant |
+|---|---|
+| `input.baseline_bin` | The `--branch-yield-baseline` argument **verbatim as typed** — not absolutized, unlike `compute_stats.json`'s `solutions_bin` — and **`null` when no baseline was given**. `null` is the signal that the whole comparison half of the report is absent: no bucket carries `baseline_count`, `delta` or `pct_change`, and `summary.baseline_total` is `null` too. |
+| `summary.baseline_total` | The baseline file's **own record count**, taken from its 32-byte `ROAE` header and required to equal its body length ÷ 32 before any bucketing happens — a header/body disagreement aborts the report rather than reporting over it. It is a whole-file total, not the sum of the baseline buckets shown (though it equals it, since both come from the same single stream). `null` without a baseline. |
+| `summary.buckets_count` | Distinct partition prefixes **holding at least one record in the current file**, at the `--branch-yield-depth` granularity. See the 🔴 above: this is the current file's non-empty prefixes, not the array length and not the space of prefixes. |
+| `buckets[].baseline_count` | The baseline's record count for **this** prefix, defaulting to `0` for a prefix the baseline never produced. Because baseline buckets are only created by observed records, a `0` here always means "this prefix does not occur in the baseline at all" — it is never a measured zero, and the two cases are not distinguishable in the file. Present only when a baseline was given. |
+| `buckets[].pct_change` | Percent change against the baseline, `(count − baseline_count) / baseline_count × 100`. 🔴 **`null` does not mean "not computed".** It is the serialization of `+inf`, emitted when `baseline_count` is 0 and `count` is not — a branch that did not exist in the baseline and does now, i.e. an unbounded increase. The same condition is written as the literal string `"inf"` in `--branch-yield-csv`, so the CSV and the JSON disagree in shape while agreeing in meaning. When both counts are 0 the field is `0.0`, not `null`. |
 
 ## KEYSTONE ANALYSIS
 

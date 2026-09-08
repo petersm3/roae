@@ -233,6 +233,9 @@ Printed by the engine into `gates` in the atlas, and re-checkable from the TSV:
 |---|---|
 | per-layer orbit-weighted flow == N (all layers) | `gates.per_layer_flow_eq_N` |
 | raw marginal row sums == N (all layers) | `gates.raw_marginal_sums_eq_N` (`"not-emitted"` without `--kc-raw`) |
+| per-layer class row sum == N | `gates.class_row_sums_eq_N` (2026-09-08; the class frame, not the frame this figure plots) |
+| per-layer quotient marginal row sum == N | `gates.quotient_marginal_sums_eq_N` (2026-09-08) — the quotient frame this figure must not be fed from, above; the gate is a total, so it is blind to mass moved between slots |
+| `Σ_k cls[k][d]` == `b0[d] · N` | `gates.class_column_sums_eq_b0_N` (2026-09-08) — the only gate in the set that sees a mass-preserving rearrangement, and it does so in the CLASS frame only; the raw pair frame this figure plots has no such column gate |
 | branch masses sum == N | `gates.branch_masses_sum_eq_N` |
 | n=9 exhaustive brute-force cross-check of the whole extractor | `solve --kc-scan-selftest` |
 | **reader-side:** every column of `p` sums to 1.0 | `awk -F'\t' 'NR>1{s[$1]+=$5} END{for (k in s) print k, s[k]}' tr12/scan/v1_field.tsv` |
@@ -241,6 +244,16 @@ Printed by the engine into `gates` in the atlas, and re-checkable from the TSV:
 
 A figure whose TSV fails any of these is not publishable — the gate failure, not the picture, is
 the result.
+
+**Seven advertised keys are not twelve gate families.** `kc_h_scan_tail` runs twelve; the other
+five reach the JSON only through `fails`, and three of those five are guarded by a direct t
+recursion the tail attempts only when `N <= 2^27`, so they do not run at n=31 at all. Every
+advertised field collapses to `"see fails"` if *any* gate failed, named or not — coarse, but never
+a false positive. Read `fails` first. There is deliberately **no** vertical `quotient_marginal`
+gate: `kc_flookup` re-canonicalises with `f1_canon` on every lookup, so `q` indexes *this* layer's
+canonical mask and is not the same slot at `k+1`; the layer-summed quotient marginal has no closed
+form and must not be asserted. Full accounting in
+[SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md).
 
 ## Where the files live
 

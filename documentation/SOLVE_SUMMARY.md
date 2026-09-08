@@ -104,7 +104,7 @@ corrected that. Scope note added 2026-07-04: the minimum was previously quoted u
 is the 100T value; the 560T §[22] range is [392, 776].)
 
 *A reference baseline for the "one in ten" figure (exact, added 2026-07-22):* under the bare pair-slot
-null — all pair orderings with the Creative/Receptive start, with no other constraint applied and no
+null — all pair orderings with the pair-0 start, with no other constraint applied and no
 enumeration budget — the exact distribution (`verify.py --check-null-g`) gives P(total ≤ 776) = 8.106231%
 and a ceiling-tie share P(total = 776 | total ≤ 776) = 7.86%. That null population is not like-for-like
 with the enumerated canonical sets (which also enforce the no-5 and difference-wave rules and are
@@ -175,7 +175,7 @@ them here without numbering them is the honest treatment.
 
 ### What the rules determine — and what remains open
 
-Canonical enumerations using `solve.c` at the 10T node budget find hundreds of millions of unique orderings satisfying Rules 1-5. At the depth-3 partition (158,364 sub-branches): **706,427,594**. At depth-2 (3,030 sub-branches): **286,357,503**. Both enumerations are partial in the sense that each sub-branch hits its per-sub-branch node budget rather than completing naturally — so the true count under exhaustive enumeration is unknown and likely larger; an unbiased Monte-Carlo estimate (Knuth random-probe) now puts the total at ≈10³⁸ (≈3×10³⁷ distinct-canonical) — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical figure in the sentence just above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** Only Position 1 (Creative/Receptive) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
+Canonical enumerations using `solve.c` at the 10T node budget find hundreds of millions of unique orderings satisfying Rules 1-5. At the depth-3 partition (158,364 sub-branches): **706,427,594**. At depth-2 (3,030 sub-branches): **286,357,503**. Both enumerations are partial in the sense that each sub-branch hits its per-sub-branch node budget rather than completing naturally — so the true count under exhaustive enumeration is unknown and likely larger; an unbiased Monte-Carlo estimate (Knuth random-probe) now puts the total at ≈10³⁸ (≈3×10³⁷ distinct-canonical) — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical figure in the sentence just above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** Only Position 1 (pair 0) is universally locked — the same pair appears in every valid ordering. The remaining 31 positions show a gradient of constraint:
 
 | Positions | Pairs observed | KW match rate | Character |
 |-----------|---------------|-------------------|-----------|

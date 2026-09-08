@@ -35,9 +35,16 @@
 # A row that names a script which is NOT open here exempts nothing and is a FAIL (stale
 # exemptions rot — GATE 4b LEG 5's rule). A row naming a nonexistent script is an ERROR.
 #
-# Verdict tokens (grep -qx): FAILOPEN_CLOSURE=OK|FAIL|ERROR, plus FAILOPEN_CLOSURE_POP=n
+# Verdict tokens (grep -qx), each a WHOLE line: FAILOPEN_CLOSURE=OK|FAIL|ERROR, plus
+# FAILOPEN_CLOSURE_ERROR=<cause> on ERROR (bad-args | bad-timeout | no-scripts-dir |
+# allowlist-unreadable | allowlist-malformed | graded-error), plus FAILOPEN_CLOSURE_POP=n
 # (gate-shaped scripts found: any KEY=OK|PASS|CLEAN|FAIL|ERROR|SKIP|BLOCKED|REFUSED in source), _RUN=n, _OPEN=n, _RC0=n, _ALLOWED=n, _UNRUN=n, _TIMEOUT=n.
 # Exit 0 OK / 1 FAIL / 2 ERROR. `--selftest` plants fixtures and proves every verdict class.
+#
+# 🔴 2026-09-08: the OK and FAIL verdict lines used to end in counts ("FAILOPEN_CLOSURE=FAIL
+# open=2 rc0=1"), so the `grep -qx` this header promises could not match either of them, and the
+# ERROR forms ended in a bare cause word. Every one of those numbers was ALREADY on its own
+# FAILOPEN_CLOSURE_* line; the causes moved to FAILOPEN_CLOSURE_ERROR. Nothing was dropped.
 #
 # usage: failopen_closure_gate.sh [--tree DIR] [--allow FILE] [--timeout SECS] [--selftest]
 set -uo pipefail
@@ -48,10 +55,13 @@ while [ $# -gt 0 ]; do
     --allow)   ALLOW=$2; shift 2 ;;
     --timeout) TO=$2; shift 2 ;;
     --selftest) SELFTEST=1; shift ;;
-    *) echo "usage: $0 [--tree DIR] [--allow FILE] [--timeout SECS] [--selftest]"; echo "FAILOPEN_CLOSURE=ERROR bad-args"; exit 2 ;;
+    *) echo "usage: $0 [--tree DIR] [--allow FILE] [--timeout SECS] [--selftest]"
+       echo "FAILOPEN_CLOSURE_ERROR=bad-args"; echo "FAILOPEN_CLOSURE=ERROR"; exit 2 ;;
   esac
 done
-case "$TO" in ''|*[!0-9]*) echo "FAILOPEN_CLOSURE=ERROR --timeout must be an integer"; exit 2 ;; esac
+case "$TO" in ''|*[!0-9]*)
+  echo "  [ERROR] --timeout must be an integer, got '$TO'"
+  echo "FAILOPEN_CLOSURE_ERROR=bad-timeout"; echo "FAILOPEN_CLOSURE=ERROR"; exit 2 ;; esac
 
 TOKRE='^[A-Z][A-Z0-9_]{2,}=(OK|PASS|CLEAN)( |$)'                 # what "OK-class token" means
 SRCTOK='[A-Z][A-Z0-9_]{2,}=(OK|PASS|CLEAN|FAIL|ERROR|SKIP|BLOCKED|REFUSED)\b'  # a verdict-shaped token in source = a gate
@@ -87,9 +97,11 @@ run_one(){
 gate(){
   local tree=$1 allow=$2 f name cls rc tok pop=0 run=0 open=0 rc0=0 allowed=0 unrun=0 tmo=0 fails=0 err=0
   declare -A ALLOWC ALLOWR SEEN
-  [ -d "$tree/scripts" ] || { echo "  [ERROR] no scripts/ under $tree"; echo "FAILOPEN_CLOSURE=ERROR no-scripts-dir"; return 2; }
+  [ -d "$tree/scripts" ] || { echo "  [ERROR] no scripts/ under $tree"
+    echo "FAILOPEN_CLOSURE_ERROR=no-scripts-dir"; echo "FAILOPEN_CLOSURE=ERROR"; return 2; }
   if [ -n "$allow" ]; then
-    [ -r "$allow" ] || { echo "  [ERROR] allowlist unreadable: $allow"; echo "FAILOPEN_CLOSURE=ERROR allowlist-unreadable"; return 2; }
+    [ -r "$allow" ] || { echo "  [ERROR] allowlist unreadable: $allow"
+      echo "FAILOPEN_CLOSURE_ERROR=allowlist-unreadable"; echo "FAILOPEN_CLOSURE=ERROR"; return 2; }
     while IFS=$'\t' read -r aname aclass areason; do
       case "$aname" in ''|\#*) continue ;; esac
       case "$aclass" in self-contained|timeout|rc0-by-design) ;; *) echo "  [ERROR] allowlist row for $aname has unknown class '${aclass:-}'"; err=1; continue ;; esac
@@ -97,7 +109,8 @@ gate(){
       [ -f "$tree/scripts/$aname" ] || { echo "  [ERROR] allowlist names a script that does not exist: $aname"; err=1; continue; }
       ALLOWC[$aname]=$aclass; ALLOWR[$aname]=$areason
     done < "$allow"
-    [ "$err" -eq 0 ] || { echo "FAILOPEN_CLOSURE=ERROR allowlist-malformed"; return 2; }
+    [ "$err" -eq 0 ] || { echo "FAILOPEN_CLOSURE_ERROR=allowlist-malformed"
+      echo "FAILOPEN_CLOSURE=ERROR"; return 2; }
   fi
   for f in "$tree"/scripts/*.sh "$tree"/scripts/*.py; do
     [ -f "$f" ] || continue
@@ -142,9 +155,13 @@ gate(){
     echo "  [ERROR] population filter returned $pop of an upper bound of $upper files carrying a verdict token — the filter dropped scripts (the instance-24 shape)"; err=1
   fi
   if [ "$run" -lt 5 ]; then echo "  [ERROR] only $run runnable token-emitting script(s) under $tree/scripts — population collapsed (floor 5)"; err=1; fi
-  if [ "$err" -ne 0 ]; then echo "FAILOPEN_CLOSURE=ERROR"; return 2; fi
-  if [ "$fails" -ne 0 ]; then echo "FAILOPEN_CLOSURE=FAIL open=$open rc0=$rc0"; return 1; fi
-  echo "FAILOPEN_CLOSURE=OK every runnable gate refuses an empty world ($run run, $unrun unrun, $allowed allowlisted)"; return 0
+  if [ "$err" -ne 0 ]; then echo "FAILOPEN_CLOSURE_ERROR=graded-error"; echo "FAILOPEN_CLOSURE=ERROR"; return 2; fi
+  if [ "$fails" -ne 0 ]; then
+    echo "  [FAIL] $open gate(s) printed an OK token and $rc0 exited 0 from an empty world"
+    echo "FAILOPEN_CLOSURE=FAIL"; return 1
+  fi
+  echo "  [ok]   every runnable gate refuses an empty world ($run run, $unrun unrun, $allowed allowlisted)"
+  echo "FAILOPEN_CLOSURE=OK"; return 0
 }
 
 if [ "$SELFTEST" -eq 1 ]; then
@@ -167,7 +184,7 @@ if [ "$SELFTEST" -eq 1 ]; then
   out=$(gate "$T" "$T/allow"); rc=$?
   chk(){ if eval "$2"; then echo "  [ok]   $1"; else echo "  [FAIL] $1"; f=1; fi; }
   chk "planted tree -> FAIL (rc 1)"                 '[ "$rc" -eq 1 ]'
-  chk "FAILOPEN_CLOSURE=FAIL token, whole line"     'grep -qE "^FAILOPEN_CLOSURE=FAIL" <<<"$out"'
+  chk "FAILOPEN_CLOSURE=FAIL token, whole line"     'grep -qx "FAILOPEN_CLOSURE=FAIL" <<<"$out"'
   chk "the unconditional OK is OPEN"                'grep -qE "^\s*\[OPEN  \] +plant_open.sh" <<<"$out"'
   chk "the python OK is OPEN"                       'grep -qE "^\s*\[OPEN  \] +plant_py_open.py" <<<"$out"'
   chk "exit-0-with-SKIP is RC0"                     'grep -qE "^\s*\[RC0   \] +plant_rc0.sh" <<<"$out"'
@@ -181,13 +198,13 @@ if [ "$SELFTEST" -eq 1 ]; then
   chk "counts: OPEN=2 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)" 'grep -qx "FAILOPEN_CLOSURE_OPEN=2" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_RC0=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_ALLOWED=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_UNRUN=2" <<<"$out"'
   rm -f "$T/scripts/plant_open.sh" "$T/scripts/plant_rc0.sh" "$T/scripts/plant_py_open.py"
   out=$(gate "$T" "$T/allow"); rc=$?
-  chk "with the open fixtures removed -> OK (rc 0)"  '[ "$rc" -eq 0 ] && grep -qE "^FAILOPEN_CLOSURE=OK" <<<"$out"'
+  chk "with the open fixtures removed -> OK (rc 0)"  '[ "$rc" -eq 0 ] && grep -qx "FAILOPEN_CLOSURE=OK" <<<"$out"'
   printf 'plant_closed.sh\tself-contained\tthis row exempts a script that is CLOSED\n' >> "$T/allow"
   out=$(gate "$T" "$T/allow"); rc=$?
   chk "an allowlist row that exempts nothing -> FAIL" '[ "$rc" -eq 1 ] && grep -q "exempts nothing" <<<"$out"'
   printf 'plant_allowed.sh\tself-contained\tfixture: prints its token from no input on purpose\nno_such_script.sh\tself-contained\tnames nothing at all\n' > "$T/allow"
   out=$(gate "$T" "$T/allow"); rc=$?
-  chk "an allowlist row naming a nonexistent script -> ERROR" '[ "$rc" -eq 2 ] && grep -qE "^FAILOPEN_CLOSURE=ERROR" <<<"$out"'
+  chk "an allowlist row naming a nonexistent script -> ERROR" '[ "$rc" -eq 2 ] && grep -qx "FAILOPEN_CLOSURE=ERROR" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_ERROR=allowlist-malformed" <<<"$out"'
   printf 'plant_allowed.sh\tself-contained\tfixture: prints its token from no input on purpose\n' > "$T/allow"
   mk plant_slow.sh 'sleep 30; echo "PLANT_SLOW=OK"'
   out=$(TO=2 gate "$T" "$T/allow"); rc=$?; # TO is read by run_one from the global

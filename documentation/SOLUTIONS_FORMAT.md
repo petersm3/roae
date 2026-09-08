@@ -294,7 +294,7 @@ Each record in solutions.bin satisfies:
   for these specific pairs", contradicting [SPECIFICATION.md](SPECIFICATION.md)
   §C3 and [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) Step 6, both of which
   require the check.)*
-- **C4 (first pair):** position 0 is always pair 0 (Creative/Receptive, 63→0)
+- **C4 (first pair):** position 0 is always pair 0 (`63→0`)
 - **C5 (distance distribution):** the multiset of Hamming distances across
   all 63 consecutive transitions exactly matches King Wen's distribution:
   {distance 1: 2, distance 2: 20, distance 3: 13, distance 4: 19, distance 6: 9}

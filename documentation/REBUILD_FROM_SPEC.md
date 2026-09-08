@@ -18,7 +18,7 @@ Concretely:
 
 1. Parse and validate the 32-byte header (magic, version, record count).
 2. For each 32-byte record, decode it into a 64-hexagram sequence.
-3. Check each sequence against **C1** (pair structure), **C2** (no Hamming-5 transitions), **C3** (complement distance ≤ 776), **C4** (first pair = Creative/Receptive), **C5** (exact distance distribution).
+3. Check each sequence against **C1** (pair structure), **C2** (no Hamming-5 transitions), **C3** (complement distance ≤ 776), **C4** (first pair = pair 0, `63→0`), **C5** (exact distance distribution).
 4. Verify records are in sorted order as defined in `SOLUTIONS_FORMAT.md`.
 5. Verify no two records are canonical duplicates (same pair-sequence).
 6. Report whether the King Wen sequence appears among the records. This is **informational by default** — a budgeted slice or a merged subset legitimately need not contain King Wen — and becomes a hard requirement only when you are verifying a file that is supposed to contain it (`verify.py` promotes it under `--expect-kw` and not otherwise).
@@ -159,7 +159,7 @@ A valid record expands to a 64-element sequence of hexagram numbers, each in 0-6
 
 ### Worked sanity check (the first byte)
 
-The first byte of every record is at position `i=0`, which by **C4** must be pair 0 = (63, 0) = Creative/Receptive. So `pair_index == 0`. Then `byte[0]` must be exactly `0x00` — pair 0 in its **natural orientation**, giving s₀ = 63 and
+The first byte of every record is at position `i=0`, which by **C4** must be pair 0 = (63, 0). So `pair_index == 0`. Then `byte[0]` must be exactly `0x00` — pair 0 in its **natural orientation**, giving s₀ = 63 and
 s₁ = 0 in that order. `0x02` (orient 1) decodes to s₀ = 0, s₁ = 63, which **fails C4**:
 [`SPECIFICATION.md`](SPECIFICATION.md) §C4 fixes the anchor's *order*, not merely its pair.
 Any record with `byte[0]` != `0x00` fails C4.
@@ -240,7 +240,7 @@ Equivalently at the record level: `(record[0] >> 2) & 0x3F == 0` (pair 0) AND `(
 
 ```python
 if seq[0] != 63 or seq[1] != 0:
-    return "C4 FAIL: first pair not Creative/Receptive"
+    return "C4 FAIL: first pair not (63, 0)"
 ```
 
 ## Step 8. Check C5 — distance distribution

@@ -56,6 +56,16 @@
 #   --with-gcheck        run --kc-g-check at full-31 (a ~24 h single-threaded full ladder pass)
 #   --with-chunked       run the chunked-scan == whole-scan identity at full-31 (a second scan)
 #   --no-scan            skip Group B's long pass (Group C then reports SKIP, not PASS)
+#   --atlas PATH         do NOT scan; validate the atlas at PATH (row b_atlas_supplied, token
+#                        TR12_SCAN_SUPPLIED) and run Group C against it. TR12_SCAN is recorded as
+#                        SKIP:atlas-supplied -- this battery never claims a scan it did not run.
+#                        Added 2026-09-08 (roae-private F-5 D1) so the production driver can hand
+#                        its chunk-banked, merged atlas to THIS file instead of mirroring Group C.
+#   --mint-missing       a row with no expected block is MINTED (written to --expect) and counted
+#                        in TR12_REPRO_MINTED instead of failing with no-expected-block; rows that
+#                        do have a block are still diffed. This is how a first run at a universe
+#                        with no committed goldens (n=31) can execute and record what it saw.
+#                        Never use it where goldens exist and you want them enforced -- they are.
 #   --keep               keep the work directory
 #
 # ENVIRONMENT KNOBS (all have defaults; every one is echoed into the run header)
@@ -86,6 +96,7 @@ MODE_N9=0; PAIRS=9
 FDIR=""; GDIR=""; TDIR=""
 SOLVE=""; OUTDIR=""; EXPECTDIR=""
 REGEN=0; WAVE3=0; WITH_GCHECK=0; WITH_CHUNKED=0; DO_SCAN=1; KEEP=0
+ATLAS_IN=""; MINT_MISSING=0
 
 # --help prints the file's leading comment block verbatim (it stops at the first non-comment line).
 usage(){ awk 'NR>1 { if (!/^#/) exit; sub(/^# ?/,""); print }' "${BASH_SOURCE[0]}"; }
@@ -105,6 +116,8 @@ while [ $# -gt 0 ]; do
         --with-gcheck)  WITH_GCHECK=1 ;;
         --with-chunked) WITH_CHUNKED=1 ;;
         --no-scan)      DO_SCAN=0 ;;
+        --atlas)        ATLAS_IN="$2"; DO_SCAN=0; shift ;;
+        --mint-missing) MINT_MISSING=1 ;;
         --keep)         KEEP=1 ;;
         -h|--help)      usage; exit 0 ;;
         *) echo "FATAL: unknown option '$1' (try --help)" >&2; exit 2 ;;
@@ -131,6 +144,7 @@ say(){ printf '%s\n' "$*" | tee -a "$LOG"; }
 die(){ say "FATAL: $*"; exit 2; }
 
 # ------------------------------------------------------------------------------- the binary ---
+SOLVE_HANDED_IN=0; [ -n "$SOLVE" ] && SOLVE_HANDED_IN=1
 if [ -z "$SOLVE" ]; then
     [ -f "$REPO_ROOT/solve.c" ] || die "no --solve given and $REPO_ROOT/solve.c not found"
     say "[build] gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz"
@@ -139,6 +153,41 @@ if [ -z "$SOLVE" ]; then
         || { cat "$WORK/build.err" >&2; die "solve.c did not compile"; }
 fi
 [ -x "$SOLVE" ] || die "solve binary '$SOLVE' is not executable"
+
+# 🔴 EXECUTABLE IS NOT CURRENT. The build arm above compiles $REPO_ROOT/solve.c seconds
+# before use and is safe by construction. `--solve <path>` is not: it names a PATH, and the line
+# above checks only the +x bit. tr12_repro_gate.sh:343 passes a binary it just built from the
+# PUBLISHED build line, so the pre-push route was never exposed; a hand run
+# `scripts/tr12_repro.sh --n9 --solve ./solve` is, and that is the documented way to run this
+# battery against an existing binary. This file is the TR-12 REPRODUCTION harness: every row it
+# grades -- counts, ranks, atlas digests -- is an assertion about the engine, so a stale subject
+# here turns "the committed tree does not reproduce its own published battery" into a statement
+# about an artifact nobody committed.
+#
+# Added 2026-09-08 after scripts/resume_budget_infinity_gate.sh -- same shape -- reported FAIL, an
+# UNDERCOUNT PRESENTED AS A COMPLETE ENUMERATION, against a ./solve two days older than 779fff4c,
+# the commit that fixed exactly that. Stale -> FAIL, built from HEAD -> PASS, same tree, one night.
+#
+# ERROR, NEVER FAIL. TR12_REPRO=ERROR is written to $VERD as well as stdout, so a caller that
+# reads the verdict file (tr12_repro_gate.sh does; it ignores this script's exit status) sees an
+# unestablished subject rather than an absent PASS it would otherwise narrate as a reproduction
+# failure. exit 2 matches die()'s code and is distinct from a graded FAIL.
+#
+# Called INSIDE an `if`. This file sets no pipefail, but lib_binary_currency.sh's foreign-sha arm
+# ends in a `grep -vxF` that exits 1 in the NORMAL case; keeping the call in a condition is the
+# rule that makes it safe in every caller regardless of shell options.
+#
+# ONLY A HANDED-IN BINARY IS CHECKED -- the internally built one cannot be stale, and it is built
+# by a bare `gcc -O2 ...` with no -DSOURCE_SHA, so it carries no source-sha signal to check.
+if [ "$SOLVE_HANDED_IN" = 1 ] && [ "${TR12_REPRO_ALLOW_STALE-}" != "1" ]; then
+    . "$SCRIPT_DIR/lib_binary_currency.sh"
+    if ! solve_binary_currency "$SOLVE" "$REPO_ROOT/solve.c"; then
+        say "ERROR: $BINCUR_MSG"
+        say "       (set TR12_REPRO_ALLOW_STALE=1 to override, deliberately.)"
+        echo "TR12_REPRO=ERROR" | tee -a "$VERD"
+        exit 2
+    fi
+fi
 
 # ------------------------------------------------------------------------------ the universe --
 if [ "$MODE_N9" -eq 1 ]; then
@@ -252,7 +301,23 @@ declare -A TOKREASON=()     # token -> the long human reason for a skip
 declare -a TOKORDER=()
 declare -a SKIPPED=()
 declare -a FAILED=()
+declare -a MINTED=()        # rows whose expected block was WRITTEN by this run (--mint-missing)
 NROWS=0; NPASS=0; NFAIL=0; NSKIP=0
+
+# expected_block_for ROWID -> prints the path of the block to diff ROWID against, or nothing.
+# One derived case: b_atlas_supplied (an atlas handed in with --atlas) has no block of its own,
+# but the committed b_scan block ends in "### atlas" + the whole-shot atlas, and that tail IS the
+# expected content -- so at n=9 a supplied atlas is diffed against the golden whole-shot atlas,
+# which makes "chunked-merged == whole-shot" a fact this battery checks rather than one the
+# supplier asserts. Where neither block exists the caller sees nothing and --mint-missing decides.
+expected_block_for(){
+    local id="$1" exp="$EXPECTDIR/$1.txt"
+    if [ -f "$exp" ]; then printf '%s\n' "$exp"; return; fi
+    if [ "$id" = b_atlas_supplied ] && [ -f "$EXPECTDIR/b_scan.txt" ] && grep -qx '### atlas' "$EXPECTDIR/b_scan.txt"; then
+        sed -n '/^### atlas$/,$p' "$EXPECTDIR/b_scan.txt" > "$WORK/b_atlas_supplied.expected"
+        printf '%s\n' "$WORK/b_atlas_supplied.expected"
+    fi
+}
 
 tok_record(){   # tok_record TOKEN STATUS ROWID
     local t="$1" st="$2" id="$3"
@@ -276,14 +341,17 @@ row_begin(){ ROW_ID="$1"; RAW="$RAWDIR/$1.txt"; : > "$RAW"; }
 
 row_end(){  # row_end TOKEN RC
     local token="$1" rc="$2"
-    local got="$GOTDIR/$ROW_ID.txt" exp="$EXPECTDIR/$ROW_ID.txt" status
+    local got="$GOTDIR/$ROW_ID.txt" exp="$EXPECTDIR/$ROW_ID.txt" status minted=0
     norm < "$RAW" > "$got"
     NROWS=$((NROWS+1))
+    [ -f "$exp" ] || exp="$(expected_block_for "$ROW_ID")"
     if [ "$rc" -ne 0 ]; then
         status="FAIL:nonzero-exit($rc)"
     elif [ "$REGEN" -eq 1 ]; then
-        mkdir -p "$EXPECTDIR"; cp "$got" "$exp"; status="PASS"
-    elif [ ! -f "$exp" ]; then
+        mkdir -p "$EXPECTDIR"; cp "$got" "$EXPECTDIR/$ROW_ID.txt"; status="PASS"
+    elif [ -z "$exp" ] && [ "$MINT_MISSING" -eq 1 ]; then
+        mkdir -p "$EXPECTDIR"; cp "$got" "$EXPECTDIR/$ROW_ID.txt"; MINTED+=("$ROW_ID"); minted=1; status="PASS"
+    elif [ -z "$exp" ]; then
         status="FAIL:no-expected-block"
     elif diff -u "$exp" "$got" > "$DIFFDIR/$ROW_ID.diff" 2>&1; then
         rm -f "$DIFFDIR/$ROW_ID.diff"; status="PASS"
@@ -291,7 +359,9 @@ row_end(){  # row_end TOKEN RC
         status="FAIL:output-mismatch"
     fi
     case "$status" in
-        PASS) NPASS=$((NPASS+1));  printf '  [ok  ] %-22s %s\n' "$ROW_ID" "$token" | tee -a "$LOG" ;;
+        PASS) NPASS=$((NPASS+1))
+              if [ "$minted" -eq 1 ]; then printf '  [MINT] %-22s %s   (no expected block existed; WRITTEN, not diffed)\n' "$ROW_ID" "$token" | tee -a "$LOG"
+              else printf '  [ok  ] %-22s %s\n' "$ROW_ID" "$token" | tee -a "$LOG"; fi ;;
         *)    NFAIL=$((NFAIL+1));  FAILED+=("$ROW_ID  $token  $status")
               printf '  [FAIL] %-22s %-24s %s\n' "$ROW_ID" "$token" "$status" | tee -a "$LOG"
               [ -f "$DIFFDIR/$ROW_ID.diff" ] && head -40 "$DIFFDIR/$ROW_ID.diff" | tee -a "$LOG" ;;
@@ -320,6 +390,9 @@ row_end_val(){ # row_end_val TOKEN RC VALUE
         status="FAIL:no-verdict-extracted"
     elif [ "$REGEN" -eq 1 ]; then
         mkdir -p "$EXPECTDIR"; cp "$got" "$exp"; status="$value"
+    elif [ ! -f "$exp" ] && [ "$MINT_MISSING" -eq 1 ]; then
+        mkdir -p "$EXPECTDIR"; cp "$got" "$exp"; MINTED+=("$ROW_ID"); status="$value"
+        printf '  [MINT] %-22s %s   (no expected block existed; WRITTEN, not diffed)\n' "$ROW_ID" "$token" | tee -a "$LOG"
     elif [ ! -f "$exp" ]; then
         status="FAIL:no-expected-block"
     elif diff -u "$exp" "$got" > "$DIFFDIR/$ROW_ID.diff" 2>&1; then
@@ -397,6 +470,11 @@ if [ "$N_MOD24" != "0" ]; then
     printf 'TR12_REPRO=FAIL\n' | tee -a "$VERD" >/dev/null
     say "TR12_REPRO=FAIL"; exit 1
 fi
+if [ "$MINT_MISSING" -eq 1 ]; then
+    mkdir -p "$EXPECTDIR"
+    say "  --mint-missing: $(ls "$EXPECTDIR"/*.txt 2>/dev/null | grep -vc '/_' ) expected block(s) present will be DIFFED; every other row is MINTED and reported in TR12_REPRO_MINTED"
+fi
+[ -n "$ATLAS_IN" ] && say "  --atlas: Group B will NOT scan; $ATLAS_IN is validated and Group C runs against it"
 if [ "$REGEN" -eq 0 ] && [ ! -d "$EXPECTDIR" ]; then
     say "  🔴 No expected-block directory for n=$N_PAIRS at:"
     say "         $EXPECTDIR"
@@ -472,10 +550,21 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
               "import solve;print(','.join(map(str,solve.$fn())))" 2>/dev/null)
           if [ -z "$A" ]; then echo "ARRANGEMENT $fn UNAVAILABLE"; hrc=1; continue; fi
           echo "### $fn"
-          "$SOLVE" --check-arrangement "$A" --cert-out "$ARTDIR/q7_${fn#_r7_}.json"
+          "$SOLVE" --check-arrangement "$A" --cert-out "$ARTDIR/q7_${fn#_r7_}.json" > "$WORK/q7_hist.out" 2>&1
+          crc=$?
+          cat "$WORK/q7_hist.out"
           # a historical arrangement is EXPECTED to be OUT; the row diffs the verdict either way,
           # so a non-zero exit here is information, not a failure — record it and continue.
-          echo "### $fn checker_rc=$?"
+          echo "### $fn checker_rc=$crc"
+          # 🔴 F-5 D11 (2026-09-08): until this date the row had NO in-row check -- at n=9 the golden
+          # diff caught a wrong verdict, at n=31 (no golden) a checker printing IN, or nothing at
+          # all, still ended in TR12_Q7_HIST=PASS. TR-12 §Q7 PUBLISHES that the three historical
+          # arrangements are OUT of SUPER (they fail C1 at slot 0; 64-hexagram objects, n-independent),
+          # so that is what the row asserts. Success output is unchanged; only a failure prints.
+          if ! grep -q 'verdict SUPER (C1&C2&C4&C5):     OUT' "$WORK/q7_hist.out"; then
+              echo "Q7_HIST_FAIL	$fn: no 'verdict SUPER ... OUT' line (checker rc=$crc) -- either the checker did not run or a historical arrangement is IN SUPER, which contradicts TR-12 §Q7"
+              hrc=1
+          fi
       done
       exit $hrc
     ) >>"$RAW" 2>&1; rc=$?
@@ -527,6 +616,13 @@ print("pair_null_gender_le2_exact\t%d/%d" % (v.numerator, v.denominator))
 print("decimal\t%.6e" % float(v))
 print("kw_rc4_violations\t%d" % kw)
 print("event_is_kw_level\t%s" % ("YES" if kw == 2 else "NO"))
+# F-5 D15 (2026-09-08): two labels that must travel with the number (F-5 review 5). The tail is taken
+# AT the level KW itself realises (the ordinary p-value construction, not definitional circularity;
+# TR-8 is the authority that rc4 was not read off KW), and a 1e-4 tail is read against the suite-wide
+# family it belongs to, not against 0.05: TR-8 "Look-elsewhere context (F-32)" freezes that ledger at 91.
+# (This block sits inside a single-quoted shell string: no apostrophes here.)
+print("threshold_label\tKW-anchored: the event level 2 is the rc4_violations value of KW itself (tail at the observed value)")
+print("correction_family\t91 observables (TR-8 F-32; METHODS.md Global observable ledger); Bonferroni bar 0.05/91 = 5.5e-4, cleared by ~5x")
 ' ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_LS_W0 $rc
 else
@@ -554,21 +650,74 @@ row_end TR12_LS_W0_COND_MC $rc
 #
 # What CAN be checked here with no solver: the certificate states its own relation, C3 = 16 + 8*G.
 # That is 42 rungs of internal consistency and catches transcription error.
-# 🔴 What it does NOT check: that each SEQ satisfies C1&C2&C4&C5 at the stated couple-distance sum.
-# That needs a validator reading a 64-int sequence, which does not exist here. So the verdict stays
-# a SKIP citing the ruling -- NOT a PASS, which would imply more checking than happened.
+#
+# 🔴 F-5 D10 (2026-09-08): THE "NO VALIDATOR" REASON WAS FALSE. Until this date this block ended
+# in a SKIP whose reason said each SEQ's C1&C2&C4&C5 status was "unchecked, for want of a 64-int
+# sequence validator" -- while `--check-arrangement "h0,...,h63"` is exactly that validator, and
+# row a0_q7_hist above calls it on three 64-int sequences. So the row now RUNS it: every certificate
+# line is checked (SUPER verdict + the C3 value against the line's stated C3), the G=12 witness in
+# full with its own certificate JSON, and TR12_Q4B is PASS on a computed fact or FAIL. The floor
+# G >= 12 is `c3slot_ge_12` (lean/C3Decomposition.lean); a witness achieving it closes the bracket at
+# its floor, which is why the SAT bisection is not needed for the MINIMUM (QUERY_INVENTORY 9.2).
+# Independently re-derived 2026-09-08 with no repo import (pure Python): the G=12 line is a
+# permutation of 0..63 starting 63,0, has no Hamming-5 step, its slot pairs are inverse-partners,
+# its step-distance histogram d1..d6 is 2,20,13,19,0,9 (= KW's), and sum_h |pos(h)-pos(h^63)| = 112.
 {
-  _cert=reports/certificates/c3_positional_witnesses.txt
+  _certrel=reports/certificates/c3_positional_witnesses.txt
+  _cert="$REPO_ROOT/$_certrel"       # was cwd-relative: run from anywhere but the repo root, the row saw "MISSING"
   if [ ! -r "$_cert" ]; then
-      row_skip a0_q4b TR12_Q4B "SKIP:answered-2026-09-05" "ANSWERED (QUERY_INVENTORY 9.2): min C3 over SUPER = 112. WARNING: the witness certificate $_cert is MISSING, so even its arithmetic could not be re-checked"
+      row_skip a0_q4b TR12_Q4B "SKIP:answered-2026-09-05" "ANSWERED (QUERY_INVENTORY 9.2): min C3 over SUPER = 112. WARNING: the witness certificate $_certrel is MISSING from this tree, so nothing about it could be re-checked"
   else
-      _bad=$(awk 'match($0,/G=[0-9]+[ \t]+C3=[0-9]+/){g=$0; sub(/.*G=/,"",g); sub(/[ \t].*/,"",g); c=$0; sub(/.*C3=/,"",c); sub(/[ \t].*/,"",c); if (c+0 != 16+8*(g+0)) n++} END{print n+0}' "$_cert")
-      _rows=$(grep -cE 'G=[0-9]+[ \t]+C3=[0-9]+' "$_cert")
-      if [ "${_bad:-1}" -ne 0 ] || [ "${_rows:-0}" -lt 40 ]; then
-          row_skip a0_q4b TR12_Q4B "SKIP:answered-2026-09-05" "ANSWERED (QUERY_INVENTORY 9.2): min C3 over SUPER = 112. 🔴 CERTIFICATE DEFECT: $_rows rows parsed, $_bad violate the file's own C3 = 16 + 8*G relation"
-      else
-          row_skip a0_q4b TR12_Q4B "SKIP:answered-2026-09-05" "ANSWERED (QUERY_INVENTORY 9.2, ruled): min{C3(w) : w in SUPER} = 112, witness G=12 C3=112 published 2026-07-24 in $_cert; G >= 12 is structural and the witness achieves it, so the bracket closes at its floor and the SAT bisection is not needed for the minimum. Certificate re-checked here against its own stated relation C3 = 16 + 8*G: $_rows rows, 0 violations. NOT a full verification -- that each SEQ satisfies C1&C2&C4&C5 at its stated G is unchecked, for want of a 64-int sequence validator"
-      fi
+      row_begin a0_q4b
+      (
+        bad=$(awk 'match($0,/G=[0-9]+[ \t]+C3=[0-9]+/){g=$0; sub(/.*G=/,"",g); sub(/[ \t].*/,"",g); c=$0; sub(/.*C3=/,"",c); sub(/[ \t].*/,"",c); if (c+0 != 16+8*(g+0)) n++} END{print n+0}' "$_cert")
+        rows=$(grep -cE 'G=[0-9]+[ \t]+C3=[0-9]+' "$_cert")
+        echo "# Q4(b): min{C3(w) : w in SUPER} = 112 -- ANSWERED 2026-09-05 (QUERY_INVENTORY 9.2, row Q4b). The floor"
+        echo "# G >= 12 is the Lean theorem c3slot_ge_12 (lean/C3Decomposition.lean); this row VERIFIES the published"
+        echo "# witnesses with the battery's own 64-int validator (--check-arrangement), so PASS is a computed fact."
+        echo "certificate	$_certrel"
+        echo "certificate_rows	$rows"
+        echo "certificate_relation_violations	$bad	(C3 = 16 + 8*G, the file's own stated relation)"
+        fails=0
+        [ "${bad:-1}" -eq 0 ] && [ "${rows:-0}" -ge 40 ] || { echo "Q4B_FAIL	certificate arithmetic: $rows rows, $bad violate C3 = 16 + 8*G"; fails=1; }
+        # every line: SEQ= follows its G=/C3= header line. Checked: SUPER verdict IN and the checker's
+        # C3 value equals the line's stated C3 (C3 > 776 lines are legitimately C15-OUT, still SUPER-IN).
+        echo "G	C3_stated	verdict_super	c3_checked	ok"
+        seen=0; g12seq=""
+        while IFS= read -r hdr; do
+            case "$hdr" in G=*C3=*) ;; *) continue ;; esac
+            g=${hdr#G=}; g=${g%% *}; c=${hdr#*C3=}; c=${c%% *}
+            IFS= read -r sq || sq=""
+            case "$sq" in SEQ=*) sq=${sq#SEQ=} ;; *) echo "Q4B_FAIL	G=$g: no SEQ= line follows the header"; fails=1; continue ;; esac
+            nv=$(printf '%s\n' "$sq" | tr -s ' ' '\n' | grep -c .)
+            if [ "$nv" -ne 64 ]; then echo "Q4B_FAIL	G=$g: SEQ has $nv values, not 64"; fails=1; continue; fi
+            arr=$(printf '%s' "$sq" | tr -s ' ' ',')
+            "$SOLVE" --check-arrangement "$arr" > "$WORK/q4b_line.out" 2>&1 < /dev/null   # never let the checker read the certificate off stdin
+            vs=$(sed -n 's/.*verdict SUPER (C1&C2&C4&C5): *\([A-Z]*\).*/\1/p' "$WORK/q4b_line.out" | head -1)
+            cv=$(sed -n 's/.*C3 complement distance: *[A-Z]* (value \([0-9]*\), ceiling 776).*/\1/p' "$WORK/q4b_line.out" | head -1)
+            ok=NO; [ "$vs" = IN ] && [ -n "$cv" ] && [ "$cv" -eq "$c" ] && ok=YES
+            echo "$g	$c	${vs:-NONE}	${cv:-NONE}	$ok"
+            [ "$ok" = YES ] || fails=1
+            seen=$((seen+1))
+            [ "$g" -eq 12 ] && g12seq="$arr"
+        done < "$_cert"
+        echo "lines_checked	$seen"
+        [ "$seen" -eq "$rows" ] || { echo "Q4B_FAIL	checked $seen lines but the certificate has $rows header rows"; fails=1; }
+        [ -n "$g12seq" ] || { echo "Q4B_FAIL	no G=12 line in the certificate -- the floor witness is missing"; fails=1; }
+        if [ -n "$g12seq" ]; then
+            echo "### G=12 witness, full checker output"
+            "$SOLVE" --check-arrangement "$g12seq" --cert-out "$ARTDIR/q4b_g12_witness.json" > "$WORK/q4b_g12.out" 2>&1 < /dev/null
+            crc=$?
+            cat "$WORK/q4b_g12.out"
+            echo "### G=12 witness checker_rc=$crc"
+            grep -q 'verdict SUPER (C1&C2&C4&C5):     IN' "$WORK/q4b_g12.out" || { echo "Q4B_FAIL	the G=12 witness is not IN SUPER"; fails=1; }
+            grep -Eq 'C3 complement distance: +HOLD \(value 112, ceiling 776\)' "$WORK/q4b_g12.out" || { echo "Q4B_FAIL	the G=12 witness does not have C3 = 112"; fails=1; }
+            grep -q 'hist d1..d6 = 2,20,13,19,0,9' "$WORK/q4b_g12.out" || { echo "Q4B_FAIL	the G=12 witness step-distance histogram is not KW's (2,20,13,19,0,9)"; fails=1; }
+        fi
+        [ "$fails" -eq 0 ] && echo "Q4B_MIN_C3_OVER_SUPER	112	floor c3slot_ge_12 + witness verified by --check-arrangement"
+        exit $fails
+      ) >>"$RAW" 2>&1; rc=$?
+      row_end TR12_Q4B $rc
   fi
 }
 
@@ -576,7 +725,15 @@ row_end TR12_LS_W0_COND_MC $rc
 #            Reported as skipped with the reason, never folded into a PASS. --------------------
 row_skip a0_q1c       TR12_Q1C       "SKIP:merged-into-Q4AC" "DESCOPED 2026-09-04 (QUERY_INVENTORY 9.2): the interval [0, rank_O3(KW)) is EMPTY at full-31, and P(C3 <= 387 | SUPER) is a column of Q4a/c at M=1e6. Emitted EXPLICITLY so the descoping is visible in VERDICTS.txt -- previously this row simply vanished, and a reader could not tell a ruled descope from a forgotten or silently-failed query"
 row_skip a0_q9        TR12_Q9        "SKIP:doc-only" "DOC-only: Q9 is certified restatement of the reportable negatives (tr12/q9_negatives.md); no executable command exists to diff"
-row_skip a0_ls_forced8 TR12_LS_FORCED8 "SKIP:doc-only" "DOC-only: citation row; and lean/C1RuleConstants.lean is NOT an ancestor of this branch (QUERY_INVENTORY §3.3) — cite by commit sha with the branch stated"
+# F-5 D13 (2026-09-08): this reason used to assert that lean/C1RuleConstants.lean is NOT an ancestor of
+# this branch. It has been on main since e9490e16 (QUERY_INVENTORY §3.3, corrected 2026-09-05), so the
+# skip reason was stale for three days of runs. It now reports what THIS tree actually holds.
+if [ -f "$REPO_ROOT/lean/C1RuleConstants.lean" ]; then
+    _c1rc="lean/C1RuleConstants.lean IS present in this tree (on main since e9490e16; QUERY_INVENTORY §3.3 corrected 2026-09-05) — cite by theorem name and commit sha"
+else
+    _c1rc="lean/C1RuleConstants.lean is NOT present in this tree — cite by commit sha with the branch stated (QUERY_INVENTORY §3.3)"
+fi
+row_skip a0_ls_forced8 TR12_LS_FORCED8 "SKIP:doc-only" "DOC-only: citation row; $_c1rc"
 row_skip a0_ls_cite   TR12_LS_CITE   "SKIP:doc-only" "DOC-only: the sweep cites, it does not recompute"
 row_skip a0_ls_audit  TR12_LS_AUDIT  "SKIP:doc-only" "DOC-only: the D-B1 circularity audit is a review protocol, not a computation"
 row_skip a0_q4_gexact TR12_Q4_GEXACT "SKIP:doc-only" "DOC-only: transcription of the already-derived exact C1∩C4 null law of G (C3_CONDITIONAL_VS_NULL_LAW_20260812.md)"
@@ -623,7 +780,7 @@ fi
 [ -n "$ANCHOR" ] || die "could not materialise the anchor walk for n=$N_PAIRS"
 
 row_begin a0_anchor
-{
+(
   echo "universe_n=$N_PAIRS"
   echo "N_total=$N_TOTAL"
   echo "N_minus_1=$N_MINUS_1"
@@ -636,8 +793,14 @@ row_begin a0_anchor
   echo "anchor_walk=$ANCHOR"
   echo "c3_max_used=$C3MAX"
   [ "$N_PAIRS" -ge 31 ] && [ "$C3MAX" != "387" ] && echo "🔴 WARNING: at n=31 the C3 walk-functional gate is 387, NEVER 776 — got $C3MAX"
-  echo -n "anchor_is_member="; "$SOLVE" --kc-member "$FDIR" "$ANCHOR" 2>&1 | tail -1
-} >>"$RAW" 2>&1; rc=$?
+  # 🔴 F-5 D11 (2026-09-08): `... | tail -1` returned tail's rc, so a NON-MEMBER anchor (or a binary
+  # that printed nothing) still ended in TR12_ANCHOR=PASS at n=31, where no golden diffs the line.
+  # --kc-member prints exactly MEMBER or NON-MEMBER and exits 1 on the latter (solve.c --kc-member
+  # arm); the printed word is now the row's exit test. Success output is byte-identical to before.
+  m=$("$SOLVE" --kc-member "$FDIR" "$ANCHOR" 2>&1 < /dev/null | tail -1)
+  echo "anchor_is_member=$m"
+  [ "$m" = MEMBER ] || { echo "ANCHOR_FAIL	the anchor walk is not a member of this f-ladder universe (--kc-member said '${m:-<nothing>}')"; exit 1; }
+) >>"$RAW" 2>&1; rc=$?
 row_end TR12_ANCHOR $rc
 
 # ================================================================================================
@@ -702,7 +865,11 @@ row_begin a1_q8_member
   done < "$ARTDIR/q8_super.tsv"
   echo "q8_member_rechecked=$n"
   echo "q8_member_failures=$bad"
-  exit $(( bad ? 1 : 0 ))
+  # 🔴 F-5 D11 (2026-09-08): an empty or malformed q8_super.tsv gave n=0, bad=0 and PASS -- a
+  # membership re-check of nothing. The row now requires exactly Q8K draws to have been re-checked.
+  short=0
+  [ "$n" -eq "$Q8K" ] || { echo "Q8_MEMBER_FAIL	re-checked $n draws; the gallery must hold exactly Q8K=$Q8K"; short=1; }
+  exit $(( (bad || short) ? 1 : 0 ))
 ) >>"$RAW" 2>&1; rc=$?
 row_end TR12_Q8_MEMBER $rc
 
@@ -773,6 +940,10 @@ row_begin a1_q4ac
       printf "# Q4(a,c) C3 census — ESTIMATE over SUPER, space=C1C2C4C5-SUPERSPACE\n"
       printf "# walk-functional units (cd_true = 2*(walk_cd+1)); threshold used T=%d\n", T
       printf "requested_M\t%d\nrealised_M\t%d\n", M, n
+      # 🔴 F-5 D11 (2026-09-08): a short or empty sample printed realised_M < requested_M and PASSED --
+      # nothing tested n (and at n=0 the Wilson line divided by zero, fatal only under gawk). A census
+      # over fewer draws than commanded is a different census: the row FAILS on it.
+      if (n != M) { printf "Q4AC_FAIL\trealised_M %d != requested_M %d\n", n, M; exit 1 }
       printf "cd\tcount\tfraction\n"
       k=0; for (v in h) a[k++]=v+0
       for (i=0;i<k;i++) for (j=i+1;j<k;j++) if (a[j]<a[i]) { t=a[i];a[i]=a[j];a[j]=t }
@@ -782,6 +953,21 @@ row_begin a1_q4ac
       z=1.959964; d=1+z*z/n; c=(p+z*z/(2*n))/d; hw=z*sqrt(p*(1-p)/n + z*z/(4*n*n))/d
       printf "p_hat_cd_le_T\t%.8f\n", p
       printf "wilson95_lo\t%.8f\nwilson95_hi\t%.8f\n", (c-hw<0?0:c-hw), (c+hw>1?1:c+hw)
+      # F-5 D8 (2026-09-08): Q4 deliverable (a) -- mu = P_C15(cd = T) = h[T]/le, the share of the
+      # C15-accepted draws sitting exactly AT the ceiling (the level of KW itself; cd_true = 776 at T = 387),
+      # with a Wilson interval on le trials; and deliverable (c), a per-bin Wilson interval for the
+      # histogram, as a second table so the three-column histogram above keeps its shape.
+      if (le > 0) {
+        mu = h[T]/le; dl=1+z*z/le; cl=(mu+z*z/(2*le))/dl; hl=z*sqrt(mu*(1-mu)/le + z*z/(4*le*le))/dl
+        printf "c15_accepted_draws\t%d\n", le
+        printf "mu_hat_P_C15_cd_eq_T\t%.8f\n", mu
+        printf "mu_wilson95_lo\t%.8f\nmu_wilson95_hi\t%.8f\n", (cl-hl<0?0:cl-hl), (cl+hl>1?1:cl+hl)
+      } else {
+        printf "c15_accepted_draws\t0\nmu_hat_P_C15_cd_eq_T\tNA\nmu_wilson95_lo\tNA\nmu_wilson95_hi\tNA\n"
+      }
+      printf "cd\tcount\twilson95_lo\twilson95_hi\n"
+      for (i=0;i<k;i++) { q=h[a[i]]/n; dq=1+z*z/n; cq=(q+z*z/(2*n))/dq; hq=z*sqrt(q*(1-q)/n + z*z/(4*n*n))/dq
+        printf "%d\t%d\t%.8f\t%.8f\n", a[i], h[a[i]], (cq-hq<0?0:cq-hq), (cq+hq>1?1:cq+hq) }
       printf "label\tESTIMATE-with-CI (exact C15 count is OPEN)\n"
     }' "$WORK/q4.raw"
 ) >>"$RAW" 2>&1; rc=$?
@@ -797,6 +983,40 @@ if [ -n "$FRAC_LE" ]; then
     esac
 fi
 say "  C3 filter at T=$C3MAX retains p_hat=${FRAC_LE:-?}  (degenerate: $DEGEN)"
+
+# ---- A1.3b Q8's C3-rejection SUBSET, derived -- and the C15 file labelled for what it is (F-5 D9,
+#            2026-09-08). QUERY_INVENTORY row Q8 (corrected 2026-09-05) records that q8_c15.tsv is NOT
+#            the "~121 subset" of gallery 1: --kc-sample --kc-c3-max T rejects until it has Q8K ACCEPTED
+#            draws, so it is a second, independent C15 gallery of exactly Q8K walks. TR-12 §Q8 still
+#            describes a subset. This row (i) checks the C15 file against that label (exactly Q8K draws,
+#            every one with cd <= T) and (ii) derives the ACTUAL subset for free -- the gallery-1 draws
+#            with cd <= T -- printing its size and Wilson interval beside Q4(a,c)'s p_hat. The two are
+#            independent samples of the same acceptance probability; they are printed, not gated. ----
+row_begin a1_q8_subset
+(
+  fails=0
+  c15n=$(awk -F'\t' '$1 ~ /^[0-9]+$/ && $2 ~ /^cd=/ {n++} END{print n+0}' "$ARTDIR/q8_c15.tsv")
+  c15bad=$(awk -F'\t' -v T="$C3MAX" '$1 ~ /^[0-9]+$/ && $2 ~ /^cd=/ {if (substr($2,4)+0 > T) b++} END{print b+0}' "$ARTDIR/q8_c15.tsv")
+  echo "q8_c15_label	independent-C15-sample	NOT a subset of q8_super.tsv: --kc-sample --kc-c3-max rejects until Q8K draws are ACCEPTED"
+  echo "q8_c15_accepted_draws	$c15n	(requested Q8K=$Q8K)"
+  echo "q8_c15_draws_above_T	$c15bad"
+  [ "$c15n" -eq "$Q8K" ] || { echo "Q8_SUBSET_FAIL	q8_c15.tsv holds $c15n draws, not Q8K=$Q8K"; fails=1; }
+  [ "$c15bad" -eq 0 ] || { echo "Q8_SUBSET_FAIL	$c15bad C15 draws have cd > T=$C3MAX -- the rejection sampler accepted what it should reject"; fails=1; }
+  awk -F'\t' -v T="$C3MAX" -v K="$Q8K" '
+    $1 ~ /^[0-9]+$/ && $2 ~ /^cd=/ { n++; if (substr($2,4)+0 <= T) le++ }
+    END{
+      printf "q8_super_draws\t%d\n", n
+      printf "q8_super_subset_cd_le_T\t%d\n", le
+      if (n != K) { printf "Q8_SUBSET_FAIL\tq8_super.tsv holds %d draws, not Q8K=%d\n", n, K; exit 1 }
+      p = le/n; z=1.959964; d=1+z*z/n; c=(p+z*z/(2*n))/d; hw=z*sqrt(p*(1-p)/n + z*z/(4*n*n))/d
+      printf "q8_super_subset_fraction\t%.8f\n", p
+      printf "q8_subset_wilson95_lo\t%.8f\nq8_subset_wilson95_hi\t%.8f\n", (c-hw<0?0:c-hw), (c+hw>1?1:c+hw)
+    }' "$ARTDIR/q8_super.tsv" || fails=1
+  echo "q4ac_p_hat_cd_le_T	${FRAC_LE:-NA}	(row a1_q4ac, M=$Q4ACM draws: an independent sample of the same acceptance probability)"
+  exit $fails
+) >>"$RAW" 2>&1; rc=$?
+cp "$RAW" "$ARTDIR/q8_c15_subset.tsv"
+row_end TR12_Q8_SUBSET $rc
 
 # ---- A1.4  Q2(b) the REL-order endpoints:  0, N-1, floor(N/2) --------------------------------
 row_begin a1_q2b
@@ -928,6 +1148,15 @@ if r != c + o:
 print("decomposition\tOK\trank3 == class_first_rank3 + orient_idx")
 if (r, c, o) != exp:
     print("Q1_LABELING_FAIL\tgot %d/%d/%d, expected %d/%d/%d" % (r, c, o, exp[0], exp[1], exp[2])); sys.exit(1)
+if n >= 31:
+    # F-5 D7 (2026-09-08): the vacuity, STATED in the artifact and CHECKED. rank 0 is a property of the
+    # labels (QUERY_INVENTORY 9.1), not a finding about King Wen; the certificate must agree that the
+    # anchor has no predecessor, and row a2_q2 checks unrank_O3(0) == the anchor byte-for-byte.
+    pr = d.get("neighbor_prev_rank")
+    print("neighbor_prev_rank\t%s" % pr)
+    if pr != "NONE":
+        print("Q1_LABELING_FAIL\trank3 == 0 but neighbor_prev_rank is %r, not NONE" % (pr,)); sys.exit(1)
+    print("vacuity\tunrank_O3(0) = King Wen by the labeling theorem: the O3 order is built from KW's own pair table, so rank 0 says nothing about KW's rarity")
 print("Q1_LABELING\tOK")
 PYQ1
   ) >>"$RAW" 2>&1; rc=$?
@@ -963,6 +1192,14 @@ row_begin a2_q3
 cp "$RAW" "$ARTDIR/q3_profile.txt"
 grep '^#o3-trace' "$ARTDIR/q3_profile.txt" > "$ARTDIR/q3_profile.tsv" 2>/dev/null || true
 row_end TR12_Q3 $rc
+
+# ---- A2.3a Q3's C15 companion -- WITHDRAWN, and said so here (F-5 D14, 2026-09-08). TR-12 §Q3 withdrew
+#            the "sampled per-step C3-pass corrections" on 2026-09-05 (QSET finding 2): no commanded path
+#            produces it, and --kc-profile refuses --kc-c3-max (solve.c: "[kc-profile] --kc-c3-max is not
+#            accepted here"). Until this date the battery had no row for it, so VERDICTS.txt could not tell
+#            a ruled withdrawal from a forgotten leg. Named skip; NOT aggregated into TR12_Q3, which attests
+#            the SUPER trace that IS commanded. -----------------------------------------------------------
+row_skip a2_q3_c15 TR12_Q3_C15 "SKIP:withdrawn-2026-09-05" "WITHDRAWN 2026-09-05 (TR-12 §Q3, QSET finding 2): the C15 companion of the rarity profile has no instrument -- --kc-profile refuses --kc-c3-max and no commanded path produces per-step C3-pass corrections; every Q3 number is over the SUPER space"
 
 # ---- A2.3b Q3 cross-instrument: --kc-profile recomputes the same profile by an independent
 #            path and emits exact rationals (p_num/p_den) plus the alternatives at each step. ---
@@ -1190,7 +1427,23 @@ row_begin a2_q2
   # ladder-sensitive checks are a2_gcheck and a2_gsha, and Q2 completion requires those too.
   for R in 0 "$N_MINUS_1" "$N_HALF"; do
       echo "### O3 unrank r=$R (two endpoints + midpoint)"
-      "$SOLVE" --kc-o3-unrank "$FDIR" "$GDIR" "$R" --kc-bracket || erc=1
+      "$SOLVE" --kc-o3-unrank "$FDIR" "$GDIR" "$R" --kc-bracket > "$WORK/q2_probe.out" 2>&1 < /dev/null || erc=1
+      cat "$WORK/q2_probe.out"
+      if [ "$R" = 0 ] && [ "$N_PAIRS" -ge 31 ]; then
+          # F-5 D7 (2026-09-08): at full-31 the r=0 probe is VACUOUS as a finding -- the labeling theorem
+          # (QUERY_INVENTORY 9.1) makes unrank_O3(0) = King Wen by construction -- and it is the ONE
+          # external anchor of the O3 machinery (inventory row Q2, B32): the ranker never took KW as an
+          # input, so the byte-identity of its rank-0 output with KW's walk is CHECKED here, not assumed.
+          # n=9 output is untouched (there the anchor is the midpoint and the theorem does not apply).
+          w0=$(grep -E '^[0-9]+(,[0-9]+)+$' "$WORK/q2_probe.out" | head -1)
+          echo "# unrank_O3(0) = King Wen is a THEOREM about the labels (QUERY_INVENTORY 9.1), not a finding about KW;"
+          echo "# it is also the only external anchor for the O3 rank/unrank pair at full-31, checked byte-for-byte here."
+          if [ -n "$w0" ] && [ "$w0" = "$ANCHOR" ]; then
+              echo "Q2_R0_IS_ANCHOR	YES"
+          else
+              echo "Q2_R0_IS_ANCHOR	NO	unrank_O3(0)=${w0:-<no walk line>}	anchor=$ANCHOR"; erc=1
+          fi
+      fi
   done
   exit $erc
 ) >>"$RAW" 2>&1; rc=$?
@@ -1322,7 +1575,28 @@ else
     row_skip b_tcheck TR12_TCHECK "SKIP:no-tdir" "no TDIR given — the t-ladder is REQUIRED for the Exhaustion Atlas and every per-branch number (TR-12 §R.0)"
 fi
 
-if [ "$DO_SCAN" -eq 0 ]; then
+if [ -n "$ATLAS_IN" ]; then
+    # ---- B.S  an atlas handed in by the caller (--atlas). The scan is the caller's; what THIS
+    #           battery attests is that the file is a scan atlas of THIS universe, and (through the
+    #           expected block derived from b_scan.txt where one exists) that it is byte-identical
+    #           to the golden whole-shot atlas. TR12_SCAN is a named SKIP: no scan ran here. --------
+    row_begin b_atlas_supplied
+    (
+      [ -s "$ATLAS_IN" ] || { echo "SUPPLIED_ATLAS_FAIL	$ATLAS_IN is missing or empty"; exit 1; }
+      cp -f "$ATLAS_IN" "$ATLAS" || exit 1
+      python3 -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d.get("type") == "roae-kc-scan-atlas", "wrong type tag"
+assert d.get("layers") and d.get("branch_atlas"), "layers/branch_atlas missing"
+assert str(d.get("N_total")) == sys.argv[2], "atlas N_total %s != ladder N %s" % (d.get("N_total"), sys.argv[2])
+' "$ATLAS" "$N_TOTAL" || { echo "SUPPLIED_ATLAS_FAIL	$ATLAS_IN is not a scan atlas of this universe"; exit 1; }
+      echo "### atlas"; cat "$ATLAS"
+    ) >>"$RAW" 2>&1; rc=$?
+    [ "$rc" -eq 0 ] && SCAN_OK=1
+    row_end TR12_SCAN_SUPPLIED $rc
+    row_skip b_scan TR12_SCAN "SKIP:atlas-supplied" "--atlas was passed: this battery did NOT run the scan. The supplied atlas was validated in row b_atlas_supplied (TR12_SCAN_SUPPLIED) and Group C ran against it; whoever produced it attests the scan itself"
+elif [ "$DO_SCAN" -eq 0 ]; then
     row_skip b_scan TR12_SCAN "SKIP:no-scan-requested" "--no-scan was passed; the atlas was not produced, so every Group C row is skipped too"
 elif [ "$HAVE_T" -eq 0 ]; then
     row_skip b_scan TR12_SCAN "SKIP:no-tdir" "no TDIR: --kc-scan without --kc-tdir yields an atlas with no t_source, and XA-b cannot be gated"
@@ -1589,7 +1863,24 @@ else
           printf '%s' "$line" | grep -o '"pair[0-9]*": "[0-9]*"' \
             | sed -e "s/\"pair\([0-9]*\)\": \"\([0-9]*\)\"/$i\t\1\t\2/"
           i=$((i+1))
-      done < <(grep -o '"marginal_raw": {[^}]*}' "$ATLAS")
+      done < <(grep -o '"marginal_raw": {[^}]*}' "$ATLAS") > "$WORK/v1_rows.tsv"
+      cat "$WORK/v1_rows.tsv"
+      # 🔴 F-5 D11 (2026-09-08): an atlas with every marginal_raw block stripped produced a header-only
+      # table and PASSED (mutant E4). The table is now checked against the atlas it came from: one raw
+      # block per layer row (every layer row carries marginal_quotient; the count must equal N_PAIRS),
+      # and each layer's raw marginal must sum to N exactly -- in bc, the masses are 192-bit at full-31.
+      # Success output is unchanged; only a failure prints.
+      fails=0
+      nblk=$(grep -c '"marginal_raw"' "$ATLAS"); nlay=$(grep -c '"marginal_quotient"' "$ATLAS")
+      [ "$nblk" -gt 0 ] && [ "$nblk" -eq "$nlay" ] && [ "$nlay" -eq "$N_PAIRS" ] \
+        || { echo "V1_FAIL	marginal_raw blocks=$nblk layer rows=$nlay N_PAIRS=$N_PAIRS -- every layer must carry a raw marginal"; fails=1; }
+      k=0
+      while [ "$k" -lt "$nblk" ]; do
+          s=$(awk -F'\t' -v k="$k" '$1==k {printf "%s+", $3} END{print "0"}' "$WORK/v1_rows.tsv" | BC_LINE_LENGTH=0 bc)
+          [ "$s" = "$N_TOTAL" ] || { echo "V1_FAIL	layer k=$k raw marginal sums to $s, not N=$N_TOTAL"; fails=1; }
+          k=$((k+1))
+      done
+      exit $fails
     ) >>"$RAW" 2>&1; rc=$?
     cp "$RAW" "$ARTDIR/v1_field.tsv"
     row_end TR12_V1_TSV $rc
@@ -1715,7 +2006,7 @@ agg(){
 }
 
 agg TR12_Q7 TR12_Q7_KW TR12_Q7_HIST TR12_Q7_WITNESSES TR12_Q7_RANKS   # D5-04: the witness leg is a NAMED skip; the parent never reads PASS without it
-agg TR12_Q8 TR12_Q8_SUPER TR12_Q8_C15 TR12_Q8_MEMBER TR12_Q8_CHI2 TR12_Q8_MIDN13   # D5-02: CHI2 is the GALLERY statistic; MIDN13 is the engine self-test
+agg TR12_Q8 TR12_Q8_SUPER TR12_Q8_C15 TR12_Q8_MEMBER TR12_Q8_CHI2 TR12_Q8_MIDN13 TR12_Q8_SUBSET   # D5-02: CHI2 is the GALLERY statistic; MIDN13 is the engine self-test; SUBSET (F-5 D9) labels the C15 file and derives the real subset
 agg TR12_XA_A TR12_XA_AB
 agg TR12_XA_B TR12_XA_AB
 agg TR12_V1 TR12_V1_TSV TR12_VIZ
@@ -1775,8 +2066,15 @@ say "artifacts: $ARTDIR"
   printf 'TR12_REPRO_ROWS=%d\n' "$NROWS"
   printf 'TR12_REPRO_SKIPPED=%d\n' "$NSKIP"
   if [ "$NSKIP" -eq 0 ]; then printf 'TR12_REPRO_COMPLETE=YES\n'; else printf 'TR12_REPRO_COMPLETE=NO\n'; fi
+  printf 'TR12_REPRO_MINTED=%d\n' "${#MINTED[@]}"
+  [ "${#MINTED[@]}" -gt 0 ] && printf 'TR12_REPRO_MINTED_ROWS=%s\n' "${MINTED[*]}"
   printf 'TR12_C3_FILTER_DEGENERATE=%s\n' "$DEGEN"
 } >> "$VERD"
+if [ "${#MINTED[@]}" -gt 0 ]; then
+    say ""
+    say "MINTED — ${#MINTED[@]} row(s) had NO expected block and were WRITTEN, not diffed: ${MINTED[*]}"
+    say "         Their PASS attests exit status and in-row gates only. Review them before they are committed."
+fi
 
 # §0.3: the aggregate is emitted only if every non-SKIP token in scope is PASS.
 AGG_OK=1
@@ -1784,8 +2082,13 @@ for t in "${TOKORDER[@]}"; do
     case "${TOKSTATE[$t]}" in FAIL*) AGG_OK=0 ;; esac
 done
 if [ "$NFAIL" -eq 0 ] && [ "$AGG_OK" -eq 1 ]; then
-    if [ "$N_PAIRS" -ge 31 ]; then printf 'QUERY_PROGRAM=PASS\n' >> "$VERD"
-    else                            printf 'QUERY_DRYRUN=PASS\n'  >> "$VERD"; fi
+    # The program-level token is emitted only when Group C actually ran (SCAN_OK=1: this battery
+    # scanned, or validated a supplied atlas). A --no-scan run is a PASSING BATTERY of the rows it
+    # ran (TR12_REPRO=PASS) and must not read as a passing PROGRAM -- added 2026-09-08 (F-5 D1),
+    # when the production driver started running this file pre-scan with --no-scan.
+    if [ "$N_PAIRS" -ge 31 ]; then AGGKEY=QUERY_PROGRAM; else AGGKEY=QUERY_DRYRUN; fi
+    if [ "$SCAN_OK" -eq 1 ]; then printf '%s=PASS\n' "$AGGKEY" >> "$VERD"
+    else                          printf '%s=SKIP:no-atlas\n' "$AGGKEY" >> "$VERD"; fi
     printf 'TR12_REPRO=PASS\n' >> "$VERD"
     say ""
     if [ "$REGEN" -eq 1 ]; then

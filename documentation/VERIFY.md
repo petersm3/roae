@@ -1117,9 +1117,27 @@ interrupted:
 
    **Check the merged atlas before trusting it:**
    ```
-   grep -o '"t_root_eq_f_layer_sum": [^,]*' atlas.json    # must be: true
-   grep -o '"fails": [0-9]*' atlas.json                   # must be: "fails": 0
+   grep -o '"t_root_eq_f_layer_sum": [^,]*' atlas.json      # must be: true
+   grep -o '"class_row_sums_eq_N": [^,]*' atlas.json        # must be: true
+   grep -o '"quotient_marginal_sums_eq_N": [^,]*' atlas.json # must be: true
+   grep -o '"class_column_sums_eq_b0_N": [^,]*' atlas.json  # must be: true
+   grep -o '"fails": [0-9]*' atlas.json                     # must be: "fails": 0
    ```
+   The three middle keys were added 2026-09-08 and assert, in order: every layer's distance-class
+   row sums to `N`; every layer's quotient-frame marginal row sums to `N`; and, summed **down** the
+   layer axis, the class-`d` mass equals `b0[d] * N`. The third is the only one of the seven that
+   can see a mass-preserving *rearrangement* — a `d1`/`d2` swap inside one layer row leaves
+   `flow[k]` and both row sums untouched. All three are gated against the ladder total rather than
+   against `flow[k]`, so they stay meaningful when `flow` is itself the tampered value.
+   🔴 **Seven advertised keys are not twelve gate families.** The tail runs twelve; the other five
+   reach the JSON only through `fails`, and three of those five are guarded by a direct t recursion
+   the tail attempts only when `N <= 2^27`, so they do not run at n=31 at all. Every advertised
+   field collapses to `"see fails"` if *any* gate failed, named or not — the object is coarse but
+   never false-positive. Read `fails` first. There is deliberately **no** vertical
+   `quotient_marginal` gate: `kc_flookup` re-canonicalises with `f1_canon` on every lookup, so `q`
+   indexes *this* layer's canonical mask and is not the same slot at `k+1`; the layer-summed
+   quotient marginal has no closed form and must not be asserted. See `SOLVE_C_CLI.md` under
+   `--kc-layers / --kc-scan-merge`.
    A merged atlas that reports `"not-run (requires --kc-tdir)"` **is not a failed run — it is an
    unchecked one**, which is worse, because nothing in its verdict line says so: the merge still
    prints `VERDICT: PASS (0 gate failures)`.

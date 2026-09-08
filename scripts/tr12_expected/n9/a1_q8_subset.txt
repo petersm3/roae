@@ -1,0 +1,9 @@
+q8_c15_label	independent-C15-sample	NOT a subset of q8_super.tsv: --kc-sample --kc-c3-max rejects until Q8K draws are ACCEPTED
+q8_c15_accepted_draws	200	(requested Q8K=200)
+q8_c15_draws_above_T	0
+q8_super_draws	200
+q8_super_subset_cd_le_T	43
+q8_super_subset_fraction	0.21500000
+q8_subset_wilson95_lo	0.16371876
+q8_subset_wilson95_hi	0.27702307
+q4ac_p_hat_cd_le_T	0.26345000	(row a1_q4ac, M=20000 draws: an independent sample of the same acceptance probability)

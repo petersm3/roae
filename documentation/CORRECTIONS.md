@@ -9468,3 +9468,26 @@ evidence the class is gone — a needle matching nothing is not evidence the cla
 - **No claim moves.** The impossibility result never rested on the symbol census; it needs only
   the King Wen numbers, which are published. `0 of the 9 are discriminating` is unchanged and
   correct — it ranges over all nine claimed pairs, not the three testable ones.
+
+## 2026-09-08 — the translated-name ruling meets an append-only file, and the file wins
+
+The operator ruled on 2026-09-08 that a translator's hexagram title appears in this project only
+inside a citation of that translator's work, and that everything else — our prose, our denials, our
+search terms, the captured output of our own programs — is us writing it and does not appear. Under
+that ruling every remaining site was rewritten: `GUIDE.md` now declines the title without naming it,
+`CITATIONS.md`'s absence census derives its search terms at runtime instead of typing them,
+`HISTORY.md`'s labels became hexagram numbers, and the label column of
+`enumeration/analysis_minimum_constraints.txt` was rewritten to the numeric form that same run had
+already printed for every hexagram its own partial table lacked.
+
+**The 2026-09-04 entry above still names the title once, and that is deliberate.** It was reworded
+under the ruling and the rewording has been reverted, because this file is append-only: its contract
+is that an entry records what was found and how it read at the time, and an entry edited later is no
+longer that record. `scripts/doc_gates.sh` GATE 10b enforces this against every committed and
+published version and fired 21 times on the edit — correctly, and it names the remedy, which is this
+entry rather than a change to that one.
+
+So the title survives at exactly one site in this repository, inside a historical entry, retained by
+a published contract rather than by an exemption anyone chose. **That is a conflict between two
+correct rules and it is recorded here rather than resolved silently.** If the ruling should override
+the append-only contract, that is the operator's call and this entry is where it would be recorded.

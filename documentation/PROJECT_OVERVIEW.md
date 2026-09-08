@@ -76,7 +76,7 @@ Across the canonical datasets, the Shannon entropy H(p) of the pair distribution
 
 | Positions | H (bits) | Character |
 |-----------|---------:|-----------|
-| 1 | 0.00 | Fully determined (only Creative/Receptive) |
+| 1 | 0.00 | Fully determined (only pair 0) |
 | 2 | 4.29 | Near-free (28 distinct pairs observed) |
 | 3-4 | 4.52, 4.50 | Most free of all positions (31 pairs each) |
 | 5-20 | 0.48 – 1.85 | Highly constrained — the "cascade region" |

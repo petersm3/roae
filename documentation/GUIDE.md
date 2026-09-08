@@ -101,7 +101,8 @@ With 8 possible trigrams in each position, there are 8 x 8 = 64 possible hexagra
 This corpus ships **no hexagram names** — no 卦名, no romanisation of them, and no English
 titles. Where a name would normally appear you get the position number, the Unicode glyph, the
 six bits, and a **structural** description built from the two trigrams: hexagram 1 is
-`Heaven over Heaven`, not "The Creative". The *trigram* names (Qian, Kun, Li, Dui …) do appear,
+`Heaven over Heaven`, not the English title a published translation gives it. The *trigram*
+names (Qian, Kun, Li, Dui …) do appear,
 because they name the eight three-line figures the description is assembled from — they are not
 hexagram titles.
 

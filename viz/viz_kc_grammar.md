@@ -188,6 +188,9 @@ figure out; **no analysis logic in `viz/`**.
 | Gate | Where |
 |---|---|
 | per-layer orbit-weighted flow == N | `gates.per_layer_flow_eq_N` in the atlas (the denominator of every plotted value) |
+| per-layer class row sum == N | `gates.class_row_sums_eq_N` (2026-09-08) |
+| per-layer quotient marginal row sum == N | `gates.quotient_marginal_sums_eq_N` (2026-09-08) — the frame this figure is forbidden to plot, above; the gate is a total, so it is blind to mass moved between slots |
+| `Σ_k cls[k][d]` == `b0[d] · N` | `gates.class_column_sums_eq_b0_N` (2026-09-08) — the engine-side form of the reader-side `(2, 8, 13, 7, 1)` identity below, and the only gate that sees a `d1`/`d2` swap inside one layer row |
 | branch masses sum == N | `gates.branch_masses_sum_eq_N` |
 | n=9 exhaustive brute-force cross-check of the extractor | `solve --kc-scan-selftest` |
 | f·g cut identity at every layer | `solve --kc-g-check FDIR GDIR` |
@@ -198,6 +201,16 @@ figure out; **no analysis logic in `viz/`**.
 Both reader-side identities were exercised against the committed n=9 reference atlas (per-layer sums
 1.0; class totals {1:2, 2:5, 4:2}, the reduced-world analogue of {1:2, 2:8, 3:13, 4:7, 6:1}) before
 this doc was written.
+
+**Seven advertised keys are not twelve gate families.** `kc_h_scan_tail` runs twelve; the other
+five reach the JSON only through `fails`, and three of those five are guarded by a direct t
+recursion the tail attempts only when `N <= 2^27`, so they do not run at n=31 at all. Every
+advertised field collapses to `"see fails"` if *any* gate failed, named or not — coarse, but never
+a false positive. Read `fails` first. There is deliberately **no** vertical `quotient_marginal`
+gate: `kc_flookup` re-canonicalises with `f1_canon` on every lookup, so `q` indexes *this* layer's
+canonical mask and is not the same slot at `k+1`; the layer-summed quotient marginal has no closed
+form and must not be asserted. Full accounting in
+[SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md).
 
 ## Where the files live
 

@@ -19,6 +19,32 @@ fail(){ echo "  [ERROR] $*"; echo "Q314_MOD48=ERROR"; exit 2; }
 # paying for a second one).
 if [ -n "${Q314_SOLVE:-}" ]; then
   SOLVE="$Q314_SOLVE"; [ -x "$SOLVE" ] || fail "Q314_SOLVE=$SOLVE is not executable"
+  # 🔴 EXECUTABLE IS NOT CURRENT. The else-arm below is safe BY CONSTRUCTION -- it compiles
+  # the committed solve.c seconds before use. This arm is not: Q314_SOLVE names a PATH, and the
+  # only thing checked above is the +x bit. tr12_repro_gate.sh passes a binary it just built, but
+  # `Q314_SOLVE=./solve bash scripts/q314_mod48_gate.sh` by hand points the gate at whatever
+  # artifact is lying in the tree. Added 2026-09-08 after scripts/resume_budget_infinity_gate.sh
+  # -- same `${VAR:-}`-names-a-path shape -- reported FAIL, i.e. AN UNDERCOUNT PRESENTED AS A
+  # COMPLETE ENUMERATION, against a ./solve two days older than 779fff4c, the commit that fixed
+  # exactly that. Measured both ways that night: stale -> FAIL, built from HEAD -> PASS.
+  #
+  # ERROR, NEVER FAIL: an unestablished subject is not a defect, and reporting it as one sends a
+  # reader hunting a bug that is not there. fail() here already emits Q314_MOD48=ERROR / exit 2.
+  #
+  # Called INSIDE an `if`. lib_binary_currency.sh's foreign-sha arm ends in a `grep -vxF` that
+  # exits 1 in the NORMAL case; a bare call under this file's pipefail would abort the function
+  # with an empty signal. Never call solve_binary_currency outside a condition.
+  #
+  # The mutants below are NOT checked, and must not be: they are built here from a DELIBERATELY
+  # mutated solve.c, so their SOURCE_SHA is supposed to differ. Staleness is a defect in the
+  # subject and a requirement in the control.
+  . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
+  # cwd is the repo root (the cd at the top of this file), so `solve.c` is unambiguous here.
+  if [ "${Q314_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE" solve.c; then
+    echo "  [ERROR] $BINCUR_MSG" >&2
+    echo "          (set Q314_ALLOW_STALE=1 to override, deliberately.)" >&2
+    echo "Q314_MOD48=ERROR"; exit 2
+  fi
 else
   [ -f solve.c ] || fail "missing solve.c"
   BUILD=$(grep -m1 -E '^gcc .*solve\.c' documentation/VERIFY.md 2>/dev/null)

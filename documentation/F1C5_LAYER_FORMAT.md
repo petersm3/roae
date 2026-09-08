@@ -529,6 +529,58 @@ offset table), plus `f1_manifest.txt` (`f1_manifest_v1`; same fields as
 It is not part of the C5 verification surface but shares the directory
 naming style; do not confuse `f1_layer_*` with `f1c5_layer_*`.
 
+## The two observability sidecars, key by key
+
+Neither sidecar is part of the verification surface and neither affects layer
+bytes. They are documented here because a reader who opens one has to be able
+to tell a measurement from a projection, and several of these keys are the
+latter.
+
+### `<prefix>_layer_stats_<kk>.json` — the per-layer statistics sidecar
+
+Written atomically (temp file, `fsync`, `rename`, directory `fsync`) once per
+layer commit, and non-fatally: any failure warns and the build continues.
+
+| key | what it is |
+|---|---|
+| `layer_file` | the basename of the layer this sidecar describes, `<prefix>_layer_<kk>.bin`. The sidecar names its subject rather than relying on its own filename |
+| `bin_bytes` | the **compressed on-disk** size of that layer file at emit time. Emitted only when non-zero, so its absence means "not measured", not "zero bytes" |
+| `input_layer_k` | the layer index this one was built *from*, or **−1** for a genesis layer. Paired with `input_sha256_decompressed`, this is what makes the ladder's lineage checkable one link at a time |
+| `build_passes` | how many passes the out-of-core builder made over the input to produce this layer. Emitted only when the builder recorded it (in-memory builds omit it), so it is a build-shape record, not a layer property |
+| `headroom` | the overflow-margin object, three keys, all about the 192-bit value accumulator: `peak_value_bits` is the **largest bit-length of any value stored in this layer** (0 for a layer of zeros); `guard_bits` is the literal **192**, the accumulator width, so a reader never has to know the type; `headroom_bits` is `192 − peak_value_bits`, the number of unused high bits. `headroom_bits` shrinking toward 0 across layers is the only advance warning of an accumulator overflow the format has |
+| `value_hist_log2` | the value-magnitude distribution, as a sparse array of `[b, count]` pairs with the zero buckets omitted. Bucket `b` holds the values whose bit-length is `b+1`, i.e. `floor(log2(value))` = `b`. Values of exactly 0 are in **no** bucket. Summed, the counts equal `n_entries` minus the zero-valued entries |
+| `entries_per_mask` | how the layer's entries are distributed over its canonical masks: `min`, `max`, `mean` and a `hist_log2`. 🔴 **Empty masks are excluded from all four.** `min`/`max` range over the non-empty masks only, `mean` is `n_entries / (n_masks − n_empty_masks)`, and the histogram has no bucket for zero. The count of empty masks is `n_empty_masks`, a separate key — a reader who wants entries-per-mask over *all* masks must combine the two |
+| `hist_log2` | the sparse `[b, count]` array **inside** `entries_per_mask`: bucket `b` holds the masks with between `2^b` and `2^(b+1) − 1` entries. The same key name is not used at the top level; `value_hist_log2` is the top-level one and measures a different thing |
+
+### `f1c5_progress.json` — the run-progress sidecar
+
+`main` branch only, absent on `v4-canonical`, and disabled by
+`SOLVE_F1_PROGRESS_JSON=0`. Written to a temp file and `rename`d, so a reader
+sees the old object or the new one and never a torn one. Emitted at layer
+begin, layer end, each out-of-core chunk boundary and run completion, throttled
+to at most one write per 5 s — there is **no** timer thread, so during a long
+non-out-of-core layer these fields simply do not move. A watchdog must key on
+phase transitions, not on the age of this file.
+
+| key | what it is |
+|---|---|
+| `run_params` | the four knobs the run was launched with, as one object: `n`, `ooc` (out-of-core, boolean), `v2_gz` and `keep_layers`. It is a record of the invocation, not of progress, and it does not change during a run |
+| `v2_gz` | inside `run_params`: the v2 per-block gzip level in force for this build. It is the number that makes `bin_bytes` comparable — two runs at different levels produce different compressed sizes from identical layer content |
+| `keep_layers` | inside `run_params`: `true` when intermediate layers are retained rather than deleted after the layer that consumes them. This is what decides whether the run leaves a ladder behind or only its final layer |
+| `total_layers` | how many layers this run intends to build — the denominator for `current_layer`. It comes from the invocation, so it does not shrink when a run is resumed part-way |
+| `current_layer` | the layer index being worked on now; also repeated as `layer.k`, and the two are always the same variable |
+| `layer_started_utc` | when the current layer began, ISO-8601 UTC. Every rate and ETA below is measured from **this** instant, not from run start, so on resume they describe the resumed layer only |
+| `masks_frac` | `masks_done / masks_target` for the current layer, `0.0` when the target is unknown. A **measured** fraction: both sides are counted masks |
+| `bin_bytes_written` | bytes actually written for the current layer so far — measured |
+| `bin_frac` | `bin_bytes_written / bin_bytes_target`. 🔴 **Not a measured fraction.** The denominator is a *projection*: total entries are extrapolated from `masks_frac` and multiplied by a calibrated ~8.1 bytes per entry. It is the field that closes the write-target gap, and it is an estimate on both counts — a layer whose entries-per-mask is unlike the calibration will show a `bin_frac` that does not reach 1.0, or passes it |
+| `count_rate_masks_per_s` | `masks_done` divided by seconds since `layer_started_utc` — a running average over the whole layer so far, not an instantaneous rate. It does not decay, so a stall shows as a slow decline rather than a cliff |
+| `write_rate_bytes_per_s` | the same running average for `bin_bytes_written` |
+| `eta_layer_seconds` | `(masks_target − masks_done) / count_rate_masks_per_s`, and `0.0` when the rate is zero or the target is already met. It projects the remaining **masks** of the current layer at the layer's average rate: it does not cover the write phase, later layers, or any slowdown yet to happen |
+| `count_seconds` | inside each `completed[]` entry: seconds that finished layer spent in its counting phase |
+| `write_seconds` | inside the same entry: seconds it spent writing. `count_seconds` and `write_seconds` are per-layer measured totals, and they are the only per-phase timings the sidecar keeps |
+| `last_resume_utc` | when this run last resumed, or empty if it never has. Read it beside `resumes.count`: a rate computed across a resume boundary is meaningless, and this is how a reader detects one |
+| `last_restart_chunk` | the out-of-core chunk index the last resume restarted from. With `last_resume_utc` it says both *when* the run restarted and *where* in the layer it picked up |
+
 ## Attribution
 
 The f1c5 orbit-quotient DP and the out-of-core layer format (#215/#217/#221)

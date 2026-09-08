@@ -30,6 +30,34 @@ build(){ local src="$1" tag="$2"; local d="$WORK/b_$tag"
 
 if [ -n "${DISK_PRECHECK_SOLVE:-}" ]; then
   SOLVE="$DISK_PRECHECK_SOLVE"; [ -x "$SOLVE" ] || fail "DISK_PRECHECK_SOLVE=$SOLVE is not executable"
+  # 🔴 EXECUTABLE IS NOT CURRENT. The else-arm compiles the committed solve.c seconds before
+  # use and is safe by construction; this arm is not. DISK_PRECHECK_SOLVE names a PATH and only its
+  # +x bit was checked. pre_push_gate.sh:467 hands in ./solve_167, which it built moments earlier
+  # -- but a hand run `DISK_PRECHECK_SOLVE=./solve bash scripts/disk_precheck_marker_gate.sh`
+  # points the gate at whatever artifact is lying in the tree, and leg 4 of this gate is the
+  # ANTI-OVERCLAIM leg: a stale binary there manufactures exactly the false report it exists to
+  # prevent.
+  #
+  # Added 2026-09-08 after scripts/resume_budget_infinity_gate.sh -- same shape -- reported FAIL,
+  # an UNDERCOUNT PRESENTED AS A COMPLETE ENUMERATION, against a ./solve two days older than
+  # 779fff4c, the commit that fixed exactly that. Stale -> FAIL, built from HEAD -> PASS.
+  #
+  # ERROR, NEVER FAIL: an unestablished subject is not a defect, and reporting it as one sends a
+  # reader hunting a bug that is not there. fail() already emits DISK_PRECHECK_MARKER=ERROR/exit 2.
+  #
+  # Called INSIDE an `if`: lib_binary_currency.sh's foreign-sha arm ends in a `grep -vxF` that
+  # exits 1 in the NORMAL case, so a bare call under this file's pipefail would abort mid-function
+  # with an empty signal.
+  #
+  # The M1/M2 mutants below are NOT checked and must not be: they are compiled here from a
+  # deliberately mutated solve.c, so a differing SOURCE_SHA is the point of them.
+  . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
+  # cwd is the repo root (cd at the top of this file), so bare `solve.c` is unambiguous.
+  if [ "${DISK_PRECHECK_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE" solve.c; then
+    echo "  [ERROR] $BINCUR_MSG" >&2
+    echo "          (set DISK_PRECHECK_ALLOW_STALE=1 to override, deliberately.)" >&2
+    echo "DISK_PRECHECK_MARKER=ERROR"; exit 2
+  fi
 else
   build solve.c base || fail "published build line failed on the committed solve.c"; SOLVE="$WORK/b_base/bin"
 fi

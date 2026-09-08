@@ -12283,6 +12283,750 @@ PREREGPY
 }
 
 # ---------------------------------------------------------------------------
+# GATE 89 — every JSON key solve.c or solve.py EMITS, and every whole-line KEY=value verdict
+# token solve.c or scripts/*.sh EMITS, must be named in documentation/ (`emitted-surface`).
+#
+# 🔴 WHY. Until this gate the code→doc PRESENCE family was exactly four checks and every one of them
+# looks at an INPUT surface: GATE 2 (`cli`) the flag names plus a Usage-grammar leg, GATE 2c
+# (`citation-lines`) the solve.c line citations, GATE 24 (`value-domains`) an explicitly DECLARED
+# value registry, and GATE 84 (`env-surface`) the `getenv("SOLVE_*")` names. Nothing looked at what
+# the program PRINTS. GATE 84's own header frames flags-vs-getenv as "the code's surface", which it
+# is not: a reader consumes OUTPUT, and an emitted name no document defines is one they can only
+# guess at.
+#
+# THE LIVE INSTANCE. The atlas `gates` JSON object shipped four keys that were REFERENCED in seven
+# places across documentation/ and DEFINED in none. It went unnoticed until a person read the JSON;
+# no gate in this ~19,000-line suite could see it, and the object has since been widened to seven
+# keys. `grep -ni 'json key|json field|emitted key|output key|json output'` over this file returns
+# zero. Prior art, checked before building: one UNBUILT proposal in the private adjudication record
+# for a much narrower SEMANTIC check on a single field (`solutions_bin_bytes`), which would not have
+# caught this; nothing in the backlog asks for the keys to be documented. Filed NEW, not KNOWN.
+#
+# MEASURED AT LANDING (2026-09-08, live working tree):
+#   LEG 1  362 distinct JSON keys emitted by solve.c; 160 appear in NO documentation/ file.
+#   LEG 2  120 distinct whole-line KEY=value verdict tokens (71 from scripts/*.sh, 49 from
+#          solve.c); 70 appear in NO documentation/ file. (The 6 tokens this gate itself emits are
+#          in that 120 and are documented, in documentation/DEVELOPMENT.md, by this same change.)
+# Those 230 are a CENSUS, not a short holding set, and they are carried in
+# documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv as adjudicated-open rows that print [OPEN] and do
+# NOT set the exit code. THE GATE IS THEREFORE HARD FOR *NEW* SURFACE ONLY — the GATE 18 / GATE 59
+# carve-out shape, and it must be read that way: a green verdict means no NEWLY undocumented key or
+# token, never that none exist. An allowance row that matches nothing FAILS, so a row cannot outlive
+# its fix and the table cannot be padded with names the code does not emit.
+#
+# WHAT THIS DOES NOT COVER — stated here so the green is never read as more than it is, which is the
+# mistake GATE 84's header invited by calling flags+getenv the complete code surface:
+#   * PRESENCE, NOT ACCURACY. The name must appear; the sentence beside it is not read. Same
+#     limitation and same reason as GATE 84 — accuracy is not mechanically decidable in general.
+#   * WEAK CLEARS ON SHORT AND COMMON NAMES. `count`, `status`, `min`, `name`, `k`, `t` clear on any
+#     word-anchored occurrence anywhere in the corpus, so their green means very little. The clear is
+#     STRONG only for distinctive names — which is the class the live defect belonged to
+#     (`per_layer_flow_eq_N`, `class_column_sums_eq_b0_N`). A [note] lists the names whose ONLY
+#     evidence is a bare prose occurrence with no identifier context (backtick span, fenced block or
+#     quoted string) anywhere in documentation/ — the weakest clears the corpus contains.
+#   * LEG 3 (solve.py) IS AN APPROXIMATION THAT DECLARES ITS OWN BLIND SPOTS. solve.py assembles
+#     its payloads as dicts built across many statements, so a literal scrape would be partial and
+#     SILENTLY so — worse than absent. LEG 3 is therefore an `ast` pass that resolves the expression
+#     flowing into every `json.dump`/`json.dumps` call: dict literals, `**` unpacking, `.update()`,
+#     `d["k"] = v`, dict comprehensions with a literal key, `dict(...)`, if-expressions, containers
+#     and comprehensions, name binding within the scope chain, the return expressions of a function
+#     defined in the same file, and ONE level of parameter back-resolution from that function's call
+#     sites. It does NOT model attribute or element types, does not element-type an iterable, and
+#     does not enter an imported callable. EVERY position it cannot resolve is RECORDED, counted in
+#     DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED and printed as a [note] with its site — the one thing
+#     the scope-out was protecting against was a pass that drops what it cannot see, so this pass
+#     must never do that. The count is RATCHETED against CEIL_PY_UNRESOLVED: if solve.py grows a
+#     payload this pass cannot see into, the gate FAILS rather than quietly measuring less.
+#   * THE REVERSE DIRECTION IS NOT CHECKED (documented-but-never-emitted), for GATE 84's measured
+#     reason: prose legitimately names historical and private-repo keys, so that direction reports
+#     noise, and a gate whose findings are usually noise gets ignored, then removed.
+#   * KEY-LIKE STRINGS THAT ARE NOT KEYS. LEG 1 matches the literal `\"name\":` inside a C string
+#     literal; a non-JSON C string of that shape would be counted. None is evident today, but the
+#     extractor does not PROVE their absence.
+#   * FRAGMENT-GENERATING ECHO LINES ARE DROPPED. LEG 2 rejects an emitted line whose value contains
+#     `;` or opens with a quote — those are the `echo 'WORK=$(mktemp -d); RAW=...'` shell fragments
+#     the d5_* harnesses write into generated scripts, not verdicts. 10 lines over 7 names are
+#     dropped today and the DROPPED count is printed, so the filter cannot drift silently; a real
+#     verdict token written only in that shape would still be invisible here.
+#   * ONLY `scripts/*.sh` AND solve.c EMIT. Tokens emitted by *.py helpers, by lean/, or by scripts
+#     in nested directories are not extracted.
+#
+# CLOSURE — the gate must not take its witness from itself. The corpus is documentation/ ONLY, and
+# every documentation/DOC_GATE_* file — this gate's own allowance table included — is EXCLUDED from
+# it. scripts/ is never read as documentation, so an emitting script's own header comment
+# ("# Emits SIDECAR_SHA_GATE=OK|FAIL. Gate with `grep -qx`") does NOT absolve its own token; that is
+# exactly the shape of the three self-absolving gates found on 2026-09-08 (one named its worked
+# example in its header, one double-counted its own filename, one was satisfied by the explanatory
+# comment beside the code it guarded). TWO LIVE PROOFS RUN ON EVERY INVOCATION:
+#   SELF-1 CANARY. A literal that occurs ONLY in this file must be ABSENT from the corpus. If anyone
+#          ever points the corpus at scripts/, or copies this gate's text into a document, the canary
+#          appears and the gate FAILS.
+#   SELF-2 FALSIFIABILITY (Codex finding N07). The matcher is run against an EMPTY corpus and must
+#          report every name undocumented, then against a corpus containing every name and must
+#          report none. A matcher that cannot come out FALSE has not been built.
+# FLOORS, set from the 2026-09-08 measurement: >= 300 JSON keys (measured 362), >= 95 verdict tokens
+# (120), >= 45 corpus files (54), >= 2,000,000 corpus bytes (4,957,627). reconcile_kc_hashes.sh once
+# reported success while matching 0 of 91 rows; measuring nothing is an ERROR here, never a PASS.
+# VERDICT TOKENS (whole line, matched with `grep -qx`): DOC_GATE_EMITTED_SURFACE=OK|FAIL|ERROR, plus
+# DOC_GATE_EMITTED_SURFACE_{JSON_KEYS,TOKENS,NEW,OPEN,DROPPED}=n and, for LEG 3,
+# DOC_GATE_EMITTED_SURFACE_PY_{JSON_KEYS,NEW,OPEN,UNRESOLVED}=n — each is -1 when nothing was
+# measured, the LEDGER_ROWS_WITHOUT_RULE=-1 convention. LEG 3 got its OWN counters rather than
+# widening JSON_KEYS/NEW/OPEN: those are pinned numbers other lanes read, and a count that silently
+# changes what it counts is the same class of defect as a key no document names. They are documented in
+# documentation/DEVELOPMENT.md, which is where LEG 2 then looks for them.
+# IN `all` since 2026-09-08. It was held out only while its allowance table was untracked — `all`
+# runs in a detached worktree of the PUSHED sha at pre-push and this gate ERRORs without that file
+# — and it was wired in once the table was committed; the call site in the `all` block carries the
+# reasoning. Also runnable by name:
+#   bash scripts/doc_gates.sh emitted-surface     # ~2.5 s
+# ---------------------------------------------------------------------------
+gate_emitted_surface() {
+  echo "== GATE 89: emitted JSON keys and verdict tokens are documented =="
+  local out
+  out=$(python3 - <<'ESPY'
+import ast, io, os, re, glob, sys
+
+ALLOW = "documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv"
+DOCROOT = "documentation"
+SRC = "solve.c"
+# A literal that exists ONLY in this file. If the corpus ever grows to include scripts/, or this
+# gate's prose is pasted into a document, SELF-1 sees it and the gate fails. Never document it.
+CANARY = "ROAE_GATE89_CANARY_NOT_DOCUMENTATION"
+FLOOR_KEYS, FLOOR_TOKENS, FLOOR_FILES, FLOOR_BYTES = 300, 95, 45, 2000000
+# LEG 3 floors and ratchet, set from the 2026-09-08 measurement: 87 keys over 9 json.dump call
+# sites, 63 positions the pass could not resolve. Measuring nothing is an ERROR, never a PASS.
+FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = 70, 8, 63
+
+def rec(*a):
+    print("\t".join(str(x) for x in a))
+
+# ---- extract LEG 1: JSON keys printed by solve.c ---------------------------------------------
+try:
+    src = io.open(SRC, encoding="utf-8", errors="surrogateescape").read()
+except OSError as e:
+    rec("ERROR", "cannot read %s (%s) — NOTHING was checked" % (SRC, e.strerror)); sys.exit(0)
+keys = {}
+for m in re.finditer(r'\\"([A-Za-z_][A-Za-z0-9_]*)\\"\s*:', src):
+    keys.setdefault(m.group(1), "%s:%d" % (SRC, src.count("\n", 0, m.start()) + 1))
+
+# ---- extract LEG 2: whole-line KEY=value verdict tokens --------------------------------------
+toks, dropped = {}, 0
+SH = re.compile(r"""^\s*(?:echo|printf)\s+(?:-e\s+|-n\s+)?(['"])([A-Z][A-Z0-9_]{2,})=(.*?)\1""")
+for f in sorted(glob.glob("scripts/*.sh")):
+    try:
+        lines = io.open(f, encoding="utf-8", errors="surrogateescape").read().split("\n")
+    except OSError as e:
+        rec("ERROR", "cannot read %s (%s) — refusing to report OK from a partly-read tree" % (f, e.strerror)); sys.exit(0)
+    for i, ln in enumerate(lines, 1):
+        m = SH.match(ln)
+        if not m:
+            continue
+        val = m.group(3)
+        # Fragment generation, not a verdict: `echo 'WORK=$(mktemp -d); RAW=...'` writes shell
+        # source into a generated script. A verdict line is the WHOLE line and nothing else.
+        if ";" in val or val[:1] in ('"', "'"):
+            dropped += 1
+            continue
+        toks.setdefault(m.group(2), "%s:%d" % (f, i))
+for pat in (r'\b(?:printf|puts)\s*\(\s*"([A-Z][A-Z0-9_]{2,})=',
+            r'\bfprintf\s*\(\s*stdout\s*,\s*"([A-Z][A-Z0-9_]{2,})='):
+    for m in re.finditer(pat, src):
+        toks.setdefault(m.group(1), "%s:%d" % (SRC, src.count("\n", 0, m.start()) + 1))
+
+# ---- LEG 3: JSON keys printed by solve.py, resolved with an `ast` pass -------------------------
+# solve.py assembles its payloads as dicts built across many statements, so a literal scrape would
+# be partial and SILENTLY so. py_extract() resolves the expression flowing into every json.dump /
+# json.dumps call, and every place it CANNOT resolve is RECORDED, never dropped. Dropping is the
+# exact defect that kept solve.py out of this gate, so SELF-3 below proves the pass still reports.
+PYSRC = "solve.py"
+PY_FUNCS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+PY_SCOPES = (ast.Module, ast.ClassDef) + PY_FUNCS
+# Calls whose result cannot be a dict, so a value flowing out of one hides no JSON keys. Containers,
+# comprehensions and dict() are resolved structurally; anything NOT listed here is REPORTED, not
+# assumed harmless.
+PY_SCALAR_CALLS = frozenset(
+    "len round abs sum min max repr hex oct ord chr id divmod format bool int float str bin pow "
+    "hash type all any sqrt ceil floor log log2 log10 exp isinstance gcd comb factorial range "
+    "enumerate zip time monotonic getpid fsum prod".split())
+PY_SCALAR_METHODS = frozenset(
+    "join split strip lower upper replace rstrip lstrip hexdigest encode decode format isoformat "
+    "total_seconds abspath basename dirname getsize exists isdir isfile startswith endswith find "
+    "rfind count index splitlines zfill rjust ljust title strftime bit_length to_bytes digest "
+    "getvalue".split())
+PY_PASSTHRU_CALLS = frozenset("list tuple sorted set frozenset reversed copy deepcopy".split())
+PY_ARITH = (ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow, ast.LShift, ast.RShift,
+            ast.BitAnd, ast.BitXor, ast.MatMult)
+PY_SCALARISH = (ast.Constant, ast.Compare, ast.BoolOp, ast.UnaryOp, ast.JoinedStr, ast.Lambda)
+PY_MAXDEPTH = 12
+# A nested VALUE can hide a further JSON object only in these forms.
+PY_VALUE_FORMS = (ast.Dict, ast.DictComp, ast.IfExp, ast.List, ast.Tuple, ast.Set, ast.ListComp,
+                  ast.SetComp, ast.GeneratorExp, ast.Starred, ast.Name, ast.BinOp, ast.Call,
+                  ast.Subscript, ast.Attribute)
+
+def py_extract(text, fname):
+    """Resolve the payload of every json.dump/json.dumps call in TEXT.
+
+    Returns (keys, unresolved, n_sites): keys maps a JSON key to "fname:line"; unresolved is a
+    sorted list of (kind, site, detail) for every position the pass could NOT resolve. Raises
+    SyntaxError, which the caller turns into an ERROR verdict — a source that will not parse must
+    never be reported as a source with no keys.
+    """
+    tree = ast.parse(text, filename=fname)
+    parent = {}
+    for n in ast.walk(tree):
+        for c in ast.iter_child_nodes(n):
+            parent[c] = n
+
+    def scope_of(node):
+        p = parent.get(node)
+        while p is not None and not isinstance(p, PY_SCOPES):
+            p = parent.get(p)
+        return p
+
+    def chain(node):
+        out, sc = [], scope_of(node)
+        while sc is not None:
+            out.append(sc); sc = scope_of(sc)
+        return out
+
+    binds, upd, sub, itr, fdefs, calls = {}, {}, {}, {}, {}, {}
+
+    def bind(sc, name, val):
+        binds.setdefault(id(sc), {}).setdefault(name, []).append(val)
+
+    def bind_target(sc, t, val):
+        if isinstance(t, ast.Name):
+            bind(sc, t.id, val)
+        elif isinstance(t, (ast.Tuple, ast.List)):
+            if isinstance(val, (ast.Tuple, ast.List)) and len(val.elts) == len(t.elts):
+                for tt, vv in zip(t.elts, val.elts):
+                    bind_target(sc, tt, vv)
+            else:
+                for tt in t.elts:
+                    for nn in ast.walk(tt):
+                        if isinstance(nn, ast.Name):
+                            itr.setdefault(id(sc), {})[nn.id] = ("tuple-unpack", val)
+        elif isinstance(t, ast.Starred):
+            bind_target(sc, t.value, val)
+
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            fdefs.setdefault(n.name, []).append(n)
+        if isinstance(n, ast.Call):
+            f = n.func
+            nm = f.id if isinstance(f, ast.Name) else getattr(f, "attr", None)
+            if nm:
+                calls.setdefault(nm, []).append(n)
+        sc = scope_of(n)
+        if sc is None:
+            continue
+        if isinstance(n, ast.Assign):
+            for t in n.targets:
+                bind_target(sc, t, n.value)
+                if isinstance(t, ast.Subscript) and isinstance(t.value, ast.Name):
+                    sub.setdefault(id(sc), {}).setdefault(t.value.id, []).append((t.slice, n.value))
+        elif isinstance(n, ast.AnnAssign) and n.value is not None:
+            bind_target(sc, n.target, n.value)
+        elif isinstance(n, (ast.AugAssign, ast.NamedExpr)):
+            bind_target(sc, n.target, n.value)
+        elif isinstance(n, (ast.For, ast.AsyncFor)):
+            for t in ast.walk(n.target):
+                if isinstance(t, ast.Name):
+                    itr.setdefault(id(sc), {})[t.id] = ("loop-target", n.iter)
+        elif isinstance(n, ast.comprehension):
+            for t in ast.walk(n.target):
+                if isinstance(t, ast.Name):
+                    itr.setdefault(id(sc), {})[t.id] = ("comprehension-target", n.iter)
+        elif isinstance(n, ast.withitem) and n.optional_vars is not None:
+            bind_target(sc, n.optional_vars, n.context_expr)
+        elif isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) \
+                and n.func.attr == "update" and isinstance(n.func.value, ast.Name):
+            tgt = upd.setdefault(id(sc), {}).setdefault(n.func.value.id, [])
+            tgt.extend(n.args)
+            if n.keywords:
+                tgt.append(n)
+
+    def lookup(name, node):
+        for sc in chain(node):
+            d = binds.get(id(sc), {})
+            if name in d:
+                return sc, d[name], None
+        for sc in chain(node):
+            d = itr.get(id(sc), {})
+            if name in d:
+                return sc, None, d[name]
+        return None, None, None
+
+    def param_of(name, node):
+        for sc in chain(node):
+            if isinstance(sc, PY_FUNCS):
+                a = sc.args
+                pos = [x.arg for x in list(getattr(a, "posonlyargs", [])) + list(a.args)]
+                if name in pos:
+                    return sc, pos.index(name)
+                if name in [x.arg for x in a.kwonlyargs] \
+                        or (a.vararg and a.vararg.arg == name) or (a.kwarg and a.kwarg.arg == name):
+                    return sc, None
+        return None, None
+
+    keys, unres, seen = {}, [], set()
+
+    def site(n):
+        return "%s:%d" % (fname, getattr(n, "lineno", 0))
+
+    def blind(node, kind, detail):
+        # NEVER make this a no-op. A pass that resolves what it can and drops what it cannot is
+        # partial and silent, which is worse than no pass at all. SELF-3 proves it still reports.
+        unres.append((kind, site(node), detail))
+
+    def add(name, node):
+        keys.setdefault(name, site(node))
+
+    def obj(node, depth=0):
+        """Resolve NODE as an expression that may carry JSON object keys."""
+        if node is None or id(node) in seen:
+            return
+        if depth > PY_MAXDEPTH:
+            blind(node, "depth-limit", "resolution exceeded %d levels" % PY_MAXDEPTH); return
+        seen.add(id(node))
+        d = depth + 1
+        if isinstance(node, ast.Dict):
+            for k, v in zip(node.keys, node.values):
+                if k is None:
+                    obj(v, d)                                   # **expr
+                elif isinstance(k, ast.Constant) and isinstance(k.value, str):
+                    add(k.value, k); val(v, d)
+                else:
+                    blind(k, "dynamic-key",
+                          "dict key is a %s, not a string literal" % type(k).__name__)
+                    val(v, d)
+            return
+        if isinstance(node, ast.DictComp):
+            if isinstance(node.key, ast.Constant) and isinstance(node.key.value, str):
+                add(node.key.value, node.key)
+            else:
+                blind(node.key, "dynamic-key",
+                      "dict-comprehension key is computed (%s)" % type(node.key).__name__)
+            val(node.value, d); return
+        if isinstance(node, ast.IfExp):
+            obj(node.body, d); obj(node.orelse, d); return
+        if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+            for e in node.elts:
+                obj(e, d)
+            return
+        if isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
+            obj(node.elt, d); return
+        if isinstance(node, ast.Starred):
+            obj(node.value, d); return
+        if isinstance(node, ast.BinOp):
+            if isinstance(node.op, (ast.BitOr, ast.Add)):
+                obj(node.left, d); obj(node.right, d)
+            elif not isinstance(node.op, PY_ARITH):
+                blind(node, "unhandled", "binary operator %s" % type(node.op).__name__)
+            return
+        if isinstance(node, PY_SCALARISH):
+            return
+        if isinstance(node, ast.Name):
+            sc, vals, it = lookup(node.id, node)
+            if vals:
+                for v in vals:
+                    obj(v, d)
+                for u in upd.get(id(sc), {}).get(node.id, []):
+                    if isinstance(u, ast.Call):
+                        for kw in u.keywords:
+                            if kw.arg:
+                                add(kw.arg, kw)
+                            else:
+                                obj(kw.value, d)
+                    else:
+                        obj(u, d)
+                for kn, vn in sub.get(id(sc), {}).get(node.id, []):
+                    s = kn.value if isinstance(kn, ast.Index) else kn
+                    if isinstance(s, ast.Constant) and isinstance(s.value, str):
+                        add(s.value, s); val(vn, d)
+                    else:
+                        blind(s, "dynamic-key",
+                              "`%s[...]` is assigned under a computed key" % node.id)
+                        val(vn, d)
+                return
+            if it:
+                blind(node, it[0], "`%s` is bound by a %s; this pass does not element-type the"
+                                   " iterable" % (node.id, it[0]))
+                return
+            fn, pos = param_of(node.id, node)
+            if fn is not None:
+                bound = False
+                for c in calls.get(fn.name, []):
+                    for kw in c.keywords:
+                        if kw.arg == node.id:
+                            obj(kw.value, d); bound = True
+                    if pos is not None and pos < len(c.args):
+                        obj(c.args[pos], d); bound = True
+                if not bound:
+                    blind(node, "parameter", "`%s` is a parameter of %s() and no call site binds it"
+                                             " to a resolvable expression" % (node.id, fn.name))
+                return
+            blind(node, "unbound-name", "`%s` has no binding this pass can find" % node.id)
+            return
+        if isinstance(node, ast.Call):
+            f = node.func
+            fn = f.id if isinstance(f, ast.Name) else getattr(f, "attr", None)
+            if fn == "dict":
+                for kw in node.keywords:
+                    if kw.arg:
+                        add(kw.arg, kw)
+                    else:
+                        obj(kw.value, d)
+                for a in node.args:
+                    obj(a, d)
+                return
+            if fn in PY_PASSTHRU_CALLS:
+                for a in node.args:
+                    obj(a, d)
+                return
+            if fn in PY_SCALAR_CALLS or fn in PY_SCALAR_METHODS:
+                return
+            if isinstance(f, ast.Name) and fn in fdefs:
+                for fd in fdefs[fn]:
+                    rets = [r.value for r in ast.walk(fd)
+                            if isinstance(r, ast.Return) and r.value is not None]
+                    if not rets:
+                        blind(node, "call", "`%s()` has no resolvable return expression" % fn)
+                    for r in rets:
+                        obj(r, d)
+                return
+            blind(node, "call",
+                  "value flows from `%s(...)`, which this pass does not enter" % (fn or "?"))
+            return
+        if isinstance(node, ast.Attribute):
+            blind(node, "attribute", "value read through attribute `.%s`; this pass does not model"
+                                     " attribute types" % node.attr); return
+        if isinstance(node, ast.Subscript):
+            blind(node, "subscript", "value read through a subscript; this pass does not model"
+                                     " element types"); return
+        blind(node, "unhandled", "expression of type %s is not resolvable" % type(node).__name__)
+
+    def val(node, depth):
+        if isinstance(node, PY_VALUE_FORMS):
+            obj(node, depth)
+
+    dumps = sorted((n for n in ast.walk(tree)
+                    if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                    and n.func.attr in ("dump", "dumps")
+                    and isinstance(n.func.value, ast.Name) and n.func.value.id == "json"),
+                   key=lambda n: getattr(n, "lineno", 0))
+    for c in dumps:
+        if not c.args:
+            blind(c, "no-arg", "json.%s() called with no positional payload" % c.func.attr)
+        else:
+            obj(c.args[0], 0)
+    unres.sort()
+    return keys, unres, len(dumps)
+
+try:
+    pytext = io.open(PYSRC, encoding="utf-8", errors="surrogateescape").read()
+except OSError as e:
+    rec("ERROR", "cannot read %s (%s) — NOTHING was checked" % (PYSRC, e.strerror)); sys.exit(0)
+try:
+    pykeys, pyunres, pysites = py_extract(pytext, PYSRC)
+except SyntaxError as e:
+    rec("ERROR", "%s does not parse (%s, line %s) — refusing to report OK from a source this gate"
+                 " could not read" % (PYSRC, e.msg, e.lineno)); sys.exit(0)
+
+# ---- corpus, with the closure exclusion --------------------------------------------------------
+texts, nfiles, excluded = [], 0, []
+if not os.path.isdir(DOCROOT):
+    rec("ERROR", "%s/ is missing — NOTHING was checked" % DOCROOT); sys.exit(0)
+for root, _d, files in os.walk(DOCROOT):
+    for fn in sorted(files):
+        if not fn.endswith((".md", ".tsv", ".txt")):
+            continue
+        p = os.path.join(root, fn)
+        # CLOSURE EXCLUSION: the gate suite's own bookkeeping tables, including this gate's
+        # allowance file, are not documentation of the code. Without this the allowance table
+        # (which names every open finding) would absolve every one of them.
+        if fn.startswith("DOC_GATE_"):
+            excluded.append(p); continue
+        try:
+            texts.append(io.open(p, encoding="utf-8", errors="surrogateescape").read())
+        except OSError as e:
+            rec("ERROR", "could not read %s (%s) — refusing to report OK from a corpus this gate"
+                         " could not fully read" % (p, e.strerror)); sys.exit(0)
+        nfiles += 1
+docs = "\n".join(texts)
+
+# 🔴 HYPHENATED NAMES WERE UNDOCUMENTABLE BY CONSTRUCTION (fixed 2026-09-08).
+# This vocabulary was [A-Za-z_][A-Za-z0-9_]* , which can never yield a token containing a
+# hyphen. So header.json seed-purpose keys "bank-calibration" and "timing-probe" -- both
+# named VERBATIM at documentation/SOLVE_PY_CLI.md:349 -- could not be cleared by any amount
+# of writing, and sat OPEN as "undocumented". An instrument that cannot register a real fix
+# sends the next reader to write prose that changes nothing. The second pattern adds the
+# hyphen- and slash-separated compounds; it only ADDS to the vocabulary, so it can move a
+# name from undocumented to documented and never the reverse.
+def words_of(text):
+    return (set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text))
+            | set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*(?:[-/][A-Za-z0-9_]+)+", text)))
+
+def undocumented(names, vocab):
+    return [n for n in sorted(names) if n not in vocab]
+
+vocab = words_of(docs)
+# identifier-context vocabulary: names that appear inside a fenced block, an inline-code span or a
+# double-quoted string. Used only for the WEAK-CLEAR note; it is not the pass/fail rule, because it
+# false-positives on names documented in flowing prose (measured: campaign_wall_seconds,
+# extensions_observed are documented at SOLVE_C_CLI.md and have no identifier context).
+ctx = "\n".join(re.findall(r"```.*?```", docs, re.S)
+                + re.findall(r"`[^`\n]*`", docs)
+                + re.findall(r'"[^"\n]*"', docs))
+ctxvocab = words_of(ctx)
+
+# ---- SELF-1: the canary must be absent from the corpus -----------------------------------------
+if CANARY in docs:
+    rec("SELF", "FAIL", "the canary literal appears in the documentation corpus — the corpus now"
+                        " contains this gate's own text, so its witness is its own closure")
+else:
+    rec("SELF", "OK", "canary absent from %d corpus file(s); %d DOC_GATE_* file(s) excluded"
+                      % (nfiles, len(excluded)))
+
+# ---- SELF-2: the matcher must be able to come out FALSE and TRUE -------------------------------
+probe = sorted(keys)[:5] + sorted(toks)[:5] + sorted(pykeys)[:5]
+if not probe:
+    rec("SELF", "FAIL", "no names extracted at all, so falsifiability could not be exercised")
+else:
+    neg = undocumented(probe, words_of(""))
+    pos = undocumented(probe, words_of(" ".join(probe)))
+    if len(neg) != len(probe):
+        rec("SELF", "FAIL", "against an EMPTY corpus the matcher cleared %d of %d probe name(s);"
+                            " a matcher that cannot be FALSE has not been built"
+                            % (len(probe) - len(neg), len(probe)))
+    elif pos:
+        rec("SELF", "FAIL", "against a corpus containing every probe name the matcher still"
+                            " reported %d undocumented; it cannot be TRUE either" % len(pos))
+    else:
+        rec("SELF", "OK", "matcher is FALSE on an empty corpus (%d/%d) and TRUE on a full one"
+                          % (len(neg), len(probe)))
+
+# ---- SELF-3: LEG 3 must still REPORT what it cannot resolve ------------------------------------
+# The mutation this catches: a pass that returns everything it CAN resolve and silently drops what
+# it cannot. That is exactly why solve.py was scoped out of this gate before LEG 3 existed, and the
+# ratchet below cannot catch it — a dropped blind spot makes the count FALL, not rise. So the pass
+# is run live against two snippets whose answers are known: one it must fully resolve, and one it
+# CANNOT resolve at all and must therefore report.
+SELF3_OK = ('import json\n'
+            'd = {"self3_alpha": 1}\n'
+            'd.update({"self3_beta": 2})\n'
+            'json.dump(d, None)\n')
+SELF3_BLIND = ('import json\n'
+               'json.dump(payload_from_somewhere_else(), None)\n')
+try:
+    _k3, _u3, _s3 = py_extract(SELF3_OK, "<self3-ok>")
+    _kb, _ub, _sb = py_extract(SELF3_BLIND, "<self3-blind>")
+except SyntaxError as e:
+    _k3, _u3, _s3, _kb, _ub, _sb = {}, [], 0, {}, [], 0
+    rec("SELF", "FAIL", "the LEG 3 self-proof snippets did not parse (%s)" % e.msg)
+if _s3 != 1 or _sb != 1:
+    rec("SELF", "FAIL", "LEG 3 found %d and %d json.dump call site(s) in one-call snippets; the"
+                        " call-site finder is broken" % (_s3, _sb))
+elif set(_k3) != set(("self3_alpha", "self3_beta")) or _u3:
+    rec("SELF", "FAIL", "LEG 3 resolved %r with %d unresolved from a snippet whose keys are exactly"
+                        " self3_alpha and self3_beta; the resolver is broken"
+                        % (sorted(_k3), len(_u3)))
+elif _kb or not _ub:
+    rec("SELF", "FAIL", "LEG 3 reported %d key(s) and %d unresolved position(s) for a payload built"
+                        " by a callable it cannot see. It is DROPPING what it cannot resolve, which"
+                        " is the partial-and-silent failure LEG 3 exists to prevent"
+                        % (len(_kb), len(_ub)))
+else:
+    rec("SELF", "OK", "LEG 3 resolves a known dict exactly (%d keys, 0 unresolved) and REPORTS a"
+                      " payload it cannot resolve (%d key(s), %d unresolved)"
+                      % (len(_k3), len(_kb), len(_ub)))
+
+# ---- floors: measuring nothing is an ERROR, never a PASS ---------------------------------------
+errs = []
+if len(keys) < FLOOR_KEYS:
+    errs.append("only %d JSON key(s) extracted from %s, floor is %d — the matcher stopped matching,"
+                " not the engine stopped printing" % (len(keys), SRC, FLOOR_KEYS))
+if len(toks) < FLOOR_TOKENS:
+    errs.append("only %d verdict token(s) extracted from scripts/*.sh + %s, floor is %d"
+                % (len(toks), SRC, FLOOR_TOKENS))
+if pysites < FLOOR_PY_SITES:
+    errs.append("only %d json.dump/json.dumps call site(s) found in %s, floor is %d — the AST pass"
+                " stopped finding the calls, not %s stopped writing JSON"
+                % (pysites, PYSRC, FLOOR_PY_SITES, PYSRC))
+if len(pykeys) < FLOOR_PY_KEYS:
+    errs.append("only %d JSON key(s) resolved from %s, floor is %d — an extractor that resolves"
+                " nothing must ERROR, never report a clean tree"
+                % (len(pykeys), PYSRC, FLOOR_PY_KEYS))
+if nfiles < FLOOR_FILES:
+    errs.append("only %d corpus file(s) under %s/, floor is %d" % (nfiles, DOCROOT, FLOOR_FILES))
+if len(docs) < FLOOR_BYTES:
+    errs.append("corpus is %d bytes, floor is %d — a corpus this small was not read" % (len(docs), FLOOR_BYTES))
+if errs:
+    for e in errs:
+        rec("ERROR", e)
+    sys.exit(0)
+
+# ---- allowance table ---------------------------------------------------------------------------
+allow = {}
+try:
+    araw = io.open(ALLOW, encoding="utf-8", errors="surrogateescape").read()
+except OSError as e:
+    rec("ERROR", "cannot read the allowance table %s (%s). Absent is NOT empty: without it every"
+                 " pre-existing finding would read as new, and with it silently empty every finding"
+                 " would read as a defect. Refusing to judge." % (ALLOW, e.strerror))
+    for surface, d in (("json-key", keys), ("verdict-token", toks), ("py-json-key", pykeys)):
+        for n in undocumented(d, vocab):
+            rec("HIT", surface, n, d[n], "emitted here and named in no documentation/ file")
+    sys.exit(0)
+for line in araw.split("\n"):
+    if not line.strip() or line.startswith("#"):
+        continue
+    c = line.split("\t")
+    if len(c) < 4:
+        rec("ERROR", "%s row has %d column(s), need 4 (surface, name, site, reason): %r"
+                     % (ALLOW, len(c), line[:70])); sys.exit(0)
+    if c[0] not in ("json-key", "verdict-token", "py-json-key"):
+        rec("ERROR", "%s row names surface %r, which is none of json-key, verdict-token,"
+                     " py-json-key" % (ALLOW, c[0])); sys.exit(0)
+    allow[(c[0], c[1])] = [c[3], 0]
+
+# ---- the two legs ------------------------------------------------------------------------------
+# LEG 3's findings are counted in their OWN pair of counters. DOC_GATE_EMITTED_SURFACE_NEW and
+# _OPEN keep exactly the scope and the meaning they had before LEG 3 existed — solve.c plus
+# scripts/*.sh — because they are pinned numbers other lanes read. LEG 3 reports through
+# _PY_NEW / _PY_OPEN, and the OK/FAIL verdict covers all three legs.
+nnew = nopen = pynew = pyopen = 0
+SURFACES = (("json-key", keys), ("verdict-token", toks), ("py-json-key", pykeys))
+for surface, d in SURFACES:
+    for n in undocumented(d, vocab):
+        k = (surface, n)
+        ispy = surface == "py-json-key"
+        if k in allow:
+            allow[k][1] += 1
+            if ispy:
+                pyopen += 1
+            else:
+                nopen += 1
+            rec("OPEN", surface, n, d[n], allow[k][0])
+        else:
+            if ispy:
+                pynew += 1
+            else:
+                nnew += 1
+            rec("HIT", surface, n, d[n], "emitted here and named in no documentation/ file")
+for (surface, n), (why, used) in sorted(allow.items()):
+    if used:
+        continue
+    src_d = {"json-key": keys, "verdict-token": toks, "py-json-key": pykeys}[surface]
+    emitted, where = n in src_d, src_d.get(n)
+    if not emitted:
+        rec("HIT", surface, n, ALLOW, "allowance row matches NOTHING — the code no longer emits"
+                                      " this name; delete the row")
+    else:
+        rec("HIT", surface, n, where, "allowance row is stale — %s is now DOCUMENTED; delete the row"
+                                      " so it cannot outlive its fix" % n)
+    if surface == "py-json-key":
+        pynew += 1
+    else:
+        nnew += 1
+
+# ---- weak clears (report only) -----------------------------------------------------------------
+weak = [(s, n) for s, d in SURFACES
+        for n in sorted(d) if n in vocab and n not in ctxvocab]
+for s, n in weak:
+    rec("WEAK", s, n, "-", "cleared only by a bare prose occurrence — no backtick span,"
+                           " fenced block or quoted string in documentation/ names it as an identifier")
+
+# Every position LEG 3 could not resolve is PRINTED with its site. A count that is not visible
+# is the silent partiality this leg exists to avoid.
+for kind, site, detail in pyunres:
+    rec("PYUNRES", "py-unresolved", kind, site, detail)
+if len(pyunres) > CEIL_PY_UNRESOLVED:
+    rec("CEIL", "py-unresolved", len(pyunres), PYSRC,
+        "the AST pass could not resolve %d expression(s), above the pinned ceiling of %d — %s grew"
+        " a payload this pass cannot see into, so the key census is measuring LESS than it did."
+        " Resolve it, or re-pin CEIL_PY_UNRESOLVED with the reason."
+        % (len(pyunres), CEIL_PY_UNRESOLVED, PYSRC))
+rec("POP", len(keys), len(toks), nfiles, len(docs), nopen, nnew, dropped, len(weak),
+    pysites, len(pykeys), pyopen, pynew, len(pyunres))
+ESPY
+) || { echo "  [FAIL] GATE 89 scanner crashed — NOTHING was checked."
+       echo "DOC_GATE_EMITTED_SURFACE_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_TOKENS=-1"
+       echo "DOC_GATE_EMITTED_SURFACE_NEW=-1"; echo "DOC_GATE_EMITTED_SURFACE_OPEN=-1"
+       echo "DOC_GATE_EMITTED_SURFACE_DROPPED=-1"
+       echo "DOC_GATE_EMITTED_SURFACE_PY_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_NEW=-1"
+       echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=-1"
+       echo "DOC_GATE_EMITTED_SURFACE=ERROR"; return 1; }
+
+  # The self-tests and the floors are judged BEFORE the findings, so a broken extractor can never
+  # be reported as a clean tree.
+  local _self_fail; _self_fail=$(printf '%s\n' "$out" | awk -F'\t' '$1=="SELF" && $2=="FAIL"{print $3}')
+  local _err;       _err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
+  if [ -n "$_err" ] || [ -n "$_self_fail" ]; then
+    printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{printf "  [FAIL] GATE 89 could not judge its subject: %s\n",$2}'
+    printf '%s\n' "$out" | awk -F'\t' '$1=="SELF" && $2=="FAIL"{printf "  [FAIL] GATE 89 closure/falsifiability proof: %s\n",$3}'
+    printf '%s\n' "$out" | awk -F'\t' '$1=="HIT"{printf "  [note] (%s) %s at %s — %s\n",$2,$3,$4,$5}'
+    echo "DOC_GATE_EMITTED_SURFACE_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_TOKENS=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_NEW=-1"; echo "DOC_GATE_EMITTED_SURFACE_OPEN=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_DROPPED=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_PY_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_NEW=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=-1"
+    echo "DOC_GATE_EMITTED_SURFACE=ERROR"
+    return 1
+  fi
+  printf '%s\n' "$out" | awk -F'\t' '$1=="SELF"{printf "  [ok]   self-proof: %s\n",$3}'
+
+  local pk pt pf pb po pn pd pw pys pyk pyo pyn pyu
+  IFS=$'\t' read -r pk pt pf pb po pn pd pw pys pyk pyo pyn pyu < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$12"\t"$13"\t"$14; exit}')
+  if ! printf '%s\n' "${pk-}" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] GATE 89 printed no population census — nothing was measured."
+    echo "DOC_GATE_EMITTED_SURFACE_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_TOKENS=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_NEW=-1"; echo "DOC_GATE_EMITTED_SURFACE_OPEN=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_DROPPED=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_PY_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_NEW=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=-1"
+    echo "DOC_GATE_EMITTED_SURFACE=ERROR"
+    return 1
+  fi
+
+  local rc=0 tag surface name site why
+  while IFS=$'\t' read -r tag surface name site why; do
+    case "$tag" in
+      HIT)  echo "  [FAIL] ($surface) $name — $why [$site]"; rc=1 ;;
+      OPEN) echo "  [OPEN] ($surface) $name at $site — adjudicated open: $why" ;;
+      WEAK) echo "  [note] weak clear ($surface) $name — $why" ;;
+      PYUNRES) echo "  [note] LEG 3 unresolved [$name] at $site — $why" ;;
+      CEIL) echo "  [FAIL] ($surface) $why"; rc=1 ;;
+    esac
+  done < <(printf '%s\n' "$out")
+
+  echo "  ---- GATE 89 census: $pk JSON key(s) + $pt verdict token(s) vs $pf documentation file(s)"
+  echo "       ($pb bytes); $po adjudicated-open, $pn new, $pd fragment line(s) dropped, $pw weak clear(s)."
+  echo "  ---- LEG 3 census: $pyk JSON key(s) resolved from $pys json.dump call site(s) in solve.py;"
+  echo "       $pyo adjudicated-open, $pyn new, $pyu position(s) the AST pass could NOT resolve"
+  echo "       (each printed above with its site; a non-zero count means the key census is a LOWER"
+  echo "       BOUND, never that solve.py emits nothing)."
+  echo "DOC_GATE_EMITTED_SURFACE_JSON_KEYS=$pk"
+  echo "DOC_GATE_EMITTED_SURFACE_TOKENS=$pt"
+  echo "DOC_GATE_EMITTED_SURFACE_NEW=$pn"
+  echo "DOC_GATE_EMITTED_SURFACE_OPEN=$po"
+  echo "DOC_GATE_EMITTED_SURFACE_DROPPED=$pd"
+  echo "DOC_GATE_EMITTED_SURFACE_PY_JSON_KEYS=$pyk"
+  echo "DOC_GATE_EMITTED_SURFACE_PY_NEW=$pyn"
+  echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=$pyo"
+  echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=$pyu"
+  if [ "$rc" -ne 0 ]; then
+    echo "DOC_GATE_EMITTED_SURFACE=FAIL"
+    return 1
+  fi
+  echo "  [ok] GATE 89: no NEWLY undocumented emitted name. The $po + $pyo [OPEN] row(s) above are"
+  echo "       real defects that do NOT set this exit code — green means no NEW one, not none."
+  echo "DOC_GATE_EMITTED_SURFACE=OK"
+  return 0
+}
+
+
+# ---------------------------------------------------------------------------
 # GATE 85 — a completion STATUS may not read as a completeness CLAIM
 # (`completion-semantics`).
 #
@@ -18841,6 +19585,7 @@ case "$MODE" in
   quotient-frame-isolation) gate_quotient_frame_isolation || RC=1 ;;
   dispatch-alignment) gate_dispatch_alignment || RC=1 ;;
   env-surface) gate_env_surface || RC=1 ;;
+  emitted-surface) gate_emitted_surface || RC=1 ;;
   completion-semantics) gate_completion_semantics || RC=1 ;;
   prereg-escrow) gate_prereg_escrow || RC=1 ;;
   viz-shape) gate_viz_shape || RC=1 ;;
@@ -18928,8 +19673,16 @@ case "$MODE" in
            echo; gate_summary_scope || RC=1
            echo; gate_boundary_scope || RC=1
            echo; gate_merge_semantics || RC=1
-           echo; gate_rec_scope || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|all}"; exit 2 ;;
+           echo; gate_rec_scope || RC=1
+           # 🔴 GATE 89, added to `all` 2026-09-08. It was deliberately held OUT while its
+           # allowance table (documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv) was untracked:
+           # `all` runs in a detached worktree of the PUSHED sha, and the gate ERRORs without
+           # that file, so wiring it early would have broken every push. The table is committed
+           # with this change, so the exclusion's stated reason has expired -- and an exclusion
+           # that outlives its reason is the defect this repo spent 2026-09-08 removing.
+           # Cost measured: ~2.5 s against a suite that already runs ~35 min.
+           echo; gate_emitted_surface || RC=1 ;;
+  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|emitted-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|all}"; exit 2 ;;
 esac
 
 echo

@@ -39,6 +39,23 @@ mkdir -p "$WORK"
 
 [ -x "$BIN" ] || { echo "ERROR: $BIN not found/executable (build: gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz)" >&2; exit 2; }
 
+# 🔴 THE BINARY MUST CORRESPOND TO solve.c. `SOLVE_BIN:-./solve` names a PATH, and being
+# executable is not being current. Added 2026-09-08 after scripts/resume_budget_infinity_gate.sh
+# — same `${VAR:-./solve}` shape — reported FAIL against a ./solve two days older than the commit
+# that fixed the very defect it was reporting; the same tree gave FAIL on the stale binary and
+# PASS on one built from HEAD. This driver compares --kc-count against an independently computed
+# product and calls a mismatch a defect, so a stale binary here manufactures exactly that kind of
+# false positive. ERROR (exit 2, the file's existing not-runnable code), never FAIL: an
+# unestablished subject is not a defect, and reporting it as one sends a reader hunting a bug that
+# is not there.
+. "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
+if [ "${KC_MIDN_ALLOW_STALE-}" != "1" ] && \
+   ! solve_binary_currency "$BIN" "$(cd "$(dirname "$0")/.." && pwd)/solve.c"; then
+  echo "ERROR: $BINCUR_MSG" >&2
+  echo "       (set KC_MIDN_ALLOW_STALE=1 to override, deliberately.)" >&2
+  exit 2
+fi
+
 echo "== kc mid-n validation: ns=[$NS] work=$WORK bin=$BIN =="
 TAB="$WORK/results.md"
 {

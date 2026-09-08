@@ -423,8 +423,12 @@ for sha in $SHAS; do
           SHARC=1
         elif printf '%s\n' "$_gpc" | grep -qx 'PUBLISHED_CONSISTENCY=PASS-AT-PIN'; then
           echo "pre-push: published consistency at pin (no regression; known-open items stand)"
+          # Echo WHICH legs stand. "at pin" alone reads as "fine"; the gate knows the list, so the
+          # push log should carry it rather than making the lane re-run the gate to find out.
+          printf '%s\n' "$_gpc" | grep -E '^  OUTSTANDING:' | sed 's/^/         /'
         elif printf '%s\n' "$_gpc" | grep -qx 'PUBLISHED_CONSISTENCY=PASS'; then
-          echo "pre-push: published consistency CLEAN -- tighten the pin to zero in this commit"
+          echo "pre-push: published consistency CLEAN -- all 19 legs measured zero;"
+          echo "         tighten any non-zero pin to 0 in this commit (repaired-defect budget is headroom)"
         else
           echo "pre-push: COULD NOT RUN the published-consistency gate (no verdict token emitted)."
           echo "         A gate that cannot report is not a gate that passed."

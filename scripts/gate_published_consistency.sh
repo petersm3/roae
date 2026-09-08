@@ -61,25 +61,33 @@ fi
 # the repository, and it expires silently the moment the artifact ships. Registry:
 # documentation/DISCLOSURE_CHECKS.tsv, one row per disclosure with the test that proves it.
 echo "== G3: published disclosures that are now stale =="
+# 🔴 G3_N WAS READ AND NEVER ASSIGNED (found 2026-09-08). This leg printed [FAIL] lines while
+# its ratchet compared a default 0 against a pinned 0 and could not fail, and `G3_N=7 bash …` from
+# the environment reached the ratchet unchallenged. That is the exact mirror of the "G5–G16 assigned
+# and never read" defect fixed the day before, whose comment sits at the ratchet below. Like G1/G2/G4,
+# this leg now COUNTS ITS OWN FINDINGS: one per stale row, one per fired artifact, and one for each
+# structural failure (registry unreadable, registry empty) so a leg that measured nothing is never
+# indistinguishable from a leg that measured clean.
+G3_N=0
 REG=documentation/DISCLOSURE_CHECKS.tsv
 if [ ! -r "$REG" ]; then
-  echo "   [FAIL] $REG missing — the gate cannot run, which is a FAILURE, not a pass"; fail=1
+  echo "   [FAIL] $REG missing — the gate cannot run, which is a FAILURE, not a pass"; fail=1; G3_N=$((G3_N+1))
 else
   n=0
   while IFS=$'\t' read -r f claim test_cmd; do
     case "$f" in ''|'#'*) continue;; esac
     n=$((n+1))
     if ! grep -qF -- "$claim" "$f" 2>/dev/null; then
-      echo "   [FAIL] $f no longer contains \"$claim\" — registry row is stale; remove it"; fail=1; continue
+      echo "   [FAIL] $f no longer contains \"$claim\" — registry row is stale; remove it"; fail=1; G3_N=$((G3_N+1)); continue
     fi
     if ( eval "$test_cmd" ) >/dev/null 2>&1; then
       echo "   [FAIL] $f says \"$claim\" but the artifact EXISTS — the disclosure understates what"
-      echo "          this repository can prove. Test that fired: $test_cmd"; fail=1
+      echo "          this repository can prove. Test that fired: $test_cmd"; fail=1; G3_N=$((G3_N+1))
     else
       echo "   [ok]   $f: \"$claim\" still true"
     fi
   done < "$REG"
-  [ "$n" -gt 0 ] || { echo "   [FAIL] registry has zero rows — a vacuous gate is not a passing one"; fail=1; }
+  [ "$n" -gt 0 ] || { echo "   [FAIL] registry has zero rows — a vacuous gate is not a passing one"; fail=1; G3_N=$((G3_N+1)); }
 fi
 
 echo
@@ -172,8 +180,6 @@ fi
 # so the figure exceeded its own ceiling by 194x, and even the e*28! tree bound by 71x. The numbers
 # were right for the ORIENTATION-EXPLICIT space the estimator walks; the word named a smaller one.
 # A count cannot exceed the size of the set it counts, which makes this checkable without judgement.
-G6=0
-_SSS=${G6_FILE:-documentation/SEARCH_SPACE_SIZE.md}
 # 🔴 A TARGETED INVARIANT, NOT A HEURISTIC -- and that is a deliberate retreat. Three broader forms
 # were tried and each failed honestly: superscript character RANGES match nothing in ERE (multibyte);
 # sentence-splitting on '.' breaks on the decimal in "5.9x10^31"; and flagging any canonical magnitude
@@ -507,7 +513,10 @@ fi
 # published-consistency defect can no longer be introduced silently. A count that FALLS is announced
 # so the pin tightens in the same commit as the fix. The standing 15 stay visible in the pin file,
 # with a written reason each, instead of being waved through by an alarm everyone learned to ignore.
-G3_N="${G3_N:-0}"
+# 🔴 `G3_N="${G3_N:-0}"` STOOD HERE and is deliberately gone. It was the only thing making the
+# read-but-never-assigned G3 count LOOK wired: it manufactured a 0 for a leg that never set one, and
+# it let the environment set the count instead. Do not re-add a default for any G<n> here or in the
+# ratchet -- an unassigned count must abort under `set -u`, not read as clean. See the ratchet below.
 PIN="$(dirname "$0")/gate_published_consistency.pin"
 if [ ! -r "$PIN" ]; then
   echo "  [FAIL] no pin file at $PIN — an UNPINNED ratchet certifies nothing"
@@ -601,16 +610,24 @@ for _g in 1 2 3 4 $GLEGS; do
 done
 echo
 echo "== RATCHET vs $PIN =="
-ratchet=0; tighten=0
+ratchet=0; tighten=0; outstanding=0; open_legs=""
 # G1..G4 carry their counts in G<n>_N; G5 onward carry them in G<n>. Built from GLEGS so the
 # ratchet cannot fall behind the legs that exist.
-_PAIRS="G1:${G1_N:-0}:$P_G1 G2:${G2_N:-0}:$P_G2 G3:${G3_N:-0}:$P_G3 G4:${G4_N:-0}:$P_G4"
+# 🔴 NO `${…:-0}` DEFAULTS HERE, DELIBERATELY, AND THIS IS THE STRUCTURAL HALF OF THE G3 FIX.
+# A default is what made an unwired count invisible: G3_N was never assigned, the default supplied 0,
+# and the ratchet compared 0 against a pinned 0 forever. Bare `$G<n>` under `set -u` turns the next
+# such omission into an unbound-variable abort with NO verdict token -- which pre_push_gate.sh reads
+# as "could not run" and BLOCKS. A leg that forgets to set its count can no longer read as clean.
+_PAIRS="G1:$G1_N:$P_G1 G2:$G2_N:$P_G2 G3:$G3_N:$P_G3 G4:$G4_N:$P_G4"
 for _g in $GLEGS; do
-  eval "_now=\${G${_g}:-0}; _pin=\$P_G${_g}"
+  eval "_now=\$G${_g}; _pin=\$P_G${_g}"
   _PAIRS="$_PAIRS G${_g}:${_now}:${_pin}"
 done
 for pair in $_PAIRS; do
   g=${pair%%:*}; rest=${pair#*:}; now=${rest%%:*}; pin=${rest##*:}
+  if [ "$now" -gt 0 ]; then
+    outstanding=$((outstanding+1)); open_legs="${open_legs}${open_legs:+ }${g}:${now}"
+  fi
   if [ "$now" -gt "$pin" ]; then
     echo "  [FAIL] $g rose to $now from a pinned $pin — a NEW published-consistency defect"; ratchet=1
   elif [ "$now" -lt "$pin" ]; then
@@ -620,17 +637,48 @@ for pair in $_PAIRS; do
   fi
 done
 [ "$tighten" -eq 1 ] && echo "  A count fell. Leaving the pin loose lets the defect come back unseen."
+
+# ---- WIRING SELF-CHECK: the defect class this file has now produced twice ------------------------
+# 🔴 `fail` is raised by a G1–G4 leg that PRINTS a finding; `outstanding` counts the legs whose
+# COUNT is non-zero. If a leg printed a finding and every count is nevertheless zero, that leg's
+# count is not reaching the ratchet -- which is precisely what G5–G16 did (fixed 2026-09-07) and what
+# G3 did (fixed 2026-09-08), each found by an audit rather than by the gate. The gate can now say it
+# about itself. It fires as FAIL because a gate that cannot count its own findings certifies nothing.
+if [ "$fail" -ne 0 ] && [ "$outstanding" -eq 0 ]; then
+  echo "  [FAIL] a leg printed a finding while every leg count is zero — that count is NOT WIRED to"
+  echo "         the ratchet. This is the 'read and never assigned' defect, self-detected."
+  ratchet=1
+fi
+
+echo
+# 🔴 THE VERDICT NAMES WHICH LEGS ARE OPEN, so the token can never be read as a stronger claim
+# than it makes. Written with colons, not `=`, so these are not mistaken for emitted verdict tokens.
+if [ "$outstanding" -gt 0 ]; then
+  echo "  OUTSTANDING: $outstanding of 19 leg(s) non-zero — $open_legs"
+  echo "               PASS is not available while any of these stands; see $PIN for why each does."
+else
+  echo "  OUTSTANDING: none — all 19 legs measured zero."
+fi
 echo
 # 🔴 THREE VALUES, BECAUSE TWO WOULD LIE EITHER WAY.
-#   FAIL        a count ROSE — a new defect. This is the one that must block.
-#   PASS-AT-PIN no regression, but N known-open defects stand. Saying PASS here would let 15 real
-#               defects read as clean; saying FAIL would make every push noisy and the gate ignored.
-#               Neither is honest, so the token says exactly what is true.
-#   PASS        nothing outstanding at all.
+#   FAIL        a count ROSE above its pin — a new defect — or the pin is missing/malformed, or a
+#               leg's count is not wired to the ratchet. This is the one that must block.
+#   PASS-AT-PIN no count rose, but AT LEAST ONE of the nineteen legs is non-zero. The OUTSTANDING
+#               line above names them. Saying PASS here would let known-open defects read as clean;
+#               saying FAIL would make every push noisy and the gate would be bypassed in a week.
+#   PASS        every one of the nineteen legs measured zero. Nothing outstanding at all.
+#
+# 🔴 THE BOUNDARY IS "ANY LEG NON-ZERO", NOT "A G1–G4 LEG COMPLAINED" (changed 2026-09-08).
+# It used to be the `fail` flag, which only G1–G4 and the disclosure-registry checks ever set, so a
+# G5–G19 count sitting at a NON-ZERO PIN did not stop PASS from printing. Measured before the change:
+# a tree with G1–G4 clean and G10 at its pinned 1 emitted PASS while fifteen legs printed [FAIL],
+# every one of them saying "this leg measured NOTHING". PASS now means what this comment always said
+# it meant. This costs nothing at the push gate: pre_push_gate.sh accepts PASS and PASS-AT-PIN
+# alike, so the only verdict that can newly appear where PASS stood is the strictly more honest one.
 # grep -qx the one you mean. Do not test for "PASS" as a substring: it matches PASS-AT-PIN.
 if [ "$ratchet" -ne 0 ]; then
   echo "PUBLISHED_CONSISTENCY=FAIL"
-elif [ "$fail" -ne 0 ]; then
+elif [ "$outstanding" -ne 0 ]; then
   echo "PUBLISHED_CONSISTENCY=PASS-AT-PIN"
 else
   echo "PUBLISHED_CONSISTENCY=PASS"

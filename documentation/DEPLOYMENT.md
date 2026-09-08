@@ -982,7 +982,8 @@ Adapt names, regions, and SKUs to your environment. All commands assume
    ```bash
    scp -i ~/.ssh/f64_key ./solve.c solver@$IP:~/solve.c
    GH=$(git rev-parse --short HEAD)   # provenance stamp — computed HERE, the VM holds solve.c alone, no clone
-   ssh ... solver@$IP "gcc -O3 -pthread -fopenmp -DGIT_HASH='\"$GH\"' -o solve solve.c -lm -lz"
+   GB=$(git rev-parse --abbrev-ref HEAD)   # the BRANCH half; without it GIT_BRANCH falls back to "unknown"
+   ssh ... solver@$IP "gcc -O3 -pthread -fopenmp -DGIT_HASH='\"$GH\"' -DGIT_BRANCH='\"$GB\"' -o solve solve.c -lm -lz"
    # Without -DGIT_HASH the run's solutions.meta.json records "git_hash": "unknown" (sha-neutral either way).
    # Use the §Solver-launch SSH detachment "Required form" — a bare
    # `nohup ... &` over ssh does NOT reliably release the channel and hangs

@@ -29,6 +29,8 @@
 #    class exceeding its baselined count)
 #  - verify.c missing, failing to compile, or emitting ANY warning
 #  - --selftest does not produce sha 403f7202…
+#  - scripts/atlas_path_portability_gate.sh does not report ATLAS_PATH_PORTABLE=PASS
+#    (wired 2026-09-08; it REUSES $TMP_BIN, so it costs no second compile — see below)
 #
 # WARNING SEMANTICS (2026-08-06). Until today this gate printed "compiles
 # cleanly under -Wall -Wextra" while inspecting ONLY gcc's exit code — gcc
@@ -185,7 +187,35 @@ if ! "$TMP_BIN" --selftest > "$SELFTEST_OUT" 2>&1; then
     exit 1
 fi
 ACTUAL=$(awk '/Actual sha256:/ {print $4}' "$SELFTEST_OUT" | head -1)
+
+# ---- atlas path-portability (Q-92), wired 2026-09-08 -------------------------
+# MEASURED INERT before this: `grep -rn atlas_path_portability` over the whole public repo returned
+# the gate file and nothing else. The property it certifies — that two CORRECT --kc-scan runs in
+# DIFFERENT directories produce a byte-identical atlas — is a publication property, not a runtime
+# one: it is what makes a published atlas comparable across hosts by plain sha256sum, and
+# tr12_repro.sh's normaliser rewrites the offending fields before diffing, so the battery cannot
+# see it. A publication property belongs on the PUSH path, which is here.
+#
+# 🔴 IT REUSES $TMP_BIN. Run standalone the gate builds solve.c itself (its line 21) and cost 17.4 s,
+# almost all of it that compile; handed the binary this gate already built it costs 0.98 s (measured
+# 2026-09-08 on the orchestrator). Paying gcc twice on a two-core box is not acceptable, and
+# SOLVE=${SOLVE:-} at the top of that gate is the supported hook — do not remove this assignment.
+# Placed AFTER --selftest deliberately: no point spending a second on an atlas from a binary whose
+# own selftest sha is wrong.
+#
+# Blocking, like every other check in this file. Both directions were measured before wiring:
+# handed a binary built from the current solve.c it reports ATLAS_PATH_PORTABLE=PASS, and handed a
+# binary predating c70582e2 (the Q-92 fix) it reports FAIL at rc=1 and quotes the differing fdir.
+# Absolute path, not ./scripts/..., because this script does NOT cd to $REPO_ROOT.
+if ! SOLVE="$TMP_BIN" bash "$REPO_ROOT/scripts/atlas_path_portability_gate.sh"; then
+    echo "FAIL: the atlas is no longer path-portable — two correct --kc-scan runs in different"
+    echo "      directories produced different bytes, so a published atlas cannot be compared"
+    echo "      across hosts by sha256sum. See scripts/atlas_path_portability_gate.sh (Q-92)."
+    exit 1
+fi
+
 echo "PASS: solve.c compiles under -Wall -Wextra with $WARN_TOTAL warning(s), all inside"
 echo "      the inventoried baseline (12 across 7 classes, 2026-08-06 — no new warnings);"
-echo "      verify.c compiles warning-free; selftest produces (binary-internal) canonical sha $ACTUAL"
+echo "      verify.c compiles warning-free; selftest produces (binary-internal) canonical sha $ACTUAL;"
+echo "      the --kc-scan atlas is byte-identical across directories (path-portable)"
 exit 0

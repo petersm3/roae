@@ -189,6 +189,35 @@ count_legs(){ printf '%s\n' "$1" | grep -c -E '^L[0-9A-Z]+='; }   # grep -c read
 if [ -n "${MANIFEST_ZERO_ENTRY_SOLVE:-}" ]; then
   SOLVE="$MANIFEST_ZERO_ENTRY_SOLVE"
   [ -x "$SOLVE" ] || fail "MANIFEST_ZERO_ENTRY_SOLVE=$SOLVE is not executable"
+  # 🔴 EXECUTABLE IS NOT CURRENT. The else-arm goes through build_verified(), which compiles
+  # the committed solve.c and then PROVES the image carries that source's sha -- safe by
+  # construction. This arm bypasses build_verified() entirely: MANIFEST_ZERO_ENTRY_SOLVE names a
+  # PATH and only its +x bit was checked, so a handed-in binary got strictly WEAKER treatment than
+  # a built one. That asymmetry is the defect. The check below is the same signal build_verified()
+  # already uses (grep the image for `sha256sum solve.c`, no pipeline, so grep's own status is the
+  # answer), applied to the one input that was skipping it.
+  #
+  # Added 2026-09-08 after scripts/resume_budget_infinity_gate.sh -- same `${VAR:-}`-names-a-path
+  # shape -- reported FAIL, an UNDERCOUNT PRESENTED AS A COMPLETE ENUMERATION, against a ./solve
+  # two days older than 779fff4c, the commit that fixed exactly that. Stale -> FAIL, HEAD -> PASS.
+  #
+  # ERROR, NEVER FAIL: an unestablished subject is not a defect, and this file's FAIL means "the
+  # committed solve.c does not hold the zero-entry invariant". fail() emits
+  # MANIFEST_ZERO_ENTRY=ERROR / exit 2, which is what a reader should see instead.
+  #
+  # Called INSIDE an `if`: lib_binary_currency.sh's foreign-sha arm ends in a `grep -vxF` that
+  # exits 1 in the NORMAL case, so a bare call under this file's pipefail would abort mid-function
+  # with an empty signal.
+  #
+  # The mutants below still go through build_verified() against their OWN mutated source, which is
+  # correct and must not be changed: a mutant's sha is supposed to differ from solve.c's.
+  . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
+  # cwd is the repo root (cd at the top of this file), so bare `solve.c` is unambiguous.
+  if [ "${MANIFEST_ZERO_ENTRY_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE" solve.c; then
+    echo "  [ERROR] $BINCUR_MSG" >&2
+    echo "          (set MANIFEST_ZERO_ENTRY_ALLOW_STALE=1 to override, deliberately.)" >&2
+    echo "MANIFEST_ZERO_ENTRY=ERROR"; exit 2
+  fi
   echo "  [gate] baseline binary handed in: $SOLVE"
 else
   build_verified solve.c base || fail "published build line failed on the committed solve.c"

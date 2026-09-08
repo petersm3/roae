@@ -5,3 +5,5 @@ pair_null_gender_le2_exact	47/445740
 decimal	1.054426e-04
 kw_rc4_violations	2
 event_is_kw_level	YES
+threshold_label	KW-anchored: the event level 2 is the rc4_violations value of KW itself (tail at the observed value)
+correction_family	91 observables (TR-8 F-32; METHODS.md Global observable ledger); Bonferroni bar 0.05/91 = 5.5e-4, cleared by ~5x

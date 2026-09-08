@@ -22,8 +22,19 @@
 #   SIZE_GATE=REFUSED   an unapproved large file is staged for first-time tracking. rc 1.
 #   SIZE_GATE=ERROR     could not measure. rc 2 -- NEVER reports OK from a list it could not read,
 #                       because "looked and found nothing" and "could not look" are different facts.
+# Companion tokens, also whole-line, emitted on EVERY terminal path:
+#   SIZE_GATE_UNAPPROVED=n   unapproved first-time files at or over the limit; -1 = not measured
+#   SIZE_GATE_LIMIT=n        the threshold in bytes that was actually applied; -1 = not reached
+#   SIZE_GATE_ERROR=<cause>  ERROR only: not-in-git-repo | staged-list-failed | allowlist-unparseable
+#
+# 🔴 2026-09-08: every one of the three values carried trailing prose on the verdict line
+# ("SIZE_GATE=OK no new files staged"), so the `grep -qx` this header promises could not match any
+# of them. The prose moved to its own line and the numbers to the companion tokens above.
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "SIZE_GATE=ERROR not in a git repo"; exit 2; }
+cd "$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  echo "  [ERROR] not inside a git repository — there is no index to measure"
+  echo "SIZE_GATE_UNAPPROVED=-1"; echo "SIZE_GATE_LIMIT=-1"
+  echo "SIZE_GATE_ERROR=not-in-git-repo"; echo "SIZE_GATE=ERROR"; exit 2; }
 
 # 1.25 MiB. RAISED from 1 MiB 2026-09-04 on the operator's instruction ("if it's easier, just
 # increase gate to 1.25 mb"), in step with roae-private's postwindow_commit.sh so the two halves of
@@ -55,9 +66,13 @@ _in_a_parent() {   # $1=path -> 0 if the path already exists on either merge par
 }
 
 if ! staged=$(git diff --cached --name-only --diff-filter=A 2>/dev/null); then
-  echo "SIZE_GATE=ERROR could not list staged additions"; exit 2
+  echo "  [ERROR] could not list staged additions (git diff --cached --diff-filter=A failed)"
+  echo "SIZE_GATE_UNAPPROVED=-1"; echo "SIZE_GATE_LIMIT=$LIMIT"
+  echo "SIZE_GATE_ERROR=staged-list-failed"; echo "SIZE_GATE=ERROR"; exit 2
 fi
-[ -n "$staged" ] || { echo "SIZE_GATE=OK no new files staged"; exit 0; }
+[ -n "$staged" ] || {
+  echo "  [ok]   no new files staged"
+  echo "SIZE_GATE_UNAPPROVED=0"; echo "SIZE_GATE_LIMIT=$LIMIT"; echo "SIZE_GATE=OK"; exit 0; }
 
 # 🔴 AN UNREADABLE ALLOWLIST IS NOT AN EMPTY ONE. If the file is missing every approved path would
 # read as unapproved and the gate would refuse a legitimate commit; if it were silently treated as
@@ -65,7 +80,9 @@ fi
 approved=""
 if [ -e "$ALLOW" ]; then
   if ! approved=$(awk -F'\t' '!/^#/ && NF>=1 && $1!="" {print $1}' "$ALLOW" 2>/dev/null); then
-    echo "SIZE_GATE=ERROR $ALLOW exists but could not be parsed"; exit 2
+    echo "  [ERROR] $ALLOW exists but could not be parsed — an unreadable allowlist is not an empty one"
+    echo "SIZE_GATE_UNAPPROVED=-1"; echo "SIZE_GATE_LIMIT=$LIMIT"
+    echo "SIZE_GATE_ERROR=allowlist-unparseable"; echo "SIZE_GATE=ERROR"; exit 2
   fi
 fi
 
@@ -95,11 +112,13 @@ while IFS= read -r f; do
 done <<< "$staged"
 
 if [ "$bad" -gt 0 ]; then
-  echo "SIZE_GATE=REFUSED $bad unapproved file(s) >= $LIMIT B staged for first-time tracking"
+  echo "  [REFUSED] $bad unapproved file(s) >= $LIMIT B staged for first-time tracking"
   echo "   The standing rule is that a file this size needs an explicit operator OK before \`git add\`."
   echo "   To clear: get the OK and add a row to $ALLOW quoting it, or gzip -9 it, or gitignore it."
   echo "   Do NOT widen \$LIMIT to get past this — the threshold is the operator's, not the gate's."
+  echo "SIZE_GATE_UNAPPROVED=$bad"; echo "SIZE_GATE_LIMIT=$LIMIT"; echo "SIZE_GATE=REFUSED"
   exit 1
 fi
-echo "SIZE_GATE=OK no unapproved first-time file >= $LIMIT B"
+echo "  [ok]   no unapproved first-time file >= $LIMIT B"
+echo "SIZE_GATE_UNAPPROVED=0"; echo "SIZE_GATE_LIMIT=$LIMIT"; echo "SIZE_GATE=OK"
 exit 0

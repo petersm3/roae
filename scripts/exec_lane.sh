@@ -69,7 +69,11 @@
 #      outside the leg (their figures resolve through the bundle's `Reproduce:` directive,
 #      not a per-figure window) and are COUNTED, not silently dropped. Runs in --list too.
 #   4. VERDICT: EXEC_LANE=PASS only if no gating FAIL. Machine-checkable tokens
-#      (grep -qx): EXEC_LANE=PASS|FAIL, plus EXEC_LANE_{EXTRACTED,RUN,PASS,FAIL,SKIP}=N,
+#      (grep -qx): EXEC_LANE=PASS|FAIL|ERROR, plus EXEC_LANE_{EXTRACTED,RUN,PASS,FAIL,SKIP}=N,
+#      plus EXEC_LANE_ERROR=<cause> alongside an ERROR verdict. 🔴 2026-09-08: the four
+#      ERROR forms carried their cause on the verdict line AND went to stderr, so a consumer
+#      reading stdout with `grep -qx` could not see them at all. Verdict tokens now go to
+#      STDOUT, whole-line; the cause is its own token and the prose stays on its own lines.
 #      EXEC_LANE_{FRAGMENT,FRAGMENT_UNJUSTIFIED}=N,
 #      EXEC_LANE_{UNDOC_DEP,DIFF_UNSTATED,BUILD_MISSING_SOURCE}=N (the three exemptions
 #      closed 2026-09-02 — each printed so its blast radius is a number, not a guess),
@@ -226,11 +230,41 @@ def tok0(c):
     m = re.match(r'^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*([A-Za-z0-9_./+-]+)', c)
     return m.group(1) if m else None
 def cmd_shaped(c, need_args):
+    """Is the first token a program this corpus can be held to?
+
+    THE ANCHOR IS $ROOT, NEVER THE PROCESS CWD (fixed 2026-09-08). The line below used to end
+    `or shutil.which(t) is not None`, and shutil.which() is DOCUMENTED to abandon PATH when the
+    token contains a slash: it tests the token as a path relative to the CURRENT WORKING
+    DIRECTORY. So `scripts/doc_gates.sh` -- a repo-relative command the docs publish -- was
+    command-shaped when the operator happened to be standing in the repo root and not command-
+    shaped anywhere else, and EXEC_LANE_EXTRACTED silently became a function of an input nobody
+    could see. MEASURED at 2026-09-08 on --list: 1137 from /home/claude/github/roae/roae, 1119
+    from /tmp; the 18-row delta is exactly the `scripts/doc_gates.sh`, `scripts/tr12_repro.sh`
+    and `scripts/corrections_inventory.sh` commands, all three of which are tracked, executable
+    files in the tree, so 1137 is the correct answer and 1119 was the lane failing to see 18
+    real commands.
+
+    The three token shapes are now decided deliberately and each is cwd-independent:
+      absolute, `./`, `../`  -- unchanged; run_one already resolves these against the workspace.
+      contains a `/`         -- a REPO-RELATIVE path. Resolved against ROOT (the tree under
+                                test, so `--tree DIR` keeps working), and it must be a real
+                                executable file there. A doc that names `scripts/nope.sh` is
+                                not command-shaped, which is the answer we want and one the old
+                                code could only give by accident of where it was launched.
+      no `/`                  -- a PATH lookup, which is what shutil.which() is for and is
+                                cwd-independent for a bare name.
+    Fixing it by cd-ing at startup was rejected: that hides the dependency instead of removing
+    it, and would silently redefine every other relative path this file touches."""
     t = tok0(c)
     if not t: return False
     if need_args and len(c.split()) < 2: return False
     if t.startswith('/') and os.path.exists(t) and not os.access(t, os.X_OK): return False
-    return (t.startswith(('./','../','/')) or t in KNOWN or shutil.which(t) is not None)
+    if t.startswith(('./','../','/')): return True
+    if t in KNOWN: return True
+    if '/' in t:
+        p = os.path.join(ROOT, t)
+        return os.path.isfile(p) and os.access(p, os.X_OK)
+    return shutil.which(t) is not None
 QSPAN = r'("[^"]*"|\'[^\']*\')'   # a quoted span (regex form, for the prose-shape tests below;
                                   # strip_opt/strip_comment/balanced/norm_cmd come from $HELP)
 def dequote(c):
@@ -453,15 +487,18 @@ EXTRACT_RC=$?
 # nothing. Two guards: the extractor must succeed, AND it must find work. A corpus
 # that genuinely contains no runnable command is itself a finding, not a pass.
 if [ "$EXTRACT_RC" -ne 0 ]; then
-  echo "EXEC_LANE=ERROR extractor-failed rc=$EXTRACT_RC" >&2
-  echo "  The command inventory could not be built, so 'no failures' would be vacuous."
+  echo "  The command inventory could not be built (extractor rc=$EXTRACT_RC), so 'no failures'"
+  echo "  would be vacuous."
+  echo "EXEC_LANE_ERROR=extractor-failed"
+  echo "EXEC_LANE=ERROR"
   rm -f "$INV" "$HELP"; exit 1
 fi
 N_EXTRACTED=$(wc -l < "$INV")
 if [ "${N_EXTRACTED:-0}" -eq 0 ]; then
-  echo "EXEC_LANE=ERROR zero-commands-extracted" >&2
   echo "  The published corpus has never extracted to zero runnable commands. This is a"
   echo "  broken extractor, not a clean tree; refusing to report a lane result."
+  echo "EXEC_LANE_ERROR=zero-commands-extracted"
+  echo "EXEC_LANE=ERROR"
   rm -f "$INV" "$HELP"; exit 1
 fi
 # ---------------------------------------------------------------- 1b. MEASURED-FIGURE LEG
@@ -525,14 +562,19 @@ PYEOF
 MEAS_RC=$?
 if [ "$MEAS_RC" -ne 0 ]; then
   cat "$MEAS_OUT"
-  echo "EXEC_LANE=ERROR measured-leg-could-not-run rc=$MEAS_RC" >&2
-  echo "  The MEASURED-figure leg found no population (or could not enumerate one), so"
-  echo "  'every MEASURED figure resolves' would be vacuous. Refusing to report a lane result."
+  echo "  The MEASURED-figure leg found no population (or could not enumerate one; rc=$MEAS_RC),"
+  echo "  so 'every MEASURED figure resolves' would be vacuous. Refusing to report a lane result."
+  echo "EXEC_LANE_ERROR=measured-leg-could-not-run"
+  echo "EXEC_LANE=ERROR"
   rm -f "$INV" "$HELP" "$MEAS_OUT"; exit 1
 fi
 NMEAS_UNRES=$(sed -n 's/^EXEC_LANE_MEASURED_UNRESOLVED=//p' "$MEAS_OUT" | tail -1)
 case "$NMEAS_UNRES" in ''|*[!0-9]*)
-  echo "EXEC_LANE=ERROR measured-leg-no-count" >&2; cat "$MEAS_OUT"; rm -f "$INV" "$HELP" "$MEAS_OUT"; exit 1 ;;
+  cat "$MEAS_OUT"
+  echo "  The MEASURED-figure leg printed no EXEC_LANE_MEASURED_UNRESOLVED count."
+  echo "EXEC_LANE_ERROR=measured-leg-no-count"
+  echo "EXEC_LANE=ERROR"
+  rm -f "$INV" "$HELP" "$MEAS_OUT"; exit 1 ;;
 esac
 
 if [ "$MODE" = "list" ]; then

@@ -1,0 +1,64 @@
+# Q4(b): min{C3(w) : w in SUPER} = 112 -- ANSWERED 2026-09-05 (QUERY_INVENTORY 9.2, row Q4b). The floor
+# G >= 12 is the Lean theorem c3slot_ge_12 (lean/C3Decomposition.lean); this row VERIFIES the published
+# witnesses with the battery's own 64-int validator (--check-arrangement), so PASS is a computed fact.
+certificate	reports/certificates/c3_positional_witnesses.txt
+certificate_rows	42
+certificate_relation_violations	0	(C3 = 16 + 8*G, the file's own stated relation)
+G	C3_stated	verdict_super	c3_checked	ok
+12	112	IN	112	YES
+13	120	IN	120	YES
+14	128	IN	128	YES
+15	136	IN	136	YES
+16	144	IN	144	YES
+17	152	IN	152	YES
+18	160	IN	160	YES
+19	168	IN	168	YES
+20	176	IN	176	YES
+21	184	IN	184	YES
+22	192	IN	192	YES
+23	200	IN	200	YES
+24	208	IN	208	YES
+25	216	IN	216	YES
+26	224	IN	224	YES
+27	232	IN	232	YES
+28	240	IN	240	YES
+29	248	IN	248	YES
+30	256	IN	256	YES
+31	264	IN	264	YES
+32	272	IN	272	YES
+33	280	IN	280	YES
+34	288	IN	288	YES
+35	296	IN	296	YES
+36	304	IN	304	YES
+37	312	IN	312	YES
+38	320	IN	320	YES
+39	328	IN	328	YES
+40	336	IN	336	YES
+41	344	IN	344	YES
+42	352	IN	352	YES
+43	360	IN	360	YES
+44	368	IN	368	YES
+45	376	IN	376	YES
+46	384	IN	384	YES
+47	392	IN	392	YES
+48	400	IN	400	YES
+49	408	IN	408	YES
+50	416	IN	416	YES
+51	424	IN	424	YES
+95	776	IN	776	YES
+97	792	IN	792	YES
+lines_checked	42
+### G=12 witness, full checker output
+[check-arrangement] permutation of 0..63:            OK
+[check-arrangement] C1 pair-partner adjacency:        HOLD
+[check-arrangement] C2 no distance-5 boundary:        HOLD (d=5 count 0, first n/a -1)
+[check-arrangement] C3 complement distance:           HOLD (value 112, ceiling 776)
+[check-arrangement] C4 anchor first (63 then 0):      HOLD
+[check-arrangement] C5 distance multiset == KW's:     HOLD (hist d1..d6 = 2,20,13,19,0,9)
+[check-arrangement] first violation (pinned order):  NONE
+[check-arrangement] verdict SUPER (C1&C2&C4&C5):     IN
+[check-arrangement] verdict C15  (C1-C5, C3<=776):   IN
+#provenance	engine=solve.c/check-arrangement	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+[check-arrangement] certificate written: <ART>/q4b_g12_witness.json
+### G=12 witness checker_rc=0
+Q4B_MIN_C3_OVER_SUPER	112	floor c3slot_ge_12 + witness verified by --check-arrangement

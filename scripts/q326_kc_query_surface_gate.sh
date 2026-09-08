@@ -34,12 +34,67 @@ build(){ local src="$1" tag="$2"; local d="$WORK/b_$tag"
 
 if [ -n "${Q326_QS_SOLVE:-}" ]; then
   SOLVE="$Q326_QS_SOLVE"; [ -x "$SOLVE" ] || fail "Q326_QS_SOLVE=$SOLVE is not executable"
-else
-  build solve.c base || fail "published build line failed on the committed solve.c"; SOLVE="$WORK/b_base/bin"
+  # 🔴 EXECUTABLE IS NOT CURRENT -- STAGE 1 OF 2 (the image check; stage 2 is below, once
+  # the ladder exists). The else-arm compiles the committed solve.c seconds before use and is safe
+  # by construction. This arm is not: Q326_QS_SOLVE names a PATH and only its +x bit was checked.
+  # tr12_repro_gate.sh hands in a binary it just built; a hand run does not.
+  #
+  # Added 2026-09-08 after scripts/resume_budget_infinity_gate.sh -- same shape -- reported FAIL,
+  # an UNDERCOUNT PRESENTED AS A COMPLETE ENUMERATION, against a ./solve two days older than the
+  # commit that fixed it (779fff4c). Stale -> FAIL, HEAD -> PASS, same tree, same night.
+  #
+  # ERROR, NEVER FAIL: an unestablished subject is not a defect. fail() emits
+  # Q326_QUERY_SURFACE=ERROR / exit 2, which is what a reader should see.
+  #
+  # Called INSIDE an `if`: lib_binary_currency.sh's foreign-sha arm ends in a `grep -vxF` that
+  # exits 1 in the NORMAL case, so a bare call under this file's pipefail would abort mid-function
+  # with an empty signal.
+  #
+  # The four mutants below are NOT checked and must not be: they are compiled here from a
+  # deliberately mutated solve.c, so a differing SOURCE_SHA is the point of them.
+  . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
+  # cwd is the repo root (cd at the top of this file), so bare `solve.c` is unambiguous.
+  if [ "${Q326_QS_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE" solve.c; then
+    echo "  [ERROR] $BINCUR_MSG" >&2
+    echo "          (set Q326_QS_ALLOW_STALE=1 to override, deliberately.)" >&2
+    echo "Q326_QUERY_SURFACE=ERROR"; exit 2
+  fi
 fi
 mkdir -p "$WORK/f" "$WORK/g"
 "$SOLVE" --kc-build   "$WORK/f" --f1-pairs 9 >"$WORK/bf.log" 2>&1 || fail "--kc-build failed"
 "$SOLVE" --kc-g-build "$WORK/g" --f1-pairs 9 >"$WORK/bg.log" 2>&1 || fail "--kc-g-build failed"
+
+# 🔴 STAGE 2 OF 2 -- ASK THE BINARY, do not merely read its image. The near-twin
+# scripts/q326_kc_unrank_m0_gate.sh:62-66 compares solve.c's sha against the `source_sha=` the
+# binary PRINTS in its --kc-record provenance trailer (solve.c emits it from -DSOURCE_SHA). That is
+# a stronger signal than lib_binary_currency.sh's image grep, because it is what the engine
+# BELIEVES about itself rather than a byte sequence that happens to be present somewhere in the
+# file. This gate's whole subject IS the --kc-* query surface, and the ladder it needs already
+# exists two lines up, so the run is free.
+#
+# WHY BOTH AND NOT JUST THIS ONE. The runtime report alone has a false-ERROR arm the library
+# does not: a binary built by a bare `gcc -O2 ... -o solve solve.c` passes no -DSOURCE_SHA, so it
+# reports the "unknown" default (solve.c:389) and is CURRENT BY CONSTRUCTION all the same -- see
+# pre_push_gate.sh:458, which builds exactly that way. Erroring on it would be the same disease in
+# the other direction. So the ladder is: the library decides (and is the one that runs BEFORE any
+# binary is executed, catching a stale or foreign binary at zero cost), and this check is a STRICT
+# ADDITION that fires only on a POSITIVE disagreement -- a binary that names a source and names
+# the wrong one. Absence of a report is never treated as evidence here.
+#
+# `awk NR==1`, never `head -1`: head closes the pipe at line 1 and SIGPIPEs sed, which under this
+# file's pipefail makes the pipeline report failure. Only the VALUE is consulted, but the idiom is
+# the one lib_binary_currency.sh documents and there is no reason to write the trap into a new file.
+if [ "${Q326_QS_ALLOW_STALE-}" != "1" ]; then
+  _QS_WANT=$(sha256sum solve.c 2>/dev/null | cut -d' ' -f1)
+  _QS_GOT=$("$SOLVE" --kc-unrank "$WORK/f" 0 --kc-record 2>/dev/null \
+            | sed -n 's/.*source_sha=\([0-9a-f]*\).*/\1/p' | awk 'NR==1{print}')
+  if [ -n "$_QS_GOT" ] && [ "$_QS_GOT" != "unknown" ] && [ "$_QS_GOT" != "$_QS_WANT" ]; then
+    echo "  [ERROR] the binary REPORTS source_sha=${_QS_GOT:0:12}… but solve.c hashes to ${_QS_WANT:0:12}…" >&2
+    echo "          -- it was built from a different source and cannot attest anything about this one." >&2
+    echo "          (set Q326_QS_ALLOW_STALE=1 to override, deliberately.)" >&2
+    echo "Q326_QUERY_SURFACE=ERROR"; exit 2
+  fi
+fi
 WALK=$("$SOLVE" --kc-unrank "$WORK/f" 0 2>/dev/null | grep -E '^[0-9]+(,[0-9]+)+$' | head -1)
 [ "$(printf '%s' "$WALK" | tr ',' '\n' | grep -c .)" = 18 ] \
   || fail "could not obtain an 18-number n=9 walk -- every leg below would have compared nothing"

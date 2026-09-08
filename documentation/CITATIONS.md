@@ -2392,9 +2392,10 @@ University Press.
   🔴 **CORRECTED 2026-09-04 — this entry said "Hexagram names used throughout" and that was FALSE.**
   The **shipped data** (`example/hexagrams.csv`, `.json`) carries a structural description built from the
   two trigrams, plus trigram pinyin (Qian, Kun, Li, Dui …), which name the eight three-line figures and
-  are not hexagram titles. No shipped artifact reproduces this translation. `documentation/GUIDE.md:104`
-  mentions "The Creative" **only to say the project does not use it**: *"hexagram 1 is `Heaven over
-  Heaven`, not 'The Creative'"*.
+  are not hexagram titles. No shipped artifact reproduces this translation. The section "Why you will
+  not find hexagram names here" in `documentation/GUIDE.md` names the convention and declines the
+  translated title for hexagram 1; it named that title until 2026-09-08, when the operator ruling
+  recorded at the end of this entry removed it.
 
   🔴 **NARROWED THE SAME DAY — one sentence of that correction claimed more than it measured, and the
   distinction matters because this is a licensing-adjacent claim.** The sentence read: *"A full sweep of
@@ -2402,60 +2403,86 @@ University Press.
   Wilhelm–Baynes hexagram title. The single textual hit is `documentation/GUIDE.md:104` …"*. Both halves
   are too strong for the search that was actually run.
 
-  **The distinctive full titles are genuinely absent, and that is the load-bearing fact.** Re-measured
-  independently today, and it agrees with the operator-closed licensing ruling (see
-  `LICENSING_AUDIT_BEFORE_DISTRIBUTION.md`, `TRANSLATED_NAMES_RULING=REMOVED-AND-CLOSED`, and the
-  remediation commits `bf47eb9e` / `34933bed` / `81ab33e9` of 2026-08-27):
+  **The distinctive full titles are genuinely absent, and that is the load-bearing fact.** It agrees
+  with the operator-closed licensing ruling (see `LICENSING_AUDIT_BEFORE_DISTRIBUTION.md`,
+  `TRANSLATED_NAMES_RULING=REMOVED-AND-CLOSED`, and the remediation commits `bf47eb9e` / `34933bed` /
+  `81ab33e9` of 2026-08-27).
+
+  **The census is now over all 64 titles, and it does not type any of them.** The earlier version of
+  this entry hand-picked six search strings and quoted them here, which meant the entry reproduced the
+  very text it was demonstrating the absence of, and the reproduction command had to exclude this file
+  or it would match its own report. Both problems are gone rather than patched: the search terms are
+  **derived at runtime** from the pre-removal data, which is still reachable in history.
 
   ```
-  $ for t in "The Receptive" "Difficulty at the Beginning" "Youthful Folly" \
-             "Waiting (Nourishment)" "The Taming Power" "The Creative"; do
-      printf '%-30s %s\n' "$t" \
-        "$(git grep -n -F "$t" -- '*' | grep -vc '^documentation/CITATIONS.md:')"; done
-  The Receptive                  0
-  Difficulty at the Beginning    0
-  Youthful Folly                 0
-  Waiting (Nourishment)          0
-  The Taming Power               0
-  The Creative                   2      # documentation/GUIDE.md:104 and documentation/CORRECTIONS.md:8393,
-                                        # both of which DECLINE it
+  $ git show fc35f485:example/hexagrams.json \
+      | python3 -c 'import json,sys; [print(h["name"]) for h in json.load(sys.stdin)["hexagrams"]]' \
+      | while IFS= read -r t; do printf '%s\t%s\n' "$(git grep -c -F "$t" -- '*' | wc -l)" "$t"; done
   ```
 
-  (The `grep -v` on this file is not cosmetic: this entry now quotes all six strings, so without it the
-  command matches its own text and cannot return zero. A census that counts its own report is the
-  verifier-closure defect in miniature.)
+  **Two measurements, each against a named tree.** Before the 2026-09-08 remediation, on `origin/main`
+  at `fc427bf7` and excluding this file, **38** of the 64 returned zero and **26** did not. After it,
+  on the remediated tree and excluding nothing at all, **54** return zero and **10** do not — and every
+  one of those 10 is a single ordinary English word. **No multi-word title appears anywhere in the
+  tree.** The 26 resolve to the shortened labels in the analysis log (the bulk of them) plus three
+  prose sites:
 
-  **What the sweep missed is SHORTENED renderings, in two tracked files.** Those six search strings are
-  full titles; the tree also carries abbreviated forms of the same translation, which none of them match:
+  | site | what it is |
+  |---|---|
+  | `documentation/GUIDE.md` — "Why you will not find hexagram names here" | **declines** the title for hexagram 1 |
+  | `documentation/CORRECTIONS.md` — the 2026-09-04 entry | quotes that declination |
+  | `documentation/HISTORY.md` — the Branch 24 line | **used** one as a branch label |
 
-  ```
-  documentation/SOLVE.md:409          Gradual Development→Marrying Maiden … Abundance→Wanderer
-  enumeration/analysis_minimum_constraints.txt:62   Pair 26: Development / Marrying Maiden
-  enumeration/analysis_minimum_constraints.txt:63   Pair 27: Abundance / Wanderer
-  enumeration/analysis_minimum_constraints.txt:67   Pair 1:  Difficulty / Folly
-  ```
+  All three were rewritten on 2026-09-08 under the operator ruling below, so the census returns zero
+  affirmative uses today and no longer needs to exclude this file.
 
-  *Marrying Maiden* is the distinctive Wilhelm–Baynes rendering of hexagram 54 (Legge gives *Kwei Mei*),
-  and the analysis log names four pairs this way beside two others written as "hexagram 41 / hexagram 42"
-  — so one committed file uses both vocabularies. Separately, the bare compound *Creative/Receptive*
-  appears 20 times across 11 tracked files, including `documentation/SPECIFICATION.md` at C4; a twelfth
-  site, `solve.c`'s C4 comment, was the last one in compiled code and was removed 2026-09-04 (Codex
-  review A8R item 5).
+  **What the census cannot do, stated plainly.** Most non-zero titles are ordinary English words — one
+  matches in 18 files — and string matching cannot separate the translation from normal prose for
+  those. Every one of their hits is ordinary English: a heading about graceful shutdown; a section of
+  known limitations; a comment telling the reader to raise `max_layer` while memory allows; a page of
+  development notes; and a book title cited in the bibliography. That adjudication was possible only because the non-zero set was
+  small enough to read exhaustively; it is **not** something the grep establishes on its own. And a
+  word-count filter would have been worse than useless here: the one genuine *use* found in prose was a
+  single common word, while both multi-word hits were declinations — the heuristic would have kept the
+  wrong two and dropped the right one.
 
-  ```
-  $ git grep -nE 'Creative|Receptive' -- '*.md' '*.py' '*.c' '*.csv' '*.json' '*.txt' \
-      | grep -v 'CITATIONS.md:\|GUIDE.md:104:\|CORRECTIONS.md:8393:' | wc -l
-  20                       # across 11 files
-  ```
+  **A third count in this entry also failed to reproduce, and it was one written today.** A first
+  version of this paragraph reported "52 of 64 return zero". That figure was measured against the
+  working tree *after* the analysis log had already been rewritten — a mid-remediation state that
+  corresponds to no commit and to neither of the two questions worth asking. It is replaced above by
+  two measurements that each name their tree.
 
-  **This does NOT reopen the ruling, and nothing here is adjudicated.** Whether an abbreviated rendering
-  or a bare compound label falls inside a translation's rights is exactly the question the operator has
-  already answered for the full titles, and extending that answer is theirs to make, not a lane's. What
-  is corrected here is only the *measurement*: "zero, and here is the single exception" is the kind of
-  precision that invites reliance, and the search behind it did not cover the shortened forms. The
-  right-strength statement is: **no shipped artifact reproduces this translation, no hexagram-title
-  dataset derived from it is distributed, and the distinctive full titles measure zero — while some
-  prose and one analysis log still use abbreviated renderings as reading aids.**
+  **Shortened renderings.** The tree also carried abbreviated forms that no full-title search matches
+  — pair labels of the form *X/Y* in prose, and a much larger set in `enumeration/analysis_minimum_constraints.txt`,
+  the captured console log of an analysis run whose generator is no longer in the tree. Those were
+  removed on 2026-09-08 as well. In the log, only the **label column** was rewritten, to the numeric
+  form (`hexagram 49 / hexagram 50`) that the same run already printed for every hexagram its own
+  table lacked; every measurement in that file is byte-identical to the capture, and the file's
+  appended note carries the pre-edit sha256 and the derivation. `solve.c`'s C4 comment, the last
+  occurrence in compiled code, was removed 2026-09-04 (Codex review A8R item 5).
+
+  **Two older counts in this entry did not reproduce either, and no replacement count is offered for
+  either.** One read "20 times across 11 tracked files"; measured against `origin/main` immediately
+  before the removal, the strict literal appeared **16** times across **10** files, and widening to the
+  line-broken form gave **21** across **12** — the published figure matched neither. The other claimed
+  a sweep found **zero** affirmative uses with "the single textual hit" being one file, and both halves
+  were too strong for the search actually run. That is why the surviving claims in this section are
+  stated without numbers except where the number is reproduced by the command printed beside it.
+
+  **The operator ruled on 2026-09-08, and the rule has two categories with no third.** A translator's
+  title may appear inside a citation of *their* work; everything else — including our own prose, our
+  own denials, our own search terms, and the captured output of our own program — is us writing it, and
+  does not appear. The bibliography entry above is category one and is unchanged. Every other site in
+  this repository is category two and has been removed. The right-strength statement is: **no shipped
+  artifact reproduces this translation, and no hexagram-title dataset derived from it is distributed.**
+
+  **No count is given here, and that is deliberate.** A number was asserted twice and was wrong both
+  times: first "zero, and here is the single exception", then "zero". Re-measured 2026-09-08 against
+  `origin/main`, with the canonical title list derived from `fc35f485:example/hexagrams.json` and both
+  named exemptions excluded, the distinctive full titles appear **12** times across three files — all
+  of them inside the census below or the two denials. A third number would rot the same way: every
+  widening of the search has found more than the last, and no rule terminates, so any count is a floor
+  rather than a census. The claims that do not depend on a count are the ones stated above.
 
   Retained as a standard bibliographic reference for the work itself. [read, no data]
 

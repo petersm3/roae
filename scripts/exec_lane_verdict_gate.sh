@@ -22,15 +22,26 @@
 #       said the opposite policy — "This is a FAIL and never a SKIP: skipping it is the
 #       could-not-fail shape the whole lane exists to refuse."
 #
-#   Both were fixed in exec_lane.sh on 2026-09-07. This gate exists so neither can silently
-#   come back, and it was red-tested in BOTH directions against the pre-fix file.
+#   D3  A VERDICT THAT MOVED WITH THE OPERATOR.  cmd_shaped() classified a slash-bearing token
+#       via shutil.which(), which for such a token abandons PATH and tests it relative to the
+#       PROCESS CWD. Every repo-relative published command (scripts/doc_gates.sh ...,
+#       scripts/tr12_repro.sh ..., scripts/corrections_inventory.sh ...) was therefore visible
+#       to the lane only when the lane was launched from the repo root. MEASURED on --list
+#       2026-09-08: EXEC_LANE_EXTRACTED=1137 from the repo root, 1119 from /tmp; 18 rows, 16 of
+#       them gating RUN rows, so EXEC_LANE=PASS/FAIL was itself a function of an invisible input.
+#
+#   D1/D2 were fixed in exec_lane.sh on 2026-09-07, D3 on 2026-09-08. This gate exists so none
+#   of them can silently come back, and every leg was red-tested in BOTH directions against the
+#   corresponding pre-fix file.
 #
 # WHAT IT MEASURES, AND ON WHAT
 #   It does NOT re-implement the logic it checks. Legs A and B EXTRACT the real decision text
 #   out of scripts/exec_lane.sh — the classifier if/elif chain, and the unbounded_branch()
 #   function — and evaluate THAT under controlled inputs. A copied predicate would pass while
 #   the shipped one rotted, which is the failure this whole lane exists to refuse.
-#   Leg C runs the lane's own `--list` (~1.6 s, extraction only, nothing executed).
+#   Leg C runs the lane's own `--list` (~1.6 s, extraction only, nothing executed). Leg D runs
+#   that same `--list` twice more, from two different working directories, and requires the two
+#   inventories to agree -- and to be non-empty, because two zeros are equal as well.
 #
 # VERDICT
 #   A single KEY=value token on stdout, matched by callers with `grep -qx`:
@@ -38,6 +49,9 @@
 #       EXEC_LANE_VERDICT_GATE=FAIL     at least one case measured a wrong verdict
 #       EXEC_LANE_VERDICT_GATE=ERROR    could not measure — extraction failed, --list failed,
 #                                       or a leg ran zero cases
+#   Leg D additionally prints its own whole-line token, so the cwd invariant can be asserted
+#   without running the whole gate:
+#       EXEC_LANE_CWD_INVARIANT=PASS|FAIL|ERROR
 #   ERROR is NOT a pass. A gate that could not run must say so loudly: a check that silently
 #   measures nothing is exactly the could-not-fail shape D2 was.
 #
@@ -296,6 +310,80 @@ else
       fi ;;
   esac
 fi
+
+# ---------------------------------------------------------------------------- LEG D
+# D3  A VERDICT THAT DEPENDED ON WHERE THE OPERATOR WAS STANDING (fixed 2026-09-08).
+#     cmd_shaped() ended `or shutil.which(t) is not None`, and shutil.which() abandons PATH for
+#     a token containing a slash: it tests that token as a path relative to the PROCESS CWD. So
+#     every repo-relative command the docs publish -- `scripts/doc_gates.sh ...`,
+#     `scripts/tr12_repro.sh ...`, `scripts/corrections_inventory.sh ...` -- was command-shaped
+#     only when the lane happened to be launched from the repo root. MEASURED pre-fix on --list:
+#     EXEC_LANE_EXTRACTED=1137 from the repo root, 1119 from /tmp, an 18-row delta that is
+#     exactly those commands. 16 of the 18 are gating RUN rows, so it was never only a count:
+#     EXEC_LANE=PASS/FAIL itself was a function of an invisible input.
+#
+#     THE ASSERTION IS THE INVARIANT, NOT THE NUMBER. The leg runs the lane's own --list from
+#     two different working directories -- the repo root, and a scratch directory that contains
+#     no `scripts/` -- and requires the two runs to agree. It deliberately does NOT pin 1137:
+#     a pinned count would go red every time a document gains a command, which is the kind of
+#     red that gets a gate switched off. One of the two probes MUST be the repo root, because
+#     that is the cwd whose accidental privilege was the defect; two non-repo cwds would have
+#     agreed with each other pre-fix and proven nothing.
+#
+#     BOTH ZEROS ARE ALSO EQUAL. A broken extractor yields 0 == 0, so a bare equality test is
+#     vacuously green exactly when the lane is most broken. Zero is therefore an ERROR here,
+#     never a pass -- the same doctrine leg C applies.
+echo
+echo "-- LEG D: the inventory must not depend on the process cwd --"
+D_A="$TMP/list_cwd_root.txt"; D_B="$TMP/list_cwd_other.txt"
+D_DIR="$TMP/elsewhere"; mkdir -p "$D_DIR"
+d_state=PASS
+( cd "$ROOT"  && bash "$LANE" --tree "$ROOT" --list ) > "$D_A" 2>"$TMP/list_cwd_root.err"
+d_rc_a=$?
+( cd "$D_DIR" && bash "$LANE" --tree "$ROOT" --list ) > "$D_B" 2>"$TMP/list_cwd_other.err"
+d_rc_b=$?
+# Each $? is captured on its own line: read inside an `if`, it would report the status of the
+# `if` rather than of the run (leg C carries the same note for the same reason).
+if [ "$d_rc_a" -ne 0 ] || [ "$d_rc_b" -ne 0 ]; then
+  err "leg D: '--list' failed (rc=$d_rc_a from the repo root, rc=$d_rc_b from a scratch cwd): $(tail -1 "$TMP/list_cwd_root.err" 2>/dev/null)"
+  d_state=ERROR
+fi
+if [ "$d_state" = "PASS" ]; then
+  n_a="$(sed -n 's/^EXEC_LANE_EXTRACTED=//p' "$D_A" | tail -1)"
+  n_b="$(sed -n 's/^EXEC_LANE_EXTRACTED=//p' "$D_B" | tail -1)"
+  case "${n_a:-x}|${n_b:-x}" in
+    *[!0-9|]*) err "leg D: --list reported no EXEC_LANE_EXTRACTED count (root='${n_a-}', elsewhere='${n_b-}')"
+               d_state=ERROR ;;
+  esac
+fi
+if [ "$d_state" = "PASS" ] && { [ "$n_a" -eq 0 ] || [ "$n_b" -eq 0 ]; }; then
+  err "leg D: extracted ZERO commands (root=$n_a, elsewhere=$n_b) -- two zeros are equal too, and that equality proves nothing"
+  d_state=ERROR
+fi
+if [ "$d_state" = "PASS" ]; then
+  NCASE=$((NCASE+1))
+  if [ "$n_a" -ne "$n_b" ]; then
+    bad D3-D1 "EXEC_LANE_EXTRACTED depends on the process cwd: $n_a from $ROOT, $n_b from a scratch directory"
+    d_state=FAIL
+  else
+    ok D3-D1 "EXEC_LANE_EXTRACTED=$n_a from both the repo root and a scratch directory"
+  fi
+  NCASE=$((NCASE+1))
+  # Equal counts are not the same as the same inventory: a row could appear on one side and a
+  # different row on the other. `grep` exiting 1 on no-match IS the passing state here, and its
+  # status is never read -- only its output is.
+  d_rows="$(diff "$D_A" "$D_B" | grep -E '^[<>]' | head -20)"
+  if [ -n "$d_rows" ]; then
+    bad D3-D2 "the two inventories differ ROW BY ROW between working directories:"
+    printf '%s\n' "$d_rows" | sed 's/^/            /'
+    d_state=FAIL
+  else
+    ok D3-D2 "the two inventories are identical line for line"
+  fi
+  printf '  extracted: %s from the repo root, %s from a scratch cwd; inventories identical: %s\n' \
+         "$n_a" "$n_b" "$([ -z "$d_rows" ] && echo yes || echo NO)"
+fi
+echo "EXEC_LANE_CWD_INVARIANT=$d_state"
 
 # ---------------------------------------------------------------------------- VERDICT
 echo

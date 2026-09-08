@@ -14,7 +14,15 @@ REF=${1:-}
 # through `cat … 2>/dev/null`, so an absent or renamed report yielded ZERO lines, ZERO offenders
 # and RESIDUAL_CONSISTENCY=PASS — and the script's exit status was that of its final echo, so
 # even a FAIL verdict exited 0. A check whose input is absent has checked nothing: it ERRORs.
-# Tokens (grep -qx): RESIDUAL_CONSISTENCY=PASS|FAIL|ERROR. Exit 0 PASS / 1 FAIL / 2 ERROR.
+# Tokens (grep -qx), each a WHOLE line with nothing after the value:
+#   RESIDUAL_CONSISTENCY=PASS|FAIL|ERROR   the verdict. Exit 0 PASS / 1 FAIL / 2 ERROR.
+#   RESIDUAL_CONSISTENCY_OFFENDERS=n       bare point estimates found; -1 = not measured
+#   RESIDUAL_CONSISTENCY_SCANNED=n         lines scanned across $FILES; -1 = not measured
+#   RESIDUAL_CONSISTENCY_ERROR=<cause>     ERROR only: unreadable:<f> | empty:<f> |
+#                                          population-collapsed
+# 🔴 2026-09-08: the verdict line read "RESIDUAL_CONSISTENCY=PASS offenders=n scanned=n", so the
+# `grep -qx` this very header promised could never match it — an instrument reporting something
+# no one could read. The counts moved to their own tokens; the verdict line carries only a verdict.
 get(){ if [ -n "$REF" ]; then git show "$REF:$1"; else cat "$1"; fi; }
 scanned=0
 FILES="reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md reports/TR9_PRICING_THE_CONSTRAINTS.md README.md"
@@ -22,12 +30,16 @@ bad=0
 for f in $FILES; do
   if ! body=$(get "$f" 2>/dev/null); then
     echo "  [ERROR] cannot read $f${REF:+ at $REF} — a report this gate exists to check is absent or unreadable"
-    echo "RESIDUAL_CONSISTENCY=ERROR unreadable:$f"; exit 2
+    echo "RESIDUAL_CONSISTENCY_OFFENDERS=-1"; echo "RESIDUAL_CONSISTENCY_SCANNED=-1"
+    echo "RESIDUAL_CONSISTENCY_ERROR=unreadable:$f"
+    echo "RESIDUAL_CONSISTENCY=ERROR"; exit 2
   fi
   n=$(printf '%s\n' "$body" | grep -c .)
   if [ "${n:-0}" -eq 0 ]; then
     echo "  [ERROR] $f${REF:+ at $REF} is EMPTY — zero lines scanned is not zero offenders"
-    echo "RESIDUAL_CONSISTENCY=ERROR empty:$f"; exit 2
+    echo "RESIDUAL_CONSISTENCY_OFFENDERS=-1"; echo "RESIDUAL_CONSISTENCY_SCANNED=-1"
+    echo "RESIDUAL_CONSISTENCY_ERROR=empty:$f"
+    echo "RESIDUAL_CONSISTENCY=ERROR"; exit 2
   fi
   scanned=$((scanned+n))
   # a point estimate is "~126...-bit/bits ... residual" with NO range marker on the same line
@@ -46,7 +58,11 @@ done
 # means a truncated read, not a clean corpus.
 if [ "$scanned" -lt 100 ]; then
   echo "  [ERROR] only $scanned line(s) scanned across $FILES — population collapsed"
-  echo "RESIDUAL_CONSISTENCY=ERROR population-collapsed scanned=$scanned"; exit 2
+  echo "RESIDUAL_CONSISTENCY_OFFENDERS=-1"; echo "RESIDUAL_CONSISTENCY_SCANNED=$scanned"
+  echo "RESIDUAL_CONSISTENCY_ERROR=population-collapsed"
+  echo "RESIDUAL_CONSISTENCY=ERROR"; exit 2
 fi
-echo "RESIDUAL_CONSISTENCY=$([ "$bad" -eq 0 ] && echo PASS || echo FAIL) offenders=$bad scanned=$scanned"
+echo "RESIDUAL_CONSISTENCY_OFFENDERS=$bad"
+echo "RESIDUAL_CONSISTENCY_SCANNED=$scanned"
+echo "RESIDUAL_CONSISTENCY=$([ "$bad" -eq 0 ] && echo PASS || echo FAIL)"
 [ "$bad" -eq 0 ]

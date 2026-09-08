@@ -19126,9 +19126,10 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *                                       object=WALK, space=C1C2C4C5-SUPER.
  *                                       Independent of the O3 ranker: f/g
  *                                       point lookups only. --kc-c3-max is
- *                                       REJECTED (a C3-conditioned profile is
- *                                       not computable; Q3's C15 companion is
- *                                       a sampled --kc-sample correction).
+ *                                       REJECTED (the exact C3-conditioned
+ *                                       count was PRICED AND DECLINED, TR-12
+ *                                       s9; Q3's C15 companion is a sampled
+ *                                       --kc-sample correction).
  *                                       --kc-alts adds one #alt row per
  *                                       admissible successor per step;
  *                                       --kc-tsv writes the label+header+row
@@ -23552,9 +23553,11 @@ static void kc_provenance_trailer(const KC *kc, long long c3max) {
  * decomposition lets class-level statements be made without conflation.
  *
  * SPACE (H3b superspace ruling, TR12 §0): exact O3 ranks exist ONLY in the
- * compiled C1&C2&C4&C5 SUPERSPACE. The C1-C5 (C15) rank is NOT exactly
- * computable (C3 counting obstruction, TR-11 §10(ii)) and is published only
- * as a labeled sampling ESTIMATE (rides --kc-sample; not implemented here).
+ * compiled C1&C2&C4&C5 SUPERSPACE. The exact C1-C5 (C15) rank was PRICED AND
+ * DECLINED (~$3-5K; TR-12 §9 -- the TR-11 §10(ii) "C3 obstruction" wording is
+ * RETRACTED: C3 = 16 + 8*G is a Lean theorem, lean/C3Decomposition.lean) and
+ * is published only as a labeled sampling ESTIMATE (rides --kc-sample; not
+ * implemented here).
  * There is deliberately NO --kc-c3-max axis on --kc-o3-rank/--kc-o3-unrank.
  * All output carries order/object/space labels + a #provenance trailer.
  *
@@ -24126,11 +24129,22 @@ static int kc_o3_query_main(const char *cmd, const char *fdir, const char *gdir,
     uint64_t mk = 0, oidx = 0;
     printf("order=O3\tobject=WALK\tspace=C1C2C4C5-SUPERSPACE\n");
     if (strcmp(cmd, "--kc-o3-rank") == 0) {
+        int tok = 1;
         if (kc_parse_walk(fkc, arg, E) != 0 ||
-            kc_o3_rank(&o3, E, &r, &mk, &oidx, trace, NULL) != 0) {
+            kc_o3_rank(&o3, E, &r, &mk, &oidx, trace, trace ? &tok : NULL) != 0) {
             fprintf(stderr, "ERROR: [kc-o3] not a valid walk over this pair subset\n");
             rc = 1;
         } else {
+            if (trace) {
+                /* the trace's own verdict as a whole-line token and an exit code:
+                 * the summary line said FAILED and the command still exited 0, so
+                 * a harness row could PASS on "it ran" (F-5 D2) */
+                printf("KC_O3_TRACE=%s\n", tok ? "OK" : "FAIL");
+                if (!tok) {
+                    fprintf(stderr, "ERROR: [kc-o3] trace identities FAILED (product/flow check)\n");
+                    rc = 1;
+                }
+            }
             char tdec[64], cdec[64];
             f1_dec(r, tdec);
             printf("rank3\t%s\n", tdec);
@@ -24160,8 +24174,14 @@ static int kc_o3_query_main(const char *cmd, const char *fdir, const char *gdir,
                    (unsigned long long)mk, (unsigned long long)oidx, cdec);
             if (trace) {   /* trace along the resolved walk; also a roundtrip check */
                 F1U192 rr;
-                F1_CHECK(kc_o3_rank(&o3, E, &rr, NULL, NULL, 1, NULL) == 0 && f1_eq(&rr, &r),
+                int tok = 1;
+                F1_CHECK(kc_o3_rank(&o3, E, &rr, NULL, NULL, 1, &tok) == 0 && f1_eq(&rr, &r),
                          "[kc-o3] unrank->rank roundtrip failed (defect)");
+                printf("KC_O3_TRACE=%s\n", tok ? "OK" : "FAIL");
+                if (!tok) {
+                    fprintf(stderr, "ERROR: [kc-o3] trace identities FAILED (product/flow check)\n");
+                    rc = 1;
+                }
             }
             if (bracket && kc_o3_bracket(&o3, &r, 1) != 0) rc = 1;
         }
@@ -26698,7 +26718,7 @@ static int kc_o3_cert_main(const char *fdir, const char *gdir, const char *arg,
                 fprintf(f, "  \"gdir\": \"%s\",\n", esc);
                 fprintf(f, "  \"pl_hash\": \"%s\",\n", c.plhash);
                 fprintf(f, "  \"class_rank_note\": \"WALK rank (class-rank = distinct records preceding, NOT computed); class block = [class_first_rank3, +m)\",\n");
-                fprintf(f, "  \"c15_note\": \"C15 rank is NOT exactly computable (C3 obstruction, TR-11 s10(ii)); any C15 figure is a labeled estimate elsewhere\",\n");
+                fprintf(f, "  \"c15_note\": \"the exact C15 (C1-C5) rank/count was PRICED AND DECLINED (~$3-5K; TR-12 s9), NOT 'not computable': the C3 obstruction of TR-11 s10(ii) is dissolved by the Lean theorem c3_slot_decomposition (lean/C3Decomposition.lean); every rank here is over the C1&C2&C4&C5 superspace and any C15 figure in this corpus is a labeled estimate\",\n");
                 fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
                         GIT_HASH, SOURCE_SHA);
                 fprintf(f, "  \"semantics\": \"certificate, not proof\"\n}\n");
@@ -27491,11 +27511,65 @@ static int kc_h_scan_tail(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
             printf("[kc-scan] GATE FAIL: layer %02d flow != N\n", k);
             T->gate_fails++;
         }
+        {   /* ROW: sum over distance classes == flow[k] == N. Every f1_add into
+             * cls[k*5+cls] is the SAME `worb` added to flow[k] on the adjacent
+             * statement with no intervening branch (kc_h_scan_layers), so this
+             * holds by construction -- which is exactly what makes it a tamper
+             * detector: it can fail ONLY if a cls cell was altered after
+             * accumulation (a hand-edited chunk row, a bad merge parse). Gated
+             * against fkc->total, NOT flow[k], so it stays meaningful when flow
+             * is itself tampered. Before 2026-09-08 this ran at n=9 in
+             * kc_scan_selftest and NOWHERE in the path that attests full-31. */
+            F1U192 s = {0, 0, 0};
+            for (int d = 0; d < 5; d++) f1_add(&s, &T->cls[k * 5 + d]);
+            if (!f1_eq(&s, &fkc->total)) {
+                printf("[kc-scan] GATE FAIL: layer %02d class row sum != N\n", k);
+                T->gate_fails++;
+            }
+        }
+        {   /* ROW: sum over quotient-frame pair slots == flow[k] == N. Same
+             * construction argument. NB there is deliberately NO vertical qmarg
+             * gate: kc_glookup re-canonicalizes at every layer (f1_canon in
+             * kc_flookup), so q indexes a bit of THIS layer's canonical mask and
+             * is not the same slot at k+1 -- sum_k qmarg[k][q] has no closed
+             * form and must not be asserted. */
+            F1U192 s = {0, 0, 0};
+            for (int q = 0; q < 32; q++) f1_add(&s, &T->qmarg[k * 32 + q]);
+            if (!f1_eq(&s, &fkc->total)) {
+                printf("[kc-scan] GATE FAIL: layer %02d quotient marginal sum != N\n", k);
+                T->gate_fails++;
+            }
+        }
         if (want_raw) {
             F1U192 s = {0, 0, 0};
             for (int p = 0; p < 32; p++) f1_add(&s, &T->rawmarg[k * 32 + p]);
             if (!f1_eq(&s, &fkc->total)) {
                 printf("[kc-scan] GATE FAIL: layer %02d raw marginal sum != N\n", k);
+                T->gate_fails++;
+            }
+        }
+    }
+    {   /* VERTICAL: sum over layers of the class-d mass == b0[d] * N.
+         * PROOF. kc_finish_init asserts sum_d b0[d] == n on EVERY ladder-open
+         * path (solve.c:19393-19395) -- derived by f1c5_derive_b0 or parsed from
+         * the manifest, the assertion runs either way. A walk makes exactly n
+         * transitions, and kc_h_scan_layers refuses one once dig[cls] >= b0[cls],
+         * so each walk uses AT MOST b0[d] of class d and n in total. Caps summing
+         * to n, with a total of n, force every cap to saturate: every walk uses
+         * EXACTLY b0[d] of class d. Under the same orbit-weighted counting that
+         * makes flow[k] == N, sum_k cls[k][d] is the walk-weighted census of
+         * class-d transitions -- hence b0[d] * N.
+         * This is the ONLY gate that sees a mass-preserving REARRANGEMENT: a
+         * d1<->d2 swap inside one layer row leaves flow[k] and both row sums
+         * untouched. It is meaningful only over the FULL [0,n) table, so it lives
+         * here in the tail and NOT in the chunk-mode copy. */
+        static const int dv[5] = {1, 2, 3, 4, 6};
+        for (int d = 0; d < 5; d++) {
+            F1U192 s = {0, 0, 0};
+            for (int k = 0; k < n; k++) f1_add(&s, &T->cls[k * 5 + d]);
+            const F1U192 want = f1_mul_small(fkc->total, (uint32_t)fkc->B.b0[d]);
+            if (!f1_eq(&s, &want)) {
+                printf("[kc-scan] GATE FAIL: class d%d column sum != b0[d]*N\n", dv[d]);
                 T->gate_fails++;
             }
         }
@@ -27529,6 +27603,8 @@ static int kc_h_scan_tail(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
     }
     /* exact t-units from the t ladder (--kc-tdir; Stage T, 2026-07-17) */
     T->t_ladder = 0;
+    T->t_sum_ok = 0;   /* the ONE gate flag the tail did not reset; a false-green
+                        * on any second in-process call (2026-09-08) */
     if (tkc) {
         T->t_ladder = 1;
         T->t_root192 = tkc->total;
@@ -27805,10 +27881,14 @@ static void kc_h_scan_write_atlas(FILE *f, const KcScanTab *T, const KC *fkc,
          * that did run -- otherwise an atlas built without a t ladder asserts
          * a cross-chunk identity nothing checked (Q-39). */
         fprintf(f, "  \"gates\": {\"per_layer_flow_eq_N\": %s, \"raw_marginal_sums_eq_N\": "
-                "%s, \"branch_masses_sum_eq_N\": %s, \"t_root_eq_f_layer_sum\": %s, "
-                "\"fails\": %d},\n",
+                "%s, \"class_row_sums_eq_N\": %s, \"quotient_marginal_sums_eq_N\": %s, "
+                "\"class_column_sums_eq_b0_N\": %s, \"branch_masses_sum_eq_N\": %s, "
+                "\"t_root_eq_f_layer_sum\": %s, \"fails\": %d},\n",
                 T->gate_fails ? "\"see fails\"" : "true",
                 want_raw ? (T->gate_fails ? "\"see fails\"" : "true") : "\"not-emitted\"",
+                T->gate_fails ? "\"see fails\"" : "true",
+                T->gate_fails ? "\"see fails\"" : "true",
+                T->gate_fails ? "\"see fails\"" : "true",
                 T->gate_fails ? "\"see fails\"" : "true",
                 !T->t_ladder ? "\"not-run (requires --kc-tdir)\""
                              : (T->t_sum_ok ? "true" : "\"see fails\""),
@@ -27906,6 +27986,25 @@ static int kc_scan_main(int argc, char *argv[]) {
                 if (!f1_eq(&CT.flow[k], &fkc->total)) {
                     printf("[kc-scan] GATE FAIL: layer %02d flow != N\n", k);
                     CT.gate_fails++;
+                }
+                {   /* ROW gates, chunk-local. Identical construction argument to
+                     * the tail's; see kc_h_scan_tail. The VERTICAL class gate is
+                     * deliberately absent: a chunk holds only [k_lo,k_hi), and
+                     * sum over a partial k-range is not b0[d]*N. It runs once, in
+                     * the tail, over the assembled table -- which the merge
+                     * reaches only after proving COVERAGE=COMPLETE. */
+                    F1U192 sc = {0, 0, 0};
+                    for (int d = 0; d < 5; d++) f1_add(&sc, &CT.cls[k * 5 + d]);
+                    if (!f1_eq(&sc, &fkc->total)) {
+                        printf("[kc-scan] GATE FAIL: layer %02d class row sum != N\n", k);
+                        CT.gate_fails++;
+                    }
+                    F1U192 sq = {0, 0, 0};
+                    for (int q = 0; q < 32; q++) f1_add(&sq, &CT.qmarg[k * 32 + q]);
+                    if (!f1_eq(&sq, &fkc->total)) {
+                        printf("[kc-scan] GATE FAIL: layer %02d quotient marginal sum != N\n", k);
+                        CT.gate_fails++;
+                    }
                 }
                 if (want_raw) {
                     F1U192 sm = {0, 0, 0};
@@ -28517,6 +28616,24 @@ static int kc_scan_selftest(void) {
         }
         KC_SCAN_GATE("quotient marginal column sums == N (all layers)", ok);
     }
+    {
+        /* VERTICAL class-column invariant (2026-09-08), full-31-shaped: the
+         * layer-summed class-d mass == b0[d] * N. Tied to EXHAUSTIVE ground
+         * truth, not to the extractor: the brute census column must itself
+         * equal b0[d]*N (every walk spends exactly b0[d] transitions of class
+         * d), AND the extractor's column must equal that same value. */
+        int ok = 1;
+        for (int d = 0; d < 5 && ok; d++) {
+            uint64_t bs = 0;
+            for (int k = 0; k < n; k++) bs += bcls[k][d];
+            F1U192 s = {0, 0, 0};
+            for (int k = 0; k < n; k++) f1_add(&s, &T.cls[k * 5 + d]);
+            const F1U192 want = f1_mul_small(fkc->total, (uint32_t)fkc->B.b0[d]);
+            const F1U192 b = {bs, 0, 0};
+            ok = f1_eq(&b, &want) && f1_eq(&s, &want);
+        }
+        KC_SCAN_GATE("class column sums == b0[d]*N (brute census AND extractor, all d)", ok);
+    }
     /* NEGATIVE legs (K-4): a selftest with no leg that FAILS cannot tell a
      * working checker from a stub of the right shape. */
     {   /* N1: a corrupted extractor table entry MUST be caught by the brute
@@ -28642,10 +28759,11 @@ static int kc_scan_selftest(void) {
  * C1&C2&C4&C5 SUPERSPACE -- g counts SUPER completions and p_i is the
  * conditional probability under the UNIFORM MEASURE ON SUPER.
  *
- * NO --kc-c3-max AXIS, DELIBERATELY. A C3-conditioned profile is not
- * computable (the C3 counting obstruction, TR-11 §10(ii)); Q3's C15 companion
- * is a SAMPLED correction and rides --kc-sample. --kc-c3-max is therefore
- * REJECTED with an explicit error rather than silently ignored.
+ * NO --kc-c3-max AXIS, DELIBERATELY. The exact C3-conditioned count was
+ * PRICED AND DECLINED (~$3-5K; TR-12 §9; the older "not computable / C3
+ * obstruction" wording is RETRACTED); Q3's C15 companion is a SAMPLED
+ * correction and rides --kc-sample. --kc-c3-max is therefore REJECTED with an
+ * explicit error rather than silently ignored.
  *
  * EXACTNESS. p_i ships as the exact rational g/g_parent in decimal strings
  * (p_num/p_den). The `bits` column is a DISPLAY-ONLY double
@@ -28859,11 +28977,12 @@ static int kc_profile_main(int argc, char *argv[]) {
             "  FDIR: an f (forward) retained-layers dir (--kc-build or Stage F);\n"
             "  GDIR: the matching g (suffix-DP) ladder (--kc-g-build). BOTH required.\n"
             "  order=NATIVE-WALK-PATH (no ranking) - object=WALK -\n"
-            "  space=C1C2C4C5-SUPERSPACE. --kc-c3-max is REJECTED: a C3-conditioned\n"
-            "  profile is not computable (TR-11 s10(ii)); Q3's C15 companion is a\n"
-            "  sampled correction and rides --kc-sample.\n"
+            "  space=C1C2C4C5-SUPERSPACE. --kc-c3-max is REJECTED: the exact\n"
+            "  C3-conditioned count was PRICED AND DECLINED (TR-12 s9); Q3's C15\n"
+            "  companion is a sampled correction and rides --kc-sample.\n"
             "  --kc-alts: also emit one #alt row per admissible successor per step.\n"
             "  --kc-tsv: write the label+header+row block to a file as well.\n"
+            "  Unknown options are REJECTED (exit 2), never ignored.\n"
             "  Gate: --kc-profile-selftest (n=9 exhaustive brute force). Exit 0/1/2.\n");
         return 2;
     }
@@ -28875,9 +28994,9 @@ static int kc_profile_main(int argc, char *argv[]) {
             fprintf(stderr,
                 "ERROR: [kc-profile] --kc-c3-max is not accepted here. p_i is the\n"
                 "       conditional probability under the UNIFORM MEASURE ON SUPER and g\n"
-                "       counts SUPER completions; a C3-conditioned profile is not\n"
-                "       computable (the C3 counting obstruction, TR-11 s10(ii)). Q3's C15\n"
-                "       companion is a SAMPLED correction -- use --kc-sample.\n");
+                "       counts SUPER completions; the exact C3-conditioned count was\n"
+                "       PRICED AND DECLINED (~$3-5K; TR-12 s9), not 'not computable'.\n"
+                "       Q3's C15 companion is a SAMPLED correction -- use --kc-sample.\n");
             return 2;
         }
         if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
@@ -28886,6 +29005,13 @@ static int kc_profile_main(int argc, char *argv[]) {
             cache_mb = atoi(argv[++ai]);
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tsv") == 0)
             tsv = argv[++ai];
+        else {
+            /* fail CLOSED: "--kc-alt" used to run with 0 #alt rows and KC_PROFILE=OK
+             * (KCQ03 #4) */
+            fprintf(stderr, "ERROR: [kc-profile] unknown or incomplete option '%s' "
+                    "(accepted: --kc-tsv OUT --kc-alts --kc-ooc --kc-cache-mb MB)\n", argv[ai]);
+            return 2;
+        }
     }
     KC *fkc = (KC *)calloc(1, sizeof(KC));
     KC *gkc = (KC *)calloc(1, sizeof(KC));
@@ -30804,8 +30930,12 @@ static int kc_enum_desc_selftest(void) {
         char self[4096];
         ssize_t sl = readlink("/proc/self/exe", self, sizeof(self) - 1);
         if (sl <= 0) {
-            printf("[kc-enum-desc-selftest] %-58s %s\n",
-                   "G7 end-to-end --kc-enum-desc argv wiring", "SKIP (no /proc/self/exe)");
+            /* A gate that cannot run does not pass. G7 is the only row that sees
+             * the dispatcher; with readlink failing it used to print SKIP and
+             * leave `fails` untouched, so KC_ENUM_DESC_SELFTEST=PASS rc=0 was
+             * minted with the argv leg never run (KCQ04 #4). Both rows FAIL. */
+            KC_ED_GATE("G7 end-to-end --kc-enum-desc argv wiring: no /proc/self/exe, NOT RUN", 0);
+            KC_ED_GATE("G7b end-to-end token+order: no /proc/self/exe, NOT RUN", 0);
         } else {
             self[sl] = '\0';
             char want[512];
@@ -31226,6 +31356,98 @@ static int kc_layers_selftest(void) {
                        !kc_h_bytes_identical(whole, out));
     }
 
+    /* --- R1 (2026-09-08): a tampered CLASS cell must fail the class ROW gate, and
+     * ONLY that row gate: flow is untouched, so the flow gate must stay silent
+     * (the leg isolates the new gate rather than riding on L9's). --- */
+    {
+        char bad[4300], out[4300];
+        char *cmd = (char *)malloc(KC_LAY_ABUF);
+        F1_CHECK(cmd != NULL, "[kc-layers-selftest] alloc");
+        snprintf(bad, sizeof(bad), "%s/bad_cls.json", dir);
+        snprintf(cmd, KC_LAY_ABUF, "cp '%s' '%s' && sed -i "
+                 "'0,/\"d3\": \"\\([0-9]*\\)\"/s//\"d3\": \"1\\1\"/' '%s'", c2, bad, bad);
+        kc_h_sh(cmd);
+        free(cmd);
+        KC_LAYERS_GATE("R1 tampered class cell: the sed ACTUALLY edited the chunk",
+                       !kc_h_bytes_identical(c2, bad));
+        snprintf(out, sizeof(out), "%s/badcls.json", dir);
+        unlink(out);
+        snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
+                 fdir, gdir, out, c1, bad, c3, tdir);
+        const int rc = kc_h_self_run(a, log);
+        KC_LAYERS_GATE("R1 tampered class cell: coverage COMPLETE but exit 1", rc == 1 &&
+                       kc_h_log_line(log, "KC_SCAN_MERGE_COVERAGE=COMPLETE"));
+        KC_LAYERS_GATE("R1 tampered class cell: class ROW gate FAILs",
+                       kc_h_log_sub(log, "GATE FAIL: layer 03 class row sum != N"));
+        KC_LAYERS_GATE("R1 tampered class cell: flow gate does NOT fire (isolating)",
+                       !kc_h_log_sub(log, "GATE FAIL: layer 03 flow != N"));
+        KC_LAYERS_GATE("R1 tampered class cell: KC_SCAN_MERGE=FAIL",
+                       kc_h_log_line(log, "KC_SCAN_MERGE=FAIL"));
+    }
+
+    /* --- R2 (2026-09-08): a tampered QUOTIENT-marginal cell must fail the quotient
+     * ROW gate and neither the class row gate nor the flow gate. --- */
+    {
+        char bad[4300], out[4300];
+        char *cmd = (char *)malloc(KC_LAY_ABUF);
+        F1_CHECK(cmd != NULL, "[kc-layers-selftest] alloc");
+        snprintf(bad, sizeof(bad), "%s/bad_q.json", dir);
+        snprintf(cmd, KC_LAY_ABUF, "cp '%s' '%s' && sed -i "
+                 "'0,/\"q\\([0-9]*\\)\": \"\\([0-9]*\\)\"/s//\"q\\1\": \"1\\2\"/' '%s'",
+                 c2, bad, bad);
+        kc_h_sh(cmd);
+        free(cmd);
+        KC_LAYERS_GATE("R2 tampered quotient cell: the sed ACTUALLY edited the chunk",
+                       !kc_h_bytes_identical(c2, bad));
+        snprintf(out, sizeof(out), "%s/badq.json", dir);
+        unlink(out);
+        snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
+                 fdir, gdir, out, c1, bad, c3, tdir);
+        const int rc = kc_h_self_run(a, log);
+        KC_LAYERS_GATE("R2 tampered quotient cell: coverage COMPLETE but exit 1", rc == 1 &&
+                       kc_h_log_line(log, "KC_SCAN_MERGE_COVERAGE=COMPLETE"));
+        KC_LAYERS_GATE("R2 tampered quotient cell: quotient ROW gate FAILs",
+                       kc_h_log_sub(log, "GATE FAIL: layer 03 quotient marginal sum != N"));
+        KC_LAYERS_GATE("R2 tampered quotient cell: class row + flow gates do NOT fire",
+                       !kc_h_log_sub(log, "GATE FAIL: layer 03 class row sum != N") &&
+                       !kc_h_log_sub(log, "GATE FAIL: layer 03 flow != N"));
+        KC_LAYERS_GATE("R2 tampered quotient cell: KC_SCAN_MERGE=FAIL",
+                       kc_h_log_line(log, "KC_SCAN_MERGE=FAIL"));
+    }
+
+    /* --- R3 (2026-09-08): a d1<->d2 SWAP inside one layer row is mass-preserving:
+     * flow and both row sums are untouched, so every row gate is blind to it. Only
+     * the VERTICAL class-column gate (sum_k cls[k][d] == b0[d]*N) can see it, and it
+     * must fire for BOTH swapped classes. --- */
+    {
+        char bad[4300], out[4300];
+        char *cmd = (char *)malloc(KC_LAY_ABUF);
+        F1_CHECK(cmd != NULL, "[kc-layers-selftest] alloc");
+        snprintf(bad, sizeof(bad), "%s/bad_swap.json", dir);
+        snprintf(cmd, KC_LAY_ABUF, "cp '%s' '%s' && sed -i "
+                 "'0,/\"d1\": \"\\([0-9]*\\)\", \"d2\": \"\\([0-9]*\\)\"/"
+                 "s//\"d1\": \"\\2\", \"d2\": \"\\1\"/' '%s'", c2, bad, bad);
+        kc_h_sh(cmd);
+        free(cmd);
+        KC_LAYERS_GATE("R3 swap: the swap ACTUALLY changed the chunk (not d1 == d2)",
+                       !kc_h_bytes_identical(c2, bad));
+        snprintf(out, sizeof(out), "%s/badswap.json", dir);
+        unlink(out);
+        snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
+                 fdir, gdir, out, c1, bad, c3, tdir);
+        const int rc = kc_h_self_run(a, log);
+        KC_LAYERS_GATE("R3 swap: coverage COMPLETE but exit 1", rc == 1 &&
+                       kc_h_log_line(log, "KC_SCAN_MERGE_COVERAGE=COMPLETE"));
+        KC_LAYERS_GATE("R3 swap: the VERTICAL class-column gate FAILs (d1 and d2)",
+                       kc_h_log_sub(log, "GATE FAIL: class d1 column sum != b0[d]*N") &&
+                       kc_h_log_sub(log, "GATE FAIL: class d2 column sum != b0[d]*N"));
+        KC_LAYERS_GATE("R3 swap: NO row gate fires -- the swap is row-invisible",
+                       !kc_h_log_sub(log, "GATE FAIL: layer 03 flow != N") &&
+                       !kc_h_log_sub(log, "GATE FAIL: layer 03 class row sum != N") &&
+                       !kc_h_log_sub(log, "GATE FAIL: layer 03 quotient marginal sum != N"));
+        KC_LAYERS_GATE("R3 swap: KC_SCAN_MERGE=FAIL", kc_h_log_line(log, "KC_SCAN_MERGE=FAIL"));
+    }
+
     /* --- L13: leg 2 engine identity (G2 F1) - "unknown" == "unknown" is NOT a match --- */
     {
         char bad[4300], out[4300];
@@ -31501,13 +31723,21 @@ static int kc_layers_selftest(void) {
  *   extreme_value=<int>          constant=yes|no
  *   witness=<e,x,...>            (with --kc-witness)
  *   witness_value=<int>  witness_member=MEMBER|NOT-MEMBER
- *   KC_EXTREMAL_WITNESS=VERIFIED|FAILED
+ *   KC_EXTREMAL_WITNESS=VERIFIED|FAILED|NOT-REQUESTED
  *   #provenance  engine=solve.c/kc-extremal ...
+ *   KC_EXTREMAL_CERT=WRITTEN|FAILED   (only with --kc-json)
  *   KC_EXTREMAL=OK|FAIL
  * KC_EXTREMAL_WITNESS=VERIFIED requires ALL THREE of: the greedy descent
  * produced a walk; kc_member(fkc, W) is true; and re-evaluating Phi on W with
  * a STRAIGHT-LINE evaluator that never touches the DP returns exactly
  * extreme_value. Anything less is =FAILED, KC_EXTREMAL=FAIL, exit 1.
+ * Without --kc-witness the token is =NOT-REQUESTED and the certificate says
+ * "witness": null -- an OK without a witness is EXPLORATORY: the DP ran and
+ * the invariance gate held, nothing has been re-derived off the ladder.
+ * KC_EXTREMAL_CERT=FAILED (the requested --kc-json could not be written or
+ * closed cleanly; a partial file is removed) forces KC_EXTREMAL=FAIL, exit 2.
+ * Unknown options are REJECTED (exit 2), never ignored: a misspelled
+ * --kc-witness must not produce an OK that looks witnessed (KCQ03 #2-#4).
  *
  * TWO-LANGUAGE OBLIGATION (TR-12 §Q5, "witness re-checked in solve.py").
  * The witness is printed in the standard "entry,exit,..." form precisely so
@@ -31897,15 +32127,19 @@ static uint64_t kc_x_null_vs_g(const KC *fkc, const F1C5Layer *XL, KC *gkc) {
     return bad;
 }
 
-static void kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
-                            const char *fdir, const char *gdir, int want_max,
-                            int invariant, long long value, int is_const,
-                            const uint8_t *E, int have_w, long long wval,
-                            int wmember, int wverified) {
+/* 0 = the certificate is on disk and closed cleanly; -1 = it is not (open,
+ * write or close failed; a partial file is unlinked). The caller MUST turn -1
+ * into KC_EXTREMAL_CERT=FAILED and a nonzero exit -- this used to be void, and
+ * an unwritable --kc-json still exited 0 with KC_EXTREMAL=OK (KCQ03 #3). */
+static int kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
+                           const char *fdir, const char *gdir, int want_max,
+                           int invariant, long long value, int is_const,
+                           const uint8_t *E, int want_w, int have_w,
+                           long long wval, int wmember, int wverified) {
     FILE *f = fopen(path, "w");
     if (!f) {
-        fprintf(stderr, "ERROR: [kc-extremal] cannot write %s\n", path);
-        return;
+        fprintf(stderr, "ERROR: [kc-extremal] cannot write %s (%s)\n", path, strerror(errno));
+        return -1;
     }
     char esc[8192], nd[64], ws[8192];
     f1_dec(fkc->total, nd);
@@ -31944,6 +32178,12 @@ static void kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
             fprintf(f, "  \"witness_value\": %lld,\n", wval);
             fprintf(f, "  \"witness_member\": %s,\n", wmember ? "true" : "false");
             fprintf(f, "  \"witness_verified\": %s,\n", wverified ? "true" : "false");
+            fprintf(f, "  \"witness_status\": \"%s\",\n", wverified ? "VERIFIED" : "FAILED");
+        } else {
+            /* explicit, so a certificate without a witness can never be read
+             * as one that had its witness elided (KCQ03 #2) */
+            fprintf(f, "  \"witness\": null,\n");
+            fprintf(f, "  \"witness_status\": \"%s\",\n", want_w ? "FAILED" : "NOT-REQUESTED");
         }
     }
     fprintf(f, "  \"engine_git\": \"%s\",\n", GIT_HASH);
@@ -31952,7 +32192,15 @@ static void kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
     fprintf(f, "  \"two_language_obligation\": \"witness must be re-evaluated in "
                "solve.py by the run harness before any Q5 number ships\"\n");
     fprintf(f, "}\n");
-    fclose(f);
+    const int werr = ferror(f);
+    const int cerr = fclose(f) != 0;
+    if (werr || cerr) {
+        fprintf(stderr, "ERROR: [kc-extremal] writing %s failed (%s); partial file removed\n",
+                path, strerror(errno));
+        unlink(path);
+        return -1;
+    }
+    return 0;
 }
 
 static int kc_extremal_main(int argc, char *argv[]) {
@@ -31976,7 +32224,10 @@ static int kc_extremal_main(int argc, char *argv[]) {
             "  v1 IS IN-MEMORY ONLY (n <= 22); the OOC extremal builder is a\n"
             "  separate, unbuilt item, so full-31 is NOT reachable from here.\n"
             "  Gate: --kc-extremal-selftest (n=9 exhaustive brute force).\n"
-            "  Emits KC_EXTREMAL_INVARIANT / KC_EXTREMAL_WITNESS / KC_EXTREMAL.\n"
+            "  Emits KC_EXTREMAL_INVARIANT / KC_EXTREMAL_WITNESS / KC_EXTREMAL, plus\n"
+            "  KC_EXTREMAL_CERT=WRITTEN|FAILED with --kc-json. Without --kc-witness the\n"
+            "  witness token is NOT-REQUESTED and the run is EXPLORATORY (nothing was\n"
+            "  re-derived off the ladder). Unknown options are REJECTED (exit 2).\n"
             "  Exit 0/1/2.\n");
         return 2;
     }
@@ -32003,6 +32254,14 @@ static int kc_extremal_main(int argc, char *argv[]) {
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-gdir") == 0) gdir = argv[++ai];
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
             cache_mb = atoi(argv[++ai]);
+        else {
+            /* fail CLOSED: an unrecognised modifier used to be ignored, so
+             * "--kc-witnes" produced KC_EXTREMAL=OK with no witness (KCQ03 #4) */
+            fprintf(stderr, "ERROR: [kc-extremal] unknown or incomplete option '%s' "
+                    "(accepted: --kc-witness --kc-json OUT --kc-gdir GDIR --kc-ooc "
+                    "--kc-cache-mb MB)\n", argv[ai]);
+            return 2;
+        }
     }
     const KcXFunc *F = kc_x_find(fname);
     if (!F) {
@@ -32047,8 +32306,11 @@ static int kc_extremal_main(int argc, char *argv[]) {
         printf("#provenance\tengine=solve.c/kc-extremal\tfunc=%s\tbranch=%s\t"
                "git=%s\tsource_sha=%s\tspace=C1C2C4C5-SUPERSPACE\t"
                "semantics=certificate-not-proof\n", F->name, GIT_BRANCH, GIT_HASH, SOURCE_SHA);
-        if (jout)
-            kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 0, 0, 0, NULL, 0, 0, 0, 0);
+        if (jout) {
+            const int cw = kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 0, 0, 0,
+                                           NULL, want_w, 0, 0, 0, 0);
+            printf("KC_EXTREMAL_CERT=%s\n", cw == 0 ? "WRITTEN" : "FAILED");
+        }
         printf("KC_EXTREMAL=FAIL\n");
         kc_free(fkc); free(fkc);
         return 1;
@@ -32116,15 +32378,22 @@ static int kc_extremal_main(int argc, char *argv[]) {
         }
         printf("KC_EXTREMAL_WITNESS=%s\n", wverified ? "VERIFIED" : "FAILED");
         if (!wverified) rc = 1;
+    } else {
+        /* say so on the record: OK below means "DP ran, invariance held",
+         * not "a walk attaining the value was produced and re-checked" */
+        printf("KC_EXTREMAL_WITNESS=NOT-REQUESTED\n");
     }
     printf("#provenance\tengine=solve.c/kc-extremal\tfunc=%s\tbranch=%s\t"
            "git=%s\tsource_sha=%s\tn=%d\torder=NATIVE\tobject=WALK\t"
            "space=C1C2C4C5-SUPERSPACE\tscope=in-memory-v1(n<=%d)\t"
            "semantics=certificate-not-proof\n",
            F->name, GIT_BRANCH, GIT_HASH, SOURCE_SHA, fkc->n, KC_MEM_MAX_PAIRS);
-    if (jout)
-        kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 1, value, is_const,
-                        E, have_w, wval, wmember, wverified);
+    if (jout) {
+        const int cw = kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 1, value, is_const,
+                                       E, want_w, have_w, wval, wmember, wverified);
+        printf("KC_EXTREMAL_CERT=%s\n", cw == 0 ? "WRITTEN" : "FAILED");
+        if (cw != 0) rc = 2;          /* the artifact asked for does not exist */
+    }
     printf("KC_EXTREMAL=%s\n", rc == 0 ? "OK" : "FAIL");
     kc_x_free(fkc, XL);
     free(XL);
@@ -32150,8 +32419,14 @@ static int kc_extremal_main(int argc, char *argv[]) {
  *      recomputed by the straight-line evaluator.
  *  K4  the greedy witness is a MEMBER (kc_member) and the straight-line
  *      evaluator returns exactly extreme_value on it.
- *  K5  at least one BRUTE walk attains extreme_value -- this is what guards
- *      a witness that is extremal-by-luck on a wrong DP.
+ *  K5  at least one BRUTE walk attains the DP's extreme_value (counted against
+ *      the DP value `got`, NOT against brute's own extremum -- the latter
+ *      passed a DP-root+1 mutant, KCQ03 #5) -- this is what guards a witness
+ *      that is extremal-by-luck on a wrong DP.
+ *  K3R/K4R the extremum and the witness value are re-derived under REFERENCE
+ *      weights that never call F->w (kc_xs_ref_w, from the row's documented
+ *      formula); every registry row must have one. Catches a drifted weight
+ *      function, which K3/K4/K5/K8/K9 cannot (all close over F->w; KCQ03 #1).
  *  K6  posyang0 (the non-invariant control) => KC_EXTREMAL_INVARIANT=no,
  *      exit 1, and NO extreme_value line emitted. Run through argv.
  *  K7  EVIDENCE (not a pass/fail row, per spec): posyang0's DP is FORCED and
@@ -32198,6 +32473,52 @@ static long long kc_x_brute_ext(const KC *kc, const KcXFunc *F, const KcList *BR
     }
     if (nattain) *nattain = na;
     return best;
+}
+
+/* REFERENCE weights, deliberately NOT derived from KC_X_REG[].w. Every other
+ * check in this selftest (K3/K4/K5/K8/K9 and the public witness re-evaluation)
+ * closes over F->w, so a drifted registry weight -- popcount(exit)+1 for
+ * yangcount, say -- passed all of them and shipped extreme_value=39 for a
+ * functional whose documented value is 30 (KCQ03 #1, executed 2026-09-02). This
+ * table re-states each registry row's DOCUMENTED formula from its name alone;
+ * it is a second implementation in the same language, so it does not discharge
+ * the two-language obligation in the module header, but it does make the
+ * registry's weight functions falsifiable from inside the binary. Returns 0
+ * and sets *w on success; -1 for a name with no reference formula, which the
+ * gate turns into a FAIL (a registry row nobody wrote a reference for is
+ * exactly the row the gate must not wave through). */
+static int kc_xs_ref_w(const char *name, int step, int last, int entry, int exitx, int *w) {
+    (void)step;
+    const int hd = __builtin_popcount((unsigned)(last ^ entry));
+    if (strncmp(name, "dclass:", 7) == 0) {
+        const int D = atoi(name + 7);
+        if (D <= 0) return -1;
+        *w = (hd == D) ? 1 : 0;                 /* one transition of distance D */
+        return 0;
+    }
+    if (strcmp(name, "linechanges") == 0) { *w = hd; return 0; }
+    if (strcmp(name, "graycode") == 0)    { *w = (hd == 1) ? 1 : 0; return 0; }
+    if (strcmp(name, "yangcount") == 0)   { *w = __builtin_popcount((unsigned)exitx); return 0; }
+    if (strcmp(name, "entryyang") == 0)   { *w = __builtin_popcount((unsigned)entry); return 0; }
+    if (strcmp(name, "posyang0") == 0)    { *w = exitx & 1; return 0; }
+    return -1;
+}
+
+/* Phi over an explicit walk under the REFERENCE weights. 0 = ok, -1 = no
+ * reference for this functional. Mirrors kc_x_eval's walk convention only. */
+static int kc_xs_ref_eval(const KC *kc, const KcXFunc *F, const uint8_t *E, long long *out) {
+    long long s = 0;
+    int last = kc->start_exit;
+    for (int k = 1; k <= kc->n; k++) {
+        const int x = E[k - 1];
+        const int entry = kc->partner[x];
+        int w;
+        if (kc_xs_ref_w(F->name, k, last, entry, x, &w) != 0) return -1;
+        s += w;
+        last = x;
+    }
+    *out = s;
+    return 0;
 }
 
 static int kc_extremal_selftest(void) {
@@ -32304,13 +32625,18 @@ static int kc_extremal_selftest(void) {
     /* ---- K3/K4/K5/K8: every INVARIANT functional x both directions ---- */
     {
         int k3 = 1, k4 = 1, k5 = 1, k8 = 1, nvar = 0;
+        int k3r = 1, k4r = 1, nref = 0;
         for (int i = 0; i < KC_X_NREG; i++) {
             const KcXFunc *F = &KC_X_REG[i];
+            {   /* K3R prerequisite: EVERY registry row has a reference formula,
+                 * controls included -- counted before the invariance skip */
+                int w;
+                if (kc_xs_ref_w(F->name, 1, 0, 0, 0, &w) == 0) nref++;
+            }
             if (!kc_x_invariant(fkc, F, NULL)) continue;      /* controls handled by K6 */
             nvar++;
             for (int wm = 0; wm <= 1; wm++) {
-                uint64_t na = 0;
-                const long long want = kc_x_brute_ext(fkc, F, &BR, wm, &na);
+                const long long want = kc_x_brute_ext(fkc, F, &BR, wm, NULL);
                 kc_x_build_mem(fkc, XL, F, wm);
                 const long long got = kc_x_root(fkc, XL);
                 if (got != want) {
@@ -32318,10 +32644,42 @@ static int kc_extremal_selftest(void) {
                     printf("[kc-extremal-selftest]   K3 MISMATCH %s %s: DP=%lld brute=%lld\n",
                            F->name, wm ? "max" : "min", got, want);
                 }
-                if (na == 0) k5 = 0;
+                /* K5 counts attainment of the DP's OWN value (got), not of brute's
+                 * extremum (want): counted against want, a DP-root+1 mutant failed K3
+                 * and K4 while K5 still PASSED (KCQ03 #5, executed 2026-09-02). */
+                uint64_t na_got = 0;
+                for (uint64_t w = 0; w < BR.cnt; w++)
+                    if (kc_x_eval(fkc, F, BR.walks + w * (size_t)BR.n) == got) na_got++;
+                if (na_got == 0) {
+                    k5 = 0;
+                    /* diagnostic, NOT a gate row: no "K5 " prefix, so a reader that takes
+                     * the first K5 gate line still finds the verdict row below the loop */
+                    printf("[kc-extremal-selftest]   K5: no brute walk attains DP value %lld (%s %s)\n",
+                           got, F->name, wm ? "max" : "min");
+                }
+                /* K3R: the same extremum under the REFERENCE weights (not F->w) */
+                {
+                    long long rbest = 0;
+                    int rok = 1;
+                    for (uint64_t w = 0; w < BR.cnt; w++) {
+                        long long v;
+                        if (kc_xs_ref_eval(fkc, F, BR.walks + w * (size_t)BR.n, &v) != 0) { rok = 0; break; }
+                        if (w == 0 || (wm ? v > rbest : v < rbest)) rbest = v;
+                    }
+                    if (!rok || rbest != got) {
+                        k3r = 0;
+                        printf("[kc-extremal-selftest]   K3R MISMATCH %s %s: DP=%lld reference-brute=%lld%s\n",
+                               F->name, wm ? "max" : "min", got, rbest,
+                               rok ? "" : " (no reference formula)");
+                    }
+                }
                 uint8_t E[KC_MAX_PAIRS];
-                if (kc_x_witness(fkc, XL, F, wm, E) != 0) k4 = 0;
-                else if (!kc_member(fkc, E) || kc_x_eval(fkc, F, E) != got) k4 = 0;
+                if (kc_x_witness(fkc, XL, F, wm, E) != 0) { k4 = 0; k4r = 0; }
+                else {
+                    if (!kc_member(fkc, E) || kc_x_eval(fkc, F, E) != got) k4 = 0;
+                    long long rv;
+                    if (kc_xs_ref_eval(fkc, F, E, &rv) != 0 || rv != got) k4r = 0;
+                }
                 kc_x_free(fkc, XL);
             }
             /* K8: the two extrema bracket every brute walk */
@@ -32335,9 +32693,12 @@ static int kc_extremal_selftest(void) {
         }
         KC_X_GATE("K3 DP extreme_value == brute extremum (all invariant FUNC x max/min)", k3);
         KC_X_GATE("K4 witness is a MEMBER and re-evaluates to extreme_value", k4);
-        KC_X_GATE("K5 at least one BRUTE walk attains extreme_value", k5);
+        KC_X_GATE("K5 at least one BRUTE walk attains the DP's extreme_value", k5);
         KC_X_GATE("K8 max/min BRACKET every one of the 26112 brute walk values", k8);
         KC_X_GATE("K3 registry has >= 8 invariant functionals to gate", nvar >= 8);
+        KC_X_GATE("K3R every registry row has a REFERENCE formula (not F->w)", nref == KC_X_NREG);
+        KC_X_GATE("K3R DP extreme_value == brute extremum under REFERENCE weights", k3r);
+        KC_X_GATE("K4R witness re-evaluates to extreme_value under REFERENCE weights", k4r);
     }
 
     /* ---- K9: yangcount / entryyang complementarity ---- */
@@ -32530,7 +32891,9 @@ static int kc_cli(int argc, char *argv[]) {
                     "  the C1&C2&C4&C5 SUPERSPACE — see the KC-O3 module header for the\n"
                     "  walk-rank vs class-rank pin and the H3b space ruling.\n"
                     "  --kc-trace: per-placement f*g descent trace (rarity profile rows);\n"
-                    "  --kc-bracket: the rank r-1/r/r+1 neighbor certificate.\n",
+                    "    emits KC_O3_TRACE=OK|FAIL and exits 1 when the trace identities fail.\n"
+                    "  --kc-bracket: the rank r-1/r/r+1 neighbor certificate.\n"
+                    "  Unknown options are REJECTED (exit 2), never ignored.\n",
                     cmd, strcmp(cmd, "--kc-o3-rank") == 0 ? "\"e,x,...\"" : "RANK");
             return 2;
         }
@@ -32541,6 +32904,14 @@ static int kc_cli(int argc, char *argv[]) {
             else if (strcmp(argv[ai], "--kc-bracket") == 0) o3bracket = 1;
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
                 o3cache = atoi(argv[++ai]);
+            else {
+                /* fail CLOSED: "--kc-braket" used to run with 0 bracket lines and
+                 * exit 0 (KCQ03 #4) */
+                fprintf(stderr, "ERROR: [kc-o3] unknown or incomplete option '%s' "
+                        "(accepted: --kc-trace --kc-bracket --kc-ooc --kc-cache-mb MB)\n",
+                        argv[ai]);
+                return 2;
+            }
         }
         return kc_o3_query_main(cmd, argv[2], argv[3], argv[4],
                                 o3trace, o3bracket, o3ooc, o3cache);
@@ -32738,9 +33109,9 @@ static int kc_cli(int argc, char *argv[]) {
     }
     {   /* Per-command admissibility. Accept-and-ignore is a wrong answer with no error; refuse
          * instead, computing nothing. --kc-count / --kc-rank / --kc-member accept NONE of these:
-         * a count or a rank conditioned on C3 is not what any of them computes, and the C3
-         * counting obstruction means it is not exactly computable at all -- the C15 companion is
-         * a SAMPLED correction, which is --kc-sample. */
+         * a count or a rank conditioned on C3 is not what any of them computes, and the exact
+         * C15 count was PRICED AND DECLINED (~$3-5K; TR-12 §9 -- not "not computable") -- the
+         * C15 companion is a SAMPLED correction, which is --kc-sample. */
         int allowed = 0;
         if (strcmp(cmd, "--kc-build") == 0)                                allowed = KO_PAIRS;
         else if (strcmp(cmd, "--kc-unrank") == 0)                          allowed = KO_RECORD | KO_C3;

@@ -9,4 +9,12 @@ cd	count	fraction
 p_hat_cd_le_T	0.26345000
 wilson95_lo	0.25739088
 wilson95_hi	0.26959998
+c15_accepted_draws	5269
+mu_hat_P_C15_cd_eq_T	0.66426267
+mu_wilson95_lo	0.65139580
+mu_wilson95_hi	0.67689019
+cd	count	wilson95_lo	wilson95_hi
+23	1769	0.08459337	0.09246470
+31	3500	0.16979657	0.18032825
+39	14731	0.73040002	0.74260912
 label	ESTIMATE-with-CI (exact C15 count is OPEN)

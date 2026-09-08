@@ -28,6 +28,15 @@
 # reconcile is a gate that gets removed.
 #
 # Usage: knuth_c67_repro_gate.sh      [SOLVE_BIN=/path/to/solve]
+#
+# Verdict tokens (grep -qx), each a WHOLE line with nothing after the value:
+#   KNUTH_C67_REPRO=OK|FAIL|ERROR
+#   KNUTH_C67_REPRO_ERROR=<cause>   ERROR only: extractor-failed | population-collapsed |
+#                                   build-failed | not-executable:<path> | stale-subject:<path>
+# 🔴 2026-09-08: every ERROR form used to carry its cause ON the verdict line
+# ("KNUTH_C67_REPRO=ERROR build-failed"), so `grep -qx KNUTH_C67_REPRO=ERROR` could never match
+# any of them. The ERROR-vs-FAIL vocabulary below is unchanged and the cause is still emitted --
+# it moved to its own token so that both halves are machine-readable.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
@@ -76,7 +85,7 @@ PY
 ); then
     echo "  [FAIL] the block-scan extractor did not run (python3 failed); this gate cannot"
     echo "         certify a recipe it never parsed."
-    echo "KNUTH_C67_REPRO=ERROR extractor-failed"; exit 1
+    echo "KNUTH_C67_REPRO_ERROR=extractor-failed"; echo "KNUTH_C67_REPRO=ERROR"; exit 1
   fi
   miss=$(printf '%s' "$miss" | tr -s ' ')
   if [ -n "$miss" ]; then
@@ -91,7 +100,7 @@ done
 if [ "$present" -lt 2 ]; then
   echo "  [FAIL] only $present of ${#DOCS[@]} document(s) still carry the 1169/233 figures."
   echo "         With the subject gone this gate would measure nothing, so this is an ERROR."
-  echo "KNUTH_C67_REPRO=ERROR population-collapsed"; exit 1
+  echo "KNUTH_C67_REPRO_ERROR=population-collapsed"; echo "KNUTH_C67_REPRO=ERROR"; exit 1
 fi
 
 # ---- LEG 2: the binary still prints those integers ----
@@ -100,10 +109,45 @@ BIN=${SOLVE_BIN:-}
 if [ -z "$BIN" ]; then
   BIN=$(mktemp -u /tmp/claude-1000/solve_knuthgate.XXXXXX)
   gcc -O2 -pthread -fopenmp -o "$BIN" solve.c -lm -lz 2>/dev/null || {
-    echo "KNUTH_C67_REPRO=ERROR build-failed"; exit 1; }
+    echo "  [ERROR] gcc could not build solve.c"
+    echo "KNUTH_C67_REPRO_ERROR=build-failed"; echo "KNUTH_C67_REPRO=ERROR"; exit 1; }
   trap 'rm -f "$BIN"' EXIT
 fi
-[ -x "$BIN" ] || { echo "KNUTH_C67_REPRO=ERROR not-executable:$BIN"; exit 1; }
+[ -x "$BIN" ] || { echo "  [ERROR] not executable: $BIN"
+  echo "KNUTH_C67_REPRO_ERROR=not-executable:$BIN"; echo "KNUTH_C67_REPRO=ERROR"; exit 1; }
+
+# 🔴 EXECUTABLE IS NOT CURRENT. The build arm above compiles the committed solve.c seconds
+# before use and is safe by construction. SOLVE_BIN is not: it names a PATH, and the line above
+# checks only the +x bit. LEG 2 then asserts that "the shipped binary still prints 1169 / 233" and
+# on a mismatch tells the reader "Either the figure is stale or the estimator changed. Do not edit
+# the number to match: find out which of the two moved." Handed a stale binary that is a false
+# instruction -- neither moved; the artifact on disk was simply old.
+#
+# Added 2026-09-08 after scripts/resume_budget_infinity_gate.sh -- same `${VAR:-}`-names-a-path
+# shape -- reported FAIL, an UNDERCOUNT PRESENTED AS A COMPLETE ENUMERATION, against a ./solve two
+# days older than 779fff4c, the commit that fixed exactly that. Stale -> FAIL, HEAD -> PASS.
+#
+# ERROR, NEVER FAIL: an unestablished subject is not a defect. This file's own vocabulary already
+# distinguishes the two -- KNUTH_C67_REPRO=ERROR, with the reason on its own
+# KNUTH_C67_REPRO_ERROR line, for "measured nothing"; =FAIL for "the
+# published figures no longer reproduce" -- so this uses the ERROR token with a reason, exit 1,
+# matching the extractor-failed and population-collapsed cases above.
+#
+# Called INSIDE an `if`: lib_binary_currency.sh's foreign-sha arm ends in a `grep -vxF` that exits
+# 1 in the NORMAL case, so a bare call under this file's pipefail would abort mid-function with an
+# empty signal.
+#
+# ONLY THE HANDED-IN BINARY IS CHECKED. The internally built one cannot be stale, and it is built
+# by a bare `gcc -O2 ...` with no -DSOURCE_SHA, so it carries no source-sha signal at all.
+if [ -n "${SOLVE_BIN:-}" ] && [ "${KNUTH_C67_ALLOW_STALE-}" != "1" ]; then
+  . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
+  # cwd is the repo root (the cd at the top of this file), so bare `solve.c` is unambiguous.
+  if ! solve_binary_currency "$BIN" solve.c; then
+    echo "  [ERROR] $BINCUR_MSG" >&2
+    echo "          (set KNUTH_C67_ALLOW_STALE=1 to override, deliberately.)" >&2
+    echo "KNUTH_C67_REPRO_ERROR=stale-subject:$BIN"; echo "KNUTH_C67_REPRO=ERROR"; exit 1
+  fi
+fi
 
 PREFIX=""
 for i in $(seq 1 22); do PREFIX="$PREFIX $i 0"; done

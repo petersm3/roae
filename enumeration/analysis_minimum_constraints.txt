@@ -7,46 +7,46 @@ Loading 31,630,621 solutions (1.01 GB)...
 Per-boundary selectivity (boundary = positions b and b+1 both match KW)
 ============================================================
   Boundary    Positions    Survivors      Pct                       KW pairs
-        1     1-2         274,134  0.8667%  Creative/Receptive + Difficulty/Folly
-        2     2-3         274,134  0.8667%  Difficulty/Folly + Waiting/Conflict
-        3     3-4         274,134  0.8667%  Waiting/Conflict + Army/Holding Toge
-        4     4-5         481,045  1.5208%  Army/Holding Toge + hexagram 9/hexagram 10
+        1     1-2         274,134  0.8667%  hexagram 1/hexagram 2 + hexagram 3/hexagram 4
+        2     2-3         274,134  0.8667%  hexagram 3/hexagram 4 + hexagram 5/hexagram 6
+        3     3-4         274,134  0.8667%  hexagram 5/hexagram 6 + hexagram 7/hexagram 8
+        4     4-5         481,045  1.5208%  hexagram 7/hexagram 8 + hexagram 9/hexagram 10
         5     5-6         824,870  2.6078%  hexagram 9/hexagram 10 + hexagram 11/hexagram 12
-        6     6-7         824,870  2.6078%  Peace/Standstill + Fellowship/Great Posses
-        7     7-8       2,484,332  7.8542%  Fellowship/Great Posses + Modesty/Enthusiasm
-        8     8-9       2,484,332  7.8542%  Modesty/Enthusiasm + Following/Work on Deca
-        9     9-10      2,927,548  9.2554%  Following/Work on Deca + Approach/Contemplatio
-       10    10-11      3,614,211 11.4263%  Approach/Contemplatio + Biting Throu/Grace
-       11    11-12      3,614,211 11.4263%  Biting Throu/Grace + Splitting Ap/Return
-       12    12-13      3,614,211 11.4263%  Splitting Ap/hexagram 24 + hexagram 25/hexagram 26
-       13    13-14      3,614,211 11.4263%  hexagram 25/hexagram 26 + Mouth/Preponderanc
-       14    14-15      3,614,211 11.4263%  Mouth/Preponderanc + Abysmal/Clinging
-       15    15-16      5,853,918 18.5071%  Abysmal/Clinging + Influence/Duration
+        6     6-7         824,870  2.6078%  hexagram 11/hexagram 12 + hexagram 13/hexagram 14
+        7     7-8       2,484,332  7.8542%  hexagram 13/hexagram 14 + hexagram 15/hexagram 16
+        8     8-9       2,484,332  7.8542%  hexagram 15/hexagram 16 + hexagram 17/hexagram 18
+        9     9-10      2,927,548  9.2554%  hexagram 17/hexagram 18 + hexagram 19/hexagram 20
+       10    10-11      3,614,211 11.4263%  hexagram 19/hexagram 20 + hexagram 21/hexagram 22
+       11    11-12      3,614,211 11.4263%  hexagram 21/hexagram 22 + hexagram 23/hexagram 24
+       12    12-13      3,614,211 11.4263%  hexagram 23/hexagram 24 + hexagram 25/hexagram 26
+       13    13-14      3,614,211 11.4263%  hexagram 25/hexagram 26 + hexagram 27/hexagram 28
+       14    14-15      3,614,211 11.4263%  hexagram 27/hexagram 28 + hexagram 29/hexagram 30
+       15    15-16      5,853,918 18.5071%  hexagram 29/hexagram 30 + hexagram 31/hexagram 32
        16    16-17      8,078,955 25.5416%  hexagram 31/hexagram 32 + hexagram 33/hexagram 34
-       17    17-18      8,078,955 25.5416%  hexagram 33/hexagram 34 + hexagram 35/Darkening
-       18    18-19      9,273,664 29.3186%  Progress/Darkening + Family/Opposition
-       19    19-20      7,667,648 24.2412%  Family/Opposition + Obstruction/Deliverance
-       20    20-21      3,230,838 10.2143%  Obstruction/Deliverance + Decrease/Increase
-       21    21-22        594,181  1.8785%  Decrease/Increase + Breakthrough/Coming to Me
-       22    22-23        622,073  1.9667%  Breakthrough/Coming to Me + Gathering/Pushing Upwa
-       23    23-24        598,443  1.8920%  Gathering/Pushing Upwa + hexagram 47/hexagram 48
-       24    24-25        338,079  1.0688%  hexagram 47/hexagram 48 + hexagram 49/Cauldron
-       25    25-26        139,821  0.4420%  Revolution/Cauldron + Arousing/Keeping Stil
-       26    26-27        251,221  0.7942%  Arousing/Keeping Stil + Development/Marrying Mai
-       27    27-28        186,539  0.5897%  Development/Marrying Mai + Abundance/Wanderer
-       28    28-29        466,736  1.4756%  Abundance/Wanderer + Gentle/Joyous
-       29    29-30        585,127  1.8499%  Gentle/Joyous + Dispersion/Limitation
-       30    30-31        672,767  2.1269%  hexagram 59/hexagram 60 + hexagram 61/Small Prepon
-       31    31-32      1,502,683  4.7507%  hexagram 61/Small Prepon + After Comple/Before Compl
+       17    17-18      8,078,955 25.5416%  hexagram 33/hexagram 34 + hexagram 35/hexagram 36
+       18    18-19      9,273,664 29.3186%  hexagram 35/hexagram 36 + hexagram 37/hexagram 38
+       19    19-20      7,667,648 24.2412%  hexagram 37/hexagram 38 + hexagram 39/hexagram 40
+       20    20-21      3,230,838 10.2143%  hexagram 39/hexagram 40 + hexagram 41/hexagram 42
+       21    21-22        594,181  1.8785%  hexagram 41/hexagram 42 + hexagram 43/hexagram 44
+       22    22-23        622,073  1.9667%  hexagram 43/hexagram 44 + hexagram 45/hexagram 46
+       23    23-24        598,443  1.8920%  hexagram 45/hexagram 46 + hexagram 47/hexagram 48
+       24    24-25        338,079  1.0688%  hexagram 47/hexagram 48 + hexagram 49/hexagram 50
+       25    25-26        139,821  0.4420%  hexagram 49/hexagram 50 + hexagram 51/hexagram 52
+       26    26-27        251,221  0.7942%  hexagram 51/hexagram 52 + hexagram 53/hexagram 54
+       27    27-28        186,539  0.5897%  hexagram 53/hexagram 54 + hexagram 55/hexagram 56
+       28    28-29        466,736  1.4756%  hexagram 55/hexagram 56 + hexagram 57/hexagram 58
+       29    29-30        585,127  1.8499%  hexagram 57/hexagram 58 + hexagram 59/hexagram 60
+       30    30-31        672,767  2.1269%  hexagram 59/hexagram 60 + hexagram 61/hexagram 62
+       31    31-32      1,502,683  4.7507%  hexagram 61/hexagram 62 + hexagram 63/hexagram 64
 
 ============================================================
 Greedy minimum constraint search
 ============================================================
 Starting with 31,630,620 non-KW solutions
-  Step 1: Boundary 25 (pos 25-26): eliminates 31,490,800, 139,820 remain  [Revolution/Cauldron + Arousing/Keeping St]
-  Step 2: Boundary 27 (pos 27-28): eliminates 138,765, 1,055 remain  [Developmen/Marrying M + Abundance/Wanderer]
-  Step 3: Boundary 1 (pos 1-2): eliminates 1,032, 23 remain  [Creative/Receptive + Difficulty/Folly]
-  Step 4: Boundary 21 (pos 21-22): eliminates 23, 0 remain  [Decrease/Increase + Breakthrou/Coming to ]
+  Step 1: Boundary 25 (pos 25-26): eliminates 31,490,800, 139,820 remain  [hexagram 49/hexagram 50 + hexagram 51/hexagram 52]
+  Step 2: Boundary 27 (pos 27-28): eliminates 138,765, 1,055 remain  [hexagram 53/hexagram 54 + hexagram 55/hexagram 56]
+  Step 3: Boundary 1 (pos 1-2): eliminates 1,032, 23 remain  [hexagram 1/hexagram 2 + hexagram 3/hexagram 4]
+  Step 4: Boundary 21 (pos 21-22): eliminates 23, 0 remain  [hexagram 41/hexagram 42 + hexagram 43/hexagram 44]
 
 ************************************************************
 UNIQUE: 4 boundary constraints narrow
@@ -55,16 +55,16 @@ UNIQUE: 4 boundary constraints narrow
 
 Minimum boundary constraint set (greedy):
   1. Boundary 25 (positions 25-26):
-     Pair 24: Revolution / Cauldron
-     Pair 25: Arousing / hexagram 52
+     Pair 24: hexagram 49 / hexagram 50
+     Pair 25: hexagram 51 / hexagram 52
      Eliminates 31,490,800 solutions (139,820 remaining after)
   2. Boundary 27 (positions 27-28):
-     Pair 26: Development / Marrying Maiden
-     Pair 27: Abundance / Wanderer
+     Pair 26: hexagram 53 / hexagram 54
+     Pair 27: hexagram 55 / hexagram 56
      Eliminates 138,765 solutions (1,055 remaining after)
   3. Boundary 1 (positions 1-2):
-     Pair 0: Creative / Receptive
-     Pair 1: Difficulty / Folly
+     Pair 0: hexagram 1 / hexagram 2
+     Pair 1: hexagram 3 / hexagram 4
      Eliminates 1,032 solutions (23 remaining after)
   4. Boundary 21 (positions 21-22):
      Pair 20: hexagram 41 / hexagram 42
@@ -74,23 +74,46 @@ Minimum boundary constraint set (greedy):
 Total time: 20.3s
 
 ================================================================================
-NOTE ADDED 2026-09-07 (Q-420). NOT part of the captured output above.
+NOTE. NOT part of the captured output above.
 
-The table above carries shortened English hexagram renderings ("Creative/Receptive",
-"Revolution/Cauldron", "Marrying Mai", ...). They are RETAINED deliberately, and this
-note is appended rather than prepended so that no line number above shifts --
-documentation/CITATIONS.md cites lines 62, 63 and 67 of this file directly.
+2026-04-12  Run captured.
+2026-09-07  Note first added (Q-420), retaining the labels.
+2026-09-08  LABEL COLUMN REWRITTEN. This supersedes the 2026-09-07 note.
 
-Why retained rather than rewritten:
-  1. This file is CAPTURED STDOUT of a generator that no longer exists. The names are
-     truncated to fixed widths -- 12 characters in the selectivity table, 10 in the
-     greedy trace -- and no rewrite can reproduce that truncation, so an edit would
-     silently turn a record of what was run into a reconstruction of it.
-  2. The permission question was ruled on 2026-09-05:
-     SHORTENED_RENDERINGS_RULING=EXTENDS-OURS-NO-WB-CITED-OK.
-  3. Editing a frozen artifact to improve its wording is the wrong instinct. Its value
-     is that it is what the program printed.
+WHAT CHANGED. Only the hexagram-label column. Every measurement above -- survivor
+counts, percentages, elimination counts, the 20.3s timing, the shapes and byte sizes
+-- is byte-identical to the captured run; that is checked mechanically, not asserted.
 
-House style for NEW writing is hexagram number + pinyin + Chinese, e.g.
+The run's own label table was PARTIAL: it printed shortened English renderings for
+some hexagrams and the numeric form "hexagram 9/hexagram 10" for others, in the same
+table. The rewrite applies the numeric form uniformly. It is not a new vocabulary --
+it is the one this program already emitted for every hexagram its table lacked.
+
+HOW THE LABELS WERE DERIVED. Mechanically, from the boundary and pair indices already
+printed on each line: pair k labels hexagrams 2k+1 and 2k+2; boundary b spans pairs
+b-1 and b. Nothing was looked up or typed by hand.
+
+WHY THAT DERIVATION IS TRUSTWORTHY. The captured run printed 32 half-labels in numeric
+form itself. The derivation reproduces all 32 character-for-character, and an
+off-by-one mapping disagrees with all 32 -- so the controls discriminate. Checks were
+mutation-tested in both directions before use: a perturbed measurement, a perturbed
+numeric label, a surviving name, and a wholesale off-by-one were each caught by the
+check intended for it.
+
+PRE-EDIT SHA256 (the file exactly as captured, plus the 2026-09-07 note):
+  43667476dfb83217857be9371c1f88017c26c237f8b724b23ccd5c380d033827
+Recoverable from git history at commit bcd3aca4, and before the note at eccf1774.
+
+LINE NUMBERS ABOVE ARE UNCHANGED: this note is appended, and the rewrite is in-place
+within each line. documentation/CITATIONS.md cites lines 62, 63 and 67 directly.
+
+WHY REWRITTEN RATHER THAN RETAINED. Operator ruling 2026-09-08: the translators'
+hexagram titles appear in this project only inside a citation of someone else's work;
+everything else is us writing them, and a captured artifact of our own run is us. The
+2026-09-07 note argued the file could not be edited without falsifying it. That
+argument was too strong: the column is a LABEL, not a measurement, and the substitute
+is not a reconstruction because the program printed it.
+
+House style for new writing is hexagram number + pinyin + Chinese, e.g.
 "Jian (hexagram 53, 漸)". See documentation/SOLVE.md.
 ================================================================================

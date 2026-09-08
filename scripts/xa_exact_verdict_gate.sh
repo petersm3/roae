@@ -75,11 +75,11 @@ rc = 0
 
 def price(nodes, nps, uph, budget, hedge="1", wf="1"):
     """Run the REAL emitter over a one-branch atlas; return (branch row, Call line)."""
-    A = {"n": 9, "N_total": 24, "type": "branch-atlas", "space": "xa-exact-gate-fixture",
+    A = {"n": 9, "N_total": "24", "type": "branch-atlas", "space": "xa-exact-gate-fixture",
          "semantics": "synthetic fixture for the XA exact-verdict boundary gate",
          "t_root_t_units": str(nodes + 1),
-         "layers": [{"k": 0, "flow": 24}],
-         "branch_atlas": [{"global_pair": 1, "entry": K[2], "exit": 0, "solutions": 24,
+         "layers": [{"k": 0, "flow": "24"}],
+         "branch_atlas": [{"global_pair": 1, "entry": K[2], "exit": 0, "solutions": "24",
                            "walks": 24, "prefixes_t_units": str(nodes)}]}
     cost = {"nodes_per_sec": solve._ExactAnchor(nps),
             "usd_per_hour":  solve._ExactAnchor(uph),
@@ -174,7 +174,7 @@ grade("fixture C (exact rate division)", "EXHAUSTIBLE", rowC, callC,
 # is decorative, so this leg drives BOTH directions.
 import re
 _A = {"n": 9, "N_total": "26112", "layers": [{"flow": "26112"} for _ in range(9)],
-      "branch_atlas": [{"global_pair": 1, "entry": 2, "exit": 0, "solutions": 24,
+      "branch_atlas": [{"global_pair": 1, "entry": 2, "exit": 0, "solutions": "24",
                         "walks": 24, "prefixes_t_units": "10"}]}
 _base = {"nodes_per_sec": solve._ExactAnchor("1000000"), "usd_per_hour": solve._ExactAnchor("1"),
          "budget_usd": solve._ExactAnchor("1000"), "hedge": solve._ExactAnchor("2.0"),

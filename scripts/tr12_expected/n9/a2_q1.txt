@@ -21,7 +21,7 @@
   "gdir": "<GDIR>",
   "pl_hash": "b5270954d483baaf",
   "class_rank_note": "WALK rank (class-rank = distinct records preceding, NOT computed); class block = [class_first_rank3, +m)",
-  "c15_note": "C15 rank is NOT exactly computable (C3 obstruction, TR-11 s10(ii)); any C15 figure is a labeled estimate elsewhere",
+  "c15_note": "the exact C15 (C1-C5) rank/count was PRICED AND DECLINED (~$3-5K; TR-12 s9), NOT 'not computable': the C3 obstruction of TR-11 s10(ii) is dissolved by the Lean theorem c3_slot_decomposition (lean/C3Decomposition.lean); every rank here is over the C1&C2&C4&C5 superspace and any C15 figure in this corpus is a labeled estimate",
   "engine_git": "<GIT>",
   "engine_source_sha": "<SRC>",
   "semantics": "certificate, not proof"
@@ -50,7 +50,7 @@
   "gdir": "<GDIR>",
   "pl_hash": "b5270954d483baaf",
   "class_rank_note": "WALK rank (class-rank = distinct records preceding, NOT computed); class block = [class_first_rank3, +m)",
-  "c15_note": "C15 rank is NOT exactly computable (C3 obstruction, TR-11 s10(ii)); any C15 figure is a labeled estimate elsewhere",
+  "c15_note": "the exact C15 (C1-C5) rank/count was PRICED AND DECLINED (~$3-5K; TR-12 s9), NOT 'not computable': the C3 obstruction of TR-11 s10(ii) is dissolved by the Lean theorem c3_slot_decomposition (lean/C3Decomposition.lean); every rank here is over the C1&C2&C4&C5 superspace and any C15 figure in this corpus is a labeled estimate",
   "engine_git": "<GIT>",
   "engine_source_sha": "<SRC>",
   "semantics": "certificate, not proof"

@@ -1,0 +1,46 @@
+# documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv — GATE 89 (`emitted-surface`) adjudicated-open rows.
+#
+# Each row is a name the code EMITS — a JSON key printed by solve.c, or a whole-line KEY=value
+# verdict token printed by solve.c or a scripts/*.sh gate — that appears in NO file under
+# documentation/. These rows print [OPEN] and do NOT set GATE 89's exit code, so the gate is hard
+# for NEWLY undocumented names only; a green verdict means no NEW one, never none at all.
+#
+# This began as the 2026-09-08 CENSUS taken when the gate landed: 230 rows, 160 JSON keys of the
+# 362 emitted and 70 verdict tokens of the 114 then measured. It was a documentation backlog in
+# which every row was a real defect — a reader who saw the name in the output had nowhere to look
+# it up — and it must only ever SHRINK.
+#
+# DRAINED to 2 rows on 2026-09-08, in three lanes the same day: 118 names first, then the 112 that
+# remained (60 verdict tokens into documentation/DEVELOPMENT.md, 4 solve.c tokens and 26 JSON
+# certificate/atlas keys into documentation/SOLVE_C_CLI.md, and the 26 observability-sidecar keys
+# into documentation/F1C5_LAYER_FORMAT.md).
+#
+# 🔴 THE TWO ROWS THAT REMAIN ARE NOT A BACKLOG. Both are names LEG 2 extracts that no run ever
+# emits as a verdict — a self-test fixture literal and a line written into a generated stub
+# harness that the gate then parses back. Each row's reason states the evidence. They are
+# deliberately left undocumented rather than described in the reference tables, because
+# publishing a token a reader can never see in a real log is worse than the gap it closes. If
+# LEG 2 ever learns to tell a fixture from a verdict, both rows go.
+#
+# An allowance row that matches nothing FAILS: if the code stops emitting the name, or the name
+# becomes documented, the row must be deleted. It therefore cannot outlive its fix, and it cannot
+# be padded with names the code does not emit.
+#
+# 2026-09-08, LATER THE SAME DAY: GATE 89 grew LEG 3, an `ast` pass over solve.py, and solve.py's
+# JSON surface stopped being scoped out. That census added 44 `py-json-key` rows, and THOSE 44 ARE
+# A BACKLOG in the original sense — every one is a key a reader can see in bank.json, header.json,
+# env.json, shard_<pool>_<n>.json, results.json, compute_stats.json, a --sat-encode .meta.json or a
+# --branch-yield-report-json file with nothing in documentation/ to look it up in. They must only
+# ever SHRINK, and they are counted separately, in DOC_GATE_EMITTED_SURFACE_PY_OPEN, so that
+# draining them cannot be confused with movement on the two rows above.
+#
+# Columns (tab-separated): surface<TAB>name<TAB>site<TAB>reason
+#   surface  json-key | verdict-token | py-json-key
+#   name     the emitted identifier
+#   site     for json-key/verdict-token, the first emission site at the 2026-09-08 census
+#            (informational; not re-verified). For py-json-key, the emitting FUNCTION, the artifact
+#            it is written into and the flag that writes it — symbols, never line numbers, which
+#            go stale within the day.
+#   reason   why the row stands
+verdict-token	TR12_A	scripts/tr12_repro_gate.sh:188	NOT a runtime verdict and deliberately left undocumented: the only occurrence in the tree is a fixture literal inside scripts/tr12_repro_gate.sh --selftest-skip-pin, standing in for an arbitrary battery row while skip_pin_compare is red-tested. The real per-row tokens (TR12_Q7, TR12_XA_A, ...) are written dynamically via printf '%s=%s' and are invisible to LEG 2; no row named TR12_A exists in any VERDICTS.txt or in scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt. Documenting it would publish a name no run emits.
+verdict-token	WITNESSES	scripts/d5_04_q7_witnesses_gate.sh:84	NOT a published verdict and deliberately left undocumented: emitted only into a stub harness that scripts/d5_04_q7_witnesses_gate.sh generates and then parses itself (sed -n 's/^WITNESSES=//p'), to read back TOKSTATE[TR12_Q7_WITNESSES] in the with-solver and without-solver worlds. It never reaches the gate's own caller; the gate's verdict token is D5_04_Q7_WITNESSES_GATE.

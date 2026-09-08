@@ -213,6 +213,9 @@ five `p` bands against `k`, King Wen's `kw_d` drawn as a step line, plus a sorte
 | Gate | Where |
 |---|---|
 | per-layer flow == N | `gates.per_layer_flow_eq_N` in the atlas |
+| per-layer class row sum == N | `gates.class_row_sums_eq_N` (2026-09-08) |
+| per-layer quotient marginal row sum == N | `gates.quotient_marginal_sums_eq_N` (2026-09-08; a frame this figure does not plot) |
+| `Σ_k cls[k][d]` == `b0[d] · N` | `gates.class_column_sums_eq_b0_N` (2026-09-08) — the engine-side form of the reader-side `(2, 8, 13, 7, 1)` identity below, and the only gate that sees a `d1`/`d2` swap inside one layer row |
 | branch masses sum == N | `gates.branch_masses_sum_eq_N` |
 | `1 + Σ_b prefixes_t_units == t(root)` | gated inside `--kc-scan` when `--kc-tdir` is given |
 | t-ladder vs direct recursion at small n | `solve --kc-t-selftest`, `solve --kc-scan-selftest` |
@@ -222,6 +225,16 @@ five `p` bands against `k`, King Wen's `kw_d` drawn as a step line, plus a sorte
 
 Both reader-side identities were exercised against the committed n=9 reference atlas
 (`{1:2, 2:5, 4:2}`, per-layer sums 1.0) before this doc was written.
+
+**Seven advertised keys are not twelve gate families.** `kc_h_scan_tail` runs twelve; the other
+five reach the JSON only through `fails`, and three of those five are guarded by a direct t
+recursion the tail attempts only when `N <= 2^27`, so they do not run at n=31 at all. Every
+advertised field collapses to `"see fails"` if *any* gate failed, named or not — coarse, but never
+a false positive. Read `fails` first. There is deliberately **no** vertical `quotient_marginal`
+gate: `kc_flookup` re-canonicalises with `f1_canon` on every lookup, so `q` indexes *this* layer's
+canonical mask and is not the same slot at `k+1`; the layer-summed quotient marginal has no closed
+form and must not be asserted. Full accounting in
+[SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md).
 
 ## Where the files live
 

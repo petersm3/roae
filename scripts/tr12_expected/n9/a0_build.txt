@@ -1,4 +1,4 @@
-[--selftest] Running in <SELFTEST_TMP>
+[--selftest] Running in /tm<SOLVE>_selftest_YPd1rQ
 [--selftest] Expected sha256: 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
 [--selftest] Actual sha256:   403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
 [--selftest] PASS — sha256 matches canonical baseline

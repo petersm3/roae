@@ -30,7 +30,15 @@ REF=${HISTORY_REF:-origin/main}
 # clears the list silently keeps it, reporting PASS. Measured here on the first attempt; the same
 # trap was found in citation_line_gate.sh's allow-list the same day. A gate whose red test cannot
 # be armed has not been red-tested.
-KNOWN=${HISTORY_KNOWN_GAPS-2026-09-03}
+# 🔴 2026-09-08: THE DEFAULT IS NOW EMPTY, and it must stay empty until a day is genuinely left
+# open on purpose. It carried `2026-09-03` from the day this gate was written; that day was
+# narrated on 2026-09-08 (`## 2026-09-03 — a sweep through the checks themselves…`), so the entry
+# had become an allowance for something already fixed — a clause that can never fail, which is the
+# verifier-closure class this repo refuses elsewhere. MEASURED before removing it: against the
+# narrated file the gate reaches PASS on COVERAGE ALONE (0 gaps, so no other day was leaning on
+# this list), and against a copy with the 2026-09-03 section deleted it read PASS with the old
+# default and FAIL with the empty one. Do not re-add a date here to quiet a failure; write the day.
+KNOWN=${HISTORY_KNOWN_GAPS-}
 
 python3 - "$DAYS" "$REF" "$KNOWN" <<'PY'
 import re, subprocess, sys, datetime

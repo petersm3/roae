@@ -403,6 +403,271 @@ legs was blocking before and is blocking after, so only the wording moved.
 Do not write a `grep -qx` reader against the pre-push hook expecting one.
 
 
+
+### `doc_gates.sh emitted-surface` (GATE 89) — the emitted-name census
+
+Every gate in the code→documentation presence family looks at an **input**
+surface: GATE 2 (`cli`) the flag names, GATE 2c (`citation-lines`) the
+`solve.c:NNNNN` citations, GATE 24 (`value-domains`) a declared value
+registry, GATE 84 (`env-surface`) the `getenv("SOLVE_*")` names. GATE 89
+looks at what the programs **print**, which nothing did before 2026-09-08:
+
+* **LEG 1 — JSON keys.** Every distinct key literal `solve.c` prints inside a
+  JSON object must be named somewhere under `documentation/`.
+* **LEG 2 — verdict tokens.** Every distinct whole-line `KEY=value` token that
+  `solve.c` or a `scripts/*.sh` gate prints — the lines callers match with
+  `grep -qx` — must be named somewhere under `documentation/`.
+* **LEG 3 — `solve.py` JSON keys.** `solve.py` builds its payloads as dicts
+  assembled across many statements, so a literal scrape of it would be partial
+  and *silently* so. LEG 3 is therefore an `ast` pass: it resolves the
+  expression flowing into every `json.dump`/`json.dumps` call through dict
+  literals, `**` unpacking, `.update()`, subscript assignment, dict
+  comprehensions with a literal key, `dict(...)`, if-expressions, containers and
+  comprehensions, name binding along the scope chain, the return expressions of
+  a function defined in the same file, and one level of parameter
+  back-resolution from that function's call sites. It does **not** model
+  attribute or element types, does not element-type an iterable, and does not
+  enter an imported callable. Every position it cannot resolve is **counted and
+  printed with its site**, never dropped, so the key census is honest about
+  being a lower bound; that count is ratcheted, and a rise fails the gate.
+
+The corpus is `documentation/` **only**, and every `documentation/DOC_GATE_*`
+file is excluded from it, so neither the gate's own allowance table nor an
+emitting script's own header comment can absolve its own subject. It runs inside
+`all`, and also by name:
+
+```sh
+bash scripts/doc_gates.sh emitted-surface
+```
+
+It is hard for **newly** undocumented names only. The pre-existing census is
+carried in `documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv`, whose rows print
+`[OPEN]` and do not set the exit code; an allowance row that matches nothing
+fails, so a row cannot outlive its fix.
+
+**Verdict tokens this gate emits** (whole line, read them with `grep -qx`,
+never on output shape). Each count is `-1` when nothing was measured:
+
+| token | meaning |
+|---|---|
+| `DOC_GATE_EMITTED_SURFACE` | `OK` \| `FAIL` \| `ERROR` — the gate's verdict. `ERROR` means it could not judge its subject (unreadable input, a population below its floor, a failed closure proof), never that the tree is clean |
+| `DOC_GATE_EMITTED_SURFACE_JSON_KEYS` | distinct JSON keys extracted from `solve.c` |
+| `DOC_GATE_EMITTED_SURFACE_TOKENS` | distinct `KEY=value` verdict tokens extracted from `solve.c` and `scripts/*.sh` |
+| `DOC_GATE_EMITTED_SURFACE_NEW` | undocumented names that are **not** in the allowance table — this is what sets the exit code |
+| `DOC_GATE_EMITTED_SURFACE_OPEN` | undocumented names carried as adjudicated-open rows |
+| `DOC_GATE_EMITTED_SURFACE_DROPPED` | emitted lines rejected as shell-fragment generation rather than verdicts (`echo 'WORK=$(mktemp -d); RAW=...'`) |
+| `DOC_GATE_EMITTED_SURFACE_PY_JSON_KEYS` | distinct JSON keys the LEG 3 `ast` pass resolved out of `solve.py` |
+| `DOC_GATE_EMITTED_SURFACE_PY_NEW` | LEG 3 undocumented keys that are **not** in the allowance table — this also sets the exit code |
+| `DOC_GATE_EMITTED_SURFACE_PY_OPEN` | LEG 3 undocumented keys carried as adjudicated-open rows |
+| `DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED` | positions the LEG 3 pass could **not** resolve. Non-zero means the key count above is a lower bound, never that `solve.py` emits nothing; each one is printed with its site |
+
+LEG 3 reports through its own `PY_` counters rather than widening `JSON_KEYS`,
+`NEW` and `OPEN`. Those three are pinned numbers other lanes read, and a count
+that silently changes what it counts is the same class of defect as an emitted
+key no document names. The `DOC_GATE_EMITTED_SURFACE` verdict covers all three
+legs, so it — not any single count — is the thing to gate on.
+
+
+### `gate_published_consistency.sh` — the `PUBLISHED_CONSISTENCY` token
+
+`scripts/gate_published_consistency.sh` is the published-consistency **ratchet**: nineteen legs
+(`G1`…`G19`) over the cross-document drift classes that dominated v3 lens B's surviving yield — a
+claim that stopped being true when a sibling document moved. It is run from the pushed tree by
+`scripts/pre_push_gate.sh`, which reads its verdict with `grep -qx` at three places, so this token
+gates every push and is worth knowing exactly.
+
+Each leg produces a **count**, and each count is compared against a pinned value in
+`scripts/gate_published_consistency.pin`. The pin file is not a list of acceptable defects; it is
+a list of known-open ones, each with a written reason. Fifteen stood on the day the gate was
+written, which is why the verdict is a ratchet rather than an absolute — a gate that printed
+`FAIL` on every push would be bypassed within a week.
+
+| value | fires when | what the pushing lane should do |
+|---|---|---|
+| `PUBLISHED_CONSISTENCY=FAIL` | any leg's count **rose above** its pin — a *new* published-consistency defect — **or** the pin file is missing, unreadable, or has a malformed/absent `G<n>` entry | blocked. Fix the drift, or re-pin in the same commit with the reason written down. An unpinned ratchet certifies nothing, which is why a missing pin is `FAIL` and not a skip |
+| `PUBLISHED_CONSISTENCY=PASS-AT-PIN` | no count rose, but **at least one of the nineteen legs has a non-zero count** | **accepted by `pre_push_gate.sh`, and deliberately so.** It means "no regression; known-open items stand". The gate prints an `OUTSTANDING:` line naming exactly which legs and at what counts, and `pre_push_gate.sh` echoes it into the push log. This is the live verdict on the current tree |
+| `PUBLISHED_CONSISTENCY=PASS` | no count rose and **every one of the nineteen legs measured zero** | tighten any non-zero pin to zero in this same commit — a budget resting on repaired defects is headroom for new ones |
+
+🔴 **`grep -qx`, never a substring test.** `PASS` is a prefix of `PASS-AT-PIN`, so
+`grep -q PUBLISHED_CONSISTENCY=PASS` matches both and silently converts "fifteen known defects
+stand" into "clean". `pre_push_gate.sh` tests the three values in the order `FAIL`,
+`PASS-AT-PIN`, `PASS`, each with `grep -qx`, and treats *no token at all* as a failure — a gate
+that cannot report is not a gate that passed.
+
+🔴 **The exit code is not the verdict.** The script exits **0** on all three values; only the
+pin-file errors exit **1**. Read the token, not `$?`.
+
+🔴 **`PASS` means every leg measured zero — the boundary was corrected on 2026-09-08, and what it
+used to be is worth knowing.** The flag separating `PASS` from `PASS-AT-PIN` used to be an internal
+`fail` variable that only the `G1`–`G4` legs and the disclosure-registry checks ever set; `G5`–`G19`
+reached the verdict through the ratchet alone, so a `G5`–`G19` count sitting **at** a non-zero pin
+did not stop the script printing `PASS`. Measured before the change, on a tree with `G1`–`G4` clean
+and the other fifteen legs each at a pinned `1`: the script emitted `PASS` while fifteen legs
+printed `[FAIL]`, every one of them saying *"this leg measured NOTHING"*. The boundary is now "any
+leg non-zero", which is what the script's own comment always claimed it was.
+
+This cost nothing at the push gate and did not drain the distinction. `pre_push_gate.sh` accepts
+`PASS` and `PASS-AT-PIN` alike, so the only verdict that can newly appear where `PASS` stood is the
+strictly more honest one — no push that used to succeed now fails. And `PASS` remains **reachable**:
+it is emitted exactly when all nineteen counts are zero, verified on a purpose-built clean tree.
+The live verdict is unchanged at `PASS-AT-PIN` (`G1:5 G2:10 G4:8 G10:1`).
+
+🔴 **The verdict names its own open legs.** Immediately above the token the gate prints either
+`OUTSTANDING: N of 19 leg(s) non-zero — G1:5 G2:10 …` or `OUTSTANDING: none — all 19 legs measured
+zero.` (colons, not `=`, so these are not mistaken for emitted verdict tokens). Quote that line
+alongside the token; a bare `PASS-AT-PIN` does not say how much is open, and this one does.
+
+🔴 **The gate checks its own wiring.** Each leg's count must reach the ratchet, and twice it has not:
+`G5`–`G16` were assigned and never read (fixed 2026-09-07), and `G3_N` was read and never assigned
+(fixed 2026-09-08 — its ratchet had been comparing `0` against a pinned `0`, and `G3_N=7 bash …`
+from the *environment* reached the ratchet unchallenged). Two guards now make that class
+self-detecting rather than audit-detected: a leg that prints a finding while every count is zero
+emits `FAIL`, and the ratchet reads each count as a bare `$G<n>` with **no `${…:-0}` default**, so a
+leg whose count is never assigned aborts under `set -u` with no verdict token at all — which
+`pre_push_gate.sh` treats as "could not run" and blocks. Do not add a default back.
+
+
+### `scripts/exec_lane.sh` — the `EXEC_LANE_*` tokens
+
+The execution lane extracts every command-shaped line from the tracked `*.md`
+corpus and runs the executable ones verbatim, serially, in a scratch copy of
+the tree under a **default** environment (soft stack limit 8 MB, no special
+flags). Its whole-line tokens are the machine-readable half of that report;
+read every one with `grep -qx`, never as a substring.
+
+| token | what it counts, and what it asserts |
+|---|---|
+| `EXEC_LANE` | `PASS` when no **gating** failure was recorded, `FAIL` when `EXEC_LANE_FAIL` is above zero, `ERROR` when the lane could not measure at all — the extractor crashed, zero commands were extracted, the MEASURED leg could not run, or that leg printed no count. All three are whole-line on **stdout** and a whole-line grep(1) match (`-qx`)-able. Until 2026-09-08 the `ERROR` form carried its reason on the verdict line *and* went to stderr, so a caller reading stdout saw no `EXEC_LANE=` line at all; the reason is now `EXEC_LANE_ERROR=<cause>` on its own line and the prose sits above it. A caller that still sees no `EXEC_LANE=` line must read that as "the lane did not run", never as a pass |
+| `EXEC_LANE_ERROR` | emitted only alongside `EXEC_LANE=ERROR`, naming which of the four could-not-measure conditions fired: `extractor-failed`, `zero-commands-extracted`, `measured-leg-could-not-run`, `measured-leg-no-count`. The extractor's own `rc` stays in the prose line above it |
+| `EXEC_LANE_EXTRACTED` | commands the extractor pulled out of the corpus — fenced blocks, `Reproduce:` paragraphs and inline backtick spans. This is the size of the inventory, not the number executed, and under `--list` it is emitted alone alongside `EXEC_LANE_SCOPE=LIST-ONLY`. That it is a function of the corpus and **not** of the process working directory is what `exec_lane_verdict_gate.sh` leg D asserts |
+| `EXEC_LANE_RUN` | commands actually executed: the BUILD lines (always, even under `--only`) plus the RUN commands surviving the `--only` filter. Always below `EXEC_LANE_EXTRACTED` — pre-classified `SKIP-OPS` and `SKIP-PLACEHOLDER` rows are printed but never run |
+| `EXEC_LANE_PASS` | executed commands whose outcome class was `PASS`: exit 0, or one of the adjudicated non-zero passes — the grep(1) family exit 1 with no error/usage text (no-match is a documented result), diff(1)/cmp(1) exit 1 where the surrounding doc context says the inputs differ, a refusal naming a prerequisite that same document states earlier, or a command a correction note says fails and which did fail |
+| `EXEC_LANE_FAIL` | **gating** failures, and the only count that sets the verdict. It covers crashes (SIGSEGV), a build or link line that did not build, an unexplained nonzero exit, a diff(1) that differed where the doc promised identical bytes, a refusal naming a prerequisite the doc does **not** state, every unbounded invocation counted by `EXEC_LANE_UNBOUNDED`, and every unresolved MEASURED figure |
+| `EXEC_LANE_FAIL_NONGATING` | the same failure classes, but sourced from a document that narrates a **past** run (`documentation/HISTORY.md`, `documentation/PERFORMANCE_HISTORY.md`, `runs/`, `enumeration/`) or from the operator file `CLAUDE.md`. Executed and reported, deliberately not gating: a command that ran in April is not a present-tense claim that it runs today |
+| `EXEC_LANE_SKIP` | non-verdicts — MISSING-TOOL, MISSING-INPUT, BUDGET, RESOURCE, PLACEHOLDER, OPS, DIFF-UNSTATED and FRAGMENT outcomes together, plus the two pre-classified skip classes. 🔴 The four counts below are **sub-counts of this one, not additions to it**: a `SKIP-DIFF-UNSTATED` row increments both `EXEC_LANE_SKIP` and `EXEC_LANE_DIFF_UNSTATED`, so the counts do not sum to `EXEC_LANE_RUN` |
+| `EXEC_LANE_FRAGMENT` | inline prose mentions that turned out not to be complete commands — the run produced a usage-error shape and the mention came from an inline backtick span rather than a fenced block |
+| `EXEC_LANE_FRAGMENT_UNJUSTIFIED` | the subset of `EXEC_LANE_FRAGMENT` for which the corpus publishes **no** complete form of the same command anywhere, so the only invocation a reader has is the one that did not run. Non-gating by default and **this is the number to watch**; `EXEC_LANE_STRICT_FRAGMENT=1` promotes the ones from gating documents to `FAIL` |
+| `EXEC_LANE_UNDOC_DEP` | commands that died on `ModuleNotFoundError` for a Python module the source document never names. These are gating FAILs, counted separately so the exemption's blast radius is a number rather than a guess — when the document **does** name the module the identical failure is a `SKIP-MISSING-TOOL` instead |
+| `EXEC_LANE_DIFF_UNSTATED` | diff(1)/cmp(1) invocations that exited 1 (the inputs differ) where nothing in the doc context says whether that was expected. Skips, not verdicts, and each one is printed with its source so the exemption cannot hide a real mismatch |
+| `EXEC_LANE_BUILD_MISSING_SOURCE` | BUILD lines that could not find a source, header or tool their compile line names. For a BUILD line this is a `FAIL` and not the `SKIP-MISSING-INPUT` a RUN line would get: a compile recipe naming a file the tree does not ship is precisely the defect this lane exists to find |
+| `EXEC_LANE_UNBOUNDED` | gating rows classed `FAIL-UNBOUNDED` — a `--branch`/`--sub-branch` invocation, or the bare full-enum form, with no `SOLVE_*_LIMIT` and a `time_limit` of `0`. They are counted and **never executed**, because running one does not return, and they are FAILs by policy rather than skips: a skip here is the could-not-fail shape. Each also raises `EXEC_LANE_FAIL` |
+
+
+### `scripts/exec_lane_verdict_gate.sh` — the `EXEC_LANE_VERDICT_GATE*` and `EXEC_LANE_CWD_INVARIANT` tokens
+
+This gate does not re-implement the lane's classifier — a copied predicate
+passes while the shipped one rots. It **extracts** the real decision text out
+of `scripts/exec_lane.sh` (the classifier if/elif chain, and
+`unbounded_branch()`), evaluates that under controlled inputs, and runs the
+lane's own `--list` from two different working directories.
+
+| token | what it asserts |
+|---|---|
+| `EXEC_LANE_VERDICT_GATE` | `PASS` every case measured behaved as expected; `FAIL` at least one case measured a wrong verdict; `ERROR` it could not measure at all — the lane file is missing, an extraction failed, `--list` failed, or a leg ran zero cases. 🔴 `ERROR` is not a pass; a check that silently measures nothing is the same could-not-fail shape the gate exists to catch |
+| `EXEC_LANE_VERDICT_GATE_CASES` | cases measured across the legs. Zero is reported as `ERROR`, never as a pass |
+| `EXEC_LANE_VERDICT_GATE_BAD` | cases that measured a **wrong** verdict. It is not printed on the `ERROR` path (where `_CASES` appears alone), so read it only next to a `PASS` or `FAIL` verdict |
+| `EXEC_LANE_CWD_INVARIANT` | the cwd leg alone, so the invariant can be asserted without running the whole gate. `PASS` when `exec_lane.sh` with `--list` yields the same non-empty inventory — same count **and** identical line for line — from the repo root and from a scratch directory; `FAIL` when the counts differ or the inventories differ row by row; `ERROR` when either listing could not be produced, or when both extracted zero commands, because two zeros are equal too and that equality proves nothing. The defect it pins: `shutil.which()` on a slash-bearing token abandons `PATH` and resolves against the process cwd, which made every repo-relative published command visible only when the lane was launched from the repo root — measured 2026-09-08 as 1,137 extracted rows from the root against 1,119 from `/tmp`, 16 of the 18 gating RUN rows, so the lane's own verdict was a function of an invisible input |
+
+
+### `scripts/selftest_resume_167_gate.sh` — the `RESUME_167_*` tokens
+
+`solve --selftest-resume` is blind to the #167 zero-yield resume fix in both
+directions: the fixed binary and the pre-fix baseline pass it byte-identically.
+The guard's `[#167-guard]` lines are written into tempdirs the driver deletes
+before returning, and the verdict is a sha comparison while the fix changes
+**work, not output**. This gate re-runs the same three-phase shape but keeps
+the artifacts, and decides on four quantities — three of which the guard under
+test does not produce, so the verifier takes no witness from its own closure.
+Every token is emitted on **every** exit path, `VACUOUS` and `ERROR` included,
+and each reads `-1` when the run could not derive it.
+
+| token | how it is derived, and what it discriminates |
+|---|---|
+| `RESUME_167_SIDECARS` | S — `sub_*.dfs_state` checkpoint sidecars in PHASE_A's directory, counted from the **filesystem** with `find` (never a glob), after any mutation and before PHASE_B runs. This is the state PHASE_B's guard will actually see |
+| `RESUME_167_ZERO_YIELD_CELLS` | Z — of those sidecars, the ones with **no** matching `sub_*.bin` shard: the cells that checkpointed having found nothing. Z is the population the #167 path exists for, and `Z == 0` is reported `VACUOUS` (rc 42), never `PASS` — the path could not be exercised at that shape. Z is re-measured every run and pinned to no constant, because it moves with the PHASE_A budget |
+| `RESUME_167_RESUMED` | R — `checkpoint ATTESTS zero yield` lines counted out of `phase_b.log` before anything is deleted: cells the guard resumed. `R + D == 0` with `Z > 0` is `VACUOUS`, not `PASS`; a guard that was never reached has attested nothing |
+| `RESUME_167_DISCARDED` | D — `discarding resume, walking cell fresh` lines from the same log: cells the guard threw away and re-walked. Every discard variant ends in that phrase. The verdict rule is exact — `R != Z` or `D != 0` is a `FAIL` (rc 40): attested zero-yield cells re-walked, or unattested cells resumed |
+| `RESUME_167_NODES_A` | nodes summed over PHASE_A's own checkpoint lines. PHASE_B **appends** to PHASE_A's `checkpoint_t*.txt` files, so the two runs are separated by each line's trailing `budget N` suffix, and the gate errors rather than guesses if the two budgets cannot be isolated as distinct |
+| `RESUME_167_NODES_B` | the same sum over the PHASE_B (resume) lines, selected by the PHASE_B budget suffix |
+| `RESUME_167_NODES_SINGLE` | the same sum for the single-shot control run at the final budget in a fresh directory |
+| `RESUME_167_EXCESS_NODES` | EXCESS = nodes_A + nodes_B − nodes_single: work the resumed pair did that the single-shot run did not. This is the second, independent witness that the resume **saved** the work it claims, and it is a per-run delta, which is why it discriminates where the sidecar's cumulative `prior_nodes_walked` cannot. `EXCESS >= Z * budget_A / 2` is a `FAIL`. Measured 2026-09-05 at the pinned shape: 3,030 for the fixed binary (one node per resumed cell — the captured frame's ENTER counted once by each phase) against 31,897,530 for the pre-fix one (exactly Z × budget_A, every zero-yield cell re-walking its whole PHASE_A budget) |
+| `RESUME_167_MUTANTS_KILLED` | `--battery` only, and printed as `<killed>/<total>`, not a bare integer — a reader parsing it as a number gets the numerator. A mutant counts as killed only when the gate reached the **expected verdict for the expected reason**, the counts asserted as well as the verdict. The seven are M0 unmutated (expect `PASS`), M1 PHASE_B run by the pre-fix binary (`FAIL`, R=0 D=Z), M2 every shard-less sidecar removed (`VACUOUS` by the Z rule), M3 and M4 one zero-yield sidecar's attestation bytes cleared or falsified (`FAIL`, R=Z−1 D=1), M5 one productive shard removed (`FAIL` with the sha still equal), M6 the guard's lines stripped from the log (`VACUOUS` by the R+D rule). M2 and M6 are the two that matter — they are the "passed means never looked" cases, and unaugmented `--selftest-resume` passes both |
+| `SELFTEST_RESUME_167_BATTERY` | `PASS` only when every mutant was killed **and** no mutant survived; `FAIL` otherwise (exit 40). It is emitted only in `--battery` mode; a single run emits `SELFTEST_RESUME_167` instead, and the two must not be confused by a caller |
+
+
+### Standalone gate verdict tokens — the one-line reference
+
+Most checks in `scripts/` are not part of `doc_gates.sh`: they are single-defect
+gates, each printing one whole-line `KEY=value` verdict. A reader who meets one
+of these in a log has to be able to look it up, so every one of them is named
+here with what it actually asserts and what its values mean.
+
+🔴 **Two conventions that are easy to get wrong.** (1) `ERROR` — "I could not
+measure" — is never a pass; several of these gates were written specifically
+because a check that measures nothing had been reading as a clean tree.
+(2) Every verdict line in this table is whole-line matchable, and `grep -qx
+'KEY=OK'` is how to read it. That became true on **2026-09-08**: seven of these
+tokens used to carry trailing detail on the verdict line — counts, an error
+cause — so the `grep -qx` their own headers promised could never match them. The
+detail did not go away; it moved to its own line, or to a companion
+`KEY_SOMETHING=value` token that is itself whole-line. Treat the absence of any
+`KEY=` line as "did not run", never as a pass. A row that is genuinely not
+whole-line matchable is flagged **[suffixed]**; there are none left in this
+table, and adding one is a defect, not a style.
+
+| token | emitter | values, and what the verdict rests on |
+|---|---|---|
+| `A2_SLOT_VERDICT` | `a2_slot_verdict_gate.sh` | `OK` \| `FAIL` \| `ERROR`. Pins the atlas's per-pair A2 slot check against the pair-slot convention published in `viz/viz_kc_field.md` — layer *k* fills pair-slot *k*+2 — which the gate re-reads rather than hardcoding, and pins the four sibling verdicts (`TR12_Q10A`, `TR12_XA_A`, `TR12_XA_B`, `TR12_XA_MOD24`) that were literal `PASS` strings or presence-only tests. A fixture that does not reach the full-31 path, or that comes back `SKIP`, is `ERROR`: a red-test built to exercise a path and missing it has measured nothing |
+| `ATLAS_PATH_PORTABLE` | `atlas_path_portability_gate.sh` | `PASS` \| `FAIL` \| `ERROR` (exit 2, added 2026-09-08). Builds the f/g/t ladders and runs `--kc-scan` twice, in two different directories, and requires the two `atlas.json` files to be **byte-identical**. The defect (Q-92) was absolute ladder paths embedded in the artifact, so two correct runs disagreed under `sha256sum` — invisible to the TR-12 battery, whose normaliser rewrites those fields before diffing. Failing to build, or producing an empty atlas on either side, is also `FAIL`, stated as "measured NOTHING". `ERROR` is the third value, and the only one that is not a statement about the artifact: handed a `SOLVE` binary that does not correspond to `solve.c`, the gate cannot establish its own subject and says so instead of grading. It needs that guard more than most, because it compares one binary against **itself** in two directories — a stale binary that embedded absolute paths *consistently* would report `PASS` and certify a property of an engine nobody is shipping, and one that predates the Q-92 fix reports `FAIL` against a defect that is fixed. Both were measured on 2026-09-08: the 2026-09-05 `./solve` gave `FAIL`, a binary built from the same tree gave `PASS`. `ATLAS_PORTABILITY_ALLOW_STALE=1` overrides deliberately |
+| `CITATION_LINE_GATE` | `citation_line_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. For every `solve.c:N` citation in `SOLVE_C_CLI.md`, mines the citing line — or, when that yields nothing, the nearest preceding heading — for distinctive identifiers, and requires at least one to occur inside the cited span. A **ratchet**, not an absolute: `FAIL` when the stale count rises above the pinned budget **or** a new stale citation key appears; `ERROR` when the document yields no citation at all or none that is checkable. Both directions are red-tested on a fixture pair differing by one digit of one citation |
+| `DISK_PRECHECK_MARKER` | `disk_precheck_marker_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. Six legs over `--disk-precheck`'s marker check plus two mutants. The legs that carry it are the zero-byte and junk markers — those separate "reports the marker's content" from "asserts the marker is present", and a `stat()` cannot establish disk identity. One mutant is the reword-only half-fix, which must die there; the other stops the assertion comparing at all. Leg 4 is the anti-overclaim leg: a well-formed marker with no expected digest must be **reported**, never asserted, since a validator that refuses everything is a permanent FALSE dressed as rigour |
+| `EVICTION_RESUME_MANIFEST` | `test_eviction_resume_manifest.sh` | `PASS` (rc 0) \| `FAIL` (rc 1) \| `ERROR` (rc 2), all whole-line. 🔴 **Until 2026-09-08 `ERROR` was the only value this token ever took**: the pass and fail paths printed prose and an exit status and no token at all, so a consumer told to `grep -qx` for `=PASS` would have waited forever on a test that had already passed. All three are now emitted. `ERROR` is the stale-binary guard and it earns its own value: the test is designed to FAIL on the pre-#164 binary and PASS on the fixed one, which makes a stale `./solve` indistinguishable from a live regression, so an unestablished subject is reported as `ERROR` and kept distinct from the `exit 1` failures — `EVICT_RESUME_ALLOW_STALE=1` overrides it deliberately. The "binary not executable" path moved from rc 1 to rc 2 in the same change, because a missing subject is the same class as a stale one. What the test asserts, in both directions from one binary: with a per-cell `.dfs_state` present, a divergent `shard_manifest.txt` at startup is **advisory** and the enum proceeds (the #164 eviction false-abort); with `.dfs_state` removed, the same divergence stays **fatal** at exit 22, which is the tamper tripwire the fix had to preserve |
+| `EVICTION_RESUME_MANIFEST_ERROR` | `test_eviction_resume_manifest.sh` | emitted only alongside `=ERROR`, naming the cause: `stale-binary:<path>` (the binary does not correspond to `solve.c`) or `binary-not-executable:<path>` |
+| `FAILOPEN_CLOSURE` | `failopen_closure_gate.sh` | `OK` \| `FAIL` \| `ERROR`, all whole-line since 2026-09-08 (`OK` and `FAIL` used to end in counts that were already on their own `FAILOPEN_CLOSURE_*` lines). The meta-gate for the fail-open class, checking one rule on the observable rather than on code shape: *run with its target absent, a gate must neither print an OK-class token nor exit 0*. Each gate-shaped script is copied alone into an empty directory and executed there, so every relative input is missing. `ERROR` covers a collapsed population (fewer than five runnable scripts), a population filter returning under half its own independent upper bound, an ungradable timeout, or a stale allowlist row. Scripts touching cloud/privileged commands, or hardcoding an absolute path, are `UNRUN`/`ABSPATH` — graded by reading, and counted, never silently dropped |
+| `FAILOPEN_CLOSURE_ERROR` | `failopen_closure_gate.sh` | emitted only alongside `=ERROR`, naming the cause: `bad-args`, `bad-timeout`, `no-scripts-dir`, `allowlist-unreadable`, `allowlist-malformed`, or `graded-error` (the population it did grade produced an error — collapsed population, a filter under half its upper bound, or an ungradable timeout; the specific `[ERROR]` line is printed above it) |
+| `FAILOPEN_CLOSURE_POP` | `failopen_closure_gate.sh` | the population it graded: gate-shaped scripts under `scripts/`, excluding the gate itself (which carries the UNRUN regex as a literal and would match it; its own warrant is `--selftest`, which plants one script of every verdict class). It is the first of seven counts printed by one `printf` — `_RUN`, `_OPEN`, `_RC0`, `_ALLOWED`, `_UNRUN`, `_TIMEOUT` follow on their own lines. `_OPEN` and `_RC0` are the findings: a script that printed an OK token, or exited 0, from an empty world |
+| `KNUTH_C67_REPRO` | `knuth_c67_repro_gate.sh` | `OK` \| `FAIL` \| `ERROR`, all whole-line since 2026-09-08 (the `ERROR` forms used to name their cause on the verdict line; it moved to `KNUTH_C67_REPRO_ERROR`). Leg 1 requires the published 1169/233/75 tree-node figures to carry their reproduction command in the same document; leg 2 **runs** those commands and compares the binary's own output to the published integers, so a doc edit cannot satisfy it and a doc typo cannot break it. Deleting the figures collapses the population and is `ERROR`, not a pass |
+| `KNUTH_C67_REPRO_ERROR` | `knuth_c67_repro_gate.sh` | emitted only alongside `=ERROR`, naming the cause: `extractor-failed`, `population-collapsed`, `build-failed`, `not-executable:<path>`, or `stale-subject:<path>` (a handed-in `SOLVE_BIN` that does not correspond to `solve.c`; `KNUTH_C67_ALLOW_STALE=1` overrides) |
+| `MANIFEST_ZERO_ENTRY` | `manifest_zero_entry_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. Q-445: a fresh run wrote a **zero-entry** `shard_manifest.txt` about 238 ms after launch, and the next launch correctly refused it — a run that bricked its own directory, deterministically. The fix is at the write site and leg 2a is why: at verify time a fresh directory is indistinguishable from a truncated sidecar write, so tolerating an empty manifest would hand `PASS` to the state most likely to mean it is broken. The invariant the gate holds: *`shard_manifest.txt` exists ⟹ it attests at least one shard* |
+| `MISSING_SHARD_MERGE` | `q317_missing_shard_merge_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. 🔴 **A `FAIL` here is the gate working.** Q-317 item (4) is not landed: the end-of-enum cross-reference has no `else` arm for a shard whose size probe returns −1, so an entirely **deleted** shard passes the merge while its checkpoint row still claims *N* records. The truncation leg beside it is the control, and `ERROR` is reserved for the harness — a truncation this binary is known to catch failing to surface, or the delete leg never reaching the merge scan, means nothing was measured and the delete leg's exit code proves nothing either way |
+| `Q314_MOD48` | `q314_mod48_gate.sh` | `PASS` \| `FAIL` \| `ERROR` (exit 2). Q-314 item (1): the atlas's divisibility check read a **precomputed** `mod24_ok` column — the emitter graded against itself — and stopped at 24, while the free G48 action makes the complete raw sequences divisible by **48**. Six legs over three faults, and each fault must **isolate** the gate it targets, because a new check that only fires where an old one already fires has added no coverage. `--atlas-fault q10-mod48` adds `_ATLAS_ORBIT` (=24) to the layer-0 flow, leaving it 24-divisible and no longer 48-divisible: `XA-48` must fire and the mod-24 gate must stay silent. `v2-mod48` must fire `V2-48` and not `V1-16`; `v1-mod16` must fire `V1-16` and not `V2-48` — the pre-existing faults cannot test either, since a class-mass swap preserves divisibility exactly and a dropped pair sets a cell to 0, which is divisible by everything, so each new gate needs its own fault or it ships untestable. Legs 5 and 6 run the consumer with **no** `--atlas-walks`, which is the only configuration that can exist at n=31 — brute force means enumerating all 26,112 walks explicitly — and require both `V2-B0` vertical-conservation gates present and passing on a clean n=9 atlas, then `V2-B0`, and no pre-existing gate, to fire on `v2-class-swap`: the fault that moves mass between distance classes, and the one that was invisible in exactly the configuration the full-31 numbers are produced in. `ERROR`, never `FAIL`, when a handed-in `Q314_SOLVE` does not correspond to `solve.c` — an unestablished subject is not a defect, and reporting one sends a reader hunting a bug that is not there. `Q314_ALLOW_STALE=1` overrides deliberately. Runs standalone and as a leg of `tr12_repro_gate.sh`, which hands it the binary it has already built so the gate costs no second compile |
+| `Q326_QUERY_SURFACE` | `q326_kc_query_surface_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. Q-326 items (3)(4)(5): `--kc-count`/`--kc-rank`/`--kc-member` parsed `--kc-c3-max` and dropped it, returning the superspace count at rc 0 with nothing naming the scope; `--kc-c3-max` was `long long` at the CLI and `int` inside the enumerator, so 2³² truncated to 0 walks at rc 0; and `kc_parse_walk` validated each slot without checking the pairs form a **permutation**, so duplicate-pair vectors got a positive multiplicity under a trailer stamping the ratified convention. Legs 6, 7 and 10 exist because refusing everything is not a fix, and leg 11 because the permutation check belongs in the shared parser — a fix in the `--kc-repr` branch alone passes every other leg |
+| `Q326_UNRANK_M0` | `q326_kc_unrank_m0_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. Q-326 item (1): `--kc-unrank … --kc-record` printed the class representative unconditionally, including on `kc_class_repr`'s `m == 0` exits, which leave `repr` unwritten — a record line built from uninitialised stack, indexing a 64-entry table with bytes up to 255, at rc 0 under a conformance trailer. Leg 3 is the load-bearing one: a guard that sets rc 1 and still prints `repr` passes legs 1 and 2 and is still reading uninitialised memory, so only the run-to-run byte-identity check sees it |
+| `Q422_RATIO_COLUMNS_GATE` | `q422_ratio_columns_gate.sh` | `PASS` \| `FAIL` (exit 40) \| `ERROR` (exit 2, added 2026-09-08). Every could-not-measure path *about the artifact* is still folded into `FAIL` — fail-closed. `ERROR` is reserved for the one condition that is not about the artifact at all: a `Q422_SOLVE` binary that does not correspond to `solve.c`, where the gate has no established subject to grade. Folding that into `FAIL` would assert "the Q-422 ratio columns are broken" about a binary nobody committed; measured on 2026-09-08, the 2026-09-05 `./solve` produced an unearned `Q422_RATIO_COLUMNS_GATE=PASS` through this arm. `Q422_ALLOW_STALE=1` overrides deliberately. The atlas consumer's cell-by-cell gates compared only the integer columns, so zeroing every derived ratio left 29 consumer gates printing `PASS`, `ATLAS_CONSUMER=PASS`, `TR12_REPRO=PASS` and a byte-identical committed golden, while the field V1 plots drew empty. The gate runs the consumer three ways on a fresh n=9 universe and requires `--atlas-fault ratio-zero` to fail **exactly** the five derived-column gates and no integer gate — an integer gate firing would mean the injected fault is not the one described |
+| `Q433_XA_CERT` | `q433_xa_cert_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. The XA pricing path's refusal tested that a certificate **path string** had been supplied and never opened the file, so naming a nonexistent path was enough to unblock an EXHAUSTIBLE/INFEASIBLE verdict — weaker than `test -f`. Leg 0 is static and checks the **wiring**: the refusal guard must actually call the validator, since a helper nothing invokes is the defect it was written to fix. Leg 1 requires a well-formed certificate to be **accepted**, and mutant M2 — opens the file, checks it parses, never checks what it says — must die on leg 3 alone |
+| `RESUME_BUDGET_INFINITY` | `resume_budget_infinity_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. Q-317 (1): the resume path decided whether to re-run a stored budgeted sub-branch with a test guarded on `current_budget > 0`, but budget **0 means uncapped**, i.e. infinite — so an uncapped resume skipped every stored budgeted cell and inherited truncated results as a complete enumeration. An undercount presented as exhaustive is this project's worst error direction. Both directions are checked from the same binary, because a one-sided test passes on a binary that never skips anything: a capped run whose stored budget is at least the current one must still skip the cell, and an uncapped run must not skip it at any finite stored budget. `ERROR` is reserved for an unestablished subject — a missing binary, or a `./solve` older than `solve.c` (`RESUME_BUDGET_ALLOW_STALE=1` overrides). That guard was added after the gate announced a live `FAIL` against a binary two days older than the commit that fixed the defect: an unestablished subject is not a defect, and reporting it as one sends a reader hunting a bug that is not there |
+| `RESIDUAL_CONSISTENCY` | `check_residual_consistency.sh` | `PASS` \| `FAIL` \| `ERROR`, all whole-line since 2026-09-08 — the verdict line used to end `offenders=<n> scanned=<n>` and the `ERROR` forms to end in their cause, so the script's own header promise of `grep -qx` did not hold against what it emitted. It asserts that the ~105–139-bit residual is never stated as a bare **point** estimate in TR-10, TR-9 or the README. Fail-closed since the 2026-09-05 sweep: before that an absent or renamed report read through `cat … 2>/dev/null` as zero offenders and `PASS` |
+| `RESIDUAL_CONSISTENCY_ERROR` | `check_residual_consistency.sh` | emitted only alongside `=ERROR`: `unreadable:<file>`, `empty:<file>` or `population-collapsed` |
+| `RESIDUAL_CONSISTENCY_OFFENDERS` | `check_residual_consistency.sh` | bare point estimates found. `-1` when the run could not measure — an ERROR never reports zero offenders |
+| `RESIDUAL_CONSISTENCY_SCANNED` | `check_residual_consistency.sh` | lines scanned across the three reports. `-1` when unmeasured; a real count below the floor of 100 is itself the `population-collapsed` ERROR |
+| `SIDECAR_SHA_GATE` | `sidecar_sha_gate.sh` | `OK` \| `FAIL`. Q-324: every `solutions.sha256` writer must record the **logical** sha — the decompressed canonical byte stream — not the sha of the file as it sits on disk. The standalone `--merge` path shelled out to `sha256sum <outname>`, so with gz framing the default since #169, the sidecar (and the `solutions.meta.json` parsed back out of it) held the sha of the **container**. That direction manufactures phantom drift, because gzip framing varies with zlib version and level while the content does not |
+| `SIZE_GATE` | `pre_commit_size_gate.sh` | `OK` \| `REFUSED` \| `ERROR`, all whole-line since 2026-09-08 (every one of the three used to carry trailing prose on the verdict line, against its own header's `grep -qx` promise). Enforces the standing rule that a file at or above 1 MiB needs a recorded approval before it is **newly tracked**; the scope is first-time tracking only, because 22 tracked files already exceed the threshold and a gate that fires on every commit is removed within a day. `REFUSED` (rc 1) names the count of unapproved staged files; `ERROR` (rc 2) covers not being in a git repo, an unlistable index, or an unparseable approval table |
+| `SIZE_GATE_ERROR` | `pre_commit_size_gate.sh` | emitted only alongside `=ERROR`: `not-in-git-repo`, `staged-list-failed` or `allowlist-unparseable` |
+| `SIZE_GATE_LIMIT` | `pre_commit_size_gate.sh` | the threshold in bytes actually applied (1,310,720 = 1.25 MiB, raised from 1 MiB on 2026-09-04). `-1` when the run ended before reading it |
+| `SIZE_GATE_UNAPPROVED` | `pre_commit_size_gate.sh` | unapproved first-time files at or over the limit, emitted on every terminal path. `-1` when the gate could not measure |
+| `SPOT_PRECHECK` | `spot_health_precheck.sh` | `OK` \| `WAIT` \| `HARD-FAIL` \| `ERROR`, printed **bare** and last on every exit path — this one really is `grep -qx`-able, and was made so deliberately in 2026-09-02 after the only two tokens it emitted were prefixed, suffixed and on stderr while the OK/WAIT/HARD-FAIL paths emitted none at all. Three escalating signals: published SKU restrictions, family vCPU quota headroom, then a real ~$0.01 D2als_v7 Spot probe. `ERROR` (rc 4) is not a capacity verdict — treat it as do-not-launch, but escalate it as a broken precheck. A non-integer `need_vcpu` is `ERROR` for a measured reason: the numeric test failed, bash read the failed test as false, and the script printed a green light having checked nothing immediately before a real `az vm create` |
+| `TR12_N31_GOLDEN` | `tr12_n31_golden_gate.sh` | `OK` \| `ABSENT` \| `PLACEHOLDER`. A millisecond pre-flight, not the thing that makes n=31 certification able to fail — `tr12_repro.sh` already refuses both cases, and this gate's header says so. What it buys: the refusal arrives before a multi-day battery rather than after it; it requires `_MANIFEST.txt`, because the n=9 goldens are hashed by `tr12_repro_gate.sh` and an n=31 golden would otherwise be editable without trace; and it names **which** problem it is instead of 50 undifferentiated mismatches |
+| `TR12_REPRO_GATE_CURRENT` | `tr12_repro_gate.sh --check` | `YES` \| `NO` \| `UNKNOWN`, all whole-line since 2026-09-08 (`NO` and `UNKNOWN` used to carry their explanation on the verdict line, so only `YES` was ever `grep -qx`-able — which is why the two existing consumers both matched it by substring). The cheap fingerprint-only leg (milliseconds, no build) that other checks call on every run: `YES` means none of the derived inputs, the gate itself, or any expected block has changed since the last recorded `PASS`; `NO` means one of them has; `UNKNOWN` means no stamp exists yet. It answers a narrower question than `TR12_REPRO_GATE=PASS` — "is that recorded pass still current", not "does the tree reproduce" |
+| `TR12_REPRO_ROWS` | `tr12_repro.sh` | rows the battery attempted. Written into the run's `VERDICTS.txt`, **not** to stdout, alongside `TR12_REPRO_SKIPPED` and `TR12_REPRO_COMPLETE=YES\|NO` on the following lines. Read it with the skip count beside it: a battery is not complete because it did not fail |
+| `TR12_REPRO_REASON` | `tr12_repro.sh` | present only on one specific refusal — `no-expected-block-set-for-n<N>`, i.e. `--expect` names no directory for this universe. A battery with nothing to diff against cannot pass, so the run stops before Group A0 rather than reporting rows it never compared |
+| `TR12_C3_FILTER_DEGENERATE` | `tr12_repro.sh` | `YES` \| `NO`, also into `VERDICTS.txt`. `YES` when the measured retention of the C3 filter at the run's threshold is exactly 1.0 or exactly 0.0 — the filter kept everything or nothing, which makes every C15 leg silently identical to the superspace leg (or empty). The battery still runs; the token exists so that a C15 result is never read as a C3-constrained one without the reader knowing the filter did nothing |
+
+The five `d5_*` gates share one shape: each extracts a row body **verbatim**
+out of `scripts/tr12_repro.sh` — never re-typed, because a copy drifts — and
+runs it in a stub harness at full-31 magnitude, with a red leg proving the row
+can still fail. Each emits `PASS` or `FAIL` only, and folds every
+could-not-measure path into `FAIL` at exit 40, which is the fail-closed
+direction.
+
+| token | the WRONG-OBJECT defect it pins |
+|---|---|
+| `D5_01_Q1C_SKIP_GATE` | row `a2_q1c` ran unconditionally, but at n≥31 rank_O3(KW)=0 by the labeling theorem, so its keep-test can never hold: the row failed — after burning 3–5 h in the descent loop — and took `TR12_REPRO=FAIL` with it, for a row already ruled `SKIP:merged-into-Q4AC`. The third leg is the point: a guard keyed on the pair count must not turn an **unset** pair count into a free skip, and mutant M3 exists to prove that leg is load-bearing |
+| `D5_02_Q8_CHI2_GALLERY_GATE` | row `a1_q8_chi2` ran the engine's own n=13 sampler self-test on a universe it builds in-process, while TR-12, `QUERY_INVENTORY` and the runbook all promise a chi-square over 16 rank buckets of the **gallery** ranks. The row now computes that statistic in exact integer arithmetic from the rank column of the gallery TSV; the engine self-test survives as its own separately named row |
+| `D5_03_LS_W0_EXACT_GATE` | row `a0_ls_w0` ran a Monte-Carlo pair-constrained null while the prose names TR-8's **exact** pair-only null, 47/445740. The literal is written into the gate from TR-8, not read out of `solve.py`, so a drift in the function plus a regold to match it still fails; the MC survives as its own labelled row |
+| `D5_04_Q7_WITNESSES_GATE` | the Q7 SAT-witness leg was never invoked at all, yet the parent `TR12_Q7` aggregated to `PASS`. The witnesses need a solver that is absent, so the leg is now a **named** skip and a leg of the parent — the point being that "the query ran and matched" and "the query did not run" must not look alike. The gate runs the extracted `tok_record`/`agg` logic in both worlds, with and without a stub solver on `PATH` |
+| `D5_08_Q6_Q10A_SHELL_GATE` | sibling residue from Q-394: the consumer was re-specified and the battery's own second implementation was left on the pre-ruling spec. `c_q6` emitted a rank-block contribution as a "percentile" — identically 0 for the King Wen anchor at full-31 — and `c_q10a` printed N/24 once per layer as an "orbit census" while the atlas gate already forces that equality. Both now compute the specified objects, and a missing or unparseable layer sidecar fails the row |
+
+
 ### Build reproducibility — toolchain manifest and cross-build verification
 
 A reproducible-from-the-same-binary sha is not the same as a reproducible-from-the-same-commit sha. The 2026-05-12 investigation
@@ -1129,11 +1394,88 @@ Every canonical-scale run now ships with **`solutions.provenance.json`** alongsi
 
 For full schema + design rationale see `roae-private/METADATA_EQUIVALENCE_DESIGN_2026_05_26.md`. For per-cli reference see [SOLVE_C_CLI.md](SOLVE_C_CLI.md) `--compare-provenance` + Files section.
 
+#### The provenance field reference — what a reviewer verifies a run from
+
+These are the fields that answer "which binary, built from which source, on which host, produced
+these bytes". They are the reproducibility surface of a canonical run, so they are grouped here in
+one place rather than left to be discovered field by field. Three files carry them.
+
+**A. Per-shard `sub_*.bin.provenance.json`** — written next to every shard by the flush path and
+the orphan-promotion path, and **appended to** on every subsequent write to the same shard, so a
+resumed or budget-extended shard keeps its whole history rather than the last state only.
+
+| key | what it holds |
+|---|---|
+| `shard_filename` | the `.bin` this sidecar belongs to, recorded inside the file so a detached sidecar is still attributable |
+| `sub_branch` | the depth-2 or depth-3 cell as `{p1, o1, p2, o2}` or `{p1, o1, p2, o2, p3, o3}` — pair index and orientation per level |
+| `writes[]` | one record **per write**, appended; the fields below live inside these records |
+| `writes[].write_utc` | UTC timestamp of that write |
+| `writes[].binary_sha256` | the sha256 read from `build.sha` in the working directory at write time — **the recorded build identity, not a digest of the running process**. Empty when `build.sha` is absent or not 64 hex characters; an empty field means the run could not be bound to a build, not that it matched |
+| `writes[].nodes_explored_in_this_shard` | nodes this write explored, for this shard alone |
+| `writes[].records_emitted` | records this write emitted |
+| `writes[].dfs_iterative` / `writes[].dfs_checkpoint` | whether the iterative DFS and checkpointing were enabled for that write — the two switches that change resume behaviour, recorded per write because a resumed shard can differ from its first write |
+| `writes[].resume_history` | the escaped resume-history string for that write |
+| `writes[].extends_prior_budget` | `true` when this write continued an existing budget rather than starting one. Auto-detected from the prior sidecar, which is why the sidecar must not be deleted between extensions |
+| `final_status` | the shard's status as of the latest write: `EXHAUSTED`, `BUDGETED` or `INTERRUPTED` |
+| `cumulative_nodes_explored` | ⚠ **not cumulative in this file.** The comment in the emitter is explicit: for a first write it equals that write's value, and for appended writes it still records *this* write's value. The real summation across writes is done by the aggregator. Do not read it as a shard total |
+
+**B. Aggregate `solutions.provenance.json`** — written by `--merge` from every
+`sub_*.bin.provenance.json` in the working directory.
+
+| key | what it holds |
+|---|---|
+| `earliest_shard_write_utc` / `latest_shard_write_utc` | the campaign's write window, min and max over every per-shard record |
+| `sum_compute_seconds_note` | a **string, not a number**: schema v1 does not capture per-shard compute seconds, and the field says so and points at `checkpoint.txt`. It is a documented hole, deliberately left visible rather than filled with a wrong sum |
+| `budget_history.branches_seen_at_budget` | a map from per-sub-branch budget to the number of branches ever seen at that budget — the census of budgets the campaign passed through, not just the final one |
+| `budget_history.extensions_observed[].from_budget` / `.to_budget` | one entry per observed budget extension: the budget before and after |
+| `budget_history.extensions_observed[].earliest_extension_utc` / `.latest_extension_utc` | the time window over which that particular extension was applied across shards |
+| `binary_provenance.binary_sha256_set` | the **set** of distinct `build.sha` values across all shards. More than one entry means the campaign was not produced by a single build — legitimate for a resumed or extended campaign, and exactly what a reviewer must see rather than infer |
+| `binary_provenance.git_hash_set` | the set of distinct `GIT_HASH` values across all shards |
+| `binary_provenance.host_fingerprint_set` | the set of distinct host fingerprints across all shards; more than one entry means the campaign spanned hosts |
+| `merge_invocation.merge_utc` | when the merge ran |
+| `merge_invocation.merge_binary_sha256` | the `build.sha` of the binary that performed the **merge**, which is a different question from the binaries that performed the enumeration and is recorded separately for that reason |
+| `merge_invocation.merge_git_hash` | the merging binary's `GIT_HASH` |
+| `merge_invocation.merge_host_fingerprint` | the merging host's fingerprint, or `unknown` |
+| `merge_invocation.input_shard_manifest_sha256` | the sha256 of the shard manifest the merge consumed — the binding between "these shards" and "this merged output". Empty when no manifest was supplied |
+| `merge_invocation.analytics_integrated` / `.analytics_filename` | whether an analytics sidecar was folded in, and which file |
+
+⚠ `--compare-provenance` **normalises away** every timestamp, the host fingerprints and the whole
+`merge_invocation` object. Two provenance files can therefore compare equal while disagreeing on
+which host and which merging binary produced them. That is intended — it is what makes the
+partition-invariance comparison meaningful — but it means `--compare-provenance` equality is not
+an attribution check, and the fields above must be read directly for that.
+
+**C. `canonical-host-fingerprint.json`** — the build-environment capture, written once per
+run directory by the hardening path via a shell pipeline. It is written **only if absent**: an
+existing non-empty file is left unchanged, so the fingerprint records the first run in that
+directory. Any field that fails to capture degrades to an empty string or `unknown` rather than
+failing the run.
+
+| key | what it holds |
+|---|---|
+| `capture_utc` | when the fingerprint was taken |
+| `gcc_version` / `glibc_version` | first line of `gcc --version` and `ldd --version` — the compiler and libc identity that a matching `solve.c` commit does **not** pin |
+| `uname_a` | full `uname -a` |
+| `os_release` | `PRETTY_NAME` from `/etc/os-release` |
+| `cpu_model` | `model name` from `/proc/cpuinfo` |
+| `cpu_microcode` | the `microcode` revision from `/proc/cpuinfo` — the field that distinguishes two otherwise identical CPUs after a host patch |
+| `memory_total_kb` | `MemTotal` from `/proc/meminfo` |
+| `azure_vm_sku` / `azure_location` / `azure_host_id` | read from the instance metadata endpoint, each defaulting to `unknown` off-cloud or when the 1-second probe times out. `azure_host_id` identifies the physical host a Spot VM landed on, which is what makes a per-host performance or reproducibility anomaly attributable |
+| `binary_full_sha256` | sha256 of the **running executable**, resolved through `/proc/self/exe`. Unlike `binary_sha256` in the shard sidecars this is measured, not read from `build.sha`; `unknown` if it could not be taken |
+| `binary_text_sha256` | sha256 of the executable's `.text` section alone, extracted with `objcopy`. It is deliberately narrower than `binary_full_sha256`: two builds differing only in embedded build metadata or section layout agree here while their full digests differ, so a `binary_text_sha256` match is the stronger statement that *the code* is the same |
+| `disk_iops.agg_fsync_per_sec` | aggregate fsyncs/second measured by the pre-flight probe |
+| `disk_iops.probe_threads` / `disk_iops.fsync_batch_size` | the probe's own parameters — without them the rate above is not comparable between runs |
+| `disk_iops.projected_fsync_wait_h` | hours of fsync wait projected for the configured campaign at that measured rate |
+| `disk_iops.fsync_wall_fraction_pct` | that projection as a percentage of projected wall time — the number the IOPS verdict is actually taken on |
+| `git_hash_macro` | the `GIT_HASH` compiled into the binary, so the file records the source identity the binary *claims* alongside the digests of what it *is* |
+| `build_source_sha` | the `SOURCE_SHA` compiled in. `unknown` under the documented build, which is why the digests above exist |
+
+
 ## Known gotchas
 
 ### Compile
 
-- Build flags: `gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz` (minimum to reproduce canonical sha; the `-DGIT_HASH` stamp is sha-neutral — measured 2026-09-02 — and without it every artifact the run writes records `"git_hash": "unknown"`); `gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15). The `-lz` (zlib) link flag is required since #169 (native-gzip live compression); it is the only build change and is sha-neutral (gzip is a non-sha-determining storage layer).
+- Build flags: `gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz` (minimum to reproduce canonical sha; the `-DGIT_HASH` stamp is sha-neutral — measured 2026-09-02 — and without it every artifact the run writes records `"git_hash": "unknown"`); `gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15). The `-lz` (zlib) link flag is required since #169 (native-gzip live compression); it is the only build change and is sha-neutral (gzip is a non-sha-determining storage layer).
 - `-fopenmp` parallelizes the `--analyze` hot loops. Without it, pragmas are
   no-ops and everything still compiles + runs single-threaded. `libgomp`
   (gcc's OpenMP runtime) ships with gcc under the GCC Runtime Library
@@ -1185,7 +1527,7 @@ For canonical campaigns at 11.2T+, this isn't a concern (drift mechanism does no
   `solutions.bin`, reconstructs each 64-hexagram sequence, and checks
   **C1 (pair structure), C2 (no 5-line transitions), C3 (complement
   distance ≤ 776, added 2026-04-19), C4 (starts with
-  Creative/Receptive), C5 (exact distance distribution)** plus sort
+  pair 0), C5 (exact distance distribution)** plus sort
   order and dedup. No shared code with solve.c — genuine second opinion.
   Usage: `python3 verify.py [--jobs N] /path/to/solutions.bin`. Exit 0
   on PASS, 1 on constraint failures, 2 on header/format errors. `--jobs`

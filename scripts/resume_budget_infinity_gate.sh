@@ -21,6 +21,26 @@ cd "$(dirname "$0")/.."
 BIN=${BIN:-./solve}
 [ -x "$BIN" ] || { echo "   [ERROR] no binary at $BIN"; echo "RESUME_BUDGET_INFINITY=ERROR"; exit 2; }
 
+# 🔴 THE BINARY MUST CORRESPOND TO THE SOURCE THIS GATE IS ASSERTING ABOUT.
+#    Added 2026-09-08 after this gate reported RESUME_BUDGET_INFINITY=FAIL -- "budget 0 is
+#    being read as 'no constraint' instead of infinity" -- against a ./solve dated Sep 5,
+#    two days OLDER than 779fff4c (2026-09-07), the commit that fixed exactly that.
+#    MEASURED both ways: stale on-disk binary -> FAIL; a binary built from HEAD -> PASS.
+#    So the gate was announcing a live undercount-presented-as-complete-enumeration --
+#    this project's worst error class -- in an engine where the defect had been fixed for
+#    two days. A false alarm in the most expensive possible direction, and it defaulted
+#    into that state simply because a stale artifact was lying in the working directory.
+#    A gate whose subject is "whatever binary happens to be on disk" is not testing the
+#    engine; it is testing the housekeeping.
+#    ERROR, not FAIL: an unestablished subject is not a defect, and reporting it as one
+#    sends a reader hunting a bug that is not there.
+if [ -f solve.c ] && [ solve.c -nt "$BIN" ] && [ "${RESUME_BUDGET_ALLOW_STALE-}" != "1" ]; then
+  echo "   [ERROR] $BIN is OLDER than solve.c — it cannot attest anything about the current"
+  echo "           source. Rebuild, or pass BIN=<path> to a binary you know matches."
+  echo "           (set RESUME_BUDGET_ALLOW_STALE=1 to override, deliberately.)"
+  echo "RESUME_BUDGET_INFINITY=ERROR"; exit 2
+fi
+
 ckpt_line='Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 3 orient1 0 pair2 5 orient2 0): 0 nodes, 0 C3-valid, 7 solutions, 0s elapsed, budget 1000000'
 
 # NOTE ON THE KNOB. SOLVE_NODE_LIMIT cannot be used here: the binary REFUSES any

@@ -165,6 +165,34 @@ if [ -n "$SOLVE_B" ]; then
   [ -x "$SOLVE_B" ] || { echo "ERROR: $SOLVE_B is not executable" >&2; exit 2; }
 fi
 
+# ---------------------------------------------------------------------- subject currency
+# 🔴 --solve MUST CORRESPOND TO solve.c. Added 2026-09-08 after the sibling gate
+# scripts/resume_budget_infinity_gate.sh reported FAIL — "budget 0 is being read as 'no
+# constraint' instead of infinity", i.e. AN UNDERCOUNT PRESENTED AS A COMPLETE ENUMERATION —
+# against a ./solve two days older than the commit that fixed exactly that (779fff4c). Measured
+# both ways that night: stale binary -> FAIL, binary built from HEAD -> PASS. This gate is in the
+# same position: it takes a PATH and never builds, so run by hand as `--solve ./solve` its subject
+# is whatever artifact happens to be lying in the tree. pre_push_gate.sh:458 is safe by
+# construction (it builds ./solve_167 first); a hand run is not.
+#
+# ERROR, not FAIL: an unestablished subject is not a defect, and reporting it as one sends a
+# reader hunting a bug that is not there. FAIL here is rc 40 and means "the #167 fix is broken";
+# this exits 43, the file's existing ERROR code, which its own verdict table already documents as
+# "never collapses to PASS or to VACUOUS".
+#
+# ONLY --solve IS CHECKED, DELIBERATELY. --solve-phase-b is the PRE-FIX baseline: mutant M1 exists
+# precisely to run PHASE_B on an OLD binary and watch the gate go red. Currency-checking it would
+# error on the one input that is SUPPOSED to be stale, and would disable the battery's sharpest
+# mutant. Staleness is a defect in the subject and a requirement in the control.
+. "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
+_SRC="$(cd "$(dirname "$0")/.." && pwd)/solve.c"
+if [ "${RESUME_167_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE_A" "$_SRC"; then
+  echo "ERROR: $BINCUR_MSG" >&2
+  echo "       (set RESUME_167_ALLOW_STALE=1 to override, deliberately.)" >&2
+  echo "SELFTEST_RESUME_167=ERROR"
+  exit 43
+fi
+
 SHA_TOOL=""
 command -v sha256sum >/dev/null 2>&1 && SHA_TOOL="sha256sum"
 [ -z "$SHA_TOOL" ] && command -v shasum >/dev/null 2>&1 && SHA_TOOL="shasum -a 256"

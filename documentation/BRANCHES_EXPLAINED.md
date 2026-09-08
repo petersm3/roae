@@ -57,8 +57,7 @@ is different:
   (binary 111111, the all-solid pattern), and the second is its
   complement ䷁ #2 (binary 000000, all-broken). The
   *choice* of this pair first is classically attested (the *Xugua*
-  commentary's ordering rationale); the *orientation* (Creative before
-  Receptive) is C4's own definitional choice — this project's convention,
+  commentary's ordering rationale); the *orientation* (`63` before `0`) is C4's own definitional choice — this project's convention,
   not something the classical record attests — and is **not** forced by
   the other rules. ⚠ **[CORRECTED 2026-09-01 — the orientation was
   previously described here as classically attested too, on the strength

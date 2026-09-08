@@ -49,7 +49,9 @@
 # every run unless Q422_SOLVE is given (tr12_repro_gate.sh passes its own build); MEASURED 2026-09-05:
 # ~4 s on 2 cores with Q422_SOLVE, plus the ~10 s build without it.
 #
-# Verdict: prints exactly one Q422_RATIO_COLUMNS_GATE=<PASS|FAIL> line. Consume with grep -qx.
+# Verdict: prints exactly one Q422_RATIO_COLUMNS_GATE=<PASS|FAIL|ERROR> line. Consume with grep -qx.
+# ERROR (exit 2) is NOT a defect report: it means the gate could not establish its own subject
+# (see the Q422_SOLVE currency guard below) and therefore measured nothing.
 # Q422_SRC overrides the solve.py under test -- ONLY so the closure check can point the gate at a
 # tree that lacks its target (e.g. `git show 76e5d680:solve.py`) and confirm it reports FAIL.
 set -uo pipefail
@@ -71,6 +73,34 @@ grep -q '^\[atlas-consumer\] .*Q-422' "$WORK/gold_selftest.txt" || fail "target 
 # ---- the binary: the PUBLISHED build line, or the one the caller already built -----------------
 if [ -n "${Q422_SOLVE:-}" ]; then
   SOLVE="$Q422_SOLVE"; [ -x "$SOLVE" ] || fail "Q422_SOLVE=$SOLVE is not executable"
+  # 🔴 EXECUTABLE IS NOT CURRENT. The else-arm compiles the committed solve.c seconds before
+  # use and is safe by construction; this arm is not. Q422_SOLVE names a PATH and only its +x bit
+  # was checked above. tr12_repro_gate.sh:253 hands in a binary it just built, but a hand run
+  # `Q422_SOLVE=./solve bash scripts/q422_ratio_columns_gate.sh` points the gate at whatever
+  # artifact is lying in the tree -- and this gate then asserts things about --kc-scan output and
+  # about 26112, i.e. about COUNTS.
+  #
+  # Added 2026-09-08 after scripts/resume_budget_infinity_gate.sh -- same `${VAR:-}`-names-a-path
+  # shape -- reported FAIL, an UNDERCOUNT PRESENTED AS A COMPLETE ENUMERATION, against a ./solve
+  # two days older than 779fff4c, the commit that fixed exactly that. Stale -> FAIL, HEAD -> PASS.
+  #
+  # ERROR, NEVER FAIL, and DELIBERATELY NOT via fail(): fail() in this file emits
+  # Q422_RATIO_COLUMNS_GATE=FAIL / exit 40, which asserts "the Q-422 ratio columns are broken".
+  # An unestablished subject is not that, and reporting it as that sends a reader hunting a bug
+  # that is not there. Exit 2 keeps the two outcomes distinguishable from the file's exit-40 FAILs.
+  #
+  # Called INSIDE an `if`: lib_binary_currency.sh's foreign-sha arm ends in a `grep -vxF` that
+  # exits 1 in the NORMAL case, so a bare call under this file's pipefail would abort mid-function
+  # with an empty signal.
+  #
+  # The M1..M6 mutants below are solve.py copies, not binaries, and are unaffected by this.
+  . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
+  # cwd is the repo root (cd at the top of this file), so bare `solve.c` is unambiguous.
+  if [ "${Q422_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE" solve.c; then
+    echo "  [ERROR] $BINCUR_MSG" >&2
+    echo "          (set Q422_ALLOW_STALE=1 to override, deliberately.)" >&2
+    echo "Q422_RATIO_COLUMNS_GATE=ERROR"; exit 2
+  fi
 else
   [ -f solve.c ] || fail "missing solve.c"
   BUILD=$(grep -m1 -E '^gcc .*solve\.c' documentation/VERIFY.md 2>/dev/null)

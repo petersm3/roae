@@ -66,7 +66,7 @@ The crash destroyed all in-memory analytics and solutions. However, checkpoint.t
 
 **The 1-hour run:** After fixing the integer overflow, a 1-hour run on 56 threads found 20,110,129 unique pair orderings. This was the first successful large-scale result. Key revelations:
 
-- **Only 1 position is locked, not 23.** Position 1 (Creative/Receptive) is the only universally locked position. The "23 locked" claim was an artifact of the 438-solution sample, which came from a single search branch.
+- **Only 1 position is locked, not 23.** Position 1 (pair 0, hexagrams 1–2) is the only universally locked position. The "23 locked" claim was an artifact of the 438-solution sample, which came from a single search branch.
 - **Millions of solutions exist, not thousands.** Three orders of magnitude more than previously documented.
 - 24 of 56 branches appeared dead (zero C3-valid solutions).
 
@@ -132,7 +132,7 @@ This meant the 4-boundary analysis was invalid on this dataset. The old 31.6M da
 
 A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectrum:
 
-- **Branch 24 (Revolution/Cauldron):** All 17 non-KW configs have valid alternatives — maximum freedom at positions 3-19
+- **Branch 24 (hexagrams 49–50):** All 17 non-KW configs have valid alternatives — maximum freedom at positions 3-19
 - **Branches 22, 23:** 12/17 valid — mostly open
 - **Branch 20:** 4/17 valid — partially open
 - **Branch 19:** 1/17 valid — nearly deterministic
@@ -5002,7 +5002,7 @@ The v3 100T (sha `915abf30…`) and 11.2T (sha `0c0fe37c…`) re-derives landed 
 their anchors and were gzip-9 cold-archived with full per-cell shards. The per-cell yield
 trajectory across the three canonical depths is the scientific capstone of the 560T campaign.
 All claims below are scoped to orderings satisfying the **formalized** constraints C1–C5 with
-position 1 forced to Creative/Receptive; canonical = pair-identity-deduped (orientation collapsed).
+position 1 forced to pair 0 (hexagrams 1–2); canonical = pair-identity-deduped (orientation collapsed).
 
 | Scale | Per-cell budget (nodes) | Canonical records | Pair-identity cells yielding |
 |---|--:|--:|--:|
@@ -6634,6 +6634,233 @@ never credited as authors**. None of the above is offered as novel outside this 
 record, and corrections are welcome — the refusal rate reported here is itself a measurement of our
 charge sheets, not a claim about anyone else's.
 
+## 2026-09-03 — a sweep through the checks themselves: fail-opens in both independent verifiers, and a linker that deleted the thing under test
+
+Twenty-nine commits between 00:34Z and 12:22Z. Twelve touch a published-results document — a TR,
+`METHODS.md`, the example report, `GUIDE.md`, `CITATIONS.md`, `KING_WEN_PROVENANCE.md` — and exactly
+one published figure moves as a result; the rest of the day went on the project's own instruments.
+The 2026-08-08/08-30 entry, two above, records a defect class — *a check that reports clean without
+having looked* — and the rule that came out of it, **break the producer, not the input**. This day is
+that rule turned on the instruments themselves, and the instruments lost repeatedly.
+
+### The gate suite doubles, and the method is the finding
+
+**[doc_gates.sh](../scripts/doc_gates.sh) went 39 → 72 banners** — thirty-three gates across four
+lanes; `DOC GATES: PASS`, rc 0, zero `[FAIL]` verdicts, ~91 s. Each was red-tested against the **real
+historical tree that carried the defect** (`git show <sha>^:path`), never a hand-planted string, and
+that was not ceremony: **six legs went green as no-ops on first construction, and only the real
+baselines caught them** — a mask that ate the bare prose word "four"; a negative regex exempting on
+"carry", a word the pre-fix text itself contains; a count-only cut that could not fire, because the
+pre-fix file holds the phrase once (the live defect) and the fixed file holds it once (the quote
+inside the withdrawal). **Counting cannot distinguish a defect from its own correction.**
+
+**A structural blind spot closed with it:** doc_gates had scanned only `*.md` and
+`reports/evidence/**`, so **147 tracked text files — `solve.c`, every `.py`, every `.sh` — were in no
+needle scan at all**. **Roughly twenty-five further legs were built, measured and declined** because
+each would have failed correct text — an invariance-scope leg fires on 106 of 151 live sentences —
+and two more are unbuildable because [CORRECTIONS.md](CORRECTIONS.md) is append-only. Every gate now
+errors below a population floor, and four of the new ones fired on live defects the day they shipped.
+
+### The linker that deleted the thing under test
+
+🔴 **`exec_lane.sh` was reporting on a corpus it never executed, and nothing was wrong with any
+individual report.** The lane runs commands published in the docs — including one the docs
+*correctly* document as failing, a `SOLVE_C_CLI.md` build line quoted to show it fails with 13
+undefined references. **`ld` deletes its `-o` target when a link fails.** That quoted command
+therefore deleted the `solve` binary the lane had just built, and every later `./solve` invocation —
+`--selftest` among them — reported `SKIP-MISSING-INPUT` instead of running. Measured before and after
+on the same corpus, fixed by snapshot/restore of a build's `-o` target: `./solve` PASS **10 → 73**,
+`SKIP-MISSING-INPUT` **167 → 35** (the 35 are genuinely missing inputs), overall PASS **231 → 308**,
+gating FAILs **23 → 1**. Three "rc=1 in 0 s" keys that had looked like real defects were the blind
+spot, and the lane's own estimate that "roughly half" of 21 failures were real measured out at
+**17 extractor/harness gaps and 4 real**.
+
+Two siblings fell out of the same commit. The **pre-flight throttle burn this project mandates before
+any paired benchmark was simply absent** from `perf_bench.sh`; it is now a
+`HEALTHY|THROTTLED|UNVERIFIED` probe with exit 5 on anything but `HEALTHY`, and a mutant with the
+exit-5 gate removed still reports `methodology_valid:false`. And the same script had been reporting a
+**container** sha with `records: 0` — a fictional count; it now computes the logical sha
+(`gzip -dc | sha256sum`) and the real count, with the container sha explicitly labelled.
+
+### Fail-opens in both designated independent verifiers
+
+**`verify.py` returned `VERIFY PASS: all 0 records satisfy C1-C5` and rc 0 on a 32-byte header-only
+artifact.** It now errors: rc 30, *"contains ZERO records — nothing was verified"*. The sharp part is
+the timing — a commit **two and a half hours earlier** (00:36:03Z against 03:06:32Z) had added
+whole-line verdict tokens **at that exact site** without adding the guard, which is why the
+mitigation lane rejected it as unmitigated. **"The file was touched" is not "the finding was
+fixed"**, and this is the measured proof. `solve.c` had already fixed the class at one instance,
+under a comment stating the principle — *a check that cannot run must ERROR rather than pass* — and
+the sibling was never swept; the commit records `verify.py` as the **fifth sibling-residue instance
+in two days**. The sweep found two more emitters in the same file: `--check-t5-c3` printed
+`T5_C3_AGREE=PASS` rc 0 over zero compared records, and `--twins-bisect` printed 24 vacuous
+`ABSENT`s and `TWINS_BISECT=DONE` rc 0 on an empty file.
+
+**`verify.c`, the other designated independent verifier, failed the same way.** A forged
+inclusion-exclusion checkpoint whose rows sum to N = 0 made `--ie-pin-c6c7` print *"pass complete;
+all in-run gates hold"* rc 0 **with no comparison line at all**; it now prints the mismatch,
+`IE_COMPARED=1`, rc 1. Three further defects of that shape are recorded together: `--ie-mod wrap`,
+`--ie-negctl` and `--ie-expect` compared nothing; **a negative control with no target narrated "MUST
+differ" and enforced nothing**; and `--dp-no-budget --dp-negctl` was an identity swap. A heap
+over-read and a v2-format check that accepted a corrupted artifact byte-identically to a clean one
+were fixed alongside. **A negative control that passes without comparing anything is a verifier that
+cannot fail.** And `solve.py` had the structural version of a charge written as four wrong outputs:
+**ten handler dispatches whose return status never reached `sys.exit`**, from `--branch-yield` to
+`--sat-encode`, each able to compute a failure, report it, and exit 0. An AST test pins the class.
+
+One thing found here is **not** a defect and is recorded as the shipped contract: both verifiers
+return `VERIFY=PASS` on an artifact with the King Wen record deleted. A shard legitimately need not
+contain King Wen, and the opposite rule was retracted on 2026-09-02, so presence is informational and
+`--expect-kw` is the opt-in gate. What remains **open** is stated as open: `solve --verify` in shard
+mode still prints *"all N records satisfy C1–C5, sorted, no duplicates"* while computing **neither**
+sortedness **nor** duplicates, both counters guarded by `if (r > 0 && !shard_mode)`. The patch is
+prepared, leaves the selftest sha `403f7202…` unchanged, and is held behind a five-condition master
+gate with all five unmet.
+
+### `python3 -O`, a carriage return, and an empty CNF
+
+🔴 **The certificate battery's 42-witness recheck passed zero witnesses under `python3 -O`.** Its
+checker is Python in a shell heredoc carrying **seven bare `assert`s**. Measured: default `python3` →
+`AssertionError`, exit 1; `python3 -O` → **exit 0 having checked zero of 42**, which the wrapper reads
+as PASS — and `PYTHONOPTIMIZE=1` is an environment variable a CI image can carry without the caller
+knowing. All seven are now explicit raises. The test that exists to forbid bare asserts *would never
+have caught it*: it AST-scans a fixed tuple of `.py` files and the defect lived in a heredoc. **The
+file list was the blind spot, not the rule** — it now extracts heredocs from every tracked `.sh`,
+finding two more nobody had charged.
+
+🔴 **`drat-trim` exits 0 with no verdict on an empty CNF**, emitting neither `s VERIFIED` nor
+`s NOT VERIFIED`, so a harness gating on exit code reads "proof verified" from a run that never
+parsed a problem. `verify_all.sh` now requires **both** legs, rc 0 **and** a whole-line `s VERIFIED`,
+with a population floor `DRAT_CERTS_CHECKED=24` — and with CR-stripping folded into the same rule,
+because `drat-trim` prefixes every output line with a bare `\r`, so a whole-line gate written exactly
+as this project's explicit-verdict-token rule demands goes red on every *genuine* pass unless the CR
+is removed first. A 14-case mutation battery, three of them fake-checker cases a substring test would
+have passed, fails all 24 certificates correctly, and the CR control passes.
+
+🔴 **And the most obvious mutation is a no-op on two of the certificates.** An empty proof
+*verifies* against `rigidity` and `ccn8-kwfail`, both refutable by unit propagation alone, so anyone
+mutation-testing a DRAT harness on those is measuring a harness that cannot fail. **Choose a mutation
+target by first measuring that the unmutated check can fail on it.** Two cardinality-only `noY`
+certificates shipped the same day precisely because they are not unit-propagation-trivial: `kissat`
+returns `s UNSATISFIABLE` on both, and the proofs carry **36,729 and 11,841 core lemmas**.
+
+### The checker witnessing itself
+
+**A gate had made a faithful [CORRECTIONS.md](CORRECTIONS.md) entry unpublishable.** Its near-miss
+branch failed unconditionally, so an entry quoting a **mistyped sha prefix verbatim** could not pass
+pre-push — while this project's own rule forbids paraphrasing a *before* to look better. The typo was
+real (`a09280fbf` against `a09280fb8`), and `grep -c a09280 CORRECTIONS.md` returned 0. **The ledger
+promising "every claim this project published and later changed, in one place" had a class it
+structurally could not record, and the omission was invisible because the gate causing it reported
+PASS.**
+
+**The same shape appeared three more times before the day was out.** The gate built its universe over
+the whole tree **including `doc_gates.sh` itself**, so a token could resolve against the checker's own
+narration — the verifier-closure invariant, closed once already on a branch that never reached `main`,
+and so regressed here. A SAT `exclude_stages` argument with a misspelt family name silently excluded
+nothing (it now raises). And a certificate test's docstring claimed exact counts at N ∈ {9, 13, 16}
+"match" while 13 and 16 were **dead literals behind `"live": False`** — replacing both with 0 left the
+test green.
+
+### Corrections that were themselves wrong — four of them, across two days
+
+**Our corrections are not automatically more reliable than what they correct.** The day's commits
+carry a running count of them and it reached four. A dated amendment to a `SOLVE_C_CLI.md` correction
+recorded that `solve --regression-test 100B` "parses as 100 nodes **and proceeds**"; it does not —
+measured on a stock build of `main` it returns rc 50 and fails — and the amendment records why the
+error survived: *the line had been read and corrected once already, without ever being run.* The
+second, a dated 2026-09-01 note, claimed a document names `10.0.0.0/16`; it never has (`git log -S`
+returns empty), the literal lives in `perf_bench.sh`, and the sibling document gained `/16` only the
+next day. **Both of those were written without re-running anything, and both were caught only by
+re-execution.** The third was itself a correction, refuted within the hour by executing all 57 of a
+file's documented invocations rather than reading them: the box it "corrected" had been right. The
+fourth is a correction to that refutation's own wording, made by its author six hours later — a flag
+said to live "only on the unlanded `orbit-port-188-candidate` branch" has **zero** occurrences there
+(the branch carries the functions the flag calls), the flag exists only on an unpushed local branch,
+and the wording had already propagated to two further sites as sibling residue.
+
+### Numbers that moved, and one that was never attainable
+
+**A published "maximum possible" was impossible by its own parenthetical.** `roae.py --path` gave 378
+for a 64-vertex Hamiltonian path in the 6-bit cube; a vertex's only distance-6 neighbour is its
+complement, so at most 32 of the 63 edges can be d6 and the bound is **32×6 + 31×5 = 347**, attained.
+King Wen's 211 is unchanged, so only the denominator moved: **55.8% → 60.8%**.
+
+**And the greedy baseline resolved distance ties by King Wen's own position** — the ordering it
+exists to control for. From the same start vertex the three natural policies give **75** (King Wen
+position), **68** (reverse) and **63** (hexagram value), so the shipped one was the largest and
+yielded the *smallest* ratio against 211, 2.81× against 3.35× — **and the smallest ratio is the
+flattering one**, because the ratio measures roughness: [GUIDE.md](GUIDE.md) states the convention
+outright — *"For path length (total distance), high means rougher transitions"* — so low is the
+smoother end. A control biased toward its subject makes the subject look less anomalous. Ties now
+break on the 6-bit value, which lands the baseline on 63, the Gray-code minimum.
+
+### A dismissal that did too much work
+
+**A dismissal was doing more work than its stated reason supported.** The alternative-orderings table
+dismisses each entry on one common thread — an ordering produced by a simple stated rule poses no
+combinatorial puzzle — but 序卦傳 and 雜卦傳 were lumped in one row and dismissed on a *different*
+ground, as "commentarial rationales and pairings *about* the received order, **not competing
+orders**". That is right for 序卦傳 and **wrong for 雜卦傳**, which presents the 64 in an arrangement
+differing from the received sequence and is generated by no stated rule. It is *reported* to largely
+respect the same pairing structure (C1) — that characterisation is the reviewers', and is **not
+independently re-derived here** — which would make it the attested, non-algorithmic alternative
+64-ordering the standing single-sequence objection asks for. The row is split, and **using it as a
+control is recorded as not done and not claimed**, since that first requires fixing the order to a
+specific recension.
+
+### Also corrected, with no published verdict moving
+
+Eight further items changed a published document without moving a verdict. A "~880 GB pre-dedup"
+projection measures out at **443 GB**, having propagated to seven sites. `METHODS.md`'s "12
+independent-seed replicates … ratios 0.73–1.45" had **zero** seed records in either repository — *a
+write-up of a run is not the run* — so the range is **withdrawn as unreproducible** and the figure
+re-established rather than reworded (seeds 1..12 explicit, 13.7 min, $0), six of seven named masses
+plus the estimator total inside the χ²(11) 95% band [0.71, 1.70], two tails disclosed rather than
+smoothed. TR-7's wrap-distance masses gained an invocation recovered from the archived artifact's own
+header. An FDR counterfactual computed one-sided inside a two-sided suite needs a **second** strictly
+smaller ledger value its paragraph does not exhibit, and both sites now say so and stop. TR-2 told a
+reader they "do not have to trust our solver, our encoding pipeline, or us" while the documented
+regeneration command **is** our encoder. The Mawangdui material was disclosed as resting on **one
+modern presentation alone**. The repository was found to redistribute a third-party font under a
+software-only licence — `example/report.pdf` **embeds the full DejaVu font programs**, though no font
+files are tracked — so `THIRD_PARTY_NOTICES.md` now exists, the prose and data tables still carrying
+**no explicit dedication**, left open as the copyright holder's decision. And two additions are
+recorded as additions: the SVG export had **no nonvisual equivalent at all**, and
+[GUIDE.md](GUIDE.md) now states where a reader will look that the corpus ships **no hexagram names**.
+
+### The harness that could not see its own tests
+
+The test count moved all day — **133 → 134 → 139 → 141 → 143 → 145 → 158** — and it was checked at
+each step *that it moved*, because twice it lied. **New regression tests were nearly dead on
+arrival**: appended at the end of the file, they sat **after** the `__main__` guard, so the harness
+never defined them and they passed only under `python3 -m unittest`, which imports the module. Moved
+above the entry point, the count went 134 → 139.
+
+🔴 **And an entire lane's tests were not in the harness at all.** A SAT lane's tests existed only in a
+scratchpad file, so **every "145 OK" cited as evidence for `sat.py` measured nothing about the four
+new functions.** The author's own note is the sharpest line of the day: *"I had checked that the
+harness count moved when I added my own tests and never asked the same question of the lane's."* The
+same review corrected a second self-measurement — a reported "7 of 9 red tests also pass on a
+pristine tree", carried into commit messages, a queue row, a handoff and the review brief itself, was
+an artefact of the working directory: an import resolved to the pristine copy while the subprocess
+tests resolved the edited one. Re-run correctly, **8 of 9 discriminate**. Both are the class this day
+was about — *a check reporting cleanly while unable to see its target.*
+
+**What did not move.** No canonical sha, no record count, no archive, no theorem: the selftest sha
+`403f7202…` is stated unchanged wherever the day's commits touch it, reproduced from the README's own
+command line and verified with and without the newly required build stamp. **One published figure did
+move** — the path-bound denominator above, 55.8% → 60.8% — and the SAT lane's two corrected
+measurements change tallies and family attribution, not verdicts.
+
+**Attribution.** The engineering, measurements and corrections above are this lane's (Claude, Opus 5)
+under operator direction. **Ten of the twenty-nine commit bodies name the Codex units that raised the
+charge**; a separate model (Fable) reviewed the SAT lane and corrected two of this lane's own
+measurements, and endorsed the 雜卦傳 finding, whose load-bearing C1 characterisation is the
+reviewers' and is not re-derived here. **Reviewers are acknowledged, never credited as authors.** One
+claim in [CLAIM_TO_ARTIFACT.md](CLAIM_TO_ARTIFACT.md) has no public artifact and no public
+invocation, and is marked as such in place rather than left implied.
+
 ## 2026-09-04 — five public branches become one: the v4 merge, and why four refs were deleted
 
 **`main` went from `6dac6a85` to `f5a63e27` across two true merges, and the public repository went
@@ -6888,3 +7115,112 @@ find.
 **`git bundle create` is not byte-deterministic** — two runs on one repository, same git, seconds apart,
 differ in content and length. Determinism returns with `pack.threads=1`. A frozen medium that pins a
 bundle's sha therefore cannot regenerate it; it must archive the object.
+
+## 2026-09-08 — the orchestrator ran out of memory, and the first account of why was wrong
+
+The two-core VM that runs this project's automation exhausted its memory and rebooted on the evening
+of 2026-09-07. The three commits of 2026-09-08 — `fb72f8b8`, `c13977da`, `fc427bf7` — are the repair,
+and they were found by auditing the thing that was running when the machine died. A fourth correction
+belongs here too: **the cause published first was not the cause**, and stating the corrected one is the
+more useful half of this entry.
+
+**A note on what is checkable.** The host measurements below are readings of a machine — system
+activity samples and a job schedule — not artifacts of this repository, and a reader cannot recompute
+them. They are recorded because the narrative would be dishonest without them, and they are attested
+rather than reproducible. Everything said about `solve.c` and the push path *is* checkable from the
+three commits named.
+
+**What the machine recorded.** The system activity log for 2026-09-07 shows **87.37%** of memory in use
+at 22:10 and 87.20% at 22:30 — ordinary evening samples on this box, not an anomaly — then 54.27% at
+22:40 and 16.07% at 23:00. **The 23:10 sample was never written.** The last line to reach disk was the
+resolver reporting that it was flushing caches under memory pressure, at 23:06:13; the next entry in
+the log is `LINUX RESTART` at 23:38:20. Roughly six and a half gigabytes disappeared in under six
+minutes, starting at the top of the hour, and the box lost the ability to write a sample before it lost
+the ability to run.
+
+**The first account, and the single unmeasured number that made it convincing.** A write-up produced
+the same day attributed the crash to a memory cap that was not in force: a `ulimit -v` line had been
+added to the shell profiles and did not bind, and the account reasoned that roughly twenty-eight
+uncapped cloud-CLI interpreters at 150–300 MB each accounted for the missing memory. Both halves fail
+on measurement. **The per-interpreter figure was invented, not measured** — it is ~80 MB resident on a
+cloud call and 33–39 MB on a local one, measured twice with `/usr/bin/time -v`, so twenty-eight of them
+is ~2.2 GB rather than the 4–8 GB the account needed. And **`ulimit -v` bounds address space
+per process, while the measured failure is aggregate**: a 4 GiB per-process cap is transparent to
+twenty-eight processes of 80 MB. The mitigation was presented as overdue for a failure it does not
+address. One unmeasured figure is what made the arithmetic appear to close, and the arithmetic
+appearing to close is what made the conclusion feel earned.
+
+**The corrected cause is fan-out on a box with no headroom and no swap.** The schedule was a thundering
+herd: **twenty-eight scheduled jobs fired in the same minute**, at `:00`. The number reconciles exactly
+against the schedule as it now stands — the surviving crontab has **23** jobs at minute `:00`, and the
+five lines deleted since the crash were themselves all `:00` jobs; 23 + 5 = 28. The herd did not have
+to be large. It only had to land on a machine that had already spent the hour near the ceiling, with
+**zero swap** — which is why there is no soft failure mode here. The box does not get slow first; it
+goes from working to rebooting with nothing in between, which is also why so little evidence survived.
+The schedule has since been staggered so that every job keeps its exact period and peak concurrency
+falls from twenty-three jobs in one minute to three.
+
+**The residual, stated rather than closed.** **No OOM-killer line ever reached disk.** A single runaway
+process therefore **cannot be formally excluded**, and nothing here claims it can. What can be said is
+that the aggregate account is consistent with every surviving measurement, while the runaway account is
+consistent with the absence of evidence and nothing else. That is the honest state of it, and it is
+worth naming because the temptation on both passes was to close the gap with a mechanism instead of a
+measurement.
+
+**Two resource defects in the push path (`fb72f8b8`).** `--selftest` builds a shell command for a child
+`solve` run and had **`SOLVE_THREADS=4` hardcoded** into it. That child runs on every `solve.c`-touching
+push, inside the compile gate, so on a two-core box the push was twice oversubscribed against itself
+while the other gates ran. It is now `min(4, nproc)` — a no-op on every VM this project uses, since a
+D8 and a D128 both yield 4, and a reduction only on the two-core orchestrator. The second defect is a
+trap that shed files each time it was rewritten: `pre_push_compile_gate.sh` reassigns its `EXIT` trap
+three times, and the third reassignment dropped two paths from the cleanup list, so **every *passing*
+run leaked** a warnings file and a ~200 KB verify binary onto a 120-IOPS OS disk. **A trap that looks
+like cleanup and is not is worse than no trap**, and it accumulated on precisely the box that ran out
+of resources.
+
+**The memory half (`c13977da`), which is what actually exhausted the machine.** `sol_hash_log2` defaults
+to 2^24 — **512 MiB per thread** — and it is not lazily faulted: the allocation is followed by an
+explicit `memset` that touches every page, so it is real resident memory. At the old hardcoded four
+threads the selftest child was carrying ~2.1 GB on a 7 GB box, concurrently with a `gcc -O3
+-march=native` in the same gate. Halving the threads only halves that. CPU contention made the push
+slow; this is what made it fatal. The knob to fix it had existed the whole time, **documented ten lines
+from the default** — *"For smaller VMs, set `SOLVE_HASH_LOG2=22` (128 MB/thread) or 20 (32 MB/thread)"*
+— and the project already uses it: `solve.py` sets `SOLVE_HASH_LOG2=16` under the comment *"keep RAM
+use modest on tiny VMs"*. The push path simply never picked it up. **A tuning knob the codebase knows
+about, documents, and applies in one place while the hot path ignores it is worth more attention than a
+missing knob would be.** The selftest child now sets `SOLVE_HASH_LOG2=20`: ~64 MB where it was ~2.1 GB.
+The sweep that found it had been scoped to *thread* counts, and its own closing line is the lesson —
+fixing threads without this would have left about a gigabyte of avoidable resident memory running
+against a compile.
+
+**Both fixes are sha-safe, and measured rather than argued.** `solve.c` asserts that node-limit-only
+budgets give byte-exact determinism across thread counts and machines; that assertion is a comment, so
+it was tested both ways on an 8-core Spot runner. With the hash change on top, `nproc=8` at four
+threads and `taskset` to two cores at two threads both produce canonical sha `403f7202a33a…`. The
+reason the hash size cannot move a sha is structural rather than empirical luck: `SOLVE_HASH_LOG2` sets
+the **initial** table size and the table auto-doubles past a 75% load factor, so it changes how many
+rehashes happen, never which records are found. The enumeration paths are untouched — they read
+`SOLVE_THREADS` from the environment exactly as before — and no campaign path is in either diff. Build
+deduplication, the other candidate from the same audit, was measured at ~10 s of a 393 s push and
+**deliberately declined**: the dominant term is the selftest leg's ~188 s of real enumeration, and
+trading a duplicated compile for a misleading `rc=44` diagnosis is a bad exchange.
+
+**And the fix invalidated the citations that describe it (`fc427bf7`).** The citation gate blocked the
+push with *"stale count 40 EXCEEDS pinned budget 0"*, and the cause was the two commits above: they
+shifted `solve.c`, and 40 of the 93 hand-maintained `solve.c:NNNNN` citations in
+[SOLVE_C_CLI.md](SOLVE_C_CLI.md) moved with it. They were relocated by **content** — take the line each
+citation pointed at in the pre-change tree and find it again — 34 uniquely, 9 by nearest match, 50
+unchanged, 0 unresolved. One needed hand work and is worth naming: a **range** citation,
+`solve.c:35736-35795`. Content relocation moves a range's start and leaves its end, so the span silently
+stops covering the symbol it names. **A range is not one citation; it is two numbers with an invariant
+between them**, and any later relocation pass has to know that. This was the second such re-derivation
+of the same night. The pin stays at 0 — the alternative is a gate that tolerates stale pointers, and
+the 57 it started at were 57 real defects — but the durable fix is not re-deriving line numbers on
+every push; it is citing by **symbol**, which is what [CANONICAL_HASHES.md](CANONICAL_HASHES.md) and
+[CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) were converted to hours earlier the same night,
+under [DOC_GATE_SECREF_ALLOWLIST.txt](DOC_GATE_SECREF_ALLOWLIST.txt)'s own rule that line numbers drift.
+
+**What did not move.** No canonical sha, no record count, no archive, no theorem, and no published
+claim about the sequence. The selftest sha `403f7202a33a…` is stated unchanged wherever the day's
+commits touch it, verified at two thread counts and two hash sizes. The only published document edited
+is [SOLVE_C_CLI.md](SOLVE_C_CLI.md), and what changed there are pointers, not statements.

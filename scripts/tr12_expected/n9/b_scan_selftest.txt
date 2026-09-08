@@ -40,6 +40,7 @@ KC-G BUILD n=9 dir=<SELFTEST_TMP>/g g0=26112 layers=0.068804 MB elapsed=<T>s
 [kc-scan-selftest] RAW positional marginals (G-expansion) == brute (all slots)  PASS
 [kc-scan-selftest] branch atlas solutions == brute first-placement census       PASS
 [kc-scan-selftest] quotient marginal column sums == N (all layers)              PASS
+[kc-scan-selftest] class column sums == b0[d]*N (brute census AND extractor, all d) PASS
 [kc-scan-selftest] NEGATIVE N1: corrupted extractor mass IS caught by brute     PASS
 [kc-scan] layer 00 -> 01: transition mass 26112
 [kc-scan] layer 01 -> 02: transition mass 26112

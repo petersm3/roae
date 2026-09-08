@@ -301,7 +301,7 @@ The fingerprint analysis reveals the precise structure of the remaining freedom:
 
 **Note: the fingerprint analysis below was based on a partial sample of 438 solutions from a single branch of the search tree. Current canonical enumerations (d3 10T: 706M, d2 10T: 286M) fundamentally revise these findings — scopes and percentiles in this section are historical.**
 
-**Only 1 of 32 pair positions is universally locked** (Position 1: Creative/Receptive). Positions 3-18 admit exactly 2 pairs each (87-99% match King Wen). Positions 19-32 are progressively free (7-16 pairs each, 10-22% match). The earlier claim of "23 locked" was an artifact of exploring only one branch.
+**Only 1 of 32 pair positions is universally locked** (Position 1: pair 0, `63→0`). Positions 3-18 admit exactly 2 pairs each (87-99% match King Wen). Positions 19-32 are progressively free (7-16 pairs each, 10-22% match). The earlier claim of "23 locked" was an artifact of exploring only one branch.
 
 **Edit distance distribution (revised).** The closest non-King-Wen solutions still differ by just 2 pair positions. *(An earlier version added "always in positions 26-32"; that is retracted — no canonical dataset supports it. Distance-2 twins occur at the front (positions 2/3, 4/5) and middle (22-25) at every canonical scale.)* The edit distance distribution peaks at 16 differences, with a secondary peak at 29, reflecting the large number of solutions with completely different pair orderings in the free region.
 

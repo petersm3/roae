@@ -20,6 +20,9 @@
 # A curated copy of the build line here would rebuild exactly the blind spot being closed.
 #
 # Verdict token:  TR12_REPRO_GATE=PASS|FAIL   (grep -qx it; never gate on output shape)
+# --check token:  TR12_REPRO_GATE_CURRENT=YES|NO|UNKNOWN  (grep -qx it too, since 2026-09-08:
+#                 NO and UNKNOWN used to carry their explanation on the verdict line, so only the
+#                 YES form was ever whole-line matchable. The explanation now prints above it.)
 #
 # Usage:
 #   scripts/tr12_repro_gate.sh            # build + run the n=9 battery, print the verdict
@@ -201,13 +204,16 @@ fi
 
 if [ "$MODE" = "--check" ]; then
   if [ ! -f "$STAMP" ]; then
-    echo "TR12_REPRO_GATE_CURRENT=UNKNOWN (no stamp — run scripts/tr12_repro_gate.sh --stamp)"; exit 1
+    echo "  no stamp exists yet — run scripts/tr12_repro_gate.sh --stamp"
+    echo "TR12_REPRO_GATE_CURRENT=UNKNOWN"; exit 1
   fi
   WANT=$(awk -F= '/^fingerprint=/{print $2}' "$STAMP")
   if [ "$FP" = "$WANT" ]; then
     echo "TR12_REPRO_GATE_CURRENT=YES"; exit 0
   fi
-  echo "TR12_REPRO_GATE_CURRENT=NO (one of the $(fingerprint_files | wc -l | tr -d ' ') DERIVED inputs, this gate, or an expected block changed since the last recorded PASS)"
+  echo "  one of the $(fingerprint_files | wc -l | tr -d ' ') DERIVED inputs, this gate, or an"
+  echo "  expected block changed since the last recorded PASS"
+  echo "TR12_REPRO_GATE_CURRENT=NO"
   exit 1
 fi
 
@@ -284,6 +290,22 @@ fi
 if ! bash ./scripts/q433_xa_cert_gate.sh; then
   echo "  [FAIL] scripts/q433_xa_cert_gate.sh did not PASS: the XA node-mapping certificate is"
   echo "         no longer validated, or a mutant that accepts any path survived"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
+# R12b #8 / Q-286 (wired 2026-09-08). MEASURED INERT: `grep -rn tr8_merge_pool_integrity` over the
+# whole public repo returned the gate file and nothing else, so the two defects it certifies —
+# `solve.py --tr8-dof-merge` accepting a shard id outside the header's declared range, and merging
+# against a bank.json whose recomputed digest no longer matches admitted_bank_sha256 — were guarded
+# by an instrument that had never run outside the session that wrote it. An unrun instrument is not
+# coverage. Same class and same remedy as the a2/xa sibling sweep below.
+# Blocking, like every other leg here: it is GREEN today (measured 3.0 s on the orchestrator), so
+# wiring it blocks nothing that exists, and both defects are silent-corruption of a published
+# statistic. Pure python, no ladder data, no binary — it does NOT use "$WORK/solve".
+if ! bash ./scripts/tr8_merge_pool_integrity_gate.sh; then
+  echo "  [FAIL] scripts/tr8_merge_pool_integrity_gate.sh did not PASS: --tr8-dof-merge no longer"
+  echo "         refuses an undeclared extra shard, or a bank.json mutated since the shards were"
+  echo "         drawn, or the three-way control stopped merging cleanly (see message above)"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 

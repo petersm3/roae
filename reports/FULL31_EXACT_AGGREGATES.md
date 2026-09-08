@@ -6,8 +6,9 @@ has been either a **sampled** subset of the full computation or a **smaller-prob
 (n=9…19). Both are proxies. This is neither: it is an *aggregate of an exact computation*,
 and an aggregate of an exact computation is itself exact, where a sample of one is not.
 
-**Who it is for.** A reader who wants to *check us* is already served by `REPRODUCE.md` and the
-small-n catalogs. A reader who wants to *do their own research* is served by neither, because
+**Who it is for.** A reader who wants to *check us* is already served by the small-n rung table in
+[VERIFY.md](../documentation/VERIFY.md) and by the independent per-layer recount in §2 below. A
+reader who wants to *do their own research* is served by neither, because
 n=19 is ~0.015% scale and answers nothing about the real object. Exact per-layer widths and
 masses let you test scaling laws, size your own build, or contradict us with arithmetic.
 

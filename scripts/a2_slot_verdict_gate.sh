@@ -103,10 +103,16 @@ def atlas(slot2_pct, slot3_pct, slot32_pct=0.0785, n=31):
     for k in range(n):
         pct = {0: slot2_pct, 1: slot3_pct, n - 1: slot32_pct}.get(k, 0.0)
         layers.append({"k": k, "flow": str(N),
+                       "by_class": {"d%d" % d: "0" for d in solve._ATLAS_CLASSES},
                        "marginal_raw": {PAIR: str(int(round(pct * N)))}})
+    # `gates` and `by_class` are what atlas_load requires of every atlas since 2026-09-08
+    # (Codex KCQ01 #1 / KCQ04 #2): the loader refuses an atlas whose producer gates failed
+    # or whose class keys are not the consumer's registry. A fixture is still "minimal but
+    # LOADABLE" only if it carries them.
     return {"type": solve._ATLAS_TYPE, "n": n, "N_total": str(N),
             "space": "a2-slot-gate-fixture",
             "semantics": "synthetic fixture for the A2 pair-slot gate; not a measurement",
+            "gates": {"fails": 0},
             "branch_atlas": [], "layers": layers}
 
 
@@ -220,13 +226,15 @@ NX = 26112              # the real n=9 world size; divisible by 24, so a clean f
 
 def xa_atlas(perturb_flow=False, perturb_sol=False, perturb_t=False, n=9):
     layers = [{"k": k, "flow": str(NX + (1 if (perturb_flow and k == 0) else 0)),
+               "by_class": {"d%d" % d: "0" for d in solve._ATLAS_CLASSES},
                "marginal_raw": {"pair%d" % j: "0" for j in range(32)}} for k in range(n)]
     return {"type": solve._ATLAS_TYPE, "n": n, "N_total": str(NX),
             "space": "a2-slot-gate-fixture",
             "semantics": "synthetic fixture for the verdict-honesty legs; not a measurement",
+            "gates": {"fails": 0},
             "t_root_t_units": str(NX + 1 + (1 if perturb_t else 0)),
             "branch_atlas": [{"global_pair": 1, "entry": 63, "exit": 0,
-                              "solutions": NX + (1 if perturb_sol else 0),
+                              "solutions": str(NX + (1 if perturb_sol else 0)),
                               "walks": NX, "prefixes_t_units": str(NX)}],
             "layers": layers}
 
