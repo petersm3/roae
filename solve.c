@@ -34278,10 +34278,20 @@ int main(int argc, char *argv[]) {
          * non-zero). Caught by the #62 dress-rehearsal. A wildcard scrub of
          * all SOLVE_* is future-proof: no current or future env var can flip
          * the selftest sha or break its merge. (sh `for` loop is POSIX.) */
+        /* \U0001f534 min(4, nproc), not a hardcoded 4. MEASURED 2026-09-07: this child runs on
+         * EVERY solve.c-touching push, and the orchestrator is a 2-core box that died of resource
+         * exhaustion that night with the push 2x oversubscribed against ITSELF. Exact sibling of
+         * the hardcode fixed the same day in selftest_resume_167_gate.sh.
+         * SHA-SAFE, and this file says why ~20 lines above: node-limit-only budgets give
+         * "byte-exact determinism across thread counts and machines", so the canonical selftest
+         * sha 403f7202 does not move. SOURCE_SHA does move, because the source changed -- that is
+         * a different digest from the one the gate compares. */
+        long _np_online = sysconf(_SC_NPROCESSORS_ONLN);
+        int selftest_threads = (_np_online >= 4) ? 4 : (_np_online >= 1 ? (int)_np_online : 1);
         snprintf(cmd, sizeof(cmd),
                  "cd %s && "
                  "for v in $(env | grep '^SOLVE_' | cut -d= -f1); do unset \"$v\"; done && "
-                 "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 "
+                 "SOLVE_THREADS=%d SOLVE_NODE_LIMIT=100000000 "
                  "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
                  "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
                  "SOLVE_SKIP_BINARY_SNAPSHOT=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
@@ -34290,7 +34300,7 @@ int main(int argc, char *argv[]) {
                  /* #169: solutions.bin may be gz — hash the DECOMPRESSED (logical)
                   * content so the canonical selftest sha 403f7202 is unchanged. */
                  "{ gzip -dc solutions.bin 2>/dev/null || cat solutions.bin; } | %s | cut -d' ' -f1",
-                 tempdir_template, solve_path, tool);
+                 tempdir_template, selftest_threads, solve_path, tool);
         FILE *fp = popen(cmd, "r");
         if (!fp) {
             fprintf(stderr, "ERROR: popen failed\n");

@@ -169,7 +169,13 @@ fi
 # Source changes that alter the produced sha must also update the expected_sha
 # constant inside solve.c at the --selftest dispatcher; otherwise this gate fails.
 SELFTEST_OUT=$(mktemp /tmp/precommit_selftest.XXXXXX)
-trap 'rm -f "$TMP_BIN" "$SELFTEST_OUT"' EXIT
+# 🔴 ALL FOUR, not two. This trap is reassigned three times, and the third reassignment used to
+# drop $WARN_LOG and $TMP_VBIN from the cleanup list — so every PASSING run leaked
+# /tmp/precommit_warnings.XXXXXX and /tmp/precommit_verify.XXXXXX, the latter a ~1 MB verify
+# binary. On the orchestrator, whose OS disk is a P4 at 120 IOPS, that accumulates silently on
+# exactly the box that ran out of resources on 2026-09-07. A trap that sheds files each time it is
+# rewritten is worse than no trap, because it looks like cleanup.
+trap 'rm -f "$TMP_BIN" "$SELFTEST_OUT" "$WARN_LOG" "$TMP_VBIN"' EXIT
 if ! "$TMP_BIN" --selftest > "$SELFTEST_OUT" 2>&1; then
     echo "FAIL: --selftest exited non-zero"
     cat "$SELFTEST_OUT"
