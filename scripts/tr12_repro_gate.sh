@@ -92,7 +92,12 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # invalidate the stamp on any doc edit -- a currency check nobody can keep green is one people learn
 # to bypass. The general case (the NEXT library sourced through a variable) is a real gap and is
 # queued, not silently closed by over-widening this.
-CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh scripts/tr12_repro.sh scripts/tr12_repro_gate.sh"
+# reports/certificates/c3_positional_witnesses.txt is CORE for the same reason the sourced library
+# is: row a0_q4b READS it and GRADES ON ITS CONTENT (tr12_repro.sh:704), and the derivation cannot
+# see it -- the regex covers .c/.py/.sh/.md, and widening it to .txt was MEASURED to sweep in
+# _GATE_STAMP.txt itself plus two enumeration artefacts. Naming the one file that matters is the
+# narrow fix; widening the grammar was the broad one that makes the stamp churn.
+CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh reports/certificates/c3_positional_witnesses.txt scripts/tr12_repro.sh scripts/tr12_repro_gate.sh"
 fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
 
 # 🔴 MY FIRST VERSION OF THIS CHECK WAS TAUTOLOGICAL. It asserted that every derived input was in
@@ -392,9 +397,17 @@ fi
 # uncommanded) and the c_q6 / c_q10a shell legs (the pre-Q-394 spec). Each fix carries its own
 # red/green gate with mutants and a closure check; each is wired here so the n=9 pre-push run
 # protects the full-31 run. Any one of them failing fails the whole gate.
-for leg in d5_02_q8_chi2_gallery_gate d5_03_ls_w0_exact_gate d5_04_q7_witnesses_gate d5_08_q6_q10a_shell_gate; do
-  if ! bash "./scripts/$leg.sh"; then
-    echo "  [FAIL] scripts/$leg.sh did not PASS (see message above)"
+# 🔴 LITERAL PATHS, NOT STEMS (RCQ02 F6, 2026-09-09). This loop used to name the four gates
+# WITHOUT `.sh` and append it inside. derived_inputs() greps for `…\.(c|py|sh|md)` and so could not
+# see them: d5_03 and d5_04 were EXECUTED on every pre-push run and were absent from the
+# fingerprint, measured by mirror-mutation (append `exit 1` to either and the fingerprint is
+# byte-identical). d5_02 and d5_08 were hashed only by accident, because they happen to be named
+# with `.sh` somewhere else in the tree. Writing the path the way the file is actually spelled
+# costs nothing and removes a class of invisibility that depends on coincidence.
+for leg in scripts/d5_02_q8_chi2_gallery_gate.sh scripts/d5_03_ls_w0_exact_gate.sh \
+           scripts/d5_04_q7_witnesses_gate.sh scripts/d5_08_q6_q10a_shell_gate.sh; do
+  if ! bash "./$leg"; then
+    echo "  [FAIL] $leg did not PASS (see message above)"
     echo "TR12_REPRO_GATE=FAIL"; exit 1
   fi
 done
