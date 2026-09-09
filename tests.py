@@ -4704,6 +4704,54 @@ class TestQ3ReaderCheckShellsAreNonIncreasing(unittest.TestCase):
                         "the fixture that motivates 'non-increasing' is no longer flat")
         self.assertEqual(S.atlas_q3_reader_check(self._tsv(gs, 26112), 26112), [])
 
+    # ---- RCQ01 F2: the producer's own verdict is not optional -------------------------------
+    # atlas_parse_q3_trace kept only "#o3-trace\t" rows and discarded everything else, including
+    # the emitter's KC_O3_TRACE=FAIL and a "product check FAILED" summary three lines above the
+    # data. Measured 2026-09-09 through the real CLI: a trace whose emitter said FAIL, rows
+    # unchanged, produced TR12_Q3=PASS and rc 0 -- identical to the OK control. The telescoping
+    # check here cannot re-derive the identity the producer failed, so it has to read the verdict.
+
+    def _trace(self, verdict=None, summary="flow_identities=9/9 product(p_i)=1/N EXACT"):
+        import tempfile, os
+        fd, path = tempfile.mkstemp(suffix=".txt"); os.close(fd)
+        with open(path, "w") as fh:
+            # the shape the emitter actually writes, taken from scripts/tr12_expected/n9/a2_q3.txt
+            fh.write("#o3-trace\tstep=1\tpair=11\tentry=1\texit=32\torient=1\talts=12"
+                     "\tmass_below=9472\tf=1\tg=2368\tg_parent=26112\tp=2368/26112"
+                     "\tbits=3.462972\n")
+            if summary is not None:
+                fh.write("#o3-trace-summary\t%s\n" % summary)
+            if verdict is not None:
+                fh.write("%s\n" % verdict)
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_a_trace_its_own_emitter_rejected_is_refused(self):
+        S = _load("solve")
+        with self.assertRaises(S.AtlasError) as cm:
+            S.atlas_parse_q3_trace(self._trace(verdict="KC_O3_TRACE=FAIL"))
+        self.assertIn("KC_O3_TRACE=FAIL", str(cm.exception))
+
+    def test_a_summary_with_no_verdict_token_is_refused_not_assumed_good(self):
+        # A summary line means a post-D2 emitter, which always writes the token. A summary with
+        # no token is a file whose producer result we cannot read, and unreadable is not OK.
+        S = _load("solve")
+        with self.assertRaises(S.AtlasError):
+            S.atlas_parse_q3_trace(self._trace(verdict=None))
+
+    def test_a_failed_summary_is_refused_even_when_the_token_says_OK(self):
+        S = _load("solve")
+        with self.assertRaises(S.AtlasError):
+            S.atlas_parse_q3_trace(self._trace(verdict="KC_O3_TRACE=OK",
+                                               summary="flow_identities=8/9 product check FAILED"))
+
+    def test_an_OK_trace_still_parses(self):
+        # Without this the three tests above pass on a parser that refuses everything.
+        S = _load("solve")
+        rows = S.atlas_parse_q3_trace(self._trace(verdict="KC_O3_TRACE=OK"))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(int(rows[0]["g"]), 2368)
+
     def test_a_shell_that_grows_is_caught(self):
         S = _load("solve")
         fails = S.atlas_q3_reader_check(self._tsv([8, 16, 1], 32), 32)

@@ -125,7 +125,11 @@ old='''                if (m == 0) {
                     kc_print_walk(kc, repr, stdout);
                 }
 '''
-assert s[i-16:j]==old, "M1 anchor drift"
+# NOT `assert`: a bare assert vanishes under `python3 -O`, and this mutator would then write an
+# UNCHANGED file while the gate reported a mutant was built and killed. Q-373 / V2-F63 #2; caught by
+# tests.py::TestNoBareAsserts, which was red on this line (2026-09-09).
+if s[i-16:j] != old:
+    raise SystemExit("M1 anchor drift: the code this mutant edits is no longer where it was")
 new='''                printf("record\\tm=%llu\\t", (unsigned long long)m);
                 kc_print_walk(kc, repr, stdout);
 '''
@@ -142,7 +146,8 @@ new='''                if (m == 0) {
                     rc = 1;
                 }
                 {'''
-assert s.count(old)==1, "M2 anchor drift"
+if s.count(old) != 1:
+    raise SystemExit("M2 anchor drift: the code this mutant edits is no longer unique")
 open(sys.argv[2],'w',encoding='utf-8').write(s.replace(old,new))
 PY
 

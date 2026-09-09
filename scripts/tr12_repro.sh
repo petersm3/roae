@@ -273,6 +273,22 @@ norm(){
     # suffix and TR12_BUILD could never pass twice: it passed only in the run that generated it.
     # Measured 2026-09-09: golden held YPd1rQ, the next run produced zJwQx7.
     _rq() { printf '%s' "$1" | sed -e 's#[][\.*^$/&#]#\\&#g'; }
+    # 🔴 A NEWLINE IN A PATH IS NOT ESCAPABLE HERE (RCQ01 F4, second half). _rq escapes regex
+    # metacharacters; it cannot escape a newline, which TERMINATES the sed s-command. Measured
+    # 2026-09-09: a SOLVE path containing a newline makes this chain print
+    # "sed: -e expression #2, char 10: unterminated `s' command" and return 1 -- and before the
+    # status check above, the caller took the empty result and, under --mint-missing, minted an
+    # EMPTY golden from it. Refuse the input rather than normalise it wrongly; a path like this is
+    # a mistake in every case we care about, and silently producing a blank artifact is worse.
+    # NB: NOT $(printf '\n') -- command substitution strips trailing newlines, so that pattern is
+    # `**` and matches every path. It did, and the guard refused a perfectly ordinary run.
+    case "$FDIR$GDIR$TDIR$ARTDIR$OUTDIR$SOLVE$WORK$REPO_ROOT" in
+      *$'\n'*)
+        echo "TR12_REPRO=ERROR" >&2
+        echo "ERROR: a path (FDIR/GDIR/TDIR/ARTDIR/OUTDIR/SOLVE/WORK/REPO_ROOT) contains a newline;" >&2
+        echo "       the output normaliser cannot escape one, and would emit an empty block." >&2
+        exit 2 ;;
+    esac
     [ -n "$FDIR" ]      && s+=( -e "s#$(_rq "$FDIR")#<FDIR>#g" )
     [ -n "$GDIR" ] && s+=( -e "s#$(_rq "$GDIR")#<GDIR>#g" )
     [ -n "$TDIR" ] && s+=( -e "s#$(_rq "$TDIR")#<TDIR>#g" )
@@ -350,15 +366,24 @@ row_begin(){ ROW_ID="$1"; RAW="$RAWDIR/$1.txt"; : > "$RAW"; }
 row_end(){  # row_end TOKEN RC
     local token="$1" rc="$2"
     local got="$GOTDIR/$ROW_ID.txt" exp="$EXPECTDIR/$ROW_ID.txt" status minted=0
-    norm < "$RAW" > "$got"
+    # 🔴 "WRITTEN" MUST MEAN WRITTEN (RCQ01 F4, CONFIRMED by execution 2026-09-09). norm's status
+    # was discarded and mkdir/cp were unchecked, so with cp shadowed to fail both helpers recorded
+    # a minted row, incremented NPASS, left NFAIL=0 and returned 0 -- announcing a golden that was
+    # never on disk. At n=31 --mint-missing is how new goldens are established.
+    norm < "$RAW" > "$got" || status="FAIL:normalize"
     NROWS=$((NROWS+1))
     [ -f "$exp" ] || exp="$(expected_block_for "$ROW_ID")"
-    if [ "$rc" -ne 0 ]; then
+    if [ -n "${status:-}" ]; then
+        :                                     # normalisation already failed; keep that verdict
+    elif [ "$rc" -ne 0 ]; then
         status="FAIL:nonzero-exit($rc)"
     elif [ "$REGEN" -eq 1 ]; then
-        mkdir -p "$EXPECTDIR"; cp "$got" "$EXPECTDIR/$ROW_ID.txt"; status="PASS"
+        if mkdir -p "$EXPECTDIR" && cp "$got" "$EXPECTDIR/$ROW_ID.txt"; then status="PASS"
+        else status="FAIL:mint-write"; fi
     elif [ -z "$exp" ] && [ "$MINT_MISSING" -eq 1 ]; then
-        mkdir -p "$EXPECTDIR"; cp "$got" "$EXPECTDIR/$ROW_ID.txt"; MINTED+=("$ROW_ID"); minted=1; status="PASS"
+        if mkdir -p "$EXPECTDIR" && cp "$got" "$EXPECTDIR/$ROW_ID.txt"; then
+            MINTED+=("$ROW_ID"); minted=1; status="PASS"
+        else status="FAIL:mint-write"; fi
     elif [ -z "$exp" ]; then
         status="FAIL:no-expected-block"
     elif diff -u "$exp" "$got" > "$DIFFDIR/$ROW_ID.diff" 2>&1; then
@@ -390,17 +415,22 @@ row_end_val(){ # row_end_val TOKEN RC VALUE
     # is in the row output and is compared byte-for-byte.
     local token="$1" rc="$2" value="$3"
     local got="$GOTDIR/$ROW_ID.txt" exp="$EXPECTDIR/$ROW_ID.txt" status
-    norm < "$RAW" > "$got"
+    norm < "$RAW" > "$got" || status="FAIL:normalize"      # RCQ01 F4, see row_end above
     NROWS=$((NROWS+1))
-    if [ "$rc" -ne 0 ]; then
+    if [ -n "${status:-}" ]; then
+        :
+    elif [ "$rc" -ne 0 ]; then
         status="FAIL:nonzero-exit($rc)"
     elif [ -z "$value" ]; then
         status="FAIL:no-verdict-extracted"
     elif [ "$REGEN" -eq 1 ]; then
-        mkdir -p "$EXPECTDIR"; cp "$got" "$exp"; status="$value"
+        if mkdir -p "$EXPECTDIR" && cp "$got" "$exp"; then status="$value"
+        else status="FAIL:mint-write"; fi
     elif [ ! -f "$exp" ] && [ "$MINT_MISSING" -eq 1 ]; then
-        mkdir -p "$EXPECTDIR"; cp "$got" "$exp"; MINTED+=("$ROW_ID"); status="$value"
-        printf '  [MINT] %-22s %s   (no expected block existed; WRITTEN, not diffed)\n' "$ROW_ID" "$token" | tee -a "$LOG"
+        if mkdir -p "$EXPECTDIR" && cp "$got" "$exp"; then
+            MINTED+=("$ROW_ID"); status="$value"
+            printf '  [MINT] %-22s %s   (no expected block existed; WRITTEN, not diffed)\n' "$ROW_ID" "$token" | tee -a "$LOG"
+        else status="FAIL:mint-write"; fi
     elif [ ! -f "$exp" ]; then
         status="FAIL:no-expected-block"
     elif diff -u "$exp" "$got" > "$DIFFDIR/$ROW_ID.diff" 2>&1; then
@@ -959,13 +989,27 @@ row_begin a1_q8_chi2
   [ "$k" -gt 0 ] || { echo "Q8_CHI2_FAIL	no draw lines in q8_super.tsv"; exit 1; }
   # one bc process for every bucket index; bc's / at scale=0 is integer division, i.e. floor for r >= 0
   awk -v N="$N_TOTAL" '{print "(16*" $1 ")/" N}' "$WORK/q8.ranks" | BC_LINE_LENGTH=0 bc > "$WORK/q8.buckets"
+  # 🔴 THE SUM OF SQUARES IS NOT AN awk INTEGER (RCQ01 F5, CONFIRMED 2026-09-09). This used to
+  # accumulate S += c*c inside awk and print it with %d. Under an awk whose %d clamps to int32 --
+  # busybox awk on this box, and reportedly some mawk builds -- 200,000 draws all in one bucket
+  # give S = 2147483647 instead of 40000000000. Everything downstream is exact bc, so the clamp is
+  # invisible: chi2 came out NEGATIVE, about -371,798, and sailed under the "chi2 < 37.70" bar. An
+  # overwhelming failure of uniformity was published as PASS. gawk here does not clamp, which is
+  # why it survived -- the defect is in which awk runs, and a battery must not depend on that.
+  #
+  # Counts are bounded by k and stay integers; only their sum of squares overflows. So awk emits
+  # the histogram and bc squares and sums it.
   awk '{ b=$1+0; if ($1 !~ /^[0-9]+$/ || b<0 || b>15) bad++; else h[b]++ }
        END{ if (bad) { printf "BAD\t%d\n", bad; exit 1 }
-            for (b=0;b<16;b++) { c=h[b]+0; printf "%d\t%d\n", b, c; S+=c*c }
-            printf "S\t%d\n", S }' "$WORK/q8.buckets" > "$WORK/q8.hist" \
+            for (b=0;b<16;b++) printf "%d\t%d\n", b, h[b]+0 }' "$WORK/q8.buckets" > "$WORK/q8.hist" \
     || { echo "Q8_CHI2_FAIL	$(awk '$1=="BAD"{print $2}' "$WORK/q8.hist") rank(s) outside [0,N) (bucket index not in 0..15)"; exit 1; }
-  echo "bucket	count"; awk '$1!="S"' "$WORK/q8.hist"
-  S=$(awk '$1=="S"{print $2}' "$WORK/q8.hist")
+  echo "bucket	count"; cat "$WORK/q8.hist"
+  # The counts must account for every draw. A histogram that lost or duplicated rows would give a
+  # wrong chi2 that is still finite and could still pass; this makes that a FAIL, not a value.
+  CSUM=$(awk '{printf "%s+", $2} END{print 0}' "$WORK/q8.hist" | BC_LINE_LENGTH=0 bc)
+  [ "$CSUM" = "$k" ] || { echo "Q8_CHI2_FAIL	bucket counts sum to $CSUM, not the $k draws"; exit 1; }
+  S=$(awk '{printf "%s*%s+", $2, $2} END{print 0}' "$WORK/q8.hist" | BC_LINE_LENGTH=0 bc)
+  case "$S" in ''|*[!0-9]*) echo "Q8_CHI2_FAIL	sum of squared counts did not evaluate"; exit 1;; esac
   NUM=$(echo "16*$S - $k*$k" | bc)
   echo "sum_sq_counts	$S"
   echo "chi2_exact	$NUM/$k"
@@ -1399,10 +1443,27 @@ row_begin a2_ew1_null
   NW=$(wc -l < "$WORK/ew1_walks.txt")
   [ "$NW" -gt 0 ] || { echo "EW1_NULL_FAIL	gallery parsed to ZERO draw walks"; exit 1; }
 
+  # 🔴 A PARTIAL DESCENT IS NOT A DESCENT (RCQ01 F1, CONFIRMED by execution 2026-09-09).
+  # This used to pipe the solver into awk and accept ANY positive row count. Under a pipe the
+  # solver's exit status is unreachable (pipefail is off here by design), so a --kc-profile that
+  # printed KC_PROFILE=FAIL and exited 1 after ONE of nine rows returned a clean-looking
+  # "1.000000000  3.462972000" -- against a true sum_bits of 14.672425 -- and the classifier
+  # published TR12_EW1_NULL typicality-bound at rc 0 from it. With --mint-missing that becomes a
+  # committed golden. At n=31 the band is 1,000 descents against the g-disk, where a walk that dies
+  # mid-descent (I/O error, an eviction-resume, a bad layer) is exactly what this must catch.
+  #
+  # Three conditions, all required: the solver exited 0, it said so on its own line, and it produced
+  # the number of steps this universe has. Anything else prints ERR, and the NG -ne NW check below
+  # already fails the row on an ERR.
   top1_of(){ # $1=walk -> "<top1_share>\t<sum_bits>", or "ERR"
-    "$SOLVE" --kc-profile "$FDIR" "$GDIR" "$1" 2>/dev/null | awk -F'\t' '
+    if ! "$SOLVE" --kc-profile "$FDIR" "$GDIR" "$1" > "$WORK/ew1_prof.one" 2>/dev/null; then
+      printf 'ERR\tERR\n'; return
+    fi
+    grep -qx 'KC_PROFILE=OK' "$WORK/ew1_prof.one" || { printf 'ERR\tERR\n'; return; }
+    awk -F'\t' -v np="$N_PAIRS" '
       $1 ~ /^[0-9]+$/ { s += $13; if ($13+0 > mx) mx = $13+0; n++ }
-      END { if (n>0 && s>0) printf "%.9f\t%.9f\n", mx/s, s; else print "ERR\tERR" }'
+      END { if (n == np+0 && n>0 && s>0) printf "%.9f\t%.9f\n", mx/s, s; else print "ERR\tERR" }
+    ' "$WORK/ew1_prof.one"
   }
 
   : > "$WORK/ew1_top1.txt"

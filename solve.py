@@ -12554,6 +12554,31 @@ def atlas_parse_q3_trace(path):
     with open(path) as fh:
         lines = fh.read().splitlines()
     if any(l.startswith("#o3-trace\t") for l in lines):
+        # 🔴 THE PRODUCER'S OWN VERDICT IS NOT OPTIONAL (RCQ01 F2, 2026-09-09).
+        # This branch kept only "#o3-trace\t" rows and threw away everything else -- including
+        # KC_O3_TRACE=FAIL and a "#o3-trace-summary ... product check FAILED" line sitting three
+        # lines above the data it was about. Measured through the real CLI on real files: a trace
+        # whose emitter said FAIL, with its rows unchanged, produced TR12_Q3=PASS, TR12_Q3_READER=PASS
+        # and rc 0 -- byte-identical verdicts to the OK control. The telescoping check here cannot
+        # re-derive the sum-over-successors identity the producer failed, so this consumer has no way
+        # to notice on its own; it has to read what it was told.
+        #
+        # Absence is refused too, not just FAIL. A summary line means a post-D2 emitter, which always
+        # writes the token; a summary with no token is a file we cannot attest, and a check that
+        # cannot measure must not pass.
+        verdicts = [l for l in lines if l.startswith("KC_O3_TRACE=")]
+        if verdicts and verdicts[-1] != "KC_O3_TRACE=OK":
+            raise AtlasError(
+                "%s: the producer's own verdict is %s -- refusing to publish Q3 from a trace "
+                "its emitter rejected" % (path, verdicts[-1]))
+        summaries = [l for l in lines if l.startswith("#o3-trace-summary")]
+        if summaries and not verdicts:
+            raise AtlasError(
+                "%s: carries #o3-trace-summary but no KC_O3_TRACE= verdict line -- the emitter's "
+                "own result is unreadable, so this trace cannot be published from" % path)
+        if any("FAILED" in l for l in summaries):
+            raise AtlasError(
+                "%s: #o3-trace-summary reports FAILED -- refusing to publish Q3 from it" % path)
         for line in lines:
             if not line.startswith("#o3-trace\t"):
                 continue                       # skips #o3-trace-summary and provenance
