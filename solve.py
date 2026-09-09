@@ -12595,10 +12595,16 @@ def atlas_parse_q3_trace(path):
                 "%s: the producer's own verdict is %s -- refusing to publish Q3 from a trace "
                 "its emitter rejected" % (path, verdicts[-1]))
         summaries = [l for l in lines if l.startswith("#o3-trace-summary")]
-        if summaries and not verdicts:
+        # 🔴 REQUIRED ALWAYS, NOT ONLY WHEN A SUMMARY IS PRESENT (RCQ02 F3, 2026-09-09).
+        # The first cut of this refusal fired only `if summaries and not verdicts`, so a file
+        # containing ONLY the "#o3-trace" rows -- no summary, no token -- sailed through and gave
+        # TR12_Q3=PASS. Measured through the real CLI on files a fresh binary produced. Stripping
+        # the attestation is not a way to pass the attestation check.
+        if not verdicts:
             raise AtlasError(
-                "%s: carries #o3-trace-summary but no KC_O3_TRACE= verdict line -- the emitter's "
-                "own result is unreadable, so this trace cannot be published from" % path)
+                "%s: no KC_O3_TRACE= verdict line. The emitter always writes one, so its absence "
+                "means the rows were separated from their attestation -- which cannot be published "
+                "from. Supply the producer's full output, not the rows alone." % path)
         if any("FAILED" in l for l in summaries):
             raise AtlasError(
                 "%s: #o3-trace-summary reports FAILED -- refusing to publish Q3 from it" % path)
@@ -12632,6 +12638,26 @@ def atlas_parse_q3_trace(path):
                 if c in d:
                     rec[c] = _atlas_int(d[c], "profile.%s" % c)
             steps.append(rec)
+        # 🔴 THE TSV BRANCH READ NO VERDICT AT ALL (RCQ02 F3, 2026-09-09).
+        # The loop above skips every line whose column count differs from the header's -- which is
+        # every verdict line the producer writes. So a `--kc-profile --kc-tsv` table from a run
+        # that FAILED its product identity (flow_identities=8/9, g(s_0)=N FAILED,
+        # KC_PROFILE_PRODUCT=MISMATCH, KC_PROFILE=FAIL, exit 1) was read as TR12_Q3=PASS.
+        # Measured through the real CLI. The producer now appends one-column trailers, which the
+        # length test above still skips, so nothing downstream changes shape.
+        prof_v = [l.strip() for l in lines if l.strip().startswith("KC_PROFILE=")]
+        if not prof_v:
+            raise AtlasError(
+                "%s: a --kc-tsv profile with no KC_PROFILE= trailer. Either it came from a "
+                "pre-2026-09-09 producer, which wrote the table before deciding its verdict and "
+                "left no attestation in it, or the trailer was stripped. Regenerate it." % path)
+        if prof_v[-1] != "KC_PROFILE=OK":
+            raise AtlasError(
+                "%s: the producer's own verdict is %s -- refusing to publish Q3 from a profile "
+                "its emitter rejected" % (path, prof_v[-1]))
+        if any("FAILED" in l for l in lines if l.startswith("#profile-summary")):
+            raise AtlasError(
+                "%s: #profile-summary reports FAILED -- refusing to publish Q3 from it" % path)
     if not steps:
         raise AtlasError("%s: no Q3 rows -- expected `--kc-o3-rank ... --kc-trace` text "
                          "or a `--kc-profile ... --kc-tsv` table" % path)

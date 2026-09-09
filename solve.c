@@ -29117,6 +29117,34 @@ static int kc_profile_main(int argc, char *argv[]) {
         printf("KC_PROFILE_PRODUCT=%s\n", P->product_exact ? "EXACT" : "MISMATCH");
         if (!P->product_exact) rc = 1;
         printf("KC_PROFILE=%s\n", rc == 0 ? "OK" : "FAIL");
+        /* 🔴 THE TSV WAS WRITTEN AND CLOSED BEFORE THIS VERDICT EXISTED (RCQ02 F3, 2026-09-09).
+         * kc_prof_write_table(tf, P) runs ~15 lines above; product_exact is only decided HERE. So
+         * a run that FAILS its product identity left a complete, well-formed, TOKEN-LESS table on
+         * disk and exited 1 -- and the consumer's TSV grammar skips every line whose column count
+         * differs from the header's, which is every verdict line. Measured through the real CLI:
+         * such a table fed to --atlas-q3-trace gave TR12_Q3=PASS.
+         *
+         * Two fixes, because either alone leaves a hole. The trailers make a SURVIVING table
+         * self-describing (one column, so the consumer's length test still skips them -- nothing
+         * downstream changes shape). The unlink means a FAILED run leaves no table to be picked up
+         * later by something that never saw the exit code. */
+        if (tsv) {
+            if (rc != 0) {
+                kc_h_unlink_regular(tsv);
+                fprintf(stderr, "ERROR: [kc-profile] verdict is FAIL; removed %s rather than "
+                                "leave a table this run does not stand behind\n", tsv);
+            } else {
+                FILE *tf = fopen(tsv, "a");
+                if (!tf) {
+                    fprintf(stderr, "ERROR: [kc-profile] cannot append the verdict to %s\n", tsv);
+                    rc = 1;
+                } else {
+                    fprintf(tf, "KC_PROFILE_PRODUCT=%s\n", P->product_exact ? "EXACT" : "MISMATCH");
+                    fprintf(tf, "KC_PROFILE=%s\n", "OK");
+                    if (kc_h_close_artifact(tf, tsv, "kc-profile") != 0) rc = 1;
+                }
+            }
+        }
     }
     kc_free(fkc);
     kc_free(gkc);
@@ -29472,17 +29500,25 @@ static int kc_profile_selftest(void) {
                         (char *)"--kc-tsv", tsvp, (char *)"--kc-alts", NULL };
         int rc = kc_prof_capture_main(kc_profile_main, 8, av, tmpp);
         int tsv_ok = 0;
-        {   /* the --kc-tsv file is the stdout block verbatim: header + n rows */
+        {   /* 🔴 THE TSV IS NO LONGER THE STDOUT BLOCK VERBATIM, ON PURPOSE (RCQ02 F3, 2026-09-09).
+             * It used to be exactly header + n rows, and that is precisely what made it
+             * unattestable: the consumer's TSV grammar skips any line whose column count differs
+             * from the header's, so a table from a run that FAILED its product identity was read
+             * as TR12_Q3=PASS. The producer now appends two ONE-COLUMN trailers after the verdict
+             * is known. This leg therefore asserts the STRONGER property -- the table carries its
+             * own verdict -- rather than the old shape it happened to have. */
             FILE *f = fopen(tsvp, "r");
             if (f) {
                 char line[8192];
-                int nl = 0, hdr = 0;
+                int nl = 0, hdr = 0, t_prod = 0, t_verdict = 0;
                 while (fgets(line, sizeof(line), f)) {
                     if (nl == 1 && strncmp(line, "step\tpair\tentry\texit\t", 21) == 0) hdr = 1;
+                    if (strncmp(line, "KC_PROFILE_PRODUCT=EXACT", 24) == 0) t_prod = 1;
+                    if (strncmp(line, "KC_PROFILE=OK", 13) == 0) t_verdict = 1;
                     nl++;
                 }
                 fclose(f);
-                tsv_ok = (nl == n + 2) && hdr;
+                tsv_ok = (nl == n + 4) && hdr && t_prod && t_verdict;
             }
         }
         KC_PROF_GATE("P9 argv leg: --kc-profile FDIR GDIR WALK -> KC_PROFILE=OK",

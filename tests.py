@@ -4752,6 +4752,61 @@ class TestQ3ReaderCheckShellsAreNonIncreasing(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(int(rows[0]["g"]), 2368)
 
+    # ---- RCQ02 F3: the TSV grammar read no verdict at all -------------------------------------
+    # The profile branch skips every line whose column count differs from the header's -- which is
+    # every verdict line. So a `--kc-profile --kc-tsv` table from a run that FAILED its product
+    # identity was read as TR12_Q3=PASS. Measured through the real CLI, 2026-09-09. The producer
+    # now appends one-column trailers AFTER the verdict is known, and removes the table entirely
+    # when the verdict is FAIL.
+
+    def _prof_tsv(self, verdict="OK", product="EXACT", summary_failed=False):
+        import tempfile, os
+        fd, path = tempfile.mkstemp(suffix=".tsv"); os.close(fd)
+        with open(path, "w") as fh:
+            if summary_failed:
+                fh.write("#profile-summary\tn=9\tg(s_0)=N FAILED\n")
+            fh.write("step\tpair\tentry\texit\torient\talts\tmass_below\tf\tg\tg_parent"
+                     "\tp_num\tp_den\tbits\n")
+            fh.write("1\t11\t1\t32\t1\t12\t9472\t1\t2368\t26112\t2368\t26112\t3.46\n")
+            if product is not None:
+                fh.write("KC_PROFILE_PRODUCT=%s\n" % product)
+            if verdict is not None:
+                fh.write("KC_PROFILE=%s\n" % verdict)
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_a_profile_its_own_producer_rejected_is_refused(self):
+        S = _load("solve")
+        with self.assertRaises(S.AtlasError) as cm:
+            S.atlas_parse_q3_trace(self._prof_tsv(verdict="FAIL", product="MISMATCH"))
+        self.assertIn("KC_PROFILE=FAIL", str(cm.exception))
+
+    def test_a_profile_with_no_verdict_trailer_is_refused(self):
+        # A pre-fix producer wrote the table BEFORE deciding its verdict, leaving no attestation.
+        S = _load("solve")
+        with self.assertRaises(S.AtlasError):
+            S.atlas_parse_q3_trace(self._prof_tsv(verdict=None, product=None))
+
+    def test_a_profile_summary_reporting_FAILED_is_refused(self):
+        S = _load("solve")
+        with self.assertRaises(S.AtlasError):
+            S.atlas_parse_q3_trace(self._prof_tsv(summary_failed=True))
+
+    def test_an_OK_profile_still_parses(self):
+        # Without this the three refusals above pass on a parser that refuses every profile.
+        S = _load("solve")
+        rows = S.atlas_parse_q3_trace(self._prof_tsv())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(int(rows[0]["g"]), 2368)
+
+    def test_an_o3_trace_stripped_of_its_token_is_refused(self):
+        # Rows only, no summary, no KC_O3_TRACE=. Previously PASSED: the refusal fired only when a
+        # summary was present, so deleting the summary too was a way past the attestation check.
+        S = _load("solve")
+        with self.assertRaises(S.AtlasError) as cm:
+            S.atlas_parse_q3_trace(self._trace(verdict=None, summary=None))
+        self.assertIn("KC_O3_TRACE", str(cm.exception))
+
     def test_a_shell_that_grows_is_caught(self):
         S = _load("solve")
         fails = S.atlas_q3_reader_check(self._tsv([8, 16, 1], 32), 32)
