@@ -1233,6 +1233,13 @@ is printed in a `SKIPPED` block with its reason, `TR12_REPRO_SKIPPED=<n>` and
 `SKIP:leg-<child>` rather than reporting `PASS` with a hole in it. A universe with **no** expected
 blocks at all is a `FAIL`, not a vacuous pass.
 
+**A minted golden is not a reproduced one.** `--mint-missing` lets a first run at a universe with
+no committed expected blocks (n=31) execute: a row with no block is *written* to `--expect` instead
+of failing, and counted in `TR12_REPRO_MINTED=<n>` (with the ids on `TR12_REPRO_MINTED_ROWS=`).
+Such a row's `PASS` attests exit status and in-row gates only. Rows that already have a block
+are still diffed, and the flag is never to be used where goldens exist and are meant to be
+enforced — read `TR12_REPRO_MINTED` next to `TR12_REPRO_COMPLETE` before quoting a battery.
+
 **Reader arithmetic is separated from engine attestation.** `--kc-o3-rank --kc-trace` prints
 `product(p_i)=1/N EXACT` — that is the *engine* grading its own homework. Row `a2_q3_reader`
 re-derives it from the emitted `p_num`/`p_den` columns instead, as three exact integer identities
