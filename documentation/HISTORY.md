@@ -7224,3 +7224,49 @@ under [DOC_GATE_SECREF_ALLOWLIST.txt](DOC_GATE_SECREF_ALLOWLIST.txt)'s own rule 
 claim about the sequence. The selftest sha `403f7202a33a…` is stated unchanged wherever the day's
 commits touch it, verified at two thread counts and two hash sizes. The only published document edited
 is [SOLVE_C_CLI.md](SOLVE_C_CLI.md), and what changed there are pointers, not statements.
+
+## 2026-09-09 — an adversarial review of `--kc-extremal`, and a gate that could not see a wrong number
+
+The TR-12 Q5 producer `--kc-extremal` (the KC-X module in [solve.c](../solve.c)) was reviewed
+adversarially, charged to find errors rather than to approve. The verdict was **BLOCKED** on two
+findings. Both were re-derived independently before being recorded here.
+
+**The selftest's only positive path checks tokens and never the number.** K10 (`solve.c:32861`)
+asserts exit 0 and five verdict tokens — `KC_EXTREMAL=OK`, `KC_EXTREMAL_INVARIANT=yes`,
+`KC_EXTREMAL_WITNESS=VERIFIED`, `KC_EXTREMAL_NULL_VS_G=CONSISTENT` — plus the certificate JSON's
+type and `"witness_verified": true`. **Not one of them is the computed extremum.** The only place
+`extreme_value=` appears in that range is a *refusal* leg asserting it is absent. Three one-line
+mutants survive `--kc-extremal-selftest` with PASS: the search direction inverted
+(`solve.c:32332`), the opposite extremum printed as `extreme_value` (`solve.c:32426`), and the
+G-invariance gate looping over 23 of the 24 frame maps so the last is never checked
+(`solve.c:31960`). The `n=9` golden in the reproduction battery catches the first two **at n=9
+only** — it was minted by the producer, and no golden exists above n=9. **Nothing catches the
+third.** This is the failure mode this project names most often: a program emitting a success token
+for something it never computed, here inside the gate that guards a published number.
+
+**The functional registry cites Python that does not exist.** Its `py_ref` column names
+`solve.py::_dist_multiset`, `_boundary_distances` and `_yang_count`. **None occurs in any tracked
+Python file**, while `solve.c` cites them eight times and the KC-X module header makes the
+cross-language re-check a shipping condition — *"no Q5 number ships without it"*. Either the
+evaluator lands and the Q5 row calls it, or the registry text changes and the rule is retired; it
+must not go on citing absent code.
+
+**What held under attack, and is recorded because a negative result is evidence.** The witness
+extraction by forward greedy descent without backpointers is sound, and additionally re-verifies the
+recurrence at every step. The G-invariance gate is exhaustive over exactly the frame maps the DP
+applies, and per-element invariance suffices by induction. The seven `C5-CONSTANT` closed forms are
+checked by a second selftest leg and by an actual opposite-direction build, not merely asserted in a
+registry string. `entryyang` is the exact complement of `yangcount` — verified at two ladder sizes.
+The `l0 == 0` NULL sentinel cannot collide with a real zero, including under min-plus with a true
+minimum of zero. Nothing in the module is sized to n=9.
+
+**A semantic finding that changes how Q5 should be stated.** `yangcount` and `entryyang` vary only
+through the orientation of the three free self-symmetric pairs `{12,51}`, `{18,45}`, `{30,33}`, so
+their spread is at most 6 at any n and the DP answers a question of at most three bits. Measured:
+at n=9 all three pairs are free and the extremes are 30 and 24; at n=13 none is, and both rows
+return `constant_on_space=yes` at 33. A consumer must not read that constancy as a failure.
+
+**What did not move.** No canonical sha, no record count, no archive, no theorem, and no published
+claim about the sequence. **`solve.c` was not edited** — the findings above are recorded, not fixed,
+and the Q5 row remains gated behind them. The `n=9` end-to-end rehearsal of the query-program driver
+was re-run and re-attested `QUERY_DRYRUN=PASS` against the tree as published, with nothing minted.
