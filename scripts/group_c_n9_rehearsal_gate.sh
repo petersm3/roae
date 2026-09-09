@@ -106,26 +106,48 @@ for v in TR12_A5_ORBIT_COLUMNS TR12_A5_ORBIT_MEMBERSHIP; do
 done
 
 # 🔴 VISIBILITY IS NOT COVERAGE, AND A GATE NOBODY RUNS IS NOT COVERAGE EITHER.
-# Emitting SKIP:n=9 makes A5 visible; it does not make it rehearsed. Its n==31 code
-# (atlas_orbit_columns / atlas_orbit_membership, 0 references in tests.py) is exercised ONLY by
-# scripts/a5_orbit_membership_gate.sh against a synthetic 31-pair atlas -- and on 2026-09-09 that
-# gate had NO INVOKER, so the only coverage of the only n=31-only path never ran. Requiring the
-# invoker is the difference between a coverage claim and coverage.
-COV=scripts/a5_orbit_membership_gate.sh
-if [ ! -x "$ROOT/$COV" ]; then
-  say "[FAIL] $COV is missing or not executable -- A5's only n=31 coverage cannot run"
-  fails=$((fails+1))
-else
-  INV=$(grep -rl -- "a5_orbit_membership_gate.sh" "$ROOT/scripts" "$ROOT/.git/hooks" 2>/dev/null \
-        | grep -v "$COV\$" | grep -c . || true)
-  if [ "${INV:-0}" -eq 0 ]; then
-    say "[FAIL] nothing invokes $COV. It is the ONLY thing that runs A5's n==31 code, so"
-    say "       leaving it unwired means the path first executes after a 7-33 day scan."
-    fails=$((fails+1))
-  else
-    say "[ok]   $COV has $INV invoker(s) -- A5's n==31 code is actually exercised"
+# Announcing SKIP:n=9 makes a path visible; it does not make it exercised. Every n==31-only path
+# must ALSO name something that drives it at n=31 with synthetic input, and if that something is a
+# gate it must have an invoker -- on 2026-09-09 A5's only coverage was a correct gate that nothing
+# ran, which is a coverage claim worth exactly nothing.
+#
+# 🔴 AND THE CLAIM IS CHECKED, NOT WRITTEN DOWN. This began as a prose note in
+# TASK_GATED_GROUP_C_N9_REHEARSAL.md asserting that A2 and A3 had no named coverage. That was
+# WRONG -- both have a dedicated tests.py class driving them against synthetic n=31 atlases with
+# shown-able-to-fail perturbations, and a2_slot_verdict_gate.sh was already wired. A prose claim
+# about coverage is exactly the kind of thing that rots; this table is executable.
+#
+#   <function> <fn-symbol> <covering-file>   -- the covering file must EXIST, must reference the
+#   symbol, and if it is a .sh gate must have an invoker.
+check_cov(){ # check_cov LABEL SYMBOL FILE
+  local label="$1" sym="$2" f="$3"
+  if [ ! -e "$ROOT/$f" ]; then
+    say "[FAIL] $label: named coverage $f does not exist"; fails=$((fails+1)); return
   fi
-fi
+  if [ "$(grep -c -- "$sym" "$ROOT/$f")" -eq 0 ]; then
+    say "[FAIL] $label: $f exists but never mentions $sym -- the coverage is named, not real"
+    fails=$((fails+1)); return
+  fi
+  case "$f" in
+    *.sh)
+      local inv
+      inv=$(grep -rl -- "${f##*/}" "$ROOT/scripts" "$ROOT/.git/hooks" 2>/dev/null \
+            | grep -v "/${f##*/}\$" | grep -c . || true)
+      if [ "${inv:-0}" -eq 0 ]; then
+        say "[FAIL] $label: $f drives $sym but NOTHING INVOKES IT -- the path first runs after the scan"
+        fails=$((fails+1)); return
+      fi
+      say "[ok]   $label: $f drives $sym, $inv invoker(s)" ;;
+    *)
+      say "[ok]   $label: $f drives $sym" ;;
+  esac
+}
+check_cov TR12_Q3_KW          atlas_q3_trace_is_king_wen tests.py
+check_cov TR12_A2_SLOT        atlas_a2_slot_check        tests.py
+check_cov TR12_A2_SLOT        atlas_a2_slot_check        scripts/a2_slot_verdict_gate.sh
+check_cov TR12_A3_EXTERNAL    atlas_a3_external_check    tests.py
+check_cov TR12_A5_ORBIT_COLS  atlas_orbit_columns        scripts/a5_orbit_membership_gate.sh
+check_cov TR12_A5_ORBIT_MEMB  atlas_orbit_membership     scripts/a5_orbit_membership_gate.sh
 
 # RATCHET: a NEW n==31 guard in the consumer is a NEW unrehearsed path, and must be declared above.
 #
