@@ -817,9 +817,61 @@ row_end TR12_ANCHOR $rc
 group "GROUP A1 — f-ladder mounted"
 
 # ---- A1.1  the 32 f-layer decompressed-stream shas, before trusting any number ----------------
-row_begin a1_fsha
-( "$SOLVE" --f1c5-layer-sha "$FDIR" ) >>"$RAW" 2>&1; rc=$?
-row_end TR12_FSHA $rc
+# 🔴 F-5 R2 (2026-09-09). Until today the three ladder-sha rows (a1_fsha, a2_gsha, b_tsha) printed
+# --f1c5-layer-sha and diffed the print against scripts/tr12_expected/n<N>/ -- which at n=31 does
+# not exist, so under --mint-missing each row was MINTED from the very run it was meant to check:
+# a PASS that compared to nothing. The a2_q2 comment below records that the bracket cannot stand
+# in ("rank and unrank read the same wrong g and agree with each other") and --kc-g-check is
+# cost-gated off at n=31, so a wrong layer reached every O3 rank, the profile, EW-1 and the atlas
+# under TR12_REPRO=PASS. Now each layer's tool digest is compared, IN THE ROW, against what the
+# BUILDER recorded at build time: the sidecar's own_sha256_decompressed, which solve.c
+# (f1c5_sidecar_emit_impl) documents as "the IDENTICAL digest --f1c5-layer-sha registers -- same
+# code path, f1c5_layer_sha_hex". The row FAILS (rc=1, whole-line LADDER_SHA_CHECK=FAIL) on any
+# digest mismatch, any missing sidecar, any sidecar without the field, a layer count other than
+# n+1, or a non-zero tool rc. No n31 golden is needed; it works at every n; and it is red-testable
+# at n=9 (the n=9 builders write the same sidecars): flip one byte of one layer, or one hex digit
+# of one sidecar, and that row goes red. Measured 2026-09-09 (F5_R2_R3_2026_09_09.md).
+# WHAT IT DOES NOT PROVE: the sidecar sits beside the layer, so a layer REBUILT wrong together
+# with a fresh sidecar agrees with itself. Identity with the PUBLISHED n=31 build is a different
+# question, answered by runs/20260906_kc_ladders_n31/STAGE_{F,G,T}_LAYERSHA.txt (the archived
+# ladders' --f1c5-layer-sha rows, 32 per stage, taken from these same sidecars); at n=9 the
+# committed golden pins the values.
+ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR
+    local id="$1" token="$2" dir="$3"
+    row_begin "$id"
+    (
+      "$SOLVE" --f1c5-layer-sha "$dir" > "$WORK/lsha.$id" 2>&1; trc=$?
+      cat "$WORK/lsha.$id"
+      echo "### sidecar cross-check: tool digest vs the own_sha256_decompressed the builder recorded"
+      layers=0; ok=0; bad=0
+      while read -r tag hex path _rest; do
+          [ "$tag" = "sha256(decompressed)" ] || continue
+          layers=$((layers+1))
+          base=${path##*/}; stem=${base%.bin}                      # <pfx>_layer_NN
+          sc="${path%/*}/${stem%_layer_*}_layer_stats_${stem##*_layer_}.json"
+          if [ ! -f "$sc" ]; then
+              echo "sidecar ${sc##*/}  MISSING"; bad=$((bad+1)); continue
+          fi
+          own=$(sed -n 's/^ *"own_sha256_decompressed": *"\([0-9a-f]\{64\}\)".*/\1/p' "$sc" | head -1)
+          if [ -z "$own" ]; then
+              echo "sidecar ${sc##*/}  NO-FIELD own_sha256_decompressed"; bad=$((bad+1))
+          elif [ "$own" = "$hex" ]; then
+              echo "sidecar ${sc##*/}  own_sha256_decompressed=$own  MATCH"; ok=$((ok+1))
+          else
+              echo "sidecar ${sc##*/}  own_sha256_decompressed=$own  MISMATCH tool=$hex"; bad=$((bad+1))
+          fi
+      done < "$WORK/lsha.$id"
+      want=$((N_PAIRS+1))
+      echo "layers=$layers expected=$want sidecar_match=$ok sidecar_bad=$bad tool_rc=$trc"
+      if [ "$trc" -eq 0 ] && [ "$bad" -eq 0 ] && [ "$layers" -eq "$want" ] && [ "$ok" -eq "$want" ]; then
+          echo "LADDER_SHA_CHECK=OK"
+      else
+          echo "LADDER_SHA_CHECK=FAIL"; exit 1
+      fi
+    ) >>"$RAW" 2>&1; rc=$?
+    row_end "$token" $rc
+}
+ladder_sha_row a1_fsha TR12_FSHA "$FDIR"
 
 # ---- A1.0  the INDEPENDENT reading-(B) extremes oracle ------------------------------
 # Q6's per-(state,choice) argmax/argmin leg is SKIPPED by the engine (the atlas schema does not
@@ -1116,9 +1168,8 @@ fi
 # ================================================================================================
 group "GROUP A2 — f + g mounted (still pre-scan)"
 
-row_begin a2_gsha
-( "$SOLVE" --f1c5-layer-sha "$GDIR" ) >>"$RAW" 2>&1; rc=$?
-row_end TR12_GSHA $rc
+# A2.0  the g-layer shas, cross-checked against the builder's sidecars (F-5 R2; see a1_fsha).
+ladder_sha_row a2_gsha TR12_GSHA "$GDIR"
 
 # ---- A2.2  Q1 the H3b rank certificate: rank/unrank roundtrip + the r-1/r/r+1 bracket ---------
 row_begin a2_q1
@@ -1571,9 +1622,8 @@ if [ "$HAVE_T" -eq 1 ]; then
     # ladder -- the one Stage T exists to produce -- was the only one whose bytes nothing pinned.
     # sha256 is taken over the DECOMPRESSED stream, so a different zlib level or version changes
     # the file without changing this value: the gate tracks the mathematics, not the container.
-    row_begin b_tsha
-    ( "$SOLVE" --f1c5-layer-sha "$TDIR" ) >>"$RAW" 2>&1; rc=$?
-    row_end TR12_TSHA $rc
+    # Cross-checked against the t builder's sidecars (F-5 R2; see a1_fsha).
+    ladder_sha_row b_tsha TR12_TSHA "$TDIR"
 
     row_begin b_tcheck
     ( "$SOLVE" --kc-t-check "$FDIR" "$TDIR" ) >>"$RAW" 2>&1; rc=$?

@@ -8,3 +8,16 @@ sha256(decompressed) 82964dee725149022359fa1ea9e8065683a8550a2a8bad35f4ef8457ac7
 sha256(decompressed) 31878c3d112135ba645ab4ffdb2f6439c9eafd24ebd65993a19f0a8a523d90a8  <TDIR>/t_layer_07.bin  (kind=t, blocks=0, bytes=4596)
 sha256(decompressed) 463bdb8581a6e7cd82061541bd8cd06d2bf15856e01fd481ffab73fc7de76c54  <TDIR>/t_layer_08.bin  (kind=t, blocks=0, bytes=1388)
 sha256(decompressed) 02027f822723616773b37c5fd52bb77cf69fadff7095a80e1e1d3d55762666ff  <TDIR>/t_layer_09.bin  (kind=t, blocks=0, bytes=188)
+### sidecar cross-check: tool digest vs the own_sha256_decompressed the builder recorded
+sidecar t_layer_stats_00.json  own_sha256_decompressed=9869b0136a0ce82ba1d0ea9aa9194ef601817220aeeb1fa31891609d5d25297e  MATCH
+sidecar t_layer_stats_01.json  own_sha256_decompressed=beb23ad6877d90c56fd58a00251247105af698cfc927f7b3f9a337cf88e369dd  MATCH
+sidecar t_layer_stats_02.json  own_sha256_decompressed=871a74c226f5c58cc69fd769d30e08c33d1a6f7a1976a9b28d306263a5822542  MATCH
+sidecar t_layer_stats_03.json  own_sha256_decompressed=acc08f550fc598ebd54983057bc0fe0c46c88a7ac4b837564b6b16398c96fed7  MATCH
+sidecar t_layer_stats_04.json  own_sha256_decompressed=06418e53635c171adaffc8c8731addf7f350256a84b14bf4c301d1dc99cc9633  MATCH
+sidecar t_layer_stats_05.json  own_sha256_decompressed=e5ccfb7f1dc326b0275a87a03baf69f1ad704997bc93b5b0ad98625d82e485e1  MATCH
+sidecar t_layer_stats_06.json  own_sha256_decompressed=82964dee725149022359fa1ea9e8065683a8550a2a8bad35f4ef8457ac7affcb  MATCH
+sidecar t_layer_stats_07.json  own_sha256_decompressed=31878c3d112135ba645ab4ffdb2f6439c9eafd24ebd65993a19f0a8a523d90a8  MATCH
+sidecar t_layer_stats_08.json  own_sha256_decompressed=463bdb8581a6e7cd82061541bd8cd06d2bf15856e01fd481ffab73fc7de76c54  MATCH
+sidecar t_layer_stats_09.json  own_sha256_decompressed=02027f822723616773b37c5fd52bb77cf69fadff7095a80e1e1d3d55762666ff  MATCH
+layers=10 expected=10 sidecar_match=10 sidecar_bad=0 tool_rc=0
+LADDER_SHA_CHECK=OK
