@@ -441,8 +441,10 @@ The cores are freight.
 > one byte of `g_layer_05.bin` flipped: `--kc-g-check`, `TR12_Q1`, `TR12_Q2`, `TR12_Q3` and
 > `TR12_EW1` all still returned PASS. The rows now compare each digest against the
 > `own_sha256_decompressed` the builder wrote into that layer's sidecar, and go red on any mismatch,
-> a missing sidecar, a missing field, a layer count other than n+1, or a non-zero tool status. With
-> that check present the corrupted ladder produces exactly one failing row out of 66.
+> a missing sidecar, a missing field, a layer count other than n+1, or a non-zero tool status. The
+> comparison emits its own whole-line verdict into the row body, **`LADDER_SHA_CHECK=OK|FAIL`**, and
+> the row's `TR12_FSHA` / `TR12_GSHA` / `TR12_TSHA` token follows it. With that check present the
+> corrupted ladder produces exactly one failing row out of 66.
 >
 > **The limit of it:** the sidecar sits beside the layer, so a layer rebuilt wrong together with a
 > fresh sidecar agrees with itself. This proves internal consistency, not identity with the

@@ -51,11 +51,30 @@ MODE=${1:-run}
 # by hand, which is the same bet that lost in August. Now the gate reads tr12_repro.sh for the repo
 # files it actually references and FAILS if any of them is outside the hashed set. A curated list
 # cannot notice its own omission; a derived one can.
-derived_inputs(){   # repo-relative files the battery references, that exist
-  grep -ohE '(scripts/|lean/|viz/)?[A-Za-z0-9_./-]+\.(c|py|sh)\b' scripts/tr12_repro.sh 2>/dev/null \
-    | sed 's|^\./||' | sort -u | while read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done
+# 🔴 DERIVED TO A FIXED POINT, FROM BOTH ENTRY POINTS (RCQ01 F6, 2026-09-09).
+# This used to grep scripts/tr12_repro.sh alone. But THIS gate invokes gates of its own --
+# q326_kc_query_surface_gate.sh, q433_xa_cert_gate.sh, kc_writer_devfull_gate.sh -- and executes the
+# build command published in documentation/VERIFY.md. None of those were in the fingerprint, so
+# after a successful --stamp, changing an omitted gate until it FAILED still left --check reporting
+# CURRENT=YES. The currency stamp certified a state that no longer produced the result it certified.
+# Fixed point rather than one extra level: a gate that invokes a gate is not a special case, and
+# pinning the depth would just move the blind spot down one.
+derived_inputs(){   # repo-relative files the battery and this gate reference, transitively
+  local seeds="scripts/tr12_repro.sh scripts/tr12_repro_gate.sh" acc="" prev="" i=0
+  acc=$(printf '%s\n' $seeds)
+  while [ "$acc" != "$prev" ] && [ "$i" -lt 8 ]; do
+    prev=$acc; i=$((i+1))
+    acc=$( { printf '%s\n' "$acc"
+             printf '%s\n' "$acc" | while read -r src; do
+               case "$src" in *.sh) [ -f "$src" ] && grep -ohE '(scripts/|lean/|viz/|documentation/)?[A-Za-z0-9_./-]+\.(c|py|sh|md)\b' "$src" 2>/dev/null;; esac
+             done
+           } | sed 's|^\./||' | sort -u | while read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done )
+  done
+  printf '%s\n' "$acc" | sort -u | grep -v '^$'
 }
-CORE="solve.c verify.py solve.py scripts/tr12_repro.sh scripts/tr12_repro_gate.sh"
+# VERIFY.md is CORE because this gate EXECUTES the build command published in it: if that command
+# changes, this gate builds something else, and the stamp must not survive that.
+CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/tr12_repro.sh scripts/tr12_repro_gate.sh"
 fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
 
 # 🔴 MY FIRST VERSION OF THIS CHECK WAS TAUTOLOGICAL. It asserted that every derived input was in
@@ -80,7 +99,13 @@ fingerprint_coverage_check(){
     return 1
   fi
   # the battery demonstrably calls these; if the derivation cannot see them it is broken
-  for f in solve.py verify.py sat.py; do
+  # The must-see list is the point of this check: a derivation that silently narrows still returns
+  # plenty of files. The three gates THIS file invokes are named here for the same reason the
+  # battery's own dependencies are -- if the fingerprint stops seeing them, --check goes back to
+  # certifying a tree whose gates it no longer tracks.
+  for f in solve.py verify.py sat.py documentation/VERIFY.md \
+           scripts/q326_kc_query_surface_gate.sh scripts/q433_xa_cert_gate.sh \
+           scripts/kc_writer_devfull_gate.sh; do
     printf '%s\n' "$_derived" | grep -qx "$f" || known_missing="$known_missing $f"
   done
   if [ -n "$known_missing" ]; then
@@ -281,6 +306,17 @@ fi
 if ! Q326_QS_SOLVE="$WORK/solve" bash ./scripts/q326_kc_query_surface_gate.sh; then
   echo "  [FAIL] scripts/q326_kc_query_surface_gate.sh did not PASS: the --kc-* query surface no"
   echo "         longer refuses options it cannot honour, or a walk that is not a permutation"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
+# RCQ01 F3 / KC04 #3 (2026-09-02, re-found 2026-09-09). Every KC artifact writer announced success
+# on /dev/full: "atlas written", KC_SCAN=OK, rc 0, nothing on disk. One writer was fixed on
+# 2026-09-04 and the other six were left. This gate is red on the pre-fix engine with exactly those
+# six named and the merge [ok] -- it reproduces the partial fix as a visible pattern -- and green on
+# the fixed one. ~40s including its own n=9 build.
+if ! SOLVE="$WORK/solve" bash ./scripts/kc_writer_devfull_gate.sh; then
+  echo "  [FAIL] scripts/kc_writer_devfull_gate.sh did not PASS: a KC writer reports success for an"
+  echo "         artifact it could not write, or a writer that should work no longer does."
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 

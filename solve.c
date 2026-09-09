@@ -24884,6 +24884,32 @@ static void kc_h_arr_cert_write(FILE *f, const int *s, const KcArrRes *r,
     fprintf(f, "}\n");
 }
 
+/* 🔴 CLOSE AN ARTIFACT AND SAY SO IF IT DID NOT CLOSE.
+ *
+ * WHY THIS EXISTS. Every KC writer below used to end with a bare `fclose(f)` whose result was
+ * discarded, then print "written" and a success token unconditionally. Measured on /dev/full at
+ * 2026-09-02 (Codex KC04 #3, adjudicated by Fable) and AGAIN on 2026-09-09 (RCQ01 F3, reproduced by
+ * execution at de819241): --kc-scan printed KC_SCAN=OK rc 0, the chunk writer KC_SCAN_CHUNK=OK rc 0,
+ * and the certificate writers all printed "certificate written", with nothing on disk.
+ *
+ * The 2026-09-02 adjudication says "Fixes NOT landed, NOT queued". On 2026-09-04 ONE writer -- the
+ * merge -- was fixed, annotated in this file as "the KC04 #3 sibling for this one writer", and the
+ * other six were left with no backlog row. This helper is the class fix that should have happened
+ * then: one implementation, applied at every site including the merge, so a future writer is either
+ * routed through it or visibly is not.
+ *
+ * A short write is a FAILED artifact and must not be left behind for a consumer to open, so the
+ * partial file is removed. Returns 0 on a clean close, -1 otherwise. */
+static int kc_h_unlink_regular(const char *path);
+static int kc_h_close_artifact(FILE *f, const char *path, const char *tag) {
+    int bad = ferror(f);
+    if (fclose(f) != 0) bad = 1;
+    if (!bad) return 0;
+    fprintf(stderr, "ERROR: [%s] write to %s failed: %s\n", tag, path, strerror(errno));
+    kc_h_unlink_regular(path);
+    return -1;
+}
+
 static int kc_check_arrangement_main(int argc, char *argv[]) {
     if (argc < 3) {
         fprintf(stderr,
@@ -24936,7 +24962,7 @@ static int kc_check_arrangement_main(int argc, char *argv[]) {
         if (!f) { fprintf(stderr, "ERROR: [check-arrangement] cannot write %s\n", cert_out); return 2; }
         kc_h_arr_cert_write(f, s, &r, argv[2][0] == 'K' && argv[2][1] == 'W' && !argv[2][2]
                             ? "KW" : "explicit");
-        fclose(f);
+        if (kc_h_close_artifact(f, cert_out, "check-arrangement") != 0) return 2;
         printf("[check-arrangement] certificate written: %s\n", cert_out);
     }
     return r.in_c15 ? 0 : 1;
@@ -25644,8 +25670,8 @@ static int kc_oracle_main(int argc, char *argv[]) {
         if (!f) { fprintf(stderr, "ERROR: [kc-oracle] cannot write %s\n", cert_out); pass = 0; }
         else {
             kc_h_oracle_cert_write(f, kc, fdir, &o, st, nf, pass);
-            fclose(f);
-            printf("[kc-oracle] certificate written: %s\n", cert_out);
+            if (kc_h_close_artifact(f, cert_out, "kc-oracle") != 0) pass = 0;
+            else printf("[kc-oracle] certificate written: %s\n", cert_out);
         }
     }
     free(st);
@@ -26724,8 +26750,8 @@ static int kc_o3_cert_main(const char *fdir, const char *gdir, const char *arg,
                 fprintf(f, "  \"semantics\": \"certificate, not proof\"\n}\n");
             }
             if (outs[1]) {
-                fclose(outs[1]);
-                printf("[kc-o3-cert] certificate written: %s (self-verified)\n", cert_out);
+                if (kc_h_close_artifact(outs[1], cert_out, "kc-o3-cert") != 0) rc = 2;
+                else printf("[kc-o3-cert] certificate written: %s (self-verified)\n", cert_out);
             } else if (cert_out) {
                 fprintf(stderr, "ERROR: [kc-o3-cert] cannot write %s\n", cert_out);
                 rc = 2;
@@ -27795,7 +27821,7 @@ static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC 
     fprintf(f, "  \"elapsed_sec\": %.3f,\n", elapsed);
     fprintf(f, "  \"semantics\": \"PARTIAL atlas chunk - NOT an atlas; assemble with "
             "--kc-scan-merge, which proves coverage and re-runs every gate\"\n}\n");
-    fclose(f);
+    if (kc_h_close_artifact(f, outp, "kc-scan") != 0) return -1;
     return 0;
 }
 
@@ -28043,7 +28069,14 @@ static int kc_scan_main(int argc, char *argv[]) {
             fprintf(stderr, "ERROR: [kc-scan] cannot write %s\n", outp);
         } else {
             kc_h_scan_write_atlas(f, &T, fkc, fdir, gdir, tdir, want_raw);
-            fclose(f);
+            /* kc_h_scan_write_atlas is void; check the stream where it was written. */
+            if (kc_h_close_artifact(f, outp, "kc-scan") != 0) {
+                /* A short write is a FAILED scan. Say so, and do not go on to print a
+                 * verdict about an atlas that is not on disk -- that print order was the
+                 * defect: "atlas written" and KC_SCAN=OK came out unconditionally. */
+                printf("KC_SCAN=FAIL\n");
+                rc = 2;
+            } else {
             printf("[kc-scan] atlas written: %s\n", outp);
             /* Q-172: the whole-atlas path was the only one of the three with no
              * KEY=value verdict and no --kc-tdir warning, so a wrapper grepping
@@ -28062,6 +28095,7 @@ static int kc_scan_main(int argc, char *argv[]) {
                    T.gate_fails == 1 ? "" : "s");
             printf("KC_SCAN=%s\n", T.gate_fails ? "FAIL" : "OK");
             rc = T.gate_fails ? 1 : 0;
+            }
         }
     } else {
         fprintf(stderr, "ERROR: [kc-scan] layer streaming failed\n");
@@ -28476,12 +28510,11 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                 kc_h_scan_write_atlas(f, &T, fkc, fdir, gdir, tdir, want_raw);
                 /* G2 F3 sibling (the KC04 #3 class): a short write is a FAILED merge and
                  * must not leave a truncated file behind that a consumer could open. */
-                int wbad = ferror(f);
-                if (fclose(f) != 0) wbad = 1;
-                if (wbad) {
-                    fprintf(stderr, "ERROR: [kc-scan-merge] write to %s failed: %s\n",
-                            outp, strerror(errno));
-                    kc_h_unlink_regular(outp);
+                /* Was this block's own open-coded copy of the check. Routed through the
+                 * shared helper 2026-09-09 so there is ONE implementation: the reason the
+                 * other six writers stayed broken for a week is that this fix was written
+                 * here and nowhere else. */
+                if (kc_h_close_artifact(f, outp, "kc-scan-merge") != 0) {
                     printf("KC_SCAN_MERGE=FAIL\n");
                 } else {
                     printf("[kc-scan-merge] atlas written: %s (%d chunk%s, %d layer%s)\n",
@@ -29042,7 +29075,7 @@ static int kc_profile_main(int argc, char *argv[]) {
                 rc = 1;
             } else {
                 kc_prof_write_table(tf, P);
-                fclose(tf);
+                if (kc_h_close_artifact(tf, tsv, "kc-profile") != 0) rc = 1;
             }
         }
         {
@@ -30341,8 +30374,8 @@ static int kc_t_cert_main(const char *outp) {
         fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
                 GIT_HASH, SOURCE_SHA);
         fprintf(f, "  \"semantics\": \"certificate, not proof\"\n}\n");
-        fclose(f);
-        printf("[kc-t-cert] certificate written: %s\n", outp);
+        if (kc_h_close_artifact(f, outp, "kc-t-cert") != 0) rc = 2;
+        else printf("[kc-t-cert] certificate written: %s\n", outp);
     }
     printf("[kc-t-cert] VERDICT: %s (%d gate failure%s)\n",
            fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
