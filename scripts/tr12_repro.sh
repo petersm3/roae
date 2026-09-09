@@ -976,7 +976,7 @@ row_begin a1_q4ac
       printf "cd\tcount\twilson95_lo\twilson95_hi\n"
       for (i=0;i<k;i++) { q=h[a[i]]/n; dq=1+z*z/n; cq=(q+z*z/(2*n))/dq; hq=z*sqrt(q*(1-q)/n + z*z/(4*n*n))/dq
         printf "%d\t%d\t%.8f\t%.8f\n", a[i], h[a[i]], (cq-hq<0?0:cq-hq), (cq+hq>1?1:cq+hq) }
-      printf "label\tESTIMATE-with-CI (exact C15 count is OPEN)\n"
+      printf "label\tESTIMATE-with-CI (exact C15 count PRICED AND DECLINED, TR-12 s9)\n"
     }' "$WORK/q4.raw"
 ) >>"$RAW" 2>&1; rc=$?
 cp "$RAW" "$ARTDIR/q4_c3_hist.tsv"
