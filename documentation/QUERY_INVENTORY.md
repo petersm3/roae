@@ -426,7 +426,7 @@ cores** — enough memory to hold the working set is what collapses the cold pha
 The cores are freight.
 | step | command | class | token |
 |---|---|---|---|
-| A1.1 | `$SOLVE --f1c5-layer-sha "$FDIR"` — 32 shas vs the registry, **before trusting any number** | POINT | `TR12_FSHA=PASS` |
+| A1.1 | `$SOLVE --f1c5-layer-sha "$FDIR"` — 32 layer digests, each compared against the `own_sha256_decompressed` its builder recorded in that layer's sidecar, **before trusting any number** (see the note below this table) | POINT | `TR12_FSHA=PASS` |
 | A1.2 | **Q8** gallery (1,000 samples, seed `$GALSEED`) + a second, **independent** C15 gallery (`--kc-c3-max` rejects until 1,000 draws are *accepted*; **not** a subset of gallery 1 — see row Q8, corrected 2026-09-05) + `--kc-member` re-check + chi² + the *actual* C3-rejection subset of gallery 1, derived for free by filtering it on `cd ≤ T` (`a1_q8_subset` / `TR12_Q8_SUBSET`, 2026-09-08, F-5 D9) | POINT | `TR12_Q8` |
 | A1.3 | **Q4a/c** C3 census, M=10⁶ | POINT-BATCH | `TR12_Q4AC` |
 | A1.4 | **Q2b** REL endpoints (0, N−1, ⌊N/2⌋) | POINT | `TR12_Q2B` |
@@ -435,12 +435,29 @@ The cores are freight.
 | A1.7 | **V3** REL grid, K=10³ — **ONE process**, the cold phase is per-invocation | POINT-BATCH, **31.4 min MEASURED** | `TR12_V3` |
 | A1.8 | **Q2d** LAST^C15 — only if `PENDING:--kc-enum-desc` has landed **with its n=9 gate shown able to fail** | POINT | `TR12_Q2D` |
 
+> **What A1.1 / A2.1 / A3.1 actually check, and what they do not.** Until 2026-09-09 these rows
+> only *printed* the per-layer digests and this table described them as checked "vs the registry" —
+> nothing compared them to anything, so the row passed on a corrupted ladder. Measured at n=9 with
+> one byte of `g_layer_05.bin` flipped: `--kc-g-check`, `TR12_Q1`, `TR12_Q2`, `TR12_Q3` and
+> `TR12_EW1` all still returned PASS. The rows now compare each digest against the
+> `own_sha256_decompressed` the builder wrote into that layer's sidecar, and go red on any mismatch,
+> a missing sidecar, a missing field, a layer count other than n+1, or a non-zero tool status. With
+> that check present the corrupted ladder produces exactly one failing row out of 66.
+>
+> **The limit of it:** the sidecar sits beside the layer, so a layer rebuilt wrong together with a
+> fresh sidecar agrees with itself. This proves internal consistency, not identity with the
+> published build. That is a different question, answered by
+> `runs/20260906_kc_ladders_n31/STAGE_{F,G,T}_LAYERSHA.txt` — 32 rows per stage, taken from these
+> same sidecars — which the row does not consult, because the launcher snapshot does not ship
+> `runs/`. At n=9 the committed golden pins the values.
+
+
 **A2 — f + g mounted.** ⚠ **Put the g ladder on storage fast enough to read it BEFORE the first g
 read.** On slow-tier storage the random-lookup pattern collapses to a few MB/s and the run looks
 **hung, not slow** — which is the failure mode that wastes a window.
 | step | command | class | token |
 |---|---|---|---|
-| A2.1 | `$SOLVE --f1c5-layer-sha "$GDIR"` — 32 g shas vs the registry | POINT | `TR12_GSHA=PASS` |
+| A2.1 | `$SOLVE --f1c5-layer-sha "$GDIR"` — 32 g layer digests vs their sidecars (see the note under A1.1) | POINT | `TR12_GSHA=PASS` |
 | A2.2 | **Q1** — `--kc-o3-cert … KW` (H3b certificate + neighbour bracket) | POINT | `TR12_Q1` |
 | A2.3 | **Q3** — `--kc-o3-rank … "$KWW" --kc-trace --kc-bracket` (explicit 62-value walk — **not** the literal `KW`, see §0.4(3)). 🔴 **This is a PRE-SCAN point query, not a post-scan one** — see §6. | POINT | `TR12_Q3` |
 | A2.4 | **Q3 reader check** — recompute `Π p_i = 1/N` as exact big-int rationals from the TSV (§3.2) | DERIVED | `TR12_Q3_READER` |
@@ -459,7 +476,7 @@ a missing STEP, not a missing capability.
 
 | step | command | class | token |
 |---|---|---|---|
-| A3.1 | `$SOLVE --f1c5-layer-sha "$TDIR"` — 32 t shas vs the registry, **before `--kc-tdir` is passed to anything** | POINT | `TR12_TSHA=PASS` |
+| A3.1 | `$SOLVE --f1c5-layer-sha "$TDIR"` — 32 t layer digests vs their sidecars, **before `--kc-tdir` is passed to anything** (see the note under A1.1) | POINT | `TR12_TSHA=PASS` |
 | A3.2 | `$SOLVE --kc-t-check "$FDIR" "$TDIR"` via `roae-private/scripts/staget_check_verdict.sh` (it emits a `KEY=value` token; the raw command
 prints a SHAPE). ⚠ **Access boundary:** that wrapper lives in the project's private repository and is
 not publicly readable; nothing here depends on it — the public path is to run `--kc-t-check` directly
