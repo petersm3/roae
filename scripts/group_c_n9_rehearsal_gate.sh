@@ -131,8 +131,14 @@ check_cov(){ # check_cov LABEL SYMBOL FILE
   case "$f" in
     *.sh)
       local inv
+      # 🔴 THIS GATE IS NOT AN INVOKER OF THE GATES IT NAMES. The check_cov table below mentions
+      # a5_orbit_membership_gate.sh by name, so `grep -rl` found THIS FILE and counted it as an
+      # invoker -- the leg could never reach 0 and could never fail. Found by the F-5 re-review,
+      # 2026-09-09: a gate that cannot fail, written the same night, in the check added to catch
+      # exactly that. Excluding the covering file alone was not enough; the searcher must exclude
+      # itself too, for the same reason gate_wiring_gate.sh excludes itself from its own corpus.
       inv=$(grep -rl -- "${f##*/}" "$ROOT/scripts" "$ROOT/.git/hooks" 2>/dev/null \
-            | grep -v "/${f##*/}\$" | grep -c . || true)
+            | grep -v "/${f##*/}\$" | grep -v "/$(basename "$0")\$" | grep -c . || true)
       if [ "${inv:-0}" -eq 0 ]; then
         say "[FAIL] $label: $f drives $sym but NOTHING INVOKES IT -- the path first runs after the scan"
         fails=$((fails+1)); return

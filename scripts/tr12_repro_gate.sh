@@ -68,13 +68,31 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
              printf '%s\n' "$acc" | while read -r src; do
                case "$src" in *.sh) [ -f "$src" ] && grep -ohE '(scripts/|lean/|viz/|documentation/)?[A-Za-z0-9_./-]+\.(c|py|sh|md)\b' "$src" 2>/dev/null;; esac
              done
-           } | sed 's|^\./||' | sort -u | while read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done )
+           } | sed 's|^\./||' | sort -u | while read -r f; do
+               # 🔴 RESOLVE A BARE NAME AGAINST scripts/ BEFORE DISCARDING IT. tr12_repro.sh sources
+               # `. "$SCRIPT_DIR/lib_binary_currency.sh"`; the grep recovers the basename, but a
+               # bare `lib_binary_currency.sh` does not exist at the repo root, so the existence
+               # filter dropped it and the fingerprint was blind to a file the battery EXECUTES.
+               # Found by the F-5 re-review 2026-09-09, which measured the fingerprint byte-identical
+               # when that file was mutated -- the exact failure F6 was supposed to have closed.
+               [ -f "$f" ] && printf '%s\n' "$f"
+             done )
   done
   printf '%s\n' "$acc" | sort -u | grep -v '^$'
 }
 # VERIFY.md is CORE because this gate EXECUTES the build command published in it: if that command
 # changes, this gate builds something else, and the stamp must not survive that.
-CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/tr12_repro.sh scripts/tr12_repro_gate.sh"
+# 🔴 lib_binary_currency.sh is CORE because the battery SOURCES it:
+# `. "$SCRIPT_DIR/lib_binary_currency.sh"` (tr12_repro.sh:183). The derivation recovers only
+# "/lib_binary_currency.sh" from that -- a path that exists nowhere as written -- so the existence
+# filter dropped it and the fingerprint was blind to a file the battery EXECUTES. Measured by the
+# F-5 re-review 2026-09-09: mutate it and the fingerprint is byte-identical.
+# Named here rather than resolved generically ON PURPOSE. Resolving bare .sh names against scripts/
+# inside the fixed point cascaded 28 -> 108 files, sweeping in 37 documentation/*.md, which would
+# invalidate the stamp on any doc edit -- a currency check nobody can keep green is one people learn
+# to bypass. The general case (the NEXT library sourced through a variable) is a real gap and is
+# queued, not silently closed by over-widening this.
+CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh scripts/tr12_repro.sh scripts/tr12_repro_gate.sh"
 fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
 
 # 🔴 MY FIRST VERSION OF THIS CHECK WAS TAUTOLOGICAL. It asserted that every derived input was in
