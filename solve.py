@@ -12315,6 +12315,8 @@ def _xa_exact(v):
 
 
 _XA_CERT_KEY = "solve_node_limit_mapping"
+# The token a W0-D mapping certificate must lead with to be treated as claiming anything.
+_XA_CERT_CLAIM_PREFIX = "CERTIFIED:"
 
 
 def _xa_node_mapping_cert_defect(path):
@@ -12373,7 +12375,28 @@ def _xa_node_mapping_cert_defect(path):
         return ("the certificate %r is the `solve --kc-t-cert` output, whose own %s field "
                 "reads \"NOT CLAIMED HERE\" -- it disclaims exactly the mapping being "
                 "relied on here" % (path, _XA_CERT_KEY))
-    return None
+    # 🔴 A POSITIVE GRAMMAR, BECAUSE A BLACKLIST OF ONE PHRASE IS NOT A CHECK.
+    # Until 2026-09-09 the line above was the ONLY value test, so everything that was not that
+    # exact disclaimer fell through to `return None` and AUTHORISED an EXHAUSTIBLE verdict.
+    # Measured (Codex RCQ02 F2, adjudicated by Fable, reproduced through the real CLI on a fresh
+    # n=9 atlas): a certificate whose field is `null`, `false`, `""` or the string "FAIL" each gave
+    # rc 0, TR12_XA_CD=PASS and 12 EXHAUSTIBLE rows. `false` certifying exhaustibility is the
+    # clearest statement of the defect.
+    #
+    # The docstring above declines to invent a KEY NAME, and that reasoning still holds -- an
+    # invented key reads FALSE forever. It does not extend to the VALUE. Defining the value grammar
+    # costs nothing precisely BECAUSE no producer emits a certifying value yet: the only writer of
+    # this key is `solve --kc-t-cert`, which writes the disclaimer refused above. So this cannot
+    # break a real certificate; there are none. It fixes the grammar before W0-D's producer exists,
+    # rather than after something starts depending on the gap.
+    if isinstance(hit[0], str) and hit[0].startswith(_XA_CERT_CLAIM_PREFIX):
+        return None
+    if isinstance(hit[0], dict) and hit[0].get("claimed") is True:
+        return None
+    return ("the certificate %r has %s = %r, which certifies nothing. A usable certificate states "
+            "the claim positively: either a string beginning %r, or an object with "
+            "\"claimed\": true. Absence of a refusal is not an authorisation."
+            % (path, _XA_CERT_KEY, hit[0], _XA_CERT_CLAIM_PREFIX))
 
 
 # --------------------------------------------------------------------------

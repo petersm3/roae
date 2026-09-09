@@ -38,7 +38,7 @@ def w(name, obj):
     return p
 # L1  a well-formed certificate is ACCEPTED -- without this the "fix" is a permanent FALSE.
 good = w("good.json", {"node_convention": {"solve_node_limit_mapping":
-         "1 t-unit == 1 SOLVE_NODE_LIMIT node, certified by the W0-D worker run"}})
+         "CERTIFIED: 1 t-unit == 1 SOLVE_NODE_LIMIT node, certified by the W0-D worker run"}})
 print("L1=OK" if f(good) is None else "L1=BAD")
 # L2  a path that does not exist is REFUSED  (the original defect, exactly)
 print("L2=OK" if f(os.path.join(d, "absent.json")) else "L2=BAD")
@@ -46,6 +46,13 @@ print("L2=OK" if f(os.path.join(d, "absent.json")) else "L2=BAD")
 dis = w("disclaim.json", {"node_convention": {"solve_node_limit_mapping":
         "NOT CLAIMED HERE - the W0-D worker run (WAVE0_RUNBOOK item w0d) pins the mapping"}})
 print("L3=OK" if f(dis) else "L3=BAD")
+# L6-L9  RCQ02 F2: the value grammar. Until 2026-09-09 the disclaimer above was the ONLY value
+# test, so ANY other value fell through and authorised an EXHAUSTIBLE verdict -- measured at
+# rc 0 / TR12_XA_CD=PASS / 12 rows for each of these four. `false` certifying exhaustibility is
+# the clearest form of it. A blacklist of one phrase is not a check.
+for _i, (_nm, _v) in enumerate([("null", None), ("false", False), ("empty", ""), ("FAIL", "FAIL")]):
+    _p = w("f2_%s.json" % _nm, {"node_convention": {"solve_node_limit_mapping": _v}})
+    print("L%d=OK" % (6 + _i) if f(_p) else "L%d=BAD (%s authorises)" % (6 + _i, _nm))
 # L4  a certificate that never mentions the mapping does not certify it
 print("L4=OK" if f(w("nokey.json", {"n9": {"N_walks": 26112}})) else "L4=BAD")
 # L5  unparseable JSON is REFUSED, not crashed on
@@ -58,13 +65,16 @@ PY
 legs(){ python3 "$WORK/legs.py" "$1" 2>/dev/null; }
 
 BASE=$(legs solve.py)
-[ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=')" = 5 ] \
-  || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=') leg verdicts, not 5 -- the gate measured nothing"
+# 9 since 2026-09-09: L1-L5 plus L6-L9, the four values RCQ02 F2 showed were authorising
+# (null / false / "" / "FAIL"). Raised in the SAME change that added the legs -- a count that
+# lags its population is a check that has stopped counting.
+[ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=')" = 9 ] \
+  || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=') leg verdicts, not 9 -- the gate measured nothing"
 case "$BASE" in *=BAD*)
   printf '%s\n' "$BASE" | grep '=BAD' | sed 's/^/  [FAIL] baseline /'
   echo "Q433_XA_CERT=FAIL"; exit 1 ;;
 esac
-echo "  [gate] baseline PASS on 5 legs"
+echo "  [gate] baseline PASS on 9 legs"
 
 # --- mutants -----------------------------------------------------------------------------
 # NEVER `legs ... | grep -q` under pipefail: grep -q exits at the first match and SIGPIPEs the
@@ -79,8 +89,16 @@ if edit == "accept_all":
     old = '    if path is None:\n        return "no certificate was supplied"\n'
     new = '    if True:\n        return None\n'
 elif edit == "disclaimer_blind":
-    old = '    if isinstance(hit[0], str) and "NOT CLAIMED HERE" in hit[0]:\n'
+    # 🔴 BLINDS BOTH VALUE GUARDS, NOT ONE. This used to blind only the "NOT CLAIMED HERE" arm,
+    # and on 2026-09-09 it STOPPED KILLING -- because RCQ02 F2 added a positive grammar that
+    # refuses the disclaimer anyway, so removing one of two independent guards changes nothing
+    # observable. A mutant that survives on defence in depth is a mutant that has stopped testing
+    # what its name claims. Same correction, same day, as d5_02's M4.
+    old = ('    if isinstance(hit[0], str) and "NOT CLAIMED HERE" in hit[0]:\n')
     new = '    if False:\n'
+    s = s.replace(old, new, 1)
+    old = '    if isinstance(hit[0], str) and hit[0].startswith(_XA_CERT_CLAIM_PREFIX):\n'
+    new = '    if True:\n'
 else:
     sys.exit(2)
 assert s.count(old) == 1, "mutant anchor drift: " + edit
@@ -89,7 +107,7 @@ import os
 open(os.environ["MUT"], "w", encoding="utf-8").write(s.replace(old, new))
 PY
   out=$(legs "$MUT")
-  [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 5 ] \
+  [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 9 ] \
     || { echo "  [ERROR] mutant $name produced no leg verdicts -- nothing was measured"; return 2; }
   case "$out" in *=BAD*) echo "  [gate] mutant $name killed"; return 0 ;; esac
   echo "  [FAIL] mutant $name SURVIVED -- the gate cannot see this fault"; return 1
@@ -106,5 +124,5 @@ for m in M1_accept_all:accept_all M2_disclaimer_blind:disclaimer_blind; do
   esac
 done
 [ "$K" = 2 ] || fail "evaluated $K mutants, expected 2"
-echo "  [gate] baseline PASS on 5 legs; $K/2 mutants killed"
+echo "  [gate] baseline PASS on 9 legs; $K/2 mutants killed"
 echo "Q433_XA_CERT=PASS"

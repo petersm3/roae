@@ -65,7 +65,8 @@ import solve
 _CERT = os.path.join(tempfile.mkdtemp(), "node_mapping_cert.json")
 with open(_CERT, "w", encoding="utf-8") as _fh:
     json.dump({"node_convention": {"solve_node_limit_mapping":
-               "xa_exact_verdict_gate.sh fixture: 1 t-unit == 1 SOLVE_NODE_LIMIT node. This "
+               "CERTIFIED: xa_exact_verdict_gate.sh fixture: 1 t-unit == 1 SOLVE_NODE_LIMIT "
+               "node. This "
                "asserts the map ONLY so the pricing ARITHMETIC downstream can be graded; it "
                "is not a W0-D certificate and must never be copied into a real run."}}, _fh)
 
