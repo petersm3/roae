@@ -12884,6 +12884,14 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
     # brute-force path, and emitting a token at n=9 would change scripts/tr12_expected/n9/ for
     # no coverage gain. This is the same reasoning as A2/A3 and the same deadline -- it has to
     # exist before the first full-31 --regen, not after it.
+    # 🔴 A SKIP THAT SAYS NOTHING IS INVISIBLE. Until 2026-09-09 this branch was simply not taken
+    # at n < 31 and NO verdict was written, so a reader of an n=9 VERDICTS.txt saw fourteen tokens
+    # with no way to know a fifteenth existed and had never been exercised. A2 and A3 already
+    # return ("SKIP:n=%s", ...) for the same reason; this is the third of three and was the only
+    # silent one. Found by scripts/group_c_n9_rehearsal_gate.sh.
+    if "a5" in sel and n != 31:
+        verdicts["TR12_A5_ORBIT_COLUMNS"] = "SKIP:n=%s" % n
+        verdicts["TR12_A5_ORBIT_MEMBERSHIP"] = "SKIP:n=%s" % n
     if "a5" in sel and n == 31:
         ncol, sizes, ok_orb, detail = atlas_orbit_columns(A)
         if ok_orb is None:

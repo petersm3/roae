@@ -105,7 +105,7 @@ fingerprint_coverage_check(){
   # certifying a tree whose gates it no longer tracks.
   for f in solve.py verify.py sat.py documentation/VERIFY.md \
            scripts/q326_kc_query_surface_gate.sh scripts/q433_xa_cert_gate.sh \
-           scripts/kc_writer_devfull_gate.sh; do
+           scripts/kc_writer_devfull_gate.sh scripts/a5_orbit_membership_gate.sh; do
     printf '%s\n' "$_derived" | grep -qx "$f" || known_missing="$known_missing $f"
   done
   if [ -n "$known_missing" ]; then
@@ -317,6 +317,17 @@ fi
 if ! SOLVE="$WORK/solve" bash ./scripts/kc_writer_devfull_gate.sh; then
   echo "  [FAIL] scripts/kc_writer_devfull_gate.sh did not PASS: a KC writer reports success for an"
   echo "         artifact it could not write, or a writer that should work no longer does."
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
+# A-5 orbit membership (Q-421 / Codex MQ1 s2b). MEASURED UNWIRED 2026-09-09: nothing invoked this
+# gate, so the ONLY coverage of atlas_orbit_columns / atlas_orbit_membership -- which have 0
+# references in tests.py and run only at n == 31 -- never executed. A5 is therefore a path whose
+# first real run would have followed a 7-33 day scan, with a safety net nobody switched on.
+if ! bash ./scripts/a5_orbit_membership_gate.sh; then
+  echo "  [FAIL] scripts/a5_orbit_membership_gate.sh did not PASS: the A-5 orbit field no longer"
+  echo "         detects a swap between two orbits of the same size, which atlas_orbit_columns"
+  echo "         alone is blind to."
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
