@@ -152,8 +152,18 @@ mutant M1_double_bucketing 's#awk -v N="$N_TOTAL" .{print "(16\*" $1 ")/" N}. "$
 mutant M2_finding_exits_0 's/^  exit 1$/  exit 0/'
 # M3: the bar moved from 37.70 to 37700
 mutant M3_bar_moved 's/3770\*\$k/3770000*$k/'
-# M4: the out-of-range check dropped
-mutant M4_no_range_check 's/b<0 || b>15/b<0/'
+# M4: ALL out-of-range protection dropped.
+# 🔴 THIS USED TO MUTATE ONLY THE RANGE CHECK AND IT STOPPED KILLING ON 2026-09-09. Not a
+# regression in the battery -- the opposite. The Q8 row gained a second, independent guard when its
+# sum-of-squares moved into bc (RCQ01 F5): the bucket counts must now sum to the draw count. Leg 5
+# feeds a rank equal to N, which buckets to 16; with the range check gone that draw lands in h[16],
+# the histogram prints 0..15, and CSUM comes out 999 against k=1000 -- so the row still emits
+# Q8_CHI2_FAIL and exits 1, leg 5 still behaves, and the mutant survives.
+# A mutant that removes ONE of two independent guards SURVIVING is what defence in depth looks
+# like; the defect is in the mutant, which no longer removes the protection it claims to test.
+# Both guards now go, so the mutant asserts what it always meant to: that SOMETHING catches an
+# out-of-range bucket. Verified 2026-09-09 by measuring CSUM=999 against k=1000 directly.
+mutant M4_no_range_check 's/b<0 || b>15/b<0/; s/\[ "\$CSUM" = "\$k" \]/true/'
 # M5: 15 buckets in the numerator
 mutant M5_wrong_numerator 's/16\*\$S - \$k\*\$k/15*$S - $k*$k/'
 echo "  [gate] baseline PASS on 7 legs; 5/5 mutants killed"
