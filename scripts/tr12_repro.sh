@@ -265,14 +265,22 @@ norm(){
     # emits BASENAMES and its golden asserts them literally ("fdir": "f"), so the portability is
     # CHECKED rather than erased. The rules stay for the other paths in the raw logs -- OUT, WORK,
     # SOLVE, REPO, and the chunk writer, which still binds merge identity on the full path.
-    [ -n "$FDIR" ]      && s+=( -e "s#${FDIR}#<FDIR>#g" )
-    [ -n "$GDIR" ]      && s+=( -e "s#${GDIR}#<GDIR>#g" )
-    [ -n "$TDIR" ]      && s+=( -e "s#${TDIR}#<TDIR>#g" )
-    [ -n "$ARTDIR" ]    && s+=( -e "s#${ARTDIR}#<ART>#g" )
-    [ -n "$OUTDIR" ]    && s+=( -e "s#${OUTDIR}#<OUT>#g" )
-    [ -n "$SOLVE" ]     && s+=( -e "s#${SOLVE}#<SOLVE>#g" )
-    [ -n "$WORK" ]      && s+=( -e "s#${WORK}#<WORK>#g" )
-    [ -n "$REPO_ROOT" ] && s+=( -e "s#${REPO_ROOT}#<REPO>#g" )
+    # 🔴 ESCAPE BEFORE INTERPOLATING (fixed 2026-09-09). These eight values become sed
+    # REGEXES, and an unescaped "." matches any character. Invoked as `--solve ./solve`, the
+    # pattern "./solve" matched "p/solve" inside "/tmp/solve_selftest_XXXX", rewriting it to
+    # "/tm<SOLVE>_selftest_XXXX" -- which the <SELFTEST_TMP> rule below then could not match, so
+    # the RANDOM SUFFIX survived into the golden. a0_build.txt therefore baked in one run's temp
+    # suffix and TR12_BUILD could never pass twice: it passed only in the run that generated it.
+    # Measured 2026-09-09: golden held YPd1rQ, the next run produced zJwQx7.
+    _rq() { printf '%s' "$1" | sed -e 's#[][\.*^$/&#]#\\&#g'; }
+    [ -n "$FDIR" ]      && s+=( -e "s#$(_rq "$FDIR")#<FDIR>#g" )
+    [ -n "$GDIR" ] && s+=( -e "s#$(_rq "$GDIR")#<GDIR>#g" )
+    [ -n "$TDIR" ] && s+=( -e "s#$(_rq "$TDIR")#<TDIR>#g" )
+    [ -n "$ARTDIR" ] && s+=( -e "s#$(_rq "$ARTDIR")#<ART>#g" )
+    [ -n "$OUTDIR" ] && s+=( -e "s#$(_rq "$OUTDIR")#<OUT>#g" )
+    [ -n "$SOLVE" ] && s+=( -e "s#$(_rq "$SOLVE")#<SOLVE>#g" )
+    [ -n "$WORK" ] && s+=( -e "s#$(_rq "$WORK")#<WORK>#g" )
+    [ -n "$REPO_ROOT" ] && s+=( -e "s#$(_rq "$REPO_ROOT")#<REPO>#g" )
     sed "${s[@]}" \
         -e 's#/tmp/solve_selftest_[A-Za-z0-9._]*#<SELFTEST_TMP>#g' \
         -e 's#/tmp/[A-Za-z0-9][A-Za-z0-9_.-]*_[A-Za-z0-9]\{6\}#<SELFTEST_TMP>#g' \

@@ -6,7 +6,7 @@
 #
 # sha256(block)                                                     block
   e0d02a2fb3040a9eb431f041c0e3d87b568d718f5bbd03ce906ef699959a5349  a0_anchor.txt
-  d2dc1d37f8ccff7f04b97705b3f9090e047dc25404bb438c1237fff3ec68a458  a0_build.txt
+  bfc2153cb595d9700c3614355ed1b4c37502cde0c0f1594cfc0157051edbbd1b  a0_build.txt
   897a2d168f60890a29f0d4c242a06e96398bac7a3de82a1c7807617c30ccd496  a0_gates.txt
   bf1593a820d9e2da157d3da538523dead0b177dce8d87231e6d09a0dc959b810  a0_ls_w0.txt
   00dcd5eebc9237d6722d35f3f5e15e9fb3cedf8ce1d4ce4874ef8ee77859354e  a0_ls_w0_mc.txt
