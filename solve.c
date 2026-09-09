@@ -14313,6 +14313,24 @@ static int f1_try_resume(const char *dir, const F1Ctx *c, F1Layer *L) {
 /* Phase A: enumerate the canonical masks of popcount k1 (ascending), parallel
  * over colex-rank ranges (numeric order == colex order, so per-thread outputs
  * concatenate into a globally sorted array). */
+/* 🔴 num_threads(T) IS A REQUEST, NOT A GUARANTEE, AND THE PARTITION ASSUMES IT WAS GRANTED.
+ * These enumerators split a colex range into exactly T chunks keyed on omp_get_thread_num(). If
+ * OpenMP grants fewer -- OMP_THREAD_LIMIT=1, or OMP_DYNAMIC=true, which nobody has to set
+ * deliberately -- the chunks for t >= granted are never walked, while the code sums tn[] as though
+ * they were. MEASURED 2026-09-09 (Codex RCQ02 F1, adjudicated by Fable and promoted from
+ * inspection to EXECUTION): f1_enum_canonical returned 15,396,096 against a true 63,366,144, and
+ * an F1U subset at n=19 -- the UNGATED path, the same one full n=32 takes -- returned 689,510
+ * against 302,608 while still printing `F1U RESULT`, `F1U DONE` and exiting 0. A wrong count under
+ * a success token, which is this project's dominant defect. The n=13 path has an internal gate
+ * that catches it (rc 1); n>=19 has none.
+ * A granted count below the requested one is an ERROR, never a number. */
+#define F1_ASSERT_THREADS(granted, requested)                                                    \
+    F1_CHECK((granted) == (requested),                                                           \
+             "OpenMP granted %d of %d requested threads; this region partitions work by the "     \
+             "REQUESTED count, so a smaller grant silently drops whole chunks. Refusing to "      \
+             "report a count. Unset OMP_THREAD_LIMIT / OMP_DYNAMIC, or set OMP_NUM_THREADS.",     \
+             (granted), (requested))
+
 static void f1_enum_canonical(const F1Ctx *c, int k1, uint32_t **out, uint64_t *nout) {
     uint64_t total = f1_binom[c->n][k1];
     int T = omp_get_max_threads();
@@ -14321,8 +14339,11 @@ static void f1_enum_canonical(const F1Ctx *c, int k1, uint32_t **out, uint64_t *
     uint64_t *tn = (uint64_t *)calloc((size_t)T, sizeof(uint64_t));
     uint64_t *tc = (uint64_t *)calloc((size_t)T, sizeof(uint64_t));
     F1_CHECK(tb && tn && tc, "enum alloc failed");
+    int T_granted = 0;
     #pragma omp parallel num_threads(T)
     {
+        #pragma omp master
+        T_granted = omp_get_num_threads();
         int t = omp_get_thread_num();
         uint64_t r0 = total * (uint64_t)t / (uint64_t)T;
         uint64_t r1 = total * (uint64_t)(t + 1) / (uint64_t)T;
@@ -14341,6 +14362,7 @@ static void f1_enum_canonical(const F1Ctx *c, int k1, uint32_t **out, uint64_t *
             }
         }
     }
+    F1_ASSERT_THREADS(T_granted, T);
     uint64_t nm = 0;
     for (int t = 0; t < T; t++) nm += tn[t];
     uint32_t *masks = (uint32_t *)malloc(sizeof(uint32_t) * (nm ? nm : 1));
@@ -33780,8 +33802,11 @@ static void f1u_enum_canonical(const F1UCtx *c, int k1, uint32_t **out, uint64_t
     uint64_t *tn = (uint64_t *)calloc((size_t)T, sizeof(uint64_t));
     uint64_t *tc = (uint64_t *)calloc((size_t)T, sizeof(uint64_t));
     F1_CHECK(tb && tn && tc, "enum alloc failed");
+    int T_granted = 0;
     #pragma omp parallel num_threads(T)
     {
+        #pragma omp master
+        T_granted = omp_get_num_threads();
         int t = omp_get_thread_num();
         uint64_t r0 = total * (uint64_t)t / (uint64_t)T;
         uint64_t r1 = total * (uint64_t)(t + 1) / (uint64_t)T;
@@ -33800,6 +33825,7 @@ static void f1u_enum_canonical(const F1UCtx *c, int k1, uint32_t **out, uint64_t
             }
         }
     }
+    F1_ASSERT_THREADS(T_granted, T);
     uint64_t nm = 0;
     for (int t = 0; t < T; t++) nm += tn[t];
     uint32_t *masks = (uint32_t *)malloc(sizeof(uint32_t) * (nm ? nm : 1));
