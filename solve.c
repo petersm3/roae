@@ -31838,7 +31838,7 @@ static int kc_layers_selftest(void) {
  * deliverable: no Q5 number ships without it.
  *
  * GATE. --kc-extremal-selftest is the n=9 exhaustive brute-force gate
- * (K1..K11), argv-dispatched, sha-neutral, NEVER inside --selftest (rule
+ * (K1..K12), argv-dispatched, sha-neutral, NEVER inside --selftest (rule
  * F-C-5). Emits KC_EXTREMAL_SELFTEST=PASS|FAIL. See the gate table above
  * kc_extremal_selftest.
  *
@@ -31954,31 +31954,64 @@ typedef struct {
     int g, step, last, entry, exitx, wa, wb;
 } KcXCex;
 
-/* 1 = invariant under EVERY kc->c.el[g].hmap; 0 = not, and *cx is filled with
- * the first counterexample found (scan order g, last, entry, step ascending). */
-static int kc_x_invariant(const KC *kc, const KcXFunc *F, KcXCex *cx) {
-    for (int g = 0; g < 24; g++) {
-        const uint8_t *hm = kc->c.el[g].hmap;
-        for (int last = 0; last < 64; last++) {
-            for (int entry = 0; entry < 64; entry++) {
-                if (kc->pair_of_sub[entry] < 0) continue;
-                const int exitx = kc->partner[entry];
-                if (F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))] < 0) continue;
-                for (int step = 1; step <= kc->n; step++) {
-                    const int wa = F->w(F->param, step, last, entry, exitx);
-                    const int wb = F->w(F->param, step, hm[last], hm[entry], hm[exitx]);
-                    if (wa != wb) {
-                        if (cx) {
-                            cx->g = g; cx->step = step; cx->last = last;
-                            cx->entry = entry; cx->exitx = exitx; cx->wa = wa; cx->wb = wb;
-                        }
-                        return 0;
+/* 1 = invariant under the SINGLE frame map kc->c.el[g].hmap; 0 = not, and *cx
+ * is filled with the first counterexample under that map (scan order last,
+ * entry, step ascending). Split out of kc_x_invariant so the selftest can pin
+ * the gate's per-g verdict against one it computes itself (K6b). */
+static int kc_x_invariant_g(const KC *kc, const KcXFunc *F, int g, KcXCex *cx) {
+    const uint8_t *hm = kc->c.el[g].hmap;
+    for (int last = 0; last < 64; last++) {
+        for (int entry = 0; entry < 64; entry++) {
+            if (kc->pair_of_sub[entry] < 0) continue;
+            const int exitx = kc->partner[entry];
+            if (F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))] < 0) continue;
+            for (int step = 1; step <= kc->n; step++) {
+                const int wa = F->w(F->param, step, last, entry, exitx);
+                const int wb = F->w(F->param, step, hm[last], hm[entry], hm[exitx]);
+                if (wa != wb) {
+                    if (cx) {
+                        cx->g = g; cx->step = step; cx->last = last;
+                        cx->entry = entry; cx->exitx = exitx; cx->wa = wa; cx->wb = wb;
                     }
+                    return 0;
                 }
             }
         }
     }
     return 1;
+}
+
+/* THE gate loop: the one place the 24 frame maps are enumerated. Returns 1 iff
+ * F is invariant under every one of them; *cx receives the FIRST counterexample
+ * in (g, last, entry, step) order, exactly as before the split.
+ *
+ * SEEN is the loop bound made observable. When non-NULL it receives the per-g
+ * verdict for every g this loop actually visits, and NOTHING ELSE writes it --
+ * so a caller that pre-fills it with a not-visited sentinel can detect a short
+ * bound. K6b does exactly that: a gate scanning g < 23 leaves el[23]'s slot
+ * untouched and fails the row. Before that existed, `g < 23` was a surviving
+ * one-line mutant with no gate anywhere against it (Fable review 2026-09-09,
+ * F1/m5): every registry row's first counterexample is at g <= 1, so the
+ * aggregate verdict is blind to the tail of the scan. With SEEN non-NULL the
+ * scan does NOT short-circuit -- the whole vector is wanted, not just the
+ * verdict -- but *cx still records the first failure only. */
+static int kc_x_invariant_scan(const KC *kc, const KcXFunc *F, KcXCex *cx, uint8_t *seen) {
+    int ok = 1;
+    for (int g = 0; g < 24; g++) {
+        const int v = kc_x_invariant_g(kc, F, g, ok ? cx : NULL);
+        if (seen) seen[g] = (uint8_t)v;
+        if (!v) {
+            ok = 0;
+            if (!seen) return 0;
+        }
+    }
+    return ok;
+}
+
+/* 1 = invariant under EVERY kc->c.el[g].hmap; 0 = not, and *cx is filled with
+ * the first counterexample found (scan order g, last, entry, step ascending). */
+static int kc_x_invariant(const KC *kc, const KcXFunc *F, KcXCex *cx) {
+    return kc_x_invariant_scan(kc, F, cx, NULL);
 }
 
 /* ---------- the extremal reducer kernel (option A: a KC-X-local duplicate of
@@ -32520,6 +32553,14 @@ static int kc_extremal_main(int argc, char *argv[]) {
  *      function, which K3/K4/K5/K8/K9 cannot (all close over F->w; KCQ03 #1).
  *  K6  posyang0 (the non-invariant control) => KC_EXTREMAL_INVARIANT=no,
  *      exit 1, and NO extreme_value line emitted. Run through argv.
+ *  K6b the invariance gate's COVERAGE and its per-g verdict. K6 only proves the
+ *      gate trips somewhere (posyang0's first counterexample is at g=1), so
+ *      `g < 23` was a surviving mutant: el[23] went unchecked and everything
+ *      still passed. kc_x_invariant_scan now records the per-g verdict for
+ *      every g it visits into a caller-owned vector pre-filled with a
+ *      not-visited sentinel; K6b fails on any surviving sentinel, and compares
+ *      each verdict against kc_xs_inv_g_ref, which recomputes it from
+ *      el[g].hmap and the REFERENCE weights. All 10 rows x all 24 maps.
  *  K7  EVIDENCE (not a pass/fail row, per spec): posyang0's DP is FORCED and
  *      its answer compared with brute, demonstrating that the quotient DP
  *      returns a value no raw walk attains -- i.e. the invariance gate is
@@ -32528,9 +32569,16 @@ static int kc_extremal_main(int argc, char *argv[]) {
  *  K9  the yangcount/entryyang complementarity: Phi_yang(w) + Phi_entry(w) is
  *      the same constant for every walk, so max(yang) + min(entry) == that
  *      constant. A second, independent handle on the same DP.
- *  K10 argv leg end-to-end: --kc-extremal FUNC DIR max --kc-witness --kc-json
- *      exits 0 and emits KC_EXTREMAL_WITNESS=VERIFIED + KC_EXTREMAL=OK, and
- *      the certificate JSON carries the right type.
+ *  K10 argv leg end-to-end, BOTH directions: --kc-extremal yangcount FDIR
+ *      max|min --kc-witness --kc-gdir --kc-json exits 0 and emits
+ *      KC_EXTREMAL_WITNESS=VERIFIED + KC_EXTREMAL=OK + NULL_VS_G=CONSISTENT,
+ *      and the certificate JSON carries the right type -- AND THE NUMBER IS
+ *      PINNED. The whole `extreme_value=..\tconstant_on_space=..\t
+ *      opposite_extreme=..` line, the witness_value line, and the JSON's
+ *      direction/extreme_value/witness_value are all matched against
+ *      kc_x_brute_ext over the 26112 raw walks, computed in this process. K10
+ *      used to assert tokens only, so a run could print the minimum under
+ *      `max` with every token green (Fable review 2026-09-09, F1/m1, F1/m2).
  *  K11 --kc-extremal list exits 0 with KC_EXTREMAL_LIST=OK.
  *  K12 --kc-c3-max is REFUSED (exit 2, no DP run).
  *
@@ -32543,7 +32591,17 @@ static int kc_extremal_main(int argc, char *argv[]) {
  *  (2) INVARIANCE IS LOAD-BEARING -- hard-coding the invariance verdict to
  *      `yes` for posyang0 and letting the DP run. K3 FAILs: the quotient DP
  *      returns a value no raw walk attains.
- * Restore both, observe PASS. */
+ *  (3) THE THREE MUTANTS THIS GATE ONCE MISSED, executed 2026-09-10 against
+ *      both the old and the new gate (N1_Q5_GATE_VALUE_PIN_2026_09_10.md):
+ *      m1 `want_max = strcmp(dir,"min")==0` in kc_extremal_main -- was PASS,
+ *      now FAIL on 6 K10 pin rows; m2 stdout printing `other` as
+ *      extreme_value and `value` as opposite_extreme -- was PASS, now FAIL on
+ *      the 2 K10 stdout-line pins (the JSON is untouched by m2, and its pins
+ *      correctly stay green); m5 `for (int g = 0; g < 23; g++)` in
+ *      kc_x_invariant_scan -- was PASS with NOTHING anywhere against it, now
+ *      FAIL on the single K6b coverage row. Each mutant is killed by the guard
+ *      aimed at it and by no other, so no kill is borrowed from a neighbour.
+ * Restore all, observe PASS. */
 
 #define KC_X_GATE(name, cond) do { \
     int ok_ = (cond); \
@@ -32610,6 +32668,29 @@ static int kc_xs_ref_eval(const KC *kc, const KcXFunc *F, const uint8_t *E, long
     }
     *out = s;
     return 0;
+}
+
+/* Independently recomputed per-g invariance verdict for one registry row:
+ * written from kc->c.el[g].hmap and the REFERENCE weights only -- it never
+ * calls kc_x_invariant_g and never touches F->w -- so it can be compared
+ * against the gate's own per-g vector (K6b). 1 = invariant under el[g],
+ * 0 = a counterexample exists, -1 = no reference formula for this name. */
+static int kc_xs_inv_g_ref(const KC *kc, const char *name, int g) {
+    const uint8_t *hm = kc->c.el[g].hmap;
+    for (int last = 0; last < 64; last++) {
+        for (int entry = 0; entry < 64; entry++) {
+            if (kc->pair_of_sub[entry] < 0) continue;
+            const int exitx = kc->partner[entry];
+            if (F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))] < 0) continue;
+            for (int step = 1; step <= kc->n; step++) {
+                int wa, wb;
+                if (kc_xs_ref_w(name, step, last, entry, exitx, &wa) != 0) return -1;
+                if (kc_xs_ref_w(name, step, hm[last], hm[entry], hm[exitx], &wb) != 0) return -1;
+                if (wa != wb) return 0;
+            }
+        }
+    }
+    return 1;
 }
 
 static int kc_extremal_selftest(void) {
@@ -32828,6 +32909,70 @@ static int kc_extremal_selftest(void) {
                   kc_h_log_sub(log, "#invariance-counterexample"));
     }
 
+    /* ---- K6b: the gate VISITS ALL 24 FRAME MAPS, and its per-g verdict is
+     * the right one ----
+     * K6 proves only that the gate trips SOMEWHERE: posyang0's first
+     * counterexample is at g=1, and every other registry row is invariant under
+     * all 24 maps, so the aggregate verdict is blind to the tail of the scan.
+     * A gate looping g < 23 therefore left el[23] unchecked and passed the whole
+     * selftest -- a functional non-invariant only under el[23] would have reached
+     * the DP and returned an orbit extremum no raw walk attains, which is the one
+     * failure this gate exists to make impossible (Fable review 2026-09-09,
+     * F1/m5, a surviving mutant with nothing anywhere against it).
+     * Two independent things are pinned here, per registry row:
+     *  (a) COVERAGE. `seen` is pre-filled with 0xFF; kc_x_invariant_scan is the
+     *      only writer, and it writes exactly the g it visits, so any slot still
+     *      0xFF names a frame map the gate never looked at.
+     *  (b) CORRECTNESS. The per-g verdict is compared against kc_xs_inv_g_ref,
+     *      which recomputes it from el[g].hmap and the REFERENCE weights --
+     *      neither kc_x_invariant_g nor F->w is on that path.
+     * The fourth row is evidence that (a) is load-bearing rather than
+     * decorative: the maps a short scan would skip are not free skips. Note
+     * that NO REGISTRY ROW can stand in for the sentinel -- measured at n=9,
+     * the only non-invariant row (posyang0, bit 0 of exit) is invariant under
+     * el[23] exactly because el[23] fixes line 0 (its per-g vector is
+     * 1 0 0 1 1 0 0 1 0 1 0 1 0 0 0 0 0 0 0 0 0 1 0 1). The coverage sentinel
+     * is therefore the only thing in this file that pins the loop bound. */
+    {
+        int vis = 1, agree = 1, refok = 1, nonid = 0;
+        for (int i = 0; i < KC_X_NREG; i++) {
+            const KcXFunc *F = &KC_X_REG[i];
+            uint8_t seen[24];
+            memset(seen, 0xFF, sizeof(seen));
+            (void)kc_x_invariant_scan(fkc, F, NULL, seen);
+            for (int g = 0; g < 24; g++) {
+                const int own = kc_xs_inv_g_ref(fkc, F->name, g);
+                if (own < 0) {
+                    refok = 0;
+                    printf("[kc-extremal-selftest]   K6b: %s has no reference formula\n",
+                           F->name);
+                    break;
+                }
+                if (seen[g] == 0xFF) {
+                    vis = 0;
+                    printf("[kc-extremal-selftest]   K6b: the gate NEVER VISITED frame map "
+                           "g=%d (functional %s)\n", g, F->name);
+                    continue;
+                }
+                if ((int)seen[g] != own) {
+                    agree = 0;
+                    printf("[kc-extremal-selftest]   K6b MISMATCH %s g=%d: gate=%d reference=%d\n",
+                           F->name, g, (int)seen[g], own);
+                }
+            }
+        }
+        KC_X_GATE("K6b the gate VISITS all 24 frame maps (loop bound is pinned)", vis);
+        KC_X_GATE("K6b per-g verdict == REFERENCE recomputation (10 rows x 24 maps)", agree);
+        KC_X_GATE("K6b every registry row has a reference formula for the per-g check", refok);
+        for (int g = 0; g < 24; g++) {
+            int id = 1;
+            for (int v = 0; v < 64 && id; v++) if (fkc->c.el[g].hmap[v] != v) id = 0;
+            if (!id) nonid++;
+        }
+        KC_X_GATE("K6b 23 of the 24 frame maps MOVE a line (no slot is a free skip)",
+                  nonid == 23);
+    }
+
     /* ---- K7: EVIDENCE that the invariance gate is load-bearing ---- */
     {
         const KcXFunc *F = kc_x_find("posyang0");
@@ -32854,20 +32999,74 @@ static int kc_extremal_selftest(void) {
          * and gcc reported the truncation (-Wformat-truncation=); the compile gate's
          * warning census is exact, so the buffer is sized to the bound, not to habit. */
         char a[3 * 4300 + 256];
-        snprintf(a, sizeof(a),
-                 "--kc-extremal yangcount '%s' max --kc-witness --kc-gdir '%s' --kc-json '%s'",
-                 fdir, gdir, jsn);
-        const int rc = kc_h_self_run(a, log);
-        KC_X_GATE("K10 argv leg: exit 0, KC_EXTREMAL=OK",
-                  rc == 0 && kc_h_log_line(log, "KC_EXTREMAL=OK"));
-        KC_X_GATE("K10 argv leg: KC_EXTREMAL_INVARIANT=yes + WITNESS=VERIFIED",
-                  kc_h_log_line(log, "KC_EXTREMAL_INVARIANT=yes") &&
-                  kc_h_log_line(log, "KC_EXTREMAL_WITNESS=VERIFIED"));
-        KC_X_GATE("K10 argv leg: the --kc-gdir structural cross-gate is CONSISTENT",
-                  kc_h_log_line(log, "KC_EXTREMAL_NULL_VS_G=CONSISTENT"));
-        KC_X_GATE("K10 argv leg: certificate JSON written with the right type",
-                  kc_h_log_sub(jsn, "\"roae-kc-extremal-certificate\"") &&
-                  kc_h_log_sub(jsn, "\"witness_verified\": true"));
+        /* THE VALUE PIN. K10 used to assert tokens only -- rc, KC_EXTREMAL=OK,
+         * INVARIANT=yes, WITNESS=VERIFIED, NULL_VS_G=CONSISTENT, and the
+         * certificate's type -- and not one of them is the number the DP
+         * computed, so `solve --kc-extremal yangcount FDIR max` could print the
+         * MINIMUM with every token green and rc=0 and this gate saw nothing
+         * (Fable review 2026-09-09, F1: mutants m1, direction inverted in
+         * kc_extremal_main, and m2, stdout printed from the opposite build,
+         * both PASSED). The pin below is against kc_x_brute_ext over the 26112
+         * raw walks -- the same independently derived extremum K3 gates the DP
+         * against, computed here in this process and never read back out of the
+         * run's own output, so it is not the run agreeing with itself. BOTH
+         * directions are run and each pins its own number, so a swap cannot map
+         * one leg onto the other; the whole tab-separated line is matched, so
+         * `opposite_extreme` is pinned too and a straight exchange of the two
+         * fields fails; and the JSON is pinned to the same number, so an
+         * artefact that disagrees with stdout cannot pass either. */
+        const KcXFunc *FPIN = kc_x_find("yangcount");
+        const long long pmax = kc_x_brute_ext(fkc, FPIN, &BR, 1, NULL);
+        const long long pmin = kc_x_brute_ext(fkc, FPIN, &BR, 0, NULL);
+        KC_X_GATE("K10 the pinned brute max/min DIFFER (the pin discriminates)",
+                  pmax > pmin);
+        for (int wm = 1; wm >= 0; wm--) {
+            const char *ds = wm ? "max" : "min";
+            const long long want = wm ? pmax : pmin;
+            const long long opp  = wm ? pmin : pmax;
+            char nm[256], pin[512];
+            snprintf(a, sizeof(a),
+                     "--kc-extremal yangcount '%s' %s --kc-witness --kc-gdir '%s' --kc-json '%s'",
+                     fdir, ds, gdir, jsn);
+            const int rc = kc_h_self_run(a, log);
+            snprintf(nm, sizeof(nm), "K10 %s argv leg: exit 0, KC_EXTREMAL=OK", ds);
+            KC_X_GATE(nm, rc == 0 && kc_h_log_line(log, "KC_EXTREMAL=OK"));
+            snprintf(nm, sizeof(nm),
+                     "K10 %s argv leg: KC_EXTREMAL_INVARIANT=yes + WITNESS=VERIFIED", ds);
+            KC_X_GATE(nm, kc_h_log_line(log, "KC_EXTREMAL_INVARIANT=yes") &&
+                          kc_h_log_line(log, "KC_EXTREMAL_WITNESS=VERIFIED"));
+            snprintf(nm, sizeof(nm),
+                     "K10 %s argv leg: the --kc-gdir structural cross-gate is CONSISTENT", ds);
+            KC_X_GATE(nm, kc_h_log_line(log, "KC_EXTREMAL_NULL_VS_G=CONSISTENT"));
+            snprintf(nm, sizeof(nm),
+                     "K10 %s argv leg: certificate JSON written with the right type", ds);
+            KC_X_GATE(nm, kc_h_log_sub(jsn, "\"roae-kc-extremal-certificate\"") &&
+                          kc_h_log_sub(jsn, "\"witness_verified\": true"));
+
+            snprintf(pin, sizeof(pin),
+                     "extreme_value=%lld\tconstant_on_space=%s\topposite_extreme=%lld",
+                     want, pmax == pmin ? "yes" : "no", opp);
+            snprintf(nm, sizeof(nm),
+                     "K10 %s argv leg: stdout line PINNED to brute %lld (opposite %lld)",
+                     ds, want, opp);
+            KC_X_GATE(nm, kc_h_log_line(log, pin));
+
+            snprintf(pin, sizeof(pin), "witness_value=%lld\twitness_member=MEMBER", want);
+            snprintf(nm, sizeof(nm),
+                     "K10 %s argv leg: witness_value PINNED to brute %lld", ds, want);
+            KC_X_GATE(nm, kc_h_log_line(log, pin));
+
+            snprintf(nm, sizeof(nm),
+                     "K10 %s argv leg: certificate direction + extreme_value PINNED", ds);
+            {
+                char jd[64], jv[64], jw[64];
+                snprintf(jd, sizeof(jd), "\"direction\": \"%s\",", ds);
+                snprintf(jv, sizeof(jv), "\"extreme_value\": %lld,", want);
+                snprintf(jw, sizeof(jw), "\"witness_value\": %lld,", want);
+                KC_X_GATE(nm, kc_h_log_sub(jsn, jd) && kc_h_log_sub(jsn, jv) &&
+                              kc_h_log_sub(jsn, jw));
+            }
+        }
 
         snprintf(a, sizeof(a), "--kc-extremal list");
         KC_X_GATE("K11 --kc-extremal list: exit 0, KC_EXTREMAL_LIST=OK",
