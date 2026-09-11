@@ -608,8 +608,32 @@ supplied exactly once, and the ladder digests and engine identity bind.* It does
 3. **The cheapest closure**, if the guarantee is wanted: bind each chunk's rows to the layer range
    that produced them, so a row landing at the wrong `k` is refused rather than summed. Not built.
 
+### 🔴 And at n=31, NOTHING catches it — measured 2026-09-10
+
+The layer-swap was run against **every** check on the path, not only the merge gates:
+
+| checked against | result |
+|---|---|
+| the merge's own gates | `KC_SCAN_MERGE=OK`, `"fails": 0`, `TIDENTITY=VERIFIED` |
+| the consumer, `atlas_queries` | rc 0, **every `TR12_*` token green** |
+| the 22 n-independent selftest gates | **0 failures of 22** |
+
+**A whole-row permutation preserves every row sum, every column sum and every divisibility test**,
+so the conservation family cannot see it by construction. The only detector anywhere in the pipeline
+is the **brute-force recount**, which is permanently impossible at n=31.
+
+🔴 **And the one structural check that WOULD catch it is removed by cost.** `TR12_SCAN_CHUNKED`
+compares a chunked atlas against a whole-shot atlas and skips as `SKIP:no-atlas` when the whole-shot
+run is absent. **The full-31 scan is planned chunked** (~31 chunks + merge), and running a whole-shot
+pass as well means **paying for the most expensive operation in the programme twice**. So the
+instrument that would detect a mis-attributed chunk is exactly the instrument the cost gate removes.
+
+What it would change, if it happened: `v2_river.tsv`, `v5_grammar.tsv` and `q6_layer_mass.tsv`,
+four rows each.
+
 ⚠ **This is a limit on the instrument, not a defect found in any produced atlas.** No merged atlas
-has been shown wrong. What has been shown is that this class of wrongness would not be caught here.
+has been shown wrong. What has been shown is that this class of wrongness would not be caught here —
+and now, more precisely, that at n=31 it would not be caught **anywhere**.
 
 ### Group C — POST-SCAN. Milliseconds on a tens-of-KB JSON.
 

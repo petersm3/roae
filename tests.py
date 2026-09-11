@@ -5905,5 +5905,61 @@ class TestA2A3TolerancesAreDecidedInExactArithmetic(unittest.TestCase):
         self.assertEqual("0.0004", mod._atlas_frac_4dp(Fraction(35, 100000)))
 
 
+
+class TestKingWenTableAgreesAcrossBothLanguages(unittest.TestCase):
+    """The full-31 anchor of TR-12 Q3/EW-1/V4 is King Wen, and it is materialised
+    by TWO independent arms in scripts/tr12_repro.sh: solve.py's `_r7_kw()[2:]`
+    (preferred) and, when python3 is absent, an awk reassembly of
+    `--kc-profile FDIR GDIR KW`, which resolves the literal through solve.c's own
+    `KW[64]`.  Nothing compared the two tables, and the reduced-n rehearsal cannot:
+    `kc_h_kw_walk` refuses any ladder with n != 31, so the n=9 run takes the
+    O3-midpoint `else` branch and neither arm executes.  A divergence would yield a
+    62-value walk that is still a MEMBER of the f ladder, so the driver's
+    `--kc-member` row would pass and every Q3 number would be published as King
+    Wen's for a walk that is not his.  Ladder-free, laptop-runnable, by design.
+    """
+
+    def _kw_from_solve_c(self):
+        with open("solve.c") as f:
+            src = f.read()
+        m = re.search(r"static const int KW\[64\]\s*=\s*\{(.*?)\}\s*;", src, re.S)
+        self.assertIsNotNone(m, "solve.c no longer declares `static const int KW[64]`")
+        body = re.sub(r"/\*.*?\*/", " ", m.group(1), flags=re.S)
+        vals = [int(t) for t in body.replace(",", " ").split()]
+        return vals
+
+    def test_solve_c_KW_equals_solve_py_r7_kw(self):
+        c = self._kw_from_solve_c()
+        p = list(solve._r7_kw())
+        self.assertEqual(len(c), 64, "solve.c KW[64] did not yield 64 values")
+        self.assertEqual(len(p), 64, "solve.py _r7_kw() did not yield 64 values")
+        self.assertEqual(c, p,
+                         "solve.c KW[64] and solve.py _r7_kw() disagree: "
+                         + str([(i, a, b) for i, (a, b) in enumerate(zip(c, p)) if a != b][:8]))
+
+    def test_the_anchor_slice_is_the_31_free_placements(self):
+        # tr12_repro.sh drops index 0..1 -- the C4-anchored pair (63,0), slot 0 and
+        # not part of the walk -- and passes 2*31 = 62 values.  kc_h_kw_walk reads
+        # exactly KW[2*(j+1)] / KW[2*(j+1)+1] for j in 0..30, i.e. the same slice.
+        p = list(solve._r7_kw())
+        self.assertEqual(p[0:2], [63, 0], "the dropped prefix is not the C4-anchored pair")
+        self.assertEqual(len(p[2:]), 62, "the anchor slice is not 2*31 values")
+
+    def test_kc_profile_column_order_matches_the_shell_fallback(self):
+        # The awk fallback reads $3,$4 as (entry, exit) from --kc-profile stdout.
+        # Reordering the emitter's columns would silently build a DIFFERENT walk.
+        with open("solve.c") as f:
+            src = "".join(f.read().split())
+        header = '"step' + chr(92) + 'tpair' + chr(92) + 'tentry' + chr(92) + 'texit' + chr(92) + 't'
+        # TWO sites carry it: the emitter (fprintf) and solve.c's own header-validating
+        # reader.  assertIn alone is satisfied by the reader's copy while the EMITTER is
+        # reordered -- the assertion would measure the wrong site.  Pin the count.
+        self.assertEqual(src.count(header), 2,
+                         "--kc-profile's column header is no longer step/pair/entry/exit... "
+                         "at BOTH the emitter and solve.c's header-validating reader; "
+                         "scripts/tr12_repro.sh's awk fallback reads $3,$4 as entry,exit "
+                         "and would silently reassemble a DIFFERENT walk. If a site was "
+                         "added deliberately, re-anchor this count rather than relaxing it.")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

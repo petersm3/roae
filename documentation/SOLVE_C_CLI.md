@@ -1365,21 +1365,31 @@ them.
 So the adopt path now recomputes the layer's decompressed-stream digest and
 **refuses to adopt** unless it equals the marker's, cross-checking the
 append-only ledger as well whenever it carries a line for that layer
-(`f1c5_finalized_try_adopt`, solve.c:15510). The refusal is **not** fatal and
-cannot make an eviction-resume impossible: refusing to adopt puts the driver on
-the `if (!adopted)` branch it has always had — a full sweep of that one layer,
-i.e. exactly the pre-marker behaviour. Adoption is an optimisation, not a
-durability requirement. A marker that records no digest at all
+(`f1c5_finalized_try_adopt`, solve.c:15510). The refusal is **not** fatal
+and cannot make an eviction-resume impossible: refusing to adopt puts the
+driver on the `if (!adopted)` branch it has always had — a full sweep of
+that one layer, i.e. exactly the pre-marker behaviour. Adoption is an
+optimisation, not a durability requirement. **One case sits outside that
+sentence, and sat outside it before this gate existed:** a layer whose
+*compressed* blocks are structurally corrupt does not produce a refusal
+token at all — `f1c5_inflate_block`'s `F1_CHECK` calls `exit(71)`. The
+digest recompute streams the whole decompressed layer, so it MEETS that
+corruption earlier than the build would have; it does not create it. The
+same layer aborted the same way on first use before 2026-09-10, and
+`f1c5_v2_index_load` — which the adopt path already ran — has always aborted
+on a corrupt index the same way. What the gate changed is *when* you learn,
+not *whether* the process survives. A marker that records no digest at all
 (`SOLVE_F1_FINALIZE_SHA=0`) is "cannot attest" and is likewise not adopted,
 because a check that passes when its subject is absent is not a check;
 `SOLVE_F1_ADOPT_UNVERIFIED=1` is the loud opt-out for that one case, and it
 cannot wave through a digest that is present and disagrees. Every outcome
-prints a whole-line verdict token for scripted callers:
-`F1C5_ADOPT_DIGEST=` `OK` | `MISMATCH` | `LEDGER-MISMATCH` | `MISSING` |
-`UNCOMPUTABLE` | `UNVERIFIED` — only `OK` is followed by an adoption. Cost: one
-decompressed-stream read of the adopted layer, paid only on a resume that meets
-a marker (never on a fresh sequential build, where no marker for the layer
-being built exists yet).
+prints a whole-line verdict token for scripted callers: `F1C5_ADOPT_DIGEST=`
+`OK` | `MISMATCH` | `LEDGER-MISMATCH` | `MISSING` | `UNCOMPUTABLE` |
+`UNVERIFIED` — only `OK` and the opted-in `UNVERIFIED` are followed by an
+adoption; the other four (`MISMATCH`, `LEDGER-MISMATCH`, `MISSING`,
+`UNCOMPUTABLE`) are refusals. Cost: one decompressed-stream read of the
+adopted layer, paid only on a resume that meets a marker (never on a fresh
+sequential build, where no marker for the layer being built exists yet).
 
 ### --f1-exact-c1c2
 

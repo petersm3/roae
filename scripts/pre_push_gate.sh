@@ -542,4 +542,45 @@ if [ -x "$RLQ" ]; then
   fi
 fi
 
+# =============================================================================
+# THE REPRODUCTION STAMP — added 2026-09-10, because NOTHING ON THE PUSH PATH
+# CHECKED IT, and that single gap produced two defects in one commit.
+#
+# `scripts/tr12_repro_gate.sh --check` answers one question: does the recorded
+# stamp fingerprint THE TREE BEING PUSHED? On 2026-09-10 the answer was NO for a
+# commit whose stamp file's own header says it "proves the committed tree
+# REPRODUCED" -- so as committed it proved that of some other tree. Separately,
+# two pinned skip rows had drifted and nothing noticed. Measured the same day:
+#
+#     grep -c tr12_repro_gate  scripts/pre_push_gate.sh  .git/hooks/pre-push
+#     0  0
+#
+# A gate with no consumer on the path that matters is the defect this repository
+# keeps finding, one level up from the code: the reproduction gate was correct,
+# ran on a cron canary, was RED for ~42 h, and nothing that could stop a push
+# ever asked it. The pre-gate leg B-1 now consumes it for the KC launch; this
+# consumes it for every push.
+#
+# ADVISORY, NOT BLOCKING, and the reason is specific: a stale stamp means "this
+# tree has not been shown to reproduce", which is a fact about evidence, not a
+# broken tree -- and a legitimate docs-only push should not be held hostage to a
+# battery re-run. It is LOUD, it names the one command that fixes it, and it
+# costs 0.42 s measured.
+#
+# It stays silent when the gate is absent so a fresh clone and CI see nothing.
+if [ -x "$ROOT/scripts/tr12_repro_gate.sh" ]; then
+  _stamp=$( cd "$ROOT" && ./scripts/tr12_repro_gate.sh --check 2>/dev/null | grep -E '^TR12_REPRO_GATE_CURRENT=' | tail -1 )
+  case "$_stamp" in
+    TR12_REPRO_GATE_CURRENT=YES) echo "  [ok]   reproduction stamp describes this tree" ;;
+    TR12_REPRO_GATE_CURRENT=NO)
+      echo
+      echo "  ⚠ REPRODUCTION STAMP IS STALE — $_stamp"
+      echo "    The recorded stamp does NOT fingerprint the tree you are pushing, so nothing here"
+      echo "    attests that this tree reproduces its own battery. ADVISORY: the push continues."
+      echo "    Fix with:   ./scripts/tr12_repro_gate.sh --stamp     (then commit the stamp WITH the code)" ;;
+    *)
+      echo "  ⚠ reproduction stamp: could not be measured (got '${_stamp:-<nothing>}') — not the same as current" ;;
+  esac
+fi
+
 exit $RC
