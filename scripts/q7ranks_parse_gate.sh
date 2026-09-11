@@ -34,14 +34,17 @@
 # closes that gap, and it does it the only honest way: by running the real
 # engine and reading what it actually prints.
 #
-# LEGS
+# LEGS -- rewritten 2026-09-11 with the gate itself. The previous list described the
+# leg design this file had BEFORE F-5 round 6, and survived the rewrite that replaced
+# them: it advertised two "MUTANT: a producer printing ..." legs that no longer exist.
+# A header that describes legs the script does not run is the same defect class as a
+# gate that checks a copy of its subject, one layer out, so it is corrected here with
+# the code rather than left for the next reviewer.
 #   1 the real binary prints `rank3<TAB><digits>` -- the producer's format, measured
-#   2 the shipped parse extracts rank 0 from that real output          (baseline)
-#   3 MUTANT: a producer printing `rank3=0` (the format the defect assumed)
-#     must NOT satisfy a field-keyed parse silently -- it is reported, so that
-#     re-introducing the old format is visible rather than accidentally fine
-#   4 MUTANT: a producer printing `rank3<TAB>5` must FAIL the row (rank != 0)
-#   5 the anchor mismatch leg still fires
+#   2 THE EXTRACTED ROW returns 0 on the O3-least walk with a matching anchor (baseline)
+#   3 THE EXTRACTED ROW fails on a walk of rank 16244, and NAMES the value
+#   4 THE EXTRACTED ROW fails when the walk is not $ANCHOR
+#   5 the producer's format is restated, so a change to it is visible here
 # ERROR (rc 2) when it cannot measure: no compiler, no build, no ladders. A gate
 # that cannot see its subject must never report PASS.
 # =============================================================================
