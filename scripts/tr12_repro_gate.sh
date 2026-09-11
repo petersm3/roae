@@ -115,7 +115,14 @@ q7ranks_parse_leg(){
   # The first draft used "$ROOT", which is pre_push_gate.sh's variable and is unset here --
   # under `set -u` that aborted the gate AFTER the battery passed and BEFORE the stamp was
   # written. Loud and in the right direction (no stamp on an unmeasured tree), but a defect.
-  [ -x ./scripts/q7ranks_parse_gate.sh ] || { echo "  [note] q7ranks_parse_gate.sh absent -- leg skipped"; return 0; }
+  # 🔴 F-5 ROUND 6, sibling finding: this returned 0 when the gate script was ABSENT, so
+  # `rm scripts/q7ranks_parse_gate.sh` made the whole reproduction gate PASS -- deleting the
+  # check made everything green. A missing subject is ERROR, never agreement; the leg's own
+  # ERROR branch four lines below already said so and this line contradicted it.
+  [ -x ./scripts/q7ranks_parse_gate.sh ] || {
+      echo "  [ERROR] scripts/q7ranks_parse_gate.sh is absent or not executable -- the n>=31-only"
+      echo "          parse class is UNMEASURED. That is not the same as passing."
+      return 2; }
   local out; out=$(bash ./scripts/q7ranks_parse_gate.sh 2>&1)
   printf '%s\n' "$out" | sed 's/^/  /'
   if printf '%s\n' "$out" | grep -qx 'Q7RANKS_PARSE=PASS'; then return 0; fi

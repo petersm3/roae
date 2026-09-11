@@ -71,36 +71,73 @@ else
   head -2 "$W/real.out"
 fi
 
-# the parse under test, lifted to a function so every leg uses ONE copy of it
-parse(){ awk -F'\t' '$1=="rank3"{print $2; exit}' "$1"; }
+# 🔴 F-5 ROUND 6. THE FIRST VERSION OF THIS GATE DEFINED ITS OWN parse() HERE -- a hand-copied
+# second instance of the row's awk -- and never read scripts/tr12_repro.sh at all. Fable measured
+# the consequence: restore the exact 92516f8d defect at tr12_repro.sh:1970 and this gate still
+# reported PASS while the row itself failed; DELETE tr12_repro.sh entirely and it STILL reported
+# PASS. It bound to the producer and to a COPY of the consumer, so the red test that shipped
+# mutated THE GATE, not THE ROW. That is the same verifier closure B1(r5) was, committed inside
+# the instrument built to catch it.
+#
+# The row is now EXTRACTED FROM THE BATTERY AND EXECUTED. There is exactly one copy of the parse
+# in the tree and this gate runs it. Extraction is by the row's own markers, and an empty or
+# absent extraction is ERROR -- a gate that cannot find its subject must never report PASS.
+BATTERY=${BATTERY:-./scripts/tr12_repro.sh}
+[ -r "$BATTERY" ] || { echo "  [ERROR] battery not readable: $BATTERY"; echo "Q7RANKS_PARSE=ERROR"; exit 2; }
+awk '/^[[:space:]]*row_begin a2_q7_ranks[[:space:]]*$/{f=1} f{print} /^[[:space:]]*row_end TR12_Q7_RANKS/{if(f)exit}' \
+    "$BATTERY" > "$W/block.sh"
+if [ ! -s "$W/block.sh" ] || ! grep -q 'row_begin a2_q7_ranks' "$W/block.sh" \
+   || ! grep -q 'row_end TR12_Q7_RANKS' "$W/block.sh"; then
+  echo "  [ERROR] could not extract the a2_q7_ranks block from $BATTERY (markers moved or row removed)"
+  echo "          -- the subject of this gate is absent, which is not the same as passing"
+  echo "Q7RANKS_PARSE=ERROR"; exit 2
+fi
+echo "  [ok] extracted $(grep -c . "$W/block.sh") lines of a2_q7_ranks from $BATTERY"
 
-# ---- LEG 2: baseline -- the shipped parse on REAL output ------------------
-v=$(parse "$W/real.out")
-[ "$v" = "0" ] && r ok "leg 2: shipped parse reads rank3=0 from real engine output" \
-                || r FAIL "leg 2: shipped parse got '${v:-<empty>}' from real output, expected 0"
+# Run the EXTRACTED row against the real binary. row_begin/row_end are stubbed; everything else
+# -- the parse, both assertions, the IN branch, the n>=31 guard -- is the battery's own text.
+run_row(){ # $1 = arrangement walk, $2 = ANCHOR ; echoes row output, returns the row's rc
+  local arr=$1 anchor=$2 d="$W/run.$$"; rm -rf "$d"; mkdir -p "$d/art" "$d/work"
+  printf '{"label": "KW", "verdict_super": "IN", "arrangement": "63,0,%s"}' "$arr" > "$d/art/q7_kw.json"
+  ( set +u
+    row_begin(){ :; }; row_end(){ ROWRC=$2; }
+    SOLVE="$W/solve"; FDIR="$W/f"; GDIR="$W/g"; ARTDIR="$d/art"; WORK="$d/work"
+    ANCHOR="$anchor"; N_PAIRS=31; RAW="$d/raw"; : > "$RAW"
+    . "$W/block.sh" >/dev/null 2>&1
+    cat "$RAW"
+    exit "${ROWRC:-99}" )
+}
 
-# ---- LEG 3: MUTANT -- the format the defect assumed -----------------------
-sed 's/^rank3\t/rank3=/' "$W/real.out" > "$W/eq.out"
-v=$(parse "$W/eq.out")
-if [ -z "$v" ]; then
-  r ok "leg 3: a producer printing 'rank3=0' yields NO field -- the old assumed format is visibly unsupported, not silently accepted"
+# ---- LEG 2: the REAL ROW on a rank-0 walk must PASS ----------------------
+W0=$("$W/solve" --kc-o3-unrank "$W/f" "$W/g" 0 2>/dev/null | grep -E '^[0-9]+(,[0-9]+)+$' | head -1)
+out=$(run_row "$W0" "$W0"); rc=$?
+[ "$rc" -eq 0 ] && r ok "leg 2: the extracted row returns 0 on the O3-least walk with a matching anchor" \
+                 || { r FAIL "leg 2: the extracted row returned $rc on a CORRECT input -- it cannot pass"; printf '%s\n' "$out" | sed 's/^/        /' | head -3; }
+
+# ---- LEG 3: a NON-ZERO rank must FAIL, and be NAMED ----------------------
+W16=$("$W/solve" --kc-o3-unrank "$W/f" "$W/g" 16244 2>/dev/null | grep -E '^[0-9]+(,[0-9]+)+$' | head -1)
+if [ -n "$W16" ]; then
+  out=$(run_row "$W16" "$W16"); rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'rank3=16244'; then
+    r ok "leg 3: a walk of rank 16244 fails the row and the value is named"
+  else
+    r FAIL "leg 3: rank-16244 walk gave rc=$rc without naming the rank -- a wrong rank would ship"
+  fi
 else
-  r FAIL "leg 3: 'rank3=0' produced '$v' -- the parse accepts both formats, so a producer format change would go unnoticed"
+  r FAIL "leg 3: could not unrank 16244 (cannot measure the wrong-rank case)"
 fi
 
-# ---- LEG 4: MUTANT -- a wrong rank must be caught -------------------------
-awk -F'\t' 'BEGIN{OFS="\t"} $1=="rank3"{$2=5} {print}' "$W/real.out" > "$W/five.out"
-v=$(parse "$W/five.out")
-[ "$v" = "5" ] && r ok "leg 4: a producer printing rank3<TAB>5 is read as 5, so the row's rank3!=0 assertion fires" \
-                || r FAIL "leg 4: rank3<TAB>5 read as '${v:-<empty>}' -- a wrong rank would not be caught"
+# ---- LEG 4: an ANCHOR MISMATCH must FAIL --------------------------------
+out=$(run_row "$W0" "1,2,3"); rc=$?
+[ "$rc" -ne 0 ] && r ok "leg 4: a walk that is not \$ANCHOR fails the row" \
+                 || r FAIL "leg 4: anchor mismatch returned 0 -- two derivations of KW could disagree silently"
 
-# ---- LEG 5: the false-positive the original \b guarded against ------------
-if grep -q 'class_first_rank3=' "$W/real.out"; then
-  v=$(parse "$W/real.out")
-  [ "$v" = "0" ] && r ok "leg 5: class_first_rank3= is present and does NOT capture the field-keyed parse" \
-                  || r FAIL "leg 5: class_first_rank3= contaminated the parse"
+# ---- LEG 5: the producer's format, stated so a change is visible ---------
+"$W/solve" --kc-o3-rank "$W/f" "$W/g" "$W0" >"$W/real.out" 2>&1
+if awk -F'\t' '$1=="rank3" && $2 ~ /^[0-9]+$/{ok=1} END{exit ok?0:1}' "$W/real.out"; then
+  r ok "leg 5: the engine prints a TAB-separated rank3 field, which is what the row parses"
 else
-  r ok "leg 5: no class_first_rank3= in this output (nothing to confuse)"
+  r FAIL "leg 5: the engine no longer prints a tab-separated rank3 field -- the row's parse is keyed to a format that no longer holds"
 fi
 
 printf 'Q7RANKS_PARSE_LEGS=5\n'
