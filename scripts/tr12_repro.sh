@@ -135,7 +135,13 @@ if [ "$MODE_N9" -eq 0 ] && [ -z "$FDIR" ]; then
 fi
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/tr12repro.XXXXXX")"
-[ "$KEEP" -eq 1 ] || trap 'rm -rf "$WORK"' EXIT
+# 🔴 2026-09-11: KILL THE CHILDREN BEFORE REMOVING THEIR FILES. This trap used to be only the rm.
+# When the shell died on a full disk (H-2, n=13) it unlinked $WORK/walks.txt while `solve --kc-enum`
+# still held it open; the child was reparented to init and wrote 14.58 GB into a file nothing could
+# see. A cleanup that deletes without killing turns an early exit into an invisible leak. Descendants
+# first -- the engine runs inside a `( ... )` row subshell, so the holder is a GRANDCHILD -- then files.
+_tr12_kill_tree(){ local c; for c in $(pgrep -P "$1" 2>/dev/null); do _tr12_kill_tree "$c"; kill -TERM "$c" 2>/dev/null; done; }
+[ "$KEEP" -eq 1 ] || trap '_tr12_kill_tree $$; rm -rf "$WORK"' EXIT
 [ -n "$OUTDIR" ] || OUTDIR="$WORK/out"
 mkdir -p "$OUTDIR"
 
@@ -809,9 +815,19 @@ row_end TR12_GATES $rc
 # facts, which is why a row could still be non-deterministic in a file that has scrubbed timings
 # for months. Adding the spellings is the fix; noticing that a rule set can be near-miss-complete
 # is the lesson.
-row_begin a0_oocverify
-( SOLVE_KC_CACHE_MB="${SOLVE_KC_CACHE_MB:-64}" "$SOLVE" --kc-oocverify "$N_PAIRS" ) >>"$RAW" 2>&1; rc=$?
-row_end TR12_OOCVERIFY $rc
+# 🔴 KCP3 F1 (2026-09-11): this row ran UNCONDITIONALLY, and kc_resolve_pairs refuses npairs==31 (rc 2):
+# --kc-oocverify builds an in-memory reference ladder, capped at KC_MEM_MAX_PAIRS=22. At n=31 that was
+# FAIL:nonzero-exit(2) -> TR12_REPRO=FAIL -> the driver's pre-scan stop-gate refuses to scan, AFTER the
+# pre-scan battery has run its hours of point rows. Q-492 wrote "It CANNOT run at n=31" and shipped the
+# row unguarded. A SKIP is the honest token: there is no n=31 reference to verify against.
+if [ "$N_PAIRS" -le 22 ]; then
+    row_begin a0_oocverify
+    ( SOLVE_KC_CACHE_MB="${SOLVE_KC_CACHE_MB:-64}" "$SOLVE" --kc-oocverify "$N_PAIRS" ) >>"$RAW" 2>&1; rc=$?
+    row_end TR12_OOCVERIFY $rc
+else
+    row_skip a0_oocverify TR12_OOCVERIFY "SKIP:no-in-memory-reference-above-n22" \
+      "--kc-oocverify needs an in-memory reference ladder, which kc_resolve_pairs refuses above KC_MEM_MAX_PAIRS=22 (rc 2); the n=31 OOC read path is attested by H-1 parity (n=12/13) and KCP3 F7 (v2 format, n=9)"
+fi
 
 # ---- A0.2  XA(iii): the t-unit accounting-convention pin.  No atlas number ships before it. ---
 row_begin a0_xa_iii
@@ -2720,7 +2736,10 @@ elif PYTHONPATH="$REPO_ROOT" python3 -c 'import sys, solve; sys.exit(0 if hasatt
       crc=0
       # (a) the consumer's OWN reduced-n brute-force gate, over the very atlas just produced.
       #     It needs the explicit enumeration to check against, which only exists at reduced n.
-      if [ "$N_PAIRS" -le 13 ]; then
+      # 🔴 2026-09-11: was `-le 13`. The explicit enumeration is 26,112 walks at n=9 and 2.06e12 at
+      # n=13; a1_q6_oracle refuses n>9 for exactly that reason and this row disagreed with it. At n=13
+      # it filled the orchestrator's disk. Same bound as the oracle; n=31 takes the skip branch as before.
+      if [ "$N_PAIRS" -le 9 ]; then
           "$SOLVE" --kc-enum "$FDIR" > "$WORK/walks.txt" 2>/dev/null || crc=1
           ( cd "$REPO_ROOT" && python3 solve.py --atlas-selftest "$ATLAS" \
               --atlas-walks "$WORK/walks.txt" --atlas-q3-trace "$ARTDIR/q3_profile.txt" ) || crc=1
