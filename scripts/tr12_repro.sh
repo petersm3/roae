@@ -1682,22 +1682,31 @@ row_end TR12_Q1 $rc
 # Reads the certificate a2_q1 already wrote; no second --kc-o3-cert run.
 if [ -s "$ARTDIR/q1_rank.json" ] && command -v python3 >/dev/null 2>&1; then
   row_begin a2_q1_labeling
-  ( python3 - "$ARTDIR/q1_rank.json" "$N_PAIRS" <<'PYQ1'
+  ( python3 - "$ARTDIR/q1_rank.json" "$N_PAIRS" "$N_HALF" <<'PYQ1'
 import json, sys
 d = json.load(open(sys.argv[1])); n = int(sys.argv[2])
 r  = int(d["rank3"]); c = int(d["class_first_rank3"]); o = int(d["orient_idx"])
 exp = (0, 0, 0) if n >= 31 else {9: (13056, 12960, 96)}.get(n)
 print("n\t%d" % n)
 print("rank3\t%d\nclass_first_rank3\t%d\norient_idx\t%d" % (r, c, o))
+# 🔴 2026-09-11 (H-2): this row used to FAIL at every reduced n except 9 -- "no pinned expectation". But
+# below n=31 the anchor IS unrank_O3(floor(N/2)) (the ANCHOR block above), so rank3 == floor(N/2) is known
+# a priori at EVERY reduced n: a rank/unrank roundtrip, derived rather than minted. Silent on success, so
+# the n=9 golden does not move; class_first_rank3/orient_idx stay pinned only where a fixture exists.
+if n < 31:
+    nhalf = int(sys.argv[3])
+    if r != nhalf:
+        print("Q1_LABELING_FAIL\trank3 %d != floor(N/2) %d -- the anchor is unrank_O3(floor(N/2)), so the rank/unrank roundtrip failed" % (r, nhalf)); sys.exit(1)
 if exp is None:
-    print("Q1_LABELING_FAIL\tno pinned expectation at n=%d" % n); sys.exit(1)
-print("expected\t%d/%d/%d\t(%s)" % (exp[0], exp[1], exp[2],
+    print("expected\trank3 == floor(N/2) == %d\t(n=%d has no class/orient fixture: the roundtrip and the decomposition are checked, class_first_rank3/orient_idx are recorded)" % (r, n))
+else:
+    print("expected\t%d/%d/%d\t(%s)" % (exp[0], exp[1], exp[2],
       "the labeling theorem: anchor-derived labels force rank 0" if n >= 31
       else "n<31: labels are NOT anchor-derived, so the theorem predicts a non-zero rank"))
 if r != c + o:
     print("Q1_LABELING_FAIL\trank3 != class_first_rank3 + orient_idx (%d != %d + %d)" % (r, c, o)); sys.exit(1)
 print("decomposition\tOK\trank3 == class_first_rank3 + orient_idx")
-if (r, c, o) != exp:
+if exp is not None and (r, c, o) != exp:
     print("Q1_LABELING_FAIL\tgot %d/%d/%d, expected %d/%d/%d" % (r, c, o, exp[0], exp[1], exp[2])); sys.exit(1)
 if n >= 31:
     # F-5 D7 (2026-09-08): the vacuity, STATED in the artifact and CHECKED. rank 0 is a property of the
@@ -2464,7 +2473,7 @@ else
       echo "Q10A_LAYER_MOD24_FAILS	$fails"
       echo "## per-layer state census, transcribed from f1c5_layer_stats_XX.json (frame: canonical quotient, orbit-unweighted; mass_total = f-prefix mass)"
       echo -e "k\tn_masks\tn_entries\tmass_total\torbit_size_census[size,n_masks,n_entries]\tbranching_hist[children,n_states]"
-      k=0; miss=0; last_mt=""
+      k=0; miss=0; last_mt=""; nv1=0
       while [ "$k" -le "$N_PAIRS" ]; do
           sc=$(printf '%s/f1c5_layer_stats_%02d.json' "$FDIR" "$k")
           if [ ! -s "$sc" ]; then printf '%d\tMISSING-SIDECAR\n' "$k"; miss=$((miss+1)); k=$((k+1)); continue; fi
@@ -2474,13 +2483,20 @@ else
           mt=$(sed -n 's/^  "mass_total": "\([0-9]*\)",*$/\1/p' "$sc" | head -1)
           oc=$(sed -n 's/^  "orbit_size_census": \(\[.*\]\),*$/\1/p' "$sc" | head -1)
           bh=$(grep -o '"branching": {[^}]*}' "$sc" | sed -n 's/.*"hist": \(\[.*\]\)}.*/\1/p' | head -1)
-          if [ -z "$nm" ] || [ -z "$ne" ] || [ -z "$mt" ] || [ -z "$oc" ] || [ -z "$bh" ]; then
+          if [ -z "$nm" ] || [ -z "$ne" ] || [ -z "$mt" ] || [ -z "$bh" ]; then
               printf '%d\tUNPARSED-SIDECAR\n' "$k"; miss=$((miss+1)); k=$((k+1)); continue
           fi
+          # 🔴 PD-1 (Fable, 2026-09-11): the n=31 f ladder was built at befd4e1b (2026-07-17), one day before
+          # orbit_size_census entered the sidecar schema (317dda34). Requiring it made this row a guaranteed FAIL
+          # on the production data that no rehearsal could reach (rehearsal ladders are built by the current
+          # binary). A schema-v1 sidecar has every other field; its census column is NA, not a failure.
+          if [ -z "$oc" ]; then oc="NA:schema-v1-sidecar"; nv1=$((nv1+1)); fi
           printf '%d\t%s\t%s\t%s\t%s\t%s\n' "$k" "$nm" "$ne" "$mt" "$oc" "$bh"
           [ "$k" -eq "$N_PAIRS" ] && last_mt="$mt"
           k=$((k+1))
       done
+      # silent when every sidecar is schema v2, so the n=9 golden does not move
+      [ "$nv1" -gt 0 ] && echo "Q10A_SIDECAR_SCHEMA	v1 on $nv1 layer(s): no orbit_size_census (built before sidecar schema v2, 317dda34); that column is NA there, every other field is read and gated"
       echo "Q10A_SIDECARS_MISSING	$miss"
       if [ "$last_mt" = "$N_TOTAL" ]; then echo "Q10A_LAST_LAYER_MASS_EQ_N	YES ($last_mt)"
       else echo "Q10A_LAST_LAYER_MASS_EQ_N	NO (sidecar k=$N_PAIRS mass_total='$last_mt', N=$N_TOTAL)"; fails=1; fi

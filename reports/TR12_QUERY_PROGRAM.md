@@ -877,6 +877,10 @@ TR-11's, and it is the **f**-ladder contract; **g needs ≥ 10 TB**, per the mea
    (1,570 lines at public `main` `76e5d680`) runs the battery against named FDIR/GDIR, diffs each
    output against the committed expected blocks in `scripts/tr12_expected/n9/`, prints
    `TR12_REPRO=PASS|FAIL`, reports skips explicitly, and exits non-zero on any mismatch.
+   ⚠ *At n=31 there is no committed expected set and there cannot be one before the run: the
+   production run mints its blocks (`--mint-missing`), and a minted row records PASS without
+   diffing. At full scale every defence is what a row ASSERTS, never what it MATCHES
+   (`documentation/QUERY_INVENTORY.md` §3.0). Added 2026-09-11 (Fable PD-3).*
 7. Re-derive the certificates: rank(unrank(r)) = r + the KW neighbor bracket (Q1);
    Π p_i = 1/N exactly (Q3); N mod 24 = 0; Σ_b solutions(b) = N (XA); the gallery chi² gate
    (Q8); the f·g identity (step 5). The ÷24 and product-of-conditionals checks are reader
@@ -1018,7 +1022,9 @@ surface's own selftest and the committed n = 9 expected blocks are for. This lis
     **Not present at HEAD** — conformance, not slippage: §9 flags this item, it does not promise it.
 13. `scripts/tr12_repro.sh` — the RM battery driver: runs every TR-12 query against named
     FDIR/GDIR, diffs each output against the committed expected-output blocks, non-zero exit on
-    any mismatch (shell only, no new .c/.py). Wave 2.
+    any mismatch (shell only, no new .c/.py). Wave 2. ⚠ *The diff applies where an expected set exists
+    (n=9 today); at n=31 the run mints and asserts rather than diffs — see step 6 above and
+    `QUERY_INVENTORY.md` §3.0.*
     **BUILT at HEAD:** `scripts/tr12_repro.sh`, 1,570 lines, with its committed expected blocks
     under `scripts/tr12_expected/n9/`.
 
