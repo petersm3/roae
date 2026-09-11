@@ -1952,9 +1952,24 @@ if [ "$N_PAIRS" -ge 31 ]; then
               #        derivation of King Wen's walk, and nothing compared it to $ANCHOR. That is
               #        the two-arms-never-compared defect that tests.py::TestKingWenTableAgrees...
               #        pins one level down, still open at this level until now.
-              r3=$(sed -n 's/.*\brank3=\([0-9][0-9]*\).*/\1/p' "$WORK/q7rank.out" | head -1)
+              # 🔴 F-5 ROUND 5 B1(r5) (2026-09-11). This read `\brank3=([0-9]+)`. THE ENGINE PRINTS
+              # A TAB: solve.c's --kc-o3-rank driver does printf("rank3\t%s\n", tdec), verified by
+              # execution -- `cat -A` shows `rank3^I0$`. The only `rank3=` in solve.c is
+              # `class_first_rank3=`, which the \b deliberately did not match because `_` is a word
+              # character. So the pattern avoided the false positive and never matched the true one:
+              # the row could ONLY EVER FAIL, reporting TR12_Q7_RANKS=FAIL for a correct
+              # rank_O3(KW)=0 -- a check with no producer, in the row carrying the labeling theorem.
+              # It is n>=31-ONLY, so no golden, no rehearsal and no gate had ever run it against the
+              # engine; and the battery ships by `git archive` at launch, so a mid-run fix could not
+              # reach the run's VERDICTS.txt.
+              # HOW IT SURVIVED ITS OWN RED TEST: the test drove four STUBS printing `rank3=0` and
+              # `rank3=5` -- the regex was validated against fixtures written to match the regex.
+              # That is verifier closure: the check was handed its witness by the thing it checks.
+              # Both the round-4 prescription and this implementation wrote that stub format without
+              # running --kc-o3-rank once. Keyed on the FIELD now, not on a punctuation guess.
+              r3=$(awk -F'\t' '$1=="rank3"{print $2; exit}' "$WORK/q7rank.out")
               if [ -z "$r3" ]; then
-                  echo "Q7RANKS_FAIL	$(basename "$j"): no rank3= value was printed -- an unmeasured rank is not a rank"; erc=1
+                  echo "Q7RANKS_FAIL	$(basename "$j"): no rank3 field was printed -- an unmeasured rank is not a rank"; erc=1
               elif [ "$r3" != "0" ]; then
                   echo "Q7RANKS_FAIL	$(basename "$j"): rank3=$r3, but rank_O3 of an anchor-derived labeling is FORCED to 0"; erc=1
               fi
@@ -2487,6 +2502,19 @@ else
       nrow=$(grep -c . "$WORK/v5_rows.tsv")
       [ "$nrow" -eq $((5 * N_PAIRS)) ] \
         || { echo "V5_FAIL	emitted $nrow rows, expected 5 x N_PAIRS = $((5 * N_PAIRS))"; fails=1; }
+      # 🔴 F-5 ROUND 5 O2(r5) (2026-09-11). The row count alone does NOT catch a deleted cell: the
+      # emitter loops over the FIXED list d1..d6, so a missing `"d2": "N"` in the atlas yields an
+      # EMPTY mass in a row that still counts. Measured by the reviewer: c_v5 exited 0 publishing an
+      # empty mass and p=NA. The V2 cross-check below does not catch it either, because BOTH readers
+      # see the same absence and AGREE -- two instruments agreeing about nothing is not corroboration,
+      # the same shape as a gate passing when its subject is absent. c_v2 has this guard; c_v5 was
+      # given the count and the cross-check and not this one. No published number escapes today
+      # (c_v2's per-layer sum catches the atlas) but c_v5 must not report PASS over a table it
+      # cannot vouch for.
+      awk -F'\t' '$1 ~ /^[0-9]+$/ {
+             if ($3 == "" || $3 !~ /^[0-9]+$/) { printf "V5_FAIL\t(k=%s,%s) mass is empty or non-numeric: %s\n", $1, $2, ($3==""?"<empty>":$3); bad=1 }
+             if ($4 == "" || $4 == "NA")       { printf "V5_FAIL\t(k=%s,%s) p is %s -- a probability was not computed\n", $1, $2, ($4==""?"<empty>":$4); bad=1 }
+           } END { exit bad?1:0 }' "$WORK/v5_rows.tsv" || fails=1
       # CROSS-INSTRUMENT: V5's mass column is the same quantity V2 prints, reached by a different
       # extraction (per-class sed inside a flow loop vs one by_class object). They must agree cell
       # for cell. Two readers of one field disagreeing is the defect; agreeing is the check.

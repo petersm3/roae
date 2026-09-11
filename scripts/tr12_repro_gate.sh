@@ -97,7 +97,7 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # see it -- the regex covers .c/.py/.sh/.md, and widening it to .txt was MEASURED to sweep in
 # _GATE_STAMP.txt itself plus two enumeration artefacts. Naming the one file that matters is the
 # narrow fix; widening the grammar was the broad one that makes the stamp churn.
-CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh reports/certificates/c3_positional_witnesses.txt scripts/tr12_repro.sh scripts/tr12_repro_gate.sh"
+CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh reports/certificates/c3_positional_witnesses.txt scripts/tr12_repro.sh scripts/tr12_repro_gate.sh scripts/q7ranks_parse_gate.sh"
 fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
 
 # 🔴 MY FIRST VERSION OF THIS CHECK WAS TAUTOLOGICAL. It asserted that every derived input was in
@@ -106,6 +106,24 @@ fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
 # coverage automatic; what can still go wrong is the DERIVATION ITSELF returning nothing (a changed
 # grep, a moved battery), which would silently fall back to hashing CORE alone and read green.
 # So the check is on the derivation, and it fails when the derivation stops working.
+# 🔴 F-5 ROUND 5 condition 1b (2026-09-11). B1(r5) was an n>=31-ONLY row whose PARSE of engine
+# output no n<=13 execution ever exercised, so nothing in this gate, the battery or the rehearsal
+# could see it. row_assertion_gate.sh proves a row ASSERTS; it cannot prove the assertion's parse
+# MATCHES ITS PRODUCER. This runs that check against a freshly built binary and real ladders.
+q7ranks_parse_leg(){
+  # Paths are relative to the repo root, matching this file's own idiom (:306, :318).
+  # The first draft used "$ROOT", which is pre_push_gate.sh's variable and is unset here --
+  # under `set -u` that aborted the gate AFTER the battery passed and BEFORE the stamp was
+  # written. Loud and in the right direction (no stamp on an unmeasured tree), but a defect.
+  [ -x ./scripts/q7ranks_parse_gate.sh ] || { echo "  [note] q7ranks_parse_gate.sh absent -- leg skipped"; return 0; }
+  local out; out=$(bash ./scripts/q7ranks_parse_gate.sh 2>&1)
+  printf '%s\n' "$out" | sed 's/^/  /'
+  if printf '%s\n' "$out" | grep -qx 'Q7RANKS_PARSE=PASS'; then return 0; fi
+  if printf '%s\n' "$out" | grep -qx 'Q7RANKS_PARSE=ERROR'; then
+    echo "  [ERROR] Q7RANKS_PARSE could not be measured -- NOT the same as PASS"; return 2; fi
+  echo "  [FAIL] Q7RANKS_PARSE=FAIL -- an n>=31-only row's parse does not match its producer"; return 1
+}
+
 fingerprint_coverage_check(){
   # 🔴 CAPTURE ONCE. This called derived_inputs FOUR times and piped each into `grep -q`, which
   # closes the pipe on first match and SIGPIPEs the producer mid-loop. The result was an
@@ -454,6 +472,12 @@ if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
     echo "  [FAIL] the battery PASSED its executed rows, but its SKIP set is not the pinned one (above)"
     echo "TR12_REPRO_GATE=FAIL"; exit 1
   fi
+  # F-5 round 5 condition 1b: the parse-matches-producer leg. Runs BEFORE the stamp is written,
+  # so a tree whose n>=31-only parse does not match its engine cannot be stamped as reproducing.
+  q7ranks_parse_leg; _q7rc=$?
+  if [ "$_q7rc" -eq 1 ]; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
+  if [ "$_q7rc" -eq 2 ]; then echo "TR12_REPRO_GATE=ERROR"; exit 2; fi
+
   if [ "$MODE" = "--stamp" ]; then
     { echo "# Recorded by scripts/tr12_repro_gate.sh --stamp. Proves the committed tree REPRODUCED,"
       echo "# not merely that it was committed. Re-stamp in the SAME commit as any solve.c,"
