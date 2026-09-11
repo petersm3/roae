@@ -1,3 +1,14 @@
+# Q1(c) — the conditioning interval [0, rank_O3(anchor)) is MEASURED, not assumed.
+# Sources: A = --kc-o3-cert JSON (row a2_q1); B = --kc-o3-rank transcript (row a2_q3);
+# C = the certificate's own predecessor witness. Disagreement is an ERROR, never an EMPTY.
+q1c_rank_A_kc_o3_cert	13056
+q1c_rank_B_kc_o3_rank	13056
+q1c_sources_agree	YES
+q1c_predecessor_witness	13055	(expected 13055)
+q1c_universe_N	26112
+q1c_interval	[0, 13056)
+Q1C_CARD	13056
+q1c_verdict	NONEMPTY
 # Q1(c) — labelled ESTIMATE with binomial CI. Space: C15 rank is NOT exactly computable.
 rank_O3_anchor	13056
 requested_M	200

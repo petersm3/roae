@@ -343,9 +343,9 @@ Minimum sketch for any language:
 ⚠ **[CORRECTED 2026-09-01 — step 6 previously asserted that neither of the
 two `solve` subcommands performed this cross-check, and told the reader not
 to rely on them for it. Both implement it, and both landed before that
-sentence was last reviewed: `solve.c:20915-20924` for `solve --verify`
+sentence was last reviewed: `solve.c:21097-21106` for `solve --verify`
 (Q-277, 2026-08-28), which prints `VERIFY=ERROR` and refuses when a header
-under-declares its record count, and `solve.c:21332-21338` for
+under-declares its record count, and `solve.c:21514-21520` for
 `solve --validate` (Q-367, 2026-08-29), which refuses to validate a record
 stream that contradicts its own header. The retracted advice steered
 operators away from a check that already existed.]**

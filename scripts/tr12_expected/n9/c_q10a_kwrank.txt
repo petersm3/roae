@@ -1,0 +1,14 @@
+# Q10(a) KW-orbit-rank — the DROPPED leg, MEASURED. Two reasons were asserted in prose
+# (no commanded source; 0 under KW-derived labels); both are checked here, and EMPTY needs both.
+q10a_class_rank_note	present, says NOT computed
+q10a_rank_fields_searched	class_rank orbit_rank orbit_index orbit_rank3 class_rank3 kw_orbit_rank record_rank
+q10a_rank_fields_present	NONE
+q10a_rank3	13056
+q10a_class_first_rank3	12960
+q10a_orient_idx	96
+q10a_decomposition	OK	(rank3 == class_first_rank3 + orient_idx)
+q10a_neighbor_prev_rank	13055
+q10a_forced_zero_under_kw_labels	NO
+# The anchor is NOT the O3-least object here, so the labelling does not force the orbit
+# rank to 0 and the quantity is a real unanswered question, not an empty one. Refusing
+# to call it vacuous is the whole point of measuring instead of asserting.

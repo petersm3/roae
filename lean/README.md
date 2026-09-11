@@ -222,8 +222,32 @@ when this directory held twelve files; `PruneReprFC.lean` landed 2026-08-15 and
 `SatEncodingFidelity.lean` on 2026-08-31, so there are now **fifteen** — six of twelve files —
 `TrigramTheorems`, `C3Decomposition`, `PruneExactness`, `PartitionInvariance`,
 `SymmetryCompleteness`, `PruneGInvariance` — failed with "Unknown constant" and the ~89
-directives **never executed**. `03c2a05` (2026-08-02) qualified every name; the re-run that
-would make those directives a live witness has not been performed yet.
+directives **never executed**. `03c2a05` (2026-08-02) qualified every name; ~~the re-run that
+would make those directives a live witness has not been performed yet.~~
+
+🔴 **CORRECTED 2026-09-10 — the re-run HAS been performed, and this sentence had been false for
+five weeks.** It was written when it was true and never revisited. Measured tonight on a fresh
+elan-pinned host (`leanprover/lean4:v4.31.0`, commit `68218e87`; freshness captured BEFORE any
+transfer — `elan` absent, `lean` not on PATH, a whole-filesystem search for `*.lean`/`*.olean`
+returning 0):
+
+    all 15 files: rc 0, stderr 0 bytes
+    stdout is EXACTLY the 123 in-file `#print axioms` lines
+    [propext] 48 · [propext, Classical.choice, Quot.sound] 32 · [propext, Quot.sound] 30
+    axiom-free 13 · anything else 0
+
+**So the directives are a live witness, not a dead one.** Independently, a module-wide census
+(`Lean.collectAxioms` over every non-internal constant of all 15 modules, **1,500 constants** — not
+only the directive sites) found **0** outside `[propext, Classical.choice, Quot.sound]`: `sorryAx`
+**0**, `Lean.ofReduceBool` **0**, `_native.native_decide` **0**.
+
+⚠ **The detector was shown able to fire before its silence was trusted:** an appended false `rfl`
+gives rc 1; an appended `sorry` gives **rc 0 with only a warning** — exit code alone is fail-open,
+which is why "stderr 0 bytes" is the load-bearing half — but `#print axioms` then reports
+`[sorryAx]`; and a `native_decide` control produces `<decl>._native.native_decide.ax_1_1` with **0**
+`ofReduceBool`.
+
+Evidence: `roae-private/lean_host7_evidence_2026_09_10/` (165 files).
 So: nothing in this section rests on the broken directives — a sweep of the markdown corpus
 on 2026-08-02 found no published sentence that cites them as its warrant — but nothing in it
 is re-confirmed by the directives either. The exposed claim, named rather than left for a
@@ -340,7 +364,7 @@ reproduced their D16 figures to within 0.03 GB):
 | `C3Decomposition.lean` | ~1 min 13 s | 4.5 GB |
 | `TrigramTheorems.lean` | ~1 min 55 s | 4.4 GB |
 | `PruneGInvariance.lean` | ~1 min 24 s | 3.9 GB |
-| `SatEncodingFidelity.lean` | ~7 s | 0.55 GB |
+| `SatEncodingFidelity.lean` | **0.85 s** (was "~7 s"; measured 0.85 / 0.70 / 0.80 s on three fresh hosts, 2026-09-10) | 0.55 GB |
 | `SymmetryCompleteness.lean` | ~22 s | 2.8 GB |
 | `C1RuleConstants.lean` | ~1 s | 0.7 GB |
 | the other five (`PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |

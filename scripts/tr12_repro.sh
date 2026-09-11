@@ -13,9 +13,13 @@
 #     walk at n=31 (both have a shell-only fallback or a loud SKIP);
 #   * `python3 solve.py --atlas-queries/--atlas-selftest` for the atlas consumer, as a SECOND
 #     implementation to cross-check the awk+bc legs against;
+#   * `python3 solve.py --kc-x-recheck` for row a1_q5, which is the TR-12 §Q5 TWO-LANGUAGE
+#     obligation itself: solve.c prints the extremal witness, solve.py re-evaluates Phi on it
+#     from its own formulas.  This one is NOT optional -- without it the Q5 numbers are, by the
+#     KC-X module header's own rule, not shippable, so the row SKIPS rather than passing;
 #   * `viz/report_figures.py` for the V1/V2/V4/V5 figures.
-# Every one of those is optional: if the interpreter, the module or matplotlib is absent, the row
-# reports SKIPPED with the reason instead of failing or, worse, quietly passing.
+# Every one of the others is optional: if the interpreter, the module or matplotlib is absent, the
+# row reports SKIPPED with the reason instead of failing or, worse, quietly passing.
 #
 # ---------------------------------------------------------------------------------------------
 # WHAT IT DOES
@@ -349,10 +353,15 @@ tok_record(){   # tok_record TOKEN STATUS ROWID
     else
         TOKROWS[$t]="${TOKROWS[$t]} $id"
         # FAIL dominates everything; a SKIPPED leg downgrades a PASS parent to SKIP.
+        # 🔴 N3, 2026-09-10: ERROR* joins FAIL* on BOTH sides. A measured-null producer that cannot
+        # take its measurement reports ERROR:<why> -- "I cannot tell" -- and that is a failure, not
+        # a pass. Before this, an ERROR-valued token was counted in NPASS and could be overwritten
+        # by a later leg, i.e. the one verdict that exists to say "do not trust this row" was the
+        # one verdict the driver ignored.
         case "${TOKSTATE[$t]}" in
-            FAIL*) : ;;
+            FAIL*|ERROR*) : ;;
             *)     case "$st" in
-                       FAIL*)         TOKSTATE[$t]="$st" ;;
+                       FAIL*|ERROR*)  TOKSTATE[$t]="$st" ;;
                        SKIP*|PENDING*) case "${TOKSTATE[$t]}" in SKIP*|PENDING*) : ;; *) TOKSTATE[$t]="SKIP:leg-$id-not-run" ;; esac ;;
                        *)             : ;;
                    esac ;;
@@ -439,7 +448,7 @@ row_end_val(){ # row_end_val TOKEN RC VALUE
         status="FAIL:output-mismatch"
     fi
     case "$status" in
-        FAIL*) NFAIL=$((NFAIL+1));  FAILED+=("$ROW_ID  $token  $status")
+        FAIL*|ERROR*) NFAIL=$((NFAIL+1));  FAILED+=("$ROW_ID  $token  $status")
                printf '  [FAIL] %-22s %-24s %s\n' "$ROW_ID" "$token" "$status" | tee -a "$LOG"
                [ -f "$DIFFDIR/$ROW_ID.diff" ] && head -40 "$DIFFDIR/$ROW_ID.diff" | tee -a "$LOG" ;;
         *)     NPASS=$((NPASS+1));  printf '  [ok  ] %-22s %-24s %s\n' "$ROW_ID" "$token" "$status" | tee -a "$LOG" ;;
@@ -488,6 +497,190 @@ ratio9(){  # ratio9 NUM DEN
     r=$(echo "(2*$n*1000000000 + $d) / (2*$d)" | bc) || { printf 'NA'; return; }
     echo "scale=9; $r/1000000000" | bc | sed 's/^\./0./'
 }
+
+# ================================================================================================
+# N3 — THE TWO MEASURED NULLS.  Q1c's conditioning interval, and Q10a's KW-orbit-rank leg.
+# ================================================================================================
+# WHY THEY EXIST. Both were carried as HAND-WRITTEN claims: `row_skip a0_q1c TR12_Q1C
+# "SKIP:merged-into-Q4AC"` and, in c_q10a's own header, the literal sentence "(iv) KW-orbit-rank:
+# DROPPED (no commanded source; 0 under KW-derived labels)". Neither had been checked by anything.
+# "SKIP" says WE DID NOT RUN IT and a prose "DROPPED" says nothing a reader can grep, but the real
+# state in both cases is WE COMPUTED IT AND THE ANSWER IS NOTHING -- the opposite epistemic
+# position, and the one worth publishing. A hand-typed `EMPTY` would be the same defect wearing a
+# better word, so each null gets a producer that can FAIL, and both are red-tested in both
+# directions by scripts/n3_measured_nulls_gate.sh.
+#
+# COST. Neither runs the engine. They read artifacts this battery has ALREADY written:
+#   a2_q1  --kc-o3-cert  ->  $ARTDIR/q1_rank.json
+#   a2_q3  --kc-o3-rank  ->  $ARTDIR/q3_profile.txt
+# Marginal cost at n=31 is zero, which is why they ride the pass that is already budgeted.
+#
+# VERDICT PROTOCOL. Each writes whole-line KEY=value verdicts to a file, matched with `grep -qx`;
+# neither signals through exit status or output shape. Values are:
+#   TR12_Q1C          EMPTY:interval-degenerate-at-n31 | NONEMPTY:interval-cardinality-<c> | ERROR:<why>
+#   TR12_Q10A_KWRANK  EMPTY:class-rank-uncomputable-under-kw-labels | NONVACUOUS:<why>
+#                     | COMPUTABLE:<why> | ERROR:<why>
+# ERROR is a first-class outcome: "I cannot tell" is honest and EMPTY is not, so a measurement
+# that cannot be taken says so. `tok_record`/`row_end_val` count an ERROR* token as a FAILURE.
+#
+# >>> N3-PRODUCERS-BEGIN  (scripts/n3_measured_nulls_gate.sh extracts everything between these two
+#     anchor lines verbatim and sources it; do not reformat the anchors.)
+
+# _n3_json_str FILE KEY -> the value of a JSON string field, or empty. Top-level scalars only.
+_n3_json_str(){ sed -n 's/^[[:space:]]*"'"$2"'": "\([^"]*\)".*/\1/p' "$1" | head -1; }
+# _n3_json_num FILE KEY -> the value of a JSON bare-number field, or empty.
+_n3_json_num(){ sed -n 's/^[[:space:]]*"'"$2"'": \([0-9][0-9]*\),*[[:space:]]*$/\1/p' "$1" | head -1; }
+# _n3_is_dec S -> true iff S is a non-empty run of decimal digits (192-bit safe: never arithmetic).
+_n3_is_dec(){ case "${1:-}" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
+
+# q1c_interval_measure CERT_JSON O3RANK_TXT VERDICT_FILE
+#
+# Measures the CARDINALITY of Q1c's conditioning interval [0, rank_O3(anchor)) -- the set Q1c
+# draws its M samples from. That cardinality IS rank_O3(anchor), because O3 is a bijection onto
+# [0, N); so the interval is empty exactly when the anchor is the O3-least object in the universe.
+# At n=31 the anchor is King Wen and the O3 labels ARE King Wen's own pair table (QUERY_INVENTORY
+# 9.1), which forces rank 0 -- but that is the argument, not the measurement, and this row exists
+# so the battery does not have to take the argument's word for it.
+#
+# THREE WITNESSES, because one source that agrees with itself proves nothing:
+#   A  rank3 from --kc-o3-cert's certificate JSON
+#   B  rank3 from --kc-o3-rank's transcript (a different subcommand, a different code path)
+#   C  the certificate's own neighbour bracket: rank 0 has NO predecessor (neighbor_prev_rank
+#      NONE); rank r>0 must have exactly r-1. A rank that claims 0 while naming a predecessor is
+#      a defect, and this is the leg that catches it.
+# Any disagreement, any missing input, any rank outside [0, N) -> ERROR. Never EMPTY.
+q1c_interval_measure(){   # CERT_JSON  O3RANK_TXT  VERDICT_FILE
+    local cert="$1" o3txt="$2" vf="$3" ra rb prev ntot exp
+    _n3_q1c_err(){ printf 'q1c_error\t%s\n' "$1"
+                   printf 'Q1C_CARD\tNA\nq1c_verdict\tERROR\n'
+                   printf 'TR12_Q1C=ERROR:%s\n' "$2" > "$vf"; }
+    : > "$vf"
+    echo "# Q1(c) — the conditioning interval [0, rank_O3(anchor)) is MEASURED, not assumed."
+    echo "# Sources: A = --kc-o3-cert JSON (row a2_q1); B = --kc-o3-rank transcript (row a2_q3);"
+    echo "# C = the certificate's own predecessor witness. Disagreement is an ERROR, never an EMPTY."
+    [ -s "$cert" ]  || { _n3_q1c_err "no --kc-o3-cert certificate to read" "cert-absent";  return 0; }
+    [ -s "$o3txt" ] || { _n3_q1c_err "no --kc-o3-rank transcript to read"  "o3rank-absent"; return 0; }
+    ra=$(_n3_json_str "$cert" rank3)
+    rb=$(awk -F'\t' '$1=="rank3"{print $2; exit}' "$o3txt")
+    prev=$(_n3_json_str "$cert" neighbor_prev_rank)
+    ntot=$(_n3_json_str "$cert" N_total)
+    _n3_is_dec "$ra" || { _n3_q1c_err "source A has no decimal rank3 (got '${ra:-}')" "cert-rank-unparsed"; return 0; }
+    _n3_is_dec "$rb" || { _n3_q1c_err "source B has no decimal rank3 (got '${rb:-}')" "o3rank-unparsed"; return 0; }
+    printf 'q1c_rank_A_kc_o3_cert\t%s\n' "$ra"
+    printf 'q1c_rank_B_kc_o3_rank\t%s\n' "$rb"
+    if [ "$ra" != "$rb" ]; then
+        printf 'q1c_sources_agree\tNO\n'
+        _n3_q1c_err "the two engine subcommands disagree about rank_O3(anchor): A=$ra B=$rb" "sources-disagree"; return 0
+    fi
+    printf 'q1c_sources_agree\tYES\n'
+    if [ "$ra" = "0" ]; then exp="NONE"; else exp=$(echo "$ra - 1" | bc 2>/dev/null); fi
+    printf 'q1c_predecessor_witness\t%s\t(expected %s)\n' "${prev:-<absent>}" "$exp"
+    if [ "${prev:-}" != "$exp" ]; then
+        _n3_q1c_err "the bracket contradicts the rank: rank3=$ra but neighbor_prev_rank='${prev:-<absent>}', expected '$exp'" "predecessor-witness-contradicts-rank"; return 0
+    fi
+    if _n3_is_dec "$ntot"; then
+        printf 'q1c_universe_N\t%s\n' "$ntot"
+        if [ "$(echo "$ra < $ntot" | bc)" != "1" ]; then
+            _n3_q1c_err "rank3=$ra is not inside [0, N=$ntot); a rank outside its own universe is not a rank" "rank-outside-universe"; return 0
+        fi
+    else
+        _n3_q1c_err "the certificate carries no decimal N_total, so [0, N) cannot be bounded" "universe-size-unparsed"; return 0
+    fi
+    printf 'q1c_interval\t[0, %s)\n' "$ra"
+    printf 'Q1C_CARD\t%s\n' "$ra"
+    if [ "$ra" = "0" ]; then
+        printf 'q1c_verdict\tEMPTY\n'
+        printf '# The interval is degenerate: the anchor IS the O3-least object, so there is nothing\n'
+        printf '# below it to draw from and P(C3 <= T | rank < rank(anchor)) has no conditioning set.\n'
+        printf '# This is a RESULT, not a skip; the estimate that would consume the interval is not run\n'
+        printf '# because it has been MEASURED to have no input, not because it was descoped.\n'
+        printf 'TR12_Q1C=EMPTY:interval-degenerate-at-n31\n' > "$vf"
+    else
+        printf 'q1c_verdict\tNONEMPTY\n'
+        printf 'TR12_Q1C=NONEMPTY:interval-cardinality-%s\n' "$ra" > "$vf"
+    fi
+    return 0
+}
+
+# q10a_kwrank_measure CERT_JSON VERDICT_FILE
+#
+# Q10a's KW-orbit-rank leg -- "KW's orbit's rank among the 24-orbits" -- was dropped for TWO
+# stated reasons, and until now neither was checked by anything:
+#   (1) NOT COMPUTED. The o3-cert says so in its own words (class_rank_note: "class-rank =
+#       distinct records preceding, NOT computed") and, more to the point, carries no field that
+#       supplies one. Leg 1 asserts the ABSENCE by enumerating the field names that would end it,
+#       so the day the engine grows one this row stops saying EMPTY instead of going stale.
+#   (2) VACUOUS UNDER KW-DERIVED LABELS. If rank_O3(anchor) = 0 the anchor is the O3-least object
+#       in the universe, so its 24-orbit contains the global minimum and no orbit can precede it:
+#       the orbit rank is FORCED to 0 by the labelling, whatever a producer would compute. Leg 2
+#       measures that forcing (rank3, class_first_rank3 and orient_idx all 0, and no predecessor)
+#       rather than asserting it -- and at n<31, where the labels are not anchor-derived, it
+#       measures that the forcing does NOT hold and refuses to call the quantity vacuous.
+# EMPTY needs BOTH. Leg 1 alone would be "no one has computed it"; leg 2 alone would be "it is 0".
+q10a_kwrank_measure(){    # CERT_JSON  VERDICT_FILE
+    local cert="$1" vf="$2" note keys k hit r c o prev sum
+    local forbidden="class_rank orbit_rank orbit_index orbit_rank3 class_rank3 kw_orbit_rank record_rank"
+    _n3_q10a_err(){ printf 'q10a_error\t%s\n' "$1"; printf 'q10a_verdict\tERROR\n'
+                    printf 'TR12_Q10A_KWRANK=ERROR:%s\n' "$2" > "$vf"; }
+    : > "$vf"
+    echo "# Q10(a) KW-orbit-rank — the DROPPED leg, MEASURED. Two reasons were asserted in prose"
+    echo "# (no commanded source; 0 under KW-derived labels); both are checked here, and EMPTY needs both."
+    [ -s "$cert" ] || { _n3_q10a_err "no --kc-o3-cert certificate to read" "cert-absent"; return 0; }
+
+    # ---- leg 1: the instrument does not supply a class/orbit rank ------------------------------
+    note=$(_n3_json_str "$cert" class_rank_note)
+    keys=$(grep -o '^[[:space:]]*"[A-Za-z0-9_]*":' "$cert" | sed 's/[^"]*"//; s/"://' | sort -u)
+    hit=""
+    for k in $forbidden; do printf '%s\n' "$keys" | grep -qx "$k" && hit="$hit $k"; done
+    printf 'q10a_class_rank_note\t%s\n' "$(case "$note" in *"NOT computed"*) echo "present, says NOT computed" ;; "") echo "ABSENT" ;; *) echo "present, does NOT say NOT computed" ;; esac)"
+    printf 'q10a_rank_fields_searched\t%s\n' "$forbidden"
+    printf 'q10a_rank_fields_present\t%s\n' "$(printf '%s' "${hit:-NONE}" | sed 's/^ //')"
+    if [ -n "$hit" ]; then
+        printf 'q10a_verdict\tCOMPUTABLE\n'
+        printf '# The certificate now supplies a class/orbit rank, so "not computed" is no longer true\n'
+        printf '# and this leg must be RE-SPECIFIED rather than reported as an empty result.\n'
+        printf 'TR12_Q10A_KWRANK=COMPUTABLE:cert-supplies%s\n' "$(printf '%s' "$hit" | tr ' ' '-')" > "$vf"
+        return 0
+    fi
+    case "$note" in
+        *"NOT computed"*) : ;;
+        "") _n3_q10a_err "the certificate carries no class_rank_note, so its own statement about class-rank cannot be read" "class-rank-note-absent"; return 0 ;;
+        *)  _n3_q10a_err "class_rank_note no longer says 'NOT computed' (reads: $note)" "class-rank-note-changed"; return 0 ;;
+    esac
+
+    # ---- leg 2: the rank is FORCED to 0 by the labelling ---------------------------------------
+    r=$(_n3_json_str "$cert" rank3); c=$(_n3_json_str "$cert" class_first_rank3)
+    o=$(_n3_json_num "$cert" orient_idx); prev=$(_n3_json_str "$cert" neighbor_prev_rank)
+    _n3_is_dec "$r" || { _n3_q10a_err "no decimal rank3 in the certificate (got '${r:-}')" "rank3-unparsed"; return 0; }
+    _n3_is_dec "$c" || { _n3_q10a_err "no decimal class_first_rank3 in the certificate (got '${c:-}')" "class-first-rank3-unparsed"; return 0; }
+    _n3_is_dec "$o" || { _n3_q10a_err "no decimal orient_idx in the certificate (got '${o:-}')" "orient-idx-unparsed"; return 0; }
+    printf 'q10a_rank3\t%s\nq10a_class_first_rank3\t%s\nq10a_orient_idx\t%s\n' "$r" "$c" "$o"
+    sum=$(echo "$c + $o" | bc 2>/dev/null)
+    if [ "$sum" != "$r" ]; then
+        printf 'q10a_decomposition\tBROKEN\n'
+        _n3_q10a_err "rank3 != class_first_rank3 + orient_idx ($r != $c + $o); the certificate is internally inconsistent and nothing may be concluded from it" "cert-decomposition-broken"; return 0
+    fi
+    printf 'q10a_decomposition\tOK\t(rank3 == class_first_rank3 + orient_idx)\n'
+    printf 'q10a_neighbor_prev_rank\t%s\n' "${prev:-<absent>}"
+    if [ "$r" = "0" ]; then
+        if [ "$c" != "0" ] || [ "$o" != "0" ] || [ "${prev:-}" != "NONE" ]; then
+            _n3_q10a_err "rank3 is 0 but the certificate does not agree it is the least object (class_first_rank3=$c orient_idx=$o neighbor_prev_rank='${prev:-<absent>}')" "least-object-witnesses-disagree"; return 0
+        fi
+        printf 'q10a_forced_zero_under_kw_labels\tYES\n'
+        printf '# The anchor is the O3-least object, so its 24-orbit contains the global minimum and no\n'
+        printf '# orbit precedes it: the orbit rank is 0 by construction of the labels, and a producer\n'
+        printf '# for it could only recover the same 0. The quantity is not missing; it is vacuous.\n'
+        printf 'TR12_Q10A_KWRANK=EMPTY:class-rank-uncomputable-under-kw-labels\n' > "$vf"
+    else
+        printf 'q10a_forced_zero_under_kw_labels\tNO\n'
+        printf '# The anchor is NOT the O3-least object here, so the labelling does not force the orbit\n'
+        printf '# rank to 0 and the quantity is a real unanswered question, not an empty one. Refusing\n'
+        printf '# to call it vacuous is the whole point of measuring instead of asserting.\n'
+        printf 'TR12_Q10A_KWRANK=NONVACUOUS:anchor-is-not-the-o3-least-object\n' > "$vf"
+    fi
+    return 0
+}
+# <<< N3-PRODUCERS-END
 
 # ================================================================================================
 # RUN HEADER
@@ -577,7 +770,8 @@ row_end TR12_Q7_KW $rc
 
 # ---- A0.3b Q7 leg 2: the three historical arrangements.  Their hexagram lists live in the
 #            repo's existing solve.py; there is no --check-arrangement name lookup, so this is
-#            the one python3 call in the battery (QUERY_INVENTORY §2 row Q7). --------------------
+#            a python3 call (QUERY_INVENTORY §2 row Q7).  It was the ONLY one until the Q5
+#            two-language re-check landed in row a1_q5, 2026-09-10. ---------------------------
 if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
    && PYTHONPATH="$REPO_ROOT" python3 -c 'import solve' >/dev/null 2>&1; then
     row_begin a0_q7_hist
@@ -761,7 +955,15 @@ row_end TR12_LS_W0_COND_MC $rc
 
 # ---- A0.6  the writing-only rows.  They have no command, so this driver cannot attest them.
 #            Reported as skipped with the reason, never folded into a PASS. --------------------
-row_skip a0_q1c       TR12_Q1C       "SKIP:merged-into-Q4AC" "DESCOPED 2026-09-04 (QUERY_INVENTORY 9.2): the interval [0, rank_O3(KW)) is EMPTY at full-31, and P(C3 <= 387 | SUPER) is a column of Q4a/c at M=1e6. Emitted EXPLICITLY so the descoping is visible in VERDICTS.txt -- previously this row simply vanished, and a reader could not tell a ruled descope from a forgotten or silently-failed query"
+# 🔴 N3, 2026-09-10. TR12_Q1C USED TO BE DECLARED HERE, as a row_skip carrying the hand-typed
+# value "SKIP:merged-into-Q4AC" and the sentence "the interval [0, rank_O3(KW)) is EMPTY at
+# full-31". That sentence was TRUE and NOTHING CHECKED IT: a program was emitting an
+# absence-claim about a quantity it had never looked at, which is this project's dominant
+# defect wearing the word SKIP. The claim now belongs to row a2_q1c, which MEASURES the
+# interval from two engine subcommands and a bracket witness and emits
+# EMPTY:interval-degenerate-at-n31 only when the measurement says so -- and ERROR when it
+# cannot say. It is not declared in A0 any more because A0 has no ladder and therefore no
+# certificate to read, and a verdict has to be produced where its evidence lives.
 row_skip a0_q9        TR12_Q9        "SKIP:doc-only" "DOC-only: Q9 is certified restatement of the reportable negatives (tr12/q9_negatives.md); no executable command exists to diff"
 # F-5 D13 (2026-09-08): this reason used to assert that lean/C1RuleConstants.lean is NOT an ancestor of
 # this branch. It has been on main since e9490e16 (QUERY_INVENTORY §3.3, corrected 2026-09-05), so the
@@ -1183,15 +1385,31 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. Pass --wave3 to run it anyway."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
+elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
+     || ! PYTHONPATH="$REPO_ROOT" python3 -c 'import solve' >/dev/null 2>&1; then
+    # 🔴 THE ROW SKIPS RATHER THAN RUNS WITHOUT THE SECOND LANGUAGE. The KC-X module header makes
+    # the solve.py re-check a SHIPPING CONDITION of every Q5 number ("no Q5 number ships without
+    # it"), so a run that produces the numbers and cannot re-check them has not reproduced the
+    # row -- it has produced an unshippable artifact. Announcing that as a skip is the honest
+    # verdict; announcing it as a pass would be the exact defect this battery exists to prevent.
+    row_skip a1_q5 TR12_Q5 "SKIP:python3-unavailable" \
+      "python3+solve.py unavailable — the TR-12 Q5 two-language obligation (solve.py --kc-x-recheck) cannot be discharged, so the extremal numbers are not shippable and the row is NOT run"
 else
     row_begin a1_q5
     (
       erc=0
+      # Every run writes a certificate, and solve.py re-evaluates every one of them below. This
+      # is the TR-12 §Q5 TWO-LANGUAGE OBLIGATION, landed 2026-09-10 (N2; Codex KCQ03 #1, Fable
+      # review 2026-09-09 F2). Before that date the registry's py_ref column named three solve.py
+      # functions that did not exist and no artifact in the tree performed the check at all.
+      CERTDIR="$WORK/q5certs"; rm -rf "$CERTDIR"; mkdir -p "$CERTDIR" || erc=1
       "$SOLVE" --kc-extremal list || erc=1
       for f in $("$SOLVE" --kc-extremal list 2>/dev/null | awk -F'\t' 'NR>1 && $1 !~ /^#/ && $1 !~ /=/ && $1!="" {print $1}'); do
           for dir in max min; do
               echo "### $f $dir"
-              "$SOLVE" --kc-extremal "$f" "$FDIR" "$dir" --kc-witness --kc-gdir "$GDIR" ; frc=$?
+              cert="$CERTDIR/$(printf '%s' "$f" | tr -c 'A-Za-z0-9_' '_')_$dir.json"
+              "$SOLVE" --kc-extremal "$f" "$FDIR" "$dir" --kc-witness --kc-gdir "$GDIR" \
+                       --kc-json "$cert" ; frc=$?
               echo "### $f $dir rc=$frc"
               # posyang0 is the negative control: it MUST trip KC_EXTREMAL_INVARIANT=no and exit
               # non-zero. Any other functional exiting non-zero is a real failure.
@@ -1202,6 +1420,16 @@ else
               fi
           done
       done
+      # The second language. solve.py re-evaluates Phi on each printed witness from its OWN
+      # formulas (_dist_multiset / _boundary_distances / _yang_count) and requires it to equal
+      # the certificate's extreme_value AND witness_value. KC_X_PYCHECK=ERROR (nothing was
+      # re-checked) fails the row exactly like KC_X_PYCHECK=FAIL: a check that measured nothing
+      # must never read as agreement.
+      echo "### two-language re-check (solve.py --kc-x-recheck)"
+      ( cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" python3 solve.py --kc-x-recheck \
+            "$CERTDIR"/*.json ) ; prc=$?
+      echo "### two-language re-check rc=$prc"
+      [ "$prc" -eq 0 ] || erc=1
       exit $erc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q5 $rc
@@ -1598,57 +1826,75 @@ else
     row_skip a2_q7_ranks TR12_Q7_RANKS "SKIP:reduced-universe" "the historical arrangements are 64-hexagram objects; they have no image in the reduced n=$N_PAIRS universe"
 fi
 
-# ---- A2.9  Q1(c) the C15 rank estimate.  QUERY_INVENTORY §3.5: --kc-sample draws over ALL of
-#            SUPER and has no rank-range argument, so the "[0, rank_O3(anchor))" restriction is
-#            post-filter arithmetic here.  The REALISED M is reported, never the requested M.
-#            Note --kc-sample --kc-c3-max returns exactly M accepted draws and does NOT report
-#            its rejection rate, so p-hat is taken from the UNFILTERED draws' cd column. --------
-# D5-01 (2026-09-05): at full-31 this row is GUARANTEED TO FAIL, after burning 3-5 h first.
-# rank_O3(KW) = 0 by the labeling theorem (QUERY_REDESIGNS_Q394_2026_08_29.md section 1), so the
-# awk keep-test "a < RANCH" can never hold, m stays 0, and the row exits 1 with Q1C_FAIL --
-# taking TR12_REPRO with it. The exit is downstream of the Q1CM-draw descent loop, so the cost is
-# paid in full before the guaranteed failure. Q-394 section 2 already ruled the row
-# SKIP:merged-into-Q4AC and recorded the change as "handed over, not done"; this is the landing.
-# The n=9 leg is kept: there rank_O3(anchor) > 0 and the row is a live fixture.
-if [ "${N_PAIRS:-0}" -ge 31 ]; then
-  row_skip a2_q1c TR12_Q1C "SKIP:merged-into-Q4AC" \
-    "SKIP:merged-into-Q4AC - at n>=31 rank_O3(KW)=0 by the labeling theorem, so no draw can fall below the anchor rank and the row can only emit Q1C_FAIL; superseded by Q4(a)/(c) per Q-394 section 2. Runs normally at n<31."
-else
-  row_begin a2_q1c
-  (
-    RANCH=$("$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$ANCHOR" 2>/dev/null | awk -F'\t' '$1=="rank3"{print $2}')
-    if [ -z "$RANCH" ]; then echo "could not obtain rank_O3(anchor)"; exit 1; fi
-    echo "# Q1(c) — labelled ESTIMATE with binomial CI. Space: C15 rank is NOT exactly computable."
-    echo "rank_O3_anchor	$RANCH"
-    echo "requested_M	$Q1CM"
-    "$SOLVE" --kc-sample "$FDIR" "$Q1CM" "$SEED" 2>/dev/null > "$WORK/q1c.raw" || exit 1
-    : > "$WORK/q1c.ranks"
-    while IFS=$'\t' read -r _r _cd walk; do
-        case "$_r" in ''|*[!0-9]*) continue ;; esac
-        cd_v=${_cd#cd=}
-        o3=$("$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$walk" 2>/dev/null | awk -F'\t' '$1=="rank3"{print $2}')
-        [ -n "$o3" ] && printf '%s\t%s\n' "$o3" "$cd_v" >> "$WORK/q1c.ranks"
-    done < "$WORK/q1c.raw"
-    awk -F'\t' -v R="$RANCH" -v T="$C3MAX" '
-      { drawn++
-        # decimal-string compare: shorter is smaller; equal length falls back to lexicographic
-        a=$1 ""; r=R ""
-        keep = (length(a)<length(r)) || (length(a)==length(r) && a<r)
-        if (keep) { m++; if ($2+0<=T) le++ } }
-      END{
-        printf "drawn_M\t%d\n", drawn
-        printf "realised_M_in_rank_prefix\t%d\n", m
-        if (m==0) { printf "Q1C_FAIL\tno draw fell below the anchor rank; CI undefined\n"; exit 1 }
-        p=le/m; z=1.959964; d=1+z*z/m; c=(p+z*z/(2*m))/d
-        hw=z*sqrt(p*(1-p)/m + z*z/(4*m*m))/d
-        printf "p_hat_C15_given_rank_lt_anchor\t%.8f\n", p
-        printf "wilson95_lo\t%.8f\nwilson95_hi\t%.8f\n", (c-hw<0?0:c-hw), (c+hw>1?1:c+hw)
-        printf "label\tESTIMATE +- binomial CI at the REALISED M (never the requested M)\n"
-      }' "$WORK/q1c.ranks"
-  ) >>"$RAW" 2>&1; rc=$?
-  cp "$RAW" "$ARTDIR/q1_c15_estimate.tsv"
-  row_end TR12_Q1C $rc
-fi
+# ---- A2.9  Q1(c).  QUERY_INVENTORY §3.5: --kc-sample draws over ALL of SUPER and has no
+#            rank-range argument, so the "[0, rank_O3(anchor))" restriction is post-filter
+#            arithmetic here.  The REALISED M is reported, never the requested M.  Note
+#            --kc-sample --kc-c3-max returns exactly M accepted draws and does NOT report its
+#            rejection rate, so p-hat is taken from the UNFILTERED draws' cd column.
+#
+# 🔴 N3, 2026-09-10 — THE INTERVAL IS MEASURED FIRST, AND THAT MEASUREMENT IS THE VERDICT.
+# Until today this row was guarded by `[ "$N_PAIRS" -ge 31 ]` and, above that threshold, emitted
+# the hand-typed token SKIP:merged-into-Q4AC. The guard was right about the COST -- at n>=31 the
+# awk keep-test `a < RANCH` can never hold, so the row could only reach Q1C_FAIL after burning the
+# 3-5 h descent loop (D5-01, 2026-09-05) -- but it was a PROXY for the real reason, and it
+# published that reason as a claim no program had checked.
+#
+# The real reason is a number: rank_O3(anchor). O3 is a bijection onto [0, N), so the cardinality
+# of the conditioning interval [0, rank_O3(anchor)) IS that rank, and the interval is empty
+# exactly when the anchor is the O3-least object. At n=31 the O3 labels are King Wen's own pair
+# table, which forces rank 0 (QUERY_INVENTORY §9.1) -- so the answer to Q1c at full-31 is not
+# "we did not run it", it is "we ran it and the conditioning set is empty". q1c_interval_measure
+# establishes that from --kc-o3-cert, --kc-o3-rank and the neighbour bracket, all three already
+# on disk, and the expensive draw loop runs only when the interval it draws from has been
+# measured to be non-empty. n<31 is unchanged: there the anchor is not O3-least, the interval
+# has 13056 elements at n=9, and the estimate runs exactly as before -- which is also this row's
+# standing negative control, executed on every n=9 run of the battery.
+row_begin a2_q1c
+Q1C_VF="$WORK/q1c_verdict.txt"
+q1c_interval_measure "$ARTDIR/q1_rank.json" "$ARTDIR/q3_profile.txt" "$Q1C_VF" >>"$RAW" 2>&1
+Q1C_VAL=$(sed -n 's/^TR12_Q1C=//p' "$Q1C_VF" | head -1)
+case "${Q1C_VAL:-}" in
+  NONEMPTY:*)
+    (
+      RANCH=$(awk -F'\t' '$1=="Q1C_CARD"{print $2; exit}' "$RAW")
+      echo "# Q1(c) — labelled ESTIMATE with binomial CI. Space: C15 rank is NOT exactly computable."
+      echo "rank_O3_anchor	$RANCH"
+      echo "requested_M	$Q1CM"
+      "$SOLVE" --kc-sample "$FDIR" "$Q1CM" "$SEED" 2>/dev/null > "$WORK/q1c.raw" || exit 1
+      : > "$WORK/q1c.ranks"
+      while IFS=$'\t' read -r _r _cd walk; do
+          case "$_r" in ''|*[!0-9]*) continue ;; esac
+          cd_v=${_cd#cd=}
+          o3=$("$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$walk" 2>/dev/null | awk -F'\t' '$1=="rank3"{print $2}')
+          [ -n "$o3" ] && printf '%s\t%s\n' "$o3" "$cd_v" >> "$WORK/q1c.ranks"
+      done < "$WORK/q1c.raw"
+      awk -F'\t' -v R="$RANCH" -v T="$C3MAX" '
+        { drawn++
+          # decimal-string compare: shorter is smaller; equal length falls back to lexicographic
+          a=$1 ""; r=R ""
+          keep = (length(a)<length(r)) || (length(a)==length(r) && a<r)
+          if (keep) { m++; if ($2+0<=T) le++ } }
+        END{
+          printf "drawn_M\t%d\n", drawn
+          printf "realised_M_in_rank_prefix\t%d\n", m
+          if (m==0) { printf "Q1C_FAIL\tno draw fell below the anchor rank; CI undefined\n"; exit 1 }
+          p=le/m; z=1.959964; d=1+z*z/m; c=(p+z*z/(2*m))/d
+          hw=z*sqrt(p*(1-p)/m + z*z/(4*m*m))/d
+          printf "p_hat_C15_given_rank_lt_anchor\t%.8f\n", p
+          printf "wilson95_lo\t%.8f\nwilson95_hi\t%.8f\n", (c-hw<0?0:c-hw), (c+hw>1?1:c+hw)
+          printf "label\tESTIMATE +- binomial CI at the REALISED M (never the requested M)\n"
+        }' "$WORK/q1c.ranks"
+    ) >>"$RAW" 2>&1; rc=$?
+    Q1C_VAL="PASS" ;;
+  EMPTY:*|ERROR:*)
+    rc=0 ;;
+  *)
+    # The producer wrote nothing matchable. That is itself an unmeasured state, not a pass.
+    echo "q1c_error	q1c_interval_measure produced no TR12_Q1C= line" >>"$RAW"
+    Q1C_VAL="ERROR:producer-emitted-no-verdict"; rc=0 ;;
+esac
+cp "$RAW" "$ARTDIR/q1_c15_estimate.tsv"
+row_end_val TR12_Q1C $rc "$Q1C_VAL"
 
 # ---- A2.10 the f.g cut identity at every layer.  At full-31 this is a ~24 h single-threaded
 #            FULL LADDER PASS, not a point query — it stays behind --with-gcheck. --------------
@@ -1870,7 +2116,8 @@ else
     (
       echo "# Q10(a) — (i) the N/24 identity, stated once; (ii) the per-layer mod-24 gate; (iii) the per-layer"
       echo "# STATE census by G-orbit-size class + branching histogram, transcribed from the f-ladder sidecars."
-      echo "# (iv) KW-orbit-rank: DROPPED (no commanded source; 0 under KW-derived labels). Q-394 §5 / D5-08."
+      echo "# (iv) KW-orbit-rank: MEASURED separately as TR12_Q10A_KWRANK (row c_q10a_kwrank, N3 2026-09-10);"
+      echo "# this line used to ASSERT it was dropped. Q-394 §5 / D5-08."
       echo "N_div_24	$N_DIV24	# = N/24, the RECORD-level orbit identity. NOT the number of walk-orbits: 24 is the record-level divisor, and at the orientation-explicit sequence level orbits have size 48, so N/24 is 2x the sequence-orbit count (TR-11 sec2 precision note; measured n=9: 544 walk-orbits, N/24 = 1088). Identical at every layer because every layer flow == N (gated in c_atlas)"
       echo "## per-layer flow mod-24 gate (atlas layers[k].flow)"
       echo -e "k\tflow\tflow_mod_24"
@@ -1908,6 +2155,31 @@ else
     ) >>"$RAW" 2>&1; rc=$?
     cp "$RAW" "$ARTDIR/q10_orbit_census.tsv"
     row_end TR12_Q10A $rc
+
+    # ---- C.5b Q10(a) KW-ORBIT-RANK — the dropped leg, given a token and a producer (N3, 2026-09-10).
+    #      Line (iv) of the row above used to be the whole treatment: a comment reading "KW-orbit-rank:
+    #      DROPPED (no commanded source; 0 under KW-derived labels)". Both halves of that were true and
+    #      neither was checked, and prose in a golden is not a verdict a reader can grep -- so from
+    #      outside, "dropped" was indistinguishable from "forgotten". It now has its own whole-line
+    #      token, and the token is EMPTY only when both halves are MEASURED to hold:
+    #        (1) the o3-cert supplies no class/orbit rank (checked by field name, so a future producer
+    #            ENDS the null instead of aging it into a lie), and
+    #        (2) rank_O3(anchor) = 0, which forces the orbit rank to 0 whatever a producer computed.
+    #      TR12_Q10A itself is deliberately NOT relabelled: that row measures four live things (N/24,
+    #      the per-layer mod-24 gate, the sidecar state census, the last-layer mass identity) and is
+    #      pinned PASS/FAIL by scripts/a2_slot_verdict_gate.sh. Calling it EMPTY would be a worse
+    #      conflation than the one this change exists to remove.
+    #      Zero marginal cost: it re-reads a2_q1's certificate and runs nothing.
+    row_begin c_q10a_kwrank
+    Q10AKW_VF="$WORK/q10a_kwrank_verdict.txt"
+    q10a_kwrank_measure "$ARTDIR/q1_rank.json" "$Q10AKW_VF" >>"$RAW" 2>&1
+    Q10AKW_VAL=$(sed -n 's/^TR12_Q10A_KWRANK=//p' "$Q10AKW_VF" | head -1)
+    if [ -z "${Q10AKW_VAL:-}" ]; then
+        echo "q10a_error	q10a_kwrank_measure produced no TR12_Q10A_KWRANK= line" >>"$RAW"
+        Q10AKW_VAL="ERROR:producer-emitted-no-verdict"
+    fi
+    cp "$RAW" "$ARTDIR/q10_kwrank.tsv"
+    row_end_val TR12_Q10A_KWRANK 0 "$Q10AKW_VAL"
 
     # ---- C.6 Q6 (REDUCED FORM, QUERY_INVENTORY §3.1) + the anchor's per-layer class statistics -----
     #      The atlas carries per-layer per-DISTANCE-CLASS mass, not per-(state,choice) mass.  The

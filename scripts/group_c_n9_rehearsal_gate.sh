@@ -168,13 +168,22 @@ if [ "$(grep -c 'def atlas_queries' "$WORK/consumer_region.py")" -eq 0 ]; then
   die "could not locate the atlas-consumer region in solve.py -- the ratchet would measure nothing"
 fi
 NG=$(grep -cE 'n *[!=]= *31' "$WORK/consumer_region.py")
-# Pinned at the MEASURED count, 2026-09-09. Four guards, ALL of them now visible:
+# Pinned at the MEASURED count, raised 4 -> 5 on 2026-09-10. Five guards, ALL of them visible:
 #   `if "a5" in sel and n != 31:`  -> emits TR12_A5_ORBIT_COLUMNS/_MEMBERSHIP = SKIP:n=<n>
 #   `if "a5" in sel and n == 31:`  -> the real A5 work
 #   two `if n != 31:` that `return ("SKIP:n=%s", ...)`  -> A2 slot, A3 external
+#   `if n != 31: return None` in `_a5_inventory_defect`  -> the A-5 COMPLETE-INVENTORY rule
+#     (RCQ04 finding 5, 2026-09-10). A-5 graded whatever subset of pairs the field happened to
+#     carry and never asked whether it was complete: {pair3, pair7, pair11} alone passed both
+#     checks. The union over layers must be exactly pair1..pair31 -- but ONLY at full-31, because
+#     at reduced n the free-pair subset is a proper subset by construction (the real n=9 atlas's
+#     union is nine pairs, three whole orbits), so requiring it there would be a gate with no
+#     producer. That is precisely a path n=9 cannot rehearse, which is what this ratchet counts.
+#     The guard is deliberately written `n != 31` rather than `atlas.get("n") != 31` so this
+#     grep can see it; a guard the ratchet cannot count is a guard the ratchet does not hold.
 # It went 3 -> 4 when the a5 skip branch was added, and this ratchet FAILED until the pin was
 # raised in the same change -- which is the ratchet working on its own author, not against them.
-PIN=${GROUPC_N31_GUARDS:-4}
+PIN=${GROUPC_N31_GUARDS:-5}
 if [ "$NG" -gt "$PIN" ]; then
   say "[FAIL] $NG 'n == 31' guard(s) in the atlas consumer, pinned at $PIN. A new one is a new"
   say "       path n=9 cannot rehearse. Declare it in Gate 3 and raise the pin IN THE SAME CHANGE."

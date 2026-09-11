@@ -95,7 +95,7 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
   2026-04-19 binary, which checked **C1, C2, C4, C5 only** — its results block has no `C3 failures`
   line. The per-constraint C3 check was added to `--verify` on 2026-05-05 (commit `1267a8e`,
   "solve.c: add C3 complement-distance check to --verify"), 16 days after this run, and the current
-  summary string reads `satisfy C1-C5 (incl. C3)` (solve.c:19522) — a different string from the one
+  summary string reads `satisfy C1-C5 (incl. C3)` (solve.c:19704) — a different string from the one
   quoted above. So the quoted `--verify` line, and the "All records C1-C5 valid" bullet above,
   rest on four conjuncts, not five, **as far as `verify_output.log` is concerned**.
   C3 is nevertheless verified for this artifact, by a different instrument in this same directory:

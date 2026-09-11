@@ -12389,8 +12389,36 @@ def _xa_node_mapping_cert_defect(path):
     # this key is `solve --kc-t-cert`, which writes the disclaimer refused above. So this cannot
     # break a real certificate; there are none. It fixes the grammar before W0-D's producer exists,
     # rather than after something starts depending on the gap.
+    # 🔴 THE PREFIX IS NOT THE CLAIM, 2026-09-10 (RCQ04 finding 2, MEASURED).
+    # This was `startswith(_XA_CERT_CLAIM_PREFIX)` alone, added 2026-09-09 to close RCQ02 F2 --
+    # and it accepted the BARE PREFIX. Measured on this function:
+    #     {"solve_node_limit_mapping": "CERTIFIED:"}     -> returned None  (authorised)
+    #     {"solve_node_limit_mapping": "CERTIFIED:   "}  -> returned None  (authorised)
+    # so a certificate that states nothing at all authorised an EXHAUSTIBLE verdict, which is the
+    # exact class RCQ02 F2 was about (`false`, `null`, `""` and `"FAIL"` were refused; the empty
+    # claim was not). Yesterday's fix required the SHAPE of an assertion and never required it to
+    # ASSERT anything -- a positive grammar with no positive content.
+    # A claim must now carry non-whitespace text after the prefix. The threshold is deliberately
+    # "not empty" rather than a length or keyword test: the W0-D producer does not exist yet, and a
+    # stricter rule invented here would be a gate nobody can satisfy.
+    #
+    # 🔴 AND THIS GRAMMAR IS A FLOOR, NOT A GATE. RCQ04's adjudication (2026-09-10) measured two
+    # inputs that STILL authorise and that no string rule can close:
+    #     "CERTIFIED: no mapping has been established"   -> authorised (a NEGATION wearing the prefix)
+    #     {"claimed": true, "mapping": "unrelated"}      -> authorised
+    # The reason is structural, not grammatical: this certificate is consumed as a PERMISSION BIT.
+    # `atlas_emit_xa` reads nothing out of it, so no amount of tightening the shape of the sentence
+    # makes the sentence true. Three rounds of this function have each closed the exact strings they
+    # were shown and left the next one open, which is what a shape check does.
+    # CLOSURE CONDITION, recorded now so it is not rediscovered: when the W0-D producer exists, READ
+    # THE MAPPING FACTOR OUT OF THE CERTIFICATE AND PRICE WITH IT. A certificate that is used cannot
+    # lie undetectably; one that is merely present always can. Until then this row stays OPEN.
     if isinstance(hit[0], str) and hit[0].startswith(_XA_CERT_CLAIM_PREFIX):
-        return None
+        if hit[0][len(_XA_CERT_CLAIM_PREFIX):].strip():
+            return None
+        return ("the certificate %r has %s = %r: the claim prefix %r is present but nothing follows "
+                "it, so the certificate asserts nothing. State the mapping after the prefix."
+                % (path, _XA_CERT_KEY, hit[0], _XA_CERT_CLAIM_PREFIX))
     if isinstance(hit[0], dict) and hit[0].get("claimed") is True:
         return None
     return ("the certificate %r has %s = %r, which certifies nothing. A usable certificate states "
@@ -12760,7 +12788,17 @@ def atlas_q3_reader_check(tsv_path, N):
     rows = _atlas_read_tsv(tsv_path)
     prod = Fraction(1, 1)
     fails = []
-    prev_g = None
+    # 🔴 SEED WITH N, NOT None, 2026-09-10 (RCQ04 finding 3, ACCEPTED by execution).
+    # `prev_g = None` made every `prev_g is not None` guard below skip the ROOT transition, so the
+    # first row's shell size was never compared to anything. Measured: a trace whose first shell
+    # GREW past the whole space -- g1 = 26113 > N = 26112 -- published
+    # p = 1.0000382965686275, bits = -0.000055 and TR12_Q3_READER=PASS, with the selftest 34/34.
+    # A probability above 1 and a negative information content, both signed off. The step-2 control
+    # fails correctly, so only the first step was unguarded.
+    # Seeding with N states the true precondition -- the root shell IS the whole space -- and makes
+    # the loop check every transition including the first. The separate `rows[0]["g_parent"] != N`
+    # check below stays: it constrains the PARENT column, this constrains the CHILD.
+    prev_g = N
     for r in rows:
         prod *= Fraction(int(r["p_num"]), int(r["p_den"]))
         # 🔴 `bits` WAS THE ONE PUBLISHED COLUMN THIS READER NEVER LOOKED AT (Codex KCQ02 #4,
@@ -12789,6 +12827,27 @@ def atlas_q3_reader_check(tsv_path, N):
                         fails.append("step %s: bits=%s but log2(p_den/p_num) = %.9f -- the "
                                      "printed column does not follow from the exact ratio "
                                      "beside it" % (r["step"], r["bits"], exact))
+        # 🔴 THE p COLUMN MUST DESCRIBE THE g COLUMN PRINTED BESIDE IT, 2026-09-10
+        # (RCQ04 finding 4, ACCEPTED by execution; the binding was absent at 34933bed too, so
+        # this is not a regression in the delta -- it never existed).
+        # Until now the two chains were checked SEPARATELY: prod(p_i) == 1/N above, and the shell
+        # nesting below. Nothing tied a row's probability to the row's own shell sizes, and a
+        # COMPENSATED pair of errors survives a product check by construction. MEASURED on the
+        # real n=9 profile: halve p at step 1, double it at step 2, recompute `bits` to match and
+        # leave g/g_parent untouched -- the reader returned [], TR12_Q3=PASS, TR12_Q3_READER=PASS,
+        # rc 0, and the consumer selftest 34/34. The published row then reads p = 1184/26112 beside
+        # g/g_parent = 2368/26112: a probability that is not the ratio of the two counts printed
+        # next to it. A reader who multiplies the p column and a reader who divides the g column
+        # get different answers, and both are attested.
+        # The invariant is EXACT and free: on every row of the real profile AND of the committed
+        # golden scripts/tr12_expected/n9/a2_q3_profile.txt, p_num == g and p_den == g_parent.
+        # It is written as a cross-multiplication on purpose -- an unreduced-but-equal ratio
+        # (2368/26112 vs 74/816) is still accepted, because the claim is that p IS the ratio of
+        # the shells, not that the producer chose to print it in lowest terms.
+        if int(r["p_num"]) * int(r["g_parent"]) != int(r["p_den"]) * int(r["g"]):
+            fails.append("step %s: p = %s/%s but g/g_parent = %s/%s -- the probability does not "
+                         "equal the ratio of the shell sizes published beside it"
+                         % (r["step"], r["p_num"], r["p_den"], r["g"], r["g_parent"]))
         if prev_g is not None and int(r["g_parent"]) != prev_g:
             fails.append("step %s: g_parent != previous g" % r["step"])
         # 🔴 NON-INCREASING, NOT STRICTLY DECREASING (Q-316 item 4, 2026-09-04).
@@ -13071,10 +13130,23 @@ _ATLAS_POPULATION_NOTE = (" | POPULATION: atlas fractions are over SUPER (C1*C2*
                           "(C1-C5) mass. Agreement corroborates only if the law is C3-insensitive "
                           "at tol, which is UNMEASURED until the first full-31 atlas (MQ1A #4).")
 
+from fractions import Fraction as _Fraction   # module-level: the atlas external checks
+                                            # decide verdicts in exact rationals (RCQ04 F6)
+
+
+# 🔴 EXACT DECIMALS, NOT BINARY64 LITERALS, 2026-09-10 (RCQ04 finding 6, ACCEPTED by
+# execution). These are PUBLISHED DECIMAL figures, and A2/A3 compare them against a measured
+# rational cell/N. Held as `float` they were not the numbers TR-7 prints -- 0.0785 is
+# 0.078500000000000000333... in binary64 -- and the comparison ran in a precision that
+# `atlas_emit_xa` had already ruled out for exactly this class of call ("at the boundary a
+# binary64 round trip is enough to reverse the call"). `Fraction("0.0785")` is 157/2000, the
+# decimal itself. Arithmetic against a float still works (Fraction promotes), so every existing
+# reader of these dicts -- scripts/a2_slot_verdict_gate.sh compares them to float literals within
+# 1e-9 -- keeps working unchanged.
 _A3_REFERENCES = {                      # TR7_CIRCULAR_READING.md v2.0 / v1.9
-    3: 0.652,                           # |C_circ| = 0.652*N_lin + 0.175*...
-    1: 0.175,
-    5: 0.174,
+    3: _Fraction("0.652"),              # |C_circ| = 0.652*N_lin + 0.175*...
+    1: _Fraction("0.175"),
+    5: _Fraction("0.174"),
 }
 _A3_SLOT32 = 0.0785                     # measured R-C1 gate; 0.0784 eligibility lower bound
 #
@@ -13096,11 +13168,40 @@ _A2_PAIR = 31                # {Jiji, Weiji} = KW#63/64 = codes {21, 42}, the UN
                              # structurally against binary_hexagrams, not assumed.
                              # A1 = pair 0 = {Qian, Kun} = {63, 0}, the unique run-6 pair,
                              # which C4 forces into slot 0.
-_A2_SLOT_REFS = {            # TR7_CIRCULAR_READING.md v2.0, measured; also Cook 2006's
-    "slot32": 0.0785,        # final-pair anchor at 7.84% -- a DOUBLE anchor on this cell
-    "slot2":  0.0520,
-    "rc1c":   0.1305,        # their sum: circular anchor adjacency
+_A2_SLOT_REFS = {                        # TR7_CIRCULAR_READING.md v2.0, measured; also Cook 2006's
+    "slot32": _Fraction("0.0785"),       # final-pair anchor at 7.84% -- a DOUBLE anchor on this cell
+    "slot2":  _Fraction("0.0520"),
+    "rc1c":   _Fraction("0.1305"),       # their sum: circular anchor adjacency
 }
+
+
+def _atlas_exact_tol(tol):
+    """A tolerance as an exact rational, recovering the DECIMAL the caller wrote.
+
+    `Fraction(2e-3)` is 2305843009213694/1152921504606846976, not 1/500: a float literal is
+    already a binary64 approximation of the decimal the operator typed. `repr` of a float is
+    its shortest round-tripping decimal, so `Fraction(str(2e-3))` == 1/500 recovers the intent.
+    A Fraction, a Decimal, an int or an `_ExactAnchor` (which carries its typed decimal) are
+    taken at face value.
+    """
+    e = getattr(tol, "exact", None)
+    if isinstance(e, _Fraction):
+        return e
+    if isinstance(tol, float):
+        return _Fraction(str(tol))
+    return _Fraction(tol)
+
+
+def _atlas_frac_4dp(x):
+    """An exact rational rendered to four decimal places, round-half-even, as text.
+
+    `"%.4f" % x` routes the value through binary64 first, which is the very step A2/A3 must
+    not take: at a tie the double is not the number, and the printed cell is a PUBLISHED
+    figure. `round(Fraction)` is exact and banker's-rounds, so this is the decimal expansion
+    of the rational itself.
+    """
+    n = round(_Fraction(x) * 10000)
+    return "%s%d.%04d" % ("-" if n < 0 else "", abs(n) // 10000, abs(n) % 10000)
 
 
 def atlas_a2_slot_check(atlas, tol=2e-3):
@@ -13141,24 +13242,39 @@ def atlas_a2_slot_check(atlas, tol=2e-3):
                 "layers[-1] hold only when the ladder is complete" % (len(layers), n))
     key = "pair%d" % _A2_PAIR
     N = int(atlas["N_total"])
+    # 🔴 EXACT RATIONALS, NOT binary64, 2026-09-10 (RCQ04 finding 6, ACCEPTED by execution).
+    # This read `int(mr[key]) / float(N)` and compared the double against a float tolerance, in a
+    # file whose own `atlas_emit_xa` states the rule it was breaking: "at the boundary a binary64
+    # round trip is enough to reverse the call", which is why XA decides in rationals. MEASURED:
+    # at N = floor((2^192-1)/48)*48*... with slot 32 set so the deviation is EXACTLY the 0.002
+    # tolerance, the shipped code returned FAIL on "max deviation 0.0020 (tol 0.0020)" -- the
+    # double came out 0.0020000000000000018. Both exact readings PASS. The cell is an integer and
+    # N is an integer, so Fraction(cell, N) is the measurement itself and nothing rounds before
+    # the verdict; only the printed `detail` rounds, and it now rounds exactly too.
+    # On real data the exact deviation would have to land within ~2e-18 of the tolerance for this
+    # to matter -- measure zero. It is fixed on PRINCIPLE, not on likelihood: a published verdict
+    # should not depend on which way a double fell.
     def frac(layer):
         mr = layer.get("marginal_raw") or {}
         if key not in mr:
             return None
-        return int(mr[key]) / float(N)
+        return _Fraction(int(mr[key]), N)
     f32, f2 = frac(layers[-1]), frac(layers[0])
     if f32 is None or f2 is None:
         return ("SKIP:no-raw", "marginal_raw absent -- was --kc-raw passed? (see A-1)")
+    xtol = _atlas_exact_tol(tol)
     devs = {"slot32": abs(f32 - _A2_SLOT_REFS["slot32"]),
             "slot2":  abs(f2  - _A2_SLOT_REFS["slot2"]),
             "rc1c":   abs(f32 + f2 - _A2_SLOT_REFS["rc1c"])}
     worst = max(devs.values())
-    detail = ("A2 slot32=%.4f (pub %.4f, also Cook's final-pair anchor 0.0784) "
-              "slot2=%.4f (pub %.4f) R-C1c=%.4f (pub %.4f); max deviation %.4f (tol %.4f)"
-              % (f32, _A2_SLOT_REFS["slot32"], f2, _A2_SLOT_REFS["slot2"],
-                 f32 + f2, _A2_SLOT_REFS["rc1c"], worst, tol))
+    detail = ("A2 slot32=%s (pub %.4f, also Cook's final-pair anchor 0.0784) "
+              "slot2=%s (pub %.4f) R-C1c=%s (pub %.4f); max deviation %s (tol %s)"
+              % (_atlas_frac_4dp(f32), _A2_SLOT_REFS["slot32"],
+                 _atlas_frac_4dp(f2), _A2_SLOT_REFS["slot2"],
+                 _atlas_frac_4dp(f32 + f2), _A2_SLOT_REFS["rc1c"],
+                 _atlas_frac_4dp(worst), _atlas_frac_4dp(xtol)))
     detail += _ATLAS_POPULATION_NOTE
-    return (("PASS" if worst <= tol else "FAIL"), detail)
+    return (("PASS" if worst <= xtol else "FAIL"), detail)
 
 
 def atlas_a3_external_check(atlas, tol=2e-3):
@@ -13188,18 +13304,66 @@ def atlas_a3_external_check(atlas, tol=2e-3):
     mass = {}
     for p, v in got.items():
         mass[cmap[p]] = mass.get(cmap[p], 0) + v
-    frac = {d: mass.get(d, 0) / float(N) for d in (3, 1, 5)}
+    # Exact rationals here for the same reason as A2 above (RCQ04 finding 6): the class masses
+    # and N are integers, so the deviation is a rational and the verdict need never see a double.
+    frac = {d: _Fraction(mass.get(d, 0), N) for d in (3, 1, 5)}
     devs = {d: abs(frac[d] - _A3_REFERENCES[d]) for d in (3, 1, 5)}
+    xtol = _atlas_exact_tol(tol)
     realized = sorted(p for p in cmap if got.get(p, 0) > 0)
-    detail = ("wrap masses d3=%.4f d1=%.4f d5=%.4f vs published %.3f/%.3f/%.3f; "
-              "max deviation %.4f (tol %.4f); %d of %d eligible pairs realized as closers"
-              % (frac[3], frac[1], frac[5], _A3_REFERENCES[3], _A3_REFERENCES[1],
-                 _A3_REFERENCES[5], max(devs.values()), tol, len(realized), len(cmap)))
+    detail = ("wrap masses d3=%s d1=%s d5=%s vs published %.3f/%.3f/%.3f; "
+              "max deviation %s (tol %s); %d of %d eligible pairs realized as closers"
+              % (_atlas_frac_4dp(frac[3]), _atlas_frac_4dp(frac[1]), _atlas_frac_4dp(frac[5]),
+                 _A3_REFERENCES[3], _A3_REFERENCES[1], _A3_REFERENCES[5],
+                 _atlas_frac_4dp(max(devs.values())), _atlas_frac_4dp(xtol),
+                 len(realized), len(cmap)))
     detail += " | BLIND SPOT: d1/d5 are 0.001 apart at 3-decimal published precision, so this " \
               "check cannot detect a d1<->d5 relabel (demonstrated). It catches d3 errors and " \
               "ineligible closers."
     detail += _ATLAS_POPULATION_NOTE
-    return (("PASS" if max(devs.values()) <= tol else "FAIL"), detail)
+    return (("PASS" if max(devs.values()) <= xtol else "FAIL"), detail)
+
+_A5_FULL_INVENTORY = tuple("pair%d" % i for i in range(1, 32))
+
+
+def _a5_inventory_defect(atlas, present):
+    """Why `present` is not a complete full-31 pair inventory, or None if it is.
+
+    🔴 RCQ04 finding 5, 2026-09-10, ACCEPTED by execution. Both A-5 checks graded whatever
+    subset of pairs happened to be in the field and never asked whether the field was COMPLETE.
+    MEASURED on an n=31 atlas carrying only `{pair3, pair7, pair11}`: `atlas_orbit_columns` said
+    ok=True and `atlas_orbit_membership` said "3 pair(s): equal-column grouping == G48 pair-orbit
+    partition" -- both PASS on a field missing 28 of the 31 free pairs. A producer that dropped a
+    whole pair from every layer would have been signed off by both.
+    The inventory is well defined and cheap to state: `marginal_raw` is emitted SPARSELY, non-zero
+    cells only, per layer (layer 8 of the real n=9 atlas carries 3 keys), so the inventory is the
+    UNION OVER LAYERS -- which at full-31 must be exactly pair1..pair31. Pair 0 is pinned by C4 and
+    identically zero, so it is never emitted and must never appear.
+    FULL-31 ONLY: at reduced n the free-pair subset is a proper subset by construction (the real
+    n=9 atlas's union is pair3,4,6,7,11,13,14,21,30 -- three whole orbits), so there is no complete
+    inventory to require and requiring one would be a gate with no producer. The guard is written
+    as a bare comparison against 31, not as `atlas.get(...) != 31`, so the ratchet in
+    scripts/group_c_n9_rehearsal_gate.sh can SEE it: that gate greps the consumer region for
+    full-31-only guards and its pin rises by exactly one with this function.
+    """
+    n = atlas.get("n")
+    if n != 31:
+        return None
+    want = set(_A5_FULL_INVENTORY)
+    have = set(present)
+    missing = sorted(want - have, key=lambda t: int(t[4:]))
+    extra = sorted(have - want, key=lambda t: (len(t), t))
+    if not missing and not extra:
+        return None
+    bits = []
+    if missing:
+        bits.append("%d of the 31 free pairs carry no raw mass in ANY layer: %s%s"
+                    % (len(missing), ", ".join(missing[:6]),
+                       " ..." if len(missing) > 6 else ""))
+    if extra:
+        bits.append("%d key(s) that are not among the 31 free pairs: %s%s"
+                    % (len(extra), ", ".join(extra[:6]), " ..." if len(extra) > 6 else ""))
+    return "incomplete full-31 inventory -- " + "; ".join(bits)
+
 
 def atlas_orbit_columns(atlas):
     """A-5 (2026-08-22): the RAW positional-marginal field has ONE COLUMN PER
@@ -13258,6 +13422,14 @@ def atlas_orbit_columns(atlas):
         ok = False
     detail = "%d pair(s) -> %d column(s), group sizes %s" % (
         len(pairs), len(groups), sizes)
+    # 🔴 COMPLETENESS, 2026-09-10 (RCQ04 finding 5). Without this the group-size multiset
+    # was graded against a POOL, so any sub-collection of whole orbits tiled it: {pair3,pair7,
+    # pair11} alone passed. The tiling test only becomes a statement about the field once the
+    # field is known to be the whole field.
+    bad_inv = _a5_inventory_defect(atlas, pairs)
+    if bad_inv:
+        ok = False
+        detail += " | " + bad_inv
     return (len(groups), sizes, ok, detail)
 
 
@@ -13321,9 +13493,22 @@ def atlas_orbit_membership(atlas):
     for oi, members in enumerate(pair_orbit_partition()):
         for m in members:
             orbit_of["pair%d" % m] = oi
+    # 🔴 A KEY THAT IS NOT A FREE PAIR IS A FAILURE, NOT MISSING DATA, 2026-09-10
+    # (RCQ04 finding 5). This returned None, and the dispatch at atlas_queries() renders None as
+    # `TR12_A5_ORBIT_MEMBERSHIP=SKIP:no-raw` -- so an atlas carrying `pair0` (pinned by C4,
+    # identically zero, never legitimately emitted) or a junk key reported "we have no data",
+    # which `atlas_failed_verdicts` correctly treats as not-a-failure. MEASURED: an n=31 field of
+    # {pair0, pair3, pair7} produced SKIP:no-raw. Two states were conflated -- "this pair is
+    # invalid" and "we have no data for this pair" -- and the invalid one was reported as the
+    # harmless one. False (FAIL) is the honest verdict; None stays reserved for the genuinely
+    # empty field handled above, which is the only real no-data case.
     unknown = [p for p in present if p not in orbit_of]
     if unknown:
-        return (None, "pairs outside the 31 free pairs: %s" % unknown[:4])
+        return (False, "%d key(s) outside the 31 free pairs, which cannot carry positional mass: "
+                       "%s" % (len(unknown), unknown[:4]))
+    bad_inv = _a5_inventory_defect(atlas, present)
+    if bad_inv:
+        return (False, bad_inv)
     bad = []
     for i, a in enumerate(present):
         for b in present[i + 1:]:
@@ -14154,6 +14339,280 @@ def extraction_null(n_draw, seed, probes=None):
     return 0
 
 
+# --- TR-12 Q5: the two-language re-check of --kc-extremal certificates -------------------
+#
+# WHY THIS EXISTS. solve.c's --kc-extremal functional registry has always carried a `py_ref`
+# column naming `solve.py:_dist_multiset`, `solve.py:_boundary_distances` and
+# `solve.py:_yang_count`, printed by `--kc-extremal list` and written into every certificate;
+# and the KC-X module header made the cross-language re-check a shipping condition in its own
+# words, "no Q5 number ships without it". Until 2026-09-10 none of the three functions existed
+# in any tracked Python file, so the registry documented an obligation no artifact could
+# discharge (found by Codex as KCQ03 #1, adjudicated TRUE 2026-09-02; only the SAME-language
+# half — solve.c's `kc_xs_ref_w` — had landed, and says so in its own comment). These are the
+# Python half. Acknowledged: Codex found the defect; the Fable review of 2026-09-09 (finding
+# F2) re-measured it and set out the two options.
+#
+# WHAT IT IS INDEPENDENT OF, precisely. This project's standing rule is that independence
+# means independence of DERIVATION, not merely of invocation. The formulas below are written
+# from each registry row's own DOCUMENTED description — "count of boundary-distance-class-D
+# transitions", "SUM popcount(last^entry)", "SUM popcount(exit) over the n placements" — in a
+# second language, reading only the certificate's printed witness text. The pair table is
+# rebuilt here from build_pairs(), solve.py's own reverse-else-complement derivation, rather
+# than taken from the certificate, so a wrong partner on the C side is visible. Nothing here
+# links against solve.c, parses its ladders, or reimplements its DP.
+#
+# WHAT IT DOES NOT CHECK, stated so the token cannot be over-read. It re-checks that the
+# PUBLISHED NUMBER IS ATTAINED BY THE PUBLISHED WALK. It does not re-derive EXTREMALITY: the
+# DP is not reimplemented here, and nothing about the value being the maximum (or minimum)
+# over the space follows from a PASS. Extremality rests on solve.c's reducer, brute-force
+# gated at n=9 by `--kc-extremal-selftest` (Fable review 2026-09-09, finding F4).
+#
+# Developed with AI assistance (Claude, Anthropic). Errors are mine; corrections invited.
+
+# The boundary-distance classes of the C1&C2&C4&C5 space. Hamming distance 5 is excluded by
+# C2 and distance 0 cannot occur between two distinct hexagrams, so the classes are
+# 1, 2, 3, 4, 6 — NOT 1..5. Spelled out because the class INDEX (0..4) and the class DISTANCE
+# coincide for the first four, so a small universe cannot distinguish the two conventions.
+KC_X_DVALS = (1, 2, 3, 4, 6)
+
+
+def _kc_x_partner_map():
+    """{hexagram: its canonical partner} from solve.py's OWN pairing, not from a certificate.
+
+    build_pairs() derives the 32 pairs as reverse, falling back to complement for the eight
+    6-bit palindromes. That is the same pairing solve.c compiles into `kc->partner[]`, arrived
+    at independently — which is the point: a certificate whose witness names a non-pair is
+    caught here rather than accepted because the file said so."""
+    m = {}
+    for a, b in build_pairs():
+        m[a] = b
+        m[b] = a
+    return m
+
+
+def kc_x_parse_witness(text, n=None):
+    """Parse a `--kc-extremal --kc-witness` walk, "entry,exit,entry,exit,...".
+
+    Returns [(entry, exit), ...]. Raises ValueError on anything that is not n well-formed
+    canonical pairs, each placed at most once: a malformed witness is a finding, never
+    something to evaluate leniently."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("witness is empty")
+    fields = [f.strip() for f in text.strip().split(",")]
+    if len(fields) % 2 != 0:
+        raise ValueError("witness has %d fields, which is not an even number of "
+                         "entry,exit values" % len(fields))
+    vals = []
+    for f in fields:
+        if not f.isdigit():
+            raise ValueError("witness field %r is not a non-negative integer" % f)
+        v = int(f)
+        if not 0 <= v <= 63:
+            raise ValueError("witness value %d is outside 0..63" % v)
+        vals.append(v)
+    walk = list(zip(vals[0::2], vals[1::2]))
+    if n is not None and len(walk) != n:
+        raise ValueError("witness has %d placements but the certificate declares n=%d"
+                         % (len(walk), n))
+    partner = _kc_x_partner_map()
+    seen = set()
+    for entry, exitx in walk:
+        if partner[exitx] != entry:
+            raise ValueError("witness placement (%d,%d) is not a canonical pair "
+                             "(partner of %d is %d)" % (entry, exitx, exitx, partner[exitx]))
+        key = frozenset((entry, exitx))
+        if key in seen:
+            raise ValueError("witness places the pair {%d,%d} more than once" % (entry, exitx))
+        seen.add(key)
+    return walk
+
+
+def _boundary_distances(walk, start_exit):
+    """The walk's n boundary Hamming distances, in placement order.
+
+    `walk` is [(entry, exit), ...]. Boundary k is between the PREVIOUS placement's exit and
+    this placement's entry; before the first placement the previous exit is the ladder's
+    `start_exit` (0 or 63, G-fixed by C4 and carried in the certificate — never assumed).
+    This is the per-step summand of the `linechanges` registry row, and what `_dist_multiset`
+    classifies. Cited by solve.c's registry as `solve.py:_boundary_distances`."""
+    if start_exit not in (0, 63):
+        raise ValueError("start_exit must be G-fixed (0 or 63); got %r" % (start_exit,))
+    last = start_exit
+    out = []
+    for entry, exitx in walk:
+        out.append(bit_diff(last, entry))
+        last = exitx
+    return out
+
+
+def _dist_multiset(walk, start_exit):
+    """{boundary-distance class: how many of the walk's boundaries fall in it}.
+
+    `dclass:D` is this dict's D entry and `graycode` is its 1 entry. Fails CLOSED on a
+    distance outside KC_X_DVALS — 5 is forbidden by C2, 0 cannot occur — because such a walk
+    is not a member of the space and must not be quietly counted into a neighbouring class.
+    Cited by solve.c's registry as `solve.py:_dist_multiset`."""
+    ms = dict((d, 0) for d in KC_X_DVALS)
+    for d in _boundary_distances(walk, start_exit):
+        if d not in ms:
+            raise ValueError("boundary Hamming distance %d is outside the C1&C2&C4&C5 "
+                             "classes %s" % (d, list(KC_X_DVALS)))
+        ms[d] += 1
+    return ms
+
+
+def _yang_count(walk, field="exit"):
+    """SUM popcount over the walk's exits (`field='exit'`) or its entries (`field='entry'`).
+
+    A yang line is a 1 bit, so this is the number of solid lines the n placements contribute
+    on the named side: the `yangcount` and `entryyang` registry rows respectively. Cited by
+    solve.c's registry as `solve.py:_yang_count`."""
+    if field not in ("exit", "entry"):
+        raise ValueError("field must be 'exit' or 'entry'; got %r" % (field,))
+    j = 1 if field == "exit" else 0
+    return sum(bin(p[j]).count("1") for p in walk)
+
+
+def kc_x_phi(functional, walk, start_exit):
+    """Phi of one --kc-extremal registry functional over an explicit walk.
+
+    Raises ValueError for any functional solve.py has no reference formula for — including
+    `posyang0`, the non-invariant negative control the registry itself marks "n/a - never
+    publishable". A registry row nobody wrote a reference for is exactly the row this check
+    must not wave through, so the absence is a refusal and not a skip."""
+    if functional.startswith("dclass:"):
+        tail = functional[len("dclass:"):]
+        if not tail.isdigit():
+            raise ValueError("malformed dclass functional %r" % functional)
+        d = int(tail)
+        if d not in KC_X_DVALS:
+            raise ValueError("dclass:%d is not one of the boundary-distance classes %s"
+                             % (d, list(KC_X_DVALS)))
+        return _dist_multiset(walk, start_exit)[d]
+    if functional == "graycode":
+        return _dist_multiset(walk, start_exit)[1]
+    if functional == "linechanges":
+        return sum(_boundary_distances(walk, start_exit))
+    if functional == "yangcount":
+        return _yang_count(walk, "exit")
+    if functional == "entryyang":
+        return _yang_count(walk, "entry")
+    raise ValueError("solve.py has no reference formula for functional %r" % functional)
+
+
+def _kc_x_check_cert(cert):
+    """One certificate -> (verdict, detail-string). Never raises for a data defect.
+
+    Verdicts: CHECKED-AGREE, CHECKED-DISAGREE, REFUSED (the C side declined to run the DP for
+    a non-invariant functional, so there is no number to re-check), or FAIL-<reason>."""
+    if cert.get("type") != "roae-kc-extremal-certificate":
+        return "FAIL-not-a-certificate", "type=%r" % cert.get("type")
+    if cert.get("version") != 1:
+        return "FAIL-unknown-version", "version=%r" % cert.get("version")
+    func = cert.get("functional")
+    direction = cert.get("direction")
+    n = cert.get("n")
+    start_exit = cert.get("start_exit")
+    if not cert.get("g_invariant", False):
+        # The invariance gate refused; solve.c emits no extreme_value and exits 1. There is
+        # nothing to re-evaluate -- but a value smuggled in beside g_invariant:false would be
+        # a real defect, so that is checked rather than assumed away.
+        if "extreme_value" in cert or cert.get("witness") is not None:
+            return ("FAIL-value-on-refused-run",
+                    "g_invariant=false but the certificate carries a value or a witness")
+        return "REFUSED", "g_invariant=false (non-invariant functional; no number emitted)"
+    if start_exit is None:
+        return ("FAIL-no-start-exit",
+                "certificate predates the start_exit field; the boundary convention cannot "
+                "be re-derived without assuming it")
+    if "extreme_value" not in cert:
+        return "FAIL-no-extreme-value", "g_invariant=true but no extreme_value"
+    if cert.get("witness") is None:
+        # An EXPLORATORY run (no --kc-witness). The number cannot be re-checked in a second
+        # language at all, so under the module header's own rule it cannot ship.
+        return ("FAIL-no-witness",
+                "witness is null (run without --kc-witness); the two-language obligation "
+                "cannot be discharged for this number")
+    if not cert.get("witness_member", False) or not cert.get("witness_verified", False):
+        return ("FAIL-witness-not-verified",
+                "witness_member=%r witness_verified=%r"
+                % (cert.get("witness_member"), cert.get("witness_verified")))
+    try:
+        walk = kc_x_parse_witness(cert["witness"], n if isinstance(n, int) else None)
+        phi = kc_x_phi(func, walk, start_exit)
+    except (ValueError, KeyError, TypeError) as e:
+        return "FAIL-unevaluable", str(e)
+    ev, wv = cert.get("extreme_value"), cert.get("witness_value")
+    detail = ("functional=%s direction=%s n=%s start_exit=%s phi_py=%d extreme_value=%s "
+              "witness_value=%s" % (func, direction, n, start_exit, phi, ev, wv))
+    if phi == ev and phi == wv:
+        return "CHECKED-AGREE", detail
+    return "CHECKED-DISAGREE", detail
+
+
+def kc_x_recheck(paths):
+    """TR-12 Q5's two-language obligation: re-evaluate --kc-extremal certificates in Python.
+
+    Prints one whole-line `KC_X_PYCHECK_ROW=` per certificate and ends with the whole-line
+    verdict `KC_X_PYCHECK=PASS|FAIL|ERROR`. Returns 0 / 1 / 2.
+
+    ERROR is distinct from FAIL on purpose and is emitted whenever the check MEASURED
+    NOTHING — no certificates given, none readable, or every one of them a refused run. A
+    check that could not run must never read as agreement."""
+    import json
+    print("KC_X_PYCHECK_SCOPE=witness-attainability-only; extremality is NOT re-derived here "
+          "(the DP is not reimplemented in Python)")
+    if not paths:
+        print("KC_X_PYCHECK_ERROR=no certificates given", file=sys.stderr)
+        print("KC_X_PYCHECK=ERROR")
+        return 2
+    checked = agreed = refused = failed = unreadable = 0
+    for p in paths:
+        name = os.path.basename(p)
+        try:
+            with open(p, "r") as fh:
+                cert = json.load(fh)
+        except (IOError, OSError, ValueError) as e:
+            unreadable += 1
+            print("KC_X_PYCHECK_ROW=%s UNREADABLE %s" % (name, e))
+            continue
+        if not isinstance(cert, dict):
+            unreadable += 1
+            print("KC_X_PYCHECK_ROW=%s UNREADABLE top-level JSON is not an object" % name)
+            continue
+        verdict, detail = _kc_x_check_cert(cert)
+        print("KC_X_PYCHECK_ROW=%s %s %s" % (name, verdict, detail))
+        if verdict == "CHECKED-AGREE":
+            checked += 1
+            agreed += 1
+        elif verdict == "CHECKED-DISAGREE":
+            checked += 1
+            failed += 1
+        elif verdict == "REFUSED":
+            refused += 1
+        else:
+            failed += 1
+    print("KC_X_PYCHECK_CHECKED=%d" % checked)
+    print("KC_X_PYCHECK_AGREE=%d" % agreed)
+    print("KC_X_PYCHECK_REFUSED=%d" % refused)
+    print("KC_X_PYCHECK_FAILED=%d" % (failed + unreadable))
+    if unreadable and not checked:
+        print("KC_X_PYCHECK_ERROR=no certificate could be read", file=sys.stderr)
+        print("KC_X_PYCHECK=ERROR")
+        return 2
+    if failed or unreadable:
+        print("KC_X_PYCHECK=FAIL")
+        return 1
+    if checked == 0:
+        print("KC_X_PYCHECK_ERROR=nothing was re-checked (%d refused run(s) only)" % refused,
+              file=sys.stderr)
+        print("KC_X_PYCHECK=ERROR")
+        return 2
+    print("KC_X_PYCHECK=PASS")
+    return 0
+
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Constraint solver for the King Wen sequence",
@@ -14406,6 +14865,17 @@ def main():
                              "truth; see documentation/TRIGRAM_STRUCTURE.md); "
                              "one PASS/FAIL line per claim with expected + "
                              "computed values")
+    parser.add_argument("--kc-x-recheck", nargs="+", metavar="CERT.json",
+                        help="TR-12 Q5 TWO-LANGUAGE OBLIGATION: re-evaluate one or more "
+                             "`solve --kc-extremal --kc-json` certificates from solve.py's "
+                             "own formulas (_dist_multiset / _boundary_distances / "
+                             "_yang_count) and the witness text alone, and require the "
+                             "result to equal the certificate's extreme_value and "
+                             "witness_value. Emits KC_X_PYCHECK_ROW= per certificate and the "
+                             "whole-line verdict KC_X_PYCHECK=PASS|FAIL|ERROR. SCOPE: this "
+                             "re-checks that the published number is ATTAINED by the "
+                             "published walk; it does NOT re-derive extremality. Returns "
+                             "0 / 1 / 2.")
     parser.add_argument("--registry-verify", action="store_true",
                         help="Run every candidate-rule ground-truth checker "
                              "(reg_*, CANDIDATE_REGISTRY_2026_07) against the "
@@ -14567,6 +15037,9 @@ def main():
         sys.exit(books_verify())
     if args.trigram_verify:
         sys.exit(trigram_verify())
+
+    if args.kc_x_recheck:
+        sys.exit(kc_x_recheck(args.kc_x_recheck))
 
     if args.registry_verify:
         sys.exit(registry_verify())

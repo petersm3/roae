@@ -294,6 +294,18 @@ if ! bash ./scripts/d5_01_q1c_skip_gate.sh; then
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
+# N3 leg (2026-09-10). Same reasoning one level down. D5-01 pins the CONTRACT between the interval
+# measurement and the spend; this pins the MEASUREMENT -- that q1c_interval_measure and
+# q10a_kwrank_measure can say EMPTY, can refuse to say EMPTY, and can say ERROR. An n=9 battery
+# only ever exercises the "refuse" direction, because at n=9 the anchor is not the O3-least object;
+# the EMPTY direction it will take at n=31 would otherwise be published untested. Fails the whole
+# gate: a null that cannot fail is an assertion wearing a token's clothes, which is the exact
+# defect these two rows were built to remove.
+if ! bash ./scripts/n3_measured_nulls_gate.sh; then
+  echo "  [FAIL] the Q1c / Q10a measured-null producers can no longer fail, or have moved (see message above)"
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
+
 # MQ1A-3 leg (2026-09-05). Same reasoning: the a2_q3_reader row is exact at n=9 (N < 2^53) and was
 # a 53-bit comparison at full-31, so an n=9 battery can never see that defect. The reader's own
 # full-31-magnitude red/green gate runs here instead (0.2 s). Fails the whole gate.

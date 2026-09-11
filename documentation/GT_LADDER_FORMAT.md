@@ -69,7 +69,7 @@ Hamming-isometric, so suffix counts and subtree sizes are preserved.
   at full-31. **The shipped ranking is pinned against an external instrument
   only at n = 9**, where two independent brute-force lists are built and sorted
   with a separate comparator and every rank/unrank pair is checked
-  (`solve.c:18076`, `:18236`, `:20972`, `:21017`). At n = 13 and above the gates
+  (`solve.c:18258`, `:18236`, `:20972`, `:21017`). At n = 13 and above the gates
   are **sampled** round-trips plus sampled monotonicity, with a local neighbour
   bracket — and `rank(unrank(r)) == r` is **closure, not correctness**. A
   consistently wrong, n-dependent ranking round-trips and certificate-verifies

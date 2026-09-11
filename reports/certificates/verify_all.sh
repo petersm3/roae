@@ -337,7 +337,10 @@ else
     "require_match 'recount-subtree: ALL MATCH' python3 verify.py --recount-subtree"
 fi
 
-echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 22 archived certs) =="
+# 🔴 COUNT CORRECTED 2026-09-10: this header said "all 22 archived certs" while the section
+# checks and reports 24. A header that miscounts what it verifies invites a reader to believe two
+# certificates were skipped. Measured on a fresh host: DRAT_CERTS_CHECKED=24, 75 passed, 0 failed.
+echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 24 archived certs) =="
 # No SAT solver is invoked here — see the header note. $DRAT is probed in section 0.
 # All 22 certificates carry BOTH checkers as of 2026-09-02: the 21 archived earlier passed the
 # formally verified cake_lpr in the 2026-07-27 batch, and core_gender_ccn4_unsat (the fourth

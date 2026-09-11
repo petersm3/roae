@@ -53,6 +53,14 @@ print("L3=OK" if f(dis) else "L3=BAD")
 for _i, (_nm, _v) in enumerate([("null", None), ("false", False), ("empty", ""), ("FAIL", "FAIL")]):
     _p = w("f2_%s.json" % _nm, {"node_convention": {"solve_node_limit_mapping": _v}})
     print("L%d=OK" % (6 + _i) if f(_p) else "L%d=BAD (%s authorises)" % (6 + _i, _nm))
+# L10-L12  RCQ04 finding 2 (MEASURED, 2026-09-10): the 2026-09-09 positive grammar checked that the
+# claim STARTED WITH "CERTIFIED:" and never that anything FOLLOWED it, so the bare prefix -- and any
+# whitespace-only claim -- authorised an EXHAUSTIBLE verdict. A positive grammar with no positive
+# content. Measured before the fix: f('{"solve_node_limit_mapping": "CERTIFIED:"}') returned None.
+for _i, (_nm, _v) in enumerate([("bare", "CERTIFIED:"), ("spaces", "CERTIFIED:   "),
+                                ("tabnl", "CERTIFIED:\t\n ")]):
+    _p = w("f2b_%s.json" % _nm, {"node_convention": {"solve_node_limit_mapping": _v}})
+    print("L%d=OK" % (10 + _i) if f(_p) else "L%d=BAD (%s authorises)" % (10 + _i, _nm))
 # L4  a certificate that never mentions the mapping does not certify it
 print("L4=OK" if f(w("nokey.json", {"n9": {"N_walks": 26112}})) else "L4=BAD")
 # L5  unparseable JSON is REFUSED, not crashed on
@@ -68,13 +76,13 @@ BASE=$(legs solve.py)
 # 9 since 2026-09-09: L1-L5 plus L6-L9, the four values RCQ02 F2 showed were authorising
 # (null / false / "" / "FAIL"). Raised in the SAME change that added the legs -- a count that
 # lags its population is a check that has stopped counting.
-[ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=')" = 9 ] \
-  || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=') leg verdicts, not 9 -- the gate measured nothing"
+[ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=')" = 12 ] \
+  || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=') leg verdicts, not 12 -- the gate measured nothing"
 case "$BASE" in *=BAD*)
   printf '%s\n' "$BASE" | grep '=BAD' | sed 's/^/  [FAIL] baseline /'
   echo "Q433_XA_CERT=FAIL"; exit 1 ;;
 esac
-echo "  [gate] baseline PASS on 9 legs"
+echo "  [gate] baseline PASS on 12 legs"
 
 # --- mutants -----------------------------------------------------------------------------
 # NEVER `legs ... | grep -q` under pipefail: grep -q exits at the first match and SIGPIPEs the
@@ -97,8 +105,23 @@ elif edit == "disclaimer_blind":
     old = ('    if isinstance(hit[0], str) and "NOT CLAIMED HERE" in hit[0]:\n')
     new = '    if False:\n'
     s = s.replace(old, new, 1)
+    # 2026-09-10: the positive arm gained an INNER emptiness check (RCQ04 finding 2), so blinding
+    # the outer guard alone no longer yields a working mutant -- it makes the body index a
+    # non-string and the process dies with no leg verdicts, which the harness correctly reports as
+    # ERROR ("nothing was measured") rather than as a killed mutant. A mutant that crashes tests
+    # nothing. Blind the whole positive arm to an unconditional accept instead, which is the fault
+    # this mutant is named for.
     old = '    if isinstance(hit[0], str) and hit[0].startswith(_XA_CERT_CLAIM_PREFIX):\n'
-    new = '    if True:\n'
+    new = '    if True:\n        return None\n    if False:\n'
+elif edit == "empty_claim_blind":
+    # 🔴 M3, added 2026-09-10 on the adjudication's instruction. NO MUTANT TARGETED THE INNER
+    # EMPTINESS CHECK. M2 is named disclaimer_blind but since the positive grammar landed on
+    # 2026-09-09 it has actually tested "accept anything past the key" -- it differs from M1 only
+    # on L2/L4/L5. A mutant whose name stopped describing its fault is a mutant nobody re-reads.
+    # M3 reverts exactly today's fix: the claim prefix once more accepts with nothing after it.
+    # Legs L10-L12 alone must kill it.
+    old = '        if hit[0][len(_XA_CERT_CLAIM_PREFIX):].strip():\n'
+    new = '        if True:\n'
 else:
     sys.exit(2)
 assert s.count(old) == 1, "mutant anchor drift: " + edit
@@ -107,7 +130,7 @@ import os
 open(os.environ["MUT"], "w", encoding="utf-8").write(s.replace(old, new))
 PY
   out=$(legs "$MUT")
-  [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 9 ] \
+  [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 12 ] \
     || { echo "  [ERROR] mutant $name produced no leg verdicts -- nothing was measured"; return 2; }
   case "$out" in *=BAD*) echo "  [gate] mutant $name killed"; return 0 ;; esac
   echo "  [FAIL] mutant $name SURVIVED -- the gate cannot see this fault"; return 1
@@ -115,7 +138,7 @@ PY
 
 export MUT="$WORK/mutant.py"
 K=0
-for m in M1_accept_all:accept_all M2_disclaimer_blind:disclaimer_blind; do
+for m in M1_accept_all:accept_all M2_past_key_blind:disclaimer_blind M3_empty_claim_blind:empty_claim_blind; do
   mutate "${m%%:*}" "${m##*:}"
   case $? in
     0) K=$((K+1)) ;;
@@ -123,6 +146,6 @@ for m in M1_accept_all:accept_all M2_disclaimer_blind:disclaimer_blind; do
     *) echo "Q433_XA_CERT=ERROR"; exit 2 ;;
   esac
 done
-[ "$K" = 2 ] || fail "evaluated $K mutants, expected 2"
-echo "  [gate] baseline PASS on 9 legs; $K/2 mutants killed"
+[ "$K" = 3 ] || fail "evaluated $K mutants, expected 3"
+echo "  [gate] baseline PASS on 12 legs; $K/3 mutants killed"
 echo "Q433_XA_CERT=PASS"

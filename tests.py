@@ -5102,5 +5102,808 @@ class TestSection14OrientCouplingIsDeadOnDedupedInput(unittest.TestCase):
                          "the DEAD ruling leaked into the arm where the analytics are live")
 
 
+
+class TestKcExtremalTwoLanguageRecheck(unittest.TestCase):
+    """The TR-12 §Q5 two-language obligation: solve.py really re-checks --kc-extremal numbers.
+
+    WHAT WENT WRONG. `solve.c`'s --kc-extremal registry cited `solve.py:_dist_multiset`,
+    `solve.py:_boundary_distances` and `solve.py:_yang_count` in its `py_ref` column, printed
+    them in `--kc-extremal list` and wrote them into every certificate, and the KC-X module
+    header made the cross-language re-check a shipping condition -- "no Q5 number ships without
+    it". None of the three functions existed (Codex KCQ03 #1, adjudicated TRUE 2026-09-02;
+    re-measured as F2 by the Fable review of 2026-09-09). Only the SAME-language half,
+    solve.c's `kc_xs_ref_w`, had landed. This class exists so the second language cannot go
+    missing again silently.
+
+    THE POINT OF THE CLASS IS THE RED ARM. A reference that has only ever agreed is not a
+    check, so the disagreement legs below are the load-bearing ones: they mutate the
+    certificate the way a wrong producer would and require KC_X_PYCHECK=FAIL. Every verdict is
+    matched WHOLE-LINE (`assertIn` over split lines), never by substring shape.
+
+    Scope, stated because the token must not be over-read: this re-checks that the published
+    number is ATTAINED by the published walk. It does NOT re-derive extremality (Fable F4)."""
+
+    # A real n=9 certificate, reduced to the keys the checker reads. Its witness and its
+    # extreme_value were produced by `solve --kc-extremal yangcount <f> max --kc-witness`
+    # on an n=9 ladder and are pinned here so these legs need no binary and no ladder.
+    CERT = {
+        "type": "roae-kc-extremal-certificate",
+        "version": 1,
+        "functional": "yangcount",
+        "direction": "max",
+        "n": 9,
+        "start_exit": 0,
+        "g_invariant": True,
+        "extreme_value": 30,
+        "witness": "16,2,8,4,55,59,47,61,62,31,1,32,33,30,18,45,12,51",
+        "witness_value": 30,
+        "witness_member": True,
+        "witness_verified": True,
+    }
+
+    def _walk(self):
+        return solve.kc_x_parse_witness(self.CERT["witness"], 9)
+
+    def _recheck(self, *certs):
+        """Write certs to a temp dir, run solve.py --kc-x-recheck, return (rc, lines)."""
+        import json
+        d = tempfile.mkdtemp(prefix="kcxpy_")
+        try:
+            paths = []
+            for i, c in enumerate(certs):
+                p = os.path.join(d, "cert_%02d.json" % i)
+                with open(p, "w") as fh:
+                    if isinstance(c, str):
+                        fh.write(c)              # deliberately malformed JSON fixture
+                    else:
+                        json.dump(c, fh)
+                paths.append(p)
+            r = subprocess.run([sys.executable, "solve.py", "--kc-x-recheck"] + paths,
+                               capture_output=True, text=True, timeout=300)
+            return r.returncode, [l.rstrip() for l in
+                                  (r.stdout + "\n" + r.stderr).splitlines()]
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    # ---- the functions the registry cites EXIST and are what it says they are ---------------
+
+    def test_the_three_cited_functions_exist(self):
+        # The whole defect in one assertion: solve.c cites these three by name, so an edit that
+        # renames or drops one must break here rather than in a reader's hands.
+        for name in ("_dist_multiset", "_boundary_distances", "_yang_count"):
+            self.assertTrue(callable(getattr(solve, name, None)),
+                            "solve.c's --kc-extremal py_ref column cites solve.py:%s, which "
+                            "does not exist" % name)
+
+    def test_solve_c_registry_py_refs_all_resolve(self):
+        # Not the three names hardcoded -- the names solve.c ACTUALLY cites today, mined from
+        # the registry table, so adding a row with a new py_ref cannot land unaccompanied.
+        with open("solve.c", encoding="utf-8") as fh:
+            src = fh.read()
+        cited = set(re.findall(r'"solve\.py:([A-Za-z_][A-Za-z0-9_]*)"', src))
+        self.assertTrue(cited, "no solve.py:<fn> citations found in solve.c -- this test "
+                               "measured nothing and must not read as agreement")
+        missing = sorted(n for n in cited if not callable(getattr(solve, n, None)))
+        self.assertEqual(missing, [], "solve.c cites solve.py functions that do not exist: %s"
+                         % missing)
+
+    def test_boundary_distances_counts_n_boundaries_from_start_exit(self):
+        w = self._walk()
+        d = solve._boundary_distances(w, 0)
+        self.assertEqual(len(d), 9)
+        # The first boundary is measured from start_exit, not from the first entry.
+        self.assertEqual(d[0], solve.bit_diff(0, w[0][0]))
+        self.assertNotEqual(solve._boundary_distances(w, 63), d,
+                            "start_exit is being ignored; the certificate carries it precisely "
+                            "so the convention is not assumed")
+
+    def test_dist_multiset_classes_are_1_2_3_4_6_and_sum_to_n(self):
+        ms = solve._dist_multiset(self._walk(), 0)
+        self.assertEqual(sorted(ms), [1, 2, 3, 4, 6],
+                         "the boundary-distance classes are 1,2,3,4,6 -- distance 5 is "
+                         "forbidden by C2 and 0 cannot occur")
+        self.assertEqual(sum(ms.values()), 9)
+        # linechanges is SUM_c count[c]*c over exactly these classes.
+        self.assertEqual(sum(k * v for k, v in ms.items()),
+                         solve.kc_x_phi("linechanges", self._walk(), 0))
+
+    def test_graycode_is_the_distance_1_class(self):
+        w = self._walk()
+        self.assertEqual(solve.kc_x_phi("graycode", w, 0), solve.kc_x_phi("dclass:1", w, 0))
+
+    def test_yang_count_sides_are_complementary(self):
+        # popcount(entry)+popcount(exit) is a per-pair constant: a reversal partner has the SAME
+        # popcount, a complement partner sums to 6.  So the two sides' total is a property of
+        # WHICH pairs the walk places, never of how they are oriented -- computed here from the
+        # pair identity rather than by re-running _yang_count on the other side.
+        w = self._walk()
+        total = sum(6 if entry == (exitx ^ 0b111111) else 2 * bin(exitx).count("1")
+                    for entry, exitx in w)
+        self.assertEqual(solve._yang_count(w, "exit") + solve._yang_count(w, "entry"), total)
+        self.assertEqual(solve.kc_x_phi("yangcount", w, 0), solve._yang_count(w, "exit"))
+        self.assertEqual(solve.kc_x_phi("entryyang", w, 0), solve._yang_count(w, "entry"))
+
+    def test_the_registrys_own_number_is_reproduced(self):
+        self.assertEqual(solve.kc_x_phi("yangcount", self._walk(), 0), 30)
+
+    # ---- fail-closed on anything it cannot evaluate -----------------------------------------
+
+    def test_posyang0_has_no_python_reference_and_is_refused(self):
+        # The registry marks posyang0 "n/a - never publishable". A row nobody wrote a reference
+        # for is exactly the row this check must not wave through, so absence is a REFUSAL.
+        with self.assertRaises(ValueError):
+            solve.kc_x_phi("posyang0", self._walk(), 0)
+
+    def test_an_out_of_class_distance_is_refused_not_absorbed(self):
+        # A witness whose first entry sits at Hamming distance 5 from start_exit is not a member
+        # of the space; _dist_multiset must say so rather than drop it into a neighbouring class.
+        with self.assertRaises(ValueError):
+            solve._dist_multiset([(0b011111, 0b111110)], 0)
+
+    def test_a_witness_that_is_not_a_canonical_pair_is_refused(self):
+        # Built from solve.py's OWN build_pairs(), so a wrong partner on the C side is visible.
+        with self.assertRaises(ValueError):
+            solve.kc_x_parse_witness("1,2")
+
+    def test_a_witness_that_repeats_a_pair_is_refused(self):
+        w = self.CERT["witness"].split(",")
+        with self.assertRaises(ValueError):
+            solve.kc_x_parse_witness(",".join(w[:2] + w[:2]))
+
+    # ---- the driver: PASS, and the three ways it must not pass ------------------------------
+
+    def test_a_true_certificate_passes(self):
+        rc, lines = self._recheck(self.CERT)
+        self.assertEqual(rc, 0)
+        self.assertIn("KC_X_PYCHECK=PASS", lines)
+        self.assertIn("KC_X_PYCHECK_CHECKED=1", lines)
+
+    def test_a_wrong_extreme_value_is_caught(self):
+        # 🔴 THE RED ARM. This is the failure the whole obligation exists for: the producer
+        # publishes a number its own witness does not attain.
+        bad = dict(self.CERT, extreme_value=39, witness_value=39)
+        rc, lines = self._recheck(bad)
+        self.assertEqual(rc, 1)
+        self.assertIn("KC_X_PYCHECK=FAIL", lines)
+        self.assertTrue(any(l.startswith("KC_X_PYCHECK_ROW=") and "CHECKED-DISAGREE" in l
+                            for l in lines))
+
+    def test_a_tampered_witness_is_caught(self):
+        # The other direction: the number is right, the walk is not the one that attains it.
+        # Pair {12,51} swapped for {18,45}'s orientation partner changes popcount(exit).
+        bad = dict(self.CERT,
+                   witness="16,2,8,4,55,59,47,61,62,31,1,32,33,30,45,18,12,51")
+        rc, lines = self._recheck(bad)
+        self.assertEqual(rc, 1)
+        self.assertIn("KC_X_PYCHECK=FAIL", lines)
+
+    def test_an_exploratory_certificate_cannot_ship(self):
+        # No --kc-witness => nothing to re-evaluate => the two-language obligation cannot be
+        # discharged for that number, so it FAILS rather than passing vacuously.
+        bad = dict(self.CERT, witness=None, witness_value=None,
+                   witness_member=False, witness_verified=False)
+        rc, lines = self._recheck(bad)
+        self.assertEqual(rc, 1)
+        self.assertIn("KC_X_PYCHECK=FAIL", lines)
+
+    def test_a_certificate_without_start_exit_fails_rather_than_assuming_it(self):
+        bad = dict(self.CERT)
+        del bad["start_exit"]
+        rc, lines = self._recheck(bad)
+        self.assertEqual(rc, 1)
+        self.assertIn("KC_X_PYCHECK=FAIL", lines)
+
+    def test_a_refused_run_is_reported_but_never_counts_as_a_check(self):
+        # posyang0's certificate: g_invariant=false, no value. On its own that is ERROR, not
+        # PASS -- a run that re-checked nothing must never read as agreement.
+        refused = {"type": "roae-kc-extremal-certificate", "version": 1,
+                   "functional": "posyang0", "direction": "max", "n": 9, "start_exit": 0,
+                   "g_invariant": False, "witness": None}
+        rc, lines = self._recheck(refused)
+        self.assertEqual(rc, 2)
+        self.assertIn("KC_X_PYCHECK=ERROR", lines)
+        self.assertIn("KC_X_PYCHECK_REFUSED=1", lines)
+        # Beside a real one it is reported and the real one still decides.
+        rc, lines = self._recheck(self.CERT, refused)
+        self.assertEqual(rc, 0)
+        self.assertIn("KC_X_PYCHECK=PASS", lines)
+        self.assertIn("KC_X_PYCHECK_CHECKED=1", lines)
+        self.assertIn("KC_X_PYCHECK_REFUSED=1", lines)
+
+    def test_an_unreadable_certificate_is_an_error_not_a_pass(self):
+        rc, lines = self._recheck("{ this is not json")
+        self.assertEqual(rc, 2)
+        self.assertIn("KC_X_PYCHECK=ERROR", lines)
+
+    def test_no_certificates_at_all_is_an_error(self):
+        r = subprocess.run([sys.executable, "solve.py", "--kc-x-recheck"],
+                           capture_output=True, text=True, timeout=300)
+        self.assertNotEqual(r.returncode, 0,
+                            "--kc-x-recheck with no arguments must refuse, not report PASS")
+        self.assertNotIn("KC_X_PYCHECK=PASS",
+                         [l.rstrip() for l in (r.stdout + "\n" + r.stderr).splitlines()])
+
+
+class TestKcExtremalRecheckKillsACoordinatedCMutant(unittest.TestCase):
+    """The two-language check earns its name: it kills a mutant the whole C gate survives.
+
+    MEASURED 2026-09-10, and this is the argument for landing the evaluator rather than
+    retiring the rule. solve.c already carries an in-language reference (`kc_xs_ref_w`, K3R/K4R),
+    which catches a drifted registry weight. It cannot catch a weight that drifts CONSISTENTLY
+    in both C implementations -- a redefinition of the functional, with the in-language
+    reference updated to match, which is precisely what a well-meaning edit looks like. This
+    class builds that mutant (`popcount(exit)` -> `popcount(exit) + 1` at BOTH C sites),
+    confirms `--kc-extremal-selftest` still reports PASS, and requires solve.py to say FAIL.
+
+    Independence of DERIVATION, not of invocation: solve.py's formula comes from the registry's
+    documented description of the row, so a coordinated edit of both C sites does not move it.
+
+    The mutant is built in a temp dir from a COPY of solve.c; no tracked file is touched. A
+    build failure is a test FAILURE, never a skip."""
+
+    MUT = [
+        ('    (void)p; (void)step; (void)last; (void)entry;\n'
+         '    return __builtin_popcount((unsigned)exitx);\n',
+         '    (void)p; (void)step; (void)last; (void)entry;\n'
+         '    return __builtin_popcount((unsigned)exitx) + 1;\n'),
+        ('    if (strcmp(name, "yangcount") == 0)   { *w = __builtin_popcount((unsigned)exitx); return 0; }\n',
+         '    if (strcmp(name, "yangcount") == 0)   { *w = __builtin_popcount((unsigned)exitx) + 1; return 0; }\n'),
+    ]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="kcxmut_")
+        with open(os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"), encoding="utf-8") as fh:
+            src = fh.read()
+        cls.sites_ok = all(src.count(a) == 1 for a, _ in cls.MUT)
+        for a, b in cls.MUT:
+            src = src.replace(a, b)
+        msrc = os.path.join(cls.tmp, "solve_mutant.c")
+        with open(msrc, "w", encoding="utf-8") as fh:
+            fh.write(src)
+        cls.sbin = os.path.join(cls.tmp, "solve_mutant")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, msrc,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        if not self.sites_ok:
+            self.fail("the mutation sites no longer occur exactly once in solve.c; this "
+                      "demonstration measured nothing and must not read as agreement")
+        if not self.build_ok:
+            self.fail("the mutant did not build, so nothing was verified: " + self.build_err)
+
+    def test_the_c_gate_survives_the_mutant_but_solve_py_kills_it(self):
+        d = os.path.join(self.tmp, "run")
+        fdir, gdir = os.path.join(d, "f"), os.path.join(d, "g")
+        os.makedirs(fdir); os.makedirs(gdir)
+        for flag, out in (("--kc-build", fdir), ("--kc-g-build", gdir)):
+            r = subprocess.run([self.sbin, flag, out, "--f1-pairs", "9"],
+                               capture_output=True, text=True, timeout=900)
+            self.assertEqual(r.returncode, 0, f"{flag} failed: {r.stderr[-800:]}")
+
+        # 1. The C side's own exhaustive n=9 gate does NOT see this.
+        g = subprocess.run([self.sbin, "--kc-extremal-selftest"],
+                           capture_output=True, text=True, timeout=900)
+        self.assertIn("KC_EXTREMAL_SELFTEST=PASS",
+                      [l.rstrip() for l in (g.stdout + "\n" + g.stderr).splitlines()],
+                      "the coordinated mutant was expected to survive the C gate; if it no "
+                      "longer does, this demonstration needs a new mutant, not deleting")
+
+        # 2. The mutant publishes 39 where the registry's documented formula gives 30.
+        cert = os.path.join(d, "y.json")
+        r = subprocess.run([self.sbin, "--kc-extremal", "yangcount", fdir, "max",
+                            "--kc-witness", "--kc-json", cert],
+                           capture_output=True, text=True, timeout=900)
+        self.assertEqual(r.returncode, 0)
+        self.assertTrue(any(l.startswith("extreme_value=39\t") for l in r.stdout.splitlines()),
+                        "expected the mutant to publish extreme_value=39; got:\n" + r.stdout)
+
+        # 3. The second language says no.
+        p = subprocess.run([sys.executable, "solve.py", "--kc-x-recheck", cert],
+                           capture_output=True, text=True, timeout=300)
+        lines = [l.rstrip() for l in (p.stdout + "\n" + p.stderr).splitlines()]
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("KC_X_PYCHECK=FAIL", lines)
+        self.assertTrue(any("CHECKED-DISAGREE" in l and "phi_py=30" in l
+                            and "extreme_value=39" in l for l in lines),
+                        "expected phi_py=30 against extreme_value=39; got:\n" + "\n".join(lines))
+
+
+class TestXaCertClaimPrefixIsNotItselfAClaim(unittest.TestCase):
+    """A certificate must ASSERT something, not merely be SHAPED like an assertion.
+
+    WHAT WENT WRONG, TWICE, IN TWO DAYS. `_xa_node_mapping_cert_defect` guards the XA-c/d
+    pricing path: without a W0-D t-unit -> SOLVE_NODE_LIMIT mapping certificate, no
+    EXHAUSTIBLE/INFEASIBLE verdict may be published. Round one (before 2026-09-07) tested only
+    that a PATH STRING had been supplied and never opened the file. Round two (2026-09-09,
+    RCQ02 F2) found `false`, `null`, `""` and `"FAIL"` all authorised, and required a POSITIVE
+    grammar -- a string beginning "CERTIFIED:".
+
+    Round three is this class. RCQ04 (2026-09-10) MEASURED that the positive grammar accepted
+    THE BARE PREFIX:
+
+        {"solve_node_limit_mapping": "CERTIFIED:"}     -> returned None, i.e. authorised
+        {"solve_node_limit_mapping": "CERTIFIED:   "}  -> returned None, i.e. authorised
+
+    The fix had required the SHAPE of an assertion and never required it to ASSERT anything.
+    Each round closed the cases it was shown and left the next open, which is why the red arm
+    below enumerates whitespace forms rather than one empty string.
+
+    THE POSITIVE ARM IS LOAD-BEARING: a validator that refuses everything is a permanent FALSE
+    dressed as rigour, so a well-formed certificate must still be ACCEPTED.
+    """
+
+    def _defect(self, value):
+        import json, tempfile
+        mod = _load("solve")
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, "cert.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"node_convention": {"solve_node_limit_mapping": value}}, fh)
+        return mod._xa_node_mapping_cert_defect(path)
+
+    def test_a_well_formed_certificate_is_accepted(self):
+        self.assertIsNone(self._defect(
+            "CERTIFIED: 1 t-unit == 1 SOLVE_NODE_LIMIT node, certified by the W0-D worker run"))
+
+    def test_the_bare_claim_prefix_certifies_nothing(self):
+        for empty in ("CERTIFIED:", "CERTIFIED: ", "CERTIFIED:   ",
+                      "CERTIFIED:\t", "CERTIFIED:\n", "CERTIFIED:\t\n "):
+            with self.subTest(value=empty):
+                self.assertIsNotNone(
+                    self._defect(empty),
+                    "%r has the shape of a claim and asserts nothing" % empty)
+
+    def test_the_values_rcq02_found_are_still_refused(self):
+        for bad in (None, False, "", "FAIL"):
+            with self.subTest(value=bad):
+                self.assertIsNotNone(self._defect(bad))
+
+
+class TestQ3ReaderChecksTheRootTransition(unittest.TestCase):
+    """The FIRST shell must be checked too. It was not, and a p > 1 shipped PASS.
+
+    `atlas_q3_reader_check` seeded `prev_g = None`, so every `prev_g is not None` guard skipped
+    the root transition and the first row's shell size was compared to nothing. RCQ04 finding 3
+    (2026-09-10, MEASURED): a trace whose first shell GREW past the whole space -- g1 = 26113
+    against N = 26112 -- published p = 1.0000382965686275 and bits = -0.000055 with
+    TR12_Q3_READER=PASS and the selftest 34/34. A probability above one and a negative
+    information content, both signed off, because the only unguarded step was the first.
+
+    Seeding `prev_g = N` states the real precondition: the root shell IS the whole space.
+    """
+
+    def _reader(self, g1, n_total=26112):
+        import tempfile, os
+        mod = _load("solve")
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, "q3.tsv")
+        # bits is display-only here; give each row its exact log2 so only the shell rule is
+        # under test and the bits leg cannot mask the result.
+        import math
+        # 🔴 p MUST equal g/g_parent on every row. RCQ04 finding 4 (landed 2026-09-10) added a
+        # cross-multiplication binding the published probability to the published shells, and this
+        # fixture predates it: it used p = 1/1 against non-matching shells, so the new leg fired on
+        # it and only the "grew" filter below kept the assertions meaningful. A fixture that trips a
+        # check it is not testing is a fixture that will one day mask the check it IS testing.
+        rows = [("1", "1", str(g1), str(n_total), "%.6f" % 0.0, str(g1), str(n_total)),
+                ("2", "2", "1", str(g1), "%.6f" % math.log2(g1), "1", str(g1))]
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("step\tpair\tp_num\tp_den\tbits\tg\tg_parent\n")
+            for r in rows:
+                fh.write("\t".join(r) + "\n")
+        return mod.atlas_q3_reader_check(path, n_total)
+
+    def test_a_first_shell_larger_than_the_space_is_refused(self):
+        fails = self._reader(26113)
+        self.assertTrue(any("step 1" in f and "grew" in f for f in fails),
+                        "the root transition must be checked; got: %r" % fails)
+
+    def test_a_first_shell_equal_to_the_space_is_accepted(self):
+        self.assertEqual([], [f for f in self._reader(26112) if "grew" in f])
+
+
+class TestQ3ReaderBindsTheProbabilityChainToTheCountChain(unittest.TestCase):
+    """The p column a reader multiplies must BE the ratio of the g shells printed beside it.
+
+    RCQ04 finding 4 (2026-09-10, ACCEPTED by execution; the binding was absent at 34933bed too,
+    so it never existed rather than regressed).  `atlas_q3_reader_check` checked the two chains
+    SEPARATELY -- prod(p_i) == 1/N exactly, and the g column non-increasing and telescoping --
+    and nothing tied a single row's p to that same row's g/g_parent.  A COMPENSATED pair of
+    errors therefore survives the product check by construction.  MEASURED on the real n=9
+    profile from `--kc-profile ... --kc-tsv`: halve p at step 1, double it at step 2, recompute
+    the display-only `bits` to match and leave g/g_parent untouched --
+
+        reader        -> []                       (no failures)
+        atlas_queries -> TR12_Q3=PASS TR12_Q3_READER=PASS, rc 0
+        selftest      -> ATLAS_CONSUMER=PASS, 34 gate(s) run, 0 failure(s)
+
+    with step 1 publishing p = 1184/26112 beside g/g_parent = 2368/26112.  Multiply the p column
+    and divide the g column and you get different answers; both were attested.
+
+    The invariant is exact and free: p_num == g and p_den == g_parent on every row of the real
+    profile AND of the committed golden.  It is checked by cross-multiplication so an
+    unreduced-but-equal ratio is still accepted -- the claim is that p IS the shells' ratio, not
+    that the producer printed it in lowest terms.
+    """
+
+    N = 26112
+    # the real n=9 descent (scripts/tr12_expected/n9/a2_q3_profile.txt, and reproduced here from
+    # `solve --kc-profile f g <walk> --kc-tsv`): the shell sizes, root first.
+    G = [2368, 456, 160, 32, 8, 4, 4, 1, 1]
+
+    def _write(self, rows):
+        import math
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        path = os.path.join(d, "q3.tsv")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("step\tp_num\tp_den\tbits\tg\tg_parent\n")
+            for step, (pn, pd, g, gp) in enumerate(rows, 1):
+                fh.write("%d\t%d\t%d\t%.6f\t%d\t%d\n"
+                         % (step, pn, pd, math.log2(pd) - math.log2(pn), g, gp))
+        return path
+
+    def _chain(self):
+        """The honest trace: every row's p IS its own g/g_parent."""
+        out, parent = [], self.N
+        for g in self.G:
+            out.append((g, parent, g, parent))
+            parent = g
+        return out
+
+    def test_the_real_descent_is_accepted(self):
+        # POSITIVE CONTROL. A check that refuses the producer is not a fix.
+        mod = _load("solve")
+        self.assertEqual([], mod.atlas_q3_reader_check(self._write(self._chain()), self.N))
+
+    def test_the_committed_n9_golden_is_accepted(self):
+        # SECOND POSITIVE CONTROL, on a real artifact rather than a reconstruction: the
+        # invariant must never be able to false-fail the producer as it stands.
+        mod = _load("solve")
+        here = os.path.dirname(os.path.abspath(__file__))
+        src = os.path.join(here, "scripts", "tr12_expected", "n9", "a2_q3_profile.txt")
+        with open(src, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+        head = [i for i, l in enumerate(lines) if l.startswith("step\t")]
+        self.assertEqual(1, len(head), "golden no longer carries exactly one TSV header")
+        body = []
+        for l in lines[head[0] + 1:]:
+            if not l[:1].isdigit():
+                break
+            body.append(l)
+        self.assertTrue(body, "golden carries no profile rows")
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        path = os.path.join(d, "golden.tsv")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(lines[head[0]] + "\n" + "\n".join(body) + "\n")
+        self.assertEqual([], mod.atlas_q3_reader_check(path, self.N))
+
+    def test_a_compensated_p_chain_is_refused(self):
+        # RED. Halve p at step 1 and double it at step 2: the product is untouched, the g
+        # column is untouched, and before the binding existed this returned [].
+        mod = _load("solve")
+        rows = self._chain()
+        rows[0] = (rows[0][0] // 2, rows[0][1], rows[0][2], rows[0][3])
+        rows[1] = (rows[1][0] * 2, rows[1][1], rows[1][2], rows[1][3])
+        fails = mod.atlas_q3_reader_check(self._write(rows), self.N)
+        self.assertTrue(any("step 1" in f and "ratio of the shell sizes" in f for f in fails),
+                        "step 1's p no longer describes its shells; got %r" % (fails,))
+        self.assertTrue(any("step 2" in f and "ratio of the shell sizes" in f for f in fails),
+                        "step 2's p no longer describes its shells; got %r" % (fails,))
+        # the product leg is still satisfied -- which is exactly why it could not see this.
+        self.assertFalse([f for f in fails if f.startswith("prod(")], fails)
+
+    def test_an_unreduced_but_equal_ratio_is_still_accepted(self):
+        # The binding is a cross-multiplication, not an equality of the printed integers:
+        # the producer is free to print p unreduced without being called wrong.
+        mod = _load("solve")
+        rows = self._chain()
+        rows[0] = (rows[0][0] * 3, rows[0][1] * 3, rows[0][2], rows[0][3])
+        self.assertEqual([], [f for f in mod.atlas_q3_reader_check(self._write(rows), self.N)
+                              if "ratio of the shell sizes" in f])
+
+
+class TestA5RequiresACompleteInventoryAndFailsInvalidPairs(unittest.TestCase):
+    """A-5 must know the difference between "this pair is invalid" and "we have no data".
+
+    RCQ04 finding 5 (2026-09-10, ACCEPTED by execution).  Two defects, measured on n=31 dicts:
+
+      * `{pair3, pair7, pair11}` alone -- 3 of the 31 free pairs -- passed BOTH checks:
+        `atlas_orbit_columns` returned ok=True and `atlas_orbit_membership` returned
+        (True, "3 pair(s): equal-column grouping == G48 pair-orbit partition").  The group-size
+        multiset was graded against a POOL, so any sub-collection of whole orbits tiled it, and
+        a producer that dropped a pair from every layer would have been signed off.
+      * `{pair0, pair3, pair7}` returned (None, "pairs outside the 31 free pairs: ['pair0']"),
+        and the dispatch renders None as `TR12_A5_ORBIT_MEMBERSHIP=SKIP:no-raw` -- which
+        `atlas_failed_verdicts` correctly treats as NOT a failure.  An invalid key was reported
+        as missing data.
+
+    `marginal_raw` is emitted SPARSELY (non-zero cells only, per layer), so the inventory is the
+    UNION OVER LAYERS, which at n=31 must be exactly pair1..pair31; pair 0 is pinned by C4,
+    identically zero, and never emitted.  At reduced n the free-pair subset is a proper subset by
+    construction -- the real n=9 atlas's union is nine pairs, three whole orbits -- so the
+    completeness rule fires at n=31 only, or it would be a gate with no producer.
+    """
+
+    N = 1000000
+
+    def _mod(self):
+        return _load("solve")
+
+    def _atlas(self, keys, n=31):
+        """An n-layer atlas whose every layer carries the same raw column values."""
+        mod = self._mod()
+        layers = [{"k": k, "flow": str(self.N),
+                   "by_class": {"d%d" % d: "0" for d in mod._ATLAS_CLASSES},
+                   "marginal_raw": {p: str(v) for p, v in keys.items()}}
+                  for k in range(n)]
+        return {"type": mod._ATLAS_TYPE, "n": n, "N_total": str(self.N),
+                "space": "a5-inventory-fixture",
+                "semantics": "synthetic fixture for the A-5 inventory gate; not a measurement",
+                "gates": {"fails": 0}, "branch_atlas": [], "layers": layers}
+
+    def _complete_keys(self):
+        """All 31 free pairs, one distinct column value per G48 orbit -- the shape a correct
+        full-31 field has.  The partition is DERIVED (pair_orbit_partition), never hardcoded."""
+        keys = {}
+        for oi, members in enumerate(self._mod().pair_orbit_partition()):
+            for p in members:
+                keys["pair%d" % p] = (oi + 1) * 1000
+        return keys
+
+    def test_a_complete_full_31_field_passes_both(self):
+        # POSITIVE CONTROL.
+        mod = self._mod()
+        A = self._atlas(self._complete_keys())
+        self.assertEqual(31, len(self._complete_keys()))
+        self.assertTrue(mod.atlas_orbit_columns(A)[2], mod.atlas_orbit_columns(A)[3])
+        self.assertIs(True, mod.atlas_orbit_membership(A)[0])
+
+    def test_a_reduced_n_field_is_not_asked_for_31_pairs(self):
+        # POSITIVE CONTROL. The real n=9 atlas's raw union is exactly these nine pairs (three
+        # whole orbits); requiring a full inventory there would refuse the producer's own output.
+        mod = self._mod()
+        keys = {"pair3": 1, "pair7": 1, "pair11": 1,
+                "pair4": 2, "pair6": 2, "pair21": 2,
+                "pair13": 3, "pair14": 3, "pair30": 3}
+        A = self._atlas(keys, n=9)
+        self.assertTrue(mod.atlas_orbit_columns(A)[2], mod.atlas_orbit_columns(A)[3])
+        self.assertIs(True, mod.atlas_orbit_membership(A)[0])
+
+    def test_three_pairs_out_of_thirty_one_are_refused_by_both(self):
+        # RED. The reviewer's input, verbatim: before the fix both said PASS.
+        mod = self._mod()
+        A = self._atlas({"pair3": 1, "pair7": 1, "pair11": 1})
+        ncol, sizes, ok, detail = mod.atlas_orbit_columns(A)
+        self.assertFalse(ok, detail)
+        self.assertIn("incomplete full-31 inventory", detail)
+        ok_mem, detail_mem = mod.atlas_orbit_membership(A)
+        self.assertIs(False, ok_mem, detail_mem)
+        self.assertIn("incomplete full-31 inventory", detail_mem)
+
+    def test_one_missing_pair_is_refused(self):
+        # RED, the tighter form: a field that is complete but for a single pair. The size
+        # multiset alone can still tile the pool, so only an inventory check sees this.
+        mod = self._mod()
+        keys = self._complete_keys()
+        del keys["pair19"]
+        ncol, sizes, ok, detail = mod.atlas_orbit_columns(self._atlas(keys))
+        self.assertFalse(ok, detail)
+        self.assertIn("pair19", detail)
+        self.assertIs(False, mod.atlas_orbit_membership(self._atlas(keys))[0])
+
+    def test_an_invalid_pair_is_a_failure_not_missing_data(self):
+        # RED. `pair0` is pinned by C4 and identically zero, so it is never legitimately
+        # emitted. Before the fix membership returned None, which the dispatch renders as
+        # SKIP:no-raw -- an invalid field reported as an absent one.
+        mod = self._mod()
+        A = self._atlas({"pair0": 5, "pair3": 7, "pair7": 7})
+        ok_mem, detail_mem = mod.atlas_orbit_membership(A)
+        self.assertIsNotNone(ok_mem, "an invalid pair must not be reported as missing data")
+        self.assertIs(False, ok_mem, detail_mem)
+        self.assertIn("pair0", detail_mem)
+
+    def test_a_genuinely_empty_field_still_reports_no_data(self):
+        # The other side of the same distinction: with NO raw field at all there is nothing to
+        # judge, and None (-> SKIP:no-raw) remains the honest answer. A check that answered FAIL
+        # here would make every atlas built without --kc-raw red.
+        mod = self._mod()
+        A = self._atlas({})
+        for L in A["layers"]:
+            del L["marginal_raw"]
+        self.assertIsNone(mod.atlas_orbit_columns(A)[2])
+        self.assertIsNone(mod.atlas_orbit_membership(A)[0])
+
+    def test_the_emitted_verdicts_say_FAIL_not_SKIP(self):
+        import json
+        # RED, end to end through the artifact a reader actually sees. The misclassification
+        # only becomes harmful at the dispatch, where None is rendered SKIP:no-raw and
+        # atlas_failed_verdicts then (correctly) declines to call it a failure.
+        mod = self._mod()
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        path = os.path.join(d, "atlas.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(self._atlas({"pair0": 5, "pair3": 7, "pair7": 7}), fh)
+        out = os.path.join(d, "out")
+        os.makedirs(out)
+        R = mod.atlas_queries(path, out, select=["a5"], quiet=True)
+        for k in ("TR12_A5_ORBIT_COLUMNS", "TR12_A5_ORBIT_MEMBERSHIP"):
+            self.assertTrue(R["verdicts"][k].startswith("FAIL"), R["verdicts"][k])
+        self.assertEqual(1, mod.atlas_verdicts_rc(R["verdicts"]))
+        # and the complete field still exits 0
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(self._atlas(self._complete_keys()), fh)
+        R = mod.atlas_queries(path, out, select=["a5"], quiet=True)
+        self.assertEqual("PASS", R["verdicts"]["TR12_A5_ORBIT_COLUMNS"])
+        self.assertEqual("PASS", R["verdicts"]["TR12_A5_ORBIT_MEMBERSHIP"])
+        self.assertEqual(0, mod.atlas_verdicts_rc(R["verdicts"]))
+
+
+class TestA2A3TolerancesAreDecidedInExactArithmetic(unittest.TestCase):
+    """A published verdict must not depend on which way a double fell.
+
+    RCQ04 finding 6 (2026-09-10, ACCEPTED by execution).  `atlas_a2_slot_check` and
+    `atlas_a3_external_check` read `cell / float(N)` and compared the double against a float
+    tolerance, in a file whose own `atlas_emit_xa` states the rule they were breaking -- "at the
+    boundary a binary64 round trip is enough to reverse the call" -- and decides XA in exact
+    rationals for precisely that reason.
+
+    MEASURED: with N = floor((2^192-1)/(48*2000))*48*2000 and slot 32 placed so the deviation is
+    EXACTLY the 0.002 tolerance, the shipped A2 returned FAIL on "max deviation 0.0020 (tol
+    0.0020)" -- the double came out 0.0020000000000000018.  Both exact readings PASS.  On real
+    data the exact deviation would have to land within ~2e-18 of the tolerance for this to
+    matter, so this is measure-zero in practice; it is fixed on PRINCIPLE and because it is free.
+
+    The fixtures below are boundary cases by construction: cell and N are integers chosen so the
+    deviation is the tolerance to the last bit.  A test that only used comfortable numbers would
+    not distinguish the two implementations at all.
+    """
+
+    TOL = 2  # thousandths; the checks' default tol=2e-3
+
+    def _mod(self):
+        return _load("solve")
+
+    def _n_boundary(self, unit):
+        """The largest multiple of `unit` below 2^192 -- big enough that binary64 cannot hold
+        cell/N, which is what makes the boundary observable."""
+        return ((2 ** 192 - 1) // unit) * unit
+
+    # ---- A2 ---------------------------------------------------------------
+    def _a2_atlas(self, slot32_thousandths_of_pct=None, N=None):
+        mod = self._mod()
+        N = N or self._n_boundary(48 * 2000)
+        # slot 32 sits exactly tol ABOVE its published 0.0785; slot 2 sits exactly on 0.0520.
+        # Both the slot32 leg and the R-C1c sum leg are then exactly at the tolerance.
+        c32 = N * 161 // 2000 if slot32_thousandths_of_pct is None \
+            else N * slot32_thousandths_of_pct // 100000
+        c2 = N * 13 // 250
+        layers = [{"k": k} for k in range(31)]
+        layers[0]["marginal_raw"] = {"pair%d" % mod._A2_PAIR: str(c2)}
+        layers[30]["marginal_raw"] = {"pair%d" % mod._A2_PAIR: str(c32)}
+        return {"n": 31, "N_total": str(N), "layers": layers}, N, c32, c2
+
+    def test_a2_the_fixture_really_is_on_the_boundary(self):
+        # The test is only a test if the deviation is EXACTLY the tolerance in exact arithmetic
+        # and STRICTLY GREATER in binary64. Assert both, so a future N cannot quietly move off
+        # the boundary and leave a green test that measures nothing.
+        from fractions import Fraction
+        mod = self._mod()
+        _, N, c32, c2 = self._a2_atlas()
+        self.assertEqual(Fraction(self.TOL, 1000),
+                         abs(Fraction(c32, N) - Fraction("0.0785")))
+        self.assertEqual(Fraction(self.TOL, 1000),
+                         abs(Fraction(c32, N) + Fraction(c2, N) - Fraction("0.1305")))
+        self.assertGreater(abs(c32 / float(N) - 0.0785), 2e-3)
+        self.assertEqual(0.0020000000000000018, abs(c32 / float(N) - 0.0785))
+
+    def test_a2_accepts_a_deviation_exactly_at_the_tolerance(self):
+        # RED. The shipped float implementation returned FAIL here.
+        mod = self._mod()
+        A = self._a2_atlas()[0]
+        st, detail = mod.atlas_a2_slot_check(A)
+        self.assertEqual("PASS", st, detail)
+        self.assertIn("max deviation 0.0020 (tol 0.0020)", detail)
+
+    def test_a2_still_fails_a_deviation_past_the_tolerance(self):
+        # POSITIVE CONTROL: exactness must not be a way of accepting everything. One
+        # ten-thousandth beyond the boundary and the verdict is FAIL again.
+        mod = self._mod()
+        A = self._a2_atlas(slot32_thousandths_of_pct=8060)[0]     # 0.0806 = 0.0785 + 0.0021
+        self.assertEqual("FAIL", mod.atlas_a2_slot_check(A)[0])
+
+    def test_a2_still_passes_the_published_values(self):
+        # POSITIVE CONTROL on the numbers TR-7 actually prints.
+        mod = self._mod()
+        N = 1000000
+        layers = [{"k": k} for k in range(31)]
+        layers[0]["marginal_raw"] = {"pair%d" % mod._A2_PAIR: "52000"}
+        layers[30]["marginal_raw"] = {"pair%d" % mod._A2_PAIR: "78500"}
+        st, detail = mod.atlas_a2_slot_check({"n": 31, "N_total": str(N), "layers": layers})
+        self.assertEqual("PASS", st, detail)
+        self.assertIn("A2 slot32=0.0785", detail)
+
+    # ---- A3 ---------------------------------------------------------------
+    def _a3_atlas(self, d3_thousandths=654, N=None):
+        """The final layer's raw marginal, distributed over the DERIVED wrap classes so the
+        class fractions are d3/d1/d5 = 0.654/0.173/0.173 -- d3 exactly tol above its published
+        0.652, d1 exactly tol below its 0.175."""
+        mod = self._mod()
+        N = N or self._n_boundary(1000)
+        cmap = mod.atlas_a3_wrap_class_map()
+        by = {}
+        for p, d in cmap.items():
+            by.setdefault(d, []).append(p)
+        want = {3: N * d3_thousandths // 1000, 1: N * 173 // 1000}
+        want[5] = N - want[3] - want[1]
+        last = {}
+        for d, tot in want.items():
+            grp = sorted(by[d])
+            q, r = divmod(tot, len(grp))
+            for i, p in enumerate(grp):
+                last["pair%d" % p] = str(q + (1 if i < r else 0))
+        layers = [{"k": k} for k in range(31)]
+        layers[30]["marginal_raw"] = last
+        return {"n": 31, "N_total": str(N), "layers": layers}, N, want
+
+    def test_a3_the_fixture_really_is_on_the_boundary(self):
+        from fractions import Fraction
+        _, N, want = self._a3_atlas()
+        self.assertEqual(N, sum(want.values()))
+        self.assertEqual(Fraction(self.TOL, 1000), abs(Fraction(want[3], N) - Fraction("0.652")))
+        self.assertGreater(abs(want[3] / float(N) - 0.652), 2e-3)
+
+    def test_a3_accepts_a_deviation_exactly_at_the_tolerance(self):
+        # RED. Same class as A2: the shipped float implementation said FAIL.
+        mod = self._mod()
+        st, detail = mod.atlas_a3_external_check(self._a3_atlas()[0])
+        self.assertEqual("PASS", st, detail)
+
+    def test_a3_still_fails_a_deviation_past_the_tolerance(self):
+        # POSITIVE CONTROL.
+        mod = self._mod()
+        self.assertEqual("FAIL", mod.atlas_a3_external_check(self._a3_atlas(d3_thousandths=655)[0])[0])
+
+    # ---- the shared helpers ----------------------------------------------
+    def test_the_published_references_are_exact_decimals(self):
+        # The comparison can only be exact if BOTH sides are. Held as floats, 0.0785 is
+        # 0.07850000000000000033..., which is not the number TR-7 prints.
+        from fractions import Fraction
+        mod = self._mod()
+        self.assertEqual(Fraction(157, 2000), mod._A2_SLOT_REFS["slot32"])
+        self.assertEqual(Fraction(13, 250), mod._A2_SLOT_REFS["slot2"])
+        self.assertEqual(mod._A2_SLOT_REFS["slot32"] + mod._A2_SLOT_REFS["slot2"],
+                         mod._A2_SLOT_REFS["rc1c"])
+        self.assertEqual(Fraction(163, 250), mod._A3_REFERENCES[3])
+        self.assertEqual(Fraction(7, 40), mod._A3_REFERENCES[1])
+        self.assertEqual(Fraction(87, 500), mod._A3_REFERENCES[5])
+
+    def test_a_float_tolerance_is_read_as_the_decimal_it_was_typed_as(self):
+        from fractions import Fraction
+        mod = self._mod()
+        self.assertEqual(Fraction(1, 500), mod._atlas_exact_tol(2e-3))
+        self.assertEqual(Fraction(1, 500), mod._atlas_exact_tol(Fraction(2, 1000)))
+        self.assertNotEqual(Fraction(2e-3), mod._atlas_exact_tol(2e-3))
+
+    def test_four_decimal_rendering_is_exact_and_half_even(self):
+        from fractions import Fraction
+        mod = self._mod()
+        self.assertEqual("0.0785", mod._atlas_frac_4dp(Fraction("0.0785")))
+        self.assertEqual("0.0020", mod._atlas_frac_4dp(Fraction(2, 1000)))
+        self.assertEqual("1.0000", mod._atlas_frac_4dp(Fraction(1, 1)))
+        # a tie: half-even, decided on the rational, not on whichever double it landed in
+        self.assertEqual("0.0002", mod._atlas_frac_4dp(Fraction(25, 100000)))
+        self.assertEqual("0.0004", mod._atlas_frac_4dp(Fraction(35, 100000)))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

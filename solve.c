@@ -15281,6 +15281,8 @@ static void f1c5_write_manifest(const char *dir, const F1Ctx *c, const F1C5Budge
 
 static void f1c5_v2_index_load(FILE *f, const char *path, const F1C5LayerHdr *h,
                                F1C5Layer *L);   /* fwd decl (defined with the resume loader) */
+static int f1c5_layer_sha_hex(const char *path, char hex[65], uint64_t *blocks_out,
+                              uint64_t *bytes_out, int *kind_out);   /* fwd decl (layer tools) */
 
 static void f1c5_finalized_marker_path(char *buf, size_t cap, const char *dir,
                                        const char *pfx, int k) {
@@ -15384,12 +15386,55 @@ static void f1c5_sha_ledger_append(const char *dir, const char *pfx, int k,
         fprintf(stderr, "WARN: [%s] sha ledger append failed (%s)\n", pfx, path);
 }
 
+/* Read back the LAST ledger line for layer k (a layer rebuilt after a refused
+ * adoption appends a second line for the same k; the last one is the record of
+ * the .bin now on disk). Returns 0 and fills hex[65] on success; 1 when the
+ * ledger is absent, has no line for k, or that line recorded "unavailable".
+ * Absence is NOT an error here: f1c5_sha_ledger_append is best-effort by
+ * design (it WARNs and continues), and the Stage-F ladder predates the ledger
+ * entirely — so the adopt gate treats a missing line as "no cross-check
+ * available", never as a failure. See f1c5_finalized_try_adopt. */
+static int f1c5_sha_ledger_lookup(const char *dir, const char *pfx, int k, char hex[65]) {
+    char path[4200];
+    snprintf(path, sizeof(path), "%s/%s_layer_sha.ledger", dir, pfx);
+    FILE *f = fopen(path, "r");
+    if (!f) return 1;
+    char line[512], want[16];
+    int found = 0;
+    snprintf(want, sizeof(want), "k=%02d ", k);
+    hex[0] = '\0';
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, want, strlen(want)) != 0) continue;
+        const char *m = strstr(line, "sha256=");
+        if (!m) continue;
+        m += 7;
+        size_t i = 0;
+        while (i < 64 && ((m[i] >= '0' && m[i] <= '9') || (m[i] >= 'a' && m[i] <= 'f'))) i++;
+        if (i == 64) { memcpy(hex, m, 64); hex[64] = '\0'; found = 1; }   /* LAST wins */
+    }
+    fclose(f);
+    return found ? 0 : 1;
+}
+
 /* Env gate for the inline finalize-time decompressed-stream sha (default ON
  * for the g/t OOC builder; SOLVE_F1_FINALIZE_SHA=0 degrades the marker to
- * size+identity only — the adopt path never depends on the digest). */
+ * size+identity only — and, since 2026-09-10, therefore DISABLES adoption:
+ * the adopt path REQUIRES the digest, see f1c5_finalized_try_adopt). */
 static int f1c5_finalize_sha_enabled(void) {
     const char *e = getenv("SOLVE_F1_FINALIZE_SHA");
     return !(e && *e && atoi(e) == 0);
+}
+
+/* Escape hatch for the adopt-time digest gate below, and for ONE case only:
+ * a marker that records NO digest (a ladder built with
+ * SOLVE_F1_FINALIZE_SHA=0), where the gate would otherwise cost an operator a
+ * multi-hour re-sweep to learn nothing. Unset (the default) = such a marker is
+ * not adopted. =1 adopts it, loudly and unattested. It is read on that branch
+ * only, so it CANNOT skip a comparison that is possible: a digest that is
+ * present and disagrees refuses the adoption whatever this is set to. */
+static int f1c5_adopt_unverified(void) {
+    const char *e = getenv("SOLVE_F1_ADOPT_UNVERIFIED");
+    return (e && *e && atoi(e) != 0);
 }
 
 /* Shared adopt-check (both OOC ladder drivers — the Stage-F f1c5 loop and the
@@ -15402,7 +15447,66 @@ static int f1c5_finalize_sha_enabled(void) {
  * mask list (cross-checked against the file, then replaced by the loaded
  * index). *use_v2 is flipped to the on-disk format on adopt (same
  * format-adoption semantics as f1c5_try_resume_as). Returns 1 on adoption.
- * tag is the log prefix ("f1c5", "kc-g", "kc-t"). */
+ * tag is the log prefix ("f1c5", "kc-g", "kc-t").
+ *
+ * DIGEST GATE (2026-09-10, RCQ03 finding 2 — reviewer Codex `gpt-6-astra`,
+ * adjudicated in the ROAE working notes; developed with AI assistance
+ * (Claude, Anthropic)). Until this date the adopt path READ the marker's
+ * sha256_decompressed, PRINTED it, and never compared it — documented as
+ * intended ("the adopt path never depends on the digest"). The measured
+ * consequence: flip one byte of a finalized layer's offset table (byte 100 of
+ * an n=9 f layer 1), resume, and the build ADOPTS the altered layer, logs the
+ * ORIGINAL digest for a file that no longer has it, and exits 0 with
+ * total = 18,768 instead of 26,112. The structural checks cannot see it — a
+ * bumped offset is still monotone with the right endpoints, so the header,
+ * the size and f1c5_v2_index_load all pass — and neither can --kc-g-check on
+ * a large fraction of instances (its merge-join sees only keys present in
+ * BOTH ladders' spans), nor --kc-ladder-verify when the eviction lands in the
+ * sidecar window (the resume regenerates the sidecar from the altered bytes).
+ * So the marker's own digest is the check, and it is now made.
+ *
+ * The failure mode is REFUSE-AND-REBUILD, never abort: `return 0` puts the
+ * caller on the `if (!adopted)` branch it has always had — the full sweep of
+ * layer k, i.e. exactly the pre-2026-08-06 behaviour. Adoption is an
+ * optimisation, not a durability requirement, so a refusal can never make an
+ * eviction-resume impossible; it can only make one resume slower. That is why
+ * the gate defaults to ON with no availability caveat.
+ *
+ * Comparand: the MARKER's digest. It is the finalize-time record and it is
+ * present whenever adoption is possible at all. It is not derived from the
+ * .bin at check time, so it is a real witness against the threat this gate
+ * exists for (a layer file that changed after finalize). The append-only
+ * <pfx>_layer_sha.ledger is cross-checked in addition when it carries a line
+ * for k — it is the one record a sidecar retrofit cannot rewrite — but its
+ * ABSENCE is not an error here (the append is best-effort and the Stage-F
+ * ladder predates it). Absence of the ledger IS decisive for the offline
+ * audit of a completed ladder, where the marker is gone; that is a different
+ * question from this one.
+ *
+ * A marker with NO digest (SOLVE_F1_FINALIZE_SHA=0) is "cannot attest", so it
+ * is not adopted either — the verifier-closure rule: a check must be FALSE
+ * when its target is absent. SOLVE_F1_ADOPT_UNVERIFIED=1 is the loud opt-out
+ * for that case, and ONLY that case: it is checked exclusively on the branch
+ * where mk_sha is empty. When a digest is recorded the comparison is possible,
+ * and when it is possible it is made — so the opt-out cannot wave through a
+ * layer that is present, checkable, and wrong. (It was written the other way
+ * first, as a general "skip the recomputation" switch; the measured
+ * consequence — env set, byte flipped, total 18,768, exit 0 — was the same
+ * defect this gate exists to remove, one env var away, so the switch was
+ * narrowed to the unattested case before landing.)
+ *
+ * Every outcome emits a whole-line verdict token on stderr for scripted
+ * callers (house rule: a gate's verdict is a KEY=value line, never an output
+ * shape) — F1C5_ADOPT_DIGEST= OK | MISMATCH | LEDGER-MISMATCH | MISSING |
+ * UNCOMPUTABLE | UNVERIFIED. Only OK is followed by an adoption; a build that
+ * must never silently re-sweep can `grep -qx 'F1C5_ADOPT_DIGEST=OK'`, and one
+ * that must never adopt unattested can assert the absence of UNVERIFIED.
+ *
+ * Cost: one decompressed-stream read of layer k per adoption (adoption fires
+ * only on a resume that meets a marker — never on a fresh sequential build,
+ * where no marker for the layer being built exists yet). At full-31 that is
+ * I/O-bound minutes-to-an-hour against the ~44 h re-sweep the marker exists
+ * to avoid, and against a silently wrong ladder. */
 static int f1c5_finalized_try_adopt(const char *dir, const char *pfx, int kind,
                                     const F1Ctx *c, const F1C5Budget *B, int k,
                                     F1C5Layer *nxt, int *use_v2, const char *tag) {
@@ -15436,6 +15540,84 @@ static int f1c5_finalized_try_adopt(const char *dir, const char *pfx, int kind,
                 tag, k, lpath);
         unlink(mpath);
         return 0;
+    }
+    /* ---- digest gate (see the header comment above) ---------------------
+     * Every refusal below is `return 0` = re-sweep this layer, and every one
+     * leaves the marker in place: it is the only surviving finalize-time
+     * attestation, so deleting it would destroy the evidence that the .bin is
+     * wrong. The rebuild's own finalize replaces it atomically. */
+    {
+        const int unverified = f1c5_adopt_unverified();
+        char led_sha[65];
+        const int have_led = (f1c5_sha_ledger_lookup(dir, pfx, k, led_sha) == 0);
+        if (mk_sha[0] == '\0') {
+            /* no finalize-time digest at all (built with SOLVE_F1_FINALIZE_SHA=0) */
+            if (!unverified) {
+                if (lf) fclose(lf);
+                fprintf(stderr,
+                        "ERROR: [%s] finalized layer %02d carries NO decompressed-stream "
+                        "digest in its marker (built with SOLVE_F1_FINALIZE_SHA=0), so it "
+                        "cannot be attested — NOT adopting; layer %02d will be rebuilt by a "
+                        "full sweep. Set SOLVE_F1_ADOPT_UNVERIFIED=1 to adopt it unattested.\n",
+                        tag, k, k);
+                fprintf(stderr, "F1C5_ADOPT_DIGEST=MISSING\n");
+                return 0;
+            }
+            fprintf(stderr,
+                    "WARN: [%s] SOLVE_F1_ADOPT_UNVERIFIED=1 — adopting layer %02d with NO "
+                    "finalize-time digest; %s is UNATTESTED and every count derived from "
+                    "this ladder inherits that\n", tag, k, lpath);
+            fprintf(stderr, "F1C5_ADOPT_DIGEST=UNVERIFIED\n");
+        } else {
+            /* A digest IS recorded, so the comparison is possible — and when it is
+             * possible it is made, opt-out or not. SOLVE_F1_ADOPT_UNVERIFIED buys
+             * an operator past a marker that cannot be checked; it never buys one
+             * past a marker that can be and fails. */
+            if (unverified)
+                fprintf(stderr, "WARN: [%s] SOLVE_F1_ADOPT_UNVERIFIED=1 is set but layer %02d's "
+                        "marker DOES carry a digest — verifying it anyway (the opt-out covers "
+                        "only an unattested marker)\n", tag, k);
+            char now_sha[65] = "";
+            if (sha256_tool() == NULL ||
+                f1c5_layer_sha_hex(lpath, now_sha, NULL, NULL, NULL) != 0) {
+                if (lf) fclose(lf);
+                fprintf(stderr,
+                        "ERROR: [%s] cannot recompute the decompressed-stream digest of %s "
+                        "(no sha256 tool on PATH, or the read failed), so the finalized layer "
+                        "%02d cannot be attested — NOT adopting; the layer will be rebuilt by "
+                        "a full sweep\n", tag, lpath, k);
+                fprintf(stderr, "F1C5_ADOPT_DIGEST=UNCOMPUTABLE\n");
+                return 0;
+            }
+            if (strcmp(now_sha, mk_sha) != 0) {
+                if (lf) fclose(lf);
+                fprintf(stderr,
+                        "ERROR: [%s] finalized layer %02d FAILS its own finalize-time digest: %s\n"
+                        "       marker  sha256(decompressed) = %s\n"
+                        "       on-disk sha256(decompressed) = %s\n"
+                        "       ledger  sha256(decompressed) = %s\n"
+                        "       The layer file changed after it was finalized. NOT adopting; the "
+                        "layer will be rebuilt by a full sweep. The marker is kept as evidence.\n",
+                        tag, k, lpath, mk_sha, now_sha,
+                        have_led ? led_sha : "(no ledger line for this layer)");
+                fprintf(stderr, "F1C5_ADOPT_DIGEST=MISMATCH\n");
+                return 0;
+            }
+            if (have_led && strcmp(led_sha, mk_sha) != 0) {
+                if (lf) fclose(lf);
+                fprintf(stderr,
+                        "ERROR: [%s] finalized layer %02d: the marker and the append-only sha "
+                        "ledger disagree — marker %s, ledger %s. One of the two finalize-time "
+                        "records was altered; the layer cannot be attested. NOT adopting; the "
+                        "layer will be rebuilt by a full sweep\n",
+                        tag, k, mk_sha, led_sha);
+                fprintf(stderr, "F1C5_ADOPT_DIGEST=LEDGER-MISMATCH\n");
+                return 0;
+            }
+            fprintf(stderr, "[%s] finalized layer %02d digest VERIFIED against its marker%s "
+                    "(%s)\n", tag, k, have_led ? " and the append-only ledger" : "", mk_sha);
+            fprintf(stderr, "F1C5_ADOPT_DIGEST=OK\n");
+        }
     }
     F1C5Layer fin;
     memset(&fin, 0, sizeof(fin));
@@ -25348,13 +25530,22 @@ static const char *kc_h_exe_sha(void) {
     if (done) return cached;
     done = 1;
     strcpy(cached, "unavailable");
-    char exe[4096];
-    const ssize_t sl = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
-    if (sl <= 0) return cached;
-    exe[sl] = '\0';
     const char *tool = sha256_tool();
     if (!tool) return cached;
-    FILE *in = fopen(exe, "rb");
+    /* 🔴 OPEN /proc/self/exe DIRECTLY, 2026-09-10 (RCQ03 F5, ACCEPTED by execution).
+     * This used to readlink("/proc/self/exe") and fopen() the RESOLVED PATH. When the
+     * executable is replaced or renamed while running -- an atomic deploy, or a build
+     * writing over the binary -- Linux reports the old pathname with a " (deleted)"
+     * suffix, that path does not exist, and the fopen fails.
+     * Measured deterministically (LD_PRELOAD constructor sleep, binary renamed 300 ms
+     * after exec, code under test untouched): every layer computes, "VERDICT: PASS" is
+     * printed, and THEN the digest is required during chunk emission -- so a COMPLETED
+     * scan reports KC_SCAN_CHUNK=FAIL, rc 2, and writes no chunk. Hours of correct work
+     * discarded at the last step.
+     * /proc/self/exe is a magic symlink the kernel resolves to the running inode itself,
+     * so opening it works whether or not the path still exists. No readlink needed: the
+     * pathname was used for nothing but this open. */
+    FILE *in = fopen("/proc/self/exe", "rb");
     if (!in) return cached;
     char tmp[128], cmd[192];
     snprintf(tmp, sizeof(tmp), "/tmp/solve_exesha_%d", (int)getpid());
@@ -28546,6 +28737,33 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                            T.gate_fails == 1 ? "" : "s");
                     printf("KC_SCAN_MERGE=%s\n", T.gate_fails ? "FAIL" : "OK");
                     rc = T.gate_fails ? 1 : 0;
+                    /* 🔴 THE ATLAS MUST NOT SURVIVE A FAILED GATE, 2026-09-10 (RCQ03 F4,
+                     * ACCEPTED by execution). The usage text 18 lines above promises, in
+                     * its own words: "A pre-existing OUT.json is REMOVED on entry: after
+                     * any non-OK exit no atlas exists at OUT." That was true of a stale
+                     * file and FALSE of the one this block had just written.
+                     * Measured: change layer 3's d3 from "0" to "1" in one chunk. Coverage
+                     * and both ladder digests still verify, so the merge proceeds; the new
+                     * class row and column gates fail; KC_SCAN_MERGE=FAIL and rc 1 are
+                     * printed correctly -- AND a complete, parseable atlas containing the
+                     * wrong cell is left at OUT with "fails": 2 inside it.
+                     * A consumer following the documented file-existence contract therefore
+                     * reads a REJECTED table as if it were an accepted one. The verdict was
+                     * right and the artifact outlived it, which is worse than a wrong
+                     * verdict: nothing downstream is looking.
+                     * The contract is the correct one and the code was breaking it, so the
+                     * code moves. Same discipline as kc_h_close_artifact, which unlinks on a
+                     * short write for exactly this reason. */
+                    if (T.gate_fails && remove(outp) != 0) {
+                        fprintf(stderr, "ERROR: [kc-scan-merge] %d gate failure%s but could "
+                                "NOT remove the rejected atlas %s: %s. A consumer that "
+                                "trusts the documented \"no atlas after a non-OK exit\" "
+                                "contract would read this rejected table as accepted. "
+                                "DELETE IT BY HAND before using this directory.\n",
+                                T.gate_fails, T.gate_fails == 1 ? "" : "s", outp,
+                                strerror(errno));
+                        rc = 2;
+                    }
                 }
             }
         }
@@ -31831,11 +32049,11 @@ static int kc_layers_selftest(void) {
  * --kc-witness must not produce an OK that looks witnessed (KCQ03 #2-#4).
  *
  * TWO-LANGUAGE OBLIGATION (TR-12 §Q5, "witness re-checked in solve.py").
- * The witness is printed in the standard "entry,exit,..." form precisely so
- * solve.py can evaluate it independently. That re-check belongs to the RUN
- * HARNESS, not to solve.c — a second evaluator inside the same binary is not
- * a second language. Recorded here as a run-time obligation of any Q5
- * deliverable: no Q5 number ships without it.
+ * The witness is printed in the standard "entry,exit,..." form, and the
+ * certificate carries start_exit, precisely so solve.py can evaluate it
+ * independently with no convention assumed. The re-check belongs to the RUN
+ * HARNESS: `python3 solve.py --kc-x-recheck CERT.json` -> KC_X_PYCHECK=PASS
+ * (landed 2026-09-10; row a1_q5). No Q5 number ships without it.
  *
  * GATE. --kc-extremal-selftest is the n=9 exhaustive brute-force gate
  * (K1..K12), argv-dispatched, sha-neutral, NEVER inside --selftest (rule
@@ -32280,7 +32498,7 @@ static int kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
     fprintf(f, "  \"order\": \"NATIVE\",\n");
     fprintf(f, "  \"object\": \"WALK\",\n");
     fprintf(f, "  \"space\": \"C1C2C4C5-SUPERSPACE\",\n");
-    fprintf(f, "  \"n\": %d,\n", fkc->n);
+    fprintf(f, "  \"n\": %d,\n  \"start_exit\": %d,\n", fkc->n, fkc->c.start_exit);
     fprintf(f, "  \"N_total\": \"%s\",\n", nd);
     fprintf(f, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(&fkc->c));
     kc_h_json_escape(fdir, esc, sizeof(esc));
@@ -33243,7 +33461,42 @@ static int kc_cli(int argc, char *argv[]) {
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
                 glcache = atoi(argv[++ai]);
         }
-        return kc_g_check_layer_main(atoi(argv[2]), argv[3], argv[4], glooc, glcache);
+        /* 🔴 STRICT PARSE, 2026-09-10 (RCQ03 F3, ACCEPTED by execution). This was
+         * atoi(argv[2]), and atoi() maps EVERY non-numeric string to 0 with no way to
+         * tell that apart from a genuine "0". Measured on the real binary:
+         *     --kc-g-check-layer ""     -> KC-G CHECK-LAYER k=0 n=9 ... PASS, rc 0
+         *     --kc-g-check-layer "k=17" -> KC-G CHECK-LAYER k=0 n=9 ... PASS, rc 0
+         * and sharper, with g_layer_03.bin truncated: "3" -> rc 71 corrupt, but
+         * "" -> PASS rc 0. So a caller that mistyped, or interpolated an empty shell
+         * variable, got a PASS for a layer THAT WAS NEVER CHECKED -- while the layer it
+         * meant to check stayed broken. This is the dominant defect class of this
+         * codebase (a success token for something never computed) in the gate the
+         * project calls "the dispositive semantic acceptance gate for a recovered or
+         * rebuilt g layer", i.e. exactly the check a damaged ladder is judged by.
+         * Reject empty, non-numeric, trailing-garbage and out-of-range indices BEFORE
+         * opening anything. Exit 2 = usage error, matching the argc guard above. */
+        {
+            const char *ks = argv[2];
+            char *kend = NULL;
+            long kval;
+            errno = 0;
+            kval = strtol(ks, &kend, 10);
+            /* SYNTAX only. The RANGE check belongs to kc_g_check_layer_main, which
+             * already tests k against the REAL ladder (`k < 0 || k > fkc->n`,
+             * solve.c:22958) and so knows the bound this dispatch does not. Duplicating
+             * it here with a constant would be a second source of truth that drifts. */
+            if (ks[0] == '\0' || kend == ks || *kend != '\0' ||
+                errno == ERANGE || kval < INT_MIN || kval > INT_MAX) {
+                fprintf(stderr,
+                    "ERROR: --kc-g-check-layer K: K must be a plain decimal layer index; "
+                    "got \"%s\".\n"
+                    "  Refusing rather than defaulting: atoi() mapped every non-numeric "
+                    "string to 0, so a mistyped or empty K silently PASSED layer 0 while the "
+                    "layer you meant went unchecked.\n", ks);
+                return 2;
+            }
+            return kc_g_check_layer_main((int)kval, argv[3], argv[4], glooc, glcache);
+        }
     }
     if (strcmp(cmd, "--kc-t-selftest") == 0) return kc_t_selftest();
     if (strcmp(cmd, "--kc-t-cert") == 0) {

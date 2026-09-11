@@ -97,7 +97,13 @@ leaves every layer summing to N exactly, and the orbit check still FAILs.
    and `--atlas-queries` never called it. So the guard this page cites ran at every size except
    the one where the field is published. It is now emitted by `--atlas-queries` at n = 31 as
    `TR12_A5_ORBIT_COLUMNS` (`--atlas-select a5`).
-2. **It checks group SIZES, not membership.** The multiset of equal-column group sizes must be a
+2. 🔴 **AND IT CHECKED NO INVENTORY UNTIL 2026-09-10.** Measured by an external round: a field
+   carrying only `{pair3, pair7, pair11}` PASSED both A-5 checks, because the producer emits
+   `marginal_raw` SPARSELY -- non-zero cells only -- so the inventory is the union over layers and
+   nothing required that union to be complete. Worse, a pair that was *invalid* came back as
+   `SKIP:no-raw`, which says *"we have no data for this pair"* -- the opposite claim. At n = 31 the
+   union must now be the whole 31-pair set, and invalid is distinguished from absent.
+3. **It checks group SIZES, not membership.** The multiset of equal-column group sizes must be a
    union of whole published orbit sizes; *which* pairs sit in which group is not examined. A
    swap of two pairs drawn from two **different orbits of the same size** leaves that multiset
    unchanged and passes. So this is a guard against orbit-equality being *broken*, not against
