@@ -2490,7 +2490,13 @@ else
           # orbit_size_census entered the sidecar schema (317dda34). Requiring it made this row a guaranteed FAIL
           # on the production data that no rehearsal could reach (rehearsal ladders are built by the current
           # binary). A schema-v1 sidecar has every other field; its census column is NA, not a failure.
-          if [ -z "$oc" ]; then oc="NA:schema-v1-sidecar"; nv1=$((nv1+1)); fi
+          # Fable Q505-b: decide "schema v1" from the sidecar's OWN version tag, not from the census line's absence --
+          # otherwise a v2 sidecar with a truncated or deleted census line would be labelled v1 and pass.
+          sv=$(sed -n 's/^  "sidecar": "f1c5_layer_stats_v\([0-9]*\)",*$/\1/p' "$sc" | head -1)
+          if [ -z "$oc" ]; then
+              if [ "$sv" = 1 ]; then oc="NA:schema-v1-sidecar"; nv1=$((nv1+1))
+              else printf '%d\tUNPARSED-SIDECAR\n' "$k"; miss=$((miss+1)); k=$((k+1)); continue; fi
+          fi
           printf '%d\t%s\t%s\t%s\t%s\t%s\n' "$k" "$nm" "$ne" "$mt" "$oc" "$bh"
           [ "$k" -eq "$N_PAIRS" ] && last_mt="$mt"
           k=$((k+1))

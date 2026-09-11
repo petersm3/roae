@@ -7270,3 +7270,70 @@ return `constant_on_space=yes` at 33. A consumer must not read that constancy as
 claim about the sequence. **`solve.c` was not edited** — the findings above are recorded, not fixed,
 and the Q5 row remains gated behind them. The `n=9` end-to-end rehearsal of the query-program driver
 was re-run and re-attested `QUERY_DRYRUN=PASS` against the tree as published, with nothing minted.
+
+## 2026-09-10 — the Q5 gate learns to see the number it guards
+
+**The finding of 2026-09-09, closed.** The `--kc-extremal` selftest's only positive argv leg, K10,
+had asserted an exit code and five verdict tokens and never the value the DP computed. Three one-line
+mutants survived it with PASS: the search direction inverted, the opposite extremum printed as
+`extreme_value`, and the G-invariance loop stopping at `g < 23` so the last frame map was never
+checked. The n=9 golden caught the first two, at n=9 only; nothing caught the third.
+
+K10 now runs both directions and matches the whole `extreme_value` line, the witness line and the
+certificate JSON's `direction`, `extreme_value` and `witness_value` against a brute-force extremum
+over the 26,112 raw n=9 walks, computed in the same process. The invariance check is split per frame
+map so every map is exercised. All three mutants now die. The functional registry's Python
+references, which named functions that did not exist, now name functions that do: the evaluator
+landed in `solve.py` with a `--kc-x-recheck` entry point, and the Q5 row fails on anything but its
+`PASS`.
+
+## 2026-09-11 — the week's review rounds, and defects only n=31 could reach
+
+**Why the day looks the way it does.** The KC query battery ships frozen by `git archive` when the
+run launches, so a defect that exists only at n=31 cannot be fixed once the run starts. Every
+rehearsal runs at n ≤ 13. The day was therefore spent commissioning reviews aimed at exactly that
+gap, before the launch, and landing what they found. Fourteen commits; no scan has run.
+
+**Each defect emitted a success token for something it never computed.** Two external rounds, RCQ03
+over `solve.c` and RCQ04 over the atlas consumer, returned eleven findings. All eleven were accepted,
+each by execution, and nine were fixed:
+- a layer-check verb passed for a layer it never opened;
+- a merge whose conservation gates failed still left a parseable atlas on disk;
+- a completed scan was discarded at its last step because the engine digest read a
+  `(deleted)` pathname;
+- a bare `CERTIFIED:` prefix authorised a verdict;
+- a Q3 reader published a probability greater than one with its selftest at 34 of 34.
+
+Codex round KCP1 found the chunk merge omitting `--kc-raw`. Fable, adjudicating, found the same
+omission in the production driver, where at n=31 it would have ended the paid scan with an identity
+mismatch and no atlas. KCP2 found that an integer cross-check summed 39-digit masses in awk
+doubles, a silent pass at n=31, while the same perturbation was caught at n=9. KCP3 found a
+verifier row that refuses n=31 by design, running unguarded inside the pre-scan stop-gate.
+
+**Fable's adversarial review cleared at round seven, and rounds five and six are the lesson.**
+- **Round five: the row could never pass.** Row `a2_q7_ranks` parsed `rank3=` from an engine that
+  prints `rank3<TAB>0`, so it could only ever fail. Its red test had driven stubs that printed the
+  format the regex expected rather than the one the engine emits.
+- **Round six: the fix repeated the defect inside the gate.** The gate written to catch this had
+  copied the parse instead of executing the battery's own row. Restoring the defect, or deleting
+  the battery outright, still passed. The gate now extracts the row by its markers and runs it.
+- **Round seven: the same defect in a third place.** Sweeping the sibling sentences found it in a
+  golden check. Round seven cleared.
+
+**Smaller, the same shape.**
+- The King Wen table is now compared across its two materialisations, Python and C, which had
+  never been compared.
+- Ladder locations became configurable after an operator question showed that `mountpoint -q`
+  would have refused the planned topology at launch, with the machine already paid for.
+- The class-swap detector moved into `solve.py` before the run rather than after it. The first
+  wiring hit an argparse abbreviation defect, caught before commit.
+- The n=13 rehearsal found one battery row failing identically at every reduced n; it now asserts
+  the roundtrip that is known a priori.
+- Fable's pre-launch review found that the n=31 f ladder predates a sidecar key the post-scan
+  battery required. A schema-v1 sidecar is now read with that column marked absent, and the
+  schema is confirmed from the sidecar's own tag rather than inferred from the missing key.
+
+**An orchestrator incident, and what it changed in the code.** A battery shell died on a full disk.
+A `solve` grandchild kept writing 14.58 GB into a file that had already been unlinked, and that space
+came back only when the process was killed. The battery's exit trap now kills its own process tree
+before it removes its work directory.

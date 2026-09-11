@@ -32,6 +32,11 @@
 #          leg 2  one layer flow not divisible by 24 -> Q10A_LAYER_MOD24_FAILS 1, exit 1
 #          leg 3  sidecar k=17 deleted -> "17<TAB>MISSING-SIDECAR", Q10A_SIDECARS_MISSING 1, exit 1
 #          leg 4  last sidecar mass_total != N -> Q10A_LAST_LAYER_MASS_EQ_N NO, exit 1
+#          leg 5  a v2-TAGGED sidecar whose census line is deleted -> "3<TAB>UNPARSED-SIDECAR", exit 1
+#                 (the schema is read from the sidecar's own "sidecar" tag, never inferred from a missing field)
+#          leg 6  a genuine v1 world (tag f1c5_layer_stats_v1, no orbit_size_census anywhere, as the n=31 f
+#                 ladder's sidecars are: it was built at befd4e1b, the day before the census entered the schema)
+#                 -> every census column NA:schema-v1-sidecar, one Q10A_SIDECAR_SCHEMA line, exit 0
 # plus four mutants per row, each of which must turn a leg red.
 #
 # KNOWN LIMITATION, stated rather than papered over. (i) Extraction anchors on the literal lines
@@ -39,6 +44,9 @@
 # $rc`; a refactor makes this gate FAIL with "anchors moved", never pass blind. (ii) The sidecar byte
 # layout is the v2 writer's as measured on the n=9 f sidecars and the full-31 g sidecars
 # (roae-private, 2026-08-11); the full-31 f sidecars are archived and were not re-read here.
+# 🔴 That gap is how the 2026-09-11 PD-1 defect got through: the full-31 f sidecars are schema V1 (no
+# orbit_size_census), every world here was v2, and the row FAILed on the production ladder while this gate
+# stayed green. Legs 5 and 6 now carry both schemas; a leg that only models one data version cannot see this.
 # (iii) The consumer half (solve.py atlas_emit_q6) is not exercised by this gate; the shell/consumer
 # agreement is a full-31 comparison (the consumer emits -1 below n=31).
 #
@@ -133,16 +141,19 @@ write_atlas(W+'/q6L3/atlas.json',[(0,N,{1:N,2:0,3:0,4:0,6:0})]); write_profile(W
 os.makedirs(W+'/q6L4/art',exist_ok=True)
 write_atlas(W+'/q6L4/atlas.json',[(0,N,{1:N,2:0,3:0,4:0,6:0})])
 # ---- c_q10a worlds: 31 layers, 32 sidecars in the v2 byte layout
-def sidecar(path,k,nm,ne,mt,census,hist):
+def sidecar(path,k,nm,ne,mt,census,hist,ver=2):
     with open(path,'w') as f:
-        f.write('{\n  "sidecar": "f1c5_layer_stats_v2",\n  "kind": "f",\n  "layer_file": "f1c5_layer_%02d.bin",\n  "n": 31,\n  "k": %d,\n' % (k,k))
+        f.write('{\n  "sidecar": "f1c5_layer_stats_v%d",\n  "kind": "f",\n  "layer_file": "f1c5_layer_%02d.bin",\n  "n": 31,\n  "k": %d,\n' % (ver,k,k))
         f.write('  "n_masks": %d,\n  "n_empty_masks": 0,\n  "n_entries": %d,\n  "bin_bytes": 1,\n' % (nm,ne))
         f.write('  "mass_total": "%d",\n  "frame": "canonical-quotient(orbit-unweighted;G-equivariant)",\n' % mt)
         f.write('  "headroom": {"peak_value_bits": 1, "guard_bits": 192, "headroom_bits": 191},\n')
         f.write('  "branching": {"min": 0, "max": 9, "mean": 1.5, "hist": %s},\n' % json.dumps(hist,separators=(',',':')))
-        f.write('  "top_heavy": [{"mask": 7, "last": 1, "rid": 7, "value": "8"}],\n')
-        f.write('  "orbit_size_census": %s\n}\n' % json.dumps(census,separators=(',',':')))
-def q10_world(name, badflow=False, drop=None, badlast=False):
+        if census is None:   # schema v1: no census line at all (befd4e1b's writer)
+            f.write('  "top_heavy": [{"mask": 7, "last": 1, "rid": 7, "value": "8"}]\n}\n')
+        else:
+            f.write('  "top_heavy": [{"mask": 7, "last": 1, "rid": 7, "value": "8"}],\n')
+            f.write('  "orbit_size_census": %s\n}\n' % json.dumps(census,separators=(',',':')))
+def q10_world(name, badflow=False, drop=None, badlast=False, ver=2, nocensus=None):
     d=W+'/'+name; os.makedirs(d+'/f',exist_ok=True); os.makedirs(d+'/art',exist_ok=True)
     layers=[(k, N+1 if (badflow and k==3) else N, {1:N,2:0,3:0,4:0,6:0}) for k in range(31)]
     write_atlas(d+'/atlas.json',layers)
@@ -151,10 +162,12 @@ def q10_world(name, badflow=False, drop=None, badlast=False):
         nm=k*3+1; ne=k*7+2; mt=(N if k==31 else (7**k) % N); census=[[1,k+1,k+2],[3,2*k,5*k+1]]; hist=[[0,k],[2,3*k+1]]
         if badlast and k==31: mt=N-1
         if drop==k: continue
-        sidecar('%s/f/f1c5_layer_stats_%02d.json' % (d,k),k,nm,ne,mt,census,hist)
+        no_c = (ver == 1) or (nocensus == k)
+        sidecar('%s/f/f1c5_layer_stats_%02d.json' % (d,k),k,nm,ne,mt,None if no_c else census,hist,ver)
         exp.append('%d\t%d\t%d\t%d\t%s\t%s' % (k,nm,ne,mt,json.dumps(census,separators=(',',':')),json.dumps(hist,separators=(',',':'))))
     open(d+'/expect.tsv','w').write('\n'.join(exp)+'\n')
 q10_world('q10L1'); q10_world('q10L2',badflow=True); q10_world('q10L3',drop=17); q10_world('q10L4',badlast=True)
+q10_world('q10L5',nocensus=3); q10_world('q10L6',ver=1)
 PY
 
 verdict_q6(){ # verdict_q6 <harness>
@@ -184,6 +197,12 @@ verdict_q10(){ # verdict_q10 <harness>
     || { echo "    c_q10a leg 3 (sidecar 17 missing) rc=$rc: a transcription silently skipped a layer"; return 1; }
   rc=$(run "$h" "$WORK/q10L4/atlas.json" "$WORK/q10L4/f" "$WORK/q10L4/art" 31 "$N")
   [ "$rc" = 1 ] && grep -q '^Q10A_LAST_LAYER_MASS_EQ_N	NO' "$WORK/last.out" || { echo "    c_q10a leg 4 (last mass_total != N) rc=$rc"; return 1; }
+  rc=$(run "$h" "$WORK/q10L5/atlas.json" "$WORK/q10L5/f" "$WORK/q10L5/art" 31 "$N")
+  [ "$rc" = 1 ] && grep -qx $'3\tUNPARSED-SIDECAR' "$WORK/last.out" \
+    || { echo "    c_q10a leg 5 (v2 tag, census deleted) rc=$rc: a v2 sidecar with a missing census was accepted as v1"; return 1; }
+  rc=$(run "$h" "$WORK/q10L6/atlas.json" "$WORK/q10L6/f" "$WORK/q10L6/art" 31 "$N")
+  [ "$rc" = 0 ] && [ "$(grep -c 'NA:schema-v1-sidecar' "$WORK/last.out")" = 32 ] && grep -q '^Q10A_SIDECAR_SCHEMA	v1 on 32 layer' "$WORK/last.out" \
+    || { echo "    c_q10a leg 6 (genuine v1 world, the n=31 f ladder's schema) rc=$rc or NA/schema line wrong"; return 1; }
   return 0
 }
 
@@ -208,5 +227,7 @@ mutant q10 M1_missing_sidecar_not_fatal       's/exit \$(( (fails || miss) ? 1 :
 mutant q10 M2_last_layer_dropped              's/-le "\$N_PAIRS"/-lt "$N_PAIRS"/'
 mutant q10 M3_mod24_gate_disabled             's/\[ "\$m" = "0" \] || fails=1/:/'
 mutant q10 M4_last_mass_check_disabled        's/\[ "\$last_mt" = "\$N_TOTAL" \]/[ -n "$last_mt" ]/'
-echo "  [gate] baseline PASS on 4+4 legs; 8/8 mutants killed"
+mutant q10 M5_v1_inferred_from_missing_field  's/if \[ "\$sv" = 1 \]; then/if true; then/'
+mutant q10 M6_v1_tag_not_honoured             's/if \[ "\$sv" = 1 \]; then/if [ "$sv" = 9 ]; then/'
+echo "  [gate] baseline PASS on 4+6 legs; 10/10 mutants killed"
 echo "D5_08_Q6_Q10A_SHELL_GATE=PASS"
