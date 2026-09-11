@@ -426,7 +426,13 @@ fi
 #         run, and it publishes King Wen's serial number.
 if gfile a2_q7_ranks; then f=$GF
   want_grep  a2_q7_ranks "$f" 'label=KW[[:space:]]+verdict_super=IN' "King Wen is IN and was ranked"
-  want_grep  a2_q7_ranks "$f" '(^|[^0-9a-z_])rank3=0([^0-9]|$)'      "rank_O3(KW) = 0, the labeling theorem"
+  # 🔴 F-5 ROUND 7 I1(r7). This required the literal `rank3=0`. The ENGINE EMITS `rank3<TAB>0`
+  # (solve.c --kc-o3-rank: printf("rank3\t%s\n", tdec)); the only `rank3=` the row can produce is
+  # inside its own FAIL branch text. So a CORRECT golden -- one carrying rank_O3(KW)=0 -- was
+  # reported TR12_N31_GOLDEN=MISMATCH, and the only way to satisfy this line was for the row to
+  # have FAILED. That is B1(r5) in a THIRD location, found by sweeping the sibling sentence rather
+  # than the symptom. Keyed on the FIELD, like the row and like :564/:2029.
+  want_field a2_q7_ranks "$f" rank3 0                                "rank_O3(KW) = 0, the labeling theorem"
   deny_grep  a2_q7_ranks "$f" '^Q7RANKS_FAIL'                        "no Q7RANKS_FAIL in the golden"
 fi
 

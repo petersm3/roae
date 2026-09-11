@@ -82,8 +82,12 @@ fi
 # mutated THE GATE, not THE ROW. That is the same verifier closure B1(r5) was, committed inside
 # the instrument built to catch it.
 #
-# The row is now EXTRACTED FROM THE BATTERY AND EXECUTED. There is exactly one copy of the parse
-# in the tree and this gate runs it. Extraction is by the row's own markers, and an empty or
+# The row is now EXTRACTED FROM THE BATTERY AND EXECUTED. ⚠ SCOPE, corrected after F-5 round 7
+# flagged the sentence that stood here: this gate covers the ONE n>=31-only copy of that parse
+# (tr12_repro.sh:1970). The same awk appears at :564 and :2029, and BOTH of those ARE exercised at
+# n=9 by the battery itself -- which is why they are not this gate's subject and why "exactly one
+# copy of the parse in the tree", as this comment previously read, was false. Extraction is by the
+# row's own markers, and an empty or
 # absent extraction is ERROR -- a gate that cannot find its subject must never report PASS.
 BATTERY=${BATTERY:-./scripts/tr12_repro.sh}
 [ -r "$BATTERY" ] || { echo "  [ERROR] battery not readable: $BATTERY"; echo "Q7RANKS_PARSE=ERROR"; exit 2; }
@@ -98,7 +102,11 @@ fi
 echo "  [ok] extracted $(grep -c . "$W/block.sh") lines of a2_q7_ranks from $BATTERY"
 
 # Run the EXTRACTED row against the real binary. row_begin/row_end are stubbed; everything else
-# -- the parse, both assertions, the IN branch, the n>=31 guard -- is the battery's own text.
+# -- the parse, both assertions and the IN branch -- is the battery's own text.
+# ⚠ NOT the n>=31 guard: extraction starts at `row_begin`, which is INSIDE the `if` that guards it,
+# so the extracted block contains no N_PAIRS test and the N_PAIRS=31 set below is inert. F-5 round 7
+# proved it by mutation (`-ge 32` -> this gate still PASSes). The guard is covered by the battery's
+# own SKIP:reduced-universe row at n=9, not here; claiming it here was an overclaim.
 run_row(){ # $1 = arrangement walk, $2 = ANCHOR ; echoes row output, returns the row's rc
   local arr=$1 anchor=$2 d="$W/run.$$"; rm -rf "$d"; mkdir -p "$d/art" "$d/work"
   printf '{"label": "KW", "verdict_super": "IN", "arrangement": "63,0,%s"}' "$arr" > "$d/art/q7_kw.json"
