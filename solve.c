@@ -16394,6 +16394,35 @@ static uint64_t f1c5_lstream_next(F1c5LayerStream *S, const uint8_t **out) {
     return 0;
 }
 
+/* Position an open stream at entry block b of the keys (section 2) or vals
+ * (section 3) section, so the next f1c5_lstream_next yields block b (v2: the
+ * inflated block; v1: a raw chunk starting at entry b*F1C5_OOC_BLK). v2 seeks to
+ * f1c5_v2_kblk_base + kidx[b] (keys) or + kidx[nblk] + vidx[b] (vals) -- the
+ * layout f1c5_lstream_advance walks sequentially; v1 seeks to kbase + 4*e0 /
+ * vbase + 24*e0 exactly as kc_ooc_block's v1 path does. Only the section cursor
+ * and file position change; the index loaded and validated at open is reused.
+ * (Parallel --kc-scan, 2026-09-11: each thread seeks its own two streams.) */
+static void f1c5_lstream_seek_block(F1c5LayerStream *S, int section, uint64_t b) {
+    F1_CHECK(section == 2 || section == 3, "[lstream] seek: section %d is not keys/vals", section);
+    const uint64_t e0 = b * (uint64_t)F1C5_OOC_BLK;
+    F1_CHECK(e0 < S->ne, "%s: seek to block %llu past the last entry (ne=%llu)", S->path,
+             (unsigned long long)b, (unsigned long long)S->ne);
+    uint64_t pos;
+    if (S->is_v2) {
+        const uint64_t base = f1c5_v2_kblk_base(S->nm, S->ne);
+        pos = (section == 2) ? base + S->kidx[b] : base + S->kidx[S->nblk] + S->vidx[b];
+        S->blk = b;
+        S->raw_left = 0;
+    } else {
+        const uint64_t kbase = sizeof(F1C5LayerHdr) + 4ull * S->nm + 8ull * (S->nm + 1);
+        pos = (section == 2) ? kbase + 4ull * e0 : kbase + 4ull * S->ne + 24ull * e0;
+        S->raw_left = (section == 2 ? 4ull : 24ull) * (S->ne - e0);
+    }
+    F1_CHECK(fseeko(S->f, (off_t)pos, SEEK_SET) == 0, "%s: seek to %llu failed", S->path,
+             (unsigned long long)pos);
+    S->section = section;
+}
+
 /* Classify a logical-stream offset into its section for divergence reports. */
 static const char *f1c5_lstream_locate(const F1c5LayerStream *S, uint64_t off, uint64_t *idx) {
     uint64_t a = 4ull * S->nm, b = a + 8ull * (S->nm + 1), c = b + 4ull * S->ne;
@@ -20148,6 +20177,10 @@ typedef struct KcOoc {
     uint64_t tick, hits, misses;
     uint8_t *cbuf;                 /* compressed-block scratch (v2 inflate source) */
     F1C5OocIo io;
+    double sec_inflate;            /* wall seconds inside f1c5_inflate_block (v2 misses);
+                                    * KC scan instrumentation, 2026-09-11 */
+    int borrowed;                  /* 1 = a kc_ooc_clone_cache() clone: L[] (fds + index
+                                    * arrays) belong to the source reader, NOT to this one */
 } KcOoc;
 
 static inline uint32_t kc_ooc_hash(const KcOoc *o, int k, uint64_t blk) {
@@ -20195,10 +20228,14 @@ static KcCacheSlot *kc_ooc_block(KcOoc *o, int k, uint64_t blk) {
     if (L->is_v2) {
         uint64_t kcb = L->kidx[blk + 1] - L->kidx[blk];
         f1c5_ooc_pread(L->fd, o->cbuf, kcb, L->kbase + L->kidx[blk], L->path, &o->io);
+        double ti = omp_get_wtime();
         f1c5_inflate_block(o->cbuf, kcb, (Bytef *)S->keys, 4ull * bn);
+        o->sec_inflate += omp_get_wtime() - ti;
         uint64_t vcb = L->vidx[blk + 1] - L->vidx[blk];
         f1c5_ooc_pread(L->fd, o->cbuf, vcb, L->vbase + L->vidx[blk], L->path, &o->io);
+        ti = omp_get_wtime();
         f1c5_inflate_block(o->cbuf, vcb, (Bytef *)S->vals, 24ull * bn);
+        o->sec_inflate += omp_get_wtime() - ti;
     } else {
         f1c5_ooc_pread(L->fd, S->keys, 4ull * bn, L->kbase + 4ull * e0, L->path, &o->io);
         f1c5_ooc_pread(L->fd, S->vals, 24ull * bn, L->vbase + 24ull * e0, L->path, &o->io);
@@ -20223,11 +20260,78 @@ static inline F1U192 kc_ooc_val_at(KcOoc *o, int k, uint64_t e) {
 
 static void kc_ooc_free(KcOoc *o) {
     if (!o) return;
+    F1_CHECK(!o->borrowed, "[kc-ooc] kc_ooc_free on a cache CLONE would close the source "
+             "reader's fds and free its index arrays; use kc_ooc_free_clone (defect)");
     for (int k = 0; k <= KC_MAX_PAIRS; k++) {
         KcOocLayer *L = &o->L[k];
         if (L->fd >= 0) close(L->fd);
         free(L->masks); free(L->off); free(L->kidx); free(L->vidx);
     }
+    if (o->slot)
+        for (int s = 0; s < o->nslot; s++) { free(o->slot[s].keys); free(o->slot[s].vals); }
+    free(o->slot); free(o->htab); free(o->cbuf);
+    free(o);
+}
+
+/* the LRU block cache proper: nslot slots of F1C5_OOC_BLK decompressed entries,
+ * the bucket table and the inflate scratch. Shared by kc_ooc_open_ext and
+ * kc_ooc_clone_cache so the two can never allocate a different cache shape. */
+static int kc_ooc_nslot_for_mb(int cache_mb) {
+    const uint64_t slot_bytes = 28ull * F1C5_OOC_BLK;
+    int nslot = (int)(((uint64_t)cache_mb << 20) / slot_bytes);
+    return nslot < 4 ? 4 : nslot;
+}
+
+static void kc_ooc_cache_alloc(KcOoc *o, int nslot) {
+    if (nslot < 4) nslot = 4;
+    o->nslot = nslot;
+    o->slot = (KcCacheSlot *)calloc((size_t)nslot, sizeof(KcCacheSlot));
+    F1_CHECK(o->slot != NULL, "[kc-ooc] cache slot alloc failed");
+    for (int s = 0; s < nslot; s++) {
+        o->slot[s].keys = (uint32_t *)malloc(4ull * F1C5_OOC_BLK);
+        o->slot[s].vals = (F1U192 *)malloc(24ull * F1C5_OOC_BLK);
+        F1_CHECK(o->slot[s].keys && o->slot[s].vals, "[kc-ooc] cache buffer alloc failed");
+        o->slot[s].k = -1;
+        o->slot[s].hnext = -1;
+    }
+    int hs = 1;
+    while (hs < 2 * nslot) hs <<= 1;
+    o->hsize = hs;
+    o->htab = (int *)malloc(sizeof(int) * (size_t)hs);
+    F1_CHECK(o->htab != NULL, "[kc-ooc] cache htab alloc failed");
+    for (int i = 0; i < hs; i++) o->htab[i] = -1;
+    o->cbuf = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
+    F1_CHECK(o->cbuf != NULL, "[kc-ooc] cbuf alloc failed");
+}
+
+/* ---- per-thread cache clone (parallel --kc-scan, 2026-09-11) ----
+ * kc_ooc_block mutates the reader on EVERY lookup (slot stamps, tick, hits) and
+ * on every miss (eviction, hash chains, the shared cbuf inflate scratch, the io
+ * counters), so one KcOoc cannot serve two threads. The layer table L[] is the
+ * opposite: written only at open, then read-only, and pread on a shared fd is
+ * safe. A clone therefore SHALLOW-copies L[] (same fd, same masks/off/kidx/
+ * vidx pointers, marked not-owned) and gets a FRESH slot/htab/cbuf/io/counters
+ * of its own -- no pointer to mutable state is shared with the source or with
+ * any other clone. kc_ooc_block / kc_ooc_flookup / kc_glookup are unchanged: a
+ * clone is the same code over the same layer table.
+ * cache_mb <= 0 => the source's slot count. The source must outlive every clone
+ * (the clone borrows its fds and index arrays). Design: roae-private
+ * KC_SCAN_PARALLEL_DESIGN_2026_09_11.md s3.2 (Claude Fable); implementation by
+ * Claude (Opus), developed with AI assistance (Claude, Anthropic). */
+static KcOoc *kc_ooc_clone_cache(const KcOoc *src, int cache_mb) {
+    F1_CHECK(src != NULL && !src->borrowed, "[kc-ooc] clone of NULL or of a clone (defect)");
+    KcOoc *o = (KcOoc *)calloc(1, sizeof(KcOoc));
+    F1_CHECK(o != NULL, "[kc-ooc] clone alloc");
+    memcpy(o->L, src->L, sizeof(o->L));
+    o->borrowed = 1;
+    kc_ooc_cache_alloc(o, cache_mb > 0 ? kc_ooc_nslot_for_mb(cache_mb) : src->nslot);
+    return o;
+}
+
+static void kc_ooc_free_clone(KcOoc *o) {
+    if (!o) return;
+    F1_CHECK(o->borrowed, "[kc-ooc] kc_ooc_free_clone on an OWNING reader would leak its "
+             "fds and index arrays; use kc_ooc_free (defect)");
     if (o->slot)
         for (int s = 0; s < o->nslot; s++) { free(o->slot[s].keys); free(o->slot[s].vals); }
     free(o->slot); free(o->htab); free(o->cbuf);
@@ -20390,27 +20494,8 @@ static int kc_ooc_open_ext(KC *kc, const char *dir, const char *pfx, int is_g,
         cache_mb = (e && *e) ? atoi(e) : 0;
         if (cache_mb <= 0) cache_mb = 2048;
     }
-    uint64_t slot_bytes = 28ull * F1C5_OOC_BLK;
-    int nslot = (int)(((uint64_t)cache_mb << 20) / slot_bytes);
-    if (nslot < 4) nslot = 4;
-    o->nslot = nslot;
-    o->slot = (KcCacheSlot *)calloc((size_t)nslot, sizeof(KcCacheSlot));
-    F1_CHECK(o->slot != NULL, "[kc-ooc] cache slot alloc failed");
-    for (int s = 0; s < nslot; s++) {
-        o->slot[s].keys = (uint32_t *)malloc(4ull * F1C5_OOC_BLK);
-        o->slot[s].vals = (F1U192 *)malloc(24ull * F1C5_OOC_BLK);
-        F1_CHECK(o->slot[s].keys && o->slot[s].vals, "[kc-ooc] cache buffer alloc failed");
-        o->slot[s].k = -1;
-        o->slot[s].hnext = -1;
-    }
-    int hs = 1;
-    while (hs < 2 * nslot) hs <<= 1;
-    o->hsize = hs;
-    o->htab = (int *)malloc(sizeof(int) * (size_t)hs);
-    F1_CHECK(o->htab != NULL, "[kc-ooc] cache htab alloc failed");
-    for (int i = 0; i < hs; i++) o->htab[i] = -1;
-    o->cbuf = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
-    F1_CHECK(o->cbuf != NULL, "[kc-ooc] cbuf alloc failed");
+    const int nslot = kc_ooc_nslot_for_mb(cache_mb);
+    kc_ooc_cache_alloc(o, nslot);
     kc->ooc = o;
     /* exact total: f from the (tiny, single-mask) final layer; g from the
      * layer-0 anchor singleton (whole-space count, suffix side) — the g seed
@@ -27591,60 +27676,216 @@ static void kc_h_scan_alloc(const KC *fkc, int want_raw, KcScanTab *T) {
     F1_CHECK(T->flow && T->cls && T->qmarg && T->rawmarg && T->fmass, "[kc-scan] alloc");
 }
 
-/* phase 2: the layer pass over the HALF-OPEN transition-layer range
- * [k_lo, k_hi) subset of [0, n). Every accumulator it touches
- * (flow/cls/qmarg/rawmarg and fmass[k] for k < n) is indexed by k only, which
- * is what makes the range restriction sound. Returns 0 ok, -1 on IO. */
-static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
-                            int want_raw, KcScanTab *T, int k_lo, int k_hi,
-                            int verbose) {
+/* ---- parallel layer pass controls (2026-09-11) ----
+ * Design: roae-private KC_SCAN_PARALLEL_DESIGN_2026_09_11.md ss1.3, 2, 3.2, 7.1
+ * (Claude Fable); implementation by Claude (Opus), developed with AI assistance
+ * (Claude, Anthropic). threads defaults to 1 and every other field to "as
+ * before", so every existing caller's numbers are unchanged; the atlas is
+ * byte-identical at every thread count because every accumulator is an exact
+ * F1U192 sum of non-negative terms (design s2.1) -- the acceptance criterion is
+ * cmp against T=1, not the gates (design s8, mutant M4). */
+#define KC_SCAN_MAX_THREADS 1024
+typedef struct {
+    int threads;          /* team size: --kc-scan-threads T / SOLVE_KC_SCAN_THREADS (default 1) */
+    int gcache_mb;        /* per-thread g cache: --kc-gcache-mb-per-thread C; 0 = the g reader's size */
+    int stats;            /* KC_SCAN_STAT lines on stderr: SOLVE_KC_SCAN_STATS=1 (forced by measure) */
+    int measure;          /* 1 = measurement run: partial layers, NO chunk and NO atlas written */
+    uint64_t start_blk;   /* SOLVE_KC_SCAN_START_BLOCK (measure) */
+    uint64_t stop_blocks; /* SOLVE_KC_SCAN_STOP_AFTER_BLOCKS (measure; 0 = to the end of the layer) */
+    uint64_t stride;      /* SOLVE_KC_SCAN_BLOCK_STRIDE (measure; 1 = contiguous blocks) */
+    uint64_t unit;        /* SOLVE_KC_SCAN_UNIT_ENTRIES: entries per work unit (default one block) */
+    int selfkill;         /* SOLVE_KC_SCAN_SELFKILL test hook: 0 off, 1 team:K, 2 reduce:K */
+    int selfkill_k;       /* ... at transition layer K */
+} KcScanPar;
+
+/* strict unsigned decimal environment value: unset/empty -> *out untouched, 0;
+ * anything else must parse completely into [lo, hi] or it is REFUSED (-1, after
+ * saying why) -- a malformed knob is never silently read as its default. */
+static int kc_h_env_u64(const char *name, const char *val, uint64_t lo, uint64_t hi,
+                        uint64_t *out, int *was_set) {
+    if (was_set) *was_set = 0;
+    if (!val || !*val) return 0;
+    char *end = NULL;
+    errno = 0;
+    const unsigned long long v = strtoull(val, &end, 10);
+    if (errno != 0 || end == val || *end != '\0' || val[0] == '-' || v < lo || v > hi) {
+        fprintf(stderr, "ERROR: [kc-scan] %s=\"%s\" is not an integer in [%llu, %llu]\n",
+                name, val, (unsigned long long)lo, (unsigned long long)hi);
+        return -1;
+    }
+    *out = (uint64_t)v;
+    if (was_set) *was_set = 1;
+    return 0;
+}
+
+/* defaults + environment (the CLI overrides threads / gcache_mb afterwards). */
+static int kc_scan_par_init(KcScanPar *P) {
+    memset(P, 0, sizeof(*P));
+    uint64_t v;
+    int s_start = 0, s_stop = 0, s_stride = 0;
+    v = 1;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_THREADS", getenv("SOLVE_KC_SCAN_THREADS"), 1,
+                     KC_SCAN_MAX_THREADS, &v, NULL) != 0) return -1;
+    P->threads = (int)v;
+    v = 0;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_STATS", getenv("SOLVE_KC_SCAN_STATS"), 0, 1, &v, NULL) != 0)
+        return -1;
+    P->stats = (int)v;
+    v = F1C5_OOC_BLK;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_UNIT_ENTRIES", getenv("SOLVE_KC_SCAN_UNIT_ENTRIES"), 1,
+                     1ull << 40, &v, NULL) != 0) return -1;
+    P->unit = v;
+    v = 0;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_START_BLOCK", getenv("SOLVE_KC_SCAN_START_BLOCK"), 0,
+                     1ull << 40, &v, &s_start) != 0) return -1;
+    P->start_blk = v;
+    v = 0;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_STOP_AFTER_BLOCKS", getenv("SOLVE_KC_SCAN_STOP_AFTER_BLOCKS"),
+                     1, 1ull << 40, &v, &s_stop) != 0) return -1;
+    P->stop_blocks = v;
+    v = 1;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_BLOCK_STRIDE", getenv("SOLVE_KC_SCAN_BLOCK_STRIDE"), 1,
+                     1ull << 20, &v, &s_stride) != 0) return -1;
+    P->stride = v;
+    P->measure = s_start || s_stop;
+    if (s_stride && !P->measure) {
+        fprintf(stderr, "ERROR: [kc-scan] SOLVE_KC_SCAN_BLOCK_STRIDE is a measurement knob and "
+                "needs SOLVE_KC_SCAN_START_BLOCK or SOLVE_KC_SCAN_STOP_AFTER_BLOCKS\n");
+        return -1;
+    }
+    if (P->measure) P->stats = 1;
+    /* H-4 drill hook (design s8 G5): raise(SIGKILL) at a DETERMINISTIC point, so a kill can be
+     * shown to land inside the thread team ("team:K": whichever thread first finishes a unit of
+     * layer K, while the rest of the team is mid-flight) or inside the reduction ("reduce:K":
+     * after thread 0's slice of layer K is added, before thread 1's). External timing cannot
+     * land a signal inside a microsecond reduction. Test-only; unset by default. */
+    {
+        const char *sk = getenv("SOLVE_KC_SCAN_SELFKILL");
+        if (sk && *sk) {
+            int kk = -1, used = 0;
+            if (sscanf(sk, "team:%d%n", &kk, &used) == 1 && sk[used] == '\0') P->selfkill = 1;
+            else if (sscanf(sk, "reduce:%d%n", &kk, &used) == 1 && sk[used] == '\0') P->selfkill = 2;
+            if (!P->selfkill || kk < 0 || kk >= KC_MAX_PAIRS) {
+                fprintf(stderr, "ERROR: [kc-scan] SOLVE_KC_SCAN_SELFKILL=\"%s\" must be team:K or "
+                        "reduce:K with 0 <= K < %d\n", sk, KC_MAX_PAIRS);
+                return -1;
+            }
+            P->selfkill_k = kk;
+        }
+    }
+    return 0;
+}
+
+/* one thread's accumulators for ONE layer k (the per-k slice of KcScanTab).
+ * Only F1U192 members, so it is also addressable as a flat F1U192 array. */
+typedef struct {
+    F1U192 flow, fmass, cls[5], qmarg[32], rawmarg[32];
+} KcScanAcc;
+
+/* the reduction (design s2.1): add one thread's layer-k slice into T by f1_add.
+ * Integer addition is associative and commutative, so any partition of the
+ * entry set and any reduction order yields the identical 192-bit values; a
+ * partial sum of non-negative terms is <= the full sum, so no thread and no
+ * step of this reduction can overflow unless the serial run would -- and then
+ * f1_add aborts here exactly as it would there. */
+static void kc_h_scan_reduce(KcScanTab *T, int k, const KcScanAcc *A) {
+    f1_add(&T->flow[k], &A->flow);
+    f1_add(&T->fmass[k], &A->fmass);
+    for (int d = 0; d < 5; d++) f1_add(&T->cls[k * 5 + d], &A->cls[d]);
+    for (int q = 0; q < 32; q++) f1_add(&T->qmarg[k * 32 + q], &A->qmarg[q]);
+    for (int p = 0; p < 32; p++) f1_add(&T->rawmarg[k * 32 + p], &A->rawmarg[p]);
+}
+
+/* per-thread state: a private view of g (its own cache clone when OOC), the
+ * layer accumulators copied out at the join, and the instrumentation. */
+typedef struct {
+    KC g;
+    KcScanAcc acc;
+    uint64_t items, entries, lookups, hits, misses, bytes_read, f_blocks, f_logical;
+    double sec_read, sec_inflate, wall, cpu_user, cpu_sys;
+    int64_t io_read;              /* read_bytes delta from /proc/thread-self/io; -1 = unavailable */
+} KcScanThr;
+
+static int64_t kc_h_proc_read_bytes(const char *path) {
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    char line[160];
+    long long v = -1;
+    while (fgets(line, sizeof(line), f))
+        if (sscanf(line, "read_bytes: %lld", &v) == 1) break;
+    fclose(f);
+    return (int64_t)v;
+}
+
+static void kc_h_cpu_sec(int who, double *u, double *s) {
+    struct rusage ru;
+    *u = *s = 0.0;
+    if (getrusage(who, &ru) == 0) {
+        *u = (double)ru.ru_utime.tv_sec + (double)ru.ru_utime.tv_usec * 1e-6;
+        *s = (double)ru.ru_stime.tv_sec + (double)ru.ru_stime.tv_usec * 1e-6;
+    }
+}
+
+/* scan entries [e0, e1) of layer k (one work unit) into A. The boundary rule of
+ * design s1.3: seek both of this thread's streams to the block holding e0 and
+ * skip into it, find mi by binary search on off[] (the unique mi with
+ * off[mi] <= e0 < off[mi+1] -- what the serial walk's advance loop reaches), and
+ * rebuild the orbit expansion (cache_mi = -1), so a mask straddling two units
+ * is expanded once per unit, identically, F1_CHECKs included. The per-entry body
+ * is the serial pass's, with T->x[k...] replaced by A->x[...]. */
+static void kc_h_scan_range(const KC *fkc, const KC *gv, int k, const uint32_t *masks,
+                            const uint64_t *off, uint64_t nm, uint64_t e0, uint64_t e1,
+                            F1c5LayerStream *SK, F1c5LayerStream *SV, int want_raw,
+                            KcScanAcc *A, uint64_t *lookups) {
     const int n = fkc->n;
-    F1_CHECK(k_lo >= 0 && k_hi <= n && k_lo <= k_hi, "[kc-scan] bad layer range");
     const F1Ctx *c = &fkc->c;
-    for (int k = k_lo; k < k_hi; k++) {
-        char lpath[4400];
-        snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, k);
-        F1c5LayerStream SK, SV;
-        if (f1c5_lstream_open(lpath, &SK) != 0) return -1;
-        if (f1c5_lstream_open(lpath, &SV) != 0) { f1c5_lstream_close(&SK); return -1; }
-        const uint64_t nm = SK.nm, ne = SK.ne;
-        uint32_t *masks = (uint32_t *)malloc(4ull * (nm ? nm : 1));
-        uint64_t *off = (uint64_t *)malloc(8ull * (nm + 1));
-        F1_CHECK(masks && off, "[kc-scan] index alloc");
-        const uint8_t *chunk;
-        uint64_t len, have;
-        for (have = 0; have < 4ull * nm; have += len) {
-            len = f1c5_lstream_next(&SK, &chunk);
-            memcpy((uint8_t *)masks + have, chunk, len);
-        }
-        for (have = 0; have < 8ull * (nm + 1); have += len) {
-            len = f1c5_lstream_next(&SK, &chunk);
-            memcpy((uint8_t *)off + have, chunk, len);
-        }
-        /* SK now sits at keys; SV must be advanced to vals */
-        for (have = 0; have < 4ull * nm + 8ull * (nm + 1) + 4ull * ne; have += len)
-            len = f1c5_lstream_next(&SV, &chunk);
-        /* per-mask orbit expansion cache (raw mode) */
-        int64_t cache_mi = -1;
-        int orb_cnt = 0, orb_size = 1;
-        uint8_t orb_qinv[24][32];    /* inverse subset-pair map per distinct image */
-        const uint32_t *kbuf = NULL;
-        const F1U192 *vbuf = NULL;
-        uint64_t kleft = 0, vleft = 0, e = 0, mi = 0;
-        while (e < ne) {
-            if (kleft == 0) {
-                len = f1c5_lstream_next(&SK, &chunk);
-                kbuf = (const uint32_t *)(const void *)chunk;
-                kleft = len / 4;
+    f1c5_lstream_seek_block(SK, 2, e0 / F1C5_OOC_BLK);
+    f1c5_lstream_seek_block(SV, 3, e0 / F1C5_OOC_BLK);
+    uint64_t kskip = e0 % F1C5_OOC_BLK, vskip = kskip;
+    uint64_t lo = 0, hi = nm - 1;
+    while (lo < hi) {
+        const uint64_t mid = lo + (hi - lo) / 2;
+        if (off[mid + 1] <= e0) lo = mid + 1; else hi = mid;
+    }
+    uint64_t mi = lo;
+    F1_CHECK(off[mi] <= e0 && e0 < off[mi + 1], "[kc-scan] unit start %llu: no mask owns it (defect)",
+             (unsigned long long)e0);
+    /* per-mask orbit expansion cache (raw mode) */
+    int64_t cache_mi = -1;
+    int orb_cnt = 0, orb_size = 1;
+    uint8_t orb_qinv[24][32];    /* inverse subset-pair map per distinct image */
+    const uint32_t *kbuf = NULL;
+    const F1U192 *vbuf = NULL;
+    const uint8_t *chunk;
+    uint64_t len, kleft = 0, vleft = 0, e = e0, nlook = 0;
+    while (e < e1) {
+        if (kleft == 0) {
+            len = f1c5_lstream_next(SK, &chunk);
+            F1_CHECK(len >= 4 && SK->section == 2, "%s: keys stream ended at entry %llu (< %llu)",
+                     SK->path, (unsigned long long)e, (unsigned long long)e1);
+            kbuf = (const uint32_t *)(const void *)chunk;
+            kleft = len / 4;
+            if (kskip) {
+                F1_CHECK(kskip < kleft, "[kc-scan] key skip %llu >= chunk (defect)",
+                         (unsigned long long)kskip);
+                kbuf += kskip; kleft -= kskip; kskip = 0;
             }
-            if (vleft == 0) {
-                len = f1c5_lstream_next(&SV, &chunk);
-                vbuf = (const F1U192 *)(const void *)chunk;
-                vleft = len / 24;
+        }
+        if (vleft == 0) {
+            len = f1c5_lstream_next(SV, &chunk);
+            F1_CHECK(len >= 24 && SV->section == 3, "%s: vals stream ended at entry %llu (< %llu)",
+                     SV->path, (unsigned long long)e, (unsigned long long)e1);
+            vbuf = (const F1U192 *)(const void *)chunk;
+            vleft = len / 24;
+            if (vskip) {
+                F1_CHECK(vskip < vleft, "[kc-scan] val skip %llu >= chunk (defect)",
+                         (unsigned long long)vskip);
+                vbuf += vskip; vleft -= vskip; vskip = 0;
             }
-            uint64_t take = kleft < vleft ? kleft : vleft;
-            if (take > ne - e) take = ne - e;
-            for (uint64_t i = 0; i < take; i++, e++) {
+        }
+        uint64_t take = kleft < vleft ? kleft : vleft;
+        if (take > e1 - e) take = e1 - e;
+        for (uint64_t i = 0; i < take; i++, e++) {
                 while (mi < nm && off[mi + 1] <= e) mi++;
                 const uint32_t cm = masks[mi];
                 const uint32_t key = kbuf[i];
@@ -27653,7 +27894,7 @@ static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
                 const F1U192 fv = vbuf[i];
                 {
                     F1U192 w0 = f1_mul_small(fv, (uint32_t)f1_orbit_size(c, cm));
-                    f1_add(&T->fmass[k], &w0);
+                    f1_add(&A->fmass, &w0);
                 }
                 if ((int64_t)mi != cache_mi) {
                     cache_mi = (int64_t)mi;
@@ -27689,35 +27930,264 @@ static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
                         const int cls = F1C5_CLS[__builtin_popcount((unsigned)(lastc ^ entry))];
                         if (cls < 0 || fkc->B.dig[cls][rid] >= fkc->B.b0[cls]) continue;
                         const uint32_t rid2 = rid + fkc->B.rad[cls];
-                        const F1U192 gv = kc_glookup(gkc, k + 1, cm | (1u << q), exitx, rid2);
-                        if (f1_is_zero(&gv)) continue;
-                        const F1U192 w = kc_u192_mul(&fv, &gv);
+                        nlook++;
+                        const F1U192 g = kc_glookup(gv, k + 1, cm | (1u << q), exitx, rid2);
+                        if (f1_is_zero(&g)) continue;
+                        const F1U192 w = kc_u192_mul(&fv, &g);
                         const F1U192 worb = f1_mul_small(w, (uint32_t)orb_size);
-                        f1_add(&T->flow[k], &worb);
-                        f1_add(&T->cls[k * 5 + cls], &worb);
-                        f1_add(&T->qmarg[k * 32 + q], &worb);
+                        f1_add(&A->flow, &worb);
+                        f1_add(&A->cls[cls], &worb);
+                        f1_add(&A->qmarg[q], &worb);
                         if (want_raw)
                             for (int s2 = 0; s2 < orb_cnt; s2++)
-                                f1_add(&T->rawmarg[k * 32 + c->pl[orb_qinv[s2][q]]], &w);
+                                f1_add(&A->rawmarg[c->pl[orb_qinv[s2][q]]], &w);
                     }
                 }
-            }
-            kbuf += take;
-            vbuf += take;
-            kleft -= take;
-            vleft -= take;
         }
-        f1c5_lstream_close(&SK);
-        f1c5_lstream_close(&SV);
+        kbuf += take;
+        vbuf += take;
+        kleft -= take;
+        vleft -= take;
+    }
+    *lookups += nlook;
+}
+
+/* phase 2: the layer pass over the HALF-OPEN transition-layer range
+ * [k_lo, k_hi) subset of [0, n). Every accumulator it touches
+ * (flow/cls/qmarg/rawmarg and fmass[k] for k < n) is indexed by k only, which
+ * is what makes the range restriction sound. Returns 0 ok, -1 on IO.
+ *
+ * PARALLEL (2026-09-11, design s1.3). Per layer: the mask/offset index is read
+ * ONCE here and shared read-only; an OpenMP team of P->threads then splits the
+ * layer's work units (contiguous P->unit-entry ranges, one v2 block by default)
+ * with schedule(dynamic, CH), CH ~ units/(8T), so each thread walks contiguous
+ * runs of the f stream (the g-cache locality unit, design s3.4). Each thread owns
+ * its two f streams, a zeroed KcScanAcc, and a KC view of g whose OOC reader is
+ * its OWN cache clone (kc_ooc_clone_cache; nothing mutable shared). After the
+ * join the thread slices are reduced into T by f1_add in thread order, and only
+ * then is the verbose per-layer line printed, so stdout is unchanged.
+ * P == NULL => controls from the environment (SOLVE_KC_SCAN_THREADS, default 1);
+ * the measurement knobs are refused there -- only --kc-scan honours them. */
+static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
+                            int want_raw, KcScanTab *T, int k_lo, int k_hi,
+                            int verbose, const KcScanPar *Pin) {
+    const int n = fkc->n;
+    F1_CHECK(k_lo >= 0 && k_hi <= n && k_lo <= k_hi, "[kc-scan] bad layer range");
+    KcScanPar Penv;
+    const KcScanPar *P = Pin;
+    if (!P) {
+        if (kc_scan_par_init(&Penv) != 0) return -1;
+        if (Penv.measure) {
+            fprintf(stderr, "ERROR: [kc-scan] SOLVE_KC_SCAN_START_BLOCK / "
+                    "SOLVE_KC_SCAN_STOP_AFTER_BLOCKS are measurement knobs honoured only by "
+                    "--kc-scan itself; unset them for this command\n");
+            return -1;
+        }
+        P = &Penv;
+    }
+    const int nth = P->threads;
+    F1_CHECK(nth >= 1 && nth <= KC_SCAN_MAX_THREADS && P->unit >= 1 && P->stride >= 1,
+             "[kc-scan] bad parallel controls (threads=%d unit=%llu stride=%llu)", nth,
+             (unsigned long long)P->unit, (unsigned long long)P->stride);
+    /* a clone per thread whenever g is out-of-core and either the team has more than
+     * one thread or a per-thread cache size was asked for; at the default (T=1, no
+     * --kc-gcache-mb-per-thread) the single thread uses g's own reader, as before. */
+    const int use_clone = gkc->ooc != NULL && (nth > 1 || P->gcache_mb > 0);
+    KcScanThr *W = (KcScanThr *)calloc((size_t)nth, sizeof(KcScanThr));
+    F1_CHECK(W != NULL, "[kc-scan] thread table alloc");
+    for (int t = 0; t < nth; t++) {
+        W[t].g = *gkc;
+        if (use_clone) W[t].g.ooc = kc_ooc_clone_cache(gkc->ooc, P->gcache_mb);
+    }
+    const char *gmode = !gkc->ooc ? "in-memory" : (use_clone ? "clone" : "shared");
+    const int gslots = gkc->ooc ? (use_clone ? W[0].g.ooc->nslot : gkc->ooc->nslot) : 0;
+    int rc = 0;
+    for (int k = k_lo; k < k_hi && rc == 0; k++) {
+        char lpath[4400];
+        snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, k);
+        F1c5LayerStream SI;
+        if (f1c5_lstream_open(lpath, &SI) != 0) { rc = -1; break; }
+        const uint64_t nm = SI.nm, ne = SI.ne;
+        uint32_t *masks = (uint32_t *)malloc(4ull * (nm ? nm : 1));
+        uint64_t *off = (uint64_t *)malloc(8ull * (nm + 1));
+        F1_CHECK(masks && off, "[kc-scan] index alloc");
+        const uint8_t *chunk;
+        uint64_t len, have;
+        for (have = 0; have < 4ull * nm; have += len) {
+            len = f1c5_lstream_next(&SI, &chunk);
+            memcpy((uint8_t *)masks + have, chunk, len);
+        }
+        for (have = 0; have < 8ull * (nm + 1); have += len) {
+            len = f1c5_lstream_next(&SI, &chunk);
+            memcpy((uint8_t *)off + have, chunk, len);
+        }
+        f1c5_lstream_close(&SI);
+        F1_CHECK(off[0] == 0 && off[nm] == ne, "[kc-scan] %s offset table corrupt", lpath);
+        /* the work list: unit u covers entries [ebase + u*step, +unit) clipped to ne */
+        const uint64_t nblk = (ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;
+        uint64_t unit, step, ebase, nitems;
+        if (P->measure) {
+            unit = F1C5_OOC_BLK;
+            step = P->stride * (uint64_t)F1C5_OOC_BLK;
+            ebase = P->start_blk * (uint64_t)F1C5_OOC_BLK;
+            nitems = P->start_blk < nblk ? (nblk - P->start_blk + P->stride - 1) / P->stride : 0;
+            if (P->stop_blocks && nitems > P->stop_blocks) nitems = P->stop_blocks;
+        } else {
+            unit = P->unit;
+            step = unit;
+            ebase = 0;
+            nitems = (ne + unit - 1) / unit;
+        }
+        long ch = (long)(nitems / (8ull * (uint64_t)nth));
+        if (ch < 1) ch = 1;
+        /* zero EVERY thread slot now: a slot whose thread is not granted this layer
+         * must contribute zero, not the previous layer's slice */
+        for (int t = 0; t < nth; t++) {
+            memset(&W[t].acc, 0, sizeof(W[t].acc));
+            W[t].items = W[t].entries = W[t].lookups = W[t].hits = W[t].misses = 0;
+            W[t].bytes_read = W[t].f_blocks = W[t].f_logical = 0;
+            W[t].sec_read = W[t].sec_inflate = W[t].wall = W[t].cpu_user = W[t].cpu_sys = 0;
+            W[t].io_read = -1;
+        }
+        int bad = 0, granted = 0;
+        double pu0 = 0, ps0 = 0;
+        const int64_t pio0 = P->stats ? kc_h_proc_read_bytes("/proc/self/io") : -1;
+        if (P->stats) kc_h_cpu_sec(RUSAGE_SELF, &pu0, &ps0);
+        const double lw0 = omp_get_wtime();
+#pragma omp parallel num_threads(nth)
+        {
+            const int tid = omp_get_thread_num();
+            if (tid == 0) granted = omp_get_num_threads();
+            KcScanThr *w = &W[tid];
+            KcScanAcc A;                 /* thread-local, on this thread's stack */
+            memset(&A, 0, sizeof(A));
+            uint64_t items = 0, entries = 0, lookups = 0;
+            const KcOoc *go = w->g.ooc;
+            const uint64_t h0 = go ? go->hits : 0, m0 = go ? go->misses : 0;
+            const uint64_t b0 = go ? go->io.bytes_read : 0;
+            const double r0 = go ? go->io.sec_read : 0, i0 = go ? go->sec_inflate : 0;
+            double tu0 = 0, ts0 = 0;
+            int64_t tio0 = -1;
+            if (P->stats) {
+                kc_h_cpu_sec(RUSAGE_THREAD, &tu0, &ts0);
+                tio0 = kc_h_proc_read_bytes("/proc/thread-self/io");
+            }
+            const double tw0 = omp_get_wtime();
+            F1c5LayerStream SK, SV;
+            int ok = f1c5_lstream_open(lpath, &SK) == 0;
+            if (ok && f1c5_lstream_open(lpath, &SV) != 0) { f1c5_lstream_close(&SK); ok = 0; }
+            if (!ok) {
+#pragma omp atomic write
+                bad = 1;
+            }
+#pragma omp for schedule(dynamic, ch)
+            for (uint64_t it = 0; it < nitems; it++) {
+                if (!ok) continue;
+                const uint64_t e0 = ebase + it * step;
+                uint64_t e1 = e0 + unit;
+                if (e1 > ne) e1 = ne;
+                kc_h_scan_range(fkc, &w->g, k, masks, off, nm, e0, e1, &SK, &SV, want_raw,
+                                &A, &lookups);
+                items++;
+                entries += e1 - e0;
+                if (P->selfkill == 1 && k == P->selfkill_k && items == 1) {
+                    fprintf(stderr, "[kc-scan] SOLVE_KC_SCAN_SELFKILL=team:%d: SIGKILL inside the "
+                            "team (thread %d, after its first unit)\n", k, tid);
+                    raise(SIGKILL);
+                }
+            }
+            if (ok) {
+                w->f_blocks = SK.blocks + SV.blocks;
+                w->f_logical = SK.logical + SV.logical;
+                f1c5_lstream_close(&SK);
+                f1c5_lstream_close(&SV);
+            }
+            w->acc = A;
+            w->items = items;
+            w->entries = entries;
+            w->lookups = lookups;
+            if (go) {
+                w->hits = go->hits - h0;
+                w->misses = go->misses - m0;
+                w->bytes_read = go->io.bytes_read - b0;
+                w->sec_read = go->io.sec_read - r0;
+                w->sec_inflate = go->sec_inflate - i0;
+            }
+            w->wall = omp_get_wtime() - tw0;
+            if (P->stats) {
+                double tu1, ts1;
+                kc_h_cpu_sec(RUSAGE_THREAD, &tu1, &ts1);
+                w->cpu_user = tu1 - tu0;
+                w->cpu_sys = ts1 - ts0;
+                const int64_t tio1 = kc_h_proc_read_bytes("/proc/thread-self/io");
+                w->io_read = (tio0 >= 0 && tio1 >= 0) ? tio1 - tio0 : -1;
+            }
+        }
+        const double lwall = omp_get_wtime() - lw0;
         free(masks);
         free(off);
+        if (bad) { rc = -1; break; }
+        /* the reduction, after the join, in thread order (order is irrelevant: s2.1) */
+        for (int t = 0; t < nth; t++) {
+            kc_h_scan_reduce(T, k, &W[t].acc);
+            if (P->selfkill == 2 && k == P->selfkill_k && t == 0) {
+                fprintf(stderr, "[kc-scan] SOLVE_KC_SCAN_SELFKILL=reduce:%d: SIGKILL inside the "
+                        "reduction (after thread 0's slice)\n", k);
+                raise(SIGKILL);
+            }
+        }
         if (verbose) {
             char t[64];
             f1_dec(T->flow[k], t);
             printf("[kc-scan] layer %02d -> %02d: transition mass %s\n", k, k + 1, t);
         }
+        if (P->stats) {
+            /* design s7.1: one line per (layer, thread) + one per layer, stderr only */
+            uint64_t s_it = 0, s_en = 0, s_lk = 0, s_h = 0, s_m = 0, s_b = 0, s_fb = 0, s_fl = 0;
+            double s_r = 0, s_i = 0;
+            for (int t = 0; t < nth; t++) {
+                const KcScanThr *w = &W[t];
+                fprintf(stderr, "KC_SCAN_STAT k=%d tid=%d items=%llu entries=%llu lookups=%llu "
+                        "g_hits=%llu g_misses=%llu g_bytes_read=%llu g_sec_read=%.6f "
+                        "g_sec_inflate=%.6f f_blocks=%llu f_logical=%llu wall_sec=%.6f "
+                        "cpu_user_sec=%.6f cpu_sys_sec=%.6f io_read_bytes=%lld\n",
+                        k, t, (unsigned long long)w->items, (unsigned long long)w->entries,
+                        (unsigned long long)w->lookups, (unsigned long long)w->hits,
+                        (unsigned long long)w->misses, (unsigned long long)w->bytes_read,
+                        w->sec_read, w->sec_inflate, (unsigned long long)w->f_blocks,
+                        (unsigned long long)w->f_logical, w->wall, w->cpu_user, w->cpu_sys,
+                        (long long)w->io_read);
+                s_it += w->items; s_en += w->entries; s_lk += w->lookups; s_h += w->hits;
+                s_m += w->misses; s_b += w->bytes_read; s_fb += w->f_blocks; s_fl += w->f_logical;
+                s_r += w->sec_read; s_i += w->sec_inflate;
+            }
+            double pu1, ps1, rss, peak;
+            kc_h_cpu_sec(RUSAGE_SELF, &pu1, &ps1);
+            const int64_t pio1 = kc_h_proc_read_bytes("/proc/self/io");
+            f1_rss_mb(&rss, &peak);
+            fprintf(stderr, "KC_SCAN_LAYER_STAT k=%d threads=%d granted=%d nm=%llu ne=%llu "
+                    "nblk=%llu units=%llu unit_entries=%llu dyn_chunk=%ld measure=%d "
+                    "start_blk=%llu stride=%llu items=%llu entries=%llu lookups=%llu "
+                    "g_mode=%s g_slots=%d g_hits=%llu g_misses=%llu g_bytes_read=%llu "
+                    "g_sec_read=%.6f g_sec_inflate=%.6f f_blocks=%llu f_logical=%llu "
+                    "wall_sec=%.6f cpu_user_sec=%.6f cpu_sys_sec=%.6f io_read_bytes=%lld "
+                    "rss_mb=%.1f peak_rss_mb=%.1f\n",
+                    k, nth, granted, (unsigned long long)nm, (unsigned long long)ne,
+                    (unsigned long long)nblk, (unsigned long long)nitems,
+                    (unsigned long long)unit, ch, P->measure,
+                    (unsigned long long)(P->measure ? P->start_blk : 0),
+                    (unsigned long long)(P->measure ? P->stride : 1), (unsigned long long)s_it,
+                    (unsigned long long)s_en, (unsigned long long)s_lk, gmode, gslots,
+                    (unsigned long long)s_h, (unsigned long long)s_m, (unsigned long long)s_b,
+                    s_r, s_i, (unsigned long long)s_fb, (unsigned long long)s_fl, lwall,
+                    pu1 - pu0, ps1 - ps0,
+                    (long long)((pio0 >= 0 && pio1 >= 0) ? pio1 - pio0 : -1), rss, peak);
+        }
     }
-    return 0;
+    if (use_clone)
+        for (int t = 0; t < nth; t++) kc_ooc_free_clone(W[t].g.ooc);
+    free(W);
+    return rc;
 }
 
 /* phase 3: everything that is NOT per-layer — fmass[n], the branch atlas, the
@@ -27924,9 +28394,9 @@ static int kc_h_scan_tail(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
 }
 
 static int kc_h_scan_core(const KC *fkc, const KC *gkc, KC *tkc, const char *fdir,
-                          int want_raw, KcScanTab *T, int verbose) {
+                          int want_raw, KcScanTab *T, int verbose, const KcScanPar *P) {
     kc_h_scan_alloc(fkc, want_raw, T);
-    if (kc_h_scan_layers(fkc, gkc, fdir, want_raw, T, 0, fkc->n, verbose) != 0) return -1;
+    if (kc_h_scan_layers(fkc, gkc, fdir, want_raw, T, 0, fkc->n, verbose, P) != 0) return -1;
     return kc_h_scan_tail(fkc, gkc, tkc, fdir, want_raw, T);
 }
 
@@ -28003,7 +28473,8 @@ static int kc_h_scan_chunk_abort(FILE *f, const char *outp) {
 
 static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC *fkc,
                                  const char *fdir, const char *gdir, const char *tdir,
-                                 int want_raw, int k_lo, int k_hi, double elapsed) {
+                                 int want_raw, int k_lo, int k_hi, double elapsed,
+                                 int scan_threads) {
     if (!sha256_tool()) { require_sha256_tool(); return -1; }
     /* G2 F1: run-time engine identity, never omittable at build. Refuse to write a chunk
      * that would carry none - the merge would (rightly) reject it later anyway. */
@@ -28079,6 +28550,11 @@ static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC 
             GIT_HASH, SOURCE_SHA);
     fprintf(f, "  \"engine_exe_sha\": \"%s\",\n", exe_sha);
     fprintf(f, "  \"elapsed_sec\": %.3f,\n", elapsed);
+    /* informational, run-variable like elapsed_sec, and deliberately OUTSIDE the
+     * merge's KC_MERGE_ID identity set: the table is bit-identical at every thread
+     * count (design s2), so chunks scanned at different T must merge. Emitted only
+     * when T != 1, so a default chunk is byte-identical to the pre-parallel writer. */
+    if (scan_threads != 1) fprintf(f, "  \"scan_threads\": %d,\n", scan_threads);
     fprintf(f, "  \"semantics\": \"PARTIAL atlas chunk - NOT an atlas; assemble with "
             "--kc-scan-merge, which proves coverage and re-runs every gate\"\n}\n");
     if (kc_h_close_artifact(f, outp, "kc-scan") != 0) return -1;
@@ -28202,15 +28678,44 @@ static int kc_scan_main(int argc, char *argv[]) {
                 "  when --kc-raw or n <= 13), and the top-level branch table (exact\n"
                 "  solutions per branch; valid-prefix t-units EXACT at any n from a\n"
                 "  --kc-tdir t ladder (--kc-t-build), else at small n by direct\n"
-                "  recursion, else PENDING). Fail-loud internal ==N gates. Exit 0/1/2.\n");
+                "  recursion, else PENDING). Fail-loud internal ==N gates. Exit 0/1/2.\n"
+                "  --kc-scan-threads T (or SOLVE_KC_SCAN_THREADS; default 1): OpenMP team\n"
+                "  over each f layer's block stream; the atlas/chunk is byte-identical at\n"
+                "  every T. --kc-gcache-mb-per-thread C: each thread's own g block cache\n"
+                "  (default: the --kc-cache-mb size). The f and t readers get a minimal\n"
+                "  cache (the scan streams f by path and makes ~2n t lookups).\n"
+                "  Measurement: SOLVE_KC_SCAN_START_BLOCK / SOLVE_KC_SCAN_STOP_AFTER_BLOCKS\n"
+                "  run a partial layer pass, print KC_SCAN_STAT lines and\n"
+                "  KC_SCAN_CHUNK=MEASUREMENT, and write NO chunk and NO atlas.\n");
         return 2;
     }
     const char *fdir = argv[2], *gdir = argv[3], *outp = argv[4], *tdir = NULL;
     int want_raw = 0, force_ooc = 0, cache_mb = 0;
     int chunk_mode = 0, k_lo = 0, k_hi = 0;
+    KcScanPar P;
+    if (kc_scan_par_init(&P) != 0) {
+        printf("KC_SCAN=FAIL\n");
+        return 2;
+    }
     for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-raw") == 0) want_raw = 1;
         else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (strcmp(argv[ai], "--kc-scan-threads") == 0 ||
+                 strcmp(argv[ai], "--kc-gcache-mb-per-thread") == 0) {
+            const int is_t = strcmp(argv[ai], "--kc-scan-threads") == 0;
+            uint64_t v = 0;
+            if (ai + 1 >= argc ||
+                kc_h_env_u64(argv[ai], argv[ai + 1], 1,
+                             is_t ? (uint64_t)KC_SCAN_MAX_THREADS : (uint64_t)(1u << 22),
+                             &v, NULL) != 0 || v == 0) {
+                fprintf(stderr, "ERROR: [kc-scan] %s needs one integer argument (%s)\n",
+                        argv[ai], is_t ? "1..1024 threads" : "1..4194304 MB per thread");
+                printf("KC_SCAN=FAIL\n");
+                return 2;
+            }
+            if (is_t) P.threads = (int)v; else P.gcache_mb = (int)v;
+            ai++;
+        }
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tdir") == 0) tdir = argv[++ai];
         else if (ai + 2 < argc && strcmp(argv[ai], "--kc-layers") == 0) {
@@ -28228,12 +28733,15 @@ static int kc_scan_main(int argc, char *argv[]) {
     KC *gkc = (KC *)calloc(1, sizeof(KC));
     KC *tkc = tdir ? (KC *)calloc(1, sizeof(KC)) : NULL;
     F1_CHECK(fkc && gkc && (!tdir || tkc), "[kc-scan] alloc");
-    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); free(tkc); return 2; }
+    /* design s1.3/s1.2 row B: the scan streams f layers BY PATH and makes ~2n t
+     * lookups in the tail, so the f and t readers get the minimal cache (1 MB ->
+     * the 4-slot floor) instead of --kc-cache-mb each; only g is cache-bound. */
+    if (kc_open(fkc, fdir, force_ooc, 1) != 0) { free(fkc); free(gkc); free(tkc); return 2; }
     if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
         kc_free(fkc); free(fkc); free(gkc); free(tkc);
         return 2;
     }
-    if (tdir && kc_open_as(tkc, tdir, "t", 2, force_ooc, cache_mb) != 0) {
+    if (tdir && kc_open_as(tkc, tdir, "t", 2, force_ooc, 1) != 0) {
         kc_free(fkc); kc_free(gkc); free(fkc); free(gkc); free(tkc);
         return 2;
     }
@@ -28244,6 +28752,38 @@ static int kc_scan_main(int argc, char *argv[]) {
                  f1_pl_hash(&fkc->c) == f1_pl_hash(&tkc->c),
                  "[kc-scan] f/t ladder context mismatch");
     if (fkc->n <= 13) want_raw = 1;   /* small-n: raw frame always feasible */
+    if (P.measure) {
+        /* design s7.1: a MEASUREMENT run. A partial layer pass whose table is
+         * incomplete by construction, so it must never reach disk as a chunk or an
+         * atlas (F-5 R3 s5 G: a partial chunk must never exist). Nothing is written;
+         * OUT is not opened, created or removed. */
+        int lo = 0, hi = fkc->n;
+        if (chunk_mode) { lo = k_lo; hi = k_hi; }
+        int mrc = 2;
+        if (!(lo >= 0 && hi <= fkc->n && lo < hi)) {
+            fprintf(stderr, "ERROR: [kc-scan] --kc-layers %d %d out of range (n=%d)\n", lo, hi,
+                    fkc->n);
+        } else {
+            KcScanTab MT;
+            kc_h_scan_alloc(fkc, want_raw, &MT);
+            const int lrc = kc_h_scan_layers(fkc, gkc, fdir, want_raw, &MT, lo, hi, 0, &P);
+            kc_scan_free(&MT);
+            if (lrc == 0) {
+                printf("[kc-scan] MEASUREMENT run over layers [%d,%d): start_blk=%llu "
+                       "stop_after_blocks=%llu stride=%llu threads=%d -- partial layer pass, "
+                       "NO chunk and NO atlas written (%s untouched)\n", lo, hi,
+                       (unsigned long long)P.start_blk, (unsigned long long)P.stop_blocks,
+                       (unsigned long long)P.stride, P.threads, outp);
+                mrc = 0;
+            } else {
+                fprintf(stderr, "ERROR: [kc-scan] layer streaming failed\n");
+            }
+        }
+        printf("KC_SCAN_CHUNK=%s\n", mrc == 0 ? "MEASUREMENT" : "FAIL");
+        kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc);
+        free(fkc); free(gkc); free(tkc);
+        return mrc;
+    }
     if (chunk_mode) {
         /* --kc-layers A B: partial (chunk) mode. Range is HALF-OPEN [A, B). */
         if (!(k_lo >= 0 && k_hi <= fkc->n && k_lo < k_hi)) {
@@ -28257,7 +28797,7 @@ static int kc_scan_main(int argc, char *argv[]) {
         const double t0 = kc_h_mono_sec();
         KcScanTab CT;
         kc_h_scan_alloc(fkc, want_raw, &CT);
-        const int lrc = kc_h_scan_layers(fkc, gkc, fdir, want_raw, &CT, k_lo, k_hi, 1);
+        const int lrc = kc_h_scan_layers(fkc, gkc, fdir, want_raw, &CT, k_lo, k_hi, 1, &P);
         int crc = 2;
         if (lrc != 0) {
             fprintf(stderr, "ERROR: [kc-scan] layer streaming failed\n");
@@ -28302,7 +28842,7 @@ static int kc_scan_main(int argc, char *argv[]) {
                 }
             }
             if (kc_h_scan_write_chunk(outp, &CT, fkc, fdir, gdir, tdir, want_raw,
-                                      k_lo, k_hi, kc_h_mono_sec() - t0) == 0) {
+                                      k_lo, k_hi, kc_h_mono_sec() - t0, P.threads) == 0) {
                 printf("[kc-scan] chunk written: %s (layers [%d,%d))\n", outp, k_lo, k_hi);
                 printf("[kc-scan] VERDICT: %s (%d gate failure%s)\n",
                        CT.gate_fails ? "FAIL" : "PASS", CT.gate_fails,
@@ -28321,7 +28861,7 @@ static int kc_scan_main(int argc, char *argv[]) {
         return crc;
     }
     KcScanTab T;
-    const int rc0 = kc_h_scan_core(fkc, gkc, tkc, fdir, want_raw, &T, 1);
+    const int rc0 = kc_h_scan_core(fkc, gkc, tkc, fdir, want_raw, &T, 1, &P);
     int rc = 2;
     if (rc0 == 0) {
         FILE *f = fopen(outp, "w");
@@ -28867,7 +29407,7 @@ static int kc_scan_selftest(void) {
 
     KcScanTab T;
     KC_SCAN_GATE("scan core runs (raw expansion ON)",
-                 kc_h_scan_core(fkc, gkc, NULL, fdir, 1, &T, 0) == 0);
+                 kc_h_scan_core(fkc, gkc, NULL, fdir, 1, &T, 0, NULL) == 0);
     KC_SCAN_GATE("scan internal ==N gates all PASS", T.gate_fails == 0);
     KC_SCAN_GATE("t-units computed at n=9", T.t_done == 1);
 
@@ -29037,6 +29577,253 @@ static int kc_scan_selftest(void) {
     printf("[kc-scan-selftest] %s (%d failure%s)\n",
            fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
     printf("KC_SCAN_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
+    return fails ? 1 : 0;
+}
+
+/* ---------- --kc-scan-par-selftest (parallel --kc-scan, 2026-09-11) ----------
+ * G9 of roae-private KC_SCAN_PARALLEL_DESIGN_2026_09_11.md s8 (the reduction with
+ * thread values >= 2^64 and >= 2^128, exact, and overflow aborting at exactly
+ * 2^192), the cache-clone isolation of s3.2, and in-process T-invariance: the
+ * layer table at T in {1,2,3,8} with 7-entry work units and 4-slot per-thread
+ * caches, over in-memory v1, out-of-core v1 and out-of-core v2 g readers, must be
+ * memcmp-identical to the T=1 in-memory reference. argv-dispatched only; never
+ * reached from --selftest (sha-pinned) or --kc-scan-selftest (golden-pinned).
+ * Claude (Opus), developed with AI assistance (Claude, Anthropic). */
+#define KC_PAR_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-scan-par-selftest] %-66s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* thread t, cell j: l0 = 2^64-1-j, l1 = t+j, l2 = (t+1)(j+1) for odd j else 0. Over
+ * t = 0..4 the exact sum is l0 = 2^64-5-5j (carry 4), l1 = 14+5j, l2 = 15(j+1) for
+ * odd j else 0 -- derived by hand, not by f1_add, and the j=0/j=1 cells are also
+ * pinned to decimals computed independently (python3, 2026-09-11). */
+static void kc_h_par_fill(KcScanAcc *A, int t) {
+    F1U192 *v = (F1U192 *)(void *)A;
+    const int ncell = (int)(sizeof(KcScanAcc) / sizeof(F1U192));
+    for (int j = 0; j < ncell; j++) {
+        v[j].l0 = UINT64_MAX - (uint64_t)j;
+        v[j].l1 = (uint64_t)t + (uint64_t)j;
+        v[j].l2 = (j & 1) ? (uint64_t)(t + 1) * (uint64_t)(j + 1) : 0;
+    }
+}
+
+static void kc_h_par_slice(const KcScanTab *T, int k, KcScanAcc *out) {
+    out->flow = T->flow[k];
+    out->fmass = T->fmass[k];
+    for (int d = 0; d < 5; d++) out->cls[d] = T->cls[k * 5 + d];
+    for (int q = 0; q < 32; q++) out->qmarg[q] = T->qmarg[k * 32 + q];
+    for (int p = 0; p < 32; p++) out->rawmarg[p] = T->rawmarg[k * 32 + p];
+}
+
+/* child process: T.flow[0] = base, reduce one slice whose flow is add; exit 0 if the
+ * result equals want, 3 if not -- or 70 from f1_overflow_abort inside the reduction. */
+static int kc_h_par_child_reduce(const KC *dk, F1U192 base, F1U192 add, F1U192 want) {
+    fflush(stdout);
+    fflush(stderr);
+    const pid_t pid = fork();
+    if (pid < 0) return -1;
+    if (pid == 0) {
+        if (!freopen("/dev/null", "w", stderr)) _exit(99);   /* the expected abort's ERROR line */
+        KcScanTab T;
+        kc_h_scan_alloc(dk, 0, &T);
+        KcScanAcc A;
+        memset(&A, 0, sizeof(A));
+        T.flow[0] = base;
+        A.flow = add;
+        kc_h_scan_reduce(&T, 0, &A);
+        _exit(f1_eq(&T.flow[0], &want) ? 0 : 3);
+    }
+    int st = 0;
+    if (waitpid(pid, &st, 0) != pid) return -1;
+    return WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+}
+
+static int kc_h_par_tab_eq(const KcScanTab *A, const KcScanTab *B, int n) {
+    return memcmp(A->flow, B->flow, sizeof(F1U192) * (size_t)n) == 0 &&
+           memcmp(A->cls, B->cls, sizeof(F1U192) * (size_t)n * 5) == 0 &&
+           memcmp(A->qmarg, B->qmarg, sizeof(F1U192) * (size_t)n * 32) == 0 &&
+           memcmp(A->rawmarg, B->rawmarg, sizeof(F1U192) * (size_t)n * 32) == 0 &&
+           memcmp(A->fmass, B->fmass, sizeof(F1U192) * (size_t)n) == 0;
+}
+
+static int kc_scan_par_selftest(void) {
+    int fails = 0;
+    printf("[kc-scan-par-selftest] parallel --kc-scan: reduction, cache clone, T-invariance (n=9)\n");
+    KC *dk = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(dk != NULL, "[kc-scan-par-selftest] alloc");
+    dk->n = 9;
+    /* ---- P1-P3: the reduction ---- */
+    {
+        KcScanAcc S[5];
+        for (int t = 0; t < 5; t++) kc_h_par_fill(&S[t], t);
+        KcScanTab Tf, Tr;
+        kc_h_scan_alloc(dk, 1, &Tf);
+        kc_h_scan_alloc(dk, 1, &Tr);
+        for (int t = 0; t < 5; t++) kc_h_scan_reduce(&Tf, 3, &S[t]);
+        for (int t = 4; t >= 0; t--) kc_h_scan_reduce(&Tr, 3, &S[t]);
+        KcScanAcc got;
+        kc_h_par_slice(&Tf, 3, &got);
+        const F1U192 *g = (const F1U192 *)(const void *)&got;
+        const int ncell = (int)(sizeof(KcScanAcc) / sizeof(F1U192));
+        int exact = 1;
+        for (int j = 0; j < ncell; j++) {
+            const uint64_t w2 = (j & 1) ? 15ull * (uint64_t)(j + 1) : 0;
+            exact &= g[j].l0 == UINT64_MAX - 4 - 5ull * (uint64_t)j &&
+                     g[j].l1 == 14 + 5ull * (uint64_t)j && g[j].l2 == w2;
+        }
+        KC_PAR_GATE("P1 reduction exact, 71 cells, thread values >= 2^64 and >= 2^128", exact);
+        char d0[64], d1[64];
+        f1_dec(Tf.flow[3], d0);
+        f1_dec(Tf.fmass[3], d1);
+        KC_PAR_GATE("P2 decimal anchors (python3): 15*2^64-5 and a >= 2^128 cell",
+                    strcmp(d0, "276701161105643274235") == 0 &&
+                    strcmp(d1, "10208471007628153904270173104427237375990") == 0);
+        KC_PAR_GATE("P3 reduction order-independent (forward == reverse thread order)",
+                    kc_h_par_tab_eq(&Tf, &Tr, 9));
+        int untouched = 1;
+        for (int k = 0; k < 9; k++)
+            if (k != 3) untouched &= f1_is_zero(&Tf.flow[k]) && f1_is_zero(&Tf.fmass[k]);
+        KC_PAR_GATE("P3b reduction writes layer k only", untouched);
+        kc_scan_free(&Tf);
+        kc_scan_free(&Tr);
+    }
+    {   /* P4: overflow aborts at exactly 2^192, and not one below it */
+        const F1U192 top = {UINT64_MAX, UINT64_MAX, UINT64_MAX};
+        const F1U192 one = {1, 0, 0};
+        const F1U192 lo7 = {UINT64_MAX, UINT64_MAX, 0x7fffffffffffffffull};
+        const F1U192 hi8 = {0, 0, 0x8000000000000000ull};
+        KC_PAR_GATE("P4 (2^192-1) + 1 in the reduction aborts (exit 70)",
+                    kc_h_par_child_reduce(dk, top, one, top) == 70);
+        KC_PAR_GATE("P4b sum reaching exactly 2^192-1 does NOT abort, value exact",
+                    kc_h_par_child_reduce(dk, lo7, hi8, top) == 0);
+    }
+    /* ---- ladders for P5/P6 ---- */
+    char dir[4096], fdir[4200], gdir1[4200], gdir2[4200];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-scan-par-selftest] FAIL (no scratch dir)\n");
+        printf("KC_SCAN_PAR_SELFTEST=FAIL\n");
+        free(dk);
+        return 1;
+    }
+    snprintf(fdir, sizeof(fdir), "%s/f", dir);
+    snprintf(gdir1, sizeof(gdir1), "%s/g1", dir);
+    snprintf(gdir2, sizeof(gdir2), "%s/g2", dir);
+    {
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL, "[kc-scan-par-selftest] alloc");
+        F1_CHECK(kc_init(kc, 9) == 0, "[kc-scan-par-selftest] init");
+        kc_build(kc, 0);
+        kc_write(kc, fdir);
+        kc_free(kc);
+        free(kc);
+    }
+    KC_PAR_GATE("g ladder build, v1 (in-memory reference)", kc_g_build_main(gdir1, 9, 0) == 0);
+    KC_PAR_GATE("g ladder build, v2 (out-of-core)", kc_g_build_main(gdir2, 9, 1) == 0);
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gm = (KC *)calloc(1, sizeof(KC)), *g1 = (KC *)calloc(1, sizeof(KC));
+    KC *g2 = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gm && g1 && g2, "[kc-scan-par-selftest] alloc");
+    F1_CHECK(kc_open(fkc, fdir, 0, 1) == 0, "[kc-scan-par-selftest] f open");
+    F1_CHECK(kc_open_as(gm, gdir1, "g", 1, 0, 0) == 0, "[kc-scan-par-selftest] g v1 open");
+    F1_CHECK(kc_open_as(g1, gdir1, "g", 1, 1, 1) == 0, "[kc-scan-par-selftest] g v1 OOC open");
+    F1_CHECK(kc_open_as(g2, gdir2, "g", 1, 1, 1) == 0, "[kc-scan-par-selftest] g v2 OOC open");
+    const int n = fkc->n;
+    KC_PAR_GATE("readers: g in-memory, g OOC v1 (4 slots), g OOC v2 (4 slots)",
+                !gm->ooc && g1->ooc && !g1->ooc->L[1].is_v2 && g1->ooc->nslot == 4 &&
+                g2->ooc && g2->ooc->L[1].is_v2 && g2->ooc->nslot == 4);
+    /* ---- P5: clone isolation (design s3.2, risk #1) ---- */
+    {
+        KcOoc *src = g2->ooc;
+        KcOoc *c1 = kc_ooc_clone_cache(src, 1), *c2 = kc_ooc_clone_cache(src, 0);
+        int iso = c1->borrowed && c2->borrowed && !src->borrowed && c1->nslot == 4 &&
+                  c2->nslot == src->nslot;
+        iso &= c1->slot != src->slot && c2->slot != src->slot && c1->slot != c2->slot;
+        iso &= c1->htab != src->htab && c2->htab != src->htab && c1->htab != c2->htab;
+        iso &= c1->cbuf != src->cbuf && c2->cbuf != src->cbuf && c1->cbuf != c2->cbuf;
+        iso &= c1->tick == 0 && c1->hits == 0 && c1->misses == 0 && c1->io.bytes_read == 0 &&
+               c1->sec_inflate == 0.0;
+        const int np = 2 * (src->nslot + c1->nslot + c2->nslot);
+        uint64_t *pp = (uint64_t *)malloc(sizeof(uint64_t) * (size_t)np);
+        F1_CHECK(pp != NULL, "[kc-scan-par-selftest] alloc");
+        int ip = 0;
+        const KcOoc *all[3] = {src, c1, c2};
+        for (int a = 0; a < 3; a++)
+            for (int s = 0; s < all[a]->nslot; s++) {
+                pp[ip++] = (uint64_t)(uintptr_t)all[a]->slot[s].keys;
+                pp[ip++] = (uint64_t)(uintptr_t)all[a]->slot[s].vals;
+            }
+        qsort(pp, (size_t)np, sizeof(uint64_t), f1c5_cmp_u64);
+        for (int i = 1; i < np; i++) iso &= pp[i] != pp[i - 1];
+        free(pp);
+        KC_PAR_GATE("P5 clones share NO mutable state (slots, buffers, htab, cbuf, counters)", iso);
+        int shared = 1;
+        for (int k = 0; k <= n; k++)
+            shared &= c1->L[k].fd == src->L[k].fd && c1->L[k].masks == src->L[k].masks &&
+                      c1->L[k].off == src->L[k].off && c1->L[k].kidx == src->L[k].kidx &&
+                      c1->L[k].vidx == src->L[k].vidx && c1->L[k].nblk == src->L[k].nblk;
+        KC_PAR_GATE("P5b clones share the read-only layer table (fds + index arrays)", shared);
+        fflush(stdout);
+        fflush(stderr);
+        const pid_t pid = fork();
+        if (pid == 0) {
+            if (!freopen("/dev/null", "w", stderr)) _exit(99);
+            kc_ooc_free(c1);          /* must abort: a clone does not own L[] */
+            _exit(0);
+        }
+        int st = 0, code = -1;
+        if (pid > 0 && waitpid(pid, &st, 0) == pid && WIFEXITED(st)) code = WEXITSTATUS(st);
+        KC_PAR_GATE("P5c kc_ooc_free on a clone aborts (exit 71), never closes the fds", code == 71);
+        kc_ooc_free_clone(c1);
+        kc_ooc_free_clone(c2);
+    }
+    /* ---- P6: T-invariance, in process ---- */
+    {
+        KcScanPar P;
+        memset(&P, 0, sizeof(P));
+        P.threads = 1;
+        P.unit = F1C5_OOC_BLK;
+        P.stride = 1;
+        KcScanTab REF;
+        kc_h_scan_alloc(fkc, 1, &REF);
+        KC_PAR_GATE("P6 T=1 reference scan (g in-memory, default unit)",
+                    kc_h_scan_layers(fkc, gm, fdir, 1, &REF, 0, n, 0, &P) == 0);
+        int flow_ok = 1;
+        for (int k = 0; k < n; k++) flow_ok &= f1_eq(&REF.flow[k], &fkc->total);
+        KC_PAR_GATE("P6 reference: flow[k] == N at every layer", flow_ok);
+        const uint64_t t0 = g2->ooc->tick, h0 = g2->ooc->hits, m0 = g2->ooc->misses;
+        static const int TT[4] = {1, 2, 3, 8};
+        const KC *GV[3] = {gm, g1, g2};
+        static const char *GN[3] = {"g in-memory v1", "g OOC v1, 4-slot clones",
+                                    "g OOC v2, 4-slot clones"};
+        for (int gi = 0; gi < 3; gi++) {
+            int same = 1;
+            for (int ti = 0; ti < 4; ti++) {
+                P.threads = TT[ti];
+                P.unit = 7;
+                P.gcache_mb = 1;
+                KcScanTab X;
+                kc_h_scan_alloc(fkc, 1, &X);
+                same &= kc_h_scan_layers(fkc, GV[gi], fdir, 1, &X, 0, n, 0, &P) == 0 &&
+                        kc_h_par_tab_eq(&X, &REF, n);
+                kc_scan_free(&X);
+            }
+            char name[128];
+            snprintf(name, sizeof(name), "P6 T in {1,2,3,8}, 7-entry units, %s == reference", GN[gi]);
+            KC_PAR_GATE(name, same);
+        }
+        KC_PAR_GATE("P6b the source g reader is untouched by clone traffic",
+                    g2->ooc->tick == t0 && g2->ooc->hits == h0 && g2->ooc->misses == m0);
+        kc_scan_free(&REF);
+    }
+    kc_free(fkc); kc_free(gm); kc_free(g1); kc_free(g2);
+    free(fkc); free(gm); free(g1); free(g2);
+    free(dk);
+    kc_h_rm_rf(dir);
+    printf("[kc-scan-par-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS", fails,
+           fails == 1 ? "" : "s");
+    printf("KC_SCAN_PAR_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
     return fails ? 1 : 0;
 }
 
@@ -33602,6 +34389,7 @@ static int kc_cli(int argc, char *argv[]) {
     if (strcmp(cmd, "--kc-ladder-verify") == 0) return kc_ladder_verify_main(argc, argv);
     if (strcmp(cmd, "--kc-cert-selftest") == 0) return kc_cert_selftest();
     if (strcmp(cmd, "--kc-scan-selftest") == 0) return kc_scan_selftest();
+    if (strcmp(cmd, "--kc-scan-par-selftest") == 0) return kc_scan_par_selftest();
     if (strcmp(cmd, "--kc-layers-selftest") == 0) return kc_layers_selftest();
     if (strcmp(cmd, "--kc-scan-merge") == 0) return kc_scan_merge_main(argc, argv);
     if (strcmp(cmd, "--kc-scan") == 0) return kc_scan_main(argc, argv);
