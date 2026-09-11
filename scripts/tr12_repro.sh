@@ -1436,7 +1436,17 @@ row_end TR12_V3_TSV $rc
 #            reduced universes run it for free.  At full-31 it is SCAN-class per functional and
 #            §7 rules wave 3 NOT BUDGETED — it stays skipped unless --wave3 is passed. ---------
 if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
-    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. Pass --wave3 to run it anyway."
+    # 🔴 CODEX R5 FINDING 5 (2026-09-11). This said "Pass --wave3 to run it anyway", which is an
+    # instruction that CANNOT WORK at n=31 and it is published in the battery an operator reads.
+    # Control-flow proof, verified here: kc_open returns OUT-OF-CORE whenever n > KC_MEM_MAX_PAIRS
+    # (solve.c:20490), and kc_extremal_main refuses an out-of-core f ladder immediately
+    # (solve.c:32664) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
+    # witness and the certificate: "v1 is IN-MEMORY ONLY ... the streaming, eviction-resumable OOC
+    # extremal builder is a SEPARATE, UNBUILT item ... it is the full-31 enabler". So --wave3 at
+    # n=31 exits 2 with that diagnostic and computes nothing. The refusal is correct and loud; the
+    # DESCRIPTION was wrong, and "not budgeted" and "cannot run" are different facts about what
+    # ships. Budget is an operator decision; an unbuilt builder is not.
+    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (solve.c:32664) and an n=31 f ladder always opens out-of-core (:20490), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
 elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
@@ -2151,7 +2161,13 @@ else
       half=$(( N_PAIRS / 2 ))
       "$SOLVE" --kc-scan "$FDIR" "$GDIR" "$WORK/chunk0.json" --kc-tdir "$TDIR" --kc-raw --kc-layers 0 "$half" || exit 1
       "$SOLVE" --kc-scan "$FDIR" "$GDIR" "$WORK/chunk1.json" --kc-tdir "$TDIR" --kc-raw --kc-layers "$half" "$N_PAIRS" || exit 1
-      "$SOLVE" --kc-scan-merge "$FDIR" "$GDIR" "$WORK/merged.json" "$WORK/chunk0.json" "$WORK/chunk1.json" --kc-tdir "$TDIR" || exit 1
+      # 🔴 CODEX KCP1 FINDING 6 (2026-09-11). Both --kc-scan calls above carry --kc-raw; this
+      # merge did not. solve.c:28527 auto-enables want_raw ONLY when n <= 13, and :28621 then
+      # REQUIRES the merge's want_raw to agree with each chunk's. So at n=31 the chunks are raw=1
+      # and the merge is raw=0, the identity check fails, and the battery REJECTS CORRECT CHUNKS
+      # after paying for a second full scan. Invisible at n<=13, where the auto-enable makes them
+      # agree -- another n>=31-only defect in a battery that ships frozen by `git archive`.
+      "$SOLVE" --kc-scan-merge "$FDIR" "$GDIR" "$WORK/merged.json" "$WORK/chunk0.json" "$WORK/chunk1.json" --kc-tdir "$TDIR" --kc-raw || exit 1
       if cmp -s "$ATLAS" "$WORK/merged.json"; then echo "CHUNKED_ATLAS_EQ_WHOLE=BYTE-IDENTICAL"
       else echo "CHUNKED_ATLAS_EQ_WHOLE=DIFFERS"; diff "$ATLAS" "$WORK/merged.json" | head -20; exit 1; fi
     ) >>"$RAW" 2>&1; rc=$?
@@ -2519,9 +2535,20 @@ else
       # extraction (per-class sed inside a flow loop vs one by_class object). They must agree cell
       # for cell. Two readers of one field disagreeing is the defect; agreeing is the check.
       if [ -s "$WORK/v2_rows.tsv" ]; then
-          awk -F'\t' 'NR==FNR{n=split("d1 d2 d3 d4 d6",C," ");for(j=1;j<=n;j++)m[$1"\t"C[j]]=$(j+1);next}
-                       {key=$1"\t"$2; if(!(key in m)){printf "V5_FAIL\t(k=%s,%s) has no V2 counterpart\n",$1,$2;bad=1}
-                        else if(m[key]!=$3){printf "V5_FAIL\t(k=%s,%s) mass %s != V2 mass %s\n",$1,$2,$3,m[key];bad=1}}
+          # 🔴 CODEX KCP1 FINDING 3 (2026-09-11), and it is MY defect from the night before.
+          # This stored numeric-looking fields WITHOUT forcing strings, so `m[key] != $3` compared
+          # them as awk DOUBLES. Measured: 1000 vs 1001 -> FAIL (correct); 10^39 vs 10^39+1 -> rc 0,
+          # SILENT; 10^39 vs 10^39+10^20 -> rc 0, SILENT. n=9 masses are small enough that doubles
+          # are exact, which is precisely why the n=9 battery could never catch it -- and full-31
+          # masses are 192-bit, where it is blind to a difference of 10^20.
+          # I wrote "never awk -- the masses are 192-bit at full-31 and awk will silently round"
+          # into the brief for the lane that built the c_v2 guard beside this one, and then wrote
+          # this. Forcing both sides to strings ("" concatenation) makes the comparison lexical and
+          # exact, which is what a 40-digit decimal needs.
+          awk -F'\t' 'NR==FNR{n=split("d1 d2 d3 d4 d6",C," ");for(j=1;j<=n;j++)m[$1"\t"C[j]]=($(j+1) "");next}
+                       {key=$1"\t"$2; v=($3 "");
+                        if(!(key in m)){printf "V5_FAIL\t(k=%s,%s) has no V2 counterpart\n",$1,$2;bad=1}
+                        else if(m[key] != v){printf "V5_FAIL\t(k=%s,%s) mass %s != V2 mass %s\n",$1,$2,$3,m[key];bad=1}}
                        END{exit bad?1:0}' "$WORK/v2_rows.tsv" "$WORK/v5_rows.tsv" || fails=1
       else
           echo "V5_FAIL	V2's row file is absent or empty -- the cross-check could not run, which is not agreement"; fails=1
@@ -2698,9 +2725,18 @@ if [ "$NFAIL" -eq 0 ] && [ "$AGG_OK" -eq 1 ]; then
     else                          printf '%s=SKIP:no-atlas\n' "$AGGKEY" >> "$VERD"; fi
     printf 'TR12_REPRO=PASS\n' >> "$VERD"
     say ""
-    if [ "$REGEN" -eq 1 ]; then
+    # 🔴 KCP1 SIDE FINDING S1 (Fable, 2026-09-11). This was `if [ "$REGEN" -eq 1 ]`, so
+    # --mint-missing wrote expected blocks and NO _MANIFEST.txt. At n=31 MINTING IS THE PATH --
+    # there is nothing to regenerate on a first run -- so the n=31 golden set would have arrived
+    # with no manifest at all, the golden gate's Tier 0 would refuse it for having no parseable
+    # digest rows, and the obvious human response is to write the manifest BY HAND. That
+    # hand-written path is exactly what KCP1 finding 2 was about: a manifest whose names are not
+    # the names that get verified. Mint now writes the manifest the same way regen does, so the
+    # n=31 set is self-hashing from the moment it exists and nobody is tempted to author one.
+    if [ "$REGEN" -eq 1 ] || [ "$MINT_MISSING" -eq 1 ]; then
         {
           echo "# Expected-output blocks for the TR-12 reproduction battery, universe n=$N_PAIRS."
+          echo "# Written by --regen or --mint-missing; both produce the same self-hash."
           echo "# Regenerate with:  scripts/tr12_repro.sh --n9 --regen   (then REVIEW the diff)"
           echo "# universe n=$N_PAIRS  N=$N_TOTAL  N/24=$N_DIV24"
           echo "# knobs C3MAX=$C3MAX SEED=$SEED Q8_K=$Q8K Q4AC_M=$Q4ACM Q1C_M=$Q1CM V3_K=$V3K"

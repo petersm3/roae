@@ -831,15 +831,58 @@ def fig_tr12_kc_spectrum(tsv):
 
 
 def tr12_figures(root="tr12"):
-    """Render V1..V5 from the atlas-consumer TSVs rooted at `root`."""
+    """Render V1..V5 from the atlas-consumer TSVs rooted at `root`.
+
+    Returns True when every REQUIRED figure rendered, False otherwise, and raises
+    RuntimeError so a caller taking only the process exit status still fails.
+
+    CODEX KCP1 FINDING 6/7 (2026-09-11).  This function called each renderer and
+    DISCARDED ITS RETURN VALUE.  The shape guards added for Q-307 do their job --
+    they return False on malformed input -- and nothing read the answer, so the
+    battery's `python3 -c "...tr12_figures(...)"` exited 0 and row c_viz recorded
+    TR12_VIZ=PASS over a figure that had explicitly refused to render.  Measured by
+    the reviewer with a header-only V1 input: FIGURE_SHAPE=FAIL printed, return
+    None, no exception, rc 0.  At n=31 that publishes a missing figure as a present
+    one -- and a re-used output directory keeps the PREVIOUS run's image beside the
+    new run's PASS, which is worse than an absent figure because it looks answered.
+
+    V3 (spectrum) stays OPTIONAL and is reported, never fatal: its input is a rank
+    grid joined to per-walk functionals that neither this driver nor the atlas
+    consumer emits (TR12_V3_FIG=PENDING:viz-v3-spectrum).  Making it required here
+    would be a gate that cannot be satisfied.
+    """
     scan = os.path.join(root, "scan")
-    fig_tr12_kc_field(os.path.join(scan, "v1_field.tsv"))
-    fig_tr12_kc_river(os.path.join(scan, "v2_river.tsv"),
-                      os.path.join(scan, "v2_branches.tsv"))
-    fig_tr12_kc_grammar(os.path.join(scan, "v5_grammar.tsv"))
     q3 = os.path.join(root, "q3_profile_kw.tsv")
-    fig_tr12_kc_shells(q3 if os.path.exists(q3) else os.path.join(root, "q3_profile.tsv"))
-    fig_tr12_kc_spectrum(os.path.join(root, "spectrum", "v3_spectrum.tsv"))
+    required = [
+        ("V1", lambda: fig_tr12_kc_field(os.path.join(scan, "v1_field.tsv"))),
+        ("V2", lambda: fig_tr12_kc_river(os.path.join(scan, "v2_river.tsv"),
+                                         os.path.join(scan, "v2_branches.tsv"))),
+        ("V5", lambda: fig_tr12_kc_grammar(os.path.join(scan, "v5_grammar.tsv"))),
+        ("V4", lambda: fig_tr12_kc_shells(q3 if os.path.exists(q3)
+                                          else os.path.join(root, "q3_profile.tsv"))),
+    ]
+    failed = []
+    for name, call in required:
+        got = call()
+        # A renderer that returns None has not been converted to the guarded form;
+        # treat only an explicit False as refusal, so this cannot silently demand
+        # a contract the renderers do not yet have.
+        if got is False:
+            failed.append(name)
+    opt = fig_tr12_kc_spectrum(os.path.join(root, "spectrum", "v3_spectrum.tsv"))
+    if opt is False:
+        # V3's absence is already reported by the battery's own TR12_V3_FIG skip row; printing
+        # here too would add a line to c_viz.txt and move that golden as well.
+        pass
+    # 🔴 SILENT ON SUCCESS. The first version of this fix printed TR12_FIGURES=OK, which moved
+    # the n=9 golden c_viz.txt and turned TR12_VIZ into FAIL:output-mismatch -- caught by the
+    # stamp, not by me. Every content guard in this battery prints NOTHING when it passes, for
+    # exactly this reason: a check that changes the output it guards cannot be added without
+    # re-minting the thing it is supposed to protect. Failure is loud; success is invisible.
+    if failed:
+        print("TR12_FIGURES=FAIL required=%s" % ",".join(failed))
+        raise RuntimeError("required figure(s) refused to render: %s" % ",".join(failed))
+    return True
 
 
 def _selftest():

@@ -240,9 +240,26 @@ else
   # files is not a manifest, and presence alone never noticed.
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    grep -qF -- "$(basename "$f")" "$DIR/_MANIFEST.txt" || {
-      echo "  [FAIL] $(basename "$f") is in the set but not named in _MANIFEST.txt"
-      t0bad=$((t0bad+1)); }
+    # 🔴 CODEX KCP1 FINDING 2 (2026-09-11). This was `grep -qF` for the bare NAME anywhere in the
+    # file, so a filename appearing in a COMMENT satisfied coverage -- while verification below
+    # only ever processes syntactically valid '<64-hex>  <name>' rows. Codex measured the gap on
+    # two real goldens, one with a valid digest and one named only in a comment: coverage reported
+    # "all named in _MANIFEST.txt", verification reported "all 1 manifest digests reproduce", and
+    # the gate exited 0 having HASHED ONE OF TWO PUBLISHED FILES. Coverage and verification must
+    # read the SAME rows or coverage is measuring something no one checks.
+    # Counted, not just matched: a name appearing TWICE is also refused, because two digest rows
+    # for one file means the second silently wins and the first was never enforced.
+    _nrows=$(awk -v n="$(basename "$f")" \
+               '$0 ~ /^[[:space:]]*[0-9a-f]{64}[[:space:]]+[^[:space:]]+[[:space:]]*$/ && $2==n {c++} END{print c+0}' \
+               "$DIR/_MANIFEST.txt")
+    if [ "$_nrows" -eq 0 ]; then
+      echo "  [FAIL] $(basename "$f") is in the set but has NO parsed digest row in _MANIFEST.txt"
+      echo "         (a mention in prose or a comment is not coverage -- it is never verified)"
+      t0bad=$((t0bad+1))
+    elif [ "$_nrows" -gt 1 ]; then
+      echo "  [FAIL] $(basename "$f") has $_nrows digest rows in _MANIFEST.txt; exactly one is required"
+      t0bad=$((t0bad+1))
+    fi
   done <<< "$files"
 fi
 
