@@ -12395,7 +12395,17 @@ CANARY = "ROAE_GATE89_CANARY_NOT_DOCUMENTATION"
 FLOOR_KEYS, FLOOR_TOKENS, FLOOR_FILES, FLOOR_BYTES = 300, 95, 45, 2000000
 # LEG 3 floors and ratchet, set from the 2026-09-08 measurement: 87 keys over 9 json.dump call
 # sites, 63 positions the pass could not resolve. Measuring nothing is an ERROR, never a PASS.
-FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = 70, 8, 63
+# 🔴 CEIL_PY_UNRESOLVED re-pinned 63 -> 72 on 2026-09-11, WITH THE REASON THE GATE ASKS FOR.
+# A 320-line standalone detector script under scripts/ was folded into solve.py that day so it would
+# not outlive the run as a deferred commitment. The detector builds its result dict from local
+# variables and f-strings the AST pass cannot constant-fold, which is what it counts as
+# unresolved. MEASURED before re-pinning rather than assumed: of the sites this gate flags,
+# 6 fall inside the folded range and the rest are pre-existing and merely renumbered by the
+# insertion. The keys those expressions produce are NOT hidden -- all 14 are enumerated in
+# documentation/SOLVE_PY_CLI.md under `--kc-class-swap-detect`, which is what the census exists
+# to protect. Raising a ratchet without establishing what grew is a rubber stamp; this is the
+# note that makes it not one.
+FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = 70, 8, 72
 
 def rec(*a):
     print("\t".join(str(x) for x in a))

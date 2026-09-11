@@ -338,17 +338,6 @@ measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
   whose only reproduction path was a private script would not be reproducible
   at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
   `solve.py` would destroy the independence it was created to supply.
-- **`scripts/kc_class_swap_detector.py`** (2026-09-11) — ⚠ **OPERATOR DECISION
-  PENDING.** The statistical detector for a whole-row class-mass permutation
-  (`QUERY_INVENTORY.md` §"a whole-row permutation"), shipped on the
-  `c2c3_joint_null.py` precedent: the inventory now cites it as the
-  reproduction path for a published limit, and a claim whose only reproducer
-  is a private script is not reproducible. It reads the retained Q4AC
-  `--kc-sample` draw and the atlas and nothing else, so folding it into
-  `solve.py` would put the detector inside the program that produces what it
-  checks. **If the operator declines the separate, the file comes out and the
-  inventory paragraph citing it must come out in the same commit** — the
-  wording must not outlive its reproducer.
 - **`reports/evidence/**/*.py`** (**14** files under `f1/`, `f5/`, `f11/`,
   `r11/` and `q374_se_replicates/`) — evidence instruments shipped and frozen
   alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read

@@ -6168,5 +6168,65 @@ if __name__ == "__main__":
     unittest.main(verbosity=2)
 
 
+
+class TestClassSwapDetectorFoldedIntoSolvePy(unittest.TestCase):
+    """The whole-row class-mass detector, folded out of scripts/ into solve.py on 2026-09-11.
+
+    It shipped as a separate script that morning because solve.py is inside the reproduction
+    stamp's SURFACE; that was a cost argument, not a constraint, and it was folded before the
+    production run rather than after so no deferred commitment had to survive the run.
+
+    🔴 THE FOLD HAD A REAL DEFECT, caught by execution and pinned here. The first wiring used
+    `parser.add_argument("--kc-class-swap-detect", nargs=argparse.REMAINDER)`. argparse ABBREVIATION
+    MATCHING makes the detector's own `--atlas` ambiguous against this module's nine `--atlas-*`
+    flags, and REMAINDER does not prevent it: the measured result was
+    `error: ambiguous option: --atlas could match --atlas-queries, ...` -- a detector unreachable
+    through its own documented interface. argv is now split before argparse ever runs."""
+
+    def _det(self, *argv):
+        mod = _load("solve")
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            try:
+                rc = mod.kc_class_swap_detect_cli(list(argv))
+            except SystemExit as e:
+                rc = e.code
+        return rc, buf.getvalue()
+
+    def test_the_entry_point_exists_under_its_folded_name(self):
+        mod = _load("solve")
+        self.assertTrue(callable(getattr(mod, "kc_class_swap_detect_cli", None)),
+                        "solve.py must expose the folded detector; the inventory cites "
+                        "`solve.py --kc-class-swap-detect` as the reproduction path for a "
+                        "PUBLISHED limit, and a citation must not outlive its reproducer")
+
+    def test_a_bad_invocation_emits_the_error_token_not_a_bare_traceback(self):
+        rc, out = self._det()
+        self.assertIn("KC_CLASS_SWAP_DETECT=ERROR", out,
+                      "every exit must carry the whole-line token; ERROR is the "
+                      "could-not-measure value and is never agreement")
+        self.assertEqual(rc, 2)
+
+    def test_the_argv_intercept_precedes_argparse(self):
+        """The regression that the fold actually hit: `--atlas` is ambiguous against this
+        module's --atlas-* flags under argparse abbreviation matching."""
+        src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "solve.py")).read()
+        self.assertIn('if "--kc-class-swap-detect" in sys.argv[1:]:', src,
+                      "the detector's argv must be split off BEFORE argparse sees it")
+        self.assertNotIn('"--kc-class-swap-detect", nargs=argparse.REMAINDER', src,
+                         "REMAINDER does not stop abbreviation matching; that wiring made the "
+                         "detector unreachable through its own documented interface")
+
+    def test_limits_and_power_travel_with_every_verdict(self):
+        """A CLEAN verdict must never be readable as 'no swap': the measured power is weak
+        exactly where the documented undetectability limit bites."""
+        mod = _load("solve")
+        doc = getattr(mod, "_KC_SWAP_DOC", "")
+        for phrase in ("23 of 78", "interior"):
+            self.assertIn(phrase, doc,
+                          "the measured power must travel with the instrument, not live only "
+                          "in a document someone may not read")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

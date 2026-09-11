@@ -668,7 +668,7 @@ so the conservation family cannot see it by construction, and the only **exact**
 pipeline is the **brute-force recount**, which is permanently impossible at n=31.
 
 A **statistical** detector now also exists, and the measurement that came with it narrows what it is
-worth. `scripts/kc_class_swap_detector.py` classifies the retained Q4AC `--kc-sample` draw by
+worth. `solve.py --kc-class-swap-detect` classifies the retained Q4AC `--kc-sample` draw by
 `popcount(exit ⊕ entry)` and compares it against `by_class`, on a path that uses f-based unranking
 and touches neither the g ladder nor the extractor — so it is not closed over the thing it checks,
 and the draw it needs is already paid for and retained by the driver's `--keep`. Its resolution is a

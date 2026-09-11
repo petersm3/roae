@@ -622,6 +622,50 @@ figures read, and they gate every table they write.
 | `<out>/xa_verdict.md` | **XA-c/d**, XA-24 | the gate table, the branch extremes, and the exhaustibility call. |
 | `<out>/VERDICTS.txt` | the harness | one `KEY=value` line per row; an existing key is replaced, not duplicated. |
 
+### `--kc-class-swap-detect` — the whole-row class-mass detector
+
+Folded into `solve.py` on 2026-09-11 from a standalone script under `scripts/`, which was removed
+in the same commit along with CLAUDE.md's approved-separates exception for it. **The path is
+deliberately not cited here**: a backticked path that resolves nowhere is a dangling reference, and
+`doc_gates.sh` correctly refused an earlier draft of this section for exactly that.
+
+```
+solve.py --kc-class-swap-detect --atlas ATLAS.json [--alpha A] [--exact]
+                                [--show K] [--json OUT] SAMPLE [SAMPLE ...]
+```
+
+🔴 **Its argv is split off BEFORE `argparse` runs, deliberately.** The detector takes `--atlas`, and
+this module defines nine `--atlas-*` flags; argparse **abbreviation matching** makes a bare
+`--atlas` ambiguous against all nine, and `nargs=REMAINDER` does not prevent it. Measured during the
+fold: the first wiring produced `error: ambiguous option: --atlas could match --atlas-queries, ...`
+— a detector unreachable through its own documented interface. `tests.py` pins the intercept.
+
+| flag | meaning |
+|---|---|
+| `--atlas ATLAS.json` | the atlas under test; its `by_class` table is the reference distribution |
+| `--alpha A` | simultaneous confidence level (default 0.001, i.e. 99.9 %) |
+| `--exact` | the SAMPLE is a complete `--kc-enum` enumeration, not a draw; compares cell-for-cell |
+| `--show K` | print the K worst cells |
+| `--json OUT` | write the full result as JSON |
+| `SAMPLE …` | one or more raw walk-uniform `--kc-sample DIR M SEED` files (the Q4AC draw the driver retains with `--keep`), pooled |
+
+**Verdict token:** `KC_CLASS_SWAP_DETECT=CLEAN | SUSPECT | ERROR`, a whole line, matched with
+`grep -qx`. `ERROR` is the could-not-measure value and is **never** agreement. Exit codes 0/1/2
+mirror it but never carry it alone.
+
+**`--json` keys:** `token`, `verdict`, `n`, `mode`, `draws`, `cells`, `statistic`, `eps`, `alpha`,
+`atlas`, `samples`, `offenders`, `limits`, `power`. `statistic` is `max_abs_diff` in sample mode and
+`differing_cells` under `--exact`; `eps` is the simultaneous Hoeffding bound at `alpha` — the
+resolution floor, about **±0.0025 of total mass at the production M=10⁶** over 155 cells.
+
+⚠ **MEASURED POWER — do not read a `CLEAN` verdict as "no swap".** Swapping every layer pair of the
+real n=13 atlas against a real 10⁶ draw detected **23 of 78 — exactly those involving layer 0 or
+layer 1 — and missed all 55 among interior layers 2..12**, whose rows differ by at most 0.0017549 of
+total mass. At n=9, 35 of 35 were detected, which is what a universe with no deep interior looks
+like. The `limits` and `power` paragraphs travel with **every** verdict, including clean ones, so
+the caveat cannot be separated from the number. See `QUERY_INVENTORY.md` for why the documented
+undetectability limit **stands** on measured rather than by-construction grounds.
+
 Verdict tokens emitted: `TR12_Q3`, `TR12_Q3_KW`, `TR12_Q3_READER`, `TR12_Q6`,
 `TR12_Q6_EXTREMES`, `TR12_V1`, `TR12_V2`, `TR12_V5`, `TR12_XA_A`, `TR12_XA_B`,
 `TR12_XA_CD`, `TR12_XA_MOD24`, `TR12_Q10A`, `TR12_A2_SLOT`, `TR12_A3_EXTERNAL`,
