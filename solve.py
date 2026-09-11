@@ -12950,7 +12950,16 @@ def atlas_q3_reader_check(tsv_path, N):
                                  "own prefix"),
                            ("alts", "the step actually taken is itself an admissible "
                                     "successor")):
-            if r.get(_col, "") != "":
+            # 🔴 Q-489. This was `if r.get(_col, "") != "":` -- a PRESENCE guard, so a table with
+            # the column DELETED OUTRIGHT returned 0 failures (measured: Q3_READER_GATE=PASS on a
+            # fixture with the f column removed). It was there because three fixtures in tests.py
+            # carried neither column; those fixtures now carry both, so the guard is gone and an
+            # absent published column is a FAILURE. A reader that silently accepts a table missing
+            # a published column is the zero-work-pass class.
+            if _col not in r:
+                fails.append("step %s: the published column %s is absent from this table"
+                             % (r.get("step", "?"), _col))
+            else:
                 try:
                     _v = int(r[_col])
                 except ValueError:

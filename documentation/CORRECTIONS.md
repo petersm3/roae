@@ -9532,3 +9532,41 @@ helper, removing the battery, disabling the timeout branch — are killed.
 records that only membership is checkable for these two rows and that limit is unchanged. The gate
 proves the rows refuse to publish nothing; it does not prove the walk they publish is the least or
 the greatest one.
+
+## CX-45 — "extremality cannot be checked" was an overclaim in the safe direction, and it was wrong
+
+`CX-44`, entered earlier the same day, closed with: *"Extremality. B32 records that only membership
+is checkable for these two rows and that limit is unchanged."* Three other sites said the same, two
+of them in the words "cannot be".
+
+External reviewer KCP2 (Codex, `gpt-6-astra`, effort max) challenged it, offering a cheap
+**sufficient** certificate and adding that it would not generalise to an interior rank. The
+challenge was upheld on adjudication and **the truth is stronger than the reviewer stated: the
+general case generalises too.**
+
+Let `SUPER` be the C1C2C4C5 universe, `<` the REL total order that `--kc-rank`/`--kc-unrank`
+implement, and `F = {w ∈ SUPER : cd(w) ≤ T}`. `FIRST^C15 = min_< F`.
+
+- **Sufficient, one call.** If `w ∈ F` and `rank(w) = 0` then `w = min SUPER`, hence `w = min F`.
+  Symmetric at `N−1` for LAST.
+- **General and exact.** `w = min F` **iff** `w ∈ F` and every `u` with `rank(u) < rank(w)` has
+  `cd(u) > T`. That is decidable in `rank(w)` `--kc-unrank` + `--kc-profile` calls. It is not
+  exhaustion of the universe — it is exhaustion of the prefix `[0, rank(w))`, whose length is the
+  very quantity being certified — and it is a **second implementation** of the enumerator's claim,
+  checking unrank+profile against the in-path C3 pruner.
+
+Measured on the real engine, not argued: `--kc-enum` emits in `--kc-rank` order and
+`--kc-enum-desc` in reverse. At n=9, `T=31` gives rank 0 and certifies in 0 calls; `T=28` gives
+rank 88 and all 88 predecessors have `cd > 28` — CERTIFIED; LAST at `T=28` certified over 864
+successors. At n=31 with `T=387` the banked C3 acceptance rate is ≈0.121, so `rank(FIRST^C15)` is
+geometric with mean ≈8 and the certificate is expected to cost ≈8 calls.
+
+**Why this correction matters more than its size.** An overclaim in the conservative direction still
+stops a reader looking. "Cannot be" is a claim about the world, and it was made by reading a
+recorded limit (B32, about membership) more widely than the limit says. The limit was about what
+the *row* checks; it was repeated as a statement about what is *checkable*. Three of the four sites
+were written the same day, by the same hand, in the same hour — which is how a single misreading
+becomes four citations.
+
+The certificate is **post-hoc and not frozen**: the emitted walk and the f ladder are both retained,
+so it can run after the campaign. It is not run today, and every site now says so in those terms.

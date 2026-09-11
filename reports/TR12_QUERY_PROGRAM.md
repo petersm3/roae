@@ -165,7 +165,11 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   (`--kc-enum-desc`) or descend-max mirror.
 - **Stage:** REL forms post-F; O3 forms post-G+O3. **Cost:** ≈ $1–5 each; FIRST/LAST^C15 descent
   cost bounded by prune tightness — expected minutes, hedged (worst case the first satisfying
-  walk is deep; abort-and-report protocol if > 10⁶ backtracks).
+  walk is deep; bounded by a wall-clock abort, `TR12_Q2_ENUM_TIMEOUT`). ⚠ **This read
+  "abort-and-report protocol if > 10⁶ backtracks" until 2026-09-11, and no such mechanism was
+  ever built** — `grep -i backtrack` finds none in `solve.c` or the battery. The 2026-09-11
+  correction (CX-44) swept `documentation/`, `solve.c` and the battery and did NOT search
+  `reports/`, so this published site kept the promise three hours longer than the others.
 - **Output/verification:** full 64-hexagram sequences + records + ranks + certificates; skeptic
   re-derives by re-running unrank and by validating constraints with `verify.py`-class checkers.
 - **Ranks of "aesthetic interest": DECLINED** (no numerology framing; any specific rank is O(1)

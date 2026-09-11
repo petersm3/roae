@@ -230,8 +230,8 @@ Commands assume §0.1 variables. `2>&1 | tee` plumbing omitted for width; the dr
 | **Q1c** | `rank_O3^C15(KW)` as a **labelled ESTIMATE ±binomial CI**: M=10⁴ exact-uniform ranks drawn in `[0, rank_O3^SUPER(KW))`, C3-tested at `T=387`. | `$SOLVE --kc-sample "$FDIR" 10000 $GALSEED --kc-c3-max 387 --kc-ooc --kc-cache-mb 196608 > $OUT/q1_c15_estimate.tsv` — then p̂ and CI in `scripts/atlas_queries.py`. ⚠ `--kc-sample` draws over **all** of SUPER, not a rank prefix; the prefix restriction is post-filter arithmetic in the consumer. | f | POINT-BATCH (**3–5 h**, ADDENDUM §B P0) | `tr12/q1_c15_estimate.tsv` (TSV) | ~~`TR12_Q1C=PASS`~~ ~~**DESCOPED 2026-09-04 (§9.2): `TR12_Q1C=SKIP:merged-into-Q4AC`**~~ 🔴 **MEASURING PRODUCER 2026-09-10 (N3), value NOT YET PRODUCED AT n=31: `TR12_Q1C=EMPTY:interval-degenerate-at-n31`.** ⚠ **Read the distinction, because an earlier draft of this row got it wrong in exactly the way the row exists to prevent:** what is MEASURED is the **producer** — red-tested in both directions on real n=9 engine output. What the token asserts is the **expected** n=31 value, and **no n=31 run of this producer exists**, because the ladders have not been scanned. The advance over `SKIP` is real and narrower than "measured": `SKIP` could never become false, whereas this token is now **produced by a check that can refuse** — at n=9 it does refuse, returning `NONEMPTY:interval-cardinality-13056`. It becomes a measured null on the first full-31 run and not before. The descope token was right and *unchecked*: it ASSERTED that `[0, rank_O3(KW))` is empty at full-31 (§9.1). `SKIP` says we did not run it; the truth is we can run it and the answer is nothing, and those are opposite epistemic states. Row `a2_q1c` now measures the interval's cardinality before spending anything — `rank3` from `--kc-o3-cert` **and** from `--kc-o3-rank` (two subcommands, cross-checked) plus the certificate's own predecessor witness, all three artifacts already on disk, so the marginal cost is zero — and emits `EMPTY:…` only when the measurement is 0, `NONEMPTY:interval-cardinality-<c>` (then the estimate runs) when it is not, and `ERROR:<why>` when it cannot tell. Both directions are red-tested on **real n=9 engine output** by `scripts/n3_measured_nulls_gate.sh`: the O3-midpoint anchor has 13,056 objects below it and is refused, `unrank_O3(0)` has none and returns EMPTY. The uncommanded per-draw O3-rank leg and the merge of `P(C3 ≤ 387 \| SUPER)` into Q4a/c at M=10⁶ are unchanged. |
 | **Q2** | **three O3 probes — two endpoints + a midpoint** — `unrank_O3(0)`, `unrank_O3(N−1)`, `unrank_O3(⌊N/2⌋)` in SUPER, exact, full 64-hexagram sequences + records + ranks. **COMPLETION IS DEFINED** (B7, 2026-09-07): all three must return `CERTIFICATE PASS` under `--kc-bracket`, which unranks r−1/r/r+1, ranks all three back and checks strict O3 order with an independent comparator (rc=1 on any failure); at the two endpoints its `r∓1: NONE` line is the endpoint certificate. ⚠ **That certifies the rank/unrank PAIR, not the ladder** — measured, a g ladder corrupted at 3 of 12 probed offsets fails `--kc-g-check` (rc=70) while the bracket still certifies PASS, because rank and unrank read the same wrong g. So completion **also** requires `TR12_GCHECK` and `TR12_GSHA` PASS, and at n≥31 the one external anchor: `unrank_O3(0)` byte-identical to King Wen. | `for R in 0 1097051278789181790036112071176579186687 548525639394590895018056035588289593344; do $SOLVE --kc-o3-unrank "$FDIR" "$GDIR" $R --kc-ooc --kc-cache-mb 196608; done > $OUT/q2_endpoints_o3.txt` | f+g | POINT | `tr12/q2_endpoints_o3.txt` (text) | `TR12_Q2=PASS` |
 | **Q2b** | the same three in REL order (available from f alone; the Wave-1 coordinate). | `for R in 0 …N−1… …N/2…; do $SOLVE --kc-unrank "$FDIR" $R --kc-record --kc-ooc; done > $OUT/q2_endpoints_rel.txt` | f | POINT | `tr12/q2_endpoints_rel.txt` (text) | `TR12_Q2B=PASS` |
-| **Q2c** | `FIRST^C15` — the in-order-least C3-passing walk (REL order). | `$SOLVE --kc-enum "$FDIR" --kc-c3-max 387 --kc-limit 1 --kc-ooc > $OUT/q2_first_c15.txt` | f | POINT (hedged; wall-clock abort, `TR12_Q2_ENUM_TIMEOUT`) | `tr12/q2_first_c15.txt` (text) | `TR12_Q2C=PASS` |
-| **Q2d** | `LAST^C15` — the in-order-greatest C3-passing walk. | `PENDING:--kc-enum-desc` → `$SOLVE --kc-enum-desc "$FDIR" --kc-c3-max 387 --kc-limit 1 --kc-ooc` | f | POINT | `tr12/q2_last_c15.txt` (text) | `TR12_Q2D=PASS` *(flag landed 2026-08-2x — §8.2; was PENDING)* |
+| **Q2c** | `FIRST^C15` — the in-order-least C3-passing walk (REL order). | `timeout "${TR12_Q2_ENUM_TIMEOUT:-21600}" $SOLVE --kc-enum "$FDIR" --kc-c3-max 387 --kc-limit 1 --kc-ooc > $OUT/q2_first_c15.txt` | f | POINT (hedged; wall-clock abort, `TR12_Q2_ENUM_TIMEOUT`) | `tr12/q2_first_c15.txt` (text) | `TR12_Q2C=PASS` |
+| **Q2d** | `LAST^C15` — the in-order-greatest C3-passing walk. | `PENDING:--kc-enum-desc` → `timeout "${TR12_Q2_ENUM_TIMEOUT:-21600}" $SOLVE --kc-enum-desc "$FDIR" --kc-c3-max 387 --kc-limit 1 --kc-ooc` | f | POINT (hedged; wall-clock abort, `TR12_Q2_ENUM_TIMEOUT`) | `tr12/q2_last_c15.txt` (text) | `TR12_Q2D=PASS` *(flag landed 2026-08-2x — §8.2; was PENDING)* |
 | **Q3** | KW's 31-step rarity profile: per step the chosen pair, #alternatives, f, g, g_parent, `p_i = g(s_i)/g(s_{i−1})`, `−log₂ p_i`; **and the printed self-check `Π p_i = 1/N`**. | `KWW=$(python3 -c 'import solve;print(",".join(map(str,solve._r7_kw()[2:])))'); $SOLVE --kc-o3-rank "$FDIR" "$GDIR" "$KWW" --kc-trace --kc-bracket --kc-ooc --kc-cache-mb 196608 > $OUT/q3_profile_kw.txt && grep '^#o3-trace' $OUT/q3_profile_kw.txt \| tr -s ' \t' '\t' > $OUT/q3_profile_kw.tsv` | f+g | **POINT** | `tr12/q3_profile_kw.tsv` (TSV) + `.txt` (raw, carries `#o3-trace-summary`) | `TR12_Q3=PASS` |
 | **Q4a/c** | the C3 census over SUPER: histogram of cd\* + **μ_walk^SUPER** = P(C3 = 776) — ⚠ **the shipped μ is a WALK fraction over SUPER**, and the historical ~10.11% is a **record-level tie share over a 560T traversal prefix**; the two are not the same quantity. Measured at n=9, T=31: walk/SUPER **17.64%**, walk/C15 **66.6%**, record/SUPER **22.2%**, record/C15 **50.0%** (tie records carry 2× the multiplicity). **Also emit `μ_rec^C15`** via the project's ratified 1/m Horvitz–Thompson reweighting (`V4_RECORD_CONVENTION_DECISION_2026_07_14.md`), which recovers the exact record census to 0.2% at n=9 and needs only `--kc-record` on this row — `m` already ships. The C15 *estimate* needs no missing instrument (rejection on cd ≤ T); only the exact count does. Publish both, and the **difference against the 10.11% is itself reportable** as an estimate of the traversal's C3-tie bias — with ⚠ **one Wilson interval on the acceptance mass, not per-bin CIs — narrowed 2026-09-06 (QSET-2 finding 5); this is the unfixed half of the 2026-09-05 correction to the same row, which addressed only its space label** — **ESTIMATE with CI**; the exact version is not shipped — no instrument in this program counts
 C3-conditioned, and the run that would was priced and declined on **cost**, not ruled out
@@ -297,6 +297,51 @@ audit missed it because the numeral sat inside a strikethrough.)* 🔴 **RULED 2
 ---
 
 ## 3. Known gaps and corrections — read these before writing any consumer
+
+### 3.0 🔴 At n=31 every row's only failure signal is its own exit status
+
+**Read this before reading any full-31 `PASS` as a golden match, because it is not one.**
+
+`scripts/tr12_expected/` holds exactly one universe, `n9/`. There is no n=31 expected set and there
+cannot be one before the run — nothing exists to mint it from. So the full-31 run must be driven
+with `--regen` or `--mint-missing`, and under those `row_end` **copies the row's output into the
+golden and records `PASS` without diffing anything.**
+
+The consequence, stated in one sentence because it keeps being rediscovered in pieces: **at n=31
+the golden mechanism contributes nothing, and every defence rests on what a row ASSERTS, never on
+what it MATCHES.** A golden minted by the run cannot check the run.
+
+This is the structural amplifier behind the whole n≥31-only defect class. It is why a row that
+takes the solver's exit status as its only failure flag is not a small problem at 31 — an
+enumeration that finds nothing exits 0, and the golden it mints is the emptiness it just produced.
+It is also what gives `scripts/row_assertion_gate.sh` its real standing: at n=31 that sweep is not
+a nice-to-have, **it is the entire check surface**.
+
+Recorded 2026-09-11 (backlog Q-495). Not a defect and not repairable by minting — the remedy is
+that nobody forms the wrong expectation, which is what this section is for.
+
+### 3.0b 🔴 Three `--kc-scan` cross-gates do not run at n=31, and one of them is the only
+### independent per-branch re-derivation
+
+`solve.c:27767` gates `t_done` on `fkc->total.l0 <= (1ull << 27)` with the high limbs zero — that
+is a test on the **magnitude of N**, not on the pair count. At n=31 it is false, so three
+`--kc-scan` cross-gates stop firing, **including "per-branch leaves == g mass", which is the only
+independent re-derivation of each branch's solution count.**
+
+Measured at n=13, not argued: `grep -c '"walks"' ` on a real n=13 atlas returns **0**, against
+**12** at n=9. So the loss begins well below 31 — **even an n=13 rehearsal would not restore it**,
+which is worth knowing before anyone proposes n=13 as the rehearsal size for this reason.
+
+**No reader should infer that the per-branch count was independently re-derived at n=31. It was
+not.** Whether the ceiling should be raised, sampled, or left as it is depends on what `t_done`
+actually costs at full scale, which has not been measured — so this section records the fact rather
+than promising a change (backlog Q-494).
+
+⚠ The general lesson, recorded because it cost a dedicated sweep to find: **a guard keyed on
+magnitude is invisible to every `n`-based search.** The obvious enumeration of n-dependent
+behaviour greps for comparisons against 31; this one is written against 2²⁷.
+
+
 
 ### 3.1 🔴 The atlas schema does not carry everything Q6/V2/V5 ask for
 Measured against `fixtures/kc_n9/atlas_n9.json` (5,684 B). `layers[k]` carries **`flow`,

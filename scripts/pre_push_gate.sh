@@ -783,4 +783,23 @@ if [ -x "$ROOT/scripts/row_assertion_gate.sh" ]; then
   esac
 fi
 
+# 🔴 Q-493. `group_c_n9_rehearsal_gate.sh` had NO INVOKER. Repo-wide grep returned its own file,
+# two solve.py comments and one row of the DEVELOPMENT.md gate table -- nothing that runs it. Its
+# stated job is to run every post-scan consumer at n=9 BEFORE the full-31 scan (milliseconds, $0,
+# against a scan whose wall is days) AND to ratchet the count of `n == 31` guards in the consumer.
+# It runs and passes today, so this is a gate that existed, worked, and was never called: the same
+# shape as a check that cannot fail, one layer out. ADVISORY here because it is a pre-scan
+# rehearsal rather than a property of the pushed tree.
+if [ -x "$ROOT/scripts/group_c_n9_rehearsal_gate.sh" ]; then
+  _gc=$( cd "$ROOT" && ./scripts/group_c_n9_rehearsal_gate.sh 2>/dev/null | grep -E '^GROUPC_REHEARSAL=' | tail -1 )
+  case "$_gc" in
+    GROUPC_REHEARSAL=PASS) echo "  [ok]   Group C consumers rehearse clean at n=9, and the consumer's n==31 guard count matches its pin" ;;
+    GROUPC_REHEARSAL=FAIL)
+      echo "  ⚠ GROUPC_REHEARSAL=FAIL — a post-scan consumer does not rehearse at n=9, or the"
+      echo "    consumer's n==31 guard count has moved off its pin. ADVISORY: the push continues."
+      echo "      ./scripts/group_c_n9_rehearsal_gate.sh" ;;
+    *) echo "  ⚠ Group C rehearsal: could not be measured (got '${_gc:-<nothing>}') — not the same as PASS" ;;
+  esac
+fi
+
 exit $RC

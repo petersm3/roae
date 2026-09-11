@@ -3465,7 +3465,12 @@ Dispatched as a subcommand at `solve.c:33435`; takes **none**.
 #### `--kc-oocverify`
 
 ```
-Usage: solve --kc-oocverify N [--kc-roundtrips R] [--kc-scratch DIR]
+Usage: SOLVE_KC_CACHE_MB=64 solve --kc-oocverify N [--kc-roundtrips R] [--kc-scratch DIR]
+⚠ **The cache size must come from the `SOLVE_KC_CACHE_MB` environment variable.** With the
+default cache this subcommand exits **71**, and `--kc-cache-mb` is **silently ignored here** —
+measured 2026-09-11: rc 71 both with the default and with `--kc-cache-mb 64`, rc 0 with
+`SOLVE_KC_CACHE_MB=64`. The usage line above omitted this until then, which is the likeliest
+reason a working verifier had three mentions and zero invokers repo-wide.
 ```
 *Grammar reproduced from `solve.c:33384`.*
 

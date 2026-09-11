@@ -4685,10 +4685,10 @@ class TestQ3ReaderCheckShellsAreNonIncreasing(unittest.TestCase):
         import tempfile, os
         fd, path = tempfile.mkstemp(suffix=".tsv"); os.close(fd)
         with open(path, "w") as fh:
-            fh.write("step\tg\tg_parent\tp_num\tp_den\n")
+            fh.write("step\tg\tg_parent\tp_num\tp_den\tf\talts\n")
             parent = N
             for i, g in enumerate(gs, start=1):
-                fh.write("%d\t%d\t%d\t%d\t%d\n" % (i, g, parent, g, parent))
+                fh.write("%d\t%d\t%d\t%d\t%d\t1\t1\n" % (i, g, parent, g, parent))
                 parent = g
         self.addCleanup(os.unlink, path)
         return path
@@ -5495,9 +5495,9 @@ class TestQ3ReaderChecksTheRootTransition(unittest.TestCase):
         rows = [("1", "1", str(g1), str(n_total), "%.6f" % 0.0, str(g1), str(n_total)),
                 ("2", "2", "1", str(g1), "%.6f" % math.log2(g1), "1", str(g1))]
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write("step\tpair\tp_num\tp_den\tbits\tg\tg_parent\n")
+            fh.write("step\tpair\tp_num\tp_den\tbits\tg\tg_parent\tf\talts\n")
             for r in rows:
-                fh.write("\t".join(r) + "\n")
+                fh.write("\t".join(r) + "\t1\t1\n")
         return mod.atlas_q3_reader_check(path, n_total)
 
     def test_a_first_shell_larger_than_the_space_is_refused(self):
@@ -5544,9 +5544,9 @@ class TestQ3ReaderBindsTheProbabilityChainToTheCountChain(unittest.TestCase):
         self.addCleanup(shutil.rmtree, d, True)
         path = os.path.join(d, "q3.tsv")
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write("step\tp_num\tp_den\tbits\tg\tg_parent\n")
+            fh.write("step\tp_num\tp_den\tbits\tg\tg_parent\tf\talts\n")
             for step, (pn, pd, g, gp) in enumerate(rows, 1):
-                fh.write("%d\t%d\t%d\t%.6f\t%d\t%d\n"
+                fh.write("%d\t%d\t%d\t%.6f\t%d\t%d\t1\t1\n"
                          % (step, pn, pd, math.log2(pd) - math.log2(pn), g, gp))
         return path
 

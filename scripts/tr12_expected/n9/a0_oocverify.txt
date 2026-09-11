@@ -1,0 +1,45 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc] layer k= 1/9: canonical_masks=3 entries=4 bytes=0.000156 MB cumulative=0.000204 MB
+[kc] layer k= 2/9: canonical_masks=9 entries=19 bytes=0.000648 MB cumulative=0.000852 MB
+[kc] layer k= 3/9: canonical_masks=20 entries=58 bytes=0.001872 MB cumulative=0.002724 MB
+[kc] layer k= 4/9: canonical_masks=27 entries=139 bytes=0.004224 MB cumulative=0.006948 MB
+[kc] layer k= 5/9: canonical_masks=27 entries=244 bytes=0.007164 MB cumulative=0.014112 MB
+[kc] layer k= 6/9: canonical_masks=20 entries=271 bytes=0.007836 MB cumulative=0.021948 MB
+[kc] layer k= 7/9: canonical_masks=9 entries=160 bytes=0.004596 MB cumulative=0.026544 MB
+[kc] layer k= 8/9: canonical_masks=3 entries=48 bytes=0.001388 MB cumulative=0.027932 MB
+[kc] layer k= 9/9: canonical_masks=1 entries=6 bytes=0.000188 MB cumulative=0.028120 MB
+[kc] build: n=9 layers=0..9 total_bytes=0.028120 MB count=26112 elapsed=<T>s
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_00.json (k=0, 1 entries, chain=genesis)
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_01.json (k=1, 4 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_02.json (k=2, 19 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_03.json (k=3, 58 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_04.json (k=4, 139 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_05.json (k=5, 244 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_06.json (k=6, 271 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_07.json (k=7, 160 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_08.json (k=8, 48 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v1_n09/f1c5_layer_stats_09.json (k=9, 6 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_00.json (k=0, 1 entries, chain=genesis)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_01.json (k=1, 4 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_02.json (k=2, 19 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_03.json (k=3, 58 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_04.json (k=4, 139 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_05.json (k=5, 244 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_06.json (k=6, 271 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_07.json (k=7, 160 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_08.json (k=8, 48 entries, chain=linked)
+[sidecar] wrote <SELFTEST_TMP>ify_v2_n09/f1c5_layer_stats_09.json (k=9, 6 entries, chain=linked)
+[kc-ooc] opened <SELFTEST_TMP>ify_v1_n09: n=9 layers=0..9 kind=f format=v1 index=0.0 MB cache=64 MB (36 blocks of 65536 entries)
+[kc-ooc] opened <SELFTEST_TMP>ify_v2_n09: n=9 layers=0..9 kind=f format=v2 index=0.0 MB cache=64 MB (36 blocks of 65536 entries)
+[kc-oocverify] n=9 roundtrips=2000 scratch=/tmp
+[kc-oocverify] wrote v1+v2 layer dirs in <T>s
+[kc-oocverify] count: mem=26112 ooc-v1=26112 ooc-v2=26112
+[kc-selftest] Q1 exact count: OOC(v1) == OOC(v2) == in-memory      PASS
+[kc-selftest] Q2 unrank/rank/member: OOC(v1+v2) == in-memory       PASS
+[kc-selftest] Q2b rank order == reverse-exit-lex through OOC       PASS
+[kc-oocverify] 2000 3-way roundtrips in <T>s (<T> us each incl. in-mem)
+[kc-selftest] Q3 seeded sampling identical through OOC             PASS
+[kc-selftest] Q4 enumeration prefix (5000) identical through OOC   PASS
+[kc-oocverify] v2 cache: hits=3934089 misses=10 read=0.0 MB; rss_peak=<RSS> MB (build included)
+[kc-oocverify] n=9 PASS (0 failures)

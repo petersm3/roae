@@ -17,8 +17,21 @@
 # published an EMPTY extremal walk as TR12_Q2C=PASS. The battery ships FROZEN by `git archive`
 # at launch, so the fix had to be inside the battery for the run's own verdict to be honest.
 #
-# SCOPE, stated so it is not read as more than it is. EXTREMALITY IS NOT CHECKED AND CANNOT BE:
-# B32 records that only membership is checkable for these two rows. This gate proves the row
+# SCOPE, stated so it is not read as more than it is. EXTREMALITY IS NOT CHECKED HERE.
+# ⚠ IT IS NOT UNCHECKABLE -- B32's limit was read too widely and this text said so until 2026-09-11.
+# WHAT IS TRUE: extremality IS decidable, and this gate does not decide it. (a) A SUFFICIENT
+# certificate, one call: if the emitted walk is in F = {cd <= T} and `--kc-rank` returns 0, it is
+# min SUPER and therefore min F. Symmetric at N-1 for LAST. (b) A GENERAL EXACT certificate:
+# w = min F iff w is in F and every u with rank(u) < rank(w) has cd(u) > T -- decidable in
+# rank(w) `--kc-unrank` + `--kc-profile` calls, and it is a SECOND IMPLEMENTATION of the
+# enumerator's claim (unrank+profile against the in-path C3 pruner). MEASURED on the real engine:
+# `--kc-enum` emits in `--kc-rank` order and `--kc-enum-desc` in reverse; at n=9, T=31 gives
+# rank 0 (0 calls), T=28 gives rank 88 and all 88 predecessors have cd>28 -- CERTIFIED; LAST at
+# T=28 certified over 864 successors. At n=31 with T=387 the banked C3 acceptance rate is ~0.121,
+# so rank(FIRST^C15) is geometric with mean ~8 and the certificate costs ~8 calls.
+# IT IS POST-HOC: the walk and the f ladder are both retained, so it runs AFTER the run and is
+# NOT frozen. It is not done here.
+# This gate proves the row
 # refuses to publish (a) nothing at all, (b) a walk the structure does not call a member, and
 # (c) a walk violating the row's own C3 bound. It says NOTHING about whether the emitted walk
 # is the least or the greatest one.
@@ -177,6 +190,44 @@ else
   printf '%s\n' "$out" | sed 's/^/        /' | head -3
 fi
 
-printf 'Q2_WITNESS_LEGS=8\n'
+# ---- LEG 8: a SECOND helper definition would silently win -----------------
+# 🔴 KCP2. This gate extracts the helper between its markers. A second definition of
+# kc_first_last_witness placed AFTER the END marker but BEFORE the rows is the one the shipped
+# shell actually uses -- bash takes the last definition -- while the gate goes on measuring the
+# first. Measured by the reviewer: original -> rc 1 on an empty enumeration, override -> rc 0,
+# and this gate still said PASS. The battery is correct today (one definition), so this is the
+# gate catching up to its own subject, not a live defect.
+ndef=$(grep -cE '^[[:space:]]*kc_first_last_witness[[:space:]]*\(\)' "$BATTERY")
+if [ "${ndef:-0}" -eq 1 ]; then
+  r ok "leg 8: exactly one kc_first_last_witness definition in the battery"
+else
+  echo "  [ERROR] the battery defines kc_first_last_witness ${ndef} time(s); bash uses the LAST one"
+  echo "          and this gate extracts the MARKED one -- they need not be the same function"
+  echo "Q2_WITNESS=ERROR"; exit 2
+fi
+
+# ---- LEG 9: a1_q2d must PUBLISH, not merely refuse ------------------------
+# Every other Q2d leg here runs at C3MAX=0, where the correct answer is "no walk". So hard-wiring
+# the row's own threshold to 0 would leave this gate's argv unchanged and it would never notice.
+# This leg exercises SUCCESSFUL LAST publication at the real universe threshold.
+out=$(run_row q2d 31 600); rc=$?
+if [ "$rc" -eq 0 ]; then
+  r ok "leg 9: a1_q2d PUBLISHES a LAST^C15 at the real threshold, not only refuses at zero"
+else
+  r FAIL "leg 9: a1_q2d returned $rc at C3MAX=31 -- it can refuse but never publish, and no other leg here would see that"
+  printf '%s\n' "$out" | sed 's/^/        /' | head -4
+fi
+
+# ---- LEG 10: the battery's own timeout default must be a real bound -------
+# `timeout 0` means NO timeout. The gate supplies its own value to run_row, so a battery-side
+# default of 0 is invisible to every leg above.
+tmo=$(sed -n 's/^Q2_ENUM_TIMEOUT="\${TR12_Q2_ENUM_TIMEOUT:-\([0-9][0-9]*\)}"/\1/p' "$BATTERY" | head -1)
+if [ -n "$tmo" ] && [ "$tmo" -gt 0 ] 2>/dev/null; then
+  r ok "leg 10: the battery's wall-clock default is ${tmo}s, a real bound"
+else
+  r FAIL "leg 10: the battery's TR12_Q2_ENUM_TIMEOUT default is '${tmo:-<unparseable>}' -- 0 or absent means NO timeout, and no other leg here reads the battery's own value"
+fi
+
+printf 'Q2_WITNESS_LEGS=11\n'
 [ "$fail" -eq 0 ] && echo "Q2_WITNESS=PASS" || echo "Q2_WITNESS=FAIL"
 exit "$fail"

@@ -316,6 +316,8 @@ norm(){
         -e 's#wall time [0-9.]*s#wall time <T>s#g' \
         -e 's# in [0-9.]*s# in <T>s#g' \
         -e 's#[0-9.]* us/#<T> us/#g' \
+        -e 's#[0-9.]* us each#<T> us each#g' \
+        -e 's#rss_peak=[0-9.]*#rss_peak=<RSS>#g' \
         -e 's#[0-9.]* MB/s#<T> MB/s#g' \
         -e 's#([0-9.]* s)#(<T> s)#g'
 }
@@ -770,6 +772,46 @@ row_begin a0_gates
   exit $fails
 ) >>"$RAW" 2>&1; rc=$?
 row_end TR12_GATES $rc
+
+# ---- A0.x  the OUT-OF-CORE reader, which is the ONLY read path at n=31 ------------------------
+# 🔴 Q-492. `KC_MEM_MAX_PAIRS` is 22 (solve.c:19482) and `kc_resolve_pairs` sends anything larger
+# down the out-of-core loader -- a DIFFERENT loader, a v2 gzip layer format and an LRU block cache.
+# So EVERY `--kc-*` query at n=31 reads through code that no n<=13 execution touches: measured, the
+# n=9 `--kc-build` writes `F1C5LAY1` magic, so the in-memory path is taken and the OOC reader is
+# never entered. The battery had no row for it and `--kc-ooc` appears nowhere in scripts/.
+#
+# A VERIFIER FOR IT ALREADY EXISTED AND NOTHING RAN IT. `--kc-oocverify` cross-checks the OOC
+# reader against the in-memory reader on the same universe -- rank order, seeded sampling and an
+# enumeration prefix -- and passes in 0.1 s. Repo-wide it had THREE mentions and ZERO invokers,
+# all three in documentation.
+# ⚠ AND THE DOCUMENTED WAY TO RUN IT DOES NOT WORK, which is likely why: with its default cache it
+# exits 71, and `--kc-cache-mb 64` is SILENTLY IGNORED by this subcommand (measured: rc 71 both
+# ways). Only the environment variable takes effect. Anyone who tried it would have concluded the
+# gate was broken rather than that the flag was.
+#
+# SCOPE, so this is not read as more than it is: it proves the OOC reader AGREES WITH the in-memory
+# reader on a universe where both exist. It cannot be run at n=31, because at n=31 there is no
+# in-memory reference to compare against -- that is the whole reason the OOC path is taken. This is
+# the strongest available evidence for the n=31 read path, and it is not proof of it.
+# ⚠ TWO LINES OF THIS OUTPUT ARE NON-DETERMINISTIC and are normalised below, or the row could
+# NEVER match its golden -- the mirror image of the "can only ever fail" class, and caught here by
+# the reproduction gate on the very first run after minting. Measured across two identical runs,
+# exactly two fields move: the per-roundtrip microseconds and `rss_peak`. The counters that carry
+# the actual information -- `hits`, `misses`, `read` and every PASS leg -- are deterministic and
+# are NOT touched, so the row still fails if the OOC reader disagrees with the in-memory one.
+# ⚠ TWO FIELDS OF THIS OUTPUT MOVE BETWEEN IDENTICAL RUNS -- the per-roundtrip microseconds and
+# `rss_peak` -- so without normalisation this row could NEVER match its golden, the mirror image of
+# the "can only ever fail" class. Both are now handled by the CENTRAL scrubber above rather than by
+# a sed here, because this file documents that scrubber as THE normalisation mechanism and a second
+# row-local one is how the two drift apart.
+# 🔴 THE SCRUBBER ALREADY HAD BOTH QUANTITIES UNDER DIFFERENT SPELLINGS: `peak_rss_mb=` against the
+# engine's `rss_peak=`, and `us/` against the engine's `us each`. Two near-misses on the same two
+# facts, which is why a row could still be non-deterministic in a file that has scrubbed timings
+# for months. Adding the spellings is the fix; noticing that a rule set can be near-miss-complete
+# is the lesson.
+row_begin a0_oocverify
+( SOLVE_KC_CACHE_MB="${SOLVE_KC_CACHE_MB:-64}" "$SOLVE" --kc-oocverify "$N_PAIRS" ) >>"$RAW" 2>&1; rc=$?
+row_end TR12_OOCVERIFY $rc
 
 # ---- A0.2  XA(iii): the t-unit accounting-convention pin.  No atlas number ships before it. ---
 row_begin a0_xa_iii
@@ -1401,8 +1443,21 @@ row_end TR12_Q2B $rc
 # publish an EMPTY FIRST^C15 / LAST^C15 as TR12_Q2C=PASS / TR12_Q2D=PASS. The battery ships FROZEN
 # by `git archive` at launch, so this had to land before the run to make the run's own verdict honest.
 #
-# WHAT THIS CHECKS AND WHAT IT DOES NOT. Extremality is NOT established here and cannot be: B32
-# records that only MEMBERSHIP is checkable for these two rows, and that limit is unchanged. What
+# WHAT THIS CHECKS AND WHAT IT DOES NOT. Extremality is NOT established here. ⚠ IT IS NOT
+# UNCHECKABLE -- B32's limit was read too widely and this text said so until 2026-09-11.
+# WHAT IS TRUE: extremality IS decidable, and this gate does not decide it. (a) A SUFFICIENT
+# certificate, one call: if the emitted walk is in F = {cd <= T} and `--kc-rank` returns 0, it is
+# min SUPER and therefore min F. Symmetric at N-1 for LAST. (b) A GENERAL EXACT certificate:
+# w = min F iff w is in F and every u with rank(u) < rank(w) has cd(u) > T -- decidable in
+# rank(w) `--kc-unrank` + `--kc-profile` calls, and it is a SECOND IMPLEMENTATION of the
+# enumerator's claim (unrank+profile against the in-path C3 pruner). MEASURED on the real engine:
+# `--kc-enum` emits in `--kc-rank` order and `--kc-enum-desc` in reverse; at n=9, T=31 gives
+# rank 0 (0 calls), T=28 gives rank 88 and all 88 predecessors have cd>28 -- CERTIFIED; LAST at
+# T=28 certified over 864 successors. At n=31 with T=387 the banked C3 acceptance rate is ~0.121,
+# so rank(FIRST^C15) is geometric with mean ~8 and the certificate costs ~8 calls.
+# IT IS POST-HOC: the walk and the f ladder are both retained, so it runs AFTER the run and is
+# NOT frozen. It is not done here.
+# What
 # is checked is that a walk was emitted at all, that the structure calls it a member, and that it
 # honours the row's own C3 bound. Today none of the three is checked. Do not read this gate as
 # evidence that the emitted walk is the least (resp. greatest) one.
@@ -1419,7 +1474,17 @@ Q2_ENUM_TIMEOUT="${TR12_Q2_ENUM_TIMEOUT:-21600}"
 
 # --- BEGIN kc_first_last_witness (extracted and executed by scripts/q2_witness_gate.sh) ---
 kc_first_last_witness() {
-    local tok="$1" out="$2" erc=0 w nf cd
+    local tok="$1" out="$2" erc=0 w nf cd nw
+    # 🔴 KCP2 §4. `head -1` checks the FIRST walk line while the row `cat`s the WHOLE output, so if
+    # the engine ever emitted two plain walks both would be PUBLISHED and only one CHECKED.
+    # Unreachable from the shipped row today -- `--kc-limit 1` prints exactly one and `--kc-enum`
+    # rejects `--kc-record`, both measured -- but "the caller currently passes a flag that makes it
+    # safe" is not a property of this function, and this function is what the gate extracts.
+    nw=$(grep -cE '^[0-9]+(,[0-9]+)+$' "$out")
+    if [ "${nw:-0}" -gt 1 ]; then
+        echo "${tok}_FAIL	the enumeration emitted ${nw} walk lines; this row publishes all of them and can check only one"
+        return 1
+    fi
     w=$(grep -E '^[0-9]+(,[0-9]+)+$' "$out" | head -1)
     nf=$(printf '%s' "$w" | awk -F',' '{print NF}')
     if [ -z "$w" ] || [ "${nf:-0}" -ne "$((2 * N_PAIRS))" ]; then
@@ -2680,7 +2745,13 @@ fi
 # against ITS OWN golden, and at n=31 those goldens are minted by the run itself. Two
 # implementations existed; the cross-check did not. R5 offered a reword or this row, and preferred
 # this row, because it is a real n-INDEPENDENT gate on the EMITTERS: it would have caught
-# `v2-class-swap` and `ratio-zero` at n=31 without waiting for the RCQ04 F1 lift.
+# `v2-class-swap` at n=31 without waiting for the RCQ04 F1 lift.
+# ⚠ THIS SENTENCE ALSO CLAIMED `ratio-zero`, AND THAT WAS WRONG. Measured (KCP2 §5): `ratio-zero`
+# blanks only `_atlas_f` output (`solve.py:11889`), i.e. the DERIVED ratio columns; this row
+# compares per-class MASS as integers and never reads a ratio, so `--atlas-fault ratio-zero`
+# against the committed n=9 atlas gives `c_xcheck` rc 0. `ratio-zero` is caught by
+# `TR12_Q6_EXTREMES`, not here. An overclaim about what a gate covers is the same defect class as
+# a gate that does not run -- both make a reader stop looking.
 #
 # WHAT IS COMPARED. Both sides publish per-layer per-distance-class mass, but in DIFFERENT SHAPES --
 # the shell rows write WIDE tables (k, d1..d6) and the consumer writes LONG ones (k, d, mass, ...) --
@@ -2749,7 +2820,24 @@ if [ -d "$ARTDIR/consumer/scan" ]; then
       # still catches a duplicated row, which would double the total.
       awk -F'\t' '
         $1=="ZERO_ROWS" { print "XCHECK_FAIL\t" $2 " produced no comparable (k,d,mass) cell -- it was read and it said nothing"; f=1; next }
-        { agg[$1 SUBSEP $2 SUBSEP $3] += $4; cell[$2 SUBSEP $3]=1; seen[$1]=1 }
+        # 🔴 KCP2 §2.1 / Q-491. THIS LINE READ `agg[...] += $4` AND THAT IS AWK ARITHMETIC, i.e.
+        # a DOUBLE -- in the one row whose own text three lines up says "INTEGERS ONLY". At n=31 a
+        # mass is a 39-digit decimal, so the comparison silently degraded to ~16 significant digits
+        # under gawk and, because mawk renders non-integer doubles with CONVFMT=%.6g, to SIX under
+        # the Ubuntu default awk. MEASURED against real full-31 masses: a +48/-48 perturbation of
+        # one source is a SILENT PASS (rc 0) under gawk, mawk and awk, while the same perturbation
+        # at n=9 scale is caught. Under mawk even a delta of 10^30 passes. The n=9 rehearsal cannot
+        # see it (masses <= 26112 < 2^53): the n>=31-ONLY class exactly, in a row frozen at launch.
+        # ⚠ THE DEFECT WAS INTRODUCED BY THE FIX ABOVE. The `+=` exists because the comparator has
+        # to sum over a pending second dimension; correcting one n=31 defect created another on the
+        # same line. The p columns were deliberately excluded from this row because awk doubles are
+        # untrustworthy, and that same reasoning was simply not carried to the accumulator.
+        # String addition is exact and the inputs are already ^[0-9]+$-validated by the normaliser.
+        function badd(a,b,   i,j,c,s,r,da,db){ i=length(a); j=length(b); c=0; r=""
+          while (i>0 || j>0 || c) { da=(i>0)?substr(a,i,1)+0:0; db=(j>0)?substr(b,j,1)+0:0
+            s=da+db+c; r=(s%10) r; c=int(s/10); i--; j-- }
+          return (r=="")?"0":r }
+        { k=$1 SUBSEP $2 SUBSEP $3; agg[k]=(k in agg)?badd(agg[k],$4):$4; cell[$2 SUBSEP $3]=1; seen[$1]=1 }
         END { ns=0; for (s in seen) ns++
               for (c in cell) {
                   split(c, kd, SUBSEP); first=""; fsrc=""
@@ -2768,6 +2856,57 @@ if [ -d "$ARTDIR/consumer/scan" ]; then
     row_end TR12_XCHECK $rc
 else
     row_skip c_xcheck TR12_XCHECK "SKIP:no-consumer" "the consumer wrote no scan/ directory, so there is no second implementation to cross-check against"
+fi
+
+# ---- C.y  the consumer's own verdicts, which the run's VERDICTS.txt never showed ---------------
+# 🔴 Q-490. SIX of the consumer's seventeen TR12_* verdicts never reached the run's own
+# VERDICTS.txt: TR12_A2_SLOT, TR12_A3_EXTERNAL, TR12_A5_ORBIT_COLUMNS, TR12_A5_ORBIT_MEMBERSHIP,
+# TR12_Q3_KW and TR12_Q6_EXTREMES. TR12_A5_ORBIT_COLUMNS is emitted AT n=31 (SOLVE_PY_CLI.md), so
+# an n=31-ONLY consumer verdict was invisible in the run's own verdict file.
+#
+# HOW IT WAS FOUND, because the method matters more than the instance: I added TWO verdict tokens
+# and the rehearsal's TR12_* count moved by ONE. Checking that arithmetic instead of assuming it is
+# the whole finding.
+#
+# WHY NEITHER OBVIOUS FIX WORKS, established by reading the code rather than by trying them:
+#   * `agg` reads TOKSTATE[], which only row_end/row_skip populate. `agg TR12_Q6 TR12_Q6_EXTREMES`
+#     would score the leg MISSING and FALSELY DOWNGRADE a PASSING parent to SKIP:leg-not-reached.
+#   * Re-emitting the consumer's tokens into this stream collides: six of the seventeen share a
+#     name with a battery row token (TR12_Q6, TR12_V1, TR12_Q3_READER and siblings) and a duplicate
+#     KEY=value with a different value makes `grep -qx` ambiguous. Note the battery's
+#     TR12_Q3_READER is an INDEPENDENT shell re-derivation that merely shares a name.
+# So this row carries its OWN token and ASSERTS rather than re-emitting. The NAMES are printed and
+# therefore pinned by the golden, so a verdict that silently stops being emitted moves the golden;
+# the VALUES are asserted here.
+if [ -d "$ARTDIR/consumer" ]; then
+    row_begin c_consumer_verdicts
+    (
+      erc=0
+      f="$ARTDIR/consumer/VERDICTS.txt"
+      if [ ! -r "$f" ]; then
+          echo "CONSVERD_FAIL	the consumer wrote no VERDICTS.txt -- a row that cannot read its subject FAILS, it does not agree"
+          exit 1
+      fi
+      n=$(grep -cE '^TR12_[A-Z0-9_]+=' "$f")
+      if [ "${n:-0}" -lt 1 ]; then
+          echo "CONSVERD_FAIL	the consumer's VERDICTS.txt carries no TR12_* verdict at all -- it ran and said nothing"
+          exit 1
+      fi
+      printf 'consumer_verdict_count\t%s\n' "$n"
+      grep -oE '^TR12_[A-Z0-9_]+' "$f" | sort | sed 's/^/consumer_verdict\t/'
+      bad=$(grep -E '^TR12_[A-Z0-9_]+=' "$f" \
+            | grep -vE '^TR12_[A-Z0-9_]+=(PASS|PASS:[!-~]+|SKIP:[!-~]+|PENDING:[!-~]+)$' || true)
+      if [ -n "$bad" ]; then
+          printf '%s\n' "$bad" | while IFS= read -r l; do
+              echo "CONSVERD_FAIL	consumer verdict is not PASS/SKIP/PENDING-shaped: $l"
+          done
+          erc=1
+      fi
+      exit $erc
+    ) >>"$RAW" 2>&1; rc=$?
+    row_end TR12_CONSUMER_VERDICTS $rc
+else
+    row_skip c_consumer_verdicts TR12_CONSUMER_VERDICTS "SKIP:no-consumer" "the consumer wrote no output directory, so it published no verdicts to check"
 fi
 # The V1/V2/V4/V5 generators landed in viz/report_figures.py (TSV -> figure, no analysis logic).
 # They need matplotlib + numpy, which are deliberately NOT project dependencies, so a box without
