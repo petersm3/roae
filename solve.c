@@ -25830,20 +25830,30 @@ static int kc_oracle_main(int argc, char *argv[]) {
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-expect-count") == 0) expect = argv[++ai];
         else if (argv[ai][0] == '-') {
             fprintf(stderr, "ERROR: [kc-oracle] unknown option %s\n", argv[ai]);
+            printf("KC_ORACLE=ERROR\n");
             return 2;
         } else {
             if (nf >= KC_H1_MAX_FILES) {
                 fprintf(stderr, "ERROR: [kc-oracle] too many input files (max %d) — "
                                 "refusing a silently partial verdict\n", KC_H1_MAX_FILES);
+                printf("KC_ORACLE=ERROR\n");
                 return 2;
             }
             paths[nf++] = argv[ai];
         }
     }
-    if (nf == 0) { fprintf(stderr, "ERROR: [kc-oracle] no input files\n"); return 2; }
+    if (nf == 0) {
+        fprintf(stderr, "ERROR: [kc-oracle] no input files\n");
+        printf("KC_ORACLE=ERROR\n");
+        return 2;
+    }
     KC *kc = (KC *)calloc(1, sizeof(KC));
     F1_CHECK(kc != NULL, "[kc-oracle] alloc");
-    if (kc_open(kc, fdir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
+    if (kc_open(kc, fdir, force_ooc, cache_mb) != 0) {
+        free(kc);
+        printf("KC_ORACLE=ERROR\n");
+        return 2;
+    }
     int p2q[32];
     for (int p = 0; p < 32; p++) p2q[p] = -1;
     for (int q = 0; q < kc->n; q++) p2q[kc->c.pl[q]] = q;
@@ -25873,11 +25883,24 @@ static int kc_oracle_main(int argc, char *argv[]) {
             printf("[kc-oracle] expect-count %s: CONSERVED\n", expect);
         }
     }
-    printf("[kc-oracle] VERDICT: %s\n", pass ? "PASS" : "FAIL");
-    printf("#provenance\tengine=solve.c/kc-oracle\tbranch=%s\tgit=%s\tsource_sha=%s\t"
-           "n=%d\tmembership=H1(f-ladder)\tspace=%s\tcertificate-not-proof\n",
-           GIT_BRANCH, GIT_HASH, SOURCE_SHA, kc->n,
-           o.c3max >= 0 ? "SUPER+C15-conformance-tally" : "C1C2C4C5-SUPERSPACE");
+    /* 🔴 F-5 round 3 §5 F (2026-09-11), TWO defects in one place, both of the class this repo
+     * keeps paying for -- a verdict about something that was never computed.
+     *   (1) PRINT ORDER. The "VERDICT" line used to be printed HERE, ABOVE the certificate
+     *       block. Against /dev/full the certificate write failed, `pass` went to 0, the exit
+     *       was 1 and stderr said why -- but the last verdict on STDOUT was still
+     *       "[kc-oracle] VERDICT: PASS". Anything reading the verdict line (a human scrolling,
+     *       a log tail) read agreement about a certificate that does not exist. The cert block
+     *       now runs FIRST and the verdict is printed after it, so the printed verdict is a
+     *       verdict about everything the run was asked to do.
+     *   (2) NO TOKEN. --kc-oracle emitted no `KEY=value` line at all, so it could not be
+     *       consumed by grep -qx the way every other KC writer is (KC_SCAN, KC_SCAN_CHUNK,
+     *       KC_PROFILE, KC_SCAN_MERGE, KC_EXTREMAL). A gate with no token cannot be gated on.
+     * KC_ORACLE=ERROR is the "COULD NOT MEASURE" value and is NEVER agreement: at least one
+     * input stream was not checked at all (unreadable, bad magic, wrong container version, or a
+     * short read mid-stream), so there is no verdict over its contents to report. That is a
+     * different fact from KC_ORACLE=FAIL, which means the records WERE streamed and a check on
+     * them failed. The printed "VERDICT:" line keeps its long-standing PASS/FAIL vocabulary --
+     * existing readers are unaffected; the three-valued fact is carried by the new token. */
     if (cert_out) {
         FILE *f = fopen(cert_out, "w");
         if (!f) { fprintf(stderr, "ERROR: [kc-oracle] cannot write %s\n", cert_out); pass = 0; }
@@ -25887,6 +25910,15 @@ static int kc_oracle_main(int argc, char *argv[]) {
             else printf("[kc-oracle] certificate written: %s\n", cert_out);
         }
     }
+    int unread = 0;
+    for (int i = 0; i < nf; i++)
+        if (st[i].io_error || st[i].header_bad) unread = 1;
+    printf("[kc-oracle] VERDICT: %s\n", pass ? "PASS" : "FAIL");
+    printf("#provenance\tengine=solve.c/kc-oracle\tbranch=%s\tgit=%s\tsource_sha=%s\t"
+           "n=%d\tmembership=H1(f-ladder)\tspace=%s\tcertificate-not-proof\n",
+           GIT_BRANCH, GIT_HASH, SOURCE_SHA, kc->n,
+           o.c3max >= 0 ? "SUPER+C15-conformance-tally" : "C1C2C4C5-SUPERSPACE");
+    printf("KC_ORACLE=%s\n", unread ? "ERROR" : (pass ? "PASS" : "FAIL"));
     free(st);
     kc_free(kc);
     free(kc);
@@ -27952,6 +27984,23 @@ static const char *kc_h_dir_basename(const char *p) {
     return (b && b[1]) ? b + 1 : p;
 }
 
+/* 🔴 F-5 round 3 §5 G (2026-09-11): an early exit BETWEEN the fopen below and the final
+ * kc_h_close_artifact leaves a TRUNCATED chunk_NN.json on disk. Both such exits are layer-digest
+ * failures, and neither is a write failure, so kc_h_close_artifact -- whose unlink fires only when
+ * the STREAM is bad -- would close cleanly, return 0, and leave the partial file exactly where it
+ * was. This is the same class kc_h_close_artifact exists for, at the two exits that predate it:
+ * a failed artifact must not be left behind for a consumer to open. The caller's KC_SCAN_CHUNK=FAIL
+ * is correct and is not changed; what changes is that the file it is a verdict about is gone.
+ * (Not consumed silently today -- the private driver's chunk_valid needs an .ok marker and the
+ * merge parses the JSON -- so this is defence in depth, not a live miscount.) */
+static int kc_h_scan_chunk_abort(FILE *f, const char *outp) {
+    fclose(f);
+    if (kc_h_unlink_regular(outp) != 0)
+        fprintf(stderr, "WARN: [kc-scan] could not remove the partial chunk %s: %s\n",
+                outp, strerror(errno));
+    return -1;
+}
+
 static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC *fkc,
                                  const char *fdir, const char *gdir, const char *tdir,
                                  int want_raw, int k_lo, int k_hi, double elapsed) {
@@ -27996,8 +28045,7 @@ static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC 
         snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, k);
         if (f1c5_layer_sha_hex(lpath, hex, NULL, NULL, NULL) != 0) {
             fprintf(stderr, "ERROR: [kc-scan] cannot digest %s\n", lpath);
-            fclose(f);
-            return -1;
+            return kc_h_scan_chunk_abort(f, outp);
         }
         fprintf(f, "  \"f_layer_sha_%02d\": \"%s\",\n", k, hex);
     }
@@ -28012,8 +28060,7 @@ static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC 
         snprintf(lpath, sizeof(lpath), "%s/g_layer_%02d.bin", gdir, k);
         if (f1c5_layer_sha_hex(lpath, hex, NULL, NULL, NULL) != 0) {
             fprintf(stderr, "ERROR: [kc-scan] cannot digest %s\n", lpath);
-            fclose(f);
-            return -1;
+            return kc_h_scan_chunk_abort(f, outp);
         }
         fprintf(f, "  \"g_layer_sha_%02d\": \"%s\",\n", k, hex);
     }

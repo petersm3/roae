@@ -583,4 +583,31 @@ if [ -x "$ROOT/scripts/tr12_repro_gate.sh" ]; then
   esac
 fi
 
+# =============================================================================
+# THE ROW-ASSERTION SWEEP — added 2026-09-11. F-5 round 4 finding B2 was "round
+# 1's D11 class, fixed for c_v1 and never swept to its siblings." Round 1 found
+# the class; one instance got fixed; the class did not. CODEX_ROUNDS_STOPPING_RULE
+# criterion 2: when the residue shares a SHAPE, the next step is a gate, not a
+# reviewer. This is that gate, and wiring it here is the point -- it was built
+# owning nothing, which is the defect it exists to name.
+#
+# ADVISORY, deliberately: 4 driver-built rows are known-unasserted today and a
+# blocking leg would gate every push on work nobody has scheduled. It is LOUD and
+# it names each row. Red-tested by deleting the c_v1, c_v2 and c_v5 assertions --
+# rows that are CURRENTLY FIXED -- and confirming each is named; a detector that
+# only recognises the rows already known to be bad is a list, not a gate.
+if [ -x "$ROOT/scripts/row_assertion_gate.sh" ]; then
+  _ra=$( cd "$ROOT" && ./scripts/row_assertion_gate.sh --strict 2>/dev/null | grep -E '^ROW_ASSERTION=' | tail -1 )
+  case "$_ra" in
+    ROW_ASSERTION=PASS) echo "  [ok]   every emitting battery row asserts something about what it emitted" ;;
+    ROW_ASSERTION=FAIL)
+      _n=$( cd "$ROOT" && ./scripts/row_assertion_gate.sh --strict 2>/dev/null | grep -cE '^UNASSERTED' )
+      echo "  ⚠ ROW_ASSERTION=FAIL — $_n battery row(s) emit a table and assert nothing about it."
+      echo "    A row that can publish an empty or wrong table with rc 0 is the defect class this"
+      echo "    project keeps paying for. ADVISORY: the push continues. List them with:"
+      echo "      ./scripts/row_assertion_gate.sh --strict" ;;
+    *) echo "  ⚠ row-assertion sweep: could not be measured (got '${_ra:-<nothing>}') — not the same as PASS" ;;
+  esac
+fi
+
 exit $RC

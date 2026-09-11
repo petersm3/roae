@@ -18,6 +18,15 @@
 # one), and green to a real file. BOTH HALVES ARE REQUIRED. A gate that only checked the red half
 # would pass on an engine that refused to write anything at all.
 #
+# WHICH WRITERS, exactly (2026-09-11). The nine probed below are the complete set of KC destinations
+# that solve.c will write on request: --kc-scan whole-atlas, --kc-scan chunk, --kc-profile --kc-tsv,
+# --kc-t-cert, --kc-o3-cert, --check-arrangement --cert-out, --kc-oracle --kc-cert-out,
+# --kc-extremal --kc-json, and --kc-scan-merge. The first version of this file probed seven and its
+# header still said "every KC writer" (F-5 round 3 §5 E) -- the coverage claim was wider than the
+# coverage, which is the same defect shape the file exists to catch. If a TENTH destination is added
+# to solve.c, add a probe here and raise the floor at the bottom; the floor is the thing that makes
+# the omission loud rather than silent.
+#
 # Verdict, whole line, grep -qx-able:  KC_WRITER_DEVFULL_GATE=PASS|FAIL|ERROR
 # ERROR is NOT a pass. A gate that could not build the engine or the ladders measured nothing, and
 # nothing is not a clean result.
@@ -95,6 +104,26 @@ probe t_cert       ''                   -- "$SOLVE" --kc-t-cert %OUT%
 probe o3_cert      ''                   -- "$SOLVE" --kc-o3-cert "$F" "$G" "$W" --kc-cert-out %OUT%
 probe arr_cert     ''                   -- "$SOLVE" --check-arrangement KW --cert-out %OUT%
 
+# 🔴 F-5 round 3 §5 E (2026-09-11): the two KC certificate writers this list did NOT cover.
+# The header above says "every KC writer"; measured on 2026-09-09 the probe list attested seven of
+# nine, and the claim was wider than the evidence. --kc-oracle routes through the shared helper and
+# --kc-extremal keeps its own copy of the close-and-unlink logic (kc_x_write_cert), so the SECOND is
+# exactly the one a shared-helper argument does not cover -- it is the site most able to regress
+# without anybody noticing. Both were correct by execution when this was written; neither was
+# guarded. That is what a gate is for.
+#
+# The oracle needs an input container to have anything to stream. A 32-byte TEST header with count 0
+# (magic "ROAE", version 0x7E570001 little-endian, count 0, zero pad) streams ZERO records, which is
+# a PASS -- that is deliberate: the probe is measuring the CERTIFICATE WRITER, not membership, and a
+# zero-record input is the cheapest way to reach it. If the container is ever built wrong the oracle
+# reports KC_ORACLE=ERROR and exit 1, which fails the red leg's whole-line KC_ORACLE=FAIL match and
+# turns this gate red -- a broken probe cannot pass silently.
+OBIN=$WORK/oracle_empty.bin
+{ printf 'ROAE'; printf '\x01'; head -c 1 /dev/zero; printf '\x57\x7e'; head -c 24 /dev/zero; } >"$OBIN"
+[ "$(wc -c <"$OBIN")" = 32 ] || die "could not build the 32-byte oracle TEST container (got $(wc -c <"$OBIN") bytes)"
+probe oracle_cert  'KC_ORACLE=FAIL'     -- "$SOLVE" --kc-oracle "$F" "$OBIN" --kc-cert-out %OUT%
+probe extremal_json 'KC_EXTREMAL=FAIL'  -- "$SOLVE" --kc-extremal dclass:1 "$F" max --kc-json %OUT%
+
 # The merge was the ONE writer fixed in 2026-09-04, and is now routed through the same helper as the
 # rest. It is here as the control that the shared helper did not regress the site that already worked.
 C0=$WORK/c0.json; C1=$WORK/c1.json
@@ -108,7 +137,7 @@ fi
 
 # 🔴 A CHECK THAT MEASURED NOTHING MUST ERROR. If the probe list were emptied, or every probe
 # skipped, `fails` would be 0 and this would otherwise report PASS.
-[ "$checks" -ge 7 ] || die "only $checks writer(s) probed, expected at least 7 — this measured almost nothing"
+[ "$checks" -ge 9 ] || die "only $checks writer(s) probed, expected at least 9 — this measured almost nothing"
 
 echo "KC_WRITER_DEVFULL_CHECKS=$checks"
 echo "KC_WRITER_DEVFULL_FAILS=$fails"

@@ -1814,7 +1814,30 @@ if [ "$N_PAIRS" -ge 31 ]; then
           if [ "$v" = "IN" ] && [ -n "$arr" ]; then
               # §0.4(2): drop the first two values (the C4-anchored pair 63,0), pass the rest
               w=$(printf '%s' "$arr" | cut -d, -f3-)
-              "$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$w" || erc=1
+              "$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$w" > "$WORK/q7rank.out" 2>&1 || erc=1
+              cat "$WORK/q7rank.out"
+              # 🔴 F-5 ROUND 4 B3 (2026-09-11). This row took the solver's EXIT STATUS and nothing
+              # else, so a stub printing `rank3=5` for a walk that is not the anchor passed it
+              # (measured by the reviewer). The row is n>=31-ONLY, so no n=9 golden can ever cover
+              # it and no rehearsal has exercised it -- its FIRST execution is the full-31 run, and
+              # it publishes King Wen's "serial number". Two things are asserted, and both are
+              # forced rather than expected:
+              #   (i)  rank_O3(KW) = 0 is a LABELING THEOREM -- the O3 order is built from KW's own
+              #        pair table, so KW is the least object by construction (QUERY_INVENTORY §9.1).
+              #        A nonzero rank here is not a surprising result; it means the labels moved.
+              #   (ii) the walk this row ranks is reached by `cut -d, -f3-` of q7_kw.json, a SECOND
+              #        derivation of King Wen's walk, and nothing compared it to $ANCHOR. That is
+              #        the two-arms-never-compared defect that tests.py::TestKingWenTableAgrees...
+              #        pins one level down, still open at this level until now.
+              r3=$(sed -n 's/.*\brank3=\([0-9][0-9]*\).*/\1/p' "$WORK/q7rank.out" | head -1)
+              if [ -z "$r3" ]; then
+                  echo "Q7RANKS_FAIL	$(basename "$j"): no rank3= value was printed -- an unmeasured rank is not a rank"; erc=1
+              elif [ "$r3" != "0" ]; then
+                  echo "Q7RANKS_FAIL	$(basename "$j"): rank3=$r3, but rank_O3 of an anchor-derived labeling is FORCED to 0"; erc=1
+              fi
+              if [ "$lab" = "KW" ] && [ "$w" != "$ANCHOR" ]; then
+                  echo "Q7RANKS_FAIL	$(basename "$j"): the walk ranked here is not \$ANCHOR -- two derivations of King Wen's walk disagree"; erc=1
+              fi
           else
               echo "(not IN — no rank; a rank of a non-member is not defined)"
           fi
@@ -2282,6 +2305,13 @@ else
       echo "# which is the spec's own parenthetical alternative. branch_atlas[] carries per-branch"
       echo "# TOTALS only, so a per-layer-per-branch split is NOT available from this schema."
       echo -e "k\td1\td2\td3\td4\td6"
+      # 🔴 F-5 ROUND 4 B2 (2026-09-11). This row had NO assertion of any kind. An atlas with every
+      # `by_class` object stripped drives the loop zero times, prints a header-only table, and exits
+      # 0 -- and an atlas with ONE CELL DELETED prints a short row and exits 0. Both measured by the
+      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:2260) and never
+      # swept to its siblings -- fix the class, not the instance. Checked against the atlas the table
+      # came from, in bc, because the masses are 192-bit at full-31. Success output is UNCHANGED;
+      # only a failure prints, so no golden moves.
       i=0
       while read -r line; do
           printf '%d\t%s\t%s\t%s\t%s\t%s\n' "$i" \
@@ -2291,7 +2321,24 @@ else
             "$(printf '%s' "$line" | sed -n 's/.*"d4": "\([0-9]*\)".*/\1/p')" \
             "$(printf '%s' "$line" | sed -n 's/.*"d6": "\([0-9]*\)".*/\1/p')"
           i=$((i+1))
-      done < <(grep -o '"by_class": {[^}]*}' "$ATLAS")
+      done < <(grep -o '"by_class": {[^}]*}' "$ATLAS") | tee "$WORK/v2_rows.tsv"
+      fails=0
+      nbc=$(grep -c '"by_class"' "$ATLAS"); nlay=$(grep -c '"marginal_quotient"' "$ATLAS")
+      nrow=$(grep -c . "$WORK/v2_rows.tsv")
+      [ "$nbc" -gt 0 ] && [ "$nbc" -eq "$nlay" ] && [ "$nlay" -eq "$N_PAIRS" ] && [ "$nrow" -eq "$N_PAIRS" ] \
+        || { echo "V2_FAIL	by_class blocks=$nbc layer rows=$nlay emitted rows=$nrow N_PAIRS=$N_PAIRS -- every layer must carry a class split and emit one row"; fails=1; }
+      # MEASURED on the n=9 atlas before this was written, not assumed: at every layer the five class
+      # masses sum to N_total exactly (and the layer flow equals N_total). A deleted or altered cell
+      # breaks this sum; a whole-row permutation does NOT, and that limit is stated in QUERY_INVENTORY.
+      while IFS=$'\t' read -r k a b c d e; do
+          [ -n "$k" ] || continue
+          for v in "$a" "$b" "$c" "$d" "$e"; do
+              case "$v" in ''|*[!0-9]*) echo "V2_FAIL	layer k=$k has a non-numeric or missing class mass"; fails=1 ;; esac
+          done
+          s=$(printf '%s+%s+%s+%s+%s\n' "${a:-0}" "${b:-0}" "${c:-0}" "${d:-0}" "${e:-0}" | BC_LINE_LENGTH=0 bc)
+          [ "$s" = "$N_TOTAL" ] || { echo "V2_FAIL	layer k=$k class masses sum to $s, not N=$N_TOTAL"; fails=1; }
+      done < "$WORK/v2_rows.tsv"
+      exit $fails
     ) >>"$RAW" 2>&1; rc=$?
     cp "$RAW" "$ARTDIR/v2_river.tsv"
     row_end TR12_V2_TSV $rc
@@ -2310,7 +2357,25 @@ else
               printf '%d\t%s\t%s\t%s\n' "$i" "$c" "$m" "$p"
           done
           i=$((i+1))
-      done < <(grep '"marginal_quotient"' "$ATLAS")
+      done < <(grep '"marginal_quotient"' "$ATLAS") | tee "$WORK/v5_rows.tsv"
+      # 🔴 F-5 ROUND 4 B2 (2026-09-11), the sibling of the c_v2 fix above and the same D11 class.
+      # This row also had no assertion: a stripped atlas printed a header and exited 0.
+      fails=0
+      nrow=$(grep -c . "$WORK/v5_rows.tsv")
+      [ "$nrow" -eq $((5 * N_PAIRS)) ] \
+        || { echo "V5_FAIL	emitted $nrow rows, expected 5 x N_PAIRS = $((5 * N_PAIRS))"; fails=1; }
+      # CROSS-INSTRUMENT: V5's mass column is the same quantity V2 prints, reached by a different
+      # extraction (per-class sed inside a flow loop vs one by_class object). They must agree cell
+      # for cell. Two readers of one field disagreeing is the defect; agreeing is the check.
+      if [ -s "$WORK/v2_rows.tsv" ]; then
+          awk -F'\t' 'NR==FNR{n=split("d1 d2 d3 d4 d6",C," ");for(j=1;j<=n;j++)m[$1"\t"C[j]]=$(j+1);next}
+                       {key=$1"\t"$2; if(!(key in m)){printf "V5_FAIL\t(k=%s,%s) has no V2 counterpart\n",$1,$2;bad=1}
+                        else if(m[key]!=$3){printf "V5_FAIL\t(k=%s,%s) mass %s != V2 mass %s\n",$1,$2,$3,m[key];bad=1}}
+                       END{exit bad?1:0}' "$WORK/v2_rows.tsv" "$WORK/v5_rows.tsv" || fails=1
+      else
+          echo "V5_FAIL	V2's row file is absent or empty -- the cross-check could not run, which is not agreement"; fails=1
+      fi
+      exit $fails
     ) >>"$RAW" 2>&1; rc=$?
     cp "$RAW" "$ARTDIR/v5_grammar.tsv"
     row_end TR12_V5_TSV $rc
