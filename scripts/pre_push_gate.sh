@@ -157,6 +157,23 @@ needs_resume167() {
   [ -n "$changed" ]
 }
 
+# ---- does this pushed sha need the fail-open closure sweep? ----------------
+# $1 = pushed sha, $2 = remote sha ('' or all-zeros when there is no base).
+# Returns 0 (leg required) when anything under scripts/ differs between base
+# and pushed sha, and on every path where that cannot be established — the
+# same fail-closed rule as the two above. The pathspec is the gate's SUBJECT:
+# scripts/failopen_closure_gate.sh executes every token-emitting script in the
+# tree with all inputs absent, so a NEW fail-open can only enter the published
+# record through a scripts/ change. A markdown-only push cannot create one and
+# pays nothing (measured 61 s when it does run — see the advisory leg below).
+needs_scripts() {
+  local base="$2" changed
+  [ -n "$base" ] && [ "$base" != "$Z40" ] || return 0
+  git cat-file -e "$base^{commit}" 2>/dev/null || return 0
+  changed=$(git diff --name-only "$base" "$1" -- scripts/ 2>/dev/null) || return 0
+  [ -n "$changed" ]
+}
+
 # ---- collect the shas being published -------------------------------------
 # GENSHAS ⊆ SHAS: the pushed shas whose range touches the generated-artifact
 # surface (or has no provable base). A sha pushed via two refs needs the leg
@@ -164,6 +181,7 @@ needs_resume167() {
 SHAS=""
 GENSHAS=""
 R167SHAS=""
+SCRIPTSHAS=""
 NEWREFS=""
 if [ -t 0 ]; then
   SHAS=$(git rev-parse HEAD) || exit 1
@@ -173,6 +191,7 @@ if [ -t 0 ]; then
   UPSTREAM=$(git rev-parse '@{u}' 2>/dev/null || true)
   if needs_generated "$SHAS" "$UPSTREAM"; then GENSHAS=$SHAS; fi
   if needs_resume167 "$SHAS" "$UPSTREAM"; then R167SHAS=$SHAS; fi
+  if needs_scripts   "$SHAS" "$UPSTREAM"; then SCRIPTSHAS=$SHAS; fi
 else
   while read -r lref lsha rref rsha; do
     [ -n "${lsha:-}" ] || continue
@@ -255,6 +274,9 @@ else
     if needs_resume167 "$lsha" "${rsha:-}"; then
       case " $R167SHAS " in *" $lsha "*) ;; *) R167SHAS="$R167SHAS $lsha";; esac
     fi
+    if needs_scripts "$lsha" "${rsha:-}"; then
+      case " $SCRIPTSHAS " in *" $lsha "*) ;; *) SCRIPTSHAS="$SCRIPTSHAS $lsha";; esac
+    fi
     if needs_generated "$lsha" "${rsha:-}"; then
       case " $GENSHAS " in
         *" $lsha "*) ;;
@@ -265,6 +287,7 @@ else
 fi
 SHAS=${SHAS# }
 R167SHAS=${R167SHAS# }
+SCRIPTSHAS=${SCRIPTSHAS# }
 NEWREFS=${NEWREFS# }
 # ---- DECLARATION LEG: unconditional, and it runs BEFORE the content legs -------
 # Codex v2 charge 5, RESIDUAL (2026-09-02). This leg used to live INSIDE the
@@ -491,6 +514,156 @@ for sha in $SHAS; do
     echo "  Same rule as above: blocked, and --no-verify is the visible bypass."
     SHARC=1
   fi
+
+  # ---- ADVISORY: the Q-479 solve.c battery (2026-09-11) --------------------
+  # WHY THIS EXISTS. Four gates in this repository had NO INVOKER: nothing ran
+  # them, so at run time each was indistinguishable from a gate that does not
+  # exist -- this project's dominant defect class. They all need one thing the
+  # periodic ticks cannot supply: a solve binary built from the source they are
+  # asserting about. This leg supplies exactly that, once, and hands the same
+  # binary to all four.
+  #
+  # THE BUILD CARRIES -DSOURCE_SHA AND THAT IS LOAD-BEARING, NOT DECORATION.
+  # f1c5_adopt_digest_gate.sh compares the binary's embedded SOURCE_SHA against
+  # sha256(solve.c) and reports ERROR (rc 40) when they differ -- its guard
+  # against a stale ./solve reproducing the very failure signature it looks for.
+  # A build without -DSOURCE_SHA leaves it "unknown", so wiring this gate into a
+  # runner that omits the define would make it report ERROR FOR EVER: a gate
+  # that cannot be satisfied, which is worse than an unwired one because it also
+  # produces noise. MEASURED 2026-09-11 on the 2-core orchestrator with this
+  # exact build line: F1C5_ADOPT_DIGEST_GATE=PASS, all five legs, 6.7 s.
+  #
+  # ADVISORY, NEVER BLOCKING -- and the reason is per-gate, not blanket:
+  #   * q317_missing_shard_merge_gate.sh is EXPECTED RED. Its own banner says so:
+  #     Q-317 item (4) is not landed, "do not add it to any blocking hook until
+  #     solve.c is fixed". MEASURED today: MISSING_SHARD_MERGE=FAIL in 103 s,
+  #     which is the gate WORKING. Blocking on it would stop every solve.c push.
+  #   * the other three are GREEN today (measured below), but they judge the
+  #     PUSHED tree, and a solve.c commit mid-way through a multi-commit fix can
+  #     legitimately be red. The blocking coverage of solve.c on this path is the
+  #     compile gate and the #167 leg above; this battery adds verdicts to the
+  #     push record without adding anything to the blocking set.
+  #
+  # CONDITIONAL on the pushed range touching solve.c, for the same reason the
+  # #167 leg is: every one of the four asserts something about solve.c, so a
+  # markdown-only push cannot change any of their answers -- and the ONE push
+  # that can turn q317 green is by construction a solve.c push.
+  #
+  # COST, measured 2026-09-11 on the 2-core orchestrator, and only on a solve.c
+  # push: build 27 s + f1c5 6.7 s + resume-budget 23 s + q317 103 s + scale 0.3 s
+  # = ~160 s, alongside the ~221 s the #167 leg already costs on the same shas.
+  case " $R167SHAS " in
+    *" $sha "*)
+      if [ -f "$WT/solve.c" ]; then
+        echo
+        echo "pre-push: [advisory] Q-479 solve.c battery on pushed sha $short — NEVER blocking (~160 s)"
+        _q479_src=$(sha256sum "$WT/solve.c" 2>/dev/null | cut -d' ' -f1)
+        _q479_bin="$WT/solve_q479"
+        if ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+               gcc -O2 -pthread -fopenmp -DSOURCE_SHA="\"$_q479_src\"" \
+                   -o solve_q479 solve.c -lm -lz ) >/dev/null 2>&1; then
+          # Report a gate by its OWN whole-line KEY=value token, never by output
+          # shape or exit code: an absent token is [ERROR], not a pass.
+          _q479_leg() {  # $1 label, $2 verdict key, $3.. the command
+            local lbl=$1 key=$2; shift 2
+            local out tok
+            out=$( "$@" 2>&1 )
+            tok=$( printf '%s\n' "$out" | grep -E "^${key}=" | tail -1 )
+            if [ "$tok" = "$key=PASS" ] || [ "$tok" = "$key=OK" ]; then
+              echo "    [ok]       $lbl — $tok"
+            elif [ -z "$tok" ]; then
+              echo "    [ERROR]    $lbl — no ${key}= verdict line was emitted."
+              echo "               A gate that cannot report is not a gate that passed."
+            else
+              echo "    [advisory] $lbl — $tok"
+              printf '%s\n' "$out" | grep -E '^ *\[(FAIL|ERROR)' | head -4 | sed 's/^/               /'
+            fi
+          }
+          _q479_leg "f1c5 finalized-layer ADOPT compares its digest" F1C5_ADOPT_DIGEST_GATE \
+                    bash "$WT/scripts/f1c5_adopt_digest_gate.sh" "$_q479_bin"
+          _q479_leg "an uncapped resume must not inherit budget-truncated cells" RESUME_BUDGET_INFINITY \
+                    env BIN="$_q479_bin" bash "$WT/scripts/resume_budget_infinity_gate.sh"
+          _q479_leg "an absent shard must not pass the merge (Q-317 (4) — EXPECTED RED until the fix lands)" MISSING_SHARD_MERGE \
+                    env BIN="$_q479_bin" bash "$WT/scripts/q317_missing_shard_merge_gate.sh"
+          # The scale gate is an OPERATOR-SIDE artifact (roae-private) whose
+          # subject is PUBLIC: the CANONICAL_RECIPES table inside solve.c. It is
+          # handed ROAE_DIR=$WT so it parses the PUSHED table, and SOLVE_BIN so
+          # it reuses the build above instead of compiling solve.c a second time
+          # (~40 s saved; its header says it must not go in a periodic tick for
+          # exactly that reason). Silent when absent, like the review-loop leg
+          # below: a fresh clone, a third-party replicator and CI see nothing.
+          if [ -x "$ROOT/../../roae-private/scripts/canonical_scale_distinguishable_gate.sh" ]; then
+            _q479_leg "every CANONICAL_RECIPES label is distinguishable from a typo" SCALE_DISTINGUISHABLE \
+                      env ROAE_DIR="$WT" SOLVE_BIN="$_q479_bin" \
+                      bash "$ROOT/../../roae-private/scripts/canonical_scale_distinguishable_gate.sh"
+          fi
+          rm -f "$_q479_bin"
+        else
+          echo "    [ERROR]    pushed sha $short did not build with -DSOURCE_SHA — the battery"
+          echo "               measured NOTHING. The compile gate above is the authority on why."
+        fi
+      fi ;;
+  esac
+
+  # ---- ADVISORY: fail-open closure sweep (Q-479, 2026-09-11) ---------------
+  # scripts/failopen_closure_gate.sh is the META-GATE for the fail-open class:
+  # it copies every token-emitting script into an EMPTY skeleton and executes it
+  # there, and any script that still prints an OK-class token or exits 0 has a
+  # PASS consistent with its target being absent. It had no invoker.
+  #
+  # THE RUNNER QUESTION WAS DECIDED BY MEASURING IT, not by estimating. The
+  # 2026-09-11 triage left this one UNKNOWN and refused to guess, on the reading
+  # that ~118 scripts at a default --timeout 60 EACH could cost tens of minutes.
+  # MEASURED on the 2-core orchestrator that same day, against this tree:
+  #     population 45 · run 38 · unrun 7 · allowlisted 1 · OPEN 0 · RC0 0
+  #     FAILOPEN_CLOSURE=OK        61.2 s wall / 60.1 s CPU
+  # The estimate was wrong by an order of magnitude, and for a structural reason
+  # worth recording: a gate that fails-CLOSED exits in milliseconds in an empty
+  # world, so the only script that costs its full timeout is the one already
+  # allowlisted as `timeout` (c2c3_joint_null.py, a Monte-Carlo with no tree
+  # input) — ~60 of those 61 seconds are that single script waiting out its
+  # clock. So this does NOT need its own scheduled slot; 61 s sits inside the
+  # ~70-90 s this hook already costs per pushed sha.
+  #
+  # CONDITIONAL on the pushed range touching scripts/ — its exact subject. A new
+  # fail-open reaches the public record only through a scripts/ change, and the
+  # common markdown-only push pays one `git diff --name-only`.
+  #
+  # It runs the PUSHED TREE'S OWN copy against the PUSHED TREE, so both the rule
+  # and the allowlist judged are the ones being published (the same semantics
+  # the blocking legs above use, and the reason this leg sits here rather than
+  # beside the advisory legs at the foot of this file, which run in $ROOT).
+  #
+  # ADVISORY: it EXECUTES 38 third-party-shaped scripts, so a single flaky one
+  # would block an unrelated push, and its FAIL direction is a finding about the
+  # tree's gates rather than about the tree's content. It is loud, it names the
+  # offenders, and it never touches $RC. MEASURED GREEN today, so the option of
+  # promoting it to blocking is open once it has a green history behind it.
+  case " $SCRIPTSHAS " in
+    *" $sha "*)
+      if [ -x "$WT/scripts/failopen_closure_gate.sh" ]; then
+        echo
+        echo "pre-push: [advisory] fail-open closure sweep on pushed sha $short — NEVER blocking (~61 s)"
+        _fo_out=$( bash "$WT/scripts/failopen_closure_gate.sh" 2>&1 )
+        _fo=$( printf '%s\n' "$_fo_out" | grep -E '^FAILOPEN_CLOSURE=' | tail -1 )
+        case "$_fo" in
+          FAILOPEN_CLOSURE=OK)
+            echo "    [ok]       every runnable gate in the pushed tree refuses an empty world"
+            printf '%s\n' "$_fo_out" | grep -E '^FAILOPEN_CLOSURE_(POP|RUN|OPEN|RC0|ALLOWED|UNRUN)=' | sed 's/^/               /' ;;
+          FAILOPEN_CLOSURE=FAIL)
+            echo "    ⚠ $_fo — a gate in the pushed tree reports success from an EMPTY WORLD."
+            printf '%s\n' "$_fo_out" | grep -E '^ *\[(OPEN|RC0|FAIL)' | head -6 | sed 's/^/               /'
+            echo "               ADVISORY: the push continues. Reproduce with:"
+            echo "                 ./scripts/failopen_closure_gate.sh" ;;
+          FAILOPEN_CLOSURE=ERROR)
+            echo "    ⚠ $_fo — the sweep could not grade the tree; that is not a pass."
+            printf '%s\n' "$_fo_out" | grep -E '^FAILOPEN_CLOSURE_ERROR=|^ *\[ERROR' | head -4 | sed 's/^/               /' ;;
+          *)
+            echo "    [ERROR]    fail-open sweep emitted no FAILOPEN_CLOSURE= verdict line (got '${_fo:-<nothing>}')"
+            echo "               — not the same as OK." ;;
+        esac
+      fi ;;
+  esac
 
   cleanup
   if [ "$SHARC" -ne 0 ]; then

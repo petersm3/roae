@@ -134,11 +134,17 @@ artifact and what that costs, so both are stated here and in each flag's
 | `--t3-stats`, `--t3-membership` | the T3 exact-uniform draw sample: 16 streams × 62,500 draws = 10⁶ draws (~107 MB gzipped) | one KC-sampler invocation per stream — arguments `--kc-sample <f-dir> 62500 <seed_i> --kc-record --kc-ooc --kc-cache-mb 384`, with `SOLVE_F1_OOC_READ_MB=1`, against the Stage F **f-ladder** — the sixteen `<seed_i>` values are **published below**, so this is a runnable recipe rather than a template. **Not on `main`:** see the branch note below the table | **≈12.6 h wall** on one D16als_v7 (16 lanes, Premium P50 f-disk) against a **3.1 TB** f-ladder — plus building the branch that carries the sampler. Seed-deterministic: the same seeds, f-ladder and binary regenerate the same draws — and **the seeds are now published** (§"The sixteen T3 seeds" below), so that promise is checkable instead of asserted |
 | `--g-structure` | two full-31 enumerator logs carrying `G_HIST` bin lines — one C2-ON (base C1∩C2∩C4), one C2-OFF (base C1∩C4) | two full-31 `solve --f1-c3-hist --f1-pairs 31 --f1-out-of-core DIR` runs, the C2-OFF one adding `--no-c2` (all on `main`; see [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §`--f1-c3-hist`) | **23,054 s** (C2-ON) and **39,003 s** (C2-OFF) on 128 threads — see the cost caveat below the table |
 
-**Branch note (T3 sampler).** The `--kc-*` subcommands are **not on `main`**.
-They live in `solve.c` on the published branch `v4-compiler`, which
-[BRANCH_REGISTRY.tsv](BRANCH_REGISTRY.tsv) classes as a *snapshot* — a frozen
-working branch, not the authoritative corpus, and not something to cite for
-claims. Regenerating the T3 sample therefore costs a checkout and build of that
+**Branch note (T3 sampler).** 🔴 **CORRECTED 2026-09-11.** This note read *"The `--kc-*`
+subcommands are **not on `main`**. They live in `solve.c` on the published branch
+`v4-compiler`, which [BRANCH_REGISTRY.tsv](BRANCH_REGISTRY.tsv) classes as a
+*snapshot* — a frozen working branch, not the authoritative corpus, and not
+something to cite for claims."* **The `--kc-*` subcommands ARE on `main`** and
+have been since **2026-07-17**; measured at the correction,
+`git show origin/main:solve.c | grep -c -- '--kc-'` returns **562**. The note was
+accurate when written and nothing propagated the merge back to it, so for weeks it
+sent a reader to a snapshot branch for a surface that was in front of them — and
+told them not to cite the only copy it named. Regenerating the T3 sample needs no
+checkout of another branch. Regenerating the T3 sample therefore costs a checkout and build of that
 branch on top of the ~12.6 h of compute. The arguments above are deliberately
 written **without** a `solve` prefix: an invocation form would assert that the
 command runs against this ref's binary, and it does not.
